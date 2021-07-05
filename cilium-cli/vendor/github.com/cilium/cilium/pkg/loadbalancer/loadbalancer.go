@@ -15,7 +15,6 @@
 package loadbalancer
 
 import (
-	"crypto/sha512"
 	"fmt"
 	"net"
 	"sort"
@@ -169,9 +168,9 @@ const (
 
 const (
 	// ScopeExternal is the lookup scope for services from outside the node.
-	ScopeExternal = 0
+	ScopeExternal uint8 = iota
 	// ScopeInternal is the lookup scope for services from inside the node.
-	ScopeInternal = 1
+	ScopeInternal
 )
 
 var (
@@ -468,17 +467,23 @@ func (a *L3n4Addr) StringID() string {
 	return a.String()
 }
 
-// Hash calculates L3n4Addr's internal SHA256Sum.
+// Hash calculates a unique string of the L3n4Addr e.g for use as a key in maps.
+// Note: the resulting string is meant to be used as a key for maps and is not
+// readable by a human eye when printed out.
 func (a L3n4Addr) Hash() string {
-	// FIXME: Remove Protocol's omission once we care about protocols.
-	protoBak := a.Protocol
-	a.Protocol = ""
-	defer func() {
-		a.Protocol = protoBak
-	}()
+	const lenProto = 0 // proto is omitted for now
+	const lenScope = 1 // scope is uint8 which is an alias for byte
+	const lenPort = 2  // port is uint16 which is 2 bytes
 
-	str := []byte(fmt.Sprintf("%+v", a))
-	return fmt.Sprintf("%x", sha512.Sum512_256(str))
+	b := make([]byte, net.IPv6len+lenProto+lenScope+lenPort)
+	copy(b, a.IP.To16())
+	// FIXME: add Protocol once we care about protocols
+	// scope is a uint8 which is an alias for byte so a cast is safe
+	b[net.IPv6len+lenProto] = byte(a.Scope)
+	// port is a uint16, so 2 bytes
+	b[net.IPv6len+lenProto+lenScope] = byte(a.Port >> 8)
+	b[net.IPv6len+lenProto+lenScope+1] = byte(a.Port & 0xff)
+	return string(b)
 }
 
 // IsIPv6 returns true if the IP address in the given L3n4Addr is IPv6 or not.

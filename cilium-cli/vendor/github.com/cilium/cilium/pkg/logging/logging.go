@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"log/syslog"
 	"os"
 	"regexp"
 	"strings"
@@ -28,14 +27,12 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/sirupsen/logrus"
-	logrus_syslog "github.com/sirupsen/logrus/hooks/syslog"
 	"k8s.io/klog/v2"
 )
 
 type LogFormat string
 
 const (
-	SLevel    = "syslog.level"
 	Syslog    = "syslog"
 	LevelOpt  = "level"
 	FormatOpt = "format"
@@ -57,21 +54,6 @@ var (
 	// DefaultLogger is the base logrus logger. It is different from the logrus
 	// default to avoid external dependencies from writing out unexpectedly
 	DefaultLogger = InitializeDefaultLogger()
-
-	// syslogOpts is the set of supported options for syslog configuration.
-	syslogOpts = map[string]bool{
-		"syslog.level": true,
-	}
-
-	// syslogLevelMap maps logrus.Level values to syslog.Priority levels.
-	syslogLevelMap = map[logrus.Level]syslog.Priority{
-		logrus.PanicLevel: syslog.LOG_ALERT,
-		logrus.FatalLevel: syslog.LOG_CRIT,
-		logrus.ErrorLevel: syslog.LOG_ERR,
-		logrus.WarnLevel:  syslog.LOG_WARNING,
-		logrus.InfoLevel:  syslog.LOG_INFO,
-		logrus.DebugLevel: syslog.LOG_DEBUG,
-	}
 
 	// LevelStringToLogrusLevel maps string representations of logrus.Level into
 	// their corresponding logrus.Level.
@@ -108,6 +90,9 @@ func init() {
 	klog.SetOutputBySeverity("WARNING", log.WriterLevel(logrus.WarnLevel))
 	klog.SetOutputBySeverity("ERROR", log.WriterLevel(logrus.ErrorLevel))
 	klog.SetOutputBySeverity("FATAL", log.WriterLevel(logrus.FatalLevel))
+
+	// Do not repeat log messages on all severities in klog
+	klogFlags.Set("one_output", "true")
 }
 
 // LogOptions maps configuration key-value pairs related to logging.
@@ -203,11 +188,9 @@ func SetupLogging(loggers []string, logOpts LogOptions, tag string, debug bool) 
 	for _, logger := range loggers {
 		switch logger {
 		case Syslog:
-			opts := getLogDriverConfig(Syslog, logOpts)
-			if err := opts.validateOpts(Syslog, syslogOpts); err != nil {
-				return err
+			if err := setupSyslog(logOpts, tag, debug); err != nil {
+				return fmt.Errorf("failed to set up syslog: %w", err)
 			}
-			setupSyslog(opts, tag, debug)
 		default:
 			return fmt.Errorf("provided log driver %q is not a supported log driver", logger)
 		}
@@ -238,35 +221,6 @@ func ConfigureLogLevel(debug bool) {
 	}
 }
 
-// setupSyslog sets up and configures syslog with the provided options in
-// logOpts. If some options are not provided, sensible defaults are used.
-func setupSyslog(logOpts LogOptions, tag string, debug bool) {
-	logLevel, ok := logOpts[SLevel]
-	if !ok {
-		if debug {
-			logLevel = "debug"
-		} else {
-			logLevel = "info"
-		}
-	}
-
-	//Validate provided log level.
-	level, err := logrus.ParseLevel(logLevel)
-	if err != nil {
-		DefaultLogger.Fatal(err)
-	}
-
-	DefaultLogger.SetLevel(level)
-	// Create syslog hook.
-	h, err := logrus_syslog.NewSyslogHook("", "", syslogLevelMap[level], tag)
-	if err != nil {
-		DefaultLogger.Fatal(err)
-	}
-	// TODO: switch to a per-logger version when we upgrade to logrus >1.0.3
-	logrus.AddHook(h)
-	DefaultLogger.AddHook(h)
-}
-
 // GetFormatter returns a configured logrus.Formatter with some specific values
 // we want to have
 func GetFormatter(format LogFormat) logrus.Formatter {
@@ -285,12 +239,26 @@ func GetFormatter(format LogFormat) logrus.Formatter {
 	return nil
 }
 
-// validateOpts iterates through all of the keys in logOpts, and errors out if
-// the key in logOpts is not a key in supportedOpts.
-func (o LogOptions) validateOpts(logDriver string, supportedOpts map[string]bool) error {
-	for k := range o {
+// validateOpts iterates through all of the keys and values in logOpts, and errors out if
+// the key in logOpts is not a key in supportedOpts, or the value of corresponding key is
+// not listed in the value of validKVs.
+func (o LogOptions) validateOpts(logDriver string, supportedOpts map[string]bool, validKVs map[string][]string) error {
+	for k, v := range o {
 		if !supportedOpts[k] {
-			return fmt.Errorf("provided configuration value %q is not supported as a logging option for log driver %s", k, logDriver)
+			return fmt.Errorf("provided configuration key %q is not supported as a logging option for log driver %s", k, logDriver)
+		}
+		if validValues, ok := validKVs[k]; ok {
+			valid := false
+			for _, vv := range validValues {
+				if v == vv {
+					valid = true
+					break
+				}
+			}
+			if !valid {
+				return fmt.Errorf("provided configuration value %q is not a valid value for %q in log driver %s, valid values: %v", v, k, logDriver, validValues)
+			}
+
 		}
 	}
 	return nil

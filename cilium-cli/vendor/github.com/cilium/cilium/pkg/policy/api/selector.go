@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,26 +34,17 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "policy-api")
 type EndpointSelector struct {
 	*slim_metav1.LabelSelector `json:",inline"`
 
-	// TODO: The following fields were exported to stop govet warnings. The
-	// govet warnings were because the CRD generation tool needs every struct
-	// field that's within a CRD, to have a json tag. JSON tags cannot be
-	// applied to unexported fields, hence this change. Refactor these fields
-	// out of this struct. GH issue:
-	// https://github.com/cilium/cilium/issues/12697. Once
-	// https://go-review.googlesource.com/c/tools/+/245857 is merged, this
-	// would no longer be required.
-
-	// Requirements provides a cache for a k8s-friendly format of the
+	// requirements provides a cache for a k8s-friendly format of the
 	// LabelSelector, which allows more efficient matching in Matches().
 	//
 	// Kept as a pointer to allow EndpointSelector to be used as a map key.
-	Requirements *k8sLbls.Requirements `json:"-"`
+	requirements *k8sLbls.Requirements `json:"-"`
 
-	// CachedLabelSelectorString is the cached representation of the
+	// cachedLabelSelectorString is the cached representation of the
 	// LabelSelector for this EndpointSelector. It is populated when
 	// EndpointSelectors are created via `NewESFromMatchRequirements`. It is
 	// immutable after its creation.
-	CachedLabelSelectorString string `json:"-"`
+	cachedLabelSelectorString string `json:"-"`
 }
 
 // LabelSelectorString returns a user-friendly string representation of
@@ -74,7 +65,7 @@ func (n EndpointSelector) String() string {
 // CachedString returns the cached string representation of the LabelSelector
 // for this EndpointSelector.
 func (n EndpointSelector) CachedString() string {
-	return n.CachedLabelSelectorString
+	return n.cachedLabelSelectorString
 }
 
 // UnmarshalJSON unmarshals the endpoint selector from the byte array.
@@ -99,8 +90,8 @@ func (n *EndpointSelector) UnmarshalJSON(b []byte) error {
 		}
 		n.MatchExpressions = newMatchExpr
 	}
-	n.Requirements = labelSelectorToRequirements(n.LabelSelector)
-	n.CachedLabelSelectorString = n.LabelSelector.String()
+	n.requirements = labelSelectorToRequirements(n.LabelSelector)
+	n.cachedLabelSelectorString = n.LabelSelector.String()
 	return nil
 }
 
@@ -184,7 +175,6 @@ func (n EndpointSelector) GetMatch(key string) ([]string, bool) {
 func labelSelectorToRequirements(labelSelector *slim_metav1.LabelSelector) *k8sLbls.Requirements {
 	selector, err := slim_metav1.LabelSelectorAsSelector(labelSelector)
 	if err != nil {
-		metrics.PolicyImportErrors.Inc()
 		metrics.PolicyImportErrorsTotal.Inc()
 		log.WithError(err).WithField(logfields.EndpointLabelSelector,
 			logfields.Repr(labelSelector)).Error("unable to construct selector in label selector")
@@ -221,8 +211,8 @@ func NewESFromMatchRequirements(matchLabels map[string]string, reqs []slim_metav
 	}
 	return EndpointSelector{
 		LabelSelector:             labelSelector,
-		Requirements:              labelSelectorToRequirements(labelSelector),
-		CachedLabelSelectorString: labelSelector.String(),
+		requirements:              labelSelectorToRequirements(labelSelector),
+		cachedLabelSelectorString: labelSelector.String(),
 	}
 }
 
@@ -232,7 +222,7 @@ func NewESFromMatchRequirements(matchLabels map[string]string, reqs []slim_metav
 // updated without concurrently updating the requirements, so the two fields can
 // become out of sync.
 func (n *EndpointSelector) SyncRequirementsWithLabelSelector() {
-	n.Requirements = labelSelectorToRequirements(n.LabelSelector)
+	n.requirements = labelSelectorToRequirements(n.LabelSelector)
 }
 
 // newReservedEndpointSelector returns a selector that matches on all
@@ -294,8 +284,8 @@ func (n *EndpointSelector) AddMatch(key, value string) {
 		n.MatchLabels = map[string]string{}
 	}
 	n.MatchLabels[key] = value
-	n.Requirements = labelSelectorToRequirements(n.LabelSelector)
-	n.CachedLabelSelectorString = n.LabelSelector.String()
+	n.requirements = labelSelectorToRequirements(n.LabelSelector)
+	n.cachedLabelSelectorString = n.LabelSelector.String()
 }
 
 // AddMatchExpression adds a match expression to label selector of the endpoint selector.
@@ -308,8 +298,8 @@ func (n *EndpointSelector) AddMatchExpression(key string, op slim_metav1.LabelSe
 
 	// Update cache of the EndopintSelector from the embedded label selector.
 	// This is to make sure we have updates caches containing the required selectors.
-	n.Requirements = labelSelectorToRequirements(n.LabelSelector)
-	n.CachedLabelSelectorString = n.LabelSelector.String()
+	n.requirements = labelSelectorToRequirements(n.LabelSelector)
+	n.cachedLabelSelectorString = n.LabelSelector.String()
 }
 
 // Matches returns true if the endpoint selector Matches the `lblsToMatch`.
@@ -317,16 +307,16 @@ func (n *EndpointSelector) AddMatchExpression(key string, op slim_metav1.LabelSe
 // "all".
 func (n *EndpointSelector) Matches(lblsToMatch k8sLbls.Labels) bool {
 	// Try to update cached requirements for this EndpointSelector if possible.
-	if n.Requirements == nil {
-		n.Requirements = labelSelectorToRequirements(n.LabelSelector)
+	if n.requirements == nil {
+		n.requirements = labelSelectorToRequirements(n.LabelSelector)
 		// Nil indicates that requirements failed validation in some way,
 		// so we cannot parse the labels for matching purposes; thus, we cannot
 		// match if labels cannot be parsed, so return false.
-		if n.Requirements == nil {
+		if n.requirements == nil {
 			return false
 		}
 	}
-	for _, req := range *n.Requirements {
+	for _, req := range *n.requirements {
 		if !req.Matches(lblsToMatch) {
 			return false
 		}

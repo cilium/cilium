@@ -98,6 +98,7 @@ const Verdict_VERDICT_UNKNOWN = flow.Verdict_VERDICT_UNKNOWN
 const Verdict_FORWARDED = flow.Verdict_FORWARDED
 const Verdict_DROPPED = flow.Verdict_DROPPED
 const Verdict_ERROR = flow.Verdict_ERROR
+const Verdict_AUDIT = flow.Verdict_AUDIT
 
 var Verdict_name = flow.Verdict_name
 var Verdict_value = flow.Verdict_value
@@ -168,6 +169,21 @@ const TrafficDirection_EGRESS = flow.TrafficDirection_EGRESS
 var TrafficDirection_name = flow.TrafficDirection_name
 var TrafficDirection_value = flow.TrafficDirection_value
 
+type DebugCapturePoint = flow.DebugCapturePoint
+
+const DebugCapturePoint_DBG_CAPTURE_POINT_UNKNOWN = flow.DebugCapturePoint_DBG_CAPTURE_POINT_UNKNOWN
+const DebugCapturePoint_DBG_CAPTURE_DELIVERY = flow.DebugCapturePoint_DBG_CAPTURE_DELIVERY
+const DebugCapturePoint_DBG_CAPTURE_FROM_LB = flow.DebugCapturePoint_DBG_CAPTURE_FROM_LB
+const DebugCapturePoint_DBG_CAPTURE_AFTER_V46 = flow.DebugCapturePoint_DBG_CAPTURE_AFTER_V46
+const DebugCapturePoint_DBG_CAPTURE_AFTER_V64 = flow.DebugCapturePoint_DBG_CAPTURE_AFTER_V64
+const DebugCapturePoint_DBG_CAPTURE_PROXY_PRE = flow.DebugCapturePoint_DBG_CAPTURE_PROXY_PRE
+const DebugCapturePoint_DBG_CAPTURE_PROXY_POST = flow.DebugCapturePoint_DBG_CAPTURE_PROXY_POST
+const DebugCapturePoint_DBG_CAPTURE_SNAT_PRE = flow.DebugCapturePoint_DBG_CAPTURE_SNAT_PRE
+const DebugCapturePoint_DBG_CAPTURE_SNAT_POST = flow.DebugCapturePoint_DBG_CAPTURE_SNAT_POST
+
+var DebugCapturePoint_name = flow.DebugCapturePoint_name
+var DebugCapturePoint_value = flow.DebugCapturePoint_value
+
 type EventType = flow.EventType
 
 const EventType_UNKNOWN = flow.EventType_UNKNOWN
@@ -182,9 +198,99 @@ type LostEventSource = flow.LostEventSource
 const LostEventSource_UNKNOWN_LOST_EVENT_SOURCE = flow.LostEventSource_UNKNOWN_LOST_EVENT_SOURCE
 const LostEventSource_PERF_EVENT_RING_BUFFER = flow.LostEventSource_PERF_EVENT_RING_BUFFER
 const LostEventSource_OBSERVER_EVENTS_QUEUE = flow.LostEventSource_OBSERVER_EVENTS_QUEUE
+const LostEventSource_HUBBLE_RING_BUFFER = flow.LostEventSource_HUBBLE_RING_BUFFER
 
 var LostEventSource_name = flow.LostEventSource_name
 var LostEventSource_value = flow.LostEventSource_value
+
+type AgentEventType = flow.AgentEventType
+
+const AgentEventType_AGENT_EVENT_UNKNOWN = flow.AgentEventType_AGENT_EVENT_UNKNOWN
+const AgentEventType_AGENT_STARTED = flow.AgentEventType_AGENT_STARTED
+const AgentEventType_POLICY_UPDATED = flow.AgentEventType_POLICY_UPDATED
+const AgentEventType_POLICY_DELETED = flow.AgentEventType_POLICY_DELETED
+const AgentEventType_ENDPOINT_REGENERATE_SUCCESS = flow.AgentEventType_ENDPOINT_REGENERATE_SUCCESS
+const AgentEventType_ENDPOINT_REGENERATE_FAILURE = flow.AgentEventType_ENDPOINT_REGENERATE_FAILURE
+const AgentEventType_ENDPOINT_CREATED = flow.AgentEventType_ENDPOINT_CREATED
+const AgentEventType_ENDPOINT_DELETED = flow.AgentEventType_ENDPOINT_DELETED
+const AgentEventType_IPCACHE_UPSERTED = flow.AgentEventType_IPCACHE_UPSERTED
+const AgentEventType_IPCACHE_DELETED = flow.AgentEventType_IPCACHE_DELETED
+const AgentEventType_SERVICE_UPSERTED = flow.AgentEventType_SERVICE_UPSERTED
+const AgentEventType_SERVICE_DELETED = flow.AgentEventType_SERVICE_DELETED
+
+var AgentEventType_name = flow.AgentEventType_name
+var AgentEventType_value = flow.AgentEventType_value
+
+type DebugEventType = flow.DebugEventType
+
+const DebugEventType_DBG_EVENT_UNKNOWN = flow.DebugEventType_DBG_EVENT_UNKNOWN
+const DebugEventType_DBG_GENERIC = flow.DebugEventType_DBG_GENERIC
+const DebugEventType_DBG_LOCAL_DELIVERY = flow.DebugEventType_DBG_LOCAL_DELIVERY
+const DebugEventType_DBG_ENCAP = flow.DebugEventType_DBG_ENCAP
+const DebugEventType_DBG_LXC_FOUND = flow.DebugEventType_DBG_LXC_FOUND
+const DebugEventType_DBG_POLICY_DENIED = flow.DebugEventType_DBG_POLICY_DENIED
+const DebugEventType_DBG_CT_LOOKUP = flow.DebugEventType_DBG_CT_LOOKUP
+const DebugEventType_DBG_CT_LOOKUP_REV = flow.DebugEventType_DBG_CT_LOOKUP_REV
+const DebugEventType_DBG_CT_MATCH = flow.DebugEventType_DBG_CT_MATCH
+const DebugEventType_DBG_CT_CREATED = flow.DebugEventType_DBG_CT_CREATED
+const DebugEventType_DBG_CT_CREATED2 = flow.DebugEventType_DBG_CT_CREATED2
+const DebugEventType_DBG_ICMP6_HANDLE = flow.DebugEventType_DBG_ICMP6_HANDLE
+const DebugEventType_DBG_ICMP6_REQUEST = flow.DebugEventType_DBG_ICMP6_REQUEST
+const DebugEventType_DBG_ICMP6_NS = flow.DebugEventType_DBG_ICMP6_NS
+const DebugEventType_DBG_ICMP6_TIME_EXCEEDED = flow.DebugEventType_DBG_ICMP6_TIME_EXCEEDED
+const DebugEventType_DBG_CT_VERDICT = flow.DebugEventType_DBG_CT_VERDICT
+const DebugEventType_DBG_DECAP = flow.DebugEventType_DBG_DECAP
+const DebugEventType_DBG_PORT_MAP = flow.DebugEventType_DBG_PORT_MAP
+const DebugEventType_DBG_ERROR_RET = flow.DebugEventType_DBG_ERROR_RET
+const DebugEventType_DBG_TO_HOST = flow.DebugEventType_DBG_TO_HOST
+const DebugEventType_DBG_TO_STACK = flow.DebugEventType_DBG_TO_STACK
+const DebugEventType_DBG_PKT_HASH = flow.DebugEventType_DBG_PKT_HASH
+const DebugEventType_DBG_LB6_LOOKUP_FRONTEND = flow.DebugEventType_DBG_LB6_LOOKUP_FRONTEND
+const DebugEventType_DBG_LB6_LOOKUP_FRONTEND_FAIL = flow.DebugEventType_DBG_LB6_LOOKUP_FRONTEND_FAIL
+const DebugEventType_DBG_LB6_LOOKUP_BACKEND_SLOT = flow.DebugEventType_DBG_LB6_LOOKUP_BACKEND_SLOT
+const DebugEventType_DBG_LB6_LOOKUP_BACKEND_SLOT_SUCCESS = flow.DebugEventType_DBG_LB6_LOOKUP_BACKEND_SLOT_SUCCESS
+const DebugEventType_DBG_LB6_LOOKUP_BACKEND_SLOT_V2_FAIL = flow.DebugEventType_DBG_LB6_LOOKUP_BACKEND_SLOT_V2_FAIL
+const DebugEventType_DBG_LB6_LOOKUP_BACKEND_FAIL = flow.DebugEventType_DBG_LB6_LOOKUP_BACKEND_FAIL
+const DebugEventType_DBG_LB6_REVERSE_NAT_LOOKUP = flow.DebugEventType_DBG_LB6_REVERSE_NAT_LOOKUP
+const DebugEventType_DBG_LB6_REVERSE_NAT = flow.DebugEventType_DBG_LB6_REVERSE_NAT
+const DebugEventType_DBG_LB4_LOOKUP_FRONTEND = flow.DebugEventType_DBG_LB4_LOOKUP_FRONTEND
+const DebugEventType_DBG_LB4_LOOKUP_FRONTEND_FAIL = flow.DebugEventType_DBG_LB4_LOOKUP_FRONTEND_FAIL
+const DebugEventType_DBG_LB4_LOOKUP_BACKEND_SLOT = flow.DebugEventType_DBG_LB4_LOOKUP_BACKEND_SLOT
+const DebugEventType_DBG_LB4_LOOKUP_BACKEND_SLOT_SUCCESS = flow.DebugEventType_DBG_LB4_LOOKUP_BACKEND_SLOT_SUCCESS
+const DebugEventType_DBG_LB4_LOOKUP_BACKEND_SLOT_V2_FAIL = flow.DebugEventType_DBG_LB4_LOOKUP_BACKEND_SLOT_V2_FAIL
+const DebugEventType_DBG_LB4_LOOKUP_BACKEND_FAIL = flow.DebugEventType_DBG_LB4_LOOKUP_BACKEND_FAIL
+const DebugEventType_DBG_LB4_REVERSE_NAT_LOOKUP = flow.DebugEventType_DBG_LB4_REVERSE_NAT_LOOKUP
+const DebugEventType_DBG_LB4_REVERSE_NAT = flow.DebugEventType_DBG_LB4_REVERSE_NAT
+const DebugEventType_DBG_LB4_LOOPBACK_SNAT = flow.DebugEventType_DBG_LB4_LOOPBACK_SNAT
+const DebugEventType_DBG_LB4_LOOPBACK_SNAT_REV = flow.DebugEventType_DBG_LB4_LOOPBACK_SNAT_REV
+const DebugEventType_DBG_CT_LOOKUP4 = flow.DebugEventType_DBG_CT_LOOKUP4
+const DebugEventType_DBG_RR_BACKEND_SLOT_SEL = flow.DebugEventType_DBG_RR_BACKEND_SLOT_SEL
+const DebugEventType_DBG_REV_PROXY_LOOKUP = flow.DebugEventType_DBG_REV_PROXY_LOOKUP
+const DebugEventType_DBG_REV_PROXY_FOUND = flow.DebugEventType_DBG_REV_PROXY_FOUND
+const DebugEventType_DBG_REV_PROXY_UPDATE = flow.DebugEventType_DBG_REV_PROXY_UPDATE
+const DebugEventType_DBG_L4_POLICY = flow.DebugEventType_DBG_L4_POLICY
+const DebugEventType_DBG_NETDEV_IN_CLUSTER = flow.DebugEventType_DBG_NETDEV_IN_CLUSTER
+const DebugEventType_DBG_NETDEV_ENCAP4 = flow.DebugEventType_DBG_NETDEV_ENCAP4
+const DebugEventType_DBG_CT_LOOKUP4_1 = flow.DebugEventType_DBG_CT_LOOKUP4_1
+const DebugEventType_DBG_CT_LOOKUP4_2 = flow.DebugEventType_DBG_CT_LOOKUP4_2
+const DebugEventType_DBG_CT_CREATED4 = flow.DebugEventType_DBG_CT_CREATED4
+const DebugEventType_DBG_CT_LOOKUP6_1 = flow.DebugEventType_DBG_CT_LOOKUP6_1
+const DebugEventType_DBG_CT_LOOKUP6_2 = flow.DebugEventType_DBG_CT_LOOKUP6_2
+const DebugEventType_DBG_CT_CREATED6 = flow.DebugEventType_DBG_CT_CREATED6
+const DebugEventType_DBG_SKIP_PROXY = flow.DebugEventType_DBG_SKIP_PROXY
+const DebugEventType_DBG_L4_CREATE = flow.DebugEventType_DBG_L4_CREATE
+const DebugEventType_DBG_IP_ID_MAP_FAILED4 = flow.DebugEventType_DBG_IP_ID_MAP_FAILED4
+const DebugEventType_DBG_IP_ID_MAP_FAILED6 = flow.DebugEventType_DBG_IP_ID_MAP_FAILED6
+const DebugEventType_DBG_IP_ID_MAP_SUCCEED4 = flow.DebugEventType_DBG_IP_ID_MAP_SUCCEED4
+const DebugEventType_DBG_IP_ID_MAP_SUCCEED6 = flow.DebugEventType_DBG_IP_ID_MAP_SUCCEED6
+const DebugEventType_DBG_LB_STALE_CT = flow.DebugEventType_DBG_LB_STALE_CT
+const DebugEventType_DBG_INHERIT_IDENTITY = flow.DebugEventType_DBG_INHERIT_IDENTITY
+const DebugEventType_DBG_SK_LOOKUP4 = flow.DebugEventType_DBG_SK_LOOKUP4
+const DebugEventType_DBG_SK_LOOKUP6 = flow.DebugEventType_DBG_SK_LOOKUP6
+const DebugEventType_DBG_SK_ASSIGN = flow.DebugEventType_DBG_SK_ASSIGN
+
+var DebugEventType_name = flow.DebugEventType_name
+var DebugEventType_value = flow.DebugEventType_value
 
 type Flow = flow.Flow
 type Layer4 = flow.Layer4
@@ -213,6 +319,26 @@ type HTTP = flow.HTTP
 type Kafka = flow.Kafka
 type Service = flow.Service
 type LostEvent = flow.LostEvent
+type AgentEvent = flow.AgentEvent
+type AgentEvent_Unknown = flow.AgentEvent_Unknown
+type AgentEvent_AgentStart = flow.AgentEvent_AgentStart
+type AgentEvent_PolicyUpdate = flow.AgentEvent_PolicyUpdate
+type AgentEvent_EndpointRegenerate = flow.AgentEvent_EndpointRegenerate
+type AgentEvent_EndpointUpdate = flow.AgentEvent_EndpointUpdate
+type AgentEvent_IpcacheUpdate = flow.AgentEvent_IpcacheUpdate
+type AgentEvent_ServiceUpsert = flow.AgentEvent_ServiceUpsert
+type AgentEvent_ServiceDelete = flow.AgentEvent_ServiceDelete
+type AgentEventUnknown = flow.AgentEventUnknown
+type TimeNotification = flow.TimeNotification
+type PolicyUpdateNotification = flow.PolicyUpdateNotification
+type EndpointRegenNotification = flow.EndpointRegenNotification
+type EndpointUpdateNotification = flow.EndpointUpdateNotification
+type IPCacheNotification = flow.IPCacheNotification
+type ServiceUpsertNotificationAddr = flow.ServiceUpsertNotificationAddr
+type ServiceUpsertNotification = flow.ServiceUpsertNotification
+type ServiceDeleteNotification = flow.ServiceDeleteNotification
+type NetworkInterface = flow.NetworkInterface
+type DebugEvent = flow.DebugEvent
 
 type ServerStatusRequest struct {
 	state         protoimpl.MessageState
@@ -280,6 +406,8 @@ type ServerStatusResponse struct {
 	// list of nodes that are unavailable
 	// This list may not be exhaustive.
 	UnavailableNodes []string `protobuf:"bytes,7,rep,name=unavailable_nodes,json=unavailableNodes,proto3" json:"unavailable_nodes,omitempty"`
+	// Version is the version of Cilium/Hubble.
+	Version string `protobuf:"bytes,8,opt,name=version,proto3" json:"version,omitempty"`
 }
 
 func (x *ServerStatusResponse) Reset() {
@@ -361,6 +489,13 @@ func (x *ServerStatusResponse) GetUnavailableNodes() []string {
 		return x.UnavailableNodes
 	}
 	return nil
+}
+
+func (x *ServerStatusResponse) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
 }
 
 type GetFlowsRequest struct {
@@ -584,6 +719,708 @@ func (*GetFlowsResponse_NodeStatus) isGetFlowsResponse_ResponseTypes() {}
 
 func (*GetFlowsResponse_LostEvents) isGetFlowsResponse_ResponseTypes() {}
 
+type GetAgentEventsRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Number of agent events that should be returned. Incompatible with
+	// `since/until`.
+	Number uint64 `protobuf:"varint,1,opt,name=number,proto3" json:"number,omitempty"`
+	// follow sets when the server should continue to stream agent events after
+	// printing the last N agent events.
+	Follow bool `protobuf:"varint,2,opt,name=follow,proto3" json:"follow,omitempty"`
+	// Since this time for returned agent events. Incompatible with `number`.
+	Since *timestamp.Timestamp `protobuf:"bytes,7,opt,name=since,proto3" json:"since,omitempty"`
+	// Until this time for returned agent events. Incompatible with `number`.
+	Until *timestamp.Timestamp `protobuf:"bytes,8,opt,name=until,proto3" json:"until,omitempty"`
+}
+
+func (x *GetAgentEventsRequest) Reset() {
+	*x = GetAgentEventsRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_observer_observer_proto_msgTypes[4]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *GetAgentEventsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAgentEventsRequest) ProtoMessage() {}
+
+func (x *GetAgentEventsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_observer_observer_proto_msgTypes[4]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAgentEventsRequest.ProtoReflect.Descriptor instead.
+func (*GetAgentEventsRequest) Descriptor() ([]byte, []int) {
+	return file_observer_observer_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *GetAgentEventsRequest) GetNumber() uint64 {
+	if x != nil {
+		return x.Number
+	}
+	return 0
+}
+
+func (x *GetAgentEventsRequest) GetFollow() bool {
+	if x != nil {
+		return x.Follow
+	}
+	return false
+}
+
+func (x *GetAgentEventsRequest) GetSince() *timestamp.Timestamp {
+	if x != nil {
+		return x.Since
+	}
+	return nil
+}
+
+func (x *GetAgentEventsRequest) GetUntil() *timestamp.Timestamp {
+	if x != nil {
+		return x.Until
+	}
+	return nil
+}
+
+// GetAgentEventsResponse contains an event received from the Cilium agent.
+type GetAgentEventsResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	AgentEvent *flow.AgentEvent `protobuf:"bytes,1,opt,name=agent_event,json=agentEvent,proto3" json:"agent_event,omitempty"`
+	// Name of the node where this event was observed.
+	NodeName string `protobuf:"bytes,1000,opt,name=node_name,json=nodeName,proto3" json:"node_name,omitempty"`
+	// Timestamp at which this event was observed.
+	Time *timestamp.Timestamp `protobuf:"bytes,1001,opt,name=time,proto3" json:"time,omitempty"`
+}
+
+func (x *GetAgentEventsResponse) Reset() {
+	*x = GetAgentEventsResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_observer_observer_proto_msgTypes[5]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *GetAgentEventsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAgentEventsResponse) ProtoMessage() {}
+
+func (x *GetAgentEventsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_observer_observer_proto_msgTypes[5]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAgentEventsResponse.ProtoReflect.Descriptor instead.
+func (*GetAgentEventsResponse) Descriptor() ([]byte, []int) {
+	return file_observer_observer_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *GetAgentEventsResponse) GetAgentEvent() *flow.AgentEvent {
+	if x != nil {
+		return x.AgentEvent
+	}
+	return nil
+}
+
+func (x *GetAgentEventsResponse) GetNodeName() string {
+	if x != nil {
+		return x.NodeName
+	}
+	return ""
+}
+
+func (x *GetAgentEventsResponse) GetTime() *timestamp.Timestamp {
+	if x != nil {
+		return x.Time
+	}
+	return nil
+}
+
+type GetDebugEventsRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Number of debug events that should be returned. Incompatible with
+	// `since/until`.
+	Number uint64 `protobuf:"varint,1,opt,name=number,proto3" json:"number,omitempty"`
+	// follow sets when the server should continue to stream debug events after
+	// printing the last N debug events.
+	Follow bool `protobuf:"varint,2,opt,name=follow,proto3" json:"follow,omitempty"`
+	// Since this time for returned debug events. Incompatible with `number`.
+	Since *timestamp.Timestamp `protobuf:"bytes,7,opt,name=since,proto3" json:"since,omitempty"`
+	// Until this time for returned debug events. Incompatible with `number`.
+	Until *timestamp.Timestamp `protobuf:"bytes,8,opt,name=until,proto3" json:"until,omitempty"`
+}
+
+func (x *GetDebugEventsRequest) Reset() {
+	*x = GetDebugEventsRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_observer_observer_proto_msgTypes[6]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *GetDebugEventsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDebugEventsRequest) ProtoMessage() {}
+
+func (x *GetDebugEventsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_observer_observer_proto_msgTypes[6]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDebugEventsRequest.ProtoReflect.Descriptor instead.
+func (*GetDebugEventsRequest) Descriptor() ([]byte, []int) {
+	return file_observer_observer_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *GetDebugEventsRequest) GetNumber() uint64 {
+	if x != nil {
+		return x.Number
+	}
+	return 0
+}
+
+func (x *GetDebugEventsRequest) GetFollow() bool {
+	if x != nil {
+		return x.Follow
+	}
+	return false
+}
+
+func (x *GetDebugEventsRequest) GetSince() *timestamp.Timestamp {
+	if x != nil {
+		return x.Since
+	}
+	return nil
+}
+
+func (x *GetDebugEventsRequest) GetUntil() *timestamp.Timestamp {
+	if x != nil {
+		return x.Until
+	}
+	return nil
+}
+
+// GetDebugEventsResponse contains a Cilium datapath debug events.
+type GetDebugEventsResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	DebugEvent *flow.DebugEvent `protobuf:"bytes,1,opt,name=debug_event,json=debugEvent,proto3" json:"debug_event,omitempty"`
+	// Name of the node where this event was observed.
+	NodeName string `protobuf:"bytes,1000,opt,name=node_name,json=nodeName,proto3" json:"node_name,omitempty"`
+	// Timestamp at which this event was observed.
+	Time *timestamp.Timestamp `protobuf:"bytes,1001,opt,name=time,proto3" json:"time,omitempty"`
+}
+
+func (x *GetDebugEventsResponse) Reset() {
+	*x = GetDebugEventsResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_observer_observer_proto_msgTypes[7]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *GetDebugEventsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDebugEventsResponse) ProtoMessage() {}
+
+func (x *GetDebugEventsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_observer_observer_proto_msgTypes[7]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDebugEventsResponse.ProtoReflect.Descriptor instead.
+func (*GetDebugEventsResponse) Descriptor() ([]byte, []int) {
+	return file_observer_observer_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *GetDebugEventsResponse) GetDebugEvent() *flow.DebugEvent {
+	if x != nil {
+		return x.DebugEvent
+	}
+	return nil
+}
+
+func (x *GetDebugEventsResponse) GetNodeName() string {
+	if x != nil {
+		return x.NodeName
+	}
+	return ""
+}
+
+func (x *GetDebugEventsResponse) GetTime() *timestamp.Timestamp {
+	if x != nil {
+		return x.Time
+	}
+	return nil
+}
+
+type GetNodesRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *GetNodesRequest) Reset() {
+	*x = GetNodesRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_observer_observer_proto_msgTypes[8]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *GetNodesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetNodesRequest) ProtoMessage() {}
+
+func (x *GetNodesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_observer_observer_proto_msgTypes[8]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetNodesRequest.ProtoReflect.Descriptor instead.
+func (*GetNodesRequest) Descriptor() ([]byte, []int) {
+	return file_observer_observer_proto_rawDescGZIP(), []int{8}
+}
+
+// GetNodesResponse contains the list of nodes.
+type GetNodesResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Nodes is an exhaustive list of nodes.
+	Nodes []*Node `protobuf:"bytes,1,rep,name=nodes,proto3" json:"nodes,omitempty"`
+}
+
+func (x *GetNodesResponse) Reset() {
+	*x = GetNodesResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_observer_observer_proto_msgTypes[9]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *GetNodesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetNodesResponse) ProtoMessage() {}
+
+func (x *GetNodesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_observer_observer_proto_msgTypes[9]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetNodesResponse.ProtoReflect.Descriptor instead.
+func (*GetNodesResponse) Descriptor() ([]byte, []int) {
+	return file_observer_observer_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *GetNodesResponse) GetNodes() []*Node {
+	if x != nil {
+		return x.Nodes
+	}
+	return nil
+}
+
+// Node represents a cluster node.
+type Node struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Name is the name of the node.
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Version is the version of Cilium/Hubble as reported by the node.
+	Version string `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
+	// Address is the network address of the API endpoint.
+	Address string `protobuf:"bytes,3,opt,name=address,proto3" json:"address,omitempty"`
+	// State represents the known state of the node.
+	State relay.NodeState `protobuf:"varint,4,opt,name=state,proto3,enum=relay.NodeState" json:"state,omitempty"`
+	// TLS reports TLS related information.
+	Tls *TLS `protobuf:"bytes,5,opt,name=tls,proto3" json:"tls,omitempty"`
+	// UptimeNS is the uptime of this instance in nanoseconds
+	UptimeNs uint64 `protobuf:"varint,6,opt,name=uptime_ns,json=uptimeNs,proto3" json:"uptime_ns,omitempty"`
+	// number of currently captured flows
+	NumFlows uint64 `protobuf:"varint,7,opt,name=num_flows,json=numFlows,proto3" json:"num_flows,omitempty"`
+	// maximum capacity of the ring buffer
+	MaxFlows uint64 `protobuf:"varint,8,opt,name=max_flows,json=maxFlows,proto3" json:"max_flows,omitempty"`
+	// total amount of flows observed since the observer was started
+	SeenFlows uint64 `protobuf:"varint,9,opt,name=seen_flows,json=seenFlows,proto3" json:"seen_flows,omitempty"`
+}
+
+func (x *Node) Reset() {
+	*x = Node{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_observer_observer_proto_msgTypes[10]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Node) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Node) ProtoMessage() {}
+
+func (x *Node) ProtoReflect() protoreflect.Message {
+	mi := &file_observer_observer_proto_msgTypes[10]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Node.ProtoReflect.Descriptor instead.
+func (*Node) Descriptor() ([]byte, []int) {
+	return file_observer_observer_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *Node) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Node) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+func (x *Node) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+func (x *Node) GetState() relay.NodeState {
+	if x != nil {
+		return x.State
+	}
+	return relay.NodeState_UNKNOWN_NODE_STATE
+}
+
+func (x *Node) GetTls() *TLS {
+	if x != nil {
+		return x.Tls
+	}
+	return nil
+}
+
+func (x *Node) GetUptimeNs() uint64 {
+	if x != nil {
+		return x.UptimeNs
+	}
+	return 0
+}
+
+func (x *Node) GetNumFlows() uint64 {
+	if x != nil {
+		return x.NumFlows
+	}
+	return 0
+}
+
+func (x *Node) GetMaxFlows() uint64 {
+	if x != nil {
+		return x.MaxFlows
+	}
+	return 0
+}
+
+func (x *Node) GetSeenFlows() uint64 {
+	if x != nil {
+		return x.SeenFlows
+	}
+	return 0
+}
+
+// TLS represents TLS information.
+type TLS struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Enabled reports whether TLS is enabled or not.
+	Enabled bool `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// ServerName is the TLS server name that can be used as part of the TLS
+	// cert validation process.
+	ServerName string `protobuf:"bytes,2,opt,name=server_name,json=serverName,proto3" json:"server_name,omitempty"`
+}
+
+func (x *TLS) Reset() {
+	*x = TLS{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_observer_observer_proto_msgTypes[11]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *TLS) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TLS) ProtoMessage() {}
+
+func (x *TLS) ProtoReflect() protoreflect.Message {
+	mi := &file_observer_observer_proto_msgTypes[11]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TLS.ProtoReflect.Descriptor instead.
+func (*TLS) Descriptor() ([]byte, []int) {
+	return file_observer_observer_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *TLS) GetEnabled() bool {
+	if x != nil {
+		return x.Enabled
+	}
+	return false
+}
+
+func (x *TLS) GetServerName() string {
+	if x != nil {
+		return x.ServerName
+	}
+	return ""
+}
+
+// ExportEvent contains an event to be exported. Not to be used outside of the
+// exporter feature.
+type ExportEvent struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Types that are assignable to ResponseTypes:
+	//	*ExportEvent_Flow
+	//	*ExportEvent_NodeStatus
+	//	*ExportEvent_LostEvents
+	//	*ExportEvent_AgentEvent
+	//	*ExportEvent_DebugEvent
+	ResponseTypes isExportEvent_ResponseTypes `protobuf_oneof:"response_types"`
+	// Name of the node where this event was observed.
+	NodeName string `protobuf:"bytes,1000,opt,name=node_name,json=nodeName,proto3" json:"node_name,omitempty"`
+	// Timestamp at which this event was observed.
+	Time *timestamp.Timestamp `protobuf:"bytes,1001,opt,name=time,proto3" json:"time,omitempty"`
+}
+
+func (x *ExportEvent) Reset() {
+	*x = ExportEvent{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_observer_observer_proto_msgTypes[12]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ExportEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExportEvent) ProtoMessage() {}
+
+func (x *ExportEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_observer_observer_proto_msgTypes[12]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExportEvent.ProtoReflect.Descriptor instead.
+func (*ExportEvent) Descriptor() ([]byte, []int) {
+	return file_observer_observer_proto_rawDescGZIP(), []int{12}
+}
+
+func (m *ExportEvent) GetResponseTypes() isExportEvent_ResponseTypes {
+	if m != nil {
+		return m.ResponseTypes
+	}
+	return nil
+}
+
+func (x *ExportEvent) GetFlow() *flow.Flow {
+	if x, ok := x.GetResponseTypes().(*ExportEvent_Flow); ok {
+		return x.Flow
+	}
+	return nil
+}
+
+func (x *ExportEvent) GetNodeStatus() *relay.NodeStatusEvent {
+	if x, ok := x.GetResponseTypes().(*ExportEvent_NodeStatus); ok {
+		return x.NodeStatus
+	}
+	return nil
+}
+
+func (x *ExportEvent) GetLostEvents() *flow.LostEvent {
+	if x, ok := x.GetResponseTypes().(*ExportEvent_LostEvents); ok {
+		return x.LostEvents
+	}
+	return nil
+}
+
+func (x *ExportEvent) GetAgentEvent() *flow.AgentEvent {
+	if x, ok := x.GetResponseTypes().(*ExportEvent_AgentEvent); ok {
+		return x.AgentEvent
+	}
+	return nil
+}
+
+func (x *ExportEvent) GetDebugEvent() *flow.DebugEvent {
+	if x, ok := x.GetResponseTypes().(*ExportEvent_DebugEvent); ok {
+		return x.DebugEvent
+	}
+	return nil
+}
+
+func (x *ExportEvent) GetNodeName() string {
+	if x != nil {
+		return x.NodeName
+	}
+	return ""
+}
+
+func (x *ExportEvent) GetTime() *timestamp.Timestamp {
+	if x != nil {
+		return x.Time
+	}
+	return nil
+}
+
+type isExportEvent_ResponseTypes interface {
+	isExportEvent_ResponseTypes()
+}
+
+type ExportEvent_Flow struct {
+	Flow *flow.Flow `protobuf:"bytes,1,opt,name=flow,proto3,oneof"`
+}
+
+type ExportEvent_NodeStatus struct {
+	// node_status informs clients about the state of the nodes
+	// participating in this particular GetFlows request.
+	NodeStatus *relay.NodeStatusEvent `protobuf:"bytes,2,opt,name=node_status,json=nodeStatus,proto3,oneof"`
+}
+
+type ExportEvent_LostEvents struct {
+	// lost_events informs clients about events which got dropped due to
+	// a Hubble component being unavailable
+	LostEvents *flow.LostEvent `protobuf:"bytes,3,opt,name=lost_events,json=lostEvents,proto3,oneof"`
+}
+
+type ExportEvent_AgentEvent struct {
+	// agent_event informs clients about an event received from the Cilium
+	// agent.
+	AgentEvent *flow.AgentEvent `protobuf:"bytes,4,opt,name=agent_event,json=agentEvent,proto3,oneof"`
+}
+
+type ExportEvent_DebugEvent struct {
+	// debug_event contains Cilium datapath debug events
+	DebugEvent *flow.DebugEvent `protobuf:"bytes,5,opt,name=debug_event,json=debugEvent,proto3,oneof"`
+}
+
+func (*ExportEvent_Flow) isExportEvent_ResponseTypes() {}
+
+func (*ExportEvent_NodeStatus) isExportEvent_ResponseTypes() {}
+
+func (*ExportEvent_LostEvents) isExportEvent_ResponseTypes() {}
+
+func (*ExportEvent_AgentEvent) isExportEvent_ResponseTypes() {}
+
+func (*ExportEvent_DebugEvent) isExportEvent_ResponseTypes() {}
+
 var File_observer_observer_proto protoreflect.FileDescriptor
 
 var file_observer_observer_proto_rawDesc = []byte{
@@ -597,7 +1434,7 @@ var file_observer_observer_proto_rawDesc = []byte{
 	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x11, 0x72, 0x65, 0x6c, 0x61, 0x79, 0x2f, 0x72, 0x65, 0x6c,
 	0x61, 0x79, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0x15, 0x0a, 0x13, 0x53, 0x65, 0x72, 0x76,
 	0x65, 0x72, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x22,
-	0xd9, 0x02, 0x0a, 0x14, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73,
+	0xf3, 0x02, 0x0a, 0x14, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73,
 	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x1b, 0x0a, 0x09, 0x6e, 0x75, 0x6d, 0x5f,
 	0x66, 0x6c, 0x6f, 0x77, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x08, 0x6e, 0x75, 0x6d,
 	0x46, 0x6c, 0x6f, 0x77, 0x73, 0x12, 0x1b, 0x0a, 0x09, 0x6d, 0x61, 0x78, 0x5f, 0x66, 0x6c, 0x6f,
@@ -618,24 +1455,26 @@ var file_observer_observer_proto_rawDesc = []byte{
 	0x61, 0x76, 0x61, 0x69, 0x6c, 0x61, 0x62, 0x6c, 0x65, 0x4e, 0x6f, 0x64, 0x65, 0x73, 0x12, 0x2b,
 	0x0a, 0x11, 0x75, 0x6e, 0x61, 0x76, 0x61, 0x69, 0x6c, 0x61, 0x62, 0x6c, 0x65, 0x5f, 0x6e, 0x6f,
 	0x64, 0x65, 0x73, 0x18, 0x07, 0x20, 0x03, 0x28, 0x09, 0x52, 0x10, 0x75, 0x6e, 0x61, 0x76, 0x61,
-	0x69, 0x6c, 0x61, 0x62, 0x6c, 0x65, 0x4e, 0x6f, 0x64, 0x65, 0x73, 0x22, 0x85, 0x02, 0x0a, 0x0f,
-	0x47, 0x65, 0x74, 0x46, 0x6c, 0x6f, 0x77, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12,
-	0x16, 0x0a, 0x06, 0x6e, 0x75, 0x6d, 0x62, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52,
-	0x06, 0x6e, 0x75, 0x6d, 0x62, 0x65, 0x72, 0x12, 0x16, 0x0a, 0x06, 0x66, 0x6f, 0x6c, 0x6c, 0x6f,
-	0x77, 0x18, 0x03, 0x20, 0x01, 0x28, 0x08, 0x52, 0x06, 0x66, 0x6f, 0x6c, 0x6c, 0x6f, 0x77, 0x12,
-	0x2e, 0x0a, 0x09, 0x62, 0x6c, 0x61, 0x63, 0x6b, 0x6c, 0x69, 0x73, 0x74, 0x18, 0x05, 0x20, 0x03,
-	0x28, 0x0b, 0x32, 0x10, 0x2e, 0x66, 0x6c, 0x6f, 0x77, 0x2e, 0x46, 0x6c, 0x6f, 0x77, 0x46, 0x69,
-	0x6c, 0x74, 0x65, 0x72, 0x52, 0x09, 0x62, 0x6c, 0x61, 0x63, 0x6b, 0x6c, 0x69, 0x73, 0x74, 0x12,
-	0x2e, 0x0a, 0x09, 0x77, 0x68, 0x69, 0x74, 0x65, 0x6c, 0x69, 0x73, 0x74, 0x18, 0x06, 0x20, 0x03,
-	0x28, 0x0b, 0x32, 0x10, 0x2e, 0x66, 0x6c, 0x6f, 0x77, 0x2e, 0x46, 0x6c, 0x6f, 0x77, 0x46, 0x69,
-	0x6c, 0x74, 0x65, 0x72, 0x52, 0x09, 0x77, 0x68, 0x69, 0x74, 0x65, 0x6c, 0x69, 0x73, 0x74, 0x12,
-	0x30, 0x0a, 0x05, 0x73, 0x69, 0x6e, 0x63, 0x65, 0x18, 0x07, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a,
-	0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66,
-	0x2e, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x52, 0x05, 0x73, 0x69, 0x6e, 0x63,
-	0x65, 0x12, 0x30, 0x0a, 0x05, 0x75, 0x6e, 0x74, 0x69, 0x6c, 0x18, 0x08, 0x20, 0x01, 0x28, 0x0b,
-	0x32, 0x1a, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62,
-	0x75, 0x66, 0x2e, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x52, 0x05, 0x75, 0x6e,
-	0x74, 0x69, 0x6c, 0x22, 0x84, 0x02, 0x0a, 0x10, 0x47, 0x65, 0x74, 0x46, 0x6c, 0x6f, 0x77, 0x73,
+	0x69, 0x6c, 0x61, 0x62, 0x6c, 0x65, 0x4e, 0x6f, 0x64, 0x65, 0x73, 0x12, 0x18, 0x0a, 0x07, 0x76,
+	0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x18, 0x08, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x76, 0x65,
+	0x72, 0x73, 0x69, 0x6f, 0x6e, 0x22, 0x8b, 0x02, 0x0a, 0x0f, 0x47, 0x65, 0x74, 0x46, 0x6c, 0x6f,
+	0x77, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x16, 0x0a, 0x06, 0x6e, 0x75, 0x6d,
+	0x62, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x06, 0x6e, 0x75, 0x6d, 0x62, 0x65,
+	0x72, 0x12, 0x16, 0x0a, 0x06, 0x66, 0x6f, 0x6c, 0x6c, 0x6f, 0x77, 0x18, 0x03, 0x20, 0x01, 0x28,
+	0x08, 0x52, 0x06, 0x66, 0x6f, 0x6c, 0x6c, 0x6f, 0x77, 0x12, 0x2e, 0x0a, 0x09, 0x62, 0x6c, 0x61,
+	0x63, 0x6b, 0x6c, 0x69, 0x73, 0x74, 0x18, 0x05, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x10, 0x2e, 0x66,
+	0x6c, 0x6f, 0x77, 0x2e, 0x46, 0x6c, 0x6f, 0x77, 0x46, 0x69, 0x6c, 0x74, 0x65, 0x72, 0x52, 0x09,
+	0x62, 0x6c, 0x61, 0x63, 0x6b, 0x6c, 0x69, 0x73, 0x74, 0x12, 0x2e, 0x0a, 0x09, 0x77, 0x68, 0x69,
+	0x74, 0x65, 0x6c, 0x69, 0x73, 0x74, 0x18, 0x06, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x10, 0x2e, 0x66,
+	0x6c, 0x6f, 0x77, 0x2e, 0x46, 0x6c, 0x6f, 0x77, 0x46, 0x69, 0x6c, 0x74, 0x65, 0x72, 0x52, 0x09,
+	0x77, 0x68, 0x69, 0x74, 0x65, 0x6c, 0x69, 0x73, 0x74, 0x12, 0x30, 0x0a, 0x05, 0x73, 0x69, 0x6e,
+	0x63, 0x65, 0x18, 0x07, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c,
+	0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x54, 0x69, 0x6d, 0x65, 0x73,
+	0x74, 0x61, 0x6d, 0x70, 0x52, 0x05, 0x73, 0x69, 0x6e, 0x63, 0x65, 0x12, 0x30, 0x0a, 0x05, 0x75,
+	0x6e, 0x74, 0x69, 0x6c, 0x18, 0x08, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x67, 0x6f, 0x6f,
+	0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x54, 0x69, 0x6d,
+	0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x52, 0x05, 0x75, 0x6e, 0x74, 0x69, 0x6c, 0x4a, 0x04, 0x08,
+	0x02, 0x10, 0x03, 0x22, 0x84, 0x02, 0x0a, 0x10, 0x47, 0x65, 0x74, 0x46, 0x6c, 0x6f, 0x77, 0x73,
 	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x20, 0x0a, 0x04, 0x66, 0x6c, 0x6f, 0x77,
 	0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0a, 0x2e, 0x66, 0x6c, 0x6f, 0x77, 0x2e, 0x46, 0x6c,
 	0x6f, 0x77, 0x48, 0x00, 0x52, 0x04, 0x66, 0x6c, 0x6f, 0x77, 0x12, 0x39, 0x0a, 0x0b, 0x6e, 0x6f,
@@ -651,21 +1490,126 @@ var file_observer_observer_proto_rawDesc = []byte{
 	0xe9, 0x07, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e,
 	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61,
 	0x6d, 0x70, 0x52, 0x04, 0x74, 0x69, 0x6d, 0x65, 0x42, 0x10, 0x0a, 0x0e, 0x72, 0x65, 0x73, 0x70,
-	0x6f, 0x6e, 0x73, 0x65, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x73, 0x32, 0xa2, 0x01, 0x0a, 0x08, 0x4f,
-	0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x12, 0x45, 0x0a, 0x08, 0x47, 0x65, 0x74, 0x46, 0x6c,
-	0x6f, 0x77, 0x73, 0x12, 0x19, 0x2e, 0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x47,
-	0x65, 0x74, 0x46, 0x6c, 0x6f, 0x77, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1a,
-	0x2e, 0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x47, 0x65, 0x74, 0x46, 0x6c, 0x6f,
-	0x77, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x30, 0x01, 0x12, 0x4f,
-	0x0a, 0x0c, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x1d,
-	0x2e, 0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72,
-	0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1e, 0x2e,
-	0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x53,
-	0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x42,
-	0x2a, 0x5a, 0x28, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x63, 0x69,
-	0x6c, 0x69, 0x75, 0x6d, 0x2f, 0x63, 0x69, 0x6c, 0x69, 0x75, 0x6d, 0x2f, 0x61, 0x70, 0x69, 0x2f,
-	0x76, 0x31, 0x2f, 0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x50, 0x02, 0x62, 0x06, 0x70,
-	0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x6f, 0x6e, 0x73, 0x65, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x73, 0x22, 0xab, 0x01, 0x0a, 0x15, 0x47,
+	0x65, 0x74, 0x41, 0x67, 0x65, 0x6e, 0x74, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x12, 0x16, 0x0a, 0x06, 0x6e, 0x75, 0x6d, 0x62, 0x65, 0x72, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x04, 0x52, 0x06, 0x6e, 0x75, 0x6d, 0x62, 0x65, 0x72, 0x12, 0x16, 0x0a, 0x06,
+	0x66, 0x6f, 0x6c, 0x6c, 0x6f, 0x77, 0x18, 0x02, 0x20, 0x01, 0x28, 0x08, 0x52, 0x06, 0x66, 0x6f,
+	0x6c, 0x6c, 0x6f, 0x77, 0x12, 0x30, 0x0a, 0x05, 0x73, 0x69, 0x6e, 0x63, 0x65, 0x18, 0x07, 0x20,
+	0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f,
+	0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x52,
+	0x05, 0x73, 0x69, 0x6e, 0x63, 0x65, 0x12, 0x30, 0x0a, 0x05, 0x75, 0x6e, 0x74, 0x69, 0x6c, 0x18,
+	0x08, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70,
+	0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d,
+	0x70, 0x52, 0x05, 0x75, 0x6e, 0x74, 0x69, 0x6c, 0x22, 0x9a, 0x01, 0x0a, 0x16, 0x47, 0x65, 0x74,
+	0x41, 0x67, 0x65, 0x6e, 0x74, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x12, 0x31, 0x0a, 0x0b, 0x61, 0x67, 0x65, 0x6e, 0x74, 0x5f, 0x65, 0x76, 0x65,
+	0x6e, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x10, 0x2e, 0x66, 0x6c, 0x6f, 0x77, 0x2e,
+	0x41, 0x67, 0x65, 0x6e, 0x74, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x52, 0x0a, 0x61, 0x67, 0x65, 0x6e,
+	0x74, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x12, 0x1c, 0x0a, 0x09, 0x6e, 0x6f, 0x64, 0x65, 0x5f, 0x6e,
+	0x61, 0x6d, 0x65, 0x18, 0xe8, 0x07, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x6e, 0x6f, 0x64, 0x65,
+	0x4e, 0x61, 0x6d, 0x65, 0x12, 0x2f, 0x0a, 0x04, 0x74, 0x69, 0x6d, 0x65, 0x18, 0xe9, 0x07, 0x20,
+	0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f,
+	0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x52,
+	0x04, 0x74, 0x69, 0x6d, 0x65, 0x22, 0xab, 0x01, 0x0a, 0x15, 0x47, 0x65, 0x74, 0x44, 0x65, 0x62,
+	0x75, 0x67, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12,
+	0x16, 0x0a, 0x06, 0x6e, 0x75, 0x6d, 0x62, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52,
+	0x06, 0x6e, 0x75, 0x6d, 0x62, 0x65, 0x72, 0x12, 0x16, 0x0a, 0x06, 0x66, 0x6f, 0x6c, 0x6c, 0x6f,
+	0x77, 0x18, 0x02, 0x20, 0x01, 0x28, 0x08, 0x52, 0x06, 0x66, 0x6f, 0x6c, 0x6c, 0x6f, 0x77, 0x12,
+	0x30, 0x0a, 0x05, 0x73, 0x69, 0x6e, 0x63, 0x65, 0x18, 0x07, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a,
+	0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66,
+	0x2e, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x52, 0x05, 0x73, 0x69, 0x6e, 0x63,
+	0x65, 0x12, 0x30, 0x0a, 0x05, 0x75, 0x6e, 0x74, 0x69, 0x6c, 0x18, 0x08, 0x20, 0x01, 0x28, 0x0b,
+	0x32, 0x1a, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62,
+	0x75, 0x66, 0x2e, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x52, 0x05, 0x75, 0x6e,
+	0x74, 0x69, 0x6c, 0x22, 0x9a, 0x01, 0x0a, 0x16, 0x47, 0x65, 0x74, 0x44, 0x65, 0x62, 0x75, 0x67,
+	0x45, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x31,
+	0x0a, 0x0b, 0x64, 0x65, 0x62, 0x75, 0x67, 0x5f, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x18, 0x01, 0x20,
+	0x01, 0x28, 0x0b, 0x32, 0x10, 0x2e, 0x66, 0x6c, 0x6f, 0x77, 0x2e, 0x44, 0x65, 0x62, 0x75, 0x67,
+	0x45, 0x76, 0x65, 0x6e, 0x74, 0x52, 0x0a, 0x64, 0x65, 0x62, 0x75, 0x67, 0x45, 0x76, 0x65, 0x6e,
+	0x74, 0x12, 0x1c, 0x0a, 0x09, 0x6e, 0x6f, 0x64, 0x65, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0xe8,
+	0x07, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x6e, 0x6f, 0x64, 0x65, 0x4e, 0x61, 0x6d, 0x65, 0x12,
+	0x2f, 0x0a, 0x04, 0x74, 0x69, 0x6d, 0x65, 0x18, 0xe9, 0x07, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a,
+	0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66,
+	0x2e, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x52, 0x04, 0x74, 0x69, 0x6d, 0x65,
+	0x22, 0x11, 0x0a, 0x0f, 0x47, 0x65, 0x74, 0x4e, 0x6f, 0x64, 0x65, 0x73, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x22, 0x38, 0x0a, 0x10, 0x47, 0x65, 0x74, 0x4e, 0x6f, 0x64, 0x65, 0x73, 0x52,
+	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x24, 0x0a, 0x05, 0x6e, 0x6f, 0x64, 0x65, 0x73,
+	0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x0e, 0x2e, 0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65,
+	0x72, 0x2e, 0x4e, 0x6f, 0x64, 0x65, 0x52, 0x05, 0x6e, 0x6f, 0x64, 0x65, 0x73, 0x22, 0x8d, 0x02,
+	0x0a, 0x04, 0x4e, 0x6f, 0x64, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x76, 0x65,
+	0x72, 0x73, 0x69, 0x6f, 0x6e, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x76, 0x65, 0x72,
+	0x73, 0x69, 0x6f, 0x6e, 0x12, 0x18, 0x0a, 0x07, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18,
+	0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x12, 0x26,
+	0x0a, 0x05, 0x73, 0x74, 0x61, 0x74, 0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x10, 0x2e,
+	0x72, 0x65, 0x6c, 0x61, 0x79, 0x2e, 0x4e, 0x6f, 0x64, 0x65, 0x53, 0x74, 0x61, 0x74, 0x65, 0x52,
+	0x05, 0x73, 0x74, 0x61, 0x74, 0x65, 0x12, 0x1f, 0x0a, 0x03, 0x74, 0x6c, 0x73, 0x18, 0x05, 0x20,
+	0x01, 0x28, 0x0b, 0x32, 0x0d, 0x2e, 0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x54,
+	0x4c, 0x53, 0x52, 0x03, 0x74, 0x6c, 0x73, 0x12, 0x1b, 0x0a, 0x09, 0x75, 0x70, 0x74, 0x69, 0x6d,
+	0x65, 0x5f, 0x6e, 0x73, 0x18, 0x06, 0x20, 0x01, 0x28, 0x04, 0x52, 0x08, 0x75, 0x70, 0x74, 0x69,
+	0x6d, 0x65, 0x4e, 0x73, 0x12, 0x1b, 0x0a, 0x09, 0x6e, 0x75, 0x6d, 0x5f, 0x66, 0x6c, 0x6f, 0x77,
+	0x73, 0x18, 0x07, 0x20, 0x01, 0x28, 0x04, 0x52, 0x08, 0x6e, 0x75, 0x6d, 0x46, 0x6c, 0x6f, 0x77,
+	0x73, 0x12, 0x1b, 0x0a, 0x09, 0x6d, 0x61, 0x78, 0x5f, 0x66, 0x6c, 0x6f, 0x77, 0x73, 0x18, 0x08,
+	0x20, 0x01, 0x28, 0x04, 0x52, 0x08, 0x6d, 0x61, 0x78, 0x46, 0x6c, 0x6f, 0x77, 0x73, 0x12, 0x1d,
+	0x0a, 0x0a, 0x73, 0x65, 0x65, 0x6e, 0x5f, 0x66, 0x6c, 0x6f, 0x77, 0x73, 0x18, 0x09, 0x20, 0x01,
+	0x28, 0x04, 0x52, 0x09, 0x73, 0x65, 0x65, 0x6e, 0x46, 0x6c, 0x6f, 0x77, 0x73, 0x22, 0x40, 0x0a,
+	0x03, 0x54, 0x4c, 0x53, 0x12, 0x18, 0x0a, 0x07, 0x65, 0x6e, 0x61, 0x62, 0x6c, 0x65, 0x64, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x08, 0x52, 0x07, 0x65, 0x6e, 0x61, 0x62, 0x6c, 0x65, 0x64, 0x12, 0x1f,
+	0x0a, 0x0b, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x02, 0x20,
+	0x01, 0x28, 0x09, 0x52, 0x0a, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x4e, 0x61, 0x6d, 0x65, 0x22,
+	0xe9, 0x02, 0x0a, 0x0b, 0x45, 0x78, 0x70, 0x6f, 0x72, 0x74, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x12,
+	0x20, 0x0a, 0x04, 0x66, 0x6c, 0x6f, 0x77, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0a, 0x2e,
+	0x66, 0x6c, 0x6f, 0x77, 0x2e, 0x46, 0x6c, 0x6f, 0x77, 0x48, 0x00, 0x52, 0x04, 0x66, 0x6c, 0x6f,
+	0x77, 0x12, 0x39, 0x0a, 0x0b, 0x6e, 0x6f, 0x64, 0x65, 0x5f, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73,
+	0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x16, 0x2e, 0x72, 0x65, 0x6c, 0x61, 0x79, 0x2e, 0x4e,
+	0x6f, 0x64, 0x65, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x48, 0x00,
+	0x52, 0x0a, 0x6e, 0x6f, 0x64, 0x65, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x32, 0x0a, 0x0b,
+	0x6c, 0x6f, 0x73, 0x74, 0x5f, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x18, 0x03, 0x20, 0x01, 0x28,
+	0x0b, 0x32, 0x0f, 0x2e, 0x66, 0x6c, 0x6f, 0x77, 0x2e, 0x4c, 0x6f, 0x73, 0x74, 0x45, 0x76, 0x65,
+	0x6e, 0x74, 0x48, 0x00, 0x52, 0x0a, 0x6c, 0x6f, 0x73, 0x74, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x73,
+	0x12, 0x33, 0x0a, 0x0b, 0x61, 0x67, 0x65, 0x6e, 0x74, 0x5f, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x18,
+	0x04, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x10, 0x2e, 0x66, 0x6c, 0x6f, 0x77, 0x2e, 0x41, 0x67, 0x65,
+	0x6e, 0x74, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x48, 0x00, 0x52, 0x0a, 0x61, 0x67, 0x65, 0x6e, 0x74,
+	0x45, 0x76, 0x65, 0x6e, 0x74, 0x12, 0x33, 0x0a, 0x0b, 0x64, 0x65, 0x62, 0x75, 0x67, 0x5f, 0x65,
+	0x76, 0x65, 0x6e, 0x74, 0x18, 0x05, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x10, 0x2e, 0x66, 0x6c, 0x6f,
+	0x77, 0x2e, 0x44, 0x65, 0x62, 0x75, 0x67, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x48, 0x00, 0x52, 0x0a,
+	0x64, 0x65, 0x62, 0x75, 0x67, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x12, 0x1c, 0x0a, 0x09, 0x6e, 0x6f,
+	0x64, 0x65, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0xe8, 0x07, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08,
+	0x6e, 0x6f, 0x64, 0x65, 0x4e, 0x61, 0x6d, 0x65, 0x12, 0x2f, 0x0a, 0x04, 0x74, 0x69, 0x6d, 0x65,
+	0x18, 0xe9, 0x07, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65,
+	0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74,
+	0x61, 0x6d, 0x70, 0x52, 0x04, 0x74, 0x69, 0x6d, 0x65, 0x42, 0x10, 0x0a, 0x0e, 0x72, 0x65, 0x73,
+	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x73, 0x32, 0x99, 0x03, 0x0a, 0x08,
+	0x4f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x12, 0x45, 0x0a, 0x08, 0x47, 0x65, 0x74, 0x46,
+	0x6c, 0x6f, 0x77, 0x73, 0x12, 0x19, 0x2e, 0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2e,
+	0x47, 0x65, 0x74, 0x46, 0x6c, 0x6f, 0x77, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
+	0x1a, 0x2e, 0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x47, 0x65, 0x74, 0x46, 0x6c,
+	0x6f, 0x77, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x30, 0x01, 0x12,
+	0x57, 0x0a, 0x0e, 0x47, 0x65, 0x74, 0x41, 0x67, 0x65, 0x6e, 0x74, 0x45, 0x76, 0x65, 0x6e, 0x74,
+	0x73, 0x12, 0x1f, 0x2e, 0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x47, 0x65, 0x74,
+	0x41, 0x67, 0x65, 0x6e, 0x74, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65,
+	0x73, 0x74, 0x1a, 0x20, 0x2e, 0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x47, 0x65,
+	0x74, 0x41, 0x67, 0x65, 0x6e, 0x74, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x30, 0x01, 0x12, 0x57, 0x0a, 0x0e, 0x47, 0x65, 0x74, 0x44,
+	0x65, 0x62, 0x75, 0x67, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x12, 0x1f, 0x2e, 0x6f, 0x62, 0x73,
+	0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x47, 0x65, 0x74, 0x44, 0x65, 0x62, 0x75, 0x67, 0x45, 0x76,
+	0x65, 0x6e, 0x74, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x20, 0x2e, 0x6f, 0x62,
+	0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x47, 0x65, 0x74, 0x44, 0x65, 0x62, 0x75, 0x67, 0x45,
+	0x76, 0x65, 0x6e, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x30,
+	0x01, 0x12, 0x43, 0x0a, 0x08, 0x47, 0x65, 0x74, 0x4e, 0x6f, 0x64, 0x65, 0x73, 0x12, 0x19, 0x2e,
+	0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x47, 0x65, 0x74, 0x4e, 0x6f, 0x64, 0x65,
+	0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1a, 0x2e, 0x6f, 0x62, 0x73, 0x65, 0x72,
+	0x76, 0x65, 0x72, 0x2e, 0x47, 0x65, 0x74, 0x4e, 0x6f, 0x64, 0x65, 0x73, 0x52, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x4f, 0x0a, 0x0c, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72,
+	0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x1d, 0x2e, 0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65,
+	0x72, 0x2e, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x65,
+	0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1e, 0x2e, 0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72,
+	0x2e, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x65, 0x73,
+	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x42, 0x2a, 0x5a, 0x28, 0x67, 0x69, 0x74, 0x68, 0x75,
+	0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x63, 0x69, 0x6c, 0x69, 0x75, 0x6d, 0x2f, 0x63, 0x69, 0x6c,
+	0x69, 0x75, 0x6d, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x6f, 0x62, 0x73, 0x65, 0x72,
+	0x76, 0x65, 0x72, 0x50, 0x02, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -680,39 +1624,74 @@ func file_observer_observer_proto_rawDescGZIP() []byte {
 	return file_observer_observer_proto_rawDescData
 }
 
-var file_observer_observer_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_observer_observer_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_observer_observer_proto_goTypes = []interface{}{
-	(*ServerStatusRequest)(nil),   // 0: observer.ServerStatusRequest
-	(*ServerStatusResponse)(nil),  // 1: observer.ServerStatusResponse
-	(*GetFlowsRequest)(nil),       // 2: observer.GetFlowsRequest
-	(*GetFlowsResponse)(nil),      // 3: observer.GetFlowsResponse
-	(*wrappers.UInt32Value)(nil),  // 4: google.protobuf.UInt32Value
-	(*flow.FlowFilter)(nil),       // 5: flow.FlowFilter
-	(*timestamp.Timestamp)(nil),   // 6: google.protobuf.Timestamp
-	(*flow.Flow)(nil),             // 7: flow.Flow
-	(*relay.NodeStatusEvent)(nil), // 8: relay.NodeStatusEvent
-	(*flow.LostEvent)(nil),        // 9: flow.LostEvent
+	(*ServerStatusRequest)(nil),    // 0: observer.ServerStatusRequest
+	(*ServerStatusResponse)(nil),   // 1: observer.ServerStatusResponse
+	(*GetFlowsRequest)(nil),        // 2: observer.GetFlowsRequest
+	(*GetFlowsResponse)(nil),       // 3: observer.GetFlowsResponse
+	(*GetAgentEventsRequest)(nil),  // 4: observer.GetAgentEventsRequest
+	(*GetAgentEventsResponse)(nil), // 5: observer.GetAgentEventsResponse
+	(*GetDebugEventsRequest)(nil),  // 6: observer.GetDebugEventsRequest
+	(*GetDebugEventsResponse)(nil), // 7: observer.GetDebugEventsResponse
+	(*GetNodesRequest)(nil),        // 8: observer.GetNodesRequest
+	(*GetNodesResponse)(nil),       // 9: observer.GetNodesResponse
+	(*Node)(nil),                   // 10: observer.Node
+	(*TLS)(nil),                    // 11: observer.TLS
+	(*ExportEvent)(nil),            // 12: observer.ExportEvent
+	(*wrappers.UInt32Value)(nil),   // 13: google.protobuf.UInt32Value
+	(*flow.FlowFilter)(nil),        // 14: flow.FlowFilter
+	(*timestamp.Timestamp)(nil),    // 15: google.protobuf.Timestamp
+	(*flow.Flow)(nil),              // 16: flow.Flow
+	(*relay.NodeStatusEvent)(nil),  // 17: relay.NodeStatusEvent
+	(*flow.LostEvent)(nil),         // 18: flow.LostEvent
+	(*flow.AgentEvent)(nil),        // 19: flow.AgentEvent
+	(*flow.DebugEvent)(nil),        // 20: flow.DebugEvent
+	(relay.NodeState)(0),           // 21: relay.NodeState
 }
 var file_observer_observer_proto_depIdxs = []int32{
-	4,  // 0: observer.ServerStatusResponse.num_connected_nodes:type_name -> google.protobuf.UInt32Value
-	4,  // 1: observer.ServerStatusResponse.num_unavailable_nodes:type_name -> google.protobuf.UInt32Value
-	5,  // 2: observer.GetFlowsRequest.blacklist:type_name -> flow.FlowFilter
-	5,  // 3: observer.GetFlowsRequest.whitelist:type_name -> flow.FlowFilter
-	6,  // 4: observer.GetFlowsRequest.since:type_name -> google.protobuf.Timestamp
-	6,  // 5: observer.GetFlowsRequest.until:type_name -> google.protobuf.Timestamp
-	7,  // 6: observer.GetFlowsResponse.flow:type_name -> flow.Flow
-	8,  // 7: observer.GetFlowsResponse.node_status:type_name -> relay.NodeStatusEvent
-	9,  // 8: observer.GetFlowsResponse.lost_events:type_name -> flow.LostEvent
-	6,  // 9: observer.GetFlowsResponse.time:type_name -> google.protobuf.Timestamp
-	2,  // 10: observer.Observer.GetFlows:input_type -> observer.GetFlowsRequest
-	0,  // 11: observer.Observer.ServerStatus:input_type -> observer.ServerStatusRequest
-	3,  // 12: observer.Observer.GetFlows:output_type -> observer.GetFlowsResponse
-	1,  // 13: observer.Observer.ServerStatus:output_type -> observer.ServerStatusResponse
-	12, // [12:14] is the sub-list for method output_type
-	10, // [10:12] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	13, // 0: observer.ServerStatusResponse.num_connected_nodes:type_name -> google.protobuf.UInt32Value
+	13, // 1: observer.ServerStatusResponse.num_unavailable_nodes:type_name -> google.protobuf.UInt32Value
+	14, // 2: observer.GetFlowsRequest.blacklist:type_name -> flow.FlowFilter
+	14, // 3: observer.GetFlowsRequest.whitelist:type_name -> flow.FlowFilter
+	15, // 4: observer.GetFlowsRequest.since:type_name -> google.protobuf.Timestamp
+	15, // 5: observer.GetFlowsRequest.until:type_name -> google.protobuf.Timestamp
+	16, // 6: observer.GetFlowsResponse.flow:type_name -> flow.Flow
+	17, // 7: observer.GetFlowsResponse.node_status:type_name -> relay.NodeStatusEvent
+	18, // 8: observer.GetFlowsResponse.lost_events:type_name -> flow.LostEvent
+	15, // 9: observer.GetFlowsResponse.time:type_name -> google.protobuf.Timestamp
+	15, // 10: observer.GetAgentEventsRequest.since:type_name -> google.protobuf.Timestamp
+	15, // 11: observer.GetAgentEventsRequest.until:type_name -> google.protobuf.Timestamp
+	19, // 12: observer.GetAgentEventsResponse.agent_event:type_name -> flow.AgentEvent
+	15, // 13: observer.GetAgentEventsResponse.time:type_name -> google.protobuf.Timestamp
+	15, // 14: observer.GetDebugEventsRequest.since:type_name -> google.protobuf.Timestamp
+	15, // 15: observer.GetDebugEventsRequest.until:type_name -> google.protobuf.Timestamp
+	20, // 16: observer.GetDebugEventsResponse.debug_event:type_name -> flow.DebugEvent
+	15, // 17: observer.GetDebugEventsResponse.time:type_name -> google.protobuf.Timestamp
+	10, // 18: observer.GetNodesResponse.nodes:type_name -> observer.Node
+	21, // 19: observer.Node.state:type_name -> relay.NodeState
+	11, // 20: observer.Node.tls:type_name -> observer.TLS
+	16, // 21: observer.ExportEvent.flow:type_name -> flow.Flow
+	17, // 22: observer.ExportEvent.node_status:type_name -> relay.NodeStatusEvent
+	18, // 23: observer.ExportEvent.lost_events:type_name -> flow.LostEvent
+	19, // 24: observer.ExportEvent.agent_event:type_name -> flow.AgentEvent
+	20, // 25: observer.ExportEvent.debug_event:type_name -> flow.DebugEvent
+	15, // 26: observer.ExportEvent.time:type_name -> google.protobuf.Timestamp
+	2,  // 27: observer.Observer.GetFlows:input_type -> observer.GetFlowsRequest
+	4,  // 28: observer.Observer.GetAgentEvents:input_type -> observer.GetAgentEventsRequest
+	6,  // 29: observer.Observer.GetDebugEvents:input_type -> observer.GetDebugEventsRequest
+	8,  // 30: observer.Observer.GetNodes:input_type -> observer.GetNodesRequest
+	0,  // 31: observer.Observer.ServerStatus:input_type -> observer.ServerStatusRequest
+	3,  // 32: observer.Observer.GetFlows:output_type -> observer.GetFlowsResponse
+	5,  // 33: observer.Observer.GetAgentEvents:output_type -> observer.GetAgentEventsResponse
+	7,  // 34: observer.Observer.GetDebugEvents:output_type -> observer.GetDebugEventsResponse
+	9,  // 35: observer.Observer.GetNodes:output_type -> observer.GetNodesResponse
+	1,  // 36: observer.Observer.ServerStatus:output_type -> observer.ServerStatusResponse
+	32, // [32:37] is the sub-list for method output_type
+	27, // [27:32] is the sub-list for method input_type
+	27, // [27:27] is the sub-list for extension type_name
+	27, // [27:27] is the sub-list for extension extendee
+	0,  // [0:27] is the sub-list for field type_name
 }
 
 func init() { file_observer_observer_proto_init() }
@@ -769,11 +1748,126 @@ func file_observer_observer_proto_init() {
 				return nil
 			}
 		}
+		file_observer_observer_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*GetAgentEventsRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_observer_observer_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*GetAgentEventsResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_observer_observer_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*GetDebugEventsRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_observer_observer_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*GetDebugEventsResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_observer_observer_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*GetNodesRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_observer_observer_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*GetNodesResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_observer_observer_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Node); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_observer_observer_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*TLS); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_observer_observer_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ExportEvent); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	file_observer_observer_proto_msgTypes[3].OneofWrappers = []interface{}{
 		(*GetFlowsResponse_Flow)(nil),
 		(*GetFlowsResponse_NodeStatus)(nil),
 		(*GetFlowsResponse_LostEvents)(nil),
+	}
+	file_observer_observer_proto_msgTypes[12].OneofWrappers = []interface{}{
+		(*ExportEvent_Flow)(nil),
+		(*ExportEvent_NodeStatus)(nil),
+		(*ExportEvent_LostEvents)(nil),
+		(*ExportEvent_AgentEvent)(nil),
+		(*ExportEvent_DebugEvent)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -781,7 +1875,7 @@ func file_observer_observer_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_observer_observer_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

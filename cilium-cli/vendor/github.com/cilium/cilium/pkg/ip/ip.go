@@ -17,7 +17,6 @@ package ip
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"math/big"
 	"net"
 	"sort"
@@ -30,17 +29,19 @@ const (
 
 // CountIPsInCIDR takes a RFC4632/RFC4291-formatted IPv4/IPv6 CIDR and
 // determines how many IP addresses reside within that CIDR.
+// The first and the last (base and broadcast) IPs are excluded.
+//
 // Returns 0 if the input CIDR cannot be parsed.
 func CountIPsInCIDR(ipnet *net.IPNet) *big.Int {
 	subnet, size := ipnet.Mask.Size()
 	if subnet == size {
-		return big.NewInt(1)
+		return big.NewInt(0)
 	}
 	return big.NewInt(0).
 		Sub(
 			big.NewInt(2).Exp(big.NewInt(2),
 				big.NewInt(int64(size-subnet)), nil),
-			big.NewInt(1),
+			big.NewInt(2),
 		)
 }
 
@@ -114,65 +115,87 @@ func (s NetsByRange) Len() int {
 	return len(s)
 }
 
+// removeRedundantCIDRs removes CIDRs which are contained within other given CIDRs.
+func removeRedundantCIDRs(CIDRs []*net.IPNet) []*net.IPNet {
+	redundant := make(map[int]bool)
+	for j, CIDR := range CIDRs {
+		if redundant[j] {
+			continue // Skip redundant CIDRs
+		}
+		for i, CIDR2 := range CIDRs {
+			// Skip checking CIDR aganst itself or if CIDR has already been deemed redundant.
+			if i == j || redundant[i] {
+				continue
+			}
+			if CIDR.Contains(CIDR2.IP) {
+				redundant[i] = true
+			}
+		}
+	}
+
+	if len(redundant) == 0 {
+		return CIDRs
+	}
+
+	if len(redundant) == 1 {
+		for i := range redundant {
+			return append(CIDRs[:i], CIDRs[i+1:]...)
+		}
+	}
+
+	newCIDRs := make([]*net.IPNet, 0, len(CIDRs)-len(redundant))
+	for i := range CIDRs {
+		if redundant[i] {
+			continue
+		}
+		newCIDRs = append(newCIDRs, CIDRs[i])
+	}
+	return newCIDRs
+}
+
 // RemoveCIDRs removes the specified CIDRs from another set of CIDRs. If a CIDR
 // to remove is not contained within the CIDR, the CIDR to remove is ignored. A
 // slice of CIDRs is returned which contains the set of CIDRs provided minus
-// the set of CIDRs which  were removed. Both input slices may be modified by
+// the set of CIDRs which were removed. Both input slices may be modified by
 // calling this function.
-func RemoveCIDRs(allowCIDRs, removeCIDRs []*net.IPNet) ([]*net.IPNet, error) {
+func RemoveCIDRs(allowCIDRs, removeCIDRs []*net.IPNet) []*net.IPNet {
 
 	// Ensure that we iterate through the provided CIDRs in order of largest
 	// subnet first.
 	sort.Sort(NetsByMask(removeCIDRs))
 
-PreLoop:
 	// Remove CIDRs which are contained within CIDRs that we want to remove;
 	// such CIDRs are redundant.
-	for j, removeCIDR := range removeCIDRs {
-		for i, removeCIDR2 := range removeCIDRs {
-			if i == j {
-				continue
-			}
-			if removeCIDR.Contains(removeCIDR2.IP) {
-				removeCIDRs = append(removeCIDRs[:i], removeCIDRs[i+1:]...)
-				// Re-trigger loop since we have modified the slice we are iterating over.
-				goto PreLoop
-			}
-		}
-	}
+	removeCIDRs = removeRedundantCIDRs(removeCIDRs)
+
+	// Remove redundant allowCIDR so that all allowCIDRs are disjoint
+	allowCIDRs = removeRedundantCIDRs(allowCIDRs)
 
 	for _, remove := range removeCIDRs {
-	Loop:
-		for i, allowCIDR := range allowCIDRs {
-
-			// Don't allow comparison of different address spaces.
-			if allowCIDR.IP.To4() != nil && remove.IP.To4() == nil ||
-				allowCIDR.IP.To4() == nil && remove.IP.To4() != nil {
-				return nil, fmt.Errorf("cannot mix IP addresses of different IP protocol versions")
-			}
+		i := 0
+		for i < len(allowCIDRs) {
+			allowCIDR := allowCIDRs[i]
 
 			// Only remove CIDR if it is contained in the subnet we are allowing.
 			if allowCIDR.Contains(remove.IP.Mask(remove.Mask)) {
-				nets, err := removeCIDR(allowCIDR, remove)
-				if err != nil {
-					return nil, err
-				}
+				nets := excludeContainedCIDR(allowCIDR, remove)
 
 				// Remove CIDR that we have just processed and append new CIDRs
 				// that we computed from removing the CIDR to remove.
 				allowCIDRs = append(allowCIDRs[:i], allowCIDRs[i+1:]...)
 				allowCIDRs = append(allowCIDRs, nets...)
-				goto Loop
 			} else if remove.Contains(allowCIDR.IP.Mask(allowCIDR.Mask)) {
 				// If a CIDR that we want to remove contains a CIDR in the list
 				// that is allowed, then we can just remove the CIDR to allow.
 				allowCIDRs = append(allowCIDRs[:i], allowCIDRs[i+1:]...)
-				goto Loop
+			} else {
+				// Advance only if CIDR at index 'i' was not removed
+				i++
 			}
 		}
 	}
 
-	return allowCIDRs, nil
+	return allowCIDRs
 }
 
 func getNetworkPrefix(ipNet *net.IPNet) *net.IP {
@@ -193,96 +216,48 @@ func getNetworkPrefix(ipNet *net.IPNet) *net.IP {
 	return &mask
 }
 
-func removeCIDR(allowCIDR, removeCIDR *net.IPNet) ([]*net.IPNet, error) {
-	var allowIsIpv4, removeIsIpv4 bool
-	var allowBitLen int
-
-	if allowCIDR.IP.To4() != nil {
-		allowIsIpv4 = true
-		allowBitLen = ipv4BitLen
-	} else {
-		allowBitLen = ipv6BitLen
-	}
-
-	if removeCIDR.IP.To4() != nil {
-		removeIsIpv4 = true
-	}
-
-	if removeIsIpv4 != allowIsIpv4 {
-		return nil, fmt.Errorf("cannot mix IP addresses of different IP protocol versions")
-	}
-
+// excludeContainedCIDR returns a set of CIDRs that is equivalent to 'allowCIDR'
+// except for 'removeCIDR', which must be a subset of 'allowCIDR'.
+// Caller is responsible for only passing CIDRs of the same address family.
+func excludeContainedCIDR(allowCIDR, removeCIDR *net.IPNet) []*net.IPNet {
 	// Get size of each CIDR mask.
-	allowSize, _ := allowCIDR.Mask.Size()
+	allowSize, addrSize := allowCIDR.Mask.Size()
 	removeSize, _ := removeCIDR.Mask.Size()
 
 	// Removing a CIDR from itself should result into an empty set
 	if allowSize == removeSize && allowCIDR.IP.Equal(removeCIDR.IP) {
-		return nil, nil
+		return nil
 	}
 
-	if allowSize >= removeSize {
-		return nil, fmt.Errorf("allow CIDR prefix must be a superset of " +
-			"remove CIDR prefix")
-	}
-
-	allowFirstIPMasked := allowCIDR.IP.Mask(allowCIDR.Mask)
-	removeFirstIPMasked := removeCIDR.IP.Mask(removeCIDR.Mask)
-
-	// Convert to IPv4 in IPv6 addresses if needed.
-	if allowIsIpv4 {
-		allowFirstIPMasked = append(v4Mappedv6Prefix, allowFirstIPMasked...)
-	}
-
-	if removeIsIpv4 {
-		removeFirstIPMasked = append(v4Mappedv6Prefix, removeFirstIPMasked...)
-	}
-
-	allowFirstIP := &allowFirstIPMasked
-	removeFirstIP := &removeFirstIPMasked
+	removeIPMasked := removeCIDR.IP.Mask(removeCIDR.Mask)
 
 	// Create CIDR prefixes with mask size of Y+1, Y+2 ... X where Y is the mask
-	// length of the CIDR prefix B from which we are excluding a CIDR prefix A
-	// with mask length X.
+	// length of the CIDR prefix of allowCIDR from which we are excluding the CIDR
+	// prefix removeCIDR with mask length X.
 	allows := make([]*net.IPNet, 0, removeSize-allowSize)
-	for i := (allowBitLen - allowSize - 1); i >= (allowBitLen - removeSize); i-- {
-		// The mask for each CIDR prefix is simply the ith bit flipped, and then
-		// zero'ing out all subsequent bits (the host identifier part of the
-		// prefix).
-		newMaskSize := allowBitLen - i
-		newIP := (*net.IP)(flipNthBit((*[]byte)(removeFirstIP), uint(i)))
-		for k := range *allowFirstIP {
-			(*newIP)[k] = (*allowFirstIP)[k] | (*newIP)[k]
-		}
+	// Scan bits from high to low, where 0th bit is the highest.
+	// For example, an allowCIDR of size 16 covers bits 0..15,
+	// so the new bit in the first new mask is 16th bit, for a mask size 17.
+	for bit := allowSize; bit < removeSize; bit++ {
+		newMaskSize := bit + 1 // bit numbering starts from 0, 0th bit needs mask of size 1
 
-		newMask := net.CIDRMask(newMaskSize, allowBitLen)
-		newIPMasked := newIP.Mask(newMask)
+		// The mask for each CIDR prefix is simply the masked removeCIDR with the lowest bit
+		// within the new mask size flipped.
+		newMask := net.CIDRMask(newMaskSize, addrSize)
+		newIPMasked := removeIPMasked.Mask(newMask)
+		flipNthHighestBit(newIPMasked, uint(bit))
 
 		newIPNet := net.IPNet{IP: newIPMasked, Mask: newMask}
 		allows = append(allows, &newIPNet)
 	}
 
-	return allows, nil
+	return allows
 }
 
-func getByteIndexOfBit(bit uint) uint {
-	return net.IPv6len - (bit / 8) - 1
-}
-
-func getNthBit(ip *net.IP, bitNum uint) uint8 {
-	byteNum := getByteIndexOfBit(bitNum)
-	bits := (*ip)[byteNum]
-	b := uint8(bits)
-	return b >> (bitNum % 8) & 1
-}
-
-func flipNthBit(ip *[]byte, bitNum uint) *[]byte {
-	ipCopy := make([]byte, len(*ip))
-	copy(ipCopy, *ip)
-	byteNum := getByteIndexOfBit(bitNum)
-	ipCopy[byteNum] = ipCopy[byteNum] ^ 1<<(bitNum%8)
-
-	return &ipCopy
+// Flip the 'n'th highest bit in 'ip'. 'ip' is modified in place. 'n' is zero indexed.
+func flipNthHighestBit(ip net.IP, n uint) {
+	i := (n / 8)
+	ip[i] = ip[i] ^ 0x80>>(n%8)
 }
 
 func ipNetToRange(ipNet net.IPNet) netWithRange {
@@ -308,6 +283,29 @@ func ipNetToRange(ipNet net.IPNet) netWithRange {
 	}
 
 	return netWithRange{First: &firstIP, Last: &lastIP, Network: &ipNet}
+}
+
+// GetIPAtIndex get the IP by index in the range of ipNet. The index is start with 0.
+func GetIPAtIndex(ipNet net.IPNet, index int64) net.IP {
+	netRange := ipNetToRange(ipNet)
+	val := big.NewInt(0)
+	var ip net.IP
+	if index >= 0 {
+		ip = *netRange.First
+	} else {
+		ip = *netRange.Last
+		index += 1
+	}
+	if ip.To4() != nil {
+		val.SetBytes(ip.To4())
+	} else {
+		val.SetBytes(ip)
+	}
+	val.Add(val, big.NewInt(index))
+	if ipNet.Contains(val.Bytes()) {
+		return val.Bytes()
+	}
+	return nil
 }
 
 func getPreviousIP(ip net.IP) net.IP {
@@ -832,4 +830,72 @@ func IPToPrefix(ip net.IP) *net.IPNet {
 // IsIPv4 returns true if the given IP is an IPv4
 func IsIPv4(ip net.IP) bool {
 	return ip.To4() != nil
+}
+
+// IsIPv6 returns if netIP is IPv6.
+func IsIPv6(ip net.IP) bool {
+	return ip != nil && ip.To4() == nil
+}
+
+// SortIPList sorts the provided net.IP slice in place.
+func SortIPList(ipList []net.IP) {
+	sort.Slice(ipList, func(i, j int) bool {
+		return bytes.Compare(ipList[i], ipList[j]) < 0
+	})
+}
+
+// getSortedIPList returns a new net.IP slice in which the IPs are sorted.
+func getSortedIPList(ipList []net.IP) []net.IP {
+	sortedIPList := make([]net.IP, len(ipList))
+	for i := 0; i < len(ipList); i++ {
+		sortedIPList[i] = ipList[i]
+	}
+
+	SortIPList(sortedIPList)
+	return sortedIPList
+}
+
+// SortedIPListsAreEqual compares two lists of sorted IPs. If any differ it returns
+// false.
+func SortedIPListsAreEqual(a, b []net.IP) bool {
+	// The IP set is definitely different if the lengths are different.
+	if len(a) != len(b) {
+		return false
+	}
+
+	// Lengths are equal, so each member in one set must be in the other
+	// If any IPs at the same index differ the sorted IP list are not equal.
+	for i := range a {
+		if !a[i].Equal(b[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// UnsortedIPListsAreEqual returns true if the list of net.IP provided is same
+// without considering the order of the IPs in the list. The function will first
+// attempt to sort both the IP lists and then validate equality for sorted lists.
+func UnsortedIPListsAreEqual(ipList1, ipList2 []net.IP) bool {
+	// The IP set is definitely different if the lengths are different.
+	if len(ipList1) != len(ipList2) {
+		return false
+	}
+
+	sortedIPList1 := getSortedIPList(ipList1)
+	sortedIPList2 := getSortedIPList(ipList2)
+
+	return SortedIPListsAreEqual(sortedIPList1, sortedIPList2)
+}
+
+// GetIPFromListByFamily returns a single IP address of the provided family from a list
+// of ip addresses.
+func GetIPFromListByFamily(ipList []net.IP, v4Family bool) net.IP {
+	for _, ipAddr := range ipList {
+		if v4Family == IsIPv4(ipAddr) || (!v4Family && IsIPv6(ipAddr)) {
+			return ipAddr
+		}
+	}
+
+	return nil
 }

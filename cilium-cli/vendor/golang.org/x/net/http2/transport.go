@@ -564,12 +564,12 @@ func canRetryError(err error) bool {
 	return false
 }
 
-func (t *Transport) dialClientConn(addr string, singleUse bool) (*ClientConn, error) {
+func (t *Transport) dialClientConn(ctx context.Context, addr string, singleUse bool) (*ClientConn, error) {
 	host, _, err := net.SplitHostPort(addr)
 	if err != nil {
 		return nil, err
 	}
-	tconn, err := t.dialTLS()("tcp", addr, t.newTLSConfig(host))
+	tconn, err := t.dialTLS(ctx)("tcp", addr, t.newTLSConfig(host))
 	if err != nil {
 		return nil, err
 	}
@@ -590,34 +590,28 @@ func (t *Transport) newTLSConfig(host string) *tls.Config {
 	return cfg
 }
 
-func (t *Transport) dialTLS() func(string, string, *tls.Config) (net.Conn, error) {
+func (t *Transport) dialTLS(ctx context.Context) func(string, string, *tls.Config) (net.Conn, error) {
 	if t.DialTLS != nil {
 		return t.DialTLS
 	}
-	return t.dialTLSDefault
-}
-
-func (t *Transport) dialTLSDefault(network, addr string, cfg *tls.Config) (net.Conn, error) {
-	cn, err := tls.Dial(network, addr, cfg)
-	if err != nil {
-		return nil, err
-	}
-	if err := cn.Handshake(); err != nil {
-		return nil, err
-	}
-	if !cfg.InsecureSkipVerify {
-		if err := cn.VerifyHostname(cfg.ServerName); err != nil {
+	return func(network, addr string, cfg *tls.Config) (net.Conn, error) {
+		dialer := &tls.Dialer{
+			Config: cfg,
+		}
+		cn, err := dialer.DialContext(ctx, network, addr)
+		if err != nil {
 			return nil, err
 		}
+		tlsCn := cn.(*tls.Conn) // DialContext comment promises this will always succeed
+		state := tlsCn.ConnectionState()
+		if p := state.NegotiatedProtocol; p != NextProtoTLS {
+			return nil, fmt.Errorf("http2: unexpected ALPN protocol %q; want %q", p, NextProtoTLS)
+		}
+		if !state.NegotiatedProtocolIsMutual {
+			return nil, errors.New("http2: could not negotiate protocol mutually")
+		}
+		return cn, nil
 	}
-	state := cn.ConnectionState()
-	if p := state.NegotiatedProtocol; p != NextProtoTLS {
-		return nil, fmt.Errorf("http2: unexpected ALPN protocol %q; want %q", p, NextProtoTLS)
-	}
-	if !state.NegotiatedProtocolIsMutual {
-		return nil, errors.New("http2: could not negotiate protocol mutually")
-	}
-	return cn, nil
 }
 
 // disableKeepAlives reports whether connections should be closed as
@@ -2632,7 +2626,9 @@ func (t *Transport) getBodyWriterState(cs *clientStream, body io.Reader) (s body
 
 func (s bodyWriterState) cancel() {
 	if s.timer != nil {
-		s.timer.Stop()
+		if s.timer.Stop() {
+			s.resc <- nil
+		}
 	}
 }
 
