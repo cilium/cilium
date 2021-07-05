@@ -68,21 +68,45 @@ jobs:
           echo ::set-output name=owner::${OWNER}
 
       - name: Create AKS cluster
+        id: cluster-creation
         run: |
+          # Create group
           az group create \
             --name ${{ env.name }} \
             --location ${{ env.location }} \
             --tags usage=${{ github.repository_owner }}-${{ github.event.repository.name }} owner=${{ steps.vars.outputs.owner }}
+
+          # Create cluster with a 1 node-count (we will remove this node pool
+          # afterwards)
+          # Details: Basic load balancers are not supported with multiple node
+          # pools. Create a cluster with standard load balancer selected to use
+          # multiple node pools, learn more at https://aka.ms/aks/nodepools.
           az aks create \
             --resource-group ${{ env.name }} \
             --name ${{ env.name }} \
             --location ${{ env.location }} \
             --network-plugin azure \
+            --node-count 1 \
+            --load-balancer-sku standard \
+            --node-vm-size Standard_B2s \
+            --node-osdisk-size 30 \
+            --generate-ssh-keys
+
+          # Get the name of the node pool that we will delete afterwards
+          echo ::set-output name=nodepool_to_delete::$(az aks nodepool list --cluster-name ${{ env.name }} -g ${{ env.name }} -o json | jq -r '.[0].name')
+
+          # Create a node pool with the taint 'node.cilium.io/agent-not-ready=true:NoSchedule'
+          # and with 'mode=system' as it it the same mode used for the nodepool
+          # created with the cluster.
+          az aks nodepool add \
+            --name nodepool2 \
+            --cluster-name ${{ env.name }} \
+            --resource-group ${{ env.name }} \
             --node-count 2 \
             --node-vm-size Standard_B2s \
             --node-osdisk-size 30 \
-            --load-balancer-sku basic \
-            --generate-ssh-keys
+            --mode system \
+            --node-taints node.cilium.io/agent-not-ready=true:NoSchedule
 
       - name: Get cluster credentials
         run: |
@@ -97,6 +121,17 @@ jobs:
             --azure-resource-group ${{ env.name }} \
             --wait=false \
             --config monitor-aggregation=none
+
+      - name: Delete the first node pool
+        run: |
+          # We can only delete the first node pool after Cilium is installed
+          # because some pods have Pod Disruption Budgets set. If we try to
+          # delete the first node pool without the second node pool being ready,
+          # AKS will not succeed with the pool deletion because some Deployments
+          # can't cease to exist in the cluster.
+          az aks nodepool delete --name ${{ steps.cluster-creation.outputs.nodepool_to_delete }} \
+            --cluster-name ${{ env.name }} \
+            --resource-group ${{ env.name }}
 
       - name: Enable Relay
         run: |
