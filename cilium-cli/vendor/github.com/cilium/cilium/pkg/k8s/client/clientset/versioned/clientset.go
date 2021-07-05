@@ -1,4 +1,4 @@
-// Copyright 2017-2020 Authors of Cilium
+// Copyright 2017-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
+	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
@@ -28,18 +29,25 @@ import (
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	CiliumV2() ciliumv2.CiliumV2Interface
+	CiliumV2alpha1() ciliumv2alpha1.CiliumV2alpha1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
 // version included in a Clientset.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	ciliumV2 *ciliumv2.CiliumV2Client
+	ciliumV2       *ciliumv2.CiliumV2Client
+	ciliumV2alpha1 *ciliumv2alpha1.CiliumV2alpha1Client
 }
 
 // CiliumV2 retrieves the CiliumV2Client
 func (c *Clientset) CiliumV2() ciliumv2.CiliumV2Interface {
 	return c.ciliumV2
+}
+
+// CiliumV2alpha1 retrieves the CiliumV2alpha1Client
+func (c *Clientset) CiliumV2alpha1() ciliumv2alpha1.CiliumV2alpha1Interface {
+	return c.ciliumV2alpha1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -67,6 +75,10 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	if err != nil {
 		return nil, err
 	}
+	cs.ciliumV2alpha1, err = ciliumv2alpha1.NewForConfig(&configShallowCopy)
+	if err != nil {
+		return nil, err
+	}
 
 	cs.DiscoveryClient, err = discovery.NewDiscoveryClientForConfig(&configShallowCopy)
 	if err != nil {
@@ -80,6 +92,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
 	cs.ciliumV2 = ciliumv2.NewForConfigOrDie(c)
+	cs.ciliumV2alpha1 = ciliumv2alpha1.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
 	return &cs
@@ -89,6 +102,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
 	cs.ciliumV2 = ciliumv2.New(c)
+	cs.ciliumV2alpha1 = ciliumv2alpha1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

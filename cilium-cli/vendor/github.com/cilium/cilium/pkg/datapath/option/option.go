@@ -22,4 +22,7 @@ const (
 
 	// DatapathModeIpvlan specifies ipvlan datapath mode.
 	DatapathModeIpvlan = "ipvlan"
+
+	// DatapathModeLBOnly specifies lb-only datapath mode.
+	DatapathModeLBOnly = "lb-only"
 )

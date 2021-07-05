@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -112,15 +112,7 @@ type EgressCommonRule struct {
 
 	// TODO: Move this to the policy package
 	// (https://github.com/cilium/cilium/issues/8353)
-
-	// TODO: The following field was exported to stop govet warnings. The govet
-	// warnings were because the CRD generation tool needs every struct field
-	// that's within a CRD, to have a json tag. JSON tags cannot be applied to
-	// unexported fields, hence this change. Refactor these fields out of this
-	// struct. GH issue: https://github.com/cilium/cilium/issues/12697. Once
-	// https://go-review.googlesource.com/c/tools/+/245857 is merged, this
-	// would no longer be required.
-	AggregatedSelectors EndpointSelectorSlice `json:"-"`
+	aggregatedSelectors EndpointSelectorSlice `json:"-"`
 }
 
 // EgressRule contains all rule types which can be applied at egress, i.e.
@@ -242,7 +234,7 @@ func (e *EgressCommonRule) getAggregatedSelectors() EndpointSelectorSlice {
 func (e *EgressRule) SetAggregatedSelectors() {
 	ess := e.getAggregatedSelectors()
 	ess = append(ess, e.ToFQDNs.GetAsEndpointSelectors()...)
-	e.AggregatedSelectors = ess
+	e.aggregatedSelectors = ess
 }
 
 // SetAggregatedSelectors creates a single slice containing all of the following
@@ -257,13 +249,13 @@ func (e *EgressRule) SetAggregatedSelectors() {
 // ToEndpoints is not aggregated due to requirement folding in
 // GetDestinationEndpointSelectorsWithRequirements()
 func (e *EgressCommonRule) SetAggregatedSelectors() {
-	e.AggregatedSelectors = e.getAggregatedSelectors()
+	e.aggregatedSelectors = e.getAggregatedSelectors()
 }
 
 // GetDestinationEndpointSelectorsWithRequirements returns a slice of endpoints selectors covering
 // all L3 source selectors of the ingress rule
 func (e *EgressRule) GetDestinationEndpointSelectorsWithRequirements(requirements []slim_metav1.LabelSelectorRequirement) EndpointSelectorSlice {
-	if e.AggregatedSelectors == nil {
+	if e.aggregatedSelectors == nil {
 		e.SetAggregatedSelectors()
 	}
 	return e.EgressCommonRule.getDestinationEndpointSelectorsWithRequirements(requirements)
@@ -272,7 +264,7 @@ func (e *EgressRule) GetDestinationEndpointSelectorsWithRequirements(requirement
 // GetDestinationEndpointSelectorsWithRequirements returns a slice of endpoints selectors covering
 // all L3 source selectors of the ingress rule
 func (e *EgressDenyRule) GetDestinationEndpointSelectorsWithRequirements(requirements []slim_metav1.LabelSelectorRequirement) EndpointSelectorSlice {
-	if e.AggregatedSelectors == nil {
+	if e.aggregatedSelectors == nil {
 		e.SetAggregatedSelectors()
 	}
 	return e.EgressCommonRule.getDestinationEndpointSelectorsWithRequirements(requirements)
@@ -284,7 +276,7 @@ func (e *EgressCommonRule) getDestinationEndpointSelectorsWithRequirements(
 	requirements []slim_metav1.LabelSelectorRequirement,
 ) EndpointSelectorSlice {
 
-	res := make(EndpointSelectorSlice, 0, len(e.ToEndpoints)+len(e.AggregatedSelectors))
+	res := make(EndpointSelectorSlice, 0, len(e.ToEndpoints)+len(e.aggregatedSelectors))
 
 	if len(requirements) > 0 && len(e.ToEndpoints) > 0 {
 		for idx := range e.ToEndpoints {
@@ -293,13 +285,13 @@ func (e *EgressCommonRule) getDestinationEndpointSelectorsWithRequirements(
 			sel.SyncRequirementsWithLabelSelector()
 			// Even though this string is deep copied, we need to override it
 			// because we are updating the contents of the MatchExpressions.
-			sel.CachedLabelSelectorString = sel.LabelSelector.String()
+			sel.cachedLabelSelectorString = sel.LabelSelector.String()
 			res = append(res, sel)
 		}
 	} else {
 		res = append(res, e.ToEndpoints...)
 	}
-	return append(res, e.AggregatedSelectors...)
+	return append(res, e.aggregatedSelectors...)
 }
 
 // AllowsWildcarding returns true if wildcarding should be performed upon

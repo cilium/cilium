@@ -33,4 +33,7 @@ const (
 	// IPAMClusterPool is the value to select the cluster pool mode for
 	// option.IPAM
 	IPAMClusterPool = "cluster-pool"
+
+	// IPAMAlibabaCloud is the value to select the AlibabaCloud ENI IPAM plugin for option.IPAM
+	IPAMAlibabaCloud = "alibabacloud"
 )

@@ -29,6 +29,15 @@ service Observer {
     // GetFlows returning structured data, meant to eventually obsolete GetLastNFlows.
     rpc GetFlows(GetFlowsRequest) returns (stream GetFlowsResponse) {}
 
+    // GetAgentEvents returns Cilium agent events.
+    rpc GetAgentEvents(GetAgentEventsRequest) returns (stream GetAgentEventsResponse) {}
+
+    // GetDebugEvents returns Cilium datapath debug events.
+    rpc GetDebugEvents(GetDebugEventsRequest) returns (stream GetDebugEventsResponse) {}
+
+    // GetNodes returns information about nodes in a cluster.
+    rpc GetNodes(GetNodesRequest) returns (GetNodesResponse) {}
+
     // ServerStatus returns some details about the running hubble server.
     rpc ServerStatus(ServerStatusRequest) returns (ServerStatusResponse) {}
 }
@@ -65,13 +74,16 @@ message ServerStatusResponse {
     // list of nodes that are unavailable
     // This list may not be exhaustive.
     repeated string unavailable_nodes = 7;
+
+    // Version is the version of Cilium/Hubble.
+    string version = 8;
 }
 
 message GetFlowsRequest {
     // Number of flows that should be returned. Incompatible with `since/until`.
     uint64 number = 1;
 
-    // Unused 2
+    reserved 2; // removed, do not use
 
     // follow sets when the server should continue to stream flows after
     // printing the last N flows.
@@ -110,6 +122,131 @@ message GetFlowsResponse {
         // lost_events informs clients about events which got dropped due to
         // a Hubble component being unavailable
         flow.LostEvent lost_events = 3;
+    }
+    // Name of the node where this event was observed.
+    string node_name = 1000;
+    // Timestamp at which this event was observed.
+    google.protobuf.Timestamp time = 1001;
+}
+
+message GetAgentEventsRequest {
+    // Number of agent events that should be returned. Incompatible with
+    // `since/until`.
+    uint64 number = 1;
+
+    // follow sets when the server should continue to stream agent events after
+    // printing the last N agent events.
+    bool follow = 2;
+
+    // TODO: do we want to be able to specify blocklist/allowlist (previously
+    // known as blacklist/whitelist)?
+
+    // Since this time for returned agent events. Incompatible with `number`.
+    google.protobuf.Timestamp since = 7;
+
+    // Until this time for returned agent events. Incompatible with `number`.
+    google.protobuf.Timestamp until = 8;
+}
+
+// GetAgentEventsResponse contains an event received from the Cilium agent.
+message GetAgentEventsResponse {
+    flow.AgentEvent agent_event = 1;
+    // Name of the node where this event was observed.
+    string node_name = 1000;
+    // Timestamp at which this event was observed.
+    google.protobuf.Timestamp time = 1001;
+}
+
+message GetDebugEventsRequest {
+    // Number of debug events that should be returned. Incompatible with
+    // `since/until`.
+    uint64 number = 1;
+
+    // follow sets when the server should continue to stream debug events after
+    // printing the last N debug events.
+    bool follow = 2;
+
+    // TODO: do we want to be able to specify blocklist/allowlist (previously
+    // known as blacklist/whitelist)?
+
+    // Since this time for returned debug events. Incompatible with `number`.
+    google.protobuf.Timestamp since = 7;
+
+    // Until this time for returned debug events. Incompatible with `number`.
+    google.protobuf.Timestamp until = 8;
+}
+
+// GetDebugEventsResponse contains a Cilium datapath debug events.
+message GetDebugEventsResponse {
+    flow.DebugEvent debug_event = 1;
+    // Name of the node where this event was observed.
+    string node_name = 1000;
+    // Timestamp at which this event was observed.
+    google.protobuf.Timestamp time = 1001;
+}
+
+message GetNodesRequest {}
+
+// GetNodesResponse contains the list of nodes.
+message GetNodesResponse {
+    // Nodes is an exhaustive list of nodes.
+    repeated Node nodes = 1;
+}
+
+// Node represents a cluster node.
+message Node {
+    // Name is the name of the node.
+    string name = 1;
+    // Version is the version of Cilium/Hubble as reported by the node.
+    string version = 2;
+
+    // Address is the network address of the API endpoint.
+    string address = 3;
+
+    // State represents the known state of the node.
+    relay.NodeState state = 4;
+
+    // TLS reports TLS related information.
+    TLS tls = 5;
+
+    // UptimeNS is the uptime of this instance in nanoseconds
+    uint64 uptime_ns = 6;
+
+    // number of currently captured flows
+    uint64 num_flows = 7;
+
+    // maximum capacity of the ring buffer
+    uint64 max_flows = 8;
+
+    // total amount of flows observed since the observer was started
+    uint64 seen_flows = 9;
+}
+
+// TLS represents TLS information.
+message TLS {
+    // Enabled reports whether TLS is enabled or not.
+    bool enabled = 1;
+    // ServerName is the TLS server name that can be used as part of the TLS
+    // cert validation process.
+    string server_name = 2;
+}
+
+// ExportEvent contains an event to be exported. Not to be used outside of the
+// exporter feature.
+message ExportEvent {
+    oneof response_types{
+        flow.Flow flow = 1;
+        // node_status informs clients about the state of the nodes
+        // participating in this particular GetFlows request.
+        relay.NodeStatusEvent node_status = 2;
+        // lost_events informs clients about events which got dropped due to
+        // a Hubble component being unavailable
+        flow.LostEvent lost_events = 3;
+        // agent_event informs clients about an event received from the Cilium
+        // agent.
+        flow.AgentEvent agent_event = 4;
+        // debug_event contains Cilium datapath debug events
+        flow.DebugEvent debug_event = 5;
     }
     // Name of the node where this event was observed.
     string node_name = 1000;

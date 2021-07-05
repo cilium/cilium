@@ -1,5 +1,5 @@
 // Copyright 2015 The Kubernetes Authors.
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
