@@ -24,7 +24,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/versioncheck"
 
-	go_version "github.com/blang/semver"
+	"github.com/blang/semver/v4"
 	"golang.org/x/sys/unix"
 )
 
@@ -87,11 +87,11 @@ func Base64() (string, error) {
 	return base64.StdEncoding.EncodeToString(jsonBytes), nil
 }
 
-func parseKernelVersion(ver string) (go_version.Version, error) {
+func parseKernelVersion(ver string) (semver.Version, error) {
 	verStrs := strings.Split(ver, ".")
 	switch {
 	case len(verStrs) < 2:
-		return go_version.Version{}, fmt.Errorf("unable to get kernel version from %q", ver)
+		return semver.Version{}, fmt.Errorf("unable to get kernel version from %q", ver)
 	case len(verStrs) < 3:
 		verStrs = append(verStrs, "0")
 	}
@@ -110,10 +110,10 @@ func parseKernelVersion(ver string) (go_version.Version, error) {
 }
 
 // GetKernelVersion returns the version of the Linux kernel running on this host.
-func GetKernelVersion() (go_version.Version, error) {
+func GetKernelVersion() (semver.Version, error) {
 	var unameBuf unix.Utsname
 	if err := unix.Uname(&unameBuf); err != nil {
-		return go_version.Version{}, err
+		return semver.Version{}, err
 	}
 	return parseKernelVersion(string(unameBuf.Release[:]))
 }

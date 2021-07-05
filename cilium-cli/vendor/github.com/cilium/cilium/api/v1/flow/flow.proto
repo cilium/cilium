@@ -36,7 +36,7 @@ message Flow {
     // l4
     Layer4 l4 = 6;
 
-    // unused 7
+    reserved 7; // removed, do not use
 
     Endpoint source = 8;
     Endpoint destination = 9;
@@ -46,7 +46,7 @@ message Flow {
     // NodeName is the name of the node from which this Flow was captured.
     string node_name = 11;
 
-    // unused 12
+    reserved 12; // removed, do not use
 
     // all names the source IP can have.
     repeated string source_names = 13;
@@ -61,7 +61,7 @@ message Flow {
     // Please use is_reply instead.
     bool reply = 16 [deprecated=true];
 
-    // unused 17-18
+    reserved 17, 18; // removed, do not use
 
     // EventType of the originating Cilium event
     CiliumEventType event_type = 19;
@@ -88,6 +88,15 @@ message Flow {
     // reply direction. May be absent (in which case it is unknown whether it
     // is a reply or not).
     google.protobuf.BoolValue is_reply = 26;
+
+    // Only applicable to cilium debug capture events, blank for other types
+    DebugCapturePoint debug_capture_point = 27;
+
+    // interface is the network interface on which this flow was observed
+    NetworkInterface interface = 28;
+
+    // proxy_port indicates the port of the proxy to which the flow was forwarded
+    uint32 proxy_port = 29;
 
     // This is a temporary workaround to support summary field for pb.Flow without
     // duplicating logic from the old parser. This field will be removed once we
@@ -224,6 +233,7 @@ enum Verdict {
     FORWARDED = 1;
     DROPPED = 2;
     ERROR = 3;
+    AUDIT = 4;
 }
 
 // These values are shared with pkg/monitor/api/drop.go and bpf/lib/common.h.
@@ -291,6 +301,20 @@ enum TrafficDirection {
     EGRESS = 2;
 }
 
+// These values are shared with pkg/monitor/api/datapath_debug.go and bpf/lib/dbg.h.
+enum DebugCapturePoint {
+    DBG_CAPTURE_POINT_UNKNOWN = 0;
+    reserved 1 to 3;
+    DBG_CAPTURE_DELIVERY = 4;
+    DBG_CAPTURE_FROM_LB = 5;
+    DBG_CAPTURE_AFTER_V46 = 6;
+    DBG_CAPTURE_AFTER_V64 = 7;
+    DBG_CAPTURE_PROXY_PRE = 8;
+    DBG_CAPTURE_PROXY_POST = 9;
+    DBG_CAPTURE_SNAT_PRE = 10;
+    DBG_CAPTURE_SNAT_POST = 11;
+}
+
 // EventTypeFilter is a filter describing a particular event type
 message EventTypeFilter {
 	// type is the primary flow type as defined by:
@@ -314,13 +338,16 @@ message CiliumEventType {
     // sub_type may indicate more details depending on type, e.g.
 	// - github.com/cilium/cilium/pkg/monitor/api.Trace*
     // - github.com/cilium/cilium/pkg/monitor/api.Drop*
+    // - github.com/cilium/cilium/pkg/monitor/api.DbgCapture*
     int32 sub_type = 2;
 }
 
 // FlowFilter represent an individual flow filter. All fields are optional. If
 // multiple fields are set, then all fields must match for the filter to match.
 message FlowFilter {
-    // source_ip filters by a list of source ips
+    // source_ip filters by a list of source ips. Each of the source ips can be
+    // specified as an exact match (e.g. "1.1.1.1") or as a CIDR range (e.g.
+    // "1.1.1.0/24").
     repeated string source_ip = 1;
     // source_pod filters by a list of source pod name prefixes, optionally
     // within a given namespace (e.g. "xwing", "kube-system/coredns-").
@@ -336,7 +363,9 @@ message FlowFilter {
     // supports the same syntax as the source_pod field.
     repeated string source_service = 16;
 
-    // destination_ip filters by a list of destination ips
+    // destination_ip filters by a list of destination ips. Each of the
+    // destination ips can be specified as an exact match (e.g. "1.1.1.1") or
+    // as a CIDR range (e.g. "1.1.1.0/24").
     repeated string destination_ip = 3;
     // destination_pod filters by a list of destination pod names
     repeated string destination_pod = 4;
@@ -376,6 +405,16 @@ message FlowFilter {
     repeated string http_method = 21;
     // http_path is a list of regular expressions to filter on the HTTP path.
     repeated string http_path = 22;
+
+    // tcp_flags filters flows based on TCP header flags
+    repeated TCPFlags tcp_flags = 23;
+
+    // node_name is a list of patterns to filter on the node name, e.g. (e.g.
+    // "k8s*", "test-cluster/*.domain.com", "cluster-name/").
+    repeated string node_name = 24;
+
+    // filter based on IP version (ipv4 or ipv6)
+    repeated IPVersion ip_version = 25;
 }
 
 // EventType are constants are based on the ones from <linux/perf_event.h>.
@@ -452,6 +491,10 @@ enum LostEventSource {
     // Hubble events queue was full, indicating that the Hubble observer did
     // not keep up.
     OBSERVER_EVENTS_QUEUE = 2;
+
+    // HUBBLE_RING_BUFFER indicates that the event was dropped because it could
+    // not be read from Hubble's ring buffer in time before being overwritten.
+    HUBBLE_RING_BUFFER = 3;
 }
 
 // LostEvent is a message which notifies consumers about a loss of events
@@ -464,4 +507,186 @@ message LostEvent {
     // cpu on which the event was lost if the source of lost events is
     // PERF_EVENT_RING_BUFFER.
     google.protobuf.Int32Value cpu = 3;
+}
+
+// AgentEventType is the type of agent event. These values are shared with type
+// AgentNotification in pkg/monitor/api/types.go
+enum AgentEventType {
+    AGENT_EVENT_UNKNOWN = 0;
+    // used for AGENT_EVENT_GENERIC in monitor API, but there are currently no
+    // such events;
+    reserved 1;
+    AGENT_STARTED = 2;
+    POLICY_UPDATED = 3;
+    POLICY_DELETED = 4;
+    ENDPOINT_REGENERATE_SUCCESS = 5;
+    ENDPOINT_REGENERATE_FAILURE = 6;
+    ENDPOINT_CREATED = 7;
+    ENDPOINT_DELETED = 8;
+    IPCACHE_UPSERTED = 9;
+    IPCACHE_DELETED = 10;
+    SERVICE_UPSERTED = 11;
+    SERVICE_DELETED = 12;
+}
+
+message AgentEvent {
+    AgentEventType type = 1;
+    oneof notification {
+        AgentEventUnknown unknown = 100;
+        TimeNotification agent_start = 101;
+        // used for POLICY_UPDATED and POLICY_DELETED
+        PolicyUpdateNotification policy_update = 102;
+        // used for ENDPOINT_REGENERATE_SUCCESS and ENDPOINT_REGENERATE_FAILURE
+        EndpointRegenNotification endpoint_regenerate = 103;
+        // used for ENDPOINT_CREATED and ENDPOINT_DELETED
+        EndpointUpdateNotification endpoint_update = 104;
+        // used for IPCACHE_UPSERTED and IPCACHE_DELETED
+        IPCacheNotification ipcache_update = 105;
+        ServiceUpsertNotification service_upsert = 106;
+        ServiceDeleteNotification service_delete = 107;
+    }
+}
+
+message AgentEventUnknown {
+    string type = 1;
+    string notification = 2;
+}
+
+message TimeNotification {
+    google.protobuf.Timestamp time = 1;
+}
+
+message PolicyUpdateNotification {
+    repeated string labels = 1;
+    uint64 revision = 2;
+    int64 rule_count = 3;
+}
+
+message EndpointRegenNotification {
+    uint64 id = 1;
+    repeated string labels = 2;
+    string error = 3;
+}
+
+message EndpointUpdateNotification {
+    uint64 id = 1;
+    repeated string labels = 2;
+    string error = 3;
+    string pod_name = 4;
+    string namespace = 5;
+}
+
+message IPCacheNotification {
+    string cidr = 1;
+    uint32 identity = 2;
+    google.protobuf.UInt32Value old_identity = 3;
+    string host_ip = 4;
+    string old_host_ip = 5;
+    uint32 encrypt_key = 6;
+    string namespace = 7;
+    string pod_name = 8;
+}
+
+message ServiceUpsertNotificationAddr {
+    string ip = 1;
+    uint32 port = 2;
+}
+
+message ServiceUpsertNotification {
+    uint32 id = 1;
+    ServiceUpsertNotificationAddr frontend_address = 2;
+    repeated ServiceUpsertNotificationAddr backend_addresses = 3;
+    string type = 4;
+    string traffic_policy = 5;
+    string name = 6;
+    string namespace = 7;
+}
+
+message ServiceDeleteNotification {
+    uint32 id = 1;
+}
+
+message NetworkInterface {
+    uint32 index = 1;
+    string name = 2;
+}
+
+message DebugEvent {
+    DebugEventType type = 1;
+    Endpoint source = 2;
+    google.protobuf.UInt32Value hash = 3;
+    google.protobuf.UInt32Value arg1 = 4;
+    google.protobuf.UInt32Value arg2 = 5;
+    google.protobuf.UInt32Value arg3 = 6;
+    string message = 7;
+    google.protobuf.Int32Value cpu = 8;
+}
+
+// These values are shared with pkg/monitor/api/datapath_debug.go and bpf/lib/dbg.h.
+enum DebugEventType {
+    DBG_EVENT_UNKNOWN = 0;
+    DBG_GENERIC = 1;
+    DBG_LOCAL_DELIVERY = 2;
+    DBG_ENCAP = 3;
+    DBG_LXC_FOUND = 4;
+    DBG_POLICY_DENIED = 5;
+    DBG_CT_LOOKUP = 6;
+    DBG_CT_LOOKUP_REV = 7;
+    DBG_CT_MATCH = 8;
+    DBG_CT_CREATED = 9;
+    DBG_CT_CREATED2 = 10;
+    DBG_ICMP6_HANDLE = 11;
+    DBG_ICMP6_REQUEST = 12;
+    DBG_ICMP6_NS = 13;
+    DBG_ICMP6_TIME_EXCEEDED = 14;
+    DBG_CT_VERDICT = 15;
+    DBG_DECAP = 16;
+    DBG_PORT_MAP = 17;
+    DBG_ERROR_RET = 18;
+    DBG_TO_HOST = 19;
+    DBG_TO_STACK = 20;
+    DBG_PKT_HASH = 21;
+    DBG_LB6_LOOKUP_FRONTEND = 22;
+    DBG_LB6_LOOKUP_FRONTEND_FAIL = 23;
+    DBG_LB6_LOOKUP_BACKEND_SLOT = 24;
+    DBG_LB6_LOOKUP_BACKEND_SLOT_SUCCESS = 25;
+    DBG_LB6_LOOKUP_BACKEND_SLOT_V2_FAIL = 26;
+    DBG_LB6_LOOKUP_BACKEND_FAIL = 27;
+    DBG_LB6_REVERSE_NAT_LOOKUP = 28;
+    DBG_LB6_REVERSE_NAT = 29;
+    DBG_LB4_LOOKUP_FRONTEND = 30;
+    DBG_LB4_LOOKUP_FRONTEND_FAIL = 31;
+    DBG_LB4_LOOKUP_BACKEND_SLOT = 32;
+    DBG_LB4_LOOKUP_BACKEND_SLOT_SUCCESS = 33;
+    DBG_LB4_LOOKUP_BACKEND_SLOT_V2_FAIL = 34;
+    DBG_LB4_LOOKUP_BACKEND_FAIL = 35;
+    DBG_LB4_REVERSE_NAT_LOOKUP = 36;
+    DBG_LB4_REVERSE_NAT = 37;
+    DBG_LB4_LOOPBACK_SNAT = 38;
+    DBG_LB4_LOOPBACK_SNAT_REV = 39;
+    DBG_CT_LOOKUP4 = 40;
+    DBG_RR_BACKEND_SLOT_SEL = 41;
+    DBG_REV_PROXY_LOOKUP = 42;
+    DBG_REV_PROXY_FOUND = 43;
+    DBG_REV_PROXY_UPDATE = 44;
+    DBG_L4_POLICY = 45;
+    DBG_NETDEV_IN_CLUSTER = 46;
+    DBG_NETDEV_ENCAP4 = 47;
+    DBG_CT_LOOKUP4_1 = 48;
+    DBG_CT_LOOKUP4_2 = 49;
+    DBG_CT_CREATED4 = 50;
+    DBG_CT_LOOKUP6_1 = 51;
+    DBG_CT_LOOKUP6_2 = 52;
+    DBG_CT_CREATED6 = 53;
+    DBG_SKIP_PROXY = 54;
+    DBG_L4_CREATE = 55;
+    DBG_IP_ID_MAP_FAILED4 = 56;
+    DBG_IP_ID_MAP_FAILED6 = 57;
+    DBG_IP_ID_MAP_SUCCEED4 = 58;
+    DBG_IP_ID_MAP_SUCCEED6 = 59;
+    DBG_LB_STALE_CT = 60;
+    DBG_INHERIT_IDENTITY = 61;
+    DBG_SK_LOOKUP4 = 62;
+    DBG_SK_LOOKUP6 = 63;
+    DBG_SK_ASSIGN = 64;
 }
