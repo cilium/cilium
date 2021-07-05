@@ -62,12 +62,14 @@ type k8sHubbleImplementation interface {
 	DeleteService(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	DeletePodCollection(ctx context.Context, namespace string, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
 	CheckDaemonSetStatus(ctx context.Context, namespace, daemonset string) error
+	GetRunningCiliumVersion(ctx context.Context, namespace string) (string, error)
 }
 
 type K8sHubble struct {
-	client      k8sHubbleImplementation
-	params      Parameters
-	certManager *certs.CertManager
+	client        k8sHubbleImplementation
+	params        Parameters
+	certManager   *certs.CertManager
+	ciliumVersion string
 }
 
 type Parameters struct {
@@ -257,7 +259,13 @@ func (k *K8sHubble) Enable(ctx context.Context) error {
 		return err
 	}
 
-	err := k.certManager.LoadCAFromK8s(ctx)
+	var err error
+	k.ciliumVersion, err = k.client.GetRunningCiliumVersion(ctx, k.params.Namespace)
+	if err != nil {
+		return err
+	}
+
+	err = k.certManager.LoadCAFromK8s(ctx)
 	if err != nil {
 		if !k.params.CreateCA {
 			k.Log("❌ Cilium CA not found: %s", err)
