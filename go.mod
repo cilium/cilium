@@ -16,7 +16,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.2.0
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.1.1
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.0.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.5.0
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.9.0
 	github.com/aws/smithy-go v1.4.0
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cilium/customvet v0.0.0-20201209211516-9852765c1ac4
@@ -33,7 +33,7 @@ require (
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/libnetwork v0.0.0-20190128195551-d8d4c8cf03d7
 	github.com/fsnotify/fsnotify v1.4.10-0.20200417215612-7f4cf4dd2b52
-	github.com/go-openapi/errors v0.19.9
+	github.com/go-openapi/errors v0.20.0
 	github.com/go-openapi/loads v0.20.2
 	github.com/go-openapi/runtime v0.19.28
 	github.com/go-openapi/spec v0.20.3
