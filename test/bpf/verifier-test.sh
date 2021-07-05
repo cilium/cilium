@@ -157,23 +157,6 @@ function cg_prog_type_init {
 	fi
 }
 
-function load_sock_prog {
-	prog=$1
-	pinpath=$2
-	prog_type=$3
-	attach_type=$4
-	section=$5
-
-	local args="pin $pinpath obj ${prog}.o type $prog_type \
-		    attach_type $attach_type sec $section"
-	if $VERBOSE; then
-		$TC exec bpf $args verbose 2>&1
-	else
-		$TC exec bpf $args 2>/dev/null \
-		|| $TC exec bpf $args verbose
-	fi
-}
-
 function load_sockops_prog {
 	prog="$1"
 	pinpath="$2"
