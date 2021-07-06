@@ -284,8 +284,7 @@ jobs:
           cilium connectivity test \
             --context ${{ steps.contexts.outputs.context1 }} \
             --multi-cluster ${{ steps.contexts.outputs.context2 }} \
-            --test '!pod-to-nodeport' \
-            --test '!pod-to-local-nodeport' \
+            --test '!/pod-to-.*-nodeport' \
              --flow-validation=disabled
 
       - name: Post-test information gathering
