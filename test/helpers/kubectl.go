@@ -753,7 +753,7 @@ func (kub *Kubectl) CountMissedTailCalls() (int, error) {
 			return -1, fmt.Errorf("Failed to run %s in pod %s: %s", cmd, ciliumPod, res.CombineOutput())
 		}
 		if res.Stdout() == "" {
-			return 0, nil
+			continue
 		}
 
 		for _, cnt := range res.ByLines() {
