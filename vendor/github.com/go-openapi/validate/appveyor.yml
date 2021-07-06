@@ -1,6 +1,6 @@
 version: "0.1.{build}"
 
-clone_folder: C:\go-openapi\analysis
+clone_folder: C:\go-openapi\validate
 shallow_clone: true # for startup speed
 pull_requests:
   do_not_increment_build_number: true
@@ -17,7 +17,7 @@ environment:
 stack: go 1.15
 
 test_script:
-  - go test -v -timeout 20m ./...
+  - go test -v -timeout 20m -args -enable-long ./...
 
 deploy: off
 
