@@ -950,6 +950,13 @@ const (
 	// ExternalClusterIPName is the name of the option to enable
 	// cluster external access to ClusterIP services.
 	ExternalClusterIPName = "bpf-lb-external-clusterip"
+
+	// EnableSpiffe is the name of the option that enables the Cilium-SPIFFE integration.
+	EnableSpiffe = "enable-spiffe"
+
+	// SpirePrivilegedAPISocketPath is the name of the option that defines the
+	// path of the Unix domain socket used to contact the Spire agent.
+	SpirePrivilegedAPISocketPath = "spire-privileged-api-socket-path"
 )
 
 // Default string arguments
@@ -1949,6 +1956,13 @@ type DaemonConfig struct {
 
 	// ARPPingRefreshPeriod is the ARP entries refresher period.
 	ARPPingRefreshPeriod time.Duration
+
+	// EnableSpiffe enables the Cilium-SPIFFE integration.
+	EnableSpiffe bool
+
+	// SpirePrivilegedAPISocketPath is the path of the Unix domain socket used
+	// to contact the Spire agent.
+	SpirePrivilegedAPISocketPath string
 }
 
 var (
@@ -1991,6 +2005,8 @@ var (
 		K8sEnableK8sEndpointSlice:    defaults.K8sEnableEndpointSlice,
 		k8sEnableAPIDiscovery:        defaults.K8sEnableAPIDiscovery,
 		AllocatorListTimeout:         defaults.AllocatorListTimeout,
+		EnableSpiffe:                 defaults.EnableSpiffe,
+		SpirePrivilegedAPISocketPath: defaults.SpirePrivilegedAPISocketPath,
 
 		k8sEnableLeasesFallbackDiscovery: defaults.K8sEnableLeasesFallbackDiscovery,
 		APIRateLimit:                     make(map[string]string),
@@ -2505,6 +2521,8 @@ func (c *DaemonConfig) Populate() {
 	c.BGPAnnounceLBIP = viper.GetBool(BGPAnnounceLBIP)
 	c.BGPConfigPath = viper.GetString(BGPConfigPath)
 	c.ExternalClusterIP = viper.GetBool(ExternalClusterIPName)
+	c.EnableSpiffe = viper.GetBool(EnableSpiffe)
+	c.SpirePrivilegedAPISocketPath = viper.GetString(SpirePrivilegedAPISocketPath)
 
 	c.EnableIPv4Masquerade = viper.GetBool(EnableIPv4Masquerade) && c.EnableIPv4
 	c.EnableIPv6Masquerade = viper.GetBool(EnableIPv6Masquerade) && c.EnableIPv6

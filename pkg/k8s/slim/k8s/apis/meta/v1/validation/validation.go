@@ -16,7 +16,10 @@
 package validation
 
 import (
+	"strings"
+
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/spiffe/go-spiffe/v2/spiffeid"
 
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -55,8 +58,17 @@ func ValidateLabelSelectorRequirement(sr slim_metav1.LabelSelectorRequirement, f
 // ValidateLabelName validates that the label name is correctly defined.
 func ValidateLabelName(labelName string, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
-	for _, msg := range validation.IsQualifiedName(labelName) {
-		allErrs = append(allErrs, field.Invalid(fldPath, labelName, msg))
+
+	if strings.HasPrefix(labelName, "spiffe.//") {
+		// replace '.' by ':' after 'spiffe
+		spiffeID := labelName[:6] + ":" + labelName[7:]
+		if _, err := spiffeid.FromString(spiffeID); err != nil {
+			allErrs = append(allErrs, field.Invalid(fldPath, labelName, err.Error()))
+		}
+	} else {
+		for _, msg := range validation.IsQualifiedName(labelName) {
+			allErrs = append(allErrs, field.Invalid(fldPath, labelName, msg))
+		}
 	}
 	return allErrs
 }

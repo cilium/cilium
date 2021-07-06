@@ -1,0 +1,52 @@
+syntax = "proto3";
+package spire.api.types;
+option go_package = "github.com/spiffe/spire-api-sdk/proto/spire/api/types";
+
+message Bundle {
+    // The name of the trust domain the bundle belongs to (e.g., "example.org").
+    string trust_domain = 1;
+
+    // X.509 authorities for authenticating X509-SVIDs.
+    repeated X509Certificate x509_authorities = 2;
+
+    // JWT authorities for authenticating JWT-SVIDs.
+    repeated JWTKey jwt_authorities = 3;
+
+    // A hint on how often the bundle should be refreshed from the bundle
+    // provider, in seconds. Can be zero (meaning no hint available).
+    int64 refresh_hint = 4;
+
+    // The sequence number of the bundle.
+    uint64 sequence_number = 5;
+}
+
+message X509Certificate {
+    // The ASN.1 DER encoded bytes of the X.509 certificate.
+    bytes asn1 = 1;
+}
+
+message JWTKey {
+    // The PKIX encoded public key.
+    bytes public_key = 1;
+
+    // The key identifier.
+    string key_id = 2;
+
+    // When the key expires (seconds since Unix epoch). If zero, the key does
+    // not expire.
+    int64 expires_at = 3;
+}
+
+message BundleMask {
+    // x509_authorities field mask.
+    bool x509_authorities = 2;
+
+    // jwt_authorities field mask.
+    bool jwt_authorities = 3;
+
+    // refresh_hint field mask.
+    bool refresh_hint = 4;
+
+    // sequence_number field mask.
+    bool sequence_number = 5;
+}

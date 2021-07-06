@@ -1,0 +1,52 @@
+syntax = "proto3";
+package spire.api.agent.privileged.v1;
+option go_package = "github.com/spiffe/spire-api-sdk/proto/spire/api/agent/privileged/v1;privilegedv1";
+
+import "spire/api/types/selector.proto";
+import "spire/api/types/x509svid.proto";
+
+service Privileged {
+    // Fetch X.509-SVIDs for identities that match the given selectors.
+    //
+    // The caller must be local.
+    rpc FetchX509SVIDsBySelectors(FetchX509SVIDsBySelectorsRequest) returns (stream FetchX509SVIDsBySelectorsResponse);
+
+
+    rpc WatchX509SVIDs(stream WatchX509SVIDsRequest) returns (stream WatchX509SVIDsResponse);
+}
+
+message FetchX509SVIDsBySelectorsRequest {
+    repeated spire.api.types.Selector selectors = 1;
+}
+
+message FetchX509SVIDsBySelectorsResponse {
+    repeated X509SVIDWithKey x509_svids = 1;
+
+    bytes bundle = 2;
+    map<string, bytes> federated_bundles = 3;
+}
+
+// X.509 SPIFFE Verifiable Identity Document with the private key.
+message X509SVIDWithKey {
+    spire.api.types.X509SVID x509_svid = 1;
+
+    bytes x509_svid_key = 2;
+}
+
+message WatchX509SVIDsRequest {
+    enum Operation {
+        UNSPEC = 0;
+        ADD = 1;
+        DEL = 2;
+    }
+
+    Operation operation = 1;
+    uint64 id = 2;
+    repeated spire.api.types.Selector selectors = 3;
+}
+
+message WatchX509SVIDsResponse {
+    uint64 id = 1;   // who is this reply for
+
+    FetchX509SVIDsBySelectorsResponse response = 2;
+}

@@ -684,6 +684,9 @@ func (in *PodSpec) DeepEqual(other *PodSpec) bool {
 	if in.HostNetwork != other.HostNetwork {
 		return false
 	}
+	if in.NodeName != other.NodeName {
+		return false
+	}
 
 	return true
 }

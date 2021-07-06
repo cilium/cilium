@@ -33,6 +33,7 @@ import (
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -399,6 +400,12 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 			ep.Logger("api").WithError(err).Warning("Unable to fetch kubernetes labels")
 		} else {
 			ep.SetPod(pod)
+			if !identity.IdentityAllocationIsLocal(identityLabels) {
+				err = ep.WatchSpiffeIDs()
+				if err != nil {
+					return invalidDataError(ep, err)
+				}
+			}
 			if err := ep.SetK8sMetadata(cp); err != nil {
 				return invalidDataError(ep, fmt.Errorf("Invalid ContainerPorts %v: %s", cp, err))
 			}

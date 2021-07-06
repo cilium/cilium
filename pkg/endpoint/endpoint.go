@@ -65,6 +65,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
+	"github.com/cilium/cilium/pkg/spiffe"
 	"github.com/cilium/cilium/pkg/trigger"
 
 	"github.com/sirupsen/logrus"
@@ -350,6 +351,9 @@ type Endpoint struct {
 	isHost bool
 
 	noTrackPort uint16
+
+	// Set of labels that correspond to SPIFFE IDs
+	spiffeIDs labels.Labels
 }
 
 // EndpointSyncControllerName returns the controller name to synchronize
@@ -1197,6 +1201,40 @@ func (e *Endpoint) GetK8sNamespace() string {
 	return ns
 }
 
+func (e *Endpoint) WatchSpiffeIDs() error {
+	if !option.Config.EnableSpiffe {
+		return nil
+	}
+
+	updateFunc := func(svids []*spiffe.SpiffeSVID) {
+		newSpiffeIds := labels.Labels{}
+		for _, svid := range svids {
+			//e.LogStatusOK(Other, fmt.Sprintf("V2 -> Processing SPIFFE-ID %q", svid.SpiffeID))
+			e.getLogger().Debugf("Processing Spiffe ID %q", svid.SpiffeID)
+			spiffeLabel := labels.NewLabel(svid.SpiffeID, "", "")
+			newSpiffeIds[spiffeLabel.Key] = spiffeLabel
+		}
+		if !newSpiffeIds.Equals(e.spiffeIDs) {
+			// Labels changed, calculate new ID
+			err := e.ModifyIdentityLabels(newSpiffeIds, e.spiffeIDs)
+			if err != nil {
+				// TODO(Mauricio): retry, fail?
+				e.LogStatus(Other, Warning, fmt.Sprintf("Failed to update identity labels %s", err.Error()))
+				return
+			}
+		}
+		e.spiffeIDs = newSpiffeIds
+	}
+
+	err := spiffe.Watch(e.pod, updateFunc)
+	if err != nil {
+		e.LogStatus(Other, Warning, fmt.Sprintf("failed to watch spiffe IDs: %s", err.Error()))
+		return err
+	}
+
+	return nil
+}
+
 // SetPod sets the pod related to this endpoint.
 func (e *Endpoint) SetPod(pod *slim_corev1.Pod) {
 	e.unconditionalLock()
@@ -1620,6 +1658,12 @@ func (e *Endpoint) RunMetadataResolver(resolveMetadata MetadataResolverCB) {
 					return err
 				}
 				e.SetPod(pod)
+				if !identity.IdentityAllocationIsLocal(identityLabels) {
+					err = e.WatchSpiffeIDs()
+					if err != nil {
+						return err
+					}
+				}
 				e.SetK8sMetadata(cp)
 				e.UpdateNoTrackRules(func(_, _ string) (noTrackPort string, err error) {
 					_, _, _, _, annotations, err := resolveMetadata(ns, podName)
@@ -2187,6 +2231,12 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 		return []error{}
 	}
 	e.setState(StateDisconnecting, "Deleting endpoint")
+
+	if option.Config.EnableSpiffe {
+		if err := spiffe.Unwatch(e.pod); err != nil {
+			errs = append(errs, err)
+		}
+	}
 
 	// If dry mode is enabled, no changes to BPF maps are performed
 	if !option.Config.DryMode {

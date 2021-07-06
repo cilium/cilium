@@ -87,6 +87,7 @@ import (
 	"github.com/cilium/cilium/pkg/service"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/sockops"
+	"github.com/cilium/cilium/pkg/spiffe"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/trigger"
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
@@ -385,6 +386,10 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	}
 
 	nd := nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig, netConf)
+
+	if option.Config.EnableSpiffe {
+		spiffe.InitWatcher()
+	}
 
 	d := Daemon{
 		ctx:               ctx,

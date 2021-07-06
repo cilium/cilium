@@ -1,0 +1,30 @@
+syntax = "proto3";
+package spire.api.types;
+option go_package = "github.com/spiffe/spire-api-sdk/proto/spire/api/types";
+
+message Selector {
+    // The type of the selector. This is typically the name of the plugin that
+    // produces the selector.
+    string type = 1;
+
+    // The value of the selector.
+    string value = 2;
+}
+
+message SelectorMatch {
+    enum MatchBehavior {
+        // Indicates that the selectors in this match are equal to the
+        // candidate selectors, independent of ordering.
+        MATCH_EXACT = 0;
+
+        // Indicates that the selectors in this match are a subset of the
+        // candidate selectors.
+        MATCH_SUBSET = 1;
+    }
+
+    // The set of selectors to match on.
+    repeated Selector selectors = 1;
+
+    // How to match the selectors.
+    MatchBehavior match = 2;
+}

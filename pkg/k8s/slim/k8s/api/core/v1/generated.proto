@@ -422,6 +422,12 @@ message PodSpec {
   // +k8s:conversion-gen=false
   // +optional
   optional bool hostNetwork = 11;
+
+  // NodeName is a request to schedule this pod onto a specific node. If it is non-empty,
+  // the scheduler simply schedules this pod onto that node, assuming that it fits resource
+  // requirements.
+  // +optional
+  optional string nodeName = 10;
 }
 
 // PodStatus represents information about the status of a pod. Status may trail the actual

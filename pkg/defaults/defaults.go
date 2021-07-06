@@ -436,5 +436,11 @@ const (
 
 	// ExternalClusterIP enables cluster external access to ClusterIP services.
 	// Defaults to false to retain prior behaviour of not routing external packets to ClusterIPs.
+
 	ExternalClusterIP = false
+	// EnableSpiffe is disabled by default
+	EnableSpiffe = false
+
+	// SpirePrivilegedAPISocketPath is the path of the Unix domain socket used to contact the Spire agent.
+	SpirePrivilegedAPISocketPath = "/run/spire/sockets-admin/admin.sock"
 )
