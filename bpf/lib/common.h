@@ -456,9 +456,9 @@ enum {
 #define LB_LOOKUP_SCOPE_INT	1
 
 /* Cilium metrics direction for dropping/forwarding packet */
-#define METRIC_INGRESS  1
-#define METRIC_EGRESS   2
-#define METRIC_SERVICE  3
+#define METRIC_EGRESS   CT_EGRESS
+#define METRIC_INGRESS  CT_INGRESS
+#define METRIC_SERVICE  CT_SERVICE
 
 /* Magic ctx->mark identifies packets origination and encryption status.
  *
