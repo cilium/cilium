@@ -52,6 +52,7 @@ echo -e "Sending PR for branch v$BRANCH:\n" 1>&2
 cat $SUMMARY 1>&2
 echo -e "\nSending pull request..." 2>&1
 PR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+git config --local "branch.${PR_BRANCH}.remote" "$USER_REMOTE"
 git push -q "$USER_REMOTE" "$PR_BRANCH"
 hub pull-request -b "v$BRANCH" -l kind/backports,backport/$BRANCH -F $SUMMARY
 
