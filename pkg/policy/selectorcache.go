@@ -152,8 +152,11 @@ type identitySelector interface {
 	// Called with NameManager and SelectorCache locks held
 	removeUser(CachedSelectionUser, identityNotifier) (last bool)
 
-	// This may be called while the NameManager lock is held
-	notifyUsers(sc *SelectorCache, added, deleted []identity.NumericIdentity)
+	// This may be called while the NameManager lock is held. wg.Wait()
+	// returns after user notifications have been completed, which may require
+	// taking Endpoint and SelectorCache locks, so these locks must not be
+	// held when calling wg.Wait().
+	notifyUsers(sc *SelectorCache, added, deleted []identity.NumericIdentity, wg *sync.WaitGroup)
 
 	numUsers() int
 }
@@ -193,6 +196,7 @@ type userNotification struct {
 	selector CachedSelector
 	added    []identity.NumericIdentity
 	deleted  []identity.NumericIdentity
+	wg       *sync.WaitGroup
 }
 
 // SelectorCache caches identities, identity selectors, and the
@@ -257,17 +261,20 @@ func (sc *SelectorCache) handleUserNotifications() {
 
 		for _, n := range notifications {
 			n.user.IdentitySelectionUpdated(n.selector, n.added, n.deleted)
+			n.wg.Done()
 		}
 	}
 }
 
-func (sc *SelectorCache) queueUserNotification(user CachedSelectionUser, selector CachedSelector, added, deleted []identity.NumericIdentity) {
+func (sc *SelectorCache) queueUserNotification(user CachedSelectionUser, selector CachedSelector, added, deleted []identity.NumericIdentity, wg *sync.WaitGroup) {
+	wg.Add(1)
 	sc.userMutex.Lock()
 	sc.userNotes = append(sc.userNotes, userNotification{
 		user:     user,
 		selector: selector,
 		added:    added,
 		deleted:  deleted,
+		wg:       wg,
 	})
 	sc.userMutex.Unlock()
 	sc.userCond.Signal()
@@ -429,10 +436,10 @@ type fqdnSelector struct {
 //
 // The caller is responsible for making sure the same identity is not
 // present in both 'added' and 'deleted'.
-func (f *fqdnSelector) notifyUsers(sc *SelectorCache, added, deleted []identity.NumericIdentity) {
+func (f *fqdnSelector) notifyUsers(sc *SelectorCache, added, deleted []identity.NumericIdentity, wg *sync.WaitGroup) {
 	for user := range f.users {
 		// pass 'f' to the user as '*fqdnSelector'
-		sc.queueUserNotification(user, f, added, deleted)
+		sc.queueUserNotification(user, f, added, deleted, wg)
 	}
 }
 
@@ -488,10 +495,10 @@ type labelIdentitySelector struct {
 //
 // The caller is responsible for making sure the same identity is not
 // present in both 'added' and 'deleted'.
-func (l *labelIdentitySelector) notifyUsers(sc *SelectorCache, added, deleted []identity.NumericIdentity) {
+func (l *labelIdentitySelector) notifyUsers(sc *SelectorCache, added, deleted []identity.NumericIdentity, wg *sync.WaitGroup) {
 	for user := range l.users {
 		// pass 'l' to the user as '*labelIdentitySelector'
-		sc.queueUserNotification(user, l, added, deleted)
+		sc.queueUserNotification(user, l, added, deleted, wg)
 	}
 }
 
@@ -529,15 +536,18 @@ func (l *labelIdentitySelector) matches(identity scIdentity) bool {
 
 // UpdateFQDNSelector updates the mapping of fqdnKey (the FQDNSelector from a
 // policy rule as a string) to to the provided list of identities. If the contents
-// of the cachedSelections differ from those in the identities slice, all
-// users are notified.
-func (sc *SelectorCache) UpdateFQDNSelector(fqdnSelec api.FQDNSelector, identities []identity.NumericIdentity) {
+// of the cachedSelections differ from those in the identities slice, all users
+// are notified asynchronously. Caller should Wait() on the returned
+// sync.WaitGroup before triggering any policy updates. Policy updates may need
+// Endpoint locks, so this Wait() can deadlock if the caller is holding any
+// endpoint locks.
+func (sc *SelectorCache) UpdateFQDNSelector(fqdnSelec api.FQDNSelector, identities []identity.NumericIdentity, wg *sync.WaitGroup) {
 	sc.mutex.Lock()
-	sc.updateFQDNSelector(fqdnSelec, identities)
+	sc.updateFQDNSelector(fqdnSelec, identities, wg)
 	sc.mutex.Unlock()
 }
 
-func (sc *SelectorCache) updateFQDNSelector(fqdnSelec api.FQDNSelector, identities []identity.NumericIdentity) {
+func (sc *SelectorCache) updateFQDNSelector(fqdnSelec api.FQDNSelector, identities []identity.NumericIdentity, wg *sync.WaitGroup) {
 	fqdnKey := fqdnSelec.String()
 
 	var fqdnSel *fqdnSelector
@@ -621,7 +631,7 @@ func (sc *SelectorCache) updateFQDNSelector(fqdnSelec api.FQDNSelector, identiti
 	// getting the CIDR identities which correspond to this FQDNSelector. This
 	// is the primary difference here between FQDNSelector and IdentitySelector.
 	fqdnSel.updateSelections()
-	fqdnSel.notifyUsers(sc, added, deleted) // disjoint sets, see the comment above
+	fqdnSel.notifyUsers(sc, added, deleted, wg) // disjoint sets, see the comment above
 }
 
 // AddFQDNSelector adds the given api.FQDNSelector in to the selector cache. If
@@ -824,7 +834,11 @@ func (sc *SelectorCache) ChangeUser(selector CachedSelector, from, to CachedSele
 //
 // The caller is responsible for making sure the same identity is not
 // present in both 'added' and 'deleted'.
-func (sc *SelectorCache) UpdateIdentities(added, deleted cache.IdentityCache) {
+//
+// Caller should Wait() on the returned sync.WaitGroup before triggering any
+// policy updates. Policy updates may need Endpoint locks, so this Wait() can
+// deadlock if the caller is holding any endpoint locks.
+func (sc *SelectorCache) UpdateIdentities(added, deleted cache.IdentityCache, wg *sync.WaitGroup) {
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
 
@@ -880,7 +894,7 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted cache.IdentityCache) {
 				}
 				if len(dels)+len(adds) > 0 {
 					idSel.updateSelections()
-					idSel.notifyUsers(sc, adds, dels)
+					idSel.notifyUsers(sc, adds, dels, wg)
 				}
 			case *fqdnSelector:
 				// This is a no-op right now. We don't encode in the identities
@@ -892,12 +906,12 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted cache.IdentityCache) {
 
 // RemoveIdentitiesFQDNSelectors removes all identities from being mapped to the
 // set of FQDNSelectors.
-func (sc *SelectorCache) RemoveIdentitiesFQDNSelectors(fqdnSels []api.FQDNSelector) {
+func (sc *SelectorCache) RemoveIdentitiesFQDNSelectors(fqdnSels []api.FQDNSelector, wg *sync.WaitGroup) {
 	sc.mutex.Lock()
 	noIdentities := []identity.NumericIdentity{}
 
 	for i := range fqdnSels {
-		sc.updateFQDNSelector(fqdnSels[i], noIdentities)
+		sc.updateFQDNSelector(fqdnSels[i], noIdentities, wg)
 	}
 	sc.mutex.Unlock()
 }
