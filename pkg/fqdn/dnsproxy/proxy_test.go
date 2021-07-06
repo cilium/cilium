@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -181,12 +182,14 @@ var (
 
 func (s *DNSProxyTestSuite) SetUpTest(c *C) {
 	// Add these identities
+	wg := &sync.WaitGroup{}
 	testSelectorCache.UpdateIdentities(cache.IdentityCache{
 		dstID1: labels.Labels{"Dst1": labels.NewLabel("Dst1", "test", labels.LabelSourceK8s)}.LabelArray(),
 		dstID2: labels.Labels{"Dst2": labels.NewLabel("Dst2", "test", labels.LabelSourceK8s)}.LabelArray(),
 		dstID3: labels.Labels{"Dst3": labels.NewLabel("Dst3", "test", labels.LabelSourceK8s)}.LabelArray(),
 		dstID4: labels.Labels{"Dst4": labels.NewLabel("Dst4", "test", labels.LabelSourceK8s)}.LabelArray(),
-	}, nil)
+	}, nil, wg)
+	wg.Wait()
 
 	s.repo = policy.NewPolicyRepository(nil, nil)
 	s.dnsTCPClient = &dns.Client{Net: "tcp", Timeout: time.Second, SingleInflight: true}
