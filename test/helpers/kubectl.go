@@ -311,6 +311,10 @@ func GetCiliumNamespace(integration string) string {
 type Kubectl struct {
 	Executor
 	*serviceCache
+
+	// ciliumOptions is a cache of the most recent configuration options
+	// used to install Cilium via CiliumInstall().
+	ciliumOptions map[string]string
 }
 
 // CreateKubectl initializes a Kubectl helper with the provided vmName and log
@@ -378,6 +382,7 @@ func CreateKubectl(vmName string, log *logrus.Entry) (k *Kubectl) {
 
 	// Clean any leftover resources in the default namespace
 	k.CleanNamespace(DefaultNamespace)
+	k.ciliumOptions = make(map[string]string)
 
 	return k
 }
@@ -2026,15 +2031,22 @@ iteratePods:
 	}
 }
 
+// RedeployDNS deletes the kube-dns pods and does not wait for the deletion
+// to complete. Useful to ensure that the pods are recreated after datapath
+// configuration changes.
+func (kub *Kubectl) RedeployDNS() *CmdRes {
+	return kub.DeleteResource("pod", "-n "+KubeSystemNamespace+" -l "+kubeDNSLabel)
+}
+
 // RedeployKubernetesDnsIfNecessary validates if the Kubernetes DNS is
 // functional and re-deploys it if it is not and then waits for it to deploy
 // successfully and become operational. See ValidateKubernetesDNS() for the
 // list of conditions that must be met for Kubernetes DNS to be considered
 // operational.
-func (kub *Kubectl) RedeployKubernetesDnsIfNecessary() {
+func (kub *Kubectl) RedeployKubernetesDnsIfNecessary(force bool) {
 	ginkgoext.By("Validating if Kubernetes DNS is deployed")
 	err := kub.ValidateKubernetesDNS()
-	if err == nil {
+	if err == nil && !force {
 		ginkgoext.By("Kubernetes DNS is up and operational")
 		return
 	} else {
@@ -2042,7 +2054,7 @@ func (kub *Kubectl) RedeployKubernetesDnsIfNecessary() {
 	}
 
 	ginkgoext.By("Restarting Kubernetes DNS (-l %s)", kubeDNSLabel)
-	res := kub.DeleteResource("pod", "-n "+KubeSystemNamespace+" -l "+kubeDNSLabel)
+	res := kub.RedeployDNS()
 	if !res.WasSuccessful() {
 		ginkgoext.Failf("Unable to delete DNS pods: %s", res.OutputPrettyPrint())
 	}
@@ -2483,6 +2495,8 @@ func (kub *Kubectl) CiliumInstall(filename string, options map[string]string) er
 	if !res.WasSuccessful() {
 		return res.GetErr("Unable to apply YAML")
 	}
+
+	kub.ciliumOptions = options
 
 	return nil
 }
@@ -4477,4 +4491,10 @@ func (kub *Kubectl) ensureKubectlVersion() error {
 		return fmt.Errorf("failed to download kubectl")
 	}
 	return nil
+}
+
+// CiliumOptions returns the most recently used set of options for installing
+// Cilium into the cluster.
+func (kub *Kubectl) CiliumOptions() map[string]string {
+	return kub.ciliumOptions
 }
