@@ -17,11 +17,9 @@ package api
 import (
 	"fmt"
 	"regexp"
-	"strings"
 
+	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
-
-	"github.com/miekg/dns"
 )
 
 var (
@@ -101,7 +99,7 @@ func (s *FQDNSelector) sanitize() error {
 func (s *FQDNSelector) ToRegex() (*regexp.Regexp, error) {
 	var preparedMatch string
 	if s.MatchName != "" {
-		preparedMatch = strings.ToLower(dns.Fqdn(s.MatchName))
+		preparedMatch = dns.FQDN(s.MatchName)
 	} else {
 		preparedMatch = matchpattern.Sanitize(s.MatchPattern)
 	}
