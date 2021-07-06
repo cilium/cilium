@@ -252,11 +252,13 @@ func (ds *SelectorCacheTestSuite) TestAddRemoveSelector(c *C) {
 	sc := testNewSelectorCache(cache.IdentityCache{})
 
 	// Add some identities to the identity cache
+	wg := &sync.WaitGroup{}
 	sc.UpdateIdentities(cache.IdentityCache{
 		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s),
 			k8sConst.PodNamespaceLabel: labels.NewLabel(k8sConst.PodNamespaceLabel, "default", labels.LabelSourceK8s)}.LabelArray(),
 		2345: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
-	}, nil)
+	}, nil, wg)
+	wg.Wait()
 
 	testSelector := api.NewESFromLabels(labels.NewLabel("app", "test", labels.LabelSourceK8s),
 		labels.NewLabel(k8sConst.PodNamespaceLabel, "default", labels.LabelSourceK8s))
@@ -302,10 +304,12 @@ func (ds *SelectorCacheTestSuite) TestMultipleIdentitySelectors(c *C) {
 	sc := testNewSelectorCache(cache.IdentityCache{})
 
 	// Add some identities to the identity cache
+	wg := &sync.WaitGroup{}
 	sc.UpdateIdentities(cache.IdentityCache{
 		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
 		2345: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
-	}, nil)
+	}, nil, wg)
+	wg.Wait()
 
 	testSelector := api.NewESFromLabels(labels.NewLabel("app", "test", labels.LabelSourceK8s))
 	test2Selector := api.NewESFromLabels(labels.NewLabel("app", "test2", labels.LabelSourceK8s))
@@ -338,10 +342,12 @@ func (ds *SelectorCacheTestSuite) TestIdentityUpdates(c *C) {
 	sc := testNewSelectorCache(cache.IdentityCache{})
 
 	// Add some identities to the identity cache
+	wg := &sync.WaitGroup{}
 	sc.UpdateIdentities(cache.IdentityCache{
 		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
 		2345: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
-	}, nil)
+	}, nil, wg)
+	wg.Wait()
 
 	testSelector := api.NewESFromLabels(labels.NewLabel("app", "test", labels.LabelSourceK8s))
 	test2Selector := api.NewESFromLabels(labels.NewLabel("app", "test2", labels.LabelSourceK8s))
@@ -365,9 +371,12 @@ func (ds *SelectorCacheTestSuite) TestIdentityUpdates(c *C) {
 
 	user1.Reset()
 	// Add some identities to the identity cache
+	wg = &sync.WaitGroup{}
 	sc.UpdateIdentities(cache.IdentityCache{
 		12345: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
-	}, nil)
+	}, nil, wg)
+	wg.Wait()
+
 	adds, deletes := user1.WaitForUpdate()
 	c.Assert(adds, Equals, 1)
 	c.Assert(deletes, Equals, 0)
@@ -380,9 +389,12 @@ func (ds *SelectorCacheTestSuite) TestIdentityUpdates(c *C) {
 
 	user1.Reset()
 	// Remove some identities from the identity cache
+	wg = &sync.WaitGroup{}
 	sc.UpdateIdentities(nil, cache.IdentityCache{
 		12345: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
-	})
+	}, wg)
+	wg.Wait()
+
 	adds, deletes = user1.WaitForUpdate()
 	c.Assert(adds, Equals, 1)
 	c.Assert(deletes, Equals, 1)
@@ -409,8 +421,10 @@ func (ds *SelectorCacheTestSuite) TestFQDNSelectorUpdates(c *C) {
 	googleIdentities := []identity.NumericIdentity{321, 456, 987}
 	ciliumIdentities := []identity.NumericIdentity{123, 456, 789}
 
-	sc.UpdateFQDNSelector(ciliumSel, ciliumIdentities)
-	sc.UpdateFQDNSelector(googleSel, googleIdentities)
+	wg := &sync.WaitGroup{}
+	sc.UpdateFQDNSelector(ciliumSel, ciliumIdentities, wg)
+	sc.UpdateFQDNSelector(googleSel, googleIdentities, wg)
+	wg.Wait()
 
 	_, exists := sc.selectors[ciliumSel.String()]
 	c.Assert(exists, Equals, true)
@@ -438,21 +452,30 @@ func (ds *SelectorCacheTestSuite) TestFQDNSelectorUpdates(c *C) {
 	// Add some identities to the identity cache
 	user1.Reset()
 	ciliumIdentities = append(ciliumIdentities, identity.NumericIdentity(123456))
-	sc.UpdateFQDNSelector(ciliumSel, ciliumIdentities)
+	wg = &sync.WaitGroup{}
+	sc.UpdateFQDNSelector(ciliumSel, ciliumIdentities, wg)
+	wg.Wait()
+
 	adds, deletes := user1.WaitForUpdate()
 	c.Assert(adds, Equals, 1)
 	c.Assert(deletes, Equals, 0)
 
 	user1.Reset()
 	ciliumIdentities = ciliumIdentities[:1]
-	sc.UpdateFQDNSelector(ciliumSel, ciliumIdentities)
+	wg = &sync.WaitGroup{}
+	sc.UpdateFQDNSelector(ciliumSel, ciliumIdentities, wg)
+	wg.Wait()
+
 	adds, deletes = user1.WaitForUpdate()
 	c.Assert(adds, Equals, 1)
 	c.Assert(deletes, Equals, 3)
 
 	user1.Reset()
 	ciliumIdentities = []identity.NumericIdentity{}
-	sc.UpdateFQDNSelector(ciliumSel, ciliumIdentities)
+	wg = &sync.WaitGroup{}
+	sc.UpdateFQDNSelector(ciliumSel, ciliumIdentities, wg)
+	wg.Wait()
+
 	adds, deletes = user1.WaitForUpdate()
 	c.Assert(adds, Equals, 1)
 	c.Assert(deletes, Equals, 4)
@@ -478,8 +501,10 @@ func (ds *SelectorCacheTestSuite) TestRemoveIdentitiesFQDNSelectors(c *C) {
 	googleIdentities := []identity.NumericIdentity{321, 456, 987}
 	ciliumIdentities := []identity.NumericIdentity{123, 456, 789}
 
-	sc.UpdateFQDNSelector(ciliumSel, ciliumIdentities)
-	sc.UpdateFQDNSelector(googleSel, googleIdentities)
+	wg := &sync.WaitGroup{}
+	sc.UpdateFQDNSelector(ciliumSel, ciliumIdentities, wg)
+	sc.UpdateFQDNSelector(googleSel, googleIdentities, wg)
+	wg.Wait()
 
 	_, exists := sc.selectors[ciliumSel.String()]
 	c.Assert(exists, Equals, true)
@@ -504,10 +529,12 @@ func (ds *SelectorCacheTestSuite) TestRemoveIdentitiesFQDNSelectors(c *C) {
 		c.Assert(selection, Equals, googleIdentities[i])
 	}
 
+	wg = &sync.WaitGroup{}
 	sc.RemoveIdentitiesFQDNSelectors([]api.FQDNSelector{
 		googleSel,
 		ciliumSel,
-	})
+	}, wg)
+	wg.Wait()
 
 	selections = cached.GetSelections()
 	c.Assert(len(selections), Equals, 0)
@@ -520,10 +547,12 @@ func (ds *SelectorCacheTestSuite) TestIdentityUpdatesMultipleUsers(c *C) {
 	sc := testNewSelectorCache(cache.IdentityCache{})
 
 	// Add some identities to the identity cache
+	wg := &sync.WaitGroup{}
 	sc.UpdateIdentities(cache.IdentityCache{
 		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
 		2345: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
-	}, nil)
+	}, nil, wg)
+	wg.Wait()
 
 	testSelector := api.NewESFromLabels(labels.NewLabel("app", "test", labels.LabelSourceK8s))
 
@@ -538,11 +567,14 @@ func (ds *SelectorCacheTestSuite) TestIdentityUpdatesMultipleUsers(c *C) {
 	user1.Reset()
 	user2.Reset()
 	// Add some identities to the identity cache
+	wg = &sync.WaitGroup{}
 	sc.UpdateIdentities(cache.IdentityCache{
 		123: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
 		234: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
 		345: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
-	}, nil)
+	}, nil, wg)
+	wg.Wait()
+
 	adds, deletes := user1.WaitForUpdate()
 	c.Assert(adds, Equals, 2)
 	c.Assert(deletes, Equals, 0)
@@ -562,10 +594,13 @@ func (ds *SelectorCacheTestSuite) TestIdentityUpdatesMultipleUsers(c *C) {
 	user1.Reset()
 	user2.Reset()
 	// Remove some identities from the identity cache
+	wg = &sync.WaitGroup{}
 	sc.UpdateIdentities(nil, cache.IdentityCache{
 		123: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
 		234: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
-	})
+	}, wg)
+	wg.Wait()
+
 	adds, deletes = user1.WaitForUpdate()
 	c.Assert(adds, Equals, 2)
 	c.Assert(deletes, Equals, 1)
@@ -625,10 +660,12 @@ func (ds *SelectorCacheTestSuite) TestIdentityNotifier(c *C) {
 	selections2 := cached2.GetSelections()
 	c.Assert(len(selections2), Equals, 0)
 
+	wg := &sync.WaitGroup{}
 	sc.RemoveIdentitiesFQDNSelectors([]api.FQDNSelector{
 		googleSel,
 		ciliumSel,
-	})
+	}, wg)
+	wg.Wait()
 
 	selections = cached.GetSelections()
 	c.Assert(len(selections), Equals, 0)
