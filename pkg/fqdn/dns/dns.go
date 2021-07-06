@@ -1,5 +1,11 @@
 // Copyright 2021 Authors of Cilium
 //
+// Based on code from github.com/miekg/dns which is:
+//
+// Copyright 2009 The Go Authors. All rights reserved.
+// Copyright 2011 Miek Gieben. All rights reserved.
+// Copyright 2014 CloudFlare. All rights reserved.
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
