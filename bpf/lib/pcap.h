@@ -246,7 +246,7 @@ cilium_capture4_classify_wcard(struct __ctx_buff *ctx)
 _Pragma("unroll")
 	for (i = 0; i < size; i++) {
 		cilium_capture4_masked_key(&okey, &prefix_masks[i], &lkey);
-		match = map_lookup_elem(&cilium_capture4_rules, &lkey);
+		match = map_lookup_elem(&CAPTURE4_RULES, &lkey);
 		if (match)
 			return match;
 	}
@@ -371,7 +371,7 @@ cilium_capture6_classify_wcard(struct __ctx_buff *ctx)
 _Pragma("unroll")
 	for (i = 0; i < size; i++) {
 		cilium_capture6_masked_key(&okey, &prefix_masks[i], &lkey);
-		match = map_lookup_elem(&cilium_capture6_rules, &lkey);
+		match = map_lookup_elem(&CAPTURE6_RULES, &lkey);
 		if (match)
 			return match;
 	}
