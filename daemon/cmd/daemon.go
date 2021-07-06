@@ -331,7 +331,10 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// detection, might disable BPF NodePort and friends. But this is fine, as
 	// the feature does not influence the decision which BPF maps should be
 	// created.
-	isKubeProxyReplacementStrict := initKubeProxyReplacementOptions()
+	isKubeProxyReplacementStrict, err := initKubeProxyReplacementOptions()
+	if err != nil {
+		log.WithError(err).Fatal("Unable to initialize kube proxy replacement options.")
+	}
 
 	ctmap.InitMapInfo(option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny,
 		option.Config.EnableIPv4, option.Config.EnableIPv6, option.Config.EnableNodePort)
