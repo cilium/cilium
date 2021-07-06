@@ -88,7 +88,7 @@ func (c *CiliumTestConfigType) ParseFlags() {
 		"Specifies which image of cilium-operator to use during tests")
 	flagset.StringVar(&c.CiliumOperatorTag, "cilium.operator-tag", "",
 		"Specifies which tag of cilium-operator to use during tests")
-	flagset.StringVar(&c.CiliumOperatorSuffix, "cilium.operator-suffix", "",
+	flagset.StringVar(&c.CiliumOperatorSuffix, "cilium.operator-suffix", "-ci",
 		"Specifies a suffix to append to operator image after cloud-specific suffix")
 	flagset.StringVar(&c.HubbleRelayImage, "cilium.hubble-relay-image", "",
 		"Specifies which image of hubble-relay to use during tests")
