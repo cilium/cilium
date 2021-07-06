@@ -97,13 +97,14 @@ func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSel
 	return selectorIdentitySliceMapping, newlyAllocatedIdentities, nil
 }
 
-func (d *Daemon) updateSelectorCacheFQDNs(ctx context.Context, selectors map[policyApi.FQDNSelector][]*identity.Identity, selectorsWithoutIPs []policyApi.FQDNSelector) (wg *sync.WaitGroup) {
+func (d *Daemon) updateSelectorCacheFQDNs(ctx context.Context, selectors map[policyApi.FQDNSelector][]*identity.Identity, selectorsWithoutIPs []policyApi.FQDNSelector) *sync.WaitGroup {
 	// There may be nothing to update - in this case, we exit and do not need
 	// to trigger policy updates for all endpoints.
 	if len(selectors) == 0 && len(selectorsWithoutIPs) == 0 {
 		return &sync.WaitGroup{}
 	}
 
+	notifyWg := &sync.WaitGroup{}
 	// Update mapping of selector to set of IPs in selector cache.
 	for selector, identitySlice := range selectors {
 		log.WithFields(logrus.Fields{
@@ -114,7 +115,7 @@ func (d *Daemon) updateSelectorCacheFQDNs(ctx context.Context, selectors map[pol
 			// Nil check here? Hopefully not necessary...
 			numIds = append(numIds, numId.ID)
 		}
-		d.policy.GetSelectorCache().UpdateFQDNSelector(selector, numIds)
+		d.policy.GetSelectorCache().UpdateFQDNSelector(selector, numIds, notifyWg)
 	}
 
 	if len(selectorsWithoutIPs) > 0 {
@@ -125,10 +126,10 @@ func (d *Daemon) updateSelectorCacheFQDNs(ctx context.Context, selectors map[pol
 		log.WithFields(logrus.Fields{
 			"fqdnSelectors": selectorsWithoutIPs,
 		}).Debug("removing all identities from FQDN selectors")
-		d.policy.GetSelectorCache().RemoveIdentitiesFQDNSelectors(selectorsWithoutIPs)
+		d.policy.GetSelectorCache().RemoveIdentitiesFQDNSelectors(selectorsWithoutIPs, notifyWg)
 	}
 
-	return d.endpointManager.UpdatePolicyMaps(ctx)
+	return d.endpointManager.UpdatePolicyMaps(ctx, notifyWg)
 }
 
 // bootstrapFQDN initializes the toFQDNs related subsystems: dnsNameManager and the DNS proxy.

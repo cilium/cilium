@@ -17,7 +17,7 @@
 package policy
 
 import (
-	"time"
+	"sync"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
@@ -357,8 +357,9 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDenyWildcard(c *C) {
 	added1 := cache.IdentityCache{
 		identity.NumericIdentity(192): labels.ParseSelectLabelArray("id=resolve_test_1"),
 	}
-	testSelectorCache.UpdateIdentities(added1, nil)
-	time.Sleep(100 * time.Millisecond)
+	wg := &sync.WaitGroup{}
+	testSelectorCache.UpdateIdentities(added1, nil, wg)
+	wg.Wait()
 	c.Assert(policy.policyMapChanges.changes, HasLen, 0)
 
 	// Have to remove circular reference before testing to avoid an infinite loop
@@ -433,17 +434,19 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDeny(c *C) {
 		identity.NumericIdentity(193): labels.ParseSelectLabelArray("id=resolve_test_1", "num=2"),
 		identity.NumericIdentity(194): labels.ParseSelectLabelArray("id=resolve_test_1", "num=3"),
 	}
-	testSelectorCache.UpdateIdentities(added1, nil)
+	wg := &sync.WaitGroup{}
+	testSelectorCache.UpdateIdentities(added1, nil, wg)
 	// Cleanup the identities from the testSelectorCache
-	defer testSelectorCache.UpdateIdentities(nil, added1)
-	time.Sleep(100 * time.Millisecond)
+	defer testSelectorCache.UpdateIdentities(nil, added1, wg)
+	wg.Wait()
 	c.Assert(policy.policyMapChanges.changes, HasLen, 3)
 
 	deleted1 := cache.IdentityCache{
 		identity.NumericIdentity(193): labels.ParseSelectLabelArray("id=resolve_test_1", "num=2"),
 	}
-	testSelectorCache.UpdateIdentities(nil, deleted1)
-	time.Sleep(100 * time.Millisecond)
+	wg = &sync.WaitGroup{}
+	testSelectorCache.UpdateIdentities(nil, deleted1, wg)
+	wg.Wait()
 	c.Assert(policy.policyMapChanges.changes, HasLen, 4)
 
 	cachedSelectorWorld := testSelectorCache.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorld])

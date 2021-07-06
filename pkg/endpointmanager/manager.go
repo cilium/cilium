@@ -145,7 +145,7 @@ func waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
 
 // UpdatePolicyMaps returns a WaitGroup which is signaled upon once all endpoints
 // have had their PolicyMaps updated against the Endpoint's desired policy state.
-func (mgr *EndpointManager) UpdatePolicyMaps(ctx context.Context) *sync.WaitGroup {
+func (mgr *EndpointManager) UpdatePolicyMaps(ctx context.Context, notifyWg *sync.WaitGroup) *sync.WaitGroup {
 	var epWG sync.WaitGroup
 	var wg sync.WaitGroup
 
@@ -169,6 +169,8 @@ func (mgr *EndpointManager) UpdatePolicyMaps(ctx context.Context) *sync.WaitGrou
 	// TODO: bound by number of CPUs?
 	for _, ep := range eps {
 		go func(ep *endpoint.Endpoint) {
+			// Proceed only after all notifications have been delivered to endpoints
+			notifyWg.Wait()
 			if err := ep.ApplyPolicyMapChanges(proxyWaitGroup); err != nil {
 				ep.Logger("endpointmanager").WithError(err).Warning("Failed to apply policy map changes. These will be re-applied in future updates.")
 			}

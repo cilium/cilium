@@ -95,7 +95,10 @@ func (d *Daemon) TriggerPolicyUpdates(force bool, reason string) {
 // The caller is responsible for making sure the same identity is not
 // present in both 'added' and 'deleted'.
 func (d *Daemon) UpdateIdentities(added, deleted cache.IdentityCache) {
-	d.policy.GetSelectorCache().UpdateIdentities(added, deleted)
+	wg := &sync.WaitGroup{}
+	d.policy.GetSelectorCache().UpdateIdentities(added, deleted, wg)
+	// Wait for update propagation to endpoints before triggering policy updates
+	wg.Wait()
 	d.TriggerPolicyUpdates(false, "one or more identities created or deleted")
 }
 
