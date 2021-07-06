@@ -171,15 +171,18 @@ spec:
           value: {{ $value }}
 {{- end }}
 {{- if .Values.eni.enabled }}
-        image: "{{ .Values.operator.image.repository }}-aws{{ .Values.operator.image.suffix }}:{{ .Values.operator.image.tag }}{{ if .Values.operator.image.useDigest }}@{{ .Values.operator.image.awsDigest }}{{ end }}"
+        image: "{{ .Values.operator.aws.image.repository }}{{ .Values.operator.aws.image.suffix }}:{{ .Values.operator.aws.image.tag }}{{ if .Values.operator.aws.image.useDigest }}@{{ .Values.operator.image.aws.digest }}{{ end }}"
+        imagePullPolicy: {{ .Values.operator.aws.image.pullPolicy }}
 {{- else if .Values.azure.enabled }}
-        image: "{{ .Values.operator.image.repository }}-azure{{ .Values.operator.image.suffix }}:{{ .Values.operator.image.tag }}{{ if .Values.operator.image.useDigest }}@{{ .Values.operator.image.azureDigest }}{{ end }}"
+        image: "{{ .Values.operator.azure.image.repository }}{{ .Values.operator.azure.image.suffix }}:{{ .Values.operator.azure.image.tag }}{{ if .Values.operator.azure.image.useDigest }}@{{ .Values.operator.azure.image.azureDigest }}{{ end }}"
+        imagePullPolicy: {{ .Values.operator.azure.image.pullPolicy }}
 {{- else if .Values.alibabacloud.enabled }}
-        image: "{{ .Values.operator.image.repository }}-alibabacloud{{ .Values.operator.image.suffix }}:{{ .Values.operator.image.tag }}{{ if .Values.operator.image.useDigest }}@{{ .Values.operator.image.alibabacloudDigest }}{{ end }}"
+        image: "{{ .Values.operator.alibabacloud.image.repository }}{{ .Values.operator.alibabacloud.image.suffix }}:{{ .Values.operator.alibabacloud.image.tag }}{{ if .Values.operator.alibabacloud.image.useDigest }}@{{ .Values.operator.alibabacloud.image.alibabacloudDigest }}{{ end }}"
+        imagePullPolicy: {{ .Values.operator.alibabacloud.image.pullPolicy }}
 {{- else }}
-        image: "{{ .Values.operator.image.repository }}-generic{{ .Values.operator.image.suffix }}:{{ .Values.operator.image.tag }}{{ if .Values.operator.image.useDigest }}@{{ .Values.operator.image.genericDigest }}{{ end }}"
+        image: "{{ .Values.operator.generic.image.repository }}{{ .Values.operator.generic.image.suffix }}:{{ .Values.operator.generic.image.tag }}{{ if .Values.operator.generic.image.useDigest }}@{{ .Values.operator.generic.image.genericDigest }}{{ end }}"
+        imagePullPolicy: {{ .Values.operator.generic.image.pullPolicy }}
 {{- end }}
-        imagePullPolicy: {{ .Values.operator.image.pullPolicy }}
         name: cilium-operator
 {{- if .Values.operator.prometheus.enabled }}
         ports:

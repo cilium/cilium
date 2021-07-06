@@ -1227,21 +1227,45 @@ operator:
   # -- Roll out cilium-operator pods automatically when configmap is updated.
   rollOutPods: false
 
-  # -- cilium-operator image.
-  image:
-    repository: quay.io/cilium/operator
-    tag: latest
-    # operator-generic-digest
-    genericDigest: ""
-    # operator-azure-digest
-    azureDigest: ""
-    # operator-aws-digest
-    awsDigest: ""
-    # operator-alibabacloud-digest
-    alibabacloudDigest: ""
-    useDigest: false
-    pullPolicy: Always
-    suffix: ""
+  generic:
+    # -- cilium-operator-generic image
+    image:
+      repository: quay.io/cilium/operator-generic
+      tag: latest
+      digest: ""
+      suffix: ""
+      useDigest: false
+      pullPolicy: Always
+
+  azure:
+    ## -- cilium-operator-azure image
+    image:
+      repository: quay.io/cilium/operator-azure
+      tag: latest
+      digest: ""
+      suffix: ""
+      useDigest: false
+      pullPolicy: Always
+
+  aws:
+    ## -- cilium-operator-aws image
+    image:
+      repository: quay.io/cilium/operator-aws
+      tag: latest
+      digest: ""
+      suffix: ""
+      useDigest: false
+      pullPolicy: Always
+
+  alibabacloud:
+    ## -- cilium-operator-alibabacloud image
+    image:
+      repository: quay.io/cilium/operator-alibabacloud
+      tag: latest
+      digest: ""
+      suffix: ""
+      useDigest: false
+      pullPolicy: Always
 
   # -- Number of replicas to run for the cilium-operator deployment
   replicas: 2

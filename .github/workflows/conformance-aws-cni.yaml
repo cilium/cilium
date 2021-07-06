@@ -217,9 +217,9 @@ jobs:
             --namespace kube-system \
             --set image.repository=quay.io/${{ github.repository_owner }}/cilium-ci \
             --set image.tag=${{ steps.vars.outputs.sha }} \
-            --set operator.image.repository=quay.io/${{ github.repository_owner }}/operator \
-            --set operator.image.suffix="-ci" \
-            --set operator.image.tag=${{ steps.vars.outputs.sha }} \
+            --set operator.aws.image.repository=quay.io/${{ github.repository_owner }}/operator-aws \
+            --set operator.aws.image.suffix="-ci" \
+            --set operator.aws.image.tag=${{ steps.vars.outputs.sha }} \
             --set cni.chainingMode=aws-cni \
             --set enableIPv4Masquerade=false \
             --set tunnel=disabled \
