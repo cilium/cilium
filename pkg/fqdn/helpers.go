@@ -17,12 +17,11 @@ package fqdn
 import (
 	"net"
 	"regexp"
-	"strings"
 
+	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
 )
 
@@ -106,7 +105,7 @@ func mapSelectorsToIPs(fqdnSelectors map[api.FQDNSelector]struct{}, cache *DNSCa
 
 // prepareMatchName ensures a ToFQDNs.matchName field is used consistently.
 func prepareMatchName(matchName string) string {
-	return strings.ToLower(dns.Fqdn(matchName))
+	return dns.FQDN(matchName)
 }
 
 // KeepUniqueNames removes duplicate names from the given slice while
