@@ -41,12 +41,21 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func initKubeProxyReplacementOptions() (strict bool) {
+// initKubeProxyReplacementOptions will grok the global config and determine
+// if we strictly enforce a kube-proxy replacement.
+//
+// if we determine the config denotes a "strict" kube-proxy replacement, the
+// returned boolean will be true, when we detect a "non-strict" configuration the
+// return boolean is false.
+//
+// if this function cannot determine the strictness an error is returned and the boolean
+// is false. If an error is returned the boolean is of no meaning.
+func initKubeProxyReplacementOptions() (bool, error) {
 	if option.Config.KubeProxyReplacement != option.KubeProxyReplacementStrict &&
 		option.Config.KubeProxyReplacement != option.KubeProxyReplacementPartial &&
 		option.Config.KubeProxyReplacement != option.KubeProxyReplacementProbe &&
 		option.Config.KubeProxyReplacement != option.KubeProxyReplacementDisabled {
-		log.Fatalf("Invalid value for --%s: %s", option.KubeProxyReplacement, option.Config.KubeProxyReplacement)
+		return false, fmt.Errorf("Invalid value for --%s: %s", option.KubeProxyReplacement, option.Config.KubeProxyReplacement)
 	}
 
 	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementDisabled {
@@ -61,13 +70,13 @@ func initKubeProxyReplacementOptions() (strict bool) {
 		option.Config.EnableHostServicesUDP = false
 		option.Config.EnableSessionAffinity = false
 
-		return
+		return false, nil
 	}
 
 	probesManager := probes.NewProbeManager()
 
 	// strict denotes to panic if any to-be enabled feature cannot be enabled
-	strict = option.Config.KubeProxyReplacement != option.KubeProxyReplacementProbe
+	strict := option.Config.KubeProxyReplacement != option.KubeProxyReplacementProbe
 
 	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementProbe ||
 		option.Config.KubeProxyReplacement == option.KubeProxyReplacementStrict {
@@ -90,7 +99,7 @@ func initKubeProxyReplacementOptions() (strict bool) {
 		if option.Config.EnableIPSec {
 			msg := "IPSec cannot be used with BPF NodePort."
 			if strict {
-				log.Fatal(msg)
+				return false, fmt.Errorf(msg)
 			} else {
 				disableNodePort()
 				log.Warn(msg + " Disabling BPF NodePort feature.")
@@ -100,7 +109,7 @@ func initKubeProxyReplacementOptions() (strict bool) {
 		if option.Config.NodePortMode != option.NodePortModeSNAT &&
 			option.Config.NodePortMode != option.NodePortModeDSR &&
 			option.Config.NodePortMode != option.NodePortModeHybrid {
-			log.Fatalf("Invalid value for --%s: %s", option.NodePortMode, option.Config.NodePortMode)
+			return false, fmt.Errorf("Invalid value for --%s: %s", option.NodePortMode, option.Config.NodePortMode)
 		}
 
 		if option.Config.NodePortMode == option.NodePortModeDSR &&
@@ -108,13 +117,13 @@ func initKubeProxyReplacementOptions() (strict bool) {
 			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchIPIP ||
 			option.Config.NodePortMode == option.NodePortModeHybrid &&
 				option.Config.LoadBalancerDSRDispatch != option.DSRDispatchOption {
-			log.Fatalf("Invalid value for --%s: %s", option.LoadBalancerDSRDispatch, option.Config.LoadBalancerDSRDispatch)
+			return false, fmt.Errorf("Invalid value for --%s: %s", option.LoadBalancerDSRDispatch, option.Config.LoadBalancerDSRDispatch)
 		}
 
 		if option.Config.NodePortMode == option.NodePortModeDSR &&
 			option.Config.LoadBalancerDSRL4Xlate != option.DSRL4XlateFrontend &&
 			option.Config.LoadBalancerDSRL4Xlate != option.DSRL4XlateBackend {
-			log.Fatalf("Invalid value for --%s: %s", option.LoadBalancerDSRL4Xlate, option.Config.LoadBalancerDSRL4Xlate)
+			return false, fmt.Errorf("Invalid value for --%s: %s", option.LoadBalancerDSRL4Xlate, option.Config.LoadBalancerDSRL4Xlate)
 		}
 
 		if option.Config.LoadBalancerRSSv4CIDR != "" {
@@ -128,7 +137,7 @@ func initKubeProxyReplacementOptions() (strict bool) {
 				}
 			}
 			if err != nil {
-				log.WithError(err).Fatalf("Invalid value for --%s: %s",
+				return false, fmt.Errorf("Invalid value for --%s: %s",
 					option.LoadBalancerRSSv4CIDR, option.Config.LoadBalancerRSSv4CIDR)
 			}
 			option.Config.LoadBalancerRSSv4 = *cidr
@@ -145,7 +154,7 @@ func initKubeProxyReplacementOptions() (strict bool) {
 				}
 			}
 			if err != nil {
-				log.WithError(err).Fatalf("Invalid value for --%s: %s",
+				return false, fmt.Errorf("Invalid value for --%s: %s",
 					option.LoadBalancerRSSv6CIDR, option.Config.LoadBalancerRSSv6CIDR)
 			}
 			option.Config.LoadBalancerRSSv6 = *cidr
@@ -154,19 +163,19 @@ func initKubeProxyReplacementOptions() (strict bool) {
 		if (option.Config.LoadBalancerRSSv4CIDR != "" || option.Config.LoadBalancerRSSv6CIDR != "") &&
 			(option.Config.NodePortMode != option.NodePortModeDSR ||
 				option.Config.LoadBalancerDSRDispatch != option.DSRDispatchIPIP) {
-			log.Fatalf("Invalid value for --%s/%s: currently only supported under IPIP dispatch for DSR",
+			return false, fmt.Errorf("Invalid value for --%s/%s: currently only supported under IPIP dispatch for DSR",
 				option.LoadBalancerRSSv4CIDR, option.LoadBalancerRSSv6CIDR)
 		}
 
 		if option.Config.NodePortAlg != option.NodePortAlgRandom &&
 			option.Config.NodePortAlg != option.NodePortAlgMaglev {
-			log.Fatalf("Invalid value for --%s: %s", option.NodePortAlg, option.Config.NodePortAlg)
+			return false, fmt.Errorf("Invalid value for --%s: %s", option.NodePortAlg, option.Config.NodePortAlg)
 		}
 
 		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled &&
 			option.Config.NodePortAcceleration != option.NodePortAccelerationGeneric &&
 			option.Config.NodePortAcceleration != option.NodePortAccelerationNative {
-			log.Fatalf("Invalid value for --%s: %s", option.NodePortAcceleration, option.Config.NodePortAcceleration)
+			return false, fmt.Errorf("Invalid value for --%s: %s", option.NodePortAcceleration, option.Config.NodePortAcceleration)
 		}
 
 		if option.Config.KubeProxyReplacement == option.KubeProxyReplacementProbe {
@@ -191,14 +200,14 @@ func initKubeProxyReplacementOptions() (strict bool) {
 				}
 			}
 			if !found {
-				log.Fatalf("Invalid value for --%s: %d, supported values are: %v",
+				return false, fmt.Errorf("Invalid value for --%s: %d, supported values are: %v",
 					option.MaglevTableSize, option.Config.MaglevTableSize, supportedPrimes)
 			}
 			if err := maglev.Init(
 				option.Config.MaglevHashSeed,
 				uint64(option.Config.MaglevTableSize),
 			); err != nil {
-				log.WithError(err).Fatalf("Failed to initialize maglev hash seeds")
+				return false, fmt.Errorf("Failed to initialize maglev hash seeds")
 			}
 		}
 	}
@@ -213,7 +222,7 @@ func initKubeProxyReplacementOptions() (strict bool) {
 		if !found {
 			msg := "BPF NodePort services needs kernel 4.17.0 or newer."
 			if strict {
-				log.Fatal(msg)
+				return false, fmt.Errorf(msg)
 			} else {
 				disableNodePort()
 				log.Warn(msg + " Disabling BPF NodePort.")
@@ -222,7 +231,7 @@ func initKubeProxyReplacementOptions() (strict bool) {
 
 		if err := checkNodePortAndEphemeralPortRanges(); err != nil {
 			if strict {
-				log.Fatal(err)
+				return false, err
 			} else {
 				disableNodePort()
 				log.WithError(err).Warn("Disabling BPF NodePort.")
@@ -247,16 +256,28 @@ func initKubeProxyReplacementOptions() (strict bool) {
 			}
 		}
 		if option.Config.EnableHostServicesTCP && option.Config.EnableIPv4 {
-			probeCgroupSupportTCP(strict, true)
+			err := probeCgroupSupportTCP(strict, true)
+			if err != nil {
+				return false, err
+			}
 		}
 		if option.Config.EnableHostServicesTCP && option.Config.EnableIPv6 {
-			probeCgroupSupportTCP(strict, false)
+			err := probeCgroupSupportTCP(strict, false)
+			if err != nil {
+				return false, err
+			}
 		}
 		if option.Config.EnableHostServicesUDP && option.Config.EnableIPv4 {
-			probeCgroupSupportUDP(strict, true)
+			err := probeCgroupSupportUDP(strict, true)
+			if err != nil {
+				return false, err
+			}
 		}
 		if option.Config.EnableHostServicesUDP && option.Config.EnableIPv6 {
-			probeCgroupSupportUDP(strict, false)
+			err := probeCgroupSupportUDP(strict, false)
+			if err != nil {
+				return false, err
+			}
 		}
 		if !option.Config.EnableHostServicesTCP && !option.Config.EnableHostServicesUDP {
 			option.Config.EnableHostReachableServices = false
@@ -270,7 +291,7 @@ func initKubeProxyReplacementOptions() (strict bool) {
 		if !probesManager.GetMapTypes().HaveLruHashMapType {
 			msg := "SessionAffinity feature requires BPF LRU maps"
 			if strict {
-				log.Fatal(msg)
+				return false, fmt.Errorf(msg)
 			} else {
 				log.Warnf("%s. Disabling the feature.", msg)
 				option.Config.EnableSessionAffinity = false
@@ -304,12 +325,12 @@ func initKubeProxyReplacementOptions() (strict bool) {
 
 		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
 			if option.Config.Tunnel != option.TunnelDisabled {
-				log.Fatalf("Cannot use NodePort acceleration with tunneling. Either run cilium-agent with --%s=%s or --%s=%s",
+				return false, fmt.Errorf("Cannot use NodePort acceleration with tunneling. Either run cilium-agent with --%s=%s or --%s=%s",
 					option.NodePortAcceleration, option.NodePortAccelerationDisabled, option.TunnelName, option.TunnelDisabled)
 			}
 
 			if option.Config.EnableEgressGateway {
-				log.Fatalf("Cannot use NodePort acceleration with the egress gateway. Run cilium-agent with either --%s=%s or %s=false",
+				return false, fmt.Errorf("Cannot use NodePort acceleration with the egress gateway. Run cilium-agent with either --%s=%s or %s=false",
 					option.NodePortAcceleration, option.NodePortAccelerationDisabled, option.EnableEgressGateway)
 			}
 		}
@@ -317,16 +338,16 @@ func initKubeProxyReplacementOptions() (strict bool) {
 		if option.Config.NodePortMode == option.NodePortModeDSR &&
 			option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP {
 			if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
-				log.Fatalf("DSR dispatch mode %s only supported for --%s=%s", option.Config.LoadBalancerDSRDispatch, option.DatapathMode, datapathOption.DatapathModeLBOnly)
+				return false, fmt.Errorf("DSR dispatch mode %s only supported for --%s=%s", option.Config.LoadBalancerDSRDispatch, option.DatapathMode, datapathOption.DatapathModeLBOnly)
 			}
 			if option.Config.NodePortAcceleration == option.NodePortAccelerationDisabled {
-				log.Fatalf("DSR dispatch mode %s currently only available under XDP acceleration", option.Config.LoadBalancerDSRDispatch)
+				return false, fmt.Errorf("DSR dispatch mode %s currently only available under XDP acceleration", option.Config.LoadBalancerDSRDispatch)
 			}
 		}
 
 		if option.Config.EnableRecorder {
 			if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
-				log.Fatalf("pcap recorder --%s currently only supported for --%s=%s", option.EnableRecorder, option.DatapathMode, datapathOption.DatapathModeLBOnly)
+				return false, fmt.Errorf("pcap recorder --%s currently only supported for --%s=%s", option.EnableRecorder, option.DatapathMode, datapathOption.DatapathModeLBOnly)
 			}
 			found := false
 			if h := probesManager.GetHelpers("xdp"); h != nil {
@@ -335,7 +356,7 @@ func initKubeProxyReplacementOptions() (strict bool) {
 				}
 			}
 			if !found {
-				log.Fatalf("pcap recorder --%s datapath needs kernel 5.8.0 or newer", option.EnableRecorder)
+				return false, fmt.Errorf("pcap recorder --%s datapath needs kernel 5.8.0 or newer", option.EnableRecorder)
 			}
 		}
 
@@ -362,20 +383,20 @@ func initKubeProxyReplacementOptions() (strict bool) {
 		// running in full KPR mode as otherwise conntrack would be
 		// required for NAT operations
 		if !option.Config.KubeProxyReplacementFullyEnabled() {
-			log.Fatalf("%s requires the agent to run with %s=%s.",
+			return false, fmt.Errorf("%s requires the agent to run with %s=%s.",
 				option.InstallNoConntrackIptRules, option.KubeProxyReplacement, option.KubeProxyReplacementStrict)
 		}
 
 		if !option.Config.EnableBPFMasquerade {
-			log.Fatalf("%s requires the agent to run with %s.",
+			return false, fmt.Errorf("%s requires the agent to run with %s.",
 				option.InstallNoConntrackIptRules, option.EnableBPFMasquerade)
 		}
 	}
 
-	return
+	return strict, nil
 }
 
-func probeCgroupSupportTCP(strict, ipv4 bool) {
+func probeCgroupSupportTCP(strict, ipv4 bool) error {
 	var err error
 
 	if ipv4 {
@@ -384,22 +405,22 @@ func probeCgroupSupportTCP(strict, ipv4 bool) {
 		err = bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET6_CONNECT)
 	}
 	if err != nil {
-		scopedLog := log.WithError(err)
 		msg := "BPF host reachable services for TCP needs kernel 4.17.0 or newer."
 		if errors.Is(err, unix.EPERM) {
 			msg = "Cilium cannot load bpf programs. Security profiles like SELinux may be restricting permissions."
 		}
 
 		if strict {
-			scopedLog.Fatal(msg)
+			return fmt.Errorf(msg)
 		} else {
 			option.Config.EnableHostServicesTCP = false
-			scopedLog.Warn(msg + " Disabling the feature.")
+			log.WithError(err).Warn(msg + " Disabling the feature.")
 		}
 	}
+	return nil
 }
 
-func probeCgroupSupportUDP(strict, ipv4 bool) {
+func probeCgroupSupportUDP(strict, ipv4 bool) error {
 	var err error
 
 	if ipv4 {
@@ -415,16 +436,17 @@ func probeCgroupSupportUDP(strict, ipv4 bool) {
 		}
 
 		if strict {
-			scopedLog.Fatal(msg)
+			return fmt.Errorf(msg)
 		} else {
 			option.Config.EnableHostServicesUDP = false
 			scopedLog.Warn(msg + " Disabling the feature.")
 		}
 	}
+	return nil
 }
 
 // handleNativeDevices tries to detect bpf_host devices (if needed).
-func handleNativeDevices(strict bool) {
+func handleNativeDevices(strict bool) error {
 	expandDevices()
 
 	detectNodePortDevs := len(option.Config.Devices) == 0 &&
@@ -435,7 +457,7 @@ func handleNativeDevices(strict bool) {
 		if err := detectDevices(detectNodePortDevs, detectDirectRoutingDev); err != nil {
 			msg := "Unable to detect devices to attach Loadbalancer, Host Firewall or Bandwidth Manager program"
 			if strict {
-				log.WithError(err).Fatal(msg)
+				return fmt.Errorf(msg)
 			} else {
 				disableNodePort()
 				log.WithError(err).Warn(msg + " Disabling BPF NodePort.")
@@ -467,16 +489,17 @@ func handleNativeDevices(strict bool) {
 			}
 		}
 	}
+	return nil
 }
 
 // finishKubeProxyReplacementInit finishes initialization of kube-proxy
 // replacement after all devices are known.
-func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) {
+func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) error {
 	if option.Config.EnableNodePort {
 		if err := node.InitNodePortAddrs(option.Config.Devices, option.Config.LBDevInheritIPAddr); err != nil {
 			msg := "Failed to initialize NodePort addrs."
 			if isKubeProxyReplacementStrict {
-				log.WithError(err).Fatal(msg)
+				return fmt.Errorf(msg)
 			} else {
 				disableNodePort()
 				log.WithError(err).Warn(msg + " Disabling BPF NodePort.")
@@ -487,14 +510,14 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) {
 	if !option.Config.EnableNodePort {
 		// Make sure that NodePort dependencies are disabled
 		disableNodePort()
-		return
+		return nil
 	}
 
 	if option.Config.EnableSVCSourceRangeCheck && !probe.HaveFullLPM() {
 		msg := fmt.Sprintf("--%s requires kernel 4.16 or newer.",
 			option.EnableSVCSourceRangeCheck)
 		if isKubeProxyReplacementStrict {
-			log.Fatal(msg)
+			return fmt.Errorf(msg)
 		} else {
 			log.Warnf(msg + " Disabling the check.")
 			option.Config.EnableSVCSourceRangeCheck = false
@@ -544,30 +567,30 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) {
 		if option.Config.XDPDevice != "undefined" &&
 			(option.Config.DirectRoutingDevice == "" ||
 				option.Config.XDPDevice != option.Config.DirectRoutingDevice) {
-			log.Fatalf("Cannot set NodePort acceleration device: mismatch between Prefilter device %s and NodePort device %s",
+			return fmt.Errorf("Cannot set NodePort acceleration device: mismatch between Prefilter device %s and NodePort device %s",
 				option.Config.XDPDevice, option.Config.DirectRoutingDevice)
 		}
 		option.Config.XDPDevice = option.Config.DirectRoutingDevice
 		if err := loader.SetXDPMode(option.Config.NodePortAcceleration); err != nil {
-			log.WithError(err).Fatal("Cannot set NodePort acceleration")
+			return fmt.Errorf("Cannot set NodePort acceleration")
 		}
 	}
 
 	for _, iface := range option.Config.Devices {
 		link, err := netlink.LinkByName(iface)
 		if err != nil {
-			log.WithError(err).Fatalf("Cannot retrieve %s link", iface)
+			return fmt.Errorf("Cannot retrieve %s link", iface)
 		}
 		if strings.ContainsAny(iface, "=;") {
 			// Because we pass IPV{4,6}_NODEPORT addresses to bpf/init.sh
 			// in a form "$IFACE_NAME1=$IPV{4,6}_ADDR1;$IFACE_NAME2=...",
 			// we need to restrict the iface names. Otherwise, bpf/init.sh
 			// won't properly parse the mappings.
-			log.Fatalf("%s link name contains '=' or ';' character which is not allowed",
+			return fmt.Errorf("%s link name contains '=' or ';' character which is not allowed",
 				iface)
 		}
 		if idx := link.Attrs().Index; idx > math.MaxUint16 {
-			log.Fatalf("%s link ifindex %d exceeds max(uint16)", iface, idx)
+			return fmt.Errorf("%s link ifindex %d exceeds max(uint16)", iface, idx)
 		}
 	}
 
@@ -599,8 +622,9 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) {
 	option.Config.NodePortHairpin = len(option.Config.Devices) == 1
 	if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled &&
 		len(option.Config.Devices) != 1 {
-		log.Fatalf("Cannot set NodePort acceleration due to multi-device setup (%q). Specify --%s with a single device to enable NodePort acceleration.", option.Config.Devices, option.Devices)
+		return fmt.Errorf("Cannot set NodePort acceleration due to multi-device setup (%q). Specify --%s with a single device to enable NodePort acceleration.", option.Config.Devices, option.Devices)
 	}
+	return nil
 }
 
 // disableNodePort disables BPF NodePort and friends who are dependent from
@@ -734,10 +758,10 @@ func detectNodeDevice(ifidxByAddr map[string]int) (string, error) {
 
 // expandDevices expands all wildcard device names to concrete devices.
 // e.g. device "eth+" expands to "eth0,eth1" etc. Non-matching wildcards are ignored.
-func expandDevices() {
+func expandDevices() error {
 	allLinks, err := netlink.LinkList()
 	if err != nil {
-		log.WithError(err).Fatal("Cannot list network devices via netlink")
+		return fmt.Errorf("Cannot list network devices via netlink")
 	}
 	expandedDevices := make(map[string]bool)
 	for _, iface := range option.Config.Devices {
@@ -758,6 +782,7 @@ func expandDevices() {
 		option.Config.Devices = append(option.Config.Devices, dev)
 	}
 	sort.Strings(option.Config.Devices)
+	return nil
 }
 
 // checkNodePortAndEphemeralPortRanges checks whether the ephemeral port range
