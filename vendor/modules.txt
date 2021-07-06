@@ -605,6 +605,9 @@ github.com/spf13/pflag
 # github.com/spf13/viper v1.8.0
 ## explicit
 github.com/spf13/viper
+# github.com/spiffe/go-spiffe/v2 v2.0.0-beta.7
+## explicit
+github.com/spiffe/go-spiffe/v2/spiffeid
 # github.com/spiffe/spire-api-sdk v1.0.0-pre => github.com/kinvolk/spire-api-sdk v1.0.0-pre.0.20210610130402-7108593e3cec
 ## explicit
 github.com/spiffe/spire-api-sdk/proto/spire/api/agent/privileged/v1
@@ -626,6 +629,8 @@ github.com/vishvananda/netlink/nl
 # github.com/vishvananda/netns v0.0.0-20201230012202-c4f3ca719c73
 ## explicit
 github.com/vishvananda/netns
+# github.com/zeebo/errs v1.2.2
+github.com/zeebo/errs
 # gitlab.com/golang-commonmark/puny v0.0.0-20191124015043-9f83538fa04f
 gitlab.com/golang-commonmark/puny
 # go.etcd.io/etcd/api/v3 v3.5.0
