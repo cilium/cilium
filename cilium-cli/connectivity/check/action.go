@@ -188,7 +188,8 @@ func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
 
 	a.Debug("Executing command", cmd)
 
-	stdout, stderr, err := pod.K8sClient.ExecInPodWithStderr(ctx,
+	// Warning: ExecInPod* does not use ctx, command cannot be cancelled.
+	stdout, stderr, err := pod.K8sClient.ExecInPodWithStderr(context.TODO(),
 		pod.Pod.Namespace, pod.Pod.Name, pod.Pod.Labels["name"], cmd)
 
 	cmdName := cmd[0]
