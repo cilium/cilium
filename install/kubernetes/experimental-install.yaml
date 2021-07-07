@@ -856,16 +856,17 @@ spec:
             value: /run/cilium/cgroupv2
         command:
           - nsenter
-          - --cgroup=/hostpid1ns/cgroup
-          - --mount=/hostpid1ns/mnt
+          - --cgroup=/hostproc/1/ns/cgroup
+          - --mount=/hostproc/1/ns/mnt
           - --
           - sh
           - -c
           - 'mount | grep "$CGROUP_ROOT type cgroup2" || { echo "Mounting cgroup filesystem..."; mount -t cgroup2 none $CGROUP_ROOT; }'
         image: "quay.io/cilium/cilium:v1.9.8@sha256:5d4c175a599ccb22a97dbc8b393a81caca71ada49951c5b5545039c6548ea350"
+        imagePullPolicy: IfNotPresent
         volumeMounts:
-          - mountPath: /hostpid1ns
-            name: host-proc-ns
+          - mountPath: /hostproc
+            name: hostproc
         securityContext:
           privileged: true
       - command:
@@ -931,9 +932,9 @@ spec:
         name: bpf-maps
       # To mount cgroup2 filesystem on the host
       - hostPath:
-          path: /proc/1/ns
+          path: /proc
           type: Directory
-        name: host-proc-ns
+        name: hostproc
       # To keep state between restarts / upgrades for cgroup2 filesystem
       - hostPath:
           path: /run/cilium/cgroupv2
