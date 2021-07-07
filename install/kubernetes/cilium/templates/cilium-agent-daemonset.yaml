@@ -391,6 +391,7 @@ spec:
           - -c
           - 'mount | grep "$CGROUP_ROOT type cgroup2" || { echo "Mounting cgroup filesystem..."; mount -t cgroup2 none $CGROUP_ROOT; }'
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}{{ if .Values.image.useDigest }}@{{ .Values.image.digest }}{{ end }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
         volumeMounts:
           - mountPath: /hostpid1ns
             name: host-proc-ns
