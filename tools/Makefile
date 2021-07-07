@@ -1,9 +1,9 @@
-# Copyright 2017-2019 Authors of Cilium
+# Copyright 2017-2021 Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
 include ../Makefile.defs
 
-SUBDIRS := alignchecker maptool
+SUBDIRS := alignchecker maptool mount
 
 .PHONY: all $(SUBDIRS) clean install
 
