@@ -92,6 +92,7 @@ Limitations
 
 * Visibility annotations do not apply if rules are imported which select the pod
   which is annotated.
+* DNS visibility is available on egress only.
 * Proxylib parsers are not supported, including Kafka. To gain visibility on
   these protocols, you must create a network policy that allows all of the
   traffic at L7, either by following :ref:`l7_policy`
