@@ -18,7 +18,7 @@ include Makefile.buildkit
 DOCKER_BUILD_DIR ?= .
 BUILD_DIR ?= .
 
-SUBDIRS_CILIUM_CONTAINER := proxylib envoy bpf cilium daemon cilium-health bugtool
+SUBDIRS_CILIUM_CONTAINER := proxylib envoy bpf cilium daemon cilium-health bugtool tools/mount
 SUBDIRS := $(SUBDIRS_CILIUM_CONTAINER) operator plugins tools hubble-relay
 
 SUBDIRS_CILIUM_CONTAINER += plugins/cilium-cni
