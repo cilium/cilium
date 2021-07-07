@@ -168,11 +168,11 @@ func (s *MetalLBSpeaker) OnUpdateEndpoints(eps *slim_corev1.Endpoints) error {
 
 // OnAddNode notifies the Speaker of a new node.
 func (s *MetalLBSpeaker) OnAddNode(node *slim_corev1.Node) error {
-	log.Infof("chris Speaker OnAddNode %v", node.GetName())
-
 	if s.shutDown() {
 		return ErrShutDown
 	}
+
+	log.Infof("chris Speaker OnAddNode %v", node.GetName())
 
 	return s.OnUpdateNode(nil, node)
 }
