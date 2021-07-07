@@ -14,7 +14,7 @@ cilium hubble port-forward&
 sleep 10s
 
 # Run connectivity test
-cilium connectivity test --all-flows
+cilium connectivity test --debug --all-flows
 
 # Retrieve Cilium  status
 cilium status
