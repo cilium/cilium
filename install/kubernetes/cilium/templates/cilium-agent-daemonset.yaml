@@ -382,19 +382,24 @@ spec:
         env:
           - name: CGROUP_ROOT
             value: {{ .Values.cgroup.hostRoot }}
+          - name: BIN_PATH
+            value: {{ .Values.cni.binPath }}
         command:
-          - nsenter
-          - --cgroup=/hostproc/1/ns/cgroup
-          - --mount=/hostproc/1/ns/mnt
-          - --
           - sh
           - -c
-          - 'mount | grep "$CGROUP_ROOT type cgroup2" || { echo "Mounting cgroup filesystem..."; mount -t cgroup2 none $CGROUP_ROOT; }'
+          # The statically linked Go program binary is invoked to avoid any
+          # dependency on utilities like sh and mount that can be missing on certain
+          # distros installed on the underlying host. Copy the binary to the
+          # same directory where we install cilium cni plugin so that exec permissions
+          # are available.
+          - 'cp /usr/bin/cilium-mount /hostbin/cilium-mount && nsenter --cgroup=/hostproc/1/ns/cgroup --mount=/hostproc/1/ns/mnt "${BIN_PATH}/cilium-mount" $CGROUP_ROOT; rm /hostbin/cilium-mount'
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}{{ if .Values.image.useDigest }}@{{ .Values.image.digest }}{{ end }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         volumeMounts:
           - mountPath: /hostproc
             name: hostproc
+          - mountPath: /hostbin
+            name: cni-path
         securityContext:
           privileged: true
 {{- end }}
