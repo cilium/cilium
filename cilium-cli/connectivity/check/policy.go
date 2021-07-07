@@ -71,7 +71,7 @@ func getCiliumPolicyRevision(ctx context.Context, pod Pod) (int, error) {
 	}
 	revision, err := strconv.Atoi(strings.Trim(stdout.String(), "'\n"))
 	if err != nil {
-		return 0, fmt.Errorf("revision %q is not valid: %w", stdout.String(), err)
+		return 0, fmt.Errorf("revision '%s' is not valid: %w", stdout.String(), err)
 	}
 	return revision, nil
 }
