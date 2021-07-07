@@ -540,9 +540,9 @@ func (m *IptablesManager) inboundProxyRedirectRule(cmd string) []string {
 func (m *IptablesManager) iptIngressProxyRule(rules string, prog iptablesInterface, l4proto string, proxyPort uint16, name string) error {
 	// Match
 	port := uint32(byteorder.HostToNetwork(proxyPort).(uint16)) << 16
-	ingressMarkMatch := fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy|port)
+	ingressMarkMatch := fmt.Sprintf("%#x", linux_defaults.MagicMarkIsToProxy|port)
 	// TPROXY params
-	ingressProxyMark := fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy)
+	ingressProxyMark := fmt.Sprintf("%#x", linux_defaults.MagicMarkIsToProxy)
 	ingressProxyPort := fmt.Sprintf("%d", proxyPort)
 
 	if strings.Contains(rules, fmt.Sprintf("CILIUM_PRE_mangle -p %s -m mark --mark %s", l4proto, ingressMarkMatch)) {
@@ -567,9 +567,9 @@ func (m *IptablesManager) egressProxyRule(l4Match, markMatch, mark, port, name s
 func (m *IptablesManager) iptEgressProxyRule(rules string, prog iptablesInterface, l4proto string, proxyPort uint16, name string) error {
 	// Match
 	port := uint32(byteorder.HostToNetwork(proxyPort).(uint16)) << 16
-	egressMarkMatch := fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy|port)
+	egressMarkMatch := fmt.Sprintf("%#x", linux_defaults.MagicMarkIsToProxy|port)
 	// TPROXY params
-	egressProxyMark := fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy)
+	egressProxyMark := fmt.Sprintf("%#x", linux_defaults.MagicMarkIsToProxy)
 	egressProxyPort := fmt.Sprintf("%d", proxyPort)
 
 	if strings.Contains(rules, fmt.Sprintf("-A CILIUM_PRE_mangle -p %s -m mark --mark %s", l4proto, egressMarkMatch)) {
