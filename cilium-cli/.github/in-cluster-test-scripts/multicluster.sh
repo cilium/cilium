@@ -52,7 +52,7 @@ cilium --context "${CONTEXT1}" hubble port-forward&
 sleep 10s
 
 # Run connectivity test
-cilium --context "${CONTEXT1}" connectivity test --multi-cluster "${CONTEXT2}" --test '!/pod-to-.*-nodeport' --all-flows
+cilium --context "${CONTEXT1}" connectivity test --debug --multi-cluster "${CONTEXT2}" --test '!/pod-to-.*-nodeport' --all-flows
 
 # Retrieve Cilium status
 cilium --context "${CONTEXT1}" status

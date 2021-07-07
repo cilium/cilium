@@ -64,7 +64,7 @@ jobs:
 
       - name: Connectivity Test
         run: |
-          cilium connectivity test --all-flows
+          cilium connectivity test --debug --all-flows
 
       - name: Uninstall cilium
         run: |
@@ -91,7 +91,7 @@ jobs:
 
       - name: Connectivity test
         run: |
-          cilium connectivity test --force-deploy --all-flows
+          cilium connectivity test --debug --force-deploy --all-flows
 
       - name: Cleanup
         if: ${{ always() }}

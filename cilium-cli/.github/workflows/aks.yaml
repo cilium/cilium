@@ -113,7 +113,7 @@ jobs:
 
       - name: Run connectivity test
         run: |
-          cilium connectivity test --all-flows
+          cilium connectivity test --debug --all-flows
 
       - name: Post-test information gathering
         if: ${{ failure() }}
