@@ -207,6 +207,7 @@ jobs:
         run: |
           cilium hubble port-forward&
           sleep 10s
+          [[ $(pgrep -f "cilium hubble port-forward|kubectl port-forward.*hubble-relay" | wc -l) == 2 ]]
 
       - name: Run connectivity test
         run: |
@@ -234,6 +235,7 @@ jobs:
         run: |
           cilium hubble port-forward&
           sleep 10s
+          [[ $(pgrep -f "cilium hubble port-forward|kubectl port-forward.*hubble-relay" | wc -l) == 2 ]]
 
       - name: Restart connectivity test pods
         run: |
@@ -270,6 +272,7 @@ jobs:
         run: |
           cilium hubble port-forward&
           sleep 10s
+          [[ $(pgrep -f "cilium hubble port-forward|kubectl port-forward.*hubble-relay" | wc -l) == 2 ]]
 
       - name: Restart connectivity test pods
         run: |
@@ -304,6 +307,7 @@ jobs:
         run: |
           cilium hubble port-forward&
           sleep 10s
+          [[ $(pgrep -f "cilium hubble port-forward|kubectl port-forward.*hubble-relay" | wc -l) == 2 ]]
 
       - name: Restart connectivity test pods
         run: |
