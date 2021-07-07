@@ -167,7 +167,7 @@ func (k *K8sClusterMesh) apiserverImage() string {
 	return utils.BuildImagePath(k.params.ApiserverImage, defaults.ClusterMeshApiserverImage, k.params.ApiserverVersion, k.imageVersion)
 }
 
-func (k *K8sClusterMesh) generateDeployment() *appsv1.Deployment {
+func (k *K8sClusterMesh) generateDeployment(clustermeshApiserverArgs []string) *appsv1.Deployment {
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   defaults.ClusterMeshDeploymentName,
@@ -240,12 +240,12 @@ func (k *K8sClusterMesh) generateDeployment() *appsv1.Deployment {
 						{
 							Name:    "apiserver",
 							Command: []string{"/usr/bin/clustermesh-apiserver"},
-							Args: []string{
-								"--cluster-name=" + k.clusterName,
-								"--cluster-id=" + k.clusterID,
+							Args: append(clustermeshApiserverArgs,
+								"--cluster-name="+k.clusterName,
+								"--cluster-id="+k.clusterID,
 								"--kvstore-opt",
 								"etcd.config=/var/lib/cilium/etcd-config.yaml",
-							},
+							),
 							Image:           k.apiserverImage(),
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Env: []corev1.EnvVar{
@@ -598,7 +598,13 @@ func (k *K8sClusterMesh) Enable(ctx context.Context) error {
 		return err
 	}
 
-	if _, err := k.client.CreateDeployment(ctx, k.params.Namespace, k.generateDeployment(), metav1.CreateOptions{}); err != nil {
+	for i, opt := range k.params.ConfigOverwrites {
+		if !strings.HasPrefix(opt, "--") {
+			k.params.ConfigOverwrites[i] = "--" + opt
+		}
+	}
+
+	if _, err := k.client.CreateDeployment(ctx, k.params.Namespace, k.generateDeployment(k.params.ConfigOverwrites), metav1.CreateOptions{}); err != nil {
 		return err
 	}
 
