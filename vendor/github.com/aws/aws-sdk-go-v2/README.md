@@ -1,13 +1,13 @@
 # AWS SDK for Go v2
 
-[![Build Status](https://travis-ci.com/aws/aws-sdk-go-v2.svg?branch=main)](https://travis-ci.com/aws/aws-sdk-go-v2) [![SDK Documentation](https://img.shields.io/badge/SDK-Documentation-blue)](https://aws.github.io/aws-sdk-go-v2/docs/) [![API Reference](https://img.shields.io/badge/api-reference-blue.svg)](https://pkg.go.dev/mod/github.com/aws/aws-sdk-go-v2) [![Apache V2 License](https://img.shields.io/badge/license-Apache%20V2-blue.svg)](https://github.com/aws/aws-sdk-go/blob/master/LICENSE.txt)
+[![Go Build status](https://github.com/aws/aws-sdk-go-v2/actions/workflows/go.yml/badge.svg?branch=main)](https://github.com/aws/aws-sdk-go-v2/actions/workflows/go.yml)[![Codegen Build status](https://github.com/aws/aws-sdk-go-v2/actions/workflows/codegen.yml/badge.svg?branch=main)](https://github.com/aws/aws-sdk-go-v2/actions/workflows/codegen.yml) [![SDK Documentation](https://img.shields.io/badge/SDK-Documentation-blue)](https://aws.github.io/aws-sdk-go-v2/docs/) [![Migration Guide](https://img.shields.io/badge/Migration-Guide-blue)](https://aws.github.io/aws-sdk-go-v2/docs/migrating/) [![API Reference](https://img.shields.io/badge/api-reference-blue.svg)](https://pkg.go.dev/mod/github.com/aws/aws-sdk-go-v2) [![Apache V2 License](https://img.shields.io/badge/license-Apache%20V2-blue.svg)](https://github.com/aws/aws-sdk-go/blob/master/LICENSE.txt)
 
 
 `aws-sdk-go-v2` is the v2 AWS SDK for the Go programming language.
 
 The v2 SDK requires a minimum version of `Go 1.15`.
 
-Checkout out the [release notes](https://github.com/aws/aws-sdk-go-v2/releases) for information about the latest bug
+Checkout out the [release notes](https://github.com/aws/aws-sdk-go-v2/blob/main/CHANGELOG.md) for information about the latest bug
 fixes, updates, and features added to the SDK.
 
 Jump To:

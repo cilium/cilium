@@ -1,37 +1,28 @@
-language: java
+language: go
 sudo: true
 dist: bionic
-
-install:
-    - eval "$(curl -sL https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | GIMME_GO_VERSION=1.16.x bash)"
-    - echo `go env`
-    - echo `which go`
-
-script: cd codegen && ./gradlew clean build -Plog-tests
-
-matrix:
-  include:
-    - language: java
-      go: 1.16.x
-      jdk: openjdk8
-
-    - language: java
-      go: 1.16.x
-      jdk: openjdk11
-
-    - language: go
-      go: 1.15.x
-      script: go test -v ./...
-
-    - language: go
-      go: 1.16.x
-      script: go test -v ./...
-
-  allow_failures:
-    - language: go
-      go: tip
-      script: go test -v ./...
 
 branches:
   only:
     - main
+
+os:
+  - linux
+  - osx
+  # Travis doesn't work with windows and Go tip
+  #- windows
+
+go:
+  - tip
+
+matrix:
+  allow_failures:
+    - go: tip
+
+before_install:
+  - if [ "$TRAVIS_OS_NAME" = "windows" ]; then choco install make; fi
+  - (cd /tmp/; go get golang.org/x/lint/golint)
+
+script:
+  - make go test -v ./...;
+

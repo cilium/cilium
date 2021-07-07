@@ -53,8 +53,8 @@ add-module-license-files sync-models sync-endpoints-model sync-endpoints.json cl
 sync-api-models copy-attributevalue-feature min-go-version-% update-requires smithy-annotate-stable \
 update-module-metadata
 
-generate: smithy-generate update-requires update-module-metadata smithy-annotate-stable gen-config-asserts \
-copy-attributevalue-feature gen-repo-mod-replace gen-mod-dropreplace-smithy min-go-version-. tidy-modules-. \
+generate: smithy-generate update-requires gen-repo-mod-replace update-module-metadata smithy-annotate-stable \
+gen-config-asserts copy-attributevalue-feature  gen-mod-dropreplace-smithy min-go-version-. tidy-modules-. \
 add-module-license-files gen-aws-ptrs format
 
 smithy-generate:
