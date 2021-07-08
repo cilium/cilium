@@ -133,14 +133,13 @@ jobs:
         run: |
           kubectl logs --timestamps -n kube-system job/cilium-cli
 
-          curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
           export KUBECONFIG=kubeconfig-cluster1
           kubectl get pods --all-namespaces -o wide
-          python cilium-sysdump.zip --output cilium-sysdump-cluster1
+          cilium sysdump --output-filename cilium-sysdump-cluster1
 
           export KUBECONFIG=kubeconfig-cluster2
           kubectl get pods --all-namespaces -o wide
-          python cilium-sysdump.zip --output cilium-sysdump-cluster2
+          cilium sysdump --output-filename cilium-sysdump-cluster2
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Clean up GKE
