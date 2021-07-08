@@ -38,8 +38,9 @@ const (
 )
 
 var (
-	ErrKeyNotExist = ciliumebpf.ErrKeyNotExist
-	LoadPinnedMap  = ciliumebpf.LoadPinnedMap
+	ErrKeyNotExist  = ciliumebpf.ErrKeyNotExist
+	ErrNotSupported = ciliumebpf.ErrNotSupported
+	LoadPinnedMap   = ciliumebpf.LoadPinnedMap
 )
 
 // IterateCallback represents the signature of the callback function expected by

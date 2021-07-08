@@ -179,20 +179,9 @@ func initKubeProxyReplacementOptions() (strict bool) {
 		}
 
 		if option.Config.NodePortAlg == option.NodePortAlgMaglev {
-			// "Let N be the size of a VIP's backend pool." [...] "In practice, we choose M to be
-			// larger than 100 x N to ensure at most a 1% difference in hash space assigned to
-			// backends." (from Maglev paper, page 6)
-			supportedPrimes := []int{251, 509, 1021, 2039, 4093, 8191, 16381, 32749, 65521, 131071}
-			found := false
-			for _, prime := range supportedPrimes {
-				if option.Config.MaglevTableSize == prime {
-					found = true
-					break
-				}
-			}
-			if !found {
+			if !maglev.IsValidPrime(option.Config.MaglevTableSize) {
 				log.Fatalf("Invalid value for --%s: %d, supported values are: %v",
-					option.MaglevTableSize, option.Config.MaglevTableSize, supportedPrimes)
+					option.MaglevTableSize, option.Config.MaglevTableSize, maglev.SupportedPrimes)
 			}
 			if err := maglev.Init(
 				option.Config.MaglevHashSeed,

@@ -15,9 +15,14 @@
 package lbmap
 
 import (
+	"errors"
 	"unsafe"
 
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/maglev"
+
+	"golang.org/x/sys/unix"
 )
 
 // maglevInnerMap is the internal representation of a maglev inner map.
@@ -28,31 +33,92 @@ type maglevInnerMap struct {
 
 // MaglevInnerKey is the key of a maglev inner map.
 type MaglevInnerKey struct {
-	Zero uint32
+	Slot uint32
+}
+
+type maglevInnerKeys []*MaglevInnerKey
+
+func (m maglevInnerKeys) MarshalBinary() ([]byte, error) {
+	if m == nil {
+		return nil, nil
+	}
+	const size = int(unsafe.Sizeof(MaglevInnerKey{}))
+	buf := make([]byte, 0, len(m)*size)
+	for i := range m {
+		b := make([]byte, size)
+		byteorder.Native.PutUint32(b, m[i].Slot)
+		buf = append(buf, b...)
+	}
+	return buf, nil
 }
 
 // MaglevInnerVal is the value of a maglev inner map.
 type MaglevInnerVal struct {
-	BackendIDs []uint16
+	BackendIDs [MaglevInnerElems]uint16
+}
+
+type maglevInnerVals []*MaglevInnerVal
+
+func (m maglevInnerVals) MarshalBinary() ([]byte, error) {
+	if m == nil {
+		return nil, nil
+	}
+	const size = int(unsafe.Sizeof(MaglevInnerVal{}))
+	buf := make([]byte, 0, len(m)*size)
+	for i := range m {
+		for j, v := range m[i].BackendIDs {
+			b := make([]byte, unsafe.Sizeof(v))
+			byteorder.Native.PutUint16(b, m[i].BackendIDs[j])
+			buf = append(buf, b...)
+		}
+	}
+	return buf, nil
 }
 
 // newMaglevInnerMapSpec returns the spec for a maglev inner map.
-func newMaglevInnerMapSpec(name string, tableSize uint32) *ebpf.MapSpec {
+//
+// The caller can specify whether the inner map can be `mmap`-able, but we can
+// default to true because the underlying cilium/ebpf library will handle the
+// case where this flag is not supported. It is toggled to false for
+// benchmarking.
+func newMaglevInnerMapSpec(name string, tableSize uint32, mmap bool) *ebpf.MapSpec {
+	flags := unix.BPF_F_INNER_MAP
+	if mmap {
+		flags |= unix.BPF_F_MMAPABLE
+	}
 	return &ebpf.MapSpec{
 		Name:       name,
 		Type:       ebpf.Array,
 		KeySize:    uint32(unsafe.Sizeof(MaglevInnerKey{})),
-		ValueSize:  uint32(unsafe.Sizeof(uint16(0)) * uintptr(tableSize)),
-		MaxEntries: 1,
+		ValueSize:  uint32(unsafe.Sizeof(MaglevInnerVal{})),
+		MaxEntries: TableSizeToMaxEntries(tableSize),
+		Flags:      uint32(flags),
 	}
 }
 
 // newMaglevInnerMap returns a new object representing a maglev inner map.
-func newMaglevInnerMap(name string, tableSize uint32) (*maglevInnerMap, error) {
-	spec := newMaglevInnerMapSpec(name, tableSize)
+func newMaglevInnerMap(name string, tableSize uint32, mmap bool) (*maglevInnerMap, error) {
+	spec := newMaglevInnerMapSpec(name, tableSize, mmap)
 
 	m := ebpf.NewMap(spec)
-	if err := m.OpenOrCreate(); err != nil {
+	if err := m.OpenOrCreate(); err != nil && errors.Is(err, ebpf.ErrNotSupported) {
+		if mmap {
+			// Fall back to creating the map without BPF_F_MMAPABLE as it's not
+			// supported and try again with just BPF_F_INNER_MAP.
+			spec.Flags ^= unix.BPF_F_MMAPABLE
+			m = ebpf.NewMap(spec)
+			err = m.OpenOrCreate()
+			if err != nil && errors.Is(err, ebpf.ErrNotSupported) {
+				goto fatal
+			} else if err != nil {
+				return nil, err
+			}
+		}
+		// If we don't have mmap and still got ErrNotSupported, then
+		// fallthrough to fataling.
+	fatal:
+		log.WithError(err).Fatal("Maglev mode requires kernel 5.10 or newer")
+	} else if err != nil {
 		return nil, err
 	}
 
@@ -78,9 +144,7 @@ func MaglevInnerMapFromID(id int, tableSize uint32) (*maglevInnerMap, error) {
 
 // Lookup returns the value associated with a given key for a maglev inner map.
 func (m *maglevInnerMap) Lookup(key *MaglevInnerKey) (*MaglevInnerVal, error) {
-	value := &MaglevInnerVal{
-		BackendIDs: make([]uint16, m.tableSize),
-	}
+	value := &MaglevInnerVal{}
 
 	if err := m.Map.Lookup(key, &value.BackendIDs); err != nil {
 		return nil, err
@@ -92,4 +156,25 @@ func (m *maglevInnerMap) Lookup(key *MaglevInnerKey) (*MaglevInnerVal, error) {
 // Update updates the value associated with a given key for a maglev inner map.
 func (m *maglevInnerMap) Update(key *MaglevInnerKey, value *MaglevInnerVal) error {
 	return m.Map.Update(key, &value.BackendIDs, 0)
+}
+
+// TableSizeToMaxEntries returns the max entries of the Maglev inner map
+// depending on the table size (M).
+func TableSizeToMaxEntries(size uint32) uint32 {
+	return (size / MaglevInnerElems) + 1
+}
+
+// maxEntriesToTableSize stores the inverse calculation from the above
+// function. The reason this is populated ahead of time in init() and stored is
+// because the calculation is lossy (due to the integer division on a prime
+// number).
+var maxEntriesToTableSize map[uint32]uint32
+
+func init() {
+	maxEntriesToTableSize = make(map[uint32]uint32, len(maglev.SupportedPrimes))
+
+	for _, v := range maglev.SupportedPrimes {
+		u := uint32(v)
+		maxEntriesToTableSize[TableSizeToMaxEntries(u)] = u
+	}
 }

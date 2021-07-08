@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -30,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 
@@ -37,20 +39,24 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-func getAnnotationIncludeExternal(svc *slim_corev1.Service) bool {
-	if value, ok := svc.ObjectMeta.Annotations[annotation.GlobalService]; ok {
-		return strings.ToLower(value) == "true"
+func getAnnotationRaw(key string, svc *slim_corev1.Service) string {
+	if value, ok := svc.ObjectMeta.Annotations[key]; ok {
+		return strings.ToLower(value)
 	}
 
-	return false
+	return ""
+}
+
+func getAnnotationIncludeExternal(svc *slim_corev1.Service) bool {
+	return getAnnotationRaw(annotation.GlobalService, svc) == "true"
 }
 
 func getAnnotationShared(svc *slim_corev1.Service) bool {
-	if value, ok := svc.ObjectMeta.Annotations[annotation.SharedService]; ok {
-		return strings.ToLower(value) == "true"
+	shared := getAnnotationRaw(annotation.SharedService, svc)
+	if shared == "false" {
+		return false
 	}
-
-	return getAnnotationIncludeExternal(svc)
+	return shared == "true" || getAnnotationIncludeExternal(svc)
 }
 
 // isValidServiceFrontendIP returns true if the provided service frontend IP address type
@@ -156,6 +162,17 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing datapath.NodeAddressi
 
 	svcInfo.IncludeExternal = getAnnotationIncludeExternal(svc)
 	svcInfo.Shared = getAnnotationShared(svc)
+	if s := getAnnotationRaw(annotation.MaglevTableSize, svc); s != "" {
+		if t, err := strconv.ParseUint(s, 10, 64); err != nil || !maglev.IsValidPrime(int(t)) {
+			scopedLog.WithFields(logrus.Fields{
+				logfields.Annotations: annotation.MaglevTableSize,
+				"default":             option.Config.MaglevTableSize,
+				"size":                t,
+			}).WithError(err).Warn("Ignoring k8s service annotation because value is invalid, falling back to default")
+		} else {
+			svcInfo.MaglevTableSize = t
+		}
+	}
 
 	if svc.Spec.SessionAffinity == slim_corev1.ServiceAffinityClientIP {
 		svcInfo.SessionAffinity = true
@@ -334,6 +351,10 @@ type Service struct {
 	// Type is the internal service type
 	// +deepequal-gen=false
 	Type loadbalancer.SVCType
+
+	// MaglevTableSize is the size of the maglev lookup table. This is used
+	// when NodePortAlg == NodePortAlgMaglev.
+	MaglevTableSize uint64
 }
 
 // DeepEqual returns true if both the receiver and 'o' are deeply equal.

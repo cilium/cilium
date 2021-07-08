@@ -19,6 +19,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
+
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -30,6 +32,10 @@ const (
 	// inner maps into them.
 	MaglevOuter4MapName = "cilium_lb4_maglev"
 	MaglevOuter6MapName = "cilium_lb6_maglev"
+
+	// MaglevInnerElems is the number of backends stored inside each slot
+	// (MaglevInnerKey) of the MaglevInnerVal.
+	MaglevInnerElems = 4
 )
 
 var (
@@ -43,7 +49,7 @@ var (
 func InitMaglevMaps(ipv4, ipv6 bool, tableSize uint32) error {
 	var err error
 
-	dummyInnerMapSpec := newMaglevInnerMapSpec("cilium_lb_maglev_dummy", tableSize)
+	dummyInnerMapSpec := newMaglevInnerMapSpec("cilium_lb_maglev_dummy", tableSize, true)
 
 	// Always try to delete old maps with the wrong M parameter, otherwise
 	// we may end up in a case where there are 2 maps (one for IPv4 and
@@ -82,8 +88,8 @@ func OpenMaglevMaps() (uint32, error) {
 		err               error
 	)
 
-	map4Found, maglev4TableSize := MaglevOuterMapTableSize(MaglevOuter4MapName)
-	map6Found, maglev6TableSize := MaglevOuterMapTableSize(MaglevOuter6MapName)
+	map4Found, _, maglev4TableSize := MaglevMapInfo(MaglevOuter4MapName)
+	map6Found, _, maglev6TableSize := MaglevMapInfo(MaglevOuter6MapName)
 
 	switch {
 	case !map4Found && !map6Found:
@@ -138,11 +144,26 @@ func GetOpenMaglevMaps() map[string]*maglevOuterMap {
 // the M param (MaglevTableSize) has changed. This is to avoid the verifier
 // error when loading BPF programs which access the maps.
 func deleteMapIfMNotMatch(mapName string, tableSize uint32) (bool, error) {
-	found, prevTableSize := MaglevOuterMapTableSize(mapName)
+	found, innerMap, prevTableSize := MaglevMapInfo(mapName)
 	if !found {
 		// No existing maglev outer map found.
 		// Return true so the caller will create a new one.
 		return true, nil
+	}
+
+	// An inner map already exists. We need to check if the map flags have
+	// changed and if so, delete both the inner and outer map.
+	if innerMap != nil {
+		// Map name doesn't matter since we only care for the flags.
+		if old, new := innerMap.Flags(), newMaglevInnerMapSpec("", prevTableSize, true).Flags; old != new {
+			log.WithFields(logrus.Fields{
+				"old": old,
+				"new": new,
+			}).Info("Found old Maglev inner map with mismatched flags. Both outer and inner maps will need to be deleted and recreated.")
+			innerMap.Close()
+			innerMap.Map.Unpin()
+			goto deleteOuter
+		}
 	}
 
 	if prevTableSize == tableSize {
@@ -151,6 +172,7 @@ func deleteMapIfMNotMatch(mapName string, tableSize uint32) (bool, error) {
 		return false, nil
 	}
 
+deleteOuter:
 	// An outer map already exists but it has the wrong table size (or we
 	// can't determine it). Delete it.
 	oldMap, err := ebpf.LoadPinnedMap(bpf.MapPath(mapName), nil)
@@ -162,7 +184,7 @@ func deleteMapIfMNotMatch(mapName string, tableSize uint32) (bool, error) {
 	return true, nil
 }
 
-func updateMaglevTable(ipv6 bool, revNATID uint16, backendIDs []uint16) error {
+func updateMaglevTable(ipv6 bool, revNATID uint16, backendIDs []uint16, tableSize uint64) error {
 	outerMap := maglevOuter4Map
 	innerMapName := MaglevInner4MapName
 	if ipv6 {
@@ -170,15 +192,13 @@ func updateMaglevTable(ipv6 bool, revNATID uint16, backendIDs []uint16) error {
 		innerMapName = MaglevInner6MapName
 	}
 
-	innerMap, err := newMaglevInnerMap(innerMapName, outerMap.tableSize)
+	innerMap, err := newMaglevInnerMap(innerMapName, uint32(tableSize), true)
 	if err != nil {
 		return err
 	}
 	defer innerMap.Close()
 
-	innerKey := &MaglevInnerKey{Zero: 0}
-	innerVal := &MaglevInnerVal{BackendIDs: backendIDs}
-	if err := innerMap.Update(innerKey, innerVal); err != nil {
+	if err := updateMaglevInnerMap(innerMap, backendIDs); err != nil {
 		return err
 	}
 
@@ -189,6 +209,30 @@ func updateMaglevTable(ipv6 bool, revNATID uint16, backendIDs []uint16) error {
 	}
 
 	return nil
+}
+
+func updateMaglevInnerMap(m *maglevInnerMap, backendIDs []uint16) error {
+	// We'll attempt to batch update if the kernel supports it. Batch ops are
+	// supported from kernel version v5.6
+	// (https://github.com/torvalds/linux/commit/aa2e93b8e58e18442edfb2427446732415bc215e).
+	split := splitBackends(backendIDs)
+	keys := make(maglevInnerKeys, len(split))
+	vals := make(maglevInnerVals, len(split))
+	for i := range split {
+		keys[i] = &MaglevInnerKey{Slot: uint32(i)}
+		vals[i] = &MaglevInnerVal{BackendIDs: split[i]}
+	}
+	_, err := m.BatchUpdate(keys, vals, nil)
+	if err != nil && errors.Is(err, ebpf.ErrNotSupported) {
+		// Fall back to updating the map one-by-one if batch ops are not
+		// supported.
+		for i := range split {
+			if err := m.Update(keys[i], vals[i]); err != nil {
+				return err
+			}
+		}
+	}
+	return err
 }
 
 func deleteMaglevTable(ipv6 bool, revNATID uint16) error {
@@ -203,4 +247,26 @@ func deleteMaglevTable(ipv6 bool, revNATID uint16) error {
 	}
 
 	return nil
+}
+
+// splitBackends splits the backends into chunks or slots so that they fit into
+// MaglevInnerVal.
+func splitBackends(b []uint16) [][MaglevInnerElems]uint16 {
+	if b == nil {
+		return nil
+	}
+	const size = MaglevInnerElems
+	var chunk [size]uint16
+	chunks := make([][size]uint16, 0, len(b)/size+1)
+	for len(b) >= size {
+		copy(chunk[:], b) // copies only min(len(chunk), len(b))
+		b = b[size:]
+		chunks = append(chunks, chunk)
+	}
+	if len(b) > 0 {
+		var last [size]uint16
+		copy(last[:], b)
+		chunks = append(chunks, last)
+	}
+	return chunks
 }

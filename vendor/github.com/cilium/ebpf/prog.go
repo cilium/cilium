@@ -20,6 +20,8 @@ import (
 // ErrNotSupported is returned whenever the kernel doesn't support a feature.
 var ErrNotSupported = internal.ErrNotSupported
 
+var errUnsatisfiedReference = errors.New("unsatisfied reference")
+
 // ProgramID represents the unique ID of an eBPF program.
 type ProgramID uint32
 
@@ -135,16 +137,16 @@ func NewProgramWithOptions(spec *ProgramSpec, opts ProgramOptions) (*Program, er
 	handles := newHandleCache()
 	defer handles.close()
 
-	return newProgramWithOptions(spec, opts, handles)
+	prog, err := newProgramWithOptions(spec, opts, handles)
+	if errors.Is(err, errUnsatisfiedReference) {
+		return nil, fmt.Errorf("cannot load program without loading its whole collection: %w", err)
+	}
+	return prog, err
 }
 
 func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions, handles *handleCache) (*Program, error) {
 	if len(spec.Instructions) == 0 {
 		return nil, errors.New("Instructions cannot be empty")
-	}
-
-	if len(spec.License) == 0 {
-		return nil, errors.New("License cannot be empty")
 	}
 
 	if spec.ByteOrder != nil && spec.ByteOrder != internal.NativeEndian {
@@ -164,35 +166,19 @@ func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions, handles *hand
 		kv = v.Kernel()
 	}
 
-	insns := make(asm.Instructions, len(spec.Instructions))
-	copy(insns, spec.Instructions)
-
-	if err := fixupJumpsAndCalls(insns); err != nil {
-		return nil, err
-	}
-
-	buf := bytes.NewBuffer(make([]byte, 0, len(spec.Instructions)*asm.InstructionSize))
-	err := insns.Marshal(buf, internal.NativeEndian)
-	if err != nil {
-		return nil, err
-	}
-
-	bytecode := buf.Bytes()
-	insCount := uint32(len(bytecode) / asm.InstructionSize)
 	attr := &bpfProgLoadAttr{
 		progType:           spec.Type,
 		progFlags:          spec.Flags,
 		expectedAttachType: spec.AttachType,
-		insCount:           insCount,
-		instructions:       internal.NewSlicePointer(bytecode),
 		license:            internal.NewStringPointer(spec.License),
 		kernelVersion:      kv,
 	}
 
 	if haveObjName() == nil {
-		attr.progName = newBPFObjName(spec.Name)
+		attr.progName = internal.NewBPFObjName(spec.Name)
 	}
 
+	var err error
 	var targetBTF *btf.Spec
 	if opts.TargetBTF != nil {
 		targetBTF, err = handles.btfSpec(opts.TargetBTF)
@@ -202,11 +188,11 @@ func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions, handles *hand
 	}
 
 	var btfDisabled bool
+	var core btf.COREFixups
 	if spec.BTF != nil {
-		if relos, err := btf.ProgramRelocations(spec.BTF, targetBTF); err != nil {
+		core, err = btf.ProgramFixups(spec.BTF, targetBTF)
+		if err != nil {
 			return nil, fmt.Errorf("CO-RE relocations: %w", err)
-		} else if len(relos) > 0 {
-			return nil, fmt.Errorf("applying CO-RE relocations: %w", ErrNotSupported)
 		}
 
 		handle, err := handles.btfHandle(btf.ProgramSpec(spec.BTF))
@@ -235,6 +221,25 @@ func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions, handles *hand
 			attr.funcInfo = internal.NewSlicePointer(bytes)
 		}
 	}
+
+	insns, err := core.Apply(spec.Instructions)
+	if err != nil {
+		return nil, fmt.Errorf("CO-RE fixup: %w", err)
+	}
+
+	if err := fixupJumpsAndCalls(insns); err != nil {
+		return nil, err
+	}
+
+	buf := bytes.NewBuffer(make([]byte, 0, len(spec.Instructions)*asm.InstructionSize))
+	err = insns.Marshal(buf, internal.NativeEndian)
+	if err != nil {
+		return nil, err
+	}
+
+	bytecode := buf.Bytes()
+	attr.instructions = internal.NewSlicePointer(bytecode)
+	attr.insCount = uint32(len(bytecode) / asm.InstructionSize)
 
 	if spec.AttachTo != "" {
 		target, err := resolveBTFType(targetBTF, spec.AttachTo, spec.Type, spec.AttachType)
@@ -265,7 +270,7 @@ func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions, handles *hand
 	}
 
 	logErr := err
-	if opts.LogLevel == 0 {
+	if opts.LogLevel == 0 && opts.LogSize >= 0 {
 		// Re-run with the verifier enabled to get better error messages.
 		logBuf = make([]byte, logSize)
 		attr.logLevel = 1

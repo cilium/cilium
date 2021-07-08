@@ -219,6 +219,7 @@ type SVC struct {
 	Name                      string // Service name
 	Namespace                 string // Service namespace
 	LoadBalancerSourceRanges  []*cidr.CIDR
+	MaglevTableSize           uint64
 }
 
 func (s *SVC) GetModel() *models.Service {

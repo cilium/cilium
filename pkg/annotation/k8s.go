@@ -75,4 +75,9 @@ const (
 	// public key in the CiliumNode CRD that we need to use to encrypt traffic
 	// to that node.
 	WireguardPubKey = Prefix + ".network.wg-pub-key"
+
+	// MaglevTableSize is the annotation name used to store the Maglev table
+	// size per service. This is used only when NodePortAlg ==
+	// NodePortAlgMaglev.
+	MaglevTableSize = Prefix + "/maglev-table-size"
 )

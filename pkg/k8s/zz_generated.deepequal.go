@@ -266,6 +266,9 @@ func (in *Service) deepEqual(other *Service) bool {
 	if in.SessionAffinityTimeoutSec != other.SessionAffinityTimeoutSec {
 		return false
 	}
+	if in.MaglevTableSize != other.MaglevTableSize {
+		return false
+	}
 
 	return true
 }

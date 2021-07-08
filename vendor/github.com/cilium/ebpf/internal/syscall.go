@@ -178,3 +178,38 @@ func BPFObjGetInfoByFD(fd *FD, info unsafe.Pointer, size uintptr) error {
 	}
 	return nil
 }
+
+// BPFObjName is a null-terminated string made up of
+// 'A-Za-z0-9_' characters.
+type BPFObjName [unix.BPF_OBJ_NAME_LEN]byte
+
+// NewBPFObjName truncates the result if it is too long.
+func NewBPFObjName(name string) BPFObjName {
+	var result BPFObjName
+	copy(result[:unix.BPF_OBJ_NAME_LEN-1], name)
+	return result
+}
+
+type BPFMapCreateAttr struct {
+	MapType        uint32
+	KeySize        uint32
+	ValueSize      uint32
+	MaxEntries     uint32
+	Flags          uint32
+	InnerMapFd     uint32     // since 4.12 56f668dfe00d
+	NumaNode       uint32     // since 4.14 96eabe7a40aa
+	MapName        BPFObjName // since 4.15 ad5b177bd73f
+	MapIfIndex     uint32
+	BTFFd          uint32
+	BTFKeyTypeID   uint32
+	BTFValueTypeID uint32
+}
+
+func BPFMapCreate(attr *BPFMapCreateAttr) (*FD, error) {
+	fd, err := BPF(BPF_MAP_CREATE, unsafe.Pointer(attr), unsafe.Sizeof(*attr))
+	if err != nil {
+		return nil, err
+	}
+
+	return NewFD(uint32(fd)), nil
+}

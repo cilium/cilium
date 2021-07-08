@@ -46,15 +46,15 @@ type LBBPFMap struct {
 	// IDs. Concurrent access is protected by the
 	// pkg/service.go:(Service).UpsertService() lock.
 	maglevBackendIDsBuffer []uint16
-	maglevTableSize        uint64
+	defaultMaglevTableSize uint64
 }
 
-func New(maglev bool, maglevTableSize int) *LBBPFMap {
+func New(maglev bool, size int) *LBBPFMap {
 	m := &LBBPFMap{}
 
 	if maglev {
-		m.maglevBackendIDsBuffer = make([]uint16, maglevTableSize)
-		m.maglevTableSize = uint64(maglevTableSize)
+		m.maglevBackendIDsBuffer = make([]uint16, size)
+		m.defaultMaglevTableSize = uint64(size)
 	}
 
 	return m
@@ -74,6 +74,7 @@ type UpsertServiceParams struct {
 	SessionAffinityTimeoutSec uint32
 	CheckSourceRange          bool
 	UseMaglev                 bool
+	MaglevTableSize           uint64
 }
 
 // UpsertService inserts or updates the given service in a BPF map.
@@ -100,7 +101,16 @@ func (lbmap *LBBPFMap) UpsertService(p *UpsertServiceParams) error {
 	svcVal := svcKey.NewValue().(ServiceValue)
 
 	if p.UseMaglev && len(p.Backends) != 0 {
-		if err := lbmap.UpsertMaglevLookupTable(p.ID, p.Backends, p.IPv6); err != nil {
+		if p.MaglevTableSize == 0 {
+			p.MaglevTableSize = lbmap.defaultMaglevTableSize
+		}
+
+		if err := lbmap.UpsertMaglevLookupTable(
+			p.ID,
+			p.Backends,
+			p.IPv6,
+			p.MaglevTableSize,
+		); err != nil {
 			return err
 		}
 	}
@@ -131,9 +141,22 @@ func (lbmap *LBBPFMap) UpsertService(p *UpsertServiceParams) error {
 		return fmt.Errorf("Unable to update reverse NAT %+v => %+v: %s", revNATKey, revNATValue, err)
 	}
 
-	if err := updateMasterService(svcKey, len(backendIDs), int(p.ID), p.Type, p.Local,
-		p.SessionAffinity, p.SessionAffinityTimeoutSec, p.CheckSourceRange); err != nil {
-
+	// The caller of UpsertService() will provide non-zero value if Maglev is
+	// enabled, which then we pass down here to be plumbed into the map value.
+	if err := updateMasterService(
+		svcKey,
+		len(backendIDs),
+		int(p.ID),
+		p.SessionAffinityTimeoutSec,
+		uint32(p.MaglevTableSize),
+		loadbalancer.SvcFlagParam{
+			SvcType:          p.Type,
+			SvcLocal:         p.Local,
+			SessionAffinity:  p.SessionAffinity,
+			IsRoutable:       !svcKey.IsSurrogate(),
+			CheckSourceRange: p.CheckSourceRange,
+		},
+	); err != nil {
 		deleteRevNatLocked(revNATKey)
 		return fmt.Errorf("Unable to update service %+v: %s", svcKey, err)
 	}
@@ -153,7 +176,7 @@ func (lbmap *LBBPFMap) UpsertService(p *UpsertServiceParams) error {
 
 // UpsertMaglevLookupTable calculates Maglev lookup table for given backends, and
 // inserts into the Maglev BPF map.
-func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]uint16, ipv6 bool) error {
+func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]uint16, ipv6 bool, m uint64) error {
 	backendNames := make([]string, 0, len(backends))
 	for name := range backends {
 		backendNames = append(backendNames, name)
@@ -163,12 +186,18 @@ func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string
 	// backends by name, as the names are the same on all nodes (in opposite
 	// to backend IDs which are node-local).
 	sort.Strings(backendNames)
-	table := maglev.GetLookupTable(backendNames, lbmap.maglevTableSize)
+	table := maglev.GetLookupTable(backendNames, m)
+	// Need to extend the backend ID buffer if lookup table is larger.
+	if t := len(table); t > len(lbmap.maglevBackendIDsBuffer) {
+		buf := make([]uint16, t)
+		copy(buf, lbmap.maglevBackendIDsBuffer)
+		lbmap.maglevBackendIDsBuffer = buf
+	}
 	for i, pos := range table {
 		lbmap.maglevBackendIDsBuffer[i] = backends[backendNames[pos]]
 	}
 
-	if err := updateMaglevTable(ipv6, svcID, lbmap.maglevBackendIDsBuffer); err != nil {
+	if err := updateMaglevTable(ipv6, svcID, lbmap.maglevBackendIDsBuffer[:len(table)], m); err != nil {
 		return err
 	}
 
@@ -500,28 +529,27 @@ func (*LBBPFMap) IsMaglevLookupTableRecreated(ipv6 bool) bool {
 	return maglevRecreatedIPv4
 }
 
-func updateMasterService(fe ServiceKey, nbackends int, revNATID int, svcType loadbalancer.SVCType,
-	svcLocal bool, sessionAffinity bool, sessionAffinityTimeoutSec uint32,
-	checkSourceRange bool) error {
-
+func updateMasterService(
+	fe ServiceKey,
+	nbackends, revNATID int,
+	sessionAffinityTimeoutSec, maglevTableSize uint32,
+	params loadbalancer.SvcFlagParam,
+) error {
 	// isRoutable denotes whether this service can be accessed from outside the cluster.
 	isRoutable := !fe.IsSurrogate() &&
-		(svcType != loadbalancer.SVCTypeClusterIP || option.Config.ExternalClusterIP)
+		(params.SvcType != loadbalancer.SVCTypeClusterIP || option.Config.ExternalClusterIP)
+	params.IsRoutable = isRoutable
 
 	fe.SetBackendSlot(0)
 	zeroValue := fe.NewValue().(ServiceValue)
 	zeroValue.SetCount(nbackends)
 	zeroValue.SetRevNat(revNATID)
-	flag := loadbalancer.NewSvcFlag(&loadbalancer.SvcFlagParam{
-		SvcType:          svcType,
-		SvcLocal:         svcLocal,
-		SessionAffinity:  sessionAffinity,
-		IsRoutable:       isRoutable,
-		CheckSourceRange: checkSourceRange,
-	})
-	zeroValue.SetFlags(flag.UInt16())
-	if sessionAffinity {
+	zeroValue.SetFlags(loadbalancer.NewSvcFlag(&params).UInt16())
+	if params.SessionAffinity {
 		zeroValue.SetSessionAffinityTimeoutSec(sessionAffinityTimeoutSec)
+	}
+	if maglevTableSize != 0 { // Non-zero means Mavlev is enabled.
+		zeroValue.SetBackendID(loadbalancer.BackendID(maglevTableSize))
 	}
 
 	return updateServiceEndpoint(fe, zeroValue)
