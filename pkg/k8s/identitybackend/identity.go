@@ -115,7 +115,7 @@ func (c *crdBackend) RunLocksGC(_ context.Context, _ map[string]kvstore.Value) (
 	return nil, nil
 }
 
-func (c *crdBackend) RunGC(context.Context, *rate.Limiter, map[string]uint64) (map[string]uint64, *allocator.GCStats, error) {
+func (c *crdBackend) RunGC(context.Context, *rate.Limiter, map[string]uint64, idpool.ID, idpool.ID) (map[string]uint64, *allocator.GCStats, error) {
 	return nil, nil, nil
 }
 

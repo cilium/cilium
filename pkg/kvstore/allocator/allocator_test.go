@@ -300,6 +300,82 @@ func (s *AllocatorSuite) TestGC(c *C) {
 	c.Assert(key, IsNil)
 }
 
+func (s *AllocatorSuite) TestGC_ShouldSkipOutOfRangeIdentites(c *C) {
+
+	// Allocator1: allocator under test
+	backend, err := NewKVStoreBackend(randomTestName(), "a", TestAllocatorKey(""), kvstore.Client())
+	c.Assert(err, IsNil)
+
+	maxID1 := idpool.ID(4 + c.N)
+	allocator1, err := allocator.NewAllocator(TestAllocatorKey(""), backend, allocator.WithMax(maxID1), allocator.WithoutGC())
+	c.Assert(err, IsNil)
+	c.Assert(allocator1, Not(IsNil))
+
+	defer allocator1.DeleteAllKeys()
+	defer allocator1.Delete()
+
+	allocator1.DeleteAllKeys()
+
+	shortKey1 := TestAllocatorKey("1;")
+	shortID1, _, _, err := allocator1.Allocate(context.Background(), shortKey1)
+	c.Assert(err, IsNil)
+	c.Assert(shortID1, Not(Equals), 0)
+
+	allocator1.Release(context.Background(), shortKey1)
+
+	// Alloctor2: with a non-overlapping range compared with allocator1
+	backend2, err := NewKVStoreBackend(randomTestName(), "a", TestAllocatorKey(""), kvstore.Client())
+	c.Assert(err, IsNil)
+
+	minID2 := maxID1 + 1
+	maxID2 := minID2 + 4
+	allocator2, err := allocator.NewAllocator(TestAllocatorKey(""), backend2, allocator.WithMin(minID2), allocator.WithMax(maxID2), allocator.WithoutGC())
+	c.Assert(err, IsNil)
+	c.Assert(allocator2, Not(IsNil))
+
+	shortKey2 := TestAllocatorKey("2;")
+	shortID2, _, _, err := allocator2.Allocate(context.Background(), shortKey2)
+	c.Assert(err, IsNil)
+	c.Assert(shortID2, Not(Equals), 0)
+
+	defer allocator2.DeleteAllKeys()
+	defer allocator2.Delete()
+
+	allocator2.Release(context.Background(), shortKey2)
+
+	// Perform GC with allocator1: there are two entries in kvstore currently
+	rateLimiter := rate.NewLimiter(10*time.Second, 100)
+
+	keysToDelete := map[string]uint64{}
+	keysToDelete, _, err = allocator1.RunGC(rateLimiter, keysToDelete)
+	c.Assert(err, IsNil)
+	// But, only one will be filtered out and GC'ed
+	c.Assert(len(keysToDelete), Equals, 1)
+	keysToDelete, _, err = allocator1.RunGC(rateLimiter, keysToDelete)
+	c.Assert(err, IsNil)
+	c.Assert(len(keysToDelete), Equals, 0)
+
+	// Wait for cache to be updated via delete notification
+	c.Assert(testutils.WaitUntil(func() bool {
+		key, err := allocator1.GetByID(context.TODO(), shortID1)
+		if err != nil {
+			c.Error(err)
+			return false
+		}
+		return key == nil
+	}, 5*time.Second), IsNil)
+
+	// The key created with allocator1 should be GC'd
+	key, err := allocator1.GetByID(context.TODO(), shortID1)
+	c.Assert(err, IsNil)
+	c.Assert(key, IsNil)
+
+	// The key created with allocator2 should NOT be GC'd
+	key2, err := allocator2.GetByID(context.TODO(), shortID2)
+	c.Assert(err, IsNil)
+	c.Assert(key2, Not(IsNil))
+}
+
 func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	backend, err := NewKVStoreBackend(allocatorName, "a", TestAllocatorKey(""), kvstore.Client())
 	c.Assert(err, IsNil)

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/backoff"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -237,7 +238,7 @@ type Backend interface {
 	// by cilium-agent.
 	// Note: not all Backend implemenations rely on this, such as the kvstore
 	// backends, and may use leases to expire keys.
-	RunGC(ctx context.Context, rateLimit *rate.Limiter, staleKeysPrevRound map[string]uint64) (map[string]uint64, *GCStats, error)
+	RunGC(ctx context.Context, rateLimit *rate.Limiter, staleKeysPrevRound map[string]uint64, minID idpool.ID, maxID idpool.ID) (map[string]uint64, *GCStats, error)
 
 	// RunLocksGC reaps stale or unused locks within the Backend. It is used by
 	// the cilium-operator and is not invoked by cilium-agent. Returns
@@ -265,11 +266,15 @@ type Backend interface {
 // After creation, IDs can be allocated with Allocate() and released with
 // Release()
 func NewAllocator(typ AllocatorKey, backend Backend, opts ...AllocatorOption) (*Allocator, error) {
+	// Calculate initial ID range with cluster ID
+	minID := option.Config.ClusterID<<identity.ClusterIDShift + 1
+	maxID := minID + (1<<identity.ClusterIDShift - 1)
+
 	a := &Allocator{
 		keyType:      typ,
 		backend:      backend,
-		min:          idpool.ID(1),
-		max:          idpool.ID(^uint64(0)),
+		min:          idpool.ID(minID),
+		max:          idpool.ID(maxID),
 		localKeys:    newLocalKeys(),
 		stopGC:       make(chan struct{}),
 		suffix:       uuid.New().String()[:10],
@@ -335,12 +340,20 @@ func WithEvents(events AllocatorEventChan) AllocatorOption {
 
 // WithMin sets the minimum identifier to be allocated
 func WithMin(id idpool.ID) AllocatorOption {
-	return func(a *Allocator) { a.min = id }
+	return func(a *Allocator) {
+		if id > a.min {
+			a.min = id
+		}
+	}
 }
 
 // WithMax sets the maximum identifier to be allocated
 func WithMax(id idpool.ID) AllocatorOption {
-	return func(a *Allocator) { a.max = id }
+	return func(a *Allocator) {
+		if id < a.max {
+			a.max = id
+		}
+	}
 }
 
 // WithPrefixMask sets the prefix used for all ID allocations. If set, the mask
@@ -797,7 +810,7 @@ func (a *Allocator) Release(ctx context.Context, key AllocatorKey) (lastUse bool
 
 // RunGC scans the kvstore for unused master keys and removes them
 func (a *Allocator) RunGC(rateLimit *rate.Limiter, staleKeysPrevRound map[string]uint64) (map[string]uint64, *GCStats, error) {
-	return a.backend.RunGC(context.TODO(), rateLimit, staleKeysPrevRound)
+	return a.backend.RunGC(context.TODO(), rateLimit, staleKeysPrevRound, a.min, a.max)
 }
 
 // RunLocksGC scans the kvstore for stale locks and removes them
