@@ -208,6 +208,11 @@ func (c *Client) CheckDeploymentStatus(ctx context.Context, namespace, deploymen
 		return fmt.Errorf("deployment is not available")
 	}
 
+	if d.Status.ObservedGeneration != d.Generation {
+		return fmt.Errorf("observed generation (%d) is older than generation of the desired state (%d)",
+			d.Status.ObservedGeneration, d.Generation)
+	}
+
 	if d.Status.Replicas == 0 {
 		return fmt.Errorf("replicas count is zero")
 	}
@@ -238,6 +243,11 @@ func (c *Client) CheckDaemonSetStatus(ctx context.Context, namespace, daemonset 
 
 	if d == nil {
 		return fmt.Errorf("daemonset is not available")
+	}
+
+	if d.Status.ObservedGeneration != d.Generation {
+		return fmt.Errorf("observed generation (%d) is older than generation of the desired state (%d)",
+			d.Status.ObservedGeneration, d.Generation)
 	}
 
 	if d.Status.DesiredNumberScheduled != d.Status.NumberReady {
