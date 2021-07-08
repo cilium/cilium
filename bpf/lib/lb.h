@@ -197,6 +197,24 @@ struct bpf_elf_map __section_maps LB_AFFINITY_MATCH_MAP = {
 #endif
 
 static __always_inline
+void lb4_set_key(struct lb4_key *key, __be32 address, __be16 dport, __u8 proto __maybe_unused) {
+	key->address = address;
+	key->dport = dport;
+#ifdef ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION
+	key->proto = proto;
+#endif
+}
+
+static __always_inline
+void lb6_set_key(struct lb6_key *key, union v6addr address, __be16 dport, __u8 proto __maybe_unused) {
+	key->address = address;
+	key->dport = dport;
+#ifdef ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION
+	key->proto = proto;
+#endif
+}
+
+static __always_inline
 bool lb4_svc_is_loadbalancer(const struct lb4_service *svc __maybe_unused)
 {
 #ifdef ENABLE_LOADBALANCER
@@ -516,8 +534,11 @@ static __always_inline int lb6_extract_key(struct __ctx_buff *ctx __maybe_unused
 					   int dir)
 {
 	union v6addr *addr;
-	/* FIXME(brb): set after adding support for different L4 protocols in LB */
+#ifdef ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION
+	key->proto = tuple->nexthdr;
+#else
 	key->proto = 0;
+#endif
 	addr = (dir == CT_INGRESS) ? &tuple->saddr : &tuple->daddr;
 	ipv6_addr_copy(&key->address, addr);
 	csum_l4_offset_and_flags(tuple->nexthdr, csum_off);
@@ -1045,8 +1066,11 @@ static __always_inline int lb4_extract_key(struct __ctx_buff *ctx __maybe_unused
 					   struct csum_offset *csum_off,
 					   int dir)
 {
-	/* FIXME: set after adding support for different L4 protocols in LB */
+#ifdef ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION
+	key->proto = ip4->protocol;
+#else
 	key->proto = 0;
+#endif
 	key->address = (dir == CT_INGRESS) ? ip4->saddr : ip4->daddr;
 	if (ipv4_has_l4_header(ip4))
 		csum_l4_offset_and_flags(ip4->protocol, csum_off);

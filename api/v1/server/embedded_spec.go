@@ -1598,6 +1598,10 @@ func init() {
           "description": "Layer 4 port number",
           "type": "integer",
           "format": "uint16"
+        },
+        "protocol": {
+          "description": "Layer 4 protocol (TCP, UDP, etc)",
+          "type": "string"
         }
       }
     },
@@ -1967,6 +1971,10 @@ func init() {
         "routeMTU": {
           "description": "MTU for network facing routes",
           "type": "integer"
+        },
+        "support-service-protocols": {
+          "description": "Configured support for service L4 protocols",
+          "type": "boolean"
         }
       }
     },
@@ -5927,6 +5935,10 @@ func init() {
           "description": "Layer 4 port number",
           "type": "integer",
           "format": "uint16"
+        },
+        "protocol": {
+          "description": "Layer 4 protocol (TCP, UDP, etc)",
+          "type": "string"
         }
       }
     },
@@ -6348,6 +6360,10 @@ func init() {
         "routeMTU": {
           "description": "MTU for network facing routes",
           "type": "integer"
+        },
+        "support-service-protocols": {
+          "description": "Configured support for service L4 protocols",
+          "type": "boolean"
         }
       }
     },

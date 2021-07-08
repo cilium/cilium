@@ -986,6 +986,9 @@ func init() {
 	flags.IntSlice(option.VLANBPFBypass, []int{}, "List of explicitly allowed VLAN IDs, '0' id will allow all VLAN IDs")
 	option.BindEnv(option.VLANBPFBypass)
 
+	flags.Bool(option.SupportServiceProtocols, defaults.SupportServiceProtocols, "Enable the differentiation of the L4 protocols for services, in order to allow services with the same port but different L4 protocols to co-exist.")
+	option.BindEnv(option.SupportServiceProtocols)
+
 	viper.BindPFlags(flags)
 }
 

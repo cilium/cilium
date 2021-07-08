@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 type LBMockMap struct {
@@ -94,12 +95,17 @@ func (m *LBMockMap) DeleteService(addr lb.L3n4AddrID, backendCount int, maglev b
 	return nil
 }
 
-func (m *LBMockMap) AddBackend(id uint16, ip net.IP, port uint16, ipv6 bool) error {
+func (m *LBMockMap) AddBackend(id uint16, ip net.IP, protocol lb.L4Type, port uint16, ipv6 bool) error {
 	if _, found := m.BackendByID[id]; found {
 		return fmt.Errorf("Backend %d already exists", id)
 	}
 
-	m.BackendByID[id] = lb.NewBackend(lb.BackendID(id), lb.NONE, ip, port)
+	proto := lb.NONE
+	if option.Config.SupportServiceProtocols {
+		proto = protocol
+	}
+
+	m.BackendByID[id] = lb.NewBackend(lb.BackendID(id), proto, ip, port)
 
 	return nil
 }

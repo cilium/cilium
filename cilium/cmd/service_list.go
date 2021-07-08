@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/spf13/cobra"
 )
@@ -43,6 +44,15 @@ func init() {
 }
 
 func listServices(cmd *cobra.Command, args []string) {
+	conf, err := client.ConfigGet()
+	if err != nil {
+		Fatalf("Cannot get Cilium configuration: %s", err)
+	}
+
+	// this option is used by the loadbalancer package to determine how to
+	// format the string representation of a L3n4Addr.
+	option.Config.SupportServiceProtocols = conf.Status.SupportServiceProtocols
+
 	list, err := client.GetServices()
 	if err != nil {
 		Fatalf("Cannot get services list: %s", err)

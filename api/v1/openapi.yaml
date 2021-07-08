@@ -2198,6 +2198,9 @@ definitions:
       egress-multi-home-ip-rule-compat:
         description: Configured compatibility mode for --egress-multi-home-ip-rule-compat
         type: boolean
+      support-service-protocols:
+        description: Configured support for service L4 protocols
+        type: boolean
   DatapathMode:
     description: Datapath mode
     type: string
@@ -2426,6 +2429,9 @@ definitions:
         description: Layer 4 port number
         type: integer
         format: uint16
+      protocol:
+        description: Layer 4 protocol (TCP, UDP, etc)
+        type: string
       nodeName:
         description: Optional name of the node on which this backend runs
         type: string

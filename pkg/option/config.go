@@ -957,6 +957,11 @@ const (
 
 	// VLANBPFBypass instructs Cilium to bypass bpf logic for vlan tagged packets
 	VLANBPFBypass = "vlan-bpf-bypass"
+
+	// SupportServiceProtocols enables the differentiation of the L4
+	// protocols for services, in order to allow services with the same port
+	// but different L4 protocols to co-exist.
+	SupportServiceProtocols = "support-service-protocols"
 )
 
 // Default string arguments
@@ -1354,7 +1359,7 @@ type DaemonConfig struct {
 	// runs in the same container as Cilium.
 	EnvoyLogPath string
 
-	// EnableSockOps specifies whether to enable sockops (socket lookup).
+	// SockopsEnable specifies whether to enable sockops (socket lookup).
 	SockopsEnable bool
 
 	// PrependIptablesChains is the name of the option to enable prepending
@@ -1403,6 +1408,11 @@ type DaemonConfig struct {
 
 	// MonitorQueueSize is the size of the monitor event queue
 	MonitorQueueSize int
+
+	// SupportServiceProtocols enables the differentiation of the L4
+	// protocols for services, in order to allow services with the same port
+	// but different L4 protocols to co-exist.
+	SupportServiceProtocols bool
 
 	// CLI options
 
@@ -2477,6 +2487,7 @@ func (c *DaemonConfig) Populate() {
 	c.MonitorAggregation = viper.GetString(MonitorAggregationName)
 	c.MonitorAggregationInterval = viper.GetDuration(MonitorAggregationInterval)
 	c.MonitorQueueSize = viper.GetInt(MonitorQueueSizeName)
+	c.SupportServiceProtocols = viper.GetBool(SupportServiceProtocols)
 	c.MTU = viper.GetInt(MTUName)
 	c.NAT46Range = viper.GetString(NAT46Range)
 	c.PProf = viper.GetBool(PProf)

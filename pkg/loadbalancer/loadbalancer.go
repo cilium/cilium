@@ -15,6 +15,7 @@
 package loadbalancer
 
 import (
+	"crypto/sha512"
 	"fmt"
 	"net"
 	"sort"
@@ -22,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // SVCType is a type of a service.
@@ -159,6 +161,7 @@ func (s ServiceFlags) UInt16() uint16 {
 }
 
 const (
+	// NONE type.
 	NONE = L4Type("NONE")
 	// TCP type.
 	TCP = L4Type("TCP")
@@ -264,14 +267,25 @@ func (s *SVC) GetModel() *models.Service {
 	}
 }
 
-func NewL4Type(name string) (L4Type, error) {
+func NewL4Type(name string) L4Type {
 	switch strings.ToLower(name) {
 	case "tcp":
-		return TCP, nil
+		return TCP
 	case "udp":
-		return UDP, nil
+		return UDP
 	default:
-		return "", fmt.Errorf("unknown L4 protocol")
+		return NONE
+	}
+}
+
+func NewL4TypeFromNumber(proto uint8) L4Type {
+	switch proto {
+	case 6:
+		return TCP
+	case 17:
+		return UDP
+	default:
+		return NONE
 	}
 }
 
@@ -296,6 +310,11 @@ func (l *L4Addr) DeepEqual(o *L4Addr) bool {
 // NewL4Addr creates a new L4Addr.
 func NewL4Addr(protocol L4Type, number uint16) *L4Addr {
 	return &L4Addr{Protocol: protocol, Port: number}
+}
+
+// String returns a string representation of an L4Addr
+func (l *L4Addr) String() string {
+	return fmt.Sprintf("%d/%s", l.Port, l.Protocol)
 }
 
 // L3n4Addr is used to store, as an unique L3+L4 address in the KVStore. It also
@@ -339,16 +358,9 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 		return nil, fmt.Errorf("missing IP address")
 	}
 
-	proto := NONE
-	if base.Protocol != "" {
-		p, err := NewL4Type(base.Protocol)
-		if err != nil {
-			return nil, err
-		}
-		proto = p
-	}
+	p := NewL4Type(base.Protocol)
 
-	l4addr := NewL4Addr(proto, base.Port)
+	l4addr := NewL4Addr(p, base.Port)
 	ip := net.ParseIP(base.IP)
 	if ip == nil {
 		return nil, fmt.Errorf("invalid IP address \"%s\"", base.IP)
@@ -381,8 +393,8 @@ func NewBackendFromBackendModel(base *models.BackendAddress) (*Backend, error) {
 		return nil, fmt.Errorf("missing IP address")
 	}
 
-	// FIXME: Should this be NONE ?
-	l4addr := NewL4Addr(NONE, base.Port)
+	p := NewL4Type(base.Protocol)
+	l4addr := NewL4Addr(p, base.Port)
 	ip := net.ParseIP(*base.IP)
 	if ip == nil {
 		return nil, fmt.Errorf("invalid IP address \"%s\"", *base.IP)
@@ -396,8 +408,8 @@ func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error)
 		return nil, fmt.Errorf("missing IP address")
 	}
 
-	// FIXME: Should this be NONE ?
-	l4addr := NewL4Addr(NONE, base.Port)
+	p := NewL4Type(base.Protocol)
+	l4addr := NewL4Addr(p, base.Port)
 	ip := net.ParseIP(*base.IP)
 	if ip == nil {
 		return nil, fmt.Errorf("invalid IP address \"%s\"", *base.IP)
@@ -414,11 +426,18 @@ func (a *L3n4Addr) GetModel() *models.FrontendAddress {
 	if a.Scope == ScopeInternal {
 		scope = models.FrontendAddressScopeInternal
 	}
-	return &models.FrontendAddress{
+
+	m := &models.FrontendAddress{
 		IP:    a.IP.String(),
 		Port:  a.Port,
 		Scope: scope,
 	}
+
+	if option.Config.SupportServiceProtocols {
+		m.Protocol = a.Protocol
+	}
+
+	return m
 }
 
 func (b *Backend) GetBackendModel() *models.BackendAddress {
@@ -427,28 +446,19 @@ func (b *Backend) GetBackendModel() *models.BackendAddress {
 	}
 
 	ip := b.IP.String()
-	return &models.BackendAddress{
+	m := &models.BackendAddress{
 		IP:       &ip,
 		Port:     b.Port,
 		NodeName: b.NodeName,
 	}
+
+	if option.Config.SupportServiceProtocols {
+		m.Protocol = b.Protocol
+	}
+
+	return m
 }
 
-// String returns the L3n4Addr in the "IPv4:Port[/Scope]" format for IPv4 and
-// "[IPv6]:Port[/Scope]" format for IPv6.
-func (a *L3n4Addr) String() string {
-	var scope string
-	if a.Scope == ScopeInternal {
-		scope = "/i"
-	}
-	if a.IsIPv6() {
-		return fmt.Sprintf("[%s]:%d%s", a.IP.String(), a.Port, scope)
-	}
-	return fmt.Sprintf("%s:%d%s", a.IP.String(), a.Port, scope)
-}
-
-// StringWithProtocol returns the L3n4Addr in the "IPv4:Port/Protocol[/Scope]"
-// format for IPv4 and "[IPv6]:Port/Protocol[/Scope]" format for IPv6.
 func (a *L3n4Addr) StringWithProtocol() string {
 	var scope string
 	if a.Scope == ScopeInternal {
@@ -460,6 +470,23 @@ func (a *L3n4Addr) StringWithProtocol() string {
 	return fmt.Sprintf("%s:%d/%s%s", a.IP.String(), a.Port, a.Protocol, scope)
 }
 
+// String returns the L3n4Addr in the "IPv4:Port/Protocol[/Scope]" format for IPv4 and
+// "[IPv6]:Port/Protocol[/Scope]" format for IPv6.
+func (a *L3n4Addr) String() string {
+	if option.Config.SupportServiceProtocols {
+		return a.StringWithProtocol()
+	}
+
+	var scope string
+	if a.Scope == ScopeInternal {
+		scope = "/i"
+	}
+	if a.IsIPv6() {
+		return fmt.Sprintf("[%s]:%d%s", a.IP.String(), a.Port, scope)
+	}
+	return fmt.Sprintf("%s:%d%s", a.IP.String(), a.Port, scope)
+}
+
 // StringID returns the L3n4Addr as string to be used for unique identification
 func (a *L3n4Addr) StringID() string {
 	// This does not include the protocol right now as the datapath does
@@ -467,23 +494,32 @@ func (a *L3n4Addr) StringID() string {
 	return a.String()
 }
 
-// Hash calculates a unique string of the L3n4Addr e.g for use as a key in maps.
-// Note: the resulting string is meant to be used as a key for maps and is not
-// readable by a human eye when printed out.
-func (a L3n4Addr) Hash() string {
+func (a L3n4Addr) noProtoHash() string {
 	const lenProto = 0 // proto is omitted for now
 	const lenScope = 1 // scope is uint8 which is an alias for byte
 	const lenPort = 2  // port is uint16 which is 2 bytes
 
 	b := make([]byte, net.IPv6len+lenProto+lenScope+lenPort)
 	copy(b, a.IP.To16())
-	// FIXME: add Protocol once we care about protocols
 	// scope is a uint8 which is an alias for byte so a cast is safe
 	b[net.IPv6len+lenProto] = byte(a.Scope)
 	// port is a uint16, so 2 bytes
 	b[net.IPv6len+lenProto+lenScope] = byte(a.Port >> 8)
 	b[net.IPv6len+lenProto+lenScope+1] = byte(a.Port & 0xff)
 	return string(b)
+
+}
+
+// Hash calculates a unique string of the L3n4Addr e.g for use as a key in maps.
+// Note: the resulting string is meant to be used as a key for maps and is not
+// readable by a human eye when printed out.
+func (a L3n4Addr) Hash() string {
+	if !option.Config.SupportServiceProtocols {
+		return a.noProtoHash()
+	}
+
+	str := []byte(fmt.Sprintf("%s", a.String()))
+	return fmt.Sprintf("%x", sha512.Sum512_256(str))
 }
 
 // IsIPv6 returns true if the IP address in the given L3n4Addr is IPv6 or not.

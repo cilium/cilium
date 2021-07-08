@@ -437,4 +437,9 @@ const (
 	// ExternalClusterIP enables cluster external access to ClusterIP services.
 	// Defaults to false to retain prior behaviour of not routing external packets to ClusterIPs.
 	ExternalClusterIP = false
+
+	// SupportServiceProtocols enables the differentiation of the L4
+	// protocols for services, in order to allow services with the same port
+	// but different L4 protocols to co-exist.
+	SupportServiceProtocols = false
 )

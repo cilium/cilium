@@ -66,6 +66,9 @@ type DaemonConfigurationStatus struct {
 
 	// MTU for network facing routes
 	RouteMTU int64 `json:"routeMTU,omitempty"`
+
+	// Configured support for service L4 protocols
+	SupportServiceProtocols bool `json:"support-service-protocols,omitempty"`
 }
 
 // Validate validates this daemon configuration status
