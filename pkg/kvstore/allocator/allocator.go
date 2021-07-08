@@ -426,7 +426,13 @@ func (k *kvstoreBackend) RunLocksGC(ctx context.Context, staleKeysPrevRound map[
 }
 
 // RunGC scans the kvstore for unused master keys and removes them
-func (k *kvstoreBackend) RunGC(ctx context.Context, rateLimit *rate.Limiter, staleKeysPrevRound map[string]uint64) (map[string]uint64, *allocator.GCStats, error) {
+func (k *kvstoreBackend) RunGC(
+	ctx context.Context,
+	rateLimit *rate.Limiter,
+	staleKeysPrevRound map[string]uint64,
+	minID, maxID idpool.ID,
+) (map[string]uint64, *allocator.GCStats, error) {
+
 	// fetch list of all /id/ keys
 	allocated, err := k.backend.ListPrefix(ctx, k.idPrefix)
 	if err != nil {
@@ -438,11 +444,36 @@ func (k *kvstoreBackend) RunGC(ctx context.Context, rateLimit *rate.Limiter, sta
 
 	staleKeys := map[string]uint64{}
 
+	min := uint64(minID)
+	max := uint64(maxID)
+	reasonOutOfRange := fmt.Sprintf("out of local cluster identity range [%d,%d]", min, max)
+
 	// iterate over /id/
 	for key, v := range allocated {
 		// if k.lockless {
 		// FIXME: Add DeleteOnZeroCount support
 		// }
+
+		// Parse identity ID
+		items := strings.Split(key, "/")
+		if len(items) == 0 {
+			log.WithField(fieldKey, key).WithError(err).Warning("Unknown identity key found, skipping")
+			continue
+		}
+
+		if identityID, err := strconv.ParseUint(items[len(items)-1], 10, 32); err != nil {
+			log.WithField(fieldKey, key).WithError(err).Warning("Parse identity failed, skipping")
+			continue
+		} else {
+			// We should not GC those identities that are out of our scope
+			if identityID < min || identityID > max {
+				log.WithFields(logrus.Fields{
+					fieldKey: key,
+					"reason": reasonOutOfRange,
+				}).Debug("Skipping this key")
+				continue
+			}
+		}
 
 		lock, err := k.lockPath(ctx, key)
 		if err != nil {
