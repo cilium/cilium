@@ -44,6 +44,7 @@ func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServe
 		// Start Envoy on first invocation
 		envoyProxy = envoy.StartEnvoy(stateDir, option.Config.EnvoyLogPath, 0)
 
+		// Add Prometheus listener if the port is (properly) configured
 		if option.Config.ProxyPrometheusPort < 0 || option.Config.ProxyPrometheusPort > 65535 {
 			log.WithField(logfields.Port, option.Config.ProxyPrometheusPort).Error("Envoy: Invalid configured proxy-prometheus-port")
 		} else if option.Config.ProxyPrometheusPort != 0 {
