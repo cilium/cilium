@@ -288,6 +288,24 @@ contributors across the globe, there is almost always someone available to help.
 | nodeinit.tolerations | list | `[{"operator":"Exists"}]` | Node tolerations for nodeinit scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/ |
 | nodeinit.updateStrategy | object | `{"type":"RollingUpdate"}` | node-init update strategy |
 | operator.affinity | object | `{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchExpressions":[{"key":"io.cilium/app","operator":"In","values":["operator"]}]},"topologyKey":"kubernetes.io/hostname"}]}}` | cilium-operator affinity |
+| operator.alibabacloud.image.digest | string | `""` |  |
+| operator.alibabacloud.image.pullPolicy | string | `"Always"` |  |
+| operator.alibabacloud.image.repository | string | `"quay.io/cilium/operator-alibabacloud"` |  |
+| operator.alibabacloud.image.suffix | string | `""` |  |
+| operator.alibabacloud.image.tag | string | `"latest"` |  |
+| operator.alibabacloud.image.useDigest | bool | `false` |  |
+| operator.aws.image.digest | string | `""` |  |
+| operator.aws.image.pullPolicy | string | `"Always"` |  |
+| operator.aws.image.repository | string | `"quay.io/cilium/operator-aws"` |  |
+| operator.aws.image.suffix | string | `""` |  |
+| operator.aws.image.tag | string | `"latest"` |  |
+| operator.aws.image.useDigest | bool | `false` |  |
+| operator.azure.image.digest | string | `""` |  |
+| operator.azure.image.pullPolicy | string | `"Always"` |  |
+| operator.azure.image.repository | string | `"quay.io/cilium/operator-azure"` |  |
+| operator.azure.image.suffix | string | `""` |  |
+| operator.azure.image.tag | string | `"latest"` |  |
+| operator.azure.image.useDigest | bool | `false` |  |
 | operator.enabled | bool | `true` | Enable the cilium-operator component (required). |
 | operator.endpointGCInterval | string | `"5m0s"` | Interval for endpoint garbage collection. |
 | operator.extraArgs | list | `[]` | Additional cilium-operator container arguments. |
@@ -295,9 +313,9 @@ contributors across the globe, there is almost always someone available to help.
 | operator.extraEnv | object | `{}` | Additional cilium-operator environment variables. |
 | operator.extraHostPathMounts | list | `[]` | Additional cilium-operator hostPath mounts. |
 | operator.extraInitContainers | list | `[]` | Additional InitContainers to initialize the pod. |
+| operator.generic.image | object | `{"digest":"","pullPolicy":"Always","repository":"quay.io/cilium/operator-generic","suffix":"","tag":"latest","useDigest":false}` | cilium-operator-generic image |
 | operator.identityGCInterval | string | `"15m0s"` | Interval for identity garbage collection. |
 | operator.identityHeartbeatTimeout | string | `"30m0s"` | Timeout for identity heartbeats. |
-| operator.image | object | `{"alibabacloudDigest":"","awsDigest":"","azureDigest":"","genericDigest":"","pullPolicy":"Always","repository":"quay.io/cilium/operator","suffix":"","tag":"latest","useDigest":false}` | cilium-operator image. |
 | operator.nodeSelector | object | `{}` | Node labels for cilium-operator pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/ |
 | operator.podAnnotations | object | `{}` | Annotations to be added to cilium-operator pods |
 | operator.podDisruptionBudget | object | `{"enabled":false,"maxUnavailable":1}` | PodDisruptionBudget settings ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/ |
