@@ -113,6 +113,7 @@ var _ = Describe("K8sCustomCalls", func() {
 		AfterAll(func() {
 			deploymentManager.DeleteCilium()
 			deploymentManager.DeleteAll()
+			kubectl.RedeployDNS()
 		})
 
 		installPods := func() {
