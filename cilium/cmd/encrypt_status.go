@@ -21,9 +21,10 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/cilium/cilium/api/v1/client/daemon"
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/prometheus/procfs"
 	"github.com/vishvananda/netlink"
 
@@ -31,14 +32,8 @@ import (
 )
 
 const (
-	// EncryptionModeDisabled captures enum value "Disabled"
-	EncryptionModeDisabled string = "Disabled"
-
-	// EncryptionModeIPsec captures enum value "IPsec"
-	EncryptionModeIPsec string = "IPsec"
-
-	// EncryptionModeWireguard captures enum value "Wireguard"
-	EncryptionModeWireguard string = "WireGuard"
+	// Cilium uses reqid 1 to tie the IPsec security policies to their matching state
+	ciliumReqId = "1"
 )
 
 type void struct{}
@@ -46,29 +41,21 @@ type void struct{}
 var (
 	voidType    void
 	countErrors int
+	regex       = regexp.MustCompile("oseq[[:blank:]](0[xX][[:xdigit:]]+)?")
 )
 
 var encryptStatusCmd = &cobra.Command{
 	Use:   "status",
-	Short: "Display current state of encryption configurations",
+	Short: "Display the current encryption state",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium encrypt status")
-		dumpStatus()
+		getEncryptionMode()
 	},
 }
 
 func init() {
 	encryptCmd.AddCommand(encryptStatusCmd)
 	command.AddJSONOutput(encryptStatusCmd)
-}
-
-func getEncryptionMode() string {
-	if option.Config.EnableIPSec {
-		return EncryptionModeIPsec
-	} else if option.Config.EnableWireguard {
-		return EncryptionModeWireguard
-	}
-	return EncryptionModeDisabled
 }
 
 func getXfrmStats() (int, map[string]int) {
@@ -78,60 +65,87 @@ func getXfrmStats() (int, map[string]int) {
 	}
 	stats, err := fs.NewXfrmStat()
 	if err != nil {
-		Fatalf("Cannot get XFRM states from proc filesystem: %s", err)
+		Fatalf("Failed to read xfrm statistics: %s", err)
 	}
 	v := reflect.ValueOf(stats)
 	errorMap := make(map[string]int)
-	for i := 0; i < v.NumField(); i++ {
-		name := v.Type().Field(i).Name
-		value := v.Field(i).Interface().(int)
-		if value != 0 {
-			countErrors += value
-			errorMap[name] = value
+	if v.Type().Kind() == reflect.Struct {
+		for i := 0; i < v.NumField(); i++ {
+			name := v.Type().Field(i).Name
+			value := v.Field(i).Interface().(int)
+			if value != 0 {
+				countErrors += value
+				errorMap[name] = value
+			}
 		}
 	}
 	return countErrors, errorMap
 }
 
-func countUniqueIpsecKeys() int {
+func countUniqueIPsecKeys() int {
 	// trying to mimic set type data structure
 	// using void data type as struct{} because it does not use any memory
 	keys := make(map[string]void)
-	xfrmStates, _ := netlink.XfrmStateList(0)
-	for _, v := range xfrmStates {
-		keys[string(v.Crypt.Key)] = voidType
+	xfrmStates, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
+	if err != nil {
+		Fatalf("Cannot get xfrm state: %s", err)
 	}
+	for _, v := range xfrmStates {
+		keys[string(v.Aead.Key)] = voidType
+	}
+
 	return len(keys)
 }
 
 func maxSequenceNumber() string {
-	var maxSeqNum string
-	out, err := exec.Command("ip", "xfrm", "state").Output()
+	maxSeqNum := "0"
+	out, err := exec.Command("ip", "xfrm", "state", "list", "reqid", ciliumReqId).Output()
 	if err != nil {
 		Fatalf("Cannot get xfrm states: %s", err)
 	}
 	commandOutput := string(out)
 	lines := strings.Split(commandOutput, "\n")
-	regex := regexp.MustCompile("oseq[[:blank:]](0[xX][[:xdigit:]]+)?")
 	for _, line := range lines {
 		matched := regex.FindStringSubmatchIndex(line)
 		if matched != nil {
-			maxSeqNum = line[matched[2]:matched[3]]
+			oseq := line[matched[2]:matched[3]]
+			if oseq > maxSeqNum {
+				maxSeqNum = oseq
+			}
 		}
+	}
+	if maxSeqNum == "0" {
+		return "N/A"
 	}
 	return maxSeqNum
 }
 
-func dumpStatus() {
-	fmt.Printf("Encryption:%-26s\n", getEncryptionMode())
-	fmt.Printf("Node Encryption: <TODO>\n")
-	fmt.Printf("Keys in use:%-26d\n", countUniqueIpsecKeys())
-	fmt.Printf("Max Seq. Number:%s/%s\n", maxSequenceNumber(), "0xffffffff")
+func getEncryptionMode() {
+	params := daemon.NewGetHealthzParamsWithTimeout(timeout)
+	params.SetBrief(&brief)
+	resp, err := client.Daemon.GetHealthz(params)
+	if err != nil {
+		Fatalf("Cannot get daemon encryption status: %s", err)
+	}
+	encryptionStatusResponse := resp.Payload.Encryption
+	fmt.Printf("Encryption: %-26s\n", encryptionStatusResponse.Mode)
+	switch encryptionStatusResponse.Mode {
+	case models.EncryptionStatusModeIPsec:
+		dumpIPsecStatus()
+	}
+
+}
+
+func dumpIPsecStatus() {
+	keys := countUniqueIPsecKeys()
+	oseq := maxSequenceNumber()
+	fmt.Printf("Keys in use: %-26d\n", keys)
+	fmt.Printf("Max Seq. Number: %s/%s\n", oseq, "0xffffffff")
 	errCount, errMap := getXfrmStats()
+	fmt.Printf("Errors: %-26d\n", errCount)
 	if errCount != 0 {
-		fmt.Printf("Errors:%-26d", errCount)
 		for k, v := range errMap {
-			fmt.Println(k, ":", v)
+			fmt.Printf("\t%s: %-26d\n", k, v)
 		}
 	}
 }

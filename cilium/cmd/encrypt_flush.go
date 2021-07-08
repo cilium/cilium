@@ -24,7 +24,8 @@ import (
 
 var encryptFlushCmd = &cobra.Command{
 	Use:   "flush",
-	Short: "Flushes the current IPSec states",
+	Short: "Flushes the current IPsec state",
+	Long:  "Will cause a short connectivity disruption",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium encrypt flush")
 		netlink.XfrmPolicyFlush()

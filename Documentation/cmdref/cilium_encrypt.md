@@ -2,7 +2,7 @@
 
 ## cilium encrypt
 
-Access to encryption state of node
+Manage transparent encryption
 
 ### Options
 
@@ -21,6 +21,6 @@ Access to encryption state of node
 ### SEE ALSO
 
 * [cilium](../cilium)	 - CLI
-* [cilium encrypt flush](../cilium_encrypt_flush)	 - Flushes the current IPSec states
-* [cilium encrypt status](../cilium_encrypt_status)	 - Display current state of encryption configurations
+* [cilium encrypt flush](../cilium_encrypt_flush)	 - Flushes the current IPsec state
+* [cilium encrypt status](../cilium_encrypt_status)	 - Display the current encryption state
 

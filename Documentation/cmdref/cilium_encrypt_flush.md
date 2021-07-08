@@ -2,7 +2,11 @@
 
 ## cilium encrypt flush
 
-Flushes the current IPSec states
+Flushes the current IPsec state
+
+### Synopsis
+
+Will cause a short connectivity disruption
 
 ```
 cilium encrypt flush [flags]
@@ -25,5 +29,5 @@ cilium encrypt flush [flags]
 
 ### SEE ALSO
 
-* [cilium encrypt](../cilium_encrypt)	 - Access to encryption state of node
+* [cilium encrypt](../cilium_encrypt)	 - Manage transparent encryption
 

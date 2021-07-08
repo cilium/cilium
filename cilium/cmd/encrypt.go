@@ -21,7 +21,7 @@ import (
 // encryptCmd represents the encrypt command
 var encryptCmd = &cobra.Command{
 	Use:   "encrypt",
-	Short: "Access to encryption state of node",
+	Short: "Manage transparent encryption",
 }
 
 func init() {

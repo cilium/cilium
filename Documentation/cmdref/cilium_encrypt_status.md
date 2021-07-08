@@ -2,7 +2,7 @@
 
 ## cilium encrypt status
 
-Display current state of encryption configurations
+Display the current encryption state
 
 ```
 cilium encrypt status [flags]
@@ -25,5 +25,5 @@ cilium encrypt status [flags]
 
 ### SEE ALSO
 
-* [cilium encrypt](../cilium_encrypt)	 - Access to encryption state of node
+* [cilium encrypt](../cilium_encrypt)	 - Manage transparent encryption
 
