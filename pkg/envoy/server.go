@@ -114,6 +114,12 @@ type XDSServer struct {
 	// Value holds the number of redirects using the listener named by the key.
 	listeners map[string]*Listener
 
+	// proxyListeners is the count of redirection proxy listeners in 'listeners'.
+	// When this is zero, cilium should not wait for NACKs/ACKs from envoy.
+	// This value is different from len(listeners) due to non-proxy listeners
+	// (e.g., prometheus listener)
+	proxyListeners int
+
 	// networkPolicyCache publishes network policy configuration updates to
 	// Envoy proxies.
 	networkPolicyCache *xds.Cache
@@ -440,21 +446,24 @@ func (s *XDSServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
 		if err != nil {
 			log.WithField(logfields.Port, port).WithError(err).Debug("Envoy: Adding metrics listener failed")
 			// Remove the added listener in case of a failure
-			s.RemoveListener(metricsListenerName, nil)
+			s.removeListener(metricsListenerName, nil, false)
 		} else {
 			log.WithField(logfields.Port, port).Info("Envoy: Listening for prometheus metrics")
 		}
-	})
+	}, false)
 }
 
 // addListener either reuses an existing listener with 'name', or creates a new one.
 // 'listenerConf()' is only called if a new listener is being created.
-func (s *XDSServer) addListener(name string, port uint16, listenerConf func() *envoy_config_listener.Listener, wg *completion.WaitGroup, cb func(err error)) {
+func (s *XDSServer) addListener(name string, port uint16, listenerConf func() *envoy_config_listener.Listener, wg *completion.WaitGroup, cb func(err error), isProxyListener bool) {
 	s.mutex.Lock()
 	listener := s.listeners[name]
 	if listener == nil {
 		listener = &Listener{}
 		s.listeners[name] = listener
+		if isProxyListener {
+			s.proxyListeners++
+		}
 	}
 	listener.count++
 	listener.mutex.Lock() // needed for other than 'count'
@@ -585,11 +594,16 @@ func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, port uint
 
 	s.addListener(name, port, func() *envoy_config_listener.Listener {
 		return s.getListenerConf(name, kind, port, isIngress, mayUseOriginalSourceAddr)
-	}, wg, nil)
+	}, wg, nil, true)
 }
 
 // RemoveListener removes an existing Envoy Listener.
 func (s *XDSServer) RemoveListener(name string, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
+	return s.removeListener(name, wg, true)
+}
+
+// removeListener removes an existing Envoy Listener.
+func (s *XDSServer) removeListener(name string, wg *completion.WaitGroup, isProxyListener bool) xds.AckingResourceMutatorRevertFunc {
 	log.Debugf("Envoy: RemoveListener %s", name)
 
 	var listenerRevertFunc xds.AckingResourceMutatorRevertFunc
@@ -599,6 +613,9 @@ func (s *XDSServer) RemoveListener(name string, wg *completion.WaitGroup) xds.Ac
 	if ok && listener != nil {
 		listener.count--
 		if listener.count == 0 {
+			if isProxyListener {
+				s.proxyListeners--
+			}
 			delete(s.listeners, name)
 			listenerRevertFunc = s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg, nil)
 		}
@@ -612,6 +629,9 @@ func (s *XDSServer) RemoveListener(name string, wg *completion.WaitGroup) xds.Ac
 		s.mutex.Lock()
 		if listenerRevertFunc != nil {
 			listenerRevertFunc(completion)
+			if isProxyListener {
+				s.proxyListeners++
+			}
 		}
 		listener.count++
 		s.listeners[name] = listener
@@ -1395,7 +1415,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 	// query for network policies and therefore will never ACK them, and we'd
 	// wait forever.
 	if !ep.HasSidecarProxy() {
-		if len(s.listeners) == 0 {
+		if s.proxyListeners == 0 {
 			wg = nil
 		}
 	}
@@ -1453,7 +1473,7 @@ func (s *XDSServer) UseCurrentNetworkPolicy(ep logger.EndpointUpdater, policy *p
 	// If there are no listeners configured, the local node's Envoy proxy won't
 	// query for network policies and therefore will never ACK them, and we'd
 	// wait forever.
-	if !ep.HasSidecarProxy() && len(s.listeners) == 0 {
+	if !ep.HasSidecarProxy() && s.proxyListeners == 0 {
 		return
 	}
 
