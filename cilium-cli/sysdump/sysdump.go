@@ -825,7 +825,8 @@ func (c *Collector) submitLogsTasks(ctx context.Context, pods []*corev1.Pod, sin
 	t := time.Now().Add(-since)
 	for _, p := range pods {
 		p := p
-		for _, d := range p.Spec.Containers {
+		allContainers := append(p.Spec.Containers, p.Spec.InitContainers...)
+		for _, d := range allContainers {
 			d := d
 			if err := c.pool.Submit(fmt.Sprintf("logs-%s-%s", p.Name, d.Name), func(ctx context.Context) error {
 				l, err := c.client.GetLogs(ctx, p.Namespace, p.Name, d.Name, t, limitBytes, false)
