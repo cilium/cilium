@@ -109,7 +109,6 @@ func NewCollector(k KubernetesClient, o Options) *Collector {
 	return &Collector{
 		client:  k,
 		options: o,
-		pool:    workerpool.New(o.WorkerCount),
 	}
 }
 
@@ -639,10 +638,25 @@ func (c *Collector) Run() error {
 		},
 	}
 
+	// Adjust the worker count to make enough headroom for tasks that submit sub-tasks.
+	// This is necessary because 'Submit' is blocking.
+	wc := 1
+	for _, t := range tasks {
+		if t.CreatesSubtasks && !c.shouldSkipTask(t) {
+			wc++
+		}
+	}
+	// Take the maximum between the specified worker count and the minimum number of workers required.
+	if wc < c.options.WorkerCount {
+		wc = c.options.WorkerCount
+	}
+	c.pool = workerpool.New(wc)
+	c.logDebug("Using %d workers (requested: %d)", wc, c.options.WorkerCount)
+
 	// Add the tasks to the worker pool.
 	for i, t := range tasks {
 		t := t
-		if c.options.Quick && !t.Quick {
+		if c.shouldSkipTask(t) {
 			c.logDebug("Skipping %q", t.Description)
 			continue
 		}
@@ -721,6 +735,10 @@ func (c *Collector) logTask(msg string, args ...interface{}) {
 
 func (c *Collector) logWarn(msg string, args ...interface{}) {
 	c.log("⚠️ "+msg, args...)
+}
+
+func (c *Collector) shouldSkipTask(t sysdumpTask) bool {
+	return c.options.Quick && !t.Quick
 }
 
 func (c *Collector) submitBugtoolTasks(ctx context.Context, pods []*corev1.Pod, containerName string, path func(string) string) error {
