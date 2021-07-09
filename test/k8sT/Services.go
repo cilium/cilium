@@ -1154,6 +1154,15 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						})
 
 						AfterAll(func() {
+							kubectl.Delete(frr)
+							kubectl.Delete(bgpConfigMap)
+							kubectl.Delete(lbSVC)
+							// Delete temp files
+							os.Remove(frr)
+							os.Remove(bgpConfigMap)
+						})
+
+						AfterFailed(func() {
 							res := kubectl.CiliumExecContext(
 								context.TODO(),
 								ciliumPodK8s1,
@@ -1178,13 +1187,6 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 								res.CombineOutput().Bytes(),
 								"tests-loadbalancer-hubble-observe-debug-events-k8s2.log",
 							)
-
-							kubectl.Delete(frr)
-							kubectl.Delete(bgpConfigMap)
-							kubectl.Delete(lbSVC)
-							// Delete temp files
-							os.Remove(frr)
-							os.Remove(bgpConfigMap)
 						})
 
 						It("Connectivity to endpoint via LB", func() {
