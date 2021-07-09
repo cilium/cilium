@@ -1363,7 +1363,9 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						iperf3Manifest string
 					)
 					BeforeAll(func() {
-						DeployCiliumAndDNS(kubectl, ciliumFilename)
+						DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+							"bpf.monitorAggregation": "none",
+						})
 						iperf3Manifest = helpers.ManifestGet(kubectl.BasePath(), "iperf3-deployment.yaml")
 						kubectl.ApplyDefault(iperf3Manifest).ExpectSuccess("Iperf3 cannot be deployed")
 					})
