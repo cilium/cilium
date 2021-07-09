@@ -130,10 +130,12 @@ jobs:
              --set image.repository=quay.io/${{ github.repository_owner }}/cilium-ci \
              --set image.tag=${{ steps.vars.outputs.tag }} \
              --set image.pullPolicy=IfNotPresent \
+             --set image.useDigest=false \
              --set operator.image.repository=quay.io/${{ github.repository_owner }}/operator \
              --set operator.image.suffix=-ci \
              --set operator.image.tag=${{ steps.vars.outputs.tag }} \
              --set operator.image.pullPolicy=IfNotPresent \
+             --set operator.image.useDigest=false \
              --set prometheus.enabled=true \
              --set operator.prometheus.enabled=true \
              --set hubble.enabled=true \
