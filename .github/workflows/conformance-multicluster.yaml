@@ -291,11 +291,9 @@ jobs:
         if: ${{ failure() }}
         run: |
           cilium status --context ${{ steps.contexts.outputs.context1 }}
-          # FIXME: Use of timeout is a workaround for cilium/cilium-cli#384
-          timeout 5s cilium clustermesh status --context ${{ steps.contexts.outputs.context1 }}
+          cilium clustermesh status --context ${{ steps.contexts.outputs.context1 }}
           cilium status --context ${{ steps.contexts.outputs.context2 }}
-          # FIXME: Use of timeout is a workaround for cilium/cilium-cli#384
-          timeout 5s cilium clustermesh status --context ${{ steps.contexts.outputs.context2 }}
+          cilium clustermesh status --context ${{ steps.contexts.outputs.context2 }}
 
           curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
           kubectl config use-context ${{ steps.contexts.outputs.context1 }}
