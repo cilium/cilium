@@ -200,12 +200,16 @@ func InitBPFMasqueradeAddrs(devices []string) error {
 		}
 
 		for _, device := range devices {
-			ip, err := firstGlobalV4Addr(device, nil, preferPublicIP)
+			ip, err := firstGlobalV4Addr(device, GetK8sNodeIP(), preferPublicIP)
 			if err != nil {
 				return fmt.Errorf("Failed to determine IPv4 of %s for BPF masq", device)
 			}
 
 			ipv4MasqAddrs[device] = ip
+			log.WithFields(logrus.Fields{
+				logfields.IPv4:   ip,
+				logfields.Device: device,
+			}).Info("Masquerading IP selected for device")
 		}
 	}
 
