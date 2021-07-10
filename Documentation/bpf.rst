@@ -1181,7 +1181,7 @@ the usual workflow by adding ``-g`` for compilation.
 .. code-block:: shell-session
 
     $ clang -O2 -g -Wall -target bpf -c xdp-example.c -o xdp-example.o
-    $ llvm-objdump -S -no-show-raw-insn xdp-example.o
+    $ llvm-objdump -S --no-show-raw-insn xdp-example.o
 
     xdp-example.o:        file format ELF64-BPF
 
@@ -1219,7 +1219,7 @@ highly useful for analysis.
 As it can be seen in the verifier analysis, the ``llvm-objdump`` output dumps
 the same BPF assembler code as the kernel.
 
-Leaving out the ``-no-show-raw-insn`` option will also dump the raw
+Leaving out the ``--no-show-raw-insn`` option will also dump the raw
 ``struct bpf_insn`` as hex in front of the assembly:
 
 .. code-block:: shell-session
