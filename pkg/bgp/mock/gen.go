@@ -33,6 +33,7 @@ import (
 // this node.
 //
 // The returned Node's name is set to nodetypes.GetName()
+// to simulate it being the node the Cilium agent is running on.
 //
 // See definition for details.
 func GenTestNodeAndAdvertisements() (v1.Node, []*metallbbgp.Advertisement) {
@@ -62,12 +63,17 @@ func GenTestNodeAndAdvertisements() (v1.Node, []*metallbbgp.Advertisement) {
 	return node, advertisements
 }
 
-// GenTestServicePair generates a slim_corev1.Service and a hardcoded conversion
-// to a metallbspr.Service, along with a hardcoded k8s.ServiceID.
+// GenTestServicePairs generates a slim_corev1.Service and a hardcoded conversion
+// to a metallbspr.Service and k8s v1.Service, along with a hardcoded conversion to a k8s.ServiceID.
 //
 // Since the conversion is hardcoded, the returned types are useful for testing
 // any code which transforms one data structure to the another.
-func GenTestServicePair() (slim_corev1.Service, metallbspr.Service, k8s.ServiceID) {
+//
+// See definition for details.
+func GenTestServicePairs() (slim_corev1.Service, v1.Service, metallbspr.Service, k8s.ServiceID) {
+	const (
+		IP = "10.10.10.10"
+	)
 	spec := slim_corev1.ServiceSpec{
 		Type:                  "TestType",
 		ExternalTrafficPolicy: "TestExternalTrafficPolicy",
@@ -78,7 +84,7 @@ func GenTestServicePair() (slim_corev1.Service, metallbspr.Service, k8s.ServiceI
 	}
 	ingress := []slim_corev1.LoadBalancerIngress{
 		{
-			IP: "10.10.10.10",
+			IP: IP,
 		},
 	}
 	lbStatus := slim_corev1.LoadBalancerStatus{
@@ -101,19 +107,39 @@ func GenTestServicePair() (slim_corev1.Service, metallbspr.Service, k8s.ServiceI
 			},
 		},
 	}
+	v1Service := v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      meta.Name,
+			Namespace: meta.Namespace,
+		},
+		Spec: v1.ServiceSpec{
+			Type:                  "TestType",
+			ExternalTrafficPolicy: "TestExternalTrafficPolicy",
+		},
+		Status: v1.ServiceStatus{
+			LoadBalancer: v1.LoadBalancerStatus{
+				Ingress: []v1.LoadBalancerIngress{
+					{
+						IP: IP,
+					},
+				},
+			},
+		},
+	}
 	serviceID := k8s.ServiceID{
 		Name:      service.Name,
 		Namespace: service.Namespace,
 	}
-	return service, metallbService, serviceID
+
+	return service, v1Service, metallbService, serviceID
 }
 
 // GenTestEndpointsPair generates a k8s.Endpoints and a hardcoded conversion
-// to a metallbspr.Endpoints, along with a hardoced k8s.Backend.
+// to a metallbspr.Endpoints, along with a hardoced conversion to slim_corev1.Endpoints.
 //
 // Since the conversion are hardcoded, the returned types are useful for testing
 // any code which transforms one data structure to the other.
-func GenTestEndpointsPairs() (k8s.Endpoints, slim_corev1.Endpoints, metallbspr.Endpoints, k8s.Backend) {
+func GenTestEndpointsPairs() (k8s.Endpoints, slim_corev1.Endpoints, metallbspr.Endpoints) {
 	const (
 		IP       = "1.1.1.1"
 		NodeName = "TestNode"
@@ -147,5 +173,5 @@ func GenTestEndpointsPairs() (k8s.Endpoints, slim_corev1.Endpoints, metallbspr.E
 			},
 		},
 	}
-	return endpoints, slimEndpoints, metallbEndpoints, backend
+	return endpoints, slimEndpoints, metallbEndpoints
 }

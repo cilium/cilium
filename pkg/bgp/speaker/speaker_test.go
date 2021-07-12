@@ -45,8 +45,8 @@ var (
 // actions when an OnUpdateService event takes place.
 func TestSpeakerOnUpdateService(t *testing.T) {
 	// gen our test structures
-	service, metallbService, serviceID := mock.GenTestServicePair()
-	endpoints, _, metallbendpoints, _ := mock.GenTestEndpointsPairs()
+	service, _, metallbService, serviceID := mock.GenTestServicePairs()
+	endpoints, _, metallbendpoints := mock.GenTestEndpointsPairs()
 
 	// our test will block on this ctx, our mock will cancel it and thus
 	// unblock our test. If the event never gets to our mock, a timeout
@@ -134,7 +134,7 @@ func TestSpeakerOnUpdateService(t *testing.T) {
 // actions when an OnDeleteService event takes place.
 func TestSpeakerOnDeleteService(t *testing.T) {
 	// gen our test structures
-	service, _, serviceID := mock.GenTestServicePair()
+	service, _, _, serviceID := mock.GenTestServicePairs()
 
 	// our test will block on this ctx, our mock will cancel it and thus
 	// unblock our test. If the event never gets to our mock, a timeout
@@ -164,7 +164,7 @@ func TestSpeakerOnDeleteService(t *testing.T) {
 		},
 	}
 
-	// in this case, we want to construct our speaker
+	// in this test, we want to construct our speaker
 	// with a "known" service, and test that it is deleted.
 	spkr := &MetalLBSpeaker{
 		speaker:         mock,
@@ -196,6 +196,9 @@ func TestSpeakerOnDeleteService(t *testing.T) {
 	if rr.name != serviceID.String() {
 		t.Fatalf("got: %v, want: %v", rr.name, serviceID.String())
 	}
+
+	// confirm these are nil, they should not be set
+	// on a OnDeletService call.
 	if rr.svc != nil {
 		t.Fatalf("got: %v, want: nil", rr.svc)
 	}
@@ -214,8 +217,8 @@ func TestSpeakerOnDeleteService(t *testing.T) {
 // actions when an OnUpdateEndpoints event takes place.
 func TestSpeakerOnUpdateEndpoints(t *testing.T) {
 	// gen our test structures
-	service, metallbService, serviceID := mock.GenTestServicePair()
-	_, slimendpoints, metallbendpoints, _ := mock.GenTestEndpointsPairs()
+	service, _, metallbService, serviceID := mock.GenTestServicePairs()
+	_, slimendpoints, metallbendpoints := mock.GenTestEndpointsPairs()
 
 	// our test will block on this ctx, our mock will cancel it and thus
 	// unblock our test. If the event never gets to our mock, a timeout
@@ -246,9 +249,8 @@ func TestSpeakerOnUpdateEndpoints(t *testing.T) {
 	}
 
 	// in this test we expect the service associated with the endpoints
-	// to exist.
-	//
-	// a service lookup is performed by OnUpdateEndpoint first.
+	// to exist as a lookup of the service is done in the OnUpdateEndpoints
+	// call.
 	spkr := &MetalLBSpeaker{
 		speaker:         mock,
 		announceLBIP:    true,
@@ -279,6 +281,9 @@ func TestSpeakerOnUpdateEndpoints(t *testing.T) {
 	if rr.name != serviceID.String() {
 		t.Fatalf("got: %v, want: %v", rr.name, serviceID.String())
 	}
+
+	// confirm the recorded MetalLBService and MetalLBEndpoints
+	// are equal to our generated mocks.
 	if !cmp.Equal(rr.svc, &metallbService) {
 		t.Fatalf(cmp.Diff(rr.svc, metallbService))
 	}
@@ -339,9 +344,11 @@ func TestSpeakerOnUpdateNode(t *testing.T) {
 			return nil
 		},
 	}
-	// when our mock metallb speaker has it's SetService method called this function will delegate for it,
-	// in the delegate we record the arguments with a response recorder for later retrieval and cancel the ctx
-	// effectively unblocking our test function.
+
+	// when our mock has it's SetNodeLabel and PeerSession method calls these
+	// two functions wil delegate for them.
+	//
+	// we record the arguments and return our mock session object respectively.
 	mock := &mock.MockMetalLBSpeaker{
 		SetNodeLabels_: func(labels map[string]string) types.SyncState {
 			rr.Lock()
@@ -356,10 +363,6 @@ func TestSpeakerOnUpdateNode(t *testing.T) {
 		},
 	}
 
-	// in this test we expect the service associated with the endpoints
-	// to exist.
-	//
-	// a service lookup is performed by OnUpdateEndpoint first.
 	spkr := &MetalLBSpeaker{
 		speaker:         mock,
 		announceLBIP:    true,
@@ -382,8 +385,8 @@ func TestSpeakerOnUpdateNode(t *testing.T) {
 	rr.Lock() // we'll do this just so race detector doen't bark at us.
 	defer rr.Unlock()
 
-	// confirm we recorded the correct metallb service name
-	// this should match our generated ServiceID.
+	// confirm the recorded Labels and bgp advertisements
+	// are equal to our generated mocks.
 	if !cmp.Equal(rr.labels, node.Labels) {
 		t.Fatalf(cmp.Diff(rr.labels, node.Labels))
 	}
@@ -443,9 +446,9 @@ func TestSpeakerOnDeleteNode(t *testing.T) {
 			return nil
 		},
 	}
-	// when our mock metallb speaker has it's SetService method called this function will delegate for it,
-	// in the delegate we record the arguments with a response recorder for later retrieval and cancel the ctx
-	// effectively unblocking our test function.
+
+	// when our mock has its PeerSession function called it
+	// will return our mock session.
 	mock := &mock.MockMetalLBSpeaker{
 		PeerSession_: func() []metallbspr.Session {
 			atomic.AddInt32(&callCount, 1)
@@ -453,10 +456,6 @@ func TestSpeakerOnDeleteNode(t *testing.T) {
 		},
 	}
 
-	// in this test we expect the service associated with the endpoints
-	// to exist.
-	//
-	// a service lookup is performed by OnUpdateEndpoint first.
 	spkr := &MetalLBSpeaker{
 		speaker:         mock,
 		announceLBIP:    true,
