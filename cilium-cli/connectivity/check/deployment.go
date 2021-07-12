@@ -19,12 +19,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/k8s"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -457,9 +459,15 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 		}
 	}
 
+	var logOnce sync.Once
 	for _, client := range ct.clients.clients() {
 		externalWorkloads, err := client.ListCiliumExternalWorkloads(ctx, metav1.ListOptions{})
-		if err != nil {
+		if k8sErrors.IsNotFound(err) {
+			logOnce.Do(func() {
+				ct.Log("ciliumexternalworkloads.cilium.io is not defined. Disabling external workload tests")
+			})
+			continue
+		} else if err != nil {
 			return fmt.Errorf("unable to list external workloads: %s", err)
 		}
 		for _, externalWorkload := range externalWorkloads.Items {
