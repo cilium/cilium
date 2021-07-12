@@ -1118,14 +1118,23 @@ func (kub *Kubectl) GetNodeIPByLabel(label string, external bool) (string, error
 
 func (kub *Kubectl) getIfaceByIPAddr(label string, ipAddr string) (string, error) {
 	cmd := fmt.Sprintf(
-		`ip -j a s  | jq -r '.[] | select(.addr_info[] | .local == "%s") | .ifname'`,
+		`ip -j a s | jq -r '.[] | select(.addr_info[] | .local == "%s") | .ifname'`,
 		ipAddr)
 	iface, err := kub.ExecInHostNetNSByLabel(context.TODO(), label, cmd)
 	if err != nil {
 		return "", fmt.Errorf("Failed to retrieve iface by IP addr: %s", err)
 	}
+	iface = strings.Trim(iface, "\n")
+	if iface == "" {
+		// In case of error, we want a copy of the ip a output in the logs.
+		ipa, err := kub.ExecInHostNetNSByLabel(context.TODO(), label, "ip -j a s")
+		if err != nil {
+			return "", fmt.Errorf("Failed to retrieve ip a output: %s", err)
+		}
+		return "", fmt.Errorf("Failed to retrieve iface by IP addr from: %s", ipa)
+	}
 
-	return strings.Trim(iface, "\n"), nil
+	return iface, nil
 }
 
 // GetServiceHostPort returns the host and the first port for the given service name.
