@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium-cli/status"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
+	"github.com/blang/semver/v4"
 	"github.com/cilium/cilium/api/v1/models"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	appsv1 "k8s.io/api/apps/v1"
@@ -1058,6 +1059,10 @@ type Parameters struct {
 	// CiliumReadyTimeout defines the wait timeout for Cilium to become ready
 	// after installing.
 	CiliumReadyTimeout time.Duration
+
+	// BaseVersion is used to explicitly specify Cilium version for generating the config map
+	// in case it cannot be inferred from the Version field (e.g. commit SHA tags for CI images).
+	BaseVersion string
 }
 
 type rollbackStep func(context.Context)
@@ -1157,6 +1162,22 @@ func (k *K8sInstaller) Log(format string, a ...interface{}) {
 
 func (k *K8sInstaller) Exec(command string, args ...string) ([]byte, error) {
 	return utils.Exec(k, command, args...)
+}
+
+func (k *K8sInstaller) getCiliumVersion() semver.Version {
+	var ersion string
+	if k.params.BaseVersion != "" {
+		ersion = strings.TrimPrefix(k.params.BaseVersion, "v")
+	} else {
+		ersion = strings.TrimPrefix(k.params.Version, "v")
+	}
+	v, err := versioncheck.Version(ersion)
+	if err != nil {
+		// TODO: Don't hard code version here, get it from stable.txt.
+		k.Log("Unable to parse the provided version %q, assuming it's =1.10.0", k.params.Version)
+		v = versioncheck.MustVersion("1.10.0")
+	}
+	return v
 }
 
 func (k *K8sInstaller) generateConfigMap() (*corev1.ConfigMap, error) {
@@ -1292,12 +1313,8 @@ func (k *K8sInstaller) generateConfigMap() (*corev1.ConfigMap, error) {
 		m.Data["cluster-pool-ipv4-mask-size"] = "24"
 	}
 
-	ersion := strings.TrimPrefix(k.params.Version, "v")
-	v, err := versioncheck.Version(ersion)
-	if err != nil {
-		k.Log("Unable to parse the provided version %q, assuming it's >= 1.10.0", k.params.Version)
-		v = versioncheck.MustVersion("1.10.0")
-	}
+	v := k.getCiliumVersion()
+	k.Log("🚀 Creating ConfigMap for Cilium version %s...", v.String())
 
 	masqueradeOption := "enable-ipv4-masquerade"
 	if v.LT(versioncheck.MustVersion("1.10.0")) {
@@ -1622,7 +1639,6 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 		}
 	}
 
-	k.Log("🚀 Creating ConfigMap...")
 	configMap, err := k.generateConfigMap()
 	if err != nil {
 		return fmt.Errorf("cannot generate ConfigMap: %w", err)
