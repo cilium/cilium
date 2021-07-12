@@ -51,6 +51,7 @@ require (
 	github.com/hashicorp/consul/api v1.9.1
 	github.com/hashicorp/go-immutable-radix v1.3.0
 	github.com/hashicorp/golang-lru v0.5.4
+	github.com/iancoleman/strcase v0.1.3
 	// must be bound to this old version not to break libnetwork
 	github.com/ishidawataru/sctp v0.0.0-20180213033435-07191f837fed // indirect
 	github.com/jeremywohl/flatten v1.0.1
