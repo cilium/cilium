@@ -38,6 +38,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+const (
+	// ciliumNodeConditionReason is the condition name used by Cilium to set
+	// when the Network is setup in the node.
+	ciliumNodeConditionReason = "CiliumIsUp"
+)
+
 // ParseNodeAddressType converts a Kubernetes NodeAddressType to a Cilium
 // NodeAddressType. If the Kubernetes NodeAddressType does not have a
 // corresponding Cilium AddressType, returns an error.
@@ -219,23 +225,14 @@ func setNodeNetworkUnavailableFalse(ctx context.Context, c kubernetes.Interface,
 		return err
 	}
 
-	const reason = "CiliumIsUp"
-
-	for _, condition := range n.Status.Conditions {
-		if condition.Type == corev1.NodeNetworkUnavailable &&
-			condition.Status == corev1.ConditionFalse &&
-			condition.Reason == reason {
-
-			// No need to update node condition as it is already available in
-			// the node status.
-			return nil
-		}
+	if HasCiliumIsUpCondition(n) {
+		return nil
 	}
 
 	condition := corev1.NodeCondition{
 		Type:               corev1.NodeNetworkUnavailable,
 		Status:             corev1.ConditionFalse,
-		Reason:             reason,
+		Reason:             ciliumNodeConditionReason,
 		Message:            "Cilium is running on this node",
 		LastTransitionTime: metav1.Now(),
 		LastHeartbeatTime:  metav1.Now(),
@@ -247,6 +244,19 @@ func setNodeNetworkUnavailableFalse(ctx context.Context, c kubernetes.Interface,
 	patch := []byte(fmt.Sprintf(`{"status":{"conditions":%s}}`, raw))
 	_, err = c.CoreV1().Nodes().PatchStatus(context.TODO(), nodeName, patch)
 	return err
+}
+
+// HasCiliumIsUpCondition returns true if the given k8s node has the cilium node
+// condition set.
+func HasCiliumIsUpCondition(n *corev1.Node) bool {
+	for _, condition := range n.Status.Conditions {
+		if condition.Type == corev1.NodeNetworkUnavailable &&
+			condition.Status == corev1.ConditionFalse &&
+			condition.Reason == ciliumNodeConditionReason {
+			return true
+		}
+	}
+	return false
 }
 
 // removeNodeTaint removes the AgentNotReadyNodeTaint allowing for pods to be
