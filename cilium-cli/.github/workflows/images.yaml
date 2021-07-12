@@ -27,7 +27,7 @@ jobs:
             dockerfile: ./Dockerfile
     steps:
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@e673438944759779e411a0f7ceef3ba437dccfa0
+        uses: docker/setup-buildx-action@abe5d8f79a1606a2d3e218847032f3f2b1726ab0
 
       - name: Login to quay.io for CI
         uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
