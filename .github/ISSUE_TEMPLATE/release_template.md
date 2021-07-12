@@ -52,8 +52,8 @@ assignees: ''
         branch and push these changes into the helm repository. Make sure the
         generated helm charts point to the commit that contains the image
         digests.
-  - [ ] Run a sanity check by following the [GKE GSG] (make sure to specify the
-        right version in the `cilium install` command)
+  - [ ] Check the output of the [chart workflow] and see if the test was
+        successful.
 - [ ] Check [read the docs] configuration:
     - [ ] For a RC, set a new build as active and hidden in [active versions].
     - [ ] For a new minor version set it as the [default version] and mark the
@@ -100,7 +100,7 @@ assignees: ''
 [default version]: https://readthedocs.org/dashboard/cilium/advanced/
 [docsearch-scraper-webhook]: https://github.com/cilium/docsearch-scraper-webhook
 [security policy]: https://github.com/cilium/cilium/security/policy
-[GKE GSG]: https://docs.cilium.io/en/latest/gettingstarted/k8s-install-default/#create-the-cluster
 [network policy]: https://kubernetes.io/docs/tasks/administer-cluster/network-policy-provider/cilium-network-policy/
 [cluster administration networking]: https://kubernetes.io/docs/concepts/cluster-administration/networking/
 [cluster administration addons]: https://kubernetes.io/docs/concepts/cluster-administration/addons/
+[chart workflow]: https://github.com/cilium/charts/actions/workflows/conformance-gke.yaml
