@@ -311,7 +311,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	if option.Config.ReadCNIConfiguration != "" {
 		netConf, err = cnitypes.ReadNetConf(option.Config.ReadCNIConfiguration)
 		if err != nil {
-			log.WithError(err).Fatal("Unable to read CNI configuration")
+			return nil, nil, fmt.Errorf("unable to read CNI configuration: %w", err)
 		}
 
 		if netConf.MTU != 0 {
@@ -322,7 +322,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	apiLimiterSet, err := rate.NewAPILimiterSet(option.Config.APIRateLimit, apiRateLimitDefaults, &apiRateLimitingMetrics{})
 	if err != nil {
-		log.WithError(err).Fatal("Unable to configure API rate limiting")
+		return nil, nil, fmt.Errorf("unable to configure API rate limiting: %w", err)
 	}
 
 	// Do the partial kube-proxy replacement initialization before creating BPF
@@ -333,7 +333,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// created.
 	isKubeProxyReplacementStrict, err := initKubeProxyReplacementOptions()
 	if err != nil {
-		log.WithError(err).Fatal("Unable to initialize kube proxy replacement options.")
+		return nil, nil, fmt.Errorf("unable to initialize Kube proxy replacement options: %w", err)
 	}
 
 	ctmap.InitMapInfo(option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny,
@@ -349,7 +349,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	if option.Config.DryMode == false {
 		if err := bpf.ConfigureResourceLimits(); err != nil {
-			log.WithError(err).Fatal("Unable to set memory resource limits")
+			return nil, nil, fmt.Errorf("unable to set memory resource limits: %w", err)
 		}
 	}
 
@@ -410,8 +410,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	d.rec, err = recorder.NewRecorder(d.ctx, &d)
 	if err != nil {
-		log.WithError(err).Error("Error while initializing BPF pcap recorder")
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("error while initializing BPF pcap recorder: %w", err)
 	}
 
 	d.identityAllocator = cache.NewCachingIdentityAllocator(&d)
@@ -483,8 +482,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	err = d.initMaps()
 	bootstrapStats.mapsInit.EndError(err)
 	if err != nil {
-		log.WithError(err).Error("Error while opening/creating BPF maps")
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("error while opening/creating BPF maps: %w", err)
 	}
 
 	// Read the service IDs of existing services from the BPF map and
@@ -583,7 +581,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		}
 
 		if err := k8s.WaitForNodeInformation(d.ctx, d.k8sWatcher); err != nil {
-			log.WithError(err).Fatal("Unable to connect to get node spec from apiserver")
+			return nil, nil, fmt.Errorf("unable to connect to get node spec from apiserver: %w", err)
 		}
 
 		// Kubernetes demands that the localhost can always reach local
@@ -600,7 +598,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	if wgAgent := dp.WireguardAgent(); option.Config.EnableWireguard {
 		if err := wgAgent.Init(mtuConfig); err != nil {
-			log.WithError(err).Fatal("Failed to initialize wireguard agent")
+			return nil, nil, fmt.Errorf("failed to initialize wireguard agent: %w", err)
 		}
 	}
 
@@ -663,15 +661,15 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
 		// TODO(brb) nodeport + ipvlan constraints will be lifted once the SNAT BPF code has been refactored
 		if option.Config.DatapathMode == datapathOption.DatapathModeIpvlan {
-			log.Fatalf("BPF masquerade works only in veth mode (--%s=\"%s\"", option.DatapathMode, datapathOption.DatapathModeVeth)
+			return nil, nil, fmt.Errorf("BPF masquerade works only in veth mode (--%s=\"%s\"", option.DatapathMode, datapathOption.DatapathModeVeth)
 		}
 		if err := node.InitBPFMasqueradeAddrs(option.Config.Devices); err != nil {
-			log.WithError(err).Fatal("Failed to determine BPF masquerade IPv4 addrs")
+			return nil, nil, fmt.Errorf("failed to determine BPF masquerade IPv4 addrs: %w", err)
 		}
 	} else if option.Config.EnableIPMasqAgent {
-		log.Fatalf("BPF ip-masq-agent requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
+		return nil, nil, fmt.Errorf("BPF ip-masq-agent requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
 	} else if option.Config.EnableEgressGateway {
-		log.Fatalf("Egress Gateway requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
+		return nil, nil, fmt.Errorf("egress gateway requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
 	} else if !option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
 		// There is not yet support for option.Config.EnableIPv6Masquerade
 		log.Infof("Auto-disabling %q feature since IPv4 masquerading was generally disabled",
@@ -680,15 +678,15 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	}
 	if option.Config.EnableIPMasqAgent {
 		if !option.Config.EnableIPv4 {
-			log.Fatalf("BPF ip-masq-agent requires IPv4 support (--%s=\"true\")", option.EnableIPv4Name)
+			return nil, nil, fmt.Errorf("BPF ip-masq-agent requires IPv4 support (--%s=\"true\")", option.EnableIPv4Name)
 		}
 		if !probe.HaveFullLPM() {
-			log.Fatal("BPF ip-masq-agent needs kernel 4.16 or newer")
+			return nil, nil, fmt.Errorf("BPF ip-masq-agent needs kernel 4.16 or newer")
 		}
 	}
 	if option.Config.EnableHostFirewall && len(option.Config.Devices) == 0 {
-		msg := "Host firewall's external facing device could not be determined. Use --%s to specify."
-		log.WithError(err).Fatalf(msg, option.Devices)
+		msg := "host firewall's external facing device could not be determined. Use --%s to specify."
+		return nil, nil, fmt.Errorf(msg, option.Devices)
 	}
 
 	bootstrapStats.cleanup.Start()
@@ -719,10 +717,10 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	if option.Config.JoinCluster {
 		if k8s.IsEnabled() {
-			log.Fatalf("Cannot join a Cilium cluster (--%s) when configured as a Kubernetes node", option.JoinClusterName)
+			return nil, nil, fmt.Errorf("cannot join a Cilium cluster (--%s) when configured as a Kubernetes node", option.JoinClusterName)
 		}
 		if option.Config.KVStore == "" {
-			log.Fatalf("Joining a Cilium cluster (--%s) requires kvstore (--%s) be set", option.JoinClusterName, option.KVStore)
+			return nil, nil, fmt.Errorf("joining a Cilium cluster (--%s) requires kvstore (--%s) be set", option.JoinClusterName, option.KVStore)
 		}
 		agentLabels := labels.NewLabelsFromModel(option.Config.AgentLabels).K8sStringMap()
 		if option.Config.K8sNamespace != "" {
@@ -827,8 +825,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	err = d.init()
 	bootstrapStats.bpfBase.EndError(err)
 	if err != nil {
-		log.WithError(err).Error("Error while initializing daemon")
-		return nil, restoredEndpoints, err
+		return nil, restoredEndpoints, fmt.Errorf("error while initializing daemon: %w", err)
 	}
 
 	// iptables rules can be updated only after d.init() intializes the iptables above.
@@ -948,7 +945,7 @@ func (d *Daemon) Close() {
 func (d *Daemon) TriggerReloadWithoutCompile(reason string) (*sync.WaitGroup, error) {
 	log.Debugf("BPF reload triggered from %s", reason)
 	if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
-		return nil, fmt.Errorf("Unable to recompile base programs from %s: %s", reason, err)
+		return nil, fmt.Errorf("unable to recompile base programs from %s: %s", reason, err)
 	}
 
 	regenRequest := &regeneration.ExternalRegenerationMetadata{
