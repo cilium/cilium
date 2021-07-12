@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
@@ -25,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
+	"github.com/iancoleman/strcase"
 
 	"github.com/spf13/cobra"
 )
@@ -87,6 +89,16 @@ func requirePath(cmd *cobra.Command, args []string) {
 
 	if args[0] == "" {
 		Usagef(cmd, "Empty path argument")
+	}
+}
+
+func requireConfigName(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		Usagef(cmd, "Missing config name argument")
+	}
+
+	if args[0] == "" {
+		Usagef(cmd, "Empty config argument")
 	}
 }
 
@@ -370,13 +382,26 @@ func dumpConfig(Opts map[string]string) {
 		value = Opts[k]
 		if enabled, err := option.NormalizeBool(value); err != nil {
 			// If it cannot be parsed as a bool, just format the value.
-			fmt.Printf("%-24s %s\n", k, value)
+			fmt.Printf("%-34s: %s\n", k, value)
 		} else if enabled == option.OptionDisabled {
-			fmt.Printf("%-24s %s\n", k, "Disabled")
+			fmt.Printf("%-34s: %s\n", k, "Disabled")
 		} else {
-			fmt.Printf("%-24s %s\n", k, "Enabled")
+			fmt.Printf("%-34s: %s\n", k, "Enabled")
 		}
 	}
+}
+
+func mapKeysToSnakeCase(s map[string]interface{}) map[string]interface{} {
+	m := make(map[string]interface{})
+	for k, v := range s {
+		if reflect.ValueOf(v).Kind() == reflect.Map {
+			for i, j := range v.(map[string]interface{}) {
+				m[strcase.ToSnake(i)] = j
+			}
+		}
+		m[strcase.ToSnake(k)] = v
+	}
+	return m
 }
 
 // getIpv6EnableStatus api returns the EnableIPv6 status
