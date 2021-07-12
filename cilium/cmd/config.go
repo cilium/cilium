@@ -6,6 +6,8 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -62,18 +64,39 @@ func configDaemon(cmd *cobra.Command, opts []string) {
 			if err := command.PrintOutput(cfgStatus.Realized.Options); err != nil {
 				os.Exit(1)
 			}
+			if err := command.PrintOutput(cfgStatus.DaemonConfigurationMap); err != nil {
+				os.Exit(1)
+			}
 			return
 		}
-		for k, v := range cfgStatus.DaemonConfigurationMap {
-			fmt.Println(k, " ", v)
+		fmt.Print("### Read-Only Configurations ###\n\n")
+		keys := make([]string, 0, len(cfgStatus.DaemonConfigurationMap))
+		for k := range cfgStatus.DaemonConfigurationMap {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			v := cfgStatus.DaemonConfigurationMap[k]
+			if reflect.ValueOf(v).Kind() == reflect.Map {
+				mapString := make(map[string]string)
+				for key, value := range v.(map[string]interface{}) {
+					strKey := fmt.Sprintf("%v", key)
+					strValue := fmt.Sprintf("%v", value)
+					mapString[strKey] = strValue
+				}
+				dumpConfig(mapString)
+			} else {
+				fmt.Printf("%-34s: %v\n", k, v)
+			}
 		}
 		dumpConfig(cfgStatus.Immutable)
+		fmt.Print("\n\n##### Read Write Configurations #####\n")
 		dumpConfig(cfgStatus.Realized.Options)
-		fmt.Printf("%-24s %s\n", "k8s-configuration", cfgStatus.K8sConfiguration)
-		fmt.Printf("%-24s %s\n", "k8s-endpoint", cfgStatus.K8sEndpoint)
-		fmt.Printf("%-24s %s\n", "PolicyEnforcement", cfgStatus.Realized.PolicyEnforcement)
+		fmt.Printf("%-34s: %s\n", "k8s-configuration", cfgStatus.K8sConfiguration)
+		fmt.Printf("%-34s: %s\n", "k8s-endpoint", cfgStatus.K8sEndpoint)
+		fmt.Printf("%-34s: %s\n", "PolicyEnforcement", cfgStatus.Realized.PolicyEnforcement)
 		if cfgStatus.NodeMonitor != nil {
-			fmt.Printf("%-24s %d\n", "MonitorNumPages", cfgStatus.NodeMonitor.Npages)
+			fmt.Printf("%-34s: %d\n", "MonitorNumPages", cfgStatus.NodeMonitor.Npages)
 		}
 		return
 	}
