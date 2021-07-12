@@ -98,7 +98,7 @@ func MaglevOuterMapTableSize(mapName string) (bool, uint32) {
 	var firstKey MaglevOuterKey
 	if err = prevMap.NextKey(nil, &firstKey); err != nil {
 		// The outer map exists but it's empty.
-		return false, UnknownMaglevTableSize
+		return true, UnknownMaglevTableSize
 	}
 
 	var firstVal MaglevOuterVal
