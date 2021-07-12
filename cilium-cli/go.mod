@@ -14,6 +14,7 @@ replace (
 )
 
 require (
+	github.com/blang/semver/v4 v4.0.0
 	github.com/cilium/cilium v1.10.2
 	github.com/cilium/hubble v0.8.0
 	github.com/cilium/workerpool v1.0.0
