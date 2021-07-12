@@ -16,7 +16,10 @@ package cmd
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"runtime"
+	"strings"
 
 	"github.com/cilium/cilium-cli/defaults"
 
@@ -32,6 +35,21 @@ var (
 	// GitHash is the git checksum of the most recent commit in HEAD.
 	GitHash string
 )
+
+func getLatestStableVersion() string {
+	resp, err := http.Get("https://raw.githubusercontent.com/cilium/cilium/master/stable.txt")
+	if err != nil {
+		return "unknown"
+	}
+	defer resp.Body.Close()
+
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "unknown"
+	}
+
+	return strings.TrimSpace(string(b))
+}
 
 func newCmdVersion() *cobra.Command {
 	return &cobra.Command{
@@ -50,6 +68,7 @@ func newCmdVersion() *cobra.Command {
 			// the cluster, if any. See https://github.com/cilium/cilium-cli/issues/131
 			fmt.Printf("cilium-cli: v%s%s compiled with %v on %v/%v\n", Version, gitInfo, runtime.Version(), runtime.GOOS, runtime.GOARCH)
 			fmt.Printf("cilium image (default): %s\n", defaults.Version)
+			fmt.Printf("cilium image (stable): %s\n", getLatestStableVersion())
 		},
 	}
 }
