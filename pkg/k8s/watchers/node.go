@@ -55,7 +55,7 @@ func (k *K8sWatcher) NodesInit(k8sClient *k8s.K8sClient) {
 					var valid bool
 					if node := k8s.ObjToV1Node(obj); node != nil {
 						valid = true
-						if hasAgentNotReadyTaint(node) {
+						if hasAgentNotReadyTaint(node) || !k8s.HasCiliumIsUpCondition(node) {
 							k8sClient.ReMarkNodeReady()
 						}
 						err := k.updateK8sNodeV1(nil, node)
@@ -68,7 +68,7 @@ func (k *K8sWatcher) NodesInit(k8sClient *k8s.K8sClient) {
 					if oldNode := k8s.ObjToV1Node(oldObj); oldNode != nil {
 						valid = true
 						if newNode := k8s.ObjToV1Node(newObj); newNode != nil {
-							if hasAgentNotReadyTaint(newNode) {
+							if hasAgentNotReadyTaint(newNode) || !k8s.HasCiliumIsUpCondition(newNode) {
 								k8sClient.ReMarkNodeReady()
 							}
 
