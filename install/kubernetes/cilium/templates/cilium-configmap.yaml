@@ -358,6 +358,10 @@ data:
   tunnel: {{ .Values.tunnel }}
 {{- end }}
 
+{{- if hasKey .Values "tunnelPort" }}
+  tunnel-port: "{{ .Values.tunnelPort }}"
+{{- end }}
+
 {{- if .Values.eni.enabled }}
   enable-endpoint-routes: "true"
   auto-create-cilium-node-resource: "true"

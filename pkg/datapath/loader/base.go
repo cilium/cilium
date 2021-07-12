@@ -42,6 +42,7 @@ const (
 	initArgIPv6NodeIP
 	initArgMode
 	initArgTunnelMode
+	initArgTunnelPort
 	initArgDevices
 	initArgHostDev1
 	initArgHostDev2
@@ -350,6 +351,12 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		// Enable tunnel mode to vxlan if egress gateway is configured
 		// Tunnel is required for egress traffic under this config
 		args[initArgTunnelMode] = option.TunnelVXLAN
+	}
+
+	args[initArgTunnelPort] = "<nil>"
+	switch args[initArgTunnelMode] {
+	case option.TunnelVXLAN, option.TunnelGeneve:
+		args[initArgTunnelPort] = fmt.Sprintf("%d", option.Config.TunnelPort)
 	}
 
 	if option.Config.EnableNodePort {
