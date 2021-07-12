@@ -20,22 +20,24 @@ IP4_HOST=$3
 IP6_HOST=$4
 MODE=$5
 TUNNEL_MODE=$6
+# Only set if TUNNEL_MODE = "vxlan", "geneve"
+TUNNEL_PORT=$7
 # Only set if MODE = "direct", "ipvlan"
-NATIVE_DEVS=$7
-HOST_DEV1=$8
-HOST_DEV2=$9
-MTU=${10}
-HOSTLB=${11}
-HOSTLB_UDP=${12}
-HOSTLB_PEER=${13}
-CGROUP_ROOT=${14}
-BPFFS_ROOT=${15}
-NODE_PORT=${16}
-NODE_PORT_BIND=${17}
-MCPU=${18}
-NR_CPUS=${19}
-ENDPOINT_ROUTES=${20}
-PROXY_RULE=${21}
+NATIVE_DEVS=$8
+HOST_DEV1=$9
+HOST_DEV2=${10}
+MTU=${11}
+HOSTLB=${12}
+HOSTLB_UDP=${13}
+HOSTLB_PEER=${14}
+CGROUP_ROOT=${15}
+BPFFS_ROOT=${16}
+NODE_PORT=${17}
+NODE_PORT_BIND=${18}
+MCPU=${19}
+NR_CPUS=${20}
+ENDPOINT_ROUTES=${21}
+PROXY_RULE=${22}
 
 ID_HOST=1
 ID_WORLD=2
@@ -311,6 +313,15 @@ function bpf_clear_cgroups()
 	fi
 }
 
+function create_encap_dev()
+{
+	TUNNEL_OPTS="external"
+	if [ "${TUNNEL_PORT}" != "<nil>" ]; then
+		TUNNEL_OPTS="dstport $TUNNEL_PORT $TUNNEL_OPTS"
+	fi
+	ip link add name $ENCAP_DEV address $(rnd_mac_addr) type $TUNNEL_MODE $TUNNEL_OPTS || encap_fail
+}
+
 function encap_fail()
 {
 	(>&2 echo "ERROR: Setup of encapsulation device $ENCAP_DEV has failed. Is another program using a $MODE device?")
@@ -423,10 +434,16 @@ fi
 
 if [ "${TUNNEL_MODE}" != "<nil>" ]; then
 	ENCAP_DEV="cilium_${TUNNEL_MODE}"
-	ip link show $ENCAP_DEV || {
-		ip link add name $ENCAP_DEV address $(rnd_mac_addr) type $TUNNEL_MODE external || encap_fail
-	}
+
+	ip link show $ENCAP_DEV || create_encap_dev
 	ip link set $ENCAP_DEV mtu $MTU || encap_fail
+
+	if [ "${TUNNEL_PORT}" != "<nil>" ]; then
+		ip -details link show $ENCAP_DEV | grep "dstport $TUNNEL_PORT" || {
+			ip link delete name $ENCAP_DEV type $TUNNEL_MODE
+			create_encap_dev
+		}
+	fi
 
 	setup_dev $ENCAP_DEV || encap_fail
 
