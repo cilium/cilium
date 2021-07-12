@@ -437,4 +437,9 @@ const (
 	// ExternalClusterIP enables cluster external access to ClusterIP services.
 	// Defaults to false to retain prior behaviour of not routing external packets to ClusterIPs.
 	ExternalClusterIP = false
+
+	// TunnelPortVXLAN is the default VXLAN port
+	TunnelPortVXLAN = 8472
+	// TunnelPortGeneve is the default Geneve port
+	TunnelPortGeneve = 6081
 )
