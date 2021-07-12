@@ -61,6 +61,9 @@ cilium install --context kind-cluster1 --cluster-id 1 --cluster-name cluster1
 	cmd.Flags().StringVar(&params.ClusterName, "cluster-name", "", "Name of the cluster")
 	cmd.Flags().StringSliceVar(&params.DisableChecks, "disable-check", []string{}, "Disable a particular validation check")
 	cmd.Flags().StringVar(&params.Version, "version", defaults.Version, "Cilium version to install")
+	cmd.Flags().StringVar(&params.BaseVersion, "base-version", "",
+		"Specify the base Cilium version for configuration purpose in case the --version flag doesn't indicate the actual Cilium version")
+	cmd.Flags().MarkHidden("base-version")
 	cmd.Flags().StringVar(&params.DatapathMode, "datapath-mode", "", "Datapath mode to use")
 	cmd.Flags().StringVar(&params.IPAM, "ipam", "", "IP Address Management (IPAM) mode")
 	cmd.Flags().StringVar(&params.NativeRoutingCIDR, "native-routing-cidr", "", "CIDR within which native routing is possible")
