@@ -15,9 +15,22 @@
 package cmd
 
 import (
+	"google.golang.org/grpc"
+
+	pb "github.com/cilium/cilium/api/v1/dnsproxy"
+
 	"github.com/cilium/cilium/pkg/fqdn/collector"
+	"github.com/cilium/cilium/pkg/proxy"
 )
 
 func (d *Daemon) bootstrapFqdnCollector() {
 	go collector.RunServer(10000, d)
+
+	//TODO: retry that
+	conn, err := grpc.Dial("localhost:10002", grpc.WithInsecure(), grpc.WithBlock())
+	if err != nil {
+		log.Fatalf("did not connect: %v", err)
+	}
+	//defer conn.Close()
+	proxy.FQDNProxyGRPCClient = pb.NewFQDNProxyClient(conn)
 }
