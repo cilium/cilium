@@ -26,7 +26,7 @@ jobs:
 
       - name: Install eksctl CLI
         run: |
-          curl -LO "https://github.com/weaveworks/eksctl/releases/download/0.54.0/eksctl_$(uname -s)_amd64.tar.gz"
+          curl -LO "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz"
           sudo tar xzvfC eksctl_$(uname -s)_amd64.tar.gz /usr/bin
           rm eksctl_$(uname -s)_amd64.tar.gz
 
