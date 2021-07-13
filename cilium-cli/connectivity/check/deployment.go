@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -436,6 +437,16 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 		}
 
 		for _, echoService := range echoServices.Items {
+			if ct.params.MultiCluster != "" {
+				if _, exists := ct.echoServices[echoService.Name]; exists {
+					// ct.clients.clients() lists the client cluster first.
+					// If we already have this service (for the client cluster), keep it
+					// so that we can rely on the service's ClusterIP being valid for the
+					// client pods.
+					continue
+				}
+			}
+
 			ct.echoServices[echoService.Name] = Service{
 				Service: echoService.DeepCopy(),
 			}
@@ -615,16 +626,33 @@ func (ct *ConnectivityTest) waitForService(ctx context.Context, service Service)
 		// Don't retry lookups more often than once per second.
 		r := time.After(time.Second)
 
-		e, err := ct.client.ExecInPodWithTTY(ctx,
+		stdout, err := ct.client.ExecInPodWithTTY(ctx,
 			pod.Pod.Namespace, pod.Pod.Name, pod.Pod.Labels["name"],
 			[]string{"nslookup", service.Service.Name}) // BusyBox nslookup doesn't support any arguments.
 
 		// Lookup successful.
 		if err == nil {
-			return nil
+			svcIP := ""
+			switch service.Service.Spec.Type {
+			case corev1.ServiceTypeClusterIP, corev1.ServiceTypeNodePort:
+				svcIP = service.Service.Spec.ClusterIP
+			case corev1.ServiceTypeLoadBalancer:
+				if len(service.Service.Status.LoadBalancer.Ingress) > 0 {
+					svcIP = service.Service.Status.LoadBalancer.Ingress[0].IP
+				}
+			}
+			if svcIP == "" {
+				return nil
+			}
+
+			nslookupStr := strings.ReplaceAll(stdout.String(), "\r\n", "\n")
+			if strings.Contains(nslookupStr, "Address: "+svcIP+"\n") {
+				return nil
+			}
+			err = fmt.Errorf("Service IP %q not found in nslookup output %q", svcIP, nslookupStr)
 		}
 
-		ct.Debugf("Error waiting for service %s: %s: %s", service.Name(), err, e.String())
+		ct.Debugf("Error waiting for service %s: %s: %s", service.Name(), err, stdout.String())
 
 		// Wait for the pace timer to avoid busy polling.
 		<-r
