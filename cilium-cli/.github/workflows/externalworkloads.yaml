@@ -153,12 +153,12 @@ jobs:
           kubectl -n kube-system wait job/cilium-cli --for=condition=complete --timeout=10m
 
       - name: Post-test installation logs
-        if: ${{ failure() }}
+        if: ${{ !success() }}
         run: |
           kubectl logs --timestamps -n kube-system job/cilium-cli-install
 
       - name: Post-test information gathering
-        if: ${{ failure() }}
+        if: ${{ !success() }}
         run: |
           kubectl logs --timestamps -n kube-system job/cilium-cli
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "cilium status"
@@ -177,7 +177,7 @@ jobs:
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Upload artifacts
-        if: ${{ failure() }}
+        if: ${{ !success() }}
         uses: actions/upload-artifact@ee69f02b3dfdecd58bb31b4d133da38ba6fe3700
         with:
           name: cilium-sysdump-out.zip
