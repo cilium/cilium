@@ -15,6 +15,9 @@
 package proxy
 
 import (
+	"context"
+
+	fqdnpb "github.com/cilium/cilium/api/v1/dnsproxy"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -26,7 +29,8 @@ import (
 
 var (
 	// DefaultDNSProxy is the global, shared, DNS Proxy singleton.
-	DefaultDNSProxy *dnsproxy.DNSProxy
+	DefaultDNSProxy     *dnsproxy.DNSProxy
+	FQDNProxyGRPCClient fqdnpb.FQDNProxyClient
 )
 
 // dnsRedirect implements the Redirect interface for an l7 proxy
@@ -47,8 +51,41 @@ func (dr *dnsRedirect) setRules(wg *completion.WaitGroup, newRules policy.L7Data
 		"newRules":           newRules,
 		logfields.EndpointID: dr.redirect.endpointID,
 	}).Debug("DNS Proxy updating matchNames in allowed list during UpdateRules")
-	if err := DefaultDNSProxy.UpdateAllowed(dr.redirect.endpointID, dr.redirect.dstPort, newRules); err != nil {
-		return err
+	//if err := DefaultDNSProxy.UpdateAllowed(dr.redirect.endpointID, dr.redirect.dstPort, newRules); err != nil {
+	//	return err
+	//}
+
+	msg := &fqdnpb.FQDNRules{
+		EndpointID: dr.redirect.endpointID,
+		DestPort:   uint32(dr.redirect.dstPort),
+	}
+	unifiedRules, err := dnsproxy.GetSelectorRegexMap(newRules)
+	if err != nil {
+		log.WithFields(logrus.Fields{
+			"newRules":           newRules,
+			logfields.EndpointID: dr.redirect.endpointID,
+		}).WithError(err).Error("Couldn't convert new rules to Selector->Regex map")
+	}
+	msg.Rules = &fqdnpb.L7Rules{}
+
+	for selector, regex := range unifiedRules {
+		msg.Rules.SelectorRegexMapping[selector.String()] = regex.String()
+
+		nids := selector.GetSelections()
+		ids := make([]uint32, len(nids))
+		for i, nid := range nids {
+			ids[i] = uint32(nid)
+		}
+		msg.Rules.SelectorIdentitiesMapping[selector.String()] = &fqdnpb.IdentityList{
+			List: ids,
+		}
+	}
+
+	if _, err := FQDNProxyGRPCClient.UpdateAllowed(context.TODO(), msg); err != nil {
+		log.WithFields(logrus.Fields{
+			"newRules":           newRules,
+			logfields.EndpointID: dr.redirect.endpointID,
+		}).WithError(err).Error("Failed to UpdateAllowed")
 	}
 	dr.redirect.localEndpoint.OnDNSPolicyUpdateLocked(DefaultDNSProxy.GetRules(uint16(dr.redirect.endpointID)))
 	dr.currentRules = copyRules(dr.redirect.rules)

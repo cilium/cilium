@@ -560,6 +560,10 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	}
 	bootstrapStats.fqdn.End(true)
 
+	bootstrapStats.fqdnCollector.Start()
+	d.bootstrapFqdnCollector()
+	bootstrapStats.fqdn.End(true)
+
 	if k8s.IsEnabled() {
 		bootstrapStats.k8sInit.Start()
 		// Errors are handled inside WaitForCRDsToRegister. It will fatal on a

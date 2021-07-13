@@ -1,0 +1,96 @@
+// Copyright 2021 Authors of Cilium
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+import public "flow/flow.proto";
+import "google/protobuf/timestamp.proto";
+
+package dnsproxy;
+
+option go_package = "github.com/cilium/cilium/api/v1/dnsproxy";
+
+service FQDNProxyAgent {
+
+  // A client-to-server streaming RPC.
+  //
+  // Accepts a stream of FQDNMapping
+  rpc ProvideMappings(stream FQDNMapping) returns (Success){}
+
+  // LookupEndpointByIP returns endpoint data based on IP
+  rpc LookupEndpointByIP(FQDN_IP) returns (flow.Endpoint){}
+
+  // LookupEndpointByIP returns endpoint data based on IP
+  rpc LookupSecurityIdentityByIP(FQDN_IP) returns (Identity){}
+
+  // LookupIPsBySecurityIdentity retrieves ips for endpoints with given security identity
+  rpc LookupIPsBySecurityIdentity(Identity) returns(IPs){}
+
+  // NotifyOnDNSMessage notifies Agent of a DNS message
+  rpc NotifyOnDNSMessage(DNSNotification) returns(Empty) {}
+}
+
+service FQDNProxy {
+  rpc UpdateAllowed(FQDNRules) returns(Empty) {}
+}
+
+message Empty {}
+
+message FQDNRules{
+  uint64 endpointID = 1;
+  uint32 destPort = 2;
+  L7Rules rules = 3;
+}
+
+message L7Rules {
+  map<string, string> SelectorRegexMapping = 1;
+  map<string, IdentityList> SelectorIdentitiesMapping = 2;
+}
+
+message IdentityList {
+  repeated uint32 list = 1;
+}
+
+message DNSNotification {
+  google.protobuf.Timestamp time = 1;
+  flow.Endpoint endpoint = 2;
+  string epIPPort = 3;
+  string serverAddr = 4;
+  bytes msg = 5;
+  string protocol = 6;
+  bool allowed = 7;
+}
+
+message IPs {
+  repeated bytes IPs = 1;
+}
+
+message FQDN_IP {
+  bytes IP = 1;
+}
+
+message Identity{
+  uint32 ID = 1;
+  string Source = 2;
+  bool Exists = 3;
+}
+
+message FQDNMapping {
+    bytes IP = 1;
+    string FQDN = 2;
+}
+
+message Success {
+  bool result = 1;
+}

@@ -34,3 +34,7 @@ func lookupTargetDNSServer(w dns.ResponseWriter) (serverIP net.IP, serverPort ui
 		return nil, 0, addr.String(), fmt.Errorf("Cannot extract address information for type %T: %+v", addr, addr)
 	}
 }
+
+func LookupTargetDNSServer(w dns.ResponseWriter) (serverIP net.IP, serverPort uint16, addrStr string, err error) {
+	return lookupTargetDNSServer(w)
+}

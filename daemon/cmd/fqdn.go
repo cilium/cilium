@@ -306,25 +306,26 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 	if err != nil {
 		return err
 	}
-	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", port, option.Config.ToFQDNsEnableDNSCompression,
-		option.Config.DNSMaxIPsPerRestoredRule, d.lookupEPByIP, d.LookupSecIDByIP, d.lookupIPsBySecID,
-		d.notifyOnDNSMsg)
-	if err == nil {
-		// Increase the ProxyPort reference count so that it will never get released.
-		err = d.l7Proxy.SetProxyPort(listenerName, proxy.DefaultDNSProxy.BindPort)
-		if err == nil && port == proxy.DefaultDNSProxy.BindPort {
-			log.Infof("Reusing previous DNS proxy port: %d", port)
-		}
-		proxy.DefaultDNSProxy.SetRejectReply(option.Config.FQDNRejectResponse)
-		// Restore old rules
-		for _, possibleEP := range possibleEndpoints {
-			// Upgrades from old ciliums have this nil
-			if possibleEP.DNSRules != nil {
-				proxy.DefaultDNSProxy.RestoreRules(possibleEP)
-			}
-		}
-	}
-	return err // filled by StartDNSProxy
+	//proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", port, option.Config.ToFQDNsEnableDNSCompression,
+	//	option.Config.DNSMaxIPsPerRestoredRule, d.lookupEPByIP, d.LookupSecIDByIP, d.lookupIPsBySecID,
+	//	d.notifyOnDNSMsg)
+	//if err == nil {
+	//	// Increase the ProxyPort reference count so that it will never get released.
+	//	err = d.l7Proxy.SetProxyPort(listenerName, proxy.DefaultDNSProxy.BindPort)
+	//	if err == nil && port == proxy.DefaultDNSProxy.BindPort {
+	//		log.Infof("Reusing previous DNS proxy port: %d", port)
+	//	}
+	//	proxy.DefaultDNSProxy.SetRejectReply(option.Config.FQDNRejectResponse)
+	//	// Restore old rules
+	//	for _, possibleEP := range possibleEndpoints {
+	//		// Upgrades from old ciliums have this nil
+	//		if possibleEP.DNSRules != nil {
+	//			proxy.DefaultDNSProxy.RestoreRules(possibleEP)
+	//		}
+	//	}
+	//}
+	//return err // filled by StartDNSProxy
+	return nil
 }
 
 // updateDNSDatapathRules updates the DNS proxy iptables rules. Must be
@@ -349,8 +350,8 @@ func (d *Daemon) updateSelectors(ctx context.Context, selectorWithIPsToUpdate ma
 	return d.updateSelectorCacheFQDNs(ctx, selectorsIdentities, selectorsWithoutIPs), newlyAllocatedIdentities, nil
 }
 
-// lookupEPByIP returns the endpoint that this IP belongs to
-func (d *Daemon) lookupEPByIP(endpointIP net.IP) (endpoint *endpoint.Endpoint, err error) {
+// LookupEPByIP returns the endpoint that this IP belongs to
+func (d *Daemon) LookupEPByIP(endpointIP net.IP) (endpoint *endpoint.Endpoint, err error) {
 	e := d.endpointManager.LookupIP(endpointIP)
 	if e == nil {
 		return nil, fmt.Errorf("Cannot find endpoint with IP %s", endpointIP.String())
@@ -359,7 +360,7 @@ func (d *Daemon) lookupEPByIP(endpointIP net.IP) (endpoint *endpoint.Endpoint, e
 	return e, nil
 }
 
-func (d *Daemon) lookupIPsBySecID(nid identity.NumericIdentity) []string {
+func (d *Daemon) LookupIPsBySecID(nid identity.NumericIdentity) []string {
 	return ipcache.IPIdentityCache.LookupByIdentity(nid)
 }
 
@@ -374,7 +375,11 @@ func (d *Daemon) lookupIPsBySecID(nid identity.NumericIdentity) []string {
 //   can lookup the endpoint related to it
 // epIPPort and serverAddr should match the original request, where epAddr is
 // the source for egress (the only case current).
-func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat *dnsproxy.ProxyRequestContext) error {
+func (d *Daemon) NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat *dnsproxy.ProxyRequestContext) error {
+	if stat == nil {
+		stat = &dnsproxy.ProxyRequestContext{}
+
+	}
 	var protoID = u8proto.ProtoIDs[strings.ToLower(protocol)]
 	var verdict accesslog.FlowVerdict
 	var reason string
