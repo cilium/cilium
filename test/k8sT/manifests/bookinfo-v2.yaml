@@ -53,6 +53,10 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 9080
 ---
 ##################################################################################################
 # Reviews service v2
@@ -82,4 +86,8 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 9080
 ---
