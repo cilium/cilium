@@ -251,7 +251,7 @@ jobs:
         run: |
           cilium connectivity test \
             --flow-validation=disabled \
-            --test '!pod-to-world-toFQDNs' # L7 policies are not supported in chaining mode.
+            --test '!fqdn' # L7 policies are not supported in chaining mode.
 
       - name: Post-test information gathering
         if: ${{ failure() }}
