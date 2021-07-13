@@ -152,20 +152,29 @@ jobs:
         run: |
           kubectl -n kube-system wait job/cilium-cli --for=condition=complete --timeout=10m
 
-      - name: Post-test installation logs
-        if: ${{ !success() }}
-        run: |
-          kubectl logs --timestamps -n kube-system job/cilium-cli-install
-
       - name: Post-test information gathering
         if: ${{ !success() }}
         run: |
+          echo "=== Retrieve in-cluster jobs logs ==="
+          kubectl logs --timestamps -n kube-system job/cilium-cli-install
           kubectl logs --timestamps -n kube-system job/cilium-cli
+
+          echo "\n\n\n=== Retrieve VM state ==="
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "cilium status"
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "sudo docker logs cilium --timestamps"
+
+          echo "\n\n\n=== Install latest stable CLI ==="
+          curl -LO https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz
+          sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/bin
+          rm cilium-linux-amd64.tar.gz
+
+          echo "\n\n\n=== Retrieve cluster state ==="
           kubectl get pods --all-namespaces -o wide
           kubectl get cew --all-namespaces -o wide
           kubectl get cep --all-namespaces -o wide
+          cilium status
+          cilium clustermesh status
+          cilium clustermesh vm status
           cilium sysdump --output-filename cilium-sysdump-out
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
