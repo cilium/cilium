@@ -75,4 +75,10 @@ const (
 	// public key in the CiliumNode CRD that we need to use to encrypt traffic
 	// to that node.
 	WireguardPubKey = Prefix + ".network.wg-pub-key"
+
+	// CiliumEndpointBatchQueueInfo is the annotation name used to store
+	// key information about how cilium endpoints are queued inside a CEB. if
+	// CEPs are queued based on the CEP Identity, then Identity ID is
+	// annotated inside the CEB.
+	CiliumEndpointBatchQueueInfo = Prefix + ".ceb-queue-info"
 )

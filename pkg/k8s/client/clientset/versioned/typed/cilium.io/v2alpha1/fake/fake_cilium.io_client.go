@@ -30,6 +30,10 @@ func (c *FakeCiliumV2alpha1) CiliumEgressNATPolicies() v2alpha1.CiliumEgressNATP
 	return &FakeCiliumEgressNATPolicies{c}
 }
 
+func (c *FakeCiliumV2alpha1) CiliumEndpointBatches() v2alpha1.CiliumEndpointBatchInterface {
+	return &FakeCiliumEndpointBatches{c}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeCiliumV2alpha1) RESTClient() rest.Interface {

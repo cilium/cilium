@@ -904,3 +904,25 @@ func ObjToCENP(obj interface{}) *cilium_v2alpha1.CiliumEgressNATPolicy {
 		Warn("Ignoring invalid v2 Cilium Egress Gateway Policy")
 	return nil
 }
+
+// ObjToCiliumEndpointBatch attempts to cast object to a CiliumEndpointBatch object
+// and returns a deep copy if the castin succeeds. Otherwise, nil is returned.
+func ObjToCiliumEndpointBatch(obj interface{}) *cilium_v2alpha1.CiliumEndpointBatch {
+	ceb, ok := obj.(*cilium_v2alpha1.CiliumEndpointBatch)
+	if ok {
+		return ceb
+	}
+	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+	if ok {
+		// Delete was not observed by the watcher but is
+		// removed from kube-apiserver. This is the last
+		// known state and the object no longer exists.
+		ceb, ok := deletedObj.Obj.(*cilium_v2alpha1.CiliumEndpointBatch)
+		if ok {
+			return ceb
+		}
+	}
+	log.WithField(logfields.Object, logfields.Repr(obj)).
+		Warn("Ignoring invalid CiliumEndpointBatch")
+	return nil
+}
