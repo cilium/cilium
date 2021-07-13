@@ -1435,6 +1435,11 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	 * To avoid this, check that reverse NAT indices match. If not,
 	 * select a new backend.
 	 */
+	printk("state->rev_nat_index: %d, state->backend_id: %d, svc->rev_nat_index: %d\n",
+			bpf_htons(state->rev_nat_index),
+			state->backend_id,
+			bpf_htons(svc->rev_nat_index));
+
 	if (state->rev_nat_index != svc->rev_nat_index) {
 #ifdef ENABLE_SESSION_AFFINITY
 		if (lb4_svc_is_affinity(svc))
@@ -1443,6 +1448,8 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 #endif
 		if (!backend_id) {
 			backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
+			printk("new backend_id: %d\n", backend_id);
+
 			if (!backend_id)
 				goto drop_no_service;
 		}
