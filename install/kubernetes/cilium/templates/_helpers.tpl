@@ -9,9 +9,18 @@ Create chart name and version as used by the chart label.
 Return the appropriate apiVersion for ingress.
 */}}
 {{- define "ingress.apiVersion" -}}
-{{- if semverCompare ">=1.16-0, <1.19-0" .Capabilities.KubeVersion.Version -}}
+{{- /* Workaround so that we can set the minimal k8s version that we support */ -}}
+{{- $k8sVersion := .Capabilities.KubeVersion.Version -}}
+{{- if .Values.Capabilities -}}
+{{- if .Values.Capabilities.KubeVersion -}}
+{{- if .Values.Capabilities.KubeVersion.Version -}}
+{{- $k8sVersion = .Values.Capabilities.KubeVersion.Version -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- if semverCompare ">=1.16-0, <1.19-0" $k8sVersion -}}
 {{- print "networking.k8s.io/v1beta1" -}}
-{{- else if semverCompare "^1.19-0" .Capabilities.KubeVersion.Version -}}
+{{- else if semverCompare "^1.19-0" $k8sVersion -}}
 {{- print "networking.k8s.io/v1" -}}
 {{- end -}}
 {{- end -}}
@@ -20,11 +29,20 @@ Return the appropriate apiVersion for ingress.
 Return the appropriate backend for Hubble UI ingress.
 */}}
 {{- define "ingress.paths" -}}
-{{ if semverCompare ">=1.4-0, <1.19-0" .Capabilities.KubeVersion.Version -}}
+{{- /* Workaround so that we can set the minimal k8s version that we support */ -}}
+{{- $k8sVersion := .Capabilities.KubeVersion.Version -}}
+{{- if .Values.Capabilities -}}
+{{- if .Values.Capabilities.KubeVersion -}}
+{{- if .Values.Capabilities.KubeVersion.Version -}}
+{{- $k8sVersion = .Values.Capabilities.KubeVersion.Version -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{ if semverCompare ">=1.4-0, <1.19-0" $k8sVersion -}}
 backend:
   serviceName: hubble-ui
   servicePort: http
-{{- else if semverCompare "^1.19-0" .Capabilities.KubeVersion.Version -}}
+{{- else if semverCompare "^1.19-0" $k8sVersion -}}
 pathType: Prefix
 backend:
   service:
@@ -34,6 +52,25 @@ backend:
 {{- end -}}
 {{- end -}}
 
+{{/*
+Return the appropriate apiVersion for cronjob.
+*/}}
+{{- define "cronjob.apiVersion" -}}
+{{- /* Workaround so that we can set the minimal k8s version that we support */ -}}
+{{- $k8sVersion := .Capabilities.KubeVersion.Version -}}
+{{- if .Values.Capabilities -}}
+{{- if .Values.Capabilities.KubeVersion -}}
+{{- if .Values.Capabilities.KubeVersion.Version -}}
+{{- $k8sVersion = .Values.Capabilities.KubeVersion.Version -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- if semverCompare ">=1.21-0" $k8sVersion -}}
+{{- print "batch/v1" -}}
+{{- else -}}
+{{- print "batch/v1beta1" -}}
+{{- end -}}
+{{- end -}}
 
 {{/*
 Generate TLS certificates for Hubble Server and Hubble Relay.

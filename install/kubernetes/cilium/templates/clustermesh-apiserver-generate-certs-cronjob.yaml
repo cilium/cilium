@@ -1,5 +1,5 @@
 {{- if and (or .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer) .Values.clustermesh.apiserver.tls.auto.enabled (eq .Values.clustermesh.apiserver.tls.auto.method "cronJob") .Values.clustermesh.apiserver.tls.auto.schedule }}
-apiVersion: batch/v1beta1
+apiVersion: {{ include "cronjob.apiVersion" . }}
 kind: CronJob
 metadata:
   name: clustermesh-apiserver-generate-certs
