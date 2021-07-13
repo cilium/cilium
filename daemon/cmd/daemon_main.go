@@ -980,6 +980,9 @@ func init() {
 	flags.Bool(option.ExternalClusterIPName, false, "Enable external access to ClusterIP services (default false)")
 	option.BindEnv(option.ExternalClusterIPName)
 
+	flags.Bool(option.EnableCiliumEndpointBatch, false, "If set to true, CiliumEndpointBatch feature is enabled and if any CiliumEndpoint resource are created, updated or deleted in the cluster, all those changes are passed in as CiliumEndpointBatch updates to cilium agents.")
+	option.BindEnv(option.EnableCiliumEndpointBatch)
+
 	viper.BindPFlags(flags)
 }
 

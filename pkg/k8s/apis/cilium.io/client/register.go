@@ -27,6 +27,7 @@ import (
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
 	"github.com/sirupsen/logrus"
@@ -67,6 +68,9 @@ const (
 
 	// CENPCRDName is the full name of the CENP CRD.
 	CENPCRDName = k8sconstv2alpha1.CENPKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
+
+	// CEBCRDName is the full name of the CEB CRD.
+	CEBCRDName = k8sconstv2alpha1.CEBKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
 )
 
 var (
@@ -113,6 +117,12 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 		return createCENPCRD(clientset)
 	})
 
+	if option.Config.EnableCiliumEndpointBatch {
+		g.Go(func() error {
+			return createCEBCRD(clientset)
+		})
+	}
+
 	return g.Wait()
 }
 
@@ -140,6 +150,9 @@ var (
 
 	//go:embed crds/v2alpha1/ciliumegressnatpolicies.yaml
 	crdsv2Alpha1Ciliumegressnatpolicies []byte
+
+	//go:embed crds/v2alpha1/ciliumendpointbatches.yaml
+	crdsv2Alpha1Ciliumendpointbatches []byte
 )
 
 // GetPregeneratedCRD returns the pregenerated CRD based on the requested CRD
@@ -171,6 +184,8 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1.CustomResourceDefinition
 		crdBytes = crdsCiliumlocalredirectpolicies
 	case CENPCRDName:
 		crdBytes = crdsv2Alpha1Ciliumegressnatpolicies
+	case CEBCRDName:
+		crdBytes = crdsv2Alpha1Ciliumendpointbatches
 	default:
 		scopedLog.Fatal("Pregenerated CRD does not exist")
 	}
@@ -280,6 +295,19 @@ func createCENPCRD(clientset apiextensionsclient.Interface) error {
 		clientset,
 		CENPCRDName,
 		constructV1CRD(k8sconstv2alpha1.CENPName, ciliumCRD),
+		newDefaultPoller(),
+	)
+}
+
+// createCEBCRD creates and updates the CiliumEndpointBatch CRD. It should be
+// called on agent startup but is idempotent and safe to call again.
+func createCEBCRD(clientset apiextensionsclient.Interface) error {
+	ciliumCRD := GetPregeneratedCRD(CEBCRDName)
+
+	return createUpdateCRD(
+		clientset,
+		CEBCRDName,
+		constructV1CRD(k8sconstv2alpha1.CEBName, ciliumCRD),
 		newDefaultPoller(),
 	)
 }
