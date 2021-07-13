@@ -53,9 +53,3 @@ sleep 10s
 
 # Run connectivity test
 cilium --context "${CONTEXT1}" connectivity test --debug --multi-cluster "${CONTEXT2}" --test '!/pod-to-.*-nodeport' --all-flows
-
-# Retrieve Cilium status
-cilium --context "${CONTEXT1}" status
-cilium --context "${CONTEXT1}" clustermesh status
-cilium --context "${CONTEXT2}" status
-cilium --context "${CONTEXT2}" clustermesh status

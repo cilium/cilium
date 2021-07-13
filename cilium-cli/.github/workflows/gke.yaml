@@ -96,9 +96,17 @@ jobs:
       - name: Post-test information gathering
         if: ${{ !success() }}
         run: |
+          echo "=== Retrieve in-cluster jobs logs ==="
           kubectl logs --timestamps -n kube-system job/cilium-cli
-          kubectl exec -n kube-system job/cilium-cli -- cilium status
+
+          echo "\n\n\n=== Install latest stable CLI ==="
+          curl -LO https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz
+          sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/bin
+          rm cilium-linux-amd64.tar.gz
+
+          echo "\n\n\n=== Retrieve cluster state ==="
           kubectl get pods --all-namespaces -o wide
+          cilium status
           cilium sysdump --output-filename cilium-sysdump-out
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
