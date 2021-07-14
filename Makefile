@@ -60,9 +60,6 @@ DOCKER_FLAGS ?=
 TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddress=https://consul:8443 \
 	-X github.com/cilium/cilium/pkg/kvstore.etcdDummyAddress=http://etcd:4002
 
-TEST_UNITTEST_LDFLAGS= -ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyConfigFile=/tmp/cilium-consul-certs/cilium-consul.yaml \
-	-X github.com/cilium/cilium/pkg/logging.DefaultLogLevelStr=$(LOGLEVEL)"
-
 define print_help_line
 	@printf "  \033[36m%-29s\033[0m %s.\n" $(1) $(2)
 endef
@@ -205,7 +202,7 @@ endif
 	# hence will trigger an error of too many arguments. As a workaround, we
 	# have to process these packages in different subshells.
 	for pkg in $(patsubst %,github.com/cilium/cilium/%,$(TESTPKGS)); do \
-		$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $$pkg $(GOTEST_BASE) $(GOTEST_COVER_OPTS) \
+		$(GO_TEST) $$pkg $(GOTEST_BASE) $(GOTEST_COVER_OPTS) \
 		|| exit 1; \
 		tail -n +2 coverage.out >> coverage-all-tmp.out; \
 	done
@@ -216,7 +213,7 @@ bench: start-kvstores ## Run benchmarks for Cilium unit-tests in the repository.
 	# Process the packages in different subshells. See comment in the
 	# "unit-tests" target above for an explanation.## Builds components required for cilium-agent container.
 	$(QUIET)for pkg in $(patsubst %,github.com/cilium/cilium/%,$(TESTPKGS)); do \
-		$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) \
+		$(GO_TEST) $(GOTEST_BASE) $(BENCHFLAGS) \
 			$$pkg \
 		|| exit 1; \
 	done
@@ -227,7 +224,7 @@ bench-privileged:
 	# Process the packages in different subshells. See comment in the
 	# "unit-tests" target above for an explanation.
 	$(QUIET)for pkg in $(patsubst %,github.com/cilium/cilium/%,$(TESTPKGS)); do \
-		$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) $$pkg \
+		$(GO_TEST) $(GOTEST_BASE) $(BENCHFLAGS) $$pkg \
 		|| exit 1; \
 	done
 
