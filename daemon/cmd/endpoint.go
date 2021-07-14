@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"regexp"
 	"runtime"
 	"sync"
 	"time"
@@ -43,6 +44,8 @@ import (
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy"
+
+	fqdnpb "github.com/cilium/cilium/api/v1/dnsproxy"
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/sirupsen/logrus"
@@ -1082,16 +1085,45 @@ func (d *Daemon) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), e
 
 func (d *Daemon) GetDNSRules(epID uint16) restore.DNSRules {
 	// Many unit tests do not initialize the DNS proxy
-	if proxy.DefaultDNSProxy == nil {
+	if proxy.FQDNProxyGRPCClient == nil {
 		return nil
 	}
-	return proxy.DefaultDNSProxy.GetRules(epID)
+
+	rules, err := proxy.FQDNProxyGRPCClient.GetRules(context.TODO(), &fqdnpb.EndpointID{EndpointID: uint32(epID)})
+	if err != nil {
+		log.WithField(logfields.EndpointID, epID).WithError(err).Error("Failed to retrieve DNS rules from proxy")
+		return nil
+	}
+
+	result := restore.DNSRules{}
+
+	for port, msgIpRules := range rules.Rules {
+		ipRules := make(restore.IPRules, 0, len(msgIpRules.List))
+
+		for _, msgIpRule := range msgIpRules.List {
+			ipRule := restore.IPRule{
+				Re: restore.RuleRegex{
+					Regexp: regexp.MustCompile(msgIpRule.Regex),
+				},
+				IPs: make(map[string]struct{}, len(msgIpRule.Ips)),
+			}
+
+			for _, ip := range msgIpRule.Ips {
+				ipRule.IPs[ip] = struct{}{}
+			}
+
+			ipRules = append(ipRules, ipRule)
+		}
+
+		result[uint16(port)] = ipRules
+	}
+	return result
 }
 
 func (d *Daemon) RemoveRestoredDNSRules(epID uint16) {
 	// Many unit tests do not initialize the DNS proxy
-	if proxy.DefaultDNSProxy == nil {
+	if proxy.FQDNProxyGRPCClient == nil {
 		return
 	}
-	proxy.DefaultDNSProxy.RemoveRestoredRules(epID)
+	proxy.FQDNProxyGRPCClient.RemoveRestoredRules(context.TODO(), &fqdnpb.EndpointID{EndpointID: uint32(epID)})
 }

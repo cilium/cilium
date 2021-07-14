@@ -16,10 +16,12 @@ package proxy
 
 import (
 	"context"
+	"regexp"
 
 	fqdnpb "github.com/cilium/cilium/api/v1/dnsproxy"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
+	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/logger"
@@ -90,7 +92,39 @@ func (dr *dnsRedirect) setRules(wg *completion.WaitGroup, newRules policy.L7Data
 			logfields.EndpointID: dr.redirect.endpointID,
 		}).WithError(err).Error("Failed to UpdateAllowed")
 	}
-	dr.redirect.localEndpoint.OnDNSPolicyUpdateLocked(DefaultDNSProxy.GetRules(uint16(dr.redirect.endpointID)))
+
+	//TODO: don't repeat this code in daemon.GetRules, move out to a separate package
+	//possibly with reverse direction conversion factored out from fqdn proxy
+	rules, err := FQDNProxyGRPCClient.GetRules(context.TODO(), &fqdnpb.EndpointID{EndpointID: uint32(dr.redirect.endpointID)})
+	if err != nil {
+		log.WithField(logfields.EndpointID, dr.redirect.endpointID).WithError(err).Error("Failed to retrieve DNS rules from proxy")
+		return nil
+	}
+
+	result := restore.DNSRules{}
+
+	for port, msgIpRules := range rules.Rules {
+		ipRules := make(restore.IPRules, 0, len(msgIpRules.List))
+
+		for _, msgIpRule := range msgIpRules.List {
+			ipRule := restore.IPRule{
+				Re: restore.RuleRegex{
+					Regexp: regexp.MustCompile(msgIpRule.Regex),
+				},
+				IPs: make(map[string]struct{}, len(msgIpRule.Ips)),
+			}
+
+			for _, ip := range msgIpRule.Ips {
+				ipRule.IPs[ip] = struct{}{}
+			}
+
+			ipRules = append(ipRules, ipRule)
+		}
+
+		result[uint16(port)] = ipRules
+	}
+
+	dr.redirect.localEndpoint.OnDNSPolicyUpdateLocked(result)
 	dr.currentRules = copyRules(dr.redirect.rules)
 
 	return nil
@@ -111,7 +145,18 @@ func (dr *dnsRedirect) UpdateRules(wg *completion.WaitGroup) (revert.RevertFunc,
 // Close the redirect.
 func (dr *dnsRedirect) Close(wg *completion.WaitGroup) (revert.FinalizeFunc, revert.RevertFunc) {
 	return func() {
-		DefaultDNSProxy.UpdateAllowed(dr.redirect.endpointID, dr.redirect.dstPort, nil)
+		//TODO: move this out of the function to decrease memory consumption?
+		msg := &fqdnpb.FQDNRules{
+			EndpointID: dr.redirect.endpointID,
+			DestPort:   uint32(dr.redirect.dstPort),
+			Rules:      &fqdnpb.L7Rules{},
+		}
+		if _, err := FQDNProxyGRPCClient.UpdateAllowed(context.TODO(), msg); err != nil {
+			log.WithFields(logrus.Fields{
+				logfields.EndpointID: dr.redirect.endpointID,
+			}).WithError(err).Error("Failed to UpdateAllowed with on redirect close")
+		}
+		//DefaultDNSProxy.UpdateAllowed(dr.redirect.endpointID, dr.redirect.dstPort, nil)
 		dr.redirect.localEndpoint.OnDNSPolicyUpdateLocked(nil)
 		dr.currentRules = nil
 	}, nil
