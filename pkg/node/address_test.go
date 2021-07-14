@@ -161,9 +161,16 @@ func (s *NodeSuite) Test_getCiliumHostIPsFromFile(c *C) {
 	c.Assert(err, IsNil)
 	defer f.Close()
 	fmt.Fprintf(f, `/*
- * Node-IPv6: fd01::b
- * Router-IPv6: f00d::a00:0:0:a4ad
- * Host-IPv4: 10.0.0.1
+ cilium.v6.external.str fd01::b
+ cilium.v6.internal.str f00d::a00:0:0:a4ad
+ cilium.v6.nodeport.str []
+
+ cilium.v4.external.str 192.168.33.11
+ cilium.v4.internal.str 10.0.0.2
+ cilium.v4.nodeport.str []
+
+ cilium.v6.internal.raw 0xf0, 0xd, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xa, 0x0, 0x0, 0x0, 0x0, 0x0, 0xa4, 0xad
+ cilium.v4.internal.raw 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xff, 0xff, 0xa, 0x0, 0x0, 0x2
  */
 
 #define ENABLE_IPV4 1
@@ -207,7 +214,7 @@ func (s *NodeSuite) Test_getCiliumHostIPsFromFile(c *C) {
 			args: args{
 				nodeConfig: allIPsCorrect,
 			},
-			wantIpv4GW:      net.ParseIP("10.0.0.1"),
+			wantIpv4GW:      net.ParseIP("10.0.0.2"),
 			wantIpv6Router:  net.ParseIP("f00d::a00:0:0:a4ad"),
 			wantIpv6Address: net.ParseIP("fd01::b"),
 		},
