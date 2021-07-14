@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2019 Authors of Cilium
+
 package main
 
 import (
@@ -68,9 +71,9 @@ func (s *SPDXConverter) Walk() error {
 }
 
 func (s *SPDXConverter) conv(path string, fset *token.FileSet, f *ast.File) error {
-    if len(f.Comments) == 0 {
-        return nil
-    }
+	if len(f.Comments) == 0 {
+		return nil
+	}
 	cg := f.Comments[0]
 	if !strings.HasPrefix(cg.List[0].Text, "// Copyright") {
 		log.Printf("file %v did not start with a Copyright string. skipping...\n", path)
