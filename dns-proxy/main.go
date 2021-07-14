@@ -63,6 +63,9 @@ func main() {
 	}
 	log.Info("started dns proxy")
 
+	//TODO: get this from config
+	proxy.SetRejectReply("reject reply")
+
 	go RunServer(10002, proxy)
 
 	exitSignal := make(chan os.Signal)

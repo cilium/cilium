@@ -26,6 +26,7 @@ import (
 	"sync"
 	"time"
 
+	fqdnpb "github.com/cilium/cilium/api/v1/dnsproxy"
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/api"
@@ -297,33 +298,37 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 	// Once we stop returning errors from StartDNSProxy this should live in
 	// StartProxySupport
 	port, listenerName, err := proxy.GetProxyPort(policy.ParserTypeDNS, false)
-	if option.Config.ToFQDNsProxyPort != 0 {
-		port = uint16(option.Config.ToFQDNsProxyPort)
-	} else if port == 0 {
-		// Try locate old DNS proxy port number from the datapath
-		port = d.datapath.GetProxyPort(listenerName)
-	}
-	if err != nil {
-		return err
-	}
+	port = 10001
+	//TODO: instead of hardcoding, move this config to proxy with grpc
+	//if option.Config.ToFQDNsProxyPort != 0 {
+	//	port = uint16(option.Config.ToFQDNsProxyPort)
+	//} else if port == 0 {
+	//	// Try locate old DNS proxy port number from the datapath
+	//	port = d.datapath.GetProxyPort(listenerName)
+	//}
+	//if err != nil {
+	//	return err
+	//}
 	//proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", port, option.Config.ToFQDNsEnableDNSCompression,
 	//	option.Config.DNSMaxIPsPerRestoredRule, d.lookupEPByIP, d.LookupSecIDByIP, d.lookupIPsBySecID,
 	//	d.notifyOnDNSMsg)
-	//if err == nil {
-	//	// Increase the ProxyPort reference count so that it will never get released.
-	//	err = d.l7Proxy.SetProxyPort(listenerName, proxy.DefaultDNSProxy.BindPort)
-	//	if err == nil && port == proxy.DefaultDNSProxy.BindPort {
-	//		log.Infof("Reusing previous DNS proxy port: %d", port)
-	//	}
-	//	proxy.DefaultDNSProxy.SetRejectReply(option.Config.FQDNRejectResponse)
-	//	// Restore old rules
-	//	for _, possibleEP := range possibleEndpoints {
-	//		// Upgrades from old ciliums have this nil
-	//		if possibleEP.DNSRules != nil {
-	//			proxy.DefaultDNSProxy.RestoreRules(possibleEP)
-	//		}
-	//	}
-	//}
+	//TODO: move that to proxy
+	if err == nil {
+		// Increase the ProxyPort reference count so that it will never get released.
+		err = d.l7Proxy.SetProxyPort(listenerName, port)
+		if err != nil {
+			log.WithError(err).Error("Can't set proxy port")
+		}
+
+		//TODO: fix that
+		// Restore old rules
+		//for _, possibleEP := range possibleEndpoints {
+		//	// Upgrades from old ciliums have this nil
+		//	if possibleEP.DNSRules != nil {
+		//		proxy.FQDNProxyGRPCClient.RestoreRules(possibleEP)
+		//	}
+		//}
+	}
 	//return err // filled by StartDNSProxy
 	return nil
 }

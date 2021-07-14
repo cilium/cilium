@@ -164,6 +164,7 @@ var (
 			parserType: policy.ParserTypeDNS,
 			ingress:    false,
 			name:       "cilium-dns-egress",
+			proxyPort:  10001,
 		},
 		{
 			parserType: policy.ParserTypeNone,

@@ -31,7 +31,7 @@ import (
 
 var (
 	// DefaultDNSProxy is the global, shared, DNS Proxy singleton.
-	DefaultDNSProxy     *dnsproxy.DNSProxy
+	// DefaultDNSProxy     *dnsproxy.DNSProxy
 	FQDNProxyGRPCClient fqdnpb.FQDNProxyClient
 )
 
