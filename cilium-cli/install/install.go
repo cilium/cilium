@@ -1510,6 +1510,11 @@ func (k *K8sInstaller) restartUnmanagedPods(ctx context.Context) error {
 	}
 
 	for _, pod := range pods.Items {
+		// PodSucceeded means that all containers in the pod have voluntarily terminated
+		// with a container exit code of 0, and the system is not going to restart any of these containers.
+		if pod.Status.Phase == corev1.PodSucceeded {
+			continue
+		}
 		if !pod.Spec.HostNetwork {
 			if _, ok := cepMap[pod.Namespace+"/"+pod.Name]; ok {
 				continue
