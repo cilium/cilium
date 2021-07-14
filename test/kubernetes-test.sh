@@ -12,9 +12,11 @@ helm template --validate install/kubernetes/cilium \
   --namespace=kube-system \
   --set image.tag=$1 \
   --set image.repository=quay.io/cilium/cilium-ci \
+  --set image.useDigest=false \
   --set operator.image.repository=quay.io/cilium/operator \
   --set operator.image.tag=$1 \
   --set operator.image.suffix=-ci \
+  --set operator.image.useDigest=false \
   --set debug.enabled=true \
   --set k8s.requireIPv4PodCIDR=true \
   --set pprof.enabled=true \
