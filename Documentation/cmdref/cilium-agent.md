@@ -188,6 +188,7 @@ cilium-agent [flags]
       --kube-proxy-replacement-healthz-bind-address string   The IP address with port for kube-proxy replacement health check server to serve on (set to '0.0.0.0:10256' for all IPv4 interfaces and '[::]:10256' for all IPv6 interfaces). Set empty to disable.
       --kvstore string                                       Key-value store type
       --kvstore-connectivity-timeout duration                Time after which an incomplete kvstore operation  is considered failed (default 2m0s)
+      --kvstore-max-consecutive-quorum-errors int            Max acceptable kvstore consecutive quorum errors before the agent assumes permanent failure (default 2)
       --kvstore-opt map                                      Key-value store options (default map[])
       --kvstore-periodic-sync duration                       Periodic KVstore synchronization interval (default 5m0s)
       --label-prefix-file string                             Valid label prefixes file path
