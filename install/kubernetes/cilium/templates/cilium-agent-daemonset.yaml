@@ -384,8 +384,8 @@ spec:
             value: {{ .Values.cgroup.hostRoot }}
         command:
           - nsenter
-          - --cgroup=/hostproc/1/ns/cgroup
-          - --mount=/hostproc/1/ns/mnt
+          - --cgroup=/hostpid1ns/cgroup
+          - --mount=/hostpid1ns/mnt
           - --
           - sh
           - -c
@@ -393,8 +393,8 @@ spec:
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}{{ if .Values.image.useDigest }}@{{ .Values.image.digest }}{{ end }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         volumeMounts:
-          - mountPath: /hostproc
-            name: hostproc
+          - mountPath: /hostpid1ns
+            name: host-proc-ns
         securityContext:
           privileged: true
 {{- end }}
@@ -500,9 +500,9 @@ spec:
 {{- if .Values.cgroup.autoMount.enabled }}
       # To mount cgroup2 filesystem on the host
       - hostPath:
-          path: /proc
+          path: /proc/1/ns
           type: Directory
-        name: hostproc
+        name: host-proc-ns
 {{- end }}
       # To keep state between restarts / upgrades for cgroup2 filesystem
       - hostPath:
