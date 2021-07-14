@@ -334,6 +334,13 @@ Deprecated Options
 * ``native-routing-cidr``: This option has been deprecated in favor of
   ``ipv4-native-routing-cidr`` and will be removed in 1.12.
 
+New Options
+~~~~~~~~~~~
+
+* ``kvstore-max-consecutive-quorum-errors``: This option configures the max
+  acceptable kvstore consecutive quorum errors before the agent assumes
+  permanent failure.
+
 .. _1.10_upgrade_notes:
 
 1.10 Upgrade Notes
