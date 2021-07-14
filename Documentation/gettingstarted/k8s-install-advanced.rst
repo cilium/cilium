@@ -8,7 +8,7 @@
 
 
 *********************
-Advanced Installation
+Installation
 *********************
 
 .. tip::
@@ -17,7 +17,17 @@ Advanced Installation
    of certain platforms. For the standard installation path, see
    :ref:`k8s_install_standard`.
 
+Installing with Helm
+====================
 
+.. toctree::
+   :maxdepth: 1
+   :glob:
+
+   k8s-install-helm
+
+Kubernetes distributions
+========================
 
 .. toctree::
    :maxdepth: 1
@@ -27,7 +37,7 @@ Advanced Installation
    k8s-install-openshift-okd
    k3s
    kind
-   cni-chaining
+   microk8s
 
 External Installers
 ===================
@@ -39,6 +49,5 @@ External Installers
    k8s-install-kops
    k8s-install-kubespray
    k8s-install-kubeadm
-   microk8s
    k8s-install-rancher-existing-nodes
    k8s-install-rke

@@ -17,18 +17,16 @@ troubleshooting. If you are new to Cilium it is recommended to read the
 
 .. _gs_install:
 
-Installation
-------------
+Cilium quick install
+--------------------
 .. toctree::
    :maxdepth: 1
    :glob:
 
    k8s-install-default
-   k8s-install-helm
-   k8s-install-advanced
 
-Observability
--------------
+Getting started with Hubble
+---------------------------
 
 .. toctree::
    :maxdepth: 1
@@ -38,74 +36,17 @@ Observability
    hubble_cli
    hubble
 
-Network Policy Security Tutorials
----------------------------------
 
-.. toctree::
-   :maxdepth: 1
-   :glob:
+Tutorials
+---------
 
-   http
-   dns
-   tls-visibility
-   kafka
-   grpc
-   elasticsearch
-   cassandra
-   memcached
-   aws
-   policy-creation
-   host-firewall
+We have several tutorials to help you get to grips with Cilium and Hubble
+features. 
 
-Advanced Networking
--------------------
-.. toctree::
-   :maxdepth: 1
-   :glob:
+* :ref:`network_policy_tutorials`
+* :ref:`install_metrics`
 
-   alibabacloud-eni
-   kube-router
-   bird
-   ipvlan
-   encryption
-   host-services
-   kubeproxy-free
-   bandwidth-manager
-   kata
-   ipam
-   local-redirect-policy
-   bgp
-   egress-gateway
-
-Cluster Mesh
-------------
-
-.. toctree::
-   :maxdepth: 1
-   :glob:
-
-   clustermesh/clustermesh
-   clustermesh/services
-   clustermesh/policy
-   external-workloads
-
-Operations
-----------
-
-.. toctree::
-   :maxdepth: 1
-   :glob:
-
-   grafana
-
-Istio
------
-
-.. toctree::
-   :maxdepth: 1
-   :glob:
-
-   istio
+You'll also find examples for many features throughout the documentation.
 
 The best way to get help if you get stuck is to ask a question on the `Cilium
 Slack channel <https://cilium.herokuapp.com>`_.  With Cilium contributors
