@@ -1,4 +1,5 @@
-GO := CGO_ENABLED=0 go
+GO := go
+GO_BUILD = CGO_ENABLED=0 $(GO) build
 GO_TAGS ?=
 TARGET=cilium
 INSTALL = $(QUIET)install
@@ -15,7 +16,7 @@ GOLANGCILINT_WANT_VERSION = 1.40.1
 GOLANGCILINT_VERSION = $(shell golangci-lint version 2>/dev/null)
 
 $(TARGET):
-	$(GO) build $(if $(GO_TAGS),-tags $(GO_TAGS)) \
+	$(GO_BUILD) $(if $(GO_TAGS),-tags $(GO_TAGS)) \
 		-ldflags "-w -s \
 		-X 'github.com/cilium/cilium-cli/internal/cli/cmd.GitBranch=${GIT_BRANCH}' \
 		-X 'github.com/cilium/cilium-cli/internal/cli/cmd.GitHash=$(GIT_HASH)' \
@@ -47,7 +48,7 @@ local-release: clean
 		for ARCH in $$ARCHS; do \
 			echo Building release binary for $$OS/$$ARCH...; \
 			test -d release/$$OS/$$ARCH|| mkdir -p release/$$OS/$$ARCH; \
-			env GOOS=$$OS GOARCH=$$ARCH $(GO) build $(if $(GO_TAGS),-tags $(GO_TAGS)) -ldflags "-w -s -X 'github.com/cilium/cilium-cli/internal/cli/cmd.Version=${VERSION}'" -o release/$$OS/$$ARCH/$(TARGET)$$EXT ./cmd/cilium; \
+			env GOOS=$$OS GOARCH=$$ARCH $(GO_BUILD) $(if $(GO_TAGS),-tags $(GO_TAGS)) -ldflags "-w -s -X 'github.com/cilium/cilium-cli/internal/cli/cmd.Version=${VERSION}'" -o release/$$OS/$$ARCH/$(TARGET)$$EXT ./cmd/cilium; \
 			tar -czf release/$(TARGET)-$$OS-$$ARCH.tar.gz -C release/$$OS/$$ARCH $(TARGET)$$EXT; \
 			(cd release && sha256sum $(TARGET)-$$OS-$$ARCH.tar.gz > $(TARGET)-$$OS-$$ARCH.tar.gz.sha256sum); \
 		done; \
@@ -66,10 +67,10 @@ clean:
 	rm -rf ./release
 
 test:
-	go test -timeout=$(TEST_TIMEOUT) -race -cover $$(go list ./...)
+	$(GO) test -timeout=$(TEST_TIMEOUT) -race -cover $$($(GO) list ./...)
 
 bench:
-	go test -timeout=30s -bench=. $$(go list ./...)
+	$(GO) test -timeout=30s -bench=. $$($(GO) list ./...)
 
 ifneq (,$(findstring $(GOLANGCILINT_WANT_VERSION),$(GOLANGCILINT_VERSION)))
 check:
