@@ -2734,14 +2734,14 @@ simplicity.
 
   .. code-block:: shell-session
 
-  # ip link set dev em1 xdp pinned /sys/fs/bpf/prog
+    # ip link set dev em1 xdp pinned /sys/fs/bpf/prog
 
   iproute2 can also use the short form that is relative to the detected mount
   point of the BPF file system:
 
   .. code-block:: shell-session
 
-  # ip link set dev em1 xdp pinned m:prog
+    # ip link set dev em1 xdp pinned m:prog
 
 When loading BPF programs, iproute2 will automatically detect the mounted
 file system instance in order to perform pinning of nodes. In case no mounted
