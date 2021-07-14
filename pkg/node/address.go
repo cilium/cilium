@@ -544,6 +544,10 @@ func GetNodeAddressing() *models.NodeAddressing {
 }
 
 func getCiliumHostIPsFromFile(nodeConfig string) (ipv4GW, ipv6Router net.IP) {
+	// ipLen is the length of the IP address stored in the node_config.h
+	// it has the same length for both IPv4 and IPv6.
+	const ipLen = net.IPv6len
+
 	var hasIPv4, hasIPv6 bool
 	f, err := os.Open(nodeConfig)
 	switch {
@@ -560,7 +564,7 @@ func getCiliumHostIPsFromFile(nodeConfig string) (ipv4GW, ipv6Router net.IP) {
 					continue
 				}
 				ipv6 := common.C2GoArray(defineLine[1])
-				if len(ipv6) != net.IPv6len {
+				if len(ipv6) != ipLen {
 					continue
 				}
 				ipv6Router = net.IP(ipv6)
@@ -571,7 +575,7 @@ func getCiliumHostIPsFromFile(nodeConfig string) (ipv4GW, ipv6Router net.IP) {
 					continue
 				}
 				ipv4 := common.C2GoArray(defineLine[1])
-				if len(ipv4) != net.IPv6len {
+				if len(ipv4) != ipLen {
 					continue
 				}
 				ipv4GW = net.IP(ipv4)
