@@ -43,6 +43,26 @@ service FQDNProxyAgent {
 
 service FQDNProxy {
   rpc UpdateAllowed(FQDNRules) returns(Empty) {}
+
+  rpc RemoveRestoredRules(EndpointID) returns(Empty) {}
+  rpc GetRules(EndpointID) returns(RestoredRules) {}
+}
+
+message RestoredRules {
+  map<uint32, IPRules> rules = 1;
+}
+
+message IPRules {
+  repeated IPRule list = 1;
+}
+
+message IPRule {
+  string regex = 1;
+  repeated string ips = 2;
+}
+
+message EndpointID {
+  uint32 endpointID = 1;
 }
 
 message Empty {}

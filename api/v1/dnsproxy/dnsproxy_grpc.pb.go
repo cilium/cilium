@@ -286,6 +286,8 @@ var _FQDNProxyAgent_serviceDesc = grpc.ServiceDesc{
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type FQDNProxyClient interface {
 	UpdateAllowed(ctx context.Context, in *FQDNRules, opts ...grpc.CallOption) (*Empty, error)
+	RemoveRestoredRules(ctx context.Context, in *EndpointID, opts ...grpc.CallOption) (*Empty, error)
+	GetRules(ctx context.Context, in *EndpointID, opts ...grpc.CallOption) (*RestoredRules, error)
 }
 
 type fQDNProxyClient struct {
@@ -305,11 +307,31 @@ func (c *fQDNProxyClient) UpdateAllowed(ctx context.Context, in *FQDNRules, opts
 	return out, nil
 }
 
+func (c *fQDNProxyClient) RemoveRestoredRules(ctx context.Context, in *EndpointID, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/dnsproxy.FQDNProxy/RemoveRestoredRules", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *fQDNProxyClient) GetRules(ctx context.Context, in *EndpointID, opts ...grpc.CallOption) (*RestoredRules, error) {
+	out := new(RestoredRules)
+	err := c.cc.Invoke(ctx, "/dnsproxy.FQDNProxy/GetRules", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FQDNProxyServer is the server API for FQDNProxy service.
 // All implementations should embed UnimplementedFQDNProxyServer
 // for forward compatibility
 type FQDNProxyServer interface {
 	UpdateAllowed(context.Context, *FQDNRules) (*Empty, error)
+	RemoveRestoredRules(context.Context, *EndpointID) (*Empty, error)
+	GetRules(context.Context, *EndpointID) (*RestoredRules, error)
 }
 
 // UnimplementedFQDNProxyServer should be embedded to have forward compatible implementations.
@@ -318,6 +340,12 @@ type UnimplementedFQDNProxyServer struct {
 
 func (*UnimplementedFQDNProxyServer) UpdateAllowed(context.Context, *FQDNRules) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateAllowed not implemented")
+}
+func (*UnimplementedFQDNProxyServer) RemoveRestoredRules(context.Context, *EndpointID) (*Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RemoveRestoredRules not implemented")
+}
+func (*UnimplementedFQDNProxyServer) GetRules(context.Context, *EndpointID) (*RestoredRules, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetRules not implemented")
 }
 
 func RegisterFQDNProxyServer(s *grpc.Server, srv FQDNProxyServer) {
@@ -342,6 +370,42 @@ func _FQDNProxy_UpdateAllowed_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FQDNProxy_RemoveRestoredRules_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EndpointID)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FQDNProxyServer).RemoveRestoredRules(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/dnsproxy.FQDNProxy/RemoveRestoredRules",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FQDNProxyServer).RemoveRestoredRules(ctx, req.(*EndpointID))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FQDNProxy_GetRules_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EndpointID)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FQDNProxyServer).GetRules(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/dnsproxy.FQDNProxy/GetRules",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FQDNProxyServer).GetRules(ctx, req.(*EndpointID))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _FQDNProxy_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "dnsproxy.FQDNProxy",
 	HandlerType: (*FQDNProxyServer)(nil),
@@ -349,6 +413,14 @@ var _FQDNProxy_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateAllowed",
 			Handler:    _FQDNProxy_UpdateAllowed_Handler,
+		},
+		{
+			MethodName: "RemoveRestoredRules",
+			Handler:    _FQDNProxy_RemoveRestoredRules_Handler,
+		},
+		{
+			MethodName: "GetRules",
+			Handler:    _FQDNProxy_GetRules_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

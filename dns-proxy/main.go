@@ -186,6 +186,39 @@ func (s *FQDNProxyServer) UpdateAllowed(ctx context.Context, rules *pb.FQDNRules
 	return &pb.Empty{}, nil
 }
 
+func (s *FQDNProxyServer) RemoveRestoredRules(ctx context.Context, endpointIDMsg *pb.EndpointID) (*pb.Empty, error) {
+	s.proxy.RemoveRestoredRules(uint16(endpointIDMsg.EndpointID))
+
+	return &pb.Empty{}, nil
+}
+
+func (s *FQDNProxyServer) GetRules(ctx context.Context, endpointIDMsg *pb.EndpointID) (*pb.RestoredRules, error) {
+	rules := s.proxy.GetRules(uint16(endpointIDMsg.EndpointID))
+
+	msg := &pb.RestoredRules{Rules: make(map[uint32]*pb.IPRules, len(rules))}
+
+	for port, ipRules := range rules {
+		msgRules := &pb.IPRules{
+			List: make([]*pb.IPRule, 0, len(ipRules)),
+		}
+		for _, ipRule := range ipRules {
+			msgRule := &pb.IPRule{
+				Regex: ipRule.Re.String(),
+				Ips:   make([]string, 0, len(ipRule.IPs)),
+			}
+			for ip, _ := range ipRule.IPs {
+				msgRule.Ips = append(msgRule.Ips, ip)
+			}
+
+			msgRules.List = append(msgRules.List, msgRule)
+		}
+
+		msg.Rules[uint32(port)] = msgRules
+	}
+
+	return msg, nil
+}
+
 func newServer(proxy *dnsproxy.DNSProxy) *FQDNProxyServer {
 	return &FQDNProxyServer{proxy: proxy}
 }
@@ -203,7 +236,6 @@ func RunServer(port int, proxy *dnsproxy.DNSProxy) {
 
 var _ policy.CachedSelector = &SimpleSelector{}
 
-//TODO: make this hashable
 type SimpleSelector struct {
 	identities []identity.NumericIdentity
 	name       string
