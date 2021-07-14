@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium-cli/internal/k8s"
 	"github.com/cilium/cilium-cli/internal/utils"
 	"github.com/cilium/workerpool"
-	"github.com/hashicorp/go-multierror"
 	archiver "github.com/mholt/archiver/v3"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -663,7 +662,7 @@ func (c *Collector) Run() error {
 		if t.CreatesSubtasks {
 			c.subtasksWg.Add(1)
 		}
-		if err := c.pool.Submit(fmt.Sprintf("%d", i), func(ctx context.Context) error {
+		if err := c.pool.Submit(fmt.Sprintf("[%d] %s", i, t.Description), func(ctx context.Context) error {
 			if t.CreatesSubtasks {
 				defer c.subtasksWg.Done()
 			}
@@ -677,25 +676,28 @@ func (c *Collector) Run() error {
 
 	// Wait for the all subtasks to be submitted and then call 'Drain' to wait for everything to finish.
 	c.subtasksWg.Wait()
-	var merr error
 	r, err := c.pool.Drain()
 	if err != nil {
-		return fmt.Errorf("failed to drain the worker pool :%w", err)
+		return fmt.Errorf("failed to drain the worker pool: %w", err)
 	}
-	for _, res := range r {
-		if err := res.Err(); err != nil {
-			merr = multierror.Append(merr, err)
-		}
-	}
-
 	// Close the worker pool.
 	if err := c.pool.Close(); err != nil {
 		return fmt.Errorf("failed to close the worker pool: %w", err)
 	}
 
+	loggedStart := false
 	// Check if any errors occurred and warn the user.
-	if merr != nil {
-		c.logWarn("The sysdump may be incomplete — %s", merr.Error())
+	for _, res := range r {
+		if err := res.Err(); err != nil {
+			if !loggedStart {
+				c.logWarn("The following tasks failed, the sysdump may be incomplete:")
+				loggedStart = true
+			}
+			c.logWarn("%s: %v", res.String(), err)
+		}
+	}
+
+	if loggedStart {
 		c.logWarn("Please note that depending on your Cilium version and installation options, this may be expected")
 	}
 
