@@ -99,7 +99,7 @@ var (
 	minRequiredVersion = versioncheck.MustCompile(minRequiredVersionStr)
 
 	// etcdDummyAddress can be overwritten from test invokers using ldflags
-	etcdDummyAddress = "http://127.0.0.1:4002"
+	etcdDummyAddress = "http://etcd:4002"
 
 	etcdInstance = newEtcdModule()
 )
