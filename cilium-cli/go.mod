@@ -20,7 +20,6 @@ require (
 	github.com/cilium/workerpool v1.0.0
 	github.com/cloudflare/cfssl v1.5.0
 	github.com/go-openapi/strfmt v0.20.0
-	github.com/hashicorp/go-multierror v1.1.1
 	github.com/mholt/archiver/v3 v3.5.0
 	github.com/pkg/browser v0.0.0-20210606212950-a7b7a6107d32
 	github.com/spf13/cobra v1.2.1
