@@ -1,8 +1,10 @@
 name: codeql
 
 on:
-  push: {}
   pull_request: {}
+  push:
+    branches:
+      - master
   schedule:
     - cron: "45 6 * * 3"
 
