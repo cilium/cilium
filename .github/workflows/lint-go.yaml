@@ -29,7 +29,7 @@ jobs:
           go mod vendor
           test -z "$(git status --porcelain)" || (echo "please run 'go mod tidy && go mod vendor', and submit your changes"; exit 1)
       - name: Send slack notification
-        if: ${{ (cancelled() || failure()) && (github.event_name == 'schedule' || github.event_name == 'push') }}
+        if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
         uses: 8398a7/action-slack@dcc8c8e9dd8802e21a712dc0c003db97b42efe43
         with:
           status: ${{ job.status }}
@@ -55,7 +55,7 @@ jobs:
           version: v1.37.1
           skip-go-installation: true
       - name: Send slack notification
-        if: ${{ (cancelled() || failure()) && (github.event_name == 'schedule' || github.event_name == 'push') }}
+        if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
         uses: 8398a7/action-slack@dcc8c8e9dd8802e21a712dc0c003db97b42efe43
         with:
           status: ${{ job.status }}
@@ -81,7 +81,7 @@ jobs:
           cd src/github.com/cilium/cilium
           make precheck
       - name: Send slack notification
-        if: ${{ (cancelled() || failure()) && (github.event_name == 'schedule' || github.event_name == 'push') }}
+        if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
         uses: 8398a7/action-slack@dcc8c8e9dd8802e21a712dc0c003db97b42efe43
         with:
           status: ${{ job.status }}
@@ -107,7 +107,7 @@ jobs:
           cd src/github.com/cilium/cilium
           contrib/scripts/check-api-code-gen.sh
       - name: Send slack notification
-        if: ${{ (cancelled() || failure()) && (github.event_name == 'schedule' || github.event_name == 'push') }}
+        if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
         uses: 8398a7/action-slack@dcc8c8e9dd8802e21a712dc0c003db97b42efe43
         with:
           status: ${{ job.status }}
@@ -145,7 +145,7 @@ jobs:
           contrib/scripts/check-k8s-code-gen.sh
 
       - name: Send slack notification
-        if: ${{ (cancelled() || failure()) && (github.event_name == 'schedule' || github.event_name == 'push') }}
+        if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
         uses: 8398a7/action-slack@dcc8c8e9dd8802e21a712dc0c003db97b42efe43
         with:
           status: ${{ job.status }}

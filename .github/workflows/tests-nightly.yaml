@@ -59,7 +59,7 @@ jobs:
           args: --namespace=test-clusters --init-manifest=cilium.yaml --image=cilium/cilium-perf-test:8cfdbfe "/usr/local/bin/run_in_test_cluster.sh" "--prom-name=prom" "--prom-ns=prom" "--duration=30m" "--manifest-path=/go/src/github.com/cilium/cilium-perf-test/1.8/manifests/"
 
       - name: Send slack notification
-        if: ${{ (cancelled() || failure()) && (github.event_name == 'schedule' || github.event_name == 'push') }}
+        if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
         uses: 8398a7/action-slack@dcc8c8e9dd8802e21a712dc0c003db97b42efe43
         with:
           status: ${{ job.status }}
