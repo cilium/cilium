@@ -70,7 +70,7 @@ func (s *DNSProxyTestSuite) RemoveProxyRedirect(e regeneration.EndpointInfoSourc
 	return nil, nil, nil
 }
 
-func (s *DNSProxyTestSuite) UpdateNetworkPolicy(e regeneration.EndpointUpdater, policy *policy.L4Policy,
+func (s *DNSProxyTestSuite) UpdateNetworkPolicy(e regeneration.EndpointUpdater, vis *policy.VisibilityPolicy, policy *policy.L4Policy,
 	proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc) {
 	return nil, nil
 }

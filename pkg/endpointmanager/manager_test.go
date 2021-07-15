@@ -68,7 +68,7 @@ func (s *EndpointManagerSuite) RemoveProxyRedirect(e regeneration.EndpointInfoSo
 	return nil, nil, nil
 }
 
-func (s *EndpointManagerSuite) UpdateNetworkPolicy(e regeneration.EndpointUpdater, policy *policy.L4Policy,
+func (s *EndpointManagerSuite) UpdateNetworkPolicy(e regeneration.EndpointUpdater, vis *policy.VisibilityPolicy, policy *policy.L4Policy,
 	proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc) {
 	return nil, nil
 }
