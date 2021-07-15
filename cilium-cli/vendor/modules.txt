@@ -304,7 +304,7 @@ github.com/pierrec/lz4/v4/internal/lz4block
 github.com/pierrec/lz4/v4/internal/lz4errors
 github.com/pierrec/lz4/v4/internal/lz4stream
 github.com/pierrec/lz4/v4/internal/xxh32
-# github.com/pkg/browser v0.0.0-20210606212950-a7b7a6107d32
+# github.com/pkg/browser v0.0.0-20210706143420-7d21f8c997e2
 ## explicit
 github.com/pkg/browser
 # github.com/pkg/errors v0.9.1
@@ -425,7 +425,7 @@ golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
 # golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.0.0-20210510120138-977fb7262007
+# golang.org/x/sys v0.0.0-20210616045830-e2b7044e8c71
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
