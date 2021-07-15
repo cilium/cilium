@@ -1,4 +1,4 @@
-{{- if .Values.hubble.relay.enabled }}
+{{- if and .Values.hubble.enabled .Values.hubble.relay.enabled }}
 kind: Service
 apiVersion: v1
 metadata:
@@ -12,12 +12,10 @@ spec:
     k8s-app: hubble-relay
   ports:
   - protocol: TCP
-{{- if .Values.hubble.relay.servicePort }}
+  {{- if .Values.hubble.relay.servicePort }}
     port: {{ .Values.hubble.relay.servicePort }}
-{{- else if .Values.hubble.relay.tls.server.enabled }}
-    port: 443
-{{- else }}
-    port: 80
-{{- end }}
+  {{- else }}
+    port: {{ .Values.hubble.relay.tls.server.enabled | ternary 443 80 }}
+  {{- end }}
     targetPort: {{ .Values.hubble.relay.listenPort }}
 {{- end }}

@@ -1,32 +1,13 @@
 {{- if .Values.operator.enabled }}
-
-{{- /* Workaround so that we can set the minimal k8s version that we support */ -}}
-{{- $k8sVersion := .Capabilities.KubeVersion.Version -}}
-{{- $k8sMajor := .Capabilities.KubeVersion.Major -}}
-{{- $k8sMinor := .Capabilities.KubeVersion.Minor -}}
-
-{{- if .Values.Capabilities -}}
-{{- if .Values.Capabilities.KubeVersion -}}
-{{- if .Values.Capabilities.KubeVersion.Version -}}
-{{- $k8sVersion = .Values.Capabilities.KubeVersion.Version -}}
-{{- if .Values.Capabilities.KubeVersion.Major -}}
-{{- $k8sMajor = toString (.Values.Capabilities.KubeVersion.Major) -}}
-{{- if .Values.Capabilities.KubeVersion.Minor -}}
-{{- $k8sMinor = toString (.Values.Capabilities.KubeVersion.Minor) -}}
-{{- end -}}
-{{- end -}}
-{{- end -}}
-{{- end -}}
-{{- end -}}
-
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: cilium-operator
+  namespace: {{ .Release.Namespace }}
   labels:
     io.cilium/app: operator
     name: cilium-operator
-  name: cilium-operator
-  namespace: {{ .Release.Namespace }}
 spec:
   # See docs on ServerCapabilities.LeasesResourceLock in file pkg/k8s/version/version.go
   # for more details.
@@ -35,58 +16,53 @@ spec:
     matchLabels:
       io.cilium/app: operator
       name: cilium-operator
-{{- with .Values.operator.updateStrategy }}
+  {{- with .Values.operator.updateStrategy }}
   strategy:
     {{- toYaml . | trim | nindent 4 }}
-{{- end }}
+  {{- end }}
   template:
     metadata:
       annotations:
-{{- if .Values.operator.rollOutPods }}
+        {{- if .Values.operator.rollOutPods }}
         # ensure pods roll when configmap updates
         cilium.io/cilium-configmap-checksum: {{ include (print $.Template.BasePath "/cilium-configmap.yaml") . | sha256sum | quote }}
-{{- end }}
-{{- if and .Values.operator.prometheus.enabled (not .Values.operator.prometheus.serviceMonitor.enabled) }}
+        {{- end }}
+        {{- if and .Values.operator.prometheus.enabled (not .Values.operator.prometheus.serviceMonitor.enabled) }}
         prometheus.io/port: {{ .Values.operator.prometheus.port | quote }}
         prometheus.io/scrape: "true"
-{{- end }}
-{{- with .Values.operator.podAnnotations }}
+        {{- end }}
+        {{- with .Values.operator.podAnnotations }}
         {{- toYaml . | nindent 8 }}
-{{- end }}
+        {{- end }}
       labels:
         io.cilium/app: operator
         name: cilium-operator
-{{- with .Values.operator.podLabels }}
+        {{- with .Values.operator.podLabels }}
         {{- toYaml . | nindent 8 }}
-{{- end }}
+        {{- end }}
     spec:
       # In HA mode, cilium-operator pods must not be scheduled on the same
       # node as they will clash with each other.
-  {{- if .Values.operator.affinity }}
+      {{- with .Values.operator.affinity }}
       affinity:
-  {{- toYaml .Values.operator.affinity | trim | nindent 8 }}
-  {{- end }}
-{{- if .Values.imagePullSecrets }}
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
+      {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
-{{ toYaml .Values.imagePullSecrets | indent 6 }}
-{{- end }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
-      - args:
+      - name: cilium-operator
+        image: {{ include "cilium.operator.image" . }}
+        imagePullPolicy: {{ .Values.operator.image.pullPolicy }}
+        command:
+        - cilium-operator-{{ include "cilium.operator.cloud" . }}
+        args:
         - --config-dir=/tmp/cilium/config-map
         - --debug=$(CILIUM_DEBUG)
-{{- with .Values.operator.extraArgs }}
+        {{- with .Values.operator.extraArgs }}
         {{- toYaml . | trim | nindent 8 }}
-{{- end }}
-        command:
-{{- if .Values.eni.enabled }}
-        - cilium-operator-aws
-{{- else if .Values.azure.enabled }}
-        - cilium-operator-azure
-{{- else if .Values.alibabacloud.enabled}}
-        - cilium-operator-alibabacloud
-{{- else }}
-        - cilium-operator-generic
-{{- end }}
+        {{- end }}
         env:
         - name: K8S_NODE_NAME
           valueFrom:
@@ -104,97 +80,84 @@ spec:
               key: debug
               name: cilium-config
               optional: true
-{{- if (and .Values.eni.enabled (not .Values.eni.iamRole )) }}
+        {{- if and .Values.eni.enabled (not .Values.eni.iamRole ) }}
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
-              key: AWS_ACCESS_KEY_ID
               name: cilium-aws
+              key: AWS_ACCESS_KEY_ID
               optional: true
         - name: AWS_SECRET_ACCESS_KEY
           valueFrom:
             secretKeyRef:
-              key: AWS_SECRET_ACCESS_KEY
               name: cilium-aws
+              key: AWS_SECRET_ACCESS_KEY
               optional: true
         - name: AWS_DEFAULT_REGION
           valueFrom:
             secretKeyRef:
-              key: AWS_DEFAULT_REGION
               name: cilium-aws
+              key: AWS_DEFAULT_REGION
               optional: true
-{{- end }}
-{{- if .Values.alibabacloud.enabled }}
+        {{- end }}
+        {{- if .Values.alibabacloud.enabled }}
         - name: ALIBABA_CLOUD_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
-              key: ALIBABA_CLOUD_ACCESS_KEY_ID
               name: cilium-alibabacloud
+              key: ALIBABA_CLOUD_ACCESS_KEY_ID
               optional: true
         - name: ALIBABA_CLOUD_ACCESS_KEY_SECRET
           valueFrom:
             secretKeyRef:
-              key: ALIBABA_CLOUD_ACCESS_KEY_SECRET
               name: cilium-alibabacloud
+              key: ALIBABA_CLOUD_ACCESS_KEY_SECRET
               optional: true
-{{- end }}
-{{- if .Values.k8sServiceHost }}
+        {{- end }}
+        {{- if .Values.k8sServiceHost }}
         - name: KUBERNETES_SERVICE_HOST
           value: {{ .Values.k8sServiceHost | quote }}
-{{- end }}
-{{- if .Values.k8sServicePort }}
+        {{- end }}
+        {{- if .Values.k8sServicePort }}
         - name: KUBERNETES_SERVICE_PORT
           value: {{ .Values.k8sServicePort | quote }}
-{{- end }}
-{{- if .Values.azure.subscriptionID }}
+        {{- end }}
+        {{- if .Values.azure.enabled }}
+        {{- if .Values.azure.subscriptionID }}
         - name: AZURE_SUBSCRIPTION_ID
           value: {{ .Values.azure.subscriptionID }}
-{{- end }}
-{{- if .Values.azure.tenantID }}
+        {{- end }}
+        {{- if .Values.azure.tenantID }}
         - name: AZURE_TENANT_ID
           value: {{ .Values.azure.tenantID }}
-{{- end }}
-{{- if .Values.azure.resourceGroup }}
+        {{- end }}
+        {{- if .Values.azure.resourceGroup }}
         - name: AZURE_RESOURCE_GROUP
           value: {{ .Values.azure.resourceGroup }}
-{{- end }}
-{{- if .Values.azure.clientID }}
+        {{- end }}
+        {{- if .Values.azure.clientID }}
         - name: AZURE_CLIENT_ID
           value: {{ .Values.azure.clientID }}
-{{- end }}
-{{- if .Values.azure.clientSecret }}
+        {{- end }}
+        {{- if .Values.azure.clientSecret }}
         - name: AZURE_CLIENT_SECRET
           value: {{ .Values.azure.clientSecret }}
-{{- end }}
-{{- range $key, $value := .Values.operator.extraEnv }}
+        {{- end }}
+        {{- end }}
+        {{- range $key, $value := .Values.operator.extraEnv }}
         - name: {{ $key }}
           value: {{ $value }}
-{{- end }}
-{{- if .Values.eni.enabled }}
-        image: "{{ .Values.operator.image.repository }}-aws{{ .Values.operator.image.suffix }}:{{ .Values.operator.image.tag }}{{ if .Values.operator.image.useDigest }}@{{ .Values.operator.image.awsDigest }}{{ end }}"
-{{- else if .Values.azure.enabled }}
-        image: "{{ .Values.operator.image.repository }}-azure{{ .Values.operator.image.suffix }}:{{ .Values.operator.image.tag }}{{ if .Values.operator.image.useDigest }}@{{ .Values.operator.image.azureDigest }}{{ end }}"
-{{- else if .Values.alibabacloud.enabled }}
-        image: "{{ .Values.operator.image.repository }}-alibabacloud{{ .Values.operator.image.suffix }}:{{ .Values.operator.image.tag }}{{ if .Values.operator.image.useDigest }}@{{ .Values.operator.image.alibabacloudDigest }}{{ end }}"
-{{- else }}
-        image: "{{ .Values.operator.image.repository }}-generic{{ .Values.operator.image.suffix }}:{{ .Values.operator.image.tag }}{{ if .Values.operator.image.useDigest }}@{{ .Values.operator.image.genericDigest }}{{ end }}"
-{{- end }}
-        imagePullPolicy: {{ .Values.operator.image.pullPolicy }}
-        name: cilium-operator
-{{- if .Values.operator.prometheus.enabled }}
+        {{- end }}        
+        {{- if .Values.operator.prometheus.enabled }}
         ports:
-        - containerPort: {{ .Values.operator.prometheus.port }}
+        - name: prometheus
+          containerPort: {{ .Values.operator.prometheus.port }}
           hostPort: {{ .Values.operator.prometheus.port }}
-          name: prometheus
           protocol: TCP
-{{- end }}
+        {{- end }}
         livenessProbe:
           httpGet:
-{{- if .Values.ipv4.enabled }}
-            host: '127.0.0.1'
-{{- else }}
-            host: '::1'
-{{- end }}
+            host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
             path: /healthz
             port: 9234
             scheme: HTTP
@@ -202,101 +165,99 @@ spec:
           periodSeconds: 10
           timeoutSeconds: 3
         volumeMounts:
-        - mountPath: /tmp/cilium/config-map
-          name: cilium-config-path
+        - name: cilium-config-path
+          mountPath: /tmp/cilium/config-map
           readOnly: true
-{{- if .Values.etcd.enabled }}
-        - mountPath: /var/lib/etcd-config
-          name: etcd-config-path
+        {{- if .Values.etcd.enabled }}
+        - name: etcd-config-path
+          mountPath: /var/lib/etcd-config
           readOnly: true
-{{- if or .Values.etcd.ssl .Values.etcd.managed }}
-        - mountPath: /var/lib/etcd-secrets
-          name: etcd-secrets
+        {{- if or .Values.etcd.ssl .Values.etcd.managed }}
+        - name: etcd-secrets
+          mountPath: /var/lib/etcd-secrets
           readOnly: true
-{{- end }}
-{{- end }}
-{{- if .Values.kubeConfigPath }}
-        - mountPath: {{ .Values.kubeConfigPath }}
-          name: kube-config
+        {{- end }}
+        {{- end }}
+        {{- if .Values.kubeConfigPath }}
+        - name: kube-config
+          mountPath: {{ .Values.kubeConfigPath }}
           readOnly: true
-{{- end }}
-{{- range .Values.operator.extraHostPathMounts }}
-        - mountPath: {{ .mountPath }}
-          name: {{ .name }}
+        {{- end }}
+        {{- range .Values.operator.extraHostPathMounts }}
+        - name: {{ .name }}
+          mountPath: {{ .mountPath }}
           readOnly: {{ .readOnly }}
-{{- if .mountPropagation }}
+          {{- if .mountPropagation }}
           mountPropagation: {{ .mountPropagation }}
-{{- end }}
-{{- end }}
-{{- if .Values.bgp.enabled }}
-        - mountPath: /var/lib/cilium/bgp
-          name: bgp-config-path
+          {{- end }}
+        {{- end }}
+        {{- if .Values.bgp.enabled }}
+        - name: bgp-config-path
+          mountPath: /var/lib/cilium/bgp
           readOnly: true
-{{- end }}
-{{- if .Values.operator.resources }}
+        {{- end }}
+        {{- with .Values.operator.resources }}
         resources:
-          {{- toYaml .Values.operator.resources | trim | nindent 10 }}
-{{- end }}
+          {{- toYaml . | trim | nindent 10 }}
+        {{- end }}
       hostNetwork: true
-{{- if (and .Values.etcd.managed (not .Values.etcd.k8sService)) }}
+      {{- if and .Values.etcd.managed (not .Values.etcd.k8sService) }}
       # In managed etcd mode, Cilium must be able to resolve the DNS name of
       # the etcd service
       dnsPolicy: ClusterFirstWithHostNet
-{{- end }}
+      {{- end }}
       restartPolicy: Always
-{{- if and (or (and (eq .Release.Namespace "kube-system") (gt $k8sMinor "10")) (ge $k8sMinor "17") (gt $k8sMajor "1")) .Values.enableCriticalPriorityClass }}
-      priorityClassName: system-cluster-critical
-{{- end }}
+      priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.operator.priorityClassName "system-cluster-critical") }}
       serviceAccount: {{ .Values.serviceAccounts.operator.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.operator.name | quote }}
-{{- with .Values.operator.nodeSelector }}
+      {{- with .Values.operator.nodeSelector }}
       nodeSelector:
         {{- toYaml . | trim | nindent 8 }}
-{{- end }}
-{{- with .Values.tolerations }}
+      {{- end }}
+      {{- with .Values.tolerations }}
       tolerations:
-      {{- toYaml . | trim | nindent 6 }}
-{{- end }}
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
       volumes:
         # To read the configuration from the config map
-      - configMap:
+      - name: cilium-config-path
+        configMap:
           name: cilium-config
-        name: cilium-config-path
-{{- if .Values.etcd.enabled }}
+      {{- if .Values.etcd.enabled }}
       # To read the etcd config stored in config maps
-      - configMap:
+      - name: etcd-config-path
+        configMap:
+          name: cilium-config
           defaultMode: 420
           items:
           - key: etcd-config
             path: etcd.config
-          name: cilium-config
-        name: etcd-config-path
-{{- if or .Values.etcd.ssl .Values.etcd.managed }}
+      {{- if or .Values.etcd.ssl .Values.etcd.managed }}
         # To read the k8s etcd secrets in case the user might want to use TLS
       - name: etcd-secrets
         secret:
+          secretName: cilium-etcd-secrets
           defaultMode: 420
           optional: true
-          secretName: cilium-etcd-secrets
-{{- end }}
-{{- end }}
-{{- if .Values.kubeConfigPath }}
-      - hostPath:
+      {{- end }}
+      {{- end }}
+      {{- if .Values.kubeConfigPath }}
+      - name: kube-config
+        hostPath:
           path: {{ .Values.kubeConfigPath }}
           type: FileOrCreate
-        name: kube-config
-{{- end }}
-{{- range .Values.operator.extraHostPathMounts }}
+      {{- end }}
+      {{- range .Values.operator.extraHostPathMounts }}
       - name: {{ .name }}
         hostPath:
           path: {{ .hostPath }}
-{{- if .hostPathType }}
+          {{- if .hostPathType }}
           type: {{ .hostPathType }}
-{{- end }}
-{{- end }}
-{{- if .Values.bgp.enabled }}
-      - configMap:
+          {{- end }}
+      {{- end }}
+      {{- if .Values.bgp.enabled }}
+      - name: bgp-config-path
+        configMap:
           name: bgp-config
-        name: bgp-config-path
-{{- end }}
+      {{- end }}
 {{- end }}

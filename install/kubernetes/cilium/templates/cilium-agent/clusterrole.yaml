@@ -1,6 +1,6 @@
-{{- if and (.Values.agent) (not .Values.preflight.enabled) }}
+{{- if and .Values.agent (not .Values.preflight.enabled) }}
 {{- /*
-Keep file in synced with cilium-preflight-clusterrole.yaml
+Keep file in sync with cilium-preflight/clusterrole.yaml
 */ -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
