@@ -1,4 +1,4 @@
-{{- if and (.Values.operator.enabled) (.Values.operator.prometheus.enabled) (.Values.operator.prometheus.serviceMonitor.enabled) }}
+{{- if and .Values.operator.enabled .Values.operator.prometheus.enabled .Values.operator.prometheus.serviceMonitor.enabled }}
 kind: Service
 apiVersion: v1
 metadata:
