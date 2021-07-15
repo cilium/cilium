@@ -2,46 +2,63 @@ package time
 
 import (
 	"context"
+	"fmt"
 	"math/big"
+	"strings"
 	"time"
 )
 
 const (
-	// dateTimeFormat is a IMF-fixdate formatted time https://tools.ietf.org/html/rfc7231.html#section-7.1.1.1
-	dateTimeFormat = "2006-01-02T15:04:05.99Z"
+	// dateTimeFormat is a IMF-fixdate formatted RFC3339 section 5.6
+	dateTimeFormatInput  = "2006-01-02T15:04:05.999999999Z"
+	dateTimeFormatOutput = "2006-01-02T15:04:05.999Z"
 
-	// httpDateFormat is a date time defined by RFC3339 section 5.6 with no UTC offset.
+	// httpDateFormat is a date time defined by RFC 7231#section-7.1.1.1
+	// IMF-fixdate with no UTC offset.
 	httpDateFormat = "Mon, 02 Jan 2006 15:04:05 GMT"
+	// Additional formats needed for compatibility.
+	httpDateFormatSingleDigitDay             = "Mon, _2 Jan 2006 15:04:05 GMT"
+	httpDateFormatSingleDigitDayTwoDigitYear = "Mon, _2 Jan 06 15:04:05 GMT"
 )
 
 var millisecondFloat = big.NewFloat(1e3)
 
-// FormatDateTime format value as a date-time (RFC3339 section 5.6)
+// FormatDateTime format value as a date-time, (RFC3339 section 5.6)
 //
 // Example: 1985-04-12T23:20:50.52Z
 func FormatDateTime(value time.Time) string {
-	return value.Format(dateTimeFormat)
+	return value.UTC().Format(dateTimeFormatOutput)
 }
 
-// ParseDateTime parse a string as a date-time
+// ParseDateTime parse a string as a date-time, (RFC3339 section 5.6)
 //
 // Example: 1985-04-12T23:20:50.52Z
 func ParseDateTime(value string) (time.Time, error) {
-	return time.Parse(dateTimeFormat, value)
+	return tryParse(value,
+		dateTimeFormatInput,
+		time.RFC3339Nano,
+		time.RFC3339,
+	)
 }
 
-// FormatHTTPDate format value as a http-date (RFC 7231#section-7.1.1.1 IMF-fixdate)
+// FormatHTTPDate format value as a http-date, (RFC 7231#section-7.1.1.1 IMF-fixdate)
 //
 // Example: Tue, 29 Apr 2014 18:30:38 GMT
 func FormatHTTPDate(value time.Time) string {
-	return value.Format(httpDateFormat)
+	return value.UTC().Format(httpDateFormat)
 }
 
-// ParseHTTPDate parse a string as a http-date
+// ParseHTTPDate parse a string as a http-date, (RFC 7231#section-7.1.1.1 IMF-fixdate)
 //
 // Example: Tue, 29 Apr 2014 18:30:38 GMT
 func ParseHTTPDate(value string) (time.Time, error) {
-	return time.Parse(httpDateFormat, value)
+	return tryParse(value,
+		httpDateFormat,
+		httpDateFormatSingleDigitDay,
+		httpDateFormatSingleDigitDayTwoDigitYear,
+		time.RFC850,
+		time.ANSIC,
+	)
 }
 
 // FormatEpochSeconds returns value as a Unix time in seconds with with decimal precision
@@ -59,7 +76,42 @@ func ParseEpochSeconds(value float64) time.Time {
 	f := big.NewFloat(value)
 	f = f.Mul(f, millisecondFloat)
 	i, _ := f.Int64()
+	// Offset to `UTC` because time.Unix returns the time value based on system
+	// local setting.
 	return time.Unix(0, i*1e6).UTC()
+}
+
+func tryParse(v string, formats ...string) (time.Time, error) {
+	var errs parseErrors
+	for _, f := range formats {
+		t, err := time.Parse(f, v)
+		if err != nil {
+			errs = append(errs, parseError{
+				Format: f,
+				Err:    err,
+			})
+			continue
+		}
+		return t, nil
+	}
+
+	return time.Time{}, fmt.Errorf("unable to parse time string, %w", errs)
+}
+
+type parseErrors []parseError
+
+func (es parseErrors) Error() string {
+	var s strings.Builder
+	for _, e := range es {
+		fmt.Fprintf(&s, "\n * %q: %v", e.Format, e.Err)
+	}
+
+	return "parse errors:" + s.String()
+}
+
+type parseError struct {
+	Format string
+	Err    error
 }
 
 // SleepWithContext will wait for the timer duration to expire, or the context

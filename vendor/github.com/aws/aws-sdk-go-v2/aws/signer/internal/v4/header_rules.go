@@ -34,23 +34,23 @@ func (m MapRule) IsValid(value string) bool {
 	return ok
 }
 
-// Whitelist is a generic Rule for whitelisting
-type Whitelist struct {
+// AllowList is a generic Rule for include listing
+type AllowList struct {
 	Rule
 }
 
-// IsValid for Whitelist checks if the value is within the Whitelist
-func (w Whitelist) IsValid(value string) bool {
+// IsValid for AllowList checks if the value is within the AllowList
+func (w AllowList) IsValid(value string) bool {
 	return w.Rule.IsValid(value)
 }
 
-// Blacklist is a generic Rule for blacklisting
-type Blacklist struct {
+// ExcludeList is a generic Rule for exclude listing
+type ExcludeList struct {
 	Rule
 }
 
-// IsValid for Whitelist checks if the value is within the Whitelist
-func (b Blacklist) IsValid(value string) bool {
+// IsValid for AllowList checks if the value is within the AllowList
+func (b ExcludeList) IsValid(value string) bool {
 	return !b.Rule.IsValid(value)
 }
 

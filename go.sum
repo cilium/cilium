@@ -121,8 +121,9 @@ github.com/asaskevich/govalidator v0.0.0-20200907205600-7a23bdc65eef h1:46PFijGL
 github.com/asaskevich/govalidator v0.0.0-20200907205600-7a23bdc65eef/go.mod h1:WaHUgvxTVq04UNunO+XhnAqY/wQc+bxr74GqbsZ/Jqw=
 github.com/aws/aws-sdk-go v1.34.28/go.mod h1:H7NKnBqNVzoTJpGfLrQkkD+ytBA93eiDYi/+8rV9s48=
 github.com/aws/aws-sdk-go-v2 v1.5.0/go.mod h1:tI4KhsR5VkzlUa2DZAdwx7wCAYGwkZZ1H31PYrBFx1w=
-github.com/aws/aws-sdk-go-v2 v1.6.0 h1:r20hdhm8wZmKkClREfacXrKfX0Y7/s0aOoeraFbf/sY=
 github.com/aws/aws-sdk-go-v2 v1.6.0/go.mod h1:tI4KhsR5VkzlUa2DZAdwx7wCAYGwkZZ1H31PYrBFx1w=
+github.com/aws/aws-sdk-go-v2 v1.7.1 h1:TswSc7KNqZ/K1Ijt3IkpXk/2+62vi3Q82Yrr5wSbRBQ=
+github.com/aws/aws-sdk-go-v2 v1.7.1/go.mod h1:L5LuPC1ZgDr2xQS7AmIec/Jlc7O/Y1u2KxJyNVab250=
 github.com/aws/aws-sdk-go-v2/config v1.2.0 h1:3JVWs+ilru3/5Zq6KbuQj8aqp7DW+Uw/wv6gCYZ2UnI=
 github.com/aws/aws-sdk-go-v2/config v1.2.0/go.mod h1:JgPbg7YzzczkGu1Zi0hHVKYXVzx4OTKnNSD+h+qlpLw=
 github.com/aws/aws-sdk-go-v2/credentials v1.2.0 h1:NxD//04/Y4nid+Slj8JjouisY/DAYjjXW4lqWNkBaO8=
@@ -141,8 +142,9 @@ github.com/aws/aws-sdk-go-v2/service/sso v1.2.0 h1:6cTVa8anc914VgJzca8Jd0ewA7Y5f
 github.com/aws/aws-sdk-go-v2/service/sso v1.2.0/go.mod h1:5qnaL4AtNElFr+a5mdkvD+89jGwpTVyWWX5W/eLzmes=
 github.com/aws/aws-sdk-go-v2/service/sts v1.4.0 h1:pcnLXm4eMWUgqfbjsRyeSz90CKunJUmre+trKJx/FAk=
 github.com/aws/aws-sdk-go-v2/service/sts v1.4.0/go.mod h1:VJE1MpZYuhpWfOVmz7xFou78H5uJc7RX+8CKpbRaG9k=
-github.com/aws/smithy-go v1.4.0 h1:3rsQpgRe+OoQgJhEwGNpIkosl0fJLdmQqF4gSFRjg+4=
 github.com/aws/smithy-go v1.4.0/go.mod h1:SObp3lf9smib00L/v3U2eAKG8FyQ7iLrJnQiAmR5n+E=
+github.com/aws/smithy-go v1.6.0 h1:T6puApfBcYiTIsaI+SYWqanjMt5pc3aoyyDrI+0YH54=
+github.com/aws/smithy-go v1.6.0/go.mod h1:SObp3lf9smib00L/v3U2eAKG8FyQ7iLrJnQiAmR5n+E=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=

@@ -1,6 +1,6 @@
 [dependencies]
-"github.com/aws/smithy-go" = "v1.4.0"
-"github.com/google/go-cmp" = "v0.5.4"
+"github.com/aws/smithy-go" = "v1.6.0"
+"github.com/google/go-cmp" = "v0.5.6"
 "github.com/jmespath/go-jmespath" = "v0.4.0"
 
 [modules."."]
@@ -10,6 +10,12 @@ metadata_package = "aws"
 no_tag = true
 
 [modules."example/service/s3/usingPrivateLink"]
+no_tag = true
+
+[modules."feature/ec2/imds/internal/configtesting"]
+no_tag = true
+
+[modules."internal/configsources/configtesting"]
 no_tag = true
 
 [modules."internal/repotools"]
