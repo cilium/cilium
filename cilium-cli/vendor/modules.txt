@@ -106,7 +106,7 @@ github.com/cilium/hubble/pkg/printer
 # github.com/cilium/workerpool v1.0.0
 ## explicit
 github.com/cilium/workerpool
-# github.com/cloudflare/cfssl v1.5.0
+# github.com/cloudflare/cfssl v1.6.0
 ## explicit
 github.com/cloudflare/cfssl/api
 github.com/cloudflare/cfssl/api/client
@@ -362,23 +362,23 @@ github.com/weppos/publicsuffix-go/publicsuffix
 github.com/xi2/xz
 # github.com/xlab/treeprint v1.0.0
 github.com/xlab/treeprint
-# github.com/zmap/zcrypto v0.0.0-20200911161511-43ff0ea04f21
+# github.com/zmap/zcrypto v0.0.0-20201128221613-3719af1573cf
 github.com/zmap/zcrypto/json
 github.com/zmap/zcrypto/util
 github.com/zmap/zcrypto/x509
 github.com/zmap/zcrypto/x509/ct
 github.com/zmap/zcrypto/x509/pkix
-# github.com/zmap/zlint/v2 v2.2.1
-github.com/zmap/zlint/v2
-github.com/zmap/zlint/v2/lint
-github.com/zmap/zlint/v2/lints/apple
-github.com/zmap/zlint/v2/lints/cabf_br
-github.com/zmap/zlint/v2/lints/cabf_ev
-github.com/zmap/zlint/v2/lints/community
-github.com/zmap/zlint/v2/lints/etsi
-github.com/zmap/zlint/v2/lints/mozilla
-github.com/zmap/zlint/v2/lints/rfc
-github.com/zmap/zlint/v2/util
+# github.com/zmap/zlint/v3 v3.0.0
+github.com/zmap/zlint/v3
+github.com/zmap/zlint/v3/lint
+github.com/zmap/zlint/v3/lints/apple
+github.com/zmap/zlint/v3/lints/cabf_br
+github.com/zmap/zlint/v3/lints/cabf_ev
+github.com/zmap/zlint/v3/lints/community
+github.com/zmap/zlint/v3/lints/etsi
+github.com/zmap/zlint/v3/lints/mozilla
+github.com/zmap/zlint/v3/lints/rfc
+github.com/zmap/zlint/v3/util
 # go.mongodb.org/mongo-driver v1.4.4
 go.mongodb.org/mongo-driver/bson
 go.mongodb.org/mongo-driver/bson/bsoncodec
