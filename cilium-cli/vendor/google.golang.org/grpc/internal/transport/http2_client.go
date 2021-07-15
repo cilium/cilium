@@ -399,11 +399,10 @@ func newHTTP2Client(connectCtx, ctx context.Context, addr resolver.Address, opts
 				logger.Errorf("transport: loopyWriter.run returning. Err: %v", err)
 			}
 		}
-		// If it's a connection error, let reader goroutine handle it
-		// since there might be data in the buffers.
-		if _, ok := err.(net.Error); !ok {
-			t.conn.Close()
-		}
+		// Do not close the transport.  Let reader goroutine handle it since
+		// there might be data in the buffers.
+		t.conn.Close()
+		t.controlBuf.finish()
 		close(t.writerDone)
 	}()
 	return t, nil
@@ -1260,11 +1259,97 @@ func (t *http2Client) operateHeaders(frame *http2.MetaHeadersFrame) {
 		return
 	}
 
-	state := &decodeState{}
-	// Initialize isGRPC value to be !initialHeader, since if a gRPC Response-Headers has already been received, then it means that the peer is speaking gRPC and we are in gRPC mode.
-	state.data.isGRPC = !initialHeader
-	if h2code, err := state.decodeHeader(frame); err != nil {
-		t.closeStream(s, err, true, h2code, status.Convert(err), nil, endStream)
+	// frame.Truncated is set to true when framer detects that the current header
+	// list size hits MaxHeaderListSize limit.
+	if frame.Truncated {
+		se := status.New(codes.Internal, "peer header list size exceeded limit")
+		t.closeStream(s, se.Err(), true, http2.ErrCodeFrameSize, se, nil, endStream)
+		return
+	}
+
+	var (
+		// If a gRPC Response-Headers has already been received, then it means
+		// that the peer is speaking gRPC and we are in gRPC mode.
+		isGRPC         = !initialHeader
+		mdata          = make(map[string][]string)
+		contentTypeErr string
+		grpcMessage    string
+		statusGen      *status.Status
+
+		httpStatus string
+		rawStatus  string
+		// headerError is set if an error is encountered while parsing the headers
+		headerError string
+	)
+
+	for _, hf := range frame.Fields {
+		switch hf.Name {
+		case "content-type":
+			if _, validContentType := grpcutil.ContentSubtype(hf.Value); !validContentType {
+				contentTypeErr = fmt.Sprintf("transport: received the unexpected content-type %q", hf.Value)
+				break
+			}
+			mdata[hf.Name] = append(mdata[hf.Name], hf.Value)
+			isGRPC = true
+		case "grpc-encoding":
+			s.recvCompress = hf.Value
+		case "grpc-status":
+			rawStatus = hf.Value
+		case "grpc-message":
+			grpcMessage = decodeGrpcMessage(hf.Value)
+		case "grpc-status-details-bin":
+			var err error
+			statusGen, err = decodeGRPCStatusDetails(hf.Value)
+			if err != nil {
+				headerError = fmt.Sprintf("transport: malformed grpc-status-details-bin: %v", err)
+			}
+		case ":status":
+			httpStatus = hf.Value
+		default:
+			if isReservedHeader(hf.Name) && !isWhitelistedHeader(hf.Name) {
+				break
+			}
+			v, err := decodeMetadataHeader(hf.Name, hf.Value)
+			if err != nil {
+				headerError = fmt.Sprintf("transport: malformed %s: %v", hf.Name, err)
+				logger.Warningf("Failed to decode metadata header (%q, %q): %v", hf.Name, hf.Value, err)
+				break
+			}
+			mdata[hf.Name] = append(mdata[hf.Name], v)
+		}
+	}
+
+	if !isGRPC {
+		var (
+			code           = codes.Internal // when header does not include HTTP status, return INTERNAL
+			httpStatusCode int
+		)
+
+		if httpStatus != "" {
+			c, err := strconv.ParseInt(httpStatus, 10, 32)
+			if err != nil {
+				se := status.New(codes.Internal, fmt.Sprintf("transport: malformed http-status: %v", err))
+				t.closeStream(s, se.Err(), true, http2.ErrCodeProtocol, se, nil, endStream)
+				return
+			}
+			httpStatusCode = int(c)
+
+			var ok bool
+			code, ok = HTTPStatusConvTab[httpStatusCode]
+			if !ok {
+				code = codes.Unknown
+			}
+		}
+
+		// Verify the HTTP response is a 200.
+		se := status.New(code, constructHTTPErrMsg(&httpStatusCode, contentTypeErr))
+		t.closeStream(s, se.Err(), true, http2.ErrCodeProtocol, se, nil, endStream)
+		return
+	}
+
+	if headerError != "" {
+		se := status.New(codes.Internal, headerError)
+		t.closeStream(s, se.Err(), true, http2.ErrCodeProtocol, se, nil, endStream)
 		return
 	}
 
@@ -1299,9 +1384,8 @@ func (t *http2Client) operateHeaders(frame *http2.MetaHeadersFrame) {
 			// These values can be set without any synchronization because
 			// stream goroutine will read it only after seeing a closed
 			// headerChan which we'll close after setting this.
-			s.recvCompress = state.data.encoding
-			if len(state.data.mdata) > 0 {
-				s.header = state.data.mdata
+			if len(mdata) > 0 {
+				s.header = mdata
 			}
 		} else {
 			// HEADERS frame block carries a Trailers-Only.
@@ -1314,9 +1398,23 @@ func (t *http2Client) operateHeaders(frame *http2.MetaHeadersFrame) {
 		return
 	}
 
+	if statusGen == nil {
+		rawStatusCode := codes.Unknown
+		if rawStatus != "" {
+			code, err := strconv.ParseInt(rawStatus, 10, 32)
+			if err != nil {
+				se := status.New(codes.Internal, fmt.Sprintf("transport: malformed grpc-status: %v", err))
+				t.closeStream(s, se.Err(), true, http2.ErrCodeProtocol, se, nil, endStream)
+				return
+			}
+			rawStatusCode = codes.Code(uint32(code))
+		}
+		statusGen = status.New(rawStatusCode, grpcMessage)
+	}
+
 	// if client received END_STREAM from server while stream was still active, send RST_STREAM
 	rst := s.getState() == streamActive
-	t.closeStream(s, io.EOF, rst, http2.ErrCodeNo, state.status(), state.data.mdata, true)
+	t.closeStream(s, io.EOF, rst, http2.ErrCodeNo, statusGen, mdata, true)
 }
 
 // reader runs as a separate goroutine in charge of reading data from network
