@@ -265,7 +265,7 @@ jobs:
           cilium connectivity test --force-deploy --flow-validation=disabled
 
       - name: Post-test information gathering
-        if: ${{ failure() }}
+        if: ${{ !success() }}
         run: |
           cilium status
           kubectl get pods --all-namespaces -o wide
@@ -280,7 +280,7 @@ jobs:
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Upload artifacts
-        if: ${{ failure() }}
+        if: ${{ !success() }}
         uses: actions/upload-artifact@27121b0bdffd731efa15d66772be8dc71245d074
         with:
           name: cilium-sysdump-out.zip
