@@ -26,7 +26,7 @@ type subjectPublicKeyInfo struct {
 
 // MarshalEd25519PublicKey creates a DER-encoded SubjectPublicKeyInfo for an
 // ed25519 public key, as defined in
-// https://tools.ietf.org/html/draft-ietf-curdle-pkix-04. This is analagous to
+// https://tools.ietf.org/html/draft-ietf-curdle-pkix-04. This is analogous to
 // MarshalPKIXPublicKey in crypto/x509, which doesn't currently support Ed25519.
 func MarshalEd25519PublicKey(pk crypto.PublicKey) ([]byte, error) {
 	pub, ok := pk.(ed25519.PublicKey)
@@ -82,7 +82,7 @@ type oneAsymmetricKey struct {
 // oneAsymmetricKey.
 type curvePrivateKey []byte
 
-// MarshalEd25519PrivateKey returns a DER encdoing of the input private key as
+// MarshalEd25519PrivateKey returns a DER encoding of the input private key as
 // specified in https://tools.ietf.org/html/draft-ietf-curdle-pkix-04.
 func MarshalEd25519PrivateKey(sk crypto.PrivateKey) ([]byte, error) {
 	priv, ok := sk.(ed25519.PrivateKey)
