@@ -157,6 +157,7 @@ func (srv *server) post(url string, jsonData []byte) (*api.Response, error) {
 		return nil, errors.Wrap(errors.APIClientError, errors.ClientHTTPError, err)
 	}
 	defer req.Body.Close()
+	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, errors.Wrap(errors.APIClientError, errors.IOError, err)
@@ -328,7 +329,7 @@ func (ar *AuthRemote) Sign(req []byte) ([]byte, error) {
 	return ar.AuthSign(req, nil, ar.provider)
 }
 
-// nomalizeURL checks for http/https protocol, appends "http" as default protocol if not defiend in url
+// normalizeURL checks for http/https protocol, appends "http" as default protocol if not defined in url
 func normalizeURL(addr string) (*url.URL, error) {
 	addr = strings.TrimSpace(addr)
 
