@@ -1,6 +1,7 @@
 package httpbinding
 
 import (
+	"math"
 	"math/big"
 	"strconv"
 	"strings"
@@ -64,7 +65,16 @@ func (u URIValue) Double(v float64) error {
 }
 
 func (u URIValue) float(v float64, bitSize int) error {
-	return u.modifyURI(strconv.FormatFloat(v, 'f', -1, bitSize))
+	switch {
+	case math.IsNaN(v):
+		return u.String(floatNaN)
+	case math.IsInf(v, 1):
+		return u.String(floatInfinity)
+	case math.IsInf(v, -1):
+		return u.String(floatNegInfinity)
+	default:
+		return u.modifyURI(strconv.FormatFloat(v, 'f', -1, bitSize))
+	}
 }
 
 // BigInteger encodes v as a query string value
