@@ -3,6 +3,8 @@ name: build-commits
 # Any change in triggers needs to be reflected in the concurrency group.
 on: [pull_request]
 
+permissions: read-all
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
   cancel-in-progress: true

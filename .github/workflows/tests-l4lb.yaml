@@ -23,6 +23,8 @@ on:
   # pull_request: {}
   ###
 
+permissions: read-all
+
 concurrency:
   # Structure:
   # - Workflow name
