@@ -22,6 +22,7 @@ jobs:
 
       - name: Generate the artifacts
         run: make release
+
       - name: Create Release
         id: create_release
         uses: actions/create-release@0cb9c9b65d5d1901c1f53e5e66eaf4afd303e70e
@@ -30,10 +31,11 @@ jobs:
         with:
           tag_name: ${{ github.ref }}
           release_name: Release ${{ github.ref }}
-          body: |
-            This is an automated release. See the Git history for changes.
-          draft: false
+          draft: true # turn this to false once release notes are automatically added
           prerelease: false
+          body: |
+            Note for maintainers:: Please update the description with the actual release notes (see RELEASE.md for instructions).
+
       - name: Upload the artifacts
         id: upload-release-artifacts
         uses: skx/github-action-publish-binaries@c881a3f8ffb80b684f367660178d38ceabc065c2
