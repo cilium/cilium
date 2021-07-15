@@ -2,6 +2,9 @@ name: Nightly
 on:
   schedule:
     - cron: '0 2 * * *' # run at 2 AM UTC
+
+permissions: read-all
+
 jobs:
   policy-stress-test:
     name: Start Nightly Policy Stress tests

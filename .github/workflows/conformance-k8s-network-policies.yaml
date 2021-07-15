@@ -5,6 +5,8 @@ on:
     # run once a day at midnight
     - cron: '0 0 * * *'
 
+permissions: read-all
+
 env:
   KIND_VERSION: v0.11.1
   KIND_CONFIG: .github/kind-config.yaml

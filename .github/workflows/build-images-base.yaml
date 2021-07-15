@@ -11,6 +11,8 @@ on:
       - images/runtime/**
       - images/builder/**
 
+permissions: read-all
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
   cancel-in-progress: true

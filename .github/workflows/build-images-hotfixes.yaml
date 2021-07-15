@@ -5,6 +5,8 @@ on:
     branches:
       - hf/master/**
 
+permissions: read-all
+
 jobs:
   build-and-push:
     if: ${{ github.repository == 'cilium/cilium' }}
