@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api/kafka"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/proxy/logger/test"
+	"github.com/cilium/cilium/pkg/u8proto"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
@@ -438,7 +439,7 @@ func (s *ServerSuite) TestGetDirectionNetworkPolicy(c *C) {
 }
 
 func (s *ServerSuite) TestGetNetworkPolicy(c *C) {
-	obtained := getNetworkPolicy(ep, IPv4Addr, L4Policy1, true, true)
+	obtained := getNetworkPolicy(ep, nil, IPv4Addr, L4Policy1, true, true)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -450,7 +451,7 @@ func (s *ServerSuite) TestGetNetworkPolicy(c *C) {
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyWildcard(c *C) {
-	obtained := getNetworkPolicy(ep, IPv4Addr, L4Policy2, true, true)
+	obtained := getNetworkPolicy(ep, nil, IPv4Addr, L4Policy2, true, true)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -462,7 +463,7 @@ func (s *ServerSuite) TestGetNetworkPolicyWildcard(c *C) {
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyDeny(c *C) {
-	obtained := getNetworkPolicy(ep, IPv4Addr, L4Policy1RequiresV2, true, true)
+	obtained := getNetworkPolicy(ep, nil, IPv4Addr, L4Policy1RequiresV2, true, true)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -474,7 +475,7 @@ func (s *ServerSuite) TestGetNetworkPolicyDeny(c *C) {
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyWildcardDeny(c *C) {
-	obtained := getNetworkPolicy(ep, IPv4Addr, L4Policy1RequiresV2, true, true)
+	obtained := getNetworkPolicy(ep, nil, IPv4Addr, L4Policy1RequiresV2, true, true)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -486,7 +487,7 @@ func (s *ServerSuite) TestGetNetworkPolicyWildcardDeny(c *C) {
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyNil(c *C) {
-	obtained := getNetworkPolicy(ep, IPv4Addr, nil, true, true)
+	obtained := getNetworkPolicy(ep, nil, IPv4Addr, nil, true, true)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -498,7 +499,7 @@ func (s *ServerSuite) TestGetNetworkPolicyNil(c *C) {
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyIngressNotEnforced(c *C) {
-	obtained := getNetworkPolicy(ep, IPv4Addr, L4Policy2, false, true)
+	obtained := getNetworkPolicy(ep, nil, IPv4Addr, L4Policy2, false, true)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -510,7 +511,7 @@ func (s *ServerSuite) TestGetNetworkPolicyIngressNotEnforced(c *C) {
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyEgressNotEnforced(c *C) {
-	obtained := getNetworkPolicy(ep, IPv4Addr, L4Policy1RequiresV2, true, false)
+	obtained := getNetworkPolicy(ep, nil, IPv4Addr, L4Policy1RequiresV2, true, false)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -568,7 +569,7 @@ var ExpectedPerPortPoliciesL7 = []*cilium.PortNetworkPolicy{
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyL7(c *C) {
-	obtained := getNetworkPolicy(ep, IPv4Addr, L4PolicyL7, true, true)
+	obtained := getNetworkPolicy(ep, nil, IPv4Addr, L4PolicyL7, true, true)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -623,7 +624,7 @@ var ExpectedPerPortPoliciesKafka = []*cilium.PortNetworkPolicy{
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyKafka(c *C) {
-	obtained := getNetworkPolicy(ep, IPv4Addr, L4PolicyKafka, true, true)
+	obtained := getNetworkPolicy(ep, nil, IPv4Addr, L4PolicyKafka, true, true)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -694,12 +695,55 @@ var ExpectedPerPortPoliciesMySQL = []*cilium.PortNetworkPolicy{
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyMySQL(c *C) {
-	obtained := getNetworkPolicy(ep, IPv4Addr, L4PolicyMySQL, true, true)
+	obtained := getNetworkPolicy(ep, nil, IPv4Addr, L4PolicyMySQL, true, true)
 	expected := &cilium.NetworkPolicy{
 		Name:                  IPv4Addr,
 		Policy:                uint64(Identity),
 		EgressPerPortPolicies: ExpectedPerPortPoliciesMySQL,
 		ConntrackMapName:      "global",
 	}
+	c.Assert(obtained, checker.ExportedEquals, expected)
+}
+
+var L4PolicyL7Kafka = &policy.L4Policy{}
+
+var nvp = &policy.VisibilityPolicy{
+	Ingress: make(policy.DirectionalVisibilityPolicy),
+}
+
+func (s *ServerSuite) TestGetNetworkPolicyProxylibVisibility(c *C) {
+
+	dvp := nvp.Ingress
+
+	pp := "9092/TCP"
+
+	dvp[pp] = &policy.VisibilityMetadata{ //"<Ingress/9092/TCP/Kafka>"
+		Port:       9092,
+		Parser:     "Kafka",
+		Proto:      u8proto.TCP,
+		Ingress:    true,
+		L7Metadata: make(policy.L7DataMap),
+	}
+
+	pnp := []*cilium.PortNetworkPolicy{
+		{
+			Port:     uint32(nvp.Ingress[pp].Port),
+			Protocol: envoy_config_core.SocketAddress_TCP,
+			Rules: []*cilium.PortNetworkPolicyRule{
+				{
+					L7Proto: nvp.Ingress[pp].Parser.String(),
+				},
+			},
+		},
+	}
+	obtained := getNetworkPolicy(ep, nvp, IPv4Addr, L4PolicyL7Kafka, false, false)
+
+	expected := &cilium.NetworkPolicy{
+		Name:                   IPv4Addr,
+		Policy:                 uint64(Identity),
+		IngressPerPortPolicies: pnp,
+		ConntrackMapName:       "global",
+	}
+
 	c.Assert(obtained, checker.ExportedEquals, expected)
 }
