@@ -36,8 +36,8 @@ import (
 	"github.com/google/certificate-transparency-go/jsonclient"
 
 	zx509 "github.com/zmap/zcrypto/x509"
-	"github.com/zmap/zlint/v2"
-	"github.com/zmap/zlint/v2/lint"
+	"github.com/zmap/zlint/v3"
+	"github.com/zmap/zlint/v3/lint"
 	"golang.org/x/net/context"
 )
 

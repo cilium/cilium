@@ -172,6 +172,10 @@ func DefaultSigAlgo(priv crypto.Signer) x509.SignatureAlgorithm {
 	}
 }
 
+func isCommonAttr(t []int) bool {
+	return (len(t) == 4 && t[0] == 2 && t[1] == 5 && t[2] == 4 && (t[3] == 3 || (t[3] >= 5 && t[3] <= 11) || t[3] == 17))
+}
+
 // ParseCertificateRequest takes an incoming certificate request and
 // builds a certificate template from it.
 func ParseCertificateRequest(s Signer, p *config.SigningProfile, csrBytes []byte) (template *x509.Certificate, err error) {
@@ -181,6 +185,25 @@ func ParseCertificateRequest(s Signer, p *config.SigningProfile, csrBytes []byte
 		return
 	}
 
+	var r pkix.RDNSequence
+	_, err = asn1.Unmarshal(csrv.RawSubject, &r)
+
+	if err != nil {
+		err = cferr.Wrap(cferr.CSRError, cferr.ParseFailed, err)
+		return
+	}
+
+	var subject pkix.Name
+	subject.FillFromRDNSequence(&r)
+
+	for _, v := range r {
+		for _, vv := range v {
+			if !isCommonAttr(vv.Type) {
+				subject.ExtraNames = append(subject.ExtraNames, vv)
+			}
+		}
+	}
+
 	err = csrv.CheckSignature()
 	if err != nil {
 		err = cferr.Wrap(cferr.CSRError, cferr.KeyMismatch, err)
@@ -188,7 +211,7 @@ func ParseCertificateRequest(s Signer, p *config.SigningProfile, csrBytes []byte
 	}
 
 	template = &x509.Certificate{
-		Subject:            csrv.Subject,
+		Subject:            subject,
 		PublicKeyAlgorithm: csrv.PublicKeyAlgorithm,
 		PublicKey:          csrv.PublicKey,
 		SignatureAlgorithm: s.SigAlgo(),

@@ -176,7 +176,7 @@ type Response struct {
 	Messages []ResponseMessage `json:"messages"`
 }
 
-// NewSuccessResponse is a shortcut for creating new successul API
+// NewSuccessResponse is a shortcut for creating new successful API
 // responses.
 func NewSuccessResponse(result interface{}) Response {
 	return Response{
