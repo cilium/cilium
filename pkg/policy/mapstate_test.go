@@ -975,7 +975,8 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 			if x.cs != nil {
 				cs = x.cs
 			}
-			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, nil)
+			//TODO: M_AUDITMODE
+			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, nil, false)
 		}
 		adds, deletes := policyMaps.consumeMapChanges(policyMapState)
 		c.Assert(policyMapState, checker.DeepEquals, tt.state, check.Commentf(tt.name+" (MapState)"))

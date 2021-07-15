@@ -141,6 +141,9 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 		PolicyGetPolicyHandler: policy.GetPolicyHandlerFunc(func(params policy.GetPolicyParams) middleware.Responder {
 			return middleware.NotImplemented("operation policy.GetPolicy has not yet been implemented")
 		}),
+		PolicyGetPolicyIDHandler: policy.GetPolicyIDHandlerFunc(func(params policy.GetPolicyIDParams) middleware.Responder {
+			return middleware.NotImplemented("operation policy.GetPolicyID has not yet been implemented")
+		}),
 		PolicyGetPolicyResolveHandler: policy.GetPolicyResolveHandlerFunc(func(params policy.GetPolicyResolveParams) middleware.Responder {
 			return middleware.NotImplemented("operation policy.GetPolicyResolve has not yet been implemented")
 		}),
@@ -290,6 +293,8 @@ type CiliumAPIAPI struct {
 	MetricsGetMetricsHandler metrics.GetMetricsHandler
 	// PolicyGetPolicyHandler sets the operation handler for the get policy operation
 	PolicyGetPolicyHandler policy.GetPolicyHandler
+	// PolicyGetPolicyIDHandler sets the operation handler for the get policy ID operation
+	PolicyGetPolicyIDHandler policy.GetPolicyIDHandler
 	// PolicyGetPolicyResolveHandler sets the operation handler for the get policy resolve operation
 	PolicyGetPolicyResolveHandler policy.GetPolicyResolveHandler
 	// PolicyGetPolicySelectorsHandler sets the operation handler for the get policy selectors operation
@@ -490,6 +495,9 @@ func (o *CiliumAPIAPI) Validate() error {
 	}
 	if o.PolicyGetPolicyHandler == nil {
 		unregistered = append(unregistered, "policy.GetPolicyHandler")
+	}
+	if o.PolicyGetPolicyIDHandler == nil {
+		unregistered = append(unregistered, "policy.GetPolicyIDHandler")
 	}
 	if o.PolicyGetPolicyResolveHandler == nil {
 		unregistered = append(unregistered, "policy.GetPolicyResolveHandler")
@@ -752,6 +760,10 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/policy"] = policy.NewGetPolicy(o.context, o.PolicyGetPolicyHandler)
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/policy/{id}"] = policy.NewGetPolicyID(o.context, o.PolicyGetPolicyIDHandler)
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}

@@ -288,6 +288,8 @@ type L4Filter struct {
 
 	// This reference is circular, but it is cleaned up at Detach()
 	policy unsafe.Pointer // *L4Policy
+
+	AuditMode bool
 }
 
 // SelectsAllEndpoints returns whether the L4Filter selects all
@@ -387,7 +389,7 @@ func (l4Filter *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficd
 			}
 		}
 
-		entry := NewMapStateEntry(cs, l4Filter.DerivedFromRules, currentRule.IsRedirect(), isDenyRule)
+		entry := NewMapStateEntry(cs, l4Filter.DerivedFromRules, currentRule.IsRedirect(), isDenyRule, l4Filter.AuditMode)
 		if cs.IsWildcard() {
 			keyToAdd.Identity = 0
 			keysToAdd.DenyPreferredInsert(keyToAdd, entry)
@@ -458,7 +460,7 @@ func (l4 *L4Filter) IdentitySelectionUpdated(selector CachedSelector, added, del
 		l7Rules := l4.L7RulesPerSelector[selector]
 		isRedirect := l7Rules.IsRedirect()
 		isDeny := l7Rules != nil && l7Rules.IsDeny
-		l4Policy.AccumulateMapChanges(selector, added, deleted, l4, direction, isRedirect, isDeny)
+		l4Policy.AccumulateMapChanges(selector, added, deleted, l4, direction, isRedirect, isDeny, l4.AuditMode)
 	}
 }
 
@@ -553,7 +555,7 @@ func (l4 *L4Filter) getCerts(policyCtx PolicyContext, tls *api.TLSContext, direc
 // rules via the `rule` parameter.
 // Not called with an empty peerEndpoints.
 func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorSlice, rule api.Ports, port api.PortProtocol,
-	protocol api.L4Proto, ruleLabels labels.LabelArray, ingress bool, fqdns api.FQDNSelectorSlice) (*L4Filter, error) {
+	protocol api.L4Proto, ruleLabels labels.LabelArray, ingress bool, fqdns api.FQDNSelectorSlice, auditMode bool) (*L4Filter, error) {
 	selectorCache := policyCtx.GetSelectorCache()
 
 	portName := ""
@@ -576,6 +578,7 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 		L7RulesPerSelector: make(L7DataMap),
 		DerivedFromRules:   labels.LabelArrayList{ruleLabels},
 		Ingress:            ingress,
+		AuditMode:          auditMode,
 	}
 
 	if peerEndpoints.SelectsAllEndpoints() {
@@ -671,9 +674,9 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) {
 // hostWildcardL7 determines if L7 traffic from Host should be
 // wildcarded (in the relevant daemon mode).
 func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints api.EndpointSelectorSlice, hostWildcardL7 []string, rule api.Ports, port api.PortProtocol,
-	protocol api.L4Proto, ruleLabels labels.LabelArray) (*L4Filter, error) {
+	protocol api.L4Proto, ruleLabels labels.LabelArray, auditMode bool) (*L4Filter, error) {
 
-	filter, err := createL4Filter(policyCtx, fromEndpoints, rule, port, protocol, ruleLabels, true, nil)
+	filter, err := createL4Filter(policyCtx, fromEndpoints, rule, port, protocol, ruleLabels, true, nil, auditMode)
 	if err != nil {
 		return nil, err
 	}
@@ -703,9 +706,9 @@ func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints api.EndpointSe
 // to the original rules that the filter is derived from. This filter may be
 // associated with a series of L7 rules via the `rule` parameter.
 func createL4EgressFilter(policyCtx PolicyContext, toEndpoints api.EndpointSelectorSlice, rule api.Ports, port api.PortProtocol,
-	protocol api.L4Proto, ruleLabels labels.LabelArray, fqdns api.FQDNSelectorSlice) (*L4Filter, error) {
+	protocol api.L4Proto, ruleLabels labels.LabelArray, fqdns api.FQDNSelectorSlice, auditMode bool) (*L4Filter, error) {
 
-	return createL4Filter(policyCtx, toEndpoints, rule, port, protocol, ruleLabels, false, fqdns)
+	return createL4Filter(policyCtx, toEndpoints, rule, port, protocol, ruleLabels, false, fqdns, auditMode)
 }
 
 // IsRedirect returns true if the L4 filter contains a port redirection
@@ -796,6 +799,10 @@ func addL4Filter(policyCtx PolicyContext,
 	if !exists {
 		existingFilter.DerivedFromRules = append(existingFilter.DerivedFromRules, ruleLabels)
 	}
+	if filterToMerge.AuditMode {
+		existingFilter.AuditMode = filterToMerge.AuditMode
+	}
+
 	resMap[key] = existingFilter
 	return nil
 }
@@ -987,7 +994,7 @@ func (l4 *L4Policy) removeUser(user *EndpointPolicy) {
 // The caller is responsible for making sure the same identity is not
 // present in both 'adds' and 'deletes'.
 func (l4 *L4Policy) AccumulateMapChanges(cs CachedSelector, adds, deletes []identity.NumericIdentity, l4Filter *L4Filter,
-	direction trafficdirection.TrafficDirection, redirect, isDeny bool) {
+	direction trafficdirection.TrafficDirection, redirect, isDeny, AuditMode bool) {
 	port := uint16(l4Filter.Port)
 	proto := uint8(l4Filter.U8Proto)
 	derivedFrom := l4Filter.DerivedFromRules
@@ -1009,7 +1016,7 @@ func (l4 *L4Policy) AccumulateMapChanges(cs CachedSelector, adds, deletes []iden
 				continue
 			}
 		}
-		epPolicy.policyMapChanges.AccumulateMapChanges(cs, adds, deletes, port, proto, direction, redirect, isDeny, derivedFrom)
+		epPolicy.policyMapChanges.AccumulateMapChanges(cs, adds, deletes, port, proto, direction, redirect, isDeny, derivedFrom, AuditMode)
 	}
 }
 

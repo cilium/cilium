@@ -30,7 +30,7 @@ import (
 type SelectorPolicy interface {
 	// Consume returns the policy in terms of connectivity to peer
 	// Identities.
-	Consume(owner PolicyOwner) *EndpointPolicy
+	Consume(owner PolicyOwner, repo *Repository) *EndpointPolicy
 }
 
 // PolicyCache represents a cache of resolved policies for identities.
@@ -205,10 +205,10 @@ func (cip *cachedSelectorPolicy) setPolicy(policy *selectorPolicy) {
 //
 // This denotes that a particular endpoint is 'consuming' the policy from the
 // selector policy cache.
-func (cip *cachedSelectorPolicy) Consume(owner PolicyOwner) *EndpointPolicy {
+func (cip *cachedSelectorPolicy) Consume(owner PolicyOwner, repo *Repository) *EndpointPolicy {
 	// TODO: This currently computes the EndpointPolicy from SelectorPolicy
 	// on-demand, however in future the cip is intended to cache the
 	// EndpointPolicy for this Identity and emit datapath deltas instead.
 	isHost := cip.identity.ID == identityPkg.ReservedIdentityHost
-	return cip.getPolicy().DistillPolicy(owner, isHost)
+	return cip.getPolicy().DistillPolicy(owner, isHost, repo)
 }

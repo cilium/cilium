@@ -316,6 +316,7 @@ var (
 	// Misc other bpf key fields for convenience / readability.
 	dirIngress = trafficdirection.Ingress.Uint8()
 	// Desired map keys for L3, L3-dependent L4, L4
+	//TODO: M_AUDITMODE
 	mapKeyAllowFoo__ = Key{identityFoo, 0, 0, dirIngress}
 	mapKeyAllowBar__ = Key{identityBar, 0, 0, dirIngress}
 	mapKeyAllowFooL4 = Key{identityFoo, 80, 6, dirIngress}
@@ -326,13 +327,13 @@ var (
 	mapKeyAllowAll__ = Key{0, 0, 0, dirIngress}
 	// Desired map entries for no L7 redirect / redirect to Proxy
 	mapEntryL7None_ = func(lbls ...labels.LabelArray) MapStateEntry {
-		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), false, false).WithoutSelectors()
+		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), false, false, false).WithoutSelectors()
 	}
 	mapEntryL7Deny_ = func(lbls ...labels.LabelArray) MapStateEntry {
-		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), false, true).WithoutSelectors()
+		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), false, true, false).WithoutSelectors()
 	}
 	mapEntryL7Proxy = func(lbls ...labels.LabelArray) MapStateEntry {
-		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), true, false).WithoutSelectors()
+		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), true, false, false).WithoutSelectors()
 	}
 )
 

@@ -242,7 +242,7 @@ func (e *Endpoint) regeneratePolicy() (retErr error) {
 		e.getLogger().WithError(err).Warning("Failed to update policy")
 		return err
 	}
-	calculatedPolicy := e.selectorPolicy.Consume(e)
+	calculatedPolicy := e.selectorPolicy.Consume(e, repo)
 
 	stats.policyCalculation.End(true)
 

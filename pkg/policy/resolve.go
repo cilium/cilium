@@ -16,6 +16,8 @@ package policy
 
 import (
 	"github.com/cilium/cilium/pkg/identity"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
 
@@ -122,7 +124,7 @@ func (p *selectorPolicy) Detach() {
 //
 // Must be performed while holding the Repository lock.
 // PolicyOwner (aka Endpoint) is also locked during this call.
-func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, isHost bool) *EndpointPolicy {
+func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, isHost bool, repo *Repository) *EndpointPolicy {
 	calculatedPolicy := &EndpointPolicy{
 		selectorPolicy: p,
 		PolicyMapState: make(MapState),
@@ -153,8 +155,105 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, isHost bool) *En
 	if !isHost {
 		calculatedPolicy.PolicyMapState.DetermineAllowLocalhostIngress()
 	}
+	//MWORKING:
+	calculatedPolicy.computePolicyRuleIdInMapEntries(repo)
 
 	return calculatedPolicy
+}
+
+func (p *EndpointPolicy) isPolicyMatchSuccess(key Key, entry MapStateEntry, cRule *rule, lbls labels.LabelArray) bool {
+	var requirements, requirementsDeny []slim_metav1.LabelSelectorRequirement
+
+	// Ingress filter
+	if key.TrafficDirection == 0 {
+		if entry.IsDeny == true && len(cRule.Rule.IngressDeny) > 0 {
+			for _, iRule := range cRule.Rule.IngressDeny {
+				fromEndpoints := iRule.GetSourceEndpointSelectorsWithRequirements(requirementsDeny)
+				if len(fromEndpoints) > 0 {
+					if !fromEndpoints.Matches(lbls) {
+						return false
+					}
+				}
+			}
+		} else if entry.IsDeny == false && len(cRule.Rule.Ingress) > 0 {
+			for _, iRule := range cRule.Rule.Ingress {
+				fromEndpoints := iRule.GetSourceEndpointSelectorsWithRequirements(requirements)
+				if len(fromEndpoints) > 0 {
+					if !fromEndpoints.Matches(lbls) {
+						return false
+					}
+				}
+			}
+		} else {
+			return false
+		}
+		// Egress Filter
+	} else if key.TrafficDirection == 1 {
+		if entry.IsDeny == true && len(cRule.Rule.EgressDeny) > 0 {
+			for _, iRule := range cRule.Rule.EgressDeny {
+				toEndpoints := iRule.GetDestinationEndpointSelectorsWithRequirements(requirementsDeny)
+				if len(toEndpoints) > 0 {
+					if !toEndpoints.Matches(lbls) {
+						return false
+					}
+				}
+			}
+		} else if entry.IsDeny == false && len(cRule.Rule.Egress) > 0 {
+			for _, iRule := range cRule.Rule.Egress {
+				toEndpoints := iRule.GetDestinationEndpointSelectorsWithRequirements(requirements)
+				if len(toEndpoints) > 0 {
+					if !toEndpoints.Matches(lbls) {
+						return false
+					}
+				}
+			}
+		} else {
+			return false
+		}
+	}
+	return true
+}
+
+func getPolicyname(lbls labels.LabelArray) string {
+	for _, cRule := range lbls {
+		if cRule.Key == "io.cilium.k8s.policy.name" {
+			return cRule.Value
+		}
+	}
+	return ""
+}
+
+func (p *EndpointPolicy) computePolicyRuleIdInMapEntries(repo *Repository) {
+	var identityLabels labels.LabelArray
+	policyMap := p.PolicyMapState
+	idCache := p.SelectorCache.idCache
+	for key, entry := range policyMap {
+		if key.Identity == 1 || key.Identity == 4 {
+			continue
+		}
+		identityLabels = idCache[identity.NumericIdentity(key.Identity)].lbls
+		if len(entry.DerivedFromRules) == 1 {
+			if rule := repo.GetPolicyRuleFromRepo(getPolicyname(entry.DerivedFromRules[0])); rule != nil {
+				ruleID := repo.GetRuleIDbyPolicyName(entry.DerivedFromRules[0])
+				entry.RuleID = ruleID
+				entry.AuditMode = rule.Rule.AuditMode
+				policyMap.updateKeyEntry(key, entry)
+			}
+		} else {
+			// Compute the repective rule from the derived rules
+			for _, inRule := range entry.DerivedFromRules {
+				if rule := repo.GetPolicyRuleFromRepo(getPolicyname(inRule)); rule != nil {
+					if p.isPolicyMatchSuccess(key, entry, rule, identityLabels) == true {
+						ruleID := repo.GetRuleIDbyPolicyName(inRule)
+						entry.RuleID = ruleID
+						entry.AuditMode = rule.Rule.AuditMode
+						policyMap.updateKeyEntry(key, entry)
+						break
+					}
+				}
+			}
+		}
+	}
 }
 
 // Detach removes EndpointPolicy references from selectorPolicy

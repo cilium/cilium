@@ -1812,6 +1812,8 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPIAPI {
 
 		// /policy/resolve/
 		restAPI.PolicyGetPolicyResolveHandler = NewGetPolicyResolveHandler(d)
+		// /policy/id
+		restAPI.PolicyGetPolicyIDHandler = newGetPolicyNamesHandler(d.policy)
 
 		// /lrp/
 		restAPI.ServiceGetLrpHandler = NewGetLrpHandler(d.redirectPolicyManager)

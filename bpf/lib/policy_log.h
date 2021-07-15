@@ -33,7 +33,8 @@ struct policy_verdict_notify {
 		match_type:3,
 		audited:1,
 		pad0:1;
-	__u32	pad1; /* align with 64 bits */
+	__u16   	pad1; /* align with 64 bits */
+    __u16       rule_id;
 };
 
 static __always_inline bool policy_verdict_filter_allow(__u32 filter, __u8 dir)
@@ -49,7 +50,7 @@ static __always_inline bool policy_verdict_filter_allow(__u32 filter, __u8 dir)
 static __always_inline void
 send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst_port,
 			   __u8 proto, __u8 dir, __u8 is_ipv6, int verdict,
-			   __u8 match_type, __u8 is_audited)
+			   __u8 match_type, __u8 is_audited, __u16 rule_id)
 {
 	__u64 ctx_len = ctx_full_len(ctx);
 	__u64 cap_len = min_t(__u64, TRACE_PAYLOAD_LEN, ctx_len);
@@ -69,6 +70,7 @@ send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst
 		.dir		= dir,
 		.ipv6		= is_ipv6,
 		.audited	= is_audited,
+        .rule_id    = rule_id,
 	};
 
 	ctx_event_output(ctx, &EVENTS_MAP,
@@ -81,7 +83,15 @@ send_policy_verdict_notify(struct __ctx_buff *ctx __maybe_unused,
 			   __u32 remote_label __maybe_unused, __u16 dst_port __maybe_unused,
 			   __u8 proto __maybe_unused, __u8 dir __maybe_unused,
 			   __u8 is_ipv6 __maybe_unused, int verdict __maybe_unused,
-			   __u8 match_type __maybe_unused, __u8 is_audited __maybe_unused)
+			   __u8 match_type __maybe_unused, __u8 is_audited __maybe_unused,
+               __u16 rule_id __maybe_unused)
+{
+}
+
+static __always_inline void
+send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst_port,
+			   __u8 proto, __u8 dir, __u8 is_ipv6, int verdict,
+			   __u8 match_type, __u8 is_audited, __u16 rule_id)
 {
 }
 #endif /* POLICY_VERDICT_NOTIFY */

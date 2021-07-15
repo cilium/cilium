@@ -53,6 +53,8 @@ spec:
               required:
               - nodeSelector
             properties:
+              auditMode:
+                type: boolean
               description:
                 description: Description is a free form string, it can be used by
                   the creator of the rule to store human readable explanation of the
@@ -2252,6 +2254,8 @@ spec:
                 required:
                 - nodeSelector
               properties:
+                auditMode:
+                  type: boolean
                 description:
                   description: Description is a free form string, it can be used by
                     the creator of the rule to store human readable explanation of

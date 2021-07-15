@@ -438,7 +438,8 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 				labels.NewLabel(policy.LabelKeyPolicyDerivedFrom, policy.LabelVisibilityAnnotation, labels.LabelSourceReserved),
 			},
 		}
-		entry := policy.NewMapStateEntry(nil, derivedFrom, true, false)
+		//TODO: M_AUDITMODE
+		entry := policy.NewMapStateEntry(nil, derivedFrom, true, false, false)
 		entry.ProxyPort = redirectPort
 
 		e.desiredPolicy.PolicyMapState[newKey] = entry
@@ -1171,9 +1172,9 @@ func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry,
 
 	var err error
 	if entry.IsDeny {
-		err = e.policyMap.DenyKey(policymapKey)
+		err = e.policyMap.DenyKey(policymapKey, entry.AuditMode, entry.RuleID)
 	} else {
-		err = e.policyMap.AllowKey(policymapKey, entry.ProxyPort)
+		err = e.policyMap.AllowKey(policymapKey, entry.ProxyPort, entry.RuleID, entry.AuditMode)
 	}
 	if err != nil {
 		e.getLogger().WithError(err).WithFields(logrus.Fields{

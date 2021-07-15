@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"sync"
 	"sync/atomic"
 
@@ -29,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	//"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -67,6 +69,34 @@ type PolicyContext interface {
 	// SetDeny sets the Deny field of the PolicyContext and returns the old
 	// value stored.
 	SetDeny(newValue bool) (oldValue bool)
+}
+
+type PolicyRuleIdsMap struct {
+	idToPolicyNameMap map[uint16]string
+	policyNameToIdMap map[string]uint16
+}
+
+func NewPolicyRuleIdsMap() *PolicyRuleIdsMap {
+	return &PolicyRuleIdsMap{
+		idToPolicyNameMap: make(map[uint16]string),
+		policyNameToIdMap: make(map[string]uint16),
+	}
+}
+
+func (u PolicyRuleIdsMap) generateRuleId(lbls labels.LabelArray) {
+	for _, v := range lbls {
+		if v.Key == "io.cilium.k8s.policy.name" {
+			for {
+				id := uint16(rand.Uint32())
+				if u.idToPolicyNameMap[id] == "" {
+					u.idToPolicyNameMap[id] = v.Value
+					u.policyNameToIdMap[v.Value] = id
+					fmt.Println("MDEBUG:= policyName:", v.Value, "ruleId:", id)
+					break
+				}
+			}
+		}
+	}
 }
 
 type policyContext struct {
@@ -141,6 +171,25 @@ type Repository struct {
 	certManager CertificateManager
 
 	getEnvoyHTTPRules func(CertificateManager, *api.L7Rules, string) (*cilium.HttpNetworkPolicyRules, bool)
+
+	PolicyIds *PolicyRuleIdsMap
+}
+
+func (p *Repository) GetPolicyNameByRuleID(ruleID uint16) string {
+	return p.PolicyIds.idToPolicyNameMap[ruleID]
+}
+
+func (p *Repository) GetRuleIDbyPolicyName(lbls labels.LabelArray) uint16 {
+	for _, v := range lbls {
+		if v.Key == "io.cilium.k8s.policy.name" {
+			return p.PolicyIds.policyNameToIdMap[v.Value]
+		}
+	}
+	return 0
+}
+
+func (p *Repository) GetPolicyIDNames() *PolicyRuleIdsMap {
+	return p.PolicyIds
 }
 
 // GetSelectorCache() returns the selector cache used by the Repository
@@ -164,6 +213,40 @@ func (p *Repository) GetPolicyCache() *PolicyCache {
 	return p.policyCache
 }
 
+func (p *Repository) GetPolicyRuleFromRepo(policyName string) *rule {
+	if len(policyName) > 0 {
+		for _, rule := range p.rules {
+			for _, rValue := range rule.Labels {
+				if policyName == rValue.Value {
+					return rule
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (p *Repository) GetPolicyName(securityIdentity *identity.Identity) string {
+	var policyName string
+	_, _, rules := p.getMatchingRules(securityIdentity)
+	for _, r := range rules {
+		isNode := securityIdentity.ID == identity.ReservedIdentityHost
+		selectsNode := r.NodeSelector.LabelSelector != nil
+		if selectsNode != isNode {
+			continue
+		}
+		if ruleMatches := r.matches(securityIdentity); ruleMatches {
+			for _, v := range r.Rule.Labels {
+				if v.Key == "io.cilium.k8s.policy.name" {
+					policyName = v.Value
+					return policyName
+				}
+			}
+		}
+	}
+	return ""
+}
+
 // NewPolicyRepository creates a new policy repository.
 func NewPolicyRepository(idCache cache.IdentityCache, certManager CertificateManager) *Repository {
 	repoChangeQueue := eventqueue.NewEventQueueBuffered("repository-change-queue", option.Config.PolicyQueueSize)
@@ -180,6 +263,7 @@ func NewPolicyRepository(idCache cache.IdentityCache, certManager CertificateMan
 		certManager:           certManager,
 	}
 	repo.policyCache = NewPolicyCache(repo, true)
+	repo.PolicyIds = NewPolicyRuleIdsMap()
 	return repo
 }
 
@@ -378,9 +462,11 @@ func (p *Repository) AddListLocked(rules api.Rules) (ruleSlice, uint64) {
 			metadata: newRuleMetadata(),
 		}
 		newList[i] = newRule
+		p.PolicyIds.generateRuleId(newList[i].Rule.Labels)
 	}
 
 	p.rules = append(p.rules, newList...)
+
 	p.BumpRevision()
 	metrics.Policy.Add(float64(len(newList)))
 	return newList, p.GetRevision()

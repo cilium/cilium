@@ -1083,6 +1083,9 @@ func (in *Rule) deepEqual(other *Rule) bool {
 	if in.Description != other.Description {
 		return false
 	}
+	if in.AuditMode != other.AuditMode {
+		return false
+	}
 
 	return true
 }

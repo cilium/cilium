@@ -69,3 +69,13 @@ func (c *Client) PolicyResolveGet(traceSelector *models.TraceSelector) (*models.
 	}
 	return resp.Payload, nil
 }
+
+func (c *Client) PolicyIDGet(RuleID uint16) (*models.PolicyID, error) {
+	params := policy.NewGetPolicyIDParams()
+	params.SetID(int64(RuleID))
+	resp, err := c.Policy.GetPolicyID(params)
+	if err != nil {
+		return nil, Hint(err)
+	}
+	return resp.Payload, nil
+}

@@ -103,6 +103,10 @@ type MapStateEntry struct {
 	// Selectors collects the selectors in the policy that require this key to be present.
 	// TODO: keep track which selector needed the entry to be deny, redirect, or just allow.
 	selectors map[CachedSelector]struct{}
+
+	AuditMode bool
+
+	RuleID uint16
 }
 
 // NewMapStateEntry creates a map state entry. If redirect is true, the
@@ -111,7 +115,7 @@ type MapStateEntry struct {
 // 'cs' is used to keep track of which policy selectors need this entry. If it is 'nil' this entry
 // will become sticky and cannot be completely removed via incremental updates. Even in this case
 // the entry may be overridden or removed by a deny entry.
-func NewMapStateEntry(cs CachedSelector, derivedFrom labels.LabelArrayList, redirect, deny bool) MapStateEntry {
+func NewMapStateEntry(cs CachedSelector, derivedFrom labels.LabelArrayList, redirect, deny, auditMode bool) MapStateEntry {
 	var proxyPort uint16
 	if redirect {
 		// Any non-zero value will do, as the callers replace this with the
@@ -125,6 +129,7 @@ func NewMapStateEntry(cs CachedSelector, derivedFrom labels.LabelArrayList, redi
 		DerivedFromRules: derivedFrom,
 		IsDeny:           deny,
 		selectors:        map[CachedSelector]struct{}{cs: {}},
+		AuditMode:        auditMode,
 	}
 }
 
@@ -161,6 +166,10 @@ func (e MapStateEntry) String() string {
 // in accumulating incremental changes.
 func (keys MapState) DenyPreferredInsert(newKey Key, newEntry MapStateEntry) {
 	keys.denyPreferredInsertWithChanges(newKey, newEntry, nil, nil)
+}
+
+func (keys MapState) updateKeyEntry(key Key, entry MapStateEntry) {
+	keys[key] = entry
 }
 
 // addKeyWithChanges adds a 'key' with value 'entry' to 'keys' keeping track of incremental changes in 'adds' and 'deletes'
@@ -343,13 +352,15 @@ func (keys MapState) DetermineAllowLocalhostIngress() {
 				labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowLocalHostIngress, labels.LabelSourceReserved),
 			},
 		}
-		es := NewMapStateEntry(nil, derivedFrom, false, false)
+		//TODO: M_AUDITMODE
+		es := NewMapStateEntry(nil, derivedFrom, false, false, false)
 		keys.DenyPreferredInsert(localHostKey, es)
 		if !option.Config.EnableRemoteNodeIdentity {
 			var isHostDenied bool
 			v, ok := keys[localHostKey]
 			isHostDenied = ok && v.IsDeny
-			es := NewMapStateEntry(nil, derivedFrom, false, isHostDenied)
+			//TODO: M_AUDITMODE
+			es := NewMapStateEntry(nil, derivedFrom, false, isHostDenied, false)
 			keys.DenyPreferredInsert(localRemoteNodeKey, es)
 		}
 	}
@@ -371,7 +382,8 @@ func (keys MapState) AllowAllIdentities(ingress, egress bool) {
 				labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowLocalHostIngress, labels.LabelSourceReserved),
 			},
 		}
-		keys[keyToAdd] = NewMapStateEntry(nil, derivedFrom, false, false)
+		//TODO: M_AUDITMODE
+		keys[keyToAdd] = NewMapStateEntry(nil, derivedFrom, false, false, false)
 	}
 	if egress {
 		keyToAdd := Key{
@@ -385,7 +397,8 @@ func (keys MapState) AllowAllIdentities(ingress, egress bool) {
 				labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyEgress, labels.LabelSourceReserved),
 			},
 		}
-		keys[keyToAdd] = NewMapStateEntry(nil, derivedFrom, false, false)
+		//TODO: M_AUDITMODE
+		keys[keyToAdd] = NewMapStateEntry(nil, derivedFrom, false, false, false)
 	}
 }
 
@@ -488,7 +501,7 @@ type MapChange struct {
 // present in both 'adds' and 'deletes'.
 func (mc *MapChanges) AccumulateMapChanges(cs CachedSelector, adds, deletes []identity.NumericIdentity,
 	port uint16, proto uint8, direction trafficdirection.TrafficDirection,
-	redirect, isDeny bool, derivedFrom labels.LabelArrayList) {
+	redirect, isDeny bool, derivedFrom labels.LabelArrayList, AuditMode bool) {
 	key := Key{
 		// The actual identity is set in the loops below
 		Identity: 0,
@@ -498,7 +511,7 @@ func (mc *MapChanges) AccumulateMapChanges(cs CachedSelector, adds, deletes []id
 		TrafficDirection: direction.Uint8(),
 	}
 
-	value := NewMapStateEntry(cs, derivedFrom, redirect, isDeny)
+	value := NewMapStateEntry(cs, derivedFrom, redirect, isDeny, AuditMode)
 
 	if option.Config.Debug {
 		log.WithFields(logrus.Fields{

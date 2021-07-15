@@ -93,6 +93,13 @@ type Rule struct {
 	//
 	// +kubebuilder:validation:Optional
 	Description string `json:"description,omitempty"`
+
+	// AuditMode is a boolean flag for the CNP and CNPs
+	// The mode for this flag should be set to "enforcing"
+	// by default unless otherwise configured by the user.
+
+	// +kubebuilder:validation:Optional
+	AuditMode bool `json:"auditMode,omitempty,default:true"`
 }
 
 // MarshalJSON returns the JSON encoding of Rule r. We need to overwrite it to
@@ -105,6 +112,7 @@ func (r *Rule) MarshalJSON() ([]byte, error) {
 		EgressDeny  []EgressDenyRule  `json:"egressDeny,omitempty"`
 		Labels      labels.LabelArray `json:"labels,omitempty"`
 		Description string            `json:"description,omitempty"`
+		AuditMode   bool              `json:"auditmode,omitempty"`
 	}
 
 	var a interface{}
@@ -115,6 +123,7 @@ func (r *Rule) MarshalJSON() ([]byte, error) {
 		EgressDeny:  r.EgressDeny,
 		Labels:      r.Labels,
 		Description: r.Description,
+		AuditMode:   r.AuditMode,
 	}
 
 	// Only one of endpointSelector or nodeSelector is permitted.

@@ -278,9 +278,10 @@ struct policy_key {
 struct policy_entry {
 	__be16		proxy_port;
 	__u8		deny:1,
-			pad:7;
+                audit:1,
+			pad:6;
 	__u8		pad0;
-	__u16		pad1;
+	__u16		rule_id;
 	__u16		pad2;
 	__u64		packets;
 	__u64		bytes;
