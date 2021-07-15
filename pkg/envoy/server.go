@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/api/kafka"
 	"github.com/cilium/cilium/pkg/proxy/logger"
+	"github.com/cilium/cilium/pkg/u8proto"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_bootstrap "github.com/cilium/proxy/go/envoy/config/bootstrap/v3"
@@ -1334,7 +1335,7 @@ func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4Poli
 }
 
 // getNetworkPolicy converts a network policy into a cilium.NetworkPolicy.
-func getNetworkPolicy(ep logger.EndpointUpdater, name string, policy *policy.L4Policy,
+func getNetworkPolicy(ep logger.EndpointUpdater, vis *policy.VisibilityPolicy, name string, l4Policy *policy.L4Policy,
 	ingressPolicyEnforced, egressPolicyEnforced bool) *cilium.NetworkPolicy {
 	p := &cilium.NetworkPolicy{
 		Name:             name,
@@ -1343,9 +1344,62 @@ func getNetworkPolicy(ep logger.EndpointUpdater, name string, policy *policy.L4P
 	}
 
 	// If no policy, deny all traffic. Otherwise, convert the policies for ingress and egress.
-	if policy != nil {
-		p.IngressPerPortPolicies = getDirectionNetworkPolicy(ep, policy.Ingress, ingressPolicyEnforced)
-		p.EgressPerPortPolicies = getDirectionNetworkPolicy(ep, policy.Egress, egressPolicyEnforced)
+	if l4Policy != nil {
+		if vis != nil && !(ingressPolicyEnforced || egressPolicyEnforced) {
+			if vis.Ingress != nil {
+				PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, len(vis.Ingress))
+				for _, visMeta := range vis.Ingress {
+					// we only setup this for proxylib parsers
+					if visMeta.Parser != policy.ParserTypeHTTP && visMeta.Parser != policy.ParserTypeDNS {
+						rules := []*cilium.PortNetworkPolicyRule{
+							{
+								L7Proto: visMeta.Parser.String(),
+							},
+						}
+						if visMeta.Proto != u8proto.TCP {
+							PerPortPolicies = allowAllPortNetworkPolicy
+						} else {
+							protocol := envoy_config_core.SocketAddress_TCP
+
+							PerPortPolicies = append(PerPortPolicies, &cilium.PortNetworkPolicy{
+								Port:     uint32(visMeta.Port),
+								Protocol: protocol,
+								Rules:    rules,
+							})
+						}
+					}
+				}
+				p.IngressPerPortPolicies = SortPortNetworkPolicies(PerPortPolicies)
+			}
+			if vis.Egress != nil {
+				PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, len(vis.Egress))
+				for _, visMeta := range vis.Egress {
+					// we only setup this for proxylib parsers
+					if visMeta.Parser != policy.ParserTypeHTTP && visMeta.Parser != policy.ParserTypeDNS {
+						rules := []*cilium.PortNetworkPolicyRule{
+							{
+								L7Proto: visMeta.Parser.String(),
+							},
+						}
+						if visMeta.Proto != u8proto.TCP {
+							PerPortPolicies = allowAllPortNetworkPolicy
+						} else {
+							protocol := envoy_config_core.SocketAddress_TCP
+
+							PerPortPolicies = append(PerPortPolicies, &cilium.PortNetworkPolicy{
+								Port:     uint32(visMeta.Port),
+								Protocol: protocol,
+								Rules:    rules,
+							})
+						}
+					}
+				}
+				p.EgressPerPortPolicies = SortPortNetworkPolicies(PerPortPolicies)
+			}
+		} else {
+			p.IngressPerPortPolicies = getDirectionNetworkPolicy(ep, l4Policy.Ingress, ingressPolicyEnforced)
+			p.EgressPerPortPolicies = getDirectionNetworkPolicy(ep, l4Policy.Egress, egressPolicyEnforced)
+		}
 	}
 
 	return p
@@ -1384,7 +1438,7 @@ func getNodeIDs(ep logger.EndpointUpdater, policy *policy.L4Policy) []string {
 // to L7 proxies.
 // When the proxy acknowledges the network policy update, it will result in
 // a subsequent call to the endpoint's OnProxyPolicyUpdate() function.
-func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy,
+func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, vis *policy.VisibilityPolicy, policy *policy.L4Policy,
 	ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -1399,7 +1453,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 		if ip == "" {
 			continue
 		}
-		networkPolicy := getNetworkPolicy(ep, ip, policy, ingressPolicyEnforced, egressPolicyEnforced)
+		networkPolicy := getNetworkPolicy(ep, vis, ip, policy, ingressPolicyEnforced, egressPolicyEnforced)
 		err := networkPolicy.Validate()
 		if err != nil {
 			return fmt.Errorf("error validating generated NetworkPolicy for %s: %s", ip, err), nil
