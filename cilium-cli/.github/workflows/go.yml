@@ -27,7 +27,7 @@ jobs:
       uses: golangci/golangci-lint-action@5c56cd6c9dc07901af25baab6f2b0d9f3b7c3018
       with:
         # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
-        version: v1.40.1
+        version: v1.41.1
 
         # Optional: golangci-lint command line arguments.
         args: --config=.golangci.yml --verbose
