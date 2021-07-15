@@ -151,6 +151,7 @@ const DropReason_DENIED_BY_LB_SRC_RANGE_CHECK = flow.DropReason_DENIED_BY_LB_SRC
 const DropReason_SOCKET_LOOKUP_FAILED = flow.DropReason_SOCKET_LOOKUP_FAILED
 const DropReason_SOCKET_ASSIGN_FAILED = flow.DropReason_SOCKET_ASSIGN_FAILED
 const DropReason_PROXY_REDIRECTION_NOT_SUPPORTED_FOR_PROTOCOL = flow.DropReason_PROXY_REDIRECTION_NOT_SUPPORTED_FOR_PROTOCOL
+const DropReason_VLAN_FILTERED = flow.DropReason_VLAN_FILTERED
 
 var DropReason_name = flow.DropReason_name
 var DropReason_value = flow.DropReason_value

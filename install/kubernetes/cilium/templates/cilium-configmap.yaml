@@ -738,6 +738,11 @@ data:
   cgroup-root: {{ .Values.cgroup.hostRoot | quote }}
 {{- end }}
 
+{{- if hasKey .Values.bpf "vlanBypass" }}
+  # A space separated list of explicitly allowed vlan id's
+  vlan-bpf-bypass: {{ .Values.bpf.vlanBypass | join " " | quote }}
+{{- end }}
+
 {{- if .Values.extraConfig }}
 {{ toYaml .Values.extraConfig | indent 2 }}
 {{- end }}
