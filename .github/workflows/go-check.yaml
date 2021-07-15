@@ -6,6 +6,8 @@ on:
     branches:
       - master
 
+permissions: read-all
+
 jobs:
   go-mod:
     runs-on: ubuntu-latest
