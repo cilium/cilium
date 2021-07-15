@@ -1,4 +1,4 @@
-{{- if and (.Values.hubble.ui.enabled) (.Values.serviceAccounts.ui.create) }}
+{{- if and .Values.hubble.enabled .Values.hubble.ui.enabled .Values.serviceAccounts.ui.create }}
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -9,6 +9,6 @@ roleRef:
   name: hubble-ui
 subjects:
 - kind: ServiceAccount
-  namespace: {{ .Release.Namespace }}
   name: {{ .Values.serviceAccounts.ui.name | quote }}
+  namespace: {{ .Release.Namespace }}
 {{- end }}
