@@ -6,6 +6,8 @@ on:
   schedule:
     - cron: "45 6 * * 3"
 
+permissions: read-all
+
 jobs:
   check_changes:
     name: Deduce required tests from code changes
