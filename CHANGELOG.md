@@ -1,5 +1,65 @@
 # Changelog
 
+## v1.10.3
+
+Summary of Changes
+------------------
+
+**Major Changes:**
+* Provide new installation steps to deploy Cilium in managed kubernetes providers (GKE, EKS, AKS) to allow scale up and down node pools. (Backport PR #16774, Upstream PR #16631, @aanm)
+
+**Minor Changes:**
+* daemon: Add option --bpf-lb-external-clusterip (Backport PR #16774, Upstream PR #15650, @joamaki)
+
+**Bugfixes:**
+* Envoy configuration with `--proxy-prometheus-port` is fixed. (Backport PR #16829, Upstream PR #16834, @jrajahalme)
+* iptables: Remove leading zeroes (Backport PR #16829, Upstream PR #16817, @jrajahalme)
+* Potential deadlock in pod identity updates has been fixed. (Backport PR #16829, Upstream PR #16801, @jrajahalme)
+* Removes cilium daemonset's dependencies on utilities like `sh` and `mount` having installed in the underlying host distributions. (Backport PR #16824, Upstream PR #16815, @aditighag)
+
+**CI Changes:**
+* .github: do not useDigest in conformance tests (Backport PR #16837, Upstream PR #16836, @aanm)
+* Bump cilium-cli to v0.8.4 (Backport PR #16829, Upstream PR #16799, @tklauser)
+* ci/conformance: Various image-related fixes (Backport PR #16829, Upstream PR #16715, @gandro)
+* conformance tests: Use hubble-relay-ci image (Backport PR #16829, Upstream PR #16363, @michi-covalent)
+* Fix and add more commands in CI sysdumps (Backport PR #16774, Upstream PR #16721, @aanm)
+* test/Bookinfo: Collect full artifact in case of failure (Backport PR #16829, Upstream PR #16775, @pchaigno)
+* test: Delete DNS pods in AfterAll for datapath tests (Backport PR #16829, Upstream PR #16835, @joestringer)
+* test: Delete Istio resources if install does not complete (Backport PR #16829, Upstream PR #16440, @jrajahalme)
+* test: do not useDigest in upstream tests (Backport PR #16829, Upstream PR #16886, @aanm)
+* test: Move instrumentation to AfterFailed instead of AfterAll (Backport PR #16829, Upstream PR #16845, @christarazi)
+* test: Redeploy DNS after endpointRoutes reconfiguration (Backport PR #16829, Upstream PR #16767, @joestringer)
+* test: Wait for kube-dns before starting test (Backport PR #16829, Upstream PR #16411, @jrajahalme)
+* workflows: fix concurrency group names (Backport PR #16829, Upstream PR #16711, @nbusseneau)
+* workflows: fix L4LB test missing PR reporting on issue_comment (Backport PR #16829, Upstream PR #16830, @nbusseneau)
+* workflows: fix Relay pgrep check when using additional flags (Backport PR #16829, Upstream PR #16831, @nbusseneau)
+* workflows: remove label filters for testing workflows (Backport PR #16829, Upstream PR #16735, @nbusseneau)
+* workflows: various fixes & consistency passes (Backport PR #16829, Upstream PR #16787, @nbusseneau)
+
+**Misc Changes:**
+* [v1.10] install/kubernetes: re-add restartPods (#16858, @aanm)
+* Docs: Fix maglev.hashSeed byte size documentation (Backport PR #16774, Upstream PR #16690, @gaffneyd4)
+* Allow configuration of probe timers in Helm chart (Backport PR #16774, Upstream PR #16584, @jonkerj)
+* bugtool: Collect BPF cgroup programs related information (Backport PR #16774, Upstream PR #16691, @aditighag)
+* build(deps): bump docker/setup-buildx-action from 1.4.1 to 1.5.0 (#16763, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 1.5.0 to 1.5.1 (#16856, @dependabot[bot])
+* contrib/docs: rename 'cilium-actions.yml' with 'maintainers-little-helper.yaml (Backport PR #16774, Upstream PR #16750, @aanm)
+* contrib: Explicitly set remote for backport branches (Backport PR #16829, Upstream PR #16804, @twpayne)
+* docs(k3s): add back the flag to disable network policies (Backport PR #16829, Upstream PR #16755, @rio)
+* docs: account for bandwidth manager now being disabled by default (Backport PR #16829, Upstream PR #16782, @bmcustodio)
+* docs: Document dns visibility limitations (Backport PR #16829, Upstream PR #16822, @joestringer)
+* docs: fix code-block for bpf mount example (Backport PR #16774, Upstream PR #16719, @aanm)
+* github: Increase workflow timeout (Backport PR #16829, Upstream PR #16819, @jrajahalme)
+* Improve logging when cgroupfs mount fails (Backport PR #16829, Upstream PR #15999, @johngv2)
+* pkg/k8s: re-add CiliumIsUp Node condition even if removed (Backport PR #16829, Upstream PR #16857, @aanm)
+* Revert "docs: add 'endpointRoutes.enabled=true' to aws-cni" (Backport PR #16774, Upstream PR #16756, @bmcustodio)
+* Revert "policy: Make selectorcache callbacks lock-free" (Backport PR #16829, Upstream PR #16769, @aanm)
+* v1.10: Update Go to 1.16.6 (#16878, @tklauser)
+
+**Other Changes:**
+* [v1.10] fix condition for running documentation GitHub action on Helm updates (#16747, @qmonnet)
+* install: Update image digests for v1.10.2 (#16764, @aanm)
+
 ## v1.10.2
 
 Summary of Changes
