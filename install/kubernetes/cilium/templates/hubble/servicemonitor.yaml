@@ -1,22 +1,24 @@
-{{- if and .Values.agent (not .Values.preflight.enabled) .Values.prometheus.enabled .Values.prometheus.serviceMonitor.enabled }}
----
+{{- if and .Values.hubble.enabled .Values.hubble.metrics.enabled .Values.hubble.metrics.serviceMonitor.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: cilium-agent
+  name: hubble
   namespace: {{ .Values.prometheus.serviceMonitor.namespace | default .Release.Namespace }}
 spec:
   selector:
     matchLabels:
-      k8s-app: cilium
+      k8s-app: hubble
   namespaceSelector:
     matchNames:
     - {{ .Release.Namespace }}
   endpoints:
-  - port: metrics
+  - port: hubble-metrics
     interval: 10s
     honorLabels: true
     path: /metrics
-  targetLabels:
-  - k8s-app
+    relabelings:
+    - sourceLabels:
+      - __meta_kubernetes_pod_node_name
+      targetLabel: node
+      replacement: ${1}
 {{- end }}

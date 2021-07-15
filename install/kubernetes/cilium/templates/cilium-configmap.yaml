@@ -17,19 +17,19 @@
 
 {{- /* Default values when 1.8 was initially deployed */ -}}
 {{- if semverCompare ">=1.8" (default "1.8" .Values.upgradeCompatibility) -}}
-{{- $defaultEnableCnpStatusUpdates = "false" -}}
-{{- $defaultBpfMapDynamicSizeRatio = 0.0025 -}}
-{{- $defaultBpfMasquerade = "true" -}}
-{{- $defaultBpfClockProbe = "true" -}}
-{{- $defaultIPAM = "cluster-pool" -}}
-{{- $defaultSessionAffinity = "true" -}}
-{{- if .Values.ipv4.enabled }}
-{{- $defaultOperatorApiServeAddr = "127.0.0.1:9234" -}}
-{{- else -}}
-{{- $defaultOperatorApiServeAddr = "[::1]:9234" -}}
-{{- end }}
-{{- $defaultBpfCtTcpMax = 0 -}}
-{{- $defaultBpfCtAnyMax = 0 -}}
+  {{- $defaultEnableCnpStatusUpdates = "false" -}}
+  {{- $defaultBpfMapDynamicSizeRatio = 0.0025 -}}
+  {{- $defaultBpfMasquerade = "true" -}}
+  {{- $defaultBpfClockProbe = "true" -}}
+  {{- $defaultIPAM = "cluster-pool" -}}
+  {{- $defaultSessionAffinity = "true" -}}
+  {{- if .Values.ipv4.enabled }}
+    {{- $defaultOperatorApiServeAddr = "127.0.0.1:9234" -}}
+  {{- else -}}
+    {{- $defaultOperatorApiServeAddr = "[::1]:9234" -}}
+  {{- end }}
+  {{- $defaultBpfCtTcpMax = 0 -}}
+  {{- $defaultBpfCtAnyMax = 0 -}}
 {{- end -}}
 
 {{- /* Default values when 1.10 was initially deployed */ -}}
@@ -41,7 +41,7 @@
 {{- $bpfCtTcpMax := (coalesce .Values.bpf.ctTcpMax $defaultBpfCtTcpMax) -}}
 {{- $bpfCtAnyMax := (coalesce .Values.bpf.ctAnyMax $defaultBpfCtAnyMax) -}}
 {{- $kubeProxyReplacement := (coalesce .Values.kubeProxyReplacement $defaultKubeProxyReplacement) -}}
-
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -53,29 +53,29 @@ data:
   # storage. This can either be provided with an external kvstore or with the
   # help of cilium-etcd-operator which operates an etcd cluster automatically.
   kvstore: etcd
-{{- if .Values.etcd.k8sService }}
+  {{- if .Values.etcd.k8sService }}
   kvstore-opt: '{"etcd.config": "/var/lib/etcd-config/etcd.config", "etcd.operator": "true"}'
-{{- else }}
+  {{- else }}
   kvstore-opt: '{"etcd.config": "/var/lib/etcd-config/etcd.config"}'
-{{- end }}
+  {{- end }}
 
   # This etcd-config contains the etcd endpoints of your cluster. If you use
   # TLS please make sure you follow the tutorial in https://cilium.link/etcd-config
   etcd-config: |-
     ---
     endpoints:
-{{- if .Values.etcd.managed }}
+      {{- if .Values.etcd.managed }}
       - https://cilium-etcd-client.{{ .Release.Namespace }}.svc:2379
-{{- else }}
-{{- range .Values.etcd.endpoints }}
+      {{- else }}
+      {{- range .Values.etcd.endpoints }}
       - {{ . }}
-{{- end }}
-{{- end }}
-{{- if or .Values.etcd.ssl .Values.etcd.managed }}
+      {{- end }}
+      {{- end }}
+    {{- if or .Values.etcd.ssl .Values.etcd.managed }}
     trusted-ca-file: '/var/lib/etcd-secrets/etcd-client-ca.crt'
     key-file: '/var/lib/etcd-secrets/etcd-client.key'
     cert-file: '/var/lib/etcd-secrets/etcd-client.crt'
-{{- end }}
+    {{- end }}
 {{- end }}
 
 {{- if hasKey .Values "conntrackGCInterval" }}
@@ -729,7 +729,7 @@ data:
 {{- end }}
 
 {{- if and .Values.bgp.enabled (not .Values.bgp.announce.loadbalancerIP) }}
-{{ fail "BGP was enabled, but no announcements were enabled. Please enable one or more announcements." }}
+  {{ fail "BGP was enabled, but no announcements were enabled. Please enable one or more announcements." }}
 {{- else if and .Values.bgp.enabled .Values.bgp.announce.loadbalancerIP }}
   bgp-announce-lb-ip: {{ .Values.bgp.announce.loadbalancerIP | quote }}
 {{- end }}
@@ -744,6 +744,6 @@ data:
 {{- end }}
 
 {{- if .Values.extraConfig }}
-{{ toYaml .Values.extraConfig | indent 2 }}
+  {{ toYaml .Values.extraConfig | nindent 2 }}
 {{- end }}
 {{- end }}

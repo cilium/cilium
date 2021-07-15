@@ -1,13 +1,9 @@
-{{- if and (.Values.operator.enabled) (.Values.operator.prometheus.enabled) (.Values.operator.prometheus.serviceMonitor.enabled) }}
+{{- if and .Values.operator.enabled .Values.operator.prometheus.enabled .Values.operator.prometheus.serviceMonitor.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: cilium-operator
-  {{- if .Values.operator.prometheus.serviceMonitor.namespace }}
-  namespace: {{ .Values.operator.prometheus.serviceMonitor.namespace }}
-  {{- else }}
-  namespace: {{ .Release.Namespace }}
-  {{- end }}
+  namespace: {{ .Values.operator.prometheus.serviceMonitor.namespace | default .Release.Namespace }}
 spec:
   selector:
     matchLabels:

@@ -1,6 +1,6 @@
 {{- if .Values.preflight.enabled }}
 {{- /*
-Keep file in synced with cilium-agent-clusterrole.yaml
+Keep file in sync with cilium-agent/clusterrole.yaml
 */ -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

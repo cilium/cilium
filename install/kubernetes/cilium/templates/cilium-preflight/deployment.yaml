@@ -1,5 +1,4 @@
-{{- if .Values.preflight.enabled }}
-{{- if .Values.preflight.validateCNPs }}
+{{- if and .Values.preflight.enabled .Values.preflight.validateCNPs }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -12,16 +11,16 @@ spec:
       kubernetes.io/cluster-service: "true"
   template:
     metadata:
-{{- with .Values.preflight.podAnnotations }}
+      {{- with .Values.preflight.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
-{{- end }}
+      {{- end }}
       labels:
         k8s-app: cilium-pre-flight-check-deployment
         kubernetes.io/cluster-service: "true"
-{{- with .Values.preflight.podLabels }}
+        {{- with .Values.preflight.podLabels }}
         {{- toYaml . | nindent 8 }}
-{{- end }}
+        {{- end }}
     spec:
       affinity:
         podAffinity:
@@ -33,19 +32,21 @@ spec:
                 values:
                 - cilium
             topologyKey: "kubernetes.io/hostname"
-{{- if .Values.imagePullSecrets }}
+      {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
-        {{ toYaml .Values.imagePullSecrets | indent 8 }}
-{{- end }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
-{{- if .Values.preflight.validateCNPs }}
         - name: cnp-validator
-          image: "{{ .Values.preflight.image.repository }}:{{ .Values.preflight.image.tag }}{{ if .Values.preflight.image.useDigest }}@{{ .Values.preflight.image.digest }}{{ end }}"
+          image: {{ include "cilium.image" .Values.preflight.image | quote }}
           imagePullPolicy: {{ .Values.preflight.image.pullPolicy }}
           command: ["/bin/sh"]
           args:
-          - -c
-          - "cilium preflight validate-cnp && touch /tmp/ready-validate-cnp && sleep 1h"
+          - -ec
+          - |
+            cilium preflight validate-cnp;
+            touch /tmp/ready-validate-cnp;
+            sleep 1h;
           livenessProbe:
             exec:
               command:
@@ -60,30 +61,27 @@ spec:
               - /tmp/ready-validate-cnp
             initialDelaySeconds: 5
             periodSeconds: 5
-{{- if not ( and ( empty ( .Values.k8sServiceHost ))  ( empty ( .Values.k8sServicePort ))) }}
           env:
-{{- if .Values.k8sServiceHost }}
+          {{- if .Values.k8sServiceHost }}
           - name: KUBERNETES_SERVICE_HOST
             value: {{ .Values.k8sServiceHost | quote }}
-{{- end }}
-{{- if .Values.k8sServicePort }}
+          {{- end }}
+          {{- if .Values.k8sServicePort }}
           - name: KUBERNETES_SERVICE_PORT
             value: {{ .Values.k8sServicePort | quote }}
-{{- end }}
-{{- end }}
-{{- end }}
+          {{- end }}
       hostNetwork: true
       restartPolicy: Always
+      priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.preflight.priorityClassName "system-cluster-critical") }}
       serviceAccount: {{ .Values.serviceAccounts.preflight.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.preflight.name | quote }}
       terminationGracePeriodSeconds: 1
-{{- with .Values.preflight.nodeSelector }}
+      {{- with .Values.preflight.nodeSelector }}
       nodeSelector:
         {{- toYaml . | trim | nindent 8 }}
-{{- end }}
-{{- with .Values.tolerations }}
+      {{- end }}
+      {{- with .Values.tolerations }}
       tolerations:
-      {{- toYaml . | trim | nindent 6 }}
-{{- end }}
-{{- end }}
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
 {{- end }}

@@ -1,24 +1,5 @@
 {{- if .Values.nodeinit.enabled }}
-
-{{- /* Workaround so that we can set the minimal k8s version that we support */ -}}
-{{- $k8sVersion := .Capabilities.KubeVersion.Version -}}
-{{- $k8sMajor := .Capabilities.KubeVersion.Major -}}
-{{- $k8sMinor := .Capabilities.KubeVersion.Minor -}}
-
-{{- if .Values.Capabilities -}}
-{{- if .Values.Capabilities.KubeVersion -}}
-{{- if .Values.Capabilities.KubeVersion.Version -}}
-{{- $k8sVersion = .Values.Capabilities.KubeVersion.Version -}}
-{{- if .Values.Capabilities.KubeVersion.Major -}}
-{{- $k8sMajor = toString (.Values.Capabilities.KubeVersion.Major) -}}
-{{- if .Values.Capabilities.KubeVersion.Minor -}}
-{{- $k8sMinor = toString (.Values.Capabilities.KubeVersion.Minor) -}}
-{{- end -}}
-{{- end -}}
-{{- end -}}
-{{- end -}}
-{{- end -}}
-
+---
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
@@ -33,49 +14,46 @@ spec:
   template:
     metadata:
       annotations:
-{{- with .Values.nodeinit.podAnnotations }}
+        {{- with .Values.nodeinit.podAnnotations }}
         {{- toYaml . | nindent 8 }}
-{{- end }}
+        {{- end }}
       labels:
         app: cilium-node-init
-{{- with .Values.nodeinit.podLabels }}
+        {{- with .Values.nodeinit.podLabels }}
         {{- toYaml . | nindent 8 }}
-{{- end }}
+        {{- end }}
     spec:
-{{- with .Values.tolerations }}
+      {{- with .Values.tolerations }}
       tolerations:
-      {{- toYaml . | trim | nindent 6 }}
-{{- end }}
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
       hostPID: true
       hostNetwork: true
-{{- if and (or (and (eq .Release.Namespace "kube-system") (gt $k8sMinor "10")) (ge $k8sMinor "17") (gt $k8sMajor "1")) .Values.enableCriticalPriorityClass }}
-      priorityClassName: system-node-critical
-{{- end }}
-{{- if .Values.imagePullSecrets }}
+      priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.nodeinit.priorityClassName "system-node-critical") }}
+      {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
-        {{ toYaml .Values.imagePullSecrets | indent 6 }}
-{{- end }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: node-init
-          image: {{ .Values.nodeinit.image.repository }}:{{ .Values.nodeinit.image.tag }}
+          image: {{ include "cilium.image" .Values.nodeinit.image | quote }}
           imagePullPolicy: {{ .Values.nodeinit.image.pullPolicy }}
           securityContext:
             privileged: true
-{{- if .Values.nodeinit.revertReconfigureKubelet }}
+          {{- if .Values.nodeinit.revertReconfigureKubelet }}
           lifecycle:
             preStop:
               exec:
                 command:
-                  - "nsenter"
-                  - "-t"
-                  - "1"
-                  - "-m"
-                  - "--"
-                  - "/bin/sh"
-                  - "-c"
+                  - nsenter
+                  - --target=1
+                  - --mount
+                  - --
+                  - /bin/sh
+                  - -c
                   - |
                     {{- tpl (.Files.Get "files/nodeinit/prestop.bash") . | nindent 20 }}
-{{- end }}
+          {{- end }}
           env:
           - name: CHECKPOINT_PATH
             value: /tmp/node-init.cilium.io

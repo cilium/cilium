@@ -141,6 +141,10 @@
      - Labels to be added to clustermesh-apiserver pods
      - object
      - ``{}``
+   * - clustermesh.apiserver.priorityClassName
+     - The priority class to use for clustermesh-apiserver
+     - string
+     - ``""``
    * - clustermesh.apiserver.replicas
      - Number of replicas run for the clustermesh-apiserver deployment.
      - int
@@ -450,7 +454,7 @@
      - object
      - ``{}``
    * - etcd.priorityClassName
-     - cilium-etcd-operator priorityClassName
+     - The priority class to use for cilium-etcd-operator
      - string
      - ``""``
    * - etcd.resources
@@ -597,6 +601,10 @@
      - Labels to be added to hubble-relay pods
      - object
      - ``{}``
+   * - hubble.relay.priorityClassName
+     - The priority class to use for hubble-relay
+     - string
+     - ``""``
    * - hubble.relay.replicas
      - Number of replicas run for the hubble-relay deployment.
      - int
@@ -721,6 +729,10 @@
      - Labels to be added to hubble-ui pods
      - object
      - ``{}``
+   * - hubble.ui.priorityClassName
+     - The priority class to use for hubble-ui
+     - string
+     - ``""``
    * - hubble.ui.proxy.image
      - Hubble-ui ingress proxy image.
      - object
@@ -1006,7 +1018,7 @@
      - object
      - ``{}``
    * - operator.priorityClassName
-     - cilium-operator priorityClassName
+     - The priority class to use for cilium-operator
      - string
      - ``""``
    * - operator.prometheus

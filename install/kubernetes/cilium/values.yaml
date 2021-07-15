@@ -679,6 +679,9 @@ hubble:
     #
     tolerations: []
 
+    # -- The priority class to use for hubble-relay
+    priorityClassName: ""
+
     # -- hubble-relay update strategy
     updateStrategy:
       rollingUpdate:
@@ -812,6 +815,9 @@ hubble:
     # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
     #
     tolerations: []
+
+    # -- The priority class to use for hubble-ui
+    priorityClassName: ""
 
     # -- hubble-ui update strategy.
     updateStrategy:
@@ -1135,7 +1141,7 @@ etcd:
     tag: v2.0.7
     pullPolicy: Always
 
-  # -- cilium-etcd-operator priorityClassName
+  # -- The priority class to use for cilium-etcd-operator
   priorityClassName: ""
 
   # -- Additional cilium-etcd-operator container arguments.
@@ -1253,7 +1259,7 @@ operator:
   # -- For using with an existing serviceAccount.
   serviceAccountName: cilium-operator
 
-  # -- cilium-operator priorityClassName
+  # -- The priority class to use for cilium-operator
   priorityClassName: ""
 
   # -- cilium-operator update strategy
@@ -1628,6 +1634,9 @@ clustermesh:
       rollingUpdate:
         maxUnavailable: 1
       type: RollingUpdate
+
+    # -- The priority class to use for clustermesh-apiserver
+    priorityClassName: ""
 
     tls:
       # -- Configure automatic TLS certificates generation.

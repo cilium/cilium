@@ -1,4 +1,4 @@
-{{- if .Values.hubble.ui.enabled }}
+{{- if and .Values.hubble.enabled .Values.hubble.ui.enabled }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -6,5 +6,5 @@ metadata:
   name: hubble-ui-envoy
   namespace: {{ .Release.Namespace }}
 data:
-{{ (.Files.Glob "files/envoy/*").AsConfig | indent 2 }}
+  {{ (.Files.Glob "files/envoy/*").AsConfig | nindent 2 }}
 {{- end }}
