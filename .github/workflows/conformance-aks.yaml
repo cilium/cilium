@@ -192,6 +192,8 @@ jobs:
             --network-plugin azure \
             --node-count 1 \
             --load-balancer-sku standard \
+            --node-vm-size Standard_B2s \
+            --node-osdisk-size 30 \
             --generate-ssh-keys
 
           # Get the name of the node pool that we will delete afterwards
