@@ -980,6 +980,9 @@ func init() {
 	flags.Bool(option.ExternalClusterIPName, false, "Enable external access to ClusterIP services (default false)")
 	option.BindEnv(option.ExternalClusterIPName)
 
+	flags.IntSlice(option.VLANBPFBypass, []int{}, "List of explicitly allowed VLAN IDs, '0' id will allow all VLAN IDs")
+	option.BindEnv(option.VLANBPFBypass)
+
 	viper.BindPFlags(flags)
 }
 
