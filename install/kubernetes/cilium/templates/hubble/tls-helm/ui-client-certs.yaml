@@ -1,0 +1,17 @@
+{{- if and .Values.hubble.enabled .Values.hubble.tls.enabled .Values.hubble.tls.auto.enabled (eq .Values.hubble.tls.auto.method "helm") .Values.hubble.ui.enabled .Values.hubble.relay.enabled .Values.hubble.relay.tls.server.enabled }}
+{{- $_ := include "hubble-generate-certs.helm.setup-ca" . -}}
+{{- $cn := "*.hubble-ui.cilium.io" }}
+{{- $dns := list $cn }}
+{{- $cert := genSignedCert $cn nil $dns (.Values.hubble.tls.auto.certValidityDuration | int) .ca -}}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hubble-ui-client-certs
+  namespace: {{ .Release.Namespace }}
+type: kubernetes.io/tls
+data:
+  ca.crt:  {{ .ca.Cert | b64enc }}
+  tls.crt: {{ $cert.Cert | b64enc }}
+  tls.key: {{ $cert.Key  | b64enc }}
+{{- end }}

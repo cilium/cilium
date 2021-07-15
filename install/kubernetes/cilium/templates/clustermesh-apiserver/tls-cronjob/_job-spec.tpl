@@ -9,11 +9,9 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      serviceAccount: {{ .Values.serviceAccounts.clustermeshcertgen.name | quote }}
-      serviceAccountName: {{ .Values.serviceAccounts.clustermeshcertgen.name | quote }}
       containers:
         - name: certgen
-          image: {{ .Values.certgen.image.repository }}:{{ .Values.certgen.image.tag }}
+          image: {{ include "cilium.image" .Values.certgen.image | quote }}
           imagePullPolicy: {{ .Values.certgen.image.pullPolicy }}
           command:
             - "/usr/bin/cilium-certgen"
@@ -23,25 +21,23 @@ spec:
             {{- if .Values.debug.enabled }}
             - "--debug"
             {{- end }}
-            {{- if not (and .Values.clustermesh.apiserver.tls.ca.cert .Values.clustermesh.apiserver.tls.ca.key) }}
+            {{- if not .Values.clustermesh.apiserver.tls.ca.cert }}
             - "--clustermesh-apiserver-ca-cert-generate"
             {{- end }}
-            {{- if not (and .Values.clustermesh.apiserver.tls.server.cert .Values.clustermesh.apiserver.tls.server.key) }}
             - "--clustermesh-apiserver-server-cert-generate"
-            {{- end }}
-            {{- if not (and .Values.clustermesh.apiserver.tls.admin.cert .Values.clustermesh.apiserver.tls.admin.key) }}
             - "--clustermesh-apiserver-admin-cert-generate"
-            {{- end }}
-            {{- if not (and .Values.clustermesh.apiserver.tls.client.cert .Values.clustermesh.apiserver.tls.client.key) }}
+            {{- if .Values.externalWorkloads.enabled }}
             - "--clustermesh-apiserver-client-cert-generate"
             {{- end }}
-            {{- if not (and .Values.clustermesh.apiserver.tls.remote.cert .Values.clustermesh.apiserver.tls.remote.key) }}
+            {{- if .Values.clustermesh.useAPIServer }}
             - "--clustermesh-apiserver-remote-cert-generate"
             {{- end }}
       hostNetwork: true
-      {{- if .Values.imagePullSecrets }}
+      serviceAccount: {{ .Values.serviceAccounts.clustermeshcertgen.name | quote }}
+      serviceAccountName: {{ .Values.serviceAccounts.clustermeshcertgen.name | quote }}
+      {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
-      {{ toYaml .Values.imagePullSecrets | indent 6 }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
       restartPolicy: OnFailure
   ttlSecondsAfterFinished: {{ .Values.certgen.ttlSecondsAfterFinished }}

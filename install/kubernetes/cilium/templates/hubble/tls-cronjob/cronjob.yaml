@@ -1,4 +1,4 @@
-{{- if and .Values.hubble.tls.auto.enabled (eq .Values.hubble.tls.auto.method "cronJob") .Values.hubble.tls.auto.schedule }}
+{{- if and .Values.hubble.enabled .Values.hubble.tls.enabled .Values.hubble.tls.auto.enabled (eq .Values.hubble.tls.auto.method "cronJob") .Values.hubble.tls.auto.schedule }}
 apiVersion: batch/v1beta1
 kind: CronJob
 metadata:
@@ -10,5 +10,5 @@ spec:
   schedule: {{ .Values.hubble.tls.auto.schedule | quote }}
   concurrencyPolicy: Forbid
   jobTemplate:
-{{- include "hubble-generate-certs.job.spec" . | nindent 4 }}
+    {{- include "hubble-generate-certs.job.spec" . | nindent 4 }}
 {{- end }}
