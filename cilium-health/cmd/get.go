@@ -28,7 +28,7 @@ import (
 // healthGetCmd represents the get command
 var healthGetCmd = &cobra.Command{
 	Use:     "get",
-	Aliases: []string{"inspect, show"},
+	Aliases: []string{"inspect", "show"},
 	Short:   "Display local cilium agent status",
 	Run: func(cmd *cobra.Command, args []string) {
 		result, err := client.Restapi.GetHealthz(nil)
