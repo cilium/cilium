@@ -2,7 +2,7 @@ package v4
 
 // IgnoredHeaders is a list of headers that are ignored during signing
 var IgnoredHeaders = Rules{
-	Blacklist{
+	ExcludeList{
 		MapRule{
 			"Authorization":   struct{}{},
 			"User-Agent":      struct{}{},
@@ -11,9 +11,9 @@ var IgnoredHeaders = Rules{
 	},
 }
 
-// RequiredSignedHeaders is a whitelist for Build canonical headers.
+// RequiredSignedHeaders is a allow list for Build canonical headers.
 var RequiredSignedHeaders = Rules{
-	Whitelist{
+	AllowList{
 		MapRule{
 			"Cache-Control":                         struct{}{},
 			"Content-Disposition":                   struct{}{},
@@ -56,12 +56,13 @@ var RequiredSignedHeaders = Rules{
 			"X-Amz-Tagging":                                               struct{}{},
 		},
 	},
+	Patterns{"X-Amz-Object-Lock-"},
 	Patterns{"X-Amz-Meta-"},
 }
 
-// AllowedQueryHoisting is a whitelist for Build query headers. The boolean value
+// AllowedQueryHoisting is a allowed list for Build query headers. The boolean value
 // represents whether or not it is a pattern.
 var AllowedQueryHoisting = InclusiveRules{
-	Blacklist{RequiredSignedHeaders},
+	ExcludeList{RequiredSignedHeaders},
 	Patterns{"X-Amz-"},
 }
