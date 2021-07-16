@@ -30,7 +30,7 @@ all:
 		echo Generating $${proto} && \
 		$(PROTOC) $(HUBBLE_PROTOC_PLUGINS) -I $(HUBBLE_PROTO_PATH) \
 			--go_out=paths=source_relative:. \
-			--go-grpc_out=requireUnimplementedServers=false,paths=source_relative:. \
+			--go-grpc_out=require_unimplemented_servers=false,paths=source_relative:. \
 			--go-json_out=orig_name:. \
 			$${proto}; \
 	done
