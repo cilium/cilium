@@ -956,6 +956,10 @@ const (
 	// BGPConfigPath is the file path to the BGP configuration. It is
 	// compatible with MetalLB's configuration.
 	BGPConfigPath = "bgp-config-path"
+
+	// ExternalClusterIPName is the name of the option to enable
+	// cluster external access to ClusterIP services.
+	ExternalClusterIPName = "bpf-lb-external-clusterip"
 )
 
 // Default string arguments
@@ -1962,6 +1966,10 @@ type DaemonConfig struct {
 	// compatible with MetalLB's configuration.
 	BGPConfigPath string
 
+	// ExternalClusterIP enables routing to ClusterIP services from outside
+	// the cluster. This mirrors the behaviour of kube-proxy.
+	ExternalClusterIP bool
+
 	// ARPPingRefreshPeriod is the ARP entries refresher period.
 	ARPPingRefreshPeriod time.Duration
 }
@@ -2009,6 +2017,8 @@ var (
 
 		k8sEnableLeasesFallbackDiscovery: defaults.K8sEnableLeasesFallbackDiscovery,
 		APIRateLimit:                     make(map[string]string),
+
+		ExternalClusterIP: defaults.ExternalClusterIP,
 	}
 )
 
@@ -2518,6 +2528,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableCustomCalls = viper.GetBool(EnableCustomCallsName)
 	c.BGPAnnounceLBIP = viper.GetBool(BGPAnnounceLBIP)
 	c.BGPConfigPath = viper.GetString(BGPConfigPath)
+	c.ExternalClusterIP = viper.GetBool(ExternalClusterIPName)
 
 	err = c.populateMasqueradingSettings()
 	if err != nil {
