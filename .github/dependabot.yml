@@ -7,8 +7,6 @@ updates:
     open-pull-requests-limit: 1
     rebase-strategy: "disabled"
     ignore:
-        # cannot be updated until the etcd library is updated
-      - dependency-name: "google.golang.org/grpc"
         # using a cilium-specific fork
       - dependency-name: "github.com/miekg/dns"
         # newer versions break our CI
