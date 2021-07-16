@@ -186,7 +186,7 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 		       __u8 encrypt_key __maybe_unused,
 		       struct endpoint_key *key, __u32 seclabel, __u32 monitor)
 {
-	struct endpoint_key *tunnel;
+	struct endpoint_value *tunnel;
 
 	if (tunnel_endpoint) {
 #ifdef ENABLE_IPSEC
@@ -221,6 +221,18 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 						seclabel);
 	}
 #endif
+	/*
+	 * see https://github.com/cilium/cilium/issues/16517
+	 * BPF verifier complains about use of eth_store_saddr_aligned()
+	 * in eth_store_dmac(), thus use less efficient __bpf_memcpy_builtin()
+	 * here as compromise
+	 */
+	if (tunnel->vni) {
+		mac_t vtep_mac = tunnel->dmac;
+		if (vtep_mac && eth_memcpy_daddr(ctx, (__u8 *)&vtep_mac, 0) < 0)
+			return DROP_WRITE_ERROR;
+		return __encap_and_redirect_with_nodeid(ctx, tunnel->ip4, tunnel->vni, monitor);
+	}
 	return __encap_and_redirect_with_nodeid(ctx, tunnel->ip4, seclabel, monitor);
 }
 
@@ -228,7 +240,7 @@ static __always_inline int
 encap_and_redirect_netdev(struct __ctx_buff *ctx, struct endpoint_key *k,
 			  __u32 seclabel, __u32 monitor)
 {
-	struct endpoint_key *tunnel;
+	struct endpoint_value *tunnel;
 
 	tunnel = map_lookup_elem(&TUNNEL_MAP, k);
 	if (!tunnel)

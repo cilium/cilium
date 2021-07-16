@@ -232,6 +232,20 @@ struct endpoint_key {
 	__u16 pad5;
 } __packed;
 
+struct endpoint_value {
+	union {
+		struct {
+			__u32		ip4;
+			__u32		vni;
+			mac_t		dmac;
+		};
+		union v6addr	ip6;
+	};
+	__u8 family;
+	__u8 key;
+	__u16 pad5;
+} __packed;
+
 #define ENDPOINT_F_HOST		1 /* Special endpoint representing local host */
 
 /* Value of endpoint map */

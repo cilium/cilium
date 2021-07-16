@@ -109,6 +109,18 @@ static __always_inline int eth_store_daddr(struct __ctx_buff *ctx,
 #endif
 }
 
+static __always_inline int eth_memcpy_daddr(struct __ctx_buff *ctx,
+					    const __u8 *mac, int off)
+{
+	void *data_end = ctx_data_end(ctx);
+	void *data = ctx_data(ctx);
+
+	if (ctx_no_room(data + off + ETH_ALEN, data_end))
+		return -EFAULT;
+	__bpf_memcpy_builtin(data + off, mac, ETH_ALEN);
+	return 0;
+}
+
 static __always_inline int eth_store_proto(struct __ctx_buff *ctx,
 					   const __u16 proto, int off)
 {
