@@ -4,16 +4,16 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
-.. _unit_testing:
+.. _integration_testing:
 
-Unit Testing
-============
+Integration Testing
+===================
 
 Cilium uses the standard `go test <https://golang.org/pkg/testing/>`__ framework
 in combination with `gocheck <http://labix.org/gocheck>`__ for richer testing
 functionality.
 
-.. _unit_testing_prerequisites:
+.. _integration_testing_prerequisites:
 
 Prerequisites
 ^^^^^^^^^^^^^
@@ -28,12 +28,18 @@ both etcd and consul. To start the local instances, run:
 Running all tests
 ^^^^^^^^^^^^^^^^^
 
-To run unit tests over the entire repository, run the following command in the
-project root directory:
+To run integration tests over the entire repository, run the following command
+in the project root directory:
 
 .. code-block:: shell-session
 
-    $ make unit-tests
+    $ make integration-tests
+
+To run just unit tests, run:
+
+.. code-block:: shell-session
+
+    $ go test ./...
 
 Testing individual packages
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -55,17 +61,18 @@ If you need more verbose output, you can pass in the ``-check.v`` and
     $ cd pkg/kvstore
     $ go test -check.v -check.vv
 
-If the unit tests have some prerequisites like :ref:`unit_testing_prerequisites`,
-you can use the following command to automatically set up the prerequisites,
-run the unit tests and tear down the prerequisites:
+Integration tests have some prerequisites like
+:ref:`integration_testing_prerequisites`, you can use the following command to
+automatically set up the prerequisites, run the unit tests and tear down the
+prerequisites:
 
 .. code-block:: shell-session
 
-    $ make unit-tests TESTPKGS=pkg/kvstore
+    $ make integration-tests TESTPKGS=pkg/kvstore
 
 Some packages have privileged tests. They are not run by default when you run
-the unit tests for the respective package. The privileged test files have an
-entry at the top of the test file as shown.
+the integration tests for the respective package. The privileged test files have
+an entry at the top of the test file as shown.
 
 ::
 

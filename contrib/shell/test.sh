@@ -44,7 +44,7 @@ function watchdo
 function watchtest_
 {
 
-    watchdo "." "make --quiet build unit-tests"
+    watchdo "." "make --quiet build integration-tests"
 }
 
 # Watch a file or directory for changes and trigger tests when it is modified.

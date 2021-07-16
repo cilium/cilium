@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2016-2020 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 
 package endpoint
 
@@ -36,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -534,29 +533,6 @@ func (e *Endpoint) HostInterface() string {
 		return ""
 	}
 	return e.ifName
-}
-
-// getK8sPodLabels returns all labels that exist in the endpoint and were
-// derived from k8s pod.
-func (e *Endpoint) getK8sPodLabels() labels.Labels {
-	e.unconditionalRLock()
-	defer e.runlock()
-	allLabels := e.OpLabels.AllLabels()
-	if allLabels == nil {
-		return nil
-	}
-
-	allLabelsFromK8s := allLabels.GetFromSource(labels.LabelSourceK8s)
-
-	k8sEPPodLabels := labels.Labels{}
-	for k, v := range allLabelsFromK8s {
-		if !strings.HasPrefix(v.Key, ciliumio.PodNamespaceMetaLabels) &&
-			!strings.HasPrefix(v.Key, ciliumio.PolicyLabelServiceAccount) &&
-			!strings.HasPrefix(v.Key, ciliumio.PodNamespaceLabel) {
-			k8sEPPodLabels[k] = v
-		}
-	}
-	return k8sEPPodLabels
 }
 
 // GetLabelsSHA returns the SHA of labels

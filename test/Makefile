@@ -19,19 +19,19 @@ all: build
 
 build:
 	@$(ECHO_GINKGO)$@
-	$(GINKGO) build
+	$(GINKGO) build -tags=integration_tests
 	$(QUIET)$(MAKE) -C bpf/
 
 test: run k8s
 
 run:
-	ginkgo --focus "Runtime" -v -- --cilium.provision=$(PROVISION) --cilium.registryCredentials=$(REGISTRY_CREDENTIALS)
+	ginkgo --focus "Runtime" --tags integration_tests -v -- --cilium.provision=$(PROVISION) --cilium.registryCredentials=$(REGISTRY_CREDENTIALS)
 
 k8s:
-	ginkgo --focus "K8s" -v -- --cilium.provision=$(PROVISION) --cilium.registryCredentials=$(REGISTRY_CREDENTIALS)
+	ginkgo --focus "K8s" --tags integration_tests -v -- --cilium.provision=$(PROVISION) --cilium.registryCredentials=$(REGISTRY_CREDENTIALS)
 
 nightly:
-	ginkgo --focus "Nightly" -v -- --cilium.provision=$(PROVISION) --cilium.registryCredentials=$(REGISTRY_CREDENTIALS)
+	ginkgo --focus "Nightly" -v --tags integration_tests -- --cilium.provision=$(PROVISION) --cilium.registryCredentials=$(REGISTRY_CREDENTIALS)
 
 clean:
 	@$(ECHO_CLEAN)
