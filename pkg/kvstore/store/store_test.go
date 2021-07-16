@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 
-// +build !privileged_tests
+// +build !privileged_tests,integration_tests
 
 package store
 
@@ -311,4 +311,34 @@ func (s *StoreSuite) TestStoreCollaboration(c *C) {
 		log.Debugf("totalKeys %d == keys1 %d == keys2 %d", totalKeys, len(keys1), len(keys2))
 		return len(keys1) == totalKeys && len(keys1) == len(keys2)
 	}), IsNil)
+}
+
+// getLocalKeys returns all local keys
+func (s *SharedStore) getLocalKeys() []Key {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	keys := make([]Key, len(s.localKeys))
+	idx := 0
+	for _, key := range s.localKeys {
+		keys[idx] = key
+		idx++
+	}
+
+	return keys
+}
+
+// getSharedKeys returns all shared keys
+func (s *SharedStore) getSharedKeys() []Key {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	keys := make([]Key, len(s.sharedKeys))
+	idx := 0
+	for _, key := range s.sharedKeys {
+		keys[idx] = key
+		idx++
+	}
+
+	return keys
 }

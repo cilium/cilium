@@ -51,7 +51,9 @@ contribute to Cilium:
 + python3-pip                                                  | latest                       | N/A (OS-specific)                                |
 +--------------------------------------------------------------+------------------------------+--------------------------------------------------+
 
-For `unit_testing`, you will need to run ``docker`` without privileges. You can usually achieve this by adding your current user to the ``docker`` group.
+For `integration_testing`, you will need to run ``docker`` without privileges.
+You can usually achieve this by adding your current user to the ``docker``
+group.
 
 Finally, in order to run Cilium locally on VMs, you need:
 
@@ -415,7 +417,7 @@ Making Changes
 
 #. Make sure your changes meet the following criteria:
 
-   #. New code is covered by :ref:`unit_testing`.
+   #. New code is covered by :ref:`integration_testing`.
    #. End to end integration / runtime tests have been extended or added. If
       not required, mention in the commit message what existing test covers the
       new code.
@@ -425,7 +427,7 @@ Making Changes
 #. Run ``git diff --check`` to catch obvious white space violations
 #. Run ``make`` to build your changes. This will also run ``make lint`` and error out
    on any golang linting errors. The rules are configured in ``.golangci.yaml``
-#. See :ref:`unit_testing` on how to run unit tests.
+#. See :ref:`integration_testing` on how to run integration tests.
 #. See :ref:`testsuite` for information how to run the end to end integration
    tests
 #. If you are making documentation changes, you can generate documentation files
