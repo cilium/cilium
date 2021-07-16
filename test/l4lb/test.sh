@@ -34,8 +34,9 @@ kind create cluster --config kind-config.yaml
 helm install cilium ../../install/kubernetes/cilium \
     --wait \
     --namespace kube-system \
-    --set image.repository=quay.io/${IMG_OWNER}/cilium-ci \
-    --set image.tag=${IMG_TAG} \
+    --set image.repository="quay.io/${IMG_OWNER}/cilium-ci" \
+    --set image.tag="${IMG_TAG}" \
+    --set image.useDigest=false \
     --set image.pullPolicy=IfNotPresent \
     --set operator.enabled=false \
     --set loadBalancer.standalone=true \
@@ -75,7 +76,7 @@ LB_VIP="2.2.2.2"
 nsenter -t $(docker inspect kind-worker -f '{{ .State.Pid }}') -n /bin/sh -c \
     "ip a a dev eth0 ${LB_VIP}/32"
 
-kubectl -n kube-system exec $CILIUM_POD_NAME -- \
+kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- \
     cilium service update --id 1 --frontend "${LB_VIP}:80" --backends "${WORKER_IP}:80" --k8s-node-port
 
 LB_NODE_IP=$(docker exec kind-control-plane ip -o -4 a s eth0 | awk '{print $4}' | cut -d/ -f1)
