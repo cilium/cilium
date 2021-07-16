@@ -221,9 +221,8 @@ struct endpoint_key {
 	union {
 		struct {
 			__u32		ip4;
-			__u32		pad1;
-			__u32		pad2;
-			__u32		pad3;
+			__u32		vni;
+			mac_t		dmac;
 		};
 		union v6addr	ip6;
 	};
