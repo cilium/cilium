@@ -11,7 +11,8 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-const _ = grpc.SupportPackageIsVersion6
+// Requires gRPC-Go v1.32.0 or later.
+const _ = grpc.SupportPackageIsVersion7
 
 // RecorderClient is the client API for Recorder service.
 //
@@ -31,7 +32,7 @@ func NewRecorderClient(cc grpc.ClientConnInterface) RecorderClient {
 }
 
 func (c *recorderClient) Record(ctx context.Context, opts ...grpc.CallOption) (Recorder_RecordClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_Recorder_serviceDesc.Streams[0], "/recorder.Recorder/Record", opts...)
+	stream, err := c.cc.NewStream(ctx, &Recorder_ServiceDesc.Streams[0], "/recorder.Recorder/Record", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -74,12 +75,19 @@ type RecorderServer interface {
 type UnimplementedRecorderServer struct {
 }
 
-func (*UnimplementedRecorderServer) Record(Recorder_RecordServer) error {
+func (UnimplementedRecorderServer) Record(Recorder_RecordServer) error {
 	return status.Errorf(codes.Unimplemented, "method Record not implemented")
 }
 
-func RegisterRecorderServer(s *grpc.Server, srv RecorderServer) {
-	s.RegisterService(&_Recorder_serviceDesc, srv)
+// UnsafeRecorderServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to RecorderServer will
+// result in compilation errors.
+type UnsafeRecorderServer interface {
+	mustEmbedUnimplementedRecorderServer()
+}
+
+func RegisterRecorderServer(s grpc.ServiceRegistrar, srv RecorderServer) {
+	s.RegisterService(&Recorder_ServiceDesc, srv)
 }
 
 func _Recorder_Record_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -108,7 +116,10 @@ func (x *recorderRecordServer) Recv() (*RecordRequest, error) {
 	return m, nil
 }
 
-var _Recorder_serviceDesc = grpc.ServiceDesc{
+// Recorder_ServiceDesc is the grpc.ServiceDesc for Recorder service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var Recorder_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "recorder.Recorder",
 	HandlerType: (*RecorderServer)(nil),
 	Methods:     []grpc.MethodDesc{},
