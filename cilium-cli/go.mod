@@ -6,7 +6,7 @@ replace (
 	github.com/miekg/dns => github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3
 	github.com/optiopay/kafka => github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
 
-	go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20210520171949-40d425d20241
+	go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20210607221240-b4c60b959dd7
 
 	// Using private fork of controller-tools. See commit msg for more context
 	// as to why we are using a private fork.
@@ -15,7 +15,7 @@ replace (
 
 require (
 	github.com/blang/semver/v4 v4.0.0
-	github.com/cilium/cilium v1.10.2
+	github.com/cilium/cilium v1.10.3
 	github.com/cilium/hubble v0.8.0
 	github.com/cilium/workerpool v1.0.0
 	github.com/cloudflare/cfssl v1.6.0
