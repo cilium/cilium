@@ -395,36 +395,6 @@ func (s *SharedStore) DeleteLocalKey(ctx context.Context, key NamedKey) {
 	}
 }
 
-// getLocalKeys returns all local keys
-func (s *SharedStore) getLocalKeys() []Key {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	keys := make([]Key, len(s.localKeys))
-	idx := 0
-	for _, key := range s.localKeys {
-		keys[idx] = key
-		idx++
-	}
-
-	return keys
-}
-
-// getSharedKeys returns all shared keys
-func (s *SharedStore) getSharedKeys() []Key {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	keys := make([]Key, len(s.sharedKeys))
-	idx := 0
-	for _, key := range s.sharedKeys {
-		keys[idx] = key
-		idx++
-	}
-
-	return keys
-}
-
 func (s *SharedStore) getLogger() *logrus.Entry {
 	return log.WithFields(logrus.Fields{
 		"storeName": s.name,

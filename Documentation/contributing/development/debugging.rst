@@ -380,11 +380,11 @@ To compile a Cilium binary with race detection, you can do:
     ``BASE_IMAGE`` which can be the ``cilium/cilium-runtime`` image from the
     root Dockerfile found in the Cilium repository.
 
-To run unit tests with race detection, you can do:
+To run integration tests with race detection, you can do:
 
 .. code-block:: shell-session
 
-    $ make RACE=1 unit-tests
+    $ make RACE=1 integration-tests
 
 ~~~~~~~~~~~~~~~~~~
 Deadlock detection
@@ -400,5 +400,5 @@ For example:
 .. code-block:: shell-session
 
     $ make LOCKDEBUG=1
-    $ # Deadlock detection during unit tests:
-    $ make LOCKDEBUG=1 unit-tests
+    $ # Deadlock detection during integration tests:
+    $ make LOCKDEBUG=1 integration-tests

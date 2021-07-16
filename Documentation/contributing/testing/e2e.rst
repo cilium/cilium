@@ -64,7 +64,7 @@ To run all of the runtime tests, execute the following command from the ``test``
 
 .. code-block:: shell-session
 
-    ginkgo --focus="Runtime"
+    ginkgo --focus="Runtime" --tags=integration_tests
 
 Ginkgo searches for all tests in all subdirectories that are "named" beginning
 with the string "Runtime" and contain any characters after it. For instance,
@@ -115,14 +115,14 @@ To run all of the Kubernetes tests, run the following command from the ``test`` 
 
 .. code-block:: shell-session
 
-    ginkgo --focus="K8s"
+    ginkgo --focus="K8s" --tags=integration_tests
 
 To run a specific test from the Kubernetes tests suite, run the following command
 from the ``test`` directory:
 
 .. code-block:: shell-session
 
-    ginkgo --focus="K8s.*Check iptables masquerading with random-fully"
+    ginkgo --focus="K8s.*Check iptables masquerading with random-fully" --tags=integration_tests
 
 Similar to the Runtime test suite, Ginkgo searches for all tests in all
 subdirectories that are "named" beginning with the string "K8s" and
@@ -142,7 +142,7 @@ supported version of Kubernetes, run the test suite with the following format:
 
 .. code-block:: shell-session
 
-    K8S_VERSION=<version> ginkgo --focus="K8s"
+    K8S_VERSION=<version> ginkgo --focus="K8s" --tags=integration_tests
 
 .. note::
 
@@ -175,7 +175,7 @@ To run all of the Nightly tests, run the following command from the ``test`` dir
 
 .. code-block:: shell-session
 
-    ginkgo --focus="Nightly"
+    ginkgo --focus="Nightly" --tags=integration_tests
 
 Similar to the other test suites, Ginkgo searches for all tests in all
 subdirectories that are "named" beginning with the string "Nightly" and contain
@@ -266,7 +266,7 @@ If you want to run one specified test, there are a few options:
 
   .. code-block:: shell-session
 
-      ginkgo --focus "Runtime.*L7"
+      ginkgo --focus "Runtime.*L7" --tags=integration_tests
 
 
 This will focus on tests that contain "Runtime", followed by any
