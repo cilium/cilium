@@ -189,6 +189,7 @@ init-coverage: ## Initialize converage report for Cilium unit-tests.
 	$(QUIET) echo "mode: count" > coverage-all-tmp.out
 	$(QUIET) echo "mode: count" > coverage.out
 
+unit-tests: GO_TAGS_FLAGS+=integration_tests
 unit-tests: start-kvstores ## Runs all unit-tests for Cilium.
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C tools/maptool/
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C test/bpf/

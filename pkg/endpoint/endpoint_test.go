@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build !privileged_tests
+// +build !privileged_tests,integration_tests
 
 package endpoint
 
@@ -720,4 +720,27 @@ func BenchmarkEndpointGetModel(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		e.GetModel()
 	}
+}
+
+// getK8sPodLabels returns all labels that exist in the endpoint and were
+// derived from k8s pod.
+func (e *Endpoint) getK8sPodLabels() labels.Labels {
+	e.unconditionalRLock()
+	defer e.runlock()
+	allLabels := e.OpLabels.AllLabels()
+	if allLabels == nil {
+		return nil
+	}
+
+	allLabelsFromK8s := allLabels.GetFromSource(labels.LabelSourceK8s)
+
+	k8sEPPodLabels := labels.Labels{}
+	for k, v := range allLabelsFromK8s {
+		if !strings.HasPrefix(v.Key, ciliumio.PodNamespaceMetaLabels) &&
+			!strings.HasPrefix(v.Key, ciliumio.PolicyLabelServiceAccount) &&
+			!strings.HasPrefix(v.Key, ciliumio.PodNamespaceLabel) {
+			k8sEPPodLabels[k] = v
+		}
+	}
+	return k8sEPPodLabels
 }
