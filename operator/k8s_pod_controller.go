@@ -43,7 +43,7 @@ var (
 func enableUnmanagedKubeDNSController() {
 	// These functions will block until the resources are synced with k8s.
 	watchers.CiliumEndpointsInit(k8s.CiliumClient().CiliumV2(), wait.NeverStop)
-	watchers.UnmanagedPodsInit(k8s.WatcherClient())
+	watchers.UnmanagedKubeDNSPodsInit(k8s.WatcherClient())
 
 	controller.NewManager().UpdateController("restart-unmanaged-kube-dns",
 		controller.ControllerParams{
@@ -54,7 +54,7 @@ func enableUnmanagedKubeDNSController() {
 						delete(lastPodRestart, podName)
 					}
 				}
-				for _, podItem := range watchers.UnmanagedPodStore.List() {
+				for _, podItem := range watchers.UnmanagedKubeDNSPodStore.List() {
 					pod, ok := podItem.(*slim_corev1.Pod)
 					if !ok {
 						log.Errorf("unexpected type mapping: found %T, expected %T", pod, &slim_corev1.Pod{})
