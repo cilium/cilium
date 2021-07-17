@@ -294,6 +294,7 @@ func (c *crdBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMu
 						handler.OnAdd(idpool.ID(id), c.KeyType.PutKeyFromMap(identity.SecurityLabels))
 					}
 				}
+				log.Infof("aanm: add %+v", obj)
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				if oldIdentity, ok := newObj.(*v2.CiliumIdentity); ok {
@@ -306,6 +307,7 @@ func (c *crdBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMu
 						}
 					}
 				}
+				log.Infof("aanm: mod old %+v new %+v", oldObj, newObj)
 			},
 			DeleteFunc: func(obj interface{}) {
 				// The delete event is sometimes for items with unknown state that are
@@ -321,6 +323,7 @@ func (c *crdBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMu
 				} else {
 					log.Debugf("Ignoring unknown delete event %#v", obj)
 				}
+				log.Infof("aanm: del %+v", obj)
 			},
 		},
 		nil,
