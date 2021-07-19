@@ -60,7 +60,7 @@ func (c configuration) LocalClusterName() string {
 	return c.clusterName
 }
 
-func (c configuration) K8sServiceProxyName() string {
+func (c configuration) K8sServiceProxyNameValue() string {
 	return c.serviceProxyName
 }
 
