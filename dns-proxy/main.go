@@ -126,6 +126,16 @@ func LookupIPsBySecID(nid identity.NumericIdentity) []string {
 func NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, agentAddr string, msg *dns.Msg, protocol string, allowed bool, stat *dnsproxy.ProxyRequestContext) error {
 	//TODO: retain stat somehow?
 
+	if ep == nil {
+		log.Errorf("Endpoint is nil")
+		return errors.New("Endpoint not found")
+	}
+
+	if msg == nil {
+		log.Errorf("DNS msg is nil")
+		return errors.New("Empty DNS message passed")
+	}
+
 	endpoint := &pb.Endpoint{
 		ID:        uint32(ep.ID),
 		Identity:  uint32(ep.SecurityIdentity.ID),
