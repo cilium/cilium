@@ -25,7 +25,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	ciliumPkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/health/defaults"
-	healthDefaults "github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/health/probe/responder"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -44,6 +43,7 @@ type Config struct {
 	CiliumURI     string
 	ProbeInterval time.Duration
 	ProbeDeadline time.Duration
+	HTTPPathPort  int
 }
 
 // ipString is an IP address used as a more descriptive type name in maps.
@@ -323,7 +323,7 @@ func NewServer(config Config) (*Server, error) {
 	server.Client = cl
 	server.Server = *server.newServer(swaggerSpec)
 
-	server.httpPathServer = responder.NewServer(healthDefaults.HTTPPathPort)
+	server.httpPathServer = responder.NewServer(config.HTTPPathPort)
 
 	return server, nil
 }

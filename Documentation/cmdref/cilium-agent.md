@@ -53,6 +53,7 @@ cilium-agent [flags]
       --bpf-sock-rev-map-max int                             Maximum number of entries for the SockRevNAT BPF map (default 262144)
       --certificates-directory string                        Root directory to find certificates specified in L7 TLS policy enforcement (default "/var/run/cilium/certs")
       --cgroup-root string                                   Path to Cgroup2 filesystem
+      --cluster-health-port int                              TCP port for cluster-wide network connectivity health API (default 4240)
       --cluster-id int                                       Unique identifier of the cluster
       --cluster-name string                                  Name of the cluster (default "default")
       --clustermesh-config string                            Path to the ClusterMesh configuration directory

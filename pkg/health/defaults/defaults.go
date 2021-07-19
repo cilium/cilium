@@ -26,5 +26,5 @@ const (
 	SockPathEnv = "CILIUM_HEALTH_SOCK"
 
 	// HTTPPathPort is used for probing base HTTP path connectivity
-	HTTPPathPort = 4240
+	HTTPPathPort = daemon.ClusterHealthPort
 )

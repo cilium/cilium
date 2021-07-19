@@ -59,6 +59,7 @@ func Launch() (*CiliumHealth, error) {
 		Debug:         option.Config.Opts.IsEnabled(option.Debug),
 		ProbeInterval: serverProbeInterval,
 		ProbeDeadline: serverProbeDeadline,
+		HTTPPathPort:  option.Config.ClusterHealthPort,
 	}
 
 	ch.server, err = server.NewServer(config)
