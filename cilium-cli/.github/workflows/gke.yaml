@@ -114,12 +114,14 @@ jobs:
           echo "=== Retrieve in-cluster jobs logs ==="
           kubectl logs --timestamps -n kube-system job/cilium-cli
 
-          echo "\n\n\n=== Install latest stable CLI ==="
-          curl -LO https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz
+          echo "=== Install latest stable CLI ==="
+          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz{,.sha256sum}
+          sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
           sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/bin
-          rm cilium-linux-amd64.tar.gz
+          rm cilium-linux-amd64.tar.gz{,.sha256sum}
+          cilium version
 
-          echo "\n\n\n=== Retrieve cluster state ==="
+          echo "=== Retrieve cluster state ==="
           kubectl get pods --all-namespaces -o wide
           cilium status
           cilium sysdump --output-filename cilium-sysdump-out
