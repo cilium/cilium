@@ -81,6 +81,7 @@ $(1): GIT_VERSION $(2) $(2).dockerignore GIT_VERSION builder-info
 		$(DOCKER_FLAGS) \
 		--build-arg BASE_IMAGE=${BASE_IMAGE} \
 		--build-arg NOSTRIP=${NOSTRIP} \
+		--build-arg NOOPT=${NOOPT}
 		--build-arg LOCKDEBUG=${LOCKDEBUG} \
 		--build-arg RACE=${RACE}\
 		--build-arg V=${V} \
