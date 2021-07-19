@@ -101,6 +101,7 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"ip -6 n",
 		"ss -t -p -a -i -s",
 		"ss -u -p -a -i -s",
+		"ss -S -p -a -i -s",
 		"tc qdisc show",
 		"tc -d -s qdisc show",
 		"uname -a",
