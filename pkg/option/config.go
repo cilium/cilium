@@ -1449,12 +1449,11 @@ type DaemonConfig struct {
 
 	// Masquerade specifies whether or not to masquerade packets from endpoints
 	// leaving the host.
-	EnableIPv4Masquerade bool
-	EnableIPv6Masquerade bool
-	EnableBPFMasquerade  bool
-	EnableBPFClockProbe  bool
-	EnableIPMasqAgent    bool
-	// expired DNS lookups with still-active connections
+	EnableIPv4Masquerade   bool
+	EnableIPv6Masquerade   bool
+	EnableBPFMasquerade    bool
+	EnableBPFClockProbe    bool
+	EnableIPMasqAgent      bool
 	EnableEgressGateway    bool
 	IPMasqAgentConfigPath  string
 	InstallIptRules        bool
@@ -1772,8 +1771,8 @@ type DaemonConfig struct {
 	// CiliumNode resource for the local node
 	AutoCreateCiliumNodeResource bool
 
-	// Ipv4NativeRoutingCIDR describes a CIDR in which pod IPs are routable
-	Ipv4NativeRoutingCIDR *cidr.CIDR
+	// IPv4NativeRoutingCIDR describes a CIDR in which pod IPs are routable
+	IPv4NativeRoutingCIDR *cidr.CIDR
 
 	// EgressMasqueradeInterfaces is the selector used to select interfaces
 	// subject to egress masquerading
@@ -1923,12 +1922,12 @@ type DaemonConfig struct {
 	// LBMapEntries is the maximum number of entries allowed in BPF lbmap.
 	LBMapEntries int
 
-	// K8sServiceProxyNametest is the value of service.kubernetes.io/service-proxy-name label,
+	// K8sServiceProxyName is the value of service.kubernetes.io/service-proxy-name label,
 	// that identifies the service objects Cilium should handle.
 	// If the provided value is an empty string, Cilium will manage service objects when
 	// the label is not present. For more details -
 	// https://github.com/kubernetes/enhancements/blob/master/keps/sig-network/0031-20181017-kube-proxy-services-optional.md
-	K8sServiceProxyNametest string
+	K8sServiceProxyName string
 
 	// APIRateLimitName enables configuration of the API rate limits
 	APIRateLimit map[string]string
@@ -2026,10 +2025,10 @@ var (
 	}
 )
 
-// IPv4NativeRoutingCIDR returns the native routing CIDR if configured
-func (c *DaemonConfig) IPv4NativeRoutingCIDR() (cidr *cidr.CIDR) {
+// GetIPv4NativeRoutingCIDR returns the native routing CIDR if configured
+func (c *DaemonConfig) GetIPv4NativeRoutingCIDR() (cidr *cidr.CIDR) {
 	c.ConfigPatchMutex.RLock()
-	cidr = c.Ipv4NativeRoutingCIDR
+	cidr = c.IPv4NativeRoutingCIDR
 	c.ConfigPatchMutex.RUnlock()
 	return
 }
@@ -2037,7 +2036,7 @@ func (c *DaemonConfig) IPv4NativeRoutingCIDR() (cidr *cidr.CIDR) {
 // SetIPv4NativeRoutingCIDR sets the native routing CIDR
 func (c *DaemonConfig) SetIPv4NativeRoutingCIDR(cidr *cidr.CIDR) {
 	c.ConfigPatchMutex.Lock()
-	c.Ipv4NativeRoutingCIDR = cidr
+	c.IPv4NativeRoutingCIDR = cidr
 	c.ConfigPatchMutex.Unlock()
 }
 
@@ -2147,8 +2146,8 @@ func (c *DaemonConfig) LocalClusterName() string {
 // K8sServiceProxyName returns the required value for the
 // service.kubernetes.io/service-proxy-name label in order for services to be
 // handled.
-func (c *DaemonConfig) K8sServiceProxyName() string {
-	return c.K8sServiceProxyNametest
+func (c *DaemonConfig) K8sServiceProxyNameValue() string {
+	return c.K8sServiceProxyName
 }
 
 // CiliumNamespaceName returns the name of the namespace in which Cilium is
@@ -2524,7 +2523,7 @@ func (c *DaemonConfig) Populate() {
 	c.PolicyAuditMode = viper.GetBool(PolicyAuditModeArg)
 	c.EnableIPv4FragmentsTracking = viper.GetBool(EnableIPv4FragmentsTrackingName)
 	c.FragmentsMapEntries = viper.GetInt(FragmentsMapEntriesName)
-	c.K8sServiceProxyNametest = viper.GetString(K8sServiceProxyName)
+	c.K8sServiceProxyName = viper.GetString(K8sServiceProxyName)
 	c.CRDWaitTimeout = viper.GetDuration(CRDWaitTimeout)
 	c.LoadBalancerDSRDispatch = viper.GetString(LoadBalancerDSRDispatch)
 	c.LoadBalancerDSRL4Xlate = viper.GetString(LoadBalancerDSRL4Xlate)
@@ -2555,15 +2554,15 @@ func (c *DaemonConfig) Populate() {
 	}
 
 	if nativeRoutingCIDR != "" {
-		c.Ipv4NativeRoutingCIDR = cidr.MustParseCIDR(nativeRoutingCIDR)
+		c.IPv4NativeRoutingCIDR = cidr.MustParseCIDR(nativeRoutingCIDR)
 
-		if len(c.Ipv4NativeRoutingCIDR.IP) != net.IPv4len {
+		if len(c.IPv4NativeRoutingCIDR.IP) != net.IPv4len {
 			log.Fatalf("%s must be an IPv4 CIDR", NativeRoutingCIDR)
 		}
 	} else if ipv4NativeRoutingCIDR != "" {
-		c.Ipv4NativeRoutingCIDR = cidr.MustParseCIDR(ipv4NativeRoutingCIDR)
+		c.IPv4NativeRoutingCIDR = cidr.MustParseCIDR(ipv4NativeRoutingCIDR)
 
-		if len(c.Ipv4NativeRoutingCIDR.IP) != net.IPv4len {
+		if len(c.IPv4NativeRoutingCIDR.IP) != net.IPv4len {
 			log.Fatalf("%s must be an IPv4 CIDR", IPv4NativeRoutingCIDR)
 		}
 	}
@@ -2935,7 +2934,7 @@ func (c *DaemonConfig) checkMapSizeLimits() error {
 }
 
 func (c *DaemonConfig) checkIPv4NativeRoutingCIDR() error {
-	if c.IPv4NativeRoutingCIDR() == nil && c.EnableIPv4Masquerade && c.Tunnel == TunnelDisabled &&
+	if c.GetIPv4NativeRoutingCIDR() == nil && c.EnableIPv4Masquerade && c.Tunnel == TunnelDisabled &&
 		c.IPAMMode() != ipamOption.IPAMENI && c.EnableIPv4 && c.IPAMMode() != ipamOption.IPAMAlibabaCloud {
 		return fmt.Errorf(
 			"native routing cidr must be configured with option --%s "+

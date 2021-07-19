@@ -487,7 +487,7 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 				EnableIPv6Masquerade:  true,
 				Tunnel:                TunnelDisabled,
 				IPAM:                  ipamOption.IPAMAzure,
-				Ipv4NativeRoutingCIDR: cidr.MustParseCIDR("10.127.64.0/18"),
+				IPv4NativeRoutingCIDR: cidr.MustParseCIDR("10.127.64.0/18"),
 				EnableIPv4:            true,
 			},
 			wantErr: false,

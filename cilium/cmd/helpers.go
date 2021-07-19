@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
-	"github.com/iancoleman/strcase"
 
 	"github.com/spf13/cobra"
 )
@@ -89,16 +88,6 @@ func requirePath(cmd *cobra.Command, args []string) {
 
 	if args[0] == "" {
 		Usagef(cmd, "Empty path argument")
-	}
-}
-
-func requireConfigName(cmd *cobra.Command, args []string) {
-	if len(args) < 1 {
-		Usagef(cmd, "Missing config name argument")
-	}
-
-	if args[0] == "" {
-		Usagef(cmd, "Empty config argument")
 	}
 }
 
@@ -370,7 +359,7 @@ func updatePolicyKey(pa *PolicyUpdateArgs, add bool) {
 }
 
 // dumpConfig pretty prints boolean options
-func dumpConfig(Opts map[string]string) {
+func dumpConfig(Opts map[string]string, indented bool) {
 	opts := []string{}
 	for k := range Opts {
 		opts = append(opts, k)
@@ -380,26 +369,30 @@ func dumpConfig(Opts map[string]string) {
 	for _, k := range opts {
 		// XXX: Reuse the format function from *option.Library
 		value = Opts[k]
+		formatStr := "%-34s: %s\n"
+		if indented {
+			formatStr = "\t%-26s: %s\n"
+		}
 		if enabled, err := option.NormalizeBool(value); err != nil {
 			// If it cannot be parsed as a bool, just format the value.
-			fmt.Printf("%-34s: %s\n", k, value)
+			fmt.Printf(formatStr, k, value)
 		} else if enabled == option.OptionDisabled {
-			fmt.Printf("%-34s: %s\n", k, "Disabled")
+			fmt.Printf(formatStr, k, "Disabled")
 		} else {
-			fmt.Printf("%-34s: %s\n", k, "Enabled")
+			fmt.Printf(formatStr, k, "Enabled")
 		}
 	}
 }
 
-func mapKeysToSnakeCase(s map[string]interface{}) map[string]interface{} {
+func mapKeysToLowerCase(s map[string]interface{}) map[string]interface{} {
 	m := make(map[string]interface{})
 	for k, v := range s {
 		if reflect.ValueOf(v).Kind() == reflect.Map {
 			for i, j := range v.(map[string]interface{}) {
-				m[strcase.ToSnake(i)] = j
+				m[strings.ToLower(i)] = j
 			}
 		}
-		m[strcase.ToSnake(k)] = v
+		m[strings.ToLower(k)] = v
 	}
 	return m
 }
@@ -430,4 +423,15 @@ func getIpv6EnableStatus() bool {
 	}
 	// returning the EnableIPv6 default status
 	return defaults.EnableIPv6
+}
+
+func mergeMaps(m1, m2 map[string]interface{}) map[string]interface{} {
+	m3 := make(map[string]interface{})
+	for k, v := range m1 {
+		m3[k] = v
+	}
+	for k, v := range m2 {
+		m3[k] = v
+	}
+	return m3
 }

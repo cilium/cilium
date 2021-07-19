@@ -42,7 +42,7 @@ var _ = Suite(&K8sWatcherSuite{})
 
 type fakeWatcherConfiguration struct{}
 
-func (f *fakeWatcherConfiguration) K8sServiceProxyName() string {
+func (f *fakeWatcherConfiguration) K8sServiceProxyNameValue() string {
 	return ""
 }
 

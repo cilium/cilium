@@ -1323,7 +1323,7 @@ func (m *IptablesManager) installRules(ifName string) error {
 	}
 
 	if skipPodTrafficConntrack(false) {
-		podsCIDR := option.Config.IPv4NativeRoutingCIDR().String()
+		podsCIDR := option.Config.GetIPv4NativeRoutingCIDR().String()
 
 		if err := m.addNoTrackPodTrafficRules(ip4tables, podsCIDR); err != nil {
 			return fmt.Errorf("Cannot install rules to skip pod traffic CT: %w", err)
