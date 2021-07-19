@@ -28,12 +28,18 @@ both etcd and consul. To start the local instances, run:
 Running all tests
 ^^^^^^^^^^^^^^^^^
 
-To run unit tests over the entire repository, run the following command in the
-project root directory:
+To run integration tests over the entire repository, run the following command
+in the project root directory:
 
 .. code-block:: shell-session
 
     $ make unit-tests
+
+To run just unit tests, run:
+
+.. code-block:: shell-session
+
+    $ go test ./...
 
 Testing individual packages
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -55,9 +61,10 @@ If you need more verbose output, you can pass in the ``-check.v`` and
     $ cd pkg/kvstore
     $ go test -check.v -check.vv
 
-If the unit tests have some prerequisites like :ref:`unit_testing_prerequisites`,
-you can use the following command to automatically set up the prerequisites,
-run the unit tests and tear down the prerequisites:
+Integration tests have some prerequisites like
+:ref:`unit_testing_prerequisites`, you can use the following command to
+automatically set up the prerequisites, run the unit tests and tear down the
+prerequisites:
 
 .. code-block:: shell-session
 

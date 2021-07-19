@@ -17,6 +17,8 @@
 package loader
 
 import (
+	"io"
+
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -44,6 +46,7 @@ func (s *LoaderTestSuite) TesthashDatapath(c *C) {
 
 	// Ensure we get the same base hash when config is removed via Reset()
 	h.Reset()
+	io.WriteString(h, DatapathSHA256)
 	c.Assert(h.String(), Equals, baseHash)
 	c.Assert(h.String(), Not(Equals), dummyHash)
 

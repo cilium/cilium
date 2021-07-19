@@ -51,7 +51,7 @@ var (
 	dirInfo *directoryInfo
 	ep      = testutils.NewTestEndpoint()
 	hostEp  = testutils.NewTestHostEndpoint()
-	bpfDir  = filepath.Join(testutils.CiliumRootDir, "bpf")
+	bpfDir  = filepath.Join("..", "..", "..", "bpf")
 )
 
 // SetTestIncludes allows test files to configure additional include flags.
