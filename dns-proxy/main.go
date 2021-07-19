@@ -42,6 +42,7 @@ import (
 
 var (
 	agentAddr = flag.String("server_addr", "localhost:10000", "The server address in the format of host:port")
+	debug     = flag.Bool("debug", false, "")
 	client    pb.FQDNProxyAgentClient
 )
 
