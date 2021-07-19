@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Authors of Cilium
+// Copyright 2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,10 +16,16 @@ package cmd
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
 
 	"github.com/cilium/cilium/pkg/command"
-	"github.com/iancoleman/strcase"
+	"github.com/cilium/cilium/test/helpers"
 	"github.com/spf13/cobra"
+)
+
+var (
+	removeHyphen = regexp.MustCompile(`[^\w]`)
 )
 
 // configGetCmd represents the config get command
@@ -28,7 +34,8 @@ var configGetCmd = &cobra.Command{
 	Short:  "Retrieve cilium configuration",
 	PreRun: requireConfigName,
 	Run: func(cmd *cobra.Command, args []string) {
-		configName := strcase.ToSnake(args[0])
+		// removing hyphen from the config name and transforming it to lower case
+		configName := removeHyphen.ReplaceAllString(strings.ToLower(args[0]), "")
 		resp, err := client.ConfigGet()
 		if err != nil {
 			Fatalf("Error while retrieving configuration: %s", err)
@@ -37,12 +44,26 @@ var configGetCmd = &cobra.Command{
 			Fatalf("Empty configuration status returned")
 		}
 
-		cfgStatusMap := resp.Status.DaemonConfigurationMap
-		configMap := mapKeysToSnakeCase(cfgStatusMap)
-		if id, ok := configMap[configName]; ok {
-			fmt.Printf("%v\n", id)
+		readWriteConfigMap := make(map[string]interface{})
+		readOnlyConfigMap := resp.Status.DaemonConfigurationMap
+
+		for k, v := range resp.Status.Realized.Options {
+			readWriteConfigMap[k] = v
+		}
+		readWriteConfigMap[helpers.PolicyEnforcement] = resp.Status.Realized.PolicyEnforcement
+
+		// Key values are named as field names of `DaemonConfig` struct
+		// to match configuration input, map keys are transformed to lower case
+		readWriteConfigMap = mapKeysToLowerCase(readWriteConfigMap)
+		readOnlyConfigMap = mapKeysToLowerCase(readOnlyConfigMap)
+
+		// conifgMap holds both read-only and read-write configurations
+		configMap := mergeMaps(readOnlyConfigMap, readWriteConfigMap)
+
+		if value, ok := configMap[configName]; ok {
+			fmt.Printf("%v\n", value)
 		} else {
-			fmt.Printf("Configuration does not exist\n")
+			Fatalf("Configuration does not exist")
 		}
 	},
 }
@@ -50,4 +71,14 @@ var configGetCmd = &cobra.Command{
 func init() {
 	configCmd.AddCommand(configGetCmd)
 	command.AddJSONOutput(configGetCmd)
+}
+
+func requireConfigName(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		Usagef(cmd, "Missing config name argument")
+	}
+
+	if args[0] == "" {
+		Usagef(cmd, "Empty config argument")
+	}
 }
