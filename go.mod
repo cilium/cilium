@@ -45,7 +45,7 @@ require (
 	github.com/google/go-cmp v0.5.6
 	github.com/google/gopacket v1.1.19
 	github.com/google/gops v0.3.18
-	github.com/google/renameio v1.0.0
+	github.com/google/renameio v1.0.1
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/mux v1.8.0
 	github.com/hashicorp/consul/api v1.3.0
