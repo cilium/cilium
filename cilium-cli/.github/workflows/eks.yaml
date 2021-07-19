@@ -55,7 +55,7 @@ jobs:
           echo ::set-output name=sha::${SHA}
           echo ::set-output name=owner::${OWNER}
 
-      - name: Create EKS cluster nodegroup
+      - name: Create EKS cluster
         run: |
           cat <<EOF > eks-config.yaml
           apiVersion: eksctl.io/v1alpha5
@@ -91,23 +91,6 @@ jobs:
           .github/get-kubeconfig.sh
           kubectl create configmap cilium-cli-kubeconfig -n kube-system --from-file kubeconfig
 
-      - name: Load cilium install script in configmap
-        run: |
-          kubectl create configmap cilium-cli-test-script-install -n kube-system --from-file=in-cluster-test-script.sh=.github/in-cluster-test-scripts/eks-install.sh
-
-      - name: Create cilium-cli install job
-        run: |
-          helm install .github/cilium-cli-test-job-chart \
-            --generate-name \
-            --set tag=${{ steps.vars.outputs.sha }} \
-            --set cluster_name=${{ env.clusterName }} \
-            --set job_name=cilium-cli-install \
-            --set test_script_cm=cilium-cli-test-script-install
-
-      - name: Make sure the 'aws-node' DaemonSet exists but has no scheduled pods
-        run: |
-          [[ $(kubectl -n kube-system get ds/aws-node -o jsonpath='{.status.currentNumberScheduled}') == 0 ]]
-
       - name: Load cilium cli script in configmap
         run: |
           kubectl create configmap cilium-cli-test-script -n kube-system --from-file=in-cluster-test-script.sh=.github/in-cluster-test-scripts/eks.sh
@@ -121,13 +104,12 @@ jobs:
 
       - name: Wait for test job
         run: |
-          kubectl -n kube-system wait job/cilium-cli --for=condition=complete --timeout=10m
+          kubectl -n kube-system wait job/cilium-cli --for=condition=complete --timeout=20m
 
       - name: Post-test information gathering
         if: ${{ !success() }}
         run: |
           echo "=== Retrieve in-cluster jobs logs ==="
-          kubectl logs --timestamps -n kube-system job/cilium-cli-install
           kubectl logs --timestamps -n kube-system job/cilium-cli
 
           echo "\n\n\n=== Install latest stable CLI ==="
@@ -152,7 +134,9 @@ jobs:
             --set job_name=cilium-cli-uninstall \
             --set test_script_cm=cilium-cli-test-script-uninstall
           kubectl -n kube-system wait job/cilium-cli-uninstall --for=condition=complete --timeout=2m
-          [[ ! $(kubectl -n kube-system get ds/aws-node -o jsonpath="{.spec.template.spec.nodeSelector['io\.cilium/aws-node-enabled']}") ]]
+
+          echo "=== Retrieve in-cluster jobs logs ==="
+          kubectl logs --timestamps -n kube-system job/cilium-cli-uninstall
 
       - name: Clean up EKS
         if: ${{ always() }}
