@@ -90,15 +90,18 @@ func configDaemon(cmd *cobra.Command, opts []string) {
 			v := cfgStatus.DaemonConfigurationMap[k]
 			if reflect.ValueOf(v).Kind() == reflect.Map {
 				mapString := make(map[string]string)
-				for key, value := range v.(map[string]interface{}) {
-					strKey := fmt.Sprintf("%v", key)
-					strValue := fmt.Sprintf("%v", value)
-					mapString[strKey] = strValue
+				m, ok := v.(map[string]interface{})
+				if ok {
+					for key, value := range m {
+						mapString[key] = fmt.Sprintf("%v", value)
+					}
+					dumpConfig(mapString)
+					continue
+				} else {
+					fmt.Print("Error: cannot cast daemon config map to map[string]interface{}\n")
 				}
-				dumpConfig(mapString)
-			} else {
-				fmt.Printf("%-34s: %v\n", k, v)
 			}
+			fmt.Printf("%-34s: %v\n", k, v)
 		}
 		dumpConfig(cfgStatus.Immutable)
 		fmt.Print("\n\n##### Read Write Configurations #####\n")
