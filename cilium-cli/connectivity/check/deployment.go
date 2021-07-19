@@ -550,14 +550,14 @@ func (ct *ConnectivityTest) waitForIPCache(ctx context.Context, pod Pod) error {
 
 			for _, client := range ct.clientPods {
 				if _, err := ic.findPodID(client); err != nil {
-					ct.Debugf("Couldn't find client Pod %v in ipcache, retrying...", client)
+					ct.Debugf("Couldn't find client Pod %v in ipcache (%s), retrying...", client, err)
 					goto retry
 				}
 			}
 
 			for _, echo := range ct.echoPods {
 				if _, err := ic.findPodID(echo); err != nil {
-					ct.Debugf("Couldn't find echo Pod %v in ipcache, retrying...", echo)
+					ct.Debugf("Couldn't find echo Pod %v in ipcache (%s), retrying...", echo, err)
 					goto retry
 				}
 			}
