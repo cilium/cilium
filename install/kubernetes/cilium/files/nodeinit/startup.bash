@@ -4,44 +4,6 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
-mount | grep "/sys/fs/bpf type bpf" || {
-  # Mount the filesystem until next reboot
-  echo "Mounting BPF filesystem..."
-  mount bpffs /sys/fs/bpf -t bpf
-
-  # Configure systemd to mount after next boot
-  echo "Installing BPF filesystem mount"
-  cat >/tmp/sys-fs-bpf.mount <<EOF
-[Unit]
-Description=Mount BPF filesystem (Cilium)
-Documentation=http://docs.cilium.io/
-DefaultDependencies=no
-Before=local-fs.target umount.target
-After=swap.target
-
-[Mount]
-What=bpffs
-Where=/sys/fs/bpf
-Type=bpf
-Options=rw,nosuid,nodev,noexec,relatime,mode=700
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-  if [ -d "/etc/systemd/system/" ]; then
-    mv /tmp/sys-fs-bpf.mount /etc/systemd/system/
-    echo "Installed sys-fs-bpf.mount to /etc/systemd/system/"
-  elif [ -d "/lib/systemd/system/" ]; then
-    mv /tmp/sys-fs-bpf.mount /lib/systemd/system/
-    echo "Installed sys-fs-bpf.mount to /lib/systemd/system/"
-  fi
-
-  # Ensure that filesystem gets mounted on next reboot
-  systemctl enable sys-fs-bpf.mount
-  systemctl start sys-fs-bpf.mount
-}
-
 echo "Link information:"
 ip link
 

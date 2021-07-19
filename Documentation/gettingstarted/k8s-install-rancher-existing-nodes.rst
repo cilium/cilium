@@ -50,15 +50,6 @@ cluster:
 
 .. image:: images/rancher_add_nodes.png
 
-Before adding nodes to the cluster, ensure the BPF filesystem is mounted.
-You can persist the configuration using the following commands:
-
-.. code-block:: shell-session
-
-  sudo mount bpffs -t bpf /sys/fs/bpf
-  sudo bash -c "echo 'none /sys/fs/bpf bpf rw,relatime 0 0' >> /etc/fstab"
-
-
 Next, add nodes to the cluster using the Rancher-provided Docker commands. Be
 sure to add the appropriate number of nodes required for your cluster. After
 a few minutes, you will see that the Nodes overview will show an error message

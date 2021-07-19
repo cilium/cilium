@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/maps/eppolicymap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
 )
@@ -59,7 +58,7 @@ func main() {
 	if err := bpf.ConfigureResourceLimits(); err != nil {
 		fmt.Fprintf(os.Stdout, "Failed to configure resource limits: %s\n", err)
 	}
-	bpf.CheckOrMountFS(defaults.DefaultMapRoot, true)
+	bpf.CheckOrMountFS("")
 
 	bpfObjPath := os.Args[2]
 	if err := createMap(bpfObjPath); err != nil {
