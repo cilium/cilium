@@ -174,16 +174,18 @@ jobs:
           kubectl logs --timestamps -n kube-system job/cilium-cli-install
           kubectl logs --timestamps -n kube-system job/cilium-cli
 
-          echo "\n\n\n=== Retrieve VM state ==="
+          echo "=== Retrieve VM state ==="
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "cilium status"
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "sudo docker logs cilium --timestamps"
 
-          echo "\n\n\n=== Install latest stable CLI ==="
-          curl -LO https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz
+          echo "=== Install latest stable CLI ==="
+          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz{,.sha256sum}
+          sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
           sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/bin
-          rm cilium-linux-amd64.tar.gz
+          rm cilium-linux-amd64.tar.gz{,.sha256sum}
+          cilium version
 
-          echo "\n\n\n=== Retrieve cluster state ==="
+          echo "=== Retrieve cluster state ==="
           kubectl get pods --all-namespaces -o wide
           kubectl get cew --all-namespaces -o wide
           kubectl get cep --all-namespaces -o wide
