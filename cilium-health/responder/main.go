@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 
+	healthDefaults "github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/health/probe/responder"
 	"github.com/cilium/cilium/pkg/pidfile"
 
@@ -31,7 +32,7 @@ func main() {
 		listen      int
 	)
 	flag.StringVar(&pidfilePath, "pidfile", "", "Write pid to the specified file")
-	flag.IntVar(&listen, "listen", 4240, "Port on which the responder listens")
+	flag.IntVar(&listen, "listen", healthDefaults.HTTPPathPort, "Port on which the responder listens")
 	flag.Parse()
 
 	// Shutdown gracefully to halt server and remove pidfile
