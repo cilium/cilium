@@ -2187,7 +2187,7 @@ func (c *DaemonConfig) Validate() error {
 		if !c.EnableIPv6 {
 			return fmt.Errorf("IPv6NDP cannot be enabled when IPv6 is not enabled")
 		}
-		if len(c.IPv6MCastDevice) == 0 {
+		if len(c.IPv6MCastDevice) == 0 && !MightAutoDetectDevices() {
 			return fmt.Errorf("IPv6NDP cannot be enabled without %s", IPv6MCastDevice)
 		}
 	}
