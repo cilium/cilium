@@ -1,5 +1,87 @@
 # Changelog
 
+## v1.9.9
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* bpf: bpf host routing for tunneling (Backport PR #16781, Upstream PR #15148, @borkmann)
+* Envoy use of original source address in upstream connetions is disabled when datapath is tunneling. (Backport PR #16568, Upstream PR #14594, @jrajahalme)
+* Fixes connectivity issues when kube-proxy replacement is enabled, caused by  ineffective socket based load balancing (aka host reachable services) in the private cgroup namespace mode of container runtimes (e.g., docker cgroupv2 configuration). (Backport PR #16676, Upstream PR #16259, @aditighag)
+* Support non-default Azure clouds (Backport PR #16394, Upstream PR #16043, @ungureanuvladvictor)
+
+**Bugfixes:**
+* bpf: fix hw\_csum issue for icmp probe packets (Backport PR #16615, Upstream PR #16604, @borkmann)
+* bpf: fix iptables masquerading for node -> remote pod traffic (Backport PR #16781, Upstream PR #16136, @jibi)
+* daemon, node: Fix faulty router IP restoration logic (Backport PR #16569, Upstream PR #16672, @christarazi)
+* DNS proxy is now more available during Cilium restarts, including upgrades. (Backport PR #16744, Upstream PR #16391, @jrajahalme)
+* endpoint: trigger k8s sync controller on identity update (Backport PR #16781, Upstream PR #16381, @jibi)
+* Envoy configuration with `--proxy-prometheus-port` is fixed. (Backport PR #16903, Upstream PR #16834, @jrajahalme)
+* Fix 5.10+ complexity issue with `kubeProxyReplacement=disabled` (Backport PR #16568, Upstream PR #16084, @pchaigno)
+* Fix bug where Cilium allocates a new router (`cilium_host`) IP upon node reboot, breaking connectivity especially with IPsec (Backport PR #16569, Upstream PR #16307, @christarazi)
+* install: Allow setting enable-health-check-nodeport to 'false' (Backport PR #16568, Upstream PR #16323, @dctrwatson)
+* ipsec: Fix logging of SPI after key rotations (Backport PR #16615, Upstream PR #16557, @pchaigno)
+* lrp: Skip clusterIP service restore in service delete callback (Backport PR #16615, Upstream PR #16548, @aditighag)
+* pkg/option: Fix default assignment of EnableWellKnownIdentities (Backport PR #16615, Upstream PR #16434, @mauriciovasquezbernal)
+* Plumb Azure interface's VPC / primary CIDR and set it as native routing CIDR in Azure IPAM mode (Backport PR #16569, Upstream PR #16696, @christarazi)
+* Potential deadlock in pod identity updates has been fixed. (Backport PR #16903, Upstream PRs #16529, #16769, #16801, @jrajahalme)
+* Remove previous PERM ARP entries installed by Cilium when kube-proxy-replacement and IPSec are disabled. (#16358, @aanm)
+* Removes cilium daemonset's dependencies on utilities like `sh` and `mount` having installed in the underlying host distributions. (Backport PR #16676, Upstream PR #16815, @aditighag)
+
+**CI Changes:**
+* ci: Disable NFS locking (Backport PR #16779, Upstream PR #16554, @gandro)
+* ci: restart portmap service on CI nodes (Backport PR #16568, Upstream PR #16506, @nebril)
+* Fix and add more commands in CI sysdumps (Backport PR #16779, Upstream PR #16721, @aanm)
+* Make LRP restore test logic robust and optimized (Backport PR #16394, Upstream PR #16194, @aditighag)
+* node-neigh: Fix concurrent arping update unit test flake (Backport PR #16615, Upstream PR #16578, @brb)
+* node: fix arpping test (Backport PR #16568, Upstream PR #16432, @jibi)
+* test: Mark GKE CI pipeline as running Linux 4.19 (Backport PR #16394, Upstream PR #14639, @pchaigno)
+* test: Use new test-verifier image in K8sVerifier (Backport PR #16568, Upstream PR #16231, @pchaigno)
+
+**Misc Changes:**
+* .github: stop pushing last stable image from v1.9 branches (#16403, @aanm)
+* [v1.9] Update K8s to v1.19.12 (#16609, @christarazi)
+* Add missing bpftool map dumps (Backport PR #16394, Upstream PR #16055, @h3llix)
+* bugtool: Collect BPF cgroup programs related information (Backport PR #16779, Upstream PR #16691, @aditighag)
+* build(deps): bump actions/cache from 2.1.5 to 2.1.6 (#16350, @dependabot[bot])
+* build(deps): bump actions/download-artifact from 2.0.9 to 2.0.10 (#16581, @dependabot[bot])
+* build(deps): bump actions/upload-artifact from 2.2.3 to 2.2.4 (#16592, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 2.5.0 to 2.6.1 (#16784, @dependabot[bot])
+* build(deps): bump docker/login-action from 1.9.0 to 1.10.0 (#16640, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 1.3.0 to 1.4.1 (#16683, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 1.4.1 to 1.5.0 (#16762, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 1.5.0 to 1.5.1 (#16855, @dependabot[bot])
+* build(deps): bump helm/kind-action from 1.1.0 to 1.2.0 (#16707, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from 1.3.0 to 1.4.0 (#16467, @dependabot[bot])
+* Clarify one-time setup for backporting (Backport PR #16568, Upstream PR #16016, @christarazi)
+* contrib/docs: rename 'cilium-actions.yml' with 'maintainers-little-helper.yaml (Backport PR #16779, Upstream PR #16750, @aanm)
+* contrib: Identify upstream commits by author and date (Backport PR #16779, Upstream PR #16572, @pchaigno)
+* contrib: simplify check-docker-images script (Backport PR #16394, Upstream PR #16176, @aanm)
+* daemon: Improve logging of device auto-detection (Backport PR #16568, Upstream PR #16118, @brb)
+* docs: add a "Copy Commands" button for shell-session snippets (Backport PR #16568, Upstream PR #16408, @qmonnet)
+* docs: Clarify LRP loop related note (Backport PR #16568, Upstream PR #16342, @aditighag)
+* docs: document the policy for backporting documentation changes (Backport PR #16394, Upstream PR #16137, @qmonnet)
+* docs: ENIs should not be managed by the OS (Backport PR #16568, Upstream PR #16186, @gandro)
+* Docs: Fix maglev.hashSeed byte size documentation (Backport PR #16779, Upstream PR #16690, @gaffneyd4)
+* docs: Hubble UI does not show HTTP endpoints anymore (Backport PR #16568, Upstream PR #16535, @gandro)
+* examples: add an example of a hubble-cli Deployment (#16460, @kaworu)
+* Fix flag in minikube guide (#16347, @aditighag)
+* Improve logging when cgroupfs mount fails (Backport PR #16910, Upstream PR #15999, @johngv2)
+* k8s: Fix logging (Backport PR #16615, Upstream PR #16530, @jrajahalme)
+* pkg/k8s: add pod IP event change (Backport PR #16779, Upstream PR #16190, @aanm)
+* release: Automate image digest PR creation (Backport PR #16464, Upstream PR #15818, @joestringer)
+* Revert "docs: add 'endpointRoutes.enabled=true' to aws-cni" (Backport PR #16779, Upstream PR #16756, @bmcustodio)
+* v1.9: Update Go to 1.15.13 (#16642, @tklauser)
+* v1.9: Update Go to 1.15.14 (#16880, @tklauser)
+
+**Other Changes:**
+* .github: Rename maintainer's little helper's config file (#16456, @pchaigno)
+* docs: add a reference of helm values (Backport PR #16645, Upstream PR #16238, @bmcustodio)
+* helm: Improve the Helm chart documentation. (Backport PR #16645, Upstream PR #16469, @bmcustodio)
+* docs: update the version specific notes table (Backport PR #16730, Upstream PR #16710, @bmcustodio)
+* install: Update image digests for v1.9.8 (#16354, @aanm)
+
 ## v1.9.8
 
 Summary of Changes
