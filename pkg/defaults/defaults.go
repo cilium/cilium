@@ -324,6 +324,10 @@ const (
 	// KVstoreLeaseTTL is the time-to-live of the kvstore lease.
 	KVstoreLeaseTTL = 15 * time.Minute
 
+	// KVstoreMaxConsecutiveQuorumErrors is the maximum number of acceptable
+	// kvstore consecutive quorum errors before the agent assumes permanent failure
+	KVstoreMaxConsecutiveQuorumErrors = 2
+
 	// KVstoreKeepAliveIntervalFactor is the factor to calculate the interval
 	// from KVstoreLeaseTTL in which KVstore lease is being renewed.
 	KVstoreKeepAliveIntervalFactor = 3

@@ -62,10 +62,6 @@ const (
 	EtcdRateLimitOption = "etcd.qps"
 
 	minRequiredVersionStr = ">=3.1.0"
-
-	// consecutiveQuorumErrorsThreshold is the number of acceptable quorum
-	// errors before the agent assumes permanent failure
-	consecutiveQuorumErrorsThreshold = 2
 )
 
 var (
@@ -1156,7 +1152,7 @@ func (e *etcdClient) statusChecker() {
 		e.statusLock.Lock()
 
 		switch {
-		case consecutiveQuorumErrors > consecutiveQuorumErrorsThreshold:
+		case consecutiveQuorumErrors > option.Config.KVstoreMaxConsecutiveQuorumErrors:
 			e.latestErrorStatus = fmt.Errorf("quorum check failed %d times in a row: %s",
 				consecutiveQuorumErrors, quorumError)
 			e.latestStatusSnapshot = e.latestErrorStatus.Error()
