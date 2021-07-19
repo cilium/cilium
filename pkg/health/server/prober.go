@@ -11,7 +11,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/health/models"
 	ciliumModels "github.com/cilium/cilium/api/v1/models"
-	healthDefaults "github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/health/probe"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -209,7 +208,7 @@ const httpPathDescription = "Via L3"
 func (p *prober) httpProbe(node string, ip string) *models.ConnectivityStatus {
 	result := &models.ConnectivityStatus{}
 
-	host := "http://" + net.JoinHostPort(ip, strconv.Itoa(healthDefaults.HTTPPathPort))
+	host := "http://" + net.JoinHostPort(ip, strconv.Itoa(p.server.Config.HTTPPathPort))
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.NodeName: node,
 		logfields.IPAddr:   ip,
@@ -273,7 +272,7 @@ func (p *prober) runHTTPProbe() {
 			resp := p.httpProbe(name, ip.String())
 			if resp.Status != "" {
 				scopedLog.WithFields(logrus.Fields{
-					logfields.Port: healthDefaults.HTTPPathPort,
+					logfields.Port: p.server.Config.HTTPPathPort,
 				}).Debugf("Failed to probe: %s", resp.Status)
 			}
 

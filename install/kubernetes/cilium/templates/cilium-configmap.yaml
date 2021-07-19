@@ -138,6 +138,12 @@ data:
   # for cilium-health.
   agent-health-port: "{{ .Values.healthPort }}"
 {{- end }}
+
+{{- if hasKey .Values "clusterHealthPort" }}
+  # Set the TCP port for the agent health API. This port is used for cilium-health.
+  cluster-health-port: "{{ .Values.clusterHealthPort }}"
+{{- end }}
+
 {{- if hasKey .Values "policyEnforcementMode" }}
   # The agent can be put into the following three policy enforcement modes
   # default, always and never.
