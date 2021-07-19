@@ -49,7 +49,7 @@ type svcManager interface {
 type svcCache interface {
 	EnsureService(svcID k8s.ServiceID, swg *lock.StoppableWaitGroup) bool
 	GetServiceAddrsWithType(svcID k8s.ServiceID, svcType lb.SVCType) (map[lb.FEPortName][]*lb.L3n4Addr, int)
-	GetServiceFrontendIP(svcID k8s.ServiceID, svcType lb.SVCType) net.IP
+	GetServiceFrontendIP(svcID k8s.ServiceID, svcType lb.SVCType) (net.IP, error)
 }
 
 type StoreGetter interface {
@@ -372,7 +372,11 @@ func (rpm *Manager) getAndUpsertPolicySvcConfig(config *LRPConfig) {
 
 	case svcFrontendSinglePort:
 		// Get service frontend with the clusterIP and the policy config (unnamed) port.
-		ip := rpm.svcCache.GetServiceFrontendIP(*config.serviceID, lb.SVCTypeClusterIP)
+		ip, err := rpm.svcCache.GetServiceFrontendIP(*config.serviceID, lb.SVCTypeClusterIP)
+		if err != nil {
+			log.Debugf("service information not available yet for policy %v", *config)
+			return
+		}
 		config.frontendMappings[0].feAddr.IP = ip
 		rpm.updateConfigSvcFrontend(config, config.frontendMappings[0].feAddr)
 
@@ -382,7 +386,11 @@ func (rpm *Manager) getAndUpsertPolicySvcConfig(config *LRPConfig) {
 		for i, mapping := range config.frontendMappings {
 			ports[i] = mapping.fePort
 		}
-		ip := rpm.svcCache.GetServiceFrontendIP(*config.serviceID, lb.SVCTypeClusterIP)
+		ip, err := rpm.svcCache.GetServiceFrontendIP(*config.serviceID, lb.SVCTypeClusterIP)
+		if err != nil {
+			log.Debugf("service information not available yet for policy %v", *config)
+			return
+		}
 		for _, feM := range config.frontendMappings {
 			feM.feAddr.IP = ip
 			rpm.updateConfigSvcFrontend(config, feM.feAddr)
