@@ -11,7 +11,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/health/models"
 	ciliumModels "github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/health/defaults"
+	healthDefaults "github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/health/probe"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -204,15 +204,17 @@ func (p *prober) setNodes(added nodeMap, removed nodeMap) {
 	}
 }
 
-func (p *prober) httpProbe(node string, ip string, port int) *models.ConnectivityStatus {
+const httpPathDescription = "Via L3"
+
+func (p *prober) httpProbe(node string, ip string) *models.ConnectivityStatus {
 	result := &models.ConnectivityStatus{}
 
-	host := "http://" + net.JoinHostPort(ip, strconv.Itoa(port))
+	host := "http://" + net.JoinHostPort(ip, strconv.Itoa(healthDefaults.HTTPPathPort))
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.NodeName: node,
 		logfields.IPAddr:   ip,
 		"host":             host,
-		"path":             PortToPaths[port],
+		"path":             httpPathDescription,
 	})
 
 	scopedLog.Debug("Greeting host")
@@ -268,23 +270,17 @@ func (p *prober) runHTTPProbe() {
 				logfields.IPAddr:   ip.String(),
 			})
 
-			status := &models.PathStatus{}
-			ports := map[int]**models.ConnectivityStatus{
-				defaults.HTTPPathPort: &status.HTTP,
-			}
-			for port, result := range ports {
-				*result = p.httpProbe(name, ip.String(), port)
-				if status.HTTP.Status != "" {
-					scopedLog.WithFields(logrus.Fields{
-						logfields.Port: port,
-					}).Debugf("Failed to probe: %s", status.HTTP.Status)
-				}
+			resp := p.httpProbe(name, ip.String())
+			if resp.Status != "" {
+				scopedLog.WithFields(logrus.Fields{
+					logfields.Port: healthDefaults.HTTPPathPort,
+				}).Debugf("Failed to probe: %s", resp.Status)
 			}
 
 			peer := ipString(ip.String())
 			p.Lock()
 			if _, ok := p.results[peer]; ok {
-				p.results[peer].HTTP = status.HTTP
+				p.results[peer].HTTP = resp
 			} else {
 				// While we weren't holding the lock, the
 				// pinger's OnIdle() callback fired and updated
