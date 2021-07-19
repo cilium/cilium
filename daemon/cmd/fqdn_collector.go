@@ -26,7 +26,7 @@ import (
 func (d *Daemon) bootstrapFqdnCollector() {
 	go collector.RunServer(10000, d)
 
-	//TODO: retry that
+	//TODO: retry that, use WithBackoff?
 	conn, err := grpc.Dial("localhost:10002", grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
