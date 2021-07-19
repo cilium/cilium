@@ -160,7 +160,10 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 
 	for i := 0; i < e.NumField(); i++ {
 		if e.Field(i).Kind() != reflect.Func {
-			m[e.Type().Field(i).Name] = e.Field(i).Interface()
+			// Remove configurable opttions from read-only map
+			if e.Type().Field(i).Name != "Opts" {
+				m[e.Type().Field(i).Name] = e.Field(i).Interface()
+			}
 		}
 	}
 

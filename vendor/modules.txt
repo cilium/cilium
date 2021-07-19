@@ -466,9 +466,6 @@ github.com/hashicorp/hcl/json/token
 # github.com/hashicorp/serf v0.9.5
 ## explicit; go 1.12
 github.com/hashicorp/serf/coordinate
-# github.com/iancoleman/strcase v0.1.3
-## explicit
-github.com/iancoleman/strcase
 # github.com/imdario/mergo v0.3.5
 ## explicit
 github.com/imdario/mergo

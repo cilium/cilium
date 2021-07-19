@@ -327,7 +327,7 @@ func (d *Daemon) allocateIPs() error {
 	if option.Config.EnableIPv4 {
 		log.Infof("  IPv4 allocation prefix: %s", node.GetIPv4AllocRange())
 
-		if c := option.Config.IPv4NativeRoutingCIDR(); c != nil {
+		if c := option.Config.GetIPv4NativeRoutingCIDR(); c != nil {
 			log.Infof("  IPv4 native routing prefix: %s", c.String())
 		}
 

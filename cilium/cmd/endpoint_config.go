@@ -62,8 +62,8 @@ func configEndpoint(cmd *cobra.Command, args []string) {
 			return
 		}
 
-		dumpConfig(cfg.Immutable)
-		dumpConfig(cfg.Realized.Options)
+		dumpConfig(cfg.Immutable, false)
+		dumpConfig(cfg.Realized.Options, false)
 		return
 	}
 

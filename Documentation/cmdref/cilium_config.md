@@ -15,6 +15,7 @@ cilium config [<option>=(enable|disable) ...] [flags]
       --list-options    List available options
   -n, --num-pages int   Number of pages for perf ring buffer. New values have to be > 0
   -o, --output string   json| jsonpath='{}'
+  -r, --read-only       Display read only configurations
 ```
 
 ### Options inherited from parent commands

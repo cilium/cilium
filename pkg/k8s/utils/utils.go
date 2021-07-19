@@ -61,9 +61,9 @@ func GetObjNamespaceName(obj NamespaceNameGetter) string {
 
 // ServiceConfiguration is the required configuration for GetServiceListOptionsModifier
 type ServiceConfiguration interface {
-	// K8sServiceProxyName must return the value of the proxy name
+	// K8sServiceProxyNameValue must return the value of the proxy name
 	// annotation. If set, only services with this label will be handled.
-	K8sServiceProxyName() string
+	K8sServiceProxyNameValue() string
 }
 
 // GetServiceListOptionsModifier returns the options modifier for service object list.
@@ -85,12 +85,12 @@ func GetServiceListOptionsModifier(cfg ServiceConfiguration) (func(options *v1me
 		return nil, err
 	}
 
-	if cfg.K8sServiceProxyName() == "" {
+	if cfg.K8sServiceProxyNameValue() == "" {
 		serviceNameSelector, err = labels.NewRequirement(
 			serviceProxyNameLabel, selection.DoesNotExist, nil)
 	} else {
 		serviceNameSelector, err = labels.NewRequirement(
-			serviceProxyNameLabel, selection.DoubleEquals, []string{cfg.K8sServiceProxyName()})
+			serviceProxyNameLabel, selection.DoubleEquals, []string{cfg.K8sServiceProxyNameValue()})
 	}
 
 	if err != nil {

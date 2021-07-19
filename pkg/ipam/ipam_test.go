@@ -45,7 +45,7 @@ func (t *testConfiguration) IPv6Enabled() bool                        { return t
 func (t *testConfiguration) HealthCheckingEnabled() bool              { return true }
 func (t *testConfiguration) IPAMMode() string                         { return ipamOption.IPAMClusterPool }
 func (t *testConfiguration) SetIPv4NativeRoutingCIDR(cidr *cidr.CIDR) {}
-func (t *testConfiguration) IPv4NativeRoutingCIDR() *cidr.CIDR        { return nil }
+func (t *testConfiguration) GetIPv4NativeRoutingCIDR() *cidr.CIDR     { return nil }
 
 func (s *IPAMSuite) TestLock(c *C) {
 	fakeAddressing := fake.NewNodeAddressing()
