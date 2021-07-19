@@ -42,8 +42,11 @@ var (
 )
 
 const (
-	// AgentHealthPort is the TCP port for the agent health status API.
+	// AgentHealthPort is the TCP port for agent health status API
 	AgentHealthPort = "agent-health-port"
+
+	// ClusterHealthPort is the TCP port for cluster-wide network connectivity health API
+	ClusterHealthPort = "cluster-health-port"
 
 	// AgentLabels are additional labels to identify this agent
 	AgentLabels = "agent-labels"
@@ -1209,8 +1212,11 @@ type DaemonConfig struct {
 	// Monitor contains the configuration for the node monitor.
 	Monitor *models.MonitorStatus
 
-	// AgentHealthPort is the TCP port for the agent health status API.
+	// AgentHealthPort is the TCP port for agent health status API
 	AgentHealthPort int
+
+	// ClusterHealthPort is the TCP port for cluster-wide network connectivity health API
+	ClusterHealthPort int
 
 	// AgentLabels contains additional labels to identify this agent in monitor events.
 	AgentLabels []string
@@ -2364,6 +2370,7 @@ func (c *DaemonConfig) Populate() {
 	var err error
 
 	c.AgentHealthPort = viper.GetInt(AgentHealthPort)
+	c.ClusterHealthPort = viper.GetInt(ClusterHealthPort)
 	c.AgentLabels = viper.GetStringSlice(AgentLabels)
 	c.AllowICMPFragNeeded = viper.GetBool(AllowICMPFragNeeded)
 	c.AllowLocalhost = viper.GetString(AllowLocalhost)
