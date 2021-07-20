@@ -85,6 +85,7 @@ spec:
       restartPolicy: Always
       serviceAccount: {{ .Values.serviceAccounts.relay.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.relay.name | quote }}
+      automountServiceAccountToken: false
       terminationGracePeriodSeconds: 0
 {{- with .Values.hubble.relay.nodeSelector }}
       nodeSelector:
