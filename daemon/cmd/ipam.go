@@ -215,7 +215,7 @@ func (d *Daemon) allocateDatapathIPs(family datapath.NodeAddressingFamily) (rout
 	var result *ipam.AllocationResult
 	routerIP = family.Router()
 	if routerIP != nil {
-		result, err = d.ipam.AllocateIPWithoutSyncUpstream(routerIP, "router")
+		result, err = d.ipam.AllocateIPWithoutSyncUpstream(routerIP, ipam.IPOwnerHost)
 		if err != nil {
 			log.Warn("Router IP could not be re-allocated. Need to re-allocate. This will cause brief network disruption")
 
@@ -230,7 +230,7 @@ func (d *Daemon) allocateDatapathIPs(family datapath.NodeAddressingFamily) (rout
 
 	if routerIP == nil {
 		family := ipam.DeriveFamily(family.PrimaryExternal())
-		result, err = d.ipam.AllocateNextFamilyWithoutSyncUpstream(family, "router")
+		result, err = d.ipam.AllocateNextFamilyWithoutSyncUpstream(family, ipam.IPOwnerHost)
 		if err != nil {
 			err = fmt.Errorf("Unable to allocate router IP for family %s: %s", family, err)
 			return
@@ -255,7 +255,7 @@ func (d *Daemon) allocateHealthIPs() error {
 	bootstrapStats.healthCheck.Start()
 	if option.Config.EnableHealthChecking && option.Config.EnableEndpointHealthChecking {
 		if option.Config.EnableIPv4 {
-			result, err := d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv4, "health")
+			result, err := d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv4, ipam.IPOwnerHealth)
 			if err != nil {
 				return fmt.Errorf("unable to allocate health IPs: %s,see https://cilium.link/ipam-range-full", err)
 			}
@@ -274,7 +274,7 @@ func (d *Daemon) allocateHealthIPs() error {
 		}
 
 		if option.Config.EnableIPv6 {
-			result, err := d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv6, "health")
+			result, err := d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv6, ipam.IPOwnerHealth)
 			if err != nil {
 				if d.nodeDiscovery.LocalNode.IPv4HealthIP != nil {
 					d.ipam.ReleaseIP(d.nodeDiscovery.LocalNode.IPv4HealthIP)

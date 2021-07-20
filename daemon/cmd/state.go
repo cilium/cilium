@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/labels"
@@ -93,7 +94,9 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 		return false, err
 	}
 
-	if !ep.DatapathConfiguration.ExternalIpam {
+	// If IPAM is external, skip check IP with IPAM as the external IPAM may unavailable for a short time.
+	// TODO: ensure the external IPAM is healthy then allocateIPsLocked.
+	if !ep.DatapathConfiguration.ExternalIpam || option.Config.IPAMMode() != ipamOption.IPAMExternal {
 		if err := d.allocateIPsLocked(ep); err != nil {
 			return false, fmt.Errorf("Failed to re-allocate IP of endpoint: %s", err)
 		}

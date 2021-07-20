@@ -36,4 +36,8 @@ const (
 
 	// IPAMAlibabaCloud is the value to select the AlibabaCloud ENI IPAM plugin for option.IPAM
 	IPAMAlibabaCloud = "alibabacloud"
+
+	// IPAMExternal is the value to external IPAM.
+	// option.IPAM
+	IPAMExternal = "external"
 )

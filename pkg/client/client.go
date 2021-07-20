@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/defaults"
 
+	"github.com/go-openapi/runtime"
 	runtime_client "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
 )
@@ -114,10 +115,8 @@ func NewDefaultClientWithTimeout(timeout time.Duration) (*Client, error) {
 	}
 }
 
-// NewClient creates a client for the given `host`.
-// If host is nil then use SockPath provided by CILIUM_SOCK
-// or the cilium default SockPath
-func NewClient(host string) (*Client, error) {
+// NewTransport creates a ClientTransport for the given `host`.
+func NewTransport(host string) (runtime.ClientTransport, error) {
 	if host == "" {
 		host = DefaultSockPath()
 	}
@@ -138,8 +137,18 @@ func NewClient(host string) (*Client, error) {
 
 	transport := configureTransport(nil, tmp[0], host)
 	httpClient := &http.Client{Transport: transport}
-	clientTrans := runtime_client.NewWithClient(tmp[1], clientapi.DefaultBasePath,
-		clientapi.DefaultSchemes, httpClient)
+	return runtime_client.NewWithClient(tmp[1], clientapi.DefaultBasePath,
+		clientapi.DefaultSchemes, httpClient), nil
+}
+
+// NewClient creates a client for the given `host`.
+// If host is nil then use SockPath provided by CILIUM_SOCK
+// or the cilium default SockPath
+func NewClient(host string) (*Client, error) {
+	clientTrans, err := NewTransport(host)
+	if err != nil {
+		return nil, err
+	}
 	return &Client{*clientapi.New(clientTrans, strfmt.Default)}, nil
 }
 

@@ -23,6 +23,14 @@ import (
 	"github.com/davecgh/go-spew/spew"
 )
 
+const (
+	// IPOwnerHost is the IP owner key of cilium_host device.
+	IPOwnerHost = "router"
+
+	// IPOwnerHealth is the IP owner key of lxc_health(cilium health) device.
+	IPOwnerHealth = "health"
+)
+
 // AllocationResult is the result of an allocation
 type AllocationResult struct {
 	// IP is the allocated IP
