@@ -1,4 +1,4 @@
-// Copyright 2020 Authors of Cilium
+// Copyright 2020-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,6 +31,15 @@ const (
 
 	// PrometheusServeAddr is the default server address for operator metrics
 	PrometheusServeAddr = ":6942"
+
+	// CEBUpsertSyncPeriodDefault is the default interval for sending CEB updates to k8s-api server.
+	CEBUpsertSyncPeriodDefault = 3 * time.Second
+
+	// CEBDeleteSyncPeriodDefault is the default interval for sending delete CEB updates to k8s-api server.
+	CEBDeleteSyncPeriodDefault = 60 * time.Second
+
+	// CEBMaxCepsInCebDefault is the maximum number of cilium endpoints allowed in a CEB
+	CEBMaxCepsInCebDefault = 100
 )
 
 const (
@@ -201,6 +210,20 @@ const (
 	// Enabling this option reduces waste of IP addresses but may increase
 	// the number of API calls to AlibabaCloud ECS service.
 	AlibabaCloudReleaseExcessIPs = "alibaba-cloud-release-excess-ips"
+
+	// CiliumEndpointBatch options
+
+	// CEBUpsertSyncPeriod is the interval for reconciling newly created CEBs,
+	// modified CEBs, or CEBs with new cilium endpoints with the k8s-apiserver.
+	CEBUpsertSyncPeriod = "ceb-upsert-sync-period"
+
+	// CEBDeleteSyncPeriod is the interval for reconciling deleted CEBs
+	// or CEBs with only deleted cilium endpoints with the k8s-apiserver.
+	CEBDeleteSyncPeriod = "ceb-delete-sync-period"
+
+	// CEBMaxCepsInCeb is the maximum number of cilium endpoints allowed in single
+	// a CiliumEndpointBatch resource.
+	CEBMaxCepsInCeb = "ceb-max-ciliumendpoints-per-ceb"
 )
 
 // OperatorConfig is the configuration used by the operator.
@@ -368,6 +391,23 @@ type OperatorConfig struct {
 	// Enabling this option reduces waste of IP addresses but may increase
 	// the number of API calls to AlibabaCloud ECS service.
 	AlibabaCloudReleaseExcessIPs bool
+
+	// CiliumEndpointBatch options
+
+	// CEBUpsertSyncPeriod is the interval for reconciling newly created CEBs,
+	// modified CEBs, or CEBs with new CiliumEndpoints with the k8s-apiserver.
+	// Default time to sync with the k8s-apiserver is 3 second.
+	CEBUpsertSyncPeriod time.Duration
+
+	// CEBDeleteSyncPeriod is the interval for reconciling deleted CEBs
+	// or CEBs with only deleted CiliumEndpoints with the k8s-apiserver.
+	// Default time to sync with the k8s-apiserver is 60 second.
+	CEBDeleteSyncPeriod time.Duration
+
+	// CEBMaxCepsInCeb is the maximum number of CiliumEndpoints allowed in single
+	// a CiliumEndpointBatch resource.
+	// The default value of maximum CiliumEndpoints allowed in a CiliumEndpointBatch resource is 100.
+	CEBMaxCepsInCeb int
 }
 
 // Populate sets all options with the values from viper.
@@ -424,6 +464,11 @@ func (c *OperatorConfig) Populate() {
 
 	c.AlibabaCloudVPCID = viper.GetString(AlibabaCloudVPCID)
 	c.AlibabaCloudReleaseExcessIPs = viper.GetBool(AlibabaCloudReleaseExcessIPs)
+
+	// CiliumEndpointBatch options
+	c.CEBUpsertSyncPeriod = viper.GetDuration(CEBUpsertSyncPeriod)
+	c.CEBDeleteSyncPeriod = viper.GetDuration(CEBDeleteSyncPeriod)
+	c.CEBMaxCepsInCeb = viper.GetInt(CEBMaxCepsInCeb)
 
 	// Option maps and slices
 

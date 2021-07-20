@@ -15,6 +15,9 @@ cilium-operator-aws [flags]
       --aws-release-excess-ips                    Enable releasing excess free IP addresses from AWS ENI.
       --bgp-announce-lb-ip                        Announces service IPs of type LoadBalancer via BGP
       --bgp-config-path string                    Path to file containing the BGP configuration (default "/var/lib/cilium/bgp/config.yaml")
+      --ceb-delete-sync-period duration           Duration between CEB deletes sent to the k8s-apiserver, configuring with high duration result in  delayed CEB deletes sent to the k8s-apiserver, may reduce CEB watch throughput in the cluster. (default 1m0s)
+      --ceb-max-ciliumendpoints-per-ceb int       Maximum number of CiliumEndpoints allowed in a CEB (default 100)
+      --ceb-upsert-sync-period duration           Duration between CEB updates sent to the k8s-apiserver, configuring with high duration result in few CEB updates sent to the k8s-apiserver, reduces the CEB update and watch throughput in the cluster and may increase the latency time for network policies to take effect in newly created pods. (default 3s)
       --cilium-endpoint-gc-interval duration      GC interval for cilium endpoints (default 5m0s)
       --cluster-id int                            Unique identifier of the cluster
       --cluster-name string                       Name of the cluster (default "default")
@@ -28,6 +31,7 @@ cilium-operator-aws [flags]
       --config-dir string                         Configuration directory that contains a file for each option
   -D, --debug                                     Enable debugging mode
       --ec2-api-endpoint string                   AWS API endpoint for the EC2 service
+      --enable-cilium-endpoint-batch              If set to true, the CiliumEndpointBatch feature is enabled. If any CiliumEndpoints resources are created, updated, or deleted in the cluster, all those changes are broadcast as CiliumEndpointBatch updates to all of the Cilium agents.
       --enable-ipv4                               Enable IPv4 support (default true)
       --enable-ipv6                               Enable IPv6 support (default true)
       --enable-k8s-api-discovery                  Enable discovery of Kubernetes API groups and resources with the discovery API
