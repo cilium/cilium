@@ -45,11 +45,29 @@ type record struct {
 
 // Handle enables the owner to subscribe to sink statistics
 type Handle struct {
-	// C is a channel on which receives a new empty message whenever there
-	// was an update to the sink statistics. It is closed when the sink stops
-	// updating.
-	C    <-chan struct{}
+	// StatsUpdated is a channel on which receives a new empty message whenever
+	// there was an update to the sink statistics.
+	StatsUpdated <-chan struct{}
+	// Done is a channel which is closed when this sink has been shut down.
+	Done <-chan struct{}
+
 	sink *sink
+}
+
+// Stats returns the latest statistics for this sink.
+func (h *Handle) Stats() Statistics {
+	return h.sink.copyStats()
+}
+
+// Stop requests the underlying sink to stop. Handle.Done will be closed
+// once the sink has drained its queue and stopped.
+func (h *Handle) Stop() {
+	h.sink.stop()
+}
+
+// Err returns the last error on this sink once the channel has stopped
+func (h *Handle) Err() error {
+	return h.sink.err()
 }
 
 // Statistics contains the statistics for a pcap sink
@@ -58,6 +76,13 @@ type Statistics struct {
 	BytesWritten   uint64
 	PacketsLost    uint64
 	BytesLost      uint64
+}
+
+// PcapSink defines the parameters of a sink which writes to a pcap.RecordWriter
+type PcapSink struct {
+	RuleID uint16
+	Header pcap.Header
+	Writer pcap.RecordWriter
 }
 
 // Dispatch implements consumer.MonitorConsumer and dispatches incoming
@@ -90,44 +115,37 @@ func NewDispatch(sinkQueueSize int) (*Dispatch, error) {
 	}, nil
 }
 
-// RegisterSink registers a new sink for the given rule ID. Any captures with a
-// matching rule ID will be forwarded to the pcap sink w. The provided header
-// is written to the pcap sink w upon initialization.
-func (d *Dispatch) RegisterSink(ctx context.Context, ruleID uint16, w pcap.RecordWriter, header pcap.Header) (*Handle, error) {
+// StartSink starts a new sink for the pcap sink configuration p. Any
+// captures with a matching rule ID will be forwarded to the pcap sink p.Writer.
+// The provided p.Header is written to the pcap sink during initialization.
+// The sink is unregistered automatically when it stops. A sink is stopped for
+// one of the following four reasons. In all cases, Handle.Done will be closed.
+//  - Explicitly via Handle.Stop (Handle.Err() == nil)
+//  - When the context ctx is cancelled (Handle.Err() != nil)
+//  - When an error occurred (Handle.Err() != nil)
+func (d *Dispatch) StartSink(ctx context.Context, p PcapSink) (*Handle, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	if _, ok := d.sinkByRuleID[ruleID]; ok {
-		return nil, fmt.Errorf("sink for rule id %d already registered", ruleID)
+	if _, ok := d.sinkByRuleID[p.RuleID]; ok {
+		return nil, fmt.Errorf("sink for rule id %d already registered", p.RuleID)
 	}
 
-	s := startSink(ctx, w, header, d.sinkQueueSize)
-	d.sinkByRuleID[ruleID] = s
+	s := startSink(ctx, p, d.sinkQueueSize)
+	d.sinkByRuleID[p.RuleID] = s
+
+	go func() {
+		<-s.done
+		d.mutex.Lock()
+		delete(d.sinkByRuleID, p.RuleID)
+		d.mutex.Unlock()
+	}()
+
 	return &Handle{
-		C:    s.trigger,
-		sink: s,
+		StatsUpdated: s.trigger,
+		Done:         s.done,
+		sink:         s,
 	}, nil
-}
-
-// UnregisterSink will stop and unregister the sink for the given ruleID.
-// It waits for any pending packets to be forwarded to the sink before closing
-// it and returns the final statistics or an error, if an error occurred.
-func (d *Dispatch) UnregisterSink(ctx context.Context, ruleID uint16) (stats Statistics, err error) {
-	d.mutex.Lock()
-	s, ok := d.sinkByRuleID[ruleID]
-	delete(d.sinkByRuleID, ruleID)
-	// unlock early to avoid holding the lock during s.close() which may block
-	d.mutex.Unlock()
-
-	if !ok {
-		return Statistics{}, fmt.Errorf("no sink found for rule id %d", ruleID)
-	}
-
-	if err = s.close(ctx); err != nil {
-		return Statistics{}, err
-	}
-
-	return s.copyStats(), nil
 }
 
 func (d *Dispatch) decodeRecordCaptureLocked(data []byte) (rec record, err error) {
@@ -248,8 +266,4 @@ func (d *Dispatch) NotifyPerfEventLost(numLostEvents uint64, cpu int) {
 // NotifyAgentEvent implements consumer.MonitorConsumer
 func (d *Dispatch) NotifyAgentEvent(typ int, message interface{}) {
 	// ignored
-}
-
-func (h *Handle) Stats() Statistics {
-	return h.sink.copyStats()
 }
