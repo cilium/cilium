@@ -32,6 +32,16 @@ spec:
             value: {{ .Values.cluster_name_1 }}
           - name: CLUSTER_NAME_2
             value: {{ .Values.cluster_name_2 }}
+          - name: AZURE_SUBSCRIPTION_ID
+            value: {{ .Values.azure.subscription_id }}
+          - name: AZURE_NODE_RESOURCE_GROUP
+            value: {{ .Values.azure.node_resource_group }}
+          - name: AZURE_TENANT_ID
+            value: {{ .Values.azure.tenant_id }}
+          - name: AZURE_CLIENT_ID
+            value: {{ .Values.azure.client_id }}
+          - name: AZURE_CLIENT_SECRET
+            value: {{ .Values.azure.client_secret }}
       dnsPolicy: ClusterFirst
       enableServiceLinks: true
       priority: 0
