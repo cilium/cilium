@@ -417,6 +417,12 @@ func onOperatorStartLeading(ctx context.Context) {
 		operatorWatchers.StartLBIPAllocator(option.Config)
 	}
 
+	if operatorOption.Config.CNPNodeStatusGCInterval != 0 {
+		if err := runNodeWatcher(nodeManager); err != nil {
+			log.WithError(err).Error("Unable to setup node watcher")
+		}
+	}
+
 	if kvstoreEnabled() {
 		if operatorOption.Config.SyncK8sServices {
 			operatorWatchers.StartSynchronizingServices(true, option.Config)
@@ -492,7 +498,7 @@ func onOperatorStartLeading(ctx context.Context) {
 		}
 
 		if operatorOption.Config.SyncK8sNodes {
-			if err := runNodeWatcher(nodeManager); err != nil {
+			if err := runNodeWatcherKVStore(nodeManager); err != nil {
 				log.WithError(err).Error("Unable to setup node watcher")
 			}
 		}
