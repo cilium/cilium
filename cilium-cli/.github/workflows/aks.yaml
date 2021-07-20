@@ -16,7 +16,7 @@ on:
   # 
   # pull_request: {}
   ###
-  pull_request: {}
+  pull_request_target: {}
   # Run every 6 hours
   schedule:
     - cron:  '0 0/6 * * *'
@@ -37,19 +37,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
-
-      - name: Set up Go
-        uses: actions/setup-go@37335c7bb261b353407cff977110895fa0b4f7d8
-        with:
-          go-version: 1.16.6
-
-      - name: Set up Go for root
-        run: |
-          sudo ln -sf `which go` `sudo which go` || true
-          sudo go version
-
-      - name: Build and install cilium CLI binary
-        run: sudo make install
 
       - name: Login to Azure
         uses: azure/login@77f1b2e3fb80c0e8645114159d17008b8a2e475a
@@ -128,13 +115,53 @@ jobs:
             --resource-group ${{ env.name }} \
             --name ${{ env.name }}
 
-      - name: Install Cilium
+      - name: Create kubeconfig and load it in configmap
         run: |
-          cilium install \
-            --cluster-name=${{ env.name }} \
-            --azure-resource-group ${{ env.name }} \
-            --wait=false \
-            --config monitor-aggregation=none
+          .github/get-kubeconfig.sh
+          kubectl create configmap cilium-cli-kubeconfig -n kube-system --from-file kubeconfig
+
+      - name: Load cilium install script in configmap
+        run: |
+          kubectl create configmap cilium-cli-test-script-install -n kube-system --from-file=in-cluster-test-script.sh=.github/in-cluster-test-scripts/aks-install.sh
+
+      - name: Set up Azure-specific CLI variables since `az` is not available in-cluster
+        id: az
+        run: |
+          # Derive subscription ID from credentials
+          AZURE_SUBSCRIPTION_ID=$(az account show --query "id" --output tsv)
+
+          # Derive AKS node resource group from created cluster
+          AZURE_NODE_RESOURCE_GROUP=$(az aks show --resource-group ${{ env.name }} --name ${{ env.name }} --query "nodeResourceGroup" --output tsv)
+
+          # Create Service Principal with minimal privileges over the AKS node resource group
+          AZURE_SERVICE_PRINCIPAL=$(az ad sp create-for-rbac --scopes /subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${AZURE_NODE_RESOURCE_GROUP} --output json --only-show-errors)
+          TENANT_ID=$(echo ${AZURE_SERVICE_PRINCIPAL} | jq -r '.tenant')
+          CLIENT_ID=$(echo ${AZURE_SERVICE_PRINCIPAL} | jq -r '.appId')
+          CLIENT_SECRET=$(echo ${AZURE_SERVICE_PRINCIPAL} | jq -r '.password')
+
+          echo ::set-output name=subscription-id::${AZURE_SUBSCRIPTION_ID}
+          echo ::set-output name=node-resource-group::${AZURE_NODE_RESOURCE_GROUP}
+          echo ::set-output name=tenant-id::${TENANT_ID}
+          echo ::set-output name=client-id::${CLIENT_ID}
+          echo ::add-mask::${CLIENT_SECRET}
+          echo ::set-output name=client-secret::${CLIENT_SECRET}
+
+      - name: Create cilium-cli install job
+        run: |
+          helm install .github/cilium-cli-test-job-chart \
+            --generate-name \
+            --set job_name=cilium-cli-install \
+            --set test_script_cm=cilium-cli-test-script-install \
+            --set tag=${{ steps.vars.outputs.sha }} \
+            --set azure.subscription_id=${{ steps.az.outputs.subscription-id }} \
+            --set azure.node_resource_group=${{ steps.az.outputs.node-resource-group }} \
+            --set azure.tenant_id=${{ steps.az.outputs.tenant-id }} \
+            --set azure.client_id=${{ steps.az.outputs.client-id }} \
+            --set azure.client_secret=${{ steps.az.outputs.client-secret }}
+
+      - name: Wait for install job
+        run: |
+          kubectl -n kube-system wait job/cilium-cli-install --for=condition=complete --timeout=5m
 
       - name: Delete the first node pool
         run: |
@@ -147,29 +174,36 @@ jobs:
             --cluster-name ${{ env.name }} \
             --resource-group ${{ env.name }}
 
-      - name: Enable Relay
+      - name: Load test script in configmap
         run: |
-          cilium hubble enable
+          kubectl create configmap cilium-cli-test-script -n kube-system --from-file=in-cluster-test-script.sh=.github/in-cluster-test-scripts/aks.sh
 
-      - name: Wait for Cilium status to be ready
+      - name: Create cilium-cli job
         run: |
-          cilium status --wait
+          helm install .github/cilium-cli-test-job-chart \
+            --generate-name
 
-      - name: Port forward Relay
+      - name: Wait for job
         run: |
-          cilium hubble port-forward&
-          sleep 10s
-          [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
-
-      - name: Run connectivity test
-        run: |
-          cilium connectivity test --debug --all-flows
+          kubectl -n kube-system wait job/cilium-cli --for=condition=complete --timeout=15m
 
       - name: Post-test information gathering
         if: ${{ !success() }}
         run: |
-          cilium status
+          echo "=== Retrieve in-cluster jobs logs ==="
+          kubectl logs --timestamps -n kube-system job/cilium-cli-install
+          kubectl logs --timestamps -n kube-system job/cilium-cli
+
+          echo "=== Install latest stable CLI ==="
+          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz{,.sha256sum}
+          sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
+          sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/bin
+          rm cilium-linux-amd64.tar.gz{,.sha256sum}
+          cilium version
+
+          echo "=== Retrieve cluster state ==="
           kubectl get pods --all-namespaces -o wide
+          cilium status
           cilium sysdump --output-filename cilium-sysdump-out
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
