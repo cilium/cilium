@@ -52,7 +52,7 @@ type Identity struct {
 
 	// ReferenceCount counts the number of references pointing to this
 	// identity. This field is used by the owning cache of the identity.
-	ReferenceCount int `json:"-"`
+	ReferenceCount uint `json:"-"`
 }
 
 // IPIdentityPair is a pairing of an IP and the security identity to which that

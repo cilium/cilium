@@ -1,0 +1,18 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "dummy"
+spec:
+  description: "L3-L4 dummy policy only"
+  endpointSelector:
+    matchLabels:
+      org: frontend 
+      class: eng 
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        org: backend
+    toPorts:
+    - ports:
+      - port: "80"
+        protocol: TCP

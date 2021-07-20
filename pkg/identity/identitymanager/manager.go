@@ -93,12 +93,14 @@ func (idm *IdentityManager) add(identity *identity.Identity) {
 			identity: identity,
 			refCount: 1,
 		}
+		identity.ReferenceCount = 1
 		for o := range idm.observers {
 			o.LocalEndpointIdentityAdded(identity)
 		}
 
 	} else {
 		idMeta.refCount++
+		identity.ReferenceCount = idMeta.refCount
 	}
 }
 
@@ -172,6 +174,7 @@ func (idm *IdentityManager) remove(identity *identity.Identity) {
 		return
 	}
 	idMeta.refCount--
+	identity.ReferenceCount = idMeta.refCount
 	if idMeta.refCount == 0 {
 		delete(idm.identities, identity.ID)
 		for o := range idm.observers {
