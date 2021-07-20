@@ -16,7 +16,7 @@ package sink
 
 import (
 	"context"
-	"fmt"
+	"time"
 
 	"github.com/cilium/cilium/pkg/hubble/recorder/pcap"
 	"github.com/cilium/cilium/pkg/lock"
@@ -25,49 +25,69 @@ import (
 // sink wraps a pcap.RecordWriter by adding a queue and managing its statistics
 // regarding written and dropped packets and bytes.
 type sink struct {
-	mutex   lock.Mutex
-	queue   chan record
-	done    chan error
-	trigger chan struct{}
-	stats   Statistics
+	mutex     lock.Mutex
+	queue     chan record
+	done      chan struct{}
+	trigger   chan struct{}
+	stats     Statistics
+	lastError error
 }
 
 // startSink creates a queue and go routine for the sink. The spawned go
-// routine must be stopped via a call to close()
-func startSink(ctx context.Context, w pcap.RecordWriter, hdr pcap.Header, queueSize int) *sink {
+// routine will run until one of the following happens:
+//  - sink.stop is called
+//  - a p.StopCondition is reached
+//  - ctx is cancelled
+//  - an error occurred
+func startSink(ctx context.Context, p PcapSink, queueSize int) *sink {
 	s := &sink{
-		mutex:   lock.Mutex{},
-		queue:   make(chan record, queueSize),
-		done:    make(chan error, 1),
-		trigger: make(chan struct{}, 1),
-		stats:   Statistics{},
+		mutex:     lock.Mutex{},
+		queue:     make(chan record, queueSize),
+		done:      make(chan struct{}),
+		trigger:   make(chan struct{}, 1),
+		stats:     Statistics{},
+		lastError: nil,
 	}
 
 	go func() {
-		// this defer executes w.Close(), but also makes sure err
-		// is sent to the done channel upon exit
+		// this defer executes w.Close(), but also makes sure set lastError and
+		// close the channels when exiting.
 		var err error
 		defer func() {
-			closeErr := w.Close()
-			if err == nil {
-				err = closeErr
-			}
-			s.done <- err
+			closeErr := p.Writer.Close()
 
 			s.mutex.Lock()
-			close(s.trigger)
-			s.trigger = nil
+			if err == nil {
+				s.lastError = closeErr
+			} else {
+				s.lastError = err
+			}
+			close(s.done)
 			s.mutex.Unlock()
 		}()
 
-		if err = w.WriteHeader(hdr); err != nil {
+		stop := p.StopCondition
+		var stopAfter <-chan time.Time
+		if stop.DurationElapsed != 0 {
+			stopTimer := time.NewTimer(stop.DurationElapsed)
+			defer func() {
+				stopTimer.Stop()
+			}()
+			stopAfter = stopTimer.C
+		}
+
+		if err = p.Writer.WriteHeader(p.Header); err != nil {
 			return
 		}
 
+		s.mutex.Lock()
+		queue := s.queue
+		s.mutex.Unlock()
+
 		for {
 			select {
-			// s.queue will be closed when the sink is unregistered
-			case rec, ok := <-s.queue:
+			// queue will be closed when the sink is unregistered
+			case rec, ok := <-queue:
 				if !ok {
 					return
 				}
@@ -78,14 +98,21 @@ func startSink(ctx context.Context, w pcap.RecordWriter, hdr pcap.Header, queueS
 					OriginalLength: rec.origLen,
 				}
 
-				if err = w.WriteRecord(pcapRecord, rec.data); err != nil {
+				if err = p.Writer.WriteRecord(pcapRecord, rec.data); err != nil {
 					return
 				}
 
-				s.addToStatistics(Statistics{
+				stats := s.addToStatistics(Statistics{
 					PacketsWritten: 1,
 					BytesWritten:   uint64(rec.inclLen),
 				})
+				if (stop.PacketsCaptured > 0 && stats.PacketsWritten >= stop.PacketsCaptured) ||
+					(stop.BytesCaptured > 0 && stats.BytesWritten >= stop.BytesCaptured) {
+					return
+				}
+			case <-stopAfter:
+				// duration for stop condition has been reached
+				return
 			case <-ctx.Done():
 				err = ctx.Err()
 				return
@@ -96,26 +123,22 @@ func startSink(ctx context.Context, w pcap.RecordWriter, hdr pcap.Header, queueS
 	return s
 }
 
-// close waits for this sink to drain its queue and then closes the underlying
-// pcap writer
-func (s *sink) close(ctx context.Context) error {
+// stop requests the sink to stop recording
+func (s *sink) stop() {
 	s.mutex.Lock()
-	// closing the queue will cause drain to exit and send back an error (or nil)
-	// value in the done channel
+	// closing the queue will cause the `startSink` method to drain the queue,
+	// and then send back a signal by closing the s.done channel
 	close(s.queue)
 	s.queue = nil
 	s.mutex.Unlock()
-
-	select {
-	case err := <-s.done:
-		return err
-	case <-ctx.Done():
-		return fmt.Errorf("timed out waiting for sink to close: %w", ctx.Err())
-	}
 }
 
-func (s *sink) addToStatistics(add Statistics) {
+// addToStatistics adds add to the current statistics and returns the resulting
+// value.
+func (s *sink) addToStatistics(add Statistics) (result Statistics) {
 	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	s.stats.BytesWritten += add.BytesWritten
 	s.stats.PacketsWritten += add.PacketsWritten
 	s.stats.BytesLost += add.BytesLost
@@ -127,7 +150,7 @@ func (s *sink) addToStatistics(add Statistics) {
 	default:
 	}
 
-	s.mutex.Unlock()
+	return s.stats
 }
 
 // enqueue submits a new record to this sink. If the sink is not keeping up,
@@ -136,10 +159,12 @@ func (s *sink) enqueue(rec record) {
 	s.mutex.Lock()
 	// copy queue to avoid concurrent close
 	q := s.queue
+	s.mutex.Unlock()
+
+	// already stopped
 	if q == nil {
 		return
 	}
-	s.mutex.Unlock()
 
 	select {
 	case q <- rec:
@@ -162,4 +187,14 @@ func (s *sink) copyStats() Statistics {
 	s.mutex.Unlock()
 
 	return stats
+}
+
+// err returns the last error which occurred in the sink.
+// This will always return nil before sink.done has signalled.
+func (s *sink) err() error {
+	s.mutex.Lock()
+	err := s.lastError
+	s.mutex.Unlock()
+
+	return err
 }
