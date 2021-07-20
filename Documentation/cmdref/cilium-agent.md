@@ -124,7 +124,7 @@ cilium-agent [flags]
       --envoy-log string                                     Path to a separate Envoy log file, if any
       --exclude-local-address strings                        Exclude CIDR from being recognized as local address
       --fixed-identity-mapping map                           Key-value for the fixed identity mapping which allows to use reserved label for fixed identities (default map[])
-      --force-local-policy-eval-at-source                    Force policy evaluation of all local communication at the source endpoint (default true)
+      --force-local-policy-eval-at-source                    Force policy evaluation of all local communication at the source endpoint
       --gops-port int                                        Port for gops server to listen on (default 9890)
   -h, --help                                                 help for cilium-agent
       --host-reachable-services-protos strings               Only enable reachability of services for host applications for specific protocols (default [tcp,udp])

@@ -299,9 +299,9 @@ const (
 	EndpointInterfaceNamePrefix = "lxc+"
 
 	// ForceLocalPolicyEvalAtSource is the default value for
-	// option.ForceLocalPolicyEvalAtSource. It is enabled by default to
-	// provide backwards compatibility, it can be disabled via an option
-	ForceLocalPolicyEvalAtSource = true
+	// option.ForceLocalPolicyEvalAtSource. It is disabled by default
+	// it can be enabled via an option
+	ForceLocalPolicyEvalAtSource = false
 
 	// EnableEndpointRoutes is the value for option.EnableEndpointRoutes.
 	// It is disabled by default for backwards compatibility.
