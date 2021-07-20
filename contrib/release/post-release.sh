@@ -23,7 +23,7 @@ handle_args() {
         common::exit 1
     fi
 
-    if [[ "$1" = "--help" ]] || [[ "$1" = "-h" ]]; then
+    if [[ "$1" = "--help" ]] || [[ "$1" = "-h" ]] || [[ $# -lt 1 ]]; then
         usage
         common::exit 0
     fi
@@ -36,6 +36,11 @@ handle_args() {
 
     if ! git diff --quiet; then
         echo "Local changes found in git tree. Exiting release process..." 1>&2
+        exit 1
+    fi
+
+    if ! echo "$1" | grep -q ".*github.com.*actions.*"; then
+        echo "Invalid URL. The URL must be the overall actions page, not one specific run." 1>&2
         exit 1
     fi
 
@@ -64,7 +69,7 @@ main() {
     logecho "Check that the following changes look correct:"
     # TODO: Make this less interactive when we have used it enough
     git add --patch install/kubernetes
-    git commit -se -m "install: Update image digests for $version" -m "$(cat digest-$version.txt)"
+    git commit -se -m "install: Update image digests for $version" -m "Generated from $1." -m "$(cat digest-$version.txt)"
     echo "Create PR for v$branch with these changes"
     if ! common::askyorn ; then
         common::exit 0 "Aborting post-release updates."
