@@ -7,7 +7,7 @@ include ../Makefile.defs
 
 SUBDIRS = sockops custom
 
-BPF_SIMPLE = bpf_network.o bpf_alignchecker.o
+BPF_SIMPLE = bpf_network.o bpf_alignchecker.o bpf_sock_aux.o
 BPF_SIMPLE_C = $(patsubst %.o,%.c,${BPF_SIMPLE})
 BPF_SIMPLE_LL = $(patsubst %.o,%.ll,${BPF_SIMPLE})
 BPF_TEST=tests/bpf_ct_tests.o
@@ -33,7 +33,7 @@ BUILD_PERMUTATIONS ?= ""
 BPF_SIMPLE_OPTIONS += \
 	-DENABLE_IPV4=1 -DENABLE_IPV6=1 -DENABLE_IPSEC=1 -DIP_POOLS=1
 ifneq ("$(KERNEL)","49")
-BPF_SIMPLE_OPTIONS += -DHAVE_LPM_TRIE_MAP_TYPE -DHAVE_LRU_HASH_MAP_TYPE
+BPF_SIMPLE_OPTIONS += -DHAVE_LPM_TRIE_MAP_TYPE -DHAVE_LRU_HASH_MAP_TYPE -DSOCKET_MAGIC_COOKIE=1
 endif
 
 $(BPF_SIMPLE_LL): $(BPF_SIMPLE_C)
@@ -50,6 +50,7 @@ space := ${null} ${null}
 
 # The following option combinations are compile tested
 LB_OPTIONS = \
+	-DHOST_NETNS_COOKIE: \
 	-DSKIP_DEBUG: \
 	-DENABLE_IPV4: \
 	-DENABLE_IPV4:-DENCAP_IFINDEX:-DTUNNEL_MODE: \
