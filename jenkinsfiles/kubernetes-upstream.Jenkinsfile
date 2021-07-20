@@ -55,6 +55,36 @@ pipeline {
                         env.LOCKDEBUG = 1
                         env.BASE_IMAGE = "quay.io/cilium/cilium-runtime:28b5a8658b596d12d80b0e7dad3efc2e77ec2d65@sha256:fbf8eee141101fade247dbe94cf84ca3bdcd92b96108996c50859ab7edd607d0"
                     }
+
+                    /* Hack:
+                    Force preload of a specific Vagrant box image from Vagrant
+                    cache depending on chosen Kernel.
+
+                    Context:
+                    The `add_vagrant_box` script preloads Vagrant boxes from our
+                    Vagrant cache over at http://vagrant-cache.ci.cilium.io/.
+                    By default it preloads a list of hardedcoded boxes.
+                    An optional arg can be provided to preload a specific box.
+                    Problem is the box to preload is only known at Vagrant
+                    boot time (determined in Vagrantfile), hence this hack.
+                    */
+                    switch(env.JobKernelVersion) {
+                        case "49":
+                            env.PRELOAD_BOX = "v49_SERVER"
+                            break
+                        case "54":
+                            env.PRELOAD_BOX = "v419_SERVER"
+                            break
+                        case "419":
+                            env.PRELOAD_BOX = "v54_SERVER"
+                            break
+                        case "net-next":
+                            env.PRELOAD_BOX = "NETNEXT_SERVER"
+                            break
+                        default:
+                            env.PRELOAD_BOX = "v419_SERVER"
+                            break
+                    }
                 }
             }
         }
@@ -64,7 +94,7 @@ pipeline {
             }
 
             steps {
-                sh '/usr/local/bin/add_vagrant_box ${WORKSPACE}/${PROJ_PATH}/vagrant_box_defaults.rb'
+                sh '/usr/local/bin/add_vagrant_box ${WORKSPACE}/${PROJ_PATH}/vagrant_box_defaults.rb ${PRELOAD_BOX}'
             }
         }
         stage('Boot VMs'){
