@@ -739,6 +739,11 @@ r:
 		// Attempt to validate all flows received during the Action so far,
 		// once per validation interval.
 		case <-interval.C:
+			if len(a.flows) == 0 {
+				// Suppress output like 'Validating 0 flows against 2 requirements'
+				// as it is futile to validate requirements when there are no flows yet.
+				continue r
+			}
 			a.Debugf("Validating %d flows against %d requirements", len(a.flows), len(reqs))
 
 			res = a.matchAllFlowRequirements(ctx, reqs)
