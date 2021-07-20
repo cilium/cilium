@@ -448,7 +448,7 @@ func (s *ServerSuite) TestGetDirectionNetworkPolicy(c *C) {
 }
 
 func (s *ServerSuite) TestGetNetworkPolicy(c *C) {
-	obtained := getNetworkPolicy(ep, IPv4Addr, L4Policy1, true, true)
+	obtained := getNetworkPolicy(ep, nil, IPv4Addr, L4Policy1, true, true)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -460,7 +460,7 @@ func (s *ServerSuite) TestGetNetworkPolicy(c *C) {
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyWildcard(c *C) {
-	obtained := getNetworkPolicy(ep, IPv4Addr, L4Policy2, true, true)
+	obtained := getNetworkPolicy(ep, nil, IPv4Addr, L4Policy2, true, true)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -472,7 +472,7 @@ func (s *ServerSuite) TestGetNetworkPolicyWildcard(c *C) {
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyDeny(c *C) {
-	obtained := getNetworkPolicy(ep, IPv4Addr, L4Policy1RequiresV2, true, true)
+	obtained := getNetworkPolicy(ep, nil, IPv4Addr, L4Policy1RequiresV2, true, true)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -484,7 +484,7 @@ func (s *ServerSuite) TestGetNetworkPolicyDeny(c *C) {
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyWildcardDeny(c *C) {
-	obtained := getNetworkPolicy(ep, IPv4Addr, L4Policy1RequiresV2, true, true)
+	obtained := getNetworkPolicy(ep, nil, IPv4Addr, L4Policy1RequiresV2, true, true)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -496,7 +496,7 @@ func (s *ServerSuite) TestGetNetworkPolicyWildcardDeny(c *C) {
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyNil(c *C) {
-	obtained := getNetworkPolicy(ep, IPv4Addr, nil, true, true)
+	obtained := getNetworkPolicy(ep, nil, IPv4Addr, nil, true, true)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -508,7 +508,7 @@ func (s *ServerSuite) TestGetNetworkPolicyNil(c *C) {
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyIngressNotEnforced(c *C) {
-	obtained := getNetworkPolicy(ep, IPv4Addr, L4Policy2, false, true)
+	obtained := getNetworkPolicy(ep, nil, IPv4Addr, L4Policy2, false, true)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -520,7 +520,7 @@ func (s *ServerSuite) TestGetNetworkPolicyIngressNotEnforced(c *C) {
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyEgressNotEnforced(c *C) {
-	obtained := getNetworkPolicy(ep, IPv4Addr, L4Policy1RequiresV2, true, false)
+	obtained := getNetworkPolicy(ep, nil, IPv4Addr, L4Policy1RequiresV2, true, false)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -578,7 +578,7 @@ var ExpectedPerPortPoliciesL7 = []*cilium.PortNetworkPolicy{
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyL7(c *C) {
-	obtained := getNetworkPolicy(ep, IPv4Addr, L4PolicyL7, true, true)
+	obtained := getNetworkPolicy(ep, nil, IPv4Addr, L4PolicyL7, true, true)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -633,7 +633,7 @@ var ExpectedPerPortPoliciesKafka = []*cilium.PortNetworkPolicy{
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyKafka(c *C) {
-	obtained := getNetworkPolicy(ep, IPv4Addr, L4PolicyKafka, true, true)
+	obtained := getNetworkPolicy(ep, nil, IPv4Addr, L4PolicyKafka, true, true)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -704,7 +704,7 @@ var ExpectedPerPortPoliciesMySQL = []*cilium.PortNetworkPolicy{
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyMySQL(c *C) {
-	obtained := getNetworkPolicy(ep, IPv4Addr, L4PolicyMySQL, true, true)
+	obtained := getNetworkPolicy(ep, nil, IPv4Addr, L4PolicyMySQL, true, true)
 	expected := &cilium.NetworkPolicy{
 		Name:                  IPv4Addr,
 		Policy:                uint64(Identity),
