@@ -926,3 +926,27 @@ func ObjToCiliumEndpointBatch(obj interface{}) *cilium_v2alpha1.CiliumEndpointBa
 		Warn("Ignoring invalid CiliumEndpointBatch")
 	return nil
 }
+
+// convertCepToCoreCep converts a CiliumEndpoint to a CoreCiliumEndpoint
+// containing only a minimal set of entities used to
+func ConvertCepToCoreCep(cep *cilium_v2.CiliumEndpoint) *cilium_v2alpha1.CoreCiliumEndpoint {
+
+	// Copy Networking field into core CEP
+	var epNetworking *cilium_v2.EndpointNetworking
+	if cep.Status.Networking != nil {
+		epNetworking = new(cilium_v2.EndpointNetworking)
+		cep.Status.Networking.DeepCopyInto(epNetworking)
+	}
+	var identityID int64 = 0
+	if cep.Status.Identity != nil {
+		identityID = cep.Status.Identity.ID
+	}
+	return &cilium_v2alpha1.CoreCiliumEndpoint{
+		Name:       cep.GetName(),
+		Namespace:  cep.Namespace,
+		Networking: epNetworking,
+		Encryption: cep.Status.Encryption,
+		IdentityID: identityID,
+		NamedPorts: cep.Status.NamedPorts.DeepCopy(),
+	}
+}

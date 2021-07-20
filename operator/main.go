@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/operator/cmd"
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
+	ceb "github.com/cilium/cilium/operator/pkg/ciliumendpointbatch"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
@@ -354,6 +355,22 @@ func onOperatorStartLeading(ctx context.Context) {
 	isLeader.Store(true)
 
 	ciliumK8sClient = k8s.CiliumClient()
+
+	// If CiliumEndpointBatch feature is enabled, create CebController, start CEP watcher and run controller.
+	if option.Config.EnableCiliumEndpointBatch {
+		log.Info("Create and run CEB controller, start cep watcher")
+		// Initialize  the CEB controller
+		cebController := ceb.NewCebController(k8s.CiliumClient(), operatorOption.Config.CEBUpsertSyncPeriod,
+			operatorOption.Config.CEBDeleteSyncPeriod,
+			operatorOption.Config.CEBMaxCepsInCeb,
+			option.Config.K8sClientQPSLimit,
+			option.Config.K8sClientBurst)
+		stopCh := make(chan struct{})
+		// Start CEP watcher
+		operatorWatchers.CiliumEndpointsBatchInit(k8s.CiliumClient().CiliumV2(), cebController)
+		// Start the CEB controller, after current CEPs are synced locally in cache.
+		cebController.Run(operatorWatchers.CiliumEndpointStore, stopCh)
+	}
 
 	// Restart kube-dns as soon as possible since it helps etcd-operator to be
 	// properly setup. If kube-dns is not managed by Cilium it can prevent

@@ -3045,6 +3045,7 @@ definitions:
       Policy specs.
 
       +deepequal-gen=true
+      +k8s:deepcopy-gen=true
     type: array
     items:
       "$ref": "#/definitions/Port"
