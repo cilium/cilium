@@ -30,6 +30,10 @@ elf-demo.o: elf-demo.c
 	@$(ECHO_CC)
 	$(CLANG) ${FLAGS_CLANG} ${FLAGS} -I../../bpf/ $< -o $@
 
+nat-test: nat-test.c $(LIB)
+	@$(ECHO_CC)
+	$(CLANG) ${FLAGS} -I../../bpf/ -I./cmock  $< cmock/unity.c cmock/cmock.c ../../bpf/mock/mock_helpers.c ../../bpf/mock/mock_helpers_skb.c ../../bpf/mock/mock_conntrack_stub.c -o $@
+
 clean:
 	@$(ECHO_CLEAN)
 	-$(QUIET)rm -f $(TARGETS)

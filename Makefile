@@ -476,9 +476,10 @@ govet: ## Run govet on Go source files in the repository.
     ./test/k8sT/... \
     ./tools/...
 
-lint: ## Run golangci-lint.
+lint: ## Run golangci-lint and check if the helper headers in bpf/mock are up-to-date.
 	@$(ECHO_CHECK) golangci-lint
 	$(QUIET) golangci-lint run
+	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C bpf/mock/ check_helper_headers
 
 logging-subsys-field: ## Validate logrus subsystem field for logs in Go source code.
 	@$(ECHO_CHECK) contrib/scripts/check-logging-subsys-field.sh
