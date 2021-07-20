@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -1355,45 +1354,6 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 					testDSR(kubectl, ni, 64000)
 					testNodePort(kubectl, ni, true, false, false, 0)
-				})
-
-				// GKE COS image does not support sctp module.
-				SkipContextIf(func() bool {
-					return helpers.DoesNotRunWithKubeProxyReplacement() || helpers.RunsOnGKE()
-				}, "BPF NAT engine handles unknown protocol packets", func() {
-					var (
-						iperf3Manifest string
-					)
-					BeforeAll(func() {
-						DeployCiliumAndDNS(kubectl, ciliumFilename)
-						iperf3Manifest = helpers.ManifestGet(kubectl.BasePath(), "iperf3-deployment.yaml")
-						kubectl.ApplyDefault(iperf3Manifest).ExpectSuccess("Iperf3 cannot be deployed")
-					})
-
-					AfterFailed(func() {
-						kubectl.CiliumReport("cilium endpoint list")
-					})
-
-					AfterAll(func() {
-						_ = kubectl.Delete(iperf3Manifest)
-					})
-
-					It("Should not drop SCTP packets", func() {
-						By("Defining the first pod as the client in node 1")
-						clientPodInNode1, clientPodInNode1JSON := fetchPodsWithOffset(kubectl, helpers.DefaultNamespace, "iperf3", "zgroup=testapp", "", true, 0)
-						clientPodInNode1IP, err := clientPodInNode1JSON.Filter("{.status.podIP}")
-						Expect(err).Should(BeNil(), "Failure to retrieve IP of pod %s", clientPodInNode1)
-
-						By("Defining the second pod as the server in node 2")
-						serverPodInNode2, serverPodInNode2JSON := fetchPodsWithOffset(kubectl, helpers.DefaultNamespace, "iperf3", "zgroup=testapp", clientPodInNode1IP.String(), true, 0)
-						serverPodInNode2IP, err := serverPodInNode2JSON.Filter("{.status.podIP}")
-						Expect(err).Should(BeNil(), "Failure to retrieve IP of pod %s", serverPodInNode2)
-
-						By("Running iperf3 in client pod with SCTP protocol and 10MBytes to be sent")
-						res := kubectl.ExecPodCmd(helpers.DefaultNamespace, clientPodInNode1, fmt.Sprintf("iperf3 -c %s --sctp -n 10M -J | jq '.end.sum_received.bytes'", serverPodInNode2IP.String()))
-						receivedBytes, _ := strconv.Atoi(res.GetStdOut().ByLines()[0])
-						Expect(receivedBytes).To(BeNumerically(">", 0))
-					})
 				})
 
 				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with XDP, direct routing, SNAT and Random", func() {
