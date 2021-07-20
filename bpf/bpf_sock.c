@@ -443,7 +443,7 @@ __sock4_health_fwd(struct bpf_sock_addr *ctx __maybe_unused)
 	return ret;
 }
 
-__section("connect4")
+__section("cgroup/connect4")
 int sock4_connect(struct bpf_sock_addr *ctx)
 {
 	if (sock_is_health_check(ctx))
@@ -487,7 +487,7 @@ static __always_inline int __sock4_post_bind(struct bpf_sock *ctx,
 	return 0;
 }
 
-__section("post_bind4")
+__section("cgroup/post_bind4")
 int sock4_post_bind(struct bpf_sock *ctx)
 {
 	if (__sock4_post_bind(ctx, ctx) < 0)
@@ -526,7 +526,7 @@ static __always_inline int __sock4_pre_bind(struct bpf_sock_addr *ctx,
 	return ret;
 }
 
-__section("bind4")
+__section("cgroup/bind4")
 int sock4_pre_bind(struct bpf_sock_addr *ctx)
 {
 	int ret = SYS_PROCEED;
@@ -578,21 +578,21 @@ static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 	return -ENXIO;
 }
 
-__section("sendmsg4")
+__section("cgroup/sendmsg4")
 int sock4_sendmsg(struct bpf_sock_addr *ctx)
 {
 	__sock4_xlate_fwd(ctx, ctx, true);
 	return SYS_PROCEED;
 }
 
-__section("recvmsg4")
+__section("cgroup/recvmsg4")
 int sock4_recvmsg(struct bpf_sock_addr *ctx)
 {
 	__sock4_xlate_rev(ctx, ctx);
 	return SYS_PROCEED;
 }
 
-__section("getpeername4")
+__section("cgroup/getpeername4")
 int sock4_getpeername(struct bpf_sock_addr *ctx)
 {
 	__sock4_xlate_rev(ctx, ctx);
@@ -839,7 +839,7 @@ static __always_inline int __sock6_post_bind(struct bpf_sock *ctx)
 	return 0;
 }
 
-__section("post_bind6")
+__section("cgroup/post_bind6")
 int sock6_post_bind(struct bpf_sock *ctx)
 {
 	if (__sock6_post_bind(ctx) < 0)
@@ -909,7 +909,7 @@ static __always_inline int __sock6_pre_bind(struct bpf_sock_addr *ctx)
 	return ret;
 }
 
-__section("bind6")
+__section("cgroup/bind6")
 int sock6_pre_bind(struct bpf_sock_addr *ctx)
 {
 	int ret = SYS_PROCEED;
@@ -1029,7 +1029,7 @@ __sock6_health_fwd(struct bpf_sock_addr *ctx __maybe_unused)
 	return ret;
 }
 
-__section("connect6")
+__section("cgroup/connect6")
 int sock6_connect(struct bpf_sock_addr *ctx)
 {
 	if (sock_is_health_check(ctx))
@@ -1107,21 +1107,21 @@ static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 	return sock6_xlate_rev_v4_in_v6(ctx);
 }
 
-__section("sendmsg6")
+__section("cgroup/sendmsg6")
 int sock6_sendmsg(struct bpf_sock_addr *ctx)
 {
 	__sock6_xlate_fwd(ctx, true);
 	return SYS_PROCEED;
 }
 
-__section("recvmsg6")
+__section("cgroup/recvmsg6")
 int sock6_recvmsg(struct bpf_sock_addr *ctx)
 {
 	__sock6_xlate_rev(ctx);
 	return SYS_PROCEED;
 }
 
-__section("getpeername6")
+__section("cgroup/getpeername6")
 int sock6_getpeername(struct bpf_sock_addr *ctx)
 {
 	__sock6_xlate_rev(ctx);
