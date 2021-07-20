@@ -23,7 +23,11 @@ on:
   # pull_request: {}
   ###
 
-permissions: read-all
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # So that Sibz/github-status-action can write into the status API
+  statuses: write
 
 concurrency:
   # Structure:
