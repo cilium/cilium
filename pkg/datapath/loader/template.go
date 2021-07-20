@@ -48,12 +48,6 @@ var (
 		callsmap.MapName,
 		callsmap.CustomCallsMapName,
 	}
-	elfCtMapPrefixes = []string{
-		ctmap.MapNameTCP4,
-		ctmap.MapNameAny4,
-		ctmap.MapNameTCP6,
-		ctmap.MapNameAny6,
-	}
 )
 
 // templateCfg wraps a real configuration from an endpoint to pass through its
@@ -171,6 +165,16 @@ func elfMapSubstitutions(ep datapath.Endpoint) map[string]string {
 		result[templateStr] = desiredStr
 	}
 	if ep.ConntrackLocalLocked() {
+		elfCtMapPrefixes := []string{}
+		if option.Config.EnableIPv4 {
+			elfCtMapPrefixes = append(elfCtMapPrefixes, ctmap.MapNameTCP4)
+			elfCtMapPrefixes = append(elfCtMapPrefixes, ctmap.MapNameAny4)
+		}
+		if option.Config.EnableIPv6 {
+			elfCtMapPrefixes = append(elfCtMapPrefixes, ctmap.MapNameTCP6)
+			elfCtMapPrefixes = append(elfCtMapPrefixes, ctmap.MapNameAny6)
+		}
+
 		for _, name := range elfCtMapPrefixes {
 			templateStr := bpf.LocalMapName(name, templateLxcID)
 			desiredStr := bpf.LocalMapName(name, epID)
