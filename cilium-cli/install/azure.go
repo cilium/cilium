@@ -69,7 +69,17 @@ func (k *K8sInstaller) aksSetup(ctx context.Context) error {
 // Retrieve subscription ID to pass to other `az` commands:
 // - From user-given subscription name, if provided.
 // - From default subscription, if not provided.
+//
+// Optionally, it might be provided via the `--azure-subscription-id` flag,
+// which is currently a hidden feature not advertised to the users and intended
+// for development purposes, notably CI usage where `az` CLI is not available.
+// If provided, it bypasses auto-detection and `--azure-subscription`.
 func (k *K8sInstaller) azureRetrieveSubscriptionID(ctx context.Context) error {
+	if k.params.Azure.SubscriptionID != "" {
+		k.Log("ℹ️ Using manually configured Azure subscription ID %s", k.params.Azure.SubscriptionID)
+		return nil
+	}
+
 	args := []string{"account", "show"}
 	if k.params.Azure.SubscriptionName != "" {
 		args = append(args, "--subscription", k.params.Azure.SubscriptionName)
@@ -95,12 +105,28 @@ func (k *K8sInstaller) azureRetrieveSubscriptionID(ctx context.Context) error {
 //
 // Internally, AKS creates an intermediate resource group (named
 // `MC_{RG_name}_{cluster_name}_{location}`) to regroup all AKS nodes for
-// this cluster.
+// this cluster. See Azure documentation for more details:
+// https://docs.microsoft.com/en-us/azure/aks/faq#why-are-two-resource-groups-created-with-aks
 //
 // The CLI installs itself into this intermediate resource group, and thus
 // derives it from the user-given resource group and cluster name using
 // `az aks show`.
+//
+// Optionally, it might be provided via the `--azure-node-resource-group` flag,
+// which is currently a hidden feature not advertised to the users and intended
+// for development purposes, notably CI usage where `az` CLI is not available.
+// If provided, it bypasses the requirement for `--azure-resource-group`.
 func (k *K8sInstaller) azureRetrieveAKSNodeResourceGroup(ctx context.Context) error {
+	if k.params.Azure.AKSNodeResourceGroup != "" {
+		k.Log("ℹ️ Using manually configured Azure AKS node resource group %s", k.params.Azure.AKSNodeResourceGroup)
+		return nil
+	}
+
+	if k.params.Azure.ResourceGroupName == "" {
+		k.Log("❌ Azure resource group is required, please specify --azure-resource-group")
+		return fmt.Errorf("missing Azure resource group name")
+	}
+
 	bytes, err := k.azExec("aks", "show", "--subscription", k.params.Azure.SubscriptionID, "--resource-group", k.params.Azure.ResourceGroupName, "--name", k.params.ClusterName)
 	if err != nil {
 		return err
@@ -155,7 +181,7 @@ func (k *K8sInstaller) azureSetupServicePrincipal(ctx context.Context) error {
 			return fmt.Errorf("missing at least one of Azure Service Principal parameters")
 		}
 
-		k.Log("✅ Using manually configured Azure Service Principal for Cilium operator with App ID %s and Tenant ID %s",
+		k.Log("ℹ️ Using manually configured Azure Service Principal for Cilium operator with App ID %s and Tenant ID %s",
 			k.params.Azure.ClientID, k.params.Azure.TenantID)
 	}
 
