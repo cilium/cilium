@@ -621,11 +621,24 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			})
 		})
 
-		SkipContextIf(helpers.RunsWithKubeProxyReplacement, "Tests NodePort (kube-proxy)", func() {
+		SkipContextIf(func() bool {
+			// We need to disable on GKE because KPR cannot be disabled there
+			// due to a COS kernel bug. See #16597 for details.
+			return helpers.RunsWithoutKubeProxy() || helpers.RunsOnGKE()
+		}, "Tests NodePort (kube-proxy)", func() {
+			AfterAll(func() {
+				DeployCiliumAndDNS(kubectl, ciliumFilename)
+			})
+
+			/* IPsec requires 4.19+. */
 			SkipItIf(helpers.DoesNotRunOn419OrLaterKernel, "with IPSec and externalTrafficPolicy=Local", func() {
 				deploymentManager.SetKubectl(kubectl)
 				deploymentManager.Deploy(helpers.CiliumNamespace, IPSecSecret)
 				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+					"kubeProxyReplacement": "disabled",
+					// When we disable KPR, we also need to disable devices to
+					// match the default settings.
+					"devices":            "",
 					"encryption.enabled": "true",
 				})
 				testExternalTrafficPolicyLocal(kubectl, ni)
@@ -635,13 +648,18 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 			It("with the host firewall and externalTrafficPolicy=Local", func() {
 				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-					"hostFirewall": "true",
+					"kubeProxyReplacement": "disabled",
+					"devices":              "",
+					"hostFirewall":         "true",
 				})
 				testExternalTrafficPolicyLocal(kubectl, ni)
 			})
 
 			It("with externalTrafficPolicy=Local", func() {
-				DeployCiliumAndDNS(kubectl, ciliumFilename)
+				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+					"kubeProxyReplacement": "disabled",
+					"devices":              "",
+				})
 				testExternalTrafficPolicyLocal(kubectl, ni)
 			})
 
