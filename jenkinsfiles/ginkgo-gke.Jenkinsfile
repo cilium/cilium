@@ -147,7 +147,7 @@ pipeline {
                         returnStdout: true,
                         script: 'echo ${ghprbCommentBody} | sed -r "s/([^ ]* |^[^ ]*$)//" | sed "s/^$/K8s*/" | tr -d \'\n\''
                         )}"""
-                KERNEL="419"
+                KERNEL="54"
                 NATIVE_CIDR= """${sh(
                         returnStdout: true,
                         script: 'cat ${TESTDIR}/gke/cluster-cidr | tr -d \'\n\''
