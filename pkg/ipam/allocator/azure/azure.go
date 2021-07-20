@@ -19,7 +19,6 @@ import (
 	"fmt"
 
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
-	"github.com/cilium/cilium/operator/option"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	apiMetrics "github.com/cilium/cilium/pkg/api/metrics"
 	azureAPI "github.com/cilium/cilium/pkg/azure/api"
@@ -50,10 +49,8 @@ func (*AllocatorAzure) Start(ctx context.Context, getterUpdater ipam.CiliumNodeG
 
 	log.Info("Starting Azure IP allocator...")
 
-	var azureCloudName string
-	if viper.IsSet(option.AzureCloudName) {
-		azureCloudName = operatorOption.Config.AzureCloudName
-	} else {
+	azureCloudName := operatorOption.Config.AzureCloudName
+	if !viper.IsSet(operatorOption.AzureCloudName) {
 		log.Debug("Azure cloud name was not specified via CLI, retrieving it via Azure IMS")
 		var err error
 		azureCloudName, err = azureAPI.GetAzureCloudName(ctx)
