@@ -11,7 +11,8 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-const _ = grpc.SupportPackageIsVersion6
+// Requires gRPC-Go v1.32.0 or later.
+const _ = grpc.SupportPackageIsVersion7
 
 // PeerClient is the client API for Peer service.
 //
@@ -33,7 +34,7 @@ func NewPeerClient(cc grpc.ClientConnInterface) PeerClient {
 }
 
 func (c *peerClient) Notify(ctx context.Context, in *NotifyRequest, opts ...grpc.CallOption) (Peer_NotifyClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_Peer_serviceDesc.Streams[0], "/peer.Peer/Notify", opts...)
+	stream, err := c.cc.NewStream(ctx, &Peer_ServiceDesc.Streams[0], "/peer.Peer/Notify", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -79,12 +80,19 @@ type PeerServer interface {
 type UnimplementedPeerServer struct {
 }
 
-func (*UnimplementedPeerServer) Notify(*NotifyRequest, Peer_NotifyServer) error {
+func (UnimplementedPeerServer) Notify(*NotifyRequest, Peer_NotifyServer) error {
 	return status.Errorf(codes.Unimplemented, "method Notify not implemented")
 }
 
-func RegisterPeerServer(s *grpc.Server, srv PeerServer) {
-	s.RegisterService(&_Peer_serviceDesc, srv)
+// UnsafePeerServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to PeerServer will
+// result in compilation errors.
+type UnsafePeerServer interface {
+	mustEmbedUnimplementedPeerServer()
+}
+
+func RegisterPeerServer(s grpc.ServiceRegistrar, srv PeerServer) {
+	s.RegisterService(&Peer_ServiceDesc, srv)
 }
 
 func _Peer_Notify_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -108,7 +116,10 @@ func (x *peerNotifyServer) Send(m *ChangeNotification) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-var _Peer_serviceDesc = grpc.ServiceDesc{
+// Peer_ServiceDesc is the grpc.ServiceDesc for Peer service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var Peer_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "peer.Peer",
 	HandlerType: (*PeerServer)(nil),
 	Methods:     []grpc.MethodDesc{},
