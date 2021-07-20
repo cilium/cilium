@@ -16,6 +16,9 @@
 package speaker
 
 import (
+	"context"
+	"sync/atomic"
+
 	"github.com/cilium/cilium/pkg/k8s"
 
 	"go.universe.tf/metallb/pkg/k8s/types"
@@ -28,18 +31,35 @@ type svcEvent struct {
 	eps *metallbspr.Endpoints
 }
 type epEvent svcEvent
-
-// nodeEvent must be a pointer to a map because maps are not hashable, aka
-// cannot be keys in a map, which queue is.
-type nodeEvent *map[string]string
+type nodeEvent struct {
+	// The following fields must be a pointers because they are not hashable
+	// (read comparable) in Go.
+	labels   *map[string]string
+	podCIDRs *[]string
+	// withDraw will be set when a Delete node event occurs.
+	// the reduction of this event will elicit a withdrawal
+	// of all bgp routes.
+	withDraw bool
+}
 
 // run runs the reconciliation loop, fetching events off of the queue to
 // process. The events supported are svcEvent, epEvent, and nodeEvent. This
 // loop is only stopped (implicitly) when the Agent is shutting down.
 //
 // Adapted from go.universe.tf/metallb/pkg/k8s/k8s.go.
-func (s *Speaker) run() {
+func (s *MetalLBSpeaker) run(ctx context.Context) {
 	for {
+		// only check ctx here, we'll allow any in-flight
+		// events to be processed completely.
+		if ctx.Err() != nil {
+			return
+		}
+		// previous to this iteration, we processed an event
+		// which indicates the speaker should yield. shut
+		// it down.
+		if s.shutdown > 0 { // atomic load not necessary, we are the only writer.
+			return
+		}
 		key, quit := s.queue.Get()
 		if quit {
 			return
@@ -60,18 +80,57 @@ func (s *Speaker) run() {
 // do performs the appropriate action depending on the event type. For example,
 // if it is a service event (svcEvent), then it will call into MetalLB's
 // SetService() to perform BGP announcements.
-func (s *Speaker) do(key interface{}) types.SyncState {
+func (s *MetalLBSpeaker) do(key interface{}) types.SyncState {
 	defer s.queue.Done(key)
 
 	switch k := key.(type) {
 	case svcEvent:
-		return s.SetService(s.logger, k.id.String(), k.svc, k.eps)
+		return s.speaker.SetService(k.id.String(), k.svc, k.eps)
 	case epEvent:
-		return s.SetService(s.logger, k.id.String(), k.svc, k.eps)
+		return s.speaker.SetService(k.id.String(), k.svc, k.eps)
 	case nodeEvent:
-		return s.SetNodeLabels(s.logger, *k)
+		return s.handleNodeEvent(k)
 	default:
 		log.Debugf("Encountered an unknown key type %T in BGP speaker", k)
 		return types.SyncStateSuccess
 	}
+}
+
+func (s *MetalLBSpeaker) handleNodeEvent(k nodeEvent) types.SyncState {
+	var (
+		ret    types.SyncState
+		failed bool
+	)
+
+	if k.withDraw {
+		// this is a best effort method call, so we don't
+		// care about errors. If the node is shutting down
+		// all routes will be closed once the speaker's TCP conn
+		// is closed anyway per the rfc.
+		// see: https://datatracker.ietf.org/doc/html/rfc4271#section-6
+		s.withDraw()
+		atomic.AddInt32(&s.shutdown, 1)
+		return types.SyncStateSuccess
+	}
+
+	if s.announceLBIP {
+		if r := s.speaker.SetNodeLabels(*k.labels); r != types.SyncStateSuccess {
+			failed = true
+			ret = r
+		}
+	}
+	if s.announcePodCIDR {
+		if err := s.announcePodCIDRs(*k.podCIDRs); err != nil {
+			if !failed {
+				failed = true
+				ret = types.SyncStateError
+			}
+			log.WithError(err).WithField("CIDRs", k.podCIDRs).Error("Failed to announce pod CIDRs")
+		}
+	}
+
+	if failed {
+		return ret
+	}
+	return types.SyncStateSuccess
 }

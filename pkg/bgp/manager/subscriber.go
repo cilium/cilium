@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	mlbk8s "go.universe.tf/metallb/pkg/k8s"
 
 	metallbk8s "go.universe.tf/metallb/pkg/k8s"
 	"go.universe.tf/metallb/pkg/k8s/types"
@@ -27,37 +28,40 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// OnAdd handles an add event for services. It implements
+// OnAddService handles an add event for services. It implements
 // github.com/cilium/cilium/pkg/k8s/watchers/subscriber.ServiceHandler.
-func (m *Manager) OnAdd(obj *slim_corev1.Service) {
+func (m *Manager) OnAddService(obj *slim_corev1.Service) error {
 	key, err := cache.MetaNamespaceKeyFunc(obj)
-	if err == nil {
-		m.queue.Add(svcEvent(key))
-	} else {
+	if err != nil {
 		logInvalidObject(obj, err)
+		return err
 	}
+	m.queue.Add(svcEvent(key))
+	return nil
 }
 
-// OnUpdate handles an update event for services. It implements
+// OnUpdateService handles an update event for services. It implements
 // github.com/cilium/cilium/pkg/k8s/watchers/subscriber.ServiceHandler.
-func (m *Manager) OnUpdate(oldObj, newObj *slim_corev1.Service) {
+func (m *Manager) OnUpdateService(oldObj, newObj *slim_corev1.Service) error {
 	key, err := cache.MetaNamespaceKeyFunc(newObj)
-	if err == nil {
-		m.queue.Add(svcEvent(key))
-	} else {
+	if err != nil {
 		logInvalidObject(newObj, err)
+		return err
 	}
+	m.queue.Add(svcEvent(key))
+	return nil
 }
 
-// OnDelete handles a delete event for services. It implements
+// OnDeleteService handles a delete event for services. It implements
 // github.com/cilium/cilium/pkg/k8s/watchers/subscriber.ServiceHandler.
-func (m *Manager) OnDelete(obj *slim_corev1.Service) {
+func (m *Manager) OnDeleteService(obj *slim_corev1.Service) error {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-	if err == nil {
-		m.queue.Add(svcEvent(key))
-	} else {
+	if err != nil {
 		logInvalidObject(obj, err)
+		return err
 	}
+	m.queue.Add(svcEvent(key))
+	return nil
 }
 
 func logInvalidObject(obj *slim_corev1.Service, err error) {
@@ -132,7 +136,7 @@ func (m *Manager) process(event interface{}) types.SyncState {
 // reconcile calls down to the MetalLB controller to reconcile the service
 // object, which will allocate it an LB IP.
 func (m *Manager) reconcile(name string, svc *slim_corev1.Service) types.SyncState {
-	return m.SetBalancer(m.Logger(), name, toV1Service(svc), metallbk8s.EpsOrSlices{
+	return m.controller.SetBalancer(name, toV1Service(svc), mlbk8s.EpsOrSlices{
 		Type: metallbk8s.Eps,
 	})
 }
