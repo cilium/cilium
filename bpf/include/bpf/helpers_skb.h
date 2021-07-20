@@ -19,8 +19,13 @@ static int BPF_FUNC(redirect_neigh, int ifindex, struct bpf_redir_neigh *params,
 static int BPF_FUNC(redirect_peer, int ifindex, __u32 flags);
 
 /* Packet manipulation */
+#if !defined(__non_bpf_context) && defined(__bpf__)
+static int BPF_STUB(skb_load_bytes, struct __sk_buff *skb, __u32 off,
+		    void *to, __u32 len);
+#else
 static int BPF_FUNC(skb_load_bytes, struct __sk_buff *skb, __u32 off,
 		    void *to, __u32 len);
+#endif
 static int BPF_FUNC(skb_store_bytes, struct __sk_buff *skb, __u32 off,
 		    const void *from, __u32 len, __u32 flags);
 
