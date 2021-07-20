@@ -146,26 +146,6 @@ rules:
     verbs:
       - get
 ---
-# Source: cilium/templates/hubble-relay-clusterrole.yaml
-kind: ClusterRole
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: hubble-relay
-rules:
-  - apiGroups:
-      - ""
-    resources:
-      - componentstatuses
-      - endpoints
-      - namespaces
-      - nodes
-      - pods
-      - services
-    verbs:
-      - get
-      - list
-      - watch
----
 # Source: cilium/templates/hubble-ui-clusterrole.yaml
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
@@ -223,20 +203,6 @@ subjects:
 - kind: ServiceAccount
   name: hubble-generate-certs
   namespace: kube-system
----
-# Source: cilium/templates/hubble-relay-clusterrolebinding.yaml
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: hubble-relay
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: hubble-relay
-subjects:
-- kind: ServiceAccount
-  namespace: kube-system
-  name: hubble-relay
 ---
 # Source: cilium/templates/hubble-ui-clusterrolebinding.yaml
 kind: ClusterRoleBinding
@@ -350,6 +316,7 @@ spec:
       restartPolicy: Always
       serviceAccount: hubble-relay
       serviceAccountName: hubble-relay
+      automountServiceAccountToken: false
       terminationGracePeriodSeconds: 0
       volumes:
       - configMap:

@@ -85,6 +85,7 @@ spec:
       restartPolicy: Always
       serviceAccount: hubble-relay
       serviceAccountName: hubble-relay
+      automountServiceAccountToken: false
       terminationGracePeriodSeconds: 0
 {{- with .Values.hubble.relay.nodeSelector }}
       nodeSelector:
