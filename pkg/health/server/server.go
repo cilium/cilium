@@ -35,12 +35,6 @@ import (
 
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "health-server")
-
-	// PortToPaths is a convenience map for access to the ports and their
-	// common string representations
-	PortToPaths = map[int]string{
-		defaults.HTTPPathPort: "Via L3",
-	}
 )
 
 // Config stores the configuration data for a cilium-health server.
@@ -49,6 +43,7 @@ type Config struct {
 	CiliumURI     string
 	ProbeInterval time.Duration
 	ProbeDeadline time.Duration
+	HTTPPathPort  int
 }
 
 // ipString is an IP address used as a more descriptive type name in maps.
@@ -69,8 +64,8 @@ type Server struct {
 	// a diff of the nodes added and removed based on this clientID.
 	clientID int64
 
-	tcpServers []*responder.Server // Servers for external pings
-	startTime  time.Time
+	httpPathServer *responder.Server // HTTP server for external pings
+	startTime      time.Time
 
 	// The lock protects against read and write access to the IP->Node map,
 	// the list of statuses as most recently seen, and the last time a
@@ -259,7 +254,7 @@ func (s *Server) runActiveServices() error {
 }
 
 // Serve spins up the following goroutines:
-// * TCP API Server: Responders to the health API "/hello" message, one per path
+// * HTTP API Server: Responder to the health API "/hello" message
 // * Prober: Periodically run pings across the cluster at a configured interval
 //   and update the server's connectivity status cache.
 // * Unix API Server: Handle all health API requests over a unix socket.
@@ -268,12 +263,9 @@ func (s *Server) runActiveServices() error {
 func (s *Server) Serve() (err error) {
 	errors := make(chan error)
 
-	for i := range s.tcpServers {
-		srv := s.tcpServers[i]
-		go func() {
-			errors <- srv.Serve()
-		}()
-	}
+	go func() {
+		errors <- s.httpPathServer.Serve()
+	}()
 
 	go func() {
 		errors <- s.runActiveServices()
@@ -286,9 +278,7 @@ func (s *Server) Serve() (err error) {
 
 // Shutdown server and clean up resources
 func (s *Server) Shutdown() {
-	for i := range s.tcpServers {
-		s.tcpServers[i].Shutdown()
-	}
+	s.httpPathServer.Shutdown()
 	s.Server.Shutdown()
 }
 
@@ -317,7 +307,6 @@ func NewServer(config Config) (*Server, error) {
 	server := &Server{
 		startTime:    time.Now(),
 		Config:       config,
-		tcpServers:   []*responder.Server{},
 		connectivity: &healthReport{},
 	}
 
@@ -334,10 +323,7 @@ func NewServer(config Config) (*Server, error) {
 	server.Client = cl
 	server.Server = *server.newServer(swaggerSpec)
 
-	for port := range PortToPaths {
-		srv := responder.NewServer(port)
-		server.tcpServers = append(server.tcpServers, srv)
-	}
+	server.httpPathServer = responder.NewServer(config.HTTPPathPort)
 
 	return server, nil
 }
