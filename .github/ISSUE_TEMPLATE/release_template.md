@@ -30,8 +30,13 @@ assignees: ''
         instructions.
   - [ ] Commit all changes with title `Prepare for release vX.Y.Z`
   - [ ] Submit PR (`contrib/release/submit-release.sh`)
-  - [ ] For a new minor version, add the 'stable' tag as part of the GitHub
-        workflow and remove the 'stable' tag from the last stable branch.
+  - [ ] For a new minor version:
+    - [ ] Add the 'stable' tag as part of the GitHub workflow and remove the
+          'stable' tag from the last stable branch.
+    - [ ] Create the specific GH workflow that are only triggered via comment in
+          the master branch for the stable version going to be released.
+    - [ ] Remove all GH workflow that are only triggered via comment from the
+          stable branch that is going to be released.
 - [ ] Merge PR
 - [ ] Create and push *both* tags to GitHub (`vX.Y.Z`, `X.Y.Z`)
   - Pull latest branch locally and run `contrib/release/tag-release.sh`
