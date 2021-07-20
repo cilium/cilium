@@ -85,8 +85,13 @@ jobs:
         id: pr
         run: |
           curl ${{ github.event.issue.pull_request.url }} > pr.json
+          # If GitHub can resolve the merge conflicts, we can get the exact
+          # diff for the PR by comparing .base and .merge_commit. Otherwise,
+          # we get a diff that includes more changes as .merge_commit isn't
+          # available.
           echo "::set-output name=base::$(jq -r '.base.sha' pr.json)"
-          echo "::set-output name=head::$(jq -r '.head.sha' pr.json)"
+          pr_commit=$(jq -r 'if (.merge_commit_sha) then .merge_commit_sha else .head.sha end' pr.json)
+          echo "::set-output name=head::$pr_commit"
       # Because we run on issue comments, we need to checkout the code for
       # paths-filter to work.
       - name: Checkout code
