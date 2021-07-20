@@ -9,11 +9,9 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      serviceAccount: {{ .Values.serviceAccounts.hubblecertgen.name | quote }}
-      serviceAccountName: {{ .Values.serviceAccounts.hubblecertgen.name | quote }}
       containers:
         - name: certgen
-          image: {{ .Values.certgen.image.repository }}:{{ .Values.certgen.image.tag }}
+          image: {{ include "cilium.image" .Values.certgen.image | quote }}
           imagePullPolicy: {{ .Values.certgen.image.pullPolicy }}
           command:
             - "/usr/bin/cilium-certgen"
@@ -28,40 +26,38 @@ spec:
             - "--debug"
             {{- end }}
             {{- $hubbleCAProvided := and .Values.hubble.tls.ca.cert .Values.hubble.tls.ca.key -}}
-            {{- if $hubbleCAProvided }}
-            - "--hubble-ca-generate=false"
-            {{- else }}
+            {{- if not $hubbleCAProvided }}
             - "--hubble-ca-generate=true"
             - "--hubble-ca-validity-duration={{ $certValiditySecondsStr }}"
             - "--hubble-ca-config-map-create=true"
             - "--hubble-ca-config-map-name=hubble-ca-cert"
-            {{- end }}
-            {{- if and .Values.hubble.tls.server.cert .Values.hubble.tls.server.key $hubbleCAProvided }}
-            - "--hubble-server-cert-generate=false"
             {{- else }}
+            - "--hubble-ca-generate=false"
+            {{- end }}
             - "--hubble-server-cert-generate=true"
             - "--hubble-server-cert-common-name={{ list "*" (.Values.cluster.name | replace "." "-") "hubble-grpc.cilium.io" | join "." }}"
             - "--hubble-server-cert-validity-duration={{ $certValiditySecondsStr }}"
             - "--hubble-server-cert-secret-name=hubble-server-certs"
-            {{- end }}
-            {{- if and .Values.hubble.relay.tls.client.cert .Values.hubble.relay.tls.client.key $hubbleCAProvided }}
-            - "--hubble-relay-client-cert-generate=false"
-            {{- else }}
+            {{- if .Values.hubble.relay.enabled }}
             - "--hubble-relay-client-cert-generate=true"
             - "--hubble-relay-client-cert-validity-duration={{ $certValiditySecondsStr }}"
             - "--hubble-relay-client-cert-secret-name=hubble-relay-client-certs"
+            {{- else }}
+            - "--hubble-relay-client-cert-generate=false"
             {{- end }}
-            {{- if or (and .Values.hubble.relay.tls.server.cert .Values.hubble.relay.tls.server.key) (not .Values.hubble.relay.tls.server.enabled) }}
-            - "--hubble-relay-server-cert-generate=false"
-            {{- else if .Values.hubble.relay.tls.server.enabled }}
+            {{- if and .Values.hubble.relay.enabled .Values.hubble.relay.tls.server.enabled }}
             - "--hubble-relay-server-cert-generate=true"
             - "--hubble-relay-server-cert-validity-duration={{ $certValiditySecondsStr }}"
             - "--hubble-relay-server-cert-secret-name=hubble-relay-server-certs"
+            {{- else }}
+            - "--hubble-relay-server-cert-generate=false"
             {{- end }}
       hostNetwork: true
-      {{- if .Values.imagePullSecrets }}
+      serviceAccount: {{ .Values.serviceAccounts.hubblecertgen.name | quote }}
+      serviceAccountName: {{ .Values.serviceAccounts.hubblecertgen.name | quote }}
+      {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
-      {{ toYaml .Values.imagePullSecrets | indent 6 }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
       restartPolicy: OnFailure
   ttlSecondsAfterFinished: {{ .Values.certgen.ttlSecondsAfterFinished }}
