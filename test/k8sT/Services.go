@@ -971,6 +971,31 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 					It("Tests NodePort", func() {
 						testNodePort(kubectl, ni, true, false, helpers.ExistNodeWithoutCilium(), 0)
+						By("restarting cilium pods")
+
+						// kill pid 1 in each cilium pod
+						cmd := fmt.Sprintf("%[1]s get pods -l k8s-app=cilium -n %[2]s |  tail -n +2 | cut -d ' ' -f 1 | xargs -I{} %[1]s exec -n %[2]s {} -- kill 1",
+							helpers.KubectlCmd, helpers.CiliumNamespace)
+						quit, run := kubectl.RepeatCommandInBackground(cmd)
+						channelClosed := false
+						defer func() {
+							if !channelClosed {
+								close(quit)
+							}
+						}()
+						<-run // waiting for first run to finish
+
+						By("Testing NodePort BPF when cilium is restoring")
+						testNodePort(kubectl, ni, true, false, helpers.ExistNodeWithoutCilium(), 0)
+						channelClosed = true
+						close(quit)
+						ExpectAllPodsTerminated(kubectl)
+						ExpectCiliumReady(kubectl)
+
+						err := kubectl.CiliumEndpointWaitReady()
+						Expect(err).To(BeNil(), "Endpoints are not ready after Cilium restarts")
+						By("Testing NodePort BPF when cilium is *restored*")
+						testNodePort(kubectl, ni, true, false, helpers.ExistNodeWithoutCilium(), 0)
 					})
 
 					It("Tests NodePort with externalTrafficPolicy=Local", func() {
