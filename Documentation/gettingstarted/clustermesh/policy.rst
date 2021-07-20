@@ -1,8 +1,8 @@
 .. _gs_clustermesh_network_policy:
 
-**************
-Network Policy
-**************
+***************************
+Cluster Mesh Network Policy
+***************************
 
 This tutorial will guide you how to define NetworkPolicies affecting multiple
 clusters.

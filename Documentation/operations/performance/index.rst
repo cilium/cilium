@@ -21,3 +21,5 @@ standardized and repeatable bare metal environment.
    tuning
    benchmark
    scalability/index
+   ../../configuration/api-rate-limiting
+

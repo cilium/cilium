@@ -52,25 +52,45 @@ The documentation is divided into the following sections:
    :caption: Operations
 
    operations/system_requirements
+   gettingstarted/k8s-install-advanced
    operations/upgrade
-   configuration/index
-   policy/index
-   operations/metrics
    operations/performance/index
    operations/troubleshooting
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Networking
+
+   networking/index 
+
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Observability
+
+   operations/metrics
+   gettingstarted/grafana
+   policy/visibility
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Security
+
+   policy/index
+   gettingstarted/encryption
 
 
 .. toctree::
    :maxdepth: 2
    :caption: Community
 
+   contributing/governance/index
    community
 
 .. toctree::
    :maxdepth: 3
    :caption: For Developers
 
-   contributing/governance/index
    contributing/development/index
    contributing/release/index
    contributing/testing/index
