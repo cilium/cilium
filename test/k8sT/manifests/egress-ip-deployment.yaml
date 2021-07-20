@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "egress-ip-assign"
+  labels:
+    name: "egress-ip-assign"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: "egress-ip-assign"
+  template:
+    metadata:
+      labels:
+        name: "egress-ip-assign"
+    spec:
+      # Pin it on k8s2 so it becomes the gateway node
+      nodeSelector:
+        cilium.io/ci-node: k8s2
+      hostNetwork: true
+      containers:
+      - name: egress-ip
+        image: docker.io/library/busybox:1.31.1
+        command: ["/bin/sh","-c"]
+        securityContext:
+          privileged: true
+        env:
+        - name: EGRESS_IPS
+          value: "INPUT_EGRESS_IP/24"
+        args:
+        - "for i in $EGRESS_IPS; do ip address add $i dev enp0s8; done; sleep 10000000"
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - "/bin/sh"
+              - "-c"
+              - "for i in $EGRESS_IPS; do ip address del $i dev enp0s8; done"
