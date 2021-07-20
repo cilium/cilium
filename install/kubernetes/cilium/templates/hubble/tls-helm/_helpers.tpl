@@ -1,12 +1,12 @@
 {{/*
 Generate TLS certificates for Hubble Server and Hubble Relay.
 
-Note: this line, that is repeated several times below, is a trick to
-ensure the CA certs are generated only once:
+Note: Always use this template as follows:
 
     {{- $_ := include "hubble-generate-certs.helm.setup-ca" . -}}
 
-Please, don't try to "simplify" them as without this trick, every generated
+The assignment to `$_` is required because we store the generated CI in a global `ca` variable.
+Please, don't try to "simplify" this, as without this trick, every generated
 certificate would be signed by a different CA.
 */}}
 {{- define "hubble-generate-certs.helm.setup-ca" }}
