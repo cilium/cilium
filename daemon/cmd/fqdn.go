@@ -26,7 +26,6 @@ import (
 	"sync"
 	"time"
 
-	fqdnpb "github.com/cilium/cilium/api/v1/dnsproxy"
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/api"
@@ -367,6 +366,10 @@ func (d *Daemon) LookupEPByIP(endpointIP net.IP) (endpoint *endpoint.Endpoint, e
 
 func (d *Daemon) LookupIPsBySecID(nid identity.NumericIdentity) []string {
 	return ipcache.IPIdentityCache.LookupByIdentity(nid)
+}
+
+func (d *Daemon) LookupEP(id string) (*endpoint.Endpoint, error) {
+	return d.endpointManager.Lookup(id)
 }
 
 // NotifyOnDNSMsg handles DNS data in the daemon by emitting monitor

@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/miekg/dns"
@@ -98,17 +99,13 @@ func (s *FQDNProxyAgentServer) LookupIPsBySecurityIdentity(ctx context.Context, 
 func (s *FQDNProxyAgentServer) NotifyOnDNSMessage(ctx context.Context, notification *pb.DNSNotification) (*pb.Empty, error) {
 	//TODO: this should probably be factored out into stream of DNS notifications instead of a rpc call per DNS msg
 
-	endpoint := &endpoint.Endpoint{
-		ID: uint16(notification.Endpoint.ID),
-		SecurityIdentity: &identity.Identity{
-			ID: identity.NumericIdentity(notification.Endpoint.Identity),
-		},
-		K8sNamespace: notification.Endpoint.Namespace,
-		K8sPodName:   notification.Endpoint.PodName,
+	endpoint, err := s.dataSource.LookupEP(strconv.Itoa(int(notification.Endpoint.ID)))
+	if err != nil {
+		log.WithField("Endpoint ID", notification.Endpoint.ID).Errorf("Failed to retrieve endpoint")
 	}
 
 	dnsMsg := &dns.Msg{}
-	err := dnsMsg.Unpack(notification.Msg)
+	err = dnsMsg.Unpack(notification.Msg)
 
 	if err != nil {
 		log.Errorf("Failed to unpack DNS message: %s", err)
@@ -147,4 +144,5 @@ type DNSProxyDataSource interface {
 	LookupSecIDByIP(net.IP) (ipcache.Identity, bool)
 	LookupIPsBySecID(identity.NumericIdentity) []string
 	NotifyOnDNSMsg(time.Time, *endpoint.Endpoint, string, string, *dns.Msg, string, bool, *dnsproxy.ProxyRequestContext) error
+	LookupEP(string) (*endpoint.Endpoint, error)
 }
