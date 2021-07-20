@@ -192,3 +192,22 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define IPCACHE4_PREFIXES 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, \
 4, 3, 2, 1
 #define IPCACHE6_PREFIXES 4, 3, 2, 1
+
+#define VLAN_FILTER(ifindex, vlan_id) switch (ifindex) { \
+case 116: \
+switch (vlan_id) { \
+case 4000: \
+case 4001: \
+return true; \
+} \
+break; \
+case 117: \
+switch (vlan_id) { \
+case 4003: \
+case 4004: \
+case 4005: \
+return true; \
+} \
+break; \
+} \
+return false;

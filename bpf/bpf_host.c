@@ -37,6 +37,10 @@
  */
 #define SKIP_ICMPV6_ECHO_HANDLING
 
+#ifndef VLAN_FILTER
+# define VLAN_FILTER(ifindex, vlan_id) return false;
+#endif
+
 #include "lib/common.h"
 #include "lib/edt.h"
 #include "lib/arp.h"
@@ -60,6 +64,10 @@
 #include "lib/host_firewall.h"
 #include "lib/overloadable.h"
 #include "lib/encrypt.h"
+
+static __always_inline bool allow_vlan(__u32 __maybe_unused ifindex, __u32 __maybe_unused vlan_id) {
+	VLAN_FILTER(ifindex, vlan_id);
+}
 
 #if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)
 static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx,
@@ -968,6 +976,21 @@ handle_netdev(struct __ctx_buff *ctx, const bool from_host)
 __section("from-netdev")
 int from_netdev(struct __ctx_buff *ctx)
 {
+	__u32 __maybe_unused vlan_id;
+
+	/* Filter allowed vlan id's and pass them back to kernel.
+	 */
+	if (ctx->vlan_present) {
+		vlan_id = ctx->vlan_tci & 0xfff;
+		if (vlan_id) {
+			if (allow_vlan(ctx->ifindex, vlan_id))
+				return CTX_ACT_OK;
+			else
+				return send_drop_notify_error(ctx, 0, DROP_VLAN_FILTERED,
+							      CTX_ACT_DROP, METRIC_INGRESS);
+		}
+	}
+
 	return handle_netdev(ctx, false);
 }
 
@@ -997,7 +1020,21 @@ int to_netdev(struct __ctx_buff *ctx __maybe_unused)
 	__u32 __maybe_unused src_id = 0;
 	__u16 __maybe_unused proto = 0;
 	__u32 monitor = 0;
+	__u32 __maybe_unused vlan_id;
 	int ret = CTX_ACT_OK;
+
+	/* Filter allowed vlan id's and pass them back to kernel.
+	 */
+	if (ctx->vlan_present) {
+		vlan_id = ctx->vlan_tci & 0xfff;
+		if (vlan_id) {
+			if (allow_vlan(ctx->ifindex, vlan_id))
+				return CTX_ACT_OK;
+			else
+				return send_drop_notify_error(ctx, 0, DROP_VLAN_FILTERED,
+							      CTX_ACT_DROP, METRIC_EGRESS);
+		}
+	}
 
 #ifdef ENABLE_HOST_FIREWALL
 	if (!proto && !validate_ethertype(ctx, &proto)) {

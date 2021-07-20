@@ -19,6 +19,7 @@ package config
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 	"testing"
@@ -30,6 +31,8 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
+
+	"github.com/vishvananda/netlink"
 
 	. "gopkg.in/check.v1"
 )
@@ -244,4 +247,93 @@ func assertKeysInsideMap(c *C, m map[string]uint32, keys []string, want bool) {
 		_, ok := m[v]
 		c.Assert(ok, Equals, want)
 	}
+}
+
+func createMainLink(name string, c *C) *netlink.Dummy {
+	link := &netlink.Dummy{
+		LinkAttrs: netlink.LinkAttrs{
+			Name: name,
+		},
+	}
+	err := netlink.LinkAdd(link)
+	c.Assert(err, IsNil)
+
+	return link
+}
+
+func createVlanLink(vlanId int, mainLink *netlink.Dummy, c *C) *netlink.Vlan {
+	link := &netlink.Vlan{
+		LinkAttrs: netlink.LinkAttrs{
+			Name:        fmt.Sprintf("%s.%d", mainLink.Name, vlanId),
+			ParentIndex: mainLink.Index,
+		},
+		VlanProtocol: netlink.VLAN_PROTOCOL_8021Q,
+		VlanId:       vlanId,
+	}
+	err := netlink.LinkAdd(link)
+	c.Assert(err, IsNil)
+
+	return link
+}
+
+func (s *ConfigSuite) TestVLANBypassConfig(c *C) {
+	oldDevices := option.Config.Devices
+	defer func() {
+		option.Config.Devices = oldDevices
+	}()
+
+	main1 := createMainLink("dummy0", c)
+	defer func() {
+		netlink.LinkDel(main1)
+	}()
+
+	for i := 4000; i < 4003; i++ {
+		vlan := createVlanLink(i, main1, c)
+		defer func() {
+			netlink.LinkDel(vlan)
+		}()
+	}
+
+	main2 := createMainLink("dummy1", c)
+	defer func() {
+		netlink.LinkDel(main2)
+	}()
+
+	for i := 4003; i < 4006; i++ {
+		vlan := createVlanLink(i, main2, c)
+		defer func() {
+			netlink.LinkDel(vlan)
+		}()
+	}
+
+	option.Config.Devices = []string{"dummy0", "dummy0.4000", "dummy0.4001", "dummy1", "dummy1.4003"}
+	option.Config.VLANBPFBypass = []int{4004}
+	m, err := vlanFilterMacros()
+	c.Assert(err, Equals, nil)
+	c.Assert(m, Equals, fmt.Sprintf(`switch (ifindex) { \
+case %d: \
+switch (vlan_id) { \
+case 4000: \
+case 4001: \
+return true; \
+} \
+break; \
+case %d: \
+switch (vlan_id) { \
+case 4003: \
+case 4004: \
+return true; \
+} \
+break; \
+} \
+return false;`, main1.Index, main2.Index))
+
+	option.Config.VLANBPFBypass = []int{4002, 4004, 4005}
+	_, err = vlanFilterMacros()
+	c.Assert(err, NotNil)
+
+	option.Config.VLANBPFBypass = []int{0}
+	m, err = vlanFilterMacros()
+	c.Assert(err, IsNil)
+	c.Assert(m, Equals, "return true")
 }

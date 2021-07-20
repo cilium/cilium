@@ -295,6 +295,10 @@ bpf:
   # NAT handling.
   # lbBypassFIBLookup: true
 
+  # -- Configure explicitly allowed VLAN id's for bpf logic bypass.
+  # [0] will allow all VLAN id's without any filtering.
+  # vlan-bpf-bypass: []
+
 # -- Clean all eBPF datapath state from the initContainer of the cilium-agent
 # DaemonSet.
 #
