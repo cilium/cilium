@@ -13,9 +13,8 @@ require (
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.1153
 	github.com/asaskevich/govalidator v0.0.0-20200907205600-7a23bdc65eef
 	github.com/aws/aws-sdk-go-v2 v1.7.1
-	github.com/aws/aws-sdk-go-v2/config v1.2.0
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.1.1
-	github.com/aws/aws-sdk-go-v2/internal/ini v1.0.0 // indirect
+	github.com/aws/aws-sdk-go-v2/config v1.5.0
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.3.0
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.9.0
 	github.com/aws/smithy-go v1.6.0
 	github.com/blang/semver/v4 v4.0.0

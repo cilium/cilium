@@ -30,12 +30,12 @@
 // it with the CredentialsCache before assigning the provider to the Amazon S3 API
 // client's Credentials option.
 //
-// 	provider := imds.New(imds.Options{})
+//  provider := imds.New(imds.Options{})
 //
-//     // Create the service client value configured for credentials.
-//     svc := s3.New(s3.Options{
-// 		Credentials: &aws.CredentialsCache{Provider: provider},
-// 	})
+//  // Create the service client value configured for credentials.
+//  svc := s3.New(s3.Options{
+//    Credentials: aws.NewCredentialsCache(provider),
+//  })
 //
 // If you need more control, you can set the configuration options on the
 // credentials provider using the imds.Options type to configure the EC2 IMDS

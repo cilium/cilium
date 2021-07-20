@@ -47,22 +47,22 @@
 // it with the CredentialsCache before assigning the provider to the Amazon S3 API
 // client's Credentials option.
 //
-//     // Create credentials using the Provider.
+//  // Create credentials using the Provider.
 // 	provider := processcreds.NewProvider("/path/to/command")
 //
-//     // Create the service client value configured for credentials.
-//     svc := s3.New(s3.Options{
-// 		Credentials: &aws.CredentialsCache{Provider: provider},
-// 	})
+//  // Create the service client value configured for credentials.
+//  svc := s3.New(s3.Options{
+//    Credentials: aws.NewCredentialsCache(provider),
+//  })
 //
 // If you need more control, you can set any configurable options in the
 // credentials using one or more option functions.
 //
-//     provider := processcreds.NewProvider("/path/to/command",
-//         func(o *processcreds.Options) {
-// 			// Override the provider's default timeout
-//             o.Timeout = 2 * time.Minute
-//         })
+//  provider := processcreds.NewProvider("/path/to/command",
+//      func(o *processcreds.Options) {
+//        // Override the provider's default timeout
+//        o.Timeout = 2 * time.Minute
+//      })
 //
 // You can also use your own `exec.Cmd` value by satisfying a value that satisfies
 // the `NewCommandBuilder` interface and use the `NewProviderCommand` constructor.

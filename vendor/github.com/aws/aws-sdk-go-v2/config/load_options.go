@@ -122,6 +122,21 @@ type LoadOptions struct {
 	// S3UseARNRegion specifies if the S3 service should allow ARNs to direct
 	// the region, the client's requests are sent to.
 	S3UseARNRegion *bool
+
+	// EnableEndpointDiscovery specifies if endpoint discovery is enable for
+	// the client.
+	EnableEndpointDiscovery aws.EndpointDiscoveryEnableState
+
+	// Specifies if the EC2 IMDS service client is enabled.
+	//
+	// AWS_EC2_METADATA_DISABLED=true
+	EC2IMDSClientEnableState imds.ClientEnableState
+
+	// Specifies the EC2 Instance Metadata Service default endpoint selection mode (IPv4 or IPv6)
+	EC2IMDSEndpointMode imds.EndpointModeState
+
+	// Specifies the EC2 Instance Metadata Service endpoint to use. If specified it overrides EC2IMDSEndpointMode.
+	EC2IMDSEndpoint string
 }
 
 // getRegion returns Region from config's LoadOptions
@@ -598,6 +613,25 @@ func WithS3UseARNRegion(v bool) LoadOptionsFunc {
 	}
 }
 
+// GetEnableEndpointDiscovery returns if the EnableEndpointDiscovery flag is set.
+func (o LoadOptions) GetEnableEndpointDiscovery(ctx context.Context) (value aws.EndpointDiscoveryEnableState, ok bool, err error) {
+	if o.EnableEndpointDiscovery == aws.EndpointDiscoveryUnset {
+		return aws.EndpointDiscoveryUnset, false, nil
+	}
+	return o.EnableEndpointDiscovery, true, nil
+}
+
+// WithEndpointDiscovery is a helper function to construct functional options
+// that can be used to enable endpoint discovery on LoadOptions for supported clients.
+// If multiple WithEndpointDiscovery calls are made, the last call overrides
+// the previous call values.
+func WithEndpointDiscovery(v aws.EndpointDiscoveryEnableState) LoadOptionsFunc {
+	return func(o *LoadOptions) error {
+		o.EnableEndpointDiscovery = v
+		return nil
+	}
+}
+
 // getSSOProviderOptions returns AssumeRoleCredentialOptions from LoadOptions
 func (o LoadOptions) getSSOProviderOptions(context.Context) (func(options *ssocreds.Options), bool, error) {
 	if o.SSOProviderOptions == nil {
@@ -616,6 +650,57 @@ func (o LoadOptions) getSSOProviderOptions(context.Context) (func(options *ssocr
 func WithSSOProviderOptions(v func(*ssocreds.Options)) LoadOptionsFunc {
 	return func(o *LoadOptions) error {
 		o.SSOProviderOptions = v
+		return nil
+	}
+}
+
+// GetEC2IMDSClientEnableState implements a EC2IMDSClientEnableState options resolver interface.
+func (o LoadOptions) GetEC2IMDSClientEnableState() (imds.ClientEnableState, bool, error) {
+	if o.EC2IMDSClientEnableState == imds.ClientDefaultEnableState {
+		return imds.ClientDefaultEnableState, false, nil
+	}
+
+	return o.EC2IMDSClientEnableState, true, nil
+}
+
+// GetEC2IMDSEndpointMode implements a EC2IMDSEndpointMode option resolver interface.
+func (o LoadOptions) GetEC2IMDSEndpointMode() (imds.EndpointModeState, bool, error) {
+	if o.EC2IMDSEndpointMode == imds.EndpointModeStateUnset {
+		return imds.EndpointModeStateUnset, false, nil
+	}
+
+	return o.EC2IMDSEndpointMode, true, nil
+}
+
+// GetEC2IMDSEndpoint implements a EC2IMDSEndpoint option resolver interface.
+func (o LoadOptions) GetEC2IMDSEndpoint() (string, bool, error) {
+	if len(o.EC2IMDSEndpoint) == 0 {
+		return "", false, nil
+	}
+
+	return o.EC2IMDSEndpoint, true, nil
+}
+
+// WithEC2IMDSClientEnableState is a helper function to construct functional options that sets the EC2IMDSClientEnableState.
+func WithEC2IMDSClientEnableState(v imds.ClientEnableState) LoadOptionsFunc {
+	return func(o *LoadOptions) error {
+		o.EC2IMDSClientEnableState = v
+		return nil
+	}
+}
+
+// WithEC2IMDSEndpointMode is a helper function to construct functional options that sets the EC2IMDSEndpointMode.
+func WithEC2IMDSEndpointMode(v imds.EndpointModeState) LoadOptionsFunc {
+	return func(o *LoadOptions) error {
+		o.EC2IMDSEndpointMode = v
+		return nil
+	}
+}
+
+// WithEC2IMDSEndpoint is a helper function to construct functional options that sets the EC2IMDSEndpoint.
+func WithEC2IMDSEndpoint(v string) LoadOptionsFunc {
+	return func(o *LoadOptions) error {
+		o.EC2IMDSEndpoint = v
 		return nil
 	}
 }

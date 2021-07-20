@@ -14,37 +14,40 @@ import (
 // authenticated in a mobile or web application with a web identity provider.
 // Example providers include Amazon Cognito, Login with Amazon, Facebook, Google,
 // or any OpenID Connect-compatible identity provider. For mobile applications, we
-// recommend that you use Amazon Cognito. You can use Amazon Cognito with the AWS
-// SDK for iOS Developer Guide (http://aws.amazon.com/sdkforios/) and the AWS SDK
-// for Android Developer Guide (http://aws.amazon.com/sdkforandroid/) to uniquely
-// identify a user. You can also supply the user with a consistent identity
-// throughout the lifetime of an application. To learn more about Amazon Cognito,
-// see Amazon Cognito Overview
+// recommend that you use Amazon Cognito. You can use Amazon Cognito with the
+// Amazon Web Services SDK for iOS Developer Guide
+// (http://aws.amazon.com/sdkforios/) and the Amazon Web Services SDK for Android
+// Developer Guide (http://aws.amazon.com/sdkforandroid/) to uniquely identify a
+// user. You can also supply the user with a consistent identity throughout the
+// lifetime of an application. To learn more about Amazon Cognito, see Amazon
+// Cognito Overview
 // (https://docs.aws.amazon.com/mobile/sdkforandroid/developerguide/cognito-auth.html#d0e840)
-// in AWS SDK for Android Developer Guide and Amazon Cognito Overview
+// in Amazon Web Services SDK for Android Developer Guide and Amazon Cognito
+// Overview
 // (https://docs.aws.amazon.com/mobile/sdkforios/developerguide/cognito-auth.html#d0e664)
-// in the AWS SDK for iOS Developer Guide. Calling AssumeRoleWithWebIdentity does
-// not require the use of AWS security credentials. Therefore, you can distribute
-// an application (for example, on mobile devices) that requests temporary security
-// credentials without including long-term AWS credentials in the application. You
-// also don't need to deploy server-based proxy services that use long-term AWS
-// credentials. Instead, the identity of the caller is validated by using a token
-// from the web identity provider. For a comparison of AssumeRoleWithWebIdentity
-// with the other API operations that produce temporary credentials, see Requesting
-// Temporary Security Credentials
+// in the Amazon Web Services SDK for iOS Developer Guide. Calling
+// AssumeRoleWithWebIdentity does not require the use of Amazon Web Services
+// security credentials. Therefore, you can distribute an application (for example,
+// on mobile devices) that requests temporary security credentials without
+// including long-term Amazon Web Services credentials in the application. You also
+// don't need to deploy server-based proxy services that use long-term Amazon Web
+// Services credentials. Instead, the identity of the caller is validated by using
+// a token from the web identity provider. For a comparison of
+// AssumeRoleWithWebIdentity with the other API operations that produce temporary
+// credentials, see Requesting Temporary Security Credentials
 // (https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_request.html)
-// and Comparing the AWS STS API operations
+// and Comparing the STS API operations
 // (https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_request.html#stsapi_comparison)
 // in the IAM User Guide. The temporary security credentials returned by this API
 // consist of an access key ID, a secret access key, and a security token.
-// Applications can use these temporary security credentials to sign calls to AWS
-// service API operations. Session Duration By default, the temporary security
-// credentials created by AssumeRoleWithWebIdentity last for one hour. However, you
-// can use the optional DurationSeconds parameter to specify the duration of your
-// session. You can provide a value from 900 seconds (15 minutes) up to the maximum
-// session duration setting for the role. This setting can have a value from 1 hour
-// to 12 hours. To learn how to view the maximum value for your role, see View the
-// Maximum Session Duration Setting for a Role
+// Applications can use these temporary security credentials to sign calls to
+// Amazon Web Services service API operations. Session Duration By default, the
+// temporary security credentials created by AssumeRoleWithWebIdentity last for one
+// hour. However, you can use the optional DurationSeconds parameter to specify the
+// duration of your session. You can provide a value from 900 seconds (15 minutes)
+// up to the maximum session duration setting for the role. This setting can have a
+// value from 1 hour to 12 hours. To learn how to view the maximum value for your
+// role, see View the Maximum Session Duration Setting for a Role
 // (https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use.html#id_roles_use_view-role-max-session)
 // in the IAM User Guide. The maximum session duration limit applies when you use
 // the AssumeRole* API operations or the assume-role* CLI commands. However the
@@ -52,10 +55,10 @@ import (
 // more information, see Using IAM Roles
 // (https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use.html) in the IAM
 // User Guide. Permissions The temporary security credentials created by
-// AssumeRoleWithWebIdentity can be used to make API calls to any AWS service with
-// the following exception: you cannot call the STS GetFederationToken or
-// GetSessionToken API operations. (Optional) You can pass inline or managed
-// session policies
+// AssumeRoleWithWebIdentity can be used to make API calls to any Amazon Web
+// Services service with the following exception: you cannot call the STS
+// GetFederationToken or GetSessionToken API operations. (Optional) You can pass
+// inline or managed session policies
 // (https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#policies_session)
 // to this operation. You can pass a single JSON policy document to use as an
 // inline session policy. You can also specify up to 10 managed policies to use as
@@ -63,9 +66,9 @@ import (
 // session policies can't exceed 2,048 characters. Passing policies to this
 // operation returns new temporary credentials. The resulting session's permissions
 // are the intersection of the role's identity-based policy and the session
-// policies. You can use the role's temporary credentials in subsequent AWS API
-// calls to access resources in the account that owns the role. You cannot use
-// session policies to grant more permissions than those allowed by the
+// policies. You can use the role's temporary credentials in subsequent Amazon Web
+// Services API calls to access resources in the account that owns the role. You
+// cannot use session policies to grant more permissions than those allowed by the
 // identity-based policy of the role that is being assumed. For more information,
 // see Session Policies
 // (https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#policies_session)
@@ -78,17 +81,17 @@ import (
 // keys can’t exceed 128 characters and the values can’t exceed 256 characters. For
 // these and additional limits, see IAM and STS Character Limits
 // (https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-limits.html#reference_iam-limits-entity-length)
-// in the IAM User Guide. An AWS conversion compresses the passed session policies
-// and session tags into a packed binary format that has a separate limit. Your
-// request can fail for this limit even if your plaintext meets the other
-// requirements. The PackedPolicySize response element indicates by percentage how
-// close the policies and tags for your request are to the upper size limit. You
-// can pass a session tag with the same key as a tag that is attached to the role.
-// When you do, the session tag overrides the role tag with the same key. An
-// administrator must grant you the permissions necessary to pass session tags. The
-// administrator can also create granular permissions to allow you to pass only
-// specific session tags. For more information, see Tutorial: Using Tags for
-// Attribute-Based Access Control
+// in the IAM User Guide. An Amazon Web Services conversion compresses the passed
+// session policies and session tags into a packed binary format that has a
+// separate limit. Your request can fail for this limit even if your plaintext
+// meets the other requirements. The PackedPolicySize response element indicates by
+// percentage how close the policies and tags for your request are to the upper
+// size limit. You can pass a session tag with the same key as a tag that is
+// attached to the role. When you do, the session tag overrides the role tag with
+// the same key. An administrator must grant you the permissions necessary to pass
+// session tags. The administrator can also create granular permissions to allow
+// you to pass only specific session tags. For more information, see Tutorial:
+// Using Tags for Attribute-Based Access Control
 // (https://docs.aws.amazon.com/IAM/latest/UserGuide/tutorial_attribute-based-access-control.html)
 // in the IAM User Guide. You can set the session tags as transitive. Transitive
 // tags persist during role chaining. For more information, see Chaining Roles with
@@ -100,7 +103,7 @@ import (
 // that your application assumes must trust the identity provider that is
 // associated with the identity token. In other words, the identity provider must
 // be specified in the role's trust policy. Calling AssumeRoleWithWebIdentity can
-// result in an entry in your AWS CloudTrail logs. The entry includes the Subject
+// result in an entry in your CloudTrail logs. The entry includes the Subject
 // (http://openid.net/specs/openid-connect-core-1_0.html#Claims) of the provided
 // web identity token. We recommend that you avoid using any personally
 // identifiable information (PII) in this field. For example, you could instead use
@@ -120,16 +123,17 @@ import (
 // (https://aws.amazon.com/blogs/aws/the-aws-web-identity-federation-playground/).
 // Walk through the process of authenticating through Login with Amazon, Facebook,
 // or Google, getting temporary security credentials, and then using those
-// credentials to make a request to AWS.
+// credentials to make a request to Amazon Web Services.
 //
-// * AWS SDK for iOS Developer Guide
-// (http://aws.amazon.com/sdkforios/) and AWS SDK for Android Developer Guide
-// (http://aws.amazon.com/sdkforandroid/). These toolkits contain sample apps that
-// show how to invoke the identity providers. The toolkits then show how to use the
-// information from these providers to get and use temporary security
-// credentials.
+// * Amazon Web Services SDK
+// for iOS Developer Guide (http://aws.amazon.com/sdkforios/) and Amazon Web
+// Services SDK for Android Developer Guide (http://aws.amazon.com/sdkforandroid/).
+// These toolkits contain sample apps that show how to invoke the identity
+// providers. The toolkits then show how to use the information from these
+// providers to get and use temporary security credentials.
 //
-// * Web Identity Federation with Mobile Applications
+// * Web Identity
+// Federation with Mobile Applications
 // (http://aws.amazon.com/articles/web-identity-federation-with-mobile-applications).
 // This article discusses web identity federation and shows an example of how to
 // use web identity federation to get access to content in Amazon S3.
@@ -138,7 +142,7 @@ func (c *Client) AssumeRoleWithWebIdentity(ctx context.Context, params *AssumeRo
 		params = &AssumeRoleWithWebIdentityInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "AssumeRoleWithWebIdentity", params, optFns, addOperationAssumeRoleWithWebIdentityMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "AssumeRoleWithWebIdentity", params, optFns, c.addOperationAssumeRoleWithWebIdentityMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +192,7 @@ type AssumeRoleWithWebIdentityInput struct {
 	// that you might request using the returned credentials. The request to the
 	// federation endpoint for a console sign-in token takes a SessionDuration
 	// parameter that specifies the maximum length of the console session. For more
-	// information, see Creating a URL that Enables Federated Users to Access the AWS
+	// information, see Creating a URL that Enables Federated Users to Access the
 	// Management Console
 	// (https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_enable-console-custom-url.html)
 	// in the IAM User Guide.
@@ -198,21 +202,22 @@ type AssumeRoleWithWebIdentityInput struct {
 	// This parameter is optional. Passing policies to this operation returns new
 	// temporary credentials. The resulting session's permissions are the intersection
 	// of the role's identity-based policy and the session policies. You can use the
-	// role's temporary credentials in subsequent AWS API calls to access resources in
-	// the account that owns the role. You cannot use session policies to grant more
-	// permissions than those allowed by the identity-based policy of the role that is
-	// being assumed. For more information, see Session Policies
+	// role's temporary credentials in subsequent Amazon Web Services API calls to
+	// access resources in the account that owns the role. You cannot use session
+	// policies to grant more permissions than those allowed by the identity-based
+	// policy of the role that is being assumed. For more information, see Session
+	// Policies
 	// (https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#policies_session)
 	// in the IAM User Guide. The plaintext that you use for both inline and managed
 	// session policies can't exceed 2,048 characters. The JSON policy characters can
 	// be any ASCII character from the space character to the end of the valid
 	// character list (\u0020 through \u00FF). It can also include the tab (\u0009),
-	// linefeed (\u000A), and carriage return (\u000D) characters. An AWS conversion
-	// compresses the passed session policies and session tags into a packed binary
-	// format that has a separate limit. Your request can fail for this limit even if
-	// your plaintext meets the other requirements. The PackedPolicySize response
-	// element indicates by percentage how close the policies and tags for your request
-	// are to the upper size limit.
+	// linefeed (\u000A), and carriage return (\u000D) characters. An Amazon Web
+	// Services conversion compresses the passed session policies and session tags into
+	// a packed binary format that has a separate limit. Your request can fail for this
+	// limit even if your plaintext meets the other requirements. The PackedPolicySize
+	// response element indicates by percentage how close the policies and tags for
+	// your request are to the upper size limit.
 	Policy *string
 
 	// The Amazon Resource Names (ARNs) of the IAM managed policies that you want to
@@ -220,20 +225,21 @@ type AssumeRoleWithWebIdentityInput struct {
 	// the role. This parameter is optional. You can provide up to 10 managed policy
 	// ARNs. However, the plaintext that you use for both inline and managed session
 	// policies can't exceed 2,048 characters. For more information about ARNs, see
-	// Amazon Resource Names (ARNs) and AWS Service Namespaces
+	// Amazon Resource Names (ARNs) and Amazon Web Services Service Namespaces
 	// (https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html) in
-	// the AWS General Reference. An AWS conversion compresses the passed session
-	// policies and session tags into a packed binary format that has a separate limit.
-	// Your request can fail for this limit even if your plaintext meets the other
-	// requirements. The PackedPolicySize response element indicates by percentage how
-	// close the policies and tags for your request are to the upper size limit.
-	// Passing policies to this operation returns new temporary credentials. The
-	// resulting session's permissions are the intersection of the role's
-	// identity-based policy and the session policies. You can use the role's temporary
-	// credentials in subsequent AWS API calls to access resources in the account that
-	// owns the role. You cannot use session policies to grant more permissions than
-	// those allowed by the identity-based policy of the role that is being assumed.
-	// For more information, see Session Policies
+	// the Amazon Web Services General Reference. An Amazon Web Services conversion
+	// compresses the passed session policies and session tags into a packed binary
+	// format that has a separate limit. Your request can fail for this limit even if
+	// your plaintext meets the other requirements. The PackedPolicySize response
+	// element indicates by percentage how close the policies and tags for your request
+	// are to the upper size limit. Passing policies to this operation returns new
+	// temporary credentials. The resulting session's permissions are the intersection
+	// of the role's identity-based policy and the session policies. You can use the
+	// role's temporary credentials in subsequent Amazon Web Services API calls to
+	// access resources in the account that owns the role. You cannot use session
+	// policies to grant more permissions than those allowed by the identity-based
+	// policy of the role that is being assumed. For more information, see Session
+	// Policies
 	// (https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#policies_session)
 	// in the IAM User Guide.
 	PolicyArns []types.PolicyDescriptorType
@@ -247,7 +253,8 @@ type AssumeRoleWithWebIdentityInput struct {
 }
 
 // Contains the response to a successful AssumeRoleWithWebIdentity request,
-// including temporary AWS credentials that can be used to make AWS requests.
+// including temporary Amazon Web Services credentials that can be used to make
+// Amazon Web Services requests.
 type AssumeRoleWithWebIdentityOutput struct {
 
 	// The Amazon Resource Name (ARN) and the assumed role ID, which are identifiers
@@ -315,7 +322,7 @@ type AssumeRoleWithWebIdentityOutput struct {
 	ResultMetadata middleware.Metadata
 }
 
-func addOperationAssumeRoleWithWebIdentityMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationAssumeRoleWithWebIdentityMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsAwsquery_serializeOpAssumeRoleWithWebIdentity{}, middleware.After)
 	if err != nil {
 		return err

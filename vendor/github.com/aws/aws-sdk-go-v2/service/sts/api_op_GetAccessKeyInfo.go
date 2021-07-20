@@ -16,12 +16,12 @@ import (
 // more information about access keys, see Managing Access Keys for IAM Users
 // (https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html)
 // in the IAM User Guide. When you pass an access key ID to this operation, it
-// returns the ID of the AWS account to which the keys belong. Access key IDs
-// beginning with AKIA are long-term credentials for an IAM user or the AWS account
-// root user. Access key IDs beginning with ASIA are temporary credentials that are
-// created using STS operations. If the account in the response belongs to you, you
-// can sign in as the root user and review your root user access keys. Then, you
-// can pull a credentials report
+// returns the ID of the Amazon Web Services account to which the keys belong.
+// Access key IDs beginning with AKIA are long-term credentials for an IAM user or
+// the Amazon Web Services account root user. Access key IDs beginning with ASIA
+// are temporary credentials that are created using STS operations. If the account
+// in the response belongs to you, you can sign in as the root user and review your
+// root user access keys. Then, you can pull a credentials report
 // (https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_getting-report.html)
 // to learn which IAM user owns the keys. To learn who requested the temporary
 // credentials for an ASIA access key, view the STS events in your CloudTrail logs
@@ -35,7 +35,7 @@ func (c *Client) GetAccessKeyInfo(ctx context.Context, params *GetAccessKeyInfoI
 		params = &GetAccessKeyInfoInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetAccessKeyInfo", params, optFns, addOperationGetAccessKeyInfoMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetAccessKeyInfo", params, optFns, c.addOperationGetAccessKeyInfoMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -57,14 +57,14 @@ type GetAccessKeyInfoInput struct {
 
 type GetAccessKeyInfoOutput struct {
 
-	// The number used to identify the AWS account.
+	// The number used to identify the Amazon Web Services account.
 	Account *string
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
 }
 
-func addOperationGetAccessKeyInfoMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetAccessKeyInfoMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsAwsquery_serializeOpGetAccessKeyInfo{}, middleware.After)
 	if err != nil {
 		return err
