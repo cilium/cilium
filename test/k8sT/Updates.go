@@ -15,6 +15,7 @@
 package k8sTest
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -371,6 +372,9 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		validateEndpointsConnection()
 		checkNoInteruptsInSVCFlows()
 
+		oldCounters, err := getDatapathCounters(kubectl)
+		Expect(err).Should(BeNil(), "Failed to retrieve datapath counters")
+
 		waitForUpdateImage := func(image string) func() bool {
 			return func() bool {
 				pods, err := kubectl.GetCiliumPods()
@@ -466,9 +470,16 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		validateEndpointsConnection()
 		checkNoInteruptsInSVCFlows()
 
+		By("Validating that there were no missed tail calls")
 		nbMissedTailCalls, err := kubectl.CountMissedTailCalls()
 		ExpectWithOffset(1, err).Should(BeNil(), "Failed to retrieve number of missed tail calls")
 		ExpectWithOffset(1, nbMissedTailCalls).To(BeNumerically("==", 0))
+
+		By("Validating that datapath counters were not reset")
+		newCounters, err := getDatapathCounters(kubectl)
+		Expect(err).Should(BeNil(), "Failed to retrieve datapath counters")
+		checkIncreasingCounters(oldCounters, newCounters)
+		oldCounters = newCounters
 
 		By("Downgrading cilium to %s image", oldHelmChartVersion)
 		// rollback cilium 1 because it's the version that we have started
@@ -492,9 +503,62 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		validateEndpointsConnection()
 		checkNoInteruptsInSVCFlows()
 
+		By("Validation that there were no missed tail calls")
 		nbMissedTailCalls, err = kubectl.CountMissedTailCalls()
 		ExpectWithOffset(1, err).Should(BeNil(), "Failed to retrieve number of missed tail calls")
 		ExpectWithOffset(1, nbMissedTailCalls).To(BeNumerically("==", 0))
+
+		By("Validating that datapath counters were not reset")
+		newCounters, err = getDatapathCounters(kubectl)
+		Expect(err).Should(BeNil(), "Failed to retrieve datapath counters")
+		checkIncreasingCounters(oldCounters, newCounters)
 	}
 	return testfunc, cleanupCallback
+}
+
+func getDatapathCounters(kub *helpers.Kubectl) (map[string]map[string]int, error) {
+	counters := make(map[string]map[string]int)
+
+	ciliumPods, err := kub.GetPodsNodes(helpers.CiliumNamespace, "k8s-app=cilium")
+	if err != nil {
+		return counters, err
+	}
+
+	filter := `{range[?(@.values.%s.packets)]}{"%s-"}{.reason}{"="}{.values.%s.packets}{"\n"}{end}`
+	for ciliumPod, nodeName := range ciliumPods {
+		filterIngress := fmt.Sprintf(filter, "ingress", "ingress", "ingress")
+		filterEgress := fmt.Sprintf(filter, "egress", "egress", "egress")
+		cmd := fmt.Sprintf("cilium bpf metrics list -o jsonpath='%s%s'", filterIngress, filterEgress)
+		res := kub.CiliumExecContext(context.Background(), ciliumPod, cmd)
+		if !res.WasSuccessful() {
+			return counters, fmt.Errorf("Failed to run %s in pod %s: %s", cmd, ciliumPod, res.CombineOutput())
+		}
+		if res.Stdout() == "" {
+			continue
+		}
+
+		counters[nodeName] = make(map[string]int)
+		for k, v := range res.KVOutput() {
+			i, err := strconv.Atoi(v)
+			if err != nil {
+				return counters, err
+			}
+			counters[nodeName][k] = i
+		}
+	}
+
+	return counters, nil
+}
+
+func checkIncreasingCounters(old, new map[string]map[string]int) {
+	ExpectWithOffset(2, len(new)).To(BeNumerically("==", len(old)))
+	for nodeName, oldCounters := range old {
+		newCounters, ok := new[nodeName]
+		ExpectWithOffset(2, ok).Should(BeTrue(),
+			fmt.Sprintf("Failed to retrieve the counters for node %s", nodeName))
+		for key, counter := range oldCounters {
+			ExpectWithOffset(2, newCounters[key]).To(BeNumerically(">=", counter),
+				fmt.Sprintf("Counter %s on node %s was reset during the up/downgrade", key, nodeName))
+		}
+	}
 }

@@ -50,7 +50,9 @@ var (
 
 const (
 	// MapName for metrics map.
-	MapName = "cilium_metrics"
+	MapName = "cilium_metrics_v2"
+	// Previous name of the metrics map, used for migration of old metrics.
+	oldMapName = "cilium_metrics"
 	// MaxEntries is the maximum number of keys that can be present in the
 	// Metrics Map.
 	//
@@ -61,10 +63,10 @@ const (
 	// dirIngress and dirEgress values should match with
 	// METRIC_INGRESS, METRIC_EGRESS and METRIC_SERVICE
 	// in bpf/lib/common.h
-	dirUnknown = 0
+	dirEgress  = 0
 	dirIngress = 1
-	dirEgress  = 2
-	dirService = 3
+	dirService = 2
+	dirUnknown = 3
 )
 
 // direction is the metrics direction i.e ingress (to an endpoint),
@@ -72,10 +74,10 @@ const (
 // outside or a ClusterIP service being accessed from inside the cluster).
 // If it's none of the above, we return UNKNOWN direction.
 var direction = map[uint8]string{
-	dirUnknown: "UNKNOWN",
-	dirIngress: "INGRESS",
 	dirEgress:  "EGRESS",
+	dirIngress: "INGRESS",
 	dirService: "SERVICE",
+	dirUnknown: "UNKNOWN",
 }
 
 // Key must be in sync with struct metrics_key in <bpf/lib/common.h>
