@@ -1949,6 +1949,12 @@ type DaemonConfig struct {
 
 	// ARPPingRefreshPeriod is the ARP entries refresher period.
 	ARPPingRefreshPeriod time.Duration
+
+	// IdentityStart is the smallest valid identity of the cluster
+	IdentityStart int
+
+	// IdentityEnd is the biggest valid identity of the cluster
+	IdentityEnd int
 }
 
 var (
@@ -2728,6 +2734,9 @@ func (c *DaemonConfig) Populate() {
 	c.EndpointGCInterval = viper.GetDuration(EndpointGCInterval)
 	c.SelectiveRegeneration = viper.GetBool(SelectiveRegeneration)
 	c.DisableCNPStatusUpdates = viper.GetBool(DisableCNPStatusUpdates)
+
+	c.IdentityStart = c.ClusterID<<16 + 0
+	c.IdentityEnd = c.IdentityStart + (1<<16 - 1)
 }
 
 func (c *DaemonConfig) populateDevices() {

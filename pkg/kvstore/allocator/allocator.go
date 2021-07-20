@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rate"
 
 	"github.com/sirupsen/logrus"
@@ -449,11 +450,38 @@ func (k *kvstoreBackend) RunGC(ctx context.Context, rateLimit *rate.Limiter, sta
 
 	staleKeys := map[string]uint64{}
 
+	identityStart := option.Config.IdentityStart
+	identityEnd := option.Config.IdentityEnd
+	reasonOutOfRange := fmt.Sprintf("out of local cluster identity range [%d,%d]", identityStart, identityEnd)
+
 	// iterate over /id/
 	for key, v := range allocated {
 		// if k.lockless {
 		// FIXME: Add DeleteOnZeroCount support
 		// }
+
+		// Skip identity keys that're out of this cluster's scope
+		items := strings.Split(key, "/")
+		if len(items) >= 1 {
+			identityID, err := strconv.Atoi(items[len(items)-1])
+			if err != nil {
+				log.WithFields(logrus.Fields{
+					fieldKey: key,
+					"reason": "invalid identity key",
+				}).WithError(err).Warning("Skip this key for identity GC")
+				continue
+			}
+
+			if identityID < identityStart || identityID > identityEnd {
+				log.WithFields(logrus.Fields{
+					fieldKey: key,
+					"reason": reasonOutOfRange,
+				}).Debug("Skip this key for identity GC")
+				continue
+			}
+		} else {
+			log.WithField(fieldKey, key).WithError(err).Warning("Unknown identity key")
+		}
 
 		lock, err := k.lockPath(ctx, key)
 		if err != nil {
