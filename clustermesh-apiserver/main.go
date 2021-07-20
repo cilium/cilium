@@ -425,7 +425,7 @@ func updateEndpoint(oldEp, newEp *types.CiliumEndpoint) {
 					continue
 				}
 
-				keyPath := path.Join(ipcache.IPIdentitiesPath, ipcache.DefaultAddressSpace, ip)
+				keyPath := path.Join(ipcache.IPIdentitiesPath, ipcache.GetAddressSpace(), ip)
 				entry := identity.IPIdentityPair{
 					IP:           net.ParseIP(ip),
 					Metadata:     "",
@@ -479,7 +479,7 @@ func updateEndpoint(oldEp, newEp *types.CiliumEndpoint) {
 			}
 			if !found {
 				// Delete the old IPs from the kvstore:
-				keyPath := path.Join(ipcache.IPIdentitiesPath, ipcache.DefaultAddressSpace, oldIP)
+				keyPath := path.Join(ipcache.IPIdentitiesPath, ipcache.GetAddressSpace(), oldIP)
 				if err := kvstore.Client().Delete(context.Background(), keyPath); err != nil {
 					log.WithError(err).
 						WithFields(logrus.Fields{
@@ -505,7 +505,7 @@ func deleteEndpoint(obj interface{}) {
 					continue
 				}
 
-				keyPath := path.Join(ipcache.IPIdentitiesPath, ipcache.DefaultAddressSpace, ip)
+				keyPath := path.Join(ipcache.IPIdentitiesPath, ipcache.GetAddressSpace(), ip)
 				if err := kvstore.Client().Delete(context.Background(), keyPath); err != nil {
 					log.WithError(err).Warningf("Unable to delete endpoint %s in etcd", keyPath)
 				}

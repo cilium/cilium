@@ -194,11 +194,12 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 func (s *IPCacheTestSuite) TestKeyToIPNet(c *C) {
 	// Valid IPv6.
 	validIPv6Key := "cilium/state/ip/v1/default/f00d::a00:0:0:c164"
+	prefix := "cilium/state/ip/v1/default/"
 
 	_, expectedIPv6, err := net.ParseCIDR("f00d::a00:0:0:c164/128")
 	c.Assert(err, IsNil)
 
-	ipv6, isHost, err := keyToIPNet(validIPv6Key)
+	ipv6, isHost, err := keyToIPNet(validIPv6Key, prefix)
 	c.Assert(ipv6, Not(IsNil))
 	c.Assert(err, IsNil)
 	c.Assert(isHost, Equals, true)
@@ -210,7 +211,7 @@ func (s *IPCacheTestSuite) TestKeyToIPNet(c *C) {
 	_, expectedIPv6, err = net.ParseCIDR("f00d::a00:0:0:0/64")
 	c.Assert(err, IsNil)
 
-	ipv6, isHost, err = keyToIPNet(validIPv6Key)
+	ipv6, isHost, err = keyToIPNet(validIPv6Key, prefix)
 	c.Assert(ipv6, Not(IsNil))
 	c.Assert(err, IsNil)
 	c.Assert(isHost, Equals, false)
@@ -220,7 +221,7 @@ func (s *IPCacheTestSuite) TestKeyToIPNet(c *C) {
 	validIPv4Key := "cilium/state/ip/v1/default/10.0.114.197"
 	_, expectedIPv4, err := net.ParseCIDR("10.0.114.197/32")
 	c.Assert(err, IsNil)
-	ipv4, isHost, err := keyToIPNet(validIPv4Key)
+	ipv4, isHost, err := keyToIPNet(validIPv4Key, prefix)
 	c.Assert(ipv4, Not(IsNil))
 	c.Assert(err, IsNil)
 	c.Assert(isHost, Equals, true)
@@ -230,29 +231,22 @@ func (s *IPCacheTestSuite) TestKeyToIPNet(c *C) {
 	validIPv4Key = "cilium/state/ip/v1/default/10.0.114.0/24"
 	_, expectedIPv4, err = net.ParseCIDR("10.0.114.0/24")
 	c.Assert(err, IsNil)
-	ipv4, isHost, err = keyToIPNet(validIPv4Key)
+	ipv4, isHost, err = keyToIPNet(validIPv4Key, prefix)
 	c.Assert(ipv4, Not(IsNil))
 	c.Assert(err, IsNil)
 	c.Assert(isHost, Equals, false)
 	c.Assert(ipv4, checker.DeepEquals, expectedIPv4)
 
-	// Invalid prefix.
-	invalidPrefixKey := "cilium/state/foobar/v1/default/f00d::a00:0:0:c164"
-	nilIP, isHost, err := keyToIPNet(invalidPrefixKey)
-	c.Assert(nilIP, IsNil)
-	c.Assert(err, Not(IsNil))
-	c.Assert(isHost, Equals, false)
-
 	// Invalid IP in key.
 	invalidIPKey := "cilium/state/ip/v1/default/10.abfd.114.197"
-	nilIP, isHost, err = keyToIPNet(invalidIPKey)
+	nilIP, isHost, err := keyToIPNet(invalidIPKey, prefix)
 	c.Assert(nilIP, IsNil)
 	c.Assert(err, Not(IsNil))
 	c.Assert(isHost, Equals, false)
 
 	// Invalid CIDR.
 	invalidIPKey = "cilium/state/ip/v1/default/192.0.2.3/54"
-	nilIP, isHost, err = keyToIPNet(invalidIPKey)
+	nilIP, isHost, err = keyToIPNet(invalidIPKey, prefix)
 	c.Assert(nilIP, IsNil)
 	c.Assert(err, Not(IsNil))
 	c.Assert(isHost, Equals, false)
