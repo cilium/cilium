@@ -457,6 +457,8 @@ const (
 
 	// TunnelName is the name of the Tunnel option
 	TunnelName = "tunnel"
+	// TunnelPortName is the name of the TunnelPort option
+	TunnelPortName = "tunnel-port"
 
 	// SingleClusterRouteName is the name of the SingleClusterRoute option
 	//
@@ -1175,6 +1177,7 @@ type DaemonConfig struct {
 
 	DatapathMode string // Datapath mode
 	Tunnel       string // Tunnel mode
+	TunnelPort   int    // Tunnel port
 
 	DryMode bool // Do not create BPF maps, devices, ..
 
@@ -2480,7 +2483,6 @@ func (c *DaemonConfig) Populate() {
 	c.SocketPath = viper.GetString(SocketPath)
 	c.SockopsEnable = viper.GetBool(SockopsEnableName)
 	c.TracePayloadlen = viper.GetInt(TracePayloadlen)
-	c.Tunnel = viper.GetString(TunnelName)
 	c.Version = viper.GetString(Version)
 	c.WriteCNIConfigurationWhenReady = viper.GetString(WriteCNIConfigurationWhenReady)
 	c.PolicyTriggerInterval = viper.GetDuration(PolicyTriggerInterval)
@@ -2513,6 +2515,18 @@ func (c *DaemonConfig) Populate() {
 	c.populateLoadBalancerSettings()
 	c.populateDevices()
 	c.EgressMultiHomeIPRuleCompat = viper.GetBool(EgressMultiHomeIPRuleCompat)
+
+	c.Tunnel = viper.GetString(TunnelName)
+	c.TunnelPort = viper.GetInt(TunnelPortName)
+
+	if c.TunnelPort == 0 {
+		switch c.Tunnel {
+		case TunnelVXLAN:
+			c.TunnelPort = defaults.TunnelPortVXLAN
+		case TunnelGeneve:
+			c.TunnelPort = defaults.TunnelPortGeneve
+		}
+	}
 
 	nativeRoutingCIDR := viper.GetString(NativeRoutingCIDR)
 	ipv4NativeRoutingCIDR := viper.GetString(IPv4NativeRoutingCIDR)
