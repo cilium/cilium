@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/operator/cmd"
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
+	ceb "github.com/cilium/cilium/operator/pkg/ciliumendpointbatch"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
@@ -278,6 +279,23 @@ func runOperator() {
 		}
 	} else {
 		log.Info("Skipping creation of CRDs")
+	}
+
+	// If CiliumEndpointBatch feature is enabled, create CebController, start CEP watcher and run controller.
+	if option.Config.EnableCiliumEndpointBatch {
+		log.Info("Create and run CEB controller, start cep watcher")
+		// Initialize  the CEB controller
+		var cebController *ceb.CiliumEndpointBatchController
+		if cebController = ceb.NewCebController(k8s.CiliumClient(), operatorOption.Config.CEBUpsertSyncPeriod,
+			operatorOption.Config.CEBDeleteSyncPeriod,
+			operatorOption.Config.CEBMaxCepsInCeb); cebController == nil {
+			log.Fatal("Failed to create CEB controller")
+			return
+		}
+		// Start CEP watcher
+		operatorWatchers.CiliumEndpointsBatchInit(k8s.CiliumClient().CiliumV2(), cebController)
+		// Start CEB controller
+		cebController.Run(operatorWatchers.CiliumEndpointStore)
 	}
 
 	// We only support Operator in HA mode for Kubernetes Versions having support for
