@@ -3372,6 +3372,8 @@ func init() {
           "enum": [
             "TCP",
             "UDP",
+            "ICMP",
+            "ICMPV6",
             "ANY"
           ]
         }
@@ -8004,6 +8006,8 @@ func init() {
           "enum": [
             "TCP",
             "UDP",
+            "ICMP",
+            "ICMPV6",
             "ANY"
           ]
         }
