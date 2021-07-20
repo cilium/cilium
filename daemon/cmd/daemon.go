@@ -230,10 +230,6 @@ func (d *Daemon) init() error {
 	if !option.Config.DryMode {
 		bandwidth.InitBandwidthManager()
 
-		if err := d.createNodeConfigHeaderfile(); err != nil {
-			return err
-		}
-
 		if option.Config.SockopsEnable {
 			eppolicymap.CreateEPPolicyMap()
 			if err := sockops.SockmapEnable(); err != nil {

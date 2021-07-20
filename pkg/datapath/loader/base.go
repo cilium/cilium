@@ -234,6 +234,24 @@ func (l *Loader) ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwne
 	return l.reinitializeXDPLocked(ctx, extraCArgs)
 }
 
+// createNodeConfigHeaderfile creates a node config file and uses the ConfigWriter to
+// generate its content.
+func (l *Loader) createNodeConfigHeaderfile(dp datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration) error {
+	nodeConfigPath := option.Config.GetNodeConfigPath()
+	f, err := os.Create(nodeConfigPath)
+	if err != nil {
+		log.WithError(err).WithField(logfields.Path, nodeConfigPath).Fatal("Failed to create node configuration file")
+		return err
+	}
+	defer f.Close()
+
+	if err = dp.WriteNodeConfig(f, nodeCfg); err != nil {
+		log.WithError(err).WithField(logfields.Path, nodeConfigPath).Fatal("Failed to write node configuration file")
+		return err
+	}
+	return nil
+}
+
 // Reinitialize (re-)configures the base datapath configuration including global
 // BPF programs, netfilter rule configuration and reserving routes in IPAM for
 // locally detected prefixes. It may be run upon initial Cilium startup, after
@@ -406,6 +424,12 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 	args[initArgHostDev1] = hostDev1.Attrs().Name
 	args[initArgHostDev2] = hostDev2.Attrs().Name
+
+	// TODO(mrostecki): While rewriting next parts of init.sh in Go, this
+	// createNodeConfigHeaderfile call should be possibly moved somewhere else.
+	if err := l.createNodeConfigHeaderfile(o.Datapath(), o.LocalConfig()); err != nil {
+		return err
+	}
 
 	if option.Config.InstallIptRules {
 		args[initArgProxyRule] = "true"
