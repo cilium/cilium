@@ -1,4 +1,4 @@
-{{- if and (.Values.hubble.relay.enabled) (.Values.serviceAccounts.relay.create) }}
+{{- if and .Values.hubble.enabled .Values.hubble.relay.enabled .Values.serviceAccounts.relay.create }}
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -9,6 +9,6 @@ roleRef:
   name: hubble-relay
 subjects:
 - kind: ServiceAccount
-  namespace: {{ .Release.Namespace }}
   name: {{ .Values.serviceAccounts.relay.name | quote }}
+  namespace: {{ .Release.Namespace }}
 {{- end }}

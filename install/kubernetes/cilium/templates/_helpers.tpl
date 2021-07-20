@@ -6,6 +6,33 @@ Create chart name and version as used by the chart label.
 {{- end }}
 
 {{/*
+Render full image name from given values, e.g:
+```
+image:
+  repository: quay.io/cilium/cilium
+  tag: v1.10.1
+  useDigest: true
+  digest: abcdefgh
+```
+then `include "cilium.image" .Values.image`
+will return `quay.io/cilium/cilium:v1.10.1@abcdefgh`
+*/}}
+{{- define "cilium.image" -}}
+{{- $digest := (.useDigest | default false) | ternary (printf "@%s" .digest) "" -}}
+{{- printf "%s:%s%s" .repository .tag $digest -}}
+{{- end -}}
+
+{{- define "cilium.criticalPriorityClass" -}}
+{{- $root := index . 0 -}}
+{{- $priorityClass := index . 1 -}}
+{{- if and (eq $root.Release.Namespace "kube-system") (semverCompare ">=1.10-0" $root.Capabilities.KubeVersion.Version) -}}
+  {{- $priorityClass }}
+{{- else if semverCompare ">=1.17-0" $root.Capabilities.KubeVersion.Version -}}
+  {{- $priorityClass }}
+{{- end }}
+{{- end -}}
+
+{{/*
 Return the appropriate apiVersion for ingress.
 */}}
 {{- define "ingress.apiVersion" -}}

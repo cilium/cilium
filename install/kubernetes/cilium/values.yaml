@@ -675,6 +675,9 @@ hubble:
     #
     tolerations: []
 
+    # -- hubble-relay priorityClassName
+    priorityClassName: ""
+
     # -- hubble-relay update strategy
     updateStrategy:
       rollingUpdate:
@@ -808,6 +811,9 @@ hubble:
     # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
     #
     tolerations: []
+
+    # -- hubble-ui priorityClassName
+    priorityClassName: ""
 
     # -- hubble-ui update strategy.
     updateStrategy:
@@ -1624,6 +1630,9 @@ clustermesh:
       rollingUpdate:
         maxUnavailable: 1
       type: RollingUpdate
+
+    # -- clustermesh-apiserver priorityClassName
+    priorityClassName: ""
 
     tls:
       # -- Configure automatic TLS certificates generation.

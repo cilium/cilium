@@ -1,4 +1,4 @@
-{{- if and (.Values.hubble.ui.enabled) (.Values.hubble.ui.ingress.enabled) -}}
+{{- if and .Values.hubble.enabled .Values.hubble.ui.enabled .Values.hubble.ui.ingress.enabled }}
 apiVersion: {{ template "ingress.apiVersion" . }}
 kind: Ingress
 metadata:
@@ -6,21 +6,21 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     k8s-app: hubble-ui
-{{- with .Values.hubble.ui.ingress.annotations }}
+  {{- with .Values.hubble.ui.ingress.annotations }}
   annotations:
-{{ toYaml . | indent 4 }}
-{{- end }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
-{{- if .Values.hubble.ui.ingress.tls }}
+  {{- if .Values.hubble.ui.ingress.tls }}
   tls:
-{{ toYaml .Values.hubble.ui.ingress.tls | indent 4 }}
-{{- end }}
+    {{- toYaml .Values.hubble.ui.ingress.tls | nindent 4 }}
+  {{- end }}
   rules:
   {{- range .Values.hubble.ui.ingress.hosts }}
     - host: {{ . }}
       http:
         paths:
           - path: /
-{{ include "ingress.paths" $ | indent 12 }}
+            {{- include "ingress.paths" $ | nindent 12 }}
   {{- end }}
 {{- end }}
