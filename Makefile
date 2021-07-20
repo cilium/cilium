@@ -57,16 +57,6 @@ GO_IMAGE_VERSION := $(shell awk -F. '{ z=$$3; if (z == "") z=0; print $$1 "." $$
 
 DOCKER_FLAGS ?=
 
-TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddress=https://consul:8443 \
-	-X github.com/cilium/cilium/pkg/kvstore.etcdDummyAddress=http://etcd:4002 \
-	-X github.com/cilium/cilium/pkg/testutils.CiliumRootDir=$(ROOT_DIR) \
-	-X github.com/cilium/cilium/pkg/datapath.DatapathSHA256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-
-TEST_UNITTEST_LDFLAGS= -ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyConfigFile=/tmp/cilium-consul-certs/cilium-consul.yaml \
-	-X github.com/cilium/cilium/pkg/testutils.CiliumRootDir=$(ROOT_DIR) \
-	-X github.com/cilium/cilium/pkg/datapath.DatapathSHA256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 \
-	-X github.com/cilium/cilium/pkg/logging.DefaultLogLevelStr=$(LOGLEVEL)"
-
 define print_help_line
 	@printf "  \033[36m%-29s\033[0m %s.\n" $(1) $(2)
 endef
@@ -126,7 +116,7 @@ define generate_k8s_protobuf
 	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
 endef
 
-build: $(SUBDIRS) ## Builds all the components for Cilium by executing make in the respective sub directories.
+build: pkg/datapath/loader/datapath_sha256.go $(SUBDIRS) ## Builds all the components for Cilium by executing make in the respective sub directories.
 
 build-container: ## Builds components required for cilium-agent container.
 	for i in $(SUBDIRS_CILIUM_CONTAINER); do $(MAKE) $(SUBMAKEOPTS) -C $$i all; done
@@ -142,7 +132,7 @@ tests-privileged:
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C bpf cilium-map-migrate
 	$(MAKE) init-coverage
 	for pkg in $(patsubst %,github.com/cilium/cilium/%,$(PRIV_TEST_PKGS)); do \
-		PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) $$pkg $(GOTEST_UNIT_BASE) $(GOTEST_COVER_OPTS) \
+		PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $$pkg $(GOTEST_UNIT_BASE) $(GOTEST_COVER_OPTS) \
 		|| exit 1; \
 		tail -n +2 coverage.out >> coverage-all-tmp.out; \
 	done
@@ -209,7 +199,7 @@ endif
 	# hence will trigger an error of too many arguments. As a workaround, we
 	# have to process these packages in different subshells.
 	for pkg in $(patsubst %,github.com/cilium/cilium/%,$(TESTPKGS)); do \
-		$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $$pkg $(GOTEST_BASE) $(GOTEST_COVER_OPTS) \
+		$(GO_TEST) $$pkg $(GOTEST_BASE) $(GOTEST_COVER_OPTS) \
 		|| exit 1; \
 		tail -n +2 coverage.out >> coverage-all-tmp.out; \
 	done
@@ -220,7 +210,7 @@ bench: start-kvstores ## Run benchmarks for Cilium unit-tests in the repository.
 	# Process the packages in different subshells. See comment in the
 	# "unit-tests" target above for an explanation.## Builds components required for cilium-agent container.
 	$(QUIET)for pkg in $(patsubst %,github.com/cilium/cilium/%,$(TESTPKGS)); do \
-		$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) \
+		$(GO_TEST) $(GOTEST_BASE) $(BENCHFLAGS) \
 			$$pkg \
 		|| exit 1; \
 	done
@@ -231,7 +221,7 @@ bench-privileged:
 	# Process the packages in different subshells. See comment in the
 	# "unit-tests" target above for an explanation.
 	$(QUIET)for pkg in $(patsubst %,github.com/cilium/cilium/%,$(TESTPKGS)); do \
-		$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) $$pkg \
+		$(GO_TEST) $(GOTEST_BASE) $(BENCHFLAGS) $$pkg \
 		|| exit 1; \
 	done
 
@@ -429,6 +419,9 @@ generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go s
 	pkg:loadbalancer\
 	pkg:tuple\
 	pkg:recorder")
+
+pkg/datapath/loader/datapath_sha256.go: pkg/datapath/loader/internal/generate-cilium-datapath-sha256/main.go $(BPF_SRCFILES)
+	go run ./pkg/datapath/loader/internal/generate-cilium-datapath-sha256/main.go $(BPF_SRCFILES) > $@ || ( rm -f $@ ; false )
 
 ##@ Development
 vps: ## List all the running vagrant VMs.

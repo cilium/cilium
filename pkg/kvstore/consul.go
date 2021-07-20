@@ -55,7 +55,7 @@ type consulModule struct {
 
 var (
 	//consulDummyAddress can be overwritten from test invokers using ldflags
-	consulDummyAddress = "https://127.0.0.1:8501"
+	consulDummyAddress = "https://consul:8443"
 	//consulDummyConfigFile can be overwritten from test invokers using ldflags
 	consulDummyConfigFile = "/tmp/cilium-consul-certs/cilium-consul.yaml"
 
