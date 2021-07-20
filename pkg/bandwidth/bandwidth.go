@@ -104,6 +104,10 @@ func InitBandwidthManager() {
 		// Then, kernels with the fix can use bbr, and others cubic.
 		{"net.ipv4.tcp_congestion_control", "cubic"},
 	}
+	if !option.Config.EnableHostLegacyRouting {
+		baseSettings = append(baseSettings,
+			setting{"net.core.netdev_tstamp_retain", "1"})
+	}
 	for _, s := range baseSettings {
 		log.WithFields(logrus.Fields{
 			logfields.SysParamName:  s.name,

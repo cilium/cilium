@@ -344,6 +344,11 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (!udp_only && !sock_proto_enabled(ctx->protocol))
 		return -ENOTSUP;
 
+	if (!in_hostns) {
+		int val = 500000000;//250000000;
+		set_socket_opt(ctx_full, SOL_SOCKET, SO_MAX_PACING_RATE, &val, sizeof(val));
+	}
+
 	/* In case a direct match fails, we try to look-up surrogate
 	 * service entries via wildcarded lookup for NodePort and
 	 * HostPort services.
