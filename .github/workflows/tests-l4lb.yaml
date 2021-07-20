@@ -1,4 +1,4 @@
-name: Cilium L4LB XDP
+name: Cilium L4LB XDP (ci-l4lb)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
