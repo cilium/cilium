@@ -6,7 +6,7 @@ spec:
     spec:
       containers:
       - name: cilium-agent
-        command: [ "/bin/bash", "-c", "--" ]
+        command: [ "/usr/bin/env", "bash", "-c", "--" ]
         args: [ "while true; do sleep 30; done;" ]
         livenessProbe:
           exec:
