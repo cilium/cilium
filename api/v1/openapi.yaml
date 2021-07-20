@@ -2198,6 +2198,10 @@ definitions:
       egress-multi-home-ip-rule-compat:
         description: Configured compatibility mode for --egress-multi-home-ip-rule-compat
         type: boolean
+      daemonConfigurationMap:
+        description: Config map which contains all the active daemon configurations
+        additionalProperties:
+          type: object
   DatapathMode:
     description: Datapath mode
     type: string
