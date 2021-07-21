@@ -1165,6 +1165,13 @@ a fixed cookie value as a trade-off. This makes all applications on the host to
 select the same service endpoint for a given service with session affinity configured.
 To disable the feature, set ``config.sessionAffinity=false``.
 
+When the fixed cookie value is not used, a service affinity of a service with
+multiple ports is per service IP and port. Meaning that all requests for a
+given service sent from the same source and to the service same port will be routed
+to the same service endpoints; but two requests for the same service, sent from
+the same source but to different service ports may be routed to distinct service
+endpoints.
+
 kube-proxy Replacement Health Check server
 ******************************************
 To enable health check server for the kube-proxy replacement, the
