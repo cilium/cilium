@@ -118,8 +118,9 @@ jobs:
         timeout-minutes: 10
         shell: bash
         run: |
-          until curl --silent -f -lSL "https://quay.io/api/v1/repository/${{ github.repository_owner }}/cilium-ci/tag/${{ steps.vars.outputs.tag }}/images" &> /dev/null; do sleep 45s; done
-          until curl --silent -f -lSL "https://quay.io/api/v1/repository/${{ github.repository_owner }}/operator-generic-ci/tag/${{ steps.vars.outputs.tag }}/images" &> /dev/null; do sleep 45s; done
+          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
+            until curl --silent -f -lSL "https://quay.io/api/v1/repository/${{ github.repository_owner }}/${image}/tag/${{ steps.vars.outputs.tag }}/images" &> /dev/null; do sleep 45s; done
+          done
 
       - name: Install cilium chart
         run: |
@@ -138,6 +139,11 @@ jobs:
              --set image.tag=${{ steps.vars.outputs.tag }} \
              --set image.pullPolicy=IfNotPresent \
              --set image.useDigest=false \
+             --set hubble.relay.enabled=true \
+             --set hubble.relay.image.repository=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
+             --set hubble.relay.image.tag=${{ steps.vars.outputs.tag }} \
+             --set hubble.relay.image.pullPolicy=IfNotPresent \
+             --set hubble.relay.image.useDigest=false \
              --set operator.image.repository=quay.io/${{ github.repository_owner }}/operator \
              --set operator.image.suffix=-ci \
              --set operator.image.tag=${{ steps.vars.outputs.tag }} \
@@ -152,6 +158,8 @@ jobs:
           # To make sure that cilium CRD is available (default timeout is 5m)
           # https://github.com/cilium/cilium/blob/master/operator/crd.go#L34
           kubectl wait --for condition=Established crd/ciliumnetworkpolicies.cilium.io --timeout=5m
+
+          kubectl port-forward -n kube-system deployment/hubble-relay 4245:4245 &
 
       - name: Run conformance test (e.g. connectivity check)
         run: |
@@ -170,16 +178,26 @@ jobs:
 
       - name: Capture cilium-sysdump
         if: ${{ failure() }}
+        # The following is needed to prevent hubble from receiving an empty
+        # file (EOF) on stdin and displaying no flows.
+        shell: 'script -q -e -c "bash --noprofile --norc -eo pipefail {0}"'
         run: |
+          curl -sLO https://github.com/cilium/hubble/releases/download/latest/hubble-linux-amd64.tar.gz
+          tar zxf hubble-linux-amd64.tar.gz
+          chmod +x ./hubble
+          ./hubble observe --all --output json > hubble-flows.json
+
           curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
           python cilium-sysdump.zip --output cilium-sysdump-out
+
+          tar zcf cilium-sysdump-out.tar.gz cilium-sysdump-out.zip hubble-flows.json
 
       - name: Upload cilium-sysdump
         uses: actions/upload-artifact@27121b0bdffd731efa15d66772be8dc71245d074
         if: ${{ failure() }}
         with:
-          name: cilium-sysdump-out.zip
-          path: cilium-sysdump-out.zip
+          name: cilium-sysdump-out.tar.gz
+          path: cilium-sysdump-out.tar.gz
 
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
