@@ -116,9 +116,21 @@ jobs:
             --set tag=${{ steps.vars.outputs.sha }} \
             --set cluster_name=${{ env.clusterName }}
 
-      - name: Wait for test job
+      - name: Wait for job
+        env:
+          timeout: 20m
         run: |
-          kubectl -n kube-system wait job/cilium-cli --for=condition=complete --timeout=20m
+          # Background wait for job to complete or timeout
+          kubectl -n kube-system wait job/cilium-cli --for=condition=complete --timeout=${{ env.timeout }} &
+          complete_pid=$!
+
+          # Background wait for job to fail
+          (kubectl -n kube-system wait job/cilium-cli --for=condition=failed --timeout=${{ env.timeout }} && exit 1) &
+          failed_pid=$!
+
+          # Active wait for whichever background process ends first
+          wait -n $complete_pid $failed_pid
+          exit $?
 
       - name: Post-test information gathering
         if: ${{ !success() }}
@@ -141,6 +153,8 @@ jobs:
 
       - name: Uninstall and make sure the 'aws-node' DaemonSet blocking nodeSelector was removed
         if: ${{ success() }}
+        env:
+          timeout: 2m
         run: |
           kubectl create configmap cilium-cli-test-script-uninstall -n kube-system --from-file=in-cluster-test-script.sh=.github/in-cluster-test-scripts/eks-uninstall.sh
           helm install .github/cilium-cli-test-job-chart \
@@ -149,7 +163,18 @@ jobs:
             --set cluster_name=${{ env.clusterName }} \
             --set job_name=cilium-cli-uninstall \
             --set test_script_cm=cilium-cli-test-script-uninstall
-          kubectl -n kube-system wait job/cilium-cli-uninstall --for=condition=complete --timeout=2m
+          
+          # Background wait for job to complete or timeout
+          kubectl -n kube-system wait job/cilium-cli-uninstall --for=condition=complete --timeout=${{ env.timeout }} &
+          complete_pid=$!
+
+          # Background wait for job to fail
+          (kubectl -n kube-system wait job/cilium-cli-uninstall --for=condition=failed --timeout=${{ env.timeout }} && exit 1) &
+          failed_pid=$!
+
+          # Active wait for whichever background process ends first
+          wait -n $complete_pid $failed_pid
+          exit $?
 
           echo "=== Retrieve in-cluster jobs logs ==="
           kubectl logs --timestamps -n kube-system job/cilium-cli-uninstall
