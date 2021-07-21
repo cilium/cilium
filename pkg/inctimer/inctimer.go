@@ -40,26 +40,47 @@ type incTimer struct {
 // WARNING: Concurrent use is not expected. The use
 // of this timer should be for only one goroutine.
 func New() (IncTimer, func() bool) {
-	t := time.NewTimer(time.Nanosecond)
-	return &incTimer{
-		t: t,
-	}, t.Stop
+	it := &incTimer{}
+	return it, it.stop
+}
+
+// stop returns true if a scheduled timer has been stopped before execution.
+func (it *incTimer) stop() bool {
+	if it.t == nil {
+		return false
+	}
+	return it.t.Stop()
 }
 
 // After returns a channel that will fire after
 // the specified duration.
 func (it *incTimer) After(d time.Duration) <-chan time.Time {
-	// We cannot call reset on an expired timer,
-	// so we need to stop it and drain it first.
-	// See https://golang.org/pkg/time/#Timer.Reset for more details.
-	if !it.t.Stop() {
-		// It could be that the channel was read already
-		select {
-		case <-it.t.C:
-		default:
-		}
-	}
-	it.t.Reset(d)
+	// Stop the previous timer (if any) to garbage collect it.
+	// The old timer channel will be garbage collected even if not drained.
+	it.stop()
+
+	// We have to create a new timer for each invocation, because it is not
+	// possible to safely use https://golang.org/pkg/time/#Timer.Reset if we
+	// do not know if the timer channel has already been drained or not (which
+	// is the case here, as the client might have drained the channel already).
+	// Even after stopping a timer, it's not safe to attempt to drain its
+	// timer channel with a default case (for the case where the client has
+	// drained the channel already), as there is a small window where a timer
+	// is considered expired, but the channel has not received a value yet [1].
+	// This would cause us to erroneously take the default case (assuming the
+	// channel has been drained by the client), when in fact the channel just
+	// has not received a value yet. Because the two cases (client has drained
+	// vs. value not received yet) are indistinguishable for us, we cannot use
+	// Timer.Reset and need to create a new timer.
+	//
+	// [1] The reason why this small window occurs, is because the Go runtime
+	// will remove a timer from the heap and and mark it as deleted _before_
+	// it actually executes the timer function f:
+	// https://github.com/golang/go/blob/go1.16/src/runtime/time.go#L876
+	// This causes t.Stop to report the timer as already expired while it is
+	// in fact currently running:
+	// https://github.com/golang/go/blob/go1.16/src/runtime/time.go#L352
+	it.t = time.NewTimer(d)
 	return it.t.C
 }
 
