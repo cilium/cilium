@@ -55,22 +55,27 @@ spec:
       imagePullSecrets:
         {{ toYaml .Values.imagePullSecrets | indent 6 }}
 {{- end }}
+      volumes:
+      # To access iptables concurrently with other processes (e.g. kube-proxy)
+      - hostPath:
+          path: /run/xtables.lock
+          type: FileOrCreate
+        name: xtables-lock
       containers:
         - name: node-init
           image: {{ .Values.nodeinit.image.repository }}:{{ .Values.nodeinit.image.tag }}
           imagePullPolicy: {{ .Values.nodeinit.image.pullPolicy }}
           securityContext:
             privileged: true
+          volumeMounts:
+            # To access iptables concurrently with other processes (e.g. kube-proxy)
+            - mountPath: /run/xtables.lock
+              name: xtables-lock
           lifecycle:
 {{- if and (.Values.eni.enabled) (not .Values.enableIPv4Masquerade) }}
             postStart:
               exec:
                 command:
-                  - "nsenter"
-                  - "-t"
-                  - "1"
-                  - "-m"
-                  - "--"
                   - "/bin/sh"
                   - "-c"
                   - |
