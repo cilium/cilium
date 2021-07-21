@@ -85,6 +85,10 @@ const (
 	// ARPPingRefreshPeriod is the ARP entries refresher period
 	ARPPingRefreshPeriod = "arping-refresh-period"
 
+	// EnableL2NeighDiscovery determines if cilium should perform L2 neighbor
+	// discovery.
+	EnableL2NeighDiscovery = "enable-l2-neigh-discovery"
+
 	// BPFRoot is the Path to BPF filesystem
 	BPFRoot = "bpf-root"
 
@@ -1955,6 +1959,9 @@ type DaemonConfig struct {
 
 	// VLANBPFBypass list of explicitly allowed VLAN id's for bpf logic bypass
 	VLANBPFBypass []int
+	// EnableL2NeighDiscovery determines if cilium should perform L2 neighbor
+	// discovery.
+	EnableL2NeighDiscovery bool
 }
 
 var (
@@ -2353,6 +2360,7 @@ func (c *DaemonConfig) Populate() {
 	c.AllowLocalhost = viper.GetString(AllowLocalhost)
 	c.AnnotateK8sNode = viper.GetBool(AnnotateK8sNode)
 	c.ARPPingRefreshPeriod = viper.GetDuration(ARPPingRefreshPeriod)
+	c.EnableL2NeighDiscovery = viper.GetBool(EnableL2NeighDiscovery)
 	c.AutoCreateCiliumNodeResource = viper.GetBool(AutoCreateCiliumNodeResource)
 	c.BPFRoot = viper.GetString(BPFRoot)
 	c.CertDirectory = viper.GetString(CertsDirectory)
