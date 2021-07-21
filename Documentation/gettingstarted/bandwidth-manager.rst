@@ -11,7 +11,7 @@ Bandwidth Manager (beta)
 ************************
 
 This guide explains how to configure Cilium's bandwidth manager to
-optimize TCP and UDP workloads and efficiently rate limit individual pods
+optimize TCP and UDP workloads and efficiently rate limit individual Pods
 if needed through the help of EDT (Earliest Departure Time) and eBPF.
 
 The bandwidth manager does not rely on CNI chaining and is natively integrated
@@ -21,7 +21,7 @@ plugin. Due to scalability concerns in particular for multi-queue network
 interfaces, it is not recommended to use the bandwidth CNI plugin which is
 based on TBF (Token Bucket Filter) instead of EDT.
 
-Cilium's bandwidth manager supports the ``kubernetes.io/egress-bandwidth`` pod
+Cilium's bandwidth manager supports the ``kubernetes.io/egress-bandwidth`` Pod
 annotation which is enforced on egress at the native host networking devices.
 The bandwidth enforcement is supported for direct routing as well as tunneling
 mode in Cilium.
@@ -69,7 +69,7 @@ the devices, set their names in the ``devices`` helm option (e.g.
 ``devices='{eth0,eth1,eth2}'``). Each listed device has to be named the same
 on all Cilium-managed nodes.
 
-Verify that the Cilium pods have come up correctly:
+Verify that the Cilium Pods have come up correctly:
 
 .. code-block:: shell-session
 
@@ -89,7 +89,7 @@ is enforced:
     BandwidthManager:       EDT with BPF   [eth0]
 
 To verify that egress bandwidth limits are indeed being enforced, one can deploy two
-``netperf`` pods in different nodes — one acting as a server and one acting as the client:
+``netperf`` Pods in different nodes — one acting as a server and one acting as the client:
 
 .. code-block:: yaml
 
@@ -98,7 +98,7 @@ To verify that egress bandwidth limits are indeed being enforced, one can deploy
     kind: Pod
     metadata:
       annotations:
-        # Limits egress bandwidth to 10Mb/s.
+        # Limits egress bandwidth to 10Mbit/s.
         kubernetes.io/egress-bandwidth: "10M"
       labels:
         # This pod will act as server.
@@ -114,7 +114,7 @@ To verify that egress bandwidth limits are indeed being enforced, one can deploy
     apiVersion: v1
     kind: Pod
     metadata:
-      # This pod will act as client.
+      # This Pod will act as client.
       name: netperf-client
     spec:
       affinity:
@@ -136,8 +136,8 @@ To verify that egress bandwidth limits are indeed being enforced, one can deploy
         - infinity
         image: cilium/netperf
 
-Once up and running, the ``netperf-client`` pod can be used to test egress bandwidth enforcement
-on the ``netperf-server`` pod. As the test streaming direction is from the ``netperf-server`` pod
+Once up and running, the ``netperf-client`` Pod can be used to test egress bandwidth enforcement
+on the ``netperf-server`` Pod. As the test streaming direction is from the ``netperf-server`` Pod
 towards the client, we need to check ``TCP_MAERTS``:
 
 .. code-block:: shell-session
@@ -153,11 +153,11 @@ towards the client, we need to check ``TCP_MAERTS``:
 
    87380  16384  16384    10.00       9.56
 
-As can be seen, egress traffic of the ``netperf-server`` pdd has been limited to 10Mbit per second.
+As can be seen, egress traffic of the ``netperf-server`` Pod has been limited to 10Mbit per second.
 
 In order to introspect current endpoint bandwidth settings from BPF side, the following
-command can be run (replace ``cilium-xxxxx`` with the name of the Cilium pod that is co-located with
-the ``netperf-server`` pod):
+command can be run (replace ``cilium-xxxxx`` with the name of the Cilium Pod that is co-located with
+the ``netperf-server`` Pod):
 
 .. code-block:: shell-session
 
