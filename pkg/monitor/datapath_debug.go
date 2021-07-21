@@ -56,16 +56,16 @@ const (
 	DbgToHost
 	DbgToStack
 	DbgPktHash
-	DbgLb6LookupMaster
-	DbgLb6LookupMasterFail
+	DbgLb6LookupFrontend
+	DbgLb6LookupFrontendFail
 	DbgLb6LookupBackendSlot
 	DbgLb6LookupBackendSlotSuccess
 	DbgLb6LookupBackendSlotV2Fail
 	DbgLb6LookupBackendFail
 	DbgLb6ReverseNatLookup
 	DbgLb6ReverseNat
-	DbgLb4LookupMaster
-	DbgLb4LookupMasterFail
+	DbgLb4LookupFrontend
+	DbgLb4LookupFrontendFail
 	DbgLb4LookupBackendSlot
 	DbgLb4LookupBackendSlotSuccess
 	DbgLb4LookupBackendSlotV2Fail
@@ -294,10 +294,10 @@ func (n *DebugMsg) Message() string {
 		return fmt.Sprintf("Packet hash=%d (%#x), selected_service=%d", n.Arg1, n.Arg1, n.Arg2)
 	case DbgRRBackendSlotSel:
 		return fmt.Sprintf("RR backend slot selection hash=%d (%#x), selected_service=%d", n.Arg1, n.Arg1, n.Arg2)
-	case DbgLb6LookupMaster:
-		return fmt.Sprintf("Master service lookup, addr.p4=%x key.dport=%d", n.Arg1, byteorder.NetworkToHost16(uint16(n.Arg2)))
-	case DbgLb6LookupMasterFail:
-		return fmt.Sprintf("Master service lookup failed, addr.p2=%x addr.p3=%x", n.Arg1, n.Arg2)
+	case DbgLb6LookupFrontend:
+		return fmt.Sprintf("Frontend service lookup, addr.p4=%x key.dport=%d", n.Arg1, byteorder.NetworkToHost16(uint16(n.Arg2)))
+	case DbgLb6LookupFrontendFail:
+		return fmt.Sprintf("Frontend service lookup failed, addr.p2=%x addr.p3=%x", n.Arg1, n.Arg2)
 	case DbgLb6LookupBackendSlot, DbgLb4LookupBackendSlot:
 		return fmt.Sprintf("Service backend slot lookup: slot=%d, dport=%d", n.Arg1, byteorder.NetworkToHost16(uint16(n.Arg2)))
 	case DbgLb6LookupBackendSlotV2Fail, DbgLb4LookupBackendSlotV2Fail:
@@ -310,10 +310,10 @@ func (n *DebugMsg) Message() string {
 		return fmt.Sprintf("Reverse NAT lookup, index=%d", byteorder.NetworkToHost16(uint16(n.Arg1)))
 	case DbgLb6ReverseNat:
 		return fmt.Sprintf("Performing reverse NAT, address.p4=%x port=%d", n.Arg1, byteorder.NetworkToHost16(uint16(n.Arg2)))
-	case DbgLb4LookupMaster:
-		return fmt.Sprintf("Master service lookup, addr=%s key.dport=%d", ip4Str(n.Arg1), byteorder.NetworkToHost16(uint16(n.Arg2)))
-	case DbgLb4LookupMasterFail:
-		return "Master service lookup failed"
+	case DbgLb4LookupFrontend:
+		return fmt.Sprintf("Frontend service lookup, addr=%s key.dport=%d", ip4Str(n.Arg1), byteorder.NetworkToHost16(uint16(n.Arg2)))
+	case DbgLb4LookupFrontendFail:
+		return "Frontend service lookup failed"
 	case DbgLb4LookupBackendSlotSuccess:
 		return fmt.Sprintf("Service backend slot lookup result: target=%s port=%d", ip4Str(n.Arg1), byteorder.NetworkToHost16(uint16(n.Arg2)))
 	case DbgLb4ReverseNat:
