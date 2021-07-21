@@ -124,8 +124,20 @@ jobs:
             --set cluster_cidr=${{ steps.cluster.outputs.cluster_cidr }}
 
       - name: Wait for install job
+        env:
+          timeout: 10m
         run: |
-          kubectl -n kube-system wait job/cilium-cli-install --for=condition=complete --timeout=10m
+          # Background wait for job to complete or timeout
+          kubectl -n kube-system wait job/cilium-cli-install --for=condition=complete --timeout=${{ env.timeout }} &
+          complete_pid=$!
+
+          # Background wait for job to fail
+          (kubectl -n kube-system wait job/cilium-cli-install --for=condition=failed --timeout=${{ env.timeout }} && exit 1) &
+          failed_pid=$!
+
+          # Active wait for whichever background process ends first
+          wait -n $complete_pid $failed_pid
+          exit $?
 
       - name: Copy VM install script from cilium-cli-install pod
         run: |
@@ -164,8 +176,20 @@ jobs:
             --set test_script_cm=cilium-cli-test-script
 
       - name: Wait for test job
+        env:
+          timeout: 10m
         run: |
-          kubectl -n kube-system wait job/cilium-cli --for=condition=complete --timeout=10m
+          # Background wait for job to complete or timeout
+          kubectl -n kube-system wait job/cilium-cli --for=condition=complete --timeout=${{ env.timeout }} &
+          complete_pid=$!
+
+          # Background wait for job to fail
+          (kubectl -n kube-system wait job/cilium-cli --for=condition=failed --timeout=${{ env.timeout }} && exit 1) &
+          failed_pid=$!
+
+          # Active wait for whichever background process ends first
+          wait -n $complete_pid $failed_pid
+          exit $?
 
       - name: Post-test information gathering
         if: ${{ !success() }}
