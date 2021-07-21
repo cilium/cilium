@@ -1378,6 +1378,8 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 	if n.nodeConfig.EnableIPv4 {
 		ifaceName := ""
 		switch {
+		case !option.Config.EnableL2NeighDiscovery:
+			n.enableNeighDiscovery = false
 		case option.Config.EnableNodePort:
 			mac, err := link.GetHardwareAddr(option.Config.DirectRoutingDevice)
 			if err != nil {
