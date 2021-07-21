@@ -324,6 +324,9 @@ Removed Options
   and is now removed.
 * ``hubble-flow-buffer-size``: This option was deprecated in 1.10 in favor
   of ``hubble-event-buffer-capacity``. It is now removed.
+* The ``Capabilities`` Helm value has been removed. When using ``helm template``
+  to generate the Kubernetes manifest for a specific Kubernetes version,
+  please use the ``--kube-version`` flag (introduced in Helm 3.6.0) instead.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
