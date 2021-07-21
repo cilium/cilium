@@ -21,16 +21,19 @@ spec:
             {{- if .Values.debug.enabled }}
             - "--debug"
             {{- end }}
-            {{- if not .Values.clustermesh.apiserver.tls.ca.cert }}
             - "--clustermesh-apiserver-ca-cert-generate"
-            {{- end }}
+            - "--clustermesh-apiserver-ca-cert-reuse-secret"
             - "--clustermesh-apiserver-server-cert-generate"
+            - "--clustermesh-apiserver-server-cert-validity-duration={{ $certValiditySecondsStr }}"
             - "--clustermesh-apiserver-admin-cert-generate"
+            - "--clustermesh-apiserver-admin-cert-validity-duration={{ $certValiditySecondsStr }}"
             {{- if .Values.externalWorkloads.enabled }}
             - "--clustermesh-apiserver-client-cert-generate"
+            - "--clustermesh-apiserver-client-cert-validity-duration={{ $certValiditySecondsStr }}"
             {{- end }}
             {{- if .Values.clustermesh.useAPIServer }}
             - "--clustermesh-apiserver-remote-cert-generate"
+            - "--clustermesh-apiserver-remote-cert-validity-duration={{ $certValiditySecondsStr }}"
             {{- end }}
       hostNetwork: true
       serviceAccount: {{ .Values.serviceAccounts.clustermeshcertgen.name | quote }}
