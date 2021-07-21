@@ -234,6 +234,9 @@ func init() {
 	flags.Duration(option.ARPPingRefreshPeriod, 5*time.Minute, "Period for remote node ARP entry refresh (set 0 to disable)")
 	option.BindEnv(option.ARPPingRefreshPeriod)
 
+	flags.Bool(option.EnableL2NeighDiscovery, true, "Enables L2 neighbor discovery used by kube-proxy-replacement and IPsec")
+	option.BindEnv(option.EnableL2NeighDiscovery)
+
 	flags.Bool(option.AutoCreateCiliumNodeResource, defaults.AutoCreateCiliumNodeResource, "Automatically create CiliumNode resource for own node on startup")
 	option.BindEnv(option.AutoCreateCiliumNodeResource)
 
