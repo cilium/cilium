@@ -141,8 +141,20 @@ jobs:
             --set cluster_name_2=${{ env.clusterName2 }} \
 
       - name: Wait for test job
+        env:
+          timeout: 20m
         run: |
-          kubectl -n kube-system wait job/cilium-cli --for=condition=complete --timeout=20m
+          # Background wait for job to complete or timeout
+          kubectl -n kube-system wait job/cilium-cli --for=condition=complete --timeout=${{ env.timeout }} &
+          complete_pid=$!
+
+          # Background wait for job to fail
+          (kubectl -n kube-system wait job/cilium-cli --for=condition=failed --timeout=${{ env.timeout }} && exit 1) &
+          failed_pid=$!
+
+          # Active wait for whichever background process ends first
+          wait -n $complete_pid $failed_pid
+          exit $?
 
       - name: Post-test information gathering
         if: ${{ !success() }}
