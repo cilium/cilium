@@ -149,11 +149,11 @@ type DNSProxy struct {
 type perEPAllow map[uint64]portToSelectorAllow
 
 // portToSelectorAllow maps port numbers to selectors + rules
-type portToSelectorAllow map[uint16]cachedSelectorREEntry
+type portToSelectorAllow map[uint16]CachedSelectorREEntry
 
-// cachedSelectorREEntry maps port numbers to selectors to rules, mirroring
+// CachedSelectorREEntry maps port numbers to selectors to rules, mirroring
 // policy.L7DataMap but the DNS rules are compiled into a single regexp
-type cachedSelectorREEntry map[policy.CachedSelector]*regexp.Regexp
+type CachedSelectorREEntry map[policy.CachedSelector]*regexp.Regexp
 
 // structure for restored rules that can be used while Cilium agent is restoring endpoints
 type perEPRestored map[uint64]restore.DNSRules
@@ -276,37 +276,9 @@ func (allow perEPAllow) setPortRulesForID(lru *lru.Cache, endpointID uint64, des
 		return nil
 	}
 
-	newRE := make(cachedSelectorREEntry)
-	for selector, l7Rules := range newRules {
-		if l7Rules == nil {
-			l7Rules = &policy.PerSelectorPolicy{L7Rules: api.L7Rules{DNS: []api.PortRuleDNS{{MatchPattern: "*"}}}}
-		}
-		reStrings := make([]string, 0, len(l7Rules.DNS))
-		for _, dnsRule := range l7Rules.DNS {
-			if len(dnsRule.MatchName) > 0 {
-				dnsRuleName := strings.ToLower(dns.Fqdn(dnsRule.MatchName))
-				dnsPatternAsRE := matchpattern.ToRegexp(dnsRuleName)
-				reStrings = append(reStrings, "("+dnsPatternAsRE+")")
-			}
-			if len(dnsRule.MatchPattern) > 0 {
-				dnsPattern := matchpattern.Sanitize(dnsRule.MatchPattern)
-				dnsPatternAsRE := matchpattern.ToRegexp(dnsPattern)
-				reStrings = append(reStrings, "("+dnsPatternAsRE+")")
-			}
-		}
-		mp := strings.Join(reStrings, "|")
-		rei, ok := lru.Get(mp)
-		if ok {
-			re := rei.(*regexp.Regexp)
-			newRE[selector] = re
-		} else {
-			re, err := regexp.Compile(mp)
-			if err != nil {
-				return err
-			}
-			lru.Add(mp, re)
-			newRE[selector] = re
-		}
+	newRE, err := GetSelectorRegexMap(newRules, lru)
+	if err != nil {
+		return err
 	}
 
 	epPorts, exist := allow[endpointID]
@@ -319,9 +291,32 @@ func (allow perEPAllow) setPortRulesForID(lru *lru.Cache, endpointID uint64, des
 	return nil
 }
 
+// setPortRulesForIDFromUnifiedFormat sets the matching rules for endpointID and destPort for
+// later lookups.
+func (allow perEPAllow) setPortRulesForIDFromUnifiedFormat(endpointID uint64, destPort uint16, newRules CachedSelectorREEntry) error {
+	// This is the delete case
+	if len(newRules) == 0 {
+		epPorts := allow[endpointID]
+		delete(epPorts, destPort)
+		if len(epPorts) == 0 {
+			delete(allow, endpointID)
+		}
+		return nil
+	}
+
+	epPorts, exist := allow[endpointID]
+	if !exist {
+		epPorts = make(portToSelectorAllow)
+		allow[endpointID] = epPorts
+	}
+
+	epPorts[destPort] = newRules
+	return nil
+}
+
 // getPortRulesForID returns a precompiled regex representing DNS rules for the
 // passed-in endpointID and destPort with setPortRulesForID
-func (allow perEPAllow) getPortRulesForID(endpointID uint64, destPort uint16) (rules cachedSelectorREEntry, exists bool) {
+func (allow perEPAllow) getPortRulesForID(endpointID uint64, destPort uint16) (rules CachedSelectorREEntry, exists bool) {
 	rules, exists = allow[endpointID][destPort]
 	return rules, exists
 }
@@ -471,6 +466,19 @@ func (p *DNSProxy) UpdateAllowed(endpointID uint64, destPort uint16, newRules po
 	defer p.Unlock()
 
 	err := p.allowed.setPortRulesForID(p.regexCompileLRU, endpointID, destPort, newRules)
+	if err == nil {
+		// Rules were updated based on policy, remove restored rules
+		p.removeRestoredRulesLocked(endpointID)
+	}
+	return err
+}
+
+// UpdateAllowedFromSelectorRegexes sets newRules for endpointID and destPort.
+func (p *DNSProxy) UpdateAllowedFromSelectorRegexes(endpointID uint64, destPort uint16, newRules CachedSelectorREEntry) error {
+	p.Lock()
+	defer p.Unlock()
+
+	err := p.allowed.setPortRulesForIDFromUnifiedFormat(endpointID, destPort, newRules)
 	if err == nil {
 		// Rules were updated based on policy, remove restored rules
 		p.removeRestoredRulesLocked(endpointID)
@@ -787,4 +795,41 @@ func shouldCompressResponse(request, response *dns.Msg) bool {
 	}
 
 	return false
+}
+
+func GetSelectorRegexMap(l7 policy.L7DataMap, lru *lru.Cache) (CachedSelectorREEntry, error) {
+	newRE := make(CachedSelectorREEntry)
+	for selector, l7Rules := range l7 {
+		if l7Rules == nil {
+			l7Rules = &policy.PerSelectorPolicy{L7Rules: api.L7Rules{DNS: []api.PortRuleDNS{{MatchPattern: "*"}}}}
+		}
+		reStrings := make([]string, 0, len(l7Rules.DNS))
+		for _, dnsRule := range l7Rules.DNS {
+			if len(dnsRule.MatchName) > 0 {
+				dnsRuleName := strings.ToLower(dns.Fqdn(dnsRule.MatchName))
+				dnsPatternAsRE := matchpattern.ToRegexp(dnsRuleName)
+				reStrings = append(reStrings, "("+dnsPatternAsRE+")")
+			}
+			if len(dnsRule.MatchPattern) > 0 {
+				dnsPattern := matchpattern.Sanitize(dnsRule.MatchPattern)
+				dnsPatternAsRE := matchpattern.ToRegexp(dnsPattern)
+				reStrings = append(reStrings, "("+dnsPatternAsRE+")")
+			}
+		}
+		mp := strings.Join(reStrings, "|")
+		rei, ok := lru.Get(mp)
+		if ok {
+			re := rei.(*regexp.Regexp)
+			newRE[selector] = re
+		} else {
+			re, err := regexp.Compile(mp)
+			if err != nil {
+				return nil, err
+			}
+			lru.Add(mp, re)
+			newRE[selector] = re
+		}
+	}
+
+	return newRE, nil
 }
