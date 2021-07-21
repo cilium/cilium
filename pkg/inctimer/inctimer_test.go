@@ -21,6 +21,18 @@ import (
 	"time"
 )
 
+func TestTimerAfter(t *testing.T) {
+	for i := 0; i < 100_000; i++ {
+		tr, done := New()
+		select {
+		case <-tr.After(time.Second):
+			t.Fatal("`IncTimer` fired too soon")
+		default:
+		}
+		done()
+	}
+}
+
 func TestTimerHardReset(t *testing.T) {
 	tr, done := New()
 	defer done()
