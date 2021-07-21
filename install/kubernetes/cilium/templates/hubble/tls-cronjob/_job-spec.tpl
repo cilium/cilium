@@ -20,37 +20,21 @@ spec:
           # the values used in past runs by inspecting the completed pod.
           args:
             - "--cilium-namespace={{ .Release.Namespace }}"
-            - "--hubble-ca-reuse-secret=true"
-            - "--hubble-ca-secret-name=hubble-ca-secret"
             {{- if .Values.debug.enabled }}
             - "--debug"
             {{- end }}
-            {{- $hubbleCAProvided := and .Values.hubble.tls.ca.cert .Values.hubble.tls.ca.key -}}
-            {{- if not $hubbleCAProvided }}
-            - "--hubble-ca-generate=true"
-            - "--hubble-ca-validity-duration={{ $certValiditySecondsStr }}"
-            - "--hubble-ca-config-map-create=true"
-            - "--hubble-ca-config-map-name=hubble-ca-cert"
-            {{- else }}
-            - "--hubble-ca-generate=false"
-            {{- end }}
-            - "--hubble-server-cert-generate=true"
+            - "--hubble-ca-generate"
+            - "--hubble-ca-reuse-secret"
+            - "--hubble-server-cert-generate"
             - "--hubble-server-cert-common-name={{ list "*" (.Values.cluster.name | replace "." "-") "hubble-grpc.cilium.io" | join "." }}"
             - "--hubble-server-cert-validity-duration={{ $certValiditySecondsStr }}"
-            - "--hubble-server-cert-secret-name=hubble-server-certs"
             {{- if .Values.hubble.relay.enabled }}
-            - "--hubble-relay-client-cert-generate=true"
+            - "--hubble-relay-client-cert-generate"
             - "--hubble-relay-client-cert-validity-duration={{ $certValiditySecondsStr }}"
-            - "--hubble-relay-client-cert-secret-name=hubble-relay-client-certs"
-            {{- else }}
-            - "--hubble-relay-client-cert-generate=false"
             {{- end }}
             {{- if and .Values.hubble.relay.enabled .Values.hubble.relay.tls.server.enabled }}
-            - "--hubble-relay-server-cert-generate=true"
+            - "--hubble-relay-server-cert-generate"
             - "--hubble-relay-server-cert-validity-duration={{ $certValiditySecondsStr }}"
-            - "--hubble-relay-server-cert-secret-name=hubble-relay-server-certs"
-            {{- else }}
-            - "--hubble-relay-server-cert-generate=false"
             {{- end }}
       hostNetwork: true
       serviceAccount: {{ .Values.serviceAccounts.hubblecertgen.name | quote }}
