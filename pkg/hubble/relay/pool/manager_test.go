@@ -39,8 +39,14 @@ import (
 	"google.golang.org/grpc/connectivity"
 )
 
+type onClientFunc = func(string) (peerTypes.Client, error)
+type onClientConnFunc = func(string, string) (poolTypes.ClientConn, error)
+
 func TestPeerManager(t *testing.T) {
+	// both variables are re-initialized for each test
 	var done chan struct{}
+	var once sync.Once
+
 	type want struct {
 		peers []poolTypes.Peer
 		log   []string
@@ -57,7 +63,6 @@ func TestPeerManager(t *testing.T) {
 				OnClient: func(target string) (peerTypes.Client, error) {
 					return &testutils.FakePeerClient{
 						OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
-							var once sync.Once
 							return &testutils.FakePeerNotifyClient{
 								OnRecv: func() (*peerpb.ChangeNotification, error) {
 									once.Do(func() { close(done) })
@@ -74,36 +79,37 @@ func TestPeerManager(t *testing.T) {
 		}, {
 			name: "1 peer without IP address",
 			pcBuilder: testutils.FakePeerClientBuilder{
-				OnClient: func(target string) (peerTypes.Client, error) {
-					return &testutils.FakePeerClient{
-						OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
-							var once sync.Once
-							i := -1
-							cns := []*peerpb.ChangeNotification{
-								{
-									Name:    "noip",
-									Address: "",
-									Type:    peerpb.ChangeNotificationType_PEER_ADDED,
-								},
-							}
-							return &testutils.FakePeerNotifyClient{
-								OnRecv: func() (*peerpb.ChangeNotification, error) {
-									i++
-									switch {
-									case i >= len(cns):
-										once.Do(func() { close(done) })
-										return nil, io.EOF
-									default:
-										return cns[i], nil
-									}
-								},
-							}, nil
-						},
-						OnClose: func() error {
-							return nil
-						},
-					}, nil
-				},
+				OnClient: func() onClientFunc {
+					i := -1
+					return func(target string) (peerTypes.Client, error) {
+						return &testutils.FakePeerClient{
+							OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
+								cns := []*peerpb.ChangeNotification{
+									{
+										Name:    "noip",
+										Address: "",
+										Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+									},
+								}
+								return &testutils.FakePeerNotifyClient{
+									OnRecv: func() (*peerpb.ChangeNotification, error) {
+										i++
+										switch {
+										case i >= len(cns):
+											once.Do(func() { close(done) })
+											return nil, io.EOF
+										default:
+											return cns[i], nil
+										}
+									},
+								}, nil
+							},
+							OnClose: func() error {
+								return nil
+							},
+						}, nil
+					}
+				}(),
 			},
 			ccBuilder: FakeClientConnBuilder{},
 			want: want{
@@ -120,36 +126,37 @@ func TestPeerManager(t *testing.T) {
 		}, {
 			name: "1 unreachable peer",
 			pcBuilder: testutils.FakePeerClientBuilder{
-				OnClient: func(target string) (peerTypes.Client, error) {
-					return &testutils.FakePeerClient{
-						OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
-							var once sync.Once
-							i := -1
-							cns := []*peerpb.ChangeNotification{
-								{
-									Name:    "unreachable",
-									Address: "192.0.1.1",
-									Type:    peerpb.ChangeNotificationType_PEER_ADDED,
-								},
-							}
-							return &testutils.FakePeerNotifyClient{
-								OnRecv: func() (*peerpb.ChangeNotification, error) {
-									i++
-									switch {
-									case i >= len(cns):
-										once.Do(func() { close(done) })
-										return nil, io.EOF
-									default:
-										return cns[i], nil
-									}
-								},
-							}, nil
-						},
-						OnClose: func() error {
-							return nil
-						},
-					}, nil
-				},
+				OnClient: func() onClientFunc {
+					i := -1
+					return func(target string) (peerTypes.Client, error) {
+						return &testutils.FakePeerClient{
+							OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
+								cns := []*peerpb.ChangeNotification{
+									{
+										Name:    "unreachable",
+										Address: "192.0.1.1",
+										Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+									},
+								}
+								return &testutils.FakePeerNotifyClient{
+									OnRecv: func() (*peerpb.ChangeNotification, error) {
+										i++
+										switch {
+										case i >= len(cns):
+											once.Do(func() { close(done) })
+											return nil, io.EOF
+										default:
+											return cns[i], nil
+										}
+									},
+								}, nil
+							},
+							OnClose: func() error {
+								return nil
+							},
+						}, nil
+					}
+				}(),
 			},
 			ccBuilder: FakeClientConnBuilder{
 				OnClientConn: func(target, hostname string) (poolTypes.ClientConn, error) {
@@ -173,38 +180,39 @@ func TestPeerManager(t *testing.T) {
 		}, {
 			name: "1 reachable peer",
 			pcBuilder: testutils.FakePeerClientBuilder{
-				OnClient: func(target string) (peerTypes.Client, error) {
-					return &testutils.FakePeerClient{
-						OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
-							i := -1
-							cns := []*peerpb.ChangeNotification{
-								{
-									Name:    "reachable",
-									Address: "192.0.1.1",
-									Type:    peerpb.ChangeNotificationType_PEER_ADDED,
-								},
-							}
-							return &testutils.FakePeerNotifyClient{
-								OnRecv: func() (*peerpb.ChangeNotification, error) {
-									i++
-									switch {
-									case i >= len(cns):
-										return nil, io.EOF
-									default:
-										return cns[i], nil
-									}
-								},
-							}, nil
-						},
-						OnClose: func() error {
-							return nil
-						},
-					}, nil
-				},
+				OnClient: func() onClientFunc {
+					i := -1
+					return func(target string) (peerTypes.Client, error) {
+						return &testutils.FakePeerClient{
+							OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
+								cns := []*peerpb.ChangeNotification{
+									{
+										Name:    "reachable",
+										Address: "192.0.1.1",
+										Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+									},
+								}
+								return &testutils.FakePeerNotifyClient{
+									OnRecv: func() (*peerpb.ChangeNotification, error) {
+										i++
+										switch {
+										case i >= len(cns):
+											return nil, io.EOF
+										default:
+											return cns[i], nil
+										}
+									},
+								}, nil
+							},
+							OnClose: func() error {
+								return nil
+							},
+						}, nil
+					}
+				}(),
 			},
 			ccBuilder: FakeClientConnBuilder{
 				OnClientConn: func(target, hostname string) (poolTypes.ClientConn, error) {
-					var once sync.Once
 					return testutils.FakeClientConn{
 						OnGetState: func() connectivity.State {
 							once.Do(func() { close(done) })
@@ -230,41 +238,43 @@ func TestPeerManager(t *testing.T) {
 		}, {
 			name: "1 peer is deleted",
 			pcBuilder: testutils.FakePeerClientBuilder{
-				OnClient: func(target string) (peerTypes.Client, error) {
-					return &testutils.FakePeerClient{
-						OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
-							i := -1
-							cns := []*peerpb.ChangeNotification{
-								{
-									Name:    "reachable",
-									Address: "192.0.1.1",
-									Type:    peerpb.ChangeNotificationType_PEER_ADDED,
-								}, {
-									Name:    "reachable",
-									Address: "192.0.1.1",
-									Type:    peerpb.ChangeNotificationType_PEER_DELETED,
-								},
-							}
-							return &testutils.FakePeerNotifyClient{
-								OnRecv: func() (*peerpb.ChangeNotification, error) {
-									i++
-									switch {
-									case i >= len(cns):
-										return nil, io.EOF
-									case i == len(cns)-1:
-										close(done)
-										fallthrough
-									default:
-										return cns[i], nil
-									}
-								},
-							}, nil
-						},
-						OnClose: func() error {
-							return nil
-						},
-					}, nil
-				},
+				OnClient: func() onClientFunc {
+					i := -1
+					return func(target string) (peerTypes.Client, error) {
+						return &testutils.FakePeerClient{
+							OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
+								cns := []*peerpb.ChangeNotification{
+									{
+										Name:    "reachable",
+										Address: "192.0.1.1",
+										Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+									}, {
+										Name:    "reachable",
+										Address: "192.0.1.1",
+										Type:    peerpb.ChangeNotificationType_PEER_DELETED,
+									},
+								}
+								return &testutils.FakePeerNotifyClient{
+									OnRecv: func() (*peerpb.ChangeNotification, error) {
+										i++
+										switch {
+										case i >= len(cns):
+											return nil, io.EOF
+										case i == len(cns)-1:
+											close(done)
+											fallthrough
+										default:
+											return cns[i], nil
+										}
+									},
+								}, nil
+							},
+							OnClose: func() error {
+								return nil
+							},
+						}, nil
+					}
+				}(),
 			},
 			ccBuilder: FakeClientConnBuilder{
 				OnClientConn: func(target, hostname string) (poolTypes.ClientConn, error) {
@@ -281,38 +291,39 @@ func TestPeerManager(t *testing.T) {
 		}, {
 			name: "1 peer in transient failure",
 			pcBuilder: testutils.FakePeerClientBuilder{
-				OnClient: func(target string) (peerTypes.Client, error) {
-					return &testutils.FakePeerClient{
-						OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
-							i := -1
-							cns := []*peerpb.ChangeNotification{
-								{
-									Name:    "unreachable",
-									Address: "192.0.1.1",
-									Type:    peerpb.ChangeNotificationType_PEER_ADDED,
-								},
-							}
-							return &testutils.FakePeerNotifyClient{
-								OnRecv: func() (*peerpb.ChangeNotification, error) {
-									i++
-									switch {
-									case i >= len(cns):
-										return nil, io.EOF
-									default:
-										return cns[i], nil
-									}
-								},
-							}, nil
-						},
-						OnClose: func() error {
-							return nil
-						},
-					}, nil
-				},
+				OnClient: func() onClientFunc {
+					i := -1
+					return func(target string) (peerTypes.Client, error) {
+						return &testutils.FakePeerClient{
+							OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
+								cns := []*peerpb.ChangeNotification{
+									{
+										Name:    "unreachable",
+										Address: "192.0.1.1",
+										Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+									},
+								}
+								return &testutils.FakePeerNotifyClient{
+									OnRecv: func() (*peerpb.ChangeNotification, error) {
+										i++
+										switch {
+										case i >= len(cns):
+											return nil, io.EOF
+										default:
+											return cns[i], nil
+										}
+									},
+								}, nil
+							},
+							OnClose: func() error {
+								return nil
+							},
+						}, nil
+					}
+				}(),
 			},
 			ccBuilder: FakeClientConnBuilder{
 				OnClientConn: func(target, hostname string) (poolTypes.ClientConn, error) {
-					var once sync.Once
 					return testutils.FakeClientConn{
 						OnGetState: func() connectivity.State {
 							return connectivity.TransientFailure
@@ -341,55 +352,59 @@ func TestPeerManager(t *testing.T) {
 		}, {
 			name: "1 peer added then modified",
 			pcBuilder: testutils.FakePeerClientBuilder{
-				OnClient: func(target string) (peerTypes.Client, error) {
-					return &testutils.FakePeerClient{
-						OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
-							i := -1
-							cns := []*peerpb.ChangeNotification{
-								{
-									Name:    "reachable",
-									Address: "192.0.1.1",
-									Type:    peerpb.ChangeNotificationType_PEER_ADDED,
-								}, {
-									Name:    "reachable",
-									Address: "192.0.5.5",
-									Type:    peerpb.ChangeNotificationType_PEER_UPDATED,
-								},
-							}
-							return &testutils.FakePeerNotifyClient{
-								OnRecv: func() (*peerpb.ChangeNotification, error) {
-									i++
-									switch {
-									case i >= len(cns):
-										return nil, io.EOF
-									default:
-										return cns[i], nil
-									}
-								},
-							}, nil
-						},
-						OnClose: func() error {
-							return nil
-						},
-					}, nil
-				},
+				OnClient: func() onClientFunc {
+					i := -1
+					return func(target string) (peerTypes.Client, error) {
+						return &testutils.FakePeerClient{
+							OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
+								cns := []*peerpb.ChangeNotification{
+									{
+										Name:    "reachable",
+										Address: "192.0.1.1",
+										Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+									}, {
+										Name:    "reachable",
+										Address: "192.0.5.5",
+										Type:    peerpb.ChangeNotificationType_PEER_UPDATED,
+									},
+								}
+								return &testutils.FakePeerNotifyClient{
+									OnRecv: func() (*peerpb.ChangeNotification, error) {
+										i++
+										switch {
+										case i >= len(cns):
+											return nil, io.EOF
+										default:
+											return cns[i], nil
+										}
+									},
+								}, nil
+							},
+							OnClose: func() error {
+								return nil
+							},
+						}, nil
+					}
+				}(),
 			},
 			ccBuilder: FakeClientConnBuilder{
-				OnClientConn: func(target, hostname string) (poolTypes.ClientConn, error) {
+				OnClientConn: func() onClientConnFunc {
 					var i int
-					return testutils.FakeClientConn{
-						OnGetState: func() connectivity.State {
-							i++
-							if i == 2 {
-								close(done)
-							}
-							return connectivity.Ready
-						},
-						OnClose: func() error {
-							return nil
-						},
-					}, nil
-				},
+					return func(target, hostname string) (poolTypes.ClientConn, error) {
+						return testutils.FakeClientConn{
+							OnGetState: func() connectivity.State {
+								i++
+								if i == 2 {
+									close(done)
+								}
+								return connectivity.Ready
+							},
+							OnClose: func() error {
+								return nil
+							},
+						}, nil
+					}
+				}(),
 			},
 			want: want{
 				peers: []poolTypes.Peer{
@@ -408,45 +423,47 @@ func TestPeerManager(t *testing.T) {
 		}, {
 			name: "2 peers added, 1 deleted",
 			pcBuilder: testutils.FakePeerClientBuilder{
-				OnClient: func(target string) (peerTypes.Client, error) {
-					return &testutils.FakePeerClient{
-						OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
-							i := -1
-							cns := []*peerpb.ChangeNotification{
-								{
-									Name:    "one",
-									Address: "192.0.1.1",
-									Type:    peerpb.ChangeNotificationType_PEER_ADDED,
-								}, {
-									Name:    "two",
-									Address: "192.0.1.2",
-									Type:    peerpb.ChangeNotificationType_PEER_ADDED,
-								}, {
-									Name:    "one",
-									Address: "192.0.1.1",
-									Type:    peerpb.ChangeNotificationType_PEER_DELETED,
-								},
-							}
-							return &testutils.FakePeerNotifyClient{
-								OnRecv: func() (*peerpb.ChangeNotification, error) {
-									i++
-									switch {
-									case i >= len(cns):
-										return nil, io.EOF
-									case i == len(cns)-1:
-										close(done)
-										fallthrough
-									default:
-										return cns[i], nil
-									}
-								},
-							}, nil
-						},
-						OnClose: func() error {
-							return nil
-						},
-					}, nil
-				},
+				OnClient: func() onClientFunc {
+					i := -1
+					return func(target string) (peerTypes.Client, error) {
+						return &testutils.FakePeerClient{
+							OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
+								cns := []*peerpb.ChangeNotification{
+									{
+										Name:    "one",
+										Address: "192.0.1.1",
+										Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+									}, {
+										Name:    "two",
+										Address: "192.0.1.2",
+										Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+									}, {
+										Name:    "one",
+										Address: "192.0.1.1",
+										Type:    peerpb.ChangeNotificationType_PEER_DELETED,
+									},
+								}
+								return &testutils.FakePeerNotifyClient{
+									OnRecv: func() (*peerpb.ChangeNotification, error) {
+										i++
+										switch {
+										case i >= len(cns):
+											return nil, io.EOF
+										case i == len(cns)-1:
+											close(done)
+											fallthrough
+										default:
+											return cns[i], nil
+										}
+									},
+								}, nil
+							},
+							OnClose: func() error {
+								return nil
+							},
+						}, nil
+					}
+				}(),
 			},
 			ccBuilder: FakeClientConnBuilder{
 				OnClientConn: func(target, hostname string) (poolTypes.ClientConn, error) {
@@ -470,54 +487,56 @@ func TestPeerManager(t *testing.T) {
 		}, {
 			name: "2 peers added, 1 deleted, TLS enabled",
 			pcBuilder: testutils.FakePeerClientBuilder{
-				OnClient: func(target string) (peerTypes.Client, error) {
-					return &testutils.FakePeerClient{
-						OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
-							i := -1
-							cns := []*peerpb.ChangeNotification{
-								{
-									Name:    "one",
-									Address: "192.0.1.1",
-									Type:    peerpb.ChangeNotificationType_PEER_ADDED,
-									Tls: &peerpb.TLS{
-										ServerName: "one.default.hubble-grpc.cilium.io",
+				OnClient: func() onClientFunc {
+					i := -1
+					return func(target string) (peerTypes.Client, error) {
+						return &testutils.FakePeerClient{
+							OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
+								cns := []*peerpb.ChangeNotification{
+									{
+										Name:    "one",
+										Address: "192.0.1.1",
+										Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+										Tls: &peerpb.TLS{
+											ServerName: "one.default.hubble-grpc.cilium.io",
+										},
+									}, {
+										Name:    "two",
+										Address: "192.0.1.2",
+										Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+										Tls: &peerpb.TLS{
+											ServerName: "two.default.hubble-grpc.cilium.io",
+										},
+									}, {
+										Name:    "one",
+										Address: "192.0.1.1",
+										Type:    peerpb.ChangeNotificationType_PEER_DELETED,
+										Tls: &peerpb.TLS{
+											ServerName: "one.default.hubble-grpc.cilium.io",
+										},
 									},
-								}, {
-									Name:    "two",
-									Address: "192.0.1.2",
-									Type:    peerpb.ChangeNotificationType_PEER_ADDED,
-									Tls: &peerpb.TLS{
-										ServerName: "two.default.hubble-grpc.cilium.io",
+								}
+								return &testutils.FakePeerNotifyClient{
+									OnRecv: func() (*peerpb.ChangeNotification, error) {
+										i++
+										switch {
+										case i >= len(cns):
+											return nil, io.EOF
+										case i == len(cns)-1:
+											close(done)
+											fallthrough
+										default:
+											return cns[i], nil
+										}
 									},
-								}, {
-									Name:    "one",
-									Address: "192.0.1.1",
-									Type:    peerpb.ChangeNotificationType_PEER_DELETED,
-									Tls: &peerpb.TLS{
-										ServerName: "one.default.hubble-grpc.cilium.io",
-									},
-								},
-							}
-							return &testutils.FakePeerNotifyClient{
-								OnRecv: func() (*peerpb.ChangeNotification, error) {
-									i++
-									switch {
-									case i >= len(cns):
-										return nil, io.EOF
-									case i == len(cns)-1:
-										close(done)
-										fallthrough
-									default:
-										return cns[i], nil
-									}
-								},
-							}, nil
-						},
-						OnClose: func() error {
-							return nil
-						},
-					}, nil
-				},
+								}, nil
+							},
+							OnClose: func() error {
+								return nil
+							},
+						}, nil
+					}
+				}(),
 			},
 			ccBuilder: FakeClientConnBuilder{
 				OnClientConn: func(target, hostname string) (poolTypes.ClientConn, error) {
@@ -544,7 +563,7 @@ func TestPeerManager(t *testing.T) {
 			name: "PeerClientBuilder errors out",
 			pcBuilder: testutils.FakePeerClientBuilder{
 				OnClient: func(target string) (peerTypes.Client, error) {
-					close(done)
+					once.Do(func() { close(done) })
 					return nil, errors.New("I'm on PTO")
 				},
 			},
@@ -556,33 +575,35 @@ func TestPeerManager(t *testing.T) {
 		}, {
 			name: "ClientConnBuilder errors out",
 			pcBuilder: testutils.FakePeerClientBuilder{
-				OnClient: func(target string) (peerTypes.Client, error) {
-					return &testutils.FakePeerClient{
-						OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
-							var i int
-							return &testutils.FakePeerNotifyClient{
-								OnRecv: func() (*peerpb.ChangeNotification, error) {
-									i++
-									if i > 1 {
-										return nil, io.EOF
-									}
-									return &peerpb.ChangeNotification{
-										Name:    "unreachable",
-										Address: "192.0.1.1",
-										Type:    peerpb.ChangeNotificationType_PEER_ADDED,
-									}, nil
-								},
-							}, nil
-						},
-						OnClose: func() error {
-							return nil
-						},
-					}, nil
-				},
+				OnClient: func() onClientFunc {
+					var i int
+					return func(target string) (peerTypes.Client, error) {
+						return &testutils.FakePeerClient{
+							OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
+								return &testutils.FakePeerNotifyClient{
+									OnRecv: func() (*peerpb.ChangeNotification, error) {
+										i++
+										if i > 1 {
+											return nil, io.EOF
+										}
+										return &peerpb.ChangeNotification{
+											Name:    "unreachable",
+											Address: "192.0.1.1",
+											Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+										}, nil
+									},
+								}, nil
+							},
+							OnClose: func() error {
+								return nil
+							},
+						}, nil
+					}
+				}(),
 			},
 			ccBuilder: FakeClientConnBuilder{
 				OnClientConn: func(target, hostname string) (poolTypes.ClientConn, error) {
-					close(done)
+					once.Do(func() { close(done) })
 					return nil, errors.New("Don't feel like workin' today")
 				},
 			},
@@ -607,7 +628,6 @@ func TestPeerManager(t *testing.T) {
 			name: "peer notify errors out",
 			pcBuilder: testutils.FakePeerClientBuilder{
 				OnClient: func(target string) (peerTypes.Client, error) {
-					var once sync.Once
 					return &testutils.FakePeerClient{
 						OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
 							once.Do(func() { close(done) })
@@ -630,7 +650,6 @@ func TestPeerManager(t *testing.T) {
 				OnClient: func(target string) (peerTypes.Client, error) {
 					return &testutils.FakePeerClient{
 						OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
-							var once sync.Once
 							return &testutils.FakePeerNotifyClient{
 								OnRecv: func() (*peerpb.ChangeNotification, error) {
 									once.Do(func() { close(done) })
@@ -663,6 +682,8 @@ func TestPeerManager(t *testing.T) {
 			logger.SetLevel(logrus.DebugLevel)
 
 			done = make(chan struct{})
+			once = sync.Once{}
+
 			mgr, err := NewPeerManager(
 				WithPeerClientBuilder(tt.pcBuilder),
 				WithClientConnBuilder(tt.ccBuilder),
