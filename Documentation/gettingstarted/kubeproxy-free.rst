@@ -1027,10 +1027,10 @@ Limitations
 ###########
 
     * Cilium's BPF kube-proxy replacement currently cannot be used with :ref:`encryption`.
-    * Cilium's BPF kube-proxy replacement relies upon the :ref:`host-services` feature
-      which uses BPF cgroup hooks to implement the service translation. The getpeername(2)
-      hook address translation in BPF is only available for v5.8 kernels. It is known to
-      currently not work with libceph deployments.
+    * Cilium's eBPF kube-proxy replacement relies upon the :ref:`host-services` feature
+      which uses eBPF cgroup hooks to implement the service translation. Using it with libceph
+      deployments currently requires support for the getpeername(2) hook address translation in
+      eBPF, which is only available for kernels v5.8 and higher.
     * Cilium's BPF kube-proxy acceleration in XDP can only be used in a single device setup
       as a "one-legged" / hairpin load balancer scenario. In case of a multi-device environment,
       where auto-detection selects more than a single device to expose NodePort, the option
