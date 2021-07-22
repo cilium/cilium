@@ -45,11 +45,12 @@ var (
 )
 
 const (
-	LabelKeyPolicyDerivedFrom  = "io.cilium.policy.derived-from"
-	LabelAllowLocalHostIngress = "allow-localhost-ingress"
-	LabelAllowAnyIngress       = "allow-any-ingress"
-	LabelAllowAnyEgress        = "allow-any-egress"
-	LabelVisibilityAnnotation  = "visibility-annotation"
+	LabelKeyPolicyDerivedFrom   = "io.cilium.policy.derived-from"
+	LabelAllowLocalHostIngress  = "allow-localhost-ingress"
+	LabelAllowRemoteHostIngress = "allow-remotehost-ingress"
+	LabelAllowAnyIngress        = "allow-any-ingress"
+	LabelAllowAnyEgress         = "allow-any-egress"
+	LabelVisibilityAnnotation   = "visibility-annotation"
 )
 
 // MapState is a state of a policy map.
@@ -349,6 +350,11 @@ func (keys MapState) DetermineAllowLocalhostIngress() {
 			var isHostDenied bool
 			v, ok := keys[localHostKey]
 			isHostDenied = ok && v.IsDeny
+			derivedFrom := labels.LabelArrayList{
+				labels.LabelArray{
+					labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowRemoteHostIngress, labels.LabelSourceReserved),
+				},
+			}
 			es := NewMapStateEntry(nil, derivedFrom, false, isHostDenied)
 			keys.DenyPreferredInsert(localRemoteNodeKey, es)
 		}
@@ -368,7 +374,7 @@ func (keys MapState) AllowAllIdentities(ingress, egress bool) {
 		}
 		derivedFrom := labels.LabelArrayList{
 			labels.LabelArray{
-				labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowLocalHostIngress, labels.LabelSourceReserved),
+				labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyIngress, labels.LabelSourceReserved),
 			},
 		}
 		keys[keyToAdd] = NewMapStateEntry(nil, derivedFrom, false, false)
