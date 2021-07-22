@@ -27,9 +27,9 @@ sleep 10s
 
 # Run connectivity test
 cilium connectivity test --debug --all-flows \
+  --test '!dns-only,!to-fqdns,!client-egress-l7'
   # workaround for nslookup issues in tunnel mode causing tests to fail reliably
   # TODO: remove once:
   # - https://github.com/cilium/cilium/issues/16975 is fixed
   # - fix has been deployed to a stable branch
   # - cilium-cli default cilium version has been updated to pick up the fix
-  --test '!dns-only,!to-fqdns,!client-egress-l7'
