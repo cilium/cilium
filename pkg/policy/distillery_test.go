@@ -277,8 +277,8 @@ var (
 				FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 			},
 		}})
-	lblsAllowLocalHostIngress = labels.LabelArray{
-		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowLocalHostIngress, labels.LabelSourceReserved),
+	lblsAllowAllIngress = labels.LabelArray{
+		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyIngress, labels.LabelSourceReserved),
 	}
 
 	lbls_____NoDeny = labels.ParseLabelArray("deny")
@@ -1104,7 +1104,7 @@ func Test_AllowAll(t *testing.T) {
 		rules    api.Rules
 		result   MapState
 	}{
-		{0, api.EndpointSelectorNone, api.Rules{rule____AllowAll}, MapState{mapKeyAllowAll__: mapEntryL7None_(lblsAllowLocalHostIngress)}},
+		{0, api.EndpointSelectorNone, api.Rules{rule____AllowAll}, MapState{mapKeyAllowAll__: mapEntryL7None_(lblsAllowAllIngress)}},
 		{1, api.WildcardEndpointSelector, api.Rules{rule____AllowAll}, MapState{mapKeyAllowAll__: mapEntryL7None_(lbls____AllowAll)}},
 	}
 
