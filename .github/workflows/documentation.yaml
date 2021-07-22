@@ -19,7 +19,7 @@ jobs:
       docs-tree: ${{ steps.docs-tree.outputs.src }}
     steps:
       - name: Check code changes
-        uses: dorny/paths-filter@78ab00f87740f82aec8ed8826eb4c3c851044126
+        uses: dorny/paths-filter@b2feaf19c27470162a626bd6fa8438ae5b263721
         id: docs-tree
         with:
           filters: |
