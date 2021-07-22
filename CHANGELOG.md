@@ -1,5 +1,69 @@
 # Changelog
 
+## v1.8.11
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Envoy use of original source address in upstream connetions is disabled when datapath is tunneling. (Backport PR #16497, Upstream PR #14594, @jrajahalme)
+* Update k8s libraries to 1.18.19 (#16249, @nathanjsweet)
+
+**Bugfixes:**
+* [v1.8] bpf: unconditionally enable tail calls in bpf_lxc (#16965, @kkourt)
+* bpf: fix hw_csum issue for icmp probe packets (Backport PR #16655, Upstream PR #16604, @borkmann)
+* DNS proxy is now more available during Cilium restarts, including upgrades. (Backport PR #16745, Upstream PR #16391, @jrajahalme)
+* Fixed bug causing policy realization being skipped in some scenarios with endpoint identity churn. (Backport PR #16497, Upstream PR #16271, @jrajahalme)
+* Ignore K8s namespace events that have the same labels (Backport PR #16497, Upstream PR #16268, @aanm)
+* pkg/option: Fix default assignment of EnableWellKnownIdentities (Backport PR #16655, Upstream PR #16434, @mauriciovasquezbernal)
+* Remove previous PERM ARP entries installed by Cilium when kube-proxy-replacement and IPSec are disabled. (#15993, @aanm)
+
+**CI Changes:**
+* ci: restart portmap service on CI nodes (Backport PR #16655, Upstream PR #16506, @nebril)
+* Fix and add more commands in CI sysdumps (Backport PR #16912, Upstream PR #16721, @aanm)
+* Improve ipsec compile-time testing in CI (Backport PR #16276, Upstream PR #15872, @joestringer)
+* node-neigh: Fix concurrent arping update unit test flake (Backport PR #16655, Upstream PR #16578, @brb)
+* node-neigh: Fix unit test flake (Backport PR #16276, Upstream PR #16072, @brb)
+* node: fix arpping test (Backport PR #16497, Upstream PR #16432, @jibi)
+
+**Misc Changes:**
+* Add missing bpftool map dumps (Backport PR #16497, Upstream PR #16055, @h3llix)
+* build(deps): bump actions/download-artifact from 2.0.9 to 2.0.10 (#16593, @dependabot[bot])
+* build(deps): bump actions/upload-artifact from 2.2.3 to 2.2.4 (#16580, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 2.4.0 to 2.5.0 (#16329, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 2.5.0 to 2.6.1 (#16785, @dependabot[bot])
+* build(deps): bump docker/login-action from 1.9.0 to 1.10.0 (#16639, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 1.3.0 to 1.4.1 (#16684, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 1.4.1 to 1.5.0 (#16761, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 1.5.0 to 1.5.1 (#16854, @dependabot[bot])
+* build(deps): bump helm/chart-testing-action from 2.0.1 to 2.1.0 (#16314, @dependabot[bot])
+* build(deps): bump helm/kind-action from 1.1.0 to 1.2.0 (#16708, @dependabot[bot])
+* Clarify one-time setup for backporting (Backport PR #16497, Upstream PR #16016, @christarazi)
+* contrib/docs: rename 'cilium-actions.yml' with 'maintainers-little-helper.yaml (Backport PR #16912, Upstream PR #16750, @aanm)
+* contrib: Explicitly set remote for backport branches (Backport PR #16912, Upstream PR #16804, @twpayne)
+* contrib: Identify upstream commits by author and date (Backport PR #16655, Upstream PR #16572, @pchaigno)
+* contrib: Make upstream commit check more generic (Backport PR #16276, Upstream PR #16160, @joestringer)
+* contrib: simplify check-docker-images script (Backport PR #16497, Upstream PR #16176, @aanm)
+* daemon: Improve logging of device auto-detection (Backport PR #16497, Upstream PR #16118, @brb)
+* docs: add a "Copy Commands" button for shell-session snippets (Backport PR #16497, Upstream PR #16408, @qmonnet)
+* docs: add ids to the list of special identities (Backport PR #16276, Upstream PR #16123, @bmcustodio)
+* docs: Clarify coordination for backporting process (Backport PR #16276, Upstream PR #15989, @christarazi)
+* docs: document the policy for backporting documentation changes (Backport PR #16497, Upstream PR #16137, @qmonnet)
+* docs: ENIs should not be managed by the OS (Backport PR #16497, Upstream PR #16186, @gandro)
+* Improve author attribution scripts (Backport PR #16276, Upstream PR #15899, @joestringer)
+* k8s: Fix logging (Backport PR #16655, Upstream PR #16530, @jrajahalme)
+* Misc. GH workflow improvements and hardness (Backport PR #16962, Upstream PR #16908, @aanm)
+* pkg/k8s: add pod IP event change (Backport PR #16797, Upstream PR #16190, @aanm)
+* release: Automate image digest PR creation (Backport PR #16465, Upstream PR #15818, @joestringer)
+* Specify scrape interval for Hubble metrics (Backport PR #16276, Upstream PR #16214, @christian-2)
+
+**Other Changes:**
+* .github: Rename maintainer's little helper's config file (#16455, @pchaigno)
+* [v1.8] ipam: Add extra debug info when blacklisting routes (#16678, @christarazi)
+* install: Update image digests for v1.8.10 (#16132, @joestringer)
+* test: Redeploy registry during Vagrant provision (#16379, @nebril)
+* v1.8 backport: ci: Disable NFS locking (#16970, @kkourt)
+
 ## v1.8.10
 
 Summary of Changes
