@@ -416,12 +416,14 @@ func getK8sSupportedConstraints(ciliumVersion string) (semver.Range, error) {
 		return nil, err
 	}
 	switch {
-	case IsCiliumV1_8(cst):
-		return versioncheck.MustCompile(">=1.10.0 <1.19.0"), nil
-	case IsCiliumV1_9(cst):
-		return versioncheck.MustCompile(">=1.12.0 <1.20.0"), nil
+	case IsCiliumV1_11(cst):
+		return versioncheck.MustCompile(">=1.16.0 <1.23.0"), nil
 	case IsCiliumV1_10(cst):
 		return versioncheck.MustCompile(">=1.16.0 <1.22.0"), nil
+	case IsCiliumV1_9(cst):
+		return versioncheck.MustCompile(">=1.12.0 <1.20.0"), nil
+	case IsCiliumV1_8(cst):
+		return versioncheck.MustCompile(">=1.10.0 <1.19.0"), nil
 	default:
 		return nil, fmt.Errorf("unrecognized version '%s'", ciliumVersion)
 	}
