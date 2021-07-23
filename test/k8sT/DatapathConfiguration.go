@@ -688,10 +688,17 @@ var _ = Describe("K8sDatapathConfig", func() {
 	SkipContextIf(func() bool {
 		return helpers.RunsOnGKE() || helpers.RunsWithoutKubeProxy()
 	}, "Transparent encryption DirectRouting", func() {
-		It("Check connectivity with transparent encryption and direct routing", func() {
-			privateIface, err := kubectl.GetPrivateIface()
-			Expect(err).Should(BeNil(), "Unable to determine private iface")
+		var privateIface string
+		BeforeAll(func() {
+			Eventually(func() (string, error) {
+				iface, err := kubectl.GetPrivateIface()
+				privateIface = iface
+				return iface, err
+			}, helpers.MidCommandTimeout, time.Second).ShouldNot(BeEmpty(),
+				"Unable to determine private iface")
+		})
 
+		It("Check connectivity with transparent encryption and direct routing", func() {
 			deploymentManager.Deploy(helpers.CiliumNamespace, IPSecSecret)
 			deploymentManager.DeployCilium(map[string]string{
 				"tunnel":                     "disabled",
