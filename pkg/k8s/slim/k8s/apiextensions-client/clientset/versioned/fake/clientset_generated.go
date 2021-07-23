@@ -61,7 +61,10 @@ func (c *Clientset) Tracker() testing.ObjectTracker {
 	return c.tracker
 }
 
-var _ clientset.Interface = &Clientset{}
+var (
+	_ clientset.Interface = &Clientset{}
+	_ testing.FakeClient  = &Clientset{}
+)
 
 // ApiextensionsV1 retrieves the ApiextensionsV1Client
 func (c *Clientset) ApiextensionsV1() apiextensionsv1.ApiextensionsV1Interface {

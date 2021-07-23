@@ -54,17 +54,17 @@ pipeline {
         }
         stage('Set programmatic env vars') {
             steps {
-                // retrieve k8s and kernel versions from gh comment, then from job parameter, default to 1.20 for k8s, 419 for kernel
+                // retrieve k8s and kernel versions from gh comment, then from job parameter, default to 1.21 for k8s, 419 for kernel
                 script {
                     flags = env.ghprbCommentBody?.replace("\\", "")
                     env.K8S_VERSION = sh script: '''
                         if [ "${ghprbCommentBody}" != "" ]; then
                             python ${TESTDIR}/get-gh-comment-info.py ''' + flags + ''' --retrieve="k8s_version" | \
-                            sed "s/^$/${JobK8sVersion:-1.20}/" | \
+                            sed "s/^$/${JobK8sVersion:-1.21}/" | \
                             sed 's/^"//' | sed 's/"$//' | \
                             xargs echo -n
                         else
-                            echo -n ${JobK8sVersion:-1.20}
+                            echo -n ${JobK8sVersion:-1.21}
                         fi''', returnStdout: true
                     env.KERNEL = sh script: '''
                         if [ "${ghprbCommentBody}" != "" ]; then
