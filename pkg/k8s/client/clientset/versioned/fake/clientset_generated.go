@@ -63,7 +63,10 @@ func (c *Clientset) Tracker() testing.ObjectTracker {
 	return c.tracker
 }
 
-var _ clientset.Interface = &Clientset{}
+var (
+	_ clientset.Interface = &Clientset{}
+	_ testing.FakeClient  = &Clientset{}
+)
 
 // CiliumV2 retrieves the CiliumV2Client
 func (c *Clientset) CiliumV2() ciliumv2.CiliumV2Interface {
