@@ -408,7 +408,7 @@ func (m *VMManager) UpdateCiliumEndpointResource(name string, id *identity.Ident
 			log.WithError(err).Fatalf("json.Marshal(%v) failed", replaceCEPStatus)
 		}
 		localCEP, err = m.ciliumClient.CiliumV2().CiliumEndpoints(namespace).Patch(context.TODO(), name,
-			types.JSONPatchType, createStatusPatch, metav1.PatchOptions{}, "status")
+			types.JSONPatchType, createStatusPatch, metav1.PatchOptions{})
 		if err != nil {
 			if errors.IsConflict(err) {
 				log.WithError(err).Warn("Unable to update CiliumEndpoint resource, will retry")
