@@ -76,6 +76,8 @@ func (k Key) IsEgress() bool {
 	return k.TrafficDirection == trafficdirection.Egress.Uint8()
 }
 
+type MapStateOwner interface{}
+
 // MapStateEntry is the configuration associated with a Key in a
 // MapState. This is a minimized version of policymap.PolicyEntry.
 type MapStateEntry struct {
@@ -90,9 +92,9 @@ type MapStateEntry struct {
 	// DerivedFromRules tracks the policy rules this entry derives from
 	DerivedFromRules labels.LabelArrayList
 
-	// Selectors collects the selectors in the policy that require this key to be present.
+	// Owners collects the keys in the map and selectors in the policy that require this key to be present.
 	// TODO: keep track which selector needed the entry to be deny, redirect, or just allow.
-	selectors map[CachedSelector]struct{}
+	owners map[MapStateOwner]struct{}
 }
 
 // NewMapStateEntry creates a map state entry. If redirect is true, the
@@ -101,7 +103,7 @@ type MapStateEntry struct {
 // 'cs' is used to keep track of which policy selectors need this entry. If it is 'nil' this entry
 // will become sticky and cannot be completely removed via incremental updates. Even in this case
 // the entry may be overridden or removed by a deny entry.
-func NewMapStateEntry(cs CachedSelector, derivedFrom labels.LabelArrayList, redirect, deny bool) MapStateEntry {
+func NewMapStateEntry(cs MapStateOwner, derivedFrom labels.LabelArrayList, redirect, deny bool) MapStateEntry {
 	var proxyPort uint16
 	if redirect {
 		// Any non-zero value will do, as the callers replace this with the
@@ -114,14 +116,14 @@ func NewMapStateEntry(cs CachedSelector, derivedFrom labels.LabelArrayList, redi
 		ProxyPort:        proxyPort,
 		DerivedFromRules: derivedFrom,
 		IsDeny:           deny,
-		selectors:        map[CachedSelector]struct{}{cs: {}},
+		owners:           map[MapStateOwner]struct{}{cs: {}},
 	}
 }
 
-// MergeSelectors adds selectors from entry 'b' to 'e'. 'b' is not modified.
-func (e *MapStateEntry) MergeSelectors(b *MapStateEntry) {
-	for cs, v := range b.selectors {
-		e.selectors[cs] = v
+// MergeOwners adds owners from entry 'b' to 'e'. 'b' is not modified.
+func (e *MapStateEntry) MergeOwners(b *MapStateEntry) {
+	for owner, v := range b.owners {
+		e.owners[owner] = v
 	}
 }
 
@@ -155,20 +157,20 @@ func (keys MapState) DenyPreferredInsert(newKey Key, newEntry MapStateEntry) {
 
 // addKeyWithChanges adds a 'key' with value 'entry' to 'keys' keeping track of incremental changes in 'adds' and 'deletes'
 func (keys MapState) addKeyWithChanges(key Key, entry MapStateEntry, adds, deletes MapState) {
-	// Keep all selectors that need this entry so that it is deleted only if all the selectors delete their contribution
+	// Keep all owners that need this entry so that it is deleted only if all the owners delete their contribution
 	updatedEntry := entry
 	oldEntry, exists := keys[key]
 	if exists {
-		// keep the existing selectors map of the old entry
-		updatedEntry.selectors = oldEntry.selectors
-	} else if len(entry.selectors) > 0 {
-		// create a new selectors map
-		updatedEntry.selectors = make(map[CachedSelector]struct{}, len(entry.selectors))
+		// keep the existing owners of the old entry
+		updatedEntry.owners = oldEntry.owners
+	} else if len(entry.owners) > 0 {
+		// create a new owners map
+		updatedEntry.owners = make(map[MapStateOwner]struct{}, len(entry.owners))
 	}
 
 	// TODO: Do we need to merge labels as well?
-	// Merge new selectors to the updated entry without modifying 'entry' as it is being reused by the caller
-	updatedEntry.MergeSelectors(&entry)
+	// Merge new owner to the updated entry without modifying 'entry' as it is being reused by the caller
+	updatedEntry.MergeOwners(&entry)
 	// Update (or insert) the entry
 	keys[key] = updatedEntry
 
@@ -184,15 +186,15 @@ func (keys MapState) addKeyWithChanges(key Key, entry MapStateEntry, adds, delet
 
 // deleteKeyWithChanges deletes a 'key' from 'keys' keeping track of incremental changes in 'adds' and 'deletes'.
 // The key is unconditionally deleted if 'cs' is nil, otherwise only the contribution of this 'cs' is removed.
-func (keys MapState) deleteKeyWithChanges(key Key, cs CachedSelector, adds, deletes MapState) {
+func (keys MapState) deleteKeyWithChanges(key Key, cs MapStateOwner, adds, deletes MapState) {
 	if entry, exists := keys[key]; exists {
 		if cs != nil {
 			// remove the contribution of the given selector only
-			if _, exists = entry.selectors[cs]; exists {
+			if _, exists = entry.owners[cs]; exists {
 				// Remove the contribution of this selector from the entry
-				delete(entry.selectors, cs)
-				// key is not deleted if other selectors still need it
-				if len(entry.selectors) > 0 {
+				delete(entry.owners, cs)
+				// key is not deleted if other owners still need it
+				if len(entry.owners) > 0 {
 					return
 				}
 			} else {
@@ -309,12 +311,12 @@ func (keys MapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapStat
 // RedirectPreferredInsert inserts a new entry giving priority to L7-redirects by
 // not overwriting a L7-redirect entry with a non-redirect entry.
 func (keys MapState) RedirectPreferredInsert(key Key, entry MapStateEntry, adds, deletes MapState) {
-	// Do not overwrite the entry, but only merge selectors if the old entry is a deny or redirect.
+	// Do not overwrite the entry, but only merge owners if the old entry is a deny or redirect.
 	// This prevents an existing deny or redirect being overridden by a non-deny or a non-redirect.
-	// Merging selectors from the new entry to the eisting one has no datapath impact so we skip
+	// Merging owners from the new entry to the existing one has no datapath impact so we skip
 	// adding anything to 'adds' here.
 	if oldEntry, exists := keys[key]; exists && (oldEntry.IsRedirectEntry() || oldEntry.IsDeny) {
-		oldEntry.MergeSelectors(&entry)
+		oldEntry.MergeOwners(&entry)
 		keys[key] = oldEntry
 		return
 	}
@@ -534,7 +536,7 @@ func (mc *MapChanges) consumeMapChanges(policyMapState MapState) (adds, deletes 
 			policyMapState.denyPreferredInsertWithChanges(mc.changes[i].Key, mc.changes[i].Value, adds, deletes)
 		} else {
 			// Delete the contribution of this cs to the key and collect incremental changes
-			for cs := range mc.changes[i].Value.selectors { // get the sole selector
+			for cs := range mc.changes[i].Value.owners { // get the sole selector
 				policyMapState.deleteKeyWithChanges(mc.changes[i].Key, cs, adds, deletes)
 			}
 		}

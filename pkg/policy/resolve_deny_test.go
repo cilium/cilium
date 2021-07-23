@@ -478,7 +478,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDeny(c *C) {
 			// Although we have calculated deny policies, the overall policy
 			// will still allow egress to world.
 			{TrafficDirection: trafficdirection.Egress.Uint8()}:                          allowEgressMapStateEntry,
-			{Identity: uint32(identity.ReservedIdentityWorld), DestPort: 80, Nexthdr: 6}: rule1MapStateEntry.WithSelectors(cachedSelectorWorld),
+			{Identity: uint32(identity.ReservedIdentityWorld), DestPort: 80, Nexthdr: 6}: rule1MapStateEntry.WithOwners(cachedSelectorWorld),
 			{Identity: 192, DestPort: 80, Nexthdr: 6}:                                    rule1MapStateEntry,
 			{Identity: 194, DestPort: 80, Nexthdr: 6}:                                    rule1MapStateEntry,
 		},
@@ -492,7 +492,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDeny(c *C) {
 		{Identity: 194, DestPort: 80, Nexthdr: 6}: rule1MapStateEntry,
 	})
 	c.Assert(deletes, checker.Equals, MapState{
-		{Identity: 193, DestPort: 80, Nexthdr: 6}: rule1MapStateEntry.WithoutSelectors(),
+		{Identity: 193, DestPort: 80, Nexthdr: 6}: rule1MapStateEntry.WithoutOwners(),
 	})
 
 	// Have to remove circular reference before testing for Equality to avoid an infinite loop
