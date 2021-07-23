@@ -58,8 +58,11 @@ func init() {
 	command.AddJSONOutput(encryptStatusCmd)
 }
 
-func getXfrmStats() (int, map[string]int) {
+func getXfrmStats(mountPoint string) (int, map[string]int) {
 	fs, err := procfs.NewDefaultFS()
+	if mountPoint != "" {
+		fs, err = procfs.NewFS(mountPoint)
+	}
 	if err != nil {
 		Fatalf("Cannot get a new proc FS: %s", err)
 	}
@@ -129,6 +132,7 @@ func getEncryptionMode() {
 	}
 	encryptionStatusResponse := resp.Payload.Encryption
 	fmt.Printf("Encryption: %-26s\n", encryptionStatusResponse.Mode)
+
 	switch encryptionStatusResponse.Mode {
 	case models.EncryptionStatusModeIPsec:
 		dumpIPsecStatus()
@@ -140,8 +144,8 @@ func dumpIPsecStatus() {
 	keys := countUniqueIPsecKeys()
 	oseq := maxSequenceNumber()
 	fmt.Printf("Keys in use: %-26d\n", keys)
-	fmt.Printf("Max Seq. Number: %s/%s\n", oseq, "0xffffffff")
-	errCount, errMap := getXfrmStats()
+	fmt.Printf("Max Seq. Number: %s\n", oseq)
+	errCount, errMap := getXfrmStats("")
 	fmt.Printf("Errors: %-26d\n", errCount)
 	if errCount != 0 {
 		for k, v := range errMap {
