@@ -4,7 +4,7 @@ on:
     types: [opened, synchronize, reopened]
   push:
     branches:
-      - master
+      - v1.9
       - v[0-9]+.[0-9]+
     tags:
       - v[0-9]+.[0-9]+.[0-9]+
