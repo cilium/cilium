@@ -95,6 +95,10 @@ type MapStateEntry struct {
 	// Owners collects the keys in the map and selectors in the policy that require this key to be present.
 	// TODO: keep track which selector needed the entry to be deny, redirect, or just allow.
 	owners map[MapStateOwner]struct{}
+
+	// dependents contains the keys for entries create based on this entry. These entries
+	// will be deleted once all of the owners are deleted.
+	dependents map[Key]struct{}
 }
 
 // NewMapStateEntry creates a map state entry. If redirect is true, the
@@ -120,10 +124,52 @@ func NewMapStateEntry(cs MapStateOwner, derivedFrom labels.LabelArrayList, redir
 	}
 }
 
-// MergeOwners adds owners from entry 'b' to 'e'. 'b' is not modified.
-func (e *MapStateEntry) MergeOwners(b *MapStateEntry) {
-	for owner, v := range b.owners {
-		e.owners[owner] = v
+// AddDependent adds 'key' to the set of dependent keys.
+func (e *MapStateEntry) AddDependent(key Key) {
+	if e.dependents == nil {
+		e.dependents = make(map[Key]struct{}, 1)
+	}
+	e.dependents[key] = struct{}{}
+}
+
+// RemoveDependent removes 'key' from the set of dependent keys.
+func (e *MapStateEntry) RemoveDependent(key Key) {
+	delete(e.dependents, key)
+	// Nil the map when empty. This is mainly to make unit testing easier.
+	if len(e.dependents) == 0 {
+		e.dependents = nil
+	}
+}
+
+// AddDependent adds 'key' to the set of dependent keys.
+func (owner Key) AddDependent(keys MapState, key Key) {
+	if e, exists := keys[owner]; exists {
+		e.AddDependent(key)
+		keys[owner] = e
+	}
+}
+
+// RemoveDependent removes 'key' from the list of dependent keys.
+// This is called when a dependent entry is being deleted.
+func (keys MapState) RemoveDependent(owner Key, dependent Key) {
+	if e, exists := keys[owner]; exists {
+		e.RemoveDependent(dependent)
+		keys[owner] = e
+	}
+}
+
+// MergeReferences adds owners and dependents from entry 'entry' to 'e'. 'entry' is not modified.
+func (e *MapStateEntry) MergeReferences(entry *MapStateEntry) {
+	if e.owners == nil && len(entry.owners) > 0 {
+		e.owners = make(map[MapStateOwner]struct{}, len(entry.owners))
+	}
+	for k, v := range entry.owners {
+		e.owners[k] = v
+	}
+
+	// merge dependents
+	for k := range entry.dependents {
+		e.AddDependent(k)
 	}
 }
 
@@ -170,7 +216,7 @@ func (keys MapState) addKeyWithChanges(key Key, entry MapStateEntry, adds, delet
 
 	// TODO: Do we need to merge labels as well?
 	// Merge new owner to the updated entry without modifying 'entry' as it is being reused by the caller
-	updatedEntry.MergeOwners(&entry)
+	updatedEntry.MergeReferences(&entry)
 	// Update (or insert) the entry
 	keys[key] = updatedEntry
 
@@ -178,6 +224,7 @@ func (keys MapState) addKeyWithChanges(key Key, entry MapStateEntry, adds, delet
 	if adds != nil && (!exists || !oldEntry.DatapathEqual(&entry)) {
 		// Do not leak internal maps to callers
 		updatedEntry.owners = nil
+		updatedEntry.dependents = nil
 		adds[key] = updatedEntry
 		// Key add overrides any previous delete of the same key
 		if deletes != nil {
@@ -188,31 +235,52 @@ func (keys MapState) addKeyWithChanges(key Key, entry MapStateEntry, adds, delet
 
 // deleteKeyWithChanges deletes a 'key' from 'keys' keeping track of incremental changes in 'adds' and 'deletes'.
 // The key is unconditionally deleted if 'cs' is nil, otherwise only the contribution of this 'cs' is removed.
-func (keys MapState) deleteKeyWithChanges(key Key, cs MapStateOwner, adds, deletes MapState) {
+func (keys MapState) deleteKeyWithChanges(key Key, owner MapStateOwner, adds, deletes MapState) {
 	if entry, exists := keys[key]; exists {
-		if cs != nil {
+		if owner != nil {
 			// remove the contribution of the given selector only
-			if _, exists = entry.owners[cs]; exists {
+			if _, exists = entry.owners[owner]; exists {
 				// Remove the contribution of this selector from the entry
-				delete(entry.owners, cs)
+				delete(entry.owners, owner)
+				if ownerKey, ok := owner.(Key); ok {
+					keys.RemoveDependent(ownerKey, key)
+				}
 				// key is not deleted if other owners still need it
 				if len(entry.owners) > 0 {
 					return
 				}
 			} else {
-				// 'cs' was not found, do not change anything
+				// 'owner' was not found, do not change anything
 				return
 			}
+		}
+
+		// Remove this key from all owners' dependents maps if no owner was given
+		if owner == nil {
+			for owner := range entry.owners {
+				if owner != nil {
+					if ownerKey, ok := owner.(Key); ok {
+						keys.RemoveDependent(ownerKey, key)
+					}
+				}
+			}
+		}
+
+		// Check if dependent entries need to be deleted as well
+		for k := range entry.dependents {
+			keys.deleteKeyWithChanges(k, key, adds, deletes)
 		}
 		if deletes != nil {
 			// Do not leak internal maps to callers
 			entry.owners = nil
+			entry.dependents = nil
 			deletes[key] = entry
 			// Remove a potential previously added key
 			if adds != nil {
 				delete(adds, key)
 			}
 		}
+
 		delete(keys, key)
 	}
 }
@@ -236,13 +304,20 @@ func (keys MapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapStat
 			for k, v := range keys {
 				if newKey.TrafficDirection == k.TrafficDirection &&
 					!v.IsDeny &&
-					k.Identity == 0 {
+					k.Identity == 0 && (k.DestPort != 0 || k.Nexthdr != 0) {
 					// create a deny L3-L4 with the same allowed L4 port and proto
 					newKeyCpy := newKey
 					newKeyCpy.DestPort = k.DestPort
 					newKeyCpy.Nexthdr = k.Nexthdr
-					keys.addKeyWithChanges(newKeyCpy, newEntry, adds, deletes)
-
+					// Remove the Cached Selector from the owner's list of the dependent entry
+					newEntryCpy := newEntry
+					newEntryCpy.owners = make(map[MapStateOwner]struct{}, 1)
+					newEntryCpy.owners[newKey] = struct{}{}
+					keys.addKeyWithChanges(newKeyCpy, newEntryCpy, adds, deletes)
+					// L3-only entries can be deleted incrementally so we need to track their
+					// effects on other entries so that those effects can be reverted when the
+					// identity is removed.
+					newEntry.AddDependent(newKeyCpy)
 					l4OnlyAllows[k] = v
 				}
 			}
@@ -284,14 +359,22 @@ func (keys MapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapStat
 		keys.addKeyWithChanges(newKey, newEntry, adds, deletes)
 		return
 	} else if newKey.Identity == 0 && newKey.DestPort != 0 {
-		// case for an existing deny L3-only and we are inserting allow L4
+		// case for an existing deny L3-only and we are inserting allow L4-only
 		for k, v := range keys {
 			if newKey.TrafficDirection == k.TrafficDirection {
 				if v.IsDeny && k.Identity != 0 && k.DestPort == 0 && k.Nexthdr == 0 {
 					// create a deny L3-L4 with the same deny L3
 					newKeyCpy := newKey
 					newKeyCpy.Identity = k.Identity
-					keys.addKeyWithChanges(newKeyCpy, v, adds, deletes)
+					newDenyEntry := v
+					newDenyEntry.dependents = nil
+					// Mark 'v' as an owner of this new entry
+					newDenyEntry.owners = make(map[MapStateOwner]struct{}, 1)
+					newDenyEntry.owners[k] = struct{}{}
+					keys.addKeyWithChanges(newKeyCpy, newDenyEntry, adds, deletes)
+					// Mark the new entry as a dependent of 'v'
+					v.AddDependent(newKeyCpy)
+					keys[k] = v
 				}
 			}
 		}
@@ -320,7 +403,7 @@ func (keys MapState) RedirectPreferredInsert(key Key, entry MapStateEntry, adds,
 	// Merging owners from the new entry to the existing one has no datapath impact so we skip
 	// adding anything to 'adds' here.
 	if oldEntry, exists := keys[key]; exists && (oldEntry.IsRedirectEntry() || oldEntry.IsDeny) {
-		oldEntry.MergeOwners(&entry)
+		oldEntry.MergeReferences(&entry)
 		keys[key] = oldEntry
 		return
 	}
