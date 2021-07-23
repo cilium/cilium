@@ -13,21 +13,21 @@ import (
 	"gopkg.in/check.v1"
 )
 
-// WithSelectors returns a copy of 'e', but selectors replaced with 'selectors'. 'e' is not modified.
-// No selectors is represented with a 'nil' map.
-func (e MapStateEntry) WithSelectors(selectors ...CachedSelector) MapStateEntry {
+// WithOwners returns a copy of 'e', but owners replaced with 'owners'. 'e' is not modified.
+// No owners is represented with a 'nil' map.
+func (e MapStateEntry) WithOwners(owners ...MapStateOwner) MapStateEntry {
 	mse := e
-	mse.selectors = make(map[CachedSelector]struct{}, len(selectors))
-	for _, cs := range selectors {
-		mse.selectors[cs] = struct{}{}
+	mse.owners = make(map[MapStateOwner]struct{}, len(owners))
+	for _, cs := range owners {
+		mse.owners[cs] = struct{}{}
 	}
 	return mse
 }
 
-// WithoutSelectors returns a copy of 'e', but selectors replaced with 'nil'. 'e' is not modified.
+// WithoutOwners returns a copy of 'e', but owners replaced with 'nil'. 'e' is not modified.
 // Note: This is used only in unit tests and helps test readability.
-func (e MapStateEntry) WithoutSelectors() MapStateEntry {
-	return e.WithSelectors()
+func (e MapStateEntry) WithoutOwners() MapStateEntry {
+	return e.WithOwners()
 }
 
 func (ds *PolicyTestSuite) TestPolicyKeyTrafficDirection(c *check.C) {
@@ -757,14 +757,14 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 		return TestEgressKey(id, 80, 6)
 	}
 
-	TestEntry := func(proxyPort uint16, deny bool, selectors ...CachedSelector) MapStateEntry {
+	TestEntry := func(proxyPort uint16, deny bool, owners ...MapStateOwner) MapStateEntry {
 		entry := MapStateEntry{
 			ProxyPort: proxyPort,
 			IsDeny:    deny,
 		}
-		entry.selectors = make(map[CachedSelector]struct{}, len(selectors))
-		for _, cs := range selectors {
-			entry.selectors[cs] = struct{}{}
+		entry.owners = make(map[MapStateOwner]struct{}, len(owners))
+		for _, cs := range owners {
+			entry.owners[cs] = struct{}{}
 		}
 		return entry
 	}
