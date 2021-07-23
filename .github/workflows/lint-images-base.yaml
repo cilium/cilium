@@ -9,7 +9,7 @@ on:
       - reopened
   push:
     branches:
-      - master
+      - v1.10
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
