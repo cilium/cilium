@@ -805,6 +805,10 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 				skip_l3_xlate);
 		if (IS_ERR(ret))
 			return ret;
+	} else {
+		if (bpf_ntohs(key.dport) == (__u16)80)
+			cilium_dbg(ctx, DBG_LB6_LOOKUP_FRONTEND_FAIL,
+				   key.address.p2, key.address.p3);
 	}
 
 	if (!svc || !lb6_svc_is_routable(svc)) {
@@ -1788,6 +1792,10 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 				skip_l3_xlate);
 		if (IS_ERR(ret))
 			return ret;
+	} else {
+		if (bpf_ntohs(key.dport) == (__u16)80)
+			cilium_dbg(ctx, DBG_LB4_LOOKUP_FRONTEND_FAIL,
+				   key.address, key.dport);
 	}
 
 	if (!svc || !lb4_svc_is_routable(svc)) {

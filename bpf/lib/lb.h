@@ -874,8 +874,12 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	if (!backend) {
 		key->backend_slot = 0;
 		svc = lb6_lookup_service(key, false);
-		if (!svc)
+		if (!svc) {
+			if (bpf_ntohs(key->dport) == (__u16)80)
+				cilium_dbg(ctx, DBG_LB6_LOOKUP_FRONTEND_FAIL,
+					   key->address.p2, key->address.p3);
 			goto drop_no_service;
+		}
 		backend_id = lb6_select_backend_id(ctx, key, tuple, svc);
 		backend = lb6_lookup_backend(ctx, backend_id);
 		if (!backend)
@@ -1436,8 +1440,12 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	if (!backend) {
 		key->backend_slot = 0;
 		svc = lb4_lookup_service(key, false);
-		if (!svc)
+		if (!svc) {
+			if (bpf_ntohs(key->dport) == (__u16)80)
+				cilium_dbg(ctx, DBG_LB4_LOOKUP_FRONTEND_FAIL,
+					   key->address, key->dport);
 			goto drop_no_service;
+		}
 		backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
 		backend = lb4_lookup_backend(ctx, backend_id);
 		if (!backend)

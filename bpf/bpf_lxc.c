@@ -145,6 +145,10 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 			if (IS_ERR(ret))
 				return ret;
 			hairpin_flow |= ct_state_new.loopback;
+		} else {
+			if (bpf_ntohs(key.dport) == (__u16)80)
+				cilium_dbg(ctx, DBG_LB6_LOOKUP_FRONTEND_FAIL,
+					   key.address.p2, key.address.p3);
 		}
 	}
 
@@ -574,6 +578,10 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 			if (IS_ERR(ret))
 				return ret;
 			hairpin_flow |= ct_state_new.loopback;
+		} else {
+			if (bpf_ntohs(key.dport) == (__u16)80)
+				cilium_dbg(ctx, DBG_LB4_LOOKUP_FRONTEND_FAIL,
+					   key.address, key.dport);
 		}
 	}
 
