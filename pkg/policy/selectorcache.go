@@ -56,6 +56,9 @@ type CachedSelector interface {
 	// String returns the string representation of this selector.
 	// Used as a map key.
 	String() string
+
+	// RemoveDependent implements MapStateOwner interface
+	RemoveDependent(keys MapState, key Key)
 }
 
 // CachedSelectorSlice is a slice of CachedSelectors that can be sorted.
@@ -328,6 +331,9 @@ func (s *selectorManager) Equal(b *selectorManager) bool {
 //
 // No locking needed.
 //
+
+// RemoveDependent implements MapStateOwner interface
+func (s *selectorManager) RemoveDependent(keys MapState, key Key) {}
 
 // GetSelections returns the set of numeric identities currently
 // selected.  The cached selections can be concurrently updated. In

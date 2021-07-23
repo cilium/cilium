@@ -183,6 +183,9 @@ func newTestCachedSelector(name string, wildcard bool, selections ...int) *testC
 	return cs
 }
 
+// RemoveDependent implements MapStateOwner interface
+func (cs *testCachedSelector) RemoveDependent(keys MapState, key Key) {}
+
 // returns selections as []identity.NumericIdentity
 func (cs *testCachedSelector) addSelections(selections ...int) (adds []identity.NumericIdentity) {
 	for _, id := range selections {
