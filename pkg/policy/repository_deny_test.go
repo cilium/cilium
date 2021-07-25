@@ -260,6 +260,74 @@ func (ds *PolicyTestSuite) TestComputePolicyDenyEnforcementAndRules(c *C) {
 
 }
 
+func (ds *PolicyTestSuite) TestGetRulesMatching(c *C) {
+	repo := NewPolicyRepository(nil, nil)
+	repo.selectorCache = testSelectorCache
+
+	fooToBar := &SearchContext{
+		From: labels.ParseSelectLabelArray("foo"),
+		To:   labels.ParseSelectLabelArray("bar"),
+	}
+
+	repo.Mutex.RLock()
+	// no rules loaded: Allows() => denied
+	c.Assert(repo.AllowsIngressRLocked(fooToBar), Equals, api.Denied)
+	repo.Mutex.RUnlock()
+
+	bar := labels.ParseSelectLabel("bar")
+	foo := labels.ParseSelectLabel("foo")
+	tag := labels.LabelArray{labels.ParseLabel("tag")}
+	ingressDenyRule := api.Rule{
+		EndpointSelector: api.NewESFromLabels(bar),
+		IngressDeny: []api.IngressDenyRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{
+						api.NewESFromLabels(foo),
+					},
+				},
+			},
+		},
+		Labels: tag,
+	}
+
+	egressDenyRule := api.Rule{
+		EndpointSelector: api.NewESFromLabels(bar),
+		EgressDeny: []api.EgressDenyRule{
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{
+						api.NewESFromLabels(foo),
+					},
+				},
+			},
+		},
+		Labels: tag,
+	}
+
+	// When no policy is applied.
+	ingressMatch, egressMatch := repo.GetRulesMatching(labels.LabelArray{bar, foo})
+	c.Assert(ingressMatch, Equals, false)
+	c.Assert(egressMatch, Equals, false)
+
+	// When ingress deny policy is applied.
+	_, _, err := repo.Add(ingressDenyRule, []Endpoint{})
+	c.Assert(err, IsNil)
+	ingressMatch, egressMatch = repo.GetRulesMatching(labels.LabelArray{bar, foo})
+	c.Assert(ingressMatch, Equals, true)
+	c.Assert(egressMatch, Equals, false)
+
+	// Delete igress deny policy.
+	repo.DeleteByLabels(tag)
+
+	// When egress deny policy is applied.
+	_, _, err = repo.Add(egressDenyRule, []Endpoint{})
+	c.Assert(err, IsNil)
+	ingressMatch, egressMatch = repo.GetRulesMatching(labels.LabelArray{bar, foo})
+	c.Assert(ingressMatch, Equals, false)
+	c.Assert(egressMatch, Equals, true)
+}
+
 func (ds *PolicyTestSuite) TestDeniesIngress(c *C) {
 	repo := NewPolicyRepository(nil, nil)
 	repo.selectorCache = testSelectorCache
