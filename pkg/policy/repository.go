@@ -536,7 +536,13 @@ func (p *Repository) GetRulesMatching(lbls labels.LabelArray) (ingressMatch bool
 			if len(r.Ingress) > 0 {
 				ingressMatch = true
 			}
+			if len(r.IngressDeny) > 0 {
+				ingressMatch = true
+			}
 			if len(r.Egress) > 0 {
+				egressMatch = true
+			}
+			if len(r.EgressDeny) > 0 {
 				egressMatch = true
 			}
 		}
