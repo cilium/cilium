@@ -233,7 +233,6 @@ const (
 	lrpExists          = "local-redirect service exists for frontend"                         // cf. https://github.com/cilium/cilium/issues/16400
 	opCantBeFulfilled  = "Operation cannot be fulfilled on leases.coordination.k8s.io"        // cf. https://github.com/cilium/cilium/issues/16402
 	initLeaderElection = "error initially creating leader election record: leases."           // cf. https://github.com/cilium/cilium/issues/16402#issuecomment-861544964
-	lockDeletedEp      = "lock failed: endpoint is in the process of being removed"           // cf. https://github.com/cilium/cilium/issues/16422
 	globalDataSupport  = "kernel doesn't support global data"                                 // cf. https://github.com/cilium/cilium/issues/16418
 	removeInexistentID = "removing identity not added to the identity manager!"               // cf. https://github.com/cilium/cilium/issues/16419
 	failedToListCRDs   = "the server could not find the requested resource"                   // cf. https://github.com/cilium/cilium/issues/16425
@@ -300,7 +299,7 @@ var badLogMessages = map[string][]string{
 	"DATA RACE":         nil,
 	// Exceptions for level=error should only be added as a last resort, if the
 	// error cannot be fixed in Cilium or in the test.
-	"level=error": {lrpExists, opCantBeFulfilled, initLeaderElection, lockDeletedEp, globalDataSupport, removeInexistentID, failedToListCRDs, retrieveResLock},
+	"level=error": {lrpExists, opCantBeFulfilled, initLeaderElection, globalDataSupport, removeInexistentID, failedToListCRDs, retrieveResLock},
 }
 
 var ciliumCLICommands = map[string]string{
