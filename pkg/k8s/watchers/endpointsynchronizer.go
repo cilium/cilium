@@ -188,8 +188,13 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					// We return earlier for all error cases so we don't need
 					// to init the local endpoint in non-error cases.
 					needInit = false
-					lastMdl = mdl
-					return nil
+					lastMdl = &localCEP.Status
+					// We still need to update the CEP if localCEP is out of sync with upstream.
+					// We only return if upstream is NOT out-of-sync here.
+					if mdl.DeepEqual(lastMdl) {
+						scopedLog.Debug("Skipping CiliumEndpoint update because it has not changed")
+						return nil
+					}
 				}
 				// We have no localCEP copy. We need to fetch it for updates, below.
 				// This is unexpected as there should be only 1 writer per CEP, this
