@@ -268,7 +268,6 @@ Jenkinsfile.nightly @cilium/ci-structure
 /test/runtime/kvstore.go @cilium/kvstore @cilium/ci-structure
 /test/runtime/chaos_agent.go @cilium/agent @cilium/ci-structure
 /test/runtime/chaos_endpoint.go @cilium/endpoint @cilium/ci-structure
-/tests/ @cilium/ci-structure
 /tools/ @cilium/contributing
 Vagrantfile @cilium/ci-structure
 /Vagrantfile @cilium/contributing
