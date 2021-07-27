@@ -530,14 +530,7 @@ function gather_files {
   if [ -z "${GOPATH}" ]; then
     local GOPATH="/home/vagrant/go"
   fi
-  if [[ "${TEST_SUITE}" == "runtime-tests" ]]; then
-    CILIUM_DIR="${GOPATH}/${CILIUM_ROOT}/tests/cilium-files/${TEST_NAME}"
-  elif [[ "${TEST_SUITE}" == "k8s-tests" ]]; then
-    CILIUM_DIR="${GOPATH}/${CILIUM_ROOT}/tests/k8s/tests/cilium-files/${TEST_NAME}"
-  else
-    log "${TEST_SUITE} not a valid value, continuing"
-    CILIUM_DIR="${GOPATH}/${CILIUM_ROOT}/tests/cilium-files/${TEST_NAME}"
-  fi
+  CILIUM_DIR="${GOPATH}/${CILIUM_ROOT}/test/envoy/cilium-files/${TEST_NAME}"
   local RUN="/var/run/cilium"
   local LIB="/var/lib/cilium"
   local RUN_DIR="${CILIUM_DIR}${RUN}"
@@ -835,11 +828,11 @@ function copy_files_vm {
   PORT=$(get_vm_ssh_port $VM_NAME)
 
   log "getting cilium logs from $VM_NAME"
-  vagrant ssh $VM_NAME -c 'sudo -E bash -c "journalctl --no-pager -u cilium > /home/vagrant/go/src/github.com/cilium/cilium/tests/cilium-files/cilium-logs && chmod a+r /home/vagrant/go/src/github.com/cilium/cilium/tests/cilium-files/cilium-logs"'
-  vagrant ssh $VM_NAME -c 'sudo -E bash -c "journalctl --no-pager -u cilium-docker > /home/vagrant/go/src/github.com/cilium/cilium/tests/cilium-files/cilium-docker-logs && chmod a+r /home/vagrant/go/src/github.com/cilium/cilium/tests/cilium-files/cilium-docker-logs"'
+  vagrant ssh $VM_NAME -c 'sudo -E bash -c "journalctl --no-pager -u cilium > /home/vagrant/go/src/github.com/cilium/cilium/test/envoy/cilium-files/cilium-logs && chmod a+r /home/vagrant/go/src/github.com/cilium/cilium/test/envoy/cilium-files/cilium-logs"'
+  vagrant ssh $VM_NAME -c 'sudo -E bash -c "journalctl --no-pager -u cilium-docker > /home/vagrant/go/src/github.com/cilium/cilium/test/envoy/cilium-files/cilium-docker-logs && chmod a+r /home/vagrant/go/src/github.com/cilium/cilium/test/envoy/cilium-files/cilium-docker-logs"'
 
   log "listing all logs that will be gathered from $VM_NAME"
-  vagrant ssh $VM_NAME -c 'ls -altr /home/vagrant/go/src/github.com/cilium/cilium/tests/cilium-files'
+  vagrant ssh $VM_NAME -c 'ls -altr /home/vagrant/go/src/github.com/cilium/cilium/test/envoy/cilium-files'
 
   log "copying logs from $VM_NAME onto VM host for accessibility after VM is destroyed"
   scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r -P ${PORT} -i ${ID_FILE} vagrant@127.0.0.1:/home/vagrant/go/src/github.com/cilium/cilium/${FILES_DIR} ${WORKSPACE}/cilium-files-${VM_NAME}
