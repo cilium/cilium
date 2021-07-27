@@ -32,7 +32,7 @@
 !/images/cilium-test
 /images/cilium-test/Dockerfile
 
-tests/cilium-files
+test/envoy/cilium-files
 test/test_results*
 test/.vagrant
 test/tmp.yaml
