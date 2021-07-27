@@ -73,7 +73,13 @@ var (
 func init() {
 	BugtoolRootCmd.Flags().BoolVar(&archive, "archive", true, "Create archive when false skips deletion of the output directory")
 	BugtoolRootCmd.Flags().BoolVar(&getPProf, "get-pprof", false, "When set, only gets the pprof traces from the cilium-agent binary")
-	BugtoolRootCmd.Flags().IntVar(&pprofPort, "pprof-port", 6060, "Port on which pprof server is exposed")
+	BugtoolRootCmd.Flags().IntVar(&pprofPort,
+		"pprof-port", defaults.GopsPortAgent,
+		fmt.Sprintf(
+			"Pprof port to connect to. Known Cilium component ports are agent:%d, operator:%d, apiserver:%d",
+			defaults.GopsPortAgent, defaults.GopsPortOperator, defaults.GopsPortApiserver,
+		),
+	)
 	BugtoolRootCmd.Flags().IntVar(&traceSeconds, "pprof-trace-seconds", 180, "Amount of seconds used for pprof CPU traces")
 	BugtoolRootCmd.Flags().StringVarP(&archiveType, "archiveType", "o", "tar", "Archive type: tar | gz")
 	BugtoolRootCmd.Flags().BoolVar(&k8s, "k8s-mode", false, "Require Kubernetes pods to be found or fail")
