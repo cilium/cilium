@@ -115,6 +115,38 @@ func (s *KubeProxySuite) TestDetectDevices(c *C) {
 	})
 }
 
+func (s *KubeProxySuite) TestDetectDevicesViaRoutes(c *C) {
+	s.withFreshNetNS(c, func() {
+		node.SetK8sNodeIP(net.ParseIP("192.168.0.1"))
+
+		// 1. No devices = impossible to detect
+		c.Assert(detectDevicesViaRoutes(true, true, true), NotNil)
+
+		// 3. Direct routing mode, should find all devices and set direct
+		// routing device to the one with k8s node ip.
+		c.Assert(createDummy("dummy0", "192.168.0.1/24", false), IsNil)
+		c.Assert(createDummy("dummy1", "192.168.1.2/24", false), IsNil)
+		c.Assert(createDummy("dummy2", "192.168.2.3/24", false), IsNil)
+		node.SetK8sNodeIP(net.ParseIP("192.168.1.2"))
+		option.Config.EnableIPv4 = true
+		option.Config.EnableIPv6 = false
+		option.Config.Tunnel = option.TunnelDisabled
+		c.Assert(detectDevicesViaRoutes(true, true, false), IsNil)
+		c.Assert(option.Config.Devices, checker.DeepEquals, []string{"dummy0", "dummy1", "dummy2"})
+		c.Assert(option.Config.DirectRoutingDevice, Equals, "dummy1")
+
+		// 7. With IPv6 node address on dummy3, set cilium_foo interface to node IP,
+		// only dummy3 should be detected matching node IP (no IPv6 default route present)
+		option.Config.EnableIPv6 = true
+		c.Assert(createDummy("dummy3", "2001:db8::face/64", true), IsNil)
+		c.Assert(createDummy("cilium_foo", "2001:db8::face/128", true), IsNil)
+		node.SetK8sNodeIP(net.ParseIP("2001:db8::face"))
+		c.Assert(detectDevicesViaRoutes(true, true, true), IsNil)
+		c.Assert(option.Config.Devices, checker.DeepEquals, []string{"dummy0", "dummy1", "dummy2", "dummy3"})
+		c.Assert(option.Config.IPv6MCastDevice, checker.DeepEquals, "dummy3")
+	})
+}
+
 func (s *KubeProxySuite) TestExpandDevices(c *C) {
 	s.withFreshNetNS(c, func() {
 		c.Assert(createDummy("dummy0", "192.168.0.1/24", false), IsNil)

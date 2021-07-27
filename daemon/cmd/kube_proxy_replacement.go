@@ -474,6 +474,43 @@ func handleNativeDevices(strict bool) error {
 			}
 			l.Info("Using auto-derived devices to attach Loadbalancer, Host Firewall or Bandwidth Manager program")
 		}
+
+		// XXX: Try the new method and verify that it's strictly additive.
+		priorDetectedDevices := option.Config.Devices
+
+		if err := detectDevicesViaRoutes(detectNodePortDevs, detectDirectRoutingDev, detectIPv6MCastDev); err != nil {
+			msg := "Unable to detect devices to attach Loadbalancer, Host Firewall or Bandwidth Manager program"
+			if strict {
+				return fmt.Errorf(msg)
+			} else {
+				disableNodePort()
+				log.WithError(err).Warn(msg + " Disabling BPF NodePort.")
+			}
+		} else {
+			for _, dev := range priorDetectedDevices {
+				found := false
+				for _, dev2 := range option.Config.Devices {
+					if dev == dev2 {
+						found = true
+						break
+					}
+				}
+				if !found {
+					return fmt.Errorf("detectDevicesViaRoutes did not find device %s that old method found", dev)
+				}
+			}
+
+			l := log
+			if detectNodePortDevs {
+				l = l.WithField(logfields.Devices, option.Config.Devices)
+			}
+			if detectDirectRoutingDev {
+				l = l.WithField(logfields.DirectRoutingDevice, option.Config.DirectRoutingDevice)
+			}
+			l.Info("Using auto-derived devices to attach Loadbalancer, Host Firewall or Bandwidth Manager program")
+		}
+		// </XXX>
+
 	} else if option.Config.EnableNodePort { // both --devices and --direct-routing-device are specified by user
 		// Check whether the DirectRoutingDevice (if specified) is
 		// defined within devices and if not, add it.
@@ -637,6 +674,115 @@ func disableNodePort() {
 	option.Config.EnableExternalIPs = false
 	option.Config.EnableSVCSourceRangeCheck = false
 	option.Config.EnableHostLegacyRouting = true
+}
+
+func detectDevicesViaRoutes(detectNodePortDevs, detectDirectRoutingDev, detectIPv6MCastDev bool) error {
+	excludedPrefixes := []string{
+		"cilium_",
+		"lo",
+		"lxc",
+	}
+
+	nodeIP := node.GetK8sNodeIP()
+	if nodeIP == nil {
+		return fmt.Errorf("K8s Node IP is not set")
+	}
+
+	candidateLinks := map[int]netlink.Link{}
+	devSet := map[string]struct{}{} // iface name
+
+	if detectNodePortDevs {
+		routes, err := netlink.RouteList(nil, netlink.FAMILY_ALL)
+		if err != nil {
+			return fmt.Errorf("Cannot retrieve routes for device detection: %s", err)
+		}
+
+		// Find all candidate devices by looking at all routes in the system.
+		for _, r := range routes {
+			if _, ok := candidateLinks[r.LinkIndex]; !ok {
+				if link, err := netlink.LinkByIndex(r.LinkIndex); err != nil {
+					// FIXME: just skip?
+					return fmt.Errorf("Cannot find device by ifindex %d: %s", r.LinkIndex, err)
+				} else {
+					candidateLinks[r.LinkIndex] = link
+				}
+			}
+		}
+
+	} else {
+		// Not detecting devices, assume the list of devices was provided by the user.
+		for _, dev := range option.Config.Devices {
+			link, err := netlink.LinkByName(dev)
+			if err != nil {
+				return fmt.Errorf("Cannot find device '%s': %s", dev, err)
+			}
+			candidateLinks[link.Attrs().Index] = link
+		}
+	}
+
+	if len(candidateLinks) == 0 {
+		return fmt.Errorf("Unable to determine BPF NodePort devices. Use --%s to specify them",
+			option.Devices)
+	}
+
+links:
+	for _, link := range candidateLinks {
+		name := link.Attrs().Name
+
+		// Do not consider any of the excluded devices.
+		for _, p := range excludedPrefixes {
+			if strings.HasPrefix(name, p) {
+				continue links
+			}
+		}
+
+		if detectDirectRoutingDev || detectIPv6MCastDev {
+			// Check if any of the addresses assigned to this device is the k8s node IP and if so
+			// use it for direct routing and IPv6 multicast.
+			if addrs, err := netlink.AddrList(link, netlink.FAMILY_ALL); err == nil {
+				for _, a := range addrs {
+					if a.IP.Equal(nodeIP) {
+						if detectDirectRoutingDev {
+							// FIXME: Prior method picked the lone device if possible. Is it ever fine to continue
+							// if none of the devices have the node IP?
+							option.Config.DirectRoutingDevice = name
+							detectDirectRoutingDev = false
+						}
+
+						if detectIPv6MCastDev {
+							if link.Attrs().Flags&net.FlagMulticast != 0 {
+								option.Config.IPv6MCastDevice = name
+								log.Infof("Detected %s: %s", option.IPv6MCastDevice, option.Config.IPv6MCastDevice)
+							} else {
+								return fmt.Errorf("Unable to determine Multicast devices: %s. Use --%s to specify them",
+									err, option.IPv6MCastDevice)
+							}
+							detectIPv6MCastDev = false
+						}
+					}
+				}
+			} else {
+				log.WithError(err).Warnf("Cannot retrieve device '%s' IP addresses, skipping it", name)
+			}
+		}
+
+		devSet[name] = struct{}{}
+	}
+
+	if detectNodePortDevs {
+		l3DevOK := supportL3Dev()
+		option.Config.Devices = make([]string, 0, len(devSet))
+		for dev := range devSet {
+			if !l3DevOK && !mac.HasMacAddr(dev) {
+				log.WithField(logfields.Device, dev).
+					Warn("Ignoring L3 device; >= 5.8 kernel is required.")
+				continue
+			}
+			option.Config.Devices = append(option.Config.Devices, dev)
+			sort.Strings(option.Config.Devices)
+		}
+	}
+	return nil
 }
 
 // detectDevices tries to detect device names which are going to be used for
