@@ -53,7 +53,7 @@ outgoing
 
 man/
 
-tests/cilium-files
+test/envoy/cilium-files
 test/test_results*
 test/.vagrant
 test/tmp.yaml

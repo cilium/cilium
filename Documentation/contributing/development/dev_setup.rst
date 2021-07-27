@@ -375,7 +375,7 @@ run this bash test script:
 
 .. code-block:: shell-session
 
-    $ tests/envoy-smoke-test.sh
+    $ test/envoy/envoy-smoke-test.sh
 
 This test launches three docker containers (one curl client, and two
 httpd servers) and tests various simple network policies with
