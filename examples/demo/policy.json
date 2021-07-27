@@ -1,9 +1,0 @@
-[{
-    "endpointSelector": {"matchLabels": {"id.server":""}},
-    "ingress": [{
-        "fromEndpoints": [
-          {"matchLabels":{"reserved:host":""}},
-          {"matchLabels":{"id.client":""}}
-	]
-    }]
-}]
