@@ -79,7 +79,7 @@ jobs:
             --boot-disk-size 10GB \
             --preemptible \
             --image-project ubuntu-os-cloud \
-            --image-family ubuntu-2010 \
+            --image-family ubuntu-2004-lts \
             --metadata hostname=${{ env.vmName }} \
             --metadata-from-file startup-script=${{ env.vmStartupScript}}
 
