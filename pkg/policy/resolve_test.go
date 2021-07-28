@@ -660,8 +660,8 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 	c.Assert(policy.policyMapChanges.changes, IsNil)
 
 	c.Assert(adds, checker.Equals, MapState{
-		{Identity: 192, DestPort: 80, Nexthdr: 6}: rule1MapStateEntry,
-		{Identity: 194, DestPort: 80, Nexthdr: 6}: rule1MapStateEntry,
+		{Identity: 192, DestPort: 80, Nexthdr: 6}: rule1MapStateEntry.WithoutOwners(),
+		{Identity: 194, DestPort: 80, Nexthdr: 6}: rule1MapStateEntry.WithoutOwners(),
 	})
 	c.Assert(deletes, checker.Equals, MapState{
 		{Identity: 193, DestPort: 80, Nexthdr: 6}: rule1MapStateEntry.WithoutOwners(),

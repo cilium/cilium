@@ -27,7 +27,8 @@ func (e MapStateEntry) WithOwners(owners ...MapStateOwner) MapStateEntry {
 // WithoutOwners returns a copy of 'e', but owners replaced with 'nil'. 'e' is not modified.
 // Note: This is used only in unit tests and helps test readability.
 func (e MapStateEntry) WithoutOwners() MapStateEntry {
-	return e.WithOwners()
+	e.owners = nil
+	return e
 }
 
 func (ds *PolicyTestSuite) TestPolicyKeyTrafficDirection(c *check.C) {
@@ -762,7 +763,9 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 			ProxyPort: proxyPort,
 			IsDeny:    deny,
 		}
-		entry.owners = make(map[MapStateOwner]struct{}, len(owners))
+		if len(owners) > 0 {
+			entry.owners = make(map[MapStateOwner]struct{}, len(owners))
+		}
 		for _, cs := range owners {
 			entry.owners[cs] = struct{}{}
 		}
@@ -795,7 +798,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 			HttpIngressKey(42): TestEntry(0, false, csFoo),
 		},
 		adds: MapState{
-			HttpIngressKey(42): TestEntry(0, false, csFoo),
+			HttpIngressKey(42): TestEntry(0, false),
 		},
 		deletes: MapState{},
 	}, {
@@ -819,8 +822,8 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 			HttpIngressKey(43): TestEntry(0, false, csFoo),
 		},
 		adds: MapState{
-			HttpIngressKey(42): TestEntry(0, false, csFoo),
-			HttpIngressKey(43): TestEntry(0, false, csFoo),
+			HttpIngressKey(42): TestEntry(0, false),
+			HttpIngressKey(43): TestEntry(0, false),
 		},
 		deletes: MapState{},
 	}, {
@@ -835,7 +838,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 			HttpIngressKey(44): TestEntry(0, false, csBar),
 		},
 		adds: MapState{
-			HttpIngressKey(44): TestEntry(0, false, csBar),
+			HttpIngressKey(44): TestEntry(0, false),
 		},
 		deletes: MapState{},
 	}, {
@@ -906,10 +909,10 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 			DNSTCPEgressKey(42): TestEntry(0, false, csBar),
 		},
 		adds: MapState{
-			AnyIngressKey():     TestEntry(0, false, nil),
-			HostIngressKey():    TestEntry(0, false, nil),
-			DNSUDPEgressKey(42): TestEntry(0, false, csBar),
-			DNSTCPEgressKey(42): TestEntry(0, false, csBar),
+			AnyIngressKey():     TestEntry(0, false),
+			HostIngressKey():    TestEntry(0, false),
+			DNSUDPEgressKey(42): TestEntry(0, false),
+			DNSTCPEgressKey(42): TestEntry(0, false),
 		},
 		deletes: MapState{},
 	}, {
@@ -926,7 +929,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 			HttpEgressKey(43):   TestEntry(1, false, csFoo),
 		},
 		adds: MapState{
-			HttpEgressKey(43): TestEntry(1, false, csFoo),
+			HttpEgressKey(43): TestEntry(1, false),
 		},
 		deletes: MapState{},
 	}, {
