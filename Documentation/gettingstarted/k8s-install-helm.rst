@@ -58,7 +58,7 @@ Install Cilium
 
        .. code-block:: shell-session
 
-          NATIVE_CIDR="$(gcloud container clusters describe "${NAME} --zone "${ZONE}" --format 'value(clusterIpv4Cidr)')"
+          NATIVE_CIDR="$(gcloud container clusters describe "${NAME}" --zone "${ZONE}" --format 'value(clusterIpv4Cidr)')"
           echo $NATIVE_CIDR
 
        Deploy Cilium release via Helm:
