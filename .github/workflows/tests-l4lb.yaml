@@ -19,7 +19,7 @@ on:
   # - Don't forget to remove the `DO NOT MERGE` commit once satisfied. The run
   #   will disappear from the PR checks: please provide a direct link to the
   #   successful workflow run (can be found from Actions tab) in a comment.
-  # 
+  #
   # pull_request: {}
   ###
 
@@ -67,12 +67,57 @@ env:
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
-  setup-and-test:
-    name: Setup & Test
+  check_changes:
+    name: Deduce required tests from code changes
     if: |
       (github.event_name == 'issue_comment' && (
         startsWith(github.event.comment.body, 'ci-l4lb') ||
         (startsWith(github.event.comment.body, 'test-me-please'))
+      )) ||
+      (github.event_name == 'schedule' && github.repository == 'cilium/cilium') ||
+      github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      tested: ${{ steps.tested-tree.outputs.src }}
+    steps:
+      - name: Retrieve pull request's base and head
+        if: ${{ github.event.issue.pull_request }}
+        id: pr
+        run: |
+          curl ${{ github.event.issue.pull_request.url }} > pr.json
+          echo "::set-output name=base::$(jq -r '.base.sha' pr.json)"
+          echo "::set-output name=head::$(jq -r '.head.sha' pr.json)"
+      # Because we run on issue comments, we need to checkout the code for
+      # paths-filter to work.
+      - name: Checkout code
+        if: ${{ github.event.issue.pull_request }}
+        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        with:
+          persist-credentials: false
+      - name: Check code changes
+        if: ${{ github.event.issue.pull_request }}
+        uses: dorny/paths-filter@b2feaf19c27470162a626bd6fa8438ae5b263721
+        id: tested-tree
+        with:
+          base: ${{ steps.pr.outputs.base }}
+          ref: ${{ steps.pr.outputs.head }}
+          filters: |
+            src:
+              - 'pkg/**'
+              - 'daemon/**'
+              - 'bpf/**'
+              - 'test/l4lb/**'
+
+  # When the test-me-please trigger is used, this job is skipped if the only
+  # modified files were under test/ or Documentation/.
+  setup-and-test:
+    needs: check_changes
+    name: Setup & Test
+    if: |
+      (github.event_name == 'issue_comment' && (
+        startsWith(github.event.comment.body, 'ci-l4lb') ||
+        (startsWith(github.event.comment.body, 'test-me-please') && (
+        needs.check_changes.outputs.tested == 'true'))
       )) ||
       (github.event_name == 'schedule' && github.repository == 'cilium/cilium') ||
       github.event_name == 'pull_request'
