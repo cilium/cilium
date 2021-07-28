@@ -327,6 +327,8 @@ Removed Options
 * The ``Capabilities`` Helm value has been removed. When using ``helm template``
   to generate the Kubernetes manifest for a specific Kubernetes version,
   please use the ``--kube-version`` flag (introduced in Helm 3.6.0) instead.
+* The deprecated ``hubble-ca-cert`` configmap has been removed. Use
+  ``hubble-ca-secret`` secret instead.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
