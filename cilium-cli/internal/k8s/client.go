@@ -672,7 +672,11 @@ func (c *Client) GetRunningCiliumVersion(ctx context.Context, namespace string) 
 		if len(version) != 2 {
 			return "", errors.New("unable to extract cilium version from container image")
 		}
-		return version[1], nil
+		v := version[1]
+		if digest := strings.Index(v, "@"); digest > 0 {
+			v = v[:digest]
+		}
+		return v, nil
 	}
 	return "", errors.New("unable to obtain cilium version: no cilium pods found")
 }
