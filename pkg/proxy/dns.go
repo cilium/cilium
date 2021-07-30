@@ -16,7 +16,7 @@ package proxy
 
 import (
 	"github.com/cilium/cilium/pkg/completion"
-	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
+	"github.com/cilium/cilium/pkg/fqdn/proxy"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/logger"
@@ -26,7 +26,7 @@ import (
 
 var (
 	// DefaultDNSProxy is the global, shared, DNS Proxy singleton.
-	DefaultDNSProxy *dnsproxy.DNSProxy
+	DefaultDNSProxy proxy.DNSProxier
 )
 
 // dnsRedirect implements the Redirect interface for an l7 proxy
@@ -50,7 +50,11 @@ func (dr *dnsRedirect) setRules(wg *completion.WaitGroup, newRules policy.L7Data
 	if err := DefaultDNSProxy.UpdateAllowed(dr.redirect.endpointID, dr.redirect.dstPort, newRules); err != nil {
 		return err
 	}
-	dr.redirect.localEndpoint.OnDNSPolicyUpdateLocked(DefaultDNSProxy.GetRules(uint16(dr.redirect.endpointID)))
+	rules, err := DefaultDNSProxy.GetRules(uint16(dr.redirect.endpointID))
+	if err != nil {
+		return err
+	}
+	dr.redirect.localEndpoint.OnDNSPolicyUpdateLocked(rules)
 	dr.currentRules = copyRules(dr.redirect.rules)
 
 	return nil
