@@ -179,7 +179,7 @@ func (p *DNSProxy) checkRestored(endpointID uint64, destPort uint16, destIP stri
 
 // GetRules creates a fresh copy of EP's DNS rules to be stored
 // for later restoration.
-func (p *DNSProxy) GetRules(endpointID uint16) restore.DNSRules {
+func (p *DNSProxy) GetRules(endpointID uint16) (restore.DNSRules, error) {
 	p.Lock()
 	defer p.Unlock()
 
@@ -221,7 +221,7 @@ func (p *DNSProxy) GetRules(endpointID uint16) restore.DNSRules {
 		}
 		restored[port] = ipRules
 	}
-	return restored
+	return restored, nil
 }
 
 // RestoreRules is used in the beginning of endpoint restoration to
@@ -682,6 +682,10 @@ func (p *DNSProxy) SetRejectReply(opt string) {
 			opt, option.FQDNRejectOptions)
 		return
 	}
+}
+
+func (p *DNSProxy) GetBindPort() uint16 {
+	return p.BindPort
 }
 
 // ExtractMsgDetails extracts a canonical query name, any IPs in a response,
