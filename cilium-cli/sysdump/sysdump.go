@@ -51,6 +51,10 @@ type Options struct {
 	HubbleLabelSelector string
 	// The namespace Hubble is running in.
 	HubbleNamespace string
+	// Number of Hubble flows to collect.
+	HubbleFlowsCount int64
+	// Timeout for collecting Hubble flows.
+	HubbleFlowsTimeout time.Duration
 	// The labels used to target Hubble Relay pods.
 	HubbleRelayLabelSelector string
 	// The namespace Hubble Relay is running in.
@@ -535,6 +539,23 @@ func (c *Collector) Run() error {
 		},
 		{
 			CreatesSubtasks: true,
+			Description:     "Collecting Hubble flows from Cilium pods",
+			Quick:           false,
+			Task: func(ctx context.Context) error {
+				p, err := c.client.ListPods(ctx, c.options.CiliumNamespace, metav1.ListOptions{
+					LabelSelector: c.options.CiliumLabelSelector,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to get Cilium pods: %w", err)
+				}
+				if err := c.submitHubbleFlowsTasks(ctx, filterPods(p, nodeList), ciliumAgentContainerName, absoluteTempPath); err != nil {
+					return fmt.Errorf("failed to collect hubble flows: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			CreatesSubtasks: true,
 			Description:     "Collecting logs from Cilium pods",
 			Quick:           false,
 			Task: func(ctx context.Context) error {
@@ -635,6 +656,25 @@ func (c *Collector) Run() error {
 				return nil
 			},
 		},
+	}
+	if c.options.HubbleFlowsCount > 0 {
+		tasks = append(tasks, sysdumpTask{
+			CreatesSubtasks: true,
+			Description:     "Collecting Hubble flows from Cilium pods",
+			Quick:           false,
+			Task: func(ctx context.Context) error {
+				p, err := c.client.ListPods(ctx, c.options.CiliumNamespace, metav1.ListOptions{
+					LabelSelector: c.options.CiliumLabelSelector,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to get Cilium pods: %w", err)
+				}
+				if err := c.submitHubbleFlowsTasks(ctx, filterPods(p, nodeList), ciliumAgentContainerName, absoluteTempPath); err != nil {
+					return fmt.Errorf("failed to collect hubble flows: %w", err)
+				}
+				return nil
+			},
+		})
 	}
 
 	// Adjust the worker count to make enough headroom for tasks that submit sub-tasks.
@@ -788,6 +828,32 @@ func (c *Collector) submitBugtoolTasks(ctx context.Context, pods []*corev1.Pod, 
 			return nil
 		}); err != nil {
 			return fmt.Errorf("failed to submit 'cilium-bugtool' task for %q: %w", p.Name, err)
+		}
+	}
+	return nil
+}
+
+func (c *Collector) submitHubbleFlowsTasks(_ context.Context, pods []*corev1.Pod, containerName string, path func(string) string) error {
+	for _, p := range pods {
+		p := p
+		if err := c.pool.Submit(fmt.Sprintf("hubble-flows-"+p.Name), func(ctx context.Context) error {
+			// HACK: Run hubble observe with --follow to avoid hitting the code path that triggers
+			// https://github.com/cilium/cilium/issues/17036.
+			b, e, err := c.client.ExecInPodWithStderr(ctx, p.Namespace, p.Name, containerName, []string{
+				"timeout", "--signal", "SIGINT", "--preserve-status", "5", "bash", "-c",
+				fmt.Sprintf("hubble observe --follow --last %d -o jsonpb", c.options.HubbleFlowsCount),
+			})
+			if err != nil {
+				return fmt.Errorf("failed to collect hubble flows for %q in namespace %q: %w: %s", p.Name, p.Namespace, err, e.String())
+			}
+			// Dump the resulting file's contents to the temporary directory.
+			f := path(fmt.Sprintf(hubbleFlowsFileName, p.Name))
+			if err := writeBytes(f, b.Bytes()); err != nil {
+				return fmt.Errorf("failed to collect hubble flows for %q in namespace %q: %w", p.Name, p.Namespace, err)
+			}
+			return nil
+		}); err != nil {
+			return fmt.Errorf("failed to submit 'hubble-flows' task for %q: %w", p.Name, err)
 		}
 	}
 	return nil

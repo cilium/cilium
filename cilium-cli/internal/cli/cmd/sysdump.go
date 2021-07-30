@@ -73,6 +73,12 @@ func newCmdSysdump() *cobra.Command {
 	cmd.Flags().StringVar(&sysdumpOptions.HubbleNamespace,
 		"hubble-namespace", sysdump.DefaultHubbleNamespace,
 		"The namespace Hubble is running in")
+	cmd.Flags().Int64Var(&sysdumpOptions.HubbleFlowsCount,
+		"hubble-flows-count", sysdump.DefaultHubbleFlowsCount,
+		"Number of Hubble flows to collect. Setting to zero disables collecting Hubble flows.")
+	cmd.Flags().DurationVar(&sysdumpOptions.HubbleFlowsTimeout,
+		"hubble-flows-timeout", sysdump.DefaultHubbleFlowsTimeout,
+		"Timeout for collecting Hubble flows")
 	cmd.Flags().StringVar(&sysdumpOptions.HubbleRelayLabelSelector,
 		"hubble-relay-labels", sysdump.DefaultHubbleRelayLabelSelector,
 		"The labels used to target Hubble Relay pods")
