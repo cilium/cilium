@@ -18,6 +18,10 @@
 #define SYS_REJECT	0
 #define SYS_PROCEED	1
 
+#ifndef HOST_NETNS_COOKIE
+# define HOST_NETNS_COOKIE   get_netns_cookie(NULL)
+#endif
+
 static __always_inline __maybe_unused bool is_v4_loopback(__be32 daddr)
 {
 	/* Check for 127.0.0.0/8 range, RFC3330. */
@@ -87,7 +91,7 @@ ctx_in_hostns(void *ctx __maybe_unused, __net_cookie *cookie)
 
 	if (cookie)
 		*cookie = own_cookie;
-	return own_cookie == get_netns_cookie(NULL);
+	return own_cookie == HOST_NETNS_COOKIE;
 #else
 	if (cookie)
 		*cookie = 0;
