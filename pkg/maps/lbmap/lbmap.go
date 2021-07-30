@@ -541,12 +541,6 @@ func deleteBackendLocked(key BackendKey) error {
 }
 
 func updateServiceEndpoint(key ServiceKey, value ServiceValue) error {
-	log.WithFields(logrus.Fields{
-		logfields.ServiceKey:   key,
-		logfields.ServiceValue: value,
-		logfields.BackendSlot:  key.GetBackendSlot(),
-	}).Debug("Upserting service entry")
-
 	if key.GetBackendSlot() != 0 && value.RevNatKey().GetKey() == 0 {
 		return fmt.Errorf("invalid RevNat ID (0) in the Service Value")
 	}
@@ -554,7 +548,17 @@ func updateServiceEndpoint(key ServiceKey, value ServiceValue) error {
 		return err
 	}
 
-	return key.Map().Update(key.ToNetwork(), value.ToNetwork())
+	if err := key.Map().Update(key.ToNetwork(), value.ToNetwork()); err != nil {
+		return err
+	}
+
+	log.WithFields(logrus.Fields{
+		logfields.ServiceKey:   key,
+		logfields.ServiceValue: value,
+		logfields.BackendSlot:  key.GetBackendSlot(),
+	}).Debug("Upserted service entry")
+
+	return nil
 }
 
 type svcMap map[string]loadbalancer.SVC
