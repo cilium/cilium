@@ -305,8 +305,8 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 		d.notifyOnDNSMsg)
 	if err == nil {
 		// Increase the ProxyPort reference count so that it will never get released.
-		err = d.l7Proxy.SetProxyPort(listenerName, proxy.DefaultDNSProxy.BindPort)
-		if err == nil && port == proxy.DefaultDNSProxy.BindPort {
+		err = d.l7Proxy.SetProxyPort(listenerName, proxy.DefaultDNSProxy.GetBindPort())
+		if err == nil && port == proxy.DefaultDNSProxy.GetBindPort() {
 			log.Infof("Reusing previous DNS proxy port: %d", port)
 		}
 		proxy.DefaultDNSProxy.SetRejectReply(option.Config.FQDNRejectResponse)
