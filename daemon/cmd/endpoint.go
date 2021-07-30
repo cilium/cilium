@@ -1074,7 +1074,13 @@ func (d *Daemon) GetDNSRules(epID uint16) restore.DNSRules {
 	if proxy.DefaultDNSProxy == nil {
 		return nil
 	}
-	return proxy.DefaultDNSProxy.GetRules(epID)
+
+	rules, err := proxy.DefaultDNSProxy.GetRules(epID)
+	if err != nil {
+		log.WithField(logfields.EndpointID, epID).WithError(err).Error("Could not get DNS rules")
+		return nil
+	}
+	return rules
 }
 
 func (d *Daemon) RemoveRestoredDNSRules(epID uint16) {
