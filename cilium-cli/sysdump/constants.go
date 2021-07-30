@@ -53,6 +53,7 @@ const (
 	eniconfigsFileName                       = "aws-eniconfigs-<ts>.yaml"
 	gopsFileName                             = "gops-%s-%s-<ts>-%s.txt"
 	hubbleDaemonsetFileName                  = "hubble-daemonset-<ts>.yaml"
+	hubbleFlowsFileName                      = "hubble-flows-%s-<ts>.json"
 	hubbleRelayDeploymentFileName            = "hubble-relay-deployment-<ts>.yaml"
 	hubbleUIDeploymentFileName               = "hubble-ui-deployment-<ts>.yaml"
 	kubernetesEventsFileName                 = "k8s-events-<ts>.yaml"
