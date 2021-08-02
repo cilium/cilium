@@ -433,7 +433,7 @@ spec:
       serviceAccountName: hubble-generate-certs
       containers:
         - name: certgen
-          image: quay.io/cilium/certgen:v0.1.3
+          image: quay.io/cilium/certgen:v0.1.5
           imagePullPolicy: IfNotPresent
           command:
             - "/usr/bin/cilium-certgen"
@@ -482,7 +482,7 @@ spec:
           serviceAccountName: hubble-generate-certs
           containers:
             - name: certgen
-              image: quay.io/cilium/certgen:v0.1.3
+              image: quay.io/cilium/certgen:v0.1.5
               imagePullPolicy: IfNotPresent
               command:
                 - "/usr/bin/cilium-certgen"
