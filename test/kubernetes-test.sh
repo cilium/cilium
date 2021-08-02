@@ -32,16 +32,20 @@ helm template --validate install/kubernetes/cilium \
 
 kubectl apply -f cilium.yaml
 
-while true; do
-    result=$(kubectl -n kube-system get pods -l k8s-app=cilium | grep "Running" -c)
-    echo "Running pods ${result}"
-    if [ "${result}" == "2" ]; then
+runningPods="0"
 
-        echo "result match, continue with kubernetes"
-        break
-    fi
+pollCiliumPods () {
+  until [ "${runningPods}" == "2" ]; do
+    runningPods=$(kubectl -n kube-system get pods -l k8s-app=cilium | grep "Running" -c)
+    echo "Running Pods ${runningPods}"
     sleep 1
-done
+  done
+  echo "result match, continue with kubernetes"
+}
+
+export -f pollCiliumPods
+timeout ${POLL_TIMEOUT_SECONDS} bash -c pollCiliumPods
+unset pollCiliumPods
 
 set -e
 

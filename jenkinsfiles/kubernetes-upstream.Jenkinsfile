@@ -86,6 +86,10 @@ pipeline {
                 timeout(time: 150, unit: 'MINUTES')
             }
 
+            environment {
+                POLL_TIMEOUT_SECONDS=300
+            }
+
             steps {
                 sh 'cd ${TESTDIR}; vagrant ssh k8s1-${K8S_VERSION} -c "cd /home/vagrant/go/${PROJ_PATH}; sudo ./test/kubernetes-test.sh ${DOCKER_TAG}"'
             }
