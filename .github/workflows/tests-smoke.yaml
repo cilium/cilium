@@ -185,7 +185,8 @@ jobs:
           curl -sLO https://github.com/cilium/hubble/releases/download/latest/hubble-linux-amd64.tar.gz
           tar zxf hubble-linux-amd64.tar.gz
           chmod +x ./hubble
-          ./hubble observe --all --output json > hubble-flows.json
+          touch hubble-flows.json
+          ./hubble observe --all --output json > hubble-flows.json || true
 
           curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
           python cilium-sysdump.zip --output cilium-sysdump-out
