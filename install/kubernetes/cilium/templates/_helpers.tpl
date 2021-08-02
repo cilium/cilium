@@ -89,7 +89,7 @@ ca.key: {{ .cmca.Key | b64enc }}
 {{- template "clustermesh.apiserver.generate.ca" . }}
 {{- $CN := "clustermesh-apiserver.cilium.io" }}
 {{- $IPs := (list "127.0.0.1") }}
-{{- $SANs := (list $CN) }}
+{{- $SANs := (list $CN "*.mesh.cilium.io") }}
 {{- $cert := genSignedCert $CN $IPs $SANs (.Values.clustermesh.apiserver.tls.auto.certValidityDuration | int) .cmca -}}
 ca.crt: {{ .cmca.Cert | b64enc }}
 tls.crt: {{ $cert.Cert | b64enc }}
