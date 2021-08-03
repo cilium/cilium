@@ -120,10 +120,10 @@ func awsAwsquery_deserializeOpErrorAssumeRole(response *smithyhttp.Response, met
 	case strings.EqualFold("ExpiredTokenException", errorCode):
 		return awsAwsquery_deserializeErrorExpiredTokenException(response, errorBody)
 
-	case strings.EqualFold("MalformedPolicyDocumentException", errorCode):
+	case strings.EqualFold("MalformedPolicyDocument", errorCode):
 		return awsAwsquery_deserializeErrorMalformedPolicyDocumentException(response, errorBody)
 
-	case strings.EqualFold("PackedPolicyTooLargeException", errorCode):
+	case strings.EqualFold("PackedPolicyTooLarge", errorCode):
 		return awsAwsquery_deserializeErrorPackedPolicyTooLargeException(response, errorBody)
 
 	case strings.EqualFold("RegionDisabledException", errorCode):
@@ -237,16 +237,16 @@ func awsAwsquery_deserializeOpErrorAssumeRoleWithSAML(response *smithyhttp.Respo
 	case strings.EqualFold("ExpiredTokenException", errorCode):
 		return awsAwsquery_deserializeErrorExpiredTokenException(response, errorBody)
 
-	case strings.EqualFold("IDPRejectedClaimException", errorCode):
+	case strings.EqualFold("IDPRejectedClaim", errorCode):
 		return awsAwsquery_deserializeErrorIDPRejectedClaimException(response, errorBody)
 
-	case strings.EqualFold("InvalidIdentityTokenException", errorCode):
+	case strings.EqualFold("InvalidIdentityToken", errorCode):
 		return awsAwsquery_deserializeErrorInvalidIdentityTokenException(response, errorBody)
 
-	case strings.EqualFold("MalformedPolicyDocumentException", errorCode):
+	case strings.EqualFold("MalformedPolicyDocument", errorCode):
 		return awsAwsquery_deserializeErrorMalformedPolicyDocumentException(response, errorBody)
 
-	case strings.EqualFold("PackedPolicyTooLargeException", errorCode):
+	case strings.EqualFold("PackedPolicyTooLarge", errorCode):
 		return awsAwsquery_deserializeErrorPackedPolicyTooLargeException(response, errorBody)
 
 	case strings.EqualFold("RegionDisabledException", errorCode):
@@ -360,19 +360,19 @@ func awsAwsquery_deserializeOpErrorAssumeRoleWithWebIdentity(response *smithyhtt
 	case strings.EqualFold("ExpiredTokenException", errorCode):
 		return awsAwsquery_deserializeErrorExpiredTokenException(response, errorBody)
 
-	case strings.EqualFold("IDPCommunicationErrorException", errorCode):
+	case strings.EqualFold("IDPCommunicationError", errorCode):
 		return awsAwsquery_deserializeErrorIDPCommunicationErrorException(response, errorBody)
 
-	case strings.EqualFold("IDPRejectedClaimException", errorCode):
+	case strings.EqualFold("IDPRejectedClaim", errorCode):
 		return awsAwsquery_deserializeErrorIDPRejectedClaimException(response, errorBody)
 
-	case strings.EqualFold("InvalidIdentityTokenException", errorCode):
+	case strings.EqualFold("InvalidIdentityToken", errorCode):
 		return awsAwsquery_deserializeErrorInvalidIdentityTokenException(response, errorBody)
 
-	case strings.EqualFold("MalformedPolicyDocumentException", errorCode):
+	case strings.EqualFold("MalformedPolicyDocument", errorCode):
 		return awsAwsquery_deserializeErrorMalformedPolicyDocumentException(response, errorBody)
 
-	case strings.EqualFold("PackedPolicyTooLargeException", errorCode):
+	case strings.EqualFold("PackedPolicyTooLarge", errorCode):
 		return awsAwsquery_deserializeErrorPackedPolicyTooLargeException(response, errorBody)
 
 	case strings.EqualFold("RegionDisabledException", errorCode):
@@ -801,10 +801,10 @@ func awsAwsquery_deserializeOpErrorGetFederationToken(response *smithyhttp.Respo
 	}
 	errorBody.Seek(0, io.SeekStart)
 	switch {
-	case strings.EqualFold("MalformedPolicyDocumentException", errorCode):
+	case strings.EqualFold("MalformedPolicyDocument", errorCode):
 		return awsAwsquery_deserializeErrorMalformedPolicyDocumentException(response, errorBody)
 
-	case strings.EqualFold("PackedPolicyTooLargeException", errorCode):
+	case strings.EqualFold("PackedPolicyTooLarge", errorCode):
 		return awsAwsquery_deserializeErrorPackedPolicyTooLargeException(response, errorBody)
 
 	case strings.EqualFold("RegionDisabledException", errorCode):

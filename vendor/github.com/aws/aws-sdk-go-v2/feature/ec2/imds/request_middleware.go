@@ -69,7 +69,8 @@ func addRequestMiddleware(stack *middleware.Stack,
 
 	// Operation endpoint resolver
 	err = stack.Serialize.Insert(&resolveEndpoint{
-		Endpoint: options.Endpoint,
+		Endpoint:     options.Endpoint,
+		EndpointMode: options.EndpointMode,
 	}, "OperationSerializer", middleware.Before)
 	if err != nil {
 		return err
@@ -165,7 +166,8 @@ func (m *deserializeResponse) HandleDeserialize(
 }
 
 type resolveEndpoint struct {
-	Endpoint string
+	Endpoint     string
+	EndpointMode EndpointModeState
 }
 
 func (*resolveEndpoint) ID() string {
@@ -183,7 +185,23 @@ func (m *resolveEndpoint) HandleSerialize(
 		return out, metadata, fmt.Errorf("unknown transport type %T", in.Request)
 	}
 
-	req.URL, err = url.Parse(m.Endpoint)
+	var endpoint string
+	if len(m.Endpoint) > 0 {
+		endpoint = m.Endpoint
+	} else {
+		switch m.EndpointMode {
+		case EndpointModeStateIPv6:
+			endpoint = defaultIPv6Endpoint
+		case EndpointModeStateIPv4:
+			fallthrough
+		case EndpointModeStateUnset:
+			endpoint = defaultIPv4Endpoint
+		default:
+			return out, metadata, fmt.Errorf("unsupported IMDS endpoint mode")
+		}
+	}
+
+	req.URL, err = url.Parse(endpoint)
 	if err != nil {
 		return out, metadata, fmt.Errorf("failed to parse endpoint URL: %w", err)
 	}
