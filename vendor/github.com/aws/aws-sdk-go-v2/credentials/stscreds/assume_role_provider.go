@@ -26,7 +26,7 @@
 // 	stsSvc := sts.NewFromConfig(cfg)
 // 	creds := stscreds.NewAssumeRoleProvider(stsSvc, "myRoleArn")
 //
-// 	cfg.Credentials = &aws.CredentialsCache{Provider: creds}
+// 	cfg.Credentials = aws.NewCredentialsCache(creds)
 //
 // 	// Create service client value configured for credentials
 // 	// from assumed role.
@@ -55,7 +55,7 @@
 // 		o.TokenCode = aws.String("00000000")
 // 	})
 //
-// 	cfg.Credentials = &aws.CredentialsCache{Provider: creds}
+// 	cfg.Credentials = aws.NewCredentialsCache(creds)
 //
 // 	// Create service client value configured for credentials
 // 	// from assumed role.
@@ -88,7 +88,7 @@
 // 		o.TokenProvider = stscreds.StdinTokenProvider
 // 	})
 //
-// 	cfg.Credentials = &aws.CredentialsCache{Provider: creds}
+// 	cfg.Credentials = aws.NewCredentialsCache(creds)
 //
 // 	// Create service client value configured for credentials
 // 	// from assumed role.

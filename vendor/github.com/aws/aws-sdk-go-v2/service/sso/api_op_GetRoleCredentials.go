@@ -17,7 +17,7 @@ func (c *Client) GetRoleCredentials(ctx context.Context, params *GetRoleCredenti
 		params = &GetRoleCredentialsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetRoleCredentials", params, optFns, addOperationGetRoleCredentialsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetRoleCredentials", params, optFns, c.addOperationGetRoleCredentialsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +57,7 @@ type GetRoleCredentialsOutput struct {
 	ResultMetadata middleware.Metadata
 }
 
-func addOperationGetRoleCredentialsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetRoleCredentialsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestjson1_serializeOpGetRoleCredentials{}, middleware.After)
 	if err != nil {
 		return err

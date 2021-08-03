@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"io"
 	"io/ioutil"
 	"os"
@@ -42,14 +43,20 @@ const (
 
 	awsCustomCABundleEnvVar = "AWS_CA_BUNDLE"
 
-	awsWebIdentityTokenFilePathEnvKey = "AWS_WEB_IDENTITY_TOKEN_FILE"
+	awsWebIdentityTokenFilePathEnvVar = "AWS_WEB_IDENTITY_TOKEN_FILE"
 
-	awsRoleARNEnvKey         = "AWS_ROLE_ARN"
-	awsRoleSessionNameEnvKey = "AWS_ROLE_SESSION_NAME"
+	awsRoleARNEnvVar         = "AWS_ROLE_ARN"
+	awsRoleSessionNameEnvVar = "AWS_ROLE_SESSION_NAME"
 
-	awsEnableEndpointDiscoveryEnvKey = "AWS_ENABLE_ENDPOINT_DISCOVERY"
+	awsEnableEndpointDiscoveryEnvVar = "AWS_ENABLE_ENDPOINT_DISCOVERY"
 
 	awsS3UseARNRegionEnvVar = "AWS_S3_USE_ARN_REGION"
+
+	awsEc2MetadataServiceEndpointModeEnvVar = "AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE"
+
+	awsEc2MetadataServiceEndpointEnvVar = "AWS_EC2_METADATA_SERVICE_ENDPOINT"
+
+	awsEc2MetadataDisabled = "AWS_EC2_METADATA_DISABLED"
 )
 
 var (
@@ -157,7 +164,7 @@ type EnvConfig struct {
 	// Enables endpoint discovery via environment variables.
 	//
 	//	AWS_ENABLE_ENDPOINT_DISCOVERY=true
-	EnableEndpointDiscovery *bool
+	EnableEndpointDiscovery aws.EndpointDiscoveryEnableState
 
 	// Specifies the WebIdentity token the SDK should use to assume a role
 	// with.
@@ -180,6 +187,21 @@ type EnvConfig struct {
 	//
 	// AWS_S3_USE_ARN_REGION=true
 	S3UseARNRegion *bool
+
+	// Specifies if the EC2 IMDS service client is enabled.
+	//
+	// AWS_EC2_METADATA_DISABLED=true
+	EC2IMDSClientEnableState imds.ClientEnableState
+
+	// Specifies the EC2 Instance Metadata Service default endpoint selection mode (IPv4 or IPv6)
+	//
+	// AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE=IPv6
+	EC2IMDSEndpointMode imds.EndpointModeState
+
+	// Specifies the EC2 Instance Metadata Service endpoint to use. If specified it overrides EC2IMDSEndpointMode.
+	//
+	// AWS_EC2_METADATA_SERVICE_ENDPOINT=http://fd00:ec2::254
+	EC2IMDSEndpoint string
 }
 
 // loadEnvConfig reads configuration values from the OS's environment variables.
@@ -215,12 +237,12 @@ func NewEnvConfig() (EnvConfig, error) {
 
 	cfg.CustomCABundle = os.Getenv(awsCustomCABundleEnvVar)
 
-	cfg.WebIdentityTokenFilePath = os.Getenv(awsWebIdentityTokenFilePathEnvKey)
+	cfg.WebIdentityTokenFilePath = os.Getenv(awsWebIdentityTokenFilePathEnvVar)
 
-	cfg.RoleARN = os.Getenv(awsRoleARNEnvKey)
-	cfg.RoleSessionName = os.Getenv(awsRoleSessionNameEnvKey)
+	cfg.RoleARN = os.Getenv(awsRoleARNEnvVar)
+	cfg.RoleSessionName = os.Getenv(awsRoleSessionNameEnvVar)
 
-	if err := setBoolPtrFromEnvVal(&cfg.EnableEndpointDiscovery, []string{awsEnableEndpointDiscoveryEnvKey}); err != nil {
+	if err := setEndpointDiscoveryTypeFromEnvVal(&cfg.EnableEndpointDiscovery, []string{awsEnableEndpointDiscoveryEnvVar}); err != nil {
 		return cfg, err
 	}
 
@@ -228,7 +250,44 @@ func NewEnvConfig() (EnvConfig, error) {
 		return cfg, err
 	}
 
+	setEC2IMDSClientEnableState(&cfg.EC2IMDSClientEnableState, []string{awsEc2MetadataDisabled})
+	if err := setEC2IMDSEndpointMode(&cfg.EC2IMDSEndpointMode, []string{awsEc2MetadataServiceEndpointModeEnvVar}); err != nil {
+		return cfg, err
+	}
+	cfg.EC2IMDSEndpoint = os.Getenv(awsEc2MetadataServiceEndpointEnvVar)
+
 	return cfg, nil
+}
+
+func setEC2IMDSClientEnableState(state *imds.ClientEnableState, keys []string) {
+	for _, k := range keys {
+		value := os.Getenv(k)
+		if len(value) == 0 {
+			continue
+		}
+		switch {
+		case strings.EqualFold(value, "true"):
+			*state = imds.ClientDisabled
+		case strings.EqualFold(value, "false"):
+			*state = imds.ClientEnabled
+		default:
+			continue
+		}
+		break
+	}
+}
+
+func setEC2IMDSEndpointMode(mode *imds.EndpointModeState, keys []string) error {
+	for _, k := range keys {
+		value := os.Getenv(k)
+		if len(value) == 0 {
+			continue
+		}
+		if err := mode.SetFromString(value); err != nil {
+			return fmt.Errorf("invalid value for environment variable, %s=%s, %v", k, value, err)
+		}
+	}
+	return nil
 }
 
 // GetRegion returns the AWS Region if set in the environment. Returns an empty
@@ -338,4 +397,63 @@ func setBoolPtrFromEnvVal(dst **bool, keys []string) error {
 	}
 
 	return nil
+}
+
+func setEndpointDiscoveryTypeFromEnvVal(dst *aws.EndpointDiscoveryEnableState, keys []string) error {
+	for _, k := range keys {
+		value := os.Getenv(k)
+		if len(value) == 0 {
+			continue // skip if empty
+		}
+
+		switch {
+		case strings.EqualFold(value, endpointDiscoveryDisabled):
+			*dst = aws.EndpointDiscoveryDisabled
+		case strings.EqualFold(value, endpointDiscoveryEnabled):
+			*dst = aws.EndpointDiscoveryEnabled
+		case strings.EqualFold(value, endpointDiscoveryAuto):
+			*dst = aws.EndpointDiscoveryAuto
+		default:
+			return fmt.Errorf(
+				"invalid value for environment variable, %s=%s, need true, false or auto",
+				k, value)
+		}
+	}
+	return nil
+}
+
+// GetEnableEndpointDiscovery returns resolved value for EnableEndpointDiscovery env variable setting.
+func (c EnvConfig) GetEnableEndpointDiscovery(ctx context.Context) (value aws.EndpointDiscoveryEnableState, found bool, err error) {
+	if c.EnableEndpointDiscovery == aws.EndpointDiscoveryUnset {
+		return aws.EndpointDiscoveryUnset, false, nil
+	}
+
+	return c.EnableEndpointDiscovery, true, nil
+}
+
+// GetEC2IMDSClientEnableState implements a EC2IMDSClientEnableState options resolver interface.
+func (c EnvConfig) GetEC2IMDSClientEnableState() (imds.ClientEnableState, bool, error) {
+	if c.EC2IMDSClientEnableState == imds.ClientDefaultEnableState {
+		return imds.ClientDefaultEnableState, false, nil
+	}
+
+	return c.EC2IMDSClientEnableState, true, nil
+}
+
+// GetEC2IMDSEndpointMode implements a EC2IMDSEndpointMode option resolver interface.
+func (c EnvConfig) GetEC2IMDSEndpointMode() (imds.EndpointModeState, bool, error) {
+	if c.EC2IMDSEndpointMode == imds.EndpointModeStateUnset {
+		return imds.EndpointModeStateUnset, false, nil
+	}
+
+	return c.EC2IMDSEndpointMode, true, nil
+}
+
+// GetEC2IMDSEndpoint implements a EC2IMDSEndpoint option resolver interface.
+func (c EnvConfig) GetEC2IMDSEndpoint() (string, bool, error) {
+	if len(c.EC2IMDSEndpoint) == 0 {
+		return "", false, nil
+	}
+
+	return c.EC2IMDSEndpoint, true, nil
 }

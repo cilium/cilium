@@ -11,23 +11,24 @@ import (
 )
 
 // Decodes additional information about the authorization status of a request from
-// an encoded message returned in response to an AWS request. For example, if a
-// user is not authorized to perform an operation that he or she has requested, the
-// request returns a Client.UnauthorizedOperation response (an HTTP 403 response).
-// Some AWS operations additionally return an encoded message that can provide
-// details about this authorization failure. Only certain AWS operations return an
-// encoded authorization message. The documentation for an individual operation
-// indicates whether that operation returns an encoded message in addition to
-// returning an HTTP code. The message is encoded because the details of the
-// authorization status can constitute privileged information that the user who
-// requested the operation should not see. To decode an authorization status
-// message, a user must be granted permissions via an IAM policy to request the
-// DecodeAuthorizationMessage (sts:DecodeAuthorizationMessage) action. The decoded
-// message includes the following type of information:
+// an encoded message returned in response to an Amazon Web Services request. For
+// example, if a user is not authorized to perform an operation that he or she has
+// requested, the request returns a Client.UnauthorizedOperation response (an HTTP
+// 403 response). Some Amazon Web Services operations additionally return an
+// encoded message that can provide details about this authorization failure. Only
+// certain Amazon Web Services operations return an encoded authorization message.
+// The documentation for an individual operation indicates whether that operation
+// returns an encoded message in addition to returning an HTTP code. The message is
+// encoded because the details of the authorization status can constitute
+// privileged information that the user who requested the operation should not see.
+// To decode an authorization status message, a user must be granted permissions
+// via an IAM policy to request the DecodeAuthorizationMessage
+// (sts:DecodeAuthorizationMessage) action. The decoded message includes the
+// following type of information:
 //
-// * Whether the request was
-// denied due to an explicit deny or due to the absence of an explicit allow. For
-// more information, see Determining Whether a Request is Allowed or Denied
+// * Whether the request was denied due to an
+// explicit deny or due to the absence of an explicit allow. For more information,
+// see Determining Whether a Request is Allowed or Denied
 // (https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic.html#policy-eval-denyallow)
 // in the IAM User Guide.
 //
@@ -45,7 +46,7 @@ func (c *Client) DecodeAuthorizationMessage(ctx context.Context, params *DecodeA
 		params = &DecodeAuthorizationMessageInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DecodeAuthorizationMessage", params, optFns, addOperationDecodeAuthorizationMessageMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DecodeAuthorizationMessage", params, optFns, c.addOperationDecodeAuthorizationMessageMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -64,8 +65,8 @@ type DecodeAuthorizationMessageInput struct {
 }
 
 // A document that contains additional information about the authorization status
-// of a request from an encoded message that is returned in response to an AWS
-// request.
+// of a request from an encoded message that is returned in response to an Amazon
+// Web Services request.
 type DecodeAuthorizationMessageOutput struct {
 
 	// An XML document that contains the decoded message.
@@ -75,7 +76,7 @@ type DecodeAuthorizationMessageOutput struct {
 	ResultMetadata middleware.Metadata
 }
 
-func addOperationDecodeAuthorizationMessageMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDecodeAuthorizationMessageMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsAwsquery_serializeOpDecodeAuthorizationMessage{}, middleware.After)
 	if err != nil {
 		return err

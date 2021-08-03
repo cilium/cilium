@@ -5,9 +5,12 @@ import (
 	"io"
 )
 
+// ParseState represents the current state of the parser.
+type ParseState uint
+
 // State enums for the parse table
 const (
-	InvalidState = iota
+	InvalidState ParseState = iota
 	// stmt -> value stmt'
 	StatementState
 	// stmt' -> MarkComplete | op stmt
@@ -36,7 +39,7 @@ const (
 )
 
 // parseTable is a state machine to dictate the grammar above.
-var parseTable = map[ASTKind]map[TokenType]int{
+var parseTable = map[ASTKind]map[TokenType]ParseState{
 	ASTKindStart: {
 		TokenLit:     StatementState,
 		TokenSep:     OpenScopeState,
@@ -64,6 +67,8 @@ var parseTable = map[ASTKind]map[TokenType]int{
 	},
 	ASTKindEqualExpr: {
 		TokenLit: ValueState,
+		TokenSep: ValueState,
+		TokenOp:  ValueState,
 		TokenWS:  SkipTokenState,
 		TokenNL:  SkipState,
 	},
@@ -77,7 +82,7 @@ var parseTable = map[ASTKind]map[TokenType]int{
 	},
 	ASTKindExprStatement: {
 		TokenLit:     ValueState,
-		TokenSep:     OpenScopeState,
+		TokenSep:     ValueState,
 		TokenOp:      ValueState,
 		TokenWS:      ValueState,
 		TokenNL:      MarkCompleteState,
@@ -204,18 +209,6 @@ loop:
 		case ValueState:
 			// ValueState requires the previous state to either be an equal expression
 			// or an expression statement.
-			//
-			// This grammar occurs when the RHS is a number, word, or quoted string.
-			// equal_expr -> lit op equal_expr'
-			// equal_expr' -> number | string | quoted_string
-			// quoted_string -> " quoted_string'
-			// quoted_string' -> string quoted_string_end
-			// quoted_string_end -> "
-			//
-			// otherwise
-			// expr_stmt -> equal_expr (expr_stmt')*
-			// expr_stmt' -> ws S | op S | MarkComplete
-			// S -> equal_expr' expr_stmt'
 			switch k.Kind {
 			case ASTKindEqualExpr:
 				// assigning a value to some key
@@ -242,7 +235,7 @@ loop:
 				}
 
 				children[len(children)-1] = rhs
-				k.SetChildren(children)
+				root.SetChildren(children)
 
 				stack.Push(k)
 			}
