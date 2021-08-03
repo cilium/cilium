@@ -37,6 +37,8 @@ assignees: ''
           the master branch for the stable version going to be released.
     - [ ] Remove all GH workflow that are only triggered via comment from the
           stable branch that is going to be released.
+    - [ ] Adjust `maintainers-little-helper.yaml` accordingly the new stable
+          branch.
 - [ ] Merge PR
 - [ ] Create and push *both* tags to GitHub (`vX.Y.Z`, `X.Y.Z`)
   - Pull latest branch locally and run `contrib/release/tag-release.sh`
