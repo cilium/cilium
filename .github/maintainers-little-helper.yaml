@@ -44,3 +44,70 @@ block-pr-with:
   labels-set:
     - regex-label: "dont-merge/.*"
       helper: "Blocking mergeability of PR as 'dont-merge/.*' labels are set"
+flake-tracker:
+  issue-tracker-config:
+    issue-labels:
+    - project/ci-force
+  jenkins-config:
+    jenkins-url: https://jenkins.cilium.io
+    regex-trigger: (^test-me-please)
+    stable-jobs:
+    - cilium-master-gke
+    - cilium-master-k8s-1.16-kernel-net-next
+    - cilium-master-k8s-1.17-kernel-4.9
+    - cilium-master-k8s-1.18-kernel-4.9
+    - cilium-master-k8s-1.19-kernel-4.9
+    - cilium-master-k8s-1.19-kernel-5.4
+    - cilium-master-k8s-1.20-kernel-4.19
+    - cilium-master-k8s-1.21-kernel-4.9
+    - cilium-master-k8s-upstream
+    - cilium-master-runtime-kernel-4.9
+    pr-jobs:
+      Cilium-PR-K8s-1.16-net-next:
+        correlate-with-stable-jobs:
+        - cilium-master-k8s-1.16-kernel-net-next
+      Cilium-PR-K8s-1.17-kernel-4.9:
+        correlate-with-stable-jobs:
+        - cilium-master-k8s-1.17-kernel-4.9
+        - cilium-master-k8s-1.18-kernel-4.9
+        - cilium-master-k8s-1.19-kernel-4.9
+        - cilium-master-k8s-1.21-kernel-4.9
+      Cilium-PR-K8s-1.18-kernel-4.9:
+        correlate-with-stable-jobs:
+        - cilium-master-k8s-1.17-kernel-4.9
+        - cilium-master-k8s-1.18-kernel-4.9
+        - cilium-master-k8s-1.19-kernel-4.9
+        - cilium-master-k8s-1.21-kernel-4.9
+      Cilium-PR-K8s-1.19-kernel-4.9:
+        correlate-with-stable-jobs:
+        - cilium-master-k8s-1.17-kernel-4.9
+        - cilium-master-k8s-1.18-kernel-4.9
+        - cilium-master-k8s-1.19-kernel-4.9
+        - cilium-master-k8s-1.21-kernel-4.9
+      Cilium-PR-K8s-1.19-kernel-5.4:
+        correlate-with-stable-jobs:
+        - cilium-master-k8s-1.19-kernel-5.4
+      Cilium-PR-K8s-1.20-kernel-4.19:
+        correlate-with-stable-jobs:
+        - cilium-master-k8s-1.20-kernel-4.19
+      Cilium-PR-K8s-1.21-kernel-4.9:
+        correlate-with-stable-jobs:
+        - cilium-master-k8s-1.17-kernel-4.9
+        - cilium-master-k8s-1.18-kernel-4.9
+        - cilium-master-k8s-1.19-kernel-4.9
+        - cilium-master-k8s-1.21-kernel-4.9
+      Cilium-PR-K8s-GKE:
+        correlate-with-stable-jobs:
+        - cilium-master-gke
+      Cilium-PR-K8s-Upstream:
+        correlate-with-stable-jobs:
+        - cilium-master-k8s-upstream
+      Cilium-PR-Runtime-4.9:
+        correlate-with-stable-jobs:
+        - cilium-master-runtime-kernel-4.9
+  max-flakes-per-test: 5
+  flake-similarity: 0.75
+  ignore-failures:
+  - failed due to BeforeAll failure
+  - Cilium cannot be installed
+  - cilium pre-flight checks failed
