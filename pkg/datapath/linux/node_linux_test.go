@@ -957,6 +957,11 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
+	prevEnableL2NeighDiscovery := option.Config.EnableL2NeighDiscovery
+	defer func() { option.Config.EnableL2NeighDiscovery = prevEnableL2NeighDiscovery }()
+
+	option.Config.EnableL2NeighDiscovery = true
+
 	prevStateDir := option.Config.StateDir
 	defer func() { option.Config.StateDir = prevStateDir }()
 
