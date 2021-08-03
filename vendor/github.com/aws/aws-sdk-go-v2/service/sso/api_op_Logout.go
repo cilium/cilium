@@ -15,7 +15,7 @@ func (c *Client) Logout(ctx context.Context, params *LogoutInput, optFns ...func
 		params = &LogoutInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "Logout", params, optFns, addOperationLogoutMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "Logout", params, optFns, c.addOperationLogoutMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ type LogoutOutput struct {
 	ResultMetadata middleware.Metadata
 }
 
-func addOperationLogoutMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationLogoutMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestjson1_serializeOpLogout{}, middleware.After)
 	if err != nil {
 		return err
