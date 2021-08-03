@@ -520,6 +520,10 @@ func (s *Service) SyncWithK8sFinished() error {
 
 	for _, svc := range s.svcByHash {
 		if svc.restoredFromDatapath {
+			if svc.frontend.Protocol == lb.NONE {
+				continue
+			}
+
 			log.WithFields(logrus.Fields{
 				logfields.ServiceID: svc.frontend.ID,
 				logfields.L3n4Addr:  logfields.Repr(svc.frontend.L3n4Addr)}).
@@ -814,7 +818,7 @@ func (s *Service) restoreServicesLocked() error {
 			// If the service does not have a protocol and we are running
 			// with support for service protocols, just skip it.
 			// It will be recreated by the k8s service watcher.
-			continue
+			//continue
 		}
 
 		scopedLog := log.WithFields(logrus.Fields{
