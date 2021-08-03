@@ -235,8 +235,14 @@ func TestRing_Read(t *testing.T) {
 			args: args{
 				read: 0x0,
 			},
-			want:    nil,
-			wantErr: ErrInvalidRead,
+			want: &v1.Event{
+				Event: &flowpb.LostEvent{
+					Source:        flowpb.LostEventSource_HUBBLE_RING_BUFFER,
+					NumEventsLost: 1,
+					Cpu:           nil,
+				},
+			},
+			wantErr: nil,
 		},
 		{
 			name: "we can't read index 0x7 since we are one writing cycle ahead",
@@ -260,8 +266,14 @@ func TestRing_Read(t *testing.T) {
 				// The next possible entry that we can read is 0x10-0x7-0x1 = 0x8 (idx: 0)
 				read: 0x7,
 			},
-			want:    nil,
-			wantErr: ErrInvalidRead,
+			want: &v1.Event{
+				Event: &flowpb.LostEvent{
+					Source:        flowpb.LostEventSource_HUBBLE_RING_BUFFER,
+					NumEventsLost: 1,
+					Cpu:           nil,
+				},
+			},
+			wantErr: nil,
 		},
 		{
 			name: "we can read index 0x8 since it's the last entry that we can read in this cycle",
@@ -311,8 +323,14 @@ func TestRing_Read(t *testing.T) {
 				// next to be read: ^uint64(0) (idx: 7), last read: 0xfffffffffffffffe (idx: 6)
 				read: ^uint64(0),
 			},
-			want:    nil,
-			wantErr: ErrInvalidRead,
+			want: &v1.Event{
+				Event: &flowpb.LostEvent{
+					Source:        flowpb.LostEventSource_HUBBLE_RING_BUFFER,
+					NumEventsLost: 1,
+					Cpu:           nil,
+				},
+			},
+			wantErr: nil,
 		},
 		{
 			name: "we overflow write and we are trying to read the previous writes, that we can",
@@ -363,8 +381,14 @@ func TestRing_Read(t *testing.T) {
 				// with a cycle that was already overwritten
 				read: ^uint64(0) - 0x7,
 			},
-			want:    nil,
-			wantErr: ErrInvalidRead,
+			want: &v1.Event{
+				Event: &flowpb.LostEvent{
+					Source:        flowpb.LostEventSource_HUBBLE_RING_BUFFER,
+					NumEventsLost: 1,
+					Cpu:           nil,
+				},
+			},
+			wantErr: nil,
 		},
 	}
 	for _, tt := range tests {
@@ -378,8 +402,16 @@ func TestRing_Read(t *testing.T) {
 				cycleMask: ^uint64(0) >> tt.fields.cycleExp,
 			}
 			got, got1 := r.read(tt.args.read)
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Ring.read() got = %v, want %v", got, tt.want)
+			if tt.want.GetLostEvent() != nil {
+				assert.NotNil(t, got)
+				assert.NotNil(t, got.GetLostEvent())
+				if diff := cmp.Diff(tt.want.GetLostEvent(), got.GetLostEvent(), cmpopts.IgnoreUnexported(flowpb.LostEvent{})); diff != "" {
+					t.Errorf("LostEvent mismatch (-want +got):\n%s", diff)
+				}
+			} else {
+				if !reflect.DeepEqual(got, tt.want) {
+					t.Errorf("Ring.read() got = %v, want %v", got, tt.want)
+				}
 			}
 			if got1 != tt.wantErr {
 				t.Errorf("Ring.read() got1 = %v, want %v", got1, tt.wantErr)
@@ -597,9 +629,9 @@ func TestRingFunctionalityInParallel(t *testing.T) {
 		t.Errorf("Read Event should be %+v, got %+v instead", &timestamppb.Timestamp{Seconds: 0}, entry.Timestamp)
 	}
 	lastWrite--
-	_, err = r.read(lastWrite)
-	if err != ErrInvalidRead {
-		t.Errorf("Should not be able to read position %x, got %v", lastWrite, err)
+	lost, _ := r.read(lastWrite)
+	if lost.GetLostEvent() == nil {
+		t.Errorf("Should not be able to read position %x, got %v", lastWrite, lost)
 	}
 }
 
