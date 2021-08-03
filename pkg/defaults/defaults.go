@@ -441,5 +441,5 @@ const (
 	// SupportServiceProtocols enables the differentiation of the L4
 	// protocols for services, in order to allow services with the same port
 	// but different L4 protocols to co-exist.
-	SupportServiceProtocols = false
+	SupportServiceProtocols = true
 )
