@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 
 	"github.com/stretchr/testify/assert"
@@ -81,11 +82,6 @@ func TestRingReader_Previous(t *testing.T) {
 			count:   1,
 			wantErr: io.EOF,
 		},
-		{
-			start:   ^uint64(0),
-			count:   1,
-			wantErr: ErrInvalidRead,
-		},
 	}
 	for _, tt := range tests {
 		name := fmt.Sprintf("read %d, start at position %d", tt.count, tt.start)
@@ -106,6 +102,25 @@ func TestRingReader_Previous(t *testing.T) {
 			assert.Nil(t, reader.Close())
 		})
 	}
+}
+
+func TestRingReader_PreviousLost(t *testing.T) {
+	ring := NewRing(Capacity15)
+	for i := 0; i < 15; i++ {
+		ring.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: int64(i)}})
+	}
+	reader := NewRingReader(ring, ^uint64(0))
+	expected := &v1.Event{
+		Event: &flowpb.LostEvent{
+			Source:        flowpb.LostEventSource_HUBBLE_RING_BUFFER,
+			NumEventsLost: 1,
+			Cpu:           nil,
+		},
+	}
+	actual, err := reader.Previous()
+	assert.NoError(t, err)
+	assert.Equal(t, expected.GetLostEvent(), actual.GetLostEvent())
+	assert.Nil(t, reader.Close())
 }
 
 func TestRingReader_Next(t *testing.T) {
@@ -150,10 +165,6 @@ func TestRingReader_Next(t *testing.T) {
 				{Timestamp: &timestamppb.Timestamp{Seconds: 13}},
 			},
 		}, {
-			start:   ^uint64(0),
-			count:   1,
-			wantErr: ErrInvalidRead,
-		}, {
 			start:   14,
 			count:   1,
 			wantErr: io.EOF,
@@ -178,6 +189,25 @@ func TestRingReader_Next(t *testing.T) {
 			assert.Nil(t, reader.Close())
 		})
 	}
+}
+
+func TestRingReader_NextLost(t *testing.T) {
+	ring := NewRing(Capacity15)
+	for i := 0; i < 15; i++ {
+		ring.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: int64(i)}})
+	}
+	expected := &v1.Event{
+		Event: &flowpb.LostEvent{
+			Source:        flowpb.LostEventSource_HUBBLE_RING_BUFFER,
+			NumEventsLost: 1,
+			Cpu:           nil,
+		},
+	}
+	reader := NewRingReader(ring, ^uint64(0))
+	actual, err := reader.Next()
+	assert.NoError(t, err)
+	assert.Equal(t, expected.GetLostEvent(), actual.GetLostEvent())
+	assert.Nil(t, reader.Close())
 }
 
 func TestRingReader_NextFollow(t *testing.T) {

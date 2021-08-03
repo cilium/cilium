@@ -546,10 +546,6 @@ func (r *eventsReader) Next(ctx context.Context) (*v1.Event, error) {
 			}
 			e, err = r.ringReader.Next()
 			if err != nil {
-				if errors.Is(err, container.ErrInvalidRead) {
-					// this error is sent over the wire and presented to the user
-					return nil, errors.New("requested data has been overwritten and is no longer available")
-				}
 				return nil, err
 			}
 		}
@@ -618,7 +614,8 @@ func newRingReader(ring *container.Ring, req genericRequest, whitelist, blacklis
 	// correct index, then create a new reader that starts from there
 	for i := ring.Len(); i > 0; i, idx = i-1, idx-1 {
 		e, err := reader.Previous()
-		if errors.Is(err, container.ErrInvalidRead) {
+		lost := e.GetLostEvent()
+		if lost != nil && lost.Source == flowpb.LostEventSource_HUBBLE_RING_BUFFER {
 			idx++ // we went backward 1 too far
 			break
 		} else if err != nil {
