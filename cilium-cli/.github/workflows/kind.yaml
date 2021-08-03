@@ -100,7 +100,7 @@ jobs:
         run: |
           cilium status
           kubectl get pods --all-namespaces -o wide
-          cilium sysdump --output-filename cilium-sysdump-out
+          cilium sysdump --output-filename cilium-sysdump-out --hubble-flows-count 10000
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Upload Artifacts
