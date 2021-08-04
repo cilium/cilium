@@ -2,6 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 include ../../Makefile.defs
+include ../../Makefile.quiet
+
+DOCKER_CTR_ROOT_DIR := /src
+DOCKER_CTR := $(CONTAINER_ENGINE) container run --rm \
+		--workdir $(DOCKER_CTR_ROOT_DIR)/test/bpf \
+		--volume $(ROOT_DIR):$(DOCKER_CTR_ROOT_DIR) \
+		--user "$(shell id -u):$(shell id -g)"
+DOCKER_RUN := $(DOCKER_CTR) cilium/bpf-mock
 
 FLAGS := -I../../bpf/ -I../../bpf/include -I. -D__NR_CPUS__=$(shell nproc --all) -O2
 FLAGS_CLANG := -Wall -Wextra -Werror -Wshadow -Wno-unused-parameter
@@ -19,8 +27,10 @@ CLANG ?= $(QUIET) clang
 LLC ?= llc
 
 BPF_TARGETS := elf-demo.o
-TARGETS := $(BPF_TARGETS) unit-test
-all: $(TARGETS)
+ALL_TESTS := unit-test nat-test
+TARGETS := $(BPF_TARGETS) $(ALL_TESTS)
+
+all: $(TARGETS) unit-tests
 
 elf-demo.o: elf-demo.c
 	@$(ECHO_CC)
@@ -30,6 +40,22 @@ elf-demo.o: elf-demo.c
 	@$(ECHO_CC)
 	$(CLANG) ${FLAGS_CLANG} ${FLAGS} -I../../bpf/ $< -o $@
 
+nat-test: nat-test.c $(LIB)
+	@$(ECHO_CC)
+	make -C $(ROOT_DIR)/bpf/mock generate_helper_headers
+	make -C $(ROOT_DIR)/bpf/mock mock_helpers
+	make -C $(ROOT_DIR)/bpf/mock mock_customized filename=conntrack_stub.h
+	$(QUIET) $(DOCKER_RUN) $(CLANG) -I../../bpf/ -I../../bpf/include -I. -D__NR_CPUS__=$(shell nproc --all) -O2 -I $../../bpf/ -I../../../CMock/src -I../../../CMock/vendor/unity/src  $< ../../../CMock/vendor/unity/src/unity.c ../../../CMock/src/cmock.c ../../bpf/mock/mock_helpers.c ../../bpf/mock/mock_helpers_skb.c ../../bpf/mock/mock_conntrack_stub.c -o $@
+	rm ../../bpf/mock/mock_conntrack_stub.c ../../bpf/mock/mock_conntrack_stub.h ../../bpf/mock/mock_helpers.c ../../bpf/mock/mock_helpers.h ../../bpf/mock/mock_helpers_skb.c ../../bpf/mock/mock_helpers_skb.h ../../bpf/mock/mock_helpers_xdp.c ../../bpf/mock/mock_helpers_xdp.h ../../bpf/mock/helpers.h ../../bpf/mock/helpers_skb.h ../../bpf/mock/helpers_xdp.h;
+
+unit-tests: $(ALL_TESTS)
+	@$(ECHO_CHECK)
+	for test in $^; do \
+		$(ECHO_CHECK) $$test; \
+		$(ROOT_DIR)/$(RELATIVE_DIR)/$$test; \
+	done
+
 clean:
 	@$(ECHO_CLEAN)
 	-$(QUIET)rm -f $(TARGETS)
+
