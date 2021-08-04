@@ -80,6 +80,8 @@ export KUBE_MASTER_URL="https://192.168.36.11:6443"
 
 echo "Running upstream services conformance tests"
 ${HOME}/go/bin/kubetest --provider=local --test \
+  --test_args="--ginkgo.focus=HostPort.*\[Conformance\].* --e2e-verify-service-account=false --host ${KUBE_MASTER_URL}"
+${HOME}/go/bin/kubetest --provider=local --test \
   --test_args="--ginkgo.focus=Services.*\[Conformance\].* --e2e-verify-service-account=false --host ${KUBE_MASTER_URL}"
 
 # We currently skip the following tests:
