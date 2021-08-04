@@ -62,12 +62,11 @@ func (e *TypesSuite) TestForeachAddresses(c *check.C) {
 }
 
 func (e *TypesSuite) TestExtractIDs(c *check.C) {
-	vmssIntf := AzureInterface{
-		ID: "/subscriptions/xxx/resourceGroups/MC_aks-test_aks-test_westeurope/providers/Microsoft.Compute/virtualMachineScaleSets/aks-nodepool1-10706209-vmss/virtualMachines/3/networkInterfaces/aks-nodepool1-10706209-vmss",
-	}
-	vmIntf := AzureInterface{
-		ID: "/subscriptions/xxx/resourceGroups/az-test-rg/providers/Microsoft.Network/networkInterfaces/pods-interface",
-	}
+	vmssIntf := AzureInterface{}
+	vmssIntf.SetID("/subscriptions/xxx/resourceGroups/MC_aks-test_aks-test_westeurope/providers/Microsoft.Compute/virtualMachineScaleSets/aks-nodepool1-10706209-vmss/virtualMachines/3/networkInterfaces/aks-nodepool1-10706209-vmss")
+
+	vmIntf := AzureInterface{}
+	vmIntf.SetID("/subscriptions/xxx/resourceGroups/az-test-rg/providers/Microsoft.Network/networkInterfaces/pods-interface")
 
 	c.Assert(vmssIntf.GetResourceGroup(), check.Equals, "MC_aks-test_aks-test_westeurope")
 	c.Assert(vmssIntf.GetVMID(), check.Equals, "3")

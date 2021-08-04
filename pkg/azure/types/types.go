@@ -127,6 +127,13 @@ type AzureInterface struct {
 	resourceGroup string `json:"-"`
 }
 
+// SetID sets the Azure interface ID, as well as extracting other fields from
+// the ID itself.
+func (a *AzureInterface) SetID(id string) {
+	a.ID = id
+	a.extractIDs()
+}
+
 // InterfaceID returns the identifier of the interface
 func (a *AzureInterface) InterfaceID() string {
 	return a.ID
@@ -159,25 +166,16 @@ func (a *AzureInterface) extractIDs() {
 
 // GetResourceGroup returns the resource group the interface belongs to
 func (a *AzureInterface) GetResourceGroup() string {
-	if a.resourceGroup == "" {
-		a.extractIDs()
-	}
 	return a.resourceGroup
 }
 
 // GetVMScaleSetName returns the VM scale set name the interface belongs to
 func (a *AzureInterface) GetVMScaleSetName() string {
-	if a.vmssName == "" {
-		a.extractIDs()
-	}
 	return a.vmssName
 }
 
 // GetVMID returns the VM ID the interface belongs to
 func (a *AzureInterface) GetVMID() string {
-	if a.vmID == "" {
-		a.extractIDs()
-	}
 	return a.vmID
 }
 
