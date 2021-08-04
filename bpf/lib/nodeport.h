@@ -1074,13 +1074,20 @@ declare_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
 		    CILIUM_CALL_IPV6_ENCAP_NODEPORT_NAT)
 int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 {
+	int ret = CTX_ACT_OK;
+
 #if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
 	union v6addr addr = { .p1 = 0 };
 	BPF_V6(addr, ROUTER_IP);
 #else
 	union v6addr addr = IPV6_DIRECT_ROUTING;
 #endif
-	return nodeport_nat_ipv6_fwd(ctx, &addr);
+	ret = nodeport_nat_ipv6_fwd(ctx, &addr);
+
+	if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
+
+	return ret;
 }
 #endif /* ENABLE_IPV6 */
 
@@ -2080,7 +2087,13 @@ declare_tailcall_if(__or3(__and(is_defined(ENABLE_IPV4),
 		    CILIUM_CALL_IPV4_ENCAP_NODEPORT_NAT)
 int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 {
-	return nodeport_nat_ipv4_fwd(ctx);
+	int ret = CTX_ACT_OK;
+
+	ret = nodeport_nat_ipv4_fwd(ctx);
+	if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
+
+	return ret;
 }
 #endif /* ENABLE_IPV4 */
 
