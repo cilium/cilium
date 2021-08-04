@@ -12,8 +12,8 @@ import (
 )
 
 var (
-	//go:embed manifests/allow-all.yaml
-	allowAllPolicyYAML string
+	//go:embed manifests/allow-all-except-world.yaml
+	allowAllExceptWorldPolicyYAML string
 
 	//go:embed manifests/client-egress-only-dns.yaml
 	clientEgressOnlyDNSPolicyYAML string
@@ -57,15 +57,14 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		tests.PodToCIDR(""),
 	)
 
-	// Test with an allow-all policy.
-	ct.NewTest("allow-all").WithPolicy(allowAllPolicyYAML).
+	// Test with an allow-all-except-world (and unmanaged) policy.
+	ct.NewTest("allow-all-except-world").WithPolicy(allowAllExceptWorldPolicyYAML).
 		WithScenarios(
 			tests.PodToPod(""),
 			tests.ClientToClient(""),
 			tests.PodToService(""),
 			tests.PodToRemoteNodePort(""),
 			tests.PodToLocalNodePort(""),
-			tests.PodToWorld(""),
 			tests.PodToHost(""),
 			tests.PodToExternalWorkload(""),
 		)
