@@ -186,8 +186,8 @@ func (a *API) AssignPrivateIpAddressesVMSS(ctx context.Context, vmName, vmssName
 	}
 
 	foundInterface := false
-
-	err := a.instances.ForeachInterface("", func(id, _ string, iface ipamTypes.InterfaceRevision) error {
+	instances := a.instances.DeepCopy()
+	err := instances.ForeachInterface("", func(id, _ string, iface ipamTypes.InterfaceRevision) error {
 		intf, ok := iface.Resource.(*types.AzureInterface)
 		if !ok {
 			return fmt.Errorf("invalid interface object")
@@ -224,6 +224,8 @@ func (a *API) AssignPrivateIpAddressesVMSS(ctx context.Context, vmName, vmssName
 	if err != nil {
 		return err
 	}
+
+	a.updateInstancesLocked(instances)
 
 	if !foundInterface {
 		return fmt.Errorf("interface %s not found", interfaceName)
