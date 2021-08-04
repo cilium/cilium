@@ -82,8 +82,12 @@ func (a *API) UpdateSubnets(subnets []*ipamTypes.Subnet) {
 
 func (a *API) UpdateInstances(instances *ipamTypes.InstanceMap) {
 	a.mutex.Lock()
-	a.instances = instances.DeepCopy()
+	a.updateInstancesLocked(instances)
 	a.mutex.Unlock()
+}
+
+func (a *API) updateInstancesLocked(instances *ipamTypes.InstanceMap) {
+	a.instances = instances.DeepCopy()
 }
 
 // SetMockError modifies the mock API to return an error for a particular
