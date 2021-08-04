@@ -227,10 +227,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_EGRESS_GATEWAY"] = "1"
 	}
 
-	if option.Config.EnableEndpointRoutes {
-		cDefinesMap["ENABLE_ENDPOINT_ROUTES"] = "1"
-	}
-
 	if option.Config.EnableHostReachableServices {
 		if option.Config.EnableHostServicesTCP {
 			cDefinesMap["ENABLE_HOST_SERVICES_TCP"] = "1"
@@ -817,6 +813,10 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, e datapath.Endp
 
 	if e.RequireRouting() {
 		fmt.Fprintf(fw, "#define ENABLE_ROUTING 1\n")
+	}
+
+	if e.RequireEndpointRoute() {
+		fmt.Fprintf(fw, "#define ENABLE_ENDPOINT_ROUTES 1\n")
 	}
 
 	if e.DisableSIPVerification() {
