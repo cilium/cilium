@@ -173,20 +173,22 @@ func (e *IPAMSuite) TestIpamPreAllocate8(c *check.C) {
 	c.Assert(instances, check.Not(check.IsNil))
 
 	m := ipamTypes.NewInstanceMap()
-	m.Update("vm1", ipamTypes.InterfaceRevision{
-		Resource: &types.AzureInterface{
-			ID:            "/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm1/networkInterfaces/vmss11",
-			Name:          "eth0",
-			SecurityGroup: "sg1",
-			Addresses: []types.AzureAddress{
-				{
-					IP:     "1.1.1.1",
-					Subnet: "subnet-1",
-					State:  types.StateSucceeded,
-				},
+
+	resource := &types.AzureInterface{
+		Name:          "eth0",
+		SecurityGroup: "sg1",
+		Addresses: []types.AzureAddress{
+			{
+				IP:     "1.1.1.1",
+				Subnet: "subnet-1",
+				State:  types.StateSucceeded,
 			},
-			State: types.StateSucceeded,
 		},
+		State: types.StateSucceeded,
+	}
+	resource.SetID("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm1/networkInterfaces/vmss11")
+	m.Update("vm1", ipamTypes.InterfaceRevision{
+		Resource: resource.DeepCopy(),
 	})
 	api.UpdateInstances(m)
 
@@ -233,20 +235,22 @@ func (e *IPAMSuite) TestIpamMinAllocate10(c *check.C) {
 	c.Assert(instances, check.Not(check.IsNil))
 
 	m := ipamTypes.NewInstanceMap()
-	m.Update("vm1", ipamTypes.InterfaceRevision{
-		Resource: &types.AzureInterface{
-			ID:            "/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm1/networkInterfaces/vmss11",
-			Name:          "eth0",
-			SecurityGroup: "sg1",
-			Addresses: []types.AzureAddress{
-				{
-					IP:     "1.1.1.1",
-					Subnet: "subnet-1",
-					State:  types.StateSucceeded,
-				},
+
+	resource := &types.AzureInterface{
+		Name:          "eth0",
+		SecurityGroup: "sg1",
+		Addresses: []types.AzureAddress{
+			{
+				IP:     "1.1.1.1",
+				Subnet: "subnet-1",
+				State:  types.StateSucceeded,
 			},
-			State: types.StateSucceeded,
 		},
+		State: types.StateSucceeded,
+	}
+	resource.SetID("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm1/networkInterfaces/vmss11")
+	m.Update("vm1", ipamTypes.InterfaceRevision{
+		Resource: resource.DeepCopy(),
 	})
 	api.UpdateInstances(m)
 
@@ -313,16 +317,16 @@ func (e *IPAMSuite) TestIpamManyNodes(c *check.C) {
 	allInstances := ipamTypes.NewInstanceMap()
 
 	for i := range state {
+		resource := &types.AzureInterface{
+			Name:          "eth0",
+			SecurityGroup: "sg1",
+			Addresses:     []types.AzureAddress{},
+			State:         types.StateSucceeded,
+		}
+		resource.SetID(fmt.Sprintf("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm%d/networkInterfaces/vmss11", i))
 		allInstances.Update(fmt.Sprintf("vm%d", i), ipamTypes.InterfaceRevision{
-			Resource: &types.AzureInterface{
-				ID:            fmt.Sprintf("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm%d/networkInterfaces/vmss11", i),
-				Name:          "eth0",
-				SecurityGroup: "sg1",
-				Addresses:     []types.AzureAddress{},
-				State:         types.StateSucceeded,
-			},
+			Resource: resource.DeepCopy(),
 		})
-
 	}
 
 	api.UpdateInstances(allInstances)
@@ -389,14 +393,15 @@ func benchmarkAllocWorker(c *check.C, workers int64, delay time.Duration, rateLi
 	c.ResetTimer()
 
 	for i := range state {
+		resource := &types.AzureInterface{
+			Name:          "eth0",
+			SecurityGroup: "sg1",
+			Addresses:     []types.AzureAddress{},
+			State:         types.StateSucceeded,
+		}
+		resource.SetID(fmt.Sprintf("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm%d/networkInterfaces/vmss11", i))
 		allInstances.Update(fmt.Sprintf("vm%d", i), ipamTypes.InterfaceRevision{
-			Resource: &types.AzureInterface{
-				ID:            fmt.Sprintf("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm%d/networkInterfaces/vmss11", i),
-				Name:          "eth0",
-				SecurityGroup: "sg1",
-				Addresses:     []types.AzureAddress{},
-				State:         types.StateSucceeded,
-			},
+			Resource: resource.DeepCopy(),
 		})
 	}
 

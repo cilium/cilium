@@ -44,8 +44,10 @@ func (e *MockSuite) TestMock(c *check.C) {
 
 	ifaceID := "/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm1/networkInterfaces/vmss11"
 	instances = ipamTypes.NewInstanceMap()
+	resource := &types.AzureInterface{Name: "eth0"}
+	resource.SetID(ifaceID)
 	instances.Update("vm1", ipamTypes.InterfaceRevision{
-		Resource: &types.AzureInterface{ID: ifaceID, Name: "eth0"},
+		Resource: resource.DeepCopy(),
 	})
 	api.UpdateInstances(instances)
 	instances, err = api.GetInstances(context.Background(), ipamTypes.SubnetMap{})
@@ -74,8 +76,10 @@ func (e *MockSuite) TestMock(c *check.C) {
 
 	vmIfaceID := "/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Network/networkInterfaces/vm22-if"
 	vmInstances := ipamTypes.NewInstanceMap()
+	resource = &types.AzureInterface{Name: "eth0"}
+	resource.SetID(vmIfaceID)
 	vmInstances.Update("vm2", ipamTypes.InterfaceRevision{
-		Resource: &types.AzureInterface{ID: vmIfaceID, Name: "eth0"},
+		Resource: resource.DeepCopy(),
 	})
 	c.Assert(err, check.IsNil)
 	c.Assert(vmInstances.NumInstances(), check.Equals, 1)

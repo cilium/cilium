@@ -220,7 +220,7 @@ func parseInterface(iface *network.Interface, subnets ipamTypes.SubnetMap, usePr
 	}
 
 	if iface.ID != nil {
-		i.ID = *iface.ID
+		i.SetID(*iface.ID)
 	}
 
 	if iface.Name != nil {
