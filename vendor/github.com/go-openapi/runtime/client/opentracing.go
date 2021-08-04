@@ -41,6 +41,9 @@ func (t *tracingTransport) Submit(op *runtime.ClientOperation) (interface{}, err
 
 	op.AuthInfo = runtime.ClientAuthInfoWriterFunc(func(req runtime.ClientRequest, reg strfmt.Registry) error {
 		span = createClientSpan(op, req.GetHeaderParams(), t.host, t.opts)
+		if authInfo == nil {
+			return nil
+		}
 		return authInfo.AuthenticateRequest(req, reg)
 	})
 
