@@ -19,23 +19,23 @@ import (
 // snapshot must be stored in the same Region as the volume. If you create a
 // snapshot of a volume on an Outpost, the snapshot can be stored on the same
 // Outpost as the volume, or in the Region for that Outpost. When a snapshot is
-// created, any AWS Marketplace product codes that are associated with the source
-// volume are propagated to the snapshot. You can take a snapshot of an attached
-// volume that is in use. However, snapshots only capture data that has been
-// written to your EBS volume at the time the snapshot command is issued; this
-// might exclude any data that has been cached by any applications or the operating
-// system. If you can pause any file systems on the volume long enough to take a
-// snapshot, your snapshot should be complete. However, if you cannot pause all
-// file writes to the volume, you should unmount the volume from within the
-// instance, issue the snapshot command, and then remount the volume to ensure a
-// consistent and complete snapshot. You may remount and use your volume while the
-// snapshot status is pending. To create a snapshot for EBS volumes that serve as
-// root devices, you should stop the instance before taking the snapshot. Snapshots
-// that are taken from encrypted volumes are automatically encrypted. Volumes that
-// are created from encrypted snapshots are also automatically encrypted. Your
-// encrypted volumes and any associated snapshots always remain protected. You can
-// tag your snapshots during creation. For more information, see Tagging your
-// Amazon EC2 resources
+// created, any Amazon Web Services Marketplace product codes that are associated
+// with the source volume are propagated to the snapshot. You can take a snapshot
+// of an attached volume that is in use. However, snapshots only capture data that
+// has been written to your Amazon EBS volume at the time the snapshot command is
+// issued; this might exclude any data that has been cached by any applications or
+// the operating system. If you can pause any file systems on the volume long
+// enough to take a snapshot, your snapshot should be complete. However, if you
+// cannot pause all file writes to the volume, you should unmount the volume from
+// within the instance, issue the snapshot command, and then remount the volume to
+// ensure a consistent and complete snapshot. You may remount and use your volume
+// while the snapshot status is pending. To create a snapshot for Amazon EBS
+// volumes that serve as root devices, you should stop the instance before taking
+// the snapshot. Snapshots that are taken from encrypted volumes are automatically
+// encrypted. Volumes that are created from encrypted snapshots are also
+// automatically encrypted. Your encrypted volumes and any associated snapshots
+// always remain protected. You can tag your snapshots during creation. For more
+// information, see Tag your Amazon EC2 resources
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html) in the
 // Amazon Elastic Compute Cloud User Guide. For more information, see Amazon
 // Elastic Block Store
@@ -48,7 +48,7 @@ func (c *Client) CreateSnapshot(ctx context.Context, params *CreateSnapshotInput
 		params = &CreateSnapshotInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateSnapshot", params, optFns, addOperationCreateSnapshotMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateSnapshot", params, optFns, c.addOperationCreateSnapshotMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func (c *Client) CreateSnapshot(ctx context.Context, params *CreateSnapshotInput
 
 type CreateSnapshotInput struct {
 
-	// The ID of the EBS volume.
+	// The ID of the Amazon EBS volume.
 	//
 	// This member is required.
 	VolumeId *string
@@ -74,7 +74,7 @@ type CreateSnapshotInput struct {
 	// UnauthorizedOperation.
 	DryRun *bool
 
-	// The Amazon Resource Name (ARN) of the AWS Outpost on which to create a local
+	// The Amazon Resource Name (ARN) of the Outpost on which to create a local
 	// snapshot.
 	//
 	// * To create a snapshot of a volume in a Region, omit this parameter.
@@ -89,7 +89,7 @@ type CreateSnapshotInput struct {
 	// Outpost, specify the ARN of the destination Outpost. The snapshot must be
 	// created on the same Outpost as the volume.
 	//
-	// For more information, see  Creating
+	// For more information, see Create
 	// local snapshots from volumes on an Outpost
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshots-outposts.html#create-snapshot)
 	// in the Amazon Elastic Compute Cloud User Guide.
@@ -97,6 +97,8 @@ type CreateSnapshotInput struct {
 
 	// The tags to apply to the snapshot during creation.
 	TagSpecifications []types.TagSpecification
+
+	noSmithyDocumentSerde
 }
 
 // Describes a snapshot.
@@ -116,22 +118,22 @@ type CreateSnapshotOutput struct {
 	// Indicates whether the snapshot is encrypted.
 	Encrypted *bool
 
-	// The Amazon Resource Name (ARN) of the AWS Key Management Service (AWS KMS)
-	// customer master key (CMK) that was used to protect the volume encryption key for
-	// the parent volume.
+	// The Amazon Resource Name (ARN) of the Key Management Service (KMS) KMS key that
+	// was used to protect the volume encryption key for the parent volume.
 	KmsKeyId *string
 
-	// The ARN of the AWS Outpost on which the snapshot is stored. For more
-	// information, see EBS Local Snapshot on Outposts
+	// The ARN of the Outpost on which the snapshot is stored. For more information,
+	// see Amazon EBS local snapshots on Outposts
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshots-outposts.html) in
 	// the Amazon Elastic Compute Cloud User Guide.
 	OutpostArn *string
 
-	// The AWS owner alias, from an Amazon-maintained list (amazon). This is not the
-	// user-configured AWS account alias set using the IAM console.
+	// The Amazon Web Services owner alias, from an Amazon-maintained list (amazon).
+	// This is not the user-configured Amazon Web Services account alias set using the
+	// IAM console.
 	OwnerAlias *string
 
-	// The AWS account ID of the EBS snapshot owner.
+	// The ID of the Amazon Web Services account that owns the EBS snapshot.
 	OwnerId *string
 
 	// The progress of the snapshot, as a percentage.
@@ -148,7 +150,7 @@ type CreateSnapshotOutput struct {
 	State types.SnapshotState
 
 	// Encrypted Amazon EBS snapshots are copied asynchronously. If a snapshot copy
-	// operation fails (for example, if the proper AWS Key Management Service (AWS KMS)
+	// operation fails (for example, if the proper Key Management Service (KMS)
 	// permissions are not obtained) this field displays error state details to help
 	// you diagnose why the error occurred. This parameter is only returned by
 	// DescribeSnapshots.
@@ -167,9 +169,11 @@ type CreateSnapshotOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateSnapshotMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateSnapshotMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateSnapshot{}, middleware.After)
 	if err != nil {
 		return err

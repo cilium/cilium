@@ -11,22 +11,23 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Adds the specified ingress rules to a security group. An inbound rule permits
-// instances to receive traffic from the specified IPv4 or IPv6 CIDR address
-// ranges, or from the instances associated with the specified destination security
-// groups. You specify a protocol for each rule (for example, TCP). For TCP and
-// UDP, you must also specify the destination port or port range. For ICMP/ICMPv6,
-// you must also specify the ICMP/ICMPv6 type and code. You can use -1 to mean all
-// types or all codes. Rule changes are propagated to instances within the security
-// group as quickly as possible. However, a small delay might occur. For more
-// information about VPC security group limits, see Amazon VPC Limits
+// Adds the specified inbound (ingress) rules to a security group. An inbound rule
+// permits instances to receive traffic from the specified IPv4 or IPv6 CIDR
+// address range, or from the instances that are associated with the specified
+// destination security groups. You specify a protocol for each rule (for example,
+// TCP). For TCP and UDP, you must also specify the destination port or port range.
+// For ICMP/ICMPv6, you must also specify the ICMP/ICMPv6 type and code. You can
+// use -1 to mean all types or all codes. Rule changes are propagated to instances
+// within the security group as quickly as possible. However, a small delay might
+// occur. For more information about VPC security group quotas, see Amazon VPC
+// quotas
 // (https://docs.aws.amazon.com/vpc/latest/userguide/amazon-vpc-limits.html).
 func (c *Client) AuthorizeSecurityGroupIngress(ctx context.Context, params *AuthorizeSecurityGroupIngressInput, optFns ...func(*Options)) (*AuthorizeSecurityGroupIngressOutput, error) {
 	if params == nil {
 		params = &AuthorizeSecurityGroupIngressInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "AuthorizeSecurityGroupIngress", params, optFns, addOperationAuthorizeSecurityGroupIngressMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "AuthorizeSecurityGroupIngress", params, optFns, c.addOperationAuthorizeSecurityGroupIngressMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -85,27 +86,41 @@ type AuthorizeSecurityGroupIngressInput struct {
 	// instead. For EC2-VPC, the source security group must be in the same VPC.
 	SourceSecurityGroupName *string
 
-	// [nondefault VPC] The AWS account ID for the source security group, if the source
-	// security group is in a different account. You can't specify this parameter in
-	// combination with the following parameters: the CIDR IP address range, the IP
-	// protocol, the start of the port range, and the end of the port range. Creates
-	// rules that grant full ICMP, UDP, and TCP access. To create a rule with a
-	// specific IP protocol and port range, use a set of IP permissions instead.
+	// [nondefault VPC] The Amazon Web Services account ID for the source security
+	// group, if the source security group is in a different account. You can't specify
+	// this parameter in combination with the following parameters: the CIDR IP address
+	// range, the IP protocol, the start of the port range, and the end of the port
+	// range. Creates rules that grant full ICMP, UDP, and TCP access. To create a rule
+	// with a specific IP protocol and port range, use a set of IP permissions instead.
 	SourceSecurityGroupOwnerId *string
+
+	// [VPC Only] The tags applied to the security group rule.
+	TagSpecifications []types.TagSpecification
 
 	// The end of port range for the TCP and UDP protocols, or an ICMP code number. For
 	// the ICMP code number, use -1 to specify all codes. If you specify all ICMP
 	// types, you must specify all codes. Alternatively, use a set of IP permissions to
 	// specify multiple rules and a description for the rule.
 	ToPort *int32
+
+	noSmithyDocumentSerde
 }
 
 type AuthorizeSecurityGroupIngressOutput struct {
+
+	// Returns true if the request succeeds; otherwise, returns an error.
+	Return *bool
+
+	// Information about the inbound (ingress) security group rules that were added.
+	SecurityGroupRules []types.SecurityGroupRule
+
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationAuthorizeSecurityGroupIngressMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationAuthorizeSecurityGroupIngressMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpAuthorizeSecurityGroupIngress{}, middleware.After)
 	if err != nil {
 		return err

@@ -20,7 +20,7 @@ func (c *Client) ModifyAvailabilityZoneGroup(ctx context.Context, params *Modify
 		params = &ModifyAvailabilityZoneGroupInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ModifyAvailabilityZoneGroup", params, optFns, addOperationModifyAvailabilityZoneGroupMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ModifyAvailabilityZoneGroup", params, optFns, c.addOperationModifyAvailabilityZoneGroupMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -51,6 +51,8 @@ type ModifyAvailabilityZoneGroupInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type ModifyAvailabilityZoneGroupOutput struct {
@@ -60,9 +62,11 @@ type ModifyAvailabilityZoneGroupOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationModifyAvailabilityZoneGroupMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationModifyAvailabilityZoneGroupMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyAvailabilityZoneGroup{}, middleware.After)
 	if err != nil {
 		return err

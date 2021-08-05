@@ -17,7 +17,7 @@ func (c *Client) CreateLocalGatewayRoute(ctx context.Context, params *CreateLoca
 		params = &CreateLocalGatewayRouteInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateLocalGatewayRoute", params, optFns, addOperationCreateLocalGatewayRouteMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateLocalGatewayRoute", params, optFns, c.addOperationCreateLocalGatewayRouteMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -50,6 +50,8 @@ type CreateLocalGatewayRouteInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type CreateLocalGatewayRouteOutput struct {
@@ -59,9 +61,11 @@ type CreateLocalGatewayRouteOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateLocalGatewayRouteMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateLocalGatewayRouteMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateLocalGatewayRoute{}, middleware.After)
 	if err != nil {
 		return err

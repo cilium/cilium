@@ -18,7 +18,7 @@ func (c *Client) DescribeFastSnapshotRestores(ctx context.Context, params *Descr
 		params = &DescribeFastSnapshotRestoresInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeFastSnapshotRestores", params, optFns, addOperationDescribeFastSnapshotRestoresMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeFastSnapshotRestores", params, optFns, c.addOperationDescribeFastSnapshotRestoresMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -41,14 +41,14 @@ type DescribeFastSnapshotRestoresInput struct {
 	// * availability-zone: The Availability
 	// Zone of the snapshot.
 	//
-	// * owner-id: The ID of the AWS account that enabled fast
-	// snapshot restore on the snapshot.
+	// * owner-id: The ID of the Amazon Web Services account
+	// that enabled fast snapshot restore on the snapshot.
 	//
-	// * snapshot-id: The ID of the snapshot.
+	// * snapshot-id: The ID of
+	// the snapshot.
 	//
-	// *
-	// state: The state of fast snapshot restores for the snapshot (enabling |
-	// optimizing | enabled | disabling | disabled).
+	// * state: The state of fast snapshot restores for the snapshot
+	// (enabling | optimizing | enabled | disabling | disabled).
 	Filters []types.Filter
 
 	// The maximum number of results to return with a single call. To retrieve the
@@ -57,6 +57,8 @@ type DescribeFastSnapshotRestoresInput struct {
 
 	// The token for the next page of results.
 	NextToken *string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeFastSnapshotRestoresOutput struct {
@@ -70,9 +72,11 @@ type DescribeFastSnapshotRestoresOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeFastSnapshotRestoresMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeFastSnapshotRestoresMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeFastSnapshotRestores{}, middleware.After)
 	if err != nil {
 		return err

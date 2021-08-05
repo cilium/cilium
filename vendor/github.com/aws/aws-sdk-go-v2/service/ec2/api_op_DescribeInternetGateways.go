@@ -18,7 +18,7 @@ func (c *Client) DescribeInternetGateways(ctx context.Context, params *DescribeI
 		params = &DescribeInternetGatewaysInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeInternetGateways", params, optFns, addOperationDescribeInternetGatewaysMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeInternetGateways", params, optFns, c.addOperationDescribeInternetGatewaysMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -48,17 +48,17 @@ type DescribeInternetGatewaysInput struct {
 	// internet-gateway-id - The ID of the Internet gateway.
 	//
 	// * owner-id - The ID of
-	// the AWS account that owns the internet gateway.
+	// the Amazon Web Services account that owns the internet gateway.
 	//
-	// * tag: - The key/value
-	// combination of a tag assigned to the resource. Use the tag key in the filter
-	// name and the tag value as the filter value. For example, to find all resources
-	// that have a tag with the key Owner and the value TeamA, specify tag:Owner for
-	// the filter name and TeamA for the filter value.
+	// * tag: - The
+	// key/value combination of a tag assigned to the resource. Use the tag key in the
+	// filter name and the tag value as the filter value. For example, to find all
+	// resources that have a tag with the key Owner and the value TeamA, specify
+	// tag:Owner for the filter name and TeamA for the filter value.
 	//
-	// * tag-key - The key of a tag
-	// assigned to the resource. Use this filter to find all resources assigned a tag
-	// with a specific key, regardless of the tag value.
+	// * tag-key - The
+	// key of a tag assigned to the resource. Use this filter to find all resources
+	// assigned a tag with a specific key, regardless of the tag value.
 	Filters []types.Filter
 
 	// One or more internet gateway IDs. Default: Describes all your internet gateways.
@@ -70,6 +70,8 @@ type DescribeInternetGatewaysInput struct {
 
 	// The token for the next page of results.
 	NextToken *string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeInternetGatewaysOutput struct {
@@ -83,9 +85,11 @@ type DescribeInternetGatewaysOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeInternetGatewaysMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeInternetGatewaysMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeInternetGateways{}, middleware.After)
 	if err != nil {
 		return err

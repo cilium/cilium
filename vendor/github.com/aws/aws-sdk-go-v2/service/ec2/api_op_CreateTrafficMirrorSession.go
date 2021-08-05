@@ -26,7 +26,7 @@ func (c *Client) CreateTrafficMirrorSession(ctx context.Context, params *CreateT
 		params = &CreateTrafficMirrorSessionInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateTrafficMirrorSession", params, optFns, addOperationCreateTrafficMirrorSessionMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateTrafficMirrorSession", params, optFns, c.addOperationCreateTrafficMirrorSessionMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -90,6 +90,8 @@ type CreateTrafficMirrorSessionInput struct {
 	// VXLAN protocol, see RFC 7348 (https://tools.ietf.org/html/rfc7348). If you do
 	// not specify a VirtualNetworkId, an account-wide unique id is chosen at random.
 	VirtualNetworkId *int32
+
+	noSmithyDocumentSerde
 }
 
 type CreateTrafficMirrorSessionOutput struct {
@@ -104,9 +106,11 @@ type CreateTrafficMirrorSessionOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateTrafficMirrorSessionMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateTrafficMirrorSessionMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateTrafficMirrorSession{}, middleware.After)
 	if err != nil {
 		return err

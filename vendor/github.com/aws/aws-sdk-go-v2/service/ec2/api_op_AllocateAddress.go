@@ -11,24 +11,25 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Allocates an Elastic IP address to your AWS account. After you allocate the
-// Elastic IP address you can associate it with an instance or network interface.
-// After you release an Elastic IP address, it is released to the IP address pool
-// and can be allocated to a different AWS account. You can allocate an Elastic IP
-// address from an address pool owned by AWS or from an address pool created from a
-// public IPv4 address range that you have brought to AWS for use with your AWS
+// Allocates an Elastic IP address to your Amazon Web Services account. After you
+// allocate the Elastic IP address you can associate it with an instance or network
+// interface. After you release an Elastic IP address, it is released to the IP
+// address pool and can be allocated to a different Amazon Web Services account.
+// You can allocate an Elastic IP address from an address pool owned by Amazon Web
+// Services or from an address pool created from a public IPv4 address range that
+// you have brought to Amazon Web Services for use with your Amazon Web Services
 // resources using bring your own IP addresses (BYOIP). For more information, see
 // Bring Your Own IP Addresses (BYOIP)
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-byoip.html) in the
 // Amazon Elastic Compute Cloud User Guide. [EC2-VPC] If you release an Elastic IP
 // address, you might be able to recover it. You cannot recover an Elastic IP
-// address that you released after it is allocated to another AWS account. You
-// cannot recover an Elastic IP address for EC2-Classic. To attempt to recover an
-// Elastic IP address that you released, specify it in this operation. An Elastic
-// IP address is for use either in the EC2-Classic platform or in a VPC. By
-// default, you can allocate 5 Elastic IP addresses for EC2-Classic per Region and
-// 5 Elastic IP addresses for EC2-VPC per Region. For more information, see Elastic
-// IP Addresses
+// address that you released after it is allocated to another Amazon Web Services
+// account. You cannot recover an Elastic IP address for EC2-Classic. To attempt to
+// recover an Elastic IP address that you released, specify it in this operation.
+// An Elastic IP address is for use either in the EC2-Classic platform or in a VPC.
+// By default, you can allocate 5 Elastic IP addresses for EC2-Classic per Region
+// and 5 Elastic IP addresses for EC2-VPC per Region. For more information, see
+// Elastic IP Addresses
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html)
 // in the Amazon Elastic Compute Cloud User Guide. You can allocate a carrier IP
 // address which is a public IP address from a telecommunication carrier, to a
@@ -39,7 +40,7 @@ func (c *Client) AllocateAddress(ctx context.Context, params *AllocateAddressInp
 		params = &AllocateAddressInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "AllocateAddress", params, optFns, addOperationAllocateAddressMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "AllocateAddress", params, optFns, c.addOperationAllocateAddressMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -89,12 +90,14 @@ type AllocateAddressInput struct {
 
 	// The tags to assign to the Elastic IP address.
 	TagSpecifications []types.TagSpecification
+
+	noSmithyDocumentSerde
 }
 
 type AllocateAddressOutput struct {
 
-	// [EC2-VPC] The ID that AWS assigns to represent the allocation of the Elastic IP
-	// address for use with instances in a VPC.
+	// [EC2-VPC] The ID that Amazon Web Services assigns to represent the allocation of
+	// the Elastic IP address for use with instances in a VPC.
 	AllocationId *string
 
 	// The carrier IP address. This option is only available for network interfaces
@@ -123,9 +126,11 @@ type AllocateAddressOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationAllocateAddressMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationAllocateAddressMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpAllocateAddress{}, middleware.After)
 	if err != nil {
 		return err

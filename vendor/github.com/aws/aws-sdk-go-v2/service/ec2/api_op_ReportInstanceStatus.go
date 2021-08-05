@@ -23,7 +23,7 @@ func (c *Client) ReportInstanceStatus(ctx context.Context, params *ReportInstanc
 		params = &ReportInstanceStatusInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ReportInstanceStatus", params, optFns, addOperationReportInstanceStatusMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ReportInstanceStatus", params, optFns, c.addOperationReportInstanceStatusMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -92,14 +92,18 @@ type ReportInstanceStatusInput struct {
 
 	// The time at which the reported instance health state began.
 	StartTime *time.Time
+
+	noSmithyDocumentSerde
 }
 
 type ReportInstanceStatusOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationReportInstanceStatusMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationReportInstanceStatusMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpReportInstanceStatus{}, middleware.After)
 	if err != nil {
 		return err

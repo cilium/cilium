@@ -18,7 +18,7 @@ func (c *Client) AssociateTransitGatewayRouteTable(ctx context.Context, params *
 		params = &AssociateTransitGatewayRouteTableInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "AssociateTransitGatewayRouteTable", params, optFns, addOperationAssociateTransitGatewayRouteTableMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "AssociateTransitGatewayRouteTable", params, optFns, c.addOperationAssociateTransitGatewayRouteTableMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -45,6 +45,8 @@ type AssociateTransitGatewayRouteTableInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type AssociateTransitGatewayRouteTableOutput struct {
@@ -54,9 +56,11 @@ type AssociateTransitGatewayRouteTableOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationAssociateTransitGatewayRouteTableMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationAssociateTransitGatewayRouteTableMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpAssociateTransitGatewayRouteTable{}, middleware.After)
 	if err != nil {
 		return err

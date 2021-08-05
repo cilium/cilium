@@ -14,7 +14,7 @@ import (
 // Creates a VPC with the specified IPv4 CIDR block. The smallest VPC you can
 // create uses a /28 netmask (16 IPv4 addresses), and the largest uses a /16
 // netmask (65,536 IPv4 addresses). For more information about how large to make
-// your VPC, see Your VPC and Subnets
+// your VPC, see Your VPC and subnets
 // (https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html) in the
 // Amazon Virtual Private Cloud User Guide. You can optionally request an IPv6 CIDR
 // block for the VPC. You can request an Amazon-provided IPv6 CIDR block from
@@ -23,7 +23,7 @@ import (
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-byoip.html)). By
 // default, each instance you launch in the VPC has the default DHCP options, which
 // include only a default DNS server that we provide (AmazonProvidedDNS). For more
-// information, see DHCP Options Sets
+// information, see DHCP options sets
 // (https://docs.aws.amazon.com/vpc/latest/userguide/VPC_DHCP_Options.html) in the
 // Amazon Virtual Private Cloud User Guide. You can specify the instance tenancy
 // value for the VPC when you create it. You can't change this value for the VPC
@@ -35,7 +35,7 @@ func (c *Client) CreateVpc(ctx context.Context, params *CreateVpcInput, optFns .
 		params = &CreateVpcInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateVpc", params, optFns, addOperationCreateVpcMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateVpc", params, optFns, c.addOperationCreateVpcMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -89,6 +89,8 @@ type CreateVpcInput struct {
 
 	// The tags to assign to the VPC.
 	TagSpecifications []types.TagSpecification
+
+	noSmithyDocumentSerde
 }
 
 type CreateVpcOutput struct {
@@ -98,9 +100,11 @@ type CreateVpcOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateVpcMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateVpcMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateVpc{}, middleware.After)
 	if err != nil {
 		return err

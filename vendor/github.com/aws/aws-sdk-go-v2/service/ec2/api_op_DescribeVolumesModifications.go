@@ -19,15 +19,15 @@ import (
 // check the status of a modification to an EBS volume. For information about
 // CloudWatch Events, see the Amazon CloudWatch Events User Guide
 // (https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/). For more
-// information, see Monitoring volume modifications
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-expand-volume.html#monitoring_mods)
+// information, see Monitor the progress of volume modifications
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-volume-modifications.html)
 // in the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) DescribeVolumesModifications(ctx context.Context, params *DescribeVolumesModificationsInput, optFns ...func(*Options)) (*DescribeVolumesModificationsOutput, error) {
 	if params == nil {
 		params = &DescribeVolumesModificationsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeVolumesModifications", params, optFns, addOperationDescribeVolumesModificationsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeVolumesModifications", params, optFns, c.addOperationDescribeVolumesModificationsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -89,6 +89,8 @@ type DescribeVolumesModificationsInput struct {
 
 	// The IDs of the volumes.
 	VolumeIds []string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeVolumesModificationsOutput struct {
@@ -101,9 +103,11 @@ type DescribeVolumesModificationsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeVolumesModificationsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeVolumesModificationsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeVolumesModifications{}, middleware.After)
 	if err != nil {
 		return err

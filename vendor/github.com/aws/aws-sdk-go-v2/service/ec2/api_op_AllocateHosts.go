@@ -19,7 +19,7 @@ func (c *Client) AllocateHosts(ctx context.Context, params *AllocateHostsInput, 
 		params = &AllocateHostsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "AllocateHosts", params, optFns, addOperationAllocateHostsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "AllocateHosts", params, optFns, c.addOperationAllocateHostsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -77,6 +77,8 @@ type AllocateHostsInput struct {
 
 	// The tags to apply to the Dedicated Host during creation.
 	TagSpecifications []types.TagSpecification
+
+	noSmithyDocumentSerde
 }
 
 // Contains the output of AllocateHosts.
@@ -88,9 +90,11 @@ type AllocateHostsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationAllocateHostsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationAllocateHostsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpAllocateHosts{}, middleware.After)
 	if err != nil {
 		return err

@@ -25,7 +25,7 @@ func (c *Client) ReleaseHosts(ctx context.Context, params *ReleaseHostsInput, op
 		params = &ReleaseHostsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ReleaseHosts", params, optFns, addOperationReleaseHostsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ReleaseHosts", params, optFns, c.addOperationReleaseHostsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -41,6 +41,8 @@ type ReleaseHostsInput struct {
 	//
 	// This member is required.
 	HostIds []string
+
+	noSmithyDocumentSerde
 }
 
 type ReleaseHostsOutput struct {
@@ -54,9 +56,11 @@ type ReleaseHostsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationReleaseHostsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationReleaseHostsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpReleaseHosts{}, middleware.After)
 	if err != nil {
 		return err

@@ -15,13 +15,13 @@ import (
 // Creates a carrier gateway. For more information about carrier gateways, see
 // Carrier gateways
 // (https://docs.aws.amazon.com/wavelength/latest/developerguide/how-wavelengths-work.html#wavelength-carrier-gateway)
-// in the AWS Wavelength Developer Guide.
+// in the Amazon Web Services Wavelength Developer Guide.
 func (c *Client) CreateCarrierGateway(ctx context.Context, params *CreateCarrierGatewayInput, optFns ...func(*Options)) (*CreateCarrierGatewayOutput, error) {
 	if params == nil {
 		params = &CreateCarrierGatewayInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateCarrierGateway", params, optFns, addOperationCreateCarrierGatewayMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateCarrierGateway", params, optFns, c.addOperationCreateCarrierGatewayMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +39,7 @@ type CreateCarrierGatewayInput struct {
 	VpcId *string
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see How to Ensure Idempotency
+	// the request. For more information, see How to ensure idempotency
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Run_Instance_Idempotency.html).
 	ClientToken *string
 
@@ -51,6 +51,8 @@ type CreateCarrierGatewayInput struct {
 
 	// The tags to associate with the carrier gateway.
 	TagSpecifications []types.TagSpecification
+
+	noSmithyDocumentSerde
 }
 
 type CreateCarrierGatewayOutput struct {
@@ -60,9 +62,11 @@ type CreateCarrierGatewayOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateCarrierGatewayMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateCarrierGatewayMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateCarrierGateway{}, middleware.After)
 	if err != nil {
 		return err

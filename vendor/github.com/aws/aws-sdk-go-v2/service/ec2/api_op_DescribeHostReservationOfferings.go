@@ -26,7 +26,7 @@ func (c *Client) DescribeHostReservationOfferings(ctx context.Context, params *D
 		params = &DescribeHostReservationOfferingsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeHostReservationOfferings", params, optFns, addOperationDescribeHostReservationOfferingsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeHostReservationOfferings", params, optFns, c.addOperationDescribeHostReservationOfferingsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -72,6 +72,8 @@ type DescribeHostReservationOfferingsInput struct {
 
 	// The ID of the reservation offering.
 	OfferingId *string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeHostReservationOfferingsOutput struct {
@@ -85,9 +87,11 @@ type DescribeHostReservationOfferingsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeHostReservationOfferingsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeHostReservationOfferingsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeHostReservationOfferings{}, middleware.After)
 	if err != nil {
 		return err

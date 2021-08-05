@@ -20,7 +20,7 @@ func (c *Client) DescribeSpotDatafeedSubscription(ctx context.Context, params *D
 		params = &DescribeSpotDatafeedSubscriptionInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeSpotDatafeedSubscription", params, optFns, addOperationDescribeSpotDatafeedSubscriptionMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeSpotDatafeedSubscription", params, optFns, c.addOperationDescribeSpotDatafeedSubscriptionMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -38,6 +38,8 @@ type DescribeSpotDatafeedSubscriptionInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 // Contains the output of DescribeSpotDatafeedSubscription.
@@ -48,9 +50,11 @@ type DescribeSpotDatafeedSubscriptionOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeSpotDatafeedSubscriptionMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeSpotDatafeedSubscriptionMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeSpotDatafeedSubscription{}, middleware.After)
 	if err != nil {
 		return err

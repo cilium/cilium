@@ -18,7 +18,7 @@ func (c *Client) DescribeTrafficMirrorTargets(ctx context.Context, params *Descr
 		params = &DescribeTrafficMirrorTargetsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeTrafficMirrorTargets", params, optFns, addOperationDescribeTrafficMirrorTargetsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeTrafficMirrorTargets", params, optFns, c.addOperationDescribeTrafficMirrorTargetsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -63,6 +63,8 @@ type DescribeTrafficMirrorTargetsInput struct {
 
 	// The ID of the Traffic Mirror targets.
 	TrafficMirrorTargetIds []string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeTrafficMirrorTargetsOutput struct {
@@ -76,9 +78,11 @@ type DescribeTrafficMirrorTargetsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeTrafficMirrorTargetsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeTrafficMirrorTargetsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeTrafficMirrorTargets{}, middleware.After)
 	if err != nil {
 		return err

@@ -41,7 +41,7 @@ func (c *Client) CopyImage(ctx context.Context, params *CopyImageInput, optFns .
 		params = &CopyImageInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CopyImage", params, optFns, addOperationCopyImageMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CopyImage", params, optFns, c.addOperationCopyImageMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -126,6 +126,8 @@ type CopyImageInput struct {
 	// the action can appear to complete, but eventually fails. The specified CMK must
 	// exist in the destination Region. Amazon EBS does not support asymmetric CMKs.
 	KmsKeyId *string
+
+	noSmithyDocumentSerde
 }
 
 // Contains the output of CopyImage.
@@ -136,9 +138,11 @@ type CopyImageOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCopyImageMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCopyImageMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCopyImage{}, middleware.After)
 	if err != nil {
 		return err

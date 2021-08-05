@@ -18,7 +18,7 @@ func (c *Client) DescribeLocalGatewayVirtualInterfaceGroups(ctx context.Context,
 		params = &DescribeLocalGatewayVirtualInterfaceGroupsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeLocalGatewayVirtualInterfaceGroups", params, optFns, addOperationDescribeLocalGatewayVirtualInterfaceGroupsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeLocalGatewayVirtualInterfaceGroups", params, optFns, c.addOperationDescribeLocalGatewayVirtualInterfaceGroupsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -57,6 +57,8 @@ type DescribeLocalGatewayVirtualInterfaceGroupsInput struct {
 
 	// The token for the next page of results.
 	NextToken *string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeLocalGatewayVirtualInterfaceGroupsOutput struct {
@@ -70,9 +72,11 @@ type DescribeLocalGatewayVirtualInterfaceGroupsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeLocalGatewayVirtualInterfaceGroupsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeLocalGatewayVirtualInterfaceGroupsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeLocalGatewayVirtualInterfaceGroups{}, middleware.After)
 	if err != nil {
 		return err

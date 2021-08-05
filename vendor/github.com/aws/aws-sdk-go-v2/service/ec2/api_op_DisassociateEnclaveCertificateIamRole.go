@@ -10,19 +10,18 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Disassociates an IAM role from an AWS Certificate Manager (ACM) certificate.
+// Disassociates an IAM role from an Certificate Manager (ACM) certificate.
 // Disassociating an IAM role from an ACM certificate removes the Amazon S3 object
 // that contains the certificate, certificate chain, and encrypted private key from
-// the Amazon S3 bucket. It also revokes the IAM role's permission to use the AWS
-// Key Management Service (KMS) customer master key (CMK) used to encrypt the
-// private key. This effectively revokes the role's permission to use the
-// certificate.
+// the Amazon S3 bucket. It also revokes the IAM role's permission to use the KMS
+// key used to encrypt the private key. This effectively revokes the role's
+// permission to use the certificate.
 func (c *Client) DisassociateEnclaveCertificateIamRole(ctx context.Context, params *DisassociateEnclaveCertificateIamRoleInput, optFns ...func(*Options)) (*DisassociateEnclaveCertificateIamRoleOutput, error) {
 	if params == nil {
 		params = &DisassociateEnclaveCertificateIamRoleInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DisassociateEnclaveCertificateIamRole", params, optFns, addOperationDisassociateEnclaveCertificateIamRoleMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DisassociateEnclaveCertificateIamRole", params, optFns, c.addOperationDisassociateEnclaveCertificateIamRoleMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -45,6 +44,8 @@ type DisassociateEnclaveCertificateIamRoleInput struct {
 
 	// The ARN of the IAM role to disassociate.
 	RoleArn *string
+
+	noSmithyDocumentSerde
 }
 
 type DisassociateEnclaveCertificateIamRoleOutput struct {
@@ -54,9 +55,11 @@ type DisassociateEnclaveCertificateIamRoleOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDisassociateEnclaveCertificateIamRoleMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDisassociateEnclaveCertificateIamRoleMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDisassociateEnclaveCertificateIamRole{}, middleware.After)
 	if err != nil {
 		return err

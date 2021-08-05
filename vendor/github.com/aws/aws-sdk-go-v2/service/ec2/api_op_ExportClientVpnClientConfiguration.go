@@ -19,7 +19,7 @@ func (c *Client) ExportClientVpnClientConfiguration(ctx context.Context, params 
 		params = &ExportClientVpnClientConfigurationInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ExportClientVpnClientConfiguration", params, optFns, addOperationExportClientVpnClientConfigurationMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ExportClientVpnClientConfiguration", params, optFns, c.addOperationExportClientVpnClientConfigurationMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -41,6 +41,8 @@ type ExportClientVpnClientConfigurationInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type ExportClientVpnClientConfigurationOutput struct {
@@ -50,9 +52,11 @@ type ExportClientVpnClientConfigurationOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationExportClientVpnClientConfigurationMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationExportClientVpnClientConfigurationMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpExportClientVpnClientConfiguration{}, middleware.After)
 	if err != nil {
 		return err

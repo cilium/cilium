@@ -19,7 +19,7 @@ func (c *Client) ModifyLaunchTemplate(ctx context.Context, params *ModifyLaunchT
 		params = &ModifyLaunchTemplateInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ModifyLaunchTemplate", params, optFns, addOperationModifyLaunchTemplateMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ModifyLaunchTemplate", params, optFns, c.addOperationModifyLaunchTemplateMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -53,6 +53,8 @@ type ModifyLaunchTemplateInput struct {
 	// The name of the launch template. You must specify either the launch template ID
 	// or launch template name in the request.
 	LaunchTemplateName *string
+
+	noSmithyDocumentSerde
 }
 
 type ModifyLaunchTemplateOutput struct {
@@ -62,9 +64,11 @@ type ModifyLaunchTemplateOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationModifyLaunchTemplateMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationModifyLaunchTemplateMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyLaunchTemplate{}, middleware.After)
 	if err != nil {
 		return err

@@ -26,7 +26,7 @@ import (
 // Both routes apply to the traffic destined for 192.0.2.3. However, the
 // second route in the list covers a smaller number of IP addresses and is
 // therefore more specific, so we use that route to determine where to target the
-// traffic. For more information about route tables, see Route Tables
+// traffic. For more information about route tables, see Route tables
 // (https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Route_Tables.html) in the
 // Amazon Virtual Private Cloud User Guide.
 func (c *Client) CreateRoute(ctx context.Context, params *CreateRouteInput, optFns ...func(*Options)) (*CreateRouteOutput, error) {
@@ -34,7 +34,7 @@ func (c *Client) CreateRoute(ctx context.Context, params *CreateRouteInput, optF
 		params = &CreateRouteInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateRoute", params, optFns, addOperationCreateRouteMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateRoute", params, optFns, c.addOperationCreateRouteMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -101,6 +101,8 @@ type CreateRouteInput struct {
 
 	// The ID of a VPC peering connection.
 	VpcPeeringConnectionId *string
+
+	noSmithyDocumentSerde
 }
 
 type CreateRouteOutput struct {
@@ -110,9 +112,11 @@ type CreateRouteOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateRouteMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateRouteMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateRoute{}, middleware.After)
 	if err != nil {
 		return err

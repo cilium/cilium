@@ -17,7 +17,7 @@ func (c *Client) DeleteTransitGatewayMulticastDomain(ctx context.Context, params
 		params = &DeleteTransitGatewayMulticastDomainInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DeleteTransitGatewayMulticastDomain", params, optFns, addOperationDeleteTransitGatewayMulticastDomainMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DeleteTransitGatewayMulticastDomain", params, optFns, c.addOperationDeleteTransitGatewayMulticastDomainMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -39,6 +39,8 @@ type DeleteTransitGatewayMulticastDomainInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type DeleteTransitGatewayMulticastDomainOutput struct {
@@ -48,9 +50,11 @@ type DeleteTransitGatewayMulticastDomainOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDeleteTransitGatewayMulticastDomainMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDeleteTransitGatewayMulticastDomainMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDeleteTransitGatewayMulticastDomain{}, middleware.After)
 	if err != nil {
 		return err

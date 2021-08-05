@@ -21,7 +21,7 @@ func (c *Client) DescribeClassicLinkInstances(ctx context.Context, params *Descr
 		params = &DescribeClassicLinkInstancesInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeClassicLinkInstances", params, optFns, addOperationDescribeClassicLinkInstancesMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeClassicLinkInstances", params, optFns, c.addOperationDescribeClassicLinkInstancesMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -71,6 +71,8 @@ type DescribeClassicLinkInstancesInput struct {
 
 	// The token for the next page of results.
 	NextToken *string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeClassicLinkInstancesOutput struct {
@@ -84,9 +86,11 @@ type DescribeClassicLinkInstancesOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeClassicLinkInstancesMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeClassicLinkInstancesMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeClassicLinkInstances{}, middleware.After)
 	if err != nil {
 		return err

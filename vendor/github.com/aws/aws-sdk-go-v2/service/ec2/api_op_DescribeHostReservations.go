@@ -18,7 +18,7 @@ func (c *Client) DescribeHostReservations(ctx context.Context, params *DescribeH
 		params = &DescribeHostReservationsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeHostReservations", params, optFns, addOperationDescribeHostReservationsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeHostReservations", params, optFns, c.addOperationDescribeHostReservationsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -63,6 +63,8 @@ type DescribeHostReservationsInput struct {
 
 	// The token to use to retrieve the next page of results.
 	NextToken *string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeHostReservationsOutput struct {
@@ -76,9 +78,11 @@ type DescribeHostReservationsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeHostReservationsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeHostReservationsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeHostReservations{}, middleware.After)
 	if err != nil {
 		return err

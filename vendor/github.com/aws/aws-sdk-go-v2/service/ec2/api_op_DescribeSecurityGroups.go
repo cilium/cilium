@@ -4,12 +4,19 @@ package ec2
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	smithy "github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/middleware"
+	smithytime "github.com/aws/smithy-go/time"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
+	smithywaiter "github.com/aws/smithy-go/waiter"
+	"github.com/jmespath/go-jmespath"
+	"strconv"
+	"time"
 )
 
 // Describes the specified security groups or all of your security groups. A
@@ -24,7 +31,7 @@ func (c *Client) DescribeSecurityGroups(ctx context.Context, params *DescribeSec
 		params = &DescribeSecurityGroupsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeSecurityGroups", params, optFns, addOperationDescribeSecurityGroupsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeSecurityGroups", params, optFns, c.addOperationDescribeSecurityGroupsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -78,24 +85,24 @@ type DescribeSecurityGroupsInput struct {
 	// an outbound rule, the end of port range for the TCP and UDP protocols, or an
 	// ICMP code.
 	//
-	// * egress.ip-permission.user-id - The ID of an AWS account that has
-	// been referenced in an outbound security group rule.
+	// * egress.ip-permission.user-id - The ID of an Amazon Web Services
+	// account that has been referenced in an outbound security group rule.
 	//
-	// * group-id - The ID of the
-	// security group.
+	// * group-id
+	// - The ID of the security group.
 	//
-	// * group-name - The name of the security group.
+	// * group-name - The name of the security
+	// group.
 	//
-	// *
-	// ip-permission.cidr - An IPv4 CIDR block for an inbound security group rule.
-	//
-	// *
-	// ip-permission.from-port - For an inbound rule, the start of port range for the
-	// TCP and UDP protocols, or an ICMP type number.
-	//
-	// * ip-permission.group-id - The
-	// ID of a security group that has been referenced in an inbound security group
+	// * ip-permission.cidr - An IPv4 CIDR block for an inbound security group
 	// rule.
+	//
+	// * ip-permission.from-port - For an inbound rule, the start of port range
+	// for the TCP and UDP protocols, or an ICMP type number.
+	//
+	// * ip-permission.group-id
+	// - The ID of a security group that has been referenced in an inbound security
+	// group rule.
 	//
 	// * ip-permission.group-name - The name of a security group that is
 	// referenced in an inbound security group rule.
@@ -115,34 +122,34 @@ type DescribeSecurityGroupsInput struct {
 	// port range for the TCP and UDP protocols, or an ICMP code.
 	//
 	// *
-	// ip-permission.user-id - The ID of an AWS account that has been referenced in an
-	// inbound security group rule.
+	// ip-permission.user-id - The ID of an Amazon Web Services account that has been
+	// referenced in an inbound security group rule.
 	//
-	// * owner-id - The AWS account ID of the owner of
-	// the security group.
+	// * owner-id - The Amazon Web
+	// Services account ID of the owner of the security group.
 	//
-	// * tag: - The key/value combination of a tag assigned to the
-	// resource. Use the tag key in the filter name and the tag value as the filter
-	// value. For example, to find all resources that have a tag with the key Owner and
-	// the value TeamA, specify tag:Owner for the filter name and TeamA for the filter
-	// value.
+	// * tag: - The key/value
+	// combination of a tag assigned to the resource. Use the tag key in the filter
+	// name and the tag value as the filter value. For example, to find all resources
+	// that have a tag with the key Owner and the value TeamA, specify tag:Owner for
+	// the filter name and TeamA for the filter value.
 	//
-	// * tag-key - The key of a tag assigned to the resource. Use this filter
-	// to find all resources assigned a tag with a specific key, regardless of the tag
-	// value.
+	// * tag-key - The key of a tag
+	// assigned to the resource. Use this filter to find all resources assigned a tag
+	// with a specific key, regardless of the tag value.
 	//
-	// * vpc-id - The ID of the VPC specified when the security group was
-	// created.
+	// * vpc-id - The ID of the VPC
+	// specified when the security group was created.
 	Filters []types.Filter
 
 	// The IDs of the security groups. Required for security groups in a nondefault
-	// VPC. Default: Describes all your security groups.
+	// VPC. Default: Describes all of your security groups.
 	GroupIds []string
 
 	// [EC2-Classic and default VPC only] The names of the security groups. You can
 	// specify either the security group name or the security group ID. For security
 	// groups in a nondefault VPC, use the group-name filter to describe security
-	// groups by name. Default: Describes all your security groups.
+	// groups by name. Default: Describes all of your security groups.
 	GroupNames []string
 
 	// The maximum number of results to return in a single call. To retrieve the
@@ -153,6 +160,8 @@ type DescribeSecurityGroupsInput struct {
 
 	// The token to request the next page of results.
 	NextToken *string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeSecurityGroupsOutput struct {
@@ -166,9 +175,11 @@ type DescribeSecurityGroupsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeSecurityGroupsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeSecurityGroupsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeSecurityGroups{}, middleware.After)
 	if err != nil {
 		return err
@@ -316,6 +327,174 @@ func (p *DescribeSecurityGroupsPaginator) NextPage(ctx context.Context, optFns .
 	}
 
 	return result, nil
+}
+
+// SecurityGroupExistsWaiterOptions are waiter options for
+// SecurityGroupExistsWaiter
+type SecurityGroupExistsWaiterOptions struct {
+
+	// Set of options to modify how an operation is invoked. These apply to all
+	// operations invoked for this client. Use functional options on operation call to
+	// modify this list for per operation behavior.
+	APIOptions []func(*middleware.Stack) error
+
+	// MinDelay is the minimum amount of time to delay between retries. If unset,
+	// SecurityGroupExistsWaiter will use default minimum delay of 5 seconds. Note that
+	// MinDelay must resolve to a value lesser than or equal to the MaxDelay.
+	MinDelay time.Duration
+
+	// MaxDelay is the maximum amount of time to delay between retries. If unset or set
+	// to zero, SecurityGroupExistsWaiter will use default max delay of 120 seconds.
+	// Note that MaxDelay must resolve to value greater than or equal to the MinDelay.
+	MaxDelay time.Duration
+
+	// LogWaitAttempts is used to enable logging for waiter retry attempts
+	LogWaitAttempts bool
+
+	// Retryable is function that can be used to override the service defined
+	// waiter-behavior based on operation output, or returned error. This function is
+	// used by the waiter to decide if a state is retryable or a terminal state. By
+	// default service-modeled logic will populate this option. This option can thus be
+	// used to define a custom waiter state with fall-back to service-modeled waiter
+	// state mutators.The function returns an error in case of a failure state. In case
+	// of retry state, this function returns a bool value of true and nil error, while
+	// in case of success it returns a bool value of false and nil error.
+	Retryable func(context.Context, *DescribeSecurityGroupsInput, *DescribeSecurityGroupsOutput, error) (bool, error)
+}
+
+// SecurityGroupExistsWaiter defines the waiters for SecurityGroupExists
+type SecurityGroupExistsWaiter struct {
+	client DescribeSecurityGroupsAPIClient
+
+	options SecurityGroupExistsWaiterOptions
+}
+
+// NewSecurityGroupExistsWaiter constructs a SecurityGroupExistsWaiter.
+func NewSecurityGroupExistsWaiter(client DescribeSecurityGroupsAPIClient, optFns ...func(*SecurityGroupExistsWaiterOptions)) *SecurityGroupExistsWaiter {
+	options := SecurityGroupExistsWaiterOptions{}
+	options.MinDelay = 5 * time.Second
+	options.MaxDelay = 120 * time.Second
+	options.Retryable = securityGroupExistsStateRetryable
+
+	for _, fn := range optFns {
+		fn(&options)
+	}
+	return &SecurityGroupExistsWaiter{
+		client:  client,
+		options: options,
+	}
+}
+
+// Wait calls the waiter function for SecurityGroupExists waiter. The maxWaitDur is
+// the maximum wait duration the waiter will wait. The maxWaitDur is required and
+// must be greater than zero.
+func (w *SecurityGroupExistsWaiter) Wait(ctx context.Context, params *DescribeSecurityGroupsInput, maxWaitDur time.Duration, optFns ...func(*SecurityGroupExistsWaiterOptions)) error {
+	if maxWaitDur <= 0 {
+		return fmt.Errorf("maximum wait time for waiter must be greater than zero")
+	}
+
+	options := w.options
+	for _, fn := range optFns {
+		fn(&options)
+	}
+
+	if options.MaxDelay <= 0 {
+		options.MaxDelay = 120 * time.Second
+	}
+
+	if options.MinDelay > options.MaxDelay {
+		return fmt.Errorf("minimum waiter delay %v must be lesser than or equal to maximum waiter delay of %v.", options.MinDelay, options.MaxDelay)
+	}
+
+	ctx, cancelFn := context.WithTimeout(ctx, maxWaitDur)
+	defer cancelFn()
+
+	logger := smithywaiter.Logger{}
+	remainingTime := maxWaitDur
+
+	var attempt int64
+	for {
+
+		attempt++
+		apiOptions := options.APIOptions
+		start := time.Now()
+
+		if options.LogWaitAttempts {
+			logger.Attempt = attempt
+			apiOptions = append([]func(*middleware.Stack) error{}, options.APIOptions...)
+			apiOptions = append(apiOptions, logger.AddLogger)
+		}
+
+		out, err := w.client.DescribeSecurityGroups(ctx, params, func(o *Options) {
+			o.APIOptions = append(o.APIOptions, apiOptions...)
+		})
+
+		retryable, err := options.Retryable(ctx, params, out, err)
+		if err != nil {
+			return err
+		}
+		if !retryable {
+			return nil
+		}
+
+		remainingTime -= time.Since(start)
+		if remainingTime < options.MinDelay || remainingTime <= 0 {
+			break
+		}
+
+		// compute exponential backoff between waiter retries
+		delay, err := smithywaiter.ComputeDelay(
+			attempt, options.MinDelay, options.MaxDelay, remainingTime,
+		)
+		if err != nil {
+			return fmt.Errorf("error computing waiter delay, %w", err)
+		}
+
+		remainingTime -= delay
+		// sleep for the delay amount before invoking a request
+		if err := smithytime.SleepWithContext(ctx, delay); err != nil {
+			return fmt.Errorf("request cancelled while waiting, %w", err)
+		}
+	}
+	return fmt.Errorf("exceeded max wait time for SecurityGroupExists waiter")
+}
+
+func securityGroupExistsStateRetryable(ctx context.Context, input *DescribeSecurityGroupsInput, output *DescribeSecurityGroupsOutput, err error) (bool, error) {
+
+	if err == nil {
+		pathValue, err := jmespath.Search("length(SecurityGroups[].GroupId) > `0`", output)
+		if err != nil {
+			return false, fmt.Errorf("error evaluating waiter state: %w", err)
+		}
+
+		expectedValue := "true"
+		bv, err := strconv.ParseBool(expectedValue)
+		if err != nil {
+			return false, fmt.Errorf("error parsing boolean from string %w", err)
+		}
+		value, ok := pathValue.(bool)
+		if !ok {
+			return false, fmt.Errorf("waiter comparator expected bool value got %T", pathValue)
+		}
+
+		if value == bv {
+			return false, nil
+		}
+	}
+
+	if err != nil {
+		var apiErr smithy.APIError
+		ok := errors.As(err, &apiErr)
+		if !ok {
+			return false, fmt.Errorf("expected err to be of type smithy.APIError, got %w", err)
+		}
+
+		if "InvalidGroup.NotFound" == apiErr.ErrorCode() {
+			return true, nil
+		}
+	}
+
+	return true, nil
 }
 
 func newServiceMetadataMiddleware_opDescribeSecurityGroups(region string) *awsmiddleware.RegisterServiceMetadata {

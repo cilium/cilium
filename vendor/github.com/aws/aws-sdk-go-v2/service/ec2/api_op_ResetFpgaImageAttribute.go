@@ -18,7 +18,7 @@ func (c *Client) ResetFpgaImageAttribute(ctx context.Context, params *ResetFpgaI
 		params = &ResetFpgaImageAttributeInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ResetFpgaImageAttribute", params, optFns, addOperationResetFpgaImageAttributeMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ResetFpgaImageAttribute", params, optFns, c.addOperationResetFpgaImageAttributeMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -43,6 +43,8 @@ type ResetFpgaImageAttributeInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type ResetFpgaImageAttributeOutput struct {
@@ -52,9 +54,11 @@ type ResetFpgaImageAttributeOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationResetFpgaImageAttributeMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationResetFpgaImageAttributeMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpResetFpgaImageAttribute{}, middleware.After)
 	if err != nil {
 		return err

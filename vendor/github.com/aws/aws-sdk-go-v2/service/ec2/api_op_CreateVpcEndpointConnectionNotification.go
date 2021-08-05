@@ -22,7 +22,7 @@ func (c *Client) CreateVpcEndpointConnectionNotification(ctx context.Context, pa
 		params = &CreateVpcEndpointConnectionNotificationInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateVpcEndpointConnectionNotification", params, optFns, addOperationCreateVpcEndpointConnectionNotificationMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateVpcEndpointConnectionNotification", params, optFns, c.addOperationCreateVpcEndpointConnectionNotificationMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -61,6 +61,8 @@ type CreateVpcEndpointConnectionNotificationInput struct {
 
 	// The ID of the endpoint.
 	VpcEndpointId *string
+
+	noSmithyDocumentSerde
 }
 
 type CreateVpcEndpointConnectionNotificationOutput struct {
@@ -74,9 +76,11 @@ type CreateVpcEndpointConnectionNotificationOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateVpcEndpointConnectionNotificationMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateVpcEndpointConnectionNotificationMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateVpcEndpointConnectionNotification{}, middleware.After)
 	if err != nil {
 		return err

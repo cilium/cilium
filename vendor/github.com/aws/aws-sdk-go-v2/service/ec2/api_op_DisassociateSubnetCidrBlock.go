@@ -19,7 +19,7 @@ func (c *Client) DisassociateSubnetCidrBlock(ctx context.Context, params *Disass
 		params = &DisassociateSubnetCidrBlockInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DisassociateSubnetCidrBlock", params, optFns, addOperationDisassociateSubnetCidrBlockMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DisassociateSubnetCidrBlock", params, optFns, c.addOperationDisassociateSubnetCidrBlockMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -35,6 +35,8 @@ type DisassociateSubnetCidrBlockInput struct {
 	//
 	// This member is required.
 	AssociationId *string
+
+	noSmithyDocumentSerde
 }
 
 type DisassociateSubnetCidrBlockOutput struct {
@@ -47,9 +49,11 @@ type DisassociateSubnetCidrBlockOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDisassociateSubnetCidrBlockMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDisassociateSubnetCidrBlockMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDisassociateSubnetCidrBlock{}, middleware.After)
 	if err != nil {
 		return err

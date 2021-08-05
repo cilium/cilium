@@ -17,7 +17,7 @@ func (c *Client) EnableVolumeIO(ctx context.Context, params *EnableVolumeIOInput
 		params = &EnableVolumeIOInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "EnableVolumeIO", params, optFns, addOperationEnableVolumeIOMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "EnableVolumeIO", params, optFns, c.addOperationEnableVolumeIOMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -39,14 +39,18 @@ type EnableVolumeIOInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type EnableVolumeIOOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationEnableVolumeIOMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationEnableVolumeIOMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpEnableVolumeIO{}, middleware.After)
 	if err != nil {
 		return err

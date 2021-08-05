@@ -20,7 +20,7 @@ func (c *Client) ModifyVpnConnectionOptions(ctx context.Context, params *ModifyV
 		params = &ModifyVpnConnectionOptionsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ModifyVpnConnectionOptions", params, optFns, addOperationModifyVpnConnectionOptionsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ModifyVpnConnectionOptions", params, optFns, c.addOperationModifyVpnConnectionOptionsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -56,6 +56,8 @@ type ModifyVpnConnectionOptionsInput struct {
 
 	// The IPv6 CIDR on the AWS side of the VPN connection. Default: ::/0
 	RemoteIpv6NetworkCidr *string
+
+	noSmithyDocumentSerde
 }
 
 type ModifyVpnConnectionOptionsOutput struct {
@@ -65,9 +67,11 @@ type ModifyVpnConnectionOptionsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationModifyVpnConnectionOptionsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationModifyVpnConnectionOptionsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyVpnConnectionOptions{}, middleware.After)
 	if err != nil {
 		return err

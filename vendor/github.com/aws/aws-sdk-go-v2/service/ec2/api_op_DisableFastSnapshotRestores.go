@@ -18,7 +18,7 @@ func (c *Client) DisableFastSnapshotRestores(ctx context.Context, params *Disabl
 		params = &DisableFastSnapshotRestoresInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DisableFastSnapshotRestores", params, optFns, addOperationDisableFastSnapshotRestoresMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DisableFastSnapshotRestores", params, optFns, c.addOperationDisableFastSnapshotRestoresMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -45,6 +45,8 @@ type DisableFastSnapshotRestoresInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type DisableFastSnapshotRestoresOutput struct {
@@ -59,9 +61,11 @@ type DisableFastSnapshotRestoresOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDisableFastSnapshotRestoresMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDisableFastSnapshotRestoresMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDisableFastSnapshotRestores{}, middleware.After)
 	if err != nil {
 		return err

@@ -17,7 +17,7 @@ func (c *Client) GetCoipPoolUsage(ctx context.Context, params *GetCoipPoolUsageI
 		params = &GetCoipPoolUsageInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetCoipPoolUsage", params, optFns, addOperationGetCoipPoolUsageMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetCoipPoolUsage", params, optFns, c.addOperationGetCoipPoolUsageMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -59,6 +59,8 @@ type GetCoipPoolUsageInput struct {
 
 	// The token for the next page of results.
 	NextToken *string
+
+	noSmithyDocumentSerde
 }
 
 type GetCoipPoolUsageOutput struct {
@@ -74,9 +76,11 @@ type GetCoipPoolUsageOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationGetCoipPoolUsageMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetCoipPoolUsageMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpGetCoipPoolUsage{}, middleware.After)
 	if err != nil {
 		return err

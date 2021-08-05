@@ -19,9 +19,9 @@ import (
 // unmount the volume, force detachment, reboot the instance, or all three. If an
 // EBS volume is the root device of an instance, it can't be detached while the
 // instance is running. To detach the root volume, stop the instance first. When a
-// volume with an AWS Marketplace product code is detached from an instance, the
-// product code is no longer associated with the instance. For more information,
-// see Detaching an Amazon EBS volume
+// volume with an Amazon Web Services Marketplace product code is detached from an
+// instance, the product code is no longer associated with the instance. For more
+// information, see Detach an Amazon EBS volume
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-detaching-volume.html)
 // in the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) DetachVolume(ctx context.Context, params *DetachVolumeInput, optFns ...func(*Options)) (*DetachVolumeOutput, error) {
@@ -29,7 +29,7 @@ func (c *Client) DetachVolume(ctx context.Context, params *DetachVolumeInput, op
 		params = &DetachVolumeInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DetachVolume", params, optFns, addOperationDetachVolumeMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DetachVolume", params, optFns, c.addOperationDetachVolumeMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -67,6 +67,8 @@ type DetachVolumeInput struct {
 	// The ID of the instance. If you are detaching a Multi-Attach enabled volume, you
 	// must specify an instance ID.
 	InstanceId *string
+
+	noSmithyDocumentSerde
 }
 
 // Describes volume attachment details.
@@ -92,9 +94,11 @@ type DetachVolumeOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDetachVolumeMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDetachVolumeMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDetachVolume{}, middleware.After)
 	if err != nil {
 		return err

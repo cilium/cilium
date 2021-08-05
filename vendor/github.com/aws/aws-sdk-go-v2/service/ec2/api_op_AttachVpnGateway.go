@@ -20,7 +20,7 @@ func (c *Client) AttachVpnGateway(ctx context.Context, params *AttachVpnGatewayI
 		params = &AttachVpnGatewayInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "AttachVpnGateway", params, optFns, addOperationAttachVpnGatewayMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "AttachVpnGateway", params, optFns, c.addOperationAttachVpnGatewayMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -48,6 +48,8 @@ type AttachVpnGatewayInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 // Contains the output of AttachVpnGateway.
@@ -58,9 +60,11 @@ type AttachVpnGatewayOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationAttachVpnGatewayMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationAttachVpnGatewayMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpAttachVpnGateway{}, middleware.After)
 	if err != nil {
 		return err

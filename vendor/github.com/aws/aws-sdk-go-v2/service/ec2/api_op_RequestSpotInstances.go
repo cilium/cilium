@@ -21,7 +21,7 @@ func (c *Client) RequestSpotInstances(ctx context.Context, params *RequestSpotIn
 		params = &RequestSpotInstancesInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "RequestSpotInstances", params, optFns, addOperationRequestSpotInstancesMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "RequestSpotInstances", params, optFns, c.addOperationRequestSpotInstancesMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -52,15 +52,7 @@ type RequestSpotInstancesInput struct {
 	// Availability Zone.
 	AvailabilityZoneGroup *string
 
-	// The required duration for the Spot Instances (also known as Spot blocks), in
-	// minutes. This value must be a multiple of 60 (60, 120, 180, 240, 300, or 360).
-	// The duration period starts as soon as your Spot Instance receives its instance
-	// ID. At the end of the duration period, Amazon EC2 marks the Spot Instance for
-	// termination and provides a Spot Instance termination notice, which gives the
-	// instance a two-minute warning before it terminates. You can't specify an
-	// Availability Zone group or a launch group if you specify a duration. New
-	// accounts or accounts with no previous billing history with AWS are not eligible
-	// for Spot Instances with a defined duration (also known as Spot blocks).
+	// Deprecated.
 	BlockDurationMinutes *int32
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
@@ -123,6 +115,8 @@ type RequestSpotInstancesInput struct {
 	// the request is canceled, or the ValidUntil date and time is reached. By default,
 	// the request is valid for 7 days from the date the request was created.
 	ValidUntil *time.Time
+
+	noSmithyDocumentSerde
 }
 
 // Contains the output of RequestSpotInstances.
@@ -133,9 +127,11 @@ type RequestSpotInstancesOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationRequestSpotInstancesMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationRequestSpotInstancesMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpRequestSpotInstances{}, middleware.After)
 	if err != nil {
 		return err

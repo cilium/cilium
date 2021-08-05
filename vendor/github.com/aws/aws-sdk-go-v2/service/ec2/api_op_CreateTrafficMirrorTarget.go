@@ -24,7 +24,7 @@ func (c *Client) CreateTrafficMirrorTarget(ctx context.Context, params *CreateTr
 		params = &CreateTrafficMirrorTargetInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateTrafficMirrorTarget", params, optFns, addOperationCreateTrafficMirrorTargetMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateTrafficMirrorTarget", params, optFns, c.addOperationCreateTrafficMirrorTargetMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -59,6 +59,8 @@ type CreateTrafficMirrorTargetInput struct {
 
 	// The tags to assign to the Traffic Mirror target.
 	TagSpecifications []types.TagSpecification
+
+	noSmithyDocumentSerde
 }
 
 type CreateTrafficMirrorTargetOutput struct {
@@ -73,9 +75,11 @@ type CreateTrafficMirrorTargetOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateTrafficMirrorTargetMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateTrafficMirrorTargetMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateTrafficMirrorTarget{}, middleware.After)
 	if err != nil {
 		return err

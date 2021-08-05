@@ -10,29 +10,29 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Associates an AWS Identity and Access Management (IAM) role with an AWS
-// Certificate Manager (ACM) certificate. This enables the certificate to be used
-// by the ACM for Nitro Enclaves application inside an enclave. For more
-// information, see AWS Certificate Manager for Nitro Enclaves
+// Associates an Identity and Access Management (IAM) role with an Certificate
+// Manager (ACM) certificate. This enables the certificate to be used by the ACM
+// for Nitro Enclaves application inside an enclave. For more information, see
+// Certificate Manager for Nitro Enclaves
 // (https://docs.aws.amazon.com/enclaves/latest/user/nitro-enclave-refapp.html) in
-// the AWS Nitro Enclaves User Guide. When the IAM role is associated with the ACM
-// certificate, the certificate, certificate chain, and encrypted private key are
-// placed in an Amazon S3 bucket that only the associated IAM role can access. The
-// private key of the certificate is encrypted with an AWS-managed KMS customer
-// master (CMK) that has an attached attestation-based CMK policy. To enable the
-// IAM role to access the Amazon S3 object, you must grant it permission to call
-// s3:GetObject on the Amazon S3 bucket returned by the command. To enable the IAM
-// role to access the AWS KMS CMK, you must grant it permission to call kms:Decrypt
-// on the AWS KMS CMK returned by the command. For more information, see  Grant the
-// role permission to access the certificate and encryption key
+// the Amazon Web Services Nitro Enclaves User Guide. When the IAM role is
+// associated with the ACM certificate, the certificate, certificate chain, and
+// encrypted private key are placed in an Amazon S3 bucket that only the associated
+// IAM role can access. The private key of the certificate is encrypted with an
+// Amazon Web Services managed key that has an attached attestation-based key
+// policy. To enable the IAM role to access the Amazon S3 object, you must grant it
+// permission to call s3:GetObject on the Amazon S3 bucket returned by the command.
+// To enable the IAM role to access the KMS key, you must grant it permission to
+// call kms:Decrypt on the KMS key returned by the command. For more information,
+// see  Grant the role permission to access the certificate and encryption key
 // (https://docs.aws.amazon.com/enclaves/latest/user/nitro-enclave-refapp.html#add-policy)
-// in the AWS Nitro Enclaves User Guide.
+// in the Amazon Web Services Nitro Enclaves User Guide.
 func (c *Client) AssociateEnclaveCertificateIamRole(ctx context.Context, params *AssociateEnclaveCertificateIamRoleInput, optFns ...func(*Options)) (*AssociateEnclaveCertificateIamRoleOutput, error) {
 	if params == nil {
 		params = &AssociateEnclaveCertificateIamRoleInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "AssociateEnclaveCertificateIamRole", params, optFns, addOperationAssociateEnclaveCertificateIamRoleMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "AssociateEnclaveCertificateIamRole", params, optFns, c.addOperationAssociateEnclaveCertificateIamRoleMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -56,6 +56,8 @@ type AssociateEnclaveCertificateIamRoleInput struct {
 	// The ARN of the IAM role to associate with the ACM certificate. You can associate
 	// up to 16 IAM roles with an ACM certificate.
 	RoleArn *string
+
+	noSmithyDocumentSerde
 }
 
 type AssociateEnclaveCertificateIamRoleOutput struct {
@@ -68,14 +70,16 @@ type AssociateEnclaveCertificateIamRoleOutput struct {
 	// role_arn/certificate_arn.
 	CertificateS3ObjectKey *string
 
-	// The ID of the AWS KMS CMK used to encrypt the private key of the certificate.
+	// The ID of the KMS key used to encrypt the private key of the certificate.
 	EncryptionKmsKeyId *string
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationAssociateEnclaveCertificateIamRoleMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationAssociateEnclaveCertificateIamRoleMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpAssociateEnclaveCertificateIamRole{}, middleware.After)
 	if err != nil {
 		return err

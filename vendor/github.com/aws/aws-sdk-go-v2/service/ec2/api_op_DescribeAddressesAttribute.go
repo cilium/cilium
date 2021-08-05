@@ -20,7 +20,7 @@ func (c *Client) DescribeAddressesAttribute(ctx context.Context, params *Describ
 		params = &DescribeAddressesAttributeInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeAddressesAttribute", params, optFns, addOperationDescribeAddressesAttributeMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeAddressesAttribute", params, optFns, c.addOperationDescribeAddressesAttributeMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -50,6 +50,8 @@ type DescribeAddressesAttributeInput struct {
 
 	// The token for the next page of results.
 	NextToken *string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeAddressesAttributeOutput struct {
@@ -63,9 +65,11 @@ type DescribeAddressesAttributeOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeAddressesAttributeMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeAddressesAttributeMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeAddressesAttribute{}, middleware.After)
 	if err != nil {
 		return err

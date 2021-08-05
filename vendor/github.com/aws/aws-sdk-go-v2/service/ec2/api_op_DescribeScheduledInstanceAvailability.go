@@ -24,7 +24,7 @@ func (c *Client) DescribeScheduledInstanceAvailability(ctx context.Context, para
 		params = &DescribeScheduledInstanceAvailabilityInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeScheduledInstanceAvailability", params, optFns, addOperationDescribeScheduledInstanceAvailabilityMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeScheduledInstanceAvailability", params, optFns, c.addOperationDescribeScheduledInstanceAvailabilityMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -83,6 +83,8 @@ type DescribeScheduledInstanceAvailabilityInput struct {
 
 	// The token for the next set of results.
 	NextToken *string
+
+	noSmithyDocumentSerde
 }
 
 // Contains the output of DescribeScheduledInstanceAvailability.
@@ -97,9 +99,11 @@ type DescribeScheduledInstanceAvailabilityOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeScheduledInstanceAvailabilityMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeScheduledInstanceAvailabilityMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeScheduledInstanceAvailability{}, middleware.After)
 	if err != nil {
 		return err

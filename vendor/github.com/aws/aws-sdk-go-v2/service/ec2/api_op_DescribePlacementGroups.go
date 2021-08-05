@@ -20,7 +20,7 @@ func (c *Client) DescribePlacementGroups(ctx context.Context, params *DescribePl
 		params = &DescribePlacementGroupsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribePlacementGroups", params, optFns, addOperationDescribePlacementGroupsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribePlacementGroups", params, optFns, c.addOperationDescribePlacementGroupsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -66,6 +66,8 @@ type DescribePlacementGroupsInput struct {
 	// The names of the placement groups. Default: Describes all your placement groups,
 	// or only those otherwise specified.
 	GroupNames []string
+
+	noSmithyDocumentSerde
 }
 
 type DescribePlacementGroupsOutput struct {
@@ -75,9 +77,11 @@ type DescribePlacementGroupsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribePlacementGroupsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribePlacementGroupsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribePlacementGroups{}, middleware.After)
 	if err != nil {
 		return err

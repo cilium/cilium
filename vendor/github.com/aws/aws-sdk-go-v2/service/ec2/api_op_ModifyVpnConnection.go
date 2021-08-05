@@ -51,7 +51,7 @@ func (c *Client) ModifyVpnConnection(ctx context.Context, params *ModifyVpnConne
 		params = &ModifyVpnConnectionInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ModifyVpnConnection", params, optFns, addOperationModifyVpnConnectionMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ModifyVpnConnection", params, optFns, c.addOperationModifyVpnConnectionMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -82,6 +82,8 @@ type ModifyVpnConnectionInput struct {
 
 	// The ID of the virtual private gateway at the AWS side of the VPN connection.
 	VpnGatewayId *string
+
+	noSmithyDocumentSerde
 }
 
 type ModifyVpnConnectionOutput struct {
@@ -91,9 +93,11 @@ type ModifyVpnConnectionOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationModifyVpnConnectionMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationModifyVpnConnectionMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyVpnConnection{}, middleware.After)
 	if err != nil {
 		return err

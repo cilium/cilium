@@ -22,7 +22,7 @@ func (c *Client) CreateFleet(ctx context.Context, params *CreateFleetInput, optF
 		params = &CreateFleetInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateFleet", params, optFns, addOperationCreateFleetMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateFleet", params, optFns, c.addOperationCreateFleetMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -49,6 +49,9 @@ type CreateFleetInput struct {
 	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
 	ClientToken *string
 
+	// Reserved.
+	Context *string
+
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
@@ -72,19 +75,22 @@ type CreateFleetInput struct {
 	// Describes the configuration of Spot Instances in an EC2 Fleet.
 	SpotOptions *types.SpotOptionsRequest
 
-	// The key-value pair for tagging the EC2 Fleet request on creation. The value for
-	// ResourceType must be fleet, otherwise the fleet request fails. To tag instances
-	// at launch, specify the tags in the launch template
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-templates.html#create-launch-template).
-	// For information about tagging after launch, see Tagging your resources
+	// The key-value pair for tagging the EC2 Fleet request on creation. For more
+	// information, see Tagging your resources
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html#tag-resources).
+	// If the fleet type is instant, specify a resource type of fleet to tag the fleet
+	// or instance to tag the instances at launch. If the fleet type is maintain or
+	// request, specify a resource type of fleet to tag the fleet. You cannot specify a
+	// resource type of instance. To tag instances at launch, specify the tags in a
+	// launch template
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-templates.html#create-launch-template).
 	TagSpecifications []types.TagSpecification
 
 	// Indicates whether running instances should be terminated when the EC2 Fleet
 	// expires.
 	TerminateInstancesWithExpiration *bool
 
-	// The type of request. The default value is maintain.
+	// The fleet type. The default value is maintain.
 	//
 	// * maintain - The EC2 Fleet
 	// places an asynchronous request for your desired capacity, and continues to
@@ -115,26 +121,30 @@ type CreateFleetInput struct {
 	// able to fulfill the request. If no value is specified, the request remains until
 	// you cancel it.
 	ValidUntil *time.Time
+
+	noSmithyDocumentSerde
 }
 
 type CreateFleetOutput struct {
 
-	// Information about the instances that could not be launched by the fleet. Valid
-	// only when Type is set to instant.
+	// Information about the instances that could not be launched by the fleet.
+	// Supported only for fleets of type instant.
 	Errors []types.CreateFleetError
 
 	// The ID of the EC2 Fleet.
 	FleetId *string
 
-	// Information about the instances that were launched by the fleet. Valid only when
-	// Type is set to instant.
+	// Information about the instances that were launched by the fleet. Supported only
+	// for fleets of type instant.
 	Instances []types.CreateFleetInstance
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateFleetMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateFleetMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateFleet{}, middleware.After)
 	if err != nil {
 		return err

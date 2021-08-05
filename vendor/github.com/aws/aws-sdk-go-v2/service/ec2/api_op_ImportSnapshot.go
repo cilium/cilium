@@ -20,7 +20,7 @@ func (c *Client) ImportSnapshot(ctx context.Context, params *ImportSnapshotInput
 		params = &ImportSnapshotInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ImportSnapshot", params, optFns, addOperationImportSnapshotMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ImportSnapshot", params, optFns, c.addOperationImportSnapshotMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -96,6 +96,8 @@ type ImportSnapshotInput struct {
 
 	// The tags to apply to the import snapshot task during creation.
 	TagSpecifications []types.TagSpecification
+
+	noSmithyDocumentSerde
 }
 
 type ImportSnapshotOutput struct {
@@ -114,9 +116,11 @@ type ImportSnapshotOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationImportSnapshotMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationImportSnapshotMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpImportSnapshot{}, middleware.After)
 	if err != nil {
 		return err

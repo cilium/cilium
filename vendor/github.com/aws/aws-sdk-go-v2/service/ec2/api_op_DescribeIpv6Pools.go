@@ -18,7 +18,7 @@ func (c *Client) DescribeIpv6Pools(ctx context.Context, params *DescribeIpv6Pool
 		params = &DescribeIpv6PoolsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeIpv6Pools", params, optFns, addOperationDescribeIpv6PoolsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeIpv6Pools", params, optFns, c.addOperationDescribeIpv6PoolsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -58,6 +58,8 @@ type DescribeIpv6PoolsInput struct {
 
 	// The IDs of the IPv6 address pools.
 	PoolIds []string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeIpv6PoolsOutput struct {
@@ -71,9 +73,11 @@ type DescribeIpv6PoolsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeIpv6PoolsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeIpv6PoolsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeIpv6Pools{}, middleware.After)
 	if err != nil {
 		return err

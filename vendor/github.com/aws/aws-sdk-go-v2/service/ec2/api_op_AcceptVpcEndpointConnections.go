@@ -18,7 +18,7 @@ func (c *Client) AcceptVpcEndpointConnections(ctx context.Context, params *Accep
 		params = &AcceptVpcEndpointConnectionsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "AcceptVpcEndpointConnections", params, optFns, addOperationAcceptVpcEndpointConnectionsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "AcceptVpcEndpointConnections", params, optFns, c.addOperationAcceptVpcEndpointConnectionsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -45,6 +45,8 @@ type AcceptVpcEndpointConnectionsInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type AcceptVpcEndpointConnectionsOutput struct {
@@ -54,9 +56,11 @@ type AcceptVpcEndpointConnectionsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationAcceptVpcEndpointConnectionsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationAcceptVpcEndpointConnectionsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpAcceptVpcEndpointConnections{}, middleware.After)
 	if err != nil {
 		return err

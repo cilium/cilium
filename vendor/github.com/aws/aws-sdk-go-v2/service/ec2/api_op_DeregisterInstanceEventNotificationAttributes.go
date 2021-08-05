@@ -11,14 +11,14 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Deregisters tag keys to prevent tags that have the specified tag keys from being
-// included in scheduled event notifications for resources in the Region.
+// c Deregisters tag keys to prevent tags that have the specified tag keys from
+// being included in scheduled event notifications for resources in the Region.
 func (c *Client) DeregisterInstanceEventNotificationAttributes(ctx context.Context, params *DeregisterInstanceEventNotificationAttributesInput, optFns ...func(*Options)) (*DeregisterInstanceEventNotificationAttributesOutput, error) {
 	if params == nil {
 		params = &DeregisterInstanceEventNotificationAttributesInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DeregisterInstanceEventNotificationAttributes", params, optFns, addOperationDeregisterInstanceEventNotificationAttributesMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DeregisterInstanceEventNotificationAttributes", params, optFns, c.addOperationDeregisterInstanceEventNotificationAttributesMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -38,6 +38,8 @@ type DeregisterInstanceEventNotificationAttributesInput struct {
 
 	// Information about the tag keys to deregister.
 	InstanceTagAttribute *types.DeregisterInstanceTagAttributeRequest
+
+	noSmithyDocumentSerde
 }
 
 type DeregisterInstanceEventNotificationAttributesOutput struct {
@@ -47,9 +49,11 @@ type DeregisterInstanceEventNotificationAttributesOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDeregisterInstanceEventNotificationAttributesMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDeregisterInstanceEventNotificationAttributesMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDeregisterInstanceEventNotificationAttributes{}, middleware.After)
 	if err != nil {
 		return err

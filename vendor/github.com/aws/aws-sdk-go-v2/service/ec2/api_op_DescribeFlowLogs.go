@@ -20,7 +20,7 @@ func (c *Client) DescribeFlowLogs(ctx context.Context, params *DescribeFlowLogsI
 		params = &DescribeFlowLogsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeFlowLogs", params, optFns, addOperationDescribeFlowLogsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeFlowLogs", params, optFns, c.addOperationDescribeFlowLogsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -77,6 +77,8 @@ type DescribeFlowLogsInput struct {
 
 	// The token for the next page of results.
 	NextToken *string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeFlowLogsOutput struct {
@@ -90,9 +92,11 @@ type DescribeFlowLogsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeFlowLogsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeFlowLogsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeFlowLogs{}, middleware.After)
 	if err != nil {
 		return err

@@ -19,7 +19,7 @@ func (c *Client) DescribeVpcEndpointServicePermissions(ctx context.Context, para
 		params = &DescribeVpcEndpointServicePermissionsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeVpcEndpointServicePermissions", params, optFns, addOperationDescribeVpcEndpointServicePermissionsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeVpcEndpointServicePermissions", params, optFns, c.addOperationDescribeVpcEndpointServicePermissionsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -58,6 +58,8 @@ type DescribeVpcEndpointServicePermissionsInput struct {
 
 	// The token to retrieve the next page of results.
 	NextToken *string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeVpcEndpointServicePermissionsOutput struct {
@@ -71,9 +73,11 @@ type DescribeVpcEndpointServicePermissionsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeVpcEndpointServicePermissionsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeVpcEndpointServicePermissionsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeVpcEndpointServicePermissions{}, middleware.After)
 	if err != nil {
 		return err

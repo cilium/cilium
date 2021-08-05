@@ -16,7 +16,7 @@ func (c *Client) DetachNetworkInterface(ctx context.Context, params *DetachNetwo
 		params = &DetachNetworkInterfaceInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DetachNetworkInterface", params, optFns, addOperationDetachNetworkInterfaceMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DetachNetworkInterface", params, optFns, c.addOperationDetachNetworkInterfaceMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -57,14 +57,18 @@ type DetachNetworkInterfaceInput struct {
 	// detached network interface might still be visible. The instance metadata will
 	// get updated when you stop and start the instance.
 	Force *bool
+
+	noSmithyDocumentSerde
 }
 
 type DetachNetworkInterfaceOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDetachNetworkInterfaceMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDetachNetworkInterfaceMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDetachNetworkInterface{}, middleware.After)
 	if err != nil {
 		return err
