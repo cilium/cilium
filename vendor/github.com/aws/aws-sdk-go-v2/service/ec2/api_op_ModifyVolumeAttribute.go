@@ -23,7 +23,7 @@ func (c *Client) ModifyVolumeAttribute(ctx context.Context, params *ModifyVolume
 		params = &ModifyVolumeAttributeInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ModifyVolumeAttribute", params, optFns, addOperationModifyVolumeAttributeMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ModifyVolumeAttribute", params, optFns, c.addOperationModifyVolumeAttributeMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -48,14 +48,18 @@ type ModifyVolumeAttributeInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type ModifyVolumeAttributeOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationModifyVolumeAttributeMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationModifyVolumeAttributeMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyVolumeAttribute{}, middleware.After)
 	if err != nil {
 		return err

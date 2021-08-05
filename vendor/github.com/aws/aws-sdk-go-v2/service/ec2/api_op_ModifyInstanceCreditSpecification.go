@@ -21,7 +21,7 @@ func (c *Client) ModifyInstanceCreditSpecification(ctx context.Context, params *
 		params = &ModifyInstanceCreditSpecificationInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ModifyInstanceCreditSpecification", params, optFns, addOperationModifyInstanceCreditSpecificationMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ModifyInstanceCreditSpecification", params, optFns, c.addOperationModifyInstanceCreditSpecificationMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -48,6 +48,8 @@ type ModifyInstanceCreditSpecificationInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type ModifyInstanceCreditSpecificationOutput struct {
@@ -62,9 +64,11 @@ type ModifyInstanceCreditSpecificationOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationModifyInstanceCreditSpecificationMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationModifyInstanceCreditSpecificationMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyInstanceCreditSpecification{}, middleware.After)
 	if err != nil {
 		return err

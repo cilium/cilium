@@ -19,43 +19,44 @@ import (
 // Describes the specified EBS snapshots available to you or all of the EBS
 // snapshots available to you. The snapshots available to you include public
 // snapshots, private snapshots that you own, and private snapshots owned by other
-// AWS accounts for which you have explicit create volume permissions. The create
-// volume permissions fall into the following categories:
+// Amazon Web Services accounts for which you have explicit create volume
+// permissions. The create volume permissions fall into the following
+// categories:
 //
-// * public: The owner of
-// the snapshot granted create volume permissions for the snapshot to the all
-// group. All AWS accounts have create volume permissions for these snapshots.
+// * public: The owner of the snapshot granted create volume
+// permissions for the snapshot to the all group. All Amazon Web Services accounts
+// have create volume permissions for these snapshots.
 //
-// *
-// explicit: The owner of the snapshot granted create volume permissions to a
-// specific AWS account.
+// * explicit: The owner of
+// the snapshot granted create volume permissions to a specific Amazon Web Services
+// account.
 //
-// * implicit: An AWS account has implicit create volume
+// * implicit: An Amazon Web Services account has implicit create volume
 // permissions for all snapshots it owns.
 //
 // The list of snapshots returned can be
-// filtered by specifying snapshot IDs, snapshot owners, or AWS accounts with
-// create volume permissions. If no options are specified, Amazon EC2 returns all
-// snapshots for which you have create volume permissions. If you specify one or
-// more snapshot IDs, only snapshots that have the specified IDs are returned. If
-// you specify an invalid snapshot ID, an error is returned. If you specify a
-// snapshot ID for which you do not have access, it is not included in the returned
-// results. If you specify one or more snapshot owners using the OwnerIds option,
-// only snapshots from the specified owners and for which you have access are
-// returned. The results can include the AWS account IDs of the specified owners,
-// amazon for snapshots owned by Amazon, or self for snapshots that you own. If you
-// specify a list of restorable users, only snapshots with create snapshot
-// permissions for those users are returned. You can specify AWS account IDs (if
-// you own the snapshots), self for snapshots for which you own or have explicit
-// permissions, or all for public snapshots. If you are describing a long list of
-// snapshots, we recommend that you paginate the output to make the list more
-// manageable. The MaxResults parameter sets the maximum number of results returned
-// in a single page. If the list of results exceeds your MaxResults value, then
-// that number of results is returned along with a NextToken value that can be
-// passed to a subsequent DescribeSnapshots request to retrieve the remaining
-// results. To get the state of fast snapshot restores for a snapshot, use
-// DescribeFastSnapshotRestores. For more information about EBS snapshots, see
-// Amazon EBS snapshots
+// filtered by specifying snapshot IDs, snapshot owners, or Amazon Web Services
+// accounts with create volume permissions. If no options are specified, Amazon EC2
+// returns all snapshots for which you have create volume permissions. If you
+// specify one or more snapshot IDs, only snapshots that have the specified IDs are
+// returned. If you specify an invalid snapshot ID, an error is returned. If you
+// specify a snapshot ID for which you do not have access, it is not included in
+// the returned results. If you specify one or more snapshot owners using the
+// OwnerIds option, only snapshots from the specified owners and for which you have
+// access are returned. The results can include the Amazon Web Services account IDs
+// of the specified owners, amazon for snapshots owned by Amazon, or self for
+// snapshots that you own. If you specify a list of restorable users, only
+// snapshots with create snapshot permissions for those users are returned. You can
+// specify Amazon Web Services account IDs (if you own the snapshots), self for
+// snapshots for which you own or have explicit permissions, or all for public
+// snapshots. If you are describing a long list of snapshots, we recommend that you
+// paginate the output to make the list more manageable. The MaxResults parameter
+// sets the maximum number of results returned in a single page. If the list of
+// results exceeds your MaxResults value, then that number of results is returned
+// along with a NextToken value that can be passed to a subsequent
+// DescribeSnapshots request to retrieve the remaining results. To get the state of
+// fast snapshot restores for a snapshot, use DescribeFastSnapshotRestores. For
+// more information about EBS snapshots, see Amazon EBS snapshots
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSSnapshots.html) in the
 // Amazon Elastic Compute Cloud User Guide.
 func (c *Client) DescribeSnapshots(ctx context.Context, params *DescribeSnapshotsInput, optFns ...func(*Options)) (*DescribeSnapshotsOutput, error) {
@@ -63,7 +64,7 @@ func (c *Client) DescribeSnapshots(ctx context.Context, params *DescribeSnapshot
 		params = &DescribeSnapshotsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeSnapshots", params, optFns, addOperationDescribeSnapshotsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeSnapshots", params, optFns, c.addOperationDescribeSnapshotsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -90,38 +91,39 @@ type DescribeSnapshotsInput struct {
 	//
 	// * owner-alias - The
 	// owner alias, from an Amazon-maintained list (amazon). This is not the
-	// user-configured AWS account alias set using the IAM console. We recommend that
-	// you use the related parameter instead of this filter.
+	// user-configured Amazon Web Services account alias set using the IAM console. We
+	// recommend that you use the related parameter instead of this filter.
 	//
-	// * owner-id - The AWS
-	// account ID of the owner. We recommend that you use the related parameter instead
-	// of this filter.
+	// * owner-id
+	// - The Amazon Web Services account ID of the owner. We recommend that you use the
+	// related parameter instead of this filter.
 	//
-	// * progress - The progress of the snapshot, as a percentage (for
-	// example, 80%).
+	// * progress - The progress of the
+	// snapshot, as a percentage (for example, 80%).
 	//
-	// * snapshot-id - The snapshot ID.
+	// * snapshot-id - The snapshot
+	// ID.
 	//
-	// * start-time - The time stamp
-	// when the snapshot was initiated.
+	// * start-time - The time stamp when the snapshot was initiated.
 	//
-	// * status - The status of the snapshot (pending
-	// | completed | error).
+	// * status -
+	// The status of the snapshot (pending | completed | error).
 	//
-	// * tag: - The key/value combination of a tag assigned to
-	// the resource. Use the tag key in the filter name and the tag value as the filter
-	// value. For example, to find all resources that have a tag with the key Owner and
-	// the value TeamA, specify tag:Owner for the filter name and TeamA for the filter
-	// value.
+	// * tag: - The
+	// key/value combination of a tag assigned to the resource. Use the tag key in the
+	// filter name and the tag value as the filter value. For example, to find all
+	// resources that have a tag with the key Owner and the value TeamA, specify
+	// tag:Owner for the filter name and TeamA for the filter value.
 	//
-	// * tag-key - The key of a tag assigned to the resource. Use this filter
-	// to find all resources assigned a tag with a specific key, regardless of the tag
-	// value.
+	// * tag-key - The
+	// key of a tag assigned to the resource. Use this filter to find all resources
+	// assigned a tag with a specific key, regardless of the tag value.
 	//
-	// * volume-id - The ID of the volume the snapshot is for.
+	// * volume-id -
+	// The ID of the volume the snapshot is for.
 	//
-	// * volume-size -
-	// The size of the volume, in GiB.
+	// * volume-size - The size of the
+	// volume, in GiB.
 	Filters []types.Filter
 
 	// The maximum number of snapshot results returned by DescribeSnapshots in
@@ -142,15 +144,18 @@ type DescribeSnapshotsInput struct {
 	NextToken *string
 
 	// Scopes the results to snapshots with the specified owners. You can specify a
-	// combination of AWS account IDs, self, and amazon.
+	// combination of Amazon Web Services account IDs, self, and amazon.
 	OwnerIds []string
 
-	// The IDs of the AWS accounts that can create volumes from the snapshot.
+	// The IDs of the Amazon Web Services accounts that can create volumes from the
+	// snapshot.
 	RestorableByUserIds []string
 
 	// The snapshot IDs. Default: Describes the snapshots for which you have create
 	// volume permissions.
 	SnapshotIds []string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeSnapshotsOutput struct {
@@ -166,9 +171,11 @@ type DescribeSnapshotsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeSnapshotsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeSnapshotsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeSnapshots{}, middleware.After)
 	if err != nil {
 		return err

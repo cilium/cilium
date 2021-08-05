@@ -19,7 +19,7 @@ func (c *Client) DescribeLocalGatewayRouteTableVpcAssociations(ctx context.Conte
 		params = &DescribeLocalGatewayRouteTableVpcAssociationsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeLocalGatewayRouteTableVpcAssociations", params, optFns, addOperationDescribeLocalGatewayRouteTableVpcAssociationsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeLocalGatewayRouteTableVpcAssociations", params, optFns, c.addOperationDescribeLocalGatewayRouteTableVpcAssociationsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -62,6 +62,8 @@ type DescribeLocalGatewayRouteTableVpcAssociationsInput struct {
 
 	// The token for the next page of results.
 	NextToken *string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeLocalGatewayRouteTableVpcAssociationsOutput struct {
@@ -75,9 +77,11 @@ type DescribeLocalGatewayRouteTableVpcAssociationsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeLocalGatewayRouteTableVpcAssociationsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeLocalGatewayRouteTableVpcAssociationsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeLocalGatewayRouteTableVpcAssociations{}, middleware.After)
 	if err != nil {
 		return err

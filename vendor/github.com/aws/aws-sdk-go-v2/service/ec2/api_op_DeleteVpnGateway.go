@@ -19,7 +19,7 @@ func (c *Client) DeleteVpnGateway(ctx context.Context, params *DeleteVpnGatewayI
 		params = &DeleteVpnGatewayInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DeleteVpnGateway", params, optFns, addOperationDeleteVpnGatewayMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DeleteVpnGateway", params, optFns, c.addOperationDeleteVpnGatewayMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -42,14 +42,18 @@ type DeleteVpnGatewayInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type DeleteVpnGatewayOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDeleteVpnGatewayMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDeleteVpnGatewayMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDeleteVpnGateway{}, middleware.After)
 	if err != nil {
 		return err

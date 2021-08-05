@@ -26,7 +26,7 @@ func (c *Client) AssociateClientVpnTargetNetwork(ctx context.Context, params *As
 		params = &AssociateClientVpnTargetNetworkInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "AssociateClientVpnTargetNetwork", params, optFns, addOperationAssociateClientVpnTargetNetworkMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "AssociateClientVpnTargetNetwork", params, optFns, c.addOperationAssociateClientVpnTargetNetworkMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -58,6 +58,8 @@ type AssociateClientVpnTargetNetworkInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type AssociateClientVpnTargetNetworkOutput struct {
@@ -70,9 +72,11 @@ type AssociateClientVpnTargetNetworkOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationAssociateClientVpnTargetNetworkMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationAssociateClientVpnTargetNetworkMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpAssociateClientVpnTargetNetwork{}, middleware.After)
 	if err != nil {
 		return err

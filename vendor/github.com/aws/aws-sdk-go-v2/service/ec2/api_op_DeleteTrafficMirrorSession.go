@@ -16,7 +16,7 @@ func (c *Client) DeleteTrafficMirrorSession(ctx context.Context, params *DeleteT
 		params = &DeleteTrafficMirrorSessionInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DeleteTrafficMirrorSession", params, optFns, addOperationDeleteTrafficMirrorSessionMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DeleteTrafficMirrorSession", params, optFns, c.addOperationDeleteTrafficMirrorSessionMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -38,6 +38,8 @@ type DeleteTrafficMirrorSessionInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type DeleteTrafficMirrorSessionOutput struct {
@@ -47,9 +49,11 @@ type DeleteTrafficMirrorSessionOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDeleteTrafficMirrorSessionMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDeleteTrafficMirrorSessionMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDeleteTrafficMirrorSession{}, middleware.After)
 	if err != nil {
 		return err

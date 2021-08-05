@@ -17,7 +17,7 @@ func (c *Client) DeleteNetworkAclEntry(ctx context.Context, params *DeleteNetwor
 		params = &DeleteNetworkAclEntryInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DeleteNetworkAclEntry", params, optFns, addOperationDeleteNetworkAclEntryMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DeleteNetworkAclEntry", params, optFns, c.addOperationDeleteNetworkAclEntryMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -49,14 +49,18 @@ type DeleteNetworkAclEntryInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type DeleteNetworkAclEntryOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDeleteNetworkAclEntryMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDeleteNetworkAclEntryMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDeleteNetworkAclEntry{}, middleware.After)
 	if err != nil {
 		return err

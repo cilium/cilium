@@ -17,7 +17,7 @@ func (c *Client) EnableVgwRoutePropagation(ctx context.Context, params *EnableVg
 		params = &EnableVgwRoutePropagationInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "EnableVgwRoutePropagation", params, optFns, addOperationEnableVgwRoutePropagationMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "EnableVgwRoutePropagation", params, optFns, c.addOperationEnableVgwRoutePropagationMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -48,14 +48,18 @@ type EnableVgwRoutePropagationInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type EnableVgwRoutePropagationOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationEnableVgwRoutePropagationMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationEnableVgwRoutePropagationMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpEnableVgwRoutePropagation{}, middleware.After)
 	if err != nil {
 		return err

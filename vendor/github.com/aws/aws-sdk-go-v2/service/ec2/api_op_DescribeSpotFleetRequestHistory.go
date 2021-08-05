@@ -21,7 +21,7 @@ func (c *Client) DescribeSpotFleetRequestHistory(ctx context.Context, params *De
 		params = &DescribeSpotFleetRequestHistoryInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeSpotFleetRequestHistory", params, optFns, addOperationDescribeSpotFleetRequestHistoryMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeSpotFleetRequestHistory", params, optFns, c.addOperationDescribeSpotFleetRequestHistoryMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -61,6 +61,8 @@ type DescribeSpotFleetRequestHistoryInput struct {
 
 	// The token for the next set of results.
 	NextToken *string
+
+	noSmithyDocumentSerde
 }
 
 // Contains the output of DescribeSpotFleetRequestHistory.
@@ -87,9 +89,11 @@ type DescribeSpotFleetRequestHistoryOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeSpotFleetRequestHistoryMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeSpotFleetRequestHistoryMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeSpotFleetRequestHistory{}, middleware.After)
 	if err != nil {
 		return err

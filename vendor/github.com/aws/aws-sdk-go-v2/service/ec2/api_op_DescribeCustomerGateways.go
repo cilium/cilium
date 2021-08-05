@@ -25,7 +25,7 @@ func (c *Client) DescribeCustomerGateways(ctx context.Context, params *DescribeC
 		params = &DescribeCustomerGatewaysInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeCustomerGateways", params, optFns, addOperationDescribeCustomerGatewaysMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeCustomerGateways", params, optFns, c.addOperationDescribeCustomerGatewaysMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -74,6 +74,8 @@ type DescribeCustomerGatewaysInput struct {
 	// key of a tag assigned to the resource. Use this filter to find all resources
 	// assigned a tag with a specific key, regardless of the tag value.
 	Filters []types.Filter
+
+	noSmithyDocumentSerde
 }
 
 // Contains the output of DescribeCustomerGateways.
@@ -84,9 +86,11 @@ type DescribeCustomerGatewaysOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeCustomerGatewaysMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeCustomerGatewaysMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeCustomerGateways{}, middleware.After)
 	if err != nil {
 		return err

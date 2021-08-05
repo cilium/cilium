@@ -19,7 +19,7 @@ func (c *Client) AttachInternetGateway(ctx context.Context, params *AttachIntern
 		params = &AttachInternetGatewayInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "AttachInternetGateway", params, optFns, addOperationAttachInternetGatewayMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "AttachInternetGateway", params, optFns, c.addOperationAttachInternetGatewayMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -46,14 +46,18 @@ type AttachInternetGatewayInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type AttachInternetGatewayOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationAttachInternetGatewayMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationAttachInternetGatewayMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpAttachInternetGateway{}, middleware.After)
 	if err != nil {
 		return err

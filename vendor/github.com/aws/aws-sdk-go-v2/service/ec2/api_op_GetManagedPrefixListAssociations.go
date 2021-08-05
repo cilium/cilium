@@ -19,7 +19,7 @@ func (c *Client) GetManagedPrefixListAssociations(ctx context.Context, params *G
 		params = &GetManagedPrefixListAssociationsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetManagedPrefixListAssociations", params, optFns, addOperationGetManagedPrefixListAssociationsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetManagedPrefixListAssociations", params, optFns, c.addOperationGetManagedPrefixListAssociationsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -48,6 +48,8 @@ type GetManagedPrefixListAssociationsInput struct {
 
 	// The token for the next page of results.
 	NextToken *string
+
+	noSmithyDocumentSerde
 }
 
 type GetManagedPrefixListAssociationsOutput struct {
@@ -61,9 +63,11 @@ type GetManagedPrefixListAssociationsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationGetManagedPrefixListAssociationsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetManagedPrefixListAssociationsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpGetManagedPrefixListAssociations{}, middleware.After)
 	if err != nil {
 		return err

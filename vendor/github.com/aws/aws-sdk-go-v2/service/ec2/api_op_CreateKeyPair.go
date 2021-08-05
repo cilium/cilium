@@ -26,7 +26,7 @@ func (c *Client) CreateKeyPair(ctx context.Context, params *CreateKeyPairInput, 
 		params = &CreateKeyPairInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateKeyPair", params, optFns, addOperationCreateKeyPairMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateKeyPair", params, optFns, c.addOperationCreateKeyPairMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -51,6 +51,8 @@ type CreateKeyPairInput struct {
 
 	// The tags to apply to the new key pair.
 	TagSpecifications []types.TagSpecification
+
+	noSmithyDocumentSerde
 }
 
 // Describes a key pair.
@@ -73,9 +75,11 @@ type CreateKeyPairOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateKeyPairMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateKeyPairMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateKeyPair{}, middleware.After)
 	if err != nil {
 		return err

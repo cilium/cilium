@@ -20,7 +20,7 @@ func (c *Client) PurchaseHostReservation(ctx context.Context, params *PurchaseHo
 		params = &PurchaseHostReservationInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "PurchaseHostReservation", params, optFns, addOperationPurchaseHostReservationMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "PurchaseHostReservation", params, optFns, c.addOperationPurchaseHostReservationMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -61,6 +61,8 @@ type PurchaseHostReservationInput struct {
 
 	// The tags to apply to the Dedicated Host Reservation during purchase.
 	TagSpecifications []types.TagSpecification
+
+	noSmithyDocumentSerde
 }
 
 type PurchaseHostReservationOutput struct {
@@ -85,9 +87,11 @@ type PurchaseHostReservationOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationPurchaseHostReservationMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationPurchaseHostReservationMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpPurchaseHostReservation{}, middleware.After)
 	if err != nil {
 		return err

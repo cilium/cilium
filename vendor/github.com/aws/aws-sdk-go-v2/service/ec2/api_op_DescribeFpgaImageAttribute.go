@@ -17,7 +17,7 @@ func (c *Client) DescribeFpgaImageAttribute(ctx context.Context, params *Describ
 		params = &DescribeFpgaImageAttributeInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeFpgaImageAttribute", params, optFns, addOperationDescribeFpgaImageAttributeMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeFpgaImageAttribute", params, optFns, c.addOperationDescribeFpgaImageAttributeMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -44,6 +44,8 @@ type DescribeFpgaImageAttributeInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type DescribeFpgaImageAttributeOutput struct {
@@ -53,9 +55,11 @@ type DescribeFpgaImageAttributeOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeFpgaImageAttributeMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeFpgaImageAttributeMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeFpgaImageAttribute{}, middleware.After)
 	if err != nil {
 		return err

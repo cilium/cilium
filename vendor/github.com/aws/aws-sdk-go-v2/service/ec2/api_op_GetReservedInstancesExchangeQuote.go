@@ -21,7 +21,7 @@ func (c *Client) GetReservedInstancesExchangeQuote(ctx context.Context, params *
 		params = &GetReservedInstancesExchangeQuoteInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetReservedInstancesExchangeQuote", params, optFns, addOperationGetReservedInstancesExchangeQuoteMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetReservedInstancesExchangeQuote", params, optFns, c.addOperationGetReservedInstancesExchangeQuoteMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -48,6 +48,8 @@ type GetReservedInstancesExchangeQuoteInput struct {
 	// The configuration of the target Convertible Reserved Instance to exchange for
 	// your current Convertible Reserved Instances.
 	TargetConfigurations []types.TargetConfigurationRequest
+
+	noSmithyDocumentSerde
 }
 
 // Contains the output of GetReservedInstancesExchangeQuote.
@@ -82,9 +84,11 @@ type GetReservedInstancesExchangeQuoteOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationGetReservedInstancesExchangeQuoteMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetReservedInstancesExchangeQuoteMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpGetReservedInstancesExchangeQuote{}, middleware.After)
 	if err != nil {
 		return err

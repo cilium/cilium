@@ -23,7 +23,7 @@ func (c *Client) ModifyVpcEndpointServiceConfiguration(ctx context.Context, para
 		params = &ModifyVpcEndpointServiceConfigurationInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ModifyVpcEndpointServiceConfiguration", params, optFns, addOperationModifyVpcEndpointServiceConfigurationMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ModifyVpcEndpointServiceConfiguration", params, optFns, c.addOperationModifyVpcEndpointServiceConfigurationMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -73,6 +73,8 @@ type ModifyVpcEndpointServiceConfigurationInput struct {
 	// (Interface endpoint configuration) Removes the private DNS name of the endpoint
 	// service.
 	RemovePrivateDnsName *bool
+
+	noSmithyDocumentSerde
 }
 
 type ModifyVpcEndpointServiceConfigurationOutput struct {
@@ -82,9 +84,11 @@ type ModifyVpcEndpointServiceConfigurationOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationModifyVpcEndpointServiceConfigurationMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationModifyVpcEndpointServiceConfigurationMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyVpcEndpointServiceConfiguration{}, middleware.After)
 	if err != nil {
 		return err

@@ -24,7 +24,7 @@ func (c *Client) CreateStoreImageTask(ctx context.Context, params *CreateStoreIm
 		params = &CreateStoreImageTaskInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateStoreImageTask", params, optFns, addOperationCreateStoreImageTaskMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateStoreImageTask", params, optFns, c.addOperationCreateStoreImageTaskMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -56,6 +56,8 @@ type CreateStoreImageTaskInput struct {
 
 	// The tags to apply to the AMI object that will be stored in the S3 bucket.
 	S3ObjectTags []types.S3ObjectTag
+
+	noSmithyDocumentSerde
 }
 
 type CreateStoreImageTaskOutput struct {
@@ -65,9 +67,11 @@ type CreateStoreImageTaskOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateStoreImageTaskMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateStoreImageTaskMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateStoreImageTask{}, middleware.After)
 	if err != nil {
 		return err

@@ -4,15 +4,18 @@ package ec2
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	smithy "github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/middleware"
 	smithytime "github.com/aws/smithy-go/time"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	smithywaiter "github.com/aws/smithy-go/waiter"
 	"github.com/jmespath/go-jmespath"
+	"strconv"
 	"time"
 )
 
@@ -22,14 +25,14 @@ import (
 // which you have explicit launch permissions. Recently deregistered images appear
 // in the returned results for a short interval and then return empty results.
 // After all instances that reference a deregistered AMI are terminated, specifying
-// the ID of the image results in an error indicating that the AMI ID cannot be
-// found.
+// the ID of the image will eventually return an error indicating that the AMI ID
+// cannot be found.
 func (c *Client) DescribeImages(ctx context.Context, params *DescribeImagesInput, optFns ...func(*Options)) (*DescribeImagesOutput, error) {
 	if params == nil {
 		params = &DescribeImagesInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeImages", params, optFns, addOperationDescribeImagesMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeImages", params, optFns, c.addOperationDescribeImagesMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -156,11 +159,20 @@ type DescribeImagesInput struct {
 	// The image IDs. Default: Describes all images available to you.
 	ImageIds []string
 
+	// If true, all deprecated AMIs are included in the response. If false, no
+	// deprecated AMIs are included in the response. If no value is specified, the
+	// default value is false. If you are the AMI owner, all deprecated AMIs appear in
+	// the response regardless of the value (true or false) that you set for this
+	// parameter.
+	IncludeDeprecated *bool
+
 	// Scopes the results to images with the specified owners. You can specify a
 	// combination of AWS account IDs, self, amazon, and aws-marketplace. If you omit
 	// this parameter, the results include all images for which you have launch
 	// permissions, regardless of ownership.
 	Owners []string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeImagesOutput struct {
@@ -170,9 +182,11 @@ type DescribeImagesOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeImagesMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeImagesMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeImages{}, middleware.After)
 	if err != nil {
 		return err
@@ -424,6 +438,173 @@ func imageAvailableStateRetryable(ctx context.Context, input *DescribeImagesInpu
 			if string(value) == expectedValue {
 				return false, fmt.Errorf("waiter state transitioned to Failure")
 			}
+		}
+	}
+
+	return true, nil
+}
+
+// ImageExistsWaiterOptions are waiter options for ImageExistsWaiter
+type ImageExistsWaiterOptions struct {
+
+	// Set of options to modify how an operation is invoked. These apply to all
+	// operations invoked for this client. Use functional options on operation call to
+	// modify this list for per operation behavior.
+	APIOptions []func(*middleware.Stack) error
+
+	// MinDelay is the minimum amount of time to delay between retries. If unset,
+	// ImageExistsWaiter will use default minimum delay of 15 seconds. Note that
+	// MinDelay must resolve to a value lesser than or equal to the MaxDelay.
+	MinDelay time.Duration
+
+	// MaxDelay is the maximum amount of time to delay between retries. If unset or set
+	// to zero, ImageExistsWaiter will use default max delay of 120 seconds. Note that
+	// MaxDelay must resolve to value greater than or equal to the MinDelay.
+	MaxDelay time.Duration
+
+	// LogWaitAttempts is used to enable logging for waiter retry attempts
+	LogWaitAttempts bool
+
+	// Retryable is function that can be used to override the service defined
+	// waiter-behavior based on operation output, or returned error. This function is
+	// used by the waiter to decide if a state is retryable or a terminal state. By
+	// default service-modeled logic will populate this option. This option can thus be
+	// used to define a custom waiter state with fall-back to service-modeled waiter
+	// state mutators.The function returns an error in case of a failure state. In case
+	// of retry state, this function returns a bool value of true and nil error, while
+	// in case of success it returns a bool value of false and nil error.
+	Retryable func(context.Context, *DescribeImagesInput, *DescribeImagesOutput, error) (bool, error)
+}
+
+// ImageExistsWaiter defines the waiters for ImageExists
+type ImageExistsWaiter struct {
+	client DescribeImagesAPIClient
+
+	options ImageExistsWaiterOptions
+}
+
+// NewImageExistsWaiter constructs a ImageExistsWaiter.
+func NewImageExistsWaiter(client DescribeImagesAPIClient, optFns ...func(*ImageExistsWaiterOptions)) *ImageExistsWaiter {
+	options := ImageExistsWaiterOptions{}
+	options.MinDelay = 15 * time.Second
+	options.MaxDelay = 120 * time.Second
+	options.Retryable = imageExistsStateRetryable
+
+	for _, fn := range optFns {
+		fn(&options)
+	}
+	return &ImageExistsWaiter{
+		client:  client,
+		options: options,
+	}
+}
+
+// Wait calls the waiter function for ImageExists waiter. The maxWaitDur is the
+// maximum wait duration the waiter will wait. The maxWaitDur is required and must
+// be greater than zero.
+func (w *ImageExistsWaiter) Wait(ctx context.Context, params *DescribeImagesInput, maxWaitDur time.Duration, optFns ...func(*ImageExistsWaiterOptions)) error {
+	if maxWaitDur <= 0 {
+		return fmt.Errorf("maximum wait time for waiter must be greater than zero")
+	}
+
+	options := w.options
+	for _, fn := range optFns {
+		fn(&options)
+	}
+
+	if options.MaxDelay <= 0 {
+		options.MaxDelay = 120 * time.Second
+	}
+
+	if options.MinDelay > options.MaxDelay {
+		return fmt.Errorf("minimum waiter delay %v must be lesser than or equal to maximum waiter delay of %v.", options.MinDelay, options.MaxDelay)
+	}
+
+	ctx, cancelFn := context.WithTimeout(ctx, maxWaitDur)
+	defer cancelFn()
+
+	logger := smithywaiter.Logger{}
+	remainingTime := maxWaitDur
+
+	var attempt int64
+	for {
+
+		attempt++
+		apiOptions := options.APIOptions
+		start := time.Now()
+
+		if options.LogWaitAttempts {
+			logger.Attempt = attempt
+			apiOptions = append([]func(*middleware.Stack) error{}, options.APIOptions...)
+			apiOptions = append(apiOptions, logger.AddLogger)
+		}
+
+		out, err := w.client.DescribeImages(ctx, params, func(o *Options) {
+			o.APIOptions = append(o.APIOptions, apiOptions...)
+		})
+
+		retryable, err := options.Retryable(ctx, params, out, err)
+		if err != nil {
+			return err
+		}
+		if !retryable {
+			return nil
+		}
+
+		remainingTime -= time.Since(start)
+		if remainingTime < options.MinDelay || remainingTime <= 0 {
+			break
+		}
+
+		// compute exponential backoff between waiter retries
+		delay, err := smithywaiter.ComputeDelay(
+			attempt, options.MinDelay, options.MaxDelay, remainingTime,
+		)
+		if err != nil {
+			return fmt.Errorf("error computing waiter delay, %w", err)
+		}
+
+		remainingTime -= delay
+		// sleep for the delay amount before invoking a request
+		if err := smithytime.SleepWithContext(ctx, delay); err != nil {
+			return fmt.Errorf("request cancelled while waiting, %w", err)
+		}
+	}
+	return fmt.Errorf("exceeded max wait time for ImageExists waiter")
+}
+
+func imageExistsStateRetryable(ctx context.Context, input *DescribeImagesInput, output *DescribeImagesOutput, err error) (bool, error) {
+
+	if err == nil {
+		pathValue, err := jmespath.Search("length(Images[]) > `0`", output)
+		if err != nil {
+			return false, fmt.Errorf("error evaluating waiter state: %w", err)
+		}
+
+		expectedValue := "true"
+		bv, err := strconv.ParseBool(expectedValue)
+		if err != nil {
+			return false, fmt.Errorf("error parsing boolean from string %w", err)
+		}
+		value, ok := pathValue.(bool)
+		if !ok {
+			return false, fmt.Errorf("waiter comparator expected bool value got %T", pathValue)
+		}
+
+		if value == bv {
+			return false, nil
+		}
+	}
+
+	if err != nil {
+		var apiErr smithy.APIError
+		ok := errors.As(err, &apiErr)
+		if !ok {
+			return false, fmt.Errorf("expected err to be of type smithy.APIError, got %w", err)
+		}
+
+		if "InvalidAMIID.NotFound" == apiErr.ErrorCode() {
+			return true, nil
 		}
 	}
 

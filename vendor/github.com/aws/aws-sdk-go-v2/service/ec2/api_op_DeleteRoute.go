@@ -16,7 +16,7 @@ func (c *Client) DeleteRoute(ctx context.Context, params *DeleteRouteInput, optF
 		params = &DeleteRouteInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DeleteRoute", params, optFns, addOperationDeleteRouteMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DeleteRoute", params, optFns, c.addOperationDeleteRouteMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -49,14 +49,18 @@ type DeleteRouteInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type DeleteRouteOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDeleteRouteMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDeleteRouteMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDeleteRoute{}, middleware.After)
 	if err != nil {
 		return err

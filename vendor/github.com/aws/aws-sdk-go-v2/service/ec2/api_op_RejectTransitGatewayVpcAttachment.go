@@ -20,7 +20,7 @@ func (c *Client) RejectTransitGatewayVpcAttachment(ctx context.Context, params *
 		params = &RejectTransitGatewayVpcAttachmentInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "RejectTransitGatewayVpcAttachment", params, optFns, addOperationRejectTransitGatewayVpcAttachmentMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "RejectTransitGatewayVpcAttachment", params, optFns, c.addOperationRejectTransitGatewayVpcAttachmentMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -42,6 +42,8 @@ type RejectTransitGatewayVpcAttachmentInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type RejectTransitGatewayVpcAttachmentOutput struct {
@@ -51,9 +53,11 @@ type RejectTransitGatewayVpcAttachmentOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationRejectTransitGatewayVpcAttachmentMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationRejectTransitGatewayVpcAttachmentMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpRejectTransitGatewayVpcAttachment{}, middleware.After)
 	if err != nil {
 		return err

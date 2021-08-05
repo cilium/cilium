@@ -16,7 +16,7 @@ func (c *Client) DeleteEgressOnlyInternetGateway(ctx context.Context, params *De
 		params = &DeleteEgressOnlyInternetGatewayInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DeleteEgressOnlyInternetGateway", params, optFns, addOperationDeleteEgressOnlyInternetGatewayMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DeleteEgressOnlyInternetGateway", params, optFns, c.addOperationDeleteEgressOnlyInternetGatewayMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -38,6 +38,8 @@ type DeleteEgressOnlyInternetGatewayInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type DeleteEgressOnlyInternetGatewayOutput struct {
@@ -47,9 +49,11 @@ type DeleteEgressOnlyInternetGatewayOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDeleteEgressOnlyInternetGatewayMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDeleteEgressOnlyInternetGatewayMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDeleteEgressOnlyInternetGateway{}, middleware.After)
 	if err != nil {
 		return err

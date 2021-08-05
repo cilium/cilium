@@ -20,7 +20,7 @@ func (c *Client) ModifyVpcEndpoint(ctx context.Context, params *ModifyVpcEndpoin
 		params = &ModifyVpcEndpointInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ModifyVpcEndpoint", params, optFns, addOperationModifyVpcEndpointMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ModifyVpcEndpoint", params, optFns, c.addOperationModifyVpcEndpointMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -78,6 +78,8 @@ type ModifyVpcEndpointInput struct {
 	// (Gateway endpoint) Specify true to reset the policy document to the default
 	// policy. The default policy allows full access to the service.
 	ResetPolicy *bool
+
+	noSmithyDocumentSerde
 }
 
 type ModifyVpcEndpointOutput struct {
@@ -87,9 +89,11 @@ type ModifyVpcEndpointOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationModifyVpcEndpointMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationModifyVpcEndpointMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyVpcEndpoint{}, middleware.After)
 	if err != nil {
 		return err

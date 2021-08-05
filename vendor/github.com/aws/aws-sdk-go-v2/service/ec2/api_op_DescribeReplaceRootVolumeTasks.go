@@ -13,14 +13,15 @@ import (
 )
 
 // Describes a root volume replacement task. For more information, see Replace a
-// root volume (https://docs.aws.amazon.com/) in the Amazon Elastic Compute Cloud
-// User Guide.
+// root volume
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-restoring-volume.html#replace-root)
+// in the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) DescribeReplaceRootVolumeTasks(ctx context.Context, params *DescribeReplaceRootVolumeTasksInput, optFns ...func(*Options)) (*DescribeReplaceRootVolumeTasksOutput, error) {
 	if params == nil {
 		params = &DescribeReplaceRootVolumeTasksInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeReplaceRootVolumeTasks", params, optFns, addOperationDescribeReplaceRootVolumeTasksMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeReplaceRootVolumeTasks", params, optFns, c.addOperationDescribeReplaceRootVolumeTasksMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -53,6 +54,8 @@ type DescribeReplaceRootVolumeTasksInput struct {
 
 	// The ID of the root volume replacement task to view.
 	ReplaceRootVolumeTaskIds []string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeReplaceRootVolumeTasksOutput struct {
@@ -66,9 +69,11 @@ type DescribeReplaceRootVolumeTasksOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeReplaceRootVolumeTasksMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeReplaceRootVolumeTasksMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeReplaceRootVolumeTasks{}, middleware.After)
 	if err != nil {
 		return err

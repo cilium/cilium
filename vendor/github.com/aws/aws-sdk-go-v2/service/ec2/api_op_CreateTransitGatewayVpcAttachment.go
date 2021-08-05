@@ -21,7 +21,7 @@ func (c *Client) CreateTransitGatewayVpcAttachment(ctx context.Context, params *
 		params = &CreateTransitGatewayVpcAttachmentInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateTransitGatewayVpcAttachment", params, optFns, addOperationCreateTransitGatewayVpcAttachmentMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateTransitGatewayVpcAttachment", params, optFns, c.addOperationCreateTransitGatewayVpcAttachmentMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -62,6 +62,8 @@ type CreateTransitGatewayVpcAttachmentInput struct {
 
 	// The tags to apply to the VPC attachment.
 	TagSpecifications []types.TagSpecification
+
+	noSmithyDocumentSerde
 }
 
 type CreateTransitGatewayVpcAttachmentOutput struct {
@@ -71,9 +73,11 @@ type CreateTransitGatewayVpcAttachmentOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateTransitGatewayVpcAttachmentMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateTransitGatewayVpcAttachmentMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateTransitGatewayVpcAttachment{}, middleware.After)
 	if err != nil {
 		return err

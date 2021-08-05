@@ -13,7 +13,7 @@ import (
 // Replaces an existing route within a route table in a VPC. You must provide only
 // one of the following: internet gateway, virtual private gateway, NAT instance,
 // NAT gateway, VPC peering connection, network interface, egress-only internet
-// gateway, or transit gateway. For more information, see Route Tables
+// gateway, or transit gateway. For more information, see Route tables
 // (https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Route_Tables.html) in the
 // Amazon Virtual Private Cloud User Guide.
 func (c *Client) ReplaceRoute(ctx context.Context, params *ReplaceRouteInput, optFns ...func(*Options)) (*ReplaceRouteOutput, error) {
@@ -21,7 +21,7 @@ func (c *Client) ReplaceRoute(ctx context.Context, params *ReplaceRouteInput, op
 		params = &ReplaceRouteInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ReplaceRoute", params, optFns, addOperationReplaceRouteMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ReplaceRoute", params, optFns, c.addOperationReplaceRouteMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -87,14 +87,18 @@ type ReplaceRouteInput struct {
 
 	// The ID of a VPC peering connection.
 	VpcPeeringConnectionId *string
+
+	noSmithyDocumentSerde
 }
 
 type ReplaceRouteOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationReplaceRouteMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationReplaceRouteMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpReplaceRoute{}, middleware.After)
 	if err != nil {
 		return err

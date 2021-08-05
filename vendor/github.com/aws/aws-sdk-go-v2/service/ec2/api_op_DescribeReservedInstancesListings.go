@@ -32,7 +32,7 @@ func (c *Client) DescribeReservedInstancesListings(ctx context.Context, params *
 		params = &DescribeReservedInstancesListingsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeReservedInstancesListings", params, optFns, addOperationDescribeReservedInstancesListingsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeReservedInstancesListings", params, optFns, c.addOperationDescribeReservedInstancesListingsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -64,6 +64,8 @@ type DescribeReservedInstancesListingsInput struct {
 
 	// One or more Reserved Instance listing IDs.
 	ReservedInstancesListingId *string
+
+	noSmithyDocumentSerde
 }
 
 // Contains the output of DescribeReservedInstancesListings.
@@ -74,9 +76,11 @@ type DescribeReservedInstancesListingsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeReservedInstancesListingsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeReservedInstancesListingsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeReservedInstancesListings{}, middleware.After)
 	if err != nil {
 		return err

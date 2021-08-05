@@ -44,7 +44,7 @@ func (c *Client) CreateCustomerGateway(ctx context.Context, params *CreateCustom
 		params = &CreateCustomerGatewayInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateCustomerGateway", params, optFns, addOperationCreateCustomerGatewayMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateCustomerGateway", params, optFns, c.addOperationCreateCustomerGatewayMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -86,6 +86,8 @@ type CreateCustomerGatewayInput struct {
 
 	// The tags to apply to the customer gateway.
 	TagSpecifications []types.TagSpecification
+
+	noSmithyDocumentSerde
 }
 
 // Contains the output of CreateCustomerGateway.
@@ -96,9 +98,11 @@ type CreateCustomerGatewayOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateCustomerGatewayMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateCustomerGatewayMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateCustomerGateway{}, middleware.After)
 	if err != nil {
 		return err

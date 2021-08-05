@@ -17,7 +17,7 @@ func (c *Client) ModifyVpnTunnelCertificate(ctx context.Context, params *ModifyV
 		params = &ModifyVpnTunnelCertificateInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ModifyVpnTunnelCertificate", params, optFns, addOperationModifyVpnTunnelCertificateMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ModifyVpnTunnelCertificate", params, optFns, c.addOperationModifyVpnTunnelCertificateMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -44,6 +44,8 @@ type ModifyVpnTunnelCertificateInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type ModifyVpnTunnelCertificateOutput struct {
@@ -53,9 +55,11 @@ type ModifyVpnTunnelCertificateOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationModifyVpnTunnelCertificateMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationModifyVpnTunnelCertificateMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyVpnTunnelCertificate{}, middleware.After)
 	if err != nil {
 		return err

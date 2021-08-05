@@ -25,7 +25,7 @@ func (c *Client) ModifyVpcTenancy(ctx context.Context, params *ModifyVpcTenancyI
 		params = &ModifyVpcTenancyInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ModifyVpcTenancy", params, optFns, addOperationModifyVpcTenancyMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ModifyVpcTenancy", params, optFns, c.addOperationModifyVpcTenancyMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -52,6 +52,8 @@ type ModifyVpcTenancyInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type ModifyVpcTenancyOutput struct {
@@ -61,9 +63,11 @@ type ModifyVpcTenancyOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationModifyVpcTenancyMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationModifyVpcTenancyMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyVpcTenancy{}, middleware.After)
 	if err != nil {
 		return err

@@ -17,7 +17,7 @@ func (c *Client) ReplaceTransitGatewayRoute(ctx context.Context, params *Replace
 		params = &ReplaceTransitGatewayRouteInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ReplaceTransitGatewayRoute", params, optFns, addOperationReplaceTransitGatewayRouteMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ReplaceTransitGatewayRoute", params, optFns, c.addOperationReplaceTransitGatewayRouteMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -51,6 +51,8 @@ type ReplaceTransitGatewayRouteInput struct {
 
 	// The ID of the attachment.
 	TransitGatewayAttachmentId *string
+
+	noSmithyDocumentSerde
 }
 
 type ReplaceTransitGatewayRouteOutput struct {
@@ -60,9 +62,11 @@ type ReplaceTransitGatewayRouteOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationReplaceTransitGatewayRouteMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationReplaceTransitGatewayRouteMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpReplaceTransitGatewayRoute{}, middleware.After)
 	if err != nil {
 		return err

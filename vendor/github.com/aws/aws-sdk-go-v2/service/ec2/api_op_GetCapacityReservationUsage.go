@@ -13,14 +13,15 @@ import (
 
 // Gets usage information about a Capacity Reservation. If the Capacity Reservation
 // is shared, it shows usage information for the Capacity Reservation owner and
-// each AWS account that is currently using the shared capacity. If the Capacity
-// Reservation is not shared, it shows only the Capacity Reservation owner's usage.
+// each Amazon Web Services account that is currently using the shared capacity. If
+// the Capacity Reservation is not shared, it shows only the Capacity Reservation
+// owner's usage.
 func (c *Client) GetCapacityReservationUsage(ctx context.Context, params *GetCapacityReservationUsageInput, optFns ...func(*Options)) (*GetCapacityReservationUsageOutput, error) {
 	if params == nil {
 		params = &GetCapacityReservationUsageInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetCapacityReservationUsage", params, optFns, addOperationGetCapacityReservationUsageMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetCapacityReservationUsage", params, optFns, c.addOperationGetCapacityReservationUsageMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -52,6 +53,8 @@ type GetCapacityReservationUsageInput struct {
 
 	// The token to use to retrieve the next page of results.
 	NextToken *string
+
+	noSmithyDocumentSerde
 }
 
 type GetCapacityReservationUsageOutput struct {
@@ -101,9 +104,11 @@ type GetCapacityReservationUsageOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationGetCapacityReservationUsageMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetCapacityReservationUsageMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpGetCapacityReservationUsage{}, middleware.After)
 	if err != nil {
 		return err

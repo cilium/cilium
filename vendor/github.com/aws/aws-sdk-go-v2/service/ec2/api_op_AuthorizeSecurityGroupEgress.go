@@ -11,23 +11,23 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// [VPC only] Adds the specified egress rules to a security group for use with a
-// VPC. An outbound rule permits instances to send traffic to the specified IPv4 or
-// IPv6 CIDR address ranges, or to the instances associated with the specified
-// destination security groups. You specify a protocol for each rule (for example,
-// TCP). For the TCP and UDP protocols, you must also specify the destination port
-// or port range. For the ICMP protocol, you must also specify the ICMP type and
-// code. You can use -1 for the type or code to mean all types or all codes. Rule
-// changes are propagated to affected instances as quickly as possible. However, a
-// small delay might occur. For more information about VPC security group limits,
-// see Amazon VPC Limits
+// [VPC only] Adds the specified outbound (egress) rules to a security group for
+// use with a VPC. An outbound rule permits instances to send traffic to the
+// specified IPv4 or IPv6 CIDR address ranges, or to the instances that are
+// associated with the specified destination security groups. You specify a
+// protocol for each rule (for example, TCP). For the TCP and UDP protocols, you
+// must also specify the destination port or port range. For the ICMP protocol, you
+// must also specify the ICMP type and code. You can use -1 for the type or code to
+// mean all types or all codes. Rule changes are propagated to affected instances
+// as quickly as possible. However, a small delay might occur. For information
+// about VPC security group quotas, see Amazon VPC quotas
 // (https://docs.aws.amazon.com/vpc/latest/userguide/amazon-vpc-limits.html).
 func (c *Client) AuthorizeSecurityGroupEgress(ctx context.Context, params *AuthorizeSecurityGroupEgressInput, optFns ...func(*Options)) (*AuthorizeSecurityGroupEgressOutput, error) {
 	if params == nil {
 		params = &AuthorizeSecurityGroupEgressInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "AuthorizeSecurityGroupEgress", params, optFns, addOperationAuthorizeSecurityGroupEgressMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "AuthorizeSecurityGroupEgress", params, optFns, c.addOperationAuthorizeSecurityGroupEgressMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -72,16 +72,30 @@ type AuthorizeSecurityGroupEgressInput struct {
 	// group.
 	SourceSecurityGroupOwnerId *string
 
+	// The tags applied to the security group rule.
+	TagSpecifications []types.TagSpecification
+
 	// Not supported. Use a set of IP permissions to specify the port.
 	ToPort *int32
+
+	noSmithyDocumentSerde
 }
 
 type AuthorizeSecurityGroupEgressOutput struct {
+
+	// Returns true if the request succeeds; otherwise, returns an error.
+	Return *bool
+
+	// Information about the outbound (egress) security group rules that were added.
+	SecurityGroupRules []types.SecurityGroupRule
+
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationAuthorizeSecurityGroupEgressMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationAuthorizeSecurityGroupEgressMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpAuthorizeSecurityGroupEgress{}, middleware.After)
 	if err != nil {
 		return err

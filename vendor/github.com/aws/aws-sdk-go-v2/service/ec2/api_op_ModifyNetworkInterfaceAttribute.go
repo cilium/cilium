@@ -19,7 +19,7 @@ func (c *Client) ModifyNetworkInterfaceAttribute(ctx context.Context, params *Mo
 		params = &ModifyNetworkInterfaceAttributeInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ModifyNetworkInterfaceAttribute", params, optFns, addOperationModifyNetworkInterfaceAttributeMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ModifyNetworkInterfaceAttribute", params, optFns, c.addOperationModifyNetworkInterfaceAttributeMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -63,14 +63,18 @@ type ModifyNetworkInterfaceAttributeInput struct {
 	// if the instance runs services such as network address translation, routing, or
 	// firewalls.
 	SourceDestCheck *types.AttributeBooleanValue
+
+	noSmithyDocumentSerde
 }
 
 type ModifyNetworkInterfaceAttributeOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationModifyNetworkInterfaceAttributeMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationModifyNetworkInterfaceAttributeMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyNetworkInterfaceAttribute{}, middleware.After)
 	if err != nil {
 		return err

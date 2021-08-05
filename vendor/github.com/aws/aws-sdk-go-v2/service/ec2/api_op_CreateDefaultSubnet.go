@@ -13,7 +13,7 @@ import (
 
 // Creates a default subnet with a size /20 IPv4 CIDR block in the specified
 // Availability Zone in your default VPC. You can have only one default subnet per
-// Availability Zone. For more information, see Creating a Default Subnet
+// Availability Zone. For more information, see Creating a default subnet
 // (https://docs.aws.amazon.com/vpc/latest/userguide/default-vpc.html#create-default-subnet)
 // in the Amazon Virtual Private Cloud User Guide.
 func (c *Client) CreateDefaultSubnet(ctx context.Context, params *CreateDefaultSubnetInput, optFns ...func(*Options)) (*CreateDefaultSubnetOutput, error) {
@@ -21,7 +21,7 @@ func (c *Client) CreateDefaultSubnet(ctx context.Context, params *CreateDefaultS
 		params = &CreateDefaultSubnetInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateDefaultSubnet", params, optFns, addOperationCreateDefaultSubnetMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateDefaultSubnet", params, optFns, c.addOperationCreateDefaultSubnetMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -43,6 +43,8 @@ type CreateDefaultSubnetInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type CreateDefaultSubnetOutput struct {
@@ -52,9 +54,11 @@ type CreateDefaultSubnetOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateDefaultSubnetMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateDefaultSubnetMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateDefaultSubnet{}, middleware.After)
 	if err != nil {
 		return err

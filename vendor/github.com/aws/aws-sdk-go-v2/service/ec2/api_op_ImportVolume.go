@@ -26,7 +26,7 @@ func (c *Client) ImportVolume(ctx context.Context, params *ImportVolumeInput, op
 		params = &ImportVolumeInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ImportVolume", params, optFns, addOperationImportVolumeMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ImportVolume", params, optFns, c.addOperationImportVolumeMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -61,6 +61,8 @@ type ImportVolumeInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type ImportVolumeOutput struct {
@@ -70,9 +72,11 @@ type ImportVolumeOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationImportVolumeMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationImportVolumeMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpImportVolume{}, middleware.After)
 	if err != nil {
 		return err

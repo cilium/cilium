@@ -37,7 +37,7 @@ func (c *Client) CreateSecurityGroup(ctx context.Context, params *CreateSecurity
 		params = &CreateSecurityGroupInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateSecurityGroup", params, optFns, addOperationCreateSecurityGroupMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateSecurityGroup", params, optFns, c.addOperationCreateSecurityGroupMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -74,6 +74,8 @@ type CreateSecurityGroupInput struct {
 
 	// [EC2-VPC] The ID of the VPC. Required for EC2-VPC.
 	VpcId *string
+
+	noSmithyDocumentSerde
 }
 
 type CreateSecurityGroupOutput struct {
@@ -86,9 +88,11 @@ type CreateSecurityGroupOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateSecurityGroupMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateSecurityGroupMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateSecurityGroup{}, middleware.After)
 	if err != nil {
 		return err

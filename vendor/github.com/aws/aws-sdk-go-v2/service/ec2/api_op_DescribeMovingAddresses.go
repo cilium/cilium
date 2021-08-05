@@ -21,7 +21,7 @@ func (c *Client) DescribeMovingAddresses(ctx context.Context, params *DescribeMo
 		params = &DescribeMovingAddressesInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeMovingAddresses", params, optFns, addOperationDescribeMovingAddressesMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeMovingAddresses", params, optFns, c.addOperationDescribeMovingAddressesMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -57,6 +57,8 @@ type DescribeMovingAddressesInput struct {
 
 	// One or more Elastic IP addresses.
 	PublicIps []string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeMovingAddressesOutput struct {
@@ -70,9 +72,11 @@ type DescribeMovingAddressesOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeMovingAddressesMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeMovingAddressesMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeMovingAddresses{}, middleware.After)
 	if err != nil {
 		return err

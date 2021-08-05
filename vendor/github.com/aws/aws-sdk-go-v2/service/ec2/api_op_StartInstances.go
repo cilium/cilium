@@ -17,16 +17,12 @@ import (
 // are not billed for instance usage. However, your root partition Amazon EBS
 // volume remains and continues to persist your data, and you are charged for
 // Amazon EBS volume usage. You can restart your instance at any time. Every time
-// you start your Windows instance, Amazon EC2 charges you for a full instance
-// hour. If you stop and restart your Windows instance, a new instance hour begins
-// and Amazon EC2 charges you for another full instance hour even if you are still
-// within the same 60-minute period when it was stopped. Every time you start your
-// Linux instance, Amazon EC2 charges a one-minute minimum for instance usage, and
-// thereafter charges per second for instance usage. Before stopping an instance,
-// make sure it is in a state from which it can be restarted. Stopping an instance
-// does not preserve data stored in RAM. Performing this operation on an instance
-// that uses an instance store as its root device returns an error. For more
-// information, see Stopping instances
+// you start your instance, Amazon EC2 charges a one-minute minimum for instance
+// usage, and thereafter charges per second for instance usage. Before stopping an
+// instance, make sure it is in a state from which it can be restarted. Stopping an
+// instance does not preserve data stored in RAM. Performing this operation on an
+// instance that uses an instance store as its root device returns an error. For
+// more information, see Stopping instances
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Stop_Start.html) in the
 // Amazon EC2 User Guide.
 func (c *Client) StartInstances(ctx context.Context, params *StartInstancesInput, optFns ...func(*Options)) (*StartInstancesOutput, error) {
@@ -34,7 +30,7 @@ func (c *Client) StartInstances(ctx context.Context, params *StartInstancesInput
 		params = &StartInstancesInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "StartInstances", params, optFns, addOperationStartInstancesMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "StartInstances", params, optFns, c.addOperationStartInstancesMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -59,6 +55,8 @@ type StartInstancesInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type StartInstancesOutput struct {
@@ -68,9 +66,11 @@ type StartInstancesOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationStartInstancesMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationStartInstancesMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpStartInstances{}, middleware.After)
 	if err != nil {
 		return err

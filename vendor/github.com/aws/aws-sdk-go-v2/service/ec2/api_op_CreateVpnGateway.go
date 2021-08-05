@@ -21,7 +21,7 @@ func (c *Client) CreateVpnGateway(ctx context.Context, params *CreateVpnGatewayI
 		params = &CreateVpnGatewayInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateVpnGateway", params, optFns, addOperationCreateVpnGatewayMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateVpnGateway", params, optFns, c.addOperationCreateVpnGatewayMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -56,6 +56,8 @@ type CreateVpnGatewayInput struct {
 
 	// The tags to apply to the virtual private gateway.
 	TagSpecifications []types.TagSpecification
+
+	noSmithyDocumentSerde
 }
 
 // Contains the output of CreateVpnGateway.
@@ -66,9 +68,11 @@ type CreateVpnGatewayOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateVpnGatewayMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateVpnGatewayMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateVpnGateway{}, middleware.After)
 	if err != nil {
 		return err

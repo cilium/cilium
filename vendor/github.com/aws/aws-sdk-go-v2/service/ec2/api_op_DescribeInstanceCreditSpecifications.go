@@ -35,7 +35,7 @@ func (c *Client) DescribeInstanceCreditSpecifications(ctx context.Context, param
 		params = &DescribeInstanceCreditSpecificationsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeInstanceCreditSpecifications", params, optFns, addOperationDescribeInstanceCreditSpecificationsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeInstanceCreditSpecifications", params, optFns, c.addOperationDescribeInstanceCreditSpecificationsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -70,6 +70,8 @@ type DescribeInstanceCreditSpecificationsInput struct {
 
 	// The token to retrieve the next page of results.
 	NextToken *string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeInstanceCreditSpecificationsOutput struct {
@@ -83,9 +85,11 @@ type DescribeInstanceCreditSpecificationsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeInstanceCreditSpecificationsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeInstanceCreditSpecificationsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeInstanceCreditSpecifications{}, middleware.After)
 	if err != nil {
 		return err

@@ -38,7 +38,7 @@ func (c *Client) CreateCapacityReservation(ctx context.Context, params *CreateCa
 		params = &CreateCapacityReservationInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateCapacityReservation", params, optFns, addOperationCreateCapacityReservationMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateCapacityReservation", params, optFns, c.addOperationCreateCapacityReservationMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -147,12 +147,14 @@ type CreateCapacityReservationInput struct {
 	// have one of the following tenancy settings:
 	//
 	// * default - The Capacity
-	// Reservation is created on hardware that is shared with other AWS accounts.
+	// Reservation is created on hardware that is shared with other Amazon Web Services
+	// accounts.
 	//
-	// *
-	// dedicated - The Capacity Reservation is created on single-tenant hardware that
-	// is dedicated to a single AWS account.
+	// * dedicated - The Capacity Reservation is created on single-tenant
+	// hardware that is dedicated to a single Amazon Web Services account.
 	Tenancy types.CapacityReservationTenancy
+
+	noSmithyDocumentSerde
 }
 
 type CreateCapacityReservationOutput struct {
@@ -162,9 +164,11 @@ type CreateCapacityReservationOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateCapacityReservationMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateCapacityReservationMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateCapacityReservation{}, middleware.After)
 	if err != nil {
 		return err

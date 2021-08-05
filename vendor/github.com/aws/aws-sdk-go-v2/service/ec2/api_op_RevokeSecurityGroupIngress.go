@@ -11,24 +11,26 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Removes the specified ingress rules from a security group. To remove a rule, the
-// values that you specify (for example, ports) must match the existing rule's
-// values exactly. [EC2-Classic , default VPC] If the values you specify do not
+// Removes the specified inbound (ingress) rules from a security group. You can
+// specify rules using either rule IDs or security group rule properties. If you
+// use rule properties, the values that you specify (for example, ports) must match
+// the existing rule's values exactly. Each rule has a protocol, from and to ports,
+// and source (CIDR range, security group, or prefix list). For the TCP and UDP
+// protocols, you must also specify the destination port or range of ports. For the
+// ICMP protocol, you must also specify the ICMP type and code. If the security
+// group rule has a description, you do not need to specify the description to
+// revoke the rule. [EC2-Classic, default VPC] If the values you specify do not
 // match the existing rule's values, no error is returned, and the output describes
-// the security group rules that were not revoked. AWS recommends that you use
-// DescribeSecurityGroups to verify that the rule has been removed. Each rule
-// consists of the protocol and the CIDR range or source security group. For the
-// TCP and UDP protocols, you must also specify the destination port or range of
-// ports. For the ICMP protocol, you must also specify the ICMP type and code. If
-// the security group rule has a description, you do not have to specify the
-// description to revoke the rule. Rule changes are propagated to instances within
-// the security group as quickly as possible. However, a small delay might occur.
+// the security group rules that were not revoked. Amazon Web Services recommends
+// that you describe the security group to verify that the rules were removed. Rule
+// changes are propagated to instances within the security group as quickly as
+// possible. However, a small delay might occur.
 func (c *Client) RevokeSecurityGroupIngress(ctx context.Context, params *RevokeSecurityGroupIngressInput, optFns ...func(*Options)) (*RevokeSecurityGroupIngressOutput, error) {
 	if params == nil {
 		params = &RevokeSecurityGroupIngressInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "RevokeSecurityGroupIngress", params, optFns, addOperationRevokeSecurityGroupIngressMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "RevokeSecurityGroupIngress", params, optFns, c.addOperationRevokeSecurityGroupIngressMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -72,6 +74,9 @@ type RevokeSecurityGroupIngressInput struct {
 	// -1 to specify all.
 	IpProtocol *string
 
+	// The IDs of the security group rules.
+	SecurityGroupRuleIds []string
+
 	// [EC2-Classic, default VPC] The name of the source security group. You can't
 	// specify this parameter in combination with the following parameters: the CIDR IP
 	// address range, the start of the port range, the IP protocol, and the end of the
@@ -80,17 +85,19 @@ type RevokeSecurityGroupIngressInput struct {
 	// permissions instead.
 	SourceSecurityGroupName *string
 
-	// [EC2-Classic] The AWS account ID of the source security group, if the source
-	// security group is in a different account. You can't specify this parameter in
-	// combination with the following parameters: the CIDR IP address range, the IP
-	// protocol, the start of the port range, and the end of the port range. To revoke
-	// a specific rule for an IP protocol and port range, use a set of IP permissions
-	// instead.
+	// [EC2-Classic] The Amazon Web Services account ID of the source security group,
+	// if the source security group is in a different account. You can't specify this
+	// parameter in combination with the following parameters: the CIDR IP address
+	// range, the IP protocol, the start of the port range, and the end of the port
+	// range. To revoke a specific rule for an IP protocol and port range, use a set of
+	// IP permissions instead.
 	SourceSecurityGroupOwnerId *string
 
 	// The end of port range for the TCP and UDP protocols, or an ICMP code number. For
 	// the ICMP code number, use -1 to specify all ICMP codes for the ICMP type.
 	ToPort *int32
+
+	noSmithyDocumentSerde
 }
 
 type RevokeSecurityGroupIngressOutput struct {
@@ -105,9 +112,11 @@ type RevokeSecurityGroupIngressOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationRevokeSecurityGroupIngressMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationRevokeSecurityGroupIngressMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpRevokeSecurityGroupIngress{}, middleware.After)
 	if err != nil {
 		return err

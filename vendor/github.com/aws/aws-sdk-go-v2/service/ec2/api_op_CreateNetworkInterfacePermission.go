@@ -11,15 +11,16 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Grants an AWS-authorized account permission to attach the specified network
-// interface to an instance in their account. You can grant permission to a single
-// AWS account only, and only one account at a time.
+// Grants an Amazon Web Services-authorized account permission to attach the
+// specified network interface to an instance in their account. You can grant
+// permission to a single Amazon Web Services account only, and only one account at
+// a time.
 func (c *Client) CreateNetworkInterfacePermission(ctx context.Context, params *CreateNetworkInterfacePermissionInput, optFns ...func(*Options)) (*CreateNetworkInterfacePermissionOutput, error) {
 	if params == nil {
 		params = &CreateNetworkInterfacePermissionInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateNetworkInterfacePermission", params, optFns, addOperationCreateNetworkInterfacePermissionMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateNetworkInterfacePermission", params, optFns, c.addOperationCreateNetworkInterfacePermissionMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -42,10 +43,10 @@ type CreateNetworkInterfacePermissionInput struct {
 	// This member is required.
 	Permission types.InterfacePermissionType
 
-	// The AWS account ID.
+	// The Amazon Web Services account ID.
 	AwsAccountId *string
 
-	// The AWS service. Currently not supported.
+	// The Amazon Web Service. Currently not supported.
 	AwsService *string
 
 	// Checks whether you have the required permissions for the action, without
@@ -53,6 +54,8 @@ type CreateNetworkInterfacePermissionInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 // Contains the output of CreateNetworkInterfacePermission.
@@ -63,9 +66,11 @@ type CreateNetworkInterfacePermissionOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateNetworkInterfacePermissionMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateNetworkInterfacePermissionMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateNetworkInterfacePermission{}, middleware.After)
 	if err != nil {
 		return err

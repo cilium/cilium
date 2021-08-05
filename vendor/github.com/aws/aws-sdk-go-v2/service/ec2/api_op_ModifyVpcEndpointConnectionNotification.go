@@ -18,7 +18,7 @@ func (c *Client) ModifyVpcEndpointConnectionNotification(ctx context.Context, pa
 		params = &ModifyVpcEndpointConnectionNotificationInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ModifyVpcEndpointConnectionNotification", params, optFns, addOperationModifyVpcEndpointConnectionNotificationMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ModifyVpcEndpointConnectionNotification", params, optFns, c.addOperationModifyVpcEndpointConnectionNotificationMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -47,6 +47,8 @@ type ModifyVpcEndpointConnectionNotificationInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type ModifyVpcEndpointConnectionNotificationOutput struct {
@@ -56,9 +58,11 @@ type ModifyVpcEndpointConnectionNotificationOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationModifyVpcEndpointConnectionNotificationMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationModifyVpcEndpointConnectionNotificationMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyVpcEndpointConnectionNotification{}, middleware.After)
 	if err != nil {
 		return err

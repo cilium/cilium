@@ -18,7 +18,7 @@ func (c *Client) ModifyClientVpnEndpoint(ctx context.Context, params *ModifyClie
 		params = &ModifyClientVpnEndpointInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ModifyClientVpnEndpoint", params, optFns, addOperationModifyClientVpnEndpointMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ModifyClientVpnEndpoint", params, optFns, c.addOperationModifyClientVpnEndpointMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -89,6 +89,8 @@ type ModifyClientVpnEndpointInput struct {
 	// The port number to assign to the Client VPN endpoint for TCP and UDP traffic.
 	// Valid Values: 443 | 1194 Default Value: 443
 	VpnPort *int32
+
+	noSmithyDocumentSerde
 }
 
 type ModifyClientVpnEndpointOutput struct {
@@ -98,9 +100,11 @@ type ModifyClientVpnEndpointOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationModifyClientVpnEndpointMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationModifyClientVpnEndpointMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyClientVpnEndpoint{}, middleware.After)
 	if err != nil {
 		return err

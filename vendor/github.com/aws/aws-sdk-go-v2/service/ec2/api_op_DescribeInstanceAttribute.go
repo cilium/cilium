@@ -21,7 +21,7 @@ func (c *Client) DescribeInstanceAttribute(ctx context.Context, params *Describe
 		params = &DescribeInstanceAttributeInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeInstanceAttribute", params, optFns, addOperationDescribeInstanceAttributeMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeInstanceAttribute", params, optFns, c.addOperationDescribeInstanceAttributeMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -49,6 +49,8 @@ type DescribeInstanceAttributeInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 // Describes an instance attribute.
@@ -67,8 +69,8 @@ type DescribeInstanceAttributeOutput struct {
 	// Indicates whether enhanced networking with ENA is enabled.
 	EnaSupport *types.AttributeBooleanValue
 
-	// To enable the instance for AWS Nitro Enclaves, set this parameter to true;
-	// otherwise, set it to false.
+	// To enable the instance for Amazon Web Services Nitro Enclaves, set this
+	// parameter to true; otherwise, set it to false.
 	EnclaveOptions *types.EnclaveOptions
 
 	// The security groups associated with the instance.
@@ -113,9 +115,11 @@ type DescribeInstanceAttributeOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeInstanceAttributeMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeInstanceAttributeMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeInstanceAttribute{}, middleware.After)
 	if err != nil {
 		return err
