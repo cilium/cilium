@@ -18,7 +18,7 @@ import (
 // CIDR block size is fixed at /56. You must specify one of the following in the
 // request: an IPv4 CIDR block, an IPv6 pool, or an Amazon-provided IPv6 CIDR
 // block. For more information about associating CIDR blocks with your VPC and
-// applicable restrictions, see VPC and Subnet Sizing
+// applicable restrictions, see VPC and subnet sizing
 // (https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html#VPC_Sizing)
 // in the Amazon Virtual Private Cloud User Guide.
 func (c *Client) AssociateVpcCidrBlock(ctx context.Context, params *AssociateVpcCidrBlockInput, optFns ...func(*Options)) (*AssociateVpcCidrBlockOutput, error) {
@@ -26,7 +26,7 @@ func (c *Client) AssociateVpcCidrBlock(ctx context.Context, params *AssociateVpc
 		params = &AssociateVpcCidrBlockInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "AssociateVpcCidrBlock", params, optFns, addOperationAssociateVpcCidrBlockMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "AssociateVpcCidrBlock", params, optFns, c.addOperationAssociateVpcCidrBlockMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -64,6 +64,8 @@ type AssociateVpcCidrBlockInput struct {
 
 	// The ID of an IPv6 address pool from which to allocate the IPv6 CIDR block.
 	Ipv6Pool *string
+
+	noSmithyDocumentSerde
 }
 
 type AssociateVpcCidrBlockOutput struct {
@@ -79,9 +81,11 @@ type AssociateVpcCidrBlockOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationAssociateVpcCidrBlockMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationAssociateVpcCidrBlockMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpAssociateVpcCidrBlock{}, middleware.After)
 	if err != nil {
 		return err

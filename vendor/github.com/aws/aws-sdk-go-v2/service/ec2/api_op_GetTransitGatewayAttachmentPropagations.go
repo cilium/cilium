@@ -19,7 +19,7 @@ func (c *Client) GetTransitGatewayAttachmentPropagations(ctx context.Context, pa
 		params = &GetTransitGatewayAttachmentPropagationsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetTransitGatewayAttachmentPropagations", params, optFns, addOperationGetTransitGatewayAttachmentPropagationsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetTransitGatewayAttachmentPropagations", params, optFns, c.addOperationGetTransitGatewayAttachmentPropagationsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -54,6 +54,8 @@ type GetTransitGatewayAttachmentPropagationsInput struct {
 
 	// The token for the next page of results.
 	NextToken *string
+
+	noSmithyDocumentSerde
 }
 
 type GetTransitGatewayAttachmentPropagationsOutput struct {
@@ -67,9 +69,11 @@ type GetTransitGatewayAttachmentPropagationsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationGetTransitGatewayAttachmentPropagationsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetTransitGatewayAttachmentPropagationsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpGetTransitGatewayAttachmentPropagations{}, middleware.After)
 	if err != nil {
 		return err

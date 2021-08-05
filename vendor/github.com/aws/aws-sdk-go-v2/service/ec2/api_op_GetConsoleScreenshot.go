@@ -17,7 +17,7 @@ func (c *Client) GetConsoleScreenshot(ctx context.Context, params *GetConsoleScr
 		params = &GetConsoleScreenshotInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetConsoleScreenshot", params, optFns, addOperationGetConsoleScreenshotMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetConsoleScreenshot", params, optFns, c.addOperationGetConsoleScreenshotMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -43,6 +43,8 @@ type GetConsoleScreenshotInput struct {
 	// When set to true, acts as keystroke input and wakes up an instance that's in
 	// standby or "sleep" mode.
 	WakeUp *bool
+
+	noSmithyDocumentSerde
 }
 
 type GetConsoleScreenshotOutput struct {
@@ -55,9 +57,11 @@ type GetConsoleScreenshotOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationGetConsoleScreenshotMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetConsoleScreenshotMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpGetConsoleScreenshot{}, middleware.After)
 	if err != nil {
 		return err

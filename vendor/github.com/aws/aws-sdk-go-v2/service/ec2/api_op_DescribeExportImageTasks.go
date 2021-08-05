@@ -18,7 +18,7 @@ func (c *Client) DescribeExportImageTasks(ctx context.Context, params *DescribeE
 		params = &DescribeExportImageTasksInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeExportImageTasks", params, optFns, addOperationDescribeExportImageTasksMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeExportImageTasks", params, optFns, c.addOperationDescribeExportImageTasksMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -48,6 +48,8 @@ type DescribeExportImageTasksInput struct {
 
 	// A token that indicates the next page of results.
 	NextToken *string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeExportImageTasksOutput struct {
@@ -61,9 +63,11 @@ type DescribeExportImageTasksOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeExportImageTasksMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeExportImageTasksMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeExportImageTasks{}, middleware.After)
 	if err != nil {
 		return err

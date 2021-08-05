@@ -21,7 +21,7 @@ func (c *Client) DescribeByoipCidrs(ctx context.Context, params *DescribeByoipCi
 		params = &DescribeByoipCidrsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeByoipCidrs", params, optFns, addOperationDescribeByoipCidrsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeByoipCidrs", params, optFns, c.addOperationDescribeByoipCidrsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -47,6 +47,8 @@ type DescribeByoipCidrsInput struct {
 
 	// The token for the next page of results.
 	NextToken *string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeByoipCidrsOutput struct {
@@ -60,9 +62,11 @@ type DescribeByoipCidrsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeByoipCidrsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeByoipCidrsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeByoipCidrs{}, middleware.After)
 	if err != nil {
 		return err

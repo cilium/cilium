@@ -18,7 +18,7 @@ func (c *Client) ModifyTransitGatewayPrefixListReference(ctx context.Context, pa
 		params = &ModifyTransitGatewayPrefixListReferenceInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ModifyTransitGatewayPrefixListReference", params, optFns, addOperationModifyTransitGatewayPrefixListReferenceMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ModifyTransitGatewayPrefixListReference", params, optFns, c.addOperationModifyTransitGatewayPrefixListReferenceMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -51,6 +51,8 @@ type ModifyTransitGatewayPrefixListReferenceInput struct {
 
 	// The ID of the attachment to which traffic is routed.
 	TransitGatewayAttachmentId *string
+
+	noSmithyDocumentSerde
 }
 
 type ModifyTransitGatewayPrefixListReferenceOutput struct {
@@ -60,9 +62,11 @@ type ModifyTransitGatewayPrefixListReferenceOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationModifyTransitGatewayPrefixListReferenceMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationModifyTransitGatewayPrefixListReferenceMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyTransitGatewayPrefixListReference{}, middleware.After)
 	if err != nil {
 		return err

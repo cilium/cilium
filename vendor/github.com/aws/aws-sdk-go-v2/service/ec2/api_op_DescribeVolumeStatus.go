@@ -25,7 +25,7 @@ import (
 // checks pass, the overall status of the volume is ok. If the check fails, the
 // overall status is impaired. If the status is insufficient-data, then the checks
 // might still be taking place on your volume at the time. We recommend that you
-// retry the request. For more information about volume status, see Monitoring the
+// retry the request. For more information about volume status, see Monitor the
 // status of your volumes
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-volume-status.html)
 // in the Amazon Elastic Compute Cloud User Guide. Events: Reflect the cause of a
@@ -46,7 +46,7 @@ func (c *Client) DescribeVolumeStatus(ctx context.Context, params *DescribeVolum
 		params = &DescribeVolumeStatusInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeVolumeStatus", params, optFns, addOperationDescribeVolumeStatusMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeVolumeStatus", params, optFns, c.addOperationDescribeVolumeStatusMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -123,6 +123,8 @@ type DescribeVolumeStatusInput struct {
 
 	// The IDs of the volumes. Default: Describes all your volumes.
 	VolumeIds []string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeVolumeStatusOutput struct {
@@ -136,9 +138,11 @@ type DescribeVolumeStatusOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeVolumeStatusMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeVolumeStatusMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeVolumeStatus{}, middleware.After)
 	if err != nil {
 		return err

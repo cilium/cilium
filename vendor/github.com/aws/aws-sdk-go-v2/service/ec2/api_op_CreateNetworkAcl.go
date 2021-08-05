@@ -21,7 +21,7 @@ func (c *Client) CreateNetworkAcl(ctx context.Context, params *CreateNetworkAclI
 		params = &CreateNetworkAclInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateNetworkAcl", params, optFns, addOperationCreateNetworkAclMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateNetworkAcl", params, optFns, c.addOperationCreateNetworkAclMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -46,6 +46,8 @@ type CreateNetworkAclInput struct {
 
 	// The tags to assign to the network ACL.
 	TagSpecifications []types.TagSpecification
+
+	noSmithyDocumentSerde
 }
 
 type CreateNetworkAclOutput struct {
@@ -55,9 +57,11 @@ type CreateNetworkAclOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateNetworkAclMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateNetworkAclMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateNetworkAcl{}, middleware.After)
 	if err != nil {
 		return err

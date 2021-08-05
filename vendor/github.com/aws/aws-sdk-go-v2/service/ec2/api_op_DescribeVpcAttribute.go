@@ -18,7 +18,7 @@ func (c *Client) DescribeVpcAttribute(ctx context.Context, params *DescribeVpcAt
 		params = &DescribeVpcAttributeInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeVpcAttribute", params, optFns, addOperationDescribeVpcAttributeMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeVpcAttribute", params, optFns, c.addOperationDescribeVpcAttributeMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -45,6 +45,8 @@ type DescribeVpcAttributeInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type DescribeVpcAttributeOutput struct {
@@ -64,9 +66,11 @@ type DescribeVpcAttributeOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeVpcAttributeMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeVpcAttributeMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeVpcAttribute{}, middleware.After)
 	if err != nil {
 		return err

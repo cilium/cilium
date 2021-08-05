@@ -23,7 +23,7 @@ func (c *Client) RebootInstances(ctx context.Context, params *RebootInstancesInp
 		params = &RebootInstancesInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "RebootInstances", params, optFns, addOperationRebootInstancesMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "RebootInstances", params, optFns, c.addOperationRebootInstancesMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -45,14 +45,18 @@ type RebootInstancesInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type RebootInstancesOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationRebootInstancesMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationRebootInstancesMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpRebootInstances{}, middleware.After)
 	if err != nil {
 		return err

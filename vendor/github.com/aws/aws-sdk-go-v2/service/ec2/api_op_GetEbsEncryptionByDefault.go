@@ -19,7 +19,7 @@ func (c *Client) GetEbsEncryptionByDefault(ctx context.Context, params *GetEbsEn
 		params = &GetEbsEncryptionByDefaultInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetEbsEncryptionByDefault", params, optFns, addOperationGetEbsEncryptionByDefaultMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetEbsEncryptionByDefault", params, optFns, c.addOperationGetEbsEncryptionByDefaultMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -36,6 +36,8 @@ type GetEbsEncryptionByDefaultInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type GetEbsEncryptionByDefaultOutput struct {
@@ -45,9 +47,11 @@ type GetEbsEncryptionByDefaultOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationGetEbsEncryptionByDefaultMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetEbsEncryptionByDefaultMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpGetEbsEncryptionByDefault{}, middleware.After)
 	if err != nil {
 		return err

@@ -19,7 +19,7 @@ func (c *Client) DeleteSecurityGroup(ctx context.Context, params *DeleteSecurity
 		params = &DeleteSecurityGroupInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DeleteSecurityGroup", params, optFns, addOperationDeleteSecurityGroupMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DeleteSecurityGroup", params, optFns, c.addOperationDeleteSecurityGroupMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -43,14 +43,18 @@ type DeleteSecurityGroupInput struct {
 	// [EC2-Classic, default VPC] The name of the security group. You can specify
 	// either the security group name or the security group ID.
 	GroupName *string
+
+	noSmithyDocumentSerde
 }
 
 type DeleteSecurityGroupOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDeleteSecurityGroupMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDeleteSecurityGroupMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDeleteSecurityGroup{}, middleware.After)
 	if err != nil {
 		return err

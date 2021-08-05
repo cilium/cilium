@@ -12,8 +12,8 @@ import (
 )
 
 // Creates a data feed for Spot Instances, enabling you to view Spot Instance usage
-// logs. You can create one data feed per AWS account. For more information, see
-// Spot Instance data feed
+// logs. You can create one data feed per Amazon Web Services account. For more
+// information, see Spot Instance data feed
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-data-feeds.html) in
 // the Amazon EC2 User Guide for Linux Instances.
 func (c *Client) CreateSpotDatafeedSubscription(ctx context.Context, params *CreateSpotDatafeedSubscriptionInput, optFns ...func(*Options)) (*CreateSpotDatafeedSubscriptionOutput, error) {
@@ -21,7 +21,7 @@ func (c *Client) CreateSpotDatafeedSubscription(ctx context.Context, params *Cre
 		params = &CreateSpotDatafeedSubscriptionInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateSpotDatafeedSubscription", params, optFns, addOperationCreateSpotDatafeedSubscriptionMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateSpotDatafeedSubscription", params, optFns, c.addOperationCreateSpotDatafeedSubscriptionMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -50,6 +50,8 @@ type CreateSpotDatafeedSubscriptionInput struct {
 
 	// The prefix for the data feed file names.
 	Prefix *string
+
+	noSmithyDocumentSerde
 }
 
 // Contains the output of CreateSpotDatafeedSubscription.
@@ -60,9 +62,11 @@ type CreateSpotDatafeedSubscriptionOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateSpotDatafeedSubscriptionMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateSpotDatafeedSubscriptionMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateSpotDatafeedSubscription{}, middleware.After)
 	if err != nil {
 		return err

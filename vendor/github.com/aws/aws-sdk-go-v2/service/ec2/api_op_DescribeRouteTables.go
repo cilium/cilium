@@ -16,7 +16,7 @@ import (
 // associated with a route table. If a subnet is not explicitly associated with any
 // route table, it is implicitly associated with the main route table. This command
 // does not return the subnet ID for implicit associations. For more information,
-// see Route Tables
+// see Route tables
 // (https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Route_Tables.html) in the
 // Amazon Virtual Private Cloud User Guide.
 func (c *Client) DescribeRouteTables(ctx context.Context, params *DescribeRouteTablesInput, optFns ...func(*Options)) (*DescribeRouteTablesOutput, error) {
@@ -24,7 +24,7 @@ func (c *Client) DescribeRouteTables(ctx context.Context, params *DescribeRouteT
 		params = &DescribeRouteTablesInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeRouteTables", params, optFns, addOperationDescribeRouteTablesMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeRouteTables", params, optFns, c.addOperationDescribeRouteTablesMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -58,20 +58,20 @@ type DescribeRouteTablesInput struct {
 	// Route tables that do not have an association ID are not returned in the
 	// response.
 	//
-	// * owner-id - The ID of the AWS account that owns the route table.
+	// * owner-id - The ID of the Amazon Web Services account that owns the
+	// route table.
+	//
+	// * route-table-id - The ID of the route table.
 	//
 	// *
-	// route-table-id - The ID of the route table.
+	// route.destination-cidr-block - The IPv4 CIDR range specified in a route in the
+	// table.
 	//
-	// * route.destination-cidr-block -
-	// The IPv4 CIDR range specified in a route in the table.
+	// * route.destination-ipv6-cidr-block - The IPv6 CIDR range specified in a
+	// route in the route table.
 	//
-	// *
-	// route.destination-ipv6-cidr-block - The IPv6 CIDR range specified in a route in
-	// the route table.
-	//
-	// * route.destination-prefix-list-id - The ID (prefix) of the
-	// AWS service specified in a route in the table.
+	// * route.destination-prefix-list-id - The ID (prefix)
+	// of the Amazon Web Service specified in a route in the table.
 	//
 	// *
 	// route.egress-only-internet-gateway-id - The ID of an egress-only Internet
@@ -126,6 +126,8 @@ type DescribeRouteTablesInput struct {
 
 	// One or more route table IDs. Default: Describes all your route tables.
 	RouteTableIds []string
+
+	noSmithyDocumentSerde
 }
 
 // Contains the output of DescribeRouteTables.
@@ -140,9 +142,11 @@ type DescribeRouteTablesOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeRouteTablesMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeRouteTablesMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeRouteTables{}, middleware.After)
 	if err != nil {
 		return err

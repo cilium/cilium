@@ -19,7 +19,7 @@ func (c *Client) DescribeVpcEndpointServiceConfigurations(ctx context.Context, p
 		params = &DescribeVpcEndpointServiceConfigurationsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeVpcEndpointServiceConfigurations", params, optFns, addOperationDescribeVpcEndpointServiceConfigurationsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeVpcEndpointServiceConfigurations", params, optFns, c.addOperationDescribeVpcEndpointServiceConfigurationsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -69,6 +69,8 @@ type DescribeVpcEndpointServiceConfigurationsInput struct {
 
 	// The IDs of one or more services.
 	ServiceIds []string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeVpcEndpointServiceConfigurationsOutput struct {
@@ -82,9 +84,11 @@ type DescribeVpcEndpointServiceConfigurationsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeVpcEndpointServiceConfigurationsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeVpcEndpointServiceConfigurationsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeVpcEndpointServiceConfigurations{}, middleware.After)
 	if err != nil {
 		return err

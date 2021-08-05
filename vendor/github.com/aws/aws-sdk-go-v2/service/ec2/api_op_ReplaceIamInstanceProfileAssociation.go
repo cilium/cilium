@@ -20,7 +20,7 @@ func (c *Client) ReplaceIamInstanceProfileAssociation(ctx context.Context, param
 		params = &ReplaceIamInstanceProfileAssociationInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ReplaceIamInstanceProfileAssociation", params, optFns, addOperationReplaceIamInstanceProfileAssociationMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ReplaceIamInstanceProfileAssociation", params, optFns, c.addOperationReplaceIamInstanceProfileAssociationMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -41,6 +41,8 @@ type ReplaceIamInstanceProfileAssociationInput struct {
 	//
 	// This member is required.
 	IamInstanceProfile *types.IamInstanceProfileSpecification
+
+	noSmithyDocumentSerde
 }
 
 type ReplaceIamInstanceProfileAssociationOutput struct {
@@ -50,9 +52,11 @@ type ReplaceIamInstanceProfileAssociationOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationReplaceIamInstanceProfileAssociationMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationReplaceIamInstanceProfileAssociationMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpReplaceIamInstanceProfileAssociation{}, middleware.After)
 	if err != nil {
 		return err

@@ -17,7 +17,7 @@ import (
 // instances. They automatically pick up the changes within a few hours, depending
 // on how frequently the instance renews its DHCP lease. You can explicitly renew
 // the lease using the operating system on the instance. For more information, see
-// DHCP Options Sets
+// DHCP options sets
 // (https://docs.aws.amazon.com/vpc/latest/userguide/VPC_DHCP_Options.html) in the
 // Amazon Virtual Private Cloud User Guide.
 func (c *Client) AssociateDhcpOptions(ctx context.Context, params *AssociateDhcpOptionsInput, optFns ...func(*Options)) (*AssociateDhcpOptionsOutput, error) {
@@ -25,7 +25,7 @@ func (c *Client) AssociateDhcpOptions(ctx context.Context, params *AssociateDhcp
 		params = &AssociateDhcpOptionsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "AssociateDhcpOptions", params, optFns, addOperationAssociateDhcpOptionsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "AssociateDhcpOptions", params, optFns, c.addOperationAssociateDhcpOptionsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -53,14 +53,18 @@ type AssociateDhcpOptionsInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type AssociateDhcpOptionsOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationAssociateDhcpOptionsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationAssociateDhcpOptionsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpAssociateDhcpOptions{}, middleware.After)
 	if err != nil {
 		return err

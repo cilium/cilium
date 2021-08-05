@@ -30,7 +30,7 @@ func (c *Client) CreateNetworkAclEntry(ctx context.Context, params *CreateNetwor
 		params = &CreateNetworkAclEntryInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateNetworkAclEntry", params, optFns, addOperationCreateNetworkAclEntryMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateNetworkAclEntry", params, optFns, c.addOperationCreateNetworkAclEntryMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -98,14 +98,18 @@ type CreateNetworkAclEntryInput struct {
 	// TCP or UDP protocols: The range of ports the rule applies to. Required if
 	// specifying protocol 6 (TCP) or 17 (UDP).
 	PortRange *types.PortRange
+
+	noSmithyDocumentSerde
 }
 
 type CreateNetworkAclEntryOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateNetworkAclEntryMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateNetworkAclEntryMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateNetworkAclEntry{}, middleware.After)
 	if err != nil {
 		return err

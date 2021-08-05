@@ -19,7 +19,7 @@ func (c *Client) ReplaceNetworkAclEntry(ctx context.Context, params *ReplaceNetw
 		params = &ReplaceNetworkAclEntryInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ReplaceNetworkAclEntry", params, optFns, addOperationReplaceNetworkAclEntryMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ReplaceNetworkAclEntry", params, optFns, c.addOperationReplaceNetworkAclEntryMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -84,14 +84,18 @@ type ReplaceNetworkAclEntryInput struct {
 	// TCP or UDP protocols: The range of ports the rule applies to. Required if
 	// specifying protocol 6 (TCP) or 17 (UDP).
 	PortRange *types.PortRange
+
+	noSmithyDocumentSerde
 }
 
 type ReplaceNetworkAclEntryOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationReplaceNetworkAclEntryMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationReplaceNetworkAclEntryMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpReplaceNetworkAclEntry{}, middleware.After)
 	if err != nil {
 		return err

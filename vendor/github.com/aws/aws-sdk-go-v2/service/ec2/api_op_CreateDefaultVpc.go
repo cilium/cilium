@@ -13,7 +13,7 @@ import (
 
 // Creates a default VPC with a size /16 IPv4 CIDR block and a default subnet in
 // each Availability Zone. For more information about the components of a default
-// VPC, see Default VPC and Default Subnets
+// VPC, see Default VPC and default subnets
 // (https://docs.aws.amazon.com/vpc/latest/userguide/default-vpc.html) in the
 // Amazon Virtual Private Cloud User Guide. You cannot specify the components of
 // the default VPC yourself. If you deleted your previous default VPC, you can
@@ -28,7 +28,7 @@ func (c *Client) CreateDefaultVpc(ctx context.Context, params *CreateDefaultVpcI
 		params = &CreateDefaultVpcInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateDefaultVpc", params, optFns, addOperationCreateDefaultVpcMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateDefaultVpc", params, optFns, c.addOperationCreateDefaultVpcMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -45,6 +45,8 @@ type CreateDefaultVpcInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type CreateDefaultVpcOutput struct {
@@ -54,9 +56,11 @@ type CreateDefaultVpcOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateDefaultVpcMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateDefaultVpcMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateDefaultVpc{}, middleware.After)
 	if err != nil {
 		return err

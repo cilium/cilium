@@ -21,7 +21,7 @@ func (c *Client) CreateClientVpnRoute(ctx context.Context, params *CreateClientV
 		params = &CreateClientVpnRouteInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateClientVpnRoute", params, optFns, addOperationCreateClientVpnRouteMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateClientVpnRoute", params, optFns, c.addOperationCreateClientVpnRouteMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -75,6 +75,8 @@ type CreateClientVpnRouteInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type CreateClientVpnRouteOutput struct {
@@ -84,9 +86,11 @@ type CreateClientVpnRouteOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateClientVpnRouteMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateClientVpnRouteMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateClientVpnRoute{}, middleware.After)
 	if err != nil {
 		return err

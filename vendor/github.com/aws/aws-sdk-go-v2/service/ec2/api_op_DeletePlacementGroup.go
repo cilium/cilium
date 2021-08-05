@@ -20,7 +20,7 @@ func (c *Client) DeletePlacementGroup(ctx context.Context, params *DeletePlaceme
 		params = &DeletePlacementGroupInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DeletePlacementGroup", params, optFns, addOperationDeletePlacementGroupMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DeletePlacementGroup", params, optFns, c.addOperationDeletePlacementGroupMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -42,14 +42,18 @@ type DeletePlacementGroupInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type DeletePlacementGroupOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDeletePlacementGroupMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDeletePlacementGroupMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDeletePlacementGroup{}, middleware.After)
 	if err != nil {
 		return err

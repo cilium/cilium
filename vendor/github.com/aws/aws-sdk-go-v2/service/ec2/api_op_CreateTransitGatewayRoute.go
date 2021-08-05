@@ -17,7 +17,7 @@ func (c *Client) CreateTransitGatewayRoute(ctx context.Context, params *CreateTr
 		params = &CreateTransitGatewayRouteInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateTransitGatewayRoute", params, optFns, addOperationCreateTransitGatewayRouteMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateTransitGatewayRoute", params, optFns, c.addOperationCreateTransitGatewayRouteMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -51,6 +51,8 @@ type CreateTransitGatewayRouteInput struct {
 
 	// The ID of the attachment.
 	TransitGatewayAttachmentId *string
+
+	noSmithyDocumentSerde
 }
 
 type CreateTransitGatewayRouteOutput struct {
@@ -60,9 +62,11 @@ type CreateTransitGatewayRouteOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateTransitGatewayRouteMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateTransitGatewayRouteMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateTransitGatewayRoute{}, middleware.After)
 	if err != nil {
 		return err

@@ -23,7 +23,7 @@ func (c *Client) ModifyImageAttribute(ctx context.Context, params *ModifyImageAt
 		params = &ModifyImageAttributeInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ModifyImageAttribute", params, optFns, addOperationModifyImageAttributeMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ModifyImageAttribute", params, optFns, c.addOperationModifyImageAttributeMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -76,14 +76,18 @@ type ModifyImageAttributeInput struct {
 	// The value of the attribute being modified. This parameter can be used only when
 	// the Attribute parameter is description or productCodes.
 	Value *string
+
+	noSmithyDocumentSerde
 }
 
 type ModifyImageAttributeOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationModifyImageAttributeMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationModifyImageAttributeMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyImageAttribute{}, middleware.After)
 	if err != nil {
 		return err

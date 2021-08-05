@@ -17,7 +17,7 @@ func (c *Client) ModifyFpgaImageAttribute(ctx context.Context, params *ModifyFpg
 		params = &ModifyFpgaImageAttributeInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ModifyFpgaImageAttribute", params, optFns, addOperationModifyFpgaImageAttributeMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ModifyFpgaImageAttribute", params, optFns, c.addOperationModifyFpgaImageAttributeMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -66,6 +66,8 @@ type ModifyFpgaImageAttributeInput struct {
 	// The AWS account IDs. This parameter is valid only when modifying the
 	// loadPermission attribute.
 	UserIds []string
+
+	noSmithyDocumentSerde
 }
 
 type ModifyFpgaImageAttributeOutput struct {
@@ -75,9 +77,11 @@ type ModifyFpgaImageAttributeOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationModifyFpgaImageAttributeMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationModifyFpgaImageAttributeMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyFpgaImageAttribute{}, middleware.After)
 	if err != nil {
 		return err

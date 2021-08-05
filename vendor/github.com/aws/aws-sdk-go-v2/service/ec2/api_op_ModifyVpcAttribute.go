@@ -17,7 +17,7 @@ func (c *Client) ModifyVpcAttribute(ctx context.Context, params *ModifyVpcAttrib
 		params = &ModifyVpcAttributeInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ModifyVpcAttribute", params, optFns, addOperationModifyVpcAttributeMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ModifyVpcAttribute", params, optFns, c.addOperationModifyVpcAttributeMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -49,14 +49,18 @@ type ModifyVpcAttributeInput struct {
 	// and DNS hostnames attributes in the same request. Use separate requests for each
 	// attribute.
 	EnableDnsSupport *types.AttributeBooleanValue
+
+	noSmithyDocumentSerde
 }
 
 type ModifyVpcAttributeOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationModifyVpcAttributeMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationModifyVpcAttributeMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyVpcAttribute{}, middleware.After)
 	if err != nil {
 		return err

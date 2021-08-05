@@ -18,7 +18,7 @@ func (c *Client) DescribeNetworkInterfaceAttribute(ctx context.Context, params *
 		params = &DescribeNetworkInterfaceAttributeInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeNetworkInterfaceAttribute", params, optFns, addOperationDescribeNetworkInterfaceAttributeMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeNetworkInterfaceAttribute", params, optFns, c.addOperationDescribeNetworkInterfaceAttributeMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -44,6 +44,8 @@ type DescribeNetworkInterfaceAttributeInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 // Contains the output of DescribeNetworkInterfaceAttribute.
@@ -66,9 +68,11 @@ type DescribeNetworkInterfaceAttributeOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeNetworkInterfaceAttributeMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeNetworkInterfaceAttributeMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeNetworkInterfaceAttribute{}, middleware.After)
 	if err != nil {
 		return err

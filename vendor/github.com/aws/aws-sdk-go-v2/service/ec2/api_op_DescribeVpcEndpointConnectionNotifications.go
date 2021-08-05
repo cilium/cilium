@@ -19,7 +19,7 @@ func (c *Client) DescribeVpcEndpointConnectionNotifications(ctx context.Context,
 		params = &DescribeVpcEndpointConnectionNotificationsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeVpcEndpointConnectionNotifications", params, optFns, addOperationDescribeVpcEndpointConnectionNotificationsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeVpcEndpointConnectionNotifications", params, optFns, c.addOperationDescribeVpcEndpointConnectionNotificationsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -66,6 +66,8 @@ type DescribeVpcEndpointConnectionNotificationsInput struct {
 
 	// The token to request the next page of results.
 	NextToken *string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeVpcEndpointConnectionNotificationsOutput struct {
@@ -79,9 +81,11 @@ type DescribeVpcEndpointConnectionNotificationsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeVpcEndpointConnectionNotificationsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeVpcEndpointConnectionNotificationsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeVpcEndpointConnectionNotifications{}, middleware.After)
 	if err != nil {
 		return err

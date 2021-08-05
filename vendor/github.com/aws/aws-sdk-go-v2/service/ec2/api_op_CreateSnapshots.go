@@ -25,7 +25,7 @@ func (c *Client) CreateSnapshots(ctx context.Context, params *CreateSnapshotsInp
 		params = &CreateSnapshotsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateSnapshots", params, optFns, addOperationCreateSnapshotsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateSnapshots", params, optFns, c.addOperationCreateSnapshotsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +54,7 @@ type CreateSnapshotsInput struct {
 	// UnauthorizedOperation.
 	DryRun *bool
 
-	// The Amazon Resource Name (ARN) of the AWS Outpost on which to create the local
+	// The Amazon Resource Name (ARN) of the Outpost on which to create the local
 	// snapshots.
 	//
 	// * To create snapshots from an instance in a Region, omit this
@@ -70,7 +70,7 @@ type CreateSnapshotsInput struct {
 	// snapshots must be created on the same Outpost as the instance.
 	//
 	// For more
-	// information, see  Creating multi-volume local snapshots from instances on an
+	// information, see  Create multi-volume local snapshots from instances on an
 	// Outpost
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshots-outposts.html#create-multivol-snapshot)
 	// in the Amazon Elastic Compute Cloud User Guide.
@@ -78,6 +78,8 @@ type CreateSnapshotsInput struct {
 
 	// Tags to apply to every snapshot specified by the instance.
 	TagSpecifications []types.TagSpecification
+
+	noSmithyDocumentSerde
 }
 
 type CreateSnapshotsOutput struct {
@@ -87,9 +89,11 @@ type CreateSnapshotsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateSnapshotsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateSnapshotsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateSnapshots{}, middleware.After)
 	if err != nil {
 		return err

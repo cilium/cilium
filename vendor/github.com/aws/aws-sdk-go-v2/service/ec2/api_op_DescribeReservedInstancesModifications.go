@@ -24,7 +24,7 @@ func (c *Client) DescribeReservedInstancesModifications(ctx context.Context, par
 		params = &DescribeReservedInstancesModificationsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeReservedInstancesModifications", params, optFns, addOperationDescribeReservedInstancesModificationsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeReservedInstancesModifications", params, optFns, c.addOperationDescribeReservedInstancesModificationsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -88,6 +88,8 @@ type DescribeReservedInstancesModificationsInput struct {
 
 	// IDs for the submitted modification request.
 	ReservedInstancesModificationIds []string
+
+	noSmithyDocumentSerde
 }
 
 // Contains the output of DescribeReservedInstancesModifications.
@@ -102,9 +104,11 @@ type DescribeReservedInstancesModificationsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeReservedInstancesModificationsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeReservedInstancesModificationsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeReservedInstancesModifications{}, middleware.After)
 	if err != nil {
 		return err

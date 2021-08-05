@@ -19,7 +19,7 @@ func (c *Client) DescribeCoipPools(ctx context.Context, params *DescribeCoipPool
 		params = &DescribeCoipPoolsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeCoipPools", params, optFns, addOperationDescribeCoipPoolsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeCoipPools", params, optFns, c.addOperationDescribeCoipPoolsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -54,6 +54,8 @@ type DescribeCoipPoolsInput struct {
 
 	// The IDs of the address pools.
 	PoolIds []string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeCoipPoolsOutput struct {
@@ -67,9 +69,11 @@ type DescribeCoipPoolsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeCoipPoolsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeCoipPoolsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeCoipPools{}, middleware.After)
 	if err != nil {
 		return err

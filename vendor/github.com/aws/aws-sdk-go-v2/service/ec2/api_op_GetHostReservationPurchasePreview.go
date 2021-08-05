@@ -20,7 +20,7 @@ func (c *Client) GetHostReservationPurchasePreview(ctx context.Context, params *
 		params = &GetHostReservationPurchasePreviewInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetHostReservationPurchasePreview", params, optFns, addOperationGetHostReservationPurchasePreviewMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetHostReservationPurchasePreview", params, optFns, c.addOperationGetHostReservationPurchasePreviewMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -41,6 +41,8 @@ type GetHostReservationPurchasePreviewInput struct {
 	//
 	// This member is required.
 	OfferingId *string
+
+	noSmithyDocumentSerde
 }
 
 type GetHostReservationPurchasePreviewOutput struct {
@@ -61,9 +63,11 @@ type GetHostReservationPurchasePreviewOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationGetHostReservationPurchasePreviewMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetHostReservationPurchasePreviewMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpGetHostReservationPurchasePreview{}, middleware.After)
 	if err != nil {
 		return err

@@ -26,7 +26,7 @@ func (c *Client) CreateRestoreImageTask(ctx context.Context, params *CreateResto
 		params = &CreateRestoreImageTaskInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateRestoreImageTask", params, optFns, addOperationCreateRestoreImageTaskMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateRestoreImageTask", params, optFns, c.addOperationCreateRestoreImageTaskMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -68,6 +68,8 @@ type CreateRestoreImageTaskInput struct {
 	// * To tag the snapshots, the value for ResourceType must be snapshot. The
 	// same tag is applied to all of the snapshots that are created.
 	TagSpecifications []types.TagSpecification
+
+	noSmithyDocumentSerde
 }
 
 type CreateRestoreImageTaskOutput struct {
@@ -77,9 +79,11 @@ type CreateRestoreImageTaskOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateRestoreImageTaskMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateRestoreImageTaskMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateRestoreImageTask{}, middleware.After)
 	if err != nil {
 		return err

@@ -22,7 +22,7 @@ func (c *Client) ModifyVpcEndpointServicePermissions(ctx context.Context, params
 		params = &ModifyVpcEndpointServicePermissionsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ModifyVpcEndpointServicePermissions", params, optFns, addOperationModifyVpcEndpointServicePermissionsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ModifyVpcEndpointServicePermissions", params, optFns, c.addOperationModifyVpcEndpointServicePermissionsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -53,6 +53,8 @@ type ModifyVpcEndpointServicePermissionsInput struct {
 	// The Amazon Resource Names (ARN) of one or more principals. Permissions are
 	// revoked for principals in this list.
 	RemoveAllowedPrincipals []string
+
+	noSmithyDocumentSerde
 }
 
 type ModifyVpcEndpointServicePermissionsOutput struct {
@@ -62,9 +64,11 @@ type ModifyVpcEndpointServicePermissionsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationModifyVpcEndpointServicePermissionsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationModifyVpcEndpointServicePermissionsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyVpcEndpointServicePermissions{}, middleware.After)
 	if err != nil {
 		return err

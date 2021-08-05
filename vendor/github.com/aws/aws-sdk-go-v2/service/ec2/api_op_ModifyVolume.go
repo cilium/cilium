@@ -15,42 +15,34 @@ import (
 // size, volume type, and IOPS capacity. If your EBS volume is attached to a
 // current-generation EC2 instance type, you might be able to apply these changes
 // without stopping the instance or detaching the volume from it. For more
-// information about modifying an EBS volume running Linux, see Modifying the size,
-// IOPS, or type of an EBS volume on Linux
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-expand-volume.html).
-// For more information about modifying an EBS volume running Windows, see
-// Modifying the size, IOPS, or type of an EBS volume on Windows
-// (https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/ebs-expand-volume.html).
-// When you complete a resize operation on your volume, you need to extend the
-// volume's file-system size to take advantage of the new storage capacity. For
-// information about extending a Linux file system, see Extending a Linux file
-// system
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-expand-volume.html#recognize-expanded-volume-linux).
-// For information about extending a Windows file system, see Extending a Windows
-// file system
+// information about modifying EBS volumes, see Amazon EBS Elastic Volumes
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-modify-volume.html)
+// (Linux instances) or Amazon EBS Elastic Volumes
+// (https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/ebs-modify-volume.html)
+// (Windows instances). When you complete a resize operation on your volume, you
+// need to extend the volume's file-system size to take advantage of the new
+// storage capacity. For more information, see Extend a Linux file system
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-expand-volume.html#recognize-expanded-volume-linux)
+// or Extend a Windows file system
 // (https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/ebs-expand-volume.html#recognize-expanded-volume-windows).
 // You can use CloudWatch Events to check the status of a modification to an EBS
 // volume. For information about CloudWatch Events, see the Amazon CloudWatch
 // Events User Guide (https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/).
 // You can also track the status of a modification using
 // DescribeVolumesModifications. For information about tracking status changes
-// using either method, see Monitoring volume modifications
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-expand-volume.html#monitoring_mods).
+// using either method, see Monitor the progress of volume modifications
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-volume-modifications.html).
 // With previous-generation instance types, resizing an EBS volume might require
-// detaching and reattaching the volume or stopping and restarting the instance.
-// For more information, see Amazon EBS Elastic Volumes
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-modify-volume.html)
-// (Linux) or Amazon EBS Elastic Volumes
-// (https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/ebs-modify-volume.html)
-// (Windows). If you reach the maximum volume modification rate per volume limit,
-// you will need to wait at least six hours before applying further modifications
-// to the affected EBS volume.
+// detaching and reattaching the volume or stopping and restarting the instance. If
+// you reach the maximum volume modification rate per volume limit, you must wait
+// at least six hours before applying further modifications to the affected EBS
+// volume.
 func (c *Client) ModifyVolume(ctx context.Context, params *ModifyVolumeInput, optFns ...func(*Options)) (*ModifyVolumeOutput, error) {
 	if params == nil {
 		params = &ModifyVolumeInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ModifyVolume", params, optFns, addOperationModifyVolumeMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ModifyVolume", params, optFns, c.addOperationModifyVolumeMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -84,8 +76,8 @@ type ModifyVolumeInput struct {
 	// * io2: 100-64,000 IOPS
 	//
 	// Default:
-	// If no IOPS value is specified, the existing value is retained, unless a volume
-	// type is modified that supports different values.
+	// The existing value is retained if you keep the same volume type. If you change
+	// the volume type to io1, io2, or gp3, the default is 3,000.
 	Iops *int32
 
 	// Specifies whether to enable Amazon EBS Multi-Attach. If you enable Multi-Attach,
@@ -110,22 +102,23 @@ type ModifyVolumeInput struct {
 	//
 	// * standard: 1-1,024
 	//
-	// Default: If
-	// no size is specified, the existing size is retained.
+	// Default: The
+	// existing size is retained.
 	Size *int32
 
 	// The target throughput of the volume, in MiB/s. This parameter is valid only for
-	// gp3 volumes. The maximum value is 1,000. Default: If no throughput value is
-	// specified, the existing value is retained. Valid Range: Minimum value of 125.
-	// Maximum value of 1000.
+	// gp3 volumes. The maximum value is 1,000. Default: The existing value is retained
+	// if the source and target volume type is gp3. Otherwise, the default value is
+	// 125. Valid Range: Minimum value of 125. Maximum value of 1000.
 	Throughput *int32
 
 	// The target EBS volume type of the volume. For more information, see Amazon EBS
 	// volume types
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html) in the
-	// Amazon Elastic Compute Cloud User Guide. Default: If no type is specified, the
-	// existing type is retained.
+	// Amazon Elastic Compute Cloud User Guide. Default: The existing type is retained.
 	VolumeType types.VolumeType
+
+	noSmithyDocumentSerde
 }
 
 type ModifyVolumeOutput struct {
@@ -135,9 +128,11 @@ type ModifyVolumeOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationModifyVolumeMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationModifyVolumeMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyVolume{}, middleware.After)
 	if err != nil {
 		return err

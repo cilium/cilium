@@ -18,7 +18,7 @@ func (c *Client) GetManagedPrefixListEntries(ctx context.Context, params *GetMan
 		params = &GetManagedPrefixListEntriesInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetManagedPrefixListEntries", params, optFns, addOperationGetManagedPrefixListEntriesMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetManagedPrefixListEntries", params, optFns, c.addOperationGetManagedPrefixListEntriesMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -51,6 +51,8 @@ type GetManagedPrefixListEntriesInput struct {
 	// The version of the prefix list for which to return the entries. The default is
 	// the current version.
 	TargetVersion *int64
+
+	noSmithyDocumentSerde
 }
 
 type GetManagedPrefixListEntriesOutput struct {
@@ -64,9 +66,11 @@ type GetManagedPrefixListEntriesOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationGetManagedPrefixListEntriesMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetManagedPrefixListEntriesMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpGetManagedPrefixListEntries{}, middleware.After)
 	if err != nil {
 		return err

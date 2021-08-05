@@ -33,7 +33,7 @@ func (c *Client) GetFlowLogsIntegrationTemplate(ctx context.Context, params *Get
 		params = &GetFlowLogsIntegrationTemplateInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetFlowLogsIntegrationTemplate", params, optFns, addOperationGetFlowLogsIntegrationTemplateMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetFlowLogsIntegrationTemplate", params, optFns, c.addOperationGetFlowLogsIntegrationTemplateMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -66,6 +66,8 @@ type GetFlowLogsIntegrationTemplateInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type GetFlowLogsIntegrationTemplateOutput struct {
@@ -75,9 +77,11 @@ type GetFlowLogsIntegrationTemplateOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationGetFlowLogsIntegrationTemplateMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetFlowLogsIntegrationTemplateMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpGetFlowLogsIntegrationTemplate{}, middleware.After)
 	if err != nil {
 		return err

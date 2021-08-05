@@ -4,11 +4,19 @@ package ec2
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	smithy "github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/middleware"
+	smithytime "github.com/aws/smithy-go/time"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
+	smithywaiter "github.com/aws/smithy-go/waiter"
+	"github.com/jmespath/go-jmespath"
+	"strconv"
+	"time"
 )
 
 // Describes the specified key pairs or all of your key pairs. For more information
@@ -20,7 +28,7 @@ func (c *Client) DescribeKeyPairs(ctx context.Context, params *DescribeKeyPairsI
 		params = &DescribeKeyPairsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeKeyPairs", params, optFns, addOperationDescribeKeyPairsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeKeyPairs", params, optFns, c.addOperationDescribeKeyPairsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -58,11 +66,13 @@ type DescribeKeyPairsInput struct {
 	// specify tag:Owner for the filter name and TeamA for the filter value.
 	Filters []types.Filter
 
-	// The key pair names. Default: Describes all your key pairs.
+	// The key pair names. Default: Describes all of your key pairs.
 	KeyNames []string
 
 	// The IDs of the key pairs.
 	KeyPairIds []string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeKeyPairsOutput struct {
@@ -72,9 +82,11 @@ type DescribeKeyPairsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeKeyPairsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeKeyPairsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeKeyPairs{}, middleware.After)
 	if err != nil {
 		return err
@@ -132,6 +144,181 @@ func addOperationDescribeKeyPairsMiddlewares(stack *middleware.Stack, options Op
 		return err
 	}
 	return nil
+}
+
+// DescribeKeyPairsAPIClient is a client that implements the DescribeKeyPairs
+// operation.
+type DescribeKeyPairsAPIClient interface {
+	DescribeKeyPairs(context.Context, *DescribeKeyPairsInput, ...func(*Options)) (*DescribeKeyPairsOutput, error)
+}
+
+var _ DescribeKeyPairsAPIClient = (*Client)(nil)
+
+// KeyPairExistsWaiterOptions are waiter options for KeyPairExistsWaiter
+type KeyPairExistsWaiterOptions struct {
+
+	// Set of options to modify how an operation is invoked. These apply to all
+	// operations invoked for this client. Use functional options on operation call to
+	// modify this list for per operation behavior.
+	APIOptions []func(*middleware.Stack) error
+
+	// MinDelay is the minimum amount of time to delay between retries. If unset,
+	// KeyPairExistsWaiter will use default minimum delay of 5 seconds. Note that
+	// MinDelay must resolve to a value lesser than or equal to the MaxDelay.
+	MinDelay time.Duration
+
+	// MaxDelay is the maximum amount of time to delay between retries. If unset or set
+	// to zero, KeyPairExistsWaiter will use default max delay of 120 seconds. Note
+	// that MaxDelay must resolve to value greater than or equal to the MinDelay.
+	MaxDelay time.Duration
+
+	// LogWaitAttempts is used to enable logging for waiter retry attempts
+	LogWaitAttempts bool
+
+	// Retryable is function that can be used to override the service defined
+	// waiter-behavior based on operation output, or returned error. This function is
+	// used by the waiter to decide if a state is retryable or a terminal state. By
+	// default service-modeled logic will populate this option. This option can thus be
+	// used to define a custom waiter state with fall-back to service-modeled waiter
+	// state mutators.The function returns an error in case of a failure state. In case
+	// of retry state, this function returns a bool value of true and nil error, while
+	// in case of success it returns a bool value of false and nil error.
+	Retryable func(context.Context, *DescribeKeyPairsInput, *DescribeKeyPairsOutput, error) (bool, error)
+}
+
+// KeyPairExistsWaiter defines the waiters for KeyPairExists
+type KeyPairExistsWaiter struct {
+	client DescribeKeyPairsAPIClient
+
+	options KeyPairExistsWaiterOptions
+}
+
+// NewKeyPairExistsWaiter constructs a KeyPairExistsWaiter.
+func NewKeyPairExistsWaiter(client DescribeKeyPairsAPIClient, optFns ...func(*KeyPairExistsWaiterOptions)) *KeyPairExistsWaiter {
+	options := KeyPairExistsWaiterOptions{}
+	options.MinDelay = 5 * time.Second
+	options.MaxDelay = 120 * time.Second
+	options.Retryable = keyPairExistsStateRetryable
+
+	for _, fn := range optFns {
+		fn(&options)
+	}
+	return &KeyPairExistsWaiter{
+		client:  client,
+		options: options,
+	}
+}
+
+// Wait calls the waiter function for KeyPairExists waiter. The maxWaitDur is the
+// maximum wait duration the waiter will wait. The maxWaitDur is required and must
+// be greater than zero.
+func (w *KeyPairExistsWaiter) Wait(ctx context.Context, params *DescribeKeyPairsInput, maxWaitDur time.Duration, optFns ...func(*KeyPairExistsWaiterOptions)) error {
+	if maxWaitDur <= 0 {
+		return fmt.Errorf("maximum wait time for waiter must be greater than zero")
+	}
+
+	options := w.options
+	for _, fn := range optFns {
+		fn(&options)
+	}
+
+	if options.MaxDelay <= 0 {
+		options.MaxDelay = 120 * time.Second
+	}
+
+	if options.MinDelay > options.MaxDelay {
+		return fmt.Errorf("minimum waiter delay %v must be lesser than or equal to maximum waiter delay of %v.", options.MinDelay, options.MaxDelay)
+	}
+
+	ctx, cancelFn := context.WithTimeout(ctx, maxWaitDur)
+	defer cancelFn()
+
+	logger := smithywaiter.Logger{}
+	remainingTime := maxWaitDur
+
+	var attempt int64
+	for {
+
+		attempt++
+		apiOptions := options.APIOptions
+		start := time.Now()
+
+		if options.LogWaitAttempts {
+			logger.Attempt = attempt
+			apiOptions = append([]func(*middleware.Stack) error{}, options.APIOptions...)
+			apiOptions = append(apiOptions, logger.AddLogger)
+		}
+
+		out, err := w.client.DescribeKeyPairs(ctx, params, func(o *Options) {
+			o.APIOptions = append(o.APIOptions, apiOptions...)
+		})
+
+		retryable, err := options.Retryable(ctx, params, out, err)
+		if err != nil {
+			return err
+		}
+		if !retryable {
+			return nil
+		}
+
+		remainingTime -= time.Since(start)
+		if remainingTime < options.MinDelay || remainingTime <= 0 {
+			break
+		}
+
+		// compute exponential backoff between waiter retries
+		delay, err := smithywaiter.ComputeDelay(
+			attempt, options.MinDelay, options.MaxDelay, remainingTime,
+		)
+		if err != nil {
+			return fmt.Errorf("error computing waiter delay, %w", err)
+		}
+
+		remainingTime -= delay
+		// sleep for the delay amount before invoking a request
+		if err := smithytime.SleepWithContext(ctx, delay); err != nil {
+			return fmt.Errorf("request cancelled while waiting, %w", err)
+		}
+	}
+	return fmt.Errorf("exceeded max wait time for KeyPairExists waiter")
+}
+
+func keyPairExistsStateRetryable(ctx context.Context, input *DescribeKeyPairsInput, output *DescribeKeyPairsOutput, err error) (bool, error) {
+
+	if err == nil {
+		pathValue, err := jmespath.Search("length(KeyPairs[].KeyName) > `0`", output)
+		if err != nil {
+			return false, fmt.Errorf("error evaluating waiter state: %w", err)
+		}
+
+		expectedValue := "true"
+		bv, err := strconv.ParseBool(expectedValue)
+		if err != nil {
+			return false, fmt.Errorf("error parsing boolean from string %w", err)
+		}
+		value, ok := pathValue.(bool)
+		if !ok {
+			return false, fmt.Errorf("waiter comparator expected bool value got %T", pathValue)
+		}
+
+		if value == bv {
+			return false, nil
+		}
+	}
+
+	if err != nil {
+		var apiErr smithy.APIError
+		ok := errors.As(err, &apiErr)
+		if !ok {
+			return false, fmt.Errorf("expected err to be of type smithy.APIError, got %w", err)
+		}
+
+		if "InvalidKeyPair.NotFound" == apiErr.ErrorCode() {
+			return true, nil
+		}
+	}
+
+	return true, nil
 }
 
 func newServiceMetadataMiddleware_opDescribeKeyPairs(region string) *awsmiddleware.RegisterServiceMetadata {

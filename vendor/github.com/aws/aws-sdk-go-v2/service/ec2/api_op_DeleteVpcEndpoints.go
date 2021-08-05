@@ -39,7 +39,7 @@ func (c *Client) DeleteVpcEndpoints(ctx context.Context, params *DeleteVpcEndpoi
 		params = &DeleteVpcEndpointsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DeleteVpcEndpoints", params, optFns, addOperationDeleteVpcEndpointsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DeleteVpcEndpoints", params, optFns, c.addOperationDeleteVpcEndpointsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -62,6 +62,8 @@ type DeleteVpcEndpointsInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 // Contains the output of DeleteVpcEndpoints.
@@ -72,9 +74,11 @@ type DeleteVpcEndpointsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDeleteVpcEndpointsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDeleteVpcEndpointsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDeleteVpcEndpoints{}, middleware.After)
 	if err != nil {
 		return err

@@ -23,7 +23,7 @@ func (c *Client) ModifyReservedInstances(ctx context.Context, params *ModifyRese
 		params = &ModifyReservedInstancesInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ModifyReservedInstances", params, optFns, addOperationModifyReservedInstancesMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ModifyReservedInstances", params, optFns, c.addOperationModifyReservedInstancesMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -50,6 +50,8 @@ type ModifyReservedInstancesInput struct {
 	// modification request. For more information, see Ensuring Idempotency
 	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
 	ClientToken *string
+
+	noSmithyDocumentSerde
 }
 
 // Contains the output of ModifyReservedInstances.
@@ -60,9 +62,11 @@ type ModifyReservedInstancesOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationModifyReservedInstancesMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationModifyReservedInstancesMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyReservedInstances{}, middleware.After)
 	if err != nil {
 		return err

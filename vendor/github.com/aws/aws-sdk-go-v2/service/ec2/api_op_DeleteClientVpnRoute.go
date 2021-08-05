@@ -21,7 +21,7 @@ func (c *Client) DeleteClientVpnRoute(ctx context.Context, params *DeleteClientV
 		params = &DeleteClientVpnRouteInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DeleteClientVpnRoute", params, optFns, addOperationDeleteClientVpnRouteMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DeleteClientVpnRoute", params, optFns, c.addOperationDeleteClientVpnRouteMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -51,6 +51,8 @@ type DeleteClientVpnRouteInput struct {
 
 	// The ID of the target subnet used by the route.
 	TargetVpcSubnetId *string
+
+	noSmithyDocumentSerde
 }
 
 type DeleteClientVpnRouteOutput struct {
@@ -60,9 +62,11 @@ type DeleteClientVpnRouteOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDeleteClientVpnRouteMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDeleteClientVpnRouteMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDeleteClientVpnRoute{}, middleware.After)
 	if err != nil {
 		return err

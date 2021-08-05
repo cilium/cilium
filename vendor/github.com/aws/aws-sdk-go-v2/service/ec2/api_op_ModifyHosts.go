@@ -25,7 +25,7 @@ func (c *Client) ModifyHosts(ctx context.Context, params *ModifyHostsInput, optF
 		params = &ModifyHostsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ModifyHosts", params, optFns, addOperationModifyHostsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ModifyHosts", params, optFns, c.addOperationModifyHostsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -65,6 +65,8 @@ type ModifyHostsInput struct {
 	// current instance family, omit this parameter and specify InstanceFamily instead.
 	// You cannot specify InstanceType and InstanceFamily in the same request.
 	InstanceType *string
+
+	noSmithyDocumentSerde
 }
 
 type ModifyHostsOutput struct {
@@ -78,9 +80,11 @@ type ModifyHostsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationModifyHostsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationModifyHostsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyHosts{}, middleware.After)
 	if err != nil {
 		return err

@@ -18,7 +18,7 @@ func (c *Client) DescribeImageAttribute(ctx context.Context, params *DescribeIma
 		params = &DescribeImageAttributeInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeImageAttribute", params, optFns, addOperationDescribeImageAttributeMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeImageAttribute", params, optFns, c.addOperationDescribeImageAttributeMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -48,6 +48,8 @@ type DescribeImageAttributeInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 // Describes an image attribute.
@@ -83,9 +85,11 @@ type DescribeImageAttributeOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeImageAttributeMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeImageAttributeMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeImageAttribute{}, middleware.After)
 	if err != nil {
 		return err

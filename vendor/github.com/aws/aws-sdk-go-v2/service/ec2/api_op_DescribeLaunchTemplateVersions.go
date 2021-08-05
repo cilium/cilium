@@ -21,7 +21,7 @@ func (c *Client) DescribeLaunchTemplateVersions(ctx context.Context, params *Des
 		params = &DescribeLaunchTemplateVersionsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeLaunchTemplateVersions", params, optFns, addOperationDescribeLaunchTemplateVersionsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeLaunchTemplateVersions", params, optFns, c.addOperationDescribeLaunchTemplateVersionsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -99,6 +99,8 @@ type DescribeLaunchTemplateVersionsInput struct {
 	// are defined as the default version, the valid value is $Default. You can specify
 	// $Latest and $Default in the same call. You cannot specify numbers.
 	Versions []string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeLaunchTemplateVersionsOutput struct {
@@ -112,9 +114,11 @@ type DescribeLaunchTemplateVersionsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeLaunchTemplateVersionsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeLaunchTemplateVersionsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeLaunchTemplateVersions{}, middleware.After)
 	if err != nil {
 		return err

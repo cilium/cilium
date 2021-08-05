@@ -18,7 +18,7 @@ func (c *Client) GetGroupsForCapacityReservation(ctx context.Context, params *Ge
 		params = &GetGroupsForCapacityReservationInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetGroupsForCapacityReservation", params, optFns, addOperationGetGroupsForCapacityReservationMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetGroupsForCapacityReservation", params, optFns, c.addOperationGetGroupsForCapacityReservationMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -49,6 +49,8 @@ type GetGroupsForCapacityReservationInput struct {
 
 	// The token to use to retrieve the next page of results.
 	NextToken *string
+
+	noSmithyDocumentSerde
 }
 
 type GetGroupsForCapacityReservationOutput struct {
@@ -63,9 +65,11 @@ type GetGroupsForCapacityReservationOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationGetGroupsForCapacityReservationMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetGroupsForCapacityReservationMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpGetGroupsForCapacityReservation{}, middleware.After)
 	if err != nil {
 		return err

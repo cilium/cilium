@@ -24,7 +24,7 @@ func (c *Client) EnableFastSnapshotRestores(ctx context.Context, params *EnableF
 		params = &EnableFastSnapshotRestoresInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "EnableFastSnapshotRestores", params, optFns, addOperationEnableFastSnapshotRestoresMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "EnableFastSnapshotRestores", params, optFns, c.addOperationEnableFastSnapshotRestoresMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +42,8 @@ type EnableFastSnapshotRestoresInput struct {
 	AvailabilityZones []string
 
 	// The IDs of one or more snapshots. For example, snap-1234567890abcdef0. You can
-	// specify a snapshot that was shared with you from another AWS account.
+	// specify a snapshot that was shared with you from another Amazon Web Services
+	// account.
 	//
 	// This member is required.
 	SourceSnapshotIds []string
@@ -52,6 +53,8 @@ type EnableFastSnapshotRestoresInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type EnableFastSnapshotRestoresOutput struct {
@@ -66,9 +69,11 @@ type EnableFastSnapshotRestoresOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationEnableFastSnapshotRestoresMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationEnableFastSnapshotRestoresMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpEnableFastSnapshotRestores{}, middleware.After)
 	if err != nil {
 		return err

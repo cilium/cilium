@@ -12,14 +12,14 @@ import (
 )
 
 // Adds or removes permission settings for the specified snapshot. You may add or
-// remove specified AWS account IDs from a snapshot's list of create volume
-// permissions, but you cannot do both in a single operation. If you need to both
-// add and remove account IDs for a snapshot, you must use multiple operations. You
-// can make up to 500 modifications to a snapshot in a single operation. Encrypted
-// snapshots and snapshots with AWS Marketplace product codes cannot be made
-// public. Snapshots encrypted with your default CMK cannot be shared with other
-// accounts. For more information about modifying snapshot permissions, see Sharing
-// snapshots
+// remove specified Amazon Web Services account IDs from a snapshot's list of
+// create volume permissions, but you cannot do both in a single operation. If you
+// need to both add and remove account IDs for a snapshot, you must use multiple
+// operations. You can make up to 500 modifications to a snapshot in a single
+// operation. Encrypted snapshots and snapshots with Amazon Web Services
+// Marketplace product codes cannot be made public. Snapshots encrypted with your
+// default KMS key cannot be shared with other accounts. For more information about
+// modifying snapshot permissions, see Share a snapshot
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-modifying-snapshot-permissions.html)
 // in the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) ModifySnapshotAttribute(ctx context.Context, params *ModifySnapshotAttributeInput, optFns ...func(*Options)) (*ModifySnapshotAttributeOutput, error) {
@@ -27,7 +27,7 @@ func (c *Client) ModifySnapshotAttribute(ctx context.Context, params *ModifySnap
 		params = &ModifySnapshotAttributeInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ModifySnapshotAttribute", params, optFns, addOperationModifySnapshotAttributeMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ModifySnapshotAttribute", params, optFns, c.addOperationModifySnapshotAttributeMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -65,14 +65,18 @@ type ModifySnapshotAttributeInput struct {
 
 	// The account ID to modify for the snapshot.
 	UserIds []string
+
+	noSmithyDocumentSerde
 }
 
 type ModifySnapshotAttributeOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationModifySnapshotAttributeMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationModifySnapshotAttributeMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpModifySnapshotAttribute{}, middleware.After)
 	if err != nil {
 		return err

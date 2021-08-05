@@ -19,7 +19,7 @@ func (c *Client) ModifyAddressAttribute(ctx context.Context, params *ModifyAddre
 		params = &ModifyAddressAttributeInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ModifyAddressAttribute", params, optFns, addOperationModifyAddressAttributeMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ModifyAddressAttribute", params, optFns, c.addOperationModifyAddressAttributeMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -44,6 +44,8 @@ type ModifyAddressAttributeInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type ModifyAddressAttributeOutput struct {
@@ -53,9 +55,11 @@ type ModifyAddressAttributeOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationModifyAddressAttributeMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationModifyAddressAttributeMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyAddressAttribute{}, middleware.After)
 	if err != nil {
 		return err

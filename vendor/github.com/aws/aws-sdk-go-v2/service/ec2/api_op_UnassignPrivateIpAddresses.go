@@ -10,13 +10,14 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Unassigns one or more secondary private IP addresses from a network interface.
+// Unassigns one or more secondary private IP addresses, or IPv4 Prefix Delegation
+// prefixes from a network interface.
 func (c *Client) UnassignPrivateIpAddresses(ctx context.Context, params *UnassignPrivateIpAddressesInput, optFns ...func(*Options)) (*UnassignPrivateIpAddressesOutput, error) {
 	if params == nil {
 		params = &UnassignPrivateIpAddressesInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "UnassignPrivateIpAddresses", params, optFns, addOperationUnassignPrivateIpAddressesMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "UnassignPrivateIpAddresses", params, optFns, c.addOperationUnassignPrivateIpAddressesMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -34,19 +35,24 @@ type UnassignPrivateIpAddressesInput struct {
 	// This member is required.
 	NetworkInterfaceId *string
 
+	// The IPv4 Prefix Delegation prefixes to unassign from the network interface.
+	Ipv4Prefixes []string
+
 	// The secondary private IP addresses to unassign from the network interface. You
 	// can specify this option multiple times to unassign more than one IP address.
-	//
-	// This member is required.
 	PrivateIpAddresses []string
+
+	noSmithyDocumentSerde
 }
 
 type UnassignPrivateIpAddressesOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationUnassignPrivateIpAddressesMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationUnassignPrivateIpAddressesMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpUnassignPrivateIpAddresses{}, middleware.After)
 	if err != nil {
 		return err

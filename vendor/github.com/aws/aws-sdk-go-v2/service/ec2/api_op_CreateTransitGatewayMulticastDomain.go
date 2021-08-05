@@ -21,7 +21,7 @@ func (c *Client) CreateTransitGatewayMulticastDomain(ctx context.Context, params
 		params = &CreateTransitGatewayMulticastDomainInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateTransitGatewayMulticastDomain", params, optFns, addOperationCreateTransitGatewayMulticastDomainMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateTransitGatewayMulticastDomain", params, optFns, c.addOperationCreateTransitGatewayMulticastDomainMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -49,6 +49,8 @@ type CreateTransitGatewayMulticastDomainInput struct {
 
 	// The tags for the transit gateway multicast domain.
 	TagSpecifications []types.TagSpecification
+
+	noSmithyDocumentSerde
 }
 
 type CreateTransitGatewayMulticastDomainOutput struct {
@@ -58,9 +60,11 @@ type CreateTransitGatewayMulticastDomainOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateTransitGatewayMulticastDomainMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateTransitGatewayMulticastDomainMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateTransitGatewayMulticastDomain{}, middleware.After)
 	if err != nil {
 		return err

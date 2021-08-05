@@ -16,7 +16,7 @@ func (c *Client) AttachNetworkInterface(ctx context.Context, params *AttachNetwo
 		params = &AttachNetworkInterfaceInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "AttachNetworkInterface", params, optFns, addOperationAttachNetworkInterfaceMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "AttachNetworkInterface", params, optFns, c.addOperationAttachNetworkInterfaceMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -54,6 +54,8 @@ type AttachNetworkInterfaceInput struct {
 	// cards. The primary network interface must be assigned to network card index 0.
 	// The default is network card index 0.
 	NetworkCardIndex *int32
+
+	noSmithyDocumentSerde
 }
 
 // Contains the output of AttachNetworkInterface.
@@ -67,9 +69,11 @@ type AttachNetworkInterfaceOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationAttachNetworkInterfaceMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationAttachNetworkInterfaceMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpAttachNetworkInterface{}, middleware.After)
 	if err != nil {
 		return err

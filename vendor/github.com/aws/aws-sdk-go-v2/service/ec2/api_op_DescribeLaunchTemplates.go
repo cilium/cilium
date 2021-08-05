@@ -18,7 +18,7 @@ func (c *Client) DescribeLaunchTemplates(ctx context.Context, params *DescribeLa
 		params = &DescribeLaunchTemplatesInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeLaunchTemplates", params, optFns, addOperationDescribeLaunchTemplatesMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeLaunchTemplates", params, optFns, c.addOperationDescribeLaunchTemplatesMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -67,6 +67,8 @@ type DescribeLaunchTemplatesInput struct {
 
 	// The token to request the next page of results.
 	NextToken *string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeLaunchTemplatesOutput struct {
@@ -80,9 +82,11 @@ type DescribeLaunchTemplatesOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeLaunchTemplatesMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeLaunchTemplatesMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeLaunchTemplates{}, middleware.After)
 	if err != nil {
 		return err

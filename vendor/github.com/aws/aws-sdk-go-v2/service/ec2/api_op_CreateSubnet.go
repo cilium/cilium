@@ -16,14 +16,14 @@ import (
 // block size is between a /16 netmask (65,536 IP addresses) and /28 netmask (16 IP
 // addresses). The CIDR block must not overlap with the CIDR block of an existing
 // subnet in the VPC. If you've associated an IPv6 CIDR block with your VPC, you
-// can create a subnet with an IPv6 CIDR block that uses a /64 prefix length. AWS
-// reserves both the first four and the last IPv4 address in each subnet's CIDR
-// block. They're not available for use. If you add more than one subnet to a VPC,
-// they're set up in a star topology with a logical router in the middle. When you
-// stop an instance in a subnet, it retains its private IPv4 address. It's
-// therefore possible to have a subnet with no running instances (they're all
-// stopped), but no remaining IP addresses available. For more information about
-// subnets, see Your VPC and Subnets
+// can create a subnet with an IPv6 CIDR block that uses a /64 prefix length.
+// Amazon Web Services reserves both the first four and the last IPv4 address in
+// each subnet's CIDR block. They're not available for use. If you add more than
+// one subnet to a VPC, they're set up in a star topology with a logical router in
+// the middle. When you stop an instance in a subnet, it retains its private IPv4
+// address. It's therefore possible to have a subnet with no running instances
+// (they're all stopped), but no remaining IP addresses available. For more
+// information about subnets, see Your VPC and subnets
 // (https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html) in the
 // Amazon Virtual Private Cloud User Guide.
 func (c *Client) CreateSubnet(ctx context.Context, params *CreateSubnetInput, optFns ...func(*Options)) (*CreateSubnetOutput, error) {
@@ -31,7 +31,7 @@ func (c *Client) CreateSubnet(ctx context.Context, params *CreateSubnetInput, op
 		params = &CreateSubnetInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateSubnet", params, optFns, addOperationCreateSubnetMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateSubnet", params, optFns, c.addOperationCreateSubnetMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -55,11 +55,12 @@ type CreateSubnetInput struct {
 	// This member is required.
 	VpcId *string
 
-	// The Availability Zone or Local Zone for the subnet. Default: AWS selects one for
-	// you. If you create more than one subnet in your VPC, we do not necessarily
-	// select a different zone for each subnet. To create a subnet in a Local Zone, set
-	// this value to the Local Zone ID, for example us-west-2-lax-1a. For information
-	// about the Regions that support Local Zones, see Available Regions
+	// The Availability Zone or Local Zone for the subnet. Default: Amazon Web Services
+	// selects one for you. If you create more than one subnet in your VPC, we do not
+	// necessarily select a different zone for each subnet. To create a subnet in a
+	// Local Zone, set this value to the Local Zone ID, for example us-west-2-lax-1a.
+	// For information about the Regions that support Local Zones, see Available
+	// Regions
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-available-regions)
 	// in the Amazon Elastic Compute Cloud User Guide. To create a subnet in an
 	// Outpost, set this value to the Availability Zone for the Outpost and specify the
@@ -85,6 +86,8 @@ type CreateSubnetInput struct {
 
 	// The tags to assign to the subnet.
 	TagSpecifications []types.TagSpecification
+
+	noSmithyDocumentSerde
 }
 
 type CreateSubnetOutput struct {
@@ -94,9 +97,11 @@ type CreateSubnetOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateSubnetMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateSubnetMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateSubnet{}, middleware.After)
 	if err != nil {
 		return err

@@ -37,7 +37,7 @@ func (c *Client) DeleteFleets(ctx context.Context, params *DeleteFleetsInput, op
 		params = &DeleteFleetsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DeleteFleets", params, optFns, addOperationDeleteFleetsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DeleteFleets", params, optFns, c.addOperationDeleteFleetsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -69,6 +69,8 @@ type DeleteFleetsInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type DeleteFleetsOutput struct {
@@ -81,9 +83,11 @@ type DeleteFleetsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDeleteFleetsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDeleteFleetsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDeleteFleets{}, middleware.After)
 	if err != nil {
 		return err

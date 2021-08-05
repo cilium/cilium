@@ -16,7 +16,7 @@ func (c *Client) CopyFpgaImage(ctx context.Context, params *CopyFpgaImageInput, 
 		params = &CopyFpgaImageInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CopyFpgaImage", params, optFns, addOperationCopyFpgaImageMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CopyFpgaImage", params, optFns, c.addOperationCopyFpgaImageMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -54,6 +54,8 @@ type CopyFpgaImageInput struct {
 
 	// The name for the new AFI. The default is the name of the source AFI.
 	Name *string
+
+	noSmithyDocumentSerde
 }
 
 type CopyFpgaImageOutput struct {
@@ -63,9 +65,11 @@ type CopyFpgaImageOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCopyFpgaImageMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCopyFpgaImageMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCopyFpgaImage{}, middleware.After)
 	if err != nil {
 		return err

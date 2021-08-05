@@ -38,7 +38,7 @@ func (c *Client) CreateVpcEndpointServiceConfiguration(ctx context.Context, para
 		params = &CreateVpcEndpointServiceConfigurationInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateVpcEndpointServiceConfiguration", params, optFns, addOperationCreateVpcEndpointServiceConfigurationMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateVpcEndpointServiceConfiguration", params, optFns, c.addOperationCreateVpcEndpointServiceConfigurationMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -78,6 +78,8 @@ type CreateVpcEndpointServiceConfigurationInput struct {
 
 	// The tags to associate with the service.
 	TagSpecifications []types.TagSpecification
+
+	noSmithyDocumentSerde
 }
 
 type CreateVpcEndpointServiceConfigurationOutput struct {
@@ -91,9 +93,11 @@ type CreateVpcEndpointServiceConfigurationOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateVpcEndpointServiceConfigurationMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateVpcEndpointServiceConfigurationMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateVpcEndpointServiceConfiguration{}, middleware.After)
 	if err != nil {
 		return err

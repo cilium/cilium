@@ -30,7 +30,7 @@ func (c *Client) SendDiagnosticInterrupt(ctx context.Context, params *SendDiagno
 		params = &SendDiagnosticInterruptInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "SendDiagnosticInterrupt", params, optFns, addOperationSendDiagnosticInterruptMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "SendDiagnosticInterrupt", params, optFns, c.addOperationSendDiagnosticInterruptMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -52,14 +52,18 @@ type SendDiagnosticInterruptInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type SendDiagnosticInterruptOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationSendDiagnosticInterruptMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationSendDiagnosticInterruptMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpSendDiagnosticInterrupt{}, middleware.After)
 	if err != nil {
 		return err

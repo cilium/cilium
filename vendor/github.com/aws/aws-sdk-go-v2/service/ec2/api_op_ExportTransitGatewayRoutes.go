@@ -22,7 +22,7 @@ func (c *Client) ExportTransitGatewayRoutes(ctx context.Context, params *ExportT
 		params = &ExportTransitGatewayRoutesInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ExportTransitGatewayRoutes", params, optFns, addOperationExportTransitGatewayRoutesMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ExportTransitGatewayRoutes", params, optFns, c.addOperationExportTransitGatewayRoutesMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -81,6 +81,8 @@ type ExportTransitGatewayRoutesInput struct {
 	//
 	// * type - The type of route (propagated | static).
 	Filters []types.Filter
+
+	noSmithyDocumentSerde
 }
 
 type ExportTransitGatewayRoutesOutput struct {
@@ -91,9 +93,11 @@ type ExportTransitGatewayRoutesOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationExportTransitGatewayRoutesMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationExportTransitGatewayRoutesMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpExportTransitGatewayRoutes{}, middleware.After)
 	if err != nil {
 		return err

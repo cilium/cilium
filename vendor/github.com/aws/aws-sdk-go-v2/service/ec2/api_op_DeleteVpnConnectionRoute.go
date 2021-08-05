@@ -19,7 +19,7 @@ func (c *Client) DeleteVpnConnectionRoute(ctx context.Context, params *DeleteVpn
 		params = &DeleteVpnConnectionRouteInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DeleteVpnConnectionRoute", params, optFns, addOperationDeleteVpnConnectionRouteMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DeleteVpnConnectionRoute", params, optFns, c.addOperationDeleteVpnConnectionRouteMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -41,14 +41,18 @@ type DeleteVpnConnectionRouteInput struct {
 	//
 	// This member is required.
 	VpnConnectionId *string
+
+	noSmithyDocumentSerde
 }
 
 type DeleteVpnConnectionRouteOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDeleteVpnConnectionRouteMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDeleteVpnConnectionRouteMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDeleteVpnConnectionRoute{}, middleware.After)
 	if err != nil {
 		return err

@@ -18,7 +18,7 @@ func (c *Client) DescribeNetworkInterfacePermissions(ctx context.Context, params
 		params = &DescribeNetworkInterfacePermissionsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeNetworkInterfacePermissions", params, optFns, addOperationDescribeNetworkInterfacePermissionsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeNetworkInterfacePermissions", params, optFns, c.addOperationDescribeNetworkInterfacePermissionsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -40,14 +40,14 @@ type DescribeNetworkInterfacePermissionsInput struct {
 	// * network-interface-permission.network-interface-id - The ID of the
 	// network interface.
 	//
-	// * network-interface-permission.aws-account-id - The AWS
-	// account ID.
+	// * network-interface-permission.aws-account-id - The Amazon
+	// Web Services account ID.
 	//
-	// * network-interface-permission.aws-service - The AWS service.
+	// * network-interface-permission.aws-service - The
+	// Amazon Web Service.
 	//
-	// *
-	// network-interface-permission.permission - The type of permission
-	// (INSTANCE-ATTACH | EIP-ASSOCIATE).
+	// * network-interface-permission.permission - The type of
+	// permission (INSTANCE-ATTACH | EIP-ASSOCIATE).
 	Filters []types.Filter
 
 	// The maximum number of results to return in a single call. To retrieve the
@@ -60,6 +60,8 @@ type DescribeNetworkInterfacePermissionsInput struct {
 
 	// The token to request the next page of results.
 	NextToken *string
+
+	noSmithyDocumentSerde
 }
 
 // Contains the output for DescribeNetworkInterfacePermissions.
@@ -73,9 +75,11 @@ type DescribeNetworkInterfacePermissionsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeNetworkInterfacePermissionsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeNetworkInterfacePermissionsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeNetworkInterfacePermissions{}, middleware.After)
 	if err != nil {
 		return err

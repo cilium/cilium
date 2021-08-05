@@ -18,7 +18,7 @@ func (c *Client) DescribeTransitGatewayPeeringAttachments(ctx context.Context, p
 		params = &DescribeTransitGatewayPeeringAttachmentsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeTransitGatewayPeeringAttachments", params, optFns, addOperationDescribeTransitGatewayPeeringAttachmentsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeTransitGatewayPeeringAttachments", params, optFns, c.addOperationDescribeTransitGatewayPeeringAttachmentsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -74,6 +74,8 @@ type DescribeTransitGatewayPeeringAttachmentsInput struct {
 
 	// One or more IDs of the transit gateway peering attachments.
 	TransitGatewayAttachmentIds []string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeTransitGatewayPeeringAttachmentsOutput struct {
@@ -87,9 +89,11 @@ type DescribeTransitGatewayPeeringAttachmentsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeTransitGatewayPeeringAttachmentsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeTransitGatewayPeeringAttachmentsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeTransitGatewayPeeringAttachments{}, middleware.After)
 	if err != nil {
 		return err

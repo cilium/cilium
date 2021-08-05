@@ -250,6 +250,26 @@ func (m *validateOpAssociateIamInstanceProfile) HandleInitialize(ctx context.Con
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpAssociateInstanceEventWindow struct {
+}
+
+func (*validateOpAssociateInstanceEventWindow) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpAssociateInstanceEventWindow) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*AssociateInstanceEventWindowInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpAssociateInstanceEventWindowInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpAssociateRouteTable struct {
 }
 
@@ -305,6 +325,26 @@ func (m *validateOpAssociateTransitGatewayRouteTable) HandleInitialize(ctx conte
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpAssociateTransitGatewayRouteTableInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpAssociateTrunkInterface struct {
+}
+
+func (*validateOpAssociateTrunkInterface) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpAssociateTrunkInterface) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*AssociateTrunkInterfaceInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpAssociateTrunkInterfaceInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -1410,6 +1450,26 @@ func (m *validateOpCreateStoreImageTask) HandleInitialize(ctx context.Context, i
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpCreateSubnetCidrReservation struct {
+}
+
+func (*validateOpCreateSubnetCidrReservation) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpCreateSubnetCidrReservation) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*CreateSubnetCidrReservationInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpCreateSubnetCidrReservationInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpCreateSubnet struct {
 }
 
@@ -1970,6 +2030,26 @@ func (m *validateOpDeleteFpgaImage) HandleInitialize(ctx context.Context, in mid
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpDeleteInstanceEventWindow struct {
+}
+
+func (*validateOpDeleteInstanceEventWindow) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpDeleteInstanceEventWindow) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*DeleteInstanceEventWindowInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpDeleteInstanceEventWindowInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpDeleteInternetGateway struct {
 }
 
@@ -2305,6 +2385,26 @@ func (m *validateOpDeleteSnapshot) HandleInitialize(ctx context.Context, in midd
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpDeleteSnapshotInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpDeleteSubnetCidrReservation struct {
+}
+
+func (*validateOpDeleteSubnetCidrReservation) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpDeleteSubnetCidrReservation) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*DeleteSubnetCidrReservationInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpDeleteSubnetCidrReservationInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -3370,6 +3470,26 @@ func (m *validateOpDisableFastSnapshotRestores) HandleInitialize(ctx context.Con
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpDisableImageDeprecation struct {
+}
+
+func (*validateOpDisableImageDeprecation) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpDisableImageDeprecation) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*DisableImageDeprecationInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpDisableImageDeprecationInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpDisableTransitGatewayRouteTablePropagation struct {
 }
 
@@ -3470,6 +3590,26 @@ func (m *validateOpDisassociateIamInstanceProfile) HandleInitialize(ctx context.
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpDisassociateInstanceEventWindow struct {
+}
+
+func (*validateOpDisassociateInstanceEventWindow) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpDisassociateInstanceEventWindow) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*DisassociateInstanceEventWindowInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpDisassociateInstanceEventWindowInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpDisassociateRouteTable struct {
 }
 
@@ -3530,6 +3670,26 @@ func (m *validateOpDisassociateTransitGatewayRouteTable) HandleInitialize(ctx co
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpDisassociateTrunkInterface struct {
+}
+
+func (*validateOpDisassociateTrunkInterface) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpDisassociateTrunkInterface) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*DisassociateTrunkInterfaceInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpDisassociateTrunkInterfaceInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpDisassociateVpcCidrBlock struct {
 }
 
@@ -3565,6 +3725,26 @@ func (m *validateOpEnableFastSnapshotRestores) HandleInitialize(ctx context.Cont
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpEnableFastSnapshotRestoresInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpEnableImageDeprecation struct {
+}
+
+func (*validateOpEnableImageDeprecation) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpEnableImageDeprecation) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*EnableImageDeprecationInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpEnableImageDeprecationInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -4005,6 +4185,26 @@ func (m *validateOpGetReservedInstancesExchangeQuote) HandleInitialize(ctx conte
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpGetReservedInstancesExchangeQuoteInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpGetSubnetCidrReservations struct {
+}
+
+func (*validateOpGetSubnetCidrReservations) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpGetSubnetCidrReservations) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*GetSubnetCidrReservationsInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpGetSubnetCidrReservationsInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -4490,6 +4690,26 @@ func (m *validateOpModifyInstanceEventStartTime) HandleInitialize(ctx context.Co
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpModifyInstanceEventWindow struct {
+}
+
+func (*validateOpModifyInstanceEventWindow) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpModifyInstanceEventWindow) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*ModifyInstanceEventWindowInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpModifyInstanceEventWindowInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpModifyInstanceMetadataOptions struct {
 }
 
@@ -4585,6 +4805,26 @@ func (m *validateOpModifyReservedInstances) HandleInitialize(ctx context.Context
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpModifyReservedInstancesInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpModifySecurityGroupRules struct {
+}
+
+func (*validateOpModifySecurityGroupRules) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpModifySecurityGroupRules) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*ModifySecurityGroupRulesInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpModifySecurityGroupRulesInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -5950,46 +6190,6 @@ func (m *validateOpUnmonitorInstances) HandleInitialize(ctx context.Context, in 
 	return next.HandleInitialize(ctx, in)
 }
 
-type validateOpUpdateSecurityGroupRuleDescriptionsEgress struct {
-}
-
-func (*validateOpUpdateSecurityGroupRuleDescriptionsEgress) ID() string {
-	return "OperationInputValidation"
-}
-
-func (m *validateOpUpdateSecurityGroupRuleDescriptionsEgress) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
-	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
-) {
-	input, ok := in.Parameters.(*UpdateSecurityGroupRuleDescriptionsEgressInput)
-	if !ok {
-		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
-	}
-	if err := validateOpUpdateSecurityGroupRuleDescriptionsEgressInput(input); err != nil {
-		return out, metadata, err
-	}
-	return next.HandleInitialize(ctx, in)
-}
-
-type validateOpUpdateSecurityGroupRuleDescriptionsIngress struct {
-}
-
-func (*validateOpUpdateSecurityGroupRuleDescriptionsIngress) ID() string {
-	return "OperationInputValidation"
-}
-
-func (m *validateOpUpdateSecurityGroupRuleDescriptionsIngress) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
-	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
-) {
-	input, ok := in.Parameters.(*UpdateSecurityGroupRuleDescriptionsIngressInput)
-	if !ok {
-		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
-	}
-	if err := validateOpUpdateSecurityGroupRuleDescriptionsIngressInput(input); err != nil {
-		return out, metadata, err
-	}
-	return next.HandleInitialize(ctx, in)
-}
-
 type validateOpWithdrawByoipCidr struct {
 }
 
@@ -6058,6 +6258,10 @@ func addOpAssociateIamInstanceProfileValidationMiddleware(stack *middleware.Stac
 	return stack.Initialize.Add(&validateOpAssociateIamInstanceProfile{}, middleware.After)
 }
 
+func addOpAssociateInstanceEventWindowValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpAssociateInstanceEventWindow{}, middleware.After)
+}
+
 func addOpAssociateRouteTableValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpAssociateRouteTable{}, middleware.After)
 }
@@ -6068,6 +6272,10 @@ func addOpAssociateSubnetCidrBlockValidationMiddleware(stack *middleware.Stack) 
 
 func addOpAssociateTransitGatewayRouteTableValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpAssociateTransitGatewayRouteTable{}, middleware.After)
+}
+
+func addOpAssociateTrunkInterfaceValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpAssociateTrunkInterface{}, middleware.After)
 }
 
 func addOpAssociateVpcCidrBlockValidationMiddleware(stack *middleware.Stack) error {
@@ -6290,6 +6498,10 @@ func addOpCreateStoreImageTaskValidationMiddleware(stack *middleware.Stack) erro
 	return stack.Initialize.Add(&validateOpCreateStoreImageTask{}, middleware.After)
 }
 
+func addOpCreateSubnetCidrReservationValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpCreateSubnetCidrReservation{}, middleware.After)
+}
+
 func addOpCreateSubnetValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpCreateSubnet{}, middleware.After)
 }
@@ -6402,6 +6614,10 @@ func addOpDeleteFpgaImageValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDeleteFpgaImage{}, middleware.After)
 }
 
+func addOpDeleteInstanceEventWindowValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpDeleteInstanceEventWindow{}, middleware.After)
+}
+
 func addOpDeleteInternetGatewayValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDeleteInternetGateway{}, middleware.After)
 }
@@ -6468,6 +6684,10 @@ func addOpDeleteRouteTableValidationMiddleware(stack *middleware.Stack) error {
 
 func addOpDeleteSnapshotValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDeleteSnapshot{}, middleware.After)
+}
+
+func addOpDeleteSubnetCidrReservationValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpDeleteSubnetCidrReservation{}, middleware.After)
 }
 
 func addOpDeleteSubnetValidationMiddleware(stack *middleware.Stack) error {
@@ -6682,6 +6902,10 @@ func addOpDisableFastSnapshotRestoresValidationMiddleware(stack *middleware.Stac
 	return stack.Initialize.Add(&validateOpDisableFastSnapshotRestores{}, middleware.After)
 }
 
+func addOpDisableImageDeprecationValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpDisableImageDeprecation{}, middleware.After)
+}
+
 func addOpDisableTransitGatewayRouteTablePropagationValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDisableTransitGatewayRouteTablePropagation{}, middleware.After)
 }
@@ -6702,6 +6926,10 @@ func addOpDisassociateIamInstanceProfileValidationMiddleware(stack *middleware.S
 	return stack.Initialize.Add(&validateOpDisassociateIamInstanceProfile{}, middleware.After)
 }
 
+func addOpDisassociateInstanceEventWindowValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpDisassociateInstanceEventWindow{}, middleware.After)
+}
+
 func addOpDisassociateRouteTableValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDisassociateRouteTable{}, middleware.After)
 }
@@ -6714,12 +6942,20 @@ func addOpDisassociateTransitGatewayRouteTableValidationMiddleware(stack *middle
 	return stack.Initialize.Add(&validateOpDisassociateTransitGatewayRouteTable{}, middleware.After)
 }
 
+func addOpDisassociateTrunkInterfaceValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpDisassociateTrunkInterface{}, middleware.After)
+}
+
 func addOpDisassociateVpcCidrBlockValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDisassociateVpcCidrBlock{}, middleware.After)
 }
 
 func addOpEnableFastSnapshotRestoresValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpEnableFastSnapshotRestores{}, middleware.After)
+}
+
+func addOpEnableImageDeprecationValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpEnableImageDeprecation{}, middleware.After)
 }
 
 func addOpEnableTransitGatewayRouteTablePropagationValidationMiddleware(stack *middleware.Stack) error {
@@ -6808,6 +7044,10 @@ func addOpGetPasswordDataValidationMiddleware(stack *middleware.Stack) error {
 
 func addOpGetReservedInstancesExchangeQuoteValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpGetReservedInstancesExchangeQuote{}, middleware.After)
+}
+
+func addOpGetSubnetCidrReservationsValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpGetSubnetCidrReservations{}, middleware.After)
 }
 
 func addOpGetTransitGatewayAttachmentPropagationsValidationMiddleware(stack *middleware.Stack) error {
@@ -6906,6 +7146,10 @@ func addOpModifyInstanceEventStartTimeValidationMiddleware(stack *middleware.Sta
 	return stack.Initialize.Add(&validateOpModifyInstanceEventStartTime{}, middleware.After)
 }
 
+func addOpModifyInstanceEventWindowValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpModifyInstanceEventWindow{}, middleware.After)
+}
+
 func addOpModifyInstanceMetadataOptionsValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpModifyInstanceMetadataOptions{}, middleware.After)
 }
@@ -6924,6 +7168,10 @@ func addOpModifyNetworkInterfaceAttributeValidationMiddleware(stack *middleware.
 
 func addOpModifyReservedInstancesValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpModifyReservedInstances{}, middleware.After)
+}
+
+func addOpModifySecurityGroupRulesValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpModifySecurityGroupRules{}, middleware.After)
 }
 
 func addOpModifySnapshotAttributeValidationMiddleware(stack *middleware.Stack) error {
@@ -7196,14 +7444,6 @@ func addOpUnassignPrivateIpAddressesValidationMiddleware(stack *middleware.Stack
 
 func addOpUnmonitorInstancesValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpUnmonitorInstances{}, middleware.After)
-}
-
-func addOpUpdateSecurityGroupRuleDescriptionsEgressValidationMiddleware(stack *middleware.Stack) error {
-	return stack.Initialize.Add(&validateOpUpdateSecurityGroupRuleDescriptionsEgress{}, middleware.After)
-}
-
-func addOpUpdateSecurityGroupRuleDescriptionsIngressValidationMiddleware(stack *middleware.Stack) error {
-	return stack.Initialize.Add(&validateOpUpdateSecurityGroupRuleDescriptionsIngress{}, middleware.After)
 }
 
 func addOpWithdrawByoipCidrValidationMiddleware(stack *middleware.Stack) error {
@@ -7975,6 +8215,24 @@ func validateOpAssociateIamInstanceProfileInput(v *AssociateIamInstanceProfileIn
 	}
 }
 
+func validateOpAssociateInstanceEventWindowInput(v *AssociateInstanceEventWindowInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "AssociateInstanceEventWindowInput"}
+	if v.InstanceEventWindowId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("InstanceEventWindowId"))
+	}
+	if v.AssociationTarget == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("AssociationTarget"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpAssociateRouteTableInput(v *AssociateRouteTableInput) error {
 	if v == nil {
 		return nil
@@ -8018,6 +8276,24 @@ func validateOpAssociateTransitGatewayRouteTableInput(v *AssociateTransitGateway
 	}
 	if v.TransitGatewayAttachmentId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("TransitGatewayAttachmentId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpAssociateTrunkInterfaceInput(v *AssociateTrunkInterfaceInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "AssociateTrunkInterfaceInput"}
+	if v.BranchInterfaceId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("BranchInterfaceId"))
+	}
+	if v.TrunkInterfaceId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("TrunkInterfaceId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -8744,9 +9020,6 @@ func validateOpCreateNatGatewayInput(v *CreateNatGatewayInput) error {
 	if v.SubnetId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("SubnetId"))
 	}
-	if v.AllocationId == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("AllocationId"))
-	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
 	} else {
@@ -9021,16 +9294,37 @@ func validateOpCreateStoreImageTaskInput(v *CreateStoreImageTaskInput) error {
 	}
 }
 
+func validateOpCreateSubnetCidrReservationInput(v *CreateSubnetCidrReservationInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "CreateSubnetCidrReservationInput"}
+	if v.SubnetId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("SubnetId"))
+	}
+	if v.Cidr == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("Cidr"))
+	}
+	if len(v.ReservationType) == 0 {
+		invalidParams.Add(smithy.NewErrParamRequired("ReservationType"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpCreateSubnetInput(v *CreateSubnetInput) error {
 	if v == nil {
 		return nil
 	}
 	invalidParams := smithy.InvalidParamsError{Context: "CreateSubnetInput"}
-	if v.CidrBlock == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("CidrBlock"))
-	}
 	if v.VpcId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("VpcId"))
+	}
+	if v.CidrBlock == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("CidrBlock"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -9523,6 +9817,21 @@ func validateOpDeleteFpgaImageInput(v *DeleteFpgaImageInput) error {
 	}
 }
 
+func validateOpDeleteInstanceEventWindowInput(v *DeleteInstanceEventWindowInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "DeleteInstanceEventWindowInput"}
+	if v.InstanceEventWindowId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("InstanceEventWindowId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpDeleteInternetGatewayInput(v *DeleteInternetGatewayInput) error {
 	if v == nil {
 		return nil
@@ -9779,6 +10088,21 @@ func validateOpDeleteSnapshotInput(v *DeleteSnapshotInput) error {
 	invalidParams := smithy.InvalidParamsError{Context: "DeleteSnapshotInput"}
 	if v.SnapshotId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("SnapshotId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpDeleteSubnetCidrReservationInput(v *DeleteSubnetCidrReservationInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "DeleteSubnetCidrReservationInput"}
+	if v.SubnetCidrReservationId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("SubnetCidrReservationId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -10634,6 +10958,21 @@ func validateOpDisableFastSnapshotRestoresInput(v *DisableFastSnapshotRestoresIn
 	}
 }
 
+func validateOpDisableImageDeprecationInput(v *DisableImageDeprecationInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "DisableImageDeprecationInput"}
+	if v.ImageId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("ImageId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpDisableTransitGatewayRouteTablePropagationInput(v *DisableTransitGatewayRouteTablePropagationInput) error {
 	if v == nil {
 		return nil
@@ -10718,6 +11057,24 @@ func validateOpDisassociateIamInstanceProfileInput(v *DisassociateIamInstancePro
 	}
 }
 
+func validateOpDisassociateInstanceEventWindowInput(v *DisassociateInstanceEventWindowInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "DisassociateInstanceEventWindowInput"}
+	if v.InstanceEventWindowId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("InstanceEventWindowId"))
+	}
+	if v.AssociationTarget == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("AssociationTarget"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpDisassociateRouteTableInput(v *DisassociateRouteTableInput) error {
 	if v == nil {
 		return nil
@@ -10766,6 +11123,21 @@ func validateOpDisassociateTransitGatewayRouteTableInput(v *DisassociateTransitG
 	}
 }
 
+func validateOpDisassociateTrunkInterfaceInput(v *DisassociateTrunkInterfaceInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "DisassociateTrunkInterfaceInput"}
+	if v.AssociationId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("AssociationId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpDisassociateVpcCidrBlockInput(v *DisassociateVpcCidrBlockInput) error {
 	if v == nil {
 		return nil
@@ -10791,6 +11163,24 @@ func validateOpEnableFastSnapshotRestoresInput(v *EnableFastSnapshotRestoresInpu
 	}
 	if v.SourceSnapshotIds == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("SourceSnapshotIds"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpEnableImageDeprecationInput(v *EnableImageDeprecationInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "EnableImageDeprecationInput"}
+	if v.ImageId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("ImageId"))
+	}
+	if v.DeprecateAt == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("DeprecateAt"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -11158,6 +11548,21 @@ func validateOpGetReservedInstancesExchangeQuoteInput(v *GetReservedInstancesExc
 		if err := validateTargetConfigurationRequestSet(v.TargetConfigurations); err != nil {
 			invalidParams.AddNested("TargetConfigurations", err.(smithy.InvalidParamsError))
 		}
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpGetSubnetCidrReservationsInput(v *GetSubnetCidrReservationsInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "GetSubnetCidrReservationsInput"}
+	if v.SubnetId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("SubnetId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -11580,6 +11985,21 @@ func validateOpModifyInstanceEventStartTimeInput(v *ModifyInstanceEventStartTime
 	}
 }
 
+func validateOpModifyInstanceEventWindowInput(v *ModifyInstanceEventWindowInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "ModifyInstanceEventWindowInput"}
+	if v.InstanceEventWindowId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("InstanceEventWindowId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpModifyInstanceMetadataOptionsInput(v *ModifyInstanceMetadataOptionsInput) error {
 	if v == nil {
 		return nil
@@ -11660,6 +12080,24 @@ func validateOpModifyReservedInstancesInput(v *ModifyReservedInstancesInput) err
 	}
 	if v.TargetConfigurations == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("TargetConfigurations"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpModifySecurityGroupRulesInput(v *ModifySecurityGroupRulesInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "ModifySecurityGroupRulesInput"}
+	if v.GroupId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("GroupId"))
+	}
+	if v.SecurityGroupRules == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("SecurityGroupRules"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -12780,9 +13218,6 @@ func validateOpUnassignIpv6AddressesInput(v *UnassignIpv6AddressesInput) error {
 	if v.NetworkInterfaceId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("NetworkInterfaceId"))
 	}
-	if v.Ipv6Addresses == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("Ipv6Addresses"))
-	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
 	} else {
@@ -12798,9 +13233,6 @@ func validateOpUnassignPrivateIpAddressesInput(v *UnassignPrivateIpAddressesInpu
 	if v.NetworkInterfaceId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("NetworkInterfaceId"))
 	}
-	if v.PrivateIpAddresses == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("PrivateIpAddresses"))
-	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
 	} else {
@@ -12815,36 +13247,6 @@ func validateOpUnmonitorInstancesInput(v *UnmonitorInstancesInput) error {
 	invalidParams := smithy.InvalidParamsError{Context: "UnmonitorInstancesInput"}
 	if v.InstanceIds == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("InstanceIds"))
-	}
-	if invalidParams.Len() > 0 {
-		return invalidParams
-	} else {
-		return nil
-	}
-}
-
-func validateOpUpdateSecurityGroupRuleDescriptionsEgressInput(v *UpdateSecurityGroupRuleDescriptionsEgressInput) error {
-	if v == nil {
-		return nil
-	}
-	invalidParams := smithy.InvalidParamsError{Context: "UpdateSecurityGroupRuleDescriptionsEgressInput"}
-	if v.IpPermissions == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("IpPermissions"))
-	}
-	if invalidParams.Len() > 0 {
-		return invalidParams
-	} else {
-		return nil
-	}
-}
-
-func validateOpUpdateSecurityGroupRuleDescriptionsIngressInput(v *UpdateSecurityGroupRuleDescriptionsIngressInput) error {
-	if v == nil {
-		return nil
-	}
-	invalidParams := smithy.InvalidParamsError{Context: "UpdateSecurityGroupRuleDescriptionsIngressInput"}
-	if v.IpPermissions == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("IpPermissions"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams

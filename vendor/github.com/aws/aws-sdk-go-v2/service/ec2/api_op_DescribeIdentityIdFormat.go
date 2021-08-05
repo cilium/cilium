@@ -32,7 +32,7 @@ func (c *Client) DescribeIdentityIdFormat(ctx context.Context, params *DescribeI
 		params = &DescribeIdentityIdFormatInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeIdentityIdFormat", params, optFns, addOperationDescribeIdentityIdFormatMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeIdentityIdFormat", params, optFns, c.addOperationDescribeIdentityIdFormatMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -58,6 +58,8 @@ type DescribeIdentityIdFormatInput struct {
 	// vpc | vpc-cidr-block-association | vpc-endpoint | vpc-peering-connection |
 	// vpn-connection | vpn-gateway
 	Resource *string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeIdentityIdFormatOutput struct {
@@ -67,9 +69,11 @@ type DescribeIdentityIdFormatOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeIdentityIdFormatMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeIdentityIdFormatMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeIdentityIdFormat{}, middleware.After)
 	if err != nil {
 		return err

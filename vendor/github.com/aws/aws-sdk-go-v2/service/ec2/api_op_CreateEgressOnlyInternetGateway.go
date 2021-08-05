@@ -20,7 +20,7 @@ func (c *Client) CreateEgressOnlyInternetGateway(ctx context.Context, params *Cr
 		params = &CreateEgressOnlyInternetGatewayInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateEgressOnlyInternetGateway", params, optFns, addOperationCreateEgressOnlyInternetGatewayMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateEgressOnlyInternetGateway", params, optFns, c.addOperationCreateEgressOnlyInternetGatewayMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +38,7 @@ type CreateEgressOnlyInternetGatewayInput struct {
 	VpcId *string
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see How to Ensure Idempotency
+	// the request. For more information, see How to ensure idempotency
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Run_Instance_Idempotency.html).
 	ClientToken *string
 
@@ -50,6 +50,8 @@ type CreateEgressOnlyInternetGatewayInput struct {
 
 	// The tags to assign to the egress-only internet gateway.
 	TagSpecifications []types.TagSpecification
+
+	noSmithyDocumentSerde
 }
 
 type CreateEgressOnlyInternetGatewayOutput struct {
@@ -63,9 +65,11 @@ type CreateEgressOnlyInternetGatewayOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateEgressOnlyInternetGatewayMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateEgressOnlyInternetGatewayMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateEgressOnlyInternetGateway{}, middleware.After)
 	if err != nil {
 		return err

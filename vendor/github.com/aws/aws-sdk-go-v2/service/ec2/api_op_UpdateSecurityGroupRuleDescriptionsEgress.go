@@ -13,15 +13,14 @@ import (
 
 // [VPC only] Updates the description of an egress (outbound) security group rule.
 // You can replace an existing description, or add a description to a rule that did
-// not have one previously. You specify the description as part of the IP
-// permissions structure. You can remove a description for a security group rule by
-// omitting the description parameter in the request.
+// not have one previously. You can remove a description for a security group rule
+// by omitting the description parameter in the request.
 func (c *Client) UpdateSecurityGroupRuleDescriptionsEgress(ctx context.Context, params *UpdateSecurityGroupRuleDescriptionsEgressInput, optFns ...func(*Options)) (*UpdateSecurityGroupRuleDescriptionsEgressOutput, error) {
 	if params == nil {
 		params = &UpdateSecurityGroupRuleDescriptionsEgressInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "UpdateSecurityGroupRuleDescriptionsEgress", params, optFns, addOperationUpdateSecurityGroupRuleDescriptionsEgressMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "UpdateSecurityGroupRuleDescriptionsEgress", params, optFns, c.addOperationUpdateSecurityGroupRuleDescriptionsEgressMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -32,11 +31,6 @@ func (c *Client) UpdateSecurityGroupRuleDescriptionsEgress(ctx context.Context, 
 }
 
 type UpdateSecurityGroupRuleDescriptionsEgressInput struct {
-
-	// The IP permissions for the security group rule.
-	//
-	// This member is required.
-	IpPermissions []types.IpPermission
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
@@ -52,6 +46,16 @@ type UpdateSecurityGroupRuleDescriptionsEgressInput struct {
 	// [Default VPC] The name of the security group. You must specify either the
 	// security group ID or the security group name in the request.
 	GroupName *string
+
+	// The IP permissions for the security group rule. You must specify either the IP
+	// permissions or the description.
+	IpPermissions []types.IpPermission
+
+	// The description for the egress security group rules. You must specify either the
+	// description or the IP permissions.
+	SecurityGroupRuleDescriptions []types.SecurityGroupRuleDescription
+
+	noSmithyDocumentSerde
 }
 
 type UpdateSecurityGroupRuleDescriptionsEgressOutput struct {
@@ -61,9 +65,11 @@ type UpdateSecurityGroupRuleDescriptionsEgressOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationUpdateSecurityGroupRuleDescriptionsEgressMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationUpdateSecurityGroupRuleDescriptionsEgressMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpUpdateSecurityGroupRuleDescriptionsEgress{}, middleware.After)
 	if err != nil {
 		return err
@@ -106,9 +112,6 @@ func addOperationUpdateSecurityGroupRuleDescriptionsEgressMiddlewares(stack *mid
 		return err
 	}
 	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addOpUpdateSecurityGroupRuleDescriptionsEgressValidationMiddleware(stack); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opUpdateSecurityGroupRuleDescriptionsEgress(options.Region), middleware.Before); err != nil {

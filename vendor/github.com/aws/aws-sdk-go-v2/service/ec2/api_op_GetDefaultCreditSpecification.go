@@ -20,7 +20,7 @@ func (c *Client) GetDefaultCreditSpecification(ctx context.Context, params *GetD
 		params = &GetDefaultCreditSpecificationInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetDefaultCreditSpecification", params, optFns, addOperationGetDefaultCreditSpecificationMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetDefaultCreditSpecification", params, optFns, c.addOperationGetDefaultCreditSpecificationMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -42,6 +42,8 @@ type GetDefaultCreditSpecificationInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type GetDefaultCreditSpecificationOutput struct {
@@ -51,9 +53,11 @@ type GetDefaultCreditSpecificationOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationGetDefaultCreditSpecificationMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetDefaultCreditSpecificationMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpGetDefaultCreditSpecification{}, middleware.After)
 	if err != nil {
 		return err

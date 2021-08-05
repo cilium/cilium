@@ -18,7 +18,7 @@ func (c *Client) DetachClassicLinkVpc(ctx context.Context, params *DetachClassic
 		params = &DetachClassicLinkVpcInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DetachClassicLinkVpc", params, optFns, addOperationDetachClassicLinkVpcMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DetachClassicLinkVpc", params, optFns, c.addOperationDetachClassicLinkVpcMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -45,6 +45,8 @@ type DetachClassicLinkVpcInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type DetachClassicLinkVpcOutput struct {
@@ -54,9 +56,11 @@ type DetachClassicLinkVpcOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDetachClassicLinkVpcMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDetachClassicLinkVpcMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDetachClassicLinkVpc{}, middleware.After)
 	if err != nil {
 		return err

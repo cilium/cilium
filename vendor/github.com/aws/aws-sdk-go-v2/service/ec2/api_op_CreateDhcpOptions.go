@@ -52,7 +52,7 @@ import (
 // (AmazonProvidedDNS). If you create a set of options, and if your VPC has an
 // internet gateway, make sure to set the domain-name-servers option either to
 // AmazonProvidedDNS or to a domain name server of your choice. For more
-// information, see DHCP Options Sets
+// information, see DHCP options sets
 // (https://docs.aws.amazon.com/vpc/latest/userguide/VPC_DHCP_Options.html) in the
 // Amazon Virtual Private Cloud User Guide.
 func (c *Client) CreateDhcpOptions(ctx context.Context, params *CreateDhcpOptionsInput, optFns ...func(*Options)) (*CreateDhcpOptionsOutput, error) {
@@ -60,7 +60,7 @@ func (c *Client) CreateDhcpOptions(ctx context.Context, params *CreateDhcpOption
 		params = &CreateDhcpOptionsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateDhcpOptions", params, optFns, addOperationCreateDhcpOptionsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateDhcpOptions", params, optFns, c.addOperationCreateDhcpOptionsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -85,6 +85,8 @@ type CreateDhcpOptionsInput struct {
 
 	// The tags to assign to the DHCP option.
 	TagSpecifications []types.TagSpecification
+
+	noSmithyDocumentSerde
 }
 
 type CreateDhcpOptionsOutput struct {
@@ -94,9 +96,11 @@ type CreateDhcpOptionsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateDhcpOptionsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateDhcpOptionsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateDhcpOptions{}, middleware.After)
 	if err != nil {
 		return err

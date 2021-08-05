@@ -21,7 +21,7 @@ func (c *Client) CreateNetworkInsightsPath(ctx context.Context, params *CreateNe
 		params = &CreateNetworkInsightsPathInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateNetworkInsightsPath", params, optFns, addOperationCreateNetworkInsightsPathMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateNetworkInsightsPath", params, optFns, c.addOperationCreateNetworkInsightsPathMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -34,13 +34,13 @@ func (c *Client) CreateNetworkInsightsPath(ctx context.Context, params *CreateNe
 type CreateNetworkInsightsPathInput struct {
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see How to Ensure Idempotency
+	// the request. For more information, see How to ensure idempotency
 	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
 	//
 	// This member is required.
 	ClientToken *string
 
-	// The AWS resource that is the destination of the path.
+	// The Amazon Web Services resource that is the destination of the path.
 	//
 	// This member is required.
 	Destination *string
@@ -50,12 +50,13 @@ type CreateNetworkInsightsPathInput struct {
 	// This member is required.
 	Protocol types.Protocol
 
-	// The AWS resource that is the source of the path.
+	// The Amazon Web Services resource that is the source of the path.
 	//
 	// This member is required.
 	Source *string
 
-	// The IP address of the AWS resource that is the destination of the path.
+	// The IP address of the Amazon Web Services resource that is the destination of
+	// the path.
 	DestinationIp *string
 
 	// The destination port.
@@ -67,11 +68,14 @@ type CreateNetworkInsightsPathInput struct {
 	// UnauthorizedOperation.
 	DryRun *bool
 
-	// The IP address of the AWS resource that is the source of the path.
+	// The IP address of the Amazon Web Services resource that is the source of the
+	// path.
 	SourceIp *string
 
 	// The tags to add to the path.
 	TagSpecifications []types.TagSpecification
+
+	noSmithyDocumentSerde
 }
 
 type CreateNetworkInsightsPathOutput struct {
@@ -81,9 +85,11 @@ type CreateNetworkInsightsPathOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateNetworkInsightsPathMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateNetworkInsightsPathMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateNetworkInsightsPath{}, middleware.After)
 	if err != nil {
 		return err

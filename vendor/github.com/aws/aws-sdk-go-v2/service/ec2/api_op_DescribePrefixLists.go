@@ -12,15 +12,16 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes available AWS services in a prefix list format, which includes the
-// prefix list name and prefix list ID of the service and the IP address range for
-// the service. We recommend that you use DescribeManagedPrefixLists instead.
+// Describes available Amazon Web Services services in a prefix list format, which
+// includes the prefix list name and prefix list ID of the service and the IP
+// address range for the service. We recommend that you use
+// DescribeManagedPrefixLists instead.
 func (c *Client) DescribePrefixLists(ctx context.Context, params *DescribePrefixListsInput, optFns ...func(*Options)) (*DescribePrefixListsOutput, error) {
 	if params == nil {
 		params = &DescribePrefixListsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribePrefixLists", params, optFns, addOperationDescribePrefixListsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribePrefixLists", params, optFns, c.addOperationDescribePrefixListsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -55,6 +56,8 @@ type DescribePrefixListsInput struct {
 
 	// One or more prefix list IDs.
 	PrefixListIds []string
+
+	noSmithyDocumentSerde
 }
 
 type DescribePrefixListsOutput struct {
@@ -68,9 +71,11 @@ type DescribePrefixListsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribePrefixListsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribePrefixListsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribePrefixLists{}, middleware.After)
 	if err != nil {
 		return err

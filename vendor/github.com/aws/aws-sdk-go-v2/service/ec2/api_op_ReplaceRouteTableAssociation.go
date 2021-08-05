@@ -14,7 +14,7 @@ import (
 // Changes the route table associated with a given subnet, internet gateway, or
 // virtual private gateway in a VPC. After the operation completes, the subnet or
 // gateway uses the routes in the new route table. For more information about route
-// tables, see Route Tables
+// tables, see Route tables
 // (https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Route_Tables.html) in the
 // Amazon Virtual Private Cloud User Guide. You can also use this operation to
 // change which table is the main route table in the VPC. Specify the main route
@@ -24,7 +24,7 @@ func (c *Client) ReplaceRouteTableAssociation(ctx context.Context, params *Repla
 		params = &ReplaceRouteTableAssociationInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ReplaceRouteTableAssociation", params, optFns, addOperationReplaceRouteTableAssociationMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ReplaceRouteTableAssociation", params, optFns, c.addOperationReplaceRouteTableAssociationMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -51,6 +51,8 @@ type ReplaceRouteTableAssociationInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type ReplaceRouteTableAssociationOutput struct {
@@ -63,9 +65,11 @@ type ReplaceRouteTableAssociationOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationReplaceRouteTableAssociationMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationReplaceRouteTableAssociationMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpReplaceRouteTableAssociation{}, middleware.After)
 	if err != nil {
 		return err

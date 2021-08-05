@@ -20,7 +20,7 @@ func (c *Client) RejectVpcPeeringConnection(ctx context.Context, params *RejectV
 		params = &RejectVpcPeeringConnectionInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "RejectVpcPeeringConnection", params, optFns, addOperationRejectVpcPeeringConnectionMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "RejectVpcPeeringConnection", params, optFns, c.addOperationRejectVpcPeeringConnectionMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -42,6 +42,8 @@ type RejectVpcPeeringConnectionInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type RejectVpcPeeringConnectionOutput struct {
@@ -51,9 +53,11 @@ type RejectVpcPeeringConnectionOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationRejectVpcPeeringConnectionMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationRejectVpcPeeringConnectionMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpRejectVpcPeeringConnection{}, middleware.After)
 	if err != nil {
 		return err

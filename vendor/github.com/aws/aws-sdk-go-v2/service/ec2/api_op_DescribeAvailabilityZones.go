@@ -23,7 +23,7 @@ func (c *Client) DescribeAvailabilityZones(ctx context.Context, params *Describe
 		params = &DescribeAvailabilityZonesInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeAvailabilityZones", params, optFns, addOperationDescribeAvailabilityZonesMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeAvailabilityZones", params, optFns, c.addOperationDescribeAvailabilityZonesMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -94,6 +94,8 @@ type DescribeAvailabilityZonesInput struct {
 
 	// The names of the Availability Zones, Local Zones, and Wavelength Zones.
 	ZoneNames []string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeAvailabilityZonesOutput struct {
@@ -103,9 +105,11 @@ type DescribeAvailabilityZonesOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeAvailabilityZonesMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeAvailabilityZonesMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeAvailabilityZones{}, middleware.After)
 	if err != nil {
 		return err

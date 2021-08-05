@@ -21,7 +21,7 @@ func (c *Client) DescribeFleets(ctx context.Context, params *DescribeFleetsInput
 		params = &DescribeFleetsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeFleets", params, optFns, addOperationDescribeFleetsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeFleets", params, optFns, c.addOperationDescribeFleetsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -70,6 +70,8 @@ type DescribeFleetsInput struct {
 
 	// The token for the next set of results.
 	NextToken *string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeFleetsOutput struct {
@@ -82,9 +84,11 @@ type DescribeFleetsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeFleetsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeFleetsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeFleets{}, middleware.After)
 	if err != nil {
 		return err

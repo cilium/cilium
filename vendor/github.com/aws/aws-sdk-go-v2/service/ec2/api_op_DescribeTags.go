@@ -21,7 +21,7 @@ func (c *Client) DescribeTags(ctx context.Context, params *DescribeTagsInput, op
 		params = &DescribeTagsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeTags", params, optFns, addOperationDescribeTagsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeTags", params, optFns, c.addOperationDescribeTagsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -68,6 +68,8 @@ type DescribeTagsInput struct {
 
 	// The token to retrieve the next page of results.
 	NextToken *string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeTagsOutput struct {
@@ -81,9 +83,11 @@ type DescribeTagsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeTagsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeTagsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeTags{}, middleware.After)
 	if err != nil {
 		return err

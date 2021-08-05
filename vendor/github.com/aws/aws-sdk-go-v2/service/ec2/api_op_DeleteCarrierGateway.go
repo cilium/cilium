@@ -20,7 +20,7 @@ func (c *Client) DeleteCarrierGateway(ctx context.Context, params *DeleteCarrier
 		params = &DeleteCarrierGatewayInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DeleteCarrierGateway", params, optFns, addOperationDeleteCarrierGatewayMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DeleteCarrierGateway", params, optFns, c.addOperationDeleteCarrierGatewayMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -42,6 +42,8 @@ type DeleteCarrierGatewayInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type DeleteCarrierGatewayOutput struct {
@@ -51,9 +53,11 @@ type DeleteCarrierGatewayOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDeleteCarrierGatewayMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDeleteCarrierGatewayMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDeleteCarrierGateway{}, middleware.After)
 	if err != nil {
 		return err

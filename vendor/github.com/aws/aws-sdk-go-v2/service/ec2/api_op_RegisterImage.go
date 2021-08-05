@@ -61,7 +61,7 @@ func (c *Client) RegisterImage(ctx context.Context, params *RegisterImageInput, 
 		params = &RegisterImageInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "RegisterImage", params, optFns, addOperationRegisterImageMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "RegisterImage", params, optFns, c.addOperationRegisterImageMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -145,6 +145,8 @@ type RegisterImageInput struct {
 
 	// The type of virtualization (hvm | paravirtual). Default: paravirtual
 	VirtualizationType *string
+
+	noSmithyDocumentSerde
 }
 
 // Contains the output of RegisterImage.
@@ -155,9 +157,11 @@ type RegisterImageOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationRegisterImageMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationRegisterImageMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpRegisterImage{}, middleware.After)
 	if err != nil {
 		return err

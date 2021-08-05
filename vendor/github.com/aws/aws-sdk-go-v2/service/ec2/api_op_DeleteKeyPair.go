@@ -16,7 +16,7 @@ func (c *Client) DeleteKeyPair(ctx context.Context, params *DeleteKeyPairInput, 
 		params = &DeleteKeyPairInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DeleteKeyPair", params, optFns, addOperationDeleteKeyPairMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DeleteKeyPair", params, optFns, c.addOperationDeleteKeyPairMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -39,14 +39,18 @@ type DeleteKeyPairInput struct {
 
 	// The ID of the key pair.
 	KeyPairId *string
+
+	noSmithyDocumentSerde
 }
 
 type DeleteKeyPairOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDeleteKeyPairMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDeleteKeyPairMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDeleteKeyPair{}, middleware.After)
 	if err != nil {
 		return err

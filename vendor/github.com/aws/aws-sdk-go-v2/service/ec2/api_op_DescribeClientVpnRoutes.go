@@ -18,7 +18,7 @@ func (c *Client) DescribeClientVpnRoutes(ctx context.Context, params *DescribeCl
 		params = &DescribeClientVpnRoutesInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeClientVpnRoutes", params, optFns, addOperationDescribeClientVpnRoutesMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeClientVpnRoutes", params, optFns, c.addOperationDescribeClientVpnRoutesMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -60,6 +60,8 @@ type DescribeClientVpnRoutesInput struct {
 
 	// The token to retrieve the next page of results.
 	NextToken *string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeClientVpnRoutesOutput struct {
@@ -73,9 +75,11 @@ type DescribeClientVpnRoutesOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeClientVpnRoutesMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeClientVpnRoutesMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeClientVpnRoutes{}, middleware.After)
 	if err != nil {
 		return err

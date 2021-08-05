@@ -20,7 +20,7 @@ func (c *Client) DescribeFpgaImages(ctx context.Context, params *DescribeFpgaIma
 		params = &DescribeFpgaImagesInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeFpgaImages", params, optFns, addOperationDescribeFpgaImagesMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeFpgaImages", params, optFns, c.addOperationDescribeFpgaImagesMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -88,6 +88,8 @@ type DescribeFpgaImagesInput struct {
 	// of the request), or an AWS owner alias (valid values are amazon |
 	// aws-marketplace).
 	Owners []string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeFpgaImagesOutput struct {
@@ -101,9 +103,11 @@ type DescribeFpgaImagesOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeFpgaImagesMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeFpgaImagesMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeFpgaImages{}, middleware.After)
 	if err != nil {
 		return err

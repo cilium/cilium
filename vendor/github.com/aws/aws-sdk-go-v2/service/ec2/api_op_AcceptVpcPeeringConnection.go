@@ -21,7 +21,7 @@ func (c *Client) AcceptVpcPeeringConnection(ctx context.Context, params *AcceptV
 		params = &AcceptVpcPeeringConnectionInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "AcceptVpcPeeringConnection", params, optFns, addOperationAcceptVpcPeeringConnectionMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "AcceptVpcPeeringConnection", params, optFns, c.addOperationAcceptVpcPeeringConnectionMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -42,6 +42,8 @@ type AcceptVpcPeeringConnectionInput struct {
 	// The ID of the VPC peering connection. You must specify this parameter in the
 	// request.
 	VpcPeeringConnectionId *string
+
+	noSmithyDocumentSerde
 }
 
 type AcceptVpcPeeringConnectionOutput struct {
@@ -51,9 +53,11 @@ type AcceptVpcPeeringConnectionOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationAcceptVpcPeeringConnectionMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationAcceptVpcPeeringConnectionMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpAcceptVpcPeeringConnection{}, middleware.After)
 	if err != nil {
 		return err

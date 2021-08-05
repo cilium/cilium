@@ -21,7 +21,7 @@ func (c *Client) AuthorizeClientVpnIngress(ctx context.Context, params *Authoriz
 		params = &AuthorizeClientVpnIngressInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "AuthorizeClientVpnIngress", params, optFns, addOperationAuthorizeClientVpnIngressMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "AuthorizeClientVpnIngress", params, optFns, c.addOperationAuthorizeClientVpnIngressMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -67,6 +67,8 @@ type AuthorizeClientVpnIngressInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type AuthorizeClientVpnIngressOutput struct {
@@ -76,9 +78,11 @@ type AuthorizeClientVpnIngressOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationAuthorizeClientVpnIngressMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationAuthorizeClientVpnIngressMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpAuthorizeClientVpnIngress{}, middleware.After)
 	if err != nil {
 		return err

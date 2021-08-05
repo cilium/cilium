@@ -17,7 +17,7 @@ func (c *Client) SearchTransitGatewayRoutes(ctx context.Context, params *SearchT
 		params = &SearchTransitGatewayRoutesInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "SearchTransitGatewayRoutes", params, optFns, addOperationSearchTransitGatewayRoutesMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "SearchTransitGatewayRoutes", params, optFns, c.addOperationSearchTransitGatewayRoutesMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -80,6 +80,8 @@ type SearchTransitGatewayRoutesInput struct {
 
 	// The maximum number of routes to return.
 	MaxResults *int32
+
+	noSmithyDocumentSerde
 }
 
 type SearchTransitGatewayRoutesOutput struct {
@@ -92,9 +94,11 @@ type SearchTransitGatewayRoutesOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationSearchTransitGatewayRoutesMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationSearchTransitGatewayRoutesMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpSearchTransitGatewayRoutes{}, middleware.After)
 	if err != nil {
 		return err

@@ -17,7 +17,7 @@ func (c *Client) DeleteSubnet(ctx context.Context, params *DeleteSubnetInput, op
 		params = &DeleteSubnetInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DeleteSubnet", params, optFns, addOperationDeleteSubnetMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DeleteSubnet", params, optFns, c.addOperationDeleteSubnetMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -39,14 +39,18 @@ type DeleteSubnetInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type DeleteSubnetOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDeleteSubnetMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDeleteSubnetMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDeleteSubnet{}, middleware.After)
 	if err != nil {
 		return err

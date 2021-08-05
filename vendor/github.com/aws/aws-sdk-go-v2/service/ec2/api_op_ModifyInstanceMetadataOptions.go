@@ -25,7 +25,7 @@ func (c *Client) ModifyInstanceMetadataOptions(ctx context.Context, params *Modi
 		params = &ModifyInstanceMetadataOptionsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ModifyInstanceMetadataOptions", params, optFns, addOperationModifyInstanceMetadataOptionsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ModifyInstanceMetadataOptions", params, optFns, c.addOperationModifyInstanceMetadataOptionsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -71,6 +71,8 @@ type ModifyInstanceMetadataOptionsInput struct {
 	// credential always returns the version 2.0 credentials; the version 1.0
 	// credentials are not available.
 	HttpTokens types.HttpTokensState
+
+	noSmithyDocumentSerde
 }
 
 type ModifyInstanceMetadataOptionsOutput struct {
@@ -83,9 +85,11 @@ type ModifyInstanceMetadataOptionsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationModifyInstanceMetadataOptionsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationModifyInstanceMetadataOptionsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyInstanceMetadataOptions{}, middleware.After)
 	if err != nil {
 		return err

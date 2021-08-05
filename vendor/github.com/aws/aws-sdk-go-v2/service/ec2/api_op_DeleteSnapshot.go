@@ -18,7 +18,7 @@ import (
 // have access to all the information needed to restore the volume. You cannot
 // delete a snapshot of the root device of an EBS volume used by a registered AMI.
 // You must first de-register the AMI before you can delete the snapshot. For more
-// information, see Deleting an Amazon EBS snapshot
+// information, see Delete an Amazon EBS snapshot
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-deleting-snapshot.html)
 // in the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) DeleteSnapshot(ctx context.Context, params *DeleteSnapshotInput, optFns ...func(*Options)) (*DeleteSnapshotOutput, error) {
@@ -26,7 +26,7 @@ func (c *Client) DeleteSnapshot(ctx context.Context, params *DeleteSnapshotInput
 		params = &DeleteSnapshotInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DeleteSnapshot", params, optFns, addOperationDeleteSnapshotMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DeleteSnapshot", params, optFns, c.addOperationDeleteSnapshotMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -48,14 +48,18 @@ type DeleteSnapshotInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	noSmithyDocumentSerde
 }
 
 type DeleteSnapshotOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDeleteSnapshotMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDeleteSnapshotMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDeleteSnapshot{}, middleware.After)
 	if err != nil {
 		return err

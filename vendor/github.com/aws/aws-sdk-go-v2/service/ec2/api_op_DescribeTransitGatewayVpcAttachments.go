@@ -19,7 +19,7 @@ func (c *Client) DescribeTransitGatewayVpcAttachments(ctx context.Context, param
 		params = &DescribeTransitGatewayVpcAttachmentsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeTransitGatewayVpcAttachments", params, optFns, addOperationDescribeTransitGatewayVpcAttachmentsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeTransitGatewayVpcAttachments", params, optFns, c.addOperationDescribeTransitGatewayVpcAttachmentsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -62,6 +62,8 @@ type DescribeTransitGatewayVpcAttachmentsInput struct {
 
 	// The IDs of the attachments.
 	TransitGatewayAttachmentIds []string
+
+	noSmithyDocumentSerde
 }
 
 type DescribeTransitGatewayVpcAttachmentsOutput struct {
@@ -75,9 +77,11 @@ type DescribeTransitGatewayVpcAttachmentsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDescribeTransitGatewayVpcAttachmentsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeTransitGatewayVpcAttachmentsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeTransitGatewayVpcAttachments{}, middleware.After)
 	if err != nil {
 		return err

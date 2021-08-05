@@ -29,7 +29,7 @@ func (c *Client) PurchaseReservedInstancesOffering(ctx context.Context, params *
 		params = &PurchaseReservedInstancesOfferingInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "PurchaseReservedInstancesOffering", params, optFns, addOperationPurchaseReservedInstancesOfferingMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "PurchaseReservedInstancesOffering", params, optFns, c.addOperationPurchaseReservedInstancesOfferingMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -65,19 +65,27 @@ type PurchaseReservedInstancesOfferingInput struct {
 	// The time at which to purchase the Reserved Instance, in UTC format (for example,
 	// YYYY-MM-DDTHH:MM:SSZ).
 	PurchaseTime *time.Time
+
+	noSmithyDocumentSerde
 }
 
 // Contains the output of PurchaseReservedInstancesOffering.
 type PurchaseReservedInstancesOfferingOutput struct {
 
-	// The IDs of the purchased Reserved Instances.
+	// The IDs of the purchased Reserved Instances. If your purchase crosses into a
+	// discounted pricing tier, the final Reserved Instances IDs might change. For more
+	// information, see Crossing pricing tiers
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/concepts-reserved-instances-application.html#crossing-pricing-tiers)
+	// in the Amazon Elastic Compute Cloud User Guide.
 	ReservedInstancesId *string
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationPurchaseReservedInstancesOfferingMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationPurchaseReservedInstancesOfferingMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpPurchaseReservedInstancesOffering{}, middleware.After)
 	if err != nil {
 		return err

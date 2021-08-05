@@ -22,7 +22,7 @@ func (c *Client) CreateTransitGatewayConnectPeer(ctx context.Context, params *Cr
 		params = &CreateTransitGatewayConnectPeerInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateTransitGatewayConnectPeer", params, optFns, addOperationCreateTransitGatewayConnectPeerMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateTransitGatewayConnectPeer", params, optFns, c.addOperationCreateTransitGatewayConnectPeerMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -70,6 +70,8 @@ type CreateTransitGatewayConnectPeerInput struct {
 	// specified, Amazon automatically assigns the first available IP address from the
 	// transit gateway CIDR block.
 	TransitGatewayAddress *string
+
+	noSmithyDocumentSerde
 }
 
 type CreateTransitGatewayConnectPeerOutput struct {
@@ -79,9 +81,11 @@ type CreateTransitGatewayConnectPeerOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationCreateTransitGatewayConnectPeerMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateTransitGatewayConnectPeerMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateTransitGatewayConnectPeer{}, middleware.After)
 	if err != nil {
 		return err
