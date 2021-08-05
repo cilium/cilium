@@ -453,7 +453,7 @@ github.com/mailru/easyjson/jwriter
 github.com/mattn/go-colorable
 # github.com/mattn/go-isatty v0.0.4
 github.com/mattn/go-isatty
-# github.com/mattn/go-shellwords v1.0.10
+# github.com/mattn/go-shellwords v1.0.12
 ## explicit
 github.com/mattn/go-shellwords
 # github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369
