@@ -118,14 +118,15 @@ jobs:
 
           # Active wait for whichever background process ends first
           wait -n $complete_pid $failed_pid
-          exit $?
+          EXIT_CODE=$?
+
+          # Retrieve job logs
+          kubectl logs --timestamps -n kube-system job/cilium-cli
+          exit ${EXIT_CODE}
 
       - name: Post-test information gathering
         if: ${{ !success() }}
         run: |
-          echo "=== Retrieve in-cluster jobs logs ==="
-          kubectl logs --timestamps -n kube-system job/cilium-cli
-
           echo "=== Install latest stable CLI ==="
           curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz{,.sha256sum}
           sha256sum --check cilium-linux-amd64.tar.gz.sha256sum

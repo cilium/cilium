@@ -142,7 +142,11 @@ jobs:
 
           # Active wait for whichever background process ends first
           wait -n $complete_pid $failed_pid
-          exit $?
+          EXIT_CODE=$?
+
+          # Retrieve job logs
+          kubectl logs --timestamps -n kube-system job/cilium-cli-install
+          exit ${EXIT_CODE}
 
       - name: Copy VM install script from cilium-cli-install pod
         run: |
@@ -194,15 +198,15 @@ jobs:
 
           # Active wait for whichever background process ends first
           wait -n $complete_pid $failed_pid
-          exit $?
+          EXIT_CODE=$?
+
+          # Retrieve job logs
+          kubectl logs --timestamps -n kube-system job/cilium-cli
+          exit ${EXIT_CODE}
 
       - name: Post-test information gathering
         if: ${{ !success() }}
         run: |
-          echo "=== Retrieve in-cluster jobs logs ==="
-          kubectl logs --timestamps -n kube-system job/cilium-cli-install
-          kubectl logs --timestamps -n kube-system job/cilium-cli
-
           echo "=== Retrieve VM state ==="
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "cilium status"
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "sudo docker logs cilium --timestamps"
