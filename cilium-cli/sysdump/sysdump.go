@@ -539,23 +539,6 @@ func (c *Collector) Run() error {
 		},
 		{
 			CreatesSubtasks: true,
-			Description:     "Collecting Hubble flows from Cilium pods",
-			Quick:           false,
-			Task: func(ctx context.Context) error {
-				p, err := c.client.ListPods(ctx, c.options.CiliumNamespace, metav1.ListOptions{
-					LabelSelector: c.options.CiliumLabelSelector,
-				})
-				if err != nil {
-					return fmt.Errorf("failed to get Cilium pods: %w", err)
-				}
-				if err := c.submitHubbleFlowsTasks(ctx, filterPods(p, nodeList), ciliumAgentContainerName, absoluteTempPath); err != nil {
-					return fmt.Errorf("failed to collect hubble flows: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			CreatesSubtasks: true,
 			Description:     "Collecting logs from Cilium pods",
 			Quick:           false,
 			Task: func(ctx context.Context) error {
