@@ -12,28 +12,26 @@ copy-pasting.
 
 ### Version
 
-If releasing a new version 5.4.0 with the latest release being 5.3.8, for
+If releasing a new version v5.4.0 with the latest release being v5.3.8, for
 example, they will look as follows:
 
-    export MAJOR=5
-    export MINOR=4
-    export PATCH=0
-    export LAST_RELEASE=5.3.8
-    export NEXT_PATCH=$((PATCH+1))
+    export RELEASE=v5.4.0
+    export LAST_RELEASE=v5.3.8
 
-## Create release prep branch
+### Commit SHA to release
 
-This branch will be used to prepare all the necessary things to get ready for
-release.
+    export COMMIT_SHA=<commit-sha-to-release>
 
-    git checkout -b pr/v$MAJOR.$MINOR.$PATCH-prep
+## Tag a release
+
+    git tag -a $RELEASE -m '$RELEASE release' $COMMIT_SHA && git push origin $RELEASE
 
 ## Prepare the release notes
 
 Using https://github.com/cilium/release, prepare the release notes between the
 last minor version (latest patch) and current.
 
-    ./release --repo cilium/cilium-cli --base v$LAST_RELEASE --head master
+    ./release --repo cilium/cilium-cli --base $LAST_RELEASE --head $COMMIT_SHA
     **Other Changes:**
     * install: Add a hidden --base-version flag (#418, @michi-covalent)
     * Makefile: introduce GO_BUILD variable (#432, @tklauser)
@@ -42,58 +40,22 @@ last minor version (latest patch) and current.
     * skip Succeeded pods (#431, @xyz-li)
     ... etc ...
 
-## Update files for the new release
-
-Update the version in `VERSION` and `stable.txt`, then commit the changes to
-the prep branch:
-
-    echo $MAJOR.$MINOR.$PATCH > VERSION
-    echo v$MAJOR.$MINOR.$PATCH > stable.txt
-    git add VERSION stable.txt
-    git commit -s -m "Prepare for release v$MAJOR.$MINOR.$PATCH"
-
-Consider that the Cilium repository uses the version specified in `stable.txt`
-in the master branch for its CI workflows. In certain cases (e.g. for breaking
-changes which require changes in the Cilium repo first), the version in
-`stable.txt` might need to be updated in a separate PR.
-
-## Update the `VERSION` file for next development cycle
-
-Usually this only consists of bumping the patch version and adding the `-dev`
-suffix, e.g.
-
-    echo $MAJOR.$MINOR.${NEXT_PATCH}-dev > VERSION
-
-Then commit the changes to the release prep branch:
-
-    git add VERSION
-    git commit -s -m "Prepare for v$MAJOR.$MINOR.$NEXT_PATCH development"
-
-## Push the prep branch and open a Pull Request
-
-The pull request has to be `pr/v$MAJOR.$MINOR.$PATCH-prep -> master`
-
-Once the pull request is approved and merged, a tag can be created.
-
-## Tag a release
-
-Identify the right commit and tag the release. Usually, the commit modifying
-the version in the `VERSION` file is tagged.
-
-Example:
-
-    git tag -a v0.8.5 -m 'v0.8.5 release' <commit-sha>
-
-Then push the tag.
-
-Example:
-
-    git push origin v0.8.5
-
 ## Update the GitHub release notes
 
 When a tag is pushed, a GitHub Action job takes care of creating a new GitHub
-draft release, building artifacts and attaching them to the draft release.
+draft release, building artifacts and attaching them to the draft release. Once
+the draft is ready, copy & paste the generated release notes manually and publish
+the release.
 
-The release notes need to be manually added before manually publishing the
-release.
+## Update stable.txt
+
+The Cilium repository uses the version specified in `stable.txt` in the master branch
+for its CI workflows. Update `stable.txt` when Cilium needs to pick up this new release
+for its CI workflows:
+
+    git checkout -b pr/update-stable-to-$RELEASE
+    echo $RELEASE > stable.txt
+    git add stable.txt
+    git commit -s -m "Update the stable version to $RELEASE"
+
+Then open a pull request against `master` branch.
