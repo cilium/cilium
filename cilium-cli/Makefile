@@ -4,9 +4,7 @@ GO_TAGS ?=
 TARGET=cilium
 INSTALL = $(QUIET)install
 BINDIR ?= /usr/local/bin
-VERSION=$(shell cat VERSION)
-GIT_BRANCH = $(shell which git >/dev/null 2>&1 && git rev-parse --abbrev-ref HEAD)
-GIT_HASH = $(shell which git >/dev/null 2>&1 && git rev-parse --short HEAD)
+VERSION=$(shell git describe --tags --always)
 
 TEST_TIMEOUT ?= 5s
 RELEASE_UID ?= $(shell id -u)
@@ -18,8 +16,6 @@ GOLANGCILINT_VERSION = $(shell golangci-lint version 2>/dev/null)
 $(TARGET):
 	$(GO_BUILD) $(if $(GO_TAGS),-tags $(GO_TAGS)) \
 		-ldflags "-w -s \
-		-X 'github.com/cilium/cilium-cli/internal/cli/cmd.GitBranch=${GIT_BRANCH}' \
-		-X 'github.com/cilium/cilium-cli/internal/cli/cmd.GitHash=$(GIT_HASH)' \
 		-X 'github.com/cilium/cilium-cli/internal/cli/cmd.Version=${VERSION}'" \
 		-o $(TARGET) \
 		./cmd/cilium
