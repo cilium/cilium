@@ -83,7 +83,9 @@ type AssignIpv6AddressesRequest struct {
 // AssignIpv6AddressesResponse is the response struct for api AssignIpv6Addresses
 type AssignIpv6AddressesResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
+	RequestId          string                        `json:"RequestId" xml:"RequestId"`
+	NetworkInterfaceId string                        `json:"NetworkInterfaceId" xml:"NetworkInterfaceId"`
+	Ipv6Sets           Ipv6SetsInAssignIpv6Addresses `json:"Ipv6Sets" xml:"Ipv6Sets"`
 }
 
 // CreateAssignIpv6AddressesRequest creates a request to invoke AssignIpv6Addresses API

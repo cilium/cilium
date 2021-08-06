@@ -97,10 +97,10 @@ type DescribeCapacityReservationsTag struct {
 // DescribeCapacityReservationsResponse is the response struct for api DescribeCapacityReservations
 type DescribeCapacityReservationsResponse struct {
 	*responses.BaseResponse
-	RequestId              string                 `json:"RequestId" xml:"RequestId"`
 	NextToken              string                 `json:"NextToken" xml:"NextToken"`
-	MaxResults             int                    `json:"MaxResults" xml:"MaxResults"`
+	RequestId              string                 `json:"RequestId" xml:"RequestId"`
 	TotalCount             int                    `json:"TotalCount" xml:"TotalCount"`
+	MaxResults             int                    `json:"MaxResults" xml:"MaxResults"`
 	CapacityReservationSet CapacityReservationSet `json:"CapacityReservationSet" xml:"CapacityReservationSet"`
 }
 

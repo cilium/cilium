@@ -20,6 +20,6 @@ type InactiveDisk struct {
 	DeviceCategory string `json:"DeviceCategory" xml:"DeviceCategory"`
 	ReleaseTime    string `json:"ReleaseTime" xml:"ReleaseTime"`
 	CreationTime   string `json:"CreationTime" xml:"CreationTime"`
-	DeviceType     string `json:"DeviceType" xml:"DeviceType"`
 	DeviceSize     string `json:"DeviceSize" xml:"DeviceSize"`
+	DeviceType     string `json:"DeviceType" xml:"DeviceType"`
 }
