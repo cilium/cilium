@@ -32,7 +32,7 @@ const (
 	DefaultDebug                       = false
 	DefaultHubbleLabelSelector         = labelPrefix + "hubble"
 	DefaultHubbleNamespace             = DefaultCiliumNamespace
-	DefaultHubbleFlowsCount            = 0
+	DefaultHubbleFlowsCount            = 10000
 	DefaultHubbleFlowsTimeout          = 5 * time.Second
 	DefaultHubbleRelayLabelSelector    = labelPrefix + "hubble-relay"
 	DefaultHubbleRelayNamespace        = DefaultCiliumNamespace
