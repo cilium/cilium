@@ -3,7 +3,7 @@
 
 include ../Makefile.defs
 
-.PHONY: all bpf_all build_all subdirs install clean
+.PHONY: all bpf_all build_all subdirs install clean gen_compile_commands
 
 SUBDIRS = sockops custom
 
@@ -314,3 +314,12 @@ clean:
 		$(MAKE) $(SUBMAKEOPTS) -C $(TARGET) clean;)
 	$(QUIET)rm -fr *.o *.ll *.i *.s
 	$(QUIET)rm -f $(TARGET)
+
+
+BEAR_CLI   = $(shell which bear 2> /dev/null)
+gen_compile_commands:
+ifeq (, $(BEAR_CLI))
+	@echo "bear cli must be in $PATH to generate json compilation database"
+else
+	bear -- make
+endif
