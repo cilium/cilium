@@ -18,27 +18,29 @@ package ecs
 // Snapshot is a nested struct in ecs response
 type Snapshot struct {
 	Category                   string                  `json:"Category" xml:"Category"`
-	Usage                      string                  `json:"Usage" xml:"Usage"`
-	SourceDiskSize             string                  `json:"SourceDiskSize" xml:"SourceDiskSize"`
-	CreationTime               string                  `json:"CreationTime" xml:"CreationTime"`
-	SourceStorageType          string                  `json:"SourceStorageType" xml:"SourceStorageType"`
-	ProductCode                string                  `json:"ProductCode" xml:"ProductCode"`
-	KMSKeyId                   string                  `json:"KMSKeyId" xml:"KMSKeyId"`
-	Encrypted                  bool                    `json:"Encrypted" xml:"Encrypted"`
-	Progress                   string                  `json:"Progress" xml:"Progress"`
 	LastModifiedTime           string                  `json:"LastModifiedTime" xml:"LastModifiedTime"`
-	RetentionDays              int                     `json:"RetentionDays" xml:"RetentionDays"`
-	SourceDiskId               string                  `json:"SourceDiskId" xml:"SourceDiskId"`
 	ResourceGroupId            string                  `json:"ResourceGroupId" xml:"ResourceGroupId"`
-	RemainTime                 int                     `json:"RemainTime" xml:"RemainTime"`
-	SnapshotId                 string                  `json:"SnapshotId" xml:"SnapshotId"`
 	SnapshotSN                 string                  `json:"SnapshotSN" xml:"SnapshotSN"`
 	InstantAccess              bool                    `json:"InstantAccess" xml:"InstantAccess"`
-	InstantAccessRetentionDays int                     `json:"InstantAccessRetentionDays" xml:"InstantAccessRetentionDays"`
-	Status                     string                  `json:"Status" xml:"Status"`
 	SnapshotType               string                  `json:"SnapshotType" xml:"SnapshotType"`
 	Description                string                  `json:"Description" xml:"Description"`
 	SourceDiskType             string                  `json:"SourceDiskType" xml:"SourceDiskType"`
 	SnapshotName               string                  `json:"SnapshotName" xml:"SnapshotName"`
+	Usage                      string                  `json:"Usage" xml:"Usage"`
+	SourceDiskSize             string                  `json:"SourceDiskSize" xml:"SourceDiskSize"`
+	CreationTime               string                  `json:"CreationTime" xml:"CreationTime"`
+	SourceStorageType          string                  `json:"SourceStorageType" xml:"SourceStorageType"`
+	SourceSnapshotId           string                  `json:"SourceSnapshotId" xml:"SourceSnapshotId"`
+	KMSKeyId                   string                  `json:"KMSKeyId" xml:"KMSKeyId"`
+	ProductCode                string                  `json:"ProductCode" xml:"ProductCode"`
+	Encrypted                  bool                    `json:"Encrypted" xml:"Encrypted"`
+	Progress                   string                  `json:"Progress" xml:"Progress"`
+	RetentionDays              int                     `json:"RetentionDays" xml:"RetentionDays"`
+	SourceDiskId               string                  `json:"SourceDiskId" xml:"SourceDiskId"`
+	RemainTime                 int                     `json:"RemainTime" xml:"RemainTime"`
+	SnapshotId                 string                  `json:"SnapshotId" xml:"SnapshotId"`
+	InstantAccessRetentionDays int                     `json:"InstantAccessRetentionDays" xml:"InstantAccessRetentionDays"`
+	SourceRegionId             string                  `json:"SourceRegionId" xml:"SourceRegionId"`
+	Status                     string                  `json:"Status" xml:"Status"`
 	Tags                       TagsInDescribeSnapshots `json:"Tags" xml:"Tags"`
 }

@@ -89,8 +89,8 @@ type ModifyInstanceChargeTypeRequest struct {
 // ModifyInstanceChargeTypeResponse is the response struct for api ModifyInstanceChargeType
 type ModifyInstanceChargeTypeResponse struct {
 	*responses.BaseResponse
-	RequestId      string                                   `json:"RequestId" xml:"RequestId"`
 	OrderId        string                                   `json:"OrderId" xml:"OrderId"`
+	RequestId      string                                   `json:"RequestId" xml:"RequestId"`
 	FeeOfInstances FeeOfInstancesInModifyInstanceChargeType `json:"FeeOfInstances" xml:"FeeOfInstances"`
 }
 

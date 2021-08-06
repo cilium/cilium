@@ -92,8 +92,8 @@ type CopySnapshotTag struct {
 // CopySnapshotResponse is the response struct for api CopySnapshot
 type CopySnapshotResponse struct {
 	*responses.BaseResponse
-	RequestId  string `json:"RequestId" xml:"RequestId"`
 	SnapshotId string `json:"SnapshotId" xml:"SnapshotId"`
+	RequestId  string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateCopySnapshotRequest creates a request to invoke CopySnapshot API

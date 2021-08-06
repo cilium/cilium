@@ -99,15 +99,15 @@ type CreateImageDiskDeviceMapping struct {
 
 // CreateImageTag is a repeated param struct in CreateImageRequest
 type CreateImageTag struct {
-	Value string `name:"Value"`
+	Value string `name:"value"`
 	Key   string `name:"Key"`
 }
 
 // CreateImageResponse is the response struct for api CreateImage
 type CreateImageResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
 	ImageId   string `json:"ImageId" xml:"ImageId"`
+	RequestId string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateCreateImageRequest creates a request to invoke CreateImage API

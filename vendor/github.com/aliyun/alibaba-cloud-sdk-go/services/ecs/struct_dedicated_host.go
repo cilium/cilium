@@ -17,28 +17,28 @@ package ecs
 
 // DedicatedHost is a nested struct in ecs response
 type DedicatedHost struct {
-	DedicatedHostId                     string                                                `json:"DedicatedHostId" xml:"DedicatedHostId"`
-	AutoPlacement                       string                                                `json:"AutoPlacement" xml:"AutoPlacement"`
-	RegionId                            string                                                `json:"RegionId" xml:"RegionId"`
-	ZoneId                              string                                                `json:"ZoneId" xml:"ZoneId"`
-	DedicatedHostName                   string                                                `json:"DedicatedHostName" xml:"DedicatedHostName"`
-	MachineId                           string                                                `json:"MachineId" xml:"MachineId"`
-	Description                         string                                                `json:"Description" xml:"Description"`
-	DedicatedHostType                   string                                                `json:"DedicatedHostType" xml:"DedicatedHostType"`
-	Sockets                             int                                                   `json:"Sockets" xml:"Sockets"`
-	Cores                               int                                                   `json:"Cores" xml:"Cores"`
-	PhysicalGpus                        int                                                   `json:"PhysicalGpus" xml:"PhysicalGpus"`
-	GPUSpec                             string                                                `json:"GPUSpec" xml:"GPUSpec"`
-	ActionOnMaintenance                 string                                                `json:"ActionOnMaintenance" xml:"ActionOnMaintenance"`
-	Status                              string                                                `json:"Status" xml:"Status"`
 	CreationTime                        string                                                `json:"CreationTime" xml:"CreationTime"`
-	ChargeType                          string                                                `json:"ChargeType" xml:"ChargeType"`
-	SaleCycle                           string                                                `json:"SaleCycle" xml:"SaleCycle"`
-	ExpiredTime                         string                                                `json:"ExpiredTime" xml:"ExpiredTime"`
+	Status                              string                                                `json:"Status" xml:"Status"`
+	Cores                               int                                                   `json:"Cores" xml:"Cores"`
+	AutoPlacement                       string                                                `json:"AutoPlacement" xml:"AutoPlacement"`
+	GPUSpec                             string                                                `json:"GPUSpec" xml:"GPUSpec"`
 	AutoReleaseTime                     string                                                `json:"AutoReleaseTime" xml:"AutoReleaseTime"`
-	ResourceGroupId                     string                                                `json:"ResourceGroupId" xml:"ResourceGroupId"`
-	DedicatedHostClusterId              string                                                `json:"DedicatedHostClusterId" xml:"DedicatedHostClusterId"`
+	ChargeType                          string                                                `json:"ChargeType" xml:"ChargeType"`
 	CpuOverCommitRatio                  float64                                               `json:"CpuOverCommitRatio" xml:"CpuOverCommitRatio"`
+	ActionOnMaintenance                 string                                                `json:"ActionOnMaintenance" xml:"ActionOnMaintenance"`
+	SaleCycle                           string                                                `json:"SaleCycle" xml:"SaleCycle"`
+	PhysicalGpus                        int                                                   `json:"PhysicalGpus" xml:"PhysicalGpus"`
+	RegionId                            string                                                `json:"RegionId" xml:"RegionId"`
+	DedicatedHostName                   string                                                `json:"DedicatedHostName" xml:"DedicatedHostName"`
+	Description                         string                                                `json:"Description" xml:"Description"`
+	DedicatedHostClusterId              string                                                `json:"DedicatedHostClusterId" xml:"DedicatedHostClusterId"`
+	ExpiredTime                         string                                                `json:"ExpiredTime" xml:"ExpiredTime"`
+	DedicatedHostType                   string                                                `json:"DedicatedHostType" xml:"DedicatedHostType"`
+	ResourceGroupId                     string                                                `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	ZoneId                              string                                                `json:"ZoneId" xml:"ZoneId"`
+	DedicatedHostId                     string                                                `json:"DedicatedHostId" xml:"DedicatedHostId"`
+	Sockets                             int                                                   `json:"Sockets" xml:"Sockets"`
+	MachineId                           string                                                `json:"MachineId" xml:"MachineId"`
 	SupportedInstanceTypeFamilies       SupportedInstanceTypeFamiliesInDescribeDedicatedHosts `json:"SupportedInstanceTypeFamilies" xml:"SupportedInstanceTypeFamilies"`
 	SupportedCustomInstanceTypeFamilies SupportedCustomInstanceTypeFamilies                   `json:"SupportedCustomInstanceTypeFamilies" xml:"SupportedCustomInstanceTypeFamilies"`
 	SupportedInstanceTypesList          SupportedInstanceTypesListInDescribeDedicatedHosts    `json:"SupportedInstanceTypesList" xml:"SupportedInstanceTypesList"`

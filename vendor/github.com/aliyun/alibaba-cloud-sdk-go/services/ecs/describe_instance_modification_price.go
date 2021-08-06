@@ -83,9 +83,9 @@ type DescribeInstanceModificationPriceRequest struct {
 
 // DescribeInstanceModificationPriceDataDisk is a repeated param struct in DescribeInstanceModificationPriceRequest
 type DescribeInstanceModificationPriceDataDisk struct {
+	PerformanceLevel string `name:"PerformanceLevel"`
 	Size             string `name:"Size"`
 	Category         string `name:"Category"`
-	PerformanceLevel string `name:"PerformanceLevel"`
 }
 
 // DescribeInstanceModificationPriceResponse is the response struct for api DescribeInstanceModificationPrice
