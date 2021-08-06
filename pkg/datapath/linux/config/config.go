@@ -25,6 +25,8 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
@@ -51,8 +53,11 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 
+	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 )
+
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "datapath-linux-config")
 
 // HeaderfileWriter is a wrapper type which implements datapath.ConfigWriter.
 // It manages writing of configuration of datapath program headerfiles.
@@ -428,13 +433,25 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = fmt.Sprintf("%d", directRoutingIfIndex)
 
 		if option.Config.EnableIPv4 {
-			nodePortIPv4Addrs := node.GetNodePortIPv4AddrsWithDevices()
-			ipv4 := byteorder.NetIPv4ToHost32(nodePortIPv4Addrs[directRoutingIface])
+			ip, ok := node.GetNodePortIPv4AddrsWithDevices()[directRoutingIface]
+			if !ok {
+				log.WithFields(logrus.Fields{
+					"directRoutingIface": directRoutingIface,
+				}).Fatal("NodePort enabled but direct routing device's IPv4 address not found")
+			}
+
+			ipv4 := byteorder.NetIPv4ToHost32(ip)
 			cDefinesMap["IPV4_DIRECT_ROUTING"] = fmt.Sprintf("%d", ipv4)
 		}
 
 		if option.Config.EnableIPv6 {
-			directRoutingIPv6 := node.GetNodePortIPv6AddrsWithDevices()[directRoutingIface]
+			directRoutingIPv6, ok := node.GetNodePortIPv6AddrsWithDevices()[directRoutingIface]
+			if !ok {
+				log.WithFields(logrus.Fields{
+					"directRoutingIface": directRoutingIface,
+				}).Fatal("NodePort enabled but direct routing device's IPv6 address not found")
+			}
+
 			extraMacrosMap["IPV6_DIRECT_ROUTING"] = directRoutingIPv6.String()
 			fw.WriteString(FmtDefineAddress("IPV6_DIRECT_ROUTING", directRoutingIPv6))
 		}
