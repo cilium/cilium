@@ -2883,7 +2883,7 @@ func (kub *Kubectl) CiliumPolicyRevision(pod string) (int, error) {
 
 	revision, err := res.Filter("{.revision}")
 	if err != nil {
-		return -1, fmt.Errorf("cannot get revision from json: %s", err)
+		return -1, fmt.Errorf("cannot get revision from json output '%s': %s", res.CombineOutput(), err)
 	}
 
 	revi, err := strconv.Atoi(strings.Trim(revision.String(), "\n"))
