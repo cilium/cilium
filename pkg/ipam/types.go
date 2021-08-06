@@ -12,6 +12,10 @@ import (
 	"github.com/davecgh/go-spew/spew"
 )
 
+const (
+	customPodIpAddr = "cni.cilium.io/ipAddrs"
+)
+
 // AllocationResult is the result of an allocation
 type AllocationResult struct {
 	// IP is the allocated IP
