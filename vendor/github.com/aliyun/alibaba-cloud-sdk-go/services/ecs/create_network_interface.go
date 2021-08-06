@@ -84,6 +84,7 @@ type CreateNetworkInterfaceRequest struct {
 	NetworkInterfaceName           string                       `position:"Query" name:"NetworkInterfaceName"`
 	Visible                        requests.Boolean             `position:"Query" name:"Visible"`
 	ResourceOwnerAccount           string                       `position:"Query" name:"ResourceOwnerAccount"`
+	Ipv6AddressCount               requests.Integer             `position:"Query" name:"Ipv6AddressCount"`
 	OwnerAccount                   string                       `position:"Query" name:"OwnerAccount"`
 	QueuePairNumber                requests.Integer             `position:"Query" name:"QueuePairNumber"`
 	OwnerId                        requests.Integer             `position:"Query" name:"OwnerId"`
@@ -92,6 +93,7 @@ type CreateNetworkInterfaceRequest struct {
 	VSwitchId                      string                       `position:"Query" name:"VSwitchId"`
 	PrivateIpAddress               *[]string                    `position:"Query" name:"PrivateIpAddress"  type:"Repeated"`
 	PrimaryIpAddress               string                       `position:"Query" name:"PrimaryIpAddress"`
+	Ipv6Address                    *[]string                    `position:"Query" name:"Ipv6Address"  type:"Repeated"`
 }
 
 // CreateNetworkInterfaceTag is a repeated param struct in CreateNetworkInterfaceRequest
@@ -103,24 +105,25 @@ type CreateNetworkInterfaceTag struct {
 // CreateNetworkInterfaceResponse is the response struct for api CreateNetworkInterface
 type CreateNetworkInterfaceResponse struct {
 	*responses.BaseResponse
-	RequestId            string                                   `json:"RequestId" xml:"RequestId"`
-	NetworkInterfaceId   string                                   `json:"NetworkInterfaceId" xml:"NetworkInterfaceId"`
 	Status               string                                   `json:"Status" xml:"Status"`
 	Type                 string                                   `json:"Type" xml:"Type"`
 	VpcId                string                                   `json:"VpcId" xml:"VpcId"`
-	VSwitchId            string                                   `json:"VSwitchId" xml:"VSwitchId"`
-	ZoneId               string                                   `json:"ZoneId" xml:"ZoneId"`
-	PrivateIpAddress     string                                   `json:"PrivateIpAddress" xml:"PrivateIpAddress"`
-	MacAddress           string                                   `json:"MacAddress" xml:"MacAddress"`
 	NetworkInterfaceName string                                   `json:"NetworkInterfaceName" xml:"NetworkInterfaceName"`
+	MacAddress           string                                   `json:"MacAddress" xml:"MacAddress"`
+	NetworkInterfaceId   string                                   `json:"NetworkInterfaceId" xml:"NetworkInterfaceId"`
+	ServiceID            int64                                    `json:"ServiceID" xml:"ServiceID"`
+	OwnerId              string                                   `json:"OwnerId" xml:"OwnerId"`
+	ServiceManaged       bool                                     `json:"ServiceManaged" xml:"ServiceManaged"`
+	VSwitchId            string                                   `json:"VSwitchId" xml:"VSwitchId"`
+	RequestId            string                                   `json:"RequestId" xml:"RequestId"`
 	Description          string                                   `json:"Description" xml:"Description"`
 	ResourceGroupId      string                                   `json:"ResourceGroupId" xml:"ResourceGroupId"`
-	ServiceID            int64                                    `json:"ServiceID" xml:"ServiceID"`
-	ServiceManaged       bool                                     `json:"ServiceManaged" xml:"ServiceManaged"`
-	OwnerId              string                                   `json:"OwnerId" xml:"OwnerId"`
+	ZoneId               string                                   `json:"ZoneId" xml:"ZoneId"`
+	PrivateIpAddress     string                                   `json:"PrivateIpAddress" xml:"PrivateIpAddress"`
 	SecurityGroupIds     SecurityGroupIdsInCreateNetworkInterface `json:"SecurityGroupIds" xml:"SecurityGroupIds"`
 	PrivateIpSets        PrivateIpSetsInCreateNetworkInterface    `json:"PrivateIpSets" xml:"PrivateIpSets"`
 	Tags                 TagsInCreateNetworkInterface             `json:"Tags" xml:"Tags"`
+	Ipv6Sets             Ipv6SetsInCreateNetworkInterface         `json:"Ipv6Sets" xml:"Ipv6Sets"`
 }
 
 // CreateCreateNetworkInterfaceRequest creates a request to invoke CreateNetworkInterface API

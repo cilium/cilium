@@ -89,15 +89,15 @@ type CreateSnapshotRequest struct {
 
 // CreateSnapshotTag is a repeated param struct in CreateSnapshotRequest
 type CreateSnapshotTag struct {
-	Value string `name:"Value"`
+	Value string `name:"value"`
 	Key   string `name:"Key"`
 }
 
 // CreateSnapshotResponse is the response struct for api CreateSnapshot
 type CreateSnapshotResponse struct {
 	*responses.BaseResponse
-	RequestId  string `json:"RequestId" xml:"RequestId"`
 	SnapshotId string `json:"SnapshotId" xml:"SnapshotId"`
+	RequestId  string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateCreateSnapshotRequest creates a request to invoke CreateSnapshot API

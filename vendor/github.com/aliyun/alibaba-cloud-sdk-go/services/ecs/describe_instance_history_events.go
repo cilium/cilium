@@ -71,34 +71,42 @@ func (client *Client) DescribeInstanceHistoryEventsWithCallback(request *Describ
 // DescribeInstanceHistoryEventsRequest is the request struct for api DescribeInstanceHistoryEvents
 type DescribeInstanceHistoryEventsRequest struct {
 	*requests.RpcRequest
-	EventId                  *[]string        `position:"Query" name:"EventId"  type:"Repeated"`
-	ResourceOwnerId          requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	EventCycleStatus         string           `position:"Query" name:"EventCycleStatus"`
-	PageNumber               requests.Integer `position:"Query" name:"PageNumber"`
-	ImpactLevel              string           `position:"Query" name:"ImpactLevel"`
-	PageSize                 requests.Integer `position:"Query" name:"PageSize"`
-	InstanceEventCycleStatus *[]string        `position:"Query" name:"InstanceEventCycleStatus"  type:"Repeated"`
-	EventPublishTimeEnd      string           `position:"Query" name:"EventPublishTime.End"`
-	ResourceId               *[]string        `position:"Query" name:"ResourceId"  type:"Repeated"`
-	InstanceEventType        *[]string        `position:"Query" name:"InstanceEventType"  type:"Repeated"`
-	ResourceOwnerAccount     string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount             string           `position:"Query" name:"OwnerAccount"`
-	NotBeforeStart           string           `position:"Query" name:"NotBefore.Start"`
-	OwnerId                  requests.Integer `position:"Query" name:"OwnerId"`
-	ResourceType             string           `position:"Query" name:"ResourceType"`
-	EventPublishTimeStart    string           `position:"Query" name:"EventPublishTime.Start"`
-	InstanceId               string           `position:"Query" name:"InstanceId"`
-	NotBeforeEnd             string           `position:"Query" name:"NotBefore.End"`
-	EventType                string           `position:"Query" name:"EventType"`
+	EventId                  *[]string                           `position:"Query" name:"EventId"  type:"Repeated"`
+	ResourceOwnerId          requests.Integer                    `position:"Query" name:"ResourceOwnerId"`
+	EventCycleStatus         string                              `position:"Query" name:"EventCycleStatus"`
+	PageNumber               requests.Integer                    `position:"Query" name:"PageNumber"`
+	ImpactLevel              string                              `position:"Query" name:"ImpactLevel"`
+	ResourceGroupId          string                              `position:"Query" name:"ResourceGroupId"`
+	PageSize                 requests.Integer                    `position:"Query" name:"PageSize"`
+	InstanceEventCycleStatus *[]string                           `position:"Query" name:"InstanceEventCycleStatus"  type:"Repeated"`
+	Tag                      *[]DescribeInstanceHistoryEventsTag `position:"Query" name:"Tag"  type:"Repeated"`
+	EventPublishTimeEnd      string                              `position:"Query" name:"EventPublishTime.End"`
+	ResourceId               *[]string                           `position:"Query" name:"ResourceId"  type:"Repeated"`
+	InstanceEventType        *[]string                           `position:"Query" name:"InstanceEventType"  type:"Repeated"`
+	ResourceOwnerAccount     string                              `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount             string                              `position:"Query" name:"OwnerAccount"`
+	NotBeforeStart           string                              `position:"Query" name:"NotBefore.Start"`
+	OwnerId                  requests.Integer                    `position:"Query" name:"OwnerId"`
+	ResourceType             string                              `position:"Query" name:"ResourceType"`
+	EventPublishTimeStart    string                              `position:"Query" name:"EventPublishTime.Start"`
+	InstanceId               string                              `position:"Query" name:"InstanceId"`
+	NotBeforeEnd             string                              `position:"Query" name:"NotBefore.End"`
+	EventType                string                              `position:"Query" name:"EventType"`
+}
+
+// DescribeInstanceHistoryEventsTag is a repeated param struct in DescribeInstanceHistoryEventsRequest
+type DescribeInstanceHistoryEventsTag struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // DescribeInstanceHistoryEventsResponse is the response struct for api DescribeInstanceHistoryEvents
 type DescribeInstanceHistoryEventsResponse struct {
 	*responses.BaseResponse
-	RequestId              string                 `json:"RequestId" xml:"RequestId"`
-	TotalCount             int                    `json:"TotalCount" xml:"TotalCount"`
-	PageNumber             int                    `json:"PageNumber" xml:"PageNumber"`
 	PageSize               int                    `json:"PageSize" xml:"PageSize"`
+	RequestId              string                 `json:"RequestId" xml:"RequestId"`
+	PageNumber             int                    `json:"PageNumber" xml:"PageNumber"`
+	TotalCount             int                    `json:"TotalCount" xml:"TotalCount"`
 	InstanceSystemEventSet InstanceSystemEventSet `json:"InstanceSystemEventSet" xml:"InstanceSystemEventSet"`
 }
 

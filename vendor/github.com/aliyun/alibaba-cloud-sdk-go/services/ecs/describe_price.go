@@ -82,7 +82,9 @@ type DescribePriceRequest struct {
 	AssuranceTimes             string           `position:"Query" name:"AssuranceTimes"`
 	OwnerId                    requests.Integer `position:"Query" name:"OwnerId"`
 	InstanceCpuCoreCount       requests.Integer `position:"Query" name:"InstanceCpuCoreCount"`
+	SpotStrategy               string           `position:"Query" name:"SpotStrategy"`
 	InternetChargeType         string           `position:"Query" name:"InternetChargeType"`
+	ZoneId                     string           `position:"Query" name:"ZoneId"`
 	InstanceNetworkType        string           `position:"Query" name:"InstanceNetworkType"`
 	InstanceAmount             requests.Integer `position:"Query" name:"InstanceAmount"`
 	InstanceTypeList           *[]string        `position:"Query" name:"InstanceTypeList"  type:"Repeated"`
@@ -105,6 +107,7 @@ type DescribePriceRequest struct {
 	ResourceOwnerAccount       string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount               string           `position:"Query" name:"OwnerAccount"`
 	DataDisk2Size              requests.Integer `position:"Query" name:"DataDisk.2.Size"`
+	SpotDuration               requests.Integer `position:"Query" name:"SpotDuration"`
 	ResourceType               string           `position:"Query" name:"ResourceType"`
 	DataDisk1Category          string           `position:"Query" name:"DataDisk.1.Category"`
 	DataDisk2PerformanceLevel  string           `position:"Query" name:"DataDisk.2.PerformanceLevel"`
