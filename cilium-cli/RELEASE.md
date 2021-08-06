@@ -47,7 +47,7 @@ last minor version (latest patch) and current.
 Update the version in `VERSION` and `stable.txt`, then commit the changes to
 the prep branch:
 
-    echo v$MAJOR.$MINOR.$PATCH > VERSION
+    echo $MAJOR.$MINOR.$PATCH > VERSION
     echo v$MAJOR.$MINOR.$PATCH > stable.txt
     git add VERSION stable.txt
     git commit -s -m "Prepare for release v$MAJOR.$MINOR.$PATCH"
@@ -62,7 +62,7 @@ changes which require changes in the Cilium repo first), the version in
 Usually this only consists of bumping the patch version and adding the `-dev`
 suffix, e.g.
 
-    echo v$MAJOR.$MINOR.${NEXT_PATH}-dev > VERSION
+    echo $MAJOR.$MINOR.${NEXT_PATCH}-dev > VERSION
 
 Then commit the changes to the release prep branch:
 
