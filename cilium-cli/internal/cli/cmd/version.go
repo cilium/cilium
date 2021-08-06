@@ -30,10 +30,6 @@ import (
 var (
 	// Version is the software version.
 	Version string
-	// GitBranch is the name of the git branch HEAD points to.
-	GitBranch string
-	// GitHash is the git checksum of the most recent commit in HEAD.
-	GitHash string
 )
 
 func getLatestStableVersion() string {
@@ -57,16 +53,9 @@ func newCmdVersion() *cobra.Command {
 		Short: "Display detailed version information",
 		Long:  `Displays information about the version of this software.`,
 		Run: func(cmd *cobra.Command, _ []string) {
-			var gitInfo string
-			switch {
-			case GitBranch != "" && GitHash != "":
-				gitInfo = fmt.Sprintf("@%s-%s", GitBranch, GitHash)
-			case GitHash != "":
-				gitInfo = fmt.Sprintf("@%s", GitHash)
-			}
 			// TODO: add support for reporting the Cilium version running in
 			// the cluster, if any. See https://github.com/cilium/cilium-cli/issues/131
-			fmt.Printf("cilium-cli: v%s%s compiled with %v on %v/%v\n", Version, gitInfo, runtime.Version(), runtime.GOOS, runtime.GOARCH)
+			fmt.Printf("cilium-cli: %s compiled with %v on %v/%v\n", Version, runtime.Version(), runtime.GOOS, runtime.GOARCH)
 			fmt.Printf("cilium image (default): %s\n", defaults.Version)
 			fmt.Printf("cilium image (stable): %s\n", getLatestStableVersion())
 		},
