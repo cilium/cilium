@@ -105,6 +105,8 @@ type GetSessionTokenInput struct {
 	// format for this parameter, as described by its regex pattern, is a sequence of
 	// six numeric digits.
 	TokenCode *string
+
+	noSmithyDocumentSerde
 }
 
 // Contains the response to a successful GetSessionToken request, including
@@ -120,6 +122,8 @@ type GetSessionTokenOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
 func (c *Client) addOperationGetSessionTokenMiddlewares(stack *middleware.Stack, options Options) (err error) {

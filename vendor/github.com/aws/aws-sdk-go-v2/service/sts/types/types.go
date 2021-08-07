@@ -3,6 +3,7 @@
 package types
 
 import (
+	smithydocument "github.com/aws/smithy-go/document"
 	"time"
 )
 
@@ -25,6 +26,8 @@ type AssumedRoleUser struct {
 	//
 	// This member is required.
 	AssumedRoleId *string
+
+	noSmithyDocumentSerde
 }
 
 // Amazon Web Services credentials for API authentication.
@@ -50,6 +53,8 @@ type Credentials struct {
 	//
 	// This member is required.
 	SessionToken *string
+
+	noSmithyDocumentSerde
 }
 
 // Identifiers for the federated user that is associated with the credentials.
@@ -69,6 +74,8 @@ type FederatedUser struct {
 	//
 	// This member is required.
 	FederatedUserId *string
+
+	noSmithyDocumentSerde
 }
 
 // A reference to the IAM managed policy that is passed as a session policy for a
@@ -81,6 +88,8 @@ type PolicyDescriptorType struct {
 	// (https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html) in
 	// the Amazon Web Services General Reference.
 	Arn *string
+
+	noSmithyDocumentSerde
 }
 
 // You can pass custom key-value pair attributes when you assume a role or federate
@@ -107,4 +116,8 @@ type Tag struct {
 	//
 	// This member is required.
 	Value *string
+
+	noSmithyDocumentSerde
 }
+
+type noSmithyDocumentSerde = smithydocument.NoSerde

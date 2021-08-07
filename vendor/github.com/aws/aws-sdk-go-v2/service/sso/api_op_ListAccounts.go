@@ -46,6 +46,8 @@ type ListAccountsInput struct {
 	// (Optional) When requesting subsequent pages, this is the page token from the
 	// previous response output.
 	NextToken *string
+
+	noSmithyDocumentSerde
 }
 
 type ListAccountsOutput struct {
@@ -59,6 +61,8 @@ type ListAccountsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
 func (c *Client) addOperationListAccountsMiddlewares(stack *middleware.Stack, options Options) (err error) {

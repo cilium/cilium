@@ -62,6 +62,8 @@ type DecodeAuthorizationMessageInput struct {
 	//
 	// This member is required.
 	EncodedMessage *string
+
+	noSmithyDocumentSerde
 }
 
 // A document that contains additional information about the authorization status
@@ -74,6 +76,8 @@ type DecodeAuthorizationMessageOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
 func (c *Client) addOperationDecodeAuthorizationMessageMiddlewares(stack *middleware.Stack, options Options) (err error) {
