@@ -250,6 +250,8 @@ type AssumeRoleWithWebIdentityInput struct {
 	// access tokens. Do not include URL schemes and port numbers. Do not specify this
 	// value for OpenID Connect ID tokens.
 	ProviderId *string
+
+	noSmithyDocumentSerde
 }
 
 // Contains the response to a successful AssumeRoleWithWebIdentity request,
@@ -320,6 +322,8 @@ type AssumeRoleWithWebIdentityOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
 func (c *Client) addOperationAssumeRoleWithWebIdentityMiddlewares(stack *middleware.Stack, options Options) (err error) {

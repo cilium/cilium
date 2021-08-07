@@ -283,6 +283,8 @@ type AssumeRoleInput struct {
 	// affected. If you choose not to specify a transitive tag key, then no tags are
 	// passed from this session to any subsequent sessions.
 	TransitiveTagKeys []string
+
+	noSmithyDocumentSerde
 }
 
 // Contains the response to a successful AssumeRole request, including temporary
@@ -326,6 +328,8 @@ type AssumeRoleOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
 func (c *Client) addOperationAssumeRoleMiddlewares(stack *middleware.Stack, options Options) (err error) {

@@ -266,6 +266,8 @@ type GetFederationTokenInput struct {
 	// Department and department are not saved as separate tags, and the session tag
 	// passed in the request takes precedence over the role tag.
 	Tags []types.Tag
+
+	noSmithyDocumentSerde
 }
 
 // Contains the response to a successful GetFederationToken request, including
@@ -293,6 +295,8 @@ type GetFederationTokenOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
 func (c *Client) addOperationGetFederationTokenMiddlewares(stack *middleware.Stack, options Options) (err error) {

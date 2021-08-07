@@ -11,6 +11,8 @@ import (
 // required parameter might be missing or out of range.
 type InvalidRequestException struct {
 	Message *string
+
+	noSmithyDocumentSerde
 }
 
 func (e *InvalidRequestException) Error() string {
@@ -28,6 +30,8 @@ func (e *InvalidRequestException) ErrorFault() smithy.ErrorFault { return smithy
 // The specified resource doesn't exist.
 type ResourceNotFoundException struct {
 	Message *string
+
+	noSmithyDocumentSerde
 }
 
 func (e *ResourceNotFoundException) Error() string {
@@ -46,6 +50,8 @@ func (e *ResourceNotFoundException) ErrorFault() smithy.ErrorFault { return smit
 // the server can handle.
 type TooManyRequestsException struct {
 	Message *string
+
+	noSmithyDocumentSerde
 }
 
 func (e *TooManyRequestsException) Error() string {
@@ -64,6 +70,8 @@ func (e *TooManyRequestsException) ErrorFault() smithy.ErrorFault { return smith
 // access token in the request.
 type UnauthorizedException struct {
 	Message *string
+
+	noSmithyDocumentSerde
 }
 
 func (e *UnauthorizedException) Error() string {

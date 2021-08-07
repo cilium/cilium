@@ -62,15 +62,22 @@ func buildGetIAMInfoPath(params interface{}) (string, error) {
 	return getIAMInfoPath, nil
 }
 
-func buildGetIAMInfoOutput(resp *smithyhttp.Response) (interface{}, error) {
-	defer resp.Body.Close()
+func buildGetIAMInfoOutput(resp *smithyhttp.Response) (v interface{}, err error) {
+	defer func() {
+		closeErr := resp.Body.Close()
+		if err == nil {
+			err = closeErr
+		} else if closeErr != nil {
+			err = fmt.Errorf("response body close error: %v, original error: %w", closeErr, err)
+		}
+	}()
 
 	var buff [1024]byte
 	ringBuffer := smithyio.NewRingBuffer(buff[:])
 	body := io.TeeReader(resp.Body, ringBuffer)
 
 	imdsResult := &GetIAMInfoOutput{}
-	if err := json.NewDecoder(body).Decode(&imdsResult.IAMInfo); err != nil {
+	if err = json.NewDecoder(body).Decode(&imdsResult.IAMInfo); err != nil {
 		return nil, &smithy.DeserializationError{
 			Err:      fmt.Errorf("failed to decode instance identity document, %w", err),
 			Snapshot: ringBuffer.Bytes(),

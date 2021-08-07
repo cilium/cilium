@@ -25,6 +25,19 @@ func (m Metadata) Get(key interface{}) interface{} {
 	return m.values[key]
 }
 
+// Clone creates a shallow copy of Metadata entries, returning a new Metadata
+// value with the original entries copied into it.
+func (m Metadata) Clone() Metadata {
+	vs := make(map[interface{}]interface{}, len(m.values))
+	for k, v := range m.values {
+		vs[k] = v
+	}
+
+	return Metadata{
+		values: vs,
+	}
+}
+
 // Set stores the value pointed to by the key. If a value already exists at
 // that key it will be replaced with the new value.
 //

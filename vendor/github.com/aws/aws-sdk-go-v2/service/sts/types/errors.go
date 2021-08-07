@@ -11,6 +11,8 @@ import (
 // identity token from the identity provider and then retry the request.
 type ExpiredTokenException struct {
 	Message *string
+
+	noSmithyDocumentSerde
 }
 
 func (e *ExpiredTokenException) Error() string {
@@ -32,6 +34,8 @@ func (e *ExpiredTokenException) ErrorFault() smithy.ErrorFault { return smithy.F
 // persists, the identity provider might be down or not responding.
 type IDPCommunicationErrorException struct {
 	Message *string
+
+	noSmithyDocumentSerde
 }
 
 func (e *IDPCommunicationErrorException) Error() string {
@@ -52,6 +56,8 @@ func (e *IDPCommunicationErrorException) ErrorFault() smithy.ErrorFault { return
 // or has been explicitly revoked.
 type IDPRejectedClaimException struct {
 	Message *string
+
+	noSmithyDocumentSerde
 }
 
 func (e *IDPRejectedClaimException) Error() string {
@@ -71,6 +77,8 @@ func (e *IDPRejectedClaimException) ErrorFault() smithy.ErrorFault { return smit
 // linebreaks.
 type InvalidAuthorizationMessageException struct {
 	Message *string
+
+	noSmithyDocumentSerde
 }
 
 func (e *InvalidAuthorizationMessageException) Error() string {
@@ -94,6 +102,8 @@ func (e *InvalidAuthorizationMessageException) ErrorFault() smithy.ErrorFault {
 // request.
 type InvalidIdentityTokenException struct {
 	Message *string
+
+	noSmithyDocumentSerde
 }
 
 func (e *InvalidIdentityTokenException) Error() string {
@@ -112,6 +122,8 @@ func (e *InvalidIdentityTokenException) ErrorFault() smithy.ErrorFault { return 
 // message describes the specific error.
 type MalformedPolicyDocumentException struct {
 	Message *string
+
+	noSmithyDocumentSerde
 }
 
 func (e *MalformedPolicyDocumentException) Error() string {
@@ -140,6 +152,8 @@ func (e *MalformedPolicyDocumentException) ErrorFault() smithy.ErrorFault { retu
 // in the IAM User Guide.
 type PackedPolicyTooLargeException struct {
 	Message *string
+
+	noSmithyDocumentSerde
 }
 
 func (e *PackedPolicyTooLargeException) Error() string {
@@ -162,6 +176,8 @@ func (e *PackedPolicyTooLargeException) ErrorFault() smithy.ErrorFault { return 
 // in the IAM User Guide.
 type RegionDisabledException struct {
 	Message *string
+
+	noSmithyDocumentSerde
 }
 
 func (e *RegionDisabledException) Error() string {

@@ -51,7 +51,7 @@ all: generate unit
 gen-config-asserts gen-repo-mod-replace gen-mod-replace-smithy gen-mod-dropreplace-smithy gen-aws-ptrs tidy-modules-% \
 add-module-license-files sync-models sync-endpoints-model sync-endpoints.json clone-v1-models gen-endpoint-prefix.json \
 sync-api-models copy-attributevalue-feature min-go-version-% update-requires smithy-annotate-stable \
-update-module-metadata
+update-module-metadata download-modules-%
 
 generate: smithy-generate update-requires gen-repo-mod-replace update-module-metadata smithy-annotate-stable \
 gen-config-asserts copy-attributevalue-feature  gen-mod-dropreplace-smithy min-go-version-. tidy-modules-. \
@@ -118,6 +118,16 @@ tidy-modules-%:
 	cd ./internal/repotools/cmd/eachmodule \
 		&& go run . -p $(subst _,/,$(subst tidy-modules-,,$@)) ${EACHMODULE_FLAGS} \
 		"go mod tidy"
+
+download-modules-%:
+	@# download command that uses the pattern to define the root path that the
+	@# module testing will start from. Strips off the "download-modules-" and
+	@# replaces all "_" with "/".
+	@#
+	@# e.g. download-modules-internal_protocoltest
+	cd ./internal/repotools/cmd/eachmodule \
+		&& go run . -p $(subst _,/,$(subst download-modules-,,$@)) ${EACHMODULE_FLAGS} \
+		"go mod download all"
 
 add-module-license-files:
 	cd internal/repotools/cmd/eachmodule && \
@@ -305,6 +315,27 @@ ci-test-generate-validate:
 	echo "$$gitstatus"; \
 	if [ "$$gitstatus" != "" ] && [ "$$gitstatus" != "skipping validation" ]; then echo "$$gitstatus"; exit 1; fi
 	git update-index --no-assume-unchanged go.mod go.sum
+
+ci-lint: ci-lint-.
+
+ci-lint-%:
+	@# Run golangci-lint command that uses the pattern to define the root path that the
+	@# module check will start from. Strips off the "ci-lint-" and
+	@# replaces all "_" with "/".
+	@#
+	@# e.g. ci-lint-internal_protocoltest
+	cd ./internal/repotools/cmd/eachmodule \
+		&& go run . -p $(subst _,/,$(subst ci-lint-,,$@)) \
+			-fail-fast=false \
+			-c 1 \
+			-skip="internal/repotools" \
+			"golangci-lint run"
+
+ci-lint-install:
+	@# Installs golangci-lint at GoPATH.
+	@# This should be used to run golangci-lint locally.
+	@#
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
 #######################
 # Integration Testing #

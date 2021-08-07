@@ -67,8 +67,15 @@ func buildGetTokenPath(interface{}) (string, error) {
 	return getTokenPath, nil
 }
 
-func buildGetTokenOutput(resp *smithyhttp.Response) (interface{}, error) {
-	defer resp.Body.Close()
+func buildGetTokenOutput(resp *smithyhttp.Response) (v interface{}, err error) {
+	defer func() {
+		closeErr := resp.Body.Close()
+		if err == nil {
+			err = closeErr
+		} else if closeErr != nil {
+			err = fmt.Errorf("response body close error: %v, original error: %w", closeErr, err)
+		}
+	}()
 
 	ttlHeader := resp.Header.Get(tokenTTLHeader)
 	tokenTTL, err := strconv.ParseInt(ttlHeader, 10, 64)
@@ -77,7 +84,7 @@ func buildGetTokenOutput(resp *smithyhttp.Response) (interface{}, error) {
 	}
 
 	var token strings.Builder
-	if _, err := io.Copy(&token, resp.Body); err != nil {
+	if _, err = io.Copy(&token, resp.Body); err != nil {
 		return nil, fmt.Errorf("unable to read API token, %w", err)
 	}
 

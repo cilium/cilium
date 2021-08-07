@@ -224,6 +224,8 @@ type AssumeRoleWithSAMLInput struct {
 	// (https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#policies_session)
 	// in the IAM User Guide.
 	PolicyArns []types.PolicyDescriptorType
+
+	noSmithyDocumentSerde
 }
 
 // Contains the response to a successful AssumeRoleWithSAML request, including
@@ -304,6 +306,8 @@ type AssumeRoleWithSAMLOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
 func (c *Client) addOperationAssumeRoleWithSAMLMiddlewares(stack *middleware.Stack, options Options) (err error) {

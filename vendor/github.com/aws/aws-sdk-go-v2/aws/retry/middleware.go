@@ -97,6 +97,10 @@ func (r Attempt) HandleFinalize(ctx context.Context, in smithymiddle.FinalizeInp
 		attemptResults.Results = append(attemptResults.Results, attemptResult)
 
 		if !shouldRetry {
+			// Ensure the last response's metadata is used as the bases for result
+			// metadata returned by the stack.
+			metadata = attemptResult.ResponseMetadata.Clone()
+
 			break
 		}
 	}
