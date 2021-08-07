@@ -35,6 +35,7 @@ func (c *Client) GetCallerIdentity(ctx context.Context, params *GetCallerIdentit
 }
 
 type GetCallerIdentityInput struct {
+	noSmithyDocumentSerde
 }
 
 // Contains the response to a successful GetCallerIdentity request, including
@@ -57,6 +58,8 @@ type GetCallerIdentityOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
 func (c *Client) addOperationGetCallerIdentityMiddlewares(stack *middleware.Stack, options Options) (err error) {

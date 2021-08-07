@@ -53,6 +53,8 @@ type GetAccessKeyInfoInput struct {
 	//
 	// This member is required.
 	AccessKeyId *string
+
+	noSmithyDocumentSerde
 }
 
 type GetAccessKeyInfoOutput struct {
@@ -62,6 +64,8 @@ type GetAccessKeyInfoOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
 func (c *Client) addOperationGetAccessKeyInfoMiddlewares(stack *middleware.Stack, options Options) (err error) {

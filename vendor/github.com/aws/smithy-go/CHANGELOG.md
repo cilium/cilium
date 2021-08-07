@@ -1,3 +1,16 @@
+# Release v1.7.0 (pending)
+
+### Smithy Go Module
+* `ptr`:  Handle error for deferred file close call ([#314](https://github.com/aws/smithy-go/pull/314))
+  * Handle error for defer close call
+* `middleware`: Add Clone to Metadata ([#318](https://github.com/aws/smithy-go/pull/318))
+  * Adds a new Clone method to the middleware Metadata type. This provides a shallow clone of the entries in the Metadata.
+* `document`: Add new package for document shape serialization support ([#310](https://github.com/aws/smithy-go/pull/310))
+
+### Codegen
+* Add Smithy Document Shape Support ([#310](https://github.com/aws/smithy-go/pull/310))
+  * Adds support for Smithy Document shapes and supporting types for protocols to implement support
+
 # Release v1.6.0 (2021-07-15)
 
 ### Smithy Go Module
@@ -10,7 +23,7 @@
 # Release v1.5.0 (2021-06-25)
 
 ### Smithy Go module
-* `time`: Update time parsing to not be as strict for HTTPDate and DateTime ([#307](https://github.com/aws/smithy-go/pull/307)) 
+* `time`: Update time parsing to not be as strict for HTTPDate and DateTime ([#307](https://github.com/aws/smithy-go/pull/307))
   * Fixes [#302](https://github.com/aws/smithy-go/issues/302) by changing time to UTC before formatting so no local offset time is lost.
 
 ### Codegen

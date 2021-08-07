@@ -1,3 +1,8 @@
+# v1.6.1 (2021-08-04)
+
+* **Dependency Update**: Updated `github.com/aws/smithy-go` to latest version.
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.6.0 (2021-07-15)
 
 * **Feature**: The ErrorCode method on generated service error types has been corrected to match the API model.
