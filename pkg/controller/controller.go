@@ -282,6 +282,7 @@ func (c *Controller) runController() {
 
 		case <-runTimer.After(interval):
 		case <-c.trigger:
+			runFunc = true
 		}
 
 	}
