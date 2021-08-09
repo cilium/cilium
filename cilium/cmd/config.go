@@ -21,6 +21,7 @@ import (
 var (
 	numPages                   int
 	listReadOnlyConfigurations bool
+	listAllConfigurations      bool
 )
 
 // configCmd represents the config command
@@ -43,6 +44,7 @@ func init() {
 	rootCmd.AddCommand(configCmd)
 	configCmd.Flags().BoolVarP(&listOptions, "list-options", "", false, "List available options")
 	configCmd.Flags().BoolVarP(&listReadOnlyConfigurations, "read-only", "r", false, "Display Read Only Configurations")
+	configCmd.Flags().BoolVarP(&listAllConfigurations, "all", "a", false, "Display All Cilium Configurations")
 	configCmd.Flags().IntVarP(&numPages, "num-pages", "n", 0, "Number of pages for perf ring buffer. New values have to be > 0")
 	command.AddJSONOutput(configCmd)
 }
@@ -111,6 +113,10 @@ func printConfigurations(cfgStatus *models.DaemonConfigurationStatus) {
 			if err := command.PrintOutput(cfgStatus.DaemonConfigurationMap); err != nil {
 				os.Exit(1)
 			}
+		} else if listAllConfigurations {
+			if err := command.PrintOutputWithPatch(cfgStatus.DaemonConfigurationMap, cfgStatus.Realized); err != nil {
+				os.Exit(1)
+			}
 		} else {
 			if err := command.PrintOutput(cfgStatus.Realized); err != nil {
 				os.Exit(1)
@@ -120,6 +126,9 @@ func printConfigurations(cfgStatus *models.DaemonConfigurationStatus) {
 	}
 	if listReadOnlyConfigurations {
 		dumpReadOnlyConfigs(cfgStatus)
+	} else if listAllConfigurations {
+		dumpReadOnlyConfigs(cfgStatus)
+		dumpReadWriteConfigs(cfgStatus)
 	} else {
 		dumpReadWriteConfigs(cfgStatus)
 	}
