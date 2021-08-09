@@ -22,26 +22,23 @@ check_helper_headers: generate_helper_headers mock_helpers
 	# Generate temp headers from lib/helpers.h, lib/helpers_skb.h and lib/helpers_xdp.h.
 	# Compare them to the headers within the current directory.
 	# The temp headers are removed after finishing.
-	rm helpers.h helpers_skb.h helpers_xdp.h mock_helpers.h mock_helpers.c mock_helpers_skb.h mock_helpers_skb.c mock_helpers_xdp.h mock_helpers_xdp.c;
+	rm -r mocks;
 
 generate_helper_headers:
 	# Auto-generate helpers.h, helpers_skb.h, and helpers_xdp.h.
 	# Take contents from bpf/helpers.h, bpf/helpers_skb.h and bpf/helpers_xdp.h.
 	# Prune to be ready to mock and save to the current directory.
-	sed -f helpers.sed ../include/bpf/helpers.h > helpers.h; \
-	sed -f helpers_skb.sed ../include/bpf/helpers_skb.h > helpers_skb.h; \
-	sed -f helpers_xdp.sed ../include/bpf/helpers_xdp.h > helpers_xdp.h;
+	mkdir -p mocks; \
+	sed -f helpers.sed ../include/bpf/helpers.h > mocks/helpers.h; \
+	sed -f helpers_skb.sed ../include/bpf/helpers_skb.h > mocks/helpers_skb.h; \
+	sed -f helpers_xdp.sed ../include/bpf/helpers_xdp.h > mocks/helpers_xdp.h;
 
 mock_helpers: builder-image
 	# Generate mock libraries for helpers.h, helpers_skb.h and helpers_xdp.h with CMock.
-	$(QUIET) $(DOCKER_RUN) ./mock_helpers.sh; \
-	mv mocks/* ./; \
-	rmdir mocks;
+	$(QUIET) $(DOCKER_RUN) ./mock_helpers.sh;
 
 mock_customized: builder-image
 	# Take the name of the header to be mocked.
 	# Generate the corresponding mock library.
-	$(QUIET) $(DOCKER_RUN) ./mock_customized.sh $(filename); \
-	mv mocks/* ./; \
-	rmdir mocks;
+	$(QUIET) $(DOCKER_RUN) ./mock_customized.sh $(filename);
 

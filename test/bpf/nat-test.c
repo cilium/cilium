@@ -19,5 +19,6 @@ void tearDown(void) {
 int main(int argc, char *argv[])
 {
     test_snat_v4_track_local();
+    test_snat_v4_new_mapping();
     return 0;
 }

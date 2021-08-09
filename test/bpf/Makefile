@@ -27,7 +27,7 @@ CLANG ?= $(QUIET) clang
 LLC ?= llc
 
 BPF_TARGETS := elf-demo.o
-ALL_TESTS := unit-test nat-test
+ALL_TESTS := unit-test nat-test drop-notify-test
 TARGETS := $(BPF_TARGETS) $(ALL_TESTS)
 
 all: $(TARGETS) unit-tests
@@ -45,8 +45,13 @@ nat-test: nat-test.c $(LIB)
 	make -C $(ROOT_DIR)/bpf/mock generate_helper_headers
 	make -C $(ROOT_DIR)/bpf/mock mock_helpers
 	make -C $(ROOT_DIR)/bpf/mock mock_customized filename=conntrack_stub.h
-	$(QUIET) $(DOCKER_RUN) $(CLANG) -I../../bpf/ -I../../bpf/include -I. -D__NR_CPUS__=$(shell nproc --all) -O2 -I $../../bpf/ -I../../../CMock/src -I../../../CMock/vendor/unity/src  $< ../../../CMock/vendor/unity/src/unity.c ../../../CMock/src/cmock.c ../../bpf/mock/mock_helpers.c ../../bpf/mock/mock_helpers_skb.c ../../bpf/mock/mock_conntrack_stub.c -o $@
-	rm ../../bpf/mock/mock_conntrack_stub.c ../../bpf/mock/mock_conntrack_stub.h ../../bpf/mock/mock_helpers.c ../../bpf/mock/mock_helpers.h ../../bpf/mock/mock_helpers_skb.c ../../bpf/mock/mock_helpers_skb.h ../../bpf/mock/mock_helpers_xdp.c ../../bpf/mock/mock_helpers_xdp.h ../../bpf/mock/helpers.h ../../bpf/mock/helpers_skb.h ../../bpf/mock/helpers_xdp.h;
+	$(QUIET) $(DOCKER_RUN) $(CLANG) $(FLAGS) -I../../bpf/mock -I $../../bpf/ -I../../../CMock/src -I../../../CMock/vendor/unity/src -I../../../hashmap/include  $< ../../../CMock/vendor/unity/src/unity.c ../../../CMock/src/cmock.c ../../../hashmap/src/hashmap.c ../../bpf/mock/mocks/mock_helpers.c ../../bpf/mock/mocks/mock_helpers_skb.c ../../bpf/mock/mocks/mock_conntrack_stub.c -o $@
+
+drop-notify-test: drop-notify-test.c $(LIB)
+	@$(ECHO_CC)
+	make -C $(ROOT_DIR)/bpf/mock generate_helper_headers
+	make -C $(ROOT_DIR)/bpf/mock mock_helpers
+	$(QUIET) $(DOCKER_RUN) $(CLANG) $(FLAGS) -I../../bpf/mock -I $../../bpf/ -I../../../CMock/src -I../../../CMock/vendor/unity/src  $< ../../../CMock/vendor/unity/src/unity.c ../../../CMock/src/cmock.c ../../bpf/mock/mocks/mock_helpers.c ../../bpf/mock/mocks/mock_helpers_skb.c -o $@
 
 unit-tests: $(ALL_TESTS)
 	@$(ECHO_CHECK)
@@ -58,4 +63,5 @@ unit-tests: $(ALL_TESTS)
 clean:
 	@$(ECHO_CLEAN)
 	-$(QUIET)rm -f $(TARGETS)
+	-$(QUIET)rm -r ../../bpf/mock/mocks
 
