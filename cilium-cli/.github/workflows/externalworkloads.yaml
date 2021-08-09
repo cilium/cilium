@@ -74,7 +74,7 @@ jobs:
         with:
           retry_on: error
           timeout_minutes: 1
-          max_attempts: 3
+          max_attempts: 10
           command: |
             gcloud compute instances create ${{ env.vmName }} \
               --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
