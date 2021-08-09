@@ -4,10 +4,12 @@
 package tunnel
 
 import (
+	"fmt"
 	"net"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/types"
 
 	"github.com/sirupsen/logrus"
 )
@@ -35,8 +37,8 @@ func NewTunnelMap(name string) *Map {
 		bpf.MapTypeHash,
 		&TunnelEndpoint{},
 		int(unsafe.Sizeof(TunnelEndpoint{})),
-		&TunnelEndpoint{},
-		int(unsafe.Sizeof(TunnelEndpoint{})),
+		&TunnelEndpointInfo{},
+		int(unsafe.Sizeof(TunnelEndpointInfo{})),
 		MaxEntries,
 		0, 0,
 		bpf.ConvertKeyValue,
@@ -50,10 +52,34 @@ func init() {
 
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type TunnelEndpoint struct {
 	bpf.EndpointKey
 }
+
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
+type TunnelEndpointInfo struct {
+	// represents both IPv6 and IPv4 (in the lowest four bytes)
+	IP     types.IPv6 `align:"$union0"`
+	Family uint8      `align:"family"`
+	Key    uint8      `align:"key"`
+	Pad2   uint16     `align:"pad5"`
+}
+
+// String returns the human readable representation of an TunnelEndpointInfo
+func (v TunnelEndpointInfo) String() string {
+	if ip := v.ToIP(); ip != nil {
+		return fmt.Sprintf("ip=%s family=%-3d key=%-3d",
+			ip,
+			v.Family,
+			v.Key,
+		)
+	}
+	return "nil"
+}
+
+// GetValuePtr returns the unsafe pointer to the BPF value
+func (v *TunnelEndpointInfo) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
 func newTunnelEndpoint(ip net.IP) *TunnelEndpoint {
 	return &TunnelEndpoint{
@@ -61,12 +87,37 @@ func newTunnelEndpoint(ip net.IP) *TunnelEndpoint {
 	}
 }
 
-func (v TunnelEndpoint) NewValue() bpf.MapValue { return &TunnelEndpoint{} }
+func (k TunnelEndpoint) NewValue() bpf.MapValue { return &TunnelEndpointInfo{} }
+
+func newTunnelEndpointInfo(ip net.IP) *TunnelEndpointInfo {
+	result := TunnelEndpointInfo{}
+
+	if ip4 := ip.To4(); ip4 != nil {
+		result.Family = bpf.EndpointKeyIPv4
+		copy(result.IP[:], ip4)
+	} else {
+		result.Family = bpf.EndpointKeyIPv6
+		copy(result.IP[:], ip)
+	}
+
+	return &result
+}
+
+// ToIP converts the TunnelEndpointInfo IP field into a net.IP structure.
+func (v TunnelEndpointInfo) ToIP() net.IP {
+	switch v.Family {
+	case bpf.EndpointKeyIPv4:
+		return v.IP[:4]
+	case bpf.EndpointKeyIPv6:
+		return v.IP[:]
+	}
+	return nil
+}
 
 // SetTunnelEndpoint adds/replaces a prefix => tunnel-endpoint mapping
 func (m *Map) SetTunnelEndpoint(encryptKey uint8, prefix, endpoint net.IP) error {
-	key, val := newTunnelEndpoint(prefix), newTunnelEndpoint(endpoint)
-	val.EndpointKey.Key = encryptKey
+	key, val := newTunnelEndpoint(prefix), newTunnelEndpointInfo(endpoint)
+	val.Key = encryptKey
 	log.WithFields(logrus.Fields{
 		fieldPrefix:   prefix,
 		fieldEndpoint: endpoint,
@@ -83,7 +134,7 @@ func (m *Map) GetTunnelEndpoint(prefix net.IP) (net.IP, error) {
 		return net.IP{}, err
 	}
 
-	return val.(*TunnelEndpoint).ToIP(), nil
+	return val.(*TunnelEndpointInfo).ToIP(), nil
 }
 
 // DeleteTunnelEndpoint removes a prefix => tunnel-endpoint mapping

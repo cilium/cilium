@@ -56,6 +56,7 @@ int main(void)
 	DECLARE(struct, lb6_service, iter);
 	DECLARE(struct, lb6_backend, iter);
 	DECLARE(struct, endpoint_key, iter);
+	DECLARE(struct, tunnel_endpoint_info, iter);
 	DECLARE(struct, endpoint_info, iter);
 	DECLARE(struct, metrics_key, iter);
 	DECLARE(struct, metrics_value, iter);

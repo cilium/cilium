@@ -50,6 +50,7 @@ func CheckStructAlignments(path string) error {
 		"lb6_service":          {reflect.TypeOf(lbmap.Service6Value{})},
 		"lb6_backend":          {reflect.TypeOf(lbmap.Backend6Value{})},
 		"endpoint_info":        {reflect.TypeOf(lxcmap.EndpointInfo{})},
+		"tunnel_endpoint_info": {reflect.TypeOf(tunnel.TunnelEndpointInfo{})},
 		"metrics_key":          {reflect.TypeOf(metricsmap.Key{})},
 		"metrics_value":        {reflect.TypeOf(metricsmap.Value{})},
 		"policy_key":           {reflect.TypeOf(policymap.PolicyKey{})},
