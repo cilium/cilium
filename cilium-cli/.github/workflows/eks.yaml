@@ -135,6 +135,7 @@ jobs:
           # Retrieve job logs
           kubectl logs --timestamps -n kube-system job/cilium-cli
           exit ${EXIT_CODE}
+        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Post-test information gathering
         if: ${{ !success() }}
@@ -175,10 +176,12 @@ jobs:
 
           # Active wait for whichever background process ends first
           wait -n $complete_pid $failed_pid
-          exit $?
+          EXIT_CODE=$?
 
-          echo "=== Retrieve in-cluster jobs logs ==="
+          # Retrieve job logs
           kubectl logs --timestamps -n kube-system job/cilium-cli-uninstall
+          exit ${EXIT_CODE}
+        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Clean up EKS
         if: ${{ always() }}
