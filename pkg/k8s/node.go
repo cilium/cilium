@@ -307,7 +307,7 @@ const (
 func (k8sCli K8sClient) MarkNodeReady(nodeGetter nodeGetter, nodeName string) {
 	log.WithField(logfields.NodeName, nodeName).Debug("Setting NetworkUnavailable=false")
 
-	controller.NewManager().UpdateController(markK8sNodeReadyControllerName,
+	k8sCli.ctrlMgr.UpdateController(markK8sNodeReadyControllerName,
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
 				err := removeNodeTaint(ctx, k8sCli, nodeGetter, nodeName)
@@ -322,5 +322,5 @@ func (k8sCli K8sClient) MarkNodeReady(nodeGetter nodeGetter, nodeName string) {
 // ReMarkNodeReady re-triggers the controller set by 'MarkNodeReady'. If
 // 'MarkNodeReady' has not been executed yet, calling this function be a no-op.
 func (k8sCli K8sClient) ReMarkNodeReady() {
-	controller.NewManager().TriggerController(markK8sNodeReadyControllerName)
+	k8sCli.ctrlMgr.TriggerController(markK8sNodeReadyControllerName)
 }
