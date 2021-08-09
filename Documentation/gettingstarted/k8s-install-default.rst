@@ -92,17 +92,6 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
            # Get the credentials to access the cluster with kubectl
            az aks get-credentials --name "${NAME}" --resource-group "${AZURE_RESOURCE_GROUP}"
 
-           # We can only delete the first node pool after Cilium is installed
-           # because some pods have Pod Disruption Budgets set. If we try to
-           # delete the first node pool without the second node pool being ready,
-           # AKS will not succeed with the pool deletion because some Deployments
-           # can't cease to exist in the cluster.
-           #
-           # NOTE: Only delete the nodepool after deploying Cilium
-           az aks nodepool delete --name ${nodepool_to_delete} \
-             --cluster-name "${NAME}" \
-             --resource-group "${AZURE_RESOURCE_GROUP}"
-
        .. attention::
 
            Do NOT specify the ``--network-policy`` flag when creating the
@@ -213,7 +202,26 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
        .. code-block:: shell-session
 
            cilium install --azure-resource-group "${AZURE_RESOURCE_GROUP}"
-
+       
+       Now that Cilium is installed we can remove the taint on the new nodepool and then delete the 
+       original nodepool. This will allow for the Pods on the original system nodepool to be rescheduled on
+       the newly created one:
+       
+       .. code-block:: shell-session
+       
+           kubectl taint node --all node.cilium.io/agent-not-ready=true:NoSchedule-
+           
+           # We can only delete the first node pool after Cilium is installed
+           # because some pods have Pod Disruption Budgets set. If we try to
+           # delete the first node pool without the second node pool being ready,
+           # AKS will not succeed with the pool deletion because some Deployments
+           # can't cease to exist in the cluster.
+           #
+           # NOTE: Only delete the nodepool after deploying Cilium
+           az aks nodepool delete --name ${nodepool_to_delete} \
+             --cluster-name "${NAME}" \
+             --resource-group "${AZURE_RESOURCE_GROUP}"
+       
     .. group-tab:: AWS/EKS
 
        .. include:: requirements-eks.rst
