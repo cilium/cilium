@@ -178,6 +178,7 @@ jobs:
           # Retrieve job logs
           kubectl logs --timestamps -n kube-system job/cilium-cli-install
           exit ${EXIT_CODE}
+        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Delete the first node pool
         run: |
@@ -218,6 +219,7 @@ jobs:
           # Retrieve job logs
           kubectl logs --timestamps -n kube-system job/cilium-cli
           exit ${EXIT_CODE}
+        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Post-test information gathering
         if: ${{ !success() }}
