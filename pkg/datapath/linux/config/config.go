@@ -610,6 +610,7 @@ func vlanFilterMacros() (string, error) {
 	vlansCount := 0
 	for _, v := range vlansByIfIndex {
 		vlansCount += len(v)
+		sort.Ints(v) // sort Vlanids in-place since netlink.LinkList() may return them in any order
 	}
 
 	if vlansCount == 0 {
