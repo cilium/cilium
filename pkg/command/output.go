@@ -40,6 +40,61 @@ func PrintOutput(data interface{}) error {
 	return PrintOutputWithType(data, outputOpt)
 }
 
+//PrintOutputWithPatch merges data with patch and dump the data using the --output flag.
+func PrintOutputWithPatch(data interface{}, patch interface{}) error {
+	mergedInterface, err := mergeInterfaces(data, patch)
+	if err != nil {
+		return fmt.Errorf("Unable to merge Interfaces:%v", err)
+	}
+	return PrintOutputWithType(mergedInterface, outputOpt)
+}
+
+func mergeInterfaces(data, patch interface{}) (interface{}, error) {
+	var i1, i2 interface{}
+
+	data1, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+	data2, err := json.Marshal(patch)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(data1, &i1)
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal(data2, &i2)
+	if err != nil {
+		return nil, err
+	}
+	return recursiveMerge(i1, i2), nil
+}
+
+func recursiveMerge(i1, i2 interface{}) interface{} {
+	switch i1 := i1.(type) {
+	case map[string]interface{}:
+		i2, ok := i2.(map[string]interface{})
+		if !ok {
+			return i1
+		}
+		for k, v2 := range i2 {
+			if v1, ok := i1[k]; ok {
+				i1[k] = recursiveMerge(v1, v2)
+			} else {
+				i1[k] = v2
+			}
+		}
+	case nil:
+		i2, ok := i2.(map[string]interface{})
+		if ok {
+			return i2
+		}
+	}
+	return i1
+}
+
 //PrintOutputWithType receives an interface and dump the data using the --output flag.
 //ATM only json or jsonpath. In the future yaml
 func PrintOutputWithType(data interface{}, outputType string) error {
