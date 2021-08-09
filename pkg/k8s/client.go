@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/controller"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	slim_apiextclientsetscheme "github.com/cilium/cilium/pkg/k8s/slim/k8s/apiextensions-client/clientset/versioned/scheme"
@@ -48,7 +49,9 @@ import (
 
 var (
 	// k8sCLI is the default client.
-	k8sCLI = &K8sClient{}
+	k8sCLI = &K8sClient{
+		ctrlMgr: controller.NewManager(),
+	}
 
 	// k8sWatcherCLI is the client dedicated k8s structure watchers.
 	k8sWatcherCLI = &K8sClient{}
