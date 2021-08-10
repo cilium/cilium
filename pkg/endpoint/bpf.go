@@ -824,17 +824,14 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (he
 		if err != nil {
 			return false, err
 		}
-		// Clean up map contents
-		e.getLogger().Debug("flushing old PolicyMap")
-		e.policyDebug(nil, "runPreCompilationSteps flushing old PolicyMap")
-		err = e.policyMap.DeleteAll()
+
+		// Synchronize the in-memory realized state with BPF map entries,
+		// so that any potential discrepancy between desired and realized
+		// state would be dealt with by the following e.syncPolicyMap.
+		e.realizedPolicy.PolicyMapState, err = e.dumpPolicyMapToMapState()
 		if err != nil {
 			return false, err
 		}
-
-		// Also reset the in-memory state of the realized state as the
-		// BPF map content is guaranteed to be empty right now.
-		e.realizedPolicy.PolicyMapState = make(policy.MapState)
 		e.initPolicyMapPressureMetric()
 		e.updatePolicyMapPressureMetric()
 	}
