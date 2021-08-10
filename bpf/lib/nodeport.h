@@ -1427,7 +1427,7 @@ static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,
 	__be16 type = bpf_htons(ETH_P_IP);
 	__s32 len_new = off + ipv4_hdrlen(ip4) + orig_dgram;
 	__s32 len_old = ctx_full_len(ctx);
-	__u8 tmp[l3_max];
+	__u8 tmp[68];
 	union macaddr smac, dmac;
 	struct icmphdr icmp __align_stack_8 = {
 		.type		= ICMP_DEST_UNREACH,
@@ -1451,6 +1451,14 @@ static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,
 		.tot_len	= bpf_htons(sizeof(ip) + sizeof(icmp) +
 					    len_new - off),
 	};
+
+	/* Because of a regression in LLVM (see #16668 for details), constant
+	 * folding doesn't work for l3_max anymore and we end up with a
+	 * variable-length array tmp on the stack. To avoid that, we can
+	 * perform constant folding maually and fail at compile time if the
+	 * computed value ever changes.
+	 */
+	build_bug_on(l3_max != 68);
 
 	update_metrics(ctx_full_len(ctx), METRIC_EGRESS, -code);
 
