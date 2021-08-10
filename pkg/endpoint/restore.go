@@ -324,10 +324,13 @@ func (e *Endpoint) restoreIdentity() error {
 			return ErrNotAlive
 		case <-gotInitialGlobalIdentities:
 		}
+	}
 
-		if option.Config.KVStore != "" {
-			ipcache.WaitForKVStoreSync()
-		}
+	// Wait for ipcache sync before regeneration for endpoints including
+	// the ones with fixed identity (e.g. host endpoint), this ensures that
+	// the regenerated datapath always lookups from a ready ipcache map.
+	if option.Config.KVStore != "" {
+		ipcache.WaitForKVStoreSync()
 	}
 
 	if err := e.lockAlive(); err != nil {
