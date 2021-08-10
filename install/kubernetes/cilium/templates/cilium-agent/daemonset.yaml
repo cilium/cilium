@@ -413,7 +413,6 @@ spec:
               name: cilium-config
               key: clean-cilium-bpf-state
               optional: true
-              key: wait-bpf-mount
         {{- if .Values.k8sServiceHost }}
         - name: KUBERNETES_SERVICE_HOST
           value: {{ .Values.k8sServiceHost | quote }}
