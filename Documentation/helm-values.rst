@@ -108,7 +108,7 @@
    * - clustermesh.apiserver.image
      - Clustermesh API server image.
      - object
-     - ``{"digest":"sha256:c56dfe3d1c6cbb75dd6fe1a2ee9f4156bfc8da34586cec61cf590226ea0e2f23","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/clustermesh-apiserver","tag":"v1.9.8","useDigest":false}``
+     - ``{"digest":"sha256:4d35224d32dd48ce0e5b46841fcfea2dd53cb7f8328d970150d4b56e5d22b05f","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/clustermesh-apiserver","tag":"v1.9.9","useDigest":false}``
    * - clustermesh.apiserver.nodeSelector
      - Node labels for pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object
@@ -488,7 +488,7 @@
    * - hubble.relay.image
      - Hubble-relay container image.
      - object
-     - ``{"digest":"sha256:77379a9c25f5a613fcaaf5f8ce7e3d6e30576af483047800af6d8b6ca9b7bdb7","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-relay","tag":"v1.9.8","useDigest":false}``
+     - ``{"digest":"sha256:87148a802be0b265887a8ce9803715eb992825ee309d3e4347c18fd25080cd2c","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-relay","tag":"v1.9.9","useDigest":false}``
    * - hubble.relay.listenHost
      - Host to listen to. Specify an empty string to bind to all the interfaces.
      - string
@@ -668,7 +668,7 @@
    * - image
      - Agent container image.
      - object
-     - ``{"digest":"sha256:5d4c175a599ccb22a97dbc8b393a81caca71ada49951c5b5545039c6548ea350","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.9.8","useDigest":false}``
+     - ``{"digest":"sha256:a85d5cff13f8231c2e267d9fc3c6e43d24be4a75dac9f641c11ec46e7f17624d","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.9.9","useDigest":false}``
    * - imagePullSecrets
      - Configure image pull secrets for pulling container images
      - string
@@ -896,7 +896,7 @@
    * - operator.image
      - cilium-operator image.
      - object
-     - ``{"awsDigest":"sha256:ca21ab744f1fd8080e7bd7682b697c466cf9275fb88f56c888ee07601b6555ac","azureDigest":"sha256:dcca7242c84c40e1284ee5d85361e1686b0bc934e94ab1e9f063e61916f7d0e1","genericDigest":"sha256:e6c5e785c0695815d2f8ef1a99674af3d6453848f9feb2052c06af69348b3715","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/operator","suffix":"","tag":"v1.9.8","useDigest":false}``
+     - ``{"awsDigest":"sha256:4061333748a46c87c5e68d312b80508d0b42ebdc93e7dd558438615a80e73b73","azureDigest":"sha256:f40e8ab1434dd964af5a1bc3ef5a4d2c7cf8fb9de47ad0e4b6678b31a510336d","genericDigest":"sha256:3726a965cd960295ca3c5e7f2b543c02096c0912c6652eb8bbb9ce54bcaa99d8","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/operator","suffix":"","tag":"v1.9.9","useDigest":false}``
    * - operator.nodeSelector
      - Node labels for cilium-operator pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object
@@ -996,7 +996,7 @@
    * - preflight.image
      - Cilium pre-flight image.
      - object
-     - ``{"digest":"sha256:5d4c175a599ccb22a97dbc8b393a81caca71ada49951c5b5545039c6548ea350","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.9.8","useDigest":false}``
+     - ``{"digest":"sha256:a85d5cff13f8231c2e267d9fc3c6e43d24be4a75dac9f641c11ec46e7f17624d","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.9.9","useDigest":false}``
    * - preflight.nodeSelector
      - Node labels for preflight pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object
