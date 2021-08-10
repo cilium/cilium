@@ -123,6 +123,18 @@ type PolicyEntry struct {
 	Bytes     uint64 `align:"bytes"`
 }
 
+// ToHost returns a copy of entry with fields converted from network byte-order
+// to host-byte-order if necessary.
+func (pe *PolicyEntry) ToHost() PolicyEntry {
+	if pe == nil {
+		return PolicyEntry{}
+	}
+
+	n := *pe
+	n.ProxyPort = byteorder.NetworkToHost(n.ProxyPort).(uint16)
+	return n
+}
+
 func (pe *PolicyEntry) SetFlags(flags uint8) {
 	pe.Flags = flags
 }
