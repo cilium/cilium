@@ -54,7 +54,7 @@ require (
 	github.com/ishidawataru/sctp v0.0.0-20180213033435-07191f837fed // indirect
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/kevinburke/ssh_config v0.0.0-20201106050909-4977a11b4351
-	github.com/kr/pretty v0.2.1
+	github.com/kr/pretty v0.3.0
 	github.com/mattn/go-shellwords v1.0.12
 	github.com/miekg/dns v1.1.26
 	github.com/morikuni/aec v1.0.0 // indirect
