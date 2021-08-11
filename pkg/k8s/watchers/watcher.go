@@ -289,13 +289,81 @@ func (k *K8sWatcher) WaitForCRDsToRegister(ctx context.Context) error {
 	return synced.SyncCRDs(ctx, synced.AgentCRDResourceNames, &k.k8sResourceSynced, &k.k8sAPIGroups)
 }
 
+// coreResources are all of the core Kubernetes and Cilium resources which are
+// required to implement the baseline CNI functionality.
+func (k *K8sWatcher) coreResources() []string {
+	result := []string{
+		// To perform the service translation and have the BPF LB datapath
+		// with the right service -> backend (k8s endpoints) translation.
+		K8sAPIGroupServiceV1Core,
+
+		// We we need to know about all other nodes
+		k8sAPIGroupCiliumNodeV2,
+		// We need all network policies in place before restoring to
+		// make sure we are enforcing the correct policies for each
+		// endpoint before restarting.
+		k8sAPIGroupNetworkingV1Core,
+		// Namespaces can contain labels which are essential for
+		// endpoints being restored to have the right identity.
+		k8sAPIGroupNamespaceV1Core,
+		// Pods can contain labels which are essential for endpoints
+		// being restored to have the right identity.
+		K8sAPIGroupPodV1Core,
+		// We need to know the node labels to populate the host
+		// endpoint labels.
+		k8sAPIGroupNodeV1Core,
+	}
+
+	// To perform the service translation and have the BPF LB datapath
+	// with the right service -> backend (k8s endpoints) translation.
+	if k8s.SupportsEndpointSlice() {
+		result = append(result, K8sAPIGroupEndpointSliceV1Beta1Discovery,
+			K8sAPIGroupEndpointSliceV1Discovery)
+	}
+	result = append(result, K8sAPIGroupEndpointV1Core)
+
+	// CiliumEndpoint is used to synchronize the ipcache, wait for it
+	// unless it is disabled
+	if !option.Config.DisableCiliumEndpointCRD {
+		result = append(result, k8sAPIGroupCiliumEndpointV2)
+	}
+
+	return result
+}
+
+// customResources are all of the custom resources that Cilium adds to provide
+// additional functionality such as policies and additional service types.
+func (k *K8sWatcher) customResources() []string {
+	result := []string{
+		// We need all network policies in place before restoring to
+		// make sure we are enforcing the correct policies for each
+		// endpoint before restarting.
+		k8sAPIGroupCiliumNetworkPolicyV2,
+		k8sAPIGroupCiliumClusterwideNetworkPolicyV2,
+	}
+
+	if option.Config.EnableLocalRedirectPolicy {
+		// We need to know about active local redirect policy services
+		// before BPF LB datapath is synced.
+		result = append(result, k8sAPIGroupCiliumLocalRedirectPolicyV2)
+	}
+
+	if option.Config.EnableEgressGateway {
+		result = append(result, k8sAPIGroupCiliumEgressNATPolicyV2)
+	}
+
+	return result
+}
+
 // InitK8sSubsystem returns a channel for which it will be closed when all
 // caches essential for daemon are synchronized.
 // To be called after WaitForCRDsToRegister() so that all needed CRDs have
 // already been registered.
 func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context) <-chan struct{} {
 	cachesSynced := make(chan struct{})
-	if err := k.EnableK8sWatcher(ctx); err != nil {
+
+	resources := append(k.coreResources(), k.customResources()...)
+	if err := k.EnableK8sWatcher(ctx, resources); err != nil {
 		if !errors.Is(err, context.Canceled) {
 			log.WithError(err).Fatal("Unable to start K8s watchers for Cilium")
 		}
@@ -305,57 +373,17 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context) <-chan struct{} {
 	}
 
 	go func() {
-		log.Info("Waiting until all pre-existing resources related to policy have been received")
-		// Wait only for certain caches, but not all!
-		// We don't wait for nodes synchronization.
-		k.WaitForCacheSync(
-			// To perform the service translation and have the BPF LB datapath
-			// with the right service -> backend (k8s endpoints) translation.
-			K8sAPIGroupServiceV1Core,
-			// To perform the service translation and have the BPF LB datapath
-			// with the right service -> backend (k8s endpoints) translation.
-			K8sAPIGroupEndpointV1Core,
-			K8sAPIGroupEndpointSliceV1Beta1Discovery,
-			K8sAPIGroupEndpointSliceV1Discovery,
-			// We need all network policies in place before restoring to make sure
-			// we are enforcing the correct policies for each endpoint before
-			// restarting.
-			k8sAPIGroupCiliumNetworkPolicyV2,
-
-			k8sAPIGroupCiliumClusterwideNetworkPolicyV2,
-			// We we need to know about all other nodes
-			k8sAPIGroupCiliumNodeV2,
-			// We need all network policies in place before restoring to make sure
-			// we are enforcing the correct policies for each endpoint before
-			// restarting.
-			k8sAPIGroupNetworkingV1Core,
-			// Namespaces can contain labels which are essential for endpoints
-			// being restored to have the right identity.
-			k8sAPIGroupNamespaceV1Core,
-			// Pods can contain labels which are essential for endpoints
-			// being restored to have the right identity.
-			K8sAPIGroupPodV1Core,
-			// We need to know about active local redirect policy services
-			// before BPF LB datapath is synced.
-			k8sAPIGroupCiliumLocalRedirectPolicyV2,
-			// We need to know the node labels to populate the host endpoint
-			// labels.
-			k8sAPIGroupNodeV1Core,
-		)
-		// CiliumEndpoint is used to synchronize the ipcache, wait for
-		// it unless it is disabled
-		if !option.Config.DisableCiliumEndpointCRD {
-			k.WaitForCacheSync(k8sAPIGroupCiliumEndpointV2)
-		}
+		log.Info("Waiting until all pre-existing resources have been received")
+		k.WaitForCacheSync(resources...)
 		close(cachesSynced)
 	}()
 
 	go func() {
 		select {
 		case <-cachesSynced:
-			log.Info("All pre-existing resources related to policy have been received; continuing")
+			log.Info("All pre-existing resources have been received; continuing")
 		case <-time.After(option.Config.K8sSyncTimeout):
-			log.Fatalf("Timed out waiting for pre-existing resources related to policy to be received; exiting")
+			log.Fatal("Timed out waiting for pre-existing resources to be received; exiting")
 		}
 	}()
 
@@ -367,9 +395,9 @@ type WatcherConfiguration interface {
 	utils.ServiceConfiguration
 }
 
-// EnableK8sWatcher watches for policy, services and endpoint changes on the Kubernetes
-// api server defined in the receiver's daemon k8sClient.
-func (k *K8sWatcher) EnableK8sWatcher(ctx context.Context) error {
+// EnableK8sWatcher watches for policy, services and endpoint changes on the
+// Kubernetes api server defined in the receiver's daemon k8sClient.
+func (k *K8sWatcher) EnableK8sWatcher(ctx context.Context, resources []string) error {
 	if !k8s.IsEnabled() {
 		log.Debug("Not enabling k8s event listener because k8s is not enabled")
 		return nil
@@ -379,59 +407,56 @@ func (k *K8sWatcher) EnableK8sWatcher(ctx context.Context) error {
 	ciliumNPClient := k8s.CiliumClient()
 	asyncControllers := &sync.WaitGroup{}
 
-	// kubernetes network policies
-	swgKNP := lock.NewStoppableWaitGroup()
-	k.networkPoliciesInit(k8s.WatcherClient(), swgKNP)
-
 	serviceOptModifier, err := utils.GetServiceListOptionsModifier(k.cfg)
 	if err != nil {
 		return fmt.Errorf("error creating service list option modifier: %w", err)
 	}
 
-	// kubernetes services
-	swgSvcs := lock.NewStoppableWaitGroup()
-	k.servicesInit(k8s.WatcherClient(), swgSvcs, serviceOptModifier)
-
-	// kubernetes endpoints
-	k.initEndpointsOrSlices(k8s.WatcherClient(), serviceOptModifier)
-
-	// cilium network policies
-	k.ciliumNetworkPoliciesInit(ciliumNPClient)
-
-	// cilium clusterwide network policy
-	k.ciliumClusterwideNetworkPoliciesInit(ciliumNPClient)
-
-	// cilium nodes
-	asyncControllers.Add(1)
-	go k.ciliumNodeInit(ciliumNPClient, asyncControllers)
-
-	// cilium endpoints
-	// Don't watch for CiliumEndpoints to avoid populating ipcache with dangling
-	// CiliumEndpoints.
-	if !option.Config.DisableCiliumEndpointCRD {
-		asyncControllers.Add(1)
-		go k.ciliumEndpointsInit(ciliumNPClient, asyncControllers)
+	for _, r := range resources {
+		switch r {
+		// Core Cilium
+		case K8sAPIGroupPodV1Core:
+			asyncControllers.Add(1)
+			go k.podsInit(k8s.WatcherClient(), asyncControllers)
+		case k8sAPIGroupNodeV1Core:
+			k.NodesInit(k8s.Client())
+		case k8sAPIGroupNamespaceV1Core:
+			asyncControllers.Add(1)
+			go k.namespacesInit(k8s.WatcherClient(), asyncControllers)
+		case k8sAPIGroupCiliumNodeV2:
+			asyncControllers.Add(1)
+			go k.ciliumNodeInit(ciliumNPClient, asyncControllers)
+		// Kubernetes built-in resources
+		case k8sAPIGroupNetworkingV1Core:
+			swgKNP := lock.NewStoppableWaitGroup()
+			k.networkPoliciesInit(k8s.WatcherClient(), swgKNP)
+		case K8sAPIGroupServiceV1Core:
+			swgSvcs := lock.NewStoppableWaitGroup()
+			k.servicesInit(k8s.WatcherClient(), swgSvcs, serviceOptModifier)
+		case K8sAPIGroupEndpointSliceV1Beta1Discovery:
+			// no-op; handled in K8sAPIGroupEndpointV1Core.
+		case K8sAPIGroupEndpointSliceV1Discovery:
+			// no-op; handled in K8sAPIGroupEndpointV1Core.
+		case K8sAPIGroupEndpointV1Core:
+			k.initEndpointsOrSlices(k8s.WatcherClient(), serviceOptModifier)
+		// Custom resource definitions
+		case k8sAPIGroupCiliumNetworkPolicyV2:
+			k.ciliumNetworkPoliciesInit(ciliumNPClient)
+		case k8sAPIGroupCiliumClusterwideNetworkPolicyV2:
+			k.ciliumClusterwideNetworkPoliciesInit(ciliumNPClient)
+		case k8sAPIGroupCiliumEndpointV2:
+			asyncControllers.Add(1)
+			go k.ciliumEndpointsInit(ciliumNPClient, asyncControllers)
+		case k8sAPIGroupCiliumLocalRedirectPolicyV2:
+			k.ciliumLocalRedirectPolicyInit(ciliumNPClient)
+		case k8sAPIGroupCiliumEgressNATPolicyV2:
+			k.ciliumEgressNATPolicyInit(ciliumNPClient)
+		default:
+			log.WithFields(logrus.Fields{
+				logfields.Resource: r,
+			}).Fatal("Not listening for Kubernetes resource updates for unhandled type")
+		}
 	}
-
-	// cilium local redirect policies
-	if option.Config.EnableLocalRedirectPolicy {
-		k.ciliumLocalRedirectPolicyInit(ciliumNPClient)
-	}
-
-	if option.Config.EnableEgressGateway {
-		k.ciliumEgressNATPolicyInit(ciliumNPClient)
-	}
-
-	// kubernetes pods
-	asyncControllers.Add(1)
-	go k.podsInit(k8s.WatcherClient(), asyncControllers)
-
-	// kubernetes nodes
-	k.NodesInit(k8s.Client())
-
-	// kubernetes namespaces
-	asyncControllers.Add(1)
-	go k.namespacesInit(k8s.WatcherClient(), asyncControllers)
 
 	asyncControllers.Wait()
 	close(k.controllersStarted)
