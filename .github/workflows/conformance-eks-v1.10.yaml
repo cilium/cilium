@@ -269,7 +269,11 @@ jobs:
 
       - name: Run connectivity test
         run: |
-          cilium connectivity test --force-deploy --flow-validation=disabled
+          cilium connectivity test --force-deploy --flow-validation=disabled \
+            --test '!client-egress-l7,!echo-ingress-l7'
+      # workaround for L7 tests issues on EKS with IPsec enabled
+      # TODO: remove both test exceptions once:
+      # - https://github.com/cilium/cilium/issues/17139 is fixed
 
       - name: Post-test information gathering
         if: ${{ !success() }}
