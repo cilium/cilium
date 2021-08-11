@@ -361,7 +361,7 @@ func (k *K8sStatusCollector) status(ctx context.Context) (*Status, error) {
 		}
 	}
 
-	// pod status for relay is only validated if the deployment exists
+	// pod status for UI is only validated if the deployment exists
 	if _, ok := status.PodState[defaults.HubbleUIDeploymentName]; ok {
 		err = k.podStatus(ctx, status, defaults.HubbleUIDeploymentName, "k8s-app=hubble-ui", nil)
 		if err != nil {
