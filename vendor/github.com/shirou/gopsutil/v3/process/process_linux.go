@@ -18,15 +18,23 @@ import (
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/internal/common"
 	"github.com/shirou/gopsutil/v3/net"
+	"github.com/tklauser/go-sysconf"
 	"golang.org/x/sys/unix"
 )
 
 var pageSize = uint64(os.Getpagesize())
 
-const (
-	prioProcess = 0   // linux/resource.h
-	clockTicks  = 100 // C.sysconf(C._SC_CLK_TCK)
-)
+const prioProcess = 0 // linux/resource.h
+
+var clockTicks = 100 // default value
+
+func init() {
+	clkTck, err := sysconf.Sysconf(sysconf.SC_CLK_TCK)
+	// ignore errors
+	if err == nil {
+		clockTicks = int(clkTck)
+	}
+}
 
 // MemoryInfoExStat is different between OSes
 type MemoryInfoExStat struct {
@@ -475,6 +483,17 @@ func (p *Process) MemoryMapsWithContext(ctx context.Context, grouped bool) (*[]M
 	}
 
 	return &ret, nil
+}
+
+func (p *Process) EnvironWithContext(ctx context.Context) ([]string, error) {
+	environPath := common.HostProc(strconv.Itoa(int(p.Pid)), "environ")
+
+	environContent, err := ioutil.ReadFile(environPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return strings.Split(string(environContent), "\000"), nil
 }
 
 /**
@@ -1019,16 +1038,21 @@ func (p *Process) fillFromTIDStatWithContext(ctx context.Context, tid int32) (ui
 	// There is no such thing as iotime in stat file.  As an approximation, we
 	// will use delayacct_blkio_ticks (aggregated block I/O delays, as per Linux
 	// docs).  Note: I am assuming at least Linux 2.6.18
-	iotime, err := strconv.ParseFloat(fields[42], 64)
-	if err != nil {
-		iotime = 0 // Ancient linux version, most likely
+	var iotime float64
+	if len(fields) > 42 {
+		iotime, err = strconv.ParseFloat(fields[42], 64)
+		if err != nil {
+			iotime = 0 // Ancient linux version, most likely
+		}
+	} else {
+		iotime = 0 // e.g. SmartOS containers
 	}
 
 	cpuTimes := &cpu.TimesStat{
 		CPU:    "cpu",
-		User:   float64(utime / clockTicks),
-		System: float64(stime / clockTicks),
-		Iowait: float64(iotime / clockTicks),
+		User:   utime / float64(clockTicks),
+		System: stime / float64(clockTicks),
+		Iowait: iotime / float64(clockTicks),
 	}
 
 	bootTime, _ := common.BootTimeWithContext(ctx)
