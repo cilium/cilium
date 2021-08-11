@@ -133,7 +133,7 @@ jobs:
         # file (EOF) on stdin and displaying no flows.
         shell: 'script -q -e -c "bash --noprofile --norc -eo pipefail {0}"'
         run: |
-          version="$(curl -sL0 'https://api.github.com/repos/cilium/hubble/releases/latest' | jq -r .tag_name)"
+          version=$(curl -s https://raw.githubusercontent.com/cilium/hubble/master/stable.txt)
           curl -sLO "https://github.com/cilium/hubble/releases/download/${version}/hubble-linux-amd64.tar.gz"
           tar zxf hubble-linux-amd64.tar.gz
           chmod +x ./hubble
