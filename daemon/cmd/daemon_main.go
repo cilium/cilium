@@ -1233,7 +1233,7 @@ func initEnv(cmd *cobra.Command) {
 
 	switch option.Config.DatapathMode {
 	case datapathOption.DatapathModeVeth:
-		if name := viper.GetString(option.IpvlanMasterDevice); name != "undefined" {
+		if name := option.Config.IpvlanMasterDevice; name != "undefined" {
 			log.WithField(logfields.IpvlanMasterDevice, name).
 				Fatal("ipvlan master device cannot be set in the 'veth' datapath mode")
 		}
@@ -1262,7 +1262,7 @@ func initEnv(cmd *cobra.Command) {
 		// the swagger API is that in future we might deprecate --device
 		// parameter with e.g. some auto-detection mechanism, thus for
 		// ipvlan it is desired to have a separate one, see PR #6608.
-		iface := viper.GetString(option.IpvlanMasterDevice)
+		iface := option.Config.IpvlanMasterDevice
 		if iface == "undefined" {
 			log.WithField(logfields.IpvlanMasterDevice, option.Config.Devices[0]).
 				Fatal("ipvlan master device must be specified in the 'ipvlan' datapath mode")
