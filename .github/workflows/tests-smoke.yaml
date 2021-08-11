@@ -182,7 +182,7 @@ jobs:
         # file (EOF) on stdin and displaying no flows.
         shell: 'script -q -e -c "bash --noprofile --norc -eo pipefail {0}"'
         run: |
-          curl -sLO https://github.com/cilium/hubble/releases/download/latest/hubble-linux-amd64.tar.gz
+          curl -sLO https://github.com/cilium/hubble/releases/latest/download/hubble-linux-amd64.tar.gz
           tar zxf hubble-linux-amd64.tar.gz
           chmod +x ./hubble
           touch hubble-flows.json
