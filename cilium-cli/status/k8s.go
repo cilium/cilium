@@ -350,6 +350,25 @@ func (k *K8sStatusCollector) status(ctx context.Context) (*Status, error) {
 		}
 	}
 
+	disabled, err = k.deploymentStatus(ctx, status, defaults.HubbleUIDeploymentName)
+	status.SetDisabled(defaults.HubbleUIDeploymentName, defaults.HubbleUIDeploymentName, disabled)
+	if err != nil {
+		if _, ok := status.PodState[defaults.HubbleUIDeploymentName]; !ok {
+			status.AddAggregatedWarning(defaults.HubbleUIDeploymentName, defaults.HubbleUIDeploymentName, fmt.Errorf("hubble ui is not deployed"))
+		} else {
+			status.AddAggregatedError(defaults.HubbleUIDeploymentName, defaults.HubbleUIDeploymentName, err)
+			status.CollectionError(err)
+		}
+	}
+
+	// pod status for relay is only validated if the deployment exists
+	if _, ok := status.PodState[defaults.HubbleUIDeploymentName]; ok {
+		err = k.podStatus(ctx, status, defaults.HubbleUIDeploymentName, "k8s-app=hubble-ui", nil)
+		if err != nil {
+			status.CollectionError(err)
+		}
+	}
+
 	disabled, err = k.deploymentStatus(ctx, status, defaults.ClusterMeshDeploymentName)
 	status.SetDisabled(defaults.ClusterMeshDeploymentName, defaults.ClusterMeshDeploymentName, disabled)
 	if err != nil {
