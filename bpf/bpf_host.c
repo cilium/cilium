@@ -22,15 +22,8 @@
 /* Pass unknown ICMPv6 NS to stack */
 #define ACTION_UNKNOWN_ICMP6_NS CTX_ACT_OK
 
-/* Include policy_can_access_ingress() */
-#define REQUIRES_CAN_ACCESS
-
 /* CB_PROXY_MAGIC overlaps with CB_ENCRYPT_MAGIC */
 #define ENCRYPT_OR_PROXY_MAGIC 0
-
-#ifdef POD_ENDPOINT
-# undef ENABLE_HOST_FIREWALL
-#endif
 
 /* Controls the inclusion of the CILIUM_CALL_SEND_ICMP6_ECHO_REPLY section in
  * the bpf_lxc object file.

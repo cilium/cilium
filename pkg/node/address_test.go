@@ -184,7 +184,6 @@ func (s *NodeSuite) Test_getCiliumHostIPsFromFile(c *C) {
 #endif /* CILIUM_NET_MAC */
 #define HOST_IFINDEX 356
 #define HOST_IFINDEX_MAC { .addr = {0x3e,0x28,0xb4,0x4b,0x95,0x25}}
-#define ENCAP_VXLAN 1
 #define ENCAP_IFINDEX 358
 `)
 
