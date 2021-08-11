@@ -154,6 +154,8 @@ var _ = Describe("K8sCLI", func() {
 				_, err = kubectl.CiliumPolicyAction(
 					namespaceForTest, l3L4DenyPolicy, helpers.KubectlDelete, helpers.HelperTimeout)
 				Expect(err).Should(BeNil(), "Cannot delete L3 Policy")
+
+				kubectl.NamespaceDelete(namespaceForTest)
 			})
 		})
 
