@@ -731,6 +731,61 @@ ports other than port 80.
 
         .. literalinclude:: ../../examples/policies/l4/cidr_l4_combined.json
 
+Limit ICMP/ICMPv6 types
+-----------------------
+
+ICMP policy can be specified in addition to layer 3 policies or independently.
+It restricts the ability of an endpoint to emit and/or receive packets on a
+particular ICMP/ICMPv6 type (currently ICMP/ICMPv6 code is not supported).
+If any ICMP policy is specified, layer 4 and ICMP communication will be blocked
+unless it's related to a connection that is otherwise allowed by the policy.
+
+ICMP policy can be specified at both ingress and egress using the
+``icmps`` field. The ``icmps`` field takes a ``ICMPField`` structure
+which is defined as follows:
+
+.. code-block:: go
+
+        // ICMPField is a ICMP field.
+        type ICMPField struct {
+        	// Family is a IP address version.
+        	// Currently, we support `IPv4` and `IPv6`.
+        	// `IPv4` is set as default.
+        	//
+        	// +default=IPv4
+        	// +optional
+        	Family string `json:"family,omitempty"`
+
+        	// Type is a ICMP-type.
+        	// It should be 0-255 (8bit).
+        	Type uint8 `json:"type"`
+        }
+
+Example (ICMP/ICMPv6)
+~~~~~~~~~~~~~~~~~~~~~
+
+The following rule limits all endpoints with the label ``app=myService`` to
+only be able to emit packets using ICMP with type 8 and ICMPv6 with type 128,
+to any layer 3 destination:
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/l4/icmp.yaml
+           :language: yaml
+
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../examples/policies/l4/icmp.json
+           :language: json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/l4/icmp.json
+           :language: json
+
 
 
 .. _l7_policy:
