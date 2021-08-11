@@ -14,6 +14,7 @@ import (
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/internal/common"
 	"github.com/shirou/gopsutil/v3/net"
+	"github.com/tklauser/go-sysconf"
 	"golang.org/x/sys/unix"
 )
 
@@ -27,9 +28,15 @@ const (
 	KernProcPathname = 12 // path to executable
 )
 
-const (
-	clockTicks = 100 // C.sysconf(C._SC_CLK_TCK)
-)
+var clockTicks = 100 // default value
+
+func init() {
+	clkTck, err := sysconf.Sysconf(sysconf.SC_CLK_TCK)
+	// ignore errors
+	if err == nil {
+		clockTicks = int(clkTck)
+	}
+}
 
 type _Ctype_struct___0 struct {
 	Pad uint64
@@ -314,7 +321,7 @@ func convertCPUTimes(s string) (ret float64, err error) {
 	t += h * clockTicks
 	h, err = strconv.Atoi(_t[1])
 	t += h
-	return float64(t) / clockTicks, nil
+	return float64(t) / float64(clockTicks), nil
 }
 
 func (p *Process) TimesWithContext(ctx context.Context) (*cpu.TimesStat, error) {

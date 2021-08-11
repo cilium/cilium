@@ -18,7 +18,6 @@ var (
 )
 
 type win32_Processor struct {
-	LoadPercentage            *uint16
 	Family                    uint16
 	Manufacturer              string
 	Name                      string

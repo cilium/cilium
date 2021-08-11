@@ -67,6 +67,10 @@ func (p *Process) ThreadsWithContext(ctx context.Context) (map[int32]*cpu.TimesS
 	return nil, common.ErrNotImplementedError
 }
 
+func (p *Process) EnvironWithContext(ctx context.Context) ([]string, error) {
+	return nil, common.ErrNotImplementedError
+}
+
 func parseKinfoProc(buf []byte) (KinfoProc, error) {
 	var k KinfoProc
 	br := bytes.NewReader(buf)

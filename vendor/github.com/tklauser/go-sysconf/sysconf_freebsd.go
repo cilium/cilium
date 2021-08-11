@@ -65,12 +65,19 @@ func sysconf(name int) (int64, error) {
 		return sysctl32("p1003_1b.sigqueue_max"), nil
 	case SC_STREAM_MAX:
 		var rlim unix.Rlimit
-		if err := unix.Getrlimit(unix.RLIMIT_NOFILE, &rlim); err == nil {
-			if rlim.Cur != unix.RLIM_INFINITY {
-				return rlim.Cur, nil
-			}
+		if err := unix.Getrlimit(unix.RLIMIT_NOFILE, &rlim); err != nil {
+			return -1, nil
 		}
-		return -1, nil
+		if rlim.Cur == unix.RLIM_INFINITY {
+			return -1, nil
+		}
+		if rlim.Cur > _LONG_MAX {
+			return -1, unix.EOVERFLOW
+		}
+		if rlim.Cur > _SHRT_MAX {
+			return _SHRT_MAX, nil
+		}
+		return rlim.Cur, nil
 	case SC_THREAD_DESTRUCTOR_ITERATIONS:
 		return _PTHREAD_DESTRUCTOR_ITERATIONS, nil
 	case SC_THREAD_KEYS_MAX:

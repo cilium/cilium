@@ -17,9 +17,11 @@ import (
 )
 
 const (
-	// CLK_TCK is a constant on Linux, see e.g.
-	// https://git.musl-libc.org/cgit/musl/tree/src/conf/sysconf.c#n30 and
+	// CLK_TCK is a constant on Linux for all architectures except alpha and ia64.
+	// See e.g.
+	// https://git.musl-libc.org/cgit/musl/tree/src/conf/sysconf.c#n30
 	// https://github.com/containerd/cgroups/pull/12
+	// https://lore.kernel.org/lkml/agtlq6$iht$1@penguin.transmeta.com/
 	_SYSTEM_CLK_TCK = 100
 )
 

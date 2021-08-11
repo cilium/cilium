@@ -194,6 +194,10 @@ func (p *Process) MemoryMapsWithContext(ctx context.Context, grouped bool) (*[]M
 	return nil, common.ErrNotImplementedError
 }
 
+func (p *Process) EnvironWithContext(ctx context.Context) ([]string, error) {
+	return nil, common.ErrNotImplementedError
+}
+
 /**
 ** Internal functions
 **/
