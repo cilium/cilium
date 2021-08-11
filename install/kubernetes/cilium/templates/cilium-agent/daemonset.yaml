@@ -241,10 +241,6 @@ spec:
         {{- end }}
         {{- end }}
         securityContext:
-          capabilities:
-            add:
-            - NET_ADMIN
-            - SYS_MODULE
           privileged: true
         volumeMounts:
         {{- /* CRI-O already mounts the BPF filesystem */ -}}
@@ -425,9 +421,6 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
         securityContext:
-          capabilities:
-            add:
-            - NET_ADMIN
           privileged: true
         volumeMounts:
         {{- /* CRI-O already mounts the BPF filesystem */ -}}
