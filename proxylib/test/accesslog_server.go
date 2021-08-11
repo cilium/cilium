@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/inctimer"
+	"github.com/cilium/cilium/pkg/lock"
 	cilium "github.com/cilium/proxy/go/cilium/api"
 
 	"github.com/golang/protobuf/proto"
@@ -37,6 +38,7 @@ type AccessLogServer struct {
 	Logs     chan cilium.EntryType
 	closing  uint32 // non-zero if closing, accessed atomically
 	listener *net.UnixListener
+	mu       lock.Mutex // protects conns
 	conns    []*net.UnixConn
 }
 
@@ -45,9 +47,11 @@ func (s *AccessLogServer) Close() {
 	if s != nil {
 		atomic.StoreUint32(&s.closing, 1)
 		s.listener.Close()
+		s.mu.Lock()
 		for _, conn := range s.conns {
 			conn.Close()
 		}
+		s.mu.Unlock()
 		os.Remove(s.Path)
 	}
 }
@@ -118,7 +122,9 @@ func StartAccessLogServer(accessLogName string, bufSize int) *AccessLogServer {
 
 			log.Debug("Accepted access log connection")
 
+			server.mu.Lock()
 			server.conns = append(server.conns, uc)
+			server.mu.Unlock()
 			// Serve this access log socket in a goroutine, so we can serve multiple
 			// connections concurrently.
 			go server.accessLogger(uc)
