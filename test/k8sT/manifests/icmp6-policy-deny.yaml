@@ -1,0 +1,17 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "icmp6-policy-deny"
+spec:
+  description: "ICMPv6 policy deny"
+  endpointSelector:
+    matchLabels:
+      id: app1
+  ingressDeny:
+  - fromEndpoints:
+    - matchLabels:
+        id: app2
+    icmps:
+    - fields:
+      - type: 128
+        family: IPv6

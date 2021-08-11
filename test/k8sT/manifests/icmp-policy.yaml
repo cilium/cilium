@@ -1,0 +1,16 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "icmp-policy"
+spec:
+  description: "ICMP policy"
+  endpointSelector:
+    matchLabels:
+      id: app1
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        id: app2
+    icmps:
+    - fields:
+      - type: 8
