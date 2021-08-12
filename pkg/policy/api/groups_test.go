@@ -48,7 +48,7 @@ func (s *PolicyAPITestSuite) TestGetCIDRSetWithValidValue(c *C) {
 	RegisterToGroupsProvider(AWSProvider, cb)
 
 	expectedCidrRule := []CIDRRule{
-		{Cidr: "192.168.1.1/32", ExceptCIDRs: []CIDR{}, Generated: true}}
+		{Cidr: "192.168.1.1/32", ExceptCIDRs: []CIDR{}, Generated: 1}}
 	group := GetToGroupsRule()
 	cidr, err := group.GetCidrSet(context.TODO())
 	c.Assert(cidr, checker.DeepEquals, expectedCidrRule)
@@ -59,9 +59,9 @@ func (s *PolicyAPITestSuite) TestGetCIDRSetWithMultipleSorted(c *C) {
 	cb := GetCallBackWithRule("192.168.1.1", "192.168.10.10", "192.168.10.3")
 	RegisterToGroupsProvider(AWSProvider, cb)
 	expectedCidrRule := []CIDRRule{
-		{Cidr: "192.168.1.1/32", ExceptCIDRs: []CIDR{}, Generated: true},
-		{Cidr: "192.168.10.3/32", ExceptCIDRs: []CIDR{}, Generated: true},
-		{Cidr: "192.168.10.10/32", ExceptCIDRs: []CIDR{}, Generated: true}}
+		{Cidr: "192.168.1.1/32", ExceptCIDRs: []CIDR{}, Generated: 1},
+		{Cidr: "192.168.10.3/32", ExceptCIDRs: []CIDR{}, Generated: 1},
+		{Cidr: "192.168.10.10/32", ExceptCIDRs: []CIDR{}, Generated: 1}}
 	group := GetToGroupsRule()
 	cidr, err := group.GetCidrSet(context.TODO())
 	c.Assert(cidr, checker.DeepEquals, expectedCidrRule)
@@ -73,8 +73,8 @@ func (s *PolicyAPITestSuite) TestGetCIDRSetWithUniqueCIDRRule(c *C) {
 	RegisterToGroupsProvider(AWSProvider, cb)
 
 	cidrRule := []CIDRRule{
-		{Cidr: "192.168.1.1/32", ExceptCIDRs: []CIDR{}, Generated: true},
-		{Cidr: "192.168.10.10/32", ExceptCIDRs: []CIDR{}, Generated: true}}
+		{Cidr: "192.168.1.1/32", ExceptCIDRs: []CIDR{}, Generated: 1},
+		{Cidr: "192.168.10.10/32", ExceptCIDRs: []CIDR{}, Generated: 1}}
 
 	group := GetToGroupsRule()
 	cidr, err := group.GetCidrSet(context.TODO())

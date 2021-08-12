@@ -134,13 +134,18 @@ func generateToCidrFromEndpoint(
 		}
 
 		found := false
-		for _, c := range egress.ToCIDRSet {
+		for i, c := range egress.ToCIDRSet {
 			_, cidr, err := net.ParseCIDR(string(c.Cidr))
 			if err != nil {
 				return err
 			}
-			if cidr.Contains(epIP) {
+			// Add a generated CIDR even if a non-generated CIDR might already contain 'epIP'.
+			// Also check that the IP in cidr is the same as 'epIP', in case we have a
+			// generated CIDR with shorter prefix containing 'epIP'.
+			if c.Generated > 0 && cidr.Contains(epIP) && cidr.IP.Equal(epIP) {
 				found = true
+				c.Generated++
+				egress.ToCIDRSet[i] = c
 				break
 			}
 		}
@@ -148,7 +153,7 @@ func generateToCidrFromEndpoint(
 			cidr := net.IPNet{IP: epIP.Mask(mask), Mask: mask}
 			egress.ToCIDRSet = append(egress.ToCIDRSet, api.CIDRRule{
 				Cidr:      api.CIDR(cidr.String()),
-				Generated: true,
+				Generated: 1,
 			})
 		}
 	}
@@ -177,6 +182,10 @@ func deleteToCidrFromEndpoint(
 		}
 
 		for i, c := range egress.ToCIDRSet {
+			if c.Generated == 0 {
+				// it's not generated so it should not be deleted
+				continue
+			}
 			if _, ok := delCIDRRules[i]; ok {
 				// it's already going to be deleted so we can continue
 				continue
@@ -186,8 +195,10 @@ func deleteToCidrFromEndpoint(
 				return err
 			}
 			// delete all generated CIDRs for a CIDR that match the given
-			// endpoint
-			if c.Generated && cidr.Contains(epIP) {
+			// endpoint.
+			// Only delete CIDR that has exactly the same IP as 'epIP', to avoid
+			// deleting CIDRs sharing a prefix with 'epIP'.
+			if cidr.Contains(epIP) && cidr.IP.Equal(epIP) {
 				delCIDRRules[i] = &egress.ToCIDRSet[i]
 			}
 		}
@@ -202,7 +213,26 @@ func deleteToCidrFromEndpoint(
 		return nil
 	}
 
-	if releasePrefixes {
+	// if endpoint is not in CIDR or it's not generated it's ok to retain it
+	newCIDRRules := make([]api.CIDRRule, 0, len(egress.ToCIDRSet)-len(delCIDRRules))
+	for i, c := range egress.ToCIDRSet {
+		// If the rule was deleted then it shouldn't be re-added
+		if _, ok := delCIDRRules[i]; ok {
+			c.Generated--
+			// remove if reference count reaches zero
+			if c.Generated == 0 {
+				continue
+			} else {
+				// Do not release prefix for retained CIDR rules
+				delete(delCIDRRules, i)
+			}
+		}
+		newCIDRRules = append(newCIDRRules, c)
+	}
+
+	egress.ToCIDRSet = newCIDRRules
+
+	if releasePrefixes && len(delCIDRRules) > 0 {
 		delSlice := make([]api.CIDRRule, 0, len(egress.ToCIDRSet))
 		for _, delCIDRRule := range delCIDRRules {
 			delSlice = append(delSlice, *delCIDRRule)
@@ -210,18 +240,6 @@ func deleteToCidrFromEndpoint(
 		prefixes := policy.GetPrefixesFromCIDRSet(delSlice)
 		ipcache.ReleaseCIDRs(prefixes)
 	}
-
-	// if endpoint is not in CIDR or it's not generated it's ok to retain it
-	newCIDRRules := make([]api.CIDRRule, 0, len(egress.ToCIDRSet)-len(delCIDRRules))
-	for i, c := range egress.ToCIDRSet {
-		// If the rule was deleted then it shouldn't be re-added
-		if _, ok := delCIDRRules[i]; ok {
-			continue
-		}
-		newCIDRRules = append(newCIDRRules, c)
-	}
-
-	egress.ToCIDRSet = newCIDRRules
 
 	return nil
 }

@@ -240,11 +240,17 @@ func (s *K8sSuite) TestGenerateToCIDRFromEndpoint(c *C) {
 		epIP2 + "/32",
 	})
 
+	// first round of deletes, make sure nothing is deleted
+	err = deleteToCidrFromEndpoint(rule, endpointInfo, false)
+	c.Assert(err, IsNil)
+	c.Assert(len(rule.ToCIDRSet), Equals, 2)
+
+	// second round of deletes, make sure everything is deleted
 	err = deleteToCidrFromEndpoint(rule, endpointInfo, false)
 	c.Assert(err, IsNil)
 	c.Assert(len(rule.ToCIDRSet), Equals, 0)
 
-	// third run, to make sure there are no duplicates added
+	// third run, to make sure CIDR are added
 	err = generateToCidrFromEndpoint(rule, endpointInfo, false)
 	c.Assert(err, IsNil)
 
@@ -366,6 +372,14 @@ func (s *K8sSuite) TestDontDeleteUserRules(c *C) {
 	c.Assert(len(rule.ToCIDRSet), Equals, 2)
 	c.Assert(string(rule.ToCIDRSet[1].Cidr), Equals, epIP+"/32")
 
+	// first delete, make sure nothing is removed yet
+	err = deleteToCidrFromEndpoint(rule, endpointInfo, false)
+	c.Assert(err, IsNil)
+	c.Assert(len(rule.ToCIDRSet), Equals, 2)
+	c.Assert(string(rule.ToCIDRSet[0].Cidr), Equals, string(userCIDR))
+	c.Assert(string(rule.ToCIDRSet[1].Cidr), Equals, epIP+"/32")
+
+	// 2nd delete, make sure CIDR is removed
 	err = deleteToCidrFromEndpoint(rule, endpointInfo, false)
 	c.Assert(err, IsNil)
 	c.Assert(len(rule.ToCIDRSet), Equals, 1)
