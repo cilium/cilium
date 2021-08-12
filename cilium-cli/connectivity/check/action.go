@@ -260,26 +260,20 @@ func (a *Action) printFlows(peer TestPeer) {
 	a.Log()
 }
 
-func (a *Action) matchFlowRequirements(ctx context.Context, flows flowsSet, offset int, req *filters.FlowSetRequirement) FlowRequirementResults {
-	r := FlowRequirementResults{
-		Matched:    MatchMap{},
-		FirstMatch: -1,
-		LastMatch:  -1,
-	}
-
-	// Skip 'offset' amount of flows.
-	flows = flows[offset:]
-	flowCtx := filters.NewFlowContext()
+func (a *Action) matchFlowRequirements(ctx context.Context, flows flowsSet, req *filters.FlowSetRequirement) FlowRequirementResults {
+	var offset int
+	r := FlowRequirementResults{Failures: -1} // -1 to get the loop started
 
 	match := func(expect bool, f filters.FlowRequirement, fc *filters.FlowContext) (int, bool, *flow.Flow) {
-		index, match, flow := flows.Contains(f.Filter, fc)
+		index, match, flow := flows[offset:].Contains(f.Filter, fc)
+		index += offset
 
 		if match {
-			r.Matched[offset+index] = expect
+			r.Matched[index] = expect
 
 			// Update last match index and timestamp
-			if r.LastMatch < offset+index {
-				r.LastMatch = offset + index
+			if r.LastMatch < index {
+				r.LastMatch = index
 				if t := flow.GetTime(); t != nil && t.IsValid() {
 					r.LastMatchTimestamp = t.AsTime()
 				}
@@ -289,7 +283,7 @@ func (a *Action) matchFlowRequirements(ctx context.Context, flows flowsSet, offs
 		if match != expect {
 			msgSuffix := "not found"
 			if match {
-				msgSuffix = fmt.Sprintf("found at %d", offset+index)
+				msgSuffix = fmt.Sprintf("found at %d", index)
 			}
 
 			a.Infof("%s %s %s", f.Msg, f.Filter.String(fc), msgSuffix)
@@ -299,7 +293,7 @@ func (a *Action) matchFlowRequirements(ctx context.Context, flows flowsSet, offs
 		} else {
 			msgSuffix := "not found"
 			if match {
-				msgSuffix = fmt.Sprintf("found at %d", offset+index)
+				msgSuffix = fmt.Sprintf("found at %d", index)
 			}
 
 			a.Logf("✅ %s %s", f.Msg, msgSuffix)
@@ -308,32 +302,49 @@ func (a *Action) matchFlowRequirements(ctx context.Context, flows flowsSet, offs
 		return index, match, flow
 	}
 
-	index, matched, _ := match(true, req.First, &flowCtx)
-	if !matched {
-		r.NeedMoreFlows = true
-		// No point trying to match more if First does not match.
-		return r
-	}
+	for r.NeedMoreFlows || r.Failures != 0 {
+		// reinit for the new round
+		r.NeedMoreFlows = false
+		r.Failures = 0
+		r.Matched = MatchMap{}
+		r.FirstMatch = -1
+		r.LastMatch = -1
 
-	r.FirstMatch = offset + index
+		flowCtx := filters.NewFlowContext()
 
-	for _, f := range req.Middle {
-		if f.SkipOnAggregation && a.test.ctx.FlowAggregation() {
-			continue
-		}
-		match(true, f, &flowCtx)
-	}
-
-	if !(req.Last.SkipOnAggregation && a.test.ctx.FlowAggregation()) {
-		if _, match, _ := match(true, req.Last, &flowCtx); !match {
+		index, matched, _ := match(true, req.First, &flowCtx)
+		if !matched {
 			r.NeedMoreFlows = true
+			// No point trying to match more if First does not match.
+			break
 		}
-	}
+		r.FirstMatch = index
 
-	for _, f := range req.Except {
-		match(false, f, &flowCtx)
-	}
+		for _, f := range req.Middle {
+			if f.SkipOnAggregation && a.test.ctx.FlowAggregation() {
+				continue
+			}
+			match(true, f, &flowCtx)
+		}
 
+		if !(req.Last.SkipOnAggregation && a.test.ctx.FlowAggregation()) {
+			if _, match, _ := match(true, req.Last, &flowCtx); !match {
+				r.NeedMoreFlows = true
+			}
+		}
+
+		for _, f := range req.Except {
+			match(false, f, &flowCtx)
+		}
+
+		// Check if successfully fully matched
+		if !r.NeedMoreFlows && r.Failures == 0 {
+			break
+		}
+
+		// Try if some other flow instance would find both first and last required flows
+		offset = r.FirstMatch + 1
+	}
 	return r
 }
 
@@ -674,16 +685,11 @@ func (a *Action) matchAllFlowRequirements(ctx context.Context, reqs []filters.Fl
 		out.NeedMoreFlows = true
 		return out
 	}
-
 	a.flowsMu.Lock()
 	defer a.flowsMu.Unlock()
 
 	for _, req := range reqs {
-		res := a.matchFlowRequirements(ctx, a.flows, 0, &req)
-		if res.NeedMoreFlows || res.FirstMatch == -1 {
-			break
-		}
-
+		res := a.matchFlowRequirements(ctx, a.flows, &req)
 		//TODO(timo): The matcher should probably take in all requirements
 		// and return its verdict in a single struct.
 		out.Merge(&res)
