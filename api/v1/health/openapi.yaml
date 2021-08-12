@@ -42,6 +42,8 @@ paths:
           description: Success
           schema:
             "$ref": "#/definitions/HealthStatusResponse"
+        '403':
+          description: Forbidden
         '500':
           description: Internal error occurred while conducting connectivity probe
           x-go-name: Failed
