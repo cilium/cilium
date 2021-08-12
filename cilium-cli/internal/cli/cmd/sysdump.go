@@ -34,9 +34,9 @@ var (
 
 func newCmdSysdump() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:    "sysdump",
-		Short:  "Collects information required to troubleshoot issues with Cilium and Hubble",
-		Long:   ``,
+		Use:   "sysdump",
+		Short: "Collects information required to troubleshoot issues with Cilium and Hubble",
+		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Silence klog to avoid displaying "throttling" messages - those are expected.
 			klog.SetOutput(io.Discard)
