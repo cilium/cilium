@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 
 	v1 "k8s.io/api/core/v1"
+	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -166,5 +167,24 @@ func (k *K8sWatcher) updateK8sEndpointSliceV1Beta1(eps *slim_discover_v1beta1.En
 
 	if option.Config.BGPAnnounceLBIP {
 		k.bgpSpeakerManager.OnUpdateEndpointSliceV1Beta1(eps)
+	}
+}
+
+// initEndpointsOrSlices initializes either the "Endpoints" or "EndpointSlice"
+// resources for Kubernetes service backends.
+func (k *K8sWatcher) initEndpointsOrSlices(k8sClient kubernetes.Interface, serviceOptModifier func(*v1meta.ListOptions)) {
+	swgEps := lock.NewStoppableWaitGroup()
+	switch {
+	case k8s.SupportsEndpointSlice():
+		// We don't add the service option modifier here, as endpointslices do not
+		// mirror service proxy name label present in the corresponding service.
+		connected := k.endpointSlicesInit(k8sClient, swgEps)
+		// The cluster has endpoint slices so we should not check for v1.Endpoints
+		if connected {
+			break
+		}
+		fallthrough
+	default:
+		k.endpointsInit(k8sClient, swgEps, serviceOptModifier)
 	}
 }
