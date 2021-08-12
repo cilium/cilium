@@ -38,6 +38,12 @@ func (o *PostIpamIPReader) ReadResponse(response runtime.ClientResponse, consume
 			return nil, err
 		}
 		return nil, result
+	case 403:
+		result := NewPostIpamIPForbidden()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	case 409:
 		result := NewPostIpamIPExists()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -159,6 +165,57 @@ func (o *PostIpamIPInvalid) String() string {
 }
 
 func (o *PostIpamIPInvalid) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	return nil
+}
+
+// NewPostIpamIPForbidden creates a PostIpamIPForbidden with default headers values
+func NewPostIpamIPForbidden() *PostIpamIPForbidden {
+	return &PostIpamIPForbidden{}
+}
+
+/*
+PostIpamIPForbidden describes a response with status code 403, with default header values.
+
+Forbidden
+*/
+type PostIpamIPForbidden struct {
+}
+
+// IsSuccess returns true when this post ipam Ip forbidden response has a 2xx status code
+func (o *PostIpamIPForbidden) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this post ipam Ip forbidden response has a 3xx status code
+func (o *PostIpamIPForbidden) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this post ipam Ip forbidden response has a 4xx status code
+func (o *PostIpamIPForbidden) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this post ipam Ip forbidden response has a 5xx status code
+func (o *PostIpamIPForbidden) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this post ipam Ip forbidden response a status code equal to that given
+func (o *PostIpamIPForbidden) IsCode(code int) bool {
+	return code == 403
+}
+
+func (o *PostIpamIPForbidden) Error() string {
+	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpForbidden ", 403)
+}
+
+func (o *PostIpamIPForbidden) String() string {
+	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpForbidden ", 403)
+}
+
+func (o *PostIpamIPForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	return nil
 }

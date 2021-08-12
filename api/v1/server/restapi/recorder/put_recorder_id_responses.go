@@ -66,6 +66,31 @@ func (o *PutRecorderIDCreated) WriteResponse(rw http.ResponseWriter, producer ru
 	rw.WriteHeader(201)
 }
 
+// PutRecorderIDForbiddenCode is the HTTP code returned for type PutRecorderIDForbidden
+const PutRecorderIDForbiddenCode int = 403
+
+/*
+PutRecorderIDForbidden Forbidden
+
+swagger:response putRecorderIdForbidden
+*/
+type PutRecorderIDForbidden struct {
+}
+
+// NewPutRecorderIDForbidden creates PutRecorderIDForbidden with default headers values
+func NewPutRecorderIDForbidden() *PutRecorderIDForbidden {
+
+	return &PutRecorderIDForbidden{}
+}
+
+// WriteResponse to the client
+func (o *PutRecorderIDForbidden) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
+	rw.WriteHeader(403)
+}
+
 // PutRecorderIDFailureCode is the HTTP code returned for type PutRecorderIDFailure
 const PutRecorderIDFailureCode int = 500
 

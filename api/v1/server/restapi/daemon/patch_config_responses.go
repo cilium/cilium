@@ -84,6 +84,31 @@ func (o *PatchConfigBadRequest) WriteResponse(rw http.ResponseWriter, producer r
 	}
 }
 
+// PatchConfigForbiddenCode is the HTTP code returned for type PatchConfigForbidden
+const PatchConfigForbiddenCode int = 403
+
+/*
+PatchConfigForbidden Forbidden
+
+swagger:response patchConfigForbidden
+*/
+type PatchConfigForbidden struct {
+}
+
+// NewPatchConfigForbidden creates PatchConfigForbidden with default headers values
+func NewPatchConfigForbidden() *PatchConfigForbidden {
+
+	return &PatchConfigForbidden{}
+}
+
+// WriteResponse to the client
+func (o *PatchConfigForbidden) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
+	rw.WriteHeader(403)
+}
+
 // PatchConfigFailureCode is the HTTP code returned for type PatchConfigFailure
 const PatchConfigFailureCode int = 500
 

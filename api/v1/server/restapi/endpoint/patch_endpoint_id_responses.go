@@ -84,6 +84,31 @@ func (o *PatchEndpointIDInvalid) WriteResponse(rw http.ResponseWriter, producer 
 	}
 }
 
+// PatchEndpointIDForbiddenCode is the HTTP code returned for type PatchEndpointIDForbidden
+const PatchEndpointIDForbiddenCode int = 403
+
+/*
+PatchEndpointIDForbidden Forbidden
+
+swagger:response patchEndpointIdForbidden
+*/
+type PatchEndpointIDForbidden struct {
+}
+
+// NewPatchEndpointIDForbidden creates PatchEndpointIDForbidden with default headers values
+func NewPatchEndpointIDForbidden() *PatchEndpointIDForbidden {
+
+	return &PatchEndpointIDForbidden{}
+}
+
+// WriteResponse to the client
+func (o *PatchEndpointIDForbidden) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
+	rw.WriteHeader(403)
+}
+
 // PatchEndpointIDNotFoundCode is the HTTP code returned for type PatchEndpointIDNotFound
 const PatchEndpointIDNotFoundCode int = 404
 

@@ -83,3 +83,28 @@ func (o *DeleteFqdnCacheBadRequest) WriteResponse(rw http.ResponseWriter, produc
 		panic(err) // let the recovery middleware deal with this
 	}
 }
+
+// DeleteFqdnCacheForbiddenCode is the HTTP code returned for type DeleteFqdnCacheForbidden
+const DeleteFqdnCacheForbiddenCode int = 403
+
+/*
+DeleteFqdnCacheForbidden Forbidden
+
+swagger:response deleteFqdnCacheForbidden
+*/
+type DeleteFqdnCacheForbidden struct {
+}
+
+// NewDeleteFqdnCacheForbidden creates DeleteFqdnCacheForbidden with default headers values
+func NewDeleteFqdnCacheForbidden() *DeleteFqdnCacheForbidden {
+
+	return &DeleteFqdnCacheForbidden{}
+}
+
+// WriteResponse to the client
+func (o *DeleteFqdnCacheForbidden) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
+	rw.WriteHeader(403)
+}

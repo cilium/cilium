@@ -38,6 +38,12 @@ func (o *PutServiceIDReader) ReadResponse(response runtime.ClientResponse, consu
 			return nil, err
 		}
 		return result, nil
+	case 403:
+		result := NewPutServiceIDForbidden()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	case 460:
 		result := NewPutServiceIDInvalidFrontend()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -165,6 +171,57 @@ func (o *PutServiceIDCreated) String() string {
 }
 
 func (o *PutServiceIDCreated) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	return nil
+}
+
+// NewPutServiceIDForbidden creates a PutServiceIDForbidden with default headers values
+func NewPutServiceIDForbidden() *PutServiceIDForbidden {
+	return &PutServiceIDForbidden{}
+}
+
+/*
+PutServiceIDForbidden describes a response with status code 403, with default header values.
+
+Forbidden
+*/
+type PutServiceIDForbidden struct {
+}
+
+// IsSuccess returns true when this put service Id forbidden response has a 2xx status code
+func (o *PutServiceIDForbidden) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this put service Id forbidden response has a 3xx status code
+func (o *PutServiceIDForbidden) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this put service Id forbidden response has a 4xx status code
+func (o *PutServiceIDForbidden) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this put service Id forbidden response has a 5xx status code
+func (o *PutServiceIDForbidden) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this put service Id forbidden response a status code equal to that given
+func (o *PutServiceIDForbidden) IsCode(code int) bool {
+	return code == 403
+}
+
+func (o *PutServiceIDForbidden) Error() string {
+	return fmt.Sprintf("[PUT /service/{id}][%d] putServiceIdForbidden ", 403)
+}
+
+func (o *PutServiceIDForbidden) String() string {
+	return fmt.Sprintf("[PUT /service/{id}][%d] putServiceIdForbidden ", 403)
+}
+
+func (o *PutServiceIDForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	return nil
 }
