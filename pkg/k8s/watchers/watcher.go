@@ -393,22 +393,7 @@ func (k *K8sWatcher) EnableK8sWatcher(ctx context.Context) error {
 	k.servicesInit(k8s.WatcherClient(), swgSvcs, serviceOptModifier)
 
 	// kubernetes endpoints
-	swgEps := lock.NewStoppableWaitGroup()
-
-	// We only enable either "Endpoints" or "EndpointSlice"
-	switch {
-	case k8s.SupportsEndpointSlice():
-		// We don't add the service option modifier here, as endpointslices do not
-		// mirror service proxy name label present in the corresponding service.
-		connected := k.endpointSlicesInit(k8s.WatcherClient(), swgEps)
-		// The cluster has endpoint slices so we should not check for v1.Endpoints
-		if connected {
-			break
-		}
-		fallthrough
-	default:
-		k.endpointsInit(k8s.WatcherClient(), swgEps, serviceOptModifier)
-	}
+	k.initEndpointsOrSlices(k8s.WatcherClient(), serviceOptModifier)
 
 	// cilium network policies
 	k.ciliumNetworkPoliciesInit(ciliumNPClient)
