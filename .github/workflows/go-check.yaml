@@ -15,7 +15,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v2.1.3
         with:
-          go-version: 1.15.14
+          go-version: 1.15.15
       - name: Checkout code
         uses: actions/checkout@v2
       - name: Check module vendoring
@@ -56,7 +56,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v2.1.3
         with:
-          go-version: 1.15.14
+          go-version: 1.15.15
       - name: Checkout code
         uses: actions/checkout@v2
         with:
@@ -81,7 +81,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v2.1.3
         with:
-          go-version: 1.15.14
+          go-version: 1.15.15
       - name: Checkout code
         uses: actions/checkout@v2
         with:
@@ -106,7 +106,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v2.1.3
         with:
-          go-version: 1.15.14
+          go-version: 1.15.15
       - name: Checkout code
         uses: actions/checkout@v2
         with:
