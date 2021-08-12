@@ -187,6 +187,9 @@ func (l *Loader) reinitializeIPSec(ctx context.Context) error {
 		// will all need Encrypt logic applied in order to decrypt any
 		// received encrypted packets. This logic will attach to all
 		// !veth devices. Only use if user has not configured interfaces.
+		//
+		// FIXME(JM): Make this use option.Config.Devices!
+		// 
 		if len(interfaces) == 0 {
 			if links, err := netlink.LinkList(); err == nil {
 				for _, link := range links {

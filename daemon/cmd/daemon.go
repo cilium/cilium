@@ -614,7 +614,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// This is because the device detection requires self (Cilium)Node object,
 	// and the k8s service watcher depends on option.Config.EnableNodePort flag
 	// which can be modified after the device detection.
-	handleNativeDevices(isKubeProxyReplacementStrict)
+	handleNativeDevices(d.ctx, d.datapathRegenTrigger, isKubeProxyReplacementStrict)
 	finishKubeProxyReplacementInit(isKubeProxyReplacementStrict)
 
 	if k8s.IsEnabled() {

@@ -17,16 +17,20 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
 	"net"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
+	"github.com/cilium/cilium/pkg/datapath/linux/ethtool"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
@@ -37,7 +41,9 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/probe"
 	"github.com/cilium/cilium/pkg/sysctl"
+	"github.com/cilium/cilium/pkg/trigger"
 	"github.com/vishvananda/netlink"
+	"github.com/vishvananda/netns"
 	"golang.org/x/sys/unix"
 )
 
@@ -446,7 +452,7 @@ func probeCgroupSupportUDP(strict, ipv4 bool) error {
 }
 
 // handleNativeDevices tries to detect bpf_host devices (if needed).
-func handleNativeDevices(strict bool) error {
+func handleNativeDevices(ctx context.Context, datapathRegenTrigger *trigger.Trigger, strict bool) error {
 	expandDevices()
 
 	detectNodePortDevs := len(option.Config.Devices) == 0 &&
@@ -456,8 +462,8 @@ func handleNativeDevices(strict bool) error {
 	detectIPv6MCastDev := option.Config.EnableIPv6NDP &&
 		len(option.Config.IPv6MCastDevice) == 0
 	if detectNodePortDevs || detectDirectRoutingDev || detectIPv6MCastDev {
-		if err := detectDevices(detectNodePortDevs, detectDirectRoutingDev, detectIPv6MCastDev); err != nil {
-			msg := "Unable to detect devices to attach Loadbalancer, Host Firewall or Bandwidth Manager program"
+		if err := detectDevicesV2(detectNodePortDevs, detectDirectRoutingDev, detectIPv6MCastDev); err != nil {
+			msg := "Unable to detect devices to which to attach NodePort BPF, Host Firewall or Bandwidth Manager programs"
 			if strict {
 				return fmt.Errorf(msg)
 			} else {
@@ -472,42 +478,11 @@ func handleNativeDevices(strict bool) error {
 			if detectDirectRoutingDev {
 				l = l.WithField(logfields.DirectRoutingDevice, option.Config.DirectRoutingDevice)
 			}
-			l.Info("Using auto-derived devices to attach Loadbalancer, Host Firewall or Bandwidth Manager program")
+			l.Info("Using auto-derived devices to which to attach NodePort BPF, Host Firewall or Bandwidth Manager programs")
 		}
 
-		// XXX: Try the new method and verify that it's strictly additive.
-		priorDetectedDevices := option.Config.Devices
-
-		if err := detectDevicesViaRoutes(detectNodePortDevs, detectDirectRoutingDev, detectIPv6MCastDev); err != nil {
-			msg := "Unable to detect devices to attach Loadbalancer, Host Firewall or Bandwidth Manager program"
-			if strict {
-				return fmt.Errorf(msg)
-			} else {
-				disableNodePort()
-				log.WithError(err).Warn(msg + " Disabling BPF NodePort.")
-			}
-		} else {
-			for _, dev := range priorDetectedDevices {
-				found := false
-				for _, dev2 := range option.Config.Devices {
-					if dev == dev2 {
-						found = true
-						break
-					}
-				}
-				if !found {
-					return fmt.Errorf("detectDevicesViaRoutes did not find device %s that old method found", dev)
-				}
-			}
-
-			l := log
-			if detectNodePortDevs {
-				l = l.WithField(logfields.Devices, option.Config.Devices)
-			}
-			if detectDirectRoutingDev {
-				l = l.WithField(logfields.DirectRoutingDevice, option.Config.DirectRoutingDevice)
-			}
-			l.Info("Using auto-derived devices to attach Loadbalancer, Host Firewall or Bandwidth Manager program")
+		if err := listenForNewDevices(nil, ctx, time.Second, datapathRegenTrigger); err != nil {
+			log.Warnf("Unable to detect new devices at runtime: %s", err)
 		}
 		// </XXX>
 
@@ -676,16 +651,147 @@ func disableNodePort() {
 	option.Config.EnableHostLegacyRouting = true
 }
 
-func detectDevicesViaRoutes(detectNodePortDevs, detectDirectRoutingDev, detectIPv6MCastDev bool) error {
-	excludedPrefixes := []string{
-		"cilium_",
-		"lo",
-		"lxc",
+var excludedDevicePrefixes = []string{
+	"cilium_",
+	"lo",
+	"lxc",
+}
+
+func isViableDevice(link netlink.Link) bool {
+	name := link.Attrs().Name
+
+	// Do not consider any of the excluded devices.
+	for _, p := range excludedDevicePrefixes {
+		if strings.HasPrefix(name, p) {
+			return false
+		}
 	}
 
+	// Skip virtual devices.
+	if virtual, err := ethtool.IsVirtualDriver(name); err == nil && virtual {
+		return false
+	}
+
+	return true
+}
+
+func handleRouteUpdates(datapathRegenTrigger *trigger.Trigger, updates []netlink.RouteUpdate) {
+	linkIndices := make(map[int]struct{})
+
+	// Collect all links mentioned in the route update batch
+	for _, update := range updates {
+		if update.Type != unix.RTM_NEWROUTE {
+			continue
+		}
+
+		// Only consider devices that have global unicast routes,
+		// e.g. skip loopback, multicast and link local routes.
+		if !update.Dst.IP.IsGlobalUnicast() {
+			continue
+		}
+
+		linkIndices[update.LinkIndex] = struct{}{}
+	}
+
+	newDevices := make([]string, 0, len(option.Config.Devices)+len(linkIndices))
+	copy(newDevices, option.Config.Devices)
+
+links:	for linkIndex := range linkIndices {
+		link, err := netlink.LinkByIndex(linkIndex)
+		if err != nil {
+			log.WithError(err).Warnf("Failed to get link by index %d", linkIndex)
+			continue
+		}
+		name := link.Attrs().Name
+
+		// Skip devices we already know.
+		for _, dev := range option.Config.Devices {
+			if name == dev {
+				continue links
+			}
+		}
+
+		if isViableDevice(link) {
+			newDevices = append(newDevices, name)
+		}
+	}
+
+	// Update the device list.
+	// Use a copy instead of mutating in place to protect concurrent readers.
+	if len(newDevices) > len(option.Config.Devices) {
+		sort.Strings(newDevices)
+		option.Config.Devices = newDevices
+
+		// And finally frigger the datapath reload.
+		datapathRegenTrigger.TriggerWithReason("New devices detected")
+	}
+}
+
+func listenForNewDevices(netNS *netns.NsHandle, ctx context.Context, minInterval time.Duration, datapathRegenTrigger *trigger.Trigger) error {
+	updateChan := make(chan netlink.RouteUpdate)
+	doneChan := make(chan struct{})
+	opts := netlink.RouteSubscribeOptions{
+		Namespace:    netNS,
+		ListExisting: false,
+	}
+
+	if err := netlink.RouteSubscribeWithOptions(updateChan, doneChan, opts); err != nil {
+		return err
+	}
+
+	// TODO: Handle removed devices via LinkSubscribe? Is there anything we actually need
+	// to do with them?
+
+	// Unsubscribe when daemon context is cancelled.
+	go func() {
+		<-ctx.Done()
+		close(doneChan)
+	}()
+
+	go func() {
+		// If a specific namespace is requested, lock the thread and set the
+		// threads namespace. This is currently only relevant for testing.
+		if netNS != nil {
+			runtime.LockOSThread()
+			defer runtime.UnlockOSThread()
+			if err := netns.Set(*netNS); err != nil {
+				log.WithError(err).Warnf("Failed to set network namespace")
+			}
+		}
+
+		// Collect route updates into a batch and process the batch every 'minInterval'.
+		ticker := time.NewTicker(minInterval)
+		defer ticker.Stop()
+		buffer := make([]netlink.RouteUpdate, 0)
+
+		for {
+			select {
+			case <-ticker.C:
+				if len(buffer) > 0 {
+					handleRouteUpdates(datapathRegenTrigger, buffer)
+					buffer = make([]netlink.RouteUpdate, 0)
+				}
+			case update, ok := <-updateChan:
+				if !ok {
+					return
+				}
+				buffer = append(buffer, update)
+			}
+		}
+	}()
+
+	return nil
+}
+
+// detectDevicesV2 tries to detect devices which are to be used for:
+// NodePort BPF, direct routing in NodePort BPF and Bandwidth Manager.
+//
+// The devices are detected by looking at all the configured global unicast
+// routes in the system.
+func detectDevicesV2(detectNodePortDevs, detectDirectRoutingDev, detectIPv6MCastDev bool) error {
 	nodeIP := node.GetK8sNodeIP()
 	if nodeIP == nil {
-		return fmt.Errorf("K8s Node IP is not set")
+		return fmt.Errorf("k8s Node IP is not set")
 	}
 
 	candidateLinks := map[int]netlink.Link{}
@@ -694,47 +800,46 @@ func detectDevicesViaRoutes(detectNodePortDevs, detectDirectRoutingDev, detectIP
 	if detectNodePortDevs {
 		routes, err := netlink.RouteList(nil, netlink.FAMILY_ALL)
 		if err != nil {
-			return fmt.Errorf("Cannot retrieve routes for device detection: %s", err)
+			return fmt.Errorf("cannot retrieve routes for device detection: %w", err)
 		}
 
-		// Find all candidate devices by looking at all routes in the system.
+		// Find candidate devices by looking at all global unicast routes in the system.
 		for _, r := range routes {
-			if _, ok := candidateLinks[r.LinkIndex]; !ok {
-				if link, err := netlink.LinkByIndex(r.LinkIndex); err != nil {
-					// FIXME: just skip?
-					return fmt.Errorf("Cannot find device by ifindex %d: %s", r.LinkIndex, err)
-				} else {
-					candidateLinks[r.LinkIndex] = link
-				}
+			if _, ok := candidateLinks[r.LinkIndex]; ok {
+				continue
 			}
-		}
+			if !r.Dst.IP.IsGlobalUnicast() {
+				continue
+			}
+			link, err := netlink.LinkByIndex(r.LinkIndex)
+			if err != nil {
+				log.WithError(err).Warnf("Cannot find device with index %d, skipping it", r.LinkIndex)
+				continue
+			}
+			if !isViableDevice(link) {
+				continue
+			}
 
+			candidateLinks[r.LinkIndex] = link
+		}
 	} else {
 		// Not detecting devices, assume the list of devices was provided by the user.
 		for _, dev := range option.Config.Devices {
 			link, err := netlink.LinkByName(dev)
 			if err != nil {
-				return fmt.Errorf("Cannot find device '%s': %s", dev, err)
+				return fmt.Errorf("cannot find device '%s': %w", dev, err)
 			}
 			candidateLinks[link.Attrs().Index] = link
 		}
 	}
 
 	if len(candidateLinks) == 0 {
-		return fmt.Errorf("Unable to determine BPF NodePort devices. Use --%s to specify them",
+		return fmt.Errorf("unable to determine BPF NodePort devices. Use --%s to specify them",
 			option.Devices)
 	}
 
-links:
 	for _, link := range candidateLinks {
 		name := link.Attrs().Name
-
-		// Do not consider any of the excluded devices.
-		for _, p := range excludedPrefixes {
-			if strings.HasPrefix(name, p) {
-				continue links
-			}
-		}
 
 		if detectDirectRoutingDev || detectIPv6MCastDev {
 			// Check if any of the addresses assigned to this device is the k8s node IP and if so

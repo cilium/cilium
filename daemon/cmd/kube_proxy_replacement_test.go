@@ -17,13 +17,16 @@
 package cmd
 
 import (
+	"context"
 	"net"
 	"runtime"
 	"sort"
+	"time"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/trigger"
 
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
@@ -115,12 +118,12 @@ func (s *KubeProxySuite) TestDetectDevices(c *C) {
 	})
 }
 
-func (s *KubeProxySuite) TestDetectDevicesViaRoutes(c *C) {
+func (s *KubeProxySuite) TestDetectDevicesV2(c *C) {
 	s.withFreshNetNS(c, func() {
 		node.SetK8sNodeIP(net.ParseIP("192.168.0.1"))
 
 		// 1. No devices = impossible to detect
-		c.Assert(detectDevicesViaRoutes(true, true, true), NotNil)
+		c.Assert(detectDevicesV2(true, true, true), NotNil)
 
 		// 3. Direct routing mode, should find all devices and set direct
 		// routing device to the one with k8s node ip.
@@ -131,7 +134,7 @@ func (s *KubeProxySuite) TestDetectDevicesViaRoutes(c *C) {
 		option.Config.EnableIPv4 = true
 		option.Config.EnableIPv6 = false
 		option.Config.Tunnel = option.TunnelDisabled
-		c.Assert(detectDevicesViaRoutes(true, true, false), IsNil)
+		c.Assert(detectDevicesV2(true, true, false), IsNil)
 		c.Assert(option.Config.Devices, checker.DeepEquals, []string{"dummy0", "dummy1", "dummy2"})
 		c.Assert(option.Config.DirectRoutingDevice, Equals, "dummy1")
 
@@ -141,7 +144,7 @@ func (s *KubeProxySuite) TestDetectDevicesViaRoutes(c *C) {
 		c.Assert(createDummy("dummy3", "2001:db8::face/64", true), IsNil)
 		c.Assert(createDummy("cilium_foo", "2001:db8::face/128", true), IsNil)
 		node.SetK8sNodeIP(net.ParseIP("2001:db8::face"))
-		c.Assert(detectDevicesViaRoutes(true, true, true), IsNil)
+		c.Assert(detectDevicesV2(true, true, true), IsNil)
 		c.Assert(option.Config.Devices, checker.DeepEquals, []string{"dummy0", "dummy1", "dummy2", "dummy3"})
 		c.Assert(option.Config.IPv6MCastDevice, checker.DeepEquals, "dummy3")
 	})
@@ -158,6 +161,52 @@ func (s *KubeProxySuite) TestExpandDevices(c *C) {
 		option.Config.Devices = []string{"dummy+", "missing+", "other0+" /* duplicates: */, "dum+", "other0", "other1"}
 		expandDevices()
 		c.Assert(option.Config.Devices, checker.DeepEquals, []string{"dummy0", "dummy1", "other0", "other1"})
+	})
+}
+
+func (s *KubeProxySuite) TestListenForNewDevices(c *C) {
+	s.withFreshNetNS(c, func() {
+		/*c.Assert(createDummy("dummy0", "192.168.0.1/24", false), IsNil)
+		c.Assert(createDummy("dummy1", "192.168.1.2/24", false), IsNil)
+		c.Assert(createDummy("other0", "192.168.2.3/24", false), IsNil)
+		c.Assert(createDummy("other1", "192.168.3.4/24", false), IsNil)
+		c.Assert(createDummy("unmatched", "192.168.4.5/24", false), IsNil)*/
+
+		option.Config.Devices = []string{}
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		updated := make(chan struct{})
+		cb := func(reasons []string) {
+			c.Logf("reasons: %s\n", reasons)
+			updated <- struct{}{}
+		}
+		trigger, err := trigger.NewTrigger(trigger.Parameters{
+			MinInterval: 0,
+			TriggerFunc: cb,
+			Name:        "test",
+		})
+		c.Assert(err, IsNil)
+
+		netns, err := netns.Get()
+		c.Assert(err, IsNil)
+
+		err = listenForNewDevices(&netns, ctx, time.Millisecond*100, trigger)
+		c.Assert(err, IsNil)
+
+		c.Assert(option.Config.Devices, checker.DeepEquals, []string{})
+
+		c.Assert(createDummy("dummy0", "192.168.1.2/24", false), IsNil)
+
+		// Create another device without an IP address or routes. This should be ignored.
+		c.Assert(createDummy("dummy1", "", false), IsNil)
+
+		select {
+		case <-time.After(time.Second):
+			c.Fatal("Test timed out")
+		case <-updated:
+			c.Assert(option.Config.Devices, checker.DeepEquals, []string{"dummy0"})
+		}
 	})
 }
 
@@ -193,14 +242,16 @@ func createDummy(iface, ipAddr string, ipv6Enabled bool) error {
 		return err
 	}
 
-	ip, ipnet, err := net.ParseCIDR(ipAddr)
-	if err != nil {
-		return err
-	}
-	ipnet.IP = ip
+	if ipAddr != "" {
+		ip, ipnet, err := net.ParseCIDR(ipAddr)
+		if err != nil {
+			return err
+		}
+		ipnet.IP = ip
 
-	if err := netlink.AddrAdd(link, &netlink.Addr{IPNet: ipnet}); err != nil {
-		return err
+		if err := netlink.AddrAdd(link, &netlink.Addr{IPNet: ipnet}); err != nil {
+			return err
+		}
 	}
 
 	if err := netlink.LinkSetUp(link); err != nil {
