@@ -38,6 +38,12 @@ func (o *PatchEndpointIDReader) ReadResponse(response runtime.ClientResponse, co
 			return nil, err
 		}
 		return nil, result
+	case 403:
+		result := NewPatchEndpointIDForbidden()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	case 404:
 		result := NewPatchEndpointIDNotFound()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -169,6 +175,57 @@ func (o *PatchEndpointIDInvalid) readResponse(response runtime.ClientResponse, c
 	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && err != io.EOF {
 		return err
 	}
+
+	return nil
+}
+
+// NewPatchEndpointIDForbidden creates a PatchEndpointIDForbidden with default headers values
+func NewPatchEndpointIDForbidden() *PatchEndpointIDForbidden {
+	return &PatchEndpointIDForbidden{}
+}
+
+/*
+PatchEndpointIDForbidden describes a response with status code 403, with default header values.
+
+Forbidden
+*/
+type PatchEndpointIDForbidden struct {
+}
+
+// IsSuccess returns true when this patch endpoint Id forbidden response has a 2xx status code
+func (o *PatchEndpointIDForbidden) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this patch endpoint Id forbidden response has a 3xx status code
+func (o *PatchEndpointIDForbidden) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this patch endpoint Id forbidden response has a 4xx status code
+func (o *PatchEndpointIDForbidden) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this patch endpoint Id forbidden response has a 5xx status code
+func (o *PatchEndpointIDForbidden) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this patch endpoint Id forbidden response a status code equal to that given
+func (o *PatchEndpointIDForbidden) IsCode(code int) bool {
+	return code == 403
+}
+
+func (o *PatchEndpointIDForbidden) Error() string {
+	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdForbidden ", 403)
+}
+
+func (o *PatchEndpointIDForbidden) String() string {
+	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdForbidden ", 403)
+}
+
+func (o *PatchEndpointIDForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	return nil
 }

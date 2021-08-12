@@ -38,6 +38,12 @@ func (o *PatchEndpointIDConfigReader) ReadResponse(response runtime.ClientRespon
 			return nil, err
 		}
 		return nil, result
+	case 403:
+		result := NewPatchEndpointIDConfigForbidden()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	case 404:
 		result := NewPatchEndpointIDConfigNotFound()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -159,6 +165,57 @@ func (o *PatchEndpointIDConfigInvalid) String() string {
 }
 
 func (o *PatchEndpointIDConfigInvalid) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	return nil
+}
+
+// NewPatchEndpointIDConfigForbidden creates a PatchEndpointIDConfigForbidden with default headers values
+func NewPatchEndpointIDConfigForbidden() *PatchEndpointIDConfigForbidden {
+	return &PatchEndpointIDConfigForbidden{}
+}
+
+/*
+PatchEndpointIDConfigForbidden describes a response with status code 403, with default header values.
+
+Forbidden
+*/
+type PatchEndpointIDConfigForbidden struct {
+}
+
+// IsSuccess returns true when this patch endpoint Id config forbidden response has a 2xx status code
+func (o *PatchEndpointIDConfigForbidden) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this patch endpoint Id config forbidden response has a 3xx status code
+func (o *PatchEndpointIDConfigForbidden) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this patch endpoint Id config forbidden response has a 4xx status code
+func (o *PatchEndpointIDConfigForbidden) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this patch endpoint Id config forbidden response has a 5xx status code
+func (o *PatchEndpointIDConfigForbidden) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this patch endpoint Id config forbidden response a status code equal to that given
+func (o *PatchEndpointIDConfigForbidden) IsCode(code int) bool {
+	return code == 403
+}
+
+func (o *PatchEndpointIDConfigForbidden) Error() string {
+	return fmt.Sprintf("[PATCH /endpoint/{id}/config][%d] patchEndpointIdConfigForbidden ", 403)
+}
+
+func (o *PatchEndpointIDConfigForbidden) String() string {
+	return fmt.Sprintf("[PATCH /endpoint/{id}/config][%d] patchEndpointIdConfigForbidden ", 403)
+}
+
+func (o *PatchEndpointIDConfigForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	return nil
 }

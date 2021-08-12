@@ -38,6 +38,12 @@ func (o *PatchConfigReader) ReadResponse(response runtime.ClientResponse, consum
 			return nil, err
 		}
 		return nil, result
+	case 403:
+		result := NewPatchConfigForbidden()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	case 500:
 		result := NewPatchConfigFailure()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -157,6 +163,57 @@ func (o *PatchConfigBadRequest) readResponse(response runtime.ClientResponse, co
 	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && err != io.EOF {
 		return err
 	}
+
+	return nil
+}
+
+// NewPatchConfigForbidden creates a PatchConfigForbidden with default headers values
+func NewPatchConfigForbidden() *PatchConfigForbidden {
+	return &PatchConfigForbidden{}
+}
+
+/*
+PatchConfigForbidden describes a response with status code 403, with default header values.
+
+Forbidden
+*/
+type PatchConfigForbidden struct {
+}
+
+// IsSuccess returns true when this patch config forbidden response has a 2xx status code
+func (o *PatchConfigForbidden) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this patch config forbidden response has a 3xx status code
+func (o *PatchConfigForbidden) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this patch config forbidden response has a 4xx status code
+func (o *PatchConfigForbidden) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this patch config forbidden response has a 5xx status code
+func (o *PatchConfigForbidden) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this patch config forbidden response a status code equal to that given
+func (o *PatchConfigForbidden) IsCode(code int) bool {
+	return code == 403
+}
+
+func (o *PatchConfigForbidden) Error() string {
+	return fmt.Sprintf("[PATCH /config][%d] patchConfigForbidden ", 403)
+}
+
+func (o *PatchConfigForbidden) String() string {
+	return fmt.Sprintf("[PATCH /config][%d] patchConfigForbidden ", 403)
+}
+
+func (o *PatchConfigForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	return nil
 }

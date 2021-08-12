@@ -61,6 +61,31 @@ func (o *PatchPrefilterOK) WriteResponse(rw http.ResponseWriter, producer runtim
 	}
 }
 
+// PatchPrefilterForbiddenCode is the HTTP code returned for type PatchPrefilterForbidden
+const PatchPrefilterForbiddenCode int = 403
+
+/*
+PatchPrefilterForbidden Forbidden
+
+swagger:response patchPrefilterForbidden
+*/
+type PatchPrefilterForbidden struct {
+}
+
+// NewPatchPrefilterForbidden creates PatchPrefilterForbidden with default headers values
+func NewPatchPrefilterForbidden() *PatchPrefilterForbidden {
+
+	return &PatchPrefilterForbidden{}
+}
+
+// WriteResponse to the client
+func (o *PatchPrefilterForbidden) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
+	rw.WriteHeader(403)
+}
+
 // PatchPrefilterInvalidCIDRCode is the HTTP code returned for type PatchPrefilterInvalidCIDR
 const PatchPrefilterInvalidCIDRCode int = 461
 

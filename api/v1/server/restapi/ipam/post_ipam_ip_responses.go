@@ -66,6 +66,31 @@ func (o *PostIpamIPInvalid) WriteResponse(rw http.ResponseWriter, producer runti
 	rw.WriteHeader(400)
 }
 
+// PostIpamIPForbiddenCode is the HTTP code returned for type PostIpamIPForbidden
+const PostIpamIPForbiddenCode int = 403
+
+/*
+PostIpamIPForbidden Forbidden
+
+swagger:response postIpamIpForbidden
+*/
+type PostIpamIPForbidden struct {
+}
+
+// NewPostIpamIPForbidden creates PostIpamIPForbidden with default headers values
+func NewPostIpamIPForbidden() *PostIpamIPForbidden {
+
+	return &PostIpamIPForbidden{}
+}
+
+// WriteResponse to the client
+func (o *PostIpamIPForbidden) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
+	rw.WriteHeader(403)
+}
+
 // PostIpamIPExistsCode is the HTTP code returned for type PostIpamIPExists
 const PostIpamIPExistsCode int = 409
 
