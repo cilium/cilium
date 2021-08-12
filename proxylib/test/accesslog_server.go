@@ -20,7 +20,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -36,7 +35,7 @@ import (
 type AccessLogServer struct {
 	Path     string
 	Logs     chan cilium.EntryType
-	closing  uint32 // non-zero if closing, accessed atomically
+	done     chan struct{}
 	listener *net.UnixListener
 	mu       lock.Mutex // protects conns
 	conns    []*net.UnixConn
@@ -45,7 +44,7 @@ type AccessLogServer struct {
 // Close removes the unix domain socket from the filesystem
 func (s *AccessLogServer) Close() {
 	if s != nil {
-		atomic.StoreUint32(&s.closing, 1)
+		close(s.done)
 		s.listener.Close()
 		s.mu.Lock()
 		for _, conn := range s.conns {
@@ -53,6 +52,15 @@ func (s *AccessLogServer) Close() {
 		}
 		s.mu.Unlock()
 		os.Remove(s.Path)
+	}
+}
+
+func (s *AccessLogServer) isClosing() bool {
+	select {
+	case <-s.done:
+		return true
+	default:
+		return false
 	}
 }
 
@@ -82,6 +90,7 @@ func StartAccessLogServer(accessLogName string, bufSize int) *AccessLogServer {
 	server := &AccessLogServer{
 		Path: accessLogPath,
 		Logs: make(chan cilium.EntryType, bufSize),
+		done: make(chan struct{}),
 	}
 
 	// Create the access log listener
@@ -107,7 +116,7 @@ func StartAccessLogServer(accessLogName string, bufSize int) *AccessLogServer {
 			uc, err := server.listener.AcceptUnix()
 			if err != nil {
 				// These errors are expected when we are closing down
-				if atomic.LoadUint32(&server.closing) != 0 ||
+				if server.isClosing() ||
 					errors.Is(err, net.ErrClosed) ||
 					errors.Is(err, syscall.EINVAL) {
 					break
@@ -116,7 +125,7 @@ func StartAccessLogServer(accessLogName string, bufSize int) *AccessLogServer {
 				continue
 			}
 
-			if atomic.LoadUint32(&server.closing) != 0 {
+			if server.isClosing() {
 				break
 			}
 
@@ -151,7 +160,7 @@ func (s *AccessLogServer) accessLogger(conn *net.UnixConn) {
 	for {
 		n, _, flags, _, err := conn.ReadMsgUnix(buf, nil)
 		if err != nil {
-			if !isEOF(err) && atomic.LoadUint32(&s.closing) == 0 {
+			if !isEOF(err) && !s.isClosing() {
 				log.WithError(err).Error("Error while reading from access log connection")
 			}
 			break
