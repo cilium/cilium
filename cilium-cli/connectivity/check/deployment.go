@@ -502,13 +502,13 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 
 // Validate that kube-dns responds and knows about cluster services
 func (ct *ConnectivityTest) waitForDNS(ctx context.Context, pod Pod) error {
-	ct.Logf("⌛ [%s] Waiting for pod %s to reach kube-dns service...", ct.client.ClusterName(), pod.Name())
+	ct.Logf("⌛ [%s] Waiting for pod %s to reach default/kubernetes service...", ct.client.ClusterName(), pod.Name())
 
 	for {
 		// Don't retry lookups more often than once per second.
 		r := time.After(time.Second)
 
-		target := "kube-dns.kube-system.svc.cluster.local"
+		target := "kubernetes.default"
 		stdout, err := pod.K8sClient.ExecInPodWithTTY(ctx, pod.Pod.Namespace, pod.Pod.Name,
 			"", []string{"nslookup", target})
 		if err == nil {
