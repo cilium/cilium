@@ -457,7 +457,7 @@ int sock4_connect(struct bpf_sock_addr *ctx)
 	return SYS_PROCEED;
 }
 
-#if defined(ENABLE_NODEPORT) || defined(ENABLE_EXTERNAL_IP)
+#ifdef ENABLE_NODEPORT
 static __always_inline int __sock4_post_bind(struct bpf_sock *ctx,
 					     struct bpf_sock *ctx_full)
 {
@@ -499,7 +499,7 @@ int sock4_post_bind(struct bpf_sock *ctx)
 
 	return SYS_PROCEED;
 }
-#endif /* ENABLE_NODEPORT || ENABLE_EXTERNAL_IP */
+#endif /* ENABLE_NODEPORT */
 
 #ifdef ENABLE_HEALTH_CHECK
 static __always_inline void sock4_auto_bind(struct bpf_sock_addr *ctx)
@@ -793,7 +793,7 @@ int sock6_xlate_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused,
 	return -ENXIO;
 }
 
-#if defined(ENABLE_NODEPORT) || defined(ENABLE_EXTERNAL_IP)
+#ifdef ENABLE_NODEPORT
 static __always_inline int
 sock6_post_bind_v4_in_v6(struct bpf_sock *ctx __maybe_unused)
 {
@@ -851,7 +851,7 @@ int sock6_post_bind(struct bpf_sock *ctx)
 
 	return SYS_PROCEED;
 }
-#endif /* ENABLE_NODEPORT || ENABLE_EXTERNAL_IP */
+#endif /* ENABLE_NODEPORT */
 
 #ifdef ENABLE_HEALTH_CHECK
 static __always_inline int
