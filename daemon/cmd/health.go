@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/cleanup"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -50,7 +51,7 @@ func (d *Daemon) initHealth() {
 	// Wait for the API, then launch the controller
 	var client *health.Client
 
-	controller.NewManager().UpdateController("cilium-health-ep",
+	controller.NewManager().UpdateController(defaults.HealthEPName,
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
 				var err error

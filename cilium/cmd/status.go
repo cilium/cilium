@@ -14,6 +14,7 @@ import (
 	pkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/command"
 	healthPkg "github.com/cilium/cilium/pkg/health/client"
+	"github.com/cilium/cilium/pkg/health/defaults"
 
 	"github.com/spf13/cobra"
 )
@@ -95,7 +96,18 @@ func statusDaemon() {
 			os.Exit(1)
 		}
 
-		healthPkg.GetAndFormatHealthStatus(w, true, allHealth, healthLines)
+		healthEnabled := false
+		for _, c := range sr.Controllers {
+			if c.Name == defaults.HealthEPName {
+				healthEnabled = true
+				break
+			}
+		}
+		if healthEnabled {
+			healthPkg.GetAndFormatHealthStatus(w, true, allHealth, healthLines)
+		} else {
+			fmt.Fprint(w, "Cluster health:\t\tProbe disabled\n")
+		}
 		w.Flush()
 	}
 }
