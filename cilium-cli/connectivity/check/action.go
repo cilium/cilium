@@ -430,7 +430,6 @@ func (a *Action) GetEgressRequirements(p FlowParameters) (reqs []filters.FlowSet
 	default:
 		a.Failf("Invalid egress flow matching protocol %d", p.Protocol)
 	}
-	reqs = append(reqs, egress)
 
 	if p.DNSRequired || a.expEgress.DNSProxy {
 		// Override to allow for any DNS server
@@ -453,6 +452,7 @@ func (a *Action) GetEgressRequirements(p FlowParameters) (reqs []filters.FlowSet
 
 		reqs = append(reqs, dns)
 	}
+	reqs = append(reqs, egress)
 
 	return reqs
 }
