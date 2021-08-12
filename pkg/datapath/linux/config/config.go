@@ -270,7 +270,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			}
 		}
 		cDefinesMap["ENABLE_NODEPORT"] = "1"
-		cDefinesMap["ENABLE_LOADBALANCER"] = "1"
 		if option.Config.EnableIPv4 {
 			cDefinesMap["NODEPORT_NEIGH4"] = neighborsmap.Map4Name
 			cDefinesMap["NODEPORT_NEIGH4_SIZE"] = fmt.Sprintf("%d", option.Config.NeighMapEntriesGlobal)
@@ -354,12 +353,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 		if option.Config.NodePortHairpin {
 			cDefinesMap["ENABLE_NODEPORT_HAIRPIN"] = "1"
-		}
-		if option.Config.EnableExternalIPs {
-			cDefinesMap["ENABLE_EXTERNAL_IP"] = "1"
-		}
-		if option.Config.EnableHostPort {
-			cDefinesMap["ENABLE_HOSTPORT"] = "1"
 		}
 		if !option.Config.EnableHostLegacyRouting {
 			cDefinesMap["ENABLE_REDIRECT_FAST"] = "1"

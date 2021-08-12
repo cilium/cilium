@@ -199,21 +199,13 @@ struct bpf_elf_map __section_maps LB_AFFINITY_MATCH_MAP = {
 static __always_inline
 bool lb4_svc_is_loadbalancer(const struct lb4_service *svc __maybe_unused)
 {
-#ifdef ENABLE_LOADBALANCER
 	return svc->flags & SVC_FLAG_LOADBALANCER;
-#else
-	return false;
-#endif /* ENABLE_LOADBALANCER */
 }
 
 static __always_inline
 bool lb6_svc_is_loadbalancer(const struct lb6_service *svc __maybe_unused)
 {
-#ifdef ENABLE_LOADBALANCER
 	return svc->flags & SVC_FLAG_LOADBALANCER;
-#else
-	return false;
-#endif /* ENABLE_LOADBALANCER */
 }
 
 static __always_inline
@@ -239,41 +231,25 @@ bool lb6_svc_is_nodeport(const struct lb6_service *svc __maybe_unused)
 static __always_inline
 bool lb4_svc_is_external_ip(const struct lb4_service *svc __maybe_unused)
 {
-#ifdef ENABLE_EXTERNAL_IP
 	return svc->flags & SVC_FLAG_EXTERNAL_IP;
-#else
-	return false;
-#endif
 }
 
 static __always_inline
 bool lb6_svc_is_external_ip(const struct lb6_service *svc __maybe_unused)
 {
-#ifdef ENABLE_EXTERNAL_IP
 	return svc->flags & SVC_FLAG_EXTERNAL_IP;
-#else
-	return false;
-#endif
 }
 
 static __always_inline
 bool lb4_svc_is_hostport(const struct lb4_service *svc __maybe_unused)
 {
-#ifdef ENABLE_HOSTPORT
 	return svc->flags & SVC_FLAG_HOSTPORT;
-#else
-	return false;
-#endif /* ENABLE_HOSTPORT */
 }
 
 static __always_inline
 bool lb6_svc_is_hostport(const struct lb6_service *svc __maybe_unused)
 {
-#ifdef ENABLE_HOSTPORT
 	return svc->flags & SVC_FLAG_HOSTPORT;
-#else
-	return false;
-#endif /* ENABLE_HOSTPORT */
 }
 
 static __always_inline
