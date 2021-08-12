@@ -34,7 +34,6 @@ var (
 
 func newCmdSysdump() *cobra.Command {
 	cmd := &cobra.Command{
-		Hidden: true,
 		Use:    "sysdump",
 		Short:  "Collects information required to troubleshoot issues with Cilium and Hubble",
 		Long:   ``,
