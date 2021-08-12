@@ -4,7 +4,7 @@
 include ../Makefile.defs
 include ../Makefile.quiet
 
-.PHONY: default clean builder-image cmdref epub latex html run-server stop-server
+.PHONY: default clean builder-image cilium-build cmdref epub latex html run-server stop-server
 
 default: html
 
@@ -17,6 +17,11 @@ builder-image: Dockerfile requirements.txt
 	$(QUIET)tar c requirements.txt Dockerfile \
 	  | $(CONTAINER_ENGINE) build --tag cilium/docs-builder -
 
+# cilium must have all build artifacts present for
+# documentation to be generated correctly.
+cilium-build:
+	make -C ../ build
+
 READTHEDOCS_VERSION:=$(READTHEDOCS_VERSION)
 DOCKER_CTR_ROOT_DIR := /src
 DOCKER_CTR := $(CONTAINER_ENGINE) container run --rm \
@@ -27,7 +32,7 @@ DOCKER_CTR := $(CONTAINER_ENGINE) container run --rm \
 		--user "$(shell id -u):$(shell id -g)"
 DOCKER_RUN := $(DOCKER_CTR) cilium/docs-builder
 
-update-cmdref: builder-image
+update-cmdref: builder-image cilium-build
 	@$(ECHO_GEN)cmdref
 	-$(QUIET)rm -rf cmdref/cilium*.md
 	$(QUIET)$(DOCKER_RUN) ./update-cmdref.sh
