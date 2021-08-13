@@ -76,10 +76,32 @@ process for backporting these PRs:
 One-time Setup
 ~~~~~~~~~~~~~~
 
+#. Make sure you have a GitHub developer access token with the ``public_repos``
+   ``workflow`` scopes available. You can do this directly from
+   https://github.com/settings/tokens or by opening GitHub and then navigating
+   to: User Profile -> Settings -> Developer Settings -> Personal access token
+   -> Generate new token.
+
 #. The scripts referred to below need to be run on Linux, they do not work on
-   macOS. It is recommended to use the dev VM (``contrib/vagrant/start.sh``),
-   as it will have all the correct versions of dependencies / libraries. Once
-   you have a machine ready, you need to configure git to have your name and
+   macOS. It is recommended to create a container using (``contrib/backporting/Dockerfile``),
+   as it will have all the correct versions of dependencies / libraries.
+
+   .. code-block:: shell-session
+
+      $ export GITHUB_TOKEN=<YOUR_GITHUB_TOKEN>
+
+      $ docker build -t cilium-backport contrib/backporting/.
+
+      $ docker run -e GITHUB_TOKEN -v $(pwd):/cilium -v "$HOME/.ssh":/home/user/.ssh \
+            -it cilium-backport /bin/bash
+
+   .. note::
+
+      If you are running on a mac OS, and see ``/home/user/.ssh/config: line 3:
+      Bad configuration option: usekeychain`` error message while running any of
+      the backporting scripts, comment out the line ``UseKeychain yes``.
+
+#. Once you have a setup ready, you need to configure git to have your name and
    email address to be used in the commit messages:
 
    .. code-block:: shell-session
@@ -94,13 +116,8 @@ One-time Setup
       $ git remote add johndoe git@github.com:johndoe/cilium.git
       $ git remote add upstream https://github.com/cilium/cilium.git
 
-#. Make sure you have a GitHub developer access token with the ``public_repos``
-   ``workflow`` scopes available. You can do this directly from
-   https://github.com/settings/tokens or by opening GitHub and then navigating
-   to: User Profile -> Settings -> Developer Settings -> Personal access token
-   -> Generate new token.
-
-#. This guide makes use of several tools to automate the backporting process.
+#. Skip this step if you have created a setup using the pre-defined Dockerfile.
+   This guide makes use of several tools to automate the backporting process.
    The basics require ``bash`` and ``git``, but to automate interactions with
    github, further tools are required.
 
