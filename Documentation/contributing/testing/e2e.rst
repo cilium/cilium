@@ -72,7 +72,7 @@ here is an example showing what tests will be ran using Ginkgo's dryRun option:
 
 .. code-block:: shell-session
 
-    $ ginkgo --focus="Runtime" -dryRun
+    $ ginkgo --focus="Runtime" -dryRun --tags=integration_tests
     Running Suite: runtime
     ======================
     Random Seed: 1516125117
@@ -444,7 +444,7 @@ Example how to run ginkgo using ``dlv``:
 
 .. code-block:: shell-session
 
-	dlv test . -- --ginkgo.focus="Runtime" -ginkgo.v=true --cilium.provision=false
+	dlv test . --build-flags="-tags=integration_tests" -- --ginkgo.focus="Runtime" -ginkgo.v=true --cilium.provision=false
 
 Running End-To-End Tests In Other Environments via kubeconfig
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -479,7 +479,7 @@ An example invocation is
 
 .. code-block:: shell-session
 
-  CNI_INTEGRATION=eks K8S_VERSION=1.16 ginkgo --focus="K8s" -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="quay.io/cilium/cilium-ci" -cilium.operator-image="quay.io/cilium/operator" -cilium.operator-suffix="-ci" -cilium.passCLIEnvironment=true
+  CNI_INTEGRATION=eks K8S_VERSION=1.16 ginkgo --focus="K8s" --tags=integration_tests -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="quay.io/cilium/cilium-ci" -cilium.operator-image="quay.io/cilium/operator" -cilium.operator-suffix="-ci" -cilium.passCLIEnvironment=true
 
 Running in GKE
 ^^^^^^^^^^^^^^
@@ -507,7 +507,7 @@ cluster.
   export CLUSTER_ZONE=us-west2-a
   export NATIVE_CIDR="$(gcloud container clusters describe $CLUSTER_NAME --zone $CLUSTER_ZONE --format 'value(clusterIpv4Cidr)')"
 
-  CNI_INTEGRATION=gke K8S_VERSION=1.17 ginkgo --focus="K8sDemo" -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="quay.io/cilium/cilium-ci" -cilium.operator-image="quay.io/cilium/operator" -cilium.operator-suffix="-ci" -cilium.hubble-relay-image="quay.io/cilium/hubble-relay-ci" -cilium.passCLIEnvironment=true
+  CNI_INTEGRATION=gke K8S_VERSION=1.17 ginkgo --focus="K8sDemo" --tags=integration_tests -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="quay.io/cilium/cilium-ci" -cilium.operator-image="quay.io/cilium/operator" -cilium.operator-suffix="-ci" -cilium.hubble-relay-image="quay.io/cilium/hubble-relay-ci" -cilium.passCLIEnvironment=true
 
 .. note:: The kubernetes version defaults to 1.21 but can be configured with
           versions between 1.16 and 1.21. Version should match the server
@@ -596,7 +596,7 @@ To run this you can use the following command:
 
 .. code-block:: shell-session
 
-    ginkgo -- --cilium.provision=false --cilium.SSHConfig="cat ssh-config"
+    ginkgo --tags=integration_tests -- --cilium.provision=false --cilium.SSHConfig="cat ssh-config"
 
 
 VMs for Testing
