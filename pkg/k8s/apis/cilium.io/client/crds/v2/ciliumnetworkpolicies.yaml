@@ -10,6 +10,9 @@ metadata:
 spec:
   group: cilium.io
   names:
+    categories:
+    - cilium
+    - ciliumpolicy
     kind: CiliumNetworkPolicy
     listKind: CiliumNetworkPolicyList
     plural: ciliumnetworkpolicies
