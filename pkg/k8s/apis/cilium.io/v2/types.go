@@ -19,7 +19,7 @@ import (
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=false
-// +kubebuilder:resource:singular="ciliumendpoint",path="ciliumendpoints",scope="Namespaced",shortName={cep,ciliumep}
+// +kubebuilder:resource:categories={cilium},singular="ciliumendpoint",path="ciliumendpoints",scope="Namespaced",shortName={cep,ciliumep}
 // +kubebuilder:printcolumn:JSONPath=".status.id",description="Cilium endpoint id",name="Endpoint ID",type=integer
 // +kubebuilder:printcolumn:JSONPath=".status.identity.id",description="Cilium identity id",name="Identity ID",type=integer
 // +kubebuilder:printcolumn:JSONPath=".status.policy.ingress.enforcing",description="Ingress enforcement in the endpoint",name="Ingress Enforcement",type=boolean
@@ -206,7 +206,7 @@ type EndpointIdentity struct {
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:resource:singular="ciliumidentity",path="ciliumidentities",scope="Cluster",shortName={ciliumid}
+// +kubebuilder:resource:categories={cilium},singular="ciliumidentity",path="ciliumidentities",scope="Cluster",shortName={ciliumid}
 // +kubebuilder:printcolumn:JSONPath=".metadata.labels.io\\.kubernetes\\.pod\\.namespace",description="The namespace of the entity",name="Namespace",type=string
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",description="The age of the identity",name="Age",type=date
 // +kubebuilder:subresource:status
@@ -304,7 +304,7 @@ type CiliumEndpointList struct {
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:resource:singular="ciliumnode",path="ciliumnodes",scope="Cluster",shortName={cn,ciliumn}
+// +kubebuilder:resource:categories={cilium},singular="ciliumnode",path="ciliumnodes",scope="Cluster",shortName={cn,ciliumn}
 // +kubebuilder:storageversion
 // +kubebuilder:subresource:status
 

@@ -22,7 +22,7 @@ import (
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +deepequal-gen:private-method=true
-// +kubebuilder:resource:singular="ciliumnetworkpolicy",path="ciliumnetworkpolicies",scope="Namespaced",shortName={cnp,ciliumnp}
+// +kubebuilder:resource:categories={cilium,ciliumpolicy},singular="ciliumnetworkpolicy",path="ciliumnetworkpolicies",scope="Namespaced",shortName={cnp,ciliumnp}
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion

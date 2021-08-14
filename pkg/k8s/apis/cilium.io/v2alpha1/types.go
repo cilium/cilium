@@ -4,14 +4,15 @@
 package v2alpha1
 
 import (
-	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:resource:singular="ciliumegressnatpolicy",path="ciliumegressnatpolicies",scope="Cluster"
+// +kubebuilder:resource:categories={cilium,ciliumpolicy},singular="ciliumegressnatpolicy",path="ciliumegressnatpolicies",scope="Cluster"
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",description="The age of the identity",name="Age",type=date
 // +kubebuilder:storageversion
 
