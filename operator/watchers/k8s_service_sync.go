@@ -51,7 +51,7 @@ var (
 	kvs               *store.SharedStore
 	sharedOnly        bool
 
-	serviceSubscribers = subscriber.NewService()
+	serviceSubscribers = subscriber.NewServiceChain()
 )
 
 func k8sServiceHandler(clusterName string) {
@@ -198,7 +198,7 @@ func InitServiceWatcher(
 				AddFunc: func(obj interface{}) {
 					metrics.EventTSK8s.SetToCurrentTime()
 					if k8sSvc := k8s.ObjToV1Services(obj); k8sSvc != nil {
-						serviceSubscribers.NotifyAdd(k8sSvc)
+						serviceSubscribers.OnAddService(k8sSvc)
 					}
 				},
 				UpdateFunc: func(oldObj, newObj interface{}) {
@@ -208,7 +208,7 @@ func InitServiceWatcher(
 							if oldk8sSvc.DeepEqual(newk8sSvc) {
 								return
 							}
-							serviceSubscribers.NotifyUpdate(oldk8sSvc, newk8sSvc)
+							serviceSubscribers.OnUpdateService(oldk8sSvc, newk8sSvc)
 						}
 					}
 				},
@@ -218,7 +218,7 @@ func InitServiceWatcher(
 					if k8sSvc == nil {
 						return
 					}
-					serviceSubscribers.NotifyDelete(k8sSvc)
+					serviceSubscribers.OnDeleteService(k8sSvc)
 				},
 			},
 			nil,
