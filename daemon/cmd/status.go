@@ -172,6 +172,21 @@ func (d *Daemon) getHostRoutingStatus() *models.HostRouting {
 	return s
 }
 
+func (d *Daemon) getHostFirewallStatus() *models.HostFirewall {
+	mode := models.HostFirewallModeDisabled
+	if option.Config.EnableHostFirewall {
+		mode = models.HostFirewallModeEnabled
+	}
+	devices := make([]string, len(option.Config.Devices))
+	for i, iface := range option.Config.Devices {
+		devices[i] = iface
+	}
+	return &models.HostFirewall{
+		Mode:    mode,
+		Devices: devices,
+	}
+}
+
 func (d *Daemon) getClockSourceStatus() *models.ClockSource {
 	s := &models.ClockSource{Mode: models.ClockSourceModeKtime}
 	if option.Config.ClockSource == option.ClockSourceJiffies {
@@ -961,6 +976,7 @@ func (d *Daemon) startStatusCollector() {
 
 	d.statusResponse.Masquerading = d.getMasqueradingStatus()
 	d.statusResponse.BandwidthManager = d.getBandwidthManagerStatus()
+	d.statusResponse.HostFirewall = d.getHostFirewallStatus()
 	d.statusResponse.HostRouting = d.getHostRoutingStatus()
 	d.statusResponse.ClockSource = d.getClockSourceStatus()
 	d.statusResponse.BpfMaps = d.getBPFMapStatus()

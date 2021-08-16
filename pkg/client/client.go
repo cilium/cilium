@@ -303,6 +303,13 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		fmt.Fprintf(w, "KubeProxyReplacement:\t%s\t%s\n",
 			sr.KubeProxyReplacement.Mode, devices)
 	}
+	if sr.HostFirewall != nil {
+		fmt.Fprintf(w, "Host firewall:\t%s", sr.HostFirewall.Mode)
+		if sr.HostFirewall.Mode != models.HostFirewallModeDisabled {
+			fmt.Fprintf(w, "\t[%s]", strings.Join(sr.HostFirewall.Devices, ", "))
+		}
+		fmt.Fprintf(w, "\n")
+	}
 	if sr.Cilium != nil {
 		fmt.Fprintf(w, "Cilium:\t%s   %s\n", sr.Cilium.State, sr.Cilium.Msg)
 	}
