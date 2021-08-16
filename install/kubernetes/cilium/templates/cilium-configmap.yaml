@@ -750,11 +750,17 @@ data:
   enable-custom-calls: {{ .Values.customCalls.enabled | quote }}
 {{- end }}
 
-{{- if and .Values.bgp.enabled (not .Values.bgp.announce.loadbalancerIP) }}
+{{- if and .Values.bgp.enabled (and (not .Values.bgp.announce.loadbalancerIP) (not .Values.bgp.announce.podCIDR)) }}
   {{ fail "BGP was enabled, but no announcements were enabled. Please enable one or more announcements." }}
-{{- else if and .Values.bgp.enabled .Values.bgp.announce.loadbalancerIP }}
+{{- end }}
+
+{{- if and .Values.bgp.enabled .Values.bgp.announce.loadbalancerIP }}
   bgp-announce-lb-ip: {{ .Values.bgp.announce.loadbalancerIP | quote }}
 {{- end }}
+
+{{- if and .Values.bgp.enabled .Values.bgp.announce.podCIDR }}
+  bgp-announce-pod-cidr: {{ .Values.bgp.announce.podCIDR | quote }}
+{{- end}}
 
 {{- if hasKey .Values.cgroup "hostRoot" }}
   cgroup-root: {{ .Values.cgroup.hostRoot | quote }}
