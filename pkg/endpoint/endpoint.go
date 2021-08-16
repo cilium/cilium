@@ -1724,6 +1724,27 @@ func (e *Endpoint) UpdateLabels(ctx context.Context, identityLabels, infoLabels 
 	return false
 }
 
+// UpdateLabelsFrom is a convenience function to update an endpoint's identity
+// labels from any source.
+func (e *Endpoint) UpdateLabelsFrom(oldLbls, newLbls map[string]string, source string) error {
+	newLabels := labels.Map2Labels(newLbls, source)
+	newIdtyLabels, _ := labelsfilter.Filter(newLabels)
+	oldLabels := labels.Map2Labels(oldLbls, source)
+	oldIdtyLabels, _ := labelsfilter.Filter(oldLabels)
+
+	err := e.ModifyIdentityLabels(newIdtyLabels, oldIdtyLabels)
+	if err != nil {
+		log.WithError(err).Debugf("Error while updating endpoint with new labels")
+		return err
+	}
+
+	log.WithFields(logrus.Fields{
+		logfields.EndpointID: e.GetID(),
+		logfields.Labels:     logfields.Repr(newIdtyLabels),
+	}).Debug("Updated endpoint with new labels")
+	return nil
+}
+
 func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
 	// Check if the endpoint has since received a new identity revision, if
 	// so, abort as a new resolution routine will have been started.

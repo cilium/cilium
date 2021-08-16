@@ -11,9 +11,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/informer"
-	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
-	"github.com/cilium/cilium/pkg/option"
 
 	v1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -30,8 +28,6 @@ var (
 	onceNodeInitStart sync.Once
 )
 
-// NodesInit initializes a k8s watcher for node events belonging to the node
-// where Cilium is running.
 func (k *K8sWatcher) NodesInit(k8sClient *k8s.K8sClient) {
 	onceNodeInitStart.Do(func() {
 		nodeStore, nodeController := informer.NewInformer(
@@ -47,8 +43,8 @@ func (k *K8sWatcher) NodesInit(k8sClient *k8s.K8sClient) {
 						if hasAgentNotReadyTaint(node) || !k8s.HasCiliumIsUpCondition(node) {
 							k8sClient.ReMarkNodeReady()
 						}
-						err := k.updateK8sNodeV1(nil, node)
-						k.K8sEventProcessed(metricNode, metricCreate, err == nil)
+						errs := k.NodeChain.OnAddNode(node)
+						k.K8sEventProcessed(metricNode, metricCreate, errs == nil)
 					}
 					k.K8sEventReceived(metricNode, metricCreate, valid, false)
 				},
@@ -66,12 +62,14 @@ func (k *K8sWatcher) NodesInit(k8sClient *k8s.K8sClient) {
 							if comparator.MapStringEquals(oldNodeLabels, newNodeLabels) {
 								equal = true
 							} else {
-								err := k.updateK8sNodeV1(oldNode, newNode)
-								k.K8sEventProcessed(metricNode, metricUpdate, err == nil)
+								errs := k.NodeChain.OnUpdateNode(oldNode, newNode)
+								k.K8sEventProcessed(metricNode, metricUpdate, errs == nil)
 							}
 						}
 					}
 					k.K8sEventReceived(metricNode, metricUpdate, valid, equal)
+				},
+				DeleteFunc: func(obj interface{}) {
 				},
 			},
 			nil,
@@ -94,31 +92,6 @@ func hasAgentNotReadyTaint(k8sNode *v1.Node) bool {
 		}
 	}
 	return false
-}
-
-func (k *K8sWatcher) updateK8sNodeV1(oldK8sNode, newK8sNode *v1.Node) error {
-	var oldNodeLabels map[string]string
-	if oldK8sNode != nil {
-		oldNodeLabels = oldK8sNode.GetLabels()
-	}
-	newNodeLabels := newK8sNode.GetLabels()
-
-	if option.Config.BGPAnnounceLBIP {
-		k.bgpSpeakerManager.OnUpdateNode(newK8sNode)
-	}
-
-	nodeEP := k.endpointManager.GetHostEndpoint()
-	if nodeEP == nil {
-		log.Debug("Host endpoint not found, updating node labels")
-		node.SetLabels(newNodeLabels)
-		return nil
-	}
-
-	err := updateEndpointLabels(nodeEP, oldNodeLabels, newNodeLabels)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 // GetK8sNode returns the *local Node* from the local store.
