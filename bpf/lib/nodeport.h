@@ -1095,6 +1095,8 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 	struct endpoint_info *ep __maybe_unused;
 	void *data, *data_end;
 	struct iphdr *ip4;
+	struct ipv4_ct_tuple tuple __maybe_unused = {};
+	bool is_reply __maybe_unused = false;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return false;
@@ -1198,6 +1200,20 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 			if (info->sec_label == REMOTE_NODE_ID)
 				return false;
 #endif
+
+			tuple.nexthdr = ip4->protocol;
+			tuple.daddr = ip4->daddr;
+			tuple.saddr = ip4->saddr;
+
+			/* The packet is a reply, which means that outside
+			 * has initiated the connection, so no need to SNAT
+			 * the reply.
+			 */
+			if (!ct_is_reply4(get_ct_map4(&tuple), ctx,
+					  ETH_HLEN + ipv4_hdrlen(ip4),
+					  &tuple, &is_reply) &&
+			    is_reply)
+				return false;
 
 			*addr = IPV4_MASQUERADE;
 			return true;
