@@ -1085,9 +1085,16 @@ static __always_inline bool nodeport_uses_dsr4(const struct ipv4_ct_tuple *tuple
 	return nodeport_uses_dsr(tuple->nexthdr);
 }
 
-/* Returns true if the packet must be SNAT-ed. In addition, sets "addr" to
- * SNAT IP addr, and if a packet is sent from an endpoint, sets "from_endpoint"
- * to true.
+/* The function contains a core logic for deciding whether an egressing packet
+ * has to be SNAT-ed. Currently, the function targets the following flows:
+ *
+ *	- From pod to outside to masquerade requests
+ *	  when --enable-bpf-masquerade=true.
+ *	- From host to outside to track (and masquerade) flows which
+ *	  can conflict with NodePort BPF.
+ *
+ * The function sets "addr" to the SNAT IP addr, and "from_endpoint" to true
+ * if the packet is sent from a local endpoint.
  */
 static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 					   bool *from_endpoint __maybe_unused)
