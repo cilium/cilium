@@ -1375,10 +1375,6 @@ var _ = SkipDescribeIf(func() bool {
 						"tunnel":               "disabled",
 						"autoDirectNodeRoutes": "true",
 
-						// These are required to avoid failing on net-next.
-						"masquerade":     "false",
-						"bpf.masquerade": "false",
-
 						"hostFirewall": "true",
 					})
 
