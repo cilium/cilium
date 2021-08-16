@@ -22,9 +22,6 @@ data:
         - "*"
         imagePullPolicy: Always
         securityContext:
-          capabilities:
-            add:
-            - NET_ADMIN
           privileged: true
         restartPolicy: Always
       - args:
