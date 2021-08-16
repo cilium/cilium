@@ -809,7 +809,8 @@ func detectDevicesV2(detectNodePortDevs, detectDirectRoutingDev, detectIPv6MCast
 			if _, ok := candidateLinks[r.LinkIndex]; ok {
 				continue
 			}
-			if r.Dst != nil && !r.Dst.IP.IsGlobalUnicast() {
+			if r.Dst == nil || !r.Dst.IP.IsGlobalUnicast() {
+				log.Infof("Skipping link with index %d, no global unicast dst", r.LinkIndex)
 				continue
 			}
 			link, err := netlink.LinkByIndex(r.LinkIndex)
@@ -818,6 +819,7 @@ func detectDevicesV2(detectNodePortDevs, detectDirectRoutingDev, detectIPv6MCast
 				continue
 			}
 			if !isViableDevice(link) {
+				log.Infof("Skipping link %s, not viable", link.Attrs().Name)
 				continue
 			}
 
@@ -843,6 +845,8 @@ func detectDevicesV2(detectNodePortDevs, detectDirectRoutingDev, detectIPv6MCast
 		devSet[option.Config.DirectRoutingDevice] = struct{}{}
 	}
 
+	log.Infof("All candidates: %v", candidateLinks)
+	
 	for _, link := range candidateLinks {
 		name := link.Attrs().Name
 
@@ -879,6 +883,8 @@ func detectDevicesV2(detectNodePortDevs, detectDirectRoutingDev, detectIPv6MCast
 
 		devSet[name] = struct{}{}
 	}
+
+	log.Infof("Final devSet: %v", devSet)
 
 	if detectNodePortDevs {
 		l3DevOK := supportL3Dev()
