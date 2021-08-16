@@ -1254,7 +1254,6 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 								"nodePort.directRoutingDevice": "wg0",
 								"tunnel":                       "disabled",
 								"autoDirectNodeRoutes":         "true",
-								"bpf.masquerade":               "false",
 							})
 
 							// Test via k8s1 private iface
@@ -1287,7 +1286,6 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 								"nodePort.directRoutingDevice": ni.privateIface,
 								"tunnel":                       "disabled",
 								"autoDirectNodeRoutes":         "true",
-								"bpf.masquerade":               "false",
 							})
 
 							// Test via k8s1 private iface
