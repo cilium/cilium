@@ -26,9 +26,9 @@ require (
 	github.com/spf13/cobra v1.2.1
 	google.golang.org/grpc v1.39.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
-	k8s.io/api v0.21.1
-	k8s.io/apimachinery v0.21.1
-	k8s.io/cli-runtime v0.21.1
-	k8s.io/client-go v0.21.1
+	k8s.io/api v0.21.4
+	k8s.io/apimachinery v0.21.4
+	k8s.io/cli-runtime v0.21.4
+	k8s.io/client-go v0.21.4
 	k8s.io/klog/v2 v2.8.0
 )
