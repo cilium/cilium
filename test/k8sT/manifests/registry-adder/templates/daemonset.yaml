@@ -32,11 +32,6 @@ spec:
         imagePullPolicy: IfNotPresent
         name: registry-adder
         securityContext:
-          capabilities:
-            add:
-            - NET_ADMIN
-            - SYS_MODULE
-            - SYS_ADMIN
           privileged: true
         volumeMounts:
         - mountPath: /etc/docker
