@@ -1717,6 +1717,9 @@ definitions:
       container-runtime:
         description: Status of local container runtime
         "$ref": "#/definitions/Status"
+      host-firewall:
+        description: Status of the host firewall
+        "$ref": "#/definitions/HostFirewall"
       hubble:
         description: Status of Hubble server
         "$ref": "#/definitions/HubbleStatus"
@@ -1790,6 +1793,22 @@ definitions:
       msg:
         type: string
         description: Human readable status/error/warning message
+  HostFirewall:
+    description: |-
+      Status of the host firewall
+
+      +k8s:deepcopy-gen=true
+    type: object
+    properties:
+      mode:
+        type: string
+        enum:
+        - Disabled
+        - Enabled
+      devices:
+        type: array
+        items:
+          type: string
   HubbleStatus:
     description: |-
       Status of the Hubble server
