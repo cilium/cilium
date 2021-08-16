@@ -55,6 +55,9 @@ type StatusResponse struct {
 	// Status of transparent encryption
 	Encryption *EncryptionStatus `json:"encryption,omitempty"`
 
+	// Status of the host firewall
+	HostFirewall *HostFirewall `json:"host-firewall,omitempty"`
+
 	// Status of host routing
 	HostRouting *HostRouting `json:"host-routing,omitempty"`
 
@@ -123,6 +126,10 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateEncryption(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateHostFirewall(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -324,6 +331,24 @@ func (m *StatusResponse) validateEncryption(formats strfmt.Registry) error {
 		if err := m.Encryption.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("encryption")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) validateHostFirewall(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.HostFirewall) { // not required
+		return nil
+	}
+
+	if m.HostFirewall != nil {
+		if err := m.HostFirewall.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("host-firewall")
 			}
 			return err
 		}

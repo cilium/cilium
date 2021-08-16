@@ -2568,6 +2568,25 @@ func init() {
         }
       }
     },
+    "HostFirewall": {
+      "description": "Status of the host firewall\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "devices": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "Disabled",
+            "Enabled"
+          ]
+        }
+      }
+    },
     "HostRouting": {
       "description": "Status of host routing\n\n+k8s:deepcopy-gen=true",
       "type": "object",
@@ -3866,6 +3885,10 @@ func init() {
         "encryption": {
           "description": "Status of transparent encryption",
           "$ref": "#/definitions/EncryptionStatus"
+        },
+        "host-firewall": {
+          "description": "Status of the host firewall",
+          "$ref": "#/definitions/HostFirewall"
         },
         "host-routing": {
           "description": "Status of host routing",
@@ -6980,6 +7003,25 @@ func init() {
         }
       }
     },
+    "HostFirewall": {
+      "description": "Status of the host firewall\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "devices": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "Disabled",
+            "Enabled"
+          ]
+        }
+      }
+    },
     "HostRouting": {
       "description": "Status of host routing\n\n+k8s:deepcopy-gen=true",
       "type": "object",
@@ -8545,6 +8587,10 @@ func init() {
         "encryption": {
           "description": "Status of transparent encryption",
           "$ref": "#/definitions/EncryptionStatus"
+        },
+        "host-firewall": {
+          "description": "Status of the host firewall",
+          "$ref": "#/definitions/HostFirewall"
         },
         "host-routing": {
           "description": "Status of host routing",
