@@ -6,71 +6,69 @@
 package speaker
 
 import (
-	"os"
+	"context"
+	"errors"
+	"sync/atomic"
 
-	bgpconfig "github.com/cilium/cilium/pkg/bgp/config"
-	bgpk8s "github.com/cilium/cilium/pkg/bgp/k8s"
-	bgplog "github.com/cilium/cilium/pkg/bgp/log"
 	"github.com/cilium/cilium/pkg/k8s"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discover_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
+	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/lock"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
-	"github.com/cilium/cilium/pkg/option"
+	"github.com/sirupsen/logrus"
 
 	metallbspr "go.universe.tf/metallb/pkg/speaker"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/util/workqueue"
 )
 
-// New creates a new MetalLB BGP speaker controller.
-func New() *Speaker {
-	logger := &bgplog.Logger{Entry: log}
-	client := bgpk8s.New(logger.Logger)
+var (
+	ErrShutDown = errors.New("cannot enqueue event, speaker is shutdown")
+)
 
-	c, err := metallbspr.NewController(metallbspr.ControllerConfig{
-		MyNode:        nodetypes.GetName(),
-		Logger:        logger,
-		SList:         nil, // BGP speaker doesn't use speakerlist
-		DisableLayer2: true,
-	})
+// compile time check, Speaker must be a subscriber.Node
+var _ subscriber.Node = (*MetalLBSpeaker)(nil)
+
+// New creates a new MetalLB BGP speaker controller. Options are provided to
+// specify what the Speaker should announce via BGP.
+func New(ctx context.Context, opts Opts) (*MetalLBSpeaker, error) {
+	ctrl, err := newMetalLBSpeaker(ctx)
 	if err != nil {
-		log.WithError(err).Fatal("Failed to initialize BGP speaker controller")
+		return nil, err
 	}
-	c.Client = client
+	spkr := &MetalLBSpeaker{
+		speaker: ctrl,
 
-	f, err := os.Open(option.Config.BGPConfigPath)
-	if err != nil {
-		log.WithError(err).Fatal("Failed to open BGP config file")
-	}
-	config, err := bgpconfig.Parse(f)
-	if err != nil {
-		log.WithError(err).Fatal("Failed to parse BGP configuration")
-	}
-	c.SetConfig(logger, config)
+		announceLBIP:    opts.LoadBalancerIP,
+		announcePodCIDR: opts.PodCIDR,
 
-	spkr := &Speaker{
-		Controller: c,
+		queue: workqueue.New(),
 
-		logger:   logger,
-		queue:    workqueue.New(),
 		services: make(map[k8s.ServiceID]*slim_corev1.Service),
 	}
-	go spkr.run()
+
+	go spkr.run(ctx)
 
 	log.Info("Started BGP speaker")
 
-	return spkr
+	return spkr, nil
 }
 
-// Speaker represents the BGP speaker. It integrates Cilium's K8s events with
+// Opts represents what the Speaker can announce.
+type Opts struct {
+	LoadBalancerIP bool
+	PodCIDR        bool
+}
+
+// MetalLBSpeaker represents the BGP speaker. It integrates Cilium's K8s events with
 // MetalLB's logic for making BGP announcements. It is responsible for
 // announcing BGP messages containing a loadbalancer IP address to peers.
-type Speaker struct {
-	*metallbspr.Controller
+type MetalLBSpeaker struct {
+	speaker Speaker
 
-	logger *bgplog.Logger
+	announceLBIP, announcePodCIDR bool
 
 	endpointsGetter endpointsGetter
 	// queue holds all the events to process for the Speaker.
@@ -78,11 +76,32 @@ type Speaker struct {
 
 	lock.Mutex
 	services map[k8s.ServiceID]*slim_corev1.Service
+
+	// atomic boolean which is flipped when
+	// speaker sees a NodeDelete events.
+	//
+	// Speaker will shut itself down when this is 1,
+	// ensuring no other events are processed after the
+	// final withdraw of routes.
+	shutdown int32
+}
+
+func (s *MetalLBSpeaker) shutDown() bool {
+	return atomic.LoadInt32(&s.shutdown) > 0
 }
 
 // OnUpdateService notifies the Speaker of an update to a service.
-func (s *Speaker) OnUpdateService(svc *slim_corev1.Service) {
-	svcID := k8s.ParseServiceID(svc)
+func (s *MetalLBSpeaker) OnUpdateService(svc *slim_corev1.Service) error {
+	if s.shutDown() {
+		return ErrShutDown
+	}
+	var (
+		svcID = k8s.ParseServiceID(svc)
+		l     = log.WithFields(logrus.Fields{
+			"component":  "MetalLBSpeaker.OnUpdateService",
+			"service-id": svcID,
+		})
+	)
 
 	eps := new(metallbspr.Endpoints)
 	epsFromSvc := s.endpointsGetter.GetEndpointsOfService(svcID)
@@ -94,21 +113,33 @@ func (s *Speaker) OnUpdateService(svc *slim_corev1.Service) {
 	s.services[svcID] = svc
 	s.Unlock()
 
+	l.Debug("adding event to queue")
 	s.queue.Add(epEvent{
 		id:  svcID,
 		svc: convertService(svc),
 		eps: eps,
 	})
+	return nil
 }
 
 // OnDeleteService notifies the Speaker of a delete of a service.
-func (s *Speaker) OnDeleteService(svc *slim_corev1.Service) {
-	svcID := k8s.ParseServiceID(svc)
+func (s *MetalLBSpeaker) OnDeleteService(svc *slim_corev1.Service) error {
+	if s.shutDown() {
+		return ErrShutDown
+	}
+	var (
+		svcID = k8s.ParseServiceID(svc)
+		l     = log.WithFields(logrus.Fields{
+			"component":  "MetalLBSpeaker.OnDeleteService",
+			"service-id": svcID,
+		})
+	)
 
 	s.Lock()
 	delete(s.services, svcID)
 	s.Unlock()
 
+	l.Debug("adding event to queue")
 	// Passing nil as the service will force the MetalLB speaker to withdraw
 	// the BGP announcement.
 	s.queue.Add(svcEvent{
@@ -116,63 +147,162 @@ func (s *Speaker) OnDeleteService(svc *slim_corev1.Service) {
 		svc: nil,
 		eps: nil,
 	})
+	return nil
 }
 
 // OnUpdateEndpoints notifies the Speaker of an update to the backends of a
 // service.
-func (s *Speaker) OnUpdateEndpoints(eps *slim_corev1.Endpoints) {
-	svcID := k8s.ParseEndpointsID(eps)
+func (s *MetalLBSpeaker) OnUpdateEndpoints(eps *slim_corev1.Endpoints) error {
+	if s.shutDown() {
+		return ErrShutDown
+	}
+	var (
+		svcID = k8s.ParseEndpointsID(eps)
+		l     = log.WithFields(logrus.Fields{
+			"component":  "MetalLBSpeaker.OnUpdateEndpoints",
+			"service-id": svcID,
+		})
+	)
 
 	s.Lock()
 	defer s.Unlock()
+
 	if svc, ok := s.services[svcID]; ok {
+		l.Debug("adding event to queue")
 		s.queue.Add(epEvent{
 			id:  svcID,
 			svc: convertService(svc),
 			eps: convertEndpoints(eps),
 		})
 	}
+	return nil
 }
 
 // OnUpdateEndpointSliceV1 notifies the Speaker of an update to the backends of
 // a service as endpoint slices.
-func (s *Speaker) OnUpdateEndpointSliceV1(eps *slim_discover_v1.EndpointSlice) {
-	sliceID, _ := k8s.ParseEndpointSliceV1(eps)
+func (s *MetalLBSpeaker) OnUpdateEndpointSliceV1(eps *slim_discover_v1.EndpointSlice) error {
+	if s.shutDown() {
+		return ErrShutDown
+	}
+	var (
+		sliceID, _ = k8s.ParseEndpointSliceV1(eps)
+		l          = log.WithFields(logrus.Fields{
+			"component": "MetalLBSpeaker.OnUpdateEndpointSliceV1",
+			"slice-id":  sliceID,
+		})
+	)
 
 	s.Lock()
 	defer s.Unlock()
 	if svc, ok := s.services[sliceID.ServiceID]; ok {
+		l.Debug("adding event to queue")
 		s.queue.Add(epEvent{
 			id:  sliceID.ServiceID,
 			svc: convertService(svc),
 			eps: convertEndpointSliceV1(eps),
 		})
 	}
+	return nil
 }
 
 // OnUpdateEndpointSliceV1Beta1 is the same as OnUpdateEndpointSliceV1() but for
 // the v1beta1 variant.
-func (s *Speaker) OnUpdateEndpointSliceV1Beta1(eps *slim_discover_v1beta1.EndpointSlice) {
-	sliceID, _ := k8s.ParseEndpointSliceV1Beta1(eps)
+func (s *MetalLBSpeaker) OnUpdateEndpointSliceV1Beta1(eps *slim_discover_v1beta1.EndpointSlice) error {
+	if s.shutDown() {
+		return ErrShutDown
+	}
+	var (
+		sliceID, _ = k8s.ParseEndpointSliceV1Beta1(eps)
+		l          = log.WithFields(logrus.Fields{
+			"component": "MetalLBSpeaker.OnUpdateEndpointSliceV1Beta",
+			"slice-id":  sliceID,
+		})
+	)
 
 	s.Lock()
 	defer s.Unlock()
 	if svc, ok := s.services[sliceID.ServiceID]; ok {
+		l.Debug("adding event to queue")
 		s.queue.Add(epEvent{
 			id:  sliceID.ServiceID,
 			svc: convertService(svc),
 			eps: convertEndpointSliceV1Beta1(eps),
 		})
 	}
+	return nil
+}
+
+// OnAddNode notifies the Speaker of a new node.
+func (s *MetalLBSpeaker) OnAddNode(node *v1.Node) error {
+	if s.shutDown() {
+		return ErrShutDown
+	}
+
+	if node.GetName() != nodetypes.GetName() {
+		return nil // We don't care for other nodes.
+	}
+
+	log.WithFields(logrus.Fields{
+		"component": "MetalLBSpeaker.OnAddNode",
+		"node":      node.Name,
+	}).Debug("adding event to queue")
+	s.queue.Add(nodeEvent{
+		labels:   nodeLabels(node.Labels),
+		podCIDRs: podCIDRs(node),
+	})
+	return nil
 }
 
 // OnUpdateNode notifies the Speaker of an update to a node.
-func (s *Speaker) OnUpdateNode(node *v1.Node) {
-	s.queue.Add(nodeEvent(&node.Labels))
+func (s *MetalLBSpeaker) OnUpdateNode(oldNode, newNode *v1.Node) error {
+	if s.shutDown() {
+		return ErrShutDown
+	}
+
+	if newNode.GetName() != nodetypes.GetName() {
+		return nil // We don't care for other nodes.
+	}
+
+	log.WithFields(logrus.Fields{
+		"component": "MetalLBSpeaker.OnUpdateNode",
+		"oldNode":   oldNode.Name,
+		"newNode":   newNode.Name,
+	}).Debug("adding event to queue")
+	s.queue.Add(nodeEvent{
+		labels:   nodeLabels(newNode.Labels),
+		podCIDRs: podCIDRs(newNode),
+	})
+	return nil
+}
+
+// OnDeleteNode notifies the Speaker of a node deletion.
+//
+// When the speaker discovers the node that it is running on
+// is shuttig down it will send a BGP message to its peer
+// instructing it to withdrawal all previously advertised
+// routes.
+func (s *MetalLBSpeaker) OnDeleteNode(node *v1.Node) error {
+	if s.shutDown() {
+		return ErrShutDown
+	}
+
+	if node.GetName() != nodetypes.GetName() {
+		return nil // We don't care for other nodes.
+	}
+	log.WithFields(logrus.Fields{
+		"component": "MetalLBSpeaker.OnDeleteNode",
+		"node":      node.Name,
+	}).Debug("adding event to queue")
+	s.queue.Add(nodeEvent{
+		labels:   nodeLabels(node.Labels),
+		podCIDRs: podCIDRs(node),
+		withDraw: true,
+	})
+	return nil
 }
 
 // RegisterSvcCache registers the K8s watcher cache with this Speaker.
-func (s *Speaker) RegisterSvcCache(cache endpointsGetter) {
+func (s *MetalLBSpeaker) RegisterSvcCache(cache endpointsGetter) {
 	s.endpointsGetter = cache
 }
 
@@ -272,4 +402,31 @@ func convertEndpointSliceV1Beta1(in *slim_discover_v1beta1.EndpointSlice) *metal
 		// "ready" endpoints.
 	}
 	return out
+}
+
+// nodeLabels copies the provided labels and returns
+// a pointer to the copy.
+func nodeLabels(l map[string]string) *map[string]string {
+	n := make(map[string]string)
+	for k, v := range l {
+		n[k] = v
+	}
+	return &n
+}
+
+func podCIDRs(node *v1.Node) *[]string {
+	if node == nil {
+		return nil
+	}
+	podCIDRs := make([]string, 0, len(node.Spec.PodCIDRs))
+	// this bit of code extracts the pod cidr block the node will
+	// use per: https://github.com//cilium/cilium/blob/8cb6ca42179a0e325131a4c95b14291799d22e5c/vendor/k8s.io/api/core/v1/types.go#L4600
+	// read the above comments to understand this access pattern.
+	if pc := node.Spec.PodCIDR; pc != "" {
+		if len(node.Spec.PodCIDRs) > 0 && pc != node.Spec.PodCIDRs[0] {
+			podCIDRs = append(podCIDRs, pc)
+		}
+	}
+	podCIDRs = append(podCIDRs, node.Spec.PodCIDRs...)
+	return &podCIDRs
 }

@@ -1009,6 +1009,9 @@ func initializeFlags() {
 	flags.Bool(option.BGPAnnounceLBIP, false, "Announces service IPs of type LoadBalancer via BGP")
 	option.BindEnv(option.BGPAnnounceLBIP)
 
+	flags.Bool(option.BGPAnnouncePodCIDR, false, "Announces the node's pod CIDR via BGP")
+	option.BindEnv(option.BGPAnnouncePodCIDR)
+
 	flags.String(option.BGPConfigPath, "/var/lib/cilium/bgp/config.yaml", "Path to file containing the BGP configuration")
 	option.BindEnv(option.BGPConfigPath)
 
@@ -1498,6 +1501,13 @@ func initEnv(cmd *cobra.Command) {
 	if option.Config.BGPAnnounceLBIP {
 		option.Config.EnableNodePort = true
 		log.Infof("Auto-set BPF NodePort (%q) because LB IP announcements via BGP depend on it.", option.EnableNodePort)
+	}
+
+	if option.Config.BGPAnnouncePodCIDR &&
+		(option.Config.IPAM != ipamOption.IPAMClusterPool &&
+			option.Config.IPAM != ipamOption.IPAMKubernetes) {
+		log.Fatalf("BGP announcements for pod CIDRs is not supported with IPAM mode %q (only %q and %q are supported)",
+			option.Config.IPAM, ipamOption.IPAMClusterPool, ipamOption.IPAMKubernetes)
 	}
 
 	// Ensure that the user does not turn on this mode unless it's for an IPAM

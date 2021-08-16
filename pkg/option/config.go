@@ -963,6 +963,9 @@ const (
 	// BGPAnnounceLBIP announces service IPs of type LoadBalancer via BGP
 	BGPAnnounceLBIP = "bgp-announce-lb-ip"
 
+	// BGPAnnouncePodCIDR announces the node's pod CIDR via BGP
+	BGPAnnouncePodCIDR = "bgp-announce-pod-cidr"
+
 	// BGPConfigPath is the file path to the BGP configuration. It is
 	// compatible with MetalLB's configuration.
 	BGPConfigPath = "bgp-config-path"
@@ -1990,6 +1993,9 @@ type DaemonConfig struct {
 	// BGPAnnounceLBIP announces service IPs of type LoadBalancer via BGP.
 	BGPAnnounceLBIP bool
 
+	// BGPAnnouncePodCIDR announces the node's pod CIDR via BGP.
+	BGPAnnouncePodCIDR bool
+
 	// BGPConfigPath is the file path to the BGP configuration. It is
 	// compatible with MetalLB's configuration.
 	BGPConfigPath string
@@ -2583,6 +2589,7 @@ func (c *DaemonConfig) Populate() {
 	c.InstallNoConntrackIptRules = viper.GetBool(InstallNoConntrackIptRules)
 	c.EnableCustomCalls = viper.GetBool(EnableCustomCallsName)
 	c.BGPAnnounceLBIP = viper.GetBool(BGPAnnounceLBIP)
+	c.BGPAnnouncePodCIDR = viper.GetBool(BGPAnnouncePodCIDR)
 	c.BGPConfigPath = viper.GetString(BGPConfigPath)
 	c.ExternalClusterIP = viper.GetBool(ExternalClusterIPName)
 

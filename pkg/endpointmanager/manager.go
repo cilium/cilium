@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager/idallocator"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -37,6 +38,10 @@ var (
 	metricsOnce sync.Once
 	launchTime  = 30 * time.Second
 )
+
+// compile time check - EndpointManager must implement
+// subscriber.Node
+var _ subscriber.Node = (*EndpointManager)(nil)
 
 // EndpointManager is a structure designed for containing state about the
 // collection of locally running endpoints.
@@ -666,21 +671,4 @@ func (mgr *EndpointManager) CallbackForEndpointsAtPolicyRev(ctx context.Context,
 // EndpointExists returns whether the endpoint with id exists.
 func (mgr *EndpointManager) EndpointExists(id uint16) bool {
 	return mgr.LookupCiliumID(id) != nil
-}
-
-// GetHostEndpoint returns the host endpoint.
-func (mgr *EndpointManager) GetHostEndpoint() *endpoint.Endpoint {
-	mgr.mutex.RLock()
-	defer mgr.mutex.RUnlock()
-	for _, ep := range mgr.endpoints {
-		if ep.IsHost() {
-			return ep
-		}
-	}
-	return nil
-}
-
-// HostEndpointExists returns true if the host endpoint exists.
-func (mgr *EndpointManager) HostEndpointExists() bool {
-	return mgr.GetHostEndpoint() != nil
 }
