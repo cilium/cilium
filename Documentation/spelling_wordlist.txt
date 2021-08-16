@@ -677,6 +677,7 @@ plugins
 pmdabcc
 png
 podAnnotations
+podCIDR
 podDisruptionBudget
 podLabels
 podcasts
