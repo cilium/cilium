@@ -16,6 +16,7 @@ package ethtool
 
 import (
 	"bytes"
+	"fmt"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -77,6 +78,9 @@ func IsVirtualDriver(iface string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+
+	// XXX(JM) debugging
+	fmt.Printf("IsVirtualDriver('%s'): drvName=%s\n", iface, drvName)
 
 	return drvName == "veth", nil
 }

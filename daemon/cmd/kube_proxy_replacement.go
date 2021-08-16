@@ -655,22 +655,26 @@ var excludedDevicePrefixes = []string{
 	"cilium_",
 	"lo",
 	"lxc",
+	"cni",
+	"docker",
 }
 
 func isViableDevice(link netlink.Link) bool {
 	name := link.Attrs().Name
 
+	// Skip virtual devices.
+	if virtual, err := ethtool.IsVirtualDriver(name); err == nil && virtual {
+		return false
+	}
+
 	// Do not consider any of the excluded devices.
+	// XXX put on top of virtual device check
 	for _, p := range excludedDevicePrefixes {
 		if strings.HasPrefix(name, p) {
 			return false
 		}
 	}
 
-	// Skip virtual devices.
-	if virtual, err := ethtool.IsVirtualDriver(name); err == nil && virtual {
-		return false
-	}
 
 	return true
 }
@@ -696,6 +700,8 @@ func handleRouteUpdates(datapathRegenTrigger *trigger.Trigger, updates []netlink
 	newDevices := make([]string, 0, len(option.Config.Devices)+len(linkIndices))
 	copy(newDevices, option.Config.Devices)
 
+	newDeviceDetected := false
+
 links:
 	for linkIndex := range linkIndices {
 		link, err := netlink.LinkByIndex(linkIndex)
@@ -713,15 +719,36 @@ links:
 		}
 
 		if isViableDevice(link) {
+			log.Infof("New device %s is viable, adding it", name)
 			newDevices = append(newDevices, name)
+			newDeviceDetected = true
+		} else {
+			log.Infof("New device %s not viable, skipping", name)
 		}
 	}
 
 	// Update the device list.
 	// Use a copy instead of mutating in place to protect concurrent readers.
-	if len(newDevices) > len(option.Config.Devices) {
+	if newDeviceDetected {
+		log.Infof("New devices detected, triggering datapath regeneration.")
+
 		sort.Strings(newDevices)
 		option.Config.Devices = newDevices
+
+		// XXX this needs to be done centrally
+		if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
+			if err := node.InitBPFMasqueradeAddrs(option.Config.Devices); err != nil {
+				log.Warnf("InitBPFMasqueradeAddrs failed: %s", err)
+			}
+		}
+
+		if option.Config.EnableNodePort {
+			if err := node.InitNodePortAddrs(option.Config.Devices, option.Config.LBDevInheritIPAddr); err != nil {
+				msg := "Failed to initialize NodePort addrs."
+				log.WithError(err).Warn(msg)
+			}
+		}
+		// </XXX>
 
 		// And finally frigger the datapath reload.
 		datapathRegenTrigger.TriggerWithReason("New devices detected")
@@ -845,7 +872,7 @@ func detectDevicesV2(detectNodePortDevs, detectDirectRoutingDev, detectIPv6MCast
 		devSet[option.Config.DirectRoutingDevice] = struct{}{}
 	}
 
-	log.Infof("All candidates: %v", candidateLinks)
+	log.Infof("All candidates: %s", candidateLinks)
 	
 	for _, link := range candidateLinks {
 		name := link.Attrs().Name
