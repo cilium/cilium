@@ -36,9 +36,13 @@
    * - bgp
      - Configure BGP
      - object
-     - ``{"announce":{"loadbalancerIP":false},"enabled":false}``
+     - ``{"announce":{"loadbalancerIP":false,"podCIDR":false},"enabled":false}``
    * - bgp.announce.loadbalancerIP
      - Enable allocation and announcement of service LoadBalancer IPs
+     - bool
+     - ``false``
+   * - bgp.announce.podCIDR
+     - Enable announcement of node pod CIDR
      - bool
      - ``false``
    * - bgp.enabled
