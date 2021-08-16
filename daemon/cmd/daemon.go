@@ -167,7 +167,7 @@ type Daemon struct {
 
 	redirectPolicyManager *redirectpolicy.Manager
 
-	bgpSpeaker *speaker.Speaker
+	bgpSpeaker *speaker.MetalLBSpeaker
 
 	egressGatewayManager *egressgateway.Manager
 
@@ -426,8 +426,15 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	d.endpointManager.InitMetrics()
 
 	d.redirectPolicyManager = redirectpolicy.NewRedirectPolicyManager(d.svc)
-	if option.Config.BGPAnnounceLBIP {
-		d.bgpSpeaker = speaker.New()
+	if option.Config.BGPAnnounceLBIP || option.Config.BGPAnnouncePodCIDR {
+		d.bgpSpeaker, err = speaker.New(ctx, speaker.Opts{
+			LoadBalancerIP: option.Config.BGPAnnounceLBIP,
+			PodCIDR:        option.Config.BGPAnnouncePodCIDR,
+		})
+		if err != nil {
+			log.WithError(err).Error("Error creating new BGP speaker")
+			return nil, nil, err
+		}
 	}
 
 	d.egressGatewayManager = egressgateway.NewEgressGatewayManager()
@@ -445,6 +452,11 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		option.Config,
 	)
 	nd.RegisterK8sNodeGetter(d.k8sWatcher)
+
+	d.k8sWatcher.NodeChain.Register(d.endpointManager)
+	if option.Config.BGPAnnounceLBIP || option.Config.BGPAnnouncePodCIDR {
+		d.k8sWatcher.NodeChain.Register(d.bgpSpeaker)
+	}
 
 	d.redirectPolicyManager.RegisterSvcCache(&d.k8sWatcher.K8sSvcCache)
 	d.redirectPolicyManager.RegisterGetStores(d.k8sWatcher)

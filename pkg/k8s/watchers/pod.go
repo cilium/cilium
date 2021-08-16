@@ -29,7 +29,6 @@ import (
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -432,23 +431,7 @@ func updateCiliumEndpointLabels(ep *endpoint.Endpoint, labels map[string]string)
 }
 
 func updateEndpointLabels(ep *endpoint.Endpoint, oldLbls, newLbls map[string]string) error {
-	newLabels := labels.Map2Labels(newLbls, labels.LabelSourceK8s)
-	newIdtyLabels, _ := labelsfilter.Filter(newLabels)
-	oldLabels := labels.Map2Labels(oldLbls, labels.LabelSourceK8s)
-	oldIdtyLabels, _ := labelsfilter.Filter(oldLabels)
-
-	err := ep.ModifyIdentityLabels(newIdtyLabels, oldIdtyLabels)
-	if err != nil {
-		log.WithError(err).Debugf("Error while updating endpoint with new labels")
-		return err
-	}
-
-	log.WithFields(logrus.Fields{
-		logfields.EndpointID: ep.GetID(),
-		logfields.Labels:     logfields.Repr(newIdtyLabels),
-	}).Debug("Updated endpoint with new labels")
-	return nil
-
+	return ep.UpdateLabelsFrom(oldLbls, newLbls, labels.LabelSourceK8s)
 }
 
 func (k *K8sWatcher) deleteK8sPodV1(pod *slim_corev1.Pod) error {
