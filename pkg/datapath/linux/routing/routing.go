@@ -278,35 +278,35 @@ func deleteRule(r route.Rule) error {
 // given MAC address. This is useful for creating rules and routes in order to
 // specify the table. When the ifindex is found, the device is brought up and
 // its MTU is set.
-func retrieveIfIndexFromMAC(mac mac.MAC, mtu int) (index int, err error) {
-	var links []netlink.Link
+func retrieveIfIndexFromMAC(mac mac.MAC, mtu int) (int, error) {
+	var link netlink.Link
 
-	links, err = netlink.LinkList()
+	links, err := netlink.LinkList()
 	if err != nil {
-		err = fmt.Errorf("unable to list interfaces: %s", err)
-		return
+		return -1, fmt.Errorf("unable to list interfaces: %w", err)
 	}
 
-	for _, link := range links {
-		if link.Attrs().HardwareAddr.String() == mac.String() {
-			index = link.Attrs().Index
-
-			if err = netlink.LinkSetMTU(link, mtu); err != nil {
-				err = fmt.Errorf("unable to change MTU of link %s to %d: %s", link.Attrs().Name, mtu, err)
-				return
+	for _, l := range links {
+		if l.Attrs().HardwareAddr.String() == mac.String() {
+			if link != nil {
+				return -1, fmt.Errorf("several interfaces found with MAC %s: %s and %s", mac, link.Attrs().Name, l.Attrs().Name)
 			}
-
-			if err = netlink.LinkSetUp(link); err != nil {
-				err = fmt.Errorf("unable to up link %s: %s", link.Attrs().Name, err)
-				return
-			}
-
-			return
+			link = l
 		}
 	}
 
-	err = fmt.Errorf("interface with MAC %s not found", mac)
-	return
+	if link == nil {
+		return -1, fmt.Errorf("interface with MAC %s not found", mac)
+	}
+
+	if err = netlink.LinkSetMTU(link, mtu); err != nil {
+		return -1, fmt.Errorf("unable to change MTU of link %s to %d: %w", link.Attrs().Name, mtu, err)
+	}
+	if err = netlink.LinkSetUp(link); err != nil {
+		return -1, fmt.Errorf("unable to up link %s: %w", link.Attrs().Name, err)
+	}
+
+	return link.Attrs().Index, nil
 }
 
 // computeTableIDFromIfaceNumber returns a computed per-ENI route table ID for the given
