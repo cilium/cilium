@@ -29,7 +29,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
+	//linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/ethtool"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/loader"
@@ -696,7 +696,8 @@ func handleRouteUpdates(datapathRegenTrigger *trigger.Trigger, updates []netlink
 	newDevices := make([]string, 0, len(option.Config.Devices)+len(linkIndices))
 	copy(newDevices, option.Config.Devices)
 
-links:	for linkIndex := range linkIndices {
+links:
+	for linkIndex := range linkIndices {
 		link, err := netlink.LinkByIndex(linkIndex)
 		if err != nil {
 			log.WithError(err).Warnf("Failed to get link by index %d", linkIndex)
@@ -808,7 +809,7 @@ func detectDevicesV2(detectNodePortDevs, detectDirectRoutingDev, detectIPv6MCast
 			if _, ok := candidateLinks[r.LinkIndex]; ok {
 				continue
 			}
-			if !r.Dst.IP.IsGlobalUnicast() {
+			if r.Dst != nil && !r.Dst.IP.IsGlobalUnicast() {
 				continue
 			}
 			link, err := netlink.LinkByIndex(r.LinkIndex)
@@ -838,6 +839,10 @@ func detectDevicesV2(detectNodePortDevs, detectDirectRoutingDev, detectIPv6MCast
 			option.Devices)
 	}
 
+	if !detectDirectRoutingDev && option.Config.DirectRoutingDevice != "" {
+		devSet[option.Config.DirectRoutingDevice] = struct{}{}
+	}
+
 	for _, link := range candidateLinks {
 		name := link.Attrs().Name
 
@@ -859,11 +864,12 @@ func detectDevicesV2(detectNodePortDevs, detectDirectRoutingDev, detectIPv6MCast
 								option.Config.IPv6MCastDevice = name
 								log.Infof("Detected %s: %s", option.IPv6MCastDevice, option.Config.IPv6MCastDevice)
 							} else {
-								return fmt.Errorf("Unable to determine Multicast devices: %s. Use --%s to specify them",
+								return fmt.Errorf("unable to determine Multicast devices: %s. Use --%s to specify them",
 									err, option.IPv6MCastDevice)
 							}
 							detectIPv6MCastDev = false
 						}
+						break
 					}
 				}
 			} else {
@@ -890,6 +896,7 @@ func detectDevicesV2(detectNodePortDevs, detectDirectRoutingDev, detectIPv6MCast
 	return nil
 }
 
+/*
 // detectDevices tries to detect device names which are going to be used for
 // (a) NodePort BPF, (b) direct routing in NodePort BPF.
 //
@@ -1038,7 +1045,7 @@ func detectIPv6MCastDevice(ifidxByAddr map[string]int) (string, error) {
 		return link.Attrs().Name, nil
 	}
 	return "", fmt.Errorf("Cannot find ipv6 multicast device")
-}
+}*/
 
 // expandDevices expands all wildcard device names to concrete devices.
 // e.g. device "eth+" expands to "eth0,eth1" etc. Non-matching wildcards are ignored.

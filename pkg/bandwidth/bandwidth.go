@@ -117,6 +117,11 @@ func InitBandwidthManager() {
 		}
 	}
 
+	ReloadBandwithManager()
+}
+
+func ReloadBandwithManager() {
+	// TODO(JM): Avoid Fatalf's and return error?
 	for _, device := range option.Config.Devices {
 		link, err := netlink.LinkByName(device)
 		if err != nil {
