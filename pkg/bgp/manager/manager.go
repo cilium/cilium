@@ -7,15 +7,8 @@
 package manager
 
 import (
-	"os"
+	"context"
 
-	bgpconfig "github.com/cilium/cilium/pkg/bgp/config"
-	bgpk8s "github.com/cilium/cilium/pkg/bgp/k8s"
-	bgplog "github.com/cilium/cilium/pkg/bgp/log"
-	"github.com/cilium/cilium/pkg/option"
-
-	metallballoc "go.universe.tf/metallb/pkg/allocator"
-	metallbctl "go.universe.tf/metallb/pkg/controller"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -24,35 +17,21 @@ import (
 // controller, which contains the allocator.
 //
 // New requires access to a cache.Store associated with the service watcher.
-func New(indexer cache.Store) *Manager {
-	logger := &bgplog.Logger{Entry: log}
-	c := &metallbctl.Controller{
-		Client: bgpk8s.New(logger.Logger),
-		IPs:    metallballoc.New(),
-	}
-
-	f, err := os.Open(option.Config.BGPConfigPath)
+func New(ctx context.Context, indexer cache.Store) (*Manager, error) {
+	ctrl, err := newMetalLBController(ctx)
 	if err != nil {
-		log.WithError(err).Fatal("Failed to open BGP config file")
+		return nil, err
 	}
-	defer f.Close()
-
-	config, err := bgpconfig.Parse(f)
-	if err != nil {
-		log.WithError(err).Fatal("Failed to parse BGP configuration")
-	}
-	c.SetConfig(logger, config)
-
 	mgr := &Manager{
-		Controller: c,
-		logger:     logger,
+		controller: ctrl,
 
-		queue:   workqueue.New(),
+		queue: workqueue.New(),
+
 		indexer: indexer,
 	}
 	go mgr.run()
 
-	return mgr
+	return mgr, nil
 }
 
 // Manager represents the BGP manager. It integrates Cilium with the MetalLB
@@ -62,16 +41,14 @@ func New(indexer cache.Store) *Manager {
 // watcher and pushes them into a queue. From the queue, they are processed by
 // the reconciliation logic of MetalLB for LB IP allocation. To do this,
 // Manager implements
-// github.com/cilium/cilium/pkg/k8s/watchers/subscriber.ServiceHandler and
+// github.com/cilium/cilium/pkg/k8s/watchers/subscriber.Service and
 // therefore is registered as a subscriber to the subscriber package to be
 // called from the K8s watcher.
 //
 // Note that the LB IP allocation occurs only for services of type LoadBalancer
 // in the service.Status.LoadBalancerStatus.Ingress field.
 type Manager struct {
-	*metallbctl.Controller
-
-	logger *bgplog.Logger
+	controller Controller
 
 	// queue holds all services that need to be reconciled.
 	queue workqueue.Interface
@@ -81,7 +58,6 @@ type Manager struct {
 	indexer cache.Store
 }
 
-// Logger returns the controller's logger.
-func (c *Manager) Logger() *bgplog.Logger {
-	return c.logger
+func (m *Manager) MarkSynced() {
+	m.controller.MarkSynced()
 }
