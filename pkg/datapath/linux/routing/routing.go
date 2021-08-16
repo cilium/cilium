@@ -275,9 +275,9 @@ func deleteRule(r route.Rule) error {
 }
 
 // retrieveIfIndexFromMAC finds the corresponding device index (ifindex) for a
-// given MAC address. This is useful for creating rules and routes in order to
-// specify the table. When the ifindex is found, the device is brought up and
-// its MTU is set.
+// given MAC address, excluding Linux slave devices. This is useful for
+// creating rules and routes in order to specify the table. When the ifindex is
+// found, the device is brought up and its MTU is set.
 func retrieveIfIndexFromMAC(mac mac.MAC, mtu int) (int, error) {
 	var link netlink.Link
 
@@ -287,6 +287,11 @@ func retrieveIfIndexFromMAC(mac mac.MAC, mtu int) (int, error) {
 	}
 
 	for _, l := range links {
+		// Linux slave devices have the same MAC address as their master
+		// device, but we want the master device.
+		if l.Attrs().Slave != nil {
+			continue
+		}
 		if l.Attrs().HardwareAddr.String() == mac.String() {
 			if link != nil {
 				return -1, fmt.Errorf("several interfaces found with MAC %s: %s and %s", mac, link.Attrs().Name, l.Attrs().Name)
