@@ -251,6 +251,15 @@ func (c *Controller) SetNodeLabels(l gokitlog.Logger, labels map[string]string) 
 	return types.SyncStateSuccess
 }
 
+// PeerSessions returns the underlying BGP sessions from the BGP controller. In
+// Layer2 mode only, this returns nil.
+func (c *Controller) PeerSessions() []Session {
+	if handler, ok := c.protocols[config.BGP]; ok {
+		return handler.(*BGPController).PeerSessions()
+	}
+	return nil
+}
+
 // Endpoints represents an object containing the minimal representation of a
 // v1.Endpoints similar to Service.
 type Endpoints struct {
