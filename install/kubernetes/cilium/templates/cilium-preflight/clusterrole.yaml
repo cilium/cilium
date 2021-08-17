@@ -106,6 +106,7 @@ rules:
   - ciliumlocalredirectpolicies/finalizers
   - ciliumegressnatpolicies
   - ciliumendpointslices
+  - ciliumenvoyconfigs
   verbs:
   - '*'
 {{- end }}

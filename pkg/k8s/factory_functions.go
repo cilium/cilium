@@ -735,8 +735,31 @@ func ConvertToCiliumEgressNATPolicy(obj interface{}) interface{} {
 	}
 }
 
+// ConvertToCiliumEnvoyConfig converts a *cilium_v2alpha1.CiliumEnvoyConfig into a
+// *cilium_v2alpha1.CiliumEnvoyConfig or a cache.DeletedFinalStateUnknown into
+// a cache.DeletedFinalStateUnknown with a *cilium_v2alpha1.CiliumEnvoyConfig in its Obj.
+// If the given obj can't be cast into either *cilium_v2alpha1.CiliumEnvoyConfig
+// nor cache.DeletedFinalStateUnknown, the original obj is returned.
+func ConvertToCiliumEnvoyConfig(obj interface{}) interface{} {
+	switch concreteObj := obj.(type) {
+	case *cilium_v2alpha1.CiliumEnvoyConfig:
+		return concreteObj
+	case cache.DeletedFinalStateUnknown:
+		ciliumEnvoyConfig, ok := concreteObj.Obj.(*cilium_v2alpha1.CiliumEnvoyConfig)
+		if !ok {
+			return obj
+		}
+		return cache.DeletedFinalStateUnknown{
+			Key: concreteObj.Key,
+			Obj: ciliumEnvoyConfig,
+		}
+	default:
+		return obj
+	}
+}
+
 // ObjToCiliumNode attempts to cast object to a CiliumNode object and
-// returns a deep copy if the castin succeeds. Otherwise, nil is returned.
+// returns the CiliumNode objext if the cast succeeds. Otherwise, nil is returned.
 func ObjToCiliumNode(obj interface{}) *cilium_v2.CiliumNode {
 	cn, ok := obj.(*cilium_v2.CiliumNode)
 	if ok {
@@ -829,7 +852,7 @@ func ConvertToCiliumEndpoint(obj interface{}) interface{} {
 }
 
 // ObjToCiliumEndpoint attempts to cast object to a CiliumEndpoint object
-// and returns a deep copy if the castin succeeds. Otherwise, nil is returned.
+// and returns the CiliumEndpoint object if the cast succeeds. Otherwise, nil is returned.
 func ObjToCiliumEndpoint(obj interface{}) *types.CiliumEndpoint {
 	ce, ok := obj.(*types.CiliumEndpoint)
 	if ok {
@@ -851,7 +874,7 @@ func ObjToCiliumEndpoint(obj interface{}) *types.CiliumEndpoint {
 }
 
 // ObjToCLRP attempts to cast object to a CLRP object and
-// returns a deep copy if the castin succeeds. Otherwise, nil is returned.
+// returns the CLRP object if the cast succeeds. Otherwise, nil is returned.
 func ObjToCLRP(obj interface{}) *cilium_v2.CiliumLocalRedirectPolicy {
 	cLRP, ok := obj.(*cilium_v2.CiliumLocalRedirectPolicy)
 	if ok {
@@ -873,7 +896,7 @@ func ObjToCLRP(obj interface{}) *cilium_v2.CiliumLocalRedirectPolicy {
 }
 
 // ObjToCENP attempts to cast object to a CENP object and
-// returns a deep copy if the castin succeeds. Otherwise, nil is returned.
+// returns the CENP object if the cast succeeds. Otherwise, nil is returned.
 func ObjToCENP(obj interface{}) *cilium_v2alpha1.CiliumEgressNATPolicy {
 	cENP, ok := obj.(*cilium_v2alpha1.CiliumEgressNATPolicy)
 	if ok {
@@ -956,4 +979,26 @@ func ConvertCoreCiliumEndpointToTypesCiliumEndpoint(ccep *cilium_v2alpha1.CoreCi
 		Networking: ccep.Networking,
 		NamedPorts: ccep.NamedPorts,
 	}
+}
+
+// ObjToCEC attempts to cast object to a CEC object and
+// returns the object if the cast succeeds. Otherwise, nil is returned.
+func ObjToCEC(obj interface{}) *cilium_v2alpha1.CiliumEnvoyConfig {
+	cec, ok := obj.(*cilium_v2alpha1.CiliumEnvoyConfig)
+	if ok {
+		return cec
+	}
+	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+	if ok {
+		// Delete was not observed by the watcher but is
+		// removed from kube-apiserver. This is the last
+		// known state and the object no longer exists.
+		cec, ok := deletedObj.Obj.(*cilium_v2alpha1.CiliumEnvoyConfig)
+		if ok {
+			return cec
+		}
+	}
+	log.WithField(logfields.Object, logfields.Repr(obj)).
+		Warn("Ignoring invalid v2 Cilium Envoy Config")
+	return nil
 }
