@@ -57,6 +57,9 @@ func agentCRDResourceNames() []string {
 	if option.Config.EnableLocalRedirectPolicy {
 		result = append(result, CRDResourceName(v2.CLRPName))
 	}
+	if option.Config.EnableEnvoyConfig {
+		result = append(result, CRDResourceName(v2alpha1.CECName))
+	}
 
 	return result
 }

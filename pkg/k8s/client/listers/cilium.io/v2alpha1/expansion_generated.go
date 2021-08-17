@@ -12,3 +12,7 @@ type CiliumEgressNATPolicyListerExpansion interface{}
 // CiliumEndpointSliceListerExpansion allows custom methods to be added to
 // CiliumEndpointSliceLister.
 type CiliumEndpointSliceListerExpansion interface{}
+
+// CiliumEnvoyConfigListerExpansion allows custom methods to be added to
+// CiliumEnvoyConfigLister.
+type CiliumEnvoyConfigListerExpansion interface{}
