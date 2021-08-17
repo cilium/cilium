@@ -26,9 +26,7 @@ type envoyRedirect struct {
 
 var envoyOnce sync.Once
 
-// createEnvoyRedirect creates a redirect with corresponding proxy
-// configuration. This will launch a proxy instance.
-func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServer, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup) (RedirectImplementation, error) {
+func startEnvoy(stateDir string, xdsServer *envoy.XDSServer, wg *completion.WaitGroup) {
 	envoyOnce.Do(func() {
 		// Start Envoy on first invocation
 		envoyProxy = envoy.StartEnvoy(stateDir, option.Config.EnvoyLogPath, 0)
@@ -40,6 +38,12 @@ func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServe
 			xdsServer.AddMetricsListener(uint16(option.Config.ProxyPrometheusPort), wg)
 		}
 	})
+}
+
+// createEnvoyRedirect creates a redirect with corresponding proxy
+// configuration. This will launch a proxy instance.
+func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServer, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup) (RedirectImplementation, error) {
+	startEnvoy(stateDir, xdsServer, wg)
 
 	l := r.listener
 	if envoyProxy != nil {

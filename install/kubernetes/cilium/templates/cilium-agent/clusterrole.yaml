@@ -100,4 +100,11 @@ rules:
   - ciliumendpointslices
   verbs:
   - '*'
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumenvoyconfigs
+  verbs:
+  - list
+  - watch
 {{- end }}

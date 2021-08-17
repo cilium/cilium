@@ -4,6 +4,7 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -138,6 +139,18 @@ func StartProxySupport(minPort uint16, maxPort uint16, stateDir string,
 		ipcache:                     ipcache,
 		defaultEndpointInfoRegistry: eir,
 	}
+}
+
+// Overload XDSServer.UpsertEnvoyResources to start Envoy on demand
+func (p *Proxy) UpsertEnvoyResources(ctx context.Context, resources envoy.Resources) error {
+	startEnvoy(p.stateDir, p.XDSServer, nil)
+	return p.XDSServer.UpsertEnvoyResources(ctx, resources)
+}
+
+// Overload XDSServer.UpdateEnvoyResources to start Envoy on demand
+func (p *Proxy) UpdateEnvoyResources(ctx context.Context, old, new envoy.Resources) error {
+	startEnvoy(p.stateDir, p.XDSServer, nil)
+	return p.XDSServer.UpdateEnvoyResources(ctx, old, new)
 }
 
 var (
