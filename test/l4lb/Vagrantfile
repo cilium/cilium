@@ -11,11 +11,11 @@ Vagrant.configure("2") do |config|
   cpus = 2
   config.vm.provider :virtualbox do |v|
     v.memory = memory
-    v.cpus = cpus
+    #v.cpus = cpus
   end
   config.vm.provider :libvirt do |v|
     v.memory = memory
-    v.cpus = cpus
+    #v.cpus = cpus
   end
   config.vm.provision "install-packages", type: "shell", run: "once" do |sh|
     sh.inline = <<~SHELL

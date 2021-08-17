@@ -20,7 +20,7 @@ on:
   #   will disappear from the PR checks: please provide a direct link to the
   #   successful workflow run (can be found from Actions tab) in a comment.
   #
-  # pull_request: {}
+  pull_request: {}
   ###
 
 # By specifying the access of one of the scopes, all of those that are not
@@ -122,7 +122,7 @@ jobs:
       (github.event_name == 'schedule' && github.repository == 'cilium/cilium') ||
       github.event_name == 'pull_request'
     # We need nested virtualisation which is supported only by MacOS runner
-    runs-on: macos-10.15
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - name: Set up job variables
@@ -157,10 +157,12 @@ jobs:
       - name: Boot Fedora
         run: |
           ln -sf ./test/l4lb/Vagrantfile ./Vagrantfile
+          sudo apt-get update
+          sudo apt-get install -y vagrant virtualbox
           # Retry if it fails (download.fedoraproject.org returns 404 sometimes)
           # Spend up to 10 seconds on this
           for i in {1..4}; do
-            if vagrant up; then
+            if vagrant up --provider virtualbox; then
               break
             fi
             sleep $i
