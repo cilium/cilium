@@ -19,7 +19,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/miekg/dns"
+	"github.com/cilium/cilium/pkg/fqdn/dns"
 )
 
 const allowedDNSCharsREGroup = "[-a-zA-Z0-9_]"
@@ -44,7 +44,7 @@ func Sanitize(pattern string) string {
 		return pattern
 	}
 
-	return strings.ToLower(dns.Fqdn(pattern))
+	return dns.FQDN(pattern)
 }
 
 // ToRegexp converts a MatchPattern field into a regexp string. It does not
