@@ -714,6 +714,9 @@ func initializeFlags() {
 	flags.Bool(option.EnableIPv4EgressGateway, false, "Enable egress gateway for IPv4")
 	option.BindEnv(option.EnableIPv4EgressGateway)
 
+	flags.Bool(option.EnableEnvoyConfig, false, "Enable Envoy Config CRDs")
+	option.BindEnv(option.EnableEnvoyConfig)
+
 	flags.String(option.IPMasqAgentConfigPath, "/etc/config/ip-masq-agent", "ip-masq-agent configuration file path")
 	option.BindEnv(option.IPMasqAgentConfigPath)
 

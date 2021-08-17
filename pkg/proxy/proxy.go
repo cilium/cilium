@@ -4,6 +4,7 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -124,6 +125,16 @@ func StartProxySupport(minPort uint16, maxPort uint16, stateDir string,
 		redirects:       make(map[string]*Redirect),
 		datapathUpdater: datapathUpdater,
 	}
+}
+
+func (p *Proxy) UpsertEnvoyResources(ctx context.Context, resources envoy.Resources) error {
+	startEnvoy(p.stateDir, p.XDSServer, nil)
+	return p.XDSServer.UpsertEnvoyResources(ctx, resources)
+}
+
+func (p *Proxy) UpdateEnvoyResources(ctx context.Context, old, new envoy.Resources) error {
+	startEnvoy(p.stateDir, p.XDSServer, nil)
+	return p.XDSServer.UpdateEnvoyResources(ctx, old, new)
 }
 
 var (
