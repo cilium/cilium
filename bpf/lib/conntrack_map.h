@@ -7,7 +7,8 @@
 #include "common.h"
 #include "config.h"
 
-#if defined(CT_MAP_TCP4) && defined(CT_MAP_TCP6)
+#if defined(CT_MAP_TCP4) || defined(CT_MAP_TCP6)
+
 #ifdef HAVE_LRU_HASH_MAP_TYPE
 #define CT_MAP_TYPE BPF_MAP_TYPE_LRU_HASH
 #else
@@ -79,5 +80,5 @@ get_ct_map4(const struct ipv4_ct_tuple *tuple)
 	return &CT_MAP_ANY4;
 }
 #endif
-#endif
+#endif /* #if defined(CT_MAP_TCP4) || defined(CT_MAP_TCP6) */
 #endif /* __LIB_CONNTRACK_MAP_H_ */
