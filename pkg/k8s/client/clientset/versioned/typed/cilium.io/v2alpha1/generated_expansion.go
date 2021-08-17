@@ -8,3 +8,5 @@ package v2alpha1
 type CiliumEgressNATPolicyExpansion interface{}
 
 type CiliumEndpointSliceExpansion interface{}
+
+type CiliumEnvoyConfigExpansion interface{}

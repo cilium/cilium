@@ -24,6 +24,7 @@ import (
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_mongo_proxy "github.com/cilium/proxy/go/envoy/extensions/filters/network/mongo_proxy/v3"
 	envoy_config_tcp "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
+	envoy_config_tls "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	envoy_config_upstream "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
 	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
 	"golang.org/x/sys/unix"
@@ -102,6 +103,22 @@ type XDSServer struct {
 	// Manages it's own locking
 	listenerMutator xds.AckingResourceMutator
 
+	// routeMutator publishes route updates to Envoy proxies.
+	// Manages it's own locking
+	routeMutator xds.AckingResourceMutator
+
+	// clusterMutator publishes cluster updates to Envoy proxies.
+	// Manages it's own locking
+	clusterMutator xds.AckingResourceMutator
+
+	// endpointMutator publishes endpoint updates to Envoy proxies.
+	// Manages it's own locking
+	endpointMutator xds.AckingResourceMutator
+
+	// secretMutator publishes secret updates to Envoy proxies.
+	// Manages it's own locking
+	secretMutator xds.AckingResourceMutator
+
 	// listeners is the set of names of listeners that have been added by
 	// calling AddListener.
 	// mutex must be held when accessing this.
@@ -167,6 +184,34 @@ func StartXDSServer(ipcache *ipcache.IPCache, stateDir string) *XDSServer {
 		AckObserver: ldsMutator,
 	}
 
+	rdsCache := xds.NewCache()
+	rdsMutator := xds.NewAckingResourceMutatorWrapper(rdsCache)
+	rdsConfig := &xds.ResourceTypeConfiguration{
+		Source:      rdsCache,
+		AckObserver: rdsMutator,
+	}
+
+	cdsCache := xds.NewCache()
+	cdsMutator := xds.NewAckingResourceMutatorWrapper(cdsCache)
+	cdsConfig := &xds.ResourceTypeConfiguration{
+		Source:      cdsCache,
+		AckObserver: cdsMutator,
+	}
+
+	edsCache := xds.NewCache()
+	edsMutator := xds.NewAckingResourceMutatorWrapper(edsCache)
+	edsConfig := &xds.ResourceTypeConfiguration{
+		Source:      edsCache,
+		AckObserver: edsMutator,
+	}
+
+	sdsCache := xds.NewCache()
+	sdsMutator := xds.NewAckingResourceMutatorWrapper(sdsCache)
+	sdsConfig := &xds.ResourceTypeConfiguration{
+		Source:      sdsCache,
+		AckObserver: sdsMutator,
+	}
+
 	npdsCache := xds.NewCache()
 	npdsMutator := xds.NewAckingResourceMutatorWrapper(npdsCache)
 	npdsConfig := &xds.ResourceTypeConfiguration{
@@ -180,13 +225,25 @@ func StartXDSServer(ipcache *ipcache.IPCache, stateDir string) *XDSServer {
 		AckObserver: &nphdsCache,
 	}
 
-	stopServer := startXDSGRPCServer(socketListener, ldsConfig, npdsConfig, nphdsConfig, 5*time.Second)
+	stopServer := startXDSGRPCServer(socketListener, map[string]*xds.ResourceTypeConfiguration{
+		ListenerTypeURL:           ldsConfig,
+		RouteTypeURL:              rdsConfig,
+		ClusterTypeURL:            cdsConfig,
+		EndpointTypeURL:           edsConfig,
+		SecretTypeURL:             sdsConfig,
+		NetworkPolicyTypeURL:      npdsConfig,
+		NetworkPolicyHostsTypeURL: nphdsConfig,
+	}, 5*time.Second)
 
 	return &XDSServer{
 		socketPath:             xdsPath,
 		accessLogPath:          getAccessLogPath(stateDir),
 		listenerMutator:        ldsMutator,
 		listeners:              make(map[string]*Listener),
+		routeMutator:           rdsMutator,
+		clusterMutator:         cdsMutator,
+		endpointMutator:        edsMutator,
+		secretMutator:          sdsMutator,
 		networkPolicyCache:     npdsCache,
 		NetworkPolicyMutator:   npdsMutator,
 		networkPolicyEndpoints: make(map[string]logger.EndpointUpdater),
@@ -387,7 +444,7 @@ func (s *XDSServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
 	}
 	log.WithField(logfields.Port, port).Debug("Envoy: AddMetricsListener")
 
-	s.addListener(metricsListenerName, port, func() *envoy_config_listener.Listener {
+	s.addListener(metricsListenerName, func() *envoy_config_listener.Listener {
 		hcmConfig := &envoy_config_http.HttpConnectionManager{
 			StatPrefix: metricsListenerName,
 			HttpFilters: []*envoy_config_http.HttpFilter{{
@@ -453,7 +510,7 @@ func (s *XDSServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
 
 // addListener either reuses an existing listener with 'name', or creates a new one.
 // 'listenerConf()' is only called if a new listener is being created.
-func (s *XDSServer) addListener(name string, port uint16, listenerConf func() *envoy_config_listener.Listener, wg *completion.WaitGroup, cb func(err error), isProxyListener bool) {
+func (s *XDSServer) addListener(name string, listenerConf func() *envoy_config_listener.Listener, wg *completion.WaitGroup, cb func(err error), isProxyListener bool) {
 	s.mutex.Lock()
 	listener := s.listeners[name]
 	if listener == nil {
@@ -515,6 +572,86 @@ func (s *XDSServer) addListener(name string, port uint16, listenerConf func() *e
 			}
 		})
 	s.mutex.Unlock()
+}
+
+// upsertListener either updates an existing LDS listener with 'name', or creates a new one.
+func (s *XDSServer) upsertListener(name string, listenerConf *envoy_config_listener.Listener, wg *completion.WaitGroup, callback func(error)) xds.AckingResourceMutatorRevertFunc {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	// 'callback' is not called if there is no change and this configuration has already been acked.
+	return s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"}, wg, callback)
+}
+
+// deleteListener deletes an LDS Envoy Listener.
+func (s *XDSServer) deleteListener(name string, wg *completion.WaitGroup, callback func(error)) xds.AckingResourceMutatorRevertFunc {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	// 'callback' is not called if there is no change and this configuration has already been acked.
+	return s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg, callback)
+}
+
+// upsertRoute either updates an existing RDS route with 'name', or creates a new one.
+func (s *XDSServer) upsertRoute(name string, conf *envoy_config_route.RouteConfiguration, wg *completion.WaitGroup, callback func(error)) xds.AckingResourceMutatorRevertFunc {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	// 'callback' is not called if there is no change and this configuration has already been acked.
+	return s.routeMutator.Upsert(RouteTypeURL, name, conf, []string{"127.0.0.1"}, wg, callback)
+}
+
+// deleteRoute deletes an RDS Route.
+func (s *XDSServer) deleteRoute(name string, wg *completion.WaitGroup, callback func(error)) xds.AckingResourceMutatorRevertFunc {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	// 'callback' is not called if there is no change and this configuration has already been acked.
+	return s.routeMutator.Delete(RouteTypeURL, name, []string{"127.0.0.1"}, wg, callback)
+}
+
+// upsertCluster either updates an existing CDS cluster with 'name', or creates a new one.
+func (s *XDSServer) upsertCluster(name string, conf *envoy_config_cluster.Cluster, wg *completion.WaitGroup, callback func(error)) xds.AckingResourceMutatorRevertFunc {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	// 'callback' is not called if there is no change and this configuration has already been acked.
+	return s.clusterMutator.Upsert(ClusterTypeURL, name, conf, []string{"127.0.0.1"}, wg, callback)
+}
+
+// deleteCluster deletes an CDS cluster.
+func (s *XDSServer) deleteCluster(name string, wg *completion.WaitGroup, callback func(error)) xds.AckingResourceMutatorRevertFunc {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	// 'callback' is not called if there is no change and this configuration has already been acked.
+	return s.clusterMutator.Delete(ClusterTypeURL, name, []string{"127.0.0.1"}, wg, callback)
+}
+
+// upsertEndpoint either updates an existing EDS endpoint with 'name', or creates a new one.
+func (s *XDSServer) upsertEndpoint(name string, conf *envoy_config_endpoint.ClusterLoadAssignment, wg *completion.WaitGroup, callback func(error)) xds.AckingResourceMutatorRevertFunc {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	// 'callback' is not called if there is no change and this configuration has already been acked.
+	return s.endpointMutator.Upsert(EndpointTypeURL, name, conf, []string{"127.0.0.1"}, wg, callback)
+}
+
+// deleteEndpoint deletes an EDS endpoint.
+func (s *XDSServer) deleteEndpoint(name string, wg *completion.WaitGroup, callback func(error)) xds.AckingResourceMutatorRevertFunc {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	// 'callback' is not called if there is no change and this configuration has already been acked.
+	return s.endpointMutator.Delete(EndpointTypeURL, name, []string{"127.0.0.1"}, wg, callback)
+}
+
+// upsertSecret either updates an existing SDS secret with 'name', or creates a new one.
+func (s *XDSServer) upsertSecret(name string, conf *envoy_config_tls.Secret, wg *completion.WaitGroup, callback func(error)) xds.AckingResourceMutatorRevertFunc {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	// 'callback' is not called if there is no change and this configuration has already been acked.
+	return s.secretMutator.Upsert(SecretTypeURL, name, conf, []string{"127.0.0.1"}, wg, callback)
+}
+
+// deleteSecret deletes an SDS secret.
+func (s *XDSServer) deleteSecret(name string, wg *completion.WaitGroup, callback func(error)) xds.AckingResourceMutatorRevertFunc {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	// 'callback' is not called if there is no change and this configuration has already been acked.
+	return s.secretMutator.Delete(SecretTypeURL, name, []string{"127.0.0.1"}, wg, callback)
 }
 
 func (s *XDSServer) getListenerConf(name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool) *envoy_config_listener.Listener {
@@ -602,7 +739,7 @@ func (s *XDSServer) getListenerConf(name string, kind policy.L7ParserType, port 
 func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup) {
 	log.Debugf("Envoy: %s AddListener %s (mayUseOriginalSourceAddr: %v)", kind, name, mayUseOriginalSourceAddr)
 
-	s.addListener(name, port, func() *envoy_config_listener.Listener {
+	s.addListener(name, func() *envoy_config_listener.Listener {
 		return s.getListenerConf(name, kind, port, isIngress, mayUseOriginalSourceAddr)
 	}, wg, nil, true)
 }
@@ -906,6 +1043,26 @@ func getHTTPRule(certManager policy.CertificateManager, h *api.PortRuleHTTP, ns 
 	return &cilium.HttpNetworkPolicyRule{Headers: headers, HeaderMatches: headerMatches}, len(headerMatches) == 0
 }
 
+var ciliumXDS = &envoy_config_core.ConfigSource{
+	ResourceApiVersion: envoy_config_core.ApiVersion_V3,
+	ConfigSourceSpecifier: &envoy_config_core.ConfigSource_ApiConfigSource{
+		ApiConfigSource: &envoy_config_core.ApiConfigSource{
+			ApiType:                   envoy_config_core.ApiConfigSource_GRPC,
+			TransportApiVersion:       envoy_config_core.ApiVersion_V3,
+			SetNodeOnFirstMessageOnly: true,
+			GrpcServices: []*envoy_config_core.GrpcService{
+				{
+					TargetSpecifier: &envoy_config_core.GrpcService_EnvoyGrpc_{
+						EnvoyGrpc: &envoy_config_core.GrpcService_EnvoyGrpc{
+							ClusterName: "xds-grpc-cilium",
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
 func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClusterName, ingressClusterName string, adminPath string) {
 	connectTimeout := int64(option.Config.ProxyConnectTimeout) // in seconds
 
@@ -1031,25 +1188,8 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 			},
 		},
 		DynamicResources: &envoy_config_bootstrap.Bootstrap_DynamicResources{
-			LdsConfig: &envoy_config_core.ConfigSource{
-				ResourceApiVersion: envoy_config_core.ApiVersion_V3,
-				ConfigSourceSpecifier: &envoy_config_core.ConfigSource_ApiConfigSource{
-					ApiConfigSource: &envoy_config_core.ApiConfigSource{
-						ApiType:                   envoy_config_core.ApiConfigSource_GRPC,
-						TransportApiVersion:       envoy_config_core.ApiVersion_V3,
-						SetNodeOnFirstMessageOnly: true,
-						GrpcServices: []*envoy_config_core.GrpcService{
-							{
-								TargetSpecifier: &envoy_config_core.GrpcService_EnvoyGrpc_{
-									EnvoyGrpc: &envoy_config_core.GrpcService_EnvoyGrpc{
-										ClusterName: "xds-grpc-cilium",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
+			LdsConfig: ciliumXDS,
+			CdsConfig: ciliumXDS,
 		},
 		Admin: &envoy_config_bootstrap.Admin{
 			Address: &envoy_config_core.Address{
