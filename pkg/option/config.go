@@ -351,6 +351,9 @@ const (
 	// EnableEgressGateway enables egress-gateway
 	EnableEgressGateway = "enable-egress-gateway"
 
+	// EnableEnvoyConfig enables processing of CiliumEnvoyConfig CRDs
+	EnableEnvoyConfig = "enable-envoy-config"
+
 	// IPMasqAgentConfigPath is the configuration file path
 	IPMasqAgentConfigPath = "ip-masq-agent-config-path"
 
@@ -1491,6 +1494,7 @@ type DaemonConfig struct {
 	EnableBPFClockProbe        bool
 	EnableIPMasqAgent          bool
 	EnableEgressGateway        bool
+	EnableEnvoyConfig          bool
 	IPMasqAgentConfigPath      string
 	InstallIptRules            bool
 	MonitorAggregation         string
@@ -2539,6 +2543,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableBPFClockProbe = viper.GetBool(EnableBPFClockProbe)
 	c.EnableIPMasqAgent = viper.GetBool(EnableIPMasqAgent)
 	c.EnableEgressGateway = viper.GetBool(EnableEgressGateway)
+	c.EnableEnvoyConfig = viper.GetBool(EnableEnvoyConfig)
 	c.IPMasqAgentConfigPath = viper.GetString(IPMasqAgentConfigPath)
 	c.InstallIptRules = viper.GetBool(InstallIptRules)
 	c.IPTablesLockTimeout = viper.GetDuration(IPTablesLockTimeout)

@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -63,6 +64,7 @@ const (
 	k8sAPIGroupCiliumEndpointV2                 = "cilium/v2::CiliumEndpoint"
 	k8sAPIGroupCiliumLocalRedirectPolicyV2      = "cilium/v2::CiliumLocalRedirectPolicy"
 	k8sAPIGroupCiliumEgressNATPolicyV2          = "cilium/v2::CiliumEgressNATPolicy"
+	k8sAPIGroupCiliumEnvoyConfigV2              = "cilium/v2alpha1::CiliumEnvoyConfig"
 	K8sAPIGroupEndpointSliceV1Beta1Discovery    = "discovery/v1beta1::EndpointSlice"
 	K8sAPIGroupEndpointSliceV1Discovery         = "discovery/v1::EndpointSlice"
 
@@ -76,6 +78,7 @@ const (
 	metricCiliumEndpoint = "CiliumEndpoint"
 	metricCLRP           = "CiliumLocalRedirectPolicy"
 	metricCENP           = "CiliumEgressNATPolicy"
+	metricCEC            = "CiliumEnvoyConfig"
 	metricPod            = "Pod"
 	metricNode           = "Node"
 	metricService        = "Service"
@@ -162,6 +165,12 @@ type egressGatewayManager interface {
 	OnDeleteEndpoint(endpoint *k8sTypes.CiliumEndpoint)
 }
 
+type envoyConfigManager interface {
+	UpsertEnvoyResources(context.Context, envoy.Resources) error
+	UpdateEnvoyResources(ctx context.Context, old, new envoy.Resources) error
+	DeleteEnvoyResources(context.Context, envoy.Resources) error
+}
+
 type K8sWatcher struct {
 	// k8sResourceSynced maps a resource name to a channel. Once the given
 	// resource name is synchronized with k8s, the channel for which that
@@ -192,6 +201,7 @@ type K8sWatcher struct {
 	redirectPolicyManager redirectPolicyManager
 	bgpSpeakerManager     bgpSpeakerManager
 	egressGatewayManager  egressGatewayManager
+	envoyConfigManager    envoyConfigManager
 
 	// controllersStarted is a channel that is closed when all controllers, i.e.,
 	// k8s watchers have started listening for k8s events.
@@ -224,6 +234,7 @@ func NewK8sWatcher(
 	redirectPolicyManager redirectPolicyManager,
 	bgpSpeakerManager bgpSpeakerManager,
 	egressGatewayManager egressGatewayManager,
+	envoyConfigManager envoyConfigManager,
 	cfg WatcherConfiguration,
 ) *K8sWatcher {
 	return &K8sWatcher{
@@ -240,6 +251,7 @@ func NewK8sWatcher(
 		bgpSpeakerManager:     bgpSpeakerManager,
 		egressGatewayManager:  egressGatewayManager,
 		NodeChain:             subscriber.NewNodeChain(),
+		envoyConfigManager:    envoyConfigManager,
 		cfg:                   cfg,
 	}
 }
@@ -335,6 +347,7 @@ func (k *K8sWatcher) resourceGroups() []string {
 		synced.CRDResourceName(v2.CLRPName):       k8sAPIGroupCiliumLocalRedirectPolicyV2,
 		synced.CRDResourceName(v2.CEWName):        "SKIP", // Handled in clustermesh-apiserver/
 		synced.CRDResourceName(v2alpha1.CENPName): k8sAPIGroupCiliumEgressNATPolicyV2,
+		synced.CRDResourceName(v2alpha1.CECName):  k8sAPIGroupCiliumEnvoyConfigV2,
 	}
 	ciliumResources := synced.AgentCRDResourceNames()
 	ciliumGroups := make([]string, 0, len(ciliumResources))
@@ -449,6 +462,8 @@ func (k *K8sWatcher) EnableK8sWatcher(ctx context.Context, resources []string) e
 			k.ciliumLocalRedirectPolicyInit(ciliumNPClient)
 		case k8sAPIGroupCiliumEgressNATPolicyV2:
 			k.ciliumEgressNATPolicyInit(ciliumNPClient)
+		case k8sAPIGroupCiliumEnvoyConfigV2:
+			k.ciliumEnvoyConfigInit(ciliumNPClient)
 		default:
 			log.WithFields(logrus.Fields{
 				logfields.Resource: r,

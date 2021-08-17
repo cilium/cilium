@@ -41,6 +41,20 @@ const (
 
 	// CENPName is the full name of Cilium Egress NAT Policy
 	CENPName = CENPPluralName + "." + CustomResourceDefinitionGroup
+
+	// Cilium Envoy Config (CEC)
+
+	// CECSingularName is the singular name of Cilium Envoy Config
+	CECSingularName = "ciliumenvoyconfig"
+
+	// CECPluralName is the plural name of Cilium Envoy Config
+	CECPluralName = "ciliumenvoyconfigs"
+
+	// CECKindDefinition is the kind name of Cilium Envoy Config
+	CECKindDefinition = "CiliumEnvoyConfig"
+
+	// CECName is the full name of Cilium Envoy Config
+	CECName = CECPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -86,6 +100,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&CiliumEgressNATPolicy{},
 		&CiliumEgressNATPolicyList{},
+		&CiliumEnvoyConfig{},
+		&CiliumEnvoyConfigList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

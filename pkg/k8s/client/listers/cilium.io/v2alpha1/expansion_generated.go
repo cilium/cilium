@@ -8,3 +8,7 @@ package v2alpha1
 // CiliumEgressNATPolicyListerExpansion allows custom methods to be added to
 // CiliumEgressNATPolicyLister.
 type CiliumEgressNATPolicyListerExpansion interface{}
+
+// CiliumEnvoyConfigListerExpansion allows custom methods to be added to
+// CiliumEnvoyConfigLister.
+type CiliumEnvoyConfigListerExpansion interface{}
