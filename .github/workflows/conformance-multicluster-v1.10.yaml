@@ -93,18 +93,8 @@ jobs:
         if: ${{ github.event.issue.pull_request }}
         id: pr
         run: |
-          curl \
-             -H "Accept: application/vnd.github.v3+json" \
-             -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-             ${{ github.event.issue.pull_request.url }} > pr.json
-          commits_url=$(jq -r '.commits_url' pr.json)
-          curl \
-             -H "Accept: application/vnd.github.v3+json" \
-             -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-             ${commits_url} > commits.json
-          pr_first_sha=$(jq -r ".[0].sha" commits.json)
-          pr_parent_sha=$(git rev-parse "${pr_first_sha}^")
-          echo "::set-output name=base::${pr_parent_sha}"
+          curl ${{ github.event.issue.pull_request.url }} > pr.json
+          echo "::set-output name=base::$(jq -r '.base.sha' pr.json)"
           echo "::set-output name=head::$(jq -r '.head.sha' pr.json)"
       - name: Check code changes
         if: ${{ github.event.issue.pull_request }}
