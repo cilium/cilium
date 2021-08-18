@@ -61,7 +61,7 @@ flake-tracker:
     - cilium-master-k8s-1.20-kernel-4.19
     - cilium-master-k8s-1.21-kernel-4.9
     - cilium-master-k8s-upstream
-    - cilium-master-runtime-kernel-4.9
+    - cilium-master-runtime-kernel-net-next
     pr-jobs:
       Cilium-PR-K8s-1.16-net-next:
         correlate-with-stable-jobs:
@@ -102,9 +102,9 @@ flake-tracker:
       Cilium-PR-K8s-Upstream:
         correlate-with-stable-jobs:
         - cilium-master-k8s-upstream
-      Cilium-PR-Runtime-4.9:
+      Cilium-PR-Runtime-net-next:
         correlate-with-stable-jobs:
-        - cilium-master-runtime-kernel-4.9
+        - cilium-master-runtime-kernel-net-next
   max-flakes-per-test: 5
   flake-similarity: 0.75
   ignore-failures:
