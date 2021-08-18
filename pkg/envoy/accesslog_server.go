@@ -17,10 +17,10 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 
-	"github.com/cilium/proxy/go/cilium/api"
-	"github.com/golang/protobuf/proto"
+	cilium "github.com/cilium/proxy/go/cilium/api"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
+	"google.golang.org/protobuf/proto"
 )
 
 func getAccessLogPath(stateDir string) string {
