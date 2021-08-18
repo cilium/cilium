@@ -8,7 +8,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/lock"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 // ResourceSource provides read access to a versioned set of resources.
