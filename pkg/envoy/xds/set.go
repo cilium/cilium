@@ -6,7 +6,7 @@ package xds
 import (
 	"context"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/cilium/cilium/pkg/lock"
 )
