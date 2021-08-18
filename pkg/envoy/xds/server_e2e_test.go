@@ -18,9 +18,9 @@ import (
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_service_discovery "github.com/cilium/proxy/go/envoy/service/discovery/v3"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/any"
 	"google.golang.org/genproto/googleapis/rpc/status"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/checker"
@@ -94,17 +94,13 @@ func (c *ResponseMatchesChecker) Check(params []interface{}, names []string) (re
 	if result && len(resources) > 0 {
 		// Convert the resources into Any protocol buffer messages, which is
 		// the type of Resources in the response, so that we can compare them.
-		resourcesAny := make([]*any.Any, 0, len(resources))
+		resourcesAny := make([]*anypb.Any, 0, len(resources))
 		for _, res := range resources {
-			data, err := proto.Marshal(res)
+			any, err := anypb.New(res)
 			if err != nil {
 				return false, fmt.Sprintf("error marshalling protocol buffer %v", res)
 			}
-			resourcesAny = append(resourcesAny,
-				&any.Any{
-					TypeUrl: typeURL,
-					Value:   data,
-				})
+			resourcesAny = append(resourcesAny, any)
 		}
 		// Sort both lists.
 		sort.Slice(response.Resources, func(i, j int) bool {

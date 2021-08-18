@@ -7,8 +7,8 @@ import (
 	"context"
 	"sort"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
