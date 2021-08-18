@@ -41,7 +41,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/probe"
 	"github.com/cilium/cilium/pkg/sysctl"
-	"github.com/cilium/cilium/pkg/trigger"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
 	"golang.org/x/sys/unix"
@@ -452,7 +451,7 @@ func probeCgroupSupportUDP(strict, ipv4 bool) error {
 }
 
 // handleNativeDevices tries to detect bpf_host devices (if needed).
-func handleNativeDevices(ctx context.Context, datapathRegenTrigger *trigger.Trigger, strict bool) error {
+func handleNativeDevices(ctx context.Context, triggerDatapathRegen func(), strict bool) error {
 	expandDevices()
 
 	detectNodePortDevs := len(option.Config.Devices) == 0 &&
@@ -481,7 +480,7 @@ func handleNativeDevices(ctx context.Context, datapathRegenTrigger *trigger.Trig
 			l.Info("Using auto-derived devices to which to attach NodePort BPF, Host Firewall or Bandwidth Manager programs")
 		}
 
-		if err := listenForNewDevices(nil, ctx, time.Second, datapathRegenTrigger); err != nil {
+		if err := listenForNewDevices(nil, ctx, time.Second, triggerDatapathRegen); err != nil {
 			log.Warnf("Unable to detect new devices at runtime: %s", err)
 		}
 		// </XXX>
@@ -659,48 +658,72 @@ var excludedDevicePrefixes = []string{
 	"docker",
 }
 
-func isViableDevice(link netlink.Link) bool {
+func isViableDevice(l3DevOK bool, link netlink.Link) bool {
 	name := link.Attrs().Name
 
-	// Skip virtual devices.
-	if virtual, err := ethtool.IsVirtualDriver(name); err == nil && virtual {
-		return false
-	}
-
 	// Do not consider any of the excluded devices.
-	// XXX put on top of virtual device check
 	for _, p := range excludedDevicePrefixes {
 		if strings.HasPrefix(name, p) {
 			return false
 		}
 	}
 
+	// Skip virtual devices.
+	if virtual, err := ethtool.IsVirtualDriver(name); err == nil && virtual {
+		return false
+	}
+
+	// Ignore L3 devices if we cannot support them.
+	if !l3DevOK && !mac.LinkHasMacAddr(link) {
+		log.WithField(logfields.Device, name).
+			Warn("Ignoring L3 device; >= 5.8 kernel is required.")
+		return false
+	}
 
 	return true
 }
 
-func handleRouteUpdates(datapathRegenTrigger *trigger.Trigger, updates []netlink.RouteUpdate) {
+// handleLinkUpdate processes link updates and when detecting a removed device
+// it triggers a datapath reload.
+func handleLinkUpdate(triggerDatapathRegen func(), update netlink.LinkUpdate) {
+	if update.Header.Type != unix.RTM_DELLINK {
+		return
+	}
+
+	newDevices := make([]string, 0, len(option.Config.Devices))
+
+	for _, name := range option.Config.Devices {
+		if name != update.Attrs().Name {
+			newDevices = append(newDevices, name)
+		}
+	}
+
+	if len(newDevices) != len(option.Config.Devices) {
+		sort.Strings(newDevices)
+		option.Config.Devices = newDevices
+		triggerDatapathRegen()
+	}
+}
+
+// updateDevicesFromRoutes processes a batch of routes and sets the option.Config.Devices
+// based on the devices found from the routes. This method is shared between the initial
+// and runtime device detection.
+func updateDevicesFromRoutes(l3DevOK bool, devicesChangedCallback func(), routes []netlink.Route) {
 	linkIndices := make(map[int]struct{})
 
 	// Collect all links mentioned in the route update batch
-	for _, update := range updates {
-		if update.Type != unix.RTM_NEWROUTE {
-			continue
-		}
-
+	for _, route := range routes {
 		// Only consider devices that have global unicast routes,
 		// e.g. skip loopback, multicast and link local routes.
-		if !update.Dst.IP.IsGlobalUnicast() {
+		if route.Dst != nil && !route.Dst.IP.IsGlobalUnicast() {
 			continue
 		}
 
-		linkIndices[update.LinkIndex] = struct{}{}
+		linkIndices[route.LinkIndex] = struct{}{}
 	}
 
-	newDevices := make([]string, 0, len(option.Config.Devices)+len(linkIndices))
+	newDevices := make([]string, len(option.Config.Devices))
 	copy(newDevices, option.Config.Devices)
-
-	newDeviceDetected := false
 
 links:
 	for linkIndex := range linkIndices {
@@ -718,10 +741,9 @@ links:
 			}
 		}
 
-		if isViableDevice(link) {
+		if isViableDevice(l3DevOK, link) {
 			log.Infof("New device %s is viable, adding it", name)
 			newDevices = append(newDevices, name)
-			newDeviceDetected = true
 		} else {
 			log.Infof("New device %s not viable, skipping", name)
 		}
@@ -729,46 +751,38 @@ links:
 
 	// Update the device list.
 	// Use a copy instead of mutating in place to protect concurrent readers.
-	if newDeviceDetected {
-		log.Infof("New devices detected, triggering datapath regeneration.")
-
+	if len(newDevices) != len(option.Config.Devices) {
 		sort.Strings(newDevices)
 		option.Config.Devices = newDevices
-
-		// XXX this needs to be done centrally
-		if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
-			if err := node.InitBPFMasqueradeAddrs(option.Config.Devices); err != nil {
-				log.Warnf("InitBPFMasqueradeAddrs failed: %s", err)
-			}
+		if devicesChangedCallback != nil {
+			devicesChangedCallback()
 		}
-
-		if option.Config.EnableNodePort {
-			if err := node.InitNodePortAddrs(option.Config.Devices, option.Config.LBDevInheritIPAddr); err != nil {
-				msg := "Failed to initialize NodePort addrs."
-				log.WithError(err).Warn(msg)
-			}
-		}
-		// </XXX>
-
-		// And finally frigger the datapath reload.
-		datapathRegenTrigger.TriggerWithReason("New devices detected")
 	}
 }
 
-func listenForNewDevices(netNS *netns.NsHandle, ctx context.Context, minInterval time.Duration, datapathRegenTrigger *trigger.Trigger) error {
-	updateChan := make(chan netlink.RouteUpdate)
+func listenForNewDevices(netNS *netns.NsHandle, ctx context.Context, minInterval time.Duration, triggerDatapathRegen func()) error {
+	l3DevOK := supportL3Dev()
 	doneChan := make(chan struct{})
-	opts := netlink.RouteSubscribeOptions{
-		Namespace:    netNS,
-		ListExisting: false,
-	}
 
-	if err := netlink.RouteSubscribeWithOptions(updateChan, doneChan, opts); err != nil {
+	routeChan := make(chan netlink.RouteUpdate)
+	err := netlink.RouteSubscribeWithOptions(routeChan, doneChan,
+		netlink.RouteSubscribeOptions{
+			Namespace:    netNS,
+			ListExisting: false,
+		})
+	if err != nil {
 		return err
 	}
 
-	// TODO: Handle removed devices via LinkSubscribe? Is there anything we actually need
-	// to do with them?
+	linkChan := make(chan netlink.LinkUpdate)
+	err = netlink.LinkSubscribeWithOptions(linkChan, doneChan, netlink.LinkSubscribeOptions{
+		Namespace:    netNS,
+		ListExisting: false,
+	})
+	if err != nil {
+		close(doneChan)
+		return err
+	}
 
 	// Unsubscribe when daemon context is cancelled.
 	go func() {
@@ -787,23 +801,33 @@ func listenForNewDevices(netNS *netns.NsHandle, ctx context.Context, minInterval
 			}
 		}
 
-		// Collect route updates into a batch and process the batch every 'minInterval'.
+		// To avoid multiple reloads of the datapath when lots of routes are added in one go,
+		// collect the route updates into a batch and process the batch every 'minInterval'.
 		ticker := time.NewTicker(minInterval)
 		defer ticker.Stop()
-		buffer := make([]netlink.RouteUpdate, 0)
+		buffer := make([]netlink.Route, 0)
 
 		for {
 			select {
 			case <-ticker.C:
 				if len(buffer) > 0 {
-					handleRouteUpdates(datapathRegenTrigger, buffer)
-					buffer = make([]netlink.RouteUpdate, 0)
+					updateDevicesFromRoutes(l3DevOK, triggerDatapathRegen, buffer)
+					buffer = make([]netlink.Route, 0)
 				}
-			case update, ok := <-updateChan:
+
+			case update, ok := <-routeChan:
 				if !ok {
 					return
 				}
-				buffer = append(buffer, update)
+				if update.Type == unix.RTM_NEWROUTE {
+					buffer = append(buffer, update.Route)
+				}
+
+			case update, ok := <-linkChan:
+				if !ok {
+					return
+				}
+				handleLinkUpdate(triggerDatapathRegen, update)
 			}
 		}
 	}()
@@ -822,110 +846,77 @@ func detectDevicesV2(detectNodePortDevs, detectDirectRoutingDev, detectIPv6MCast
 		return fmt.Errorf("k8s Node IP is not set")
 	}
 
-	candidateLinks := map[int]netlink.Link{}
-	devSet := map[string]struct{}{} // iface name
-
+	// Detect the devices from the system routing table by picking the devices
+	// which have global unicast routes.
 	if detectNodePortDevs {
 		routes, err := netlink.RouteList(nil, netlink.FAMILY_ALL)
 		if err != nil {
 			return fmt.Errorf("cannot retrieve routes for device detection: %w", err)
 		}
+		updateDevicesFromRoutes(supportL3Dev(), nil, routes)
+	}
 
-		// Find candidate devices by looking at all global unicast routes in the system.
-		for _, r := range routes {
-			if _, ok := candidateLinks[r.LinkIndex]; ok {
-				continue
-			}
-			if r.Dst == nil || !r.Dst.IP.IsGlobalUnicast() {
-				log.Infof("Skipping link with index %d, no global unicast dst", r.LinkIndex)
-				continue
-			}
-			link, err := netlink.LinkByIndex(r.LinkIndex)
-			if err != nil {
-				log.WithError(err).Warnf("Cannot find device with index %d, skipping it", r.LinkIndex)
-				continue
-			}
-			if !isViableDevice(link) {
-				log.Infof("Skipping link %s, not viable", link.Attrs().Name)
-				continue
-			}
+	devices := make(map[string]struct{})
+	for _, dev := range option.Config.Devices {
+		devices[dev] = struct{}{}
+	}
 
-			candidateLinks[r.LinkIndex] = link
-		}
-	} else {
-		// Not detecting devices, assume the list of devices was provided by the user.
-		for _, dev := range option.Config.Devices {
+	// Detect direct routing and IPv6 multicast devices.
+	if detectDirectRoutingDev || detectIPv6MCastDev {
+		for dev := range devices {
 			link, err := netlink.LinkByName(dev)
 			if err != nil {
-				return fmt.Errorf("cannot find device '%s': %w", dev, err)
+				return fmt.Errorf("Cannot find device '%s': %w", dev, err)
 			}
-			candidateLinks[link.Attrs().Index] = link
-		}
-	}
 
-	if len(candidateLinks) == 0 {
-		return fmt.Errorf("unable to determine BPF NodePort devices. Use --%s to specify them",
-			option.Devices)
-	}
-
-	if !detectDirectRoutingDev && option.Config.DirectRoutingDevice != "" {
-		devSet[option.Config.DirectRoutingDevice] = struct{}{}
-	}
-
-	log.Infof("All candidates: %s", candidateLinks)
-	
-	for _, link := range candidateLinks {
-		name := link.Attrs().Name
-
-		if detectDirectRoutingDev || detectIPv6MCastDev {
 			// Check if any of the addresses assigned to this device is the k8s node IP and if so
 			// use it for direct routing and IPv6 multicast.
 			if addrs, err := netlink.AddrList(link, netlink.FAMILY_ALL); err == nil {
 				for _, a := range addrs {
 					if a.IP.Equal(nodeIP) {
 						if detectDirectRoutingDev {
-							// FIXME: Prior method picked the lone device if possible. Is it ever fine to continue
-							// if none of the devices have the node IP?
-							option.Config.DirectRoutingDevice = name
-							detectDirectRoutingDev = false
+							option.Config.DirectRoutingDevice = dev
+							log.Infof("Detected --%s=%s", option.DirectRoutingDevice, option.Config.DirectRoutingDevice)
 						}
-
-						if detectIPv6MCastDev {
-							if link.Attrs().Flags&net.FlagMulticast != 0 {
-								option.Config.IPv6MCastDevice = name
-								log.Infof("Detected %s: %s", option.IPv6MCastDevice, option.Config.IPv6MCastDevice)
-							} else {
-								return fmt.Errorf("unable to determine Multicast devices: %s. Use --%s to specify them",
-									err, option.IPv6MCastDevice)
-							}
-							detectIPv6MCastDev = false
+						if detectIPv6MCastDev && link.Attrs().Flags&net.FlagMulticast != 0 {
+							option.Config.IPv6MCastDevice = dev
+							log.Infof("Detected --%s=%s", option.IPv6MCastDevice, option.Config.IPv6MCastDevice)
 						}
 						break
 					}
 				}
 			} else {
-				log.WithError(err).Warnf("Cannot retrieve device '%s' IP addresses, skipping it", name)
+				log.WithError(err).Warnf("Cannot retrieve device '%s' IP addresses, skipping it", dev)
 			}
 		}
 
-		devSet[name] = struct{}{}
-	}
-
-	log.Infof("Final devSet: %v", devSet)
-
-	if detectNodePortDevs {
-		l3DevOK := supportL3Dev()
-		option.Config.Devices = make([]string, 0, len(devSet))
-		for dev := range devSet {
-			if !l3DevOK && !mac.HasMacAddr(dev) {
-				log.WithField(logfields.Device, dev).
-					Warn("Ignoring L3 device; >= 5.8 kernel is required.")
-				continue
-			}
-			option.Config.Devices = append(option.Config.Devices, dev)
-			sort.Strings(option.Config.Devices)
+		if detectDirectRoutingDev && option.Config.DirectRoutingDevice == "" {
+			return fmt.Errorf("Unable to determine BPF NodePort direct routing device. "+
+				"Use --%s to specify it", option.DirectRoutingDevice)
+		}
+		if detectIPv6MCastDev && option.Config.IPv6MCastDevice == "" {
+			return fmt.Errorf("Unable to determine Multicast device. Use --%s to specify them",
+				option.IPv6MCastDevice)
 		}
 	}
+
+	// Validate the configuration.
+	// For the principle of least surprise and for catching misbehaviours with the device detection
+	// ask the user to specify the devices manually when the direct routing / mcast device is not
+	// found among the detected devices.
+	if option.Config.DirectRoutingDevice != "" {
+		if _, ok := devices[option.Config.DirectRoutingDevice]; !ok {
+			return fmt.Errorf("Direct routing device %s not detected as a valid device. Please specify devices manually with --%s",
+				option.Config.DirectRoutingDevice, option.Devices)
+		}
+	}
+	if option.Config.IPv6MCastDevice != "" {
+		if _, ok := devices[option.Config.IPv6MCastDevice]; !ok {
+			return fmt.Errorf("Multicast device %s not detected as a valid device. Please specify devices manually with --%s",
+				option.Config.IPv6MCastDevice, option.Devices)
+		}
+	}
+
 	return nil
 }
 
@@ -1085,7 +1076,7 @@ func detectIPv6MCastDevice(ifidxByAddr map[string]int) (string, error) {
 func expandDevices() error {
 	allLinks, err := netlink.LinkList()
 	if err != nil {
-		return fmt.Errorf("Cannot list network devices via netlink")
+		return fmt.Errorf("Cannot list network devices via netlink: %s", err)
 	}
 	expandedDevices := make(map[string]bool)
 	for _, iface := range option.Config.Devices {

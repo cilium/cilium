@@ -188,6 +188,7 @@ func (l *Loader) reinitializeIPSec(ctx context.Context) error {
 
 	// XXX(JM)
 	// TODO(JM): Does the EncryptInterface option make sense anymore?
+	// TODO(JM): If kube-proxy-replacement is disabled, do we detect devices?
 	interfaces = append(interfaces, option.Config.EncryptInterface...)
 	interfaces = append(interfaces, option.Config.Devices...)
 	interfaces = fqdn.KeepUniqueNames(interfaces) // XXX move helper somewhere else? pkg/set?

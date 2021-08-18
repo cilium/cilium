@@ -614,7 +614,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// This is because the device detection requires self (Cilium)Node object,
 	// and the k8s service watcher depends on option.Config.EnableNodePort flag
 	// which can be modified after the device detection.
-	handleNativeDevices(d.ctx, regenerationTrigger, isKubeProxyReplacementStrict)
+	handleNativeDevices(d.ctx, d.ReloadOnDeviceChange, isKubeProxyReplacementStrict)
 	finishKubeProxyReplacementInit(isKubeProxyReplacementStrict)
 
 	if k8s.IsEnabled() {
@@ -932,6 +932,40 @@ func (d *Daemon) Close() {
 		d.datapathRegenTrigger.Shutdown()
 	}
 	d.nodeDiscovery.Close()
+}
+
+func (d *Daemon) ReloadOnDeviceChange() {
+	log.Infof("Devices changed, triggering datapath regeneration. Devices: %s", option.Config.Devices)
+	
+	// Reinitialize node addressing information
+	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
+		if err := node.InitBPFMasqueradeAddrs(option.Config.Devices); err != nil {
+			log.Warnf("InitBPFMasqueradeAddrs failed: %s", err)
+		}
+	}
+	if option.Config.EnableNodePort {
+		if err := node.InitNodePortAddrs(option.Config.Devices, option.Config.LBDevInheritIPAddr); err != nil {
+			msg := "Failed to initialize NodePort addrs."
+			log.WithError(err).Warn(msg)
+		}
+	}
+
+	// Recreate node_config.h to reflect the mac addresses of the new devices.
+	if err := d.createNodeConfigHeaderfile(); err != nil {
+		log.Infof("regen after device change, failed to create node config: %s", err)
+		return
+	}
+
+	// Reload the datapath.
+	wg, err := d.TriggerReloadWithoutCompile("Devices changed")
+	if err != nil {
+		log.Infof("regen after device change, failed to reload: %s", err)
+		return
+	}
+	wg.Wait()
+
+	// Synchronize services to reflect new addresses onto lbmap.
+	d.svc.SyncServicesOnDeviceChange(d.Datapath().LocalNodeAddressing())
 }
 
 // TriggerReloadWithoutCompile causes all BPF programs and maps to be reloaded,
