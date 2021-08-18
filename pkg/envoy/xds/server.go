@@ -15,10 +15,9 @@ import (
 	"time"
 
 	envoy_service_discovery "github.com/cilium/proxy/go/envoy/service/discovery/v3"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/any"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -394,19 +393,16 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 				logfields.XDSNonce:         resp.Version,
 			})
 
-			resources := make([]*any.Any, len(resp.Resources))
+			resources := make([]*anypb.Any, len(resp.Resources))
 
 			// Marshall the resources into protobuf's Any type.
 			for i, res := range resp.Resources {
-				data, err := proto.Marshal(res)
+				any, err := anypb.New(res)
 				if err != nil {
 					responseLog.WithError(err).Errorf("error marshalling xDS response (%d resources)", len(resp.Resources))
 					return err
 				}
-				resources[i] = &any.Any{
-					TypeUrl: state.typeURL,
-					Value:   data,
-				}
+				resources[i] = any
 			}
 
 			responseLog.Debugf("sending xDS response with %d resources", len(resp.Resources))

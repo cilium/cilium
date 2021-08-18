@@ -13,9 +13,9 @@ import (
 	"time"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
-	"github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/identity"
