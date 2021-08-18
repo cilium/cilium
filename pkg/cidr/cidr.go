@@ -139,3 +139,60 @@ func MustParseCIDR(str string) *CIDR {
 	}
 	return c
 }
+
+// Version returns the IP version for an IP, or 0 if the IP is not valid.
+func IPVersion(i *net.IP) int {
+	if i.To4() != nil {
+		return 4
+	} else if len(*i) == net.IPv6len {
+		return 6
+	}
+	return 0
+}
+
+// matchCIDRs matchs an IP address against a list of cidrs.
+// If the list is empty, it always matches.
+func matchCIDRs(ip net.IP, cidrs []*net.IPNet) bool {
+	if len(cidrs) == 0 {
+		return true
+	}
+	for _, cidr := range cidrs {
+		if cidr.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+func DetectCIDRByCIDR(cidr *CIDR, version int) (*net.Interface, net.IP, *net.IPNet, error) {
+	netIfaces, err := net.Interfaces()
+	if err != nil {
+		//verboseLog.Println("Failed to enumerate interfaces")
+		return nil, nil, nil, fmt.Errorf("Can't detect the CIDR: Failed to enumerate interfaces")
+	}
+
+	cidrs := []*net.IPNet{cidr.IPNet}
+	// Loop through interfaces filtering on the CIDR
+	//for idx := len(netIfaces) - 1; idx >= 0; idx-- {
+	for _, iface := range netIfaces {
+		//iface := &netIfaces[idx]
+		//verboseLog.Printf("Querying interface addresses: %s", iface.Name)
+		addrs, err := iface.Addrs()
+		if err != nil {
+			//verboseLog.Printf("Cannot get interface address(es): %v", err)
+			return nil, nil, nil, fmt.Errorf("Cannot get interface address(es): %v", err)
+		}
+		for _, addr := range addrs {
+			addrStr := addr.String()
+			ip, ipNet, err := net.ParseCIDR(addrStr)
+			if err != nil {
+				fmt.Printf("unable to parse ip address '%s' as a CIDR: %s\n", addrStr, err)
+				continue
+			}
+			if IPVersion(&ip) == version && ip.IsGlobalUnicast() && matchCIDRs(ip, cidrs) {
+				return &iface, ip, ipNet, nil
+			}
+		}
+	}
+	return nil, nil, nil, fmt.Errorf("no valid IPv%d addresses found on the host interfaces", version)
+}

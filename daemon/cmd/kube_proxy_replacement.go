@@ -745,7 +745,16 @@ func getNodeDeviceLink(ifidxByAddr map[string]int) (netlink.Link, error) {
 		return nil, fmt.Errorf("K8s Node IP is not set")
 	}
 
+	// dataPathIP was setted only when option.Config.Tunnel != option.TunnelDisabled which is
+	// exclusive from option.Config.DirectRoutingDevice, so there is no need to check whether
+	// the routing mode is DirectRouting or Tunnel
+
 	ifindex, found := ifidxByAddr[nodeIP.String()]
+	dataPathIP := node.GetDataPathIPv4Addr()
+	if dataPathIP != nil && option.Config.Tunnel != option.TunnelDisabled {
+		ifindex, found = ifidxByAddr[dataPathIP.String()]
+	}
+
 	if !found {
 		return nil, fmt.Errorf("Cannot find device with %s addr", nodeIP)
 	}

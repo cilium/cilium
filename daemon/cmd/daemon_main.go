@@ -19,6 +19,8 @@ import (
 	"github.com/cilium/cilium/pkg/aws/eni"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups"
+
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
@@ -628,6 +630,9 @@ func init() {
 
 	flags.String(option.IPv4NativeRoutingCIDR, "", "Allows to explicitly specify the IPv4 CIDR for native routing. This value corresponds to the configured cluster-cidr.")
 	option.BindEnv(option.IPv4NativeRoutingCIDR)
+
+	flags.String(option.DataPathIPv4CIDR, "", "Allows to explicitly specify the CIDR for the data path which the user desires.")
+	option.BindEnv(option.DataPathIPv4CIDR)
 
 	flags.String(option.LibDir, defaults.LibraryPath, "Directory path to store runtime build environment")
 	option.BindEnv(option.LibDir)
@@ -1367,6 +1372,16 @@ func initEnv(cmd *cobra.Command) {
 			log.WithField(logfields.IPAddr, option.Config.IPv4NodeAddr).Fatal("Invalid IPv4 node address")
 		} else {
 			node.SetIPv4(ip)
+		}
+	}
+
+	dataPathIPv4CIDR := option.Config.GetDataPathIPv4CIDR()
+	if dataPathIPv4CIDR != nil && option.Config.Tunnel != option.TunnelDisabled && option.Config.EnableIPv4 {
+		if _, intfIP, _, err := cidr.DetectCIDRByCIDR(dataPathIPv4CIDR, 4); err != nil {
+			log.WithField(logfields.CIDR, dataPathIPv4CIDR.IPNet.String()).Fatal("Can't detect the cidr for an actual interface IP")
+		} else {
+			log.Infof("Set the node data path address: %s", intfIP.String())
+			node.SetDataPathIPv4Addr(intfIP)
 		}
 	}
 

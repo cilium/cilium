@@ -262,6 +262,26 @@ func (n *Node) GetExternalIP(ipv6 bool) net.IP {
 	return nil
 }
 
+// Get node data path IPv4 address
+// Now only used in tunnel mode
+func (n *Node) getNodeDataPathIPv4() net.IP {
+
+	for _, addr := range n.IPAddresses {
+		switch addr.Type {
+		// Always chooses a tunnel endpoint address
+		case addressing.NodeDataPathIP:
+			return addr.IP
+		default:
+		}
+	}
+	return nil
+}
+
+func (n *Node) GetNodeDataPathIPv4() net.IP {
+	result := n.getNodeDataPathIPv4()
+	return result
+}
+
 // GetK8sNodeIPs returns k8s Node IP (either InternalIP or ExternalIP or nil;
 // the former is preferred).
 func (n *Node) GetK8sNodeIP() net.IP {

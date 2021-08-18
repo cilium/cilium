@@ -46,6 +46,10 @@ var (
 	// k8s Node IP (either InternalIP or ExternalIP or nil; the former is preferred)
 	k8sNodeIP net.IP
 
+	// IPv4 data path address,
+	// which is the interface IP matching the manually-set data path CIDR
+	ipv4DataPathAddress net.IP
+
 	ipsecKeyIdentity uint8
 
 	wireguardPubKey string
@@ -276,6 +280,17 @@ func GetRouterInfo() RouterInfo {
 // only in the ENI IPAM mode.
 func SetRouterInfo(info RouterInfo) {
 	routerInfo = info
+}
+
+// GetDataPathIPv4Addr return the data path IPv4 address manually selected
+func GetDataPathIPv4Addr() net.IP {
+	return ipv4DataPathAddress
+}
+
+// SetDataPathIPv4Addr sets the data path IPv4 address (now only valid in tunnel mode).
+// It must be reachable on the network.
+func SetDataPathIPv4Addr(ip net.IP) {
+	ipv4DataPathAddress = ip
 }
 
 // GetHostMasqueradeIPv4 returns the IPv4 address to be used for masquerading

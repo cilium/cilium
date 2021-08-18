@@ -467,6 +467,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 	}
 
+	if dataPathIPv4CIDR := option.Config.GetDataPathIPv4CIDR(); dataPathIPv4CIDR != nil {
+		cDefinesMap["DATA_PATH_IPV4_CIDR"] = dataPathIPv4CIDR.String()
+	}
+
 	if option.Config.EnableBandwidthManager {
 		cDefinesMap["ENABLE_BANDWIDTH_MANAGER"] = "1"
 		cDefinesMap["THROTTLE_MAP"] = bwmap.MapName

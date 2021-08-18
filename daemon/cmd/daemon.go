@@ -348,7 +348,12 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	}
 
 	var mtuConfig mtu.Configuration
-	externalIP := node.GetIPv4()
+
+	// If tunnel endpoint IP is manually set in tunnel mode, we just use it here
+	externalIP := node.GetDataPathIPv4Addr()
+	if externalIP == nil || option.Config.Tunnel == option.TunnelDisabled {
+		externalIP = node.GetIPv4()
+	}
 	if externalIP == nil {
 		externalIP = node.GetIPv6()
 	}

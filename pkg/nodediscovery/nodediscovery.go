@@ -205,6 +205,15 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 		})
 	}
 
+	// Add the data path IP address
+	log.Debug("Adding local node data path IPv4 address")
+	if node.GetDataPathIPv4Addr() != nil {
+		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
+			Type: addressing.NodeDataPathIP,
+			IP:   node.GetDataPathIPv4Addr(),
+		})
+	}
+
 	if node.GetIPv6Router() != nil {
 		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeCiliumInternalIP,

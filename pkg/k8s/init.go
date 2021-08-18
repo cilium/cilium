@@ -131,6 +131,14 @@ func useNodeCIDR(n *nodeTypes.Node) {
 	}
 }
 
+// Set data path IPv4 address in node
+func setNodeDataPathIPv4(n *nodeTypes.Node) {
+	if tAddr := n.GetNodeDataPathIPv4(); tAddr != nil {
+		log.Infof("Data path IPV4 prefix: %s", tAddr.String())
+		node.SetDataPathIPv4Addr(tAddr)
+	}
+}
+
 // Init initializes the Kubernetes package. It is required to call Configure()
 // beforehand.
 func Init(conf k8sconfig.Configuration) error {
@@ -222,6 +230,11 @@ func WaitForNodeInformation(ctx context.Context, nodeGetter nodeGetter) error {
 		}).Info("Received own node information from API server")
 
 		useNodeCIDR(n)
+		// Set node data path IPv4 address
+		// now only used in tunnel mode
+		if option.Config.Tunnel != option.TunnelDisabled {
+			setNodeDataPathIPv4(n)
+		}
 
 		// Note: Node IPs are derived regardless of
 		// option.Config.EnableIPv4 and

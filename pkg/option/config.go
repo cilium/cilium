@@ -773,6 +773,10 @@ const (
 	// IPv4NativeRoutingCIDR describes a v4 CIDR in which pod IPs are routable
 	IPv4NativeRoutingCIDR = "ipv4-native-routing-cidr"
 
+	// DataPathIPv4CIDR describes a CIDR which the data path IP lies on
+	// Now only used in tunnel mode
+	DataPathIPv4CIDR = "data-path-ipv4-cidr"
+
 	// EgressMasqueradeInterfaces is the selector used to select interfaces
 	// subject to egress masquerading
 	EgressMasqueradeInterfaces = "egress-masquerade-interfaces"
@@ -1771,6 +1775,9 @@ type DaemonConfig struct {
 	// ipv4NativeRoutingCIDR describes a CIDR in which pod IPs are routable
 	ipv4NativeRoutingCIDR *cidr.CIDR
 
+	// DataPathIPv4CIDR describes CIDRs which the data path IP lies on(now only valid in tunnel mode)
+	ipv4DataPathCIDR *cidr.CIDR
+
 	// EgressMasqueradeInterfaces is the selector used to select interfaces
 	// subject to egress masquerading
 	EgressMasqueradeInterfaces string
@@ -2033,6 +2040,15 @@ func (c *DaemonConfig) SetIPv4NativeRoutingCIDR(cidr *cidr.CIDR) {
 	c.ConfigPatchMutex.Unlock()
 }
 
+// GetDataPathIPv4CIDR returns the data path IPv4 CIDR if configured
+// Now only used in tunnel mode
+func (c *DaemonConfig) GetDataPathIPv4CIDR() (cidr *cidr.CIDR) {
+	c.ConfigPatchMutex.RLock()
+	cidr = c.ipv4DataPathCIDR
+	c.ConfigPatchMutex.RUnlock()
+	return
+}
+
 // IsExcludedLocalAddress returns true if the specified IP matches one of the
 // excluded local IP ranges
 func (c *DaemonConfig) IsExcludedLocalAddress(ip net.IP) bool {
@@ -2239,6 +2255,11 @@ func (c *DaemonConfig) Validate() error {
 	}
 
 	if err := c.checkIPv4NativeRoutingCIDR(); err != nil {
+		return err
+	}
+
+	// check the data path IPv4 cidr is right (now only for tunnel mode)
+	if err := c.checkDataPathIPv4CIDR(); err != nil {
 		return err
 	}
 
@@ -2558,6 +2579,11 @@ func (c *DaemonConfig) Populate() {
 		if len(c.ipv4NativeRoutingCIDR.IP) != net.IPv4len {
 			log.Fatalf("%s must be an IPv4 CIDR", IPv4NativeRoutingCIDR)
 		}
+	}
+
+	// Get the configured data path IPv4 cidr (only for tunnel mode)
+	if dataPathIPv4CIDR := viper.GetString(DataPathIPv4CIDR); dataPathIPv4CIDR != "" {
+		c.ipv4DataPathCIDR = cidr.MustParseCIDR(dataPathIPv4CIDR)
 	}
 
 	if err := c.calculateBPFMapSizes(); err != nil {
@@ -2933,6 +2959,19 @@ func (c *DaemonConfig) checkIPv4NativeRoutingCIDR() error {
 				"in combination with --%s --%s=%s --%s=%s --%s=true",
 			IPv4NativeRoutingCIDR, EnableIPv4Masquerade, TunnelName, c.Tunnel,
 			IPAM, c.IPAMMode(), EnableIPv4Name)
+	}
+
+	return nil
+}
+
+// Check the data path IPv4 cidr can match an actual interface IP
+func (c *DaemonConfig) checkDataPathIPv4CIDR() error {
+	dataPathIPv4CIDR := c.GetDataPathIPv4CIDR()
+	log.WithField(logfields.CIDR, dataPathIPv4CIDR).Info("checkDataPathIPv4CIDR(): Data Path IPv4 CIDR")
+	if dataPathIPv4CIDR != nil && c.Tunnel != TunnelDisabled && c.EnableIPv4 {
+		if _, _, _, err := cidr.DetectCIDRByCIDR(dataPathIPv4CIDR, 4); err != nil {
+			return fmt.Errorf("Can't detect the cidr for an actual interface IP: %s", dataPathIPv4CIDR.String())
+		}
 	}
 
 	return nil

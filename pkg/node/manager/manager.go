@@ -357,7 +357,11 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		// to create symmetric traffic when sending nodeIP->pod and pod->nodeIP.
 		if address.Type == addressing.NodeCiliumInternalIP || m.conf.EncryptionEnabled() ||
 			option.Config.EnableHostFirewall || option.Config.JoinCluster {
-			tunnelIP = nodeIP
+			if tunnelIP = n.GetNodeDataPathIPv4(); option.Config.Tunnel == option.TunnelDisabled || tunnelIP == nil {
+				log.Debugf("No data path IP manually defined, just use the nodeIP")
+				tunnelIP = nodeIP
+			}
+			log.Debugf("tunnelIP %s", tunnelIP.String())
 		}
 
 		if skipIPCache(address) {
