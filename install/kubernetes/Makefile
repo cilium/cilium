@@ -61,7 +61,6 @@ update-versions:
 			branch="$$cilium_version";										\
 			hubble_version="$(HUBBLE_UI_VERSION)";									\
 			hubble_backend_version="$(HUBBLE_UI_BACKEND_VERSION)";							\
-			pull_policy="Always";											\
 			use_digest="false";												\
 		fi;														\
 		sed -i 's;icon:.*;icon: $(LOGO_BASE_URL)/cilium@'$$branch'/$(LOGO_PATH);' $(CHART_FILE);			\
