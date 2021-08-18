@@ -6,8 +6,8 @@ package xds
 import (
 	"errors"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/lock"
