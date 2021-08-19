@@ -107,10 +107,12 @@ func HasMacAddr(iface string) bool {
 	if err != nil {
 		return false
 	}
-	if len(link.Attrs().HardwareAddr) == 0 {
-		return false
-	}
-	return true
+	return LinkHasMacAddr(link)
+}
+
+// LinkHasMacAddr returns true if the given network interface has L2 addr.
+func LinkHasMacAddr(link netlink.Link) bool {
+	return len(link.Attrs().HardwareAddr) != 0
 }
 
 // HaveMACAddrs returns true if all given network interfaces have L2 addr.

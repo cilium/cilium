@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/bandwidth"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/command/exec"
@@ -19,7 +20,9 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/alignchecker"
 	"github.com/cilium/cilium/pkg/datapath/connector"
-	"github.com/cilium/cilium/pkg/datapath/linux/ethtool"
+
+	//"github.com/cilium/cilium/pkg/datapath/linux/ethtool"
+
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
@@ -170,24 +173,10 @@ func (l *Loader) reinitializeIPSec(ctx context.Context) error {
 		return nil
 	}
 
+	// TODO(JM): Remove EncryptInterface option?
 	interfaces := option.Config.EncryptInterface
-	if option.Config.IPAM == ipamOption.IPAMENI {
-		// IPAMENI mode supports multiple network facing interfaces that
-		// will all need Encrypt logic applied in order to decrypt any
-		// received encrypted packets. This logic will attach to all
-		// !veth devices. Only use if user has not configured interfaces.
-		if len(interfaces) == 0 {
-			if links, err := netlink.LinkList(); err == nil {
-				for _, link := range links {
-					isVirtual, err := ethtool.IsVirtualDriver(link.Attrs().Name)
-					if err == nil && !isVirtual {
-						interfaces = append(interfaces, link.Attrs().Name)
-					}
-				}
-			}
-			option.Config.EncryptInterface = interfaces
-		}
-	}
+	interfaces = append(interfaces, option.Config.Devices...)
+	interfaces = common.DeduplicateStrings(interfaces)
 
 	// No interfaces is valid in tunnel disabled case
 	if len(interfaces) != 0 {
@@ -437,6 +426,8 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	if err := l.reinitializeIPSec(ctx); err != nil {
 		return err
 	}
+
+	bandwidth.ReloadBandwithManager()
 
 	if err := o.Datapath().Node().NodeConfigurationChanged(*o.LocalConfig()); err != nil {
 		return err

@@ -112,6 +112,8 @@ type Daemon struct {
 	monitorAgent *monitoragent.Agent
 	ciliumHealth *health.CiliumHealth
 
+	deviceManager *DeviceManager
+
 	// dnsNameManager tracks which api.FQDNSelector are present in policy which
 	// apply to locally running endpoints.
 	dnsNameManager *fqdn.NameManager
@@ -387,6 +389,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		netConf:           netConf,
 		mtuConfig:         mtuConfig,
 		datapath:          dp,
+		deviceManager:     NewDeviceManager(),
 		nodeDiscovery:     nd,
 		endpointCreations: newEndpointCreationManager(),
 		apiLimiterSet:     apiLimiterSet,
@@ -603,7 +606,15 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// This is because the device detection requires self (Cilium)Node object,
 	// and the k8s service watcher depends on option.Config.EnableNodePort flag
 	// which can be modified after the device detection.
-	handleNativeDevices(isKubeProxyReplacementStrict)
+	if err := d.deviceManager.Detect(); err != nil {
+		if isKubeProxyReplacementStrict {
+			return nil, nil, fmt.Errorf("failed to detect devices: %w", err)
+		}
+		disableNodePort()
+		log.WithError(err).Warn("failed to detect devices, disabling BPF NodePort")
+		// TODO(JM): Should we just fail here since this also breaks IPsec,
+		// bandwidth manager and host firewall?
+	}
 	finishKubeProxyReplacementInit(isKubeProxyReplacementStrict)
 
 	if k8s.IsEnabled() {
@@ -867,6 +878,13 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	ipcache.InitIPIdentityWatcher()
 	identitymanager.Subscribe(d.policy)
 
+	// Start listening for device changes if requested.
+	if option.Config.EnableDeviceReconfiguration {
+		if err := d.deviceManager.Listen(ctx, nil, d.ReloadOnDeviceChange); err != nil {
+			log.WithError(err).Warn("Unable to do runtime device reconfiguration")
+		}
+	}
+
 	return &d, restoredEndpoints, nil
 }
 
@@ -921,6 +939,42 @@ func (d *Daemon) Close() {
 		d.datapathRegenTrigger.Shutdown()
 	}
 	d.nodeDiscovery.Close()
+	d.deviceManager.Close()
+}
+
+// ReloadOnDeviceChange regenerates device related information and reloads the datapath.
+func (d *Daemon) ReloadOnDeviceChange() {
+	log.WithField(logfields.Devices, option.Config.Devices).Infof("Datapath reload initiated due to changed devices.")
+
+	// Reinitialize node addressing information
+	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
+		if err := node.InitBPFMasqueradeAddrs(option.Config.Devices); err != nil {
+			log.Warnf("InitBPFMasqueradeAddrs failed: %s", err)
+		}
+	}
+	if option.Config.EnableNodePort {
+		if err := node.InitNodePortAddrs(option.Config.Devices, option.Config.LBDevInheritIPAddr); err != nil {
+			msg := "Failed to initialize NodePort addrs."
+			log.WithError(err).Warn(msg)
+		}
+	}
+
+	// Recreate node_config.h to reflect the mac addresses of the new devices.
+	if err := d.createNodeConfigHeaderfile(); err != nil {
+		log.WithError(err).Warn("Failed to re-create node config header")
+		return
+	}
+
+	// Reload the datapath.
+	wg, err := d.TriggerReloadWithoutCompile("Devices changed")
+	if err != nil {
+		log.WithError(err).Warn("Failed to reload datapath")
+		return
+	}
+	wg.Wait()
+
+	// Synchronize services to reflect new addresses onto lbmap.
+	d.svc.SyncServicesOnDeviceChange(d.Datapath().LocalNodeAddressing())
 }
 
 // TriggerReloadWithoutCompile causes all BPF programs and maps to be reloaded,

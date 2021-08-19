@@ -78,6 +78,7 @@ cilium-agent [flags]
       --enable-bpf-masquerade                                Masquerade packets from endpoints leaving the host with BPF instead of iptables
       --enable-bpf-tproxy                                    Enable BPF-based proxy redirection, if support available
       --enable-custom-calls                                  Enable tail call hooks for custom eBPF programs
+      --enable-device-reconfiguration                        Enable runtime device reconfiguration for added and deleted devices (experimental)
       --enable-egress-gateway                                Enable egress gateway
       --enable-endpoint-health-checking                      Enable connectivity health checking between virtual endpoints (default true)
       --enable-endpoint-routes                               Use per endpoint routes instead of routing via cilium_host

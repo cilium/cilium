@@ -111,6 +111,10 @@ const (
 	// Devices facing cluster/external network for attaching bpf_host
 	Devices = "devices"
 
+	// EnableDeviceReconfiguration enables runtime detection and reconfiguration of the datapath
+	// for removed and added devices.
+	EnableDeviceReconfiguration = "enable-device-reconfiguration"
+
 	// DirectRoutingDevice is the name of a device used to connect nodes in
 	// direct routing mode (only required by BPF NodePort)
 	DirectRoutingDevice = "direct-routing-device"
@@ -1161,22 +1165,23 @@ type IpvlanConfig struct {
 
 // DaemonConfig is the configuration used by Daemon.
 type DaemonConfig struct {
-	CreationTime        time.Time
-	BpfDir              string     // BPF template files directory
-	LibDir              string     // Cilium library files directory
-	RunDir              string     // Cilium runtime directory
-	NAT46Prefix         *net.IPNet // NAT46 IPv6 Prefix
-	Devices             []string   // bpf_host device
-	DirectRoutingDevice string     // Direct routing device (used only by NodePort BPF)
-	LBDevInheritIPAddr  string     // Device which IP addr used by bpf_host devices
-	DevicePreFilter     string     // Prefilter device
-	ModePreFilter       string     // Prefilter mode
-	XDPDevice           string     // XDP device
-	XDPMode             string     // XDP mode, values: { xdpdrv | xdpgeneric | none }
-	HostV4Addr          net.IP     // Host v4 address of the snooping device
-	HostV6Addr          net.IP     // Host v6 address of the snooping device
-	EncryptInterface    []string   // Set of network facing interface to encrypt over
-	EncryptNode         bool       // Set to true for encrypting node IP traffic
+	CreationTime                time.Time
+	BpfDir                      string     // BPF template files directory
+	LibDir                      string     // Cilium library files directory
+	RunDir                      string     // Cilium runtime directory
+	NAT46Prefix                 *net.IPNet // NAT46 IPv6 Prefix
+	Devices                     []string   // bpf_host device
+	EnableDeviceReconfiguration bool       // Runtime device reconfiguration
+	DirectRoutingDevice         string     // Direct routing device (used only by NodePort BPF)
+	LBDevInheritIPAddr          string     // Device which IP addr used by bpf_host devices
+	DevicePreFilter             string     // Prefilter device
+	ModePreFilter               string     // Prefilter mode
+	XDPDevice                   string     // XDP device
+	XDPMode                     string     // XDP mode, values: { xdpdrv | xdpgeneric | none }
+	HostV4Addr                  net.IP     // Host v4 address of the snooping device
+	HostV6Addr                  net.IP     // Host v6 address of the snooping device
+	EncryptInterface            []string   // Set of network facing interface to encrypt over
+	EncryptNode                 bool       // Set to true for encrypting node IP traffic
 
 	Ipvlan IpvlanConfig // Ipvlan related configuration
 
@@ -2542,6 +2547,7 @@ func (c *DaemonConfig) Populate() {
 
 	c.populateLoadBalancerSettings()
 	c.populateDevices()
+	c.EnableDeviceReconfiguration = viper.GetBool(EnableDeviceReconfiguration)
 	c.EgressMultiHomeIPRuleCompat = viper.GetBool(EgressMultiHomeIPRuleCompat)
 
 	c.VLANBPFBypass = viper.GetIntSlice(VLANBPFBypass)

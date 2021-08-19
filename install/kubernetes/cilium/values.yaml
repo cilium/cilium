@@ -394,6 +394,10 @@ daemon:
 # program. When not specified, probing will automatically detect devices.
 # devices: ""
 
+# -- Enables runtime device reconfiguration when new devices are added or
+# removed. This feature is currently experimental.
+enableDeviceReconfiguration: false
+
 # -- Chains to ignore when installing feeder rules.
 # disableIptablesFeederRules: ""
 

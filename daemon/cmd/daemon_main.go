@@ -272,6 +272,9 @@ func init() {
 	flags.StringSlice(option.Devices, []string{}, "List of devices facing cluster/external network (used for BPF NodePort, BPF masquerading and host firewall); supports '+' as wildcard in device name, e.g. 'eth+'")
 	option.BindEnv(option.Devices)
 
+	flags.Bool(option.EnableDeviceReconfiguration, false, "Enable runtime device reconfiguration for added and deleted devices (experimental)")
+	option.BindEnv(option.EnableDeviceReconfiguration)
+
 	flags.String(option.DirectRoutingDevice, "", "Device name used to connect nodes in direct routing mode (required only by BPF NodePort; if empty, automatically set to a device with k8s InternalIP/ExternalIP or with a default route)")
 	option.BindEnv(option.DirectRoutingDevice)
 

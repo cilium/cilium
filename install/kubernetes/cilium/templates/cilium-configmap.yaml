@@ -499,6 +499,10 @@ data:
   devices: {{ join " " .Values.devices | quote }}
 {{- end }}
 
+{{- if .Values.enableDeviceReconfiguration }}
+  enable-device-reconfiguration: {{ .Values.enableDeviceReconfiguration | quote }}
+{{- end }}
+
   kube-proxy-replacement:  {{ $kubeProxyReplacement | quote }}
 {{- if ne $kubeProxyReplacement "disabled" }}
   kube-proxy-replacement-healthz-bind-address: {{ default "" .Values.kubeProxyReplacementHealthzBindAddr | quote}}
