@@ -152,12 +152,13 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 
 	if !updated {
 		if wg != nil {
-			m.useCurrent(typeURL, nodeIDs, wg)
+			m.useCurrent(typeURL, nodeIDs, wg, callback)
 		}
 		return func(completion *completion.Completion) {}
 	}
 
 	if wg != nil {
+		// Create a new completion
 		c := wg.AddCompletionWithCallback(callback)
 		if _, found := m.pendingCompletions[c]; found {
 			log.WithFields(logrus.Fields{
@@ -195,10 +196,10 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 	}
 }
 
-func (m *AckingResourceMutatorWrapper) useCurrent(typeURL string, nodeIDs []string, wg *completion.WaitGroup) {
+func (m *AckingResourceMutatorWrapper) useCurrent(typeURL string, nodeIDs []string, wg *completion.WaitGroup, callback func(error)) {
 	if !m.currentVersionAcked(nodeIDs) {
 		// Add a completion object for 'version' so that the caller may wait for the N/ACK
-		m.addVersionCompletion(typeURL, m.version, nodeIDs, wg.AddCompletion())
+		m.addVersionCompletion(typeURL, m.version, nodeIDs, wg.AddCompletionWithCallback(callback))
 	}
 }
 
@@ -209,7 +210,7 @@ func (m *AckingResourceMutatorWrapper) UseCurrent(typeURL string, nodeIDs []stri
 	m.locker.Lock()
 	defer m.locker.Unlock()
 
-	m.useCurrent(typeURL, nodeIDs, wg)
+	m.useCurrent(typeURL, nodeIDs, wg, nil)
 }
 
 func (m *AckingResourceMutatorWrapper) currentVersionAcked(nodeIDs []string) bool {
@@ -245,7 +246,7 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 
 	if !updated {
 		if wg != nil {
-			m.useCurrent(typeURL, nodeIDs, wg)
+			m.useCurrent(typeURL, nodeIDs, wg, callback)
 		}
 		return func(completion *completion.Completion) {}
 	}
