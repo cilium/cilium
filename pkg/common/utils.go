@@ -133,3 +133,43 @@ func getNumPossibleCPUsFromReader(log *logrus.Entry, r io.Reader) int {
 
 	return count
 }
+
+// DeduplicateStrings removes duplicates from the given slice while
+// maintaining order. The returned slice re-uses the memory of the
+// input slice.
+func DeduplicateStrings(xs []string) []string {
+	deleted := 0
+	n := len(xs)
+	// Use naive O(n^2) in-place algorithm for shorter slices,
+	// avoiding all memory allocations.  Limit of 48 names has
+	// been experimentally derived. For shorter slices N^2 search
+	// is upto 5 times faster than using a map. At 48 both
+	// implementations are roughly the same speed.  Above 48 the
+	// exponential kicks in and the naive loop becomes slower.
+	if n < 48 {
+	Loop:
+		for i := 0; i < n; i++ {
+			current := i - deleted
+			for j := 0; j < current; j++ {
+				if xs[i] == xs[j] {
+					deleted++
+					continue Loop
+				}
+			}
+			xs[current] = xs[i]
+		}
+	} else {
+		// Use map
+		entries := make(map[string]struct{}, n)
+		for i := 0; i < n; i++ {
+			if _, ok := entries[xs[i]]; ok {
+				deleted++
+				continue
+			}
+			entries[xs[i]] = struct{}{}
+			xs[i-deleted] = xs[i]
+		}
+	}
+	// truncate slice to leave off the duplicates
+	return xs[:n-deleted]
+}

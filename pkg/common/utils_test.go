@@ -7,6 +7,8 @@
 package common
 
 import (
+	"fmt"
+	"math/rand"
 	"strings"
 	"testing"
 
@@ -84,4 +86,55 @@ func (s *CommonSuite) TestGetNumPossibleCPUsFromReader(c *check.C) {
 		c.Assert(possibleCpus, check.Equals, t.expected)
 	}
 
+}
+
+func (s *CommonSuite) TestDeduplicateStrings(c *check.C) {
+	r := rand.New(rand.NewSource(99))
+
+	data := make([]string, 48)
+	uniq := []string{}
+	for i := 0; i < len(data); i++ {
+		rnd := r.Float64()
+		// Duplicate name with 10% probability
+		if i > 0 && rnd < 0.1 {
+			data[i] = data[int(float64(i-1)*r.Float64())]
+		} else {
+			data[i] = fmt.Sprintf("a%d.domain.com", i)
+			uniq = append(uniq, data[i])
+		}
+	}
+
+	testData := []struct {
+		argument []string
+		expected []string
+	}{
+		{[]string{"a"}, []string{"a"}},
+		{[]string{"a", "a"}, []string{"a"}},
+		{[]string{"a", "b"}, []string{"a", "b"}},
+		{[]string{"a", "b", "b"}, []string{"a", "b"}},
+		{[]string{"a", "b", "c"}, []string{"a", "b", "c"}},
+		{[]string{"a", "b", "a", "c"}, []string{"a", "b", "c"}},
+		{[]string{""}, []string{""}},
+		{[]string{}, []string{}},
+		{data, uniq},
+	}
+
+	for _, item := range testData {
+		val := DeduplicateStrings(item.argument)
+		c.Assert(val, checker.DeepEquals, item.expected)
+	}
+}
+
+// Note: each "op" works on size things
+func (s *CommonSuite) BenchmarkDeduplicateStrings(c *check.C) {
+	c.StopTimer()
+	data := make([]string, 48)
+	for i := 0; i < len(data); i++ {
+		data[i] = fmt.Sprintf("a%d.domain.com", i)
+	}
+	c.StartTimer()
+
+	for i := 0; i < c.N; i++ {
+		DeduplicateStrings(data)
+	}
 }

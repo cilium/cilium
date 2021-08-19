@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn"
@@ -186,7 +187,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 				//
 				lookupTime := time.Now()
 				for _, zombie := range alive {
-					namesToClean = fqdn.KeepUniqueNames(append(namesToClean, zombie.Names...))
+					namesToClean = common.DeduplicateStrings(append(namesToClean, zombie.Names...))
 					for _, name := range zombie.Names {
 						activeConnections.Update(lookupTime, name, []net.IP{zombie.IP}, activeConnectionsTTL)
 					}
@@ -196,11 +197,11 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 				// Entries here have been evicted from the DNS cache (via .GC due to
 				// TTL expiration or overlimit) and are no longer active connections.
 				for _, zombie := range dead {
-					namesToClean = fqdn.KeepUniqueNames(append(namesToClean, zombie.Names...))
+					namesToClean = common.DeduplicateStrings(append(namesToClean, zombie.Names...))
 				}
 			}
 
-			namesToClean = fqdn.KeepUniqueNames(namesToClean)
+			namesToClean = common.DeduplicateStrings(namesToClean)
 			if len(namesToClean) == 0 {
 				return nil
 			}
