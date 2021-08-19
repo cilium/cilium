@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2017-2020 Authors of Cilium
 
-//+build ipam_provider_operator
+//go:build ipam_provider_operator
+// +build ipam_provider_operator
 
 package main
 
