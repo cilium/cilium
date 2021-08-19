@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2016-2018 Authors of Cilium
 
+//go:build !privileged_tests
 // +build !privileged_tests
 
 package ctmap

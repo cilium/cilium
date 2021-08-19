@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2021 Authors of Cilium
 
-//+build 386 amd64 arm arm64 mips64le ppc64le riscv64 wasm
+//go:build 386 || amd64 || arm || arm64 || mips64le || ppc64le || riscv64 || wasm
+// +build 386 amd64 arm arm64 mips64le ppc64le riscv64 wasm
 
 package byteorder
 

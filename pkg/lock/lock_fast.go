@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2017-2019 Authors of Cilium
 
+//go:build !lockdebug
 // +build !lockdebug
 
 package lock
