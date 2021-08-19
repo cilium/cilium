@@ -26,7 +26,7 @@ jobs:
     - name: Run static checks
       uses: golangci/golangci-lint-action@5c56cd6c9dc07901af25baab6f2b0d9f3b7c3018
       with:
-        version: v1.41.1
+        version: v1.42.0
         args: --config=.golangci.yml --verbose
         skip-go-installation: true
         skip-pkg-cache: true
