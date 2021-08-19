@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2019 Authors of Hubble
 
+//go:build !privileged_tests
 // +build !privileged_tests
 
 package api

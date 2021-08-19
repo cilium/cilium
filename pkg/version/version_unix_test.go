@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2017-2021 Authors of Cilium
 
-// +build !windows
-// +build !privileged_tests
+//go:build !windows && !privileged_tests
+// +build !windows,!privileged_tests
 
 package version
 
