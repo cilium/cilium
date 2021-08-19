@@ -20,6 +20,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 )
 
 var (
@@ -289,7 +290,7 @@ func retrieveIfIndexFromMAC(mac mac.MAC, mtu int) (int, error) {
 	for _, l := range links {
 		// Linux slave devices have the same MAC address as their master
 		// device, but we want the master device.
-		if l.Attrs().Slave != nil {
+		if l.Attrs().RawFlags&unix.IFF_SLAVE != 0 {
 			continue
 		}
 		if l.Attrs().HardwareAddr.String() == mac.String() {
