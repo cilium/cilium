@@ -36,7 +36,7 @@ func NewDefaultCiliumCommand() *cobra.Command {
 				return nil
 			}
 			switch cmd.Name() {
-			case "completion", "help", "version":
+			case "completion", "help":
 				return nil
 			}
 
