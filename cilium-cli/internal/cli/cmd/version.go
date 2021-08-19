@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -48,16 +49,26 @@ func getLatestStableVersion() string {
 }
 
 func newCmdVersion() *cobra.Command {
-	return &cobra.Command{
+	var namespace string
+	cmd := &cobra.Command{
 		Use:   "version",
 		Short: "Display detailed version information",
 		Long:  `Displays information about the version of this software.`,
-		Run: func(cmd *cobra.Command, _ []string) {
-			// TODO: add support for reporting the Cilium version running in
-			// the cluster, if any. See https://github.com/cilium/cilium-cli/issues/131
+		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Printf("cilium-cli: %s compiled with %v on %v/%v\n", Version, runtime.Version(), runtime.GOOS, runtime.GOARCH)
 			fmt.Printf("cilium image (default): %s\n", defaults.Version)
 			fmt.Printf("cilium image (stable): %s\n", getLatestStableVersion())
+			version, err := k8sClient.GetRunningCiliumVersion(context.Background(), namespace)
+			if version == "" || err != nil {
+				fmt.Printf("cilium image (running): unknown. Unable to obtain cilium version, no cilium pods found in namespace %q\n", namespace)
+			} else {
+				fmt.Printf("cilium image (running): %s\n", version)
+			}
+			return nil
 		},
 	}
+
+	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
+	cmd.Flags().StringVarP(&namespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
+	return cmd
 }
