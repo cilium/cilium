@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2020 Authors of Cilium
 
-// +build !privileged_tests
-
 package status
 
 import (
