@@ -70,6 +70,7 @@ const (
 	k8sAPIGroupCiliumEndpointV2                 = "cilium/v2::CiliumEndpoint"
 	k8sAPIGroupCiliumLocalRedirectPolicyV2      = "cilium/v2::CiliumLocalRedirectPolicy"
 	k8sAPIGroupCiliumEgressNATPolicyV2          = "cilium/v2::CiliumEgressNATPolicy"
+	k8sAPIGroupCiliumEndpointBatchV2Alpha1      = "cilium/v2alpha1::CiliumEndpointBatch"
 	K8sAPIGroupEndpointSliceV1Beta1Discovery    = "discovery/v1beta1::EndpointSlice"
 	K8sAPIGroupEndpointSliceV1Discovery         = "discovery/v1::EndpointSlice"
 
@@ -432,7 +433,11 @@ func (k *K8sWatcher) EnableK8sWatcher(ctx context.Context) error {
 	// CiliumEndpoints.
 	if !option.Config.DisableCiliumEndpointCRD {
 		asyncControllers.Add(1)
-		go k.ciliumEndpointsInit(ciliumNPClient, asyncControllers)
+		if option.Config.EnableCiliumEndpointBatch {
+			go k.ciliumEndpointBatchInit(ciliumNPClient, asyncControllers)
+		} else {
+			go k.ciliumEndpointsInit(ciliumNPClient, asyncControllers)
+		}
 	}
 
 	// cilium local redirect policies
