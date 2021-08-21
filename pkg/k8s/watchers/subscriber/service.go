@@ -57,7 +57,7 @@ func (l *ServiceList) NotifyUpdate(oldSvc, newSvc *slim_corev1.Service) {
 	}
 }
 
-// NotifyDelete notifies all the subscribers of an update event to a service.
+// NotifyDelete notifies all the subscribers of a delete event to a service.
 func (l *ServiceList) NotifyDelete(svc *slim_corev1.Service) {
 	l.RLock()
 	defer l.RUnlock()

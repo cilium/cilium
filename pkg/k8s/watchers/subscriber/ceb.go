@@ -15,56 +15,59 @@
 package subscriber
 
 import (
-	"k8s.io/client-go/tools/cache"
+	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
-// NewRaw creates a new raw subscriber list.
-func NewRaw() *RawList {
-	return &RawList{}
+// NewCEB creates a new ceb subscriber list.
+func NewCEB() *CEBList {
+	return &CEBList{}
 }
 
-// Register registers the raw event handler as a subscriber.
-func (l *RawList) Register(cb cache.ResourceEventHandler) {
+// CEBHandler is implemented by event handlers responding to
+// CiliumEndpointBatch events.
+type CEBHandler interface {
+	OnAdd(ceb *cilium_v2a1.CiliumEndpointBatch)
+	OnUpdate(oldCeb, newCeb *cilium_v2a1.CiliumEndpointBatch)
+	OnDelete(ceb *cilium_v2a1.CiliumEndpointBatch)
+}
+
+// Register registers the CEB event handler as a subscriber.
+func (l *CEBList) Register(c CEBHandler) {
 	l.Lock()
-	l.subs = append(l.subs, cache.ResourceEventHandlerFuncs{
-		AddFunc:    cb.OnAdd,
-		UpdateFunc: cb.OnUpdate,
-		DeleteFunc: cb.OnDelete,
-	})
-	l.Unlock()
+	defer l.Unlock()
+	l.subs = append(l.subs, c)
 }
 
 // NotifyAdd notifies all the subscribers of an add event to an object.
-func (l *RawList) NotifyAdd(obj interface{}) {
+func (l *CEBList) NotifyAdd(ceb *cilium_v2a1.CiliumEndpointBatch) {
 	l.RLock()
 	defer l.RUnlock()
 	for _, s := range l.subs {
-		s.OnAdd(obj)
+		s.OnAdd(ceb)
 	}
 }
 
 // NotifyUpdate notifies all the subscribers of an update event to an object.
-func (l *RawList) NotifyUpdate(oldObj, newObj interface{}) {
+func (l *CEBList) NotifyUpdate(oldCeb, newCeb *cilium_v2a1.CiliumEndpointBatch) {
 	l.RLock()
 	defer l.RUnlock()
 	for _, s := range l.subs {
-		s.OnUpdate(oldObj, newObj)
+		s.OnUpdate(oldCeb, newCeb)
 	}
 }
 
 // NotifyDelete notifies all the subscribers of a delete event to an object.
-func (l *RawList) NotifyDelete(obj interface{}) {
+func (l *CEBList) NotifyDelete(ceb *cilium_v2a1.CiliumEndpointBatch) {
 	l.RLock()
 	defer l.RUnlock()
 	for _, s := range l.subs {
-		s.OnDelete(obj)
+		s.OnDelete(ceb)
 	}
 }
 
-// RawList holds the raw subscribers to any K8s resource / object changes in
+// CEBList holds the CEB subscribers to any CiliumEndpointBatch resource / object changes in
 // the K8s watchers.
-type RawList struct {
+type CEBList struct {
 	list
-
-	subs []cache.ResourceEventHandlerFuncs
+	subs []CEBHandler
 }

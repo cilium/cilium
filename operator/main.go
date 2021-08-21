@@ -369,7 +369,7 @@ func onOperatorStartLeading(ctx context.Context) {
 		// Start CEP watcher
 		operatorWatchers.CiliumEndpointsBatchInit(k8s.CiliumClient().CiliumV2(), cebController)
 		// Start the CEB controller, after current CEPs are synced locally in cache.
-		cebController.Run(operatorWatchers.CiliumEndpointStore, stopCh)
+		go cebController.Run(operatorWatchers.CiliumEndpointStore, stopCh)
 	}
 
 	// Restart kube-dns as soon as possible since it helps etcd-operator to be

@@ -950,3 +950,22 @@ func ConvertCepToCoreCep(cep *cilium_v2.CiliumEndpoint) *cilium_v2alpha1.CoreCil
 		NamedPorts: cep.Status.NamedPorts.DeepCopy(),
 	}
 }
+
+// ConvertCoreCiliumEndpointToTypesCiliumEndpoint converts CoreCiliumEndpoint object to types.CiliumEndpoint.
+func ConvertCoreCiliumEndpointToTypesCiliumEndpoint(ccep *cilium_v2alpha1.CoreCiliumEndpoint) *types.CiliumEndpoint {
+	return &types.CiliumEndpoint{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      ccep.Name,
+			Namespace: ccep.Namespace,
+		},
+		Encryption: func() *cilium_v2.EncryptionSpec {
+			enc := ccep.Encryption
+			return &enc
+		}(),
+		Identity: &cilium_v2.EndpointIdentity{
+			ID: ccep.IdentityID,
+		},
+		Networking: ccep.Networking,
+		NamedPorts: ccep.NamedPorts,
+	}
+}
