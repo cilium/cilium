@@ -1022,7 +1022,6 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 			},
 		},
 		Admin: &envoy_config_bootstrap.Admin{
-			AccessLogPath: "/dev/null",
 			Address: &envoy_config_core.Address{
 				Address: &envoy_config_core.Address_Pipe{
 					Pipe: &envoy_config_core.Pipe{Path: adminPath},
