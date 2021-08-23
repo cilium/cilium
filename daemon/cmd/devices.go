@@ -1,18 +1,10 @@
-// Copyright 2019-2020 Authors of Cilium
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2016-2021 Authors of Cilium
 
-// This module implements device detection.
+// This module implements Cilium's network device detection.
+
+// FIXME(JM): Should perhaps move into pkg/datapath? Or is that too k8s
+// specific?
 
 package cmd
 
@@ -45,25 +37,40 @@ var (
 		"docker",
 	}
 
-	defaultRouteHandlingInterval = time.Millisecond * 100
+	defaultRouteBatchingInterval = time.Millisecond * 100
 )
 
 type DeviceManager struct {
-	// mu protects the closeChan.
-	mu        lock.Mutex
-	closeChan chan struct{}
-
+	mu                    lock.Mutex
+	closeChan             chan struct{}
+	devices               map[string]bool
 	l3DevOK               bool
-	routeHandlingInterval time.Duration
+	routeBatchingInterval time.Duration
 }
 
 func NewDeviceManager() *DeviceManager {
 	dm := &DeviceManager{
 		l3DevOK:               supportL3Dev(),
-		routeHandlingInterval: defaultRouteHandlingInterval,
+		routeBatchingInterval: defaultRouteBatchingInterval,
 		closeChan:             make(chan struct{}),
+		devices:               make(map[string]bool),
 	}
 	return dm
+}
+
+func (dm *DeviceManager) getDevices() []string {
+	devs := make([]string, 0, len(dm.devices))
+	for dev := range dm.devices {
+		devs = append(devs, dev)
+	}
+	sort.Strings(devs)
+	return devs
+}
+
+func (dm *DeviceManager) GetDevices() []string {
+	dm.mu.Lock()
+	defer dm.mu.Unlock()
+	return dm.getDevices()
 }
 
 // isViableDevice returns true if the given link is usable and Cilium should attach
@@ -95,34 +102,27 @@ func (dm *DeviceManager) isViableDevice(link netlink.Link) bool {
 	return true
 }
 
-// handleLinkUpdate processes link updates and when detecting a removed device
-// it triggers a datapath reload. New devices are detected from routes rather
-// than from link updates.
-func (dm *DeviceManager) handleLinkUpdate(devicesChangedCallback func(), update netlink.LinkUpdate) {
+// handleLinkUpdate processes link updates and deletes removed devices.
+// Returns true if devices changed.
+func (dm *DeviceManager) handleLinkUpdate(update netlink.LinkUpdate) bool {
 	if update.Header.Type != unix.RTM_DELLINK {
-		return
+		return false
 	}
 
-	newDevices := make([]string, 0, len(option.Config.Devices))
-	for _, name := range option.Config.Devices {
-		if name != update.Attrs().Name {
-			newDevices = append(newDevices, name)
-		}
+	name := update.Attrs().Name
+
+	if !dm.devices[name] {
+		return false
 	}
 
-	if len(newDevices) != len(option.Config.Devices) {
-		sort.Strings(newDevices)
-		option.Config.Devices = newDevices
-		if devicesChangedCallback != nil {
-			devicesChangedCallback()
-		}
-	}
+	delete(dm.devices, name)
+
+	return true
 }
 
-// updateDevicesFromRoutes processes a batch of routes and sets the option.Config.Devices
-// based on the devices found from the routes. This method is shared between the initial
-// and runtime device detection.
-func (dm *DeviceManager) updateDevicesFromRoutes(devicesChangedCallback func(), routes []netlink.Route) {
+// updateDevicesFromRoutes processes a batch of routes and updates the set of
+// devices. Returns true if devices changed.
+func (dm *DeviceManager) updateDevicesFromRoutes(routes []netlink.Route) bool {
 	linkIndices := make(map[int]struct{})
 
 	// Collect all links mentioned in the route update batch
@@ -136,9 +136,7 @@ func (dm *DeviceManager) updateDevicesFromRoutes(devicesChangedCallback func(), 
 		linkIndices[route.LinkIndex] = struct{}{}
 	}
 
-	newDevices := make([]string, len(option.Config.Devices))
-	copy(newDevices, option.Config.Devices)
-
+	changed := false
 links:
 	for linkIndex := range linkIndices {
 		link, err := netlink.LinkByIndex(linkIndex)
@@ -149,31 +147,40 @@ links:
 		name := link.Attrs().Name
 
 		// Skip devices we already know.
-		for _, dev := range option.Config.Devices {
-			if name == dev {
-				continue links
-			}
+		if dm.devices[name] {
+			continue links
 		}
 
 		if dm.isViableDevice(link) {
-			newDevices = append(newDevices, name)
+			dm.devices[name] = true
+			changed = true
 		}
 	}
+	return changed
 
-	// Update the device list.
-	// Use a copy instead of mutating in place to protect concurrent readers.
-	if len(newDevices) != len(option.Config.Devices) {
-		sort.Strings(newDevices)
-		option.Config.Devices = newDevices
-		if devicesChangedCallback != nil {
-			devicesChangedCallback()
-		}
-	}
+	/*
+		// Update the device list.
+		// FIXME(JM): We're making the big assumption here that:
+		// 1) No concurrent readers, only devicesChangedCallback() access devices (not true, see status.go)
+		// 2) devicesChangedCallback() is serialized (need to fix)
+		// Really need to consider protecting either option.Config.Devices or whole of option.Config
+		// with a mutex or otherwise serialize the modifications. There's option.Config.ConfigPatchMutex, but
+		// that's not acquired in the right places. Another option is to have separate notion for the "--devices"
+		// flag and the actual devices list state. Keeping the state in the DeviceManager likely makes sense
+		// and having it implement "GetDevices() []string" or some such.
+		// Another point: assigning a slice isn't atomic, it's writing 3 different things: off, len, ptr.
+		if len(newDevices) != len(option.Config.Devices) {
+			sort.Strings(newDevices)
+			option.Config.Devices = newDevices
+			if devicesChangedCallback != nil {
+				devicesChangedCallback()
+			}
+		}*/
 }
 
 // Listen starts listening to changes to network devices. When a new device is
 // added or removed it updates option.Config.Devices and calls devicesChangedCallback.
-func (dm *DeviceManager) Listen(ctx context.Context, netNS *netns.NsHandle, devicesChangedCallback func()) error {
+func (dm *DeviceManager) Listen(ctx context.Context, netNS *netns.NsHandle, devicesChangedCallback func(devices []string)) error {
 	routeChan := make(chan netlink.RouteUpdate)
 	err := netlink.RouteSubscribeWithOptions(routeChan, dm.closeChan,
 		netlink.RouteSubscribeOptions{
@@ -205,12 +212,14 @@ func (dm *DeviceManager) Listen(ctx context.Context, netNS *netns.NsHandle, devi
 		}
 
 		// To avoid multiple reloads of the datapath when lots of routes are added in one go,
-		// collect the route updates into a batch and process the batch every 'minInterval'.
-		ticker := time.NewTicker(dm.routeHandlingInterval)
+		// collect the route updates into a batch and process the batch periodically.
+		ticker := time.NewTicker(dm.routeBatchingInterval)
 		defer ticker.Stop()
 		buffer := make([]netlink.Route, 0)
 
 		for {
+			devicesChanged := false
+
 			select {
 			case <-ctx.Done():
 				dm.Close()
@@ -218,7 +227,9 @@ func (dm *DeviceManager) Listen(ctx context.Context, netNS *netns.NsHandle, devi
 
 			case <-ticker.C:
 				if len(buffer) > 0 {
-					dm.updateDevicesFromRoutes(devicesChangedCallback, buffer)
+					dm.mu.Lock()
+					devicesChanged = dm.updateDevicesFromRoutes(buffer)
+					dm.mu.Unlock()
 					buffer = make([]netlink.Route, 0)
 				}
 
@@ -228,7 +239,13 @@ func (dm *DeviceManager) Listen(ctx context.Context, netNS *netns.NsHandle, devi
 				}
 
 			case update := <-linkChan:
-				dm.handleLinkUpdate(devicesChangedCallback, update)
+				dm.mu.Lock()
+				devicesChanged = dm.handleLinkUpdate(update)
+				dm.mu.Unlock()
+			}
+
+			if devicesChanged && devicesChangedCallback != nil {
+				devicesChangedCallback(dm.GetDevices())
 			}
 		}
 	}()
@@ -251,6 +268,10 @@ func (dm *DeviceManager) Close() {
 // The devices are detected by looking at all the configured global unicast
 // routes in the system.
 func (dm *DeviceManager) Detect() error {
+	dm.mu.Lock()
+	defer dm.mu.Unlock()
+
+	// TODO(JM): Don't access option.Config.Devices and other options directly but rather pass it in?
 	if err := expandDevices(); err != nil {
 		log.WithError(err).Warnf("Failed to expand device wildcards")
 	}
@@ -262,12 +283,11 @@ func (dm *DeviceManager) Detect() error {
 		if err != nil {
 			return fmt.Errorf("cannot retrieve routes for device detection: %w", err)
 		}
-		dm.updateDevicesFromRoutes(nil, routes)
-	}
-	sort.Strings(option.Config.Devices)
-
-	isDeviceDetected := func(name string) bool {
-		return sort.SearchStrings(option.Config.Devices, name) != len(option.Config.Devices)
+		dm.updateDevicesFromRoutes(routes)
+	} else {
+		for _, dev := range option.Config.Devices {
+			dm.devices[dev] = true
+		}
 	}
 
 	detectDirectRoutingDev := option.Config.EnableNodePort && option.Config.DirectRoutingDevice == ""
@@ -276,7 +296,7 @@ func (dm *DeviceManager) Detect() error {
 	// Detect direct routing and IPv6 multicast devices.
 	nodeIP := node.GetK8sNodeIP()
 	if nodeIP != nil && (detectDirectRoutingDev || detectIPv6MCastDev) {
-		for _, dev := range option.Config.Devices {
+		for dev := range dm.devices {
 			link, err := netlink.LinkByName(dev)
 			if err != nil {
 				return fmt.Errorf("Cannot find device '%s': %w", dev, err)
@@ -284,6 +304,7 @@ func (dm *DeviceManager) Detect() error {
 
 			// Check if any of the addresses assigned to this device is the k8s node IP and if so
 			// use it for direct routing and IPv6 multicast.
+			// FIXME(JM): Support dynamic reconfig of the direct routing & ipv6 mcast devices?
 			if addrs, err := netlink.AddrList(link, netlink.FAMILY_ALL); err == nil {
 				for _, a := range addrs {
 					if a.IP.Equal(nodeIP) {
@@ -321,18 +342,20 @@ func (dm *DeviceManager) Detect() error {
 	// TODO(JM): This is different from earlier where the DirectRouting&IPv6MCast devices were added to
 	// the list of devices. Perhaps better not to change this?
 	if option.Config.EnableNodePort && option.Config.DirectRoutingDevice != "" {
-		if !isDeviceDetected(option.Config.DirectRoutingDevice) {
+		if !dm.devices[option.Config.DirectRoutingDevice] {
 			return fmt.Errorf("Direct routing device %s was not detected as a valid device. Please specify devices manually with --%s",
 				option.Config.DirectRoutingDevice, option.Devices)
 		}
 	}
 	if option.Config.EnableIPv6NDP && option.Config.IPv6MCastDevice != "" {
-		if !isDeviceDetected(option.Config.DirectRoutingDevice) {
+		if !dm.devices[option.Config.DirectRoutingDevice] {
 			return fmt.Errorf("Multicast device %s was not detected as a valid device. Please specify devices manually with --%s",
 				option.Config.IPv6MCastDevice, option.Devices)
 		}
 	}
 
+	// FIXME(JM): Remove modifications to option.Config.Devices.
+	option.Config.Devices = dm.getDevices()
 	log.WithField(logfields.Devices, option.Config.Devices).Info("Detected devices")
 
 	return nil
@@ -340,6 +363,7 @@ func (dm *DeviceManager) Detect() error {
 
 // expandDevices expands all wildcard device names to concrete devices.
 // e.g. device "eth+" expands to "eth0,eth1" etc. Non-matching wildcards are ignored.
+// FIXME(JM): Should expand dm.devices and option.Config.Devices should not be modified.
 func expandDevices() error {
 	allLinks, err := netlink.LinkList()
 	if err != nil {

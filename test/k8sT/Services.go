@@ -477,7 +477,56 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 					Should(helpers.CMDSuccess(), "Could not curl ClusterIP %s from external host", svcIP)
 			})
 		})
+
 	})
+
+	SkipContextIf(
+		func() bool { return helpers.DoesNotExistNodeWithoutCilium() },
+		"Checks device reconfiguration",
+		func() {
+			BeforeAll(func() {
+				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+					"enableDeviceReconfiguration": "true",
+				})
+			})
+
+			AfterAll(func() {
+				DeployCiliumAndDNS(kubectl, ciliumFilename)
+
+				res := kubectl.DelVXLAN(ni.k8s1NodeName, 1)
+				Expect(res).Should(helpers.CMDSuccess(), "Error removing vxlan1 from k8s1")
+				res = kubectl.DelVXLAN(ni.outsideNodeName, 1)
+				Expect(res).Should(helpers.CMDSuccess(), "Error removing vxlan1 from outside node")
+			})
+
+			It("Detects newly added device and reloads datapath", func() {
+				// Setup a pair of vxlan devices between k8s1 and the outside node.
+				devOutside, err := kubectl.GetPublicIface(ni.outsideNodeName)
+				Expect(err).Should(BeNil(), "Cannot get public interface for %s", ni.outsideNodeName)
+
+				devK8s1, err := kubectl.GetPublicIface(ni.k8s1NodeName)
+				Expect(err).Should(BeNil(), "Cannot get public interface for %s", ni.k8s1NodeName)
+
+				res := kubectl.AddVXLAN(ni.outsideNodeName, ni.k8s1IP, devOutside, "172.19.0.2/24", 1)
+				Expect(res).Should(helpers.CMDSuccess(), "Error adding VXLAN device for outside node")
+
+				res = kubectl.AddVXLAN(ni.k8s1NodeName, ni.outsideIP, devK8s1, "172.19.0.1/24", 1)
+				Expect(res).Should(helpers.CMDSuccess(), "Error adding VXLAN device for k8s1")
+
+				var data v1.Service
+				err = kubectl.Get(helpers.DefaultNamespace, "svc test-nodeport").Unmarshal(&data)
+				Expect(err).Should(BeNil(), "Can not retrieve service")
+				url := getHTTPLink("172.19.0.1", data.Spec.Ports[0].NodePort)
+
+				// Try accessing the NodePort service from the external node over the VXLAN tunnel.
+				// We're expecting Cilium to detect the vxlan1 interface and reload the datapath,
+				// allowing us to access NodePort services.
+				Eventually(
+					func() bool { return curlFromExternalHost(kubectl, ni, url).WasSuccessful() },
+					30*time.Second, 1*time.Second,
+				).Should(BeTrue(), "Could not curl NodePort service over newly added device")
+			})
+		})
 
 	Context("Checks service across nodes", func() {
 

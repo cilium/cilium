@@ -27,6 +27,8 @@ import (
 const preferPublicIP bool = true
 
 var (
+	// FIXME(JM): These should move into the device manager so that all device and addressing related
+	// state is managed and mutated in one place! At the very least need a mutex around these.
 	ipv4Loopback      net.IP
 	ipv4Address       net.IP
 	ipv4RouterAddress net.IP

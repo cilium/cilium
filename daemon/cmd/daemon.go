@@ -943,21 +943,25 @@ func (d *Daemon) Close() {
 }
 
 // ReloadOnDeviceChange regenerates device related information and reloads the datapath.
-func (d *Daemon) ReloadOnDeviceChange() {
-	log.WithField(logfields.Devices, option.Config.Devices).Infof("Datapath reload initiated due to changed devices.")
+func (d *Daemon) ReloadOnDeviceChange(devices []string) {
+	log.WithField(logfields.Devices, devices).Infof("Datapath reload initiated due to changed devices.")
 
 	// Reinitialize node addressing information
+	// FIXME(JM): Concurrency issues with the node addressing maps :-( 
 	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
-		if err := node.InitBPFMasqueradeAddrs(option.Config.Devices); err != nil {
+		if err := node.InitBPFMasqueradeAddrs(devices); err != nil {
 			log.Warnf("InitBPFMasqueradeAddrs failed: %s", err)
 		}
 	}
 	if option.Config.EnableNodePort {
-		if err := node.InitNodePortAddrs(option.Config.Devices, option.Config.LBDevInheritIPAddr); err != nil {
+		if err := node.InitNodePortAddrs(devices, option.Config.LBDevInheritIPAddr); err != nil {
 			msg := "Failed to initialize NodePort addrs."
 			log.WithError(err).Warn(msg)
 		}
 	}
+
+	// FIXME(JM): Remove uses of option.Config.Devices.
+	option.Config.Devices = devices
 
 	// Recreate node_config.h to reflect the mac addresses of the new devices.
 	if err := d.createNodeConfigHeaderfile(); err != nil {
@@ -975,6 +979,7 @@ func (d *Daemon) ReloadOnDeviceChange() {
 
 	// Synchronize services to reflect new addresses onto lbmap.
 	d.svc.SyncServicesOnDeviceChange(d.Datapath().LocalNodeAddressing())
+	d.syncEndpointsAndHostIPs() // FIXME(JM): Is this needed? Noticing delays before the new devices starts working so testing if this solves it.
 }
 
 // TriggerReloadWithoutCompile causes all BPF programs and maps to be reloaded,

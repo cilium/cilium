@@ -68,6 +68,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		c.Assert(createDummy("dummy1", "192.168.1.2/24", false), IsNil)
 		option.Config.Devices = []string{"dummy0"}
 		c.Assert(dm.Detect(), IsNil)
+		c.Assert(dm.GetDevices(), checker.DeepEquals, []string{"dummy0"})
 		option.Config.Devices = []string{}
 		option.Config.DirectRoutingDevice = ""
 
@@ -79,7 +80,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		option.Config.EnableIPv6 = false
 		option.Config.Tunnel = option.TunnelDisabled // TODO restore
 		c.Assert(dm.Detect(), IsNil)
-		c.Assert(option.Config.Devices, checker.DeepEquals, []string{"dummy0", "dummy1", "dummy2"})
+		c.Assert(dm.GetDevices(), checker.DeepEquals, []string{"dummy0", "dummy1", "dummy2"})
 		c.Assert(option.Config.DirectRoutingDevice, Equals, "dummy1")
 		option.Config.Devices = []string{}
 		option.Config.DirectRoutingDevice = ""
@@ -92,7 +93,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		node.SetK8sNodeIP(net.ParseIP("2001:db8::face"))
 		option.Config.EnableIPv6NDP = true // TODO restore
 		c.Assert(dm.Detect(), IsNil)
-		c.Assert(option.Config.Devices, checker.DeepEquals, []string{"dummy0", "dummy1", "dummy2", "dummy3"})
+		c.Assert(dm.GetDevices(), checker.DeepEquals, []string{"dummy0", "dummy1", "dummy2", "dummy3"})
 		c.Assert(option.Config.DirectRoutingDevice, checker.Equals, "dummy3")
 		c.Assert(option.Config.IPv6MCastDevice, checker.DeepEquals, "dummy3")
 
@@ -117,11 +118,10 @@ func (s *DevicesSuite) TestExpandDevices(c *C) {
 
 func (s *DevicesSuite) TestListenForNewDevices(c *C) {
 	s.withFreshNetNS(c, func() {
-		option.Config.Devices = []string{}
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		updated := make(chan struct{})
+		updates := make(chan []string)
 		timeout := time.After(time.Second)
 
 		netns, err := netns.Get()
@@ -129,10 +129,8 @@ func (s *DevicesSuite) TestListenForNewDevices(c *C) {
 
 		dm := NewDeviceManager()
 
-		err = dm.Listen(ctx, &netns, func() { updated <- struct{}{} })
+		err = dm.Listen(ctx, &netns, func(devices []string) { updates <- devices })
 		c.Assert(err, IsNil)
-
-		c.Assert(option.Config.Devices, checker.DeepEquals, []string{})
 
 		// Create the IPv4 & IPv6 devices that should be detected.
 		c.Assert(createDummy("dummy0", "192.168.1.2/24", false), IsNil)
@@ -156,8 +154,8 @@ func (s *DevicesSuite) TestListenForNewDevices(c *C) {
 			select {
 			case <-timeout:
 				c.Fatal("Test timed out")
-			case <-updated:
-				passed, _ = checker.DeepEqual(option.Config.Devices, []string{"dummy0", "dummy1", "eth0"})
+			case devices := <-updates:
+				passed, _ = checker.DeepEqual(devices, []string{"dummy0", "dummy1", "eth0"})
 			}
 		}
 
@@ -171,8 +169,8 @@ func (s *DevicesSuite) TestListenForNewDevices(c *C) {
 			select {
 			case <-timeout:
 				c.Fatal("Test timed out")
-			case <-updated:
-				passed, _ = checker.DeepEqual(option.Config.Devices, []string{"dummy1"})
+			case devices := <-updates:
+				passed, _ = checker.DeepEqual(devices, []string{"dummy1"})
 			}
 		}
 	})

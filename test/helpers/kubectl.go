@@ -2434,8 +2434,8 @@ func (kub *Kubectl) GetPrivateIface() (string, error) {
 // GetPublicIface returns an interface name of a netdev which has ExternalIP
 // addr.
 // Assumes that all nodes have identical interfaces.
-func (kub *Kubectl) GetPublicIface() (string, error) {
-	ipAddr, err := kub.GetNodeIPByLabel(K8s1, true)
+func (kub *Kubectl) GetPublicIface(label string) (string, error) {
+	ipAddr, err := kub.GetNodeIPByLabel(label, true)
 	if err != nil {
 		return "", err
 	} else if ipAddr == "" {
@@ -4366,6 +4366,24 @@ func (kub *Kubectl) AddIPRoute(nodeName, subnet, gw string, replace bool) *CmdRe
 func (kub *Kubectl) DelIPRoute(nodeName, subnet, gw string) *CmdRes {
 	cmd := fmt.Sprintf("ip route del %s via %s", subnet, gw)
 
+	return kub.ExecInHostNetNS(context.TODO(), nodeName, cmd)
+}
+
+func (kub *Kubectl) AddVXLAN(nodeName, remote, dev, addr string, vxlanId int) *CmdRes {
+	cmd := fmt.Sprintf("ip link add vxlan%d type vxlan id %d remote %s dstport 4789 dev %s",
+		vxlanId, vxlanId, remote, dev)
+	res := kub.ExecInHostNetNS(context.TODO(), nodeName, cmd)
+	if !res.WasSuccessful() {
+		return res
+	}
+
+	cmd = fmt.Sprintf("ip addr add vxlan%d %s", vxlanId, addr)
+	return kub.ExecInHostNetNS(context.TODO(), nodeName, cmd)
+
+}
+
+func (kub *Kubectl) DelVXLAN(nodeName string, vxlanId int) *CmdRes {
+	cmd := fmt.Sprintf("ip link del vxlan%d", vxlanId)
 	return kub.ExecInHostNetNS(context.TODO(), nodeName, cmd)
 }
 

@@ -192,6 +192,11 @@ func curlClusterIPFromExternalHost(kubectl *helpers.Kubectl, ni *nodesInfo) *hel
 	return kubectl.ExecInHostNetNS(context.TODO(), ni.outsideNodeName, helpers.CurlFail(httpSVCURL))
 }
 
+func curlFromExternalHost(kubectl *helpers.Kubectl, ni *nodesInfo, url string) *helpers.CmdRes {
+	By("testing curl %s from external host", url)
+	return kubectl.ExecInHostNetNS(context.TODO(), ni.outsideNodeName, helpers.CurlFail(url))
+}
+
 func waitPodsDs(kubectl *helpers.Kubectl, groups []string) {
 	for _, pod := range groups {
 		err := kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", pod), helpers.HelperTimeout)
