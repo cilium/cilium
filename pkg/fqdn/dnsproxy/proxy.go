@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/spanstat"
 
+	"github.com/golang/groupcache/lru"
 	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
 )
@@ -137,6 +138,11 @@ type DNSProxy struct {
 	// rejectReply is the OPCode send from the DNS-proxy to the endpoint if the
 	// DNS request is invalid
 	rejectReply int32
+
+	// regexCompileLRU contains an LRU cache for the regex.Compile of rules.
+	// Keeping an LRU cache avoids excessive memory allocations when compiling
+	// regex strings via regex.Compile.
+	regexCompileLRU *lru.Cache
 }
 
 // perEPAllow maps EndpointIDs to ports + selectors + rules
@@ -259,7 +265,7 @@ func (p *DNSProxy) RemoveRestoredRules(endpointID uint16) {
 // setPortRulesForID sets the matching rules for endpointID and destPort for
 // later lookups. It converts newRules into a unified regexp that can be reused
 // later.
-func (allow perEPAllow) setPortRulesForID(endpointID uint64, destPort uint16, newRules policy.L7DataMap) error {
+func (allow perEPAllow) setPortRulesForID(lru *lru.Cache, endpointID uint64, destPort uint16, newRules policy.L7DataMap) error {
 	// This is the delete case
 	if len(newRules) == 0 {
 		epPorts := allow[endpointID]
@@ -288,11 +294,19 @@ func (allow perEPAllow) setPortRulesForID(endpointID uint64, destPort uint16, ne
 				reStrings = append(reStrings, "("+dnsPatternAsRE+")")
 			}
 		}
-		re, err := regexp.Compile(strings.Join(reStrings, "|"))
-		if err != nil {
-			return err
+		mp := strings.Join(reStrings, "|")
+		rei, ok := lru.Get(mp)
+		if ok {
+			re := rei.(*regexp.Regexp)
+			newRE[selector] = re
+		} else {
+			re, err := regexp.Compile(mp)
+			if err != nil {
+				return err
+			}
+			lru.Add(mp, re)
+			newRE[selector] = re
 		}
-		newRE[selector] = re
 	}
 
 	epPorts, exist := allow[endpointID]
@@ -380,6 +394,7 @@ func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRe
 		restoredEPs:              make(restoredEPs),
 		EnableDNSCompression:     enableDNSCompression,
 		maxIPsPerRestoredDNSRule: maxRestoreDNSIPs,
+		regexCompileLRU:          lru.New(128),
 	}
 	atomic.StoreInt32(&p.rejectReply, dns.RcodeRefused)
 
@@ -455,7 +470,7 @@ func (p *DNSProxy) UpdateAllowed(endpointID uint64, destPort uint16, newRules po
 	p.Lock()
 	defer p.Unlock()
 
-	err := p.allowed.setPortRulesForID(endpointID, destPort, newRules)
+	err := p.allowed.setPortRulesForID(p.regexCompileLRU, endpointID, destPort, newRules)
 	if err == nil {
 		// Rules were updated based on policy, remove restored rules
 		p.removeRestoredRulesLocked(endpointID)
