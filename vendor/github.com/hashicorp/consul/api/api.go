@@ -8,16 +8,17 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-cleanhttp"
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-rootcerts"
 )
 
@@ -71,10 +72,18 @@ const (
 	// client in this package but is defined here for consistency with all the
 	// other ENV names we use.
 	GRPCAddrEnvName = "CONSUL_GRPC_ADDR"
+
+	// HTTPNamespaceEnvVar defines an environment variable name which sets
+	// the HTTP Namespace to be used by default. This can still be overridden.
+	HTTPNamespaceEnvName = "CONSUL_NAMESPACE"
 )
 
 // QueryOptions are used to parameterize a query
 type QueryOptions struct {
+	// Namespace overrides the `default` namespace
+	// Note: Namespaces are available only in Consul Enterprise
+	Namespace string
+
 	// Providing a datacenter overwrites the DC provided
 	// by the Config
 	Datacenter string
@@ -178,6 +187,10 @@ func (o *QueryOptions) WithContext(ctx context.Context) *QueryOptions {
 
 // WriteOptions are used to parameterize a write
 type WriteOptions struct {
+	// Namespace overrides the `default` namespace
+	// Note: Namespaces are available only in Consul Enterprise
+	Namespace string
+
 	// Providing a datacenter overwrites the DC provided
 	// by the Config
 	Datacenter string
@@ -242,6 +255,11 @@ type QueryMeta struct {
 	// CacheAge is set if request was ?cached and indicates how stale the cached
 	// response is.
 	CacheAge time.Duration
+
+	// DefaultACLPolicy is used to control the ACL interaction when there is no
+	// defined policy. This can be "allow" which means ACLs are used to
+	// deny-list, or "deny" which means ACLs are allow-lists.
+	DefaultACLPolicy string
 }
 
 // WriteMeta is used to return meta data about a write
@@ -292,6 +310,10 @@ type Config struct {
 	// If provided it is read once at startup and never again.
 	TokenFile string
 
+	// Namespace is the name of the namespace to send along for the request
+	// when no other Namespace is present in the QueryOptions
+	Namespace string
+
 	TLSConfig TLSConfig
 }
 
@@ -311,13 +333,25 @@ type TLSConfig struct {
 	// Consul communication, defaults to the system bundle if not specified.
 	CAPath string
 
+	// CAPem is the optional PEM-encoded CA certificate used for Consul
+	// communication, defaults to the system bundle if not specified.
+	CAPem []byte
+
 	// CertFile is the optional path to the certificate for Consul
 	// communication. If this is set then you need to also set KeyFile.
 	CertFile string
 
+	// CertPEM is the optional PEM-encoded certificate for Consul
+	// communication. If this is set then you need to also set KeyPEM.
+	CertPEM []byte
+
 	// KeyFile is the optional path to the private key for Consul communication.
 	// If this is set then you need to also set CertFile.
 	KeyFile string
+
+	// KeyPEM is the optional PEM-encoded private key for Consul communication.
+	// If this is set then you need to also set CertPEM.
+	KeyPEM []byte
 
 	// InsecureSkipVerify if set to true will disable TLS host verification.
 	InsecureSkipVerify bool
@@ -330,7 +364,14 @@ type TLSConfig struct {
 // is not recommended, then you may notice idle connections building up over
 // time. To avoid this, use the DefaultNonPooledConfig() instead.
 func DefaultConfig() *Config {
-	return defaultConfig(cleanhttp.DefaultPooledTransport)
+	return defaultConfig(nil, cleanhttp.DefaultPooledTransport)
+}
+
+// DefaultConfigWithLogger returns a default configuration for the client. It
+// is exactly the same as DefaultConfig, but allows for a pre-configured logger
+// object to be passed through.
+func DefaultConfigWithLogger(logger hclog.Logger) *Config {
+	return defaultConfig(logger, cleanhttp.DefaultPooledTransport)
 }
 
 // DefaultNonPooledConfig returns a default configuration for the client which
@@ -339,12 +380,18 @@ func DefaultConfig() *Config {
 // accumulation of idle connections if you make many client objects during the
 // lifetime of your application.
 func DefaultNonPooledConfig() *Config {
-	return defaultConfig(cleanhttp.DefaultTransport)
+	return defaultConfig(nil, cleanhttp.DefaultTransport)
 }
 
 // defaultConfig returns the default configuration for the client, using the
 // given function to make the transport.
-func defaultConfig(transportFn func() *http.Transport) *Config {
+func defaultConfig(logger hclog.Logger, transportFn func() *http.Transport) *Config {
+	if logger == nil {
+		logger = hclog.New(&hclog.LoggerOptions{
+			Name: "consul-api",
+		})
+	}
+
 	config := &Config{
 		Address:   "127.0.0.1:8500",
 		Scheme:    "http",
@@ -382,7 +429,7 @@ func defaultConfig(transportFn func() *http.Transport) *Config {
 	if ssl := os.Getenv(HTTPSSLEnvName); ssl != "" {
 		enabled, err := strconv.ParseBool(ssl)
 		if err != nil {
-			log.Printf("[WARN] client: could not parse %s: %s", HTTPSSLEnvName, err)
+			logger.Warn(fmt.Sprintf("could not parse %s", HTTPSSLEnvName), "error", err)
 		}
 
 		if enabled {
@@ -408,11 +455,15 @@ func defaultConfig(transportFn func() *http.Transport) *Config {
 	if v := os.Getenv(HTTPSSLVerifyEnvName); v != "" {
 		doVerify, err := strconv.ParseBool(v)
 		if err != nil {
-			log.Printf("[WARN] client: could not parse %s: %s", HTTPSSLVerifyEnvName, err)
+			logger.Warn(fmt.Sprintf("could not parse %s", HTTPSSLVerifyEnvName), "error", err)
 		}
 		if !doVerify {
 			config.TLSConfig.InsecureSkipVerify = true
 		}
+	}
+
+	if v := os.Getenv(HTTPNamespaceEnvName); v != "" {
+		config.Namespace = v
 	}
 
 	return config
@@ -438,18 +489,31 @@ func SetupTLSConfig(tlsConfig *TLSConfig) (*tls.Config, error) {
 		tlsClientConfig.ServerName = server
 	}
 
+	if len(tlsConfig.CertPEM) != 0 && len(tlsConfig.KeyPEM) != 0 {
+		tlsCert, err := tls.X509KeyPair(tlsConfig.CertPEM, tlsConfig.KeyPEM)
+		if err != nil {
+			return nil, err
+		}
+		tlsClientConfig.Certificates = []tls.Certificate{tlsCert}
+	} else if len(tlsConfig.CertPEM) != 0 || len(tlsConfig.KeyPEM) != 0 {
+		return nil, fmt.Errorf("both client cert and client key must be provided")
+	}
+
 	if tlsConfig.CertFile != "" && tlsConfig.KeyFile != "" {
 		tlsCert, err := tls.LoadX509KeyPair(tlsConfig.CertFile, tlsConfig.KeyFile)
 		if err != nil {
 			return nil, err
 		}
 		tlsClientConfig.Certificates = []tls.Certificate{tlsCert}
+	} else if tlsConfig.CertFile != "" || tlsConfig.KeyFile != "" {
+		return nil, fmt.Errorf("both client cert and client key must be provided")
 	}
 
-	if tlsConfig.CAFile != "" || tlsConfig.CAPath != "" {
+	if tlsConfig.CAFile != "" || tlsConfig.CAPath != "" || len(tlsConfig.CAPem) != 0 {
 		rootConfig := &rootcerts.Config{
-			CAFile: tlsConfig.CAFile,
-			CAPath: tlsConfig.CAPath,
+			CAFile:        tlsConfig.CAFile,
+			CAPath:        tlsConfig.CAPath,
+			CACertificate: tlsConfig.CAPem,
 		}
 		if err := rootcerts.ConfigureTLS(tlsClientConfig, rootConfig); err != nil {
 			return nil, err
@@ -485,7 +549,46 @@ func (c *Config) GenerateEnv() []string {
 
 // Client provides a client to the Consul API
 type Client struct {
+	modifyLock sync.RWMutex
+	headers    http.Header
+
 	config Config
+}
+
+// Headers gets the current set of headers used for requests. This returns a
+// copy; to modify it call AddHeader or SetHeaders.
+func (c *Client) Headers() http.Header {
+	c.modifyLock.RLock()
+	defer c.modifyLock.RUnlock()
+
+	if c.headers == nil {
+		return nil
+	}
+
+	ret := make(http.Header)
+	for k, v := range c.headers {
+		for _, val := range v {
+			ret[k] = append(ret[k], val)
+		}
+	}
+
+	return ret
+}
+
+// AddHeader allows a single header key/value pair to be added
+// in a race-safe fashion.
+func (c *Client) AddHeader(key, value string) {
+	c.modifyLock.Lock()
+	defer c.modifyLock.Unlock()
+	c.headers.Add(key, value)
+}
+
+// SetHeaders clears all previous headers and uses only the given
+// ones going forward.
+func (c *Client) SetHeaders(headers http.Header) {
+	c.modifyLock.Lock()
+	defer c.modifyLock.Unlock()
+	c.headers = headers
 }
 
 // NewClient returns a new client
@@ -493,11 +596,11 @@ func NewClient(config *Config) (*Client, error) {
 	// bootstrap the config
 	defConfig := DefaultConfig()
 
-	if len(config.Address) == 0 {
+	if config.Address == "" {
 		config.Address = defConfig.Address
 	}
 
-	if len(config.Scheme) == 0 {
+	if config.Scheme == "" {
 		config.Scheme = defConfig.Scheme
 	}
 
@@ -541,7 +644,7 @@ func NewClient(config *Config) (*Client, error) {
 	if len(parts) == 2 {
 		switch parts[0] {
 		case "http":
-			config.Scheme = "http"
+			// Never revert to http if TLS was explicitly requested.
 		case "https":
 			config.Scheme = "https"
 		case "unix":
@@ -549,9 +652,11 @@ func NewClient(config *Config) (*Client, error) {
 			trans.DialContext = func(_ context.Context, _, _ string) (net.Conn, error) {
 				return net.Dial("unix", parts[1])
 			}
-			config.HttpClient = &http.Client{
-				Transport: trans,
+			httpClient, err := NewHttpClient(trans, config.TLSConfig)
+			if err != nil {
+				return nil, err
 			}
+			config.HttpClient = httpClient
 		default:
 			return nil, fmt.Errorf("Unknown protocol scheme: %s", parts[0])
 		}
@@ -575,7 +680,7 @@ func NewClient(config *Config) (*Client, error) {
 		config.Token = defConfig.Token
 	}
 
-	return &Client{config: *config}, nil
+	return &Client{config: *config, headers: make(http.Header)}, nil
 }
 
 // NewHttpClient returns an http client configured with the given Transport and TLS
@@ -623,6 +728,9 @@ type request struct {
 func (r *request) setQueryOptions(q *QueryOptions) {
 	if q == nil {
 		return
+	}
+	if q.Namespace != "" {
+		r.params.Set("ns", q.Namespace)
 	}
 	if q.Datacenter != "" {
 		r.params.Set("dc", q.Datacenter)
@@ -723,6 +831,9 @@ func (r *request) setWriteOptions(q *WriteOptions) {
 	if q == nil {
 		return
 	}
+	if q.Namespace != "" {
+		r.params.Set("ns", q.Namespace)
+	}
 	if q.Datacenter != "" {
 		r.params.Set("dc", q.Datacenter)
 	}
@@ -760,6 +871,12 @@ func (r *request) toHTTP() (*http.Request, error) {
 	req.Host = r.url.Host
 	req.Header = r.header
 
+	// Content-Type must always be set when a body is present
+	// See https://github.com/hashicorp/consul/issues/10011
+	if req.Body != nil && req.Header.Get("Content-Type") == "" {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
 	// Setup auth
 	if r.config.HttpAuth != nil {
 		req.SetBasicAuth(r.config.HttpAuth.Username, r.config.HttpAuth.Password)
@@ -782,10 +899,14 @@ func (c *Client) newRequest(method, path string) *request {
 			Path:   path,
 		},
 		params: make(map[string][]string),
-		header: make(http.Header),
+		header: c.Headers(),
 	}
+
 	if c.config.Datacenter != "" {
 		r.params.Set("dc", c.config.Datacenter)
+	}
+	if c.config.Namespace != "" {
+		r.params.Set("ns", c.config.Namespace)
 	}
 	if c.config.WaitTime != 0 {
 		r.params.Set("wait", durToMsec(r.config.WaitTime))
@@ -818,7 +939,7 @@ func (c *Client) query(endpoint string, out interface{}, q *QueryOptions) (*Quer
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(resp)
 
 	qm := &QueryMeta{}
 	parseQueryMeta(resp, qm)
@@ -840,7 +961,7 @@ func (c *Client) write(endpoint string, in, out interface{}, q *WriteOptions) (*
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(resp)
 
 	wm := &WriteMeta{RequestTime: rtt}
 	if out != nil {
@@ -893,6 +1014,12 @@ func parseQueryMeta(resp *http.Response, q *QueryMeta) error {
 		q.AddressTranslationEnabled = false
 	}
 
+	// Parse X-Consul-Default-ACL-Policy
+	switch v := header.Get("X-Consul-Default-ACL-Policy"); v {
+	case "allow", "deny":
+		q.DefaultACLPolicy = v
+	}
+
 	// Parse Cache info
 	if cacheStr := header.Get("X-Cache"); cacheStr != "" {
 		q.CacheHit = strings.EqualFold(cacheStr, "HIT")
@@ -928,7 +1055,7 @@ func encodeBody(obj interface{}) (io.Reader, error) {
 func requireOK(d time.Duration, resp *http.Response, e error) (time.Duration, *http.Response, error) {
 	if e != nil {
 		if resp != nil {
-			resp.Body.Close()
+			closeResponseBody(resp)
 		}
 		return d, nil, e
 	}
@@ -936,6 +1063,14 @@ func requireOK(d time.Duration, resp *http.Response, e error) (time.Duration, *h
 		return d, nil, generateUnexpectedResponseCodeError(resp)
 	}
 	return d, resp, nil
+}
+
+// closeResponseBody reads resp.Body until EOF, and then closes it. The read
+// is necessary to ensure that the http.Client's underlying RoundTripper is able
+// to re-use the TCP connection. See godoc on net/http.Client.Do.
+func closeResponseBody(resp *http.Response) error {
+	_, _ = io.Copy(ioutil.Discard, resp.Body)
+	return resp.Body.Close()
 }
 
 func (req *request) filterQuery(filter string) {
@@ -952,14 +1087,14 @@ func (req *request) filterQuery(filter string) {
 func generateUnexpectedResponseCodeError(resp *http.Response) error {
 	var buf bytes.Buffer
 	io.Copy(&buf, resp.Body)
-	resp.Body.Close()
+	closeResponseBody(resp)
 	return fmt.Errorf("Unexpected response code: %d (%s)", resp.StatusCode, buf.Bytes())
 }
 
 func requireNotFoundOrOK(d time.Duration, resp *http.Response, e error) (bool, time.Duration, *http.Response, error) {
 	if e != nil {
 		if resp != nil {
-			resp.Body.Close()
+			closeResponseBody(resp)
 		}
 		return false, d, nil, e
 	}

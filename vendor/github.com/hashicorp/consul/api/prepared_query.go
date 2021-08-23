@@ -25,6 +25,9 @@ type ServiceQuery struct {
 	// Service is the service to query.
 	Service string
 
+	// Namespace of the service to query
+	Namespace string `json:",omitempty"`
+
 	// Near allows baking in the name of a node to automatically distance-
 	// sort from. The magic "_agent" value is supported, which sorts near
 	// the agent which initiated the request by default.
@@ -119,6 +122,9 @@ type PreparedQueryExecuteResponse struct {
 	// Service is the service that was queried.
 	Service string
 
+	// Namespace of the service that was queried
+	Namespace string `json:",omitempty"`
+
 	// Nodes has the nodes that were output by the query.
 	Nodes []ServiceEntry
 
@@ -152,7 +158,7 @@ func (c *PreparedQuery) Create(query *PreparedQueryDefinition, q *WriteOptions) 
 	if err != nil {
 		return "", nil, err
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(resp)
 
 	wm := &WriteMeta{}
 	wm.RequestTime = rtt
@@ -198,7 +204,7 @@ func (c *PreparedQuery) Delete(queryID string, q *WriteOptions) (*WriteMeta, err
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(resp)
 
 	wm := &WriteMeta{}
 	wm.RequestTime = rtt

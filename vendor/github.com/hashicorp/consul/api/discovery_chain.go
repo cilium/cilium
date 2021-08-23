@@ -33,7 +33,6 @@ func (d *DiscoveryChain) Get(name string, opts *DiscoveryChainOptions, q *QueryO
 		if opts.EvaluateInDatacenter != "" {
 			r.params.Set("compile-dc", opts.EvaluateInDatacenter)
 		}
-		// TODO(namespaces): handle possible EvaluateInNamespace here
 	}
 
 	if method == "POST" {
@@ -44,7 +43,7 @@ func (d *DiscoveryChain) Get(name string, opts *DiscoveryChainOptions, q *QueryO
 	if err != nil {
 		return nil, nil, err
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(resp)
 
 	qm := &QueryMeta{}
 	parseQueryMeta(resp, qm)
@@ -148,6 +147,9 @@ type DiscoveryGraphNode struct {
 
 	// fields for Type==resolver
 	Resolver *DiscoveryResolver
+
+	// shared by Type==resolver || Type==splitter
+	LoadBalancer *LoadBalancer `json:",omitempty"`
 }
 
 // compiled form of ServiceRoute
