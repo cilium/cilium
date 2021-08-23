@@ -142,7 +142,7 @@ var (
 		"gke.enabled":                 "true",
 		"loadBalancer.mode":           "snat",
 		"nativeRoutingCIDR":           GKENativeRoutingCIDR(),
-		"hostFirewall":                "false",
+		"hostFirewall.enabled":        "false",
 		"ipam.mode":                   "kubernetes",
 		"devices":                     "", // Override "eth0 eth0\neth0"
 	}
@@ -163,7 +163,7 @@ var (
 	}
 	kindHelmOverrides = map[string]string{
 		"ipv6.enabled":         "false",
-		"hostFirewall":         "false",
+		"hostFirewall.enabled": "false",
 		"nodeinit.enabled":     "true",
 		"kubeProxyReplacement": "partial",
 		"externalIPs.enabled":  "true",
@@ -2374,10 +2374,10 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 	}
 
 	if RunsWithHostFirewall() {
-		addIfNotOverwritten(options, "hostFirewall", "true")
+		addIfNotOverwritten(options, "hostFirewall.enabled", "true")
 	}
 
-	if RunsWithKubeProxyReplacement() || options["hostFirewall"] == "true" {
+	if RunsWithKubeProxyReplacement() || options["hostFirewall.enabled"] == "true" {
 		// Set devices
 		privateIface, err := kub.GetPrivateIface()
 		if err != nil {
