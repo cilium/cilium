@@ -310,6 +310,11 @@ Annotations:
 1.11 Upgrade Notes
 ------------------
 
+* The Cilium agent will now fail instead of falling back to auto-detection
+  when device wildcard expansion (``--devices=eth+``) yields no devices.
+* Device auto-detection now discovers devices through the routing table and
+  only considers devices that have a global unicast route in some routing table.
+
 Removed Options
 ~~~~~~~~~~~~~~~
 
