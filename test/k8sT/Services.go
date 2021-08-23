@@ -623,7 +623,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 			It("with the host firewall and externalTrafficPolicy=Local", func() {
 				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-					"hostFirewall": "true",
+					"hostFirewall.enabled": "true",
 				})
 				testExternalTrafficPolicyLocal(kubectl, ni)
 			})
@@ -872,7 +872,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 						BeforeAll(func() {
 							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-								"hostFirewall": "true",
+								"hostFirewall.enabled": "true",
 							})
 
 							ccnpHostPolicy = helpers.ManifestGet(kubectl.BasePath(), "ccnp-host-policy-nodeport-tests.yaml")
@@ -917,7 +917,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 								"maglev.tableSize": "251",
 								// Support for host firewall + Maglev is currently broken,
 								// see #14047 for details.
-								"hostFirewall": "false",
+								"hostFirewall.enabled": "false",
 							})
 
 							echoYAML = helpers.ManifestGet(kubectl.BasePath(), "echo-svc.yaml")
@@ -1020,7 +1020,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 								"tunnel":               "disabled",
 								"autoDirectNodeRoutes": "true",
-								"hostFirewall":         "true",
+								"hostFirewall.enabled": "true",
 							})
 
 							ccnpHostPolicy = helpers.ManifestGet(kubectl.BasePath(), "ccnp-host-policy-nodeport-tests.yaml")
@@ -1070,7 +1070,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 								"maglev.tableSize": "251",
 								// Support for host firewall + Maglev is currently broken,
 								// see #14047 for details.
-								"hostFirewall": "false",
+								"hostFirewall.enabled": "false",
 							})
 
 							echoYAML = helpers.ManifestGet(kubectl.BasePath(), "echo-svc.yaml")
@@ -1392,7 +1392,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						"devices":                   fmt.Sprintf(`'{%s}'`, ni.privateIface),
 						// Support for host firewall + Maglev is currently broken,
 						// see #14047 for details.
-						"hostFirewall": "false",
+						"hostFirewall.enabled": "false",
 					})
 					testNodePortExternal(kubectl, ni, false, false)
 				})
@@ -1420,7 +1420,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						"devices":                   fmt.Sprintf(`'{%s}'`, ni.privateIface),
 						// Support for host firewall + Maglev is currently broken,
 						// see #14047 for details.
-						"hostFirewall": "false",
+						"hostFirewall.enabled": "false",
 					})
 					testNodePortExternal(kubectl, ni, true, false)
 				})
@@ -1448,7 +1448,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						"devices":                   fmt.Sprintf(`'{%s}'`, ni.privateIface),
 						// Support for host firewall + Maglev is currently broken,
 						// see #14047 for details.
-						"hostFirewall": "false",
+						"hostFirewall.enabled": "false",
 					})
 					testNodePortExternal(kubectl, ni, true, true)
 				})

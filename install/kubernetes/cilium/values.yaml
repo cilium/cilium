@@ -515,8 +515,10 @@ healthChecking: true
 # -- TCP port for the agent health API. This is not the port for cilium-health.
 healthPort: 9876
 
-# -- Enables the enforcement of host policies in the eBPF datapath.
-hostFirewall: false
+# -- Configure the host firewall.
+hostFirewall:
+  # -- Enables the enforcement of host policies in the eBPF datapath.
+  enabled: false
 
 hostPort:
   # -- Enable hostPort service support.

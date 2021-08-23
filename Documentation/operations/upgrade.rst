@@ -343,6 +343,11 @@ New Options
   acceptable kvstore consecutive quorum errors before the agent assumes
   permanent failure.
 
+Helm Options
+~~~~~~~~~~~~
+
+* ``hostFirewall`` was renamed to ``hostFirewall.enabled``.
+
 .. _1.10_upgrade_notes:
 
 1.10 Upgrade Notes

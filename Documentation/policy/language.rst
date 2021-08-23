@@ -1228,7 +1228,7 @@ flags when installing Cilium:
 * ``--set devices='{interface}'`` where ``interface`` refers to the
   network device Cilium is configured on such as ``eth0``. Omitting this option
   leads Cilium to auto-detect what interface the host firewall applies to.
-* ``--set hostFirewall=true``
+* ``--set hostFirewall.enabled=true``
 
 The following policy will allow ingress traffic for any node with the label
 ``type=ingress-worker`` on TCP ports 22, 6443 (kube-apiserver), 2379 (etcd) and 4240

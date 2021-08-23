@@ -34,7 +34,7 @@ var _ = Describe("K8sConformance", func() {
 				// compatible with portmap chaining because traffic
 				// from pods to remote nodes goes through the tunnel.
 				// This issue is tracked at #12541.
-				"hostFirewall": "false",
+				"hostFirewall.enabled": "false",
 			}
 			ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, deployOpts)
