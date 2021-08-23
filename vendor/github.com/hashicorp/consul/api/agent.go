@@ -3,6 +3,7 @@ package api
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -28,6 +29,15 @@ const (
 	// service will proxy connections based off the SNI header set by other
 	// connect proxies
 	ServiceKindMeshGateway ServiceKind = "mesh-gateway"
+
+	// ServiceKindTerminatingGateway is a Terminating Gateway for the Connect
+	// feature. This service will proxy connections to services outside the mesh.
+	ServiceKindTerminatingGateway ServiceKind = "terminating-gateway"
+
+	// ServiceKindIngressGateway is an Ingress Gateway for the Connect feature.
+	// This service will ingress connections based of configuration defined in
+	// the ingress-gateway config entry.
+	ServiceKindIngressGateway ServiceKind = "ingress-gateway"
 )
 
 // UpstreamDestType is the type of upstream discovery mechanism.
@@ -53,7 +63,9 @@ type AgentCheck struct {
 	ServiceID   string
 	ServiceName string
 	Type        string
+	ExposedPort int
 	Definition  HealthCheckDefinition
+	Namespace   string `json:",omitempty"`
 }
 
 // AgentWeights represent optional weights for a service
@@ -71,6 +83,7 @@ type AgentService struct {
 	Meta              map[string]string
 	Port              int
 	Address           string
+	SocketPath        string
 	TaggedAddresses   map[string]ServiceAddress `json:",omitempty"`
 	Weights           AgentWeights
 	EnableTagOverride bool
@@ -79,6 +92,12 @@ type AgentService struct {
 	ContentHash       string                          `json:",omitempty" bexpr:"-"`
 	Proxy             *AgentServiceConnectProxyConfig `json:",omitempty"`
 	Connect           *AgentServiceConnect            `json:",omitempty"`
+	// NOTE: If we ever set the ContentHash outside of singular service lookup then we may need
+	// to include the Namespace in the hash. When we do, then we are in for lots of fun with tests.
+	// For now though, ignoring it works well enough.
+	Namespace string `json:",omitempty" bexpr:"-" hash:"ignore"`
+	// Datacenter is only ever returned and is ignored if presented.
+	Datacenter string `json:",omitempty" bexpr:"-" hash:"ignore"`
 }
 
 // AgentServiceChecksInfo returns information about a Service and its checks
@@ -97,22 +116,97 @@ type AgentServiceConnect struct {
 // AgentServiceConnectProxyConfig is the proxy configuration in a connect-proxy
 // ServiceDefinition or response.
 type AgentServiceConnectProxyConfig struct {
-	DestinationServiceName string                 `json:",omitempty"`
-	DestinationServiceID   string                 `json:",omitempty"`
-	LocalServiceAddress    string                 `json:",omitempty"`
-	LocalServicePort       int                    `json:",omitempty"`
-	Config                 map[string]interface{} `json:",omitempty" bexpr:"-"`
-	Upstreams              []Upstream             `json:",omitempty"`
-	MeshGateway            MeshGatewayConfig      `json:",omitempty"`
-	Expose                 ExposeConfig           `json:",omitempty"`
+	DestinationServiceName string                  `json:",omitempty"`
+	DestinationServiceID   string                  `json:",omitempty"`
+	LocalServiceAddress    string                  `json:",omitempty"`
+	LocalServicePort       int                     `json:",omitempty"`
+	LocalServiceSocketPath string                  `json:",omitempty"`
+	Mode                   ProxyMode               `json:",omitempty"`
+	TransparentProxy       *TransparentProxyConfig `json:",omitempty"`
+	Config                 map[string]interface{}  `json:",omitempty" bexpr:"-"`
+	Upstreams              []Upstream              `json:",omitempty"`
+	MeshGateway            MeshGatewayConfig       `json:",omitempty"`
+	Expose                 ExposeConfig            `json:",omitempty"`
 }
+
+const (
+	// MemberTagKeyACLMode is the key used to indicate what ACL mode the agent is
+	// operating in. The values of this key will be one of the MemberACLMode constants
+	// with the key not being present indicating ACLModeUnknown.
+	MemberTagKeyACLMode = "acls"
+
+	// MemberTagRole is the key used to indicate that the member is a server or not.
+	MemberTagKeyRole = "role"
+
+	// MemberTagValueRoleServer is the value of the MemberTagKeyRole used to indicate
+	// that the member represents a Consul server.
+	MemberTagValueRoleServer = "consul"
+
+	// MemberTagKeySegment is the key name of the tag used to indicate which network
+	// segment this member is in.
+	// Network Segments are a Consul Enterprise feature.
+	MemberTagKeySegment = "segment"
+
+	// MemberTagKeyBootstrap is the key name of the tag used to indicate whether this
+	// agent was started with the "bootstrap" configuration enabled
+	MemberTagKeyBootstrap = "bootstrap"
+	// MemberTagValueBootstrap is the value of the MemberTagKeyBootstrap key when the
+	// agent was started with the "bootstrap" configuration enabled.
+	MemberTagValueBootstrap = "1"
+
+	// MemberTagKeyBootstrapExpect is the key name of the tag used to indicate whether
+	// this agent was started with the "bootstrap_expect" configuration set to a non-zero
+	// value. The value of this key will be the string for of that configuration value.
+	MemberTagKeyBootstrapExpect = "expect"
+
+	// MemberTagKeyUseTLS is the key name of the tag used to indicate whther this agent
+	// was configured to use TLS.
+	MemberTagKeyUseTLS = "use_tls"
+	// MemberTagValueUseTLS is the value of the MemberTagKeyUseTLS when the agent was
+	// configured to use TLS. Any other value indicates that it was not setup in
+	// that manner.
+	MemberTagValueUseTLS = "1"
+
+	// MemberTagKeyReadReplica is the key used to indicate that the member is a read
+	// replica server (will remain a Raft non-voter).
+	// Read Replicas are a Consul Enterprise feature.
+	MemberTagKeyReadReplica = "read_replica"
+	// MemberTagValueReadReplica is the value of the MemberTagKeyReadReplica key when
+	// the member is in fact a read-replica. Any other value indicates that it is not.
+	// Read Replicas are a Consul Enterprise feature.
+	MemberTagValueReadReplica = "1"
+)
+
+type MemberACLMode string
+
+const (
+	// ACLModeDisables indicates that ACLs are disabled for this agent
+	ACLModeDisabled MemberACLMode = "0"
+	// ACLModeEnabled indicates that ACLs are enabled and operating in new ACL
+	// mode (v1.4.0+ ACLs)
+	ACLModeEnabled MemberACLMode = "1"
+	// ACLModeLegacy indicates that ACLs are enabled and operating in legacy mode.
+	ACLModeLegacy MemberACLMode = "2"
+	// ACLModeUnkown is used to indicate that the AgentMember.Tags didn't advertise
+	// an ACL mode at all. This is the case for Consul versions before v1.4.0 and
+	// should be treated similarly to ACLModeLegacy.
+	ACLModeUnknown MemberACLMode = "3"
+)
 
 // AgentMember represents a cluster member known to the agent
 type AgentMember struct {
-	Name        string
-	Addr        string
-	Port        uint16
-	Tags        map[string]string
+	Name string
+	Addr string
+	Port uint16
+	Tags map[string]string
+	// Status of the Member which corresponds to  github.com/hashicorp/serf/serf.MemberStatus
+	// Value is one of:
+	//
+	// 	  AgentMemberNone    = 0
+	//	  AgentMemberAlive   = 1
+	//	  AgentMemberLeaving = 2
+	//	  AgentMemberLeft    = 3
+	//	  AgentMemberFailed  = 4
 	Status      int
 	ProtocolMin uint8
 	ProtocolMax uint8
@@ -120,6 +214,30 @@ type AgentMember struct {
 	DelegateMin uint8
 	DelegateMax uint8
 	DelegateCur uint8
+}
+
+// ACLMode returns the ACL mode this agent is operating in.
+func (m *AgentMember) ACLMode() MemberACLMode {
+	mode := m.Tags[MemberTagKeyACLMode]
+
+	// the key may not have existed but then an
+	// empty string will be returned and we will
+	// handle that in the default case of the switch
+	switch MemberACLMode(mode) {
+	case ACLModeDisabled:
+		return ACLModeDisabled
+	case ACLModeEnabled:
+		return ACLModeEnabled
+	case ACLModeLegacy:
+		return ACLModeLegacy
+	default:
+		return ACLModeUnknown
+	}
+}
+
+// IsConsulServer returns true when this member is a Consul server.
+func (m *AgentMember) IsConsulServer() bool {
+	return m.Tags[MemberTagKeyRole] == MemberTagValueRoleServer
 }
 
 // AllSegments is used to select for all segments in MembersOpts.
@@ -151,6 +269,26 @@ type AgentServiceRegistration struct {
 	Checks            AgentServiceChecks
 	Proxy             *AgentServiceConnectProxyConfig `json:",omitempty"`
 	Connect           *AgentServiceConnect            `json:",omitempty"`
+	Namespace         string                          `json:",omitempty" bexpr:"-" hash:"ignore"`
+}
+
+// ServiceRegisterOpts is used to pass extra options to the service register.
+type ServiceRegisterOpts struct {
+	//Missing healthchecks will be deleted from the agent.
+	//Using this parameter allows to idempotently register a service and its checks without
+	//having to manually deregister checks.
+	ReplaceExistingChecks bool
+
+	// ctx is an optional context pass through to the underlying HTTP
+	// request layer. Use WithContext() to set the context.
+	ctx context.Context
+}
+
+// WithContext sets the context to be used for the request on a new ServiceRegisterOpts,
+// and returns the opts.
+func (o ServiceRegisterOpts) WithContext(ctx context.Context) ServiceRegisterOpts {
+	o.ctx = ctx
+	return o
 }
 
 // AgentCheckRegistration is used to register a new check
@@ -160,29 +298,34 @@ type AgentCheckRegistration struct {
 	Notes     string `json:",omitempty"`
 	ServiceID string `json:",omitempty"`
 	AgentServiceCheck
+	Namespace string `json:",omitempty"`
 }
 
 // AgentServiceCheck is used to define a node or service level check
 type AgentServiceCheck struct {
-	CheckID           string              `json:",omitempty"`
-	Name              string              `json:",omitempty"`
-	Args              []string            `json:"ScriptArgs,omitempty"`
-	DockerContainerID string              `json:",omitempty"`
-	Shell             string              `json:",omitempty"` // Only supported for Docker.
-	Interval          string              `json:",omitempty"`
-	Timeout           string              `json:",omitempty"`
-	TTL               string              `json:",omitempty"`
-	HTTP              string              `json:",omitempty"`
-	Header            map[string][]string `json:",omitempty"`
-	Method            string              `json:",omitempty"`
-	TCP               string              `json:",omitempty"`
-	Status            string              `json:",omitempty"`
-	Notes             string              `json:",omitempty"`
-	TLSSkipVerify     bool                `json:",omitempty"`
-	GRPC              string              `json:",omitempty"`
-	GRPCUseTLS        bool                `json:",omitempty"`
-	AliasNode         string              `json:",omitempty"`
-	AliasService      string              `json:",omitempty"`
+	CheckID                string              `json:",omitempty"`
+	Name                   string              `json:",omitempty"`
+	Args                   []string            `json:"ScriptArgs,omitempty"`
+	DockerContainerID      string              `json:",omitempty"`
+	Shell                  string              `json:",omitempty"` // Only supported for Docker.
+	Interval               string              `json:",omitempty"`
+	Timeout                string              `json:",omitempty"`
+	TTL                    string              `json:",omitempty"`
+	HTTP                   string              `json:",omitempty"`
+	Header                 map[string][]string `json:",omitempty"`
+	Method                 string              `json:",omitempty"`
+	Body                   string              `json:",omitempty"`
+	TCP                    string              `json:",omitempty"`
+	Status                 string              `json:",omitempty"`
+	Notes                  string              `json:",omitempty"`
+	TLSServerName          string              `json:",omitempty"`
+	TLSSkipVerify          bool                `json:",omitempty"`
+	GRPC                   string              `json:",omitempty"`
+	GRPCUseTLS             bool                `json:",omitempty"`
+	AliasNode              string              `json:",omitempty"`
+	AliasService           string              `json:",omitempty"`
+	SuccessBeforePassing   int                 `json:",omitempty"`
+	FailuresBeforeCritical int                 `json:",omitempty"`
 
 	// In Consul 0.7 and later, checks that are associated with a service
 	// may also contain this optional DeregisterCriticalServiceAfter field,
@@ -267,8 +410,11 @@ type Upstream struct {
 	Datacenter           string                 `json:",omitempty"`
 	LocalBindAddress     string                 `json:",omitempty"`
 	LocalBindPort        int                    `json:",omitempty"`
+	LocalBindSocketPath  string                 `json:",omitempty"`
+	LocalBindSocketMode  string                 `json:",omitempty"`
 	Config               map[string]interface{} `json:",omitempty" bexpr:"-"`
 	MeshGateway          MeshGatewayConfig      `json:",omitempty"`
+	CentrallyConfigured  bool                   `json:",omitempty" bexpr:"-"`
 }
 
 // Agent can be used to query the Agent endpoints
@@ -292,7 +438,7 @@ func (a *Agent) Self() (map[string]map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(resp)
 
 	var out map[string]map[string]interface{}
 	if err := decodeBody(resp, &out); err != nil {
@@ -310,7 +456,7 @@ func (a *Agent) Host() (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(resp)
 
 	var out map[string]interface{}
 	if err := decodeBody(resp, &out); err != nil {
@@ -327,7 +473,7 @@ func (a *Agent) Metrics() (*MetricsInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(resp)
 
 	var out *MetricsInfo
 	if err := decodeBody(resp, &out); err != nil {
@@ -343,7 +489,7 @@ func (a *Agent) Reload() error {
 	if err != nil {
 		return err
 	}
-	resp.Body.Close()
+	closeResponseBody(resp)
 	return nil
 }
 
@@ -369,13 +515,20 @@ func (a *Agent) Checks() (map[string]*AgentCheck, error) {
 // ChecksWithFilter returns a subset of the locally registered checks that match
 // the given filter expression
 func (a *Agent) ChecksWithFilter(filter string) (map[string]*AgentCheck, error) {
+	return a.ChecksWithFilterOpts(filter, nil)
+}
+
+// ChecksWithFilterOpts returns a subset of the locally registered checks that match
+// the given filter expression and QueryOptions.
+func (a *Agent) ChecksWithFilterOpts(filter string, q *QueryOptions) (map[string]*AgentCheck, error) {
 	r := a.c.newRequest("GET", "/v1/agent/checks")
+	r.setQueryOptions(q)
 	r.filterQuery(filter)
 	_, resp, err := requireOK(a.c.doRequest(r))
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(resp)
 
 	var out map[string]*AgentCheck
 	if err := decodeBody(resp, &out); err != nil {
@@ -392,13 +545,20 @@ func (a *Agent) Services() (map[string]*AgentService, error) {
 // ServicesWithFilter returns a subset of the locally registered services that match
 // the given filter expression
 func (a *Agent) ServicesWithFilter(filter string) (map[string]*AgentService, error) {
+	return a.ServicesWithFilterOpts(filter, nil)
+}
+
+// ServicesWithFilterOpts returns a subset of the locally registered services that match
+// the given filter expression and QueryOptions.
+func (a *Agent) ServicesWithFilterOpts(filter string, q *QueryOptions) (map[string]*AgentService, error) {
 	r := a.c.newRequest("GET", "/v1/agent/services")
+	r.setQueryOptions(q)
 	r.filterQuery(filter)
 	_, resp, err := requireOK(a.c.doRequest(r))
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(resp)
 
 	var out map[string]*AgentService
 	if err := decodeBody(resp, &out); err != nil {
@@ -421,7 +581,7 @@ func (a *Agent) AgentHealthServiceByID(serviceID string) (string, *AgentServiceC
 	if err != nil {
 		return "", nil, err
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(resp)
 	// Service not Found
 	if resp.StatusCode == http.StatusNotFound {
 		return HealthCritical, nil, nil
@@ -455,7 +615,7 @@ func (a *Agent) AgentHealthServiceByName(service string) (string, []AgentService
 	if err != nil {
 		return "", nil, err
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(resp)
 	// Service not Found
 	if resp.StatusCode == http.StatusNotFound {
 		return HealthCritical, nil, nil
@@ -488,7 +648,7 @@ func (a *Agent) Service(serviceID string, q *QueryOptions) (*AgentService, *Quer
 	if err != nil {
 		return nil, nil, err
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(resp)
 
 	qm := &QueryMeta{}
 	parseQueryMeta(resp, qm)
@@ -513,7 +673,7 @@ func (a *Agent) Members(wan bool) ([]*AgentMember, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(resp)
 
 	var out []*AgentMember
 	if err := decodeBody(resp, &out); err != nil {
@@ -535,7 +695,7 @@ func (a *Agent) MembersOpts(opts MembersOpts) ([]*AgentMember, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(resp)
 
 	var out []*AgentMember
 	if err := decodeBody(resp, &out); err != nil {
@@ -547,13 +707,31 @@ func (a *Agent) MembersOpts(opts MembersOpts) ([]*AgentMember, error) {
 // ServiceRegister is used to register a new service with
 // the local agent
 func (a *Agent) ServiceRegister(service *AgentServiceRegistration) error {
+	opts := ServiceRegisterOpts{
+		ReplaceExistingChecks: false,
+	}
+
+	return a.serviceRegister(service, opts)
+}
+
+// ServiceRegister is used to register a new service with
+// the local agent and can be passed additional options.
+func (a *Agent) ServiceRegisterOpts(service *AgentServiceRegistration, opts ServiceRegisterOpts) error {
+	return a.serviceRegister(service, opts)
+}
+
+func (a *Agent) serviceRegister(service *AgentServiceRegistration, opts ServiceRegisterOpts) error {
 	r := a.c.newRequest("PUT", "/v1/agent/service/register")
 	r.obj = service
+	r.ctx = opts.ctx
+	if opts.ReplaceExistingChecks {
+		r.params.Set("replace-existing-checks", "true")
+	}
 	_, resp, err := requireOK(a.c.doRequest(r))
 	if err != nil {
 		return err
 	}
-	resp.Body.Close()
+	closeResponseBody(resp)
 	return nil
 }
 
@@ -565,7 +743,20 @@ func (a *Agent) ServiceDeregister(serviceID string) error {
 	if err != nil {
 		return err
 	}
-	resp.Body.Close()
+	closeResponseBody(resp)
+	return nil
+}
+
+// ServiceDeregisterOpts is used to deregister a service with
+// the local agent with QueryOptions.
+func (a *Agent) ServiceDeregisterOpts(serviceID string, q *QueryOptions) error {
+	r := a.c.newRequest("PUT", "/v1/agent/service/deregister/"+serviceID)
+	r.setQueryOptions(q)
+	_, resp, err := requireOK(a.c.doRequest(r))
+	if err != nil {
+		return err
+	}
+	closeResponseBody(resp)
 	return nil
 }
 
@@ -620,7 +811,7 @@ func (a *Agent) updateTTL(checkID, note, status string) error {
 	if err != nil {
 		return err
 	}
-	resp.Body.Close()
+	closeResponseBody(resp)
 	return nil
 }
 
@@ -643,6 +834,10 @@ type checkUpdate struct {
 // strings for compatibility (though a newer version of Consul will still be
 // required to use this API).
 func (a *Agent) UpdateTTL(checkID, output, status string) error {
+	return a.UpdateTTLOpts(checkID, output, status, nil)
+}
+
+func (a *Agent) UpdateTTLOpts(checkID, output, status string, q *QueryOptions) error {
 	switch status {
 	case "pass", HealthPassing:
 		status = HealthPassing
@@ -656,6 +851,7 @@ func (a *Agent) UpdateTTL(checkID, output, status string) error {
 
 	endpoint := fmt.Sprintf("/v1/agent/check/update/%s", checkID)
 	r := a.c.newRequest("PUT", endpoint)
+	r.setQueryOptions(q)
 	r.obj = &checkUpdate{
 		Status: status,
 		Output: output,
@@ -665,7 +861,7 @@ func (a *Agent) UpdateTTL(checkID, output, status string) error {
 	if err != nil {
 		return err
 	}
-	resp.Body.Close()
+	closeResponseBody(resp)
 	return nil
 }
 
@@ -678,19 +874,26 @@ func (a *Agent) CheckRegister(check *AgentCheckRegistration) error {
 	if err != nil {
 		return err
 	}
-	resp.Body.Close()
+	closeResponseBody(resp)
 	return nil
 }
 
 // CheckDeregister is used to deregister a check with
 // the local agent
 func (a *Agent) CheckDeregister(checkID string) error {
+	return a.CheckDeregisterOpts(checkID, nil)
+}
+
+// CheckDeregisterOpts is used to deregister a check with
+// the local agent using query options
+func (a *Agent) CheckDeregisterOpts(checkID string, q *QueryOptions) error {
 	r := a.c.newRequest("PUT", "/v1/agent/check/deregister/"+checkID)
+	r.setQueryOptions(q)
 	_, resp, err := requireOK(a.c.doRequest(r))
 	if err != nil {
 		return err
 	}
-	resp.Body.Close()
+	closeResponseBody(resp)
 	return nil
 }
 
@@ -705,7 +908,7 @@ func (a *Agent) Join(addr string, wan bool) error {
 	if err != nil {
 		return err
 	}
-	resp.Body.Close()
+	closeResponseBody(resp)
 	return nil
 }
 
@@ -716,7 +919,7 @@ func (a *Agent) Leave() error {
 	if err != nil {
 		return err
 	}
-	resp.Body.Close()
+	closeResponseBody(resp)
 	return nil
 }
 
@@ -727,7 +930,7 @@ func (a *Agent) ForceLeave(node string) error {
 	if err != nil {
 		return err
 	}
-	resp.Body.Close()
+	closeResponseBody(resp)
 	return nil
 }
 
@@ -740,7 +943,7 @@ func (a *Agent) ForceLeavePrune(node string) error {
 	if err != nil {
 		return err
 	}
-	resp.Body.Close()
+	closeResponseBody(resp)
 	return nil
 }
 
@@ -753,7 +956,7 @@ func (a *Agent) ConnectAuthorize(auth *AgentAuthorizeParams) (*AgentAuthorize, e
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(resp)
 
 	var out AgentAuthorize
 	if err := decodeBody(resp, &out); err != nil {
@@ -770,7 +973,7 @@ func (a *Agent) ConnectCARoots(q *QueryOptions) (*CARootList, *QueryMeta, error)
 	if err != nil {
 		return nil, nil, err
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(resp)
 
 	qm := &QueryMeta{}
 	parseQueryMeta(resp, qm)
@@ -791,7 +994,7 @@ func (a *Agent) ConnectCALeaf(serviceID string, q *QueryOptions) (*LeafCert, *Qu
 	if err != nil {
 		return nil, nil, err
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(resp)
 
 	qm := &QueryMeta{}
 	parseQueryMeta(resp, qm)
@@ -814,7 +1017,7 @@ func (a *Agent) EnableServiceMaintenance(serviceID, reason string) error {
 	if err != nil {
 		return err
 	}
-	resp.Body.Close()
+	closeResponseBody(resp)
 	return nil
 }
 
@@ -827,7 +1030,7 @@ func (a *Agent) DisableServiceMaintenance(serviceID string) error {
 	if err != nil {
 		return err
 	}
-	resp.Body.Close()
+	closeResponseBody(resp)
 	return nil
 }
 
@@ -841,7 +1044,7 @@ func (a *Agent) EnableNodeMaintenance(reason string) error {
 	if err != nil {
 		return err
 	}
-	resp.Body.Close()
+	closeResponseBody(resp)
 	return nil
 }
 
@@ -854,7 +1057,7 @@ func (a *Agent) DisableNodeMaintenance() error {
 	if err != nil {
 		return err
 	}
-	resp.Body.Close()
+	closeResponseBody(resp)
 	return nil
 }
 
@@ -863,20 +1066,29 @@ func (a *Agent) DisableNodeMaintenance() error {
 // log stream. An empty string will be sent down the given channel when there's
 // nothing left to stream, after which the caller should close the stopCh.
 func (a *Agent) Monitor(loglevel string, stopCh <-chan struct{}, q *QueryOptions) (chan string, error) {
+	return a.monitor(loglevel, false, stopCh, q)
+}
+
+// MonitorJSON is like Monitor except it returns logs in JSON format.
+func (a *Agent) MonitorJSON(loglevel string, stopCh <-chan struct{}, q *QueryOptions) (chan string, error) {
+	return a.monitor(loglevel, true, stopCh, q)
+}
+func (a *Agent) monitor(loglevel string, logJSON bool, stopCh <-chan struct{}, q *QueryOptions) (chan string, error) {
 	r := a.c.newRequest("GET", "/v1/agent/monitor")
 	r.setQueryOptions(q)
 	if loglevel != "" {
 		r.params.Add("loglevel", loglevel)
 	}
+	if logJSON {
+		r.params.Set("logjson", "true")
+	}
 	_, resp, err := requireOK(a.c.doRequest(r))
 	if err != nil {
 		return nil, err
 	}
-
 	logCh := make(chan string, 64)
 	go func() {
-		defer resp.Body.Close()
-
+		defer closeResponseBody(resp)
 		scanner := bufio.NewScanner(resp.Body)
 		for {
 			select {
@@ -900,7 +1112,6 @@ func (a *Agent) Monitor(loglevel string, stopCh <-chan struct{}, q *QueryOptions
 			}
 		}
 	}()
-
 	return logCh, nil
 }
 
@@ -985,7 +1196,7 @@ func (a *Agent) updateTokenOnce(target, token string, q *WriteOptions) (*WriteMe
 	if err != nil {
 		return nil, 0, err
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(resp)
 
 	wm := &WriteMeta{RequestTime: rtt}
 
