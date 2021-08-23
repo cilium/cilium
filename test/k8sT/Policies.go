@@ -1360,7 +1360,7 @@ var _ = SkipDescribeIf(func() bool {
 						"masquerade":     "false",
 						"bpf.masquerade": "false",
 
-						"hostFirewall": "true",
+						"hostFirewall.enabled": "true",
 					})
 
 				By("Retrieving backend pod and outside node IP addresses")

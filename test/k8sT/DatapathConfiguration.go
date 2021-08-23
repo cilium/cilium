@@ -88,7 +88,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"bpf.monitorFlags":       "syn",
 				// Need to disable the host firewall for now due to complexity issue.
 				// See #14552 for details.
-				"hostFirewall": "false",
+				"hostFirewall.enabled": "false",
 			}, DeployCiliumOptionsAndDNS)
 
 			monitorRes, monitorCancel, targetIP := monitorConnectivityAcrossNodes(kubectl)
@@ -706,7 +706,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"encryption.enabled":         "true",
 				"encryption.ipsec.interface": privateIface,
 				"devices":                    "",
-				"hostFirewall":               "false",
+				"hostFirewall.enabled":       "false",
 				"kubeProxyReplacement":       "disabled",
 			}, DeployCiliumOptionsAndDNS)
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
@@ -726,7 +726,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"encryption.enabled":         "true",
 				"encryption.ipsec.interface": privateIface,
 				"devices":                    devices,
-				"hostFirewall":               "false",
+				"hostFirewall.enabled":       "false",
 				"kubeProxyReplacement":       "disabled",
 			}, DeployCiliumOptionsAndDNS)
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
@@ -782,16 +782,16 @@ var _ = Describe("K8sDatapathConfig", func() {
 			return !helpers.IsIntegration(helpers.CIIntegrationGKE)
 		}, "Check connectivity with IPv6 disabled", func() {
 			deploymentManager.DeployCilium(map[string]string{
-				"ipv4.enabled": "true",
-				"ipv6.enabled": "false",
-				"hostFirewall": "true",
+				"ipv4.enabled":         "true",
+				"ipv6.enabled":         "false",
+				"hostFirewall.enabled": "true",
 			}, DeployCiliumOptionsAndDNS)
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
 
 		It("With VXLAN", func() {
 			options := map[string]string{
-				"hostFirewall": "true",
+				"hostFirewall.enabled": "true",
 			}
 			if helpers.RunsOnGKE() {
 				options["gke.enabled"] = "false"
@@ -803,7 +803,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		It("With VXLAN and endpoint routes", func() {
 			options := map[string]string{
-				"hostFirewall":           "true",
+				"hostFirewall.enabled":   "true",
 				"endpointRoutes.enabled": "true",
 			}
 			if helpers.RunsOnGKE() {
@@ -816,8 +816,8 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		It("With native routing", func() {
 			options := map[string]string{
-				"hostFirewall": "true",
-				"tunnel":       "disabled",
+				"hostFirewall.enabled": "true",
+				"tunnel":               "disabled",
 			}
 			// We don't want to run with per-endpoint routes (enabled by
 			// gke.enabled) for this test.
@@ -832,7 +832,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		It("With native routing and endpoint routes", func() {
 			options := map[string]string{
-				"hostFirewall":           "true",
+				"hostFirewall.enabled":   "true",
 				"tunnel":                 "disabled",
 				"endpointRoutes.enabled": "true",
 			}

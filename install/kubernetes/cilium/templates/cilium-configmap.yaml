@@ -489,8 +489,8 @@ data:
   enable-ipv4-fragment-tracking: "false"
 {{- end }}
 
-{{- if .Values.hostFirewall }}
-  enable-host-firewall: {{ .Values.hostFirewall | quote }}
+{{- if and .Values.hostFirewall .Values.hostFirewall.enabled }}
+  enable-host-firewall: {{ .Values.hostFirewall.enabled | quote }}
 {{- end}}
 
 {{- if hasKey .Values "devices" }}

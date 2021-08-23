@@ -32,7 +32,7 @@ Deploy Cilium release via Helm:
 
     helm install cilium |CHART_RELEASE|        \\
       --namespace kube-system                  \\
-      --set hostFirewall=true                  \\
+      --set hostFirewall.enabled=true          \\
       --set devices='{ethX,ethY}'
 
 The ``devices`` flag refers to the network devices Cilium is configured on such
