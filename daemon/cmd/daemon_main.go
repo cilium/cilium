@@ -617,7 +617,7 @@ func init() {
 	flags.Bool(option.EnableIdentityMark, true, "Enable setting identity mark for local traffic")
 	option.BindEnv(option.EnableIdentityMark)
 
-	flags.Bool(option.EnableHostFirewall, false, "Enable host network policies (beta when using kube-proxy)")
+	flags.Bool(option.EnableHostFirewall, false, "Enable host network policies")
 	option.BindEnv(option.EnableHostFirewall)
 
 	flags.String(option.NativeRoutingCIDR, "",
