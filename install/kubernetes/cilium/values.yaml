@@ -4,6 +4,17 @@
 # For example: 1.7, 1.8, 1.9
 # upgradeCompatibility: '1.8'
 
+# global:
+# -- set a global image registry if you are mirroring images locally.
+#   imageRegistry: 
+#   - "myrepo.myorg.com:6443"
+
+
+#-- Configure image pull secrets for pulling container images
+imagePullSecrets:
+#- name: "image-pull-secret"
+
+
 debug:
   # -- Enable debug logging
   enabled: false
@@ -13,9 +24,7 @@ rbac:
   # -- Enable creation of Resource-Based Access Control configuration.
   create: true
 
-# -- Configure image pull secrets for pulling container images
-imagePullSecrets:
-# - name: "image-pull-secret"
+
 
 # kubeConfigPath: ~/.kube/config
 # k8sServiceHost:
@@ -81,7 +90,8 @@ rollOutCiliumPods: false
 
 # -- Agent container image.
 image:
-  repository: quay.io/cilium/cilium
+  registry: quay.io
+  repository: cilium/cilium
   tag: latest
   pullPolicy: Always
   # cilium-digest
@@ -538,6 +548,8 @@ hostServices:
 certgen:
   image:
     repository: quay.io/cilium/certgen
+    registry: quay.io
+    repository: cilium/certgen
     tag: v0.1.5
     pullPolicy: Always
   # -- Seconds after which the completed job pod will be deleted
@@ -647,7 +659,8 @@ hubble:
 
     # -- Hubble-relay container image.
     image:
-      repository: quay.io/cilium/hubble-relay
+      registry: quay.io
+      repository:  cilium/hubble-relay
       tag: latest
        # hubble-relay-digest
       digest: ""
@@ -746,8 +759,11 @@ hubble:
     backend:
       # -- Hubble-ui backend image.
       image:
-        repository: quay.io/cilium/hubble-ui-backend
+        registry: quay.io
+        repository: cilium/hubble-ui-backend
         tag: latest
+        digest: ""
+        useDigest: false
         pullPolicy: Always
       # [Example]
       # resources:
@@ -763,8 +779,11 @@ hubble:
     frontend:
       # -- Hubble-ui frontend image.
       image:
-        repository: quay.io/cilium/hubble-ui
+        registry: quay.io
+        repository: cilium/hubble-ui
         tag: latest
+        digest: ""
+        useDigest: false
         pullPolicy: Always
       # [Example]
       # resources:
@@ -780,8 +799,11 @@ hubble:
     proxy:
       # -- Hubble-ui ingress proxy image.
       image:
-        repository: docker.io/envoyproxy/envoy
-        tag: v1.18.2@sha256:e8b37c1d75787dd1e712ff389b0d37337dc8a174a63bed9c34ba73359dc67da7
+        registry: docker.io
+        repository: envoyproxy/envoy
+        tag: v1.18.2
+        digest: "sha256:e8b37c1d75787dd1e712ff389b0d37337dc8a174a63bed9c34ba73359dc67da7"
+        useDigest: true
         pullPolicy: Always
       # [Example]
       # resources:
@@ -1133,8 +1155,11 @@ etcd:
 
   # -- cilium-etcd-operator image.
   image:
-    repository: quay.io/cilium/cilium-etcd-operator
+    registry: quay.io
+    repository: cilium/cilium-etcd-operator
     tag: v2.0.7
+    digest: ""
+    useDigest: false
     pullPolicy: Always
 
   # -- The priority class to use for cilium-etcd-operator
@@ -1235,8 +1260,10 @@ operator:
 
   # -- cilium-operator image.
   image:
-    repository: quay.io/cilium/operator
+    registry: quay.io
+    repository: cilium/operator
     tag: latest
+    digest: ""
     # operator-generic-digest
     genericDigest: ""
     # operator-azure-digest
@@ -1376,8 +1403,10 @@ nodeinit:
 
   # -- node-init image.
   image:
-    repository: quay.io/cilium/startup-script
+    registry: quay.io
+    repository: cilium/startup-script
     tag: 62bfbe88c17778aad7bef9fa57ff9e2d4a9ba0d8
+    useDigest: false
     pullPolicy: Always
 
   # -- The priority class to use for the nodeinit pod.
@@ -1459,7 +1488,8 @@ preflight:
 
   # -- Cilium pre-flight image.
   image:
-    repository: quay.io/cilium/cilium
+    registry: quay.io
+    repository: cilium/cilium
     tag: latest
     # cilium-digest
     digest: ""
@@ -1571,7 +1601,8 @@ clustermesh:
   apiserver:
     # -- Clustermesh API server image.
     image:
-      repository: quay.io/cilium/clustermesh-apiserver
+      registry: quay.io
+      repository: cilium/clustermesh-apiserver
       tag: latest
       # clustermesh-apiserver-digest
       digest: ""
@@ -1581,7 +1612,8 @@ clustermesh:
     etcd:
       # -- Clustermesh API server etcd image.
       image:
-        repository: quay.io/coreos/etcd
+        registry: quay.io
+        repository: coreos/etcd
         tag: v3.4.13
         pullPolicy: Always
 

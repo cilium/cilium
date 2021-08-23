@@ -36,7 +36,7 @@ spec:
       {{- end }}
       containers:
         - name: node-init
-          image: {{ include "cilium.image" .Values.nodeinit.image | quote }}
+          image: {{ include "image.url" (list $ . .Values.nodeinit.image) | quote }}
           imagePullPolicy: {{ .Values.nodeinit.image.pullPolicy }}
           securityContext:
             privileged: true

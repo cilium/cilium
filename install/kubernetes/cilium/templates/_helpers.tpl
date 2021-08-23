@@ -6,20 +6,31 @@ Create chart name and version as used by the chart label.
 {{- end }}
 
 {{/*
-Render full image name from given values, e.g:
+Render full image uri from given values, e.g:
 ```
+optional 
+global.imageRegistry:
 image:
-  repository: quay.io/cilium/cilium
+  registry: quay.io
+  repository: cilium/cilium
   tag: v1.10.1
   useDigest: true
   digest: abcdefgh
 ```
-then `include "cilium.image" .Values.image`
-will return `quay.io/cilium/cilium:v1.10.1@abcdefgh`
+then `include "image.url" (list $ . .Values.image)`
+will return `quay.io/cilium/cilium:v1.10.1@abcdefgh` preferring the global.imageRegistry for all imageurls.
 */}}
-{{- define "cilium.image" -}}
-{{- $digest := (.useDigest | default false) | ternary (printf "@%s" .digest) "" -}}
-{{- printf "%s:%s%s" .repository .tag $digest -}}
+{{- define "image.url" -}}
+  {{- $globalContext := index . 0 }}
+  {{- $localContext := index . 2 }}
+  {{ with index . 1 }}
+    {{- $global := $globalContext.Values.global | default dict -}}
+    {{- $imageRegistry := $global.imageRegistry | default $localContext.registry -}}
+    {{- $repository :=  $localContext.repository -}}
+    {{- $tag := $localContext.tag | toString -}}
+    {{- $digest := ($localContext.useDigest | default false) | ternary (printf "@%s" $localContext.digest) "" -}}
+    {{- printf "%s/%s:%s%s" $imageRegistry $repository $tag $digest -}}
+  {{- end -}}
 {{- end -}}
 
 {{/*

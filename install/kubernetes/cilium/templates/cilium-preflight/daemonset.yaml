@@ -28,14 +28,14 @@ spec:
       {{- end }}
       initContainers:
         - name: clean-cilium-state
-          image: {{ include "cilium.image" .Values.preflight.image | quote }}
+          image: {{ include "image.url" (list $ . .Values.preflight.image) | quote }}
           imagePullPolicy: {{ .Values.preflight.image.pullPolicy }}
           command: ["/bin/echo"]
           args:
           - "hello"
       containers:
         - name: cilium-pre-flight-check
-          image: {{ include "cilium.image" .Values.preflight.image | quote }}
+          image: {{ include "image.url" (list $ . .Values.preflight.image) | quote }}
           imagePullPolicy: {{ .Values.preflight.image.pullPolicy }}
           command: ["/bin/sh"]
           args:
@@ -70,7 +70,7 @@ spec:
           {{- end }}
         {{- if ne .Values.preflight.tofqdnsPreCache "" }}
         - name: cilium-pre-flight-fqdn-precache
-          image: {{ include "cilium.image" .Values.preflight.image | quote }}
+          image: {{ include "image.url" (list $ . .Values.preflight.image) | quote }}
           imagePullPolicy: {{ .Values.preflight.image.pullPolicy }}
           name: cilium-pre-flight-fqdn-precache
           command: ["/bin/sh"]

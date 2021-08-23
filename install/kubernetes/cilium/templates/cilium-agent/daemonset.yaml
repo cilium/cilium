@@ -70,7 +70,7 @@ spec:
       {{- end }}
       containers:
       - name: cilium-agent
-        image: {{ include "cilium.image" .Values.image | quote }}
+        image: {{ include "image.url" (list $ . .Values.image) | quote }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         {{- if .Values.sleepAfterInit }}
         command:
@@ -325,7 +325,7 @@ spec:
         {{- end }}
       {{- if .Values.monitor.enabled }}
       - name: cilium-monitor
-        image: {{ include "cilium.image" .Values.image | quote }}
+        image: {{ include "image.url" (list $ . .Values.image) | quote }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         command: ["cilium"]
         args:
@@ -352,7 +352,7 @@ spec:
       # Required to mount cgroup2 filesystem on the underlying Kubernetes node.
       # We use nsenter command with host's cgroup and mount namespaces enabled.
       - name: mount-cgroup
-        image: {{ include "cilium.image" .Values.image | quote }}
+        image: {{ include "image.url" (list $ . .Values.image) | quote }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         env:
         - name: CGROUP_ROOT
@@ -381,7 +381,7 @@ spec:
       {{- end }}
       {{- if and .Values.nodeinit.enabled .Values.nodeinit.bootstrapFile }}
       - name: wait-for-node-init
-        image: {{ include "cilium.image" .Values.image | quote }}
+        image: {{ include "image.url" (list $ . .Values.image) | quote }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         command:
         - sh
@@ -396,7 +396,7 @@ spec:
           mountPath: {{ .Values.nodeinit.bootstrapFile }}
       {{- end }}
       - name: clean-cilium-state
-        image: {{ include "cilium.image" .Values.image | quote }}
+        image: {{ include "image.url" (list $ . .Values.image) | quote }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         command:
         - /init-container.sh

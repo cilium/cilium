@@ -33,7 +33,7 @@ spec:
       {{- end }}
       initContainers:
       - name: etcd-init
-        image: {{ include "cilium.image" .Values.clustermesh.apiserver.etcd.image | quote }}
+        image: {{ include "image.url" (list $ . .Values.clustermesh.apiserver.etcd.image) | quote }}
         imagePullPolicy: {{ .Values.clustermesh.apiserver.etcd.image.pullPolicy }}
         command: ["/bin/sh", "-c"]
         args:
@@ -69,7 +69,7 @@ spec:
           mountPath: /var/run/etcd
       containers:
       - name: etcd
-        image: {{ include "cilium.image" .Values.clustermesh.apiserver.etcd.image | quote }}
+        image: {{ include "image.url" (list $ . .Values.clustermesh.apiserver.etcd.image) | quote }}
         imagePullPolicy: {{ .Values.clustermesh.apiserver.etcd.image.pullPolicy }}
         command:
         - /usr/local/bin/etcd
@@ -98,7 +98,7 @@ spec:
         - name: etcd-data-dir
           mountPath: /var/run/etcd
       - name: apiserver
-        image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
+        image: {{ include "image.url" (list $ . .Values.clustermesh.apiserver.image) | quote }}
         imagePullPolicy: {{ .Values.clustermesh.apiserver.image.pullPolicy }}
         command:
         - /usr/bin/clustermesh-apiserver
