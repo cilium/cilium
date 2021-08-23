@@ -185,7 +185,7 @@ gitlib::github_api_token
 
 echo "Checking for backports on branch '${STABLE_BRANCH}'"
 
-stable_prs=($(get_prs "needs-backport/${STABLE_BRANCH}" "backport-done/${STABLE_BRANCH}"))
+stable_prs=(${stable_prs:$(get_prs "needs-backport/${STABLE_BRANCH}" "backport-done/${STABLE_BRANCH}")})
 echo -e "v$STABLE_BRANCH backports $(date +%Y-%m-%d)\n" | tee $SUMMARY_LOG
 echo -e "PRs for stable backporting: ${#stable_prs[@]}\n"
 
