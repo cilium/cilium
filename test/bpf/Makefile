@@ -45,13 +45,20 @@ nat-test: nat-test.c $(LIB)
 	make -C $(ROOT_DIR)/bpf/mock generate_helper_headers
 	make -C $(ROOT_DIR)/bpf/mock mock_helpers
 	make -C $(ROOT_DIR)/bpf/mock mock_customized filename=conntrack_stub.h
-	$(QUIET) $(DOCKER_RUN) $(CLANG) $(FLAGS) -I../../bpf/mock -I $../../bpf/ -I../../../CMock/src -I../../../CMock/vendor/unity/src -I../../../hashmap/include  $< ../../../CMock/vendor/unity/src/unity.c ../../../CMock/src/cmock.c ../../../hashmap/src/hashmap.c ../../bpf/mock/mocks/mock_helpers.c ../../bpf/mock/mocks/mock_helpers_skb.c ../../bpf/mock/mocks/mock_conntrack_stub.c -o $@
+	make -C $(ROOT_DIR)/bpf/mock mock_customized filename=common_stub.h
+	$(QUIET) $(DOCKER_RUN) $(CLANG) $(FLAGS) -I../../bpf/mock -I $../../bpf/ -I../../../CMock/src -I../../../CMock/vendor/unity/src -I../../../hashmap/include $< ../../../CMock/vendor/unity/src/unity.c ../../../CMock/src/cmock.c ../../bpf/mock/mocks/mock_helpers.c ../../bpf/mock/mocks/mock_helpers_skb.c ../../bpf/mock/mocks/mock_conntrack_stub.c ../../bpf/mock/mocks/mock_common_stub.c -o $@
 
 drop-notify-test: drop-notify-test.c $(LIB)
 	@$(ECHO_CC)
 	make -C $(ROOT_DIR)/bpf/mock generate_helper_headers
 	make -C $(ROOT_DIR)/bpf/mock mock_helpers
 	$(QUIET) $(DOCKER_RUN) $(CLANG) $(FLAGS) -I../../bpf/mock -I $../../bpf/ -I../../../CMock/src -I../../../CMock/vendor/unity/src  $< ../../../CMock/vendor/unity/src/unity.c ../../../CMock/src/cmock.c ../../bpf/mock/mocks/mock_helpers.c ../../bpf/mock/mocks/mock_helpers_skb.c -o $@
+
+map-emulation-demo-test: map-emulation-demo-test.c $(LIB)
+	@$(ECHO_CC)
+	make -C $(ROOT_DIR)/bpf/mock generate_helper_headers
+	make -C $(ROOT_DIR)/bpf/mock mock_helpers
+	$(QUIET) $(DOCKER_RUN) $(CLANG) $(FLAGS) -I../../bpf/mock -I $../../bpf/ -I../../../CMock/src -I../../../CMock/vendor/unity/src -I../../../hashmap/include $< ../../../CMock/vendor/unity/src/unity.c ../../../CMock/src/cmock.c ../../../hashmap/src/hashmap.c ../../bpf/mock/mocks/mock_helpers.c ../../bpf/mock/mocks/mock_helpers_skb.c -o $@
 
 unit-tests: $(ALL_TESTS)
 	@$(ECHO_CHECK)
