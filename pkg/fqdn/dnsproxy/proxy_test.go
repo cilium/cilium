@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2018-2020 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 
 //go:build privileged_tests
 // +build privileged_tests
@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils/allocator"
 
+	"github.com/golang/groupcache/lru"
 	"github.com/miekg/dns"
 	. "gopkg.in/check.v1"
 )
@@ -971,4 +972,64 @@ func (s *DNSProxyTestSuite) TestRestoredEndpoint(c *C) {
 	c.Assert(exists, Equals, false)
 
 	s.restoring = false
+}
+
+type selectorMock struct {
+}
+
+func (t selectorMock) GetSelections() []identity.NumericIdentity {
+	panic("implement me")
+}
+
+func (t selectorMock) Selects(nid identity.NumericIdentity) bool {
+	panic("implement me")
+}
+
+func (t selectorMock) IsWildcard() bool {
+	panic("implement me")
+}
+
+func (t selectorMock) IsNone() bool {
+	panic("implement me")
+}
+
+func (t selectorMock) String() string {
+	panic("implement me")
+}
+
+func Benchmark_perEPAllow_setPortRulesForID(b *testing.B) {
+	const (
+		nMatchPatterns = 100
+	)
+
+	var selectorA, selectorB *selectorMock
+	newRules := policy.L7DataMap{
+		selectorA: nil,
+		selectorB: nil,
+	}
+
+	var portRuleDNS []api.PortRuleDNS
+	for i := 0; i < nMatchPatterns; i++ {
+		portRuleDNS = append(portRuleDNS, api.PortRuleDNS{
+			MatchPattern: "kubernetes.default.svc.cluster.local",
+		})
+	}
+
+	for selector := range newRules {
+		newRules[selector] = &policy.PerSelectorPolicy{
+			L7Rules: api.L7Rules{
+				DNS: portRuleDNS,
+			},
+		}
+	}
+	pea := perEPAllow{}
+
+	lru := lru.New(128)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for epID := uint64(0); epID < 20; epID++ {
+			pea.setPortRulesForID(lru, epID, 8053, newRules)
+		}
+	}
 }
