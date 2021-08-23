@@ -10,16 +10,13 @@ import (
 	"fmt"
 	"math"
 	"net"
-	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/node"
@@ -455,55 +452,6 @@ func probeCgroupSupportUDP(strict, ipv4 bool) error {
 	return nil
 }
 
-// handleNativeDevices tries to detect bpf_host devices (if needed).
-func handleNativeDevices(strict bool) error {
-	expandDevices()
-
-	detectNodePortDevs := len(option.Config.Devices) == 0 &&
-		(option.Config.EnableNodePort || option.Config.EnableHostFirewall || option.Config.EnableBandwidthManager)
-	detectDirectRoutingDev := option.Config.EnableNodePort &&
-		option.Config.DirectRoutingDevice == ""
-	detectIPv6MCastDev := option.Config.EnableIPv6NDP &&
-		len(option.Config.IPv6MCastDevice) == 0
-	if detectNodePortDevs || detectDirectRoutingDev || detectIPv6MCastDev {
-		if err := detectDevices(detectNodePortDevs, detectDirectRoutingDev, detectIPv6MCastDev); err != nil {
-			msg := "Unable to detect devices to attach Loadbalancer, Host Firewall or Bandwidth Manager program"
-			if strict {
-				return fmt.Errorf(msg)
-			} else {
-				disableNodePort()
-				log.WithError(err).Warn(msg + " Disabling BPF NodePort.")
-			}
-		} else {
-			l := log
-			if detectNodePortDevs {
-				l = l.WithField(logfields.Devices, option.Config.Devices)
-			}
-			if detectDirectRoutingDev {
-				l = l.WithField(logfields.DirectRoutingDevice, option.Config.DirectRoutingDevice)
-			}
-			l.Info("Using auto-derived devices to attach Loadbalancer, Host Firewall or Bandwidth Manager program")
-		}
-	} else if option.Config.EnableNodePort { // both --devices and --direct-routing-device are specified by user
-		// Check whether the DirectRoutingDevice (if specified) is
-		// defined within devices and if not, add it.
-		if option.Config.DirectRoutingDevice != "" {
-			directDev := option.Config.DirectRoutingDevice
-			directDevFound := false
-			for _, iface := range option.Config.Devices {
-				if iface == directDev {
-					directDevFound = true
-					break
-				}
-			}
-			if !directDevFound {
-				option.Config.Devices = append(option.Config.Devices, directDev)
-			}
-		}
-	}
-	return nil
-}
-
 // finishKubeProxyReplacementInit finishes initialization of kube-proxy
 // replacement after all devices are known.
 func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) error {
@@ -649,185 +597,6 @@ func disableNodePort() {
 	option.Config.EnableHostLegacyRouting = true
 }
 
-// detectDevices tries to detect device names which are going to be used for
-// (a) NodePort BPF, (b) direct routing in NodePort BPF.
-//
-// (a) is determined from a default route and the k8s node IP addr.
-// (b) is derived either from NodePort BPF devices (if only one is set) or
-//     from the k8s node IP addr.
-func detectDevices(detectNodePortDevs, detectDirectRoutingDev, detectIPv6MCastDev bool) error {
-	var err error
-	devSet := map[string]struct{}{} // iface name
-	ifidxByAddr := map[string]int{} // str(ip addr) => ifindex
-
-	if addrs, err := netlink.AddrList(nil, netlink.FAMILY_ALL); err != nil {
-		// Do not return error, as a device with a default route can be used
-		// later as a last resort
-		log.WithError(err).Warn(
-			"Cannot retrieve host IP addrs for BPF NodePort device detection")
-	} else {
-		for _, a := range addrs {
-			// Any cilium_* interface will never be a valid NodePort or Direct Routing
-			// interface. Skip interface if we cannot resolve it from Netlink via its
-			// ifIndex or if its name begins with cilium_.
-			if link, err := netlink.LinkByIndex(a.LinkIndex); err != nil {
-				log.WithError(err).WithField(logfields.LinkIndex, a.LinkIndex).Warn(
-					"Unable to resolve link from ifIndex, skipping interface for device detection")
-			} else if strings.HasPrefix(link.Attrs().Name, "cilium_") {
-				log.WithField(logfields.Device, link.Attrs().Name).Debug(
-					"Skipping Cilium-generated interface for device detection")
-			} else {
-				ifidxByAddr[a.IP.String()] = a.LinkIndex
-			}
-		}
-	}
-
-	if detectNodePortDevs {
-		if devSet, err = detectNodePortDevices(ifidxByAddr); err != nil {
-			return fmt.Errorf("Unable to determine BPF NodePort devices: %s. Use --%s to specify them",
-				err, option.Devices)
-		}
-	} else {
-		for _, dev := range option.Config.Devices {
-			devSet[dev] = struct{}{}
-		}
-	}
-
-	if detectDirectRoutingDev {
-		// If only single device was previously found, use it for direct routing.
-		// Otherwise, use k8s Node IP addr to determine the device.
-		if len(devSet) == 1 {
-			for dev := range devSet {
-				option.Config.DirectRoutingDevice = dev
-			}
-		} else {
-			if option.Config.DirectRoutingDevice, err = detectNodeDevice(ifidxByAddr); err != nil {
-				return fmt.Errorf("Unable to determine BPF NodePort direct routing device: %s. "+
-					"Use --%s to specify it", err, option.DirectRoutingDevice)
-			}
-		}
-	}
-	if option.Config.DirectRoutingDevice != "" {
-		devSet[option.Config.DirectRoutingDevice] = struct{}{}
-	}
-
-	l3DevOK := supportL3Dev()
-	option.Config.Devices = make([]string, 0, len(devSet))
-	for dev := range devSet {
-		if !l3DevOK && !mac.HasMacAddr(dev) {
-			log.WithField(logfields.Device, dev).
-				Warn("Ignoring L3 device; >= 5.8 kernel is required.")
-			continue
-		}
-		option.Config.Devices = append(option.Config.Devices, dev)
-	}
-
-	if detectIPv6MCastDev {
-		log.Info("Auto Detecting IPv6 Mcast device")
-		if option.Config.IPv6MCastDevice, err = detectIPv6MCastDevice(ifidxByAddr); err != nil {
-			return fmt.Errorf("Unable to determine Multicast devices: %s. Use --%s to specify them",
-				err, option.IPv6MCastDevice)
-		}
-		log.Infof("Detected %s: %s", option.IPv6MCastDevice, option.Config.IPv6MCastDevice)
-	}
-
-	return nil
-}
-
-func detectNodePortDevices(ifidxByAddr map[string]int) (map[string]struct{}, error) {
-	devSet := map[string]struct{}{}
-
-	// Find a device with a default route (for backward compatibility)
-	defaultRouteDevice, err := linuxdatapath.NodeDeviceNameWithDefaultRoute()
-	if err == nil {
-		devSet[defaultRouteDevice] = struct{}{}
-	}
-
-	// Derive a device from k8s Node IP
-	if dev, err := detectNodeDevice(ifidxByAddr); err != nil {
-		log.WithError(err).Warn(
-			"Cannot determine a device from k8s Node IP addr for BPF NodePort device detection")
-	} else {
-		devSet[dev] = struct{}{}
-	}
-
-	if len(devSet) == 0 {
-		return nil, fmt.Errorf("Cannot determine any device for BPF NodePort")
-	}
-
-	return devSet, nil
-}
-
-func getNodeDeviceLink(ifidxByAddr map[string]int) (netlink.Link, error) {
-	nodeIP := node.GetK8sNodeIP()
-	if nodeIP == nil {
-		return nil, fmt.Errorf("K8s Node IP is not set")
-	}
-
-	ifindex, found := ifidxByAddr[nodeIP.String()]
-	if !found {
-		return nil, fmt.Errorf("Cannot find device with %s addr", nodeIP)
-	}
-
-	link, err := netlink.LinkByIndex(ifindex)
-	if err != nil {
-		return nil, fmt.Errorf("Cannot find device with %s addr by %d ifindex",
-			nodeIP, ifindex)
-	}
-
-	return link, nil
-}
-
-func detectNodeDevice(ifidxByAddr map[string]int) (string, error) {
-	link, err := getNodeDeviceLink(ifidxByAddr)
-	if err != nil {
-		return "", err
-	}
-	return link.Attrs().Name, nil
-}
-
-// detectIPv6MCastDevice detects ipv6-mcast-device if not configured already
-func detectIPv6MCastDevice(ifidxByAddr map[string]int) (string, error) {
-	link, err := getNodeDeviceLink(ifidxByAddr)
-	if err != nil {
-		return "", err
-	}
-
-	if link.Attrs().Flags&net.FlagMulticast != 0 {
-		return link.Attrs().Name, nil
-	}
-	return "", fmt.Errorf("Cannot find ipv6 multicast device")
-}
-
-// expandDevices expands all wildcard device names to concrete devices.
-// e.g. device "eth+" expands to "eth0,eth1" etc. Non-matching wildcards are ignored.
-func expandDevices() error {
-	allLinks, err := netlink.LinkList()
-	if err != nil {
-		return fmt.Errorf("Cannot list network devices via netlink")
-	}
-	expandedDevices := make(map[string]bool)
-	for _, iface := range option.Config.Devices {
-		if strings.HasSuffix(iface, "+") {
-			prefix := strings.TrimRight(iface, "+")
-			for _, link := range allLinks {
-				attrs := link.Attrs()
-				if strings.HasPrefix(attrs.Name, prefix) {
-					expandedDevices[attrs.Name] = true
-				}
-			}
-		} else {
-			expandedDevices[iface] = true
-		}
-	}
-	option.Config.Devices = make([]string, 0, len(expandedDevices))
-	for dev := range expandedDevices {
-		option.Config.Devices = append(option.Config.Devices, dev)
-	}
-	sort.Strings(option.Config.Devices)
-	return nil
-}
-
 // checkNodePortAndEphemeralPortRanges checks whether the ephemeral port range
 // does not clash with the nodeport range to prevent the BPF nodeport from
 // hijacking an existing connection on the local host which source port is
@@ -927,13 +696,4 @@ func hasFullHostReachableServices() bool {
 	return option.Config.EnableHostReachableServices &&
 		option.Config.EnableHostServicesTCP &&
 		option.Config.EnableHostServicesUDP
-}
-
-func supportL3Dev() bool {
-	probesManager := probes.NewProbeManager()
-	if h := probesManager.GetHelpers("sched_cls"); h != nil {
-		_, found := h["bpf_skb_change_head"]
-		return found
-	}
-	return false
 }
