@@ -282,6 +282,9 @@ github.com/gogo/protobuf/vanity
 github.com/gogo/protobuf/vanity/command
 # github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 github.com/golang/glog
+# github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef
+## explicit
+github.com/golang/groupcache/lru
 # github.com/golang/protobuf v1.3.2
 ## explicit
 github.com/golang/protobuf/jsonpb
