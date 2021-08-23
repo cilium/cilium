@@ -112,6 +112,8 @@ type Daemon struct {
 	monitorAgent *monitoragent.Agent
 	ciliumHealth *health.CiliumHealth
 
+	deviceManager *DeviceManager
+
 	// dnsNameManager tracks which api.FQDNSelector are present in policy which
 	// apply to locally running endpoints.
 	dnsNameManager *fqdn.NameManager
@@ -387,6 +389,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		netConf:           netConf,
 		mtuConfig:         mtuConfig,
 		datapath:          dp,
+		deviceManager:     NewDeviceManager(),
 		nodeDiscovery:     nd,
 		endpointCreations: newEndpointCreationManager(),
 		apiLimiterSet:     apiLimiterSet,
@@ -607,7 +610,14 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// This is because the device detection requires self (Cilium)Node object,
 	// and the k8s service watcher depends on option.Config.EnableNodePort flag
 	// which can be modified after the device detection.
-	handleNativeDevices(isKubeProxyReplacementStrict)
+	if err := d.deviceManager.Detect(); err != nil {
+		if areDevicesRequired() {
+			// Fail hard if devices are required to function.
+			return nil, nil, fmt.Errorf("failed to detect devices: %w", err)
+		}
+		log.WithError(err).Warn("failed to detect devices, disabling BPF NodePort")
+		disableNodePort()
+	}
 	finishKubeProxyReplacementInit(isKubeProxyReplacementStrict)
 
 	if k8s.IsEnabled() {
