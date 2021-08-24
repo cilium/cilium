@@ -346,6 +346,9 @@ const (
 	// EnableBPFMasquerade masquerades packets from endpoints leaving the host with BPF instead of iptables
 	EnableBPFMasquerade = "enable-bpf-masquerade"
 
+	// DeriveMasqIPAddrFromDevice is device name which IP addr is used for BPF masquerades
+	DeriveMasqIPAddrFromDevice = "derive-masquerade-ip-addr-from-device"
+
 	// EnableIPMasqAgent enables BPF ip-masq-agent
 	EnableIPMasqAgent = "enable-ip-masq-agent"
 
@@ -1455,26 +1458,27 @@ type DaemonConfig struct {
 
 	// Masquerade specifies whether or not to masquerade packets from endpoints
 	// leaving the host.
-	EnableIPv4Masquerade   bool
-	EnableIPv6Masquerade   bool
-	EnableBPFMasquerade    bool
-	EnableBPFClockProbe    bool
-	EnableIPMasqAgent      bool
-	EnableEgressGateway    bool
-	IPMasqAgentConfigPath  string
-	InstallIptRules        bool
-	MonitorAggregation     string
-	PreAllocateMaps        bool
-	IPv6NodeAddr           string
-	IPv4NodeAddr           string
-	SidecarIstioProxyImage string
-	SocketPath             string
-	TracePayloadlen        int
-	Version                string
-	PProf                  bool
-	PProfPort              int
-	PrometheusServeAddr    string
-	ToFQDNsMinTTL          int
+	EnableIPv4Masquerade       bool
+	EnableIPv6Masquerade       bool
+	EnableBPFMasquerade        bool
+	DeriveMasqIPAddrFromDevice string
+	EnableBPFClockProbe        bool
+	EnableIPMasqAgent          bool
+	EnableEgressGateway        bool
+	IPMasqAgentConfigPath      string
+	InstallIptRules            bool
+	MonitorAggregation         string
+	PreAllocateMaps            bool
+	IPv6NodeAddr               string
+	IPv4NodeAddr               string
+	SidecarIstioProxyImage     string
+	SocketPath                 string
+	TracePayloadlen            int
+	Version                    string
+	PProf                      bool
+	PProfPort                  int
+	PrometheusServeAddr        string
+	ToFQDNsMinTTL              int
 
 	// DNSMaxIPsPerRestoredRule defines the maximum number of IPs to maintain
 	// for each FQDN selector in endpoint's restored DNS rules
@@ -2534,6 +2538,7 @@ func (c *DaemonConfig) Populate() {
 	if err != nil {
 		log.WithError(err).Fatal("Failed to populate masquerading settings")
 	}
+
 	c.populateLoadBalancerSettings()
 	c.populateDevices()
 	c.EgressMultiHomeIPRuleCompat = viper.GetBool(EgressMultiHomeIPRuleCompat)
@@ -2751,6 +2756,7 @@ func (c *DaemonConfig) populateMasqueradingSettings() error {
 
 	c.EnableIPv6Masquerade = viper.GetBool(EnableIPv6Masquerade) && c.EnableIPv6
 	c.EnableBPFMasquerade = viper.GetBool(EnableBPFMasquerade)
+	c.DeriveMasqIPAddrFromDevice = viper.GetString(DeriveMasqIPAddrFromDevice)
 
 	return nil
 }
