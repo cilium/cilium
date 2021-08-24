@@ -81,6 +81,7 @@ require (
 	go.etcd.io/etcd/api/v3 v3.5.0
 	go.etcd.io/etcd/client/pkg/v3 v3.5.0
 	go.etcd.io/etcd/client/v3 v3.5.0
+	go.mongodb.org/mongo-driver v1.5.1 // indirect
 	go.uber.org/goleak v1.1.10
 	go.universe.tf/metallb v0.10.0
 	golang.org/x/crypto v0.0.0-20210503195802-e9a32991a82e
@@ -197,7 +198,6 @@ require (
 	github.com/tklauser/go-sysconf v0.3.7 // indirect
 	github.com/tklauser/numcpus v0.2.3 // indirect
 	gitlab.com/golang-commonmark/puny v0.0.0-20191124015043-9f83538fa04f // indirect
-	go.mongodb.org/mongo-driver v1.4.6 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.17.0 // indirect
