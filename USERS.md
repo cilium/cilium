@@ -152,6 +152,12 @@ Users (Alphabetically)
       D: uSwitch is using Cilium in AWS for all their production clusters (self hosted k8s)
       U: ClusterMesh, CNI-Chaining (with amazon-vpc-cni-k8s)
       Q: @jirving
+      
+    * N: Utmost Software, Inc
+      D: Utmost is using Cilium in all tiers of its Kubernetes ecosystem to implement zero trust
+      U: CNI, DefaultDeny(Zero Trust), Hubble, CiliumNetworkPolicy, CiliumClusterwideNetworkPolicy
+      L: https://blog.utmost.co/zero-trust-security-at-utmost
+      Q: @andrewholt  
 
     * N: Trip.com
       D: Trip.com is using Cilium in their production clusters (self-hosted k8s, On-premises and AWS)
