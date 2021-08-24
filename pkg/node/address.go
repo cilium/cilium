@@ -142,7 +142,7 @@ func InitNodePortAddrs(devices []string, inheritIPAddrFromDevice string) error {
 		if inheritIPAddrFromDevice != "" {
 			inheritedIP, err = firstGlobalV4Addr(inheritIPAddrFromDevice, GetK8sNodeIP(), !preferPublicIP)
 			if err != nil {
-				return fmt.Errorf("Failed to determine IPv4 of %s for NodePort", inheritIPAddrFromDevice)
+				return fmt.Errorf("failed to determine IPv4 of %s for NodePort", inheritIPAddrFromDevice)
 			}
 		}
 		ipv4NodePortAddrs = make(map[string]net.IP, len(devices))
@@ -152,7 +152,7 @@ func InitNodePortAddrs(devices []string, inheritIPAddrFromDevice string) error {
 			} else {
 				ip, err := firstGlobalV4Addr(device, GetK8sNodeIP(), !preferPublicIP)
 				if err != nil {
-					return fmt.Errorf("Failed to determine IPv4 of %s for NodePort", device)
+					return fmt.Errorf("failed to determine IPv4 of %s for NodePort", device)
 				}
 				ipv4NodePortAddrs[device] = ip
 			}
@@ -187,6 +187,18 @@ func InitNodePortAddrs(devices []string, inheritIPAddrFromDevice string) error {
 func InitBPFMasqueradeAddrs(devices []string) error {
 	if option.Config.EnableIPv4 {
 		ipv4MasqAddrs = make(map[string]net.IP, len(devices))
+
+		if ifaceName := option.Config.DeriveMasqIPAddrFromDevice; ifaceName != "" {
+			ip, err := firstGlobalV4Addr(ifaceName, nil, preferPublicIP)
+			if err != nil {
+				return fmt.Errorf("Failed to determine IPv4 of %s for BPF masq", ifaceName)
+			}
+			for _, device := range devices {
+				ipv4MasqAddrs[device] = ip
+			}
+			return nil
+		}
+
 		for _, device := range devices {
 			ip, err := firstGlobalV4Addr(device, nil, preferPublicIP)
 			if err != nil {
