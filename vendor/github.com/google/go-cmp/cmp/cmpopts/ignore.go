@@ -128,7 +128,7 @@ func newUnexportedFilter(typs ...interface{}) unexportedFilter {
 	for _, typ := range typs {
 		t := reflect.TypeOf(typ)
 		if t == nil || t.Kind() != reflect.Struct {
-			panic(fmt.Sprintf("invalid struct type: %T", typ))
+			panic(fmt.Sprintf("%T must be a non-pointer struct", typ))
 		}
 		ux.m[t] = true
 	}

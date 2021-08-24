@@ -42,7 +42,7 @@ func newStructFilter(typ interface{}, names ...string) structFilter {
 
 	t := reflect.TypeOf(typ)
 	if t == nil || t.Kind() != reflect.Struct {
-		panic(fmt.Sprintf("%T must be a struct", typ))
+		panic(fmt.Sprintf("%T must be a non-pointer struct", typ))
 	}
 	var ft fieldTree
 	for _, name := range names {

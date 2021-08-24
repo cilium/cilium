@@ -34,7 +34,7 @@ require (
 	github.com/go-openapi/validate v0.19.5
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.4.3
-	github.com/google/go-cmp v0.5.0
+	github.com/google/go-cmp v0.5.2
 	github.com/google/gofuzz v1.1.0
 	github.com/google/gopacket v1.1.17
 	github.com/google/gops v0.3.14
@@ -57,7 +57,7 @@ require (
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/optiopay/kafka v0.0.0-00010101000000-000000000000
 	github.com/pborman/uuid v1.2.0
-	github.com/pkg/errors v0.8.1
+	github.com/pkg/errors v0.9.1
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/prometheus/client_golang v1.2.0
 	github.com/prometheus/client_model v0.2.1-0.20200623203004-60555c9708c7
@@ -73,6 +73,7 @@ require (
 	github.com/vishvananda/netlink v1.1.1-0.20210304225204-ec93726159ae
 	github.com/vishvananda/netns v0.0.0-20201230012202-c4f3ca719c73
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20201125193152-8a03d2e9614b
+	go.mongodb.org/mongo-driver v1.5.1 // indirect
 	go.uber.org/goleak v1.0.0
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
