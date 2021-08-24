@@ -658,6 +658,10 @@ func init() {
 	flags.Bool(option.EnableBPFMasquerade, false, "Masquerade packets from endpoints leaving the host with BPF instead of iptables")
 	option.BindEnv(option.EnableBPFMasquerade)
 
+	flags.String(option.DeriveMasqIPAddrFromDevice, "", "Device name from which Cilium derives the IP addr for BPF masquerade")
+	flags.MarkHidden(option.DeriveMasqIPAddrFromDevice)
+	option.BindEnv(option.DeriveMasqIPAddrFromDevice)
+
 	flags.Bool(option.EnableIPMasqAgent, false, "Enable BPF ip-masq-agent")
 	option.BindEnv(option.EnableIPMasqAgent)
 
