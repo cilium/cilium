@@ -42,3 +42,5 @@ mock_customized: builder-image
 	# Generate the corresponding mock library.
 	$(QUIET) $(DOCKER_RUN) ./mock_customized.sh $(filename);
 
+clean:
+	-$(QUIET)rm -rf mocks;

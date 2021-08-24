@@ -27,7 +27,7 @@ CLANG ?= $(QUIET) clang
 LLC ?= llc
 
 BPF_TARGETS := elf-demo.o
-ALL_TESTS := unit-test nat-test drop-notify-test
+ALL_TESTS := unit-test nat-test drop-notify-test sockv4-test
 TARGETS := $(BPF_TARGETS) $(ALL_TESTS)
 
 all: $(TARGETS) unit-tests
@@ -42,15 +42,21 @@ elf-demo.o: elf-demo.c
 
 nat-test: nat-test.c $(LIB)
 	@$(ECHO_CC)
-	make -C $(ROOT_DIR)/bpf/mock generate_helper_headers
-	make -C $(ROOT_DIR)/bpf/mock mock_helpers
-	make -C $(ROOT_DIR)/bpf/mock mock_customized filename=conntrack_stub.h
-	$(QUIET) $(DOCKER_RUN) $(CLANG) $(FLAGS) -I../../bpf/mock -I $../../bpf/ -I../../../CMock/src -I../../../CMock/vendor/unity/src -I../../../hashmap/include  $< ../../../CMock/vendor/unity/src/unity.c ../../../CMock/src/cmock.c ../../../hashmap/src/hashmap.c ../../bpf/mock/mocks/mock_helpers.c ../../bpf/mock/mocks/mock_helpers_skb.c ../../bpf/mock/mocks/mock_conntrack_stub.c -o $@
+	$(MAKE) -C $(ROOT_DIR)/bpf/mock generate_helper_headers
+	$(MAKE) -C $(ROOT_DIR)/bpf/mock mock_helpers
+	$(MAKE) -C $(ROOT_DIR)/bpf/mock mock_customized filename=conntrack_stub.h
+	$(QUIET) $(DOCKER_RUN) $(CLANG) $(FLAGS) -I../../bpf/mock -I $../../bpf/ -I../../../CMock/src -I../../../CMock/vendor/unity/src -I../../../hashmap/include $< ../../../CMock/vendor/unity/src/unity.c ../../../CMock/src/cmock.c ../../../hashmap/src/hashmap.c ../../bpf/mock/mocks/mock_helpers.c ../../bpf/mock/mocks/mock_helpers_skb.c ../../bpf/mock/mocks/mock_conntrack_stub.c -o $@
 
 drop-notify-test: drop-notify-test.c $(LIB)
 	@$(ECHO_CC)
 	make -C $(ROOT_DIR)/bpf/mock generate_helper_headers
 	make -C $(ROOT_DIR)/bpf/mock mock_helpers
+	$(QUIET) $(DOCKER_RUN) $(CLANG) $(FLAGS) -I../../bpf/mock -I $../../bpf/ -I../../../CMock/src -I../../../CMock/vendor/unity/src  $< ../../../CMock/vendor/unity/src/unity.c ../../../CMock/src/cmock.c ../../bpf/mock/mocks/mock_helpers.c ../../bpf/mock/mocks/mock_helpers_skb.c -o $@
+
+sockv4-test: sockv4-test.c $(LIB)
+	@$(ECHO_CC)
+	$(MAKE) -C $(ROOT_DIR)/bpf/mock generate_helper_headers
+	$(MAKE) -C $(ROOT_DIR)/bpf/mock mock_helpers
 	$(QUIET) $(DOCKER_RUN) $(CLANG) $(FLAGS) -I../../bpf/mock -I $../../bpf/ -I../../../CMock/src -I../../../CMock/vendor/unity/src  $< ../../../CMock/vendor/unity/src/unity.c ../../../CMock/src/cmock.c ../../bpf/mock/mocks/mock_helpers.c ../../bpf/mock/mocks/mock_helpers_skb.c -o $@
 
 unit-tests: $(ALL_TESTS)
@@ -63,5 +69,4 @@ unit-tests: $(ALL_TESTS)
 clean:
 	@$(ECHO_CLEAN)
 	-$(QUIET)rm -f $(TARGETS)
-	-$(QUIET)rm -r ../../bpf/mock/mocks
-
+	$(MAKE) -C $(ROOT_DIR)/bpf/mock clean
