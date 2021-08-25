@@ -218,6 +218,7 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		HostPort:              &models.KubeProxyReplacementFeaturesHostPort{},
 		ExternalIPs:           &models.KubeProxyReplacementFeaturesExternalIPs{},
 		HostReachableServices: &models.KubeProxyReplacementFeaturesHostReachableServices{},
+		SocketLB:              &models.KubeProxyReplacementFeaturesSocketLB{},
 		SessionAffinity:       &models.KubeProxyReplacementFeaturesSessionAffinity{},
 	}
 	if option.Config.EnableNodePort {
@@ -247,6 +248,7 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 	}
 	if option.Config.EnableSocketLB {
 		features.HostReachableServices.Enabled = true
+		features.SocketLB.Enabled = true
 	}
 	if option.Config.EnableSessionAffinity {
 		features.SessionAffinity.Enabled = true

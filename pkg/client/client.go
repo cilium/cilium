@@ -566,7 +566,7 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		fmt.Fprintf(tab, "  Status:\t%s\n", sr.KubeProxyReplacement.Mode)
 
 		socketLB := "Disabled"
-		if hs := sr.KubeProxyReplacement.Features.HostReachableServices; hs.Enabled {
+		if slb := sr.KubeProxyReplacement.Features.SocketLB; slb.Enabled {
 			socketLB = "Enabled"
 		}
 		fmt.Fprintf(tab, "  Socket LB:\t%s\n", socketLB)
