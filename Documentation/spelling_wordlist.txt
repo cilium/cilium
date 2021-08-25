@@ -368,7 +368,6 @@ externalIPs
 externalWorkloads
 extraArgs
 extraConfig
-extraConfigmapMounts
 extraDnsNames
 extraEnv
 extraHostPathMounts

@@ -135,13 +135,6 @@ extraHostPathMounts: []
   #   readOnly: true
   #   mountPropagation: HostToContainer
 
-# -- Additional agent ConfigMap mounts.
-extraConfigmapMounts: []
-  # - name: certs-configmap
-  #   mountPath: /certs
-  #   configMap: certs-configmap
-  #   readOnly: true
-
 # -- extraConfig allows you to specify additional configuration parameters to be
 # included in the cilium-config configmap.
 extraConfig: {}
@@ -1307,13 +1300,6 @@ etcd:
     #   readOnly: true
     #   mountPropagation: HostToContainer
 
-  # -- Additional cilium-etcd-operator ConfigMap mounts.
-  extraConfigmapMounts: []
-    # - name: certs-configmap
-    #   mountPath: /certs
-    #   configMap: certs-configmap
-    #   readOnly: true
-
   # -- Node tolerations for cilium-etcd-operator scheduling to nodes with taints
   # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
   tolerations:
@@ -1451,13 +1437,6 @@ operator:
     #   readOnly: true
     #   mountPropagation: HostToContainer
 
-  # -- Additional cilium-operator ConfigMap mounts.
-  extraConfigmapMounts: []
-    # - name: certs-configmap
-    #   mountPath: /certs
-    #   configMap: certs-configmap
-    #   readOnly: true
-
   # -- Node tolerations for cilium-operator scheduling to nodes with taints
   # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
   tolerations:
@@ -1560,13 +1539,6 @@ nodeinit:
     #   readOnly: true
     #   mountPropagation: HostToContainer
 
-  # -- Additional nodeinit ConfigMap mounts.
-  extraConfigmapMounts: []
-    # - name: certs-configmap
-    #   mountPath: /certs
-    #   configMap: certs-configmap
-    #   readOnly: true
-
   # -- Node tolerations for nodeinit scheduling to nodes with taints
   # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
   tolerations:
@@ -1634,13 +1606,6 @@ preflight:
     #   hostPath: /var/lib/preflight
     #   readOnly: true
     #   mountPropagation: HostToContainer
-
-  # -- Additional preflight ConfigMap mounts.
-  extraConfigmapMounts: []
-    # - name: certs-configmap
-    #   mountPath: /certs
-    #   configMap: certs-configmap
-    #   readOnly: true
 
   # -- Node tolerations for preflight scheduling to nodes with taints
   # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/

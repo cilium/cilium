@@ -167,7 +167,6 @@ contributors across the globe, there is almost always someone available to help.
 | etcd.enabled | bool | `false` | Enable etcd mode for the agent. |
 | etcd.endpoints | list | `["https://CHANGE-ME:2379"]` | List of etcd endpoints (not needed when using managed=true). |
 | etcd.extraArgs | list | `[]` | Additional cilium-etcd-operator container arguments. |
-| etcd.extraConfigmapMounts | list | `[]` | Additional cilium-etcd-operator ConfigMap mounts. |
 | etcd.extraHostPathMounts | list | `[]` | Additional cilium-etcd-operator hostPath mounts. |
 | etcd.extraInitContainers | list | `[]` | Additional InitContainers to initialize the pod. |
 | etcd.image | object | `{"pullPolicy":"Always","repository":"quay.io/cilium/cilium-etcd-operator","tag":"v2.0.7"}` | cilium-etcd-operator image. |
@@ -189,7 +188,6 @@ contributors across the globe, there is almost always someone available to help.
 | externalWorkloads.enabled | bool | `false` | Enable support for external workloads, such as VMs (false by default). |
 | extraArgs | list | `[]` | Additional agent container arguments. |
 | extraConfig | object | `{}` | extraConfig allows you to specify additional configuration parameters to be included in the cilium-config configmap. |
-| extraConfigmapMounts | list | `[]` | Additional agent ConfigMap mounts. |
 | extraEnv | object | `{}` | Additional agent container environment variables. |
 | extraHostPathMounts | list | `[]` | Additional agent hostPath mounts. |
 | extraInitContainers | list | `[]` | Additional InitContainers to initialize the pod. |
@@ -312,7 +310,6 @@ contributors across the globe, there is almost always someone available to help.
 | nodePort.enabled | bool | `false` | Enable the Cilium NodePort service implementation. |
 | nodeinit.bootstrapFile | string | `"/tmp/cilium-bootstrap-time"` | bootstrapFile is the location of the file where the bootstrap timestamp is written by the node-init DaemonSet |
 | nodeinit.enabled | bool | `false` | Enable the node initialization DaemonSet |
-| nodeinit.extraConfigmapMounts | list | `[]` | Additional nodeinit ConfigMap mounts. |
 | nodeinit.extraEnv | object | `{}` | Additional nodeinit environment variables. |
 | nodeinit.extraHostPathMounts | list | `[]` | Additional nodeinit host path mounts. |
 | nodeinit.extraInitContainers | list | `[]` | Additional nodeinit init containers. |
@@ -329,7 +326,6 @@ contributors across the globe, there is almost always someone available to help.
 | operator.enabled | bool | `true` | Enable the cilium-operator component (required). |
 | operator.endpointGCInterval | string | `"5m0s"` | Interval for endpoint garbage collection. |
 | operator.extraArgs | list | `[]` | Additional cilium-operator container arguments. |
-| operator.extraConfigmapMounts | list | `[]` | Additional cilium-operator ConfigMap mounts. |
 | operator.extraEnv | object | `{}` | Additional cilium-operator environment variables. |
 | operator.extraHostPathMounts | list | `[]` | Additional cilium-operator hostPath mounts. |
 | operator.extraInitContainers | list | `[]` | Additional InitContainers to initialize the pod. |
@@ -360,7 +356,6 @@ contributors across the globe, there is almost always someone available to help.
 | policyEnforcementMode | string | `"default"` | The agent can be put into one of the three policy enforcement modes: default, always and never. ref: https://docs.cilium.io/en/stable/policy/intro/#policy-enforcement-modes |
 | pprof.enabled | bool | `false` | Enable Go pprof debugging |
 | preflight.enabled | bool | `false` | Enable Cilium pre-flight resources (required for upgrade) |
-| preflight.extraConfigmapMounts | list | `[]` | Additional preflight ConfigMap mounts. |
 | preflight.extraEnv | object | `{}` | Additional preflight environment variables. |
 | preflight.extraHostPathMounts | list | `[]` | Additional preflight host path mounts. |
 | preflight.extraInitContainers | list | `[]` | Additional preflight init containers. |
