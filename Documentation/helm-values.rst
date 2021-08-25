@@ -1221,10 +1221,6 @@
      - Security context to be added to cilium-operator pods
      - object
      - ``{}``
-   * - operator.serviceAccountName
-     - For using with an existing serviceAccount.
-     - string
-     - ``"cilium-operator"``
    * - operator.skipCRDCreation
      - Skip CRDs creation for cilium-operator
      - bool

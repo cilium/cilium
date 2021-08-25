@@ -171,9 +171,9 @@ securityContext: {}
 
 # -- Cilium agent update strategy
 updateStrategy:
+  type: RollingUpdate
   rollingUpdate:
     maxUnavailable: 2
-  type: RollingUpdate
 
 # Configuration Values for cilium-agent
 
@@ -731,9 +731,9 @@ hubble:
 
     # -- hubble-relay update strategy
     updateStrategy:
+      type: RollingUpdate
       rollingUpdate:
         maxUnavailable: 1
-      type: RollingUpdate
 
     # -- hubble-relay security context
     securityContext: {}
@@ -919,9 +919,9 @@ hubble:
 
     # -- hubble-ui update strategy.
     updateStrategy:
+      type: RollingUpdate
       rollingUpdate:
         maxUnavailable: 1
-      type: RollingUpdate
 
     securityContext:
       # -- Whether to set the security context on the Hubble UI pods.
@@ -1352,10 +1352,10 @@ etcd:
 
   # -- cilium-etcd-operator update strategy
   updateStrategy:
+    type: RollingUpdate
     rollingUpdate:
       maxSurge: 1
       maxUnavailable: 1
-    type: RollingUpdate
 
   # -- If etcd is behind a k8s service set this option to true so that Cilium
   # does the service translation automatically without requiring a DNS to be
@@ -1399,18 +1399,15 @@ operator:
   # -- Number of replicas to run for the cilium-operator deployment
   replicas: 2
 
-  # -- For using with an existing serviceAccount.
-  serviceAccountName: cilium-operator
-
   # -- The priority class to use for cilium-operator
   priorityClassName: ""
 
   # -- cilium-operator update strategy
   updateStrategy:
+    type: RollingUpdate
     rollingUpdate:
       maxSurge: 1
       maxUnavailable: 1
-    type: RollingUpdate
 
   # -- Affinity for cilium-operator
   affinity:
@@ -1767,9 +1764,9 @@ clustermesh:
 
     # -- clustermesh-apiserver update strategy
     updateStrategy:
+      type: RollingUpdate
       rollingUpdate:
         maxUnavailable: 1
-      type: RollingUpdate
 
     # -- The priority class to use for clustermesh-apiserver
     priorityClassName: ""
