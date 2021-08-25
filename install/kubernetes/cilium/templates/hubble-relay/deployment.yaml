@@ -59,6 +59,10 @@ spec:
           livenessProbe:
             tcpSocket:
               port: grpc
+          {{- with .Values.hubble.relay.extraEnv }}
+          env:
+            {{- toYaml . | trim | nindent 12 }}
+          {{- end }}
           {{- with .Values.hubble.relay.resources }}
           resources:
             {{- toYaml . | trim | nindent 12 }}

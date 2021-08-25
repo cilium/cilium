@@ -117,7 +117,7 @@ priorityClassName: ""
 extraArgs: []
 
 # -- Additional agent container environment variables.
-extraEnv: {}
+extraEnv: []
 
 # -- Additional agent hostPath mounts.
 extraHostPathMounts: []
@@ -694,6 +694,9 @@ hubble:
     #
     tolerations: []
 
+    # -- Additional hubble-relay environment variables.
+    extraEnv: []
+
     # -- Annotations to be added to hubble-relay pods
     podAnnotations: {}
 
@@ -816,6 +819,10 @@ hubble:
         repository: quay.io/cilium/hubble-ui-backend
         tag: latest
         pullPolicy: Always
+
+      # -- Additional hubble-ui backend environment variables.
+      extraEnv: []
+
       # [Example]
       # resources:
       #   limits:
@@ -833,6 +840,10 @@ hubble:
         repository: quay.io/cilium/hubble-ui
         tag: latest
         pullPolicy: Always
+
+      # -- Additional hubble-ui frontend environment variables.
+      extraEnv: []
+
       # [Example]
       # resources:
       #   limits:
@@ -850,6 +861,10 @@ hubble:
         repository: docker.io/envoyproxy/envoy
         tag: v1.18.4@sha256:e5c2bb2870d0e59ce917a5100311813b4ede96ce4eb0c6bfa879e3fbe3e83935
         pullPolicy: Always
+
+      # -- Additional hubble-ui proxy environment variables.
+      extraEnv: []
+
       # [Example]
       # resources:
       #   limits:
@@ -1418,7 +1433,7 @@ operator:
   extraArgs: []
 
   # -- Additional cilium-operator environment variables.
-  extraEnv: {}
+  extraEnv: []
 
   # -- Additional cilium-operator hostPath mounts.
   extraHostPathMounts: []
@@ -1504,7 +1519,7 @@ nodeinit:
     type: RollingUpdate
 
   # -- Additional nodeinit environment variables.
-  extraEnv: {}
+  extraEnv: []
 
   # -- Affinity for cilium-nodeinit
   affinity: {}
@@ -1565,7 +1580,7 @@ preflight:
     type: RollingUpdate
 
   # -- Additional preflight environment variables.
-  extraEnv: {}
+  extraEnv: []
 
   # -- Affinity for cilium-preflight
   affinity:
@@ -1683,6 +1698,9 @@ clustermesh:
 
     # -- Number of replicas run for the clustermesh-apiserver deployment.
     replicas: 1
+
+    # -- Additional clustermesh-apiserver environment variables.
+    extraEnv: []
 
     # -- Annotations to be added to clustermesh-apiserver pods
     podAnnotations: {}

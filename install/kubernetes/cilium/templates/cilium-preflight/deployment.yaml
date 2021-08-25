@@ -60,6 +60,9 @@ spec:
           - name: KUBERNETES_SERVICE_PORT
             value: {{ .Values.k8sServicePort | quote }}
           {{- end }}
+          {{- with .Values.preflight.extraEnv }}
+          {{- toYaml . | trim | nindent 10 }}
+          {{- end }}
       hostNetwork: true
       restartPolicy: Always
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.preflight.priorityClassName "system-cluster-critical") }}

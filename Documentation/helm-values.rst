@@ -137,6 +137,10 @@
      - Clustermesh API server etcd image.
      - object
      - ``{"pullPolicy":"Always","repository":"quay.io/coreos/etcd","tag":"v3.4.13"}``
+   * - clustermesh.apiserver.extraEnv
+     - Additional clustermesh-apiserver environment variables.
+     - list
+     - ``[]``
    * - clustermesh.apiserver.image
      - Clustermesh API server image.
      - object
@@ -547,8 +551,8 @@
      - ``{}``
    * - extraEnv
      - Additional agent container environment variables.
-     - object
-     - ``{}``
+     - list
+     - ``[]``
    * - extraHostPathMounts
      - Additional agent hostPath mounts.
      - list
@@ -637,6 +641,10 @@
      - Enable Hubble Relay (requires hubble.enabled=true)
      - bool
      - ``false``
+   * - hubble.relay.extraEnv
+     - Additional hubble-relay environment variables.
+     - list
+     - ``[]``
    * - hubble.relay.image
      - Hubble-relay container image.
      - object
@@ -793,6 +801,10 @@
      - Affinity for hubble-ui
      - object
      - ``{}``
+   * - hubble.ui.backend.extraEnv
+     - Additional hubble-ui backend environment variables.
+     - list
+     - ``[]``
    * - hubble.ui.backend.image
      - Hubble-ui backend image.
      - object
@@ -805,6 +817,10 @@
      - Whether to enable the Hubble UI.
      - bool
      - ``false``
+   * - hubble.ui.frontend.extraEnv
+     - Additional hubble-ui frontend environment variables.
+     - list
+     - ``[]``
    * - hubble.ui.frontend.image
      - Hubble-ui frontend image.
      - object
@@ -845,6 +861,10 @@
      - The priority class to use for hubble-ui
      - string
      - ``""``
+   * - hubble.ui.proxy.extraEnv
+     - Additional hubble-ui proxy environment variables.
+     - list
+     - ``[]``
    * - hubble.ui.proxy.image
      - Hubble-ui ingress proxy image.
      - object
@@ -1047,8 +1067,8 @@
      - ``false``
    * - nodeinit.extraEnv
      - Additional nodeinit environment variables.
-     - object
-     - ``{}``
+     - list
+     - ``[]``
    * - nodeinit.image
      - node-init image.
      - object
@@ -1103,8 +1123,8 @@
      - ``[]``
    * - operator.extraEnv
      - Additional cilium-operator environment variables.
-     - object
-     - ``{}``
+     - list
+     - ``[]``
    * - operator.extraHostPathMounts
      - Additional cilium-operator hostPath mounts.
      - list
@@ -1223,8 +1243,8 @@
      - ``false``
    * - preflight.extraEnv
      - Additional preflight environment variables.
-     - object
-     - ``{}``
+     - list
+     - ``[]``
    * - preflight.image
      - Cilium pre-flight image.
      - object
