@@ -1552,8 +1552,8 @@ nodeinit:
       memory: 100Mi
 
   # -- Security context to be added to nodeinit pods.
-  securityContext: {}
-    # runAsUser: 0
+  securityContext:
+    privileged: true
 
   # -- bootstrapFile is the location of the file where the bootstrap timestamp is
   # written by the node-init DaemonSet

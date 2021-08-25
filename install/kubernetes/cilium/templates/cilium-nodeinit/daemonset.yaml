@@ -40,8 +40,6 @@ spec:
         - name: node-init
           image: {{ include "cilium.image" .Values.nodeinit.image | quote }}
           imagePullPolicy: {{ .Values.nodeinit.image.pullPolicy }}
-          securityContext:
-            privileged: true
           volumeMounts:
             # To access iptables concurrently with other processes (e.g. kube-proxy)
             - mountPath: /run/xtables.lock
@@ -84,6 +82,10 @@ spec:
               {{- tpl (.Files.Get "files/nodeinit/startup.bash") . | nindent 14 }}
           {{- with .Values.nodeinit.resources }}
           resources:
+            {{- toYaml . | trim | nindent 12 }}
+          {{- end }}
+          {{- with .Values.nodeinit.securityContext }}
+          securityContext:
             {{- toYaml . | trim | nindent 12 }}
           {{- end }}
       {{- with .Values.nodeinit.affinity }}
