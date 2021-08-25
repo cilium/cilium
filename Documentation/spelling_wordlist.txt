@@ -371,7 +371,6 @@ extraConfig
 extraDnsNames
 extraEnv
 extraHostPathMounts
-extraInitContainers
 extraIpAddresses
 facto
 failureThreshold
