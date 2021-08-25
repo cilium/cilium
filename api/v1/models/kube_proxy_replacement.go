@@ -453,9 +453,6 @@ type KubeProxyReplacementFeaturesHostReachableServices struct {
 
 	// enabled
 	Enabled bool `json:"enabled,omitempty"`
-
-	// protocols
-	Protocols []string `json:"protocols"`
 }
 
 // Validate validates this kube proxy replacement features host reachable services

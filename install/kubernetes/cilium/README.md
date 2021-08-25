@@ -183,9 +183,8 @@ contributors across the globe, there is almost always someone available to help.
 | healthPort | int | `9876` | TCP port for the agent health API. This is not the port for cilium-health. |
 | hostFirewall | bool | `false` | Enables the enforcement of host policies in the eBPF datapath. |
 | hostPort.enabled | bool | `false` | Enable hostPort service support. |
-| hostServices | object | `{"enabled":false,"protocols":"tcp,udp"}` | Configure ClusterIP service handling in the host namespace (the node). |
+| hostServices | object | `{"enabled":false}` | Configure socket-lb. |
 | hostServices.enabled | bool | `false` | Enable host reachable services. |
-| hostServices.protocols | string | `"tcp,udp"` | Supported list of protocols to apply ClusterIP translation to. |
 | hubble.enabled | bool | `true` | Enable Hubble (true by default). |
 | hubble.listenAddress | string | `":4244"` | An additional address for Hubble to listen to. Set this field ":4244" if you are enabling Hubble Relay, as it assumes that Hubble is listening on port 4244. |
 | hubble.metrics | object | `{"enabled":null,"port":9091,"serviceMonitor":{"enabled":false}}` | Hubble metrics configuration. See https://docs.cilium.io/en/stable/configuration/metrics/#hubble-metrics for more comprehensive documentation about Hubble metrics. |

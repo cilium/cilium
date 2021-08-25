@@ -1971,10 +1971,6 @@ definitions:
             properties:
               enabled:
                 type: boolean
-              protocols:
-                type: array
-                items:
-                  type: string
           sessionAffinity:
             description: |-
 

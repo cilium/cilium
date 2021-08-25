@@ -348,9 +348,6 @@ func init() {
 	flags.Bool(option.EnableHostReachableServices, false, "Enable reachability of services for host applications")
 	option.BindEnv(option.EnableHostReachableServices)
 
-	flags.StringSlice(option.HostReachableServicesProtos, []string{option.HostServicesTCP, option.HostServicesUDP}, "Only enable reachability of services for host applications for specific protocols")
-	option.BindEnv(option.HostReachableServicesProtos)
-
 	flags.Bool(option.EnableAutoDirectRoutingName, defaults.EnableAutoDirectRouting, "Enable automatic L2 routing between nodes")
 	option.BindEnv(option.EnableAutoDirectRoutingName)
 

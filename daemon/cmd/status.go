@@ -245,16 +245,8 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 	if option.Config.EnableExternalIPs {
 		features.ExternalIPs.Enabled = true
 	}
-	if option.Config.EnableHostServicesTCP {
+	if option.Config.EnableHostReachableServices {
 		features.HostReachableServices.Enabled = true
-		protocols := []string{}
-		if option.Config.EnableHostServicesTCP {
-			protocols = append(protocols, "TCP")
-		}
-		if option.Config.EnableHostServicesUDP {
-			protocols = append(protocols, "UDP")
-		}
-		features.HostReachableServices.Protocols = protocols
 	}
 	if option.Config.EnableSessionAffinity {
 		features.SessionAffinity.Enabled = true

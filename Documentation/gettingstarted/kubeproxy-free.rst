@@ -156,7 +156,7 @@ Use ``--verbose`` for full details:
     [...]
     KubeProxyReplacement Details:
       Status:              Strict
-      Protocols:           TCP, UDP
+      SocketLB:		   Enabled
       Devices:             eth0 (Direct Routing), eth1
       Mode:                SNAT
       Backend Selection:   Random
@@ -1099,17 +1099,6 @@ This section elaborates on the various ``kubeProxyReplacement`` options:
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
         --set kubeProxyReplacement=partial
-
-  The following Helm setup below would optimize Cilium's ClusterIP handling for TCP in a
-  kube-proxy environment (``hostServices.protocols`` default is ``tcp,udp``):
-
-  .. parsed-literal::
-
-    helm install cilium |CHART_RELEASE| \\
-        --namespace kube-system \\
-        --set kubeProxyReplacement=partial \\
-        --set hostServices.enabled=true \\
-        --set hostServices.protocols=tcp
 
   The following Helm setup below would optimize Cilium's NodePort, LoadBalancer and services
   with externalIPs handling for external traffic ingressing into the Cilium managed node in

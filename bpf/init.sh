@@ -26,16 +26,15 @@ HOST_DEV1=$8
 HOST_DEV2=$9
 MTU=${10}
 HOSTLB=${11}
-HOSTLB_UDP=${12}
-HOSTLB_PEER=${13}
-CGROUP_ROOT=${14}
-BPFFS_ROOT=${15}
-NODE_PORT=${16}
-NODE_PORT_BIND=${17}
-MCPU=${18}
-NR_CPUS=${19}
-ENDPOINT_ROUTES=${20}
-PROXY_RULE=${21}
+HOSTLB_PEER=${12}
+CGROUP_ROOT=${13}
+BPFFS_ROOT=${14}
+NODE_PORT=${15}
+NODE_PORT_BIND=${16}
+MCPU=${17}
+NR_CPUS=${18}
+ENDPOINT_ROUTES=${19}
+PROXY_RULE=${20}
 
 ID_HOST=1
 ID_WORLD=2
@@ -504,6 +503,8 @@ if [ "$HOSTLB" = "true" ]; then
 	COPTS=""
 	if [ "$IP6_HOST" != "<nil>" ] || [ "$IP4_HOST" != "<nil>" ] && [ -f /proc/sys/net/ipv6/conf/all/forwarding ]; then
 		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr sendmsg6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr recvmsg6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 		if [ "$HOSTLB_PEER" = "true" ]; then
 			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr getpeername6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 		fi
@@ -517,16 +518,11 @@ if [ "$HOSTLB" = "true" ]; then
 		else
 			bpf_clear_cgroups $CGROUP_ROOT bind6
 		fi
-		if [ "$HOSTLB_UDP" = "true" ]; then
-			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr sendmsg6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
-			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr recvmsg6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
-		else
-			bpf_clear_cgroups $CGROUP_ROOT sendmsg6
-			bpf_clear_cgroups $CGROUP_ROOT recvmsg6
-		fi
 	fi
 	if [ "$IP4_HOST" != "<nil>" ]; then
 		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr sendmsg4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr recvmsg4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 		if [ "$HOSTLB_PEER" = "true" ]; then
 			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr getpeername4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 		fi
@@ -539,13 +535,6 @@ if [ "$HOSTLB" = "true" ]; then
 			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr bind4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 		else
 			bpf_clear_cgroups $CGROUP_ROOT bind4
-		fi
-		if [ "$HOSTLB_UDP" = "true" ]; then
-			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr sendmsg4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
-			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr recvmsg4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
-		else
-			bpf_clear_cgroups $CGROUP_ROOT sendmsg4
-			bpf_clear_cgroups $CGROUP_ROOT recvmsg4
 		fi
 	fi
 else

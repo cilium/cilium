@@ -527,10 +527,6 @@ hostServices:
   # -- Enable host reachable services.
   enabled: false
 
-  # -- Supported list of protocols to apply ClusterIP translation to.
-  protocols: tcp,udp
-
-
 # -- Configure certificate generation for Hubble integration.
 # If hubble.tls.auto.method=cronJob, these values are used
 # for the Kubernetes CronJob which will be scheduled regularly to

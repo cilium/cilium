@@ -55,8 +55,6 @@ func initKubeProxyReplacementOptions() (bool, error) {
 
 		disableNodePort()
 		option.Config.EnableHostReachableServices = false
-		option.Config.EnableHostServicesTCP = false
-		option.Config.EnableHostServicesUDP = false
 		option.Config.EnableSessionAffinity = false
 
 		return false, nil
@@ -79,8 +77,6 @@ func initKubeProxyReplacementOptions() (bool, error) {
 		option.Config.EnableNodePort = true
 		option.Config.EnableExternalIPs = true
 		option.Config.EnableHostReachableServices = true
-		option.Config.EnableHostServicesTCP = true
-		option.Config.EnableHostServicesUDP = true
 		option.Config.EnableSessionAffinity = true
 	}
 
@@ -244,36 +240,26 @@ func initKubeProxyReplacementOptions() (bool, error) {
 				option.Config.EnableHostServicesPeer = false
 			}
 		}
-		if option.Config.EnableHostServicesTCP && option.Config.EnableIPv4 {
-			err := probeCgroupSupportTCP(strict, true)
-			if err != nil {
+		if option.Config.EnableHostReachableServices && option.Config.EnableIPv4 {
+			if err := probeCgroupSupportTCP(strict, true); err != nil {
 				return false, err
 			}
 		}
-		if option.Config.EnableHostServicesTCP && option.Config.EnableIPv6 {
-			err := probeCgroupSupportTCP(strict, false)
-			if err != nil {
+		if option.Config.EnableHostReachableServices && option.Config.EnableIPv4 {
+			if err := probeCgroupSupportUDP(strict, true); err != nil {
 				return false, err
 			}
 		}
-		if option.Config.EnableHostServicesUDP && option.Config.EnableIPv4 {
-			err := probeCgroupSupportUDP(strict, true)
-			if err != nil {
+		if option.Config.EnableHostReachableServices && option.Config.EnableIPv6 {
+			if err := probeCgroupSupportTCP(strict, false); err != nil {
 				return false, err
 			}
 		}
-		if option.Config.EnableHostServicesUDP && option.Config.EnableIPv6 {
-			err := probeCgroupSupportUDP(strict, false)
-			if err != nil {
+		if option.Config.EnableHostReachableServices && option.Config.EnableIPv6 {
+			if err := probeCgroupSupportUDP(strict, false); err != nil {
 				return false, err
 			}
 		}
-		if !option.Config.EnableHostServicesTCP && !option.Config.EnableHostServicesUDP {
-			option.Config.EnableHostReachableServices = false
-		}
-	} else {
-		option.Config.EnableHostServicesTCP = false
-		option.Config.EnableHostServicesUDP = false
 	}
 
 	if option.Config.EnableSessionAffinity {
@@ -402,7 +388,7 @@ func probeCgroupSupportTCP(strict, ipv4 bool) error {
 		if strict {
 			return fmt.Errorf(msg)
 		} else {
-			option.Config.EnableHostServicesTCP = false
+			option.Config.EnableHostReachableServices = false
 			log.WithError(err).Warn(msg + " Disabling the feature.")
 		}
 	}
@@ -419,7 +405,7 @@ func probeCgroupSupportUDP(strict, ipv4 bool) error {
 	}
 	if err != nil {
 		scopedLog := log.WithError(err)
-		msg := fmt.Sprintf("BPF host reachable services for UDP needs kernel 4.19.57, 5.1.16, 5.2.0 or newer. If you run an older kernel and only need TCP, then specify: --%s=tcp and --%s=%s", option.HostReachableServicesProtos, option.KubeProxyReplacement, option.KubeProxyReplacementPartial)
+		msg := "BPF host reachable services for UDP needs kernel 4.19.57, 5.1.16, 5.2.0 or newer."
 		if errors.Is(err, unix.EPERM) {
 			msg = "Cilium cannot load bpf programs. Security profiles like SELinux may be restricting permissions."
 		}
@@ -427,7 +413,7 @@ func probeCgroupSupportUDP(strict, ipv4 bool) error {
 		if strict {
 			return fmt.Errorf(msg)
 		} else {
-			option.Config.EnableHostServicesUDP = false
+			option.Config.EnableHostReachableServices = false
 			scopedLog.Warn(msg + " Disabling the feature.")
 		}
 	}
@@ -902,12 +888,6 @@ func checkNodePortAndEphemeralPortRanges() error {
 	}
 
 	return nil
-}
-
-func hasFullHostReachableServices() bool {
-	return option.Config.EnableHostReachableServices &&
-		option.Config.EnableHostServicesTCP &&
-		option.Config.EnableHostServicesUDP
 }
 
 func supportL3Dev() bool {

@@ -329,6 +329,10 @@ Removed Options
   please use the ``--kube-version`` flag (introduced in Helm 3.6.0) instead.
 * The deprecated ``hubble-ca-cert`` configmap has been removed. Use
   ``hubble-ca-secret`` secret instead.
+* ``host-reachable-services-protos``: This option was removed.
+  ``enable-host-reachable-services`` will enable the socket load-balancing
+  for UDP and TCP. If any cannot be enabled due to missing kernel features,
+  the agent will fail.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~

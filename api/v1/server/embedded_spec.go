@@ -2914,12 +2914,6 @@ func init() {
               "properties": {
                 "enabled": {
                   "type": "boolean"
-                },
-                "protocols": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
                 }
               }
             },
@@ -7346,12 +7340,6 @@ func init() {
               "properties": {
                 "enabled": {
                   "type": "boolean"
-                },
-                "protocols": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
                 }
               }
             },
@@ -7462,12 +7450,6 @@ func init() {
           "properties": {
             "enabled": {
               "type": "boolean"
-            },
-            "protocols": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
             }
           }
         },
@@ -7547,12 +7529,6 @@ func init() {
       "properties": {
         "enabled": {
           "type": "boolean"
-        },
-        "protocols": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
         }
       }
     },
