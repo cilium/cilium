@@ -76,6 +76,10 @@ spec:
           resources:
             {{- toYaml . | trim | nindent 12 }}
           {{- end }}
+          {{- with .Values.preflight.securityContext }}
+          securityContext:
+            {{- toYaml . | trim | nindent 14 }}
+          {{- end }}
         {{- if ne .Values.preflight.tofqdnsPreCache "" }}
         - name: cilium-pre-flight-fqdn-precache
           image: {{ include "cilium.image" .Values.preflight.image | quote }}
@@ -129,6 +133,10 @@ spec:
           {{- with .Values.preflight.resources }}
           resources:
             {{- toYaml . | trim | nindent 12 }}
+          {{- end }}
+          {{- with .Values.preflight.securityContext }}
+          securityContext:
+            {{- toYaml . | trim | nindent 14 }}
           {{- end }}
         {{- end }}
       hostNetwork: true

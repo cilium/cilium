@@ -195,6 +195,10 @@ spec:
         resources:
           {{- toYaml . | trim | nindent 10 }}
         {{- end }}
+        {{- with .Values.operator.securityContext }}
+        securityContext:
+          {{- toYaml . | trim | nindent 10 }}
+        {{- end }}
       hostNetwork: true
       {{- if and .Values.etcd.managed (not .Values.etcd.k8sService) }}
       # In managed etcd mode, Cilium must be able to resolve the DNS name of
