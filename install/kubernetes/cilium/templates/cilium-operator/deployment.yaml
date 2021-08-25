@@ -191,6 +191,9 @@ spec:
           mountPath: /var/lib/cilium/bgp
           readOnly: true
         {{- end }}
+        {{- with .Values.operator.extraVolumeMounts }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         {{- with .Values.operator.resources }}
         resources:
           {{- toYaml . | trim | nindent 10 }}
@@ -266,5 +269,8 @@ spec:
       - name: bgp-config-path
         configMap:
           name: bgp-config
+      {{- end }}
+      {{- with .Values.operator.extraVolumes }}
+      {{- toYaml . | nindent 6 }}
       {{- end }}
 {{- end }}

@@ -134,6 +134,12 @@ extraHostPathMounts: []
   #   readOnly: true
   #   mountPropagation: HostToContainer
 
+# -- Additional agent volumes.
+extraVolumes: []
+
+# -- Additional agent volumeMounts.
+extraVolumeMounts: []
+
 # -- extraConfig allows you to specify additional configuration parameters to be
 # included in the cilium-config configmap.
 extraConfig: {}
@@ -1443,6 +1449,12 @@ operator:
     #   hostPathType: Directory
     #   readOnly: true
     #   mountPropagation: HostToContainer
+
+  # -- Additional cilium-operator volumes.
+  extraVolumes: []
+  
+  # -- Additional cilium-operator volumeMounts.
+  extraVolumeMounts: []
 
   # -- Annotations to be added to cilium-operator pods
   podAnnotations: {}

@@ -316,6 +316,9 @@ spec:
           mountPropagation: {{ .mountPropagation }}
           {{- end }}
         {{- end }}
+        {{- with .Values.extraVolumeMounts }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- if .Values.monitor.enabled }}
       - name: cilium-monitor
         image: {{ include "cilium.image" .Values.image | quote }}
@@ -513,14 +516,6 @@ spec:
           path: {{ .Values.nodeinit.bootstrapFile }}
           type: FileOrCreate
       {{- end }}
-      {{- range .Values.extraHostPathMounts }}
-      - name: {{ .name }}
-        hostPath:
-          path: {{ .hostPath }}
-          {{- if .hostPathType }}
-          type: {{ .hostPathType }}
-          {{- end }}
-      {{- end }}
       {{- if .Values.etcd.enabled }}
         # To read the etcd config stored in config maps
       - name: etcd-config-path
@@ -592,5 +587,16 @@ spec:
                 path: server.crt
               - key: tls.key
                 path: server.key
+      {{- end }}
+      {{- range .Values.extraHostPathMounts }}
+      - name: {{ .name }}
+        hostPath:
+          path: {{ .hostPath }}
+          {{- if .hostPathType }}
+          type: {{ .hostPathType }}
+          {{- end }}
+      {{- end }}
+      {{- with .Values.extraVolumes }}
+      {{- toYaml . | nindent 6 }}
       {{- end }}
 {{- end }}

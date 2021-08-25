@@ -190,6 +190,8 @@ contributors across the globe, there is almost always someone available to help.
 | extraConfig | object | `{}` | extraConfig allows you to specify additional configuration parameters to be included in the cilium-config configmap. |
 | extraEnv | list | `[]` | Additional agent container environment variables. |
 | extraHostPathMounts | list | `[]` | Additional agent hostPath mounts. |
+| extraVolumeMounts | list | `[]` | Additional agent volumeMounts. |
+| extraVolumes | list | `[]` | Additional agent volumes. |
 | gke.enabled | bool | `false` | Enable Google Kubernetes Engine integration |
 | healthChecking | bool | `true` | Enable connectivity health checking. |
 | healthPort | int | `9876` | TCP port for the agent health API. This is not the port for cilium-health. |
@@ -334,6 +336,8 @@ contributors across the globe, there is almost always someone available to help.
 | operator.extraArgs | list | `[]` | Additional cilium-operator container arguments. |
 | operator.extraEnv | list | `[]` | Additional cilium-operator environment variables. |
 | operator.extraHostPathMounts | list | `[]` | Additional cilium-operator hostPath mounts. |
+| operator.extraVolumeMounts | list | `[]` | Additional cilium-operator volumeMounts. |
+| operator.extraVolumes | list | `[]` | Additional cilium-operator volumes. |
 | operator.identityGCInterval | string | `"15m0s"` | Interval for identity garbage collection. |
 | operator.identityHeartbeatTimeout | string | `"30m0s"` | Timeout for identity heartbeats. |
 | operator.image | object | `{"alibabacloudDigest":"","awsDigest":"","azureDigest":"","genericDigest":"","pullPolicy":"Always","repository":"quay.io/cilium/operator","suffix":"","tag":"latest","useDigest":false}` | cilium-operator image. |
