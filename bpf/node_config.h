@@ -11,6 +11,8 @@
  *
  *
  */
+#ifndef __NODE_CONFIG__
+#define __NODE_CONFIG__
 #include "lib/utils.h"
 
 DEFINE_MAC(NODE_MAC, 0xde, 0xad, 0xbe, 0xef, 0xc0, 0xde);
@@ -208,3 +210,4 @@ return true; \
 break; \
 } \
 return false;
+#endif /* __NODE_CONFIG__ */

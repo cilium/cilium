@@ -27,7 +27,7 @@ CLANG ?= $(QUIET) clang
 LLC ?= llc
 
 BPF_TARGETS := elf-demo.o
-ALL_TESTS := unit-test nat-test drop-notify-test
+ALL_TESTS := unit-test nat-test drop-notify-test lxcv4-test
 TARGETS := $(BPF_TARGETS) $(ALL_TESTS)
 
 all: $(TARGETS) unit-tests
@@ -45,13 +45,26 @@ nat-test: nat-test.c $(LIB)
 	make -C $(ROOT_DIR)/bpf/mock generate_helper_headers
 	make -C $(ROOT_DIR)/bpf/mock mock_helpers
 	make -C $(ROOT_DIR)/bpf/mock mock_customized filename=conntrack_stub.h
-	$(QUIET) $(DOCKER_RUN) $(CLANG) $(FLAGS) -I../../bpf/mock -I $../../bpf/ -I../../../CMock/src -I../../../CMock/vendor/unity/src -I../../../hashmap/include  $< ../../../CMock/vendor/unity/src/unity.c ../../../CMock/src/cmock.c ../../../hashmap/src/hashmap.c ../../bpf/mock/mocks/mock_helpers.c ../../bpf/mock/mocks/mock_helpers_skb.c ../../bpf/mock/mocks/mock_conntrack_stub.c -o $@
+	$(QUIET) $(DOCKER_RUN) $(CLANG) $(FLAGS) -I../../bpf/mock -I $../../bpf/ -I../../../CMock/src -I../../../CMock/vendor/unity/src -I../../../hashmap/include $< ../../../CMock/vendor/unity/src/unity.c ../../../CMock/src/cmock.c ../../../hashmap/src/hashmap.c ../../bpf/mock/mocks/mock_helpers.c ../../bpf/mock/mocks/mock_helpers_skb.c ../../bpf/mock/mocks/mock_conntrack_stub.c -o $@
 
 drop-notify-test: drop-notify-test.c $(LIB)
 	@$(ECHO_CC)
 	make -C $(ROOT_DIR)/bpf/mock generate_helper_headers
 	make -C $(ROOT_DIR)/bpf/mock mock_helpers
 	$(QUIET) $(DOCKER_RUN) $(CLANG) $(FLAGS) -I../../bpf/mock -I $../../bpf/ -I../../../CMock/src -I../../../CMock/vendor/unity/src  $< ../../../CMock/vendor/unity/src/unity.c ../../../CMock/src/cmock.c ../../bpf/mock/mocks/mock_helpers.c ../../bpf/mock/mocks/mock_helpers_skb.c -o $@
+
+lxcv4-test: lxcv4-test.c $(LIB)
+	@$(ECHO_CC)
+	make -C $(ROOT_DIR)/bpf/mock generate_helper_headers
+	make -C $(ROOT_DIR)/bpf/mock mock_helpers
+	make -C $(ROOT_DIR)/bpf/mock mock_customized filename=conntrack_stub.h
+	make -C $(ROOT_DIR)/bpf/mock mock_customized filename=policy_stub.h
+	make -C $(ROOT_DIR)/bpf/mock mock_customized filename=lb_stub.h
+	make -C $(ROOT_DIR)/bpf/mock mock_customized filename=l3_stub.h
+	make -C $(ROOT_DIR)/bpf/mock mock_customized filename=nodeport_stub.h
+	make -C $(ROOT_DIR)/bpf/mock mock_customized filename=common_stub.h
+	make -C $(ROOT_DIR)/bpf/mock mock_customized filename=trace_stub.h
+	$(QUIET) $(DOCKER_RUN) $(CLANG) $(FLAGS) -I../../bpf/mock -I $../../bpf/ -I../../../CMock/src -I../../../CMock/vendor/unity/src  $< ../../../CMock/vendor/unity/src/unity.c ../../../CMock/src/cmock.c ../../bpf/mock/mocks/mock_helpers.c ../../bpf/mock/mocks/mock_helpers_skb.c ../../bpf/mock/mocks/mock_conntrack_stub.c ../../bpf/mock/mocks/mock_policy_stub.c ../../bpf/mock/mocks/mock_lb_stub.c ../../bpf/mock/mocks/mock_l3_stub.c ../../bpf/mock/mocks/mock_nodeport_stub.c ../../bpf/mock/mocks/mock_common_stub.c ../../bpf/mock/mocks/mock_trace_stub.c -o $@
 
 unit-tests: $(ALL_TESTS)
 	@$(ECHO_CHECK)

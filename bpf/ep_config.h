@@ -5,6 +5,8 @@
  * This is just a dummy header with dummy values to allow for test
  * compilation without the full code generation engine backend.
  */
+#ifndef __EP_CONFIG__
+#define __EP_CONFIG__
 #include "lib/utils.h"
 
 DEFINE_IPV6(LXC_IP, 0xbe, 0xef, 0, 0, 0, 0, 0, 0x1, 0, 0, 0, 0x1, 0x01, 0x65, 0x82, 0xbc);
@@ -45,3 +47,4 @@ DEFINE_U32(POLICY_VERDICT_LOG_FILTER, 0xffff);
 #define CONNTRACK
 #define CONNTRACK_ACCOUNTING
 #define DIRECT_ROUTING_DEV_IFINDEX 0
+#endif /* __EP_CONFIG__ */
