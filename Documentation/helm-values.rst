@@ -465,10 +465,6 @@
      - Additional cilium-etcd-operator container arguments.
      - list
      - ``[]``
-   * - etcd.extraConfigmapMounts
-     - Additional cilium-etcd-operator ConfigMap mounts.
-     - list
-     - ``[]``
    * - etcd.extraHostPathMounts
      - Additional cilium-etcd-operator hostPath mounts.
      - list
@@ -553,10 +549,6 @@
      - extraConfig allows you to specify additional configuration parameters to be included in the cilium-config configmap.
      - object
      - ``{}``
-   * - extraConfigmapMounts
-     - Additional agent ConfigMap mounts.
-     - list
-     - ``[]``
    * - extraEnv
      - Additional agent container environment variables.
      - object
@@ -1045,10 +1037,6 @@
      - Enable the node initialization DaemonSet
      - bool
      - ``false``
-   * - nodeinit.extraConfigmapMounts
-     - Additional nodeinit ConfigMap mounts.
-     - list
-     - ``[]``
    * - nodeinit.extraEnv
      - Additional nodeinit environment variables.
      - object
@@ -1111,10 +1099,6 @@
      - ``"5m0s"``
    * - operator.extraArgs
      - Additional cilium-operator container arguments.
-     - list
-     - ``[]``
-   * - operator.extraConfigmapMounts
-     - Additional cilium-operator ConfigMap mounts.
      - list
      - ``[]``
    * - operator.extraEnv
@@ -1237,10 +1221,6 @@
      - Enable Cilium pre-flight resources (required for upgrade)
      - bool
      - ``false``
-   * - preflight.extraConfigmapMounts
-     - Additional preflight ConfigMap mounts.
-     - list
-     - ``[]``
    * - preflight.extraEnv
      - Additional preflight environment variables.
      - object
