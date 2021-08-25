@@ -557,6 +557,14 @@
      - Additional agent hostPath mounts.
      - list
      - ``[]``
+   * - extraVolumeMounts
+     - Additional agent volumeMounts.
+     - list
+     - ``[]``
+   * - extraVolumes
+     - Additional agent volumes.
+     - list
+     - ``[]``
    * - gke.enabled
      - Enable Google Kubernetes Engine integration
      - bool
@@ -1131,6 +1139,14 @@
      - ``[]``
    * - operator.extraHostPathMounts
      - Additional cilium-operator hostPath mounts.
+     - list
+     - ``[]``
+   * - operator.extraVolumeMounts
+     - Additional cilium-operator volumeMounts.
+     - list
+     - ``[]``
+   * - operator.extraVolumes
+     - Additional cilium-operator volumes.
      - list
      - ``[]``
    * - operator.identityGCInterval

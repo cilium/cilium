@@ -372,6 +372,8 @@ extraDnsNames
 extraEnv
 extraHostPathMounts
 extraIpAddresses
+extraVolumeMounts
+extraVolumes
 facto
 failureThreshold
 fallback
@@ -924,6 +926,7 @@ virtualization
 vlan
 vmlinux
 vtep
+volumeMounts
 vxlan
 waitForMount
 waker
