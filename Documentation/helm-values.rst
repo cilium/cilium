@@ -465,10 +465,6 @@
      - Additional cilium-etcd-operator container arguments.
      - list
      - ``[]``
-   * - etcd.extraHostPathMounts
-     - Additional cilium-etcd-operator hostPath mounts.
-     - list
-     - ``[]``
    * - etcd.extraInitContainers
      - Additional InitContainers to initialize the pod.
      - list
@@ -1041,10 +1037,6 @@
      - Additional nodeinit environment variables.
      - object
      - ``{}``
-   * - nodeinit.extraHostPathMounts
-     - Additional nodeinit host path mounts.
-     - list
-     - ``[]``
    * - nodeinit.extraInitContainers
      - Additional nodeinit init containers.
      - list
@@ -1225,10 +1217,6 @@
      - Additional preflight environment variables.
      - object
      - ``{}``
-   * - preflight.extraHostPathMounts
-     - Additional preflight host path mounts.
-     - list
-     - ``[]``
    * - preflight.extraInitContainers
      - Additional preflight init containers.
      - list
