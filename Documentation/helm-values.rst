@@ -569,6 +569,10 @@
      - TCP port for the agent health API. This is not the port for cilium-health.
      - int
      - ``9876``
+   * - hostAliases
+     - Host aliases for cilium-agent.
+     - list
+     - ``[]``
    * - hostFirewall
      - Configure the host firewall.
      - object
