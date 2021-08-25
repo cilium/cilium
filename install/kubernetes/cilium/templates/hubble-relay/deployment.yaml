@@ -35,16 +35,6 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      affinity:
-        podAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchExpressions:
-                - key: "k8s-app"
-                  operator: In
-                  values:
-                    - cilium
-            topologyKey: "kubernetes.io/hostname"
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -91,6 +81,10 @@ spec:
       serviceAccountName: {{ .Values.serviceAccounts.relay.name | quote }}
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: 0
+      {{- with .Values.hubble.relay.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- with .Values.hubble.relay.nodeSelector }}
       nodeSelector:
         {{- toYaml . | trim | nindent 8 }}

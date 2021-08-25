@@ -22,16 +22,6 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      affinity:
-        podAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchExpressions:
-              - key: "k8s-app"
-                operator: In
-                values:
-                - cilium
-            topologyKey: "kubernetes.io/hostname"
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -76,11 +66,15 @@ spec:
       serviceAccount: {{ .Values.serviceAccounts.preflight.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.preflight.name | quote }}
       terminationGracePeriodSeconds: 1
+      {{- with .Values.preflight.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- with .Values.preflight.nodeSelector }}
       nodeSelector:
         {{- toYaml . | trim | nindent 8 }}
       {{- end }}
-      {{- with .Values.tolerations }}
+      {{- with .Values.preflight.tolerations }}
       tolerations:
         {{- toYaml . | trim | nindent 8 }}
       {{- end }}

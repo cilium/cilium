@@ -128,7 +128,7 @@ spec:
       serviceAccount: {{ .Values.serviceAccounts.preflight.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.preflight.name | quote }}
       terminationGracePeriodSeconds: 1
-      {{- with .Values.tolerations }}
+      {{- with .Values.preflight.tolerations }}
       tolerations:
         {{- toYaml . | trim | nindent 8 }}
       {{- end }}

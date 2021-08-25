@@ -88,31 +88,27 @@ image:
   digest: ""
   useDigest: false
 
-# -- Pod affinity for cilium-agent.
+# -- Affinity for cilium-agent.
 affinity:
-  nodeAffinity:
-    requiredDuringSchedulingIgnoredDuringExecution:
-      nodeSelectorTerms:
-        - matchExpressions:
-            - key: kubernetes.io/os
-              operator: In
-              values:
-                - linux
-        # Compatible with Kubernetes 1.12.x and 1.13.x
-        - matchExpressions:
-            - key: beta.kubernetes.io/os
-              operator: In
-              values:
-                - linux
   podAntiAffinity:
     requiredDuringSchedulingIgnoredDuringExecution:
-    - labelSelector:
-        matchExpressions:
-        - key: k8s-app
-          operator: In
-          values:
-          - cilium
-      topologyKey: kubernetes.io/hostname
+    - topologyKey: kubernetes.io/hostname
+      labelSelector:
+        matchLabels:
+          k8s-app: cilium
+
+# -- Node selector for cilium-agent.
+nodeSelector:
+  kubernetes.io/os: linux
+
+# -- Node tolerations for agent scheduling to nodes with taints
+# ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+tolerations:
+- operator: Exists
+  # - key: "key"
+  #   operator: "Equal|Exists"
+  #   value: "value"
+  #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
 
 # -- The priority class to use for cilium-agent.
 priorityClassName: ""
@@ -140,15 +136,6 @@ extraConfig: {}
 #    test 1
 #    test 2
 #    test 3
-
-# -- Node tolerations for agent scheduling to nodes with taints
-# ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
-tolerations:
-- operator: Exists
-  # - key: "key"
-  #   operator: "Equal|Exists"
-  #   value: "value"
-  #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
 
 # -- Annotations to be added to agent pods
 podAnnotations: {}
@@ -689,9 +676,23 @@ hubble:
     # -- Number of replicas run for the hubble-relay deployment.
     replicas: 1
 
+    # -- Affinity for hubble-replay
+    affinity:
+      podAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+        - topologyKey: kubernetes.io/hostname
+          labelSelector:
+            matchLabels:
+              k8s-app: cilium
+
     # -- Node labels for pod assignment
     # ref: https://kubernetes.io/docs/user-guide/node-selection/
     nodeSelector: {}
+
+    # -- Node tolerations for pod assignment on nodes with taints
+    # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+    #
+    tolerations: []
 
     # -- Annotations to be added to hubble-relay pods
     podAnnotations: {}
@@ -709,10 +710,6 @@ hubble:
       minAvailable: null
       # -- Maximum number/percentage of pods that may be made unavailable
       maxUnavailable: 1
-
-    # -- Node tolerations for pod assignment on nodes with taints
-    # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
-    tolerations: []
 
     # -- The priority class to use for hubble-relay
     priorityClassName: ""
@@ -883,6 +880,9 @@ hubble:
       minAvailable: null
       # -- Maximum number/percentage of pods that may be made unavailable
       maxUnavailable: 1
+
+    # -- Affinity for hubble-ui
+    affinity: {}
 
     # -- Node labels for pod assignment
     # ref: https://kubernetes.io/docs/user-guide/node-selection/
@@ -1269,7 +1269,6 @@ wellKnownIdentities:
   # -- Enable the use of well-known identities.
   enabled: false
 
-
 etcd:
   # -- Enable etcd mode for the agent.
   enabled: false
@@ -1392,18 +1391,28 @@ operator:
       maxUnavailable: 1
     type: RollingUpdate
 
-  # -- cilium-operator affinity
+  # -- Affinity for cilium-operator
   affinity:
     podAntiAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
-      - labelSelector:
-          matchExpressions:
-          - key: io.cilium/app
-            operator: In
-            values:
-            - operator
-        topologyKey: kubernetes.io/hostname
+      - topologyKey: kubernetes.io/hostname
+        labelSelector:
+          matchLabels:
+            io.cilium/app: operator
 
+  # -- Node labels for cilium-operator pod assignment
+  # ref: https://kubernetes.io/docs/user-guide/node-selection/
+  #
+  nodeSelector: {}
+
+  # -- Node tolerations for cilium-operator scheduling to nodes with taints
+  # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+  tolerations:
+  - operator: Exists
+    # - key: "key"
+    #   operator: "Equal|Exists"
+    #   value: "value"
+    #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
 
   # -- Additional cilium-operator container arguments.
   extraArgs: []
@@ -1419,19 +1428,6 @@ operator:
     #   hostPathType: Directory
     #   readOnly: true
     #   mountPropagation: HostToContainer
-
-  # -- Node tolerations for cilium-operator scheduling to nodes with taints
-  # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
-  tolerations:
-  - operator: Exists
-    # - key: "key"
-    #   operator: "Equal|Exists"
-    #   value: "value"
-    #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
-
-  # -- Node labels for cilium-operator pod assignment
-  # ref: https://kubernetes.io/docs/user-guide/node-selection/
-  nodeSelector: {}
 
   # -- Annotations to be added to cilium-operator pods
   podAnnotations: {}
@@ -1490,7 +1486,6 @@ operator:
   # -- Skip CRDs creation for cilium-operator
   skipCRDCreation: false
 
-
 nodeinit:
   # -- Enable the node initialization DaemonSet
   enabled: false
@@ -1511,6 +1506,14 @@ nodeinit:
   # -- Additional nodeinit environment variables.
   extraEnv: {}
 
+  # -- Affinity for cilium-nodeinit
+  affinity: {}
+
+  # -- Node labels for nodeinit pod assignment
+  # ref: https://kubernetes.io/docs/user-guide/node-selection/
+  #
+  nodeSelector: {}
+
   # -- Node tolerations for nodeinit scheduling to nodes with taints
   # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
   tolerations:
@@ -1519,10 +1522,6 @@ nodeinit:
     #   operator: "Equal|Exists"
     #   value: "value"
     #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
-
-  # -- Node labels for nodeinit pod assignment
-  # ref: https://kubernetes.io/docs/user-guide/node-selection/
-  nodeSelector: {}
 
   # -- Annotations to be added to node-init pods.
   podAnnotations: {}
@@ -1568,15 +1567,29 @@ preflight:
   # -- Additional preflight environment variables.
   extraEnv: {}
 
+  # -- Affinity for cilium-preflight
+  affinity:
+    podAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - topologyKey: kubernetes.io/hostname
+        labelSelector:
+          matchLabels:
+            k8s-app: cilium
+
+  # -- Node labels for preflight pod assignment
+  # ref: https://kubernetes.io/docs/user-guide/node-selection/
+  #
+  nodeSelector: {}
+
   # -- Node tolerations for preflight scheduling to nodes with taints
   # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
   tolerations:
-  - effect: NoSchedule
-    key: node.kubernetes.io/not-ready
-  - effect: NoSchedule
-    key: node-role.kubernetes.io/master
-  - effect: NoSchedule
-    key: node.cloudprovider.kubernetes.io/uninitialized
+  - key: node.kubernetes.io/not-ready
+    effect: NoSchedule
+  - key: node-role.kubernetes.io/master
+    effect: NoSchedule
+  - key: node.cloudprovider.kubernetes.io/uninitialized
+    effect: NoSchedule
     value: "true"
   - key: CriticalAddonsOnly
     operator: "Exists"
@@ -1584,10 +1597,6 @@ preflight:
     #   operator: "Equal|Exists"
     #   value: "value"
     #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
-
-  # -- Node labels for preflight pod assignment
-  # ref: https://kubernetes.io/docs/user-guide/node-selection/
-  nodeSelector: {}
 
   # -- Annotations to be added to preflight pods
   podAnnotations: {}
@@ -1675,10 +1684,6 @@ clustermesh:
     # -- Number of replicas run for the clustermesh-apiserver deployment.
     replicas: 1
 
-    # -- Node labels for pod assignment
-    # ref: https://kubernetes.io/docs/user-guide/node-selection/
-    nodeSelector: {}
-
     # -- Annotations to be added to clustermesh-apiserver pods
     podAnnotations: {}
 
@@ -1705,6 +1710,19 @@ clustermesh:
     #         cpu: 100m
     #         memory: 64Mi
     resources: {}
+
+    # -- Affinity for clustermesh.apiserver
+    affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+        - topologyKey: kubernetes.io/hostname
+          labelSelector:
+            matchLabels:
+              k8s-app: clustermesh-apiserver
+
+    # -- Node labels for pod assignment
+    # ref: https://kubernetes.io/docs/user-guide/node-selection/
+    nodeSelector: {}
 
     # -- Node tolerations for pod assignment on nodes with taints
     # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/

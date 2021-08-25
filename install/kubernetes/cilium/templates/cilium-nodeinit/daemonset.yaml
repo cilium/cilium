@@ -23,10 +23,6 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      {{- with .Values.tolerations }}
-      tolerations:
-        {{- toYaml . | trim | nindent 8 }}
-      {{- end }}
       hostPID: true
       hostNetwork: true
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.nodeinit.priorityClassName "system-node-critical") }}
@@ -83,4 +79,16 @@ spec:
           - name: STARTUP_SCRIPT
             value: |
               {{- tpl (.Files.Get "files/nodeinit/startup.bash") . | nindent 14 }}
+      {{- with .Values.nodeinit.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeinit.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeinit.tolerations }}
+      tolerations:
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
 {{- end }}

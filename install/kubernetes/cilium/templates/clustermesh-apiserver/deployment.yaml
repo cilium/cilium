@@ -37,7 +37,7 @@ spec:
         imagePullPolicy: {{ .Values.clustermesh.apiserver.etcd.image.pullPolicy }}
         command: ["/bin/sh", "-c"]
         args:
-        - >
+        - |
           rm -rf /var/run/etcd/*;
           /usr/local/bin/etcd --data-dir=/var/run/etcd --name=clustermesh-apiserver --listen-client-urls=http://127.0.0.1:2379 --advertise-client-urls=http://127.0.0.1:2379 --initial-cluster-token=clustermesh-apiserver --initial-cluster-state=new --auto-compaction-retention=1 &
           export rootpw=`head /dev/urandom | tr -dc A-Za-z0-9 | head -c 16`;
@@ -151,6 +151,10 @@ spec:
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.clustermesh.apiserver.priorityClassName "system-cluster-critical") }}
       serviceAccount: {{ .Values.serviceAccounts.clustermeshApiserver.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.clustermeshApiserver.name | quote }}
+      {{- with .Values.clustermesh.apiserver.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- with .Values.clustermesh.apiserver.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

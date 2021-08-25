@@ -34,14 +34,6 @@ spec:
       priorityClassName: {{ .Values.hubble.ui.priorityClassName }}
       serviceAccount: {{ .Values.serviceAccounts.ui.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.ui.name | quote }}
-      {{- with .Values.hubble.ui.nodeSelector }}
-      nodeSelector:
-        {{- toYaml . | trim | nindent 8 }}
-      {{- end }}
-      {{- with .Values.hubble.ui.tolerations }}
-      tolerations:
-        {{- toYaml . | trim | nindent 8 }}
-      {{- end }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -113,6 +105,18 @@ spec:
         - name: hubble-ui-envoy-yaml
           mountPath: /etc/envoy.yaml
           subPath: envoy.yaml
+      {{- with .Values.hubble.ui.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.hubble.ui.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
+      {{- with .Values.hubble.ui.tolerations }}
+      tolerations:
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
       volumes:
       - name: hubble-ui-envoy-yaml
         configMap:
