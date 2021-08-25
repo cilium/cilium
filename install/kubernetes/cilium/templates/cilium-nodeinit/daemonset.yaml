@@ -70,6 +70,9 @@ spec:
                     {{- tpl (.Files.Get "files/nodeinit/prestop.bash") . | nindent 20 }}
           {{- end }}
           env:
+          {{- with .Values.nodeinit.extraEnv }}
+          {{- toYaml . | trim | nindent 10 }}
+          {{- end }}
           - name: CHECKPOINT_PATH
             value: /tmp/node-init.cilium.io
           # STARTUP_SCRIPT is the script run on node bootstrap. Node

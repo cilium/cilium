@@ -85,6 +85,7 @@ contributors across the globe, there is almost always someone available to help.
 | cluster.name | string | `"default"` | Name of the cluster. Only required for Cluster Mesh. |
 | clustermesh.apiserver.affinity | object | `{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"clustermesh-apiserver"}},"topologyKey":"kubernetes.io/hostname"}]}}` | Affinity for clustermesh.apiserver |
 | clustermesh.apiserver.etcd.image | object | `{"pullPolicy":"Always","repository":"quay.io/coreos/etcd","tag":"v3.4.13"}` | Clustermesh API server etcd image. |
+| clustermesh.apiserver.extraEnv | list | `[]` | Additional clustermesh-apiserver environment variables. |
 | clustermesh.apiserver.image | object | `{"digest":"","pullPolicy":"Always","repository":"quay.io/cilium/clustermesh-apiserver","tag":"latest","useDigest":false}` | Clustermesh API server image. |
 | clustermesh.apiserver.nodeSelector | object | `{}` | Node labels for pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/ |
 | clustermesh.apiserver.podAnnotations | object | `{}` | Annotations to be added to clustermesh-apiserver pods |
@@ -187,7 +188,7 @@ contributors across the globe, there is almost always someone available to help.
 | externalWorkloads.enabled | bool | `false` | Enable support for external workloads, such as VMs (false by default). |
 | extraArgs | list | `[]` | Additional agent container arguments. |
 | extraConfig | object | `{}` | extraConfig allows you to specify additional configuration parameters to be included in the cilium-config configmap. |
-| extraEnv | object | `{}` | Additional agent container environment variables. |
+| extraEnv | list | `[]` | Additional agent container environment variables. |
 | extraHostPathMounts | list | `[]` | Additional agent hostPath mounts. |
 | gke.enabled | bool | `false` | Enable Google Kubernetes Engine integration |
 | healthChecking | bool | `true` | Enable connectivity health checking. |
@@ -210,6 +211,7 @@ contributors across the globe, there is almost always someone available to help.
 | hubble.relay.affinity | object | `{"podAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium"}},"topologyKey":"kubernetes.io/hostname"}]}}` | Affinity for hubble-replay |
 | hubble.relay.dialTimeout | string | `nil` | Dial timeout to connect to the local hubble instance to receive peer information (e.g. "30s"). |
 | hubble.relay.enabled | bool | `false` | Enable Hubble Relay (requires hubble.enabled=true) |
+| hubble.relay.extraEnv | list | `[]` | Additional hubble-relay environment variables. |
 | hubble.relay.image | object | `{"digest":"","pullPolicy":"Always","repository":"quay.io/cilium/hubble-relay","tag":"latest","useDigest":false}` | Hubble-relay container image. |
 | hubble.relay.listenHost | string | `""` | Host to listen to. Specify an empty string to bind to all the interfaces. |
 | hubble.relay.listenPort | string | `"4245"` | Port to listen to. |
@@ -249,9 +251,11 @@ contributors across the globe, there is almost always someone available to help.
 | hubble.tls.server.extraDnsNames | list | `[]` | Extra DNS names added to certificate when it's auto generated |
 | hubble.tls.server.extraIpAddresses | list | `[]` | Extra IP addresses added to certificate when it's auto generated |
 | hubble.ui.affinity | object | `{}` | Affinity for hubble-ui |
+| hubble.ui.backend.extraEnv | list | `[]` | Additional hubble-ui backend environment variables. |
 | hubble.ui.backend.image | object | `{"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui-backend","tag":"latest"}` | Hubble-ui backend image. |
 | hubble.ui.backend.resources | object | `{}` | Resource requests and limits for the 'backend' container of the 'hubble-ui' deployment. |
 | hubble.ui.enabled | bool | `false` | Whether to enable the Hubble UI. |
+| hubble.ui.frontend.extraEnv | list | `[]` | Additional hubble-ui frontend environment variables. |
 | hubble.ui.frontend.image | object | `{"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui","tag":"latest"}` | Hubble-ui frontend image. |
 | hubble.ui.frontend.resources | object | `{}` | Resource requests and limits for the 'frontend' container of the 'hubble-ui' deployment. |
 | hubble.ui.ingress | object | `{"annotations":{},"className":"","enabled":false,"hosts":["chart-example.local"],"tls":[]}` | hubble-ui ingress configuration. |
@@ -262,6 +266,7 @@ contributors across the globe, there is almost always someone available to help.
 | hubble.ui.podDisruptionBudget.minAvailable | string | `nil` | Minimum number/percentage of pods that should remain scheduled. When it's set, maxUnavailable must be disabled by `maxUnavailable: null` |
 | hubble.ui.podLabels | object | `{}` | Labels to be added to hubble-ui pods |
 | hubble.ui.priorityClassName | string | `""` | The priority class to use for hubble-ui |
+| hubble.ui.proxy.extraEnv | list | `[]` | Additional hubble-ui proxy environment variables. |
 | hubble.ui.proxy.image | object | `{"pullPolicy":"Always","repository":"docker.io/envoyproxy/envoy","tag":"v1.18.4@sha256:e5c2bb2870d0e59ce917a5100311813b4ede96ce4eb0c6bfa879e3fbe3e83935"}` | Hubble-ui ingress proxy image. |
 | hubble.ui.proxy.resources | object | `{}` | Resource requests and limits for the 'proxy' container of the 'hubble-ui' deployment. |
 | hubble.ui.replicas | int | `1` | The number of replicas of Hubble UI to deploy. |
@@ -312,7 +317,7 @@ contributors across the globe, there is almost always someone available to help.
 | nodeinit.affinity | object | `{}` | Affinity for cilium-nodeinit |
 | nodeinit.bootstrapFile | string | `"/tmp/cilium-bootstrap-time"` | bootstrapFile is the location of the file where the bootstrap timestamp is written by the node-init DaemonSet |
 | nodeinit.enabled | bool | `false` | Enable the node initialization DaemonSet |
-| nodeinit.extraEnv | object | `{}` | Additional nodeinit environment variables. |
+| nodeinit.extraEnv | list | `[]` | Additional nodeinit environment variables. |
 | nodeinit.image | object | `{"pullPolicy":"Always","repository":"quay.io/cilium/startup-script","tag":"62bfbe88c17778aad7bef9fa57ff9e2d4a9ba0d8"}` | node-init image. |
 | nodeinit.nodeSelector | object | `{}` | Node labels for nodeinit pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/ |
 | nodeinit.podAnnotations | object | `{}` | Annotations to be added to node-init pods. |
@@ -326,7 +331,7 @@ contributors across the globe, there is almost always someone available to help.
 | operator.enabled | bool | `true` | Enable the cilium-operator component (required). |
 | operator.endpointGCInterval | string | `"5m0s"` | Interval for endpoint garbage collection. |
 | operator.extraArgs | list | `[]` | Additional cilium-operator container arguments. |
-| operator.extraEnv | object | `{}` | Additional cilium-operator environment variables. |
+| operator.extraEnv | list | `[]` | Additional cilium-operator environment variables. |
 | operator.extraHostPathMounts | list | `[]` | Additional cilium-operator hostPath mounts. |
 | operator.identityGCInterval | string | `"15m0s"` | Interval for identity garbage collection. |
 | operator.identityHeartbeatTimeout | string | `"30m0s"` | Timeout for identity heartbeats. |
@@ -356,7 +361,7 @@ contributors across the globe, there is almost always someone available to help.
 | pprof.enabled | bool | `false` | Enable Go pprof debugging |
 | preflight.affinity | object | `{"podAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium"}},"topologyKey":"kubernetes.io/hostname"}]}}` | Affinity for cilium-preflight |
 | preflight.enabled | bool | `false` | Enable Cilium pre-flight resources (required for upgrade) |
-| preflight.extraEnv | object | `{}` | Additional preflight environment variables. |
+| preflight.extraEnv | list | `[]` | Additional preflight environment variables. |
 | preflight.image | object | `{"digest":"","pullPolicy":"Always","repository":"quay.io/cilium/cilium","tag":"latest","useDigest":false}` | Cilium pre-flight image. |
 | preflight.nodeSelector | object | `{}` | Node labels for preflight pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/ |
 | preflight.podAnnotations | object | `{}` | Annotations to be added to preflight pods |

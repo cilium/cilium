@@ -45,6 +45,10 @@ spec:
         ports:
         - name: http
           containerPort: 8080
+        {{- with .Values.hubble.ui.frontend.extraEnv }}
+        env:
+          {{- toYaml . | trim | nindent 12 }}
+        {{- end }}
         {{- with .Values.hubble.ui.frontend.resources }}
         resources:
           {{- toYaml . | trim | nindent 10 }}
@@ -72,6 +76,9 @@ spec:
         - name: FLOWS_API_ADDR
           value: "hubble-relay:80"
         {{- end }}
+        {{- with .Values.hubble.ui.backend.extraEnv }}
+        {{- toYaml . | trim | nindent 10 }}
+        {{- end }}
         ports:
         - name: grpc
           containerPort: 8090
@@ -88,19 +95,23 @@ spec:
       - name: proxy
         image: {{ include "cilium.image" .Values.hubble.ui.proxy.image | quote }}
         imagePullPolicy: {{ .Values.hubble.ui.proxy.image.pullPolicy }}
-        ports:
-        - name: http
-          containerPort: 8081
-        {{- with .Values.hubble.ui.proxy.resources }}
-        resources:
-          {{- toYaml . | trim | nindent 10 }}
-        {{- end }}
         command: [envoy]
         args:
         - -c
         - /etc/envoy.yaml
         - -l
         - info
+        ports:
+        - name: http
+          containerPort: 8081
+        {{- with .Values.hubble.ui.proxy.extraEnv }}
+        env:
+          {{- toYaml . | trim | nindent 12 }}
+        {{- end }}
+        {{- with .Values.hubble.ui.proxy.resources }}
+        resources:
+          {{- toYaml . | trim | nindent 10 }}
+        {{- end }}
         volumeMounts:
         - name: hubble-ui-envoy-yaml
           mountPath: /etc/envoy.yaml

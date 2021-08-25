@@ -140,10 +140,9 @@ spec:
               name: cilium-azure
               key: AZURE_CLIENT_SECRET
         {{- end }}
-        {{- range $key, $value := .Values.operator.extraEnv }}
-        - name: {{ $key }}
-          value: {{ $value }}
-        {{- end }}        
+        {{- with .Values.operator.extraEnv }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         {{- if .Values.operator.prometheus.enabled }}
         ports:
         - name: prometheus

@@ -55,6 +55,10 @@ spec:
               - /tmp/ready
             initialDelaySeconds: 5
             periodSeconds: 5
+          {{- with .Values.preflight.extraEnv }}
+          env:
+            {{- toYaml . | trim | nindent 12 }}
+          {{- end }}
           volumeMounts:
           - name: cilium-run
             mountPath: /var/run/cilium
@@ -114,6 +118,9 @@ spec:
             mountPath: /var/lib/etcd-secrets
             readOnly: true
           {{- end }}
+          {{- end }}
+          {{- with .Values.preflight.extraEnv }}
+          {{- toYaml . | trim | nindent 10 }}
           {{- end }}
         {{- end }}
       hostNetwork: true

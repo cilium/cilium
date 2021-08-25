@@ -126,6 +126,9 @@ spec:
             configMapKeyRef:
               name: cilium-config
               key: identity-allocation-mode
+        {{- with .Values.clustermesh.apiserver.extraEnv }}
+        {{- toYaml . | trim | nindent 8 }}
+        {{- end }}
         {{- with .Values.clustermesh.apiserver.resources }}
         resources:
           {{- toYaml . | nindent 10 }}
