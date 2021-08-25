@@ -178,7 +178,7 @@
      - int
      - ``1``
    * - clustermesh.apiserver.resources
-     - Resource requests and limits for the clustermesh-apiserver container of the clustermesh-apiserver deployment, such as     resources:       limits:         cpu: 1000m         memory: 1024M       requests:         cpu: 100m         memory: 64Mi
+     - Resource requests and limits for the clustermesh-apiserver
      - object
      - ``{}``
    * - clustermesh.apiserver.service.annotations

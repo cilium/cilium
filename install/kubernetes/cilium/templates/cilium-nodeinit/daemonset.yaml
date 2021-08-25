@@ -82,6 +82,10 @@ spec:
           - name: STARTUP_SCRIPT
             value: |
               {{- tpl (.Files.Get "files/nodeinit/startup.bash") . | nindent 14 }}
+          {{- with .Values.nodeinit.resources }}
+          resources:
+            {{- toYaml . | trim | nindent 12 }}
+          {{- end }}
       {{- with .Values.nodeinit.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
