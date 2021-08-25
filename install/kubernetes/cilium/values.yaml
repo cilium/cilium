@@ -1292,14 +1292,6 @@ etcd:
   # -- Additional InitContainers to initialize the pod.
   extraInitContainers: []
 
-  # -- Additional cilium-etcd-operator hostPath mounts.
-  extraHostPathMounts: []
-    # - name: textfile-dir
-    #   mountPath: /srv/txt_collector
-    #   hostPath: /var/lib/cilium-etcd-operator
-    #   readOnly: true
-    #   mountPropagation: HostToContainer
-
   # -- Node tolerations for cilium-etcd-operator scheduling to nodes with taints
   # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
   tolerations:
@@ -1531,14 +1523,6 @@ nodeinit:
   # -- Additional nodeinit init containers.
   extraInitContainers: []
 
-  # -- Additional nodeinit host path mounts.
-  extraHostPathMounts: []
-    # - name: textfile-dir
-    #   mountPath: /srv/txt_collector
-    #   hostPath: /var/lib/nodeinit
-    #   readOnly: true
-    #   mountPropagation: HostToContainer
-
   # -- Node tolerations for nodeinit scheduling to nodes with taints
   # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
   tolerations:
@@ -1598,14 +1582,6 @@ preflight:
 
   # -- Additional preflight init containers.
   extraInitContainers: []
-
-  # -- Additional preflight host path mounts.
-  extraHostPathMounts: []
-    # - name: textfile-dir
-    #   mountPath: /srv/txt_collector
-    #   hostPath: /var/lib/preflight
-    #   readOnly: true
-    #   mountPropagation: HostToContainer
 
   # -- Node tolerations for preflight scheduling to nodes with taints
   # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
