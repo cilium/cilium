@@ -829,16 +829,14 @@ hubble:
       # -- Additional hubble-ui backend environment variables.
       extraEnv: []
 
-      # [Example]
-      # resources:
+      # -- Resource requests and limits for the 'backend' container of the 'hubble-ui' deployment.
+      resources: {}
       #   limits:
       #     cpu: 1000m
       #     memory: 1024M
       #   requests:
       #     cpu: 100m
       #     memory: 64Mi
-      # -- Resource requests and limits for the 'backend' container of the 'hubble-ui' deployment.
-      resources: {}
 
     frontend:
       # -- Hubble-ui frontend image.
@@ -850,16 +848,14 @@ hubble:
       # -- Additional hubble-ui frontend environment variables.
       extraEnv: []
 
-      # [Example]
-      # resources:
+      # -- Resource requests and limits for the 'frontend' container of the 'hubble-ui' deployment.
+      resources: {}
       #   limits:
       #     cpu: 1000m
       #     memory: 1024M
       #   requests:
       #     cpu: 100m
       #     memory: 64Mi
-      # -- Resource requests and limits for the 'frontend' container of the 'hubble-ui' deployment.
-      resources: {}
 
     proxy:
       # -- Hubble-ui ingress proxy image.
@@ -871,16 +867,14 @@ hubble:
       # -- Additional hubble-ui proxy environment variables.
       extraEnv: []
 
-      # [Example]
-      # resources:
+      # -- Resource requests and limits for the 'proxy' container of the 'hubble-ui' deployment.
+      resources: {}
       #   limits:
       #     cpu: 1000m
       #     memory: 1024M
       #   requests:
       #     cpu: 100m
       #     memory: 64Mi
-      # -- Resource requests and limits for the 'proxy' container of the 'hubble-ui' deployment.
-      resources: {}
 
     # -- The number of replicas of Hubble UI to deploy.
     replicas: 1
@@ -1733,7 +1727,14 @@ clustermesh:
     #       requests:
     #         cpu: 100m
     #         memory: 64Mi
+    # -- Resource requests and limits for the clustermesh-apiserver
     resources: {}
+      # requests:
+      #   cpu: 100m
+      #   memory: 64Mi
+      # limits:
+      #   cpu: 1000m
+      #   memory: 1024M
 
     # -- Affinity for clustermesh.apiserver
     affinity:

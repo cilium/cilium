@@ -72,6 +72,10 @@ spec:
             readOnly: true
           {{- end }}
           {{- end }}
+          {{- with .Values.preflight.resources }}
+          resources:
+            {{- toYaml . | trim | nindent 12 }}
+          {{- end }}
         {{- if ne .Values.preflight.tofqdnsPreCache "" }}
         - name: cilium-pre-flight-fqdn-precache
           image: {{ include "cilium.image" .Values.preflight.image | quote }}
@@ -121,6 +125,10 @@ spec:
           {{- end }}
           {{- with .Values.preflight.extraEnv }}
           {{- toYaml . | trim | nindent 10 }}
+          {{- end }}
+          {{- with .Values.preflight.resources }}
+          resources:
+            {{- toYaml . | trim | nindent 12 }}
           {{- end }}
         {{- end }}
       hostNetwork: true
