@@ -183,8 +183,8 @@ contributors across the globe, there is almost always someone available to help.
 | healthPort | int | `9876` | TCP port for the agent health API. This is not the port for cilium-health. |
 | hostFirewall | bool | `false` | Enables the enforcement of host policies in the eBPF datapath. |
 | hostPort.enabled | bool | `false` | Enable hostPort service support. |
-| hostServices | object | `{"enabled":false}` | Configure socket-lb. |
-| hostServices.enabled | bool | `false` | Enable host reachable services. |
+| hostServices | object | `{"enabled":false}` | Configure socket-lb (deprecated in favor of socketLB). |
+| hostServices.enabled | bool | `false` | Enable host reachable services (deprecated in favor of socketLB). |
 | hubble.enabled | bool | `true` | Enable Hubble (true by default). |
 | hubble.listenAddress | string | `":4244"` | An additional address for Hubble to listen to. Set this field ":4244" if you are enabling Hubble Relay, as it assumes that Hubble is listening on port 4244. |
 | hubble.metrics | object | `{"enabled":null,"port":9091,"serviceMonitor":{"enabled":false}}` | Hubble metrics configuration. See https://docs.cilium.io/en/stable/configuration/metrics/#hubble-metrics for more comprehensive documentation about Hubble metrics. |
@@ -354,6 +354,8 @@ contributors across the globe, there is almost always someone available to help.
 | serviceAccounts.clustermeshcertgen | object | `{"annotations":{},"create":true,"name":"clustermesh-apiserver-generate-certs"}` | Clustermeshcertgen is used if clustermesh.apiserver.tls.auto.method=cronJob |
 | serviceAccounts.hubblecertgen | object | `{"annotations":{},"create":true,"name":"hubble-generate-certs"}` | Hubblecertgen is used if hubble.tls.auto.method=cronJob |
 | sleepAfterInit | bool | `false` | Do not run Cilium agent when running with clean mode. Useful to completely uninstall Cilium as it will stop Cilium from starting and create artifacts in the node. |
+| socketLB | object | `{"enabled":false}` | Configure socket-lb. |
+| socketLB.enabled | bool | `false` | Enable socket-lb. |
 | sockops | object | `{"enabled":false}` | Configure BPF socket operations configuration |
 | startupProbe.failureThreshold | int | `105` | failure threshold of startup probe. 105 x 2s translates to the old behaviour of the readiness probe (120s delay + 30 x 3s) |
 | startupProbe.periodSeconds | int | `2` | interval between checks of the startup probe |

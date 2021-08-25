@@ -522,9 +522,9 @@ hostPort:
   # -- Enable hostPort service support.
   enabled: false
 
-# -- Configure ClusterIP service handling in the host namespace (the node).
-hostServices:
-  # -- Enable host reachable services.
+# -- Configure socketLB.
+socketLB:
+  # -- Enable socketLB.
   enabled: false
 
 # -- Configure certificate generation for Hubble integration.
