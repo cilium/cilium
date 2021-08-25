@@ -245,7 +245,7 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 	if option.Config.EnableExternalIPs {
 		features.ExternalIPs.Enabled = true
 	}
-	if option.Config.EnableHostReachableServices {
+	if option.Config.EnableSocketLB {
 		features.HostReachableServices.Enabled = true
 	}
 	if option.Config.EnableSessionAffinity {

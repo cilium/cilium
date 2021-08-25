@@ -345,8 +345,13 @@ func init() {
 	flags.String(option.EgressMasqueradeInterfaces, "", "Limit egress masquerading to interface selector")
 	option.BindEnv(option.EgressMasqueradeInterfaces)
 
-	flags.Bool(option.EnableHostReachableServices, false, "Enable reachability of services for host applications")
+	flags.Bool(option.EnableSocketLB, false, "Enable socket-based LB (E/W)")
+	option.BindEnv(option.EnableSocketLB)
+
+	flags.Bool(option.EnableHostReachableServices, false, fmt.Sprintf("Enable reachability of services for host applications (deprecated; use --%s instead", option.EnableSocketLB))
 	option.BindEnv(option.EnableHostReachableServices)
+	flags.MarkHidden(option.EnableHostReachableServices)
+	flags.MarkDeprecated(option.EnableHostReachableServices, "This option will be removed in v1.12")
 
 	flags.Bool(option.EnableAutoDirectRoutingName, defaults.EnableAutoDirectRouting, "Enable automatic L2 routing between nodes")
 	option.BindEnv(option.EnableAutoDirectRoutingName)
@@ -1288,7 +1293,7 @@ func initEnv(cmd *cobra.Command) {
 		option.Config.LoadBalancerPMTUDiscovery =
 			option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled
 		option.Config.KubeProxyReplacement = option.KubeProxyReplacementPartial
-		option.Config.EnableHostReachableServices = true
+		option.Config.EnableSocketLB = true
 		option.Config.EnableHostPort = false
 		option.Config.EnableNodePort = true
 		option.Config.EnableExternalIPs = true

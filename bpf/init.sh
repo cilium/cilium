@@ -25,7 +25,7 @@ NATIVE_DEVS=$7
 HOST_DEV1=$8
 HOST_DEV2=$9
 MTU=${10}
-HOSTLB=${11}
+SOCKETLB=${11}
 HOSTLB_PEER=${12}
 CGROUP_ROOT=${13}
 BPFFS_ROOT=${14}
@@ -494,7 +494,7 @@ for iface in $(ip -o -a l | awk '{print $2}' | cut -d: -f1 | cut -d@ -f1 | grep 
 	done
 done
 
-if [ "$HOSTLB" = "true" ]; then
+if [ "$SOCKETLB" = "true" ]; then
 	if [ "$IP6_HOST" != "<nil>" ]; then
 		echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
 	fi

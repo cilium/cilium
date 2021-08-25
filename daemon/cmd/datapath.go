@@ -306,7 +306,7 @@ func (d *Daemon) initMaps() error {
 
 	pm := probes.NewProbeManager()
 	supportedMapTypes := pm.GetMapTypes()
-	createSockRevNatMaps := option.Config.EnableHostReachableServices && supportedMapTypes.HaveLruHashMapType
+	createSockRevNatMaps := option.Config.EnableSocketLB && supportedMapTypes.HaveLruHashMapType
 	if err := d.svc.InitMaps(option.Config.EnableIPv6, option.Config.EnableIPv4,
 		createSockRevNatMaps, option.Config.RestoreState); err != nil {
 		log.WithError(err).Fatal("Unable to initialize service maps")

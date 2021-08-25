@@ -436,8 +436,11 @@ const (
 	// IpvlanMasterDevice is the name of the IpvlanMasterDevice option
 	IpvlanMasterDevice = "ipvlan-master-device"
 
-	// EnableHostReachableServices is the name of the EnableHostReachableServices option
+	// EnableHostReachableServices is the name of the EnableHostReachableServices option (deprecated)
 	EnableHostReachableServices = "enable-host-reachable-services"
+
+	// EnableSocketLB enables socket-based loadbalancer (prev known as host-reachable services)
+	EnableSocketLB = "enable-socket-lb"
 
 	// TunnelName is the name of the Tunnel option
 	TunnelName = "tunnel"
@@ -1406,7 +1409,7 @@ type DaemonConfig struct {
 	Debug                         bool
 	DebugVerbose                  []string
 	DisableConntrack              bool
-	EnableHostReachableServices   bool
+	EnableSocketLB                bool
 	EnableHostServicesPeer        bool
 	EnablePolicy                  string
 	EnableTracing                 bool
@@ -2382,7 +2385,7 @@ func (c *DaemonConfig) Populate() {
 	c.DevicePreFilter = viper.GetString(PrefilterDevice)
 	c.DisableCiliumEndpointCRD = viper.GetBool(DisableCiliumEndpointCRDName)
 	c.EgressMasqueradeInterfaces = viper.GetString(EgressMasqueradeInterfaces)
-	c.EnableHostReachableServices = viper.GetBool(EnableHostReachableServices)
+	c.EnableSocketLB = viper.GetBool(EnableSocketLB) || viper.GetBool(EnableHostReachableServices)
 	c.EnableRemoteNodeIdentity = viper.GetBool(EnableRemoteNodeIdentity)
 	c.K8sHeartbeatTimeout = viper.GetDuration(K8sHeartbeatTimeout)
 	c.EnableBPFTProxy = viper.GetBool(EnableBPFTProxy)
@@ -3053,7 +3056,7 @@ func (c *DaemonConfig) KubeProxyReplacementFullyEnabled() bool {
 	return c.EnableHostPort &&
 		c.EnableNodePort &&
 		c.EnableExternalIPs &&
-		c.EnableHostReachableServices &&
+		c.EnableSocketLB &&
 		c.EnableSessionAffinity
 }
 

@@ -610,14 +610,13 @@ func DoesNotExistNodeWithoutCilium() bool {
 	return !ExistNodeWithoutCilium()
 }
 
-// HasHostReachableServices returns true if the given Cilium pod has host reachable
-// services are enabled.
-func (kub *Kubectl) HasHostReachableServices(pod string) bool {
+// HasSocketLB returns true if the given Cilium pod has socket-lb enabled.
+func (kub *Kubectl) HasSocketLB(pod string) bool {
 	status := kub.CiliumExecContext(context.TODO(), pod,
-		"cilium status -o jsonpath='{.kube-proxy-replacement.features.hostReachableServices.enabled}'")
+		"cilium status -o jsonpath='{.kube-proxy-replacement.features.socketLB.enabled}'")
 	status.ExpectSuccess("Failed to get status: %s", status.OutputPrettyPrint())
 	lines := status.ByLines()
-	Expect(len(lines)).ShouldNot(Equal(0), "Failed to get hostReachableServices status")
+	Expect(len(lines)).ShouldNot(Equal(0), "Failed to get socketLB status")
 
 	return strings.Contains(lines[0], "Enabled")
 }

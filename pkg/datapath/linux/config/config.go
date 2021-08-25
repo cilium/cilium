@@ -232,10 +232,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_EGRESS_GATEWAY"] = "1"
 	}
 
-	if option.Config.EnableHostReachableServices {
-		cDefinesMap["ENABLE_HOST_SERVICES"] = "1"
+	if option.Config.EnableSocketLB {
+		cDefinesMap["ENABLE_SOCKET_LB"] = "1"
 		if option.Config.EnableHostServicesPeer {
-			cDefinesMap["ENABLE_HOST_SERVICES_PEER"] = "1"
+			cDefinesMap["ENABLE_SOCKET_LB_PEER"] = "1"
 		}
 		if cookie, err := netns.GetNetNSCookie(); err == nil {
 			// When running in nested environments (e.g. Kind), cilium-agent does

@@ -50,11 +50,11 @@ func initKubeProxyReplacementOptions() (bool, error) {
 	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementDisabled {
 		log.Infof("Auto-disabling %q, %q, %q, %q, %q features and falling back to %q",
 			option.EnableNodePort, option.EnableExternalIPs,
-			option.EnableHostReachableServices, option.EnableHostPort,
+			option.EnableSocketLB, option.EnableHostPort,
 			option.EnableSessionAffinity, option.EnableHostLegacyRouting)
 
 		disableNodePort()
-		option.Config.EnableHostReachableServices = false
+		option.Config.EnableSocketLB = false
 		option.Config.EnableSessionAffinity = false
 
 		return false, nil
@@ -70,13 +70,13 @@ func initKubeProxyReplacementOptions() (bool, error) {
 
 		log.Infof("Trying to auto-enable %q, %q, %q, %q, %q features",
 			option.EnableNodePort, option.EnableExternalIPs,
-			option.EnableHostReachableServices, option.EnableHostPort,
+			option.EnableSocketLB, option.EnableHostPort,
 			option.EnableSessionAffinity)
 
 		option.Config.EnableHostPort = true
 		option.Config.EnableNodePort = true
 		option.Config.EnableExternalIPs = true
-		option.Config.EnableHostReachableServices = true
+		option.Config.EnableSocketLB = true
 		option.Config.EnableSessionAffinity = true
 	}
 
@@ -224,7 +224,7 @@ func initKubeProxyReplacementOptions() (bool, error) {
 		}
 	}
 
-	if option.Config.EnableHostReachableServices {
+	if option.Config.EnableSocketLB {
 		// Try to auto-load IPv6 module if it hasn't been done yet as there can
 		// be v4-in-v6 connections even if the agent has v6 support disabled.
 		probe.HaveIPv6Support()
@@ -240,22 +240,22 @@ func initKubeProxyReplacementOptions() (bool, error) {
 				option.Config.EnableHostServicesPeer = false
 			}
 		}
-		if option.Config.EnableHostReachableServices && option.Config.EnableIPv4 {
+		if option.Config.EnableSocketLB && option.Config.EnableIPv4 {
 			if err := probeCgroupSupportTCP(strict, true); err != nil {
 				return false, err
 			}
 		}
-		if option.Config.EnableHostReachableServices && option.Config.EnableIPv4 {
+		if option.Config.EnableSocketLB && option.Config.EnableIPv4 {
 			if err := probeCgroupSupportUDP(strict, true); err != nil {
 				return false, err
 			}
 		}
-		if option.Config.EnableHostReachableServices && option.Config.EnableIPv6 {
+		if option.Config.EnableSocketLB && option.Config.EnableIPv6 {
 			if err := probeCgroupSupportTCP(strict, false); err != nil {
 				return false, err
 			}
 		}
-		if option.Config.EnableHostReachableServices && option.Config.EnableIPv6 {
+		if option.Config.EnableSocketLB && option.Config.EnableIPv6 {
 			if err := probeCgroupSupportUDP(strict, false); err != nil {
 				return false, err
 			}
@@ -274,7 +274,7 @@ func initKubeProxyReplacementOptions() (bool, error) {
 
 		}
 	}
-	if option.Config.EnableSessionAffinity && option.Config.EnableHostReachableServices {
+	if option.Config.EnableSessionAffinity && option.Config.EnableSocketLB {
 		found1, found2 := false, false
 		if h := probesManager.GetHelpers("cgroup_sock"); h != nil {
 			_, found1 = h["bpf_get_netns_cookie"]
@@ -388,7 +388,7 @@ func probeCgroupSupportTCP(strict, ipv4 bool) error {
 		if strict {
 			return fmt.Errorf(msg)
 		} else {
-			option.Config.EnableHostReachableServices = false
+			option.Config.EnableSocketLB = false
 			log.WithError(err).Warn(msg + " Disabling the feature.")
 		}
 	}
@@ -413,7 +413,7 @@ func probeCgroupSupportUDP(strict, ipv4 bool) error {
 		if strict {
 			return fmt.Errorf(msg)
 		} else {
-			option.Config.EnableHostReachableServices = false
+			option.Config.EnableSocketLB = false
 			scopedLog.Warn(msg + " Disabling the feature.")
 		}
 	}
