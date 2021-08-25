@@ -123,9 +123,6 @@ extraArgs: []
 # -- Additional agent container environment variables.
 extraEnv: {}
 
-# -- Additional InitContainers to initialize the pod.
-extraInitContainers: []
-
 # -- Additional agent hostPath mounts.
 extraHostPathMounts: []
   # - name: host-mnt-data
@@ -1289,9 +1286,6 @@ etcd:
   # -- Additional cilium-etcd-operator container arguments.
   extraArgs: []
 
-  # -- Additional InitContainers to initialize the pod.
-  extraInitContainers: []
-
   # -- Node tolerations for cilium-etcd-operator scheduling to nodes with taints
   # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
   tolerations:
@@ -1417,9 +1411,6 @@ operator:
   # -- Additional cilium-operator environment variables.
   extraEnv: {}
 
-  # -- Additional InitContainers to initialize the pod.
-  extraInitContainers: []
-
   # -- Additional cilium-operator hostPath mounts.
   extraHostPathMounts: []
     # - name: host-mnt-data
@@ -1520,9 +1511,6 @@ nodeinit:
   # -- Additional nodeinit environment variables.
   extraEnv: {}
 
-  # -- Additional nodeinit init containers.
-  extraInitContainers: []
-
   # -- Node tolerations for nodeinit scheduling to nodes with taints
   # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
   tolerations:
@@ -1579,9 +1567,6 @@ preflight:
 
   # -- Additional preflight environment variables.
   extraEnv: {}
-
-  # -- Additional preflight init containers.
-  extraInitContainers: []
 
   # -- Node tolerations for preflight scheduling to nodes with taints
   # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/

@@ -465,10 +465,6 @@
      - Additional cilium-etcd-operator container arguments.
      - list
      - ``[]``
-   * - etcd.extraInitContainers
-     - Additional InitContainers to initialize the pod.
-     - list
-     - ``[]``
    * - etcd.image
      - cilium-etcd-operator image.
      - object
@@ -551,10 +547,6 @@
      - ``{}``
    * - extraHostPathMounts
      - Additional agent hostPath mounts.
-     - list
-     - ``[]``
-   * - extraInitContainers
-     - Additional InitContainers to initialize the pod.
      - list
      - ``[]``
    * - gke.enabled
@@ -1037,10 +1029,6 @@
      - Additional nodeinit environment variables.
      - object
      - ``{}``
-   * - nodeinit.extraInitContainers
-     - Additional nodeinit init containers.
-     - list
-     - ``[]``
    * - nodeinit.image
      - node-init image.
      - object
@@ -1099,10 +1087,6 @@
      - ``{}``
    * - operator.extraHostPathMounts
      - Additional cilium-operator hostPath mounts.
-     - list
-     - ``[]``
-   * - operator.extraInitContainers
-     - Additional InitContainers to initialize the pod.
      - list
      - ``[]``
    * - operator.identityGCInterval
@@ -1217,10 +1201,6 @@
      - Additional preflight environment variables.
      - object
      - ``{}``
-   * - preflight.extraInitContainers
-     - Additional preflight init containers.
-     - list
-     - ``[]``
    * - preflight.image
      - Cilium pre-flight image.
      - object
