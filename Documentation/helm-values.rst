@@ -10,9 +10,9 @@
      - Type
      - Default
    * - affinity
-     - Pod affinity for cilium-agent.
+     - Affinity for cilium-agent.
      - object
-     - ``{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"kubernetes.io/os","operator":"In","values":["linux"]}]},{"matchExpressions":[{"key":"beta.kubernetes.io/os","operator":"In","values":["linux"]}]}]}},"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchExpressions":[{"key":"k8s-app","operator":"In","values":["cilium"]}]},"topologyKey":"kubernetes.io/hostname"}]}}``
+     - ``{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium"}},"topologyKey":"kubernetes.io/hostname"}]}}``
    * - agent
      - Install the cilium agent resources.
      - bool
@@ -129,6 +129,10 @@
      - Name of the cluster. Only required for Cluster Mesh.
      - string
      - ``"default"``
+   * - clustermesh.apiserver.affinity
+     - Affinity for clustermesh.apiserver
+     - object
+     - ``{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"clustermesh-apiserver"}},"topologyKey":"kubernetes.io/hostname"}]}}``
    * - clustermesh.apiserver.etcd.image
      - Clustermesh API server etcd image.
      - object
@@ -621,6 +625,10 @@
      - Labels to add to ServiceMonitor hubble
      - object
      - ``{}``
+   * - hubble.relay.affinity
+     - Affinity for hubble-replay
+     - object
+     - ``{"podAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium"}},"topologyKey":"kubernetes.io/hostname"}]}}``
    * - hubble.relay.dialTimeout
      - Dial timeout to connect to the local hubble instance to receive peer information (e.g. "30s").
      - string
@@ -781,6 +789,10 @@
      - Extra IP addresses added to certificate when it's auto generated
      - list
      - ``[]``
+   * - hubble.ui.affinity
+     - Affinity for hubble-ui
+     - object
+     - ``{}``
    * - hubble.ui.backend.image
      - Hubble-ui backend image.
      - object
@@ -1017,6 +1029,14 @@
      - Enable the Cilium NodePort service implementation.
      - bool
      - ``false``
+   * - nodeSelector
+     - Node selector for cilium-agent.
+     - object
+     - ``{"kubernetes.io/os":"linux"}``
+   * - nodeinit.affinity
+     - Affinity for cilium-nodeinit
+     - object
+     - ``{}``
    * - nodeinit.bootstrapFile
      - bootstrapFile is the location of the file where the bootstrap timestamp is written by the node-init DaemonSet
      - string
@@ -1066,9 +1086,9 @@
      - object
      - ``{"type":"RollingUpdate"}``
    * - operator.affinity
-     - cilium-operator affinity
+     - Affinity for cilium-operator
      - object
-     - ``{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchExpressions":[{"key":"io.cilium/app","operator":"In","values":["operator"]}]},"topologyKey":"kubernetes.io/hostname"}]}}``
+     - ``{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"io.cilium/app":"operator"}},"topologyKey":"kubernetes.io/hostname"}]}}``
    * - operator.enabled
      - Enable the cilium-operator component (required).
      - bool
@@ -1193,6 +1213,10 @@
      - Enable Go pprof debugging
      - bool
      - ``false``
+   * - preflight.affinity
+     - Affinity for cilium-preflight
+     - object
+     - ``{"podAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium"}},"topologyKey":"kubernetes.io/hostname"}]}}``
    * - preflight.enabled
      - Enable Cilium pre-flight resources (required for upgrade)
      - bool
