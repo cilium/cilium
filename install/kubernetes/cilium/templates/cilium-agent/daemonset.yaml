@@ -334,12 +334,6 @@ spec:
           {{- toYaml . | trim | nindent 10 }}
         {{- end }}
       {{- end }}
-      {{- if and .Values.etcd.managed (not .Values.etcd.k8sService) }}
-      # In managed etcd mode, Cilium must be able to resolve the DNS name of
-      # the etcd service
-      dnsPolicy: ClusterFirstWithHostNet
-      {{- end }}
-      hostNetwork: true
       initContainers:
       {{- if .Values.cgroup.autoMount.enabled }}
       # Required to mount cgroup2 filesystem on the underlying Kubernetes node.
@@ -440,6 +434,16 @@ spec:
       serviceAccount: {{ .Values.serviceAccounts.cilium.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.cilium.name | quote }}
       terminationGracePeriodSeconds: 1
+      hostNetwork: true
+      {{- if and .Values.etcd.managed (not .Values.etcd.k8sService) }}
+      # In managed etcd mode, Cilium must be able to resolve the DNS name of
+      # the etcd service
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- end }}
+      {{- with .Values.hostAliases }}
+      hostAliases:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- with .Values.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
