@@ -9,8 +9,8 @@ spec:
   issuerRef:
     {{- toYaml .Values.hubble.tls.auto.certManagerIssuerRef | nindent 4 }}
   secretName: hubble-ui-client-certs
-  commonName: *.hubble-ui.cilium.io
+  commonName: "*.hubble-ui.cilium.io"
   dnsNames:
-  - *.hubble-ui.cilium.io
-  duration: {{ printf "%ds" .Values.hubble.tls.auto.certValidityDuration }}
+  - "*.hubble-ui.cilium.io"
+  duration: {{ printf "%dh" (mul .Values.hubble.tls.auto.certValidityDuration 24) }}
 {{- end }}

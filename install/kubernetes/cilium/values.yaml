@@ -648,6 +648,10 @@ hubble:
     server:
       cert: ""
       key: ""
+      # -- Extra DNS names added to certificate when it's auto generated
+      extraDnsNames: []
+      # -- Extra IP addresses added to certificate when it's auto generated
+      extraIpAddresses: []
 
   relay:
     # -- Enable Hubble Relay (requires hubble.enabled=true)
@@ -718,6 +722,10 @@ hubble:
         # These values need to be set manually if hubble.tls.auto.enabled is false.
         cert: ""
         key: ""
+        # -- extra DNS names added to certificate when its auto gen
+        extraDnsNames: []
+        # -- extra IP addresses added to certificate when its auto gen
+        extraIpAddresses: []
 
     # -- Dial timeout to connect to the local hubble instance to receive peer information (e.g. "30s").
     dialTimeout: ~
@@ -1698,6 +1706,10 @@ clustermesh:
       server:
         cert: ""
         key: ""
+        # -- Extra DNS names added to certificate when it's auto generated
+        extraDnsNames: []
+        # -- Extra IP addresses added to certificate when it's auto generated
+        extraIpAddresses: []
       # -- base64 encoded PEM values for the clustermesh-apiserver admin certificate and private key.
       # Used if 'auto' is not enabled.
       admin:
