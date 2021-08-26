@@ -416,6 +416,7 @@ type k8sClusterMeshImplementation interface {
 	CreateCiliumExternalWorkload(ctx context.Context, cew *ciliumv2.CiliumExternalWorkload, opts metav1.CreateOptions) (*ciliumv2.CiliumExternalWorkload, error)
 	DeleteCiliumExternalWorkload(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	GetRunningCiliumVersion(ctx context.Context, namespace string) (string, error)
+	ListCiliumEndpoints(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error)
 }
 
 type K8sClusterMesh struct {
