@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium-cli/defaults"
 
 	"github.com/cilium/cilium/api/v1/models"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/go-openapi/strfmt"
 	"gopkg.in/check.v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -34,10 +35,11 @@ var (
 )
 
 type k8sStatusMockClient struct {
-	daemonSet  map[string]*appsv1.DaemonSet
-	deployment map[string]*appsv1.Deployment
-	podList    map[string]*corev1.PodList
-	status     map[string]*models.StatusResponse
+	daemonSet          map[string]*appsv1.DaemonSet
+	deployment         map[string]*appsv1.Deployment
+	podList            map[string]*corev1.PodList
+	status             map[string]*models.StatusResponse
+	ciliumEndpointList map[string]*ciliumv2.CiliumEndpointList
 }
 
 func newK8sStatusMockClient() (c *k8sStatusMockClient) {
@@ -50,6 +52,7 @@ func (c *k8sStatusMockClient) reset() {
 	c.daemonSet = map[string]*appsv1.DaemonSet{}
 	c.podList = map[string]*corev1.PodList{}
 	c.status = map[string]*models.StatusResponse{}
+	c.ciliumEndpointList = map[string]*ciliumv2.CiliumEndpointList{}
 }
 
 func (c *k8sStatusMockClient) addPod(namespace, name, filter string, containers []corev1.Container, status corev1.PodStatus) {
@@ -131,6 +134,10 @@ func (c *k8sStatusMockClient) GetDeployment(ctx context.Context, namespace, name
 
 func (c *k8sStatusMockClient) ListPods(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.PodList, error) {
 	return c.podList[options.LabelSelector], nil
+}
+
+func (c *k8sStatusMockClient) ListCiliumEndpoints(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error) {
+	return c.ciliumEndpointList[options.LabelSelector], nil
 }
 
 func (c *k8sStatusMockClient) CiliumStatus(ctx context.Context, namespace, pod string) (*models.StatusResponse, error) {
