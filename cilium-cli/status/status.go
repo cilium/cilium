@@ -31,6 +31,15 @@ type MapCount map[string]int
 // MapMapCount is a map of MapCount indexed by string
 type MapMapCount map[string]MapCount
 
+// PodStateCount counts the number of pods in the k8s cluster
+type PodsCount struct {
+	// All is the number of all pods in the k8s cluster
+	All int
+
+	// ByCilium is the number of all the pods in the k8s cluster
+	ByCilium int
+}
+
 // PodStateCount counts the number of pods in a particular state
 type PodStateCount struct {
 	// Type is the type of deployment ("Deployment", "DaemonSet", ...)
@@ -77,6 +86,10 @@ type Status struct {
 	// desired, ready, available, and unavailable
 	PodState PodStateMap
 
+	// PodsCount is the number of pods in the k8s cluster
+	// all pods, and pods managed by cilium
+	PodsCount PodsCount
+
 	CiliumStatus CiliumStatusMap
 
 	// Errors is the aggregated errors and warnings of all pods of a
@@ -93,6 +106,7 @@ func newStatus() *Status {
 		ImageCount:   MapMapCount{},
 		PhaseCount:   MapMapCount{},
 		PodState:     PodStateMap{},
+		PodsCount:    PodsCount{},
 		CiliumStatus: CiliumStatusMap{},
 		Errors:       ErrorCountMapMap{},
 	}
@@ -257,6 +271,10 @@ func formatPhaseCount(m MapCount) string {
 	return strings.Join(items, ", ")
 }
 
+func formatPodsCount(count PodsCount) string {
+	return fmt.Sprintf("%d/%d managed by Cilium", count.ByCilium, count.All)
+}
+
 func (c PodStateCount) Format() string {
 	var items []string
 
@@ -314,6 +332,9 @@ func (s *Status) Format() string {
 		}
 	}
 
+	header := "Cluster Pods:"
+	fmt.Fprintf(w, "%s\t%s\n", header, formatPodsCount(s.PodsCount))
+
 	if len(s.ImageCount) > 0 {
 		header := "Image versions"
 		for name, imageCount := range s.ImageCount {
@@ -324,7 +345,7 @@ func (s *Status) Format() string {
 		}
 	}
 
-	header := "Errors:"
+	header = "Errors:"
 	for deployment, pods := range s.Errors {
 		for pod, a := range pods {
 			for _, err := range a.Errors {
