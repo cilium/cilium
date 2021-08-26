@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium-cli/defaults"
 
 	"github.com/cilium/cilium/api/v1/models"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/go-openapi/strfmt"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -46,6 +47,7 @@ type k8sImplementation interface {
 	GetDaemonSet(ctx context.Context, namespace, name string, options metav1.GetOptions) (*appsv1.DaemonSet, error)
 	GetDeployment(ctx context.Context, namespace, name string, options metav1.GetOptions) (*appsv1.Deployment, error)
 	ListPods(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.PodList, error)
+	ListCiliumEndpoints(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error)
 }
 
 func NewK8sStatusCollector(ctx context.Context, client k8sImplementation, params K8sStatusParameters) (*K8sStatusCollector, error) {
@@ -158,6 +160,38 @@ func (k *K8sStatusCollector) deploymentStatus(ctx context.Context, status *Statu
 	}
 
 	return false, nil
+}
+
+func (k *K8sStatusCollector) podCount(ctx context.Context, status *Status) error {
+	var numberAllPod, numberCiliumPod int
+
+	pods, err := k.client.ListPods(ctx, "", metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+
+	if pods != nil && len(pods.Items) != 0 {
+		for _, pod := range pods.Items {
+			if !pod.Spec.HostNetwork {
+				numberAllPod++
+			}
+		}
+	}
+
+	ciliumEps, err := k.client.ListCiliumEndpoints(ctx, "", metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+	if ciliumEps != nil {
+		numberCiliumPod = len(ciliumEps.Items)
+	}
+
+	status.PodsCount = PodsCount{
+		All:      numberAllPod,
+		ByCilium: numberCiliumPod,
+	}
+
+	return nil
 }
 
 func (k *K8sStatusCollector) daemonSetStatus(ctx context.Context, status *Status, name string) error {
@@ -375,6 +409,11 @@ func (k *K8sStatusCollector) status(ctx context.Context) (*Status, error) {
 		if err != nil {
 			status.CollectionError(err)
 		}
+	}
+
+	err = k.podCount(ctx, status)
+	if err != nil {
+		status.CollectionError(err)
 	}
 
 	return status, nil
