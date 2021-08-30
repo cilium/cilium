@@ -19,14 +19,17 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-egress")
 
 const (
 	PolicyMapName = "cilium_egress_policy_v4"
+	CtMapName     = "cilium_egress_ct_v4"
 
 	MaxPolicyEntries = 1 << 14
+	MaxCtEntries     = 1 << 18
 
 	MaxGatewayNodes = 64
 )
 
 var (
 	EgressPolicyMap *egressPolicyMap
+	EgressCtMap     *egressCtMap
 )
 
 // InsertEgressGateway adds a new egress gateway to the egress policy identified
@@ -72,6 +75,8 @@ func InsertEgressGateway(sourceIP net.IP, destCIDR net.IPNet, egressIP, gatewayI
 
 // RemoveEgressPolicy removes an egress policy identified by the (source IP,
 // destination CIDR) tuple.
+// In addition to removing the policy, this function removes also all CT entries
+// from the egress CT map which match the egress policy.
 func RemoveEgressPolicy(sourceIP net.IP, destCIDR net.IPNet) error {
 	log.WithFields(logrus.Fields{
 		logfields.SourceIP:        sourceIP,
@@ -96,11 +101,24 @@ func RemoveEgressPolicy(sourceIP net.IP, destCIDR net.IPNet) error {
 		return err
 	}
 
+	// Remove from the CT table all the connections that were directed to
+	// the egress gateway(s) we just deleted.
+	// Entries are deleted _after_ the policy is deleted otherwise we may
+	// end up creating entries which never get deleted.
+	for _, gatewayIP := range gatewayIPs {
+		if err = removeCtEntries(sourceIP, destCIDR, gatewayIP); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
 // RemoveEgressGateway removes a gateway IP from an egress policy identified by
 // the (source IP, destination CIDR) tuple.
+// In addition to removing the gateway IP, this function removes also all CT
+// entries from the egress CT map which match the egress policy for the given
+// gateway IP.
 func RemoveEgressGateway(sourceIP net.IP, destCIDR net.IPNet, gatewayIP net.IP) error {
 	log.WithFields(logrus.Fields{
 		logfields.SourceIP:        sourceIP,
@@ -146,15 +164,29 @@ func RemoveEgressGateway(sourceIP net.IP, destCIDR net.IPNet, gatewayIP net.IP) 
 		}
 	}
 
-	return nil
+	// Remove from the CT table all the connections that were directed to
+	// the egress gateway we just deleted.
+	// Entries are deleted _after_ the policy is updated/deleted otherwise
+	// we may end up creating entries which never get deleted.
+	return removeCtEntries(sourceIP, destCIDR, gatewayIP)
 }
 
-// InitEgressMaps initializes the egress policy map.
+// InitEgressMaps initializes the egress policy and CT maps.
 func InitEgressMaps() error {
-	return initEgressPolicyMap(PolicyMapName, true)
+	err := initEgressPolicyMap(PolicyMapName, true)
+	if err != nil {
+		return err
+	}
+
+	return initEgressCtMap(CtMapName, true)
 }
 
-// OpenEgressMaps initializes the egress policy map.
+// OpenEgressMaps initializes the egress policy and CT maps.
 func OpenEgressMaps() error {
-	return initEgressPolicyMap(PolicyMapName, false)
+	err := initEgressPolicyMap(PolicyMapName, false)
+	if err != nil {
+		return err
+	}
+
+	return initEgressCtMap(CtMapName, false)
 }

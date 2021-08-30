@@ -195,6 +195,14 @@ struct bpf_elf_map __section_maps EGRESS_POLICY_MAP = {
 	.max_elem	= EGRESS_POLICY_MAP_SIZE,
 	.flags		= BPF_F_NO_PREALLOC,
 };
+
+struct bpf_elf_map __section_maps EGRESS_CT_MAP = {
+	.type		= BPF_MAP_TYPE_LRU_HASH,
+	.size_key	= sizeof(struct ipv4_ct_tuple),
+	.size_value	= sizeof(struct egress_ct_entry),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= EGRESS_CT_MAP_SIZE,
+};
 #endif /* ENABLE_EGRESS_GATEWAY */
 
 #ifndef SKIP_CALLS_MAP

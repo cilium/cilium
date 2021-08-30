@@ -793,13 +793,31 @@ ct_recreate4:
 	{
 		struct endpoint_key key = {};
 
+		struct ipv4_ct_tuple ct_key = {};
+		struct egress_ct_entry *egress_ct;
+
 		struct egress_policy_key egress_key = {};
 		struct egress_policy_entry *egress_policy;
 		__be32 gateway_ip;
 
+		ret = fill_egress_ct_key(&ct_key, ctx, ip4, l4_off);
+		if (ret < 0)
+			return ret;
+
+		/* First, check if the connection is already in the egress CT map */
+		egress_ct = lookup_ip4_egress_ct(&ct_key);
+		if (egress_ct) {
+			/* If there's an entry, extract the IP of the gateway node from
+			 * the egress_ct struct and forward the packet to the gateway
+			 */
+			gateway_ip = egress_ct->gateway_ip;
+
+			goto do_egress_gateway_redirect;
+		}
+
 		fill_egress_key(&egress_key, ip4->saddr, ip4->daddr);
 
-		/* Lookup the (src IP, dst IP) tuple in the the egress policy map */
+		/* Otherwise, lookup the (src IP, dst IP) tuple in the the egress policy map */
 		egress_policy = lookup_ip4_egress_policy(&egress_key);
 		if (!egress_policy)
 			goto skip_egress_gateway;
@@ -809,6 +827,12 @@ ct_recreate4:
 		 */
 		gateway_ip = pick_egress_gateway(egress_policy);
 
+		/* And add an egress CT entry to pin the selected gateway node
+		 * for the connection
+		 */
+		update_egress_ct_entry(&ct_key, gateway_ip);
+
+do_egress_gateway_redirect:
 		/* Encap and redirect the packet to egress gateway node through a tunnel.
 		 * Even if the tunnel endpoint is on the same host, follow the same data
 		 * path to be consistent. In future, it can be optimized by directly

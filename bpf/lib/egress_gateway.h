@@ -21,6 +21,43 @@
 #define EGRESS_IPV4_PREFIX EGRESS_PREFIX_LEN(32)
 
 static __always_inline
+int fill_egress_ct_key(struct ipv4_ct_tuple *ct_key, struct __ctx_buff *ctx,
+		       const struct iphdr *ip4, int l4_off)
+{
+	struct {
+		__be16 sport;
+		__be16 dport;
+	} ports;
+
+	if (ctx_load_bytes(ctx, l4_off, &ports, 4) < 0)
+		return DROP_INVALID;
+
+	ct_key->saddr = ip4->saddr;
+	ct_key->daddr = ip4->daddr;
+	ct_key->nexthdr = ip4->protocol;
+	ct_key->sport = ports.sport;
+	ct_key->dport = ports.dport;
+
+	return 0;
+}
+
+static __always_inline
+struct egress_ct_entry *lookup_ip4_egress_ct(struct ipv4_ct_tuple *ct_key)
+{
+	return map_lookup_elem(&EGRESS_CT_MAP, ct_key);
+}
+
+static __always_inline
+void update_egress_ct_entry(struct ipv4_ct_tuple *ct_key, __be32 gateway)
+{
+	struct egress_ct_entry egress_ct = {
+		.gateway_ip = gateway
+	};
+
+	map_update_elem(&EGRESS_CT_MAP, ct_key, &egress_ct, 0);
+}
+
+static __always_inline
 void fill_egress_key(struct egress_policy_key *key, __be32 saddr, __be32 daddr)
 {
 	key->lpm_key.prefixlen = EGRESS_IPV4_PREFIX;
