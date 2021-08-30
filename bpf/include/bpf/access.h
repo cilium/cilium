@@ -7,10 +7,10 @@
 #include "compiler.h"
 
 #if !defined(__non_bpf_context) && defined(__bpf__)
-static __always_inline __maybe_unused __u16
-map_array_get_16(const __u16 *array, __u32 index, const __u32 limit)
+static __always_inline __maybe_unused __u32
+map_array_get_32(const __u32 *array, __u32 index, const __u32 limit)
 {
-	__u16 datum = 0;
+	__u32 datum = 0;
 
 	if (__builtin_constant_p(index) ||
 	    !__builtin_constant_p(limit))
@@ -21,10 +21,10 @@ map_array_get_16(const __u16 *array, __u32 index, const __u32 limit)
 	 * for this util function, so we never fail here, and returned datum is
 	 * always valid.
 	 */
-	asm volatile("%[index] <<= 1\n\t"
+	asm volatile("%[index] <<= 2\n\t"
 		     "if %[index] > %[limit] goto +1\n\t"
 		     "%[array] += %[index]\n\t"
-		     "%[datum] = *(u16 *)(%[array] + 0)\n\t"
+		     "%[datum] = *(u32 *)(%[array] + 0)\n\t"
 		     : [datum]"=r"(datum)
 		     : [limit]"i"(limit), [array]"r"(array), [index]"r"(index)
 		     : /* no clobbers */ );
@@ -32,6 +32,6 @@ map_array_get_16(const __u16 *array, __u32 index, const __u32 limit)
 	return datum;
 }
 #else
-# define map_array_get_16(array, index, limit)	__throw_build_bug()
+# define map_array_get_32(array, index, limit)	__throw_build_bug()
 #endif /* !__non_bpf_context && __bpf__ */
 #endif /* __BPF_ACCESS_H_ */

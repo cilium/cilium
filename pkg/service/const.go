@@ -17,5 +17,5 @@ const (
 
 	// MaxSetOfBackendID is maximum number of set of backendIDs IDs that can be
 	// stored in the local ID allocator.
-	MaxSetOfBackendID = uint32(0xFFFF)
+	MaxSetOfBackendID = uint32(0xFFFFFFFF)
 )

@@ -35,13 +35,13 @@ var (
 // LBMap is the interface describing methods for manipulating service maps.
 type LBMap interface {
 	UpsertService(*lbmap.UpsertServiceParams) error
-	UpsertMaglevLookupTable(uint16, map[string]uint16, bool) error
+	UpsertMaglevLookupTable(uint16, map[string]lb.BackendID, bool) error
 	IsMaglevLookupTableRecreated(bool) bool
 	DeleteService(lb.L3n4AddrID, int, bool) error
-	AddBackend(uint16, net.IP, uint16, bool) error
-	DeleteBackendByID(uint16, bool) error
-	AddAffinityMatch(uint16, uint16) error
-	DeleteAffinityMatch(uint16, uint16) error
+	AddBackend(lb.BackendID, net.IP, uint16, bool) error
+	DeleteBackendByID(lb.BackendID, bool) error
+	AddAffinityMatch(uint16, lb.BackendID) error
+	DeleteAffinityMatch(uint16, lb.BackendID) error
 	UpdateSourceRanges(uint16, []*cidr.CIDR, []*cidr.CIDR, bool) error
 	DumpServiceMaps() ([]*lb.SVC, []error)
 	DumpBackendMaps() ([]*lb.Backend, error)
@@ -176,6 +176,74 @@ func (s *Service) GetCurrentTs() time.Time {
 	return time.Now()
 }
 
+func (s *Service) populateBackendMapV2FromV1(ipv4, ipv6 bool) error {
+	const (
+		v4 = "ipv4"
+		v6 = "ipv6"
+	)
+
+	var (
+		err   error
+		v1Map *bpf.Map
+	)
+
+	enabled := map[string]bool{v4: ipv4, v6: ipv6}
+
+	for v, e := range enabled {
+		if !e {
+			continue
+		}
+
+		copyBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
+			var (
+				v2Map        *bpf.Map
+				v2BackendKey lbmap.BackendKey
+			)
+
+			if v == v4 {
+				backendKey := key.(lbmap.BackendKey)
+				v2Map = lbmap.Backend4MapV2
+				v2BackendKey = lbmap.NewBackend4KeyV2(backendKey.GetID())
+			} else {
+				backendKey := key.(lbmap.BackendKey)
+				v2Map = lbmap.Backend6MapV2
+				v2BackendKey = lbmap.NewBackend6KeyV2(backendKey.GetID())
+			}
+
+			err := v2Map.Update(v2BackendKey, value.DeepCopyMapValue())
+			if err != nil {
+				log.WithError(err).WithField(logfields.BPFMapName, v2Map.Name()).Warn("Error updating map")
+			}
+		}
+
+		if v == v4 {
+			v1Map = lbmap.Backend4Map
+		} else {
+			v1Map = lbmap.Backend6Map
+		}
+
+		err = v1Map.DumpWithCallback(copyBackendEntries)
+		if err != nil {
+			return fmt.Errorf("Unable to populate %s: %w", v1Map.Name(), err)
+		}
+
+		// V1 backend map will be removed from bpffs at this point,
+		// the map will be actually removed once the last program
+		// referencing it has been removed.
+		err = v1Map.Close()
+		if err != nil {
+			log.WithError(err).WithField(logfields.BPFMapName, v1Map.Name()).Warn("Error closing map")
+		}
+
+		err = v1Map.Unpin()
+		if err != nil {
+			log.WithError(err).WithField(logfields.BPFMapName, v1Map.Name()).Warn("Error unpinning map")
+		}
+
+	}
+	return nil
+}
+
 // InitMaps opens or creates BPF maps used by services.
 //
 // If restore is set to false, entries of the maps are removed.
@@ -183,29 +251,36 @@ func (s *Service) InitMaps(ipv6, ipv4, sockMaps, restore bool) error {
 	s.Lock()
 	defer s.Unlock()
 
+	var (
+		v1BackendMapExistsV4 bool
+		v1BackendMapExistsV6 bool
+	)
+
 	toOpen := []*bpf.Map{}
 	toDelete := []*bpf.Map{}
 	if ipv6 {
-		toOpen = append(toOpen, lbmap.Service6MapV2, lbmap.Backend6Map, lbmap.RevNat6Map)
+		toOpen = append(toOpen, lbmap.Service6MapV2, lbmap.Backend6MapV2, lbmap.RevNat6Map)
 		if !restore {
-			toDelete = append(toDelete, lbmap.Service6MapV2, lbmap.Backend6Map, lbmap.RevNat6Map)
+			toDelete = append(toDelete, lbmap.Service6MapV2, lbmap.Backend6MapV2, lbmap.RevNat6Map)
 		}
 		if sockMaps {
 			if err := lbmap.CreateSockRevNat6Map(); err != nil {
 				return err
 			}
 		}
+		v1BackendMapExistsV6 = lbmap.Backend6Map.Open() == nil
 	}
 	if ipv4 {
-		toOpen = append(toOpen, lbmap.Service4MapV2, lbmap.Backend4Map, lbmap.RevNat4Map)
+		toOpen = append(toOpen, lbmap.Service4MapV2, lbmap.Backend4MapV2, lbmap.RevNat4Map)
 		if !restore {
-			toDelete = append(toDelete, lbmap.Service4MapV2, lbmap.Backend4Map, lbmap.RevNat4Map)
+			toDelete = append(toDelete, lbmap.Service4MapV2, lbmap.Backend4MapV2, lbmap.RevNat4Map)
 		}
 		if sockMaps {
 			if err := lbmap.CreateSockRevNat4Map(); err != nil {
 				return err
 			}
 		}
+		v1BackendMapExistsV4 = lbmap.Backend4Map.Open() == nil
 	}
 
 	for _, m := range toOpen {
@@ -216,6 +291,13 @@ func (s *Service) InitMaps(ipv6, ipv4, sockMaps, restore bool) error {
 	for _, m := range toDelete {
 		if err := m.DeleteAll(); err != nil {
 			return err
+		}
+	}
+
+	if v1BackendMapExistsV4 || v1BackendMapExistsV6 {
+		log.Info("Backend map v1 exists. Migrating entries to backend map v2.")
+		if err := s.populateBackendMapV2FromV1(v1BackendMapExistsV4, v1BackendMapExistsV6); err != nil {
+			log.WithError(err).Warn("Error populating V2 map from V1 map, might interrupt existing connections during upgrade")
 		}
 	}
 
@@ -610,7 +692,7 @@ func (s *Service) deleteBackendsFromAffinityMatchMap(svcID lb.ID, backendIDs []l
 	}).Debug("Deleting backends from session affinity match")
 
 	for _, bID := range backendIDs {
-		if err := s.lbmap.DeleteAffinityMatch(uint16(svcID), uint16(bID)); err != nil {
+		if err := s.lbmap.DeleteAffinityMatch(uint16(svcID), bID); err != nil {
 			log.WithFields(logrus.Fields{
 				logfields.BackendID: bID,
 				logfields.ServiceID: svcID,
@@ -626,7 +708,7 @@ func (s *Service) addBackendsToAffinityMatchMap(svcID lb.ID, backendIDs []lb.Bac
 	}).Debug("Adding backends to affinity match map")
 
 	for _, bID := range backendIDs {
-		if err := s.lbmap.AddAffinityMatch(uint16(svcID), uint16(bID)); err != nil {
+		if err := s.lbmap.AddAffinityMatch(uint16(svcID), bID); err != nil {
 			log.WithFields(logrus.Fields{
 				logfields.BackendID: bID,
 				logfields.ServiceID: svcID,
@@ -696,16 +778,16 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 			logfields.L3n4Addr:  b.L3n4Addr,
 		}).Debug("Adding new backend")
 
-		if err := s.lbmap.AddBackend(uint16(b.ID), b.L3n4Addr.IP,
+		if err := s.lbmap.AddBackend(b.ID, b.L3n4Addr.IP,
 			b.L3n4Addr.L4Addr.Port, ipv6); err != nil {
 			return err
 		}
 	}
 
 	// Upsert service entries into BPF maps
-	backends := make(map[string]uint16, len(svc.backends))
+	backends := make(map[string]lb.BackendID, len(svc.backends))
 	for _, b := range svc.backends {
-		backends[b.String()] = uint16(b.ID)
+		backends[b.String()] = b.ID
 	}
 
 	p := &lbmap.UpsertServiceParams{
@@ -736,7 +818,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 		scopedLog.WithField(logfields.BackendID, id).
 			Debug("Removing obsolete backend")
 
-		if err := s.lbmap.DeleteBackendByID(uint16(id), ipv6); err != nil {
+		if err := s.lbmap.DeleteBackendByID(id, ipv6); err != nil {
 			log.WithError(err).WithField(logfields.BackendID, id).
 				Warn("Failed to remove backend from maps")
 		}
@@ -775,7 +857,7 @@ func (s *Service) deleteOrphanBackends() error {
 				Debug("Removing orphan backend")
 
 			DeleteBackendID(b.ID)
-			if err := s.lbmap.DeleteBackendByID(uint16(b.ID), b.L3n4Addr.IsIPv6()); err != nil {
+			if err := s.lbmap.DeleteBackendByID(b.ID, b.L3n4Addr.IsIPv6()); err != nil {
 				return fmt.Errorf("Unable to remove backend %d from map: %s", b.ID, err)
 			}
 			delete(s.backendByHash, hash)
@@ -835,9 +917,9 @@ func (s *Service) restoreServicesLocked() error {
 		if option.Config.DatapathMode == datapathOpt.DatapathModeLBOnly &&
 			newSVC.useMaglev() && s.lbmap.IsMaglevLookupTableRecreated(ipv6) {
 
-			backends := make(map[string]uint16, len(newSVC.backends))
+			backends := make(map[string]lb.BackendID, len(newSVC.backends))
 			for _, b := range newSVC.backends {
-				backends[b.String()] = uint16(b.ID)
+				backends[b.String()] = b.ID
 			}
 			if err := s.lbmap.UpsertMaglevLookupTable(uint16(newSVC.frontend.ID), backends, ipv6); err != nil {
 				return err
@@ -896,7 +978,7 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 		scopedLog.WithField(logfields.BackendID, id).
 			Debug("Deleting obsolete backend")
 
-		if err := s.lbmap.DeleteBackendByID(uint16(id), ipv6); err != nil {
+		if err := s.lbmap.DeleteBackendByID(id, ipv6); err != nil {
 			return err
 		}
 	}

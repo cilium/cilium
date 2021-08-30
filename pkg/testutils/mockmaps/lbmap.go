@@ -13,7 +13,7 @@ import (
 )
 
 type LBMockMap struct {
-	BackendByID      map[uint16]*lb.Backend
+	BackendByID      map[lb.BackendID]*lb.Backend
 	ServiceByID      map[uint16]*lb.SVC
 	AffinityMatch    lbmap.BackendIDByServiceIDSet
 	SourceRanges     lbmap.SourceRangeSetByServiceID
@@ -22,7 +22,7 @@ type LBMockMap struct {
 
 func NewLBMockMap() *LBMockMap {
 	return &LBMockMap{
-		BackendByID:      map[uint16]*lb.Backend{},
+		BackendByID:      map[lb.BackendID]*lb.Backend{},
 		ServiceByID:      map[uint16]*lb.SVC{},
 		AffinityMatch:    lbmap.BackendIDByServiceIDSet{},
 		SourceRanges:     lbmap.SourceRangeSetByServiceID{},
@@ -59,7 +59,7 @@ func (m *LBMockMap) UpsertService(p *lbmap.UpsertServiceParams) error {
 	return nil
 }
 
-func (m *LBMockMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]uint16, ipv6 bool) error {
+func (m *LBMockMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]lb.BackendID, ipv6 bool) error {
 	m.DummyMaglevTable[svcID] = len(backends)
 	return nil
 }
@@ -83,7 +83,7 @@ func (m *LBMockMap) DeleteService(addr lb.L3n4AddrID, backendCount int, maglev b
 	return nil
 }
 
-func (m *LBMockMap) AddBackend(id uint16, ip net.IP, port uint16, ipv6 bool) error {
+func (m *LBMockMap) AddBackend(id lb.BackendID, ip net.IP, port uint16, ipv6 bool) error {
 	if _, found := m.BackendByID[id]; found {
 		return fmt.Errorf("Backend %d already exists", id)
 	}
@@ -93,7 +93,7 @@ func (m *LBMockMap) AddBackend(id uint16, ip net.IP, port uint16, ipv6 bool) err
 	return nil
 }
 
-func (m *LBMockMap) DeleteBackendByID(id uint16, ipv6 bool) error {
+func (m *LBMockMap) DeleteBackendByID(id lb.BackendID, ipv6 bool) error {
 	if _, found := m.BackendByID[id]; !found {
 		return fmt.Errorf("Backend %d does not exist", id)
 	}
@@ -119,9 +119,9 @@ func (m *LBMockMap) DumpBackendMaps() ([]*lb.Backend, error) {
 	return list, nil
 }
 
-func (m *LBMockMap) AddAffinityMatch(revNATID uint16, backendID uint16) error {
+func (m *LBMockMap) AddAffinityMatch(revNATID uint16, backendID lb.BackendID) error {
 	if _, ok := m.AffinityMatch[revNATID]; !ok {
-		m.AffinityMatch[revNATID] = map[uint16]struct{}{}
+		m.AffinityMatch[revNATID] = map[lb.BackendID]struct{}{}
 	}
 	if _, ok := m.AffinityMatch[revNATID][backendID]; ok {
 		return fmt.Errorf("Backend %d already exists in %d affinity map",
@@ -131,7 +131,7 @@ func (m *LBMockMap) AddAffinityMatch(revNATID uint16, backendID uint16) error {
 	return nil
 }
 
-func (m *LBMockMap) DeleteAffinityMatch(revNATID uint16, backendID uint16) error {
+func (m *LBMockMap) DeleteAffinityMatch(revNATID uint16, backendID lb.BackendID) error {
 	if _, ok := m.AffinityMatch[revNATID]; !ok {
 		return fmt.Errorf("Affinity map for %d does not exist", revNATID)
 	}

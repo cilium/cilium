@@ -167,7 +167,7 @@ type RevNatValue interface {
 
 // BackendIDByServiceIDSet is the type of a set for checking whether a backend
 // belongs to a given service
-type BackendIDByServiceIDSet map[uint16]map[uint16]struct{} // svc ID => backend ID
+type BackendIDByServiceIDSet map[uint16]map[loadbalancer.BackendID]struct{} // svc ID => backend ID
 
 type SourceRangeSetByServiceID map[uint16][]*cidr.CIDR // svc ID => src range CIDRs
 
