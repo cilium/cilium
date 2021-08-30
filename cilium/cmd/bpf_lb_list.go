@@ -43,10 +43,10 @@ func dumpSVC(serviceList map[string][]string) {
 		id := key.(lbmap.BackendKey).GetID()
 		backendMap[id] = value.DeepCopyMapValue().(lbmap.BackendValue).ToHost()
 	}
-	if err := lbmap.Backend4Map.DumpWithCallbackIfExists(parseBackendEntry); err != nil {
+	if err := lbmap.Backend4MapV2.DumpWithCallbackIfExists(parseBackendEntry); err != nil {
 		Fatalf("Unable to dump IPv4 backends table: %s", err)
 	}
-	if err := lbmap.Backend6Map.DumpWithCallbackIfExists(parseBackendEntry); err != nil {
+	if err := lbmap.Backend6MapV2.DumpWithCallbackIfExists(parseBackendEntry); err != nil {
 		Fatalf("Unable to dump IPv6 backends table: %s", err)
 	}
 

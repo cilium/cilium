@@ -7,6 +7,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
 // maglevInnerMap is the internal representation of a maglev inner map.
@@ -22,7 +23,7 @@ type MaglevInnerKey struct {
 
 // MaglevInnerVal is the value of a maglev inner map.
 type MaglevInnerVal struct {
-	BackendIDs []uint16
+	BackendIDs []loadbalancer.BackendID
 }
 
 // newMaglevInnerMapSpec returns the spec for a maglev inner map.
@@ -31,7 +32,7 @@ func newMaglevInnerMapSpec(name string, tableSize uint32) *ebpf.MapSpec {
 		Name:       name,
 		Type:       ebpf.Array,
 		KeySize:    uint32(unsafe.Sizeof(MaglevInnerKey{})),
-		ValueSize:  uint32(unsafe.Sizeof(uint16(0)) * uintptr(tableSize)),
+		ValueSize:  uint32(unsafe.Sizeof(uint32(0)) * uintptr(tableSize)),
 		MaxEntries: 1,
 	}
 }
@@ -68,7 +69,7 @@ func MaglevInnerMapFromID(id int, tableSize uint32) (*maglevInnerMap, error) {
 // Lookup returns the value associated with a given key for a maglev inner map.
 func (m *maglevInnerMap) Lookup(key *MaglevInnerKey) (*MaglevInnerVal, error) {
 	value := &MaglevInnerVal{
-		BackendIDs: make([]uint16, m.tableSize),
+		BackendIDs: make([]loadbalancer.BackendID, m.tableSize),
 	}
 
 	if err := m.Map.Lookup(key, &value.BackendIDs); err != nil {

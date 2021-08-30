@@ -36,7 +36,7 @@ type LBBPFMap struct {
 	// Buffer used to avoid excessive allocations to temporarily store backend
 	// IDs. Concurrent access is protected by the
 	// pkg/service.go:(Service).UpsertService() lock.
-	maglevBackendIDsBuffer []uint16
+	maglevBackendIDsBuffer []loadbalancer.BackendID
 	maglevTableSize        uint64
 }
 
@@ -44,7 +44,7 @@ func New(maglev bool, maglevTableSize int) *LBBPFMap {
 	m := &LBBPFMap{}
 
 	if maglev {
-		m.maglevBackendIDsBuffer = make([]uint16, maglevTableSize)
+		m.maglevBackendIDsBuffer = make([]loadbalancer.BackendID, maglevTableSize)
 		m.maglevTableSize = uint64(maglevTableSize)
 	}
 
@@ -55,7 +55,7 @@ type UpsertServiceParams struct {
 	ID                        uint16
 	IP                        net.IP
 	Port                      uint16
-	Backends                  map[string]uint16
+	Backends                  map[string]loadbalancer.BackendID
 	PrevBackendCount          int
 	IPv6                      bool
 	Type                      loadbalancer.SVCType
@@ -96,7 +96,7 @@ func (lbmap *LBBPFMap) UpsertService(p *UpsertServiceParams) error {
 		}
 	}
 
-	backendIDs := make([]uint16, 0, len(p.Backends))
+	backendIDs := make([]loadbalancer.BackendID, 0, len(p.Backends))
 	for _, id := range p.Backends {
 		backendIDs = append(backendIDs, id)
 	}
@@ -151,7 +151,7 @@ func (lbmap *LBBPFMap) UpsertService(p *UpsertServiceParams) error {
 
 // UpsertMaglevLookupTable calculates Maglev lookup table for given backends, and
 // inserts into the Maglev BPF map.
-func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]uint16, ipv6 bool) error {
+func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]loadbalancer.BackendID, ipv6 bool) error {
 	backendNames := make([]string, 0, len(backends))
 	for name := range backends {
 		backendNames = append(backendNames, name)
@@ -214,7 +214,7 @@ func (*LBBPFMap) DeleteService(svc loadbalancer.L3n4AddrID, backendCount int, us
 }
 
 // AddBackend adds a backend into a BPF map.
-func (*LBBPFMap) AddBackend(id uint16, ip net.IP, port uint16, ipv6 bool) error {
+func (*LBBPFMap) AddBackend(id loadbalancer.BackendID, ip net.IP, port uint16, ipv6 bool) error {
 	var (
 		backend Backend
 		err     error
@@ -225,9 +225,9 @@ func (*LBBPFMap) AddBackend(id uint16, ip net.IP, port uint16, ipv6 bool) error 
 	}
 
 	if ipv6 {
-		backend, err = NewBackend6(loadbalancer.BackendID(id), ip, port, u8proto.ANY)
+		backend, err = NewBackend6V2(loadbalancer.BackendID(id), ip, port, u8proto.ANY)
 	} else {
-		backend, err = NewBackend4(loadbalancer.BackendID(id), ip, port, u8proto.ANY)
+		backend, err = NewBackend4V2(loadbalancer.BackendID(id), ip, port, u8proto.ANY)
 	}
 	if err != nil {
 		return fmt.Errorf("Unable to create backend (%d, %s, %d, %t): %s",
@@ -242,7 +242,7 @@ func (*LBBPFMap) AddBackend(id uint16, ip net.IP, port uint16, ipv6 bool) error 
 }
 
 // DeleteBackendByID removes a backend identified with the given ID from a BPF map.
-func (*LBBPFMap) DeleteBackendByID(id uint16, ipv6 bool) error {
+func (*LBBPFMap) DeleteBackendByID(id loadbalancer.BackendID, ipv6 bool) error {
 	var key BackendKey
 
 	if id == 0 {
@@ -250,9 +250,9 @@ func (*LBBPFMap) DeleteBackendByID(id uint16, ipv6 bool) error {
 	}
 
 	if ipv6 {
-		key = NewBackend6Key(loadbalancer.BackendID(id))
+		key = NewBackend6KeyV2(loadbalancer.BackendID(id))
 	} else {
-		key = NewBackend4Key(loadbalancer.BackendID(id))
+		key = NewBackend4KeyV2(loadbalancer.BackendID(id))
 	}
 
 	if err := deleteBackendLocked(key); err != nil {
@@ -264,15 +264,15 @@ func (*LBBPFMap) DeleteBackendByID(id uint16, ipv6 bool) error {
 
 // DeleteAffinityMatch removes the affinity match for the given svc and backend ID
 // tuple from the BPF map
-func (*LBBPFMap) DeleteAffinityMatch(revNATID uint16, backendID uint16) error {
+func (*LBBPFMap) DeleteAffinityMatch(revNATID uint16, backendID loadbalancer.BackendID) error {
 	return AffinityMatchMap.Delete(
-		NewAffinityMatchKey(revNATID, uint32(backendID)).ToNetwork())
+		NewAffinityMatchKey(revNATID, backendID).ToNetwork())
 }
 
 // AddAffinityMatch adds the given affinity match to the BPF map.
-func (*LBBPFMap) AddAffinityMatch(revNATID uint16, backendID uint16) error {
+func (*LBBPFMap) AddAffinityMatch(revNATID uint16, backendID loadbalancer.BackendID) error {
 	return AffinityMatchMap.Update(
-		NewAffinityMatchKey(revNATID, uint32(backendID)).ToNetwork(),
+		NewAffinityMatchKey(revNATID, backendID).ToNetwork(),
 		&AffinityMatchValue{})
 }
 
@@ -284,10 +284,10 @@ func (*LBBPFMap) DumpAffinityMatches() (BackendIDByServiceIDSet, error) {
 	parse := func(key bpf.MapKey, value bpf.MapValue) {
 		matchKey := key.DeepCopyMapKey().(*AffinityMatchKey).ToHost()
 		svcID := matchKey.RevNATID
-		backendID := uint16(matchKey.BackendID) // currently backend_id is u16
+		backendID := matchKey.BackendID
 
 		if _, ok := matches[svcID]; !ok {
-			matches[svcID] = map[uint16]struct{}{}
+			matches[svcID] = map[loadbalancer.BackendID]struct{}{}
 		}
 		matches[svcID][backendID] = struct{}{}
 	}
@@ -415,7 +415,7 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 	if option.Config.EnableIPv4 {
 		// TODO(brb) optimization: instead of dumping the backend map, we can
 		// pass its content to the function.
-		err := Backend4Map.DumpWithCallback(parseBackendEntries)
+		err := Backend4MapV2.DumpWithCallback(parseBackendEntries)
 		if err != nil {
 			errors = append(errors, err)
 		}
@@ -427,7 +427,7 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 
 	if option.Config.EnableIPv6 {
 		// TODO(brb) same ^^ optimization applies here as well.
-		err := Backend6Map.DumpWithCallback(parseBackendEntries)
+		err := Backend6MapV2.DumpWithCallback(parseBackendEntries)
 		if err != nil {
 			errors = append(errors, err)
 		}
@@ -465,14 +465,14 @@ func (*LBBPFMap) DumpBackendMaps() ([]*loadbalancer.Backend, error) {
 	}
 
 	if option.Config.EnableIPv4 {
-		err := Backend4Map.DumpWithCallback(parseBackendEntries)
+		err := Backend4MapV2.DumpWithCallback(parseBackendEntries)
 		if err != nil {
 			return nil, fmt.Errorf("Unable to dump lb4 backends map: %s", err)
 		}
 	}
 
 	if option.Config.EnableIPv6 {
-		err := Backend6Map.DumpWithCallback(parseBackendEntries)
+		err := Backend6MapV2.DumpWithCallback(parseBackendEntries)
 		if err != nil {
 			return nil, fmt.Errorf("Unable to dump lb6 backends map: %s", err)
 		}
@@ -533,6 +533,7 @@ func updateBackend(backend Backend) error {
 	if _, err := backend.Map().OpenOrCreate(); err != nil {
 		return err
 	}
+
 	return backend.Map().Update(backend.GetKey(), backend.GetValue().ToNetwork())
 }
 

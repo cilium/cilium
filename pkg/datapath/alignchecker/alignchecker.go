@@ -95,6 +95,8 @@ func CheckStructAlignments(path string) error {
 			reflect.TypeOf(lbmap.RevNat6Key{}),
 		},
 		"__u32": {
+			reflect.TypeOf(lbmap.Backend4KeyV2{}),
+			reflect.TypeOf(lbmap.Backend6KeyV2{}),
 			reflect.TypeOf(signalmap.Key{}),
 			reflect.TypeOf(signalmap.Value{}),
 			reflect.TypeOf(eventsmap.Key{}),

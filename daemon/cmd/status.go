@@ -325,11 +325,11 @@ func (d *Daemon) getBPFMapStatus() *models.BPFMapStatus {
 				Size: int64(lbmap.MaxEntries),
 			},
 			{
-				Name: "IPv4 service backend", // cilium_lb4_backends
+				Name: "IPv4 service backend", // cilium_lb4_backends_v2
 				Size: int64(lbmap.MaxEntries),
 			},
 			{
-				Name: "IPv6 service backend", // cilium_lb6_backends
+				Name: "IPv6 service backend", // cilium_lb6_backends_v2
 				Size: int64(lbmap.MaxEntries),
 			},
 			{

@@ -339,7 +339,7 @@ func (m *ManagerTestSuite) TestRestoreServices(c *C) {
 	c.Assert(len(matches), Equals, 1) // only the id2 svc has session affinity
 	c.Assert(len(matches[uint16(id2)]), Equals, 2)
 	for _, b := range lbmap.ServiceByID[uint16(id2)].Backends {
-		c.Assert(m.lbmap.AffinityMatch[uint16(id1)][uint16(b.ID)], Equals, struct{}{})
+		c.Assert(m.lbmap.AffinityMatch[uint16(id1)][b.ID], Equals, struct{}{})
 	}
 
 }
