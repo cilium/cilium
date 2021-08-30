@@ -34,6 +34,7 @@ type Parameters struct {
 	Verbose               bool
 	Debug                 bool
 	PauseOnFail           bool
+	SkipIPCacheCheck      bool
 }
 
 func (p Parameters) ciliumEndpointTimeout() time.Duration {
