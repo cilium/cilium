@@ -791,27 +791,38 @@ ct_recreate4:
 
 #ifdef ENABLE_EGRESS_GATEWAY
 	{
-		struct egress_info *info;
 		struct endpoint_key key = {};
 
-		info = lookup_ip4_egress_endpoint(ip4->saddr, ip4->daddr);
-		if (!info)
+		struct egress_policy_key egress_key = {};
+		struct egress_policy_entry *egress_policy;
+		__be32 gateway_ip;
+
+		fill_egress_key(&egress_key, ip4->saddr, ip4->daddr);
+
+		/* Lookup the (src IP, dst IP) tuple in the the egress policy map */
+		egress_policy = lookup_ip4_egress_policy(&egress_key);
+		if (!egress_policy)
 			goto skip_egress_gateway;
+
+		/* If there's a policy for the tuple, pick a random gateway from
+		 * the list of gateways
+		 */
+		gateway_ip = pick_egress_gateway(egress_policy);
 
 		/* Encap and redirect the packet to egress gateway node through a tunnel.
 		 * Even if the tunnel endpoint is on the same host, follow the same data
 		 * path to be consistent. In future, it can be optimized by directly
 		 * direct to external interface.
 		 */
-		ret = encap_and_redirect_lxc(ctx, info->tunnel_endpoint, encrypt_key,
-					     &key, SECLABEL, monitor);
+		ret = encap_and_redirect_lxc(ctx, gateway_ip, encrypt_key, &key,
+					     SECLABEL, monitor);
 		if (ret == IPSEC_ENDPOINT)
 			goto encrypt_to_stack;
 		else
 			return ret;
 	}
 skip_egress_gateway:
-#endif
+#endif /* ENABLE_EGRESS_GATEWAY */
 
 #ifdef TUNNEL_MODE
 # ifdef ENABLE_WIREGUARD

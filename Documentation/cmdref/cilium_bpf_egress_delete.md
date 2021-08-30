@@ -2,11 +2,11 @@
 
 ## cilium bpf egress delete
 
-Delete egress entries
+Delete egress policy/gateway entries
 
 ### Synopsis
 
-Delete egress entries using source IP and destination CIDR.
+Delete egress policy/gateway entries using source IP and destination CIDR.
 
 
 ```

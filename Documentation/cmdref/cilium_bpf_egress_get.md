@@ -2,11 +2,11 @@
 
 ## cilium bpf egress get
 
-Get egress entries
+Get egress policy entry
 
 ### Synopsis
 
-Get egress entries using source and destination IPs.
+Get egress policy entries using source and destination IPs.
 
 
 ```

@@ -287,14 +287,7 @@ func (manager *Manager) updateEgressMap(ips []string, config *Config) error {
 	for _, ip := range ips {
 		sip := net.ParseIP(ip).To4()
 		for _, dstCIDR := range config.dstCIDRs {
-			key := egressmap.NewKey(sip, dstCIDR.IP, dstCIDR.Mask)
-			value := &egressmap.EgressInfo4{}
-			// As currently designed, the egressIP serves two purposes, one for forwarding traffic
-			// to the gateway node, the other for SNATing the egress traffic on the gateway.
-			copy(value.TunnelEndpoint[:], config.egressIP)
-			copy(value.EgressIP[:], config.egressIP)
-
-			err := egressmap.EgressMap.Update(&key, value)
+			err := egressmap.InsertEgressGateway(sip, *dstCIDR, config.egressIP, config.egressIP)
 			if err != nil {
 				return err
 			}
@@ -307,9 +300,7 @@ func (manager *Manager) deleteEgressMap(config *Config, epData *endpointMetadata
 	for _, ip := range epData.ips {
 		sip := net.ParseIP(ip).To4()
 		for _, dstCIDR := range config.dstCIDRs {
-			key := egressmap.NewKey(sip, dstCIDR.IP, dstCIDR.Mask)
-			err := egressmap.EgressMap.Delete(&key)
-			if err != nil {
+			if err := egressmap.RemoveEgressPolicy(sip, *dstCIDR); err != nil {
 				return err
 			}
 		}

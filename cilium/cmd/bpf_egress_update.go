@@ -19,42 +19,45 @@ const (
 )
 
 var bpfEgressUpdateCmd = &cobra.Command{
-	Args:    cobra.ExactArgs(4),
+	Args:    cobra.MinimumNArgs(4),
 	Use:     "update",
 	Short:   "Update egress entries",
 	Aliases: []string{"add"},
 	Long:    egressUpdateUsage,
 	Run: func(cmd *cobra.Command, args []string) {
-		common.RequireRootPrivilege("cilium bpf egress update <src_ip> <dest_cidr> <gw_ip> <egress_ip>")
+		common.RequireRootPrivilege("cilium bpf egress update <source IP> <destination CIDR> <egress IP> <gateway IPs>...")
 
-		sip := net.ParseIP(args[0]).To4()
-		if sip == nil {
-			Fatalf("Unable to parse IP '%s'", args[0])
+		egressmap.OpenEgressMaps()
+
+		sourceIP := net.ParseIP(args[0]).To4()
+		if sourceIP == nil {
+			Fatalf("Unable to parse source IP '%s'", args[0])
 		}
 
-		_, cidr, err := net.ParseCIDR(args[1])
+		_, destCIDR, err := net.ParseCIDR(args[1])
 		if err != nil {
-			Fatalf("error parsing cidr %s: %s", args[1], err)
+			Fatalf("Unable to parse destination CIDR '%s': %s", args[1], err)
 		}
 
-		gwip := net.ParseIP(args[2]).To4()
-		if gwip == nil {
-			Fatalf("Unable to parse IP '%s'", args[2])
+		egressIP := net.ParseIP(args[2]).To4()
+		if egressIP == nil {
+			Fatalf("Unable to parse egress IP '%s'", args[2])
 		}
 
-		eip := net.ParseIP(args[3]).To4()
-		if eip == nil {
-			Fatalf("Unable to parse IP '%s'", args[3])
+		gatewayIPs := []net.IP{}
+		for i := 3; i < len(args); i++ {
+			gatewayIP := net.ParseIP(args[i]).To4()
+			if gatewayIP == nil {
+				Fatalf("Unable to parse gateway IP '%s'", args[i])
+			}
+			gatewayIPs = append(gatewayIPs, gatewayIP)
 		}
 
-		key := egressmap.NewKey(sip, cidr.IP, cidr.Mask)
-		value := &egressmap.EgressInfo4{}
-		copy(value.TunnelEndpoint[:], gwip)
-		copy(value.EgressIP[:], eip)
-
-		if err := egressmap.EgressMap.Update(&key, value); err != nil {
-			fmt.Fprintf(os.Stderr, "error updating contents of map: %s\n", err)
-			os.Exit(1)
+		for _, gatewayIP := range gatewayIPs {
+			if err := egressmap.InsertEgressGateway(sourceIP, *destCIDR, egressIP, gatewayIP); err != nil {
+				fmt.Fprintf(os.Stderr, "Cannot update egress policy map: %s\n", err)
+				os.Exit(1)
+			}
 		}
 	},
 }

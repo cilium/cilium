@@ -21,8 +21,8 @@ Manage the egress routing rules
 ### SEE ALSO
 
 * [cilium bpf](../cilium_bpf)	 - Direct access to local BPF maps
-* [cilium bpf egress delete](../cilium_bpf_egress_delete)	 - Delete egress entries
-* [cilium bpf egress get](../cilium_bpf_egress_get)	 - Get egress entries
-* [cilium bpf egress list](../cilium_bpf_egress_list)	 - List egress entries
+* [cilium bpf egress delete](../cilium_bpf_egress_delete)	 - Delete egress policy/gateway entries
+* [cilium bpf egress get](../cilium_bpf_egress_get)	 - Get egress policy entry
+* [cilium bpf egress list](../cilium_bpf_egress_list)	 - List egress policy entries
 * [cilium bpf egress update](../cilium_bpf_egress_update)	 - Update egress entries
 

@@ -300,10 +300,6 @@ func (d *Daemon) initMaps() error {
 		return err
 	}
 
-	if _, err := egressmap.EgressMap.OpenOrCreate(); err != nil {
-		return err
-	}
-
 	pm := probes.NewProbeManager()
 	supportedMapTypes := pm.GetMapTypes()
 	createSockRevNatMaps := option.Config.EnableHostReachableServices &&
@@ -434,6 +430,12 @@ func (d *Daemon) initMaps() error {
 
 	if option.Config.NodePortAlg == option.NodePortAlgMaglev {
 		if err := lbmap.InitMaglevMaps(option.Config.EnableIPv4, option.Config.EnableIPv6, uint32(option.Config.MaglevTableSize)); err != nil {
+			return err
+		}
+	}
+
+	if option.Config.EnableEgressGateway {
+		if err := egressmap.InitEgressMaps(); err != nil {
 			return err
 		}
 	}

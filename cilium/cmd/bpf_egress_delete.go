@@ -13,31 +13,44 @@ import (
 )
 
 const (
-	egressDeleteUsage = "Delete egress entries using source IP and destination CIDR.\n"
+	egressDeleteUsage = "Delete egress policy/gateway entries using source IP and destination CIDR.\n"
 )
 
 var bpfEgressDeleteCmd = &cobra.Command{
-	Args:  cobra.ExactArgs(2),
+	Args:  cobra.MinimumNArgs(2),
 	Use:   "delete",
-	Short: "Delete egress entries",
+	Short: "Delete egress policy/gateway entries",
 	Long:  egressDeleteUsage,
 	Run: func(cmd *cobra.Command, args []string) {
-		common.RequireRootPrivilege("cilium bpf egress delete <src_ip> <dest_cidr>")
+		common.RequireRootPrivilege("cilium bpf egress delete <Source IP> <Destination CIDR> [<Gateway>..]")
+		egressmap.OpenEgressMaps()
 
-		sip := net.ParseIP(args[0]).To4()
-		if sip == nil {
-			Fatalf("Unable to parse IP '%s'", args[0])
+		sourceIP := net.ParseIP(args[0]).To4()
+		if sourceIP == nil {
+			Fatalf("Unable to parse source IP '%s'", args[0])
 		}
 
-		_, cidr, err := net.ParseCIDR(args[1])
+		_, destCIDR, err := net.ParseCIDR(args[1])
 		if err != nil {
-			Fatalf("error parsing cidr %s: %s", args[1], err)
+			Fatalf("Unable to parse destination CIDR '%s': %s", args[1], err)
 		}
 
-		key := egressmap.NewKey(sip, cidr.IP, cidr.Mask)
+		if len(args)-2 == 0 {
+			// No gateway IP(s) specified, delete the entire policy
+			if err := egressmap.RemoveEgressPolicy(sourceIP, *destCIDR); err != nil {
+				Fatalf("Error removing egress policy: %s\n", err)
+			}
+		} else {
+			for i := 2; i < len(args); i++ {
+				gatewayIP := net.ParseIP(args[i]).To4()
+				if gatewayIP == nil {
+					Fatalf("Unable to parse gateway IP '%s'", args[i])
+				}
 
-		if err := egressmap.EgressMap.Delete(&key); err != nil {
-			Fatalf("error deleting contents of map: %s\n", err)
+				if err := egressmap.RemoveEgressGateway(sourceIP, *destCIDR, gatewayIP); err != nil {
+					Fatalf("Error removing gateway from egress policy: %s\n", err)
+				}
+			}
 		}
 	},
 }

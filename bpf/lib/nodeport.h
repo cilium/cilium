@@ -1117,11 +1117,13 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 	 * cluster.
 	 */
 	if (1) {
-		struct egress_info *info;
+		struct egress_policy_key key = {};
+		struct egress_policy_entry *egress_policy;
 
-		info = lookup_ip4_egress_endpoint(ip4->saddr, ip4->daddr);
-		if (info && ctx->ifindex != ENCAP_IFINDEX) {
-			*addr = info->egress_ip;
+		fill_egress_key(&key, ip4->saddr, ip4->daddr);
+		egress_policy = lookup_ip4_egress_policy(&key);
+		if (egress_policy && ctx->ifindex != ENCAP_IFINDEX) {
+			*addr = egress_policy->egress_ip;
 			*from_endpoint = true;
 			return true;
 		}

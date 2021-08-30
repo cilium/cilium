@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 
@@ -15,41 +14,44 @@ import (
 )
 
 const (
-	egressGetUsage = "Get egress entries using source and destination IPs.\n"
+	egressGetUsage = "Get egress policy entries using source and destination IPs.\n"
 )
 
 var bpfEgressGetCmd = &cobra.Command{
 	Args:    cobra.ExactArgs(2),
 	Use:     "get",
-	Short:   "Get egress entries",
+	Short:   "Get egress policy entry",
 	Aliases: []string{"lookup"},
 	Long:    egressGetUsage,
 	Run: func(cmd *cobra.Command, args []string) {
-		common.RequireRootPrivilege("cilium bpf egress get <src_ip> <dest_ip>")
+		common.RequireRootPrivilege("cilium bpf egress get <source IP> <destination IP>")
 
-		var (
-			ipv4Mask = net.IPv4Mask(255, 255, 255, 255)
-			err      error
-			value    bpf.MapValue
-		)
+		egressmap.OpenEgressMaps()
 
-		sip := net.ParseIP(args[0]).To4()
-		if sip == nil {
-			Fatalf("Unable to parse IP '%s'", args[0])
+		sourceIP := net.ParseIP(args[0]).To4()
+		if sourceIP == nil {
+			Fatalf("Unable to parse source IP '%s'", args[0])
 		}
 
-		dip := net.ParseIP(args[1]).To4()
-		if dip == nil {
-			Fatalf("Unable to parse IP '%s'", args[1])
+		destIP := net.ParseIP(args[1]).To4()
+		if destIP == nil {
+			Fatalf("Unable to parse destination IP '%s'", args[1])
 		}
 
-		key := egressmap.NewKey(sip, dip, ipv4Mask)
-
-		if value, err = egressmap.EgressMap.Lookup(&key); err != nil {
-			Fatalf("error lookup contents of map: %s\n", err)
+		val, err := egressmap.EgressPolicyMap.Lookup(sourceIP, net.IPNet{
+			IP:   destIP,
+			Mask: net.IPv4Mask(255, 255, 255, 255),
+		})
+		if err != nil {
+			Fatalf("Error looking up egress policy map: %s\n", err)
 		}
 
-		fmt.Println(value.String())
+		fmt.Printf("Egress IP: %s\n", val.EgressIP)
+
+		fmt.Printf("Gateway IPs:\n")
+		for i := uint32(0); i < val.Size; i++ {
+			fmt.Printf("\t%s\n", val.GatewayIPs[i].String())
+		}
 	},
 }
 

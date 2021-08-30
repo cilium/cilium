@@ -131,3 +131,4 @@ LPM_LOOKUP_FN(lookup_ip4_remote_endpoint, __be32, IPCACHE4_PREFIXES,
 	ipcache_lookup4(&IPCACHE_MAP, addr, V4_CACHE_KEY_LEN)
 #endif /* HAVE_LPM_TRIE_MAP_TYPE */
 #endif /* __LIB_EPS_H_ */
+
