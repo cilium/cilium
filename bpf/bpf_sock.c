@@ -335,7 +335,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 {
 	union lb4_affinity_client_id id;
 	const bool in_hostns = ctx_in_hostns(ctx_full, &id.client_cookie);
-	struct lb4_backend *backend;
+	struct lb4_backend *backend = NULL;
 	struct lb4_service *svc;
 	struct lb4_key key = {
 		.address	= ctx->user_ip4,
@@ -368,32 +368,19 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 		return -EPERM;
 
 	if (lb4_svc_is_affinity(svc)) {
-		/* Note, for newly created affinity entries there is a
-		 * small race window. Two processes on two different
-		 * CPUs but the same netns may select different backends
-		 * for the same service:port. lb4_update_affinity_by_netns()
-		 * below would then override the first created one if it
-		 * didn't make it into the lookup yet for the other CPU.
+		backend_id = lb4_backend_id_by_affinity(svc, &id, true, &backend);
+	} else if (udp_only) {
+		/* When service affinity is disabled, select a backend for
+		 * an unconnected UDP client based on the socket cookie.
+		 * This is to ensure that once a backend is selected for a client
+		 * socket, we continue to select the same backend even when
+		 * the service backends are updated.
 		 */
-		backend_id = lb4_affinity_backend_id_by_netns(svc, &id);
-		backend_from_affinity = true;
-
-		if (backend_id != 0) {
-			backend = __lb4_lookup_backend(backend_id);
-			if (!backend)
-				/* Backend from the session affinity no longer
-				 * exists, thus select a new one. Also, remove
-				 * the affinity, so that if the svc doesn't have
-				 * any backend, a subsequent request to the svc
-				 * doesn't hit the reselection again.
-				 */
-				backend_id = 0;
-		}
+		id.sock_cookie = sock_local_cookie(ctx_full);
+		backend_id = lb4_backend_id_by_affinity(svc, &id, false, &backend);
 	}
 
 	if (backend_id == 0) {
-		backend_from_affinity = false;
-
 		key.backend_slot = (sock_select_slot(ctx_full) % svc->count) + 1;
 		backend_slot = __lb4_lookup_backend_slot(&key);
 		if (!backend_slot) {
@@ -403,6 +390,8 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 
 		backend_id = backend_slot->backend_id;
 		backend = __lb4_lookup_backend(backend_id);
+	} else {
+		backend_from_affinity = true;
 	}
 
 	if (!backend) {
@@ -414,8 +403,13 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	    sock4_skip_xlate_if_same_netns(ctx_full, backend))
 		return -ENXIO;
 
-	if (lb4_svc_is_affinity(svc) && !backend_from_affinity)
-		lb4_update_affinity_by_netns(svc, &id, backend_id);
+	if (!backend_from_affinity) {
+		if (lb4_svc_is_affinity(svc)) {
+			lb4_update_affinity_by_netns(svc, &id, backend_id);
+		} else if (udp_only) {
+			lb4_update_affinity_by_sock(svc, &id, backend_id);
+		}
+	}
 
 	if (sock4_update_revnat(ctx_full, backend, &orig_key,
 				svc->rev_nat_index) < 0) {
@@ -933,8 +927,8 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 {
 #ifdef ENABLE_IPV6
 	union lb6_affinity_client_id id;
-	const bool in_hostns = ctx_in_hostns(ctx, &id.client_cookie);
-	struct lb6_backend *backend;
+	const bool in_hostns = ctx_in_hostns(ctx, &id.client_netns_cookie);
+	struct lb6_backend *backend = NULL;
 	struct lb6_service *svc;
 	struct lb6_key key = {
 		.dport		= ctx_dst_port(ctx),
@@ -959,19 +953,19 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 		return -EPERM;
 
 	if (lb6_svc_is_affinity(svc)) {
-		backend_id = lb6_affinity_backend_id_by_netns(svc, &id);
-		backend_from_affinity = true;
-
-		if (backend_id != 0) {
-			backend = __lb6_lookup_backend(backend_id);
-			if (!backend)
-				backend_id = 0;
-		}
+		backend_id = lb6_backend_id_by_affinity(svc, &id, true, &backend);
+	} else if (udp_only) {
+		/* When service affinity is disabled, select a backend for
+		 * an unconnected UDP client based on the socket cookie.
+		 * This is to ensure that once a backend is selected for a client
+		 * socket, we continue to select the same backend even when
+		 * the service backends are updated.
+		 */
+		id.client_sock_cookie = sock_local_cookie(ctx);
+		backend_id = lb6_backend_id_by_affinity(svc, &id, false, &backend);
 	}
 
 	if (backend_id == 0) {
-		backend_from_affinity = false;
-
 		key.backend_slot = (sock_select_slot(ctx) % svc->count) + 1;
 		backend_slot = __lb6_lookup_backend_slot(&key);
 		if (!backend_slot) {
@@ -981,6 +975,8 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 
 		backend_id = backend_slot->backend_id;
 		backend = __lb6_lookup_backend(backend_id);
+	} else {
+		backend_from_affinity = true;
 	}
 
 	if (!backend) {
@@ -988,8 +984,13 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 		return -ENOENT;
 	}
 
-	if (lb6_svc_is_affinity(svc) && !backend_from_affinity)
-		lb6_update_affinity_by_netns(svc, &id, backend_id);
+	if (!backend_from_affinity) {
+		if (lb6_svc_is_affinity(svc)) {
+			lb6_update_affinity_by_netns(svc, &id, backend_id);
+		} else if (udp_only) {
+			lb6_update_affinity_by_sock(svc, &id, backend_id);
+		}
+	}
 
 	if (sock6_update_revnat(ctx, backend, &orig_key,
 				svc->rev_nat_index) < 0) {

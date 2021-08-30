@@ -826,28 +826,36 @@ struct ipv4_revnat_entry {
 
 union lb4_affinity_client_id {
 	__u32 client_ip;
-	__net_cookie client_cookie;
+	union {
+		__net_cookie client_cookie;
+		__sock_cookie sock_cookie;
+	};
 } __packed;
 
 struct lb4_affinity_key {
 	union lb4_affinity_client_id client_id;
 	__u16 rev_nat_id;
 	__u8 netns_cookie:1,
-	     reserved:7;
+	     sock_cookie:1,
+	     reserved:6;
 	__u8 pad1;
 	__u32 pad2;
 } __packed;
 
 union lb6_affinity_client_id {
 	union v6addr client_ip;
-	__net_cookie client_cookie;
+	union {
+		__net_cookie client_netns_cookie;
+		__sock_cookie client_sock_cookie;
+	};
 } __packed;
 
 struct lb6_affinity_key {
 	union lb6_affinity_client_id client_id;
 	__u16 rev_nat_id;
 	__u8 netns_cookie:1,
-	     reserved:7;
+	     sock_cookie: 1,
+	     reserved:6;
 	__u8 pad1;
 	__u32 pad2;
 } __packed;

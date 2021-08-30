@@ -758,6 +758,91 @@ lb6_update_affinity_by_netns(const struct lb6_service *svc __maybe_unused,
 #endif
 }
 
+static __always_inline __u32
+lb6_affinity_backend_id_by_sock(const struct lb6_service *svc __maybe_unused,
+				const union lb6_affinity_client_id *id __maybe_unused)
+{
+#if defined(ENABLE_SESSION_AFFINITY) && defined(BPF_HAVE_SOCKET_COOKIE)
+	struct lb6_affinity_key key;
+	struct lb_affinity_val *val;
+
+	memset(&key, 0, sizeof(key));
+	key.rev_nat_id   = svc->rev_nat_index;
+	key.sock_cookie  = 1;
+	key.client_id.client_sock_cookie    = id->client_sock_cookie;
+
+	val = map_lookup_elem(&LB6_AFFINITY_MAP, &key);
+	if (val != NULL) {
+		struct lb_affinity_match match = {
+				.rev_nat_id	= svc->rev_nat_index,
+				.backend_id	= val->backend_id,
+		};
+
+		if (!map_lookup_elem(&LB_AFFINITY_MATCH_MAP, &match)) {
+			map_delete_elem(&LB6_AFFINITY_MAP, &key);
+			return 0;
+		}
+
+		return val->backend_id;
+	}
+#endif /* ENABLE_SESSION_AFFINITY && BPF_HAVE_SOCKET_COOKIE */
+	return 0;
+}
+
+static __always_inline __u32
+lb6_backend_id_by_affinity(const struct lb6_service *svc __maybe_unused,
+					union lb6_affinity_client_id *id __maybe_unused,
+					const bool affinity_by_netns __maybe_unused,
+					struct lb6_backend **backend __maybe_unused)
+{
+	__u32 backend_id;
+
+	if (affinity_by_netns) {
+		/* Note, for newly created affinity entries there is a
+		 * small race window. Two processes on two different
+		 * CPUs but the same netns may select different backends
+		 * for the same service:port. lb6_update_affinity_by_netns()
+		 * below would then override the first created one if it
+		 * didn't make it into the lookup yet for the other CPU.
+		 */
+		backend_id = lb6_affinity_backend_id_by_netns(svc, id);
+	} else {
+		backend_id = lb6_affinity_backend_id_by_sock(svc, id);
+	}
+
+	if (backend_id != 0) {
+		*backend = __lb6_lookup_backend(backend_id);
+		if (!*backend)
+			/* Backend from the session affinity no longer
+			 * exists, thus select a new one. Also, remove
+			 * the affinity, so that if the svc doesn't have
+			 * any backend, a subsequent request to the svc
+			 * doesn't hit the reselection again.
+			 */
+			backend_id = 0;
+	}
+	return backend_id;
+};
+
+static __always_inline void
+lb6_update_affinity_by_sock(const struct lb6_service *svc __maybe_unused,
+			const union lb6_affinity_client_id *id __maybe_unused,
+			__u32 backend_id __maybe_unused)
+{
+#if defined(ENABLE_SESSION_AFFINITY) && defined(BPF_HAVE_SOCKET_COOKIE)
+	struct lb6_affinity_key key = {
+			.rev_nat_id	 = svc->rev_nat_index,
+			.sock_cookie = 1,
+			.client_id.client_sock_cookie	 = id->client_sock_cookie,
+	};
+	struct lb_affinity_val val = {
+			.backend_id	= backend_id,
+	};
+
+	map_update_elem(&LB6_AFFINITY_MAP, &key, &val, 0);
+#endif /* ENABLE_SESSION_AFFINITY && BPF_HAVE_SOCKET_COOKIE */
+}
+
 static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 				     int l3_off, int l4_off,
 				     struct csum_offset *csum_off,
@@ -1307,6 +1392,90 @@ lb4_update_affinity_by_netns(const struct lb4_service *svc __maybe_unused,
 #if defined(ENABLE_SESSION_AFFINITY)
 	__lb4_update_affinity(svc, true, id, backend_id);
 #endif
+}
+
+static __always_inline __u32
+lb4_affinity_backend_id_by_sock(const struct lb4_service *svc __maybe_unused,
+			const union lb4_affinity_client_id *id __maybe_unused)
+{
+#if defined(ENABLE_SESSION_AFFINITY) && defined(BPF_HAVE_SOCKET_COOKIE)
+	struct lb4_affinity_key key = {
+		.rev_nat_id   = svc->rev_nat_index,
+		.sock_cookie  = 1,
+		.client_id    = *id,
+	};
+	struct lb_affinity_val *val;
+
+	val = map_lookup_elem(&LB4_AFFINITY_MAP, &key);
+	if (val != NULL) {
+		struct lb_affinity_match match = {
+				.rev_nat_id	= svc->rev_nat_index,
+				.backend_id	= val->backend_id,
+		};
+
+		if (!map_lookup_elem(&LB_AFFINITY_MATCH_MAP, &match)) {
+			map_delete_elem(&LB4_AFFINITY_MAP, &key);
+			return 0;
+		}
+
+		return val->backend_id;
+	}
+#endif /* ENABLE_SESSION_AFFINITY && BPF_HAVE_SOCKET_COOKIE */
+	return 0;
+}
+
+static __always_inline __u32
+lb4_backend_id_by_affinity(const struct lb4_service *svc __maybe_unused,
+					union lb4_affinity_client_id *id __maybe_unused,
+					const bool affinity_by_netns __maybe_unused,
+					struct lb4_backend **backend __maybe_unused)
+{
+	__u32 backend_id;
+
+	if (affinity_by_netns) {
+		/* Note, for newly created affinity entries there is a
+		 * small race window. Two processes on two different
+		 * CPUs but the same netns may select different backends
+		 * for the same service:port. lb4_update_affinity_by_netns()
+		 * below would then override the first created one if it
+		 * didn't make it into the lookup yet for the other CPU.
+		 */
+		backend_id = lb4_affinity_backend_id_by_netns(svc, id);
+	} else {
+		backend_id = lb4_affinity_backend_id_by_sock(svc, id);
+	}
+
+	if (backend_id != 0) {
+		*backend = __lb4_lookup_backend(backend_id);
+		if (!*backend)
+			/* Backend from the session affinity no longer
+			 * exists, thus select a new one. Also, remove
+			 * the affinity, so that if the svc doesn't have
+			 * any backend, a subsequent request to the svc
+			 * doesn't hit the reselection again.
+			 */
+			backend_id = 0;
+	}
+	return backend_id;
+};
+
+static __always_inline void
+lb4_update_affinity_by_sock(const struct lb4_service *svc __maybe_unused,
+		const union lb4_affinity_client_id *id __maybe_unused,
+		const __u32 backend_id __maybe_unused)
+{
+#if defined(ENABLE_SESSION_AFFINITY) && defined(BPF_HAVE_SOCKET_COOKIE)
+	struct lb4_affinity_key key = {
+		.rev_nat_id	 = svc->rev_nat_index,
+		.sock_cookie = 1,
+		.client_id	 = *id,
+	};
+	struct lb_affinity_val val = {
+		.backend_id	= backend_id,
+	};
+
+	map_update_elem(&LB4_AFFINITY_MAP, &key, &val, 0);
+#endif /* ENABLE_SESSION_AFFINITY && BPF_HAVE_SOCKET_COOKIE */
 }
 
 static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
