@@ -21,6 +21,7 @@
 #include "ghash.h"
 #include "pcap.h"
 #include "host_firewall.h"
+#include "egress_gateway.h"
 
 #define CB_SRC_IDENTITY	0
 
