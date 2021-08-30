@@ -3,6 +3,8 @@
 # Copyright 2020-2021 Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
+ARG CILIUM_RUNTIME_TAG=2021-08-30
+
 ARG TESTER_IMAGE=quay.io/cilium/image-tester:eb76f0d4d585946bb0267b4c4478cceed17bbd87@sha256:c9a598cdc4843e62ab4e430f36343ca06d5292506261f17e466e0f1cbb48ddbb
 ARG GOLANG_IMAGE=docker.io/library/golang:1.16.7@sha256:5cdc91c9e67e7b95ef5a1c9156af24aaccbb4e339799efd441fd7e961b3e2e75
 ARG UBUNTU_IMAGE=docker.io/library/ubuntu:20.04@sha256:adf73ca014822ad8237623d388cedf4d5346aa72c270c5acc01431cc93e18e2d
@@ -17,6 +19,7 @@ FROM ${CILIUM_IPROUTE2_IMAGE} as iproute2-dist
 
 FROM --platform=linux/amd64 ${GOLANG_IMAGE} as gops-cni-builder
 
+RUN echo "Updated on "${CILIUM_RUNTIME_TAG}
 RUN apt-get update && apt-get install -y binutils-aarch64-linux-gnu
 
 # build-gops.sh will build both archs at the same time
