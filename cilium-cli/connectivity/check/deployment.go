@@ -477,13 +477,17 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 		}
 	}
 
-	// Set the timeout for all IP cache lookup retries
-	ipCacheCtx, cancel := context.WithTimeout(ctx, ct.params.ipCacheTimeout())
-	defer cancel()
-	for _, cp := range ct.ciliumPods {
-		err := ct.waitForIPCache(ipCacheCtx, cp)
-		if err != nil {
-			return err
+	if ct.params.SkipIPCacheCheck {
+		ct.Infof("Skipping IPCache check")
+	} else {
+		// Set the timeout for all IP cache lookup retries
+		ipCacheCtx, cancel := context.WithTimeout(ctx, ct.params.ipCacheTimeout())
+		defer cancel()
+		for _, cp := range ct.ciliumPods {
+			err := ct.waitForIPCache(ipCacheCtx, cp)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
