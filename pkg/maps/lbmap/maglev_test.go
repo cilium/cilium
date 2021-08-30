@@ -94,7 +94,7 @@ func (s *MaglevSuite) TestInitMaps(c *C) {
 		ID:        1,
 		IP:        net.ParseIP("1.1.1.1"),
 		Port:      8080,
-		Backends:  map[string]uint16{"backend-1": 1},
+		Backends:  map[string]loadbalancer.BackendID{"backend-1": 1},
 		Type:      loadbalancer.SVCTypeNodePort,
 		UseMaglev: true,
 	}

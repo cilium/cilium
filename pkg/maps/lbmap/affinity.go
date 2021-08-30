@@ -9,6 +9,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/types"
 )
 
@@ -73,9 +74,9 @@ func initAffinity(params InitParams) {
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type AffinityMatchKey struct {
-	BackendID uint32 `align:"backend_id"`
-	RevNATID  uint16 `align:"rev_nat_id"`
-	Pad       uint16 `align:"pad"`
+	BackendID loadbalancer.BackendID `align:"backend_id"`
+	RevNATID  uint16                 `align:"rev_nat_id"`
+	Pad       uint16                 `align:"pad"`
 }
 
 // +k8s:deepcopy-gen=true
@@ -85,7 +86,7 @@ type AffinityMatchValue struct {
 }
 
 // NewAffinityMatchKey creates the AffinityMatch key
-func NewAffinityMatchKey(revNATID uint16, backendID uint32) *AffinityMatchKey {
+func NewAffinityMatchKey(revNATID uint16, backendID loadbalancer.BackendID) *AffinityMatchKey {
 	return &AffinityMatchKey{
 		BackendID: backendID,
 		RevNATID:  revNATID,
