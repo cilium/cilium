@@ -11,7 +11,17 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium-cli/defaults"
+
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+)
+
+const (
+	// kubernetesSourcedLabelPrefix is the optional prefix used in labels to
+	// indicate they are sourced from Kubernetes.
+	// NOTE: For some reason, ':' gets replaced by '.' in keys so we use that instead.
+	kubernetesSourcedLabelPrefix = "k8s."
 )
 
 type Test struct {
@@ -182,6 +192,30 @@ func (t *Test) WithPolicy(policy string) *Test {
 	pl, err := parsePolicyYAML(policy)
 	if err != nil {
 		t.Fatalf("Parsing policy YAML: %s", err)
+	}
+
+	// Change the default test namespace as required.
+	for i := range pl {
+		pl[i].Namespace = t.ctx.params.TestNamespace
+		if pl[i].Spec != nil {
+			// Check both 'io.kubernetes.pod.namespace' and 'k8s:io.kubernetes.pod.namespace'.
+			for _, k := range []string{k8sConst.PodNamespaceLabel, kubernetesSourcedLabelPrefix + k8sConst.PodNamespaceLabel} {
+				for _, e := range pl[i].Spec.Egress {
+					for _, es := range e.ToEndpoints {
+						if n, ok := es.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
+							es.MatchLabels[k] = t.ctx.params.TestNamespace
+						}
+					}
+				}
+				for _, e := range pl[i].Spec.Ingress {
+					for _, es := range e.FromEndpoints {
+						if n, ok := es.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
+							es.MatchLabels[k] = t.ctx.params.TestNamespace
+						}
+					}
+				}
+			}
+		}
 	}
 
 	if err := t.addCNPs(pl...); err != nil {
