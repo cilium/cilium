@@ -115,7 +115,7 @@ func (v *RevNat6Value) ToHost() RevNatValue {
 	return &h
 }
 
-// Service6Key must match 'struct lb6_key_v2' in "bpf/lib/common.h".
+// Service6Key must match 'struct lb6_key' in "bpf/lib/common.h".
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type Service6Key struct {

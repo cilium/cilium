@@ -194,7 +194,7 @@ func (in *pad2uint8) DeepCopyInto(out *pad2uint8) {
 	return
 }
 
-// Service4Key must match 'struct lb4_key_v2' in "bpf/lib/common.h".
+// Service4Key must match 'struct lb4_key' in "bpf/lib/common.h".
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type Service4Key struct {
