@@ -2,7 +2,7 @@
 # Cilium build-time base image (image created from this file is used to build Cilium)
 FROM docker.io/cilium/cilium-llvm:33c302266cecc264febfca95129ce8dad9397c81 as cilium-llvm
 
-FROM quay.io/cilium/cilium-runtime:2021-08-21-v1.8@sha256:389a9a11d7d56fcefc222309f11541b0f6cf71e646b0f7741da25e28ecf7bea0
+FROM quay.io/cilium/cilium-runtime:2021-08-30-v1.8@sha256:459c938edea6a4065e27948caa2cc18ecd1a04109295022ac83aeb71ae030ea6
 LABEL maintainer="maintainer@cilium.io"
 ARG ARCH=amd64
 WORKDIR /go/src/github.com/cilium/cilium
