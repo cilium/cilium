@@ -9,7 +9,7 @@ ARG UBUNTU_IMAGE=docker.io/library/ubuntu:20.04@sha256:cf31af331f38d1d7158470e09
 
 ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:0147a23fdada32bd51b4f313c645bcb5fbe188d6@sha256:24fd3ad32471d0e45844c856c38f1b2d4ac8bd0a2d4edf64cffaaa3fd0b21202
 ARG CILIUM_BPFTOOL_IMAGE=quay.io/cilium/cilium-bpftool:b5ba881d2a7ec68d88ecd72efd60ac551c720701@sha256:458282e59657b8f779d52ae2be2cdbeecfe68c3d807ff87c97c8d5c6f97820a9
-ARG CILIUM_IPROUTE2_IMAGE=quay.io/cilium/cilium-iproute2:200a2339a4394f05670a4aa9eebc9f091c7f56a2@sha256:dd610d10ca5082cc5f43f84dfeee1a2cf61f9b59f6e59b74cb396838d8ee6475
+ARG CILIUM_IPROUTE2_IMAGE=quay.io/cilium/cilium-iproute2:b05085b6fb7ed87857686cce1e351f6a8bef8b0b@sha256:97813bba95bb824a79743bd73c95b8b901dfddd5413d5df90005f2c92f7c3a5c
 
 FROM ${CILIUM_LLVM_IMAGE} as llvm-dist
 FROM ${CILIUM_BPFTOOL_IMAGE} as bpftool-dist
