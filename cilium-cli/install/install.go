@@ -1154,17 +1154,15 @@ func (k *K8sInstaller) Exec(command string, args ...string) ([]byte, error) {
 }
 
 func (k *K8sInstaller) getCiliumVersion() semver.Version {
-	var ersion string
-	if k.params.BaseVersion != "" {
-		ersion = strings.TrimPrefix(k.params.BaseVersion, "v")
-	} else {
-		ersion = strings.TrimPrefix(k.params.Version, "v")
-	}
+	ersion := strings.TrimPrefix(k.params.Version, "v")
 	v, err := versioncheck.Version(ersion)
 	if err != nil {
-		// TODO: Don't hard code version here, get it from stable.txt.
-		k.Log("Unable to parse the provided version %q, assuming it's =1.10.0", k.params.Version)
-		v = versioncheck.MustVersion("1.10.0")
+		ersion = strings.TrimPrefix(k.params.BaseVersion, "v")
+		v, err = versioncheck.Version(ersion)
+		if err != nil {
+			v = versioncheck.MustVersion(defaults.Version)
+			k.Log("Unable to parse the provided version %q, assuming %v for ConfigMap compatibility", k.params.Version)
+		}
 	}
 	return v
 }
