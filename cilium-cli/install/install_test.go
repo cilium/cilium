@@ -6,12 +6,21 @@ package install
 import (
 	"io"
 	"reflect"
+	"strings"
 	"testing"
+
+	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/pkg/versioncheck"
 
 	"github.com/blang/semver/v4"
 )
 
 func TestK8sInstaller_getCiliumVersion(t *testing.T) {
+	defaultCiliumVersion, err := versioncheck.Version(strings.TrimPrefix(defaults.Version, "v"))
+	if err != nil {
+		t.Fatalf("failed to parse default Cilium version %q as semver", defaults.Version)
+	}
+
 	type fields struct{ params Parameters }
 	tests := []struct {
 		name   string
@@ -21,12 +30,12 @@ func TestK8sInstaller_getCiliumVersion(t *testing.T) {
 		{
 			name:   "default",
 			fields: fields{Parameters{Writer: io.Discard}},
-			want:   semver.Version{Major: 1, Minor: 10, Patch: 0},
+			want:   defaultCiliumVersion,
 		},
 		{
 			name:   "version",
-			fields: fields{Parameters{Writer: io.Discard, Version: "v1.10.3"}},
-			want:   semver.Version{Major: 1, Minor: 10, Patch: 3},
+			fields: fields{Parameters{Writer: io.Discard, Version: "v9.9.99"}},
+			want:   semver.Version{Major: 9, Minor: 9, Patch: 99},
 		},
 		{
 			name:   "base-version",
@@ -36,7 +45,7 @@ func TestK8sInstaller_getCiliumVersion(t *testing.T) {
 		{
 			name:   "random-version-without-base-version",
 			fields: fields{Parameters{Writer: io.Discard, Version: "random-version-string"}},
-			want:   semver.Version{Major: 1, Minor: 10, Patch: 0},
+			want:   defaultCiliumVersion,
 		},
 	}
 	for _, tt := range tests {
