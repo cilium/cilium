@@ -6,7 +6,7 @@ Create chart name and version as used by the chart label.
 {{- end }}
 
 {{/*
-Render full image uri from given values, e.g:
+Render full image URI from given values, e.g:
 ```
 optional 
 global.imageRegistry:
@@ -18,7 +18,8 @@ image:
   digest: abcdefgh
 ```
 then `include "image.url" (list $ . .Values.image)`
-will return `quay.io/cilium/cilium:v1.10.1@abcdefgh` preferring the global.imageRegistry for all imageurls.
+will return `quay.io/cilium/cilium:v1.10.1@abcdefgh`
+preferring the `global.imageRegistry` for all `image.url`s.
 */}}
 {{- define "image.url" -}}
   {{- $globalContext := index . 0 }}
