@@ -2,7 +2,7 @@ apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
   namespace: cilium-test
-  name: client-egress-to-fqdns-cilium-io
+  name: client-egress-to-fqdns-one-one-one-one
 spec:
   endpointSelector:
     matchLabels:
@@ -17,7 +17,7 @@ spec:
         - method: "GET"
           path: "/"
     toFQDNs:
-    - matchName: "cilium.io"
+    - matchName: "one.one.one.one"
   - toPorts:
     - ports:
       - port: "53"

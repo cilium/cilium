@@ -24,7 +24,7 @@ var (
 	//go:embed manifests/client-ingress-from-client2.yaml
 	clientIngressFromClient2PolicyYAML string
 
-	//go:embed manifests/client-egress-to-fqdns-cilium-io.yaml
+	//go:embed manifests/client-egress-to-fqdns-one-one-one-one.yaml
 	clientEgressToFQDNsCiliumIOPolicyYAML string
 
 	//go:embed manifests/echo-ingress-from-other-client.yaml
@@ -74,7 +74,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	ct.NewTest("dns-only").WithPolicy(clientEgressOnlyDNSPolicyYAML).
 		WithScenarios(
 			tests.PodToPod(""),   // connects to other Pods directly, no DNS
-			tests.PodToWorld(""), // resolves cilium.io
+			tests.PodToWorld(""), // resolves one.one.one.one
 		).
 		WithExpectations(
 			func(a *check.Action) (egress check.Result, ingress check.Result) {
@@ -112,18 +112,18 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			tests.PodToPod(""),
 		)
 
-	// This policy only allows port 80 to "cilium.io". DNS proxy enabled.
+	// This policy only allows port 80 to "one.one.one.one". DNS proxy enabled.
 	ct.NewTest("to-fqdns").WithPolicy(clientEgressToFQDNsCiliumIOPolicyYAML).
 		WithScenarios(
 			tests.PodToWorld(""),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
-			if a.Destination().Port() == 80 && a.Destination().Address() == "cilium.io" {
+			if a.Destination().Port() == 80 && a.Destination().Address() == "one.one.one.one" {
 				if a.Destination().Path() == "/" || a.Destination().Path() == "" {
 					egress = check.ResultDNSOK
 					egress.HTTP = check.HTTP{
 						Method: "GET",
-						URL:    "http://cilium.io/",
+						URL:    "http://one.one.one.one/",
 					}
 					return egress, check.ResultNone
 				}
@@ -173,8 +173,8 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Source().HasLabel("other", "client") && // Only client2 is allowed to make HTTP calls.
-				// Outbound HTTP to cilium.io is L7-introspected and allowed.
-				(a.Destination().Port() == 80 && a.Destination().Address() == "cilium.io" ||
+				// Outbound HTTP to one.one.one.one is L7-introspected and allowed.
+				(a.Destination().Port() == 80 && a.Destination().Address() == "one.one.one.one" ||
 					a.Destination().Port() == 8080) { // 8080 is traffic to echo Pod.
 				if a.Destination().Path() == "/" || a.Destination().Path() == "" {
 					egress = check.ResultOK
