@@ -477,6 +477,8 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 		}
 	}
 
+	// TODO: unconditionally re-enable the IPCache check once
+	// https://github.com/cilium/cilium-cli/issues/361 is resolved.
 	if ct.params.SkipIPCacheCheck {
 		ct.Infof("Skipping IPCache check")
 	} else {
