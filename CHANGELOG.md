@@ -1,5 +1,50 @@
 # Changelog
 
+## v1.9.10
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Cilium Envoy integration is updated to release 1.18.4. (#17201, @jrajahalme)
+
+**Bugfixes:**
+* Add '*.mesh.cilium.io' to the list of SANs for the server certificate of 'clustermesh-apiserver'. (Backport PR #17120, Upstream PR #17027, @bmcustodio)
+* Fix a crash where user specifies incorrect service name in a local redirect policy config, or policy selected service is added after the policy is added. (Backport PR #17175, Upstream PR #16216, @aditighag)
+* Fix Linux slave interface detection (Backport PR #17175, Upstream PR #17189, @pchaigno)
+* routing: Fix incorrect interface selection for egress pod routes (Backport PR #17175, Upstream PR #17169, @pchaigno)
+
+**CI Changes:**
+* bpf: remove bandwidth manager from 5.4 MAX_BASE_OPTIONS (#16924, @jibi)
+* ci: Fix local files chmod in test vagrantfile (Backport PR #17016, Upstream PR #15397, @nebril)
+* hubble/relay: Fix close of closed channel in unit test (Backport PR #16994, Upstream PR #16958, @gandro)
+* node-neigh: Wait instead of sleeping in unit tests (Backport PR #17120, Upstream PR #17035, @aanm)
+* test: Fix artifact collection for bad log failures (Backport PR #16949, Upstream PR #16489, @pchaigno)
+* test: Fix artifact collection for FQDN matchPattern test (Backport PR #16949, Upstream PR #16759, @pchaigno)
+* test: Fix missing artifacts for tests with parentheses (Backport PR #16949, Upstream PR #16540, @pchaigno)
+* vagrant: Bump all Vagrant box versions (Backport PR #17016, Upstream PR #16589, @pchaigno)
+
+**Misc Changes:**
+* .github: add MLH config for flake tracking (#17042, @aanm)
+* backporting: Suggest only one related commit for a backport (Backport PR #17012, Upstream PR #16907, @joestringer)
+* build(deps): bump 8398a7/action-slack from 3.9.1 to 3.9.2 (#16996, @dependabot[bot])
+* build(deps): bump actions/setup-go from 2.1.3 to 2.1.4 (#17248, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 2.6.1 to 2.7.0 (#17198, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from 1.4.0 to 1.4.1 (#16957, @dependabot[bot])
+* contrib: Explicitly set remote for backport branches (Backport PR #16949, Upstream PR #16804, @twpayne)
+* contrib: Improve release script guard rails (Backport PR #16994, Upstream PR #16936, @joestringer)
+* docs: Clarify SA target in KPR gsg (Backport PR #17012, Upstream PR #16954, @brb)
+* docs: improve the bandwidth manager page (Backport PR #16994, Upstream PR #16783, @bmcustodio)
+* Misc. GH workflow improvements and hardness (Backport PR #16961, Upstream PR #16908, @aanm)
+* Restrict Kubernetes access for hubble-relay (Backport PR #16994, Upstream PR #16937, @jonkerj)
+* update Cilium base images (#17208, @aanm)
+* v1.9: Update cilium base images (#17267, @joestringer)
+* v1.9: Update Go to 1.15.15 (#17133, @tklauser)
+
+**Other Changes:**
+* github: fix GH workflows to handle push events to stable branches (#16980, @aanm)
+* install: Update image digests for v1.9.9 (#16934, @joestringer)
+
 ## v1.9.9
 
 Summary of Changes
