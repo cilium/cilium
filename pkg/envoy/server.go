@@ -66,6 +66,8 @@ const (
 	ingressClusterName    = "ingress-cluster"
 	ingressTLSClusterName = "ingress-cluster-tls"
 	metricsListenerName   = "envoy-prometheus-metrics-listener"
+	listenerIPv6Address   = "::"
+	listenerIPv4Address   = "0.0.0.0"
 	EnvoyTimeout          = 300 * time.Second // must be smaller than endpoint.EndpointGenerationTimeout
 )
 
@@ -375,7 +377,10 @@ func (s *XDSServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
 	if port == 0 {
 		return // 0 == disabled
 	}
-
+	listenerAddr := listenerIPv6Address
+	if !option.Config.EnableIPv6 {
+		listenerAddr = listenerIPv4Address
+	}
 	log.WithField(logfields.Port, port).Debug("Envoy: AddMetricsListener")
 
 	s.addListener(metricsListenerName, port, func() *envoy_config_listener.Listener {
@@ -414,7 +419,7 @@ func (s *XDSServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
 				Address: &envoy_config_core.Address_SocketAddress{
 					SocketAddress: &envoy_config_core.SocketAddress{
 						Protocol:      envoy_config_core.SocketAddress_TCP,
-						Address:       "::",
+						Address:       listenerAddr,
 						Ipv4Compat:    true,
 						PortSpecifier: &envoy_config_core.SocketAddress_PortValue{PortValue: uint32(port)},
 					},
@@ -503,10 +508,15 @@ func (s *XDSServer) addListener(name string, port uint16, listenerConf func() *e
 
 func (s *XDSServer) getListenerConf(name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool) *envoy_config_listener.Listener {
 	clusterName := egressClusterName
+	listenerAddr := listenerIPv6Address
 	socketMark := int64(0xB00)
 	if isIngress {
 		clusterName = ingressClusterName
 		socketMark = 0xA00
+	}
+
+	if !option.Config.EnableIPv6 {
+		listenerAddr = listenerIPv4Address
 	}
 
 	listenerConf := &envoy_config_listener.Listener{
@@ -515,7 +525,7 @@ func (s *XDSServer) getListenerConf(name string, kind policy.L7ParserType, port 
 			Address: &envoy_config_core.Address_SocketAddress{
 				SocketAddress: &envoy_config_core.SocketAddress{
 					Protocol:      envoy_config_core.SocketAddress_TCP,
-					Address:       "::",
+					Address:       listenerAddr,
 					Ipv4Compat:    true,
 					PortSpecifier: &envoy_config_core.SocketAddress_PortValue{PortValue: uint32(port)},
 				},
