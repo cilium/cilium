@@ -120,6 +120,7 @@ func newCmdConnectivityTest() *cobra.Command {
 	cmd.Flags().BoolVarP(&params.Debug, "debug", "d", false, "Show debug messages")
 	cmd.Flags().BoolVarP(&params.PauseOnFail, "pause-on-fail", "p", false, "Pause execution on test failure")
 	cmd.Flags().BoolVar(&params.SkipIPCacheCheck, "skip-ip-cache-check", true, "Skip IPCache check")
+	cmd.Flags().MarkHidden("skip-ip-cache-check")
 
 	return cmd
 }
