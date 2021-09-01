@@ -29,7 +29,7 @@ get_schema_of_branch(){
 }
 
 get_stable_branches(){
-   git grep -o -E 'tree\/v[^>]+' -- README.rst | sed 's+.*tree/++' | sort -n
+   git grep -o -E 'tree\/v[^>]+' -- README.rst | sed 's+.*tree/++' | sort -V
 }
 
 get_stable_tags_for_minor(){
