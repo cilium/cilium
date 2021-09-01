@@ -1,5 +1,33 @@
 # Changelog
 
+## v1.8.12
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Cilium Envoy integration is updated to release 1.18.4. (#17202, @jrajahalme)
+
+**Bugfixes:**
+* Potential deadlock in pod identity updates has been fixed. (Backport PR #17015, Upstream PR #16801, @jrajahalme)
+
+**CI Changes:**
+* node-neigh: Wait instead of sleeping in unit tests (Backport PR #17121, Upstream PR #17035, @aanm)
+
+**Misc Changes:**
+* .github: add MLH config for flake tracking (#17043, @aanm)
+* backporting: Suggest only one related commit for a backport (Backport PR #17015, Upstream PR #16907, @joestringer)
+* build(deps): bump actions/setup-go from 2.1.3 to 2.1.4 (#17249, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 2.6.1 to 2.7.0 (#17197, @dependabot[bot])
+* contrib: Improve release script guard rails (Backport PR #17015, Upstream PR #16936, @joestringer)
+* policy: Do not dump selections on logs (Backport PR #17015, Upstream PR #12927, @jrajahalme)
+* update Cilium base images (#17209, @aanm)
+* v1.8: Update cilium base images (#17268, @joestringer)
+
+**Other Changes:**
+* github: fix GH workflows to handle push events to stable branches (#16978, @aanm)
+* install: Update image digests for v1.8.11 (#16985, @joestringer)
+
 ## v1.8.11
 
 Summary of Changes
