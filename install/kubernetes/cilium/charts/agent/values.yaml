@@ -1,7 +1,7 @@
 image: cilium
 
 # cilium-digest
-digest: "sha256:e3bbf73ee39703dd88c97b445175947f7f3d6e4bc50717a4c51cd21e1334439a"
+digest: ""
 useDigest: false
 
 # Specifies the maximum number of Pods that can be unavailable during the

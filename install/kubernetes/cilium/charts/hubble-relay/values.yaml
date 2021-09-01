@@ -3,11 +3,11 @@ image:
   # repository of the docker image
   repository: hubble-relay
   # tag is the container image tag to use
-  tag: v1.8.11
+  tag: v1.8.12
   # pullPolicy is the container image pull policy
   pullPolicy: IfNotPresent
   # hubble-relay-digest
-  digest: "sha256:f8ce4b623b577d907fc945dbe02c21a4c7245d7449e64ff1e0adf83e060e7826"
+  digest: ""
   useDigest: false
 
 # Specifies the resources for the hubble-relay pods
