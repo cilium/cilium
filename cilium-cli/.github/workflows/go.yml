@@ -45,12 +45,14 @@ jobs:
     - name: Cross-build
       run: |
         # all GOOS/GOARCH combinations supported by `make local-release`
-        GOOS=linux GOARCH=386 go build ./...
-        GOOS=linux GOARCH=amd64 go build ./...
-        GOOS=linux GOARCH=arm go build ./...
-        GOOS=linux GOARCH=arm64 go build ./...
-        GOOS=darwin GOARCH=amd64 go build ./...
-        GOOS=darwin GOARCH=arm64 go build ./...
+        GOOS=linux GOARCH=386 go build ./cmd/cilium
+        GOOS=linux GOARCH=amd64 go build ./cmd/cilium
+        GOOS=linux GOARCH=arm go build ./cmd/cilium
+        GOOS=linux GOARCH=arm64 go build ./cmd/cilium
+        GOOS=darwin GOARCH=amd64 go build ./cmd/cilium
+        GOOS=darwin GOARCH=arm64 go build ./cmd/cilium
+        GOOS=windows GOARCH=386 go build ./cmd/cilium
+        GOOS=windows GOARCH=amd64 go build ./cmd/cilium
 
     - name: Test
       run: make test
