@@ -1,5 +1,72 @@
 # Changelog
 
+## v1.10.4
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Auto-mount bpf file-system from within Cilium DaemonSet and remove the requirement of having it mounted in the host. (Backport PR #17119, Upstream PR #16656, @aanm)
+* Cilium Envoy integration is updated to release 1.18.4. (#17200, @jrajahalme)
+
+**Bugfixes:**
+* Add '*.mesh.cilium.io' to the list of SANs for the server certificate of 'clustermesh-apiserver'. (Backport PR #17119, Upstream PR #17027, @bmcustodio)
+* change log level for `lock failed: endpoint is in the process of being removed` (Backport PR #16960, Upstream PR #16773, @humancalico)
+* datapath: panic explicitly when IP of direct-routing-device not found (Backport PR #17183, Upstream PR #17064, @ArthurChiao)
+* Fix a crash where user specifies incorrect service name in a local redirect policy config, or policy selected service is added after the policy is added. (Backport PR #17183, Upstream PR #16216, @aditighag)
+* Fix bug where timers used for retries sometimes fired immediately (Backport PR #17011, Upstream PR #16955, @gandro)
+* Fix Linux slave interface detection (Backport PR #17216, Upstream PR #17189, @pchaigno)
+* Fix transient policy deny during agent restart (Backport PR #17216, Upstream PR #17115, @jaffcheng)
+* hubble/recorder: Refactor service implementation to fix multiple races (Backport PR #17011, Upstream PR #16472, @gandro)
+* hubble: Never fail with ErrInvalidRead (Backport PR #17183, Upstream PR #17046, @michi-covalent)
+* policy: Fix `cilium policy trace` output when only deny rules are applied (Backport PR #17119, Upstream PR #16991, @chez-shanpu)
+* Remove `node.cilium.io/agent-not-ready` node taints if they are re-added after Cilium has started (Backport PR #17256, Upstream PR #17112, @aanm)
+* routing: Fix incorrect interface selection for egress pod routes (Backport PR #17183, Upstream PR #17169, @pchaigno)
+
+**CI Changes:**
+* .github/workflows: use latest stable cilium-cli release (Backport PR #16960, Upstream PR #16892, @tklauser)
+* .github: harden permissions on GH workflows (Backport PR #16960, Upstream PR #16941, @aanm)
+* .github: remove workflows triggered by comments (#16950, @aanm)
+* hubble/relay: Fix close of closed channel in unit test (Backport PR #16993, Upstream PR #16958, @gandro)
+* node-neigh: Wait instead of sleeping in unit tests (Backport PR #17119, Upstream PR #17035, @aanm)
+* test: Fix artifact collection for bad log failures (Backport PR #16960, Upstream PR #16489, @pchaigno)
+* test: Fix artifact collection for FQDN matchPattern test (Backport PR #16960, Upstream PR #16759, @pchaigno)
+* test: Fix missing artifacts for tests with parentheses (Backport PR #16960, Upstream PR #16540, @pchaigno)
+* test: Spring cleaning of K8sServicesTest (Backport PR #16630, Upstream PR #16470, @brb)
+* workflows: use `!success()` for sysdump and Slack notifications (Backport PR #16960, Upstream PR #16899, @nbusseneau)
+
+**Misc Changes:**
+* .github: add MLH config for flake tracking (#17041, @aanm)
+* Avoid transitive dependency on github.com/miekg/dns in policy API (Backport PR #16960, Upstream PR #16806, @tklauser)
+* backporting: Suggest only one related commit for a backport (Backport PR #17011, Upstream PR #16907, @joestringer)
+* bpf: Remove duplicate define from MAX_BASE_OPTIONS (Backport PR #16960, Upstream PR #16911, @christarazi)
+* build(deps): bump 8398a7/action-slack from 3.9.1 to 3.9.2 (#16997, @dependabot[bot])
+* build(deps): bump actions/setup-go from 2.1.3 to 2.1.4 (#17250, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 2.6.1 to 2.7.0 (#17199, @dependabot[bot])
+* build(deps): bump dorny/paths-filter from 2.10.1 to 2.10.2 (#16973, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from 1.4.0 to 1.4.1 (#16982, @dependabot[bot])
+* contrib: Improve release script guard rails (Backport PR #16993, Upstream PR #16936, @joestringer)
+* docs: Clarify SA target in KPR gsg (Backport PR #17011, Upstream PR #16954, @brb)
+* docs: fix code-block formatting for XDP load example (Backport PR #16960, Upstream PR #16876, @ClaudiaJKang)
+* docs: Fix missing quote in gcloud command for GKE (Backport PR #17119, Upstream PR #17014, @christarazi)
+* docs: improve the bandwidth manager page (Backport PR #16993, Upstream PR #16783, @bmcustodio)
+* Improves the error logs during the bpf maps updating (Backport PR #16960, Upstream PR #16034, @elfadel)
+* install: Fix README links to getting started guides (Backport PR #17119, Upstream PR #16947, @joestringer)
+* Makefile: fix typo in helper message (Backport PR #17183, Upstream PR #17128, @aanm)
+* Misc. GH workflow improvements and hardness (Backport PR #16960, Upstream PR #16908, @aanm)
+* operator: misc. refactoring and code removal (Backport PR #17119, Upstream PR #16918, @aanm)
+* proxylib/test: fix data race between StartAccessLogServer and Close (Backport PR #17216, Upstream PR #16298, @tklauser)
+* proxylib: Fix data races in unit tests (Backport PR #17216, Upstream PR #17141, @gandro)
+* Restrict Kubernetes access for hubble-relay (Backport PR #16993, Upstream PR #16937, @jonkerj)
+* v1.10: Update cilium base images (#17266, @joestringer)
+* v1.10: Update Go to 1.16.7 (#17124, @tklauser)
+* vendor: Update k8s dependencies and tests to 1.21.3 (Backport PR #16993, Upstream PR #16608, @christarazi)
+* version, metrics: allow to build on non-unix platforms (Backport PR #16960, Upstream PR #16679, @tklauser)
+
+**Other Changes:**
+* github: fix GH workflows to handle push events to stable branches (#16979, @aanm)
+* install: Update image digests for v1.10.3 (#16901, @aanm)
+
 ## v1.10.3
 
 Summary of Changes
