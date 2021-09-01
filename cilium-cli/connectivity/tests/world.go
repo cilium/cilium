@@ -10,7 +10,7 @@ import (
 	"github.com/cilium/cilium-cli/connectivity/check"
 )
 
-// PodToWorld sends multiple HTTP(S) requests to cilium.io
+// PodToWorld sends multiple HTTP(S) requests to one.one.one.one
 // from random client Pods.
 func PodToWorld(name string) check.Scenario {
 	return &podToWorld{
@@ -32,10 +32,9 @@ func (s *podToWorld) Name() string {
 }
 
 func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
-	chttp := check.HTTPEndpoint("cilium-io-http", "http://cilium.io")
-	chttps := check.HTTPEndpoint("cilium-io-https", "https://cilium.io")
-	chttpindex := check.HTTPEndpoint("cilium-io-http-index", "http://cilium.io/index.html")
-	jhttp := check.HTTPEndpoint("jenkins-cilium-io-http", "http://jenkins.cilium.io")
+	http := check.HTTPEndpoint("one-one-one-one-http", "http://one.one.one.one")
+	https := check.HTTPEndpoint("one-one-one-one-https", "https://one.one.one.one")
+	httpsindex := check.HTTPEndpoint("one-one-one-one-https-index", "https://one.one.one.one/index.html")
 
 	fp := check.FlowParameters{
 		DNSRequired: true,
@@ -45,27 +44,21 @@ func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
 	var i int
 
 	for _, client := range t.Context().ClientPods() {
-		// With https, over port 443.
-		t.NewAction(s, fmt.Sprintf("https-to-cilium-io-%d", i), &client, chttps).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, curl(chttps))
-			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
-		})
-
 		// With http, over port 80.
-		t.NewAction(s, fmt.Sprintf("http-to-cilium-io-%d", i), &client, chttp).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, curl(chttp))
+		t.NewAction(s, fmt.Sprintf("http-to-one-one-one-one-%d", i), &client, http).Run(func(a *check.Action) {
+			a.ExecInPod(ctx, curl(http))
 			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
 		})
 
-		// With http, over port 80, index.html
-		t.NewAction(s, fmt.Sprintf("http-to-cilium-io-index-%d", i), &client, chttpindex).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, curl(chttpindex))
+		// With https, over port 443.
+		t.NewAction(s, fmt.Sprintf("https-to-one-one-one-one-%d", i), &client, https).Run(func(a *check.Action) {
+			a.ExecInPod(ctx, curl(https))
 			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
 		})
 
-		// With http to jenkins.cilium.io.
-		t.NewAction(s, fmt.Sprintf("http-to-jenkins-cilium-%d", i), &client, jhttp).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, curl(jhttp))
+		// With https, over port 443, index.html.
+		t.NewAction(s, fmt.Sprintf("https-to-one-one-one-one-index-%d", i), &client, httpsindex).Run(func(a *check.Action) {
+			a.ExecInPod(ctx, curl(httpsindex))
 			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
 		})
 
