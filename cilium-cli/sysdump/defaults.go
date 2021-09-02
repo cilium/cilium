@@ -17,18 +17,13 @@ const (
 	DefaultCiliumLabelSelector               = labelPrefix + "cilium"
 	DefaultCiliumNamespace                   = "kube-system"
 	DefaultCiliumOperatorLabelSelector       = "io.cilium/app=operator"
-	DefaultCiliumOperatorNamespace           = DefaultCiliumNamespace
-	DefaultClustermeshApiserverLabelSelector = "k8s-app=clustermesh-apiserver"
 	DefaultClustermeshApiserverLabelSelector = labelPrefix + "clustermesh-apiserver"
 	DefaultDebug                             = false
 	DefaultHubbleLabelSelector               = labelPrefix + "hubble"
-	DefaultHubbleNamespace                   = DefaultCiliumNamespace
 	DefaultHubbleFlowsCount                  = 10000
 	DefaultHubbleFlowsTimeout                = 5 * time.Second
 	DefaultHubbleRelayLabelSelector          = labelPrefix + "hubble-relay"
-	DefaultHubbleRelayNamespace              = DefaultCiliumNamespace
 	DefaultHubbleUILabelSelector             = labelPrefix + "hubble-ui"
-	DefaultHubbleUINamespace                 = DefaultCiliumNamespace
 	DefaultLargeSysdumpAbortTimeout          = 5 * time.Second
 	DefaultLargeSysdumpThreshold             = 20
 	DefaultLogsSinceTime                     = 8760 * time.Hour // 1y

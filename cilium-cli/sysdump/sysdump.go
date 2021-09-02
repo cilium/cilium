@@ -32,30 +32,20 @@ type Options struct {
 	CiliumNamespace string
 	// The labels used to target Cilium operator pods.
 	CiliumOperatorLabelSelector string
-	// The namespace Cilium operator is running in.
-	CiliumOperatorNamespace string
 	// The labels used to target 'clustermesh-apiserver' pods.
 	ClustermeshApiserverLabelSelector string
-	// The namespace 'clustermesh-apiserver' is running in.
-	ClustermeshApiserverNamespace string
 	// Whether to enable debug logging.
 	Debug bool
 	// The labels used to target Hubble pods.
 	HubbleLabelSelector string
-	// The namespace Hubble is running in.
-	HubbleNamespace string
 	// Number of Hubble flows to collect.
 	HubbleFlowsCount int64
 	// Timeout for collecting Hubble flows.
 	HubbleFlowsTimeout time.Duration
 	// The labels used to target Hubble Relay pods.
 	HubbleRelayLabelSelector string
-	// The namespace Hubble Relay is running in.
-	HubbleRelayNamespace string
 	// The labels used to target Hubble UI pods.
 	HubbleUILabelSelector string
-	// The namespace Hubble UI is running in.
-	HubbleUINamespace string
 	// The amount of time to wait for the user to cancel the sysdump on a large cluster.
 	LargeSysdumpAbortTimeout time.Duration
 	// The threshold on the number of nodes present in the cluster that triggers a warning message.
@@ -398,10 +388,10 @@ func (c *Collector) Run() error {
 			Description: "Collecting the Hubble daemonset",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
-				v, err := c.client.GetDaemonSet(ctx, c.options.HubbleNamespace, hubbleDaemonSetName, metav1.GetOptions{})
+				v, err := c.client.GetDaemonSet(ctx, c.options.CiliumNamespace, hubbleDaemonSetName, metav1.GetOptions{})
 				if err != nil {
 					if errors.IsNotFound(err) {
-						c.logDebug("daemonset %q not found in namespace %q - this is expected in recent versions of Cilium", hubbleDaemonSetName, c.options.HubbleNamespace)
+						c.logDebug("daemonset %q not found in namespace %q - this is expected in recent versions of Cilium", hubbleDaemonSetName, c.options.CiliumNamespace)
 						return nil
 					}
 					return fmt.Errorf("failed to collect the Hubble daemonset: %w", err)
@@ -416,10 +406,10 @@ func (c *Collector) Run() error {
 			Description: "Collecting the Hubble Relay deployment",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
-				v, err := c.client.GetDeployment(ctx, c.options.HubbleRelayNamespace, hubbleRelayDeploymentName, metav1.GetOptions{})
+				v, err := c.client.GetDeployment(ctx, c.options.CiliumNamespace, hubbleRelayDeploymentName, metav1.GetOptions{})
 				if err != nil {
 					if errors.IsNotFound(err) {
-						c.logWarn("deployment %q not found in namespace %q", hubbleRelayDeploymentName, c.options.HubbleRelayNamespace)
+						c.logWarn("deployment %q not found in namespace %q", hubbleRelayDeploymentName, c.options.CiliumNamespace)
 						return nil
 					}
 					return fmt.Errorf("failed to collect the Hubble Relay deployment: %w", err)
@@ -434,10 +424,10 @@ func (c *Collector) Run() error {
 			Description: "Collecting the Hubble UI deployment",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
-				v, err := c.client.GetDeployment(ctx, c.options.HubbleUINamespace, hubbleUIDeploymentName, metav1.GetOptions{})
+				v, err := c.client.GetDeployment(ctx, c.options.CiliumNamespace, hubbleUIDeploymentName, metav1.GetOptions{})
 				if err != nil {
 					if errors.IsNotFound(err) {
-						c.logWarn("deployment %q not found in namespace %q", hubbleUIDeploymentName, c.options.HubbleUINamespace)
+						c.logWarn("deployment %q not found in namespace %q", hubbleUIDeploymentName, c.options.CiliumNamespace)
 						return nil
 					}
 					return fmt.Errorf("failed to collect the Hubble UI deployment: %w", err)
@@ -452,7 +442,7 @@ func (c *Collector) Run() error {
 			Description: "Collecting the Cilium operator deployment",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
-				v, err := c.client.GetDeployment(ctx, c.options.CiliumOperatorNamespace, ciliumOperatorDeploymentName, metav1.GetOptions{})
+				v, err := c.client.GetDeployment(ctx, c.options.CiliumNamespace, ciliumOperatorDeploymentName, metav1.GetOptions{})
 				if err != nil {
 					return fmt.Errorf("failed to collect the Cilium operator deployment: %w", err)
 				}
@@ -466,10 +456,10 @@ func (c *Collector) Run() error {
 			Description: "Collecting the 'clustermesh-apiserver' deployment",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
-				v, err := c.client.GetDeployment(ctx, c.options.ClustermeshApiserverNamespace, clustermeshApiserverDeploymentName, metav1.GetOptions{})
+				v, err := c.client.GetDeployment(ctx, c.options.CiliumNamespace, clustermeshApiserverDeploymentName, metav1.GetOptions{})
 				if err != nil {
 					if errors.IsNotFound(err) {
-						c.logWarn("deployment %q not found in namespace %q - this is expected if 'clustermesh-apiserver' isn't enabled", clustermeshApiserverDeploymentName, c.options.ClustermeshApiserverNamespace)
+						c.logWarn("deployment %q not found in namespace %q - this is expected if 'clustermesh-apiserver' isn't enabled", clustermeshApiserverDeploymentName, c.options.CiliumNamespace)
 						return nil
 					}
 					return fmt.Errorf("failed to collect the 'clustermesh-apiserver' deployment: %w", err)
@@ -502,7 +492,7 @@ func (c *Collector) Run() error {
 			Description:     "Collecting gops stats from Hubble pods",
 			Quick:           true,
 			Task: func(ctx context.Context) error {
-				p, err := c.client.ListPods(ctx, c.options.HubbleNamespace, metav1.ListOptions{
+				p, err := c.client.ListPods(ctx, c.options.CiliumNamespace, metav1.ListOptions{
 					LabelSelector: c.options.HubbleLabelSelector,
 				})
 				if err != nil {
@@ -519,7 +509,7 @@ func (c *Collector) Run() error {
 			Description:     "Collecting gops stats from Hubble Relay pods",
 			Quick:           true,
 			Task: func(ctx context.Context) error {
-				p, err := c.client.ListPods(ctx, c.options.HubbleNamespace, metav1.ListOptions{
+				p, err := c.client.ListPods(ctx, c.options.CiliumNamespace, metav1.ListOptions{
 					LabelSelector: c.options.HubbleRelayLabelSelector,
 				})
 				if err != nil {
@@ -570,7 +560,7 @@ func (c *Collector) Run() error {
 			Description:     "Collecting logs from Cilium operator pods",
 			Quick:           false,
 			Task: func(ctx context.Context) error {
-				p, err := c.client.ListPods(ctx, c.options.CiliumOperatorNamespace, metav1.ListOptions{
+				p, err := c.client.ListPods(ctx, c.options.CiliumNamespace, metav1.ListOptions{
 					LabelSelector: c.options.CiliumOperatorLabelSelector,
 				})
 				if err != nil {
@@ -604,7 +594,7 @@ func (c *Collector) Run() error {
 			Description:     "Collecting logs from Hubble pods",
 			Quick:           false,
 			Task: func(ctx context.Context) error {
-				p, err := c.client.ListPods(ctx, c.options.HubbleNamespace, metav1.ListOptions{
+				p, err := c.client.ListPods(ctx, c.options.CiliumNamespace, metav1.ListOptions{
 					LabelSelector: c.options.HubbleLabelSelector,
 				})
 				if err != nil {
@@ -621,7 +611,7 @@ func (c *Collector) Run() error {
 			Description:     "Collecting logs from Hubble Relay pods",
 			Quick:           false,
 			Task: func(ctx context.Context) error {
-				p, err := c.client.ListPods(ctx, c.options.HubbleRelayNamespace, metav1.ListOptions{
+				p, err := c.client.ListPods(ctx, c.options.CiliumNamespace, metav1.ListOptions{
 					LabelSelector: c.options.HubbleRelayLabelSelector,
 				})
 				if err != nil {
@@ -638,7 +628,7 @@ func (c *Collector) Run() error {
 			Description:     "Collecting logs from Hubble UI pods",
 			Quick:           false,
 			Task: func(ctx context.Context) error {
-				p, err := c.client.ListPods(ctx, c.options.HubbleNamespace, metav1.ListOptions{
+				p, err := c.client.ListPods(ctx, c.options.CiliumNamespace, metav1.ListOptions{
 					LabelSelector: c.options.HubbleLabelSelector,
 				})
 				if err != nil {
