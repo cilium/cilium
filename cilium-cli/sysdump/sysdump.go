@@ -341,7 +341,7 @@ func (c *Collector) Run() error {
 				v, err := c.client.GetSecret(ctx, c.options.CiliumNamespace, ciliumEtcdSecretsSecretName, metav1.GetOptions{})
 				if err != nil {
 					if errors.IsNotFound(err) {
-						c.logDebug("secret %q not found in namespace %q - this is expected when using the CRD KVStore", ciliumEtcdSecretsSecretName, c.options.CiliumNamespace)
+						c.logDebug("Secret %q not found in namespace %q - this is expected when using the CRD KVStore", ciliumEtcdSecretsSecretName, c.options.CiliumNamespace)
 						return nil
 					}
 					return fmt.Errorf("failed to collect Cilium etcd secret: %w", err)
@@ -391,7 +391,7 @@ func (c *Collector) Run() error {
 				v, err := c.client.GetDaemonSet(ctx, c.options.CiliumNamespace, hubbleDaemonSetName, metav1.GetOptions{})
 				if err != nil {
 					if errors.IsNotFound(err) {
-						c.logDebug("daemonset %q not found in namespace %q - this is expected in recent versions of Cilium", hubbleDaemonSetName, c.options.CiliumNamespace)
+						c.logDebug("Daemonset %q not found in namespace %q - this is expected in recent versions of Cilium", hubbleDaemonSetName, c.options.CiliumNamespace)
 						return nil
 					}
 					return fmt.Errorf("failed to collect the Hubble daemonset: %w", err)
@@ -409,7 +409,7 @@ func (c *Collector) Run() error {
 				v, err := c.client.GetDeployment(ctx, c.options.CiliumNamespace, hubbleRelayDeploymentName, metav1.GetOptions{})
 				if err != nil {
 					if errors.IsNotFound(err) {
-						c.logWarn("deployment %q not found in namespace %q", hubbleRelayDeploymentName, c.options.CiliumNamespace)
+						c.logWarn("Deployment %q not found in namespace %q - this is expected if Hubble is not enabled", hubbleRelayDeploymentName, c.options.CiliumNamespace)
 						return nil
 					}
 					return fmt.Errorf("failed to collect the Hubble Relay deployment: %w", err)
@@ -427,7 +427,7 @@ func (c *Collector) Run() error {
 				v, err := c.client.GetDeployment(ctx, c.options.CiliumNamespace, hubbleUIDeploymentName, metav1.GetOptions{})
 				if err != nil {
 					if errors.IsNotFound(err) {
-						c.logWarn("deployment %q not found in namespace %q", hubbleUIDeploymentName, c.options.CiliumNamespace)
+						c.logWarn("Deployment %q not found in namespace %q - this is expected if Hubble UI is not enabled", hubbleUIDeploymentName, c.options.CiliumNamespace)
 						return nil
 					}
 					return fmt.Errorf("failed to collect the Hubble UI deployment: %w", err)
@@ -459,7 +459,7 @@ func (c *Collector) Run() error {
 				v, err := c.client.GetDeployment(ctx, c.options.CiliumNamespace, clustermeshApiserverDeploymentName, metav1.GetOptions{})
 				if err != nil {
 					if errors.IsNotFound(err) {
-						c.logWarn("deployment %q not found in namespace %q - this is expected if 'clustermesh-apiserver' isn't enabled", clustermeshApiserverDeploymentName, c.options.CiliumNamespace)
+						c.logWarn("Deployment %q not found in namespace %q - this is expected if 'clustermesh-apiserver' isn't enabled", clustermeshApiserverDeploymentName, c.options.CiliumNamespace)
 						return nil
 					}
 					return fmt.Errorf("failed to collect the 'clustermesh-apiserver' deployment: %w", err)
