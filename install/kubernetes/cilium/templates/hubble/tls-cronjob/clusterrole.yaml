@@ -8,7 +8,6 @@ rules:
       - ""
     resources:
       - secrets
-      - configmaps
     verbs:
       - create
   - apiGroups:
@@ -19,14 +18,6 @@ rules:
       - hubble-server-certs
       - hubble-relay-client-certs
       - hubble-relay-server-certs
-    verbs:
-      - update
-  - apiGroups:
-      - ""
-    resources:
-      - configmaps
-    resourceNames:
-      - hubble-ca-cert
     verbs:
       - update
   - apiGroups:
