@@ -34,6 +34,10 @@ type Options struct {
 	CiliumOperatorLabelSelector string
 	// The namespace Cilium operator is running in.
 	CiliumOperatorNamespace string
+	// The labels used to target 'clustermesh-apiserver' pods.
+	ClustermeshApiserverLabelSelector string
+	// The namespace 'clustermesh-apiserver' is running in.
+	ClustermeshApiserverNamespace string
 	// Whether to enable debug logging.
 	Debug bool
 	// The labels used to target Hubble pods.
@@ -448,12 +452,30 @@ func (c *Collector) Run() error {
 			Description: "Collecting the Cilium operator deployment",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
-				v, err := c.client.GetDeployment(ctx, c.options.CiliumNamespace, ciliumOperatorDeploymentName, metav1.GetOptions{})
+				v, err := c.client.GetDeployment(ctx, c.options.CiliumOperatorNamespace, ciliumOperatorDeploymentName, metav1.GetOptions{})
 				if err != nil {
 					return fmt.Errorf("failed to collect the Cilium operator deployment: %w", err)
 				}
 				if err := writeYaml(absoluteTempPath(ciliumOperatorDeploymentFileName), v); err != nil {
 					return fmt.Errorf("failed to collect the Cilium operator deployment: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting the 'clustermesh-apiserver' deployment",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.client.GetDeployment(ctx, c.options.ClustermeshApiserverNamespace, clustermeshApiserverDeploymentName, metav1.GetOptions{})
+				if err != nil {
+					if errors.IsNotFound(err) {
+						c.logWarn("deployment %q not found in namespace %q - this is expected if 'clustermesh-apiserver' isn't enabled", clustermeshApiserverDeploymentName, c.options.ClustermeshApiserverNamespace)
+						return nil
+					}
+					return fmt.Errorf("failed to collect the 'clustermesh-apiserver' deployment: %w", err)
+				}
+				if err := writeYaml(absoluteTempPath(clustermeshApiserverDeploymentFileName), v); err != nil {
+					return fmt.Errorf("failed to collect the 'clustermesh-apiserver' deployment: %w", err)
 				}
 				return nil
 			},
@@ -556,6 +578,23 @@ func (c *Collector) Run() error {
 				}
 				if err := c.submitLogsTasks(ctx, filterPods(p, nodeList), c.options.LogsSinceTime, c.options.LogsLimitBytes, absoluteTempPath); err != nil {
 					return fmt.Errorf("failed to collect logs from Cilium operator pods")
+				}
+				return nil
+			},
+		},
+		{
+			CreatesSubtasks: true,
+			Description:     "Collecting logs from 'clustermesh-apiserver' pods",
+			Quick:           false,
+			Task: func(ctx context.Context) error {
+				p, err := c.client.ListPods(ctx, c.options.CiliumNamespace, metav1.ListOptions{
+					LabelSelector: c.options.ClustermeshApiserverLabelSelector,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to get logs from 'clustermesh-apiserver' pods")
+				}
+				if err := c.submitLogsTasks(ctx, filterPods(p, nodeList), c.options.LogsSinceTime, c.options.LogsLimitBytes, absoluteTempPath); err != nil {
+					return fmt.Errorf("failed to collect logs from 'clustermesh-apiserver' pods")
 				}
 				return nil
 			},
