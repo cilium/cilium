@@ -6,23 +6,26 @@ package sysdump
 import (
 	"regexp"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"github.com/cilium/cilium-cli/defaults"
 )
 
 const (
 	awsNodeDaemonSetName               = "aws-node"
-	awsNodeDaemonSetNamespace          = "kube-system"
-	ciliumAgentContainerName           = "cilium-agent"
-	ciliumConfigConfigMapName          = "cilium-config"
-	ciliumDaemonSetName                = "cilium"
+	awsNodeDaemonSetNamespace          = metav1.NamespaceSystem
+	ciliumAgentContainerName           = defaults.AgentContainerName
+	ciliumConfigConfigMapName          = defaults.ConfigMapName
+	ciliumDaemonSetName                = defaults.AgentDaemonSetName
 	ciliumEtcdSecretsSecretName        = "cilium-etcd-secrets"
-	ciliumOperatorDeploymentName       = "cilium-operator"
-	clustermeshApiserverDeploymentName = "clustermesh-apiserver"
+	ciliumOperatorDeploymentName       = defaults.OperatorDeploymentName
+	clustermeshApiserverDeploymentName = defaults.ClusterMeshDeploymentName
 	hubbleContainerName                = "hubble"
 	hubbleDaemonSetName                = "hubble"
-	hubbleRelayContainerName           = "hubble-relay"
-	hubbleRelayDeploymentName          = "hubble-relay"
-	hubbleUIDeploymentName             = "hubble-ui"
+	hubbleRelayContainerName           = defaults.RelayContainerName
+	hubbleRelayDeploymentName          = defaults.RelayDeploymentName
+	hubbleUIDeploymentName             = defaults.HubbleUIDeploymentName
 	redacted                           = "XXXXXX"
 )
 
