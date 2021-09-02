@@ -6,6 +6,7 @@ package defaults
 import "time"
 
 const (
+	AgentContainerName      = "cilium-agent"
 	AgentServiceAccountName = "cilium"
 	AgentClusterRoleName    = "cilium"
 	AgentDaemonSetName      = "cilium"
@@ -29,6 +30,7 @@ const (
 	HubbleSocketPath       = "/var/run/cilium/hubble.sock"
 	HubbleServerSecretName = "hubble-server-certs"
 
+	RelayContainerName        = "hubble-relay"
 	RelayDeploymentName       = "hubble-relay"
 	RelayClusterRoleName      = "hubble-relay"
 	RelayServiceAccountName   = "hubble-relay"

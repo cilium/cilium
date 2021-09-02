@@ -95,7 +95,7 @@ func (k *K8sHubble) generateRelayDeployment() *appsv1.Deployment {
 					ServiceAccountName: defaults.RelayServiceAccountName,
 					Containers: []corev1.Container{
 						{
-							Name:    "hubble-relay",
+							Name:    defaults.RelayContainerName,
 							Command: []string{"hubble-relay"},
 							Args: []string{
 								"serve",

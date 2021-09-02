@@ -542,7 +542,7 @@ func (ct *ConnectivityTest) waitForIPCache(ctx context.Context, pod Pod) error {
 		r := time.After(time.Second)
 
 		stdout, err := pod.K8sClient.ExecInPodWithTTY(ctx, pod.Pod.Namespace, pod.Pod.Name,
-			"cilium-agent", []string{"cilium", "bpf", "ipcache", "list", "-o", "json"})
+			defaults.AgentContainerName, []string{"cilium", "bpf", "ipcache", "list", "-o", "json"})
 		if err == nil {
 			var ic ipCache
 
