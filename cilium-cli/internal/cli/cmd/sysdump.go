@@ -49,24 +49,15 @@ func newCmdSysdump() *cobra.Command {
 	cmd.Flags().StringVar(&sysdumpOptions.CiliumOperatorLabelSelector,
 		"cilium-operator-label-selector", sysdump.DefaultCiliumOperatorLabelSelector,
 		"The labels used to target Cilium operator pods")
-	cmd.Flags().StringVar(&sysdumpOptions.CiliumOperatorNamespace,
-		"cilium-operator-namespace", sysdump.DefaultCiliumOperatorNamespace,
-		"The namespace Cilium operator is running in")
 	cmd.Flags().StringVar(&sysdumpOptions.ClustermeshApiserverLabelSelector,
 		"clustermesh-apiserver-label-selector", sysdump.DefaultClustermeshApiserverLabelSelector,
 		"The labels used to target 'clustermesh-apiserver' pods")
-	cmd.Flags().StringVar(&sysdumpOptions.ClustermeshApiserverNamespace,
-		"clustermesh-apiserver-namespace", sysdump.DefaultClustermeshApiserverNamespace,
-		"The namespace Cilium operator is running in")
 	cmd.Flags().BoolVar(&sysdumpOptions.Debug,
 		"debug", sysdump.DefaultDebug,
 		"Whether to enable debug logging")
 	cmd.Flags().StringVar(&sysdumpOptions.HubbleLabelSelector,
 		"hubble-label-selector", sysdump.DefaultHubbleLabelSelector,
 		"The labels used to target Hubble pods")
-	cmd.Flags().StringVar(&sysdumpOptions.HubbleNamespace,
-		"hubble-namespace", sysdump.DefaultHubbleNamespace,
-		"The namespace Hubble is running in")
 	cmd.Flags().Int64Var(&sysdumpOptions.HubbleFlowsCount,
 		"hubble-flows-count", sysdump.DefaultHubbleFlowsCount,
 		"Number of Hubble flows to collect. Setting to zero disables collecting Hubble flows.")
@@ -76,15 +67,9 @@ func newCmdSysdump() *cobra.Command {
 	cmd.Flags().StringVar(&sysdumpOptions.HubbleRelayLabelSelector,
 		"hubble-relay-labels", sysdump.DefaultHubbleRelayLabelSelector,
 		"The labels used to target Hubble Relay pods")
-	cmd.Flags().StringVar(&sysdumpOptions.HubbleRelayNamespace,
-		"hubble-relay-namespace", sysdump.DefaultHubbleRelayNamespace,
-		"The namespace Hubble Relay is running in")
 	cmd.Flags().StringVar(&sysdumpOptions.HubbleUILabelSelector,
 		"hubble-ui-labels", sysdump.DefaultHubbleUILabelSelector,
 		"The labels used to target Hubble UI pods")
-	cmd.Flags().StringVar(&sysdumpOptions.HubbleUINamespace,
-		"hubble-ui-namespace", sysdump.DefaultHubbleUINamespace,
-		"The namespace Hubble UI is running in")
 	cmd.Flags().Int64Var(&sysdumpOptions.LogsLimitBytes,
 		"logs-limit-bytes", sysdump.DefaultLogsLimitBytes,
 		"The limit on the number of bytes to retrieve when collecting logs")
