@@ -10,19 +10,20 @@ import (
 )
 
 const (
-	awsNodeDaemonSetName         = "aws-node"
-	awsNodeDaemonSetNamespace    = "kube-system"
-	ciliumAgentContainerName     = "cilium-agent"
-	ciliumConfigConfigMapName    = "cilium-config"
-	ciliumDaemonSetName          = "cilium"
-	ciliumEtcdSecretsSecretName  = "cilium-etcd-secrets"
-	ciliumOperatorDeploymentName = "cilium-operator"
-	hubbleContainerName          = "hubble"
-	hubbleDaemonSetName          = "hubble"
-	hubbleRelayContainerName     = "hubble-relay"
-	hubbleRelayDeploymentName    = "hubble-relay"
-	hubbleUIDeploymentName       = "hubble-ui"
-	redacted                     = "XXXXXX"
+	awsNodeDaemonSetName               = "aws-node"
+	awsNodeDaemonSetNamespace          = "kube-system"
+	ciliumAgentContainerName           = "cilium-agent"
+	ciliumConfigConfigMapName          = "cilium-config"
+	ciliumDaemonSetName                = "cilium"
+	ciliumEtcdSecretsSecretName        = "cilium-etcd-secrets"
+	ciliumOperatorDeploymentName       = "cilium-operator"
+	clustermeshApiserverDeploymentName = "clustermesh-apiserver"
+	hubbleContainerName                = "hubble"
+	hubbleDaemonSetName                = "hubble"
+	hubbleRelayContainerName           = "hubble-relay"
+	hubbleRelayDeploymentName          = "hubble-relay"
+	hubbleUIDeploymentName             = "hubble-ui"
+	redacted                           = "XXXXXX"
 )
 
 const (
@@ -39,6 +40,7 @@ const (
 	ciliumNetworkPoliciesFileName            = "ciliumnetworkpolicies-<ts>.yaml"
 	ciliumNodesFileName                      = "ciliumnodes-<ts>.yaml"
 	ciliumOperatorDeploymentFileName         = "cilium-operator-deployment-<ts>.yaml"
+	clustermeshApiserverDeploymentFileName   = "clustermesh-apiserver-deployment-<ts>.yaml"
 	eniconfigsFileName                       = "aws-eniconfigs-<ts>.yaml"
 	gopsFileName                             = "gops-%s-%s-<ts>-%s.txt"
 	hubbleDaemonsetFileName                  = "hubble-daemonset-<ts>.yaml"
