@@ -629,7 +629,7 @@ func (c *Collector) Run() error {
 			Quick:           false,
 			Task: func(ctx context.Context) error {
 				p, err := c.client.ListPods(ctx, c.options.CiliumNamespace, metav1.ListOptions{
-					LabelSelector: c.options.HubbleLabelSelector,
+					LabelSelector: c.options.HubbleUILabelSelector,
 				})
 				if err != nil {
 					return fmt.Errorf("failed to get logs from Hubble UI pods")
