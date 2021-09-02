@@ -52,6 +52,12 @@ func newCmdSysdump() *cobra.Command {
 	cmd.Flags().StringVar(&sysdumpOptions.CiliumOperatorNamespace,
 		"cilium-operator-namespace", sysdump.DefaultCiliumOperatorNamespace,
 		"The namespace Cilium operator is running in")
+	cmd.Flags().StringVar(&sysdumpOptions.ClustermeshApiserverLabelSelector,
+		"clustermesh-apiserver-label-selector", sysdump.DefaultClustermeshApiserverLabelSelector,
+		"The labels used to target 'clustermesh-apiserver' pods")
+	cmd.Flags().StringVar(&sysdumpOptions.ClustermeshApiserverNamespace,
+		"clustermesh-apiserver-namespace", sysdump.DefaultClustermeshApiserverNamespace,
+		"The namespace Cilium operator is running in")
 	cmd.Flags().BoolVar(&sysdumpOptions.Debug,
 		"debug", sysdump.DefaultDebug,
 		"Whether to enable debug logging")
