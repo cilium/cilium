@@ -4383,7 +4383,7 @@ func (kub *Kubectl) CleanupCiliumComponents() {
 		wg sync.WaitGroup
 
 		resourcesToDelete = map[string]string{
-			"configmap":          "cilium-config hubble-ca-cert hubble-relay-config",
+			"configmap":          "cilium-config hubble-relay-config",
 			"daemonset":          "cilium cilium-node-init",
 			"deployment":         "cilium-operator hubble-relay",
 			"clusterrolebinding": "cilium cilium-operator hubble-relay",
