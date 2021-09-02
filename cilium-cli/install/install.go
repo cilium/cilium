@@ -257,7 +257,7 @@ func (k *K8sInstaller) generateAgentDaemonSet() *appsv1.DaemonSet {
 					},
 					Containers: []corev1.Container{
 						{
-							Name:            "cilium-agent",
+							Name:            defaults.AgentContainerName,
 							Command:         []string{"cilium-agent"},
 							Args:            []string{"--config-dir=/tmp/cilium/config-map"},
 							Image:           k.fqAgentImage(),

@@ -36,6 +36,8 @@ import (
 
 	// Register all auth providers (azure, gcp, oidc, openstack, ..).
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+
+	"github.com/cilium/cilium-cli/defaults"
 )
 
 type Client struct {
@@ -281,7 +283,7 @@ var logSplitter = regexp.MustCompile(`\r?\n[^ ]+ level=[[:alpha:]]+ msg=`)
 
 func (c *Client) CiliumLogs(ctx context.Context, namespace, pod string, since time.Time, filter *regexp.Regexp) (string, error) {
 	opts := &corev1.PodLogOptions{
-		Container:  "cilium-agent",
+		Container:  defaults.AgentContainerName,
 		Timestamps: true,
 		SinceTime:  &metav1.Time{Time: since},
 	}
@@ -371,7 +373,7 @@ func (c *Client) ExecInPod(ctx context.Context, namespace, pod, container string
 }
 
 func (c *Client) CiliumStatus(ctx context.Context, namespace, pod string) (*models.StatusResponse, error) {
-	stdout, err := c.ExecInPod(ctx, namespace, pod, "cilium-agent", []string{"cilium", "status", "-o", "json"})
+	stdout, err := c.ExecInPod(ctx, namespace, pod, defaults.AgentContainerName, []string{"cilium", "status", "-o", "json"})
 	if err != nil {
 		return nil, err
 	}
