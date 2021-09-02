@@ -85,7 +85,7 @@ func (t *Test) waitCiliumPolicyRevisions(ctx context.Context, revisions map[Pod]
 // getCiliumPolicyRevision returns the current policy revision of a Cilium pod.
 func getCiliumPolicyRevision(ctx context.Context, pod Pod) (int, error) {
 	stdout, err := pod.K8sClient.ExecInPodWithTTY(ctx, pod.Pod.Namespace, pod.Pod.Name,
-		"cilium-agent", []string{"cilium", "policy", "get", "-o", "jsonpath='{.revision}'"})
+		defaults.AgentContainerName, []string{"cilium", "policy", "get", "-o", "jsonpath='{.revision}'"})
 	if err != nil {
 		return 0, err
 	}
@@ -100,7 +100,7 @@ func getCiliumPolicyRevision(ctx context.Context, pod Pod) (int, error) {
 func waitCiliumPolicyRevision(ctx context.Context, pod Pod, rev int, timeout time.Duration) error {
 	timeoutStr := strconv.Itoa(int(timeout.Seconds()))
 	_, err := pod.K8sClient.ExecInPodWithTTY(ctx, pod.Pod.Namespace, pod.Pod.Name,
-		"cilium-agent", []string{"cilium", "policy", "wait", strconv.Itoa(rev), "--max-wait-time", timeoutStr})
+		defaults.AgentContainerName, []string{"cilium", "policy", "wait", strconv.Itoa(rev), "--max-wait-time", timeoutStr})
 	return err
 }
 
