@@ -16,6 +16,7 @@ package RuntimeTest
 
 import (
 	"fmt"
+	"time"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -27,8 +28,9 @@ import (
 var _ = Describe("RuntimeCassandra", func() {
 
 	var (
-		vm          *helpers.SSHMeta
-		cassandraIP string
+		vm            *helpers.SSHMeta
+		testStartTime time.Time
+		cassandraIP   string
 	)
 
 	containers := func(mode string) {
@@ -118,8 +120,12 @@ var _ = Describe("RuntimeCassandra", func() {
 		vm.CloseSSHClient()
 	})
 
+	JustBeforeEach(func() {
+		testStartTime = time.Now()
+	})
+
 	JustAfterEach(func() {
-		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+		vm.ValidateNoErrorsInLogs(time.Since(testStartTime))
 	})
 
 	AfterFailed(func() {

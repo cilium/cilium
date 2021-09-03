@@ -1756,7 +1756,8 @@ var _ = Describe("RuntimePolicies", func() {
 
 var _ = Describe("RuntimePolicyImportTests", func() {
 	var (
-		vm *helpers.SSHMeta
+		vm            *helpers.SSHMeta
+		testStartTime time.Time
 	)
 
 	BeforeAll(func() {
@@ -1776,8 +1777,12 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 		_ = vm.PolicyDelAll()
 	})
 
+	JustBeforeEach(func() {
+		testStartTime = time.Now()
+	})
+
 	JustAfterEach(func() {
-		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+		vm.ValidateNoErrorsInLogs(time.Since(testStartTime))
 	})
 
 	AfterFailed(func() {
