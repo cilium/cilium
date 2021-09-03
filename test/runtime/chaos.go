@@ -31,8 +31,10 @@ import (
 )
 
 var _ = Describe("RuntimeChaos", func() {
-
-	var vm *helpers.SSHMeta
+	var (
+		vm            *helpers.SSHMeta
+		testStartTime time.Time
+	)
 
 	BeforeAll(func() {
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
@@ -57,8 +59,12 @@ var _ = Describe("RuntimeChaos", func() {
 		vm.PolicyDelAll()
 	})
 
+	JustBeforeEach(func() {
+		testStartTime = time.Now()
+	})
+
 	JustAfterEach(func() {
-		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+		vm.ValidateNoErrorsInLogs(time.Since(testStartTime))
 		ExpectDockerContainersMatchCiliumEndpoints(vm)
 	})
 
