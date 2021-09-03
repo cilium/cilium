@@ -165,8 +165,8 @@ github.com/chzyer/logex v1.1.10/go.mod h1:+Ywpsq7O8HXn0nuIou7OrIPyXbp3wmkHB+jjWR
 github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5PlCu98SY8svDHJxuZscDgtXS6KTTbou5AhLI=
 github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMnBNeIyt5eFwwo7qiLfzFZmjNmxjkiQlU=
 github.com/cilium/cilium v1.10.0-rc0.0.20210426173657-3b64f2372319/go.mod h1:VMQIZkodz3LiY1nApfWaJh29BUzVm1nlnhULb4go4vI=
-github.com/cilium/cilium v1.10.4-0.20210813145828-4a9ba5290014 h1:JD+KKG8irjayT1STOZGT1e1hd6SeXB5ezKQj3k9cnVQ=
-github.com/cilium/cilium v1.10.4-0.20210813145828-4a9ba5290014/go.mod h1:lWTUj3a9NwQKl+6wUCt0iVPySWpsAqm+1lfAXyig1LI=
+github.com/cilium/cilium v1.10.4 h1:xW56mkiRhxshPcS30IhsCBPwSFEgV3xcQSWMZyg8oq4=
+github.com/cilium/cilium v1.10.4/go.mod h1:lWTUj3a9NwQKl+6wUCt0iVPySWpsAqm+1lfAXyig1LI=
 github.com/cilium/customvet v0.0.0-20201209211516-9852765c1ac4/go.mod h1:MEn5V1CejgUNFP3Y1JKmBC6Mb9TuK53ecHG9lffctFg=
 github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e/go.mod h1:c4R5wxGyXhbM6zyKeRKNIc9aab5EZi4z4oOSZvUMvZA=
 github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3/go.mod h1:cXN7jgo+gsGlNvQ7Vqu2ELdc3f7i7PPgupHqSkLzzBo=
