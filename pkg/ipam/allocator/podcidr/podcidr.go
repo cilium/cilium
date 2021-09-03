@@ -301,9 +301,16 @@ func syncToK8s(nodeGetterUpdater ipam.CiliumNodeGetterUpdater, ciliumNodesToK8s 
 				err = nil
 			}
 		case k8sOpDelete:
-			err = nodeGetterUpdater.Delete(nodeName)
-			if k8sErrors.IsNotFound(err) || k8sErrors.IsGone(err) {
+			// There's no reason to handle a delete operation when we've
+			// already received the delete event for the resource anyway. We'll
+			// fetch it in case it still exists in k8s and warn if we find it.
+			_, err = nodeGetterUpdater.Get(nodeName)
+			if err != nil && k8sErrors.IsNotFound(err) {
+				// This is not an error because we expect the resource to
+				// already be deleted from k8s.
 				err = nil
+			} else {
+				log.WithError(err).Warn("Received a CiliumNode delete event, but the resource may not have been deleted (see error).")
 			}
 		}
 		switch {
