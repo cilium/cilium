@@ -89,9 +89,6 @@ func startSynchronizingCiliumNodes(apiextensionsK8sClient apiextensionsclientset
 }
 
 func deleteCiliumNode(nodeManager *allocator.NodeEventHandler, name string) {
-	if err := ciliumK8sClient.CiliumV2().CiliumNodes().Delete(context.TODO(), name, metav1.DeleteOptions{}); err == nil {
-		log.WithField("name", name).Info("Removed CiliumNode after receiving node deletion event")
-	}
 	if nodeManager != nil {
 		(*nodeManager).Delete(name)
 	}
