@@ -138,11 +138,11 @@ pipeline {
                             )}"""
                         K8S_NODES="""${sh(
                             returnStdout: true,
-                            script: 'if [ "${KERNEL}" = "net-next" ]; then echo -n "3"; else echo -n "2"; fi'
+                            script: 'if [ "${KERNEL}" = "net-next" ]; then echo -n "4"; else echo -n "2"; fi'
                             )}"""
                         NO_CILIUM_ON_NODE="""${sh(
                             returnStdout: true,
-                            script: 'if [ "${KERNEL}" = "net-next" ]; then echo -n "k8s3"; else echo -n ""; fi'
+                            script: 'if [ "${KERNEL}" = "net-next" ]; then echo -n "k8s4"; else echo -n ""; fi'
                             )}"""
                         KUBEPROXY="""${sh(
                             returnStdout: true,
