@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/cilium/cilium/pkg/logging"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
@@ -68,8 +69,9 @@ func superNetperfStream(s *helpers.SSHMeta, client string, server string, num in
 
 var _ = Describe("BenchmarkNetperfPerformance", func() {
 	var (
-		vm          *helpers.SSHMeta
-		monitorStop = func() error { return nil }
+		vm            *helpers.SSHMeta
+		testStartTime time.Time
+		monitorStop   = func() error { return nil }
 
 		log    = logging.DefaultLogger
 		logger = logrus.NewEntry(log)
@@ -85,10 +87,11 @@ var _ = Describe("BenchmarkNetperfPerformance", func() {
 
 	JustBeforeEach(func() {
 		_, monitorStop = vm.MonitorStart()
+		testStartTime = time.Now()
 	})
 
 	JustAfterEach(func() {
-		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+		vm.ValidateNoErrorsInLogs(time.Since(testStartTime))
 		Expect(monitorStop()).To(BeNil(), "cannot stop monitor command")
 	})
 

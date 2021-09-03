@@ -32,8 +32,9 @@ var _ = Describe("RuntimeConntrackInVethModeTest", runtimeConntrackTest("veth"))
 var runtimeConntrackTest = func(datapathMode string) func() {
 	return func() {
 		var (
-			vm          *helpers.SSHMeta
-			monitorStop = func() error { return nil }
+			vm            *helpers.SSHMeta
+			testStartTime time.Time
+			monitorStop   = func() error { return nil }
 
 			curl1ContainerName             = "curl"
 			curl2ContainerName             = "curl2"
@@ -373,6 +374,7 @@ var runtimeConntrackTest = func(datapathMode string) func() {
 
 		JustBeforeEach(func() {
 			_, monitorStop = vm.MonitorStart()
+			testStartTime = time.Now()
 		})
 
 		AfterEach(func() {
@@ -386,7 +388,7 @@ var runtimeConntrackTest = func(datapathMode string) func() {
 		})
 
 		JustAfterEach(func() {
-			vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+			vm.ValidateNoErrorsInLogs(time.Since(testStartTime))
 			Expect(monitorStop()).To(BeNil(), "cannot stop monitor command")
 		})
 

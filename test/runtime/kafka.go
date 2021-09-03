@@ -17,6 +17,7 @@ package RuntimeTest
 import (
 	"context"
 	"fmt"
+	"time"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -28,9 +29,10 @@ import (
 var _ = Describe("RuntimeKafka", func() {
 
 	var (
-		vm          *helpers.SSHMeta
-		monitorRes  *helpers.CmdRes
-		monitorStop = func() error { return nil }
+		vm            *helpers.SSHMeta
+		testStartTime time.Time
+		monitorRes    *helpers.CmdRes
+		monitorStop   = func() error { return nil }
 
 		allowedTopic  = "allowedTopic"
 		disallowTopic = "disallowTopic"
@@ -145,11 +147,12 @@ var _ = Describe("RuntimeKafka", func() {
 	})
 
 	JustBeforeEach(func() {
+		testStartTime = time.Now()
 		monitorRes, monitorStop = vm.MonitorStart("--type l7")
 	})
 
 	JustAfterEach(func() {
-		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+		vm.ValidateNoErrorsInLogs(time.Since(testStartTime))
 		Expect(monitorStop()).To(BeNil(), "cannot stop monitor command")
 	})
 

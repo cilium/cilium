@@ -16,6 +16,8 @@ package RuntimeTest
 
 import (
 	"fmt"
+	"time"
+
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 	"github.com/cilium/cilium/test/helpers/constants"
@@ -26,8 +28,9 @@ import (
 var _ = XDescribe("RuntimeMemcache", func() {
 
 	var (
-		vm         *helpers.SSHMeta
-		memcacheIP string
+		vm            *helpers.SSHMeta
+		testStartTime time.Time
+		memcacheIP    string
 	)
 
 	containers := func(mode string) {
@@ -114,8 +117,12 @@ var _ = XDescribe("RuntimeMemcache", func() {
 		vm.CloseSSHClient()
 	})
 
+	JustBeforeEach(func() {
+		testStartTime = time.Now()
+	})
+
 	JustAfterEach(func() {
-		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+		vm.ValidateNoErrorsInLogs(time.Since(testStartTime))
 	})
 
 	AfterFailed(func() {
