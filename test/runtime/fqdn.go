@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
@@ -138,8 +139,9 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 	)
 
 	var (
-		vm          *helpers.SSHMeta
-		monitorStop = func() error { return nil }
+		vm            *helpers.SSHMeta
+		testStartTime time.Time
+		monitorStop   = func() error { return nil }
 
 		ciliumTestImages = map[string]string{
 			WorldHttpd1: constants.HttpdImage,
@@ -253,10 +255,11 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 
 	JustBeforeEach(func() {
 		_, monitorStop = vm.MonitorStart()
+		testStartTime = time.Now()
 	})
 
 	JustAfterEach(func() {
-		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+		vm.ValidateNoErrorsInLogs(time.Since(testStartTime))
 		ExpectDockerContainersMatchCiliumEndpoints(vm)
 		monitorStop()
 	})
