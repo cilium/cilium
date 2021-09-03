@@ -33,6 +33,7 @@ import (
 	. "gopkg.in/check.v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func Test(t *testing.T) {
@@ -1982,13 +1983,11 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 			},
 			args: &args{
 				nodeGetter: &k8sNodeMock{
-					OnDelete: func(nodeName string) error {
+					// k8sOpDelete calls Get(), instead of Delete()
+					OnGet: func(nodeName string) (*v2.CiliumNode, error) {
 						calls[k8sOpDelete]++
 						c.Assert(nodeName, checker.DeepEquals, "node-1")
-						return &k8sErrors.StatusError{
-							ErrStatus: v1.Status{
-								Reason: v1.StatusReasonNotFound,
-							}}
+						return nil, k8sErrors.NewNotFound(schema.GroupResource{}, nodeName)
 					},
 				},
 				ciliumNodesToK8s: map[string]*ciliumNodeK8sOp{
@@ -2006,19 +2005,17 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 			wantErr: false,
 		},
 		{
-			name: "test-7 - delete node and do not ignore error if node was not found",
+			name: "test-7 - delete node and do not ignore any other error besides node was not found",
 			testSetup: func() {
 				calls = map[k8sOp]int{}
 			},
 			args: &args{
 				nodeGetter: &k8sNodeMock{
-					OnDelete: func(nodeName string) error {
+					// k8sOpDelete calls Get(), instead of Delete()
+					OnGet: func(nodeName string) (*v2.CiliumNode, error) {
 						calls[k8sOpDelete]++
 						c.Assert(nodeName, checker.DeepEquals, "node-1")
-						return &k8sErrors.StatusError{
-							ErrStatus: v1.Status{
-								Reason: v1.StatusReasonBadRequest,
-							}}
+						return nil, k8sErrors.NewTimeoutError("", 0)
 					},
 				},
 				ciliumNodesToK8s: map[string]*ciliumNodeK8sOp{
@@ -2051,50 +2048,52 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 }
 
 func (s *PodCIDRSuite) TestNewNodesPodCIDRManager(c *C) {
-	onDeleteCalls := 0
-	deleted2Times := make(chan struct{})
+	name := "node-1"
+	ciliumNode := &v2.CiliumNode{
+		ObjectMeta: v1.ObjectMeta{
+			Name: name,
+		},
+	}
+	// `nm` will call Get() on a delete op, because we don't actually delete.
+	onGetCalls := 0
+	wasDeletedOnce := make(chan struct{})
 	nodeGetter := &k8sNodeMock{
-		OnDelete: func(nodeName string) error {
-			onDeleteCalls++
-			switch {
-			case onDeleteCalls < 2:
-				return &k8sErrors.StatusError{
-					ErrStatus: v1.Status{
-						Reason: v1.StatusReasonBadRequest,
-					}}
-			case onDeleteCalls == 2:
-				close(deleted2Times)
-				fallthrough
-			default:
-				return nil
+		OnGet: func(nodeName string) (*v2.CiliumNode, error) {
+			onGetCalls++
+			if onGetCalls == 1 {
+				close(wasDeletedOnce)
+			} else if onGetCalls > 1 {
+				return ciliumNode, nil
 			}
+			return nil, k8sErrors.NewNotFound(schema.GroupResource{}, nodeName)
 		},
 	}
 	updateK8sInterval = time.Second
-	nm := NewNodesPodCIDRManager(nil, nil, nodeGetter, nil)
 
+	nm := NewNodesPodCIDRManager(nil, nil, nodeGetter, nil)
 	nm.k8sReSync.Trigger()
 	// Waiting 2 times the amount of time set in the trigger
 	time.Sleep(2 * time.Second)
-	c.Assert(onDeleteCalls, Equals, 0)
+	c.Assert(onGetCalls, Equals, 0)
 
 	nm.Mutex.Lock()
 	nm.ciliumNodesToK8s = map[string]*ciliumNodeK8sOp{
-		"node-1": {
+		name: {
 			op: k8sOpDelete,
 		},
 	}
 	nm.Mutex.Unlock()
 	select {
-	case <-deleted2Times:
+	case <-wasDeletedOnce:
 	case <-time.Tick(5 * time.Second):
-		c.Error("The controller should have tried to delete the node by now")
+		c.Error("The controller should have received the delete operation by now")
 	}
 	nm.Mutex.Lock()
 	c.Assert(nm.ciliumNodesToK8s, checker.DeepEquals, map[string]*ciliumNodeK8sOp{})
 	nm.Mutex.Unlock()
 	// Wait for the controller to try more times, the number of deletedCalls
-	// should not be different because we have successfully deleted the node.
+	// should not be different because we have successfully processed the
+	// deletion operation of the node.
 	time.Sleep(2 * time.Second)
-	c.Assert(onDeleteCalls, Equals, 2)
+	c.Assert(onGetCalls, Equals, 1)
 }
