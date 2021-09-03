@@ -34,7 +34,7 @@ for release in $(grep "General Announcement" README.rst \
     elease=$(echo $release | sed 's/v//')
     old_proj=$(grep -F "$elease" -A 1 $ACTS_YAML | grep projects | sort | uniq \
                | sed "$PROJECTS_REGEX")
-    new_proj=$(git show $REMOTE/$release:$ACTS_YAML | grep project \
+    new_proj=$(git show $REMOTE/$release:$ACTS_YAML | grep projects \
                | sed "$PROJECTS_REGEX")
 
     echo "Updating $release:"
