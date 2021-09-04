@@ -753,6 +753,10 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 			}
 		}
 
+		for i := range obsoleteBackendIDs {
+			toDeleteAffinity = append(toDeleteAffinity, obsoleteBackendIDs[i])
+		}
+
 		s.deleteBackendsFromAffinityMatchMap(svc.frontend.ID, toDeleteAffinity)
 		// New affinity matches (toAddAffinity) will be added after the new
 		// backends have been added.
