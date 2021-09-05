@@ -700,6 +700,48 @@ func (s *K8sSuite) TestParsePorts(c *C) {
 	c.Assert(rules[0].Ports[0].Protocol, Equals, api.ProtoTCP)
 }
 
+func (s *K8sSuite) TestParseNetworkPolicyEndPort(c *C) {
+	endPort := int32(30039)
+	endPortIng := int32(910)
+	netPolicy := &slim_networkingv1.NetworkPolicy{
+		Spec: slim_networkingv1.NetworkPolicySpec{
+			Ingress: []slim_networkingv1.NetworkPolicyIngressRule{
+				{
+					Ports: []slim_networkingv1.NetworkPolicyPort{
+						{
+							Port: &intstr.IntOrString{
+								Type:   intstr.Int,
+								IntVal: 900,
+							},
+							EndPort: &endPortIng,
+						},
+					},
+				},
+			},
+			Egress: []slim_networkingv1.NetworkPolicyEgressRule{
+				{
+					Ports: []slim_networkingv1.NetworkPolicyPort{
+						{
+							Port: &intstr.IntOrString{
+								Type:   intstr.Int,
+								IntVal: 30000,
+							},
+							EndPort: &endPort,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	rules, err := ParseNetworkPolicy(netPolicy)
+	c.Assert(err, IsNil)
+	c.Assert(len(rules), Equals, 1)
+	c.Assert(len(rules[0].Egress[0].ToPorts[0].Ports), Equals, 40)
+	c.Assert(len(rules[0].Ingress[0].ToPorts[0].Ports), Equals, 11)
+
+}
+
 func (s *K8sSuite) TestParseNetworkPolicyUnknownProto(c *C) {
 	unknownProtocol := slim_corev1.Protocol("unknown")
 	netPolicy := &slim_networkingv1.NetworkPolicy{

@@ -5,12 +5,14 @@ package k8s
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	k8sCiliumUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/util/intstr"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -277,10 +279,19 @@ func parsePorts(ports []slim_networkingv1.NetworkPolicyPort) []api.PortRule {
 			portStr = port.Port.String()
 		}
 
+		ports := []api.PortProtocol{
+			{Port: portStr, Protocol: protocol},
+		}
+
+		if port.Port != nil && port.Port.Type == intstr.Int && port.EndPort != nil && port.Port.IntVal <= *port.EndPort {
+			for i := port.Port.IntVal + 1; i <= *port.EndPort; i++ {
+				port := api.PortProtocol{Port: strconv.Itoa(int(i)), Protocol: protocol}
+				ports = append(ports, port)
+			}
+		}
+
 		portRule := api.PortRule{
-			Ports: []api.PortProtocol{
-				{Port: portStr, Protocol: protocol},
-			},
+			Ports: ports,
 		}
 
 		portRules = append(portRules, portRule)
