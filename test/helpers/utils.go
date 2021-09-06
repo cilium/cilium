@@ -527,18 +527,6 @@ func DoesNotRunOn419OrLaterKernel() bool {
 	return !RunsOn419OrLaterKernel()
 }
 
-// RunsOn54OrLaterKernel checks whether a test case is running on the
-// 5.4 or net-next kernels.
-func RunsOn54OrLaterKernel() bool {
-	return RunsOnNetNextKernel() || RunsOn54Kernel()
-}
-
-// DoesNotRunOn54OrLaterKernel is the complement function of
-// RunsOn54OrLaterKernel.
-func DoesNotRunOn54OrLaterKernel() bool {
-	return !RunsOn54OrLaterKernel()
-}
-
 // RunsOnGKE returns true if the tests are running on GKE.
 func RunsOnGKE() bool {
 	return GetCurrentIntegration() == CIIntegrationGKE

@@ -636,14 +636,6 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			It("", func() {
 				testNodePort(kubectl, ni, false, false, false, 0)
 			})
-
-			// Explicitly test netfilter compat mode with kube-proxy.
-			SkipItIf(helpers.DoesNotRunOn54OrLaterKernel, "with reverse NAT at host netfilterCompatMode=true", func() {
-				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-					"netfilterCompatMode": "true",
-				})
-				testNodePort(kubectl, ni, false, false, false, 0)
-			})
 		})
 
 		SkipContextIf(manualIPv6TestingNotRequired(helpers.DoesNotRunWithKubeProxyReplacement), "Tests IPv6 NodePort Services", func() {
@@ -952,13 +944,6 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 						testNodePort(kubectl, ni, true, true, helpers.ExistNodeWithoutCilium(), 0)
 					})
-
-					SkipItIf(helpers.DoesNotRunOn54OrLaterKernel, "Test NodePort with netfilterCompatMode=true", func() {
-						DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-							"netfilterCompatMode": "true",
-						})
-						testNodePort(kubectl, ni, true, false, helpers.ExistNodeWithoutCilium(), 0)
-					})
 				})
 
 				Context("Tests with direct routing", func() {
@@ -1002,15 +987,6 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 					SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests externalIPs", func() {
 						testExternalIPs(kubectl, ni)
-					})
-
-					SkipItIf(helpers.DoesNotRunOn54OrLaterKernel, "Test NodePort with netfilterCompatMode=true", func() {
-						DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-							"netfilterCompatMode":  "true",
-							"tunnel":               "disabled",
-							"autoDirectNodeRoutes": "true",
-						})
-						testNodePort(kubectl, ni, true, false, helpers.ExistNodeWithoutCilium(), 0)
 					})
 
 					SkipContextIf(helpers.RunsOnGKE, "With host policy", func() {

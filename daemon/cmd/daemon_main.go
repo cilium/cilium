@@ -966,10 +966,6 @@ func init() {
 	flags.Bool(option.EnableCustomCallsName, false, "Enable tail call hooks for custom eBPF programs")
 	option.BindEnv(option.EnableCustomCallsName)
 
-	flags.Bool(option.NetfilterCompatibleMode, false, "If set to true, guarantees that all traffic will pass through netfilter and that iptable rules will be enforced. This mode may reduce network throughput. If set to false (default), it does not guarantee that all traffic will pass through netfilter.")
-	flags.MarkHidden(option.NetfilterCompatibleMode)
-	option.BindEnv(option.NetfilterCompatibleMode)
-
 	flags.Bool(option.BGPAnnounceLBIP, false, "Announces service IPs of type LoadBalancer via BGP")
 	option.BindEnv(option.BGPAnnounceLBIP)
 
@@ -1448,15 +1444,6 @@ func initEnv(cmd *cobra.Command) {
 	if option.Config.BGPAnnounceLBIP {
 		option.Config.EnableNodePort = true
 		log.Infof("Auto-set BPF NodePort (%q) because LB IP announcements via BGP depend on it.", option.EnableNodePort)
-	}
-
-	// NetfilterCompatibleMode should be enabled only on higher versions (5.4 or later) of kernel.
-	// If kernel doesn't support higher instruction complexity limit, then disable NetfilterCompatibleMode.
-	if option.Config.NetfilterCompatibleMode {
-		if !probes.NewProbeManager().GetMisc().HaveLargeInsnLimit {
-			option.Config.NetfilterCompatibleMode = false
-			log.Warn("netfilter-compatible-mode is enabled only on 5.4 and higher versions of kernel.")
-		}
 	}
 }
 
