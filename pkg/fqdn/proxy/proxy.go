@@ -17,3 +17,29 @@ type DNSProxier interface {
 	SetRejectReply(string)
 	RestoreRules(op *endpoint.Endpoint)
 }
+
+type MockFQDNProxy struct{}
+
+func (m MockFQDNProxy) GetRules(u uint16) (restore.DNSRules, error) {
+	return nil, nil
+}
+
+func (m MockFQDNProxy) RemoveRestoredRules(u uint16) {
+	return
+}
+
+func (m MockFQDNProxy) UpdateAllowed(endpointID uint64, destPort uint16, newRules policy.L7DataMap) error {
+	return nil
+}
+
+func (m MockFQDNProxy) GetBindPort() uint16 {
+	return 0
+}
+
+func (m MockFQDNProxy) SetRejectReply(s string) {
+	return
+}
+
+func (m MockFQDNProxy) RestoreRules(op *endpoint.Endpoint) {
+	return
+}
