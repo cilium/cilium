@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: web
-        image: docker.io/cilium/echoserver:1.10.1
+        image: docker.io/cilium/echoserver:1.10.3
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
@@ -95,7 +95,7 @@ spec:
     spec:
       containers:
       - name: web
-        image: docker.io/cilium/echoserver:1.10.1
+        image: docker.io/cilium/echoserver:1.10.3
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
