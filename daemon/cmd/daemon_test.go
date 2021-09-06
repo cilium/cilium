@@ -18,6 +18,8 @@ package cmd
 
 import (
 	"context"
+	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
+	"github.com/cilium/cilium/pkg/proxy"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -83,6 +85,8 @@ func setupTestDirectories() {
 }
 
 func TestMain(m *testing.M) {
+	proxy.DefaultDNSProxy = fqdnproxy.MockFQDNProxy{}
+
 	// Set up all configuration options which are global to the entire test
 	// run.
 	option.Config.Populate()
