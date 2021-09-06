@@ -326,6 +326,12 @@ func (s *Service4Value) SetSessionAffinityTimeoutSec(t uint32) {
 	s.BackendID = t
 }
 
+func (s *Service4Value) SetL7LBProxyPort(port uint16) {
+	// Go doesn't support union types, so we use BackendID to access the
+	// lb4_service.l7_lb_proxy_port field
+	s.BackendID = uint32(byteorder.HostToNetwork16(port))
+}
+
 func (s *Service4Value) SetBackendID(id loadbalancer.BackendID) {
 	s.BackendID = uint32(id)
 }

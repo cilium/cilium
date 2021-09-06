@@ -212,7 +212,13 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 		if (ctx_get_xfer(ctx) != XFER_PKT_NO_SVC &&
 		    !bpf_skip_nodeport(ctx)) {
 			ret = nodeport_lb6(ctx, secctx);
-			if (ret < 0)
+			/* nodeport_lb6() returns with TC_ACT_REDIRECT for
+			 * traffic to L7 LB. Policy enforcement needs to take
+			 * place after L7 LB has processed the packet, so we
+			 * return to stack immediately here with
+			 * TC_ACT_REDIRECT.
+			 */
+			if (ret < 0 || ret == TC_ACT_REDIRECT)
 				return ret;
 		}
 		/* Verifier workaround: modified ctx access. */
@@ -490,9 +496,16 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 							      DROP_MISSED_TAIL_CALL,
 							      CTX_ACT_DROP,
 							      METRIC_INGRESS);
-			} else if (ret < 0) {
-				return ret;
 			}
+
+			/* nodeport_lb4() returns with TC_ACT_REDIRECT for
+			 * traffic to L7 LB. Policy enforcement needs to take
+			 * place after L7 LB has processed the packet, so we
+			 * return to stack immediately here with
+			 * TC_ACT_REDIRECT.
+			 */
+			if (ret < 0 || ret == TC_ACT_REDIRECT)
+				return ret;
 		}
 		/* Verifier workaround: modified ctx access. */
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))

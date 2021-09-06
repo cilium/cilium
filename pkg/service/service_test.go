@@ -38,7 +38,7 @@ func (m *ManagerTestSuite) SetUpTest(c *C) {
 	serviceIDAlloc.resetLocalID()
 	backendIDAlloc.resetLocalID()
 
-	m.svc = NewService(nil)
+	m.svc = NewService(nil, nil)
 	m.svc.lbmap = mockmaps.NewLBMockMap()
 	m.lbmap = m.svc.lbmap.(*mockmaps.LBMockMap)
 
@@ -383,7 +383,7 @@ func (m *ManagerTestSuite) TestRestoreServices(c *C) {
 	option.Config.NodePortAlg = option.NodePortAlgMaglev
 	option.Config.DatapathMode = datapathOpt.DatapathModeLBOnly
 	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
-	m.svc = NewService(nil)
+	m.svc = NewService(nil, nil)
 	m.svc.lbmap = lbmap
 
 	// Restore services from lbmap
@@ -454,7 +454,7 @@ func (m *ManagerTestSuite) TestSyncWithK8sFinished(c *C) {
 
 	// Restart service, but keep the lbmap to restore services from
 	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
-	m.svc = NewService(nil)
+	m.svc = NewService(nil, nil)
 	m.svc.lbmap = lbmap
 	err = m.svc.RestoreServices()
 	c.Assert(err, IsNil)
@@ -930,7 +930,7 @@ func (m *ManagerTestSuite) TestRestoreServiceWithTerminatingBackends(c *C) {
 
 	// Simulate agent restart.
 	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
-	m.svc = NewService(nil)
+	m.svc = NewService(nil, nil)
 	m.svc.lbmap = lbmap
 
 	// Restore services from lbmap
@@ -952,4 +952,61 @@ func (m *ManagerTestSuite) TestRestoreServiceWithTerminatingBackends(c *C) {
 		c.Assert(m.lbmap.AffinityMatch[uint16(id1)][b.ID], Equals, struct{}{})
 	}
 	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, len(backends1))
+}
+
+// l7 load balancer service should be able to override any service type
+// (Cluster IP, NodePort, etc.) with same frontend.
+func (m *ManagerTestSuite) TestL7LoadBalancerServiceOverride(c *C) {
+	// Create a node-local backend.
+	localBackend := backends1[0]
+	localBackend.NodeName = nodeTypes.GetName()
+	// Create two remote backends.
+	remoteBackends := make([]lb.Backend, 0, len(backends2))
+	for _, backend := range backends2 {
+		backend.NodeName = "not-" + nodeTypes.GetName()
+		remoteBackends = append(remoteBackends, backend)
+	}
+	allBackends := make([]lb.Backend, 0, 1+len(remoteBackends))
+	allBackends = append(allBackends, localBackend)
+	allBackends = append(allBackends, remoteBackends...)
+
+	p1 := &lb.SVC{
+		Frontend:      frontend1,
+		Backends:      allBackends,
+		Type:          lb.SVCTypeClusterIP,
+		TrafficPolicy: lb.SVCTrafficPolicyCluster,
+		Name:          "echo-other-node",
+		Namespace:     "cilium-test",
+	}
+
+	// Insert the service entry of type ClusterIP.
+	created, id, err := m.svc.UpsertService(p1)
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, true)
+	c.Assert(id, Not(Equals), lb.ID(0))
+
+	svc, ok := m.svc.svcByID[id]
+	c.Assert(len(svc.backends), Equals, len(allBackends))
+	c.Assert(ok, Equals, true)
+	c.Assert(svc.l7LBProxyPort, Equals, uint16(0))
+
+	p2 := &lb.SVC{
+		Frontend:      frontend1,
+		Backends:      allBackends,
+		Type:          lb.SVCTypeClusterIP,
+		TrafficPolicy: lb.SVCTrafficPolicyCluster,
+		Name:          "echo-same-node",
+		Namespace:     "cilium-test",
+	}
+
+	// Insert the service entry of type ClusterIP.
+	created, id, err = m.svc.UpsertService(p2)
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, false)
+	c.Assert(id, Not(Equals), lb.ID(0))
+
+	svc, ok = m.svc.svcByID[id]
+	c.Assert(len(svc.backends), Equals, len(allBackends))
+	c.Assert(ok, Equals, true)
+	c.Assert(svc.l7LBProxyPort, Equals, uint16(0))
 }

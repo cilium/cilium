@@ -119,6 +119,10 @@ enum {
 	DBG_SK_ASSIGN,		/* arg1: result
 				 * arg2: unuseds
 				 */
+	DBG_L7_LB,		/* arg1: saddr (last 4 bytes for IPv6)
+				 * arg2: daddr (last 4 bytes for IPv6)
+				 * arg3: proxy port (in host byte order)
+				 */
 };
 
 /* Capture types */
