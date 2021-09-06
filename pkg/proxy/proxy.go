@@ -44,16 +44,33 @@ type DatapathUpdater interface {
 	SupportsOriginalSourceAddr() bool
 }
 
+type ProxyType string
+
+func (p ProxyType) String() string {
+	return (string)(p)
+}
+
+const (
+	// ProxyTypeAny represents the case where no proxy type is provided.
+	ProxyTypeAny ProxyType = ""
+	// ProxyTypeHTTP specifies the Envoy HTTP proxy type
+	ProxyTypeHTTP ProxyType = "http"
+	// ProxyTypeDNS specifies the staticly configured DNS proxy type
+	ProxyTypeDNS ProxyType = "dns"
+	// ProxyTypeCRD specifies a proxy configured via CiliumEnvoyConfig CRD
+	ProxyTypeCRD ProxyType = "crd"
+
+	DNSProxyName = "cilium-dns-egress"
+)
+
 type ProxyPort struct {
-	// Listener name (immutable)
-	name string
 	// isStatic is true when the listener on the proxy port is incapable
 	// of stopping and/or being reconfigured with a new proxy port once it has been
 	// first started. Set 'true' by SetProxyPort(), which is only called for
 	// static listeners (currently only DNS proxy).
 	isStatic bool
-	// parser type this port applies to (immutable)
-	parserType policy.L7ParserType
+	// proxy type this port applies to (immutable)
+	proxyType ProxyType
 	// 'true' for ingress, 'false' for egress (immutable)
 	ingress bool
 	// ProxyPort is the desired proxy listening port number.
@@ -146,34 +163,27 @@ var (
 
 	portRandomizer = rand.NewSafeRand(time.Now().UnixNano())
 
-	// proxyPorts is a slice of all supported proxy ports
-	// The number and order of entries are fixed, and the fields
-	// initialized here are immutable.
-	proxyPorts = []ProxyPort{
-		{
-			parserType: policy.ParserTypeHTTP,
-			ingress:    false,
-			name:       "cilium-http-egress",
+	// proxyPorts is a map of all supported proxy ports
+	proxyPorts = map[string]*ProxyPort{
+		"cilium-http-egress": {
+			proxyType: ProxyTypeHTTP,
+			ingress:   false,
 		},
-		{
-			parserType: policy.ParserTypeHTTP,
-			ingress:    true,
-			name:       "cilium-http-ingress",
+		"cilium-http-ingress": {
+			proxyType: ProxyTypeHTTP,
+			ingress:   true,
 		},
-		{
-			parserType: policy.ParserTypeDNS,
-			ingress:    false,
-			name:       "cilium-dns-egress",
+		DNSProxyName: {
+			proxyType: ProxyTypeDNS,
+			ingress:   false,
 		},
-		{
-			parserType: policy.ParserTypeNone,
-			ingress:    false,
-			name:       "cilium-proxylib-egress",
+		"cilium-proxylib-egress": {
+			proxyType: ProxyTypeAny,
+			ingress:   false,
 		},
-		{
-			parserType: policy.ParserTypeNone,
-			ingress:    true,
-			name:       "cilium-proxylib-ingress",
+		"cilium-proxylib-ingress": {
+			proxyType: ProxyTypeAny,
+			ingress:   true,
 		},
 	}
 )
@@ -223,36 +233,26 @@ func (pp *ProxyPort) reservePort() {
 	}
 }
 
-// Called with proxyPortsMutex held!
-func findProxyPort(name string) *ProxyPort {
-	for i := range proxyPorts {
-		if proxyPorts[i].name == name {
-			return &proxyPorts[i]
-		}
-	}
-	return nil
-}
-
 // AckProxyPort() marks the proxy of the given type as successfully
 // created and creates or updates the datapath rules accordingly.
-func (p *Proxy) AckProxyPort(l7Type policy.L7ParserType, ingress bool) error {
+func (p *Proxy) AckProxyPort(name string) error {
 	proxyPortsMutex.Lock()
 	defer proxyPortsMutex.Unlock()
-	pp := getProxyPort(l7Type, ingress)
+	pp := proxyPorts[name]
 	if pp == nil {
-		return proxyNotFoundError(l7Type, ingress)
+		return proxyNotFoundError(name)
 	}
-	return p.ackProxyPort(pp) // creates datapath rules, increases the reference count
+	return p.ackProxyPort(name, pp) // creates datapath rules, increases the reference count
 }
 
 // ackProxyPort() marks the proxy as successfully created and creates or updates the datapath rules
 // accordingly. Each call must eventually be paired with a corresponding releaseProxyPort() call
 // to keep the use count up-to-date.
 // Must be called with proxyPortsMutex held!
-func (p *Proxy) ackProxyPort(pp *ProxyPort) error {
+func (p *Proxy) ackProxyPort(name string, pp *ProxyPort) error {
 	if pp.nRedirects == 0 {
-		scopedLog := log.WithField("proxy port name", pp.name)
-		scopedLog.Debugf("Considering updating proxy port rules for %s:%d (old: %d)", pp.name, pp.proxyPort, pp.rulesPort)
+		scopedLog := log.WithField("proxy port name", name)
+		scopedLog.Debugf("Considering updating proxy port rules for %s:%d (old: %d)", name, pp.proxyPort, pp.rulesPort)
 
 		// Datapath rules are added only after we know the proxy configuration
 		// with the actual port number has succeeded. Deletion of the rules
@@ -265,10 +265,10 @@ func (p *Proxy) ackProxyPort(pp *ProxyPort) error {
 		if pp.rulesPort != pp.proxyPort {
 			// Add rules for the new port
 			// This should always succeed if we have managed to start-up properly
-			scopedLog.Infof("Adding new proxy port rules for %s:%d", pp.name, pp.proxyPort)
-			err := p.datapathUpdater.InstallProxyRules(pp.proxyPort, pp.ingress, pp.name)
+			scopedLog.Infof("Adding new proxy port rules for %s:%d", name, pp.proxyPort)
+			err := p.datapathUpdater.InstallProxyRules(pp.proxyPort, pp.ingress, name)
 			if err != nil {
-				return fmt.Errorf("Cannot install proxy rules for %s: %s", pp.name, err)
+				return fmt.Errorf("Cannot install proxy rules for %s: %s", name, err)
 			}
 			pp.rulesPort = pp.proxyPort
 		}
@@ -280,7 +280,7 @@ func (p *Proxy) ackProxyPort(pp *ProxyPort) error {
 // releaseProxyPort() decreases the use count and frees the port if no users remain
 // Must be called with proxyPortsMutex held!
 func (p *Proxy) releaseProxyPort(name string) error {
-	pp := findProxyPort(name)
+	pp := proxyPorts[name]
 	if pp == nil {
 		return fmt.Errorf("Can't find proxy port %s", name)
 	}
@@ -305,57 +305,62 @@ func (p *Proxy) releaseProxyPort(name string) error {
 	return nil
 }
 
-// mutex need not be held, as this only refers to immutable members in the static slice.
-func getProxyPort(l7Type policy.L7ParserType, ingress bool) *ProxyPort {
+// Must be called with proxyPortsMutex held!
+func getProxyPort(l7Type ProxyType, ingress bool) (string, *ProxyPort) {
 	portType := l7Type
 	switch l7Type {
-	case policy.ParserTypeDNS, policy.ParserTypeHTTP:
+	case ProxyTypeDNS, ProxyTypeHTTP, ProxyTypeCRD:
 	default:
 		// "Unknown" parsers are assumed to be Proxylib (TCP) parsers, which
 		// is registered with an empty string.
-		portType = ""
+		portType = ProxyTypeAny
 	}
 	// proxyPorts is small enough to not bother indexing it.
-	for i := range proxyPorts {
-		if proxyPorts[i].parserType == portType && proxyPorts[i].ingress == ingress {
-			return &proxyPorts[i]
+	for name, pp := range proxyPorts {
+		if pp.proxyType == portType && pp.ingress == ingress {
+			return name, pp
 		}
 	}
-	return nil
+	return "", nil
 }
 
-func proxyNotFoundError(l7Type policy.L7ParserType, ingress bool) error {
+func proxyTypeNotFoundError(proxyType ProxyType, ingress bool) error {
 	dir := "egress"
 	if ingress {
 		dir = "ingress"
 	}
-	return fmt.Errorf("unrecognized %s proxy type: %s", dir, l7Type)
+	return fmt.Errorf("unrecognized %s proxy type: %s", dir, proxyType)
+}
+
+func proxyNotFoundError(name string) error {
+	return fmt.Errorf("unrecognized proxy: %s", name)
 }
 
 // Exported API
 
 // GetProxyPort() returns the fixed listen port for a proxy, if any.
-func GetProxyPort(l7Type policy.L7ParserType, ingress bool) (uint16, string, error) {
+func GetProxyPort(name string) (uint16, error) {
 	// Accessing pp.proxyPort requires the lock
 	proxyPortsMutex.Lock()
 	defer proxyPortsMutex.Unlock()
-	pp := getProxyPort(l7Type, ingress)
+	pp := proxyPorts[name]
 	if pp != nil {
-		return pp.proxyPort, pp.name, nil
+		return pp.proxyPort, nil
 	}
-	return 0, "", proxyNotFoundError(l7Type, ingress)
+	return 0, proxyNotFoundError(name)
 }
 
 // SetProxyPort() marks the proxy 'name' as successfully created with proxy port 'port'.
 // Another call to AckProxyPort(name) is needed to update the datapath rules accordingly.
 // This should only be called for proxies that have a static listener that is already listening on
 // 'port'. May only be called once per proxy.
-func (p *Proxy) SetProxyPort(name string, port uint16) error {
+func (p *Proxy) SetProxyPort(name string, proxyType ProxyType, port uint16, ingress bool) error {
 	proxyPortsMutex.Lock()
 	defer proxyPortsMutex.Unlock()
-	pp := findProxyPort(name)
+	pp := proxyPorts[name]
 	if pp == nil {
-		return fmt.Errorf("Can't find proxy port %s", name)
+		pp = &ProxyPort{proxyType: proxyType, ingress: ingress}
+		proxyPorts[name] = pp
 	}
 	if pp.nRedirects > 0 {
 		return fmt.Errorf("Can't set proxy port to %d: proxy %s is already configured on %d", port, name, pp.proxyPort)
@@ -371,12 +376,12 @@ func (p *Proxy) SetProxyPort(name string, port uint16) error {
 func (p *Proxy) ReinstallRules() {
 	proxyPortsMutex.Lock()
 	defer proxyPortsMutex.Unlock()
-	for _, pp := range proxyPorts {
+	for name, pp := range proxyPorts {
 		if pp.rulesPort > 0 {
 			// This should always succeed if we have managed to start-up properly
-			err := p.datapathUpdater.InstallProxyRules(pp.rulesPort, pp.ingress, pp.name)
+			err := p.datapathUpdater.InstallProxyRules(pp.rulesPort, pp.ingress, name)
 			if err != nil {
-				log.WithError(err).Errorf("Can't install proxy rules for %s", pp.name)
+				log.WithError(err).Errorf("Can't install proxy rules for %s", name)
 			}
 		}
 	}
@@ -413,7 +418,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 policy.ProxyPolicy, id string, localEn
 	if redir, ok := p.redirects[id]; ok {
 		redir.mutex.Lock()
 
-		if redir.listener.parserType == l4.GetL7Parser() {
+		if redir.listener.proxyType == ProxyType(l4.GetL7Parser()) {
 			updateRevertFunc := redir.updateRules(l4)
 			revertStack.Push(updateRevertFunc)
 			var implUpdateRevertFunc revert.RevertFunc
@@ -426,7 +431,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 policy.ProxyPolicy, id string, localEn
 			revertStack.Push(implUpdateRevertFunc)
 
 			scopedLog.WithField(logfields.Object, logfields.Repr(redir)).
-				Debug("updated existing ", l4.GetL7Parser(), " proxy instance")
+				Debug("updated existing ", redir.listener.proxyType, " proxy instance")
 
 			redir.mutex.Unlock()
 
@@ -449,21 +454,21 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 policy.ProxyPolicy, id string, localEn
 
 	proxyPortsMutex.Lock()
 	defer proxyPortsMutex.Unlock()
-	pp := getProxyPort(l4.GetL7Parser(), l4.GetIngress())
+	ppName, pp := getProxyPort(ProxyType(l4.GetL7Parser()), l4.GetIngress())
 	if pp == nil {
-		err = proxyNotFoundError(l4.GetL7Parser(), l4.GetIngress())
+		err = proxyTypeNotFoundError(ProxyType(l4.GetL7Parser()), l4.GetIngress())
 		revertFunc()
 		return 0, err, nil, nil
 	}
 
-	redir := newRedirect(localEndpoint, pp, l4.GetPort())
+	redir := newRedirect(localEndpoint, ppName, pp, l4.GetPort())
 	redir.updateRules(l4)
 	// Rely on create*Redirect to update rules, unlike the update case above.
 
 	for nRetry := 0; nRetry < redirectCreationAttempts; nRetry++ {
 		if nRetry > 0 {
 			// an error occurred and we can retry
-			scopedLog.WithError(err).Warningf("Unable to create %s proxy, retrying", pp.name)
+			scopedLog.WithError(err).Warningf("Unable to create %s proxy, retrying", ppName)
 		}
 
 		if !pp.configured {
@@ -479,9 +484,6 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 policy.ProxyPolicy, id string, localEn
 		switch l4.GetL7Parser() {
 		case policy.ParserTypeDNS:
 			redir.implementation, err = createDNSRedirect(redir, dnsConfiguration{}, DefaultEndpointInfoRegistry)
-
-		case policy.ParserTypeHTTP:
-			redir.implementation, err = createEnvoyRedirect(redir, p.stateDir, p.XDSServer, p.datapathUpdater.SupportsOriginalSourceAddr(), wg)
 		default:
 			redir.implementation, err = createEnvoyRedirect(redir, p.stateDir, p.XDSServer, p.datapathUpdater.SupportsOriginalSourceAddr(), wg)
 		}
@@ -516,10 +518,10 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 policy.ProxyPolicy, id string, localEn
 				}
 
 				proxyPortsMutex.Lock()
-				err := p.ackProxyPort(pp)
+				err := p.ackProxyPort(ppName, pp)
 				proxyPortsMutex.Unlock()
 				if err != nil {
-					log.WithError(err).Errorf("Datapath proxy redirection cannot be enabled for %s, L7 proxy may be bypassed", pp.name)
+					log.WithError(err).Errorf("Datapath proxy redirection cannot be enabled for %s, L7 proxy may be bypassed", ppName)
 				}
 			}
 			// Must return the proxy port when successful
@@ -563,7 +565,7 @@ func (p *Proxy) removeRedirect(id string, wg *completion.WaitGroup) (err error, 
 	// safe to listen on the port again. This can't be reverted, so do it in a
 	// FinalizeFunc.
 	proxyPort := r.listener.proxyPort
-	listenerName := r.listener.name
+	listenerName := r.name
 
 	finalizeFunc = func() {
 		// break GC loop (implementation may point back to 'r')
@@ -627,7 +629,7 @@ func (p *Proxy) GetStatusModel() *models.ProxyStatus {
 	for name, redirect := range p.redirects {
 		result.Redirects = append(result.Redirects, &models.ProxyRedirect{
 			Name:      name,
-			Proxy:     redirect.listener.name,
+			Proxy:     redirect.name,
 			ProxyPort: int64(redirect.listener.rulesPort),
 		})
 	}
@@ -639,7 +641,7 @@ func (p *Proxy) GetStatusModel() *models.ProxyStatus {
 func (p *Proxy) updateRedirectMetrics() {
 	result := map[string]int{}
 	for _, redirect := range p.redirects {
-		result[string(redirect.listener.parserType)]++
+		result[string(redirect.listener.proxyType)]++
 	}
 	for proto, count := range result {
 		metrics.ProxyRedirects.WithLabelValues(proto).Set(float64(count))
