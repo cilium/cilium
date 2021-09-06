@@ -80,6 +80,9 @@ type ServiceValue interface {
 	// Set timeout for sessionAffinity=clientIP
 	SetSessionAffinityTimeoutSec(t uint32)
 
+	// Set proxy port for l7 loadbalancer services
+	SetL7LBProxyPort(port uint16)
+
 	// Set backend identifier
 	SetBackendID(id loadbalancer.BackendID)
 

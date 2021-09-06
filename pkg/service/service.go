@@ -60,6 +60,11 @@ type monitorNotify interface {
 	SendNotification(msg monitorAPI.AgentNotifyMessage) error
 }
 
+// envoyCache is used to sync Envoy resources to Envoy proxy
+type envoyCache interface {
+	RegisterCRDProxyPort(name string, proxyPort uint16) error
+}
+
 type svcInfo struct {
 	hash                string
 	frontend            lb.L3n4AddrID
@@ -76,8 +81,13 @@ type svcInfo struct {
 	svcName                   string
 	svcNamespace              string
 	loadBalancerSourceRanges  []*cidr.CIDR
+	l7LBProxyPort             uint16
 
 	restoredFromDatapath bool
+}
+
+func (svc *svcInfo) isL7LBService() bool {
+	return svc.l7LBProxyPort != 0
 }
 
 func (svc *svcInfo) deepCopyToLBSVC() *lb.SVC {
@@ -94,6 +104,7 @@ func (svc *svcInfo) deepCopyToLBSVC() *lb.SVC {
 		HealthCheckNodePort: svc.svcHealthCheckNodePort,
 		Name:                svc.svcName,
 		Namespace:           svc.svcNamespace,
+		L7LBProxyPort:       svc.l7LBProxyPort,
 	}
 }
 
@@ -140,13 +151,16 @@ type Service struct {
 
 	healthServer  healthServer
 	monitorNotify monitorNotify
+	envoyCache    envoyCache
 
 	lbmap         LBMap
 	lastUpdatedTs atomic.Value
+
+	l7lbSvcs map[string]uint16 // key: namespace/name, value: local proxy port
 }
 
 // NewService creates a new instance of the service handler.
-func NewService(monitorNotify monitorNotify) *Service {
+func NewService(monitorNotify monitorNotify, envoyCache envoyCache) *Service {
 
 	var localHealthServer healthServer
 	if option.Config.EnableHealthCheckNodePort {
@@ -162,10 +176,13 @@ func NewService(monitorNotify monitorNotify) *Service {
 		backendRefCount: counter.StringCounter{},
 		backendByHash:   map[string]*lb.Backend{},
 		monitorNotify:   monitorNotify,
+		envoyCache:      envoyCache,
 		healthServer:    localHealthServer,
 		lbmap:           lbmap.New(maglev, maglevTableSize),
+		l7lbSvcs:        map[string]uint16{},
 	}
 	svc.lastUpdatedTs.Store(time.Now())
+
 	return svc
 }
 
@@ -332,6 +349,8 @@ func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
 		logfields.SessionAffinityTimeout: params.SessionAffinityTimeoutSec,
 
 		logfields.LoadBalancerSourceRanges: params.LoadBalancerSourceRanges,
+
+		"l7LBProxyPort": params.L7LBProxyPort,
 	})
 	scopedLog.Debug("Upserting service")
 
@@ -716,6 +735,15 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 		svc.restoredFromDatapath = false
 	}
 
+	// Update L7 load balancer proxy port
+	name := p.Namespace + "/" + p.Name
+	proxyPort, _ := s.l7lbSvcs[name]
+	svc.l7LBProxyPort = proxyPort
+	if proxyPort != 0 && s.envoyCache != nil {
+		err := s.envoyCache.RegisterCRDProxyPort(name, proxyPort)
+		log.Debugf("InstallProxyRules(%s, %d): %s", name, proxyPort, err)
+	}
+
 	return svc, !found, prevSessionAffinity, prevLoadBalancerSourceRanges, nil
 }
 
@@ -764,7 +792,10 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 	)
 
 	// Update sessionAffinity
-	if option.Config.EnableSessionAffinity {
+	//
+	// If L7 LB is configured for this service then BPF level session affinity is not used so
+	// that the L7 proxy port may be passed in a shared union in the service entry.
+	if option.Config.EnableSessionAffinity && !svc.isL7LBService() {
 		if prevSessionAffinity && !svc.sessionAffinity {
 			// Remove backends from the affinity match because the svc's sessionAffinity
 			// has been disabled
@@ -876,12 +907,14 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 		SessionAffinityTimeoutSec: svc.sessionAffinityTimeoutSec,
 		CheckSourceRange:          checkLBSrcRange,
 		UseMaglev:                 svc.useMaglev(),
+		L7LBProxyPort:             svc.l7LBProxyPort,
 	}
 	if err := s.lbmap.UpsertService(p); err != nil {
 		return err
 	}
 
-	if option.Config.EnableSessionAffinity {
+	// If L7 LB is configured for this service then BPF level session affinity is not used.
+	if option.Config.EnableSessionAffinity && !svc.isL7LBService() {
 		s.addBackendsToAffinityMatchMap(svc.frontend.ID, toAddAffinity)
 	}
 

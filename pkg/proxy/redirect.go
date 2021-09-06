@@ -31,6 +31,7 @@ type RedirectImplementation interface {
 type Redirect struct {
 	// The following fields are only written to during initialization, it
 	// is safe to read these fields without locking the mutex
+	name           string
 	listener       *ProxyPort
 	dstPort        uint16
 	endpointID     uint64
@@ -43,8 +44,9 @@ type Redirect struct {
 	rules policy.L7DataMap
 }
 
-func newRedirect(localEndpoint logger.EndpointUpdater, listener *ProxyPort, dstPort uint16) *Redirect {
+func newRedirect(localEndpoint logger.EndpointUpdater, name string, listener *ProxyPort, dstPort uint16) *Redirect {
 	return &Redirect{
+		name:          name,
 		listener:      listener,
 		dstPort:       dstPort,
 		endpointID:    localEndpoint.GetID(),

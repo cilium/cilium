@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/revert"
 )
 
@@ -48,20 +49,20 @@ func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServe
 	l := r.listener
 	if envoyProxy != nil {
 		redir := &envoyRedirect{
-			listenerName: net.JoinHostPort(l.name, fmt.Sprintf("%d", l.proxyPort)),
+			listenerName: net.JoinHostPort(r.name, fmt.Sprintf("%d", l.proxyPort)),
 			xdsServer:    xdsServer,
 		}
 		// Only use original source address for egress
 		if l.ingress {
 			mayUseOriginalSourceAddr = false
 		}
-		xdsServer.AddListener(redir.listenerName, l.parserType, l.proxyPort, l.ingress,
+		xdsServer.AddListener(redir.listenerName, policy.L7ParserType(l.proxyType), l.proxyPort, l.ingress,
 			mayUseOriginalSourceAddr, wg)
 
 		return redir, nil
 	}
 
-	return nil, fmt.Errorf("%s: Envoy proxy process failed to start, cannot add redirect", l.name)
+	return nil, fmt.Errorf("%s: Envoy proxy process failed to start, cannot add redirect", r.name)
 }
 
 // UpdateRules is a no-op for envoy, as redirect data is synchronized via the

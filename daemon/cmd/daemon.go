@@ -460,8 +460,6 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	d.configModifyQueue = eventqueue.NewEventQueueBuffered("config-modify-queue", ConfigModifyQueueSize)
 	d.configModifyQueue.Run()
 
-	d.svc = service.NewService(&d)
-
 	d.rec, err = recorder.NewRecorder(d.ctx, &d)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error while initializing BPF pcap recorder: %w", err)
@@ -493,6 +491,26 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	d.endpointManager = epMgr
 	d.endpointManager.InitMetrics()
 
+	// Start the proxy before we start K8s watcher or restore endpoints so that we can inject
+	// the daemon's proxy into the k8s watcher and each endpoint.
+	// Note: d.endpointManager needs to be set before this
+	bootstrapStats.proxyStart.Start()
+	// FIXME: Make the port range configurable.
+	if option.Config.EnableL7Proxy {
+		d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
+			&d, option.Config.AgentLabels, d.datapath, d.endpointManager, d.ipcache)
+	} else {
+		log.Info("L7 proxies are disabled")
+		if option.Config.EnableEnvoyConfig {
+			log.Warningf("%s is not functional when L7 proxies are disabled",
+				option.EnableEnvoyConfig)
+		}
+	}
+	bootstrapStats.proxyStart.End(true)
+
+	// Start service support after proxy support so that we can inject 'd.l7Proxy`.
+	d.svc = service.NewService(&d, d.l7Proxy)
+
 	d.redirectPolicyManager = redirectpolicy.NewRedirectPolicyManager(d.svc)
 	if option.Config.BGPAnnounceLBIP || option.Config.BGPAnnouncePodCIDR {
 		d.bgpSpeaker, err = speaker.New(ctx, speaker.Opts{
@@ -508,22 +526,6 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	if option.Config.EnableIPv4EgressGateway {
 		d.egressGatewayManager = egressgateway.NewEgressGatewayManager(&d)
 	}
-
-	// Start the proxy before we start K8s watcher or restore endpoints so that we can inject the
-	// daemon's proxy into the k8s watcher and each endpoint.
-	bootstrapStats.proxyStart.Start()
-	// FIXME: Make the port range configurable.
-	if option.Config.EnableL7Proxy {
-		d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
-			&d, option.Config.AgentLabels, d.datapath, d.endpointManager, d.ipcache)
-	} else {
-		log.Info("L7 proxies are disabled")
-		if option.Config.EnableEnvoyConfig {
-			log.Warningf("%s is not functional when L7 proxies are disabled",
-				option.EnableEnvoyConfig)
-		}
-	}
-	bootstrapStats.proxyStart.End(true)
 
 	d.k8sWatcher = watchers.NewK8sWatcher(
 		d.endpointManager,

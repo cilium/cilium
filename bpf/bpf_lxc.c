@@ -50,7 +50,13 @@
 #include "lib/nodeport.h"
 #include "lib/policy_log.h"
 
-#if !defined(ENABLE_HOST_SERVICES_FULL) || defined(ENABLE_SOCKET_LB_HOST_ONLY)
+/* Per-packet LB is needed if all LB cases can not be handled in bpf_sock.
+ * Most services with L7 LB flag can not be redirected to their proxy port
+ * in bpf_sock, so we must check for those via per packet LB as well.
+ */
+#if !defined(ENABLE_HOST_SERVICES_FULL) || \
+    defined(ENABLE_SOCKET_LB_HOST_ONLY) || \
+    defined(ENABLE_L7_LB)
 # define ENABLE_PER_PACKET_LB 1
 #endif
 
@@ -124,7 +130,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
 	bool __maybe_unused dst_remote_ep = false;
-	__u16 proxy_port;
+	__u16 proxy_port = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -171,7 +177,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		return DROP_INVALID;
 #endif
 	/* Restore ct_state from per packet lb handling in the previous tail call. */
-	lb6_ctx_restore_state(ctx, &ct_state_new);
+	lb6_ctx_restore_state(ctx, &ct_state_new, &proxy_port);
 	/* No hairpin/loopback support for IPv6, see lb6_local(). */
 #endif /* ENABLE_PER_PACKET_LB */
 
@@ -187,6 +193,16 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 
 	ct_status = (enum ct_status)ret;
 	trace.reason = (enum trace_reason)ret;
+
+#if defined(ENABLE_L7_LB)
+	if (proxy_port > 0) {
+		/* tuple addresses have been swapped by CT lookup */
+		cilium_dbg3(ctx, DBG_L7_LB, tuple->daddr.p4, tuple->saddr.p4,
+			    bpf_ntohs(proxy_port));
+		verdict = proxy_port;
+		goto skip_policy_enforcement;
+	}
+#endif /* ENABLE_L7_LB */
 
 	/* Check it this is return traffic to an ingress proxy. */
 	if ((ct_status == CT_REPLY || ct_status == CT_RELATED) &&
@@ -500,6 +516,7 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 		struct ct_state ct_state_new = {};
 		struct lb6_service *svc;
 		struct lb6_key key = {};
+		__u16 proxy_port = 0;
 
 		tuple.nexthdr = ip6->nexthdr;
 		ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->daddr);
@@ -529,6 +546,12 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 		 */
 		svc = lb6_lookup_service(&key, is_defined(ENABLE_NODEPORT));
 		if (svc) {
+#if defined(ENABLE_L7_LB)
+			if (lb6_svc_is_l7loadbalancer(svc)) {
+				proxy_port = (__u16)svc->l7_lb_proxy_port;
+				goto skip_service_lookup;
+			}
+#endif /* ENABLE_L7_LB */
 			ret = lb6_local(get_ct_map6(&tuple), ctx, l3_off, l4_off,
 					&csum_off, &key, &tuple, svc, &ct_state_new,
 					false);
@@ -538,7 +561,7 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 
 skip_service_lookup:
 		/* Store state to be picked up on the continuation tail call. */
-		lb6_ctx_store_state(ctx, &ct_state_new);
+		lb6_ctx_store_state(ctx, &ct_state_new, proxy_port);
 	}
 #endif /* ENABLE_PER_PACKET_LB */
 
@@ -577,7 +600,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	bool has_l4_header = false;
 	bool __maybe_unused dst_remote_ep = false;
 	enum ct_status ct_status;
-	__u16 proxy_port;
+	__u16 proxy_port = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -620,7 +643,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 
 #ifdef ENABLE_PER_PACKET_LB
 	/* Restore ct_state from per packet lb handling in the previous tail call. */
-	lb4_ctx_restore_state(ctx, &ct_state_new, &tuple);
+	lb4_ctx_restore_state(ctx, &ct_state_new, &tuple, &proxy_port);
 	hairpin_flow = ct_state_new.loopback;
 #endif /* ENABLE_PER_PACKET_LB */
 
@@ -636,6 +659,15 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 
 	ct_status = (enum ct_status)ret;
 	trace.reason = (enum trace_reason)ret;
+
+#if defined(ENABLE_L7_LB)
+	if (proxy_port > 0) {
+		/* tuple addresses have been swapped by CT lookup */
+		cilium_dbg3(ctx, DBG_L7_LB, tuple.daddr, tuple.saddr, bpf_ntohs(proxy_port));
+		verdict = proxy_port;
+		goto skip_policy_enforcement;
+	}
+#endif /* ENABLE_L7_LB */
 
 	/* Check it this is return traffic to an ingress proxy. */
 	if ((ct_status == CT_REPLY || ct_status == CT_RELATED) && ct_state.proxy_redirect) {
@@ -1004,6 +1036,7 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 		bool has_l4_header;
 		struct lb4_service *svc;
 		struct lb4_key key = {};
+		__u16 proxy_port = 0;
 
 		has_l4_header = ipv4_has_l4_header(ip4);
 		tuple.nexthdr = ip4->protocol;
@@ -1023,6 +1056,12 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 
 		svc = lb4_lookup_service(&key, is_defined(ENABLE_NODEPORT));
 		if (svc) {
+#if defined(ENABLE_L7_LB)
+			if (lb4_svc_is_l7loadbalancer(svc)) {
+				proxy_port = (__u16)svc->l7_lb_proxy_port;
+				goto skip_service_lookup;
+			}
+#endif /* ENABLE_L7_LB */
 			ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off,
 					&csum_off, &key, &tuple, svc, &ct_state_new,
 					ip4->saddr, has_l4_header, false);
@@ -1031,7 +1070,7 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 		}
 skip_service_lookup:
 		/* Store state to be picked up on the continuation tail call. */
-		lb4_ctx_store_state(ctx, &ct_state_new);
+		lb4_ctx_store_state(ctx, &ct_state_new, proxy_port);
 	}
 #endif /* ENABLE_PER_PACKET_LB */
 

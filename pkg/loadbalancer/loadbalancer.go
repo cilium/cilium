@@ -60,6 +60,7 @@ const (
 	serviceFlagSourceRange     = 1 << 7
 	serviceFlagLocalRedirect   = 1 << 8
 	serviceFlagNat46x64        = 1 << 9
+	serviceFlagL7LoadBalancer  = 1 << 10
 )
 
 type SvcFlagParam struct {
@@ -69,6 +70,7 @@ type SvcFlagParam struct {
 	SessionAffinity  bool
 	IsRoutable       bool
 	CheckSourceRange bool
+	L7LoadBalancer   bool
 }
 
 // NewSvcFlag creates service flag
@@ -106,6 +108,9 @@ func NewSvcFlag(p *SvcFlagParam) ServiceFlags {
 	}
 	if p.CheckSourceRange {
 		flags |= serviceFlagSourceRange
+	}
+	if p.L7LoadBalancer {
+		flags |= serviceFlagL7LoadBalancer
 	}
 
 	return flags
@@ -171,6 +176,9 @@ func (s ServiceFlags) String() string {
 	}
 	if s&serviceFlagNat46x64 != 0 {
 		str = append(str, "46x64")
+	}
+	if s&serviceFlagL7LoadBalancer != 0 {
+		str = append(str, "l7-load-balancer")
 	}
 
 	return strings.Join(str, ", ")
@@ -246,6 +254,7 @@ type SVC struct {
 	Name                      string // Service name
 	Namespace                 string // Service namespace
 	LoadBalancerSourceRanges  []*cidr.CIDR
+	L7LBProxyPort             uint16
 }
 
 func (s *SVC) GetModel() *models.Service {
