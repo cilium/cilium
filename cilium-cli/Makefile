@@ -42,7 +42,7 @@ local-release: clean
 				;; \
 			windows) \
 				ARCHS='386 amd64'; \
-				EXT=".exe"
+				EXT=".exe"; \
 				;; \
 		esac; \
 		for ARCH in $$ARCHS; do \
