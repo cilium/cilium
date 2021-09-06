@@ -633,11 +633,13 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 			Re: restore.RuleRegex{Regexp: s.proxy.allowed[epID1][54][cachedWildcardSelector]},
 		}},
 	}
-	restored1 := s.proxy.GetRules(uint16(epID1)).Sort()
+	restored1, _ := s.proxy.GetRules(uint16(epID1))
+	restored1.Sort()
 	c.Assert(restored1, checker.DeepEquals, expected1)
 
 	expected2 := restore.DNSRules{}
-	restored2 := s.proxy.GetRules(uint16(epID2)).Sort()
+	restored2, _ := s.proxy.GetRules(uint16(epID2))
+	restored2.Sort()
 	c.Assert(restored2, checker.DeepEquals, expected2)
 
 	expected3 := restore.DNSRules{
@@ -652,7 +654,8 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 			Re:  restore.RuleRegex{Regexp: s.proxy.allowed[epID3][53][cachedDstID4Selector]},
 		}}.Sort(),
 	}
-	restored3 := s.proxy.GetRules(uint16(epID3)).Sort()
+	restored3, _ := s.proxy.GetRules(uint16(epID3))
+	restored3.Sort()
 	c.Assert(restored3, checker.DeepEquals, expected3)
 
 	// Test with limited set of allowed IPs
@@ -671,7 +674,8 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 			Re: restore.RuleRegex{Regexp: s.proxy.allowed[epID1][54][cachedWildcardSelector]},
 		}},
 	}
-	restored1b := s.proxy.GetRules(uint16(epID1)).Sort()
+	restored1b, _ := s.proxy.GetRules(uint16(epID1))
+	restored1b.Sort()
 	c.Assert(restored1b, checker.DeepEquals, expected1b)
 
 	// unlimited again
@@ -934,7 +938,8 @@ func (s *DNSProxyTestSuite) TestRestoredEndpoint(c *C) {
 	c.Assert(response.Answer[0].String(), Equals, "cilium.io.\t60\tIN\tA\t1.1.1.1", Commentf("Proxy returned incorrect RRs"))
 
 	// Get restored rules
-	restored := s.proxy.GetRules(uint16(epID1)).Sort()
+	restored, _ := s.proxy.GetRules(uint16(epID1))
+	restored.Sort()
 
 	// remove rules
 	err = s.proxy.UpdateAllowed(epID1, dstPort, nil)
