@@ -30,7 +30,7 @@ release:
 		sh -c "apk add --no-cache make git && make local-release"
 
 local-release: clean
-	for OS in darwin linux; do \
+	for OS in darwin linux windows; do \
 		EXT=; \
 		ARCHS=; \
 		case $$OS in \
