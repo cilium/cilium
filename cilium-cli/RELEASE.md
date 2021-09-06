@@ -24,7 +24,7 @@ example, they will look as follows:
 
 ## Tag a release
 
-    git tag -a $RELEASE -m '$RELEASE release' $COMMIT_SHA && git push origin $RELEASE
+    git tag -a $RELEASE -m "$RELEASE release" $COMMIT_SHA && git push origin $RELEASE
 
 ## Prepare the release notes
 
