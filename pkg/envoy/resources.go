@@ -20,6 +20,15 @@ const (
 	// ListenerTypeURL is the type URL of Listener resources.
 	ListenerTypeURL = "type.googleapis.com/envoy.config.listener.v3.Listener"
 
+	// RouteTypeURL is the type URL of HTTP Route resources.
+	RouteTypeURL = "type.googleapis.com/envoy.config.route.v3.RouteConfiguration"
+
+	// ClusterTypeURL is the type URL of Cluster resources.
+	ClusterTypeURL = "type.googleapis.com/envoy.config.cluster.v3.Cluster"
+
+	// EndpointTypeURL is the type URL of Endpoint resources.
+	EndpointTypeURL = "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment"
+
 	// NetworkPolicyTypeURL is the type URL of NetworkPolicy resources.
 	NetworkPolicyTypeURL = "type.googleapis.com/cilium.NetworkPolicy"
 
