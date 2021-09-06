@@ -8,7 +8,11 @@ import (
 	"fmt"
 	"time"
 
+	envoy_config_cluster "github.com/cilium/proxy/go/envoy/config/cluster/v3"
+	envoy_config_endpoint "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
+	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
+	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/cilium/cilium/pkg/completion"
@@ -20,18 +24,19 @@ import (
 // Resources contains all Envoy resources parsed from a CiliumEnvoyConfig CRD
 type Resources struct {
 	Listeners []*envoy_config_listener.Listener
+	Routes    []*envoy_config_route.RouteConfiguration
+	Clusters  []*envoy_config_cluster.Cluster
+	Endpoints []*envoy_config_endpoint.ClusterLoadAssignment
 }
 
 // ParseResources parses all supported Envoy resource types from CiliumEnvoyConfig CRD to Resources type
 func ParseResources(namePrefix string, cec *cilium_v2alpha1.CiliumEnvoyConfig) (Resources, error) {
 	resources := Resources{}
-	names := make(map[string]struct{})
 	for _, r := range cec.Spec.Resources {
 		message, err := r.UnmarshalNew()
 		if err != nil {
 			return Resources{}, err
 		}
-		name := ""
 		typeURL := r.GetTypeUrl()
 		switch typeURL {
 		case "type.googleapis.com/envoy.config.listener.v3.Listener":
@@ -50,22 +55,86 @@ func ParseResources(namePrefix string, cec *cilium_v2alpha1.CiliumEnvoyConfig) (
 				listener.EnableReusePort = &wrapperspb.BoolValue{Value: false}
 			}
 
+			// Fill in RDS config source if unset
+			for _, fc := range listener.FilterChains {
+				for _, filter := range fc.Filters {
+					tc := filter.GetTypedConfig()
+					if tc == nil || tc.GetTypeUrl() != "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager" {
+						continue
+					}
+					any, err := tc.UnmarshalNew()
+					if err != nil {
+						continue
+					}
+					hcmConfig, ok := any.(*envoy_config_http.HttpConnectionManager)
+					if !ok {
+						continue
+					}
+					updated := false
+					if rds := hcmConfig.GetRds(); rds != nil {
+						if rds.ConfigSource == nil {
+							rds.ConfigSource = ciliumXDS
+							updated = true
+						}
+					}
+					if updated {
+						filter.ConfigType = &envoy_config_listener.Filter_TypedConfig{
+							TypedConfig: toAny(hcmConfig),
+						}
+					}
+				}
+			}
+			name := listener.Name
+			// listener.Name = namePrefix + "/" + listener.Name // Prepend listener name with k8s resource name
 			resources.Listeners = append(resources.Listeners, listener)
-			name = listener.Name
-			listener.Name = namePrefix + "/" + listener.Name // Prepend listener name with k8s resource name
 
 			log.Debugf("ParseResources: Parsed listener %s: %v", name, listener)
+
+		case "type.googleapis.com/envoy.config.route.v3.RouteConfiguration":
+			route, ok := message.(*envoy_config_route.RouteConfiguration)
+			if !ok {
+				return Resources{}, fmt.Errorf("Invalid type for Route: %T", message)
+			}
+
+			name := route.Name
+			// route.Name = namePrefix + "/" + route.Name // Prepend route name with k8s resource name
+			resources.Routes = append(resources.Routes, route)
+
+			log.Debugf("ParseResources: Parsed route %s: %v", name, route)
+
+		case "type.googleapis.com/envoy.config.cluster.v3.Cluster":
+			cluster, ok := message.(*envoy_config_cluster.Cluster)
+			if !ok {
+				return Resources{}, fmt.Errorf("Invalid type for Route: %T", message)
+			}
+			// Fill in EDS config source if unset
+			if enum := cluster.GetType(); enum == envoy_config_cluster.Cluster_EDS {
+				if cluster.EdsClusterConfig == nil {
+					cluster.EdsClusterConfig = &envoy_config_cluster.Cluster_EdsClusterConfig{}
+				}
+				if cluster.EdsClusterConfig.EdsConfig == nil {
+					cluster.EdsClusterConfig.EdsConfig = ciliumXDS
+				}
+			}
+
+			name := cluster.Name
+			// cluster.Name = namePrefix + "/" + cluster.Name // Prepend cluster name with k8s resource name
+			resources.Clusters = append(resources.Clusters, cluster)
+
+			log.Debugf("ParseResources: Parsed cluster %s: %v", name, cluster)
+
+		case "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment":
+			endpoint, ok := message.(*envoy_config_endpoint.ClusterLoadAssignment)
+			if !ok {
+				return Resources{}, fmt.Errorf("Invalid type for Route: %T", message)
+			}
+			resources.Endpoints = append(resources.Endpoints, endpoint)
+
+			log.Debugf("ParseResources: Parsed endpoint: %v", endpoint)
 
 		default:
 			return Resources{}, fmt.Errorf("Unsupported type: %s", typeURL)
 		}
-		if name == "" {
-			return Resources{}, fmt.Errorf("Unnamed resource: %v", message)
-		}
-		if _, exists := names[name]; exists {
-			return Resources{}, fmt.Errorf("Duplicate resource name %q", name)
-		}
-		names[name] = struct{}{}
 	}
 	if len(resources.Listeners) == 0 {
 		log.Debugf("ParseResources: No listeners parsed from %v", cec.Spec)
@@ -79,8 +148,17 @@ func (s *XDSServer) UpsertEnvoyResources(ctx context.Context, resources Resource
 	log.Debugf("UpsertEnvoyResources: Upserting %d listeners...", len(resources.Listeners))
 	wg := completion.NewWaitGroup(ctx)
 	var revertFuncs xds.AckingResourceMutatorRevertFuncList
-	for i := range resources.Listeners {
-		revertFuncs = append(revertFuncs, s.upsertListener(resources.Listeners[i].Name, resources.Listeners[i], wg, nil))
+	for _, r := range resources.Listeners {
+		revertFuncs = append(revertFuncs, s.upsertListener(r.Name, r, wg, nil))
+	}
+	for _, r := range resources.Routes {
+		revertFuncs = append(revertFuncs, s.upsertRoute(r.Name, r, wg, nil))
+	}
+	for _, r := range resources.Clusters {
+		revertFuncs = append(revertFuncs, s.upsertCluster(r.Name, r, wg, nil))
+	}
+	for _, r := range resources.Endpoints {
+		revertFuncs = append(revertFuncs, s.upsertEndpoint(r.ClusterName, r, wg, nil))
 	}
 
 	start := time.Now()
@@ -133,6 +211,60 @@ func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 		revertFuncs = append(revertFuncs, s.deleteListener(listener.Name, wg, nil))
 	}
 
+	// Delete old routes not added in 'new'
+	var deleteRoutes []*envoy_config_route.RouteConfiguration
+	for _, oldRoute := range old.Routes {
+		found := false
+		for _, newRoute := range new.Routes {
+			if newRoute.Name == oldRoute.Name {
+				found = true
+			}
+		}
+		if !found {
+			deleteRoutes = append(deleteRoutes, oldRoute)
+		}
+	}
+	log.Debugf("UpdateEnvoyResources: Deleting %d, Upserting %d routes...", len(deleteRoutes), len(new.Routes))
+	for _, route := range deleteRoutes {
+		revertFuncs = append(revertFuncs, s.deleteRoute(route.Name, wg, nil))
+	}
+
+	// Delete old clusters not added in 'new'
+	var deleteClusters []*envoy_config_cluster.Cluster
+	for _, oldCluster := range old.Clusters {
+		found := false
+		for _, newCluster := range new.Clusters {
+			if newCluster.Name == oldCluster.Name {
+				found = true
+			}
+		}
+		if !found {
+			deleteClusters = append(deleteClusters, oldCluster)
+		}
+	}
+	log.Debugf("UpdateEnvoyResources: Deleting %d, Upserting %d clusters...", len(deleteClusters), len(new.Clusters))
+	for _, cluster := range deleteClusters {
+		revertFuncs = append(revertFuncs, s.deleteCluster(cluster.Name, wg, nil))
+	}
+
+	// Delete old endpoints not added in 'new'
+	var deleteEndpoints []*envoy_config_endpoint.ClusterLoadAssignment
+	for _, oldEndpoint := range old.Endpoints {
+		found := false
+		for _, newEndpoint := range new.Endpoints {
+			if newEndpoint.ClusterName == oldEndpoint.ClusterName {
+				found = true
+			}
+		}
+		if !found {
+			deleteEndpoints = append(deleteEndpoints, oldEndpoint)
+		}
+	}
+	log.Debugf("UpdateEnvoyResources: Deleting %d, Upserting %d endpoints...", len(deleteEndpoints), len(new.Endpoints))
+	for _, endpoint := range deleteEndpoints {
+		revertFuncs = append(revertFuncs, s.deleteEndpoint(endpoint.ClusterName, wg, nil))
+	}
+
 	// Have to wait for deletes to complete before adding new listeners if a listener's port number is changed.
 	if waitForDelete {
 		start := time.Now()
@@ -146,9 +278,21 @@ func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 		wg = completion.NewWaitGroup(ctx)
 	}
 
-	// Add new listeners
-	for i := range new.Listeners {
-		revertFuncs = append(revertFuncs, s.upsertListener(new.Listeners[i].Name, new.Listeners[i], wg, nil))
+	// Add new Endpoints
+	for _, r := range new.Endpoints {
+		revertFuncs = append(revertFuncs, s.upsertEndpoint(r.ClusterName, r, wg, nil))
+	}
+	// Add new Clusters
+	for _, r := range new.Clusters {
+		revertFuncs = append(revertFuncs, s.upsertCluster(r.Name, r, wg, nil))
+	}
+	// Add new Routes
+	for _, r := range new.Routes {
+		revertFuncs = append(revertFuncs, s.upsertRoute(r.Name, r, wg, nil))
+	}
+	// Add new Listeners
+	for _, r := range new.Listeners {
+		revertFuncs = append(revertFuncs, s.upsertListener(r.Name, r, wg, nil))
 	}
 
 	start := time.Now()
@@ -166,12 +310,22 @@ func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 
 // DeleteEnvoyResources deletes all Envoy resources in 'resources'.
 func (s *XDSServer) DeleteEnvoyResources(ctx context.Context, resources Resources) error {
-	log.Debugf("UpdateEnvoyResources: Deleting %d listeners...", len(resources.Listeners))
+	log.Debugf("UpdateEnvoyResources: Deleting %d listeners, %d routes, %d clusters, and %d endpoints...",
+		len(resources.Listeners), len(resources.Routes), len(resources.Clusters), len(resources.Endpoints))
 	wg := completion.NewWaitGroup(ctx)
 	var revertFuncs xds.AckingResourceMutatorRevertFuncList
 
-	for _, listener := range resources.Listeners {
-		revertFuncs = append(revertFuncs, s.deleteListener(listener.Name, wg, nil))
+	for _, r := range resources.Listeners {
+		revertFuncs = append(revertFuncs, s.deleteListener(r.Name, wg, nil))
+	}
+	for _, r := range resources.Routes {
+		revertFuncs = append(revertFuncs, s.deleteRoute(r.Name, wg, nil))
+	}
+	for _, r := range resources.Clusters {
+		revertFuncs = append(revertFuncs, s.deleteCluster(r.Name, wg, nil))
+	}
+	for _, r := range resources.Endpoints {
+		revertFuncs = append(revertFuncs, s.deleteEndpoint(r.ClusterName, wg, nil))
 	}
 
 	start := time.Now()

@@ -202,8 +202,11 @@ github.com/cilium/proxy/go/envoy/extensions/filters/network/mongo_proxy/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3
 github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3
 github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3
+github.com/cilium/proxy/go/envoy/service/cluster/v3
 github.com/cilium/proxy/go/envoy/service/discovery/v3
+github.com/cilium/proxy/go/envoy/service/endpoint/v3
 github.com/cilium/proxy/go/envoy/service/listener/v3
+github.com/cilium/proxy/go/envoy/service/route/v3
 github.com/cilium/proxy/go/envoy/type/http/v3
 github.com/cilium/proxy/go/envoy/type/matcher/v3
 github.com/cilium/proxy/go/envoy/type/metadata/v3

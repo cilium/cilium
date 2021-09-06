@@ -13,6 +13,8 @@ import (
 
 	"sigs.k8s.io/yaml"
 
+	envoy_config_cluster "github.com/cilium/proxy/go/envoy/config/cluster/v3"
+	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 
 	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -85,16 +87,8 @@ spec:
           "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
           stat_prefix: ingress_http
           codec_type: AUTO
-          route_config:
-            virtual_hosts:
-            - name: "prometheus_metrics_route"
-              domains: ["*"]
-              routes:
-              - match:
-                  path: "/metrics"
-                route:
-                  cluster: "envoy-admin"
-                  prefix_rewrite: "/stats/prometheus"
+          rds:
+            route_config_name: local_route
           http_filters:
           - name: envoy.filters.http.router
 `
@@ -127,19 +121,201 @@ func (s *JSONSuite) TestCiliumEnvoyConfig(c *C) {
 	c.Assert(ok, Equals, true)
 	c.Assert(hcm, Not(IsNil))
 
-	rc := hcm.GetRouteConfig()
-	c.Assert(rc, Not(IsNil))
-	vh := rc.VirtualHosts
-	c.Assert(vh, HasLen, 1)
-	c.Assert(vh[0].Name, Equals, "prometheus_metrics_route")
-	c.Assert(vh[0].Routes, HasLen, 1)
-	c.Assert(vh[0].Routes[0].Match.GetPath(), Equals, "/metrics")
-	c.Assert(vh[0].Routes[0].GetRoute().GetCluster(), Equals, "envoy-admin")
-	c.Assert(vh[0].Routes[0].GetRoute().GetPrefixRewrite(), Equals, "/stats/prometheus")
+	//
+	// Check that missing RDS config source is automatically filled in
+	//
+	rds := hcm.GetRds()
+	c.Assert(rds, Not(IsNil))
+	cs := rds.GetConfigSource()
+	c.Assert(cs, Not(IsNil))
+	acs := cs.GetApiConfigSource()
+	c.Assert(acs, Not(IsNil))
+	c.Assert(acs.ApiType, Equals, envoy_config_core.ApiConfigSource_GRPC)
+	c.Assert(acs.TransportApiVersion, Equals, envoy_config_core.ApiVersion_V3)
+	c.Assert(acs.SetNodeOnFirstMessageOnly, Equals, true)
+	c.Assert(acs.GrpcServices, HasLen, 1)
+	eg := acs.GrpcServices[0].GetEnvoyGrpc()
+	c.Assert(eg, Not(IsNil))
+	c.Assert(eg.ClusterName, Equals, "xds-grpc-cilium")
 
 	//
 	// Check that HTTP filters are parsed
 	//
 	c.Assert(hcm.HttpFilters, HasLen, 1)
 	c.Assert(hcm.HttpFilters[0].Name, Equals, "envoy.filters.http.router")
+}
+
+var ciliumEnvoyConfigMulti = `apiVersion: cilium.io/v2alpha1
+kind: CiliumEnvoyConfig
+metadata:
+  name: envoy-prometheus-metrics-listener
+spec:
+  version_info: "0"
+  resources:
+  - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+    address:
+      socket_address:
+        address: 127.0.0.1
+        port_value: 10000
+    filter_chains:
+    - filters:
+      - name: envoy.filters.network.http_connection_manager
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          stat_prefix: ingress_http
+          codec_type: AUTO
+          rds:
+            route_config_name: local_route
+          http_filters:
+          - name: envoy.filters.http.router
+  - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
+    name: local_route
+    virtual_hosts:
+    - name: local_service
+      domains: ["*"]
+      routes:
+      - match: { prefix: "/" }
+        route: { cluster: some_service }
+  - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+    name: some_service
+    connect_timeout: 0.25s
+    lb_policy: ROUND_ROBIN
+    type: EDS
+  - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
+    cluster_name: some_service
+    endpoints:
+    - lb_endpoints:
+      - endpoint:
+          address:
+            socket_address:
+              address: 127.0.0.1
+              port_value: 1234
+  - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
+    cluster_name: other_service
+    endpoints:
+    - lb_endpoints:
+      - endpoint:
+          address:
+            socket_address:
+              address: "::"
+              port_value: 5678
+`
+
+func (s *JSONSuite) TestCiliumEnvoyConfigMulti(c *C) {
+	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigMulti))
+	c.Assert(err, IsNil)
+	// var buf bytes.Buffer
+	// json.Indent(&buf, jsonBytes, "", "\t")
+	// fmt.Printf("JSON spec:\n%s\n", buf.String())
+	cec := &cilium_v2alpha1.CiliumEnvoyConfig{}
+	err = json.Unmarshal(jsonBytes, cec)
+	c.Assert(err, IsNil)
+
+	c.Assert(cec.Spec.Resources, HasLen, 5)
+
+	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
+	resources, err := ParseResources("prefix", cec)
+	c.Assert(err, IsNil)
+	c.Assert(resources.Listeners, HasLen, 1)
+	c.Assert(resources.Listeners[0].Address.GetSocketAddress().GetPortValue(), Equals, uint32(10000))
+	c.Assert(resources.Listeners[0].FilterChains, HasLen, 1)
+	chain := resources.Listeners[0].FilterChains[0]
+	c.Assert(chain.Filters, HasLen, 1)
+	c.Assert(chain.Filters[0].Name, Equals, "envoy.filters.network.http_connection_manager")
+	message, err := chain.Filters[0].GetTypedConfig().UnmarshalNew()
+	c.Assert(err, IsNil)
+	c.Assert(message, Not(IsNil))
+	hcm, ok := message.(*envoy_config_http.HttpConnectionManager)
+	c.Assert(ok, Equals, true)
+	c.Assert(hcm, Not(IsNil))
+	//
+	// Check that missing RDS config source is automatically filled in
+	//
+	rds := hcm.GetRds()
+	c.Assert(rds, Not(IsNil))
+	cs := rds.GetConfigSource()
+	c.Assert(cs, Not(IsNil))
+	checkCiliumXDS(c, cs)
+	//
+	// Check that HTTP filters are parsed
+	//
+	c.Assert(hcm.HttpFilters, HasLen, 1)
+	c.Assert(hcm.HttpFilters[0].Name, Equals, "envoy.filters.http.router")
+
+	//
+	// Check route resource
+	//
+	c.Assert(cec.Spec.Resources[1].TypeUrl, Equals, "type.googleapis.com/envoy.config.route.v3.RouteConfiguration")
+	c.Assert(resources.Routes, HasLen, 1)
+	c.Assert(resources.Routes[0].Name, Equals, "local_route")
+	c.Assert(resources.Routes[0].VirtualHosts, HasLen, 1)
+	vh := resources.Routes[0].VirtualHosts[0]
+	c.Assert(vh.Name, Equals, "local_service")
+	c.Assert(vh.Domains, HasLen, 1)
+	c.Assert(vh.Domains[0], Equals, "*")
+	c.Assert(vh.Routes, HasLen, 1)
+	c.Assert(vh.Routes[0].Match, Not(IsNil))
+	c.Assert(vh.Routes[0].Match.GetPrefix(), Equals, "/")
+	c.Assert(vh.Routes[0].GetRoute(), Not(IsNil))
+	c.Assert(vh.Routes[0].GetRoute().GetCluster(), Equals, "some_service")
+
+	//
+	// Check cluster resource
+	//
+	c.Assert(cec.Spec.Resources[2].TypeUrl, Equals, "type.googleapis.com/envoy.config.cluster.v3.Cluster")
+	c.Assert(resources.Clusters, HasLen, 1)
+	c.Assert(resources.Clusters[0].Name, Equals, "some_service")
+	c.Assert(resources.Clusters[0].ConnectTimeout.Seconds, Equals, int64(0))
+	c.Assert(resources.Clusters[0].ConnectTimeout.Nanos, Equals, int32(250000000))
+	c.Assert(resources.Clusters[0].LbPolicy, Equals, envoy_config_cluster.Cluster_ROUND_ROBIN)
+	c.Assert(resources.Clusters[0].GetType(), Equals, envoy_config_cluster.Cluster_EDS)
+	//
+	// Check that missing EDS config source is automatically filled in
+	//
+	eds := resources.Clusters[0].GetEdsClusterConfig()
+	c.Assert(eds, Not(IsNil))
+	ec := eds.GetEdsConfig()
+	c.Assert(ec, Not(IsNil))
+	checkCiliumXDS(c, ec)
+
+	//
+	// Check 1st endpoint resource
+	//
+	c.Assert(cec.Spec.Resources[3].TypeUrl, Equals, "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment")
+	c.Assert(resources.Endpoints, HasLen, 2)
+	c.Assert(resources.Endpoints[0].ClusterName, Equals, "some_service")
+	c.Assert(resources.Endpoints[0].Endpoints, HasLen, 1)
+	c.Assert(resources.Endpoints[0].Endpoints[0].LbEndpoints, HasLen, 1)
+	addr := resources.Endpoints[0].Endpoints[0].LbEndpoints[0].GetEndpoint().Address
+	c.Assert(addr, Not(IsNil))
+	c.Assert(addr.GetSocketAddress(), Not(IsNil))
+	c.Assert(addr.GetSocketAddress().GetAddress(), Equals, "127.0.0.1")
+	c.Assert(addr.GetSocketAddress().GetPortValue(), Equals, uint32(1234))
+
+	//
+	// Check 2nd endpoint resource
+	//
+	c.Assert(cec.Spec.Resources[4].TypeUrl, Equals, "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment")
+	c.Assert(resources.Endpoints, HasLen, 2)
+	c.Assert(resources.Endpoints[1].ClusterName, Equals, "other_service")
+	c.Assert(resources.Endpoints[1].Endpoints, HasLen, 1)
+	c.Assert(resources.Endpoints[1].Endpoints[0].LbEndpoints, HasLen, 1)
+	addr = resources.Endpoints[1].Endpoints[0].LbEndpoints[0].GetEndpoint().Address
+	c.Assert(addr, Not(IsNil))
+	c.Assert(addr.GetSocketAddress(), Not(IsNil))
+	c.Assert(addr.GetSocketAddress().GetAddress(), Equals, "::")
+	c.Assert(addr.GetSocketAddress().GetPortValue(), Equals, uint32(5678))
+}
+
+func checkCiliumXDS(c *C, cs *envoy_config_core.ConfigSource) {
+	c.Assert(cs.ResourceApiVersion, Equals, envoy_config_core.ApiVersion_V3)
+	acs := cs.GetApiConfigSource()
+	c.Assert(acs, Not(IsNil))
+	c.Assert(acs.ApiType, Equals, envoy_config_core.ApiConfigSource_GRPC)
+	c.Assert(acs.TransportApiVersion, Equals, envoy_config_core.ApiVersion_V3)
+	c.Assert(acs.SetNodeOnFirstMessageOnly, Equals, true)
+	c.Assert(acs.GrpcServices, HasLen, 1)
+	eg := acs.GrpcServices[0].GetEnvoyGrpc()
+	c.Assert(eg, Not(IsNil))
+	c.Assert(eg.ClusterName, Equals, "xds-grpc-cilium")
 }
