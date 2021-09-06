@@ -58,8 +58,8 @@ func (s *DNSProxyTestSuite) GetPolicyRepository() *policy.Repository {
 	return s.repo
 }
 
-func (s *DNSProxyTestSuite) GetProxyPort(l7Type policy.L7ParserType, ingress bool) (uint16, string, error) {
-	return 0, "", nil
+func (s *DNSProxyTestSuite) GetProxyPort(string) (uint16, error) {
+	return 0, nil
 }
 
 func (s *DNSProxyTestSuite) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 *policy.L4Filter, wg *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {
