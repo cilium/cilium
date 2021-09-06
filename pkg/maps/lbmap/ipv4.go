@@ -301,7 +301,7 @@ type Service4Value struct {
 
 func (s *Service4Value) String() string {
 	sHost := s.ToHost().(*Service4Value)
-	return fmt.Sprintf("%d (%d) [FLAGS: 0x%x]", sHost.BackendID, sHost.RevNat, sHost.Flags)
+	return fmt.Sprintf("%d (%d) [FLAGS: 0x%x]", sHost.BackendID, sHost.RevNat, sHost.GetFlags())
 }
 
 func (s *Service4Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(s) }
@@ -324,6 +324,12 @@ func (s *Service4Value) SetSessionAffinityTimeoutSec(t uint32) {
 	// Go doesn't support union types, so we use BackendID to access the
 	// lb4_service.affinity_timeout field
 	s.BackendID = t
+}
+
+func (s *Service4Value) SetL7LBProxyPort(port uint16) {
+	// Go doesn't support union types, so we use BackendID to access the
+	// lb4_service.l7_lb_proxy_port field
+	s.BackendID = uint32(byteorder.HostToNetwork16(port))
 }
 
 func (s *Service4Value) SetBackendID(id loadbalancer.BackendID) {
