@@ -645,7 +645,8 @@ enum {
 
 /* Service flags (lb{4,6}_service->flags2) */
 enum {
-	SVC_FLAG_LOCALREDIRECT = (1 << 0),  /* local redirect */
+	SVC_FLAG_LOCALREDIRECT  = (1 << 0),  /* local redirect */
+	SVC_FLAG_L7LOADBALANCER = (1 << 1),  /* tproxy redirect to local l7 loadbalancer */
 };
 
 struct ipv6_ct_tuple {
@@ -735,6 +736,7 @@ struct lb6_service {
 	union {
 		__u32 backend_id;	/* Backend ID in lb6_backends */
 		__u32 affinity_timeout;	/* In seconds, only for svc frontend */
+		__u32 l7_lb_proxy_port;	/* In host byte order, only when flags2 && SVC_FLAG_L7LOADBALANCER */
 	};
 	__u16 count;
 	__u16 rev_nat_index;
@@ -784,8 +786,9 @@ struct lb4_key {
 
 struct lb4_service {
 	union {
-		__u32 backend_id;		/* Backend ID in lb4_backends */
-		__u32 affinity_timeout;		/* In seconds, only for svc frontend */
+		__u32 backend_id;	/* Backend ID in lb4_backends */
+		__u32 affinity_timeout;	/* In seconds, only for svc frontend */
+		__u32 l7_lb_proxy_port;	/* In host byte order, only when flags2 && SVC_FLAG_L7LOADBALANCER */
 	};
 	/* For the service frontend, count denotes number of service backend
 	 * slots (otherwise zero).

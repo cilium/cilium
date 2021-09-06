@@ -861,3 +861,61 @@ func (m *ManagerTestSuite) TestRestoreServiceWithTerminatingBackends(c *C) {
 	}
 	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, len(backends1))
 }
+
+// l7 load balancer service should be able to override a ClusterIP service with same
+// frontend, but reverse should produce an error. Also, it should not override
+// any other type besides itself or clusterIP type.
+func (m *ManagerTestSuite) TestL7LoadBalancerServiceOverride(c *C) {
+	// Create a node-local backend.
+	localBackend := backends1[0]
+	localBackend.NodeName = nodeTypes.GetName()
+	// Create two remote backends.
+	remoteBackends := make([]lb.Backend, 0, len(backends2))
+	for _, backend := range backends2 {
+		backend.NodeName = "not-" + nodeTypes.GetName()
+		remoteBackends = append(remoteBackends, backend)
+	}
+	allBackends := make([]lb.Backend, 0, 1+len(remoteBackends))
+	allBackends = append(allBackends, localBackend)
+	allBackends = append(allBackends, remoteBackends...)
+
+	p1 := &lb.SVC{
+		Frontend:      frontend1,
+		Backends:      allBackends,
+		Type:          lb.SVCTypeClusterIP,
+		TrafficPolicy: lb.SVCTrafficPolicyCluster,
+		Name:          "echo-other-node",
+		Namespace:     "cilium-test",
+	}
+
+	// Insert the service entry of type ClusterIP.
+	created, id, err := m.svc.UpsertService(p1)
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, true)
+	c.Assert(id, Not(Equals), lb.ID(0))
+
+	svc, ok := m.svc.svcByID[id]
+	c.Assert(len(svc.backends), Equals, len(allBackends))
+	c.Assert(ok, Equals, true)
+	c.Assert(svc.l7LBProxyPort, Equals, uint16(9090))
+
+	p2 := &lb.SVC{
+		Frontend:      frontend1,
+		Backends:      allBackends,
+		Type:          lb.SVCTypeClusterIP,
+		TrafficPolicy: lb.SVCTrafficPolicyCluster,
+		Name:          "echo-same-node",
+		Namespace:     "cilium-test",
+	}
+
+	// Insert the service entry of type ClusterIP.
+	created, id, err = m.svc.UpsertService(p2)
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, false)
+	c.Assert(id, Not(Equals), lb.ID(0))
+
+	svc, ok = m.svc.svcByID[id]
+	c.Assert(len(svc.backends), Equals, len(allBackends))
+	c.Assert(ok, Equals, true)
+	c.Assert(svc.l7LBProxyPort, Equals, uint16(0))
+}

@@ -1079,6 +1079,14 @@ func (d *Daemon) Close() {
 	d.nodeDiscovery.Close()
 }
 
+func (d *Daemon) RegisterCRDProxyPort(name string, proxyPort uint16, ingress bool) error {
+	err := d.l7Proxy.SetProxyPort(name, proxy.ProxyTypeCRD, proxyPort, ingress)
+	if err != nil {
+		return err
+	}
+	return d.l7Proxy.AckProxyPort(name)
+}
+
 // TriggerReloadWithoutCompile causes all BPF programs and maps to be reloaded,
 // without recompiling the datapath logic for each endpoint. It first attempts
 // to recompile the base programs, and if this fails returns an error. If base

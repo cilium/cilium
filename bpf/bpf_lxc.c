@@ -155,6 +155,11 @@ ipv6_l3_from_lxc(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 		 */
 		svc = lb6_lookup_service(&key, is_defined(ENABLE_NODEPORT));
 		if (svc) {
+			if (lb6_svc_is_l7loadbalancer(svc)) {
+				verdict = svc->l7_lb_proxy_port;
+				goto skip_service_lookup;
+			}
+
 			ret = lb6_local(get_ct_map6(tuple), ctx, l3_off, l4_off,
 					&csum_off, &key, tuple, svc, &ct_state_new,
 					false);
@@ -191,6 +196,14 @@ skip_service_lookup:
 
 	ct_status = (enum ct_status)ret;
 	reason = (enum trace_reason)ret;
+
+	if (verdict > 0) {
+		proxy_port = (__u16)verdict;
+		/* tuple addresses have been swapped by CT lookup */
+		cilium_dbg3(ctx, DBG_L7_LB, tuple->daddr.p4, tuple->saddr.p4,
+			    bpf_ntohs(proxy_port));
+		goto skip_policy_enforcement;
+	}
 
 	/* Check it this is return traffic to an ingress proxy. */
 	if ((ct_status == CT_REPLY || ct_status == CT_RELATED) &&
@@ -593,6 +606,11 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 
 		svc = lb4_lookup_service(&key, is_defined(ENABLE_NODEPORT));
 		if (svc) {
+			if (lb4_svc_is_l7loadbalancer(svc)) {
+				verdict = svc->l7_lb_proxy_port;
+				goto skip_service_lookup;
+			}
+
 			ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off,
 					&csum_off, &key, &tuple, svc, &ct_state_new,
 					ip4->saddr, has_l4_header, false);
@@ -628,6 +646,13 @@ skip_service_lookup:
 
 	ct_status = (enum ct_status)ret;
 	reason = (enum trace_reason)ret;
+
+	if (verdict > 0) {
+		proxy_port = (__u16)verdict;
+		/* tuple addresses have been swapped by CT lookup */
+		cilium_dbg3(ctx, DBG_L7_LB, tuple.daddr, tuple.saddr, bpf_ntohs(proxy_port));
+		goto skip_policy_enforcement;
+	}
 
 	/* Check it this is return traffic to an ingress proxy. */
 	if ((ct_status == CT_REPLY || ct_status == CT_RELATED) && ct_state.proxy_redirect) {

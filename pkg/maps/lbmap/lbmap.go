@@ -65,6 +65,7 @@ type UpsertServiceParams struct {
 	SessionAffinityTimeoutSec uint32
 	CheckSourceRange          bool
 	UseMaglev                 bool
+	L7LBProxyPort             uint16
 }
 
 // UpsertService inserts or updates the given service in a BPF map.
@@ -131,7 +132,7 @@ func (lbmap *LBBPFMap) UpsertService(p *UpsertServiceParams) error {
 	}
 
 	if err := updateMasterService(svcKey, len(backendIDs), int(p.ID), p.Type, p.Local,
-		p.SessionAffinity, p.SessionAffinityTimeoutSec, p.CheckSourceRange); err != nil {
+		p.SessionAffinity, p.SessionAffinityTimeoutSec, p.CheckSourceRange, p.L7LBProxyPort); err != nil {
 
 		deleteRevNatLocked(revNATKey)
 		return fmt.Errorf("Unable to update service %+v: %s", svcKey, err)
@@ -501,7 +502,7 @@ func (*LBBPFMap) IsMaglevLookupTableRecreated(ipv6 bool) bool {
 
 func updateMasterService(fe ServiceKey, nbackends int, revNATID int, svcType loadbalancer.SVCType,
 	svcLocal bool, sessionAffinity bool, sessionAffinityTimeoutSec uint32,
-	checkSourceRange bool) error {
+	checkSourceRange bool, l7lbProxyPort uint16) error {
 
 	// isRoutable denotes whether this service can be accessed from outside the cluster.
 	isRoutable := !fe.IsSurrogate() &&
@@ -517,10 +518,14 @@ func updateMasterService(fe ServiceKey, nbackends int, revNATID int, svcType loa
 		SessionAffinity:  sessionAffinity,
 		IsRoutable:       isRoutable,
 		CheckSourceRange: checkSourceRange,
+		L7LoadBalancer:   l7lbProxyPort != 0,
 	})
 	zeroValue.SetFlags(flag.UInt16())
 	if sessionAffinity {
 		zeroValue.SetSessionAffinityTimeoutSec(sessionAffinityTimeoutSec)
+	}
+	if l7lbProxyPort != 0 {
+		zeroValue.SetL7LBProxyPort(l7lbProxyPort)
 	}
 
 	return updateServiceEndpoint(fe, zeroValue)

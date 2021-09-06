@@ -119,6 +119,7 @@ enum {
 	DBG_SK_ASSIGN,		/* arg1: result
 				 * arg2: unuseds
 				 */
+	DBG_L7_LB,
 };
 
 /* Capture types */

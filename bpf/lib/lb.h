@@ -311,9 +311,29 @@ bool lb6_svc_is_routable(const struct lb6_service *svc)
 }
 
 static __always_inline
-bool lb4_svc_is_localredirect(const struct lb4_service *svc __maybe_unused)
+bool lb4_svc_is_localredirect(const struct lb4_service *svc)
 {
 	return svc->flags2 & SVC_FLAG_LOCALREDIRECT;
+}
+
+static __always_inline
+bool lb4_svc_is_l7loadbalancer(const struct lb4_service *svc __maybe_unused)
+{
+#ifdef ENABLE_L7_LB
+	return svc->flags2 & SVC_FLAG_L7LOADBALANCER;
+#else
+	return false;
+#endif
+}
+
+static __always_inline
+bool lb6_svc_is_l7loadbalancer(const struct lb6_service *svc __maybe_unused)
+{
+#ifdef ENABLE_L7_LB
+	return svc->flags2 & SVC_FLAG_L7LOADBALANCER;
+#else
+	return false;
+#endif
 }
 
 static __always_inline int extract_l4_port(struct __ctx_buff *ctx, __u8 nexthdr,

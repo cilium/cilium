@@ -34,7 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy"
 	policyApi "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
@@ -317,12 +316,12 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 
 	// Once we stop returning errors from StartDNSProxy this should live in
 	// StartProxySupport
-	port, listenerName, err := proxy.GetProxyPort(policy.ParserTypeDNS, false)
+	port, err := proxy.GetProxyPort(proxy.DNSProxyName)
 	if option.Config.ToFQDNsProxyPort != 0 {
 		port = uint16(option.Config.ToFQDNsProxyPort)
 	} else if port == 0 {
 		// Try locate old DNS proxy port number from the datapath
-		port = d.datapath.GetProxyPort(listenerName)
+		port = d.datapath.GetProxyPort(proxy.DNSProxyName)
 	}
 	if err != nil {
 		return err
@@ -332,7 +331,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 		d.notifyOnDNSMsg)
 	if err == nil {
 		// Increase the ProxyPort reference count so that it will never get released.
-		err = d.l7Proxy.SetProxyPort(listenerName, proxy.DefaultDNSProxy.GetBindPort())
+		err = d.l7Proxy.SetProxyPort(proxy.DNSProxyName, proxy.ProxyTypeDNS, proxy.DefaultDNSProxy.GetBindPort(), false)
 		if err == nil && port == proxy.DefaultDNSProxy.GetBindPort() {
 			log.Infof("Reusing previous DNS proxy port: %d", port)
 		}
@@ -352,7 +351,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 // called after iptables has been initailized, and only after
 // successful bootstrapFQDN().
 func (d *Daemon) updateDNSDatapathRules() error {
-	return d.l7Proxy.AckProxyPort(policy.ParserTypeDNS, false)
+	return d.l7Proxy.AckProxyPort(proxy.DNSProxyName)
 }
 
 // updateSelectors propagates the mapping of FQDNSelector to identity, as well

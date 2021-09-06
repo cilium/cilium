@@ -220,6 +220,7 @@ func TestNewSvcFlag(t *testing.T) {
 		svcType     SVCType
 		svcLocal    bool
 		svcRoutable bool
+		svcL7LB     bool
 	}
 	tests := []struct {
 		name string
@@ -290,6 +291,13 @@ func TestNewSvcFlag(t *testing.T) {
 			},
 			want: serviceFlagLocalRedirect | serviceFlagRoutable,
 		},
+		{
+			args: args{
+				svcType: SVCTypeClusterIP,
+				svcL7LB: true,
+			},
+			want: serviceFlagL7LoadBalancer,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -298,6 +306,7 @@ func TestNewSvcFlag(t *testing.T) {
 				SessionAffinity: false,
 				IsRoutable:      tt.args.svcRoutable,
 				SvcType:         tt.args.svcType,
+				L7LoadBalancer:  tt.args.svcL7LB,
 			}
 			if got := NewSvcFlag(p); got != tt.want {
 				t.Errorf("NewSvcFlag() = %v, want %v", got, tt.want)

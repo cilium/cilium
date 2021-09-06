@@ -382,6 +382,12 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (sock4_skip_xlate(svc, orig_key.address))
 		return -EPERM;
 
+	/* Do not perform service translation at socker layer for services with
+	 * L7 load balancing as the l7 load balancer needs to see the service IP.
+	 */
+	if (lb4_svc_is_l7loadbalancer(svc))
+		return 0;
+
 	if (lb4_svc_is_affinity(svc)) {
 		/* Note, for newly created affinity entries there is a
 		 * small race window. Two processes on two different
@@ -975,6 +981,12 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 
 	if (sock6_skip_xlate(svc, &orig_key.address))
 		return -EPERM;
+
+	/* Do not perform service translation at socker layer for services with
+	 * L7 load balancing as the l7 load balancer needs to see the service IP.
+	 */
+	if (lb6_svc_is_l7loadbalancer(svc))
+		return 0;
 
 	if (lb6_svc_is_affinity(svc)) {
 		backend_id = lb6_affinity_backend_id_by_netns(svc, &id);

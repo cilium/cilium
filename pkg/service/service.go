@@ -58,6 +58,7 @@ type healthServer interface {
 // monitorNotify is used to send update notifications to the monitor
 type monitorNotify interface {
 	SendNotification(msg monitorAPI.AgentNotifyMessage) error
+	RegisterCRDProxyPort(name string, proxyPort uint16, ingress bool) error
 }
 
 type svcInfo struct {
@@ -75,6 +76,7 @@ type svcInfo struct {
 	svcName                   string
 	svcNamespace              string
 	loadBalancerSourceRanges  []*cidr.CIDR
+	l7LBProxyPort             uint16
 
 	restoredFromDatapath bool
 }
@@ -92,6 +94,7 @@ func (svc *svcInfo) deepCopyToLBSVC() *lb.SVC {
 		HealthCheckNodePort: svc.svcHealthCheckNodePort,
 		Name:                svc.svcName,
 		Namespace:           svc.svcNamespace,
+		L7LBProxyPort:       svc.l7LBProxyPort,
 	}
 }
 
@@ -141,6 +144,8 @@ type Service struct {
 
 	lbmap         LBMap
 	lastUpdatedTs atomic.Value
+
+	l7lbSvcs map[string]uint16 // key: namespace/name, value: local proxy port
 }
 
 // NewService creates a new instance of the service handler.
@@ -162,8 +167,13 @@ func NewService(monitorNotify monitorNotify) *Service {
 		monitorNotify:   monitorNotify,
 		healthServer:    localHealthServer,
 		lbmap:           lbmap.New(maglev, maglevTableSize),
+		l7lbSvcs:        map[string]uint16{},
 	}
 	svc.lastUpdatedTs.Store(time.Now())
+
+	// XXX: Hard-coded test data
+	svc.l7lbSvcs["cilium-test/echo-other-node"] = uint16(9090)
+
 	return svc
 }
 
@@ -330,6 +340,8 @@ func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
 		logfields.SessionAffinityTimeout: params.SessionAffinityTimeoutSec,
 
 		logfields.LoadBalancerSourceRanges: params.LoadBalancerSourceRanges,
+
+		"l7LBProxyPort": params.L7LBProxyPort,
 	})
 	scopedLog.Debug("Upserting service")
 
@@ -686,6 +698,15 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 		svc.restoredFromDatapath = false
 	}
 
+	// Update L7 load balancer proxy port
+	name := p.Namespace + "/" + p.Name
+	proxyPort, _ := s.l7lbSvcs[name]
+	svc.l7LBProxyPort = proxyPort
+	if proxyPort != 0 && s.monitorNotify != nil {
+		err := s.monitorNotify.RegisterCRDProxyPort(name, proxyPort, false /* not ingress */)
+		log.Debugf("InstallProxyRules(%s, %d): %s", name, proxyPort, err)
+	}
+
 	return svc, !found, prevSessionAffinity, prevLoadBalancerSourceRanges, nil
 }
 
@@ -734,7 +755,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 	)
 
 	// Update sessionAffinity
-	if option.Config.EnableSessionAffinity {
+	if option.Config.EnableSessionAffinity && svc.l7LBProxyPort == 0 {
 		if prevSessionAffinity && !svc.sessionAffinity {
 			// Remove backends from the affinity match because the svc's sessionAffinity
 			// has been disabled
@@ -820,6 +841,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 		SessionAffinityTimeoutSec: svc.sessionAffinityTimeoutSec,
 		CheckSourceRange:          checkLBSrcRange,
 		UseMaglev:                 svc.useMaglev(),
+		L7LBProxyPort:             svc.l7LBProxyPort,
 	}
 	if err := s.lbmap.UpsertService(p); err != nil {
 		return err
