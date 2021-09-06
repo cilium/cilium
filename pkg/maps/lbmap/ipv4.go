@@ -40,6 +40,8 @@ const (
 	Service4MapV2Name = "cilium_lb4_services_v2"
 	// Backend4MapName is the name of the IPv4 LB backends BPF map.
 	Backend4MapName = "cilium_lb4_backends"
+	// Backend4MapNameV2 is the name of the IPv4 LB backends v2 BPF map.
+	Backend4MapNameV2 = "cilium_lb4_backends_v2"
 	// RevNat4MapName is the name of the IPv4 LB reverse NAT BPF map.
 	RevNat4MapName = "cilium_lb4_reverse_nat"
 )
@@ -55,6 +57,8 @@ var (
 	Service4MapV2 *bpf.Map
 	// Backend4Map is the IPv4 LB backends BPF map.
 	Backend4Map *bpf.Map
+	// Backend4MapV2 is the IPv4 LB backends v2 BPF map.
+	Backend4MapV2 *bpf.Map
 	// RevNat4Map is the IPv4 LB reverse NAT BPF map.
 	RevNat4Map *bpf.Map
 )
@@ -78,6 +82,16 @@ func initSVC(params InitParams) {
 			bpf.MapTypeHash,
 			&Backend4Key{},
 			int(unsafe.Sizeof(Backend4Key{})),
+			&Backend4Value{},
+			int(unsafe.Sizeof(Backend4Value{})),
+			MaxEntries,
+			0, 0,
+			bpf.ConvertKeyValue,
+		).WithCache().WithPressureMetric()
+		Backend4MapV2 = bpf.NewMap(Backend4MapNameV2,
+			bpf.MapTypeHash,
+			&Backend4KeyV2{},
+			int(unsafe.Sizeof(Backend4KeyV2{})),
 			&Backend4Value{},
 			int(unsafe.Sizeof(Backend4Value{})),
 			MaxEntries,
@@ -117,6 +131,16 @@ func initSVC(params InitParams) {
 			0, 0,
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric()
+		Backend6MapV2 = bpf.NewMap(Backend6MapNameV2,
+			bpf.MapTypeHash,
+			&Backend6KeyV2{},
+			int(unsafe.Sizeof(Backend6KeyV2{})),
+			&Backend6Value{},
+			int(unsafe.Sizeof(Backend6Value{})),
+			MaxEntries,
+			0, 0,
+			bpf.ConvertKeyValue,
+		).WithCache().WithPressureMetric()
 		RevNat6Map = bpf.NewMap(RevNat6MapName,
 			bpf.MapTypeHash,
 			&RevNat6Key{},
@@ -136,8 +160,10 @@ var _ RevNatValue = (*RevNat4Value)(nil)
 var _ ServiceKey = (*Service4Key)(nil)
 var _ ServiceValue = (*Service4Value)(nil)
 var _ BackendKey = (*Backend4Key)(nil)
+var _ BackendKey = (*Backend4KeyV2)(nil)
 var _ BackendValue = (*Backend4Value)(nil)
 var _ Backend = (*Backend4)(nil)
+var _ Backend = (*Backend4V2)(nil)
 
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
@@ -348,6 +374,19 @@ func (k *Backend4Key) Map() *bpf.Map                   { return Backend4Map }
 func (k *Backend4Key) SetID(id loadbalancer.BackendID) { k.ID = id }
 func (k *Backend4Key) GetID() loadbalancer.BackendID   { return k.ID }
 
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
+type Backend4KeyV2 struct {
+	ID uint32
+}
+
+func (k *Backend4KeyV2) String() string                  { return fmt.Sprintf("%d", k.ID) }
+func (k *Backend4KeyV2) GetKeyPtr() unsafe.Pointer       { return unsafe.Pointer(k) }
+func (k *Backend4KeyV2) NewValue() bpf.MapValue          { return &Backend4Value{} }
+func (k *Backend4KeyV2) Map() *bpf.Map                   { return Backend4MapV2 }
+func (k *Backend4KeyV2) SetID(id loadbalancer.BackendID) { k.ID = uint32(id) }
+func (k *Backend4KeyV2) GetID() loadbalancer.BackendID   { return loadbalancer.BackendID(k.ID) }
+
 // Backend4Value must match 'struct lb4_backend' in "bpf/lib/common.h".
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
@@ -416,6 +455,15 @@ func NewBackend4(id loadbalancer.BackendID, ip net.IP, port uint16, proto u8prot
 func (b *Backend4) Map() *bpf.Map          { return Backend4Map }
 func (b *Backend4) GetKey() BackendKey     { return b.Key }
 func (b *Backend4) GetValue() BackendValue { return b.Value }
+
+type Backend4V2 struct {
+	Key   *Backend4KeyV2
+	Value *Backend4Value
+}
+
+func (b *Backend4V2) Map() *bpf.Map          { return Backend4MapV2 }
+func (b *Backend4V2) GetKey() BackendKey     { return b.Key }
+func (b *Backend4V2) GetValue() BackendValue { return b.Value }
 
 // SockRevNat4Key is the tuple with address, port and cookie used as key in
 // the reverse NAT sock map.
