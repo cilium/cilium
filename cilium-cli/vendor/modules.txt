@@ -115,7 +115,7 @@ github.com/cilium/cilium/pkg/safetime
 github.com/cilium/cilium/pkg/spanstat
 github.com/cilium/cilium/pkg/version
 github.com/cilium/cilium/pkg/versioncheck
-# github.com/cilium/hubble v0.8.0
+# github.com/cilium/hubble v0.8.1
 ## explicit; go 1.16
 github.com/cilium/hubble/pkg/printer
 # github.com/cilium/workerpool v1.0.0
@@ -244,7 +244,7 @@ github.com/google/certificate-transparency-go/jsonclient
 github.com/google/certificate-transparency-go/tls
 github.com/google/certificate-transparency-go/x509
 github.com/google/certificate-transparency-go/x509/pkix
-# github.com/google/go-cmp v0.5.5
+# github.com/google/go-cmp v0.5.6
 ## explicit; go 1.8
 github.com/google/go-cmp/cmp
 github.com/google/go-cmp/cmp/internal/diff
