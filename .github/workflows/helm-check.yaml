@@ -70,15 +70,3 @@ jobs:
         with:
           command: install
           config: install/kubernetes/chart-testing.yaml
-
-      - name: Install ginkgo
-        run: |
-          cd $HOME
-          go get -u github.com/onsi/ginkgo/ginkgo
-          go get -u github.com/onsi/gomega/...
-
-      - name: Run test suite
-        run: |
-          cd test
-          export PATH=$PATH:$HOME/go/bin
-          ginkgo -v --focus="K8sConformance Portmap Chaining Check one node" -- -cilium.provision=false -test.v --cilium.kubeconfig=${HOME}/.kube/config -cilium.image=cilium/cilium:latest -cilium.operator-image=cilium/operator-generic:latest
