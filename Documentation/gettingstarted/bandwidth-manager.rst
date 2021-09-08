@@ -50,7 +50,7 @@ To install Cilium with the bandwidth manager enabled, run
 
    helm install cilium |CHART_RELEASE| \\
      --namespace kube-system \\
-     --bandwidthManager=true
+     --set bandwidthManager=true
 
 To enable the bandwidth manager on an existing installation, run
 
@@ -59,7 +59,7 @@ To enable the bandwidth manager on an existing installation, run
    helm upgrade cilium |CHART_RELEASE| \\
      --namespace kube-system \\
      --reuse-values \\
-     --bandwidthManager=true
+     --set bandwidthManager=true
    kubectl -n kube-system rollout restart ds/cilium
 
 The native host networking devices are auto detected as native devices which have
