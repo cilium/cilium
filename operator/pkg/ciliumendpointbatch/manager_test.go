@@ -36,25 +36,37 @@ var (
 	cep2 = &capi_v2a1.CoreCiliumEndpoint{
 		Name:       "cilium-abcd-456",
 		Namespace:  "kube-system",
-		IdentityID: 364747,
+		IdentityID: 364748,
 	}
 
 	cep3 = &capi_v2a1.CoreCiliumEndpoint{
 		Name:       "cilium-abcd-789",
 		Namespace:  "kube-system",
-		IdentityID: 364747,
+		IdentityID: 364749,
 	}
 
 	cep4 = &capi_v2a1.CoreCiliumEndpoint{
 		Name:       "cilium-bcde-123",
 		Namespace:  "kube-system",
-		IdentityID: 364747,
+		IdentityID: 364757,
 	}
 
 	cep5 = &capi_v2a1.CoreCiliumEndpoint{
 		Name:       "cilium-bcde-456",
 		Namespace:  "kube-system",
+		IdentityID: 364767,
+	}
+
+	cep1a = &capi_v2a1.CoreCiliumEndpoint{
+		Name:       "cilium-abcd-123a",
+		Namespace:  "kube-system",
 		IdentityID: 364747,
+	}
+
+	cep2b = &capi_v2a1.CoreCiliumEndpoint{
+		Name:       "cilium-abcd-456b",
+		Namespace:  "kube-system",
+		IdentityID: 364748,
 	}
 
 	Ceb = &capi_v2a1.CiliumEndpointBatch{
@@ -174,6 +186,29 @@ func TestDeepCopyCeps(t *testing.T) {
 		// do deep copy between local variable and in datastore
 		m.updateCebInCache(Ceb, true)
 		ceb, _ = m.getCebFromCache(cn)
+		assert.Equal(t, ceb.DeepEqual(Ceb), true, "Local CEB should match with CEB in datastore")
+
+		m1 := newCebManagerIdentity(newQueue(), 2)
+		m1.InsertCepInCache(cep1)
+		m1.InsertCepInCache(cep1a)
+		m1.InsertCepInCache(cep2b)
+		cn = m1.InsertCepInCache(cep2)
+		ceb, _ = m1.getCebFromCache(cn)
+		assert.Equal(t, m1.getCebCount(), 2, "Total number of CEBs allocated is 2")
+		assert.Equal(t, m1.getTotalCepCount(), 4, "Total number of CEPs inserted is 4")
+		assert.Equal(t, len(ceb.Endpoints), 2, "Total number of CEPs inserted in a CEB is 2")
+
+		// Copy randomly Generated cebName to the local variable
+		Ceb.Name = ceb.Name
+
+		// Copy only headers and check data between local variable and in datastore. No DeepCopy.
+		m1.updateCebInCache(Ceb, false)
+		ceb, _ = m1.getCebFromCache(cn)
+		assert.Equal(t, ceb.DeepEqual(Ceb), false, "CEPs expected to have same name but different identities")
+
+		// do deep copy between local variable and in datastore
+		m1.updateCebInCache(Ceb, true)
+		ceb, _ = m1.getCebFromCache(cn)
 		assert.Equal(t, ceb.DeepEqual(Ceb), true, "Local CEB should match with CEB in datastore")
 	})
 }

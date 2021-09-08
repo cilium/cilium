@@ -54,12 +54,12 @@ type cebManager interface {
 	// manages CEB's.
 	getCebFromCache(cebName string) (*cilium_v2.CiliumEndpointBatch, error)
 	getCebCopyFromCache(cebName string) (*cilium_v2.CiliumEndpointBatch, error)
-	findCeb() *cebTracker
 	updateCebInCache(ceb *cilium_v2.CiliumEndpointBatch, deepCopy bool)
 	deleteCebFromCache(cebName string)
 	getRemovedCeps(string) map[string]struct{}
 	clearRemovedCeps(string, map[string]struct{})
 	createCeb(cebName string) *cebTracker
+	addCEPtoCEB(ceb *cilium_v2.CoreCiliumEndpoint, cebName string)
 	// APIs to collect metrics of CEB and CEP
 	getTotalCepCount() int
 	getCepCountInCeb(cebName string) int
@@ -67,17 +67,16 @@ type cebManager interface {
 	getAllCepNames() []string
 }
 
-// Implementation of FirstComeFirstServe batching mode. If new CEP is inserted,
-// then the CEP is queued in any one of the available CEB. CEPs are inserted into
-// CEBs without any preference or any priority.
-type cebManagerFcfs struct {
+// cebMgr is used to batch CEP into a CEB, based on FirstComeFirstServe. If a new CEP
+// is inserted, then the CEP is queued in any one of the available CEB. CEPs are
+// inserted into CEBs without any preference or any priority.
+type cebMgr struct {
 
 	// cacheCepMap is used to map cepName to cebName
 	cacheCepMap *cepToCebMapping
 
 	// desiredCebs is used to map cebName to cebTracker object.
-	// TODO: protect access to desiredCebs with lock.
-	desiredCebs map[string]*cebTracker
+	desiredCebs *desiredCebMapping
 
 	// workqueue is used to sync CEBs with the api-server. this will rate-limit the
 	// CEB requests going to api-server, ensures a single CEB will not be proccessed
@@ -90,50 +89,86 @@ type cebManagerFcfs struct {
 	maxCepsInCeb int
 }
 
+// cebManagerFcfs use cebMgr by design, it inherits all the methods from the base cebMgr and there is no
+// special handling required for FCFS.
+type cebManagerFcfs struct {
+	cebMgr
+}
+
+// cebManagerIdentity is used to batch CEPs in CEB based on CEP identity.
+type cebManagerIdentity struct {
+	cebMgr
+	// Mutex to protect cep insert/removal in ceb and removedCeps
+	identityLock lock.RWMutex
+	// CEP identity to cebTracker map
+	identityToCeb map[int64][]*cebTracker
+	// reverse map of identityToCeb i.e. cebName to CEP identity
+	cebToIdentity map[string]int64
+}
+
 // newCebManagerFcfs creates and initializes a new FCFS based manager.
 func newCebManagerFcfs(workQueue workqueue.RateLimitingInterface, maxCepsInCeb int) cebManager {
 	return &cebManagerFcfs{
-		desiredCebs:  make(map[string]*cebTracker),
+		cebMgr{
+			desiredCebs:  newDesiredCebMap(),
+			queue:        workQueue,
+			cacheCepMap:  newCepToCebMapping(),
+			maxCepsInCeb: maxCepsInCeb,
+		},
+	}
+}
+
+// newCebManagerIdentity creates and initializes a new Identity based manager.
+func newCebManagerIdentity(workQueue workqueue.RateLimitingInterface, maxCepsInCeb int) cebManager {
+
+	c := cebMgr{
+		desiredCebs:  newDesiredCebMap(),
 		queue:        workQueue,
 		cacheCepMap:  newCepToCebMapping(),
 		maxCepsInCeb: maxCepsInCeb,
+	}
+	return &cebManagerIdentity{
+		cebMgr:        c,
+		identityToCeb: make(map[int64][]*cebTracker),
+		cebToIdentity: make(map[string]int64),
 	}
 }
 
 // addCEPtoCEB inserts the CEP in a CEB, if the CEP already exists in a CEB
 // it replaces with new CEP.
-func addCEPtoCEB(cep *cilium_v2.CoreCiliumEndpoint, cebTracker *cebTracker) {
+func (c *cebMgr) addCEPtoCEB(cep *cilium_v2.CoreCiliumEndpoint, cebName string) {
 
-	cebTracker.backendMutex.Lock()
-	defer cebTracker.backendMutex.Unlock()
+	ceb := c.desiredCebs.getCeb(cebName)
+	ceb.backendMutex.Lock()
+	defer ceb.backendMutex.Unlock()
 	// If cep already exists in ceb, compare new cep with cached cep.
 	// Update only if there is any change.
 	log.WithFields(logrus.Fields{
 		"cep-name":        cep.Name,
-		"ceb-name":        cebTracker.ceb.GetName(),
-		"total cep-count": len(cebTracker.ceb.Endpoints),
+		"ceb-name":        ceb.ceb.GetName(),
+		"total cep-count": len(ceb.ceb.Endpoints),
 	}).Debug("Queueing cep in ceb")
 
-	for i, ep := range cebTracker.ceb.Endpoints {
+	for i, ep := range ceb.ceb.Endpoints {
 		if GetCepNameFromCCEP(&ep) == GetCepNameFromCCEP(cep) {
 			if cep.DeepEqual(&ep) {
 				return
 			}
 			// Remove the matched cep from ceb endpoints list.
-			cebTracker.ceb.Endpoints =
-				append(cebTracker.ceb.Endpoints[:i], cebTracker.ceb.Endpoints[i+1:]...)
+			ceb.ceb.Endpoints =
+				append(ceb.ceb.Endpoints[:i], ceb.ceb.Endpoints[i+1:]...)
 			break
 		}
 	}
 
 	// Insert the cep in ceb endpoints list.
-	cebTracker.ceb.Endpoints = append(cebTracker.ceb.Endpoints, *cep)
+	ceb.ceb.Endpoints = append(ceb.ceb.Endpoints, *cep)
 	// If this CEP is re-generated again before previous CEP-DELETE completed.
 	// remove this from removedCep list.
-	if _, ok := cebTracker.removedCeps[GetCepNameFromCCEP(cep)]; ok {
-		delete(cebTracker.removedCeps, GetCepNameFromCCEP(cep))
+	if _, ok := ceb.removedCeps[GetCepNameFromCCEP(cep)]; ok {
+		delete(ceb.removedCeps, GetCepNameFromCCEP(cep))
 	}
-
+	c.queue.Add(ceb.ceb.GetName())
 	return
 }
 
@@ -149,14 +184,12 @@ func randomName(n int) string {
 // Generates unique random name for the CiliumEndpointBatch, the format
 // of a CEB name is similar to pod k8s naming convention "ceb-123456789-abcde".
 // First 3 letters indicates ceb resource, followed by random letters.
-func uniqueCeBatchName(desiredCebs map[string]*cebTracker) string {
+func uniqueCEBatchName(desiredCebs *desiredCebMapping) string {
 	rand.Seed(time.Now().UnixNano())
-	var exists bool
 	var cebName string
-
 	for {
 		cebName = fmt.Sprintf("%s-%s-%s", cebNamePrefix, randomName(9), randomName(5))
-		if _, exists = desiredCebs[cebName]; !exists {
+		if !desiredCebs.has(cebName) {
 			return cebName
 		}
 	}
@@ -168,10 +201,10 @@ func uniqueCeBatchName(desiredCebs map[string]*cebTracker) string {
 //    with an empty name, it generates a random unique name and assign it to the CEB.
 // 2) During operator warm boot [after crash or software upgrade], batching manager
 //    creates a CEB, by passing unique name.
-func (c *cebManagerFcfs) createCeb(name string) *cebTracker {
+func (c *cebMgr) createCeb(name string) *cebTracker {
 	var cebName string = name
 	if name == "" {
-		cebName = uniqueCeBatchName(c.desiredCebs)
+		cebName = uniqueCEBatchName(c.desiredCebs)
 	}
 	ceb := &cebTracker{
 		ceb: &cilium_v2.CiliumEndpointBatch{
@@ -186,7 +219,7 @@ func (c *cebManagerFcfs) createCeb(name string) *cebTracker {
 		},
 		removedCeps: make(map[string]struct{}),
 	}
-	c.desiredCebs[cebName] = ceb
+	c.desiredCebs.insert(cebName, ceb)
 	log.WithFields(logrus.Fields{
 		"ceb-name": cebName,
 	}).Debug("Generated ceb")
@@ -195,14 +228,14 @@ func (c *cebManagerFcfs) createCeb(name string) *cebTracker {
 
 // If exists, remove Ceb object from cache. deleteCebFromCache is called after successful removal from
 // apiserver.
-func (c *cebManagerFcfs) deleteCebFromCache(cebName string) {
-	if _, ok := c.desiredCebs[cebName]; !ok {
+func (c *cebMgr) deleteCebFromCache(cebName string) {
+	if !c.desiredCebs.has(cebName) {
 		log.WithFields(logrus.Fields{
 			"ceb-name": cebName,
 		}).Debug("Failed to retrieve Ceb object in local cache.")
 		return
 	}
-	delete(c.desiredCebs, cebName)
+	c.desiredCebs.deleteCeb(cebName)
 }
 
 // updateCebInCache function copies the ciliumEndpoint object in local cache. if isDeepCopy flag is set,
@@ -212,9 +245,10 @@ func (c *cebManagerFcfs) deleteCebFromCache(cebName string) {
 // api-server to cache. In this case, isDeepCopy set to true to copy entire CEP object locally.
 // 2) During runtime, reconciler sync current state with API server and update metadata only.
 // isDeepCopy flag is set to false.
-func (c *cebManagerFcfs) updateCebInCache(srcCeb *cilium_v2.CiliumEndpointBatch, isDeepCopy bool) {
-	if ceb, ok := c.desiredCebs[srcCeb.GetName()]; ok {
+func (c *cebMgr) updateCebInCache(srcCeb *cilium_v2.CiliumEndpointBatch, isDeepCopy bool) {
+	if ceb, ok := c.desiredCebs.get(srcCeb.GetName()); ok {
 		ceb.backendMutex.Lock()
+		defer ceb.backendMutex.Unlock()
 		if !isDeepCopy {
 			ceb.ceb.ObjectMeta = srcCeb.ObjectMeta
 		} else {
@@ -224,21 +258,20 @@ func (c *cebManagerFcfs) updateCebInCache(srcCeb *cilium_v2.CiliumEndpointBatch,
 				c.cacheCepMap.insert(GetCepNameFromCCEP(&cep), srcCeb.GetName())
 			}
 		}
-		ceb.backendMutex.Unlock()
 	}
 }
 
 // If available, getCebFromCache returns CiliumEndpointBatch object.
-func (c *cebManagerFcfs) getCebFromCache(cebName string) (*cilium_v2.CiliumEndpointBatch, error) {
-	if ceb, exists := c.desiredCebs[cebName]; exists {
+func (c *cebMgr) getCebFromCache(cebName string) (*cilium_v2.CiliumEndpointBatch, error) {
+	if ceb, exists := c.desiredCebs.get(cebName); exists {
 		return ceb.ceb, nil
 	}
 	return nil, fmt.Errorf("Failed to get CEB from local cache for the cebName: %s", cebName)
 }
 
 // getCebCopyFromCache returns the copy of CiliumEndpointBatch object.
-func (c *cebManagerFcfs) getCebCopyFromCache(cebName string) (*cilium_v2.CiliumEndpointBatch, error) {
-	if ceb, exists := c.desiredCebs[cebName]; exists {
+func (c *cebMgr) getCebCopyFromCache(cebName string) (*cilium_v2.CiliumEndpointBatch, error) {
+	if ceb, exists := c.desiredCebs.get(cebName); exists {
 		outCeb := new(cilium_v2.CiliumEndpointBatch)
 		ceb.backendMutex.RLock()
 		ceb.ceb.DeepCopyInto(outCeb)
@@ -249,55 +282,46 @@ func (c *cebManagerFcfs) getCebCopyFromCache(cebName string) (*cilium_v2.CiliumE
 	return nil, fmt.Errorf("Failed to get CEB Copy from local cache for the cebName: %s", cebName)
 }
 
-// findCeb returns the available cebTracker object and is chosen based on FCFS.
-// if all CEB's reached max capacity or marked for delete. Allocate a new CEB.
-func (c *cebManagerFcfs) findCeb() (ceb *cebTracker) {
-
-	// get first available CEB
-	for _, ceb = range c.desiredCebs {
-		ceb.backendMutex.RLock()
-		if len(ceb.ceb.Endpoints) >= c.maxCepsInCeb || len(ceb.ceb.Endpoints) == 0 {
-			ceb.backendMutex.RUnlock()
-			continue
-		}
-		ceb.backendMutex.RUnlock()
-		return
-	}
-
-	// allocate a new cebTracker and return
-	ceb = c.createCeb("")
-	return
-}
-
-// InsertCepInCache is used to Insert CEP in local cache, this may result in Creating a New
-// CEB object or Updating an existing CEB object.
-func (c *cebManagerFcfs) InsertCepInCache(cep *cilium_v2.CoreCiliumEndpoint) string {
+// InsertCepInCache is used to insert CEP in local cache, this may result in creating a new
+// CEB object or updating an existing CEB object.
+func (c *cebMgr) InsertCepInCache(cep *cilium_v2.CoreCiliumEndpoint) string {
 
 	// check the given cep is already exists in any of the CEB.
 	// if yes, Update a ceb with the given cep object.
 	if cebName, exists := c.cacheCepMap.get(GetCepNameFromCCEP(cep)); exists {
 		// add a cep into the ceb
-		addCEPtoCEB(cep, c.desiredCebs[cebName])
-		c.queue.Add(cebName)
+		c.addCEPtoCEB(cep, cebName)
 		return cebName
 	}
 
 	// If given cep object isn't packed in any of the CEB. find a new ceb
 	// to pack this cep.
-	cb := c.findCeb()
+	cb := func() *cebTracker {
+		// get first available CEB
+		for _, ceb := range c.desiredCebs.getAllCebs() {
+			ceb.backendMutex.RLock()
+			if len(ceb.ceb.Endpoints) >= c.maxCepsInCeb || len(ceb.ceb.Endpoints) == 0 {
+				ceb.backendMutex.RUnlock()
+				continue
+			}
+			ceb.backendMutex.RUnlock()
+			return ceb
+		}
+		// allocate a new cebTracker and return
+		return c.createCeb("")
+	}()
 
 	// Cache CEP name with newly allocated CEB.
 	c.cacheCepMap.insert(GetCepNameFromCCEP(cep), cb.ceb.GetName())
 
 	// Queue the CEP in CEB
-	addCEPtoCEB(cep, cb)
-	c.queue.Add(cb.ceb.GetName())
+	c.addCEPtoCEB(cep, cb.ceb.GetName())
 	return cb.ceb.GetName()
 }
 
 // RemoveCepFromCache is used to remove the CEP from local cache, this may result in
 // Updating an existing CEB object.
-func (c *cebManagerFcfs) RemoveCepFromCache(cepName string) {
+func (c *cebMgr) RemoveCepFromCache(cepName string) {
 
 	log.WithFields(logrus.Fields{
 		"cep-name": cepName,
@@ -307,7 +331,7 @@ func (c *cebManagerFcfs) RemoveCepFromCache(cepName string) {
 	// and if exists, delete cep from ceb.
 	if cebName, exists := c.cacheCepMap.get(cepName); exists {
 		var ceb *cebTracker
-		if ceb, exists = c.desiredCebs[cebName]; !exists {
+		if ceb, exists = c.desiredCebs.get(cebName); !exists {
 			log.Info("Valid cep-ceb mapping, but CEB doesn't exist in ceb cache.")
 			return
 		}
@@ -341,9 +365,9 @@ func (c *cebManagerFcfs) RemoveCepFromCache(cepName string) {
 }
 
 // Returns the total number of CEPs in the cluster
-func (c *cebManagerFcfs) getTotalCepCount() int {
+func (c *cebMgr) getTotalCepCount() int {
 	cnt := 0
-	for _, ceb := range c.desiredCebs {
+	for _, ceb := range c.desiredCebs.getAllCebs() {
 		ceb.backendMutex.RLock()
 		cnt += len(ceb.ceb.Endpoints)
 		ceb.backendMutex.RUnlock()
@@ -352,8 +376,8 @@ func (c *cebManagerFcfs) getTotalCepCount() int {
 }
 
 // Returns the total number of CEPs in the ceb
-func (c *cebManagerFcfs) getCepCountInCeb(cebName string) (cnt int) {
-	if ceb, ok := c.desiredCebs[cebName]; ok {
+func (c *cebMgr) getCepCountInCeb(cebName string) (cnt int) {
+	if ceb, ok := c.desiredCebs.get(cebName); ok {
 		ceb.backendMutex.RLock()
 		cnt = len(ceb.ceb.Endpoints)
 		ceb.backendMutex.RUnlock()
@@ -362,14 +386,14 @@ func (c *cebManagerFcfs) getCepCountInCeb(cebName string) (cnt int) {
 }
 
 // Returns the total count of CEBs in local cache
-func (c *cebManagerFcfs) getCebCount() int {
-	return len(c.desiredCebs)
+func (c *cebMgr) getCebCount() int {
+	return (c.desiredCebs.cnt())
 }
 
 // Returns the list of cep names
-func (c *cebManagerFcfs) getAllCepNames() []string {
+func (c *cebMgr) getAllCepNames() []string {
 	var ceps []string
-	for _, ceb := range c.desiredCebs {
+	for _, ceb := range c.desiredCebs.getAllCebs() {
 		ceb.backendMutex.RLock()
 		for _, cep := range ceb.ceb.Endpoints {
 			ceps = append(ceps, GetCepNameFromCCEP(&cep))
@@ -381,9 +405,9 @@ func (c *cebManagerFcfs) getAllCepNames() []string {
 }
 
 // Returns the list of removed Core CEPs
-func (c *cebManagerFcfs) getRemovedCeps(cebName string) map[string]struct{} {
+func (c *cebMgr) getRemovedCeps(cebName string) map[string]struct{} {
 	cepNames := make(map[string]struct{})
-	if ceb, _ := c.desiredCebs[cebName]; ceb != nil {
+	if ceb := c.desiredCebs.getCeb(cebName); ceb != nil {
 		ceb.backendMutex.RLock()
 		for cepName := range ceb.removedCeps {
 			cepNames[cepName] = struct{}{}
@@ -396,12 +420,12 @@ func (c *cebManagerFcfs) getRemovedCeps(cebName string) map[string]struct{} {
 
 // After successful sync with api-server, delete removed ceps in a CEB.
 // If no more CEPs are packed in CEB, Delete the CEB in next DeleteSYNC.
-func (c *cebManagerFcfs) clearRemovedCeps(cebName string, remCeps map[string]struct{}) {
+func (c *cebMgr) clearRemovedCeps(cebName string, remCeps map[string]struct{}) {
 
 	var ok bool
 	var ceb *cebTracker
 	// Check if CEB exists in local cache
-	if ceb, ok = c.desiredCebs[cebName]; !ok {
+	if ceb, ok = c.desiredCebs.get(cebName); !ok {
 		log.WithFields(logrus.Fields{
 			"ceb-name": cebName,
 		}).Error("Unable to find the CEB in local cache")
@@ -425,5 +449,112 @@ func (c *cebManagerFcfs) clearRemovedCeps(cebName string, remCeps map[string]str
 		}).Debug("Remove CEB from local cache")
 		// On next DeleteSync, Delete this CEB with api-server.
 		c.queue.Add(cebName)
+	}
+}
+
+// If exists, remove Ceb object from cache. deleteCebFromCache is called after successful removal from
+// apiserver.
+func (c *cebManagerIdentity) deleteCebFromCache(cebName string) {
+	if !c.desiredCebs.has(cebName) {
+		log.WithFields(logrus.Fields{
+			"ceb-name": cebName,
+		}).Debug("Failed to retrieve Ceb object in local cache.")
+		return
+	}
+
+	c.identityLock.Lock()
+	identity, _ := c.cebToIdentity[cebName]
+	for i, ceb := range c.identityToCeb[identity] {
+		if cebName == ceb.ceb.GetName() {
+			c.identityToCeb[identity] = append(c.identityToCeb[identity][:i],
+				c.identityToCeb[identity][i+1:]...)
+
+			if len(c.identityToCeb[identity]) == 0 {
+				delete(c.identityToCeb, identity)
+			}
+			break
+		}
+	}
+	delete(c.cebToIdentity, cebName)
+	c.identityLock.Unlock()
+	c.desiredCebs.deleteCeb(cebName)
+}
+
+// InsertCepInCache is used to insert CEP in local cache, this may result in creating a new
+// CEB object or updating an existing CEB object. CEPs are grouped based on CEP identity.
+func (c *cebManagerIdentity) InsertCepInCache(cep *cilium_v2.CoreCiliumEndpoint) string {
+
+	// check the given cep is already exists in any of the CEB.
+	// if yes, Update a ceb with the given cep object.
+	if cebName, exists := c.cacheCepMap.get(GetCepNameFromCCEP(cep)); exists {
+		// add a cep into the ceb
+		c.addCEPtoCEB(cep, cebName)
+		return cebName
+	}
+
+	// If given cep object isn't packed in any of the CEB. find a new ceb
+	// to pack this cep.
+	cb := func() *cebTracker {
+		// get first available CEB
+		if cebs, exist := c.identityToCeb[cep.IdentityID]; exist {
+			for _, ceb := range cebs {
+				ceb.backendMutex.RLock()
+				if len(ceb.ceb.Endpoints) >= c.maxCepsInCeb || len(ceb.ceb.Endpoints) == 0 {
+					ceb.backendMutex.RUnlock()
+					continue
+				}
+				ceb.backendMutex.RUnlock()
+				return ceb
+			}
+		}
+		// allocate a new cebTracker and return
+		ceb := c.createCeb("")
+
+		// Update the identityToCeb and cebToIdentity maps respectively.
+		c.identityLock.Lock()
+		c.identityToCeb[cep.IdentityID] = append(c.identityToCeb[cep.IdentityID], ceb)
+		c.cebToIdentity[ceb.ceb.GetName()] = cep.IdentityID
+		c.identityLock.Unlock()
+
+		return ceb
+	}()
+
+	// Cache CEP name with newly allocated CEB.
+	c.cacheCepMap.insert(GetCepNameFromCCEP(cep), cb.ceb.GetName())
+
+	// Queue the CEP in CEB
+	c.addCEPtoCEB(cep, cb.ceb.GetName())
+	return cb.ceb.GetName()
+}
+
+// updateCebInCache function copies the ciliumEndpoint object in local cache. if isDeepCopy flag is set,
+// whole CoreCiliumEndpoint object stored in local cache.
+// There are two scenarios updateCebInCache is called.
+// 1) During operator warm boot[after crash or software upgrade], CEB controller sync CEB states from
+// api-server to cache. In this case, isDeepCopy set to true to copy entire CEP object locally.
+// 2) During runtime, reconciler sync current state with API server and update metadata only.
+// isDeepCopy flag is set to false.
+func (c *cebManagerIdentity) updateCebInCache(srcCeb *cilium_v2.CiliumEndpointBatch, isDeepCopy bool) {
+	if ceb, ok := c.desiredCebs.get(srcCeb.GetName()); ok {
+		ceb.backendMutex.Lock()
+		defer ceb.backendMutex.Unlock()
+		if !isDeepCopy {
+			ceb.ceb.ObjectMeta = srcCeb.ObjectMeta
+		} else {
+			ceb.ceb = srcCeb
+			_, exist := c.cebToIdentity[srcCeb.GetName()]
+			for _, cep := range ceb.ceb.Endpoints {
+				// Update the identityToCeb and cebToIdentity maps respectively.
+				if !exist {
+					c.identityLock.Lock()
+					c.identityToCeb[cep.IdentityID] = append(c.identityToCeb[cep.IdentityID], ceb)
+					c.cebToIdentity[srcCeb.GetName()] = cep.IdentityID
+					c.identityLock.Unlock()
+					exist = true
+				}
+				// Update the cacheCepMap, to reflect all CEPs are packed in a CEB
+				c.cacheCepMap.insert(GetCepNameFromCCEP(&cep), srcCeb.GetName())
+			}
+		}
 	}
 }

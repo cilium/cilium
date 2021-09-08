@@ -315,16 +315,12 @@ func init() {
 	flags.Bool(option.EnableCiliumEndpointBatch, false, "If set to true, the CiliumEndpointBatch feature is enabled. If any CiliumEndpoints resources are created, updated, or deleted in the cluster, all those changes are broadcast as CiliumEndpointBatch updates to all of the Cilium agents.")
 	option.BindEnv(option.EnableCiliumEndpointBatch)
 
-	flags.Duration(operatorOption.CEBUpsertSyncPeriod, operatorOption.CEBUpsertSyncPeriodDefault,
-		"Duration between CEB updates sent to the k8s-apiserver, configuring with high duration result in few CEB updates sent to the k8s-apiserver, reduces the CEB update and watch throughput in the cluster and may increase the latency time for network policies to take effect in newly created pods.")
-	option.BindEnv(operatorOption.CEBUpsertSyncPeriod)
-
-	flags.Duration(operatorOption.CEBDeleteSyncPeriod, operatorOption.CEBDeleteSyncPeriodDefault,
-		"Duration between CEB deletes sent to the k8s-apiserver, configuring with high duration result in  delayed CEB deletes sent to the k8s-apiserver, may reduce CEB watch throughput in the cluster.")
-	option.BindEnv(operatorOption.CEBDeleteSyncPeriod)
-
 	flags.Int(operatorOption.CEBMaxCepsInCeb, operatorOption.CEBMaxCepsInCebDefault, "Maximum number of CiliumEndpoints allowed in a CEB")
 	option.BindEnv(operatorOption.CEBMaxCepsInCeb)
+
+	flags.String(operatorOption.CEBBatchingMode, operatorOption.CEBBatchingModeDefault, "Batching mode define how ceps are grouped into a CEB")
+	flags.MarkHidden(operatorOption.CEBBatchingMode)
+	option.BindEnv(operatorOption.CEBBatchingMode)
 
 	viper.BindPFlags(flags)
 }
