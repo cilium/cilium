@@ -946,7 +946,7 @@
      - object
      - ``{}``
    * - monitor
-     - Specify the IPv4 CIDR for native routing (ie to avoid IP masquerade for). This value corresponds to the configured cluster-cidr. ipv4NativeRoutingCIDR:
+     - cilium-monitor sidecar.
      - object
      - ``{"enabled":false}``
    * - monitor.enabled

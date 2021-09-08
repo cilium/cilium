@@ -498,6 +498,10 @@ data:
   ipv4-native-routing-cidr: {{ .Values.ipv4NativeRoutingCIDR }}
 {{- end }}
 
+{{- if hasKey .Values "ipv6NativeRoutingCIDR" }}
+  ipv6-native-routing-cidr: {{ .Values.ipv6NativeRoutingCIDR }}
+{{- end }}
+
 {{- if hasKey .Values "fragmentTracking" }}
   enable-ipv4-fragment-tracking: {{ .Values.fragmentTracking | quote }}
 {{- else if (ne $fragmentTracking "true") }}

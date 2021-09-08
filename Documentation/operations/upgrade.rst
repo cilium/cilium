@@ -289,6 +289,18 @@ Annotations:
 
 .. _current_release_required_changes:
 
+.. _1.12_upgrade_notes:
+
+1.12 Upgrade Notes
+------------------
+
+New Options
+~~~~~~~~~~~
+
+* ``ipv6-native-routing-cidr``: This option specifies the IPv6 CIDR for native
+  routing. It must be set whenever running in direct routing mode with IPv6
+  masquerading enabled.
+
 .. _1.11_upgrade_notes:
 
 1.11 Upgrade Notes
