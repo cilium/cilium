@@ -83,6 +83,18 @@ spec:
           httpGet:
             path: /
             port: 80
+      - name: web-for-pods
+        image: docker.io/cilium/echoserver:1.10.3
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: PORT
+          value: "8080"
+        ports:
+        - containerPort: 8080
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
       - name: udp
         image: docker.io/cilium/echoserver-udp:v2020.01.30
         imagePullPolicy: IfNotPresent

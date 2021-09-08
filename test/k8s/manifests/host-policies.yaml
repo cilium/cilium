@@ -40,7 +40,7 @@ specs:
       - remote-node
       toPorts:
       - ports:
-        - port: "80"
+        - port: "8080"
           protocol: TCP
         # VXLAN tunnels between nodes
         - port: "8472"
@@ -64,7 +64,7 @@ specs:
       - remote-node
       toPorts:
       - ports:
-        - port: "80"
+        - port: "8080"
           protocol: TCP
         # VXLAN tunnels between nodes
         - port: "8472"

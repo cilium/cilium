@@ -964,47 +964,47 @@ func testHostFirewall(kubectl *helpers.Kubectl) {
 		defer GinkgoRecover()
 		defer wg.Done()
 		By("Checking host policies on ingress from local pod")
-		testHostFirewallWithPath(kubectl, randomNs, "zgroup=testClient", "zgroup=testServerHost", false)
+		testHostFirewallWithPath(kubectl, randomNs, "zgroup=testClient", "zgroup=testServerHost", false, false)
 	}()
 	wg.Add(1)
 	go func() {
 		defer GinkgoRecover()
 		defer wg.Done()
 		By("Checking host policies on ingress from remote pod")
-		testHostFirewallWithPath(kubectl, randomNs, "zgroup=testClient", "zgroup=testServerHost", true)
+		testHostFirewallWithPath(kubectl, randomNs, "zgroup=testClient", "zgroup=testServerHost", true, false)
 	}()
 	wg.Add(1)
 	go func() {
 		defer GinkgoRecover()
 		defer wg.Done()
 		By("Checking host policies on egress to local pod")
-		testHostFirewallWithPath(kubectl, randomNs, "zgroup=testClientHost", "zgroup=testServer", false)
+		testHostFirewallWithPath(kubectl, randomNs, "zgroup=testClientHost", "zgroup=testServer", false, false)
 	}()
 	wg.Add(1)
 	go func() {
 		defer GinkgoRecover()
 		defer wg.Done()
 		By("Checking host policies on egress to remote pod")
-		testHostFirewallWithPath(kubectl, randomNs, "zgroup=testClientHost", "zgroup=testServer", true)
+		testHostFirewallWithPath(kubectl, randomNs, "zgroup=testClientHost", "zgroup=testServer", true, false)
 	}()
 	wg.Add(1)
 	go func() {
 		defer GinkgoRecover()
 		defer wg.Done()
 		By("Checking host policies on ingress from remote node")
-		testHostFirewallWithPath(kubectl, randomNs, "zgroup=testServerHost", "zgroup=testClientHost", true)
+		testHostFirewallWithPath(kubectl, randomNs, "zgroup=testServerHost", "zgroup=testClientHost", true, true)
 	}()
 	wg.Add(1)
 	go func() {
 		defer GinkgoRecover()
 		defer wg.Done()
 		By("Checking host policies on egress to remote node")
-		testHostFirewallWithPath(kubectl, randomNs, "zgroup=testClientHost", "zgroup=testServerHost", true)
+		testHostFirewallWithPath(kubectl, randomNs, "zgroup=testClientHost", "zgroup=testServerHost", true, true)
 	}()
 	wg.Wait()
 }
 
-func testHostFirewallWithPath(kubectl *helpers.Kubectl, randomNs, client, server string, crossNodes bool) {
+func testHostFirewallWithPath(kubectl *helpers.Kubectl, randomNs, client, server string, crossNodes, hostToHost bool) {
 	srcPod, srcPodJSON := fetchPodsWithOffset(kubectl, randomNs, "client", client, "", crossNodes, 3)
 	srcHost, err := srcPodJSON.Filter("{.status.hostIP}")
 	ExpectWithOffset(2, err).Should(BeNil(), "Failure to retrieve host of pod %s", srcPod)
@@ -1014,9 +1014,13 @@ func testHostFirewallWithPath(kubectl *helpers.Kubectl, randomNs, client, server
 	ExpectWithOffset(2, err).Should(BeNil(), "Failure to retrieve IP of pod %s", dstPod)
 	targetIP := podIP.String()
 
-	res := kubectl.ExecPodCmd(randomNs, srcPod, helpers.CurlFail("http://%s:80/", targetIP))
+	httpPort := 80
+	if hostToHost {
+		httpPort = 8080
+	}
+	res := kubectl.ExecPodCmd(randomNs, srcPod, helpers.CurlFail("http://%s:%d/", targetIP, httpPort))
 	ExpectWithOffset(2, res).Should(helpers.CMDSuccess(),
-		"Failed to reach %s:80 from %s", targetIP, srcPod)
+		"Failed to reach %s:%d from %s", targetIP, httpPort, srcPod)
 
 	res = kubectl.ExecPodCmd(randomNs, srcPod, helpers.CurlFail("tftp://%s:69/hello", targetIP))
 	ExpectWithOffset(2, res).ShouldNot(helpers.CMDSuccess(),
