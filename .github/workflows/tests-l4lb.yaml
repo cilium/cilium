@@ -160,7 +160,7 @@ jobs:
           # Retry if it fails (download.fedoraproject.org returns 404 sometimes)
           # Spend up to 10 seconds on this
           for i in {1..4}; do
-            if vagrant up; then
+            if vagrant up --provision; then
               break
             fi
             sleep $i
