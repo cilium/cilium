@@ -15,7 +15,7 @@ block-pr-with:
 flake-tracker:
   issue-tracker-config:
     issue-labels:
-    - project/ci-force
+    - ci/flake
   jenkins-config:
     jenkins-url: https://jenkins.cilium.io
     regex-trigger: (^/?test-backport-1.8)
