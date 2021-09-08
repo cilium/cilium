@@ -801,6 +801,9 @@ const (
 	// IPv4NativeRoutingCIDR describes a v4 CIDR in which pod IPs are routable
 	IPv4NativeRoutingCIDR = "ipv4-native-routing-cidr"
 
+	// IPv6NativeRoutingCIDR describes a v6 CIDR in which pod IPs are routable
+	IPv6NativeRoutingCIDR = "ipv6-native-routing-cidr"
+
 	// EgressMasqueradeInterfaces is the selector used to select interfaces
 	// subject to egress masquerading
 	EgressMasqueradeInterfaces = "egress-masquerade-interfaces"
@@ -1827,6 +1830,9 @@ type DaemonConfig struct {
 	// IPv4NativeRoutingCIDR describes a CIDR in which pod IPs are routable
 	IPv4NativeRoutingCIDR *cidr.CIDR
 
+	// IPv6NativeRoutingCIDR describes a CIDR in which pod IPs are routable
+	IPv6NativeRoutingCIDR *cidr.CIDR
+
 	// EgressMasqueradeInterfaces is the selector used to select interfaces
 	// subject to egress masquerading
 	EgressMasqueradeInterfaces string
@@ -2107,6 +2113,21 @@ func (c *DaemonConfig) SetIPv4NativeRoutingCIDR(cidr *cidr.CIDR) {
 	c.ConfigPatchMutex.Unlock()
 }
 
+// GetIPv6NativeRoutingCIDR returns the native routing CIDR if configured
+func (c *DaemonConfig) GetIPv6NativeRoutingCIDR() (cidr *cidr.CIDR) {
+	c.ConfigPatchMutex.RLock()
+	cidr = c.IPv6NativeRoutingCIDR
+	c.ConfigPatchMutex.RUnlock()
+	return
+}
+
+// SetIPv6NativeRoutingCIDR sets the native routing CIDR
+func (c *DaemonConfig) SetIPv6NativeRoutingCIDR(cidr *cidr.CIDR) {
+	c.ConfigPatchMutex.Lock()
+	c.IPv6NativeRoutingCIDR = cidr
+	c.ConfigPatchMutex.Unlock()
+}
+
 // IsExcludedLocalAddress returns true if the specified IP matches one of the
 // excluded local IP ranges
 func (c *DaemonConfig) IsExcludedLocalAddress(ip net.IP) bool {
@@ -2323,6 +2344,10 @@ func (c *DaemonConfig) Validate() error {
 	}
 
 	if err := c.checkIPv4NativeRoutingCIDR(); err != nil {
+		return err
+	}
+
+	if err := c.checkIPv6NativeRoutingCIDR(); err != nil {
 		return err
 	}
 
@@ -2660,6 +2685,16 @@ func (c *DaemonConfig) Populate() {
 
 		if len(c.IPv4NativeRoutingCIDR.IP) != net.IPv4len {
 			log.Fatalf("%s must be an IPv4 CIDR", IPv4NativeRoutingCIDR)
+		}
+	}
+
+	ipv6NativeRoutingCIDR := viper.GetString(IPv6NativeRoutingCIDR)
+
+	if ipv6NativeRoutingCIDR != "" {
+		c.IPv6NativeRoutingCIDR = cidr.MustParseCIDR(ipv6NativeRoutingCIDR)
+
+		if len(c.IPv6NativeRoutingCIDR.IP) != net.IPv6len {
+			log.Fatalf("%s must be an IPv6 CIDR", IPv6NativeRoutingCIDR)
 		}
 	}
 
@@ -3039,6 +3074,19 @@ func (c *DaemonConfig) checkIPv4NativeRoutingCIDR() error {
 				"in combination with --%s --%s=%s --%s=%s --%s=true",
 			IPv4NativeRoutingCIDR, EnableIPv4Masquerade, TunnelName, c.Tunnel,
 			IPAM, c.IPAMMode(), EnableIPv4Name)
+	}
+
+	return nil
+}
+
+func (c *DaemonConfig) checkIPv6NativeRoutingCIDR() error {
+	if c.GetIPv6NativeRoutingCIDR() == nil && c.EnableIPv6Masquerade && c.Tunnel == TunnelDisabled &&
+		c.EnableIPv6 {
+		return fmt.Errorf(
+			"native routing cidr must be configured with option --%s "+
+				"in combination with --%s --%s=%s --%s=true",
+			IPv6NativeRoutingCIDR, EnableIPv6Masquerade, TunnelName, c.Tunnel,
+			EnableIPv6Name)
 	}
 
 	return nil

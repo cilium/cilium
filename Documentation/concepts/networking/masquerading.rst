@@ -31,8 +31,8 @@ Setting the routable CIDR
   The default behavior is to exclude any destination within the IP allocation
   CIDR of the local node. If the pod IPs are routable across a wider network,
   that network can be specified with the option: ``ipv4-native-routing-cidr:
-  10.0.0.0/8`` in which case all destinations within that CIDR will **not** be
-  masqueraded.
+  10.0.0.0/8`` (or ``ipv6-native-routing-cidr: fd00::/100`` for IPv6 addresses)
+  in which case all destinations within that CIDR will **not** be masqueraded.
 
 Setting the masquerading interface
   See :ref:`masq_modes` for configuring the masquerading interfaces.

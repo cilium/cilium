@@ -262,7 +262,13 @@ func restoreCiliumHostIPs(ipv6 bool, fromK8s net.IP) {
 	)
 
 	if ipv6 {
-		cidr = node.GetIPv6AllocRange()
+		switch option.Config.IPAMMode() {
+		case ipamOption.IPAMCRD:
+			// The native routing CIDR is the pod CIDR in these IPAM modes.
+			cidr = option.Config.GetIPv6NativeRoutingCIDR()
+		default:
+			cidr = node.GetIPv6AllocRange()
+		}
 		fromFS = node.GetIPv6Router()
 	} else {
 		switch option.Config.IPAMMode() {

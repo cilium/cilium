@@ -1065,6 +1065,11 @@ egressGateway:
 # This value corresponds to the configured cluster-cidr.
 # ipv4NativeRoutingCIDR:
 
+# -- Specify the IPv6 CIDR for native routing (ie to avoid IP masquerade for).
+# This value corresponds to the configured cluster-cidr.
+# ipv6NativeRoutingCIDR:
+
+# -- cilium-monitor sidecar.
 monitor:
   # -- Enable the cilium-monitor sidecar.
   enabled: false

@@ -69,7 +69,8 @@ const (
 	LogGathererSelector = "k8s-app=cilium-test-logs"
 	CiliumSelector      = "k8s-app=cilium"
 
-	NativeRoutingCIDR = "10.0.0.0/8"
+	NativeRoutingCIDR     = "10.0.0.0/8"
+	IPv6NativeRoutingCIDR = "fd02::/112"
 )
 
 var (
@@ -112,6 +113,7 @@ var (
 		// We need CNP node status to know when a policy is being enforced
 		"enableCnpStatusUpdates": "true",
 		"nativeRoutingCIDR":      NativeRoutingCIDR,
+		"ipv6NativeRoutingCIDR":  IPv6NativeRoutingCIDR,
 
 		"ipam.operator.clusterPoolIPv6PodCIDR": "fd02::/112",
 	}

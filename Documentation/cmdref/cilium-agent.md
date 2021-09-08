@@ -176,6 +176,7 @@ cilium-agent [flags]
       --ipv4-service-range string                            Kubernetes IPv4 services CIDR if not inside cluster prefix (default "auto")
       --ipv6-cluster-alloc-cidr string                       IPv6 /64 CIDR used to allocate per node endpoint /96 CIDR (default "f00d::/64")
       --ipv6-mcast-device string                             Device that joins a Solicited-Node multicast group for IPv6
+      --ipv6-native-routing-cidr string                      Allows to explicitly specify the IPv6 CIDR for native routing. This value corresponds to the configured cluster-cidr.
       --ipv6-node string                                     IPv6 address of node (default "auto")
       --ipv6-pod-subnets strings                             List of IPv6 pod subnets to preconfigure for encryption
       --ipv6-range string                                    Per-node IPv6 endpoint prefix, e.g. fd02:1:1::/96 (default "auto")
