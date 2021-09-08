@@ -649,11 +649,7 @@ if [ "$VMName" ]; then
             done
             printf "\n$runningVm VM(s) successfully destroyed\n"
         ;;
-        "C" | * )
-            createVm $1
-        ;;
     esac
     echo
-else
-    createVm $1
 fi
+createVm $1
