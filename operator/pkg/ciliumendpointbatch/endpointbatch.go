@@ -48,6 +48,8 @@ const (
 	// maxRetries is the number of times a cebSync will be retried before it is
 	// dropped out of the queue.
 	maxRetries = 15
+	// CEPs are batched into a CEB, based on its Identity
+	cebIdentityBasedBatching = "cebBatchModeIdentity"
 )
 
 type CiliumEndpointBatchController struct {
@@ -66,31 +68,20 @@ type CiliumEndpointBatchController struct {
 	// ciliumEndpointStore is used to get current active CEPs in a cluster.
 	ciliumEndpointStore cache.Indexer
 
-	// ciliumEndpointBatchUpsertSyncPeriod indicates the minimum delay period for
-	// some CiliumEndpointBatches to sync with the k8s-apiserver. Newly created and
-	// updated CiliumEndpointBatches are synced after this interval.
-	// The cases for syncing Update CiliumEndpointBatches are
-	// 1) Insert new CEPs in a CEB.
-	// 2) Modify existing CEPs in a CEB.
-	ciliumEndpointBatchUpsertSyncPeriod time.Duration
-
-	// ciliumEndpointBatchDeleteSync indicates the minimum delay period for syncing
-	// some CiliumEndpointBatches with the k8s-apiserver. Deleted CEB's and
-	// updated CiliumEndpointBatches are synced after this interval.
-	// The case for syncing Update CiliumEndpointBatches is
-	// 1) Remove CEPs in a CEB.
-	ciliumEndpointBatchDeleteSyncPeriod time.Duration
+	// workerLoopPeriod is the time between worker runs
+	workerLoopPeriod time.Duration
 
 	// workqueue is used to sync CEBs with the api-server. this will rate-limit the
 	// CEB requests going to api-server, ensures a single CEB will not be proccessed
 	// multiple times concurrently, and if CEB is added multiple times before it
 	// can be processed, this will only be processed only once.
-	// TODO: Add ciliumEndpointBatchUpsertSyncPeriod and ciliumEndpointBatchDeleteSyncPeriod
-	// for CEB's while adding CEB to queue. [queue.AddAfter(cebName, ciliumEndpointBatchUpsertSyncPeriod)]
 	queue workqueue.RateLimitingInterface
 
 	// ciliumEndpointBatchStore is used to get current active CEBs in a cluster.
 	ciliumEndpointBatchStore cache.Store
+
+	// batchingMode indicates how CEP are batched in a CEB
+	batchingMode string
 }
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ceb-controller")
@@ -104,9 +95,8 @@ func GetCepNameFromCCEP(cep *capi_v2a1.CoreCiliumEndpoint) string {
 
 // NewCebController, creates and initializes the CEB controller
 func NewCebController(client *k8s.K8sCiliumClient,
-	cebSyncPeriod time.Duration,
-	cebDeleteSyncPeriod time.Duration,
 	maxCepsInCeb int,
+	batchingMode string,
 	qpsLimit float64,
 	burstLimit int,
 ) *CiliumEndpointBatchController {
@@ -119,6 +109,9 @@ func NewCebController(client *k8s.K8sCiliumClient,
 	), "cilium_endpoint_batch")
 
 	manager := newCebManagerFcfs(rlQueue, maxCepsInCeb)
+	if batchingMode == cebIdentityBasedBatching {
+		manager = newCebManagerIdentity(rlQueue, maxCepsInCeb)
+	}
 	cebStore := ciliumEndpointBatchInit(client.CiliumV2alpha1(), wait.NeverStop)
 
 	// List all existing CEBs from the api-server and cache it locally.
@@ -129,14 +122,14 @@ func NewCebController(client *k8s.K8sCiliumClient,
 	// to sync existing CEBs before starting a CEP watcher.
 	syncCebsInLocalCache(cebStore, manager)
 	return &CiliumEndpointBatchController{
-		clientV2:                            client.CiliumV2(),
-		clientV2a1:                          client.CiliumV2alpha1(),
-		reconciler:                          newReconciler(client.CiliumV2alpha1(), manager),
-		Manager:                             manager,
-		queue:                               rlQueue,
-		ciliumEndpointBatchStore:            cebStore,
-		ciliumEndpointBatchUpsertSyncPeriod: cebSyncPeriod,
-		ciliumEndpointBatchDeleteSyncPeriod: cebDeleteSyncPeriod,
+		clientV2:                 client.CiliumV2(),
+		clientV2a1:               client.CiliumV2alpha1(),
+		reconciler:               newReconciler(client.CiliumV2alpha1(), manager),
+		Manager:                  manager,
+		queue:                    rlQueue,
+		ciliumEndpointBatchStore: cebStore,
+		batchingMode:             batchingMode,
+		workerLoopPeriod:         1 * time.Second,
 	}
 }
 
@@ -154,12 +147,11 @@ func (c *CiliumEndpointBatchController) Run(ces cache.Indexer, stopCh chan struc
 	c.removeStaleCepEntries()
 
 	log.WithFields(logrus.Fields{
-		"Upsert syncperiod": c.ciliumEndpointBatchUpsertSyncPeriod,
-		"Delete syncperiod": c.ciliumEndpointBatchDeleteSyncPeriod,
-	}).Debug("Starting CEB controller reconciler.")
+		"Batching mode": c.batchingMode,
+	}).Info("Starting CEB controller reconciler.")
 
 	// TODO: multiple worker threads can run concurrently to reconcile with api-server
-	go wait.Until(c.worker, c.ciliumEndpointBatchUpsertSyncPeriod, stopCh)
+	go wait.Until(c.worker, c.workerLoopPeriod, stopCh)
 
 	go func() {
 		defer utilruntime.HandleCrash()

@@ -18,9 +18,7 @@ cilium-operator-azure [flags]
       --azure-user-assigned-identity-id string    ID of the user assigned identity used to auth with the Azure API
       --bgp-announce-lb-ip                        Announces service IPs of type LoadBalancer via BGP
       --bgp-config-path string                    Path to file containing the BGP configuration (default "/var/lib/cilium/bgp/config.yaml")
-      --ceb-delete-sync-period duration           Duration between CEB deletes sent to the k8s-apiserver, configuring with high duration result in  delayed CEB deletes sent to the k8s-apiserver, may reduce CEB watch throughput in the cluster. (default 1m0s)
       --ceb-max-ciliumendpoints-per-ceb int       Maximum number of CiliumEndpoints allowed in a CEB (default 100)
-      --ceb-upsert-sync-period duration           Duration between CEB updates sent to the k8s-apiserver, configuring with high duration result in few CEB updates sent to the k8s-apiserver, reduces the CEB update and watch throughput in the cluster and may increase the latency time for network policies to take effect in newly created pods. (default 3s)
       --cilium-endpoint-gc-interval duration      GC interval for cilium endpoints (default 5m0s)
       --cluster-id int                            Unique identifier of the cluster
       --cluster-name string                       Name of the cluster (default "default")

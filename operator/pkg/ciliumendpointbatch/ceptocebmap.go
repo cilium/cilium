@@ -28,7 +28,7 @@ type cepToCebMapping struct {
 	cacheCep map[CEPName]CEBName
 }
 
-// Create and initialize new cepToCebMapping
+// Creates and initializes new cepToCebMapping
 func newCepToCebMapping() *cepToCebMapping {
 	return &cepToCebMapping{
 		cacheCep: make(map[CEPName]CEBName),
@@ -68,4 +68,72 @@ func (c *cepToCebMapping) count() int {
 	c.cepMutex.RLock()
 	defer c.cepMutex.RUnlock()
 	return len(c.cacheCep)
+}
+
+// desiredCebMapping is used to map CiliumEndpointBatch name to cebTracker object.
+// This map is used by the CEB manager, primarily used for storing and retrieving
+// the desired CEBs by thread-safe.
+// This map is protected by lock for consistent and concurrent access.
+type desiredCebMapping struct {
+	cebMutex lock.RWMutex
+	// desiredCebs is used to map cebName to cebTracker object.
+	desiredCebs map[CEBName]*cebTracker
+}
+
+// Creates and intializes the new desiredCebMapping
+func newDesiredCebMap() *desiredCebMapping {
+	return &desiredCebMapping{
+		desiredCebs: make(map[CEBName]*cebTracker),
+	}
+}
+
+// Insert the CEB tracker in map
+func (c *desiredCebMapping) insert(cebName string, ceb *cebTracker) {
+	c.cebMutex.Lock()
+	defer c.cebMutex.Unlock()
+	c.desiredCebs[CEBName(cebName)] = ceb
+}
+
+// Remove the CEB tracker from map
+func (c *desiredCebMapping) deleteCeb(cebName string) {
+	c.cebMutex.Lock()
+	defer c.cebMutex.Unlock()
+	delete(c.desiredCebs, CEBName(cebName))
+}
+
+func (c *desiredCebMapping) get(cebName string) (*cebTracker, bool) {
+	c.cebMutex.RLock()
+	defer c.cebMutex.RUnlock()
+	ceb, ok := c.desiredCebs[CEBName(cebName)]
+	return ceb, ok
+}
+
+func (c *desiredCebMapping) getCeb(cebName string) *cebTracker {
+	c.cebMutex.RLock()
+	defer c.cebMutex.RUnlock()
+	return c.desiredCebs[CEBName(cebName)]
+}
+
+func (c *desiredCebMapping) getAllCebs() []*cebTracker {
+	c.cebMutex.RLock()
+	defer c.cebMutex.RUnlock()
+	var cebs []*cebTracker
+	for _, ceb := range c.desiredCebs {
+		cebs = append(cebs, ceb)
+	}
+	return cebs
+}
+
+func (c *desiredCebMapping) has(cebName string) bool {
+	c.cebMutex.RLock()
+	defer c.cebMutex.RUnlock()
+	_, ok := c.desiredCebs[CEBName(cebName)]
+	return ok
+}
+
+// Return the total number of desired CEBs count.
+func (c *desiredCebMapping) cnt() int {
+	c.cebMutex.RLock()
+	defer c.cebMutex.RUnlock()
+	return len(c.desiredCebs)
 }

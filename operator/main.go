@@ -360,9 +360,9 @@ func onOperatorStartLeading(ctx context.Context) {
 	if option.Config.EnableCiliumEndpointBatch {
 		log.Info("Create and run CEB controller, start cep watcher")
 		// Initialize  the CEB controller
-		cebController := ceb.NewCebController(k8s.CiliumClient(), operatorOption.Config.CEBUpsertSyncPeriod,
-			operatorOption.Config.CEBDeleteSyncPeriod,
+		cebController := ceb.NewCebController(k8s.CiliumClient(),
 			operatorOption.Config.CEBMaxCepsInCeb,
+			operatorOption.Config.CEBBatchingMode,
 			option.Config.K8sClientQPSLimit,
 			option.Config.K8sClientBurst)
 		stopCh := make(chan struct{})
