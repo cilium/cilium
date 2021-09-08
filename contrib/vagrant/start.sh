@@ -616,56 +616,44 @@ function createVm(){
     fi
 }
 
-#get number of running VM(s)
+# Check if there are already running VMs.
 runningVm=$(VBoxManage list runningvms | awk 'END{ print NR }')
 VMName=$(VBoxManage list runningvms | awk 'NR==1{print $1}' |  cut -d "\"" -f 2)
 if [ "$VMName" ]; then
-    echo
-    echo "Detected running VMs that might cause conflict"
-    echo
+    echo "Detected running VMs that might cause conflict:"
     VBoxManage list runningvms
 
-    #option to stop, delete VM(s) or ignore and continue
     echo
-    printf "Do you wish to stop, destroy the VM(s) or ignore and continue? [s/d/C]  "
+    printf "Do you wish to stop, destroy the VM(s) or ignore and continue? [s/d/C] "
     read optn
 
     case "$optn" in
         "s" )
-            #stop the VM(s)
+            # Stop all VMs
             for ((i=1; i<=$runningVm; i=i+1))
             do
                 VMName=$(VBoxManage list runningvms | awk 'NR==1{print $1}' |  cut -d "\"" -f 2)
-                echo
                 VBoxManage controlvm $VMName poweroff
-                printf "\n$VMName stopped\n"
+                printf "$VMName stopped\n"
             done
-            printf "\n$runningVm VM(s) stopped successfully\n"
-            printf "Tip: Try running vagrant status to check status\n\n"
+            printf "\n$runningVm VM(s) successfully stopped\n"
         ;;
         "d" )
-            #destroy the VM(s)
+            # Destroy all VMs
             for ((i=1; i<=$runningVm; i=i+1))
             do
                 VMName=$(VBoxManage list runningvms | awk 'NR==1{print $1}' |  cut -d "\"" -f 2)
-                echo
                 VBoxManage controlvm $VMName poweroff
                 VBoxManage unregistervm $VMName --delete
-                printf "\n$VMName destroyed\n"
+                printf "$VMName destroyed\n"
             done
-            printf "\n$runningVm VM(s) destroyed successfully\n"
-            printf "Tip: Try running vagrant status to check status\n\n"
+            printf "\n$runningVm VM(s) successfully destroyed\n"
         ;;
         "C" | * )
-            #continue and default case
-            echo
-            #value to start.sh is passed to function createVm
             createVm $1
         ;;
     esac
+    echo
 else
-    echo
-    echo
-    #value to start.sh is passed to function createVm
     createVm $1
 fi
