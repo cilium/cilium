@@ -21,9 +21,12 @@ Vagrant.require_version ">= 2.0.0"
 
 if ARGV.first == "up" && ENV['CILIUM_SCRIPT'] != 'true'
     raise Vagrant::Errors::VagrantError.new, <<END
-Calling 'vagrant up' directly is not supported.  Instead, please run the following:
-  export NWORKERS=n
-  ./contrib/vagrant/start.sh
+Calling 'vagrant up' directly is not supported.  Instead, please run the
+following to deploy a single-node cluster:
+$ ./contrib/vagrant/start.sh
+
+See the development guide for available configuration options:
+https://docs.cilium.io/en/latest/contributing/development/dev_setup
 END
 end
 
