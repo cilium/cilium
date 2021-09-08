@@ -2,7 +2,7 @@
 name: Failing Test
 about: Report test failures in Cilium CI jobs
 title: 'CI: '
-labels: area/CI
+labels: area/CI, ci/flake
 assignees: ''
 
 ---
