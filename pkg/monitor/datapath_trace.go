@@ -146,7 +146,11 @@ func (n *TraceNotify) traceSummary() string {
 	case api.TraceToLxc:
 		return fmt.Sprintf("-> endpoint %d", n.DstID)
 	case api.TraceToProxy:
-		return "-> proxy"
+		pp := ""
+		if n.DstID != 0 {
+			pp = fmt.Sprintf(" port %d", n.DstID)
+		}
+		return "-> proxy" + pp
 	case api.TraceToHost:
 		return "-> host from"
 	case api.TraceToStack:
@@ -216,13 +220,18 @@ func (n *TraceNotify) DumpVerbose(dissect bool, data []byte, prefix string, nume
 	}
 
 	if n.SrcLabel != 0 || n.DstLabel != 0 {
+		fmt.Fprintf(buf, ", ")
 		n.dumpIdentity(buf, numeric)
 	}
 
 	fmt.Fprintf(buf, ", orig-ip %s", n.OriginalIP().String())
 
 	if n.DstID != 0 {
-		fmt.Fprintf(buf, ", to endpoint %d\n", n.DstID)
+		dst := "endpoint"
+		if n.ObsPoint == api.TraceToProxy {
+			dst = "proxy-port"
+		}
+		fmt.Fprintf(buf, ", to %s %d\n", dst, n.DstID)
 	} else {
 		fmt.Fprintf(buf, "\n")
 	}
