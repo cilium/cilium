@@ -17,6 +17,7 @@ package nodediscovery
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -358,35 +359,56 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 
 	nodeResource.Spec.Addresses = []ciliumv2.NodeAddress{}
 
-	// Tie the CiliumNode custom resource lifecycle to the lifecycle of the
-	// Kubernetes node
-	if k8sNode, err := n.k8sNodeGetter.GetK8sNode(context.TODO(), nodeTypes.GetName()); err != nil {
-		log.WithError(err).Warning("Kubernetes node resource representing own node is not available, cannot set OwnerReference")
-	} else {
-		nodeResource.ObjectMeta.OwnerReferences = []metav1.OwnerReference{{
-			APIVersion: "v1",
-			Kind:       "Node",
-			Name:       nodeTypes.GetName(),
-			UID:        k8sNode.UID,
-		}}
-		providerID = k8sNode.Spec.ProviderID
+	// If we are unable to fetch the K8s Node resource and the CiliumNode does
+	// not have an OwnerReference set, then somehow we are running in an
+	// environment where only the CiliumNode exists. Do not proceed as this is
+	// unexpected.
+	//
+	// Note that we can rely on the OwnerReference to be set on the CiliumNode
+	// as this was added in sufficiently earlier versions of Cilium (v1.6).
+	// Source:
+	// https://github.com/cilium/cilium/commit/5c365f2c6d7930dcda0b8f0d5e6b826a64022a4f
+	k8sNode, err := n.k8sNodeGetter.GetK8sNode(
+		context.TODO(),
+		nodeTypes.GetName(),
+	)
+	switch {
+	case err != nil && k8serrors.IsNotFound(err) && len(nodeResource.ObjectMeta.OwnerReferences) == 0:
+		log.WithError(err).WithField(
+			logfields.NodeName, nodeTypes.GetName(),
+		).Fatal(
+			"Kubernetes Node resource does not exist, setting OwnerReference on " +
+				"CiliumNode is impossible. This is unexpected. Please investigate " +
+				"why Cilium is running on a Node that supposedly does not exist " +
+				"according to Kubernetes.",
+		)
+	case err != nil && !k8serrors.IsNotFound(err):
+		return fmt.Errorf("failed to fetch Kubernetes Node resource: %w", err)
+	}
 
-		// Get the addresses from k8s node and add them as part of Cilium Node.
-		// Cilium Node should contain all addresses from k8s.
-		nodeInterface := k8s.ConvertToNode(k8sNode)
-		typesNode := nodeInterface.(*k8sTypes.Node)
-		k8sNodeParsed := k8s.ParseNode(typesNode, source.Unspec)
-		k8sNodeAddresses = k8sNodeParsed.IPAddresses
+	nodeResource.ObjectMeta.OwnerReferences = []metav1.OwnerReference{{
+		APIVersion: "v1",
+		Kind:       "Node",
+		Name:       nodeTypes.GetName(),
+		UID:        k8sNode.UID,
+	}}
+	providerID = k8sNode.Spec.ProviderID
 
-		nodeResource.ObjectMeta.Labels = k8sNodeParsed.Labels
+	// Get the addresses from k8s node and add them as part of Cilium Node.
+	// Cilium Node should contain all addresses from k8s.
+	nodeInterface := k8s.ConvertToNode(k8sNode)
+	typesNode := nodeInterface.(*k8sTypes.Node)
+	k8sNodeParsed := k8s.ParseNode(typesNode, source.Unspec)
+	k8sNodeAddresses = k8sNodeParsed.IPAddresses
 
-		for _, k8sAddress := range k8sNodeAddresses {
-			k8sAddressStr := k8sAddress.IP.String()
-			nodeResource.Spec.Addresses = append(nodeResource.Spec.Addresses, ciliumv2.NodeAddress{
-				Type: k8sAddress.Type,
-				IP:   k8sAddressStr,
-			})
-		}
+	nodeResource.ObjectMeta.Labels = k8sNodeParsed.Labels
+
+	for _, k8sAddress := range k8sNodeAddresses {
+		k8sAddressStr := k8sAddress.IP.String()
+		nodeResource.Spec.Addresses = append(nodeResource.Spec.Addresses, ciliumv2.NodeAddress{
+			Type: k8sAddress.Type,
+			IP:   k8sAddressStr,
+		})
 	}
 
 	for _, address := range n.LocalNode.IPAddresses {
