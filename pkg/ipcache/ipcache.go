@@ -65,11 +65,6 @@ type IPCache struct {
 	ipToHostIPCache   map[string]IPKeyPair
 	ipToK8sMetadata   map[string]K8sMetadata
 
-	// prefixLengths reference-count the number of CIDRs that use
-	// particular prefix lengths for the mask.
-	v4PrefixLengths map[int]int
-	v6PrefixLengths map[int]int
-
 	listeners []IPIdentityMappingListener
 
 	// controllers manages the async controllers for this IPCache
@@ -98,8 +93,6 @@ func NewIPCache() *IPCache {
 		identityToIPCache: map[identity.NumericIdentity]map[string]struct{}{},
 		ipToHostIPCache:   map[string]IPKeyPair{},
 		ipToK8sMetadata:   map[string]K8sMetadata{},
-		v4PrefixLengths:   map[int]int{},
-		v6PrefixLengths:   map[int]int{},
 		controllers:       controller.NewManager(),
 		namedPorts:        nil,
 	}
