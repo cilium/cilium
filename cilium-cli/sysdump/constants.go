@@ -16,7 +16,7 @@ const (
 	awsNodeDaemonSetName               = "aws-node"
 	awsNodeDaemonSetNamespace          = metav1.NamespaceSystem
 	ciliumAgentContainerName           = defaults.AgentContainerName
-	ciliumConfigConfigMapName          = defaults.ConfigMapName
+	ciliumConfigMapName                = defaults.ConfigMapName
 	ciliumDaemonSetName                = defaults.AgentDaemonSetName
 	ciliumEtcdSecretsSecretName        = "cilium-etcd-secrets"
 	ciliumOperatorDeploymentName       = defaults.OperatorDeploymentName
@@ -33,7 +33,7 @@ const (
 	awsNodeDaemonSetFileName                 = "aws-node-daemonset-<ts>.yaml"
 	ciliumBugtoolFileName                    = "cilium-bugtool-%s-<ts>.tar"
 	ciliumClusterWideNetworkPoliciesFileName = "ciliumclusterwidenetworkpolicies-<ts>.yaml"
-	ciliumConfigMapFileName                  = "cilium-config-configmap-<ts>.yaml"
+	ciliumConfigMapFileName                  = "cilium-configmap-<ts>.yaml"
 	ciliumDaemonSetFileName                  = "cilium-daemonset-<ts>.yaml"
 	ciliumEndpointsFileName                  = "ciliumendpoints-<ts>.yaml"
 	ciliumEtcdSecretFileName                 = "cilium-etcd-secrets-secret-<ts>.yaml"
