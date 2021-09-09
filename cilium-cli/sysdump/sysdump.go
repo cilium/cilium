@@ -360,7 +360,7 @@ func (c *Collector) Run() error {
 			Description: "Collecting the Cilium configuration",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
-				v, err := c.client.GetConfigMap(ctx, c.options.CiliumNamespace, ciliumConfigConfigMapName, metav1.GetOptions{})
+				v, err := c.client.GetConfigMap(ctx, c.options.CiliumNamespace, ciliumConfigMapName, metav1.GetOptions{})
 				if err != nil {
 					return fmt.Errorf("failed to collect the Cilium configuration: %w", err)
 				}
