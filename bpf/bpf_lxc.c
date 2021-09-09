@@ -308,7 +308,7 @@ ct_recreate6:
 	if (redirect_to_proxy(verdict, reason)) {
 		/* Trace the packet before it is forwarded to proxy */
 		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL, 0,
-				  0, 0, reason, monitor);
+				  bpf_ntohs(verdict), 0, reason, monitor);
 		return ctx_redirect_to_proxy6(ctx, tuple, verdict, false);
 	}
 
@@ -739,7 +739,7 @@ ct_recreate4:
 	if (redirect_to_proxy(verdict, reason)) {
 		/* Trace the packet before it is forwarded to proxy */
 		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL, 0,
-				  0, 0, reason, monitor);
+				  bpf_ntohs(verdict), 0, reason, monitor);
 		return ctx_redirect_to_proxy4(ctx, &tuple, verdict, false);
 	}
 
@@ -1073,7 +1073,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 		 * into ctx->mark and *proxy_port can be left unset.
 		 */
 		send_trace_notify6(ctx, TRACE_TO_PROXY, src_label, SECLABEL, &orig_sip,
-				  0, ifindex, 0, monitor);
+				   0, ifindex, 0, monitor);
 		if (tuple_out)
 			memcpy(tuple_out, &tuple, sizeof(tuple));
 		return POLICY_ACT_PROXY_REDIRECT;
@@ -1141,7 +1141,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	if (redirect_to_proxy(verdict, *reason)) {
 		*proxy_port = verdict;
 		send_trace_notify6(ctx, TRACE_TO_PROXY, src_label, SECLABEL, &orig_sip,
-				  0, ifindex, *reason, monitor);
+				   bpf_ntohs(verdict), ifindex, *reason, monitor);
 		if (tuple_out)
 			memcpy(tuple_out, &tuple, sizeof(tuple));
 		return POLICY_ACT_PROXY_REDIRECT;
@@ -1351,7 +1351,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 		 * into ctx->mark and *proxy_port can be left unset.
 		 */
 		send_trace_notify4(ctx, TRACE_TO_PROXY, src_label, SECLABEL, orig_sip,
-				  0, ifindex, 0, monitor);
+				   0, ifindex, 0, monitor);
 		if (tuple_out)
 			*tuple_out = tuple;
 		return POLICY_ACT_PROXY_REDIRECT;
@@ -1443,7 +1443,7 @@ skip_policy_enforcement:
 	if (redirect_to_proxy(verdict, *reason)) {
 		*proxy_port = verdict;
 		send_trace_notify4(ctx, TRACE_TO_PROXY, src_label, SECLABEL, orig_sip,
-				  0, ifindex, *reason, monitor);
+				   bpf_ntohs(verdict), ifindex, *reason, monitor);
 		if (tuple_out)
 			*tuple_out = tuple;
 		return POLICY_ACT_PROXY_REDIRECT;
