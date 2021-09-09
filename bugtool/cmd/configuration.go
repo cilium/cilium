@@ -110,7 +110,7 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"ip6tables-legacy-save -c",
 		"ip rule",
 		// xfrm
-		"ip xfrm policy",
+		"ip -s xfrm policy",
 		"ip -s xfrm state",
 		// gops
 		fmt.Sprintf("gops memstats $(pidof %s)", components.CiliumAgentName),
