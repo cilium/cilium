@@ -248,6 +248,47 @@ Don't dissect packet payload, display payload in hex information
     cilium monitor -v -v --hex
 
 
+Monitoring With Debug Information
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The cilium monitor command is capable of providing debug output for the datapath.
+
+Debug information can be enabled for all endpoints or at a per-endpoint granularity. 
+
+All Endpoints:
+
+Update Cilium’s config map with the value:
+
+.. code-block:: yaml
+
+    debug-verbose: datapath
+
+Restart all cilium-agent pods
+
+Run the following command to display debug logs:
+
+.. code-block:: shell-session
+
+    cilium monitor --debug
+
+Endpoint Granularity:
+
+You can also turn on debug output for a single endpoint.
+
+Run the following command to accomplish this
+
+.. code-block:: shell-session
+
+    cilium endpoint config <endpoint-id> Debug=true
+
+
+After enabling debug mode for a particular endpoint run the same command:
+
+.. code-block:: shell-session
+
+    cilium monitor --debug
+
+
 
 Connectivity
 ------------
