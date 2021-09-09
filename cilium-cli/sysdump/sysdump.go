@@ -403,6 +403,20 @@ func (c *Collector) Run() error {
 			},
 		},
 		{
+			Description: "Collecting the Hubble Relay configuration",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.client.GetConfigMap(ctx, c.options.CiliumNamespace, hubbleRelayConfigMapName, metav1.GetOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect the Hubble Relay configuration: %w", err)
+				}
+				if err := writeYaml(absoluteTempPath(hubbleRelayConfigMapFileName), v); err != nil {
+					return fmt.Errorf("failed to collect the Hubble Relay configuration: %w", err)
+				}
+				return nil
+			},
+		},
+		{
 			Description: "Collecting the Hubble Relay deployment",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
