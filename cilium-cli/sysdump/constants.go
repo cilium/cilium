@@ -23,6 +23,7 @@ const (
 	clustermeshApiserverDeploymentName = defaults.ClusterMeshDeploymentName
 	hubbleContainerName                = "hubble"
 	hubbleDaemonSetName                = "hubble"
+	hubbleRelayConfigMapName           = defaults.RelayConfigMapName
 	hubbleRelayContainerName           = defaults.RelayContainerName
 	hubbleRelayDeploymentName          = defaults.RelayDeploymentName
 	hubbleUIDeploymentName             = defaults.HubbleUIDeploymentName
@@ -48,6 +49,7 @@ const (
 	gopsFileName                             = "gops-%s-%s-<ts>-%s.txt"
 	hubbleDaemonsetFileName                  = "hubble-daemonset-<ts>.yaml"
 	hubbleFlowsFileName                      = "hubble-flows-%s-<ts>.json"
+	hubbleRelayConfigMapFileName             = "hubble-relay-configmap-<ts>.yaml"
 	hubbleRelayDeploymentFileName            = "hubble-relay-deployment-<ts>.yaml"
 	hubbleUIDeploymentFileName               = "hubble-ui-deployment-<ts>.yaml"
 	kubernetesEventsFileName                 = "k8s-events-<ts>.yaml"
