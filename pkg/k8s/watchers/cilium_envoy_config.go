@@ -92,7 +92,7 @@ func (k *K8sWatcher) addCiliumEnvoyConfig(cec *cilium_v2alpha1.CiliumEnvoyConfig
 		scopedLog.WithError(err).Warn("Failed to add CiliumEnvoyConfig: malformed Envoy config.")
 		return err
 	}
-	if err := k.envoyConfigManager.UpsertEnvoyResources(context.TODO(), resources); err != nil {
+	if err := k.envoyConfigManager.UpsertEnvoyResources(context.TODO(), resources, true); err != nil {
 		scopedLog.WithError(err).Warn("Failed to add CiliumEnvoyConfig.")
 		return err
 	}
@@ -118,7 +118,7 @@ func (k *K8sWatcher) updateCiliumEnvoyConfig(oldCEC *cilium_v2alpha1.CiliumEnvoy
 		scopedLog.WithError(err).Warn("Failed to update CiliumEnvoyConfig: malformed new Envoy config.")
 		return err
 	}
-	if err := k.envoyConfigManager.UpdateEnvoyResources(context.TODO(), oldResources, newResources); err != nil {
+	if err := k.envoyConfigManager.UpdateEnvoyResources(context.TODO(), oldResources, newResources, true); err != nil {
 		scopedLog.WithError(err).Warn("Failed to add CiliumEnvoyConfig.")
 		return err
 	}
@@ -139,7 +139,7 @@ func (k *K8sWatcher) deleteCiliumEnvoyConfig(cec *cilium_v2alpha1.CiliumEnvoyCon
 		scopedLog.WithError(err).Warn("Failed to delete CiliumEnvoyConfig: parsing rersource names failed.")
 		return err
 	}
-	if err := k.envoyConfigManager.DeleteEnvoyResources(context.TODO(), resources); err != nil {
+	if err := k.envoyConfigManager.DeleteEnvoyResources(context.TODO(), resources, true); err != nil {
 		scopedLog.WithError(err).Warn("Failed to delete CiliumEnvoyResource.")
 		return err
 	}
