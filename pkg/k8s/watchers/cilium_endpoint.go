@@ -201,7 +201,7 @@ func (k *K8sWatcher) endpointUpdated(oldEndpoint, endpoint *types.CiliumEndpoint
 	}
 
 	if option.Config.EnableEgressGateway {
-		k.egressPolicyManager.OnUpdateEndpoint(endpoint)
+		k.egressGatewayManager.OnUpdateEndpoint(endpoint)
 	}
 }
 
@@ -234,6 +234,6 @@ func (k *K8sWatcher) endpointDeleted(endpoint *types.CiliumEndpoint) {
 		}
 	}
 	if option.Config.EnableEgressGateway {
-		k.egressPolicyManager.OnDeleteEndpoint(endpoint)
+		k.egressGatewayManager.OnDeleteEndpoint(endpoint)
 	}
 }
