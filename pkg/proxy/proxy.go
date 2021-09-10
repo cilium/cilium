@@ -159,15 +159,15 @@ func StartProxySupport(minPort uint16, maxPort uint16, stateDir string,
 }
 
 // Overload XDSServer.UpsertEnvoyResources to start Envoy on demand
-func (p *Proxy) UpsertEnvoyResources(ctx context.Context, resources envoy.Resources) error {
+func (p *Proxy) UpsertEnvoyResources(ctx context.Context, resources envoy.Resources, wait bool) error {
 	startEnvoy(p.stateDir, p.XDSServer, nil)
-	return p.XDSServer.UpsertEnvoyResources(ctx, resources)
+	return p.XDSServer.UpsertEnvoyResources(ctx, resources, wait)
 }
 
 // Overload XDSServer.UpdateEnvoyResources to start Envoy on demand
-func (p *Proxy) UpdateEnvoyResources(ctx context.Context, old, new envoy.Resources) error {
+func (p *Proxy) UpdateEnvoyResources(ctx context.Context, old, new envoy.Resources, wait bool) error {
 	startEnvoy(p.stateDir, p.XDSServer, nil)
-	return p.XDSServer.UpdateEnvoyResources(ctx, old, new)
+	return p.XDSServer.UpdateEnvoyResources(ctx, old, new, wait)
 }
 
 var (

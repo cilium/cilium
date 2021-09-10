@@ -60,9 +60,17 @@ type monitorNotify interface {
 	SendNotification(msg monitorAPI.AgentNotifyMessage) error
 }
 
+// ServiceName represents the fully-qualified reference to the service by name, including both the
+// namespace and name of the service.
+type ServiceName struct {
+	Namespace string
+	Name      string
+}
+
 // envoyCache is used to sync Envoy resources to Envoy proxy
 type envoyCache interface {
 	RegisterCRDProxyPort(name string, proxyPort uint16) error
+	UpsertEnvoyEndpoints(ServiceName, []lb.Backend) error
 }
 
 type svcInfo struct {
@@ -350,7 +358,7 @@ func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
 
 		logfields.LoadBalancerSourceRanges: params.LoadBalancerSourceRanges,
 
-		"l7LBProxyPort": params.L7LBProxyPort,
+		logfields.L7LBProxyPort: params.L7LBProxyPort,
 	})
 	scopedLog.Debug("Upserting service")
 
@@ -429,6 +437,14 @@ func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
 		s.updateBackendsCacheLocked(svc, backendsCopy)
 	if err != nil {
 		return false, lb.ID(0), err
+	}
+
+	if svc.l7LBProxyPort != 0 && s.envoyCache != nil {
+		// Upsert backends as Envoy endpoints
+		name := ServiceName{Namespace: params.Namespace, Name: params.Name}
+		if err = s.envoyCache.UpsertEnvoyEndpoints(name, svc.backends); err != nil {
+			return false, lb.ID(0), err
+		}
 	}
 
 	// Update lbmaps (BPF service maps)
