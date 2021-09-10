@@ -31,13 +31,16 @@ spec:
   selector:
     component: "cilium-etcd"
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: "etcd-cilium"
   labels:
     component: "cilium-etcd"
 spec:
+  selector:
+    matchLabels:
+      component: "cilium-etcd"
   serviceName: "cilium-etcd"
   template:
     metadata:
@@ -45,6 +48,9 @@ spec:
       labels:
         component: "cilium-etcd"
     spec:
+      tolerations:
+      - key: "node.kubernetes.io/not-ready"
+        operator: "Exists"
       hostNetwork: true
       affinity:
         podAntiAffinity:
@@ -58,7 +64,7 @@ spec:
               topologyKey: "kubernetes.io/hostname"
       containers:
       - name: "etcd"
-        image: "quay.io/coreos/etcd:v3.3.2"
+        image: "quay.io/coreos/etcd:v3.3.25"
         env:
         - name: HOSTNAME_IP
           valueFrom:
