@@ -168,9 +168,9 @@ type egressGatewayManager interface {
 }
 
 type envoyConfigManager interface {
-	UpsertEnvoyResources(context.Context, envoy.Resources) error
-	UpdateEnvoyResources(ctx context.Context, old, new envoy.Resources) error
-	DeleteEnvoyResources(context.Context, envoy.Resources) error
+	UpsertEnvoyResources(context.Context, envoy.Resources, bool) error
+	UpdateEnvoyResources(ctx context.Context, old, new envoy.Resources, wait bool) error
+	DeleteEnvoyResources(context.Context, envoy.Resources, bool) error
 }
 
 type K8sWatcher struct {
