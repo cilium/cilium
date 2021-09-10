@@ -1,4 +1,4 @@
-{{- if and .Values.hubble.enabled .Values.hubble.tls.enabled .Values.hubble.tls.auto.enabled (eq .Values.hubble.tls.auto.method "helm") .Values.hubble.ui.enabled .Values.hubble.relay.enabled .Values.hubble.relay.tls.server.enabled }}
+{{- if and .Values.hubble.enabled .Values.hubble.tls.enabled .Values.hubble.tls.auto.enabled (eq .Values.hubble.tls.auto.method "helm") .Values.hubble.ui.enabled }}
 {{- $_ := include "hubble-generate-certs.helm.setup-ca" . -}}
 {{- $cn := "*.hubble-ui.cilium.io" }}
 {{- $dns := list $cn }}

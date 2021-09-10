@@ -9,6 +9,8 @@
     {{- else }}
         You have successfully installed {{ title .Chart.Name }} with Hubble Relay.
     {{- end }}
+{{- else if (and (.Values.hubble.enabled) (.Values.hubble.ui.enabled) (not (.Values.hubble.relay.enabled))) }}
+    You have successfully installed {{ title .Chart.Name }} with Hubble UI.
 {{- else if .Values.hubble.enabled }}
     You have successfully installed {{ title .Chart.Name }} with Hubble.
 {{- else }}
