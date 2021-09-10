@@ -12,6 +12,6 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-// Package egresspolicy defines an internal representation of the Cilium Egress
-// Policy. The structures are managed by the EgressPolicyManager.
-package egresspolicy
+// Package egressgateway defines an internal representation of the Cilium Egress
+// Policy. The structures are managed by the Manager.
+package egressgateway

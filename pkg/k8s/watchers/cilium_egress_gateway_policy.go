@@ -15,7 +15,7 @@
 package watchers
 
 import (
-	"github.com/cilium/cilium/pkg/egresspolicy"
+	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/informer"
@@ -94,12 +94,12 @@ func (k *K8sWatcher) addCiliumEgressNATPolicy(cenp *cilium_v2alpha1.CiliumEgress
 		logfields.K8sAPIVersion:             cenp.TypeMeta.APIVersion,
 	})
 
-	ep, err := egresspolicy.Parse(cenp)
+	ep, err := egressgateway.ParsePolicy(cenp)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to add CiliumEgressNATPolicy: malformed policy config.")
 		return err
 	}
-	if _, err := k.egressPolicyManager.AddEgressPolicy(*ep); err != nil {
+	if _, err := k.egressGatewayManager.AddEgressPolicy(*ep); err != nil {
 		scopedLog.WithError(err).Warn("Failed to add CiliumEgressNATPolicy.")
 		return err
 	}
@@ -115,8 +115,8 @@ func (k *K8sWatcher) deleteCiliumEgressNATPolicy(cenp *cilium_v2alpha1.CiliumEgr
 		logfields.K8sAPIVersion:             cenp.TypeMeta.APIVersion,
 	})
 
-	epID := egresspolicy.ParseConfigID(cenp)
-	if err := k.egressPolicyManager.DeleteEgressPolicy(epID); err != nil {
+	epID := egressgateway.ParsePolicyConfigID(cenp)
+	if err := k.egressGatewayManager.DeleteEgressPolicy(epID); err != nil {
 		scopedLog.WithError(err).Warn("Failed to delete CiliumEgressNATPolicy.")
 		return err
 	}
