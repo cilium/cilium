@@ -10,11 +10,13 @@ import (
 
 	"github.com/cilium/cilium/pkg/completion"
 	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/option"
 	envoy_config_cluster "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_config_endpoint "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // Resources
@@ -42,6 +44,21 @@ func ParseResources(namePrefix string, cec *cilium_v2alpha1.CiliumEnvoyConfig) (
 			if listener.GetAddress() == nil {
 				return Resources{}, fmt.Errorf("Listener has no address: %T", message)
 			}
+			// Inject Cilium bpf metadata listener filter, if not already present.
+			found := false
+			for _, lf := range listener.ListenerFilters {
+				if lf.Name == "cilium.bpf_metadata" {
+					found = true
+				}
+			}
+			if !found {
+				listener.ListenerFilters = append(listener.ListenerFilters, getListenerFilter(false, true))
+			}
+			// Inject Transparent to work with TPROXY
+			listener.Transparent = &wrapperspb.BoolValue{Value: true}
+			// Inject listener socket option for Cilium datapath
+			listener.SocketOptions = append(listener.SocketOptions, getListenerSocketMarkOption(false))
+
 			// Fill in RDS config source if unset
 			for _, fc := range listener.FilterChains {
 				for _, filter := range fc.Filters {
@@ -129,32 +146,64 @@ func ParseResources(namePrefix string, cec *cilium_v2alpha1.CiliumEnvoyConfig) (
 	return resources, nil
 }
 
-func (s *XDSServer) UpsertEnvoyResources(ctx context.Context, resources Resources) error {
-	log.Debugf("UpsertEnvoyResources: Upserting %d listeners...", len(resources.Listeners))
-	wg := completion.NewWaitGroup(ctx)
+func (s *XDSServer) UpsertEnvoyResources(ctx context.Context, resources Resources, wait bool) error {
+	if option.Config.Debug {
+		msg := ""
+		sep := ""
+		if len(resources.Listeners) > 0 {
+			msg += fmt.Sprintf("%d listeners", len(resources.Listeners))
+			sep = ", "
+		}
+		if len(resources.Routes) > 0 {
+			msg += fmt.Sprintf("%s%d routes", sep, len(resources.Routes))
+			sep = ", "
+		}
+		if len(resources.Clusters) > 0 {
+			msg += fmt.Sprintf("%s%d clusters", sep, len(resources.Clusters))
+			sep = ", "
+		}
+		if len(resources.Endpoints) > 0 {
+			msg += fmt.Sprintf("%s%d endpoints", sep, len(resources.Endpoints))
+		}
+
+		log.Debugf("UpsertEnvoyResources: Upserting %s...", msg)
+	}
+	var wg *completion.WaitGroup
+	if wait {
+		wg = completion.NewWaitGroup(ctx)
+	}
 	for _, r := range resources.Listeners {
+		log.Debugf("Envoy upsertListener %s %v", r.Name, r)
 		s.upsertListener(r.Name, r, wg)
 	}
 	for _, r := range resources.Routes {
+		log.Debugf("Envoy upsertRoute %s %v", r.Name, r)
 		s.upsertRoute(r.Name, r, wg)
 	}
 	for _, r := range resources.Clusters {
+		log.Debugf("Envoy upsertCluster %s %v", r.Name, r)
 		s.upsertCluster(r.Name, r, wg)
 	}
 	for _, r := range resources.Endpoints {
+		log.Debugf("Envoy upsertEndpoint %s %v", r.ClusterName, r)
 		s.upsertEndpoint(r.ClusterName, r, wg)
 	}
-
-	start := time.Now()
-	log.Debug("UpsertEnvoyResources: Waiting for proxy updates to complete...")
-	err := wg.Wait()
-	log.Debug("UpsertEnvoyResources: Wait time for proxy updates: ", time.Since(start))
-	return err
+	if wg != nil {
+		start := time.Now()
+		log.Debug("UpsertEnvoyResources: Waiting for proxy updates to complete...")
+		err := wg.Wait()
+		log.Debug("UpsertEnvoyResources: Wait time for proxy updates: ", time.Since(start))
+		return err
+	}
+	return nil
 }
 
-func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources) error {
+func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources, wait bool) error {
 	waitForDelete := false
-	wg := completion.NewWaitGroup(ctx)
+	var wg *completion.WaitGroup
+	if wait {
+		wg = completion.NewWaitGroup(ctx)
+	}
 	// Delete old listeners not added in 'new' or if old and new listener have different ports
 	var deleteListeners []*envoy_config_listener.Listener
 	for _, oldListener := range old.Listeners {
@@ -238,7 +287,7 @@ func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 	}
 
 	// Have to wait for deletes to complete before adding new listeners if a listener's port number is changed.
-	if waitForDelete {
+	if wg != nil && waitForDelete {
 		start := time.Now()
 		log.Debug("UpdateEnvoyResources: Waiting for proxy deletes to complete...")
 		err := wg.Wait()
@@ -267,18 +316,23 @@ func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 		s.upsertListener(r.Name, r, wg)
 	}
 
-	start := time.Now()
-	log.Debug("UpdateEnvoyResources: Waiting for proxy updates to complete...")
-	err := wg.Wait()
-	log.Debug("UpdateEnvoyResources: Wait time for proxy updates: ", time.Since(start))
-	return err
+	if wg != nil {
+		start := time.Now()
+		log.Debug("UpdateEnvoyResources: Waiting for proxy updates to complete...")
+		err := wg.Wait()
+		log.Debug("UpdateEnvoyResources: Wait time for proxy updates: ", time.Since(start))
+		return err
+	}
+	return nil
 }
 
-func (s *XDSServer) DeleteEnvoyResources(ctx context.Context, resources Resources) error {
+func (s *XDSServer) DeleteEnvoyResources(ctx context.Context, resources Resources, wait bool) error {
 	log.Debugf("UpdateEnvoyResources: Deleting %d listeners, %d routes, %d clusters, and %d endpoints...",
 		len(resources.Listeners), len(resources.Routes), len(resources.Clusters), len(resources.Endpoints))
-	wg := completion.NewWaitGroup(ctx)
-
+	var wg *completion.WaitGroup
+	if wait {
+		wg = completion.NewWaitGroup(ctx)
+	}
 	for _, r := range resources.Listeners {
 		s.deleteListener(r.Name, wg)
 	}
@@ -292,9 +346,12 @@ func (s *XDSServer) DeleteEnvoyResources(ctx context.Context, resources Resource
 		s.deleteEndpoint(r.ClusterName, wg)
 	}
 
-	start := time.Now()
-	log.Debug("DeleteEnvoyResources: Waiting for proxy updates to complete...")
-	err := wg.Wait()
-	log.Debug("DeleteEnvoyResources: Wait time for proxy updates: ", time.Since(start))
-	return err
+	if wg != nil {
+		start := time.Now()
+		log.Debug("DeleteEnvoyResources: Waiting for proxy updates to complete...")
+		err := wg.Wait()
+		log.Debug("DeleteEnvoyResources: Wait time for proxy updates: ", time.Since(start))
+		return err
+	}
+	return nil
 }
