@@ -4,6 +4,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"sync/atomic"
@@ -11,10 +12,14 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
+	envoy_config_endpoint "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/counter"
 	datapathOpt "github.com/cilium/cilium/pkg/datapath/option"
+	"github.com/cilium/cilium/pkg/envoy"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -59,6 +64,9 @@ type healthServer interface {
 type monitorNotify interface {
 	SendNotification(msg monitorAPI.AgentNotifyMessage) error
 	RegisterCRDProxyPort(name string, proxyPort uint16, ingress bool) error
+	UpsertEnvoyResources(context.Context, envoy.Resources, bool) error
+	UpdateEnvoyResources(ctx context.Context, old, new envoy.Resources, wait bool) error
+	DeleteEnvoyResources(context.Context, envoy.Resources, bool) error
 }
 
 type svcInfo struct {
@@ -319,6 +327,43 @@ func (s *Service) InitMaps(ipv6, ipv4, sockMaps, restore bool) error {
 	return nil
 }
 
+func (s *Service) upsertEnvoyEndpoints(svc *svcInfo) error {
+	name := svc.svcNamespace + "/" + svc.svcName
+	lbEndpoints := []*envoy_config_endpoint.LbEndpoint{}
+	for _, be := range svc.backends {
+		lbEndpoints = append(lbEndpoints, &envoy_config_endpoint.LbEndpoint{
+			HostIdentifier: &envoy_config_endpoint.LbEndpoint_Endpoint{
+				Endpoint: &envoy_config_endpoint.Endpoint{
+					Address: &envoy_config_core.Address{
+						Address: &envoy_config_core.Address_SocketAddress{
+							SocketAddress: &envoy_config_core.SocketAddress{
+								Address: be.L3n4Addr.IP.String(),
+								PortSpecifier: &envoy_config_core.SocketAddress_PortValue{
+									PortValue: uint32(be.L3n4Addr.L4Addr.Port),
+								},
+							},
+						},
+					},
+				},
+			},
+		})
+	}
+	endpoint := &envoy_config_endpoint.ClusterLoadAssignment{
+		ClusterName: name,
+		Endpoints: []*envoy_config_endpoint.LocalityLbEndpoints{
+			{
+				LbEndpoints: lbEndpoints,
+			},
+		},
+	}
+	var resources envoy.Resources
+	resources.Endpoints = append(resources.Endpoints, endpoint)
+	if s.monitorNotify != nil {
+		return s.monitorNotify.UpsertEnvoyResources(context.TODO(), resources, false)
+	}
+	return nil
+}
+
 // UpsertService inserts or updates the given service.
 //
 // The first return value is true if the service hasn't existed before.
@@ -341,7 +386,7 @@ func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
 
 		logfields.LoadBalancerSourceRanges: params.LoadBalancerSourceRanges,
 
-		"l7LBProxyPort": params.L7LBProxyPort,
+		logfields.L7LBProxyPort: params.L7LBProxyPort,
 	})
 	scopedLog.Debug("Upserting service")
 
@@ -394,6 +439,13 @@ func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
 		s.updateBackendsCacheLocked(svc, backendsCopy)
 	if err != nil {
 		return false, lb.ID(0), err
+	}
+
+	if svc.l7LBProxyPort != 0 {
+		// Upsert backends as Envoy endpoints
+		if err = s.upsertEnvoyEndpoints(svc); err != nil {
+			return false, lb.ID(0), err
+		}
 	}
 
 	// Update lbmaps (BPF service maps)
@@ -847,7 +899,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 		return err
 	}
 
-	if option.Config.EnableSessionAffinity {
+	if option.Config.EnableSessionAffinity && svc.l7LBProxyPort == 0 {
 		s.addBackendsToAffinityMatchMap(svc.frontend.ID, toAddAffinity)
 	}
 

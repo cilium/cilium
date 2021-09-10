@@ -259,6 +259,9 @@ const (
 	// BackendSlot is the backend slot number in a service BPF map
 	BackendSlot = "backendSlot"
 
+	// L7LBProxyPort is the port number of the Envoy listener a L7 LB service redirects traffic to for load balancing.
+	L7LBProxyPort = "l7LBProxyPort"
+
 	// CiliumNetworkPolicy is a cilium specific NetworkPolicy
 	CiliumNetworkPolicy = "ciliumNetworkPolicy"
 
