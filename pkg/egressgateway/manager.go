@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package egresspolicy
+package egressgateway
 
 import (
 	"errors"
@@ -31,10 +31,10 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "egresspolicy")
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "egressgateway")
 )
 
-// The egresspolicy manager stores the internal data tracking the policy
+// The egressgateway manager stores the internal data tracking the policy
 // and endpoint mappings. It also hooks up all the callbacks to update
 // egress bpf map accordingly.
 type Manager struct {
@@ -43,15 +43,15 @@ type Manager struct {
 	// Stores endpoint to policy mapping
 	policyEndpoints map[endpointID][]policyID
 	// Stores policy configs indexed by policyID
-	policyConfigs map[policyID]*Config
+	policyConfigs map[policyID]*PolicyConfig
 	// Stores endpointId to endpoint metadata mapping
 	epDataStore map[endpointID]*endpointMetadata
 }
 
-func NewEgressPolicyManager() *Manager {
+func NewEgressGatewayManager() *Manager {
 	return &Manager{
 		policyEndpoints: make(map[endpointID][]policyID),
-		policyConfigs:   make(map[policyID]*Config),
+		policyConfigs:   make(map[policyID]*PolicyConfig),
 		epDataStore:     make(map[endpointID]*endpointMetadata),
 	}
 }
@@ -60,7 +60,7 @@ func NewEgressPolicyManager() *Manager {
 
 // AddEgressPolicy parses the given policy config, and updates internal state with the config fields.
 // returns bool indicates if policy is added, err inidates first encountered error
-func (manager *Manager) AddEgressPolicy(config Config) (bool, error) {
+func (manager *Manager) AddEgressPolicy(config PolicyConfig) (bool, error) {
 	manager.mutex.Lock()
 	defer manager.mutex.Unlock()
 
@@ -71,7 +71,7 @@ func (manager *Manager) AddEgressPolicy(config Config) (bool, error) {
 		return false, errors.New("already exists")
 	}
 
-	err := manager.isValidConfig(config)
+	err := manager.isValidPolicyConfig(config)
 	if err != nil {
 		return false, err
 	}
@@ -246,8 +246,8 @@ func getEndpointMetadata(endpoint *k8sTypes.CiliumEndpoint) (*endpointMetadata, 
 	return data, nil
 }
 
-// isValidConfig validates the given policy config.
-func (manager *Manager) isValidConfig(config Config) error {
+// isValidPolicyConfig validates the given policy config.
+func (manager *Manager) isValidPolicyConfig(config PolicyConfig) error {
 	for _, policyConfig := range manager.policyConfigs {
 		if policyConfig.egressIP.String() == config.egressIP.String() {
 			return fmt.Errorf(
@@ -261,7 +261,7 @@ func (manager *Manager) isValidConfig(config Config) error {
 
 // upsertPolicyEndpoint updates or insert to endpoint policy mapping for given policy config and endpoints,
 // it also upserts egress map to keep in sync
-func (manager *Manager) upsertPolicyEndpoint(config *Config, epData *endpointMetadata) error {
+func (manager *Manager) upsertPolicyEndpoint(config *PolicyConfig, epData *endpointMetadata) error {
 	if err := manager.updateEgressMap(epData.ips, config); err != nil {
 		return err
 	}
@@ -283,7 +283,7 @@ func (manager *Manager) upsertPolicyEndpoint(config *Config, epData *endpointMet
 	return nil
 }
 
-func (manager *Manager) updateEgressMap(ips []string, config *Config) error {
+func (manager *Manager) updateEgressMap(ips []string, config *PolicyConfig) error {
 	for _, ip := range ips {
 		sip := net.ParseIP(ip).To4()
 		for _, dstCIDR := range config.dstCIDRs {
@@ -303,7 +303,7 @@ func (manager *Manager) updateEgressMap(ips []string, config *Config) error {
 	return nil
 }
 
-func (manager *Manager) deleteEgressMap(config *Config, epData *endpointMetadata) error {
+func (manager *Manager) deleteEgressMap(config *PolicyConfig, epData *endpointMetadata) error {
 	for _, ip := range epData.ips {
 		sip := net.ParseIP(ip).To4()
 		for _, dstCIDR := range config.dstCIDRs {
