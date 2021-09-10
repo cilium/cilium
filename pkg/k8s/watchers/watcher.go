@@ -17,7 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
-	"github.com/cilium/cilium/pkg/egresspolicy"
+	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -157,8 +157,8 @@ type bgpSpeakerManager interface {
 
 	OnUpdateNode(node *corev1.Node)
 }
-type egressPolicyManager interface {
-	AddEgressPolicy(config egresspolicy.Config) (bool, error)
+type egressGatewayManager interface {
+	AddEgressPolicy(config egressgateway.PolicyConfig) (bool, error)
 	DeleteEgressPolicy(configID types.NamespacedName) error
 	OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint)
 	OnDeleteEndpoint(endpoint *k8sTypes.CiliumEndpoint)
@@ -187,7 +187,7 @@ type K8sWatcher struct {
 	svcManager            svcManager
 	redirectPolicyManager redirectPolicyManager
 	bgpSpeakerManager     bgpSpeakerManager
-	egressPolicyManager   egressPolicyManager
+	egressGatewayManager  egressGatewayManager
 
 	// controllersStarted is a channel that is closed when all controllers, i.e.,
 	// k8s watchers have started listening for k8s events.
@@ -219,7 +219,7 @@ func NewK8sWatcher(
 	datapath datapath.Datapath,
 	redirectPolicyManager redirectPolicyManager,
 	bgpSpeakerManager bgpSpeakerManager,
-	egressPolicyManager egressPolicyManager,
+	egressGatewayManager egressGatewayManager,
 	cfg WatcherConfiguration,
 ) *K8sWatcher {
 	return &K8sWatcher{
@@ -234,7 +234,7 @@ func NewK8sWatcher(
 		datapath:              datapath,
 		redirectPolicyManager: redirectPolicyManager,
 		bgpSpeakerManager:     bgpSpeakerManager,
-		egressPolicyManager:   egressPolicyManager,
+		egressGatewayManager:  egressGatewayManager,
 		cfg:                   cfg,
 	}
 }
