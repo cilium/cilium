@@ -15,6 +15,8 @@
 package main
 
 import (
+	"time"
+
 	"github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/allocator"
@@ -42,7 +44,9 @@ func startKvstoreIdentityGC() {
 		gcTimer, gcTimerDone := inctimer.New()
 		defer gcTimerDone()
 		for {
+			now := time.Now()
 			keysToDelete2, gcStats, err := a.RunGC(identityRateLimiter, keysToDelete)
+			gcDuration := time.Since(now)
 			if err != nil {
 				log.WithError(err).Warning("Unable to run security identity garbage collector")
 
@@ -61,7 +65,20 @@ func startKvstoreIdentityGC() {
 					metrics.IdentityGCSize.WithLabelValues("deleted").Set(float64(gcStats.Deleted))
 				}
 			}
-			<-gcTimer.After(operatorOption.Config.IdentityGCInterval)
+
+			sleep := operatorOption.Config.IdentityGCInterval
+			if operatorOption.Config.IdentityGCInterval <= gcDuration {
+				log.WithFields(logrus.Fields{
+					logfields.Interval: operatorOption.Config.IdentityGCInterval,
+					logfields.Duration: gcDuration,
+					logfields.Hint:     "Is there a ratelimit configured on the kvstore client or server?",
+				}).Warning("Identity garbage collection took longer than the GC interval")
+				// Don't sleep because we have a lot of work to do.
+			} else {
+				sleep -= gcDuration
+				<-gcTimer.After(sleep)
+			}
+
 			log.WithFields(logrus.Fields{
 				"identities-to-delete": keysToDelete,
 			}).Debug("Will delete identities if they are still unused")
