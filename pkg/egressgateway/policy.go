@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package egresspolicy
+package egressgateway
 
 import (
 	"fmt"
@@ -30,8 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-// Config is the internal representation of Cilium Egress NAT Policy.
-type Config struct {
+// PolicyConfig is the internal representation of Cilium Egress NAT Policy.
+type PolicyConfig struct {
 	// id is the parsed config name and namespace
 	id types.NamespacedName
 
@@ -59,7 +59,7 @@ type endpointMetadata struct {
 
 // policyConfigSelectsEndpoint determines if the given endpoint is selected by the policy
 // config based on matching labels of config and endpoint.
-func (config *Config) policyConfigSelectsEndpoint(endpointInfo *endpointMetadata) bool {
+func (config *PolicyConfig) policyConfigSelectsEndpoint(endpointInfo *endpointMetadata) bool {
 	labelsToMatch := k8sLabels.Set(endpointInfo.labels)
 	for _, selector := range config.endpointSelectors {
 		if selector.Matches(labelsToMatch) {
@@ -69,9 +69,9 @@ func (config *Config) policyConfigSelectsEndpoint(endpointInfo *endpointMetadata
 	return false
 }
 
-// Parse takes a CiliumEgressNATPolicy CR and converts to Config, the internal
-// representation of the egress nat policy
-func Parse(cenp *v2alpha1.CiliumEgressNATPolicy) (*Config, error) {
+// ParsePolicy takes a CiliumEgressNATPolicy CR and converts to PolicyConfig,
+// the internal representation of the egress nat policy
+func ParsePolicy(cenp *v2alpha1.CiliumEgressNATPolicy) (*PolicyConfig, error) {
 	var endpointSelectorList []api.EndpointSelector
 	var dstCidrList []*net.IPNet
 
@@ -131,7 +131,7 @@ func Parse(cenp *v2alpha1.CiliumEgressNATPolicy) (*Config, error) {
 		}
 	}
 
-	return &Config{
+	return &PolicyConfig{
 		endpointSelectors: endpointSelectorList,
 		dstCIDRs:          dstCidrList,
 		egressIP:          net.ParseIP(cenp.Spec.EgressSourceIP).To4(),
@@ -141,8 +141,8 @@ func Parse(cenp *v2alpha1.CiliumEgressNATPolicy) (*Config, error) {
 	}, nil
 }
 
-// ParseConfigID takes a CiliumEgressNATPolicy CR and returns only the config id
-func ParseConfigID(cenp *v2alpha1.CiliumEgressNATPolicy) types.NamespacedName {
+// ParsePolicyConfigID takes a CiliumEgressNATPolicy CR and returns only the config id
+func ParsePolicyConfigID(cenp *v2alpha1.CiliumEgressNATPolicy) types.NamespacedName {
 	return policyID{
 		Name: cenp.Name,
 	}
