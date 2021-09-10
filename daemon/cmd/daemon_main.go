@@ -563,6 +563,14 @@ func init() {
 	flags.Bool(option.EnableLocalRedirectPolicy, false, "Enable Local Redirect Policy")
 	option.BindEnv(option.EnableLocalRedirectPolicy)
 
+	flags.Bool(option.EnableMKE, false, "Enable BPF kube-proxy replacement for MKE environments")
+	flags.MarkHidden(option.EnableMKE)
+	option.BindEnv(option.EnableMKE)
+
+	flags.String(option.CgroupPathMKE, "", "Cgroup v1 net_cls mount path for MKE environments")
+	flags.MarkHidden(option.CgroupPathMKE)
+	option.BindEnv(option.CgroupPathMKE)
+
 	flags.String(option.NodePortMode, option.NodePortModeSNAT, "BPF NodePort mode (\"snat\", \"dsr\", \"hybrid\")")
 	flags.MarkHidden(option.NodePortMode)
 	option.BindEnv(option.NodePortMode)

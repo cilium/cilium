@@ -309,6 +309,12 @@ const (
 	// EnableLocalRedirectPolicy enables support for local redirect policy
 	EnableLocalRedirectPolicy = "enable-local-redirect-policy"
 
+	// EnableMKE enables MKE specific 'chaining' for kube-proxy replacement
+	EnableMKE = "enable-mke"
+
+	// CgroupPathMKE points to the cgroupv1 net_cls mount instance
+	CgroupPathMKE = "mke-cgroup-mount"
+
 	// LibDir enables the directory path to store runtime build environment
 	LibDir = "lib-dir"
 
@@ -1729,6 +1735,12 @@ type DaemonConfig struct {
 	// EnableRecorder enables the datapath pcap recorder
 	EnableRecorder bool
 
+	// EnableMKE enables MKE specific 'chaining' for kube-proxy replacement
+	EnableMKE bool
+
+	// CgroupPathMKE points to the cgroupv1 net_cls mount instance
+	CgroupPathMKE string
+
 	// KubeProxyReplacementHealthzBindAddr is the KubeProxyReplacement healthz server bind addr
 	KubeProxyReplacementHealthzBindAddr string
 
@@ -2443,6 +2455,8 @@ func (c *DaemonConfig) Populate() {
 	c.EnableSessionAffinity = viper.GetBool(EnableSessionAffinity)
 	c.EnableBandwidthManager = viper.GetBool(EnableBandwidthManager)
 	c.EnableRecorder = viper.GetBool(EnableRecorder)
+	c.EnableMKE = viper.GetBool(EnableMKE)
+	c.CgroupPathMKE = viper.GetString(CgroupPathMKE)
 	c.EnableHostFirewall = viper.GetBool(EnableHostFirewall)
 	c.EnableLocalRedirectPolicy = viper.GetBool(EnableLocalRedirectPolicy)
 	c.EncryptInterface = viper.GetStringSlice(EncryptInterface)
