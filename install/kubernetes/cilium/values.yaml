@@ -584,6 +584,8 @@ hubble:
     enabled: ~
     # -- Configure the port the hubble metric server listens on.
     port: 9091
+    # -- Annotations to be added to hubble-metrics service.
+    serviceAnnotations: {}
     serviceMonitor:
       # -- Create ServiceMonitor resources for Prometheus Operator.
       # This requires the prometheus CRDs to be available.
