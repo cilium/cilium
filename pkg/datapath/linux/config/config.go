@@ -266,6 +266,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.EnableHealthDatapath {
 			cDefinesMap["ENABLE_HEALTH_CHECK"] = "1"
 		}
+		if option.Config.EnableMKE && option.Config.EnableHostReachableServices {
+			cDefinesMap["ENABLE_MKE"] = "1"
+			cDefinesMap["MKE_HOST"] = fmt.Sprintf("%d", option.HostExtensionMKE)
+		}
 		if option.Config.EnableRecorder {
 			cDefinesMap["ENABLE_CAPTURE"] = "1"
 			if option.Config.EnableIPv4 {
