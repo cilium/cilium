@@ -517,7 +517,8 @@ spec:
       - name: etcd-config-path
         configMap:
           name: cilium-config
-          defaultMode: 420
+          # note: the leading zero means this number is in octal representation: do not remove it
+          defaultMode: 0400
           items:
           - key: etcd-config
             path: etcd.config
@@ -526,7 +527,8 @@ spec:
       - name: etcd-secrets
         secret:
           secretName: cilium-etcd-secrets
-          defaultMode: 420
+          # note: the leading zero means this number is in octal representation: do not remove it
+          defaultMode: 0400
           optional: true
       {{- end }}
       {{- end }}
@@ -534,7 +536,8 @@ spec:
       - name: clustermesh-secrets
         secret:
           secretName: cilium-clustermesh
-          defaultMode: 420
+          # note: the leading zero means this number is in octal representation: do not remove it
+          defaultMode: 0400
           optional: true
         # To read the configuration from the config map
       - name: cilium-config-path
@@ -567,6 +570,8 @@ spec:
       {{- if and .Values.hubble.enabled .Values.hubble.tls.enabled (hasKey .Values.hubble "listenAddress") }}
       - name: hubble-tls
         projected:
+          # note: the leading zero means this number is in octal representation: do not remove it
+          defaultMode: 0400
           sources:
           - secret:
               name: hubble-server-certs

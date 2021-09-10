@@ -109,6 +109,8 @@ spec:
       {{- if .Values.hubble.tls.enabled }}
       - name: tls
         projected:
+          # note: the leading zero means this number is in octal representation: do not remove it
+          defaultMode: 0400
           sources:
           - secret:
               name: hubble-relay-client-certs

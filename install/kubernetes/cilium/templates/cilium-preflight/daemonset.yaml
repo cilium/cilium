@@ -147,7 +147,8 @@ spec:
       - name: etcd-config-path
         configMap:
           name: cilium-config
-          defaultMode: 420
+          # note: the leading zero means this number is in octal representation: do not remove it
+          defaultMode: 0400
           items:
           - key: etcd-config
             path: etcd.config
@@ -156,7 +157,8 @@ spec:
       - name: etcd-secrets
         secret:
           secretName: cilium-etcd-secrets
-          defaultMode: 420
+          # note: the leading zero means this number is in octal representation: do not remove it
+          defaultMode: 0400
           optional: true
       {{- end }}
       {{- end }}
