@@ -46,6 +46,9 @@ static __u64 BPF_FUNC(jiffies64);
 static __sock_cookie BPF_FUNC(get_socket_cookie, void *ctx);
 static __net_cookie BPF_FUNC(get_netns_cookie, void *ctx);
 
+/* Legacy cgroups */
+static __u32 BPF_FUNC(get_cgroup_classid);
+
 /* Debugging */
 static __printf(1, 3) void
 BPF_FUNC(trace_printk, const char *fmt, int fmt_size, ...);

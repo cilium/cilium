@@ -19,8 +19,11 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net"
+	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -33,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/mountinfo"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/probe"
@@ -339,6 +343,22 @@ func initKubeProxyReplacementOptions() (strict bool) {
 			}
 		}
 
+		if option.Config.EnableMKE {
+			foundClassid := false
+			foundCookie := false
+			if h := probesManager.GetHelpers("cgroup_sock_addr"); h != nil {
+				if _, ok := h["bpf_get_cgroup_classid"]; ok {
+					foundClassid = true
+				}
+				if _, ok := h["bpf_get_netns_cookie"]; ok {
+					foundCookie = true
+				}
+			}
+			if !foundClassid || !foundCookie {
+				log.Fatalf("BPF kube-proxy replacement under MKE with --%s needs kernel 5.7 or newer", option.EnableMKE)
+			}
+		}
+
 		option.Config.EnableHealthDatapath =
 			option.Config.DatapathMode == datapathOption.DatapathModeLBOnly &&
 				option.Config.NodePortMode == option.NodePortModeDSR &&
@@ -509,6 +529,10 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) {
 		// Make sure that NodePort dependencies are disabled
 		disableNodePort()
 		return
+	}
+
+	if option.Config.EnableMKE {
+		markHostExtension()
 	}
 
 	if option.Config.EnableSVCSourceRangeCheck && !probe.HaveFullLPM() {
@@ -779,6 +803,52 @@ func expandDevices() {
 		option.Config.Devices = append(option.Config.Devices, dev)
 	}
 	sort.Strings(option.Config.Devices)
+}
+
+func markHostExtension() {
+	prefix := option.Config.CgroupPathMKE
+	if prefix == "" {
+		mountInfos, err := mountinfo.GetMountInfo()
+		if err != nil {
+			log.WithError(err).Fatal("Cannot retrieve mount infos")
+		}
+		for _, mountInfo := range mountInfos {
+			if mountInfo.FilesystemType == "cgroup" &&
+				strings.Contains(mountInfo.SuperOptions, "net_cls") {
+				// There can be multiple entries with the same mountpoint.
+				// Assert that there is no conflict.
+				if prefix != "" && prefix != mountInfo.MountPoint {
+					log.Fatalf("Multiple cgroup v1 net_cls mounts: %s, %s",
+						prefix, mountInfo.MountPoint)
+				}
+				prefix = mountInfo.MountPoint
+			}
+		}
+	}
+	if prefix == "" {
+		log.Fatal("Cannot retrieve cgroup v1 net_cls mount info")
+	}
+	log.Infof("Using cgroup v1 net_cls mount on MKE: %s", prefix)
+	err := filepath.Walk(prefix,
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if !info.IsDir() || strings.Contains(path, "kubepods") || path == prefix {
+				return nil
+			}
+			log.Infof("Marking %s as MKE host extension", path)
+			f, err := os.OpenFile(path+"/net_cls.classid", os.O_RDWR, 0644)
+			if err != nil {
+				return err
+			}
+			_, err = io.WriteString(f, fmt.Sprintf("%d", option.HostExtensionMKE))
+			f.Close()
+			return err
+		})
+	if err != nil {
+		log.WithError(err).Fatal("Cannot mark MKE-related container")
+	}
 }
 
 // checkNodePortAndEphemeralPortRanges checks whether the ephemeral port range
