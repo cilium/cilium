@@ -8,8 +8,11 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -17,8 +20,10 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/mountinfo"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/probe"
@@ -229,6 +234,28 @@ func initKubeProxyReplacementOptions() (bool, error) {
 		// Try to auto-load IPv6 module if it hasn't been done yet as there can
 		// be v4-in-v6 connections even if the agent has v6 support disabled.
 		probe.HaveIPv6Support()
+
+		if option.Config.EnableMKE {
+			foundClassid := false
+			foundCookie := false
+			if h := probesManager.GetHelpers("cgroup_sock_addr"); h != nil {
+				if _, ok := h["bpf_get_cgroup_classid"]; ok {
+					foundClassid = true
+				}
+				if _, ok := h["bpf_get_netns_cookie"]; ok {
+					foundCookie = true
+				}
+			}
+			if !foundClassid || !foundCookie {
+				if strict {
+					log.Fatalf("BPF kube-proxy replacement under MKE with --%s needs kernel 5.7 or newer", option.EnableMKE)
+				} else {
+					option.Config.EnableHostServicesTCP = false
+					option.Config.EnableHostServicesUDP = false
+					log.Warnf("Disabling host reachable services under MKE with --%s. Needs kernel 5.7 or newer.", option.EnableMKE)
+				}
+			}
+		}
 
 		option.Config.EnableHostServicesPeer = true
 		if option.Config.EnableIPv4 {
@@ -488,6 +515,12 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) error {
 	// | After this point, BPF NodePort should not be disabled |
 	// +-------------------------------------------------------+
 
+	// For MKE, we only need to change/extend the socket LB behavior in case
+	// of kube-proxy replacement. Otherwise, nothing else is needed.
+	if option.Config.EnableMKE && option.Config.EnableHostReachableServices {
+		markHostExtension()
+	}
+
 	if !option.Config.EnableHostLegacyRouting {
 		msg := ""
 		switch {
@@ -595,6 +628,66 @@ func disableNodePort() {
 	option.Config.EnableExternalIPs = false
 	option.Config.EnableSVCSourceRangeCheck = false
 	option.Config.EnableHostLegacyRouting = true
+}
+
+// markHostExtension tells the socket LB that MKE managed containers belong
+// to the "hostns" as well despite them residing in their own netns. We use
+// net_cls as a marker.
+func markHostExtension() {
+	prefix := option.Config.CgroupPathMKE
+	if prefix == "" {
+		mountInfos, err := mountinfo.GetMountInfo()
+		if err != nil {
+			log.WithError(err).Fatal("Cannot retrieve mount infos for MKE")
+		}
+		for _, mountInfo := range mountInfos {
+			if mountInfo.FilesystemType == "cgroup" &&
+				strings.Contains(mountInfo.SuperOptions, "net_cls") {
+				// There can be multiple entries with the same mountpoint.
+				// Assert that there is no conflict.
+				if prefix != "" && prefix != mountInfo.MountPoint {
+					log.Fatalf("Multiple cgroup v1 net_cls mounts: %s, %s",
+						prefix, mountInfo.MountPoint)
+				}
+				prefix = mountInfo.MountPoint
+			}
+		}
+	}
+	if prefix == "" {
+		log.Fatal("Cannot retrieve cgroup v1 net_cls mount info for MKE")
+	}
+	log.WithField(logfields.Path, prefix).Info("Found cgroup v1 net_cls mount on MKE")
+	err := filepath.Walk(prefix,
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if !info.IsDir() || strings.Contains(path, "kubepods") || path == prefix {
+				return nil
+			}
+			log.WithField(logfields.Path, path).Info("Marking as MKE host extension")
+			f, err := os.OpenFile(path+"/net_cls.classid", os.O_RDWR, 0644)
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+			valBytes, err := io.ReadAll(f)
+			if err != nil {
+				return err
+			}
+			class, err := strconv.Atoi(string(valBytes[:len(valBytes)-1]))
+			if err != nil {
+				return err
+			}
+			if class != 0 && class != option.HostExtensionMKE {
+				return errors.New("net_cls.classid already in use")
+			}
+			_, err = io.WriteString(f, fmt.Sprintf("%d", option.HostExtensionMKE))
+			return err
+		})
+	if err != nil {
+		log.WithError(err).Fatal("Cannot mark MKE-related container")
+	}
 }
 
 // checkNodePortAndEphemeralPortRanges checks whether the ephemeral port range

@@ -36,3 +36,5 @@ const (
 	ClockSourceKtime BPFClockSource = iota
 	ClockSourceJiffies
 )
+
+const HostExtensionMKE = 0x1bda7a

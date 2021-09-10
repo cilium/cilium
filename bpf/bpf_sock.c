@@ -83,6 +83,16 @@ void ctx_set_port(struct bpf_sock_addr *ctx, __be16 dport)
 	ctx->user_port = (__u32)dport;
 }
 
+static __always_inline __maybe_unused bool task_in_extended_hostns(void)
+{
+#ifdef ENABLE_MKE
+	/* Extension for non-Cilium managed containers on MKE. */
+	return get_cgroup_classid() == MKE_HOST;
+#else
+	return false;
+#endif
+}
+
 static __always_inline __maybe_unused bool
 ctx_in_hostns(void *ctx __maybe_unused, __net_cookie *cookie)
 {
@@ -91,7 +101,8 @@ ctx_in_hostns(void *ctx __maybe_unused, __net_cookie *cookie)
 
 	if (cookie)
 		*cookie = own_cookie;
-	return own_cookie == HOST_NETNS_COOKIE;
+	return own_cookie == HOST_NETNS_COOKIE ||
+	       task_in_extended_hostns();
 #else
 	if (cookie)
 		*cookie = 0;
