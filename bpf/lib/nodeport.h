@@ -1085,9 +1085,16 @@ static __always_inline bool nodeport_uses_dsr4(const struct ipv4_ct_tuple *tuple
 	return nodeport_uses_dsr(tuple->nexthdr);
 }
 
-/* Returns true if the packet must be SNAT-ed. In addition, sets "addr" to
- * SNAT IP addr, and if a packet is sent from an endpoint, sets "from_endpoint"
- * to true.
+/* The function contains a core logic for deciding whether an egressing packet
+ * has to be SNAT-ed. Currently, the function targets the following flows:
+ *
+ *	- From pod to outside to masquerade requests
+ *	  when --enable-bpf-masquerade=true.
+ *	- From host to outside to track (and masquerade) flows which
+ *	  can conflict with NodePort BPF.
+ *
+ * The function sets "addr" to the SNAT IP addr, and "from_endpoint" to true
+ * if the packet is sent from a local endpoint.
  */
 static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 					   bool *from_endpoint __maybe_unused)
@@ -1095,6 +1102,8 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 	struct endpoint_info *ep __maybe_unused;
 	void *data, *data_end;
 	struct iphdr *ip4;
+	struct ipv4_ct_tuple tuple __maybe_unused = {};
+	bool is_reply __maybe_unused = false;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return false;
@@ -1198,6 +1207,20 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 			if (info->sec_label == REMOTE_NODE_ID)
 				return false;
 #endif
+
+			tuple.nexthdr = ip4->protocol;
+			tuple.daddr = ip4->daddr;
+			tuple.saddr = ip4->saddr;
+
+			/* The packet is a reply, which means that outside
+			 * has initiated the connection, so no need to SNAT
+			 * the reply.
+			 */
+			if (!ct_is_reply4(get_ct_map4(&tuple), ctx,
+					  ETH_HLEN + ipv4_hdrlen(ip4),
+					  &tuple, &is_reply) &&
+			    is_reply)
+				return false;
 
 			*addr = IPV4_MASQUERADE;
 			return true;
