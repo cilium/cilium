@@ -7,6 +7,9 @@ metadata:
   labels:
     k8s-app: hubble
   annotations:
+    {{- with .Values.hubble.metrics.serviceAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
     prometheus.io/scrape: "true"
     prometheus.io/port: {{ .Values.hubble.metrics.port | quote }}
 spec:
