@@ -11,12 +11,14 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/option"
 	envoy_config_cluster "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_config_endpoint "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_config_tls "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // Resources contains all Envoy resources parsed from a CiliumEnvoyConfig CRD
@@ -46,6 +48,21 @@ func ParseResources(namePrefix string, cec *cilium_v2alpha1.CiliumEnvoyConfig) (
 			if listener.GetAddress() == nil {
 				return Resources{}, fmt.Errorf("Listener has no address: %T", message)
 			}
+			// Inject Cilium bpf metadata listener filter, if not already present.
+			found := false
+			for _, lf := range listener.ListenerFilters {
+				if lf.Name == "cilium.bpf_metadata" {
+					found = true
+				}
+			}
+			if !found {
+				listener.ListenerFilters = append(listener.ListenerFilters, getListenerFilter(false, true))
+			}
+			// Inject Transparent to work with TPROXY
+			listener.Transparent = &wrapperspb.BoolValue{Value: true}
+			// Inject listener socket option for Cilium datapath
+			listener.SocketOptions = append(listener.SocketOptions, getListenerSocketMarkOption(false))
+
 			// Fill in RDS config source if unset
 			for _, fc := range listener.FilterChains {
 				for _, filter := range fc.Filters {
@@ -144,37 +161,71 @@ func ParseResources(namePrefix string, cec *cilium_v2alpha1.CiliumEnvoyConfig) (
 
 // UpsertEnvoyResources inserts or updates Envoy resources in 'resources' to the xDS cache,
 // from where they will be delivered to Envoy via xDS streaming gRPC.
-func (s *XDSServer) UpsertEnvoyResources(ctx context.Context, resources Resources) error {
-	log.Debugf("UpsertEnvoyResources: Upserting %d listeners...", len(resources.Listeners))
-	wg := completion.NewWaitGroup(ctx)
+func (s *XDSServer) UpsertEnvoyResources(ctx context.Context, resources Resources, wait bool) error {
+	if option.Config.Debug {
+		msg := ""
+		sep := ""
+		if len(resources.Listeners) > 0 {
+			msg += fmt.Sprintf("%d listeners", len(resources.Listeners))
+			sep = ", "
+		}
+		if len(resources.Routes) > 0 {
+			msg += fmt.Sprintf("%s%d routes", sep, len(resources.Routes))
+			sep = ", "
+		}
+		if len(resources.Clusters) > 0 {
+			msg += fmt.Sprintf("%s%d clusters", sep, len(resources.Clusters))
+			sep = ", "
+		}
+		if len(resources.Endpoints) > 0 {
+			msg += fmt.Sprintf("%s%d endpoints", sep, len(resources.Endpoints))
+			sep = ", "
+		}
+		if len(resources.Secrets) > 0 {
+			msg += fmt.Sprintf("%s%d secrets", sep, len(resources.Secrets))
+		}
+
+		log.Debugf("UpsertEnvoyResources: Upserting %s...", msg)
+	}
+	var wg *completion.WaitGroup
 	var revertFuncs xds.AckingResourceMutatorRevertFuncList
+	if wait {
+		wg = completion.NewWaitGroup(ctx)
+	}
 	for _, r := range resources.Listeners {
+		log.Debugf("Envoy upsertListener %s %v", r.Name, r)
 		revertFuncs = append(revertFuncs, s.upsertListener(r.Name, r, wg, nil))
 	}
 	for _, r := range resources.Routes {
+		log.Debugf("Envoy upsertRoute %s %v", r.Name, r)
 		revertFuncs = append(revertFuncs, s.upsertRoute(r.Name, r, wg, nil))
 	}
 	for _, r := range resources.Clusters {
+		log.Debugf("Envoy upsertCluster %s %v", r.Name, r)
 		revertFuncs = append(revertFuncs, s.upsertCluster(r.Name, r, wg, nil))
 	}
 	for _, r := range resources.Endpoints {
+		log.Debugf("Envoy upsertEndpoint %s %v", r.ClusterName, r)
 		revertFuncs = append(revertFuncs, s.upsertEndpoint(r.ClusterName, r, wg, nil))
 	}
 	for _, r := range resources.Secrets {
+		log.Debugf("Envoy upsertSecret %s %v", r.Name, r)
 		revertFuncs = append(revertFuncs, s.upsertSecret(r.Name, r, wg, nil))
 	}
+	if wg != nil {
+		start := time.Now()
+		log.Debug("UpsertEnvoyResources: Waiting for proxy updates to complete...")
+		err := wg.Wait()
+		log.Debug("UpsertEnvoyResources: Wait time for proxy updates: ", time.Since(start))
 
-	start := time.Now()
-	log.Debug("UpsertEnvoyResources: Waiting for proxy updates to complete...")
-	err := wg.Wait()
-	log.Debug("UpsertEnvoyResources: Wait time for proxy updates: ", time.Since(start))
-
-	// revert all changes in case of failure
-	if err != nil {
-		revertFuncs.Revert(nil)
-		log.Debug("UpsertEnvoyResources: Finished reverting failed xDS transactions")
+		// revert all changes in case of failure
+		if err != nil {
+			revertFuncs.Revert(nil)
+			log.Debug("UpsertEnvoyResources: Finished reverting failed xDS transactions")
+		}
+		return err
 	}
-	return err
+	return nil
 }
 
 // UpdateEnvoyResources removes any resources in 'old' that are not
@@ -182,10 +233,13 @@ func (s *XDSServer) UpsertEnvoyResources(ctx context.Context, resources Resource
 // Envoy does not support changing the listening port of an existing
 // listener, so if the port changes we have to delete the old listener
 // and then add the new one with the new port number.
-func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources) error {
+func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources, wait bool) error {
 	waitForDelete := false
-	wg := completion.NewWaitGroup(ctx)
+	var wg *completion.WaitGroup
 	var revertFuncs xds.AckingResourceMutatorRevertFuncList
+	if wait {
+		wg = completion.NewWaitGroup(ctx)
+	}
 	// Delete old listeners not added in 'new' or if old and new listener have different ports
 	var deleteListeners []*envoy_config_listener.Listener
 	for _, oldListener := range old.Listeners {
@@ -287,7 +341,7 @@ func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 	}
 
 	// Have to wait for deletes to complete before adding new listeners if a listener's port number is changed.
-	if waitForDelete {
+	if wg != nil && waitForDelete {
 		start := time.Now()
 		log.Debug("UpdateEnvoyResources: Waiting for proxy deletes to complete...")
 		err := wg.Wait()
@@ -320,26 +374,31 @@ func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 		revertFuncs = append(revertFuncs, s.upsertListener(r.Name, r, wg, nil))
 	}
 
-	start := time.Now()
-	log.Debug("UpdateEnvoyResources: Waiting for proxy updates to complete...")
-	err := wg.Wait()
-	log.Debug("UpdateEnvoyResources: Wait time for proxy updates: ", time.Since(start))
+	if wg != nil {
+		start := time.Now()
+		log.Debug("UpdateEnvoyResources: Waiting for proxy updates to complete...")
+		err := wg.Wait()
+		log.Debug("UpdateEnvoyResources: Wait time for proxy updates: ", time.Since(start))
 
-	// revert all changes in case of failure
-	if err != nil {
-		revertFuncs.Revert(nil)
-		log.Debug("UpdateEnvoyResources: Finished reverting failed xDS transactions")
+		// revert all changes in case of failure
+		if err != nil {
+			revertFuncs.Revert(nil)
+			log.Debug("UpdateEnvoyResources: Finished reverting failed xDS transactions")
+		}
+		return err
 	}
-	return err
+	return nil
 }
 
 // DeleteEnvoyResources deletes all Envoy resources in 'resources'.
-func (s *XDSServer) DeleteEnvoyResources(ctx context.Context, resources Resources) error {
+func (s *XDSServer) DeleteEnvoyResources(ctx context.Context, resources Resources, wait bool) error {
 	log.Debugf("UpdateEnvoyResources: Deleting %d listeners, %d routes, %d clusters, %d endpoints, and %d secrets...",
 		len(resources.Listeners), len(resources.Routes), len(resources.Clusters), len(resources.Endpoints), len(resources.Secrets))
-	wg := completion.NewWaitGroup(ctx)
+	var wg *completion.WaitGroup
 	var revertFuncs xds.AckingResourceMutatorRevertFuncList
-
+	if wait {
+		wg = completion.NewWaitGroup(ctx)
+	}
 	for _, r := range resources.Listeners {
 		revertFuncs = append(revertFuncs, s.deleteListener(r.Name, wg, nil))
 	}
@@ -356,15 +415,18 @@ func (s *XDSServer) DeleteEnvoyResources(ctx context.Context, resources Resource
 		revertFuncs = append(revertFuncs, s.deleteSecret(r.Name, wg, nil))
 	}
 
-	start := time.Now()
-	log.Debug("DeleteEnvoyResources: Waiting for proxy updates to complete...")
-	err := wg.Wait()
-	log.Debug("DeleteEnvoyResources: Wait time for proxy updates: ", time.Since(start))
+	if wg != nil {
+		start := time.Now()
+		log.Debug("DeleteEnvoyResources: Waiting for proxy updates to complete...")
+		err := wg.Wait()
+		log.Debug("DeleteEnvoyResources: Wait time for proxy updates: ", time.Since(start))
 
-	// revert all changes in case of failure
-	if err != nil {
-		revertFuncs.Revert(nil)
-		log.Debug("DeleteEnvoyResources: Finished reverting failed xDS transactions")
+		// revert all changes in case of failure
+		if err != nil {
+			revertFuncs.Revert(nil)
+			log.Debug("DeleteEnvoyResources: Finished reverting failed xDS transactions")
+		}
+		return err
 	}
-	return err
+	return nil
 }

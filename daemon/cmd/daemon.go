@@ -957,6 +957,18 @@ func (d *Daemon) RegisterCRDProxyPort(name string, proxyPort uint16, ingress boo
 	return d.l7Proxy.AckProxyPort(name)
 }
 
+func (d *Daemon) UpsertEnvoyResources(ctx context.Context, resources envoy.Resources, wait bool) error {
+	return d.l7Proxy.UpsertEnvoyResources(ctx, resources, wait)
+}
+
+func (d *Daemon) UpdateEnvoyResources(ctx context.Context, old, new envoy.Resources, wait bool) error {
+	return d.l7Proxy.UpdateEnvoyResources(ctx, old, new, wait)
+}
+
+func (d *Daemon) DeleteEnvoyResources(ctx context.Context, resources envoy.Resources, wait bool) error {
+	return d.l7Proxy.DeleteEnvoyResources(ctx, resources, wait)
+}
+
 // TriggerReloadWithoutCompile causes all BPF programs and maps to be reloaded,
 // without recompiling the datapath logic for each endpoint. It first attempts
 // to recompile the base programs, and if this fails returns an error. If base
