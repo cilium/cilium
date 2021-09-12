@@ -594,7 +594,7 @@ func releaseCIDRs(cidrAllocators []CIDRAllocator, cidrsToRelease []*net.IPNet) {
 				log.WithError(err).Error("failed to release cidr")
 				continue
 			}
-			log.Debug("node released cidrs")
+			log.Info("node released cidrs")
 			break
 		}
 	}
