@@ -234,7 +234,7 @@ func (a *Action) extractExitCode(err error) (ExitCode, error) {
 		return ExitInvalidCode, fmt.Errorf("Invalid exit code %q in error %s", m[1], err.Error())
 	}
 	if i < 0 || i > 255 {
-		return ExitInvalidCode, fmt.Errorf("Exit code %q out of range [0-255] in error %s", m[1], err.Error())
+		return ExitInvalidCode, fmt.Errorf("Exit code %q out of range [0-255]", m[1])
 	}
 	return ExitCode(i), nil
 }
