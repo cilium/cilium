@@ -21,7 +21,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@37335c7bb261b353407cff977110895fa0b4f7d8
       with:
-        go-version: 1.17.0
+        go-version: 1.17.1
 
     - name: Run static checks
       uses: golangci/golangci-lint-action@5c56cd6c9dc07901af25baab6f2b0d9f3b7c3018
