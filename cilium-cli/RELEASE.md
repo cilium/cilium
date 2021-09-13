@@ -46,3 +46,13 @@ When a tag is pushed, a GitHub Action job takes care of creating a new GitHub
 draft release, building artifacts and attaching them to the draft release. Once
 the draft is ready, copy & paste the generated release notes manually and publish
 the release.
+
+## (OPTIONAL) Update the Homebrew formula
+
+The `cilium-cli` Homebrew formula can be updated using the command:
+
+   brew bump-formula-pr --version=$RELEASE cilium-cli
+
+This will automatically create a PR against https://github.com/Homebrew/homebrew-core
+bumping the version. This assumes a GitHub access token exported in
+`$HOMEBREW_GITHUB_API_TOKEN`, see `brew bump-formula-pr --help` for details.
