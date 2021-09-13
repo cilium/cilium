@@ -332,8 +332,7 @@ func (s *Status) Format() string {
 		}
 	}
 
-	header := "Cluster Pods:"
-	fmt.Fprintf(w, "%s\t%s\n", header, formatPodsCount(s.PodsCount))
+	fmt.Fprintf(w, "Cluster Pods:\t%s\n", formatPodsCount(s.PodsCount))
 
 	if len(s.ImageCount) > 0 {
 		header := "Image versions"
@@ -345,7 +344,7 @@ func (s *Status) Format() string {
 		}
 	}
 
-	header = "Errors:"
+	header := "Errors:"
 	for deployment, pods := range s.Errors {
 		for pod, a := range pods {
 			for _, err := range a.Errors {
