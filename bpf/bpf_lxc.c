@@ -805,7 +805,7 @@ ct_recreate4:
 		 * in cluster. In this case, we should skip egress gateway. If destination
 		 * is either remote node or host node, also skip egress gateway.
 		 */
-		if (tunnel_endpoint != 0 || *dstID == REMOTE_NODE_ID || *dstID == HOST_ID)
+		if (tunnel_endpoint != 0 || *dst_id == REMOTE_NODE_ID || *dst_id == HOST_ID)
 			goto skip_egress_gateway;
 
 		info = lookup_ip4_egress_endpoint(ip4->saddr, ip4->daddr);
