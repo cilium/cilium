@@ -29,7 +29,9 @@ workload.
 Enable Egress Gateway
 =====================
 
-The feature is disabled by default. Enable the feature:
+The feature is disabled by default. The egress gateway requires BPF
+masquerading, which itself requires BPF NodePort to be enabled. An easy way to
+enable all requirements is as follows.
 
 .. tabs::
 
