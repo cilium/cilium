@@ -26,8 +26,8 @@ github.com/PuerkitoBio/purell
 # github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578
 ## explicit
 github.com/PuerkitoBio/urlesc
-# github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d
-## explicit
+# github.com/StackExchange/wmi v1.2.1
+## explicit; go 1.13
 github.com/StackExchange/wmi
 # github.com/andybalholm/brotli v1.0.0
 ## explicit; go 1.12
@@ -169,7 +169,7 @@ github.com/go-errors/errors
 # github.com/go-logr/logr v0.4.0
 ## explicit; go 1.14
 github.com/go-logr/logr
-# github.com/go-ole/go-ole v1.2.4
+# github.com/go-ole/go-ole v1.2.5
 ## explicit; go 1.12
 github.com/go-ole/go-ole
 github.com/go-ole/go-ole/oleutil
@@ -254,7 +254,7 @@ github.com/google/go-cmp/cmp/internal/value
 # github.com/google/gofuzz v1.1.0
 ## explicit; go 1.12
 github.com/google/gofuzz
-# github.com/google/gops v0.3.19
+# github.com/google/gops v0.3.20
 ## explicit; go 1.12
 github.com/google/gops/agent
 github.com/google/gops/internal
@@ -409,7 +409,7 @@ github.com/prometheus/procfs/internal/util
 # github.com/sasha-s/go-deadlock v0.2.1-0.20190427202633-1595213edefa
 ## explicit
 github.com/sasha-s/go-deadlock
-# github.com/shirou/gopsutil/v3 v3.21.5
+# github.com/shirou/gopsutil/v3 v3.21.8
 ## explicit; go 1.15
 github.com/shirou/gopsutil/v3/internal/common
 github.com/shirou/gopsutil/v3/mem
@@ -523,7 +523,7 @@ golang.org/x/oauth2/jwt
 # golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 ## explicit
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c
+# golang.org/x/sys v0.0.0-20210902050250-f475640dd07b
 ## explicit; go 1.17
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/plan9
