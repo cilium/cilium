@@ -23,11 +23,6 @@ func (c rootDirCheck) Name() string {
 }
 
 func (c rootDirCheck) Run() (checkResult, string) {
-	goPath := os.Getenv("GOPATH")
-	if goPath == "" {
-		return checkWarning, "$GOPATH is not set"
-	}
-
 	dir, err := os.Getwd()
 	if err != nil {
 		return checkError, fmt.Sprintf("cannot get working directory: %s", err)
@@ -40,8 +35,8 @@ func (c rootDirCheck) Run() (checkResult, string) {
 		case err == nil && info.Mode().IsDir():
 			if dir != os.ExpandEnv(c.rootDir) {
 				foundDir := dir
-				if strings.HasPrefix(dir, goPath+"/") {
-					foundDir = "$GOPATH/" + dir[len(goPath)+1:]
+				if strings.HasPrefix(dir, goPath()+"/") {
+					foundDir = "$GOPATH/" + dir[len(goPath())+1:]
 				}
 				return checkWarning, fmt.Sprintf("found %s, want %s", foundDir, c.rootDir)
 			}
