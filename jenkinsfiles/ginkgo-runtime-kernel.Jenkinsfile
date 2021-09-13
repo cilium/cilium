@@ -47,7 +47,12 @@ pipeline {
     stages {
         stage('Set build name') {
             when {
-                not {environment name: 'GIT_BRANCH', value: 'origin/master'}
+                not {
+                    anyOf {
+                        environment name: 'ghprbPullTitle', value: null
+                        environment name: 'ghprbPullLink', value: null
+                    }
+                }
             }
             steps {
                    script {
