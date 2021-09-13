@@ -32,8 +32,9 @@ func (s *podToExternalWorkload) Run(ctx context.Context, t *check.Test) {
 	var i int
 
 	for _, pod := range t.Context().ClientPods() {
-		for _, wl := range t.Context().ExternalWorkloads() {
+		pod := pod // copy to avoid memory aliasing when using reference
 
+		for _, wl := range t.Context().ExternalWorkloads() {
 			t.NewAction(s, fmt.Sprintf("ping-%d", i), &pod, wl).Run(func(a *check.Action) {
 				a.ExecInPod(ctx, ping(wl))
 

@@ -48,8 +48,9 @@ func (s *podToHost) Run(ctx context.Context, t *check.Test) {
 	var i int
 
 	for _, pod := range t.Context().ClientPods() {
-		for _, node := range nodes {
+		pod := pod // copy to avoid memory aliasing when using reference
 
+		for _, node := range nodes {
 			t.NewAction(s, fmt.Sprintf("ping-%d", i), &pod, node).Run(func(a *check.Action) {
 				a.ExecInPod(ctx, ping(node))
 
