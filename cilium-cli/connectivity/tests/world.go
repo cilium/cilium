@@ -44,6 +44,8 @@ func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
 	var i int
 
 	for _, client := range t.Context().ClientPods() {
+		client := client // copy to avoid memory aliasing when using reference
+
 		// With http, over port 80.
 		t.NewAction(s, fmt.Sprintf("http-to-one-one-one-one-%d", i), &client, http).Run(func(a *check.Action) {
 			a.ExecInPod(ctx, curl(http))

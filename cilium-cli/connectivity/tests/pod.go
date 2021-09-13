@@ -36,8 +36,9 @@ func (s *podToPod) Run(ctx context.Context, t *check.Test) {
 	var i int
 
 	for _, client := range t.Context().ClientPods() {
-		for _, echo := range t.Context().EchoPods() {
+		client := client // copy to avoid memory aliasing when using reference
 
+		for _, echo := range t.Context().EchoPods() {
 			t.NewAction(s, fmt.Sprintf("curl-%d", i), &client, echo).Run(func(a *check.Action) {
 				a.ExecInPod(ctx, curl(echo))
 
