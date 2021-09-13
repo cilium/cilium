@@ -7,16 +7,37 @@ linters:
   disable-all: true
   enable:
     - goerr113
+    - gofmt
     - goimports
+    - gosec
+    - gosimple
     - govet
     - ineffassign
     - misspell
     - revive
     - staticcheck
+    - structcheck
+    - typecheck
     - unused
     - varcheck
 
+linters-settings:
+  gosimple:
+    go: "1.17"
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment
+      - shadow
+  staticcheck:
+    go: "1.17"
+  unused:
+    go: "1.17"
+
 issues:
+  # This also warns about credential name variables which are false positives.
+  exclude:
+    - G101 # gosec: Potential hardcoded credentials
   exclude-rules:
       # Disallows any kind of `fmt.Errorf("%s is too high", bar)`, too opinionated.
     - linters: [goerr113]
