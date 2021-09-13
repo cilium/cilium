@@ -21,7 +21,7 @@ verify if and what policy rules apply between two
 endpoints. We can use the ``cilium policy trace`` to simulate a policy decision 
 between the source and destination endpoints.
 
-We will use the example from the `Minikube Getting Started Guide <https://cilium.readthedocs.io/en/latest/gettingstarted/minikube/#getting-started-using-minikube>`_ to trace the policy. In this example, there is:
+We will use the example from the `Identity-Aware and HTTP-Aware Policy Enforcement Guide <https://cilium.readthedocs.io/en/latest/gettingstarted/http/>`_ to trace the policy. In this example, there is:
 
 * ``deathstar`` service identified by labels: ``org=empire, class=deathstar``. The service is backed by two pods.
 * ``tiefighter`` spaceship client pod with labels: ``org=empire, class=tiefighter``
