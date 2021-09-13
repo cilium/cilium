@@ -46,16 +46,3 @@ When a tag is pushed, a GitHub Action job takes care of creating a new GitHub
 draft release, building artifacts and attaching them to the draft release. Once
 the draft is ready, copy & paste the generated release notes manually and publish
 the release.
-
-## Update stable.txt
-
-The Cilium repository uses the version specified in `stable.txt` in the master branch
-for its CI workflows. Update `stable.txt` when Cilium needs to pick up this new release
-for its CI workflows:
-
-    git checkout -b pr/update-stable-to-$RELEASE
-    echo $RELEASE > stable.txt
-    git add stable.txt
-    git commit -s -m "Update the stable version to $RELEASE"
-
-Then open a pull request against `master` branch.
