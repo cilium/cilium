@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -170,12 +171,17 @@ func _ipSecReplacePolicyInFwd(src, dst, tmplSrc, tmplDst *net.IPNet, tunnel bool
 		policy.Mark = &netlink.XfrmMark{
 			Mask: linux_defaults.IPsecMarkMaskIn,
 		}
-		if tunnel {
-			// Required as this policy with the following mark does not have a
-			// corresponding XFRM state matching it. The XFRM state for Dir=In
-			// has mark for decryption only. If we don't mark this optional,
-			// then we'll get a packet drop with the reason as
-			// XfrmInTmplMismatch.
+		if tunnel || option.Config.EnableEndpointRoutes {
+			// Required for tunneling mode as this policy with the following
+			// mark does not have a corresponding XFRM state matching it. The
+			// XFRM state for Dir=In has mark for decryption only. If we don't
+			// mark this optional, then we'll get a packet drop with the
+			// reason as XfrmInTmplMismatch.
+			// Required for endpoint routes because packets may have either the
+			// decrypt or the proxy mark when attempting to match them against
+			// XFRM policies, depending on whether the connection goes through
+			// the proxy. If not marked optional, packets are dropped with
+			// XfrmInNoPols.
 			optional = 1
 			policy.Mark.Value = linux_defaults.RouteMarkToProxy
 		} else {
