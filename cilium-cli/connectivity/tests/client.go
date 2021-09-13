@@ -35,12 +35,16 @@ func (s *clientToClient) Run(ctx context.Context, t *check.Test) {
 	var i int
 
 	for _, src := range t.Context().ClientPods() {
+		src := src // copy to avoid memory aliasing when using reference
+
 		for _, dst := range t.Context().ClientPods() {
 			if src.Pod.Status.PodIP == dst.Pod.Status.PodIP {
 				// Currently we only get flows once per IP,
 				// skip pings to self.
 				continue
 			}
+
+			dst := dst // copy to avoid memory aliasing when using reference
 
 			t.NewAction(s, fmt.Sprintf("ping-%d", i), &src, &dst).Run(func(a *check.Action) {
 				a.ExecInPod(ctx, ping(dst))

@@ -237,7 +237,7 @@ func (k *K8sStatusCollector) podStatus(ctx context.Context, status *Status, name
 
 	phaseCount, imageCount := MapCount{}, MapCount{}
 
-	for _, pod := range pods.Items {
+	for i, pod := range pods.Items {
 		phaseCount[string(pod.Status.Phase)]++
 
 		switch pod.Status.Phase {
@@ -253,7 +253,7 @@ func (k *K8sStatusCollector) podStatus(ctx context.Context, status *Status, name
 		}
 
 		if callback != nil {
-			callback(ctx, status, name, &pod)
+			callback(ctx, status, name, &pods.Items[i])
 		}
 	}
 
