@@ -741,8 +741,8 @@ func (a *Action) matchAllFlowRequirements(ctx context.Context, reqs []filters.Fl
 	a.flowsMu.Lock()
 	defer a.flowsMu.Unlock()
 
-	for _, req := range reqs {
-		res := a.matchFlowRequirements(ctx, a.flows, &req)
+	for i := range reqs {
+		res := a.matchFlowRequirements(ctx, a.flows, &reqs[i])
 		//TODO(timo): The matcher should probably take in all requirements
 		// and return its verdict in a single struct.
 		out.Merge(&res)

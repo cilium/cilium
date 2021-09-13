@@ -35,8 +35,9 @@ func (s *podToService) Run(ctx context.Context, t *check.Test) {
 	var i int
 
 	for _, pod := range t.Context().ClientPods() {
-		for _, svc := range t.Context().EchoServices() {
+		pod := pod // copy to avoid memory aliasing when using reference
 
+		for _, svc := range t.Context().EchoServices() {
 			t.NewAction(s, fmt.Sprintf("curl-%d", i), &pod, svc).Run(func(a *check.Action) {
 				a.ExecInPod(ctx, curl(svc))
 
@@ -76,8 +77,12 @@ func (s *podToRemoteNodePort) Run(ctx context.Context, t *check.Test) {
 	var i int
 
 	for _, pod := range t.Context().ClientPods() {
+		pod := pod // copy to avoid memory aliasing when using reference
+
 		for _, svc := range t.Context().EchoServices() {
 			for _, node := range t.Context().CiliumPods() {
+				node := node // copy to avoid memory aliasing when using reference
+
 				// Use Cilium Pods as a substitute for nodes accepting workloads.
 				if pod.Pod.Status.HostIP != node.Pod.Status.HostIP {
 					// If src and dst pod are running on different nodes,
@@ -117,8 +122,12 @@ func (s *podToLocalNodePort) Run(ctx context.Context, t *check.Test) {
 	var i int
 
 	for _, pod := range t.Context().ClientPods() {
+		pod := pod // copy to avoid memory aliasing when using reference
+
 		for _, svc := range t.Context().EchoServices() {
 			for _, node := range t.Context().CiliumPods() {
+				node := node // copy to avoid memory aliasing when using reference
+
 				// Use Cilium Pods as a substitute for nodes accepting workloads.
 				if pod.Pod.Status.HostIP == node.Pod.Status.HostIP {
 					// If src and dst pod are running on the same node,
