@@ -17,6 +17,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	ciliumClientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -682,4 +683,8 @@ func (c *Client) GetRunningCiliumVersion(ctx context.Context, namespace string) 
 		return v, nil
 	}
 	return "", errors.New("unable to obtain cilium version: no cilium pods found")
+}
+
+func (c *Client) ListCiliumEgressNATPolicies(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumEgressNATPolicyList, error) {
+	return c.CiliumClientset.CiliumV2alpha1().CiliumEgressNATPolicies().List(ctx, opts)
 }

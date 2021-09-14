@@ -295,6 +295,20 @@ func (c *Collector) Run() error {
 			},
 		},
 		{
+			Description: "Collecting Cilium egress NAT policies",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.client.ListCiliumEgressNATPolicies(ctx, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect Cilium egress NAT policies: %w", err)
+				}
+				if err := writeYaml(absoluteTempPath(ciliumEgressNATPoliciesFileName), v); err != nil {
+					return fmt.Errorf("failed to collect Cilium egress NAT policies: %w", err)
+				}
+				return nil
+			},
+		},
+		{
 			Description: "Collecting Cilium endpoints",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
