@@ -1,5 +1,5 @@
 .. only:: not (epub or latex or html)
-  
+
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
     https://docs.cilium.io
@@ -137,13 +137,21 @@ This box will need to be updated when a new developer needs a new dependency
 that is not installed in the current version of the box, or if a dependency that
 is cached within the box becomes stale.
 
-Make sure that you update vagrant box versions in `test Vagrantfile <https://github.com/cilium/cilium/blob/master/test/Vagrantfile>`__
-and `root Vagrantfile <https://github.com/cilium/cilium/blob/master/Vagrantfile>`__ after new box is built and tested.
+Make sure that you update vagrant box versions in `vagrant_box_defaults.rb
+<https://github.com/cilium/cilium/blob/master/vagrant_box_defaults.rb>`__ after
+new box is built and tested.
 
 Once you change the image versions locally, create a branch named
 ``pr/update-packer-ci-build`` and open a PR ``github.com/cilium/cilium``.
 It is important that you use that branch name so the VM images are cached into
 packet.net before the branch is merged.
+
+Once this PR is merged, ask `Cilium's CI team
+<https://github.com/orgs/cilium/teams/vagrant>`_ to ensure:
+
+1. The autoscaler provisioning code is up to date.
+
+2. That all Jenkins nodes are scaled down and then back up.
 
 .. _Jenkins Packer Build: Vagrant-Master-Boxes-Packer-Build_
 .. _job: Vagrant-Master-Boxes-Packer-Build_
@@ -185,7 +193,7 @@ them all at once:
 | v1.8             | test-backport-1.8        |
 +------------------+--------------------------+
 
-For ``master`` PRs: on top of ``test-me-please``, one may use 
+For ``master`` PRs: on top of ``test-me-please``, one may use
 ``test-missed-k8s`` to trigger all non-required K8s versions on Kernel 4.9 as
 per the `Cilium CI matrix`_.
 
