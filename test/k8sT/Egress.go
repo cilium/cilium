@@ -25,7 +25,7 @@ import (
 )
 
 var _ = SkipDescribeIf(func() bool {
-	return helpers.RunsOnEKS() || helpers.RunsOnGKE() || helpers.DoesNotRunWithKubeProxyReplacement() || helpers.DoesNotExistNodeWithoutCilium()
+	return helpers.RunsOnEKS() || helpers.RunsOnGKE() || helpers.DoesNotRunWithKubeProxyReplacement() || helpers.DoesNotExistNodeWithoutCilium() || helpers.DoesNotRunOn54OrLaterKernel()
 }, "K8sEgressGatewayTest", func() {
 	var (
 		kubectl         *helpers.Kubectl
