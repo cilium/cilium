@@ -162,6 +162,7 @@ authenticator
 autoDirectNodeRoutes
 autoMount
 autoProtectPortRange
+autoscaler
 awk
 aws
 awsReleaseExcessIPs
@@ -415,12 +416,12 @@ healthz
 herokuapp
 hexData
 hoc
-hostRoot
 hostConfDirMountPath
 hostFirewall
 hostNetwork
 hostPath
 hostPort
+hostRoot
 hostServices
 hostname
 hostonlyif
@@ -703,6 +704,7 @@ queueing
 rbac
 rc
 rcW
+reStructuredText
 readCniConf
 readinessProbe
 readthedocs
@@ -725,7 +727,6 @@ repos
 reproducibility
 requireIPv
 resourceQuotas
-reStructuredText
 retpoline
 retransmission
 retrigger

@@ -522,6 +522,10 @@
      - int
      - ``9876``
    * - hostFirewall
+     - Configure the host firewall.
+     - object
+     - ``{"enabled":false}``
+   * - hostFirewall.enabled
      - Enables the enforcement of host policies in the eBPF datapath.
      - bool
      - ``false``
