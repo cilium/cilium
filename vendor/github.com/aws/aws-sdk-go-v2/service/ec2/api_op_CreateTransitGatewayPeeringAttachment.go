@@ -14,8 +14,9 @@ import (
 // Requests a transit gateway peering attachment between the specified transit
 // gateway (requester) and a peer transit gateway (accepter). The transit gateways
 // must be in different Regions. The peer transit gateway can be in your account or
-// a different AWS account. After you create the peering attachment, the owner of
-// the accepter transit gateway must accept the attachment request.
+// a different Amazon Web Services account. After you create the peering
+// attachment, the owner of the accepter transit gateway must accept the attachment
+// request.
 func (c *Client) CreateTransitGatewayPeeringAttachment(ctx context.Context, params *CreateTransitGatewayPeeringAttachmentInput, optFns ...func(*Options)) (*CreateTransitGatewayPeeringAttachmentOutput, error) {
 	if params == nil {
 		params = &CreateTransitGatewayPeeringAttachmentInput{}
@@ -33,7 +34,7 @@ func (c *Client) CreateTransitGatewayPeeringAttachment(ctx context.Context, para
 
 type CreateTransitGatewayPeeringAttachmentInput struct {
 
-	// The AWS account ID of the owner of the peer transit gateway.
+	// The ID of the Amazon Web Services account that owns the peer transit gateway.
 	//
 	// This member is required.
 	PeerAccountId *string

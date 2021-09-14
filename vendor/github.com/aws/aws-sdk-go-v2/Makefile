@@ -442,32 +442,24 @@ sdkv1check:
 ###################
 # Sandbox Testing #
 ###################
-.PHONY: sandbox-tests sandbox-build-go1.15 sandbox-go1.15 sandbox-test-go1.15 sandbox-build-go1.16 \
-sandbox-go1.16 sandbox-test-go1.16 sandbox-build-gotip sandbox-gotip sandbox-test-gotip update-aws-golang-tip
+.PHONY: sandbox-tests sandbox-build-% sandbox-run-% sandbox-test-% update-aws-golang-tip
 
-sandbox-tests: sandbox-test-go1.15 sandbox-test-go1.16 sandbox-test-gotip
+sandbox-tests: sandbox-test-go1.15 sandbox-test-go1.16 sandbox-test-go1.17 sandbox-test-gotip
 
-sandbox-build-go1.15:
-	docker build -f ./internal/awstesting/sandbox/Dockerfile.test.go1.15 -t "aws-sdk-go-v2-1.15" .
-sandbox-go1.15: sandbox-build-go1.15
-	docker run -i -t aws-sdk-go-v2-1.15 bash
-sandbox-test-go1.15: sandbox-build-go1.15
-	docker run -t aws-sdk-go-v2-1.15
-
-sandbox-build-go1.16:
-	docker build -f ./internal/awstesting/sandbox/Dockerfile.test.go1.16 -t "aws-sdk-go-v2-1.16" .
-sandbox-go1.16: sandbox-build-go1.16
-	docker run -i -t aws-sdk-go-v2-1.16 bash
-sandbox-test-go1.16: sandbox-build-go1.16
-	docker run -t aws-sdk-go-v2-1.16
-
-sandbox-build-gotip:
-	@echo "Run make update-aws-golang-tip, if this test fails because missing aws-golang:tip container"
-	docker build -f ./internal/awstesting/sandbox/Dockerfile.test.gotip -t "aws-sdk-go-v2-tip" .
-sandbox-gotip: sandbox-build-gotip
-	docker run -i -t aws-sdk-go-v2-tip bash
-sandbox-test-gotip: sandbox-build-gotip
-	docker run -t aws-sdk-go-v2-tip
+sandbox-build-%:
+	@# sandbox-build-go1.17
+	@# sandbox-build-gotip
+	docker build \
+		-f ./internal/awstesting/sandbox/Dockerfile.test.$(subst sandbox-build-,,$@) \
+		-t "aws-sdk-go-$(subst sandbox-build-,,$@)" .
+sandbox-run-%: sandbox-build-%
+	@# sandbox-run-go1.17
+	@# sandbox-run-gotip
+	docker run -i -t "aws-sdk-go-$(subst sandbox-run-,,$@)" bash
+sandbox-test-%: sandbox-build-%
+	@# sandbox-test-go1.17
+	@# sandbox-test-gotip
+	docker run -t "aws-sdk-go-$(subst sandbox-test-,,$@)"
 
 update-aws-golang-tip:
 	docker build --no-cache=true -f ./internal/awstesting/sandbox/Dockerfile.golang-tip -t "aws-golang:tip" .

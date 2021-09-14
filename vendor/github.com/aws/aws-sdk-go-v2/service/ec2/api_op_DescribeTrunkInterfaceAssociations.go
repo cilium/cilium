@@ -4,6 +4,7 @@ package ec2
 
 import (
 	"context"
+	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
@@ -11,7 +12,9 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes one or more network interface trunk associations.
+// This API action is currently in limited preview only. If you are interested in
+// using this feature, contact your account manager. Describes one or more network
+// interface trunk associations.
 func (c *Client) DescribeTrunkInterfaceAssociations(ctx context.Context, params *DescribeTrunkInterfaceAssociationsInput, optFns ...func(*Options)) (*DescribeTrunkInterfaceAssociationsOutput, error) {
 	if params == nil {
 		params = &DescribeTrunkInterfaceAssociationsInput{}
@@ -129,6 +132,96 @@ func (c *Client) addOperationDescribeTrunkInterfaceAssociationsMiddlewares(stack
 		return err
 	}
 	return nil
+}
+
+// DescribeTrunkInterfaceAssociationsAPIClient is a client that implements the
+// DescribeTrunkInterfaceAssociations operation.
+type DescribeTrunkInterfaceAssociationsAPIClient interface {
+	DescribeTrunkInterfaceAssociations(context.Context, *DescribeTrunkInterfaceAssociationsInput, ...func(*Options)) (*DescribeTrunkInterfaceAssociationsOutput, error)
+}
+
+var _ DescribeTrunkInterfaceAssociationsAPIClient = (*Client)(nil)
+
+// DescribeTrunkInterfaceAssociationsPaginatorOptions is the paginator options for
+// DescribeTrunkInterfaceAssociations
+type DescribeTrunkInterfaceAssociationsPaginatorOptions struct {
+	// The maximum number of results to return with a single call. To retrieve the
+	// remaining results, make another call with the returned nextToken value.
+	Limit int32
+
+	// Set to true if pagination should stop if the service returns a pagination token
+	// that matches the most recent token provided to the service.
+	StopOnDuplicateToken bool
+}
+
+// DescribeTrunkInterfaceAssociationsPaginator is a paginator for
+// DescribeTrunkInterfaceAssociations
+type DescribeTrunkInterfaceAssociationsPaginator struct {
+	options   DescribeTrunkInterfaceAssociationsPaginatorOptions
+	client    DescribeTrunkInterfaceAssociationsAPIClient
+	params    *DescribeTrunkInterfaceAssociationsInput
+	nextToken *string
+	firstPage bool
+}
+
+// NewDescribeTrunkInterfaceAssociationsPaginator returns a new
+// DescribeTrunkInterfaceAssociationsPaginator
+func NewDescribeTrunkInterfaceAssociationsPaginator(client DescribeTrunkInterfaceAssociationsAPIClient, params *DescribeTrunkInterfaceAssociationsInput, optFns ...func(*DescribeTrunkInterfaceAssociationsPaginatorOptions)) *DescribeTrunkInterfaceAssociationsPaginator {
+	if params == nil {
+		params = &DescribeTrunkInterfaceAssociationsInput{}
+	}
+
+	options := DescribeTrunkInterfaceAssociationsPaginatorOptions{}
+	if params.MaxResults != nil {
+		options.Limit = *params.MaxResults
+	}
+
+	for _, fn := range optFns {
+		fn(&options)
+	}
+
+	return &DescribeTrunkInterfaceAssociationsPaginator{
+		options:   options,
+		client:    client,
+		params:    params,
+		firstPage: true,
+	}
+}
+
+// HasMorePages returns a boolean indicating whether more pages are available
+func (p *DescribeTrunkInterfaceAssociationsPaginator) HasMorePages() bool {
+	return p.firstPage || p.nextToken != nil
+}
+
+// NextPage retrieves the next DescribeTrunkInterfaceAssociations page.
+func (p *DescribeTrunkInterfaceAssociationsPaginator) NextPage(ctx context.Context, optFns ...func(*Options)) (*DescribeTrunkInterfaceAssociationsOutput, error) {
+	if !p.HasMorePages() {
+		return nil, fmt.Errorf("no more pages available")
+	}
+
+	params := *p.params
+	params.NextToken = p.nextToken
+
+	var limit *int32
+	if p.options.Limit > 0 {
+		limit = &p.options.Limit
+	}
+	params.MaxResults = limit
+
+	result, err := p.client.DescribeTrunkInterfaceAssociations(ctx, &params, optFns...)
+	if err != nil {
+		return nil, err
+	}
+	p.firstPage = false
+
+	prevToken := p.nextToken
+	p.nextToken = result.NextToken
+
+	if p.options.StopOnDuplicateToken && prevToken != nil && p.nextToken != nil && *prevToken == *p.nextToken {
+		p.nextToken = nil
+	}
+
+	return result, nil
 }
 
 func newServiceMetadataMiddleware_opDescribeTrunkInterfaceAssociations(region string) *awsmiddleware.RegisterServiceMetadata {

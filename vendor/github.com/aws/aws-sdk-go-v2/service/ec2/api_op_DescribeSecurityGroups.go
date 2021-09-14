@@ -21,9 +21,9 @@ import (
 
 // Describes the specified security groups or all of your security groups. A
 // security group is for use with instances either in the EC2-Classic platform or
-// in a specific VPC. For more information, see Amazon EC2 Security Groups
+// in a specific VPC. For more information, see Amazon EC2 security groups
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-network-security.html)
-// in the Amazon Elastic Compute Cloud User Guide and Security Groups for Your VPC
+// in the Amazon Elastic Compute Cloud User Guide and Security groups for your VPC
 // (https://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/VPC_SecurityGroups.html)
 // in the Amazon Virtual Private Cloud User Guide.
 func (c *Client) DescribeSecurityGroups(ctx context.Context, params *DescribeSecurityGroupsInput, optFns ...func(*Options)) (*DescribeSecurityGroupsOutput, error) {

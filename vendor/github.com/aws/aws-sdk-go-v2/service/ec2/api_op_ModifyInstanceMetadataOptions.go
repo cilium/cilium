@@ -54,6 +54,9 @@ type ModifyInstanceMetadataOptionsInput struct {
 	// metadata.
 	HttpEndpoint types.InstanceMetadataEndpointState
 
+	// Enables or disables the IPv6 endpoint for the instance metadata service.
+	HttpProtocolIpv6 types.InstanceMetadataProtocolState
+
 	// The desired HTTP PUT response hop limit for instance metadata requests. The
 	// larger the number, the further instance metadata requests can travel. If no
 	// parameter is specified, the existing state is maintained. Possible values:

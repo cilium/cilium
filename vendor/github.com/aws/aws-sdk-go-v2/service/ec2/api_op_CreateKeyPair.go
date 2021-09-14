@@ -11,14 +11,15 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Creates a 2048-bit RSA key pair with the specified name. Amazon EC2 stores the
-// public key and displays the private key for you to save to a file. The private
-// key is returned as an unencrypted PEM encoded PKCS#1 private key. If a key with
-// the specified name already exists, Amazon EC2 returns an error. You can have up
-// to five thousand key pairs per Region. The key pair returned to you is available
-// only in the Region in which you create it. If you prefer, you can create your
-// own key pair using a third-party tool and upload it to any Region using
-// ImportKeyPair. For more information, see Key Pairs
+// Creates an ED25519 or 2048-bit RSA key pair with the specified name. Amazon EC2
+// stores the public key and displays the private key for you to save to a file.
+// The private key is returned as an unencrypted PEM encoded PKCS#1 private key. If
+// a key with the specified name already exists, Amazon EC2 returns an error. The
+// key pair returned to you is available only in the Amazon Web Services Region in
+// which you create it. If you prefer, you can create your own key pair using a
+// third-party tool and upload it to any Region using ImportKeyPair. You can have
+// up to 5,000 key pairs per Amazon Web Services Region. For more information, see
+// Amazon EC2 key pairs
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html) in the
 // Amazon Elastic Compute Cloud User Guide.
 func (c *Client) CreateKeyPair(ctx context.Context, params *CreateKeyPairInput, optFns ...func(*Options)) (*CreateKeyPairOutput, error) {
@@ -49,6 +50,10 @@ type CreateKeyPairInput struct {
 	// UnauthorizedOperation.
 	DryRun *bool
 
+	// The type of key pair. Note that ED25519 keys are not supported for Windows
+	// instances, EC2 Instance Connect, and EC2 Serial Console. Default: rsa
+	KeyType types.KeyType
+
 	// The tags to apply to the new key pair.
 	TagSpecifications []types.TagSpecification
 
@@ -61,7 +66,7 @@ type CreateKeyPairOutput struct {
 	// The SHA-1 digest of the DER encoded private key.
 	KeyFingerprint *string
 
-	// An unencrypted PEM encoded RSA private key.
+	// An unencrypted PEM encoded RSA or ED25519 private key.
 	KeyMaterial *string
 
 	// The name of the key pair.

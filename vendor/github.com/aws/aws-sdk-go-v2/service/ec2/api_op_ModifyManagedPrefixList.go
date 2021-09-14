@@ -49,6 +49,10 @@ type ModifyManagedPrefixListInput struct {
 	// UnauthorizedOperation.
 	DryRun *bool
 
+	// The maximum number of entries for the prefix list. You cannot modify the entries
+	// of a prefix list and modify the size of a prefix list at the same time.
+	MaxEntries *int32
+
 	// A name for the prefix list.
 	PrefixListName *string
 

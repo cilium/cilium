@@ -112,7 +112,11 @@ type RunInstancesInput struct {
 	// Reserved.
 	AdditionalInfo *string
 
-	// The block device mapping entries.
+	// The block device mapping, which defines the EBS volumes and instance store
+	// volumes to attach to the instance at launch. For more information, see Block
+	// device mappings
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/block-device-mapping-concepts.html)
+	// in the Amazon EC2 User Guide.
 	BlockDeviceMappings []types.BlockDeviceMapping
 
 	// Information about the Capacity Reservation targeting option. If you do not
@@ -233,7 +237,7 @@ type RunInstancesInput struct {
 	Ipv6Addresses []types.InstanceIpv6Address
 
 	// The ID of the kernel. We recommend that you use PV-GRUB instead of kernels and
-	// RAM disks. For more information, see  PV-GRUB
+	// RAM disks. For more information, see PV-GRUB
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/UserProvidedkernels.html)
 	// in the Amazon EC2 User Guide.
 	KernelId *string
@@ -283,7 +287,7 @@ type RunInstancesInput struct {
 	// launch. Check the kernel requirements for information about whether you need to
 	// specify a RAM disk. To find kernel requirements, go to the Amazon Web Services
 	// Resource Center and search for the kernel ID. We recommend that you use PV-GRUB
-	// instead of kernels and RAM disks. For more information, see  PV-GRUB
+	// instead of kernels and RAM disks. For more information, see PV-GRUB
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/UserProvidedkernels.html)
 	// in the Amazon EC2 User Guide.
 	RamdiskId *string

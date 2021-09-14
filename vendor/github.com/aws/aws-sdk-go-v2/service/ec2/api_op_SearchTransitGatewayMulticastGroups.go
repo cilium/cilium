@@ -60,14 +60,10 @@ type SearchTransitGatewayMulticastGroupsInput struct {
 	// * source-type - The source type. Valid
 	// values are igmp | static.
 	//
-	// * state - The state of the subnet association. Valid
-	// values are associated | associated | disassociated | disassociating.
+	// * subnet-id - The ID of the subnet.
 	//
 	// *
-	// subnet-id - The ID of the subnet.
-	//
-	// * transit-gateway-attachment-id - The id of
-	// the transit gateway attachment.
+	// transit-gateway-attachment-id - The id of the transit gateway attachment.
 	Filters []types.Filter
 
 	// The maximum number of results to return with a single call. To retrieve the

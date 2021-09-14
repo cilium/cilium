@@ -10,8 +10,9 @@ import (
 
 const (
 	// dateTimeFormat is a IMF-fixdate formatted RFC3339 section 5.6
-	dateTimeFormatInput  = "2006-01-02T15:04:05.999999999Z"
-	dateTimeFormatOutput = "2006-01-02T15:04:05.999Z"
+	dateTimeFormatInput    = "2006-01-02T15:04:05.999999999Z"
+	dateTimeFormatInputNoZ = "2006-01-02T15:04:05.999999999"
+	dateTimeFormatOutput   = "2006-01-02T15:04:05.999Z"
 
 	// httpDateFormat is a date time defined by RFC 7231#section-7.1.1.1
 	// IMF-fixdate with no UTC offset.
@@ -36,6 +37,7 @@ func FormatDateTime(value time.Time) string {
 func ParseDateTime(value string) (time.Time, error) {
 	return tryParse(value,
 		dateTimeFormatInput,
+		dateTimeFormatInputNoZ,
 		time.RFC3339Nano,
 		time.RFC3339,
 	)

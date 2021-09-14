@@ -2094,6 +2094,25 @@ func (InstanceMetadataOptionsState) Values() []InstanceMetadataOptionsState {
 	}
 }
 
+type InstanceMetadataProtocolState string
+
+// Enum values for InstanceMetadataProtocolState
+const (
+	InstanceMetadataProtocolStateDisabled InstanceMetadataProtocolState = "disabled"
+	InstanceMetadataProtocolStateEnabled  InstanceMetadataProtocolState = "enabled"
+)
+
+// Values returns all known values for InstanceMetadataProtocolState. Note that
+// this can be expanded in the future, and so it is only as up to date as the
+// client. The ordering of this slice is not guaranteed to be stable across
+// updates.
+func (InstanceMetadataProtocolState) Values() []InstanceMetadataProtocolState {
+	return []InstanceMetadataProtocolState{
+		"disabled",
+		"enabled",
+	}
+}
+
 type InstanceStateName string
 
 // Enum values for InstanceStateName
@@ -2522,6 +2541,15 @@ const (
 	InstanceTypeM6gd8xlarge     InstanceType = "m6gd.8xlarge"
 	InstanceTypeM6gd12xlarge    InstanceType = "m6gd.12xlarge"
 	InstanceTypeM6gd16xlarge    InstanceType = "m6gd.16xlarge"
+	InstanceTypeM6iLarge        InstanceType = "m6i.large"
+	InstanceTypeM6iXlarge       InstanceType = "m6i.xlarge"
+	InstanceTypeM6i2xlarge      InstanceType = "m6i.2xlarge"
+	InstanceTypeM6i4xlarge      InstanceType = "m6i.4xlarge"
+	InstanceTypeM6i8xlarge      InstanceType = "m6i.8xlarge"
+	InstanceTypeM6i12xlarge     InstanceType = "m6i.12xlarge"
+	InstanceTypeM6i16xlarge     InstanceType = "m6i.16xlarge"
+	InstanceTypeM6i24xlarge     InstanceType = "m6i.24xlarge"
+	InstanceTypeM6i32xlarge     InstanceType = "m6i.32xlarge"
 	InstanceTypeMac1Metal       InstanceType = "mac1.metal"
 	InstanceTypeX2gdMedium      InstanceType = "x2gd.medium"
 	InstanceTypeX2gdLarge       InstanceType = "x2gd.large"
@@ -2937,6 +2965,15 @@ func (InstanceType) Values() []InstanceType {
 		"m6gd.8xlarge",
 		"m6gd.12xlarge",
 		"m6gd.16xlarge",
+		"m6i.large",
+		"m6i.xlarge",
+		"m6i.2xlarge",
+		"m6i.4xlarge",
+		"m6i.8xlarge",
+		"m6i.12xlarge",
+		"m6i.16xlarge",
+		"m6i.24xlarge",
+		"m6i.32xlarge",
 		"mac1.metal",
 		"x2gd.medium",
 		"x2gd.large",
@@ -3022,6 +3059,24 @@ func (Ipv6SupportValue) Values() []Ipv6SupportValue {
 	}
 }
 
+type KeyType string
+
+// Enum values for KeyType
+const (
+	KeyTypeRsa     KeyType = "rsa"
+	KeyTypeEd25519 KeyType = "ed25519"
+)
+
+// Values returns all known values for KeyType. Note that this can be expanded in
+// the future, and so it is only as up to date as the client. The ordering of this
+// slice is not guaranteed to be stable across updates.
+func (KeyType) Values() []KeyType {
+	return []KeyType{
+		"rsa",
+		"ed25519",
+	}
+}
+
 type LaunchTemplateErrorCode string
 
 // Enum values for LaunchTemplateErrorCode
@@ -3102,6 +3157,25 @@ func (LaunchTemplateInstanceMetadataOptionsState) Values() []LaunchTemplateInsta
 	return []LaunchTemplateInstanceMetadataOptionsState{
 		"pending",
 		"applied",
+	}
+}
+
+type LaunchTemplateInstanceMetadataProtocolIpv6 string
+
+// Enum values for LaunchTemplateInstanceMetadataProtocolIpv6
+const (
+	LaunchTemplateInstanceMetadataProtocolIpv6Disabled LaunchTemplateInstanceMetadataProtocolIpv6 = "disabled"
+	LaunchTemplateInstanceMetadataProtocolIpv6Enabled  LaunchTemplateInstanceMetadataProtocolIpv6 = "enabled"
+)
+
+// Values returns all known values for LaunchTemplateInstanceMetadataProtocolIpv6.
+// Note that this can be expanded in the future, and so it is only as up to date as
+// the client. The ordering of this slice is not guaranteed to be stable across
+// updates.
+func (LaunchTemplateInstanceMetadataProtocolIpv6) Values() []LaunchTemplateInstanceMetadataProtocolIpv6 {
+	return []LaunchTemplateInstanceMetadataProtocolIpv6{
+		"disabled",
+		"enabled",
 	}
 }
 

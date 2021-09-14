@@ -11,12 +11,13 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Imports the public key from an RSA key pair that you created with a third-party
-// tool. Compare this with CreateKeyPair, in which Amazon Web Services creates the
-// key pair and gives the keys to you (Amazon Web Services keeps a copy of the
-// public key). With ImportKeyPair, you create the key pair and give Amazon Web
-// Services just the public key. The private key is never transferred between you
-// and Amazon Web Services. For more information about key pairs, see Key Pairs
+// Imports the public key from an RSA or ED25519 key pair that you created with a
+// third-party tool. Compare this with CreateKeyPair, in which Amazon Web Services
+// creates the key pair and gives the keys to you (Amazon Web Services keeps a copy
+// of the public key). With ImportKeyPair, you create the key pair and give Amazon
+// Web Services just the public key. The private key is never transferred between
+// you and Amazon Web Services. For more information about key pairs, see Amazon
+// EC2 key pairs
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html) in the
 // Amazon Elastic Compute Cloud User Guide.
 func (c *Client) ImportKeyPair(ctx context.Context, params *ImportKeyPairInput, optFns ...func(*Options)) (*ImportKeyPairOutput, error) {

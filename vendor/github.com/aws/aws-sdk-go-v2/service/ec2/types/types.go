@@ -517,7 +517,8 @@ type BlobAttributeValue struct {
 	noSmithyDocumentSerde
 }
 
-// Describes a block device mapping.
+// Describes a block device mapping, which defines the EBS volumes and instance
+// store volumes to attach to an instance at launch.
 type BlockDeviceMapping struct {
 
 	// The device name (for example, /dev/sdh or xvdh).
@@ -527,7 +528,9 @@ type BlockDeviceMapping struct {
 	// launched.
 	Ebs *EbsBlockDevice
 
-	// To omit the device from the block device mapping, specify an empty string.
+	// To omit the device from the block device mapping, specify an empty string. When
+	// this property is specified, the device is removed from the block device mapping
+	// regardless of the assigned value.
 	NoDevice *string
 
 	// The virtual device name (ephemeralN). Instance store volumes are numbered
@@ -2637,7 +2640,7 @@ type EventInformation struct {
 	// modify the EC2 Fleet or Spot Fleet request was accepted and is in progress.
 	//
 	// *
-	// modify_successful - The EC2 Fleet or Spot Fleet request was modified.
+	// modify_succeeded - The EC2 Fleet or Spot Fleet request was modified.
 	//
 	// *
 	// price_update - The price for a launch configuration was adjusted because it was
@@ -2920,8 +2923,8 @@ type ExportToS3Task struct {
 	DiskImageFormat DiskImageFormat
 
 	// The Amazon S3 bucket for the destination image. The destination bucket must
-	// exist and grant WRITE and READ_ACP permissions to the AWS account
-	// vm-import-export@amazon.com.
+	// exist and grant WRITE and READ_ACP permissions to the Amazon Web Services
+	// account vm-import-export@amazon.com.
 	S3Bucket *string
 
 	// The encryption key for your S3 bucket.
@@ -2941,8 +2944,8 @@ type ExportToS3TaskSpecification struct {
 	DiskImageFormat DiskImageFormat
 
 	// The Amazon S3 bucket for the destination image. The destination bucket must
-	// exist and grant WRITE and READ_ACP permissions to the AWS account
-	// vm-import-export@amazon.com.
+	// exist and grant WRITE and READ_ACP permissions to the Amazon Web Services
+	// account vm-import-export@amazon.com.
 	S3Bucket *string
 
 	// The image is written to a single object in the Amazon S3 bucket at the S3 key
@@ -4075,6 +4078,9 @@ type ImportImageTask struct {
 	// The architecture of the virtual machine. Valid values: i386 | x86_64 | arm64
 	Architecture *string
 
+	// The boot mode of the virtual machine.
+	BootMode BootModeValues
+
 	// A description of the import task.
 	Description *string
 
@@ -4090,8 +4096,7 @@ type ImportImageTask struct {
 	// The ID of the import image task.
 	ImportTaskId *string
 
-	// The identifier for the AWS Key Management Service (AWS KMS) customer master key
-	// (CMK) that was used to create the encrypted image.
+	// The identifier for the KMS key that was used to create the encrypted image.
 	KmsKeyId *string
 
 	// The ARNs of the license configurations that are associated with the import image
@@ -4118,6 +4123,9 @@ type ImportImageTask struct {
 
 	// The tags for the import image task.
 	Tags []Tag
+
+	// The usage operation value.
+	UsageOperation *string
 
 	noSmithyDocumentSerde
 }
@@ -4690,10 +4698,10 @@ type InstanceFamilyCreditSpecification struct {
 	noSmithyDocumentSerde
 }
 
-// Information about an IPv4 delegated prefix.
+// Information about an IPv4 prefix.
 type InstanceIpv4Prefix struct {
 
-	// One or more IPv4 delegated prefixes assigned to the network interface.
+	// One or more IPv4 prefixes assigned to the network interface.
 	Ipv4Prefix *string
 
 	noSmithyDocumentSerde
@@ -4717,10 +4725,10 @@ type InstanceIpv6AddressRequest struct {
 	noSmithyDocumentSerde
 }
 
-// Information about an IPv6 delegated prefix.
+// Information about an IPv6 prefix.
 type InstanceIpv6Prefix struct {
 
-	// One or more IPv6 delegated prefixes assigned to the network interface.
+	// One or more IPv6 prefixes assigned to the network interface.
 	Ipv6Prefix *string
 
 	noSmithyDocumentSerde
@@ -4745,6 +4753,9 @@ type InstanceMetadataOptionsRequest struct {
 	// If the parameter is not specified, the default state is enabled. If you specify
 	// a value of disabled, you will not be able to access your instance metadata.
 	HttpEndpoint InstanceMetadataEndpointState
+
+	// Enables or disables the IPv6 endpoint for the instance metadata service.
+	HttpProtocolIpv6 InstanceMetadataProtocolState
 
 	// The desired HTTP PUT response hop limit for instance metadata requests. The
 	// larger the number, the further instance metadata requests can travel. Default: 1
@@ -4773,6 +4784,10 @@ type InstanceMetadataOptionsResponse struct {
 	// If the parameter is not specified, the default state is enabled. If you specify
 	// a value of disabled, you will not be able to access your instance metadata.
 	HttpEndpoint InstanceMetadataEndpointState
+
+	// Whether or not the IPv6 endpoint for the instance metadata service is enabled or
+	// disabled.
+	HttpProtocolIpv6 InstanceMetadataProtocolState
 
 	// The desired HTTP PUT response hop limit for instance metadata requests. The
 	// larger the number, the further instance metadata requests can travel. Default: 1
@@ -4987,7 +5002,12 @@ type InstanceNetworkInterfaceSpecification struct {
 
 	// The index of the network card. Some instance types support multiple network
 	// cards. The primary network interface must be assigned to network card index 0.
-	// The default is network card index 0.
+	// The default is network card index 0. If you are using RequestSpotInstances
+	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_RequestSpotInstances.html)
+	// to create Spot Instances, omit this parameter because you can’t specify the
+	// network card index when using this API. To specify the network card index, use
+	// RunInstances
+	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_RunInstances.html).
 	NetworkCardIndex *int32
 
 	// The ID of the network interface. If you are creating a Spot Fleet, omit this
@@ -5427,23 +5447,25 @@ type IpRange struct {
 	noSmithyDocumentSerde
 }
 
-// Describes an IPv4 Prefix Delegation.
+// Describes an IPv4 prefix.
 type Ipv4PrefixSpecification struct {
 
-	// The IPv4 Prefix Delegation prefix. For information, see Prefix Delegation
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-prefix-delegation) in
-	// the Amazon Elastic Compute Cloud User Guide.
+	// The IPv4 prefix. For information, see  Assigning prefixes to Amazon EC2 network
+	// interfaces
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-prefix-eni.html) in the
+	// Amazon Elastic Compute Cloud User Guide.
 	Ipv4Prefix *string
 
 	noSmithyDocumentSerde
 }
 
-// Describes the IPv4 Prefix Delegation option for a network interface.
+// Describes the IPv4 prefix option for a network interface.
 type Ipv4PrefixSpecificationRequest struct {
 
-	// The IPv4 Prefix Delegation prefix. For information, see Prefix Delegation
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-prefix-delegation) in
-	// the Amazon Elastic Compute Cloud User Guide.
+	// The IPv4 prefix. For information, see  Assigning prefixes to Amazon EC2 network
+	// interfaces
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-prefix-eni.html) in the
+	// Amazon Elastic Compute Cloud User Guide.
 	Ipv4Prefix *string
 
 	noSmithyDocumentSerde
@@ -5497,19 +5519,19 @@ type Ipv6Pool struct {
 	noSmithyDocumentSerde
 }
 
-// Describes the IPv6 Prefix Delegation.
+// Describes the IPv6 prefix.
 type Ipv6PrefixSpecification struct {
 
-	// The IPv6 Prefix Delegation prefix.
+	// The IPv6 prefix.
 	Ipv6Prefix *string
 
 	noSmithyDocumentSerde
 }
 
-// Describes the IPv4 Prefix Delegation option for a network interface.
+// Describes the IPv4 prefix option for a network interface.
 type Ipv6PrefixSpecificationRequest struct {
 
-	// The IPv6 Prefix Delegation prefix.
+	// The IPv6 prefix.
 	Ipv6Prefix *string
 
 	noSmithyDocumentSerde
@@ -5542,10 +5564,26 @@ type Ipv6Range struct {
 // Describes a key pair.
 type KeyPairInfo struct {
 
-	// If you used CreateKeyPair to create the key pair, this is the SHA-1 digest of
-	// the DER encoded private key. If you used ImportKeyPair to provide Amazon Web
-	// Services the public key, this is the MD5 public key fingerprint as specified in
-	// section 4 of RFC4716.
+	// If you used CreateKeyPair to create the key pair:
+	//
+	// * For RSA key pairs, the key
+	// fingerprint is the SHA-1 digest of the DER encoded private key.
+	//
+	// * For ED25519
+	// key pairs, the key fingerprint is the base64-encoded SHA-256 digest, which is
+	// the default for OpenSSH, starting with OpenSSH 6.8
+	// (http://www.openssh.com/txt/release-6.8).
+	//
+	// If you used ImportKeyPair to provide
+	// Amazon Web Services the public key:
+	//
+	// * For RSA key pairs, the key fingerprint is
+	// the MD5 public key fingerprint as specified in section 4 of RFC4716.
+	//
+	// * For
+	// ED25519 key pairs, the key fingerprint is the base64-encoded SHA-256 digest,
+	// which is the default for OpenSSH, starting with OpenSSH 6.8
+	// (http://www.openssh.com/txt/release-6.8).
 	KeyFingerprint *string
 
 	// The name of the key pair.
@@ -5553,6 +5591,9 @@ type KeyPairInfo struct {
 
 	// The ID of the key pair.
 	KeyPairId *string
+
+	// The type of key pair.
+	KeyType KeyType
 
 	// Any tags applied to the key pair.
 	Tags []Tag
@@ -6050,6 +6091,10 @@ type LaunchTemplateInstanceMetadataOptions struct {
 	// a value of disabled, you will not be able to access your instance metadata.
 	HttpEndpoint LaunchTemplateInstanceMetadataEndpointState
 
+	// Enables or disables the IPv6 endpoint for the instance metadata service.
+	// Default: disabled
+	HttpProtocolIpv6 LaunchTemplateInstanceMetadataProtocolIpv6
+
 	// The desired HTTP PUT response hop limit for instance metadata requests. The
 	// larger the number, the further instance metadata requests can travel. Default: 1
 	// Possible values: Integers from 1 to 64
@@ -6086,6 +6131,10 @@ type LaunchTemplateInstanceMetadataOptionsRequest struct {
 	// If the parameter is not specified, the default state is enabled. If you specify
 	// a value of disabled, you will not be able to access your instance metadata.
 	HttpEndpoint LaunchTemplateInstanceMetadataEndpointState
+
+	// Enables or disables the IPv6 endpoint for the instance metadata service.
+	// Default: disabled
+	HttpProtocolIpv6 LaunchTemplateInstanceMetadataProtocolIpv6
 
 	// The desired HTTP PUT response hop limit for instance metadata requests. The
 	// larger the number, the further instance metadata requests can travel. Default: 1
@@ -6138,11 +6187,11 @@ type LaunchTemplateInstanceNetworkInterfaceSpecification struct {
 	// The type of network interface.
 	InterfaceType *string
 
-	// The number of IPv4 delegated prefixes that AWS automatically assigned to the
-	// network interface.
+	// The number of IPv4 prefixes that Amazon Web Services automatically assigned to
+	// the network interface.
 	Ipv4PrefixCount *int32
 
-	// One or more IPv4 delegated prefixes assigned to the network interface.
+	// One or more IPv4 prefixes assigned to the network interface.
 	Ipv4Prefixes []Ipv4PrefixSpecificationResponse
 
 	// The number of IPv6 addresses for the network interface.
@@ -6151,11 +6200,11 @@ type LaunchTemplateInstanceNetworkInterfaceSpecification struct {
 	// The IPv6 addresses for the network interface.
 	Ipv6Addresses []InstanceIpv6Address
 
-	// The number of IPv6 delegated prefixes that AWS automatically assigned to the
-	// network interface.
+	// The number of IPv6 prefixes that Amazon Web Services automatically assigned to
+	// the network interface.
 	Ipv6PrefixCount *int32
 
-	// One or more IPv6 delegated prefixes assigned to the network interface.
+	// One or more IPv6 prefixes assigned to the network interface.
 	Ipv6Prefixes []Ipv6PrefixSpecificationResponse
 
 	// The index of the network card.
@@ -6213,12 +6262,12 @@ type LaunchTemplateInstanceNetworkInterfaceSpecificationRequest struct {
 	// interface or omit this parameter. Valid values: interface | efa
 	InterfaceType *string
 
-	// The number of IPv4 delegated prefixes to be automatically assigned to the
-	// network interface. You cannot use this option if you use the Ipv4Prefix option.
+	// The number of IPv4 prefixes to be automatically assigned to the network
+	// interface. You cannot use this option if you use the Ipv4Prefix option.
 	Ipv4PrefixCount *int32
 
-	// One or more IPv4 delegated prefixes to be assigned to the network interface. You
-	// cannot use this option if you use the Ipv4PrefixCount option.
+	// One or more IPv4 prefixes to be assigned to the network interface. You cannot
+	// use this option if you use the Ipv4PrefixCount option.
 	Ipv4Prefixes []Ipv4PrefixSpecificationRequest
 
 	// The number of IPv6 addresses to assign to a network interface. Amazon EC2
@@ -6231,12 +6280,12 @@ type LaunchTemplateInstanceNetworkInterfaceSpecificationRequest struct {
 	// addresses.
 	Ipv6Addresses []InstanceIpv6AddressRequest
 
-	// The number of IPv6 delegated prefixes to be automatically assigned to the
-	// network interface. You cannot use this option if you use the Ipv6Prefix option.
+	// The number of IPv6 prefixes to be automatically assigned to the network
+	// interface. You cannot use this option if you use the Ipv6Prefix option.
 	Ipv6PrefixCount *int32
 
-	// One or more IPv6 delegated prefixes to be assigned to the network interface. You
-	// cannot use this option if you use the Ipv6PrefixCount option.
+	// One or more IPv6 prefixes to be assigned to the network interface. You cannot
+	// use this option if you use the Ipv6PrefixCount option.
 	Ipv6Prefixes []Ipv6PrefixSpecificationRequest
 
 	// The index of the network card. Some instance types support multiple network
@@ -7225,6 +7274,10 @@ type NetworkInfo struct {
 	// Indicates whether Elastic Network Adapter (ENA) is supported.
 	EnaSupport EnaSupport
 
+	// Indicates whether the instance type automatically encrypts in-transit traffic
+	// between instances.
+	EncryptionInTransitSupported *bool
+
 	// The maximum number of IPv4 addresses per network interface.
 	Ipv4AddressesPerInterface *int32
 
@@ -7358,13 +7411,13 @@ type NetworkInterface struct {
 	// The type of network interface.
 	InterfaceType NetworkInterfaceType
 
-	// The IPv4 Prefix Delegation prefixes that are assigned to the network interface.
+	// The IPv4 prefixes that are assigned to the network interface.
 	Ipv4Prefixes []Ipv4PrefixSpecification
 
 	// The IPv6 addresses associated with the network interface.
 	Ipv6Addresses []NetworkInterfaceIpv6Address
 
-	// The IPv6 Prefix Delegation prefixes that are assigned to the network interface.
+	// The IPv6 prefixes that are assigned to the network interface.
 	Ipv6Prefixes []Ipv6PrefixSpecification
 
 	// The MAC address.
@@ -7739,7 +7792,7 @@ type PeeringConnectionOptionsRequest struct {
 // Information about the transit gateway in the peering attachment.
 type PeeringTgwInfo struct {
 
-	// The AWS account ID of the owner of the transit gateway.
+	// The ID of the Amazon Web Services account that owns the transit gateway.
 	OwnerId *string
 
 	// The Region of the transit gateway.
@@ -8583,12 +8636,18 @@ type RequestLaunchTemplateData struct {
 	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTags.html).
 	TagSpecifications []LaunchTemplateTagSpecificationRequest
 
-	// The Base64-encoded user data to make available to the instance. For more
-	// information, see Running Commands on Your Linux Instance at Launch
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html) (Linux) and
+	// The user data to make available to the instance. You must provide base64-encoded
+	// text. User data is limited to 16 KB. For more information, see Running Commands
+	// on Your Linux Instance at Launch
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html) (Linux) or
 	// Adding User Data
 	// (https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/ec2-instance-metadata.html#instancedata-add-user-data)
-	// (Windows).
+	// (Windows). If you are creating the launch template for use with Batch, the user
+	// data must be provided in the  MIME multi-part archive format
+	// (https://cloudinit.readthedocs.io/en/latest/topics/format.html#mime-multi-part-archive).
+	// For more information, see Amazon EC2 user data in launch templates
+	// (https://docs.aws.amazon.com/batch/latest/userguide/launch-templates.html) in
+	// the Batch User Guide.
 	UserData *string
 
 	noSmithyDocumentSerde
@@ -10136,8 +10195,7 @@ type SnapshotTaskDetail struct {
 	// The format of the disk image from which the snapshot is created.
 	Format *string
 
-	// The identifier for the AWS Key Management Service (AWS KMS) customer master key
-	// (CMK) that was used to create the encrypted snapshot.
+	// The identifier for the KMS key that was used to create the encrypted snapshot.
 	KmsKeyId *string
 
 	// The percentage of completion for the import snapshot task.
@@ -11549,7 +11607,7 @@ type TransitGateway struct {
 	// The transit gateway options.
 	Options *TransitGatewayOptions
 
-	// The ID of the AWS account ID that owns the transit gateway.
+	// The ID of the Amazon Web Services account that owns the transit gateway.
 	OwnerId *string
 
 	// The state of the transit gateway.
@@ -11601,7 +11659,7 @@ type TransitGatewayAttachment struct {
 	// The ID of the resource.
 	ResourceId *string
 
-	// The ID of the AWS account that owns the resource.
+	// The ID of the Amazon Web Services account that owns the resource.
 	ResourceOwnerId *string
 
 	// The resource type. Note that the tgw-peering resource type has been deprecated.
@@ -11619,7 +11677,7 @@ type TransitGatewayAttachment struct {
 	// The ID of the transit gateway.
 	TransitGatewayId *string
 
-	// The ID of the AWS account that owns the transit gateway.
+	// The ID of the Amazon Web Services account that owns the transit gateway.
 	TransitGatewayOwnerId *string
 
 	noSmithyDocumentSerde
@@ -11799,7 +11857,8 @@ type TransitGatewayMulticastDomain struct {
 	// The options for the transit gateway multicast domain.
 	Options *TransitGatewayMulticastDomainOptions
 
-	// The ID of the AWS account that owns the transit gateway multiicast domain.
+	// The ID of the Amazon Web Services account that owns the transit gateway
+	// multicast domain.
 	OwnerId *string
 
 	// The state of the transit gateway multicast domain.
@@ -11826,8 +11885,8 @@ type TransitGatewayMulticastDomainAssociation struct {
 	// The ID of the resource.
 	ResourceId *string
 
-	// The ID of the AWS account that owns the transit gateway multicast domain
-	// association resource.
+	// The ID of the Amazon Web Services account that owns the transit gateway
+	// multicast domain association resource.
 	ResourceOwnerId *string
 
 	// The type of resource, for example a VPC attachment.
@@ -11848,7 +11907,7 @@ type TransitGatewayMulticastDomainAssociations struct {
 	// The ID of the resource.
 	ResourceId *string
 
-	// The ID of the AWS account that owns the resource.
+	// The ID of the Amazon Web Services account that owns the resource.
 	ResourceOwnerId *string
 
 	// The type of resource, for example a VPC attachment.
@@ -11905,8 +11964,8 @@ type TransitGatewayMulticastGroup struct {
 	// The ID of the resource.
 	ResourceId *string
 
-	// The ID of the AWS account that owns the transit gateway multicast domain group
-	// resource.
+	// The ID of the Amazon Web Services account that owns the transit gateway
+	// multicast domain group resource.
 	ResourceOwnerId *string
 
 	// The type of resource, for example a VPC attachment.
@@ -12249,7 +12308,7 @@ type TransitGatewayVpcAttachment struct {
 	// The ID of the VPC.
 	VpcId *string
 
-	// The ID of the AWS account that owns the VPC.
+	// The ID of the Amazon Web Services account that owns the VPC.
 	VpcOwnerId *string
 
 	noSmithyDocumentSerde
@@ -12270,8 +12329,9 @@ type TransitGatewayVpcAttachmentOptions struct {
 	noSmithyDocumentSerde
 }
 
-// Information about an association between a branch network interface with a trunk
-// network interface.
+// Currently available in limited preview only. If you are interested in using this
+// feature, contact your account manager. Information about an association between
+// a branch network interface with a trunk network interface.
 type TrunkInterfaceAssociation struct {
 
 	// The ID of the association.
@@ -12286,7 +12346,7 @@ type TrunkInterfaceAssociation struct {
 	// The interface protocol. Valid values are VLAN and GRE.
 	InterfaceProtocol InterfaceProtocolType
 
-	// The tags.
+	// The tags for the trunk interface association.
 	Tags []Tag
 
 	// The ID of the trunk network interface.
@@ -12450,9 +12510,9 @@ type UserBucketDetails struct {
 // Describes the user data for an instance.
 type UserData struct {
 
-	// The user data. If you are using an AWS SDK or command line tool, Base64-encoding
-	// is performed for you, and you can load the text from a file. Otherwise, you must
-	// provide Base64-encoded text.
+	// The user data. If you are using an Amazon Web Services SDK or command line tool,
+	// Base64-encoding is performed for you, and you can load the text from a file.
+	// Otherwise, you must provide Base64-encoded text.
 	Data *string
 
 	noSmithyDocumentSerde

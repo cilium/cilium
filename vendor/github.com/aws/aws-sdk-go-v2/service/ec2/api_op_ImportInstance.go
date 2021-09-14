@@ -13,8 +13,8 @@ import (
 
 // Creates an import instance task using metadata from the specified disk image.
 // This API action supports only single-volume VMs. To import multi-volume VMs, use
-// ImportImage instead. This API action is not supported by the AWS Command Line
-// Interface (AWS CLI). For information about using the Amazon EC2 CLI, which is
+// ImportImage instead. This API action is not supported by the Command Line
+// Interface (CLI). For information about using the Amazon EC2 CLI, which is
 // deprecated, see Importing a VM to Amazon EC2
 // (https://awsdocs.s3.amazonaws.com/EC2/ec2-clt.pdf#UsingVirtualMachinesinAmazonEC2)
 // in the Amazon EC2 CLI Reference PDF file. For information about the import
