@@ -35,7 +35,7 @@ type UnassignPrivateIpAddressesInput struct {
 	// This member is required.
 	NetworkInterfaceId *string
 
-	// The IPv4 Prefix Delegation prefixes to unassign from the network interface.
+	// The IPv4 prefixes to unassign from the network interface.
 	Ipv4Prefixes []string
 
 	// The secondary private IP addresses to unassign from the network interface. You

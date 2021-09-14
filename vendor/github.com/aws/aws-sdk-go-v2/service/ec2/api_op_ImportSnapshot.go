@@ -51,44 +51,44 @@ type ImportSnapshotInput struct {
 	DryRun *bool
 
 	// Specifies whether the destination snapshot of the imported image should be
-	// encrypted. The default CMK for EBS is used unless you specify a non-default AWS
-	// Key Management Service (AWS KMS) CMK using KmsKeyId. For more information, see
-	// Amazon EBS Encryption
+	// encrypted. The default KMS key for EBS is used unless you specify a non-default
+	// KMS key using KmsKeyId. For more information, see Amazon EBS Encryption
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html) in the
 	// Amazon Elastic Compute Cloud User Guide.
 	Encrypted *bool
 
-	// An identifier for the symmetric AWS Key Management Service (AWS KMS) customer
-	// master key (CMK) to use when creating the encrypted snapshot. This parameter is
-	// only required if you want to use a non-default CMK; if this parameter is not
-	// specified, the default CMK for EBS is used. If a KmsKeyId is specified, the
-	// Encrypted flag must also be set. The CMK identifier may be provided in any of
-	// the following formats:
+	// An identifier for the symmetric KMS key to use when creating the encrypted
+	// snapshot. This parameter is only required if you want to use a non-default KMS
+	// key; if this parameter is not specified, the default KMS key for EBS is used. If
+	// a KmsKeyId is specified, the Encrypted flag must also be set. The KMS key
+	// identifier may be provided in any of the following formats:
 	//
 	// * Key ID
 	//
-	// * Key alias. The alias ARN contains the
-	// arn:aws:kms namespace, followed by the Region of the CMK, the AWS account ID of
-	// the CMK owner, the alias namespace, and then the CMK alias. For example,
+	// * Key
+	// alias. The alias ARN contains the arn:aws:kms namespace, followed by the Region
+	// of the key, the Amazon Web Services account ID of the key owner, the alias
+	// namespace, and then the key alias. For example,
 	// arn:aws:kms:us-east-1:012345678910:alias/ExampleAlias.
 	//
 	// * ARN using key ID. The
-	// ID ARN contains the arn:aws:kms namespace, followed by the Region of the CMK,
-	// the AWS account ID of the CMK owner, the key namespace, and then the CMK ID. For
-	// example,
+	// ID ARN contains the arn:aws:kms namespace, followed by the Region of the key,
+	// the Amazon Web Services account ID of the key owner, the key namespace, and then
+	// the key ID. For example,
 	// arn:aws:kms:us-east-1:012345678910:key/abcd1234-a123-456a-a12b-a123b4cd56ef.
 	//
 	// *
 	// ARN using key alias. The alias ARN contains the arn:aws:kms namespace, followed
-	// by the Region of the CMK, the AWS account ID of the CMK owner, the alias
-	// namespace, and then the CMK alias. For example,
+	// by the Region of the key, the Amazon Web Services account ID of the key owner,
+	// the alias namespace, and then the key alias. For example,
 	// arn:aws:kms:us-east-1:012345678910:alias/ExampleAlias.
 	//
-	// AWS parses KmsKeyId
-	// asynchronously, meaning that the action you call may appear to complete even
-	// though you provided an invalid identifier. This action will eventually report
-	// failure. The specified CMK must exist in the Region that the snapshot is being
-	// copied to. Amazon EBS does not support asymmetric CMKs.
+	// Amazon Web Services
+	// parses KmsKeyId asynchronously, meaning that the action you call may appear to
+	// complete even though you provided an invalid identifier. This action will
+	// eventually report failure. The specified KMS key must exist in the Region that
+	// the snapshot is being copied to. Amazon EBS does not support asymmetric KMS
+	// keys.
 	KmsKeyId *string
 
 	// The name of the role to use when not using the default role, 'vmimport'.

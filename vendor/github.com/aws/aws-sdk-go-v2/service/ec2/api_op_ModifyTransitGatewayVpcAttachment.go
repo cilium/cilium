@@ -44,7 +44,7 @@ type ModifyTransitGatewayVpcAttachmentInput struct {
 	// UnauthorizedOperation.
 	DryRun *bool
 
-	// The new VPC attachment options. You cannot modify the IPv6 options.
+	// The new VPC attachment options.
 	Options *types.ModifyTransitGatewayVpcAttachmentRequestOptions
 
 	// The IDs of one or more subnets to remove.

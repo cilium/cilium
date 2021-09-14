@@ -1,3 +1,323 @@
+# Release (2021-08-27)
+
+## General Highlights
+* **Feature**: Updated `github.com/aws/smithy-go` to latest version
+* **Dependency Update**: Updated to the latest SDK module versions
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/credentials`: [v1.4.0](credentials/CHANGELOG.md#v140-2021-08-27)
+  * **Feature**: Adds support for Tags and TransitiveTagKeys to stscreds.AssumeRoleProvider. Closes https://github.com/aws/aws-sdk-go-v2/issues/723
+* `github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue`: [v1.2.0](feature/dynamodb/attributevalue/CHANGELOG.md#v120-2021-08-27)
+  * **Bug Fix**: Fix unmarshaler's decoding of AttributeValueMemberN into a type that is a string alias.
+* `github.com/aws/aws-sdk-go-v2/service/acmpca`: [v1.7.0](service/acmpca/CHANGELOG.md#v170-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/amplify`: [v1.5.0](service/amplify/CHANGELOG.md#v150-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/amplifybackend`: [v1.4.0](service/amplifybackend/CHANGELOG.md#v140-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/apigateway`: [v1.7.0](service/apigateway/CHANGELOG.md#v170-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/apigatewaymanagementapi`: [v1.4.0](service/apigatewaymanagementapi/CHANGELOG.md#v140-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/appflow`: [v1.7.0](service/appflow/CHANGELOG.md#v170-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/applicationinsights`: [v1.4.0](service/applicationinsights/CHANGELOG.md#v140-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/apprunner`: [v1.2.0](service/apprunner/CHANGELOG.md#v120-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/appstream`: [v1.6.0](service/appstream/CHANGELOG.md#v160-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/appsync`: [v1.6.0](service/appsync/CHANGELOG.md#v160-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/athena`: [v1.6.0](service/athena/CHANGELOG.md#v160-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/auditmanager`: [v1.8.0](service/auditmanager/CHANGELOG.md#v180-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/autoscalingplans`: [v1.5.0](service/autoscalingplans/CHANGELOG.md#v150-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/backup`: [v1.5.0](service/backup/CHANGELOG.md#v150-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/batch`: [v1.7.0](service/batch/CHANGELOG.md#v170-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/braket`: [v1.6.0](service/braket/CHANGELOG.md#v160-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/chimesdkidentity`: [v1.1.0](service/chimesdkidentity/CHANGELOG.md#v110-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/chimesdkmessaging`: [v1.1.0](service/chimesdkmessaging/CHANGELOG.md#v110-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/cloudtrail`: [v1.5.0](service/cloudtrail/CHANGELOG.md#v150-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/cloudwatchevents`: [v1.6.0](service/cloudwatchevents/CHANGELOG.md#v160-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/codeartifact`: [v1.5.0](service/codeartifact/CHANGELOG.md#v150-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/codebuild`: [v1.9.0](service/codebuild/CHANGELOG.md#v190-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/codecommit`: [v1.4.0](service/codecommit/CHANGELOG.md#v140-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/codeguruprofiler`: [v1.5.0](service/codeguruprofiler/CHANGELOG.md#v150-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/codestarnotifications`: [v1.4.0](service/codestarnotifications/CHANGELOG.md#v140-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/cognitoidentity`: [v1.5.0](service/cognitoidentity/CHANGELOG.md#v150-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider`: [v1.6.0](service/cognitoidentityprovider/CHANGELOG.md#v160-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/comprehend`: [v1.6.0](service/comprehend/CHANGELOG.md#v160-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/computeoptimizer`: [v1.8.0](service/computeoptimizer/CHANGELOG.md#v180-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/connectcontactlens`: [v1.5.0](service/connectcontactlens/CHANGELOG.md#v150-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/customerprofiles`: [v1.9.0](service/customerprofiles/CHANGELOG.md#v190-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/databasemigrationservice`: [v1.7.0](service/databasemigrationservice/CHANGELOG.md#v170-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/datasync`: [v1.6.0](service/datasync/CHANGELOG.md#v160-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/dax`: [v1.4.0](service/dax/CHANGELOG.md#v140-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/directoryservice`: [v1.5.0](service/directoryservice/CHANGELOG.md#v150-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/dlm`: [v1.5.0](service/dlm/CHANGELOG.md#v150-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/dynamodbstreams`: [v1.4.0](service/dynamodbstreams/CHANGELOG.md#v140-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/ec2`: [v1.15.0](service/ec2/CHANGELOG.md#v1150-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/ecrpublic`: [v1.5.0](service/ecrpublic/CHANGELOG.md#v150-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/efs`: [v1.6.0](service/efs/CHANGELOG.md#v160-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/eks`: [v1.9.0](service/eks/CHANGELOG.md#v190-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/emrcontainers`: [v1.6.0](service/emrcontainers/CHANGELOG.md#v160-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/eventbridge`: [v1.7.0](service/eventbridge/CHANGELOG.md#v170-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/finspace`: [v1.2.0](service/finspace/CHANGELOG.md#v120-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/finspacedata`: [v1.2.0](service/finspacedata/CHANGELOG.md#v120-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/firehose`: [v1.5.0](service/firehose/CHANGELOG.md#v150-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/fms`: [v1.7.0](service/fms/CHANGELOG.md#v170-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/forecast`: [v1.9.0](service/forecast/CHANGELOG.md#v190-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/forecastquery`: [v1.4.0](service/forecastquery/CHANGELOG.md#v140-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/frauddetector`: [v1.7.0](service/frauddetector/CHANGELOG.md#v170-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/fsx`: [v1.8.0](service/fsx/CHANGELOG.md#v180-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/gamelift`: [v1.6.0](service/gamelift/CHANGELOG.md#v160-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/glue`: [v1.11.0](service/glue/CHANGELOG.md#v1110-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/groundstation`: [v1.6.0](service/groundstation/CHANGELOG.md#v160-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/guardduty`: [v1.5.0](service/guardduty/CHANGELOG.md#v150-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/health`: [v1.7.0](service/health/CHANGELOG.md#v170-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/healthlake`: [v1.6.0](service/healthlake/CHANGELOG.md#v160-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/iot`: [v1.10.0](service/iot/CHANGELOG.md#v1100-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/iot1clickdevicesservice`: [v1.4.0](service/iot1clickdevicesservice/CHANGELOG.md#v140-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/iotanalytics`: [v1.5.0](service/iotanalytics/CHANGELOG.md#v150-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/iotdataplane`: [v1.4.0](service/iotdataplane/CHANGELOG.md#v140-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/iotfleethub`: [v1.5.0](service/iotfleethub/CHANGELOG.md#v150-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/iotsitewise`: [v1.11.0](service/iotsitewise/CHANGELOG.md#v1110-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/ivs`: [v1.6.0](service/ivs/CHANGELOG.md#v160-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/lakeformation`: [v1.5.0](service/lakeformation/CHANGELOG.md#v150-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/lexmodelsv2`: [v1.6.0](service/lexmodelsv2/CHANGELOG.md#v160-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/lexruntimev2`: [v1.3.0](service/lexruntimev2/CHANGELOG.md#v130-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/licensemanager`: [v1.7.0](service/licensemanager/CHANGELOG.md#v170-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/lightsail`: [v1.10.0](service/lightsail/CHANGELOG.md#v1100-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/lookoutequipment`: [v1.3.0](service/lookoutequipment/CHANGELOG.md#v130-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/lookoutmetrics`: [v1.3.0](service/lookoutmetrics/CHANGELOG.md#v130-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/macie2`: [v1.9.0](service/macie2/CHANGELOG.md#v190-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/mediaconvert`: [v1.10.0](service/mediaconvert/CHANGELOG.md#v1100-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/mediapackage`: [v1.7.0](service/mediapackage/CHANGELOG.md#v170-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/mediapackagevod`: [v1.7.0](service/mediapackagevod/CHANGELOG.md#v170-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/mq`: [v1.5.0](service/mq/CHANGELOG.md#v150-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/networkfirewall`: [v1.5.0](service/networkfirewall/CHANGELOG.md#v150-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/outposts`: [v1.7.0](service/outposts/CHANGELOG.md#v170-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/pi`: [v1.6.0](service/pi/CHANGELOG.md#v160-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/pinpointsmsvoice`: [v1.4.0](service/pinpointsmsvoice/CHANGELOG.md#v140-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/polly`: [v1.5.0](service/polly/CHANGELOG.md#v150-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/qldb`: [v1.6.0](service/qldb/CHANGELOG.md#v160-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/qldbsession`: [v1.5.0](service/qldbsession/CHANGELOG.md#v150-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/ram`: [v1.6.0](service/ram/CHANGELOG.md#v160-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/rekognition`: [v1.8.0](service/rekognition/CHANGELOG.md#v180-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi`: [v1.5.0](service/resourcegroupstaggingapi/CHANGELOG.md#v150-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/robomaker`: [v1.8.0](service/robomaker/CHANGELOG.md#v180-2021-08-27)
+  * **Bug Fix**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/route53recoverycontrolconfig`: [v1.1.0](service/route53recoverycontrolconfig/CHANGELOG.md#v110-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/route53resolver`: [v1.7.0](service/route53resolver/CHANGELOG.md#v170-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/s3`: [v1.14.0](service/s3/CHANGELOG.md#v1140-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/s3control`: [v1.10.0](service/s3control/CHANGELOG.md#v1100-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/s3outposts`: [v1.5.0](service/s3outposts/CHANGELOG.md#v150-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/servicecatalog`: [v1.5.0](service/servicecatalog/CHANGELOG.md#v150-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/servicecatalogappregistry`: [v1.4.0](service/servicecatalogappregistry/CHANGELOG.md#v140-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/signer`: [v1.5.0](service/signer/CHANGELOG.md#v150-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/ssooidc`: [v1.4.0](service/ssooidc/CHANGELOG.md#v140-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/storagegateway`: [v1.6.0](service/storagegateway/CHANGELOG.md#v160-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/synthetics`: [v1.6.0](service/synthetics/CHANGELOG.md#v160-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/textract`: [v1.5.0](service/textract/CHANGELOG.md#v150-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/transcribe`: [v1.7.0](service/transcribe/CHANGELOG.md#v170-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/transfer`: [v1.6.0](service/transfer/CHANGELOG.md#v160-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+* `github.com/aws/aws-sdk-go-v2/service/wafregional`: [v1.5.0](service/wafregional/CHANGELOG.md#v150-2021-08-27)
+  * **Feature**: Updated API model to latest revision.
+
+# Release (2021-08-19)
+
+## General Highlights
+* **Dependency Update**: Updated to the latest SDK module versions
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/apigateway`: [v1.6.0](service/apigateway/CHANGELOG.md#v160-2021-08-19)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/apigatewayv2`: [v1.5.0](service/apigatewayv2/CHANGELOG.md#v150-2021-08-19)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/appflow`: [v1.6.0](service/appflow/CHANGELOG.md#v160-2021-08-19)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/applicationautoscaling`: [v1.5.0](service/applicationautoscaling/CHANGELOG.md#v150-2021-08-19)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/cloud9`: [v1.6.0](service/cloud9/CHANGELOG.md#v160-2021-08-19)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/clouddirectory`: [v1.4.0](service/clouddirectory/CHANGELOG.md#v140-2021-08-19)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs`: [v1.6.0](service/cloudwatchlogs/CHANGELOG.md#v160-2021-08-19)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/codebuild`: [v1.8.0](service/codebuild/CHANGELOG.md#v180-2021-08-19)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/configservice`: [v1.7.0](service/configservice/CHANGELOG.md#v170-2021-08-19)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/costexplorer`: [v1.8.0](service/costexplorer/CHANGELOG.md#v180-2021-08-19)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/customerprofiles`: [v1.8.0](service/customerprofiles/CHANGELOG.md#v180-2021-08-19)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/databrew`: [v1.8.0](service/databrew/CHANGELOG.md#v180-2021-08-19)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/directoryservice`: [v1.4.0](service/directoryservice/CHANGELOG.md#v140-2021-08-19)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/ec2`: [v1.14.0](service/ec2/CHANGELOG.md#v1140-2021-08-19)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/elasticache`: [v1.9.0](service/elasticache/CHANGELOG.md#v190-2021-08-19)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/emr`: [v1.6.0](service/emr/CHANGELOG.md#v160-2021-08-19)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/iotsitewise`: [v1.10.0](service/iotsitewise/CHANGELOG.md#v1100-2021-08-19)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/lambda`: [v1.7.0](service/lambda/CHANGELOG.md#v170-2021-08-19)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/licensemanager`: [v1.6.0](service/licensemanager/CHANGELOG.md#v160-2021-08-19)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/memorydb`: [v1.0.0](service/memorydb/CHANGELOG.md#v100-2021-08-19)
+  * **Release**: New AWS service client module
+* `github.com/aws/aws-sdk-go-v2/service/quicksight`: [v1.8.0](service/quicksight/CHANGELOG.md#v180-2021-08-19)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/route53`: [v1.10.0](service/route53/CHANGELOG.md#v1100-2021-08-19)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/route53resolver`: [v1.6.0](service/route53resolver/CHANGELOG.md#v160-2021-08-19)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/s3`: [v1.13.0](service/s3/CHANGELOG.md#v1130-2021-08-19)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/sagemaker`: [v1.12.0](service/sagemaker/CHANGELOG.md#v1120-2021-08-19)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/sagemakerruntime`: [v1.5.0](service/sagemakerruntime/CHANGELOG.md#v150-2021-08-19)
+  * **Feature**: API client updated
+
+# Release (2021-08-12)
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/feature/cloudfront/sign`: [v1.3.1](feature/cloudfront/sign/CHANGELOG.md#v131-2021-08-12)
+  * **Bug Fix**: Update to not escape HTML when encoding the policy.
+* `github.com/aws/aws-sdk-go-v2/service/athena`: [v1.5.0](service/athena/CHANGELOG.md#v150-2021-08-12)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/autoscaling`: [v1.11.0](service/autoscaling/CHANGELOG.md#v1110-2021-08-12)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/chime`: [v1.8.0](service/chime/CHANGELOG.md#v180-2021-08-12)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/chimesdkidentity`: [v1.0.0](service/chimesdkidentity/CHANGELOG.md#v100-2021-08-12)
+  * **Release**: New AWS service client module
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/chimesdkmessaging`: [v1.0.0](service/chimesdkmessaging/CHANGELOG.md#v100-2021-08-12)
+  * **Release**: New AWS service client module
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/codebuild`: [v1.7.0](service/codebuild/CHANGELOG.md#v170-2021-08-12)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/connect`: [v1.6.0](service/connect/CHANGELOG.md#v160-2021-08-12)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/ebs`: [v1.5.0](service/ebs/CHANGELOG.md#v150-2021-08-12)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/ecs`: [v1.8.0](service/ecs/CHANGELOG.md#v180-2021-08-12)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/lexmodelsv2`: [v1.5.0](service/lexmodelsv2/CHANGELOG.md#v150-2021-08-12)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/lightsail`: [v1.9.0](service/lightsail/CHANGELOG.md#v190-2021-08-12)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/nimble`: [v1.3.0](service/nimble/CHANGELOG.md#v130-2021-08-12)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/rekognition`: [v1.7.0](service/rekognition/CHANGELOG.md#v170-2021-08-12)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/route53`: [v1.9.0](service/route53/CHANGELOG.md#v190-2021-08-12)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/snowdevicemanagement`: [v1.0.0](service/snowdevicemanagement/CHANGELOG.md#v100-2021-08-12)
+  * **Release**: New AWS service client module
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/ssm`: [v1.9.0](service/ssm/CHANGELOG.md#v190-2021-08-12)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/synthetics`: [v1.5.0](service/synthetics/CHANGELOG.md#v150-2021-08-12)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/wafv2`: [v1.7.0](service/wafv2/CHANGELOG.md#v170-2021-08-12)
+  * **Feature**: API client updated
+
 # Release (2021-08-04)
 
 ## General Highlights

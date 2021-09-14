@@ -137,6 +137,10 @@ type DescribeInstanceTypesInput struct {
 	// (ENA) is supported or required (required | supported | unsupported).
 	//
 	// *
+	// network-info.encryption-in-transit-supported - Indicates whether the instance
+	// type automatically encrypts in-transit traffic between instances.
+	//
+	// *
 	// network-info.ipv4-addresses-per-interface - The maximum number of private IPv4
 	// addresses per network interface.
 	//

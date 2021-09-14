@@ -60820,6 +60820,19 @@ func awsEc2query_deserializeDocumentImportImageTask(v **types.ImportImageTask, d
 				sv.Architecture = ptr.String(xtv)
 			}
 
+		case strings.EqualFold("bootMode", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.BootMode = types.BootModeValues(xtv)
+			}
+
 		case strings.EqualFold("description", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -60982,6 +60995,19 @@ func awsEc2query_deserializeDocumentImportImageTask(v **types.ImportImageTask, d
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentTagList(&sv.Tags, nodeDecoder); err != nil {
 				return err
+			}
+
+		case strings.EqualFold("usageOperation", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.UsageOperation = ptr.String(xtv)
 			}
 
 		default:
@@ -64138,6 +64164,19 @@ func awsEc2query_deserializeDocumentInstanceMetadataOptionsResponse(v **types.In
 			{
 				xtv := string(val)
 				sv.HttpEndpoint = types.InstanceMetadataEndpointState(xtv)
+			}
+
+		case strings.EqualFold("httpProtocolIpv6", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.HttpProtocolIpv6 = types.InstanceMetadataProtocolState(xtv)
 			}
 
 		case strings.EqualFold("httpPutResponseHopLimit", t.Name.Local):
@@ -69096,6 +69135,19 @@ func awsEc2query_deserializeDocumentKeyPairInfo(v **types.KeyPairInfo, decoder s
 				sv.KeyPairId = ptr.String(xtv)
 			}
 
+		case strings.EqualFold("keyType", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.KeyType = types.KeyType(xtv)
+			}
+
 		case strings.EqualFold("tagSet", t.Name.Local):
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentTagList(&sv.Tags, nodeDecoder); err != nil {
@@ -70752,6 +70804,19 @@ func awsEc2query_deserializeDocumentLaunchTemplateInstanceMetadataOptions(v **ty
 			{
 				xtv := string(val)
 				sv.HttpEndpoint = types.LaunchTemplateInstanceMetadataEndpointState(xtv)
+			}
+
+		case strings.EqualFold("httpProtocolIpv6", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.HttpProtocolIpv6 = types.LaunchTemplateInstanceMetadataProtocolIpv6(xtv)
 			}
 
 		case strings.EqualFold("httpPutResponseHopLimit", t.Name.Local):
@@ -75492,6 +75557,22 @@ func awsEc2query_deserializeDocumentNetworkInfo(v **types.NetworkInfo, decoder s
 			{
 				xtv := string(val)
 				sv.EnaSupport = types.EnaSupport(xtv)
+			}
+
+		case strings.EqualFold("encryptionInTransitSupported", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv, err := strconv.ParseBool(string(val))
+				if err != nil {
+					return fmt.Errorf("expected EncryptionInTransitSupported to be of type *bool, got %T instead", val)
+				}
+				sv.EncryptionInTransitSupported = ptr.Bool(xtv)
 			}
 
 		case strings.EqualFold("ipv4AddressesPerInterface", t.Name.Local):
@@ -122524,6 +122605,19 @@ func awsEc2query_deserializeOpDocumentImportImageOutput(v **ImportImageOutput, d
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentTagList(&sv.Tags, nodeDecoder); err != nil {
 				return err
+			}
+
+		case strings.EqualFold("usageOperation", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.UsageOperation = ptr.String(xtv)
 			}
 
 		default:

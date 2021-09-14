@@ -20,7 +20,7 @@ import (
 )
 
 // Describes the specified key pairs or all of your key pairs. For more information
-// about key pairs, see Key Pairs
+// about key pairs, see Amazon EC2 key pairs
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html) in the
 // Amazon Elastic Compute Cloud User Guide.
 func (c *Client) DescribeKeyPairs(ctx context.Context, params *DescribeKeyPairsInput, optFns ...func(*Options)) (*DescribeKeyPairsOutput, error) {

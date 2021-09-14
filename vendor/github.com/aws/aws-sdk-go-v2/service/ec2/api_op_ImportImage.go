@@ -36,6 +36,9 @@ type ImportImageInput struct {
 	// The architecture of the virtual machine. Valid values: i386 | x86_64 | arm64
 	Architecture *string
 
+	// The boot mode of the virtual machine.
+	BootMode types.BootModeValues
+
 	// The client-specific data.
 	ClientData *types.ClientData
 
@@ -55,9 +58,8 @@ type ImportImageInput struct {
 	DryRun *bool
 
 	// Specifies whether the destination AMI of the imported image should be encrypted.
-	// The default CMK for EBS is used unless you specify a non-default AWS Key
-	// Management Service (AWS KMS) CMK using KmsKeyId. For more information, see
-	// Amazon EBS Encryption
+	// The default KMS key for EBS is used unless you specify a non-default KMS key
+	// using KmsKeyId. For more information, see Amazon EBS Encryption
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html) in the
 	// Amazon Elastic Compute Cloud User Guide.
 	Encrypted *bool
@@ -65,37 +67,37 @@ type ImportImageInput struct {
 	// The target hypervisor platform. Valid values: xen
 	Hypervisor *string
 
-	// An identifier for the symmetric AWS Key Management Service (AWS KMS) customer
-	// master key (CMK) to use when creating the encrypted AMI. This parameter is only
-	// required if you want to use a non-default CMK; if this parameter is not
-	// specified, the default CMK for EBS is used. If a KmsKeyId is specified, the
-	// Encrypted flag must also be set. The CMK identifier may be provided in any of
-	// the following formats:
+	// An identifier for the symmetric KMS key to use when creating the encrypted AMI.
+	// This parameter is only required if you want to use a non-default KMS key; if
+	// this parameter is not specified, the default KMS key for EBS is used. If a
+	// KmsKeyId is specified, the Encrypted flag must also be set. The KMS key
+	// identifier may be provided in any of the following formats:
 	//
 	// * Key ID
 	//
-	// * Key alias. The alias ARN contains the
-	// arn:aws:kms namespace, followed by the Region of the CMK, the AWS account ID of
-	// the CMK owner, the alias namespace, and then the CMK alias. For example,
+	// * Key
+	// alias. The alias ARN contains the arn:aws:kms namespace, followed by the Region
+	// of the key, the Amazon Web Services account ID of the key owner, the alias
+	// namespace, and then the key alias. For example,
 	// arn:aws:kms:us-east-1:012345678910:alias/ExampleAlias.
 	//
 	// * ARN using key ID. The
-	// ID ARN contains the arn:aws:kms namespace, followed by the Region of the CMK,
-	// the AWS account ID of the CMK owner, the key namespace, and then the CMK ID. For
-	// example,
+	// ID ARN contains the arn:aws:kms namespace, followed by the Region of the key,
+	// the Amazon Web Services account ID of the key owner, the key namespace, and then
+	// the key ID. For example,
 	// arn:aws:kms:us-east-1:012345678910:key/abcd1234-a123-456a-a12b-a123b4cd56ef.
 	//
 	// *
 	// ARN using key alias. The alias ARN contains the arn:aws:kms namespace, followed
-	// by the Region of the CMK, the AWS account ID of the CMK owner, the alias
-	// namespace, and then the CMK alias. For example,
+	// by the Region of the key, the Amazon Web Services account ID of the key owner,
+	// the alias namespace, and then the key alias. For example,
 	// arn:aws:kms:us-east-1:012345678910:alias/ExampleAlias.
 	//
-	// AWS parses KmsKeyId
-	// asynchronously, meaning that the action you call may appear to complete even
-	// though you provided an invalid identifier. This action will eventually report
-	// failure. The specified CMK must exist in the Region that the AMI is being copied
-	// to. Amazon EBS does not support asymmetric CMKs.
+	// Amazon Web Services
+	// parses KmsKeyId asynchronously, meaning that the action you call may appear to
+	// complete even though you provided an invalid identifier. This action will
+	// eventually report failure. The specified KMS key must exist in the Region that
+	// the AMI is being copied to. Amazon EBS does not support asymmetric KMS keys.
 	KmsKeyId *string
 
 	// The ARNs of the license configurations.
@@ -104,10 +106,10 @@ type ImportImageInput struct {
 	// The license type to be used for the Amazon Machine Image (AMI) after importing.
 	// By default, we detect the source-system operating system (OS) and apply the
 	// appropriate license. Specify AWS to replace the source-system license with an
-	// AWS license, if appropriate. Specify BYOL to retain the source-system license,
-	// if appropriate. To use BYOL, you must have existing licenses with rights to use
-	// these licenses in a third party cloud, such as AWS. For more information, see
-	// Prerequisites
+	// Amazon Web Services license, if appropriate. Specify BYOL to retain the
+	// source-system license, if appropriate. To use BYOL, you must have existing
+	// licenses with rights to use these licenses in a third party cloud, such as
+	// Amazon Web Services. For more information, see Prerequisites
 	// (https://docs.aws.amazon.com/vm-import/latest/userguide/vmimport-image-import.html#prerequisites-image)
 	// in the VM Import/Export User Guide.
 	LicenseType *string
@@ -120,6 +122,12 @@ type ImportImageInput struct {
 
 	// The tags to apply to the import image task during creation.
 	TagSpecifications []types.TagSpecification
+
+	// The usage operation value. For more information, see AMI billing information
+	// fields
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/billing-info-fields.html)
+	// in the Amazon Elastic Compute Cloud User Guide.
+	UsageOperation *string
 
 	noSmithyDocumentSerde
 }
@@ -144,8 +152,8 @@ type ImportImageOutput struct {
 	// The task ID of the import image task.
 	ImportTaskId *string
 
-	// The identifier for the symmetric AWS Key Management Service (AWS KMS) customer
-	// master key (CMK) that was used to create the encrypted AMI.
+	// The identifier for the symmetric KMS key that was used to create the encrypted
+	// AMI.
 	KmsKeyId *string
 
 	// The ARNs of the license configurations.
@@ -171,6 +179,9 @@ type ImportImageOutput struct {
 
 	// Any tags assigned to the import image task.
 	Tags []types.Tag
+
+	// The usage operation value.
+	UsageOperation *string
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
