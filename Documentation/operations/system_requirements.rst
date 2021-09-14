@@ -185,6 +185,7 @@ Cilium Feature                              Minimum Kernel Version
 Full support for :ref:`session-affinity`    >= 5.7
 BPF-based proxy redirection                 >= 5.7
 BPF-based host routing                      >= 5.10
+:ref:`egress-gateway`                       >= 5.4
 =========================================== ===============================
 
 .. _req_kvstore:
