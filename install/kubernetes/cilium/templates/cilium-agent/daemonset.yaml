@@ -74,7 +74,7 @@ spec:
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         {{- if .Values.sleepAfterInit }}
         command:
-        - /bin/bash
+        - /usr/bin/env bash
         - -c
         - --
         args:

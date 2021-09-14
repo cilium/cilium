@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # This script checks Jenkins master Jobs and validated that the failed jobs has
 # been already triaged and upstream issue has been created if it's needed.

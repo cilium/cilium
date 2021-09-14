@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 export CILIUM_DS_TAG="k8s-app=cilium"
