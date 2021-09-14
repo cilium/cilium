@@ -532,8 +532,7 @@ func DoesNotRunOn419Kernel() bool {
 	return !RunsOn419Kernel()
 }
 
-// RunsOn419OrLaterKernel checks whether a test case is running on the bpf-next,
-// 4.19.x (x > 57), or 5.4 kernels.
+// RunsOn419OrLaterKernel checks whether a test case is running on 4.19.x (x > 57) or later kernel
 func RunsOn419OrLaterKernel() bool {
 	return RunsOnNetNextKernel() || RunsOn419Kernel() || RunsOn54Kernel()
 }
@@ -542,6 +541,16 @@ func RunsOn419OrLaterKernel() bool {
 // RunsOn419OrLaterKernel.
 func DoesNotRunOn419OrLaterKernel() bool {
 	return !RunsOn419OrLaterKernel()
+}
+
+// RunsOn54OrLaterKernel checks whether a test case is running on 5.4 or later kernel
+func RunsOn54OrLaterKernel() bool {
+	return RunsOnNetNextKernel() || RunsOn54Kernel()
+}
+
+// DoesNotRunOn54OrLaterKernel is the complement function of RunsOn54OrLaterKernel
+func DoesNotRunOn54OrLaterKernel() bool {
+	return !RunsOn54OrLaterKernel()
 }
 
 // RunsOnGKE returns true if the tests are running on GKE.
