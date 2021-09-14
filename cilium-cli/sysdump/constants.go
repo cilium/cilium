@@ -36,6 +36,7 @@ const (
 	ciliumClusterWideNetworkPoliciesFileName = "ciliumclusterwidenetworkpolicies-<ts>.yaml"
 	ciliumConfigMapFileName                  = "cilium-configmap-<ts>.yaml"
 	ciliumDaemonSetFileName                  = "cilium-daemonset-<ts>.yaml"
+	ciliumEgressNATPoliciesFileName          = "ciliumegressnatpolicies-<ts>.yaml"
 	ciliumEndpointsFileName                  = "ciliumendpoints-<ts>.yaml"
 	ciliumEtcdSecretFileName                 = "cilium-etcd-secrets-secret-<ts>.yaml"
 	ciliumIdentitiesFileName                 = "ciliumidentities-<ts>.yaml"
