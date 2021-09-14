@@ -12,14 +12,14 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Associates a branch network interface with a trunk network interface. Before you
-// create the association, run the create-network-interface
+// This API action is currently in limited preview only. If you are interested in
+// using this feature, contact your account manager. Associates a branch network
+// interface with a trunk network interface. Before you create the association, run
+// the create-network-interface
 // (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateNetworkInterface.html)
 // command and set --interface-type to trunk. You must also create a network
 // interface for each branch network interface that you want to associate with the
-// trunk network interface. For more information, see  Network interface trunking
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/eni-trunking.html) in the
-// Amazon Elastic Compute Cloud User Guide.
+// trunk network interface.
 func (c *Client) AssociateTrunkInterface(ctx context.Context, params *AssociateTrunkInterfaceInput, optFns ...func(*Options)) (*AssociateTrunkInterfaceOutput, error) {
 	if params == nil {
 		params = &AssociateTrunkInterfaceInput{}

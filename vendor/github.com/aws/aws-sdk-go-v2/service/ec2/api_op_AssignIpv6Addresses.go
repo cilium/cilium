@@ -21,9 +21,9 @@ import (
 // addresses or the IPv6 address count in the request. You can optionally use
 // Prefix Delegation on the network interface. You must specify either the IPV6
 // Prefix Delegation prefixes, or the IPv6 Prefix Delegation count. For
-// information, see Prefix Delegation
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-prefix-delegation) in
-// the Amazon Elastic Compute Cloud User Guide.
+// information, see  Assigning prefixes to Amazon EC2 network interfaces
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-prefix-eni.html) in the
+// Amazon Elastic Compute Cloud User Guide.
 func (c *Client) AssignIpv6Addresses(ctx context.Context, params *AssignIpv6AddressesInput, optFns ...func(*Options)) (*AssignIpv6AddressesOutput, error) {
 	if params == nil {
 		params = &AssignIpv6AddressesInput{}
@@ -57,13 +57,13 @@ type AssignIpv6AddressesInput struct {
 	// can't use this option if you're specifying a number of IPv6 addresses.
 	Ipv6Addresses []string
 
-	// The number of IPv6 Prefix Delegation prefixes that AWS automatically assigns to
+	// The number of IPv6 prefixes that Amazon Web Services automatically assigns to
 	// the network interface. You cannot use this option if you use the Ipv6Prefixes
 	// option.
 	Ipv6PrefixCount *int32
 
-	// One or more IPv6 Prefix Delegation prefixes assigned to the network interface.
-	// You cannot use this option if you use the Ipv6PrefixCount option.
+	// One or more IPv6 prefixes assigned to the network interface. You cannot use this
+	// option if you use the Ipv6PrefixCount option.
 	Ipv6Prefixes []string
 
 	noSmithyDocumentSerde
@@ -76,7 +76,7 @@ type AssignIpv6AddressesOutput struct {
 	// included.
 	AssignedIpv6Addresses []string
 
-	// The IPv6 Prefix Delegation prefixes that are assigned to the network interface.
+	// The IPv6 prefixes that are assigned to the network interface.
 	AssignedIpv6Prefixes []string
 
 	// The ID of the network interface.

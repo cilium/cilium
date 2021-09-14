@@ -71,7 +71,7 @@ type ModifyCapacityReservationInput struct {
 	// EndDateType is limited.
 	EndDateType types.EndDateType
 
-	// The number of instances for which to reserve capacity.
+	// The number of instances for which to reserve capacity. Valid range: 1 - 1000
 	InstanceCount *int32
 
 	noSmithyDocumentSerde

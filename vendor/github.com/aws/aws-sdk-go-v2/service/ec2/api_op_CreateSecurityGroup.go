@@ -13,9 +13,9 @@ import (
 
 // Creates a security group. A security group acts as a virtual firewall for your
 // instance to control inbound and outbound traffic. For more information, see
-// Amazon EC2 Security Groups
+// Amazon EC2 security groups
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-network-security.html)
-// in the Amazon Elastic Compute Cloud User Guide and Security Groups for Your VPC
+// in the Amazon Elastic Compute Cloud User Guide and Security groups for your VPC
 // (https://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/VPC_SecurityGroups.html)
 // in the Amazon Virtual Private Cloud User Guide. When you create a security
 // group, you specify a friendly name of your choice. You can have a security group

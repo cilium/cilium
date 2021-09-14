@@ -37,8 +37,7 @@ type UnassignIpv6AddressesInput struct {
 	// The IPv6 addresses to unassign from the network interface.
 	Ipv6Addresses []string
 
-	// One or moreIPv6 Prefix Delegation prefixes to unassign from the network
-	// interface.
+	// One or more IPv6 prefixes to unassign from the network interface.
 	Ipv6Prefixes []string
 
 	noSmithyDocumentSerde
@@ -52,8 +51,7 @@ type UnassignIpv6AddressesOutput struct {
 	// The IPv6 addresses that have been unassigned from the network interface.
 	UnassignedIpv6Addresses []string
 
-	// The IPv4 Prefix Delegation prefixes that have been unassigned from the network
-	// interface.
+	// The IPv4 prefixes that have been unassigned from the network interface.
 	UnassignedIpv6Prefixes []string
 
 	// Metadata pertaining to the operation's result.

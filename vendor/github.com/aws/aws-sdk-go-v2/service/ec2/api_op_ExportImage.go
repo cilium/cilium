@@ -44,7 +44,7 @@ type ExportImageInput struct {
 	ImageId *string
 
 	// Information about the destination Amazon S3 bucket. The bucket must exist and
-	// grant WRITE and READ_ACP permissions to the AWS account
+	// grant WRITE and READ_ACP permissions to the Amazon Web Services account
 	// vm-import-export@amazon.com.
 	//
 	// This member is required.

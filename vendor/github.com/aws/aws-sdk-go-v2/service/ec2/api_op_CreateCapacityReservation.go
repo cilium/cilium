@@ -50,7 +50,7 @@ func (c *Client) CreateCapacityReservation(ctx context.Context, params *CreateCa
 
 type CreateCapacityReservationInput struct {
 
-	// The number of instances for which to reserve capacity.
+	// The number of instances for which to reserve capacity. Valid range: 1 - 1000
 	//
 	// This member is required.
 	InstanceCount *int32

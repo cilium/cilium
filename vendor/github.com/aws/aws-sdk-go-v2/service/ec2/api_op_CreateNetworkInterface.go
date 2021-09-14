@@ -65,13 +65,13 @@ type CreateNetworkInterfaceInput struct {
 	// Amazon Elastic Compute Cloud User Guide.
 	InterfaceType types.NetworkInterfaceCreationType
 
-	// The number of IPv4 Prefix Delegation prefixes that AWS automatically assigns to
+	// The number of IPv4 prefixes that Amazon Web Services automatically assigns to
 	// the network interface. You cannot use this option if you use the Ipv4 Prefixes
 	// option.
 	Ipv4PrefixCount *int32
 
-	// One or moreIPv4 Prefix Delegation prefixes assigned to the network interface.
-	// You cannot use this option if you use the Ipv4PrefixCount option.
+	// One or more IPv4 prefixes assigned to the network interface. You cannot use this
+	// option if you use the Ipv4PrefixCount option.
 	Ipv4Prefixes []types.Ipv4PrefixSpecificationRequest
 
 	// The number of IPv6 addresses to assign to a network interface. Amazon EC2
@@ -86,13 +86,13 @@ type CreateNetworkInterfaceInput struct {
 	// addresses.
 	Ipv6Addresses []types.InstanceIpv6Address
 
-	// The number of IPv6 Prefix Delegation prefixes that AWS automatically assigns to
+	// The number of IPv6 prefixes that Amazon Web Services automatically assigns to
 	// the network interface. You cannot use this option if you use the Ipv6Prefixes
 	// option.
 	Ipv6PrefixCount *int32
 
-	// One or moreIPv6 Prefix Delegation prefixes assigned to the network interface.
-	// You cannot use this option if you use the Ipv6PrefixCount option.
+	// One or more IPv6 prefixes assigned to the network interface. You cannot use this
+	// option if you use the Ipv6PrefixCount option.
 	Ipv6Prefixes []types.Ipv6PrefixSpecificationRequest
 
 	// The primary private IPv4 address of the network interface. If you don't specify
