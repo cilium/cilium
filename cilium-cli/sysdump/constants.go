@@ -40,6 +40,7 @@ const (
 	ciliumEndpointsFileName                  = "ciliumendpoints-<ts>.yaml"
 	ciliumEtcdSecretFileName                 = "cilium-etcd-secrets-secret-<ts>.yaml"
 	ciliumIdentitiesFileName                 = "ciliumidentities-<ts>.yaml"
+	ciliumLocalRedirectPoliciesFileName      = "ciliumlocalredirectpolicies-<ts>.yaml"
 	ciliumLogsFileName                       = "logs-%s-%s-<ts>.log"
 	ciliumPreviousLogsFileName               = "logs-%s-%s-<ts>-prev.log"
 	ciliumNetworkPoliciesFileName            = "ciliumnetworkpolicies-<ts>.yaml"
