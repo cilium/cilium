@@ -974,63 +974,44 @@ were started before Cilium was deployed.
 Reporting a problem
 ===================
 
+Before you report a problem, make sure to retrieve the necessary information
+from your cluster before the failure state is lost.
+
 Automatic log & state collection
 --------------------------------
 
-Before you report a problem, make sure to retrieve the necessary information
-from your cluster before the failure state is lost. Cilium provides a script
-to automatically grab logs and retrieve debug information from all Cilium pods
-in the cluster.
+.. include:: ../gettingstarted/cli-download.rst
 
-The script has the following list of prerequisites:
-
-* Requires Python >= 2.7.*
-* Requires ``kubectl``.
-* ``kubectl`` should be pointing to your cluster before running the tool.
-
-You can download the latest version of the ``cilium-sysdump`` tool using the
-following command:
+Then, execute ``cilium sysdump`` command to collect troubleshooting information
+from your Kubernetes cluster:
 
 .. code-block:: shell-session
 
-   curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
-   python cilium-sysdump.zip
+   cilium sysdump
 
-You can specify from which nodes to collect the system dumps by passing
-node IP addresses via the ``--nodes`` argument and the duration of the time
-window for collecting logs via the ``--since`` argument (e.g. ``2m``, ``3h``).
+Note that by default ``cilium sysdump`` will attempt to collect as much logs as
+possible and for all the nodes in the cluster. If your cluster size is above 20
+nodes, consider setting the following options to limit the size of the sysdump.
+This is not required, but useful for those who have a constraint on bandwidth or
+upload size.
 
-.. code-block:: shell-session
-
-   python cilium-sysdump.zip --nodes $NODE1_IP,$NODE2_IP2 --since $LOG_DURATION
-
-Note that by default ``cilium-sysdump`` will attempt to collect as much logs as
-possible and for all the nodes in the cluster.
-
-If your cluster size is above 20 nodes, consider setting the following options
-to limit the size of the sysdump. This is not required, but useful for those
-who have a constraint on bandwidth or upload size.
-
-To make sure the tool collects as much relevant logs as possible, and to reduce
-the time required for this operation, it is advised to:
-
-* set the ``--since`` option to go back in time to when the issues started.
-* set the ``--nodes`` option to pick only a few nodes in case the cluster has
+* set the ``--node-list`` option to pick only a few nodes in case the cluster has
   many of them.
-* set the ``--size-limit`` option to limit the size of the log files (note:
+* set the ``--logs-since-time`` option to go back in time to when the issues started.
+* set the ``--logs-limit-bytes`` option to limit the size of the log files (note:
   passed onto ``kubectl logs``; does not apply to entire collection archive).
 
 Ideally, a sysdump that has a full history of select nodes, rather than a brief
-history of all the nodes, would be preferred (by using ``--nodes``). The second
-recommended way would be to use ``--since`` if you are able to narrow down when
-the issues started. Lastly, if the Cilium agent and Operator logs are too
-large, consider ``--size-limit``.
+history of all the nodes, would be preferred (by using ``--node-list``). The second
+recommended way would be to use ``--logs-since-time`` if you are able to narrow down
+when the issues started. Lastly, if the Cilium agent and Operator logs are too
+large, consider ``--logs-limit-bytes``.
 
 Use ``--help`` to see more options:
 
 .. code-block:: shell-session
 
-   python cilium-sysdump.zip --help
+   cilium sysdump --help
 
 Single Node Bugtool
 ~~~~~~~~~~~~~~~~~~~
