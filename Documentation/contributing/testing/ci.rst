@@ -137,8 +137,9 @@ This box will need to be updated when a new developer needs a new dependency
 that is not installed in the current version of the box, or if a dependency that
 is cached within the box becomes stale.
 
-Make sure that you update vagrant box versions in `test Vagrantfile <https://github.com/cilium/cilium/blob/master/test/Vagrantfile>`__
-and `root Vagrantfile <https://github.com/cilium/cilium/blob/master/Vagrantfile>`__ after new box is built and tested.
+Make sure that you update vagrant box versions in `vagrant_box_defaults.rb
+<https://github.com/cilium/cilium/blob/master/vagrant_box_defaults.rb>`__ after
+new box is built and tested.
 
 Once you change the image versions locally, create a branch named
 ``pr/update-packer-ci-build`` and open a PR ``github.com/cilium/cilium``.
