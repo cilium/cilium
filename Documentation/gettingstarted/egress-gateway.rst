@@ -130,6 +130,9 @@ on the interface they are assigned to, otherwise the return traffic won't be abl
 
 .. literalinclude:: ../../examples/kubernetes-egress-gateway/egress-ip-deployment.yaml
 
+Please keep in mind that the deployment is used only as an example how to set the egress IP, and it is not
+suitable for a production use case.
+
 Create Egress NAT Policy
 ========================
 
