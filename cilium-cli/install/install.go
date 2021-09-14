@@ -37,7 +37,7 @@ var (
 	agentTerminationGracePeriodSeconds = int64(1)
 	hostPathDirectoryOrCreate          = corev1.HostPathDirectoryOrCreate
 	hostPathFileOrCreate               = corev1.HostPathFileOrCreate
-	secretDefaultMode                  = int32(420)
+	secretDefaultMode                  = int32(0400)
 	operatorReplicas                   = int32(1)
 	operatorMaxSurge                   = intstr.FromInt(1)
 	operatorMaxUnavailable             = intstr.FromInt(1)
@@ -594,6 +594,7 @@ func (k *K8sInstaller) generateAgentDaemonSet() *appsv1.DaemonSet {
 							Name: "hubble-tls",
 							VolumeSource: corev1.VolumeSource{
 								Projected: &corev1.ProjectedVolumeSource{
+									DefaultMode: &secretDefaultMode,
 									Sources: []corev1.VolumeProjection{
 										{
 											Secret: &corev1.SecretProjection{

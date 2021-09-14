@@ -27,6 +27,7 @@ const (
 )
 
 var (
+	secretDefaultMode        = int32(0400)
 	relayReplicas            = int32(1)
 	relayPortIntstr          = intstr.FromInt(defaults.RelayPort)
 	deploymentMaxSurge       = intstr.FromInt(1)
@@ -168,6 +169,7 @@ func (k *K8sHubble) generateRelayDeployment() *appsv1.Deployment {
 							Name: "tls",
 							VolumeSource: corev1.VolumeSource{
 								Projected: &corev1.ProjectedVolumeSource{
+									DefaultMode: &secretDefaultMode,
 									Sources: []corev1.VolumeProjection{
 										{
 											Secret: &corev1.SecretProjection{

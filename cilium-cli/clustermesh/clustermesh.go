@@ -46,7 +46,7 @@ var (
 	replicas                 = int32(1)
 	deploymentMaxSurge       = intstr.FromInt(1)
 	deploymentMaxUnavailable = intstr.FromInt(1)
-	secretDefaultMode        = int32(420)
+	secretDefaultMode        = int32(0400)
 )
 
 var clusterRole = &rbacv1.ClusterRole{
