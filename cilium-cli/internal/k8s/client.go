@@ -688,3 +688,7 @@ func (c *Client) GetRunningCiliumVersion(ctx context.Context, namespace string) 
 func (c *Client) ListCiliumEgressNATPolicies(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumEgressNATPolicyList, error) {
 	return c.CiliumClientset.CiliumV2alpha1().CiliumEgressNATPolicies().List(ctx, opts)
 }
+
+func (c *Client) ListCiliumLocalRedirectPolicies(ctx context.Context, namespace string, opts metav1.ListOptions) (*ciliumv2.CiliumLocalRedirectPolicyList, error) {
+	return c.CiliumClientset.CiliumV2().CiliumLocalRedirectPolicies(namespace).List(ctx, opts)
+}
