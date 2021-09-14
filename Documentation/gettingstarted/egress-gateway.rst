@@ -12,6 +12,10 @@ Egress Gateway (beta)
 
 .. include:: ../beta.rst
 
+.. note::
+
+   Egress Gateway requires a 5.2 or more recent kernel.
+
 The egress gateway allows users to redirect egress pod traffic through
 specific, gateway nodes. Packets are masqueraded to the gateway node IP.
 

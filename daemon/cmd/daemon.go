@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
@@ -677,6 +678,11 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 			option.Config.EnableHostLegacyRouting = true
 			log.Infof("BPF masquerade could not be enabled. Falling back to legacy host routing (--%s=\"true\").",
 				option.EnableHostLegacyRouting)
+		}
+	}
+	if option.Config.EnableIPv4EgressGateway {
+		if !probes.NewProbeManager().GetMisc().HaveLargeInsnLimit {
+			return nil, nil, fmt.Errorf("egress gateway needs kernel 5.2 or newer")
 		}
 	}
 	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
