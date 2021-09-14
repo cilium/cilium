@@ -7,7 +7,7 @@ updates:
     open-pull-requests-limit: 1
     rebase-strategy: disabled
     labels:
-    - enhancement
+    - kind/enhancement
   - package-ecosystem: github-actions
     directory: /
     schedule:
@@ -15,4 +15,4 @@ updates:
     open-pull-requests-limit: 1
     rebase-strategy: disabled
     labels:
-    - enhancement
+    - kind/enhancement
