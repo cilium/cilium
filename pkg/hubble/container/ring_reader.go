@@ -121,9 +121,10 @@ func (r *RingReader) NextFollow(ctx context.Context) *v1.Event {
 	}
 }
 
-// Close waits for any method to return and closes the RingReader. It is not
+// Close waits for any spawned go routines to finish. It is not
 // required to call Close on a RingReader but it may be useful for specific
-// situations such as testing.
+// situations such as testing. Must not be called concurrently with NextFollow,
+// as otherwise NextFollow spawns new go routines that are not waited on.
 func (r *RingReader) Close() error {
 	r.wg.Wait()
 	return nil

@@ -289,11 +289,13 @@ func TestRingReader_NextFollow_WithEmptyRing(t *testing.T) {
 	reader := NewRingReader(ring, ring.LastWriteParallel())
 	ctx, cancel := context.WithCancel(context.Background())
 	c := make(chan *v1.Event)
+	done := make(chan struct{})
 	go func() {
 		select {
 		case <-ctx.Done():
 		case c <- reader.NextFollow(ctx):
 		}
+		close(done)
 	}()
 	select {
 	case <-c:
@@ -302,5 +304,6 @@ func TestRingReader_NextFollow_WithEmptyRing(t *testing.T) {
 		// the call blocked, we're good
 	}
 	cancel()
+	<-done
 	assert.Nil(t, reader.Close())
 }
