@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 // RingReader is a reader for a Ring container.
@@ -15,6 +16,7 @@ type RingReader struct {
 	ring          *Ring
 	idx           uint64
 	ctx           context.Context
+	mutex         lock.Mutex // protects writes to followChan
 	followChan    chan *v1.Event
 	followChanLen int
 	wg            sync.WaitGroup
@@ -75,16 +77,21 @@ func (r *RingReader) NextFollow(ctx context.Context) *v1.Event {
 	// if the context changed between invocations, we also have to restart
 	// readFrom, as the old readFrom instance will be using the old context.
 	if r.ctx != ctx {
+		r.mutex.Lock()
 		if r.followChan == nil {
 			r.followChan = make(chan *v1.Event, r.followChanLen)
 		}
+		r.mutex.Unlock()
+
 		r.wg.Add(1)
 		go func(ctx context.Context) {
 			r.ring.readFrom(ctx, r.idx, r.followChan)
+			r.mutex.Lock()
 			if ctx.Err() != nil && r.followChan != nil { // context is done
 				close(r.followChan)
 				r.followChan = nil
 			}
+			r.mutex.Unlock()
 			r.wg.Done()
 		}(ctx)
 		r.ctx = ctx
@@ -95,8 +102,12 @@ func (r *RingReader) NextFollow(ctx context.Context) *v1.Event {
 		}
 	}()
 
+	r.mutex.Lock()
+	followChan := r.followChan
+	r.mutex.Unlock()
+
 	select {
-	case e, ok := <-r.followChan:
+	case e, ok := <-followChan:
 		if !ok {
 			// the channel is closed so the context is done
 			return nil
