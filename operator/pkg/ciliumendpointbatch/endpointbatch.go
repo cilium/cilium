@@ -17,14 +17,7 @@ package ciliumendpointbatch
 import (
 	"time"
 
-	"golang.org/x/time/rate"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/fields"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/workqueue"
-
+	"github.com/cilium/cilium/operator/metrics"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -33,7 +26,15 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+
 	"github.com/sirupsen/logrus"
+	"golang.org/x/time/rate"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 )
 
 const (
@@ -229,7 +230,6 @@ func (c *CiliumEndpointBatchController) processNextWorkItem() bool {
 	return true
 }
 
-// TODO: Add metrics for failure and success rate of CEBs syncing with k8s-apiserver
 func (c *CiliumEndpointBatchController) handleErr(err error, key interface{}) {
 
 	if err == nil {
@@ -237,6 +237,8 @@ func (c *CiliumEndpointBatchController) handleErr(err error, key interface{}) {
 		return
 	}
 
+	// Increment error count for sync errors
+	metrics.CiliumEndpointBatchSyncErrors.WithLabelValues().Inc()
 	if c.queue.NumRequeues(key) < maxRetries {
 		c.queue.AddRateLimited(key)
 		return
@@ -251,6 +253,13 @@ func (c *CiliumEndpointBatchController) handleErr(err error, key interface{}) {
 
 // syncCeb reconciles the queued CEB with api-server.
 func (c *CiliumEndpointBatchController) syncCeb(key string) error {
+
+	// Update metrics
+	metrics.CiliumEndpointBatchDensity.WithLabelValues().Observe(float64(c.Manager.getCepCountInCeb(key)))
+	cepInsert, cepRemove := c.Manager.getCebMetricCountersAndClear(key)
+	metrics.CiliumEndpointsChangeCount.WithLabelValues(metrics.LabelValueCEPInsert).Observe(float64(cepInsert))
+	metrics.CiliumEndpointsChangeCount.WithLabelValues(metrics.LabelValueCEPRemove).Observe(float64(cepRemove))
+	metrics.CiliumEndpointBatchQueueDelay.WithLabelValues().Observe(c.Manager.getCEBQueueDelayInSeconds(key))
 
 	// Check the CEB exists is in cebStore i.e. in api-server copy of CEBs, if exist update or delete the CEB.
 	obj, exists, err := c.ciliumEndpointBatchStore.GetByKey(key)

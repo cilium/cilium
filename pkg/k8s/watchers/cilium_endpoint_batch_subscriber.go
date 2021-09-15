@@ -15,9 +15,12 @@
 package watchers
 
 import (
+	"time"
+
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/metrics"
 
 	"github.com/sirupsen/logrus"
 )
@@ -44,6 +47,8 @@ func (cs *cebSubscriber) OnAdd(ceb *cilium_v2a1.CiliumEndpointBatch) {
 		// LocalNode already has the latest CEP.
 		// Hence, skip processing endpointupdate for localNode CEPs.
 		if p := cs.kWatcher.endpointManager.LookupPodName(k8sUtils.GetObjNamespaceName(c)); p != nil {
+			timeSinceCepCreated := time.Since(p.GetCreatedAt())
+			metrics.EndpointPropagationDelay.WithLabelValues("").Observe(timeSinceCepCreated.Seconds())
 			continue
 		}
 		cs.kWatcher.endpointUpdated(nil, c)
@@ -96,6 +101,8 @@ func (cs *cebSubscriber) OnUpdate(oldCEB, newCEB *cilium_v2a1.CiliumEndpointBatc
 			// LocalNode already has the latest CEP.
 			// Hence, skip processing endpointupdate for localNode CEPs.
 			if p := cs.kWatcher.endpointManager.LookupPodName(k8sUtils.GetObjNamespaceName(c)); p != nil {
+				timeSinceCepCreated := time.Since(p.GetCreatedAt())
+				metrics.EndpointPropagationDelay.WithLabelValues("").Observe(timeSinceCepCreated.Seconds())
 				continue
 			}
 			cs.kWatcher.endpointUpdated(nil, c)

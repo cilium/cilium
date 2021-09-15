@@ -19,13 +19,12 @@ import (
 	"math/rand"
 	"time"
 
-	"k8s.io/client-go/util/workqueue"
-
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/lock"
+
 	"github.com/sirupsen/logrus"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/workqueue"
 )
 
 var (
@@ -43,6 +42,12 @@ type cebTracker struct {
 	ceb *cilium_v2.CiliumEndpointBatch
 	// set of CEPs to be removed in the CEB object in next sync.
 	removedCeps map[string]struct{}
+	// number of CEPs inserted in a CEB
+	cepInserted int64
+	// number of CEPs removed from a CEB
+	cepRemoved int64
+	// CEB insert time at workqueue
+	cebInsertedAt time.Time
 }
 
 // cebManager
@@ -60,11 +65,14 @@ type cebManager interface {
 	clearRemovedCeps(string, map[string]struct{})
 	createCeb(cebName string) *cebTracker
 	addCEPtoCEB(ceb *cilium_v2.CoreCiliumEndpoint, cebName string)
+	insertCebInWorkQueue(ceb *cebTracker)
 	// APIs to collect metrics of CEB and CEP
 	getTotalCepCount() int
 	getCepCountInCeb(cebName string) int
 	getCebCount() int
 	getAllCepNames() []string
+	getCebMetricCountersAndClear(cebName string) (cepInsert int64, cepRemove int64)
+	getCEBQueueDelayInSeconds(cebName string) (diff float64)
 }
 
 // cebMgr is used to batch CEP into a CEB, based on FirstComeFirstServe. If a new CEP
@@ -168,7 +176,9 @@ func (c *cebMgr) addCEPtoCEB(cep *cilium_v2.CoreCiliumEndpoint, cebName string) 
 	if _, ok := ceb.removedCeps[GetCepNameFromCCEP(cep)]; ok {
 		delete(ceb.removedCeps, GetCepNameFromCCEP(cep))
 	}
-	c.queue.Add(ceb.ceb.GetName())
+	// Increment the cepInsert counter
+	ceb.cepInserted += 1
+	c.insertCebInWorkQueue(ceb)
 	return
 }
 
@@ -354,7 +364,9 @@ func (c *cebMgr) RemoveCepFromCache(cepName string) {
 			"cep-count": len(ceb.ceb.Endpoints),
 		}).Debug("Removed cep from ceb")
 
-		c.queue.Add(cebName)
+		// Increment the cepRemove counter
+		ceb.cepRemoved += 1
+		c.insertCebInWorkQueue(ceb)
 	} else {
 		log.WithFields(logrus.Fields{
 			"cep-name": cepName,
@@ -448,8 +460,21 @@ func (c *cebMgr) clearRemovedCeps(cebName string, remCeps map[string]struct{}) {
 			"ceb-name": cebName,
 		}).Debug("Remove CEB from local cache")
 		// On next DeleteSync, Delete this CEB with api-server.
-		c.queue.Add(cebName)
+		c.insertCebInWorkQueue(ceb)
 	}
+}
+
+func (c *cebMgr) getCebMetricCountersAndClear(cebName string) (cepInsert int64, cepRemove int64) {
+	if ceb, exists := c.desiredCebs.get(cebName); exists {
+		ceb.backendMutex.Lock()
+		defer ceb.backendMutex.Unlock()
+		cepInsert = ceb.cepInserted
+		cepRemove = ceb.cepRemoved
+		ceb.cepInserted = 0
+		ceb.cepRemoved = 0
+	}
+
+	return
 }
 
 // If exists, remove Ceb object from cache. deleteCebFromCache is called after successful removal from
@@ -557,4 +582,28 @@ func (c *cebManagerIdentity) updateCebInCache(srcCeb *cilium_v2.CiliumEndpointBa
 			}
 		}
 	}
+}
+
+// Insert the ceb in workqueue
+func (c *cebMgr) insertCebInWorkQueue(ceb *cebTracker) {
+	// If CEB insert time is not zero, save current time.
+	if ceb.cebInsertedAt.IsZero() {
+		ceb.cebInsertedAt = time.Now()
+	}
+	c.queue.Add(ceb.ceb.GetName())
+}
+
+// Return the CEB queue delay in seconds and reset cebInsert time.
+func (c *cebMgr) getCEBQueueDelayInSeconds(cebName string) (diff float64) {
+	ceb := c.desiredCebs.getCeb(cebName)
+	ceb.backendMutex.Lock()
+	defer ceb.backendMutex.Unlock()
+	timeSinceCebQueued := time.Since(ceb.cebInsertedAt)
+	if !ceb.cebInsertedAt.IsZero() {
+		var t time.Time
+		// Reset the cebInsertedAt value
+		ceb.cebInsertedAt = t
+		diff = timeSinceCebQueued.Seconds()
+	}
+	return
 }
