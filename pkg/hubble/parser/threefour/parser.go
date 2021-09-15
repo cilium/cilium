@@ -394,6 +394,9 @@ func decodeVerdict(dn *monitor.DropNotify, tn *monitor.TraceNotify, pvn *monitor
 		if pvn.Verdict < 0 {
 			return pb.Verdict_DROPPED
 		}
+		if pvn.Verdict > 0 {
+			return pb.Verdict_REDIRECTED
+		}
 		if pvn.IsTrafficAudited() {
 			return pb.Verdict_AUDIT
 		}
