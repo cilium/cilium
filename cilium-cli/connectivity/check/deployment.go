@@ -119,7 +119,7 @@ func newService(name string, selector map[string]string, labels map[string]strin
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeNodePort,
 			Ports: []corev1.ServicePort{
-				{Name: name, Port: int32(port)},
+				{Name: portName, Port: int32(port)},
 			},
 			Selector: selector,
 		},
