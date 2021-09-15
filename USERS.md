@@ -60,6 +60,11 @@ Users (Alphabetically)
       U: Networking, NetworkPolicy, Services, IPVLAN
       L: https://www.alibabacloud.com/blog/how-does-alibaba-cloud-build-high-performance-cloud-native-pod-networks-in-production-environments_596590
 
+    * N: Amazon Web Services (AWS)
+      D: AWS uses Cilium as the default CNI for EKS Anywhere
+      U: Networking, NetworkPolicy, Services
+      L: https://isovalent.com/blog/post/2021-09-aws-eks-anywhere-chooses-cilium
+
     * N: ArangoDB Oasis
       D: ArangoDB Oasis is using Cilium in to separate database deployments in our multi-tenant cloud environment
       U: Networking, CiliumNetworkPolicy(cluster & local), Hubble, IPAM
@@ -178,3 +183,7 @@ Users (Alphabetically)
       D: Wildlife Studios is using Cilium in AWS for all their game production clusters (self hosted k8s)
       U: ClusterMesh, Global Service Load Balancing.
       Q: @Oki @luanguimaraesla
+
+    * N: Yahoo!
+      D: Yahoo is using Cilium for L4 North-South Load Balancing for Kubernetes Services
+      L: https://www.youtube.com/watch?v=-C86fBMcp5Q
