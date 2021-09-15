@@ -80,34 +80,55 @@ type Agent struct {
 }
 
 // NewAgent starts a new monitor agent instance which distributes monitor events
-// to registered listeners. It spawns a singleton goroutine reading events from
+// to registered listeners. Once the datapath is set up, AttachToEventsMap needs
+// to be called to receive events from the perf ring buffer. Otherwise, only
+// user space events received via SendEvent are distributed registered listeners.
+// Internally, the agent spawns a singleton goroutine reading events from
 // the BPF perf ring buffer and provides an interface to pass in non-BPF events.
 // The instance can be stopped by cancelling ctx, which will stop the perf reader
 // go routine and close all registered listeners.
 // Note that the perf buffer reader is started only when listeners are
 // connected.
-func NewAgent(ctx context.Context, nPages int) (a *Agent, err error) {
-	// assert that we can actually connect the monitor
-	path := oldBPF.MapPath(eventsMapName)
-	eventsMap, err := ebpf.LoadPinnedMap(path, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	a = &Agent{
+func NewAgent(ctx context.Context) *Agent {
+	return &Agent{
 		ctx:              ctx,
 		listeners:        make(map[listener.MonitorListener]struct{}),
 		consumers:        make(map[consumer.MonitorConsumer]struct{}),
 		perfReaderCancel: func() {}, // no-op to avoid doing null checks everywhere
-		events:           eventsMap,
-		MonitorStatus: models.MonitorStatus{
-			Cpus:     int64(eventsMap.MaxEntries()),
-			Npages:   int64(nPages),
-			Pagesize: int64(os.Getpagesize()),
-		},
+	}
+}
+
+// AttachToEventsMap opens the events perf ring buffer and makes it ready for
+// consumption, such that any subscribed consumers may receive events
+// from it. This function is to be called once the events map has been set up.
+func (a *Agent) AttachToEventsMap(nPages int) error {
+	a.Lock()
+	defer a.Unlock()
+
+	if a.events != nil {
+		return errors.New("events map already attached")
 	}
 
-	return a, nil
+	// assert that we can actually connect the monitor
+	path := oldBPF.MapPath(eventsMapName)
+	eventsMap, err := ebpf.LoadPinnedMap(path, nil)
+	if err != nil {
+		return err
+	}
+
+	a.events = eventsMap
+	a.MonitorStatus = models.MonitorStatus{
+		Cpus:     int64(eventsMap.MaxEntries()),
+		Npages:   int64(nPages),
+		Pagesize: int64(os.Getpagesize()),
+	}
+
+	// start the perf reader if we already have subscribers
+	if a.hasSubscribersLocked() {
+		a.startPerfReaderLocked()
+	}
+
+	return nil
 }
 
 // SendEvent distributes an event to all monitor listeners
@@ -165,6 +186,10 @@ func (a *Agent) hasSubscribersLocked() bool {
 // (e.g. on program shutdown) will also cancel the derived context.
 // Note: it is critical to hold the lock for this operation.
 func (a *Agent) startPerfReaderLocked() {
+	if a.events == nil {
+		return // not attached to events map yet
+	}
+
 	a.perfReaderCancel() // don't leak any old readers, just in case.
 	perfEventReaderCtx, cancel := context.WithCancel(a.ctx)
 	a.perfReaderCancel = cancel
