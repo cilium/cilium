@@ -55,6 +55,9 @@ func newCmdSysdump() *cobra.Command {
 	cmd.Flags().BoolVar(&sysdumpOptions.Debug,
 		"debug", sysdump.DefaultDebug,
 		"Whether to enable debug logging")
+	cmd.Flags().StringArrayVar(&sysdumpOptions.ExtraLabelSelectors,
+		"extra-label-selectors", nil,
+		"Optional set of labels selectors used to target additional pods for log collection.")
 	cmd.Flags().StringVar(&sysdumpOptions.HubbleLabelSelector,
 		"hubble-label-selector", sysdump.DefaultHubbleLabelSelector,
 		"The labels used to target Hubble pods")
