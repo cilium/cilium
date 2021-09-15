@@ -206,6 +206,11 @@ var (
 	// endpoints, labeled by span name and status ("success" or "failure")
 	EndpointRegenerationTimeStats = NoOpObserverVec
 
+	// EndpointPropagationDelay is the delay between creation of local CiliumEndpoint
+	// and update for that CiliumEndpoint received through CiliumEndpointBatch.
+	// Measure of local CEP roundtrip time with CiliumEndpointBatch feature enabled.
+	EndpointPropagationDelay = NoOpObserverVec
+
 	// Policy
 	// Policy is the number of policies loaded into the agent
 	Policy = NoOpGauge
@@ -453,6 +458,7 @@ type Configuration struct {
 	EndpointRegenerationCountEnabled        bool
 	EndpointStateCountEnabled               bool
 	EndpointRegenerationTimeStatsEnabled    bool
+	EndpointPropagationDelayEnabled         bool
 	PolicyCountEnabled                      bool
 	PolicyRegenerationCountEnabled          bool
 	PolicyRegenerationTimeStatsEnabled      bool
@@ -1259,6 +1265,17 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, ArpingRequestsTotal)
 			c.ArpingRequestsTotalEnabled = true
+
+		case Namespace + "_endpoint_propagation_delay_seconds":
+			EndpointPropagationDelay = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+				Namespace: Namespace,
+				Name:      "endpoint_propagation_delay_seconds",
+				Help:      "CiliumEndpoint propagation delay in seconds",
+			}, []string{})
+
+			collectors = append(collectors, EndpointPropagationDelay)
+			c.EndpointPropagationDelayEnabled = true
+
 		}
 	}
 

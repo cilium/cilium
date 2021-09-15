@@ -93,6 +93,24 @@ var (
 
 	// IdentityGCRuns records how many times identity GC has run
 	IdentityGCRuns *prometheus.GaugeVec
+
+	// CiliumEndpointBatchDensity indicates the number of CEPs batched in a CEB and it used to
+	// collect the number of CEPs in CEB at various buckets. For example,
+	// number of CEBs in the CEP range <0, 10>
+	// number of CEBs in the CEP range <11, 20>
+	// number of CEBs in the CEP range <21, 30> and so on
+	CiliumEndpointBatchDensity *prometheus.HistogramVec
+
+	// CiliumEndpointsChangeCount indicates the total number of CEPs changed for every CEB request sent to k8s-apiserver.
+	// This metric is used to collect number of CEP changes happening at various buckets.
+	CiliumEndpointsChangeCount *prometheus.HistogramVec
+
+	// CiliumEndpointBatchSyncErrors used to track the total number of errors occurred during syncing CEB with k8s-apiserver.
+	CiliumEndpointBatchSyncErrors *prometheus.CounterVec
+
+	// CiliumEndpointBatchQueueDelay measures the time spent by CEB's in the workqueue. This measures time difference between
+	// CEB insert in the workqueue and removal from workqueue.
+	CiliumEndpointBatchQueueDelay *prometheus.HistogramVec
 )
 
 const (
@@ -101,6 +119,9 @@ const (
 
 	// LabelOutcome indicates whether the outcome of the operation was successful or not
 	LabelOutcome = "outcome"
+
+	// LabelOpcode indicates the kind of CEB metric, could be CEP insert or remove
+	LabelOpcode = "opcode"
 
 	// Label values
 
@@ -115,6 +136,12 @@ const (
 
 	// LabelValueOutcomeDeleted is used as outcome of deleted identity entries
 	LabelValueOutcomeDeleted = "deleted"
+
+	// LabelValueCEPInsert is used to indicate the number of CEPs inserted in a CEB
+	LabelValueCEPInsert = "cepinserted"
+
+	// LabelValueCEPRemove is used to indicate the number of CEPs removed from a CEB
+	LabelValueCEPRemove = "cepremoved"
 )
 
 func registerMetrics() []prometheus.Collector {
@@ -137,6 +164,34 @@ func registerMetrics() []prometheus.Collector {
 		Help:      "The number of times identity garbage collector has run",
 	}, []string{LabelOutcome})
 	collectors = append(collectors, IdentityGCRuns)
+
+	CiliumEndpointBatchDensity = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: Namespace,
+		Name:      "number_of_ceps_per_ceb",
+		Help:      "The number of CEPs batched in a CEB",
+	}, []string{})
+	collectors = append(collectors, CiliumEndpointBatchDensity)
+
+	CiliumEndpointsChangeCount = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: Namespace,
+		Name:      "number_of_cep_changes_per_ceb",
+		Help:      "The number of changed CEPs in each CEB update",
+	}, []string{LabelOpcode})
+	collectors = append(collectors, CiliumEndpointsChangeCount)
+
+	CiliumEndpointBatchSyncErrors = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "ceb_sync_errors_total",
+		Help:      "Number of CEB sync errors",
+	}, []string{})
+	collectors = append(collectors, CiliumEndpointBatchSyncErrors)
+
+	CiliumEndpointBatchQueueDelay = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: Namespace,
+		Name:      "ceb_queueing_delay_seconds",
+		Help:      "CiliumEndpointBatch queueing delay in seconds",
+	}, []string{})
+	collectors = append(collectors, CiliumEndpointBatchQueueDelay)
 
 	Registry.MustRegister(collectors...)
 
