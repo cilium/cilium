@@ -19,14 +19,26 @@ set -eo pipefail
 DEV="cilium-probe"
 DIR=$(dirname $0)/../../bpf
 MAPTOOL=$(dirname $0)/../../tools/maptool/maptool
+# all known bpf programs (object files).
+# ALL_PROGS will be tested again source files to find non-tested bpf code
 ALL_TC_PROGS="bpf_lxc bpf_host bpf_network bpf_overlay"
-TC_PROGS=${TC_PROGS:-$ALL_TC_PROGS}
 ALL_CG_PROGS="bpf_sock sockops/bpf_sockops sockops/bpf_redir"
-CG_PROGS=${CG_PROGS:-$ALL_CG_PROGS}
 ALL_XDP_PROGS="bpf_xdp"
-XDP_PROGS=${XDP_PROGS:-$ALL_XDP_PROGS}
 IGNORED_PROGS="bpf_alignchecker tests/bpf_ct_tests custom/bpf_custom"
 ALL_PROGS="${IGNORED_PROGS} ${ALL_CG_PROGS} ${ALL_TC_PROGS} ${ALL_XDP_PROGS}"
+
+# if {TC,CG,XDP}_PROGS is set (even if empty) use the existing value.
+# Otherwise, use ALL_{TC,CG,XDP}
+if [[ ! -v TC_PROGS ]]; then
+    TC_PROGS=$ALL_TC_PROGS
+fi
+if [[ ! -v CG_PROGS ]]; then
+    CG_PROGS=$ALL_CG_PROGS
+fi
+if [[ ! -v XDP_PROGS ]]; then
+    XDP_PROGS=$ALL_XDP_PROGS
+fi
+
 VERBOSE=false
 RUN_ALL_TESTS=false
 
@@ -300,9 +312,15 @@ function main {
 		$TC qdisc replace dev ${DEV} clsact
 	fi
 
-	load_tc
-	load_cg
-	load_xdp
+	if [ -n "$TC_PROGS" ]; then
+		load_tc
+	fi
+	if [ -n "$CG_PROGS" ]; then
+		load_cg
+	fi
+	if [ -n "$XDP_PROGS" ]; then
+		load_xdp
+	fi
 }
 
 main "$@"
