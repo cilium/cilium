@@ -392,6 +392,10 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		apiLimiterSet:     apiLimiterSet,
 	}
 
+	if option.Config.RunMonitorAgent {
+		d.monitorAgent = monitoragent.NewAgent(ctx)
+	}
+
 	d.configModifyQueue = eventqueue.NewEventQueueBuffered("config-modify-queue", ConfigModifyQueueSize)
 	d.configModifyQueue.Run()
 
@@ -825,16 +829,15 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		return nil, restoredEndpoints, err
 	}
 
-	// We can only start monitor agent once cilium_event has been set up.
+	// We can only attach the monitor agent once cilium_event has been set up.
 	if option.Config.RunMonitorAgent {
-		monitorAgent, err := monitoragent.NewAgent(d.ctx, defaults.MonitorBufferPages)
+		err = d.monitorAgent.AttachToEventsMap(defaults.MonitorBufferPages)
 		if err != nil {
 			return nil, nil, err
 		}
-		d.monitorAgent = monitorAgent
 
 		if option.Config.EnableMonitor {
-			err = monitoragent.ServeMonitorAPI(monitorAgent)
+			err = monitoragent.ServeMonitorAPI(d.monitorAgent)
 			if err != nil {
 				return nil, nil, err
 			}
