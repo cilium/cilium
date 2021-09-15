@@ -492,5 +492,6 @@ func Test_decodeVerdict(t *testing.T) {
 	assert.Equal(t, pb.Verdict_FORWARDED, decodeVerdict(accesslog.VerdictForwarded))
 	assert.Equal(t, pb.Verdict_DROPPED, decodeVerdict(accesslog.VerdictDenied))
 	assert.Equal(t, pb.Verdict_ERROR, decodeVerdict(accesslog.VerdictError))
+	assert.Equal(t, pb.Verdict_REDIRECTED, decodeVerdict(accesslog.VerdictRedirected))
 	assert.Equal(t, pb.Verdict_VERDICT_UNKNOWN, decodeVerdict("bad"))
 }

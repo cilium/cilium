@@ -46,6 +46,9 @@ const (
 
 	// VerdictError indicates that there was an error processing the flow
 	VerdictError = "Error"
+
+	// VerdictError indicates that the flow was redirected through the proxy
+	VerdictRedirected = "Redirected"
 )
 
 // ObservationPoint is the type used to describe point of observation

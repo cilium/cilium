@@ -53,7 +53,8 @@ func (h *tcpHandler) Status() string {
 }
 
 func (h *tcpHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) {
-	if flow.GetVerdict() != flowpb.Verdict_FORWARDED || flow.GetL4() == nil {
+	if (flow.GetVerdict() != flowpb.Verdict_FORWARDED && flow.GetVerdict() != flowpb.Verdict_REDIRECTED) ||
+		flow.GetL4() == nil {
 		return
 	}
 

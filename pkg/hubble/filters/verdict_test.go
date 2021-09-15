@@ -33,4 +33,5 @@ func TestVerdictFilter(t *testing.T) {
 	}
 	assert.True(t, filterByVerdicts([]flowpb.Verdict{flowpb.Verdict_FORWARDED})(ev))
 	assert.False(t, filterByVerdicts([]flowpb.Verdict{flowpb.Verdict_DROPPED})(ev))
+	assert.False(t, filterByVerdicts([]flowpb.Verdict{flowpb.Verdict_REDIRECTED})(ev))
 }
