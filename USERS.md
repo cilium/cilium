@@ -77,6 +77,10 @@ Users (Alphabetically)
       L: https://www.youtube.com/watch?v=yXm7yZE2rk4
       Q: @rmaika @mohahmed13
 
+    * N: Cognite
+      D: Cognite is an industrial DataOps provider and uses Cilium as the CNI plugin
+      Q: @Robert Collins
+
     * N: Datadog
       D: Datadog is using Cilium in AWS (self-hosted k8s)
       U: ENI Networking, Service load-balancing, Encryption
