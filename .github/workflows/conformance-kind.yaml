@@ -69,7 +69,7 @@ jobs:
           config: ${{ env.kind_config }}
 
       - name: Wait for images to be available
-        timeout-minutes: 10
+        timeout-minutes: 30
         shell: bash
         run: |
           for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
