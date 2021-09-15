@@ -36,6 +36,8 @@ type Options struct {
 	ClustermeshApiserverLabelSelector string
 	// Whether to enable debug logging.
 	Debug bool
+	// The labels used to target additional pods
+	ExtraLabelSelectors []string
 	// The labels used to target Hubble pods.
 	HubbleLabelSelector string
 	// Number of Hubble flows to collect.
@@ -671,6 +673,25 @@ func (c *Collector) Run() error {
 				return nil
 			},
 		},
+	}
+	for _, selector := range c.options.ExtraLabelSelectors {
+		tasks = append(tasks, sysdumpTask{
+			CreatesSubtasks: true,
+			Description:     fmt.Sprintf("Collecting logs from extra pods %q", selector),
+			Quick:           false,
+			Task: func(ctx context.Context) error {
+				p, err := c.client.ListPods(ctx, c.options.CiliumNamespace, metav1.ListOptions{
+					LabelSelector: selector,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to get logs from pods matching selector %q", selector)
+				}
+				if err := c.submitLogsTasks(ctx, filterPods(p, nodeList), c.options.LogsSinceTime, c.options.LogsLimitBytes, absoluteTempPath); err != nil {
+					return fmt.Errorf("failed to collect logs from pods matching selector %q", selector)
+				}
+				return nil
+			},
+		})
 	}
 	if c.options.HubbleFlowsCount > 0 {
 		tasks = append(tasks, sysdumpTask{
