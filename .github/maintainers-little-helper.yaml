@@ -18,7 +18,7 @@ flake-tracker:
     - project/ci-force
   jenkins-config:
     jenkins-url: https://jenkins.cilium.io
-    regex-trigger: (^test-me-please)
+    regex-trigger: (^/?test-backport-1.8)
     stable-jobs:
     - cilium-v1.8-k8s-1.11-kernel-net-next
     - cilium-v1.8-k8s-1.12-kernel-4.9
