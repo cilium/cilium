@@ -54,7 +54,9 @@ concurrency:
       (github.event_name == 'schedule' && github.sha) ||
       (github.event_name == 'issue_comment' && (
         startsWith(github.event.comment.body, 'ci-eks-1.10') ||
-        startsWith(github.event.comment.body, 'test-backport-1.10')
+        startsWith(github.event.comment.body, '/ci-eks-1.10') ||
+        startsWith(github.event.comment.body, 'test-backport-1.10') ||
+        startsWith(github.event.comment.body, '/test-backport-1.10')
       ) && github.event.issue.number) ||
       (github.event_name == 'pull_request' && github.event.pull_request.number)
     }}
@@ -72,7 +74,9 @@ jobs:
     if: |
       (github.event_name == 'issue_comment' && (
         startsWith(github.event.comment.body, 'ci-eks-1.10') ||
-        startsWith(github.event.comment.body, 'test-backport-1.10')
+        startsWith(github.event.comment.body, '/ci-eks-1.10') ||
+        startsWith(github.event.comment.body, 'test-backport-1.10') ||
+        startsWith(github.event.comment.body, '/test-backport-1.10')
       )) ||
       (github.event_name == 'schedule' && github.repository == 'cilium/cilium') ||
       github.event_name == 'pull_request'
@@ -112,7 +116,9 @@ jobs:
     if: |
       (github.event_name == 'issue_comment' && (
         startsWith(github.event.comment.body, 'ci-eks-1.10') ||
-        startsWith(github.event.comment.body, 'test-backport-1.10') && needs.check_changes.outputs.tested == 'true'
+        startsWith(github.event.comment.body, '/ci-eks-1.10') ||
+        startsWith(github.event.comment.body, 'test-backport-1.10') && needs.check_changes.outputs.tested == 'true' ||
+        startsWith(github.event.comment.body, '/test-backport-1.10') && needs.check_changes.outputs.tested == 'true'
       )) ||
       (github.event_name == 'schedule' && github.repository == 'cilium/cilium') ||
       github.event_name == 'pull_request'
