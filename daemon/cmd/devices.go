@@ -293,8 +293,7 @@ func expandDevices() error {
 func areDevicesRequired() bool {
 	return option.Config.EnableNodePort ||
 		option.Config.EnableHostFirewall ||
-		option.Config.EnableBandwidthManager ||
-		option.Config.EnableIPSec
+		option.Config.EnableBandwidthManager
 }
 
 func findK8SNodeIPLink() (netlink.Link, error) {
