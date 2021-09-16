@@ -40,48 +40,48 @@ After you don't need to run tests on your branch, please remove the branch from 
    (net-next, 49, 419 are possible values right now), ``--k8s_version`` for k8s
    version. If you want to run only one ``It`` block, you need to prepend it
    with a test suite and create a regex, e.g
-   ``test-only --focus="K8sDatapathConfig.*Check connectivity with automatic direct nodes routes" --k8s_version=1.18 --kernel_version=net-next``
+   ``/test-only --focus="K8sDatapathConfig.*Check connectivity with automatic direct nodes routes" --k8s_version=1.18 --kernel_version=net-next``
    will run specified test in 1.18 Kubernetes cluster running on net-next nodes.
    Kubernetes version defaults to 1.21, kernel version defaults to 4.19.
 
-   +------------------------------------------------+-------------------------------------------+
-   | ``test-only --focus="K8s"``                    | Runs all kubernetes tests                 |
-   +------------------------------------------------+-------------------------------------------+
-   | ``test-only --focus="K8sConformance"``         | Runs all k8s conformance tests            |
-   +------------------------------------------------+-------------------------------------------+
-   | ``test-only --focus="K8sChaos"``               | Runs all k8s chaos tests                  |
-   +------------------------------------------------+-------------------------------------------+
-   | ``test-only --focus="K8sDatapathConfig"``      | Runs all k8s datapath configuration tests |
-   +------------------------------------------------+-------------------------------------------+
-   | ``test-only --focus="K8sDemos"``               | Runs all k8s demo tests                   |
-   +------------------------------------------------+-------------------------------------------+
-   | ``test-only --focus="K8sKubeProxyFreeMatrix"`` | Runs all k8s kube-proxy free matrix tests |
-   +------------------------------------------------+-------------------------------------------+
-   | ``test-only --focus="K8sFQDNTest"``            | Runs all k8s fqdn tests                   |
-   +------------------------------------------------+-------------------------------------------+
-   | ``test-only --focus="K8sHealthTest"``          | Runs all k8s health tests                 |
-   +------------------------------------------------+-------------------------------------------+
-   | ``test-only --focus="K8sHubbleTest"``          | Runs all k8s Hubble tests                 |
-   +------------------------------------------------+-------------------------------------------+
-   | ``test-only --focus="K8sIdentity"``            | Runs all k8s identity tests               |
-   +------------------------------------------------+-------------------------------------------+
-   | ``test-only --focus="K8sIstioTest"``           | Runs all k8s Istio tests                  |
-   +------------------------------------------------+-------------------------------------------+
-   | ``test-only --focus="K8sKafkaPolicyTest"``     | Runs all k8s Kafka tests                  |
-   +------------------------------------------------+-------------------------------------------+
-   | ``test-only --focus="K8sPolicyTest"``          | Runs all k8s policy tests                 |
-   +------------------------------------------------+-------------------------------------------+
-   | ``test-only --focus="K8sServicesTest"``        | Runs all k8s services tests               |
-   +------------------------------------------------+-------------------------------------------+
-   | ``test-only --focus="K8sUpdates"``             | Runs k8s update tests                     |
-   +------------------------------------------------+-------------------------------------------+
+   +-------------------------------------------------+-------------------------------------------+
+   | ``/test-only --focus="K8s"``                    | Runs all kubernetes tests                 |
+   +-------------------------------------------------+-------------------------------------------+
+   | ``/test-only --focus="K8sConformance"``         | Runs all k8s conformance tests            |
+   +-------------------------------------------------+-------------------------------------------+
+   | ``/test-only --focus="K8sChaos"``               | Runs all k8s chaos tests                  |
+   +-------------------------------------------------+-------------------------------------------+
+   | ``/test-only --focus="K8sDatapathConfig"``      | Runs all k8s datapath configuration tests |
+   +-------------------------------------------------+-------------------------------------------+
+   | ``/test-only --focus="K8sDemos"``               | Runs all k8s demo tests                   |
+   +-------------------------------------------------+-------------------------------------------+
+   | ``/test-only --focus="K8sKubeProxyFreeMatrix"`` | Runs all k8s kube-proxy free matrix tests |
+   +-------------------------------------------------+-------------------------------------------+
+   | ``/test-only --focus="K8sFQDNTest"``            | Runs all k8s fqdn tests                   |
+   +-------------------------------------------------+-------------------------------------------+
+   | ``/test-only --focus="K8sHealthTest"``          | Runs all k8s health tests                 |
+   +-------------------------------------------------+-------------------------------------------+
+   | ``/test-only --focus="K8sHubbleTest"``          | Runs all k8s Hubble tests                 |
+   +-------------------------------------------------+-------------------------------------------+
+   | ``/test-only --focus="K8sIdentity"``            | Runs all k8s identity tests               |
+   +-------------------------------------------------+-------------------------------------------+
+   | ``/test-only --focus="K8sIstioTest"``           | Runs all k8s Istio tests                  |
+   +-------------------------------------------------+-------------------------------------------+
+   | ``/test-only --focus="K8sKafkaPolicyTest"``     | Runs all k8s Kafka tests                  |
+   +-------------------------------------------------+-------------------------------------------+
+   | ``/test-only --focus="K8sPolicyTest"``          | Runs all k8s policy tests                 |
+   +-------------------------------------------------+-------------------------------------------+
+   | ``/test-only --focus="K8sServicesTest"``        | Runs all k8s services tests               |
+   +-------------------------------------------------+-------------------------------------------+
+   | ``/test-only --focus="K8sUpdates"``             | Runs k8s update tests                     |
+   +-------------------------------------------------+-------------------------------------------+
 
 
-   Running Runtime test suite is still done via ``test-focus`` command.
+   Running Runtime test suite is still done via ``/test-focus`` command.
 
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus Runtime``                | Runs all runtime tests                    |
-   +---------------------------------------+-------------------------------------------+
+   +----------------------------------------+-------------------------------------------+
+   | ``/test-focus Runtime``                | Runs all runtime tests                    |
+   +----------------------------------------+-------------------------------------------+
 
 
 
@@ -127,11 +127,10 @@ environment variable in the Jenkins job. That version ID will be used in Cilium
 
 Changes to this image are made via contributions to the packer-ci-build
 repository. Authorized GitHub users can trigger builds with a GitHub comment on
-the PR containing the trigger phrase ``build-me-please``. In case that a new box
-needs to be rebased with a different branch than master, authorized developers
-can run the build with custom parameters. To use a different Cilium branch in
-the `job`_ go to *Build with parameters* and a base branch can be set as the
-user needs.
+the PR containing the trigger phrase ``/build``. In case that a new box needs to
+be rebased with a different branch than master, authorized developers can run
+the build with custom parameters. To use a different Cilium branch in the `job`_
+go to *Build with parameters* and a base branch can be set as the user needs.
 
 This box will need to be updated when a new developer needs a new dependency
 that is not installed in the current version of the box, or if a dependency that
@@ -184,24 +183,24 @@ them all at once:
 +------------------+--------------------------+
 | PR target branch | Trigger required PR jobs |
 +==================+==========================+
-| master           | test-me-please           |
+| master           | /test                    |
 +------------------+--------------------------+
-| v1.10            | test-backport-1.10       |
+| v1.10            | /test-backport-1.10      |
 +------------------+--------------------------+
-| v1.9             | test-backport-1.9        |
+| v1.9             | /test-backport-1.9       |
 +------------------+--------------------------+
-| v1.8             | test-backport-1.8        |
+| v1.8             | /test-backport-1.8       |
 +------------------+--------------------------+
 
-For ``master`` PRs: on top of ``test-me-please``, one may use
-``test-missed-k8s`` to trigger all non-required K8s versions on Kernel 4.9 as
-per the `Cilium CI matrix`_.
+For ``master`` PRs: on top of ``/test``, one may use ``/test-missed-k8s`` to
+trigger all non-required K8s versions on Kernel 4.9 as per the `Cilium CI
+matrix`_.
 
 For all PRs: one may manually retrigger a specific job (e.g. in case of a flake)
 with the individual trigger featured directly in the PR check's name (e.g. for
-``K8s-1.20-kernel-4.9 (test-1.20-4.9)``, use ``test-1.20-4.9``).
+``K8s-1.20-kernel-4.9 (test-1.20-4.9)``, use ``/test-1.20-4.9``).
 
-For a full list of Jenkins PR jobs, see `Jenkins
+For a full list of Jenkins PR jobs, see `Jenkins (PR tab)
 <https://jenkins.cilium.io/view/PR/>`_. Trigger phrases are configured within
 each job's build triggers advanced options.
 
@@ -209,33 +208,21 @@ There are some feature flags based on Pull Requests labels, the list of labels
 are the following:
 
 - ``area/containerd``: Enable containerd runtime on all Kubernetes test.
-- ``ci/net-next``: Run tests on net-next kernel. This causes the
-  ``test-me-please`` target to only run on the net-next kernel. It is purely
-  for testing on a different kernel, to merge a PR it must pass the CI
-  without this flag.
-
+- ``ci/net-next``: Run tests on net-next kernel. This causes the  ``/test``
+  target to only run on the net-next kernel. It is purely for testing on a
+  different kernel, to merge a PR it must pass the CI without this flag.
 
 Testing with race condition detection enabled
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If you want to run test suite with race condition detection enabled, enter following trigger phrases. These jobs are not required to merge.
+Optional non-required Jenkins are available for running the test suite with race
+condition detection enabled, and may be triggered using the trigger phrase
+``/test-race``.
 
-+------------------------------------------------------------------------------------+------------------------+
-| Jenkins Job                                                                        | Trigger Phrase         |
-+====================================================================================+========================+
-| https://jenkins.cilium.io/view/PR/job/Cilium-PR-Ginkgo-Tests-Kernel-Race-Detection | test-race-4.19         |
-+------------------------------------------------------------------------------------+------------------------+
-| https://jenkins.cilium.io/view/PR/job/Cilium-PR-K8s-1.16-net-next-Race-Detection   | test-race-net-next     |
-+------------------------------------------------------------------------------------+------------------------+
-| https://jenkins.cilium.io/view/PR/job/Cilium-PR-K8s-1.21-kernel-4.9-Race-Detection | test-race-4.9          |
-+------------------------------------------------------------------------------------+------------------------+
-| https://jenkins.cilium.io/view/PR/job/Cilium-PR-K8s-GKE-Race-Detection             | test-race-gke          |
-+------------------------------------------------------------------------------------+------------------------+
-| https://jenkins.cilium.io/view/PR/job/Cilium-PR-Kubernetes-Upstream-Race-Detection | test-race-upstream-k8s |
-+------------------------------------------------------------------------------------+------------------------+
-| https://jenkins.cilium.io/view/PR/job/Cilium-PR-Runtime-4.9-Race-Detection         | test-race-runtime      |
-+------------------------------------------------------------------------------------+------------------------+
-
+For a full list of Jenkins PR jobs with race detection enabled, see `Jenkins
+(Race Detection tab) <https://jenkins.cilium.io/view/Race%20Detection/>`_.
+Trigger phrases are configured within each job's build triggers advanced
+options.
 
 Using Jenkins for testing
 ~~~~~~~~~~~~~~~~~~~~~~~~~
