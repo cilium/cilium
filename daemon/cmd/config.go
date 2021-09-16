@@ -156,16 +156,18 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 
 	d := h.daemon
 	m := make(map[string]interface{})
+	option.Config.ConfigPatchMutex.RLock()
 	e := reflect.ValueOf(option.Config).Elem()
 
 	for i := 0; i < e.NumField(); i++ {
 		if e.Field(i).Kind() != reflect.Func {
 			// Remove configurable opttions from read-only map
-			if e.Type().Field(i).Name != "Opts" {
+			if e.Type().Field(i).Name != "Opts" && e.Type().Field(i).Name != "ConfigPatchMutex" {
 				m[e.Type().Field(i).Name] = e.Field(i).Interface()
 			}
 		}
 	}
+	option.Config.ConfigPatchMutex.RUnlock()
 
 	spec := &models.DaemonConfigurationSpec{
 		Options:           *option.Config.Opts.GetMutableModel(),
