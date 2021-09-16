@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -213,7 +215,11 @@ func createConfig(apiServerURL, kubeCfgPath string, qps float32, burst int) (*re
 		config *rest.Config
 		err    error
 	)
-	userAgent := fmt.Sprintf("Cilium %s", version.Version)
+	cmdName := "cilium"
+	if len(os.Args[0]) != 0 {
+		cmdName = filepath.Base(os.Args[0])
+	}
+	userAgent := fmt.Sprintf("%s/%s", cmdName, version.Version)
 
 	switch {
 	// If the apiServerURL and the kubeCfgPath are empty then we can try getting
@@ -240,7 +246,7 @@ func createConfig(apiServerURL, kubeCfgPath string, qps float32, burst int) (*re
 }
 
 func setConfig(config *rest.Config, userAgent string, qps float32, burst int) {
-	if config.UserAgent != "" {
+	if userAgent != "" {
 		config.UserAgent = userAgent
 	}
 	if qps != 0.0 {
