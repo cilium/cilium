@@ -303,7 +303,8 @@ Running the CI Against the Pull Request
 
 To validate a cross-section of various tests against the PRs, backport PRs
 should be validated in the CI by running all CI targets. This can be triggered
-by adding a comment to the PR with exactly the text ``test-backport-x.x``, where ``x.x`` is the target version.
+by adding a comment to the PR with exactly the text ``/test-backport-x.x``,
+where ``x.x`` is the target version as described in :ref:`trigger_phrases`.
 The comment must not contain any other characters.
 
 After the Backports are Merged

@@ -212,8 +212,8 @@ Getting a pull request merged
 
 #. As you submit the pull request as described in the section :ref:`submit_pr`.
    One of the reviewers will start a CI run by replying with a comment
-   ``test-me-please`` as described in :ref:`trigger_phrases`. If you are a
-   core team member, you may trigger the CI run yourself.
+   ``/test`` as described in :ref:`trigger_phrases`. If you are a core team
+   member, you may trigger the CI run yourself.
 
    #. Hound: basic ``golang/lint`` static code analyzer. You need to make the
       puppy happy.
