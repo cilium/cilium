@@ -5,6 +5,9 @@ source $(dirname $(readlink -ne $BASH_SOURCE))/common.sh
 
 require_linux
 
+ORG=${ORG:-"cilium"}
+REPO=${REPO:-"cilium"}
+
 cleanup () {
   if [ -n "$TMPF" ]; then
     rm $TMPF
@@ -15,7 +18,7 @@ trap cleanup EXIT
 
 cherry_pick () {
   CID=$1
-  if ! commit_in_upstream "$CID" "master"; then
+  if ! commit_in_upstream "$CID" "master" "${ORG}" "${REPO}"; then
     echo "Commit $CID not in $REM/master!"
     exit 1
   fi
@@ -31,7 +34,7 @@ cherry_pick () {
 }
 
 main () {
-  REM="$(get_remote)"
+  REM="$(get_remote "${ORG}" "${REPO}")"
   for CID in "$@"; do
     cherry_pick "$CID"
   done
