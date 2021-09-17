@@ -300,19 +300,19 @@ jobs:
       - name: Post-test information gathering
         if: ${{ !success() }}
         run: |
+          kubectl get pods --all-namespaces -o wide
           cilium status --context ${{ steps.contexts.outputs.context1 }}
           cilium clustermesh status --context ${{ steps.contexts.outputs.context1 }}
           cilium status --context ${{ steps.contexts.outputs.context2 }}
           cilium clustermesh status --context ${{ steps.contexts.outputs.context2 }}
 
-          curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
           kubectl config use-context ${{ steps.contexts.outputs.context1 }}
           kubectl get pods --all-namespaces -o wide
-          python cilium-sysdump.zip --output cilium-sysdump-context1
+          cilium sysdump --output-filename cilium-sysdump-context1
 
           kubectl config use-context ${{ steps.contexts.outputs.context2 }}
           kubectl get pods --all-namespaces -o wide
-          python cilium-sysdump.zip --output cilium-sysdump-context2
+          cilium sysdump --output-filename cilium-sysdump-context2
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Clean up GKE
