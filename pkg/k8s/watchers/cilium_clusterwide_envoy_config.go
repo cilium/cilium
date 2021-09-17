@@ -87,12 +87,12 @@ func (k *K8sWatcher) addCiliumClusterwideEnvoyConfig(ccec *cilium_v2alpha1.Ciliu
 		logfields.K8sAPIVersion: ccec.TypeMeta.APIVersion,
 	})
 
-	resources, err := envoy.ParseResources("", ccec.Spec.Resources)
+	resources, err := envoy.ParseResources("", ccec.Spec.Resources, k.envoyConfigManager)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to add CiliumClusterwideEnvoyConfig: malformed Envoy config.")
 		return err
 	}
-	if err := k.envoyConfigManager.UpsertEnvoyResources(context.TODO(), resources, true); err != nil {
+	if err := k.envoyConfigManager.UpsertEnvoyResources(context.TODO(), resources, k.envoyConfigManager); err != nil {
 		scopedLog.WithError(err).Warn("Failed to add CiliumClusterwideEnvoyConfig.")
 		return err
 	}
@@ -108,17 +108,17 @@ func (k *K8sWatcher) updateCiliumClusterwideEnvoyConfig(oldCCEC *cilium_v2alpha1
 		logfields.K8sAPIVersion: newCCEC.TypeMeta.APIVersion,
 	})
 
-	oldResources, err := envoy.ParseResources("", oldCCEC.Spec.Resources)
+	oldResources, err := envoy.ParseResources("", oldCCEC.Spec.Resources, k.envoyConfigManager)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumClusterwideEnvoyConfig: malformed old Envoy config.")
 		return err
 	}
-	newResources, err := envoy.ParseResources("", newCCEC.Spec.Resources)
+	newResources, err := envoy.ParseResources("", newCCEC.Spec.Resources, k.envoyConfigManager)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumClusterwideEnvoyConfig: malformed new Envoy config.")
 		return err
 	}
-	if err := k.envoyConfigManager.UpdateEnvoyResources(context.TODO(), oldResources, newResources, true); err != nil {
+	if err := k.envoyConfigManager.UpdateEnvoyResources(context.TODO(), oldResources, newResources, k.envoyConfigManager); err != nil {
 		scopedLog.WithError(err).Warn("Failed to add CiliumClusterwideEnvoyConfig.")
 		return err
 	}
@@ -134,12 +134,12 @@ func (k *K8sWatcher) deleteCiliumClusterwideEnvoyConfig(ccec *cilium_v2alpha1.Ci
 		logfields.K8sAPIVersion: ccec.TypeMeta.APIVersion,
 	})
 
-	resources, err := envoy.ParseResources("", ccec.Spec.Resources)
+	resources, err := envoy.ParseResources("", ccec.Spec.Resources, k.envoyConfigManager)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to delete CiliumClusterwideEnvoyConfig: parsing rersource names failed.")
 		return err
 	}
-	if err := k.envoyConfigManager.DeleteEnvoyResources(context.TODO(), resources, true); err != nil {
+	if err := k.envoyConfigManager.DeleteEnvoyResources(context.TODO(), resources, k.envoyConfigManager); err != nil {
 		scopedLog.WithError(err).Warn("Failed to delete CiliumClusterwideEnvoyResource.")
 		return err
 	}
