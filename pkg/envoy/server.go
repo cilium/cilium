@@ -523,7 +523,13 @@ func (s *XDSServer) addListener(name string, listenerConf func() *envoy_config_l
 	}
 	listener.mutex.Unlock() // Listener locked again in callbacks below
 
-	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf(), []string{"127.0.0.1"}, wg,
+	envoyListener := listenerConf()
+	if err := envoyListener.Validate(); err != nil {
+		log.Errorf("Envoy: Could not validate Listener (%s): %s", err, envoyListener.String())
+		return
+	}
+
+	s.listenerMutator.Upsert(ListenerTypeURL, name, envoyListener, []string{"127.0.0.1"}, wg,
 		func(err error) {
 			// listener might have already been removed, so we can't look again
 			// but we still need to complete all the completions in case

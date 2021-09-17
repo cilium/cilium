@@ -22,8 +22,7 @@ require (
 	github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e
 	github.com/cilium/ebpf v0.5.1-0.20210421150058-a4ee356536f3
 	github.com/cilium/ipam v0.0.0-20201106170308-4184bc4bf9d6
-	github.com/cilium/proxy v0.0.0-20210511221533-82a70d56bf32
-	github.com/cncf/udpa/go v0.0.0-20201211205326-cc1b757b3edd // indirect
+	github.com/cilium/proxy v0.0.0-20210917102344-9a433903f7b8
 	github.com/containernetworking/cni v0.8.1
 	github.com/containernetworking/plugins v0.9.1
 	github.com/davecgh/go-spew v1.1.1
@@ -134,13 +133,14 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/census-instrumentation/opencensus-proto v0.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
+	github.com/cncf/xds/go v0.0.0-20210805033703-aa0b78936158 // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.3.2 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.0 // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/emicklei/go-restful v2.9.5+incompatible // indirect
-	github.com/envoyproxy/protoc-gen-validate v0.4.2-0.20210105193028-872b28c45782 // indirect
+	github.com/envoyproxy/protoc-gen-validate v0.5.1-0.20210316024357-9db8e779b461 // indirect
 	github.com/evanphx/json-patch v4.9.0+incompatible // indirect
 	github.com/fatih/color v1.12.0 // indirect
 	github.com/form3tech-oss/jwt-go v3.2.2+incompatible // indirect

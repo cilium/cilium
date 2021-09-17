@@ -95,6 +95,10 @@ message FloatRules {
     // NotIn specifies that this field cannot be equal to one of the specified
     // values
     repeated float not_in = 7;
+
+    // IgnoreEmpty specifies that the validation rules of this field should be
+    // evaluated only if the field is not empty
+    optional bool ignore_empty = 8;
 }
 
 // DoubleRules describes the constraints applied to `double` values
@@ -127,6 +131,10 @@ message DoubleRules {
     // NotIn specifies that this field cannot be equal to one of the specified
     // values
     repeated double not_in = 7;
+
+    // IgnoreEmpty specifies that the validation rules of this field should be
+    // evaluated only if the field is not empty
+    optional bool ignore_empty = 8;
 }
 
 // Int32Rules describes the constraints applied to `int32` values
@@ -159,6 +167,10 @@ message Int32Rules {
     // NotIn specifies that this field cannot be equal to one of the specified
     // values
     repeated int32 not_in = 7;
+
+    // IgnoreEmpty specifies that the validation rules of this field should be
+    // evaluated only if the field is not empty
+    optional bool ignore_empty = 8;
 }
 
 // Int64Rules describes the constraints applied to `int64` values
@@ -191,6 +203,10 @@ message Int64Rules {
     // NotIn specifies that this field cannot be equal to one of the specified
     // values
     repeated int64 not_in = 7;
+
+    // IgnoreEmpty specifies that the validation rules of this field should be
+    // evaluated only if the field is not empty
+    optional bool ignore_empty = 8;
 }
 
 // UInt32Rules describes the constraints applied to `uint32` values
@@ -223,6 +239,10 @@ message UInt32Rules {
     // NotIn specifies that this field cannot be equal to one of the specified
     // values
     repeated uint32 not_in = 7;
+
+    // IgnoreEmpty specifies that the validation rules of this field should be
+    // evaluated only if the field is not empty
+    optional bool ignore_empty = 8;
 }
 
 // UInt64Rules describes the constraints applied to `uint64` values
@@ -255,6 +275,10 @@ message UInt64Rules {
     // NotIn specifies that this field cannot be equal to one of the specified
     // values
     repeated uint64 not_in = 7;
+
+    // IgnoreEmpty specifies that the validation rules of this field should be
+    // evaluated only if the field is not empty
+    optional bool ignore_empty = 8;
 }
 
 // SInt32Rules describes the constraints applied to `sint32` values
@@ -287,6 +311,10 @@ message SInt32Rules {
     // NotIn specifies that this field cannot be equal to one of the specified
     // values
     repeated sint32 not_in = 7;
+
+    // IgnoreEmpty specifies that the validation rules of this field should be
+    // evaluated only if the field is not empty
+    optional bool ignore_empty = 8;
 }
 
 // SInt64Rules describes the constraints applied to `sint64` values
@@ -319,6 +347,10 @@ message SInt64Rules {
     // NotIn specifies that this field cannot be equal to one of the specified
     // values
     repeated sint64 not_in = 7;
+
+    // IgnoreEmpty specifies that the validation rules of this field should be
+    // evaluated only if the field is not empty
+    optional bool ignore_empty = 8;
 }
 
 // Fixed32Rules describes the constraints applied to `fixed32` values
@@ -351,6 +383,10 @@ message Fixed32Rules {
     // NotIn specifies that this field cannot be equal to one of the specified
     // values
     repeated fixed32 not_in = 7;
+
+    // IgnoreEmpty specifies that the validation rules of this field should be
+    // evaluated only if the field is not empty
+    optional bool ignore_empty = 8;
 }
 
 // Fixed64Rules describes the constraints applied to `fixed64` values
@@ -383,6 +419,10 @@ message Fixed64Rules {
     // NotIn specifies that this field cannot be equal to one of the specified
     // values
     repeated fixed64 not_in = 7;
+
+    // IgnoreEmpty specifies that the validation rules of this field should be
+    // evaluated only if the field is not empty
+    optional bool ignore_empty = 8;
 }
 
 // SFixed32Rules describes the constraints applied to `sfixed32` values
@@ -415,6 +455,10 @@ message SFixed32Rules {
     // NotIn specifies that this field cannot be equal to one of the specified
     // values
     repeated sfixed32 not_in = 7;
+
+    // IgnoreEmpty specifies that the validation rules of this field should be
+    // evaluated only if the field is not empty
+    optional bool ignore_empty = 8;
 }
 
 // SFixed64Rules describes the constraints applied to `sfixed64` values
@@ -447,6 +491,10 @@ message SFixed64Rules {
     // NotIn specifies that this field cannot be equal to one of the specified
     // values
     repeated sfixed64 not_in = 7;
+
+    // IgnoreEmpty specifies that the validation rules of this field should be
+    // evaluated only if the field is not empty
+    optional bool ignore_empty = 8;
 }
 
 // BoolRules describes the constraints applied to `bool` values
@@ -566,6 +614,10 @@ message StringRules {
   // Setting to false will enable a looser validations that only disallows
   // \r\n\0 characters, which can be used to bypass header matching rules.
   optional bool strict = 25 [default = true];
+
+  // IgnoreEmpty specifies that the validation rules of this field should be
+  // evaluated only if the field is not empty
+  optional bool ignore_empty = 26;
 }
 
 // WellKnownRegex contain some well-known patterns.
@@ -635,6 +687,10 @@ message BytesRules {
         // format
         bool ipv6 = 12;
     }
+
+    // IgnoreEmpty specifies that the validation rules of this field should be
+    // evaluated only if the field is not empty
+    optional bool ignore_empty = 14;
 }
 
 // EnumRules describe the constraints applied to enum values
@@ -685,6 +741,10 @@ message RepeatedRules {
     // Repeated message fields will still execute validation against each item
     // unless skip is specified here.
     optional FieldRules items = 4;
+
+    // IgnoreEmpty specifies that the validation rules of this field should be
+    // evaluated only if the field is not empty
+    optional bool ignore_empty = 5;
 }
 
 // MapRules describe the constraints applied to `map` values
@@ -708,6 +768,10 @@ message MapRules {
     // in the field. Message values will still have their validations evaluated
     // unless skip is specified here.
     optional FieldRules values = 5;
+
+    // IgnoreEmpty specifies that the validation rules of this field should be
+    // evaluated only if the field is not empty
+    optional bool ignore_empty = 6;
 }
 
 // AnyRules describe constraints applied exclusively to the

@@ -7,7 +7,7 @@
 package envoy_config_core_v3
 
 import (
-	_ "github.com/cncf/udpa/go/udpa/annotations"
+	_ "github.com/cncf/xds/go/udpa/annotations"
 	_ "github.com/envoyproxy/protoc-gen-validate/validate"
 	proto "github.com/golang/protobuf/proto"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
