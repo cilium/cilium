@@ -229,6 +229,8 @@ const (
 	uninitializedRegen  = "Uninitialized regeneration level"                         // from https://github.com/cilium/cilium/pull/10949
 	unstableStat        = "BUG: stat() has unstable behavior"                        // from https://github.com/cilium/cilium/pull/11028
 	removeTransientRule = "Unable to process chain CILIUM_TRANSIENT_FORWARD with ip" // from https://github.com/cilium/cilium/issues/11276
+	missingIptablesWait = "Missing iptables wait arg (-w):"
+
 	// ...and their exceptions.
 	lrpExists          = "local-redirect service exists for frontend"                         // cf. https://github.com/cilium/cilium/issues/16400
 	opCantBeFulfilled  = "Operation cannot be fulfilled on leases.coordination.k8s.io"        // cf. https://github.com/cilium/cilium/issues/16402
@@ -296,6 +298,7 @@ var badLogMessages = map[string][]string{
 	uninitializedRegen:  nil,
 	unstableStat:        nil,
 	removeTransientRule: nil,
+	missingIptablesWait: nil,
 	"DATA RACE":         nil,
 	// Exceptions for level=error should only be added as a last resort, if the
 	// error cannot be fixed in Cilium or in the test.
