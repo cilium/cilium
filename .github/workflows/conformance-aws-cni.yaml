@@ -141,8 +141,7 @@ jobs:
             --agent-image=quay.io/${{ github.repository_owner }}/cilium-ci \
             --operator-image=quay.io/${{ github.repository_owner }}/operator-aws-ci \
             --version=${SHA} \
-            --wait=false \
-            --config monitor-aggregation=none"
+            --wait=false"
           echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
           echo ::set-output name=sha::${SHA}
           echo ::set-output name=owner::${OWNER}
