@@ -87,7 +87,7 @@ type svcInfo struct {
 	svcName                   string
 	svcNamespace              string
 	loadBalancerSourceRanges  []*cidr.CIDR
-	l7LBProxyPort             uint16 // Non-zero for L7 LB services
+	l7LBProxyPort             uint16 // Non-zero for egress L7 LB services
 
 	restoredFromDatapath bool
 }
@@ -141,6 +141,21 @@ func (svc *svcInfo) useMaglev() bool {
 			(option.Config.ExternalClusterIP && svc.svcType == lb.SVCTypeClusterIP))
 }
 
+type L7LBInfo struct {
+	// Names of the CEC resources that need this service's backends to be
+	// synced to to Envoy.
+	envoyBackendRefs map[string]struct{}
+
+	// Name of the CEC resource that needs this service to be forwarded to an
+	// L7 LB specified in that resource.
+	// Only one CEC may do this for any given service.
+	envoyListenerRef string
+
+	// port number for L7 LB redirection. Can be zero if only backend sync
+	// hass been requested.
+	proxyPort uint16
+}
+
 // Service is a service handler. Its main responsibility is to reflect
 // service-related changes into BPF maps used by datapath BPF programs.
 // The changes can be triggered either by k8s_watcher or directly by
@@ -161,7 +176,7 @@ type Service struct {
 	lbmap         LBMap
 	lastUpdatedTs atomic.Value
 
-	l7lbSvcs map[string]uint16 // key: namespace/name, value: local proxy port
+	l7lbSvcs map[ServiceName]*L7LBInfo
 }
 
 // NewService creates a new instance of the service handler.
@@ -184,11 +199,117 @@ func NewService(monitorNotify monitorNotify, envoyCache envoyCache) *Service {
 		envoyCache:      envoyCache,
 		healthServer:    localHealthServer,
 		lbmap:           lbmap.New(maglev, maglevTableSize),
-		l7lbSvcs:        map[string]uint16{},
+		l7lbSvcs:        map[ServiceName]*L7LBInfo{},
 	}
 	svc.lastUpdatedTs.Store(time.Now())
 
 	return svc
+}
+
+// RegisterL7LBService makes the given service to be locally forwarded to the
+// given proxy port, if non-zero, or for backend sync only, if zero.
+func (s *Service) RegisterL7LBService(name, namespace string, cecName string, proxyPort uint16) error {
+	fullname := ServiceName{Namespace: namespace, Name: name}
+
+	s.Lock()
+	err := s.registerL7LBService(fullname, cecName, proxyPort)
+	s.Unlock()
+	if err != nil {
+		return err
+	}
+
+	log.WithFields(logrus.Fields{
+		logfields.ServiceName:      name,
+		logfields.ServiceNamespace: namespace,
+		"l7LBProxyPort":            proxyPort,
+	}).Debug("Registering service for L7 load balancing")
+
+	svcs := s.GetDeepCopyServicesByName(name, namespace)
+	for _, svc := range svcs {
+		// Upsert the existing service again after updating 'l7lbSvcs'
+		// map so that the service will get the l7 flag set in bpf
+		// datapath and Envoy endpoint resources are created for
+		// registered services.
+		if _, _, err := s.UpsertService(svc); err != nil {
+			return fmt.Errorf("error while updating service in LB map: %s", err)
+		}
+	}
+	return nil
+}
+
+// 's' must be locked
+func (s *Service) registerL7LBService(fullname ServiceName, cecName string, proxyPort uint16) error {
+	info := s.l7lbSvcs[fullname]
+	if info == nil {
+		info = &L7LBInfo{}
+	}
+
+	if proxyPort != 0 {
+		// Only one CEC resource for a given service may request L7 LB redirection at a time.
+		if info.envoyListenerRef != "" && info.envoyListenerRef != cecName {
+			return fmt.Errorf("Service %q already registered for L7 LB redirection via CiliumEnvoyConfig %q", fullname, info.envoyListenerRef)
+		}
+		info.envoyListenerRef = cecName
+		info.proxyPort = proxyPort
+	}
+
+	// Register for sync of backends to Envoy
+	if info.envoyBackendRefs == nil {
+		info.envoyBackendRefs = make(map[string]struct{}, 1)
+	}
+	info.envoyBackendRefs[cecName] = struct{}{}
+
+	s.l7lbSvcs[fullname] = info
+	return nil
+}
+
+func (s *Service) RemoveL7LBService(name, namespace string, cecName string) error {
+	fullname := ServiceName{Namespace: namespace, Name: name}
+
+	s.Lock()
+	changed := s.removeL7LBService(fullname, cecName)
+	s.Unlock()
+
+	if !changed {
+		return nil
+	}
+
+	log.WithFields(logrus.Fields{
+		logfields.ServiceName:      name,
+		logfields.ServiceNamespace: namespace,
+	}).Debug("Removing service from L7 load balancing")
+
+	svcs := s.GetDeepCopyServicesByName(name, namespace)
+	for _, svc := range svcs {
+		if _, _, err := s.UpsertService(svc); err != nil {
+			return fmt.Errorf("Error while removing service from LB map: %s", err)
+		}
+	}
+	return nil
+}
+
+func (s *Service) removeL7LBService(fullname ServiceName, cecName string) bool {
+	info, found := s.l7lbSvcs[fullname]
+	if !found {
+		return false
+	}
+
+	if info.envoyListenerRef == cecName {
+		info.envoyListenerRef = ""
+		info.proxyPort = 0
+	}
+
+	if info.envoyBackendRefs != nil {
+		delete(info.envoyBackendRefs, cecName)
+		if len(info.envoyBackendRefs) == 0 {
+			info.envoyBackendRefs = nil
+		}
+	}
+
+	if len(info.envoyBackendRefs) == 0 && info.envoyListenerRef == "" {
+		delete(s.l7lbSvcs, fullname)
+	}
+	return true
 }
 
 func (s *Service) GetLastUpdatedTs() time.Time {
@@ -340,6 +461,22 @@ func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
 	s.Lock()
 	defer s.Unlock()
 
+	// Set L7 LB for this service if registered.
+	name := ServiceName{Namespace: params.Namespace, Name: params.Name}
+	l7lbInfo, exists := s.l7lbSvcs[name]
+	if exists && l7lbInfo.envoyListenerRef != "" {
+		params.L7LBProxyPort = l7lbInfo.proxyPort
+	} else {
+		params.L7LBProxyPort = 0
+	}
+
+	// L7 LB is sharing a C union in the datapath, disable session
+	// affinity if L7 LB is configured for this service.
+	if params.L7LBProxyPort != 0 {
+		params.SessionAffinity = false
+		params.SessionAffinityTimeoutSec = 0
+	}
+
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.ServiceIP: params.Frontend.L3n4Addr,
 		logfields.Backends:  params.Backends,
@@ -410,9 +547,8 @@ func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
 		return false, lb.ID(0), err
 	}
 
-	if svc.l7LBProxyPort != 0 && s.envoyCache != nil {
+	if l7lbInfo != nil && l7lbInfo.envoyBackendRefs != nil && s.envoyCache != nil {
 		// Upsert backends as Envoy endpoints
-		name := ServiceName{Namespace: params.Namespace, Name: params.Name}
 		if err = s.envoyCache.UpsertEnvoyEndpoints(name, svc.backends); err != nil {
 			return false, lb.ID(0), err
 		}
@@ -502,6 +638,19 @@ func (s *Service) GetDeepCopyServices() []*lb.SVC {
 		svcs = append(svcs, svc.deepCopyToLBSVC())
 	}
 
+	return svcs
+}
+
+// GetDeepCopyServicesByName returns a deep-copy all matching services.
+func (s *Service) GetDeepCopyServicesByName(name, namespace string) (svcs []*lb.SVC) {
+	s.RLock()
+	defer s.RUnlock()
+
+	for _, svc := range s.svcByHash {
+		if svc.svcName == name && svc.svcNamespace == namespace {
+			svcs = append(svcs, svc.deepCopyToLBSVC())
+		}
+	}
 	return svcs
 }
 
@@ -719,12 +868,10 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 		// SyncWithK8sFinished() won't consider the service obsolete, and thus
 		// won't remove it.
 		svc.restoredFromDatapath = false
-	}
 
-	// Update L7 load balancer proxy port
-	name := p.Namespace + "/" + p.Name
-	proxyPort, _ := s.l7lbSvcs[name]
-	svc.l7LBProxyPort = proxyPort
+		// Update L7 load balancer proxy port
+		svc.l7LBProxyPort = p.L7LBProxyPort
+	}
 
 	return svc, !found, prevSessionAffinity, prevLoadBalancerSourceRanges, nil
 }
@@ -863,6 +1010,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 		SessionAffinityTimeoutSec: svc.sessionAffinityTimeoutSec,
 		CheckSourceRange:          checkLBSrcRange,
 		UseMaglev:                 svc.useMaglev(),
+		L7LBProxyPort:             svc.l7LBProxyPort,
 	}
 	if err := s.lbmap.UpsertService(p); err != nil {
 		return err
