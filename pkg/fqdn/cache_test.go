@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 
 //go:build !privileged_tests
 // +build !privileged_tests
@@ -131,7 +131,7 @@ func (ds *DNSCacheTestSuite) TestDelete(c *C) {
 	c.Assert(len(dump), Equals, 0, Commentf("Returned cache entries from cache dump after the cache was fully cleared: %v", dump))
 }
 
-func (ds *DNSCacheTestSuite) TestForceExpiredByNames(c *C) {
+func (ds *DNSCacheTestSuite) Test_forceExpiredByNames(c *C) {
 	names := []string{"test1.com", "test2.com"}
 	cache := NewDNSCache(0)
 	for i := 1; i < 4; i++ {
@@ -143,12 +143,12 @@ func (ds *DNSCacheTestSuite) TestForceExpiredByNames(c *C) {
 	}
 
 	c.Assert(cache.forward, HasLen, 3)
-	result := cache.ForceExpireByNames(time.Now(), names)
+	result := cache.forceExpireByNames(time.Now(), names)
 	c.Assert(result, checker.DeepEquals, names)
 	c.Assert(result, HasLen, 2)
 	c.Assert(cache.forward["test3.com"], Not(IsNil))
 
-	invalidName := cache.ForceExpireByNames(now, []string{"invalid.name"})
+	invalidName := cache.forceExpireByNames(now, []string{"invalid.name"})
 	c.Assert(invalidName, HasLen, 0)
 }
 
