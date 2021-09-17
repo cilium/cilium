@@ -7,7 +7,7 @@
 package envoy_config_listener_v3
 
 import (
-	_ "github.com/cncf/udpa/go/udpa/annotations"
+	_ "github.com/cncf/xds/go/udpa/annotations"
 	proto "github.com/golang/protobuf/proto"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -36,7 +36,7 @@ type ApiListener struct {
 
 	// The type in this field determines the type of API listener. At present, the following
 	// types are supported:
-	// envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager (HTTP)
+	// envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager (HTTP)
 	// [#next-major-version: In the v3 API, replace this Any field with a oneof containing the
 	// specific config message for each type of API listener. We could not do this in v2 because
 	// it would have caused circular dependencies for go protos: lds.proto depends on this file,
