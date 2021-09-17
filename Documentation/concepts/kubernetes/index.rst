@@ -22,5 +22,6 @@ The following sections describe the Kubernetes integration in detail:
    configuration
    policy
    ciliumendpoint
+   ciliumendpointslice
    compatibility
    troubleshooting
