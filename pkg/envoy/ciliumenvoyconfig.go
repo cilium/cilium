@@ -44,7 +44,7 @@ type PortAllocator interface {
 }
 
 // ParseResources parses all supported Envoy resource types from CiliumEnvoyConfig CRD to Resources type
-func ParseResources(namePrefix string, anySlice []cilium_v2alpha1.XDSResource, portAllocator PortAllocator) (Resources, error) {
+func ParseResources(namePrefix string, anySlice []cilium_v2alpha1.XDSResource, validate bool, portAllocator PortAllocator) (Resources, error) {
 	resources := Resources{}
 	for _, r := range anySlice {
 		message, err := r.UnmarshalNew()
@@ -57,6 +57,15 @@ func ParseResources(namePrefix string, anySlice []cilium_v2alpha1.XDSResource, p
 			listener, ok := message.(*envoy_config_listener.Listener)
 			if !ok {
 				return Resources{}, fmt.Errorf("Invalid type for Listener: %T", message)
+			}
+			// Check that a listener name is provided and that it is unique within this CEC
+			if listener.Name == "" {
+				return Resources{}, fmt.Errorf("'Listener name not provided")
+			}
+			for i := range resources.Listeners {
+				if listener.Name == resources.Listeners[i].Name {
+					return Resources{}, fmt.Errorf("Duplicate Listener name %q", listener.Name)
+				}
 			}
 
 			if option.Config.EnableBPFTProxy {
@@ -144,24 +153,51 @@ func ParseResources(namePrefix string, anySlice []cilium_v2alpha1.XDSResource, p
 			// listener.Name = namePrefix + "/" + listener.Name // Prepend listener name with k8s resource name
 			resources.Listeners = append(resources.Listeners, listener)
 
-			log.Debugf("ParseResources: Parsed listener %s: %v", name, listener)
+			log.Debugf("ParseResources: Parsed listener %q: %v", name, listener)
 
 		case RouteTypeURL:
 			route, ok := message.(*envoy_config_route.RouteConfiguration)
 			if !ok {
 				return Resources{}, fmt.Errorf("Invalid type for Route: %T", message)
 			}
-
+			// Check that a Route name is provided and that it is unique within this CEC
+			if route.Name == "" {
+				return Resources{}, fmt.Errorf("RouteConfiguration name not provided")
+			}
+			for i := range resources.Routes {
+				if route.Name == resources.Routes[i].Name {
+					return Resources{}, fmt.Errorf("Duplicate Route name %q", route.Name)
+				}
+			}
+			if validate {
+				if err := route.Validate(); err != nil {
+					return Resources{}, fmt.Errorf("ParseResources: Could not validate RouteConfiguration (%s): %s", err, route.String())
+				}
+			}
 			name := route.Name
 			// route.Name = namePrefix + "/" + route.Name // Prepend route name with k8s resource name
 			resources.Routes = append(resources.Routes, route)
 
-			log.Debugf("ParseResources: Parsed route %s: %v", name, route)
+			log.Debugf("ParseResources: Parsed route %q: %v", name, route)
 
 		case ClusterTypeURL:
 			cluster, ok := message.(*envoy_config_cluster.Cluster)
 			if !ok {
 				return Resources{}, fmt.Errorf("Invalid type for Route: %T", message)
+			}
+			// Check that a Cluster name is provided and that it is unique within this CEC
+			if cluster.Name == "" {
+				return Resources{}, fmt.Errorf("Cluster name not provided")
+			}
+			for i := range resources.Clusters {
+				if cluster.Name == resources.Clusters[i].Name {
+					return Resources{}, fmt.Errorf("Duplicate Cluster name %q", cluster.Name)
+				}
+			}
+			if validate {
+				if err := cluster.Validate(); err != nil {
+					return Resources{}, fmt.Errorf("ParseResources: Could not validate Cluster %q (%s): %s", cluster.Name, err, cluster.String())
+				}
 			}
 			// Fill in EDS config source if unset
 			if enum := cluster.GetType(); enum == envoy_config_cluster.Cluster_EDS {
@@ -177,21 +213,49 @@ func ParseResources(namePrefix string, anySlice []cilium_v2alpha1.XDSResource, p
 			// cluster.Name = namePrefix + "/" + cluster.Name // Prepend cluster name with k8s resource name
 			resources.Clusters = append(resources.Clusters, cluster)
 
-			log.Debugf("ParseResources: Parsed cluster %s: %v", name, cluster)
+			log.Debugf("ParseResources: Parsed cluster %q: %v", name, cluster)
 
 		case EndpointTypeURL:
-			endpoint, ok := message.(*envoy_config_endpoint.ClusterLoadAssignment)
+			endpoints, ok := message.(*envoy_config_endpoint.ClusterLoadAssignment)
 			if !ok {
 				return Resources{}, fmt.Errorf("Invalid type for Route: %T", message)
 			}
-			resources.Endpoints = append(resources.Endpoints, endpoint)
+			// Check that a Cluster name is provided and that it is unique within this CEC
+			if endpoints.ClusterName == "" {
+				return Resources{}, fmt.Errorf("ClusterLoadAssignment cluster_name not provided")
+			}
+			for i := range resources.Endpoints {
+				if endpoints.ClusterName == resources.Endpoints[i].ClusterName {
+					return Resources{}, fmt.Errorf("Duplicate cluster_name %q", endpoints.ClusterName)
+				}
+			}
+			if validate {
+				if err := endpoints.Validate(); err != nil {
+					return Resources{}, fmt.Errorf("ParseResources: Could not validate ClusterLoadAssignment for cluster %q (%s): %s", endpoints.ClusterName, err, endpoints.String())
+				}
+			}
+			resources.Endpoints = append(resources.Endpoints, endpoints)
 
-			log.Debugf("ParseResources: Parsed endpoint: %v", endpoint)
+			log.Debugf("ParseResources: Parsed endpoints for cluster %q: %v", endpoints.ClusterName, endpoints)
 
 		case SecretTypeURL:
 			secret, ok := message.(*envoy_config_tls.Secret)
 			if !ok {
 				return Resources{}, fmt.Errorf("Invalid type for Secret: %T", message)
+			}
+			// Check that a Secret name is provided and that it is unique within this CEC
+			if secret.Name == "" {
+				return Resources{}, fmt.Errorf("Secret name not provided")
+			}
+			for i := range resources.Secrets {
+				if secret.Name == resources.Secrets[i].Name {
+					return Resources{}, fmt.Errorf("Duplicate Secret name %q", secret.Name)
+				}
+			}
+			if validate {
+				if err := secret.Validate(); err != nil {
+					return Resources{}, fmt.Errorf("ParseResources: Could not validate Secret for cluster %q (%s): %s", secret.Name, err, secret.String())
+				}
 			}
 			resources.Secrets = append(resources.Secrets, secret)
 
@@ -208,7 +272,7 @@ func ParseResources(namePrefix string, anySlice []cilium_v2alpha1.XDSResource, p
 		if listener.GetAddress() == nil {
 			port, err := portAllocator.AllocateProxyPort(listener.Name, false)
 			if err != nil || port == 0 {
-				return Resources{}, fmt.Errorf("Listener port allocation failed: %s", err)
+				return Resources{}, fmt.Errorf("Listener port allocation for %q failed: %s", listener.Name, err)
 			}
 			listener.Address = getListenerAddress(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled())
 			if resources.portAllocations == nil {
@@ -218,6 +282,11 @@ func ParseResources(namePrefix string, anySlice []cilium_v2alpha1.XDSResource, p
 
 			// Inject Transparent to work with TPROXY
 			listener.Transparent = &wrapperspb.BoolValue{Value: true}
+		}
+		if validate {
+			if err := listener.Validate(); err != nil {
+				return Resources{}, fmt.Errorf("ParseResources: Could not validate Listener %q (%s): %s", listener.Name, err, listener.String())
+			}
 		}
 	}
 

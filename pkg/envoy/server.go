@@ -555,6 +555,11 @@ func (s *XDSServer) addListener(name string, listenerConf func() *envoy_config_l
 		// Note that this may degrade Envoy performance.
 		listenerConfig.EnableReusePort = &wrapperspb.BoolValue{Value: false}
 	}
+	if err := listenerConfig.Validate(); err != nil {
+		log.Errorf("Envoy: Could not validate Listener (%s): %s", err, listenerConfig.String())
+		return
+	}
+
 	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConfig, []string{"127.0.0.1"}, wg,
 		func(err error) {
 			// listener might have already been removed, so we can't look again
