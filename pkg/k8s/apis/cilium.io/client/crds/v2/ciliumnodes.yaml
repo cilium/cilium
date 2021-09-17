@@ -4,7 +4,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.3.1-0.20200716001835-4a903ddb7005
+    controller-gen.kubebuilder.io/version: v0.6.2
   creationTimestamp: null
   name: ciliumnodes.cilium.io
 spec:

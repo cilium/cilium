@@ -546,11 +546,10 @@ func wrapMeasureFunc(fn func(text string, body interface{}, samples int) bool, f
 // isTestFocused checks the value of FocusString and return true if the given
 // text name is focussed, returns false if the test is not focused.
 func isTestFocused(text string) bool {
-	if config.GinkgoConfig.FocusString == "" {
+	if len(config.GinkgoConfig.FocusStrings) == 0 {
 		return false
 	}
-
-	focusFilter := regexp.MustCompile(config.GinkgoConfig.FocusString)
+	focusFilter := regexp.MustCompile(config.GinkgoConfig.FocusStrings[0])
 	return focusFilter.MatchString(text)
 }
 

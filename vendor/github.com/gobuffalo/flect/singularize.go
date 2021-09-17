@@ -15,6 +15,16 @@ func Singularize(s string) string {
 	return New(s).Singularize().String()
 }
 
+// SingularizeWithSize will singular a string taking a number number into account.
+//	SingularizeWithSize("user", 1) = user
+//	SingularizeWithSize("user", 2) = users
+func SingularizeWithSize(s string, i int) string {
+	if i == 1 || i == -1 {
+		return New(s).Singularize().String()
+	}
+	return New(s).Pluralize().String()
+}
+
 // Singularize returns a singular version of the string
 //	users = user
 //	data = datum

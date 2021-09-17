@@ -162,6 +162,8 @@ authenticator
 autoDirectNodeRoutes
 autoMount
 autoProtectPortRange
+autocompletion
+autoload
 autoscaler
 awk
 aws
@@ -244,6 +246,7 @@ cnpStatusUpdates
 codebase
 committer
 committers
+compinit
 conf
 confFileMountPath
 confPath
@@ -372,6 +375,7 @@ flowBufferSize
 followup
 foobar
 foundational
+fpath
 fqdn
 fragmentTracking
 fromCIDR
@@ -676,6 +680,7 @@ policyMapMax
 poller
 portmap
 postcheck
+powershell
 pprof
 pre
 preallocateMaps
@@ -882,6 +887,7 @@ url
 useAPIServer
 username
 userspace
+usr
 uuid
 vCPU
 vCPUs
@@ -929,3 +935,4 @@ xwing
 xxxxx
 yaml
 zsh
+zshrc

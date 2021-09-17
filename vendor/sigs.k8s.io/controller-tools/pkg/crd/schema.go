@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	apiext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	crdmarkers "sigs.k8s.io/controller-tools/pkg/crd/markers"
 
 	"sigs.k8s.io/controller-tools/pkg/loader"
 	"sigs.k8s.io/controller-tools/pkg/markers"
@@ -395,6 +396,12 @@ func structToSchema(ctx *schemaContext, structType *ast.StructType) *apiext.JSON
 			}
 		}
 
+		var propSchema *apiext.JSONSchemaProps
+		if field.Markers.Get(crdmarkers.SchemalessName) != nil {
+			propSchema = &apiext.JSONSchemaProps{}
+		} else {
+			propSchema = typeToSchema(ctx.ForInfo(&markers.TypeInfo{}), field.RawField.Type)
+		}
 		// process oneOf groups
 		if fieldMarkedOneOf {
 			props.OneOf = append(props.OneOf, apiext.JSONSchemaProps{
@@ -409,8 +416,6 @@ func structToSchema(ctx *schemaContext, structType *ast.StructType) *apiext.JSON
 				Required:   []string{fieldName},
 			})
 		}
-
-		propSchema := typeToSchema(ctx.ForInfo(&markers.TypeInfo{}), field.RawField.Type)
 		propSchema.Description = field.Doc
 
 		applyMarkers(ctx, field.Markers, propSchema, field.RawField)

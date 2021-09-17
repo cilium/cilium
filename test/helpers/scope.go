@@ -17,8 +17,11 @@ func GetScope() (string, error) {
 	if UserDefinedScope != "" {
 		return UserDefinedScope, nil
 	}
+	if len(ginkgoconfig.GinkgoConfig.FocusStrings) == 0 {
+		return "", errors.New("Scope cannot be set")
+	}
 
-	focusString := strings.TrimSpace(strings.ToLower(ginkgoconfig.GinkgoConfig.FocusString))
+	focusString := strings.TrimSpace(strings.ToLower(ginkgoconfig.GinkgoConfig.FocusStrings[0]))
 	switch {
 	case strings.HasPrefix(focusString, "run"):
 		return Runtime, nil
