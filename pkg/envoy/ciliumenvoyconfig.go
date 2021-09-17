@@ -542,7 +542,7 @@ func (s *XDSServer) DeleteEnvoyResources(ctx context.Context, resources Resource
 	return nil
 }
 
-func (s *XDSServer) UpsertEnvoyEndpoints(svc service.ServiceName, backends []lb.Backend) error {
+func (s *XDSServer) UpsertEnvoyEndpoints(serviceName service.Name, backends []lb.Backend) error {
 	lbEndpoints := []*envoy_config_endpoint.LbEndpoint{}
 	for _, be := range backends {
 		if be.Protocol != lb.TCP {
@@ -567,7 +567,7 @@ func (s *XDSServer) UpsertEnvoyEndpoints(svc service.ServiceName, backends []lb.
 		})
 	}
 	endpoint := &envoy_config_endpoint.ClusterLoadAssignment{
-		ClusterName: svc.Namespace + "/" + svc.Name,
+		ClusterName: serviceName.String(),
 		Endpoints: []*envoy_config_endpoint.LocalityLbEndpoints{
 			{
 				LbEndpoints: lbEndpoints,

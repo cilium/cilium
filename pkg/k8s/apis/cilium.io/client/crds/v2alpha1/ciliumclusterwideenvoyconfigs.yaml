@@ -94,8 +94,8 @@ spec:
                       type: string
                     namespace:
                       description: Namespace is the Kubernetes service namespace.
-                        In CiliumEnvoyConfig namespace defaults to the namespace of
-                        the CEC, In CiliumClusterwideEnvoyConfig namespace defaults
+                        In CiliumEnvoyConfig namespace this is overridden to the namespace
+                        of the CEC, In CiliumClusterwideEnvoyConfig namespace defaults
                         to "default".
                       type: string
                   required:

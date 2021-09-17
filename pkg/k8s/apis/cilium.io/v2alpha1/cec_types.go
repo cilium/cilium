@@ -99,7 +99,7 @@ type ServiceListener struct {
 	Name string `json:"name"`
 
 	// Namespace is the Kubernetes service namespace.
-	// In CiliumEnvoyConfig namespace defaults to the namespace of the CEC,
+	// In CiliumEnvoyConfig namespace this is overridden to the namespace of the CEC,
 	// In CiliumClusterwideEnvoyConfig namespace defaults to "default".
 	// +kubebuilder:validation:Optional
 	Namespace string `json:"namespace"`

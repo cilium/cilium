@@ -990,20 +990,49 @@ func (m *ManagerTestSuite) TestL7LoadBalancerServiceOverride(c *C) {
 	c.Assert(ok, Equals, true)
 	c.Assert(svc.l7LBProxyPort, Equals, uint16(0))
 
-	p2 := &lb.SVC{
-		Frontend:      frontend1,
-		Backends:      allBackends,
-		Type:          lb.SVCTypeClusterIP,
-		TrafficPolicy: lb.SVCTrafficPolicyCluster,
-		Name:          "echo-same-node",
-		Namespace:     "cilium-test",
-	}
-
-	// Insert the service entry of type ClusterIP.
-	created, id, err = m.svc.UpsertService(p2)
+	// registering without redirecting
+	echoOtherNode := Name{Name: "echo-other-node", Namespace: "cilium-test"}
+	resource1 := Name{Name: "testOwner1", Namespace: "cilium-test"}
+	err = m.svc.RegisterL7LBServiceBackendSync(echoOtherNode, resource1)
 	c.Assert(err, IsNil)
-	c.Assert(created, Equals, false)
-	c.Assert(id, Not(Equals), lb.ID(0))
+
+	svc, ok = m.svc.svcByID[id]
+	c.Assert(len(svc.backends), Equals, len(allBackends))
+	c.Assert(ok, Equals, true)
+	c.Assert(svc.l7LBProxyPort, Equals, uint16(0))
+
+	// registering with redirection stores the proxy port
+	resource2 := Name{Name: "testOwner2", Namespace: "cilium-test"}
+	err = m.svc.RegisterL7LBService(echoOtherNode, resource2, uint16(9090))
+	c.Assert(err, IsNil)
+
+	svc, ok = m.svc.svcByID[id]
+	c.Assert(len(svc.backends), Equals, len(allBackends))
+	c.Assert(ok, Equals, true)
+	c.Assert(svc.l7LBProxyPort, Equals, uint16(9090))
+
+	// Remove with an unregistered owner name does not remove
+	resource3 := Name{Name: "testOwner3", Namespace: "cilium-test"}
+	err = m.svc.RemoveL7LBService(echoOtherNode, resource3)
+	c.Assert(err, IsNil)
+
+	svc, ok = m.svc.svcByID[id]
+	c.Assert(len(svc.backends), Equals, len(allBackends))
+	c.Assert(ok, Equals, true)
+	c.Assert(svc.l7LBProxyPort, Equals, uint16(9090))
+
+	// Removing registration without redirection does not remove the proxy port
+	err = m.svc.RemoveL7LBService(echoOtherNode, resource1)
+	c.Assert(err, IsNil)
+
+	svc, ok = m.svc.svcByID[id]
+	c.Assert(len(svc.backends), Equals, len(allBackends))
+	c.Assert(ok, Equals, true)
+	c.Assert(svc.l7LBProxyPort, Equals, uint16(9090))
+
+	// removing the registration with redirection removes the proxy port
+	err = m.svc.RemoveL7LBService(echoOtherNode, resource2)
+	c.Assert(err, IsNil)
 
 	svc, ok = m.svc.svcByID[id]
 	c.Assert(len(svc.backends), Equals, len(allBackends))
