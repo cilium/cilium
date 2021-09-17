@@ -565,15 +565,6 @@ func (c *DNSCache) ForceExpire(expireLookupsBefore time.Time, nameMatch *regexp.
 	return KeepUniqueNames(namesAffected)
 }
 
-// ForceExpireByNames is the same function as ForceExpire but uses the exact
-// names to delete the entries.
-func (c *DNSCache) ForceExpireByNames(expireLookupsBefore time.Time, names []string) (namesAffected []string) {
-	c.Lock()
-	defer c.Unlock()
-
-	return c.forceExpireByNames(expireLookupsBefore, names)
-}
-
 func (c *DNSCache) forceExpireByNames(expireLookupsBefore time.Time, names []string) (namesAffected []string) {
 	for _, name := range names {
 		entries, exists := c.forward[name]
