@@ -89,7 +89,7 @@ func (k *K8sWatcher) addCiliumClusterwideEnvoyConfig(ccec *cilium_v2alpha1.Ciliu
 		logfields.K8sAPIVersion: ccec.TypeMeta.APIVersion,
 	})
 
-	resources, err := envoy.ParseResources("", ccec.Spec.Resources, k.envoyConfigManager)
+	resources, err := envoy.ParseResources("", ccec.Spec.Resources, true, k.envoyConfigManager)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to add CiliumClusterwideEnvoyConfig: malformed Envoy config")
 		return err
@@ -119,12 +119,12 @@ func (k *K8sWatcher) updateCiliumClusterwideEnvoyConfig(oldCCEC *cilium_v2alpha1
 		logfields.K8sAPIVersion: newCCEC.TypeMeta.APIVersion,
 	})
 
-	oldResources, err := envoy.ParseResources("", oldCCEC.Spec.Resources, k.envoyConfigManager)
+	oldResources, err := envoy.ParseResources("", oldCCEC.Spec.Resources, false, k.envoyConfigManager)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumClusterwideEnvoyConfig: malformed old Envoy config")
 		return err
 	}
-	newResources, err := envoy.ParseResources("", newCCEC.Spec.Resources, k.envoyConfigManager)
+	newResources, err := envoy.ParseResources("", newCCEC.Spec.Resources, true, k.envoyConfigManager)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumClusterwideEnvoyConfig: malformed new Envoy config")
 		return err
@@ -158,7 +158,7 @@ func (k *K8sWatcher) deleteCiliumClusterwideEnvoyConfig(ccec *cilium_v2alpha1.Ci
 		logfields.K8sAPIVersion: ccec.TypeMeta.APIVersion,
 	})
 
-	resources, err := envoy.ParseResources("", ccec.Spec.Resources, k.envoyConfigManager)
+	resources, err := envoy.ParseResources("", ccec.Spec.Resources, false, k.envoyConfigManager)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to delete CiliumClusterwideEnvoyConfig: parsing rersource names failed")
 		return err
