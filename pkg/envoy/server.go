@@ -69,8 +69,6 @@ const (
 	ingressClusterName    = "ingress-cluster"
 	ingressTLSClusterName = "ingress-cluster-tls"
 	metricsListenerName   = "envoy-prometheus-metrics-listener"
-	listenerIPv6Address   = "::"
-	listenerIPv4Address   = "0.0.0.0"
 	EnvoyTimeout          = 300 * time.Second // must be smaller than endpoint.EndpointGenerationTimeout
 )
 
@@ -429,16 +427,29 @@ func (s *XDSServer) getTcpFilterChainProto(clusterName string, filterName string
 	return chain
 }
 
+func getListenerAddress(port uint16, ipv4, ipv6 bool) *envoy_config_core.Address {
+	listenerAddr := "0.0.0.0"
+	if ipv6 {
+		listenerAddr = "::"
+	}
+	return &envoy_config_core.Address{
+		Address: &envoy_config_core.Address_SocketAddress{
+			SocketAddress: &envoy_config_core.SocketAddress{
+				Protocol:      envoy_config_core.SocketAddress_TCP,
+				Address:       listenerAddr,
+				Ipv4Compat:    ipv4 && ipv6,
+				PortSpecifier: &envoy_config_core.SocketAddress_PortValue{PortValue: uint32(port)},
+			},
+		},
+	}
+}
+
 // AddMetricsListener adds a prometheus metrics listener to Envoy.
 // We could do this in the bootstrap config, but then a failure to bind to the configured port
 // would fail starting Envoy.
 func (s *XDSServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
 	if port == 0 {
 		return // 0 == disabled
-	}
-	listenerAddr := listenerIPv6Address
-	if !option.Config.EnableIPv6 {
-		listenerAddr = listenerIPv4Address
 	}
 	log.WithField(logfields.Port, port).Debug("Envoy: AddMetricsListener")
 
@@ -473,17 +484,8 @@ func (s *XDSServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
 		}
 
 		listenerConf := &envoy_config_listener.Listener{
-			Name: metricsListenerName,
-			Address: &envoy_config_core.Address{
-				Address: &envoy_config_core.Address_SocketAddress{
-					SocketAddress: &envoy_config_core.SocketAddress{
-						Protocol:      envoy_config_core.SocketAddress_TCP,
-						Address:       listenerAddr,
-						Ipv4Compat:    true,
-						PortSpecifier: &envoy_config_core.SocketAddress_PortValue{PortValue: uint32(port)},
-					},
-				},
-			},
+			Name:    metricsListenerName,
+			Address: getListenerAddress(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled()),
 			FilterChains: []*envoy_config_listener.FilterChain{{
 				Filters: []*envoy_config_listener.Filter{{
 					Name: "envoy.filters.network.http_connection_manager",
@@ -681,28 +683,14 @@ func getListenerSocketMarkOption(isIngress bool) *envoy_config_core.SocketOption
 
 func (s *XDSServer) getListenerConf(name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool) *envoy_config_listener.Listener {
 	clusterName := egressClusterName
-	listenerAddr := listenerIPv6Address
 
 	if isIngress {
 		clusterName = ingressClusterName
 	}
 
-	if !option.Config.EnableIPv6 {
-		listenerAddr = listenerIPv4Address
-	}
-
 	listenerConf := &envoy_config_listener.Listener{
-		Name: name,
-		Address: &envoy_config_core.Address{
-			Address: &envoy_config_core.Address_SocketAddress{
-				SocketAddress: &envoy_config_core.SocketAddress{
-					Protocol:      envoy_config_core.SocketAddress_TCP,
-					Address:       listenerAddr,
-					Ipv4Compat:    true,
-					PortSpecifier: &envoy_config_core.SocketAddress_PortValue{PortValue: uint32(port)},
-				},
-			},
-		},
+		Name:        name,
+		Address:     getListenerAddress(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled()),
 		Transparent: &wrapperspb.BoolValue{Value: true},
 		SocketOptions: []*envoy_config_core.SocketOption{
 			getListenerSocketMarkOption(isIngress),

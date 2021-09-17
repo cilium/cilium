@@ -24,6 +24,54 @@ import (
 
 type JSONSuite struct{}
 
+type MockPort struct {
+	port uint16
+	cnt  int
+}
+
+type MockPortAllocator struct {
+	port  uint16
+	ports map[string]*MockPort
+}
+
+func NewMockPortAllocator() *MockPortAllocator {
+	return &MockPortAllocator{
+		port:  1024,
+		ports: make(map[string]*MockPort),
+	}
+}
+
+func (m *MockPortAllocator) AllocateProxyPort(name string, ingress bool) (uint16, error) {
+	if mp, exists := m.ports[name]; exists {
+		return mp.port, nil
+	}
+	m.port++
+	m.ports[name] = &MockPort{port: m.port}
+
+	return m.port, nil
+}
+
+func (m *MockPortAllocator) AckProxyPort(name string) error {
+	mp, exists := m.ports[name]
+	if !exists {
+		return fmt.Errorf("Non-allocated port %s", name)
+	}
+	mp.cnt++
+	return nil
+}
+
+func (m *MockPortAllocator) ReleaseProxyPort(name string) error {
+	mp, exists := m.ports[name]
+	if !exists {
+		return fmt.Errorf("Non-allocated port %s", name)
+	}
+	mp.cnt--
+	if mp.cnt <= 0 {
+		delete(m.ports, name)
+	}
+	return nil
+}
+
 var _ = Suite(&JSONSuite{})
 
 var xds1 = `version_info: "0"
@@ -94,6 +142,7 @@ spec:
 `
 
 func (s *JSONSuite) TestCiliumEnvoyConfig(c *C) {
+	portAllocator := NewMockPortAllocator()
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfig))
 	c.Assert(err, IsNil)
 	var buf bytes.Buffer
@@ -106,10 +155,87 @@ func (s *JSONSuite) TestCiliumEnvoyConfig(c *C) {
 	c.Assert(cec.Spec.Resources, HasLen, 1)
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 
-	resources, err := ParseResources("prefix", cec)
+	resources, err := ParseResources("prefix", cec, portAllocator)
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
 	c.Assert(resources.Listeners[0].Address.GetSocketAddress().GetPortValue(), Equals, uint32(10000))
+	c.Assert(resources.Listeners[0].FilterChains, HasLen, 1)
+	chain := resources.Listeners[0].FilterChains[0]
+	c.Assert(chain.Filters, HasLen, 1)
+	c.Assert(chain.Filters[0].Name, Equals, "envoy.filters.network.http_connection_manager")
+	message, err := chain.Filters[0].GetTypedConfig().UnmarshalNew()
+	c.Assert(err, IsNil)
+	c.Assert(message, Not(IsNil))
+	hcm, ok := message.(*envoy_config_http.HttpConnectionManager)
+	c.Assert(ok, Equals, true)
+	c.Assert(hcm, Not(IsNil))
+
+	//
+	// Check that missing RDS config source is automatically filled in
+	//
+	rds := hcm.GetRds()
+	c.Assert(rds, Not(IsNil))
+	cs := rds.GetConfigSource()
+	c.Assert(cs, Not(IsNil))
+	acs := cs.GetApiConfigSource()
+	c.Assert(acs, Not(IsNil))
+	c.Assert(acs.ApiType, Equals, envoy_config_core.ApiConfigSource_GRPC)
+	c.Assert(acs.TransportApiVersion, Equals, envoy_config_core.ApiVersion_V3)
+	c.Assert(acs.SetNodeOnFirstMessageOnly, Equals, true)
+	c.Assert(acs.GrpcServices, HasLen, 1)
+	eg := acs.GrpcServices[0].GetEnvoyGrpc()
+	c.Assert(eg, Not(IsNil))
+	c.Assert(eg.ClusterName, Equals, "xds-grpc-cilium")
+
+	//
+	// Check that HTTP filters are parsed
+	//
+	c.Assert(hcm.HttpFilters, HasLen, 1)
+	c.Assert(hcm.HttpFilters[0].Name, Equals, "envoy.filters.http.router")
+}
+
+var ciliumEnvoyConfigNoAddress = `apiVersion: cilium.io/v2alpha1
+kind: CiliumEnvoyConfig
+metadata:
+  name: envoy-prometheus-metrics-listener
+spec:
+  version_info: "0"
+  resources:
+  - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+    name: envoy-prometheus-metrics-listener
+    filter_chains:
+    - filters:
+      - name: envoy.filters.network.http_connection_manager
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          stat_prefix: ingress_http
+          codec_type: AUTO
+          rds:
+            route_config_name: local_route
+          http_filters:
+          - name: envoy.filters.http.router
+`
+
+func (s *JSONSuite) TestCiliumEnvoyConfigNoAddress(c *C) {
+	portAllocator := NewMockPortAllocator()
+	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigNoAddress))
+	c.Assert(err, IsNil)
+	var buf bytes.Buffer
+	json.Indent(&buf, jsonBytes, "", "\t")
+	fmt.Printf("JSON spec:\n%s\n", buf.String())
+	cec := &cilium_v2alpha1.CiliumEnvoyConfig{}
+	err = json.Unmarshal(jsonBytes, cec)
+	c.Assert(err, IsNil)
+	c.Assert(cec.Spec.Resources, Not(IsNil))
+	c.Assert(cec.Spec.Resources, HasLen, 1)
+	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
+
+	resources, err := ParseResources("prefix", cec, portAllocator)
+	c.Assert(err, IsNil)
+	c.Assert(resources.Listeners, HasLen, 1)
+	c.Assert(resources.Listeners[0].Address, Not(IsNil))
+	c.Assert(resources.Listeners[0].Address.GetSocketAddress(), Not(IsNil))
+	c.Assert(resources.Listeners[0].Address.GetSocketAddress().GetPortValue(), Not(Equals), 0)
 	c.Assert(resources.Listeners[0].FilterChains, HasLen, 1)
 	chain := resources.Listeners[0].FilterChains[0]
 	c.Assert(chain.Filters, HasLen, 1)
@@ -202,6 +328,7 @@ spec:
 `
 
 func (s *JSONSuite) TestCiliumEnvoyConfigMulti(c *C) {
+	portAllocator := NewMockPortAllocator()
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigMulti))
 	c.Assert(err, IsNil)
 	// var buf bytes.Buffer
@@ -214,7 +341,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigMulti(c *C) {
 	c.Assert(cec.Spec.Resources, HasLen, 5)
 
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
-	resources, err := ParseResources("prefix", cec)
+	resources, err := ParseResources("prefix", cec, portAllocator)
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
 	c.Assert(resources.Listeners[0].Address.GetSocketAddress().GetPortValue(), Equals, uint32(10000))

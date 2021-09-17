@@ -1080,24 +1080,16 @@ func (d *Daemon) Close() {
 	d.nodeDiscovery.Close()
 }
 
-func (d *Daemon) RegisterCRDProxyPort(name string, proxyPort uint16, ingress bool) error {
-	err := d.l7Proxy.SetProxyPort(name, proxy.ProxyTypeCRD, proxyPort, ingress)
-	if err != nil {
-		return err
-	}
-	return d.l7Proxy.AckProxyPort(name)
+func (d *Daemon) UpsertEnvoyResources(ctx context.Context, resources envoy.Resources, portAllocator envoy.PortAllocator) error {
+	return d.l7Proxy.UpsertEnvoyResources(ctx, resources, portAllocator)
 }
 
-func (d *Daemon) UpsertEnvoyResources(ctx context.Context, resources envoy.Resources, wait bool) error {
-	return d.l7Proxy.UpsertEnvoyResources(ctx, resources, wait)
+func (d *Daemon) UpdateEnvoyResources(ctx context.Context, old, new envoy.Resources, portAllocator envoy.PortAllocator) error {
+	return d.l7Proxy.UpdateEnvoyResources(ctx, old, new, portAllocator)
 }
 
-func (d *Daemon) UpdateEnvoyResources(ctx context.Context, old, new envoy.Resources, wait bool) error {
-	return d.l7Proxy.UpdateEnvoyResources(ctx, old, new, wait)
-}
-
-func (d *Daemon) DeleteEnvoyResources(ctx context.Context, resources envoy.Resources, wait bool) error {
-	return d.l7Proxy.DeleteEnvoyResources(ctx, resources, wait)
+func (d *Daemon) DeleteEnvoyResources(ctx context.Context, resources envoy.Resources, portAllocator envoy.PortAllocator) error {
+	return d.l7Proxy.DeleteEnvoyResources(ctx, resources, portAllocator)
 }
 
 // TriggerReloadWithoutCompile causes all BPF programs and maps to be reloaded,
