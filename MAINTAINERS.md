@@ -25,7 +25,7 @@ by the "janitor role" which is rotated between all committers.
 
  * [Aditi Ghag] (Isovalent)
  * [Alexandre Perrin] (Isovalent)
- * [Beatriz Martinez] (Isovalent)
+ * [Beatriz Martínez] (Isovalent)
  * [Chris Tarazi] (Isovalent)
  * [Daniel Borkmann] (Isovalent)
  * [Dan Wendlandt] (Isovalent)
@@ -38,12 +38,14 @@ by the "janitor role" which is rotated between all committers.
  * [John Fastabend] (Isovalent)
  * [Kornilios Kourtis] (Isovalent)
  * [Laurent Bernaille] (Datadog)
+ * [Louis DeLosSantos] (Isovalent)
  * [Maciej Kwiek] (Isovalent)
  * [Martynas Pumputis] (Isovalent)
- * [Michael Rostecki] (SUSE)
+ * [Michal Rostecki] (SUSE)
  * [Michi Mutsuzaki] (Isovalent)
  * [Natália Réka Ivánkó] (Isovalent)
  * [Nathan Sweet] (Isovalent)
+ * [Nicolas Busseneau] (Isovalent)
  * [Nirmoy Das] (AMD)
  * [Paul Chaignon] (Isovalent)
  * [Quentin Monnet] (Isovalent)
@@ -65,7 +67,7 @@ project.
 [Aditi Ghag]: https://github.com/aditighag
 [Alexandre Perrin]: https://github.com/kaworu
 [André Martins]: https://github.com/aanm
-[Beatriz Martinez]: https://github.com/b3a-dev
+[Beatriz Martínez]: https://github.com/b3a-dev
 [Chris Tarazi]: https://github.com/christarazi
 [Daniel Borkmann]: https://github.com/borkmann
 [Dan Wendlandt]: https://github.com/danwent
@@ -80,12 +82,14 @@ project.
 [John Fastabend]: https://github.com/jrfastab
 [Kornilios Kourtis]: https://github.com/kkourt
 [Laurent Bernaille]: https://github.com/lbernail
+[Louis DeLosSantos]: https://github.com/ldelossa
 [Maciej Kwiek]: https://github.com/nebril
 [Martynas Pumputis]: https://github.com/brb
-[Michael Rostecki]: https://github.com/mrostecki
+[Michal Rostecki]: https://github.com/vadorovsky
 [Michi Mutsuzaki]: https://github.com/michi-covalent
 [Natália Réka Ivánkó]: https://github.com/sharlns
 [Nathan Sweet]: https://github.com/nathanjsweet
+[Nicolas Busseneau]: https://github.com/nbusseneau
 [Nirmoy Das]: https://github.com/nirmoy
 [Paul Chaignon]: https://github.com/pchaigno
 [Quentin Monnet]: https://github.com/qmonnet
