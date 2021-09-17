@@ -73,5 +73,6 @@ cilium-operator-generic [flags]
 
 ### SEE ALSO
 
+* [cilium-operator-generic completion](cilium-operator-generic_completion.html)	 - generate the autocompletion script for the specified shell
 * [cilium-operator-generic metrics](cilium-operator-generic_metrics.html)	 - Access metric status of the operator
 

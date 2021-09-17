@@ -32,25 +32,29 @@ func (Generator) Help() *markers.DefinitionHelp {
 			Details: "",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{
-			"TrivialVersions": markers.DetailedHelp{
+			"TrivialVersions": {
 				Summary: "indicates that we should produce a single-version CRD. ",
 				Details: "Single \"trivial-version\" CRDs are compatible with older (pre 1.13) Kubernetes API servers.  The storage version's schema will be used as the CRD's schema. \n Only works with the v1beta1 CRD version.",
 			},
-			"PreserveUnknownFields": markers.DetailedHelp{
+			"PreserveUnknownFields": {
 				Summary: "indicates whether or not we should turn off pruning. ",
 				Details: "Left unspecified, it'll default to true when only a v1beta1 CRD is generated (to preserve compatibility with older versions of this tool), or false otherwise. \n It's required to be false for v1 CRDs.",
 			},
-			"AllowDangerousTypes": markers.DetailedHelp{
+			"AllowDangerousTypes": {
 				Summary: "allows types which are usually omitted from CRD generation because they are not recommended. ",
 				Details: "Currently the following additional types are allowed when this is true: float32 float64 \n Left unspecified, the default is false",
 			},
-			"MaxDescLen": markers.DetailedHelp{
+			"MaxDescLen": {
 				Summary: "specifies the maximum description length for fields in CRD's OpenAPI schema. ",
 				Details: "0 indicates drop the description for all fields completely. n indicates limit the description to at most n characters and truncate the description to closest sentence boundary if it exceeds n characters.",
 			},
-			"CRDVersions": markers.DetailedHelp{
+			"CRDVersions": {
 				Summary: "specifies the target API versions of the CRD type itself to generate. Defaults to v1. ",
 				Details: "The first version listed will be assumed to be the \"default\" version and will not get a version suffix in the output filename. \n You'll need to use \"v1\" to get support for features like defaulting, along with an API server that supports it (Kubernetes 1.16+).",
+			},
+			"GenerateEmbeddedObjectMeta": {
+				Summary: "specifies if any embedded ObjectMeta in the CRD should be generated",
+				Details: "",
 			},
 		},
 	}

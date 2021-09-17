@@ -185,36 +185,50 @@ func allReferencedPackages(pkg *Package, filterNodes NodeFilter) []*Package {
 // checking each package's types' externally-referenced types, and only
 // type-checking those packages.
 type TypeChecker struct {
+	// NodeFilters are used to filter the set of references that are followed
+	// when typechecking.  If any of the filters returns true for a given node,
+	// its package will be added to the set of packages to check.
+	//
+	// If no filters are specified, all references are followed (this may be slow).
+	//
+	// Modifying this after the first call to check may yield strange/invalid
+	// results.
+	NodeFilters []NodeFilter
+
 	checkedPackages map[*Package]struct{}
-	filterNodes     NodeFilter
 	sync.Mutex
 }
 
-// Check type-checks the given package and all packages referenced
-// by types that pass through (have true returned by) filterNodes.
-func (c *TypeChecker) Check(root *Package, filterNodes NodeFilter) {
+// Check type-checks the given package and all packages referenced by types
+// that pass through (have true returned by) any of the NodeFilters.
+func (c *TypeChecker) Check(root *Package) {
 	c.init()
-
-	if filterNodes == nil {
-		filterNodes = c.filterNodes
-	}
 
 	// use a sub-checker with the appropriate settings
 	(&TypeChecker{
-		filterNodes:     filterNodes,
+		NodeFilters:     c.NodeFilters,
 		checkedPackages: c.checkedPackages,
 	}).check(root)
+}
+
+func (c *TypeChecker) isNodeInteresting(node ast.Node) bool {
+	// no filters --> everything is important
+	if len(c.NodeFilters) == 0 {
+		return true
+	}
+
+	// otherwise, passing through any one filter means this node is important
+	for _, filter := range c.NodeFilters {
+		if filter(node) {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *TypeChecker) init() {
 	if c.checkedPackages == nil {
 		c.checkedPackages = make(map[*Package]struct{})
-	}
-	if c.filterNodes == nil {
-		// check every type by default
-		c.filterNodes = func(_ ast.Node) bool {
-			return true
-		}
 	}
 }
 
@@ -232,7 +246,7 @@ func (c *TypeChecker) check(root *Package) {
 		return
 	}
 
-	refedPackages := allReferencedPackages(root, c.filterNodes)
+	refedPackages := allReferencedPackages(root, c.isNodeInteresting)
 
 	// first, resolve imports for all leaf packages...
 	var wg sync.WaitGroup

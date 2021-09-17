@@ -32,11 +32,11 @@ func (Generator) Help() *markers.DefinitionHelp {
 			Details: "For legacy (v1beta1) single-version CRDs, it will simply replace the global schema. \n For legacy (v1beta1) multi-version CRDs, and any v1 CRDs, it will replace schemata of existing versions and *clear the schema* from any versions not specified in the Go code.  It will *not* add new versions, or remove old ones. \n For legacy multi-version CRDs with identical schemata, it will take care of lifting the per-version schema up to the global schema. \n It will generate output for each \"CRD Version\" (API version of the CRD type itself) , e.g. apiextensions/v1beta1 and apiextensions/v1) available.",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{
-			"ManifestsPath": markers.DetailedHelp{
+			"ManifestsPath": {
 				Summary: "contains the CustomResourceDefinition YAML files.",
 				Details: "",
 			},
-			"MaxDescLen": markers.DetailedHelp{
+			"MaxDescLen": {
 				Summary: "specifies the maximum description length for fields in CRD's OpenAPI schema. ",
 				Details: "0 indicates drop the description for all fields completely. n indicates limit the description to at most n characters and truncate the description to closest sentence boundary if it exceeds n characters.",
 			},

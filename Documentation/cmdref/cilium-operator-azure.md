@@ -77,5 +77,6 @@ cilium-operator-azure [flags]
 
 ### SEE ALSO
 
+* [cilium-operator-azure completion](cilium-operator-azure_completion.html)	 - generate the autocompletion script for the specified shell
 * [cilium-operator-azure metrics](cilium-operator-azure_metrics.html)	 - Access metric status of the operator
 

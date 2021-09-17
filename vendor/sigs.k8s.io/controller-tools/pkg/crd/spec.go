@@ -55,7 +55,7 @@ func (p *Parser) NeedCRDFor(groupKind schema.GroupKind, maxDescLen *int) {
 		packages = append(packages, pkg)
 	}
 
-	defaultPlural := flect.Pluralize(strings.ToLower(groupKind.Kind))
+	defaultPlural := strings.ToLower(flect.Pluralize(groupKind.Kind))
 	crd := apiext.CustomResourceDefinition{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: apiext.SchemeGroupVersion.String(),

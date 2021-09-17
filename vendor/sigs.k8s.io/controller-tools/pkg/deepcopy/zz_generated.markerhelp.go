@@ -32,11 +32,11 @@ func (Generator) Help() *markers.DefinitionHelp {
 			Details: "",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{
-			"HeaderFile": markers.DetailedHelp{
+			"HeaderFile": {
 				Summary: "specifies the header text (e.g. license) to prepend to generated files.",
 				Details: "",
 			},
-			"Year": markers.DetailedHelp{
+			"Year": {
 				Summary: "specifies the year to substitute for \" YEAR\" in the header file.",
 				Details: "",
 			},
