@@ -107,8 +107,17 @@ jobs:
       - name: Capture cilium-sysdump
         if: ${{ failure() }}
         run: |
-          curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
-          python cilium-sysdump.zip --output cilium-sysdump-out
+          echo "=== Install latest stable CLI ==="
+          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz{,.sha256sum}
+          sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
+          sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/bin
+          rm cilium-linux-amd64.tar.gz{,.sha256sum}
+          cilium version
+
+          echo "=== Retrieve cluster state ==="
+          kubectl get pods --all-namespaces -o wide
+          cilium status
+          cilium sysdump --output-filename cilium-sysdump-out
 
       - name: Upload cilium-sysdump
         uses: actions/upload-artifact@27121b0bdffd731efa15d66772be8dc71245d074
