@@ -15,12 +15,22 @@ func Pluralize(s string) string {
 	return New(s).Pluralize().String()
 }
 
+// PluralizeWithSize will pluralize a string taking a number number into account.
+//	PluralizeWithSize("user", 1) = user
+//	PluralizeWithSize("user", 2) = users
+func PluralizeWithSize(s string, i int) string {
+	if i == 1 || i == -1 {
+		return New(s).Singularize().String()
+	}
+	return New(s).Pluralize().String()
+}
+
 // Pluralize returns a plural version of the string
 //	user = users
 //	person = people
 //	datum = data
 func (i Ident) Pluralize() Ident {
-	s := i.Original
+	s := i.LastPart()
 	if len(s) == 0 {
 		return New("")
 	}
@@ -33,11 +43,11 @@ func (i Ident) Pluralize() Ident {
 		return i
 	}
 	if p, ok := singleToPlural[ls]; ok {
-		return New(p)
+		return i.ReplaceSuffix(s, p)
 	}
 	for _, r := range pluralRules {
 		if strings.HasSuffix(ls, r.suffix) {
-			return New(r.fn(s))
+			return i.ReplaceSuffix(s, r.fn(s))
 		}
 	}
 

@@ -34,8 +34,6 @@ var KnownPackages = map[string]PackageOverride{
 	},
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1": func(p *Parser, pkg *loader.Package) {
-		// ObjectMeta is managed by the Kubernetes API server, so no need to
-		// generate validation for it.
 		p.Schemata[TypeIdent{Name: "ObjectMeta", Package: pkg}] = apiext.JSONSchemaProps{
 			Type: "object",
 		}
@@ -113,6 +111,53 @@ var KnownPackages = map[string]PackageOverride{
 	},
 }
 
+// ObjectMetaPackages overrides the ObjectMeta in all types
+var ObjectMetaPackages = map[string]PackageOverride{
+	"k8s.io/apimachinery/pkg/apis/meta/v1": func(p *Parser, pkg *loader.Package) {
+		// execute the KnowPackages for `k8s.io/apimachinery/pkg/apis/meta/v1` if any
+		if f, ok := KnownPackages["k8s.io/apimachinery/pkg/apis/meta/v1"]; ok {
+			f(p, pkg)
+		}
+		// This is an allow-listed set of properties of ObjectMeta, other runtime properties are not part of this list
+		// See more discussion: https://github.com/kubernetes-sigs/controller-tools/pull/395#issuecomment-691919433
+		p.Schemata[TypeIdent{Name: "ObjectMeta", Package: pkg}] = apiext.JSONSchemaProps{
+			Type: "object",
+			Properties: map[string]apiext.JSONSchemaProps{
+				"name": {
+					Type: "string",
+				},
+				"namespace": {
+					Type: "string",
+				},
+				"annotations": {
+					Type: "object",
+					AdditionalProperties: &apiext.JSONSchemaPropsOrBool{
+						Schema: &apiext.JSONSchemaProps{
+							Type: "string",
+						},
+					},
+				},
+				"labels": {
+					Type: "object",
+					AdditionalProperties: &apiext.JSONSchemaPropsOrBool{
+						Schema: &apiext.JSONSchemaProps{
+							Type: "string",
+						},
+					},
+				},
+				"finalizers": {
+					Type: "array",
+					Items: &apiext.JSONSchemaPropsOrArray{
+						Schema: &apiext.JSONSchemaProps{
+							Type: "string",
+						},
+					},
+				},
+			},
+		}
+	},
+}
+
 func boolPtr(b bool) *bool {
 	return &b
 }
@@ -124,5 +169,11 @@ func AddKnownTypes(parser *Parser) {
 	parser.init()
 	for pkgName, override := range KnownPackages {
 		parser.PackageOverrides[pkgName] = override
+	}
+	// if we want to generate the embedded ObjectMeta in the CRD we need to add the ObjectMetaPackages
+	if parser.GenerateEmbeddedObjectMeta {
+		for pkgName, override := range ObjectMetaPackages {
+			parser.PackageOverrides[pkgName] = override
+		}
 	}
 }
