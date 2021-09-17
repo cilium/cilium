@@ -16,6 +16,7 @@ package watchers
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -108,7 +109,39 @@ func (k *K8sWatcher) addCiliumEnvoyConfig(cec *cilium_v2alpha1.CiliumEnvoyConfig
 		return err
 	}
 
-	scopedLog.Info("Added CiliumEnvoyConfig")
+	// Redirect k8s services to an Envoy listener
+	for _, svc := range cec.Spec.Services {
+		// Find the listener the service is to be redirected to
+		var proxyPort uint16
+		for _, l := range resources.Listeners {
+			if svc.Listener == "" || l.Name == svc.Listener {
+				if addr := l.GetAddress(); addr != nil {
+					if sa := addr.GetSocketAddress(); sa != nil {
+						proxyPort = uint16(sa.GetPortValue())
+					}
+				}
+			}
+		}
+		if proxyPort == 0 {
+			return fmt.Errorf("Listener %q not found in resources", svc.Listener)
+		}
+
+		// Tell service manager to redirect the service to the port
+		err = k.svcManager.RegisterL7LBService(svc.Name, svc.Namespace, cec.ObjectMeta.Name, proxyPort)
+		if err != nil {
+			return err
+		}
+	}
+	// Register services for Envoy backend sync
+	for _, svc := range cec.Spec.BackendServices {
+		// Tell service manager to sync backends for this service
+		err = k.svcManager.RegisterL7LBService(svc.Name, svc.Namespace, cec.ObjectMeta.Name, 0)
+		if err != nil {
+			return err
+		}
+	}
+
+	scopedLog.Debug("Added CiliumEnvoyConfig")
 	return err
 }
 
@@ -129,9 +162,92 @@ func (k *K8sWatcher) updateCiliumEnvoyConfig(oldCEC *cilium_v2alpha1.CiliumEnvoy
 		scopedLog.WithError(err).Warn("Failed to update CiliumEnvoyConfig: malformed new Envoy config.")
 		return err
 	}
+
+	removedServices := []*cilium_v2alpha1.ServiceListener{}
+	for _, oldSvc := range oldCEC.Spec.Services {
+		found := false
+		for _, newSvc := range newCEC.Spec.Services {
+			if newSvc.Name == oldSvc.Name && newSvc.Namespace == oldSvc.Namespace {
+				// Check if listener names match, but handle defaulting to the first listener first.
+				oldListener := oldSvc.Listener
+				if oldListener == "" && len(oldResources.Listeners) > 0 {
+					oldListener = oldResources.Listeners[0].Name
+				}
+				newListener := newSvc.Listener
+				if newListener == "" && len(newResources.Listeners) > 0 {
+					newListener = newResources.Listeners[0].Name
+				}
+				if newListener != "" && newListener == oldListener {
+					found = true
+					break
+				}
+			}
+		}
+		if !found {
+			removedServices = append(removedServices, oldSvc)
+		}
+	}
+	for _, oldSvc := range removedServices {
+		// Tell service manager to remove old service registration
+		err := k.svcManager.RemoveL7LBService(oldSvc.Name, oldSvc.Namespace, oldCEC.ObjectMeta.Name)
+		if err != nil {
+			return err
+		}
+	}
+	removedBackendServices := []*cilium_v2alpha1.Service{}
+	for _, oldSvc := range oldCEC.Spec.BackendServices {
+		found := false
+		for _, newSvc := range newCEC.Spec.BackendServices {
+			if newSvc.Name == oldSvc.Name && newSvc.Namespace == oldSvc.Namespace {
+				found = true
+				break
+			}
+		}
+		if !found {
+			removedBackendServices = append(removedBackendServices, oldSvc)
+		}
+	}
+	for _, oldSvc := range removedBackendServices {
+		// Tell service manager to remove old service registration
+		err := k.svcManager.RemoveL7LBService(oldSvc.Name, oldSvc.Namespace, oldCEC.ObjectMeta.Name)
+		if err != nil {
+			return err
+		}
+	}
+
 	if err := k.envoyConfigManager.UpdateEnvoyResources(context.TODO(), oldResources, newResources, k.envoyConfigManager); err != nil {
-		scopedLog.WithError(err).Warn("Failed to add CiliumEnvoyConfig.")
+		scopedLog.WithError(err).Warn("Failed to update CiliumEnvoyConfig.")
 		return err
+	}
+
+	for _, svc := range newCEC.Spec.Services {
+		// Find the listener the service is to be redirected to
+		var proxyPort uint16
+		for _, l := range newResources.Listeners {
+			if svc.Listener == "" || l.Name == svc.Listener {
+				if addr := l.GetAddress(); addr != nil {
+					if sa := addr.GetSocketAddress(); sa != nil {
+						proxyPort = uint16(sa.GetPortValue())
+					}
+				}
+			}
+		}
+		if proxyPort == 0 {
+			return fmt.Errorf("Listener %s not found in new resources", svc.Listener)
+		}
+
+		// Tell service manager to redirect the service to the port
+		err = k.svcManager.RegisterL7LBService(svc.Name, svc.Namespace, newCEC.ObjectMeta.Name, proxyPort)
+		if err != nil {
+			return err
+		}
+	}
+	for _, svc := range newCEC.Spec.BackendServices {
+		// Tell service manager to redirect the service to the port
+		err = k.svcManager.RegisterL7LBService(svc.Name, svc.Namespace, newCEC.ObjectMeta.Name, 0)
+		if err != nil {
+			return err
+		}
 	}
 
 	scopedLog.Info("Updated CiliumEnvoyConfig")
@@ -150,6 +266,22 @@ func (k *K8sWatcher) deleteCiliumEnvoyConfig(cec *cilium_v2alpha1.CiliumEnvoyCon
 		scopedLog.WithError(err).Warn("Failed to delete CiliumEnvoyConfig: parsing rersource names failed.")
 		return err
 	}
+
+	for _, svc := range cec.Spec.Services {
+		// Tell service manager to remove old service redirection
+		err := k.svcManager.RemoveL7LBService(svc.Name, svc.Namespace, cec.ObjectMeta.Name)
+		if err != nil {
+			return err
+		}
+	}
+	for _, svc := range cec.Spec.BackendServices {
+		// Tell service manager to remove old service redirection
+		err := k.svcManager.RemoveL7LBService(svc.Name, svc.Namespace, cec.ObjectMeta.Name)
+		if err != nil {
+			return err
+		}
+	}
+
 	if err := k.envoyConfigManager.DeleteEnvoyResources(context.TODO(), resources, k.envoyConfigManager); err != nil {
 		scopedLog.WithError(err).Warn("Failed to delete CiliumEnvoyResource.")
 		return err
