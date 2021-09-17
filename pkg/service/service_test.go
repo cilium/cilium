@@ -728,6 +728,9 @@ func (m *ManagerTestSuite) TestL7LoadBalancerServiceOverride(c *C) {
 	allBackends = append(allBackends, localBackend)
 	allBackends = append(allBackends, remoteBackends...)
 
+	err := m.svc.RegisterL7LBService("echo-other-node", "cilium-test", uint16(9090))
+	c.Assert(err, IsNil)
+
 	p1 := &lb.SVC{
 		Frontend:      frontend1,
 		Backends:      allBackends,
@@ -748,12 +751,14 @@ func (m *ManagerTestSuite) TestL7LoadBalancerServiceOverride(c *C) {
 	c.Assert(ok, Equals, true)
 	c.Assert(svc.l7LBProxyPort, Equals, uint16(9090))
 
+	m.svc.RemoveL7LBService("echo-other-node", "cilium-test")
+
 	p2 := &lb.SVC{
 		Frontend:      frontend1,
 		Backends:      allBackends,
 		Type:          lb.SVCTypeClusterIP,
 		TrafficPolicy: lb.SVCTrafficPolicyCluster,
-		Name:          "echo-same-node",
+		Name:          "echo-other-node",
 		Namespace:     "cilium-test",
 	}
 

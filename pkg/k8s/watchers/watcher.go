@@ -136,6 +136,8 @@ type policyRepository interface {
 type svcManager interface {
 	DeleteService(frontend loadbalancer.L3n4Addr) (bool, error)
 	UpsertService(*loadbalancer.SVC) (bool, loadbalancer.ID, error)
+	RegisterL7LBService(name, namespace string, proxyPort uint16) error
+	RemoveL7LBService(name, namespace string) error
 }
 
 type redirectPolicyManager interface {

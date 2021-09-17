@@ -172,10 +172,65 @@ func NewService(monitorNotify monitorNotify) *Service {
 	}
 	svc.lastUpdatedTs.Store(time.Now())
 
-	// XXX: Hard-coded test data
-	svc.l7lbSvcs["cilium-test/echo-other-node"] = uint16(9090)
-
 	return svc
+}
+
+func (s *Service) RegisterL7LBService(name, namespace string, proxyPort uint16) error {
+	fullname := namespace + "/" + name
+
+	if proxyPort == 0 {
+		return fmt.Errorf("L7 LB %s must have non-zero proxy port", fullname)
+	}
+
+	s.Lock()
+	if port, found := s.l7lbSvcs[fullname]; found && port == proxyPort {
+		s.Unlock()
+		return nil
+	}
+	s.l7lbSvcs[fullname] = proxyPort
+	s.Unlock()
+
+	log.WithFields(logrus.Fields{
+		logfields.ServiceName:      name,
+		logfields.ServiceNamespace: namespace,
+		"l7LBProxyPort":            proxyPort,
+	}).Debug("Registering service for L7 load balancing")
+
+	svcs := s.GetDeepCopyServicesByName(name, namespace)
+	for _, svc := range svcs {
+		// Upsert the existing service again after updating 'l7lbSvcs'
+		// map so that the service will get the l7 flag set in bpf
+		// datapath.
+		if _, _, err := s.UpsertService(svc); err != nil {
+			return fmt.Errorf("error while updating service in LB map: %s", err)
+		}
+	}
+	return nil
+}
+
+func (s *Service) RemoveL7LBService(name, namespace string) error {
+	fullname := namespace + "/" + name
+
+	s.Lock()
+	if _, found := s.l7lbSvcs[fullname]; !found {
+		s.Unlock()
+		return nil
+	}
+	delete(s.l7lbSvcs, fullname)
+	s.Unlock()
+
+	log.WithFields(logrus.Fields{
+		logfields.ServiceName:      name,
+		logfields.ServiceNamespace: namespace,
+	}).Debug("Removing service from L7 load balancing")
+
+	svcs := s.GetDeepCopyServicesByName(name, namespace)
+	for _, svc := range svcs {
+		if _, _, err := s.UpsertService(svc); err != nil {
+			return fmt.Errorf("Error while removing service from LB map: %s", err)
+		}
+	}
+	return nil
 }
 
 func (s *Service) GetLastUpdatedTs() time.Time {
@@ -364,6 +419,19 @@ func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
 	s.Lock()
 	defer s.Unlock()
 
+	// Set L7 LB for this service if registered.
+	name := params.Namespace + "/" + params.Name
+	proxyPort, _ := s.l7lbSvcs[name]
+	params.L7LBProxyPort = proxyPort
+
+	// L7 LB is sharing a C union in the datapath, disable session
+	// affinity if L7 LB is configured for this service.
+	// Update L7 load balancer proxy port
+	if params.L7LBProxyPort != 0 {
+		params.SessionAffinity = false
+		params.SessionAffinityTimeoutSec = 0
+	}
+
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.ServiceIP: params.Frontend.L3n4Addr,
 		logfields.Backends:  params.Backends,
@@ -526,6 +594,19 @@ func (s *Service) GetDeepCopyServices() []*lb.SVC {
 		svcs = append(svcs, svc.deepCopyToLBSVC())
 	}
 
+	return svcs
+}
+
+// GetDeepCopyServicesByName returns a deep-copy all matching services.
+func (s *Service) GetDeepCopyServicesByName(name, namespace string) (svcs []*lb.SVC) {
+	s.RLock()
+	defer s.RUnlock()
+
+	for _, svc := range s.svcByHash {
+		if svc.svcName == name && svc.svcNamespace == namespace {
+			svcs = append(svcs, svc.deepCopyToLBSVC())
+		}
+	}
 	return svcs
 }
 
@@ -743,12 +824,10 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 		// SyncWithK8sFinished() won't consider the service obsolete, and thus
 		// won't remove it.
 		svc.restoredFromDatapath = false
-	}
 
-	// Update L7 load balancer proxy port
-	name := p.Namespace + "/" + p.Name
-	proxyPort, _ := s.l7lbSvcs[name]
-	svc.l7LBProxyPort = proxyPort
+		// Update L7 load balancer proxy port
+		svc.l7LBProxyPort = p.L7LBProxyPort
+	}
 
 	return svc, !found, prevSessionAffinity, prevLoadBalancerSourceRanges, nil
 }
@@ -872,6 +951,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 		SessionAffinityTimeoutSec: svc.sessionAffinityTimeoutSec,
 		CheckSourceRange:          checkLBSrcRange,
 		UseMaglev:                 svc.useMaglev(),
+		L7LBProxyPort:             svc.l7LBProxyPort,
 	}
 	if err := s.lbmap.UpsertService(p); err != nil {
 		return err
