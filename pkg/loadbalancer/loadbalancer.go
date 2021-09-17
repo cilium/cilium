@@ -219,7 +219,7 @@ type SVC struct {
 	Name                      string // Service name
 	Namespace                 string // Service namespace
 	LoadBalancerSourceRanges  []*cidr.CIDR
-	L7LBProxyPort             uint16
+	L7LBProxyPort             uint16 // Non-zero for L7 LB services
 }
 
 func (s *SVC) GetModel() *models.Service {
