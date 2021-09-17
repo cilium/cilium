@@ -32,10 +32,19 @@ type Resources struct {
 	Routes    []*envoy_config_route.RouteConfiguration
 	Clusters  []*envoy_config_cluster.Cluster
 	Endpoints []*envoy_config_endpoint.ClusterLoadAssignment
+
+	// Listeners for which a proxy port was allocated
+	portAllocations map[string]uint16
+}
+
+type PortAllocator interface {
+	AllocateProxyPort(name string, ingress bool) (uint16, error)
+	AckProxyPort(name string) error
+	ReleaseProxyPort(name string) error
 }
 
 // ParseResources parses all supported Envoy resource types from CiliumEnvoyConfig CRD to Resources type
-func ParseResources(namePrefix string, anySlice []cilium_v2alpha1.XDSResource) (Resources, error) {
+func ParseResources(namePrefix string, anySlice []cilium_v2alpha1.XDSResource, portAllocator PortAllocator) (Resources, error) {
 	resources := Resources{}
 	for _, r := range anySlice {
 		message, err := r.UnmarshalNew()
@@ -48,9 +57,6 @@ func ParseResources(namePrefix string, anySlice []cilium_v2alpha1.XDSResource) (
 			listener, ok := message.(*envoy_config_listener.Listener)
 			if !ok {
 				return Resources{}, fmt.Errorf("Invalid type for Listener: %T", message)
-			}
-			if listener.GetAddress() == nil {
-				return Resources{}, fmt.Errorf("Listener has no address: %T", message)
 			}
 
 			if option.Config.EnableBPFTProxy {
@@ -70,8 +76,6 @@ func ParseResources(namePrefix string, anySlice []cilium_v2alpha1.XDSResource) (
 			if !found {
 				listener.ListenerFilters = append(listener.ListenerFilters, getListenerFilter(false /* not ingress */, false, true))
 			}
-			// Inject Transparent to work with TPROXY
-			listener.Transparent = &wrapperspb.BoolValue{Value: true}
 			// Inject listener socket option for Cilium datapath
 			listener.SocketOptions = append(listener.SocketOptions, getListenerSocketMarkOption(false /* not ingress */))
 
@@ -165,12 +169,31 @@ func ParseResources(namePrefix string, anySlice []cilium_v2alpha1.XDSResource) (
 			return Resources{}, fmt.Errorf("Unsupported type: %s", typeURL)
 		}
 	}
+
+	// Allocate TPROXY ports for listeners without address
+	for _, listener := range resources.Listeners {
+		if listener.GetAddress() == nil {
+			port, err := portAllocator.AllocateProxyPort(listener.Name, false)
+			if err != nil || port == 0 {
+				return Resources{}, fmt.Errorf("Listener port allocation failed: %s", err)
+			}
+			listener.Address = getListenerAddress(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled())
+			if resources.portAllocations == nil {
+				resources.portAllocations = make(map[string]uint16)
+			}
+			resources.portAllocations[listener.Name] = port
+
+			// Inject Transparent to work with TPROXY
+			listener.Transparent = &wrapperspb.BoolValue{Value: true}
+		}
+	}
+
 	return resources, nil
 }
 
 // UpsertEnvoyResources inserts or updates Envoy resources in 'resources' to the xDS cache,
 // from where they will be delivered to Envoy via xDS streaming gRPC.
-func (s *XDSServer) UpsertEnvoyResources(ctx context.Context, resources Resources, wait bool) error {
+func (s *XDSServer) UpsertEnvoyResources(ctx context.Context, resources Resources, portAllocator PortAllocator) error {
 	if option.Config.Debug {
 		msg := ""
 		sep := ""
@@ -198,34 +221,46 @@ func (s *XDSServer) UpsertEnvoyResources(ctx context.Context, resources Resource
 	}
 	var wg *completion.WaitGroup
 	var revertFuncs xds.AckingResourceMutatorRevertFuncList
-	if wait {
+	// Wait only if new Listeners are added, as they will always be acked.
+	// (unreferenced routes or endpoints (and maybe clusters) are not ACKed or NACKed).
+	if len(resources.Listeners) > 0 {
 		wg = completion.NewWaitGroup(ctx)
-	}
-	for _, r := range resources.Listeners {
-		log.Debugf("Envoy upsertListener %s %v", r.Name, r)
-		revertFuncs = append(revertFuncs, s.upsertListener(r.Name, r, wg, nil))
-	}
-	for _, r := range resources.Routes {
-		log.Debugf("Envoy upsertRoute %s %v", r.Name, r)
-		revertFuncs = append(revertFuncs, s.upsertRoute(r.Name, r, wg, nil))
-	}
-	for _, r := range resources.Clusters {
-		log.Debugf("Envoy upsertCluster %s %v", r.Name, r)
-		revertFuncs = append(revertFuncs, s.upsertCluster(r.Name, r, wg, nil))
-	}
-	for _, r := range resources.Endpoints {
-		log.Debugf("Envoy upsertEndpoint %s %v", r.ClusterName, r)
-		revertFuncs = append(revertFuncs, s.upsertEndpoint(r.ClusterName, r, wg, nil))
 	}
 	for _, r := range resources.Secrets {
 		log.Debugf("Envoy upsertSecret %s %v", r.Name, r)
 		revertFuncs = append(revertFuncs, s.upsertSecret(r.Name, r, wg, nil))
 	}
+	for _, r := range resources.Endpoints {
+		log.Debugf("Envoy upsertEndpoint %s %v", r.ClusterName, r)
+		revertFuncs = append(revertFuncs, s.upsertEndpoint(r.ClusterName, r, wg, nil))
+	}
+	for _, r := range resources.Clusters {
+		log.Debugf("Envoy upsertCluster %s %v", r.Name, r)
+		revertFuncs = append(revertFuncs, s.upsertCluster(r.Name, r, wg, nil))
+	}
+	for _, r := range resources.Routes {
+		log.Debugf("Envoy upsertRoute %s %v", r.Name, r)
+		revertFuncs = append(revertFuncs, s.upsertRoute(r.Name, r, wg, nil))
+	}
+	for _, r := range resources.Listeners {
+		log.Debugf("Envoy upsertListener %s %v", r.Name, r)
+		listenerName := r.Name
+		revertFuncs = append(revertFuncs, s.upsertListener(r.Name, r, wg,
+			// this callback is not called if there is no change
+			func(err error) {
+				if err == nil {
+					// Ack the proxy port, if any
+					if port, exists := resources.portAllocations[listenerName]; exists && port != 0 {
+						portAllocator.AckProxyPort(listenerName)
+					}
+				}
+			}))
+	}
 	if wg != nil {
 		start := time.Now()
 		log.Debug("UpsertEnvoyResources: Waiting for proxy updates to complete...")
 		err := wg.Wait()
-		log.Debug("UpsertEnvoyResources: Wait time for proxy updates: ", time.Since(start))
+		log.Debugf("UpsertEnvoyResources: Wait time for proxy updates %v (err: %s)", time.Since(start), err)
 
 		// revert all changes in case of failure
 		if err != nil {
@@ -242,11 +277,13 @@ func (s *XDSServer) UpsertEnvoyResources(ctx context.Context, resources Resource
 // Envoy does not support changing the listening port of an existing
 // listener, so if the port changes we have to delete the old listener
 // and then add the new one with the new port number.
-func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources, wait bool) error {
+func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources, portAllocator PortAllocator) error {
 	waitForDelete := false
 	var wg *completion.WaitGroup
 	var revertFuncs xds.AckingResourceMutatorRevertFuncList
-	if wait {
+	// Wait only if new Listeners are added, as they will always be acked.
+	// (unreferenced routes or endpoints (and maybe clusters) are not ACKed or NACKed).
+	if len(new.Listeners) > 0 {
 		wg = completion.NewWaitGroup(ctx)
 	}
 	// Delete old listeners not added in 'new' or if old and new listener have different ports
@@ -263,6 +300,8 @@ func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 					log.Debugf("UpdateEnvoyResources: %s port changing from %d to %d...", newListener.Name, port, addr.GetPortValue())
 					waitForDelete = true
 				} else {
+					// port is not changing, remove from new.PortAllocations to prevent acking an already acked port.
+					delete(new.portAllocations, newListener.Name)
 					found = true
 				}
 				break
@@ -274,7 +313,16 @@ func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 	}
 	log.Debugf("UpdateEnvoyResources: Deleting %d, Upserting %d listeners...", len(deleteListeners), len(new.Listeners))
 	for _, listener := range deleteListeners {
-		revertFuncs = append(revertFuncs, s.deleteListener(listener.Name, wg, nil))
+		listenerName := listener.Name
+		revertFuncs = append(revertFuncs, s.deleteListener(listener.Name, wg,
+			func(err error) {
+				if err == nil {
+					// Release the proxy port, if any
+					if port, exists := old.portAllocations[listenerName]; exists && port != 0 {
+						portAllocator.ReleaseProxyPort(listenerName)
+					}
+				}
+			}))
 	}
 
 	// Delete old routes not added in 'new'
@@ -380,14 +428,24 @@ func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 	}
 	// Add new Listeners
 	for _, r := range new.Listeners {
-		revertFuncs = append(revertFuncs, s.upsertListener(r.Name, r, wg, nil))
+		listenerName := r.Name
+		revertFuncs = append(revertFuncs, s.upsertListener(r.Name, r, wg,
+			// this callback is not called if there is no change
+			func(err error) {
+				if err == nil {
+					// Ack the proxy port, if any, but only if the listener's port was new
+					if port, exists := new.portAllocations[listenerName]; exists && port != 0 {
+						portAllocator.AckProxyPort(listenerName)
+					}
+				}
+			}))
 	}
 
 	if wg != nil {
 		start := time.Now()
 		log.Debug("UpdateEnvoyResources: Waiting for proxy updates to complete...")
 		err := wg.Wait()
-		log.Debug("UpdateEnvoyResources: Wait time for proxy updates: ", time.Since(start))
+		log.Debugf("UpdateEnvoyResources: Wait time for proxy updates %v (err: %s)", time.Since(start), err)
 
 		// revert all changes in case of failure
 		if err != nil {
@@ -400,16 +458,27 @@ func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 }
 
 // DeleteEnvoyResources deletes all Envoy resources in 'resources'.
-func (s *XDSServer) DeleteEnvoyResources(ctx context.Context, resources Resources, wait bool) error {
-	log.Debugf("UpdateEnvoyResources: Deleting %d listeners, %d routes, %d clusters, %d endpoints, and %d secrets...",
+func (s *XDSServer) DeleteEnvoyResources(ctx context.Context, resources Resources, portAllocator PortAllocator) error {
+	log.Debugf("DeleteEnvoyResources: Deleting %d listeners, %d routes, %d clusters, %d endpoints, and %d secrets...",
 		len(resources.Listeners), len(resources.Routes), len(resources.Clusters), len(resources.Endpoints), len(resources.Secrets))
 	var wg *completion.WaitGroup
 	var revertFuncs xds.AckingResourceMutatorRevertFuncList
-	if wait {
+	// Wait only if new Listeners are added, as they will always be acked.
+	// (unreferenced routes or endpoints (and maybe clusters) are not ACKed or NACKed).
+	if len(resources.Listeners) > 0 {
 		wg = completion.NewWaitGroup(ctx)
 	}
 	for _, r := range resources.Listeners {
-		revertFuncs = append(revertFuncs, s.deleteListener(r.Name, wg, nil))
+		listenerName := r.Name
+		revertFuncs = append(revertFuncs, s.deleteListener(r.Name, wg,
+			func(err error) {
+				if err == nil {
+					// Release the proxy port, if any
+					if port, exists := resources.portAllocations[listenerName]; exists && port != 0 {
+						portAllocator.ReleaseProxyPort(listenerName)
+					}
+				}
+			}))
 	}
 	for _, r := range resources.Routes {
 		revertFuncs = append(revertFuncs, s.deleteRoute(r.Name, wg, nil))
@@ -428,7 +497,7 @@ func (s *XDSServer) DeleteEnvoyResources(ctx context.Context, resources Resource
 		start := time.Now()
 		log.Debug("DeleteEnvoyResources: Waiting for proxy updates to complete...")
 		err := wg.Wait()
-		log.Debug("DeleteEnvoyResources: Wait time for proxy updates: ", time.Since(start))
+		log.Debugf("DeleteEnvoyResources: Wait time for proxy updates %v (err: %s)", time.Since(start), err)
 
 		// revert all changes in case of failure
 		if err != nil {
@@ -477,5 +546,5 @@ func (s *XDSServer) UpsertEnvoyEndpoints(svc service.ServiceName, backends []lb.
 
 	// Using context.TODO() is fine as we do not upsert listener resources here - the
 	// context ends up being used only if listener(s) are included in 'resources'.
-	return s.UpsertEnvoyResources(context.TODO(), resources, false)
+	return s.UpsertEnvoyResources(context.TODO(), resources, nil)
 }

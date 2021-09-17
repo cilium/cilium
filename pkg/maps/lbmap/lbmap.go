@@ -66,7 +66,7 @@ type UpsertServiceParams struct {
 	SessionAffinityTimeoutSec uint32
 	CheckSourceRange          bool
 	UseMaglev                 bool
-	L7LBProxyPort             uint16
+	L7LBProxyPort             uint16 // Non-zero for L7 LB services
 }
 
 func (lbmap *LBBPFMap) upsertServiceProto(p *UpsertServiceParams, ipv6 bool) error {
