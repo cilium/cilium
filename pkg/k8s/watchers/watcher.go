@@ -168,9 +168,14 @@ type egressGatewayManager interface {
 }
 
 type envoyConfigManager interface {
-	UpsertEnvoyResources(context.Context, envoy.Resources, bool) error
-	UpdateEnvoyResources(ctx context.Context, old, new envoy.Resources, wait bool) error
-	DeleteEnvoyResources(context.Context, envoy.Resources, bool) error
+	UpsertEnvoyResources(context.Context, envoy.Resources, envoy.PortAllocator) error
+	UpdateEnvoyResources(ctx context.Context, old, new envoy.Resources, portAllocator envoy.PortAllocator) error
+	DeleteEnvoyResources(context.Context, envoy.Resources, envoy.PortAllocator) error
+
+	// envoy.PortAllocator
+	AllocateProxyPort(name string, ingress bool) (uint16, error)
+	AckProxyPort(name string) error
+	ReleaseProxyPort(name string) error
 }
 
 type K8sWatcher struct {

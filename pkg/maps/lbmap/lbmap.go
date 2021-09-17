@@ -65,7 +65,7 @@ type UpsertServiceParams struct {
 	SessionAffinityTimeoutSec uint32
 	CheckSourceRange          bool
 	UseMaglev                 bool
-	L7LBProxyPort             uint16
+	L7LBProxyPort             uint16 // Non-zero for L7 LB services
 }
 
 // UpsertService inserts or updates the given service in a BPF map.
