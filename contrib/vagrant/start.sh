@@ -48,6 +48,10 @@ export 'TUNNEL_MODE_STRING'=${TUNNEL_MODE_STRING:-"-t vxlan"}
 # Replies Yes to all prompts asked in this script
 export 'YES_TO_ALL'=${YES_TO_ALL:-"0"}
 
+# Don't build the tree inside the VMs (faster)
+# Example use as: make -j$(nproc) && NO_BUILD=1 ./contrib/vagrant/start.sh
+export 'NO_BUILD'=${NO_BUILD:-"0"}
+
 # Internal variables used in the Vagrantfile
 export 'CILIUM_SCRIPT'=true
 # Sets the directory where the temporary setup scripts are created
