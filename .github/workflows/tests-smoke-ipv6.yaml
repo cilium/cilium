@@ -133,17 +133,17 @@ jobs:
         # file (EOF) on stdin and displaying no flows.
         shell: 'script -q -e -c "bash --noprofile --norc -eo pipefail {0}"'
         run: |
-          version=$(curl -s https://raw.githubusercontent.com/cilium/hubble/master/stable.txt)
-          curl -sLO "https://github.com/cilium/hubble/releases/download/${version}/hubble-linux-amd64.tar.gz"
-          tar zxf hubble-linux-amd64.tar.gz
-          chmod +x ./hubble
-          touch hubble-flows.json
-          ./hubble observe --all --output json > hubble-flows.json || true
+          echo "=== Install latest stable CLI ==="
+          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz{,.sha256sum}
+          sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
+          sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/bin
+          rm cilium-linux-amd64.tar.gz{,.sha256sum}
+          cilium version
 
-          curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
-          python cilium-sysdump.zip --output cilium-sysdump-out
-
-          tar zcf cilium-sysdump-out.tar.gz cilium-sysdump-out.zip hubble-flows.json
+          echo "=== Retrieve cluster state ==="
+          kubectl get pods --all-namespaces -o wide
+          cilium status
+          cilium sysdump --output-filename cilium-sysdump-out
 
       - name: Upload cilium-sysdump
         uses: actions/upload-artifact@27121b0bdffd731efa15d66772be8dc71245d074
