@@ -12,6 +12,7 @@ Borkmann
 Brenden
 Broadcom
 Brouer
+CES
 CIDR
 CIDRs
 CRD
@@ -814,6 +815,7 @@ starfighters
 startup
 startupProbe
 stateful
+statefulset
 statsd
 structs
 subclasses
