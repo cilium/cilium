@@ -35,7 +35,12 @@ func initExcludedIPs() {
 	}
 	for _, l := range links {
 		// ... also all down devices since they won't be reachable.
-		if l.Attrs().OperState == netlink.OperUp {
+		//
+		// We need to check for both "up" and "unknown" state, as some
+		// drivers may not implement operstate handling, and just report
+		// their state as unknown even though they are operational.
+		if l.Attrs().OperState == netlink.OperUp ||
+			l.Attrs().OperState == netlink.OperUnknown {
 			skip := true
 			for _, p := range prefixes {
 				if strings.HasPrefix(l.Attrs().Name, p) {
