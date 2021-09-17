@@ -32,7 +32,7 @@ func (Generator) Help() *markers.DefinitionHelp {
 			Details: "",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{
-			"RoleName": markers.DetailedHelp{
+			"RoleName": {
 				Summary: "sets the name of the generated ClusterRole.",
 				Details: "",
 			},
@@ -48,27 +48,27 @@ func (Rule) Help() *markers.DefinitionHelp {
 			Details: "",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{
-			"Groups": markers.DetailedHelp{
+			"Groups": {
 				Summary: "specifies the API groups that this rule encompasses.",
 				Details: "",
 			},
-			"Resources": markers.DetailedHelp{
+			"Resources": {
 				Summary: "specifies the API resources that this rule encompasses.",
 				Details: "",
 			},
-			"ResourceNames": markers.DetailedHelp{
+			"ResourceNames": {
 				Summary: "specifies the names of the API resources that this rule encompasses. ",
 				Details: "Create requests cannot be restricted by resourcename, as the object's name is not known at authorization time.",
 			},
-			"Verbs": markers.DetailedHelp{
+			"Verbs": {
 				Summary: "specifies the (lowercase) kubernetes API verbs that this rule encompasses.",
 				Details: "",
 			},
-			"URLs": markers.DetailedHelp{
+			"URLs": {
 				Summary: "URL specifies the non-resource URLs that this rule encompasses.",
 				Details: "",
 			},
-			"Namespace": markers.DetailedHelp{
+			"Namespace": {
 				Summary: "specifies the scope of the Rule. If not set, the Rule belongs to the generated ClusterRole. If set, the Rule belongs to a Role, whose namespace is specified by this field.",
 				Details: "",
 			},

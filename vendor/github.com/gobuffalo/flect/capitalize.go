@@ -15,13 +15,10 @@ func Capitalize(s string) string {
 //	bob dylan = Bob dylan
 //	widget_id = Widget_id
 func (i Ident) Capitalize() Ident {
-	var x string
 	if len(i.Parts) == 0 {
 		return New("")
 	}
-	x = string(unicode.ToTitle(rune(i.Original[0])))
-	if len(i.Original) > 1 {
-		x += i.Original[1:]
-	}
-	return New(x)
+	runes := []rune(i.Original)
+	runes[0] = unicode.ToTitle(runes[0])
+	return New(string(runes))
 }

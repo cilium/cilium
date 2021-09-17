@@ -24,6 +24,7 @@ cilium-health [flags]
 
 ### SEE ALSO
 
+* [cilium-health completion](cilium-health_completion.html)	 - generate the autocompletion script for the specified shell
 * [cilium-health get](cilium-health_get.html)	 - Display local cilium agent status
 * [cilium-health ping](cilium-health_ping.html)	 - Check whether the cilium-health API is up
 * [cilium-health status](cilium-health_status.html)	 - Display cilium connectivity to other nodes

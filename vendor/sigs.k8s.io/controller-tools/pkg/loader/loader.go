@@ -249,7 +249,7 @@ func (l *loader) typeCheck(pkg *Package) {
 
 		// it's possible to have a call to check in parallel to a call to this
 		// if one package in the package graph gets its dependency filtered out,
-		// but another doesn't (so one wants a "dummy" package here, and another
+		// but another doesn't (so one wants a "placeholder" package here, and another
 		// wants the full check).
 		//
 		// Thus, we need to lock here (at least for the time being) to avoid

@@ -18,7 +18,9 @@ package crd
 
 import (
 	"fmt"
+	"go/ast"
 	"go/types"
+	"os"
 
 	apiext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextlegacy "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -82,8 +84,14 @@ type Generator struct {
 	// You'll need to use "v1" to get support for features like defaulting,
 	// along with an API server that supports it (Kubernetes 1.16+).
 	CRDVersions []string `marker:"crdVersions,optional"`
+
+	// GenerateEmbeddedObjectMeta specifies if any embedded ObjectMeta in the CRD should be generated
+	GenerateEmbeddedObjectMeta *bool `marker:",optional"`
 }
 
+func (Generator) CheckFilter() loader.NodeFilter {
+	return filterTypesForCRDs
+}
 func (Generator) RegisterMarkers(into *markers.Registry) error {
 	return crdmarkers.Register(into)
 }
@@ -93,6 +101,8 @@ func (g Generator) Generate(ctx *genall.GenerationContext) error {
 		Checker:   ctx.Checker,
 		// Perform defaulting here to avoid ambiguity later
 		AllowDangerousTypes: g.AllowDangerousTypes != nil && *g.AllowDangerousTypes == true,
+		// Indicates the parser on whether to register the ObjectMeta type or not
+		GenerateEmbeddedObjectMeta: g.GenerateEmbeddedObjectMeta != nil && *g.GenerateEmbeddedObjectMeta == true,
 	}
 
 	AddKnownTypes(parser)
@@ -123,6 +133,9 @@ func (g Generator) Generate(ctx *genall.GenerationContext) error {
 		parser.NeedCRDFor(groupKind, g.MaxDescLen)
 		crdRaw := parser.CustomResourceDefinitions[groupKind]
 		addAttribution(&crdRaw)
+
+		// Prevent the top level metadata for the CRD to be generate regardless of the intention in the arguments
+		FixTopLevelMetadata(crdRaw)
 
 		versionedCRDs := make([]interface{}, len(crdVersions))
 		for i, ver := range crdVersions {
@@ -156,10 +169,14 @@ func (g Generator) Generate(ctx *genall.GenerationContext) error {
 		}
 
 		for i, crd := range versionedCRDs {
-			// defaults are not allowed to be specified in v1beta1 CRDs, so strip them
-			// before writing to a file
+			// defaults are not allowed to be specified in v1beta1 CRDs and
+			// decriptions are not allowed on the metadata regardless of version
+			// strip them before writing to a file
 			if crdVersions[i] == "v1beta1" {
 				removeDefaultsFromSchemas(crd.(*apiextlegacy.CustomResourceDefinition))
+				removeDescriptionFromMetadataLegacy(crd.(*apiextlegacy.CustomResourceDefinition))
+			} else {
+				removeDescriptionFromMetadata(crd.(*apiext.CustomResourceDefinition))
 			}
 			var fileName string
 			if i == 0 {
@@ -174,6 +191,47 @@ func (g Generator) Generate(ctx *genall.GenerationContext) error {
 	}
 
 	return nil
+}
+
+func removeDescriptionFromMetadata(crd *apiext.CustomResourceDefinition) {
+	for _, versionSpec := range crd.Spec.Versions {
+		if versionSpec.Schema != nil {
+			removeDescriptionFromMetadataProps(versionSpec.Schema.OpenAPIV3Schema)
+		}
+	}
+}
+
+func removeDescriptionFromMetadataProps(v *apiext.JSONSchemaProps) {
+	if m, ok := v.Properties["metadata"]; ok {
+		meta := &m
+		if meta.Description != "" {
+			meta.Description = ""
+			v.Properties["metadata"] = m
+
+		}
+	}
+}
+
+func removeDescriptionFromMetadataLegacy(crd *apiextlegacy.CustomResourceDefinition) {
+	if crd.Spec.Validation != nil {
+		removeDescriptionFromMetadataPropsLegacy(crd.Spec.Validation.OpenAPIV3Schema)
+	}
+	for _, versionSpec := range crd.Spec.Versions {
+		if versionSpec.Schema != nil {
+			removeDescriptionFromMetadataPropsLegacy(versionSpec.Schema.OpenAPIV3Schema)
+		}
+	}
+}
+
+func removeDescriptionFromMetadataPropsLegacy(v *apiextlegacy.JSONSchemaProps) {
+	if m, ok := v.Properties["metadata"]; ok {
+		meta := &m
+		if meta.Description != "" {
+			meta.Description = ""
+			v.Properties["metadata"] = m
+
+		}
+	}
 }
 
 // removeDefaultsFromSchemas will remove all instances of default values being
@@ -197,9 +255,15 @@ func removeDefaultsFromSchemaProps(v *apiextlegacy.JSONSchemaProps) {
 		return
 	}
 
+	if v.Default != nil {
+		fmt.Fprintln(os.Stderr, "Warning: default unsupported in CRD version v1beta1, v1 required. Removing defaults.")
+	}
+
 	// nil-out the default field
 	v.Default = nil
 	for name, prop := range v.Properties {
+		// iter var reference is fine -- we handle the persistence of the modfications on the line below
+		//nolint:gosec
 		removeDefaultsFromSchemaProps(&prop)
 		v.Properties[name] = prop
 	}
@@ -209,6 +273,18 @@ func removeDefaultsFromSchemaProps(v *apiextlegacy.JSONSchemaProps) {
 			props := v.Items.JSONSchemas[i]
 			removeDefaultsFromSchemaProps(&props)
 			v.Items.JSONSchemas[i] = props
+		}
+	}
+}
+
+// FixTopLevelMetadata resets the schema for the top-level metadata field which is needed for CRD validation
+func FixTopLevelMetadata(crd apiext.CustomResourceDefinition) {
+	for _, v := range crd.Spec.Versions {
+		if v.Schema != nil && v.Schema.OpenAPIV3Schema != nil && v.Schema.OpenAPIV3Schema.Properties != nil {
+			schemaProperties := v.Schema.OpenAPIV3Schema.Properties
+			if _, ok := schemaProperties["metadata"]; ok {
+				schemaProperties["metadata"] = apiext.JSONSchemaProps{Type: "object"}
+			}
 		}
 	}
 }
@@ -318,4 +394,23 @@ func FindKubeKinds(parser *Parser, metav1Pkg *loader.Package) map[schema.GroupKi
 	}
 
 	return kubeKinds
+}
+
+// filterTypesForCRDs filters out all nodes that aren't used in CRD generation,
+// like interfaces and struct fields without JSON tag.
+func filterTypesForCRDs(node ast.Node) bool {
+	switch node := node.(type) {
+	case *ast.InterfaceType:
+		// skip interfaces, we never care about references in them
+		return false
+	case *ast.StructType:
+		return true
+	case *ast.Field:
+		_, hasTag := loader.ParseAstTag(node.Tag).Lookup("json")
+		// fields without JSON tags mean we have custom serialization,
+		// so only visit fields with tags.
+		return hasTag
+	default:
+		return true
+	}
 }

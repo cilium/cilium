@@ -43,11 +43,11 @@ func (OutputArtifacts) Help() *markers.DefinitionHelp {
 			Details: "Non-package associated artifacts are output to the Config directory, while package-associated ones are output to their package's source files' directory, unless an alternate path is specified in Code.",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{
-			"Config": markers.DetailedHelp{
+			"Config": {
 				Summary: "points to the directory to which to write configuration.",
 				Details: "",
 			},
-			"Code": markers.DetailedHelp{
+			"Code": {
 				Summary: "overrides the directory in which to write new code (defaults to where the existing code lives).",
 				Details: "",
 			},

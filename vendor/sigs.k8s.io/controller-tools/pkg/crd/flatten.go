@@ -76,10 +76,6 @@ func flattenAllOfInto(dst *apiext.JSONSchemaProps, src apiext.JSONSchemaProps, e
 		case "Title", "Description", "Example", "ExternalDocs":
 			// don't merge because we pre-merge to properly preserve field docs
 			continue
-		case "XPreserveUnknownFields":
-			// don't merge because we should let the dst set it if it wants
-			// this field
-			continue
 		}
 		srcField := srcVal.Field(i)
 		fldTyp := srcField.Type()

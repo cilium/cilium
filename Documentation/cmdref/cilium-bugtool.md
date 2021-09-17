@@ -46,3 +46,7 @@ cilium-bugtool [OPTIONS] [flags]
   -t, --tmp string                Path to store extracted files. Use '-' to send to stdout. (default "/tmp")
 ```
 
+### SEE ALSO
+
+* [cilium-bugtool completion](cilium-bugtool_completion.html)	 - generate the autocompletion script for the specified shell
+

@@ -32,6 +32,7 @@ import (
 	crdgen "sigs.k8s.io/controller-tools/pkg/crd"
 	crdmarkers "sigs.k8s.io/controller-tools/pkg/crd/markers"
 	"sigs.k8s.io/controller-tools/pkg/genall"
+	"sigs.k8s.io/controller-tools/pkg/loader"
 	"sigs.k8s.io/controller-tools/pkg/markers"
 	yamlop "sigs.k8s.io/controller-tools/pkg/schemapatcher/internal/yaml"
 )
@@ -83,9 +84,16 @@ type Generator struct {
 	// n indicates limit the description to at most n characters and truncate the description to
 	// closest sentence boundary if it exceeds n characters.
 	MaxDescLen *int `marker:",optional"`
+
+	// GenerateEmbeddedObjectMeta specifies if any embedded ObjectMeta in the CRD should be generated
+	GenerateEmbeddedObjectMeta *bool `marker:",optional"`
 }
 
 var _ genall.Generator = &Generator{}
+
+func (Generator) CheckFilter() loader.NodeFilter {
+	return crdgen.Generator{}.CheckFilter()
+}
 
 func (Generator) RegisterMarkers(into *markers.Registry) error {
 	return crdmarkers.Register(into)
@@ -95,6 +103,8 @@ func (g Generator) Generate(ctx *genall.GenerationContext) (result error) {
 	parser := &crdgen.Parser{
 		Collector: ctx.Collector,
 		Checker:   ctx.Checker,
+		// Indicates the parser on whether to register the ObjectMeta type or not
+		GenerateEmbeddedObjectMeta: g.GenerateEmbeddedObjectMeta != nil && *g.GenerateEmbeddedObjectMeta == true,
 	}
 
 	crdgen.AddKnownTypes(parser)
@@ -137,6 +147,12 @@ func (g Generator) Generate(ctx *genall.GenerationContext) (result error) {
 				fullSchema = *fullSchema.DeepCopy()
 				crdgen.TruncateDescription(&fullSchema, *g.MaxDescLen)
 			}
+
+			// Fix top level ObjectMeta regardless of the settings.
+			if _, ok := fullSchema.Properties["metadata"]; ok {
+				fullSchema.Properties["metadata"] = apiext.JSONSchemaProps{Type: "object"}
+			}
+
 			existingSet.NewSchemata[gv.Version] = fullSchema
 		}
 	}
@@ -429,7 +445,7 @@ func crdsFromDirectory(ctx *genall.GenerationContext, dir string) (map[schema.Gr
 		groupKind := schema.GroupKind{Group: actualCRD.Spec.Group, Kind: actualCRD.Spec.Names.Kind}
 		var versions map[string]struct{}
 		if len(actualCRD.Spec.Versions) == 0 {
-			versions = map[string]struct{}{actualCRD.Spec.Version: struct{}{}}
+			versions = map[string]struct{}{actualCRD.Spec.Version: {}}
 		} else {
 			versions = make(map[string]struct{}, len(actualCRD.Spec.Versions))
 			for _, ver := range actualCRD.Spec.Versions {
