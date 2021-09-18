@@ -17,7 +17,13 @@ certificate would be signed by a different CA.
       {{- $key := .Values.hubble.tls.ca.key  | required "missing hubble.tls.ca.key" }}
       {{- $ca = buildCustomCert $crt $key -}}
     {{- else }}
-      {{- $ca = genCA "hubble-ca.cilium.io" (.Values.hubble.tls.auto.certValidityDuration | int) -}}
+      {{- with lookup "v1" "Secret" .Release.Namespace "hubble-ca-secret" }}
+        {{- $crt := index .data "ca.crt" }}
+        {{- $key := index .data "ca.key" }}
+        {{- $ca = buildCustomCert $crt $key -}}
+      {{- else }}
+        {{- $ca = genCA "hubble-ca.cilium.io" (.Values.hubble.tls.auto.certValidityDuration | int) -}}
+      {{- end }}
     {{- end }}
     {{- $_ := set . "ca" $ca -}}
   {{- end }}
