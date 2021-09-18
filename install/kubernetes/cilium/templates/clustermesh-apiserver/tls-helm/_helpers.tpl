@@ -17,7 +17,13 @@ certificate would be signed by a different CA.
       {{- $key := .Values.clustermesh.apiserver.tls.ca.key  | required "missing clustermesh.apiserver.tls.ca.key" }}
       {{- $ca = buildCustomCert $crt $key -}}
     {{- else }}
-      {{- $ca = genCA "clustermesh-apiserver-ca.cilium.io" (.Values.clustermesh.apiserver.tls.auto.certValidityDuration | int) -}}
+      {{- with lookup "v1" "Secret" .Release.Namespace "clustermesh-apiserver-ca-cert" }}
+        {{- $crt := index .data "ca.crt" }}
+        {{- $key := index .data "ca.key" }}
+        {{- $ca = buildCustomCert $crt $key -}}
+      {{- else }}
+        {{- $ca = genCA "clustermesh-apiserver-ca.cilium.io" (.Values.clustermesh.apiserver.tls.auto.certValidityDuration | int) -}}
+      {{- end }}
     {{- end }}
     {{- $_ := set . "cmca" $ca -}}
   {{- end }}
