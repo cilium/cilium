@@ -6,6 +6,10 @@ updates:
       interval: daily
     open-pull-requests-limit: 1
     rebase-strategy: disabled
+    ignore:
+        # k8s dependencies will be updated manually all at once
+      - dependency-name: "k8s.io/*"
+      - dependency-name: "sigs.k8s.io/*"
     labels:
     - kind/enhancement
   - package-ecosystem: github-actions
