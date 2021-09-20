@@ -66,6 +66,11 @@ func (wp *WorkerPool) Cap() int {
 	return cap(wp.workers)
 }
 
+// Len returns the count of concurrent workers currently running.
+func (wp *WorkerPool) Len() int {
+	return len(wp.workers)
+}
+
 // Submit submits f for processing by a worker. The given id is useful for
 // identifying the task once it is completed. The task f must return when the
 // context ctx is cancelled.

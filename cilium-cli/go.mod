@@ -17,7 +17,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cilium/cilium v1.10.4
 	github.com/cilium/hubble v0.8.1
-	github.com/cilium/workerpool v1.0.0
+	github.com/cilium/workerpool v1.1.0
 	github.com/cloudflare/cfssl v1.6.0
 	github.com/go-openapi/strfmt v0.20.2
 	github.com/google/gops v0.3.20
