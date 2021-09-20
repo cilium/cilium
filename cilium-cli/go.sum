@@ -178,8 +178,8 @@ github.com/cilium/ipam v0.0.0-20201106170308-4184bc4bf9d6/go.mod h1:Ascfar4FtgB+
 github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b/go.mod h1:ktgizta3CPZBKz5uW272SJyjiro0vn4nOVP7Pk4RopA=
 github.com/cilium/metallb v0.1.1-0.20210607221240-b4c60b959dd7/go.mod h1:HTQ4n8ZdoOg8+j+txkXsFVKmHHc2PaXirzW5d4Sw7Qw=
 github.com/cilium/proxy v0.0.0-20210511221533-82a70d56bf32/go.mod h1:mvauc94lqkyJunRsU9Ef5FIsixi8vBeDoxuMYoGBemk=
-github.com/cilium/workerpool v1.0.0 h1:XdixqfwSmJ+z1AvbUL/9OLHysSEiWkZ0/dq3Iajx/Wc=
-github.com/cilium/workerpool v1.0.0/go.mod h1:GOYJhwlnIjR+jWSDNBb5kw47G1H/XA9X4WOBpgr4pQU=
+github.com/cilium/workerpool v1.1.0 h1:AO9oX7xIpvlFRUL94N+SjpulpQOrDAfozJPDJjqfV/E=
+github.com/cilium/workerpool v1.1.0/go.mod h1:GOYJhwlnIjR+jWSDNBb5kw47G1H/XA9X4WOBpgr4pQU=
 github.com/clbanning/x2j v0.0.0-20191024224557-825249438eec/go.mod h1:jMjuTZXRI4dUb/I5gc9Hdhagfvm9+RyrPryS/auMzxE=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/cloudflare/backoff v0.0.0-20161212185259-647f3cdfc87a/go.mod h1:rzgs2ZOiguV6/NpiDgADjRLPNyZlApIWxKpkT+X8SdY=
