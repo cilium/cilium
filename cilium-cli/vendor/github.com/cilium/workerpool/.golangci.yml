@@ -1,0 +1,54 @@
+# See https://golangci-lint.run/usage/configuration/ for available options.
+# Also https://github.com/cilium/cilium/blob/master/.golangci.yaml as a
+# reference.
+linters:
+  disable-all: true
+  enable:
+    - asciicheck
+    - deadcode
+    - dogsled
+    - durationcheck
+    - errcheck
+    - errname
+    - errorlint
+    - exhaustive
+    - exportloopref
+    - forcetypeassert
+    - godot
+    - goerr113
+    - gofmt
+    - goimports
+    - gosec
+    - gosimple
+    - govet
+    - ifshort
+    - ineffassign
+    - misspell
+    - nestif
+    - nilerr
+    - prealloc
+    - predeclared
+    - revive
+    - rowserrcheck
+    - staticcheck
+    - structcheck
+    - thelper
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+    - varcheck
+
+linters-settings:
+  gosimple:
+    go: "1.17"
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment
+  staticcheck:
+    go: "1.17"
+  stylecheck:
+    go: "1.17"
+  unused:
+    go: "1.17"
