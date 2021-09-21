@@ -37,6 +37,10 @@ const (
 	// MagicMarkProxyNoIDMask can be used to fetch the proxy-relevant magic
 	// bits from a mark for proxy reply traffic.
 	MagicMarkProxyNoIDMask int = 0xFFFFFEFF
+	// MagicMarkIsProxyEPID can be used in conjunction with
+	// MagicMarkProxyMask to determine whether the mark is indicating that
+	// traffic is sourced from a proxy prior to endpoint policy enforcement.
+	MagicMarkIsProxyEPID int = 0x0800
 	// MagicMarkIsProxy can be used in conjunction with MagicMarkProxyMask
 	// to determine whether the mark is indicating that traffic is sourced
 	// from a proxy.
@@ -45,6 +49,17 @@ const (
 	// to determine whether the mark is indicating that traffic is destined
 	// to a proxy.
 	MagicMarkIsToProxy uint32 = 0x0200
+
+	// MagicMarkProxyEgressEPID determines that the traffic is sourced from
+	// the proxy which is capturing traffic before it is subject to egress
+	// policy enforcement that must be done after the proxy. The identity
+	// stored in the mark is source Endpoint ID.
+	//
+	// Note that this is not used from Go code, but is included here to
+	// document this pattern. This must match the definition of
+	// MARK_MAGIC_PROXY_EGRESS_EPID in the datapath, and the Envoy code in
+	// cilium/proxy/cilium/bpf_metadata.cc
+	MagicMarkProxyEgressEPID int = 0x0900
 
 	// MagicMarkIngress determines that the traffic is sourced from the
 	// proxy which is applying Ingress policy

@@ -654,13 +654,41 @@ func (s *XDSServer) deleteSecret(name string, wg *completion.WaitGroup, callback
 	return s.secretMutator.Delete(SecretTypeURL, name, []string{"127.0.0.1"}, wg, callback)
 }
 
+// 'l7lb' triggers the upstream mark to embed source pod EndpointID instead of source security ID
+func getListenerFilter(isIngress bool, mayUseOriginalSourceAddr bool, l7lb bool) *envoy_config_listener.ListenerFilter {
+	return &envoy_config_listener.ListenerFilter{
+		Name: "cilium.bpf_metadata",
+		ConfigType: &envoy_config_listener.ListenerFilter_TypedConfig{
+			TypedConfig: toAny(&cilium.BpfMetadata{
+				IsIngress:                   isIngress,
+				MayUseOriginalSourceAddress: mayUseOriginalSourceAddr,
+				BpfRoot:                     bpf.GetMapRoot(),
+				EgressMarkSourceEndpointId:  l7lb,
+			}),
+		},
+	}
+}
+
+func getListenerSocketMarkOption(isIngress bool) *envoy_config_core.SocketOption {
+	socketMark := int64(0xB00)
+	if isIngress {
+		socketMark = 0xA00
+	}
+	return &envoy_config_core.SocketOption{
+		Description: "Listener socket mark",
+		Level:       unix.SOL_SOCKET,
+		Name:        unix.SO_MARK,
+		Value:       &envoy_config_core.SocketOption_IntValue{IntValue: socketMark},
+		State:       envoy_config_core.SocketOption_STATE_PREBIND,
+	}
+}
+
 func (s *XDSServer) getListenerConf(name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool) *envoy_config_listener.Listener {
 	clusterName := egressClusterName
 	listenerAddr := listenerIPv6Address
-	socketMark := int64(0xB00)
+
 	if isIngress {
 		clusterName = ingressClusterName
-		socketMark = 0xA00
 	}
 
 	if !option.Config.EnableIPv6 {
@@ -680,24 +708,13 @@ func (s *XDSServer) getListenerConf(name string, kind policy.L7ParserType, port 
 			},
 		},
 		Transparent: &wrapperspb.BoolValue{Value: true},
-		SocketOptions: []*envoy_config_core.SocketOption{{
-			Description: "Listener socket mark",
-			Level:       unix.SOL_SOCKET,
-			Name:        unix.SO_MARK,
-			Value:       &envoy_config_core.SocketOption_IntValue{IntValue: socketMark},
-			State:       envoy_config_core.SocketOption_STATE_PREBIND,
-		}},
+		SocketOptions: []*envoy_config_core.SocketOption{
+			getListenerSocketMarkOption(isIngress),
+		},
 		// FilterChains: []*envoy_config_listener.FilterChain
-		ListenerFilters: []*envoy_config_listener.ListenerFilter{{
-			Name: "cilium.bpf_metadata",
-			ConfigType: &envoy_config_listener.ListenerFilter_TypedConfig{
-				TypedConfig: toAny(&cilium.BpfMetadata{
-					IsIngress:                   isIngress,
-					MayUseOriginalSourceAddress: mayUseOriginalSourceAddr,
-					BpfRoot:                     bpf.GetMapRoot(),
-				}),
-			},
-		}},
+		ListenerFilters: []*envoy_config_listener.ListenerFilter{
+			getListenerFilter(isIngress, mayUseOriginalSourceAddr, false),
+		},
 	}
 
 	// Add filter chains

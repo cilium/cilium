@@ -32,6 +32,7 @@ var ignoredELFPrefixes = []string{
 	"ROUTER_IP",                  // Global
 	"SNAT_IPV6_EXTERNAL",         // Global
 	"cilium_call_policy",         // Global
+	"cilium_egresscall_policy",   // Global
 	"cilium_capture",             // Global
 	"cilium_ct",                  // All CT maps, including local
 	"cilium_encrypt_state",       // Global
