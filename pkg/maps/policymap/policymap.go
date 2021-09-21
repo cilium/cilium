@@ -20,6 +20,10 @@ const (
 	// enforcement programs.
 	PolicyCallMapName = "cilium_call_policy"
 
+	// PolicyEgressCallMapName is the name of the map to do tail calls into egress policy
+	// enforcement programs.
+	PolicyEgressCallMapName = "cilium_egresscall_policy"
+
 	// MapName is the prefix for endpoint-specific policy maps which map
 	// identity+ports+direction to whether the policy allows communication
 	// with that identity on that port for that direction.
@@ -427,8 +431,8 @@ func InitMapInfo(maxEntries int) {
 	MaxEntries = maxEntries
 }
 
-// InitCallMap creates the policy call map in the kernel.
-func InitCallMap() error {
+// InitCallMap creates the policy call maps in the kernel.
+func InitCallMaps(haveEgressCallMap bool) error {
 	policyCallMap := bpf.NewMap(PolicyCallMapName,
 		bpf.MapTypeProgArray,
 		&CallKey{},
@@ -441,5 +445,21 @@ func InitCallMap() error {
 		bpf.ConvertKeyValue,
 	)
 	_, err := policyCallMap.Create()
+
+	if err == nil && haveEgressCallMap {
+		policyEgressCallMap := bpf.NewMap(PolicyEgressCallMapName,
+			bpf.MapTypeProgArray,
+			&CallKey{},
+			int(unsafe.Sizeof(CallKey{})),
+			&CallValue{},
+			int(unsafe.Sizeof(CallValue{})),
+			int(PolicyCallMaxEntries),
+			0,
+			0,
+			bpf.ConvertKeyValue,
+		)
+
+		_, err = policyEgressCallMap.Create()
+	}
 	return err
 }

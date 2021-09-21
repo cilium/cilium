@@ -16,5 +16,9 @@
 #include "lib/common.h"
 
 
-int mock_ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ctx, int off, int dir, struct ct_state *ct_state, __u32 *monitor);
-int mock_ct_create4(const void *map_main, const void *map_related, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ctx, const int dir, const struct ct_state *ct_state, bool proxy_redirect);
+int mock_ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ctx,
+		    int off, int dir, struct ct_state *ct_state, __u32 *monitor);
+int mock_ct_create4(const void *map_main, const void *map_related,
+		    struct ipv4_ct_tuple *tuple, struct __ctx_buff *ctx,
+		    const int dir, const struct ct_state *ct_state,
+		    bool proxy_redirect, bool from_l7lb);

@@ -57,6 +57,21 @@ func ParseResources(namePrefix string, anySlice []cilium_v2alpha1.XDSResource) (
 				listener.EnableReusePort = &wrapperspb.BoolValue{Value: false}
 			}
 
+			// Inject Cilium bpf metadata listener filter, if not already present.
+			found := false
+			for _, lf := range listener.ListenerFilters {
+				if lf.Name == "cilium.bpf_metadata" {
+					found = true
+				}
+			}
+			if !found {
+				listener.ListenerFilters = append(listener.ListenerFilters, getListenerFilter(false /* not ingress */, false, true))
+			}
+			// Inject Transparent to work with TPROXY
+			listener.Transparent = &wrapperspb.BoolValue{Value: true}
+			// Inject listener socket option for Cilium datapath
+			listener.SocketOptions = append(listener.SocketOptions, getListenerSocketMarkOption(false /* not ingress */))
+
 			// Fill in RDS config source if unset
 			for _, fc := range listener.FilterChains {
 				for _, filter := range fc.Filters {

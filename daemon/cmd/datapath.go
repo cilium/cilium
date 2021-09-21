@@ -140,7 +140,7 @@ type EndpointMapManager struct {
 // packets that arrive on this node from being forwarded to the endpoint that
 // used to exist with the specified ID.
 func (e *EndpointMapManager) RemoveDatapathMapping(endpointID uint16) error {
-	return policymap.RemoveGlobalMapping(uint32(endpointID))
+	return policymap.RemoveGlobalMapping(uint32(endpointID), option.Config.EnableEnvoyConfig)
 }
 
 // RemoveMapPath removes the specified path from the filesystem.
@@ -350,7 +350,7 @@ func (d *Daemon) initMaps() error {
 		return err
 	}
 
-	if err := policymap.InitCallMap(); err != nil {
+	if err := policymap.InitCallMaps(option.Config.EnableEnvoyConfig); err != nil {
 		return err
 	}
 
