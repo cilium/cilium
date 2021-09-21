@@ -86,8 +86,8 @@ var _ = Describe("K8sIstioTest", func() {
 	BeforeAll(func() {
 		k8sVersion := helpers.GetCurrentK8SEnv()
 		switch k8sVersion {
-		case "1.7", "1.8", "1.9", "1.10", "1.11", "1.12", "1.13":
-			Skip(fmt.Sprintf("Istio %s doesn't support K8S %s", istioVersion, k8sVersion))
+		case "1.7", "1.8", "1.9", "1.10", "1.11", "1.12", "1.13", "1.14", "1.15", "1.16":
+			Skip(fmt.Sprintf("Istio %s requires at least K8s version 1.17", istioVersion))
 		}
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
