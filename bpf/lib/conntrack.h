@@ -231,6 +231,7 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 			ct_state->ifindex = entry->ifindex;
 			ct_state->dsr = entry->dsr;
 			ct_state->proxy_redirect = entry->proxy_redirect;
+			ct_state->from_l7lb = entry->from_l7lb;
 			if (dir == CT_SERVICE)
 				ct_state->backend_id = entry->backend_id;
 		}
@@ -822,7 +823,7 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 				      struct ipv6_ct_tuple *tuple,
 				      struct __ctx_buff *ctx, const int dir,
 				      const struct ct_state *ct_state,
-				      bool proxy_redirect)
+				      bool proxy_redirect, bool from_l7lb)
 {
 	/* Create entry in original direction */
 	struct ct_entry entry = { };
@@ -833,6 +834,7 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 	 * back to the proxy.
 	 */
 	entry.proxy_redirect = proxy_redirect;
+	entry.from_l7lb = from_l7lb;
 
 	if (dir == CT_SERVICE)
 		entry.backend_id = ct_state->backend_id;
@@ -916,7 +918,7 @@ static __always_inline int ct_create4(const void *map_main,
 				      struct ipv4_ct_tuple *tuple,
 				      struct __ctx_buff *ctx, const int dir,
 				      const struct ct_state *ct_state,
-				      bool proxy_redirect)
+				      bool proxy_redirect, bool from_l7lb)
 {
 	/* Create entry in original direction */
 	struct ct_entry entry = { };
@@ -927,6 +929,7 @@ static __always_inline int ct_create4(const void *map_main,
 	 * back to the proxy.
 	 */
 	entry.proxy_redirect = proxy_redirect;
+	entry.from_l7lb = from_l7lb;
 
 	entry.lb_loopback = ct_state->loopback;
 	entry.node_port = ct_state->node_port;
@@ -1066,7 +1069,8 @@ ct_create6(const void *map_main __maybe_unused,
 	   struct ipv6_ct_tuple *tuple __maybe_unused,
 	   struct __ctx_buff *ctx __maybe_unused, const int dir __maybe_unused,
 	   struct ct_state *ct_state __maybe_unused,
-	   bool from_proxy __maybe_unused)
+	   bool from_proxy __maybe_unused,
+	   bool from_l7lb __maybe_unused)
 {
 	return 0;
 }
@@ -1091,7 +1095,8 @@ ct_create4(const void *map_main __maybe_unused,
 	   struct ipv4_ct_tuple *tuple __maybe_unused,
 	   struct __ctx_buff *ctx __maybe_unused, const int dir __maybe_unused,
 	   const struct ct_state *ct_state __maybe_unused,
-	   bool proxy_redirect __maybe_unused)
+	   bool proxy_redirect __maybe_unused,
+	   bool from_l7lb __maybe_unused)
 {
 	return 0;
 }

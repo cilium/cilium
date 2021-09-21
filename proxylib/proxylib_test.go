@@ -259,7 +259,7 @@ func TestUnsupportedL7Drops(t *testing.T) {
 
 	insertPolicyText(t, mod, "1", []string{`
 		name: "FooBar"
-		policy: 2
+		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -308,7 +308,7 @@ func TestUnsupportedL7DropsGeneric(t *testing.T) {
 
 	insertPolicyText(t, mod, "1", []string{`
 		name: "FooBar"
-		policy: 2
+		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -361,7 +361,7 @@ func TestEnvoyL7DropsGeneric(t *testing.T) {
 
 	insertPolicyText(t, mod, "1", []string{`
 		name: "FooBar"
-		policy: 2
+		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -414,7 +414,7 @@ func TestTwoRulesOnSamePortFirstNoL7(t *testing.T) {
 
 	insertPolicyText(t, mod, "1", []string{`
 		name: "FooBar"
-		policy: 2
+		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -448,7 +448,7 @@ func TestTwoRulesOnSamePortFirstNoL7Generic(t *testing.T) {
 
 	insertPolicyText(t, mod, "1", []string{`
 		name: "FooBar"
-		policy: 2
+		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -496,7 +496,7 @@ func TestTwoRulesOnSamePortMismatchingL7(t *testing.T) {
 
 	err := insertPolicyTextRaw(t, mod, "1", []string{`
 		name: "FooBar"
-		policy: 2
+		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -552,7 +552,7 @@ func TestSimplePolicy(t *testing.T) {
 
 	insertPolicyText(t, mod, "1", []string{`
 		name: "FooBar"
-		policy: 2
+		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -611,7 +611,7 @@ func TestAllowAllPolicy(t *testing.T) {
 
 	insertPolicyText(t, mod, "1", []string{`
 		name: "FooBar"
-		policy: 2
+		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -656,7 +656,7 @@ func TestAllowEmptyPolicy(t *testing.T) {
 
 	insertPolicyText(t, mod, "1", []string{`
 		name: "FooBar"
-		policy: 2
+		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -708,7 +708,7 @@ func TestAllowAllPolicyL3Egress(t *testing.T) {
 
 	insertPolicyText(t, mod, "1", []string{`
 		name: "FooBar"
-		policy: 42
+		endpoint_id: 42
 		egress_per_port_policies: <
 		  port: 80
 		  rules: <
