@@ -844,6 +844,18 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 	__u32 __maybe_unused ipcache_srcid = 0;
 	int ret;
 
+	if (from_host) {
+		__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
+
+		if (magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
+			__u32 lxc_id = get_epid(ctx);
+			/* Store magic value to differentiate this case for the callee. */
+			ctx_store_meta(ctx, CB_FROM_HOST, FROM_HOST_L7_LB);
+			tail_call_dynamic(ctx, &POLICY_CALL_MAP, lxc_id);
+			return DROP_MISSED_TAIL_CALL;
+		}
+	}
+
 #ifdef ENABLE_IPSEC
 	if (from_host) {
 		__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;

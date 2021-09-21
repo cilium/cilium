@@ -839,7 +839,7 @@ redo_all:
 			ct_state_new.node_port = 1;
 			ct_state_new.ifindex = NATIVE_DEV_IFINDEX;
 			ret = ct_create6(get_ct_map6(&tuple), NULL, &tuple, ctx,
-					 CT_EGRESS, &ct_state_new, false);
+					 CT_EGRESS, &ct_state_new, false, false);
 			if (IS_ERR(ret))
 				return ret;
 			if (backend_local) {
@@ -848,7 +848,7 @@ redo_local:
 				ct_state_new.rev_nat_index = 0;
 				ret = ct_create6(get_ct_map6(&tuple), NULL,
 						 &tuple, ctx, CT_INGRESS,
-						 &ct_state_new, false);
+						 &ct_state_new, false, false);
 				if (IS_ERR(ret))
 					return ret;
 			}
@@ -1854,7 +1854,7 @@ redo_all:
 			ct_state_new.node_port = 1;
 			ct_state_new.ifindex = NATIVE_DEV_IFINDEX;
 			ret = ct_create4(get_ct_map4(&tuple), NULL, &tuple, ctx,
-					 CT_EGRESS, &ct_state_new, false);
+					 CT_EGRESS, &ct_state_new, false, false);
 			if (IS_ERR(ret))
 				return ret;
 			if (backend_local) {
@@ -1866,7 +1866,7 @@ redo_local:
 				ct_state_new.rev_nat_index = 0;
 				ret = ct_create4(get_ct_map4(&tuple), NULL,
 						 &tuple, ctx, CT_INGRESS,
-						 &ct_state_new, false);
+						 &ct_state_new, false, false);
 				if (IS_ERR(ret))
 					return ret;
 			}

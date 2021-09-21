@@ -22,7 +22,7 @@ require (
 	github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e
 	github.com/cilium/ebpf v0.5.1-0.20210421150058-a4ee356536f3
 	github.com/cilium/ipam v0.0.0-20201106170308-4184bc4bf9d6
-	github.com/cilium/proxy v0.0.0-20210917102344-9a433903f7b8
+	github.com/cilium/proxy v0.0.0-20210921123743-5346c856ab8c
 	github.com/containernetworking/cni v0.8.1
 	github.com/containernetworking/plugins v0.9.1
 	github.com/davecgh/go-spew v1.1.1

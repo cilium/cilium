@@ -179,14 +179,12 @@ github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b h1:+bsFX/WOMIoaayXVyR
 github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b/go.mod h1:ktgizta3CPZBKz5uW272SJyjiro0vn4nOVP7Pk4RopA=
 github.com/cilium/metallb v0.1.1-0.20210609003938-62cef75b3c9f h1:5IFq1y2Ptz45Cfuu0rHjy5+vOxs/pkwkKiOzatf92rg=
 github.com/cilium/metallb v0.1.1-0.20210609003938-62cef75b3c9f/go.mod h1:3/7XqsnwanF+NM3mwSxXi2qPPLIvaLY4CbrNe/YzArk=
-github.com/cilium/proxy v0.0.0-20210917102344-9a433903f7b8 h1:z1G9LmVE9LJWgyvqKSa/st5BhMb5WJG0NmYyfraXQWk=
-github.com/cilium/proxy v0.0.0-20210917102344-9a433903f7b8/go.mod h1:myU5JehunPXM6XbyOMaNsE15ZXJPhZe3wodlETMVubA=
+github.com/cilium/proxy v0.0.0-20210921123743-5346c856ab8c h1:s5Pq51rbNowQXxv9zDHTZdIYxgUQEZ89lljXVcMmxFs=
+github.com/cilium/proxy v0.0.0-20210921123743-5346c856ab8c/go.mod h1:MzZQrM9aOmUw7lKJbIA4gpBQSlce7/qB3IM6mmdxE58=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGXZJjfX53e64911xZQV5JYwmTeXPW+k8Sc=
 github.com/cncf/udpa/go v0.0.0-20200629203442-efcf912fb354/go.mod h1:WmhPx2Nbnhtbo57+VJT5O0JRkEi1Wbu0z5j0R8u5Hbk=
 github.com/cncf/udpa/go v0.0.0-20201120205902-5459f2c99403/go.mod h1:WmhPx2Nbnhtbo57+VJT5O0JRkEi1Wbu0z5j0R8u5Hbk=
-github.com/cncf/xds v0.0.0-20210323124008-b88cc788a63e h1:08i/QKrXrcHCeiTKtCP3WMAKlO1q81t1vO+fgsNLL/U=
-github.com/cncf/xds v0.0.0-20210323124008-b88cc788a63e/go.mod h1:inx4ZMKo660I6CU/RP9UEgHMOQMvNfnd+ytnLelYqqo=
 github.com/cncf/xds/go v0.0.0-20210312221358-fbca930ec8ed/go.mod h1:eXthEFrGJvWHgFFCl3hGmgk+/aYT6PnTQLykKQRLhEs=
 github.com/cncf/xds/go v0.0.0-20210805033703-aa0b78936158 h1:CevA8fI91PAnP8vpnXuB8ZYAZ5wqY86nAbxfgK8tWO4=
 github.com/cncf/xds/go v0.0.0-20210805033703-aa0b78936158/go.mod h1:eXthEFrGJvWHgFFCl3hGmgk+/aYT6PnTQLykKQRLhEs=
@@ -752,7 +750,6 @@ github.com/onsi/gomega v1.10.1/go.mod h1:iN09h71vgCQne3DLsj+A5owkum+a2tYe+TOCB1y
 github.com/onsi/gomega v1.10.3/go.mod h1:V9xEwhxec5O8UDM77eCW8vLymOMltsqPVYWrpDsH8xc=
 github.com/onsi/gomega v1.14.0 h1:ep6kpPVwmr/nTbklSx2nrLNSIO62DoYAhnPNIMhK8gI=
 github.com/onsi/gomega v1.14.0/go.mod h1:cIuvLEne0aoVhAgh/O6ac0Op8WWw9H6eYCriF+tEHG0=
-github.com/open-telemetry/opentelemetry-proto v0.7.0/go.mod h1:PMR5GI0F7BSpio+rBGFxNm6SLzg3FypDTcFuQZnO+F8=
 github.com/opencontainers/go-digest v1.0.0-rc1 h1:WzifXhOVOEOuFYOJAW6aQqW0TooG2iki3E3Ii+WN7gQ=
 github.com/opencontainers/go-digest v1.0.0-rc1/go.mod h1:cMLVZDEM3+U2I4VmLI6N8jQYUd2OVphdqWwCJHrFt2s=
 github.com/opencontainers/image-spec v1.0.1 h1:JMemWkRwHx4Zj+fVxWoMCFm/8sYGGrUVojFA6h/TRcI=

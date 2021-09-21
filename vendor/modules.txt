@@ -174,7 +174,7 @@ github.com/cilium/ebpf/perf
 github.com/cilium/ipam/cidrset
 github.com/cilium/ipam/service/allocator
 github.com/cilium/ipam/service/ipallocator
-# github.com/cilium/proxy v0.0.0-20210917102344-9a433903f7b8
+# github.com/cilium/proxy v0.0.0-20210921123743-5346c856ab8c
 ## explicit; go 1.13
 github.com/cilium/proxy/go/cilium/api
 github.com/cilium/proxy/go/envoy/annotations

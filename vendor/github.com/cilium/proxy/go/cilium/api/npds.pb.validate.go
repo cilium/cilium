@@ -47,7 +47,7 @@ func (m *NetworkPolicy) Validate() error {
 
 	// no validation rules for Name
 
-	// no validation rules for Policy
+	// no validation rules for EndpointId
 
 	for idx, item := range m.GetIngressPerPortPolicies() {
 		_, _ = idx, item
