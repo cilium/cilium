@@ -188,6 +188,10 @@ Install Cilium
           ``tunnel=disabled`` from the helm command will configure Cilium to
           use overlay routing mode (which is the helm default).
 
+         Some Linux distributions use a different interface naming convention.
+         If you use masquerading with the option ``egressMasqueradeInterfaces=eth0``,
+         remember to replace ``eth0`` with the proper interface name.
+
        Cilium is now deployed and you are ready to scale-up the cluster:
 
     .. group-tab:: OpenShift
