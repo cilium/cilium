@@ -68,7 +68,8 @@ Download the `cilium enhanced istioctl version 1.10.4 <https://github.com/cilium
 .. note::
 
    Cilium integration, as presented in this Getting Started Guide, has
-   been tested with Kubernetes releases 1.16, 1.17, 1.18, 1.19, 1.20 and 1.21.
+   been tested with Kubernetes releases 1.17, 1.18, 1.19, 1.20 and 1.21.
+   This Istio release does not work with Kubernetes 1.16 or older.
 
 Deploy the default Istio configuration profile onto Kubernetes:
 
