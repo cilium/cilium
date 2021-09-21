@@ -7,5 +7,6 @@
 #define CILIUM_MAP_POLICY	1
 #define CILIUM_MAP_CALLS	2
 #define CILIUM_MAP_CUSTOM_CALLS	3
+#define CILIUM_MAP_EGRESSPOLICY	4
 
 #endif /* __LIB_IDS_H_ */

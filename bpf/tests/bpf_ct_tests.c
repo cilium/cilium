@@ -108,7 +108,7 @@ int test_ct4_rst1(struct __ctx_buff *ctx)
 		ct_state_new.node_port = ct_state.node_port;
 		ct_state_new.ifindex = ct_state.ifindex;
 		ret = ct_create4(get_ct_map4(&tuple), &CT_MAP_ANY4, &tuple, ctx,
-				 CT_EGRESS, &ct_state_new, 0);
+				 CT_EGRESS, &ct_state_new, false, false);
 		break;
 
 	default:

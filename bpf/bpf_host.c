@@ -845,6 +845,20 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 	__u32 __maybe_unused ipcache_srcid = 0;
 	int ret;
 
+#if defined(ENABLE_L7_LB)
+	if (from_host) {
+		__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
+
+		if (magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
+			__u32 lxc_id = get_epid(ctx);
+
+			ctx->mark = 0;
+			tail_call_dynamic(ctx, &POLICY_EGRESSCALL_MAP, lxc_id);
+			return DROP_MISSED_TAIL_CALL;
+		}
+	}
+#endif
+
 #ifdef ENABLE_IPSEC
 	if (!from_host && !do_decrypt(ctx, proto))
 		return CTX_ACT_OK;

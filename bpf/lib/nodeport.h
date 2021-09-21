@@ -791,7 +791,7 @@ redo:
 			ct_state_new.node_port = 1;
 			ct_state_new.ifindex = (__u16)NATIVE_DEV_IFINDEX;
 			ret = ct_create6(get_ct_map6(&tuple), NULL, &tuple, ctx,
-					 CT_EGRESS, &ct_state_new, false);
+					 CT_EGRESS, &ct_state_new, false, false);
 			if (IS_ERR(ret))
 				return ret;
 			break;
@@ -1778,7 +1778,7 @@ redo:
 			ct_state_new.node_port = 1;
 			ct_state_new.ifindex = (__u16)NATIVE_DEV_IFINDEX;
 			ret = ct_create4(get_ct_map4(&tuple), NULL, &tuple, ctx,
-					 CT_EGRESS, &ct_state_new, false);
+					 CT_EGRESS, &ct_state_new, false, false);
 			if (IS_ERR(ret))
 				return ret;
 			break;

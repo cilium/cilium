@@ -482,6 +482,7 @@ enum metric_dir {
  *    In the IPsec case this becomes the SPI on the wire.
  */
 #define MARK_MAGIC_HOST_MASK		0x0F00
+#define MARK_MAGIC_PROXY_EGRESS_EPID	0x0900 /* mark carries source endpoint ID */
 #define MARK_MAGIC_PROXY_INGRESS	0x0A00
 #define MARK_MAGIC_PROXY_EGRESS		0x0B00
 #define MARK_MAGIC_HOST			0x0C00
@@ -599,6 +600,9 @@ enum {
 #define	CB_CUSTOM_CALLS		CB_CT_STATE	/* Alias, non-overlapping */
 };
 
+/* Magic values for CB_FROM_HOST */
+#define FROM_HOST_L7_LB 0xFACADE42
+
 /* State values for NAT46 */
 enum {
 	NAT46_CLEAR,
@@ -700,7 +704,8 @@ struct ct_entry {
 	      node_port:1,
 	      proxy_redirect:1, /* Connection is redirected to a proxy */
 	      dsr:1,
-	      reserved:8;
+	      from_l7lb:1, /* Connection is originated from an L7 LB proxy */
+	      reserved:7;
 	__u16 rev_nat_index;
 	/* In the kernel ifindex is u32, so we need to check in cilium-agent
 	 * that ifindex of a NodePort device is <= MAX(u16).
@@ -875,13 +880,23 @@ struct ct_state {
 	      node_port:1,
 	      proxy_redirect:1, /* Connection is redirected to a proxy */
 	      dsr:1,
-	      reserved:12;
+	      from_l7lb:1, /* Connection is originated from an L7 LB proxy */
+	      reserved:11;
 	__be32 addr;
 	__be32 svc_addr;
 	__u32 src_sec_id;
 	__u16 ifindex;
 	__u32 backend_id;	/* Backend ID in lb4_backends */
 };
+
+static __always_inline bool ct_state_is_from_l7lb(const struct ct_state *ct_state __maybe_unused)
+{
+#ifdef ENABLE_L7_LB
+	return ct_state->from_l7lb;
+#else
+	return false;
+#endif
+}
 
 #define SRC_RANGE_STATIC_PREFIX(STRUCT)		\
 	(8 * (sizeof(STRUCT) - sizeof(struct bpf_lpm_trie_key)))

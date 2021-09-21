@@ -80,7 +80,7 @@ func ParseResources(cecFullName string, cec *cilium_v2alpha1.CiliumEnvoyConfig, 
 				}
 			}
 			if !found {
-				listener.ListenerFilters = append(listener.ListenerFilters, getListenerFilter(cec.Spec.Ingress, true))
+				listener.ListenerFilters = append(listener.ListenerFilters, getListenerFilter(cec.Spec.Ingress, true, true))
 			}
 			// Inject listener socket option for Cilium datapath
 			listener.SocketOptions = append(listener.SocketOptions, getListenerSocketMarkOption(false))
