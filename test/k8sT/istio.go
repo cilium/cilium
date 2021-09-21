@@ -74,6 +74,10 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sIstioTest", func() {
 	)
 
 	BeforeAll(func() {
+		if helpers.SkipK8sVersions("<1.17.0") {
+			Skip(fmt.Sprintf("Istio %s requires at least K8s version 1.17", istioVersion))
+		}
+
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		By("Downloading cilium-istioctl")
