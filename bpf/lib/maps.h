@@ -41,6 +41,18 @@ struct bpf_elf_map __section_maps POLICY_CALL_MAP = {
 };
 #endif /* SKIP_POLICY_MAP */
 
+#ifdef ENABLE_L7_LB
+/* Global map to jump into policy enforcement of sending endpoint */
+struct bpf_elf_map __section_maps POLICY_EGRESSCALL_MAP = {
+	.type		= BPF_MAP_TYPE_PROG_ARRAY,
+	.id		= CILIUM_MAP_EGRESSPOLICY,
+	.size_key	= sizeof(__u32),
+	.size_value	= sizeof(__u32),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= POLICY_PROG_MAP_SIZE,
+};
+#endif
+
 #ifdef ENABLE_BANDWIDTH_MANAGER
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
