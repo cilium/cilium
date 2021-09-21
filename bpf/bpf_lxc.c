@@ -130,6 +130,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	__u8 audited = 0;
 	bool __maybe_unused dst_remote_ep = false;
 	__u16 proxy_port = 0;
+	bool from_l7lb = false;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -234,6 +235,9 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	}
 
 skip_policy_enforcement:
+#if defined(ENABLE_L7_LB)
+	from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
+#endif
 	switch (ct_status) {
 	case CT_NEW:
 		if (!hairpin_flow)
@@ -248,7 +252,7 @@ ct_recreate6:
 		 */
 		ct_state_new.src_sec_id = SECLABEL;
 		ret = ct_create6(get_ct_map6(&tuple), &CT_MAP_ANY6, &tuple, ctx,
-				 CT_EGRESS, &ct_state_new, verdict > 0);
+				 CT_EGRESS, &ct_state_new, verdict > 0, from_l7lb);
 		if (IS_ERR(ret))
 			return ret;
 		monitor = TRACE_PAYLOAD_LEN;
@@ -310,7 +314,10 @@ ct_recreate6:
 
 	hairpin_flow |= ct_state.loopback;
 
-	if (redirect_to_proxy(verdict, ct_status)) {
+	/* L7 LB does L7 policy enforcement, so we only redirect packets
+	 * NOT from L7 LB.
+	 */
+	if (!from_l7lb && redirect_to_proxy(verdict, ct_status)) {
 		proxy_port = (__u16)verdict;
 		/* Trace the packet before it is forwarded to proxy */
 		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL, 0,
@@ -343,8 +350,9 @@ ct_recreate6:
 			}
 #endif /* ENABLE_ROUTING */
 			policy_clear_mark(ctx);
+			/* If the packet is from L7 LB it is coming from the host */
 			return ipv6_local_delivery(ctx, l3_off, SECLABEL, ep,
-						   METRIC_EGRESS, false);
+						   METRIC_EGRESS, from_l7lb);
 		}
 	}
 
@@ -602,6 +610,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	enum trace_reason reason;
 	enum ct_status ct_status;
 	__u16 proxy_port = 0;
+	bool from_l7lb = false;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -700,6 +709,9 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	}
 
 skip_policy_enforcement:
+#if defined(ENABLE_L7_LB)
+	from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
+#endif
 	switch (ct_status) {
 	case CT_NEW:
 		if (!hairpin_flow)
@@ -717,7 +729,7 @@ ct_recreate4:
 		 * handling here, but turns out that verifier cannot handle it.
 		 */
 		ret = ct_create4(get_ct_map4(&tuple), &CT_MAP_ANY4, &tuple, ctx,
-				 CT_EGRESS, &ct_state_new, verdict > 0);
+				 CT_EGRESS, &ct_state_new, verdict > 0, from_l7lb);
 		if (IS_ERR(ret))
 			return ret;
 		break;
@@ -776,7 +788,10 @@ ct_recreate4:
 
 	hairpin_flow |= ct_state.loopback;
 
-	if (redirect_to_proxy(verdict, ct_status)) {
+	/* L7 LB does L7 policy enforcement, so we only redirect packets
+	 * NOT from L7 LB.
+	 */
+	if (!from_l7lb && redirect_to_proxy(verdict, ct_status)) {
 		proxy_port = (__u16)verdict;
 		/* Trace the packet before it is forwarded to proxy */
 		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL, 0,
@@ -815,8 +830,9 @@ ct_recreate4:
 			}
 #endif /* ENABLE_ROUTING */
 			policy_clear_mark(ctx);
+			/* If the packet is from L7 LB it is coming from the host */
 			return ipv4_local_delivery(ctx, l3_off, SECLABEL, ip4,
-						   ep, METRIC_EGRESS, false);
+						   ep, METRIC_EGRESS, from_l7lb);
 		}
 	}
 
@@ -1218,9 +1234,11 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 
 	/* Check it this is return traffic to an egress proxy.
 	 * Do not redirect again if the packet is coming from the egress proxy.
+	 * Always redirect connections that originated from L7 LB.
 	 */
-	if ((ret == CT_REPLY || ret == CT_RELATED) && ct_state.proxy_redirect &&
-	    !tc_index_skip_egress_proxy(ctx)) {
+	if ((ret == CT_REPLY || ret == CT_RELATED) &&
+	    (ct_state_is_from_l7lb(&ct_state) ||
+	     (ct_state.proxy_redirect && !tc_index_skip_egress_proxy(ctx)))) {
 		/* This is a reply, the proxy port does not need to be embedded
 		 * into ctx->mark and *proxy_port can be left unset.
 		 */
@@ -1294,7 +1312,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	if (ret == CT_NEW) {
 		ct_state_new.src_sec_id = src_label;
 		ret = ct_create6(get_ct_map6(&tuple), &CT_MAP_ANY6, &tuple, ctx, CT_INGRESS,
-				 &ct_state_new, verdict > 0);
+				 &ct_state_new, verdict > 0, false);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -1510,10 +1528,12 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 
 	/* Check it this is return traffic to an egress proxy.
 	 * Do not redirect again if the packet is coming from the egress proxy.
+	 * Always redirect connections that originated from L7 LB.
 	 */
 	relax_verifier();
-	if ((ret == CT_REPLY || ret == CT_RELATED) && ct_state.proxy_redirect &&
-	    !tc_index_skip_egress_proxy(ctx)) {
+	if ((ret == CT_REPLY || ret == CT_RELATED) &&
+	    (ct_state_is_from_l7lb(&ct_state) ||
+	     (ct_state.proxy_redirect && !tc_index_skip_egress_proxy(ctx)))) {
 		/* This is a reply, the proxy port does not need to be embedded
 		 * into ctx->mark and *proxy_port can be left unset.
 		 */
@@ -1611,7 +1631,7 @@ skip_policy_enforcement:
 	if (ret == CT_NEW) {
 		ct_state_new.src_sec_id = src_label;
 		ret = ct_create4(get_ct_map4(&tuple), &CT_MAP_ANY4, &tuple, ctx, CT_INGRESS,
-				 &ct_state_new, verdict > 0);
+				 &ct_state_new, verdict > 0, false);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -1825,6 +1845,58 @@ out:
 	return ret;
 }
 
+/* Handle policy decisions as the packet makes its way from the
+ * endpoint.  Previously, the packet has come from the same endpoint,
+ * but was redirected to a L7 LB.
+ *
+ * This program will be tail called from bpf_host for packets sent by
+ * a L7 LB.
+ */
+#if defined(ENABLE_L7_LB)
+__section_tail(CILIUM_MAP_EGRESSPOLICY, TEMPLATE_LXC_ID)
+int handle_policy_egress(struct __ctx_buff *ctx)
+{
+	__u16 proto;
+	int ret;
+
+	if (!validate_ethertype(ctx, &proto)) {
+		ret = DROP_UNSUPPORTED_L2;
+		goto out;
+	}
+
+	ctx_store_meta(ctx, CB_FROM_HOST, FROM_HOST_L7_LB);
+
+	edt_set_aggregate(ctx, 0); /* do not count this traffic again */
+	send_trace_notify(ctx, TRACE_FROM_PROXY, SECLABEL, 0, 0,
+			  0 /*ifindex*/, 0, TRACE_PAYLOAD_LEN);
+
+	switch (proto) {
+#ifdef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6):
+		ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_LXC);
+		ret = DROP_MISSED_TAIL_CALL;
+		break;
+#endif /* ENABLE_IPV6 */
+#ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP):
+		ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_LXC);
+		ret = DROP_MISSED_TAIL_CALL;
+		break;
+#endif /* ENABLE_IPV4 */
+	default:
+		ret = DROP_UNKNOWN_L3;
+		break;
+	}
+
+out:
+	if (IS_ERR(ret))
+		return send_drop_notify(ctx, SECLABEL, 0, LXC_ID,
+					ret, CTX_ACT_DROP, METRIC_EGRESS);
+
+	return ret;
+}
+#endif
+
 #ifdef ENABLE_NAT46
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT64)
 int tail_ipv6_to_ipv4(struct __ctx_buff *ctx)
@@ -1901,6 +1973,12 @@ int handle_to_container(struct __ctx_buff *ctx)
 	magic = inherit_identity_from_host(ctx, &identity);
 	if (magic == MARK_MAGIC_PROXY_INGRESS || magic == MARK_MAGIC_PROXY_EGRESS)
 		trace = TRACE_FROM_PROXY;
+#if defined(ENABLE_L7_LB)
+	else if (magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
+		tail_call_dynamic(ctx, &POLICY_EGRESSCALL_MAP, identity);
+		return DROP_MISSED_TAIL_CALL;
+	}
+#endif
 
 	send_trace_notify(ctx, trace, identity, 0, 0,
 			  ctx->ingress_ifindex, 0, TRACE_PAYLOAD_LEN);

@@ -601,6 +601,8 @@ func (m *IptablesManager) installStaticProxyRules() error {
 	matchToProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsToProxy, linux_defaults.MagicMarkHostMask)
 	// proxy return traffic has 0 ID in the mask
 	matchProxyReply := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxy, linux_defaults.MagicMarkProxyNoIDMask)
+	// L7 proxy upstream return traffic has Endpoint ID in the mask
+	matchL7ProxyUpstream := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxyEPID, linux_defaults.MagicMarkProxyMask)
 
 	var err error
 	if option.Config.EnableIPv4 {
@@ -642,6 +644,26 @@ func (m *IptablesManager) installStaticProxyRules() error {
 				"-j", "CT", "--notrack"}, false)
 		}
 		if err == nil {
+			// No conntrack for proxy upstream traffic that is heading to lxc+
+			err = ip4tables.runProg([]string{
+				"-t", "raw",
+				"-A", ciliumOutputRawChain,
+				"-o", "lxc+",
+				"-m", "mark", "--mark", matchL7ProxyUpstream,
+				"-m", "comment", "--comment", "cilium: NOTRACK for L7 proxy upstream traffic",
+				"-j", "CT", "--notrack"}, false)
+		}
+		if err == nil {
+			// No conntrack for proxy upstream traffic that is heading to cilium_host
+			err = ip4tables.runProg([]string{
+				"-t", "raw",
+				"-A", ciliumOutputRawChain,
+				"-o", "cilium_host",
+				"-m", "mark", "--mark", matchL7ProxyUpstream,
+				"-m", "comment", "--comment", "cilium: NOTRACK for L7 proxy upstream traffic",
+				"-j", "CT", "--notrack"}, false)
+		}
+		if err == nil {
 			// Explicit ACCEPT for the proxy return traffic. Needed when the OUTPUT defaults to DROP.
 			// Matching needs to be the same as for the NOTRACK rule above.
 			err = ip4tables.runProg([]string{
@@ -649,6 +671,16 @@ func (m *IptablesManager) installStaticProxyRules() error {
 				"-A", ciliumOutputChain,
 				"-m", "mark", "--mark", matchProxyReply,
 				"-m", "comment", "--comment", "cilium: ACCEPT for proxy return traffic",
+				"-j", "ACCEPT"}, false)
+		}
+		if err == nil {
+			// Explicit ACCEPT for the l7 proxy upstream traffic. Needed when the OUTPUT defaults to DROP.
+			// TODO: See if this is really needed. We do not have an ACCEPT for normal proxy upstream traffic.
+			err = ip4tables.runProg([]string{
+				"-t", "filter",
+				"-A", ciliumOutputChain,
+				"-m", "mark", "--mark", matchL7ProxyUpstream,
+				"-m", "comment", "--comment", "cilium: ACCEPT for l7 proxy upstream traffic",
 				"-j", "ACCEPT"}, false)
 		}
 		if err == nil && m.haveSocketMatch {
@@ -1282,6 +1314,7 @@ func (m *IptablesManager) installHostTrafficMarkRule(prog iptablesInterface) err
 	matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkDecrypt, linux_defaults.RouteMarkMask)
 	matchFromIPSecDecrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
 	matchFromProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxy, linux_defaults.MagicMarkProxyMask)
+	matchFromProxyEPID := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxyEPID, linux_defaults.MagicMarkProxyMask)
 	markAsFromHost := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkHost, linux_defaults.MagicMarkHostMask)
 
 	return prog.runProg([]string{
@@ -1290,6 +1323,7 @@ func (m *IptablesManager) installHostTrafficMarkRule(prog iptablesInterface) err
 		"-m", "mark", "!", "--mark", matchFromIPSecDecrypt, // Don't match ipsec traffic
 		"-m", "mark", "!", "--mark", matchFromIPSecEncrypt, // Don't match ipsec traffic
 		"-m", "mark", "!", "--mark", matchFromProxy, // Don't match proxy traffic
+		"-m", "mark", "!", "--mark", matchFromProxyEPID, // Don't match proxy traffic
 		"-m", "comment", "--comment", "cilium: host->any mark as from host",
 		"-j", "MARK", "--set-xmark", markAsFromHost}, false)
 }

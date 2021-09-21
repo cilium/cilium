@@ -350,7 +350,7 @@ func (d *Daemon) initMaps() error {
 		return err
 	}
 
-	if err := policymap.InitCallMap(); err != nil {
+	if err := policymap.InitCallMaps(); err != nil {
 		return err
 	}
 
