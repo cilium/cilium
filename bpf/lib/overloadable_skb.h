@@ -25,6 +25,15 @@ get_identity(const struct __sk_buff *ctx)
 	return ((ctx->mark & 0xFF) << 16) | ctx->mark >> 16;
 }
 
+/**
+ * get_epid - returns source endpoint identity from the mark field
+ */
+static __always_inline __maybe_unused __u32
+get_epid(const struct __sk_buff *ctx)
+{
+	return ctx->mark >> 16;
+}
+
 static __always_inline __maybe_unused void
 set_encrypt_dip(struct __sk_buff *ctx, __u32 ip_endpoint)
 {
