@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // PolicyPlumbingMap maps endpoint IDs to the fd for the program which
@@ -44,13 +45,26 @@ func (v *PlumbingValue) String() string {
 // RemoveGlobalMapping removes the mapping from the specified endpoint ID to
 // the BPF policy program for that endpoint.
 func RemoveGlobalMapping(id uint32) error {
-	gpm, err := OpenCallMap()
+	gpm, err := OpenCallMap(PolicyCallMapName)
 	if err == nil {
 		k := PlumbingKey{
 			key: id,
 		}
 		err = gpm.Map.Delete(&k)
 		gpm.Close()
+	}
+	if option.Config.EnableEnvoyConfig {
+		gpm, err2 := OpenCallMap(PolicyEgressCallMapName)
+		if err2 == nil {
+			k := PlumbingKey{
+				key: id,
+			}
+			err2 = gpm.Map.Delete(&k)
+			gpm.Close()
+		}
+		if err == nil {
+			return err2
+		}
 	}
 
 	return err
@@ -59,8 +73,8 @@ func RemoveGlobalMapping(id uint32) error {
 // OpenCallMap opens the map that maps endpoint IDs to program file
 // descriptors, which allows tail calling into the policy datapath code from
 // other BPF programs.
-func OpenCallMap() (*PolicyPlumbingMap, error) {
-	m, err := bpf.OpenMap(PolicyCallMapName)
+func OpenCallMap(name string) (*PolicyPlumbingMap, error) {
+	m, err := bpf.OpenMap(name)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +86,15 @@ func OpenCallMap() (*PolicyPlumbingMap, error) {
 // CallString returns the string which indicates the calls map by index in the
 // ELF, and index into that call map for a specific endpoint.
 //
-// Derived from __section_tail(CILIUM_MAP_CALLS, NAME) per bpf/lib/tailcall.h.
+// Derived from __section_tail(CILIUM_MAP_POLICY, NAME) per bpf/lib/tailcall.h.
 func CallString(id uint16) string {
 	return fmt.Sprintf("1/%#04x", id)
+}
+
+// EgerssCallString returns the string which indicates the calls map by index in the
+// ELF, and index into that call map for a specific endpoint.
+//
+// Derived from __section_tail(CILIUM_MAP_EGRESSPOLICY, NAME) per bpf/lib/tailcall.h.
+func EgressCallString(id uint16) string {
+	return fmt.Sprintf("4/%#04x", id)
 }

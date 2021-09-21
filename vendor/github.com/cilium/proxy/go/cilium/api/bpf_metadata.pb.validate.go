@@ -47,6 +47,8 @@ func (m *BpfMetadata) Validate() error {
 
 	// no validation rules for MayUseOriginalSourceAddress
 
+	// no validation rules for EgressMarkSourceEndpointId
+
 	return nil
 }
 

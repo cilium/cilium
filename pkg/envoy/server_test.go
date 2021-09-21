@@ -441,7 +441,7 @@ func (s *ServerSuite) TestGetNetworkPolicy(c *C) {
 	obtained := getNetworkPolicy(ep, IPv4Addr, L4Policy1, true, true)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
-		Policy:                 uint64(Identity),
+		EndpointId:             uint64(ep.GetID()),
 		IngressPerPortPolicies: ExpectedPerPortPolicies12Wildcard,
 		EgressPerPortPolicies:  ExpectedPerPortPolicies1Wildcard,
 		ConntrackMapName:       "global",
@@ -453,7 +453,7 @@ func (s *ServerSuite) TestGetNetworkPolicyWildcard(c *C) {
 	obtained := getNetworkPolicy(ep, IPv4Addr, L4Policy2, true, true)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
-		Policy:                 uint64(Identity),
+		EndpointId:             uint64(ep.GetID()),
 		IngressPerPortPolicies: ExpectedPerPortPolicies12Wildcard,
 		EgressPerPortPolicies:  ExpectedPerPortPolicies1Wildcard,
 		ConntrackMapName:       "global",
@@ -465,7 +465,7 @@ func (s *ServerSuite) TestGetNetworkPolicyDeny(c *C) {
 	obtained := getNetworkPolicy(ep, IPv4Addr, L4Policy1RequiresV2, true, true)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
-		Policy:                 uint64(Identity),
+		EndpointId:             uint64(ep.GetID()),
 		IngressPerPortPolicies: ExpectedPerPortPolicies12RequiresV2,
 		EgressPerPortPolicies:  ExpectedPerPortPolicies1Wildcard,
 		ConntrackMapName:       "global",
@@ -477,7 +477,7 @@ func (s *ServerSuite) TestGetNetworkPolicyWildcardDeny(c *C) {
 	obtained := getNetworkPolicy(ep, IPv4Addr, L4Policy1RequiresV2, true, true)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
-		Policy:                 uint64(Identity),
+		EndpointId:             uint64(ep.GetID()),
 		IngressPerPortPolicies: ExpectedPerPortPolicies12RequiresV2,
 		EgressPerPortPolicies:  ExpectedPerPortPolicies1Wildcard,
 		ConntrackMapName:       "global",
@@ -489,7 +489,7 @@ func (s *ServerSuite) TestGetNetworkPolicyNil(c *C) {
 	obtained := getNetworkPolicy(ep, IPv4Addr, nil, true, true)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
-		Policy:                 uint64(Identity),
+		EndpointId:             uint64(ep.GetID()),
 		IngressPerPortPolicies: nil,
 		EgressPerPortPolicies:  nil,
 		ConntrackMapName:       "global",
@@ -501,7 +501,7 @@ func (s *ServerSuite) TestGetNetworkPolicyIngressNotEnforced(c *C) {
 	obtained := getNetworkPolicy(ep, IPv4Addr, L4Policy2, false, true)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
-		Policy:                 uint64(Identity),
+		EndpointId:             uint64(ep.GetID()),
 		IngressPerPortPolicies: allowAllPortNetworkPolicy,
 		EgressPerPortPolicies:  ExpectedPerPortPolicies1Wildcard,
 		ConntrackMapName:       "global",
@@ -513,7 +513,7 @@ func (s *ServerSuite) TestGetNetworkPolicyEgressNotEnforced(c *C) {
 	obtained := getNetworkPolicy(ep, IPv4Addr, L4Policy1RequiresV2, true, false)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
-		Policy:                 uint64(Identity),
+		EndpointId:             uint64(ep.GetID()),
 		IngressPerPortPolicies: ExpectedPerPortPolicies12RequiresV2,
 		EgressPerPortPolicies:  allowAllPortNetworkPolicy,
 		ConntrackMapName:       "global",
@@ -571,7 +571,7 @@ func (s *ServerSuite) TestGetNetworkPolicyL7(c *C) {
 	obtained := getNetworkPolicy(ep, IPv4Addr, L4PolicyL7, true, true)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
-		Policy:                 uint64(Identity),
+		EndpointId:             uint64(ep.GetID()),
 		IngressPerPortPolicies: ExpectedPerPortPoliciesL7,
 		ConntrackMapName:       "global",
 	}
@@ -626,7 +626,7 @@ func (s *ServerSuite) TestGetNetworkPolicyKafka(c *C) {
 	obtained := getNetworkPolicy(ep, IPv4Addr, L4PolicyKafka, true, true)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
-		Policy:                 uint64(Identity),
+		EndpointId:             uint64(ep.GetID()),
 		IngressPerPortPolicies: ExpectedPerPortPoliciesKafka,
 		ConntrackMapName:       "global",
 	}
@@ -697,7 +697,7 @@ func (s *ServerSuite) TestGetNetworkPolicyMySQL(c *C) {
 	obtained := getNetworkPolicy(ep, IPv4Addr, L4PolicyMySQL, true, true)
 	expected := &cilium.NetworkPolicy{
 		Name:                  IPv4Addr,
-		Policy:                uint64(Identity),
+		EndpointId:            uint64(ep.GetID()),
 		EgressPerPortPolicies: ExpectedPerPortPoliciesMySQL,
 		ConntrackMapName:      "global",
 	}
