@@ -198,8 +198,8 @@ jobs:
         uses: actions/upload-artifact@27121b0bdffd731efa15d66772be8dc71245d074
         if: ${{ failure() }}
         with:
-          name: cilium-sysdump-out.tar.gz
-          path: cilium-sysdump-out.tar.gz
+          name: cilium-sysdump-out.zip
+          path: cilium-sysdump-out.zip
 
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
