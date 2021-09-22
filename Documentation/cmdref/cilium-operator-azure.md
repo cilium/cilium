@@ -35,7 +35,6 @@ cilium-operator-azure [flags]
       --enable-k8s-endpoint-slice                 Enables k8s EndpointSlice feature into Cilium-Operator if the k8s cluster supports it (default true)
       --enable-k8s-event-handover                 Enable k8s event handover to kvstore for improved scalability
       --enable-metrics                            Enable Prometheus metrics
-      --enable-wireguard                          Enable wireguard
       --gops-port int                             Port for gops server to listen on (default 9891)
   -h, --help                                      help for cilium-operator-azure
       --identity-allocation-mode string           Method to use for identity allocation (default "kvstore")
