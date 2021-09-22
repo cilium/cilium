@@ -98,6 +98,17 @@ func (a *Agent) Close() error {
 
 // Init creates and configures the local WireGuard tunnel device.
 func (a *Agent) Init(mtuConfig mtu.Configuration) error {
+	addIPCacheListener := false
+	a.Lock()
+	defer func() {
+		// IPCache will call back into OnIPIdentityCacheChange which requires
+		// us to release a.mutex before we can add ourself as a listener.
+		a.Unlock()
+		if addIPCacheListener {
+			a.ipCache.AddListener(a)
+		}
+	}()
+
 	link := &netlink.Wireguard{LinkAttrs: netlink.LinkAttrs{Name: types.IfaceName}}
 	err := netlink.LinkAdd(link)
 	if err != nil && !errors.Is(err, unix.EEXIST) {
@@ -182,7 +193,8 @@ func (a *Agent) Init(mtuConfig mtu.Configuration) error {
 		}
 	}
 
-	a.ipCache.AddListener(a)
+	// this is read by the defer statement above
+	addIPCacheListener = true
 
 	return nil
 }
