@@ -302,6 +302,26 @@ jobs:
             --test '!/pod-to-.*-nodeport' \
              --flow-validation=disabled
 
+      - name: Enable WireGuard
+        run: |
+          for ctx in ${{ steps.contexts.outputs.context1 }} ${{ steps.contexts.outputs.context2 }} ; do
+            kubectl config use-context "$ctx"
+            cilium config set --restart=false enable-wireguard true
+            cilium config set --restart=false enable-wireguard-userspace-fallback true
+            cilium config set --restart=true  enable-l7-proxy  false
+            cilium status --wait
+          done
+
+      - name: Run connectivity test with WireGuard
+        run: |
+          # TODO: Once WireGuard supports the L7 proxy, the L7 tests can be
+          # included here. See cilium/cilium#15462
+          cilium connectivity test \
+            --context ${{ steps.contexts.outputs.context1 }} \
+            --multi-cluster ${{ steps.contexts.outputs.context2 }} \
+            --test '!/pod-to-.*-nodeport,!client-egress-l7,!echo-ingress-l7,!to-fqdns,!dns-only' \
+             --flow-validation=disabled
+
       - name: Post-test information gathering
         if: ${{ !success() }}
         run: |
