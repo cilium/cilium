@@ -663,6 +663,9 @@ const (
 	// EnableWireguard is the name of the option to enable wireguard
 	EnableWireguard = "enable-wireguard"
 
+	// EnableWireguardUserspaceFallback is the name of the option that enables the fallback to wireguard userspace mode
+	EnableWireguardUserspaceFallback = "enable-wireguard-userspace-fallback"
+
 	// KVstoreLeaseTTL is the time-to-live for lease in kvstore.
 	KVstoreLeaseTTL = "kvstore-lease-ttl"
 
@@ -1422,6 +1425,9 @@ type DaemonConfig struct {
 
 	// EnableWireguard enables Wireguard encryption
 	EnableWireguard bool
+
+	// EnableWireguardUserspaceFallback enables the fallback to the userspace implementation
+	EnableWireguardUserspaceFallback bool
 
 	// MonitorQueueSize is the size of the monitor event queue
 	MonitorQueueSize int
@@ -2431,6 +2437,7 @@ func (c *DaemonConfig) Populate() {
 	c.IPv6MCastDevice = viper.GetString(IPv6MCastDevice)
 	c.EnableIPSec = viper.GetBool(EnableIPSecName)
 	c.EnableWireguard = viper.GetBool(EnableWireguard)
+	c.EnableWireguardUserspaceFallback = viper.GetBool(EnableWireguardUserspaceFallback)
 	c.EnableWellKnownIdentities = viper.GetBool(EnableWellKnownIdentities)
 	c.EndpointInterfaceNamePrefix = viper.GetString(EndpointInterfaceNamePrefix)
 	c.DevicePreFilter = viper.GetString(PrefilterDevice)
