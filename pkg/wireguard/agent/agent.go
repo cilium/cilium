@@ -96,7 +96,7 @@ func (a *Agent) Close() error {
 	return a.wgClient.Close()
 }
 
-// Init is called after we have obtained a local Wireguard IP
+// Init creates and configures the local WireGuard tunnel device.
 func (a *Agent) Init(mtuConfig mtu.Configuration) error {
 	link := &netlink.Wireguard{LinkAttrs: netlink.LinkAttrs{Name: types.IfaceName}}
 	err := netlink.LinkAdd(link)
