@@ -91,9 +91,6 @@ func init() {
 			`configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local4"}`)
 	option.BindEnv(option.LogOpt)
 
-	flags.Bool(option.EnableWireguard, false, "Enable wireguard")
-	option.BindEnv(option.EnableWireguard)
-
 	var defaultIPAM string
 	switch binaryName {
 	case "cilium-operator":
