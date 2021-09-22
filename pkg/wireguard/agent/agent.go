@@ -111,7 +111,7 @@ func (a *Agent) Init(mtuConfig mtu.Configuration) error {
 
 	if option.Config.EnableIPv4 {
 		if err := sysctl.Disable(fmt.Sprintf("net.ipv4.conf.%s.rp_filter", types.IfaceName)); err != nil {
-			return nil
+			return fmt.Errorf("failed to disable rp_filter: %w", err)
 		}
 	}
 
