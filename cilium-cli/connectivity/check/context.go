@@ -43,7 +43,8 @@ type ConnectivityTest struct {
 	echoServices      map[string]Service
 	externalWorkloads map[string]ExternalWorkload
 
-	tests map[string]*Test
+	tests     []*Test
+	testNames map[string]struct{}
 
 	lastFlowTimestamps map[string]time.Time
 }
@@ -137,7 +138,8 @@ func NewConnectivityTest(client *k8s.Client, p Parameters) (*ConnectivityTest, e
 		clientPods:         make(map[string]Pod),
 		echoServices:       make(map[string]Service),
 		externalWorkloads:  make(map[string]ExternalWorkload),
-		tests:              make(map[string]*Test),
+		tests:              []*Test{},
+		testNames:          make(map[string]struct{}),
 		lastFlowTimestamps: make(map[string]time.Time),
 	}
 
@@ -148,11 +150,13 @@ func NewConnectivityTest(client *k8s.Client, p Parameters) (*ConnectivityTest, e
 // a new Test. This object can be used to set up the environment to execute
 // different Scenarios within.
 func (ct *ConnectivityTest) NewTest(name string) *Test {
+	var member struct{}
+
 	if name == "" {
 		panic("empty test name")
 	}
 
-	if _, ok := ct.tests[name]; ok {
+	if _, ok := ct.testNames[name]; ok {
 		ct.Fatalf("test %s exists in suite", name)
 	}
 
@@ -172,7 +176,8 @@ func (ct *ConnectivityTest) NewTest(name string) *Test {
 		t.logBuf = nil
 	}
 
-	ct.tests[name] = t
+	ct.tests = append(ct.tests, t)
+	ct.testNames[name] = member
 
 	return t
 }
