@@ -199,6 +199,17 @@ must hold:
  - ``peers[*].allowed-ips`` should contain a list of pod IP addresses running
    on the remote.
 
+Cluster Mesh
+============
+
+WireGuard enabled Cilium clusters can be connected via :ref:`Cluster Mesh`. The
+``clustermesh-apiserver`` will forward the necessary WireGuard public keys
+automatically to remote clusters.
+In such a setup, it is important to note that all participating clusters must
+have WireGuard encryption enabled, i.e. mixed mode is currently not supported.
+In addition, UDP traffic between nodes of different clusters on port ``51871``
+must be allowed.
+
 Limitations
 ===========
 
