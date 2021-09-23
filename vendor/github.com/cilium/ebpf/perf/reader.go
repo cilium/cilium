@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	errClosed = errors.New("perf reader was closed")
+	ErrClosed = errors.New("perf reader was closed")
 	errEOR    = errors.New("end of ring")
 )
 
@@ -322,7 +322,7 @@ func (pr *Reader) Read() (Record, error) {
 	defer pr.mu.Unlock()
 
 	if pr.epollFd == -1 {
-		return Record{}, errClosed
+		return Record{}, fmt.Errorf("%w", ErrClosed)
 	}
 
 	for {
@@ -339,7 +339,7 @@ func (pr *Reader) Read() (Record, error) {
 
 			for _, event := range pr.epollEvents[:nEvents] {
 				if int(event.Fd) == pr.closeFd {
-					return Record{}, errClosed
+					return Record{}, fmt.Errorf("%w", ErrClosed)
 				}
 
 				ring := pr.rings[cpuForEvent(&event)]
@@ -378,7 +378,7 @@ func (pr *Reader) Pause() error {
 	defer pr.pauseMu.Unlock()
 
 	if pr.pauseFds == nil {
-		return errClosed
+		return fmt.Errorf("%w", ErrClosed)
 	}
 
 	for i := range pr.pauseFds {
@@ -398,7 +398,7 @@ func (pr *Reader) Resume() error {
 	defer pr.pauseMu.Unlock()
 
 	if pr.pauseFds == nil {
-		return errClosed
+		return fmt.Errorf("%w", ErrClosed)
 	}
 
 	for i, fd := range pr.pauseFds {
@@ -420,8 +420,10 @@ type temporaryError interface {
 
 // IsClosed returns true if the error occurred because
 // a Reader was closed.
+//
+// Deprecated: use errors.Is(err, ErrClosed) instead.
 func IsClosed(err error) bool {
-	return errors.Is(err, errClosed)
+	return errors.Is(err, ErrClosed)
 }
 
 type unknownEventError struct {
