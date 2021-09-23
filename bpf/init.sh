@@ -260,12 +260,12 @@ function bpf_load()
 	bpf_compile $IN $OUT obj "$OPTS"
 	tc qdisc replace dev $DEV clsact || true
 	[ -z "$(tc filter show dev $DEV $WHERE | grep -v 'pref 1 bpf chain 0 $\|pref 1 bpf chain 0 handle 0x1')" ] || tc filter del dev $DEV $WHERE
-	cilium-map-migrate -s $OUT
+	cilium bpf migrate-maps -s $OUT
 	set +e
 	tc filter replace dev $DEV $WHERE prio 1 handle 1 bpf da obj $OUT sec $SEC
 	RETCODE=$?
 	set -e
-	cilium-map-migrate -e $OUT -r $RETCODE
+	cilium bpf migrate-maps -e $OUT -r $RETCODE
 	return $RETCODE
 }
 
@@ -286,12 +286,12 @@ function bpf_load_cgroups()
 	TMP_FILE="$BPFMNT/tc/globals/cilium_cgroups_$WHERE"
 	rm -f $TMP_FILE
 
-	cilium-map-migrate -s $OUT
+	cilium bpf migrate-maps -s $OUT
 	set +e
 	tc exec bpf pin $TMP_FILE obj $OUT type $PROG_TYPE attach_type $WHERE sec "cgroup/$WHERE"
 	RETCODE=$?
 	set -e
-	cilium-map-migrate -e $OUT -r $RETCODE
+	cilium bpf migrate-maps -e $OUT -r $RETCODE
 
 	if [ "$RETCODE" -eq "0" ]; then
 		set +e
