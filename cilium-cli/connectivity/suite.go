@@ -70,17 +70,6 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			tests.PodToExternalWorkload(""),
 		)
 
-	// Only allow UDP:53 to kube-dns, no DNS proxy enabled.
-	ct.NewTest("dns-only").WithPolicy(clientEgressOnlyDNSPolicyYAML).
-		WithScenarios(
-			tests.PodToPod(""),   // connects to other Pods directly, no DNS
-			tests.PodToWorld(""), // resolves one.one.one.one
-		).
-		WithExpectations(
-			func(a *check.Action) (egress check.Result, ingress check.Result) {
-				return check.ResultDropCurlTimeout, check.ResultNone
-			})
-
 	// This policy only allows ingress into client from client2.
 	ct.NewTest("client-ingress").WithPolicy(clientIngressFromClient2PolicyYAML).
 		WithScenarios(
@@ -112,28 +101,6 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			tests.PodToPod(""),
 		)
 
-	// This policy only allows port 80 to "one.one.one.one". DNS proxy enabled.
-	ct.NewTest("to-fqdns").WithPolicy(clientEgressToFQDNsCiliumIOPolicyYAML).
-		WithScenarios(
-			tests.PodToWorld(""),
-		).
-		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
-			if a.Destination().Port() == 80 && a.Destination().Address() == "one.one.one.one" {
-				if a.Destination().Path() == "/" || a.Destination().Path() == "" {
-					egress = check.ResultDNSOK
-					egress.HTTP = check.HTTP{
-						Method: "GET",
-						URL:    "http://one.one.one.one/",
-					}
-					return egress, check.ResultNone
-				}
-				// Else expect HTTP drop by proxy
-				return check.ResultDNSOKDropCurlHTTPError, check.ResultNone
-			}
-			// No HTTP proxy on other ports
-			return check.ResultDNSOKDropCurlTimeout, check.ResultNone
-		})
-
 	// This policy allows UDP to kube-dns and port 80 TCP to all 'world' endpoints.
 	ct.NewTest("to-entities-world").
 		WithPolicy(clientEgressToEntitiesWorldPolicyYAML).
@@ -163,6 +130,26 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			return check.ResultOK, check.ResultNone
 		})
 
+	// Test L7 HTTP introspection using an ingress policy on echo pods.
+	ct.NewTest("echo-ingress-l7").
+		WithPolicy(echoIngressL7HTTPPolicyYAML). // L7 allow policy with HTTP introspection
+		WithScenarios(
+			tests.PodToPod(""),
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Source().HasLabel("other", "client") { // Only client2 is allowed to make HTTP calls.
+				egress = check.ResultOK
+				// Expect all curls from client2 to be proxied and to be GET calls.
+				egress.HTTP = check.HTTP{
+					Method: "GET",
+				}
+				return egress, check.ResultNone
+			}
+			return check.ResultDrop, check.ResultNone
+		})
+
+	// The following tests have DNS redirect policies. They should be executed last.
+
 	// Test L7 HTTP introspection using an egress policy on the clients.
 	ct.NewTest("client-egress-l7").
 		WithPolicy(clientEgressOnlyDNSPolicyYAML). // DNS resolution only
@@ -190,27 +177,41 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			return check.ResultDrop, check.ResultNone
 		})
 
-	// Test L7 HTTP introspection using an ingress policy on echo pods.
-	ct.NewTest("echo-ingress-l7").
-		WithPolicy(echoIngressL7HTTPPolicyYAML). // L7 allow policy with HTTP introspection
+	// Only allow UDP:53 to kube-dns, no DNS proxy enabled.
+	ct.NewTest("dns-only").WithPolicy(clientEgressOnlyDNSPolicyYAML).
 		WithScenarios(
-			tests.PodToPod(""),
+			tests.PodToPod(""),   // connects to other Pods directly, no DNS
+			tests.PodToWorld(""), // resolves one.one.one.one
+		).
+		WithExpectations(
+			func(a *check.Action) (egress check.Result, ingress check.Result) {
+				return check.ResultDropCurlTimeout, check.ResultNone
+			})
+
+	// This policy only allows port 80 to "one.one.one.one". DNS proxy enabled.
+	ct.NewTest("to-fqdns").WithPolicy(clientEgressToFQDNsCiliumIOPolicyYAML).
+		WithScenarios(
+			tests.PodToWorld(""),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
-			if a.Source().HasLabel("other", "client") { // Only client2 is allowed to make HTTP calls.
-				egress = check.ResultOK
-				// Expect all curls from client2 to be proxied and to be GET calls.
-				egress.HTTP = check.HTTP{
-					Method: "GET",
+			if a.Destination().Port() == 80 && a.Destination().Address() == "one.one.one.one" {
+				if a.Destination().Path() == "/" || a.Destination().Path() == "" {
+					egress = check.ResultDNSOK
+					egress.HTTP = check.HTTP{
+						Method: "GET",
+						URL:    "http://one.one.one.one/",
+					}
+					return egress, check.ResultNone
 				}
-				return egress, check.ResultNone
+				// Else expect HTTP drop by proxy
+				return check.ResultDNSOKDropCurlHTTPError, check.ResultNone
 			}
-			return check.ResultDrop, check.ResultNone
+			// No HTTP proxy on other ports
+			return check.ResultDNSOKDropCurlTimeout, check.ResultNone
 		})
 
-	// Dummy tests for debugging the testing harness.
-	// ct.NewTest("dummy-1").WithScenarios(tests.Dummy("dummy-scenario-1"))
-	// ct.NewTest("dummy-2").WithScenarios(tests.Dummy("dummy-scenario-2"))
+	// Tests with DNS redirects to the proxy (e.g., client-egress-l7, dns-only,
+	// and to-fqdns) should always be executed last. See #367 for details.
 
 	return ct.Run(ctx)
 }
