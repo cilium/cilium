@@ -15,7 +15,9 @@
 package k8sTest
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"strings"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
@@ -28,6 +30,46 @@ const (
 	script      = "bpf/verifier-test.sh"
 	podName     = "test-verifier"
 	podManifest = "test-verifier.yaml"
+
+	HookTC     = "TC"
+	HookCgroup = "CG"
+	HookXDP    = "XDP"
+)
+
+type BPFProgram struct {
+	name      string
+	hook      string
+	macroName string
+}
+
+var (
+	bpfPrograms = []BPFProgram{
+		{
+			name:      "bpf_lxc",
+			hook:      HookTC,
+			macroName: "MAX_LXC_OPTIONS",
+		},
+		{
+			name:      "bpf_host",
+			hook:      HookTC,
+			macroName: "MAX_HOST_OPTIONS",
+		},
+		{
+			name:      "bpf_xdp",
+			hook:      HookXDP,
+			macroName: "MAX_XDP_OPTIONS",
+		},
+		{
+			name:      "bpf_overlay",
+			hook:      HookTC,
+			macroName: "MAX_OVERLAY_OPTIONS",
+		},
+		{
+			name:      "bpf_sock",
+			hook:      HookCgroup,
+			macroName: "MAX_LB_OPTIONS",
+		},
+	}
 )
 
 // This test tries to compile BPF programs with a set of options that maximize
@@ -60,6 +102,24 @@ var _ = Describe("K8sVerifier", func() {
 			}
 		}
 	}
+
+	getKernel := func() string {
+		kernel := "49"
+		switch {
+		case helpers.RunsOnNetNextKernel():
+			kernel = "netnext"
+		case helpers.RunsOn419Kernel():
+			kernel = "419"
+		case helpers.RunsOn54Kernel():
+			kernel = "54"
+		}
+		return kernel
+	}
+
+	getDatapathConfigFile := func(bpfProgram string) string {
+		return fmt.Sprintf("../bpf/complexity-tests/%s/%s.txt", getKernel(), bpfProgram)
+	}
+
 	BeforeAll(func() {
 		SkipIfIntegration(helpers.CIIntegrationGKE)
 
@@ -94,38 +154,36 @@ var _ = Describe("K8sVerifier", func() {
 	})
 
 	It("Runs the kernel verifier against Cilium's BPF datapath", func() {
-		By("Building BPF objects from the tree")
-		kernel := "49"
-		switch {
-		case helpers.RunsOnNetNextKernel():
-			kernel = "netnext"
-		case helpers.RunsOn419Kernel():
-			kernel = "419"
-		case helpers.RunsOn54Kernel():
-			kernel = "54"
-		}
-		cmd := fmt.Sprintf("make -C bpf KERNEL=%s", kernel)
-		res := kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, cmd)
-		res.ExpectSuccess("Expected compilation of the BPF objects to succeed")
-		res = kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, "make -C tools/maptool/")
+		res := kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, "make -C tools/maptool/")
 		res.ExpectSuccess("Expected compilation of maptool to succeed")
 
-		if helpers.RunsOn419Kernel() {
-			// On 4.19, we need to remove global data sections before loading
-			// those programs. The libbpf version used in our bpftool (which
-			// loads these two programs), rejects global data.
-			By("Remove global data section")
-			for _, prog := range []string{"bpf/sockops/bpf_sockops.o", "bpf/sockops/bpf_redir.o"} {
-				cmd := "llvm-objcopy --remove-section=.debug_info --remove-section=.BTF --remove-section=.data /cilium/%s /cilium/%s"
-				res := kubectl.ExecPodCmd(helpers.DefaultNamespace, podName,
-					fmt.Sprintf(cmd, prog, prog))
-				res.ExpectSuccess(fmt.Sprintf("Expected deletion of object file sections from %s to succeed.", prog))
-			}
-		}
+		for _, bpfProgram := range bpfPrograms {
+			file, err := os.Open(getDatapathConfigFile(bpfProgram.name))
+			Expect(err).Should(BeNil(), fmt.Sprintf("Unable to open list of datapath configurations for %s", bpfProgram.name))
+			defer file.Close()
 
-		By("Running the verifier test script")
-		cmd = fmt.Sprintf("test/%s", script)
-		res = kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, cmd)
-		res.ExpectSuccess("Expected the kernel verifier to pass for BPF programs")
+			scanner := bufio.NewScanner(file)
+			for scanner.Scan() {
+				datapathConfig := scanner.Text()
+
+				By("Cleaning %s build files", bpfProgram.name)
+				cmd := fmt.Sprintf("make -C bpf clean")
+				res := kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, cmd)
+				res.ExpectSuccess("Expected clean target to succeed")
+
+				By("Building %s object file", bpfProgram.name)
+				cmd = fmt.Sprintf("make -C bpf %s.o KERNEL=%s %s=%q", bpfProgram.name, getKernel(), bpfProgram.macroName, datapathConfig)
+				res = kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, cmd)
+				res.ExpectSuccess(fmt.Sprintf("Expected the compilation of %s to succeed", bpfProgram.name))
+
+				By("Running the verifier test script with %s", bpfProgram.name)
+				cmd = fmt.Sprintf("env TC_PROGS=\"\" XDP_PROGS=\"\" CG_PROGS=\"\" %s_PROGS=%q ./test/%s", bpfProgram.hook, bpfProgram.name, script)
+				res = kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, cmd)
+				res.ExpectSuccess(fmt.Sprintf("Failed to load BPF program %s with datapath configuration:\n%s", bpfProgram.name, datapathConfig))
+			}
+
+			err = scanner.Err()
+			Expect(err).Should(BeNil(), fmt.Sprintf("Error while reading list of datapath configurations for %s", bpfProgram.name))
+		}
 	})
 })
