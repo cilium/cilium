@@ -9,6 +9,8 @@ import (
 	"os"
 
 	"github.com/cilium/cilium-cli/internal/cli/cmd"
+	// necessary to disable unwanted cfssl log messages
+	_ "github.com/cilium/cilium-cli/internal/logging"
 
 	gops "github.com/google/gops/agent"
 )
