@@ -51,7 +51,7 @@ the release.
 
 The `cilium-cli` Homebrew formula can be updated using the command:
 
-   brew bump-formula-pr --version=$RELEASE cilium-cli
+    brew bump-formula-pr --version=${RELEASE#v} cilium-cli
 
 This will automatically create a PR against https://github.com/Homebrew/homebrew-core
 bumping the version. This assumes a GitHub access token exported in
