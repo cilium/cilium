@@ -22,7 +22,7 @@ concurrency:
 env:
   kind_version: v0.11.1
   kind_config: .github/kind-config.yaml
-  cilium_cli_version: v0.9.0
+  cilium_cli_version: v0.9.1
 
 jobs:
   installation-and-connectivity:
