@@ -21,6 +21,8 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/k8s"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discover_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
@@ -286,19 +288,17 @@ func (k *K8sWatcher) GetAPIGroups() []string {
 // watcher, as those resource controllers need the resources to be registered
 // with K8s first.
 func (k *K8sWatcher) WaitForCRDsToRegister(ctx context.Context) error {
-	return synced.SyncCRDs(ctx, synced.AgentCRDResourceNames, &k.k8sResourceSynced, &k.k8sAPIGroups)
+	return synced.SyncCRDs(ctx, synced.AgentCRDResourceNames(), &k.k8sResourceSynced, &k.k8sAPIGroups)
 }
 
-// coreResources are all of the core Kubernetes and Cilium resources which are
-// required to implement the baseline CNI functionality.
-func (k *K8sWatcher) coreResources() []string {
-	result := []string{
+// resourceGroups are all of the core Kubernetes and Cilium resource groups
+// which the Cilium agent watches to implement CNI functionality.
+func (k *K8sWatcher) resourceGroups() []string {
+	k8sGroups := []string{
 		// To perform the service translation and have the BPF LB datapath
 		// with the right service -> backend (k8s endpoints) translation.
 		K8sAPIGroupServiceV1Core,
 
-		// We we need to know about all other nodes
-		k8sAPIGroupCiliumNodeV2,
 		// We need all network policies in place before restoring to
 		// make sure we are enforcing the correct policies for each
 		// endpoint before restarting.
@@ -317,42 +317,35 @@ func (k *K8sWatcher) coreResources() []string {
 	// To perform the service translation and have the BPF LB datapath
 	// with the right service -> backend (k8s endpoints) translation.
 	if k8s.SupportsEndpointSlice() {
-		result = append(result, K8sAPIGroupEndpointSliceV1Beta1Discovery,
-			K8sAPIGroupEndpointSliceV1Discovery)
+		k8sGroups = append(k8sGroups, K8sAPIGroupEndpointSliceV1Beta1Discovery)
 	}
-	result = append(result, K8sAPIGroupEndpointV1Core)
+	k8sGroups = append(k8sGroups, K8sAPIGroupEndpointV1Core)
 
-	// CiliumEndpoint is used to synchronize the ipcache, wait for it
-	// unless it is disabled
-	if !option.Config.DisableCiliumEndpointCRD {
-		result = append(result, k8sAPIGroupCiliumEndpointV2)
+	resourceToGroupMapping := map[string]string{
+		synced.CRDResourceName(v2.CNPName):        k8sAPIGroupCiliumNetworkPolicyV2,
+		synced.CRDResourceName(v2.CCNPName):       k8sAPIGroupCiliumClusterwideNetworkPolicyV2,
+		synced.CRDResourceName(v2.CEPName):        k8sAPIGroupCiliumEndpointV2, // ipcache
+		synced.CRDResourceName(v2.CNName):         k8sAPIGroupCiliumNodeV2,
+		synced.CRDResourceName(v2.CIDName):        "SKIP", // Handled in pkg/k8s/identitybackend/
+		synced.CRDResourceName(v2.CLRPName):       k8sAPIGroupCiliumLocalRedirectPolicyV2,
+		synced.CRDResourceName(v2.CEWName):        "SKIP", // Handled in clustermesh-apiserver/
+		synced.CRDResourceName(v2alpha1.CENPName): k8sAPIGroupCiliumEgressNATPolicyV2,
 	}
-
-	return result
-}
-
-// customResources are all of the custom resources that Cilium adds to provide
-// additional functionality such as policies and additional service types.
-func (k *K8sWatcher) customResources() []string {
-	result := []string{
-		// We need all network policies in place before restoring to
-		// make sure we are enforcing the correct policies for each
-		// endpoint before restarting.
-		k8sAPIGroupCiliumNetworkPolicyV2,
-		k8sAPIGroupCiliumClusterwideNetworkPolicyV2,
-	}
-
-	if option.Config.EnableLocalRedirectPolicy {
-		// We need to know about active local redirect policy services
-		// before BPF LB datapath is synced.
-		result = append(result, k8sAPIGroupCiliumLocalRedirectPolicyV2)
+	ciliumResources := synced.AgentCRDResourceNames()
+	ciliumGroups := make([]string, 0, len(ciliumResources))
+	for _, r := range ciliumResources {
+		group, ok := resourceToGroupMapping[r]
+		if !ok {
+			log.Fatalf("Unknown resource %s. Please update pkg/k8s/watchers to understand this type.", r)
+		}
+		if group == "SKIP" ||
+			group == k8sAPIGroupCiliumEndpointV2 && option.Config.DisableCiliumEndpointCRD {
+			continue
+		}
+		ciliumGroups = append(ciliumGroups, group)
 	}
 
-	if option.Config.EnableEgressGateway {
-		result = append(result, k8sAPIGroupCiliumEgressNATPolicyV2)
-	}
-
-	return result
+	return append(k8sGroups, ciliumGroups...)
 }
 
 // InitK8sSubsystem returns a channel for which it will be closed when all
@@ -362,7 +355,7 @@ func (k *K8sWatcher) customResources() []string {
 func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context) <-chan struct{} {
 	cachesSynced := make(chan struct{})
 
-	resources := append(k.coreResources(), k.customResources()...)
+	resources := k.resourceGroups()
 	if err := k.EnableK8sWatcher(ctx, resources); err != nil {
 		if !errors.Is(err, context.Canceled) {
 			log.WithError(err).Fatal("Unable to start K8s watchers for Cilium")
