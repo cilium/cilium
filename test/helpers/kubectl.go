@@ -32,6 +32,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	cnpv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	capiv2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/test/config"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
@@ -4483,4 +4484,86 @@ func (kub *Kubectl) NslookupInPod(namespace, pod string, target string) (err err
 // Cilium into the cluster.
 func (kub *Kubectl) CiliumOptions() map[string]string {
 	return kub.ciliumOptions
+}
+
+// CiliumGetCEBs returns the list of CEBs present in the cluster
+func (kub *Kubectl) CiliumGetCEBs() ([]string, error) {
+	cmd := fmt.Sprintf("%s get ciliumendpointbatches -o json | jq -r '[.items[].metadata | (.name)]'", KubectlCmd)
+	res := kub.ExecShort(cmd)
+	if !res.WasSuccessful() {
+		return nil, fmt.Errorf("unable to retrieve all ciliumendpointbatches.cilium.io '%s': %s", cmd, res.OutputPrettyPrint())
+	}
+
+	var names []string
+	if err := res.Unmarshal(&names); err != nil {
+		return nil, fmt.Errorf("unable to unmarshal string slice '%#v': %s :%v", res.OutputPrettyPrint(), err, res)
+	}
+
+	return names, nil
+}
+
+// LabelPod lebels the Pod in a namespace
+func (kub *Kubectl) LabelPod(nameSpace, podName, label string) error {
+	cmd := fmt.Sprintf("%s label pod -n %s %s %s", KubectlCmd, nameSpace, podName, label)
+	res := kub.ExecShort(cmd)
+	if !res.WasSuccessful() {
+		return fmt.Errorf("unable to label the pod with '%s': %s", cmd, res.OutputPrettyPrint())
+	}
+	return nil
+}
+
+// GetEndpointSecurityIdentityId returns CiliumEndpoint security Identity Id.
+func (kub *Kubectl) GetEndpointSecurityIdentityId(nameSpace, podName string) (int64, error) {
+	ep, err := kub.GetCiliumEndpoint(nameSpace, podName)
+	if err != nil {
+		kub.Logger().WithError(err).Error("cannot get Cilium endpoint")
+		return 0, err
+	}
+	return ep.Identity.ID, nil
+}
+
+// WaitForCEPIdentity waits for a particular CEP to have an identity present and different value from old value.
+func (kub *Kubectl) WaitForNewCEPIdentity(ns, podName string, oldId int64) error {
+	body := func(ctx context.Context) (bool, error) {
+		ep, err := kub.GetCiliumEndpoint(ns, podName)
+		if err != nil || ep == nil {
+			return false, nil
+		}
+		if ep.Identity == nil {
+			return false, nil
+		}
+		return ep.Identity.ID != oldId, nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), HelperTimeout)
+	defer cancel()
+	return WithContext(ctx, body, 1*time.Second)
+}
+
+// GetCEBNameForCEPIdentity the CEB name for the matching pod name and security identity id.
+func (kub *Kubectl) GetCEBNameForCEPIdentity(cepName string, id int64) (string, error) {
+
+	names, err := kub.CiliumGetCEBs()
+	if err != nil {
+		return "", fmt.Errorf("unable to get CiliumEndpointBatches")
+	}
+
+	for _, name := range names {
+		cmd := fmt.Sprintf("%s get ciliumendpointbatches %s -o json | jq -r '[.endpoints[]]'", KubectlCmd, name)
+		res := kub.ExecShort(cmd)
+		if !res.WasSuccessful() {
+			return "", fmt.Errorf("unable to retrieve %s ciliumendpointbatches '%s': %s", name, cmd, res.OutputPrettyPrint())
+		}
+		var ceps []capiv2a1.CoreCiliumEndpoint
+		if err := res.Unmarshal(&ceps); err != nil {
+			return "", fmt.Errorf("unable to unmarshal CoreCiliumEndpoint '%#v': %s :%v", res.OutputPrettyPrint(), err, res)
+		}
+
+		for _, cep := range ceps {
+			if cep.Name == cepName && cep.IdentityID == id {
+				return name, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("Found NO matching CiliumEndpointBatch")
 }

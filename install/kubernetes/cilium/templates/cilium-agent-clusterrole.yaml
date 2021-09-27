@@ -105,6 +105,7 @@ rules:
   - ciliumlocalredirectpolicies/status
   - ciliumlocalredirectpolicies/finalizers
   - ciliumegressnatpolicies
+  - ciliumendpointbatches
   verbs:
   - '*'
 {{- end }}
