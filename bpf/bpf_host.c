@@ -1124,7 +1124,7 @@ int to_host(struct __ctx_buff *ctx)
 		/* Upper 16 bits may carry proxy port number */
 		__be16 port = magic >> 16;
 
-		ctx_store_meta(ctx, 0, CB_PROXY_MAGIC);
+		ctx_store_meta(ctx, CB_PROXY_MAGIC, 0);
 		ret = ctx_redirect_to_proxy_first(ctx, port);
 		if (IS_ERR(ret))
 			goto out;
