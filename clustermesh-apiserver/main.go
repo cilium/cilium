@@ -562,7 +562,7 @@ func runServer(cmd *cobra.Command) {
 		if err := k8s.Init(k8sconfig.NewDefaultConfiguration()); err != nil {
 			log.WithError(err).Fatal("Unable to connect to Kubernetes apiserver")
 		}
-		synced.SyncCRDs(context.TODO(), synced.AllCRDResourceNames, &synced.Resources{}, &synced.APIGroups{})
+		synced.SyncCRDs(context.TODO(), synced.AllCRDResourceNames(), &synced.Resources{}, &synced.APIGroups{})
 		ciliumK8sClient = k8s.CiliumClient()
 	}
 
