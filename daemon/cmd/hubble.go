@@ -326,7 +326,7 @@ func (d *Daemon) GetNamesOf(sourceEpID uint32, ip net.IP) []string {
 // with service information.
 //
 //  - ServiceGetter: https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/parser/getters/getters.go#L52
-func (d *Daemon) GetServiceByAddr(ip net.IP, port uint16) (flowpb.Service, bool) {
+func (d *Daemon) GetServiceByAddr(ip net.IP, port uint16) *flowpb.Service {
 	addr := loadbalancer.L3n4Addr{
 		IP: ip,
 		L4Addr: loadbalancer.L4Addr{
@@ -335,12 +335,12 @@ func (d *Daemon) GetServiceByAddr(ip net.IP, port uint16) (flowpb.Service, bool)
 	}
 	namespace, name, ok := d.svc.GetServiceNameByAddr(addr)
 	if !ok {
-		return flowpb.Service{}, false
+		return nil
 	}
-	return flowpb.Service{
+	return &flowpb.Service{
 		Namespace: namespace,
 		Name:      name,
-	}, true
+	}
 }
 
 // GetK8sMetadata returns the Kubernetes metadata for the given IP address.

@@ -53,7 +53,7 @@ type IPGetter interface {
 
 // ServiceGetter fetches service metadata.
 type ServiceGetter interface {
-	GetServiceByAddr(ip net.IP, port uint16) (service flowpb.Service, ok bool)
+	GetServiceByAddr(ip net.IP, port uint16) *flowpb.Service
 }
 
 // StoreGetter ...
