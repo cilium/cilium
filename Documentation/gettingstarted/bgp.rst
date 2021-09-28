@@ -60,7 +60,10 @@ Here are the required Helm values:
 
 .. parsed-literal::
 
-   helm install cilium |CHART_RELEASE| --set bgp.enabled=true --set bgp.announce.loadbalancerIP=true
+   helm install cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set bgp.enabled=true \\
+     --set bgp.announce.loadbalancerIP=true
 
 Verify that Cilium Agent pod is running.
 
