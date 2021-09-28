@@ -63,6 +63,12 @@ func AgentCRDResourceNames() []string {
 	return agentCRDResourceNames(false)
 }
 
+// OperatorCRDResourceNames returns a list of all CRD resource names that the
+// operator may register.
+func OperatorCRDResourceNames() []string {
+	return append(agentCRDResourceNames(false), CRDResourceName(v2.CEWName))
+}
+
 // AllCRDResourceNames returns a list of all CRD resource names that the
 // clustermesh-apiserver or testsuite may register.
 func AllCRDResourceNames() []string {
