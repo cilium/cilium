@@ -15,7 +15,11 @@ import (
 
 // The 5.4 CI job is intended to catch BPF complexity regressions and as such
 // doesn't need to execute this test suite.
-var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDemosTest", func() {
+//
+// This test is unreliable, so it is disabled by default. See:
+// https://github.com/cilium/cilium/issues/14598
+// https://github.com/cilium/cilium/issues/17350 (closed)
+var _ = SkipDescribeIf(helpers.AnyOf(helpers.SkipUnreliableTests, helpers.RunsOn54Kernel), "K8sDemosTest", func() {
 
 	var (
 		kubectl        *helpers.Kubectl
