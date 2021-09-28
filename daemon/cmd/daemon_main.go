@@ -992,6 +992,10 @@ func init() {
 	flags.MarkHidden(option.EnableICMPRules)
 	option.BindEnv(option.EnableICMPRules)
 
+	flags.Bool(option.BypassIPAvailabilityUponRestore, false, "Bypasses the IP availability error within IPAM upon endpoint restore")
+	flags.MarkHidden(option.BypassIPAvailabilityUponRestore)
+	option.BindEnv(option.BypassIPAvailabilityUponRestore)
+
 	viper.BindPFlags(flags)
 }
 
@@ -1454,6 +1458,29 @@ func initEnv(cmd *cobra.Command) {
 	if option.Config.BGPAnnounceLBIP {
 		option.Config.EnableNodePort = true
 		log.Infof("Auto-set BPF NodePort (%q) because LB IP announcements via BGP depend on it.", option.EnableNodePort)
+	}
+
+	// Ensure that the user does not turn on this mode unless it's for an IPAM
+	// mode which support the bypass.
+	if option.Config.BypassIPAvailabilityUponRestore {
+		switch option.Config.IPAMMode() {
+		case ipamOption.IPAMENI:
+			log.Info(
+				"Running with bypass of IP not available errors upon endpoint " +
+					"restore. Be advised that this mode is intended to be " +
+					"temporary to ease upgrades. Consider restarting the pods " +
+					"which have IPs not from the pool.",
+			)
+		default:
+			option.Config.BypassIPAvailabilityUponRestore = false
+			log.Warnf(
+				"Bypassing IP allocation upon endpoint restore (%q) is enabled with"+
+					"unintended IPAM modes. This bypass is only intended "+
+					"to work for CRD-based IPAM modes such as ENI. Disabling "+
+					"bypass.",
+				option.BypassIPAvailabilityUponRestore,
+			)
+		}
 	}
 }
 
