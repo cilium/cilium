@@ -76,7 +76,6 @@ data:
         kubernetes cluster.local in-addr.arpa ip6.arpa {
             pods insecure
             ttl 0
-            upstream
             fallthrough in-addr.arpa ip6.arpa
         }
         forward . /etc/resolv.conf {
@@ -124,7 +123,7 @@ spec:
           operator: "Exists"
       containers:
       - name: coredns
-        image: k8s.gcr.io/coredns:1.6.2
+        image: k8s.gcr.io/coredns:1.7.0
         imagePullPolicy: IfNotPresent
         resources:
           limits:
