@@ -87,7 +87,7 @@ func New(
 
 // Decode decodes the data from 'data' into 'decoded'
 func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
-	if data == nil || len(data) == 0 {
+	if len(data) == 0 {
 		return errors.ErrEmptyData
 	}
 

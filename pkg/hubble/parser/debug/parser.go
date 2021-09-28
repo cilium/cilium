@@ -36,7 +36,7 @@ func New(log logrus.FieldLogger, endpointGetter getters.EndpointGetter) (*Parser
 // Decode takes the a debug event payload obtained from the perf event ring
 // buffer and decodes it
 func (p *Parser) Decode(data []byte, cpu int) (*flowpb.DebugEvent, error) {
-	if data == nil || len(data) == 0 {
+	if len(data) == 0 {
 		return nil, errors.ErrEmptyData
 	}
 
