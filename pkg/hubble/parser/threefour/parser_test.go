@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -43,6 +44,17 @@ var log *logrus.Logger
 func init() {
 	log = logrus.New()
 	log.SetOutput(io.Discard)
+}
+
+func TestL34DecodeEmpty(t *testing.T) {
+	parser, err := New(log, &testutils.NoopEndpointGetter, &testutils.NoopIdentityGetter,
+		&testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter)
+	require.NoError(t, err)
+
+	var d []byte
+	f := &flowpb.Flow{}
+	err = parser.Decode(d, f)
+	assert.Equal(t, err, errors.ErrEmptyData)
 }
 
 func TestL34Decode(t *testing.T) {
