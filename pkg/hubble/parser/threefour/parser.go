@@ -180,12 +180,8 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	dstEndpoint := p.resolveEndpoint(dstIP, dstLabelID)
 	var sourceService, destinationService *pb.Service
 	if p.serviceGetter != nil {
-		if srcService, ok := p.serviceGetter.GetServiceByAddr(srcIP, srcPort); ok {
-			sourceService = &srcService
-		}
-		if dstService, ok := p.serviceGetter.GetServiceByAddr(dstIP, dstPort); ok {
-			destinationService = &dstService
-		}
+		sourceService = p.serviceGetter.GetServiceByAddr(srcIP, srcPort)
+		destinationService = p.serviceGetter.GetServiceByAddr(dstIP, dstPort)
 	}
 
 	decoded.Verdict = decodeVerdict(dn, tn, pvn)
