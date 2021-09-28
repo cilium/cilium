@@ -313,7 +313,7 @@ github.com/go-ole/go-ole/oleutil
 ## explicit; go 1.13
 github.com/go-openapi/analysis
 github.com/go-openapi/analysis/internal
-# github.com/go-openapi/errors v0.20.0
+# github.com/go-openapi/errors v0.20.1
 ## explicit; go 1.14
 github.com/go-openapi/errors
 # github.com/go-openapi/jsonpointer v0.19.5
