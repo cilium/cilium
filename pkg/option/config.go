@@ -970,6 +970,11 @@ const (
 	// ExternalClusterIPName is the name of the option to enable
 	// cluster external access to ClusterIP services.
 	ExternalClusterIPName = "bpf-lb-external-clusterip"
+
+	// BypassIPAvailabilityUponRestore bypasses the IP availability error
+	// within IPAM upon endpoint restore and allows the use of the restored IP
+	// regardless of whether it's available in the pool.
+	BypassIPAvailabilityUponRestore = "bypass-ip-availability-upon-restore"
 )
 
 // Default string arguments
@@ -1988,6 +1993,11 @@ type DaemonConfig struct {
 	// EnableL2NeighDiscovery determines if cilium should perform L2 neighbor
 	// discovery.
 	EnableL2NeighDiscovery bool
+
+	// BypassIPAvailabilityUponRestore bypasses the IP availability error
+	// within IPAM upon endpoint restore and allows the use of the restored IP
+	// regardless of whether it's available in the pool.
+	BypassIPAvailabilityUponRestore bool
 }
 
 var (
@@ -2756,6 +2766,7 @@ func (c *DaemonConfig) Populate() {
 	c.SelectiveRegeneration = viper.GetBool(SelectiveRegeneration)
 	c.SkipCRDCreation = viper.GetBool(SkipCRDCreation)
 	c.DisableCNPStatusUpdates = viper.GetBool(DisableCNPStatusUpdates)
+	c.BypassIPAvailabilityUponRestore = viper.GetBool(BypassIPAvailabilityUponRestore)
 }
 
 func (c *DaemonConfig) populateMasqueradingSettings() error {
