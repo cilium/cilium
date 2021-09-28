@@ -108,14 +108,14 @@ func TestDecodeL7HTTPRecord(t *testing.T) {
 		},
 	}
 	serviceGetter := &testutils.FakeServiceGetter{
-		OnGetServiceByAddr: func(ip net.IP, port uint16) (service pb.Service, ok bool) {
+		OnGetServiceByAddr: func(ip net.IP, port uint16) *pb.Service {
 			if ip.Equal(net.ParseIP(fakeDestinationEndpoint.IPv4)) && (port == fakeDestinationEndpoint.Port) {
-				return pb.Service{
+				return &pb.Service{
 					Name:      "service-1234",
 					Namespace: "default",
-				}, true
+				}
 			}
-			return
+			return nil
 		},
 	}
 

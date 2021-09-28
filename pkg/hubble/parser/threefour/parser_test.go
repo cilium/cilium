@@ -132,20 +132,20 @@ func TestL34Decode(t *testing.T) {
 		},
 	}
 	serviceGetter := &testutils.FakeServiceGetter{
-		OnGetServiceByAddr: func(ip net.IP, port uint16) (service flowpb.Service, ok bool) {
+		OnGetServiceByAddr: func(ip net.IP, port uint16) *flowpb.Service {
 			if ip.Equal(net.ParseIP("192.168.33.11")) && (port == 6443) {
-				return flowpb.Service{
+				return &flowpb.Service{
 					Name:      "service-1234",
 					Namespace: "remote",
-				}, true
+				}
 			}
 			if ip.Equal(net.ParseIP("10.16.236.178")) && (port == 54222) {
-				return flowpb.Service{
+				return &flowpb.Service{
 					Name:      "service-4321",
 					Namespace: "default",
-				}, true
+				}
 			}
-			return
+			return nil
 		},
 	}
 	identityCache := &testutils.NoopIdentityGetter
