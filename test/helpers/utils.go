@@ -29,6 +29,11 @@ import (
 // ensure that our random numbers are seeded differently on each run
 var randGen = rand.NewSafeRand(time.Now().UnixNano())
 
+// skipUnreliableTests holds whether unreliable tests should be skipped. By
+// default it is true, but can be set to false by building with the
+// unreliable_tests build tag.
+var skipUnreliableTests = true
+
 // IsRunningOnJenkins detects if the currently running Ginkgo application is
 // most likely running in a Jenkins environment. Returns true if certain
 // environment variables that are present in Jenkins jobs are set, false
@@ -698,4 +703,22 @@ func DualStackSupportBeta() bool {
 	}
 
 	return GetCurrentIntegration() == "" && supportedVersions(k8sVersion)
+}
+
+// SkipUnreliableTests returns true if unreliable tests should be skipped. By
+// default it returns true unless built with the unreliable_tests build tag.
+func SkipUnreliableTests() bool {
+	return skipUnreliableTests
+}
+
+// AnyOf returns true if any of the given conditions are true.
+func AnyOf(conditions ...func() bool) func() bool {
+	return func() bool {
+		for _, condition := range conditions {
+			if condition() {
+				return true
+			}
+		}
+		return false
+	}
 }

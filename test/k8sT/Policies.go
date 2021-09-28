@@ -24,12 +24,9 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-var _ = SkipDescribeIf(func() bool {
-	// We only need to run on 4.9 with kube-proxy and net-next with KPR
-	// and the third node. Other CI jobs are not expected to increase
-	// code coverage.
-	return helpers.RunsOnGKE() || helpers.RunsOn419Kernel() || helpers.RunsOn54Kernel()
-}, "K8sPolicyTest", func() {
+// We only need to run on 4.9 with kube-proxy and net-next with KPR and the
+// third node. Other CI jobs are not expected to increase code coverage.
+var _ = SkipDescribeIf(helpers.AnyOf(helpers.RunsOnGKE, helpers.RunsOn419Kernel, helpers.RunsOn54Kernel), "K8sPolicyTest", func() {
 
 	var (
 		kubectl *helpers.Kubectl
