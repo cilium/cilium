@@ -16,7 +16,7 @@ func NewIdentityFromModel(base *models.Identity) *identity.Identity {
 
 	id := &identity.Identity{
 		ID:     identity.NumericIdentity(base.ID),
-		Labels: make(labels.Labels),
+		Labels: make(labels.Labels, len(base.Labels)),
 	}
 	for _, v := range base.Labels {
 		lbl := labels.ParseLabel(v)
@@ -34,13 +34,12 @@ func CreateModel(id *identity.Identity) *models.Identity {
 
 	ret := &models.Identity{
 		ID:           int64(id.ID),
-		Labels:       []string{},
-		LabelsSHA256: "",
+		Labels:       make([]string, 0, len(id.Labels)),
+		LabelsSHA256: id.GetLabelsSHA256(),
 	}
 
 	for _, v := range id.Labels {
 		ret.Labels = append(ret.Labels, v.String())
 	}
-	ret.LabelsSHA256 = id.GetLabelsSHA256()
 	return ret
 }
