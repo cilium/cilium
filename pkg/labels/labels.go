@@ -4,7 +4,6 @@
 package labels
 
 import (
-	"bytes"
 	"crypto/sha512"
 	"encoding/json"
 	"fmt"
@@ -253,10 +252,8 @@ func (l *Label) IsValid() bool {
 
 // UnmarshalJSON TODO create better explanation about unmarshall with examples
 func (l *Label) UnmarshalJSON(data []byte) error {
-	decoder := json.NewDecoder(bytes.NewReader(data))
-
 	if l == nil {
-		return fmt.Errorf("cannot unmarhshal to nil pointer")
+		return fmt.Errorf("cannot unmarshal to nil pointer")
 	}
 
 	if len(data) == 0 {
@@ -269,7 +266,7 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 		Value  string `json:"value,omitempty"`
 	}
 
-	err := decoder.Decode(&aux)
+	err := json.Unmarshal(data, &aux)
 	if err != nil {
 		// If parsing of the full representation failed then try the short
 		// form in the format:
@@ -277,8 +274,7 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 		// [SOURCE:]KEY[=VALUE]
 		var aux string
 
-		decoder = json.NewDecoder(bytes.NewReader(data))
-		if err := decoder.Decode(&aux); err != nil {
+		if err := json.Unmarshal(data, &aux); err != nil {
 			return fmt.Errorf("decode of Label as string failed: %+v", err)
 		}
 
@@ -340,7 +336,7 @@ func GetExtendedKeyFrom(str string) string {
 // fmt.Printf("%+v\n", l)
 //   map[string]Label{"foo":Label{Key:"foo", Value:"bar", Source:"cilium"}}
 func Map2Labels(m map[string]string, source string) Labels {
-	o := Labels{}
+	o := make(Labels, len(m))
 	for k, v := range m {
 		l := NewLabel(k, v, source)
 		o[l.Key] = l
@@ -350,7 +346,7 @@ func Map2Labels(m map[string]string, source string) Labels {
 
 // StringMap converts Labels into map[string]string
 func (l Labels) StringMap() map[string]string {
-	o := map[string]string{}
+	o := make(map[string]string, len(l))
 	for _, v := range l {
 		o[v.Source+":"+v.Key] = v.Value
 	}
@@ -359,7 +355,7 @@ func (l Labels) StringMap() map[string]string {
 
 // StringMap converts Labels into map[string]string
 func (l Labels) K8sStringMap() map[string]string {
-	o := map[string]string{}
+	o := make(map[string]string, len(l))
 	for _, v := range l {
 		if v.Source == LabelSourceK8s || v.Source == LabelSourceAny || v.Source == LabelSourceUnspec {
 			o[v.Key] = v.Value
