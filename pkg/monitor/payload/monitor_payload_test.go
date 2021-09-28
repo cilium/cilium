@@ -51,69 +51,6 @@ func (s *PayloadSuite) TestPayload_UnMarshalBinary(c *C) {
 	c.Assert(payload1, checker.DeepEquals, payload2)
 }
 
-func (s *PayloadSuite) TestWriteReadMetaPayload(c *C) {
-	meta1 := Meta{Size: 1234}
-	payload1 := Payload{
-		Data: []byte{1, 2, 3, 4},
-		Lost: 5243,
-		CPU:  12,
-		Type: 9,
-	}
-
-	var buf bytes.Buffer
-	err := WriteMetaPayload(&buf, &meta1, &payload1)
-	c.Assert(err, Equals, nil)
-
-	var meta2 Meta
-	var payload2 Payload
-	err = ReadMetaPayload(&buf, &meta2, &payload2)
-	c.Assert(err, Equals, nil)
-
-	c.Assert(meta1, checker.DeepEquals, meta2)
-	c.Assert(payload1, checker.DeepEquals, payload2)
-}
-
-func (s *PayloadSuite) BenchmarkWriteMetaPayload(c *C) {
-	meta := Meta{Size: 1234}
-	pl := Payload{
-		Data: []byte{1, 2, 3, 4},
-		Lost: 5243,
-		CPU:  12,
-		Type: 9,
-	}
-
-	// Do a first dry run to pre-allocate the buffer capacity.
-	var buf bytes.Buffer
-	err := WriteMetaPayload(&buf, &meta, &pl)
-	c.Assert(err, Equals, nil)
-
-	for i := 0; i < c.N; i++ {
-		buf.Reset()
-		err := WriteMetaPayload(&buf, &meta, &pl)
-		c.Assert(err, Equals, nil)
-	}
-}
-
-func (s *PayloadSuite) BenchmarkReadMetaPayload(c *C) {
-	payload := Payload{
-		Data: []byte{1, 2, 3, 4},
-		Lost: 5243,
-		CPU:  12,
-		Type: 9,
-	}
-
-	var buf bytes.Buffer
-	for i := 0; i < c.N; i++ {
-		err := payload.WriteBinary(&buf)
-		c.Assert(err, Equals, nil)
-	}
-
-	for i := 0; i < c.N; i++ {
-		err := payload.ReadBinary(&buf)
-		c.Assert(err, Equals, nil)
-	}
-}
-
 func (s *PayloadSuite) BenchmarkWritePayloadReuseEncoder(c *C) {
 	payload := Payload{
 		Data: []byte{1, 2, 3, 4},
