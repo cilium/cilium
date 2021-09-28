@@ -887,6 +887,11 @@ const (
 	// store rules and routes under ENI and Azure IPAM modes, if false.
 	// Otherwise, it will use the old scheme.
 	EgressMultiHomeIPRuleCompat = "egress-multi-home-ip-rule-compat"
+
+	// BypassIPAvailabilityUponRestore bypasses the IP availability error
+	// within IPAM upon endpoint restore and allows the use of the restored IP
+	// regardless of whether it's available in the pool.
+	BypassIPAvailabilityUponRestore = "bypass-ip-availability-upon-restore"
 )
 
 // HelpFlagSections to format the Cilium Agent help template.
@@ -2083,6 +2088,11 @@ type DaemonConfig struct {
 
 	// ARPPingRefreshPeriod is the ARP entries refresher period.
 	ARPPingRefreshPeriod time.Duration
+
+	// BypassIPAvailabilityUponRestore bypasses the IP availability error
+	// within IPAM upon endpoint restore and allows the use of the restored IP
+	// regardless of whether it's available in the pool.
+	BypassIPAvailabilityUponRestore bool
 }
 
 var (
@@ -2822,6 +2832,7 @@ func (c *DaemonConfig) Populate() {
 	c.SelectiveRegeneration = viper.GetBool(SelectiveRegeneration)
 	c.SkipCRDCreation = viper.GetBool(SkipCRDCreation)
 	c.DisableCNPStatusUpdates = viper.GetBool(DisableCNPStatusUpdates)
+	c.BypassIPAvailabilityUponRestore = viper.GetBool(BypassIPAvailabilityUponRestore)
 }
 
 func (c *DaemonConfig) populateDevices() {
