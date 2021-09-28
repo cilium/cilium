@@ -91,7 +91,7 @@ func (p *Parser) Decode(monitorEvent *observerTypes.MonitorEvent) (*v1.Event, er
 
 	switch payload := monitorEvent.Payload.(type) {
 	case *observerTypes.PerfEvent:
-		if payload.Data == nil || len(payload.Data) == 0 {
+		if len(payload.Data) == 0 {
 			return nil, errors.ErrEmptyData
 		} else if payload.Data[0] == monitorAPI.MessageTypeDebug {
 			// Debug is currently the only perf ring buffer event without any
