@@ -101,33 +101,23 @@ func connState(reason uint8) string {
 	return fmt.Sprintf("%d", reason)
 }
 
-func fetchVersion(data []byte, tn *TraceNotify) (version uint16, err error) {
-	offset := unsafe.Offsetof(tn.Version)
-	length := unsafe.Sizeof(tn.Version)
-	reader := bytes.NewReader(data[offset : offset+length])
-	err = binary.Read(reader, byteorder.Native, &version)
-	return version, err
-}
-
 // DecodeTraceNotify will decode 'data' into the provided TraceNotify structure
 func DecodeTraceNotify(data []byte, tn *TraceNotify) error {
 	if len(data) < traceNotifyCommonLen {
 		return fmt.Errorf("Unknown trace event")
 	}
 
-	version, err := fetchVersion(data, tn)
-	if err != nil {
-		return err
-	}
+	offset := unsafe.Offsetof(tn.Version)
+	length := unsafe.Sizeof(tn.Version)
+	version := byteorder.Native.Uint16(data[offset : offset+length])
+
 	switch version {
 	case TraceNotifyVersion0:
-		err = binary.Read(bytes.NewReader(data), byteorder.Native, &tn.TraceNotifyV0)
+		return binary.Read(bytes.NewReader(data), byteorder.Native, &tn.TraceNotifyV0)
 	case TraceNotifyVersion1:
-		err = binary.Read(bytes.NewReader(data), byteorder.Native, tn)
-	default:
-		err = fmt.Errorf("Unrecognized trace event (version %d)", version)
+		return binary.Read(bytes.NewReader(data), byteorder.Native, tn)
 	}
-	return err
+	return fmt.Errorf("Unrecognized trace event (version %d)", version)
 }
 
 // dumpIdentity dumps the source and destination identities in numeric or
