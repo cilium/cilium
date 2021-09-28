@@ -16,7 +16,6 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/parser/agent"
-	"github.com/cilium/cilium/pkg/monitor/api"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 
 	"github.com/stretchr/testify/assert"
@@ -62,17 +61,17 @@ func TestDecodeAgentEvent(t *testing.T) {
 
 	tt := []struct {
 		name string
-		msg  api.AgentNotifyMessage
+		msg  monitorAPI.AgentNotifyMessage
 		ev   *flowpb.AgentEvent
 	}{
 		{
 			name: "empty",
-			msg:  api.AgentNotifyMessage{},
+			msg:  monitorAPI.AgentNotifyMessage{},
 			ev: &flowpb.AgentEvent{
 				Type: flowpb.AgentEventType_AGENT_EVENT_UNKNOWN,
 				Notification: &flowpb.AgentEvent_Unknown{
 					Unknown: &flowpb.AgentEventUnknown{
-						Type:         fmt.Sprintf("%d", api.AgentNotifyUnspec),
+						Type:         fmt.Sprintf("%d", monitorAPI.AgentNotifyUnspec),
 						Notification: "null",
 					},
 				},
@@ -80,15 +79,15 @@ func TestDecodeAgentEvent(t *testing.T) {
 		},
 		{
 			name: "unspecified",
-			msg: api.AgentNotifyMessage{
-				Type:         api.AgentNotifyUnspec,
+			msg: monitorAPI.AgentNotifyMessage{
+				Type:         monitorAPI.AgentNotifyUnspec,
 				Notification: unknownNotification,
 			},
 			ev: &flowpb.AgentEvent{
 				Type: flowpb.AgentEventType_AGENT_EVENT_UNKNOWN,
 				Notification: &flowpb.AgentEvent_Unknown{
 					Unknown: &flowpb.AgentEventUnknown{
-						Type:         fmt.Sprintf("%d", api.AgentNotifyUnspec),
+						Type:         fmt.Sprintf("%d", monitorAPI.AgentNotifyUnspec),
 						Notification: string(unknownNotificationJSON),
 					},
 				},
@@ -96,15 +95,15 @@ func TestDecodeAgentEvent(t *testing.T) {
 		},
 		{
 			name: "type and notification type mismatch",
-			msg: api.AgentNotifyMessage{
-				Type:         api.AgentNotifyStart,
+			msg: monitorAPI.AgentNotifyMessage{
+				Type:         monitorAPI.AgentNotifyStart,
 				Notification: unknownNotification,
 			},
 			ev: &flowpb.AgentEvent{
 				Type: flowpb.AgentEventType_AGENT_EVENT_UNKNOWN,
 				Notification: &flowpb.AgentEvent_Unknown{
 					Unknown: &flowpb.AgentEventUnknown{
-						Type:         fmt.Sprintf("%d", api.AgentNotifyStart),
+						Type:         fmt.Sprintf("%d", monitorAPI.AgentNotifyStart),
 						Notification: string(unknownNotificationJSON),
 					},
 				},
@@ -113,7 +112,7 @@ func TestDecodeAgentEvent(t *testing.T) {
 
 		{
 			name: "StartMessage",
-			msg:  api.StartMessage(agentStartTS),
+			msg:  monitorAPI.StartMessage(agentStartTS),
 			ev: &flowpb.AgentEvent{
 				Type: flowpb.AgentEventType_AGENT_STARTED,
 				Notification: &flowpb.AgentEvent_AgentStart{
@@ -125,7 +124,7 @@ func TestDecodeAgentEvent(t *testing.T) {
 		},
 		{
 			name: "PolicyUpdateMessage",
-			msg:  api.PolicyUpdateMessage(42, []string{"hubble=rocks", "cilium=too"}, 7),
+			msg:  monitorAPI.PolicyUpdateMessage(42, []string{"hubble=rocks", "cilium=too"}, 7),
 			ev: &flowpb.AgentEvent{
 				Type: flowpb.AgentEventType_POLICY_UPDATED,
 				Notification: &flowpb.AgentEvent_PolicyUpdate{
@@ -139,7 +138,7 @@ func TestDecodeAgentEvent(t *testing.T) {
 		},
 		{
 			name: "PolicyDeleteMessage",
-			msg:  api.PolicyDeleteMessage(23, []string{"foo=bar"}, 255),
+			msg:  monitorAPI.PolicyDeleteMessage(23, []string{"foo=bar"}, 255),
 			ev: &flowpb.AgentEvent{
 				Type: flowpb.AgentEventType_POLICY_DELETED,
 				Notification: &flowpb.AgentEvent_PolicyUpdate{
@@ -153,7 +152,7 @@ func TestDecodeAgentEvent(t *testing.T) {
 		},
 		{
 			name: "EndpointRegenMessage success",
-			msg:  api.EndpointRegenMessage(mockEP, nil),
+			msg:  monitorAPI.EndpointRegenMessage(mockEP, nil),
 			ev: &flowpb.AgentEvent{
 				Type: flowpb.AgentEventType_ENDPOINT_REGENERATE_SUCCESS,
 				Notification: &flowpb.AgentEvent_EndpointRegenerate{
@@ -167,7 +166,7 @@ func TestDecodeAgentEvent(t *testing.T) {
 		},
 		{
 			name: "EndpointRegenMessage failure",
-			msg:  api.EndpointRegenMessage(mockEP, errors.New("error regenerating endpoint")),
+			msg:  monitorAPI.EndpointRegenMessage(mockEP, errors.New("error regenerating endpoint")),
 			ev: &flowpb.AgentEvent{
 				Type: flowpb.AgentEventType_ENDPOINT_REGENERATE_FAILURE,
 				Notification: &flowpb.AgentEvent_EndpointRegenerate{
@@ -181,7 +180,7 @@ func TestDecodeAgentEvent(t *testing.T) {
 		},
 		{
 			name: "EndpointCreateMessage",
-			msg:  api.EndpointCreateMessage(mockEP),
+			msg:  monitorAPI.EndpointCreateMessage(mockEP),
 			ev: &flowpb.AgentEvent{
 				Type: flowpb.AgentEventType_ENDPOINT_CREATED,
 				Notification: &flowpb.AgentEvent_EndpointUpdate{
@@ -197,7 +196,7 @@ func TestDecodeAgentEvent(t *testing.T) {
 		},
 		{
 			name: "EndpointDeleteMessage",
-			msg:  api.EndpointDeleteMessage(mockEP),
+			msg:  monitorAPI.EndpointDeleteMessage(mockEP),
 			ev: &flowpb.AgentEvent{
 				Type: flowpb.AgentEventType_ENDPOINT_DELETED,
 				Notification: &flowpb.AgentEvent_EndpointUpdate{
@@ -213,7 +212,7 @@ func TestDecodeAgentEvent(t *testing.T) {
 		},
 		{
 			name: "IPCacheUpsertedMessage (insert)",
-			msg:  api.IPCacheUpsertedMessage("10.0.1.42/32", 1023, nil, net.ParseIP("10.1.5.4"), nil, 0xff, "default", "foobar"),
+			msg:  monitorAPI.IPCacheUpsertedMessage("10.0.1.42/32", 1023, nil, net.ParseIP("10.1.5.4"), nil, 0xff, "default", "foobar"),
 			ev: &flowpb.AgentEvent{
 				Type: flowpb.AgentEventType_IPCACHE_UPSERTED,
 				Notification: &flowpb.AgentEvent_IpcacheUpdate{
@@ -232,7 +231,7 @@ func TestDecodeAgentEvent(t *testing.T) {
 		},
 		{
 			name: "IPCacheUpsertedMessage (update)",
-			msg:  api.IPCacheUpsertedMessage("192.168.10.11/32", 1023, &oldID, net.ParseIP("10.1.5.4"), net.ParseIP("10.2.6.11"), 5, "hubble", "podmcpodface"),
+			msg:  monitorAPI.IPCacheUpsertedMessage("192.168.10.11/32", 1023, &oldID, net.ParseIP("10.1.5.4"), net.ParseIP("10.2.6.11"), 5, "hubble", "podmcpodface"),
 			ev: &flowpb.AgentEvent{
 				Type: flowpb.AgentEventType_IPCACHE_UPSERTED,
 				Notification: &flowpb.AgentEvent_IpcacheUpdate{
@@ -253,7 +252,7 @@ func TestDecodeAgentEvent(t *testing.T) {
 		},
 		{
 			name: "IPCacheDeletedMessage",
-			msg:  api.IPCacheDeletedMessage("192.168.10.0/24", 6048, nil, net.ParseIP("10.1.5.4"), nil, 0, "", ""),
+			msg:  monitorAPI.IPCacheDeletedMessage("192.168.10.0/24", 6048, nil, net.ParseIP("10.1.5.4"), nil, 0, "", ""),
 			ev: &flowpb.AgentEvent{
 				Type: flowpb.AgentEventType_IPCACHE_DELETED,
 				Notification: &flowpb.AgentEvent_IpcacheUpdate{
@@ -272,7 +271,7 @@ func TestDecodeAgentEvent(t *testing.T) {
 		},
 		{
 			name: "ServiceUpsertMessage",
-			msg: api.ServiceUpsertMessage(
+			msg: monitorAPI.ServiceUpsertMessage(
 				214,
 				monitorAPI.ServiceUpsertNotificationAddr{
 					IP:   net.ParseIP("10.240.12.1"),
@@ -322,7 +321,7 @@ func TestDecodeAgentEvent(t *testing.T) {
 		},
 		{
 			name: "ServiceDeleteMessage",
-			msg:  api.ServiceDeleteMessage(1048575),
+			msg:  monitorAPI.ServiceDeleteMessage(1048575),
 			ev: &flowpb.AgentEvent{
 				Type: flowpb.AgentEventType_SERVICE_DELETED,
 				Notification: &flowpb.AgentEvent_ServiceDelete{
