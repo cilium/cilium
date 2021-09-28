@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/gob"
-	"fmt"
 	"io"
 
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -97,43 +96,4 @@ func (pl *Payload) EncodeBinary(enc *gob.Encoder) error {
 // DecodeBinary reads the payload from its binary representation.
 func (pl *Payload) DecodeBinary(dec *gob.Decoder) error {
 	return dec.Decode(pl)
-}
-
-// ReadMetaPayload reads a Meta and Payload from a Cilium monitor connection.
-func ReadMetaPayload(r io.Reader, meta *Meta, pl *Payload) error {
-	if err := meta.ReadBinary(r); err != nil {
-		return err
-	}
-
-	// Meta.Size is not necessary for framing/decoding, but is useful to validate the payload size.
-	return pl.ReadBinary(io.LimitReader(r, int64(meta.Size)))
-}
-
-// WriteMetaPayload writes a Meta and Payload into a Cilium monitor connection.
-// meta.Size is set to the size of the encoded Payload.
-func WriteMetaPayload(w io.Writer, meta *Meta, pl *Payload) error {
-	payloadBuf, err := pl.Encode()
-	if err != nil {
-		return err
-	}
-	meta.Size = uint32(len(payloadBuf))
-	meta.WriteBinary(w)
-	_, err = w.Write(payloadBuf)
-	return err
-}
-
-// BuildMessage builds the binary message to be sent and returns it
-func (pl *Payload) BuildMessage() ([]byte, error) {
-	plBuf, err := pl.Encode()
-	if err != nil {
-		return nil, fmt.Errorf("unable to encode payload: %s", err)
-	}
-
-	meta := &Meta{Size: uint32(len(plBuf))}
-	metaBuf, err := meta.MarshalBinary()
-	if err != nil {
-		return nil, fmt.Errorf("unable to encode metadata: %s", err)
-	}
-
-	return append(metaBuf, plBuf...), nil
 }
