@@ -7,7 +7,7 @@ if ! [[ -z $DOCKER_LOGIN && -z $DOCKER_PASSWORD ]]; then
 fi
 
 HOST=$(hostname)
-export HELM_VERSION="3.3.4"
+export HELM_VERSION="3.7.0"
 export TOKEN="258062.5d84c017c9b2796c"
 export CILIUM_CONFIG_DIR="/opt/cilium"
 export PROVISIONSRC="/tmp/provision/"
