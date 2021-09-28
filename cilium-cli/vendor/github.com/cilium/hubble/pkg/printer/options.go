@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Hubble
+// Copyright 2019-2021 Authors of Hubble
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,6 +44,7 @@ type Options struct {
 	enableIPTranslation bool
 	nodeName            bool
 	timeFormat          string
+	color               string
 }
 
 // Option ...
@@ -95,6 +96,20 @@ func Writer(w io.Writer) Option {
 func IgnoreStderr() Option {
 	return func(opts *Options) {
 		opts.werr = io.Discard
+	}
+}
+
+// WithColor set the color mode. The when argument is one of:
+// - "auto": color mode is enabled when the standard output is connected to a
+//   terminal.
+// - "always": color mode is enabled no matter to standard output.
+// - "never": color mode is always disabled.
+// Any other value of when means "auto", which is the default.
+// The color mode is only applied with in Dict or Compact mode. For any other
+// mode, color is always disabled.
+func WithColor(when string) Option {
+	return func(opts *Options) {
+		opts.color = when
 	}
 }
 
