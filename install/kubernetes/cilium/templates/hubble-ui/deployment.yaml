@@ -65,7 +65,7 @@ spec:
           value: "8090"
         {{- if .Values.hubble.relay.tls.server.enabled }}
         - name: FLOWS_API_ADDR
-          value: "hubble-relay:443"
+          value: "hubble-relay:{{ include "relay.servicePort" $ }}"
         - name: TLS_TO_RELAY_ENABLED
           value: "true"
         - name: TLS_RELAY_SERVER_NAME
@@ -78,7 +78,7 @@ spec:
           value: /var/lib/hubble-ui/certs/client.key
         {{- else }}
         - name: FLOWS_API_ADDR
-          value: "hubble-relay:80"
+          value: "hubble-relay:{{ include "relay.servicePort" $ }}"
         {{- end }}
         ports:
         - name: grpc

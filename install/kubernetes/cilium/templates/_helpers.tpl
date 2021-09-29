@@ -75,3 +75,14 @@ backend:
       name: http
 {{- end -}}
 {{- end -}}
+
+{{/*
+Return the port used for the hubble relay server
+*/}}
+{{- define "relay.servicePort" -}}
+{{- if .Values.hubble.relay.servicePort -}}
+  {{- .Values.hubble.relay.servicePort -}}
+{{- else -}}
+  {{- .Values.hubble.relay.tls.server.enabled | ternary 443 80 -}}
+{{- end -}}
+{{- end -}}

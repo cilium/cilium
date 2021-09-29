@@ -12,10 +12,6 @@ spec:
     k8s-app: hubble-relay
   ports:
   - protocol: TCP
-  {{- if .Values.hubble.relay.servicePort }}
-    port: {{ .Values.hubble.relay.servicePort }}
-  {{- else }}
-    port: {{ .Values.hubble.relay.tls.server.enabled | ternary 443 80 }}
-  {{- end }}
+    port: {{ include "relay.servicePort" $ }}
     targetPort: {{ .Values.hubble.relay.listenPort }}
 {{- end }}
