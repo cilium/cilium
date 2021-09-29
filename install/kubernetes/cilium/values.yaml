@@ -442,6 +442,10 @@ encryption:
     # -- The interface to use for encrypted traffic.
     interface: ""
 
+  wireguard:
+    # -- Enables the fallback to the user-space implementation.
+    userspaceFallback: false
+
   # -- Deprecated in favor of encryption.ipsec.keyFile.
   # Name of the key file inside the Kubernetes secret configured via secretName.
   # This option is only effective when encryption.type is set to ipsec.
