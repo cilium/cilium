@@ -454,6 +454,9 @@ data:
     {{- end }}
   {{- else if eq .Values.encryption.type "wireguard" }}
   enable-wireguard: {{ .Values.encryption.enabled | quote }}
+    {{- if .Values.encryption.wireguard.userspaceFallback }}
+  enable-wireguard-userspace-fallback: {{ .Values.encryption.wireguard.userspaceFallback | quote }}
+    {{- end }}
   {{- end }}
 {{- end }}
 
