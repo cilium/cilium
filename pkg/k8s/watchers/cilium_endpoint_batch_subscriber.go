@@ -48,7 +48,7 @@ func (cs *cebSubscriber) OnAdd(ceb *cilium_v2a1.CiliumEndpointBatch) {
 		// Hence, skip processing endpointupdate for localNode CEPs.
 		if p := cs.kWatcher.endpointManager.LookupPodName(k8sUtils.GetObjNamespaceName(c)); p != nil {
 			timeSinceCepCreated := time.Since(p.GetCreatedAt())
-			metrics.EndpointPropagationDelay.WithLabelValues("").Observe(timeSinceCepCreated.Seconds())
+			metrics.EndpointPropagationDelay.WithLabelValues().Observe(timeSinceCepCreated.Seconds())
 			continue
 		}
 		cs.kWatcher.endpointUpdated(nil, c)
@@ -102,7 +102,7 @@ func (cs *cebSubscriber) OnUpdate(oldCEB, newCEB *cilium_v2a1.CiliumEndpointBatc
 			// Hence, skip processing endpointupdate for localNode CEPs.
 			if p := cs.kWatcher.endpointManager.LookupPodName(k8sUtils.GetObjNamespaceName(c)); p != nil {
 				timeSinceCepCreated := time.Since(p.GetCreatedAt())
-				metrics.EndpointPropagationDelay.WithLabelValues("").Observe(timeSinceCepCreated.Seconds())
+				metrics.EndpointPropagationDelay.WithLabelValues().Observe(timeSinceCepCreated.Seconds())
 				continue
 			}
 			cs.kWatcher.endpointUpdated(nil, c)
