@@ -1222,6 +1222,20 @@ working, take a look at `this KEP
     free mode, make sure that default Kubernetes services like ``kube-dns`` and ``kubernetes``
     have the required label value.
 
+Neighbor Discovery
+******************
+
+When kube-proxy replacement is enabled Cilium does L2 neighbor discovery of nodes in the cluster.
+In some rare cases Cilium may leave stale entries behind in the neighbor table causing packets
+between some nodes to be dropped. To prevent Cilium from performing the neighbor discovery and
+instead rely on the Linux kernel to discover hosts on the same L2 network you can pass the
+``--enable-l2-neigh-discovery=false`` flag to the cilium-agent. However note that relying on the
+Linux Kernel might also cause some packets to be dropped, e.g., a NodePort request can be dropped on
+an intermediate node (i.e., the one which received and is going to forward to a destination node
+which runs the selected service endpoint) if there is no L2 neigh entry in the kernel (due to the
+entry being garbage collected or that ARP resolution has not been done by the kernel). This is
+because Cilium does not drive the ARP resolution from the BPF programs.
+
 External Access To ClusterIP Services
 *************************************
 
