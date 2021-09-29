@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/operator/metrics"
+	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -238,7 +239,10 @@ func (c *CiliumEndpointBatchController) handleErr(err error, key interface{}) {
 	}
 
 	// Increment error count for sync errors
-	metrics.CiliumEndpointBatchSyncErrors.WithLabelValues().Inc()
+	if operatorOption.Config.EnableMetrics {
+		metrics.CiliumEndpointBatchSyncErrors.Inc()
+	}
+
 	if c.queue.NumRequeues(key) < maxRetries {
 		c.queue.AddRateLimited(key)
 		return
@@ -255,12 +259,13 @@ func (c *CiliumEndpointBatchController) handleErr(err error, key interface{}) {
 func (c *CiliumEndpointBatchController) syncCeb(key string) error {
 
 	// Update metrics
-	metrics.CiliumEndpointBatchDensity.WithLabelValues().Observe(float64(c.Manager.getCepCountInCeb(key)))
-	cepInsert, cepRemove := c.Manager.getCebMetricCountersAndClear(key)
-	metrics.CiliumEndpointsChangeCount.WithLabelValues(metrics.LabelValueCEPInsert).Observe(float64(cepInsert))
-	metrics.CiliumEndpointsChangeCount.WithLabelValues(metrics.LabelValueCEPRemove).Observe(float64(cepRemove))
-	metrics.CiliumEndpointBatchQueueDelay.WithLabelValues().Observe(c.Manager.getCEBQueueDelayInSeconds(key))
-
+	if operatorOption.Config.EnableMetrics {
+		metrics.CiliumEndpointBatchDensity.Observe(float64(c.Manager.getCepCountInCeb(key)))
+		cepInsert, cepRemove := c.Manager.getCebMetricCountersAndClear(key)
+		metrics.CiliumEndpointsChangeCount.WithLabelValues(metrics.LabelValueCEPInsert).Observe(float64(cepInsert))
+		metrics.CiliumEndpointsChangeCount.WithLabelValues(metrics.LabelValueCEPRemove).Observe(float64(cepRemove))
+		metrics.CiliumEndpointBatchQueueDelay.Observe(c.Manager.getCEBQueueDelayInSeconds(key))
+	}
 	// Check the CEB exists is in cebStore i.e. in api-server copy of CEBs, if exist update or delete the CEB.
 	obj, exists, err := c.ciliumEndpointBatchStore.GetByKey(key)
 	if err == nil && exists {
