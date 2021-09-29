@@ -365,6 +365,10 @@
      - Encryption method. Can be either ipsec or wireguard.
      - string
      - ``"ipsec"``
+   * - encryption.wireguard.userspaceFallback
+     - Enables the fallback to the user-space implementation.
+     - bool
+     - ``false``
    * - endpointHealthChecking.enabled
      - Enable connectivity health checking between virtual endpoints.
      - bool
