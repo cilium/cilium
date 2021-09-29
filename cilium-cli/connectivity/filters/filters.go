@@ -15,6 +15,10 @@ type portMap map[uint32]uint32
 
 // FlowContext can carry state from one filter to another.
 type FlowContext struct {
+	// dstIP is used to match the destination IP on when the filter specifies it as a wildcard.
+	// This value is fixed when a wildcarded source port is filled in to the ports maps.
+	dstIP string
+
 	// tcpPorts is filled in when matching a wildcarded source port for a TCP SYN.
 	// Subsequent non-SYN TCP matches using the same FlowContext will match this stored port number.
 	// Keyed by the known destination port so that we can track multiple connections at the same time
@@ -341,8 +345,16 @@ func (i *ipFilter) Match(flow *flowpb.Flow, fc *FlowContext) bool {
 	if i.srcIP != "" && ip.Source != i.srcIP {
 		return false
 	}
+	// Match wildcarded source IP (on a reply direction) seen in the SYN message
+	if i.srcIP == "" && fc.dstIP != "" && ip.Source != fc.dstIP {
+		return false
+	}
 
 	if i.dstIP != "" && ip.Destination != i.dstIP {
+		return false
+	}
+	// Match wildcarded destination IP seen in the SYN message
+	if i.dstIP == "" && fc.dstIP != "" && ip.Destination != fc.dstIP {
 		return false
 	}
 
@@ -390,10 +402,16 @@ func (t *tcpFilter) Match(flow *flowpb.Flow, fc *FlowContext) bool {
 	}
 
 	if t.srcPort == 0 {
-		if tcp.Flags != nil && tcp.Flags.SYN && !tcp.Flags.ACK && !tcp.Flags.FIN && !tcp.Flags.RST {
-			// save wildcarded source port
+		// save wildcarded source port but only if not already set. This fixes the wildcard port to the first
+		// SYN flow within the tested flows.
+		sourcePort, exists := fc.tcpPorts[tcp.DestinationPort]
+		if !exists && tcp.Flags != nil && tcp.Flags.SYN && !tcp.Flags.ACK && !tcp.Flags.FIN && !tcp.Flags.RST {
 			fc.tcpPorts[tcp.DestinationPort] = tcp.SourcePort
-		} else if tcp.SourcePort != fc.tcpPorts[tcp.DestinationPort] {
+			ip := flow.GetIP()
+			if ip != nil {
+				fc.dstIP = ip.Destination
+			}
+		} else if tcp.SourcePort != sourcePort {
 			return false
 		}
 	}
