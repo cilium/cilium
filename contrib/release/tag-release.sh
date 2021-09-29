@@ -61,6 +61,9 @@ main() {
 
     local commit="$(git rev-parse HEAD)"
     BRANCH="$(git symbolic-ref --short HEAD | sed 's/.*\(v[0-9]\+\.[0-9]\+\).*/\1/')"
+    if [ -z "$(git ls-remote --heads $REMOTE $BRANCH)" ]; then
+        BRANCH="master"
+    fi
     echo "Current HEAD is:"
     git log --oneline -1 "$commit"
     if ! commit_in_upstream "$commit" "$BRANCH"; then
