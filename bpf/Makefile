@@ -13,7 +13,7 @@ BPF_SIMPLE_LL = $(patsubst %.o,%.ll,${BPF_SIMPLE})
 BPF_TEST=tests/bpf_ct_tests.o
 BPF = bpf_lxc.o bpf_overlay.o bpf_sock.o bpf_host.o bpf_xdp.o $(BPF_SIMPLE)
 
-TARGET=cilium-map-migrate cilium-probe-kernel-hz
+TARGET=cilium-probe-kernel-hz
 KERNEL ?= "49"
 
 include ./Makefile.bpf
