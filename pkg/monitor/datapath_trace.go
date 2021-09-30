@@ -124,9 +124,9 @@ func DecodeTraceNotify(data []byte, tn *TraceNotify) error {
 // human-readable format.
 func (n *TraceNotify) dumpIdentity(buf *bufio.Writer, numeric DisplayFormat) {
 	if numeric {
-		fmt.Fprintf(buf, "identity %d->%d", n.SrcLabel, n.DstLabel)
+		fmt.Fprintf(buf, ", identity %d->%d", n.SrcLabel, n.DstLabel)
 	} else {
-		fmt.Fprintf(buf, "identity %s->%s", n.SrcLabel, n.DstLabel)
+		fmt.Fprintf(buf, ", identity %s->%s", n.SrcLabel, n.DstLabel)
 	}
 }
 
