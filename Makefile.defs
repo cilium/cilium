@@ -94,7 +94,7 @@ ifneq ($(wildcard $(dir $(lastword $(MAKEFILE_LIST)))/.git),)
     BPF_SRCFILES := $(shell git ls-files $(ROOT_DIR)/bpf/ | LC_ALL=C sort | tr "\n" ' ')
 else
     # this line has to be in-sync with bpf/.gitignore, please note usage of make patterns like `%.i`
-    BPF_SRCFILES_IGNORE += bpf/cilium-map-migrate bpf/cilium-probe-kernel-hz bpf/%.i bpf/%.s bpf/.rebuild_all
+    BPF_SRCFILES_IGNORE += bpf/cilium-probe-kernel-hz bpf/%.i bpf/%.s bpf/.rebuild_all
     BPF_SRCFILES := $(shell find $(ROOT_DIR)/bpf/ -type f | LC_ALL=C sort | tr "\n" ' ')
 endif
 

@@ -145,7 +145,6 @@ exec %{buildroot}/%{_bindir}/cilium completion > \
 %{_bindir}/cilium-bugtool
 %{_bindir}/cilium-health
 %{_bindir}/cilium-envoy
-%{_bindir}/cilium-map-migrate
 %{_bindir}/cilium-operator
 
 %changelog

@@ -98,7 +98,6 @@ func LocalMapPath(name string, id uint16) string {
 func Environment() []string {
 	return append(
 		os.Environ(),
-		fmt.Sprintf("CILIUM_BPF_MNT=%s", GetMapRoot()),
 		fmt.Sprintf("TC_BPF_MNT=%s", GetMapRoot()),
 	)
 }
