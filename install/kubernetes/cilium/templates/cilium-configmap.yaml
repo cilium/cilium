@@ -801,6 +801,10 @@ data:
   enable-k8s-terminating-endpoint: {{ .Values.enableK8sTerminatingEndpoint | quote }}
 {{- end }}
 
+{{- if hasKey .Values "netfilterCompatMode" }}
+  netfilter-compatible-mode: {{ .Values.netfilterCompatMode | quote }}
+{{- end }}
+
 {{- if .Values.extraConfig }}
   {{ toYaml .Values.extraConfig | nindent 2 }}
 {{- end }}

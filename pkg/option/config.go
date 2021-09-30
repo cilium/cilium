@@ -998,6 +998,10 @@ const (
 	// EnableK8sTerminatingEndpoint enables the option to auto detect terminating
 	// state for endpoints in order to support graceful termination.
 	EnableK8sTerminatingEndpoint = "enable-k8s-terminating-endpoint"
+
+	// NetfilterCompatibleMode guarantees the traffic will pass through kernel
+	// netfilter. This option only affects NodePort traffic.
+	NetfilterCompatibleMode = "netfilter-compatible-mode"
 )
 
 // Default string arguments
@@ -1701,6 +1705,10 @@ type DaemonConfig struct {
 
 	// EnableHostLegacyRouting enables the old routing path via stack.
 	EnableHostLegacyRouting bool
+
+	// NetfilterCompatibleMode guarantees the traffic will pass through kernel
+	// netfilter. Currently, it only affects NodePort traffic.
+	NetfilterCompatibleMode bool
 
 	// NodePortMode indicates in which mode NodePort implementation should run
 	// ("snat", "dsr" or "hybrid")
@@ -2657,6 +2665,7 @@ func (c *DaemonConfig) Populate() {
 	c.BGPAnnouncePodCIDR = viper.GetBool(BGPAnnouncePodCIDR)
 	c.BGPConfigPath = viper.GetString(BGPConfigPath)
 	c.ExternalClusterIP = viper.GetBool(ExternalClusterIPName)
+	c.NetfilterCompatibleMode = viper.GetBool(NetfilterCompatibleMode)
 
 	c.EnableIPv4Masquerade = viper.GetBool(EnableIPv4Masquerade) && c.EnableIPv4
 	c.EnableIPv6Masquerade = viper.GetBool(EnableIPv6Masquerade) && c.EnableIPv6

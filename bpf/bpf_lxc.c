@@ -277,6 +277,12 @@ ct_recreate6:
 		policy_mark_skip(ctx);
 
 #ifdef ENABLE_NODEPORT
+#ifdef NETFILTER_COMPAT_MODE
+		if (ct_state.node_port) {
+			return CTX_ACT_OK;
+		}
+#endif /* NETFILTER_COMPAT_MODE */
+
 # ifdef ENABLE_DSR
 		if (ct_state.dsr) {
 			ret = xlate_dsr_v6(ctx, tuple, l4_off);
@@ -718,6 +724,14 @@ ct_recreate4:
 		policy_mark_skip(ctx);
 
 #ifdef ENABLE_NODEPORT
+#ifdef NETFILTER_COMPAT_MODE
+		if (ct_state.node_port) {
+			/* Pass the packet to the stack and let bpf_host perform
+			 * rev-DNAT at egress of the native device.
+			 */
+			return CTX_ACT_OK;
+#endif /* NETFILTER_COMPAT_MODE */
+
 # ifdef ENABLE_DSR
 		if (ct_state.dsr) {
 			ret = xlate_dsr_v4(ctx, &tuple, l4_off, has_l4_header);

@@ -657,6 +657,7 @@ nodeSelector
 nodeX
 nodegroup
 nodeinit
+nodeport
 nonMasqueradeCIDRs
 numReplicas
 observability

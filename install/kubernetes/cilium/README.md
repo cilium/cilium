@@ -304,6 +304,7 @@ contributors across the globe, there is almost always someone available to help.
 | monitor | object | `{"enabled":false}` | cilium-monitor sidecar. |
 | monitor.enabled | bool | `false` | Enable the cilium-monitor sidecar. |
 | name | string | `"cilium"` | Agent container name. |
+| netfilterCompatMode | bool | `false` | Enable the netfilter compatible mode, guarantees only nodeport traffic will pass through netfilter. |
 | nodePort | object | `{"autoProtectPortRange":true,"bindProtection":true,"enableHealthCheck":true,"enabled":false}` | Configure N-S k8s service loadbalancing |
 | nodePort.autoProtectPortRange | bool | `true` | Append NodePort range to ip_local_reserved_ports if clash with ephemeral ports is detected. |
 | nodePort.bindProtection | bool | `true` | Set to true to prevent applications binding to service ports. |

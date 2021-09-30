@@ -1021,6 +1021,15 @@ func initializeFlags() {
 	flags.Bool(option.EnableCustomCallsName, false, "Enable tail call hooks for custom eBPF programs")
 	option.BindEnv(option.EnableCustomCallsName)
 
+	flags.Bool(option.NetfilterCompatibleMode, false, "If set to true, guarantees that traffic will pass through netfilter and that iptable rules will be enforced. This mode may reduce network throughput. If set to false (default), it does not guarantee that all traffic will pass through netfilter. This option only affects NodePort traffic.")
+	// Currently, NetfilterCompatibleMode guarantees only the nodeport traffic can pass through
+	// netfilter. Once it guarantees all traffic can pass through netfilter,
+	// this flag NetfilterCompatibleMode can be marked as visible to users.
+	// below GH issue tracks list of issues to be fixed for to guarantee all traffic pass through netfilter
+	// https://github.com/cilium/cilium/issues/16166
+	flags.MarkHidden(option.NetfilterCompatibleMode)
+	option.BindEnv(option.NetfilterCompatibleMode)
+
 	flags.Bool(option.BGPAnnounceLBIP, false, "Announces service IPs of type LoadBalancer via BGP")
 	option.BindEnv(option.BGPAnnounceLBIP)
 
@@ -1546,6 +1555,19 @@ func initEnv(cmd *cobra.Command) {
 					"bypass.",
 				option.BypassIPAvailabilityUponRestore,
 			)
+		}
+	}
+
+	// Enabling NetfilterCompatibleMode increases BPF instruction count size, and may
+	// cause issues in kernels that have lower instruction complexity limit. Hence enabling
+	// this feature only in kernels with a higher instruction complexity limit (5.2 or later).
+	// NetfilterCompatibleMode feature can be enabled on all kernels, once we have support
+	// for adding new tail calls in host device[bpf_host].
+	// If kernel doesn't support higher instruction complexity limit, then disable NetfilterCompatibleMode.
+	if option.Config.NetfilterCompatibleMode {
+		if !probes.NewProbeManager().GetMisc().HaveLargeInsnLimit {
+			option.Config.NetfilterCompatibleMode = false
+			log.Warn("netfilter-compatible-mode requires kernel version 5.2 or higher.")
 		}
 	}
 }

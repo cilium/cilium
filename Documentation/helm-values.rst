@@ -1013,6 +1013,10 @@
      - Agent container name.
      - string
      - ``"cilium"``
+   * - netfilterCompatMode
+     - Enable the netfilter compatible mode, guarantees only nodeport traffic will pass through netfilter.
+     - bool
+     - ``false``
    * - nodePort
      - Configure N-S k8s service loadbalancing
      - object
