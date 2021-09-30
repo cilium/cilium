@@ -19,6 +19,9 @@ will return `quay.io/cilium/cilium:v1.10.1@abcdefgh`
 */}}
 {{- define "cilium.image" -}}
 {{- $digest := (.useDigest | default false) | ternary (printf "@%s" .digest) "" -}}
+{{- if not .tag }}
+  {{ fail "image.tag needs to be set" }}
+{{- end }}
 {{- printf "%s:%s%s" .repository .tag $digest -}}
 {{- end -}}
 

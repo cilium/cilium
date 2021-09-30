@@ -82,7 +82,7 @@ rollOutCiliumPods: false
 # -- Agent container image.
 image:
   repository: quay.io/cilium/cilium
-  tag: latest
+  tag: ""
   pullPolicy: Always
   # cilium-digest
   digest: ""
@@ -1240,7 +1240,7 @@ operator:
   # -- cilium-operator image.
   image:
     repository: quay.io/cilium/operator
-    tag: latest
+    tag: ""
     # operator-generic-digest
     genericDigest: ""
     # operator-azure-digest
@@ -1464,7 +1464,7 @@ preflight:
   # -- Cilium pre-flight image.
   image:
     repository: quay.io/cilium/cilium
-    tag: latest
+    tag: ""
     # cilium-digest
     digest: ""
     useDigest: false
