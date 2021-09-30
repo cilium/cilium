@@ -46,7 +46,6 @@
 /bpf/ @cilium/bpf
 Makefile* @cilium/build
 /bpf/Makefile* @cilium/build @cilium/loader
-/bpf/cilium-map-migrate.c @cilium/loader
 /bpf/init.sh @cilium/loader
 /bpf/custom/Makefile* @cilium/build @cilium/loader
 /bpf/sockops/Makefile* @cilium/build @cilium/loader

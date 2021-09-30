@@ -134,8 +134,6 @@ PRIV_TEST_PKGS_EVAL := $(shell for pkg in $(TESTPKGS); do echo $$pkg; done | xar
 PRIV_TEST_PKGS ?= $(PRIV_TEST_PKGS_EVAL)
 tests-privileged: GO_TAGS_FLAGS+=privileged_tests ## Run integration-tests for Cilium that requires elevated privileges.
 tests-privileged:
-	# cilium-map-migrate is a dependency of some integration tests.
-	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C bpf cilium-map-migrate
 	$(MAKE) init-coverage
 	for pkg in $(patsubst %,github.com/cilium/cilium/%,$(PRIV_TEST_PKGS)); do \
 		PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) $$pkg $(GOTEST_UNIT_BASE) $(GOTEST_COVER_OPTS) \

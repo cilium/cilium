@@ -49,11 +49,6 @@ set -e
 set -x
 set -o pipefail
 
-if [[ ! $(command -v cilium-map-migrate) ]]; then
-	echo "Can't be initialized because 'cilium-map-migrate' is not in the path."
-	exit 1
-fi
-
 # Remove old legacy files
 rm $RUNDIR/encap.state 2> /dev/null || true
 
