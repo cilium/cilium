@@ -41,7 +41,9 @@
 #include "lib/nodeport.h"
 #include "lib/policy_log.h"
 
-#if !defined(ENABLE_HOST_SERVICES_FULL) || defined(ENABLE_SOCKET_LB_HOST_ONLY)
+#if !defined(ENABLE_HOST_SERVICES_FULL) || \
+    defined(ENABLE_SOCKET_LB_HOST_ONLY) || \
+    defined(ENABLE_L7_LB)
 # define ENABLE_PER_PACKET_LB
 #endif
 
@@ -144,11 +146,12 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 		 */
 		svc = lb6_lookup_service(&key, is_defined(ENABLE_NODEPORT));
 		if (svc) {
+#if defined(ENABLE_L7_LB)
 			if (lb6_svc_is_l7loadbalancer(svc)) {
 				verdict = svc->l7_lb_proxy_port;
 				goto skip_service_lookup;
 			}
-
+#endif
 			ret = lb6_local(get_ct_map6(tuple), ctx, l3_off, l4_off,
 					&csum_off, &key, tuple, svc, &ct_state_new,
 					false);
@@ -185,11 +188,13 @@ skip_service_lookup:
 
 	reason = ret;
 
+#if defined(ENABLE_L7_LB)
 	if (verdict > 0) {
 		/* tuple addresses have been swapped by CT lookup */
 		cilium_dbg3(ctx, DBG_L7_LB, tuple->daddr.p4, tuple->saddr.p4, bpf_ntohs(verdict));
 		goto skip_policy_enforcement;
 	}
+#endif
 
 	/* Check it this is return traffic to an ingress proxy. */
 	if ((ret == CT_REPLY || ret == CT_RELATED) && ct_state.proxy_redirect) {
@@ -247,8 +252,9 @@ skip_service_lookup:
 	}
 
 skip_policy_enforcement:
+#if defined(ENABLE_L7_LB)
 	from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
-
+#endif
 	switch (ret) {
 	case CT_NEW:
 		if (!hairpin_flow)
@@ -323,8 +329,10 @@ ct_recreate6:
 		/* Trace the packet before it is forwarded to proxy */
 		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL, 0,
 				  bpf_ntohs(verdict), 0, reason, monitor);
+#if defined(ENABLE_L7_LB)
 		if (from_l7lb)
 			return ctx_redirect_to_proxy_hairpin(ctx, verdict);
+#endif
 		return ctx_redirect_to_proxy6(ctx, tuple, verdict, false);
 	}
 
@@ -589,11 +597,12 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 
 		svc = lb4_lookup_service(&key, is_defined(ENABLE_NODEPORT));
 		if (svc) {
+#if defined(ENABLE_L7_LB)
 			if (lb4_svc_is_l7loadbalancer(svc)) {
 				verdict = svc->l7_lb_proxy_port;
 				goto skip_service_lookup;
 			}
-
+#endif
 			ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off,
 					&csum_off, &key, &tuple, svc, &ct_state_new,
 					ip4->saddr, has_l4_header, false);
@@ -629,12 +638,13 @@ skip_service_lookup:
 
 	reason = ret;
 
+#if defined(ENABLE_L7_LB)
 	if (verdict > 0) {
 		/* tuple addresses have been swapped by CT lookup */
 		cilium_dbg3(ctx, DBG_L7_LB, tuple.daddr, tuple.saddr, bpf_ntohs(verdict));
 		goto skip_policy_enforcement;
 	}
-
+#endif
 	/* Check it this is return traffic to an ingress proxy. */
 	if ((ret == CT_REPLY || ret == CT_RELATED) && ct_state.proxy_redirect) {
 		/* Stack will do a socket match and deliver locally. */
@@ -694,8 +704,9 @@ skip_service_lookup:
 	}
 
 skip_policy_enforcement:
+#if defined(ENABLE_L7_LB)
 	from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
-
+#endif
 	switch (ret) {
 	case CT_NEW:
 		if (!hairpin_flow)
@@ -770,8 +781,10 @@ ct_recreate4:
 		/* Trace the packet before it is forwarded to proxy */
 		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL, 0,
 				  bpf_ntohs(verdict), 0, reason, monitor);
+#if defined(ENABLE_L7_LB)
 		if (from_l7lb)
 			return ctx_redirect_to_proxy_hairpin(ctx, verdict);
+#endif
 		return ctx_redirect_to_proxy4(ctx, &tuple, verdict, false);
 	}
 
@@ -1203,23 +1216,10 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 	struct ipv6_ct_tuple tuple = {};
 	int ret, ifindex = ctx_load_meta(ctx, CB_IFINDEX);
 	__u32 src_label = ctx_load_meta(ctx, CB_SRC_LABEL);
-	__u32 from_host = ctx_load_meta(ctx, CB_FROM_HOST);
+	bool from_host = ctx_load_meta(ctx, CB_FROM_HOST);
 	bool proxy_redirect __maybe_unused = false;
 	__u16 proxy_port = 0;
 	__u8 reason = 0;
-
-	/* Hack to handle egress from L7 LB proxy without declaring new maps */
-	if (from_host == FROM_HOST_L7_LB) {
-		ctx_store_meta(ctx, CB_IFINDEX, 0);
-		edt_set_aggregate(ctx, 0); /* do not count this traffic again */
-		send_trace_notify(ctx, TRACE_FROM_PROXY, SECLABEL, 0, 0,
-				  ifindex, 0, TRACE_PAYLOAD_LEN);
-		invoke_tailcall_if(__or(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
-					is_defined(DEBUG)),
-				   CILIUM_CALL_IPV6_FROM_LXC, tail_handle_ipv6);
-		return send_drop_notify(ctx, SECLABEL, 0, 0,
-					ret, CTX_ACT_DROP, METRIC_EGRESS);
-	}
 
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 	ctx_store_meta(ctx, CB_FROM_HOST, 0);
@@ -1458,9 +1458,9 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 					   verdict, policy_match_type, audited);
 	}
 
-#if !defined(ENABLE_HOST_SERVICES_FULL) && !defined(DISABLE_LOOPBACK_LB)
+#if defined(ENABLE_PER_PACKET_LB) && !defined(DISABLE_LOOPBACK_LB)
 skip_policy_enforcement:
-#endif /* !ENABLE_HOST_SERVICES_FULL && !DISABLE_LOOPBACK_LB */
+#endif /* ENABLE_PER_PACKET_LB && !DISABLE_LOOPBACK_LB */
 
 	if (ret == CT_NEW) {
 #ifdef ENABLE_DSR
@@ -1527,23 +1527,10 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 	struct ipv4_ct_tuple tuple = {};
 	int ret, ifindex = ctx_load_meta(ctx, CB_IFINDEX);
 	__u32 src_label = ctx_load_meta(ctx, CB_SRC_LABEL);
-	__u32 from_host = ctx_load_meta(ctx, CB_FROM_HOST);
+	bool from_host = ctx_load_meta(ctx, CB_FROM_HOST);
 	bool proxy_redirect __maybe_unused = false;
 	__u16 proxy_port = 0;
 	__u8 reason = 0;
-
-	/* Hack to handle egress from L7 LB proxy without declaring new maps */
-	if (from_host == FROM_HOST_L7_LB) {
-		ctx_store_meta(ctx, CB_IFINDEX, 0);
-		edt_set_aggregate(ctx, 0); /* do not count this traffic again */
-		send_trace_notify(ctx, TRACE_FROM_PROXY, SECLABEL, 0, 0,
-				  ifindex, 0, TRACE_PAYLOAD_LEN);
-		invoke_tailcall_if(__or(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
-					is_defined(DEBUG)),
-				   CILIUM_CALL_IPV4_FROM_LXC, tail_handle_ipv4);
-		return send_drop_notify(ctx, SECLABEL, 0, 0,
-					ret, CTX_ACT_DROP, METRIC_EGRESS);
-	}
 
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 	ctx_store_meta(ctx, CB_FROM_HOST, 0);
@@ -1705,6 +1692,63 @@ out:
 
 	return ret;
 }
+
+/* Handle policy decisions as the packet makes its way from the
+ * endpoint.  Previously, the packet has come from the same endpoint,
+ * but was redirected to a L7 LB.
+ *
+ * This program will be tail called from bpf_host for packets sent by
+ * a L7 LB.
+ */
+#if defined(ENABLE_L7_LB)
+__section_tail(CILIUM_MAP_EGRESSPOLICY, TEMPLATE_LXC_ID)
+int handle_policy_egress(struct __ctx_buff *ctx)
+{
+	__u16 proto;
+	int ret;
+	int ifindex;
+
+	if (!validate_ethertype(ctx, &proto)) {
+		ret = DROP_UNSUPPORTED_L2;
+		goto out;
+	}
+
+	ifindex = ctx_load_meta(ctx, CB_IFINDEX);
+	ctx_store_meta(ctx, CB_IFINDEX, 0); /* Check if this is needed? */
+	ctx_store_meta(ctx, CB_FROM_HOST, FROM_HOST_L7_LB);
+
+	edt_set_aggregate(ctx, 0); /* do not count this traffic again */
+	send_trace_notify(ctx, TRACE_FROM_PROXY, SECLABEL, 0, 0,
+			  ifindex, 0, TRACE_PAYLOAD_LEN);
+
+	switch (proto) {
+#ifdef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6):
+		invoke_tailcall_if(__or(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
+					is_defined(DEBUG)),
+				   CILIUM_CALL_IPV6_FROM_LXC, tail_handle_ipv6);
+		break;
+#endif /* ENABLE_IPV6 */
+#ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP):
+		invoke_tailcall_if(__or(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
+					is_defined(DEBUG)),
+				   CILIUM_CALL_IPV4_FROM_LXC, tail_handle_ipv4);
+		break;
+#endif /* ENABLE_IPV4 */
+	default:
+		ret = DROP_UNKNOWN_L3;
+		break;
+	}
+
+out:
+	if (IS_ERR(ret))
+		return send_drop_notify(ctx, SECLABEL, 0, LXC_ID,
+					ret, CTX_ACT_DROP, METRIC_EGRESS);
+
+	return ret;
+}
+#endif
 
 #ifdef ENABLE_NAT46
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT64)
