@@ -6,6 +6,7 @@ package identity
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 
 	api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -377,10 +378,16 @@ func DelReservedNumericIdentity(identity NumericIdentity) error {
 //      24: LocalIdentityFlag: Indicates that the identity has a local scope
 type NumericIdentity uint32
 
+// MaxNumericIdentity is the maximum value of a NumericIdentity.
+const MaxNumericIdentity = math.MaxUint32
+
 func ParseNumericIdentity(id string) (NumericIdentity, error) {
 	nid, err := strconv.ParseUint(id, 0, 32)
 	if err != nil {
 		return NumericIdentity(0), err
+	}
+	if nid > MaxNumericIdentity {
+		return NumericIdentity(0), fmt.Errorf("%s: numeric identity too large", id)
 	}
 	return NumericIdentity(nid), nil
 }
