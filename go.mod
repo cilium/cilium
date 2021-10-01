@@ -25,7 +25,7 @@ require (
 	github.com/cilium/proxy v0.0.0-20210511221533-82a70d56bf32
 	github.com/cncf/udpa/go v0.0.0-20201211205326-cc1b757b3edd // indirect
 	github.com/containernetworking/cni v0.8.1
-	github.com/containernetworking/plugins v0.9.0
+	github.com/containernetworking/plugins v0.9.1
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v0.7.3-0.20190327010347-be7ac8be2ae0
