@@ -4388,7 +4388,11 @@ func (kub *Kubectl) DelIPRoute(nodeName, subnet, gw string) *CmdRes {
 	return kub.ExecInHostNetNS(context.TODO(), nodeName, cmd)
 }
 
-// CleanupCiliumComponents removes all the cilium related components from the cluster.
+// CleanupCiliumComponents removes all the cilium related components from the cluster, including CRDs.
+// This means that CiliumNode resources get deleted, too. This causes any new Cilium nodes to get
+// reassigned IP allocation pools, which may be different than before. This then causes all endpoints
+// to fail restore and get in a bad shape. This means that all Cilium-managed pods must also be deleted
+// when this is called!
 // This is best effort, any error occurring when deleting resources is ignored.
 func (kub *Kubectl) CleanupCiliumComponents() {
 	ginkgoext.By("Cleaning up Cilium components")
@@ -4404,7 +4408,7 @@ func (kub *Kubectl) CleanupCiliumComponents() {
 			"clusterrole":        "cilium cilium-operator hubble-relay",
 			"serviceaccount":     "cilium cilium-operator hubble-relay",
 			"service":            "cilium-agent hubble-metrics hubble-relay",
-			"secret":             "hubble-relay-client-certs hubble-server-certs",
+			"secret":             "hubble-relay-client-certs hubble-server-certs hubble-ca-secret",
 			"resourcequota":      "cilium-resource-quota cilium-operator-resource-quota",
 		}
 
