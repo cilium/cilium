@@ -347,6 +347,9 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 	if err != nil {
 		return nil, false, err
 	}
+	if idp > identity.MaxNumericIdentity {
+		return nil, false, fmt.Errorf("%d: numeric identity too large", idp)
+	}
 
 	if option.Config.Debug {
 		log.WithFields(logrus.Fields{

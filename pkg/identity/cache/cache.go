@@ -238,6 +238,9 @@ func (m *CachingIdentityAllocator) LookupIdentity(ctx context.Context, lbls labe
 	if err != nil {
 		return nil
 	}
+	if id > identity.MaxNumericIdentity {
+		return nil
+	}
 
 	if id == idpool.NoID {
 		return nil
