@@ -195,14 +195,11 @@ var _ = Describe("K8sDatapathConfig", func() {
 			}
 		}
 
-		SkipItIf(helpers.RunsWithoutKubeProxy, "Check connectivity with transparent encryption and VXLAN encapsulation", func() {
-			// FIXME(brb) Currently, the test is broken with CI 4.19 setup. Run it on 4.19
-			//			  once we have kube-proxy disabled there.
-			if !helpers.RunsOnNetNextKernel() {
-				Skip("Skipping test because it is not running with the net-next kernel")
-				return
-			}
-
+		SkipItIf(func() bool {
+			// IPsec + encapsulation requires Linux 4.19.
+			// We also can't disable KPR on GKE at the moment (cf. #16597).
+			return helpers.RunsWithoutKubeProxy() || helpers.DoesNotRunOn419OrLaterKernel() || helpers.RunsOnGKE()
+		}, "Check connectivity with transparent encryption and VXLAN encapsulation", func() {
 			deploymentManager.Deploy(helpers.CiliumNamespace, IPSecSecret)
 			options := map[string]string{
 				"kubeProxyReplacement": "disabled",
