@@ -45,12 +45,12 @@ func getBlock(data [][]byte) ([]byte, int, int, error) {
 	var block bytes.Buffer
 
 	offset := 0
-	block_len := 0
-	have_length := false
+	blockLen := 0
+	haveLength := false
 	missing := 0
 
 	for _, s := range data {
-		if !have_length {
+		if !haveLength {
 			index := bytes.IndexByte(s[offset:], ':')
 			if index < 0 {
 				block.Write(s[offset:])
@@ -65,22 +65,24 @@ func getBlock(data [][]byte) ([]byte, int, int, error) {
 				// indicating the length of the frame AFTER the ':'
 				if lenUint64, err := strconv.ParseUint(block.String(), 10, 64); err != nil {
 					return block.Bytes(), 0, 0, err
+				} else if lenUint64 > 9223372036854775807 { // FIXME replace with math.MaxInt when https://github.com/cilium/cilium/pull/17394 is deployed
+					return block.Bytes(), 0, 0, fmt.Errorf("block length overflow")
 				} else {
-					block_len = int(lenUint64)
+					blockLen = int(lenUint64)
 				}
-				if block_len <= block.Len() {
-					return block.Bytes(), 0, 0, fmt.Errorf("Block length too short")
+				if blockLen <= block.Len() {
+					return block.Bytes(), 0, 0, fmt.Errorf("block length too short")
 				}
-				have_length = true
-				missing = block_len - block.Len()
+				haveLength = true
+				missing = blockLen - block.Len()
 			}
 		}
-		if have_length {
+		if haveLength {
 			s_len := len(s) - offset
 
 			if missing <= s_len {
 				block.Write(s[offset : offset+missing])
-				return block.Bytes(), block_len, 0, nil
+				return block.Bytes(), blockLen, 0, nil
 			} else {
 				block.Write(s[offset:])
 				missing -= s_len
@@ -89,7 +91,7 @@ func getBlock(data [][]byte) ([]byte, int, int, error) {
 		offset = 0
 	}
 
-	return block.Bytes(), block_len, missing, nil
+	return block.Bytes(), blockLen, missing, nil
 }
 
 //
