@@ -1938,6 +1938,8 @@ redo_local:
  * a remote backend and we got here after reverse SNAT from the
  * tail_nodeport_nat_ipv4().
  *
+ * Also, reverse NAT handling return path egress-gw traffic.
+ *
  * CILIUM_CALL_IPV{4,6}_NODEPORT_REVNAT is plugged into CILIUM_MAP_CALLS
  * of the bpf_host, bpf_overlay and of the bpf_lxc.
  */
@@ -1953,6 +1955,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 	union macaddr *dmac = NULL;
 	__u32 monitor = 0;
 	bool l2_hdr_required = true;
+	__u32 tunnel_endpoint __maybe_unused = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -1964,6 +1967,31 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 	l4_off = l3_off + ipv4_hdrlen(ip4);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
+#if defined(ENABLE_EGRESS_GATEWAY) && !defined(TUNNEL_MODE)
+	/* Traffic from clients to egress gateway nodes reaches said gateways
+	 * by a vxlan tunnel. If we are not using TUNNEL_MODE, we need to
+	 * identify reverse traffic from the gateway to clients and also steer
+	 * it via the vxlan tunnel to avoid issues with iptables dropping these
+	 * packets. We do this in the code below, by performing a lookup in the
+	 * egress gateway map using a reverse address tuple. A match means that
+	 * the corresponding forward traffic was forwarded to the egress gateway
+	 * via the tunnel.
+	 */
+	{
+		struct egress_info *einfo;
+
+		einfo = lookup_ip4_egress_endpoint(ip4->daddr, ip4->saddr);
+		if (einfo) {
+			struct remote_endpoint_info *info;
+
+			info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
+			if (info && info->tunnel_endpoint != 0) {
+				tunnel_endpoint = info->tunnel_endpoint;
+				goto encap_redirect;
+			}
+		}
+	}
+#endif /* ENABLE_EGRESS_GATEWAY */
 	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_INGRESS, &ct_state,
 			 &monitor);
 
@@ -1986,20 +2014,8 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 
 			info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 			if (info != NULL && info->tunnel_endpoint != 0) {
-				ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
-							  SECLABEL, TRACE_PAYLOAD_LEN);
-				if (ret)
-					return ret;
-
-				*ifindex = ENCAP_IFINDEX;
-
-				/* fib lookup not necessary when going over tunnel. */
-				if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0)
-					return DROP_WRITE_ERROR;
-				if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
-					return DROP_WRITE_ERROR;
-
-				return CTX_ACT_OK;
+				tunnel_endpoint = info->tunnel_endpoint;
+				goto encap_redirect;
 			}
 		}
 #endif
@@ -2049,6 +2065,23 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 	}
 
 	return CTX_ACT_OK;
+
+#if defined(ENABLE_EGRESS_GATEWAY) || defined(TUNNEL_MODE)
+encap_redirect:
+	ret = __encap_with_nodeid(ctx, tunnel_endpoint, SECLABEL, TRACE_PAYLOAD_LEN);
+	if (ret)
+		return ret;
+
+	*ifindex = ENCAP_IFINDEX;
+
+	/* fib lookup not necessary when going over tunnel. */
+	if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0)
+		return DROP_WRITE_ERROR;
+	if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
+		return DROP_WRITE_ERROR;
+
+	return CTX_ACT_OK;
+#endif
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_REVNAT)
