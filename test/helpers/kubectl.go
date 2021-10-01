@@ -2517,6 +2517,9 @@ func (kub *Kubectl) CiliumInstall(filename string, options map[string]string) er
 		return res.GetErr("Unable to delete existing cilium YAML")
 	}
 
+	// Remove any dangling resources not yet deleted
+	kub.CleanupCiliumComponents()
+
 	if err := kub.generateCiliumYaml(options, filename); err != nil {
 		return err
 	}
@@ -4385,7 +4388,7 @@ func (kub *Kubectl) CleanupCiliumComponents() {
 			"clusterrole":        "cilium cilium-operator hubble-relay",
 			"serviceaccount":     "cilium cilium-operator hubble-relay",
 			"service":            "cilium-agent hubble-metrics hubble-relay",
-			"secret":             "hubble-relay-client-certs hubble-server-certs",
+			"secret":             "hubble-relay-client-certs hubble-server-certs hubble-ca-secret",
 			"resourcequota":      "cilium-resource-quota cilium-operator-resource-quota",
 		}
 
