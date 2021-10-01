@@ -885,6 +885,8 @@ func parsePositiveInt(value string) (int, error) {
 		return 0, fmt.Errorf("unable to parse positive integer %q: %v", value, err)
 	case i64 < 0:
 		return 0, fmt.Errorf("unable to parse positive integer %q: negative value", value)
+	case i64 > 9223372036854775807: // FIXME replace with math.MaxInt when https://github.com/cilium/cilium/pull/17394 is deployed
+		return 0, fmt.Errorf("unable to parse positive integer %q: overflow", value)
 	default:
 		return int(i64), nil
 	}
