@@ -82,9 +82,6 @@ type Parameters struct {
 	Context          string // Only for 'kubectl' pass-through commands
 	Wait             bool
 	WaitDuration     time.Duration
-	// CiliumReadyTimeout defines the wait timeout for Cilium to become ready after enabling
-	// Hubble before deploying Hubble Relay / UI.
-	CiliumReadyTimeout time.Duration
 }
 
 func (p *Parameters) Log(format string, a ...interface{}) {
@@ -273,17 +270,20 @@ func (k *K8sHubble) Enable(ctx context.Context) error {
 		return err
 	}
 
+	var dur time.Duration
 	if k.params.Relay || k.params.UI {
+		start := time.Now()
 		k.Log("⌛ Waiting for Cilium to become ready before deploying other Hubble component(s)...")
 		collector, err := status.NewK8sStatusCollector(ctx, k.client, status.K8sStatusParameters{
 			Namespace:       k.params.Namespace,
 			Wait:            true,
-			WaitDuration:    k.params.CiliumReadyTimeout,
+			WaitDuration:    k.params.WaitDuration,
 			WarningFreePods: []string{defaults.AgentDaemonSetName, defaults.OperatorDeploymentName},
 		})
 		if err != nil {
 			return err
 		}
+		dur = time.Since(start)
 
 		s, err := collector.Status(ctx)
 		if err != nil {
@@ -318,7 +318,7 @@ func (k *K8sHubble) Enable(ctx context.Context) error {
 		collector, err := status.NewK8sStatusCollector(ctx, k.client, status.K8sStatusParameters{
 			Namespace:       k.params.Namespace,
 			Wait:            true,
-			WaitDuration:    k.params.WaitDuration,
+			WaitDuration:    k.params.WaitDuration - dur,
 			WarningFreePods: pods,
 		})
 		if err != nil {
