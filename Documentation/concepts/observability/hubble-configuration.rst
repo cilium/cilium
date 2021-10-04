@@ -108,7 +108,6 @@ the TLS certificates. cert-manager has becomes the de facto way to manage TLS on
 Kubernetes, and it has the following advantages compared to the previously
 documented methods:
 
-* No need for extra ``CronJob``
 * Support multiple issuers (e.g. a custom CA,
   `Vault <https://www.vaultproject.io/>`__,
   `Let's Encrypt <https://letsencrypt.org/>`__,
@@ -118,7 +117,6 @@ documented methods:
 * Manages certificates via a
   `CRD <https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/>`__
   which is easier to inspect with Kubernetes tools than PEM file.
-* Renew certificates automatically
 
 **Installation steps**:
 
