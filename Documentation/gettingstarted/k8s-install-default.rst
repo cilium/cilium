@@ -23,6 +23,8 @@ to the :ref:`k8s_install_advanced` guide.
 Should you encounter any issues during the installation, please refer to the
 :ref:`troubleshooting_k8s` section and / or seek help on the `Slack channel`.
 
+.. _create_cluster:
+
 Create the Cluster
 ===================
 
@@ -57,57 +59,87 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
        <https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest>`_
        for instructions on how to install ``az`` and prepare your account.
 
+       For more details about why node pools must be set up in this way on AKS,
+       see the note below the commands.
+
        .. code-block:: bash
 
            export NAME="$(whoami)-$RANDOM"
-           export AZURE_RESOURCE_GROUP="aks-cilium-group"
+           export AZURE_RESOURCE_GROUP="${NAME}-group"
            az group create --name "${AZURE_RESOURCE_GROUP}" -l westus2
 
-           # Details: Basic load balancers are not supported with multiple node
-           # pools. Create a cluster with standard load balancer selected to use
-           # multiple node pools, learn more at aka.ms/aks/nodepools.
+           # Create AKS cluster
            az aks create \
-           --resource-group "${AZURE_RESOURCE_GROUP}" \
-           --name "${NAME}" \
-           --network-plugin azure \
-           --load-balancer-sku standard
-
-           # Get the name of the node pool that was just created since it will
-           # be deleted after Cilium is installed.
-           nodepool_to_delete=$(az aks nodepool list --cluster-name "${NAME}" -g "${AZURE_RESOURCE_GROUP}" -o json | jq -r '.[0].name')
-
-           # Create a node pool with 'mode=system' as it is the same mode used
-           # for the default nodepool on cluster creation also this new node
-           # pool will have the taint 'node.cilium.io/agent-not-ready=true:NoSchedule'
-           # which will guarantee that pods will only be scheduled on that node
-           # once Cilium is ready.
-           az aks nodepool add \
-             --name "nodepool2" \
-             --cluster-name "${NAME}" \
              --resource-group "${AZURE_RESOURCE_GROUP}" \
-             --node-count 2 \
+             --name "${NAME}" \
+             --network-plugin azure \
+             --node-count 1
+
+           # Get name of initial system node pool
+           nodepool_to_delete=$(az aks nodepool list \
+             --resource-group "${AZURE_RESOURCE_GROUP}" \
+             --cluster-name "${NAME}" \
+             --output tsv --query "[0].name")
+
+           # Create system node pool tainted with `CriticalAddonsOnly=true:NoSchedule`
+           az aks nodepool add \
+             --resource-group "${AZURE_RESOURCE_GROUP}" \
+             --cluster-name "${NAME}" \
+             --name systempool \
              --mode system \
-             --node-taints node.cilium.io/agent-not-ready=true:NoSchedule
+             --node-count 1 \
+             --node-taints "CriticalAddonsOnly=true:NoSchedule" \
+             --no-wait
+
+           # Create user node pool tainted with `node.cilium.io/agent-not-ready=true:NoSchedule`
+           az aks nodepool add \
+             --resource-group "${AZURE_RESOURCE_GROUP}" \
+             --cluster-name "${NAME}" \
+             --name userpool \
+             --mode user \
+             --node-count 2 \
+             --node-taints "node.cilium.io/agent-not-ready=true:NoSchedule" \
+             --no-wait
+
+           # Delete the initial system node pool
+           az aks nodepool delete \
+             --resource-group "${AZURE_RESOURCE_GROUP}" \
+             --cluster-name "${NAME}" \
+             --name "${nodepool_to_delete}" \
+             --no-wait
 
            # Get the credentials to access the cluster with kubectl
-           az aks get-credentials --name "${NAME}" --resource-group "${AZURE_RESOURCE_GROUP}"
-
-           # We can only delete the first node pool after Cilium is installed
-           # because some pods have Pod Disruption Budgets set. If we try to
-           # delete the first node pool without the second node pool being ready,
-           # AKS will not succeed with the pool deletion because some Deployments
-           # can't cease to exist in the cluster.
-           #
-           # NOTE: Only delete the nodepool after deploying Cilium
-           az aks nodepool delete --name ${nodepool_to_delete} \
-             --cluster-name "${NAME}" \
-             --resource-group "${AZURE_RESOURCE_GROUP}"
+           az aks get-credentials --resource-group "${AZURE_RESOURCE_GROUP}" --name "${NAME}"
 
        .. attention::
 
            Do NOT specify the ``--network-policy`` flag when creating the
            cluster, as this will cause the Azure CNI plugin to install unwanted
            iptables rules.
+
+       .. note::
+
+          `Node pools <https://aka.ms/aks/nodepools>`_ must be tainted with
+          ``node.cilium.io/agent-not-ready=true:NoSchedule`` to ensure that
+          applications pods will only be scheduled once Cilium is ready to
+          manage them, however on AKS:
+
+          * It is not possible to assign taints to the initial node pool at this
+            time, cf. `Azure/AKS#1402 <https://github.com/Azure/AKS/issues/1402>`_.
+
+          * It is not possible to assign custom node taints such as ``node.cilium.io/agent-not-ready=true:NoSchedule``
+            to system node pools, cf. `Azure/AKS#2578 <https://github.com/Azure/AKS/issues/2578>`_.
+
+          In order to have Cilium properly manage application pods on AKS with
+          these limitations, the operations above:
+
+          * Replace the initial node pool with a new system node pool tainted
+            with ``CriticalAddonsOnly=true:NoSchedule``, preventing application
+            pods from being scheduled on it.
+
+          * Create a secondary user node pool tainted with ``node.cilium.io/agent-not-ready=true:NoSchedule``,
+            preventing application pods from being scheduled on it until Cilium
+            is ready to manage them.
 
     .. group-tab:: EKS
 
