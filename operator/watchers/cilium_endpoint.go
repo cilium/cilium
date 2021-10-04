@@ -223,7 +223,7 @@ func endpointUpdated(cep *cilium_api_v2.CiliumEndpoint) {
 }
 
 func endpointDeleted(cep *cilium_api_v2.CiliumEndpoint) {
-	cesController.Manager.RemoveCepFromCache(ces.GetCepNameFromCCEP(k8s.ConvertCepToCoreCep(cep), cep.Namespace))
+	cesController.Manager.RemoveCepFromCache(ces.GetCepNameFromCCEP(k8s.ConvertCepToCoreCep(cep), cep.Namespace), ces.DefaultCESSyncTime)
 }
 
 // objToCiliumEndpoint attempts to cast object to a CiliumEndpoint object

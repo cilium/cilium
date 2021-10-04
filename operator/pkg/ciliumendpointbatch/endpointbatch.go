@@ -56,6 +56,11 @@ const (
 	CESControllerWorkQueueQPSLimit = 10
 	// default burst limit value for workqueues.
 	CESControllerWorkQueueBurstLimit = 100
+	// Delayed CES Synctime, CES's are synced with k8s-apiserver after certain delay
+	// Some CES's are delayed to sync with k8s-apiserver.
+	DelayedCESDeleteSyncTime = 15 * time.Second
+	// Default CES Synctime, sync instantaeously with k8s-apiserver.
+	DefaultCESSyncTime = 0
 )
 
 type CiliumEndpointSliceController struct {
@@ -201,7 +206,7 @@ func (c *CiliumEndpointSliceController) removeStaleCepEntries() {
 		log.WithFields(logrus.Fields{
 			"cep-name": cepName,
 		}).Debug("Removing stale CEP entry.")
-		c.Manager.RemoveCepFromCache(cepName)
+		c.Manager.RemoveCepFromCache(cepName, DefaultCESSyncTime)
 	}
 	return
 }
