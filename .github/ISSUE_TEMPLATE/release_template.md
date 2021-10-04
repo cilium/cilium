@@ -24,12 +24,16 @@ assignees: ''
 - [ ] Push a PR including the changes necessary for the new release:
   - [ ] Pull latest changes from the branch being released
   - [ ] Run `contrib/release/start-release.sh`
-        **Note**: For `RCs` that are not in a stable branch, you need to follow
-                  the RC release guide manually.
   - [ ] Run `Documentation/check-crd-compat-table.sh vX.Y` and if needed, follow the
         instructions.
+        **Note**: For `RCs` that are not in a stable branch, you need to follow
+                  bump the CRD version manually and skip this step.
   - [ ] Commit all changes with title `Prepare for release vX.Y.Z`
+    - [ ] For RC versions, commit the `AUTHORS` file changes separately.
   - [ ] Submit PR (`contrib/release/submit-release.sh`)
+  - [ ] For a new RC version on the master branch:
+    - [ ] Allow the CI to sanity-check the PR and get review
+    - [ ] Revert the release commit and re-push
   - [ ] For a new minor version:
     - [ ] Add the 'stable' tag as part of the GitHub workflow and remove the
           'stable' tag from the last stable branch.
@@ -41,7 +45,9 @@ assignees: ''
           branch.
 - [ ] Merge PR
 - [ ] Create and push *both* tags to GitHub (`vX.Y.Z`, `X.Y.Z`)
-  - Pull latest branch locally and run `contrib/release/tag-release.sh`
+  - Pull latest branch locally and run `contrib/release/tag-release.sh`.
+  - For RCs, this means checking out the commit before the revert and running
+    `tag-release.sh` against that commit.
 - [ ] Ask a maintainer to approve the build in the following links (keep the URL
       of the GitHub run to be used later):
   - [Cilium Image Release builds](https://github.com/cilium/cilium/actions?query=workflow:%22Image+Release+Build%22)
@@ -49,6 +55,7 @@ assignees: ''
     `make -C install/kubernetes/ check-docker-images`
 - [ ] Get the image digests from the build process and make a commit and PR with
       these digests.
+  - For RCs on the master branch, skip this step.
   - [ ] Run `contrib/release/post-release.sh` to fetch the image
         digests and submit a PR to update these, use the URL of the GitHub run here.
   - [ ] Merge PR
@@ -70,8 +77,10 @@ assignees: ''
           [docsearch-scraper-webhook].
 - [ ] Check draft release from [releases] page
   - [ ] Update the text at the top with 2-3 highlights of the release
-  - [ ] Copy the text from `digest-vX.Y.Z.txt` (previously generated with
-        `contrib/release/post-release.sh`) to the end of the release.
+  - [ ] Copy the text from `digest-vX.Y.Z.txt` to the end of the release text.
+        This text was previously generated with
+        `contrib/release/post-release.sh`, or is otherwise available in the
+        GitHub workflow run that built the images.
   - [ ] Publish the release
 - [ ] Announce the release in #general on Slack (only [@]channel for vX.Y.0)
 - [ ] Update Grafana dashboards (only for vX.Y.0)
