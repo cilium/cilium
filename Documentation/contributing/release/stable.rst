@@ -108,14 +108,6 @@ Reference steps for the template
    This will leave a file with the format ``digest-vX.Y.Z.txt`` in the local
    directory which can be used to prepare the release in the next step.
 
-#. `Publish a GitHub release <https://github.com/cilium/cilium/releases/>`_:
-
-   Following the steps above, the release draft will already be prepared.
-   Preview the description and then publish the release.
-
-   #. Copy the official docker manifests for the release from the previous step
-      into the end of the Github release announcement.
-
 #. Prepare Helm changes for the release using the `Cilium Helm Charts Repository <https://github.com/cilium/charts/>`__
    and push the changes into that repository (not the main cilium repository):
 
@@ -142,6 +134,17 @@ Reference steps for the template
 
    After pushing you can revert all the changes made in the local branch
    ``x.y-dev`` from ``cilium/cilium``.
+
+#. Wait for the `Cilium Helm Charts Workflow <https://github.com/cilium/charts/actions>`__
+   to successfully deploy a cluster using the new Helm charts.
+
+#. `Publish a GitHub release <https://github.com/cilium/cilium/releases/>`_:
+
+   Following the steps above, the release draft will already be prepared.
+   Preview the description and then publish the release.
+
+   #. Copy the official docker manifests for the release from the previous step
+      into the end of the Github release announcement.
 
 #. Announce the release in the ``#general`` channel on Slack. Sample text:
 
