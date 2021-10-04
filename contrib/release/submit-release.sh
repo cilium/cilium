@@ -9,10 +9,7 @@ source $DIR/../backporting/common.sh
 REMOTE="$(get_remote)"
 BRANCH="${1:-""}"
 if [ "$BRANCH" = "" ]; then
-    BRANCH=$(git symbolic-ref --short HEAD | sed 's/.*\(v[0-9]\+\.[0-9]\+\).*/\1/')
-    if [ -z "$(git ls-remote --heads $REMOTE $BRANCH)" ]; then
-        BRANCH=master
-    fi
+    BRANCH="$(get_branch_from_version $REMOTE $(git symbolic-ref -q --short HEAD))"
 fi
 
 RELEASE="v$(cat VERSION)"
