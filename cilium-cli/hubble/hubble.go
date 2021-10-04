@@ -13,7 +13,10 @@ import (
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/certs"
 	"github.com/cilium/cilium-cli/internal/utils"
+	"github.com/cilium/cilium-cli/status"
 
+	"github.com/cilium/cilium/api/v1/models"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -50,6 +53,10 @@ type k8sHubbleImplementation interface {
 	CreateService(ctx context.Context, namespace string, service *corev1.Service, opts metav1.CreateOptions) (*corev1.Service, error)
 	DeleteService(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	DeletePodCollection(ctx context.Context, namespace string, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
+	ListPods(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.PodList, error)
+	GetDaemonSet(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*appsv1.DaemonSet, error)
+	CiliumStatus(ctx context.Context, namespace, pod string) (*models.StatusResponse, error)
+	ListCiliumEndpoints(ctx context.Context, namespace string, opts metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error)
 	CheckDaemonSetStatus(ctx context.Context, namespace, daemonset string) error
 	GetRunningCiliumVersion(ctx context.Context, namespace string) (string, error)
 }
@@ -230,19 +237,6 @@ func (k *K8sHubble) enableHubble(ctx context.Context) error {
 	return nil
 }
 
-func (k *K8sHubble) waitForDaemonset(ctx context.Context, daemonset string) error {
-	ctx, cancel := context.WithTimeout(ctx, k.params.CiliumReadyTimeout)
-	defer cancel()
-	for k.client.CheckDaemonSetStatus(ctx, k.params.Namespace, daemonset) != nil {
-		select {
-		case <-time.After(time.Second):
-		case <-ctx.Done():
-			return fmt.Errorf("interrupted while waiting for daemonset %s to become ready: %w", daemonset, ctx.Err())
-		}
-	}
-	return nil
-}
-
 func (k *K8sHubble) Enable(ctx context.Context) error {
 	if err := k.params.validateParams(); err != nil {
 		return err
@@ -279,7 +273,19 @@ func (k *K8sHubble) Enable(ctx context.Context) error {
 
 	if k.params.Relay || k.params.UI {
 		k.Log("⌛ Waiting for Cilium to become ready before deploying other Hubble component(s)...")
-		if err := k.waitForDaemonset(ctx, defaults.AgentDaemonSetName); err != nil {
+		collector, err := status.NewK8sStatusCollector(ctx, k.client, status.K8sStatusParameters{
+			Namespace:       k.params.Namespace,
+			Wait:            true,
+			WaitDuration:    k.params.CiliumReadyTimeout,
+			WarningFreePods: []string{defaults.AgentDaemonSetName, defaults.OperatorDeploymentName},
+		})
+		if err != nil {
+			return err
+		}
+
+		s, err := collector.Status(ctx)
+		if err != nil {
+			fmt.Println(s.Format())
 			return err
 		}
 	}
