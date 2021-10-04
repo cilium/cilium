@@ -16,6 +16,8 @@
 
 set -e
 
+RELEASE_REGEX="[0-9]\+\.[0-9]\+\.[0-9]\+\(-\(\(rc\)\|\(snapshot\)\)\(\.\)\?[0-9]\+\)\?$"
+
 get_remote () {
   local remote
   local org=${1:-cilium}
@@ -60,4 +62,13 @@ commit_in_upstream() {
     local remote="$(get_remote ${org} ${repo})"
     local branches="$(git branch -q -r --contains $commit $remote/$branch 2> /dev/null)"
     echo "$branches" | grep -q ".*$remote/$branch"
+}
+
+get_branch_from_version() {
+    local remote="$1"
+    local branch="$(echo $2 | sed 's/.*\(v[0-9]\+\.[0-9]\+\).*/\1/')"
+    if [ -z "$(git ls-remote --heads $remote $branch)" ]; then
+        branch="master"
+    fi
+    echo "$branch"
 }

@@ -7,7 +7,6 @@ source $DIR/lib/common.sh
 source $DIR/../backporting/common.sh
 
 PROJECTS_REGEX='s/.*projects\/\([0-9]\+\).*/\1/'
-VERSION_TO_BRANCH_REGEX='s/[^0-9]*\([0-9]\+\.[0-9]\+\).*/\1/'
 ACTS_YAML=".github/maintainers-little-helper.yaml"
 REMOTE="$(get_remote)"
 
@@ -42,7 +41,7 @@ handle_args() {
         common::exit 0
     fi
 
-    if ! echo "$1" | grep -q "[0-9]\+\.[0-9]\+\.[0-9]\+\(-\(\(rc\)\|\(snapshot\)\)\(\.\)\?[0-9]\+\)\?$"; then
+    if ! echo "$1" | grep -q "$RELEASE_REGEX"; then
         usage 2>&1
         common::exit 1 "Invalid VERSION ARG \"$1\"; Expected X.Y.Z"
     fi
@@ -67,20 +66,18 @@ main() {
 
     local ersion="$(echo $1 | sed 's/^v//')"
     local version="v$ersion"
-    local branch="v$(echo $ersion | sed $VERSION_TO_BRANCH_REGEX)"
+    local branch="$(get_branch_from_version $REMOTE $version)"
     local new_proj="$2"
     local old_version=""
 
-    git fetch $REMOTE
-    if [ -n "$(git ls-remote --heads $REMOTE $branch)" ]; then
+    git fetch -q $REMOTE
+    if [ "$branch" = "master" ]; then
+        git checkout -b pr/prepare-$version $REMOTE/$branch
+        local old_branch="$(get_branch_from_version $REMOTE v$(cat VERSION))"
+        old_version="$(git show $old_branch:VERSION)"
+    else
         git checkout -b pr/prepare-$version $REMOTE/$branch
         old_version="$(cat VERSION)"
-    else
-        logecho "Cannot find $REMOTE/$branch. Basing release on master."
-        branch="master"
-        git checkout -b pr/prepare-$version $REMOTE/$branch
-        local old_branch="$(cat VERSION | sed $VERSION_TO_BRANCH_REGEX)"
-        old_version="$(git show v$old_branch:VERSION)"
     fi
 
     logecho "Updating VERSION, AUTHORS.md, $ACTS_YAML, helm templates"
