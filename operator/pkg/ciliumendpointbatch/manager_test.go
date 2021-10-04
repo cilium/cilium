@@ -114,7 +114,7 @@ func TestInsertAndRemoveCEPsInCache(t *testing.T) {
 
 		// Remove a CEP from Cache
 		// This should remove one CEP from cache and remove a CES
-		m.RemoveCepFromCache(GetCepNameFromCCEP(cep5, "kube-system"))
+		m.RemoveCepFromCache(GetCepNameFromCCEP(cep5, "kube-system"), DefaultCESSyncTime)
 		if cn, ok := u.getCESName(cep5.Name); ok {
 			// complete CES delete from local datastore, after successful removal in k8s-apiserver.
 			m.deleteCESFromCache(cn)
@@ -124,13 +124,13 @@ func TestInsertAndRemoveCEPsInCache(t *testing.T) {
 
 		// Remove a CEP from Cache
 		// This should remove one CEP in a CES.
-		m.RemoveCepFromCache(GetCepNameFromCCEP(cep3, "kube-system"))
+		m.RemoveCepFromCache(GetCepNameFromCCEP(cep3, "kube-system"), DefaultCESSyncTime)
 		assert.Equal(t, m.getCESCount(), 2, "Total number of CESs allocated is 2")
 		assert.Equal(t, m.getTotalCepCount(), 3, "Total number of CEPs inserted is 3")
 
 		// Remove a CEP from Cache
 		// This should remove one CEP in a CES.
-		m.RemoveCepFromCache(GetCepNameFromCCEP(cep4, "kube-system"))
+		m.RemoveCepFromCache(GetCepNameFromCCEP(cep4, "kube-system"), DefaultCESSyncTime)
 		if cn, ok := u.getCESName(cep4.Name); ok {
 			// complete CES delete from local datastore, after successful removal in k8s-apiserver.
 			m.deleteCESFromCache(cn)
@@ -140,13 +140,13 @@ func TestInsertAndRemoveCEPsInCache(t *testing.T) {
 
 		// Remove a CEP from Cache
 		// This should remove one CEP in a CES.
-		m.RemoveCepFromCache(GetCepNameFromCCEP(cep1, "kube-system"))
+		m.RemoveCepFromCache(GetCepNameFromCCEP(cep1, "kube-system"), DefaultCESSyncTime)
 		assert.Equal(t, m.getCESCount(), 1, "Total number of CESs allocated is 1")
 		assert.Equal(t, m.getTotalCepCount(), 1, "Total number of CEPs inserted is 1")
 
 		// Remove a CEP from Cache
 		// This should remove one CEP in a CES.
-		m.RemoveCepFromCache(GetCepNameFromCCEP(cep2, "kube-system"))
+		m.RemoveCepFromCache(GetCepNameFromCCEP(cep2, "kube-system"), DefaultCESSyncTime)
 		if cn, ok := u.getCESName(cep2.Name); ok {
 			// complete CES delete from local datastore, after successful removal in k8s-apiserver.
 			m.deleteCESFromCache(cn)
@@ -210,8 +210,8 @@ func TestRemovedCEPs(t *testing.T) {
 		m := newCESManagerFcfs(newQueue(), 2)
 		m.InsertCepInCache(cep1, "kube-system")
 		cesName := m.InsertCepInCache(cep2, "kube-system")
-		m.RemoveCepFromCache(GetCepNameFromCCEP(cep1, "kube-system"))
-		m.RemoveCepFromCache(GetCepNameFromCCEP(cep2, "kube-system"))
+		m.RemoveCepFromCache(GetCepNameFromCCEP(cep1, "kube-system"), DefaultCESSyncTime)
+		m.RemoveCepFromCache(GetCepNameFromCCEP(cep2, "kube-system"), DefaultCESSyncTime)
 		remCEPs := m.getRemovedCEPs(cesName)
 		assert.Equal(t, len(remCEPs), 2, "Total removedCEPs should match with value 2")
 		m.clearRemovedCEPs(cesName, remCEPs)

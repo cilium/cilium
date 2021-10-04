@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 
 	"github.com/sirupsen/logrus"
@@ -44,6 +45,8 @@ func (cs *cesSubscriber) OnAdd(ces *cilium_v2a1.CiliumEndpointSlice) {
 			"CEPName": ep.Name,
 		}).Debug("CES added, calling CoreEndpointUpdate")
 		c := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(&ces.Endpoints[i], ces.Namespace)
+		// Map cep name to CES name
+		cepMap.insertCEP(ces.Namespace+"/"+ep.Name, ces.GetName())
 		if p := cs.kWatcher.endpointManager.LookupPodName(k8sUtils.GetObjNamespaceName(c)); p != nil {
 			timeSinceCepCreated := time.Since(p.GetCreatedAt())
 			metrics.EndpointPropagationDelay.WithLabelValues().Observe(timeSinceCepCreated.Seconds())
@@ -83,7 +86,12 @@ func (cs *cesSubscriber) OnUpdate(oldCES, newCES *cilium_v2a1.CiliumEndpointSlic
 			if p := cs.kWatcher.endpointManager.LookupPodName(k8sUtils.GetObjNamespaceName(c)); p != nil {
 				continue
 			}
-			cs.kWatcher.endpointDeleted(c)
+			// Delete CEP if and only if that CEP is owned by a CES, that was used during CES updated.
+			// Delete CEP only if there is match in CEPToCES map and also delete CEPName in CEPToCES map.
+			if cesName := cepMap.getCESName(CEPName); cesName == oldCES.GetName() {
+				cs.kWatcher.endpointDeleted(c)
+				cepMap.deleteCEP(CEPName)
+			}
 		}
 	}
 
@@ -100,6 +108,7 @@ func (cs *cesSubscriber) OnUpdate(oldCES, newCES *cilium_v2a1.CiliumEndpointSlic
 				metrics.EndpointPropagationDelay.WithLabelValues().Observe(timeSinceCepCreated.Seconds())
 			}
 			cs.kWatcher.endpointUpdated(nil, c)
+			cepMap.insertCEP(CEPName, oldCES.GetName())
 		}
 	}
 
@@ -116,6 +125,7 @@ func (cs *cesSubscriber) OnUpdate(oldCES, newCES *cilium_v2a1.CiliumEndpointSlic
 			newC := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(newCEP, newCES.Namespace)
 			oldC := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(oldCEP, oldCES.Namespace)
 			cs.kWatcher.endpointUpdated(oldC, newC)
+			cepMap.insertCEP(CEPName, oldCES.GetName())
 		}
 	}
 }
@@ -134,6 +144,41 @@ func (cs *cesSubscriber) OnDelete(ces *cilium_v2a1.CiliumEndpointSlice) {
 		if p := cs.kWatcher.endpointManager.LookupPodName(k8sUtils.GetObjNamespaceName(c)); p != nil {
 			continue
 		}
-		cs.kWatcher.endpointDeleted(c)
+		// Delete CEP if and only if that CEP is owned by a CES, that was used during CES updated.
+		// Delete CEP only if there is match in CEPToCES map and also delete CEPName in CEPToCES map.
+		if cesName := cepMap.getCESName(ces.Namespace + "/" + ep.Name); cesName == ces.GetName() {
+			cs.kWatcher.endpointDeleted(c)
+			cepMap.deleteCEP(ep.Name)
+		}
 	}
+}
+
+// cepToCESmap is used to map CiliumEndpoint name to CiliumEndpointBatch name.
+type cepToCESmap struct {
+	cesMutex lock.RWMutex
+	cepMap   map[string]string
+}
+
+func newCEPToCESMap() *cepToCESmap {
+	return &cepToCESmap{
+		cepMap: make(map[string]string),
+	}
+}
+
+func (c *cepToCESmap) insertCEP(cepName, cesName string) {
+	c.cesMutex.Lock()
+	defer c.cesMutex.Unlock()
+	c.cepMap[cepName] = cesName
+}
+
+func (c *cepToCESmap) deleteCEP(cepName string) {
+	c.cesMutex.Lock()
+	defer c.cesMutex.Unlock()
+	delete(c.cepMap, cepName)
+}
+
+func (c *cepToCESmap) getCESName(cepName string) string {
+	c.cesMutex.RLock()
+	defer c.cesMutex.RUnlock()
+	return c.cepMap[cepName]
 }

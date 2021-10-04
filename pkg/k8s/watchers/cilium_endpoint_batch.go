@@ -30,6 +30,8 @@ import (
 
 var (
 	cesNotify = subscriber.NewCES()
+	// cepMap maps CEPName to CEBName.
+	cepMap = newCEPToCESMap()
 )
 
 func (k *K8sWatcher) ciliumEndpointSliceInit(client *k8s.K8sCiliumClient, asyncControllers *sync.WaitGroup) {

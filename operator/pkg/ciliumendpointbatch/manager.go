@@ -54,7 +54,7 @@ type cesTracker struct {
 type cesManager interface {
 	// External APIs to Insert/Remove CEP in local dataStore
 	InsertCepInCache(cep *cilium_v2.CoreCiliumEndpoint, ns string) string
-	RemoveCepFromCache(cepName string)
+	RemoveCepFromCache(cepName string, baseDelay time.Duration)
 	// Supporting APIs to Insert/Remove CEP in local dataStore and effectively
 	// manages CES's.
 	getCESFromCache(cesName string) (*cilium_v2.CiliumEndpointSlice, error)
@@ -65,7 +65,7 @@ type cesManager interface {
 	clearRemovedCEPs(string, map[string]struct{})
 	createCES(cesName string) *cesTracker
 	addCEPtoCES(ces *cilium_v2.CoreCiliumEndpoint, cesName string)
-	insertCESInWorkQueue(ces *cesTracker)
+	insertCESInWorkQueue(ces *cesTracker, baseDelay time.Duration)
 	// APIs to collect metrics of CES and CEP
 	getTotalCepCount() int
 	getCepCountInCES(cesName string) int
@@ -174,7 +174,7 @@ func (c *cesMgr) addCEPtoCES(cep *cilium_v2.CoreCiliumEndpoint, cesName string) 
 	}
 	// Increment the cepInsert counter
 	ces.cepInserted += 1
-	c.insertCESInWorkQueue(ces)
+	c.insertCESInWorkQueue(ces, DefaultCESSyncTime)
 	return
 }
 
@@ -334,7 +334,7 @@ func (c *cesMgr) InsertCepInCache(cep *cilium_v2.CoreCiliumEndpoint, ns string) 
 
 // RemoveCepFromCache is used to remove the CEP from local cache, this may result in
 // Updating an existing CES object.
-func (c *cesMgr) RemoveCepFromCache(cepName string) {
+func (c *cesMgr) RemoveCepFromCache(cepName string, baseDelay time.Duration) {
 
 	log.WithFields(logrus.Fields{
 		"CEPName": cepName,
@@ -369,7 +369,7 @@ func (c *cesMgr) RemoveCepFromCache(cepName string) {
 
 		// Increment the cepRemove counter
 		ces.cepRemoved += 1
-		c.insertCESInWorkQueue(ces)
+		c.insertCESInWorkQueue(ces, baseDelay)
 	} else {
 		log.WithFields(logrus.Fields{
 			"CEPName": cepName,
@@ -452,7 +452,16 @@ func (c *cesMgr) clearRemovedCEPs(cesName string, remCEPs map[string]struct{}) {
 	// Delete removed CEPs from caches.
 	for cn := range remCEPs {
 		if _, ok = ces.removedCEPs[cn]; ok {
-			c.desiredCESs.deleteCEP(cn)
+			// Delete the CEP-to-CES entry only if CEP is batched in same CES.
+			// We have a corner case, at runtime if CEP Identity is changed, based on
+			// batching mode, we may remove the CEP from CES, re-inser the CEP in new
+			// CES. In this case, change in CEP Identity translates into
+			// 1. Remove the CEP from a CES
+			// 2. Insert the CEP in a new CES
+			// hence, CEP-to-CES map should be checked to see it has correct CEP-CES mapping
+			if cesNameFromCEPMap, _ := c.desiredCESs.getCESName(cn); cesNameFromCEPMap == cesName {
+				c.desiredCESs.deleteCEP(cn)
+			}
 			delete(ces.removedCEPs, cn)
 		}
 	}
@@ -463,7 +472,7 @@ func (c *cesMgr) clearRemovedCEPs(cesName string, remCEPs map[string]struct{}) {
 			"CESName": cesName,
 		}).Debug("Remove CES from local cache")
 		// On next DeleteSync, Delete this CES with api-server.
-		c.insertCESInWorkQueue(ces)
+		c.insertCESInWorkQueue(ces, DefaultCESSyncTime)
 	}
 }
 
@@ -513,11 +522,21 @@ func (c *cesManagerIdentity) deleteCESFromCache(cesName string) {
 func (c *cesManagerIdentity) InsertCepInCache(cep *cilium_v2.CoreCiliumEndpoint, ns string) string {
 
 	// check the given cep is already exists in any of the CES.
-	// if yes, Update a ces with the given cep object.
+	// if yes, compare the given CEP Identity with the CEPs stored in CES.
+	// If they are same UPDATE the CEP in the CES. This will trigger CES UPDATE to k8s-apiserver.
+	// If the Identities differ, remove the CEP from the existing CES
+	// and find a new CES to batch the given CEP in a CES. This will trigger following actions,
+	// 1) CES UPDATE to k8s-apiserver, removing CEP in old CES
+	// 2) CES CREATE to k8s-apiserver, inserting the given CEP in a new CES or
+	// 3) CES UPDATE to k8s-apiserver, inserting the given CEP in existing CES
 	if cesName, exists := c.desiredCESs.getCESName(GetCepNameFromCCEP(cep, ns)); exists {
-		// add a cep into the ces
-		c.addCEPtoCES(cep, cesName)
-		return cesName
+		if c.cesToIdentity[cesName] != cep.IdentityID {
+			c.RemoveCepFromCache(GetCepNameFromCCEP(cep, ns), DelayedCESDeleteSyncTime)
+		} else {
+			// add a cep into the ces
+			c.addCEPtoCES(cep, cesName)
+			return cesName
+		}
 	}
 
 	// If given cep object isn't packed in any of the CES. find a new ces
@@ -590,12 +609,16 @@ func (c *cesManagerIdentity) updateCESInCache(srcCES *cilium_v2.CiliumEndpointSl
 }
 
 // Insert the ces in workqueue
-func (c *cesMgr) insertCESInWorkQueue(ces *cesTracker) {
+func (c *cesMgr) insertCESInWorkQueue(ces *cesTracker, baseDelay time.Duration) {
 	// If CES insert time is not zero, save current time.
 	if ces.cesInsertedAt.IsZero() {
 		ces.cesInsertedAt = time.Now()
 	}
-	c.queue.Add(ces.ces.GetName())
+	if baseDelay == DefaultCESSyncTime {
+		c.queue.Add(ces.ces.GetName())
+	} else {
+		c.queue.AddAfter(ces.ces.GetName(), baseDelay)
+	}
 }
 
 // Return the CES queue delay in seconds and reset cesInsert time.
