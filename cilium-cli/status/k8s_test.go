@@ -218,6 +218,9 @@ func (b *StatusSuite) TestFormat(c *check.C) {
 	status, err := collector.Status(context.Background())
 	c.Assert(err, check.IsNil)
 	buf := status.Format()
-	c.Assert(buf, check.Not(check.Equals), "")
-	fmt.Println(buf)
+	c.Assert(buf[len(buf)-1], check.Equals, byte('\n'))
+
+	var nilStatus *Status
+	buf = nilStatus.Format()
+	c.Assert(buf, check.Equals, "")
 }
