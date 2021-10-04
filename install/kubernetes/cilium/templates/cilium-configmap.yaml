@@ -580,6 +580,15 @@ data:
   enable-svc-source-range-check: {{ .Values.svcSourceRangeCheck | quote }}
 {{- end }}
 
+{{- if hasKey .Values "l2NeighDiscovery" }}
+{{- if hasKey .Values.l2NeighDiscovery "enabled" }}
+  enable-l2-neigh-discovery: {{ .Values.l2NeighDiscovery.enabled | quote }}
+{{- end }}
+{{- if hasKey .Values.l2NeighDiscovery "refreshPeriod" }}
+  arping-refresh-period: {{ .Values.l2NeighDiscovery.refreshPeriod | quote }}
+{{- end }}
+{{- end }}
+
 {{- if and .Values.pprof .Values.pprof.enabled }}
   pprof: {{ .Values.pprof.enabled | quote }}
 {{- end }}
