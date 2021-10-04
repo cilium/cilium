@@ -6,6 +6,7 @@ DIR=$(dirname $(readlink -ne $BASH_SOURCE))
 source $DIR/lib/common.sh
 source $DIR/../backporting/common.sh
 
+VERSION_GLOB='v[0-9]*\.[0-9]*\.[0-9]*'
 PROJECTS_REGEX='s/.*projects\/\([0-9]\+\).*/\1/'
 ACTS_YAML=".github/maintainers-little-helper.yaml"
 REMOTE="$(get_remote)"
@@ -73,8 +74,11 @@ main() {
     git fetch -q $REMOTE
     if [ "$branch" = "master" ]; then
         git checkout -b pr/prepare-$version $REMOTE/$branch
-        local old_branch="$(get_branch_from_version $REMOTE v$(cat VERSION))"
-        old_version="$(git show $old_branch:VERSION)"
+        if echo "$version" | grep -q 'rc'; then
+            old_version="$(git tag -l "$VERSION_GLOB" | grep -v 'snapshot' | sort -V | tail -n 1)"
+        else
+            old_version="$(git tag -l "$VERSION_GLOB" | sort -V | tail -n 1)"
+        fi
     else
         git checkout -b pr/prepare-$version $REMOTE/$branch
         old_version="$(cat VERSION)"
