@@ -14,9 +14,6 @@ cilium install \
 # Enable Relay
 cilium hubble enable
 
-# Wait for Cilium status to be ready
-cilium status --wait
-
 # Enable cluster mesh
 cilium clustermesh enable
 

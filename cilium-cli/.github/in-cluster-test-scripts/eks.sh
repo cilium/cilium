@@ -12,9 +12,6 @@ cilium install \
 # Enable Relay
 cilium hubble enable
 
-# Wait for Cilium status to be ready
-cilium status --wait
-
 # Make sure the 'aws-node' DaemonSet exists but has no scheduled pods
 [[ $(kubectl -n kube-system get ds/aws-node -o jsonpath='{.status.currentNumberScheduled}') == 0 ]]
 
