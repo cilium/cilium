@@ -4632,3 +4632,36 @@ func (kub *Kubectl) WaitForServiceBackend(node, ipAddr string) error {
 		fmt.Sprintf("backend entry for %s was not found in time", ipAddr),
 		&TimeoutConfig{Timeout: HelperTimeout})
 }
+
+// WaitForCiliumPodToCompleteRegeneration waits for the cilium endpoint regneration to succeed, until timeout occurs.
+// Endpoint.status.log tracks the regeneration status, if log.Code equals OK and state equals ready
+// then it is considered as success.
+func (kub *Kubectl) WaitForCiliumPodToCompleteRegeneration(ciliumPod string, timeout time.Duration) error {
+	body := func() bool {
+		cmd := fmt.Sprintf("cilium endpoint list -o jsonpath='{[?(@.status.identity.id==%d)].status.log}'", ReservedIdentityHost)
+		res := kub.CiliumExecContext(context.Background(), ciliumPod, cmd)
+		if !res.WasSuccessful() {
+			kub.Logger().Errorf("unable to run command '%s' to retrieve status log of host endpoint from %s: %s",
+				cmd, ciliumPod, res.OutputPrettyPrint())
+			return false
+		}
+
+		var logs []models.EndpointStatusChange
+		if err := res.Unmarshal(&logs); err != nil {
+			kub.Logger().Errorf("unable to unmarshal EndpointStatusChange slice '%#v': %s", logs, err)
+			return false
+		}
+
+		// return true only if log Code and State return success
+		if logs[0].Code == "OK" && logs[0].State == "ready" {
+			return true
+		}
+
+		return false
+	}
+
+	return WithTimeout(
+		body,
+		fmt.Sprintf("timed out waiting for cilium pod %q to regenerate", ciliumPod),
+		&TimeoutConfig{Timeout: timeout})
+}

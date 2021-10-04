@@ -1325,3 +1325,31 @@ func waitForServiceBackendPods(kubectl *helpers.Kubectl, podLabel string, expect
 	}
 	return
 }
+
+// Helper function to install cilium, wait for cilium pod to complete regeneration,
+// and install an iptable rule on the node where cilium-agent is running.
+// This function is called in the context of NetfilterCompatMode verification.
+func installCiliumAndWaitForRegenerationToComplete(kubectl *helpers.Kubectl, ciliumFileName string,
+	options map[string]string, iptableRule string, isNetfilterCompatMode bool) {
+	if isNetfilterCompatMode {
+		options["netfilterCompatMode"] = "true"
+		DeployCiliumOptionsAndDNS(kubectl, ciliumFileName, options)
+	} else {
+		DeployCiliumAndDNS(kubectl, ciliumFileName)
+	}
+	ciliumPods, err := kubectl.GetCiliumPods()
+	Expect(err).To(BeNil(), "Cannot get cilium pods")
+	for _, cp := range ciliumPods {
+		// WaitForCiliumPodToCompleteRegeneration guarantees that endpoint regeneration completes,
+		// and the caller may proceed further to test functionalities. For example in NetfilterCompatibleMode
+		// the reverse DNAT for reply packet is done at bpf_host. Without NetfilterCompatibleMode enabled,
+		// the reverse DNAT for reply packet is done at bpf_lxc. If we don't wait for endpoint regeneration
+		// to complete, there may be race condition cases, where the reverse DNAT for reply packet
+		// may not be performed by both bpf_lxc and bpf_host.
+		// Hence, we need to wait for endpoint regeneration to complete on endpoints.
+		err := kubectl.WaitForCiliumPodToCompleteRegeneration(cp, 2*time.Minute)
+		res := kubectl.ExecPodCmd("kube-system", cp, iptableRule)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(res).Should(helpers.CMDSuccess(), "Request to program a iptable rule failed for pod %s", cp)
+	}
+}

@@ -759,6 +759,23 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			It("", func() {
 				testNodePort(kubectl, ni, false, false, false, 0)
 			})
+
+			SkipContextIf(helpers.DoesNotRunOn54OrLaterKernel, "with reverse NAT at host netfilterCompatMode=true", func() {
+				options := make(map[string]string)
+				BeforeAll(func() {
+					iptableRule := "iptables -t mangle -A PREROUTING -m conntrack --ctstate INVALID -j DROP"
+					installCiliumAndWaitForRegenerationToComplete(kubectl, ciliumFilename, options, iptableRule, true)
+				})
+
+				AfterAll(func() {
+					iptableRule := "iptables -t mangle -D PREROUTING -m conntrack --ctstate INVALID -j DROP"
+					installCiliumAndWaitForRegenerationToComplete(kubectl, ciliumFilename, options, iptableRule, false)
+				})
+
+				It("Tests NodePort", func() {
+					testNodePort(kubectl, ni, false, false, false, 0)
+				})
+			})
 		})
 
 		SkipContextIf(manualIPv6TestingNotRequired(helpers.DoesNotRunWithKubeProxyReplacement), "Tests IPv6 NodePort Services", func() {
@@ -1071,6 +1088,21 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 						testNodePort(kubectl, ni, true, true, helpers.ExistNodeWithoutCilium(), 0)
 					})
+					SkipContextIf(helpers.DoesNotRunOn54OrLaterKernel, "Test NodePort with netfilterCompatMode=true", func() {
+						options := make(map[string]string)
+						BeforeAll(func() {
+							iptableRule := "iptables -t mangle -A PREROUTING -m conntrack --ctstate INVALID -j DROP"
+							installCiliumAndWaitForRegenerationToComplete(kubectl, ciliumFilename, options, iptableRule, true)
+						})
+
+						AfterAll(func() {
+							iptableRule := "iptables -t mangle -D PREROUTING -m conntrack --ctstate INVALID -j DROP"
+							installCiliumAndWaitForRegenerationToComplete(kubectl, ciliumFilename, options, iptableRule, false)
+						})
+						It("Tests NodePort", func() {
+							testNodePort(kubectl, ni, true, false, helpers.ExistNodeWithoutCilium(), 0)
+						})
+					})
 				})
 
 				Context("Tests with direct routing", func() {
@@ -1114,6 +1146,21 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 					SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests externalIPs", func() {
 						testExternalIPs(kubectl, ni)
+					})
+					SkipContextIf(helpers.DoesNotRunOn54OrLaterKernel, "Test NodePort with netfilterCompatMode=true", func() {
+						BeforeAll(func() {
+							iptableRule := "iptables -t mangle -A PREROUTING -m conntrack --ctstate INVALID -j DROP"
+							installCiliumAndWaitForRegenerationToComplete(kubectl, ciliumFilename, directRoutingOpts, iptableRule, true)
+						})
+
+						AfterAll(func() {
+							iptableRule := "iptables -t mangle -D PREROUTING -m conntrack --ctstate INVALID -j DROP"
+							installCiliumAndWaitForRegenerationToComplete(kubectl, ciliumFilename, directRoutingOpts, iptableRule, false)
+						})
+
+						It("Tests NodePort", func() {
+							testNodePort(kubectl, ni, true, false, helpers.ExistNodeWithoutCilium(), 0)
+						})
 					})
 
 					SkipContextIf(helpers.RunsOnGKE, "With host policy", func() {
