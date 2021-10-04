@@ -306,8 +306,11 @@ func (c PodStateCount) Format() string {
 }
 
 func (s *Status) Format() string {
-	var buf bytes.Buffer
+	if s == nil {
+		return ""
+	}
 
+	var buf bytes.Buffer
 	w := tabwriter.NewWriter(&buf, 0, 0, 4, ' ', 0)
 
 	fmt.Fprintf(w, Yellow+"    /¯¯\\\n")

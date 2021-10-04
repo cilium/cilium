@@ -84,9 +84,7 @@ func (k *K8sInstaller) Upgrade(ctx context.Context) error {
 
 		s, err := collector.Status(ctx)
 		if err != nil {
-			if s != nil {
-				fmt.Println(s.Format())
-			}
+			fmt.Print(s.Format())
 			return err
 		}
 	}
