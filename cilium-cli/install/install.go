@@ -1045,6 +1045,7 @@ type Parameters struct {
 	NodeEncryption       bool
 	ConfigOverwrites     []string
 	configOverwrites     map[string]string
+	Rollback             bool
 
 	// CiliumReadyTimeout defines the wait timeout for Cilium to become ready
 	// after installing.
@@ -1719,6 +1720,10 @@ func (k *K8sInstaller) pushRollbackStep(step rollbackStep) {
 }
 
 func (k *K8sInstaller) RollbackInstallation(ctx context.Context) {
+	if !k.params.Rollback {
+		k.Log("ℹ️  Rollback disabled with '--rollback=false', leaving installed resources behind")
+		return
+	}
 	k.Log("↩️ Rolling back installation...")
 
 	for _, r := range k.rollbackSteps {
