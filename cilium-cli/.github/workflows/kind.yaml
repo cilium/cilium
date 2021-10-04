@@ -53,10 +53,6 @@ jobs:
         run: |
           cilium hubble enable --ui
 
-      - name: Wait for Cilium status to be ready
-        run: |
-          cilium status --wait
-
       - name: Relay Port Forward
         run: |
           cilium hubble port-forward&
@@ -78,10 +74,6 @@ jobs:
       - name: Enable Relay
         run: |
           cilium hubble enable
-
-      - name: Status
-        run: |
-          cilium status --wait
 
       - name: Relay Port Forward
         run: |
