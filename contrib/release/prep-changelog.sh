@@ -29,12 +29,12 @@ handle_args() {
         common::exit 0
     fi
 
-    if ! echo "$1" | grep -q "[0-9]\+\.[0-9]\+\.[0-9]\+"; then
+    if ! echo "$1" | grep -q "$RELEASE_REGEX"; then
         usage 2>&1
-        common::exit 1 "Invalid OLD-VERSION ARG \"$1\"; Expected X.Y.Z"
+        common::exit 1 "Invalid OLD-VERSION ARG \"$1\"; Expected X.Y.Z[-rcW]"
     fi
 
-    if ! echo "$2" | grep -q "[0-9]\+\.[0-9]\+\.[0-9]\+[-rc0-9]*"; then
+    if ! echo "$2" | grep -q "$RELEASE_REGEX"; then
         usage 2>&1
         common::exit 1 "Invalid NEW-VERSION ARG \"$1\"; Expected X.Y.Z[-rcW]"
     fi
