@@ -19,24 +19,24 @@ Cilium :ref:`gs_install` guide.
 TLS certificates
 ================
 
-When Hubble Relay is deployed, Hubble listens on a TCP port on the host
-network. This allows Hubble Relay to communicate with all Hubble instances in
-the cluster. Connections between Hubble server and Hubble Relay instances are
-secured using mutual TLS (mTLS) by default.
+When Hubble Relay is deployed, Hubble listens on a TCP port on the host network.
+This allows Hubble Relay to communicate with all Hubble instances in the
+cluster. Connections between Hubble instances and Hubble Relay are secured using
+mutual TLS (mTLS) by default.
 
 TLS certificates can be provided by manually on the Helm install command (user
 provided) or generate automatically via either:
 
-* `helm <https://helm.sh/docs/chart_template_guide/function_list/#gensignedcert>`__
-* cilium's `certgen <https://github.com/cilium/certgen>`__ (using a Kubernetes CronJob)
+* `Helm <https://helm.sh/docs/chart_template_guide/function_list/#gensignedcert>`__
+* cilium's `certgen <https://github.com/cilium/certgen>`__ (using a Kubernetes ``CronJob``)
 * `cert-manager <https://cert-manager.io/>`__
 
 User provided certificates
 --------------------------
 
-In order to use custom TLS certificates ``hubble.tls.auto.enabled`` must
-be set to ``false`` and TLS certificates manually provided.
-This can be done by specifying the options below to Helm at install or upgrade time.
+In order to use custom TLS certificates, ``hubble.tls.auto.enabled`` must be set
+to ``false`` and TLS certificates manually provided.  This can be done by
+specifying the options below to Helm at install or upgrade time.
 
 ::
 
@@ -81,14 +81,17 @@ Relay.
     --set hubble.tls.auto.method=helm                # auto generate certificates using helm method
     --set hubble.tls.auto.certValidityDuration=1095  # certificates validity duration in days (default 3 years)
 
-The downside of this method is certificates are not auto-renewed.
-So re-install is required when certificates are expired.
+The downside of the Helm method is that while certificates are automatically
+generated, they are not automatically renewed.  Consequently, running
+``helm upgrade`` is required when certificates are about to expire (i.e. before
+the configured ``hubble.tls.auto.certValidityDuration``).
 
-Auto generated certificates via Kubernetes CronJob
---------------------------------------------------
+Auto generated certificates via certgen
+---------------------------------------
 
-Like helm method, TLS certificates are generated at installation time. And a kubernetes CronJob
-is used to schedule for certificates regeneration (regardless of their expiration date).
+Like the Helm method, certgen generates the TLS certificates at installation
+time and a Kubernetes ``CronJob`` is scheduled to renew them (regardless of
+their expiration date).
 
 ::
 
@@ -100,21 +103,30 @@ is used to schedule for certificates regeneration (regardless of their expiratio
 Auto generated certificates via cert-manager
 --------------------------------------------
 
-This method rely on `cert-manager <https://cert-manager.io/>`__ to generate certificate.
-``cert-manager`` now becomes de-facto way to manage TLS on k8s, and compared to above methods,
-it has the following advantages:
+This method relies on `cert-manager <https://cert-manager.io/>`__ to generate
+the TLS certificates. cert-manager has becomes the de facto way to manage TLS on
+Kubernetes, and it has the following advantages compared to the previously
+documented methods:
 
-* No need for extra cronJob
-* Support multiple issuers: CA, Vault, Let's Encrypt, Google CAS,...
-  You can choose the issuer that fits your organization's requirements.
-* Manage certs via a CRD, which is more straightforward than inspecting the PEM file.
-* Auto-renew certificates
+* No need for extra ``CronJob``
+* Support multiple issuers (e.g. a custom CA,
+  `Vault <https://www.vaultproject.io/>`__,
+  `Let's Encrypt <https://letsencrypt.org/>`__,
+  `Google's Certificate Authority Service <https://cloud.google.com/certificate-authority-service>`__,
+  and more) allowing to choose the issuer fitting your organization's
+  requirements.
+* Manages certificates via a
+  `CRD <https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/>`__
+  which is easier to inspect with Kubernetes tools than PEM file.
+* Renew certificates automatically
 
 **Installation steps**:
 
-1. First install `cert-manager <https://cert-manager.io/docs/installation/>`__ and setup `issuer <https://cert-manager.io/docs/configuration/>`_.
-   Please make sure that your issuer is be able to create certificates under the ``cilium.io`` domain name.
-2. Install/upgrade cilium with bellow configs:
+#. First, install `cert-manager <https://cert-manager.io/docs/installation/>`__
+   and setup an `issuer <https://cert-manager.io/docs/configuration/>`_.
+   Please make sure that your issuer is be able to create certificates under the
+   ``cilium.io`` domain name.
+#. Install/upgrade Cilium including the following Helm flags:
 
 ::
 
@@ -127,69 +139,62 @@ it has the following advantages:
 
 **Troubleshooting**:
 
-If you get the following error while install cilium (and cert-manager), it's because
-cert-manager ValidatingWebhook (which used to verify the Certificate CRD resources)
-is not available (blocked due to CNI is not available).
+While installing Cilium or cert-manager you may get the following error:
 
 ::
 
     Error: Internal error occurred: failed calling webhook "webhook.cert-manager.io": Post "https://cert-manager-webhook.cert-manager.svc:443/mutate?timeout=10s": dial tcp x.x.x.x:443: connect: connection refused
 
-There are several ways to overcome above issue, such as:
+This happens when cert-manager's webhook (which is used to verify the
+``Certificate``'s CRD resources) is not available. There are several ways to
+resolve this issue. Pick one of the options below:
 
-* Option 1: disable validation on cilium installed namespace
+.. tabs::
 
-.. code-block:: shell-session
+    .. group-tab:: Install CRDs first
 
-    $ # We assume cilium installed in kube-system namespace
-    $ kubectl label namespace kube-system cert-manager.io/disable-validation=true
+        Install cert-manager CRDs before Cilium and cert-manager (see `cert-manager's documentation about installing CRDs with kubectl <https://cert-manager.io/docs/installation/helm/#option-1-installing-crds-with-kubectl>`__):
 
-    $ helm install cert-manager ...
-    $ kubectl apply -f issuer.yaml
-    $ helm install cilium ...
+        .. code-block:: shell-session
 
-* Option 2: install cert-manager CRDs first
+            $ kubectl create -f cert-manager.crds.yaml
 
-.. code-block:: shell-session
+        Then install cert-manager, configure an issuer, and install Cilium.
 
-    $ # see https://cert-manager.io/docs/installation/helm/#option-1-installing-crds-with-kubectl
-    $ kubectl create -f cert-manager.crds.yaml
+    .. group-tab:: Upgrade Cilium
 
-    $ # cert-manager MUST be installed after cilium
-    $ helm install cilium ...
+        Upgrade Cilium from an installation with TLS disabled:
 
-    $ helm install cert-manager ...
-    $ kubectl apply -f issuer.yaml
+        .. code-block:: shell-session
 
-* Option 3: install cert-manager webhook with hostNetwork
+            $ helm install cilium cilium/cilium \
+                --set hubble.tls.enabled=false \
+                ...
 
-.. code-block:: shell-session
+        Then install cert-manager, configure an issuer, and upgrade Cilium enabling TLS:
 
-    $ helm install cert-manager jetstack/cert-manager \
-            --set webhook.hostNetwork=true \
-            --set webhook.tolerations='["operator": "Exists"]'
-    $ kubectl apply -f issuer.yaml
+        .. code-block:: shell-session
 
-    $ helm install cilium ...
+            $ helm install cilium cilium/cilium --set hubble.tls.enabled=true
 
-* Option 4: upgrade cilium from disabled-TLS installation
+    .. group-tab:: Disable webhook
 
-.. code-block:: shell-session
+        Disable cert-manager validation (assuming Cilium is installed in the ``kube-system`` namespace):
 
-    $ helm install cilium cilium/cilium \
-            --set hubble.tls.enabled=false \
-            ...
+        .. code-block:: shell-session
 
-    $ helm install cert-manager ...
-    $ kubectl apply -f issuer.yaml
+            $ kubectl label namespace kube-system cert-manager.io/disable-validation=true
 
-    $ # waiting for node ready, and cert-manager available
-    $ helm upgrade cilium cilium/cilium \
-            --set hubble.tls.enabled=true \
-            ...
+        Then install Cilium, cert-manager, and configure an issuer.
 
-.. note::
+    .. group-tab:: Host network webhook
 
-   ``issuer.yaml`` in snippet above is issuer used by cilium.
-   See `cert-manager Issuer Configuration docs <https://cert-manager.io/docs/configuration/>`__
-   to create that file.
+        Configure cert-manager to expose its webhook within the host network namespace:
+
+        .. code-block:: shell-session
+
+            $ helm install cert-manager jetstack/cert-manager \
+                    --set webhook.hostNetwork=true \
+                    --set webhook.tolerations='["operator": "Exists"]'
+
+        Then configure an issuer and install Cilium.
