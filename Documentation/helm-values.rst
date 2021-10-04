@@ -168,7 +168,11 @@
    * - clustermesh.apiserver.tls.auto
      - Configure automatic TLS certificates generation. A Kubernetes CronJob is used the generate any certificates not provided by the user at installation time.
      - object
-     - ``{"certValidityDuration":1095,"enabled":true,"method":"helm"}``
+     - ``{"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm"}``
+   * - clustermesh.apiserver.tls.auto.certManagerIssuerRef
+     - certmanager issuer used when clustermesh.apiserver.tls.auto.method=certmanager. If not specified, a CA issuer will be created.
+     - object
+     - ``{}``
    * - clustermesh.apiserver.tls.auto.certValidityDuration
      - Generated certificates validity duration in days.
      - int
@@ -200,7 +204,15 @@
    * - clustermesh.apiserver.tls.server
      - base64 encoded PEM values for the clustermesh-apiserver server certificate and private key. Used if 'auto' is not enabled.
      - object
-     - ``{"cert":"","key":""}``
+     - ``{"cert":"","extraDnsNames":[],"extraIpAddresses":[],"key":""}``
+   * - clustermesh.apiserver.tls.server.extraDnsNames
+     - Extra DNS names added to certificate when it's auto generated
+     - list
+     - ``[]``
+   * - clustermesh.apiserver.tls.server.extraIpAddresses
+     - Extra IP addresses added to certificate when it's auto generated
+     - list
+     - ``[]``
    * - clustermesh.apiserver.tolerations
      - Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
      - list
@@ -556,7 +568,7 @@
    * - hubble.metrics
      - Hubble metrics configuration. See https://docs.cilium.io/en/stable/configuration/metrics/#hubble-metrics for more comprehensive documentation about Hubble metrics.
      - object
-     - ``{"enabled":null,"port":9091,"serviceMonitor":{"enabled":false}}``
+     - ``{"enabled":null,"port":9091,"serviceAnnotations":{},"serviceMonitor":{"enabled":false}}``
    * - hubble.metrics.enabled
      - Configures the list of metrics to collect. If empty or null, metrics are disabled. Example:   enabled:   - dns:query;ignoreAAAA   - drop   - tcp   - flow   - icmp   - http You can specify the list of metrics from the helm CLI:   --set metrics.enabled="{dns:query;ignoreAAAA,drop,tcp,flow,icmp,http}"
      - string
@@ -565,6 +577,10 @@
      - Configure the port the hubble metric server listens on.
      - int
      - ``9091``
+   * - hubble.metrics.serviceAnnotations
+     - Annotations to be added to hubble-metrics service.
+     - object
+     - ``{}``
    * - hubble.metrics.serviceMonitor.enabled
      - Create ServiceMonitor resources for Prometheus Operator. This requires the prometheus CRDs to be available. ref: https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
      - bool
@@ -632,7 +648,7 @@
    * - hubble.relay.tls
      - TLS configuration for Hubble Relay
      - object
-     - ``{"client":{"cert":"","key":""},"server":{"cert":"","enabled":false,"key":""}}``
+     - ``{"client":{"cert":"","key":""},"server":{"cert":"","enabled":false,"extraDnsNames":[],"extraIpAddresses":[],"key":""}}``
    * - hubble.relay.tls.client
      - base64 encoded PEM values for the hubble-relay client certificate and private key This keypair is presented to Hubble server instances for mTLS authentication and is required when hubble.tls.enabled is true. These values need to be set manually if hubble.tls.auto.enabled is false.
      - object
@@ -640,7 +656,15 @@
    * - hubble.relay.tls.server
      - base64 encoded PEM values for the hubble-relay server certificate and private key
      - object
-     - ``{"cert":"","enabled":false,"key":""}``
+     - ``{"cert":"","enabled":false,"extraDnsNames":[],"extraIpAddresses":[],"key":""}``
+   * - hubble.relay.tls.server.extraDnsNames
+     - extra DNS names added to certificate when its auto gen
+     - list
+     - ``[]``
+   * - hubble.relay.tls.server.extraIpAddresses
+     - extra IP addresses added to certificate when its auto gen
+     - list
+     - ``[]``
    * - hubble.relay.tolerations
      - Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
      - list
@@ -656,11 +680,15 @@
    * - hubble.tls
      - TLS configuration for Hubble
      - object
-     - ``{"auto":{"certValidityDuration":1095,"enabled":true,"method":"helm","schedule":"0 0 1 */4 *"},"ca":{"cert":"","key":""},"enabled":true,"server":{"cert":"","key":""}}``
+     - ``{"auto":{"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm","schedule":"0 0 1 */4 *"},"ca":{"cert":"","key":""},"enabled":true,"server":{"cert":"","extraDnsNames":[],"extraIpAddresses":[],"key":""}}``
    * - hubble.tls.auto
      - Configure automatic TLS certificates generation.
      - object
-     - ``{"certValidityDuration":1095,"enabled":true,"method":"helm","schedule":"0 0 1 */4 *"}``
+     - ``{"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm","schedule":"0 0 1 */4 *"}``
+   * - hubble.tls.auto.certManagerIssuerRef
+     - certmanager issuer used when hubble.tls.auto.method=certmanager. If not specified, a CA issuer will be created.
+     - object
+     - ``{}``
    * - hubble.tls.auto.certValidityDuration
      - Generated certificates validity duration in days.
      - int
@@ -670,7 +698,7 @@
      - bool
      - ``true``
    * - hubble.tls.auto.method
-     - Set the method to auto-generate certificates. Supported values: - helm:      This method uses Helm to generate all certificates. - cronJob:   This method uses a Kubernetes CronJob the generate any              certificates not provided by the user at installation              time.
+     - Set the method to auto-generate certificates. Supported values: - helm:         This method uses Helm to generate all certificates. - cronJob:      This method uses a Kubernetes CronJob the generate any                 certificates not provided by the user at installation                 time. - certmanager:  This method use cert-manager to generate & rotate certificates.
      - string
      - ``"helm"``
    * - hubble.tls.auto.schedule
@@ -692,7 +720,15 @@
    * - hubble.tls.server
      - base64 encoded PEM values for the Hubble server certificate and private key
      - object
-     - ``{"cert":"","key":""}``
+     - ``{"cert":"","extraDnsNames":[],"extraIpAddresses":[],"key":""}``
+   * - hubble.tls.server.extraDnsNames
+     - Extra DNS names added to certificate when it's auto generated
+     - list
+     - ``[]``
+   * - hubble.tls.server.extraIpAddresses
+     - Extra IP addresses added to certificate when it's auto generated
+     - list
+     - ``[]``
    * - hubble.ui.backend.image
      - Hubble-ui backend image.
      - object
@@ -736,7 +772,7 @@
    * - hubble.ui.proxy.image
      - Hubble-ui ingress proxy image.
      - object
-     - ``{"pullPolicy":"Always","repository":"docker.io/envoyproxy/envoy","tag":"v1.18.2@sha256:e8b37c1d75787dd1e712ff389b0d37337dc8a174a63bed9c34ba73359dc67da7"}``
+     - ``{"pullPolicy":"Always","repository":"docker.io/envoyproxy/envoy","tag":"v1.18.4@sha256:e5c2bb2870d0e59ce917a5100311813b4ede96ce4eb0c6bfa879e3fbe3e83935"}``
    * - hubble.ui.proxy.resources
      - Resource requests and limits for the 'proxy' container of the 'hubble-ui' deployment.
      - object
