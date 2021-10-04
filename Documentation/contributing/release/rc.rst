@@ -18,12 +18,32 @@ If you intent to release a new feature release, see the
           used in the Cilium development process. See :ref:`dev_env` for
           detailed instructions about setting up said VM.
 
+GitHub template process
+~~~~~~~~~~~~~~~~~~~~~~~
+
+#. File a `new release issue <https://github.com/cilium/cilium/issues/new?assignees=&labels=kind%2Frelease&template=release_template.md&title=vX.Y.Z+release>`_
+   on GitHub, updating the title to reflect the version that will be released.
+
+#. Follow the steps in the issue template to prepare the release.
+
+Reference steps for the template
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. note::
+
+   These instructions will generate a CHANGELOG based on the time when the
+   ``start-release.sh`` script is run, so you should aim to coordinate with
+   the core maintainers to complete these steps up until merging the PR
+   before merging additional PRs from contributors.
+
 #. Ensure that the necessary features and fixes have been completed and merged
    into the branch for which the release candidate will happen.
 
    #. Update GitHub project and create ``vX.Y.Z-rcW+1`` project if applicable.
    #. Update PRs / issues that were added to the ``vX.Y.Z-rcW`` project, but didn't
       make it into this release into the ``vX.Y.Z-rcW+1`` project.
+   #. The `Cilium Release Tool <https://github.com/cilium/release>`__ tool can
+      help to manage these for you.
 
 #. Checkout the desired stable branch (can be master branch if stable branch was
    not created) and pull it:
@@ -32,18 +52,11 @@ If you intent to release a new feature release, see the
 
        git checkout v1.0; git pull
 
-#. Create a branch for the release pull request:
+#. Run the release preparation script:
 
    .. code-block:: shell-session
 
-       git checkout -b pr/prepare-v1.0.3
-
-#. Update the ``AUTHORS file``
-
-   .. code-block:: shell-session
-
-       make update-authors
-
+       contrib/release/start-release.sh
 
    .. note::
 
@@ -70,27 +83,21 @@ If you intent to release a new feature release, see the
    there were changes to the CRD, then ensure it is incremented at most by 1
    patch version.
 
-#. If there is a branch for this RC, prepare the changelog now.
-   If this is the first RC, ``X.Y.Z`` should be the last, stable version,
-   otherwise ``X.Y.Z`` should point to the last released RC ``contrib/release/prep-changelog.sh X.Y.Z X.Y.0-rcX``.
+#. If this release will be based on the ``master`` branch rather than a stable
+   branch, add the AUTHORS modifications to a new commit.
 
-#. Add all modified files using ``git add`` and create a commit with the title
-   ``Prepare for release vX.Y.Z-rcW+1``.
+#. Add all other modified files using ``git add`` and create a commit with the
+   title ``Prepare for release vX.Y.Z-rcW+1``.
 
-#. If a branch for ``vX.Y`` doesn't exist yet, we need to modify the VERSION
-   file temporarily so that ``--version`` returns the right RC version.
+#. Prepare a pull request for the changes:
 
-   Change the file ``VERSION`` with ``vX.Y.Z-rcW+1``.
+   .. code-block:: shell-session
 
-#. Run ``make -C install/kubernetes all USE_DIGESTS=false``
+      contrib/release/submit-release.sh
 
-#. If there is not branch for this RC, prepare the changelog now
-   (as it was previously skipped).
-   If this is the first RC, ``X.Y.Z`` should be the last, stable version,
-   otherwise ``X.Y.Z`` should point to the last released RC ``contrib/release/prep-changelog.sh X.Y.Z X.Y.0-rcX``.
+#. Ensure that the CI smoke tests and reviews are in for the pull request.
 
-#. Add all modified files using ``git add`` and create a pull request with the
-   title ``Create helm chart release vX.Y.Z-rcW+1``.
+#. Revert the top commit on the branch and push the branch again to GitHub.
 
 #. Follow standard procedures to get the aforementioned PR merged into the
    desired stable branch. See :ref:`submit_pr` for more information about this
@@ -102,12 +109,11 @@ If you intent to release a new feature release, see the
 
        git checkout v1.0; git pull
 
-#. Create release tags:
+#. Check out the "Prepare for release" commit and create release tags:
 
    .. code-block:: shell-session
 
-       git tag -a v1.0.3 -m 'Release v1.0.3'
-       git tag -a 1.0.3 -m 'Release 1.0.3'
+      git checkout NNNN && contrib/release/tag-release.sh
 
    .. note::
 
@@ -117,63 +123,29 @@ If you intent to release a new feature release, see the
        ``x.y.z`` For more information about how ReadTheDocs does versioning, you can
        read their `Versions Documentation <https://docs.readthedocs.io/en/latest/versions.html>`_.
 
-#. Push the git release tag
+#. Approve the release from the `Release Image build UI <https://github.com/cilium/cilium/actions?query=workflow:%22Image+Release+Build%22>`_.
+
+#. Once the release images are pushed, fetch the digests from the workflow.
+
+#. Prepare Helm changes for the release using the `Cilium Helm Charts Repository <https://github.com/cilium/charts/>`__
+   and push the changes into that repository (not the main cilium repository):
 
    .. code-block:: shell-session
 
-       git push --tags
+      ./prepare_artifacts.sh /path/to/cilium/repository/checked/out/to/release/commit
+      git push
 
+#. Wait for the `Cilium Helm Charts Workflow <https://github.com/cilium/charts/actions>`__
+   to successfully deploy a cluster using the new Helm charts.
 
-#. `Create a GitHub release <https://github.com/cilium/cilium/releases/new>`_:
+#. `Publish a GitHub release <https://github.com/cilium/cilium/releases/>`_:
 
-   #. Choose the correct target branch, e.g. ``v1.0``
-   #. Choose the correct target tag, e.g. ``v1.0.3``
-   #. Title: ``1.0.3``
-   #. Check the ``This is a pre-release`` box if you are releasing a release
-      candidate.
-   #. Fill in the release description:
+   Following the steps above, the release draft will already be prepared.
 
-      ::
-
-           Summary of Changes
-           ------------------
-
-           **Important Bug Fixes**
-
-           * Fix dropped packets upon agent bootstrap when iptables rules are installed (@ianvernon)
-
-           **Enhancements**
-
-           **Documentation**
-
-           Changes
-           -------
-
-           ```
-           << contents of NEWS.rst for this release >>
-           ```
-
+   #. Check the ``This is a pre-release`` box.
+   #. Copy the official docker manifests for the release from the previous step
+      into the end of the Github release announcement.
    #. Preview the description and then publish the release
-
-#. Get the digests for the ``vX.Y.Z-rcN`` and make a commit to the helm charts
-   repository to include those digests.
-
-#. Follow standard procedures to get the aforementioned PR merged into the
-   desired stable branch. See :ref:`submit_pr` for more information about this
-   process.
-
-#. Checkout out the stable branch and pull your merged changes:
-
-   .. code-block:: shell-session
-
-       git checkout v1.0; git pull
-
-#. Publish the helm charts for this RC.
-
-#. **If there isn't a stable branch available** we need to revert the changes
-   made in the commit "Create helm chart release vX.Y.Z-rcW+1" as the master
-   should not point to this RC. Make a commit reverting the changes and push
-   those changes as a PR to be merged into master.
 
 #. Announce the release in the ``#general`` channel on Slack. Sample text:
 
