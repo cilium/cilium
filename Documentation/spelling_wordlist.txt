@@ -214,8 +214,10 @@ cass
 cassandra
 cassandraparser
 cd
+certManagerIssuerRef
 certValidityDuration
 certgen
+certmanager
 cgroup
 chainingMode
 changelog
@@ -284,6 +286,7 @@ datapathMode
 datastore
 datastream
 datastreams
+de
 deathstar
 debuginfo
 decapsulate
@@ -291,8 +294,6 @@ decapsulated
 decapsulation
 decrypt
 decrypted
-de
-facto
 deletetopic
 demux
 dereference
@@ -358,9 +359,12 @@ externalWorkloads
 extraArgs
 extraConfig
 extraConfigmapMounts
+extraDnsNames
 extraEnv
 extraHostPathMounts
 extraInitContainers
+extraIpAddresses
+facto
 failureThreshold
 fallback
 filename
@@ -765,6 +769,7 @@ sendmsg
 serviceAccount
 serviceAccountName
 serviceAccounts
+serviceAnnotations
 serviceMonitor
 servicePort
 sessionAffinity
