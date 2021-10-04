@@ -968,6 +968,12 @@ readinessProbe:
 # By default it is disabled.
 kubeProxyReplacementHealthzBindAddr: ""
 
+l2NeighDiscovery:
+  # -- Enable L2 neighbour discovery in the agent
+  enabled: true
+  # -- Set period for arping
+  arping-refresh-period: "5m"
+
 # -- Enable Layer 7 network policy.
 l7Proxy: true
 
