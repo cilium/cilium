@@ -37,6 +37,11 @@ const (
 	// received any labels yet.
 	IDNameInit = "init"
 
+	// IDNameKubeAPIServer is the label used to identify the kube-apiserver. It
+	// is part of the reserved identity 7 and it is also used in conjunction
+	// with IDNameHost if the kube-apiserver is running on the local host.
+	IDNameKubeAPIServer = "kube-apiserver"
+
 	// IDNameNone is the label used to identify no endpoint or other L3 entity.
 	// It will never be assigned and this "label" is here for consistency with
 	// other Entities.
@@ -62,6 +67,10 @@ var (
 
 	// LabelRemoteNode is the label used for remote nodes.
 	LabelRemoteNode = Labels{IDNameRemoteNode: NewLabel(IDNameRemoteNode, "", LabelSourceReserved)}
+
+	// LabelKubeAPIServer is the label used for the kube-apiserver. See comment
+	// on IDNameKubeAPIServer.
+	LabelKubeAPIServer = Labels{IDNameKubeAPIServer: NewLabel(IDNameKubeAPIServer, "", LabelSourceReserved)}
 )
 
 const (
