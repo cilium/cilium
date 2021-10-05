@@ -151,6 +151,7 @@ func (elf *ELF) copy(w io.Writer, r *io.SectionReader, intOptions map[string]uin
 
 	globalOff := uint64(0) // current position in file
 	processedOptions := make(map[string]struct{}, len(intOptions)+len(strOptions))
+
 processSymbols:
 	for _, symbol := range elf.symbols.sort() {
 		scopedLog := log.WithField("symbol", symbol.name)
@@ -164,6 +165,7 @@ processSymbols:
 				value = make([]byte, unsafe.Sizeof(v))
 				elf.metadata.ByteOrder.PutUint32(value, v)
 			}
+
 		case symbolString:
 			v, exists := strOptions[symbol.name]
 			if exists {
@@ -173,6 +175,7 @@ processSymbols:
 				value = []byte(v)
 			}
 		}
+
 		if value == nil {
 			for _, prefix := range ignoredPrefixes {
 				if strings.HasPrefix(symbol.name, prefix) {
@@ -243,6 +246,7 @@ func (elf *ELF) Write(path string, intOptions map[string]uint32, strOptions map[
 			Err:  err,
 		}
 	}
+
 	defer func() {
 		if err2 := f.Close(); err2 != nil {
 			scopedLog.WithError(err).Warning("Failed to close new ELF")
