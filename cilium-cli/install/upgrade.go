@@ -72,7 +72,7 @@ func (k *K8sInstaller) Upgrade(ctx context.Context) error {
 
 	if patched > 0 && k.params.Wait {
 		k.Log("⌛ Waiting for Cilium to be upgraded...")
-		collector, err := status.NewK8sStatusCollector(ctx, k.client, status.K8sStatusParameters{
+		collector, err := status.NewK8sStatusCollector(k.client, status.K8sStatusParameters{
 			Namespace:       k.params.Namespace,
 			Wait:            true,
 			WaitDuration:    k.params.WaitDuration,
