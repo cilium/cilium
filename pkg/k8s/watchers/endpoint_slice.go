@@ -160,6 +160,8 @@ func (k *K8sWatcher) updateK8sEndpointSliceV1(eps *slim_discover_v1.EndpointSlic
 	if option.Config.BGPAnnounceLBIP {
 		k.bgpSpeakerManager.OnUpdateEndpointSliceV1(eps)
 	}
+
+	k.addKubeAPIServerServiceEPSliceV1(eps)
 }
 
 func (k *K8sWatcher) updateK8sEndpointSliceV1Beta1(eps *slim_discover_v1beta1.EndpointSlice, swgEps *lock.StoppableWaitGroup) {
@@ -168,6 +170,42 @@ func (k *K8sWatcher) updateK8sEndpointSliceV1Beta1(eps *slim_discover_v1beta1.En
 	if option.Config.BGPAnnounceLBIP {
 		k.bgpSpeakerManager.OnUpdateEndpointSliceV1Beta1(eps)
 	}
+
+	k.addKubeAPIServerServiceEPSliceV1Beta1(eps)
+}
+
+func (k *K8sWatcher) addKubeAPIServerServiceEPSliceV1(eps *slim_discover_v1.EndpointSlice) {
+	if eps == nil ||
+		eps.GetLabels()[slim_discover_v1.LabelServiceName] != "kubernetes" ||
+		eps.Namespace != "default" {
+		return
+	}
+
+	desiredIPs := make(map[string]struct{})
+	for _, e := range eps.Endpoints {
+		for _, addr := range e.Addresses {
+			desiredIPs[addr] = struct{}{}
+		}
+	}
+
+	k.handleKubeAPIServerServiceEPChanges(desiredIPs)
+}
+
+func (k *K8sWatcher) addKubeAPIServerServiceEPSliceV1Beta1(eps *slim_discover_v1beta1.EndpointSlice) {
+	if eps == nil ||
+		eps.GetLabels()[slim_discover_v1beta1.LabelServiceName] != "kubernetes" ||
+		eps.Namespace != "default" {
+		return
+	}
+
+	desiredIPs := make(map[string]struct{})
+	for _, e := range eps.Endpoints {
+		for _, addr := range e.Addresses {
+			desiredIPs[addr] = struct{}{}
+		}
+	}
+
+	k.handleKubeAPIServerServiceEPChanges(desiredIPs)
 }
 
 // initEndpointsOrSlices initializes either the "Endpoints" or "EndpointSlice"

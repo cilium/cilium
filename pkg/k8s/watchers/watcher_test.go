@@ -131,7 +131,15 @@ func (f *fakePolicyManager) PolicyDelete(labels labels.LabelArray) (newRev uint6
 }
 
 type fakePolicyRepository struct {
-	OnTranslateRules func(translator policy.Translator) (*policy.TranslationResult, error)
+	OnGetSelectorCache func() *policy.SelectorCache
+	OnTranslateRules   func(translator policy.Translator) (*policy.TranslationResult, error)
+}
+
+func (f *fakePolicyRepository) GetSelectorCache() *policy.SelectorCache {
+	if f.OnGetSelectorCache != nil {
+		return f.OnGetSelectorCache()
+	}
+	panic("OnGetSelectorCache() (*policy.SelectorCache) was called and is not set!")
 }
 
 func (f *fakePolicyRepository) TranslateRules(translator policy.Translator) (*policy.TranslationResult, error) {
