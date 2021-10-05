@@ -455,7 +455,7 @@ func (a *Action) GetEgressRequirements(p FlowParameters) (reqs []filters.FlowSet
 	case TCP:
 		tcpRequest := filters.TCP(0, a.dst.Port())
 		tcpResponse := filters.TCP(a.dst.Port(), 0)
-		if p.NodePort != 0 {
+		if p.NodePort != 0 && p.NodePort != a.dst.Port() {
 			tcpRequest = filters.Or(filters.TCP(0, p.NodePort), tcpRequest)
 			tcpResponse = filters.Or(filters.TCP(p.NodePort, 0), tcpResponse)
 		}
