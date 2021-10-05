@@ -38,7 +38,10 @@ addons:
       - libelf-dev
       - libncurses5
 
-before_install: ./.travis/prepare.sh
+before_install:
+  - ./.travis/prepare.sh
+  # Login to Docker Hub using credentials stored in Travis configuration
+  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
 
 before_script:
   - export PATH=/usr/local/clang/bin:$PATH
