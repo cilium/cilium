@@ -274,7 +274,7 @@ func (k *K8sHubble) Enable(ctx context.Context) error {
 	if k.params.Relay || k.params.UI {
 		start := time.Now()
 		k.Log("⌛ Waiting for Cilium to become ready before deploying other Hubble component(s)...")
-		collector, err := status.NewK8sStatusCollector(ctx, k.client, status.K8sStatusParameters{
+		collector, err := status.NewK8sStatusCollector(k.client, status.K8sStatusParameters{
 			Namespace:       k.params.Namespace,
 			Wait:            true,
 			WaitDuration:    k.params.WaitDuration,
@@ -315,7 +315,7 @@ func (k *K8sHubble) Enable(ctx context.Context) error {
 		}
 
 		k.Log("⌛ Waiting for Hubble to be installed...")
-		collector, err := status.NewK8sStatusCollector(ctx, k.client, status.K8sStatusParameters{
+		collector, err := status.NewK8sStatusCollector(k.client, status.K8sStatusParameters{
 			Namespace:       k.params.Namespace,
 			Wait:            true,
 			WaitDuration:    k.params.WaitDuration - dur,

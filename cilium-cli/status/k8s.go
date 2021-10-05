@@ -50,7 +50,7 @@ type k8sImplementation interface {
 	ListCiliumEndpoints(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error)
 }
 
-func NewK8sStatusCollector(ctx context.Context, client k8sImplementation, params K8sStatusParameters) (*K8sStatusCollector, error) {
+func NewK8sStatusCollector(client k8sImplementation, params K8sStatusParameters) (*K8sStatusCollector, error) {
 	return &K8sStatusCollector{
 		client: client,
 		params: params,
