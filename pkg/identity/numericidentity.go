@@ -67,6 +67,10 @@ const (
 	// ReservedIdentityRemoteNode is the identity given to all nodes in
 	// local and remote clusters except for the local node.
 	ReservedIdentityRemoteNode
+
+	// ReservedIdentityRemoteNode is the identity given to remote node(s) which
+	// have backend(s) serving the kube-apiserver running.
+	ReservedIdentityKubeAPIServer
 )
 
 // Special identities for well-known cluster components
@@ -309,21 +313,23 @@ func InitWellKnownIdentities(c Configuration) int {
 
 var (
 	reservedIdentities = map[string]NumericIdentity{
-		labels.IDNameHost:       ReservedIdentityHost,
-		labels.IDNameWorld:      ReservedIdentityWorld,
-		labels.IDNameUnmanaged:  ReservedIdentityUnmanaged,
-		labels.IDNameHealth:     ReservedIdentityHealth,
-		labels.IDNameInit:       ReservedIdentityInit,
-		labels.IDNameRemoteNode: ReservedIdentityRemoteNode,
+		labels.IDNameHost:          ReservedIdentityHost,
+		labels.IDNameWorld:         ReservedIdentityWorld,
+		labels.IDNameUnmanaged:     ReservedIdentityUnmanaged,
+		labels.IDNameHealth:        ReservedIdentityHealth,
+		labels.IDNameInit:          ReservedIdentityInit,
+		labels.IDNameRemoteNode:    ReservedIdentityRemoteNode,
+		labels.IDNameKubeAPIServer: ReservedIdentityKubeAPIServer,
 	}
 	reservedIdentityNames = map[NumericIdentity]string{
-		IdentityUnknown:            "unknown",
-		ReservedIdentityHost:       labels.IDNameHost,
-		ReservedIdentityWorld:      labels.IDNameWorld,
-		ReservedIdentityUnmanaged:  labels.IDNameUnmanaged,
-		ReservedIdentityHealth:     labels.IDNameHealth,
-		ReservedIdentityInit:       labels.IDNameInit,
-		ReservedIdentityRemoteNode: labels.IDNameRemoteNode,
+		IdentityUnknown:               "unknown",
+		ReservedIdentityHost:          labels.IDNameHost,
+		ReservedIdentityWorld:         labels.IDNameWorld,
+		ReservedIdentityUnmanaged:     labels.IDNameUnmanaged,
+		ReservedIdentityHealth:        labels.IDNameHealth,
+		ReservedIdentityInit:          labels.IDNameInit,
+		ReservedIdentityRemoteNode:    labels.IDNameRemoteNode,
+		ReservedIdentityKubeAPIServer: labels.IDNameKubeAPIServer,
 	}
 	reservedIdentityLabels = map[NumericIdentity]labels.Labels{
 		ReservedIdentityHost:       labels.LabelHost,
@@ -332,6 +338,10 @@ var (
 		ReservedIdentityHealth:     labels.LabelHealth,
 		ReservedIdentityInit:       labels.NewLabelsFromModel([]string{"reserved:" + labels.IDNameInit}),
 		ReservedIdentityRemoteNode: labels.LabelRemoteNode,
+		ReservedIdentityKubeAPIServer: labels.Map2Labels(map[string]string{
+			labels.LabelKubeAPIServer.String(): "",
+			labels.LabelRemoteNode.String():    "",
+		}, ""),
 	}
 
 	// WellKnown identities stores global state of all well-known identities.
