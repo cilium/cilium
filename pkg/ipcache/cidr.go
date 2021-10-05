@@ -91,6 +91,7 @@ func allocateCIDRs(prefixes []*net.IPNet, newlyAllocatedIdentities map[string]*i
 		if IdentityAllocator == nil {
 			return nil, fmt.Errorf("IdentityAllocator not initialized!")
 		}
+
 		id, isNew, err := IdentityAllocator.AllocateIdentity(allocateCtx, cidr.GetCIDRLabels(prefix), false)
 		if err != nil {
 			IdentityAllocator.ReleaseSlice(context.Background(), nil, usedIdentities)
@@ -104,7 +105,6 @@ func allocateCIDRs(prefixes []*net.IPNet, newlyAllocatedIdentities map[string]*i
 		if isNew {
 			newlyAllocatedIdentities[prefixStr] = id
 		}
-
 	}
 
 	allocatedIdentitiesSlice := make([]*identity.Identity, 0, len(allocatedIdentities))

@@ -164,6 +164,62 @@ func TestLookupReservedIdentityByLabels(t *testing.T) {
 				}, ""),
 			},
 		},
+		{
+			name: "kube-apiserver-and-host",
+			args: labels.Map2Labels(map[string]string{
+				labels.LabelKubeAPIServer.String(): "",
+				labels.LabelHost.String():          "",
+			}, ""),
+			want: &want{ // Should always still be host reserved identity
+				id: ReservedIdentityHost,
+				labels: labels.Map2Labels(map[string]string{
+					labels.LabelKubeAPIServer.String(): "",
+					labels.LabelHost.String():          "",
+				}, ""),
+			},
+		},
+		{
+			name: "host-and-kube-apiserver",
+			args: labels.Map2Labels(map[string]string{
+				labels.LabelHost.String():          "",
+				labels.LabelKubeAPIServer.String(): "",
+			}, ""),
+			want: &want{ // Should always still be host reserved identity
+				id: ReservedIdentityHost,
+				labels: labels.Map2Labels(map[string]string{
+					labels.LabelHost.String():          "",
+					labels.LabelKubeAPIServer.String(): "",
+				}, ""),
+			},
+		},
+		{
+			name: "kube-apiserver-and-remote-node",
+			args: labels.Map2Labels(map[string]string{
+				labels.LabelKubeAPIServer.String(): "",
+				labels.LabelRemoteNode.String():    "",
+			}, ""),
+			want: &want{
+				id: ReservedIdentityKubeAPIServer,
+				labels: labels.Map2Labels(map[string]string{
+					labels.LabelKubeAPIServer.String(): "",
+					labels.LabelRemoteNode.String():    "",
+				}, ""),
+			},
+		},
+		{
+			name: "remote-node-and-kube-apiserver",
+			args: labels.Map2Labels(map[string]string{
+				labels.LabelRemoteNode.String():    "",
+				labels.LabelKubeAPIServer.String(): "",
+			}, ""),
+			want: &want{
+				id: ReservedIdentityKubeAPIServer,
+				labels: labels.Map2Labels(map[string]string{
+					labels.LabelRemoteNode.String():    "",
+					labels.LabelKubeAPIServer.String(): "",
+				}, ""),
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
