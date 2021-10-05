@@ -6,6 +6,7 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
@@ -30,7 +31,11 @@ func newCmdSysdump() *cobra.Command {
 			// Silence klog to avoid displaying "throttling" messages - those are expected.
 			klog.SetOutput(io.Discard)
 			// Collect the sysdump.
-			if err := sysdump.NewCollector(k8sClient, sysdumpOptions).Run(); err != nil {
+			collector, err := sysdump.NewCollector(k8sClient, sysdumpOptions, time.Now())
+			if err != nil {
+				return nil
+			}
+			if err = collector.Run(); err != nil {
 				return fmt.Errorf("failed to collect sysdump: %v", err)
 			}
 			return nil
