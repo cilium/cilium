@@ -660,10 +660,6 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		case !option.Config.EnableRemoteNodeIdentity:
 			msg = fmt.Sprintf("BPF masquerade requires remote node identities (--%s=\"true\").",
 				option.EnableRemoteNodeIdentity)
-		// Remove the check after https://github.com/cilium/cilium/issues/12544 is fixed
-		case option.Config.TunnelingEnabled() && !hasFullHostReachableServices():
-			msg = fmt.Sprintf("BPF masquerade requires --%s to be fully enabled (TCP and UDP).",
-				option.EnableHostReachableServices)
 		case option.Config.EgressMasqueradeInterfaces != "":
 			msg = fmt.Sprintf("BPF masquerade does not allow to specify devices via --%s (use --%s instead).",
 				option.EgressMasqueradeInterfaces, option.Devices)
