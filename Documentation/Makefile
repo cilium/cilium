@@ -33,6 +33,7 @@ DOCKER_CTR := $(CONTAINER_ENGINE) container run --rm \
 		--env SKIP_LINT=$(SKIP_LINT) \
 		--user "$(shell id -u):$(shell id -g)"
 DOCKER_RUN := $(DOCKER_CTR) cilium/docs-builder
+LANGUAGES := es_ES
 
 update-cmdref: builder-image cilium-build
 	@$(ECHO_GEN)cmdref
@@ -91,6 +92,14 @@ $(HELM_VALUES): FORCE
 epub latex html: builder-image copy-api update-helm-values
 	@$(ECHO_GEN)_build/$@
 	$(QUIET)$(DOCKER_RUN) ./check-build.sh $(@) $(SPHINX_OPTS)
+
+gettext: builder-image copy-api
+	@$(ECHO_GEN)_build/$@
+	$(QUIET) SKIP_LINT=1 $(DOCKER_RUN) ./check-build.sh gettext $(SPHINX_OPTS)
+
+translation: gettext
+	@$(ECHO_GEN)_build/$@
+	$(QUIET) SKIP_LINT=1 $(DOCKER_RUN) sphinx-intl update -p _build/gettext $(foreach lang,$(LANGUAGES),-l $(lang))
 
 html-netlify: copy-api
 	@$(ECHO_GEN)_build/$@

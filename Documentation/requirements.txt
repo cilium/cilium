@@ -28,6 +28,7 @@ sphinxcontrib-openapi==0.7.0
 sphinxcontrib-spelling==7.3.2
 sphinxcontrib-websupport==1.2.4
 sphinx-tabs==3.3.1
+sphinx-intl==2.0.1
 sphinx-version-warning==1.1.2
 typing==3.7.4.3
 urllib3==1.26.8
