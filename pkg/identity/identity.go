@@ -219,6 +219,7 @@ func LookupReservedIdentityByLabels(lbls labels.Labels) *Identity {
 	}
 
 	for _, lbl := range lbls {
+		var createID bool
 		switch {
 		// If the set of labels contain a fixed identity then and exists in
 		// the map of reserved IDs then return the identity of that reserved ID.
@@ -232,12 +233,43 @@ func LookupReservedIdentityByLabels(lbls labels.Labels) *Identity {
 			return nil
 
 		case lbl.Source == labels.LabelSourceReserved:
-			// If it contains the reserved, local host identity, return it with
-			// the new list of labels. This is to ensure the local node retains
-			// this identity regardless of label changes.
 			id := GetReservedID(lbl.Key)
-			if id == ReservedIdentityHost {
-				identity := NewIdentity(ReservedIdentityHost, lbls)
+			switch {
+			case id == ReservedIdentityKubeAPIServer && lbls.Has(labels.LabelHost[labels.IDNameHost]):
+				// Due to Golang map iteration order (random) we might get the
+				// ID returned as kube-apiserver. If there's a local host
+				// label, then we know this is local host reserved ID, so
+				// change it as such. All local host traffic should always be
+				// considered host (and not kube-apiserver).
+				//
+				// The kube-apiserver label can be a part of a few identities:
+				//   * host
+				//   * kube-apiserver reserved identity (contains remote-node
+				//     label)
+				//   * (maybe) CIDR
+				id = ReservedIdentityHost
+				fallthrough
+			case id == ReservedIdentityKubeAPIServer && lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]):
+				createID = true
+
+			case id == ReservedIdentityRemoteNode && lbls.Has(labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer]):
+				// Due to Golang map iteration order (random) we might get the
+				// ID returned as remote-node. If there's a kube-apiserver
+				// label, then we know this is kube-apiserver reserved ID, so
+				// change it as such. Only traffic to non-kube-apiserver nodes
+				// should be considered as remote-node.
+				id = ReservedIdentityKubeAPIServer
+				fallthrough
+			case id == ReservedIdentityHost || id == ReservedIdentityRemoteNode:
+				// If it contains the reserved, local host or remote node
+				// identity, return it with the new list of labels. This is to
+				// ensure that the local node  or remote node retain their
+				// identity regardless of label changes.
+				createID = true
+			}
+
+			if createID {
+				identity := NewIdentity(id, lbls)
 				// Pre-calculate the SHA256 hash.
 				identity.GetLabelsSHA256()
 				return identity
