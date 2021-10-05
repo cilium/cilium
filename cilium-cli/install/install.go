@@ -1676,7 +1676,7 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 
 	if k.params.Wait {
 		k.Log("⌛ Waiting for Cilium to be installed...")
-		collector, err := status.NewK8sStatusCollector(ctx, k.client, status.K8sStatusParameters{
+		collector, err := status.NewK8sStatusCollector(k.client, status.K8sStatusParameters{
 			Namespace:       k.params.Namespace,
 			Wait:            true,
 			WaitDuration:    k.params.WaitDuration,

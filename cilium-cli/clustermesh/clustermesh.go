@@ -1170,7 +1170,7 @@ func (k *K8sClusterMesh) Status(ctx context.Context) (*Status, error) {
 		return nil, err
 	}
 
-	collector, err := status.NewK8sStatusCollector(ctx, k.client, status.K8sStatusParameters{
+	collector, err := status.NewK8sStatusCollector(k.client, status.K8sStatusParameters{
 		Namespace: k.params.Namespace,
 	})
 	if err != nil {
@@ -1570,7 +1570,7 @@ func formatCEW(cew ciliumv2.CiliumExternalWorkload) string {
 }
 
 func (k *K8sClusterMesh) ExternalWorkloadStatus(ctx context.Context, names []string) error {
-	collector, err := status.NewK8sStatusCollector(ctx, k.client, status.K8sStatusParameters{
+	collector, err := status.NewK8sStatusCollector(k.client, status.K8sStatusParameters{
 		Namespace: k.params.Namespace,
 	})
 	if err != nil {
