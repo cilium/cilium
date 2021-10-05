@@ -6,12 +6,15 @@ package watchers
 import (
 	"sync"
 
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_discover_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/source"
 
 	v1 "k8s.io/api/core/v1"
 	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -160,6 +163,8 @@ func (k *K8sWatcher) updateK8sEndpointSliceV1(eps *slim_discover_v1.EndpointSlic
 	if option.Config.BGPAnnounceLBIP {
 		k.bgpSpeakerManager.OnUpdateEndpointSliceV1(eps)
 	}
+
+	k.addKubeAPIServerServiceEPSliceV1(eps)
 }
 
 func (k *K8sWatcher) updateK8sEndpointSliceV1Beta1(eps *slim_discover_v1beta1.EndpointSlice, swgEps *lock.StoppableWaitGroup) {
@@ -168,6 +173,122 @@ func (k *K8sWatcher) updateK8sEndpointSliceV1Beta1(eps *slim_discover_v1beta1.En
 	if option.Config.BGPAnnounceLBIP {
 		k.bgpSpeakerManager.OnUpdateEndpointSliceV1Beta1(eps)
 	}
+
+	k.addKubeAPIServerServiceEPSliceV1Beta1(eps)
+}
+
+func (k *K8sWatcher) addKubeAPIServerServiceEPSliceV1(eps *slim_discover_v1.EndpointSlice) {
+	if eps == nil || eps.Name != "kubernetes" {
+		return
+	}
+
+	// We must perform a diff on the ipcache.IdentityMetadata map in order to
+	// figure out which IPs are stale and should be removed, before we inject
+	// new IPs into the ipcache. The reason is because kube-apiserver will
+	// constantly reconcile this specific object, even when it's been deleted;
+	// effectively, this means we can avoid listening for the delete event.
+	// Therefore, any changes to this specific object can be handled in a
+	// "flattened" manner, since the most up-to-date form of it will be an add
+	// or update event. The former is sent when Cilium is syncing with K8s and
+	// the latter is sent anytime after.
+	//
+	// For example:
+	//   * if a backend is removed or updated, then this will be in the form of
+	//     an update event.
+	//   * if the entire object is deleted, then it will quickly be recreated
+	//     and this will be in the form of an add event.
+
+	ips := ipcache.FilterMetadataByLabels(labels.LabelKubeAPIServer)
+	currentIPs := make(map[string]struct{}, len(ips))
+	for _, v := range ips {
+		currentIPs[v] = struct{}{}
+	}
+
+	desiredIPs := make(map[string]struct{}, len(currentIPs))
+	for _, e := range eps.Endpoints {
+		for _, addr := range e.Addresses {
+			desiredIPs[addr] = struct{}{}
+		}
+	}
+
+	toRemove := make(map[string]labels.Labels)
+	for ip := range currentIPs {
+		if _, ok := desiredIPs[ip]; !ok {
+			toRemove[ip] = labels.LabelKubeAPIServer
+		}
+	}
+	ipcache.RemoveAllPrefixesWithLabels(
+		toRemove,
+		source.CustomResource,
+		k.policyRepository.GetSelectorCache(),
+		k.policyManager,
+	)
+
+	for ip := range desiredIPs {
+		ipcache.UpsertMetadata(ip, labels.LabelKubeAPIServer)
+	}
+
+	// Use CustomResource as the source similar to the way the CiliumNode
+	// (pkg/node/manager.Manager) handler does because the ipcache entry needs
+	// to be overwrite-able by this handler and the CiliumNode handler. If we
+	// used Kubernetes as the source, then the ipcache entries inserted (first)
+	// by the CN handler wouldn't be overwrite-able by the entries inserted
+	// from this handler.
+	ipcache.IPIdentityCache.TriggerLabelInjection(
+		source.CustomResource,
+		k.policyRepository.GetSelectorCache(),
+		k.policyManager,
+	)
+}
+
+func (k *K8sWatcher) addKubeAPIServerServiceEPSliceV1Beta1(eps *slim_discover_v1beta1.EndpointSlice) {
+	if eps == nil || eps.Name != "kubernetes" {
+		return
+	}
+
+	// See comment in addKubeAPIServerServiceEPSliceV1().
+
+	ips := ipcache.FilterMetadataByLabels(labels.LabelKubeAPIServer)
+	currentIPs := make(map[string]struct{}, len(ips))
+	for _, v := range ips {
+		currentIPs[v] = struct{}{}
+	}
+
+	desiredIPs := make(map[string]struct{}, len(currentIPs))
+	for _, e := range eps.Endpoints {
+		for _, addr := range e.Addresses {
+			desiredIPs[addr] = struct{}{}
+		}
+	}
+
+	toRemove := make(map[string]labels.Labels)
+	for ip := range currentIPs {
+		if _, ok := desiredIPs[ip]; !ok {
+			toRemove[ip] = labels.LabelKubeAPIServer
+		}
+	}
+	ipcache.RemoveAllPrefixesWithLabels(
+		toRemove,
+		source.CustomResource,
+		k.policyRepository.GetSelectorCache(),
+		k.policyManager,
+	)
+
+	for ip := range desiredIPs {
+		ipcache.UpsertMetadata(ip, labels.LabelKubeAPIServer)
+	}
+
+	// Use CustomResource as the source similar to the way the CiliumNode
+	// (pkg/node/manager.Manager) handler does because the ipcache entry needs
+	// to be overwrite-able by this handler and the CiliumNode handler. If we
+	// used Kubernetes as the source, then the ipcache entries inserted (first)
+	// by the CN handler wouldn't be overwrite-able by the entries inserted
+	// from this handler.
+	ipcache.IPIdentityCache.TriggerLabelInjection(
+		source.CustomResource,
+		k.policyRepository.GetSelectorCache(),
+		k.policyManager,
+	)
 }
 
 // initEndpointsOrSlices initializes either the "Endpoints" or "EndpointSlice"

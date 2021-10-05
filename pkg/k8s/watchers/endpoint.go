@@ -4,11 +4,14 @@
 package watchers
 
 import (
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/source"
 
 	v1 "k8s.io/api/core/v1"
 	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -85,10 +88,63 @@ func (k *K8sWatcher) updateK8sEndpointV1(oldEP, newEP *slim_corev1.Endpoints, sw
 	if option.Config.BGPAnnounceLBIP {
 		k.bgpSpeakerManager.OnUpdateEndpoints(newEP)
 	}
+	k.addKubeAPIServerServiceEPs(newEP)
 	return nil
 }
 
 func (k *K8sWatcher) deleteK8sEndpointV1(ep *slim_corev1.Endpoints, swg *lock.StoppableWaitGroup) error {
 	k.K8sSvcCache.DeleteEndpoints(ep, swg)
 	return nil
+}
+
+// TODO(christarazi): Convert to subscriber model along with the corresponding
+// EndpointSlice version.
+func (k *K8sWatcher) addKubeAPIServerServiceEPs(ep *slim_corev1.Endpoints) {
+	if ep == nil || ep.Name != "kubernetes" {
+		return
+	}
+
+	// See comment in addKubeAPIServerServiceEPSliceV1().
+
+	ips := ipcache.FilterMetadataByLabels(labels.LabelKubeAPIServer)
+	currentIPs := make(map[string]struct{}, len(ips))
+	for _, v := range ips {
+		currentIPs[v] = struct{}{}
+	}
+
+	desiredIPs := make(map[string]struct{}, len(currentIPs))
+	for _, sub := range ep.Subsets {
+		for _, addr := range sub.Addresses {
+			desiredIPs[addr.IP] = struct{}{}
+		}
+	}
+
+	toRemove := make(map[string]labels.Labels)
+	for ip := range currentIPs {
+		if _, ok := desiredIPs[ip]; !ok {
+			toRemove[ip] = labels.LabelKubeAPIServer
+		}
+	}
+	ipcache.RemoveAllPrefixesWithLabels(
+		toRemove,
+		source.CustomResource,
+		k.policyRepository.GetSelectorCache(),
+		k.policyManager,
+	)
+
+	for ip := range desiredIPs {
+		ipcache.UpsertMetadata(ip, labels.LabelKubeAPIServer)
+	}
+
+	// Use CustomResource as the source similar to the way the CiliumNode
+	// (pkg/node/manager.Manager) handler does because the ipcache entry needs
+	// to be overwrite-able by this handler and the CiliumNode handler. If we
+	// used Kubernetes as the source, then the ipcache entries inserted (first)
+	// by the CN handler wouldn't be overwrite-able by the entries inserted
+	// from this handler.
+	ipcache.IPIdentityCache.TriggerLabelInjection(
+		source.CustomResource,
+		k.policyRepository.GetSelectorCache(),
+		k.policyManager,
+	)
 }
