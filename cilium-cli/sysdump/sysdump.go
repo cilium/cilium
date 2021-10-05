@@ -95,6 +95,10 @@ type Collector struct {
 	startTime time.Time
 	// Directory to collect sysdump in.
 	sysdumpDir string
+	// allNodes is a list of all the node names in the cluster.
+	allNodes *corev1.NodeList
+	// NodeList is a list of nodes to collect sysdump information from.
+	NodeList []string
 }
 
 // NewCollector returns a new sysdump collector.
@@ -113,6 +117,36 @@ func NewCollector(k KubernetesClient, o Options, startTime time.Time) (*Collecto
 		return nil, fmt.Errorf("failed to create temporary directory: %w", err)
 	}
 	c.logDebug("Using %v as a temporary directory", c.sysdumpDir)
+
+	// Grab the Kubernetes nodes for the target cluster.
+	c.logTask("Collecting Kubernetes nodes")
+	c.allNodes, err = c.client.ListNodes(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to collect Kubernetes nodes: %w", err)
+	}
+	c.logDebug("Finished collecting Kubernetes nodes")
+
+	// Exit if there are no nodes, as there's nothing to do.
+	if len(c.allNodes.Items) == 0 {
+		return nil, fmt.Errorf("no nodes found in the current cluster")
+	}
+	// If there are many nodes and no filters are specified, issue a warning and wait for a while before proceeding so the user can cancel the process.
+	if len(c.allNodes.Items) > c.options.LargeSysdumpThreshold && (c.options.NodeList == DefaultNodeList && c.options.LogsLimitBytes == DefaultLogsLimitBytes && c.options.LogsSinceTime == DefaultLogsSinceTime) {
+		c.logWarn("Detected a large cluster (%d nodes)", len(c.allNodes.Items))
+		c.logWarn("Consider using a node filter, a custom log size limit and/or a custom log time range to decrease the size of the sysdump")
+		c.logWarn("Waiting for %s before continuing", c.options.LargeSysdumpAbortTimeout)
+		t := time.NewTicker(c.options.LargeSysdumpAbortTimeout)
+		defer t.Stop()
+		<-t.C
+	}
+
+	// Build the list of node names in which the user is interested.
+	c.NodeList, err = buildNodeNameList(c.allNodes, c.options.NodeList)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build node list: %w", err)
+	}
+	c.logDebug("Restricting bugtool and logs collection to pods in %v", c.NodeList)
+
 	return &c, nil
 }
 
@@ -128,44 +162,13 @@ func (c *Collector) AbsoluteTempPath(f string) string {
 
 // Run performs the actual sysdump collection.
 func (c *Collector) Run() error {
-	// Grab the Kubernetes nodes for the target cluster.
-	c.logTask("Collecting Kubernetes nodes")
-	n, err := c.client.ListNodes(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to collect Kubernetes nodes: %w", err)
-	}
-	c.logDebug("Finished collecting Kubernetes nodes")
-
-	// Exit if there are no nodes, as there's nothing to do.
-	if len(n.Items) == 0 {
-		c.logTask("No nodes found in the current cluster")
-		return nil
-	}
-	// If there are many nodes and no filters are specified, issue a warning and wait for a while before proceeding so the user can cancel the process.
-	if len(n.Items) > c.options.LargeSysdumpThreshold && (c.options.NodeList == DefaultNodeList && c.options.LogsLimitBytes == DefaultLogsLimitBytes && c.options.LogsSinceTime == DefaultLogsSinceTime) {
-		c.logWarn("Detected a large cluster (%d nodes)", len(n.Items))
-		c.logWarn("Consider using a node filter, a custom log size limit and/or a custom log time range to decrease the size of the sysdump")
-		c.logWarn("Waiting for %s before continuing", c.options.LargeSysdumpAbortTimeout)
-		t := time.NewTicker(c.options.LargeSysdumpAbortTimeout)
-		defer t.Stop()
-		<-t.C
-	}
-
-	// Build the list of node names in which the user is interested.
-	l, err := buildNodeNameList(n, c.options.NodeList)
-	if err != nil {
-		return fmt.Errorf("failed to build node list: %w", err)
-	}
-	nodeList := l
-	c.logDebug("Restricting bugtool and logs collection to pods in %v", nodeList)
-
 	// tasks is the list of base tasks to be run.
 	tasks := []sysdumpTask{
 		{
 			Description: "Collect Kubernetes nodes",
 			Quick:       true,
 			Task: func(_ context.Context) error {
-				if err := writeYaml(c.AbsoluteTempPath(kubernetesNodesFileName), n); err != nil {
+				if err := writeYaml(c.AbsoluteTempPath(kubernetesNodesFileName), c.allNodes); err != nil {
 					return fmt.Errorf("failed to collect Kubernetes nodes: %w", err)
 				}
 				return nil
@@ -528,7 +531,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get Cilium pods: %w", err)
 				}
-				if err := c.submitGopsSubtasks(ctx, filterPods(p, nodeList), ciliumAgentContainerName); err != nil {
+				if err := c.submitGopsSubtasks(ctx, filterPods(p, c.NodeList), ciliumAgentContainerName); err != nil {
 					return fmt.Errorf("failed to collect Cilium gops: %w", err)
 				}
 				return nil
@@ -545,7 +548,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get Hubble pods: %w", err)
 				}
-				if err := c.submitGopsSubtasks(ctx, filterPods(p, nodeList), hubbleContainerName); err != nil {
+				if err := c.submitGopsSubtasks(ctx, filterPods(p, c.NodeList), hubbleContainerName); err != nil {
 					return fmt.Errorf("failed to collect Hubble gops: %w", err)
 				}
 				return nil
@@ -562,7 +565,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get Hubble Relay pods: %w", err)
 				}
-				if err := c.submitGopsSubtasks(ctx, filterPods(p, nodeList), hubbleRelayContainerName); err != nil {
+				if err := c.submitGopsSubtasks(ctx, filterPods(p, c.NodeList), hubbleRelayContainerName); err != nil {
 					return fmt.Errorf("failed to collect Hubble Relay gops: %w", err)
 				}
 				return nil
@@ -579,7 +582,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get Cilium pods: %w", err)
 				}
-				if err := c.submitBugtoolTasks(ctx, filterPods(p, nodeList), ciliumAgentContainerName); err != nil {
+				if err := c.submitBugtoolTasks(ctx, filterPods(p, c.NodeList), ciliumAgentContainerName); err != nil {
 					return fmt.Errorf("failed to collect 'cilium-bugtool': %w", err)
 				}
 				return nil
@@ -596,7 +599,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get logs from Cilium pods")
 				}
-				if err := c.submitLogsTasks(ctx, filterPods(p, nodeList), c.options.LogsSinceTime, c.options.LogsLimitBytes); err != nil {
+				if err := c.submitLogsTasks(ctx, filterPods(p, c.NodeList), c.options.LogsSinceTime, c.options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from Cilium pods")
 				}
 				return nil
@@ -613,7 +616,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get logs from Cilium operator pods")
 				}
-				if err := c.submitLogsTasks(ctx, filterPods(p, nodeList), c.options.LogsSinceTime, c.options.LogsLimitBytes); err != nil {
+				if err := c.submitLogsTasks(ctx, filterPods(p, c.NodeList), c.options.LogsSinceTime, c.options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from Cilium operator pods")
 				}
 				return nil
@@ -630,7 +633,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get logs from 'clustermesh-apiserver' pods")
 				}
-				if err := c.submitLogsTasks(ctx, filterPods(p, nodeList), c.options.LogsSinceTime, c.options.LogsLimitBytes); err != nil {
+				if err := c.submitLogsTasks(ctx, filterPods(p, c.NodeList), c.options.LogsSinceTime, c.options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from 'clustermesh-apiserver' pods")
 				}
 				return nil
@@ -647,7 +650,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get logs from Hubble pods")
 				}
-				if err := c.submitLogsTasks(ctx, filterPods(p, nodeList), c.options.LogsSinceTime, c.options.LogsLimitBytes); err != nil {
+				if err := c.submitLogsTasks(ctx, filterPods(p, c.NodeList), c.options.LogsSinceTime, c.options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from Hubble pods")
 				}
 				return nil
@@ -664,7 +667,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get logs from Hubble Relay pods")
 				}
-				if err := c.submitLogsTasks(ctx, filterPods(p, nodeList), c.options.LogsSinceTime, c.options.LogsLimitBytes); err != nil {
+				if err := c.submitLogsTasks(ctx, filterPods(p, c.NodeList), c.options.LogsSinceTime, c.options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from Hubble Relay pods")
 				}
 				return nil
@@ -681,7 +684,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get logs from Hubble UI pods")
 				}
-				if err := c.submitLogsTasks(ctx, filterPods(p, nodeList), c.options.LogsSinceTime, c.options.LogsLimitBytes); err != nil {
+				if err := c.submitLogsTasks(ctx, filterPods(p, c.NodeList), c.options.LogsSinceTime, c.options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from Hubble UI pods")
 				}
 				return nil
@@ -717,7 +720,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get logs from pods matching selector %q", selector)
 				}
-				if err := c.submitLogsTasks(ctx, filterPods(p, nodeList), c.options.LogsSinceTime, c.options.LogsLimitBytes); err != nil {
+				if err := c.submitLogsTasks(ctx, filterPods(p, c.NodeList), c.options.LogsSinceTime, c.options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from pods matching selector %q", selector)
 				}
 				return nil
@@ -736,7 +739,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get Cilium pods: %w", err)
 				}
-				if err := c.submitHubbleFlowsTasks(ctx, filterPods(p, nodeList), ciliumAgentContainerName); err != nil {
+				if err := c.submitHubbleFlowsTasks(ctx, filterPods(p, c.NodeList), ciliumAgentContainerName); err != nil {
 					return fmt.Errorf("failed to collect hubble flows: %w", err)
 				}
 				return nil
