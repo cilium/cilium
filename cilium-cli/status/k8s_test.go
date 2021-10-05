@@ -157,7 +157,7 @@ func (b *StatusSuite) TestStatus(c *check.C) {
 	client := newK8sStatusMockClient()
 	c.Assert(client, check.Not(check.IsNil))
 
-	collector, err := NewK8sStatusCollector(context.Background(), client, fakeParameters)
+	collector, err := NewK8sStatusCollector(client, fakeParameters)
 	c.Assert(err, check.IsNil)
 	c.Assert(collector, check.Not(check.IsNil))
 
@@ -206,7 +206,7 @@ func (b *StatusSuite) TestFormat(c *check.C) {
 	client := newK8sStatusMockClient()
 	c.Assert(client, check.Not(check.IsNil))
 
-	collector, err := NewK8sStatusCollector(context.Background(), client, fakeParameters)
+	collector, err := NewK8sStatusCollector(client, fakeParameters)
 	c.Assert(err, check.IsNil)
 	c.Assert(collector, check.Not(check.IsNil))
 

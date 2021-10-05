@@ -21,7 +21,7 @@ func newCmdStatus() *cobra.Command {
 		Short: "Display status",
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			collector, err := status.NewK8sStatusCollector(context.Background(), k8sClient, params)
+			collector, err := status.NewK8sStatusCollector(k8sClient, params)
 			if err != nil {
 				return err
 			}
