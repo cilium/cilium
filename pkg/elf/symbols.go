@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"debug/elf"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -99,6 +100,10 @@ func (s *symbols) sort() symbolSlice {
 	return result.sort()
 }
 
+// isGlobalData returns true if the symbol meets all of the following criteria:
+// - symbol is of type STT_NOTYPE or STT_OBJECT
+// - symbol has a global binding (STB_GLOBAL)
+// - symbol has default visibility (STV_DEFAULT)
 func isGlobalData(sym elf.Symbol) bool {
 	return (elf.ST_TYPE(sym.Info) == elf.STT_NOTYPE ||
 		elf.ST_TYPE(sym.Info) == elf.STT_OBJECT) &&
@@ -148,10 +153,16 @@ func (s *symbols) extractFrom(e *elf.File) error {
 		if elf.ST_TYPE(sym.Info) == elf.STT_FILE {
 			continue
 		}
+
+		// Get ELF section reference by its index encoded in the symbol.
 		section := e.Sections[sym.Section]
+
 		switch {
 		case section.Flags&elf.SHF_COMPRESSED > 0:
 			return fmt.Errorf("compressed %s section not supported", section.Name)
+
+		// Skip local symbols that are objects or untyped. These are usually
+		// program segments referred to using long jumps in bytecode.
 		case !isGlobalData(sym):
 			// LBB is a common llvm symbol prefix (basic block);
 			// Don't flood the logs with messages about it.
@@ -159,11 +170,18 @@ func (s *symbols) extractFrom(e *elf.File) error {
 				log.Debugf("Skipping %s", sym.Name)
 			}
 			continue
+
+		// Find the absolute offset to the variable's value this symbol represents
+		// in the .data section.
+		// This implements substitution of static data.
 		case section.Name == dataSection:
 			// Offset from start of binary to variable inside .data
 			offset := section.Offset + sym.Value
 			dataOffsets[sym.Name] = newVariable(sym.Name, offset)
 			log.WithField(fieldSymbol, sym.Name).Debugf("Found variable with offset %d", offset)
+
+		// Find the absolute offset to the map's entry in .strtab.
+		// This implements renaming maps.
 		case section.Name == mapSection:
 			// From the Golang Documentation:
 			//   "For compatibility with Go 1.0, Symbols omits the
@@ -174,12 +192,14 @@ func (s *symbols) extractFrom(e *elf.File) error {
 			if err != nil {
 				return err
 			}
+
 			// Offset from start of binary to name inside .strtab
 			symOffset := strtab.Offset + symOffsetInStrtab
 			stringOffsets[sym.Name] = newString(sym.Name, symOffset)
 			log.WithField(fieldSymbol, sym.Name).Debugf("Found symbol with offset %d", symOffset)
+
 		default:
-			log.WithField(fieldSymbol, sym.Name).Debugf("Found symbol with unknown section reference %d", sym.Section)
+			log.WithField(fieldSymbol, sym.Name).Debugf("Found symbol referring to unknown section id %d", sym.Section)
 		}
 	}
 
@@ -189,15 +209,15 @@ func (s *symbols) extractFrom(e *elf.File) error {
 	for off := uint64(0); off < strtab.Size; off += uint64(len(elfString)) {
 		// off is the offset within the string table.
 		elfString, err = stringReader.ReadString(nullTerminator)
-		if err != nil && err != io.EOF {
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
 			return err
 		}
 
 		// We only need to worry about sections with relocations.
 		if !strings.HasPrefix(elfString, relocSectionPrefix) {
-			if err == io.EOF {
-				break
-			}
 			continue
 		}
 
@@ -212,10 +232,6 @@ func (s *symbols) extractFrom(e *elf.File) error {
 			globalOffset := strtab.Offset + off + relocOffset
 			stringOffsets[secName] = newString(secName, globalOffset)
 			log.WithField(fieldSymbol, secName).Debugf("Found section with offset %d", globalOffset)
-		}
-
-		if err == io.EOF {
-			break
 		}
 	}
 
