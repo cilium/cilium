@@ -90,41 +90,44 @@ type Collector struct {
 	// subtasksWg is used to wait for subtasks to be submitted to the pool before calling 'Drain'.
 	// It is required since we don't know beforehand how many sub-tasks will be created, as they depend on the number of Cilium/Hubble/... pods found by "main" tasks.
 	subtasksWg sync.WaitGroup
+	// startTime keeps track of the time this sysdump collector got initialized. This timestamp
+	// is used to substitute '<ts>' in filenames.
+	startTime time.Time
+	// Directory to collect sysdump in.
+	sysdumpDir string
 }
 
 // NewCollector returns a new sysdump collector.
-func NewCollector(k KubernetesClient, o Options) *Collector {
-	return &Collector{
-		client:  k,
-		options: o,
+func NewCollector(k KubernetesClient, o Options, startTime time.Time) (*Collector, error) {
+	c := Collector{
+		client:    k,
+		options:   o,
+		startTime: startTime,
 	}
+	tmp, err := os.MkdirTemp("", "*")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temporary directory: %w", err)
+	}
+	c.sysdumpDir = filepath.Join(tmp, c.replaceTimestamp(c.Options.OutputFileName))
+	if err = os.MkdirAll(c.sysdumpDir, dirMode); err != nil {
+		return nil, fmt.Errorf("failed to create temporary directory: %w", err)
+	}
+	c.logDebug("Using %v as a temporary directory", c.sysdumpDir)
+	return &c, nil
+}
+
+// replaceTimestamp can be used to replace the special timestamp placeholder in file and directory names.
+func (c *Collector) replaceTimestamp(f string) string {
+	return strings.Replace(f, timestampPlaceholderFileName, c.startTime.Format(timeFormat), -1)
+}
+
+// AbsoluteTempPath returns the absolute path where to store the specified filename temporarily.
+func (c *Collector) AbsoluteTempPath(f string) string {
+	return path.Join(c.sysdumpDir, c.replaceTimestamp(f))
 }
 
 // Run performs the actual sysdump collection.
 func (c *Collector) Run() error {
-	// Grab the current timestamp and create a temporary directory to hold the files.
-	t := time.Now()
-
-	// replaceTimestamp can be used to replace the special timestamp placeholder in file and directory names.
-	replaceTimestamp := func(f string) string {
-		return strings.Replace(f, timestampPlaceholderFileName, t.Format(timeFormat), -1)
-	}
-
-	d, err := os.MkdirTemp("", "*")
-	if err != nil {
-		return fmt.Errorf("failed to create temporary directory: %w", err)
-	}
-	d = filepath.Join(d, replaceTimestamp(c.options.OutputFileName))
-	if err := os.MkdirAll(d, dirMode); err != nil {
-		return fmt.Errorf("failed to create temporary directory: %w", err)
-	}
-	c.logDebug("Using %v as a temporary directory", d)
-
-	// absoluteTempPath returns the absolute path where to store the specified filename temporarily.
-	absoluteTempPath := func(f string) string {
-		return path.Join(d, replaceTimestamp(f))
-	}
-
 	// Grab the Kubernetes nodes for the target cluster.
 	c.logTask("Collecting Kubernetes nodes")
 	n, err := c.client.ListNodes(context.Background(), metav1.ListOptions{})
@@ -162,7 +165,7 @@ func (c *Collector) Run() error {
 			Description: "Collect Kubernetes nodes",
 			Quick:       true,
 			Task: func(_ context.Context) error {
-				if err := writeYaml(absoluteTempPath(kubernetesNodesFileName), n); err != nil {
+				if err := writeYaml(c.AbsoluteTempPath(kubernetesNodesFileName), n); err != nil {
 					return fmt.Errorf("failed to collect Kubernetes nodes: %w", err)
 				}
 				return nil
@@ -176,7 +179,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect Kubernetes version: %w", err)
 				}
-				if err := writeString(absoluteTempPath(kubernetesVersionInfoFileName), v); err != nil {
+				if err := writeString(c.AbsoluteTempPath(kubernetesVersionInfoFileName), v); err != nil {
 					return fmt.Errorf("failed to dump Kubernetes version: %w", err)
 				}
 				return nil
@@ -190,7 +193,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect Kubernetes events: %w", err)
 				}
-				if err := writeYaml(absoluteTempPath(kubernetesEventsFileName), v); err != nil {
+				if err := writeYaml(c.AbsoluteTempPath(kubernetesEventsFileName), v); err != nil {
 					return fmt.Errorf("failed to collect Kubernetes events: %w", err)
 				}
 				return nil
@@ -204,7 +207,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect Kubernetes namespaces: %w", err)
 				}
-				if err := writeYaml(absoluteTempPath(kubernetesNamespacesFileName), v); err != nil {
+				if err := writeYaml(c.AbsoluteTempPath(kubernetesNamespacesFileName), v); err != nil {
 					return fmt.Errorf("failed to collect Kubernetes namespaces: %w", err)
 				}
 				return nil
@@ -218,7 +221,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect Kubernetes pods: %w", err)
 				}
-				if err := writeYaml(absoluteTempPath(kubernetesPodsFileName), v); err != nil {
+				if err := writeYaml(c.AbsoluteTempPath(kubernetesPodsFileName), v); err != nil {
 					return fmt.Errorf("failed to collect Kubernetes pods: %w", err)
 				}
 				return nil
@@ -232,7 +235,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect Kubernetes pods summary: %w", err)
 				}
-				if err := writeTable(absoluteTempPath(kubernetesPodsSummaryFileName), v); err != nil {
+				if err := writeTable(c.AbsoluteTempPath(kubernetesPodsSummaryFileName), v); err != nil {
 					return fmt.Errorf("failed to collect Kubernetes pods summary: %w", err)
 				}
 				return nil
@@ -246,7 +249,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect Kubernetes services: %w", err)
 				}
-				if err := writeYaml(absoluteTempPath(kubernetesServicesFileName), v); err != nil {
+				if err := writeYaml(c.AbsoluteTempPath(kubernetesServicesFileName), v); err != nil {
 					return fmt.Errorf("failed to collect Kubernetes services: %w", err)
 				}
 				return nil
@@ -260,7 +263,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect Kubernetes network policies: %w", err)
 				}
-				if err := writeYaml(absoluteTempPath(kubernetesNetworkPoliciesFileName), v); err != nil {
+				if err := writeYaml(c.AbsoluteTempPath(kubernetesNetworkPoliciesFileName), v); err != nil {
 					return fmt.Errorf("failed to collect Kubernetes network policies: %w", err)
 				}
 				return nil
@@ -274,7 +277,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect Cilium network policies: %w", err)
 				}
-				if err := writeYaml(absoluteTempPath(ciliumNetworkPoliciesFileName), v); err != nil {
+				if err := writeYaml(c.AbsoluteTempPath(ciliumNetworkPoliciesFileName), v); err != nil {
 					return fmt.Errorf("failed to collect Cilium network policies: %w", err)
 				}
 				return nil
@@ -288,7 +291,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect Cilium cluster-wide network policies: %w", err)
 				}
-				if err := writeYaml(absoluteTempPath(ciliumClusterWideNetworkPoliciesFileName), v); err != nil {
+				if err := writeYaml(c.AbsoluteTempPath(ciliumClusterWideNetworkPoliciesFileName), v); err != nil {
 					return fmt.Errorf("failed to collect Cilium cluster-wide network policies: %w", err)
 				}
 				return nil
@@ -302,7 +305,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect Cilium egress NAT policies: %w", err)
 				}
-				if err := writeYaml(absoluteTempPath(ciliumEgressNATPoliciesFileName), v); err != nil {
+				if err := writeYaml(c.AbsoluteTempPath(ciliumEgressNATPoliciesFileName), v); err != nil {
 					return fmt.Errorf("failed to collect Cilium egress NAT policies: %w", err)
 				}
 				return nil
@@ -316,7 +319,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect Cilium local redirect policies: %w", err)
 				}
-				if err := writeYaml(absoluteTempPath(ciliumLocalRedirectPoliciesFileName), v); err != nil {
+				if err := writeYaml(c.AbsoluteTempPath(ciliumLocalRedirectPoliciesFileName), v); err != nil {
 					return fmt.Errorf("failed to collect Cilium local redirect policies: %w", err)
 				}
 				return nil
@@ -330,7 +333,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect Cilium endpoints: %w", err)
 				}
-				if err := writeYaml(absoluteTempPath(ciliumEndpointsFileName), v); err != nil {
+				if err := writeYaml(c.AbsoluteTempPath(ciliumEndpointsFileName), v); err != nil {
 					return fmt.Errorf("failed to collect Cilium endpoints: %w", err)
 				}
 				return nil
@@ -344,7 +347,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect Cilium identities: %w", err)
 				}
-				if err := writeYaml(absoluteTempPath(ciliumIdentitiesFileName), v); err != nil {
+				if err := writeYaml(c.AbsoluteTempPath(ciliumIdentitiesFileName), v); err != nil {
 					return fmt.Errorf("failed to collect Cilium identities: %w", err)
 				}
 				return nil
@@ -358,7 +361,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect Cilium nodes: %w", err)
 				}
-				if err := writeYaml(absoluteTempPath(ciliumNodesFileName), v); err != nil {
+				if err := writeYaml(c.AbsoluteTempPath(ciliumNodesFileName), v); err != nil {
 					return fmt.Errorf("failed to collect Cilium nodes: %w", err)
 				}
 				return nil
@@ -380,7 +383,7 @@ func (c *Collector) Run() error {
 				for k := range v.Data {
 					v.Data[k] = []byte(redacted)
 				}
-				if err := writeYaml(absoluteTempPath(ciliumEtcdSecretFileName), v); err != nil {
+				if err := writeYaml(c.AbsoluteTempPath(ciliumEtcdSecretFileName), v); err != nil {
 					return fmt.Errorf("failed to collect Cilium etcd secret: %w", err)
 				}
 				return nil
@@ -394,7 +397,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect the Cilium configuration: %w", err)
 				}
-				if err := writeYaml(absoluteTempPath(ciliumConfigMapFileName), v); err != nil {
+				if err := writeYaml(c.AbsoluteTempPath(ciliumConfigMapFileName), v); err != nil {
 					return fmt.Errorf("failed to collect the Cilium configuration: %w", err)
 				}
 				return nil
@@ -408,7 +411,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect the Cilium daemonset: %w", err)
 				}
-				if err := writeYaml(absoluteTempPath(ciliumDaemonSetFileName), v); err != nil {
+				if err := writeYaml(c.AbsoluteTempPath(ciliumDaemonSetFileName), v); err != nil {
 					return fmt.Errorf("failed to collect the Cilium daemonset: %w", err)
 				}
 				return nil
@@ -426,7 +429,7 @@ func (c *Collector) Run() error {
 					}
 					return fmt.Errorf("failed to collect the Hubble daemonset: %w", err)
 				}
-				if err := writeYaml(absoluteTempPath(hubbleDaemonsetFileName), v); err != nil {
+				if err := writeYaml(c.AbsoluteTempPath(hubbleDaemonsetFileName), v); err != nil {
 					return fmt.Errorf("failed to collect the Hubble daemonset: %w", err)
 				}
 				return nil
@@ -440,7 +443,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect the Hubble Relay configuration: %w", err)
 				}
-				if err := writeYaml(absoluteTempPath(hubbleRelayConfigMapFileName), v); err != nil {
+				if err := writeYaml(c.AbsoluteTempPath(hubbleRelayConfigMapFileName), v); err != nil {
 					return fmt.Errorf("failed to collect the Hubble Relay configuration: %w", err)
 				}
 				return nil
@@ -458,7 +461,7 @@ func (c *Collector) Run() error {
 					}
 					return fmt.Errorf("failed to collect the Hubble Relay deployment: %w", err)
 				}
-				if err := writeYaml(absoluteTempPath(hubbleRelayDeploymentFileName), v); err != nil {
+				if err := writeYaml(c.AbsoluteTempPath(hubbleRelayDeploymentFileName), v); err != nil {
 					return fmt.Errorf("failed to collect the Hubble Relay deployment: %w", err)
 				}
 				return nil
@@ -476,7 +479,7 @@ func (c *Collector) Run() error {
 					}
 					return fmt.Errorf("failed to collect the Hubble UI deployment: %w", err)
 				}
-				if err := writeYaml(absoluteTempPath(hubbleUIDeploymentFileName), v); err != nil {
+				if err := writeYaml(c.AbsoluteTempPath(hubbleUIDeploymentFileName), v); err != nil {
 					return fmt.Errorf("failed to collect the Hubble UI deployment: %w", err)
 				}
 				return nil
@@ -490,7 +493,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect the Cilium operator deployment: %w", err)
 				}
-				if err := writeYaml(absoluteTempPath(ciliumOperatorDeploymentFileName), v); err != nil {
+				if err := writeYaml(c.AbsoluteTempPath(ciliumOperatorDeploymentFileName), v); err != nil {
 					return fmt.Errorf("failed to collect the Cilium operator deployment: %w", err)
 				}
 				return nil
@@ -508,7 +511,7 @@ func (c *Collector) Run() error {
 					}
 					return fmt.Errorf("failed to collect the 'clustermesh-apiserver' deployment: %w", err)
 				}
-				if err := writeYaml(absoluteTempPath(clustermeshApiserverDeploymentFileName), v); err != nil {
+				if err := writeYaml(c.AbsoluteTempPath(clustermeshApiserverDeploymentFileName), v); err != nil {
 					return fmt.Errorf("failed to collect the 'clustermesh-apiserver' deployment: %w", err)
 				}
 				return nil
@@ -525,7 +528,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get Cilium pods: %w", err)
 				}
-				if err := c.submitGopsSubtasks(ctx, filterPods(p, nodeList), ciliumAgentContainerName, absoluteTempPath); err != nil {
+				if err := c.submitGopsSubtasks(ctx, filterPods(p, nodeList), ciliumAgentContainerName); err != nil {
 					return fmt.Errorf("failed to collect Cilium gops: %w", err)
 				}
 				return nil
@@ -542,7 +545,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get Hubble pods: %w", err)
 				}
-				if err := c.submitGopsSubtasks(ctx, filterPods(p, nodeList), hubbleContainerName, absoluteTempPath); err != nil {
+				if err := c.submitGopsSubtasks(ctx, filterPods(p, nodeList), hubbleContainerName); err != nil {
 					return fmt.Errorf("failed to collect Hubble gops: %w", err)
 				}
 				return nil
@@ -559,7 +562,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get Hubble Relay pods: %w", err)
 				}
-				if err := c.submitGopsSubtasks(ctx, filterPods(p, nodeList), hubbleRelayContainerName, absoluteTempPath); err != nil {
+				if err := c.submitGopsSubtasks(ctx, filterPods(p, nodeList), hubbleRelayContainerName); err != nil {
 					return fmt.Errorf("failed to collect Hubble Relay gops: %w", err)
 				}
 				return nil
@@ -576,7 +579,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get Cilium pods: %w", err)
 				}
-				if err := c.submitBugtoolTasks(ctx, filterPods(p, nodeList), ciliumAgentContainerName, absoluteTempPath); err != nil {
+				if err := c.submitBugtoolTasks(ctx, filterPods(p, nodeList), ciliumAgentContainerName); err != nil {
 					return fmt.Errorf("failed to collect 'cilium-bugtool': %w", err)
 				}
 				return nil
@@ -593,7 +596,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get logs from Cilium pods")
 				}
-				if err := c.submitLogsTasks(ctx, filterPods(p, nodeList), c.options.LogsSinceTime, c.options.LogsLimitBytes, absoluteTempPath); err != nil {
+				if err := c.submitLogsTasks(ctx, filterPods(p, nodeList), c.options.LogsSinceTime, c.options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from Cilium pods")
 				}
 				return nil
@@ -610,7 +613,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get logs from Cilium operator pods")
 				}
-				if err := c.submitLogsTasks(ctx, filterPods(p, nodeList), c.options.LogsSinceTime, c.options.LogsLimitBytes, absoluteTempPath); err != nil {
+				if err := c.submitLogsTasks(ctx, filterPods(p, nodeList), c.options.LogsSinceTime, c.options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from Cilium operator pods")
 				}
 				return nil
@@ -627,7 +630,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get logs from 'clustermesh-apiserver' pods")
 				}
-				if err := c.submitLogsTasks(ctx, filterPods(p, nodeList), c.options.LogsSinceTime, c.options.LogsLimitBytes, absoluteTempPath); err != nil {
+				if err := c.submitLogsTasks(ctx, filterPods(p, nodeList), c.options.LogsSinceTime, c.options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from 'clustermesh-apiserver' pods")
 				}
 				return nil
@@ -644,7 +647,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get logs from Hubble pods")
 				}
-				if err := c.submitLogsTasks(ctx, filterPods(p, nodeList), c.options.LogsSinceTime, c.options.LogsLimitBytes, absoluteTempPath); err != nil {
+				if err := c.submitLogsTasks(ctx, filterPods(p, nodeList), c.options.LogsSinceTime, c.options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from Hubble pods")
 				}
 				return nil
@@ -661,7 +664,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get logs from Hubble Relay pods")
 				}
-				if err := c.submitLogsTasks(ctx, filterPods(p, nodeList), c.options.LogsSinceTime, c.options.LogsLimitBytes, absoluteTempPath); err != nil {
+				if err := c.submitLogsTasks(ctx, filterPods(p, nodeList), c.options.LogsSinceTime, c.options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from Hubble Relay pods")
 				}
 				return nil
@@ -678,7 +681,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get logs from Hubble UI pods")
 				}
-				if err := c.submitLogsTasks(ctx, filterPods(p, nodeList), c.options.LogsSinceTime, c.options.LogsLimitBytes, absoluteTempPath); err != nil {
+				if err := c.submitLogsTasks(ctx, filterPods(p, nodeList), c.options.LogsSinceTime, c.options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from Hubble UI pods")
 				}
 				return nil
@@ -695,7 +698,7 @@ func (c *Collector) Run() error {
 					return nil
 				}
 				c.logDebug("Detected flavor %q", f.Kind)
-				if err := c.submitFlavorSpecificTasks(ctx, f, absoluteTempPath); err != nil {
+				if err := c.submitFlavorSpecificTasks(ctx, f); err != nil {
 					return fmt.Errorf("failed to collect platform-specific data: %w", err)
 				}
 				return nil
@@ -714,7 +717,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get logs from pods matching selector %q", selector)
 				}
-				if err := c.submitLogsTasks(ctx, filterPods(p, nodeList), c.options.LogsSinceTime, c.options.LogsLimitBytes, absoluteTempPath); err != nil {
+				if err := c.submitLogsTasks(ctx, filterPods(p, nodeList), c.options.LogsSinceTime, c.options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from pods matching selector %q", selector)
 				}
 				return nil
@@ -733,7 +736,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get Cilium pods: %w", err)
 				}
-				if err := c.submitHubbleFlowsTasks(ctx, filterPods(p, nodeList), ciliumAgentContainerName, absoluteTempPath); err != nil {
+				if err := c.submitHubbleFlowsTasks(ctx, filterPods(p, nodeList), ciliumAgentContainerName); err != nil {
 					return fmt.Errorf("failed to collect hubble flows: %w", err)
 				}
 				return nil
@@ -811,16 +814,16 @@ func (c *Collector) Run() error {
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)
 	}
-	f := filepath.Join(p, replaceTimestamp(c.options.OutputFileName)+".zip")
-	if err := archiver.Archive([]string{d}, f); err != nil {
+	f := filepath.Join(p, c.replaceTimestamp(c.options.OutputFileName)+".zip")
+	if err := archiver.Archive([]string{c.sysdumpDir}, f); err != nil {
 		return fmt.Errorf("failed to create zip file: %w", err)
 	}
 	c.log("✅ The sysdump has been saved to %s", f)
 
 	// Try to remove the temporary directory.
-	c.logDebug("Removing the temporary directory %s", d)
-	if err := os.RemoveAll(d); err != nil {
-		c.logWarn("failed to remove temporary directory %s: %v", d, err)
+	c.logDebug("Removing the temporary directory %s", c.sysdumpDir)
+	if err := os.RemoveAll(c.sysdumpDir); err != nil {
+		c.logWarn("failed to remove temporary directory %s: %v", c.sysdumpDir, err)
 	}
 	return nil
 }
@@ -847,7 +850,7 @@ func (c *Collector) shouldSkipTask(t sysdumpTask) bool {
 	return c.options.Quick && !t.Quick
 }
 
-func (c *Collector) submitBugtoolTasks(ctx context.Context, pods []*corev1.Pod, containerName string, path func(string) string) error {
+func (c *Collector) submitBugtoolTasks(ctx context.Context, pods []*corev1.Pod, containerName string) error {
 	for _, p := range pods {
 		p := p
 		if err := c.pool.Submit(fmt.Sprintf("cilium-bugtool-"+p.Name), func(ctx context.Context) error {
@@ -867,7 +870,7 @@ func (c *Collector) submitBugtoolTasks(ctx context.Context, pods []*corev1.Pod, 
 				return fmt.Errorf("failed to collect 'cilium-bugtool' output for %q: %w", p.Name, err)
 			}
 			// Dump the resulting file's contents to the temporary directory.
-			f := path(fmt.Sprintf(ciliumBugtoolFileName, p.Name))
+			f := c.AbsoluteTempPath(fmt.Sprintf(ciliumBugtoolFileName, p.Name))
 			if err := writeBytes(f, b.Bytes()); err != nil {
 				return fmt.Errorf("failed to collect 'cilium-bugtool' output for %q: %w", p.Name, err)
 			}
@@ -897,7 +900,7 @@ func (c *Collector) submitBugtoolTasks(ctx context.Context, pods []*corev1.Pod, 
 	return nil
 }
 
-func (c *Collector) submitHubbleFlowsTasks(_ context.Context, pods []*corev1.Pod, containerName string, path func(string) string) error {
+func (c *Collector) submitHubbleFlowsTasks(_ context.Context, pods []*corev1.Pod, containerName string) error {
 	for _, p := range pods {
 		p := p
 		if err := c.pool.Submit(fmt.Sprintf("hubble-flows-"+p.Name), func(ctx context.Context) error {
@@ -911,7 +914,7 @@ func (c *Collector) submitHubbleFlowsTasks(_ context.Context, pods []*corev1.Pod
 				return fmt.Errorf("failed to collect hubble flows for %q in namespace %q: %w: %s", p.Name, p.Namespace, err, e.String())
 			}
 			// Dump the resulting file's contents to the temporary directory.
-			f := path(fmt.Sprintf(hubbleFlowsFileName, p.Name))
+			f := c.AbsoluteTempPath(fmt.Sprintf(hubbleFlowsFileName, p.Name))
 			if err := writeBytes(f, b.Bytes()); err != nil {
 				return fmt.Errorf("failed to collect hubble flows for %q in namespace %q: %w", p.Name, p.Namespace, err)
 			}
@@ -923,7 +926,7 @@ func (c *Collector) submitHubbleFlowsTasks(_ context.Context, pods []*corev1.Pod
 	return nil
 }
 
-func (c *Collector) submitGopsSubtasks(ctx context.Context, pods []*corev1.Pod, containerName string, path func(string) string) error {
+func (c *Collector) submitGopsSubtasks(ctx context.Context, pods []*corev1.Pod, containerName string) error {
 	for _, p := range pods {
 		p := p
 		for _, g := range gopsStats {
@@ -939,7 +942,7 @@ func (c *Collector) submitGopsSubtasks(ctx context.Context, pods []*corev1.Pod, 
 					return fmt.Errorf("failed to collect gops for %q (%q) in namespace %q: %w", p.Name, containerName, p.Namespace, err)
 				}
 				// Dump the output to the temporary directory.
-				if err := writeBytes(path(fmt.Sprintf(gopsFileName, p.Name, containerName, g)), o.Bytes()); err != nil {
+				if err := writeBytes(c.AbsoluteTempPath(fmt.Sprintf(gopsFileName, p.Name, containerName, g)), o.Bytes()); err != nil {
 					return fmt.Errorf("failed to collect gops for %q (%q) in namespace %q: %w", p.Name, containerName, p.Namespace, err)
 				}
 				return nil
@@ -951,7 +954,7 @@ func (c *Collector) submitGopsSubtasks(ctx context.Context, pods []*corev1.Pod, 
 	return nil
 }
 
-func (c *Collector) submitLogsTasks(ctx context.Context, pods []*corev1.Pod, since time.Duration, limitBytes int64, path func(string) string) error {
+func (c *Collector) submitLogsTasks(ctx context.Context, pods []*corev1.Pod, since time.Duration, limitBytes int64) error {
 	t := time.Now().Add(-since)
 	for _, p := range pods {
 		p := p
@@ -963,7 +966,7 @@ func (c *Collector) submitLogsTasks(ctx context.Context, pods []*corev1.Pod, sin
 				if err != nil {
 					return fmt.Errorf("failed to collect logs for %q (%q) in namespace %q: %w", p.Name, d.Name, p.Namespace, err)
 				}
-				if err := writeString(path(fmt.Sprintf(ciliumLogsFileName, p.Name, d.Name)), l); err != nil {
+				if err := writeString(c.AbsoluteTempPath(fmt.Sprintf(ciliumLogsFileName, p.Name, d.Name)), l); err != nil {
 					return fmt.Errorf("failed to collect logs for %q (%q) in namespace %q: %w", p.Name, d.Name, p.Namespace, err)
 				}
 				// Check if this container has restarted, in which case we should gather the previous one's logs too.
@@ -980,7 +983,7 @@ func (c *Collector) submitLogsTasks(ctx context.Context, pods []*corev1.Pod, sin
 					if err != nil {
 						return fmt.Errorf("failed to collect previous logs for %q (%q) in namespace %q: %w", p.Name, d.Name, p.Namespace, err)
 					}
-					if err := writeString(path(fmt.Sprintf(ciliumPreviousLogsFileName, p.Name, d.Name)), u); err != nil {
+					if err := writeString(c.AbsoluteTempPath(fmt.Sprintf(ciliumPreviousLogsFileName, p.Name, d.Name)), u); err != nil {
 						return fmt.Errorf("failed to collect previous logs for %q (%q) in namespace %q: %w", p.Name, d.Name, p.Namespace, err)
 					}
 				}
@@ -993,7 +996,7 @@ func (c *Collector) submitLogsTasks(ctx context.Context, pods []*corev1.Pod, sin
 	return nil
 }
 
-func (c *Collector) submitFlavorSpecificTasks(ctx context.Context, f k8s.Flavor, path func(string) string) error {
+func (c *Collector) submitFlavorSpecificTasks(ctx context.Context, f k8s.Flavor) error {
 	switch f.Kind {
 	case k8s.KindEKS:
 		if err := c.pool.Submit(awsNodeDaemonSetName, func(ctx context.Context) error {
@@ -1006,7 +1009,7 @@ func (c *Collector) submitFlavorSpecificTasks(ctx context.Context, f k8s.Flavor,
 				}
 				return fmt.Errorf("failed to collect daemonset %q in namespace %q: %w", awsNodeDaemonSetName, awsNodeDaemonSetNamespace, err)
 			}
-			if err := writeYaml(path(awsNodeDaemonSetFileName), d); err != nil {
+			if err := writeYaml(c.AbsoluteTempPath(awsNodeDaemonSetFileName), d); err != nil {
 				return fmt.Errorf("failed to collect daemonset %q in namespace %q: %w", awsNodeDaemonSetName, awsNodeDaemonSetNamespace, err)
 			}
 			// Only if the 'kube-system/aws-node' Daemonset is present...
@@ -1016,7 +1019,7 @@ func (c *Collector) submitFlavorSpecificTasks(ctx context.Context, f k8s.Flavor,
 			if err != nil {
 				return fmt.Errorf("failed to collect security group policies: %w", err)
 			}
-			if err := writeYaml(path(securityGroupPoliciesFileName), l); err != nil {
+			if err := writeYaml(c.AbsoluteTempPath(securityGroupPoliciesFileName), l); err != nil {
 				return fmt.Errorf("failed to collect security group policies: %w", err)
 			}
 			// ... collect any "ENIConfigs" resources.
@@ -1024,7 +1027,7 @@ func (c *Collector) submitFlavorSpecificTasks(ctx context.Context, f k8s.Flavor,
 			if err != nil {
 				return fmt.Errorf("failed to collect ENI configs: %w", err)
 			}
-			if err := writeYaml(path(eniconfigsFileName), l); err != nil {
+			if err := writeYaml(c.AbsoluteTempPath(eniconfigsFileName), l); err != nil {
 				return fmt.Errorf("failed to collect ENI configs: %w", err)
 			}
 			return nil
