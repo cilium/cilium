@@ -44,7 +44,7 @@ cilium-bugtool [OPTIONS] [flags]
       --k8s-label string          Kubernetes label for Cilium pod (default "k8s-app=cilium")
       --k8s-mode                  Require Kubernetes pods to be found or fail
       --k8s-namespace string      Kubernetes namespace for Cilium pod (default "kube-system")
-  -p, --parallel-workers int      Maximum number of parallel worker tasks (default 2)
+      --parallel-workers int      Maximum number of parallel worker tasks, use 0 for number of CPUs
       --pprof-port int            Port on which pprof server is exposed (default 6060)
       --pprof-trace-seconds int   Amount of seconds used for pprof CPU traces (default 180)
   -t, --tmp string                Path to store extracted files. Use '-' to send to stdout. (default "/tmp")
