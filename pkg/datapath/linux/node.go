@@ -354,11 +354,12 @@ func (n *linuxNodeHandler) createNodeRouteSpec(prefix *cidr.CIDR, isLocalNode bo
 
 	// The default routing table accounts for encryption overhead for encrypt-node traffic
 	return route.Route{
-		Nexthop: &nexthop,
-		Local:   local,
-		Device:  n.datapathConfig.HostDevice,
-		Prefix:  *prefix.IPNet,
-		MTU:     mtu,
+		Nexthop:  &nexthop,
+		Local:    local,
+		Device:   n.datapathConfig.HostDevice,
+		Prefix:   *prefix.IPNet,
+		MTU:      mtu,
+		Priority: option.Config.RouteMetric,
 	}, nil
 }
 
