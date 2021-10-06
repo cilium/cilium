@@ -185,6 +185,8 @@ github.com/cilium/metallb v0.1.1-0.20210609003938-62cef75b3c9f h1:5IFq1y2Ptz45Cf
 github.com/cilium/metallb v0.1.1-0.20210609003938-62cef75b3c9f/go.mod h1:3/7XqsnwanF+NM3mwSxXi2qPPLIvaLY4CbrNe/YzArk=
 github.com/cilium/proxy v0.0.0-20210511221533-82a70d56bf32 h1:8imv/jHGU2g796+N6VEwSZcU8H6MQ0z33VTNeFeKMpQ=
 github.com/cilium/proxy v0.0.0-20210511221533-82a70d56bf32/go.mod h1:mvauc94lqkyJunRsU9Ef5FIsixi8vBeDoxuMYoGBemk=
+github.com/cilium/workerpool v1.1.0 h1:AO9oX7xIpvlFRUL94N+SjpulpQOrDAfozJPDJjqfV/E=
+github.com/cilium/workerpool v1.1.0/go.mod h1:GOYJhwlnIjR+jWSDNBb5kw47G1H/XA9X4WOBpgr4pQU=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGXZJjfX53e64911xZQV5JYwmTeXPW+k8Sc=
 github.com/cncf/udpa/go v0.0.0-20200629203442-efcf912fb354/go.mod h1:WmhPx2Nbnhtbo57+VJT5O0JRkEi1Wbu0z5j0R8u5Hbk=
