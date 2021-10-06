@@ -156,7 +156,7 @@ func (b *BugtoolSuite) TestHashEncryptionKeys(c *C) {
 	}
 
 	for _, v := range testdata {
-		modifiedString := hashEncryptionKeys(v.input)
-		c.Assert(modifiedString, Equals, v.output)
+		modifiedString := hashEncryptionKeys([]byte(v.input))
+		c.Assert(string(modifiedString), Equals, v.output)
 	}
 }
