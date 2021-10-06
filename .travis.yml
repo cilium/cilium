@@ -42,8 +42,6 @@ before_install: ./.travis/prepare.sh
 
 before_script:
   - export PATH=/usr/local/clang/bin:$PATH
-  # Login to Docker Hub using credentials stored in Travis configuration
-  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
 
 script: ./.travis/build.sh
 
