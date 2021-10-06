@@ -19,121 +19,110 @@ import "github.com/cilium/cilium/pkg/lock"
 type CEPName string
 type CEBName string
 
-// cepToCebMapping is used to map CiliumEndpoint name to CiliumEndpointBatch name.
-// This is used by CEB manager, for every CEP Insertion/Removal CEB Controller
-// use this map to find in which CEB the CEP is queued.
+// CEBToCEPMapping is used to map CiliumEndpointBatch name to cebTracker object
+// which in turn consists of CEPs, a CEB name to list of all CEPs.
+// Also, it manages a map CEP name to CEB name.
+// These maps are used by the CEB manager, primarily used for storing and retrieving
+// the desired CEBs by thread-safe.
 // This map is protected by lock for consistent and concurrent access.
-type cepToCebMapping struct {
-	cepMutex lock.RWMutex
-	cacheCep map[CEPName]CEBName
+type CEBToCEPMapping struct {
+	cebMutex lock.RWMutex
+	// cepNametoCEBName is used to map CiliumEndpoint name to CiliumEndpointBatch name.
+	cepNametoCEBName map[CEPName]CEBName
+	// desiredCEBs is used to map cebName to cebTracker object.
+	desiredCEBs map[CEBName]*cebTracker
 }
 
-// Creates and initializes new cepToCebMapping
-func newCepToCebMapping() *cepToCebMapping {
-	return &cepToCebMapping{
-		cacheCep: make(map[CEPName]CEBName),
+// Creates and intializes the new CEBToCEPMapping
+func newDesiredCebMap() *CEBToCEPMapping {
+	return &CEBToCEPMapping{
+		desiredCEBs:      make(map[CEBName]*cebTracker),
+		cepNametoCEBName: make(map[CEPName]CEBName),
 	}
 }
 
 // Insert the CEP in cache, map CEP name to CEB name
-func (c *cepToCebMapping) insert(cepName, cebName string) {
-	c.cepMutex.Lock()
-	defer c.cepMutex.Unlock()
-	c.cacheCep[CEPName(cepName)] = CEBName(cebName)
+func (c *CEBToCEPMapping) insertCEP(cepName, cebName string) {
+	c.cebMutex.Lock()
+	defer c.cebMutex.Unlock()
+	c.cepNametoCEBName[CEPName(cepName)] = CEBName(cebName)
 }
 
 // Remove the CEP entry from map
-func (c *cepToCebMapping) deleteCep(cepName string) {
-	c.cepMutex.Lock()
-	defer c.cepMutex.Unlock()
-	delete(c.cacheCep, CEPName(cepName))
+func (c *CEBToCEPMapping) deleteCEP(cepName string) {
+	c.cebMutex.Lock()
+	defer c.cebMutex.Unlock()
+	delete(c.cepNametoCEBName, CEPName(cepName))
 }
 
-func (c *cepToCebMapping) get(cepName string) (string, bool) {
-	c.cepMutex.RLock()
-	defer c.cepMutex.RUnlock()
-	name, ok := c.cacheCep[CEPName(cepName)]
+func (c *CEBToCEPMapping) getCEBName(cepName string) (string, bool) {
+	c.cebMutex.RLock()
+	defer c.cebMutex.RUnlock()
+	name, ok := c.cepNametoCEBName[CEPName(cepName)]
 	return string(name), ok
 }
 
-func (c *cepToCebMapping) has(cepName string) bool {
-	c.cepMutex.RLock()
-	defer c.cepMutex.RUnlock()
-	_, ok := c.cacheCep[CEPName(cepName)]
+func (c *CEBToCEPMapping) hasCEP(cepName string) bool {
+	c.cebMutex.RLock()
+	defer c.cebMutex.RUnlock()
+	_, ok := c.cepNametoCEBName[CEPName(cepName)]
 	return ok
 }
 
 // Return total number of CEPs stored in cache
-func (c *cepToCebMapping) count() int {
-	c.cepMutex.RLock()
-	defer c.cepMutex.RUnlock()
-	return len(c.cacheCep)
-}
-
-// desiredCebMapping is used to map CiliumEndpointBatch name to cebTracker object.
-// This map is used by the CEB manager, primarily used for storing and retrieving
-// the desired CEBs by thread-safe.
-// This map is protected by lock for consistent and concurrent access.
-type desiredCebMapping struct {
-	cebMutex lock.RWMutex
-	// desiredCebs is used to map cebName to cebTracker object.
-	desiredCebs map[CEBName]*cebTracker
-}
-
-// Creates and intializes the new desiredCebMapping
-func newDesiredCebMap() *desiredCebMapping {
-	return &desiredCebMapping{
-		desiredCebs: make(map[CEBName]*cebTracker),
-	}
+func (c *CEBToCEPMapping) countCEPs() int {
+	c.cebMutex.RLock()
+	defer c.cebMutex.RUnlock()
+	return len(c.cepNametoCEBName)
 }
 
 // Insert the CEB tracker in map
-func (c *desiredCebMapping) insert(cebName string, ceb *cebTracker) {
+func (c *CEBToCEPMapping) insertCEB(cebName string, ceb *cebTracker) {
 	c.cebMutex.Lock()
 	defer c.cebMutex.Unlock()
-	c.desiredCebs[CEBName(cebName)] = ceb
+	c.desiredCEBs[CEBName(cebName)] = ceb
 }
 
 // Remove the CEB tracker from map
-func (c *desiredCebMapping) deleteCeb(cebName string) {
+func (c *CEBToCEPMapping) deleteCEB(cebName string) {
 	c.cebMutex.Lock()
 	defer c.cebMutex.Unlock()
-	delete(c.desiredCebs, CEBName(cebName))
+	delete(c.desiredCEBs, CEBName(cebName))
 }
 
-func (c *desiredCebMapping) get(cebName string) (*cebTracker, bool) {
+func (c *CEBToCEPMapping) getCEBTracker(cebName string) (*cebTracker, bool) {
 	c.cebMutex.RLock()
 	defer c.cebMutex.RUnlock()
-	ceb, ok := c.desiredCebs[CEBName(cebName)]
+	ceb, ok := c.desiredCEBs[CEBName(cebName)]
 	return ceb, ok
 }
 
-func (c *desiredCebMapping) getCeb(cebName string) *cebTracker {
+func (c *CEBToCEPMapping) getCEBTrackerOnly(cebName string) *cebTracker {
 	c.cebMutex.RLock()
 	defer c.cebMutex.RUnlock()
-	return c.desiredCebs[CEBName(cebName)]
+	return c.desiredCEBs[CEBName(cebName)]
 }
 
-func (c *desiredCebMapping) getAllCebs() []*cebTracker {
+func (c *CEBToCEPMapping) getAllCEBs() []*cebTracker {
 	c.cebMutex.RLock()
 	defer c.cebMutex.RUnlock()
 	var cebs []*cebTracker
-	for _, ceb := range c.desiredCebs {
+	for _, ceb := range c.desiredCEBs {
 		cebs = append(cebs, ceb)
 	}
 	return cebs
 }
 
-func (c *desiredCebMapping) has(cebName string) bool {
+func (c *CEBToCEPMapping) hasCEBName(cebName string) bool {
 	c.cebMutex.RLock()
 	defer c.cebMutex.RUnlock()
-	_, ok := c.desiredCebs[CEBName(cebName)]
+	_, ok := c.desiredCEBs[CEBName(cebName)]
 	return ok
 }
 
-// Return the total number of desired CEBs count.
-func (c *desiredCebMapping) cnt() int {
+// Return the total number of desired CEBs.
+func (c *CEBToCEPMapping) getCEBCount() int {
 	c.cebMutex.RLock()
 	defer c.cebMutex.RUnlock()
-	return len(c.desiredCebs)
+	return len(c.desiredCEBs)
 }

@@ -61,27 +61,27 @@ func TestCepToCebCounts(t *testing.T) {
 			count:   4,
 		},
 	}
-	cmap := newCepToCebMapping()
+	cmap := newDesiredCebMap()
 
 	// Insert new CEPs in cepCache map and check its total count
 	for _, tc := range testCases {
 		t.Run(tc.name, func(*testing.T) {
-			cmap.insert(tc.cepName, tc.cebName)
-			assert.Equal(t, cmap.count(), tc.count, "Number of CEP entries in cmap should match with Count")
-			assert.Equal(t, cmap.has(tc.cepName), true, "CEP name should present in cmap")
-			assert.Equal(t, cmap.has(tc.cebName), false, "CEB name should NOT present in cmap as Key")
+			cmap.insertCEP(tc.cepName, tc.cebName)
+			assert.Equal(t, cmap.countCEPs(), tc.count, "Number of CEP entries in cmap should match with Count")
+			assert.Equal(t, cmap.hasCEP(tc.cepName), true, "CEP name should present in cmap")
+			assert.Equal(t, cmap.hasCEP(tc.cebName), false, "CEB name should NOT present in cmap as Key")
 		})
 	}
 
 	// Insert and remove CEPs in cepCache and check for any stale entries present in cepCache.
 	for _, tc := range testCases {
 		t.Run(tc.name, func(*testing.T) {
-			cmap.insert(tc.cepName, tc.cebName)
-			cebName, ok := cmap.get(tc.cepName)
+			cmap.insertCEP(tc.cepName, tc.cebName)
+			cebName, ok := cmap.getCEBName(tc.cepName)
 			assert.Equal(t, ok, true, "CEP name should be there in map")
 			assert.Equal(t, cebName, tc.cebName, "CEP name should match with cebName")
-			cmap.deleteCep(tc.cepName)
-			assert.Equal(t, cmap.has(tc.cepName), false, "CEP name is removed from cache, so it shouldn't be in cache")
+			cmap.deleteCEP(tc.cepName)
+			assert.Equal(t, cmap.hasCEP(tc.cepName), false, "CEP name is removed from cache, so it shouldn't be in cache")
 		})
 	}
 
