@@ -593,6 +593,8 @@ hubble:
       # This requires the prometheus CRDs to be available.
       # ref: https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
       enabled: false
+      # -- Labels to add to ServiceMonitor hubble
+      labels: {}
 
   # -- Unix domain socket path to listen to when Hubble is enabled.
   socketPath: /var/run/cilium/hubble.sock
@@ -692,7 +694,6 @@ hubble:
 
     # -- Node tolerations for pod assignment on nodes with taints
     # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
-    #
     tolerations: []
 
     # -- The priority class to use for hubble-relay
@@ -1082,8 +1083,9 @@ prometheus:
   serviceMonitor:
     # -- Enable service monitors.
     # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
-    #
     enabled: false
+    # -- Labels to add to ServiceMonitor cilium-agent
+    labels: {}
     # -- Specify the Kubernetes namespace where Prometheus expects to find
     # service monitors configured.
     # namespace: ""
@@ -1212,14 +1214,12 @@ etcd:
 
   # -- PodDisruptionBudget settings
   # ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
-  #
   podDisruptionBudget:
     enabled: true
     maxUnavailable: 2
 
   # -- cilium-etcd-operator resource limits & requests
   # ref: https://kubernetes.io/docs/user-guide/compute-resources/
-  #
   resources: {}
     # limits:
     #   cpu: 4000m
@@ -1229,7 +1229,6 @@ etcd:
     #   memory: 512Mi
 
   # -- Security context to be added to cilium-etcd-operator pods
-  #
   securityContext: {}
     # runAsUser: 0
 
@@ -1344,7 +1343,6 @@ operator:
 
   # -- Node labels for cilium-operator pod assignment
   # ref: https://kubernetes.io/docs/user-guide/node-selection/
-  #
   nodeSelector: {}
 
   # -- Annotations to be added to cilium-operator pods
@@ -1355,14 +1353,12 @@ operator:
 
   # -- PodDisruptionBudget settings
   # ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
-  #
   podDisruptionBudget:
     enabled: false
     maxUnavailable: 1
 
   # -- cilium-operator resource limits & requests
   # ref: https://kubernetes.io/docs/user-guide/compute-resources/
-  #
   resources: {}
     # limits:
     #   cpu: 1000m
@@ -1372,7 +1368,6 @@ operator:
     #   memory: 128Mi
 
   # -- Security context to be added to cilium-operator pods
-  #
   securityContext: {}
     # runAsUser: 0
 
@@ -1393,8 +1388,9 @@ operator:
     serviceMonitor:
       # -- Enable service monitors.
       # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
-      ##
       enabled: false
+      # -- Labels to add to ServiceMonitor cilium-operator
+      labels: {}
 
   # -- Skip CRDs creation for cilium-operator
   skipCRDCreation: false
@@ -1440,7 +1436,6 @@ nodeinit:
 
   # -- Node tolerations for nodeinit scheduling to nodes with taints
   # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
-  #
   tolerations:
   - operator: Exists
     # - key: "key"
@@ -1450,7 +1445,6 @@ nodeinit:
 
   # -- Node labels for nodeinit pod assignment
   # ref: https://kubernetes.io/docs/user-guide/node-selection/
-  #
   nodeSelector: {}
 
   # -- Annotations to be added to node-init pods.
@@ -1461,21 +1455,18 @@ nodeinit:
 
   # -- PodDisruptionBudget settings
   # ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
-  #
   podDisruptionBudget:
     enabled: true
     maxUnavailable: 2
 
   # -- nodeinit resource limits & requests
   # ref: https://kubernetes.io/docs/user-guide/compute-resources/
-  #
   resources:
     requests:
       cpu: 100m
       memory: 100Mi
 
   # -- Security context to be added to nodeinit pods.
-  #
   securityContext: {}
     # runAsUser: 0
 
@@ -1526,7 +1517,6 @@ preflight:
 
   # -- Node tolerations for preflight scheduling to nodes with taints
   # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
-  #
   tolerations:
   - effect: NoSchedule
     key: node.kubernetes.io/not-ready
@@ -1544,7 +1534,6 @@ preflight:
 
   # -- Node labels for preflight pod assignment
   # ref: https://kubernetes.io/docs/user-guide/node-selection/
-  #
   nodeSelector: {}
 
   # -- Annotations to be added to preflight pods
@@ -1555,14 +1544,12 @@ preflight:
 
   # -- PodDisruptionBudget settings
   # ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
-  #
   podDisruptionBudget:
     enabled: true
     maxUnavailable: 2
 
   # -- preflight resource limits & requests
   # ref: https://kubernetes.io/docs/user-guide/compute-resources/
-  #
   resources: {}
     # limits:
     #   cpu: 4000m
@@ -1572,7 +1559,6 @@ preflight:
     #   memory: 512Mi
 
   # -- Security context to be added to preflight pods
-  #
   securityContext: {}
     # runAsUser: 0
 
