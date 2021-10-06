@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
@@ -164,12 +165,11 @@ var isEncryptionKey = regexp.MustCompile("(auth|enc|aead|comp)(.*[[:blank:]](0[x
 
 // hashEncryptionKeys processes the buffer containing the output of `ip -s xfrm state`.
 // It searches for IPsec keys in the output and replaces them by their hash.
-func hashEncryptionKeys(output string) string {
-	var finalOutput []string
-	// Split the result as a slice of strings.
-	lines := strings.Split(output, "\n")
+func hashEncryptionKeys(output []byte) []byte {
+	var b bytes.Buffer
+	lines := bytes.Split(output, []byte("\n"))
 	// Search for lines containing encryption keys.
-	for _, line := range lines {
+	for i, line := range lines {
 		// isEncryptionKey.FindStringSubmatchIndex(line) will return:
 		// - [], if the global pattern is not found
 		// - a slice of integers, if the global pattern is found. The
@@ -182,18 +182,23 @@ func hashEncryptionKeys(output string) string {
 		// the hexadecimal string (the third submatch) will be at index
 		// 6 and 7 in the slice. They may be equal to -1 if the
 		// submatch, marked as optional ('?'), is not found.
-		matched := isEncryptionKey.FindStringSubmatchIndex(line)
+		matched := isEncryptionKey.FindSubmatchIndex(line)
 		if matched != nil && matched[6] > 0 {
 			key := line[matched[6]:matched[7]]
 			h := sha256.New()
-			h.Write([]byte(key))
-			hashedKey := hex.EncodeToString(h.Sum(nil))
-			line = line[:matched[6]] + "[hash:" + hashedKey + "]" + line[matched[7]:]
+			h.Write(key)
+			sum := h.Sum(nil)
+			hashedKey := make([]byte, hex.EncodedLen(len(sum)))
+			hex.Encode(hashedKey, sum)
+			fmt.Fprintf(&b, "%s[hash:%s]%s", line[:matched[6]], hashedKey, line[matched[7]:])
 		} else if matched != nil && matched[6] < 0 {
-			line = "[redacted]"
+			b.WriteString("[redacted]")
+		} else {
+			b.Write(line)
 		}
-		finalOutput = append(finalOutput, line)
+		if i < len(lines)-1 {
+			b.WriteByte('\n')
+		}
 	}
-
-	return strings.Join(finalOutput, "\n")
+	return b.Bytes()
 }
