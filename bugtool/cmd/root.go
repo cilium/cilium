@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -334,18 +335,18 @@ func runAll(commands []string, cmdDir string, k8sPods []string) {
 	}
 }
 
-func execCommand(prompt string) (string, error) {
+func execCommand(prompt string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), execTimeout)
 	defer cancel()
 	output, err := exec.CommandContext(ctx, "bash", "-c", prompt).CombinedOutput()
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-		return "", fmt.Errorf("exec timeout")
+		return nil, fmt.Errorf("exec timeout")
 	}
-	return string(output), err
+	return output, err
 }
 
 // writeCmdToFile will execute command and write markdown output to a file
-func writeCmdToFile(cmdDir, prompt string, k8sPods []string, enableMarkdown bool, postProcess func(output string) string) {
+func writeCmdToFile(cmdDir, prompt string, k8sPods []string, enableMarkdown bool, postProcess func(output []byte) []byte) {
 	// Clean up the filename
 	name := strings.Replace(prompt, "/", " ", -1)
 	name = strings.Replace(name, " ", "-", -1)
@@ -388,7 +389,7 @@ func writeCmdToFile(cmdDir, prompt string, k8sPods []string, enableMarkdown bool
 	}
 	// We deliberately continue in case there was a error but the output
 	// produced might have useful information
-	if strings.Contains(output, "```") || !enableMarkdown {
+	if bytes.Contains(output, []byte("```")) || !enableMarkdown {
 		// Already contains Markdown, print as is.
 		fmt.Fprint(f, output)
 	} else if enableMarkdown && len(output) > 0 {
@@ -420,17 +421,17 @@ func getCiliumPods(namespace, label string) ([]string, error) {
 		return nil, err
 	}
 
-	lines := strings.Split(output, "\n")
+	lines := bytes.Split(output, []byte("\n"))
 	ciliumPods := make([]string, 0, len(lines))
 	for _, l := range lines {
-		if !strings.HasPrefix(l, "cilium") {
+		if !bytes.HasPrefix(l, []byte("cilium")) {
 			continue
 		}
 		// NAME           READY     STATUS    RESTARTS   AGE
 		// cilium-cfmww   0/1       Running   0          3m
 		// ^
-		pod := strings.Split(l, " ")[0]
-		ciliumPods = append(ciliumPods, pod)
+		pod := bytes.Split(l, []byte(" "))[0]
+		ciliumPods = append(ciliumPods, string(pod))
 	}
 
 	return ciliumPods, nil
