@@ -96,7 +96,7 @@ func init() {
 	BugtoolRootCmd.Flags().StringVarP(&configPath, "config", "", "./.cilium-bugtool.config", "Configuration to decide what should be run")
 	BugtoolRootCmd.Flags().BoolVar(&enableMarkdown, "enable-markdown", false, "Dump output of commands in markdown format")
 	BugtoolRootCmd.Flags().StringVarP(&archivePrefix, "archive-prefix", "", "", "String to prefix to name of archive if created (e.g., with cilium pod-name)")
-	BugtoolRootCmd.Flags().IntVarP(&parallelWorkers, "parallel-workers", "p", runtime.NumCPU(), "Maximum number of parallel worker tasks")
+	BugtoolRootCmd.Flags().IntVar(&parallelWorkers, "parallel-workers", 0, "Maximum number of parallel worker tasks, use 0 for number of CPUs")
 }
 
 func getVerifyCiliumPods() (k8sPods []string) {
@@ -377,26 +377,36 @@ func writeCmdToFile(cmdDir, prompt string, k8sPods []string, enableMarkdown bool
 			return
 		}
 	}
-	// Write prompt as header and the output as body, and / or error but delete empty output.
-	output, err := execCommand(prompt)
-	// Post-process the output if necessary
-	if postProcess != nil {
-		output = postProcess(output)
+
+	var output []byte
+
+	// If we don't need to postprocess the command output, write the output to a file directly
+	// without buffering.
+	if !enableMarkdown && postProcess == nil {
+		cmd := exec.Command("bash", "-c", prompt)
+		cmd.Stdout = f
+		cmd.Stderr = f
+		err = cmd.Run()
+	} else {
+		output, err = execCommand(prompt)
+		// Post-process the output if necessary
+		if postProcess != nil {
+			output = postProcess(output)
+		}
+
+		// We deliberately continue in case there was a error but the output
+		// produced might have useful information
+		if bytes.Contains(output, []byte("```")) || !enableMarkdown {
+			// Already contains Markdown, print as is.
+			fmt.Fprint(f, output)
+		} else if enableMarkdown && len(output) > 0 {
+			// Write prompt as header and the output as body, and/or error but delete empty output.
+			fmt.Fprint(f, fmt.Sprintf("# %s\n\n```\n%s\n```\n", prompt, output))
+		}
 	}
 
 	if err != nil {
 		fmt.Fprintf(f, "> Error while running '%s':  %s\n\n", prompt, err)
-	}
-	// We deliberately continue in case there was a error but the output
-	// produced might have useful information
-	if bytes.Contains(output, []byte("```")) || !enableMarkdown {
-		// Already contains Markdown, print as is.
-		fmt.Fprint(f, output)
-	} else if enableMarkdown && len(output) > 0 {
-		fmt.Fprint(f, fmt.Sprintf("# %s\n\n```\n%s\n```\n", prompt, output))
-	} else {
-		// Empty file
-		os.Remove(f.Name())
 	}
 }
 
