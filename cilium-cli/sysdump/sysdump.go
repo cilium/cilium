@@ -100,6 +100,8 @@ type Collector struct {
 	allNodes *corev1.NodeList
 	// NodeList is a list of nodes to collect sysdump information from.
 	NodeList []string
+	// additionalTasks keeps track of additional tasks added via AddTasks.
+	additionalTasks []Task
 }
 
 // NewCollector returns a new sysdump collector.
@@ -747,6 +749,8 @@ func (c *Collector) Run() error {
 			},
 		})
 	}
+	// Append tasks added by AddTasks.
+	tasks = append(tasks, c.additionalTasks...)
 
 	// Adjust the worker count to make enough headroom for tasks that submit sub-tasks.
 	// This is necessary because 'Submit' is blocking.
@@ -1087,4 +1091,9 @@ func isNodeInWhitelist(node corev1.Node, w []string) bool {
 		}
 	}
 	return false
+}
+
+// AddTasks adds extra tasks for the collector to execute. Must be called before Run().
+func (c *Collector) AddTasks(tasks []Task) {
+	c.additionalTasks = append(c.additionalTasks, tasks...)
 }

@@ -79,6 +79,25 @@ func (b *SysdumpSuite) TestNodeList(c *check.C) {
 	c.Assert(collector.NodeList, check.DeepEquals, []string{"node-a", "node-c"})
 }
 
+func (b *SysdumpSuite) TestAddTasks(c *check.C) {
+	options := Options{
+		Writer: io.Discard,
+	}
+	client := fakeClient{
+		nodeList: &corev1.NodeList{
+			Items: []corev1.Node{
+				{ObjectMeta: metav1.ObjectMeta{Name: "node-a"}},
+			},
+		},
+	}
+	collector, err := NewCollector(&client, options, time.Now())
+	c.Assert(err, check.IsNil)
+	collector.AddTasks([]Task{{}, {}, {}})
+	c.Assert(len(collector.additionalTasks), check.Equals, 3)
+	collector.AddTasks([]Task{{}, {}, {}})
+	c.Assert(len(collector.additionalTasks), check.Equals, 6)
+}
+
 type fakeClient struct {
 	nodeList *corev1.NodeList
 }
