@@ -466,36 +466,45 @@ func beforeEach(body interface{}, timeout ...float64) bool {
 }
 
 func wrapContextFunc(fn func(string, func()) bool, focused bool) func(string, func()) bool {
+	// Scope handling must be performed in the function body
+	// passed to gingko as Ginkgo now can defer calls to the given
+	// function body.
 	return func(text string, body func()) bool {
-		if currentScope == nil {
-			return fn(text, body)
-		}
-		newScope := &scope{
-			text:    currentScope.text + " " + text,
-			parent:  currentScope,
-			focused: focused,
-			mutex:   &lock.Mutex{},
-			counter: -1,
-		}
-		currentScope.children = append(currentScope.children, newScope)
-		currentScope = newScope
-		res := fn(text, body)
-		currentScope = currentScope.parent
-		return res
+		return fn(text, func() {
+			if currentScope == nil {
+				body()
+				return
+			}
+			newScope := &scope{
+				text:    currentScope.text + " " + text,
+				parent:  currentScope,
+				focused: focused,
+				mutex:   &lock.Mutex{},
+				counter: -1,
+			}
+			currentScope.children = append(currentScope.children, newScope)
+			currentScope = newScope
+			body()
+			currentScope = currentScope.parent
+		})
 	}
 }
 
 func wrapNilContextFunc(fn func(string, func()) bool) func(string, func()) bool {
+	// Scope handling must be performed in the function body
+	// passed to gingko as Ginkgo now can defer calls to the given
+	// function body.
 	return func(text string, body func()) bool {
-		oldScope := currentScope
-		currentScope = nil
-		res := fn(text, body)
-		currentScope = oldScope
-		return res
+		return fn(text, func() {
+			oldScope := currentScope
+			currentScope = nil
+			body()
+			currentScope = oldScope
+		})
 	}
 }
 
-// wrapItFunc wraps gingko.Measure to track invocations and correctly
+// wrapItFunc wraps gingko.It to track invocations and correctly
 // execute AfterAll. This is tracked via scope.focusedTests and .normalTests.
 // This function is similar to wrapMeasureFunc.
 func wrapItFunc(fn func(string, interface{}, ...float64) bool, focused bool) func(string, interface{}, ...float64) bool {
@@ -546,11 +555,11 @@ func wrapMeasureFunc(fn func(text string, body interface{}, samples int) bool, f
 // isTestFocused checks the value of FocusString and return true if the given
 // text name is focussed, returns false if the test is not focused.
 func isTestFocused(text string) bool {
-	if config.GinkgoConfig.FocusString == "" {
+	if len(config.GinkgoConfig.FocusStrings) == 0 {
 		return false
 	}
 
-	focusFilter := regexp.MustCompile(config.GinkgoConfig.FocusString)
+	focusFilter := regexp.MustCompile(config.GinkgoConfig.FocusStrings[0])
 	return focusFilter.MatchString(text)
 }
 

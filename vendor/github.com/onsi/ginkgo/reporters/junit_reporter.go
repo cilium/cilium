@@ -33,15 +33,10 @@ type JUnitTestSuite struct {
 type JUnitTestCase struct {
 	Name           string               `xml:"name,attr"`
 	ClassName      string               `xml:"classname,attr"`
-	PassedMessage  *JUnitPassedMessage  `xml:"passed,omitempty"`
 	FailureMessage *JUnitFailureMessage `xml:"failure,omitempty"`
 	Skipped        *JUnitSkipped        `xml:"skipped,omitempty"`
 	Time           float64              `xml:"time,attr"`
 	SystemOut      string               `xml:"system-out,omitempty"`
-}
-
-type JUnitPassedMessage struct {
-	Message string `xml:",chardata"`
 }
 
 type JUnitFailureMessage struct {
@@ -50,7 +45,7 @@ type JUnitFailureMessage struct {
 }
 
 type JUnitSkipped struct {
-	XMLName xml.Name `xml:"skipped"`
+	Message string `xml:",chardata"`
 }
 
 type JUnitReporter struct {
@@ -114,9 +109,7 @@ func (reporter *JUnitReporter) SpecDidComplete(specSummary *types.SpecSummary) {
 		ClassName: reporter.testSuiteName,
 	}
 	if reporter.ReporterConfig.ReportPassed && specSummary.State == types.SpecStatePassed {
-		testCase.PassedMessage = &JUnitPassedMessage{
-			Message: specSummary.CapturedOutput,
-		}
+		testCase.SystemOut = specSummary.CapturedOutput
 	}
 	if specSummary.State == types.SpecStateFailed || specSummary.State == types.SpecStateTimedOut || specSummary.State == types.SpecStatePanicked {
 		testCase.FailureMessage = &JUnitFailureMessage{
@@ -132,6 +125,9 @@ func (reporter *JUnitReporter) SpecDidComplete(specSummary *types.SpecSummary) {
 	}
 	if specSummary.State == types.SpecStateSkipped || specSummary.State == types.SpecStatePending {
 		testCase.Skipped = &JUnitSkipped{}
+		if specSummary.Failure.Message != "" {
+			testCase.Skipped.Message = failureMessage(specSummary.Failure)
+		}
 	}
 	testCase.Time = specSummary.RunTime.Seconds()
 	reporter.suite.TestCases = append(reporter.suite.TestCases, testCase)
