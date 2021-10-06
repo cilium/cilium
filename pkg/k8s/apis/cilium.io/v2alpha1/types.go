@@ -89,8 +89,6 @@ type EgressRule struct {
 type CoreCiliumEndpoint struct {
 	// Name indicate as CiliumEndpoint name.
 	Name string `json:"name,omitempty"`
-	// Namespace indicate as CiliumEndpoint namespace.
-	Namespace string `json:"namespace,omitempty"`
 	// IdentityID is the numeric identity of the endpoint
 	IdentityID int64 `json:"id,omitempty"`
 	// Networking is the networking properties of the endpoint.
@@ -116,6 +114,11 @@ type CiliumEndpointBatch struct {
 	metav1.TypeMeta `json:",inline"`
 	// +deepequal-gen=false
 	metav1.ObjectMeta `json:"metadata"`
+
+	// Namespace indicate as CiliumEndpointBatch namespace.
+	// All the CiliumEndpoints within the same namespace are put together
+	// in CiliumEndpointBatch.
+	Namespace string `json:"namespace,omitempty"`
 
 	// Endpoints is a list of coreCEPs packed in a CiliumEndpointBatch
 	Endpoints []CoreCiliumEndpoint `json:"endpoints"`

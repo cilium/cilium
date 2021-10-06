@@ -43,7 +43,7 @@ func (cs *cebSubscriber) OnAdd(ceb *cilium_v2a1.CiliumEndpointBatch) {
 			"CEBName": ceb.GetName(),
 			"CEPName": ep.Name,
 		}).Debug("CEB added, calling CoreEndpointUpdate")
-		c := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(&ceb.Endpoints[i])
+		c := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(&ceb.Endpoints[i], ceb.Namespace)
 		// LocalNode already has the latest CEP.
 		// Hence, skip processing endpointupdate for localNode CEPs.
 		if p := cs.kWatcher.endpointManager.LookupPodName(k8sUtils.GetObjNamespaceName(c)); p != nil {
@@ -64,12 +64,12 @@ func (cs *cebSubscriber) OnAdd(ceb *cilium_v2a1.CiliumEndpointBatch) {
 func (cs *cebSubscriber) OnUpdate(oldCEB, newCEB *cilium_v2a1.CiliumEndpointBatch) {
 	oldCEPs := make(map[string]*cilium_v2a1.CoreCiliumEndpoint, len(oldCEB.Endpoints))
 	for i, ep := range oldCEB.Endpoints {
-		oldCEPs[ep.Namespace+"/"+ep.Name] = &oldCEB.Endpoints[i]
+		oldCEPs[oldCEB.Namespace+"/"+ep.Name] = &oldCEB.Endpoints[i]
 	}
 
 	newCEPs := make(map[string]*cilium_v2a1.CoreCiliumEndpoint, len(newCEB.Endpoints))
 	for i, ep := range newCEB.Endpoints {
-		newCEPs[ep.Namespace+"/"+ep.Name] = &newCEB.Endpoints[i]
+		newCEPs[newCEB.Namespace+"/"+ep.Name] = &newCEB.Endpoints[i]
 	}
 
 	// Handle, removed CEPs from the CEB.
@@ -80,7 +80,7 @@ func (cs *cebSubscriber) OnUpdate(oldCEB, newCEB *cilium_v2a1.CiliumEndpointBatc
 				"CEBName": oldCEB.GetName(),
 				"CEPName": CEPName,
 			}).Debug("CEP deleted, calling endpointDeleted")
-			c := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(oldCEP)
+			c := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(oldCEP, oldCEB.Namespace)
 			// LocalNode already has the latest CEP.
 			// Hence, skip processing endpointupdate for localNode CEPs.
 			if p := cs.kWatcher.endpointManager.LookupPodName(k8sUtils.GetObjNamespaceName(c)); p != nil {
@@ -97,7 +97,7 @@ func (cs *cebSubscriber) OnUpdate(oldCEB, newCEB *cilium_v2a1.CiliumEndpointBatc
 				"CEBName": oldCEB.GetName(),
 				"CEPName": CEPName,
 			}).Debug("CEP inserted, calling endpointUpdated")
-			c := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(newCEP)
+			c := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(newCEP, newCEB.Namespace)
 			// LocalNode already has the latest CEP.
 			// Hence, skip processing endpointupdate for localNode CEPs.
 			if p := cs.kWatcher.endpointManager.LookupPodName(k8sUtils.GetObjNamespaceName(c)); p != nil {
@@ -119,8 +119,8 @@ func (cs *cebSubscriber) OnUpdate(oldCEB, newCEB *cilium_v2a1.CiliumEndpointBatc
 				"CEBName": oldCEB.GetName(),
 				"CEPName": CEPName,
 			}).Debug("CEB updated, calling endpointUpdated")
-			newC := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(newCEP)
-			oldC := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(oldCEP)
+			newC := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(newCEP, newCEB.Namespace)
+			oldC := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(oldCEP, oldCEB.Namespace)
 			// LocalNode already has the latest CEP.
 			// Hence, skip processing endpointUpdated for localNode CEPs.
 			if p := cs.kWatcher.endpointManager.LookupPodName(k8sUtils.GetObjNamespaceName(newC)); p != nil {
@@ -139,7 +139,7 @@ func (cs *cebSubscriber) OnDelete(ceb *cilium_v2a1.CiliumEndpointBatch) {
 			"CEBName": ceb.GetName(),
 			"CEPName": ep.Name,
 		}).Debug("CEB deleted, calling endpointDeleted")
-		c := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(&ceb.Endpoints[i])
+		c := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(&ceb.Endpoints[i], ceb.Namespace)
 		// LocalNode already deleted the CEP.
 		// Hence, skip processing endpointDeleted for localNode CEPs.
 		if p := cs.kWatcher.endpointManager.LookupPodName(k8sUtils.GetObjNamespaceName(c)); p != nil {
