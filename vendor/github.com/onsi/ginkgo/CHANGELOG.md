@@ -1,3 +1,99 @@
+## 1.16.4
+
+### Fixes
+1.16.4 retracts 1.16.3.  There are no code changes.  The 1.16.3 tag was associated with the wrong commit and an attempt to change it after-the-fact has proven problematic.  1.16.4 retracts 1.16.3 in Ginkgo's go.mod and creates a new, correctly tagged, release.
+
+## 1.16.3
+
+### Features
+- Measure is now deprecated and emits a deprecation warning.
+
+## 1.16.2
+
+### Fixes
+- Deprecations can be suppressed by setting an `ACK_GINKGO_DEPRECATIONS=<semver>` environment variable.
+
+## 1.16.1
+
+### Fixes
+- Supress --stream deprecation warning on windows (#793)
+
+## 1.16.0
+
+### Features
+- Advertise Ginkgo 2.0.  Introduce deprecations. [9ef1913]
+    - Update README.md to advertise that Ginkgo 2.0 is coming.
+    - Backport the 2.0 DeprecationTracker and start alerting users
+    about upcoming deprecations.
+
+- Add slim-sprig template functions to bootstrap/generate (#775) [9162b86]
+
+### Fixes
+- Fix accidental reference to 1488 (#784) [9fb7fe4]
+
+## 1.15.2
+
+### Fixes
+- ignore blank `-focus` and `-skip` flags (#780) [e90a4a0]
+
+## 1.15.1
+
+### Fixes
+- reporters/junit: Use `system-out` element instead of `passed` (#769) [9eda305]
+
+## 1.15.0
+
+### Features
+- Adds 'outline' command to print the outline of specs/containers in a file (#754) [071c369] [6803cc3] [935b538] [06744e8] [0c40583]
+- Add support for using template to generate tests (#752) [efb9e69]
+- Add a Chinese Doc #755 (#756) [5207632]
+- cli: allow multiple -focus and -skip flags (#736) [9a782fb]
+
+### Fixes
+- Add _internal to filename of tests created with internal flag (#751) [43c12da]
+
+## 1.14.2
+
+### Fixes
+- correct handling windows backslash in import path (#721) [97f3d51]
+- Add additional methods to GinkgoT() to improve compatibility with the testing.TB interface [b5fe44d]
+
+## 1.14.1
+
+### Fixes
+- Discard exported method declaration when running ginkgo bootstrap (#558) [f4b0240]
+
+## 1.14.0
+
+### Features
+- Defer running top-level container nodes until RunSpecs is called [d44dedf]
+- [Document Ginkgo lifecycle](http://onsi.github.io/ginkgo/#understanding-ginkgos-lifecycle)
+- Add `extensions/globals` package (#692) [3295c8f] - this can be helpful in contexts where you are test-driving your test-generation code (see [#692](https://github.com/onsi/ginkgo/pull/692))
+- Print Skip reason in JUnit reporter if one was provided [820dfab]
+
+## 1.13.0
+
+### Features
+- Add a version of table.Entry that allows dumping the entry parameters. (#689) [21eaef2]
+
+### Fixes
+- Ensure integration tests pass in an environment sans GOPATH [606fba2]
+- Add books package (#568) [fc0e44e]
+- doc(readme): installation via "tools package" (#677) [83bb20e]
+- Solve the undefined: unix.Dup2 compile error on mips64le (#680) [0624f75]
+- Import package without dot (#687) [6321024]
+- Fix integration tests to stop require GOPATH (#686) [a912ec5]
+
+## 1.12.3
+
+### Fixes
+- Print correct code location of failing table test (#666) [c6d7afb]
+
+## 1.12.2
+
+### Fixes
+- Update dependencies [ea4a036]
+
 ## 1.12.1
 
 ### Fixes
