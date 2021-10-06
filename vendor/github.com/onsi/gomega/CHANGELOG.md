@@ -1,3 +1,53 @@
+## 1.14.0
+
+### Features
+- gmeasure.SamplingConfig now suppers a MinSamplingInterval [e94dbca]
+- Eventually and Consistently support functions that make assertions [2f04e6e]
+    - Eventually and Consistently now allow their passed-in functions to make assertions.
+    These assertions must pass or the function is considered to have failed and is retried.
+    - Eventually and Consistently can now take functions with no return values.  These implicitly return nil
+    if they contain no failed assertion.  Otherwise they return an error wrapping the first assertion failure.  This allows
+    these functions to be used with the Succeed() matcher.
+    - Introduce InterceptGomegaFailure - an analogue to InterceptGomegaFailures - that captures the first assertion failure
+    and halts execution in its passed-in callback.
+
+### Fixes
+- Call Verify GHTTPWithGomega receiver funcs (#454) [496e6fd]
+- Build a binary with an expected name (#446) [7356360]
+
+## 1.13.0
+
+### Features
+- gmeasure provides BETA support for benchmarking (#447) [8f2dfbf]
+- Set consistently and eventually defaults on init (#443) [12eb778]
+
+## 1.12.0
+
+### Features
+- Add Satisfy() matcher (#437) [c548f31]
+- tweak truncation message [3360b8c]
+- Add format.GomegaStringer (#427) [cc80b6f]
+- Add Clear() method to gbytes.Buffer [c3c0920]
+
+### Fixes
+- Fix error message in BeNumericallyMatcher (#432) [09c074a]
+- Bump github.com/onsi/ginkgo from 1.12.1 to 1.16.2 (#442) [e5f6ea0]
+- Bump github.com/golang/protobuf from 1.4.3 to 1.5.2 (#431) [adae3bf]
+- Bump golang.org/x/net (#441) [3275b35]
+
+## 1.11.0
+
+### Features
+- feature: add index to gstruct element func (#419) [334e00d]
+- feat(gexec) Add CompileTest functions. Close #410 (#411) [47c613f]
+
+### Fixes
+- Check more carefully for nils in WithTransform (#423) [3c60a15]
+- fix: typo in Makefile [b82522a]
+- Allow WithTransform function to accept a nil value (#422) [b75d2f2]
+- fix: print value type for interface{} containers (#409) [f08e2dc]
+- fix(BeElementOf): consistently flatten expected values [1fa9468]
+
 ## 1.10.5
 
 ### Fixes
