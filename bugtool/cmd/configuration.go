@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -273,7 +274,7 @@ func routeCommands() []string {
 	commands := []string{}
 	routes, _ := execCommand("ip route show table all | grep -E --only-matching 'table [0-9]+'")
 
-	for _, r := range strings.Split(strings.TrimSuffix(routes, "\n"), "\n") {
+	for _, r := range bytes.Split(bytes.TrimSuffix(routes, []byte("\n")), []byte("\n")) {
 		routeTablev4 := fmt.Sprintf("ip -4 route show %v", r)
 		routeTablev6 := fmt.Sprintf("ip -6 route show %v", r)
 		commands = append(commands, routeTablev4, routeTablev6)
@@ -302,7 +303,7 @@ func copyConfigCommands(confDir string, k8sPods []string) []string {
 	// path. This should be refactored.
 	if len(k8sPods) == 0 {
 		kernel, _ := execCommand("uname -r")
-		kernel = strings.TrimSpace(kernel)
+		kernel = bytes.TrimSpace(kernel)
 		// Append the boot config for the current kernel
 		l := Location{fmt.Sprintf("/boot/config-%s", kernel),
 			fmt.Sprintf("%s/kernel-config-%s", confDir, kernel)}
@@ -321,7 +322,7 @@ func copyConfigCommands(confDir string, k8sPods []string) []string {
 		for _, pod := range k8sPods {
 			prompt := podPrefix(pod, "uname -r")
 			kernel, _ := execCommand(prompt)
-			kernel = strings.TrimSpace(kernel)
+			kernel = bytes.TrimSpace(kernel)
 			l := Location{fmt.Sprintf("/boot/config-%s", kernel),
 				fmt.Sprintf("%s/kernel-config-%s", confDir, kernel)}
 			locations = append(locations, l)
