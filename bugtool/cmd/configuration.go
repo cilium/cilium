@@ -191,7 +191,7 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 	// separately below
 	commands = append(commands, catCommands()...)
 	commands = append(commands, routeCommands()...)
-	commands = append(commands, ethoolCommands()...)
+	commands = append(commands, ethtoolCommands()...)
 	commands = append(commands, copyConfigCommands(confDir, k8sPods)...)
 	commands = append(commands, copyCiliumInfoCommands(cmdDir, k8sPods)...)
 
