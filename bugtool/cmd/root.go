@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/defaults"
 
+	"github.com/cilium/workerpool"
 	"github.com/spf13/cobra"
 )
 
@@ -53,21 +55,22 @@ for sensitive information.
 )
 
 var (
-	archive        bool
-	archiveType    string
-	k8s            bool
-	dumpPath       string
-	host           string
-	k8sNamespace   string
-	k8sLabel       string
-	execTimeout    time.Duration
-	configPath     string
-	dryRunMode     bool
-	enableMarkdown bool
-	archivePrefix  string
-	getPProf       bool
-	pprofPort      int
-	traceSeconds   int
+	archive         bool
+	archiveType     string
+	k8s             bool
+	dumpPath        string
+	host            string
+	k8sNamespace    string
+	k8sLabel        string
+	execTimeout     time.Duration
+	configPath      string
+	dryRunMode      bool
+	enableMarkdown  bool
+	archivePrefix   string
+	getPProf        bool
+	pprofPort       int
+	traceSeconds    int
+	parallelWorkers int
 )
 
 func init() {
@@ -92,6 +95,7 @@ func init() {
 	BugtoolRootCmd.Flags().StringVarP(&configPath, "config", "", "./.cilium-bugtool.config", "Configuration to decide what should be run")
 	BugtoolRootCmd.Flags().BoolVar(&enableMarkdown, "enable-markdown", false, "Dump output of commands in markdown format")
 	BugtoolRootCmd.Flags().StringVarP(&archivePrefix, "archive-prefix", "", "", "String to prefix to name of archive if created (e.g., with cilium pod-name)")
+	BugtoolRootCmd.Flags().IntVarP(&parallelWorkers, "parallel-workers", "p", runtime.NumCPU(), "Maximum number of parallel worker tasks")
 }
 
 func getVerifyCiliumPods() (k8sPods []string) {
@@ -284,24 +288,15 @@ func podPrefix(pod, cmd string) string {
 }
 
 func runAll(commands []string, cmdDir string, k8sPods []string) {
-	var numRoutinesAtOnce int
-	// Perform sanity check to prevent division by zero
-	if l := len(commands); l > 1 {
-		numRoutinesAtOnce = l / 2
-	} else if l == 1 {
-		numRoutinesAtOnce = l
-	} else {
-		// No commands
+	if len(commands) == 0 {
 		return
 	}
-	semaphore := make(chan bool, numRoutinesAtOnce)
-	for i := 0; i < numRoutinesAtOnce; i++ {
-		// This will not block because the channel is buffered and we
-		// can write to it numRoutinesAtOnce before the write blocks
-		semaphore <- true
+
+	if parallelWorkers <= 0 {
+		parallelWorkers = runtime.NumCPU()
 	}
 
-	wg := sync.WaitGroup{}
+	wp := workerpool.New(parallelWorkers)
 	for _, cmd := range commands {
 		if strings.Contains(cmd, "tables") {
 			// iptables commands hold locks so we can't have multiple runs. They
@@ -310,22 +305,8 @@ func runAll(commands []string, cmdDir string, k8sPods []string) {
 			writeCmdToFile(cmdDir, cmd, k8sPods, enableMarkdown, nil)
 			continue
 		}
-		// Tell the wait group it needs to track another goroutine
-		wg.Add(1)
 
-		// Start a subroutine to run our command
-		go func(cmd string) {
-			// Once we exit this goroutine completely, signal the
-			// original that we are done
-			defer wg.Done()
-
-			// This will wait until an entry in this channel is
-			// available to read. We started with numRoutinesAtOnce
-			// in there (from above)
-			<-semaphore
-			// When we are done we return the thing we took from
-			// the semaphore, so another goroutine can get it
-			defer func() { semaphore <- true }()
+		err := wp.Submit(cmd, func(_ context.Context) error {
 			if strings.Contains(cmd, "xfrm state") {
 				//  Output of 'ip -s xfrm state' needs additional processing to replace
 				// raw keys by their hash.
@@ -333,10 +314,24 @@ func runAll(commands []string, cmdDir string, k8sPods []string) {
 			} else {
 				writeCmdToFile(cmdDir, cmd, k8sPods, enableMarkdown, nil)
 			}
-		}(cmd)
+			return nil
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to submit task for command %q: %v\n", cmd, err)
+			return
+		}
 	}
-	// Wait for all the spawned goroutines to finish up.
-	wg.Wait()
+
+	// wait for all submitted tasks to complete
+	_, err := wp.Drain()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error waiting for commands to complete: %v\n", err)
+	}
+
+	err = wp.Close()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to close worker pool: %v\n", err)
+	}
 }
 
 func execCommand(prompt string) (string, error) {
