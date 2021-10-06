@@ -97,17 +97,17 @@ func TestInsertAndRemoveCepsInCache(t *testing.T) {
 	// Remove CEPs from Cache and check total number of CEB and CEP
 	t.Run("Test Removing CEPs from cache and check number of CEPs and CEBs", func(*testing.T) {
 		m := newCebManagerFcfs(newQueue(), 2)
-		u := newCepToCebMapping()
+		u := newDesiredCebMap()
 		cn := m.InsertCepInCache(cep1, "kube-system")
-		u.insert(cep1.Name, cn)
+		u.insertCEP(cep1.Name, cn)
 		cn = m.InsertCepInCache(cep2, "kube-system")
-		u.insert(cep2.Name, cn)
+		u.insertCEP(cep2.Name, cn)
 		cn = m.InsertCepInCache(cep3, "kube-system")
-		u.insert(cep3.Name, cn)
+		u.insertCEP(cep3.Name, cn)
 		cn = m.InsertCepInCache(cep4, "kube-system")
-		u.insert(cep4.Name, cn)
+		u.insertCEP(cep4.Name, cn)
 		cn = m.InsertCepInCache(cep5, "kube-system")
-		u.insert(cep5.Name, cn)
+		u.insertCEP(cep5.Name, cn)
 		// Check all 5 CEP are inserted
 		assert.Equal(t, m.getCebCount(), 3, "Total number of CEBs allocated is 3")
 		assert.Equal(t, m.getTotalCepCount(), 5, "Total number of CEPs inserted is 5")
@@ -115,7 +115,7 @@ func TestInsertAndRemoveCepsInCache(t *testing.T) {
 		// Remove a CEP from Cache
 		// This should remove one CEP from cache and remove a CEB
 		m.RemoveCepFromCache(GetCepNameFromCCEP(cep5, "kube-system"))
-		if cn, ok := u.get(cep5.Name); ok {
+		if cn, ok := u.getCEBName(cep5.Name); ok {
 			// complete CEB delete from local datastore, after successful removal in k8s-apiserver.
 			m.deleteCebFromCache(cn)
 		}
@@ -131,7 +131,7 @@ func TestInsertAndRemoveCepsInCache(t *testing.T) {
 		// Remove a CEP from Cache
 		// This should remove one CEP in a CEB.
 		m.RemoveCepFromCache(GetCepNameFromCCEP(cep4, "kube-system"))
-		if cn, ok := u.get(cep4.Name); ok {
+		if cn, ok := u.getCEBName(cep4.Name); ok {
 			// complete CEB delete from local datastore, after successful removal in k8s-apiserver.
 			m.deleteCebFromCache(cn)
 		}
@@ -147,7 +147,7 @@ func TestInsertAndRemoveCepsInCache(t *testing.T) {
 		// Remove a CEP from Cache
 		// This should remove one CEP in a CEB.
 		m.RemoveCepFromCache(GetCepNameFromCCEP(cep2, "kube-system"))
-		if cn, ok := u.get(cep2.Name); ok {
+		if cn, ok := u.getCEBName(cep2.Name); ok {
 			// complete CEB delete from local datastore, after successful removal in k8s-apiserver.
 			m.deleteCebFromCache(cn)
 		}
