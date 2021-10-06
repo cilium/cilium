@@ -201,6 +201,9 @@ github.com/cilium/proxy/go/envoy/type/matcher/v3
 github.com/cilium/proxy/go/envoy/type/metadata/v3
 github.com/cilium/proxy/go/envoy/type/tracing/v3
 github.com/cilium/proxy/go/envoy/type/v3
+# github.com/cilium/workerpool v1.1.0
+## explicit; go 1.15
+github.com/cilium/workerpool
 # github.com/cncf/udpa/go v0.0.0-20201211205326-cc1b757b3edd
 ## explicit; go 1.11
 github.com/cncf/udpa/go/udpa/annotations
