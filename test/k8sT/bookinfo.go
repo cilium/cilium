@@ -25,7 +25,12 @@ import (
 
 // The 5.4 CI job is intended to catch BPF complexity regressions and as such
 // doesn't need to execute this test suite.
-var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sBookInfoDemoTest", func() {
+//
+// This test is quarantined because it is unreliable, see:
+// https://github.com/cilium/cilium/issues/17401
+var _ = SkipDescribeIf(func() bool {
+	return helpers.SkipQuarantined() || helpers.RunsOn54Kernel()
+}, "K8sBookInfoDemoTest", func() {
 	var (
 		kubectl        *helpers.Kubectl
 		ciliumFilename string
