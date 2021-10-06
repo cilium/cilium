@@ -9,8 +9,10 @@ package elf
 import (
 	"bytes"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -197,7 +199,11 @@ func BenchmarkWriteELF(b *testing.B) {
 	defer os.RemoveAll(tmpDir)
 
 	elf, err := Open(baseObjPath)
-	if err != nil {
+	if errors.Is(err, fs.ErrNotExist) {
+		// If the ELF file couldn't be found most likely it
+		// wasn't built. See https://github.com/cilium/cilium/issues/17535
+		b.Skip("ELF file not found, skipping benchmark")
+	} else if err != nil {
 		b.Fatal(err)
 	}
 	defer elf.Close()
