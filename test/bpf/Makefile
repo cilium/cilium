@@ -1,4 +1,4 @@
-# Copyright 2017-2019 Authors of Cilium
+# Copyright 2017-2021 Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
 include ../../Makefile.defs
@@ -17,6 +17,7 @@ FLAGS_CLANG += -Wno-address-of-packed-member
 FLAGS_CLANG += -Wno-unknown-warning-option
 FLAGS_CLANG += -Wno-gnu-variable-sized-type-not-at-end
 FLAGS_CLANG += -Wdeclaration-after-statement
+FLAGS_CLANG += -g
 
 BPF_CC_FLAGS := ${FLAGS} -target bpf -std=gnu89 -nostdinc -emit-llvm
 BPF_LLC_FLAGS := -march=bpf -mcpu=probe -filetype=obj

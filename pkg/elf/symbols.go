@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2021 Authors of Cilium
 
 package elf
 
@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	dataSection = ".data"
-	mapSection  = "maps"
+	dataSection   = ".data"
+	mapSection    = "maps"
+	btfMapSection = ".maps"
 
 	nullTerminator     = byte(0)
 	relocSectionPrefix = ".rel"
@@ -50,10 +51,11 @@ func (k symbolKind) String() string {
 
 // symbol stores the location and type of a symbol within the ELF file.
 type symbol struct {
-	name   string
-	kind   symbolKind
-	offset uint64
-	size   uint64
+	name      string
+	kind      symbolKind
+	offset    uint64
+	offsetBTF uint64
+	size      uint64
 }
 
 func newSymbol(name string, kind symbolKind, offset, size uint64) symbol {
@@ -182,7 +184,7 @@ func (s *symbols) extractFrom(e *elf.File) error {
 
 		// Find the absolute offset to the map's entry in .strtab.
 		// This implements renaming maps.
-		case section.Name == mapSection:
+		case section.Name == mapSection || section.Name == btfMapSection:
 			// From the Golang Documentation:
 			//   "For compatibility with Go 1.0, Symbols omits the
 			//   the null symbol at index 0."
@@ -232,6 +234,22 @@ func (s *symbols) extractFrom(e *elf.File) error {
 			globalOffset := strtab.Offset + off + relocOffset
 			stringOffsets[secName] = newString(secName, globalOffset)
 			log.WithField(fieldSymbol, secName).Debugf("Found section with offset %d", globalOffset)
+		}
+	}
+
+	// If .BTF section is present in the ELF, get the offset of each symbol
+	// into the BTF string table to be able to overwrite them later.
+	btfSec := e.Section(".BTF")
+	if btfSec != nil {
+		// Read BTF header from the .BTF section.
+		h, err := readBTFHeader(btfSec, e.ByteOrder)
+		if err != nil {
+			return fmt.Errorf("reading BTF section header: %w", err)
+		}
+
+		// Populate offsetBTF fields of all symbols.
+		if err := findBTFSymbols(stringOffsets, btfSec, h); err != nil {
+			return fmt.Errorf("finding BTF string offsets: %w", err)
 		}
 	}
 

@@ -17,6 +17,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/cilium/ebpf"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -166,6 +168,11 @@ func (s *ELFTestSuite) TestWrite(c *C) {
 		if test.elfValid == notValidOptions {
 			continue
 		}
+
+		// Ensure the ELF can be parsed by the loader.
+		_, err := ebpf.LoadCollectionSpec(objectCopy)
+		c.Assert(err, IsNil)
+
 		err = compareFiles(baseObjPath, objectCopy)
 		c.Assert(err, Equals, test.elfChangeErr)
 
