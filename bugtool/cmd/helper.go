@@ -158,6 +158,10 @@ func createGzip(dbgDir string, sendArchiveToStdout bool) (string, error) {
 	return target, nil
 }
 
+// Note that `auth-trunc` is also a relevant pattern, but we already match on the more generic
+// `auth` pattern.
+var isEncryptionKey = regexp.MustCompile("(auth|enc|aead|comp)(.*[[:blank:]](0[xX][[:xdigit:]]+))?")
+
 // hashEncryptionKeys processes the buffer containing the output of `ip -s xfrm state`.
 // It searches for IPsec keys in the output and replaces them by their hash.
 func hashEncryptionKeys(output string) string {
@@ -165,11 +169,8 @@ func hashEncryptionKeys(output string) string {
 	// Split the result as a slice of strings.
 	lines := strings.Split(output, "\n")
 	// Search for lines containing encryption keys.
-	// Note that `auth-trunc` is also a relevant pattern, but we already match on
-	// the more generic `auth` pattern.
 	for _, line := range lines {
-		r, _ := regexp.Compile("(auth|enc|aead|comp)(.*[[:blank:]](0[xX][[:xdigit:]]+))?")
-		// r.FindStringSubmatchIndex(line) will return:
+		// isEncryptionKey.FindStringSubmatchIndex(line) will return:
 		// - [], if the global pattern is not found
 		// - a slice of integers, if the global pattern is found. The
 		//   first two integers are the start and end offsets of the
@@ -181,7 +182,7 @@ func hashEncryptionKeys(output string) string {
 		// the hexadecimal string (the third submatch) will be at index
 		// 6 and 7 in the slice. They may be equal to -1 if the
 		// submatch, marked as optional ('?'), is not found.
-		matched := r.FindStringSubmatchIndex(line)
+		matched := isEncryptionKey.FindStringSubmatchIndex(line)
 		if matched != nil && matched[6] > 0 {
 			key := line[matched[6]:matched[7]]
 			h := sha256.New()
