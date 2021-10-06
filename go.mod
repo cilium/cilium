@@ -18,6 +18,7 @@ require (
 	github.com/cilium/ebpf v0.0.0-20200702112145-1c8d4c9ef775
 	github.com/cilium/ipam v0.0.0-20201020084809-76717fcdb3a2
 	github.com/cilium/proxy v0.0.0-20210511221533-82a70d56bf32
+	github.com/cilium/workerpool v1.1.0
 	github.com/containernetworking/cni v0.7.1
 	github.com/containernetworking/plugins v0.8.2
 	github.com/davecgh/go-spew v1.1.1
