@@ -22,4 +22,4 @@ commandTests:
   command: "protoc"
   args: ["--version"]
   expectedOutput:
-  - 'libprotoc\ 3\.17\.3'
+  - 'libprotoc\ 3\.18\.1'
