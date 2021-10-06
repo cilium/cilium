@@ -12,7 +12,7 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-func ethoolCommands() []string {
+func ethtoolCommands() []string {
 	sources := []string{}
 	// Append ethtool links
 	if links, err := netlink.LinkList(); err == nil {
