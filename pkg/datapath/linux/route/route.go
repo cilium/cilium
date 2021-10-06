@@ -14,15 +14,16 @@ import (
 )
 
 type Route struct {
-	Prefix  net.IPNet
-	Nexthop *net.IP
-	Local   net.IP
-	Device  string
-	MTU     int
-	Proto   int
-	Scope   netlink.Scope
-	Table   int
-	Type    int
+	Prefix   net.IPNet
+	Nexthop  *net.IP
+	Local    net.IP
+	Device   string
+	MTU      int
+	Priority int
+	Proto    int
+	Scope    netlink.Scope
+	Table    int
+	Type     int
 }
 
 // LogFields returns the route attributes as logrus.Fields map
@@ -59,6 +60,9 @@ func (r *Route) ToIPCommand(dev string) []string {
 		res = append(res, "-6")
 	}
 	res = append(res, "route", "add", r.Prefix.String())
+	if r.Priority != 0 {
+		res = append(res, "metric", fmt.Sprintf("%d", r.Priority))
+	}
 	if r.Nexthop != nil {
 		res = append(res, "via", r.Nexthop.String())
 	}

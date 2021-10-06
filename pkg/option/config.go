@@ -445,6 +445,9 @@ const (
 	// MTUName is the name of the MTU option
 	MTUName = "mtu"
 
+	// RouteMetric is the name of the route-metric option
+	RouteMetric = "route-metric"
+
 	// DatapathMode is the name of the DatapathMode option
 	DatapathMode = "datapath-mode"
 
@@ -1281,6 +1284,9 @@ type DaemonConfig struct {
 
 	// MTU is the maximum transmission unit of the underlying network
 	MTU int
+
+	// RouteMetric is the metric used for the routes added to the cilium_host device
+	RouteMetric int
 
 	// ClusterName is the name of the cluster
 	ClusterName string
@@ -2268,6 +2274,10 @@ func (c *DaemonConfig) Validate() error {
 		return fmt.Errorf("MTU '%d' cannot be negative", c.MTU)
 	}
 
+	if c.RouteMetric < 0 {
+		return fmt.Errorf("RouteMetric '%d' cannot be negative", c.RouteMetric)
+	}
+
 	if c.IPAM == ipamOption.IPAMENI && c.EnableIPv6 {
 		return fmt.Errorf("IPv6 cannot be enabled in ENI IPAM mode")
 	}
@@ -2572,6 +2582,7 @@ func (c *DaemonConfig) Populate() {
 	c.ProxyPrometheusPort = viper.GetInt(ProxyPrometheusPort)
 	c.ReadCNIConfiguration = viper.GetString(ReadCNIConfiguration)
 	c.RestoreState = viper.GetBool(Restore)
+	c.RouteMetric = viper.GetInt(RouteMetric)
 	c.RunDir = viper.GetString(StateDir)
 	c.SidecarIstioProxyImage = viper.GetString(SidecarIstioProxyImage)
 	c.UseSingleClusterRoute = viper.GetBool(SingleClusterRouteName)
