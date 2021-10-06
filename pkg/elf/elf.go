@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2021 Authors of Cilium
 
 package elf
 
@@ -201,6 +201,13 @@ processSymbols:
 		if err := elf.writeValue(w, symbol.offset, value); err != nil {
 			return fmt.Errorf("failed to substitute %s: %s", symbol.name, err)
 		}
+
+		if symbol.offsetBTF != 0 {
+			if err := elf.writeValue(w, symbol.offsetBTF, value); err != nil {
+				return fmt.Errorf("failed to substitute %s BTF: %s", symbol.name, err)
+			}
+		}
+
 		processedOptions[symbol.name] = struct{}{}
 	}
 
