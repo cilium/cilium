@@ -91,8 +91,8 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ceb-controller")
 // Derives the unique name from CoreCiliumEndpoint object.
 // This unique name is used for mapping CiliumEndpoint to CiliumEndpointBatch.
 // Used widely, to determine if the given CEP is mapped to any CEB or not.
-func GetCepNameFromCCEP(cep *capi_v2a1.CoreCiliumEndpoint) string {
-	return cep.Namespace + "/" + cep.Name
+func GetCepNameFromCCEP(cep *capi_v2a1.CoreCiliumEndpoint, namespace string) string {
+	return namespace + "/" + cep.Name
 }
 
 // NewCebController, creates and initializes the CEB controller

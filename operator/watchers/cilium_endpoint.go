@@ -219,11 +219,11 @@ func endpointUpdated(cep *cilium_api_v2.CiliumEndpoint) {
 	if cep.Status.Networking == nil || cep.Status.Identity == nil || cep.GetName() == "" || cep.Namespace == "" {
 		return
 	}
-	cebController.Manager.InsertCepInCache(k8s.ConvertCepToCoreCep(cep))
+	cebController.Manager.InsertCepInCache(k8s.ConvertCepToCoreCep(cep), cep.Namespace)
 }
 
 func endpointDeleted(cep *cilium_api_v2.CiliumEndpoint) {
-	cebController.Manager.RemoveCepFromCache(ceb.GetCepNameFromCCEP(k8s.ConvertCepToCoreCep(cep)))
+	cebController.Manager.RemoveCepFromCache(ceb.GetCepNameFromCCEP(k8s.ConvertCepToCoreCep(cep), cep.Namespace))
 }
 
 // objToCiliumEndpoint attempts to cast object to a CiliumEndpoint object
