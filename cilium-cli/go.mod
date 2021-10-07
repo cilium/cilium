@@ -56,7 +56,7 @@ require (
 	github.com/fsnotify/fsnotify v1.4.10-0.20200417215612-7f4cf4dd2b52 // indirect
 	github.com/go-errors/errors v1.0.1 // indirect
 	github.com/go-logr/logr v1.0.0 // indirect
-	github.com/go-ole/go-ole v1.2.5 // indirect
+	github.com/go-ole/go-ole v1.2.6-0.20210915003542-8b1f7f90f6b1 // indirect
 	github.com/go-openapi/analysis v0.19.16 // indirect
 	github.com/go-openapi/errors v0.19.9 // indirect
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
