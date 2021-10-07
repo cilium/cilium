@@ -50,12 +50,10 @@ var (
 		Endpoints: []capi_v2a1.CoreCiliumEndpoint{
 			{
 				Name:       "cilium-abcd-123",
-				Namespace:  "kube-system",
 				IdentityID: 364748,
 			},
 			{
 				Name:       "cilium-abcd-456",
-				Namespace:  "kube-system",
 				IdentityID: 364748,
 			},
 		},
@@ -73,12 +71,10 @@ var (
 		Endpoints: []capi_v2a1.CoreCiliumEndpoint{
 			{
 				Name:       "cilium-nfgt-123",
-				Namespace:  "kube-system",
 				IdentityID: 364748,
 			},
 			{
 				Name:       "cilium-nfgt-456",
-				Namespace:  "kube-system",
 				IdentityID: 364748,
 			},
 		},
@@ -96,12 +92,10 @@ var (
 		Endpoints: []capi_v2a1.CoreCiliumEndpoint{
 			{
 				Name:       "cilium-tkld-123",
-				Namespace:  "kube-system",
 				IdentityID: 364748,
 			},
 			{
 				Name:       "cilium-tkld-456",
-				Namespace:  "kube-system",
 				IdentityID: 364748,
 			},
 		},

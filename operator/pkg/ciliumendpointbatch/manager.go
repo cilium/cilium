@@ -53,7 +53,7 @@ type cebTracker struct {
 // cebManager
 type cebManager interface {
 	// External APIs to Insert/Remove CEP in local dataStore
-	InsertCepInCache(cep *cilium_v2.CoreCiliumEndpoint) string
+	InsertCepInCache(cep *cilium_v2.CoreCiliumEndpoint, ns string) string
 	RemoveCepFromCache(cepName string)
 	// Supporting APIs to Insert/Remove CEP in local dataStore and effectively
 	// manages CEB's.
@@ -158,7 +158,7 @@ func (c *cebMgr) addCEPtoCEB(cep *cilium_v2.CoreCiliumEndpoint, cebName string) 
 	}).Debug("Queueing cep in ceb")
 
 	for i, ep := range ceb.ceb.Endpoints {
-		if GetCepNameFromCCEP(&ep) == GetCepNameFromCCEP(cep) {
+		if GetCepNameFromCCEP(&ep, ceb.ceb.Namespace) == GetCepNameFromCCEP(cep, ceb.ceb.Namespace) {
 			if cep.DeepEqual(&ep) {
 				return
 			}
@@ -173,8 +173,8 @@ func (c *cebMgr) addCEPtoCEB(cep *cilium_v2.CoreCiliumEndpoint, cebName string) 
 	ceb.ceb.Endpoints = append(ceb.ceb.Endpoints, *cep)
 	// If this CEP is re-generated again before previous CEP-DELETE completed.
 	// remove this from removedCep list.
-	if _, ok := ceb.removedCeps[GetCepNameFromCCEP(cep)]; ok {
-		delete(ceb.removedCeps, GetCepNameFromCCEP(cep))
+	if _, ok := ceb.removedCeps[GetCepNameFromCCEP(cep, ceb.ceb.Namespace)]; ok {
+		delete(ceb.removedCeps, GetCepNameFromCCEP(cep, ceb.ceb.Namespace))
 	}
 	// Increment the cepInsert counter
 	ceb.cepInserted += 1
@@ -265,7 +265,7 @@ func (c *cebMgr) updateCebInCache(srcCeb *cilium_v2.CiliumEndpointBatch, isDeepC
 			ceb.ceb = srcCeb
 			for _, cep := range ceb.ceb.Endpoints {
 				// Update the cacheCepMap, to reflect all CEPs are packed in a CEB
-				c.cacheCepMap.insert(GetCepNameFromCCEP(&cep), srcCeb.GetName())
+				c.cacheCepMap.insert(GetCepNameFromCCEP(&cep, ceb.ceb.Namespace), srcCeb.GetName())
 			}
 		}
 	}
@@ -294,11 +294,11 @@ func (c *cebMgr) getCebCopyFromCache(cebName string) (*cilium_v2.CiliumEndpointB
 
 // InsertCepInCache is used to insert CEP in local cache, this may result in creating a new
 // CEB object or updating an existing CEB object.
-func (c *cebMgr) InsertCepInCache(cep *cilium_v2.CoreCiliumEndpoint) string {
+func (c *cebMgr) InsertCepInCache(cep *cilium_v2.CoreCiliumEndpoint, ns string) string {
 
 	// check the given cep is already exists in any of the CEB.
 	// if yes, Update a ceb with the given cep object.
-	if cebName, exists := c.cacheCepMap.get(GetCepNameFromCCEP(cep)); exists {
+	if cebName, exists := c.cacheCepMap.get(GetCepNameFromCCEP(cep, ns)); exists {
 		// add a cep into the ceb
 		c.addCEPtoCEB(cep, cebName)
 		return cebName
@@ -310,7 +310,7 @@ func (c *cebMgr) InsertCepInCache(cep *cilium_v2.CoreCiliumEndpoint) string {
 		// get first available CEB
 		for _, ceb := range c.desiredCebs.getAllCebs() {
 			ceb.backendMutex.RLock()
-			if len(ceb.ceb.Endpoints) >= c.maxCepsInCeb || len(ceb.ceb.Endpoints) == 0 {
+			if ceb.ceb.Namespace != ns || len(ceb.ceb.Endpoints) >= c.maxCepsInCeb || len(ceb.ceb.Endpoints) == 0 {
 				ceb.backendMutex.RUnlock()
 				continue
 			}
@@ -318,11 +318,14 @@ func (c *cebMgr) InsertCepInCache(cep *cilium_v2.CoreCiliumEndpoint) string {
 			return ceb
 		}
 		// allocate a new cebTracker and return
-		return c.createCeb("")
+		newCEB := c.createCeb("")
+		// Update the namespace to CEB
+		newCEB.ceb.Namespace = ns
+		return newCEB
 	}()
 
 	// Cache CEP name with newly allocated CEB.
-	c.cacheCepMap.insert(GetCepNameFromCCEP(cep), cb.ceb.GetName())
+	c.cacheCepMap.insert(GetCepNameFromCCEP(cep, ns), cb.ceb.GetName())
 
 	// Queue the CEP in CEB
 	c.addCEPtoCEB(cep, cb.ceb.GetName())
@@ -349,9 +352,9 @@ func (c *cebMgr) RemoveCepFromCache(cepName string) {
 		ceb.backendMutex.Lock()
 		defer ceb.backendMutex.Unlock()
 		for i, ep := range ceb.ceb.Endpoints {
-			if GetCepNameFromCCEP(&ep) == cepName {
+			if GetCepNameFromCCEP(&ep, ceb.ceb.Namespace) == cepName {
 				// Insert deleted CoreCEP in removedCeps
-				ceb.removedCeps[GetCepNameFromCCEP(&ep)] = struct{}{}
+				ceb.removedCeps[GetCepNameFromCCEP(&ep, ceb.ceb.Namespace)] = struct{}{}
 				ceb.ceb.Endpoints =
 					append(ceb.ceb.Endpoints[:i],
 						ceb.ceb.Endpoints[i+1:]...)
@@ -408,7 +411,7 @@ func (c *cebMgr) getAllCepNames() []string {
 	for _, ceb := range c.desiredCebs.getAllCebs() {
 		ceb.backendMutex.RLock()
 		for _, cep := range ceb.ceb.Endpoints {
-			ceps = append(ceps, GetCepNameFromCCEP(&cep))
+			ceps = append(ceps, GetCepNameFromCCEP(&cep, ceb.ceb.Namespace))
 		}
 		ceb.backendMutex.RUnlock()
 	}
@@ -507,11 +510,11 @@ func (c *cebManagerIdentity) deleteCebFromCache(cebName string) {
 
 // InsertCepInCache is used to insert CEP in local cache, this may result in creating a new
 // CEB object or updating an existing CEB object. CEPs are grouped based on CEP identity.
-func (c *cebManagerIdentity) InsertCepInCache(cep *cilium_v2.CoreCiliumEndpoint) string {
+func (c *cebManagerIdentity) InsertCepInCache(cep *cilium_v2.CoreCiliumEndpoint, ns string) string {
 
 	// check the given cep is already exists in any of the CEB.
 	// if yes, Update a ceb with the given cep object.
-	if cebName, exists := c.cacheCepMap.get(GetCepNameFromCCEP(cep)); exists {
+	if cebName, exists := c.cacheCepMap.get(GetCepNameFromCCEP(cep, ns)); exists {
 		// add a cep into the ceb
 		c.addCEPtoCEB(cep, cebName)
 		return cebName
@@ -534,6 +537,8 @@ func (c *cebManagerIdentity) InsertCepInCache(cep *cilium_v2.CoreCiliumEndpoint)
 		}
 		// allocate a new cebTracker and return
 		ceb := c.createCeb("")
+		// Update the namespace to CEB
+		ceb.ceb.Namespace = ns
 
 		// Update the identityToCeb and cebToIdentity maps respectively.
 		c.identityLock.Lock()
@@ -545,7 +550,7 @@ func (c *cebManagerIdentity) InsertCepInCache(cep *cilium_v2.CoreCiliumEndpoint)
 	}()
 
 	// Cache CEP name with newly allocated CEB.
-	c.cacheCepMap.insert(GetCepNameFromCCEP(cep), cb.ceb.GetName())
+	c.cacheCepMap.insert(GetCepNameFromCCEP(cep, cb.ceb.Namespace), cb.ceb.GetName())
 
 	// Queue the CEP in CEB
 	c.addCEPtoCEB(cep, cb.ceb.GetName())
@@ -578,7 +583,7 @@ func (c *cebManagerIdentity) updateCebInCache(srcCeb *cilium_v2.CiliumEndpointBa
 					exist = true
 				}
 				// Update the cacheCepMap, to reflect all CEPs are packed in a CEB
-				c.cacheCepMap.insert(GetCepNameFromCCEP(&cep), srcCeb.GetName())
+				c.cacheCepMap.insert(GetCepNameFromCCEP(&cep, ceb.ceb.Namespace), srcCeb.GetName())
 			}
 		}
 	}

@@ -66,9 +66,6 @@ spec:
                         type: string
                     type: object
                   type: array
-                namespace:
-                  description: Namespace indicate as CiliumEndpoint namespace.
-                  type: string
                 networking:
                   description: EndpointNetworking is the addressing information of
                     an endpoint.
@@ -100,6 +97,10 @@ spec:
             type: string
           metadata:
             type: object
+          namespace:
+            description: Namespace indicate as CiliumEndpointBatch namespace. All
+              the CiliumEndpoints within the same namespace are put together in CiliumEndpointBatch.
+            type: string
         required:
         - endpoints
         - metadata
