@@ -71,7 +71,7 @@ const (
 
 	TunnelType = "vxlan"
 
-	StatusWaitDuration = 15 * time.Minute
+	StatusWaitDuration = 5 * time.Minute
 
 	WaitRetryInterval   = 2 * time.Second
 	WaitWarningInterval = 10 * time.Second
