@@ -19,8 +19,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var retryInterval = 2 * time.Second
-
 type K8sStatusParameters struct {
 	Namespace    string
 	Wait         bool
@@ -76,7 +74,7 @@ retry:
 	s, err := k.clusterMeshConnectivity(ctx, ciliumPod)
 	if err != nil {
 		if k.params.Wait {
-			time.Sleep(retryInterval)
+			time.Sleep(defaults.WaitRetryInterval)
 			goto retry
 		}
 	}
@@ -86,7 +84,7 @@ retry:
 	if k.params.Wait {
 		for _, cluster := range s.Clusters {
 			if !cluster.Ready {
-				time.Sleep(retryInterval)
+				time.Sleep(defaults.WaitRetryInterval)
 				goto retry
 			}
 		}
@@ -306,7 +304,7 @@ retry:
 		mostRecentStatus = s
 	}
 	if (err != nil || !k.statusIsReady(s)) && k.params.Wait {
-		time.Sleep(2 * time.Second)
+		time.Sleep(defaults.WaitRetryInterval)
 		goto retry
 	}
 
