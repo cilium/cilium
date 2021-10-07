@@ -57,7 +57,6 @@ type k8sHubbleImplementation interface {
 	GetDaemonSet(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*appsv1.DaemonSet, error)
 	CiliumStatus(ctx context.Context, namespace, pod string) (*models.StatusResponse, error)
 	ListCiliumEndpoints(ctx context.Context, namespace string, opts metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error)
-	CheckDaemonSetStatus(ctx context.Context, namespace, daemonset string) error
 	GetRunningCiliumVersion(ctx context.Context, namespace string) (string, error)
 }
 
