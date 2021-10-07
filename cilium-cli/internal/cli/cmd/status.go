@@ -6,8 +6,8 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"time"
 
+	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/status"
 
 	"github.com/spf13/cobra"
@@ -37,7 +37,7 @@ func newCmdStatus() *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&params.Namespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
 	cmd.Flags().BoolVar(&params.Wait, "wait", false, "Wait for status to report success (no errors and warnings)")
-	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", 15*time.Minute, "Maximum time to wait for status")
+	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", defaults.StatusWaitDuration, "Maximum time to wait for status")
 	cmd.Flags().BoolVar(&params.IgnoreWarnings, "ignore-warnings", false, "Ignore warnings when waiting for status to report success")
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 
