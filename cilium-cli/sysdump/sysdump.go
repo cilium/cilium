@@ -16,11 +16,13 @@ import (
 
 	"github.com/cilium/cilium-cli/internal/k8s"
 	"github.com/cilium/cilium-cli/internal/utils"
+
 	"github.com/cilium/workerpool"
 	archiver "github.com/mholt/archiver/v3"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 )
 
@@ -163,6 +165,26 @@ func (c *Collector) AbsoluteTempPath(f string) string {
 	return path.Join(c.sysdumpDir, c.replaceTimestamp(f))
 }
 
+// WriteYAML writes a kubernetes object to a file as YAML.
+func (c *Collector) WriteYAML(filename string, o runtime.Object) error {
+	return writeYaml(c.AbsoluteTempPath(filename), o)
+}
+
+// WriteString writes a string to a file.
+func (c *Collector) WriteString(filename string, value string) error {
+	return writeString(c.AbsoluteTempPath(filename), value)
+}
+
+// WriteBytes writes a byte array to a file.
+func (c *Collector) WriteBytes(filename string, value []byte) error {
+	return writeBytes(c.AbsoluteTempPath(filename), value)
+}
+
+// WriteTable writes a kubernetes table to a file.
+func (c *Collector) WriteTable(filename string, value *metav1.Table) error {
+	return writeTable(c.AbsoluteTempPath(filename), value)
+}
+
 // Run performs the actual sysdump collection.
 func (c *Collector) Run() error {
 	// tasks is the list of base tasks to be run.
@@ -171,7 +193,7 @@ func (c *Collector) Run() error {
 			Description: "Collect Kubernetes nodes",
 			Quick:       true,
 			Task: func(_ context.Context) error {
-				if err := writeYaml(c.AbsoluteTempPath(kubernetesNodesFileName), c.allNodes); err != nil {
+				if err := c.WriteYAML(kubernetesNodesFileName, c.allNodes); err != nil {
 					return fmt.Errorf("failed to collect Kubernetes nodes: %w", err)
 				}
 				return nil
@@ -185,7 +207,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect Kubernetes version: %w", err)
 				}
-				if err := writeString(c.AbsoluteTempPath(kubernetesVersionInfoFileName), v); err != nil {
+				if err := c.WriteString(kubernetesVersionInfoFileName, v); err != nil {
 					return fmt.Errorf("failed to dump Kubernetes version: %w", err)
 				}
 				return nil
@@ -199,7 +221,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect Kubernetes events: %w", err)
 				}
-				if err := writeYaml(c.AbsoluteTempPath(kubernetesEventsFileName), v); err != nil {
+				if err := c.WriteYAML(kubernetesEventsFileName, v); err != nil {
 					return fmt.Errorf("failed to collect Kubernetes events: %w", err)
 				}
 				return nil
@@ -213,7 +235,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect Kubernetes namespaces: %w", err)
 				}
-				if err := writeYaml(c.AbsoluteTempPath(kubernetesNamespacesFileName), v); err != nil {
+				if err := c.WriteYAML(kubernetesNamespacesFileName, v); err != nil {
 					return fmt.Errorf("failed to collect Kubernetes namespaces: %w", err)
 				}
 				return nil
@@ -227,7 +249,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect Kubernetes pods: %w", err)
 				}
-				if err := writeYaml(c.AbsoluteTempPath(kubernetesPodsFileName), v); err != nil {
+				if err := c.WriteYAML(kubernetesPodsFileName, v); err != nil {
 					return fmt.Errorf("failed to collect Kubernetes pods: %w", err)
 				}
 				return nil
@@ -241,7 +263,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect Kubernetes pods summary: %w", err)
 				}
-				if err := writeTable(c.AbsoluteTempPath(kubernetesPodsSummaryFileName), v); err != nil {
+				if err := c.WriteTable(kubernetesPodsSummaryFileName, v); err != nil {
 					return fmt.Errorf("failed to collect Kubernetes pods summary: %w", err)
 				}
 				return nil
@@ -255,7 +277,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect Kubernetes services: %w", err)
 				}
-				if err := writeYaml(c.AbsoluteTempPath(kubernetesServicesFileName), v); err != nil {
+				if err := c.WriteYAML(kubernetesServicesFileName, v); err != nil {
 					return fmt.Errorf("failed to collect Kubernetes services: %w", err)
 				}
 				return nil
@@ -269,7 +291,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect Kubernetes network policies: %w", err)
 				}
-				if err := writeYaml(c.AbsoluteTempPath(kubernetesNetworkPoliciesFileName), v); err != nil {
+				if err := c.WriteYAML(kubernetesNetworkPoliciesFileName, v); err != nil {
 					return fmt.Errorf("failed to collect Kubernetes network policies: %w", err)
 				}
 				return nil
@@ -283,7 +305,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect Cilium network policies: %w", err)
 				}
-				if err := writeYaml(c.AbsoluteTempPath(ciliumNetworkPoliciesFileName), v); err != nil {
+				if err := c.WriteYAML(ciliumNetworkPoliciesFileName, v); err != nil {
 					return fmt.Errorf("failed to collect Cilium network policies: %w", err)
 				}
 				return nil
@@ -297,7 +319,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect Cilium cluster-wide network policies: %w", err)
 				}
-				if err := writeYaml(c.AbsoluteTempPath(ciliumClusterWideNetworkPoliciesFileName), v); err != nil {
+				if err := c.WriteYAML(ciliumClusterWideNetworkPoliciesFileName, v); err != nil {
 					return fmt.Errorf("failed to collect Cilium cluster-wide network policies: %w", err)
 				}
 				return nil
@@ -311,7 +333,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect Cilium egress NAT policies: %w", err)
 				}
-				if err := writeYaml(c.AbsoluteTempPath(ciliumEgressNATPoliciesFileName), v); err != nil {
+				if err := c.WriteYAML(ciliumEgressNATPoliciesFileName, v); err != nil {
 					return fmt.Errorf("failed to collect Cilium egress NAT policies: %w", err)
 				}
 				return nil
@@ -325,7 +347,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect Cilium local redirect policies: %w", err)
 				}
-				if err := writeYaml(c.AbsoluteTempPath(ciliumLocalRedirectPoliciesFileName), v); err != nil {
+				if err := c.WriteYAML(ciliumLocalRedirectPoliciesFileName, v); err != nil {
 					return fmt.Errorf("failed to collect Cilium local redirect policies: %w", err)
 				}
 				return nil
@@ -339,7 +361,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect Cilium endpoints: %w", err)
 				}
-				if err := writeYaml(c.AbsoluteTempPath(ciliumEndpointsFileName), v); err != nil {
+				if err := c.WriteYAML(ciliumEndpointsFileName, v); err != nil {
 					return fmt.Errorf("failed to collect Cilium endpoints: %w", err)
 				}
 				return nil
@@ -353,7 +375,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect Cilium identities: %w", err)
 				}
-				if err := writeYaml(c.AbsoluteTempPath(ciliumIdentitiesFileName), v); err != nil {
+				if err := c.WriteYAML(ciliumIdentitiesFileName, v); err != nil {
 					return fmt.Errorf("failed to collect Cilium identities: %w", err)
 				}
 				return nil
@@ -367,7 +389,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect Cilium nodes: %w", err)
 				}
-				if err := writeYaml(c.AbsoluteTempPath(ciliumNodesFileName), v); err != nil {
+				if err := c.WriteYAML(ciliumNodesFileName, v); err != nil {
 					return fmt.Errorf("failed to collect Cilium nodes: %w", err)
 				}
 				return nil
@@ -389,7 +411,7 @@ func (c *Collector) Run() error {
 				for k := range v.Data {
 					v.Data[k] = []byte(redacted)
 				}
-				if err := writeYaml(c.AbsoluteTempPath(ciliumEtcdSecretFileName), v); err != nil {
+				if err := c.WriteYAML(ciliumEtcdSecretFileName, v); err != nil {
 					return fmt.Errorf("failed to collect Cilium etcd secret: %w", err)
 				}
 				return nil
@@ -403,7 +425,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect the Cilium configuration: %w", err)
 				}
-				if err := writeYaml(c.AbsoluteTempPath(ciliumConfigMapFileName), v); err != nil {
+				if err := c.WriteYAML(ciliumConfigMapFileName, v); err != nil {
 					return fmt.Errorf("failed to collect the Cilium configuration: %w", err)
 				}
 				return nil
@@ -417,7 +439,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect the Cilium daemonset: %w", err)
 				}
-				if err := writeYaml(c.AbsoluteTempPath(ciliumDaemonSetFileName), v); err != nil {
+				if err := c.WriteYAML(ciliumDaemonSetFileName, v); err != nil {
 					return fmt.Errorf("failed to collect the Cilium daemonset: %w", err)
 				}
 				return nil
@@ -435,7 +457,7 @@ func (c *Collector) Run() error {
 					}
 					return fmt.Errorf("failed to collect the Hubble daemonset: %w", err)
 				}
-				if err := writeYaml(c.AbsoluteTempPath(hubbleDaemonsetFileName), v); err != nil {
+				if err := c.WriteYAML(hubbleDaemonsetFileName, v); err != nil {
 					return fmt.Errorf("failed to collect the Hubble daemonset: %w", err)
 				}
 				return nil
@@ -449,7 +471,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect the Hubble Relay configuration: %w", err)
 				}
-				if err := writeYaml(c.AbsoluteTempPath(hubbleRelayConfigMapFileName), v); err != nil {
+				if err := c.WriteYAML(hubbleRelayConfigMapFileName, v); err != nil {
 					return fmt.Errorf("failed to collect the Hubble Relay configuration: %w", err)
 				}
 				return nil
@@ -467,7 +489,7 @@ func (c *Collector) Run() error {
 					}
 					return fmt.Errorf("failed to collect the Hubble Relay deployment: %w", err)
 				}
-				if err := writeYaml(c.AbsoluteTempPath(hubbleRelayDeploymentFileName), v); err != nil {
+				if err := c.WriteYAML(hubbleRelayDeploymentFileName, v); err != nil {
 					return fmt.Errorf("failed to collect the Hubble Relay deployment: %w", err)
 				}
 				return nil
@@ -485,7 +507,7 @@ func (c *Collector) Run() error {
 					}
 					return fmt.Errorf("failed to collect the Hubble UI deployment: %w", err)
 				}
-				if err := writeYaml(c.AbsoluteTempPath(hubbleUIDeploymentFileName), v); err != nil {
+				if err := c.WriteYAML(hubbleUIDeploymentFileName, v); err != nil {
 					return fmt.Errorf("failed to collect the Hubble UI deployment: %w", err)
 				}
 				return nil
@@ -499,7 +521,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect the Cilium operator deployment: %w", err)
 				}
-				if err := writeYaml(c.AbsoluteTempPath(ciliumOperatorDeploymentFileName), v); err != nil {
+				if err := c.WriteYAML(ciliumOperatorDeploymentFileName, v); err != nil {
 					return fmt.Errorf("failed to collect the Cilium operator deployment: %w", err)
 				}
 				return nil
@@ -517,7 +539,7 @@ func (c *Collector) Run() error {
 					}
 					return fmt.Errorf("failed to collect the 'clustermesh-apiserver' deployment: %w", err)
 				}
-				if err := writeYaml(c.AbsoluteTempPath(clustermeshApiserverDeploymentFileName), v); err != nil {
+				if err := c.WriteYAML(clustermeshApiserverDeploymentFileName, v); err != nil {
 					return fmt.Errorf("failed to collect the 'clustermesh-apiserver' deployment: %w", err)
 				}
 				return nil
@@ -922,8 +944,7 @@ func (c *Collector) submitHubbleFlowsTasks(_ context.Context, pods []*corev1.Pod
 				return fmt.Errorf("failed to collect hubble flows for %q in namespace %q: %w: %s", p.Name, p.Namespace, err, e.String())
 			}
 			// Dump the resulting file's contents to the temporary directory.
-			f := c.AbsoluteTempPath(fmt.Sprintf(hubbleFlowsFileName, p.Name))
-			if err := writeBytes(f, b.Bytes()); err != nil {
+			if err := c.WriteBytes(fmt.Sprintf(hubbleFlowsFileName, p.Name), b.Bytes()); err != nil {
 				return fmt.Errorf("failed to collect hubble flows for %q in namespace %q: %w", p.Name, p.Namespace, err)
 			}
 			return nil
@@ -951,7 +972,7 @@ func (c *Collector) SubmitGopsSubtasks(ctx context.Context, pods []*corev1.Pod, 
 					return fmt.Errorf("failed to collect gops for %q (%q) in namespace %q: %w", p.Name, containerName, p.Namespace, err)
 				}
 				// Dump the output to the temporary directory.
-				if err := writeBytes(c.AbsoluteTempPath(fmt.Sprintf(gopsFileName, p.Name, containerName, g)), o.Bytes()); err != nil {
+				if err := c.WriteBytes(fmt.Sprintf(gopsFileName, p.Name, containerName, g), o.Bytes()); err != nil {
 					return fmt.Errorf("failed to collect gops for %q (%q) in namespace %q: %w", p.Name, containerName, p.Namespace, err)
 				}
 				return nil
@@ -976,7 +997,7 @@ func (c *Collector) SubmitLogsTasks(ctx context.Context, pods []*corev1.Pod, sin
 				if err != nil {
 					return fmt.Errorf("failed to collect logs for %q (%q) in namespace %q: %w", p.Name, d.Name, p.Namespace, err)
 				}
-				if err := writeString(c.AbsoluteTempPath(fmt.Sprintf(ciliumLogsFileName, p.Name, d.Name)), l); err != nil {
+				if err := c.WriteString(fmt.Sprintf(ciliumLogsFileName, p.Name, d.Name), l); err != nil {
 					return fmt.Errorf("failed to collect logs for %q (%q) in namespace %q: %w", p.Name, d.Name, p.Namespace, err)
 				}
 				// Check if this container has restarted, in which case we should gather the previous one's logs too.
@@ -993,7 +1014,7 @@ func (c *Collector) SubmitLogsTasks(ctx context.Context, pods []*corev1.Pod, sin
 					if err != nil {
 						return fmt.Errorf("failed to collect previous logs for %q (%q) in namespace %q: %w", p.Name, d.Name, p.Namespace, err)
 					}
-					if err := writeString(c.AbsoluteTempPath(fmt.Sprintf(ciliumPreviousLogsFileName, p.Name, d.Name)), u); err != nil {
+					if err := c.WriteString(fmt.Sprintf(ciliumPreviousLogsFileName, p.Name, d.Name), u); err != nil {
 						return fmt.Errorf("failed to collect previous logs for %q (%q) in namespace %q: %w", p.Name, d.Name, p.Namespace, err)
 					}
 				}
@@ -1019,7 +1040,7 @@ func (c *Collector) submitFlavorSpecificTasks(ctx context.Context, f k8s.Flavor)
 				}
 				return fmt.Errorf("failed to collect daemonset %q in namespace %q: %w", awsNodeDaemonSetName, awsNodeDaemonSetNamespace, err)
 			}
-			if err := writeYaml(c.AbsoluteTempPath(awsNodeDaemonSetFileName), d); err != nil {
+			if err := c.WriteYAML(awsNodeDaemonSetFileName, d); err != nil {
 				return fmt.Errorf("failed to collect daemonset %q in namespace %q: %w", awsNodeDaemonSetName, awsNodeDaemonSetNamespace, err)
 			}
 			// Only if the 'kube-system/aws-node' Daemonset is present...
@@ -1029,7 +1050,7 @@ func (c *Collector) submitFlavorSpecificTasks(ctx context.Context, f k8s.Flavor)
 			if err != nil {
 				return fmt.Errorf("failed to collect security group policies: %w", err)
 			}
-			if err := writeYaml(c.AbsoluteTempPath(securityGroupPoliciesFileName), l); err != nil {
+			if err := c.WriteYAML(securityGroupPoliciesFileName, l); err != nil {
 				return fmt.Errorf("failed to collect security group policies: %w", err)
 			}
 			// ... collect any "ENIConfigs" resources.
@@ -1037,7 +1058,7 @@ func (c *Collector) submitFlavorSpecificTasks(ctx context.Context, f k8s.Flavor)
 			if err != nil {
 				return fmt.Errorf("failed to collect ENI configs: %w", err)
 			}
-			if err := writeYaml(c.AbsoluteTempPath(eniconfigsFileName), l); err != nil {
+			if err := c.WriteYAML(eniconfigsFileName, l); err != nil {
 				return fmt.Errorf("failed to collect ENI configs: %w", err)
 			}
 			return nil
