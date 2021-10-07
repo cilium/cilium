@@ -16,3 +16,4 @@ Core Agent
    :glob:
 
    api-rate-limiting
+   vlan-802.1q
