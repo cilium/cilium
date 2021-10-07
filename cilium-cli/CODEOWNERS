@@ -6,6 +6,7 @@
 # @cilium/github-sec         GitHub security (handling of secrets, consequences of pull_request_target, etc.)
 # @cilium/hubble             Hubble integration
 # @cilium/kubernetes         K8s integration, K8s CNI plugin
+# @cilium/sig-clustermesh    Clustermesh and external workloads
 # @cilium/vendor             Vendoring, dependency management
 
 # The following filepaths should be sorted so that more specific paths occur
@@ -22,6 +23,7 @@
 /.github/tools/ @cilium/ci-structure
 /.github/workflows/ @cilium/github-sec @cilium/ci-structure
 /cmd/ @cilium/cli
+/clustermesh/ @cilium/sig-clustermesh
 /connectivity/ @cilium/cli
 /hubble/ @cilium/hubble
 /install/azure.go @cilium/azure
