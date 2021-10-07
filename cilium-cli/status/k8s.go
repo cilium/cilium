@@ -13,7 +13,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/go-openapi/strfmt"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -55,14 +54,6 @@ func NewK8sStatusCollector(client k8sImplementation, params K8sStatusParameters)
 		client: client,
 		params: params,
 	}, nil
-}
-
-type ClusterConnectivityInfo struct {
-	Ready          bool
-	SharedServices int64
-	Nodes          int64
-	Identities     int64
-	LastFailure    strfmt.DateTime
 }
 
 type ClusterMeshAgentConnectivityStatus struct {
