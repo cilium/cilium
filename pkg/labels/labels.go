@@ -417,6 +417,18 @@ func (l Labels) MergeLabels(from Labels) {
 	}
 }
 
+// Remove is similar to MergeLabels, but returns a new Labels object with the
+// specified Labels removed. The received Labels is not modified.
+func (l Labels) Remove(from Labels) Labels {
+	result := make(Labels, len(l))
+	for k, v := range l {
+		if _, exists := from[k]; !exists {
+			result[k] = v
+		}
+	}
+	return result
+}
+
 // SHA256Sum calculates l' internal SHA256Sum. For a particular set of labels is
 // guarantee that it will always have the same SHA256Sum.
 func (l Labels) SHA256Sum() string {
@@ -496,6 +508,16 @@ func (l Labels) FindReserved() Labels {
 func (l Labels) IsReserved() bool {
 	for _, lbl := range l {
 		if lbl.Source == LabelSourceReserved {
+			return true
+		}
+	}
+	return false
+}
+
+// Has returns true if l contains the given label.
+func (l Labels) Has(label Label) bool {
+	for _, lbl := range l {
+		if lbl.matches(&label) {
 			return true
 		}
 	}
