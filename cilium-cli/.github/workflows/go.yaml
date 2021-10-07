@@ -53,6 +53,7 @@ jobs:
         GOOS=darwin GOARCH=arm64 go build ./cmd/cilium
         GOOS=windows GOARCH=386 go build ./cmd/cilium
         GOOS=windows GOARCH=amd64 go build ./cmd/cilium
+        GOOS=windows GOARCH=arm64 go build ./cmd/cilium
 
     - name: Test
       run: make test
