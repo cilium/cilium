@@ -18,8 +18,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var retryInterval = 2 * time.Second
-
 type UninstallParameters struct {
 	Namespace     string
 	TestNamespace string
@@ -101,7 +99,7 @@ func (k *K8sUninstaller) Uninstall(ctx context.Context) error {
 		}
 
 		if len(pods.Items) > 0 {
-			time.Sleep(retryInterval)
+			time.Sleep(defaults.WaitRetryInterval)
 			goto retry
 		}
 
@@ -111,7 +109,7 @@ func (k *K8sUninstaller) Uninstall(ctx context.Context) error {
 		// if the test namespace is in Terminating state.
 		_, err = k.client.GetNamespace(ctx, k.params.TestNamespace, metav1.GetOptions{})
 		if err == nil {
-			time.Sleep(retryInterval)
+			time.Sleep(defaults.WaitRetryInterval)
 			goto retryNamespace
 		}
 	}
