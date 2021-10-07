@@ -224,31 +224,6 @@ func (c *Client) CheckDeploymentStatus(ctx context.Context, namespace, deploymen
 	return nil
 }
 
-// CheckDaemonSetStatus returns nil if the daemonset is ready, or a non-nil error otherwise.
-// This function considers a daemonset ready if all the pods in the daemonset is in ready
-// state.
-func (c *Client) CheckDaemonSetStatus(ctx context.Context, namespace, daemonset string) error {
-	d, err := c.GetDaemonSet(ctx, namespace, daemonset, metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-
-	if d == nil {
-		return fmt.Errorf("daemonset is not available")
-	}
-
-	if d.Status.ObservedGeneration != d.Generation {
-		return fmt.Errorf("observed generation (%d) is older than generation of the desired state (%d)",
-			d.Status.ObservedGeneration, d.Generation)
-	}
-
-	if d.Status.DesiredNumberScheduled != d.Status.NumberReady {
-		return fmt.Errorf("not all pods ready: desired %d ready %d", d.Status.DesiredNumberScheduled, d.Status.NumberReady)
-	}
-
-	return nil
-}
-
 func (c *Client) CreateNamespace(ctx context.Context, namespace string, opts metav1.CreateOptions) (*corev1.Namespace, error) {
 	return c.Clientset.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}}, opts)
 }
