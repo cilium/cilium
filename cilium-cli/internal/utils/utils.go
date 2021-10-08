@@ -13,21 +13,45 @@ import (
 	"github.com/cilium/cilium-cli/defaults"
 )
 
-var versionRegexp = regexp.MustCompile(`^([v]|0|[1-9][0-9]*\.)?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[a-zA-Z0-9]+)*\.*(0|[1-9][0-9]*)?`).MatchString
+var versionRegexp = regexp.MustCompile(`^(v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[a-zA-Z0-9]+)*|[a-zA-Z0-9-_.@:]*:[a-zA-Z0-9-_.@:]+)$`).MatchString
 
 func CheckVersion(version string) bool {
 	return versionRegexp(version)
 }
 
+// BuildImagePath builds a fully-qualified image path from the given
+// default and user image and version.
+//
+// NOTE: Currently 'userVersion' is never passed as an empty string as
+// it is defaulted on the CLI interface to the default version.
+//
+// If 'userVersion' can already contains a colon (':') it is simply
+// concatenated with the image string. This is useful for using the
+// "latest" image in testing with "--version :latest". Without the
+// colon 'userVersion' is always prepended with 'v' if it is missing.
+// This is also useful for postfixing the image name with "-ci", for
+// example ("--version -ci:4fac771179959ca575eb6f993d566653d3bfa167").
 func BuildImagePath(userImage, defaultImage, userVersion, defaultVersion string) string {
-
-	switch {
-	case userImage == "" && userVersion == "":
-		return defaultImage + ":" + defaultVersion
-	case userImage == "" && !strings.HasPrefix(userVersion, "v"):
-		return defaultImage + ":" + "v" + userVersion
-	case userImage == "" && strings.HasPrefix(userVersion, "v"):
+	if userImage == "" {
+		switch {
+		case userVersion == "":
+			return defaultImage + ":" + defaultVersion
+		case strings.Contains(userVersion, ":"):
+			// userVersion already contains the colon. Useful for ":latest",
+			// or for "-ci:<hash>"
+			return defaultImage + userVersion
+		case !strings.HasPrefix(userVersion, "v"):
+			return defaultImage + ":" + "v" + userVersion
+		}
 		return defaultImage + ":" + userVersion
+	}
+	// Fully-qualified userImage?
+	if strings.Contains(userImage, ":") {
+		return userImage
+	}
+	// ':' in userVersion?
+	if strings.Contains(userVersion, ":") {
+		return userImage + userVersion
 	}
 	return userImage + ":" + userVersion
 }
