@@ -103,3 +103,14 @@ func (m SwapMemoryStat) String() string {
 	s, _ := json.Marshal(m)
 	return string(s)
 }
+
+type SwapDevice struct {
+	Name      string `json:"name"`
+	UsedBytes uint64 `json:"usedBytes"`
+	FreeBytes uint64 `json:"freeBytes"`
+}
+
+func (m SwapDevice) String() string {
+	s, _ := json.Marshal(m)
+	return string(s)
+}
