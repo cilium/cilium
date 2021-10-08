@@ -20,7 +20,7 @@ require (
 	github.com/cilium/workerpool v1.1.0
 	github.com/cloudflare/cfssl v1.6.0
 	github.com/go-openapi/strfmt v0.20.2
-	github.com/google/gops v0.3.20
+	github.com/google/gops v0.3.21
 	github.com/mholt/archiver/v3 v3.5.0
 	github.com/pkg/browser v0.0.0-20210706143420-7d21f8c997e2
 	github.com/spf13/cobra v1.2.1
@@ -113,7 +113,7 @@ require (
 	github.com/prometheus/common v0.15.0 // indirect
 	github.com/prometheus/procfs v0.2.0 // indirect
 	github.com/sasha-s/go-deadlock v0.2.1-0.20190427202633-1595213edefa // indirect
-	github.com/shirou/gopsutil/v3 v3.21.8 // indirect
+	github.com/shirou/gopsutil/v3 v3.21.9 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/spf13/afero v1.6.0 // indirect
 	github.com/spf13/cast v1.3.1 // indirect

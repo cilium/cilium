@@ -257,7 +257,7 @@ github.com/google/go-cmp/cmp/internal/value
 # github.com/google/gofuzz v1.1.0
 ## explicit; go 1.12
 github.com/google/gofuzz
-# github.com/google/gops v0.3.20
+# github.com/google/gops v0.3.21
 ## explicit; go 1.12
 github.com/google/gops/agent
 github.com/google/gops/internal
@@ -419,7 +419,7 @@ github.com/prometheus/procfs/internal/util
 # github.com/sasha-s/go-deadlock v0.2.1-0.20190427202633-1595213edefa
 ## explicit
 github.com/sasha-s/go-deadlock
-# github.com/shirou/gopsutil/v3 v3.21.8
+# github.com/shirou/gopsutil/v3 v3.21.9
 ## explicit; go 1.15
 github.com/shirou/gopsutil/v3/internal/common
 github.com/shirou/gopsutil/v3/mem

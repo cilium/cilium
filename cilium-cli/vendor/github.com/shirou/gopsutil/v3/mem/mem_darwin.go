@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"unsafe"
 
+	"github.com/shirou/gopsutil/v3/internal/common"
 	"golang.org/x/sys/unix"
 )
 
@@ -66,4 +67,12 @@ func SwapMemoryWithContext(ctx context.Context) (*SwapMemoryStat, error) {
 	}
 
 	return ret, nil
+}
+
+func SwapDevices() ([]*SwapDevice, error) {
+	return SwapDevicesWithContext(context.Background())
+}
+
+func SwapDevicesWithContext(ctx context.Context) ([]*SwapDevice, error) {
+	return nil, common.ErrNotImplementedError
 }
