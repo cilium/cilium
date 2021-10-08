@@ -62,8 +62,13 @@ func TestBuildImagePath(t *testing.T) {
 		{"", "quay.io/cilium/cilium", "", "v1.10.4", "quay.io/cilium/cilium:v1.10.4"},
 		{"", "quay.io/cilium/cilium", "v1.9.10", "v1.10.4", "quay.io/cilium/cilium:v1.9.10"},
 		{"", "quay.io/cilium/cilium", "1.9.10", "v1.10.4", "quay.io/cilium/cilium:v1.9.10"},
+		{"", "quay.io/cilium/cilium", ":latest", "v1.10.4", "quay.io/cilium/cilium:latest"},
+		{"", "quay.io/cilium/cilium", "-ci:92ff7ffa762f6f8bc397a28e6f3147906e20e8fa", "v1.10.4", "quay.io/cilium/cilium-ci:92ff7ffa762f6f8bc397a28e6f3147906e20e8fa"},
 		{"quay.io/cilium/cilium-ci", "quay.io/cilium/cilium", "v1.9.10", "v1.10.4", "quay.io/cilium/cilium-ci:v1.9.10"},
 		{"quay.io/cilium/cilium-ci", "quay.io/cilium/cilium", "latest", "v1.10.4", "quay.io/cilium/cilium-ci:latest"},
+		{"quay.io/cilium/cilium-ci", "quay.io/cilium/cilium", ":latest", "v1.10.4", "quay.io/cilium/cilium-ci:latest"},
+		{"quay.io/cilium/cilium-ci:92ff7ffa762f6f8bc397a28e6f3147906e20e8fa", "quay.io/cilium/cilium", "", "v1.10.4", "quay.io/cilium/cilium-ci:92ff7ffa762f6f8bc397a28e6f3147906e20e8fa"},
+		{"quay.io/cilium/cilium-ci:92ff7ffa762f6f8bc397a28e6f3147906e20e8fa", "quay.io/cilium/cilium", "foobar", "v1.10.4", "quay.io/cilium/cilium-ci:92ff7ffa762f6f8bc397a28e6f3147906e20e8fa"},
 	}
 	for _, tt := range tests {
 		ui, di, uv, dv := tt.userImage, tt.defaultImage, tt.userVersion, tt.defaultVersion
