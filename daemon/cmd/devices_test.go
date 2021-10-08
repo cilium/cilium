@@ -134,6 +134,25 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		c.Assert(addRoute(addRouteParams{iface: "dummy3", dst: "192.168.3.1/24", scope: unix.RT_SCOPE_LINK, table: 11}), IsNil)
 		c.Assert(dm.Detect(), IsNil)
 		c.Assert(dm.GetDevices(), checker.DeepEquals, []string{"cilium_foo", "dummy0", "dummy1", "dummy2", "dummy3", "veth0"})
+		option.Config.Devices = []string{}
+
+		// 8. Skip bridge devices, and devices added to the bridge
+		c.Assert(createBridge("br0", "192.168.5.1/24", false), IsNil)
+		c.Assert(dm.Detect(), IsNil)
+		c.Assert(dm.GetDevices(), checker.DeepEquals, []string{"cilium_foo", "dummy0", "dummy1", "dummy2", "dummy3", "veth0"})
+		option.Config.Devices = []string{}
+
+		c.Assert(setMaster("dummy3", "br0"), IsNil)
+		c.Assert(dm.Detect(), IsNil)
+		c.Assert(dm.GetDevices(), checker.DeepEquals, []string{"cilium_foo", "dummy0", "dummy1", "dummy2", "veth0"})
+		option.Config.Devices = []string{}
+
+		// 9. Don't skip bond devices, but do skip bond slaves.
+		c.Assert(createBond("bond0", "192.168.6.1/24", false), IsNil)
+		c.Assert(setBondMaster("dummy2", "bond0"), IsNil)
+		c.Assert(dm.Detect(), IsNil)
+		c.Assert(dm.GetDevices(), checker.DeepEquals, []string{"bond0", "cilium_foo", "dummy0", "dummy1", "veth0"})
+		option.Config.Devices = []string{}
 	})
 }
 
@@ -206,6 +225,42 @@ func createDummy(iface, ipAddr string, flagMulticast bool) error {
 
 func createVeth(iface, ipAddr string, flagMulticast bool) error {
 	return createLink(&netlink.Veth{PeerName: iface + "_"}, iface, ipAddr, flagMulticast)
+}
+
+func createBridge(iface, ipAddr string, flagMulticast bool) error {
+	return createLink(&netlink.Bridge{}, iface, ipAddr, flagMulticast)
+}
+
+func createBond(iface, ipAddr string, flagMulticast bool) error {
+	bond := netlink.NewLinkBond(netlink.LinkAttrs{})
+	bond.Mode = netlink.BOND_MODE_BALANCE_RR
+	return createLink(bond, iface, ipAddr, flagMulticast)
+}
+
+func setMaster(iface string, master string) error {
+	masterLink, err := netlink.LinkByName(master)
+	if err != nil {
+		return err
+	}
+	link, err := netlink.LinkByName(iface)
+	if err != nil {
+		return err
+	}
+	return netlink.LinkSetMaster(link, masterLink)
+}
+
+func setBondMaster(iface string, master string) error {
+	masterLink, err := netlink.LinkByName(master)
+	if err != nil {
+		return err
+	}
+	link, err := netlink.LinkByName(iface)
+	if err != nil {
+		return err
+	}
+
+	netlink.LinkSetDown(link)
+	return netlink.LinkSetBondSlave(link, masterLink.(*netlink.Bond))
 }
 
 func addAddr(iface string, cidr string) error {

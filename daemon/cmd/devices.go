@@ -164,6 +164,9 @@ func (dm *DeviceManager) getDevices() []string {
 	return devs
 }
 
+// Exclude devices that have one or more of these flags set.
+var excludedIfFlagsMask uint32 = unix.IFF_SLAVE | unix.IFF_LOOPBACK
+
 // isViableDevice returns true if the given link is usable and Cilium should attach
 // programs to it.
 func (dm *DeviceManager) isViableDevice(l3DevOK, hasDefaultRoute bool, link netlink.Link) bool {
@@ -178,9 +181,9 @@ func (dm *DeviceManager) isViableDevice(l3DevOK, hasDefaultRoute bool, link netl
 		}
 	}
 
-	// Skip lower bond devices.
-	if link.Attrs().RawFlags&unix.IFF_SLAVE != 0 {
-		log.WithField(logfields.Device, name).Debug("Skipping bonded device")
+	// Skip devices that have an excluded interface flag set.
+	if link.Attrs().RawFlags&excludedIfFlagsMask != 0 {
+		log.WithField(logfields.Device, name).Debugf("Skipping device as it has excluded flag (%x)", link.Attrs().RawFlags)
 		return false
 	}
 
@@ -191,18 +194,41 @@ func (dm *DeviceManager) isViableDevice(l3DevOK, hasDefaultRoute bool, link netl
 		return false
 	}
 
-	// Skip veth devices that don't have a default route.
-	// This is a workaround for kubernetes-in-docker. We want to avoid
-	// veth devices in general as they may be leftovers from another CNI.
-	if !hasDefaultRoute {
-		_, virtual := link.(*netlink.Veth)
-		if virtual {
+	switch link.Type() {
+	case "veth":
+		// Skip veth devices that don't have a default route.
+		// This is a workaround for kubernetes-in-docker. We want to avoid
+		// veth devices in general as they may be leftovers from another CNI.
+		if !hasDefaultRoute {
 			log.WithField(logfields.Device, name).
 				Debug("Ignoring veth device as it has no default route")
 			return false
 		}
 
+	case "bridge", "openvswitch":
+		// Skip bridge devices as they're very unlikely to be used for K8s
+		// purposes. In the rare cases where a user wants to load datapath
+		// programs onto them they can override device detection with --devices.
+		log.WithField(logfields.Device, name).Debug("Ignoring bridge-like device")
+		return false
+
 	}
+
+	if link.Attrs().MasterIndex > 0 {
+		if master, err := netlink.LinkByIndex(link.Attrs().MasterIndex); err == nil {
+			switch master.Type() {
+			case "bridge", "openvswitch":
+				log.WithField(logfields.Device, name).Debug("Ignoring device attached to bridge")
+				return false
+
+			case "bond", "team":
+				log.WithField(logfields.Device, name).Debug("Ignoring bonded device")
+				return false
+			}
+
+		}
+	}
+
 	return true
 }
 
