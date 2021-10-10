@@ -158,6 +158,13 @@ func endpointIPToCIDR(ip net.IP) *net.IPNet {
 	}
 }
 
+// GetHostIPCache returns the IPKeyPair from the given IP from the IPCache.
+func (ipc *IPCache) GetHostIPCache(ip string) (net.IP, uint8) {
+	ipc.mutex.RLock()
+	defer ipc.mutex.RUnlock()
+	return ipc.getHostIPCache(ip)
+}
+
 func (ipc *IPCache) getHostIPCache(ip string) (net.IP, uint8) {
 	ipKeyPair := ipc.ipToHostIPCache[ip]
 	return ipKeyPair.IP, ipKeyPair.Key
