@@ -36,9 +36,6 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, asyncCo
 					if ciliumNode := k8s.ObjToCiliumNode(obj); ciliumNode != nil {
 						valid = true
 						n := nodeTypes.ParseCiliumNode(ciliumNode)
-						if n.IsLocal() {
-							return
-						}
 						k.nodeDiscoverManager.NodeUpdated(n)
 						k.K8sEventProcessed(metricCiliumNode, metricCreate, true)
 					}
@@ -54,9 +51,6 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, asyncCo
 								return
 							}
 							n := nodeTypes.ParseCiliumNode(ciliumNode)
-							if n.IsLocal() {
-								return
-							}
 							k.nodeDiscoverManager.NodeUpdated(n)
 							k.K8sEventProcessed(metricCiliumNode, metricUpdate, true)
 						}
