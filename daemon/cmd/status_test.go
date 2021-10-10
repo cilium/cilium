@@ -39,7 +39,7 @@ func (g *GetNodesSuite) SetUpTest(c *C) {
 
 func (g *GetNodesSuite) SetUpSuite(c *C) {
 	var err error
-	nm, err = manager.NewManager("", fake.NewNodeHandler(), fakeIPCache.NewIPCache(false), &fakeConfig.Config{})
+	nm, err = manager.NewManager("", fake.NewNodeHandler(), fakeIPCache.NewIPCache(false), &fakeConfig.Config{}, nil, nil)
 	c.Assert(err, IsNil)
 }
 

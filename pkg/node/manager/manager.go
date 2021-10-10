@@ -7,14 +7,17 @@ import (
 	"context"
 	"math"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node/addressing"
@@ -129,6 +132,24 @@ type Manager struct {
 
 	// ipcache is the set operations performed against the ipcache
 	ipcache IPCache
+
+	// controllerManager manages the controllers that are launched within the
+	// Manager.
+	controllerManager *controller.Manager
+
+	// selectorCacheUpdater updates the identities inside the selector cache.
+	selectorCacheUpdater selectorCacheUpdater
+
+	// policyTriggerer triggers policy updates (recalculations).
+	policyTriggerer policyTriggerer
+}
+
+type selectorCacheUpdater interface {
+	UpdateIdentities(added, deleted cache.IdentityCache, wg *sync.WaitGroup)
+}
+
+type policyTriggerer interface {
+	TriggerPolicyUpdates(bool, string)
 }
 
 // Subscribe subscribes the given node handler to node events.
@@ -164,14 +185,17 @@ func (m *Manager) Iter(f func(nh datapath.NodeHandler)) {
 }
 
 // NewManager returns a new node manager
-func NewManager(name string, dp datapath.NodeHandler, ipcache IPCache, c Configuration) (*Manager, error) {
+func NewManager(name string, dp datapath.NodeHandler, ipcache IPCache, c Configuration, sc selectorCacheUpdater, pt policyTriggerer) (*Manager, error) {
 	m := &Manager{
-		name:         name,
-		nodes:        map[nodeTypes.Identity]*nodeEntry{},
-		conf:         c,
-		ipcache:      ipcache,
-		nodeHandlers: map[datapath.NodeHandler]struct{}{},
-		closeChan:    make(chan struct{}),
+		name:                 name,
+		nodes:                map[nodeTypes.Identity]*nodeEntry{},
+		conf:                 c,
+		ipcache:              ipcache,
+		controllerManager:    controller.NewManager(),
+		selectorCacheUpdater: sc,
+		policyTriggerer:      pt,
+		nodeHandlers:         map[datapath.NodeHandler]struct{}{},
+		closeChan:            make(chan struct{}),
 	}
 	m.Subscribe(dp)
 
@@ -204,6 +228,18 @@ func NewManager(name string, dp datapath.NodeHandler, ipcache IPCache, c Configu
 	go m.backgroundSync()
 
 	return m, nil
+}
+
+// WithSelectorCacheUpdater sets the selector cache updater in the Manager.
+func (m *Manager) WithSelectorCacheUpdater(sc selectorCacheUpdater) *Manager {
+	m.selectorCacheUpdater = sc
+	return m
+}
+
+// WithPolicyTriggerer sets the policy update trigger in the Manager.
+func (m *Manager) WithPolicyTriggerer(pt policyTriggerer) *Manager {
+	m.policyTriggerer = pt
+	return m
 }
 
 // Close shuts down a node manager
@@ -340,6 +376,7 @@ func (m *Manager) legacyNodeIpBehavior() bool {
 // interface is invoked.
 func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 	log.Debugf("Received node update event from %s: %#v", n.Source, n)
+
 	nodeIdentity := n.Identity()
 	dpUpdate := true
 	nodeIP := n.GetNodeIP(false)
@@ -349,7 +386,7 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		nid := identity.NumericIdentity(n.NodeIdentity)
 		if nid != identity.IdentityUnknown {
 			remoteHostIdentity = nid
-		} else if n.Source != source.Local {
+		} else if !n.IsLocal() {
 			remoteHostIdentity = identity.ReservedIdentityRemoteNode
 		}
 	}
@@ -398,6 +435,8 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 			Source: n.Source,
 		})
 
+		upsertIntoIDMD(ipAddrStr, remoteHostIdentity)
+
 		// Upsert() will return true if the ipcache entry is owned by
 		// the source of the node update that triggered this node
 		// update (kvstore, k8s, ...) The datapath is only updated if
@@ -431,6 +470,10 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		m.metricEventsReceived.WithLabelValues("update", string(n.Source)).Inc()
 
 		if !source.AllowOverwrite(entry.node.Source, n.Source) {
+			// Done; skip node-handler updates and label injection
+			// triggers below. Includes case where the local host
+			// was discovered locally and then is subsequently
+			// updated by the k8s watcher.
 			m.mutex.Unlock()
 			return
 		}
@@ -473,6 +516,25 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		}
 		entry.mutex.Unlock()
 	}
+
+	ipcache.IPIdentityCache.TriggerLabelInjection(
+		n.Source,
+		m.selectorCacheUpdater,
+		m.policyTriggerer,
+	)
+}
+
+// upsertIntoIDMD upserts the given CIDR into the ipcache.IdentityMetadata
+// (IDMD) map. The given node identity determines which labels are associated
+// with the CIDR.
+func upsertIntoIDMD(prefix string, id identity.NumericIdentity) {
+	var lbls labels.Labels
+	if id == identity.ReservedIdentityHost {
+		lbls = labels.LabelHost
+	} else {
+		lbls = labels.LabelRemoteNode
+	}
+	ipcache.UpsertMetadata(prefix, lbls)
 }
 
 // deleteIPCache deletes the IP addresses from the IPCache with the 'oldSource'
