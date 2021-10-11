@@ -58,14 +58,16 @@ func AllocateCIDRs(
 			continue
 		}
 
-		prefixStr := p.String()
+		lbls := cidr.GetCIDRLabels(p)
+		lbls.MergeLabels(GetIDMetadataByIP(p.IP.String()))
 
-		id, isNew, err := allocate(prefixStr, cidr.GetCIDRLabels(p))
+		id, isNew, err := allocate(p, lbls)
 		if err != nil {
 			IdentityAllocator.ReleaseSlice(context.Background(), nil, usedIdentities)
 			return nil, err
 		}
 
+		prefixStr := p.String()
 		usedIdentities = append(usedIdentities, id)
 		allocatedIdentities[prefixStr] = id
 		if isNew {
@@ -106,7 +108,21 @@ func UpsertGeneratedIdentities(newlyAllocatedIdentities map[string]*identity.Ide
 	}
 }
 
-func allocate(prefix string, lbls labels.Labels) (*identity.Identity, bool, error) {
+// allocate will allocate a new identity for the given prefix based on the
+// given set of labels. This function performs both global and local (CIDR)
+// identity allocation and the set of labels determine which identity
+// allocation type is to occur.
+//
+// If the identity is a CIDR identity, then its corresponding Identity will
+// have its CIDR labels set correctly.
+//
+// It is up to the caller to provide the full set of labels for identity
+// allocation.
+func allocate(prefix *net.IPNet, lbls labels.Labels) (*identity.Identity, bool, error) {
+	if prefix == nil {
+		return nil, false, nil
+	}
+
 	allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.IPAllocationTimeout)
 	defer cancel()
 
@@ -116,7 +132,7 @@ func allocate(prefix string, lbls labels.Labels) (*identity.Identity, bool, erro
 	}
 
 	if lbls.Has(labels.LabelWorld[labels.IDNameWorld]) {
-		id.CIDRLabel = labels.NewLabelsFromModel([]string{labels.LabelSourceCIDR + ":" + prefix})
+		id.CIDRLabel = labels.NewLabelsFromModel([]string{labels.LabelSourceCIDR + ":" + prefix.String()})
 	}
 
 	return id, isNew, err

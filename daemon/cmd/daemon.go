@@ -454,6 +454,9 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		option.Config,
 	)
 	nd.RegisterK8sNodeGetter(d.k8sWatcher)
+	// GH-17849: The daemon does not have a reference to the ipcache,
+	// instead we rely on the global.
+	ipcache.IPIdentityCache.RegisterK8sSyncedChecker(&d)
 
 	d.k8sWatcher.NodeChain.Register(d.endpointManager)
 	if option.Config.BGPAnnounceLBIP || option.Config.BGPAnnouncePodCIDR {
