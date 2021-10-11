@@ -94,6 +94,7 @@ Minikube
 Monnet
 Mythbusters
 NativeRoutingCIDR
+NeighDiscovery
 Netronome
 NewProto
 Nic
@@ -154,6 +155,7 @@ app
 apps
 archs
 arithmetics
+arping
 artii
 asm
 assignees

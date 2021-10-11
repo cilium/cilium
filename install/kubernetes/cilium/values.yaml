@@ -970,7 +970,7 @@ readinessProbe:
 kubeProxyReplacementHealthzBindAddr: ""
 
 l2NeighDiscovery:
-  # -- Enable L2 neighbour discovery in the agent
+  # -- Enable L2 neighbor discovery in the agent
   enabled: true
   # -- Set period for arping
   arping-refresh-period: "5m"
