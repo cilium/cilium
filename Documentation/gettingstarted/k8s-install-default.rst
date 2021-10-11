@@ -33,7 +33,7 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
 
     .. group-tab:: GKE
 
-       The following command creates a Kubernetes cluster using `Google
+       The following commands create a Kubernetes cluster using `Google
        Kubernetes Engine <https://cloud.google.com/kubernetes-engine>`_.  See
        `Installing Google Cloud SDK <https://cloud.google.com/sdk/install>`_
        for instructions on how to install ``gcloud`` and prepare your
@@ -51,7 +51,7 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
 
     .. group-tab:: AKS
 
-       The following command creates a Kubernetes cluster using `Azure
+       The following commands create a Kubernetes cluster using `Azure
        Kubernetes Service <https://docs.microsoft.com/en-us/azure/aks/>`_. See
        `Azure Cloud CLI
        <https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest>`_
@@ -111,7 +111,7 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
 
     .. group-tab:: EKS
 
-       The following command creates a Kubernetes cluster with ``eksctl``
+       The following commands create a Kubernetes cluster with ``eksctl``
        using `Amazon Elastic Kubernetes Service
        <https://aws.amazon.com/eks/>`_.  See `eksctl Installation
        <https://github.com/weaveworks/eksctl>`_ for instructions on how to
