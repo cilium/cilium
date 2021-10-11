@@ -37,7 +37,7 @@ func printStack(w io.Writer, stack []uintptr) {
 			pkg = name[:pos]
 			name = name[pos+1:]
 		}
-		file, line := f.FileLine(pc - 1)
+		file, line := f.FileLine(pc)
 		if (pkg == "runtime" && name == "goexit") || (pkg == "testing" && name == "tRunner") {
 			fmt.Fprintln(w)
 			return
@@ -60,7 +60,7 @@ func printStack(w io.Writer, stack []uintptr) {
 				clean = s2
 			}
 		}
-		fmt.Fprintf(w, "%s:%d %s.%s %s%s\n", clean, line, pkg, name, code(file, line), tail)
+		fmt.Fprintf(w, "%s:%d %s.%s %s%s\n", clean, line-1, pkg, name, code(file, line), tail)
 	}
 	fmt.Fprintln(w)
 }
@@ -87,11 +87,11 @@ func getSourceLines(file string) [][]byte {
 
 func code(file string, line int) string {
 	lines := getSourceLines(file)
-	// lines are 1 based.
-	if line >= len(lines) || line <= 0 {
+	line -= 2
+	if line >= len(lines) || line < 0 {
 		return "???"
 	}
-	return "{ " + string(bytes.TrimSpace(lines[line-1])) + " }"
+	return "{ " + string(bytes.TrimSpace(lines[line])) + " }"
 }
 
 // Stacktraces for all goroutines.
