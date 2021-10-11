@@ -636,6 +636,26 @@ func (m *IptablesManager) installStaticProxyRules() error {
 				"-j", "NOTRACK"}, false)
 		}
 		if err == nil {
+			// No conntrack for proxy upstream traffic that is heading to lxc+
+			err = ip4tables.runProg([]string{
+				"-t", "raw",
+				"-A", ciliumOutputRawChain,
+				"-o", "lxc+",
+				"-m", "mark", "--mark", matchL7ProxyUpstream,
+				"-m", "comment", "--comment", "cilium: NOTRACK for L7 proxy upstream traffic",
+				"-j", "NOTRACK"}, false)
+		}
+		if err == nil {
+			// No conntrack for proxy upstream traffic that is heading to cilium_host
+			err = ip4tables.runProg([]string{
+				"-t", "raw",
+				"-A", ciliumOutputRawChain,
+				"-o", "cilium_host",
+				"-m", "mark", "--mark", matchL7ProxyUpstream,
+				"-m", "comment", "--comment", "cilium: NOTRACK for L7 proxy upstream traffic",
+				"-j", "NOTRACK"}, false)
+		}
+		if err == nil {
 			// Explicit ACCEPT for the proxy return traffic. Needed when the OUTPUT defaults to DROP.
 			// Matching needs to be the same as for the NOTRACK rule above.
 			err = ip4tables.runProg([]string{
