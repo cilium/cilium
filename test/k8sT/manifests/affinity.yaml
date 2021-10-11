@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: affinity-svc
+spec:
+  ports:
+    - port: 8081
+  selector:
+    app: affinity-server
+---
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: affinity-server
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: affinity-server
+      zgroup: affinity-server
+  template:
+    metadata:
+      labels:
+        app: affinity-server
+        zgroup: affinity-server
+    spec:
+      containers:
+        - name: server
+          image: docker.io/cilium/affinity-test-apps:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8081
+              protocol: UDP
+          command: [ "/server", "8081" ]
+      terminationGracePeriodSeconds: 0
+      tolerations:
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+        - effect: NoSchedule
+          key: node.cloudprovider.kubernetes.io/uninitialized
+          value: "true"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: affinity-client
+spec:
+  selector:
+    matchLabels:
+      app: affinity-client
+      zgroup: affinity-client
+  template:
+    metadata:
+      labels:
+        app: affinity-client
+        zgroup: affinity-client
+    spec:
+      containers:
+        - name: affinity-client
+          image: docker.io/cilium/affinity-test-apps:latest
+          command: [ "/client", "affinity-svc.default.svc.cluster.local.:8081" ]

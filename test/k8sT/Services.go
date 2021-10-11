@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -1545,6 +1546,147 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			}
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, options)
 			testIPv4FragmentSupport(kubectl, ni)
+		})
+	})
+
+	SkipContextIf(func() bool {
+		return helpers.DoesNotRunWithKubeProxyReplacement() && helpers.DoesNotRunOnNetNextKernel()
+	}, "Checks uninterrupted connectivity", func() {
+		const (
+			clientPodLabel  = "app=affinity-client"
+			client6PodLabel = "app=affinity-client6"
+			serverPodLabel  = "app=affinity-server"
+			serverRs        = "affinity-server"
+			scaleUpReplicas = 3
+		)
+		var (
+			affinityYAML  string
+			affinity6YAML string
+			clientPod     string
+			client6Pod    string
+		)
+
+		waitForClientPod := func(podLabel string) string {
+			filter := "-l " + podLabel
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, filter, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "Client pods failed to come up")
+			pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, podLabel)
+			Expect(err).Should(BeNil(), "Cannot retrieve pod names by filter %s", podLabel)
+			pod := pods[0]
+			ctx, cancel := context.WithCancel(context.Background())
+			res := kubectl.LogsStream(helpers.DefaultNamespace, pod, ctx)
+			// Check if the client pod is able to get a response from the server once it's up and running
+			Expect(res.WaitUntilMatch("client received")).To(BeNil(),
+				"%s is not in the output after timeout", res.GetStdOut())
+			defer func() {
+				cancel()
+				res.WaitUntilFinish()
+			}()
+			return pod
+		}
+
+		countClientPodRestarts := func(pod string) int {
+			filter := `{.status.containerStatuses[0].restartCount}`
+			countRes, err := kubectl.GetPods(helpers.DefaultNamespace, pod).Filter(filter)
+			ExpectWithOffset(1, err).To(BeNil(), "Failed to query pod %s", pod)
+			rc, err := strconv.Atoi(countRes.String())
+			ExpectWithOffset(1, err).To(BeNil(), "Failed to convert count value")
+			return rc
+		}
+
+		checkBackendPlumbing := func(numBackends int) {
+			podIPs, err := kubectl.GetPodsIPs(helpers.DefaultNamespace, serverPodLabel)
+			Expect(err).Should(BeNil(), "Cannot retrieve pod IPs for %s", serverPodLabel)
+			Expect(len(podIPs)).To(Equal(numBackends), "Unexpected number of service backends")
+			for _, ip := range podIPs {
+				err = kubectl.WaitForServiceBackend(helpers.K8s1, ip)
+				ExpectWithOffset(1, err).Should(BeNil(), "Failed waiting for %s backend entry on k8s1", ip)
+				err = kubectl.WaitForServiceBackend(helpers.K8s2, ip)
+				ExpectWithOffset(1, err).Should(BeNil(), "Failed waiting for %s backend entry on k8s2", ip)
+			}
+		}
+
+		validateClientPodState := func(pod string, restartCount int) {
+			// Checks if the client reported mismatch in the server reply. This is an indication
+			// that client connectivity was interrupted, and that subsequent messages
+			// from the client were sent to a different service endpoint.
+			By("Checking client pod %s didn't restart", pod)
+			newRestartCount := countClientPodRestarts(pod)
+			Expect(newRestartCount).Should(BeIdenticalTo(restartCount), "client pod was restarted during the test")
+
+			By("Checking for uninterrupted connections for client pod %s", pod)
+			res := kubectl.Logs(helpers.DefaultNamespace, pod)
+			res.ExpectDoesNotContain("server reply mismatch", "connectivity interrupted on client pod %s", pod)
+			res.ExpectContains("client received")
+		}
+
+		BeforeAll(func() {
+			affinityYAML = helpers.ManifestGet(kubectl.BasePath(), "affinity.yaml")
+			affinity6YAML = helpers.ManifestGet(kubectl.BasePath(), "affinity6.yaml")
+
+			res := kubectl.ApplyDefault(affinityYAML)
+			Expect(res).Should(helpers.CMDSuccess(), "unable to apply %s", affinityYAML)
+			if helpers.DualStackSupported() {
+				res = kubectl.ApplyDefault(affinity6YAML)
+				Expect(res).Should(helpers.CMDSuccess(), "unable to apply %s", affinity6YAML)
+			}
+
+			_, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
+			Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
+			_, err = kubectl.GetCiliumPodOnNode(helpers.K8s2)
+			Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s2")
+
+			err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l app=affinity-server", helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "Server pods failed to come up")
+			// Wait for the service backends to be plumbed in BPF maps
+			checkBackendPlumbing(2)
+
+			clientPod = waitForClientPod(clientPodLabel)
+			if helpers.DualStackSupported() {
+				client6Pod = waitForClientPod(client6PodLabel)
+			}
+		})
+
+		AfterFailed(func() {
+			kubectl.CiliumReport("cilium service list", "cilium bpf lb list")
+			kubectl.LogsWithLabel(helpers.DefaultNamespace, serverPodLabel)
+			kubectl.LogsWithPrevious(helpers.DefaultNamespace, clientPod)
+			if helpers.DualStackSupported() {
+				kubectl.LogsWithPrevious(helpers.DefaultNamespace, client6Pod)
+			}
+		})
+
+		AfterAll(func() {
+			_ = kubectl.Delete(affinityYAML)
+			if helpers.DualStackSupported() {
+				_ = kubectl.Delete(affinity6YAML)
+			}
+		})
+
+		It("Checks clusterIP connectivity is uninterrupted on service endpoints updates", func() {
+			By("Counting number of restarts for %s before triggering endpoint updates", clientPod)
+			restartCount := countClientPodRestarts(clientPod)
+			restartCount6 := 0
+			if helpers.DualStackSupported() {
+				By("Counting number of restarts for %s before triggering endpoint updates", client6Pod)
+				restartCount6 = countClientPodRestarts(client6Pod)
+			}
+
+			// Scale up the server replica set to trigger service endpoints update
+			By("Scaling up replica set %s", serverRs)
+			cmd := fmt.Sprintf("kubectl scale --replicas=%d rs/%s", scaleUpReplicas, serverRs)
+			res := kubectl.Exec(cmd)
+			res.ExpectSuccess(fmt.Sprintf("Failed to scale up replica set: %s", serverRs))
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l app=affinity-server", helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "Server pods failed to come up after scaling up")
+
+			By("Waiting for backends to be plumbed in BPF maps")
+			checkBackendPlumbing(scaleUpReplicas)
+
+			validateClientPodState(clientPod, restartCount)
+			if helpers.DualStackSupported() {
+				validateClientPodState(client6Pod, restartCount6)
+			}
 		})
 	})
 
