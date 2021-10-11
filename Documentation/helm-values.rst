@@ -873,6 +873,14 @@
      - healthz server bind address for the kube-proxy replacement. To enable set the value to '0.0.0.0:10256' for all ipv4 addresses and this '[::]:10256' for all ipv6 addresses. By default it is disabled.
      - string
      - ``""``
+   * - l2NeighDiscovery.arping-refresh-period
+     - Set period for arping
+     - string
+     - ``"5m"``
+   * - l2NeighDiscovery.enabled
+     - Enable L2 neighbor discovery in the agent
+     - bool
+     - ``true``
    * - l7Proxy
      - Enable Layer 7 network policy.
      - bool
