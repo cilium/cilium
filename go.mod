@@ -70,7 +70,7 @@ require (
 	github.com/prometheus/client_model v0.2.1-0.20200623203004-60555c9708c7
 	github.com/prometheus/procfs v0.6.0
 	github.com/russross/blackfriday/v2 v2.1.0
-	github.com/sasha-s/go-deadlock v0.2.1-0.20190427202633-1595213edefa
+	github.com/sasha-s/go-deadlock v0.3.1
 	github.com/servak/go-fastping v0.0.0-20160802140958-5718d12e20a0
 	github.com/shirou/gopsutil/v3 v3.21.7
 	github.com/sirupsen/logrus v1.7.0
