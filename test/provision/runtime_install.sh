@@ -17,10 +17,6 @@ sudo systemctl restart ssh
 
 "${PROVISIONSRC}"/dns.sh
 
-# Temporary fix until https://github.com/cilium/packer-ci-build/pull/278 is
-# merged. Necessary as Cilium now needs ipset for iptables masquerading.
-sudo apt-get install -y ipset
-
 if [[ "${PROVISION_EXTERNAL_WORKLOAD}" == "false" ]]; then
     "${PROVISIONSRC}"/compile.sh
     "${PROVISIONSRC}"/wait-cilium.sh
