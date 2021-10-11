@@ -271,7 +271,7 @@ contributors across the globe, there is almost always someone available to help.
 | keepDeprecatedProbes | bool | `false` | Keep the deprecated probes when deploying Cilium DaemonSet |
 | kubeProxyReplacementHealthzBindAddr | string | `""` | healthz server bind address for the kube-proxy replacement. To enable set the value to '0.0.0.0:10256' for all ipv4 addresses and this '[::]:10256' for all ipv6 addresses. By default it is disabled. |
 | l2NeighDiscovery.arping-refresh-period | string | `"5m"` | Set period for arping |
-| l2NeighDiscovery.enabled | bool | `true` | Enable L2 neighbour discovery in the agent |
+| l2NeighDiscovery.enabled | bool | `true` | Enable L2 neighbor discovery in the agent |
 | l7Proxy | bool | `true` | Enable Layer 7 network policy. |
 | livenessProbe.failureThreshold | int | `10` | failure threshold of liveness probe |
 | livenessProbe.periodSeconds | int | `30` | interval between checks of the liveness probe |
