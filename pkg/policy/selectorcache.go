@@ -897,7 +897,21 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted cache.IdentityCache, wg
 				delete(added, numericID)
 				continue
 			}
-			log.WithFields(logrus.Fields{logfields.Identity: numericID, logfields.Labels: old.lbls, logfields.Labels + "(new)": lbls}).Warning("UpdateIdentities: Updating an existing identity")
+			scopedLog := log.WithFields(logrus.Fields{
+				logfields.Identity:         numericID,
+				logfields.Labels:           old.lbls,
+				logfields.Labels + "(new)": lbls},
+			)
+			msg := "UpdateIdentities: Updating an existing identity"
+			// Warn if any other ID has their labels change, besides local
+			// host. The local host can have its labels change at runtime if
+			// the kube-apiserver is running on the local host, see
+			// ipcache.TriggerLabelInjection().
+			if numericID == identity.ReservedIdentityHost {
+				scopedLog.Debug(msg)
+			} else {
+				scopedLog.Warning(msg)
+			}
 		} else {
 			log.WithFields(logrus.Fields{logfields.Identity: numericID, logfields.Labels: lbls}).Debug("UpdateIdentities: Adding a new identity")
 		}

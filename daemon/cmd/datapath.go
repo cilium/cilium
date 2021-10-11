@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
@@ -243,9 +244,13 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 
 		// Upsert will not propagate (reserved:foo->ID) mappings across the cluster,
 		// and we specifically don't want to do so.
+		//
+		// This upsert will fail with ErrOverwrite continuously as long as the
+		// EP / CN watcher have found an apiserver IP and upserted it into the
+		// ipcache. Until then, it is expected to succeed.
 		ipcache.IPIdentityCache.Upsert(ipIDPair.PrefixString(), nil, hostKey, nil, ipcache.Identity{
 			ID:     ipIDPair.ID,
-			Source: source.Local,
+			Source: sourceByIP(ipIDPair.IP.String(), source.Local),
 		})
 	}
 
@@ -259,11 +264,20 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 				log.Debugf("Removed outdated host ip %s from endpoint map", hostIP)
 			}
 
-			ipcache.IPIdentityCache.Delete(hostIP, source.Local)
+			ipcache.IPIdentityCache.Delete(hostIP, sourceByIP(hostIP, source.Local))
 		}
 	}
 
 	return nil
+}
+
+func sourceByIP(prefix string, defaultSrc source.Source) source.Source {
+	if lbls := ipcache.GetIDMetadataByIP(prefix); lbls.Has(
+		labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer],
+	) {
+		return source.KubeAPIServer
+	}
+	return defaultSrc
 }
 
 // initMaps opens all BPF maps (and creates them if they do not exist). This
