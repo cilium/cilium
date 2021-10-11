@@ -1334,6 +1334,9 @@ Limitations
       release introduces ``EndpointSliceMirroring`` controller that mirrors custom ``Endpoints``
       resources to corresponding ``EndpointSlices`` and thus allowing backing ``Endpoints``
       to work. For a more detailed discussion see :gh-issue:`12438`.
+    * When deployed on kernels older than 5.7, Cilium is unable to distinguish between host and
+      pod namespaces due to the lack of kernel support for network namespace cookies. As a result,
+      Kubernetes services are reachable from all pods via the loopback address.
 
 Further Readings
 ################
