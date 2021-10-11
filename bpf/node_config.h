@@ -76,6 +76,7 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define CAPTURE6_SIZE 16384
 #endif /* ENABLE_IPV6 */
 
+#define EGRESS_MAP test_cilium_egress_v4
 #define ENDPOINTS_MAP test_cilium_lxc
 #define EVENTS_MAP test_cilium_events
 #define SIGNAL_MAP test_cilium_signals
