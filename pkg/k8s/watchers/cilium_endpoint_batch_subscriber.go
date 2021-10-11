@@ -44,12 +44,9 @@ func (cs *cebSubscriber) OnAdd(ceb *cilium_v2a1.CiliumEndpointBatch) {
 			"CEPName": ep.Name,
 		}).Debug("CEB added, calling CoreEndpointUpdate")
 		c := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(&ceb.Endpoints[i], ceb.Namespace)
-		// LocalNode already has the latest CEP.
-		// Hence, skip processing endpointupdate for localNode CEPs.
 		if p := cs.kWatcher.endpointManager.LookupPodName(k8sUtils.GetObjNamespaceName(c)); p != nil {
 			timeSinceCepCreated := time.Since(p.GetCreatedAt())
 			metrics.EndpointPropagationDelay.WithLabelValues().Observe(timeSinceCepCreated.Seconds())
-			continue
 		}
 		cs.kWatcher.endpointUpdated(nil, c)
 	}
@@ -98,12 +95,9 @@ func (cs *cebSubscriber) OnUpdate(oldCEB, newCEB *cilium_v2a1.CiliumEndpointBatc
 				"CEPName": CEPName,
 			}).Debug("CEP inserted, calling endpointUpdated")
 			c := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(newCEP, newCEB.Namespace)
-			// LocalNode already has the latest CEP.
-			// Hence, skip processing endpointupdate for localNode CEPs.
 			if p := cs.kWatcher.endpointManager.LookupPodName(k8sUtils.GetObjNamespaceName(c)); p != nil {
 				timeSinceCepCreated := time.Since(p.GetCreatedAt())
 				metrics.EndpointPropagationDelay.WithLabelValues().Observe(timeSinceCepCreated.Seconds())
-				continue
 			}
 			cs.kWatcher.endpointUpdated(nil, c)
 		}
@@ -121,11 +115,6 @@ func (cs *cebSubscriber) OnUpdate(oldCEB, newCEB *cilium_v2a1.CiliumEndpointBatc
 			}).Debug("CEB updated, calling endpointUpdated")
 			newC := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(newCEP, newCEB.Namespace)
 			oldC := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(oldCEP, oldCEB.Namespace)
-			// LocalNode already has the latest CEP.
-			// Hence, skip processing endpointUpdated for localNode CEPs.
-			if p := cs.kWatcher.endpointManager.LookupPodName(k8sUtils.GetObjNamespaceName(newC)); p != nil {
-				continue
-			}
 			cs.kWatcher.endpointUpdated(oldC, newC)
 		}
 	}
