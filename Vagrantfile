@@ -93,10 +93,6 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-# Temporary fix until https://github.com/cilium/packer-ci-build/pull/278 is
-# merged. Necessary as Cilium now needs ipset for iptables masquerading.
-sudo apt-get install -y ipset
-
 sudo -E make -C /home/vagrant/go/src/github.com/cilium/cilium/ install
 
 sudo mkdir -p /etc/sysconfig
