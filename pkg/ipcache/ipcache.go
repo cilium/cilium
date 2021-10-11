@@ -82,6 +82,10 @@ type IPCache struct {
 	// This map is returned to users so all updates must be made into a fresh map that
 	// is then swapped in place while 'mutex' is being held.
 	namedPorts policy.NamedPortMultiMap
+
+	// k8sSyncedChecker knows how to check for whether the K8s watcher cache
+	// has been fully synced.
+	k8sSyncedChecker k8sSyncedChecker
 }
 
 // NewIPCache returns a new IPCache with the mappings of endpoint IP to security
@@ -586,6 +590,12 @@ func (ipc *IPCache) LookupByHostRLocked(hostIPv4, hostIPv6 net.IP) (cidrs []net.
 	return cidrs
 }
 
+// RegisterK8sWaiter registers the object that checks for wehther the K8s cache
+// has been fully synced.
+func (ipc *IPCache) RegisterK8sSyncedChecker(c k8sSyncedChecker) {
+	ipc.k8sSyncedChecker = c
+}
+
 // Equal returns true if two K8sMetadata pointers contain the same data or are
 // both nil.
 func (m *K8sMetadata) Equal(o *K8sMetadata) bool {
@@ -603,4 +613,10 @@ func (m *K8sMetadata) Equal(o *K8sMetadata) bool {
 		}
 	}
 	return m.Namespace == o.Namespace && m.PodName == o.PodName
+}
+
+// k8sCacheIsSynced is an interface for checking if the K8s watcher cache has
+// been fully synced.
+type k8sSyncedChecker interface {
+	K8sCacheIsSynced() bool
 }
