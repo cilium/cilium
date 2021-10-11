@@ -493,7 +493,7 @@ github.com/josharian/native
 # github.com/json-iterator/go v1.1.11
 ## explicit; go 1.12
 github.com/json-iterator/go
-# github.com/kevinburke/ssh_config v0.0.0-20201106050909-4977a11b4351
+# github.com/kevinburke/ssh_config v1.1.0
 ## explicit
 github.com/kevinburke/ssh_config
 # github.com/kr/pretty v0.3.0
