@@ -52,6 +52,10 @@ const (
 	maxRetries = 15
 	// CEPs are batched into a CEB, based on its Identity
 	cebIdentityBasedBatching = "cebBatchModeIdentity"
+	// default qps limit value for workqueues, this only for retries.
+	CEBControllerWorkQueueQPSLimit = 10
+	// default burst limit value for workqueues.
+	CEBControllerWorkQueueBurstLimit = 100
 )
 
 type CiliumEndpointBatchController struct {
@@ -103,9 +107,24 @@ func NewCebController(client *k8s.K8sCiliumClient,
 	burstLimit int,
 ) *CiliumEndpointBatchController {
 
+	if qpsLimit == 0 {
+		qpsLimit = CEBControllerWorkQueueQPSLimit
+	}
+
+	if burstLimit == 0 {
+		burstLimit = CEBControllerWorkQueueBurstLimit
+	}
+
+	log.WithFields(logrus.Fields{
+		"WorkQueue qps limit":    qpsLimit,
+		"WorkQueue burst limit":  burstLimit,
+		"WorkQueue sync backoff": defaultSyncBackOff,
+		"WorkQueue max retries":  maxRetries,
+	}).Info("CEB controller workqueue configuration")
+
 	rlQueue := workqueue.NewNamedRateLimitingQueue(workqueue.NewMaxOfRateLimiter(
 		workqueue.NewItemExponentialFailureRateLimiter(defaultSyncBackOff, maxSyncBackOff),
-		// 5 qps, 10 bucket size. This is only for retry speed and its
+		// 10 qps, 100 bucket size. This is only for retry speed and its
 		// only the overall factor (not per item).
 		&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(qpsLimit), burstLimit)},
 	), "cilium_endpoint_batch")
