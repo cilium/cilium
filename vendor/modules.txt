@@ -296,7 +296,7 @@ github.com/fatih/color
 # github.com/form3tech-oss/jwt-go v3.2.2+incompatible
 ## explicit
 github.com/form3tech-oss/jwt-go
-# github.com/fsnotify/fsnotify v1.4.10-0.20200417215612-7f4cf4dd2b52
+# github.com/fsnotify/fsnotify v1.5.1
 ## explicit; go 1.13
 github.com/fsnotify/fsnotify
 # github.com/go-kit/kit v0.9.0
