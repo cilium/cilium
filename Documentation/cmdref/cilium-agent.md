@@ -66,7 +66,7 @@ cilium-agent [flags]
   -D, --debug                                                Enable debugging mode
       --debug-verbose strings                                List of enabled verbose debug groups
       --devices strings                                      List of devices facing cluster/external network (used for BPF NodePort, BPF masquerading and host firewall); supports '+' as wildcard in device name, e.g. 'eth+'
-      --direct-routing-device string                         Device name used to connect nodes in direct routing mode (required only by BPF NodePort; if empty, automatically set to a device with k8s InternalIP/ExternalIP or with a default route)
+      --direct-routing-device string                         Device name used to connect nodes in direct routing mode (used by BPF NodePort, BPF fast redirect; if empty, automatically set to a device with k8s InternalIP/ExternalIP or with a default route)
       --disable-cnp-status-updates                           Do not send CNP NodeStatus updates to the Kubernetes api-server (recommended to run with "cnp-node-status-gc-interval=0" in cilium-operator)
       --disable-conntrack                                    Disable connection tracking
       --disable-endpoint-crd                                 Disable use of CiliumEndpoint CRD
