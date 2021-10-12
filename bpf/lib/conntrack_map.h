@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (C) 2016-2020 Authors of Cilium */
+/* Copyright (C) 2016-2021 Authors of Cilium */
 
 #ifndef __LIB_CONNTRACK_MAP_H_
 #define __LIB_CONNTRACK_MAP_H_
@@ -15,29 +15,29 @@
 #endif
 
 #ifdef ENABLE_IPV6
-struct bpf_elf_map __section_maps CT_MAP_TCP6 = {
-	.type		= CT_MAP_TYPE,
-	.size_key	= sizeof(struct ipv6_ct_tuple),
-	.size_value	= sizeof(struct ct_entry),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= CT_MAP_SIZE_TCP,
+struct {
+	__uint(type, CT_MAP_TYPE);
+	__type(key, struct ipv6_ct_tuple);
+	__type(value, struct ct_entry);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CT_MAP_SIZE_TCP);
 #ifndef HAVE_LRU_HASH_MAP_TYPE
-	.flags		= CONDITIONAL_PREALLOC,
+	__uint(map_flags, CONDITIONAL_PREALLOC);
 #endif
-};
+} CT_MAP_TCP6 __section_maps_btf;
 
-struct bpf_elf_map __section_maps CT_MAP_ANY6 = {
-	.type		= CT_MAP_TYPE,
-	.size_key	= sizeof(struct ipv6_ct_tuple),
-	.size_value	= sizeof(struct ct_entry),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= CT_MAP_SIZE_ANY,
+struct {
+	__uint(type, CT_MAP_TYPE);
+	__type(key, struct ipv6_ct_tuple);
+	__type(value, struct ct_entry);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CT_MAP_SIZE_ANY);
 #ifndef HAVE_LRU_HASH_MAP_TYPE
-	.flags		= CONDITIONAL_PREALLOC,
+	__uint(map_flags, CONDITIONAL_PREALLOC);
 #endif
-};
+} CT_MAP_ANY6 __section_maps_btf;
 
-static __always_inline struct bpf_elf_map *
+static __always_inline void *
 get_ct_map6(const struct ipv6_ct_tuple *tuple)
 {
 	if (tuple->nexthdr == IPPROTO_TCP)
@@ -59,18 +59,18 @@ struct bpf_elf_map __section_maps CT_MAP_TCP4 = {
 #endif
 };
 
-struct bpf_elf_map __section_maps CT_MAP_ANY4 = {
-	.type		= CT_MAP_TYPE,
-	.size_key	= sizeof(struct ipv4_ct_tuple),
-	.size_value	= sizeof(struct ct_entry),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= CT_MAP_SIZE_ANY,
+struct {
+	__uint(type, CT_MAP_TYPE);
+	__type(key, struct ipv4_ct_tuple);
+	__type(value, struct ct_entry);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CT_MAP_SIZE_ANY);
 #ifndef HAVE_LRU_HASH_MAP_TYPE
-	.flags		= CONDITIONAL_PREALLOC,
+	__uint(map_flags, CONDITIONAL_PREALLOC);
 #endif
-};
+} CT_MAP_ANY4 __section_maps_btf;
 
-static __always_inline struct bpf_elf_map *
+static __always_inline void *
 get_ct_map4(const struct ipv4_ct_tuple *tuple)
 {
 	if (tuple->nexthdr == IPPROTO_TCP)

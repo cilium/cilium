@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-/* Copyright (C) 2017-2020 Authors of Cilium */
+/* Copyright (C) 2017-2021 Authors of Cilium */
 
 #include <bpf/ctx/xdp.h>
 #include <bpf/api.h>
@@ -44,46 +44,47 @@
 #endif
 
 #ifdef CIDR4_FILTER
-struct bpf_elf_map __section_maps CIDR4_HMAP_NAME = {
-	.type		= BPF_MAP_TYPE_HASH,
-	.size_key	= sizeof(struct lpm_v4_key),
-	.size_value	= sizeof(struct lpm_val),
-	.flags		= BPF_F_NO_PREALLOC,
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= CIDR4_HMAP_ELEMS,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, struct lpm_v4_key);
+	__type(value, struct lpm_val);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CIDR4_HMAP_ELEMS);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} CIDR4_HMAP_NAME __section_maps_btf;
 
 #ifdef CIDR4_LPM_PREFILTER
-struct bpf_elf_map __section_maps CIDR4_LMAP_NAME = {
-	.type		= BPF_MAP_TYPE_LPM_TRIE,
-	.size_key	= sizeof(struct lpm_v4_key),
-	.size_value	= sizeof(struct lpm_val),
-	.flags		= BPF_F_NO_PREALLOC,
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= CIDR4_LMAP_ELEMS,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct lpm_v4_key);
+	__type(value, struct lpm_val);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CIDR4_LMAP_ELEMS);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} CIDR4_LMAP_NAME __section_maps_btf;
+
 #endif /* CIDR4_LPM_PREFILTER */
 #endif /* CIDR4_FILTER */
 
 #ifdef CIDR6_FILTER
-struct bpf_elf_map __section_maps CIDR6_HMAP_NAME = {
-	.type		= BPF_MAP_TYPE_HASH,
-	.size_key	= sizeof(struct lpm_v6_key),
-	.size_value	= sizeof(struct lpm_val),
-	.flags		= BPF_F_NO_PREALLOC,
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= CIDR4_HMAP_ELEMS,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, struct lpm_v6_key);
+	__type(value, struct lpm_val);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CIDR4_HMAP_ELEMS);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} CIDR6_HMAP_NAME __section_maps_btf;
 
 #ifdef CIDR6_LPM_PREFILTER
-struct bpf_elf_map __section_maps CIDR6_LMAP_NAME = {
-	.type		= BPF_MAP_TYPE_LPM_TRIE,
-	.size_key	= sizeof(struct lpm_v6_key),
-	.size_value	= sizeof(struct lpm_val),
-	.flags		= BPF_F_NO_PREALLOC,
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= CIDR4_LMAP_ELEMS,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct lpm_v6_key);
+	__type(value, struct lpm_val);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CIDR4_LMAP_ELEMS);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} CIDR6_LMAP_NAME __section_maps_btf;
 #endif /* CIDR6_LPM_PREFILTER */
 #endif /* CIDR6_FILTER */
 #endif /* ENABLE_PREFILTER */

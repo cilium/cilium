@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (C) 2020 Authors of Cilium */
+/* Copyright (C) 2020-2021 Authors of Cilium */
 
 #ifndef __BPF_CTX_XDP_H_
 #define __BPF_CTX_XDP_H_
@@ -271,13 +271,13 @@ ctx_wire_len(const struct xdp_md *ctx)
 	return ctx_full_len(ctx);
 }
 
-struct bpf_elf_map __section_maps cilium_xdp_scratch = {
-	.type		= BPF_MAP_TYPE_PERCPU_ARRAY,
-	.size_key	= sizeof(int),
-	.size_value	= META_PIVOT,
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= 1,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__type(key, int);
+	__uint(value_size, META_PIVOT);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, 1);
+} cilium_xdp_scratch __section_maps_btf;
 
 static __always_inline __maybe_unused void
 ctx_store_meta(struct xdp_md *ctx __maybe_unused, const __u64 off, __u32 datum)

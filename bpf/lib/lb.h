@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (C) 2016-2020 Authors of Cilium */
+/* Copyright (C) 2016-2021 Authors of Cilium */
 
 #ifndef __LB_H_
 #define __LB_H_
@@ -11,62 +11,62 @@
 #include "ids.h"
 
 #ifdef ENABLE_IPV6
-struct bpf_elf_map __section_maps LB6_REVERSE_NAT_MAP = {
-	.type		= BPF_MAP_TYPE_HASH,
-	.size_key	= sizeof(__u16),
-	.size_value	= sizeof(struct lb6_reverse_nat),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
-	.flags		= CONDITIONAL_PREALLOC,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, __u16);
+	__type(value, struct lb6_reverse_nat);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CILIUM_LB_MAP_MAX_ENTRIES);
+	__uint(map_flags, CONDITIONAL_PREALLOC);
+} LB6_REVERSE_NAT_MAP __section_maps_btf;
 
-struct bpf_elf_map __section_maps LB6_SERVICES_MAP_V2 = {
-	.type		= BPF_MAP_TYPE_HASH,
-	.size_key	= sizeof(struct lb6_key),
-	.size_value	= sizeof(struct lb6_service),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
-	.flags		= CONDITIONAL_PREALLOC,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, struct lb6_key);
+	__type(value, struct lb6_service);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CILIUM_LB_MAP_MAX_ENTRIES);
+	__uint(map_flags, CONDITIONAL_PREALLOC);
+} LB6_SERVICES_MAP_V2 __section_maps_btf;
 
-struct bpf_elf_map __section_maps LB6_BACKEND_MAP_V2 = {
-	.type           = BPF_MAP_TYPE_HASH,
-	.size_key       = sizeof(__u32),
-	.size_value     = sizeof(struct lb6_backend),
-	.pinning        = PIN_GLOBAL_NS,
-	.max_elem       = CILIUM_LB_MAP_MAX_ENTRIES,
-	.flags          = CONDITIONAL_PREALLOC,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, __u32);
+	__type(value, struct lb6_backend);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CILIUM_LB_MAP_MAX_ENTRIES);
+	__uint(map_flags, CONDITIONAL_PREALLOC);
+} LB6_BACKEND_MAP_V2 __section_maps_btf;
 
 #ifdef ENABLE_SESSION_AFFINITY
-struct bpf_elf_map __section_maps LB6_AFFINITY_MAP = {
-	.type		= BPF_MAP_TYPE_LRU_HASH,
-	.size_key	= sizeof(struct lb6_affinity_key),
-	.size_value	= sizeof(struct lb_affinity_val),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__type(key, struct lb6_affinity_key);
+	__type(value, struct lb_affinity_val);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CILIUM_LB_MAP_MAX_ENTRIES);
+} LB6_AFFINITY_MAP __section_maps_btf;
 #endif
 
 #ifdef ENABLE_SRC_RANGE_CHECK
-struct bpf_elf_map __section_maps LB6_SRC_RANGE_MAP = {
-	.type		= BPF_MAP_TYPE_LPM_TRIE,
-	.size_key	= sizeof(struct lb6_src_range_key),
-	.size_value	= sizeof(__u8),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= LB6_SRC_RANGE_MAP_SIZE,
-	.flags		= BPF_F_NO_PREALLOC,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct lb6_src_range_key);
+	__type(value, __u8);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, LB6_SRC_RANGE_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} LB6_SRC_RANGE_MAP __section_maps_btf;
 #endif
 
 #ifdef ENABLE_HEALTH_CHECK
-struct bpf_elf_map __section_maps LB6_HEALTH_MAP = {
-	.type		= BPF_MAP_TYPE_LRU_HASH,
-	.size_key	= sizeof(__sock_cookie),
-	.size_value	= sizeof(struct lb6_health),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__type(key, __sock_cookie);
+	__type(value, struct lb6_health);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CILIUM_LB_MAP_MAX_ENTRIES);
+} LB6_HEALTH_MAP __section_maps_btf;
 #endif
 
 #if LB_SELECTION == LB_SELECTION_MAGLEV
@@ -93,62 +93,62 @@ struct bpf_elf_map __section_maps LB6_MAGLEV_MAP_OUTER = {
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
-struct bpf_elf_map __section_maps LB4_REVERSE_NAT_MAP = {
-	.type		= BPF_MAP_TYPE_HASH,
-	.size_key	= sizeof(__u16),
-	.size_value	= sizeof(struct lb4_reverse_nat),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
-	.flags		= CONDITIONAL_PREALLOC,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, __u16);
+	__type(value, struct lb4_reverse_nat);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CILIUM_LB_MAP_MAX_ENTRIES);
+	__uint(map_flags, CONDITIONAL_PREALLOC);
+} LB4_REVERSE_NAT_MAP __section_maps_btf;
 
-struct bpf_elf_map __section_maps LB4_SERVICES_MAP_V2 = {
-	.type		= BPF_MAP_TYPE_HASH,
-	.size_key	= sizeof(struct lb4_key),
-	.size_value	= sizeof(struct lb4_service),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
-	.flags		= CONDITIONAL_PREALLOC,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, struct lb4_key);
+	__type(value, struct lb4_service);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CILIUM_LB_MAP_MAX_ENTRIES);
+	__uint(map_flags, CONDITIONAL_PREALLOC);
+} LB4_SERVICES_MAP_V2 __section_maps_btf;
 
-struct bpf_elf_map __section_maps LB4_BACKEND_MAP_V2 = {
-	.type           = BPF_MAP_TYPE_HASH,
-	.size_key       = sizeof(__u32),
-	.size_value     = sizeof(struct lb4_backend),
-	.pinning        = PIN_GLOBAL_NS,
-	.max_elem       = CILIUM_LB_MAP_MAX_ENTRIES,
-	.flags          = CONDITIONAL_PREALLOC,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, __u32);
+	__type(value, struct lb4_backend);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CILIUM_LB_MAP_MAX_ENTRIES);
+	__uint(map_flags, CONDITIONAL_PREALLOC);
+} LB4_BACKEND_MAP_V2 __section_maps_btf;
 
 #ifdef ENABLE_SESSION_AFFINITY
-struct bpf_elf_map __section_maps LB4_AFFINITY_MAP = {
-	.type		= BPF_MAP_TYPE_LRU_HASH,
-	.size_key	= sizeof(struct lb4_affinity_key),
-	.size_value	= sizeof(struct lb_affinity_val),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__type(key, struct lb4_affinity_key);
+	__type(value, struct lb_affinity_val);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CILIUM_LB_MAP_MAX_ENTRIES);
+} LB4_AFFINITY_MAP __section_maps_btf;
 #endif
 
 #ifdef ENABLE_SRC_RANGE_CHECK
-struct bpf_elf_map __section_maps LB4_SRC_RANGE_MAP = {
-	.type		= BPF_MAP_TYPE_LPM_TRIE,
-	.size_key	= sizeof(struct lb4_src_range_key),
-	.size_value	= sizeof(__u8),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= LB4_SRC_RANGE_MAP_SIZE,
-	.flags		= BPF_F_NO_PREALLOC,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct lb4_src_range_key);
+	__type(value, __u8);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, LB4_SRC_RANGE_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} LB4_SRC_RANGE_MAP __section_maps_btf;
 #endif
 
 #ifdef ENABLE_HEALTH_CHECK
-struct bpf_elf_map __section_maps LB4_HEALTH_MAP = {
-	.type		= BPF_MAP_TYPE_LRU_HASH,
-	.size_key	= sizeof(__sock_cookie),
-	.size_value	= sizeof(struct lb4_health),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__type(key, __sock_cookie);
+	__type(value, struct lb4_health);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CILIUM_LB_MAP_MAX_ENTRIES);
+} LB4_HEALTH_MAP __section_maps_btf;
 #endif
 
 #if LB_SELECTION == LB_SELECTION_MAGLEV
@@ -175,14 +175,14 @@ struct bpf_elf_map __section_maps LB4_MAGLEV_MAP_OUTER = {
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_SESSION_AFFINITY
-struct bpf_elf_map __section_maps LB_AFFINITY_MATCH_MAP = {
-	.type		= BPF_MAP_TYPE_HASH,
-	.size_key	= sizeof(struct lb_affinity_match),
-	.size_value	= sizeof(__u8), /* dummy value, map is used as a set */
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
-	.flags		= CONDITIONAL_PREALLOC,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, struct lb_affinity_match);
+	__type(value, __u8);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CILIUM_LB_MAP_MAX_ENTRIES);
+	__uint(map_flags, CONDITIONAL_PREALLOC);
+} LB_AFFINITY_MATCH_MAP __section_maps_btf;
 #endif
 
 #define REV_NAT_F_TUPLE_SADDR	1

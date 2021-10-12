@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright (C) 2021 Authors of Cilium */
 
-struct bpf_elf_map __section_maps bytecount_map = {
-	.type		= BPF_MAP_TYPE_HASH,
-	.size_key	= sizeof(__u32),
-	.size_value	= sizeof(__u64),
-	.max_elem	= 1024,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, __u32);
+	__type(value, __u64);
+	__uint(max_entries, 1024);
+} bytecount_map __section_maps_btf;
 
 static __always_inline
 void custom_prog(const struct __ctx_buff *ctx, __u32 identity)
