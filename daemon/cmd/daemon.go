@@ -358,7 +358,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	mtuConfig = mtu.NewConfiguration(
 		authKeySize,
 		option.Config.EnableIPSec,
-		option.Config.Tunnel != option.TunnelDisabled,
+		option.Config.TunnelingEnabled(),
 		option.Config.EnableWireguard,
 		configuredMTU,
 		externalIP,
@@ -633,7 +633,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// happen after invoking initKubeProxyReplacementOptions().
 	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade &&
 		(!option.Config.EnableNodePort || option.Config.EgressMasqueradeInterfaces != "" || !option.Config.EnableRemoteNodeIdentity ||
-			(option.Config.Tunnel != option.TunnelDisabled && !hasFullHostReachableServices())) {
+			(option.Config.TunnelingEnabled() && !hasFullHostReachableServices())) {
 
 		var msg string
 		switch {
@@ -644,7 +644,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 			msg = fmt.Sprintf("BPF masquerade requires remote node identities (--%s=\"true\").",
 				option.EnableRemoteNodeIdentity)
 		// Remove the check after https://github.com/cilium/cilium/issues/12544 is fixed
-		case option.Config.Tunnel != option.TunnelDisabled && !hasFullHostReachableServices():
+		case option.Config.TunnelingEnabled() && !hasFullHostReachableServices():
 			msg = fmt.Sprintf("BPF masquerade requires --%s to be fully enabled (TCP and UDP).",
 				option.EnableHostReachableServices)
 		case option.Config.EgressMasqueradeInterfaces != "":

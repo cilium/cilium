@@ -53,6 +53,7 @@ type IPCache interface {
 // Configuration is the set of configuration options the node manager depends
 // on
 type Configuration interface {
+	TunnelingEnabled() bool
 	RemoteNodeIdentitiesEnabled() bool
 	NodeEncryptionEnabled() bool
 	EncryptionEnabled() bool
