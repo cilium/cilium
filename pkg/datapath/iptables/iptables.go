@@ -813,6 +813,9 @@ func (m *IptablesManager) endpointNoTrackRules(prog iptablesInterface, cmd strin
 		if _, err := prog.runProgCombinedOutput([]string{"-t", "raw", cmd, ciliumOutputRawChain, "-p", protocol, "-d", IP, "--dport", p, "-j", "CT", "--notrack"}, false); err != nil {
 			return err
 		}
+		if _, err := prog.runProgCombinedOutput([]string{"-t", "filter", cmd, ciliumOutputChain, "-p", protocol, "-d", IP, "--dport", p, "-j", "ACCEPT"}, false); err != nil {
+			return err
+		}
 	} else {
 		if _, err := prog.runProgCombinedOutput([]string{"-t", "raw", cmd, ciliumOutputRawChain, "-p", protocol, "-s", IP, "--sport", p, "-j", "CT", "--notrack"}, false); err != nil {
 			return err
