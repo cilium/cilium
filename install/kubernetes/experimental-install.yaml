@@ -1170,7 +1170,7 @@ spec:
       serviceAccountName: hubble-ui
       containers:
         - name: frontend
-          image: "quay.io/cilium/hubble-ui:v0.7.3"
+          image: "quay.io/cilium/hubble-ui:v0.7.9@sha256:e0e461c680ccd083ac24fe4f9e19e675422485f04d8720635ec41f2ba9e5562c"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
@@ -1178,7 +1178,7 @@ spec:
           resources:
             {}
         - name: backend
-          image: "quay.io/cilium/hubble-ui-backend:v0.7.3"
+          image: "quay.io/cilium/hubble-ui-backend:v0.7.9@sha256:e0e461c680ccd083ac24fe4f9e19e675422485f04d8720635ec41f2ba9e5562c"
           imagePullPolicy: IfNotPresent
           env:
             - name: EVENTS_SERVER_PORT
@@ -1191,7 +1191,7 @@ spec:
           resources:
             {}
         - name: proxy
-          image: "docker.io/envoyproxy/envoy:v1.14.5"
+          image: "docker.io/envoyproxy/envoy:v1.18.4@sha256:e5c2bb2870d0e59ce917a5100311813b4ede96ce4eb0c6bfa879e3fbe3e83935"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8081
