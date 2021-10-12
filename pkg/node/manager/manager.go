@@ -319,7 +319,19 @@ func (m *Manager) legacyNodeIpBehavior() bool {
 	// ipcache. This resulted in a behavioral change. New deployments will
 	// provide this behavior out of the gate, existing deployments will
 	// have to opt into this by enabling remote-node identities.
-	return !m.conf.EncryptionEnabled() && !m.conf.RemoteNodeIdentitiesEnabled()
+	if m.conf.RemoteNodeIdentitiesEnabled() {
+		return false
+	}
+	// Needed to store the SPI for nodes in the ipcache.
+	if m.conf.NodeEncryptionEnabled() {
+		return false
+	}
+	// Needed to store the SPI for pod->remote node in the ipcache since
+	// that path goes through the tunnel.
+	if m.conf.EncryptionEnabled() && m.conf.TunnelingEnabled() {
+		return false
+	}
+	return true
 }
 
 // NodeUpdated is called after the information of a node has been updated. The
