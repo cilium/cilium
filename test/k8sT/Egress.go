@@ -88,6 +88,8 @@ var _ = SkipDescribeIf(func() bool {
 
 		deploymentManager.SetKubectl(kubectl)
 
+		// We deploy cilium, to run the echo server and assign egress IP, and redeploy with
+		// different configurations for the tests.
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 		DeployCiliumAndDNS(kubectl, ciliumFilename)
 
