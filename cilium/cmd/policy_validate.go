@@ -36,7 +36,7 @@ var policyValidateCmd = &cobra.Command{
 				if err != nil {
 					Fatalf("Cannot marshal policy %s: %s\n", path, err)
 				}
-				fmt.Printf("%s", string(jsonPolicy))
+				fmt.Printf("%s", jsonPolicy)
 			}
 		}
 	},
