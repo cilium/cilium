@@ -45,9 +45,14 @@ type managerTestSuite struct{}
 var _ = check.Suite(&managerTestSuite{})
 
 type configMock struct {
+	Tunneling          bool
 	RemoteNodeIdentity bool
 	NodeEncryption     bool
 	Encryption         bool
+}
+
+func (c *configMock) TunnelingEnabled() bool {
+	return c.Tunneling
 }
 
 func (c *configMock) RemoteNodeIdentitiesEnabled() bool {
