@@ -12,6 +12,7 @@ import (
 	api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 const (
@@ -27,14 +28,6 @@ const (
 	// used for reserved purposes.
 	MinimalNumericIdentity = NumericIdentity(256)
 
-	// MinimalAllocationIdentity is the minimum numeric identity handed out
-	// by the identity allocator.
-	MinimalAllocationIdentity = MinimalNumericIdentity
-
-	// MaximumAllocationIdentity is the maximum numeric identity handed out
-	// by the identity allocator
-	MaximumAllocationIdentity = NumericIdentity(^uint16(0))
-
 	// UserReservedNumericIdentity represents the minimal numeric identity that
 	// can be used by users for reserved purposes.
 	UserReservedNumericIdentity = NumericIdentity(128)
@@ -42,6 +35,16 @@ const (
 	// InvalidIdentity is the identity assigned if the identity is invalid
 	// or not determined yet
 	InvalidIdentity = NumericIdentity(0)
+)
+
+var (
+	// MinimalAllocationIdentity is the minimum numeric identity handed out
+	// by the identity allocator.
+	MinimalAllocationIdentity = MinimalNumericIdentity
+
+	// MaximumAllocationIdentity is the maximum numeric identity handed out
+	// by the identity allocator
+	MaximumAllocationIdentity = NumericIdentity((1<<ClusterIDShift)*(option.Config.ClusterID+1) - 1)
 )
 
 const (
@@ -307,6 +310,12 @@ func InitWellKnownIdentities(c Configuration) int {
 	WellKnown.add(ReservedCiliumEtcdOperator, ciliumEtcdOperatorLabels)
 	WellKnown.add(ReservedCiliumEtcdOperator2, append(ciliumEtcdOperatorLabels,
 		fmt.Sprintf("k8s:%s=%s", api.PodNamespaceMetaNameLabel, c.CiliumNamespaceName())))
+
+	// For ClusterID > 0, the identity range just starts from cluster shift,
+	// no well known identities need to be reserved from that range.
+	if option.Config.ClusterID > 0 {
+		MinimalAllocationIdentity = NumericIdentity((1 << ClusterIDShift) * option.Config.ClusterID)
+	}
 
 	return len(WellKnown)
 }
