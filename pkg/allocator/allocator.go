@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/backoff"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -266,15 +265,11 @@ type Backend interface {
 // After creation, IDs can be allocated with Allocate() and released with
 // Release()
 func NewAllocator(typ AllocatorKey, backend Backend, opts ...AllocatorOption) (*Allocator, error) {
-	// Calculate initial ID range with cluster ID
-	minID := option.Config.ClusterID<<identity.ClusterIDShift + 1
-	maxID := minID + (1<<identity.ClusterIDShift - 1)
-
 	a := &Allocator{
 		keyType:      typ,
 		backend:      backend,
-		min:          idpool.ID(minID),
-		max:          idpool.ID(maxID),
+		min:          idpool.ID(1),
+		max:          idpool.ID(^uint64(0)),
 		localKeys:    newLocalKeys(),
 		stopGC:       make(chan struct{}),
 		suffix:       uuid.New().String()[:10],
@@ -300,7 +295,7 @@ func NewAllocator(typ AllocatorKey, backend Backend, opts ...AllocatorOption) (*
 	}
 
 	if a.max <= a.min {
-		return nil, errors.New("maximum ID must be greater than minimum ID")
+		return nil, fmt.Errorf("maximum ID must be greater than minimum ID: configured max %v, min %v", a.max, a.min)
 	}
 
 	a.idPool = idpool.NewIDPool(a.min, a.max)
@@ -340,20 +335,12 @@ func WithEvents(events AllocatorEventChan) AllocatorOption {
 
 // WithMin sets the minimum identifier to be allocated
 func WithMin(id idpool.ID) AllocatorOption {
-	return func(a *Allocator) {
-		if id > a.min {
-			a.min = id
-		}
-	}
+	return func(a *Allocator) { a.min = id }
 }
 
 // WithMax sets the maximum identifier to be allocated
 func WithMax(id idpool.ID) AllocatorOption {
-	return func(a *Allocator) {
-		if id < a.max {
-			a.max = id
-		}
-	}
+	return func(a *Allocator) { a.max = id }
 }
 
 // WithPrefixMask sets the prefix used for all ID allocations. If set, the mask
