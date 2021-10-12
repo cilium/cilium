@@ -659,11 +659,12 @@ l4_xlate:
 #ifdef ENABLE_BACKEND_AFFINITY
 static __always_inline __u32
 __lb6_affinity_backend_id(const struct lb6_service *svc, bool netns_cookie,
-			  union lb6_affinity_client_id *id)
+		union lb6_affinity_client_id *id, bool sock_cookie)
 {
 	struct lb6_affinity_key key = {
-		.rev_nat_id	= svc->rev_nat_index,
-		.netns_cookie	= netns_cookie,
+		.rev_nat_id     = svc->rev_nat_index,
+		.netns_cookie   = netns_cookie,
+		.sock_cookie    = sock_cookie,
 	};
 	struct lb_affinity_val *val;
 
@@ -677,10 +678,13 @@ __lb6_affinity_backend_id(const struct lb6_service *svc, bool netns_cookie,
 			.backend_id	= val->backend_id,
 		};
 
-		if (READ_ONCE(val->last_used) +
-		    bpf_sec_to_mono(svc->affinity_timeout) <= now) {
-			map_delete_elem(&LB6_AFFINITY_MAP, &key);
-			return 0;
+		if (!sock_cookie) {
+			if (READ_ONCE(val->last_used) +
+			    bpf_sec_to_mono(svc->affinity_timeout) <= now) {
+				map_delete_elem(&LB6_AFFINITY_MAP, &key);
+				return 0;
+			}
+			WRITE_ONCE(val->last_used, now);
 		}
 
 		if (!map_lookup_elem(&LB_AFFINITY_MATCH_MAP, &match)) {
@@ -688,7 +692,6 @@ __lb6_affinity_backend_id(const struct lb6_service *svc, bool netns_cookie,
 			return 0;
 		}
 
-		WRITE_ONCE(val->last_used, now);
 		return val->backend_id;
 	}
 
@@ -699,17 +702,19 @@ static __always_inline __u32
 lb6_affinity_backend_id_by_addr(const struct lb6_service *svc,
 				union lb6_affinity_client_id *id)
 {
-	return __lb6_affinity_backend_id(svc, false, id);
+	return __lb6_affinity_backend_id(svc, false, id, false);
 }
 
 static __always_inline void
 __lb6_update_affinity(const struct lb6_service *svc, bool netns_cookie,
-		      union lb6_affinity_client_id *id, __u32 backend_id)
+			union lb6_affinity_client_id *id, __u32 backend_id,
+			bool sock_cookie)
 {
 	__u32 now = bpf_mono_now();
 	struct lb6_affinity_key key = {
-		.rev_nat_id	= svc->rev_nat_index,
+		.rev_nat_id	    = svc->rev_nat_index,
 		.netns_cookie	= netns_cookie,
+		.sock_cookie    = sock_cookie,
 	};
 	struct lb_affinity_val val = {
 		.backend_id	= backend_id,
@@ -725,7 +730,7 @@ static __always_inline void
 lb6_update_affinity_by_addr(const struct lb6_service *svc,
 			    union lb6_affinity_client_id *id, __u32 backend_id)
 {
-	__lb6_update_affinity(svc, false, id, backend_id);
+	__lb6_update_affinity(svc, false, id, backend_id, false);
 }
 #endif /* ENABLE_BACKEND_AFFINITY */
 
@@ -734,7 +739,7 @@ lb6_affinity_backend_id_by_netns(const struct lb6_service *svc __maybe_unused,
 				 union lb6_affinity_client_id *id __maybe_unused)
 {
 #if defined(ENABLE_BACKEND_AFFINITY)
-	return __lb6_affinity_backend_id(svc, true, id);
+	return __lb6_affinity_backend_id(svc, true, id, false);
 #else
 	return 0;
 #endif
@@ -746,8 +751,55 @@ lb6_update_affinity_by_netns(const struct lb6_service *svc __maybe_unused,
 			     __u32 backend_id __maybe_unused)
 {
 #if defined(ENABLE_BACKEND_AFFINITY)
-	__lb6_update_affinity(svc, true, id, backend_id);
+	__lb6_update_affinity(svc, true, id, backend_id, false);
 #endif
+}
+
+static __always_inline __u32
+lb6_affinity_backend_id_by_sock(const struct lb6_service *svc __maybe_unused,
+				union lb6_affinity_client_id *id __maybe_unused)
+{
+#if defined(ENABLE_BACKEND_AFFINITY) && defined(BPF_HAVE_SOCKET_COOKIE)
+	__lb6_affinity_backend_id(svc, false, id, true);
+#endif /* ENABLE_BACKEND_AFFINITY && BPF_HAVE_SOCKET_COOKIE */
+	return 0;
+}
+
+static __always_inline __u32
+lb6_backend_id_by_affinity(const struct lb6_service *svc __maybe_unused,
+			   union lb6_affinity_client_id *id __maybe_unused,
+			   const bool affinity_by_netns __maybe_unused,
+			   struct lb6_backend **backend __maybe_unused)
+{
+	__u32 backend_id;
+
+	if (affinity_by_netns)
+		backend_id = lb6_affinity_backend_id_by_netns(svc, id);
+	else
+		backend_id = lb6_affinity_backend_id_by_sock(svc, id);
+
+	if (backend_id != 0) {
+		*backend = __lb6_lookup_backend(backend_id);
+		if (!*backend)
+			/* Backend from the session affinity no longer
+			 * exists, thus select a new one. Also, remove
+			 * the affinity, so that if the svc doesn't have
+			 * any backend, a subsequent request to the svc
+			 * doesn't hit the reselection again.
+			 */
+			backend_id = 0;
+	}
+	return backend_id;
+};
+
+static __always_inline void
+lb6_update_affinity_by_sock(const struct lb6_service *svc __maybe_unused,
+		union lb6_affinity_client_id *id __maybe_unused,
+		__u32 backend_id __maybe_unused)
+{
+#if defined(ENABLE_BACKEND_AFFINITY) && defined(BPF_HAVE_SOCKET_COOKIE)
+	__lb6_update_affinity(svc, false, id, backend_id, true);
+#endif /* ENABLE_BACKEND_AFFINITY && BPF_HAVE_SOCKET_COOKIE */
 }
 
 static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
@@ -1206,17 +1258,18 @@ l4_xlate:
 #ifdef ENABLE_BACKEND_AFFINITY
 static __always_inline __u32
 __lb4_affinity_backend_id(const struct lb4_service *svc, bool netns_cookie,
-			  const union lb4_affinity_client_id *id)
+			const union lb4_affinity_client_id *id, bool sock_cookie)
 {
 	struct lb4_affinity_key key = {
-		.rev_nat_id	= svc->rev_nat_index,
-		.netns_cookie	= netns_cookie,
-		.client_id	= *id,
+		.rev_nat_id     = svc->rev_nat_index,
+		.netns_cookie   = netns_cookie,
+		.sock_cookie    = sock_cookie,
+		.client_id      = *id,
 	};
 	struct lb_affinity_val *val;
 
 	val = map_lookup_elem(&LB4_AFFINITY_MAP, &key);
-	if (val != NULL) {
+	if (val) {
 		__u32 now = bpf_mono_now();
 		struct lb_affinity_match match = {
 			.rev_nat_id	= svc->rev_nat_index,
@@ -1228,10 +1281,13 @@ __lb4_affinity_backend_id(const struct lb4_service *svc, bool netns_cookie,
 		 * the upper bound from the time range.
 		 * Session is sticky for range [current, last_used + affinity_timeout)
 		 */
-		if (READ_ONCE(val->last_used) +
-		    bpf_sec_to_mono(svc->affinity_timeout) <= now) {
-			map_delete_elem(&LB4_AFFINITY_MAP, &key);
-			return 0;
+		if (!sock_cookie) {
+			if (READ_ONCE(val->last_used) +
+			    bpf_sec_to_mono(svc->affinity_timeout) <= now) {
+				map_delete_elem(&LB4_AFFINITY_MAP, &key);
+				return 0;
+			}
+			WRITE_ONCE(val->last_used, now);
 		}
 
 		if (!map_lookup_elem(&LB_AFFINITY_MATCH_MAP, &match)) {
@@ -1239,7 +1295,6 @@ __lb4_affinity_backend_id(const struct lb4_service *svc, bool netns_cookie,
 			return 0;
 		}
 
-		WRITE_ONCE(val->last_used, now);
 		return val->backend_id;
 	}
 
@@ -1250,19 +1305,20 @@ static __always_inline __u32
 lb4_affinity_backend_id_by_addr(const struct lb4_service *svc,
 				union lb4_affinity_client_id *id)
 {
-	return __lb4_affinity_backend_id(svc, false, id);
+	return __lb4_affinity_backend_id(svc, false, id, false);
 }
 
 static __always_inline void
 __lb4_update_affinity(const struct lb4_service *svc, bool netns_cookie,
-		      const union lb4_affinity_client_id *id,
-		      __u32 backend_id)
+			const union lb4_affinity_client_id *id,
+			__u32 backend_id, bool sock_cookie)
 {
 	__u32 now = bpf_mono_now();
 	struct lb4_affinity_key key = {
-		.rev_nat_id	= svc->rev_nat_index,
-		.netns_cookie	= netns_cookie,
-		.client_id	= *id,
+		.rev_nat_id     = svc->rev_nat_index,
+		.netns_cookie   = netns_cookie,
+		.sock_cookie    = sock_cookie,
+		.client_id      = *id,
 	};
 	struct lb_affinity_val val = {
 		.backend_id	= backend_id,
@@ -1276,7 +1332,7 @@ static __always_inline void
 lb4_update_affinity_by_addr(const struct lb4_service *svc,
 			    union lb4_affinity_client_id *id, __u32 backend_id)
 {
-	__lb4_update_affinity(svc, false, id, backend_id);
+	__lb4_update_affinity(svc, false, id, backend_id, false);
 }
 #endif /* ENABLE_BACKEND_AFFINITY */
 
@@ -1285,7 +1341,7 @@ lb4_affinity_backend_id_by_netns(const struct lb4_service *svc __maybe_unused,
 				 union lb4_affinity_client_id *id __maybe_unused)
 {
 #if defined(ENABLE_BACKEND_AFFINITY)
-	return __lb4_affinity_backend_id(svc, true, id);
+	return __lb4_affinity_backend_id(svc, true, id, false);
 #else
 	return 0;
 #endif
@@ -1297,8 +1353,56 @@ lb4_update_affinity_by_netns(const struct lb4_service *svc __maybe_unused,
 			     __u32 backend_id __maybe_unused)
 {
 #if defined(ENABLE_BACKEND_AFFINITY)
-	__lb4_update_affinity(svc, true, id, backend_id);
+	__lb4_update_affinity(svc, true, id, backend_id, false);
 #endif
+}
+
+static __always_inline __u32
+lb4_affinity_backend_id_by_sock(const struct lb4_service *svc __maybe_unused,
+				const union lb4_affinity_client_id *id __maybe_unused)
+{
+#if defined(ENABLE_BACKEND_AFFINITY) && defined(BPF_HAVE_SOCKET_COOKIE)
+	return __lb4_affinity_backend_id(svc, false, id, true);
+#else
+	return 0;
+#endif /* ENABLE_BACKEND_AFFINITY && BPF_HAVE_SOCKET_COOKIE */
+}
+
+static __always_inline __u32
+lb4_backend_id_by_affinity(const struct lb4_service *svc __maybe_unused,
+			   union lb4_affinity_client_id *id __maybe_unused,
+			   const bool affinity_by_netns __maybe_unused,
+			   struct lb4_backend **backend __maybe_unused)
+{
+	__u32 backend_id;
+
+	if (affinity_by_netns)
+		backend_id = lb4_affinity_backend_id_by_netns(svc, id);
+	else
+		backend_id = lb4_affinity_backend_id_by_sock(svc, id);
+
+	if (backend_id != 0) {
+		*backend = __lb4_lookup_backend(backend_id);
+		if (!*backend)
+			/* Backend from the affinity no longer exists,
+			 * thus select a new one. Also, remove the
+			 * affinity, so that if the svc doesn't have
+			 * any backend, a subsequent request to the svc
+			 * doesn't hit the reselection again.
+			 */
+			backend_id = 0;
+	}
+	return backend_id;
+};
+
+static __always_inline void
+lb4_update_affinity_by_sock(const struct lb4_service *svc __maybe_unused,
+		union lb4_affinity_client_id *id __maybe_unused,
+		const __u32 backend_id __maybe_unused)
+{
+#if defined(ENABLE_BACKEND_AFFINITY) && defined(BPF_HAVE_SOCKET_COOKIE)
+	__lb4_update_affinity(svc, false, id, backend_id, true);
+#endif /* ENABLE_BACKEND_AFFINITY && BPF_HAVE_SOCKET_COOKIE */
 }
 
 static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
