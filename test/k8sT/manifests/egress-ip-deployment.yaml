@@ -25,14 +25,14 @@ spec:
         securityContext:
           privileged: true
         env:
-        - name: EGRESS_IPS
+        - name: EGRESS_IP
           value: "INPUT_EGRESS_IP/24"
         args:
-        - "for i in $EGRESS_IPS; do ip address add $i dev enp0s8; done; sleep 10000000"
+        - "ip address add $EGRESS_IP dev enp0s8; sleep inf"
         lifecycle:
           preStop:
             exec:
               command:
               - "/bin/sh"
               - "-c"
-              - "for i in $EGRESS_IPS; do ip address del $i dev enp0s8; done"
+              - "ip address del $EGRESS_IP dev enp0s8"
