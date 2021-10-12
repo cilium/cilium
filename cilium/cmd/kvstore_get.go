@@ -43,7 +43,7 @@ var kvstoreGetCmd = &cobra.Command{
 				return
 			}
 			for k, v := range pairs {
-				fmt.Printf("%s => %s\n", k, string(v.Data))
+				fmt.Printf("%s => %s\n", k, v.Data)
 			}
 		} else {
 			val, err := kvstore.Client().Get(ctx, key)
@@ -59,7 +59,7 @@ var kvstoreGetCmd = &cobra.Command{
 				}
 				return
 			}
-			fmt.Printf("%s => %s\n", key, string(val))
+			fmt.Printf("%s => %s\n", key, val)
 		}
 	},
 }
