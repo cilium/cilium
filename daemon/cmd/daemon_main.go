@@ -1177,7 +1177,7 @@ func initEnv(cmd *cobra.Command) {
 			}
 		}
 	case datapathOption.DatapathModeIpvlan:
-		if option.Config.Tunnel != "" && option.Config.Tunnel != option.TunnelDisabled {
+		if option.Config.Tunnel != "" && option.Config.TunnelingEnabled() {
 			log.WithField(logfields.Tunnel, option.Config.Tunnel).
 				Fatal("tunnel cannot be set in the 'ipvlan' datapath mode")
 		}
@@ -1222,7 +1222,7 @@ func initEnv(cmd *cobra.Command) {
 		log.Fatal("L7 proxy requires iptables rules (--install-iptables-rules=\"true\")")
 	}
 
-	if option.Config.EnableIPSec && option.Config.Tunnel != option.TunnelDisabled {
+	if option.Config.EnableIPSec && option.Config.TunnelingEnabled() {
 		if err := ipsec.ProbeXfrmStateOutputMask(); err != nil {
 			log.WithError(err).Fatal("IPSec with tunneling requires support for xfrm state output masks (Linux 4.19 or later).")
 		}
@@ -1231,7 +1231,7 @@ func initEnv(cmd *cobra.Command) {
 	// IPAMENI IPSec is configured from Reinitialize() to pull in devices
 	// that may be added or removed at runtime.
 	if option.Config.EnableIPSec &&
-		option.Config.Tunnel == option.TunnelDisabled &&
+		!option.Config.TunnelingEnabled() &&
 		len(option.Config.EncryptInterface) == 0 &&
 		option.Config.IPAM != ipamOption.IPAMENI {
 		link, err := linuxdatapath.NodeDeviceNameWithDefaultRoute()
@@ -1241,7 +1241,7 @@ func initEnv(cmd *cobra.Command) {
 		option.Config.EncryptInterface = append(option.Config.EncryptInterface, link)
 	}
 
-	if option.Config.Tunnel != option.TunnelDisabled && option.Config.EnableAutoDirectRouting {
+	if option.Config.TunnelingEnabled() && option.Config.EnableAutoDirectRouting {
 		log.Fatalf("%s cannot be used with tunneling. Packets must be routed through the tunnel device.", option.EnableAutoDirectRoutingName)
 	}
 

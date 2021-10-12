@@ -27,6 +27,11 @@ func (f *Config) CiliumNamespaceName() string {
 	return "kube-system"
 }
 
+// TunnelingEnabled returns true if the tunneling is used.
+func (f *Config) TunnelingEnabled() bool {
+	return true
+}
+
 // RemoteNodeIdentitiesEnabled returns true if the remote-node identity feature
 // is enabled
 func (f *Config) RemoteNodeIdentitiesEnabled() bool {
