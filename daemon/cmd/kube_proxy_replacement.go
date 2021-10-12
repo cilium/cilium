@@ -320,7 +320,7 @@ func initKubeProxyReplacementOptions() (strict bool) {
 	}
 
 	if option.Config.EnableNodePort {
-		if option.Config.Tunnel != option.TunnelDisabled &&
+		if option.Config.TunnelingEnabled() &&
 			option.Config.NodePortMode != option.NodePortModeSNAT {
 
 			log.Warnf("Disabling NodePort's %q mode feature due to tunneling mode being enabled",
@@ -329,7 +329,7 @@ func initKubeProxyReplacementOptions() (strict bool) {
 		}
 
 		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
-			if option.Config.Tunnel != option.TunnelDisabled {
+			if option.Config.TunnelingEnabled() {
 				log.Fatalf("Cannot use NodePort acceleration with tunneling. Either run cilium-agent with --%s=%s or --%s=%s",
 					option.NodePortAcceleration, option.NodePortAccelerationDisabled, option.TunnelName, option.TunnelDisabled)
 			}
@@ -625,7 +625,7 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) {
 	}
 
 	if option.Config.EnableIPv4 &&
-		option.Config.Tunnel == option.TunnelDisabled &&
+		!option.Config.TunnelingEnabled() &&
 		option.Config.NodePortMode != option.NodePortModeSNAT &&
 		len(option.Config.Devices) > 1 {
 
