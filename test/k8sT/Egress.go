@@ -25,7 +25,7 @@ import (
 )
 
 var _ = SkipDescribeIf(func() bool {
-	return helpers.RunsOnEKS() || helpers.RunsOnGKE() || !helpers.RunsOn419OrLaterKernel() || helpers.DoesNotExistNodeWithoutCilium()
+	return helpers.RunsOnEKS() || helpers.RunsOnGKE() || helpers.DoesNotRunWithKubeProxyReplacement() || helpers.DoesNotExistNodeWithoutCilium()
 }, "K8sEgressGatewayTest", func() {
 	var (
 		kubectl         *helpers.Kubectl
@@ -77,9 +77,6 @@ var _ = SkipDescribeIf(func() bool {
 	}
 
 	BeforeAll(func() {
-		if helpers.DoesNotRunWithKubeProxyReplacement() {
-			Skip("EgressGatewayTest requires KubeProxyReplacement")
-		}
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
