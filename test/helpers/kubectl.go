@@ -4297,7 +4297,6 @@ func GenerateNamespaceForTest(seed string) string {
 	replaced := strings.Replace(lowered, " ", "", -1)
 	replaced = strings.Replace(replaced, "_", "", -1)
 	replaced = strings.Replace(replaced, "/", "", -1)
-	replaced = strings.Replace(replaced, "-", "", -1)
 
 	timestamped := time.Now().Format("200601021504") + seed + replaced
 
