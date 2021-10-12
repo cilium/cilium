@@ -105,13 +105,13 @@ struct capture_cache {
 	__u16 cap_len;
 };
 
-struct bpf_elf_map __section_maps cilium_capture_cache = {
-	.type		= BPF_MAP_TYPE_PERCPU_ARRAY,
-	.size_key	= sizeof(__u32),
-	.size_value	= sizeof(struct capture_cache),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= 1,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__type(key, __u32);
+	__type(value, struct capture_cache);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, 1);
+} cilium_capture_cache __section_maps_btf;
 
 struct capture_rule {
 	__u16 rule_id;
@@ -144,14 +144,14 @@ struct capture6_wcard {
 };
 
 #if defined(ENABLE_IPV4) && defined(ENABLE_CAPTURE)
-struct bpf_elf_map __section_maps CAPTURE4_RULES = {
-	.type		= BPF_MAP_TYPE_HASH,
-	.size_key	= sizeof(struct capture4_wcard),
-	.size_value	= sizeof(struct capture_rule),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= CAPTURE4_SIZE,
-	.flags		= BPF_F_NO_PREALLOC,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, struct capture4_wcard);
+	__type(value, struct capture_rule);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CAPTURE4_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} CAPTURE4_RULES __section_maps_btf;
 
 static __always_inline void
 cilium_capture4_masked_key(const struct capture4_wcard *orig,
@@ -256,14 +256,14 @@ _Pragma("unroll")
 #endif /* ENABLE_IPV4 && ENABLE_CAPTURE */
 
 #if defined(ENABLE_IPV6) && defined(ENABLE_CAPTURE)
-struct bpf_elf_map __section_maps CAPTURE6_RULES = {
-	.type		= BPF_MAP_TYPE_HASH,
-	.size_key	= sizeof(struct capture6_wcard),
-	.size_value	= sizeof(struct capture_rule),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= CAPTURE6_SIZE,
-	.flags		= BPF_F_NO_PREALLOC,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, struct capture6_wcard);
+	__type(value, struct capture_rule);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CAPTURE6_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} CAPTURE6_RULES __section_maps_btf;
 
 static __always_inline void
 cilium_capture6_masked_key(const struct capture6_wcard *orig,

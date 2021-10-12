@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (C) 2016-2020 Authors of Cilium */
+/* Copyright (C) 2016-2021 Authors of Cilium */
 
 #ifndef __BPF_SECTION__
 #define __BPF_SECTION__
@@ -16,6 +16,10 @@
 
 #ifndef __section_maps
 # define __section_maps			__section("maps")
+#endif
+
+#ifndef __section_maps_btf
+# define __section_maps_btf		__section(".maps")
 #endif
 
 #ifndef BPF_LICENSE

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (C) 2019-2020 Authors of Cilium */
+/* Copyright (C) 2019-2021 Authors of Cilium */
 
 #ifndef __NODEPORT_H_
 #define __NODEPORT_H_
@@ -59,23 +59,23 @@ bpf_skip_nodeport(struct __ctx_buff *ctx)
 
 #ifdef ENABLE_NODEPORT
 #ifdef ENABLE_IPV4
-struct bpf_elf_map __section_maps NODEPORT_NEIGH4 = {
-	.type		= BPF_MAP_TYPE_LRU_HASH,
-	.size_key	= sizeof(__be32),		/* ipv4 addr */
-	.size_value	= sizeof(union macaddr),	/* hw addr */
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= NODEPORT_NEIGH4_SIZE,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__type(key, __be32);	/* ipv4 addr */
+	__type(value, union macaddr);	/* hw addr */
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, NODEPORT_NEIGH4_SIZE);
+} NODEPORT_NEIGH4 __section_maps_btf;
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
-struct bpf_elf_map __section_maps NODEPORT_NEIGH6 = {
-	.type		= BPF_MAP_TYPE_LRU_HASH,
-	.size_key	= sizeof(union v6addr),		/* ipv6 addr */
-	.size_value	= sizeof(union macaddr),	/* hw addr */
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= NODEPORT_NEIGH6_SIZE,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__type(key, union v6addr);	/* ipv6 addr */
+	__type(value, union macaddr);	/* hw addr */
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, NODEPORT_NEIGH6_SIZE);
+} NODEPORT_NEIGH6 __section_maps_btf;
 
 /* The IPv6 extension should be 8-bytes aligned */
 struct dsr_opt_v6 {
