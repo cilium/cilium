@@ -6,6 +6,7 @@ package testparsers
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"strconv"
 
 	. "github.com/cilium/cilium/proxylib/proxylib"
@@ -65,7 +66,7 @@ func getBlock(data [][]byte) ([]byte, int, int, error) {
 				// indicating the length of the frame AFTER the ':'
 				if lenUint64, err := strconv.ParseUint(block.String(), 10, 64); err != nil {
 					return block.Bytes(), 0, 0, err
-				} else if lenUint64 > 9223372036854775807 { // FIXME replace with math.MaxInt when https://github.com/cilium/cilium/pull/17394 is deployed
+				} else if lenUint64 > math.MaxInt {
 					return block.Bytes(), 0, 0, fmt.Errorf("block length overflow")
 				} else {
 					blockLen = int(lenUint64)
