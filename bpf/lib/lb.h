@@ -38,7 +38,7 @@ struct {
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } LB6_BACKEND_MAP_V2 __section_maps_btf;
 
-#ifdef ENABLE_SESSION_AFFINITY
+#ifdef ENABLE_BACKEND_AFFINITY
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct lb6_affinity_key);
@@ -116,7 +116,7 @@ struct {
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } LB4_BACKEND_MAP_V2 __section_maps_btf;
 
-#ifdef ENABLE_SESSION_AFFINITY
+#ifdef ENABLE_BACKEND_AFFINITY
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct lb4_affinity_key);
@@ -166,7 +166,7 @@ struct {
 #endif /* LB_SELECTION == LB_SELECTION_MAGLEV */
 #endif /* ENABLE_IPV4 */
 
-#ifdef ENABLE_SESSION_AFFINITY
+#ifdef ENABLE_BACKEND_AFFINITY
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, struct lb_affinity_match);
@@ -656,7 +656,7 @@ l4_xlate:
 	return CTX_ACT_OK;
 }
 
-#ifdef ENABLE_SESSION_AFFINITY
+#ifdef ENABLE_BACKEND_AFFINITY
 static __always_inline __u32
 __lb6_affinity_backend_id(const struct lb6_service *svc, bool netns_cookie,
 			  union lb6_affinity_client_id *id)
@@ -727,13 +727,13 @@ lb6_update_affinity_by_addr(const struct lb6_service *svc,
 {
 	__lb6_update_affinity(svc, false, id, backend_id);
 }
-#endif /* ENABLE_SESSION_AFFINITY */
+#endif /* ENABLE_BACKEND_AFFINITY */
 
 static __always_inline __u32
 lb6_affinity_backend_id_by_netns(const struct lb6_service *svc __maybe_unused,
 				 union lb6_affinity_client_id *id __maybe_unused)
 {
-#if defined(ENABLE_SESSION_AFFINITY)
+#if defined(ENABLE_BACKEND_AFFINITY)
 	return __lb6_affinity_backend_id(svc, true, id);
 #else
 	return 0;
@@ -745,7 +745,7 @@ lb6_update_affinity_by_netns(const struct lb6_service *svc __maybe_unused,
 			     union lb6_affinity_client_id *id __maybe_unused,
 			     __u32 backend_id __maybe_unused)
 {
-#if defined(ENABLE_SESSION_AFFINITY)
+#if defined(ENABLE_BACKEND_AFFINITY)
 	__lb6_update_affinity(svc, true, id, backend_id);
 #endif
 }
@@ -765,7 +765,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	struct lb6_backend *backend;
 	__u32 backend_id = 0;
 	int ret;
-#ifdef ENABLE_SESSION_AFFINITY
+#ifdef ENABLE_BACKEND_AFFINITY
 	union lb6_affinity_client_id client_id;
 
 	ipv6_addr_copy(&client_id.client_ip, &tuple->saddr);
@@ -775,7 +775,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	ret = ct_lookup6(map, tuple, ctx, l4_off, CT_SERVICE, state, &monitor);
 	switch (ret) {
 	case CT_NEW:
-#ifdef ENABLE_SESSION_AFFINITY
+#ifdef ENABLE_BACKEND_AFFINITY
 		if (lb6_svc_is_affinity(svc)) {
 			backend_id = lb6_affinity_backend_id_by_addr(svc, &client_id);
 			if (backend_id != 0) {
@@ -818,7 +818,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 
 	/* See lb4_local comment */
 	if (state->rev_nat_index != svc->rev_nat_index) {
-#ifdef ENABLE_SESSION_AFFINITY
+#ifdef ENABLE_BACKEND_AFFINITY
 		if (lb6_svc_is_affinity(svc))
 			backend_id = lb6_affinity_backend_id_by_addr(svc,
 								     &client_id);
@@ -861,7 +861,7 @@ update_state:
 	addr = &tuple->daddr;
 	state->rev_nat_index = svc->rev_nat_index;
 
-#ifdef ENABLE_SESSION_AFFINITY
+#ifdef ENABLE_BACKEND_AFFINITY
 	if (lb6_svc_is_affinity(svc))
 		lb6_update_affinity_by_addr(svc, &client_id,
 					    state->backend_id);
@@ -1203,7 +1203,7 @@ l4_xlate:
 	return CTX_ACT_OK;
 }
 
-#ifdef ENABLE_SESSION_AFFINITY
+#ifdef ENABLE_BACKEND_AFFINITY
 static __always_inline __u32
 __lb4_affinity_backend_id(const struct lb4_service *svc, bool netns_cookie,
 			  const union lb4_affinity_client_id *id)
@@ -1278,13 +1278,13 @@ lb4_update_affinity_by_addr(const struct lb4_service *svc,
 {
 	__lb4_update_affinity(svc, false, id, backend_id);
 }
-#endif /* ENABLE_SESSION_AFFINITY */
+#endif /* ENABLE_BACKEND_AFFINITY */
 
 static __always_inline __u32
 lb4_affinity_backend_id_by_netns(const struct lb4_service *svc __maybe_unused,
 				 union lb4_affinity_client_id *id __maybe_unused)
 {
-#if defined(ENABLE_SESSION_AFFINITY)
+#if defined(ENABLE_BACKEND_AFFINITY)
 	return __lb4_affinity_backend_id(svc, true, id);
 #else
 	return 0;
@@ -1296,7 +1296,7 @@ lb4_update_affinity_by_netns(const struct lb4_service *svc __maybe_unused,
 			     union lb4_affinity_client_id *id __maybe_unused,
 			     __u32 backend_id __maybe_unused)
 {
-#if defined(ENABLE_SESSION_AFFINITY)
+#if defined(ENABLE_BACKEND_AFFINITY)
 	__lb4_update_affinity(svc, true, id, backend_id);
 #endif
 }
@@ -1317,7 +1317,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	struct lb4_backend *backend;
 	__u32 backend_id = 0;
 	int ret;
-#ifdef ENABLE_SESSION_AFFINITY
+#ifdef ENABLE_BACKEND_AFFINITY
 	union lb4_affinity_client_id client_id = {
 		.client_ip = saddr,
 	};
@@ -1325,7 +1325,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	ret = ct_lookup4(map, tuple, ctx, l4_off, CT_SERVICE, state, &monitor);
 	switch (ret) {
 	case CT_NEW:
-#ifdef ENABLE_SESSION_AFFINITY
+#ifdef ENABLE_BACKEND_AFFINITY
 		if (lb4_svc_is_affinity(svc)) {
 			backend_id = lb4_affinity_backend_id_by_addr(svc, &client_id);
 			if (backend_id != 0) {
@@ -1380,7 +1380,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	 * select a new backend.
 	 */
 	if (state->rev_nat_index != svc->rev_nat_index) {
-#ifdef ENABLE_SESSION_AFFINITY
+#ifdef ENABLE_BACKEND_AFFINITY
 		if (lb4_svc_is_affinity(svc))
 			backend_id = lb4_affinity_backend_id_by_addr(svc,
 								     &client_id);
@@ -1422,7 +1422,7 @@ update_state:
 	state->rev_nat_index = svc->rev_nat_index;
 	state->addr = new_daddr = backend->address;
 
-#ifdef ENABLE_SESSION_AFFINITY
+#ifdef ENABLE_BACKEND_AFFINITY
 	if (lb4_svc_is_affinity(svc))
 		lb4_update_affinity_by_addr(svc, &client_id,
 					    state->backend_id);
