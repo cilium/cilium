@@ -403,7 +403,7 @@ func (d *Daemon) initMaps() error {
 		lxcmap.LXCMap.DeleteAll()
 	}
 
-	if option.Config.EnableSessionAffinity {
+	if option.Config.EnableBackendAffinity() {
 		if _, err := lbmap.AffinityMatchMap.OpenOrCreate(); err != nil {
 			return err
 		}

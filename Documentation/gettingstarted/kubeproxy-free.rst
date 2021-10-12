@@ -1168,7 +1168,9 @@ Each connection from the same pod or host to a service configured with
 ``sessionAffinity: ClientIP`` will always select the same service endpoint.
 The default timeout for the affinity is three hours (updated by each request to
 the service), but it can be configured through Kubernetes' ``sessionAffinityConfig``
-if needed.
+if needed. The configuration option ``config.sessionAffinity`` will be deprecated
+in future, and doesn't disable the feature. In order to disable session affinity
+for a service, remove the Kubernetes session affinity setting for the service.
 
 The source for the affinity depends on the origin of a request. If a request is
 sent from outside the cluster to the service, the request's source IP address is
@@ -1183,7 +1185,6 @@ replacement. For users who run on older kernels which do not support the network
 namespace cookies, a fallback in-cluster mode is implemented, which is based on
 a fixed cookie value as a trade-off. This makes all applications on the host to
 select the same service endpoint for a given service with session affinity configured.
-To disable the feature, set ``config.sessionAffinity=false``.
 
 When the fixed cookie value is not used, a service affinity of a service with
 multiple ports is per service IP and port. Meaning that all requests for a

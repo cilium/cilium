@@ -22,14 +22,15 @@ import (
 )
 
 type ManagerTestSuite struct {
-	svc                       *Service
-	lbmap                     *mockmaps.LBMockMap // for accessing public fields
-	svcHealth                 *healthserver.MockHealthHTTPServerFactory
-	prevOptionSessionAffinity bool
-	prevOptionLBSourceRanges  bool
-	prevOptionNPAlgo          string
-	prevOptionDPMode          string
-	ipv6                      bool
+	svc                             *Service
+	lbmap                           *mockmaps.LBMockMap // for accessing public fields
+	svcHealth                       *healthserver.MockHealthHTTPServerFactory
+	prevOptionSessionAffinity       bool
+	prevOptionLBSourceRanges        bool
+	prevOptionNPAlgo                string
+	prevOptionDPMode                string
+	prevOptionHostReachableServices bool
+	ipv6                            bool
 }
 
 var _ = Suite(&ManagerTestSuite{})
@@ -48,8 +49,15 @@ func (m *ManagerTestSuite) SetUpTest(c *C) {
 	m.prevOptionSessionAffinity = option.Config.EnableSessionAffinity
 	option.Config.EnableSessionAffinity = true
 
+	m.prevOptionHostReachableServices = option.Config.EnableHostReachableServices
+	// Enables tests to check only session affinity related logic
+	option.Config.EnableHostReachableServices = false
+	option.Config.EnableNodePort = true
+
 	m.prevOptionLBSourceRanges = option.Config.EnableSVCSourceRangeCheck
 	option.Config.EnableSVCSourceRangeCheck = true
+
+	option.Config.BackendAffinitySupported = true
 
 	m.prevOptionNPAlgo = option.Config.NodePortAlg
 	m.prevOptionDPMode = option.Config.DatapathMode
@@ -65,6 +73,7 @@ func (m *ManagerTestSuite) TearDownTest(c *C) {
 	option.Config.NodePortAlg = m.prevOptionNPAlgo
 	option.Config.DatapathMode = m.prevOptionDPMode
 	option.Config.EnableIPv6 = m.ipv6
+	option.Config.EnableHostReachableServices = m.prevOptionHostReachableServices
 }
 
 var (
@@ -82,6 +91,10 @@ var (
 	backends3 = []lb.Backend{
 		*lb.NewBackend(0, lb.TCP, net.ParseIP("fd00::2"), 8080),
 		*lb.NewBackend(0, lb.TCP, net.ParseIP("fd00::3"), 8080),
+	}
+	backends4 = []lb.Backend{
+		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.4"), 8080),
+		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.5"), 8080),
 	}
 )
 
@@ -253,6 +266,37 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(c *C) {
 	c.Assert(found, Equals, true)
 	c.Assert(len(m.lbmap.ServiceByID), Equals, 0)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 0)
+}
+
+func (m *ManagerTestSuite) TestUpsertServiceWithUpdates(c *C) {
+	p := &lb.SVC{
+		Frontend:                  frontend1,
+		Backends:                  backends1,
+		SessionAffinity:           true,
+		SessionAffinityTimeoutSec: 100,
+		Type:                      lb.SVCTypeNodePort,
+		TrafficPolicy:             lb.SVCTrafficPolicyCluster,
+	}
+
+	_, id1, err := m.svc.UpsertService(p)
+
+	c.Assert(err, IsNil)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
+	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 2)
+	for bID := range m.lbmap.BackendByID {
+		c.Assert(m.lbmap.AffinityMatch[uint16(id1)][bID], Equals, struct{}{})
+	}
+
+	// Remove service session affinity and update backends.
+	p.SessionAffinity = false
+	p.Backends = backends1[0:1]
+
+	_, id1, err = m.svc.UpsertService(p)
+
+	c.Assert(err, IsNil)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 1)
+	// Obsolete and current backends should be deleted from the affinity map.
+	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 0)
 }
 
 func (m *ManagerTestSuite) TestRestoreServices(c *C) {
@@ -709,4 +753,148 @@ func (m *ManagerTestSuite) TestLocalRedirectServiceOverride(c *C) {
 	// Local redirect service should not override the NodePort service.
 	c.Assert(err, NotNil)
 	c.Assert(created, Equals, false)
+}
+
+// Tests backend affinity is enabled in case of host reachable services when service
+// session affinity is disabled.
+func (m *ManagerTestSuite) TestUpsertServiceWithBackendAffinity(c *C) {
+	option.Config.EnableHostReachableServices = true
+	// Should create a new service with two backends
+	p := &lb.SVC{
+		Frontend:                  frontend1,
+		Backends:                  backends1,
+		Type:                      lb.SVCTypeNodePort,
+		TrafficPolicy:             lb.SVCTrafficPolicyCluster,
+		SessionAffinity:           false,
+		SessionAffinityTimeoutSec: 100,
+		Name:                      "svc1",
+		Namespace:                 "ns1",
+	}
+
+	created, id1, err := m.svc.UpsertService(p)
+
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, true)
+	c.Assert(id1, Equals, lb.ID(1))
+	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 2)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
+	c.Assert(m.svc.svcByID[id1].svcName, Equals, "svc1")
+	c.Assert(m.svc.svcByID[id1].svcNamespace, Equals, "ns1")
+	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 2)
+	for bID := range m.lbmap.BackendByID {
+		c.Assert(m.lbmap.AffinityMatch[uint16(id1)][bID], Equals, struct{}{})
+	}
+}
+
+// Tests backend affinity with service affinity updates and host reachable
+// services enabled.
+func (m *ManagerTestSuite) TestUpsertServiceWithBackendAffinityUpdates(c *C) {
+	option.Config.EnableHostReachableServices = true
+	// Should create a new service with two backends
+	p := &lb.SVC{
+		Frontend:                  frontend1,
+		Backends:                  backends1,
+		SessionAffinity:           true,
+		SessionAffinityTimeoutSec: 100,
+		Type:                      lb.SVCTypeNodePort,
+		TrafficPolicy:             lb.SVCTrafficPolicyCluster,
+	}
+
+	created, id1, err := m.svc.UpsertService(p)
+
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, true)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
+	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 2)
+	for bID := range m.lbmap.BackendByID {
+		c.Assert(m.lbmap.AffinityMatch[uint16(id1)][bID], Equals, struct{}{})
+	}
+
+	// Remove service session affinity.
+	p.SessionAffinity = false
+
+	_, id1, err = m.svc.UpsertService(p)
+
+	// Backends should not be deleted from the affinity map.
+	c.Assert(err, IsNil)
+	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 2)
+	for bID := range m.lbmap.BackendByID {
+		c.Assert(m.lbmap.AffinityMatch[uint16(id1)][bID], Equals, struct{}{})
+	}
+
+	// Update backends.
+	p.Backends = backends1[0:1]
+
+	_, id1, err = m.svc.UpsertService(p)
+
+	c.Assert(err, IsNil)
+	// Obsolete backends are deleted.
+	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 1)
+	for bID := range m.lbmap.BackendByID {
+		c.Assert(m.lbmap.AffinityMatch[uint16(id1)][bID], Equals, struct{}{})
+	}
+}
+
+// Tests backend affinity with service affinity updates and host reachable
+// services enabled.
+func (m *ManagerTestSuite) TestUpsertServiceBackendAffinityWithBackendUpdates(c *C) {
+	option.Config.EnableHostReachableServices = true
+	// Should create service with no backends.
+	p := &lb.SVC{
+		Frontend:                  frontend1,
+		SessionAffinity:           false,
+		SessionAffinityTimeoutSec: 100,
+		Type:                      lb.SVCTypeNodePort,
+		TrafficPolicy:             lb.SVCTrafficPolicyCluster,
+	}
+
+	created, id1, err := m.svc.UpsertService(p)
+
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, true)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 0)
+	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 0)
+
+	// Add backends.
+	p.Backends = backends1
+
+	_, id1, err = m.svc.UpsertService(p)
+
+	c.Assert(err, IsNil)
+	c.Assert(id1, Equals, lb.ID(1))
+	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 2)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
+	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 2)
+	for bID := range m.lbmap.BackendByID {
+		c.Assert(m.lbmap.AffinityMatch[uint16(id1)][bID], Equals, struct{}{})
+	}
+
+	// Update backends.
+	p.Backends = append(p.Backends, backends2[1])
+
+	_, id1, err = m.svc.UpsertService(p)
+
+	c.Assert(err, IsNil)
+	c.Assert(id1, Equals, lb.ID(1))
+	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 3)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 3)
+	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 3)
+	for bID := range m.lbmap.BackendByID {
+		c.Assert(m.lbmap.AffinityMatch[uint16(id1)][bID], Equals, struct{}{})
+	}
+
+	// Update service affinity and backends.
+	p.SessionAffinity = true
+	p.Backends = append(p.Backends, backends4...)
+
+	_, id1, err = m.svc.UpsertService(p)
+
+	c.Assert(err, IsNil)
+	c.Assert(id1, Equals, lb.ID(1))
+	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 5)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 5)
+	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 5)
+	for bID := range m.lbmap.BackendByID {
+		c.Assert(m.lbmap.AffinityMatch[uint16(id1)][bID], Equals, struct{}{})
+	}
 }

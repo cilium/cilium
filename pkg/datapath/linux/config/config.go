@@ -181,7 +181,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["LB4_REVERSE_NAT_SK_MAP"] = lbmap.SockRevNat4MapName
 	cDefinesMap["LB4_REVERSE_NAT_SK_MAP_SIZE"] = fmt.Sprintf("%d", lbmap.MaxSockRevNat4MapEntries)
 
-	if option.Config.EnableNodePort || option.Config.EnableHostReachableServices {
+	if option.Config.EnableBackendAffinity() {
 		cDefinesMap["ENABLE_BACKEND_AFFINITY"] = "1"
 		cDefinesMap["LB_AFFINITY_MATCH_MAP"] = lbmap.AffinityMatchMapName
 		if option.Config.EnableIPv4 {

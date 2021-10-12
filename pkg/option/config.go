@@ -3197,6 +3197,12 @@ func (c *DaemonConfig) StoreInFile(dir string) error {
 	return e.Encode(c)
 }
 
+// EnableBackendAffinity is a wrapper function to check if session or socket
+// affinity for backends need to be enabled based on config.
+func (c *DaemonConfig) EnableBackendAffinity() bool {
+	return c.EnableHostReachableServices || c.EnableNodePort
+}
+
 // StoreViperInFile stores viper's configuration in a the given directory under
 // the file name 'viper-config.yaml'. If this file already exists, it is renamed
 // to 'viper-config-1.yaml', if 'viper-config-1.yaml' also exists,

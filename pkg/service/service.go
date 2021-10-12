@@ -486,7 +486,7 @@ func (s *Service) RestoreServices() error {
 	}
 
 	// Remove no longer existing affinity matches
-	if option.Config.EnableSessionAffinity {
+	if option.Config.EnableBackendAffinity() {
 		if err := s.deleteOrphanAffinityMatchesLocked(); err != nil {
 			return err
 		}
@@ -520,7 +520,7 @@ func (s *Service) deleteOrphanAffinityMatchesLocked() error {
 
 	local := make(map[lb.ID]map[lb.BackendID]struct{}, len(s.svcByID))
 	for id, svc := range s.svcByID {
-		if !svc.sessionAffinity {
+		if !svc.sessionAffinity && !option.Config.EnableBackendAffinity() {
 			continue
 		}
 		local[id] = make(map[lb.BackendID]struct{}, len(svc.backends))
@@ -730,32 +730,42 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 	)
 
 	// Update sessionAffinity
-	if option.Config.EnableSessionAffinity {
-		if prevSessionAffinity && !svc.sessionAffinity {
-			// Remove backends from the affinity match because the svc's sessionAffinity
-			// has been disabled
-			toDeleteAffinity = make([]lb.BackendID, 0, len(obsoleteSVCBackendIDs)+len(svc.backends))
-			toDeleteAffinity = append(toDeleteAffinity, obsoleteSVCBackendIDs...)
-			for _, b := range svc.backends {
-				toDeleteAffinity = append(toDeleteAffinity, b.ID)
-			}
-		} else if svc.sessionAffinity {
-			toAddAffinity = make([]lb.BackendID, 0, len(svc.backends))
-			for _, b := range svc.backends {
-				toAddAffinity = append(toAddAffinity, b.ID)
-			}
-			if prevSessionAffinity {
-				// Remove obsolete svc backends if previously the svc had the affinity enabled
-				toDeleteAffinity = make([]lb.BackendID, 0, len(obsoleteSVCBackendIDs))
-				for _, bID := range obsoleteSVCBackendIDs {
-					toDeleteAffinity = append(toDeleteAffinity, bID)
+	// Affinity map is populated with backends when service affinity is enabled
+	// or host reachable services is enabled.
+	if option.Config.EnableBackendAffinity() {
+		if !prevSessionAffinity && svc.sessionAffinity {
+			if !option.Config.EnableHostReachableServices {
+				toAddAffinity = make([]lb.BackendID, 0, len(svc.backends))
+				for _, b := range svc.backends {
+					toAddAffinity = append(toAddAffinity, b.ID)
 				}
 			}
 		}
-
-		s.deleteBackendsFromAffinityMatchMap(svc.frontend.ID, toDeleteAffinity)
+		if option.Config.EnableHostReachableServices {
+			toAddAffinity = make([]lb.BackendID, 0, len(newBackends))
+			for _, b := range newBackends {
+				toAddAffinity = append(toAddAffinity, b.ID)
+			}
+		}
 		// New affinity matches (toAddAffinity) will be added after the new
 		// backends have been added.
+
+		// Delete obsolete service affinity backends
+		if prevSessionAffinity || option.Config.EnableHostReachableServices {
+			toDeleteAffinity = make([]lb.BackendID, 0, len(obsoleteSVCBackendIDs))
+			toDeleteAffinity = append(toDeleteAffinity, obsoleteSVCBackendIDs...)
+		}
+		if prevSessionAffinity && !svc.sessionAffinity {
+			// Delete service backends as session affinity is removed and there is no socket affinity
+			if !option.Config.EnableHostReachableServices {
+				for _, b := range svc.backends {
+					toDeleteAffinity = append(toDeleteAffinity, b.ID)
+				}
+			}
+		}
+		if len(toDeleteAffinity) > 0 {
+			s.deleteBackendsFromAffinityMatchMap(svc.frontend.ID, toDeleteAffinity)
+		}
 	}
 
 	// Update LB source range check cidrs
@@ -809,7 +819,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 		return err
 	}
 
-	if option.Config.EnableSessionAffinity {
+	if option.Config.EnableBackendAffinity() && len(toAddAffinity) > 0 {
 		s.addBackendsToAffinityMatchMap(svc.frontend.ID, toAddAffinity)
 	}
 
@@ -955,12 +965,14 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 	}
 
 	// Delete affinity matches
-	if option.Config.EnableSessionAffinity && svc.sessionAffinity {
-		backendIDs := make([]lb.BackendID, 0, len(svc.backends))
-		for _, b := range svc.backends {
-			backendIDs = append(backendIDs, b.ID)
+	if option.Config.EnableBackendAffinity() {
+		if svc.sessionAffinity || option.Config.EnableHostReachableServices {
+			backendIDs := make([]lb.BackendID, 0, len(svc.backends))
+			for _, b := range svc.backends {
+				backendIDs = append(backendIDs, b.ID)
+			}
+			s.deleteBackendsFromAffinityMatchMap(svc.frontend.ID, backendIDs)
 		}
-		s.deleteBackendsFromAffinityMatchMap(svc.frontend.ID, backendIDs)
 	}
 
 	if option.Config.EnableSVCSourceRangeCheck &&
