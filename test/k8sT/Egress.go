@@ -165,127 +165,79 @@ var _ = SkipDescribeIf(func() bool {
 		Expect(res).Should(helpers.CMDSuccess(), "unable to apply %s", policyYAML)
 	}
 
-	Context("tunnel disabled with endpoint routes enabled", func() {
-		BeforeAll(func() {
-			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-				"egressGateway.enabled":  "true",
-				"tunnel":                 "disabled",
-				"autoDirectNodeRoutes":   "true",
-				"bpf.masquerade":         "true",
-				"endpointRoutes.enabled": "true",
+	doContext := func(name string, ciliumOpts map[string]string) {
+		Context(name, func() {
+			BeforeAll(func() {
+				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, ciliumOpts)
+				randomNamespace = deploymentManager.DeployRandomNamespaceShared(DemoDaemonSet)
+				kubectl.NamespaceLabel(randomNamespace, namespaceSelector)
+				deploymentManager.WaitUntilReady()
 			})
 
-			randomNamespace = deploymentManager.DeployRandomNamespaceShared(DemoDaemonSet)
-			kubectl.NamespaceLabel(randomNamespace, namespaceSelector)
-			deploymentManager.WaitUntilReady()
-
-		})
-
-		AfterAll(func() {
-			deploymentManager.DeleteAll()
-			DeployCiliumAndDNS(kubectl, ciliumFilename)
-		})
-
-		It("Checks connectivity works without policy", func() {
-			testConnectivity(false)
-			testConnectivity(true)
-		})
-
-		It("Checks egress policy and basic connectivity both work", func() {
-			applyEgressPolicy()
-			kubectl.WaitForEgressPolicyEntry(k8s1IP, outsideIP)
-			kubectl.WaitForEgressPolicyEntry(k8s2IP, outsideIP)
-
-			defer kubectl.Delete(policyYAML)
-
-			testEgressGateway(true)
-			testEgressGateway(false)
-			testConnectivity(true)
-			testConnectivity(false)
-		})
-
-	})
-
-	Context("tunnel disabled with endpoint routes disabled", func() {
-
-		BeforeAll(func() {
-			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-				"egressGateway.enabled":  "true",
-				"tunnel":                 "disabled",
-				"autoDirectNodeRoutes":   "true",
-				"bpf.masquerade":         "true",
-				"endpointRoutes.enabled": "false",
+			AfterAll(func() {
+				deploymentManager.DeleteAll()
+				DeployCiliumAndDNS(kubectl, ciliumFilename)
 			})
 
-			randomNamespace = deploymentManager.DeployRandomNamespaceShared(DemoDaemonSet)
-			kubectl.NamespaceLabel(randomNamespace, namespaceSelector)
-			deploymentManager.WaitUntilReady()
-		})
-
-		AfterAll(func() {
-			deploymentManager.DeleteAll()
-			DeployCiliumAndDNS(kubectl, ciliumFilename)
-		})
-
-		It("Checks connectivity works without policy", func() {
-			testConnectivity(false)
-			testConnectivity(true)
-		})
-
-		It("Checks egress policy and basic connectivity both work", func() {
-			applyEgressPolicy()
-			kubectl.WaitForEgressPolicyEntry(k8s1IP, outsideIP)
-			kubectl.WaitForEgressPolicyEntry(k8s2IP, outsideIP)
-
-			defer kubectl.Delete(policyYAML)
-
-			testEgressGateway(false)
-			testEgressGateway(true)
-			testConnectivity(false)
-			testConnectivity(true)
-		})
-
-	})
-
-	Context("tunnel vxlan", func() {
-
-		BeforeAll(func() {
-			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-				"egressGateway.enabled": "true",
-				"bpf.masquerade":        "true",
-				"tunnel":                "vxlan",
+			It("Checks connectivity works without policy", func() {
+				testConnectivity(false)
+				testConnectivity(true)
 			})
 
-			randomNamespace = deploymentManager.DeployRandomNamespaceShared(DemoDaemonSet)
-			kubectl.NamespaceLabel(randomNamespace, namespaceSelector)
-			deploymentManager.WaitUntilReady()
+			It("Checks egress policy and basic connectivity both work", func() {
+				applyEgressPolicy()
+				kubectl.WaitForEgressPolicyEntry(k8s1IP, outsideIP)
+				kubectl.WaitForEgressPolicyEntry(k8s2IP, outsideIP)
+
+				defer kubectl.Delete(policyYAML)
+
+				testEgressGateway(false)
+				testEgressGateway(true)
+				testConnectivity(false)
+				testConnectivity(true)
+			})
 		})
+	}
 
-		AfterAll(func() {
-			deploymentManager.DeleteAll()
-			DeployCiliumAndDNS(kubectl, ciliumFilename)
-		})
+	doContext("tunnel disabled with endpointRoutes enabled",
+		map[string]string{
+			"egressGateway.enabled":  "true",
+			"bpf.masquerade":         "true",
+			"tunnel":                 "disabled",
+			"autoDirectNodeRoutes":   "true",
+			"endpointRoutes.enabled": "true",
+		},
+	)
 
-		It("Checks connectivity works without policy", func() {
-			testConnectivity(false)
-			testConnectivity(true)
-		})
+	doContext("tunnel disabled with endpointRoutes disabled",
+		map[string]string{
+			"egressGateway.enabled":  "true",
+			"bpf.masquerade":         "true",
+			"tunnel":                 "disabled",
+			"autoDirectNodeRoutes":   "true",
+			"endpointRoutes.enabled": "false",
+		},
+	)
 
-		It("Checks egress policy and basic connectivity both work", func() {
-			applyEgressPolicy()
-			kubectl.WaitForEgressPolicyEntry(k8s1IP, outsideIP)
-			kubectl.WaitForEgressPolicyEntry(k8s2IP, outsideIP)
+	doContext("tunnel vxlan with endpointRoutes enabled",
+		map[string]string{
+			"egressGateway.enabled":  "true",
+			"bpf.masquerade":         "true",
+			"tunnel":                 "vxlan",
+			"autoDirectNodeRoutes":   "false",
+			"endpointRoutes.enabled": "true",
+		},
+	)
 
-			defer kubectl.Delete(policyYAML)
-
-			testEgressGateway(false)
-			testEgressGateway(true)
-			testConnectivity(false)
-			testConnectivity(true)
-		})
-
-	})
-
+	doContext("tunnel vxlan with endpointRoutes disabled",
+		map[string]string{
+			"egressGateway.enabled":  "true",
+			"bpf.masquerade":         "true",
+			"tunnel":                 "vxlan",
+			"autoDirectNodeRoutes":   "false",
+			"endpointRoutes.enabled": "false",
+		},
+	)
 })
 
 // Use x.x.x.100 as the egress IP
