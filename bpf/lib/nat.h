@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (C) 2019-2020 Authors of Cilium */
+/* Copyright (C) 2019-2021 Authors of Cilium */
 
 /* Simple NAT engine in BPF. */
 #ifndef __LIB_NAT__
@@ -110,26 +110,26 @@ struct ipv4_nat_target {
 };
 
 #if defined(ENABLE_IPV4) && defined(ENABLE_NODEPORT)
-struct bpf_elf_map __section_maps SNAT_MAPPING_IPV4 = {
-	.type		= NAT_MAP_TYPE,
-	.size_key	= sizeof(struct ipv4_ct_tuple),
-	.size_value	= sizeof(struct ipv4_nat_entry),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= SNAT_MAPPING_IPV4_SIZE,
+struct {
+	__uint(type, NAT_MAP_TYPE);
+	__type(key, struct ipv4_ct_tuple);
+	__type(value, struct ipv4_nat_entry);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, SNAT_MAPPING_IPV4_SIZE);
 #ifndef HAVE_LRU_HASH_MAP_TYPE
-	.flags		= CONDITIONAL_PREALLOC,
+	__uint(map_flags, CONDITIONAL_PREALLOC);
 #endif
-};
+} SNAT_MAPPING_IPV4 __section_maps_btf;
 
 #ifdef ENABLE_IP_MASQ_AGENT
-struct bpf_elf_map __section_maps IP_MASQ_AGENT_IPV4 = {
-	.type		= BPF_MAP_TYPE_LPM_TRIE,
-	.size_key	= sizeof(struct lpm_v4_key),
-	.size_value	= sizeof(struct lpm_val),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= 16384,
-	.flags		= BPF_F_NO_PREALLOC,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct lpm_v4_key);
+	__type(value, struct lpm_val);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, 16384);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} IP_MASQ_AGENT_IPV4 __section_maps_btf;
 #endif
 
 static __always_inline
@@ -605,16 +605,16 @@ struct ipv6_nat_target {
 };
 
 #if defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT)
-struct bpf_elf_map __section_maps SNAT_MAPPING_IPV6 = {
-	.type		= NAT_MAP_TYPE,
-	.size_key	= sizeof(struct ipv6_ct_tuple),
-	.size_value	= sizeof(struct ipv6_nat_entry),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= SNAT_MAPPING_IPV6_SIZE,
+struct {
+	__uint(type, NAT_MAP_TYPE);
+	__type(key, struct ipv6_ct_tuple);
+	__type(value, struct ipv6_nat_entry);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, SNAT_MAPPING_IPV6_SIZE);
 #ifndef HAVE_LRU_HASH_MAP_TYPE
-	.flags		= CONDITIONAL_PREALLOC,
+	__uint(map_flags, CONDITIONAL_PREALLOC);
 #endif
-};
+} SNAT_MAPPING_IPV6 __section_maps_btf;
 
 static __always_inline
 struct ipv6_nat_entry *snat_v6_lookup(struct ipv6_ct_tuple *tuple)

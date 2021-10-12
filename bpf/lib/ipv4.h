@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (C) 2016-2020 Authors of Cilium */
+/* Copyright (C) 2016-2021 Authors of Cilium */
 
 #ifndef __LIB_IPV4__
 #define __LIB_IPV4__
@@ -23,13 +23,13 @@ struct ipv4_frag_l4ports {
 } __packed;
 
 #ifdef ENABLE_IPV4_FRAGMENTS
-struct bpf_elf_map __section_maps IPV4_FRAG_DATAGRAMS_MAP = {
-	.type           = BPF_MAP_TYPE_LRU_HASH,
-	.size_key	= sizeof(struct ipv4_frag_id),
-	.size_value	= sizeof(struct ipv4_frag_l4ports),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= CILIUM_IPV4_FRAG_MAP_MAX_ENTRIES,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__type(key, struct ipv4_frag_id);
+	__type(value, struct ipv4_frag_l4ports);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CILIUM_IPV4_FRAG_MAP_MAX_ENTRIES);
+} IPV4_FRAG_DATAGRAMS_MAP __section_maps_btf;
 #endif
 
 static __always_inline int ipv4_load_daddr(struct __ctx_buff *ctx, int off,

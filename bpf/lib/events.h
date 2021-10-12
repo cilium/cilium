@@ -1,17 +1,17 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (C) 2016-2020 Authors of Cilium */
+/* Copyright (C) 2016-2021 Authors of Cilium */
 
 #ifndef __LIB_EVENTS_H_
 #define __LIB_EVENTS_H_
 
 #include <bpf/api.h>
 
-struct bpf_elf_map __section_maps EVENTS_MAP = {
-	.type		= BPF_MAP_TYPE_PERF_EVENT_ARRAY,
-	.size_key	= sizeof(__u32),
-	.size_value	= sizeof(__u32),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= __NR_CPUS__,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
+	__uint(key_size, sizeof(__u32));
+	__uint(value_size, sizeof(__u32));
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, __NR_CPUS__);
+} EVENTS_MAP __section_maps_btf;
 
 #endif /* __LIB_EVENTS_H_ */

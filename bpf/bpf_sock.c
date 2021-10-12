@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-/* Copyright (C) 2019-2020 Authors of Cilium */
+/* Copyright (C) 2019-2021 Authors of Cilium */
 
 #include <bpf/ctx/unspec.h>
 #include <bpf/api.h>
@@ -179,13 +179,13 @@ bool sock_proto_enabled(__u32 proto)
 
 #ifdef ENABLE_IPV4
 #if defined(ENABLE_HOST_SERVICES_UDP) || defined(ENABLE_HOST_SERVICES_PEER)
-struct bpf_elf_map __section_maps LB4_REVERSE_NAT_SK_MAP = {
-	.type		= BPF_MAP_TYPE_LRU_HASH,
-	.size_key	= sizeof(struct ipv4_revnat_tuple),
-	.size_value	= sizeof(struct ipv4_revnat_entry),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= LB4_REVERSE_NAT_SK_MAP_SIZE,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__type(key, struct ipv4_revnat_tuple);
+	__type(value, struct ipv4_revnat_entry);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, LB4_REVERSE_NAT_SK_MAP_SIZE);
+} LB4_REVERSE_NAT_SK_MAP __section_maps_btf;
 
 static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 					       const struct lb4_backend *backend,
@@ -622,13 +622,13 @@ int sock4_getpeername(struct bpf_sock_addr *ctx)
 #if defined(ENABLE_IPV6) || defined(ENABLE_IPV4)
 #ifdef ENABLE_IPV6
 #if defined(ENABLE_HOST_SERVICES_UDP) || defined(ENABLE_HOST_SERVICES_PEER)
-struct bpf_elf_map __section_maps LB6_REVERSE_NAT_SK_MAP = {
-	.type		= BPF_MAP_TYPE_LRU_HASH,
-	.size_key	= sizeof(struct ipv6_revnat_tuple),
-	.size_value	= sizeof(struct ipv6_revnat_entry),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= LB6_REVERSE_NAT_SK_MAP_SIZE,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__type(key, struct ipv6_revnat_tuple);
+	__type(value, struct ipv6_revnat_entry);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, LB6_REVERSE_NAT_SK_MAP_SIZE);
+} LB6_REVERSE_NAT_SK_MAP __section_maps_btf;
 
 static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 					       const struct lb6_backend *backend,
