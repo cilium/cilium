@@ -461,7 +461,7 @@ func (k *kvstoreBackend) RunGC(
 			continue
 		}
 
-		if identityID, err := strconv.ParseUint(items[len(items)-1], 10, 32); err != nil {
+		if identityID, err := strconv.ParseUint(items[len(items)-1], 10, 64); err != nil {
 			log.WithField(fieldKey, key).WithError(err).Warning("Parse identity failed, skipping")
 			continue
 		} else {
