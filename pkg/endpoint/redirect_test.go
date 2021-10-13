@@ -162,7 +162,7 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 		redirectPortUserMap: make(map[uint16][]string),
 	}
 
-	ep := NewEndpointWithState(do, rsp, mgr, 12345, StateRegenerating)
+	ep := NewEndpointWithState(do, do, rsp, mgr, 12345, StateRegenerating)
 
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
 	epIdentity, _, err := mgr.AllocateIdentity(context.Background(), qaBarLbls, true)

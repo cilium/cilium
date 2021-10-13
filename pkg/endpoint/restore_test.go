@@ -62,7 +62,7 @@ func (ds *EndpointSuite) endpointCreator(id uint16, secID identity.NumericIdenti
 	repo := ds.GetPolicyRepository()
 	repo.GetPolicyCache().LocalEndpointIdentityAdded(identity)
 
-	ep := NewEndpointWithState(ds, &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), id, StateReady)
+	ep := NewEndpointWithState(ds, ds, &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), id, StateReady)
 	// Random network ID and docker endpoint ID with 59 hex chars + 5 strID = 64 hex chars
 	ep.dockerNetworkID = "603e047d2268a57f5a5f93f7f9e1263e9207e348a06654bf64948def001" + strID
 	ep.dockerEndpointID = "93529fda8c401a071d21d6bd46fdf5499b9014dcb5a35f2e3efaa8d8002" + strID
@@ -131,7 +131,7 @@ func (ds *EndpointSuite) TestReadEPsFromDirNames(c *C) {
 			epsNames = append(epsNames, ep.DirectoryPath())
 		}
 	}
-	eps := ReadEPsFromDirNames(context.TODO(), ds, tmpDir, epsNames)
+	eps := ReadEPsFromDirNames(context.TODO(), ds, ds, tmpDir, epsNames)
 	c.Assert(len(eps), Equals, len(epsWanted))
 
 	sort.Slice(epsWanted, func(i, j int) bool { return epsWanted[i].ID < epsWanted[j].ID })
@@ -197,7 +197,7 @@ func (ds *EndpointSuite) TestReadEPsFromDirNamesWithRestoreFailure(c *C) {
 		ep.DirectoryPath(), ep.NextDirectoryPath(),
 	}
 
-	epResult := ReadEPsFromDirNames(context.TODO(), ds, tmpDir, epNames)
+	epResult := ReadEPsFromDirNames(context.TODO(), ds, ds, tmpDir, epNames)
 	c.Assert(len(epResult), Equals, 1)
 
 	restoredEP := epResult[ep.ID]
@@ -253,7 +253,7 @@ func (ds *EndpointSuite) BenchmarkReadEPsFromDirNames(c *C) {
 	c.StartTimer()
 
 	for i := 0; i < c.N; i++ {
-		eps := ReadEPsFromDirNames(context.TODO(), ds, tmpDir, epsNames)
+		eps := ReadEPsFromDirNames(context.TODO(), ds, ds, tmpDir, epsNames)
 		c.Assert(len(eps), Equals, len(epsWanted))
 	}
 }

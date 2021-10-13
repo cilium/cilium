@@ -113,6 +113,9 @@ var _ notifications.RegenNotificationInfo = (*Endpoint)(nil)
 type Endpoint struct {
 	owner regeneration.Owner
 
+	// prg can get the policy.Repository object.
+	prg policyRepoGetter
+
 	// ID of the endpoint, unique in the scope of the node
 	ID uint16
 
@@ -339,6 +342,10 @@ type Endpoint struct {
 	noTrackPort uint16
 }
 
+type policyRepoGetter interface {
+	GetPolicyRepository() *policy.Repository
+}
+
 // EndpointSyncControllerName returns the controller name to synchronize
 // endpoint in to kubernetes.
 func EndpointSyncControllerName(epID uint16) string {
@@ -428,8 +435,8 @@ func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 }
 
 // NewEndpointWithState creates a new endpoint useful for testing purposes
-func NewEndpointWithState(owner regeneration.Owner, proxy EndpointProxy, allocator cache.IdentityAllocator, ID uint16, state State) *Endpoint {
-	ep := createEndpoint(owner, proxy, allocator, ID, "")
+func NewEndpointWithState(owner regeneration.Owner, prg policyRepoGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ID uint16, state State) *Endpoint {
+	ep := createEndpoint(owner, prg, proxy, allocator, ID, "")
 	ep.state = state
 	ep.eventQueue = eventqueue.NewEventQueueBuffered(fmt.Sprintf("endpoint-%d", ID), option.Config.EndpointQueueSize)
 
@@ -440,9 +447,10 @@ func NewEndpointWithState(owner regeneration.Owner, proxy EndpointProxy, allocat
 	return ep
 }
 
-func createEndpoint(owner regeneration.Owner, proxy EndpointProxy, allocator cache.IdentityAllocator, ID uint16, ifName string) *Endpoint {
+func createEndpoint(owner regeneration.Owner, prg policyRepoGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ID uint16, ifName string) *Endpoint {
 	ep := &Endpoint{
 		owner:           owner,
+		prg:             prg,
 		ID:              ID,
 		createdAt:       time.Now(),
 		proxy:           proxy,
@@ -454,7 +462,7 @@ func createEndpoint(owner regeneration.Owner, proxy EndpointProxy, allocator cac
 		state:           "",
 		status:          NewEndpointStatus(),
 		hasBPFProgram:   make(chan struct{}, 0),
-		desiredPolicy:   policy.NewEndpointPolicy(owner.GetPolicyRepository()),
+		desiredPolicy:   policy.NewEndpointPolicy(prg.GetPolicyRepository()),
 		controllers:     controller.NewManager(),
 		regenFailedChan: make(chan struct{}, 1),
 		allocator:       allocator,
@@ -474,7 +482,7 @@ func createEndpoint(owner regeneration.Owner, proxy EndpointProxy, allocator cac
 }
 
 // CreateHostEndpoint creates the endpoint corresponding to the host.
-func CreateHostEndpoint(owner regeneration.Owner, proxy EndpointProxy, allocator cache.IdentityAllocator) (*Endpoint, error) {
+func CreateHostEndpoint(owner regeneration.Owner, prg policyRepoGetter, proxy EndpointProxy, allocator cache.IdentityAllocator) (*Endpoint, error) {
 	ifName := option.Config.HostDevice
 
 	mac, err := link.GetHardwareAddr(ifName)
@@ -482,7 +490,7 @@ func CreateHostEndpoint(owner regeneration.Owner, proxy EndpointProxy, allocator
 		return nil, err
 	}
 
-	ep := createEndpoint(owner, proxy, allocator, 0, ifName)
+	ep := createEndpoint(owner, prg, proxy, allocator, 0, ifName)
 	ep.isHost = true
 	ep.mac = mac
 	ep.nodeMAC = mac
@@ -789,7 +797,7 @@ func FilterEPDir(dirFiles []os.DirEntry) []string {
 // common.CiliumCHeaderPrefix + common.Version + ":" + endpointBase64
 // Note that the parse'd endpoint's identity is only partially restored. The
 // caller must call `SetIdentity()` to make the returned endpoint's identity useful.
-func parseEndpoint(ctx context.Context, owner regeneration.Owner, bEp []byte) (*Endpoint, error) {
+func parseEndpoint(ctx context.Context, owner regeneration.Owner, prg policyRepoGetter, bEp []byte) (*Endpoint, error) {
 	// TODO: Provide a better mechanism to update from old version once we bump
 	// TODO: cilium version.
 	epSlice := bytes.Split(bEp, []byte{':'})
@@ -798,6 +806,7 @@ func parseEndpoint(ctx context.Context, owner regeneration.Owner, bEp []byte) (*
 	}
 	ep := Endpoint{
 		owner: owner,
+		prg:   prg,
 	}
 
 	if err := parseBase64ToEndpoint(epSlice[1], &ep); err != nil {
@@ -809,7 +818,7 @@ func parseEndpoint(ctx context.Context, owner regeneration.Owner, bEp []byte) (*
 
 	// Initialize fields to values which are non-nil that are not serialized.
 	ep.hasBPFProgram = make(chan struct{}, 0)
-	ep.desiredPolicy = policy.NewEndpointPolicy(owner.GetPolicyRepository())
+	ep.desiredPolicy = policy.NewEndpointPolicy(prg.GetPolicyRepository())
 	ep.realizedPolicy = ep.desiredPolicy
 	ep.controllers = controller.NewManager()
 	ep.regenFailedChan = make(chan struct{}, 1)

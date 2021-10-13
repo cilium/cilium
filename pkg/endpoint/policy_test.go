@@ -15,7 +15,8 @@ import (
 )
 
 func (s *EndpointSuite) TestUpdateVisibilityPolicy(c *check.C) {
-	ep := NewEndpointWithState(&DummyOwner{repo: policy.NewPolicyRepository(nil, nil, nil)}, nil, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
+	do := &DummyOwner{repo: policy.NewPolicyRepository(nil, nil, nil)}
+	ep := NewEndpointWithState(do, do, nil, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
 	ep.UpdateVisibilityPolicy(func(_, _ string) (string, error) {
 		return "", nil
 	})

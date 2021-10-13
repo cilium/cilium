@@ -34,6 +34,7 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/sysctl"
 
 	"github.com/containernetworking/plugins/pkg/ns"
@@ -226,6 +227,7 @@ type EndpointAdder interface {
 // cleanup of prior cilium-health endpoint instances.
 func LaunchAsEndpoint(baseCtx context.Context,
 	owner regeneration.Owner,
+	prg policyRepoGetter,
 	n *nodeTypes.Node,
 	mtuConfig mtu.Configuration,
 	epMgr EndpointAdder,
@@ -311,7 +313,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	}
 
 	// Create the endpoint
-	ep, err := endpoint.NewEndpointFromChangeModel(baseCtx, owner, proxy, allocator, info)
+	ep, err := endpoint.NewEndpointFromChangeModel(baseCtx, owner, prg, proxy, allocator, info)
 	if err != nil {
 		return nil, fmt.Errorf("Error while creating endpoint model: %s", err)
 	}
@@ -364,6 +366,10 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	metrics.SubprocessStart.WithLabelValues(ciliumHealth).Inc()
 
 	return client, nil
+}
+
+type policyRepoGetter interface {
+	GetPolicyRepository() *policy.Repository
 }
 
 type routingConfigurer interface {

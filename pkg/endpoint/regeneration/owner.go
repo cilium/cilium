@@ -11,15 +11,11 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 )
 
 // Owner is the interface defines the requirements for anybody owning policies.
 type Owner interface {
-	// Must return the policy repository
-	GetPolicyRepository() *policy.Repository
-
 	// QueueEndpointBuild puts the given endpoint in the processing queue
 	QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error)
 

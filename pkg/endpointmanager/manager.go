@@ -613,9 +613,15 @@ func (mgr *EndpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.E
 	return nil
 }
 
-func (mgr *EndpointManager) AddHostEndpoint(ctx context.Context, owner regeneration.Owner,
-	proxy endpoint.EndpointProxy, allocator cache.IdentityAllocator, reason string, nodeName string) error {
-	ep, err := endpoint.CreateHostEndpoint(owner, proxy, allocator)
+func (mgr *EndpointManager) AddHostEndpoint(
+	ctx context.Context,
+	owner regeneration.Owner,
+	prg policyRepoGetter,
+	proxy endpoint.EndpointProxy,
+	allocator cache.IdentityAllocator,
+	reason, nodeName string,
+) error {
+	ep, err := endpoint.CreateHostEndpoint(owner, prg, proxy, allocator)
 	if err != nil {
 		return err
 	}
@@ -629,6 +635,10 @@ func (mgr *EndpointManager) AddHostEndpoint(ctx context.Context, owner regenerat
 	ep.InitWithNodeLabels(ctx, launchTime)
 
 	return nil
+}
+
+type policyRepoGetter interface {
+	GetPolicyRepository() *policy.Repository
 }
 
 // InitHostEndpointLabels initializes the host endpoint's labels with the

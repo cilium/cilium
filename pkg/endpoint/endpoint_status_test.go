@@ -49,7 +49,7 @@ func (e endpointStatusConfiguration) EndpointStatusIsEnabled(name string) bool {
 }
 
 func (s *EndpointSuite) newEndpoint(c *check.C, spec endpointGeneratorSpec) *Endpoint {
-	e, err := NewEndpointFromChangeModel(context.TODO(), s, &FakeEndpointProxy{}, s.mgr, &models.EndpointChangeRequest{
+	e, err := NewEndpointFromChangeModel(context.TODO(), s, s, &FakeEndpointProxy{}, s.mgr, &models.EndpointChangeRequest{
 		Addressing: &models.AddressPair{},
 		ID:         200,
 		Labels: models.Labels{
