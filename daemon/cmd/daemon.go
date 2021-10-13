@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/counter"
-	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
@@ -34,7 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/hubble/observer"
@@ -103,6 +101,7 @@ type Daemon struct {
 	svc              *service.Service
 	rec              *recorder.Recorder
 	policy           *policy.Repository
+	policyUpdater    *policy.Updater
 	preFilter        datapath.PreFilter
 
 	statusCollectMutex lock.RWMutex
@@ -128,8 +127,7 @@ type Daemon struct {
 
 	clustermesh *clustermesh.ClusterMesh
 
-	mtuConfig     mtu.Configuration
-	policyTrigger *trigger.Trigger
+	mtuConfig mtu.Configuration
 
 	datapathRegenTrigger *trigger.Trigger
 
@@ -414,10 +412,9 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	}
 
 	d.identityAllocator = NewCachingIdentityAllocator(&d)
-	d.policy = policy.NewPolicyRepository(d.identityAllocator,
-		d.identityAllocator.GetIdentityCache(),
-		certificatemanager.NewManager(option.Config.CertDirectory, k8s.Client()))
-	d.policy.SetEnvoyRulesFunc(envoy.GetEnvoyHTTPRules)
+	if err := d.initPolicy(epMgr); err != nil {
+		return nil, nil, fmt.Errorf("error while initializing policy subsystem: %w", err)
+	}
 
 	// Propagate identity allocator down to packages which themselves do not
 	// have types to which we can add an allocator member.
@@ -511,31 +508,6 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		}
 		bootstrapStats.restore.End(true)
 	}
-
-	t, err := trigger.NewTrigger(trigger.Parameters{
-		Name:            "policy_update",
-		MetricsObserver: &policyTriggerMetrics{},
-		MinInterval:     option.Config.PolicyTriggerInterval,
-		TriggerFunc:     d.policyUpdateTrigger,
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-	d.policyTrigger = t
-
-	// Reuse policyTriggerMetrics and PolicyTriggerInterval here since
-	// this is only triggered by agent configuration changes for now
-	// and should be counted in policyTriggerMetrics.
-	regenerationTrigger, err := trigger.NewTrigger(trigger.Parameters{
-		Name:            "datapath-regeneration",
-		MetricsObserver: &policyTriggerMetrics{},
-		MinInterval:     option.Config.PolicyTriggerInterval,
-		TriggerFunc:     d.datapathRegen,
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-	d.datapathRegenTrigger = regenerationTrigger
 
 	debug.RegisterStatusObject("k8s-service-cache", &d.k8sWatcher.K8sSvcCache)
 	debug.RegisterStatusObject("ipam", d.ipam)
@@ -953,8 +925,8 @@ func (d *Daemon) bootstrapClusterMesh(nodeMngr *nodemanager.Manager) {
 
 // Close shuts down a daemon
 func (d *Daemon) Close() {
-	if d.policyTrigger != nil {
-		d.policyTrigger.Shutdown()
+	if d.policyUpdater != nil {
+		d.policyUpdater.Shutdown()
 	}
 	if d.datapathRegenTrigger != nil {
 		d.datapathRegenTrigger.Shutdown()
