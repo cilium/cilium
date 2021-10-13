@@ -14,7 +14,7 @@ BPF_TEST=tests/bpf_ct_tests.o
 BPF = bpf_lxc.o bpf_overlay.o bpf_sock.o bpf_host.o bpf_xdp.o $(BPF_SIMPLE)
 
 TARGET=cilium-probe-kernel-hz
-KERNEL ?= "49"
+KERNEL ?= "netnext"
 
 include ./Makefile.bpf
 
