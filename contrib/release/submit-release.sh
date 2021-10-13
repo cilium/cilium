@@ -65,6 +65,6 @@ PR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 git push $USER_REMOTE "$PR_BRANCH"
 LABELS="kind/release"
 if [ "$BRANCH" != "master" ]; then
-    labels = "$LABELS,backport/$(echo $BRANCH | sed 's/^v//')"
+    LABELS="$LABELS,backport/$(echo $BRANCH | sed 's/^v//')"
 fi
 hub pull-request -b "$BRANCH" -l "$LABELS" -F $SUMMARY
