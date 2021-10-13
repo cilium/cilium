@@ -137,11 +137,17 @@ type MapTypes struct {
 	HaveStackMapType               bool `json:"have_stack_map_type"`
 }
 
+// Kernel misc configurations kernel large 1M instructions support
+type Misc struct {
+	HaveLargeInsnLimit bool `json:"have_large_insn_limit"`
+}
+
 // Features contains BPF feature checks returned by bpftool.
 type Features struct {
 	SystemConfig `json:"system_config"`
 	MapTypes     `json:"map_types"`
 	Helpers      map[string][]string `json:"helpers"`
+	Misc         `json:"misc"`
 }
 
 // ProbeManager is a manager of BPF feature checks.
@@ -315,6 +321,11 @@ func (p *ProbeManager) GetOptionalConfig() map[KernelParam]kernelOption {
 // GetMapTypes returns information about supported BPF map types.
 func (p *ProbeManager) GetMapTypes() *MapTypes {
 	return &p.features.MapTypes
+}
+
+// GetMisc returns information about kernel misc.
+func (p *ProbeManager) GetMisc() Misc {
+	return p.features.Misc
 }
 
 // GetHelpers returns information about available BPF helpers for the given
