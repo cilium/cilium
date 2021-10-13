@@ -9,7 +9,7 @@ include ../Makefile.quiet
 default: html
 
 clean:
-	-$(QUIET)rm -rf _build _preview Pipfile Pipfile.lock
+	-$(QUIET)rm -rf _build _api _exts/__pycache__ _preview Pipfile Pipfile.lock
 
 builder-image: Dockerfile requirements.txt
 	# Pre-pull FROM docker images due to Buildkit sometimes failing to pull them.
