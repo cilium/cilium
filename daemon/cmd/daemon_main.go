@@ -1685,8 +1685,10 @@ func runDaemon() {
 		d.endpointManager.InitHostEndpointLabels(d.ctx)
 	} else {
 		log.Info("Creating host endpoint")
-		if err := d.endpointManager.AddHostEndpoint(d.ctx, d, d.l7Proxy, d.identityAllocator,
-			"Create host endpoint", nodeTypes.GetName()); err != nil {
+		if err := d.endpointManager.AddHostEndpoint(
+			d.ctx, d, d, d.l7Proxy, d.identityAllocator,
+			"Create host endpoint", nodeTypes.GetName(),
+		); err != nil {
 			log.WithError(err).Fatal("Unable to create host endpoint")
 		}
 	}
