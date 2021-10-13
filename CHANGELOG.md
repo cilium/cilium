@@ -1,5 +1,68 @@
 # Changelog
 
+## v1.10.5
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* daemon: Make L2 neighbor discovery configurable. (Backport PR #17531, Upstream PR #16974, @bjhaid)
+* datapath: Add a new option to skip socket lb when in pod ns (Backport PR #17531, Upstream PR #17154, @brb)
+
+**Bugfixes:**
+* Cilium Istio integration is updated to Istio release 1.10.4 (Backport PR #17392, Upstream PR #17275, @jrajahalme)
+* datapath: Do not SNAT replies to outside (Backport PR #17392, Upstream PR #17168, @brb)
+* egress gateway: fix non-tunnel (direct routing) mode (Backport PR #17582, Upstream PR #17517, @kkourt)
+* Fix bug where IP addresses of devices in unknown state are resolved as remote-node (Backport PR #17495, Upstream PR #17418, @jibi)
+* Fix memory leak that can occur with the presence of FQDN policies (Backport PR #17495, Upstream PR #17432, @aanm)
+* helm: upgrade envoy to v1.18.4 for hubble-ui (Backport PR #17495, Upstream PR #17439, @geakstr)
+* hubble: Display proxy redirects in policy verdict events (Backport PR #17495, Upstream PR #17411, @pchaigno)
+* node: Fix race condition on labels' getter/setter (Backport PR #17313, Upstream PR #17217, @pchaigno)
+* Optimize memory consumption for clusters with high number of repeated FQDN matchPattern or matchNames (Backport PR #17313, Upstream PR #17224, @aanm)
+* pkg/identity: Add missing labels to well-known identities (Backport PR #17495, Upstream PR #16585, @mauriciovasquezbernal)
+* Remove CiliumNode deletion logic from CiliumNode watcher and guarantee CiliumNode's OwnerReference is always set (Backport PR #17495, Upstream PR #17329, @christarazi)
+* Set right User Agent in Kubernetes client for all Cilium components. (Backport PR #17495, Upstream PR #17417, @aanm)
+
+**CI Changes:**
+* [v1.10] fix MLH config trigger (#17423, @nbusseneau)
+* ci: update cilium-cli to 0.9.1 (Backport PR #17392, Upstream PR #17464, @nebril)
+* test/runtime: Look into log errors after test start (Backport PR #17392, Upstream PR #17351, @joamaki)
+* test: bump coredns version to 1.7.0 (Backport PR #17531, Upstream PR #17489, @aanm)
+* test: Skip Istio test on k8s <1.17 (Backport PR #17392, Upstream PR #17445, @jrajahalme)
+* workflows: pin `cilium-cli` version to v0.8.6 (Backport PR #17392, Upstream PR #17143, @nbusseneau)
+
+**Misc Changes:**
+* Add neighbor discovery behavior docs to kubeproxy-free. (Backport PR #17531, Upstream PR #17469, @bjhaid)
+* bpf: Add extension for running sock LB on MKE-related containers (Backport PR #17559, Upstream PR #17513, @borkmann)
+* bugtool: Include listing of egress gateway map (Backport PR #17495, Upstream PR #17378, @pchaigno)
+* build(deps): bump 8398a7/action-slack from 3.9.2 to 3.9.3 (#17379, @dependabot[bot])
+* build(deps): bump 8398a7/action-slack from 3.9.3 to 3.10.0 (#17449, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 1.5.1 to 1.6.0 (#17325, @dependabot[bot])
+* contrib/backporting: add environment variables to set ORG and REPO (Backport PR #17495, Upstream PR #17424, @aanm)
+* daemon, ipam, option: Introduce ability to bypass IP availability error (Backport PR #17531, Upstream PR #17492, @christarazi)
+* daemon: Add --derive-masquerade-ip-addr-from-device opt (Backport PR #17495, Upstream PR #17230, @brb)
+* datapath/linux: enable neighbor discovery in unit tests (Backport PR #17557, Upstream PR #17044, @aanm)
+* docs: Clarify exact requirements for the egress gateway (Backport PR #17392, Upstream PR #17381, @pchaigno)
+* docs: clarify language on libceph and kernel 5.8 in kubeproxy-free GSG (Backport PR #17531, Upstream PR #16969, @bluikko)
+* docs: Fix command for overwriting iptables on kube-proxy replacement install (Backport PR #17495, Upstream PR #16264, @Stijn98s)
+* docs: Fix up broken minikube link (Backport PR #17495, Upstream PR #17382, @joestringer)
+* docs: Fix version sorting for CRD schema docs (Backport PR #17495, Upstream PR #17288, @joestringer)
+* ethtool: use ioctl wrapper from golang.org/x/sys/unix (Backport PR #17392, Upstream PR #17153, @tklauser)
+* fix(docs): bandwidth-manager install error (Backport PR #17392, Upstream PR #17338, @withlin)
+* fqdn: add fqdn proxy interface (Backport PR #17582, Upstream PR #17318, @nebril)
+* helm: Expose l2 neigh discovery related agent flags (Backport PR #17557, Upstream PR #17526, @brb)
+* helm: set correct versions of docker images in Makefile (Backport PR #17495, Upstream PR #17477, @aanm)
+* jenkinsfiles: Don't display nulls in current build display name (Backport PR #17392, Upstream PR #17258, @twpayne)
+* operator: Improve identity GC efficiency (Backport PR #17495, Upstream PR #17359, @christarazi)
+* proxy: Expose cachedSelectorREEntry type (Backport PR #17531, Upstream PR #17341, @nebril)
+* Update Go to 1.16.9 (#17566, @tklauser)
+* v1.10: Update Go to 1.16.8 (#17361, @tklauser)
+* vendor: update mongo-driver to 1.5.1 to fix CVE-2021-20329 (Backport PR #17313, Upstream PR #17234, @aanm)
+
+**Other Changes:**
+* install: Update image digests for v1.10.4 (#17298, @joestringer)
+* Populates backend map from V2 backend map (#17308, @Weil0ng)
+
 ## v1.10.4
 
 Summary of Changes
