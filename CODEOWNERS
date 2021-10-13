@@ -45,7 +45,7 @@
 /api/v1/relay/ @cilium/api @cilium/hubble
 /bpf/ @cilium/bpf
 Makefile* @cilium/build
-/bpf/Makefile* @cilium/build @cilium/loader
+/bpf/Makefile* @cilium/loader
 /bpf/init.sh @cilium/loader
 /bpf/custom/Makefile* @cilium/build @cilium/loader
 /bpf/sockops/Makefile* @cilium/build @cilium/loader
