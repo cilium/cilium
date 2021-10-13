@@ -88,7 +88,6 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 		mtuConfig:          mtuConfig,
 	}
 	store.restoreFinished = make(chan struct{})
-	ciliumClient := k8s.CiliumClient()
 
 	t, err := trigger.NewTrigger(trigger.Parameters{
 		Name:        "crd-allocator-node-refresher",
@@ -104,67 +103,7 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 	// the custom resource has been created
 	owner.UpdateCiliumNodeResource()
 
-	ciliumNodeSelector := fields.ParseSelectorOrDie("metadata.name=" + nodeName)
-	ciliumNodeStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
-	ciliumNodeInformer := informer.NewInformerWithStore(
-		cache.NewListWatchFromClient(ciliumClient.CiliumV2().RESTClient(),
-			ciliumv2.CNPluralName, corev1.NamespaceAll, ciliumNodeSelector),
-		&ciliumv2.CiliumNode{},
-		0,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				var valid, equal bool
-				defer func() { k8sEventReg.K8sEventReceived("CiliumNode", "create", valid, equal) }()
-				if node, ok := obj.(*ciliumv2.CiliumNode); ok {
-					valid = true
-					store.updateLocalNodeResource(node.DeepCopy())
-					k8sEventReg.K8sEventProcessed("CiliumNode", "create", true)
-				} else {
-					log.Warningf("Unknown CiliumNode object type %s received: %+v", reflect.TypeOf(obj), obj)
-				}
-			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				var valid, equal bool
-				defer func() { k8sEventReg.K8sEventReceived("CiliumNode", "update", valid, equal) }()
-				if oldNode, ok := oldObj.(*ciliumv2.CiliumNode); ok {
-					if newNode, ok := newObj.(*ciliumv2.CiliumNode); ok {
-						if oldNode.DeepEqual(newNode) {
-							equal = true
-							return
-						}
-						valid = true
-						store.updateLocalNodeResource(newNode.DeepCopy())
-						k8sEventReg.K8sEventProcessed("CiliumNode", "update", true)
-					} else {
-						log.Warningf("Unknown CiliumNode object type %T received: %+v", oldNode, oldNode)
-					}
-				} else {
-					log.Warningf("Unknown CiliumNode object type %T received: %+v", oldNode, oldNode)
-				}
-			},
-			DeleteFunc: func(obj interface{}) {
-				// Given we are watching a single specific
-				// resource using the node name, any delete
-				// notification means that the resource
-				// matching the local node name has been
-				// removed. No attempt to cast is required.
-				store.deleteLocalNodeResource()
-				k8sEventReg.K8sEventProcessed("CiliumNode", "delete", true)
-				k8sEventReg.K8sEventReceived("CiliumNode", "delete", true, false)
-			},
-		},
-		nil,
-		ciliumNodeStore,
-	)
-
-	go ciliumNodeInformer.Run(wait.NeverStop)
-
-	log.WithField(fieldName, nodeName).Info("Waiting for CiliumNode custom resource to become available...")
-	if ok := cache.WaitForCacheSync(wait.NeverStop, ciliumNodeInformer.HasSynced); !ok {
-		log.WithField(fieldName, nodeName).Fatal("Unable to synchronize CiliumNode custom resource")
-	} else {
-		log.WithField(fieldName, nodeName).Info("Successfully synchronized CiliumNode custom resource")
-	}
+	startLocalCiliumNodeInformer(nodeName, k8sEventReg, store.updateLocalNodeResource, store.deleteLocalNodeResource)
 
 	for {
 		minimumReached, required, numAvailable := store.hasMinimumIPsInPool()
@@ -193,6 +132,71 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 	}()
 
 	return store
+}
+
+func startLocalCiliumNodeInformer(nodeName string, k8sEventReg K8sEventRegister, onUpsert func(*ciliumv2.CiliumNode), onDelete func()) {
+	ciliumClient := k8s.CiliumClient()
+	ciliumNodeSelector := fields.ParseSelectorOrDie("metadata.name=" + nodeName)
+	ciliumNodeStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+	ciliumNodeInformer := informer.NewInformerWithStore(
+		cache.NewListWatchFromClient(ciliumClient.CiliumV2().RESTClient(),
+			ciliumv2.CNPluralName, corev1.NamespaceAll, ciliumNodeSelector),
+		&ciliumv2.CiliumNode{},
+		0,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				var valid, equal bool
+				defer func() { k8sEventReg.K8sEventReceived("CiliumNode", "create", valid, equal) }()
+				if node, ok := obj.(*ciliumv2.CiliumNode); ok {
+					valid = true
+					onUpsert(node.DeepCopy())
+					k8sEventReg.K8sEventProcessed("CiliumNode", "create", true)
+				} else {
+					log.Warningf("Unknown CiliumNode object type %s received: %+v", reflect.TypeOf(obj), obj)
+				}
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				var valid, equal bool
+				defer func() { k8sEventReg.K8sEventReceived("CiliumNode", "update", valid, equal) }()
+				if oldNode, ok := oldObj.(*ciliumv2.CiliumNode); ok {
+					if newNode, ok := newObj.(*ciliumv2.CiliumNode); ok {
+						if oldNode.DeepEqual(newNode) {
+							equal = true
+							return
+						}
+						valid = true
+						onUpsert(newNode.DeepCopy())
+						k8sEventReg.K8sEventProcessed("CiliumNode", "update", true)
+					} else {
+						log.Warningf("Unknown CiliumNode object type %T received: %+v", oldNode, oldNode)
+					}
+				} else {
+					log.Warningf("Unknown CiliumNode object type %T received: %+v", oldNode, oldNode)
+				}
+			},
+			DeleteFunc: func(obj interface{}) {
+				// Given we are watching a single specific
+				// resource using the node name, any delete
+				// notification means that the resource
+				// matching the local node name has been
+				// removed. No attempt to cast is required.
+				onDelete()
+				k8sEventReg.K8sEventProcessed("CiliumNode", "delete", true)
+				k8sEventReg.K8sEventReceived("CiliumNode", "delete", true, false)
+			},
+		},
+		nil,
+		ciliumNodeStore,
+	)
+
+	go ciliumNodeInformer.Run(wait.NeverStop)
+
+	log.WithField(fieldName, nodeName).Info("Waiting for CiliumNode custom resource to become available...")
+	if ok := cache.WaitForCacheSync(wait.NeverStop, ciliumNodeInformer.HasSynced); !ok {
+		log.WithField(fieldName, nodeName).Fatal("Unable to synchronize CiliumNode custom resource")
+	} else {
+		log.WithField(fieldName, nodeName).Info("Successfully synchronized CiliumNode custom resource")
+	}
 }
 
 func deriveVpcCIDR(node *ciliumv2.CiliumNode) (result *cidr.CIDR) {
