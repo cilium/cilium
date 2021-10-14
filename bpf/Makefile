@@ -303,8 +303,7 @@ endif
 
 $(TARGET): %: %.c
 	@$(ECHO_CC)
-	@# Due to gcc bug, -lelf needs to be at the end.
-	$(QUIET) ${HOST_CC} -Wall -O2 -Wno-format-truncation -I include/ $@.c -lelf -o $@
+	$(QUIET) ${HOST_CC} -Wall -O2 -Wno-format-truncation -I include/ $@.c -o $@
 	$(QUIET) ${HOST_STRIP} $@
 
 install:
