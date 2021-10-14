@@ -4,6 +4,8 @@
 include ../Makefile.defs
 include ../Makefile.quiet
 
+HELM_VALUES := helm-values.rst
+
 .PHONY: default clean builder-image cilium-build cmdref epub latex html run-server stop-server
 
 default: html
@@ -37,9 +39,11 @@ update-cmdref: builder-image cilium-build
 	-$(QUIET)rm -rf cmdref/cilium*.md
 	$(QUIET)$(DOCKER_RUN) ./update-cmdref.sh
 
-check: builder-image update-cmdref
+check: builder-image update-cmdref update-helm-values
 	@$(ECHO_CHECK) cmdref
 	$(QUIET) ./check-cmdref.sh
+	@$(ECHO_CHECK) $(HELM_VALUES)
+	$(QUIET) ./check-helmvalues.sh
 	@$(ECHO_CHECK) examples
 	$(QUIET)$(DOCKER_RUN) ./check-examples.sh
 
@@ -51,7 +55,18 @@ copy-api:
 	@$(ECHO_GEN)_api
 	$(QUIET)cp -r ../api _api
 
-HELM_VALUES = helm-values.rst
+# $(HELM_DOCS_IMAGE), necessary to update the reference for Helm values,
+# attempts to run a Go binary compiled for x86_64. Skip the update on other
+# architectures by making update-helm-values an empty target, unless the user
+# passes a compatible image.
+HELM_VALUES_DEP := $(HELM_VALUES)
+ifneq ($(shell uname -m),x86_64)
+  ifeq ($(origin HELM_DOCS_IMAGE), file)
+    $(info Documentation: skipping update for the Helm reference (image needs x86_64))
+    HELM_VALUES_DEP :=
+  endif
+endif
+update-helm-values: $(HELM_VALUES_DEP)
 
 HELM_DOCS_ROOT_PATH := $(DOCKER_CTR_ROOT_DIR)
 HELM_DOCS_CHARTS_DIR := $(HELM_DOCS_ROOT_PATH)/install/kubernetes
@@ -63,17 +78,17 @@ M2R_SHA := a3dc2c3fcdc31260dcb7cd42e39763281a6fdce4ca59b4c150fb3bfff5be9eb7
 M2R_IMAGE := docker.io/bmcustodio/m2r:$(M2R_VERSION)@sha256:$(M2R_SHA)
 M2R := $(DOCKER_CTR) $(M2R_IMAGE) m2r
 
-.PHONY: $(HELM_VALUES)
+.PHONY: update-helm-values FORCE
 $(HELM_VALUES): TMP_FILE_1 := helm-values.tmp
 $(HELM_VALUES): TMP_FILE_2 := helm-values.awk
-$(HELM_VALUES):
+$(HELM_VALUES): FORCE
 	$(QUIET)$(HELM_DOCS) -d -c $(HELM_DOCS_CHARTS_DIR) -t $(HELM_DOCS_OUTPUT_DIR)/$(TMP_FILE_1).tmpl > $(TMP_FILE_1)
 	$(QUIET)awk -F'|' '{print "|"$$2"|"$$5"|"$$3"|"$$4"|"}' $(TMP_FILE_1) > $(TMP_FILE_2)
 	$(QUIET)$(M2R) --overwrite $(TMP_FILE_2)
 	$(QUIET)printf '..\n  %s\n\n%s\n' "AUTO-GENERATED. Please DO NOT edit manually." "$$(cat $@)" > $@
 	$(QUIET)$(RM) -- $(TMP_FILE_1) $(TMP_FILE_2)
 
-epub latex html: builder-image copy-api $(HELM_VALUES)
+epub latex html: builder-image copy-api update-helm-values
 	@$(ECHO_GEN)_build/$@
 	$(QUIET)$(DOCKER_RUN) ./check-build.sh $(@) $(SPHINX_OPTS)
 
