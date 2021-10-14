@@ -561,7 +561,7 @@ install-manpages: ## Install manpages the Cilium CLI.
 	mandb
 
 postcheck: build ## Run Cilium build postcheck (update-cmdref, build documentation etc.).
-	$(QUIET)$(MAKE) $(SUBMAKEOPTS) -C Documentation update-cmdref check
+	$(QUIET)$(MAKE) $(SUBMAKEOPTS) -C Documentation check
 
 licenses-all: ## Generate file with all the License from dependencies.
 	@$(GO) run ./tools/licensegen > LICENSE.all || ( rm -f LICENSE.all ; false )
