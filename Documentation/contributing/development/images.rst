@@ -254,3 +254,14 @@ Nightly images are stored on dockerhub tagged with following format: ``YYYYMMDD-
 Job number is added to tag for the unlikely event of two consecutive nightly builds being built on the same date.
 
 .. _cilium/nightly: https://hub.docker.com/r/cilium/nightly/
+
+Image Building Process
+~~~~~~~~~~~~~~~~~~~~~~
+
+Images are automatically created by a GitHub action: ``build-images``. This
+action will automatically run for any Pull Request, including Pull Requests
+submitted from forked repositories, and push the images into
+``quay.io/cilium/*-ci``. They will be available there for 1 week before they are
+removed by the ``ci-images-garbage-collect`` workflow. Once they are removed, the
+developer must re-push the Pull Request into GitHub so that new images are
+created.
