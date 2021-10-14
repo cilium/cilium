@@ -1,6 +1,7 @@
 The following people, in alphabetical order, have either authored or signed
 off on commits in the Cilium repository:
 
+Àbéjídé Àyodélé                         abejideayodele@gmail.com
 AdamKorcz                               adam@adalogics.com
 Adam Wolfe Gordon                       awg@digitalocean.com
 Aditi Ghag                              aditi@cilium.io
@@ -130,6 +131,7 @@ Jess Frazelle                           acidburn@microsoft.com
 Jianlin Lv                              Jianlin.Lv@arm.com
 JieJhih Jhang                           jiejhihjhang@gmail.com
 Jim Angel                               jimangel@google.com.com
+JinLin Fu                               withlin@apache.org
 Jiong Wang                              jiong.wang@netronome.com
 Joao Victorino                          joao@accuknox.com
 Joe Farrell                             joe2farrell@gmail.com
@@ -167,7 +169,7 @@ Liu Qun                                 qunliu@zyhx-group.com
 Livingstone S E                         livingstone.s.e@gmail.com
 Li Yi                                   denverdino@gmail.com
 Lorenzo Fundaró                         lorenzofundaro@gmail.com
-Louis DeLosSantos                       louis.delos@isovalent.com
+Louis DeLosSantos                       louis@isovalent.com
 Maciej Fijalkowski                      maciej.fijalkowski@intel.com
 Maciej Kwiek                            maciej@isovalent.com
 Maciej Skrocki                          maciejskrocki@google.com
@@ -261,6 +263,7 @@ Stephen Martin                          lockwood@opperline.com
 Steven Ceuppens                         steven.ceuppens@icloud.com
 Steven Normore                          snormore@digitalocean.com
 Stevo Slavić                            sslavic@gmail.com
+Stijn Smits                             stijn@stijn98s.nl
 Strukov Anton                           anstrukov@luxoft.com
 Swaminathan Vasudevan                   svasudevan@suse.com
 Taeung Song                             treeze.taeung@gmail.com
@@ -286,8 +289,9 @@ Trevor Tao                              trevor.tao@arm.com
 Umesh Keerthy B S                       umesh.freelance@gmail.com
 Vadim Ponomarev                         velizarx@gmail.com
 Valas Valancius                         valas@google.com
-Vance Li                                liyannois@gmail.com
+Vance Li                                vanceli@tencent.com
 Vigneshwaren Sunder                     vickymailed@gmail.com
+Ville Ojamo                             bluikko@users.noreply.github.com
 Vishnu Soman K                          vishnusomank05@gmail.com
 Vlad Artamonov                          742047+vladdy@users.noreply.github.com
 Vlad Gorodetsky                         v@gor.io

@@ -84,6 +84,10 @@ const (
 	// ARPPingRefreshPeriod is the ARP entries refresher period
 	ARPPingRefreshPeriod = "arping-refresh-period"
 
+	// EnableL2NeighDiscovery determines if cilium should perform L2 neighbor
+	// discovery.
+	EnableL2NeighDiscovery = "enable-l2-neigh-discovery"
+
 	// BPFRoot is the Path to BPF filesystem
 	BPFRoot = "bpf-root"
 
@@ -316,6 +320,12 @@ const (
 	// EnableLocalRedirectPolicy enables support for local redirect policy
 	EnableLocalRedirectPolicy = "enable-local-redirect-policy"
 
+	// EnableMKE enables MKE specific 'chaining' for kube-proxy replacement
+	EnableMKE = "enable-mke"
+
+	// CgroupPathMKE points to the cgroupv1 net_cls mount instance
+	CgroupPathMKE = "mke-cgroup-mount"
+
 	// LibDir enables the directory path to store runtime build environment
 	LibDir = "lib-dir"
 
@@ -345,6 +355,9 @@ const (
 
 	// EnableBPFMasquerade masquerades packets from endpoints leaving the host with BPF instead of iptables
 	EnableBPFMasquerade = "enable-bpf-masquerade"
+
+	// DeriveMasqIPAddrFromDevice is device name which IP addr is used for BPF masquerades
+	DeriveMasqIPAddrFromDevice = "derive-masquerade-ip-addr-from-device"
 
 	// EnableIPMasqAgent enables BPF ip-masq-agent
 	EnableIPMasqAgent = "enable-ip-masq-agent"
@@ -451,6 +464,9 @@ const (
 
 	// EnableHostReachableServices is the name of the EnableHostReachableServices option
 	EnableHostReachableServices = "enable-host-reachable-services"
+
+	// BPFSocketLBHostnsOnly is the name of the BPFSocketLBHostnsOnly option
+	BPFSocketLBHostnsOnly = "bpf-lb-sock-hostns-only"
 
 	// HostReachableServicesProtos is the name of the HostReachableServicesProtos option
 	HostReachableServicesProtos = "host-reachable-services-protos"
@@ -960,6 +976,11 @@ const (
 	// ExternalClusterIPName is the name of the option to enable
 	// cluster external access to ClusterIP services.
 	ExternalClusterIPName = "bpf-lb-external-clusterip"
+
+	// BypassIPAvailabilityUponRestore bypasses the IP availability error
+	// within IPAM upon endpoint restore and allows the use of the restored IP
+	// regardless of whether it's available in the pool.
+	BypassIPAvailabilityUponRestore = "bypass-ip-availability-upon-restore"
 )
 
 // Default string arguments
@@ -1414,6 +1435,7 @@ type DaemonConfig struct {
 	// CLI options
 
 	BPFRoot                       string
+	BPFSocketLBHostnsOnly         bool
 	CGroupRoot                    string
 	BPFCompileDebug               string
 	CompilerFlags                 []string
@@ -1455,26 +1477,27 @@ type DaemonConfig struct {
 
 	// Masquerade specifies whether or not to masquerade packets from endpoints
 	// leaving the host.
-	EnableIPv4Masquerade   bool
-	EnableIPv6Masquerade   bool
-	EnableBPFMasquerade    bool
-	EnableBPFClockProbe    bool
-	EnableIPMasqAgent      bool
-	EnableEgressGateway    bool
-	IPMasqAgentConfigPath  string
-	InstallIptRules        bool
-	MonitorAggregation     string
-	PreAllocateMaps        bool
-	IPv6NodeAddr           string
-	IPv4NodeAddr           string
-	SidecarIstioProxyImage string
-	SocketPath             string
-	TracePayloadlen        int
-	Version                string
-	PProf                  bool
-	PProfPort              int
-	PrometheusServeAddr    string
-	ToFQDNsMinTTL          int
+	EnableIPv4Masquerade       bool
+	EnableIPv6Masquerade       bool
+	EnableBPFMasquerade        bool
+	DeriveMasqIPAddrFromDevice string
+	EnableBPFClockProbe        bool
+	EnableIPMasqAgent          bool
+	EnableEgressGateway        bool
+	IPMasqAgentConfigPath      string
+	InstallIptRules            bool
+	MonitorAggregation         string
+	PreAllocateMaps            bool
+	IPv6NodeAddr               string
+	IPv4NodeAddr               string
+	SidecarIstioProxyImage     string
+	SocketPath                 string
+	TracePayloadlen            int
+	Version                    string
+	PProf                      bool
+	PProfPort                  int
+	PrometheusServeAddr        string
+	ToFQDNsMinTTL              int
 
 	// DNSMaxIPsPerRestoredRule defines the maximum number of IPs to maintain
 	// for each FQDN selector in endpoint's restored DNS rules
@@ -1720,6 +1743,12 @@ type DaemonConfig struct {
 
 	// EnableRecorder enables the datapath pcap recorder
 	EnableRecorder bool
+
+	// EnableMKE enables MKE specific 'chaining' for kube-proxy replacement
+	EnableMKE bool
+
+	// CgroupPathMKE points to the cgroupv1 net_cls mount instance
+	CgroupPathMKE string
 
 	// KubeProxyReplacementHealthzBindAddr is the KubeProxyReplacement healthz server bind addr
 	KubeProxyReplacementHealthzBindAddr string
@@ -1972,6 +2001,15 @@ type DaemonConfig struct {
 
 	// ARPPingRefreshPeriod is the ARP entries refresher period.
 	ARPPingRefreshPeriod time.Duration
+
+	// EnableL2NeighDiscovery determines if cilium should perform L2 neighbor
+	// discovery.
+	EnableL2NeighDiscovery bool
+
+	// BypassIPAvailabilityUponRestore bypasses the IP availability error
+	// within IPAM upon endpoint restore and allows the use of the restored IP
+	// regardless of whether it's available in the pool.
+	BypassIPAvailabilityUponRestore bool
 }
 
 var (
@@ -2370,6 +2408,7 @@ func (c *DaemonConfig) Populate() {
 	c.AllowLocalhost = viper.GetString(AllowLocalhost)
 	c.AnnotateK8sNode = viper.GetBool(AnnotateK8sNode)
 	c.ARPPingRefreshPeriod = viper.GetDuration(ARPPingRefreshPeriod)
+	c.EnableL2NeighDiscovery = viper.GetBool(EnableL2NeighDiscovery)
 	c.AutoCreateCiliumNodeResource = viper.GetBool(AutoCreateCiliumNodeResource)
 	c.BPFRoot = viper.GetString(BPFRoot)
 	c.CertDirectory = viper.GetString(CertsDirectory)
@@ -2394,6 +2433,7 @@ func (c *DaemonConfig) Populate() {
 	c.DevicePreFilter = viper.GetString(PrefilterDevice)
 	c.DisableCiliumEndpointCRD = viper.GetBool(DisableCiliumEndpointCRDName)
 	c.EgressMasqueradeInterfaces = viper.GetString(EgressMasqueradeInterfaces)
+	c.BPFSocketLBHostnsOnly = viper.GetBool(BPFSocketLBHostnsOnly)
 	c.EnableHostReachableServices = viper.GetBool(EnableHostReachableServices)
 	c.EnableRemoteNodeIdentity = viper.GetBool(EnableRemoteNodeIdentity)
 	c.K8sHeartbeatTimeout = viper.GetDuration(K8sHeartbeatTimeout)
@@ -2421,6 +2461,8 @@ func (c *DaemonConfig) Populate() {
 	c.EnableSessionAffinity = viper.GetBool(EnableSessionAffinity)
 	c.EnableBandwidthManager = viper.GetBool(EnableBandwidthManager)
 	c.EnableRecorder = viper.GetBool(EnableRecorder)
+	c.EnableMKE = viper.GetBool(EnableMKE)
+	c.CgroupPathMKE = viper.GetString(CgroupPathMKE)
 	c.EnableHostFirewall = viper.GetBool(EnableHostFirewall)
 	c.EnableLocalRedirectPolicy = viper.GetBool(EnableLocalRedirectPolicy)
 	c.EncryptInterface = viper.GetStringSlice(EncryptInterface)
@@ -2534,6 +2576,7 @@ func (c *DaemonConfig) Populate() {
 	if err != nil {
 		log.WithError(err).Fatal("Failed to populate masquerading settings")
 	}
+
 	c.populateLoadBalancerSettings()
 	c.populateDevices()
 	c.EgressMultiHomeIPRuleCompat = viper.GetBool(EgressMultiHomeIPRuleCompat)
@@ -2737,6 +2780,7 @@ func (c *DaemonConfig) Populate() {
 	c.SelectiveRegeneration = viper.GetBool(SelectiveRegeneration)
 	c.SkipCRDCreation = viper.GetBool(SkipCRDCreation)
 	c.DisableCNPStatusUpdates = viper.GetBool(DisableCNPStatusUpdates)
+	c.BypassIPAvailabilityUponRestore = viper.GetBool(BypassIPAvailabilityUponRestore)
 }
 
 func (c *DaemonConfig) populateMasqueradingSettings() error {
@@ -2751,6 +2795,7 @@ func (c *DaemonConfig) populateMasqueradingSettings() error {
 
 	c.EnableIPv6Masquerade = viper.GetBool(EnableIPv6Masquerade) && c.EnableIPv6
 	c.EnableBPFMasquerade = viper.GetBool(EnableBPFMasquerade)
+	c.DeriveMasqIPAddrFromDevice = viper.GetString(DeriveMasqIPAddrFromDevice)
 
 	return nil
 }
