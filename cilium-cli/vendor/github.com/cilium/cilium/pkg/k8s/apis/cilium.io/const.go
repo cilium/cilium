@@ -47,21 +47,35 @@ const (
 	// PodNamespaceMetaLabels is the label used to store the labels of the
 	// kubernetes namespace's labels.
 	PodNamespaceMetaLabels = "io.cilium.k8s.namespace.labels"
+
+	// PodNamespaceMetaNameLabel is the label that Kubernetes automatically adds
+	// to namespaces.
+	PodNamespaceMetaNameLabel = PodNamespaceMetaLabels + "." + LabelMetadataName
+
+	// LabelMetadataName is the label name which, in-tree, is used to
+	// automatically label namespaces, so they can be selected easily by tools
+	// which require definitive labels.
+	LabelMetadataName = "kubernetes.io/metadata.name"
+
 	// PodNamespaceLabel is the label used in kubernetes containers to
 	// specify which namespace they belong to.
 	PodNamespaceLabel = "io.kubernetes.pod.namespace"
+
 	// PodNameLabel is the label used in kubernetes containers to
 	// specify the POD name.
 	PodNameLabel = "io.kubernetes.pod.name"
+
 	// AppKubernetes is the label which is recommended by the official k8s
 	// documentation ad the lablel for every resource object.
 	AppKubernetes = "app.kubernetes.io"
+
 	// CtrlPrefixPolicyStatus is the prefix used for the controllers set up
 	// to sync the CNP with kube-apiserver.
 	CtrlPrefixPolicyStatus = "sync-cnp-policy-status"
 
 	// CiliumK8sAnnotationPrefix is the prefix key for the annotations used in kubernetes.
 	CiliumK8sAnnotationPrefix = "cilium.io/"
+
 	// CiliumIdentityAnnotationDeprecated is the previous annotation key used to map to an endpoint's security identity.
 	CiliumIdentityAnnotationDeprecated = "cilium-identity"
 
