@@ -46,7 +46,7 @@ type Config struct {
 	// retried in case of recoverable failures. When nil the API client will use a default
 	// retryer.
 	//
-	// In general, the provider function should return a new instance of a Retyer if you are attempting
+	// In general, the provider function should return a new instance of a Retryer if you are attempting
 	// to provide a consistent Retryer configuration across all clients. This will ensure that each client will be
 	// provided a new instance of the Retryer implementation, and will avoid issues such as sharing the same retry token
 	// bucket across services.
