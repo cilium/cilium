@@ -106,7 +106,7 @@ var _ = SkipDescribeIf(func() bool {
 
 	AfterFailed(func() {
 		// Especially check if there are duplicated address allocated on cilium_host
-		kubectl.CiliumReport("ip addr")
+		kubectl.CiliumReport("ip addr", "cilium bpf egress list", "cilium bpf nat list")
 	})
 
 	testEgressGateway := func(fromGateway bool) {
