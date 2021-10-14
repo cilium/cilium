@@ -11,10 +11,12 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/sysctl"
 
+	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 )
 
@@ -115,7 +117,7 @@ func graftDatapath(ctx context.Context, mapPath, objPath, progSec string) error 
 	var revert bool
 	defer func() {
 		if err := bpf.FinalizeBPFFSMigration(bpf.GetMapRoot(), objPath, revert); err != nil {
-			log.WithError(err).WithField("mapPath", mapPath).WithField("objPath", objPath).
+			log.WithError(err).WithFields(logrus.Fields{logfields.BPFMapPath: mapPath, "objPath": objPath}).
 				Error("Could not finalize bpffs map migration")
 		}
 	}()
