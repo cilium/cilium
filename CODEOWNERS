@@ -82,6 +82,7 @@ Makefile* @cilium/build
 /Documentation/check-cmdref.sh @cilium/docs-structure
 /Documentation/check-crd-compat-table.sh @cilium/docs-structure
 /Documentation/check-examples.sh @cilium/docs-structure
+/Documentation/check-helmvalues.sh @cilium/docs-structure
 /Documentation/cilium_operator.rst @cilium/operator
 /Documentation/cmdref/ @cilium/nonexistantteam
 /Documentation/commit-access.rst @cilium/contributing @cilium/docs-structure
