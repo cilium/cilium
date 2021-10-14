@@ -107,8 +107,6 @@ type RateLimiter interface {
 	AddTokens(uint) error
 }
 
-func nopTokenRelease(error) error { return nil }
-
 // Standard is the standard retry pattern for the SDK. It uses a set of
 // retryable checks to determine of the failed request should be retried, and
 // what retry delay should be used.
