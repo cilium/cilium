@@ -8,7 +8,10 @@ import (
 
 	"encoding/binary"
 
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/ebpf"
+
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 
@@ -139,7 +142,8 @@ func repinMap(bpffsPath string, name string, spec *ebpf.MapSpec) error {
 
 	dest := file + bpffsPending
 
-	log.Infof("New version of map '%s' has different properties, re-pinning from '%s' to '%s'", name, file, dest)
+	log.WithFields(logrus.Fields{logfields.BPFMapName: name, logfields.BPFMapPath: file}).
+		Infof("New version of map has different properties, re-pinning with '%s' suffix", bpffsPending)
 
 	// Atomically re-pin the map to the its new path.
 	if err := pinned.Pin(dest); err != nil {
@@ -170,7 +174,8 @@ func finalizeMap(bpffsPath, name string, revert bool) error {
 	// Pending Map was found on bpffs and needs to be reverted.
 	if revert {
 		dest := filepath.Join(bpffsPath, name)
-		log.Infof("Reverting map pin from '%s' to '%s' after failed migration", file, dest)
+		log.WithFields(logrus.Fields{logfields.BPFMapPath: dest, logfields.BPFMapName: name}).
+			Infof("Repinning without '%s' suffix after failed migration", bpffsPending)
 
 		// Atomically re-pin the map to its original path.
 		if err := pending.Pin(dest); err != nil {
@@ -180,7 +185,8 @@ func finalizeMap(bpffsPath, name string, revert bool) error {
 		return nil
 	}
 
-	log.Infof("Unpinning map '%s' after successful recreation", file)
+	log.WithFields(logrus.Fields{logfields.BPFMapPath: file, logfields.BPFMapName: name}).
+		Info("Unpinning map after successful recreation")
 
 	// Pending Map found on bpffs and its replacement was successfully loaded.
 	// Unpin the old map since it no longer needs to be interacted with from userspace.
