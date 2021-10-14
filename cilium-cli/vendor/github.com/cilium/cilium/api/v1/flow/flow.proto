@@ -234,6 +234,7 @@ enum Verdict {
     DROPPED = 2;
     ERROR = 3;
     AUDIT = 4;
+    REDIRECTED = 5;
 }
 
 // These values are shared with pkg/monitor/api/drop.go and bpf/lib/common.h.
