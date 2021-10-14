@@ -546,4 +546,10 @@ const (
 
 	// ExpectedENIs are the ENIs which are expected to be available
 	ExpectedENIs = "expectedENIs"
+
+	// NumEntries is the number of entries counted
+	NumEntries = "entries"
+
+	// Hint helps nudge the user in the right direction when troubleshooting.
+	Hint = "hint"
 )
