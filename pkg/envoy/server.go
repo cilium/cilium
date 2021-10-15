@@ -1463,7 +1463,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, vis *policy.V
 	}
 
 	// When successful, push them into the cache.
-	revertFuncs := make([]xds.AckingResourceMutatorRevertFunc, 0, len(policies))
+	revertFuncs := make(xds.AckingResourceMutatorRevertFuncList, 0, len(policies))
 	revertUpdatedNetworkPolicyEndpoints := make(map[string]logger.EndpointUpdater, len(policies))
 	for _, p := range policies {
 		var callback func(error)
@@ -1496,9 +1496,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, vis *policy.V
 
 		// Don't wait for an ACK for the reverted xDS updates.
 		// This is best-effort.
-		for _, revertFunc := range revertFuncs {
-			revertFunc(completion.NewCompletion(nil, nil))
-		}
+		revertFuncs.Revert(nil)
 
 		log.Debug("Finished reverting xDS network policy update")
 
