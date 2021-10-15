@@ -130,17 +130,6 @@ var (
 	bootstrapStats = bootstrapStatistics{}
 )
 
-func init() {
-	RootCmd.SetFlagErrorFunc(func(_ *cobra.Command, e error) error {
-		time.Sleep(fatalSleep)
-		return e
-	})
-	logrus.RegisterExitHandler(func() {
-		time.Sleep(fatalSleep)
-	},
-	)
-}
-
 // Execute sets up gops, installs the cleanup signal handler and invokes
 // the root command. This function only returns when an interrupt
 // signal has been received. This is intended to be called by main.main().
@@ -165,6 +154,23 @@ func skipInit(basePath string) bool {
 }
 
 func init() {
+	setupSleepBeforeFatal()
+	initializeFlags()
+	registerBootstrapMetrics()
+}
+
+func setupSleepBeforeFatal() {
+	RootCmd.SetFlagErrorFunc(func(_ *cobra.Command, e error) error {
+		time.Sleep(fatalSleep)
+		return e
+	})
+	logrus.RegisterExitHandler(func() {
+		time.Sleep(fatalSleep)
+	},
+	)
+}
+
+func initializeFlags() {
 	if skipInit(path.Base(os.Args[0])) {
 		log.Debug("Skipping preparation of cilium-agent environment")
 		return
