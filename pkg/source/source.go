@@ -10,9 +10,15 @@ const (
 	// Unspec is used when the source is unspecified
 	Unspec Source = "unspec"
 
+	// KubeAPIServer is the source used for state which represents the
+	// kube-apiserver, such as the IPs associated with it. This is not to be
+	// confused with the Kubernetes source.
+	// KubeAPIServer state has the strongest ownership and can only be
+	// overwritten by itself.
+	KubeAPIServer Source = "kube-apiserver"
+
 	// Local is the source used for state derived from local agent state.
-	// Local state has the strongest ownership and can only be overwritten
-	// by other local state.
+	// Local state has the second strongest ownership, behind KubeAPIServer.
 	Local Source = "local"
 
 	// KVStore is the source used for state derived from a key value store.
@@ -37,13 +43,20 @@ const (
 func AllowOverwrite(existing, new Source) bool {
 	switch existing {
 
-	// Local state can only be overwritten by other local state
-	case Local:
-		return new == Local
+	// KubeAPIServer state can only be overwritten by other kube-apiserver
+	// state.
+	case KubeAPIServer:
+		return new == KubeAPIServer
 
-	// KVStore can be overwritten by other kvstore or local state
+	// Local state can only be overwritten by other local state or
+	// kube-apiserver state.
+	case Local:
+		return new == Local || new == KubeAPIServer
+
+	// KVStore can be overwritten by other kvstore, local state, or
+	// kube-apiserver state.
 	case KVStore:
-		return new == KVStore || new == Local
+		return new == KVStore || new == Local || new == KubeAPIServer
 
 	// Custom-resource state can be overwritten by everything except
 	// generated, unspecified and Kubernetes (non-CRD) state
