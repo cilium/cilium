@@ -285,6 +285,11 @@ jobs:
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
             --encryption=ipsec
 
+      # this is kludge around https://github.com/cilium/cilium-cli/issues/342
+      - name: Restart CoreDNS pods
+        run: |
+          kubectl -n kube-system rollout restart deployment/coredns
+
       - name: Enable Relay
         run: |
           cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
