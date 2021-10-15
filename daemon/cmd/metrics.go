@@ -118,7 +118,7 @@ var (
 	metricBootstrapTimes prometheus.ObserverVec
 )
 
-func init() {
+func registerBootstrapMetrics() {
 	metricBootstrapTimes = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: metrics.Namespace,
 		Subsystem: metrics.SubsystemAgent,
