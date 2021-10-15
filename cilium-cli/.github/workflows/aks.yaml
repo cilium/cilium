@@ -28,6 +28,7 @@ concurrency:
 env:
   name: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   location: westeurope
+  cost_reduction: --node-vm-size Standard_B2s --node-osdisk-size 30
 
 jobs:
   installation-and-connectivity:
@@ -69,7 +70,6 @@ jobs:
           echo ::set-output name=owner::${OWNER}
 
       - name: Create AKS cluster
-        id: cluster-creation
         run: |
           # Create group
           az group create \
@@ -77,37 +77,53 @@ jobs:
             --location ${{ env.location }} \
             --tags usage=${{ github.repository_owner }}-${{ github.event.repository.name }} owner=${{ steps.vars.outputs.owner }}
 
-          # Create cluster with a 1 node-count (we will remove this node pool
-          # afterwards)
-          # Details: Basic load balancers are not supported with multiple node
-          # pools. Create a cluster with standard load balancer selected to use
-          # multiple node pools, learn more at https://aka.ms/aks/nodepools.
+          # Create AKS cluster
           az aks create \
             --resource-group ${{ env.name }} \
             --name ${{ env.name }} \
             --location ${{ env.location }} \
             --network-plugin azure \
             --node-count 1 \
-            --load-balancer-sku standard \
-            --node-vm-size Standard_B2s \
-            --node-osdisk-size 30 \
+            ${{ env.cost_reduction }} \
             --generate-ssh-keys
 
-          # Get the name of the node pool that we will delete afterwards
-          echo ::set-output name=nodepool_to_delete::$(az aks nodepool list --cluster-name ${{ env.name }} -g ${{ env.name }} -o json | jq -r '.[0].name')
+          # Get name of initial system node pool
+          nodepool_to_delete=$(az aks nodepool list --resource-group ${{ env.name }} --cluster-name ${{ env.name }} --output tsv --query "[0].name")
 
-          # Create a node pool with the taint 'node.cilium.io/agent-not-ready=true:NoSchedule'
-          # and with 'mode=system' as it it the same mode used for the nodepool
-          # created with the cluster.
+          # Create system node pool tainted with `CriticalAddonsOnly=true:NoSchedule`
           az aks nodepool add \
-            --name nodepool2 \
-            --cluster-name ${{ env.name }} \
             --resource-group ${{ env.name }} \
-            --node-count 2 \
-            --node-vm-size Standard_B2s \
-            --node-osdisk-size 30 \
+            --cluster-name ${{ env.name }} \
+            --name systempool \
             --mode system \
-            --node-taints node.cilium.io/agent-not-ready=true:NoSchedule
+            --node-count 1 \
+            --node-taints "CriticalAddonsOnly=true:NoSchedule" \
+            ${{ env.cost_reduction }} \
+            --no-wait
+
+          # Create user node pool tainted with `node.cilium.io/agent-not-ready=true:NoSchedule`
+          az aks nodepool add \
+            --resource-group ${{ env.name }} \
+            --cluster-name ${{ env.name }} \
+            --name userpool \
+            --mode user \
+            --node-count 2 \
+            --node-taints "node.cilium.io/agent-not-ready=true:NoSchedule" \
+            ${{ env.cost_reduction }} \
+            --no-wait
+
+          # Delete the initial system node pool
+          az aks nodepool delete \
+            --resource-group ${{ env.name }} \
+            --cluster-name ${{ env.name }} \
+            --name "${nodepool_to_delete}"
+          # note: the existing AKS documentation at https://docs.cilium.io/en/latest/gettingstarted/k8s-install-default/
+          # recommends using `--no-wait` for the `delete` operation as well,
+          # however we had to drop it on `cilium-cli` due to the use of
+          # in-cluster scripts to run `cilium install`: since it runs in a pod,
+          # we must make sure it does not scheduled on the initial system node
+          # pool as the Cilium CLI does not work when `cilium install` is
+          # abruptly interrupted, cf. https://github.com/cilium/cilium-cli/issues/589
 
       - name: Get cluster credentials
         run: |
@@ -179,17 +195,6 @@ jobs:
           kubectl logs --timestamps -n kube-system job/cilium-cli-install
           exit ${EXIT_CODE}
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
-
-      - name: Delete the first node pool
-        run: |
-          # We can only delete the first node pool after Cilium is installed
-          # because some pods have Pod Disruption Budgets set. If we try to
-          # delete the first node pool without the second node pool being ready,
-          # AKS will not succeed with the pool deletion because some Deployments
-          # can't cease to exist in the cluster.
-          az aks nodepool delete --name ${{ steps.cluster-creation.outputs.nodepool_to_delete }} \
-            --cluster-name ${{ env.name }} \
-            --resource-group ${{ env.name }}
 
       - name: Load test script in configmap
         run: |
