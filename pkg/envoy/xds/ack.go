@@ -41,9 +41,22 @@ type ResourceVersionAckObserver interface {
 
 // AckingResourceMutatorRevertFunc is a function which reverts the effects of
 // an update on a AckingResourceMutator.
-// The completion is called back when the new resource update is
+// The completion, if not nil, is called back when the new resource update is
 // ACKed by the Envoy nodes.
 type AckingResourceMutatorRevertFunc func(completion *completion.Completion)
+
+type AckingResourceMutatorRevertFuncList []AckingResourceMutatorRevertFunc
+
+func (rl AckingResourceMutatorRevertFuncList) Revert(wg *completion.WaitGroup) {
+	// Revert the listed funcions in reverse order
+	for i := len(rl) - 1; i >= 0; i-- {
+		var c *completion.Completion
+		if wg != nil {
+			c = wg.AddCompletion()
+		}
+		rl[i](c)
+	}
+}
 
 // AckingResourceMutator is a variant of ResourceMutator which calls back a
 // Completion when a resource update is ACKed by a set of Envoy nodes.
@@ -179,6 +192,8 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 		m.pendingCompletions[c] = comp
 	}
 
+	// Returned revert function locks again, so it can NOT be called from 'callback' directly,
+	// as 'callback' is called with the lock already held.
 	return func(completion *completion.Completion) {
 		m.locker.Lock()
 		defer m.locker.Unlock()
