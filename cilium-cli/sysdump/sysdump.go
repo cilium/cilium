@@ -71,6 +71,8 @@ type Options struct {
 	WorkerCount int
 	// The writer used for logging.
 	Writer io.Writer
+	// Flags to pass to cilium-bugtool command
+	CiliumBugtoolFlags []string
 }
 
 // Task defines a task for the sysdump collector to execute.
@@ -885,9 +887,11 @@ func (c *Collector) submitBugtoolTasks(ctx context.Context, pods []*corev1.Pod, 
 		p := p
 		if err := c.Pool.Submit(fmt.Sprintf("cilium-bugtool-"+p.Name), func(ctx context.Context) error {
 			// Run 'cilium-bugtool' in the pod.
-			_, e, err := c.Client.ExecInPodWithStderr(ctx, p.Namespace, p.Name, containerName, []string{ciliumBugtoolCommand})
+			command := append([]string{ciliumBugtoolCommand}, c.Options.CiliumBugtoolFlags...)
+			c.logDebug("Executing cilium-bugtool command: %v", command)
+			_, e, err := c.Client.ExecInPodWithStderr(ctx, p.Namespace, p.Name, containerName, command)
 			if err != nil {
-				return fmt.Errorf("failed to collect 'cilium-bugtool' output for %q in namespace %q: %w", p.Name, p.Namespace, err)
+				return fmt.Errorf("failed to collect 'cilium-bugtool' output for %q in namespace %q: %w: %s", p.Name, p.Namespace, err, e.String())
 			}
 			// Capture the path to the resulting archive.
 			m := ciliumBugtoolFileNameRegex.FindStringSubmatch(e.String())
