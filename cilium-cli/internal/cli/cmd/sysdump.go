@@ -96,6 +96,9 @@ func newCmdSysdump() *cobra.Command {
 	cmd.Flags().IntVar(&sysdumpOptions.WorkerCount,
 		"worker-count", sysdump.DefaultWorkerCount,
 		"The number of workers to use\nNOTE: There is a lower bound requirement on the number of workers for the sysdump operation to be effective. Therefore, for low values, the actual number of workers may be adjusted upwards.")
+	cmd.Flags().StringArrayVar(&sysdumpOptions.CiliumBugtoolFlags,
+		"cilium-bugtool-flags", nil,
+		"Optional set of flags to pass to cilium-bugtool command.")
 
 	return cmd
 }
