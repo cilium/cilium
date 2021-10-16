@@ -74,6 +74,34 @@ jobs:
           persist-credentials: false
           ref: ${{ steps.tag.outputs.tag }}
 
+      # Load Golang cache build from GitHub
+      - name: Load ${{ matrix.name }} Golang cache build from GitHub
+        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353
+        id: cache
+        with:
+          path: /tmp/.cache/${{ matrix.name }}
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-${{ matrix.name }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-${{ matrix.name }}-
+            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-
+            ${{ runner.os }}-go-
+
+      - name: Create ${{ matrix.name }} cache directory
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          mkdir -p /tmp/.cache/${{ matrix.name }}
+
+      # Import GitHub's cache build to docker cache
+      - name: Copy ${{ matrix.name }} Golang cache to docker cache
+        uses: docker/build-push-action@a66e35b9cbcf4ad0ea91ffcaf7bbad63ad9e0229
+        with:
+          context: /tmp/.cache/${{ matrix.name }}
+          file: ./images/cache/Dockerfile
+          push: false
+          platforms: linux/amd64
+          target: import-cache
+
       # master branch pushes
       - name: CI Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
@@ -173,6 +201,31 @@ jobs:
           path: image-digest
           retention-days: 1
 
+      # Store docker's golang's cache build locally only on the main branch
+      - name: Store ${{ matrix.name }} Golang cache build locally
+        if: ${{ github.event_name != 'pull_request_target' && steps.cache.outputs.cache-hit != 'true' }}
+        uses: docker/build-push-action@a66e35b9cbcf4ad0ea91ffcaf7bbad63ad9e0229
+        with:
+          context: .
+          file: ./images/cache/Dockerfile
+          push: false
+          outputs: type=local,dest=/tmp/docker-cache-${{ matrix.name }}
+          platforms: linux/amd64
+          target: export-cache
+
+      # Store docker's golang's cache build locally only on the main branch
+      - name: Store ${{ matrix.name }} Golang cache in GitHub cache path
+        if: ${{ github.event_name != 'pull_request_target' && steps.cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          mkdir -p /tmp/.cache/${{ matrix.name }}/
+          if [ -f /tmp/docker-cache-${{ matrix.name }}/tmp/go-build-cache.tar.gz ]; then
+            cp /tmp/docker-cache-${{ matrix.name }}/tmp/go-build-cache.tar.gz /tmp/.cache/${{ matrix.name }}/
+          fi
+          if [ -f /tmp/docker-cache-${{ matrix.name }}/tmp/go-pkg-cache.tar.gz ]; then
+            cp /tmp/docker-cache-${{ matrix.name }}/tmp/go-pkg-cache.tar.gz /tmp/.cache/${{ matrix.name }}/
+          fi
+
   # we need to build cilium-test separately
   # this is caused by running apt while building the image
   # which requires qemu setup in order to avoid x86/arm64 binaries mixups
@@ -206,6 +259,34 @@ jobs:
           persist-credentials: false
           ref: ${{ github.sha }}
 
+      # Load Golang cache build from GitHub
+      - name: Load ${{ matrix.name }} Golang cache build from GitHub
+        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353
+        id: cache
+        with:
+          path: /tmp/.cache/${{ matrix.name }}
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-${{ matrix.name }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-${{ matrix.name }}-
+            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-
+            ${{ runner.os }}-go-
+
+      - name: Create ${{ matrix.name }} cache directory
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          mkdir -p /tmp/.cache/${{ matrix.name }}
+
+      # Import GitHub's cache build to docker cache
+      - name: Copy ${{ matrix.name }} Golang cache to docker cache
+        uses: docker/build-push-action@a66e35b9cbcf4ad0ea91ffcaf7bbad63ad9e0229
+        with:
+          context: /tmp/.cache/${{ matrix.name }}
+          file: ./images/cache/Dockerfile
+          push: false
+          platforms: linux/amd64
+          target: import-cache
+
       - name: CI Build ${{ matrix.name }}
         uses: docker/build-push-action@a66e35b9cbcf4ad0ea91ffcaf7bbad63ad9e0229
         id: docker_build_ci_master
@@ -232,6 +313,31 @@ jobs:
           name: image-digest ${{ matrix.name }}
           path: image-digest
           retention-days: 1
+
+      # Store docker's golang's cache build locally only on the main branch
+      - name: Store ${{ matrix.name }} Golang cache build locally
+        if: ${{ github.event_name != 'pull_request_target' && steps.cache.outputs.cache-hit != 'true' }}
+        uses: docker/build-push-action@a66e35b9cbcf4ad0ea91ffcaf7bbad63ad9e0229
+        with:
+          context: .
+          file: ./images/cache/Dockerfile
+          push: false
+          outputs: type=local,dest=/tmp/docker-cache-${{ matrix.name }}
+          platforms: linux/amd64
+          target: export-cache
+
+      # Store docker's golang's cache build locally only on the main branch
+      - name: Store ${{ matrix.name }} Golang cache in GitHub cache path
+        if: ${{ github.event_name != 'pull_request_target' && steps.cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          mkdir -p /tmp/.cache/${{ matrix.name }}/
+          if [ -f /tmp/docker-cache-${{ matrix.name }}/tmp/go-build-cache.tar.gz ]; then
+            cp /tmp/docker-cache-${{ matrix.name }}/tmp/go-build-cache.tar.gz /tmp/.cache/${{ matrix.name }}/
+          fi
+          if [ -f /tmp/docker-cache-${{ matrix.name }}/tmp/go-pkg-cache.tar.gz ]; then
+            cp /tmp/docker-cache-${{ matrix.name }}/tmp/go-pkg-cache.tar.gz /tmp/.cache/${{ matrix.name }}/
+          fi
 
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
