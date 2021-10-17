@@ -11,6 +11,15 @@ on:
     branches:
       - master
 
+  # If the cache was cleaned we should re-build the cache with the latest commit
+  workflow_run:
+    workflows:
+     - "Image CI Cache Cleaner"
+    branches:
+     - master
+    types:
+     - completed
+
 permissions: read-all
 
 concurrency:
@@ -110,7 +119,10 @@ jobs:
         with:
           context: .
           file: ${{ matrix.dockerfile }}
-          push: true
+          # Only push when the event name was a GitHub push, this is to avoid
+          # re-pushing the image tags when we only want to re-create the Golang
+          # docker cache after the workflow "Image CI Cache Cleaner" was terminated.
+          push: ${{ github.event_name == 'push' }}
           platforms: linux/amd64,linux/arm64
           tags: |
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest
@@ -125,7 +137,10 @@ jobs:
         with:
           context: .
           file: ${{ matrix.dockerfile }}
-          push: true
+          # Only push when the event name was a GitHub push, this is to avoid
+          # re-pushing the image tags when we only want to re-create the Golang
+          # docker cache after the workflow "Image CI Cache Cleaner" was terminated.
+          push: ${{ github.event_name == 'push' }}
           platforms: linux/amd64
           tags: |
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest-race
@@ -293,7 +308,10 @@ jobs:
         with:
           context: .
           file: ${{ matrix.dockerfile }}
-          push: true
+          # Only push when the event name was a GitHub push, this is to avoid
+          # re-pushing the image tags when we only want to re-create the Golang
+          # docker cache after the workflow "Image CI Cache Cleaner" was terminated.
+          push: ${{ github.event_name == 'push' }}
           platforms: linux/amd64,linux/arm64
           tags: |
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest
