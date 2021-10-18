@@ -92,7 +92,6 @@ Enable Hubble in Cilium
               --set hubble.relay.enabled=true \\
               --set hubble.ui.enabled=true
 
-
 Install the Hubble Client
 =========================
 

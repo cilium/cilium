@@ -11,6 +11,8 @@
     {{- end }}
 {{- else if .Values.hubble.enabled }}
     You have successfully installed {{ title .Chart.Name }} with Hubble.
+{{- else if (and (.Values.hubble.ui.enabled) (.Values.hubble.ui.standalone.enabled)) }}
+    You have successfully installed {{ title .Chart.Name }} with standalone Hubble UI.
 {{- else }}
     You have successfully installed {{ title .Chart.Name }}.
 {{- end }}
