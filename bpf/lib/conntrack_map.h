@@ -48,16 +48,16 @@ get_ct_map6(const struct ipv6_ct_tuple *tuple)
 #endif
 
 #ifdef ENABLE_IPV4
-struct bpf_elf_map __section_maps CT_MAP_TCP4 = {
-	.type		= CT_MAP_TYPE,
-	.size_key	= sizeof(struct ipv4_ct_tuple),
-	.size_value	= sizeof(struct ct_entry),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= CT_MAP_SIZE_TCP,
+struct {
+	__uint(type, CT_MAP_TYPE);
+	__type(key, struct ipv4_ct_tuple);
+	__type(value, struct ct_entry);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CT_MAP_SIZE_TCP);
 #ifndef HAVE_LRU_HASH_MAP_TYPE
-	.flags		= CONDITIONAL_PREALLOC,
+	__uint(map_flags, CONDITIONAL_PREALLOC);
 #endif
-};
+} CT_MAP_TCP4 __section_maps_btf;
 
 struct {
 	__uint(type, CT_MAP_TYPE);
