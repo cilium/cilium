@@ -121,6 +121,9 @@ func (m *Manager) run() {
 			l.Debug("encountered SyncStateReprocessAll, resyncing all services")
 			m.forceResync()
 		}
+		// if queue.Add(key) is called previous to this invocation the event
+		// is requeued, else it is discarded from the queue.
+		m.queue.Done(ev)
 	}
 }
 
@@ -130,8 +133,6 @@ func (m *Manager) run() {
 // it was deleted, and passing down a nil object to MetalLB informs it
 // deallocate the LB IP assigned to the service.
 func (m *Manager) process(event interface{}) types.SyncState {
-	defer m.queue.Done(event)
-
 	switch k := event.(type) {
 	case svcEvent:
 		n := string(k) // service namespace/name

@@ -10,6 +10,7 @@ import (
 	"errors"
 	"sync/atomic"
 
+	"github.com/cilium/cilium/pkg/bgp/fence"
 	"github.com/cilium/cilium/pkg/k8s"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discover_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
@@ -39,6 +40,7 @@ func New(ctx context.Context, opts Opts) (*MetalLBSpeaker, error) {
 		return nil, err
 	}
 	spkr := &MetalLBSpeaker{
+		Fencer:  fence.Fencer{},
 		speaker: ctrl,
 
 		announceLBIP:    opts.LoadBalancerIP,
@@ -66,13 +68,18 @@ type Opts struct {
 // MetalLB's logic for making BGP announcements. It is responsible for
 // announcing BGP messages containing a loadbalancer IP address to peers.
 type MetalLBSpeaker struct {
+	// Our speaker requeues our own event structures on failure.
+	// Use a fence to avoid replaying stale events.
+	fence.Fencer
+	// queue holds all the events to process for the Speaker.
+	queue workqueue.Interface
+
+	// a BGP speaker implementation
 	speaker Speaker
 
 	announceLBIP, announcePodCIDR bool
 
 	endpointsGetter endpointsGetter
-	// queue holds all the events to process for the Speaker.
-	queue workqueue.Interface
 
 	lock.Mutex
 	services map[k8s.ServiceID]*slim_corev1.Service
@@ -101,6 +108,7 @@ func (s *MetalLBSpeaker) OnUpdateService(svc *slim_corev1.Service) error {
 			"component":  "MetalLBSpeaker.OnUpdateService",
 			"service-id": svcID,
 		})
+		meta = fence.Meta{}
 	)
 
 	eps := new(metallbspr.Endpoints)
@@ -113,11 +121,17 @@ func (s *MetalLBSpeaker) OnUpdateService(svc *slim_corev1.Service) error {
 	s.services[svcID] = svc
 	s.Unlock()
 
+	if err := meta.FromSlimObjectMeta(&svc.ObjectMeta); err != nil {
+		l.WithError(err).Error("failed to parse event metadata")
+	}
+
 	l.Debug("adding event to queue")
 	s.queue.Add(epEvent{
-		id:  svcID,
-		svc: convertService(svc),
-		eps: eps,
+		Meta: meta,
+		op:   Update,
+		id:   svcID,
+		svc:  convertService(svc),
+		eps:  eps,
 	})
 	return nil
 }
@@ -133,19 +147,26 @@ func (s *MetalLBSpeaker) OnDeleteService(svc *slim_corev1.Service) error {
 			"component":  "MetalLBSpeaker.OnDeleteService",
 			"service-id": svcID,
 		})
+		meta = fence.Meta{}
 	)
 
 	s.Lock()
 	delete(s.services, svcID)
 	s.Unlock()
 
+	if err := meta.FromSlimObjectMeta(&svc.ObjectMeta); err != nil {
+		l.WithError(err).Error("failed to parse event metadata")
+	}
+
 	l.Debug("adding event to queue")
 	// Passing nil as the service will force the MetalLB speaker to withdraw
 	// the BGP announcement.
 	s.queue.Add(svcEvent{
-		id:  svcID,
-		svc: nil,
-		eps: nil,
+		Meta: meta,
+		op:   Delete,
+		id:   svcID,
+		svc:  nil,
+		eps:  nil,
 	})
 	return nil
 }
@@ -162,17 +183,24 @@ func (s *MetalLBSpeaker) OnUpdateEndpoints(eps *slim_corev1.Endpoints) error {
 			"component":  "MetalLBSpeaker.OnUpdateEndpoints",
 			"service-id": svcID,
 		})
+		meta = fence.Meta{}
 	)
 
 	s.Lock()
 	defer s.Unlock()
 
+	if err := meta.FromSlimObjectMeta(&eps.ObjectMeta); err != nil {
+		l.WithError(err).Error("failed to parse event metadata")
+	}
+
 	if svc, ok := s.services[svcID]; ok {
 		l.Debug("adding event to queue")
 		s.queue.Add(epEvent{
-			id:  svcID,
-			svc: convertService(svc),
-			eps: convertEndpoints(eps),
+			Meta: meta,
+			op:   Update,
+			id:   svcID,
+			svc:  convertService(svc),
+			eps:  convertEndpoints(eps),
 		})
 	}
 	return nil
@@ -190,16 +218,24 @@ func (s *MetalLBSpeaker) OnUpdateEndpointSliceV1(eps *slim_discover_v1.EndpointS
 			"component": "MetalLBSpeaker.OnUpdateEndpointSliceV1",
 			"slice-id":  sliceID,
 		})
+		meta = fence.Meta{}
 	)
 
 	s.Lock()
 	defer s.Unlock()
+
+	if err := meta.FromSlimObjectMeta(&eps.ObjectMeta); err != nil {
+		l.WithError(err).Error("failed to parse event metadata")
+	}
+
 	if svc, ok := s.services[sliceID.ServiceID]; ok {
 		l.Debug("adding event to queue")
 		s.queue.Add(epEvent{
-			id:  sliceID.ServiceID,
-			svc: convertService(svc),
-			eps: convertEndpointSliceV1(eps),
+			Meta: meta,
+			op:   Update,
+			id:   sliceID.ServiceID,
+			svc:  convertService(svc),
+			eps:  convertEndpointSliceV1(eps),
 		})
 	}
 	return nil
@@ -217,16 +253,25 @@ func (s *MetalLBSpeaker) OnUpdateEndpointSliceV1Beta1(eps *slim_discover_v1beta1
 			"component": "MetalLBSpeaker.OnUpdateEndpointSliceV1Beta",
 			"slice-id":  sliceID,
 		})
+		meta = fence.Meta{}
 	)
 
 	s.Lock()
 	defer s.Unlock()
+
+	if err := meta.FromSlimObjectMeta(&eps.ObjectMeta); err != nil {
+		l.WithError(err).Error("failed to parse event metadata")
+		return err
+	}
+
 	if svc, ok := s.services[sliceID.ServiceID]; ok {
 		l.Debug("adding event to queue")
 		s.queue.Add(epEvent{
-			id:  sliceID.ServiceID,
-			svc: convertService(svc),
-			eps: convertEndpointSliceV1Beta1(eps),
+			Meta: meta,
+			op:   Update,
+			id:   sliceID.ServiceID,
+			svc:  convertService(svc),
+			eps:  convertEndpointSliceV1Beta1(eps),
 		})
 	}
 	return nil
@@ -237,16 +282,25 @@ func (s *MetalLBSpeaker) OnAddNode(node *v1.Node) error {
 	if s.shutDown() {
 		return ErrShutDown
 	}
-
 	if node.GetName() != nodetypes.GetName() {
 		return nil // We don't care for other nodes.
 	}
+	var (
+		l = log.WithFields(logrus.Fields{
+			"component": "MetalLBSpeaker.OnAddNode",
+			"node":      node.Name,
+		})
+		meta = fence.Meta{}
+	)
+	if err := meta.FromObjectMeta(&node.ObjectMeta); err != nil {
+		l.WithError(err).Error("failed to parse event metadata")
+		return err
+	}
 
-	log.WithFields(logrus.Fields{
-		"component": "MetalLBSpeaker.OnAddNode",
-		"node":      node.Name,
-	}).Debug("adding event to queue")
+	l.Debug("adding event to queue")
 	s.queue.Add(nodeEvent{
+		Meta:     meta,
+		op:       Add,
 		labels:   nodeLabels(node.Labels),
 		podCIDRs: podCIDRs(node),
 	})
@@ -258,17 +312,26 @@ func (s *MetalLBSpeaker) OnUpdateNode(oldNode, newNode *v1.Node) error {
 	if s.shutDown() {
 		return ErrShutDown
 	}
+	var (
+		l = log.WithFields(logrus.Fields{
+			"component": "MetalLBSpeaker.OnUpdateNode",
+			"node":      newNode.Name,
+		})
+		meta = fence.Meta{}
+	)
+	if err := meta.FromObjectMeta(&newNode.ObjectMeta); err != nil {
+		l.WithError(err).Error("failed to parse event metadata")
+		return err
+	}
 
 	if newNode.GetName() != nodetypes.GetName() {
 		return nil // We don't care for other nodes.
 	}
 
-	log.WithFields(logrus.Fields{
-		"component": "MetalLBSpeaker.OnUpdateNode",
-		"oldNode":   oldNode.Name,
-		"newNode":   newNode.Name,
-	}).Debug("adding event to queue")
+	l.Debug("adding event to queue")
 	s.queue.Add(nodeEvent{
+		Meta:     meta,
+		op:       Update,
 		labels:   nodeLabels(newNode.Labels),
 		podCIDRs: podCIDRs(newNode),
 	})
@@ -285,15 +348,25 @@ func (s *MetalLBSpeaker) OnDeleteNode(node *v1.Node) error {
 	if s.shutDown() {
 		return ErrShutDown
 	}
+	var (
+		l = log.WithFields(logrus.Fields{
+			"component": "MetalLBSpeaker.OnDeleteNode",
+			"node":      node.Name,
+		})
+		meta = fence.Meta{}
+	)
+	if err := meta.FromObjectMeta(&node.ObjectMeta); err != nil {
+		l.WithError(err).Error("failed to parse event metadata")
+		return err
+	}
 
 	if node.GetName() != nodetypes.GetName() {
 		return nil // We don't care for other nodes.
 	}
-	log.WithFields(logrus.Fields{
-		"component": "MetalLBSpeaker.OnDeleteNode",
-		"node":      node.Name,
-	}).Debug("adding event to queue")
+	l.Debug("adding event to queue")
 	s.queue.Add(nodeEvent{
+		Meta:     meta,
+		op:       Delete,
 		labels:   nodeLabels(node.Labels),
 		podCIDRs: podCIDRs(node),
 		withDraw: true,

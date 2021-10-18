@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/pkg/bgp/fence"
 	"github.com/cilium/cilium/pkg/bgp/mock"
 	"github.com/cilium/cilium/pkg/k8s"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -88,6 +89,7 @@ func TestSpeakerOnUpdateService(t *testing.T) {
 	}
 
 	spkr := &MetalLBSpeaker{
+		Fencer:          fence.Fencer{},
 		speaker:         mock,
 		announceLBIP:    true,
 		announcePodCIDR: true,
@@ -170,6 +172,7 @@ func TestSpeakerOnDeleteService(t *testing.T) {
 	// in this test, we want to construct our speaker
 	// with a "known" service, and test that it is deleted.
 	spkr := &MetalLBSpeaker{
+		Fencer:          fence.Fencer{},
 		speaker:         mock,
 		announceLBIP:    true,
 		announcePodCIDR: true,
@@ -214,6 +217,11 @@ func TestSpeakerOnDeleteService(t *testing.T) {
 	if ok {
 		t.Fatalf("speaker did not delete slim_corev1.Service object to its services map.")
 	}
+
+	// confirm fence is empty
+	if len(spkr.Fencer) != 0 {
+		t.Fatalf("expected fence to be empty. got: %v", spkr.Fencer)
+	}
 }
 
 // TestSpeakerOnUpdateEndpoints confirms the speaker performs the correct
@@ -255,6 +263,7 @@ func TestSpeakerOnUpdateEndpoints(t *testing.T) {
 	// to exist as a lookup of the service is done in the OnUpdateEndpoints
 	// call.
 	spkr := &MetalLBSpeaker{
+		Fencer:          fence.Fencer{},
 		speaker:         mock,
 		announceLBIP:    true,
 		announcePodCIDR: true,
@@ -366,6 +375,7 @@ func TestSpeakerOnUpdateNode(t *testing.T) {
 	}
 
 	spkr := &MetalLBSpeaker{
+		Fencer:          fence.Fencer{},
 		speaker:         mock,
 		announceLBIP:    true,
 		announcePodCIDR: true,
@@ -459,6 +469,7 @@ func TestSpeakerOnDeleteNode(t *testing.T) {
 	}
 
 	spkr := &MetalLBSpeaker{
+		Fencer:          fence.Fencer{},
 		speaker:         mock,
 		announceLBIP:    true,
 		announcePodCIDR: true,
