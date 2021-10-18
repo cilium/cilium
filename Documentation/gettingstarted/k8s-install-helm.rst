@@ -166,8 +166,7 @@ Install Cilium
             --set eni.enabled=true \\
             --set ipam.mode=eni \\
             --set egressMasqueradeInterfaces=eth0 \\
-            --set tunnel=disabled \\
-            --set nodeinit.enabled=true
+            --set tunnel=disabled
 
        .. note::
 
