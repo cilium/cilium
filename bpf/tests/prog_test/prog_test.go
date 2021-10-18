@@ -8,16 +8,13 @@ package bpfprogtester
 
 import (
 	"bytes"
-	"debug/elf"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"os"
-	"path"
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -177,102 +174,6 @@ func testMap(spec *ebpf.Collection) error {
 
 	mapDeleteAll(bpfCtMap)
 	return nil
-}
-
-// NB: Currently, cilium/ebpf cannot deal with non-zero bpf_elf_map fields
-// after ->flags. We don't really need them for our tests, so we zero them out
-// for now. Once support is added to cilium/ebpf for these fields, we can
-// remove this.
-func patchElf(fname string, fnameOut string) error {
-	osF, err := os.Open(fname)
-	if err != nil {
-		return err
-	}
-	defer osF.Close()
-
-	elfF, err := elf.NewFile(osF)
-	if err != nil {
-		return err
-	}
-	defer elfF.Close()
-
-	syms, err := elfF.Symbols()
-	if err != nil {
-		return err
-	}
-
-	mapSectionsOff := map[elf.SectionIndex]uint64{}
-	for secIdx, sec := range elfF.Sections {
-		if strings.HasPrefix(sec.Name, "maps") {
-			mapSectionsOff[elf.SectionIndex(secIdx)] = sec.Offset
-		}
-	}
-
-	mapSymbols := map[string]uint64{}
-	for _, sym := range syms {
-		secOff, ok := mapSectionsOff[sym.Section]
-		if !ok {
-			continue
-		}
-
-		//  This is what the current map structure looks from bpf side, so we should expect the size to be 9*4=36
-		//
-		//  struct bpf_elf_map {
-		//  	__u32 type;
-		//  	__u32 size_key;
-		//  	__u32 size_value;
-		//  	__u32 max_elem;
-		//  	__u32 flags;
-		//  	__u32 id;
-		//  	__u32 pinning;
-		//  	__u32 inner_id;
-		//  	__u32 inner_idx;
-		//  };
-		expectedMapSize := uint64(9 * 4)
-		if sym.Size != expectedMapSize {
-			log.WithFields(log.Fields{
-				"expected": expectedMapSize,
-				"actual":   sym.Size,
-			}).Fatal("invalid size")
-		}
-		mapSymbols[sym.Name] = sym.Value + secOff
-	}
-
-	outF, err := os.Create(fnameOut)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"filename": fnameOut,
-		}).Fatalf("error creating file: %v", err)
-	}
-	if err = outF.Truncate(0); err != nil {
-		log.WithFields(log.Fields{
-			"filename": fnameOut,
-		}).Fatalf("error truncating file: %v", err)
-	}
-	defer outF.Close()
-
-	if _, err = io.Copy(outF, osF); err != nil {
-		log.WithFields(log.Fields{
-			"filename": fnameOut,
-		}).Fatalf("error copying file: %v", err)
-	}
-
-	zero := [4 * 4]byte{}
-	for symName, symOff := range mapSymbols {
-		idOff := symOff + (5 * 4)
-		_, err = outF.WriteAt(zero[:], int64(idOff))
-		if err != nil {
-			log.WithFields(log.Fields{
-				"filename": fnameOut,
-			}).Fatalf("error patching file: %v", err)
-		}
-		log.WithFields(log.Fields{
-			"map": symName,
-		}).Debug("zeroed last fields")
-	}
-
-	return nil
-
 }
 
 func dumpDebugMessages(eventsReader *perf.Reader) error {
@@ -436,20 +337,29 @@ func testCt4Rst(spec *ebpf.Collection) error {
 	return nil
 }
 
+func modifyMapSpecs(spec *ebpf.CollectionSpec) {
+	for _, m := range spec.Maps {
+		// Clear pinning flag on all Maps, keep this test self-contained.
+		m.Pinning = 0
+
+		// Drain Extra section of legacy bpf_elf_map definitions. The library
+		// rejects any bytes left over in Extra on load.
+		io.Copy(io.Discard, &m.Extra)
+	}
+}
+
 // TestCt checks connection tracking
 func TestCt(t *testing.T) {
-
-	objDir := ".."
-	fname := path.Join(objDir, "bpf_ct_tests.o")
-	fnamePatched := path.Join(objDir, "bpf_ct_tests_patched.o")
-	err := patchElf(fname, fnamePatched)
+	spec, err := ebpf.LoadCollectionSpec("../bpf_ct_tests.o")
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("failed to load spec: %s", err)
 	}
 
-	coll, err := ebpf.LoadCollection(fnamePatched)
+	modifyMapSpecs(spec)
+
+	coll, err := ebpf.NewCollection(spec)
 	if err != nil {
-		t.Fatalf("failed to load %s: %s", fnamePatched, err)
+		t.Fatalf("failed to load collection: %s", err)
 	}
 
 	t.Run("Nop test", func(t *testing.T) {
