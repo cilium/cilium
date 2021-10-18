@@ -10,7 +10,6 @@ RUN apt-get install -y \
   python3-pip \
   curl \
   vim
-RUN pip3 install --user PyGithub
 RUN mkdir -p /hub && \
     cd /hub \
     && curl -L -o hub.tgz https://github.com/github/hub/releases/download/v2.14.0/hub-linux-amd64-2.14.0.tgz \
@@ -19,3 +18,4 @@ RUN mkdir -p /hub && \
     && rm -rf /hub
 RUN useradd -m user
 USER user
+RUN pip3 install --user PyGithub
