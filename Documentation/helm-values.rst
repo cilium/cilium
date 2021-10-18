@@ -793,6 +793,14 @@
      - Whether to set the security context on the Hubble UI pods.
      - bool
      - ``true``
+   * - hubble.ui.standalone.enabled
+     - When true, it will allow installing the Hubble UI only, without checking dependencies. It is useful if a cluster already has cilium and Hubble relay installed and you just want Hubble UI to be deployed. When installed via helm, installing UI should be done via ``helm upgrade`` and when installed via the cilium cli, then ``cilium hubble enable --ui``
+     - bool
+     - ``false``
+   * - hubble.ui.standalone.tls.certsVolume
+     - When deploying Hubble UI in standalone, with tls enabled for Hubble relay, it is required to provide a volume for mounting the client certificates.
+     - object
+     - ``{}``
    * - hubble.ui.tls.client
      - base64 encoded PEM values used to connect to hubble-relay This keypair is presented to Hubble Relay instances for mTLS authentication and is required when hubble.relay.tls.server.enabled is true. These values need to be set manually if hubble.tls.auto.enabled is false.
      - object

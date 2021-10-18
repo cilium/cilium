@@ -1,4 +1,4 @@
-{{- if and .Values.hubble.enabled .Values.hubble.ui.enabled .Values.hubble.ui.ingress.enabled }}
+{{- if and (or .Values.hubble.enabled .Values.hubble.ui.standalone.enabled) .Values.hubble.ui.enabled .Values.hubble.ui.ingress.enabled }}
 apiVersion: {{ template "ingress.apiVersion" . }}
 kind: Ingress
 metadata:

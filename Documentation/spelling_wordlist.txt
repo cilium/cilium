@@ -222,6 +222,7 @@ certManagerIssuerRef
 certValidityDuration
 certgen
 certmanager
+certsVolume
 cgroup
 chainingMode
 changelog
