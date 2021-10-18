@@ -179,13 +179,13 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } IPCACHE_MAP __section_maps_btf;
 
-struct bpf_elf_map __section_maps ENCRYPT_MAP = {
-	.type		= BPF_MAP_TYPE_ARRAY,
-	.size_key	= sizeof(struct encrypt_key),
-	.size_value	= sizeof(struct encrypt_config),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= 1,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__type(key, __u32);
+	__type(value, struct encrypt_config);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, 1);
+} ENCRYPT_MAP __section_maps_btf;
 
 #ifdef ENABLE_EGRESS_GATEWAY
 struct {

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (C) 2016-2020 Authors of Cilium */
+/* Copyright (C) 2016-2021 Authors of Cilium */
 
 #ifndef __LIB_L3_H_
 #define __LIB_L3_H_
@@ -154,12 +154,12 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 }
 #endif /* SKIP_POLICY_MAP */
 
-static __always_inline __u8 get_encrypt_key(__u32 ctx)
+static __always_inline __u8 get_encrypt_key(void)
 {
-	struct encrypt_key key = {.ctx = ctx};
+	__u32 encrypt_key = 0;
 	struct encrypt_config *cfg;
 
-	cfg = map_lookup_elem(&ENCRYPT_MAP, &key);
+	cfg = map_lookup_elem(&ENCRYPT_MAP, &encrypt_key);
 	/* Having no key info for a context is the same as no encryption */
 	if (!cfg)
 		return 0;
@@ -168,7 +168,7 @@ static __always_inline __u8 get_encrypt_key(__u32 ctx)
 
 static __always_inline __u8 get_min_encrypt_key(__u8 peer_key)
 {
-	__u8 local_key = get_encrypt_key(0);
+	__u8 local_key = get_encrypt_key();
 
 	/* If both ends can encrypt/decrypt use smaller of the two this
 	 * way both ends will have keys installed assuming key IDs are
