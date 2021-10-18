@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-/* Copyright (C) 2016-2020 Authors of Cilium */
+/* Copyright (C) 2016-2021 Authors of Cilium */
 
 #include <bpf/ctx/skb.h>
 #include <bpf/api.h>
@@ -50,7 +50,14 @@ int test_nop(struct __ctx_buff __maybe_unused *ctx)
 __section("action/test-map")
 int test_map(struct __ctx_buff __maybe_unused *ctx)
 {
-	struct ipv4_ct_tuple ct_key = (struct ipv4_ct_tuple){
+	/*
+	 * Declare static, otherwise this ends up in .rodata.
+	 * On new clang + pre-5.12 kernel, this causes BTF to be rejected,
+	 * since the Datasec is patched up to the real size of .rodata,
+	 * but vlen remains 0, since this is a var with local scope.
+	 * See https://lore.kernel.org/bpf/20210119153519.3901963-1-yhs@fb.com.
+	 */
+	static struct ipv4_ct_tuple ct_key = (struct ipv4_ct_tuple){
 		.saddr = bpf_htonl(16843009), /* 1.1.1.1 */
 		.daddr = bpf_htonl(16843010), /* 1.1.1.2 */
 		.sport = bpf_htons(1001),
@@ -63,9 +70,8 @@ int test_map(struct __ctx_buff __maybe_unused *ctx)
 		.rx_packets = 1000,
 		.tx_packets = 1000,
 	};
-	struct bpf_elf_map *ctmap = &CT_MAP_TCP4;
 
-	map_update_elem(ctmap, &ct_key, &ct_val, 0);
+	map_update_elem(&CT_MAP_TCP4, &ct_key, &ct_val, 0);
 	return CTX_ACT_OK;
 }
 
