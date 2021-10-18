@@ -43,7 +43,6 @@ Then, install Cilium release via Helm:
 
    helm install cilium |CHART_RELEASE| \\
       --namespace kube-system \\
-      --set nodeinit.enabled=true \\
       --set kubeProxyReplacement=partial \\
       --set hostServices.enabled=false \\
       --set externalIPs.enabled=true \\
@@ -172,7 +171,6 @@ Make sure context is set to ``kind-cluster2`` cluster.
 
    helm install cilium |CHART_RELEASE| \\
       --namespace kube-system \\
-      --set nodeinit.enabled=true \\
       --set kubeProxyReplacement=partial \\
       --set hostServices.enabled=false \\
       --set externalIPs.enabled=true \\
@@ -191,7 +189,6 @@ Change the kubectl context to ``kind-cluster1`` cluster:
 
    helm install cilium |CHART_RELEASE| \\
       --namespace kube-system \\
-      --set nodeinit.enabled=true \\
       --set kubeProxyReplacement=partial \\
       --set hostServices.enabled=false \\
       --set externalIPs.enabled=true \\
