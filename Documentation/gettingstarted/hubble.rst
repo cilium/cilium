@@ -52,6 +52,69 @@ If you have not done so already, enable the Hubble UI by running the following c
               --set hubble.relay.enabled=true \\
               --set hubble.ui.enabled=true
 
+    .. group-tab:: Helm (Standalone install)
+
+        Clusters sometimes come with Cilium, Hubble, and Hubble relay already installed.
+        When this is the case you can still use Helm to install only Hubble UI on top of the pre-installed components.
+
+        You will need to set ``hubble.ui.standalone.enabled`` to ``true`` and optionally provide a volume to mount
+        Hubble UI client certificates if TLS is enabled on Hubble Relay server side.
+
+        Below is an example deploying Hubble UI as standalone, with client certificates mounted from a ``my-hubble-ui-client-certs`` secret:
+
+        .. parsed-literal::
+
+            helm upgrade --install --namespace kube-system cilium |CHART_RELEASE| --values - <<EOF
+            agent: false
+            operator:
+              enabled: false
+            cni:
+              install: false
+            hubble:
+              enabled: false
+              relay:
+                # set this to false as Hubble relay is already installed
+                enabled: false
+                tls:
+                  server:
+                    # set this to true if tls is enabled on Hubble relay server side
+                    enabled: true
+            ui:
+              # enable Hubble UI
+              enabled: true
+              standalone:
+                # enable Hubble UI standalone deployment
+                enabled: true
+                # provide a volume containing Hubble relay client certificates to mount in Hubble UI pod
+                certsVolume:
+                  projected:
+                    defaultMode: 0400
+                    sources:
+                      - secret:
+                          name: my-hubble-ui-client-certs
+                          items:
+                            - key: tls.crt
+                              path: client.crt
+                            - key: tls.key
+                              path: client.key
+                            - key: ca.crt
+                              path: hubble-relay-ca.crt
+            EOF
+
+
+        Please note that Hubble UI expects the certificate files to be available under the following paths:
+
+        .. code-block:: shell-session
+
+            - name: TLS_RELAY_CA_CERT_FILES
+              value: /var/lib/hubble-ui/certs/hubble-relay-ca.crt
+            - name: TLS_RELAY_CLIENT_CERT_FILE
+              value: /var/lib/hubble-ui/certs/client.crt
+            - name: TLS_RELAY_CLIENT_KEY_FILE
+              value: /var/lib/hubble-ui/certs/client.key
+
+        Keep this in mind when providing the volume containing the certificate.
+
 
 Open the Hubble UI
 ==================

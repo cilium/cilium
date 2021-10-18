@@ -1,4 +1,4 @@
-{{- if and .Values.hubble.enabled .Values.hubble.ui.enabled }}
+{{- if and (or .Values.hubble.enabled .Values.hubble.ui.standalone.enabled) .Values.hubble.ui.enabled }}
 kind: Deployment
 apiVersion: apps/v1
 metadata:
@@ -119,6 +119,9 @@ spec:
           name: hubble-ui-envoy
       {{- if .Values.hubble.relay.tls.server.enabled }}
       - name: hubble-ui-client-certs
+      {{- if .Values.hubble.ui.standalone.enabled }}
+        {{- toYaml .Values.hubble.ui.standalone.tls.certsVolume | nindent 8 }}
+      {{- else }}
         projected:
           # note: the leading zero means this number is in octal representation: do not remove it
           defaultMode: 0400
@@ -132,5 +135,6 @@ spec:
                   path: client.crt
                 - key: tls.key
                   path: client.key
+      {{- end }}
       {{- end }}
 {{- end }}
