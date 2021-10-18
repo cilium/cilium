@@ -47,6 +47,7 @@ iptables -w -t nat -D POSTROUTING -m comment --comment "ip-masq: ensure nat POST
 date > {{ .Values.nodeinit.bootstrapFile }}
 {{- end }}
 
+{{- if .Values.azure.enabled }}
 # AKS: If azure-vnet is installed on the node, and (still) configured in bridge mode,
 # configure it as 'transparent' to be consistent with Cilium's CNI chaining config.
 # If the azure-vnet CNI config is not removed, kubelet will execute CNI CHECK commands
@@ -57,7 +58,6 @@ if [ -f /etc/cni/net.d/10-azure.conflist ]; then
   sed -i 's/"mode":\s*"bridge"/"mode":"transparent"/g' /etc/cni/net.d/10-azure.conflist
 fi
 
-{{- if .Values.azure.enabled }}
 # The azure0 interface being present means the node was booted with azure-vnet configured
 # in bridge mode. This means there might be ebtables rules and neight entries interfering
 # with pod connectivity if we deploy with Azure IPAM.
