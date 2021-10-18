@@ -35,6 +35,7 @@ func GenTestNodeAndAdvertisements() (v1.Node, []*metallbbgp.Advertisement) {
 		Labels: map[string]string{
 			"TestLabel": "TestLabel",
 		},
+		ResourceVersion: "1",
 	}
 	spec := v1.NodeSpec{
 		PodCIDR:  CIDR,
@@ -68,8 +69,9 @@ func GenTestServicePairs() (slim_corev1.Service, v1.Service, metallbspr.Service,
 		ExternalTrafficPolicy: "TestExternalTrafficPolicy",
 	}
 	meta := slim_metav1.ObjectMeta{
-		Name:      "TestName",
-		Namespace: "TestNamespace",
+		Name:            "TestName",
+		Namespace:       "TestNamespace",
+		ResourceVersion: "1",
 	}
 	ingress := []slim_corev1.LoadBalancerIngress{
 		{
@@ -98,8 +100,9 @@ func GenTestServicePairs() (slim_corev1.Service, v1.Service, metallbspr.Service,
 	}
 	v1Service := v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      meta.Name,
-			Namespace: meta.Namespace,
+			Name:            meta.Name,
+			Namespace:       meta.Namespace,
+			ResourceVersion: "1",
 		},
 		Spec: v1.ServiceSpec{
 			Type:                  "TestType",
@@ -134,8 +137,9 @@ func GenTestEndpointsPairs() (k8s.Endpoints, slim_corev1.Endpoints, metallbspr.E
 		NodeName = "TestNode"
 	)
 	meta := slim_metav1.ObjectMeta{
-		Name:      "TestName",
-		Namespace: "TestNamespace",
+		Name:            "TestName",
+		Namespace:       "TestNamespace",
+		ResourceVersion: "1",
 	}
 	backend := k8s.Backend{
 		NodeName: NodeName,
