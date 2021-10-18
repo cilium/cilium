@@ -10,7 +10,7 @@ jobs:
   preflight-clusterrole:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2.3.4
+      - uses: actions/checkout@v2.3.5
       - name: Check pre-flight clusterrole
         run: |
           cd install/kubernetes/cilium/charts
@@ -24,7 +24,7 @@ jobs:
   quick-install:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2.3.4
+      - uses: actions/checkout@v2.3.5
       - name: Check quick-install.yaml and experimental-install.yaml
         run: |
           cd install/kubernetes
@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2.3.4
+        uses: actions/checkout@v2.3.5
 
       - name: Run helm lint
         run: |

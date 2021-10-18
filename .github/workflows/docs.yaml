@@ -11,7 +11,7 @@ jobs:
         name: Validate & Build HTML
         runs-on: ubuntu-18.04
         steps:
-            - uses: actions/checkout@v2.3.4
+            - uses: actions/checkout@v2.3.5
             - uses: docker://cilium/docs-builder:latest
               with:
                 entrypoint: ./Documentation/check-build.sh
