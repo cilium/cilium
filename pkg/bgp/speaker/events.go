@@ -7,16 +7,30 @@ package speaker
 import (
 	"context"
 
+	"github.com/cilium/cilium/pkg/bgp/fence"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/sirupsen/logrus"
 
+	"github.com/sirupsen/logrus"
 	"go.universe.tf/metallb/pkg/k8s/types"
 	metallbspr "go.universe.tf/metallb/pkg/speaker"
+)
+
+// Op enumerates the operation an event
+// demonstrates.
+type Op int
+
+const (
+	Undefined Op = iota
+	Add
+	Update
+	Delete
 )
 
 // svcEvent holds the extracted fields from a K8s service event
 // which are of interest to the BGP package.
 type svcEvent struct {
+	fence.Meta
+	op  Op
 	id  k8s.ServiceID
 	svc *metallbspr.Service
 	eps *metallbspr.Endpoints
@@ -35,6 +49,8 @@ type epEvent svcEvent
 // this package assumes when Cilium Agent starts an initial node event
 // is emitted and thus the BGP connections are setup.
 type nodeEvent struct {
+	fence.Meta
+	op Op
 	// The following fields must be a pointers because they are not hashable
 	// (read comparable) in Go.
 
@@ -84,13 +100,15 @@ func (s *MetalLBSpeaker) run(ctx context.Context) {
 		case types.SyncStateError:
 			s.queue.Add(key)
 			// done must be called to requeue event after add.
-			s.queue.Done(key)
 		case types.SyncStateSuccess, types.SyncStateReprocessAll:
 			// SyncStateReprocessAll is returned in MetalLB when the
 			// configuration changes. However, we are not watching for
 			// configuration changes because our configuration is static and
 			// loaded once at Cilium start time.
 		}
+		// if queue.Add(key) is called previous to this invocation the event
+		// is requeued, else it is discarded from the queue.
+		s.queue.Done(key)
 	}
 }
 
@@ -98,7 +116,6 @@ func (s *MetalLBSpeaker) run(ctx context.Context) {
 // if it is a service event (svcEvent), then it will call into MetalLB's
 // SetService() to perform BGP announcements.
 func (s *MetalLBSpeaker) do(key interface{}) types.SyncState {
-	defer s.queue.Done(key)
 	l := log.WithFields(
 		logrus.Fields{
 			"component": "MetalLBSpeaker.do",
@@ -106,13 +123,53 @@ func (s *MetalLBSpeaker) do(key interface{}) types.SyncState {
 	)
 	switch k := key.(type) {
 	case svcEvent:
+		if s.Fence(k.Meta) {
+			l.WithFields(logrus.Fields{
+				"uuid":     k.Meta.UUID,
+				"type":     "service",
+				"revision": k.Meta.Rev,
+			}).Debug("Encountered stale event, will not process")
+			return types.SyncStateSuccess
+		}
+
 		l.WithField("service-id", k.id.String()).Debug("announcing load balancer from service")
-		return s.speaker.SetService(k.id.String(), k.svc, k.eps)
+
+		st := s.speaker.SetService(k.id.String(), k.svc, k.eps)
+		if st == types.SyncStateSuccess && k.op == Delete {
+			// this is a delete operation and we have succcessfully
+			// processed it, delete it from our fence.
+			s.Clear(k.UUID)
+		}
+		return st
 	case epEvent:
+		if s.Fence(k.Meta) {
+			l.WithFields(logrus.Fields{
+				"uuid":     k.Meta.UUID,
+				"type":     "endpoint",
+				"revision": k.Meta.Rev,
+			}).Debug("Encountered stale event, will not process")
+			return types.SyncStateSuccess
+		}
 		l.WithField("endpoint-id", k.id.String()).Debug("announcing load balancer from endpoint")
-		return s.speaker.SetService(k.id.String(), k.svc, k.eps)
+
+		st := s.speaker.SetService(k.id.String(), k.svc, k.eps)
+		if st == types.SyncStateSuccess && k.op == Delete {
+			// this is a delete operation and we have succcessfully
+			// processed it, delete it from our fence.
+			s.Clear(k.UUID)
+		}
+		return st
 	case nodeEvent:
-		return s.handleNodeEvent(k)
+		if s.Fence(k.Meta) {
+			l.WithFields(logrus.Fields{
+				"uuid":     k.Meta.UUID,
+				"type":     "node",
+				"revision": k.Meta.Rev,
+			}).Debug("Encountered stale event, will not process")
+			return types.SyncStateSuccess
+		}
+		st := s.handleNodeEvent(k)
+		return st
 	default:
 		l.Debugf("Encountered an unknown key type %T in BGP speaker", k)
 		return types.SyncStateSuccess
