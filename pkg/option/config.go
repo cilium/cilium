@@ -354,6 +354,9 @@ const (
 	// EnableEnvoyConfig enables processing of CiliumEnvoyConfig CRDs
 	EnableEnvoyConfig = "enable-envoy-config"
 
+	// EnvoyConfigTimeout determines how long to wait Envoy to N/ACK resources
+	EnvoyConfigTimeout = "envoy-config-timeout"
+
 	// IPMasqAgentConfigPath is the configuration file path
 	IPMasqAgentConfigPath = "ip-masq-agent-config-path"
 
@@ -1495,6 +1498,7 @@ type DaemonConfig struct {
 	EnableIPMasqAgent          bool
 	EnableEgressGateway        bool
 	EnableEnvoyConfig          bool
+	EnvoyConfigTimeout         time.Duration
 	IPMasqAgentConfigPath      string
 	InstallIptRules            bool
 	MonitorAggregation         string
@@ -2544,6 +2548,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableIPMasqAgent = viper.GetBool(EnableIPMasqAgent)
 	c.EnableEgressGateway = viper.GetBool(EnableEgressGateway)
 	c.EnableEnvoyConfig = viper.GetBool(EnableEnvoyConfig)
+	c.EnvoyConfigTimeout = viper.GetDuration(EnvoyConfigTimeout)
 	c.IPMasqAgentConfigPath = viper.GetString(IPMasqAgentConfigPath)
 	c.InstallIptRules = viper.GetBool(InstallIptRules)
 	c.IPTablesLockTimeout = viper.GetDuration(IPTablesLockTimeout)
