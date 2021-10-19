@@ -1065,7 +1065,8 @@ func (s *K8sSuite) Test_ConvertToK8sV1LoadBalancerIngress(c *C) {
 			},
 			want: []v1.LoadBalancerIngress{
 				{
-					IP: "1.1.1.1",
+					IP:    "1.1.1.1",
+					Ports: []v1.PortStatus{},
 				},
 			},
 		},
