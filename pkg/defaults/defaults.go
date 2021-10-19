@@ -165,6 +165,9 @@ const (
 	// EnableL7Proxy is the default value for L7 proxy enablement
 	EnableL7Proxy = true
 
+	// EnvoyConfigTimeout determines how long to wait Envoy to N/ACK resources
+	EnvoyConfigTimeout = 2 * time.Minute
+
 	// EnableHostLegacyRouting is the default value for using the old routing path via stack.
 	EnableHostLegacyRouting = false
 
