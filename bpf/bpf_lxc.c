@@ -850,6 +850,27 @@ ct_recreate4:
 skip_egress_gateway:
 #endif
 
+#ifdef ENABLE_VTEP
+	{
+		int i;
+		mac_t vtep_mac = 0;
+
+		for (i = 0; i < VTEP_NUMS; i++) {
+			if (tunnel_endpoint == VTEP_ENDPOINT[i]) {
+				vtep_mac = VTEP_MAC[i];
+				break;
+			}
+		}
+
+		if (vtep_mac && tunnel_endpoint) {
+			if (eth_store_daddr(ctx, (__u8 *)&vtep_mac, 0) < 0)
+				return DROP_WRITE_ERROR;
+			return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint,
+									WORLD_ID, monitor);
+		}
+	}
+#endif
+
 #ifdef TUNNEL_MODE
 # ifdef ENABLE_WIREGUARD
 	/* In the tunnel mode we encapsulate pod2pod traffic only via Wireguard

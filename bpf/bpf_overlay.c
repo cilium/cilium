@@ -221,7 +221,22 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 
 		if (*identity == HOST_ID)
 			return DROP_INVALID_IDENTITY;
+#ifdef ENABLE_VTEP
+		{
+			struct remote_endpoint_info *info;
+			int i;
 
+			info = lookup_ip4_remote_endpoint(ip4->saddr);
+			if (!info)
+				return DROP_NO_TUNNEL_ENDPOINT;
+			for (i = 0; i < VTEP_NUMS; i++) {
+				if (info->tunnel_endpoint == VTEP_ENDPOINT[i]) {
+					if (*identity != WORLD_ID)
+						return DROP_INVALID_VNI;
+				}
+			}
+		}
+#endif
 		/* See comment at equivalent code in handle_ipv6() */
 		if (identity_is_remote_node(*identity)) {
 			struct remote_endpoint_info *info;

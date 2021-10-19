@@ -133,6 +133,11 @@ MAX_OVERLAY_OPTIONS = $(MAX_BASE_OPTIONS) -DENCAP_IFINDEX=1 -DTUNNEL_MODE=1
 ifneq ("$(KERNEL)","49")
 MAX_OVERLAY_OPTIONS += -DLB_SELECTION=1 -DLB_SELECTION_MAGLEV=1
 endif
+ifeq ("$(KERNEL)","54")
+MAX_OVERLAY_OPTIONS+= -DENABLE_VTEP=1
+else ifeq ("$(KERNEL)","netnext")
+MAX_OVERLAY_OPTIONS+= -DENABLE_VTEP=1
+endif
 endif
 
 bpf_overlay.ll: bpf_overlay.c $(LIB)
@@ -265,6 +270,11 @@ MAX_LXC_OPTIONS = $(MAX_BASE_OPTIONS) -DENCAP_IFINDEX=1 -DTUNNEL_MODE=1
 # Egress Gateway should only be enabled for >= 5.2 kernels
 ifneq (,$(filter $(KERNEL),"54" "netnext"))
 MAX_LXC_OPTIONS += -DENABLE_EGRESS_GATEWAY=1
+endif
+ifeq ("$(KERNEL)","54")
+MAX_LXC_OPTIONS+= -DENABLE_VTEP=1
+else ifeq ("$(KERNEL)","netnext")
+MAX_LXC_OPTIONS+= -DENABLE_VTEP=1
 endif
 endif
 
