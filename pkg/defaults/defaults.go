@@ -441,4 +441,7 @@ const (
 	TunnelPortVXLAN = 8472
 	// TunnelPortGeneve is the default Geneve port
 	TunnelPortGeneve = 6081
+
+	// EnableVTEP enables VXLAN Tunnel Endpoint (VTEP) Integration
+	EnableVTEP = false
 )
