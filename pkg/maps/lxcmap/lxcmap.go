@@ -37,20 +37,6 @@ var (
 	).WithCache().WithPressureMetric()
 )
 
-// MAC is the __u64 representation of a MAC address.
-type MAC uint64
-
-func (m MAC) String() string {
-	return fmt.Sprintf("%02X:%02X:%02X:%02X:%02X:%02X",
-		uint64((m & 0x0000000000FF)),
-		uint64((m&0x00000000FF00)>>8),
-		uint64((m&0x000000FF0000)>>16),
-		uint64((m&0x0000FF000000)>>24),
-		uint64((m&0x00FF00000000)>>32),
-		uint64((m&0xFF0000000000)>>40),
-	)
-}
-
 const (
 	// EndpointFlagHost indicates that this endpoint represents the host
 	EndpointFlagHost = 1
@@ -102,8 +88,8 @@ func GetBPFValue(e EndpointFrontend) (*EndpointInfo, error) {
 		// written into the packet without an additional byte order
 		// conversion.
 		LxcID:   uint16(e.GetID()),
-		MAC:     MAC(mac),
-		NodeMAC: MAC(nodeMAC),
+		MAC:     mac,
+		NodeMAC: nodeMAC,
 	}
 
 	return info, nil
@@ -130,9 +116,9 @@ type EndpointInfo struct {
 	Flags   uint32 `align:"flags"`
 	// go alignment
 	_       uint32
-	MAC     MAC        `align:"mac"`
-	NodeMAC MAC        `align:"node_mac"`
-	Pad     pad4uint32 `align:"pad"`
+	MAC     mac.Uint64MAC `align:"mac"`
+	NodeMAC mac.Uint64MAC `align:"node_mac"`
+	Pad     pad4uint32    `align:"pad"`
 }
 
 // GetValuePtr returns the unsafe pointer to the BPF value

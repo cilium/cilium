@@ -16,6 +16,21 @@ import (
 // Untagged ethernet (IEEE 802.3) frame header len
 const EthHdrLen = 14
 
+// Uint64MAC is the __u64 representation of a MAC address.
+// It corresponds to the C mac_t type used in bpf/.
+type Uint64MAC uint64
+
+func (m Uint64MAC) String() string {
+	return fmt.Sprintf("%02X:%02X:%02X:%02X:%02X:%02X",
+		uint64((m & 0x0000000000FF)),
+		uint64((m&0x00000000FF00)>>8),
+		uint64((m&0x000000FF0000)>>16),
+		uint64((m&0x0000FF000000)>>24),
+		uint64((m&0x00FF00000000)>>32),
+		uint64((m&0xFF0000000000)>>40),
+	)
+}
+
 // MAC address is an net.HardwareAddr encapsulation to force cilium to only use MAC-48.
 type MAC net.HardwareAddr
 
@@ -43,13 +58,14 @@ func ParseMAC(s string) (MAC, error) {
 //  m := MAC([]{0x11, 0x12, 0x23, 0x34, 0x45, 0x56})
 //  v, err := m.Uint64()
 //  fmt.Printf("0x%X", v) // 0x564534231211
-func (m MAC) Uint64() (uint64, error) {
+func (m MAC) Uint64() (Uint64MAC, error) {
 	if len(m) != 6 {
 		return 0, fmt.Errorf("invalid MAC address %s", m.String())
 	}
 
-	return uint64(m[5])<<40 | uint64(m[4])<<32 | uint64(m[3])<<24 |
-		uint64(m[2])<<16 | uint64(m[1])<<8 | uint64(m[0]), nil
+	res := uint64(m[5])<<40 | uint64(m[4])<<32 | uint64(m[3])<<24 |
+		uint64(m[2])<<16 | uint64(m[1])<<8 | uint64(m[0])
+	return Uint64MAC(res), nil
 }
 
 func (m MAC) MarshalJSON() ([]byte, error) {
