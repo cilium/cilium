@@ -50,6 +50,9 @@ const (
 	// Identity is the identifier of a security identity
 	Identity = "identity"
 
+	// Ingress is the identifier of an ingress object
+	Ingress = "ingress"
+
 	// OldIdentity is a previously used security identity
 	OldIdentity = "oldIdentity"
 
