@@ -15,6 +15,14 @@ type FakeMetaV1 struct {
 	*testing.Fake
 }
 
+func (c *FakeMetaV1) Ingresses(namespace string) v1.IngressInterface {
+	return &FakeIngresses{c, namespace}
+}
+
+func (c *FakeMetaV1) IngressClasses() v1.IngressClassInterface {
+	return &FakeIngressClasses{c}
+}
+
 func (c *FakeMetaV1) NetworkPolicies(namespace string) v1.NetworkPolicyInterface {
 	return &FakeNetworkPolicies{c, namespace}
 }
