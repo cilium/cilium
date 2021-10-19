@@ -33,6 +33,7 @@ import (
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	ces "github.com/cilium/cilium/operator/pkg/ciliumendpointslice"
+	"github.com/cilium/cilium/operator/pkg/ingress"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
@@ -556,6 +557,13 @@ func onOperatorStartLeading(ctx context.Context) {
 		log.WithError(err).WithField(logfields.LogSubsys, "CCNPWatcher").Fatal(
 			"Cannot connect to Kubernetes apiserver ")
 	}
+
+	ingressController, err := ingress.NewIngressController()
+	if err != nil {
+		log.WithError(err).WithField(logfields.LogSubsys, ingress.Subsys).Fatal(
+			"Failed to start ingress controller")
+	}
+	go ingressController.Run()
 
 	log.Info("Initialization complete")
 

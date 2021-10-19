@@ -40,6 +40,26 @@ func ObjToV1NetworkPolicy(obj interface{}) *slim_networkingv1.NetworkPolicy {
 	return nil
 }
 
+func ObjToV1Ingress(obj interface{}) *slim_networkingv1.Ingress {
+	ing, ok := obj.(*slim_networkingv1.Ingress)
+	if ok {
+		return ing
+	}
+	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+	if ok {
+		// Delete was not observed by the watcher but is
+		// removed from kube-apiserver. This is the last
+		// known state and the object no longer exists.
+		svc, ok := deletedObj.Obj.(*slim_networkingv1.Ingress)
+		if ok {
+			return svc
+		}
+	}
+	log.WithField(logfields.Object, logfields.Repr(obj)).
+		Warn("Ignoring invalid v1 Ingress")
+	return nil
+}
+
 func ObjToV1Services(obj interface{}) *slim_corev1.Service {
 	svc, ok := obj.(*slim_corev1.Service)
 	if ok {
@@ -972,7 +992,7 @@ func ObjToCiliumEndpointSlice(obj interface{}) *cilium_v2alpha1.CiliumEndpointSl
 	return nil
 }
 
-// convertCEPToCoreCEP converts a CiliumEndpoint to a CoreCiliumEndpoint
+// ConvertCEPToCoreCEP converts a CiliumEndpoint to a CoreCiliumEndpoint
 // containing only a minimal set of entities used to
 func ConvertCEPToCoreCEP(cep *cilium_v2.CiliumEndpoint) *cilium_v2alpha1.CoreCiliumEndpoint {
 
