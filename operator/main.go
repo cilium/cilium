@@ -28,7 +28,7 @@ import (
 	"github.com/cilium/cilium/operator/cmd"
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
-	ceb "github.com/cilium/cilium/operator/pkg/ciliumendpointbatch"
+	ces "github.com/cilium/cilium/operator/pkg/ciliumendpointbatch"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
@@ -356,20 +356,20 @@ func onOperatorStartLeading(ctx context.Context) {
 
 	ciliumK8sClient = k8s.CiliumClient()
 
-	// If CiliumEndpointBatch feature is enabled, create CebController, start CEP watcher and run controller.
-	if option.Config.EnableCiliumEndpointBatch {
-		log.Info("Create and run CEB controller, start cep watcher")
-		// Initialize  the CEB controller
-		cebController := ceb.NewCebController(k8s.CiliumClient(),
-			operatorOption.Config.CEBMaxCepsInCeb,
-			operatorOption.Config.CEBBatchingMode,
+	// If CiliumEndpointSlice feature is enabled, create CESController, start CEP watcher and run controller.
+	if option.Config.EnableCiliumEndpointSlice {
+		log.Info("Create and run CES controller, start cep watcher")
+		// Initialize  the CES controller
+		cesController := ces.NewCESController(k8s.CiliumClient(),
+			operatorOption.Config.CESMaxCEPsInCES,
+			operatorOption.Config.CESSlicingMode,
 			option.Config.K8sClientQPSLimit,
 			option.Config.K8sClientBurst)
 		stopCh := make(chan struct{})
 		// Start CEP watcher
-		operatorWatchers.CiliumEndpointsBatchInit(k8s.CiliumClient().CiliumV2(), cebController)
-		// Start the CEB controller, after current CEPs are synced locally in cache.
-		go cebController.Run(operatorWatchers.CiliumEndpointStore, stopCh)
+		operatorWatchers.CiliumEndpointsSliceInit(k8s.CiliumClient().CiliumV2(), cesController)
+		// Start the CES controller, after current CEPs are synced locally in cache.
+		go cesController.Run(operatorWatchers.CiliumEndpointStore, stopCh)
 	}
 
 	// Restart kube-dns as soon as possible since it helps etcd-operator to be

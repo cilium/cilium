@@ -18,56 +18,56 @@ import (
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
-// NewCEB creates a new ceb subscriber list.
-func NewCEB() *CEBList {
-	return &CEBList{}
+// NewCES creates a new ces subscriber list.
+func NewCES() *CESList {
+	return &CESList{}
 }
 
-// CEBHandler is implemented by event handlers responding to
-// CiliumEndpointBatch events.
-type CEBHandler interface {
-	OnAdd(ceb *cilium_v2a1.CiliumEndpointBatch)
-	OnUpdate(oldCeb, newCeb *cilium_v2a1.CiliumEndpointBatch)
-	OnDelete(ceb *cilium_v2a1.CiliumEndpointBatch)
+// CESHandler is implemented by event handlers responding to
+// CiliumEndpointSlice events.
+type CESHandler interface {
+	OnAdd(ces *cilium_v2a1.CiliumEndpointSlice)
+	OnUpdate(oldCES, newCES *cilium_v2a1.CiliumEndpointSlice)
+	OnDelete(ces *cilium_v2a1.CiliumEndpointSlice)
 }
 
-// Register registers the CEB event handler as a subscriber.
-func (l *CEBList) Register(c CEBHandler) {
+// Register registers the CES event handler as a subscriber.
+func (l *CESList) Register(c CESHandler) {
 	l.Lock()
 	defer l.Unlock()
 	l.subs = append(l.subs, c)
 }
 
 // NotifyAdd notifies all the subscribers of an add event to an object.
-func (l *CEBList) NotifyAdd(ceb *cilium_v2a1.CiliumEndpointBatch) {
+func (l *CESList) NotifyAdd(ces *cilium_v2a1.CiliumEndpointSlice) {
 	l.RLock()
 	defer l.RUnlock()
 	for _, s := range l.subs {
-		s.OnAdd(ceb)
+		s.OnAdd(ces)
 	}
 }
 
 // NotifyUpdate notifies all the subscribers of an update event to an object.
-func (l *CEBList) NotifyUpdate(oldCeb, newCeb *cilium_v2a1.CiliumEndpointBatch) {
+func (l *CESList) NotifyUpdate(oldCES, newCES *cilium_v2a1.CiliumEndpointSlice) {
 	l.RLock()
 	defer l.RUnlock()
 	for _, s := range l.subs {
-		s.OnUpdate(oldCeb, newCeb)
+		s.OnUpdate(oldCES, newCES)
 	}
 }
 
 // NotifyDelete notifies all the subscribers of a delete event to an object.
-func (l *CEBList) NotifyDelete(ceb *cilium_v2a1.CiliumEndpointBatch) {
+func (l *CESList) NotifyDelete(ces *cilium_v2a1.CiliumEndpointSlice) {
 	l.RLock()
 	defer l.RUnlock()
 	for _, s := range l.subs {
-		s.OnDelete(ceb)
+		s.OnDelete(ces)
 	}
 }
 
-// CEBList holds the CEB subscribers to any CiliumEndpointBatch resource / object changes in
+// CESList holds the CES subscribers to any CiliumEndpointSlice resource / object changes in
 // the K8s watchers.
-type CEBList struct {
+type CESList struct {
 	list
-	subs []CEBHandler
+	subs []CESHandler
 }

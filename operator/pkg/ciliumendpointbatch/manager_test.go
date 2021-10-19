@@ -15,7 +15,7 @@
 //go:build !privileged_tests
 // +build !privileged_tests
 
-package ciliumendpointbatch
+package ciliumendpointslice
 
 import (
 	"testing"
@@ -62,9 +62,9 @@ var (
 		IdentityID: 364748,
 	}
 
-	Ceb = &capi_v2a1.CiliumEndpointBatch{
+	CES = &capi_v2a1.CiliumEndpointSlice{
 		TypeMeta: meta_v1.TypeMeta{
-			Kind:       "CiliumEndpointBatch",
+			Kind:       "CiliumEndpointSlice",
 			APIVersion: capi_v2a1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: meta_v1.ObjectMeta{},
@@ -82,22 +82,22 @@ var (
 	}
 )
 
-func TestInsertAndRemoveCepsInCache(t *testing.T) {
+func TestInsertAndRemoveCEPsInCache(t *testing.T) {
 
-	// Insert CEPs in Cache and count total number of CEB and CEP
-	t.Run("Test Inserting CEPs in cache and count number of CEPs and CEBs", func(*testing.T) {
-		m := newCebManagerFcfs(newQueue(), 2)
+	// Insert CEPs in Cache and count total number of CES and CEP
+	t.Run("Test Inserting CEPs in cache and count number of CEPs and CESs", func(*testing.T) {
+		m := newCESManagerFcfs(newQueue(), 2)
 		m.InsertCepInCache(cep1, "kube-system")
 		m.InsertCepInCache(cep2, "kube-system")
 		m.InsertCepInCache(cep3, "kube-system")
-		assert.Equal(t, m.getCebCount(), 2, "Total number of CEBs allocated is 2")
+		assert.Equal(t, m.getCESCount(), 2, "Total number of CESs allocated is 2")
 		assert.Equal(t, m.getTotalCepCount(), 3, "Total number of CEPs inserted is 3")
 	})
 
-	// Remove CEPs from Cache and check total number of CEB and CEP
-	t.Run("Test Removing CEPs from cache and check number of CEPs and CEBs", func(*testing.T) {
-		m := newCebManagerFcfs(newQueue(), 2)
-		u := newDesiredCebMap()
+	// Remove CEPs from Cache and check total number of CES and CEP
+	t.Run("Test Removing CEPs from cache and check number of CEPs and CESs", func(*testing.T) {
+		m := newCESManagerFcfs(newQueue(), 2)
+		u := newDesiredCESMap()
 		cn := m.InsertCepInCache(cep1, "kube-system")
 		u.insertCEP(cep1.Name, cn)
 		cn = m.InsertCepInCache(cep2, "kube-system")
@@ -109,113 +109,113 @@ func TestInsertAndRemoveCepsInCache(t *testing.T) {
 		cn = m.InsertCepInCache(cep5, "kube-system")
 		u.insertCEP(cep5.Name, cn)
 		// Check all 5 CEP are inserted
-		assert.Equal(t, m.getCebCount(), 3, "Total number of CEBs allocated is 3")
+		assert.Equal(t, m.getCESCount(), 3, "Total number of CESs allocated is 3")
 		assert.Equal(t, m.getTotalCepCount(), 5, "Total number of CEPs inserted is 5")
 
 		// Remove a CEP from Cache
-		// This should remove one CEP from cache and remove a CEB
+		// This should remove one CEP from cache and remove a CES
 		m.RemoveCepFromCache(GetCepNameFromCCEP(cep5, "kube-system"))
-		if cn, ok := u.getCEBName(cep5.Name); ok {
-			// complete CEB delete from local datastore, after successful removal in k8s-apiserver.
-			m.deleteCebFromCache(cn)
+		if cn, ok := u.getCESName(cep5.Name); ok {
+			// complete CES delete from local datastore, after successful removal in k8s-apiserver.
+			m.deleteCESFromCache(cn)
 		}
-		assert.Equal(t, m.getCebCount(), 2, "Total number of CEBs allocated is 2")
+		assert.Equal(t, m.getCESCount(), 2, "Total number of CESs allocated is 2")
 		assert.Equal(t, m.getTotalCepCount(), 4, "Total number of CEPs inserted is 4")
 
 		// Remove a CEP from Cache
-		// This should remove one CEP in a CEB.
+		// This should remove one CEP in a CES.
 		m.RemoveCepFromCache(GetCepNameFromCCEP(cep3, "kube-system"))
-		assert.Equal(t, m.getCebCount(), 2, "Total number of CEBs allocated is 2")
+		assert.Equal(t, m.getCESCount(), 2, "Total number of CESs allocated is 2")
 		assert.Equal(t, m.getTotalCepCount(), 3, "Total number of CEPs inserted is 3")
 
 		// Remove a CEP from Cache
-		// This should remove one CEP in a CEB.
+		// This should remove one CEP in a CES.
 		m.RemoveCepFromCache(GetCepNameFromCCEP(cep4, "kube-system"))
-		if cn, ok := u.getCEBName(cep4.Name); ok {
-			// complete CEB delete from local datastore, after successful removal in k8s-apiserver.
-			m.deleteCebFromCache(cn)
+		if cn, ok := u.getCESName(cep4.Name); ok {
+			// complete CES delete from local datastore, after successful removal in k8s-apiserver.
+			m.deleteCESFromCache(cn)
 		}
-		assert.Equal(t, m.getCebCount(), 1, "Total number of CEBs allocated is 1")
+		assert.Equal(t, m.getCESCount(), 1, "Total number of CESs allocated is 1")
 		assert.Equal(t, m.getTotalCepCount(), 2, "Total number of CEPs inserted is 2")
 
 		// Remove a CEP from Cache
-		// This should remove one CEP in a CEB.
+		// This should remove one CEP in a CES.
 		m.RemoveCepFromCache(GetCepNameFromCCEP(cep1, "kube-system"))
-		assert.Equal(t, m.getCebCount(), 1, "Total number of CEBs allocated is 1")
+		assert.Equal(t, m.getCESCount(), 1, "Total number of CESs allocated is 1")
 		assert.Equal(t, m.getTotalCepCount(), 1, "Total number of CEPs inserted is 1")
 
 		// Remove a CEP from Cache
-		// This should remove one CEP in a CEB.
+		// This should remove one CEP in a CES.
 		m.RemoveCepFromCache(GetCepNameFromCCEP(cep2, "kube-system"))
-		if cn, ok := u.getCEBName(cep2.Name); ok {
-			// complete CEB delete from local datastore, after successful removal in k8s-apiserver.
-			m.deleteCebFromCache(cn)
+		if cn, ok := u.getCESName(cep2.Name); ok {
+			// complete CES delete from local datastore, after successful removal in k8s-apiserver.
+			m.deleteCESFromCache(cn)
 		}
-		assert.Equal(t, m.getCebCount(), 0, "Total number of CEBs allocated is 0")
+		assert.Equal(t, m.getCESCount(), 0, "Total number of CESs allocated is 0")
 		assert.Equal(t, m.getTotalCepCount(), 0, "Total number of CEPs inserted is 0")
 	})
 }
 
-func TestDeepCopyCeps(t *testing.T) {
-	// Insert CEPs in Cache, then do the deep copy and compare CEBs.
-	t.Run("Test Inserting CEPs in cache and count number of CEPs and CEBs", func(*testing.T) {
-		m := newCebManagerFcfs(newQueue(), 2)
+func TestDeepCopyCEPs(t *testing.T) {
+	// Insert CEPs in Cache, then do the deep copy and compare CESs.
+	t.Run("Test Inserting CEPs in cache and count number of CEPs and CESs", func(*testing.T) {
+		m := newCESManagerFcfs(newQueue(), 2)
 		m.InsertCepInCache(cep1, "kube-system")
 		cn := m.InsertCepInCache(cep2, "kube-system")
-		ceb, _ := m.getCebFromCache(cn)
-		assert.Equal(t, m.getCebCount(), 1, "Total number of CEBs allocated is 1")
+		ces, _ := m.getCESFromCache(cn)
+		assert.Equal(t, m.getCESCount(), 1, "Total number of CESs allocated is 1")
 		assert.Equal(t, m.getTotalCepCount(), 2, "Total number of CEPs inserted is 2")
-		assert.Equal(t, m.getTotalCepCount(), len(ceb.Endpoints), "Total number of CEPs inserted is 2")
+		assert.Equal(t, m.getTotalCepCount(), len(ces.Endpoints), "Total number of CEPs inserted is 2")
 
-		// Copy randomly Generated cebName to the local variable
-		Ceb.Name = ceb.Name
+		// Copy randomly Generated cesName to the local variable
+		CES.Name = ces.Name
 
 		// Copy only headers and check data between local variable and in datastore. No DeepCopy.
-		m.updateCebInCache(Ceb, false)
-		ceb, _ = m.getCebFromCache(cn)
-		assert.Equal(t, ceb.DeepEqual(Ceb), false, "CEPs expected to have same name but different identities")
+		m.updateCESInCache(CES, false)
+		ces, _ = m.getCESFromCache(cn)
+		assert.Equal(t, ces.DeepEqual(CES), false, "CEPs expected to have same name but different identities")
 
 		// do deep copy between local variable and in datastore
-		m.updateCebInCache(Ceb, true)
-		ceb, _ = m.getCebFromCache(cn)
-		assert.Equal(t, ceb.DeepEqual(Ceb), true, "Local CEB should match with CEB in datastore")
+		m.updateCESInCache(CES, true)
+		ces, _ = m.getCESFromCache(cn)
+		assert.Equal(t, ces.DeepEqual(CES), true, "Local CES should match with CES in datastore")
 
-		m1 := newCebManagerIdentity(newQueue(), 2)
+		m1 := newCESManagerIdentity(newQueue(), 2)
 		m1.InsertCepInCache(cep1, "kube-system")
 		m1.InsertCepInCache(cep1a, "kube-system")
 		m1.InsertCepInCache(cep2b, "kube-system")
 		cn = m1.InsertCepInCache(cep2, "kube-system")
-		ceb, _ = m1.getCebFromCache(cn)
-		assert.Equal(t, m1.getCebCount(), 2, "Total number of CEBs allocated is 2")
+		ces, _ = m1.getCESFromCache(cn)
+		assert.Equal(t, m1.getCESCount(), 2, "Total number of CESs allocated is 2")
 		assert.Equal(t, m1.getTotalCepCount(), 4, "Total number of CEPs inserted is 4")
-		assert.Equal(t, len(ceb.Endpoints), 2, "Total number of CEPs inserted in a CEB is 2")
+		assert.Equal(t, len(ces.Endpoints), 2, "Total number of CEPs inserted in a CES is 2")
 
-		// Copy randomly Generated cebName to the local variable
-		Ceb.Name = ceb.Name
+		// Copy randomly Generated cesName to the local variable
+		CES.Name = ces.Name
 
 		// Copy only headers and check data between local variable and in datastore. No DeepCopy.
-		m1.updateCebInCache(Ceb, false)
-		ceb, _ = m1.getCebFromCache(cn)
-		assert.Equal(t, ceb.DeepEqual(Ceb), false, "CEPs expected to have same name but different identities")
+		m1.updateCESInCache(CES, false)
+		ces, _ = m1.getCESFromCache(cn)
+		assert.Equal(t, ces.DeepEqual(CES), false, "CEPs expected to have same name but different identities")
 
 		// do deep copy between local variable and in datastore
-		m1.updateCebInCache(Ceb, true)
-		ceb, _ = m1.getCebFromCache(cn)
-		assert.Equal(t, ceb.DeepEqual(Ceb), true, "Local CEB should match with CEB in datastore")
+		m1.updateCESInCache(CES, true)
+		ces, _ = m1.getCESFromCache(cn)
+		assert.Equal(t, ces.DeepEqual(CES), true, "Local CES should match with CES in datastore")
 	})
 }
 
-func TestRemovedCeps(t *testing.T) {
+func TestRemovedCEPs(t *testing.T) {
 	t.Run("Test Deleting CEPs and Insert", func(*testing.T) {
-		m := newCebManagerFcfs(newQueue(), 2)
+		m := newCESManagerFcfs(newQueue(), 2)
 		m.InsertCepInCache(cep1, "kube-system")
-		cebName := m.InsertCepInCache(cep2, "kube-system")
+		cesName := m.InsertCepInCache(cep2, "kube-system")
 		m.RemoveCepFromCache(GetCepNameFromCCEP(cep1, "kube-system"))
 		m.RemoveCepFromCache(GetCepNameFromCCEP(cep2, "kube-system"))
-		remCeps := m.getRemovedCeps(cebName)
-		assert.Equal(t, len(remCeps), 2, "Total removedCeps should match with value 2")
-		m.clearRemovedCeps(cebName, remCeps)
-		remCeps = m.getRemovedCeps(cebName)
-		assert.Equal(t, len(remCeps), 0, "Total removedCeps should match with value 0")
+		remCEPs := m.getRemovedCEPs(cesName)
+		assert.Equal(t, len(remCEPs), 2, "Total removedCEPs should match with value 2")
+		m.clearRemovedCEPs(cesName, remCEPs)
+		remCEPs = m.getRemovedCEPs(cesName)
+		assert.Equal(t, len(remCEPs), 0, "Total removedCEPs should match with value 0")
 	})
 }

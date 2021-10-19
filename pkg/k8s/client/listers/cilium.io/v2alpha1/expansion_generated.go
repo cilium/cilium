@@ -20,6 +20,6 @@ package v2alpha1
 // CiliumEgressNATPolicyLister.
 type CiliumEgressNATPolicyListerExpansion interface{}
 
-// CiliumEndpointBatchListerExpansion allows custom methods to be added to
-// CiliumEndpointBatchLister.
-type CiliumEndpointBatchListerExpansion interface{}
+// CiliumEndpointSliceListerExpansion allows custom methods to be added to
+// CiliumEndpointSliceLister.
+type CiliumEndpointSliceListerExpansion interface{}

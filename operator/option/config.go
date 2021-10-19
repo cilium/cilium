@@ -32,11 +32,11 @@ const (
 	// PrometheusServeAddr is the default server address for operator metrics
 	PrometheusServeAddr = ":6942"
 
-	// CEBMaxCepsInCebDefault is the maximum number of cilium endpoints allowed in a CEB
-	CEBMaxCepsInCebDefault = 100
+	// CESMaxCEPsInCESDefault is the maximum number of cilium endpoints allowed in a CES
+	CESMaxCEPsInCESDefault = 100
 
-	// CEBBatchingModeDefault is default method for grouping CEP in a CEB.
-	CEBBatchingModeDefault = "cebBatchModeIdentity"
+	// CESSlicingModeDefault is default method for grouping CEP in a CES.
+	CESSlicingModeDefault = "cesSliceModeIdentity"
 )
 
 const (
@@ -208,14 +208,14 @@ const (
 	// the number of API calls to AlibabaCloud ECS service.
 	AlibabaCloudReleaseExcessIPs = "alibaba-cloud-release-excess-ips"
 
-	// CiliumEndpointBatch options
+	// CiliumEndpointSlice options
 
-	// CEBMaxCepsInCeb is the maximum number of cilium endpoints allowed in single
-	// a CiliumEndpointBatch resource.
-	CEBMaxCepsInCeb = "ceb-max-ciliumendpoints-per-ceb"
+	// CESMaxCEPsInCES is the maximum number of cilium endpoints allowed in single
+	// a CiliumEndpointSlice resource.
+	CESMaxCEPsInCES = "ces-max-ciliumendpoints-per-ces"
 
-	// CEBBatchingMode instructs how CEPs are grouped in a CEB.
-	CEBBatchingMode = "ceb-batch-mode"
+	// CESSlicingMode instructs how CEPs are grouped in a CES.
+	CESSlicingMode = "ces-batch-mode"
 )
 
 // OperatorConfig is the configuration used by the operator.
@@ -384,15 +384,15 @@ type OperatorConfig struct {
 	// the number of API calls to AlibabaCloud ECS service.
 	AlibabaCloudReleaseExcessIPs bool
 
-	// CiliumEndpointBatch options
+	// CiliumEndpointSlice options
 
-	// CEBMaxCepsInCeb is the maximum number of CiliumEndpoints allowed in single
-	// a CiliumEndpointBatch resource.
-	// The default value of maximum CiliumEndpoints allowed in a CiliumEndpointBatch resource is 100.
-	CEBMaxCepsInCeb int
+	// CESMaxCEPsInCES is the maximum number of CiliumEndpoints allowed in single
+	// a CiliumEndpointSlice resource.
+	// The default value of maximum CiliumEndpoints allowed in a CiliumEndpointSlice resource is 100.
+	CESMaxCEPsInCES int
 
-	// CEBBatchingMode instructs how CEPs are grouped in a CEB.
-	CEBBatchingMode string
+	// CESSlicingMode instructs how CEPs are grouped in a CES.
+	CESSlicingMode string
 }
 
 // Populate sets all options with the values from viper.
@@ -450,9 +450,9 @@ func (c *OperatorConfig) Populate() {
 	c.AlibabaCloudVPCID = viper.GetString(AlibabaCloudVPCID)
 	c.AlibabaCloudReleaseExcessIPs = viper.GetBool(AlibabaCloudReleaseExcessIPs)
 
-	// CiliumEndpointBatch options
-	c.CEBMaxCepsInCeb = viper.GetInt(CEBMaxCepsInCeb)
-	c.CEBBatchingMode = viper.GetString(CEBBatchingMode)
+	// CiliumEndpointSlice options
+	c.CESMaxCEPsInCES = viper.GetInt(CESMaxCEPsInCES)
+	c.CESSlicingMode = viper.GetString(CESSlicingMode)
 
 	// Option maps and slices
 

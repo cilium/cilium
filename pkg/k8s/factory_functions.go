@@ -905,25 +905,25 @@ func ObjToCENP(obj interface{}) *cilium_v2alpha1.CiliumEgressNATPolicy {
 	return nil
 }
 
-// ObjToCiliumEndpointBatch attempts to cast object to a CiliumEndpointBatch object
+// ObjToCiliumEndpointSlice attempts to cast object to a CiliumEndpointSlice object
 // and returns a deep copy if the castin succeeds. Otherwise, nil is returned.
-func ObjToCiliumEndpointBatch(obj interface{}) *cilium_v2alpha1.CiliumEndpointBatch {
-	ceb, ok := obj.(*cilium_v2alpha1.CiliumEndpointBatch)
+func ObjToCiliumEndpointSlice(obj interface{}) *cilium_v2alpha1.CiliumEndpointSlice {
+	ces, ok := obj.(*cilium_v2alpha1.CiliumEndpointSlice)
 	if ok {
-		return ceb
+		return ces
 	}
 	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
 	if ok {
 		// Delete was not observed by the watcher but is
 		// removed from kube-apiserver. This is the last
 		// known state and the object no longer exists.
-		ceb, ok := deletedObj.Obj.(*cilium_v2alpha1.CiliumEndpointBatch)
+		ces, ok := deletedObj.Obj.(*cilium_v2alpha1.CiliumEndpointSlice)
 		if ok {
-			return ceb
+			return ces
 		}
 	}
 	log.WithField(logfields.Object, logfields.Repr(obj)).
-		Warn("Ignoring invalid CiliumEndpointBatch")
+		Warn("Ignoring invalid CiliumEndpointSlice")
 	return nil
 }
 

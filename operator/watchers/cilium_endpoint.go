@@ -20,7 +20,7 @@ import (
 	"strconv"
 	"sync"
 
-	ceb "github.com/cilium/cilium/operator/pkg/ciliumendpointbatch"
+	ces "github.com/cilium/cilium/operator/pkg/ciliumendpointbatch"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_cli "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
@@ -56,16 +56,16 @@ var (
 	// once is used to make sure CiliumEndpointsInit is only setup once.
 	once sync.Once
 
-	// cebController watches for CiliumEndpoint changes, and accordingly updates CiliumEndpointBatches
-	// CiliumEndpoint watcher notifies the cebController, if any CiliumEndpoint is Added
+	// cesController watches for CiliumEndpoint changes, and accordingly updates CiliumEndpointSlices
+	// CiliumEndpoint watcher notifies the cesController, if any CiliumEndpoint is Added
 	// Updated or Deleted.
-	cebController *ceb.CiliumEndpointBatchController
+	cesController *ces.CiliumEndpointSliceController
 )
 
-// CiliumEndpointsBatchInit starts a CiliumEndpointWatcher and caches cebController locally.
-func CiliumEndpointsBatchInit(ciliumNPClient cilium_cli.CiliumV2Interface,
-	cbController *ceb.CiliumEndpointBatchController) {
-	cebController = cbController
+// CiliumEndpointsSliceInit starts a CiliumEndpointWatcher and caches cesController locally.
+func CiliumEndpointsSliceInit(ciliumNPClient cilium_cli.CiliumV2Interface,
+	cbController *ces.CiliumEndpointSliceController) {
+	cesController = cbController
 	CiliumEndpointsInit(ciliumNPClient, wait.NeverStop)
 }
 
@@ -90,7 +90,7 @@ func CiliumEndpointsInit(ciliumNPClient cilium_cli.CiliumV2Interface, stopCh <-c
 		var cacheReseourceHandler cache.ResourceEventHandlerFuncs
 
 		// Register notification function only if CEB feature is enabled.
-		if option.Config.EnableCiliumEndpointBatch {
+		if option.Config.EnableCiliumEndpointSlice {
 			cacheReseourceHandler = cache.ResourceEventHandlerFuncs{
 				AddFunc: func(obj interface{}) {
 					if cep := objToCiliumEndpoint(obj); cep != nil {
@@ -219,11 +219,11 @@ func endpointUpdated(cep *cilium_api_v2.CiliumEndpoint) {
 	if cep.Status.Networking == nil || cep.Status.Identity == nil || cep.GetName() == "" || cep.Namespace == "" {
 		return
 	}
-	cebController.Manager.InsertCepInCache(k8s.ConvertCepToCoreCep(cep), cep.Namespace)
+	cesController.Manager.InsertCepInCache(k8s.ConvertCepToCoreCep(cep), cep.Namespace)
 }
 
 func endpointDeleted(cep *cilium_api_v2.CiliumEndpoint) {
-	cebController.Manager.RemoveCepFromCache(ceb.GetCepNameFromCCEP(k8s.ConvertCepToCoreCep(cep), cep.Namespace))
+	cesController.Manager.RemoveCepFromCache(ces.GetCepNameFromCCEP(k8s.ConvertCepToCoreCep(cep), cep.Namespace))
 }
 
 // objToCiliumEndpoint attempts to cast object to a CiliumEndpoint object

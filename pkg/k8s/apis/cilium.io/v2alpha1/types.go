@@ -105,22 +105,22 @@ type CoreCiliumEndpoint struct {
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:resource:singular="ciliumendpointbatch",path="ciliumendpointbatches",scope="Cluster"
+// +kubebuilder:resource:singular="ciliumendpointslice",path="ciliumendpointslices",scope="Cluster"
 // +kubebuilder:storageversion
 
-// CiliumEndpointBatch is the status of a group of CoreCiliumendpoints.
-type CiliumEndpointBatch struct {
+// CiliumEndpointSlice is the status of a group of CoreCiliumendpoints.
+type CiliumEndpointSlice struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
 	// +deepequal-gen=false
 	metav1.ObjectMeta `json:"metadata"`
 
-	// Namespace indicate as CiliumEndpointBatch namespace.
+	// Namespace indicate as CiliumEndpointSlice namespace.
 	// All the CiliumEndpoints within the same namespace are put together
-	// in CiliumEndpointBatch.
+	// in CiliumEndpointSlice.
 	Namespace string `json:"namespace,omitempty"`
 
-	// Endpoints is a list of coreCEPs packed in a CiliumEndpointBatch
+	// Endpoints is a list of coreCEPs packed in a CiliumEndpointSlice
 	Endpoints []CoreCiliumEndpoint `json:"endpoints"`
 }
 
@@ -128,11 +128,11 @@ type CiliumEndpointBatch struct {
 // +k8s:openapi-gen=false
 // +deepequal-gen=false
 
-// CiliumEndpointBatchList is a list of CiliumEndpointBatch objects.
-type CiliumEndpointBatchList struct {
+// CiliumEndpointSliceList is a list of CiliumEndpointSlice objects.
+type CiliumEndpointSliceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
-	// Items is a list of CiliumEndpointBatch.
-	Items []CiliumEndpointBatch `json:"items"`
+	// Items is a list of CiliumEndpointSlice.
+	Items []CiliumEndpointSlice `json:"items"`
 }

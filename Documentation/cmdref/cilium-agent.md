@@ -77,7 +77,7 @@ cilium-agent [flags]
       --enable-bpf-clock-probe                               Enable BPF clock source probing for more efficient tick retrieval
       --enable-bpf-masquerade                                Masquerade packets from endpoints leaving the host with BPF instead of iptables
       --enable-bpf-tproxy                                    Enable BPF-based proxy redirection, if support available
-      --enable-cilium-endpoint-batch                         If set to true, CiliumEndpointBatch feature is enabled and if any CiliumEndpoint resource are created, updated or deleted in the cluster, all those changes are passed in as CiliumEndpointBatch updates to cilium agents.
+      --enable-cilium-endpoint-slice                         If set to true, CiliumEndpointSlice feature is enabled and if any CiliumEndpoint resource are created, updated or deleted in the cluster, all those changes are passed in as CiliumEndpointSlice updates to cilium agents.
       --enable-custom-calls                                  Enable tail call hooks for custom eBPF programs
       --enable-egress-gateway                                Enable egress gateway
       --enable-endpoint-health-checking                      Enable connectivity health checking between virtual endpoints (default true)

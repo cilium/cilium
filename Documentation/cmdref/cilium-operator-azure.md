@@ -18,7 +18,7 @@ cilium-operator-azure [flags]
       --azure-user-assigned-identity-id string    ID of the user assigned identity used to auth with the Azure API
       --bgp-announce-lb-ip                        Announces service IPs of type LoadBalancer via BGP
       --bgp-config-path string                    Path to file containing the BGP configuration (default "/var/lib/cilium/bgp/config.yaml")
-      --ceb-max-ciliumendpoints-per-ceb int       Maximum number of CiliumEndpoints allowed in a CEB (default 100)
+      --ces-max-ciliumendpoints-per-ces int       Maximum number of CiliumEndpoints allowed in a CES (default 100)
       --cilium-endpoint-gc-interval duration      GC interval for cilium endpoints (default 5m0s)
       --cluster-id int                            Unique identifier of the cluster
       --cluster-name string                       Name of the cluster (default "default")
@@ -31,7 +31,7 @@ cilium-operator-azure [flags]
       --config string                             Configuration file (default "$HOME/ciliumd.yaml")
       --config-dir string                         Configuration directory that contains a file for each option
   -D, --debug                                     Enable debugging mode
-      --enable-cilium-endpoint-batch              If set to true, the CiliumEndpointBatch feature is enabled. If any CiliumEndpoints resources are created, updated, or deleted in the cluster, all those changes are broadcast as CiliumEndpointBatch updates to all of the Cilium agents.
+      --enable-cilium-endpoint-slice              If set to true, the CiliumEndpointSlice feature is enabled. If any CiliumEndpoints resources are created, updated, or deleted in the cluster, all those changes are broadcast as CiliumEndpointSlice updates to all of the Cilium agents.
       --enable-ipv4                               Enable IPv4 support (default true)
       --enable-ipv6                               Enable IPv6 support (default true)
       --enable-k8s-api-discovery                  Enable discovery of Kubernetes API groups and resources with the discovery API

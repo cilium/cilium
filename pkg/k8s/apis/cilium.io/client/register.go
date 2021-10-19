@@ -69,8 +69,8 @@ const (
 	// CENPCRDName is the full name of the CENP CRD.
 	CENPCRDName = k8sconstv2alpha1.CENPKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
 
-	// CEBCRDName is the full name of the CEB CRD.
-	CEBCRDName = k8sconstv2alpha1.CEBKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
+	// CESCRDName is the full name of the CES CRD.
+	CESCRDName = k8sconstv2alpha1.CESKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
 )
 
 var (
@@ -117,9 +117,9 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 		return createCENPCRD(clientset)
 	})
 
-	if option.Config.EnableCiliumEndpointBatch {
+	if option.Config.EnableCiliumEndpointSlice {
 		g.Go(func() error {
-			return createCEBCRD(clientset)
+			return createCESCRD(clientset)
 		})
 	}
 
@@ -151,8 +151,8 @@ var (
 	//go:embed crds/v2alpha1/ciliumegressnatpolicies.yaml
 	crdsv2Alpha1Ciliumegressnatpolicies []byte
 
-	//go:embed crds/v2alpha1/ciliumendpointbatches.yaml
-	crdsv2Alpha1Ciliumendpointbatches []byte
+	//go:embed crds/v2alpha1/ciliumendpointslices.yaml
+	crdsv2Alpha1Ciliumendpointslices []byte
 )
 
 // GetPregeneratedCRD returns the pregenerated CRD based on the requested CRD
@@ -184,8 +184,8 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1.CustomResourceDefinition
 		crdBytes = crdsCiliumlocalredirectpolicies
 	case CENPCRDName:
 		crdBytes = crdsv2Alpha1Ciliumegressnatpolicies
-	case CEBCRDName:
-		crdBytes = crdsv2Alpha1Ciliumendpointbatches
+	case CESCRDName:
+		crdBytes = crdsv2Alpha1Ciliumendpointslices
 	default:
 		scopedLog.Fatal("Pregenerated CRD does not exist")
 	}
@@ -299,15 +299,15 @@ func createCENPCRD(clientset apiextensionsclient.Interface) error {
 	)
 }
 
-// createCEBCRD creates and updates the CiliumEndpointBatch CRD. It should be
+// createCESCRD creates and updates the CiliumEndpointSlice CRD. It should be
 // called on agent startup but is idempotent and safe to call again.
-func createCEBCRD(clientset apiextensionsclient.Interface) error {
-	ciliumCRD := GetPregeneratedCRD(CEBCRDName)
+func createCESCRD(clientset apiextensionsclient.Interface) error {
+	ciliumCRD := GetPregeneratedCRD(CESCRDName)
 
 	return createUpdateCRD(
 		clientset,
-		CEBCRDName,
-		constructV1CRD(k8sconstv2alpha1.CEBName, ciliumCRD),
+		CESCRDName,
+		constructV1CRD(k8sconstv2alpha1.CESName, ciliumCRD),
 		newDefaultPoller(),
 	)
 }
