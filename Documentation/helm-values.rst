@@ -1417,6 +1417,22 @@
      - Cilium agent update strategy
      - object
      - ``{"rollingUpdate":{"maxUnavailable":2},"type":"RollingUpdate"}``
+   * - vtep.cidr
+     - A space separated list of VTEP device CIDRs, for example "1.1.1.0/24 1.1.2.0/24"
+     - string
+     - ``""``
+   * - vtep.enabled
+     - Enables VXLAN Tunnel Endpoint (VTEP) Integration (beta) to allow Cilium-managed pods to talk to third party VTEP devices over Cilium tunnel.
+     - bool
+     - ``false``
+   * - vtep.endpoint
+     - A space separated list of VTEP device endpoint IPs, for example "1.1.1.1  1.1.2.1"
+     - string
+     - ``""``
+   * - vtep.mac
+     - A space separated list of VTEP device MAC addresses (VTEP MAC), for example "x:x:x:x:x:x  y:y:y:y:y:y:y"
+     - string
+     - ``""``
    * - wellKnownIdentities.enabled
      - Enable the use of well-known identities.
      - bool

@@ -1060,6 +1060,18 @@ func initializeFlags() {
 	flags.Bool(option.EnableK8sTerminatingEndpoint, true, "Enable auto-detect of terminating endpoint condition")
 	option.BindEnv(option.EnableK8sTerminatingEndpoint)
 
+	flags.Bool(option.EnableVTEP, defaults.EnableVTEP, "Enable  VXLAN Tunnel Endpoint (VTEP) Integration (beta)")
+	option.BindEnv(option.EnableVTEP)
+
+	flags.StringSlice(option.VtepEndpoint, []string{}, "List of VTEP IP addresses")
+	option.BindEnv(option.VtepEndpoint)
+
+	flags.StringSlice(option.VtepCIDR, []string{}, "List of VTEP CIDRs that will be routed towards VTEPs for traffic cluster egress")
+	option.BindEnv(option.VtepCIDR)
+
+	flags.StringSlice(option.VtepMAC, []string{}, "List of VTEP MAC addresses for forwarding traffic outside the cluster")
+	option.BindEnv(option.VtepMAC)
+
 	viper.BindPFlags(flags)
 }
 

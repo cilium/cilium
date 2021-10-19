@@ -118,6 +118,7 @@ cilium-agent [flags]
       --enable-session-affinity                              Enable support for service session affinity
       --enable-svc-source-range-check                        Enable check of service source ranges (currently, only for LoadBalancer) (default true)
       --enable-tracing                                       Enable tracing while determining policy (debugging)
+      --enable-vtep                                          Enable  VXLAN Tunnel Endpoint (VTEP) Integration (beta)
       --enable-well-known-identities                         Enable well-known identities for known Kubernetes components (default true)
       --enable-wireguard                                     Enable wireguard
       --enable-wireguard-userspace-fallback                  Enables the fallback to the wireguard userspace implementation
@@ -244,6 +245,9 @@ cilium-agent [flags]
       --tunnel-port int                                      Tunnel port (default 8472 for "vxlan" and 6081 for "geneve")
       --version                                              Print version information
       --vlan-bpf-bypass ints                                 List of explicitly allowed VLAN IDs, '0' id will allow all VLAN IDs
+      --vtep-cidr strings                                    List of VTEP CIDRs that will be routed towards VTEPs for traffic cluster egress
+      --vtep-endpoint strings                                List of VTEP IP addresses
+      --vtep-mac strings                                     List of VTEP MAC addresses for forwarding traffic outside the cluster
       --write-cni-conf-when-ready string                     Write the CNI configuration as specified via --read-cni-conf to path when agent is ready
 ```
 
