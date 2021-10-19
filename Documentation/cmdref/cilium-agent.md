@@ -129,6 +129,7 @@ cilium-agent [flags]
       --endpoint-interface-name-prefix string                Prefix of interface name shared by all endpoints (default "lxc+")
       --endpoint-queue-size int                              size of EventQueue per-endpoint (default 25)
       --endpoint-status strings                              Enable additional CiliumEndpoint status features (controllers,health,log,policy,state)
+      --envoy-config-timeout duration                        Timeout duration for Envoy Config acknowledgements (default 2m0s)
       --envoy-log string                                     Path to a separate Envoy log file, if any
       --exclude-local-address strings                        Exclude CIDR from being recognized as local address
       --fixed-identity-mapping map                           Key-value for the fixed identity mapping which allows to use reserved label for fixed identities (default map[])
