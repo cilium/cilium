@@ -11,8 +11,10 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/types"
 
 	"golang.org/x/sys/unix"
@@ -115,18 +117,17 @@ func NewKey(ip net.IP, mask net.IPMask) Key {
 	return result
 }
 
-// RemoteEndpointInfo implements the bpf.MapValue interface. It contains the
-// security identity of a remote endpoint.
-// +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type RemoteEndpointInfo struct {
-	SecurityIdentity uint32     `align:"sec_label"`
-	TunnelEndpoint   types.IPv4 `align:"tunnel_endpoint"`
-	Key              uint8      `align:"key"`
+	SecurityIdentity uint32        `align:"sec_label"`
+	TunnelEndpoint   types.IPv4    `align:"tunnel_endpoint"`
+	Key              uint8         `align:"key"`
+	VtepMAC          mac.Uint64MAC `align:"vtep_mac"`
 }
 
 func (v *RemoteEndpointInfo) String() string {
-	return fmt.Sprintf("%d %d %s", v.SecurityIdentity, v.Key, v.TunnelEndpoint)
+	return fmt.Sprintf("identity=%d encryptkey=%d tunnelendpoint=%s vtepmac=%s",
+		v.SecurityIdentity, v.Key, v.TunnelEndpoint, v.VtepMAC)
 }
 
 // GetValuePtr returns the unsafe pointer to the BPF value.
@@ -247,4 +248,28 @@ var (
 // on the filesystem.
 func Reopen() error {
 	return IPCache.Map.Reopen()
+}
+
+// Function to update IPCache map with node PodCIDR, VTEP CIDR
+func UpdateIPCacheMapping(newCIDR *cidr.CIDR, newTunnelEndpoint net.IP,
+	securityIdentity uint32, vtepMAC mac.MAC, encryptKey uint8) error {
+
+	key := NewKey(newCIDR.IP, newCIDR.Mask)
+
+	mac, err := vtepMAC.Uint64()
+	if err != nil {
+		return err
+	}
+
+	value := RemoteEndpointInfo{
+		SecurityIdentity: securityIdentity,
+		VtepMAC:          mac,
+		Key:              encryptKey,
+	}
+	if ip4 := newTunnelEndpoint.To4(); ip4 != nil {
+		copy(value.TunnelEndpoint[:], ip4)
+	}
+
+	return IPCache.Update(&key, &value)
+
 }

@@ -2,6 +2,7 @@
 /* Copyright (C) 2018-2020 Authors of Cilium */
 
 /* Ensure declaration of notification event types */
+#define ENABLE_VTEP
 #define DEBUG
 #define TRACE_NOTIFY
 #define DROP_NOTIFY

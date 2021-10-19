@@ -523,6 +523,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 	struct ct_state ct_state = {};
 	__be32 orig_dip;
 	__u32 tunnel_endpoint = 0;
+	mac_t vtep_mac __maybe_unused = 0;
 	__u8 encrypt_key = 0;
 	__u32 monitor = 0;
 	__u8 reason;
@@ -622,6 +623,9 @@ skip_service_lookup:
 			*dst_id = info->sec_label;
 			tunnel_endpoint = info->tunnel_endpoint;
 			encrypt_key = get_min_encrypt_key(info->key);
+#ifdef ENABLE_VTEP
+			vtep_mac = info->vtep_mac;
+#endif
 #ifdef ENABLE_WIREGUARD
 			/* If we detect that the dst is a remote endpoint, we
 			 * need to mark the packet. The ip rule which matches
@@ -814,6 +818,17 @@ ct_recreate4:
 			return ret;
 	}
 skip_egress_gateway:
+#endif
+
+#ifdef ENABLE_VTEP
+	{
+		if (vtep_mac && tunnel_endpoint) {
+			if (eth_store_daddr(ctx, (__u8 *)&vtep_mac, 0) < 0)
+				return DROP_WRITE_ERROR;
+			return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint,
+									WORLD_ID, monitor);
+		}
+	}
 #endif
 
 #ifdef TUNNEL_MODE

@@ -265,6 +265,9 @@ struct remote_endpoint_info {
 	__u32		sec_label;
 	__u32		tunnel_endpoint;
 	__u8		key;
+#ifdef ENABLE_VTEP
+	mac_t		vtep_mac;
+#endif
 };
 
 struct policy_key {
@@ -431,6 +434,7 @@ enum {
 #define DROP_PROXY_UNKNOWN_PROTO	-180
 #define DROP_POLICY_DENY	-181
 #define DROP_VLAN_FILTERED	-182
+#define DROP_INVALID_VNI	-183
 
 #define NAT_PUNT_TO_STACK	DROP_NAT_NOT_NEEDED
 

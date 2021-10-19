@@ -204,6 +204,17 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 
 		if (*identity == HOST_ID)
 			return DROP_INVALID_IDENTITY;
+#ifdef ENABLE_VTEP
+		{
+			struct remote_endpoint_info *info;
+
+			info = lookup_ip4_remote_endpoint(ip4->saddr);
+			if (info && info->vtep_mac) {
+				if (*identity != WORLD_ID)
+					return DROP_INVALID_VNI;
+			}
+		}
+#endif
 	}
 
 	cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, key.tunnel_label);
