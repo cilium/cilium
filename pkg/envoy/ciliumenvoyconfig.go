@@ -252,26 +252,33 @@ func (s *XDSServer) UpsertEnvoyResources(ctx context.Context, resources Resource
 	}
 	var wg *completion.WaitGroup
 	var revertFuncs xds.AckingResourceMutatorRevertFuncList
+	// Do not wait for the addition of routes, clusters, endpoints, routes,
+	// or secrets as there are no quarantees that these additions will be
+	// acked. For example, if the listener referring to was already deleted
+	// earlier, there are no references to the deleted resources any more,
+	// in which case we could wait forever for the ACKs. This could also
+	// happen if there is no listener referring to these other named
+	// resources to begin with.
+	for _, r := range resources.Secrets {
+		log.Debugf("Envoy upsertSecret %s %v", r.Name, r)
+		revertFuncs = append(revertFuncs, s.upsertSecret(r.Name, r, nil, nil))
+	}
+	for _, r := range resources.Endpoints {
+		log.Debugf("Envoy upsertEndpoint %s %v", r.ClusterName, r)
+		revertFuncs = append(revertFuncs, s.upsertEndpoint(r.ClusterName, r, nil, nil))
+	}
+	for _, r := range resources.Clusters {
+		log.Debugf("Envoy upsertCluster %s %v", r.Name, r)
+		revertFuncs = append(revertFuncs, s.upsertCluster(r.Name, r, nil, nil))
+	}
+	for _, r := range resources.Routes {
+		log.Debugf("Envoy upsertRoute %s %v", r.Name, r)
+		revertFuncs = append(revertFuncs, s.upsertRoute(r.Name, r, nil, nil))
+	}
 	// Wait only if new Listeners are added, as they will always be acked.
 	// (unreferenced routes or endpoints (and maybe clusters) are not ACKed or NACKed).
 	if len(resources.Listeners) > 0 {
 		wg = completion.NewWaitGroup(ctx)
-	}
-	for _, r := range resources.Secrets {
-		log.Debugf("Envoy upsertSecret %s %v", r.Name, r)
-		revertFuncs = append(revertFuncs, s.upsertSecret(r.Name, r, wg, nil))
-	}
-	for _, r := range resources.Endpoints {
-		log.Debugf("Envoy upsertEndpoint %s %v", r.ClusterName, r)
-		revertFuncs = append(revertFuncs, s.upsertEndpoint(r.ClusterName, r, wg, nil))
-	}
-	for _, r := range resources.Clusters {
-		log.Debugf("Envoy upsertCluster %s %v", r.Name, r)
-		revertFuncs = append(revertFuncs, s.upsertCluster(r.Name, r, wg, nil))
-	}
-	for _, r := range resources.Routes {
-		log.Debugf("Envoy upsertRoute %s %v", r.Name, r)
-		revertFuncs = append(revertFuncs, s.upsertRoute(r.Name, r, wg, nil))
 	}
 	for _, r := range resources.Listeners {
 		log.Debugf("Envoy upsertListener %s %v", r.Name, r)
@@ -356,6 +363,14 @@ func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 			}))
 	}
 
+	// Do not wait for the deletion of routes, clusters, endpoints, or
+	// secrets as there are no quarantees that these deletions will be
+	// acked. For example, if the listener referring to was already deleted
+	// earlier, there are no references to the deleted resources any more,
+	// in which case we could wait forever for the ACKs. This could also
+	// happen if there is no listener referring to these other named
+	// resources to begin with.
+
 	// Delete old routes not added in 'new'
 	var deleteRoutes []*envoy_config_route.RouteConfiguration
 	for _, oldRoute := range old.Routes {
@@ -371,7 +386,7 @@ func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 	}
 	log.Debugf("UpdateEnvoyResources: Deleting %d, Upserting %d routes...", len(deleteRoutes), len(new.Routes))
 	for _, route := range deleteRoutes {
-		revertFuncs = append(revertFuncs, s.deleteRoute(route.Name, wg, nil))
+		revertFuncs = append(revertFuncs, s.deleteRoute(route.Name, nil, nil))
 	}
 
 	// Delete old clusters not added in 'new'
@@ -389,7 +404,7 @@ func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 	}
 	log.Debugf("UpdateEnvoyResources: Deleting %d, Upserting %d clusters...", len(deleteClusters), len(new.Clusters))
 	for _, cluster := range deleteClusters {
-		revertFuncs = append(revertFuncs, s.deleteCluster(cluster.Name, wg, nil))
+		revertFuncs = append(revertFuncs, s.deleteCluster(cluster.Name, nil, nil))
 	}
 
 	// Delete old endpoints not added in 'new'
@@ -407,7 +422,7 @@ func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 	}
 	log.Debugf("UpdateEnvoyResources: Deleting %d, Upserting %d endpoints...", len(deleteEndpoints), len(new.Endpoints))
 	for _, endpoint := range deleteEndpoints {
-		revertFuncs = append(revertFuncs, s.deleteEndpoint(endpoint.ClusterName, wg, nil))
+		revertFuncs = append(revertFuncs, s.deleteEndpoint(endpoint.ClusterName, nil, nil))
 	}
 
 	// Delete old secrets not added in 'new'
@@ -425,7 +440,7 @@ func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 	}
 	log.Debugf("UpdateEnvoyResources: Deleting %d, Upserting %d secrets...", len(deleteSecrets), len(new.Secrets))
 	for _, secret := range deleteSecrets {
-		revertFuncs = append(revertFuncs, s.deleteSecret(secret.Name, wg, nil))
+		revertFuncs = append(revertFuncs, s.deleteSecret(secret.Name, nil, nil))
 	}
 
 	// Have to wait for deletes to complete before adding new listeners if a listener's port number is changed.
@@ -443,19 +458,19 @@ func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 
 	// Add new Secrets
 	for _, r := range new.Secrets {
-		revertFuncs = append(revertFuncs, s.upsertSecret(r.Name, r, wg, nil))
+		revertFuncs = append(revertFuncs, s.upsertSecret(r.Name, r, nil, nil))
 	}
 	// Add new Endpoints
 	for _, r := range new.Endpoints {
-		revertFuncs = append(revertFuncs, s.upsertEndpoint(r.ClusterName, r, wg, nil))
+		revertFuncs = append(revertFuncs, s.upsertEndpoint(r.ClusterName, r, nil, nil))
 	}
 	// Add new Clusters
 	for _, r := range new.Clusters {
-		revertFuncs = append(revertFuncs, s.upsertCluster(r.Name, r, wg, nil))
+		revertFuncs = append(revertFuncs, s.upsertCluster(r.Name, r, nil, nil))
 	}
 	// Add new Routes
 	for _, r := range new.Routes {
-		revertFuncs = append(revertFuncs, s.upsertRoute(r.Name, r, wg, nil))
+		revertFuncs = append(revertFuncs, s.upsertRoute(r.Name, r, nil, nil))
 	}
 	// Add new Listeners
 	for _, r := range new.Listeners {
@@ -511,17 +526,24 @@ func (s *XDSServer) DeleteEnvoyResources(ctx context.Context, resources Resource
 				}
 			}))
 	}
+	// Do not wait for the deletion of routes, clusters, or endpoints, as
+	// there are no quarantees that these deletions will be acked. For
+	// example, if the listener referring to was already deleted earlier,
+	// there are no references to the deleted resources any more, in which
+	// case we could wait forever for the ACKs. This could also happen if
+	// there is no listener referring to these other named resources to
+	// begin with.
 	for _, r := range resources.Routes {
-		revertFuncs = append(revertFuncs, s.deleteRoute(r.Name, wg, nil))
+		revertFuncs = append(revertFuncs, s.deleteRoute(r.Name, nil, nil))
 	}
 	for _, r := range resources.Clusters {
-		revertFuncs = append(revertFuncs, s.deleteCluster(r.Name, wg, nil))
+		revertFuncs = append(revertFuncs, s.deleteCluster(r.Name, nil, nil))
 	}
 	for _, r := range resources.Endpoints {
-		revertFuncs = append(revertFuncs, s.deleteEndpoint(r.ClusterName, wg, nil))
+		revertFuncs = append(revertFuncs, s.deleteEndpoint(r.ClusterName, nil, nil))
 	}
 	for _, r := range resources.Secrets {
-		revertFuncs = append(revertFuncs, s.deleteSecret(r.Name, wg, nil))
+		revertFuncs = append(revertFuncs, s.deleteSecret(r.Name, nil, nil))
 	}
 
 	if wg != nil {
