@@ -76,6 +76,7 @@ Advanced Networking
    local-redirect-policy
    bgp
    egress-gateway
+   vtep
 
 Cluster Mesh
 ------------
