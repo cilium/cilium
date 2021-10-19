@@ -455,6 +455,17 @@ type LoadBalancerIngress struct {
 	// (typically GCE or OpenStack load-balancers)
 	// +optional
 	IP string `json:"ip,omitempty" protobuf:"bytes,1,opt,name=ip"`
+
+	// Hostname is set for load-balancer ingress points that are DNS based
+	// (typically AWS load-balancers)
+	// +optional
+	Hostname string `json:"hostname,omitempty" protobuf:"bytes,2,opt,name=hostname"`
+
+	// Ports is a list of records of service ports
+	// If used, every port defined in the service should have an entry in it
+	// +listType=atomic
+	// +optional
+	Ports []PortStatus `json:"ports,omitempty" protobuf:"bytes,4,rep,name=ports"`
 }
 
 // IPFamily represents the IP Family (IPv4 or IPv6). This type is used
@@ -982,4 +993,27 @@ type TypedLocalObjectReference struct {
 	Kind string `json:"kind" protobuf:"bytes,2,opt,name=kind"`
 	// Name is the name of resource being referenced
 	Name string `json:"name" protobuf:"bytes,3,opt,name=name"`
+}
+
+// PortStatus represents the error condition of a service port
+
+type PortStatus struct {
+	// Port is the port number of the service port of which status is recorded here
+	Port int32 `json:"port" protobuf:"varint,1,opt,name=port"`
+	// Protocol is the protocol of the service port of which status is recorded here
+	// The supported values are: "TCP", "UDP", "SCTP"
+	Protocol Protocol `json:"protocol" protobuf:"bytes,2,opt,name=protocol,casttype=Protocol"`
+	// Error is to record the problem with the service port
+	// The format of the error shall comply with the following rules:
+	// - built-in error values shall be specified in this file and those shall use
+	//   CamelCase names
+	// - cloud provider specific error values must have names that comply with the
+	//   format foo.example.com/CamelCase.
+	// ---
+	// The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+	// +optional
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern=`^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$`
+	// +kubebuilder:validation:MaxLength=316
+	Error *string `json:"error,omitempty" protobuf:"bytes,3,opt,name=error"`
 }

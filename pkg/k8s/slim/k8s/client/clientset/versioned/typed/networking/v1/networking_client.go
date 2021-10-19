@@ -15,12 +15,22 @@ import (
 
 type MetaV1Interface interface {
 	RESTClient() rest.Interface
+	IngressesGetter
+	IngressClassesGetter
 	NetworkPoliciesGetter
 }
 
 // MetaV1Client is used to interact with features provided by the meta group.
 type MetaV1Client struct {
 	restClient rest.Interface
+}
+
+func (c *MetaV1Client) Ingresses(namespace string) IngressInterface {
+	return newIngresses(c, namespace)
+}
+
+func (c *MetaV1Client) IngressClasses() IngressClassInterface {
+	return newIngressClasses(c)
 }
 
 func (c *MetaV1Client) NetworkPolicies(namespace string) NetworkPolicyInterface {
