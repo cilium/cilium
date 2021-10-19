@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/version"
 )
@@ -998,6 +999,18 @@ const (
 	// EnableK8sTerminatingEndpoint enables the option to auto detect terminating
 	// state for endpoints in order to support graceful termination.
 	EnableK8sTerminatingEndpoint = "enable-k8s-terminating-endpoint"
+
+	// EnableVTEP enables cilium VXLAN VTEP integration
+	EnableVTEP = "enable-vtep"
+
+	// VTEP endpoint IPs
+	VtepEndpoint = "vtep-endpoint"
+
+	// VTEP CIDRs
+	VtepCIDR = "vtep-cidr"
+
+	// VTEP MACs
+	VtepMAC = "vtep-mac"
 )
 
 // Default string arguments
@@ -2043,6 +2056,18 @@ type DaemonConfig struct {
 	// EnableK8sTerminatingEndpoint enables auto-detect of terminating state for
 	// Kubernetes service endpoints.
 	EnableK8sTerminatingEndpoint bool
+
+	// EnableVTEP enable Cilium VXLAN VTEP integration
+	EnableVTEP bool
+
+	// VtepEndpoints VTEP endpoint IPs
+	VtepEndpoints []net.IP
+
+	// VtepCIDRs VTEP CIDRs
+	VtepCIDRs []*cidr.CIDR
+
+	// VtepMACs VTEP MACs
+	VtepMACs []mac.MAC
 }
 
 var (
@@ -2090,6 +2115,7 @@ var (
 		APIRateLimit:                     make(map[string]string),
 
 		ExternalClusterIP: defaults.ExternalClusterIP,
+		EnableVTEP:        defaults.EnableVTEP,
 	}
 )
 
@@ -2388,6 +2414,16 @@ func (c *DaemonConfig) Validate() error {
 	for enabledEndpointStatus := range c.EndpointStatus {
 		if _, ok := allowedEndpointStatusValues[enabledEndpointStatus]; !ok {
 			return fmt.Errorf("unknown endpoint-status option '%s'", enabledEndpointStatus)
+		}
+	}
+
+	if c.EnableVTEP {
+		if c.EnablePolicy != NeverEnforce {
+			return fmt.Errorf("%s (beta) is currently only supported with %s=%s.", EnableVTEP, EnablePolicy, NeverEnforce)
+		}
+		err := c.validateVTEP()
+		if err != nil {
+			return fmt.Errorf("Failed to validate VTEP configuration: %w", err)
 		}
 	}
 
@@ -2926,6 +2962,9 @@ func (c *DaemonConfig) Populate() {
 	c.EnableICMPRules = viper.GetBool(EnableICMPRules)
 	c.BypassIPAvailabilityUponRestore = viper.GetBool(BypassIPAvailabilityUponRestore)
 	c.EnableK8sTerminatingEndpoint = viper.GetBool(EnableK8sTerminatingEndpoint)
+
+	// VTEP integration enable option
+	c.EnableVTEP = viper.GetBool(EnableVTEP)
 }
 
 func (c *DaemonConfig) populateDevices() {
@@ -3266,6 +3305,51 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(totalMemory uint64, dynamicSi
 	} else {
 		log.Debugf("option %s set by user to %v", NATMapEntriesGlobalName, c.NATMapEntriesGlobal)
 	}
+}
+
+// Validate VTEP integration configuration
+func (c *DaemonConfig) validateVTEP() error {
+	vtepEndpoints := viper.GetStringSlice(VtepEndpoint)
+	vtepCIDRs := viper.GetStringSlice(VtepCIDR)
+	vtepMACs := viper.GetStringSlice(VtepMAC)
+
+	if (len(vtepEndpoints) < 1) ||
+		len(vtepEndpoints) != len(vtepCIDRs) ||
+		len(vtepEndpoints) != len(vtepMACs) {
+		return fmt.Errorf("VTEP configuration must have the same number of Endpoint, VTEP and MAC configurations (Found %d endpoints, %d MACs, %d CIDR ranges)", len(vtepEndpoints), len(vtepMACs), len(vtepCIDRs))
+	}
+	//Todo: resolve github issue 18616 to lift the maximum 2 VTEP limit
+	if len(vtepEndpoints) > 2 {
+		return fmt.Errorf("VTEP must not exceed 2 VTEP devices (Found %d VTEPs)", len(vtepEndpoints))
+	}
+	for _, ep := range vtepEndpoints {
+		if strings.Contains(ep, ":") {
+			return fmt.Errorf("VTEP integration IPv6 not supported: %v", ep)
+		}
+		endpoint := net.ParseIP(ep)
+		if endpoint == nil {
+			return fmt.Errorf("Invalid VTEP IP: %v", ep)
+		}
+		c.VtepEndpoints = append(c.VtepEndpoints, endpoint)
+
+	}
+	for _, v := range vtepCIDRs {
+		externalCIDR, err := cidr.ParseCIDR(v)
+		if err != nil {
+			return fmt.Errorf("Invalid VTEP CIDR: %v", v)
+		}
+		c.VtepCIDRs = append(c.VtepCIDRs, externalCIDR)
+
+	}
+	for _, m := range vtepMACs {
+		externalMAC, err := mac.ParseMAC(m)
+		if err != nil {
+			return fmt.Errorf("Invalid VTEP MAC: %v", m)
+		}
+		c.VtepMACs = append(c.VtepMACs, externalMAC)
+
+	}
+	return nil
 }
 
 // KubeProxyReplacementFullyEnabled returns true if Cilium is _effectively_

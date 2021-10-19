@@ -1085,6 +1085,18 @@ enableIPv6Masquerade: true
 egressGateway:
   enabled: false
 
+vtep:
+# -- Enables VXLAN Tunnel Endpoint (VTEP) Integration (beta) to allow
+# Cilium-managed pods to talk to third party VTEP devices over Cilium tunnel.
+  enabled: false
+
+# -- A space separated list of VTEP device endpoint IPs, for example "1.1.1.1  1.1.2.1"
+  endpoint: ""
+# -- A space separated list of VTEP device CIDRs, for example "1.1.1.0/24 1.1.2.0/24"
+  cidr: ""
+# -- A space separated list of VTEP device MAC addresses (VTEP MAC), for example "x:x:x:x:x:x  y:y:y:y:y:y:y"
+  mac: ""
+
 # -- Allows to explicitly specify the IPv4 CIDR for native routing.
 # When specified, Cilium assumes networking for this CIDR is preconfigured and
 # hands traffic destined for that range to the Linux network stack without

@@ -269,6 +269,13 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 		}
 	}
 
+	if option.Config.EnableVTEP {
+		err := setupIPCacheVTEPMapping()
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -476,6 +483,25 @@ func setupIPSec() (int, uint8, error) {
 	}
 	node.SetIPsecKeyIdentity(spi)
 	return authKeySize, spi, nil
+}
+
+func setupIPCacheVTEPMapping() error {
+	encryptKey := uint8(0)                           // no encrypt support
+	vtepID := uint32(identity.ReservedIdentityWorld) //network policy identity for VTEP
+
+	for i, ep := range option.Config.VtepEndpoints {
+		log.WithFields(logrus.Fields{
+			logfields.IPAddr: ep,
+		}).Debug("Updating ipcache map entry for VTEP")
+
+		err := ipcachemap.UpdateIPCacheVTEPMapping(option.Config.VtepCIDRs[i], ep, vtepID, encryptKey)
+		if err != nil {
+			return fmt.Errorf("Unable to set up VTEP ipcache mappings: %w", err)
+		}
+
+	}
+	return nil
+
 }
 
 // Datapath returns a reference to the datapath implementation.
