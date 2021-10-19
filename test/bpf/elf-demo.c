@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-// Copyright (c) 2018-2019 Authors of Cilium
+// Copyright (c) 2018-2021 Authors of Cilium
 
 #include <bpf/ctx/skb.h>
 #include <bpf/api.h>
@@ -13,23 +13,29 @@ DEFINE_U32(BAR, 0xCECECECE);
 DEFINE_IPV6(GLOBAL_IPV6, 0x1, 0, 0x1, 0, 0, 0x1, 0, 0x1, 0x1, 0, 0x1, 0, 0, 0x1, 0, 0x1);
 DEFINE_MAC(LOCAL_MAC, 0, 0x1, 0, 0, 0, 0x1);
 
-#define CALLS_MAP_ID 1
+#define CALLS_MAP_ID 0
 #undef CALLS_MAP
 #define CALLS_MAP test_cilium_calls_4278124286 // 0xFEFEFEFE
 
-struct bpf_elf_map __section_maps CALLS_MAP = {
-	.type		= BPF_MAP_TYPE_PROG_ARRAY,
-	.id		= CALLS_MAP_ID,
-	.size_key	= sizeof(__u32),
-	.size_value	= sizeof(__u32),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= CALLS_MAP_ID,
-};
+// Note: This program is meant to exercise ELF substitution logic and eBPF
+// loader behaviour. The programs are not assigned to sections, so don't have
+// their progbits emitted to the ELF, and cannot be loaded into the kernel.
 
-__section_tail(CALLS_MAP_ID, 0)
 int tail_lxc_prog(struct __sk_buff *skb) {
 	return TC_ACT_OK;
 }
+
+struct {
+	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
+	__uint(key_size, sizeof(__u32));
+	__uint(max_entries, 1);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__array(values, int ());
+} CALLS_MAP __section_maps_btf = {
+	.values = {
+		[CALLS_MAP_ID] = &tail_lxc_prog,
+	},
+};
 
 int __main(struct __sk_buff *skb)
 {
@@ -49,7 +55,8 @@ int __main(struct __sk_buff *skb)
 	skb->tc_classid = mac.p2;
 
 	tail_call(skb, &CALLS_MAP, CALLS_MAP_ID);
-	return TC_ACT_OK;
+
+	return TC_ACT_SHOT;
 }
 
 char __license[] __section("license") = "";

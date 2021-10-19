@@ -8,6 +8,7 @@
 
 #define __uint(name, val) int(*(name))[val]
 #define __type(name, val) typeof(val) *(name)
+#define __array(name, val) typeof(val) *(name)[]
 
 #define PIN_NONE		0
 #define PIN_OBJECT_NS		1
