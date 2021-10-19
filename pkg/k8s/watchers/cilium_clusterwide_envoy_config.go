@@ -11,6 +11,7 @@ import (
 	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service"
 
 	"github.com/sirupsen/logrus"
@@ -93,7 +94,10 @@ func (k *K8sWatcher) addCiliumClusterwideEnvoyConfig(ccec *cilium_v2alpha1.Ciliu
 		scopedLog.WithError(err).Warn("Failed to add CiliumClusterwideEnvoyConfig: malformed Envoy config")
 		return err
 	}
-	if err := k.envoyConfigManager.UpsertEnvoyResources(context.TODO(), resources, k.envoyConfigManager); err != nil {
+
+	ctx, cancel := context.WithTimeout(context.Background(), option.Config.EnvoyConfigTimeout)
+	defer cancel()
+	if err := k.envoyConfigManager.UpsertEnvoyResources(ctx, resources, k.envoyConfigManager); err != nil {
 		scopedLog.WithError(err).Warn("Failed to add CiliumClusterwideEnvoyConfig")
 		return err
 	}
@@ -131,7 +135,9 @@ func (k *K8sWatcher) updateCiliumClusterwideEnvoyConfig(oldCCEC *cilium_v2alpha1
 		return err
 	}
 
-	if err = k.envoyConfigManager.UpdateEnvoyResources(context.TODO(), oldResources, newResources, k.envoyConfigManager); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), option.Config.EnvoyConfigTimeout)
+	defer cancel()
+	if err = k.envoyConfigManager.UpdateEnvoyResources(ctx, oldResources, newResources, k.envoyConfigManager); err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumClusterwideEnvoyConfig")
 		return err
 	}
@@ -164,7 +170,9 @@ func (k *K8sWatcher) deleteCiliumClusterwideEnvoyConfig(ccec *cilium_v2alpha1.Ci
 		return err
 	}
 
-	if err = k.envoyConfigManager.DeleteEnvoyResources(context.TODO(), resources, k.envoyConfigManager); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), option.Config.EnvoyConfigTimeout)
+	defer cancel()
+	if err = k.envoyConfigManager.DeleteEnvoyResources(ctx, resources, k.envoyConfigManager); err != nil {
 		scopedLog.WithError(err).Warn("Failed to delete Envoy resources")
 		return err
 	}
