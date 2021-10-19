@@ -558,6 +558,13 @@ func onOperatorStartLeading(ctx context.Context) {
 			"Cannot connect to Kubernetes apiserver ")
 	}
 
+	ingressController, err := operatorWatchers.NewIngressController()
+	if err != nil {
+		log.WithError(err).WithField(logfields.LogSubsys, operatorWatchers.IngressSubsys).Fatal(
+			"Failed to start ingress controller")
+	}
+	go ingressController.Run()
+
 	log.Info("Initialization complete")
 
 	<-shutdownSignal
