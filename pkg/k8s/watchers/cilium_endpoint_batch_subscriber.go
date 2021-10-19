@@ -25,25 +25,25 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type cebSubscriber struct {
+type cesSubscriber struct {
 	kWatcher *K8sWatcher
 }
 
-func newCEBSubscriber(k *K8sWatcher) *cebSubscriber {
-	return &cebSubscriber{
+func newCESSubscriber(k *K8sWatcher) *cesSubscriber {
+	return &cesSubscriber{
 		kWatcher: k,
 	}
 }
 
-// OnAdd invoked for newly created CEBs, iterates over coreCEPs
-// packed in the CEB, converts coreCEP into types.CEP and calls endpointUpdated only for remoteNode CEPs.
-func (cs *cebSubscriber) OnAdd(ceb *cilium_v2a1.CiliumEndpointBatch) {
-	for i, ep := range ceb.Endpoints {
+// OnAdd invoked for newly created CESs, iterates over coreCEPs
+// packed in the CES, converts coreCEP into types.CEP and calls endpointUpdated only for remoteNode CEPs.
+func (cs *cesSubscriber) OnAdd(ces *cilium_v2a1.CiliumEndpointSlice) {
+	for i, ep := range ces.Endpoints {
 		log.WithFields(logrus.Fields{
-			"CEBName": ceb.GetName(),
+			"CESName": ces.GetName(),
 			"CEPName": ep.Name,
-		}).Debug("CEB added, calling CoreEndpointUpdate")
-		c := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(&ceb.Endpoints[i], ceb.Namespace)
+		}).Debug("CES added, calling CoreEndpointUpdate")
+		c := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(&ces.Endpoints[i], ces.Namespace)
 		if p := cs.kWatcher.endpointManager.LookupPodName(k8sUtils.GetObjNamespaceName(c)); p != nil {
 			timeSinceCepCreated := time.Since(p.GetCreatedAt())
 			metrics.EndpointPropagationDelay.WithLabelValues().Observe(timeSinceCepCreated.Seconds())
@@ -52,32 +52,32 @@ func (cs *cebSubscriber) OnAdd(ceb *cilium_v2a1.CiliumEndpointBatch) {
 	}
 }
 
-// OnUpdate invoked for modified CEBs, it compares old CEB and new CEB objects
+// OnUpdate invoked for modified CESs, it compares old CES and new CES objects
 // determines below things
-// 1) any coreCEPs are removed from CEB
-// 2) any new coreCEPs are packed in CEB
-// 3) any existing coreCEPs are modified in CEB
+// 1) any coreCEPs are removed from CES
+// 2) any new coreCEPs are packed in CES
+// 3) any existing coreCEPs are modified in CES
 // call endpointUpdated/endpointDeleted only for remote node CEPs.
-func (cs *cebSubscriber) OnUpdate(oldCEB, newCEB *cilium_v2a1.CiliumEndpointBatch) {
-	oldCEPs := make(map[string]*cilium_v2a1.CoreCiliumEndpoint, len(oldCEB.Endpoints))
-	for i, ep := range oldCEB.Endpoints {
-		oldCEPs[oldCEB.Namespace+"/"+ep.Name] = &oldCEB.Endpoints[i]
+func (cs *cesSubscriber) OnUpdate(oldCES, newCES *cilium_v2a1.CiliumEndpointSlice) {
+	oldCEPs := make(map[string]*cilium_v2a1.CoreCiliumEndpoint, len(oldCES.Endpoints))
+	for i, ep := range oldCES.Endpoints {
+		oldCEPs[oldCES.Namespace+"/"+ep.Name] = &oldCES.Endpoints[i]
 	}
 
-	newCEPs := make(map[string]*cilium_v2a1.CoreCiliumEndpoint, len(newCEB.Endpoints))
-	for i, ep := range newCEB.Endpoints {
-		newCEPs[newCEB.Namespace+"/"+ep.Name] = &newCEB.Endpoints[i]
+	newCEPs := make(map[string]*cilium_v2a1.CoreCiliumEndpoint, len(newCES.Endpoints))
+	for i, ep := range newCES.Endpoints {
+		newCEPs[newCES.Namespace+"/"+ep.Name] = &newCES.Endpoints[i]
 	}
 
-	// Handle, removed CEPs from the CEB.
-	// old CEB would have one or more stale cep entries, remove stale CEPs from oldCEB.
+	// Handle, removed CEPs from the CES.
+	// old CES would have one or more stale cep entries, remove stale CEPs from oldCES.
 	for CEPName, oldCEP := range oldCEPs {
 		if _, exists := newCEPs[CEPName]; !exists {
 			log.WithFields(logrus.Fields{
-				"CEBName": oldCEB.GetName(),
+				"CESName": oldCES.GetName(),
 				"CEPName": CEPName,
 			}).Debug("CEP deleted, calling endpointDeleted")
-			c := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(oldCEP, oldCEB.Namespace)
+			c := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(oldCEP, oldCES.Namespace)
 			// LocalNode already has the latest CEP.
 			// Hence, skip processing endpointupdate for localNode CEPs.
 			if p := cs.kWatcher.endpointManager.LookupPodName(k8sUtils.GetObjNamespaceName(c)); p != nil {
@@ -87,14 +87,14 @@ func (cs *cebSubscriber) OnUpdate(oldCEB, newCEB *cilium_v2a1.CiliumEndpointBatc
 		}
 	}
 
-	// Handle any new CEPs inserted in the CEB.
+	// Handle any new CEPs inserted in the CES.
 	for CEPName, newCEP := range newCEPs {
 		if _, exists := oldCEPs[CEPName]; !exists {
 			log.WithFields(logrus.Fields{
-				"CEBName": oldCEB.GetName(),
+				"CESName": oldCES.GetName(),
 				"CEPName": CEPName,
 			}).Debug("CEP inserted, calling endpointUpdated")
-			c := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(newCEP, newCEB.Namespace)
+			c := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(newCEP, newCES.Namespace)
 			if p := cs.kWatcher.endpointManager.LookupPodName(k8sUtils.GetObjNamespaceName(c)); p != nil {
 				timeSinceCepCreated := time.Since(p.GetCreatedAt())
 				metrics.EndpointPropagationDelay.WithLabelValues().Observe(timeSinceCepCreated.Seconds())
@@ -110,25 +110,25 @@ func (cs *cebSubscriber) OnUpdate(oldCEB, newCEB *cilium_v2a1.CiliumEndpointBatc
 				continue
 			}
 			log.WithFields(logrus.Fields{
-				"CEBName": oldCEB.GetName(),
+				"CESName": oldCES.GetName(),
 				"CEPName": CEPName,
-			}).Debug("CEB updated, calling endpointUpdated")
-			newC := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(newCEP, newCEB.Namespace)
-			oldC := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(oldCEP, oldCEB.Namespace)
+			}).Debug("CES updated, calling endpointUpdated")
+			newC := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(newCEP, newCES.Namespace)
+			oldC := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(oldCEP, oldCES.Namespace)
 			cs.kWatcher.endpointUpdated(oldC, newC)
 		}
 	}
 }
 
-// OnDelete invoked for deleted CEBs, iterates over coreCEPs
+// OnDelete invoked for deleted CESs, iterates over coreCEPs
 // and calls endpointDeleted only for remoteNode CEPs.
-func (cs *cebSubscriber) OnDelete(ceb *cilium_v2a1.CiliumEndpointBatch) {
-	for i, ep := range ceb.Endpoints {
+func (cs *cesSubscriber) OnDelete(ces *cilium_v2a1.CiliumEndpointSlice) {
+	for i, ep := range ces.Endpoints {
 		log.WithFields(logrus.Fields{
-			"CEBName": ceb.GetName(),
+			"CESName": ces.GetName(),
 			"CEPName": ep.Name,
-		}).Debug("CEB deleted, calling endpointDeleted")
-		c := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(&ceb.Endpoints[i], ceb.Namespace)
+		}).Debug("CES deleted, calling endpointDeleted")
+		c := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(&ces.Endpoints[i], ces.Namespace)
 		// LocalNode already deleted the CEP.
 		// Hence, skip processing endpointDeleted for localNode CEPs.
 		if p := cs.kWatcher.endpointManager.LookupPodName(k8sUtils.GetObjNamespaceName(c)); p != nil {

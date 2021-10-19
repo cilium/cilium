@@ -29,41 +29,41 @@ import (
 )
 
 var (
-	cebNotify = subscriber.NewCEB()
+	cesNotify = subscriber.NewCES()
 )
 
-func (k *K8sWatcher) ciliumEndpointBatchInit(client *k8s.K8sCiliumClient, asyncControllers *sync.WaitGroup) {
-	log.Info("Initializing CEB controller")
+func (k *K8sWatcher) ciliumEndpointSliceInit(client *k8s.K8sCiliumClient, asyncControllers *sync.WaitGroup) {
+	log.Info("Initializing CES controller")
 	var once sync.Once
 
-	// Register for all ceb updates.
-	cebNotify.Register(newCEBSubscriber(k))
+	// Register for all ces updates.
+	cesNotify.Register(newCESSubscriber(k))
 
 	for {
-		_, cebInformer := informer.NewInformer(
+		_, cesInformer := informer.NewInformer(
 			cache.NewListWatchFromClient(client.CiliumV2alpha1().RESTClient(),
-				cilium_v2a1.CEBPluralName, v1.NamespaceAll, fields.Everything()),
-			&cilium_v2a1.CiliumEndpointBatch{},
+				cilium_v2a1.CESPluralName, v1.NamespaceAll, fields.Everything()),
+			&cilium_v2a1.CiliumEndpointSlice{},
 			0,
 			cache.ResourceEventHandlerFuncs{
 				AddFunc: func(obj interface{}) {
-					if ceb := k8s.ObjToCiliumEndpointBatch(obj); ceb != nil {
-						cebNotify.NotifyAdd(ceb)
+					if ces := k8s.ObjToCiliumEndpointSlice(obj); ces != nil {
+						cesNotify.NotifyAdd(ces)
 					}
 				},
 				UpdateFunc: func(oldObj, newObj interface{}) {
-					if oldCeb := k8s.ObjToCiliumEndpointBatch(oldObj); oldCeb != nil {
-						if newCeb := k8s.ObjToCiliumEndpointBatch(newObj); newCeb != nil {
-							if oldCeb.DeepEqual(newCeb) {
+					if oldCES := k8s.ObjToCiliumEndpointSlice(oldObj); oldCES != nil {
+						if newCES := k8s.ObjToCiliumEndpointSlice(newObj); newCES != nil {
+							if oldCES.DeepEqual(newCES) {
 								return
 							}
-							cebNotify.NotifyUpdate(oldCeb, newCeb)
+							cesNotify.NotifyUpdate(oldCES, newCES)
 						}
 					}
 				},
 				DeleteFunc: func(obj interface{}) {
-					if ceb := k8s.ObjToCiliumEndpointBatch(obj); ceb != nil {
-						cebNotify.NotifyDelete(ceb)
+					if ces := k8s.ObjToCiliumEndpointSlice(obj); ces != nil {
+						cesNotify.NotifyDelete(ces)
 					}
 				},
 			},
@@ -75,8 +75,8 @@ func (k *K8sWatcher) ciliumEndpointBatchInit(client *k8s.K8sCiliumClient, asyncC
 		k.blockWaitGroupToSyncResources(
 			isConnected,
 			nil,
-			cebInformer.HasSynced,
-			k8sAPIGroupCiliumEndpointBatchV2Alpha1,
+			cesInformer.HasSynced,
+			k8sAPIGroupCiliumEndpointSliceV2Alpha1,
 		)
 
 		once.Do(func() {
@@ -84,16 +84,16 @@ func (k *K8sWatcher) ciliumEndpointBatchInit(client *k8s.K8sCiliumClient, asyncC
 			// to sync resources.
 			asyncControllers.Done()
 		})
-		k.k8sAPIGroups.AddAPI(k8sAPIGroupCiliumEndpointBatchV2Alpha1)
-		go cebInformer.Run(isConnected)
+		k.k8sAPIGroups.AddAPI(k8sAPIGroupCiliumEndpointSliceV2Alpha1)
+		go cesInformer.Run(isConnected)
 
 		<-kvstore.Connected()
 		close(isConnected)
 
-		log.Info("Connected to key-value store, stopping CiliumEndpointBatch watcher")
-		k.k8sAPIGroups.RemoveAPI(k8sAPIGroupCiliumEndpointBatchV2Alpha1)
-		k.cancelWaitGroupToSyncResources(k8sAPIGroupCiliumEndpointBatchV2Alpha1)
+		log.Info("Connected to key-value store, stopping CiliumEndpointSlice watcher")
+		k.k8sAPIGroups.RemoveAPI(k8sAPIGroupCiliumEndpointSliceV2Alpha1)
+		k.cancelWaitGroupToSyncResources(k8sAPIGroupCiliumEndpointSliceV2Alpha1)
 		<-kvstore.Client().Disconnected()
-		log.Info("Disconnected from key-value store, restarting CiliumEndpointBatch watcher")
+		log.Info("Disconnected from key-value store, restarting CiliumEndpointSlice watcher")
 	}
 }

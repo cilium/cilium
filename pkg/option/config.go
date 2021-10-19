@@ -1017,9 +1017,9 @@ const (
 	// running and able to schedule endpoints.
 	WriteCNIConfigurationWhenReady = "write-cni-conf-when-ready"
 
-	// EnableCiliumEndpointBatch enables the cilium endpoint batching feature in
+	// EnableCiliumEndpointSlice enables the cilium endpoint slicing feature in
 	// Cilum operator and in cilium agent.
-	EnableCiliumEndpointBatch = "enable-cilium-endpoint-batch"
+	EnableCiliumEndpointSlice = "enable-cilium-endpoint-slice"
 )
 
 const (
@@ -1954,8 +1954,8 @@ type DaemonConfig struct {
 	// ARPPingRefreshPeriod is the ARP entries refresher period.
 	ARPPingRefreshPeriod time.Duration
 
-	// EnableCiliumEndpointBatch enables the cilium endpoint batching feature.
-	EnableCiliumEndpointBatch bool
+	// EnableCiliumEndpointSlice enables the cilium endpoint slicing feature.
+	EnableCiliumEndpointSlice bool
 }
 
 var (
@@ -2722,7 +2722,7 @@ func (c *DaemonConfig) Populate() {
 	c.HubbleRecorderStoragePath = viper.GetString(HubbleRecorderStoragePath)
 	c.HubbleRecorderSinkQueueSize = viper.GetInt(HubbleRecorderSinkQueueSize)
 	c.DisableIptablesFeederRules = viper.GetStringSlice(DisableIptablesFeederRules)
-	c.EnableCiliumEndpointBatch = viper.GetBool(EnableCiliumEndpointBatch)
+	c.EnableCiliumEndpointSlice = viper.GetBool(EnableCiliumEndpointSlice)
 
 	// Hidden options
 	c.CompilerFlags = viper.GetStringSlice(CompilerFlags)

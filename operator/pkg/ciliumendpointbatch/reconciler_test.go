@@ -15,7 +15,7 @@
 //go:build !privileged_tests
 // +build !privileged_tests
 
-package ciliumendpointbatch
+package ciliumendpointslice
 
 import (
 	"testing"
@@ -33,19 +33,19 @@ import (
 )
 
 const (
-	CEBReconcilerUID      = "12345"
-	CEBReconcilerGenerate = 9090
+	CESReconcilerUID      = "12345"
+	CESReconcilerGenerate = 9090
 )
 
 var (
-	// Test CEB object, with 2 CEPs packed in it.
-	Ceb1 = &capi_v2a1.CiliumEndpointBatch{
+	// Test CES object, with 2 CEPs packed in it.
+	CES1 = &capi_v2a1.CiliumEndpointSlice{
 		TypeMeta: meta_v1.TypeMeta{
-			Kind:       "CiliumEndpointBatch",
+			Kind:       "CiliumEndpointSlice",
 			APIVersion: capi_v2a1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: meta_v1.ObjectMeta{
-			Name: "Ceb-apple-one",
+			Name: "CES-apple-one",
 		},
 		Endpoints: []capi_v2a1.CoreCiliumEndpoint{
 			{
@@ -59,14 +59,14 @@ var (
 		},
 	}
 
-	// Test CEB object, with 2 CEPs packed in it.
-	Ceb2 = &capi_v2a1.CiliumEndpointBatch{
+	// Test CES object, with 2 CEPs packed in it.
+	CES2 = &capi_v2a1.CiliumEndpointSlice{
 		TypeMeta: meta_v1.TypeMeta{
-			Kind:       "CiliumEndpointBatch",
+			Kind:       "CiliumEndpointSlice",
 			APIVersion: capi_v2a1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: meta_v1.ObjectMeta{
-			Name: "Ceb-apple-two",
+			Name: "CES-apple-two",
 		},
 		Endpoints: []capi_v2a1.CoreCiliumEndpoint{
 			{
@@ -80,14 +80,14 @@ var (
 		},
 	}
 
-	// Test CEB object, with 2 CEPs packed in it.
-	Ceb3 = &capi_v2a1.CiliumEndpointBatch{
+	// Test CES object, with 2 CEPs packed in it.
+	CES3 = &capi_v2a1.CiliumEndpointSlice{
 		TypeMeta: meta_v1.TypeMeta{
-			Kind:       "CiliumEndpointBatch",
+			Kind:       "CiliumEndpointSlice",
 			APIVersion: capi_v2a1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: meta_v1.ObjectMeta{
-			Name: "Ceb-apple-three",
+			Name: "CES-apple-three",
 		},
 		Endpoints: []capi_v2a1.CoreCiliumEndpoint{
 			{
@@ -111,101 +111,101 @@ func newQueue() workqueue.RateLimitingInterface {
 // Create a fake cilium Client and add prepend reactor for Create/Update/Delete
 func fakeCiliumClient() clientset.CiliumV2alpha1Interface {
 	client := fake.NewSimpleClientset()
-	client.PrependReactor("create", "ciliumendpointbatches", k8stesting.ReactionFunc(func(action k8stesting.Action) (bool, runtime.Object, error) {
-		ciliumEndpointBatch := action.(k8stesting.CreateAction).GetObject().(*capi_v2a1.CiliumEndpointBatch)
-		ciliumEndpointBatch.UID = CEBReconcilerUID
-		return false, ciliumEndpointBatch, nil
+	client.PrependReactor("create", "ciliumendpointslices", k8stesting.ReactionFunc(func(action k8stesting.Action) (bool, runtime.Object, error) {
+		ciliumEndpointSlice := action.(k8stesting.CreateAction).GetObject().(*capi_v2a1.CiliumEndpointSlice)
+		ciliumEndpointSlice.UID = CESReconcilerUID
+		return false, ciliumEndpointSlice, nil
 	}))
-	client.PrependReactor("update", "ciliumendpointbatches", k8stesting.ReactionFunc(func(action k8stesting.Action) (bool, runtime.Object, error) {
-		ciliumEndpointBatch := action.(k8stesting.UpdateAction).GetObject().(*capi_v2a1.CiliumEndpointBatch)
-		ciliumEndpointBatch.Generation = CEBReconcilerGenerate
-		return false, ciliumEndpointBatch, nil
+	client.PrependReactor("update", "ciliumendpointslices", k8stesting.ReactionFunc(func(action k8stesting.Action) (bool, runtime.Object, error) {
+		ciliumEndpointSlice := action.(k8stesting.UpdateAction).GetObject().(*capi_v2a1.CiliumEndpointSlice)
+		ciliumEndpointSlice.Generation = CESReconcilerGenerate
+		return false, ciliumEndpointSlice, nil
 	}))
-	client.PrependReactor("delete", "ciliumendpointbatches", k8stesting.ReactionFunc(func(action k8stesting.Action) (bool, runtime.Object, error) {
+	client.PrependReactor("delete", "ciliumendpointslices", k8stesting.ReactionFunc(func(action k8stesting.Action) (bool, runtime.Object, error) {
 		return false, nil, nil
 	}))
 	return client.CiliumV2alpha1()
 }
 
-// Test Reconciler by creating CEBs, Updating CEBs and Deleting CEBs
+// Test Reconciler by creating CESs, Updating CESs and Deleting CESs
 func TestCiliumReconcile(t *testing.T) {
 	client := fakeCiliumClient()
 
-	// Store the CEBs in local Datastore
-	m := newCebManagerFcfs(newQueue(), 2)
-	// Create a CEB and updates the CEB in local datastore.
-	// deepcopies the entire CEB object in datastore.
-	m.createCeb(Ceb1.Name)
-	m.updateCebInCache(Ceb1, true)
-	m.createCeb(Ceb2.Name)
-	m.updateCebInCache(Ceb2, true)
-	m.createCeb(Ceb3.Name)
-	m.updateCebInCache(Ceb3, true)
+	// Store the CESs in local Datastore
+	m := newCESManagerFcfs(newQueue(), 2)
+	// Create a CES and updates the CES in local datastore.
+	// deepcopies the entire CES object in datastore.
+	m.createCES(CES1.Name)
+	m.updateCESInCache(CES1, true)
+	m.createCES(CES2.Name)
+	m.updateCESInCache(CES2, true)
+	m.createCES(CES3.Name)
+	m.updateCESInCache(CES3, true)
 
-	// List of CEBs to be created in api-server
+	// List of CESs to be created in api-server
 	r := newReconciler(client, m)
 
-	// Create CEBs, check errors from api-server and match CEBs UID value returned
-	// from api-server with CEBs in datastore.
-	t.Run("Create CEBs, check for any errors and  compare returned value from api-server with local data", func(*testing.T) {
-		err := r.reconcileCebCreate(Ceb1.Name)
+	// Create CESs, check errors from api-server and match CESs UID value returned
+	// from api-server with CESs in datastore.
+	t.Run("Create CESs, check for any errors and  compare returned value from api-server with local data", func(*testing.T) {
+		err := r.reconcileCESCreate(CES1.Name)
 		// There should not be any error from api-server
-		assert.Equal(t, err, nil, "No error in CEB Create request to api-server")
-		err = r.reconcileCebCreate(Ceb2.Name)
+		assert.Equal(t, err, nil, "No error in CES Create request to api-server")
+		err = r.reconcileCESCreate(CES2.Name)
 		// There should not be any error from api-server
-		assert.Equal(t, err, nil, "No error in CEB Create request to api-server")
-		err = r.reconcileCebCreate(Ceb3.Name)
+		assert.Equal(t, err, nil, "No error in CES Create request to api-server")
+		err = r.reconcileCESCreate(CES3.Name)
 		// There should not be any error from api-server
-		assert.Equal(t, err, nil, "No error in CEB Create request to api-server")
-		// Get Ceb from local datastore
-		ceb, _ := m.getCebFromCache(Ceb1.Name)
-		assert.Equal(t, string(ceb.GetUID()), CEBReconcilerUID, "Returned CEB UID from api-server should match with local CEB UID")
-		// Get Ceb from local datastore
-		ceb, _ = m.getCebFromCache(Ceb2.Name)
-		assert.Equal(t, string(ceb.GetUID()), CEBReconcilerUID, "Returned CEB UID from api-server should match with local CEB UID")
-		// Get Ceb from local datastore
-		ceb, _ = m.getCebFromCache(Ceb3.Name)
-		assert.Equal(t, string(ceb.GetUID()), CEBReconcilerUID, "Returned CEB UID from api-server should match with local CEB UID")
+		assert.Equal(t, err, nil, "No error in CES Create request to api-server")
+		// Get CES from local datastore
+		ceb, _ := m.getCESFromCache(CES1.Name)
+		assert.Equal(t, string(ceb.GetUID()), CESReconcilerUID, "Returned CES UID from api-server should match with local CES UID")
+		// Get CES from local datastore
+		ceb, _ = m.getCESFromCache(CES2.Name)
+		assert.Equal(t, string(ceb.GetUID()), CESReconcilerUID, "Returned CES UID from api-server should match with local CES UID")
+		// Get CES from local datastore
+		ceb, _ = m.getCESFromCache(CES3.Name)
+		assert.Equal(t, string(ceb.GetUID()), CESReconcilerUID, "Returned CES UID from api-server should match with local CES UID")
 	})
 
-	// Update CEBs, check errors from api-server and match CEBs Generate value returned
-	// from api-server with CEBs in datastore.
-	t.Run("Update CEBs, check for any errors and  compare returned value from api-server with local data", func(*testing.T) {
-		err := r.reconcileCebUpdate(Ceb1.Name)
+	// Update CESs, check errors from api-server and match CESs Generate value returned
+	// from api-server with CESs in datastore.
+	t.Run("Update CESs, check for any errors and  compare returned value from api-server with local data", func(*testing.T) {
+		err := r.reconcileCESUpdate(CES1.Name)
 		// There should not be any error from api-server
-		assert.Equal(t, err, nil, "No error in CEB Update request to api-server")
-		err = r.reconcileCebUpdate(Ceb2.Name)
+		assert.Equal(t, err, nil, "No error in CES Update request to api-server")
+		err = r.reconcileCESUpdate(CES2.Name)
 		// There should not be any error from api-server
-		assert.Equal(t, err, nil, "No error in CEB Update request to api-server")
-		err = r.reconcileCebUpdate(Ceb3.Name)
+		assert.Equal(t, err, nil, "No error in CES Update request to api-server")
+		err = r.reconcileCESUpdate(CES3.Name)
 		// There should not be any error from api-server
-		assert.Equal(t, err, nil, "No error in CEB Update request to api-server")
-		// Get Ceb from local datastore
-		ceb, _ := m.getCebFromCache(Ceb1.Name)
-		assert.Equal(t, ceb.Generation, int64(CEBReconcilerGenerate), "Returned CEB Generate from api-server should match with constant")
-		// Get Ceb from local datastore
-		ceb, _ = m.getCebFromCache(Ceb2.Name)
-		assert.Equal(t, ceb.Generation, int64(CEBReconcilerGenerate), "Returned CEB Generate from api-server should match with constant")
-		// Get Ceb from local datastore
-		ceb, _ = m.getCebFromCache(Ceb3.Name)
-		assert.Equal(t, ceb.Generation, int64(CEBReconcilerGenerate), "Returned CEB Generate from api-server should match with constant")
+		assert.Equal(t, err, nil, "No error in CES Update request to api-server")
+		// Get CES from local datastore
+		ceb, _ := m.getCESFromCache(CES1.Name)
+		assert.Equal(t, ceb.Generation, int64(CESReconcilerGenerate), "Returned CES Generate from api-server should match with constant")
+		// Get CES from local datastore
+		ceb, _ = m.getCESFromCache(CES2.Name)
+		assert.Equal(t, ceb.Generation, int64(CESReconcilerGenerate), "Returned CES Generate from api-server should match with constant")
+		// Get CES from local datastore
+		ceb, _ = m.getCESFromCache(CES3.Name)
+		assert.Equal(t, ceb.Generation, int64(CESReconcilerGenerate), "Returned CES Generate from api-server should match with constant")
 	})
 
-	// Delete CEBs, check errors from api-server and match CEBs and CEPs count
-	t.Run("Delete CEBs, check errors from api-server and match CEBs and CEPs count ", func(*testing.T) {
-		// Get Cebs from local datastore and check it length
-		assert.Equal(t, m.getCebCount(), 3, "Check the total CEB, this should match with value 3")
-		assert.Equal(t, m.getTotalCepCount(), 6, "Check the total CEB, this should match with value 6")
+	// Delete CESs, check errors from api-server and match CESs and CEPs count
+	t.Run("Delete CESs, check errors from api-server and match CESs and CEPs count ", func(*testing.T) {
+		// Get CESs from local datastore and check it length
+		assert.Equal(t, m.getCESCount(), 3, "Check the total CES, this should match with value 3")
+		assert.Equal(t, m.getTotalCepCount(), 6, "Check the total CES, this should match with value 6")
 
 		// reconcile with Server
-		err := r.reconcileCebDelete(Ceb1.Name)
+		err := r.reconcileCESDelete(CES1.Name)
 		// There should not be any error from api-server
-		assert.Equal(t, err, nil, "No error in CEB Delete request to api-server")
-		err = r.reconcileCebDelete(Ceb2.Name)
+		assert.Equal(t, err, nil, "No error in CES Delete request to api-server")
+		err = r.reconcileCESDelete(CES2.Name)
 		// There should not be any error from api-server
-		assert.Equal(t, err, nil, "No error in CEB Delete request to api-server")
-		err = r.reconcileCebDelete(Ceb3.Name)
+		assert.Equal(t, err, nil, "No error in CES Delete request to api-server")
+		err = r.reconcileCESDelete(CES3.Name)
 		// There should not be any error from api-server
-		assert.Equal(t, err, nil, "No error in CEB Delete request to api-server")
+		assert.Equal(t, err, nil, "No error in CES Delete request to api-server")
 	})
 }

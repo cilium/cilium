@@ -30,58 +30,58 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// CiliumEndpointBatchInformer provides access to a shared informer and lister for
-// CiliumEndpointBatches.
-type CiliumEndpointBatchInformer interface {
+// CiliumEndpointSliceInformer provides access to a shared informer and lister for
+// CiliumEndpointSlices.
+type CiliumEndpointSliceInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v2alpha1.CiliumEndpointBatchLister
+	Lister() v2alpha1.CiliumEndpointSliceLister
 }
 
-type ciliumEndpointBatchInformer struct {
+type ciliumEndpointSliceInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 }
 
-// NewCiliumEndpointBatchInformer constructs a new informer for CiliumEndpointBatch type.
+// NewCiliumEndpointSliceInformer constructs a new informer for CiliumEndpointSlice type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewCiliumEndpointBatchInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredCiliumEndpointBatchInformer(client, resyncPeriod, indexers, nil)
+func NewCiliumEndpointSliceInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredCiliumEndpointSliceInformer(client, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredCiliumEndpointBatchInformer constructs a new informer for CiliumEndpointBatch type.
+// NewFilteredCiliumEndpointSliceInformer constructs a new informer for CiliumEndpointSlice type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredCiliumEndpointBatchInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredCiliumEndpointSliceInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CiliumV2alpha1().CiliumEndpointBatches().List(context.TODO(), options)
+				return client.CiliumV2alpha1().CiliumEndpointSlices().List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CiliumV2alpha1().CiliumEndpointBatches().Watch(context.TODO(), options)
+				return client.CiliumV2alpha1().CiliumEndpointSlices().Watch(context.TODO(), options)
 			},
 		},
-		&ciliumiov2alpha1.CiliumEndpointBatch{},
+		&ciliumiov2alpha1.CiliumEndpointSlice{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *ciliumEndpointBatchInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredCiliumEndpointBatchInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *ciliumEndpointSliceInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredCiliumEndpointSliceInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *ciliumEndpointBatchInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&ciliumiov2alpha1.CiliumEndpointBatch{}, f.defaultInformer)
+func (f *ciliumEndpointSliceInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&ciliumiov2alpha1.CiliumEndpointSlice{}, f.defaultInformer)
 }
 
-func (f *ciliumEndpointBatchInformer) Lister() v2alpha1.CiliumEndpointBatchLister {
-	return v2alpha1.NewCiliumEndpointBatchLister(f.Informer().GetIndexer())
+func (f *ciliumEndpointSliceInformer) Lister() v2alpha1.CiliumEndpointSliceLister {
+	return v2alpha1.NewCiliumEndpointSliceLister(f.Informer().GetIndexer())
 }

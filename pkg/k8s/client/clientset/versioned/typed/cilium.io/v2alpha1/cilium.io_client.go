@@ -25,7 +25,7 @@ import (
 type CiliumV2alpha1Interface interface {
 	RESTClient() rest.Interface
 	CiliumEgressNATPoliciesGetter
-	CiliumEndpointBatchesGetter
+	CiliumEndpointSlicesGetter
 }
 
 // CiliumV2alpha1Client is used to interact with features provided by the cilium.io group.
@@ -37,8 +37,8 @@ func (c *CiliumV2alpha1Client) CiliumEgressNATPolicies() CiliumEgressNATPolicyIn
 	return newCiliumEgressNATPolicies(c)
 }
 
-func (c *CiliumV2alpha1Client) CiliumEndpointBatches() CiliumEndpointBatchInterface {
-	return newCiliumEndpointBatches(c)
+func (c *CiliumV2alpha1Client) CiliumEndpointSlices() CiliumEndpointSliceInterface {
+	return newCiliumEndpointSlices(c)
 }
 
 // NewForConfig creates a new CiliumV2alpha1Client for the given config.

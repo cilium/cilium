@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ciliumendpointbatch
+package ciliumendpointslice
 
 import (
 	"context"
@@ -24,79 +24,79 @@ import (
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
 )
 
-// reconciler is used to sync the current (i.e. desired) state of the CEBs in datastore into current state CEBs in the k8s-apiserver.
+// reconciler is used to sync the current (i.e. desired) state of the CESs in datastore into current state CESs in the k8s-apiserver.
 // The source of truth is in local datastore.
 type reconciler struct {
 	client     clientset.CiliumV2alpha1Interface
-	cebManager cebManager
+	cesManager cesManager
 }
 
 // newReconciler creates and initializes a new reconciler.
-func newReconciler(client clientset.CiliumV2alpha1Interface, cebMgr cebManager) *reconciler {
+func newReconciler(client clientset.CiliumV2alpha1Interface, cesMgr cesManager) *reconciler {
 	return &reconciler{
 		client:     client,
-		cebManager: cebMgr,
+		cesManager: cesMgr,
 	}
 }
 
-// Create a new CEB in api-server.
-func (r *reconciler) reconcileCebCreate(cebToCreate string) (err error) {
-	var retCeb, ceb *cilium_v2.CiliumEndpointBatch
-	// Get the copy of Ceb from the cebManager
-	if ceb, err = r.cebManager.getCebCopyFromCache(cebToCreate); err != nil {
+// Create a new CES in api-server.
+func (r *reconciler) reconcileCESCreate(cesToCreate string) (err error) {
+	var retCES, ces *cilium_v2.CiliumEndpointSlice
+	// Get the copy of CES from the cesManager
+	if ces, err = r.cesManager.getCESCopyFromCache(cesToCreate); err != nil {
 		return
 	}
 
-	// Call the client API, to Create CEB
-	if retCeb, err = r.client.CiliumEndpointBatches().Create(
-		context.TODO(), ceb, metav1.CreateOptions{}); err != nil {
+	// Call the client API, to Create CES
+	if retCES, err = r.client.CiliumEndpointSlices().Create(
+		context.TODO(), ces, metav1.CreateOptions{}); err != nil {
 		log.WithError(err).WithFields(logrus.Fields{
-			"ceb-name": cebToCreate,
-		}).Error("Error Creating CiliumEndpointBatch")
+			"ces-name": cesToCreate,
+		}).Info("Unable to Create CiliumEndpointSlice in k8s-apiserver")
 		return
 	}
-	// Update local datastore CEB with latest object metadata values.
-	r.cebManager.updateCebInCache(retCeb, false)
+	// Update local datastore CES with latest object metadata values.
+	r.cesManager.updateCESInCache(retCES, false)
 	return
 }
 
-// Update an existing CEB
-func (r *reconciler) reconcileCebUpdate(cebToUpdate string) (err error) {
-	var retCeb, ceb *cilium_v2.CiliumEndpointBatch
+// Update an existing CES
+func (r *reconciler) reconcileCESUpdate(cesToUpdate string) (err error) {
+	var retCES, ces *cilium_v2.CiliumEndpointSlice
 
 	// Before syncing with ApiServer, get list of removed CEPs
-	remCeps := r.cebManager.getRemovedCeps(cebToUpdate)
-	// Get the copy of Ceb from the cebManager
-	if ceb, err = r.cebManager.getCebCopyFromCache(cebToUpdate); err != nil {
+	remCEPs := r.cesManager.getRemovedCEPs(cesToUpdate)
+	// Get the copy of CES from the cesManager
+	if ces, err = r.cesManager.getCESCopyFromCache(cesToUpdate); err != nil {
 		return
 	}
 
-	// Call the client API, to Create CEBs
-	if retCeb, err = r.client.CiliumEndpointBatches().Update(
-		context.TODO(), ceb, metav1.UpdateOptions{}); err != nil {
+	// Call the client API, to Create CESs
+	if retCES, err = r.client.CiliumEndpointSlices().Update(
+		context.TODO(), ces, metav1.UpdateOptions{}); err != nil {
 		log.WithError(err).WithFields(logrus.Fields{
-			"ceb-name": cebToUpdate,
-		}).Error("Error Updating CiliumEndpointBatch")
+			"ces-name": cesToUpdate,
+		}).Info("Unable to Update CiliumEndpointSlice in k8s-apiserver")
 		return
 	}
-	// Update local datastore CEB with latest object metadata values.
-	r.cebManager.updateCebInCache(retCeb, false)
-	// Since local copy of CEB is synced with api-server, we don't need to track anymore removed
+	// Update local datastore CES with latest object metadata values.
+	r.cesManager.updateCESInCache(retCES, false)
+	// Since local copy of CES is synced with api-server, we don't need to track anymore removed
 	// CEPS.
-	r.cebManager.clearRemovedCeps(cebToUpdate, remCeps)
+	r.cesManager.clearRemovedCEPs(cesToUpdate, remCEPs)
 	return
 }
 
-// Delete the CEB.
-func (r *reconciler) reconcileCebDelete(cebToDelete string) (err error) {
-	if err = r.client.CiliumEndpointBatches().Delete(
-		context.TODO(), cebToDelete, metav1.DeleteOptions{}); err != nil {
+// Delete the CES.
+func (r *reconciler) reconcileCESDelete(cesToDelete string) (err error) {
+	if err = r.client.CiliumEndpointSlices().Delete(
+		context.TODO(), cesToDelete, metav1.DeleteOptions{}); err != nil {
 		log.WithError(err).WithFields(logrus.Fields{
-			"ceb-name": cebToDelete,
-		}).Error("Error Deleting CiliumEndpointBatch")
+			"ces-name": cesToDelete,
+		}).Info("Unable to delete CiliumEndpointSlice in k8s-apiserver")
 		return
 	}
-	// Delete ceb information from cache
-	r.cebManager.deleteCebFromCache(cebToDelete)
+	// Delete ces information from cache
+	r.cesManager.deleteCESFromCache(cesToDelete)
 	return
 }

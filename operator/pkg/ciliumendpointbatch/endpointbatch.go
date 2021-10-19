@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ciliumendpointbatch
+package ciliumendpointslice
 
 import (
 	"time"
@@ -39,37 +39,37 @@ import (
 )
 
 const (
-	// cebNamePrefix is the prefix name added for the CiliumEndpointBatch
+	// cesNamePrefix is the prefix name added for the CiliumEndpointSlice
 	// resource.
-	cebNamePrefix = "ceb"
+	cesNamePrefix = "ces"
 
-	// defaultSyncBackOff is the default backoff period for cebSync calls.
+	// defaultSyncBackOff is the default backoff period for cesSync calls.
 	defaultSyncBackOff = 1 * time.Second
-	// maxSyncBackOff is the max backoff period for cebSync calls.
+	// maxSyncBackOff is the max backoff period for cesSync calls.
 	maxSyncBackOff = 100 * time.Second
-	// maxRetries is the number of times a cebSync will be retried before it is
+	// maxRetries is the number of times a cesSync will be retried before it is
 	// dropped out of the queue.
 	maxRetries = 15
-	// CEPs are batched into a CEB, based on its Identity
-	cebIdentityBasedBatching = "cebBatchModeIdentity"
+	// CEPs are batched into a CES, based on its Identity
+	cesIdentityBasedSlicing = "cesSliceModeIdentity"
 	// default qps limit value for workqueues, this only for retries.
-	CEBControllerWorkQueueQPSLimit = 10
+	CESControllerWorkQueueQPSLimit = 10
 	// default burst limit value for workqueues.
-	CEBControllerWorkQueueBurstLimit = 100
+	CESControllerWorkQueueBurstLimit = 100
 )
 
-type CiliumEndpointBatchController struct {
+type CiliumEndpointSliceController struct {
 	// Cilium kubernetes clients to access V2 and V2alpha1 resources
 	clientV2   csv2.CiliumV2Interface
 	clientV2a1 csv2a1.CiliumV2alpha1Interface
 
-	// reconciler is an util used to reconcile CiliumEndpointBatch changes.
+	// reconciler is an util used to reconcile CiliumEndpointSlice changes.
 	reconciler *reconciler
 
 	// Manager is used to create and maintain a local datastore. Manager watches for
-	// cilium endpoint changes and enqueues/dequeues the cilium endpoint changes in CEB.
-	// It maintains the desired state of the CEBs in dataStore
-	Manager cebManager
+	// cilium endpoint changes and enqueues/dequeues the cilium endpoint changes in CES.
+	// It maintains the desired state of the CESs in dataStore
+	Manager cesManager
 
 	// ciliumEndpointStore is used to get current active CEPs in a cluster.
 	ciliumEndpointStore cache.Indexer
@@ -77,42 +77,42 @@ type CiliumEndpointBatchController struct {
 	// workerLoopPeriod is the time between worker runs
 	workerLoopPeriod time.Duration
 
-	// workqueue is used to sync CEBs with the api-server. this will rate-limit the
-	// CEB requests going to api-server, ensures a single CEB will not be proccessed
-	// multiple times concurrently, and if CEB is added multiple times before it
+	// workqueue is used to sync CESs with the api-server. this will rate-limit the
+	// CES requests going to api-server, ensures a single CES will not be proccessed
+	// multiple times concurrently, and if CES is added multiple times before it
 	// can be processed, this will only be processed only once.
 	queue workqueue.RateLimitingInterface
 
-	// ciliumEndpointBatchStore is used to get current active CEBs in a cluster.
-	ciliumEndpointBatchStore cache.Store
+	// ciliumEndpointSliceStore is used to get current active CESs in a cluster.
+	ciliumEndpointSliceStore cache.Store
 
-	// batchingMode indicates how CEP are batched in a CEB
-	batchingMode string
+	// slicingMode indicates how CEP are sliceed in a CES
+	slicingMode string
 }
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ceb-controller")
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ces-controller")
 
 // Derives the unique name from CoreCiliumEndpoint object.
-// This unique name is used for mapping CiliumEndpoint to CiliumEndpointBatch.
-// Used widely, to determine if the given CEP is mapped to any CEB or not.
+// This unique name is used for mapping CiliumEndpoint to CiliumEndpointSlice.
+// Used widely, to determine if the given CEP is mapped to any CES or not.
 func GetCepNameFromCCEP(cep *capi_v2a1.CoreCiliumEndpoint, namespace string) string {
 	return namespace + "/" + cep.Name
 }
 
-// NewCebController, creates and initializes the CEB controller
-func NewCebController(client *k8s.K8sCiliumClient,
-	maxCepsInCeb int,
-	batchingMode string,
+// NewCESController, creates and initializes the CES controller
+func NewCESController(client *k8s.K8sCiliumClient,
+	maxCEPsInCES int,
+	slicingMode string,
 	qpsLimit float64,
 	burstLimit int,
-) *CiliumEndpointBatchController {
+) *CiliumEndpointSliceController {
 
 	if qpsLimit == 0 {
-		qpsLimit = CEBControllerWorkQueueQPSLimit
+		qpsLimit = CESControllerWorkQueueQPSLimit
 	}
 
 	if burstLimit == 0 {
-		burstLimit = CEBControllerWorkQueueBurstLimit
+		burstLimit = CESControllerWorkQueueBurstLimit
 	}
 
 	log.WithFields(logrus.Fields{
@@ -120,56 +120,56 @@ func NewCebController(client *k8s.K8sCiliumClient,
 		"WorkQueue burst limit":  burstLimit,
 		"WorkQueue sync backoff": defaultSyncBackOff,
 		"WorkQueue max retries":  maxRetries,
-	}).Info("CEB controller workqueue configuration")
+	}).Info("CES controller workqueue configuration")
 
 	rlQueue := workqueue.NewNamedRateLimitingQueue(workqueue.NewMaxOfRateLimiter(
 		workqueue.NewItemExponentialFailureRateLimiter(defaultSyncBackOff, maxSyncBackOff),
 		// 10 qps, 100 bucket size. This is only for retry speed and its
 		// only the overall factor (not per item).
 		&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(qpsLimit), burstLimit)},
-	), "cilium_endpoint_batch")
+	), "cilium_endpoint_slice")
 
-	manager := newCebManagerFcfs(rlQueue, maxCepsInCeb)
-	if batchingMode == cebIdentityBasedBatching {
-		manager = newCebManagerIdentity(rlQueue, maxCepsInCeb)
+	manager := newCESManagerFcfs(rlQueue, maxCEPsInCES)
+	if slicingMode == cesIdentityBasedSlicing {
+		manager = newCESManagerIdentity(rlQueue, maxCEPsInCES)
 	}
-	cebStore := ciliumEndpointBatchInit(client.CiliumV2alpha1(), wait.NeverStop)
+	cesStore := ciliumEndpointSliceInit(client.CiliumV2alpha1(), wait.NeverStop)
 
-	// List all existing CEBs from the api-server and cache it locally.
+	// List all existing CESs from the api-server and cache it locally.
 	// This sync should happen before starting CEP watcher, because CEP watcher
 	// emits the existing CEPs as newly added CEPs. If we don't have local sync
-	// cebManager would assume those are new CEPs and may create new CEBs for those CEPs.
-	// This situation ends up having duplicate CEPs in different CEBs. Hence, we need
-	// to sync existing CEBs before starting a CEP watcher.
-	syncCebsInLocalCache(cebStore, manager)
-	return &CiliumEndpointBatchController{
+	// cesManager would assume those are new CEPs and may create new CESs for those CEPs.
+	// This situation ends up having duplicate CEPs in different CESs. Hence, we need
+	// to sync existing CESs before starting a CEP watcher.
+	syncCESsInLocalCache(cesStore, manager)
+	return &CiliumEndpointSliceController{
 		clientV2:                 client.CiliumV2(),
 		clientV2a1:               client.CiliumV2alpha1(),
 		reconciler:               newReconciler(client.CiliumV2alpha1(), manager),
 		Manager:                  manager,
 		queue:                    rlQueue,
-		ciliumEndpointBatchStore: cebStore,
-		batchingMode:             batchingMode,
+		ciliumEndpointSliceStore: cesStore,
+		slicingMode:              slicingMode,
 		workerLoopPeriod:         1 * time.Second,
 	}
 }
 
-// start the worker thread, reconciles the modified CEBs with api-server
-func (c *CiliumEndpointBatchController) Run(ces cache.Indexer, stopCh chan struct{}) {
+// start the worker thread, reconciles the modified CESs with api-server
+func (c *CiliumEndpointSliceController) Run(ces cache.Indexer, stopCh chan struct{}) {
 
-	log.Info("Bootstrap ceb controller")
+	log.Info("Bootstrap ces controller")
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
 	// Cache CiliumEndpointStore Interface locally
 	c.ciliumEndpointStore = ces
 
-	// On operator warm boot, remove stale cep entries present in CEB
+	// On operator warm boot, remove stale cep entries present in CES
 	c.removeStaleCepEntries()
 
 	log.WithFields(logrus.Fields{
-		"Batching mode": c.batchingMode,
-	}).Info("Starting CEB controller reconciler.")
+		"Slicing mode": c.slicingMode,
+	}).Info("Starting CES controller reconciler.")
 
 	// TODO: multiple worker threads can run concurrently to reconcile with api-server
 	go wait.Until(c.worker, c.workerLoopPeriod, stopCh)
@@ -184,16 +184,16 @@ func (c *CiliumEndpointBatchController) Run(ces cache.Indexer, stopCh chan struc
 }
 
 // Upon warm boot[restart], Iterate over all CEPs which we got from the api-server
-// and compare it with CEPs packed inside CEB.
-// If there are any stale CEPs present in CEBs, remove them from their CEB.
-func (c *CiliumEndpointBatchController) removeStaleCepEntries() {
-	log.Info("Remove stale CEP entries in CEB")
+// and compare it with CEPs packed inside CES.
+// If there are any stale CEPs present in CESs, remove them from their CES.
+func (c *CiliumEndpointSliceController) removeStaleCepEntries() {
+	log.Info("Remove stale CEP entries in CES")
 
 	// Get all ceps from local datastore
-	staleCeps := c.Manager.getAllCepNames()
+	staleCEPs := c.Manager.getAllCepNames()
 
-	// Remove stale CEP entries present in CEB
-	for _, cepName := range staleCeps {
+	// Remove stale CEP entries present in CES
+	for _, cepName := range staleCEPs {
 		// Ignore error from below api, this is added to avoid accidental cep rmeoval from cache
 		if _, exists, err := c.ciliumEndpointStore.GetByKey(cepName); err == nil && exists || err != nil {
 			continue
@@ -206,51 +206,51 @@ func (c *CiliumEndpointBatchController) removeStaleCepEntries() {
 	return
 }
 
-// Sync all cebs from cebStore to manager cache.
-// Note: CEBs are synced locally before CEB controller running and this is required.
-func syncCebsInLocalCache(cebStore cache.Store, manager cebManager) {
+// Sync all cess from cesStore to manager cache.
+// Note: CESs are synced locally before CES controller running and this is required.
+func syncCESsInLocalCache(cesStore cache.Store, manager cesManager) {
 
-	for _, obj := range cebStore.List() {
-		ceb := obj.(*v2alpha1.CiliumEndpointBatch)
-		// If CEB is already cached locally, do nothing.
-		if _, err := manager.getCebFromCache(ceb.GetName()); err == nil {
+	for _, obj := range cesStore.List() {
+		ces := obj.(*v2alpha1.CiliumEndpointSlice)
+		// If CES is already cached locally, do nothing.
+		if _, err := manager.getCESFromCache(ces.GetName()); err == nil {
 			continue
 		}
 
-		// Create new CEB locally, with the given cebName
-		manager.createCeb(ceb.GetName())
+		// Create new CES locally, with the given cesName
+		manager.createCES(ces.GetName())
 
-		// Deep copy the ceb, we got from api-server to local datastore.
-		manager.updateCebInCache(ceb, true)
+		// Deep copy the ces, we got from api-server to local datastore.
+		manager.updateCESInCache(ces, true)
 
 	}
-	log.Debug("Successfully synced all CEBs locally")
+	log.Debug("Successfully synced all CESs locally")
 	return
 }
 
 // worker runs a worker thread that just dequeues items, processes them, and
 // marks them done. You may run as many of these in parallel as you wish; the
-// workqueue guarantees that they will not end up processing the same ceb
+// workqueue guarantees that they will not end up processing the same ces
 // at the same time
-func (c *CiliumEndpointBatchController) worker() {
+func (c *CiliumEndpointSliceController) worker() {
 	for c.processNextWorkItem() {
 	}
 }
 
-func (c *CiliumEndpointBatchController) processNextWorkItem() bool {
+func (c *CiliumEndpointSliceController) processNextWorkItem() bool {
 	cKey, quit := c.queue.Get()
 	if quit {
 		return false
 	}
 	defer c.queue.Done(cKey)
 
-	err := c.syncCeb(cKey.(string))
+	err := c.syncCES(cKey.(string))
 	c.handleErr(err, cKey)
 
 	return true
 }
 
-func (c *CiliumEndpointBatchController) handleErr(err error, key interface{}) {
+func (c *CiliumEndpointSliceController) handleErr(err error, key interface{}) {
 
 	if err == nil {
 		c.queue.Forget(key)
@@ -259,7 +259,7 @@ func (c *CiliumEndpointBatchController) handleErr(err error, key interface{}) {
 
 	// Increment error count for sync errors
 	if operatorOption.Config.EnableMetrics {
-		metrics.CiliumEndpointBatchSyncErrors.Inc()
+		metrics.CiliumEndpointSliceSyncErrors.Inc()
 	}
 
 	if c.queue.NumRequeues(key) < maxRetries {
@@ -267,64 +267,64 @@ func (c *CiliumEndpointBatchController) handleErr(err error, key interface{}) {
 		return
 	}
 
-	// Drop the CEB from queue, we maxed out retries.
+	// Drop the CES from queue, we maxed out retries.
 	log.WithError(err).WithFields(logrus.Fields{
-		"ceb-name": key,
-	}).Error("Dropping the CEB from queue, exceeded maxRetries")
+		"ces-name": key,
+	}).Error("Dropping the CES from queue, exceeded maxRetries")
 	c.queue.Forget(key)
 }
 
-// syncCeb reconciles the queued CEB with api-server.
-func (c *CiliumEndpointBatchController) syncCeb(key string) error {
+// syncCES reconciles the queued CES with api-server.
+func (c *CiliumEndpointSliceController) syncCES(key string) error {
 
 	// Update metrics
 	if operatorOption.Config.EnableMetrics {
-		metrics.CiliumEndpointBatchDensity.Observe(float64(c.Manager.getCepCountInCeb(key)))
-		cepInsert, cepRemove := c.Manager.getCebMetricCountersAndClear(key)
+		metrics.CiliumEndpointSliceDensity.Observe(float64(c.Manager.getCepCountInCES(key)))
+		cepInsert, cepRemove := c.Manager.getCESMetricCountersAndClear(key)
 		metrics.CiliumEndpointsChangeCount.WithLabelValues(metrics.LabelValueCEPInsert).Observe(float64(cepInsert))
 		metrics.CiliumEndpointsChangeCount.WithLabelValues(metrics.LabelValueCEPRemove).Observe(float64(cepRemove))
-		metrics.CiliumEndpointBatchQueueDelay.Observe(c.Manager.getCEBQueueDelayInSeconds(key))
+		metrics.CiliumEndpointSliceQueueDelay.Observe(c.Manager.getCESQueueDelayInSeconds(key))
 	}
-	// Check the CEB exists is in cebStore i.e. in api-server copy of CEBs, if exist update or delete the CEB.
-	obj, exists, err := c.ciliumEndpointBatchStore.GetByKey(key)
+	// Check the CES exists is in cesStore i.e. in api-server copy of CESs, if exist update or delete the CES.
+	obj, exists, err := c.ciliumEndpointSliceStore.GetByKey(key)
 	if err == nil && exists {
-		ceb := obj.(*v2alpha1.CiliumEndpointBatch)
-		// Delete the CEB, only if CEP count is zero in local copy of CEB and api-server copy of CEB,
-		// else Update the CEB
-		if len(ceb.Endpoints) == 0 && c.Manager.getCepCountInCeb(key) == 0 {
-			if err := c.reconciler.reconcileCebDelete(key); err != nil {
+		ces := obj.(*v2alpha1.CiliumEndpointSlice)
+		// Delete the CES, only if CEP count is zero in local copy of CES and api-server copy of CES,
+		// else Update the CES
+		if len(ces.Endpoints) == 0 && c.Manager.getCepCountInCES(key) == 0 {
+			if err := c.reconciler.reconcileCESDelete(key); err != nil {
 				return err
 			}
 		} else {
-			if err := c.reconciler.reconcileCebUpdate(key); err != nil {
+			if err := c.reconciler.reconcileCESUpdate(key); err != nil {
 				return err
 			}
 		}
 	}
 
 	if err == nil && !exists {
-		// Create the CEB with api-server
-		if err := c.reconciler.reconcileCebCreate(key); err != nil {
+		// Create the CES with api-server
+		if err := c.reconciler.reconcileCESCreate(key); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// Initialize and start CEB watcher
-// TODO Watch for CEB's, make sure only CEB controller Create/Update/Delete the CEB not bad actors.
-func ciliumEndpointBatchInit(client csv2a1.CiliumV2alpha1Interface, stopCh <-chan struct{}) cache.Store {
-	cebStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
-	cebController := informer.NewInformerWithStore(
+// Initialize and start CES watcher
+// TODO Watch for CES's, make sure only CES controller Create/Update/Delete the CES not bad actors.
+func ciliumEndpointSliceInit(client csv2a1.CiliumV2alpha1Interface, stopCh <-chan struct{}) cache.Store {
+	cesStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+	cesController := informer.NewInformerWithStore(
 		cache.NewListWatchFromClient(client.RESTClient(),
-			capi_v2a1.CEBPluralName, v1.NamespaceAll, fields.Everything()),
-		&capi_v2a1.CiliumEndpointBatch{},
+			capi_v2a1.CESPluralName, v1.NamespaceAll, fields.Everything()),
+		&capi_v2a1.CiliumEndpointSlice{},
 		0,
 		cache.ResourceEventHandlerFuncs{},
 		nil,
-		cebStore,
+		cesStore,
 	)
-	go cebController.Run(stopCh)
-	cache.WaitForCacheSync(stopCh, cebController.HasSynced)
-	return cebStore
+	go cesController.Run(stopCh)
+	cache.WaitForCacheSync(stopCh, cesController.HasSynced)
+	return cesStore
 }
