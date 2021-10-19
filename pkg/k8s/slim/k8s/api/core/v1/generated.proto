@@ -201,6 +201,17 @@ message LoadBalancerIngress {
   // (typically GCE or OpenStack load-balancers)
   // +optional
   optional string ip = 1;
+
+  // Hostname is set for load-balancer ingress points that are DNS based
+  // (typically AWS load-balancers)
+  // +optional
+  optional string hostname = 2;
+
+  // Ports is a list of records of service ports
+  // If used, every port defined in the service should have an entry in it
+  // +listType=atomic
+  // +optional
+  repeated PortStatus ports = 4;
 }
 
 // LoadBalancerStatus represents the status of a load-balancer.
@@ -476,6 +487,29 @@ message PodStatus {
   optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time startTime = 7;
 }
 
+message PortStatus {
+  // Port is the port number of the service port of which status is recorded here
+  optional int32 port = 1;
+
+  // Protocol is the protocol of the service port of which status is recorded here
+  // The supported values are: "TCP", "UDP", "SCTP"
+  optional string protocol = 2;
+
+  // Error is to record the problem with the service port
+  // The format of the error shall comply with the following rules:
+  // - built-in error values shall be specified in this file and those shall use
+  //   CamelCase names
+  // - cloud provider specific error values must have names that comply with the
+  //   format foo.example.com/CamelCase.
+  // ---
+  // The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+  // +optional
+  // +kubebuilder:validation:Required
+  // +kubebuilder:validation:Pattern=`^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$`
+  // +kubebuilder:validation:MaxLength=316
+  optional string error = 3;
+}
+
 // Service is a named abstraction of software service (for example, mysql) consisting of local port
 // (for example 3306) that the proxy listens on, and the selector that determines which pods
 // will answer requests sent through the proxy.
@@ -737,6 +771,22 @@ message Taint {
   // It is only written for NoExecute taints.
   // +optional
   optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time timeAdded = 4;
+}
+
+// TypedLocalObjectReference contains enough information to let you locate the
+// typed referenced object inside the same namespace.
+message TypedLocalObjectReference {
+  // APIGroup is the group for the resource being referenced.
+  // If APIGroup is not specified, the specified Kind must be in the core API group.
+  // For any other third-party types, APIGroup is required.
+  // +optional
+  optional string apiGroup = 1;
+
+  // Kind is the type of resource being referenced
+  optional string kind = 2;
+
+  // Name is the name of resource being referenced
+  optional string name = 3;
 }
 
 // VolumeMount describes a mounting of a Volume within a container.
