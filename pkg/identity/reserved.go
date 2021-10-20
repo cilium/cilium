@@ -47,10 +47,5 @@ func LookupReservedIdentity(ni NumericIdentity) *Identity {
 }
 
 func init() {
-	IterateReservedIdentities(func(lbl string, ni NumericIdentity) {
-		identity := NewIdentity(ni, labels.Labels{lbl: labels.NewLabel(lbl, "", labels.LabelSourceReserved)})
-		// Pre-calculate the SHA256 hash.
-		identity.GetLabelsSHA256()
-		ReservedIdentityCache[ni] = identity
-	})
+	IterateReservedIdentities(AddReservedIdentityWithLabels)
 }
