@@ -27,6 +27,17 @@ func AddReservedIdentity(ni NumericIdentity, lbl string) {
 	cacheMU.Unlock()
 }
 
+// AddReservedIdentityWithLabels is the same as AddReservedIdentity but accepts
+// multiple labels.
+func AddReservedIdentityWithLabels(ni NumericIdentity, lbls labels.Labels) {
+	identity := NewIdentity(ni, lbls)
+	// Pre-calculate the SHA256 hash.
+	identity.GetLabelsSHA256()
+	cacheMU.Lock()
+	ReservedIdentityCache[ni] = identity
+	cacheMU.Unlock()
+}
+
 // LookupReservedIdentity looks up a reserved identity by its NumericIdentity
 // and returns it if found. Returns nil if not found.
 func LookupReservedIdentity(ni NumericIdentity) *Identity {
