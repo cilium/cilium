@@ -116,6 +116,7 @@ cilium-agent [flags]
       --enable-recorder                                      Enable BPF datapath pcap recorder
       --enable-remote-node-identity                          Enable use of remote node identity
       --enable-session-affinity                              Enable support for service session affinity
+      --enable-srv6                                          Enable SRv6 support (beta)
       --enable-svc-source-range-check                        Enable check of service source ranges (currently, only for LoadBalancer) (default true)
       --enable-tracing                                       Enable tracing while determining policy (debugging)
       --enable-well-known-identities                         Enable well-known identities for known Kubernetes components (default true)

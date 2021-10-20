@@ -111,6 +111,7 @@ Redis
 RuleParser
 SIG
 SR-IOV
+SRv
 Sharma
 Shirokov
 Socionext
@@ -806,6 +807,7 @@ sortBufferDrainTimeout
 sortBufferLenMax
 sourceContext
 src
+srv
 ssl
 stacktrace
 stap

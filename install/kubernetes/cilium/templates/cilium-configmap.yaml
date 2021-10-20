@@ -504,6 +504,10 @@ data:
   enable-ipv4-fragment-tracking: "false"
 {{- end }}
 
+{{- if and .Values.srv6 .Values.srv6.enabled }}
+  enable-srv6: {{ .Values.srv6.enabled | quote }}
+{{- end}}
+
 {{- if and .Values.hostFirewall .Values.hostFirewall.enabled }}
   enable-host-firewall: {{ .Values.hostFirewall.enabled | quote }}
 {{- end}}

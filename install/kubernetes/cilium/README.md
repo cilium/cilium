@@ -377,6 +377,8 @@ contributors across the globe, there is almost always someone available to help.
 | serviceAccounts.hubblecertgen | object | `{"annotations":{},"create":true,"name":"hubble-generate-certs"}` | Hubblecertgen is used if hubble.tls.auto.method=cronJob |
 | sleepAfterInit | bool | `false` | Do not run Cilium agent when running with clean mode. Useful to completely uninstall Cilium as it will stop Cilium from starting and create artifacts in the node. |
 | sockops | object | `{"enabled":false}` | Configure BPF socket operations configuration |
+| srv6 | object | `{"enabled":false}` | Configure SRv6 support. |
+| srv6.enabled | bool | `false` | Enable SRv6 encapsulation support. |
 | startupProbe.failureThreshold | int | `105` | failure threshold of startup probe. 105 x 2s translates to the old behaviour of the readiness probe (120s delay + 30 x 3s) |
 | startupProbe.periodSeconds | int | `2` | interval between checks of the startup probe |
 | tls | object | `{"enabled":true,"secretsBackend":"local"}` | Configure TLS configuration in the agent. |

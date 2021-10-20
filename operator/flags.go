@@ -83,6 +83,10 @@ func init() {
 	flags.MarkHidden(option.EnableLocalRedirectPolicy)
 	option.BindEnv(option.EnableLocalRedirectPolicy)
 
+	flags.Bool(option.EnableSRv6Name, false, "")
+	flags.MarkHidden(option.EnableSRv6Name)
+	option.BindEnv(option.EnableSRv6Name)
+
 	flags.Duration(operatorOption.EndpointGCInterval, operatorOption.EndpointGCIntervalDefault, "GC interval for cilium endpoints")
 	option.BindEnv(operatorOption.EndpointGCInterval)
 

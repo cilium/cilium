@@ -1305,6 +1305,14 @@
      - Configure BPF socket operations configuration
      - object
      - ``{"enabled":false}``
+   * - srv6
+     - Configure SRv6 support.
+     - object
+     - ``{"enabled":false}``
+   * - srv6.enabled
+     - Enable SRv6 encapsulation support.
+     - bool
+     - ``false``
    * - startupProbe.failureThreshold
      - failure threshold of startup probe. 105 x 2s translates to the old behaviour of the readiness probe (120s delay + 30 x 3s)
      - int

@@ -324,6 +324,9 @@ func initializeFlags() {
 	flags.Bool(option.EnableIPv6NDPName, defaults.EnableIPv6NDP, "Enable IPv6 NDP support")
 	option.BindEnv(option.EnableIPv6NDPName)
 
+	flags.Bool(option.EnableSRv6Name, defaults.EnableSRv6, "Enable SRv6 support (beta)")
+	option.BindEnv(option.EnableSRv6Name)
+
 	flags.String(option.IPv6MCastDevice, "", "Device that joins a Solicited-Node multicast group for IPv6")
 	option.BindEnv(option.IPv6MCastDevice)
 
