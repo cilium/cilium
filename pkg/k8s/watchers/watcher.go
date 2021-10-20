@@ -63,6 +63,7 @@ const (
 	k8sAPIGroupCiliumEndpointV2                 = "cilium/v2::CiliumEndpoint"
 	k8sAPIGroupCiliumLocalRedirectPolicyV2      = "cilium/v2::CiliumLocalRedirectPolicy"
 	k8sAPIGroupCiliumEgressNATPolicyV2          = "cilium/v2::CiliumEgressNATPolicy"
+	k8sAPIGroupCiliumEndpointSliceV2Alpha1      = "cilium/v2alpha1::CiliumEndpointSlice"
 	K8sAPIGroupEndpointSliceV1Beta1Discovery    = "discovery/v1beta1::EndpointSlice"
 	K8sAPIGroupEndpointSliceV1Discovery         = "discovery/v1::EndpointSlice"
 
@@ -337,6 +338,7 @@ func (k *K8sWatcher) resourceGroups() []string {
 		synced.CRDResourceName(v2.CLRPName):       k8sAPIGroupCiliumLocalRedirectPolicyV2,
 		synced.CRDResourceName(v2.CEWName):        "SKIP", // Handled in clustermesh-apiserver/
 		synced.CRDResourceName(v2alpha1.CENPName): k8sAPIGroupCiliumEgressNATPolicyV2,
+		synced.CRDResourceName(v2alpha1.CESName):  k8sAPIGroupCiliumEndpointSliceV2Alpha1,
 	}
 	ciliumResources := synced.AgentCRDResourceNames()
 	ciliumGroups := make([]string, 0, len(ciliumResources))
@@ -445,8 +447,9 @@ func (k *K8sWatcher) EnableK8sWatcher(ctx context.Context, resources []string) e
 		case k8sAPIGroupCiliumClusterwideNetworkPolicyV2:
 			k.ciliumClusterwideNetworkPoliciesInit(ciliumNPClient)
 		case k8sAPIGroupCiliumEndpointV2:
-			asyncControllers.Add(1)
-			go k.ciliumEndpointsInit(ciliumNPClient, asyncControllers)
+			k.initCiliumEndpointOrSlices(ciliumNPClient, asyncControllers)
+		case k8sAPIGroupCiliumEndpointSliceV2Alpha1:
+			// no-op; handled in k8sAPIGroupCiliumEndpointV2
 		case k8sAPIGroupCiliumLocalRedirectPolicyV2:
 			k.ciliumLocalRedirectPolicyInit(ciliumNPClient)
 		case k8sAPIGroupCiliumEgressNATPolicyV2:
@@ -830,5 +833,18 @@ func (k *K8sWatcher) GetStore(name string) cache.Store {
 		return k.podStore
 	default:
 		return nil
+	}
+}
+
+// initCiliumEndpointOrSlices intializes the ciliumEndpoints or ciliumEndpointSlice
+func (k *K8sWatcher) initCiliumEndpointOrSlices(ciliumNPClient *k8s.K8sCiliumClient, asyncControllers *sync.WaitGroup) {
+	// If CiliumEndpointSlice feature is enabled, Cilium-agent watches CiliumEndpointSlice
+	// objects instead of CiliumEndpoints. Hence, skip watching CiliumEndpoints if CiliumEndpointSlice
+	// feature is enabled.
+	asyncControllers.Add(1)
+	if option.Config.EnableCiliumEndpointSlice {
+		go k.ciliumEndpointSliceInit(ciliumNPClient, asyncControllers)
+	} else {
+		go k.ciliumEndpointsInit(ciliumNPClient, asyncControllers)
 	}
 }

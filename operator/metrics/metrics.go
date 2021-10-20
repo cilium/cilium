@@ -82,6 +82,24 @@ var (
 
 	// IdentityGCRuns records how many times identity GC has run
 	IdentityGCRuns *prometheus.GaugeVec
+
+	// CiliumEndpointSliceDensity indicates the number of CEPs batched in a CES and it used to
+	// collect the number of CEPs in CES at various buckets. For example,
+	// number of CESs in the CEP range <0, 10>
+	// number of CESs in the CEP range <11, 20>
+	// number of CESs in the CEP range <21, 30> and so on
+	CiliumEndpointSliceDensity prometheus.Histogram
+
+	// CiliumEndpointsChangeCount indicates the total number of CEPs changed for every CES request sent to k8s-apiserver.
+	// This metric is used to collect number of CEP changes happening at various buckets.
+	CiliumEndpointsChangeCount *prometheus.HistogramVec
+
+	// CiliumEndpointSliceSyncErrors used to track the total number of errors occurred during syncing CES with k8s-apiserver.
+	CiliumEndpointSliceSyncErrors prometheus.Counter
+
+	// CiliumEndpointSliceQueueDelay measures the time spent by CES's in the workqueue. This measures time difference between
+	// CES insert in the workqueue and removal from workqueue.
+	CiliumEndpointSliceQueueDelay prometheus.Histogram
 )
 
 const (
@@ -90,6 +108,9 @@ const (
 
 	// LabelOutcome indicates whether the outcome of the operation was successful or not
 	LabelOutcome = "outcome"
+
+	// LabelOpcode indicates the kind of CES metric, could be CEP insert or remove
+	LabelOpcode = "opcode"
 
 	// Label values
 
@@ -104,6 +125,12 @@ const (
 
 	// LabelValueOutcomeDeleted is used as outcome of deleted identity entries
 	LabelValueOutcomeDeleted = "deleted"
+
+	// LabelValueCEPInsert is used to indicate the number of CEPs inserted in a CES
+	LabelValueCEPInsert = "cepinserted"
+
+	// LabelValueCEPRemove is used to indicate the number of CEPs removed from a CES
+	LabelValueCEPRemove = "cepremoved"
 )
 
 func registerMetrics() []prometheus.Collector {
@@ -126,6 +153,34 @@ func registerMetrics() []prometheus.Collector {
 		Help:      "The number of times identity garbage collector has run",
 	}, []string{LabelOutcome})
 	collectors = append(collectors, IdentityGCRuns)
+
+	CiliumEndpointSliceDensity = prometheus.NewHistogram(prometheus.HistogramOpts{
+		Namespace: Namespace,
+		Name:      "number_of_ceps_per_ces",
+		Help:      "The number of CEPs batched in a CES",
+	})
+	collectors = append(collectors, CiliumEndpointSliceDensity)
+
+	CiliumEndpointsChangeCount = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: Namespace,
+		Name:      "number_of_cep_changes_per_ces",
+		Help:      "The number of changed CEPs in each CES update",
+	}, []string{LabelOpcode})
+	collectors = append(collectors, CiliumEndpointsChangeCount)
+
+	CiliumEndpointSliceSyncErrors = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "ces_sync_errors_total",
+		Help:      "Number of CES sync errors",
+	})
+	collectors = append(collectors, CiliumEndpointSliceSyncErrors)
+
+	CiliumEndpointSliceQueueDelay = prometheus.NewHistogram(prometheus.HistogramOpts{
+		Namespace: Namespace,
+		Name:      "ces_queueing_delay_seconds",
+		Help:      "CiliumEndpointSlice queueing delay in seconds",
+	})
+	collectors = append(collectors, CiliumEndpointSliceQueueDelay)
 
 	Registry.MustRegister(collectors...)
 
