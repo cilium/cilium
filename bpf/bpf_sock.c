@@ -356,6 +356,9 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	struct lb4_service *backend_slot;
 	bool backend_from_affinity = false;
 	__u32 backend_id = 0;
+#ifdef ENABLE_L7_LB
+	struct lb4_backend l7backend;
+#endif
 
 	if (is_defined(ENABLE_SOCKET_LB_HOST_ONLY) && !in_hostns)
 		return -ENXIO;
@@ -382,11 +385,34 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (sock4_skip_xlate(svc, orig_key.address))
 		return -EPERM;
 
-	/* Do not perform service translation at socker layer for services with
-	 * L7 load balancing as the l7 load balancer needs to see the service IP.
+#ifdef ENABLE_L7_LB
+	/* Do not perform service translation at socker layer for
+	 * services with L7 load balancing as we need to postpone
+	 * policy enforcement to take place after l7 load balancer and
+	 * we can't currently do that from the socket layer.
 	 */
-	if (lb4_svc_is_l7loadbalancer(svc))
+	if (lb4_svc_is_l7loadbalancer(svc)) {
+		/* TC level eBPF datapath does not handle node local traffic,
+		 * but we need to redirect for L7 LB also in that case.
+		 */
+		if (is_defined(BPF_HAVE_NETNS_COOKIE) && in_hostns) {
+			/* Use the L7 LB proxy port as a backend. Normally this
+			 * would cause policy enforcement to be done before the
+			 * L7 LB (which should not be done), but in this case
+			 * (node-local nodeport) there is no policy enforcement
+			 * anyway.
+			 */
+			l7backend.address = bpf_htonl(0x7f000001);
+			l7backend.port = (__be16)svc->l7_lb_proxy_port;
+			l7backend.proto = 0;
+			l7backend.pad = 0;
+			backend = &l7backend;
+			goto out;
+		}
+		/* Let the TC level eBPF datapath redirect to L7 LB. */
 		return 0;
+	}
+#endif /* ENABLE_L7_LB */
 
 	if (lb4_svc_is_affinity(svc)) {
 		/* Note, for newly created affinity entries there is a
@@ -437,7 +463,9 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 
 	if (lb4_svc_is_affinity(svc) && !backend_from_affinity)
 		lb4_update_affinity_by_netns(svc, &id, backend_id);
-
+#ifdef ENABLE_L7_LB
+out:
+#endif
 	if (sock4_update_revnat(ctx_full, backend, &orig_key,
 				svc->rev_nat_index) < 0) {
 		update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
@@ -963,6 +991,9 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	struct lb6_service *backend_slot;
 	bool backend_from_affinity = false;
 	__u32 backend_id = 0;
+#ifdef ENABLE_L7_LB
+	struct lb6_backend l7backend;
+#endif
 
 	if (is_defined(ENABLE_SOCKET_LB_HOST_ONLY) && !in_hostns)
 		return -ENXIO;
@@ -982,11 +1013,20 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (sock6_skip_xlate(svc, &orig_key.address))
 		return -EPERM;
 
-	/* Do not perform service translation at socker layer for services with
-	 * L7 load balancing as the l7 load balancer needs to see the service IP.
-	 */
-	if (lb6_svc_is_l7loadbalancer(svc))
+#ifdef ENABLE_L7_LB
+	/* See __sock4_xlate_fwd for commentary. */
+	if (lb6_svc_is_l7loadbalancer(svc)) {
+		if (is_defined(BPF_HAVE_NETNS_COOKIE) && in_hostns) {
+			l7backend.address = { .addr[15] = 1, };
+			l7backend.port = (__be16)svc->l7_lb_proxy_port;
+			l7backend.proto = 0;
+			l7backend.pad = 0;
+			backend = &l7backend;
+			goto out;
+		}
 		return 0;
+	}
+#endif /* ENABLE_L7_LB */
 
 	if (lb6_svc_is_affinity(svc)) {
 		backend_id = lb6_affinity_backend_id_by_netns(svc, &id);
@@ -1020,7 +1060,9 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 
 	if (lb6_svc_is_affinity(svc) && !backend_from_affinity)
 		lb6_update_affinity_by_netns(svc, &id, backend_id);
-
+#ifdef ENABLE_L7_LB
+out:
+#endif
 	if (sock6_update_revnat(ctx, backend, &orig_key,
 				svc->rev_nat_index) < 0) {
 		update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
