@@ -373,7 +373,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		return nil, nil, err
 	}
 
-	identity.IterateReservedIdentities(func(_ string, _ identity.NumericIdentity) {
+	identity.IterateReservedIdentities(func(_ identity.NumericIdentity, _ labels.Labels) {
 		metrics.Identity.Inc()
 	})
 	if option.Config.EnableWellKnownIdentities {
