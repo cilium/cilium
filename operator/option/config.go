@@ -20,6 +20,12 @@ const (
 
 	// PrometheusServeAddr is the default server address for operator metrics
 	PrometheusServeAddr = ":6942"
+
+	// CESMaxCEPsInCESDefault is the maximum number of cilium endpoints allowed in a CES
+	CESMaxCEPsInCESDefault = 100
+
+	// CESSlicingModeDefault is default method for grouping CEP in a CES.
+	CESSlicingModeDefault = "cesSliceModeIdentity"
 )
 
 const (
@@ -187,6 +193,15 @@ const (
 	// Enabling this option reduces waste of IP addresses but may increase
 	// the number of API calls to AlibabaCloud ECS service.
 	AlibabaCloudReleaseExcessIPs = "alibaba-cloud-release-excess-ips"
+
+	// CiliumEndpointSlice options
+
+	// CESMaxCEPsInCES is the maximum number of cilium endpoints allowed in single
+	// a CiliumEndpointSlice resource.
+	CESMaxCEPsInCES = "ces-max-ciliumendpoints-per-ces"
+
+	// CESSlicingMode instructs how CEPs are grouped in a CES.
+	CESSlicingMode = "ces-slice-mode"
 )
 
 // OperatorConfig is the configuration used by the operator.
@@ -351,6 +366,16 @@ type OperatorConfig struct {
 	// Enabling this option reduces waste of IP addresses but may increase
 	// the number of API calls to AlibabaCloud ECS service.
 	AlibabaCloudReleaseExcessIPs bool
+
+	// CiliumEndpointSlice options
+
+	// CESMaxCEPsInCES is the maximum number of CiliumEndpoints allowed in single
+	// a CiliumEndpointSlice resource.
+	// The default value of maximum CiliumEndpoints allowed in a CiliumEndpointSlice resource is 100.
+	CESMaxCEPsInCES int
+
+	// CESSlicingMode instructs how CEPs are grouped in a CES.
+	CESSlicingMode string
 }
 
 // Populate sets all options with the values from viper.
@@ -406,6 +431,10 @@ func (c *OperatorConfig) Populate() {
 
 	c.AlibabaCloudVPCID = viper.GetString(AlibabaCloudVPCID)
 	c.AlibabaCloudReleaseExcessIPs = viper.GetBool(AlibabaCloudReleaseExcessIPs)
+
+	// CiliumEndpointSlice options
+	c.CESMaxCEPsInCES = viper.GetInt(CESMaxCEPsInCES)
+	c.CESSlicingMode = viper.GetString(CESSlicingMode)
 
 	// Option maps and slices
 

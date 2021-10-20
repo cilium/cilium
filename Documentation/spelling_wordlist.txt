@@ -335,6 +335,7 @@ egressMasqueradeInterfaces
 egressing
 elfutils
 ena
+enableCiliumEndpointSlice
 enableCnpStatusUpdates
 enableCriticalPriorityClass
 enableHealthCheck

@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/operator/cmd"
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
+	ces "github.com/cilium/cilium/operator/pkg/ciliumendpointslice"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
@@ -348,6 +349,22 @@ func onOperatorStartLeading(ctx context.Context) {
 	isLeader.Store(true)
 
 	ciliumK8sClient = k8s.CiliumClient()
+
+	// If CiliumEndpointSlice feature is enabled, create CESController, start CEP watcher and run controller.
+	if !option.Config.DisableCiliumEndpointCRD && option.Config.EnableCiliumEndpointSlice {
+		log.Info("Create and run CES controller, start CEP watcher")
+		// Initialize  the CES controller
+		cesController := ces.NewCESController(k8s.CiliumClient(),
+			operatorOption.Config.CESMaxCEPsInCES,
+			operatorOption.Config.CESSlicingMode,
+			option.Config.K8sClientQPSLimit,
+			option.Config.K8sClientBurst)
+		stopCh := make(chan struct{})
+		// Start CEP watcher
+		operatorWatchers.CiliumEndpointsSliceInit(k8s.CiliumClient().CiliumV2(), cesController)
+		// Start the CES controller, after current CEPs are synced locally in cache.
+		go cesController.Run(operatorWatchers.CiliumEndpointStore, stopCh)
+	}
 
 	// Restart kube-dns as soon as possible since it helps etcd-operator to be
 	// properly setup. If kube-dns is not managed by Cilium it can prevent
