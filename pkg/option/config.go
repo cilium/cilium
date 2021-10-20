@@ -1051,6 +1051,9 @@ const (
 	// allows to keep a Kubernetes node NotReady until Cilium is up and
 	// running and able to schedule endpoints.
 	WriteCNIConfigurationWhenReady = "write-cni-conf-when-ready"
+
+	// EnableCiliumEndpointSlice enables the cilium endpoint slicing feature.
+	EnableCiliumEndpointSlice = "enable-cilium-endpoint-slice"
 )
 
 const (
@@ -2001,6 +2004,8 @@ type DaemonConfig struct {
 
 	// ARPPingRefreshPeriod is the ARP entries refresher period.
 	ARPPingRefreshPeriod time.Duration
+	// EnableCiliumEndpointSlice enables the cilium endpoint slicing feature.
+	EnableCiliumEndpointSlice bool
 
 	// ARPPingKernelManaged denotes whether kernel can auto-refresh Neighbor entries
 	ARPPingKernelManaged bool
@@ -2813,6 +2818,7 @@ func (c *DaemonConfig) Populate() {
 	c.HubbleRecorderStoragePath = viper.GetString(HubbleRecorderStoragePath)
 	c.HubbleRecorderSinkQueueSize = viper.GetInt(HubbleRecorderSinkQueueSize)
 	c.DisableIptablesFeederRules = viper.GetStringSlice(DisableIptablesFeederRules)
+	c.EnableCiliumEndpointSlice = viper.GetBool(EnableCiliumEndpointSlice)
 
 	// Hidden options
 	c.CompilerFlags = viper.GetStringSlice(CompilerFlags)

@@ -46,7 +46,11 @@ func agentCRDResourceNames() []string {
 
 	if !option.Config.DisableCiliumEndpointCRD {
 		result = append(result, CRDResourceName(v2.CEPName))
+		if option.Config.EnableCiliumEndpointSlice {
+			result = append(result, CRDResourceName(v2alpha1.CESName))
+		}
 	}
+
 	if option.Config.EnableIPv4EgressGateway {
 		result = append(result, CRDResourceName(v2alpha1.CENPName))
 	}

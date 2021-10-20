@@ -194,6 +194,11 @@ var (
 	// endpoints, labeled by span name and status ("success" or "failure")
 	EndpointRegenerationTimeStats = NoOpObserverVec
 
+	// EndpointPropagationDelay is the delay between creation of local CiliumEndpoint
+	// and update for that CiliumEndpoint received through CiliumEndpointSlice.
+	// Measure of local CEP roundtrip time with CiliumEndpointSlice feature enabled.
+	EndpointPropagationDelay = NoOpObserverVec
+
 	// Policy
 	// Policy is the number of policies loaded into the agent
 	Policy = NoOpGauge
@@ -441,6 +446,7 @@ type Configuration struct {
 	EndpointRegenerationCountEnabled        bool
 	EndpointStateCountEnabled               bool
 	EndpointRegenerationTimeStatsEnabled    bool
+	EndpointPropagationDelayEnabled         bool
 	PolicyCountEnabled                      bool
 	PolicyRegenerationCountEnabled          bool
 	PolicyRegenerationTimeStatsEnabled      bool
@@ -528,6 +534,7 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_drop_bytes_total":                                              {},
 		Namespace + "_forward_count_total":                                           {},
 		Namespace + "_forward_bytes_total":                                           {},
+		Namespace + "_endpoint_propagation_delay_seconds":                            {},
 		Namespace + "_" + SubsystemDatapath + "_conntrack_dump_resets_total":         {},
 		Namespace + "_" + SubsystemDatapath + "_conntrack_gc_runs_total":             {},
 		Namespace + "_" + SubsystemDatapath + "_conntrack_gc_key_fallbacks_total":    {},
@@ -1247,6 +1254,17 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, ArpingRequestsTotal)
 			c.ArpingRequestsTotalEnabled = true
+
+		case Namespace + "_endpoint_propagation_delay_seconds":
+			EndpointPropagationDelay = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+				Namespace: Namespace,
+				Name:      "endpoint_propagation_delay_seconds",
+				Help:      "CiliumEndpoint roundtrip propagation delay in seconds",
+			}, []string{})
+
+			collectors = append(collectors, EndpointPropagationDelay)
+			c.EndpointPropagationDelayEnabled = true
+
 		}
 	}
 

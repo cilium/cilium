@@ -305,5 +305,16 @@ func init() {
 	flags.Bool(option.SkipCRDCreation, false, "When true, Kubernetes Custom Resource Definitions will not be created")
 	option.BindEnv(option.SkipCRDCreation)
 
+	flags.Bool(option.EnableCiliumEndpointSlice, false, "If set to true, the CiliumEndpointSlice feature is enabled. If any CiliumEndpoints resources are created, updated, or deleted in the cluster, all those changes are broadcast as CiliumEndpointSlice updates to all of the Cilium agents.")
+	option.BindEnv(option.EnableCiliumEndpointSlice)
+
+	flags.Int(operatorOption.CESMaxCEPsInCES, operatorOption.CESMaxCEPsInCESDefault, "Maximum number of CiliumEndpoints allowed in a CES")
+	flags.MarkHidden(operatorOption.CESMaxCEPsInCES)
+	option.BindEnv(operatorOption.CESMaxCEPsInCES)
+
+	flags.String(operatorOption.CESSlicingMode, operatorOption.CESSlicingModeDefault, "Slicing mode define how ceps are grouped into a CES")
+	flags.MarkHidden(operatorOption.CESSlicingMode)
+	option.BindEnv(operatorOption.CESSlicingMode)
+
 	viper.BindPFlags(flags)
 }

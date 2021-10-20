@@ -771,6 +771,10 @@ data:
   vlan-bpf-bypass: {{ .Values.bpf.vlanBypass | join " " | quote }}
 {{- end }}
 
+{{- if .Values.enableCiliumEndpointSlice }}
+  enable-cilium-endpoint-slice: "true"
+{{- end }}
+
 {{- if .Values.extraConfig }}
   {{ toYaml .Values.extraConfig | nindent 2 }}
 {{- end }}

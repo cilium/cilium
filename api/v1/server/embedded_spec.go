@@ -3269,7 +3269,7 @@ func init() {
       }
     },
     "NamedPorts": {
-      "description": "List of named Layer 4 port and protocol pairs which will be used in Network\nPolicy specs.\n\n+deepequal-gen=true",
+      "description": "List of named Layer 4 port and protocol pairs which will be used in Network\nPolicy specs.\n\n+deepequal-gen=true\n+k8s:deepcopy-gen=true",
       "type": "array",
       "items": {
         "$ref": "#/definitions/Port"
@@ -7932,7 +7932,7 @@ func init() {
       }
     },
     "NamedPorts": {
-      "description": "List of named Layer 4 port and protocol pairs which will be used in Network\nPolicy specs.\n\n+deepequal-gen=true",
+      "description": "List of named Layer 4 port and protocol pairs which will be used in Network\nPolicy specs.\n\n+deepequal-gen=true\n+k8s:deepcopy-gen=true",
       "type": "array",
       "items": {
         "$ref": "#/definitions/Port"

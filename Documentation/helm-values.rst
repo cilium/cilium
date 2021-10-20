@@ -301,6 +301,10 @@
      - Enables egress gateway (beta) to redirect and SNAT the traffic that leaves the cluster.
      - object
      - ``{"enabled":false}``
+   * - enableCiliumEndpointSlice
+     - Enable CiliumEndpointSlice feature.
+     - bool
+     - ``false``
    * - enableCnpStatusUpdates
      - Whether to enable CNP status updates.
      - bool
