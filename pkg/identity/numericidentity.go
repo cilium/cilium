@@ -325,6 +325,14 @@ var (
 		ReservedIdentityInit:       labels.IDNameInit,
 		ReservedIdentityRemoteNode: labels.IDNameRemoteNode,
 	}
+	reservedIdentityLabels = map[NumericIdentity]labels.Labels{
+		ReservedIdentityHost:       labels.LabelHost,
+		ReservedIdentityWorld:      labels.LabelWorld,
+		ReservedIdentityUnmanaged:  labels.NewLabelsFromModel([]string{"reserved:" + labels.IDNameUnmanaged}),
+		ReservedIdentityHealth:     labels.LabelHealth,
+		ReservedIdentityInit:       labels.NewLabelsFromModel([]string{"reserved:" + labels.IDNameInit}),
+		ReservedIdentityRemoteNode: labels.LabelRemoteNode,
+	}
 
 	// WellKnown identities stores global state of all well-known identities.
 	WellKnown = wellKnownIdentities{}
@@ -455,11 +463,12 @@ func GetAllReservedIdentities() []NumericIdentity {
 	return identities
 }
 
-// IterateReservedIdentities iterates over all reservedIdentities and executes
-// the given function for each key, value pair in reservedIdentities.
-func IterateReservedIdentities(f func(key string, value NumericIdentity)) {
-	for key, value := range reservedIdentities {
-		f(key, value)
+// IterateReservedIdentities iterates over all reservedIdentityLabels and
+// executes the given function for each key, value pair in
+// reservedIdentityLabels.
+func IterateReservedIdentities(f func(_ NumericIdentity, _ labels.Labels)) {
+	for ni, lbls := range reservedIdentityLabels {
+		f(ni, lbls)
 	}
 }
 
