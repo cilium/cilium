@@ -3,9 +3,14 @@
 
 package identity
 
-import "github.com/cilium/cilium/pkg/labels"
+import (
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
+)
 
 var (
+	// cacheMU protects the following map.
+	cacheMU lock.RWMutex
 	// ReservedIdentityCache that maps all reserved identities from their
 	// numeric identity to their corresponding identity.
 	ReservedIdentityCache = map[NumericIdentity]*Identity{}
@@ -17,12 +22,16 @@ func AddReservedIdentity(ni NumericIdentity, lbl string) {
 	identity := NewIdentity(ni, labels.Labels{lbl: labels.NewLabel(lbl, "", labels.LabelSourceReserved)})
 	// Pre-calculate the SHA256 hash.
 	identity.GetLabelsSHA256()
+	cacheMU.Lock()
 	ReservedIdentityCache[ni] = identity
+	cacheMU.Unlock()
 }
 
 // LookupReservedIdentity looks up a reserved identity by its NumericIdentity
 // and returns it if found. Returns nil if not found.
 func LookupReservedIdentity(ni NumericIdentity) *Identity {
+	cacheMU.RLock()
+	defer cacheMU.RUnlock()
 	return ReservedIdentityCache[ni]
 }
 
