@@ -20,6 +20,10 @@ jobs:
     outputs:
       docs-tree: ${{ steps.docs-tree.outputs.src }}
     steps:
+      - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        if: ${{ !github.event.pull_request }}
+        with:
+          persist-credentials: false
       - name: Check code changes
         uses: dorny/paths-filter@b2feaf19c27470162a626bd6fa8438ae5b263721
         id: docs-tree
