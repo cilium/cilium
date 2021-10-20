@@ -138,7 +138,9 @@ func (w wellKnownIdentities) add(i NumericIdentity, lbls []string) {
 		labelArray: labelMap.LabelArray(),
 	}
 
+	cacheMU.Lock()
 	ReservedIdentityCache[i] = identity
+	cacheMU.Unlock()
 }
 
 func (w wellKnownIdentities) LookupByLabels(lbls labels.Labels) *Identity {
