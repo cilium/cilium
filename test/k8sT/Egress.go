@@ -106,7 +106,7 @@ var _ = SkipDescribeIf(func() bool {
 
 	AfterFailed(func() {
 		// Especially check if there are duplicated address allocated on cilium_host
-		kubectl.CiliumReport("ip addr", "cilium bpf egress list", "cilium bpf nat list")
+		kubectl.CiliumReport("ip addr")
 	})
 
 	testEgressGateway := func(fromGateway bool) {
@@ -179,22 +179,33 @@ var _ = SkipDescribeIf(func() bool {
 				DeployCiliumAndDNS(kubectl, ciliumFilename)
 			})
 
-			It("Checks connectivity works without policy", func() {
-				testConnectivity(false)
-				testConnectivity(true)
+			Context("no egress gw policy", func() {
+				It("connectivity works", func() {
+					testConnectivity(false)
+					testConnectivity(true)
+				})
 			})
 
-			It("Checks egress policy and basic connectivity both work", func() {
-				applyEgressPolicy()
-				kubectl.WaitForEgressPolicyEntry(k8s1IP, outsideIP)
-				kubectl.WaitForEgressPolicyEntry(k8s2IP, outsideIP)
+			Context("egress gw policy", func() {
+				BeforeAll(func() {
+					applyEgressPolicy()
+					kubectl.WaitForEgressPolicyEntry(k8s1IP, outsideIP)
+					kubectl.WaitForEgressPolicyEntry(k8s2IP, outsideIP)
+				})
+				AfterAll(func() {
+					kubectl.Delete(policyYAML)
+				})
 
-				defer kubectl.Delete(policyYAML)
+				AfterFailed(func() {
+					kubectl.CiliumReport("cilium bpf egress list", "cilium bpf nat list")
+				})
 
-				testEgressGateway(false)
-				testEgressGateway(true)
-				testConnectivity(false)
-				testConnectivity(true)
+				It("both egress gw and basic connectivity work", func() {
+					testEgressGateway(false)
+					testEgressGateway(true)
+					testConnectivity(false)
+					testConnectivity(true)
+				})
 			})
 		})
 	}
