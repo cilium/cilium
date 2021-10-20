@@ -331,6 +331,10 @@ func initializeFlags() {
 	flags.Bool(option.EnableIPv6NDPName, defaults.EnableIPv6NDP, "Enable IPv6 NDP support")
 	option.BindEnv(option.EnableIPv6NDPName)
 
+	flags.Bool(option.EnableSRv6, defaults.EnableSRv6, "Enable SRv6 support (beta)")
+	flags.MarkHidden(option.EnableSRv6)
+	option.BindEnv(option.EnableSRv6)
+
 	flags.String(option.IPv6MCastDevice, "", "Device that joins a Solicited-Node multicast group for IPv6")
 	option.BindEnv(option.IPv6MCastDevice)
 
@@ -1462,6 +1466,15 @@ func initEnv(cmd *cobra.Command) {
 
 	initClockSourceOption()
 	initSockmapOption()
+
+	if option.Config.EnableSRv6 {
+		if !option.Config.EnableIPv6 {
+			log.Fatalf("SRv6 requires IPv6.")
+		}
+		if !probes.NewProbeManager().GetMapTypes().HaveLruHashMapType {
+			log.Fatalf("SRv6 requires support for BPF LRU maps (Linux 4.10 or later).")
+		}
+	}
 
 	if option.Config.EnableHostFirewall {
 		if option.Config.EnableIPSec {

@@ -666,6 +666,9 @@ const (
 	// EnableIPv6NDPName is the name of the option to enable IPv6 NDP support
 	EnableIPv6NDPName = "enable-ipv6-ndp"
 
+	// EnableSRv6 is the name of the option to enable SRv6 encapsulation support
+	EnableSRv6 = "enable-srv6"
+
 	// IPv6MCastDevice is the name of the option to select IPv6 multicast device
 	IPv6MCastDevice = "ipv6-mcast-device"
 
@@ -1556,6 +1559,9 @@ type DaemonConfig struct {
 
 	// EnableIPv6BIGTCP enables IPv6 BIG TCP (larger GSO/GRO limits) for the node including pods.
 	EnableIPv6BIGTCP bool
+
+	// EnableSRv6 is true when SRv6 encapsulation support is enabled
+	EnableSRv6 bool
 
 	// IPv6MCastDevice is the name of device that joins IPv6's solicitation multicast group
 	IPv6MCastDevice string
@@ -2786,6 +2792,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableIPv6 = viper.GetBool(EnableIPv6Name)
 	c.EnableIPv6NDP = viper.GetBool(EnableIPv6NDPName)
 	c.EnableIPv6BIGTCP = viper.GetBool(EnableIPv6BIGTCP)
+	c.EnableSRv6 = viper.GetBool(EnableSRv6)
 	c.IPv6MCastDevice = viper.GetString(IPv6MCastDevice)
 	c.EnableIPSec = viper.GetBool(EnableIPSecName)
 	c.EnableWireguard = viper.GetBool(EnableWireguard)

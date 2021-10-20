@@ -113,6 +113,7 @@ Redis
 RuleParser
 SIG
 SR-IOV
+SRv
 Sharma
 Shirokov
 Shortnames
@@ -868,6 +869,7 @@ sortBufferDrainTimeout
 sortBufferLenMax
 sourceContext
 src
+srv
 ssl
 stacktrace
 stap
