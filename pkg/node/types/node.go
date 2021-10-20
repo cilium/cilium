@@ -50,9 +50,10 @@ func ParseCiliumNode(n *ciliumv2.CiliumNode) (node Node) {
 	for _, cidrString := range n.Spec.IPAM.PodCIDRs {
 		ipnet, err := cidr.ParseCIDR(cidrString)
 		if err == nil {
-			if ipnet.IP.To4() != nil {
+			isIPv4 := ipnet.IP.To4() != nil
+			if isIPv4 && node.IPv4AllocCIDR == nil {
 				node.IPv4AllocCIDR = ipnet
-			} else {
+			} else if !isIPv4 && node.IPv6AllocCIDR == nil {
 				node.IPv6AllocCIDR = ipnet
 			}
 		}
