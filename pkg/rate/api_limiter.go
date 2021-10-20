@@ -880,14 +880,15 @@ func (s *APILimiterSet) Wait(ctx context.Context, name string) (LimitedRequest, 
 // parsePositiveInt parses value as an int. It returns an error if value cannot
 // be parsed or is negative.
 func parsePositiveInt(value string) (int, error) {
-	switch i64, err := strconv.ParseInt(value, 10, 64); {
-	case err != nil:
-		return 0, fmt.Errorf("unable to parse positive integer %q: %v", value, err)
-	case i64 < 0:
-		return 0, fmt.Errorf("unable to parse positive integer %q: negative value", value)
-	case i64 > math.MaxInt:
-		return 0, fmt.Errorf("unable to parse positive integer %q: overflow", value)
-	default:
-		return int(i64), nil
+	i64, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("unable to parse positive integer %q: %w", value, err)
 	}
+	if i64 < 0 {
+		return 0, fmt.Errorf("unable to parse positive integer %q: negative value", value)
+	}
+	if i64 > math.MaxInt {
+		return 0, fmt.Errorf("unable to parse positive integer %q: overflow", value)
+	}
+	return int(i64), nil
 }
