@@ -23,6 +23,7 @@
 #include "ghash.h"
 #include "pcap.h"
 #include "host_firewall.h"
+#include "proxy_hairpin.h"
 
 #define CB_SRC_IDENTITY	0
 
@@ -752,6 +753,17 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 		if (!lb6_src_range_ok(svc, (union v6addr *)&ip6->saddr))
 			return DROP_NOT_IN_SRC_RANGE;
 
+#if defined(ENABLE_L7_LB)
+		if (lb6_svc_is_l7loadbalancer(svc)) {
+			if (svc->l7_lb_proxy_port > 0) {
+				send_trace_notify(ctx, TRACE_TO_PROXY, src_identity, 0,
+						  bpf_ntohs(svc->l7_lb_proxy_port), 0, CT_NEW,
+						  monitor);
+				return ctx_redirect_to_proxy_hairpin_ipv6(ctx,
+									  svc->l7_lb_proxy_port);
+			}
+		}
+#endif
 		ret = lb6_local(get_ct_map6(&tuple), ctx, l3_off, l4_off,
 				&csum_off, &key, &tuple, svc, &ct_state_new,
 				skip_l3_xlate);
@@ -1736,6 +1748,17 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 		if (!lb4_src_range_ok(svc, ip4->saddr))
 			return DROP_NOT_IN_SRC_RANGE;
 
+#if defined(ENABLE_L7_LB)
+		if (lb4_svc_is_l7loadbalancer(svc)) {
+			if (svc->l7_lb_proxy_port > 0) {
+				send_trace_notify(ctx, TRACE_TO_PROXY, src_identity, 0,
+						  bpf_ntohs(svc->l7_lb_proxy_port), 0, CT_NEW,
+						  monitor);
+				return ctx_redirect_to_proxy_hairpin_ipv4(ctx,
+									  svc->l7_lb_proxy_port);
+			}
+		}
+#endif
 		ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off,
 				&csum_off, &key, &tuple, svc, &ct_state_new,
 				ip4->saddr, ipv4_has_l4_header(ip4),
