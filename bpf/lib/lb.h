@@ -550,10 +550,10 @@ struct lb6_service *lb6_lookup_service(struct lb6_key *key,
 	svc = map_lookup_elem(&LB6_SERVICES_MAP_V2, key);
 	if (svc) {
 		if (!scope_switch || !lb6_svc_is_local_scope(svc))
-			return svc->count ? svc : NULL;
+			return (svc->count || lb6_svc_is_l7loadbalancer(svc)) ? svc : NULL;
 		key->scope = LB_LOOKUP_SCOPE_INT;
 		svc = map_lookup_elem(&LB6_SERVICES_MAP_V2, key);
-		if (svc && svc->count)
+		if (svc && (svc->count || lb6_svc_is_l7loadbalancer(svc)))
 			return svc;
 	}
 
@@ -1078,10 +1078,10 @@ struct lb4_service *lb4_lookup_service(struct lb4_key *key,
 	svc = map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
 	if (svc) {
 		if (!scope_switch || !lb4_svc_is_local_scope(svc))
-			return svc->count ? svc : NULL;
+			return (svc->count || lb4_svc_is_l7loadbalancer(svc)) ? svc : NULL;
 		key->scope = LB_LOOKUP_SCOPE_INT;
 		svc = map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
-		if (svc && svc->count)
+		if (svc && (svc->count || lb4_svc_is_l7loadbalancer(svc)))
 			return svc;
 	}
 

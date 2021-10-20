@@ -14,6 +14,7 @@
 #include "csum.h"
 #include "l4.h"
 
+#if defined(HOST_IFINDEX_MAC) && defined(HOST_IFINDEX)
 /**
  * ctx_redirect_to_proxy_hairpin redirects to the proxy by hairpining the
  * packet out the incoming interface
@@ -85,5 +86,7 @@ ctx_redirect_to_proxy_hairpin_ipv6(struct __ctx_buff *ctx, __be16 proxy_port)
 	return redirect(HOST_IFINDEX, 0);
 }
 #endif /* ENABLE_IPV6 */
+
+#endif /* HOST_IFINDEX_MAC && HOST_IFINDEX */
 
 #endif /* __LIB_PROXY_HAIRPIN_H_ */

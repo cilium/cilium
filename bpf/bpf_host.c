@@ -209,7 +209,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 		if (ctx_get_xfer(ctx) != XFER_PKT_NO_SVC &&
 		    !bpf_skip_nodeport(ctx)) {
 			ret = nodeport_lb6(ctx, secctx);
-			if (ret < 0)
+			if (ret < 0 || ret == TC_ACT_REDIRECT)
 				return ret;
 		}
 		/* Verifier workaround: modified ctx access. */
@@ -478,7 +478,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 		if (ctx_get_xfer(ctx) != XFER_PKT_NO_SVC &&
 		    !bpf_skip_nodeport(ctx)) {
 			ret = nodeport_lb4(ctx, secctx);
-			if (ret < 0)
+			if (ret < 0 || ret == TC_ACT_REDIRECT)
 				return ret;
 		}
 		/* Verifier workaround: modified ctx access. */
