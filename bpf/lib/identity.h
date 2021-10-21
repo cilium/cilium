@@ -4,8 +4,17 @@
 #ifndef __LIB_IDENTITY_H_
 #define __LIB_IDENTITY_H_
 
-#include "drop.h"
 #include "dbg.h"
+
+static __always_inline bool identity_is_remote_node(__u32 identity)
+{
+	return identity == REMOTE_NODE_ID;
+}
+
+static __always_inline bool identity_is_node(__u32 identity)
+{
+	return identity == HOST_ID || identity_is_remote_node(identity);
+}
 
 /**
  * identity_is_reserved is used to determine whether an identity is one of the
@@ -26,9 +35,10 @@
  */
 static __always_inline bool identity_is_reserved(__u32 identity)
 {
-	return identity < UNMANAGED_ID || identity == REMOTE_NODE_ID;
+	return identity < UNMANAGED_ID || identity_is_remote_node(identity);
 }
 
+#if __ctx_is == __ctx_skb
 static __always_inline bool inherit_identity_from_host(struct __ctx_buff *ctx,
 						       __u32 *identity)
 {
@@ -65,5 +75,6 @@ static __always_inline bool inherit_identity_from_host(struct __ctx_buff *ctx,
 
 	return from_proxy;
 }
+#endif /* __ctx_is == __ctx_skb */
 
 #endif

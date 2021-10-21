@@ -4,6 +4,8 @@
 #ifndef __LIB_EGRESS_POLICIES_H_
 #define __LIB_EGRESS_POLICIES_H_
 
+#include "lib/identity.h"
+
 #ifdef ENABLE_EGRESS_GATEWAY
 /* is_cluster_destination returns true if the given destination is part of the
  * cluster. It uses the ipcache and endpoint maps information.
@@ -20,7 +22,7 @@ is_cluster_destination(struct iphdr *ip4, __u32 dst_id, __u32 tunnel_endpoint)
 	/* If the destination is a Cilium-managed node (remote or local), it's
 	 * part of the cluster.
 	 */
-	if (dst_id == REMOTE_NODE_ID || dst_id == HOST_ID)
+	if (identity_is_node(dst_id))
 		return true;
 
 	/* Use the endpoint map to know if the destination is a local endpoint.
