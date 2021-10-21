@@ -194,16 +194,15 @@ func (p *prober) setNodes(added nodeMap, removed nodeMap) {
 	for _, n := range added {
 		for elem, primary := range n.Addresses() {
 			_, addr := resolveIP(&n, elem, "icmp", primary)
+			if addr == nil {
+				continue
+			}
 
 			ip := ipString(elem.IP)
 			result := &models.ConnectivityStatus{}
-			if addr == nil {
-				result.Status = "Failed to resolve IP"
-			} else {
-				result.Status = "Connection timed out"
-				p.AddIPAddr(addr)
-				p.nodes[ip] = n
-			}
+			result.Status = "Connection timed out"
+			p.AddIPAddr(addr)
+			p.nodes[ip] = n
 
 			if p.results[ip] == nil {
 				p.results[ip] = &models.PathStatus{
