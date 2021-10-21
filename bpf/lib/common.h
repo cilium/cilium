@@ -245,11 +245,6 @@ struct endpoint_info {
 	__u32		pad[4];
 };
 
-struct egress_info {
-	__u32 egress_ip;
-	__u32 tunnel_endpoint;
-};
-
 struct edt_id {
 	__u64		id;
 };
@@ -297,6 +292,17 @@ struct metrics_key {
 struct metrics_value {
 	__u64	count;
 	__u64	bytes;
+};
+
+struct egress_key {
+	struct bpf_lpm_trie_key lpm_key;
+	__u32 sip;
+	__u32 dip;
+};
+
+struct egress_info {
+	__u32 egress_ip;
+	__u32 tunnel_endpoint;
 };
 
 enum {
