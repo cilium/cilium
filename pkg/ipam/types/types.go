@@ -236,6 +236,12 @@ type Interface interface {
 	ForeachAddress(instanceID string, fn AddressIterator) error
 }
 
+//
+type InterfaceCopiable interface {
+	Interface
+	DeepCopyInterface() Interface
+}
+
 // InterfaceRevision is the configurationr revision of a network interface. It
 // consists of a revision hash representing the current configuration version
 // and the resource itself.
@@ -302,7 +308,15 @@ func (m *InstanceMap) updateLocked(instanceID string, iface InterfaceRevision) {
 		i.Interfaces = map[string]InterfaceRevision{}
 	}
 
-	i.Interfaces[iface.Resource.InterfaceID()] = iface
+	if foo, ok := iface.Resource.(InterfaceCopiable); ok {
+		ifaceCopy := InterfaceRevision{
+			Resource:    foo.DeepCopyInterface(),
+			Fingerprint: iface.Fingerprint,
+		}
+		i.Interfaces[iface.Resource.InterfaceID()] = ifaceCopy
+	} else {
+		i.Interfaces[iface.Resource.InterfaceID()] = iface
+	}
 }
 
 type Address interface{}

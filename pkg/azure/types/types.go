@@ -134,6 +134,11 @@ func (a *AzureInterface) SetID(id string) {
 	a.extractIDs()
 }
 
+func (a *AzureInterface) DeepCopyInterface() types.Interface {
+	c := *a
+	return &c
+}
+
 // InterfaceID returns the identifier of the interface
 func (a *AzureInterface) InterfaceID() string {
 	return a.ID
