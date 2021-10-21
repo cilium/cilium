@@ -1,5 +1,5 @@
 alabaster==0.7.12
-Babel==2.6.0
+Babel==2.9.1
 certifi==2018.10.15
 chardet==3.0.4
 docutils==0.14
