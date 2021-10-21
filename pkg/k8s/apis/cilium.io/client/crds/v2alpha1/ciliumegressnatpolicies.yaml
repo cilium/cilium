@@ -17,8 +17,7 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - description: The age of the identity
-      jsonPath: .metadata.creationTimestamp
+    - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
     name: v2alpha1
