@@ -186,12 +186,6 @@ struct bpf_elf_map __section_maps ENCRYPT_MAP = {
 	.max_elem	= 1,
 };
 
-struct egress_key {
-	struct bpf_lpm_trie_key lpm_key;
-	__u32 sip;
-	__u32 dip;
-};
-
 #ifdef ENABLE_EGRESS_GATEWAY
 struct bpf_elf_map __section_maps EGRESS_MAP = {
 	.type		= LPM_MAP_TYPE,
