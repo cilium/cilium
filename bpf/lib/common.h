@@ -305,6 +305,18 @@ struct egress_info {
 	__u32 tunnel_endpoint;
 };
 
+struct srv6_key4 {
+	struct bpf_lpm_trie_key lpm;
+	__u32 src_ip;
+	__u32 dst_cidr;
+};
+
+struct srv6_key6 {
+	struct bpf_lpm_trie_key lpm;
+	union v6addr src_ip;
+	union v6addr dst_cidr;
+};
+
 enum {
 	POLICY_INGRESS = 1,
 	POLICY_EGRESS = 2,

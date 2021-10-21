@@ -78,6 +78,8 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #endif /* ENABLE_IPV6 */
 
 #define EGRESS_MAP test_cilium_egress_v4
+#define SRV6_MAP4 test_cilium_srv6_v4
+#define SRV6_MAP6 test_cilium_srv6_v6
 #define ENDPOINTS_MAP test_cilium_lxc
 #define EVENTS_MAP test_cilium_events
 #define SIGNAL_MAP test_cilium_signals
@@ -115,6 +117,7 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define POLICY_MAP_SIZE 16384
 #define IPCACHE_MAP_SIZE 512000
 #define EGRESS_MAP_SIZE 16384
+#define SRV6_MAP_SIZE 16384
 #define POLICY_PROG_MAP_SIZE ENDPOINTS_MAP_SIZE
 #define IPV4_FRAG_DATAGRAMS_MAP test_cilium_ipv4_frag_datagrams
 #define CILIUM_IPV4_FRAG_MAP_MAX_ENTRIES 8192

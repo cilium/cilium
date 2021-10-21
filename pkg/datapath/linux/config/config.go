@@ -47,6 +47,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/recorder"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
+	"github.com/cilium/cilium/pkg/maps/srv6map"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/node"
@@ -147,6 +148,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	// TODO(anfernee): Update Documentation/concepts/ebpf/maps.rst when egress gateway support is merged.
 	cDefinesMap["EGRESS_MAP"] = egressmap.MapName
 	cDefinesMap["EGRESS_MAP_SIZE"] = fmt.Sprintf("%d", egressmap.MaxEntries)
+	cDefinesMap["SRV6_MAP4"] = srv6map.MapName4
+	cDefinesMap["SRV6_MAP6"] = srv6map.MapName6
+	cDefinesMap["SRV6_MAP_SIZE"] = fmt.Sprintf("%d", srv6map.MaxEntries)
 	cDefinesMap["POLICY_PROG_MAP_SIZE"] = fmt.Sprintf("%d", policymap.PolicyCallMaxEntries)
 	cDefinesMap["SOCKOPS_MAP_SIZE"] = fmt.Sprintf("%d", sockmap.MaxEntries)
 	cDefinesMap["ENCRYPT_MAP"] = encrypt.MapName

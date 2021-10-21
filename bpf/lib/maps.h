@@ -199,6 +199,28 @@ struct {
 
 #endif /* ENABLE_EGRESS_GATEWAY */
 
+#ifdef ENABLE_SRV6
+# ifdef ENABLE_IPV4
+struct bpf_elf_map __section_maps SRV6_MAP4 = {
+	.type       = BPF_MAP_TYPE_LPM_TRIE,
+	.size_key   = sizeof(struct srv6_key4),
+	.size_value = sizeof(union v6addr),
+	.pinning    = PIN_GLOBAL_NS,
+	.max_elem   = SRV6_MAP_SIZE,
+	.flags      = BPF_F_NO_PREALLOC,
+};
+# endif /* ENABLE_IPV4 */
+
+struct bpf_elf_map __section_maps SRV6_MAP6 = {
+	.type       = BPF_MAP_TYPE_LPM_TRIE,
+	.size_key   = sizeof(struct srv6_key6),
+	.size_value = sizeof(union v6addr),
+	.pinning    = PIN_GLOBAL_NS,
+	.max_elem   = SRV6_MAP_SIZE,
+	.flags      = BPF_F_NO_PREALLOC,
+};
+#endif /* ENABLE_SRV6 */
+
 #ifndef SKIP_CALLS_MAP
 static __always_inline void ep_tail_call(struct __ctx_buff *ctx __maybe_unused,
 					 const __u32 index __maybe_unused)

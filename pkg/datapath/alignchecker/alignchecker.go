@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/recorder"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
+	"github.com/cilium/cilium/pkg/maps/srv6map"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 )
 
@@ -60,13 +61,16 @@ func CheckStructAlignments(path string) error {
 		"ipv4_revnat_entry":    {reflect.TypeOf(lbmap.SockRevNat4Value{})},
 		"ipv6_revnat_tuple":    {reflect.TypeOf(lbmap.SockRevNat6Key{})},
 		"ipv6_revnat_entry":    {reflect.TypeOf(lbmap.SockRevNat6Value{})},
-		"v6addr":               {reflect.TypeOf(neighborsmap.Key6{})},
-		"macaddr":              {reflect.TypeOf(neighborsmap.Value{})},
-		"ipv4_frag_id":         {reflect.TypeOf(fragmap.FragmentKey{})},
-		"ipv4_frag_l4ports":    {reflect.TypeOf(fragmap.FragmentValue{})},
-		"capture4_wcard":       {reflect.TypeOf(recorder.CaptureWcard4{})},
-		"capture6_wcard":       {reflect.TypeOf(recorder.CaptureWcard6{})},
-		"capture_rule":         {reflect.TypeOf(recorder.CaptureRule4{})},
+		"v6addr": {
+			reflect.TypeOf(neighborsmap.Key6{}),
+			reflect.TypeOf(srv6map.Value{}),
+		},
+		"macaddr":           {reflect.TypeOf(neighborsmap.Value{})},
+		"ipv4_frag_id":      {reflect.TypeOf(fragmap.FragmentKey{})},
+		"ipv4_frag_l4ports": {reflect.TypeOf(fragmap.FragmentValue{})},
+		"capture4_wcard":    {reflect.TypeOf(recorder.CaptureWcard4{})},
+		"capture6_wcard":    {reflect.TypeOf(recorder.CaptureWcard6{})},
+		"capture_rule":      {reflect.TypeOf(recorder.CaptureRule4{})},
 		// TODO: alignchecker does not support nested structs yet.
 		// "capture_rule":      {reflect.TypeOf(recorder.CaptureRule6{})},
 		// "ipv4_nat_entry":    {reflect.TypeOf(nat.NatEntry4{})},
@@ -86,6 +90,8 @@ func CheckStructAlignments(path string) error {
 		"edt_info":          {reflect.TypeOf(bwmap.EdtInfo{})},
 		"egress_key":        {reflect.TypeOf(egressmap.Key4{})},
 		"egress_info":       {reflect.TypeOf(egressmap.EgressInfo4{})},
+		"srv6_key4":         {reflect.TypeOf(srv6map.Key4{})},
+		"srv6_key6":         {reflect.TypeOf(srv6map.Key6{})},
 	}
 	if err := check.CheckStructAlignments(path, toCheck, true); err != nil {
 		return err
