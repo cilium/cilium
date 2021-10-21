@@ -262,7 +262,7 @@ func (e *EgressCommonRule) SetAggregatedSelectors() {
 }
 
 // GetDestinationEndpointSelectorsWithRequirements returns a slice of endpoints selectors covering
-// all L3 source selectors of the ingress rule
+// all L3 dst selectors of the egress rule
 func (e *EgressRule) GetDestinationEndpointSelectorsWithRequirements(requirements []slim_metav1.LabelSelectorRequirement) EndpointSelectorSlice {
 	if e.aggregatedSelectors == nil {
 		e.SetAggregatedSelectors()
