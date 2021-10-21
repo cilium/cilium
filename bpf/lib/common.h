@@ -302,6 +302,30 @@ struct egress_gw_policy_entry {
 	__u32 gateway_ip;
 };
 
+struct srv6_vrf_key4 {
+	struct bpf_lpm_trie_key lpm;
+	__u32 src_ip;
+	__u32 dst_cidr;
+};
+
+struct srv6_vrf_key6 {
+	struct bpf_lpm_trie_key lpm;
+	union v6addr src_ip;
+	union v6addr dst_cidr;
+};
+
+struct srv6_policy_key4 {
+	struct bpf_lpm_trie_key lpm;
+	__u32 vrf_id;
+	__u32 dst_cidr;
+};
+
+struct srv6_policy_key6 {
+	struct bpf_lpm_trie_key lpm;
+	__u32 vrf_id;
+	union v6addr dst_cidr;
+};
+
 struct vtep_key {
 	__u32 vtep_ip;
 };

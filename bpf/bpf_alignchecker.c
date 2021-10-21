@@ -6,7 +6,6 @@
 #define TRACE_NOTIFY
 #define DROP_NOTIFY
 #define POLICY_VERDICT_NOTIFY
-#define ENABLE_EGRESS_GATEWAY
 #define ENABLE_VTEP
 #define ENABLE_CAPTURE
 #undef ENABLE_ARP_RESPONDER
@@ -91,6 +90,10 @@ int main(void)
 	DECLARE(struct capture4_wcard);
 	DECLARE(struct capture6_wcard);
 	DECLARE(struct capture_rule);
+	DECLARE(struct srv6_vrf_key4);
+	DECLARE(struct srv6_vrf_key6);
+	DECLARE(struct srv6_policy_key4);
+	DECLARE(struct srv6_policy_key6);
 
 	return 0;
 }

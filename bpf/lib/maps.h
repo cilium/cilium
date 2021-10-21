@@ -211,6 +211,45 @@ struct {
 
 #endif /* ENABLE_EGRESS_GATEWAY */
 
+#ifdef ENABLE_SRV6
+# define SRV6_VRF_MAP(IP_FAMILY)				\
+struct {						\
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);		\
+	__type(key, struct srv6_vrf_key ## IP_FAMILY);	\
+	__type(value, __u32);				\
+	__uint(pinning, LIBBPF_PIN_BY_NAME);		\
+	__uint(max_entries, SRV6_VRF_MAP_SIZE);		\
+	__uint(map_flags, BPF_F_NO_PREALLOC);		\
+} SRV6_VRF_MAP ## IP_FAMILY __section_maps_btf;
+
+# define SRV6_POLICY_MAP(IP_FAMILY)				\
+struct {							\
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);			\
+	__type(key, struct srv6_policy_key ## IP_FAMILY);	\
+	__type(value, union v6addr);				\
+	__uint(pinning, LIBBPF_PIN_BY_NAME);			\
+	__uint(max_entries, SRV6_POLICY_MAP_SIZE);		\
+	__uint(map_flags, BPF_F_NO_PREALLOC);			\
+} SRV6_POLICY_MAP ## IP_FAMILY __section_maps_btf;
+
+# ifdef ENABLE_IPV4
+SRV6_VRF_MAP(4)
+SRV6_POLICY_MAP(4)
+# endif /* ENABLE_IPV4 */
+
+SRV6_VRF_MAP(6)
+SRV6_POLICY_MAP(6)
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, union v6addr); /* SID */
+    __type(value, __u32);      /* VRF ID */
+    __uint(pinning, LIBBPF_PIN_BY_NAME);
+    __uint(max_entries, SRV6_SID_MAP_SIZE);
+    __uint(map_flags, BPF_F_NO_PREALLOC);
+} SRV6_SID_MAP __section_maps_btf;
+#endif /* ENABLE_SRV6 */
+
 #ifdef ENABLE_VTEP
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
