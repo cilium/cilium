@@ -7,4 +7,6 @@ package v2alpha1
 
 type CiliumEgressNATPolicyExpansion interface{}
 
+type CiliumEgressSRv6PolicyExpansion interface{}
+
 type CiliumEndpointSliceExpansion interface{}

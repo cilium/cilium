@@ -13,6 +13,8 @@ import (
 type Interface interface {
 	// CiliumEgressNATPolicies returns a CiliumEgressNATPolicyInformer.
 	CiliumEgressNATPolicies() CiliumEgressNATPolicyInformer
+	// CiliumEgressSRv6Policies returns a CiliumEgressSRv6PolicyInformer.
+	CiliumEgressSRv6Policies() CiliumEgressSRv6PolicyInformer
 	// CiliumEndpointSlices returns a CiliumEndpointSliceInformer.
 	CiliumEndpointSlices() CiliumEndpointSliceInformer
 }
@@ -31,6 +33,11 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // CiliumEgressNATPolicies returns a CiliumEgressNATPolicyInformer.
 func (v *version) CiliumEgressNATPolicies() CiliumEgressNATPolicyInformer {
 	return &ciliumEgressNATPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// CiliumEgressSRv6Policies returns a CiliumEgressSRv6PolicyInformer.
+func (v *version) CiliumEgressSRv6Policies() CiliumEgressSRv6PolicyInformer {
+	return &ciliumEgressSRv6PolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // CiliumEndpointSlices returns a CiliumEndpointSliceInformer.

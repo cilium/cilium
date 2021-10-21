@@ -19,6 +19,10 @@ func (c *FakeCiliumV2alpha1) CiliumEgressNATPolicies() v2alpha1.CiliumEgressNATP
 	return &FakeCiliumEgressNATPolicies{c}
 }
 
+func (c *FakeCiliumV2alpha1) CiliumEgressSRv6Policies() v2alpha1.CiliumEgressSRv6PolicyInterface {
+	return &FakeCiliumEgressSRv6Policies{c}
+}
+
 func (c *FakeCiliumV2alpha1) CiliumEndpointSlices() v2alpha1.CiliumEndpointSliceInterface {
 	return &FakeCiliumEndpointSlices{c}
 }

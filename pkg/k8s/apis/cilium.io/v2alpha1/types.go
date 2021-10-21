@@ -126,3 +126,53 @@ type CiliumEndpointSliceList struct {
 	// Items is a list of CiliumEndpointSlice.
 	Items []CiliumEndpointSlice `json:"items"`
 }
+
+// +genclient
+// +genclient:nonNamespaced
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories={cilium,ciliumpolicy},singular="ciliumegresssrv6policy",path="ciliumegresssrv6policies",scope="Cluster"
+// +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
+// +kubebuilder:storageversion
+
+type CiliumEgressSRv6Policy struct {
+	// +k8s:openapi-gen=false
+	// +deepequal-gen=false
+	metav1.TypeMeta `json:",inline"`
+	// +k8s:openapi-gen=false
+	// +deepequal-gen=false
+	metav1.ObjectMeta `json:"metadata"`
+
+	Spec CiliumEgressSRv6PolicySpec `json:"spec,omitempty"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=false
+// +deepequal-gen=false
+
+// CiliumEgressSRv6PolicyList is a list of CiliumEgressSRv6Policy objects.
+type CiliumEgressSRv6PolicyList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	// Items is a list of CiliumEgressSRv6Policy.
+	Items []CiliumEgressSRv6Policy `json:"items"`
+}
+
+// +kubebuilder:validation:Pattern=`^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*\/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$`
+type CIDR string
+
+type CiliumEgressSRv6PolicySpec struct {
+	// Egress represents a list of rules by which egress traffic is
+	// filtered from the source pods.
+	Egress []EgressRule `json:"egress"`
+
+	// DestinationCIDRs is a list of destination CIDRs for destination IP addresses.
+	// If a destination IP matches any one CIDR, it will be selected.
+	DestinationCIDRs []CIDR `json:"destinationCIDRs"`
+
+	// DestinationSID is the SID used for the SRv6 encapsulation.
+	// It is in effect the IPv6 destination address of the outer IPv6 header.
+	//
+	// +kubebuilder:validation:Pattern=`^\s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?$`
+	DestinationSID string `json:"destinationSID"`
+}
