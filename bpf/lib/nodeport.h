@@ -17,6 +17,7 @@
 #include "conntrack.h"
 #include "csum.h"
 #include "encap.h"
+#include "identity.h"
 #include "trace.h"
 #include "ghash.h"
 #include "pcap.h"
@@ -1204,7 +1205,7 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 			 * by the remote node if its native dev's
 			 * rp_filter=1.
 			 */
-			if (info->sec_label == REMOTE_NODE_ID)
+			if (identity_is_remote_node(info->sec_label))
 				return false;
 #endif
 

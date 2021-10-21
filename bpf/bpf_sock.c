@@ -13,6 +13,7 @@
 #include "lib/common.h"
 #include "lib/lb.h"
 #include "lib/eps.h"
+#include "lib/identity.h"
 #include "lib/metrics.h"
 
 #define SYS_REJECT	0
@@ -261,7 +262,7 @@ sock4_wildcard_lookup(struct lb4_key *key __maybe_unused,
 
 	info = ipcache_lookup4(&IPCACHE_MAP, key->address, V4_CACHE_KEY_LEN);
 	if (info != NULL && (info->sec_label == HOST_ID ||
-	    (include_remote_hosts && info->sec_label == REMOTE_NODE_ID)))
+	    (include_remote_hosts && identity_is_remote_node(info->sec_label))))
 		goto wildcard_lookup;
 
 	return NULL;
@@ -746,7 +747,7 @@ sock6_wildcard_lookup(struct lb6_key *key __maybe_unused,
 
 	info = ipcache_lookup6(&IPCACHE_MAP, &key->address, V6_CACHE_KEY_LEN);
 	if (info != NULL && (info->sec_label == HOST_ID ||
-	    (include_remote_hosts && info->sec_label == REMOTE_NODE_ID)))
+	    (include_remote_hosts && identity_is_remote_node(info->sec_label))))
 		goto wildcard_lookup;
 
 	return NULL;
