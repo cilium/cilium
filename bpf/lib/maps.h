@@ -200,8 +200,8 @@ struct {
 #endif /* ENABLE_EGRESS_GATEWAY */
 
 #ifndef SKIP_CALLS_MAP
-static __always_inline void ep_tail_call(struct __ctx_buff *ctx,
-					 const __u32 index)
+static __always_inline void ep_tail_call(struct __ctx_buff *ctx __maybe_unused,
+					 const __u32 index __maybe_unused)
 {
 	tail_call_static(ctx, &CALLS_MAP, index);
 }

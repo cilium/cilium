@@ -200,8 +200,7 @@ skip_service_lookup:
 			encrypt_key = get_min_encrypt_key(info->key);
 #ifdef ENABLE_WIREGUARD
 			if (info->tunnel_endpoint != 0 &&
-			    info->sec_label != HOST_ID &&
-			    info->sec_label != REMOTE_NODE_ID)
+			    !identity_is_node(info->sec_label))
 				dst_remote_ep = true;
 #endif /* ENABLE_WIREGUARD */
 		} else {
@@ -631,8 +630,7 @@ skip_service_lookup:
 			 * in the code in the same place where we handle IPSec.
 			 */
 			if (info->tunnel_endpoint != 0 &&
-			    info->sec_label != HOST_ID &&
-			    info->sec_label != REMOTE_NODE_ID)
+			    !identity_is_node(info->sec_label))
 				dst_remote_ep = true;
 #endif /* ENABLE_WIREGUARD */
 		} else {
