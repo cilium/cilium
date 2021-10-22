@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sconstv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sconstv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/k8s/synced"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -66,32 +65,42 @@ var (
 	comparableCRDSchemaVersion = versioncheck.MustVersion(k8sconstv2.CustomResourceDefinitionSchemaVersion)
 )
 
-type crdCreationFn func(clientset apiextensionsclient.Interface) error
-
 // CreateCustomResourceDefinitions creates our CRD objects in the Kubernetes
 // cluster.
 func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) error {
 	g, _ := errgroup.WithContext(context.Background())
 
-	resourceToCreateFnMapping := map[string]crdCreationFn{
-		synced.CRDResourceName(k8sconstv2.CNPName):        createCNPCRD,
-		synced.CRDResourceName(k8sconstv2.CCNPName):       createCCNPCRD,
-		synced.CRDResourceName(k8sconstv2.CNName):         createNodeCRD,
-		synced.CRDResourceName(k8sconstv2.CIDName):        createIdentityCRD,
-		synced.CRDResourceName(k8sconstv2.CEPName):        createCEPCRD,
-		synced.CRDResourceName(k8sconstv2.CEWName):        createCEWCRD,
-		synced.CRDResourceName(k8sconstv2.CLRPName):       createCLRPCRD,
-		synced.CRDResourceName(k8sconstv2alpha1.CENPName): createCENPCRD,
-	}
-	for _, r := range synced.OperatorCRDResourceNames() {
-		fn, ok := resourceToCreateFnMapping[r]
-		if !ok {
-			log.Fatalf("Unknown resource %s. Please update pkg/k8s/apis/cilium.io/client to understand this type.", r)
-		}
-		g.Go(func() error {
-			return fn(clientset)
-		})
-	}
+	g.Go(func() error {
+		return createCNPCRD(clientset)
+	})
+
+	g.Go(func() error {
+		return createCCNPCRD(clientset)
+	})
+
+	g.Go(func() error {
+		return createCEPCRD(clientset)
+	})
+
+	g.Go(func() error {
+		return createNodeCRD(clientset)
+	})
+
+	g.Go(func() error {
+		return createCEWCRD(clientset)
+	})
+
+	g.Go(func() error {
+		return createIdentityCRD(clientset)
+	})
+
+	g.Go(func() error {
+		return createCLRPCRD(clientset)
+	})
+
+	g.Go(func() error {
+		return createCENPCRD(clientset)
+	})
 
 	return g.Wait()
 }
