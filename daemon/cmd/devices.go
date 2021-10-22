@@ -93,7 +93,10 @@ func (dm *DeviceManager) Detect() error {
 	}
 
 	detectDirectRoutingDev := option.Config.EnableNodePort
-	if option.Config.DirectRoutingDevice != "" {
+	if option.Config.EnableBPFMultihoming && option.Config.LBDevInheritIPAddr != "" {
+		option.Config.DirectRoutingDevice = option.Config.LBDevInheritIPAddr
+		detectDirectRoutingDev = false
+	} else if option.Config.DirectRoutingDevice != "" {
 		dm.devices[option.Config.DirectRoutingDevice] = struct{}{}
 		detectDirectRoutingDev = false
 	}
