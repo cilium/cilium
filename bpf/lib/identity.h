@@ -9,7 +9,7 @@
 
 static __always_inline bool identity_is_remote_node(__u32 identity)
 {
-	return identity == REMOTE_NODE_ID;
+	return identity == REMOTE_NODE_ID || identity == KUBE_APISERVER_ID;
 }
 
 static __always_inline bool identity_is_node(__u32 identity)
@@ -26,6 +26,7 @@ static __always_inline bool identity_is_node(__u32 identity)
  * - ReservedIdentityHost
  * - ReservedIdentityWorld
  * - ReservedIdentityRemoteNode
+ * - ReservedIdentityKubeAPIServer
  *
  * The following identities are given to endpoints so return false for these:
  * - ReservedIdentityUnmanaged
