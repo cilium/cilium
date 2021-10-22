@@ -313,6 +313,19 @@ Annotations:
 
 .. _1.10_upgrade_notes:
 
+1.10.6 Upgrade Notes
+--------------------
+
+* The XDP-based prefilter is enabled for all devices specified by ``--devices``
+  if ``--prefilter-device`` is set.
+
+Deprecated Options
+~~~~~~~~~~~~~~~~~~
+
+* ``prefilter-device`` and ``prefilter-mode``: These options have been
+  deprecated in favor of ``enable-xdp-prefilter`` and ``bpf-lb-acceleration``,
+  and will be removed in 1.12.
+
 1.10 Upgrade Notes
 ------------------
 

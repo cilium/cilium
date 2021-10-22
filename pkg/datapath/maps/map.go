@@ -221,7 +221,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 		maps = append(maps, ipmasq.MapName)
 	}
 
-	if option.Config.DevicePreFilter == "undefined" {
+	if !option.Config.EnableXDPPrefilter {
 		maps = append(maps, []string{
 			cidrmap.MapName + "v4_dyn",
 			cidrmap.MapName + "v4_fix",
