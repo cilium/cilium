@@ -269,6 +269,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			cDefinesMap["ENABLE_MKE"] = "1"
 			cDefinesMap["MKE_HOST"] = fmt.Sprintf("%d", option.HostExtensionMKE)
 		}
+		if option.Config.EnableBPFMultihoming {
+			cDefinesMap["ENABLE_MULTIHOMING"] = "1"
+		}
 		if option.Config.EnableRecorder {
 			cDefinesMap["ENABLE_CAPTURE"] = "1"
 			if option.Config.EnableIPv4 {
@@ -435,15 +438,19 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = fmt.Sprintf("%d", directRoutingIfIndex)
 
 		if option.Config.EnableIPv4 {
-			ip, ok := node.GetNodePortIPv4AddrsWithDevices()[directRoutingIface]
-			if !ok {
-				log.WithFields(logrus.Fields{
-					"directRoutingIface": directRoutingIface,
-				}).Fatal("NodePort enabled but direct routing device's IPv4 address not found")
-			}
+			if !option.Config.EnableBPFMultihoming {
+				ip, ok := node.GetNodePortIPv4AddrsWithDevices()[directRoutingIface]
+				if !ok {
+					log.WithFields(logrus.Fields{
+						"directRoutingIface": directRoutingIface,
+					}).Fatal("NodePort enabled but direct routing device's IPv4 address not found")
+				}
 
-			ipv4 := byteorder.HostSliceToNetwork(ip, reflect.Uint32).(uint32)
-			cDefinesMap["IPV4_DIRECT_ROUTING"] = fmt.Sprintf("%d", ipv4)
+				ipv4 := byteorder.HostSliceToNetwork(ip, reflect.Uint32).(uint32)
+				cDefinesMap["IPV4_DIRECT_ROUTING"] = fmt.Sprintf("%d", ipv4)
+			} else {
+				cDefinesMap["IPV4_DIRECT_ROUTING"] = "0"
+			}
 		}
 
 		if option.Config.EnableIPv6 {

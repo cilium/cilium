@@ -279,6 +279,8 @@ const (
 	// Alias to NodePortAlg
 	LoadBalancerAlg = "bpf-lb-algorithm"
 
+	EnableBPFMultihoming = "bpf-multihoming"
+
 	// Alias to NodePortAcceleration
 	LoadBalancerAcceleration = "bpf-lb-acceleration"
 
@@ -1719,6 +1721,8 @@ type DaemonConfig struct {
 	// MaglevHashSeed contains the cluster-wide seed for the hash(es).
 	MaglevHashSeed string
 
+	EnableBPFMultihoming bool
+
 	// NodePortAcceleration indicates whether NodePort should be accelerated
 	// via XDP ("none", "generic" or "native")
 	NodePortAcceleration string
@@ -2459,6 +2463,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableSVCSourceRangeCheck = viper.GetBool(EnableSVCSourceRangeCheck)
 	c.EnableHostPort = viper.GetBool(EnableHostPort)
 	c.EnableHostLegacyRouting = viper.GetBool(EnableHostLegacyRouting)
+	c.EnableBPFMultihoming = viper.GetBool(EnableBPFMultihoming)
 	c.MaglevTableSize = viper.GetInt(MaglevTableSize)
 	c.MaglevHashSeed = viper.GetString(MaglevHashSeed)
 	c.NodePortBindProtection = viper.GetBool(NodePortBindProtection)

@@ -478,6 +478,10 @@ func handleNativeDevices(strict bool) {
 		(option.Config.EnableNodePort || option.Config.EnableHostFirewall || option.Config.EnableBandwidthManager)
 	detectDirectRoutingDev := option.Config.EnableNodePort &&
 		option.Config.DirectRoutingDevice == ""
+	if option.Config.EnableBPFMultihoming && option.Config.LBDevInheritIPAddr != "" {
+		option.Config.DirectRoutingDevice = option.Config.LBDevInheritIPAddr
+		detectDirectRoutingDev = false
+	}
 	if detectNodePortDevs || detectDirectRoutingDev {
 		if err := detectDevices(detectNodePortDevs, detectDirectRoutingDev); err != nil {
 			msg := "Unable to detect devices to attach Loadbalancer, Host Firewall or Bandwidth Manager program"
