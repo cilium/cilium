@@ -593,13 +593,6 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) {
 	}
 
 	if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
-		if option.Config.XDPDevice != "undefined" &&
-			(option.Config.DirectRoutingDevice == "" ||
-				option.Config.XDPDevice != option.Config.DirectRoutingDevice) {
-			log.Fatalf("Cannot set NodePort acceleration device: mismatch between Prefilter device %s and NodePort device %s",
-				option.Config.XDPDevice, option.Config.DirectRoutingDevice)
-		}
-		option.Config.XDPDevice = option.Config.DirectRoutingDevice
 		if err := loader.SetXDPMode(option.Config.NodePortAcceleration); err != nil {
 			log.WithError(err).Fatal("Cannot set NodePort acceleration")
 		}
@@ -649,10 +642,6 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) {
 	}
 
 	option.Config.NodePortHairpin = len(option.Config.Devices) == 1
-	if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled &&
-		len(option.Config.Devices) != 1 {
-		log.Fatalf("Cannot set NodePort acceleration due to multi-device setup (%q). Specify --%s with a single device to enable NodePort acceleration.", option.Config.Devices, option.Devices)
-	}
 }
 
 // disableNodePort disables BPF NodePort and friends who are dependent from

@@ -1212,7 +1212,16 @@ func initEnv(cmd *cobra.Command) {
 	}
 
 	if option.Config.DevicePreFilter != "undefined" {
-		option.Config.XDPDevice = option.Config.DevicePreFilter
+		found := false
+		for _, dev := range option.Config.Devices {
+			if dev == option.Config.DevicePreFilter {
+				found = true
+				break
+			}
+		}
+		if !found {
+			option.Config.Devices = append(option.Config.Devices, option.Config.DevicePreFilter)
+		}
 		if err := loader.SetXDPMode(option.Config.ModePreFilter); err != nil {
 			scopedLog.WithError(err).Fatal("Cannot set prefilter XDP mode")
 		}
