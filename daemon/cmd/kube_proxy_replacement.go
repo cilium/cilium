@@ -594,13 +594,6 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) {
 	}
 
 	if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
-		if option.Config.XDPDevice != "undefined" &&
-			(option.Config.DirectRoutingDevice == "" ||
-				option.Config.XDPDevice != option.Config.DirectRoutingDevice) {
-			log.Fatalf("Cannot set NodePort acceleration device: mismatch between Prefilter device %s and NodePort device %s",
-				option.Config.XDPDevice, option.Config.DirectRoutingDevice)
-		}
-		option.Config.XDPDevice = option.Config.DirectRoutingDevice
 		if err := loader.SetXDPMode(option.Config.NodePortAcceleration); err != nil {
 			log.WithError(err).Fatal("Cannot set NodePort acceleration")
 		}
