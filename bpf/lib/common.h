@@ -918,7 +918,16 @@ static __always_inline int redirect_ep(struct __ctx_buff *ctx __maybe_unused,
 		 */
 		ctx_change_type(ctx, PACKET_HOST);
 # endif /* ENCAP_IFINDEX */
+#if __ctx_is == __ctx_skb
 		return redirect_peer(ifindex, 0);
+#else
+		/* bpf_redirect_peer() is available only in TC BPF. However,
+		 * this path is not used by bpf_xdp. So to avoid compilation
+		 * errors protect it with #if until we have replaced all usage
+		 * of redirect{,_peer}() with ctx_redirect{,_peer}().
+		 */
+		return -ENOTSUP;
+#endif /* __ctx_is == __ctx_skb */
 	}
 #else
 	return CTX_ACT_OK;
