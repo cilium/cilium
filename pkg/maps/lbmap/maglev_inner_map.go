@@ -27,9 +27,9 @@ type MaglevInnerVal struct {
 }
 
 // newMaglevInnerMapSpec returns the spec for a maglev inner map.
-func newMaglevInnerMapSpec(name string, tableSize uint32) *ebpf.MapSpec {
+func newMaglevInnerMapSpec(tableSize uint32) *ebpf.MapSpec {
 	return &ebpf.MapSpec{
-		Name:       name,
+		Name:       "cilium_maglev_inner",
 		Type:       ebpf.Array,
 		KeySize:    uint32(unsafe.Sizeof(MaglevInnerKey{})),
 		ValueSize:  uint32(unsafe.Sizeof(uint32(0)) * uintptr(tableSize)),
@@ -38,8 +38,8 @@ func newMaglevInnerMapSpec(name string, tableSize uint32) *ebpf.MapSpec {
 }
 
 // newMaglevInnerMap returns a new object representing a maglev inner map.
-func newMaglevInnerMap(name string, tableSize uint32) (*maglevInnerMap, error) {
-	spec := newMaglevInnerMapSpec(name, tableSize)
+func newMaglevInnerMap(tableSize uint32) (*maglevInnerMap, error) {
+	spec := newMaglevInnerMapSpec(tableSize)
 
 	m := ebpf.NewMap(spec)
 	if err := m.OpenOrCreate(); err != nil {
