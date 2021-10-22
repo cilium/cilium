@@ -1192,7 +1192,6 @@ type DaemonConfig struct {
 	LBDevInheritIPAddr  string     // Device which IP addr used by bpf_host devices
 	DevicePreFilter     string     // Prefilter device
 	ModePreFilter       string     // Prefilter mode
-	XDPDevice           string     // XDP device
 	XDPMode             string     // XDP mode, values: { xdpdrv | xdpgeneric | none }
 	HostV4Addr          net.IP     // Host v4 address of the snooping device
 	HostV6Addr          net.IP     // Host v6 address of the snooping device
@@ -2671,7 +2670,6 @@ func (c *DaemonConfig) Populate() {
 	}
 	c.IPv6PodSubnets = subnets
 
-	c.XDPDevice = "undefined"
 	c.XDPMode = XDPModeLinkNone
 
 	err = c.populateNodePortRange()

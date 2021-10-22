@@ -101,7 +101,7 @@ func writePreFilterHeader(preFilter *prefilter.PreFilter, dir string) error {
 	defer f.Close()
 	fw := bufio.NewWriter(f)
 	fmt.Fprint(fw, "/*\n")
-	fmt.Fprintf(fw, " * XDP device: %s\n", option.Config.DevicePreFilter)
+	fmt.Fprintf(fw, " * XDP devices: %s\n", strings.Join(option.Config.Devices, " "))
 	fmt.Fprintf(fw, " * XDP mode: %s\n", option.Config.ModePreFilter)
 	fmt.Fprint(fw, " */\n\n")
 	preFilter.WriteConfig(fw)
@@ -206,9 +206,12 @@ func (l *Loader) reinitializeIPSec(ctx context.Context) error {
 }
 
 func (l *Loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string) error {
-	maybeUnloadObsoleteXDPPrograms(option.Config.XDPDevice, option.Config.XDPMode)
-	if option.Config.XDPDevice != "undefined" {
-		if err := compileAndLoadXDPProg(ctx, option.Config.XDPDevice, option.Config.XDPMode, extraCArgs); err != nil {
+	maybeUnloadObsoleteXDPPrograms(option.Config.Devices, option.Config.XDPMode)
+	if option.Config.XDPMode == option.XDPModeDisabled {
+		return nil
+	}
+	for _, dev := range option.Config.Devices {
+		if err := compileAndLoadXDPProg(ctx, dev, option.Config.XDPMode, extraCArgs); err != nil {
 			return err
 		}
 	}
@@ -256,7 +259,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	if option.Config.DevicePreFilter != "undefined" {
-		scopedLog := log.WithField(logfields.XDPDevice, option.Config.XDPDevice)
+		scopedLog := log.WithField(logfields.Devices, option.Config.Devices)
 
 		preFilter, err := prefilter.NewPreFilter()
 		if err != nil {
