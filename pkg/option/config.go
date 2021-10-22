@@ -396,6 +396,9 @@ const (
 	// PProfPort is the port that the pprof listens on
 	PProfPort = "pprof-port"
 
+	// EnableXDPPrefilter enables XDP-based prefiltering
+	EnableXDPPrefilter = "enable-xdp-prefilter"
+
 	// PrefilterDevice is the device facing external network for XDP prefiltering
 	PrefilterDevice = "prefilter-device"
 
@@ -1190,6 +1193,7 @@ type DaemonConfig struct {
 	Devices             []string   // bpf_host device
 	DirectRoutingDevice string     // Direct routing device (used only by NodePort BPF)
 	LBDevInheritIPAddr  string     // Device which IP addr used by bpf_host devices
+	EnableXDPPrefilter  bool       // Enable XDP-based prefiltering
 	DevicePreFilter     string     // Prefilter device
 	ModePreFilter       string     // Prefilter mode
 	XDPMode             string     // XDP mode, values: { xdpdrv | xdpgeneric | none }
@@ -2439,6 +2443,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableWireguardUserspaceFallback = viper.GetBool(EnableWireguardUserspaceFallback)
 	c.EnableWellKnownIdentities = viper.GetBool(EnableWellKnownIdentities)
 	c.EndpointInterfaceNamePrefix = viper.GetString(EndpointInterfaceNamePrefix)
+	c.EnableXDPPrefilter = viper.GetBool(EnableXDPPrefilter)
 	c.DevicePreFilter = viper.GetString(PrefilterDevice)
 	c.DisableCiliumEndpointCRD = viper.GetBool(DisableCiliumEndpointCRDName)
 	c.EgressMasqueradeInterfaces = viper.GetString(EgressMasqueradeInterfaces)

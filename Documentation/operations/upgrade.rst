@@ -314,6 +314,8 @@ Annotations:
   when device wildcard expansion (``--devices=eth+``) yields no devices.
 * Device auto-detection now discovers devices through the routing table and
   only considers devices that have a global unicast route in some routing table.
+* The XDP-based prefilter is enabled for all devices specified by ``--devices``
+  if ``--prefilter-device`` is set.
 
 Removed Options
 ~~~~~~~~~~~~~~~
@@ -340,6 +342,9 @@ Deprecated Options
 
 * ``native-routing-cidr``: This option has been deprecated in favor of
   ``ipv4-native-routing-cidr`` and will be removed in 1.12.
+* ``prefilter-device`` and ``prefilter-mode``: These options have been
+  deprecated in favor of ``enable-xdp-prefilter`` and ``bpf-lb-acceleration``,
+  and will be removed in 1.12.
 
 New Options
 ~~~~~~~~~~~
