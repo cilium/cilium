@@ -624,6 +624,9 @@ func initializeFlags() {
 	flags.String(option.LoadBalancerRSSv6CIDR, "", "BPF load balancing RSS outer source IPv6 CIDR prefix for IPIP")
 	option.BindEnv(option.LoadBalancerRSSv6CIDR)
 
+	flags.Bool(option.EnableBPFMultihoming, false, "")
+	option.BindEnv(option.EnableBPFMultihoming)
+
 	flags.String(option.LoadBalancerAcceleration, option.NodePortAccelerationDisabled, fmt.Sprintf(
 		"BPF load balancing acceleration via XDP (\"%s\", \"%s\")",
 		option.NodePortAccelerationNative, option.NodePortAccelerationDisabled))
