@@ -420,6 +420,8 @@ func GetLocalNodeID() NumericIdentity {
 
 // SetLocalNodeID sets the local node id.
 // Note that currently changes to the local node id only take effect during agent bootstrap
+//
+// TODO: Update for apiserver identity?
 func SetLocalNodeID(nodeid uint32) {
 	localNodeIdentity.Lock()
 	defer localNodeIdentity.Unlock()
