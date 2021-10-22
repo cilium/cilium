@@ -116,6 +116,7 @@ var ciliumClusterRole = &rbacv1.ClusterRole{
 				"ciliumlocalredirectpolicies",
 				"ciliumlocalredirectpolicies/status",
 				"ciliumlocalredirectpolicies/finalizers",
+				"ciliumegressnatpolicies",
 			},
 			Verbs: []string{"*"},
 		},
