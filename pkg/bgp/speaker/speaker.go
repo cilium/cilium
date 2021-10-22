@@ -44,6 +44,8 @@ func New() *Speaker {
 	if err != nil {
 		log.WithError(err).Fatal("Failed to open BGP config file")
 	}
+	defer f.Close()
+
 	config, err := bgpconfig.Parse(f)
 	if err != nil {
 		log.WithError(err).Fatal("Failed to parse BGP configuration")
