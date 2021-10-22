@@ -8,7 +8,22 @@
 
 static __always_inline bool identity_is_remote_node(__u32 identity)
 {
-	return identity == REMOTE_NODE_ID;
+	/* KUBE_APISERVER_NODE_ID is the reserved identity that corresponds to
+	 * the labels 'reserved:remote-node' and 'reserved:kube-apiserver'. As
+	 * such, if it is ever used for determining the identity of a node in
+	 * the cluster, then routing decisions and so on should be made the
+	 * same way as for REMOTE_NODE_ID. If we ever assign unique identities
+	 * to each node in the cluster, then we'll probably need to convert
+	 * the implementation here into a map to select any of the possible
+	 * identities. But for now, this is good enough to capture the notion
+	 * of 'remote nodes in the cluster' for routing decisions.
+	 *
+	 * Note that kube-apiserver policy is handled entirely separately by
+	 * the standard policymap enforcement logic and has no relationship to
+	 * the identity as used here. If the apiserver is outside the cluster,
+	 * then the KUBE_APISERVER_NODE_ID case should not ever be hit.
+	 */
+	return identity == REMOTE_NODE_ID || identity == KUBE_APISERVER_NODE_ID;
 }
 
 static __always_inline bool identity_is_node(__u32 identity)
@@ -25,6 +40,7 @@ static __always_inline bool identity_is_node(__u32 identity)
  * - ReservedIdentityHost
  * - ReservedIdentityWorld
  * - ReservedIdentityRemoteNode
+ * - ReservedIdentityKubeAPIServer
  *
  * The following identities are given to endpoints so return false for these:
  * - ReservedIdentityUnmanaged
