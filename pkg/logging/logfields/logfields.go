@@ -283,9 +283,6 @@ const (
 	// BPFMapValue is a value from a BPF map
 	BPFMapValue = "bpfMapValue"
 
-	// XDPDevice is the device name
-	XDPDevice = "xdpDevice"
-
 	// Device is the device name
 	Device = "device"
 
