@@ -40,7 +40,7 @@ jobs:
         uses: actions/checkout@1e204e9a9253d643386038d443f96446fa156a97
 
       - name: Login to Azure
-        uses: azure/login@77f1b2e3fb80c0e8645114159d17008b8a2e475a
+        uses: azure/login@154d5e5db199fc3c11c1832df0446462c9b98ed6
         with:
           creds: ${{ secrets.AZURE_PR_SP_CREDS }}
 
