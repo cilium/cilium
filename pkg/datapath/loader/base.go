@@ -258,7 +258,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		return err
 	}
 
-	if option.Config.DevicePreFilter != "undefined" {
+	if option.Config.EnableXDPPrefilter {
 		scopedLog := log.WithField(logfields.Devices, option.Config.Devices)
 
 		preFilter, err := prefilter.NewPreFilter()
