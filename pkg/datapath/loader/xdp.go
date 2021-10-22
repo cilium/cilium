@@ -43,7 +43,7 @@ func xdpModeToFlag(xdpMode string) uint32 {
 }
 
 // maybeUnloadObsoleteXDPPrograms removes bpf_xdp.o from previously used devices.
-func maybeUnloadObsoleteXDPPrograms(xdpDev, xdpMode string) {
+func maybeUnloadObsoleteXDPPrograms(xdpDevs []string, xdpMode string) {
 	links, err := netlink.LinkList()
 	if err != nil {
 		log.WithError(err).Warn("Failed to list links for XDP unload")
@@ -58,15 +58,21 @@ func maybeUnloadObsoleteXDPPrograms(xdpDev, xdpMode string) {
 			// Ignore devices created by cilium-agent
 			continue
 		}
-		if link.Attrs().Name == xdpDev && xdpDev != "" {
-			if link.Attrs().Xdp.Flags&xdpModeToFlag(xdpMode) != 0 {
+
+		used := false
+		for _, xdpDev := range xdpDevs {
+			if link.Attrs().Name == xdpDev &&
+				link.Attrs().Xdp.Flags&xdpModeToFlag(xdpMode) != 0 {
 				// XDP mode matches; don't unload, otherwise we might introduce
 				// intermittent connectivity problems
-				continue
+				used = true
+				break
 			}
 		}
-		netlink.LinkSetXdpFdWithFlags(link, -1, int(xdpModeToFlag(option.XDPModeLinkGeneric)))
-		netlink.LinkSetXdpFdWithFlags(link, -1, int(xdpModeToFlag(option.XDPModeLinkDriver)))
+		if !used {
+			netlink.LinkSetXdpFdWithFlags(link, -1, int(xdpModeToFlag(option.XDPModeLinkGeneric)))
+			netlink.LinkSetXdpFdWithFlags(link, -1, int(xdpModeToFlag(option.XDPModeLinkDriver)))
+		}
 	}
 }
 
