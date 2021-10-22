@@ -32,47 +32,28 @@ const (
 	k8sAPIGroupCRD = "CustomResourceDefinition"
 )
 
-func CRDResourceName(crd string) string {
+var (
+	// AgentCRDResourceNames is a list of all CRD resource names
+	// the Cilium agent needs to wait to be registered before
+	// initializing any k8s watchers.
+	AgentCRDResourceNames = []string{
+		crdResourceName(v2.CNPName),
+		crdResourceName(v2.CCNPName),
+		crdResourceName(v2.CEPName),
+		crdResourceName(v2.CNName),
+		crdResourceName(v2.CIDName),
+		crdResourceName(v2.CLRPName),
+		crdResourceName(v2alpha1.CENPName),
+	}
+	// AllCRDResourceNames is a list of all CRD resource names
+	// Cilium Operator is registering.
+	AllCRDResourceNames = append([]string{
+		crdResourceName(v2.CEWName),
+	}, AgentCRDResourceNames...)
+)
+
+func crdResourceName(crd string) string {
 	return "crd:" + crd
-}
-
-func agentCRDResourceNames(override bool) []string {
-	result := []string{
-		CRDResourceName(v2.CNPName),
-		CRDResourceName(v2.CCNPName),
-		CRDResourceName(v2.CNName),
-		CRDResourceName(v2.CIDName),
-	}
-
-	if override || !option.Config.DisableCiliumEndpointCRD {
-		result = append(result, CRDResourceName(v2.CEPName))
-	}
-	if override || option.Config.EnableEgressGateway {
-		result = append(result, CRDResourceName(v2alpha1.CENPName))
-	}
-	if override || option.Config.EnableLocalRedirectPolicy {
-		result = append(result, CRDResourceName(v2.CLRPName))
-	}
-
-	return result
-}
-
-// AgentCRDResourceNames returns a list of all CRD resource names the Cilium
-// agent needs to wait to be registered before initializing any k8s watchers.
-func AgentCRDResourceNames() []string {
-	return agentCRDResourceNames(false)
-}
-
-// OperatorCRDResourceNames returns a list of all CRD resource names that the
-// operator may register.
-func OperatorCRDResourceNames() []string {
-	return append(agentCRDResourceNames(false), CRDResourceName(v2.CEWName))
-}
-
-// AllCRDResourceNames returns a list of all CRD resource names that the
-// clustermesh-apiserver or testsuite may register.
-func AllCRDResourceNames() []string {
-	return append(agentCRDResourceNames(true), CRDResourceName(v2.CEWName))
 }
 
 // SyncCRDs will sync Cilium CRDs to ensure that they have all been
@@ -173,7 +154,7 @@ func SyncCRDs(ctx context.Context, crdNames []string, rs *Resources, ag *APIGrou
 func (s *crdState) add(obj interface{}) {
 	if pom := k8s.ObjToV1PartialObjectMetadata(obj); pom != nil {
 		s.Lock()
-		s.m[CRDResourceName(pom.GetName())] = true
+		s.m[crdResourceName(pom.GetName())] = true
 		s.Unlock()
 	}
 }
@@ -181,7 +162,7 @@ func (s *crdState) add(obj interface{}) {
 func (s *crdState) remove(obj interface{}) {
 	if pom := k8s.ObjToV1PartialObjectMetadata(obj); pom != nil {
 		s.Lock()
-		s.m[CRDResourceName(pom.GetName())] = false
+		s.m[crdResourceName(pom.GetName())] = false
 		s.Unlock()
 	}
 }
