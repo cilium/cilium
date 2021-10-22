@@ -117,6 +117,7 @@ cilium-agent [flags]
       --enable-tracing                                       Enable tracing while determining policy (debugging)
       --enable-well-known-identities                         Enable well-known identities for known Kubernetes components (default true)
       --enable-wireguard                                     Enable wireguard
+      --enable-xdp-prefilter                                 Enable XDP prefiltering
       --enable-xt-socket-fallback                            Enable fallback for missing xt_socket module (default true)
       --encrypt-interface string                             Transparent encryption interface
       --encrypt-node                                         Enables encrypting traffic from non-Cilium pods and host networking
@@ -213,8 +214,6 @@ cilium-agent [flags]
       --pprof                                                Enable serving the pprof debugging API
       --pprof-port int                                       Port that the pprof listens on (default 6060)
       --preallocate-bpf-maps                                 Enable BPF map pre-allocation (default true)
-      --prefilter-device string                              Device facing external network for XDP prefiltering (default "undefined")
-      --prefilter-mode string                                Prefilter mode via XDP ("native", "generic") (default "native")
       --prepend-iptables-chains                              Prepend custom iptables chains instead of appending (default true)
       --prometheus-serve-addr string                         IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
       --proxy-connect-timeout uint                           Time after which a TCP connect attempt is considered failed unless completed (in seconds) (default 1)
