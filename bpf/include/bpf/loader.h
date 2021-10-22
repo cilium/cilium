@@ -28,6 +28,4 @@ struct bpf_elf_map {
 	__u32 inner_idx;
 };
 
-#define NO_PREPOPULATE		-1
-
 #endif /* __BPF_LOADER__ */

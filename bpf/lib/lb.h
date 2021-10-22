@@ -70,25 +70,21 @@ struct {
 #endif
 
 #if LB_SELECTION == LB_SELECTION_MAGLEV
-struct bpf_elf_map __section_maps LB6_MAGLEV_MAP_INNER = {
-	.type		= BPF_MAP_TYPE_ARRAY,
-	.size_key	= sizeof(__u32),
-	.size_value	= sizeof(__u32) * LB_MAGLEV_LUT_SIZE,
-	.pinning	= PIN_NONE,
-	.max_elem	= 1,
-	.inner_idx	= NO_PREPOPULATE,
-	.id		= CILIUM_MAP_MAGLEV6,
-};
-
-struct bpf_elf_map __section_maps LB6_MAGLEV_MAP_OUTER = {
-	.type		= BPF_MAP_TYPE_HASH_OF_MAPS,
-	.size_key	= sizeof(__u16),
-	.size_value	= sizeof(__u32),
-	.pinning	= PIN_GLOBAL_NS,
-	.inner_id	= CILIUM_MAP_MAGLEV6,
-	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
-	.flags		= CONDITIONAL_PREALLOC,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH_OF_MAPS);
+	__type(key, __u16);
+	__type(value, __u32);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CILIUM_LB_MAP_MAX_ENTRIES);
+	__uint(map_flags, CONDITIONAL_PREALLOC);
+	/* Maglev inner map definition */
+	__array(values, struct {
+		__uint(type, BPF_MAP_TYPE_ARRAY);
+		__type(key, __u32);
+		__uint(value_size, sizeof(__u32) * LB_MAGLEV_LUT_SIZE);
+		__uint(max_entries, 1);
+	});
+} LB6_MAGLEV_MAP_OUTER __section_maps_btf;
 #endif /* LB_SELECTION == LB_SELECTION_MAGLEV */
 #endif /* ENABLE_IPV6 */
 
@@ -152,25 +148,21 @@ struct {
 #endif
 
 #if LB_SELECTION == LB_SELECTION_MAGLEV
-struct bpf_elf_map __section_maps LB4_MAGLEV_MAP_INNER = {
-	.type		= BPF_MAP_TYPE_ARRAY,
-	.size_key	= sizeof(__u32),
-	.size_value	= sizeof(__u32) * LB_MAGLEV_LUT_SIZE,
-	.pinning	= PIN_NONE,
-	.max_elem	= 1,
-	.inner_idx	= NO_PREPOPULATE,
-	.id		= CILIUM_MAP_MAGLEV4,
-};
-
-struct bpf_elf_map __section_maps LB4_MAGLEV_MAP_OUTER = {
-	.type		= BPF_MAP_TYPE_HASH_OF_MAPS,
-	.size_key	= sizeof(__u16),
-	.size_value	= sizeof(__u32),
-	.pinning	= PIN_GLOBAL_NS,
-	.inner_id	= CILIUM_MAP_MAGLEV4,
-	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
-	.flags		= CONDITIONAL_PREALLOC,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH_OF_MAPS);
+	__type(key, __u16);
+	__type(value, __u32);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CILIUM_LB_MAP_MAX_ENTRIES);
+	__uint(map_flags, CONDITIONAL_PREALLOC);
+	/* Maglev inner map definition */
+	__array(values, struct {
+		__uint(type, BPF_MAP_TYPE_ARRAY);
+		__type(key, __u32);
+		__uint(value_size, sizeof(__u32) * LB_MAGLEV_LUT_SIZE);
+		__uint(max_entries, 1);
+	});
+} LB4_MAGLEV_MAP_OUTER __section_maps_btf;
 #endif /* LB_SELECTION == LB_SELECTION_MAGLEV */
 #endif /* ENABLE_IPV4 */
 

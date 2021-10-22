@@ -12,10 +12,6 @@ import (
 )
 
 const (
-	// Both inner maps are not being pinned into BPF fs.
-	MaglevInner4MapName = "cilium_lb4_maglev_inner"
-	MaglevInner6MapName = "cilium_lb6_maglev_inner"
-
 	// Both outer maps are pinned though given we need to attach
 	// inner maps into them.
 	MaglevOuter4MapName = "cilium_lb4_maglev"
@@ -33,7 +29,7 @@ var (
 func InitMaglevMaps(ipv4, ipv6 bool, tableSize uint32) error {
 	var err error
 
-	dummyInnerMapSpec := newMaglevInnerMapSpec("cilium_lb_maglev_dummy", tableSize)
+	dummyInnerMapSpec := newMaglevInnerMapSpec(tableSize)
 
 	// Always try to delete old maps with the wrong M parameter, otherwise
 	// we may end up in a case where there are 2 maps (one for IPv4 and
@@ -154,13 +150,11 @@ func deleteMapIfMNotMatch(mapName string, tableSize uint32) (bool, error) {
 
 func updateMaglevTable(ipv6 bool, revNATID uint16, backendIDs []loadbalancer.BackendID) error {
 	outerMap := maglevOuter4Map
-	innerMapName := MaglevInner4MapName
 	if ipv6 {
 		outerMap = maglevOuter6Map
-		innerMapName = MaglevInner6MapName
 	}
 
-	innerMap, err := newMaglevInnerMap(innerMapName, outerMap.tableSize)
+	innerMap, err := newMaglevInnerMap(outerMap.tableSize)
 	if err != nil {
 		return err
 	}
