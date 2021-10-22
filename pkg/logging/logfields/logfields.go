@@ -280,6 +280,9 @@ const (
 	// CiliumEgressNATPolicyName is the name of a CiliumEgressNATPolicy
 	CiliumEgressNATPolicyName = "ciliumEgressNATPolicyName"
 
+	// CiliumEgressSRv6PolicyName is the name of a CiliumEgressSRv6Policy
+	CiliumEgressSRv6PolicyName = "ciliumEgressSRv6PolicyName"
+
 	// BPFMapKey is a key from a BPF map
 	BPFMapKey = "bpfMapKey"
 

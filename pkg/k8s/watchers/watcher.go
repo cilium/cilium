@@ -42,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
+	"github.com/cilium/cilium/pkg/srv6policy"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/types"
@@ -64,6 +65,7 @@ const (
 	k8sAPIGroupCiliumLocalRedirectPolicyV2      = "cilium/v2::CiliumLocalRedirectPolicy"
 	k8sAPIGroupCiliumEgressNATPolicyV2          = "cilium/v2::CiliumEgressNATPolicy"
 	k8sAPIGroupCiliumEndpointSliceV2Alpha1      = "cilium/v2alpha1::CiliumEndpointSlice"
+	k8sAPIGroupCiliumEgressSRv6PolicyV2Alpha1   = "cilium/v2alpha1::CiliumEgressSRv6Policy"
 	K8sAPIGroupEndpointSliceV1Beta1Discovery    = "discovery/v1beta1::EndpointSlice"
 	K8sAPIGroupEndpointSliceV1Discovery         = "discovery/v1::EndpointSlice"
 
@@ -77,6 +79,7 @@ const (
 	metricCiliumEndpoint = "CiliumEndpoint"
 	metricCLRP           = "CiliumLocalRedirectPolicy"
 	metricCENP           = "CiliumEgressNATPolicy"
+	metricCESRP          = "CiliumEgressSRv6Policy"
 	metricPod            = "Pod"
 	metricNode           = "Node"
 	metricService        = "Service"
@@ -157,9 +160,17 @@ type bgpSpeakerManager interface {
 	OnUpdateEndpointSliceV1(eps *slim_discover_v1.EndpointSlice) error
 	OnUpdateEndpointSliceV1Beta1(eps *slim_discover_v1beta1.EndpointSlice) error
 }
+
 type egressGatewayManager interface {
 	AddEgressPolicy(config egressgateway.PolicyConfig) (bool, error)
 	DeleteEgressPolicy(configID types.NamespacedName) error
+	OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint)
+	OnDeleteEndpoint(endpoint *k8sTypes.CiliumEndpoint)
+}
+
+type srv6Manager interface {
+	AddSRv6Policy(config srv6policy.Config) (bool, error)
+	DeleteSRv6Policy(configID types.NamespacedName) error
 	OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint)
 	OnDeleteEndpoint(endpoint *k8sTypes.CiliumEndpoint)
 }
@@ -194,6 +205,7 @@ type K8sWatcher struct {
 	redirectPolicyManager redirectPolicyManager
 	bgpSpeakerManager     bgpSpeakerManager
 	egressGatewayManager  egressGatewayManager
+	srv6Manager           srv6Manager
 
 	// controllersStarted is a channel that is closed when all controllers, i.e.,
 	// k8s watchers have started listening for k8s events.
@@ -226,6 +238,7 @@ func NewK8sWatcher(
 	redirectPolicyManager redirectPolicyManager,
 	bgpSpeakerManager bgpSpeakerManager,
 	egressGatewayManager egressGatewayManager,
+	srv6Manager srv6Manager,
 	cfg WatcherConfiguration,
 ) *K8sWatcher {
 	return &K8sWatcher{
@@ -241,6 +254,7 @@ func NewK8sWatcher(
 		redirectPolicyManager: redirectPolicyManager,
 		bgpSpeakerManager:     bgpSpeakerManager,
 		egressGatewayManager:  egressGatewayManager,
+		srv6Manager:           srv6Manager,
 		NodeChain:             subscriber.NewNodeChain(),
 		cfg:                   cfg,
 	}
@@ -331,15 +345,16 @@ func (k *K8sWatcher) resourceGroups() []string {
 	k8sGroups = append(k8sGroups, K8sAPIGroupEndpointV1Core)
 
 	resourceToGroupMapping := map[string]string{
-		synced.CRDResourceName(v2.CNPName):        k8sAPIGroupCiliumNetworkPolicyV2,
-		synced.CRDResourceName(v2.CCNPName):       k8sAPIGroupCiliumClusterwideNetworkPolicyV2,
-		synced.CRDResourceName(v2.CEPName):        k8sAPIGroupCiliumEndpointV2, // ipcache
-		synced.CRDResourceName(v2.CNName):         k8sAPIGroupCiliumNodeV2,
-		synced.CRDResourceName(v2.CIDName):        "SKIP", // Handled in pkg/k8s/identitybackend/
-		synced.CRDResourceName(v2.CLRPName):       k8sAPIGroupCiliumLocalRedirectPolicyV2,
-		synced.CRDResourceName(v2.CEWName):        "SKIP", // Handled in clustermesh-apiserver/
-		synced.CRDResourceName(v2alpha1.CENPName): k8sAPIGroupCiliumEgressNATPolicyV2,
-		synced.CRDResourceName(v2alpha1.CESName):  k8sAPIGroupCiliumEndpointSliceV2Alpha1,
+		synced.CRDResourceName(v2.CNPName):         k8sAPIGroupCiliumNetworkPolicyV2,
+		synced.CRDResourceName(v2.CCNPName):        k8sAPIGroupCiliumClusterwideNetworkPolicyV2,
+		synced.CRDResourceName(v2.CEPName):         k8sAPIGroupCiliumEndpointV2, // ipcache
+		synced.CRDResourceName(v2.CNName):          k8sAPIGroupCiliumNodeV2,
+		synced.CRDResourceName(v2.CIDName):         "SKIP", // Handled in pkg/k8s/identitybackend/
+		synced.CRDResourceName(v2.CLRPName):        k8sAPIGroupCiliumLocalRedirectPolicyV2,
+		synced.CRDResourceName(v2.CEWName):         "SKIP", // Handled in clustermesh-apiserver/
+		synced.CRDResourceName(v2alpha1.CENPName):  k8sAPIGroupCiliumEgressNATPolicyV2,
+		synced.CRDResourceName(v2alpha1.CESName):   k8sAPIGroupCiliumEndpointSliceV2Alpha1,
+		synced.CRDResourceName(v2alpha1.CESRPName): k8sAPIGroupCiliumEgressSRv6PolicyV2Alpha1,
 	}
 	ciliumResources := synced.AgentCRDResourceNames()
 	ciliumGroups := make([]string, 0, len(ciliumResources))
@@ -455,6 +470,8 @@ func (k *K8sWatcher) EnableK8sWatcher(ctx context.Context, resources []string) e
 			k.ciliumLocalRedirectPolicyInit(ciliumNPClient)
 		case k8sAPIGroupCiliumEgressNATPolicyV2:
 			k.ciliumEgressNATPolicyInit(ciliumNPClient)
+		case k8sAPIGroupCiliumEgressSRv6PolicyV2Alpha1:
+			k.ciliumEgressSRv6PolicyInit(ciliumNPClient)
 		default:
 			log.WithFields(logrus.Fields{
 				logfields.Resource: r,

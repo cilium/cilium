@@ -735,6 +735,30 @@ func ConvertToCiliumEgressNATPolicy(obj interface{}) interface{} {
 	}
 }
 
+// ConvertToCiliumEgressSRv6Policy converts a *cilium_v2.CiliumEgressSRv6Policy into a
+// *cilium_v2.CiliumEgressSRv6Policy or a cache.DeletedFinalStateUnknown into
+// a cache.DeletedFinalStateUnknown with a *cilium_v2.CiliumEgressSRv6Policy in its Obj.
+// If the given obj can't be cast into either *cilium_v2.CiliumEgressSRv6Policy
+// nor cache.DeletedFinalStateUnknown, the original obj is returned.
+func ConvertToCiliumEgressSRv6Policy(obj interface{}) interface{} {
+	// TODO create a slim type of the CiliumEgressSRv6Policy
+	switch concreteObj := obj.(type) {
+	case *cilium_v2alpha1.CiliumEgressSRv6Policy:
+		return concreteObj
+	case cache.DeletedFinalStateUnknown:
+		ciliumEgressSRv6Policy, ok := concreteObj.Obj.(*cilium_v2alpha1.CiliumEgressSRv6Policy)
+		if !ok {
+			return obj
+		}
+		return cache.DeletedFinalStateUnknown{
+			Key: concreteObj.Key,
+			Obj: ciliumEgressSRv6Policy,
+		}
+	default:
+		return obj
+	}
+}
+
 // ObjToCiliumNode attempts to cast object to a CiliumNode object and
 // returns a deep copy if the castin succeeds. Otherwise, nil is returned.
 func ObjToCiliumNode(obj interface{}) *cilium_v2.CiliumNode {
@@ -956,4 +980,26 @@ func ConvertCoreCiliumEndpointToTypesCiliumEndpoint(ccep *cilium_v2alpha1.CoreCi
 		Networking: ccep.Networking,
 		NamedPorts: ccep.NamedPorts,
 	}
+}
+
+// ObjToCESRP attempts to cast object to a CESRP object and
+// returns a deep copy if the castin succeeds. Otherwise, nil is returned.
+func ObjToCESRP(obj interface{}) *cilium_v2alpha1.CiliumEgressSRv6Policy {
+	cesrp, ok := obj.(*cilium_v2alpha1.CiliumEgressSRv6Policy)
+	if ok {
+		return cesrp
+	}
+	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+	if ok {
+		// Delete was not observed by the watcher but is
+		// removed from kube-apiserver. This is the last
+		// known state and the object no longer exists.
+		cesrp, ok := deletedObj.Obj.(*cilium_v2alpha1.CiliumEgressSRv6Policy)
+		if ok {
+			return cesrp
+		}
+	}
+	log.WithField(logfields.Object, logfields.Repr(obj)).
+		Warn("Ignoring invalid v2 CiliumEgressSRv6Policy")
+	return nil
 }

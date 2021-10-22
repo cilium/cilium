@@ -203,6 +203,9 @@ func (k *K8sWatcher) endpointUpdated(oldEndpoint, endpoint *types.CiliumEndpoint
 	if option.Config.EnableIPv4EgressGateway {
 		k.egressGatewayManager.OnUpdateEndpoint(endpoint)
 	}
+	if option.Config.EnableSRv6 {
+		k.srv6Manager.OnUpdateEndpoint(endpoint)
+	}
 }
 
 func (k *K8sWatcher) endpointDeleted(endpoint *types.CiliumEndpoint) {
@@ -235,5 +238,8 @@ func (k *K8sWatcher) endpointDeleted(endpoint *types.CiliumEndpoint) {
 	}
 	if option.Config.EnableIPv4EgressGateway {
 		k.egressGatewayManager.OnDeleteEndpoint(endpoint)
+	}
+	if option.Config.EnableSRv6 {
+		k.srv6Manager.OnDeleteEndpoint(endpoint)
 	}
 }
