@@ -2020,6 +2020,10 @@ type DaemonConfig struct {
 	// within IPAM upon endpoint restore and allows the use of the restored IP
 	// regardless of whether it's available in the pool.
 	BypassIPAvailabilityUponRestore bool
+
+	// BackendAffinitySupported indicates if session or socket based affinity is enabled
+	// based on kernel support.
+	BackendAffinitySupported bool
 }
 
 var (
@@ -3198,9 +3202,9 @@ func (c *DaemonConfig) StoreInFile(dir string) error {
 }
 
 // EnableBackendAffinity is a wrapper function to check if session or socket
-// affinity for backends need to be enabled based on config.
+// affinity for backends need to be enabled based on config and/or underlying kernel support.
 func (c *DaemonConfig) EnableBackendAffinity() bool {
-	return c.EnableHostReachableServices || c.EnableNodePort
+	return c.BackendAffinitySupported && (c.EnableHostReachableServices || c.EnableNodePort)
 }
 
 // StoreViperInFile stores viper's configuration in a the given directory under

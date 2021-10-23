@@ -59,6 +59,8 @@ func (m *ManagerTestSuite) SetUpTest(c *C) {
 
 	option.Config.BackendAffinitySupported = true
 
+	option.Config.BackendAffinitySupported = true
+
 	m.prevOptionNPAlgo = option.Config.NodePortAlg
 	m.prevOptionDPMode = option.Config.DatapathMode
 

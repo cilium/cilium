@@ -198,7 +198,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 		maps = append(maps, lbmap.MaglevOuter6MapName, lbmap.MaglevOuter4MapName)
 	}
 
-	if !option.Config.EnableBackendAffinity() {
+	if !option.Config.EnableHostReachableServices && !option.Config.EnableNodePort {
 		maps = append(maps, lbmap.Affinity6MapName, lbmap.Affinity4MapName, lbmap.AffinityMatchMapName)
 	}
 

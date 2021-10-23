@@ -300,33 +300,6 @@ func initKubeProxyReplacementOptions() (bool, error) {
 		option.Config.EnableHostServicesUDP = false
 	}
 
-	if option.Config.EnableSessionAffinity {
-		if !probesManager.GetMapTypes().HaveLruHashMapType {
-			msg := "SessionAffinity feature requires BPF LRU maps"
-			if strict {
-				return false, fmt.Errorf(msg)
-			} else {
-				log.Warnf("%s. Disabling the feature.", msg)
-				option.Config.EnableSessionAffinity = false
-			}
-
-		}
-	}
-	if option.Config.EnableSessionAffinity && option.Config.EnableHostReachableServices {
-		found1, found2 := false, false
-		if h := probesManager.GetHelpers("cgroup_sock"); h != nil {
-			_, found1 = h["bpf_get_netns_cookie"]
-		}
-		if h := probesManager.GetHelpers("cgroup_sock_addr"); h != nil {
-			_, found2 = h["bpf_get_netns_cookie"]
-		}
-		if !(found1 && found2) {
-			log.Warn("Session affinity for host reachable services needs kernel 5.7.0 or newer " +
-				"to work properly when accessed from inside cluster: the same service endpoint " +
-				"will be selected from all network namespaces on the host.")
-		}
-	}
-
 	if option.Config.EnableNodePort {
 		if option.Config.TunnelingEnabled() &&
 			option.Config.NodePortMode != option.NodePortModeSNAT {
@@ -388,6 +361,32 @@ func initKubeProxyReplacementOptions() (bool, error) {
 				option.Config.EnableHealthDatapath = false
 				log.Info("BPF load-balancer health check datapath needs kernel 5.12.0 or newer. Disabling BPF load-balancer health check datapath.")
 			}
+		}
+	}
+
+	// Session/socket affinity checks
+	if option.Config.EnableHostReachableServices || option.Config.EnableNodePort {
+		if !probesManager.GetMapTypes().HaveLruHashMapType {
+			msg := "SessionAffinity feature requires BPF LRU maps"
+			log.Warnf("%s. Disabling the feature.", msg)
+		} else {
+			option.Config.BackendAffinitySupported = true
+		}
+	}
+
+	// Session affinity checks
+	if option.Config.EnableHostReachableServices && option.Config.EnableNodePort {
+		found1, found2 := false, false
+		if h := probesManager.GetHelpers("cgroup_sock"); h != nil {
+			_, found1 = h["bpf_get_netns_cookie"]
+		}
+		if h := probesManager.GetHelpers("cgroup_sock_addr"); h != nil {
+			_, found2 = h["bpf_get_netns_cookie"]
+		}
+		if !(found1 && found2) {
+			log.Warn("Session affinity for host reachable services needs kernel 5.7.0 or newer " +
+				"to work properly when accessed from inside cluster: the same service endpoint " +
+				"will be selected from all network namespaces on the host.")
 		}
 	}
 

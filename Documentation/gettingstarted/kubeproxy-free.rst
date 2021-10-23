@@ -1193,6 +1193,9 @@ to the same service endpoints; but two requests for the same service, sent from
 the same source but to different service ports may be routed to distinct service
 endpoints.
 
+For unconnected UDP services an implicit affinity is implemented for kernels 5.4
+and beyond in order to not cause disruptions on service endpoint updates.
+
 kube-proxy Replacement Health Check server
 ******************************************
 To enable health check server for the kube-proxy replacement, the
