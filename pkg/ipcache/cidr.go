@@ -38,21 +38,63 @@ var (
 //
 // Upon success, the caller must also arrange for the resulting identities to
 // be released via a subsequent call to ReleaseCIDRIdentitiesByCIDR().
-func AllocateCIDRs(prefixes []*net.IPNet, newlyAllocatedIdentities map[string]*identity.Identity) ([]*identity.Identity, error) {
-	return allocateCIDRs(prefixes, newlyAllocatedIdentities)
+func AllocateCIDRs(
+	prefixes []*net.IPNet, newlyAllocatedIdentities map[string]*identity.Identity,
+) ([]*identity.Identity, error) {
+	// maintain list of used identities to undo on error
+	usedIdentities := make([]*identity.Identity, 0, len(prefixes))
+
+	// Maintain list of newly allocated identities to update ipcache,
+	// but upsert them to ipcache only if no map was given by the caller.
+	upsert := false
+	if newlyAllocatedIdentities == nil {
+		upsert = true
+		newlyAllocatedIdentities = map[string]*identity.Identity{}
+	}
+
+	allocatedIdentities := make(map[string]*identity.Identity, len(prefixes))
+	for _, p := range prefixes {
+		if p == nil {
+			continue
+		}
+
+		prefixStr := p.String()
+
+		id, isNew, err := allocate(prefixStr, cidr.GetCIDRLabels(p))
+		if err != nil {
+			IdentityAllocator.ReleaseSlice(context.Background(), nil, usedIdentities)
+			return nil, err
+		}
+
+		usedIdentities = append(usedIdentities, id)
+		allocatedIdentities[prefixStr] = id
+		if isNew {
+			newlyAllocatedIdentities[prefixStr] = id
+		}
+	}
+
+	// Only upsert into ipcache if identity wasn't allocated
+	// before and the caller does not care doing this
+	if upsert {
+		UpsertGeneratedIdentities(newlyAllocatedIdentities)
+	}
+
+	identities := make([]*identity.Identity, 0, len(allocatedIdentities))
+	for _, id := range allocatedIdentities {
+		identities = append(identities, id)
+	}
+	return identities, nil
 }
 
-// AllocateCIDRsForIPs attempts to allocate identities for a list of CIDRs. If
-// any allocation fails, all allocations are rolled back and the error is
-// returned. When an identity is freshly allocated for a CIDR, it is added to
-// the ipcache if 'newlyAllocatedIdentities' is 'nil', otherwise the newly allocated
-// identities are placed in 'newlyAllocatedIdentities' and it is the caller's
-// responsibility to upsert them into ipcache by calling UpsertGeneratedIdentities().
+// AllocateCIDRsForIPs performs the same action as AllocateCIDRs but for IP
+// addresses instead of CIDRs.
 //
 // Upon success, the caller must also arrange for the resulting identities to
 // be released via a subsequent call to ReleaseCIDRIdentitiesByID().
-func AllocateCIDRsForIPs(prefixes []net.IP, newlyAllocatedIdentities map[string]*identity.Identity) ([]*identity.Identity, error) {
-	return allocateCIDRs(ip.GetCIDRPrefixesFromIPs(prefixes), newlyAllocatedIdentities)
+func AllocateCIDRsForIPs(
+	prefixes []net.IP, newlyAllocatedIdentities map[string]*identity.Identity,
+) ([]*identity.Identity, error) {
+	return AllocateCIDRs(ip.GetCIDRPrefixesFromIPs(prefixes), newlyAllocatedIdentities)
 }
 
 func UpsertGeneratedIdentities(newlyAllocatedIdentities map[string]*identity.Identity) {
@@ -64,62 +106,20 @@ func UpsertGeneratedIdentities(newlyAllocatedIdentities map[string]*identity.Ide
 	}
 }
 
-func allocateCIDRs(prefixes []*net.IPNet, newlyAllocatedIdentities map[string]*identity.Identity) ([]*identity.Identity, error) {
-	// maintain list of used identities to undo on error
-	usedIdentities := make([]*identity.Identity, 0, len(prefixes))
+func allocate(prefix string, lbls labels.Labels) (*identity.Identity, bool, error) {
+	allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.IPAllocationTimeout)
+	defer cancel()
 
-	allocatedIdentities := make(map[string]*identity.Identity, len(prefixes))
-	// Maintain list of newly allocated identities to update ipcache,
-	// but upsert them to ipcache only if no map was given by the caller.
-	upsert := false
-	if newlyAllocatedIdentities == nil {
-		upsert = true
-		newlyAllocatedIdentities = map[string]*identity.Identity{}
+	id, isNew, err := IdentityAllocator.AllocateIdentity(allocateCtx, lbls, false)
+	if err != nil {
+		return nil, isNew, fmt.Errorf("failed to allocate identity for cidr %s: %s", prefix, err)
 	}
 
-	for _, prefix := range prefixes {
-		if prefix == nil {
-			continue
-		}
-
-		prefixStr := prefix.String()
-
-		// Figure out if this call needs to be able to update the selector cache synchronously.
-		allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.IPAllocationTimeout)
-		defer cancel()
-
-		if IdentityAllocator == nil {
-			return nil, fmt.Errorf("IdentityAllocator not initialized!")
-		}
-
-		id, isNew, err := IdentityAllocator.AllocateIdentity(allocateCtx, cidr.GetCIDRLabels(prefix), false)
-		if err != nil {
-			IdentityAllocator.ReleaseSlice(context.Background(), nil, usedIdentities)
-			return nil, fmt.Errorf("failed to allocate identity for cidr %s: %s", prefixStr, err)
-		}
-
-		id.CIDRLabel = labels.NewLabelsFromModel([]string{labels.LabelSourceCIDR + ":" + prefixStr})
-
-		usedIdentities = append(usedIdentities, id)
-		allocatedIdentities[prefixStr] = id
-		if isNew {
-			newlyAllocatedIdentities[prefixStr] = id
-		}
+	if lbls.Has(labels.LabelWorld[labels.IDNameWorld]) {
+		id.CIDRLabel = labels.NewLabelsFromModel([]string{labels.LabelSourceCIDR + ":" + prefix})
 	}
 
-	allocatedIdentitiesSlice := make([]*identity.Identity, 0, len(allocatedIdentities))
-
-	// Only upsert into ipcache if identity wasn't allocated
-	// before and the caller does not care doing this
-	if upsert {
-		UpsertGeneratedIdentities(newlyAllocatedIdentities)
-	}
-
-	for _, id := range allocatedIdentities {
-		allocatedIdentitiesSlice = append(allocatedIdentitiesSlice, id)
-	}
-
-	return allocatedIdentitiesSlice, nil
+	return id, isNew, err
 }
 
 func releaseCIDRIdentities(ctx context.Context, identities map[string]*identity.Identity) {
