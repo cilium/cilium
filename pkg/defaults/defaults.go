@@ -441,4 +441,10 @@ const (
 
 	// ARPBaseReachableTime resembles the kernel's NEIGH_VAR_BASE_REACHABLE_TIME which defaults to 30 seconds.
 	ARPBaseReachableTime = 30 * time.Second
+
+	// EnableSpiffe is disabled by default
+	EnableSpiffe = false
+
+	// SpirePrivilegedAPISocketPath is the path of the Unix domain socket used to contact the Spire agent.
+	SpirePrivilegedAPISocketPath = "/run/spire/sockets-admin/admin.sock"
 )

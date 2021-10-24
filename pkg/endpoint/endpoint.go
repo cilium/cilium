@@ -52,6 +52,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
+	"github.com/cilium/cilium/pkg/spiffe"
 	"github.com/cilium/cilium/pkg/trigger"
 
 	"github.com/sirupsen/logrus"
@@ -340,6 +341,9 @@ type Endpoint struct {
 	isHost bool
 
 	noTrackPort uint16
+
+	// Set of labels that correspond to SPIFFE IDs
+	spiffeIDs labels.Labels
 }
 
 type policyRepoGetter interface {
@@ -1170,6 +1174,75 @@ func (e *Endpoint) GetK8sNamespace() string {
 	return ns
 }
 
+func (e *Endpoint) StartSpiffeIDsWatcher() error {
+	if !option.Config.EnableSpiffe {
+		return nil
+	}
+
+	// just in case
+	if e.pod == nil {
+		e.LogStatusOK(Other, "Spiffe: starting the watcher - pod was nil")
+		return nil
+	}
+
+	go e.WatchSpiffeIDs()
+
+	return nil
+}
+
+func (e *Endpoint) WatchSpiffeIDs() error {
+	// reconnect control
+	firstTime := true
+
+	for {
+		if firstTime == false {
+			// TODO: use backoff?
+			time.Sleep(10 * time.Second)
+		} else {
+			firstTime = false
+		}
+
+		stream, err := spiffe.InitWatcher(e.pod)
+
+		if err != nil {
+			e.LogStatusOK(Other, fmt.Sprintf("%s", err))
+			continue
+		}
+
+		for {
+			newSpiffeIds := labels.Labels{}
+			resp, err := stream.Recv()
+
+			if err != nil {
+				fmt.Printf("Spiffe: error fetching X509-SVID %v\n", err)
+				stream.CloseSend()
+				break
+			}
+
+			for _, svid := range resp.X509Svids {
+				e.getLogger().Debugf("Spiffe: processing Spiffe ID %q", svid.X509Svid.Id)
+				spiffeLabel := labels.NewLabel(spiffe.SpiffeIDToString(svid.X509Svid.Id), "", labels.LabelSourceSpiffe)
+				newSpiffeIds[spiffeLabel.Key] = spiffeLabel
+			}
+
+			if !newSpiffeIds.Equals(e.spiffeIDs) {
+				// Labels changed, calculate new Cilium Identity
+				err := e.ModifyIdentityLabels(newSpiffeIds, e.spiffeIDs)
+				if err != nil {
+					// TODO(Mauricio): retry, fail?
+					e.LogStatus(Other, Warning, fmt.Sprintf("Spiffe: Failed to update identity labels %s", err.Error()))
+					continue
+				}
+			} else {
+				// Labels are the same, it's just a cert rotation.
+				e.LogStatusOK(Other, fmt.Sprintf("Spiffe: handling X509-SVID rotation - %s", time.Now().String()))
+			}
+
+			e.spiffeIDs = newSpiffeIds
+		}
+	}
+}
+
 // SetPod sets the pod related to this endpoint.
 func (e *Endpoint) SetPod(pod *slim_corev1.Pod) {
 	e.unconditionalLock()
@@ -1593,6 +1666,12 @@ func (e *Endpoint) RunMetadataResolver(resolveMetadata MetadataResolverCB) {
 					return err
 				}
 				e.SetPod(pod)
+				if !identity.IdentityAllocationIsLocal(identityLabels) {
+					err = e.StartSpiffeIDsWatcher()
+					if err != nil {
+						return err
+					}
+				}
 				e.SetK8sMetadata(cp)
 				e.UpdateNoTrackRules(func(_, _ string) (noTrackPort string, err error) {
 					_, _, _, _, annotations, err := resolveMetadata(ns, podName)

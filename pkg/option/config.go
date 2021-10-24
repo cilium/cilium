@@ -994,6 +994,13 @@ const (
 	// EnableK8sTerminatingEndpoint enables the option to auto detect terminating
 	// state for endpoints in order to support graceful termination.
 	EnableK8sTerminatingEndpoint = "enable-k8s-terminating-endpoint"
+
+	// EnableSpiffe is the name of the option that enables the Cilium-SPIFFE integration.
+	EnableSpiffe = "enable-spiffe"
+
+	// SpirePrivilegedAPISocketPath is the name of the option that defines the
+	// path of the Unix domain socket used to contact the Spire agent.
+	SpirePrivilegedAPISocketPath = "spire-privileged-api-socket-path"
 )
 
 // Default string arguments
@@ -2041,6 +2048,13 @@ type DaemonConfig struct {
 	// EnableK8sTerminatingEndpoint enables auto-detect of terminating state for
 	// Kubernetes service endpoints.
 	EnableK8sTerminatingEndpoint bool
+
+	// EnableSpiffe enables the Cilium-SPIFFE integration.
+	EnableSpiffe bool
+
+	// SpirePrivilegedAPISocketPath is the path of the Unix domain socket used
+	// to contact the Spire agent.
+	SpirePrivilegedAPISocketPath string
 }
 
 var (
@@ -2084,6 +2098,8 @@ var (
 		K8sEnableAPIDiscovery:        defaults.K8sEnableAPIDiscovery,
 		AllocatorListTimeout:         defaults.AllocatorListTimeout,
 		EnableICMPRules:              defaults.EnableICMPRules,
+		EnableSpiffe:                 defaults.EnableSpiffe,
+		SpirePrivilegedAPISocketPath: defaults.SpirePrivilegedAPISocketPath,
 
 		K8sEnableLeasesFallbackDiscovery: defaults.K8sEnableLeasesFallbackDiscovery,
 		APIRateLimit:                     make(map[string]string),
@@ -2618,6 +2634,8 @@ func (c *DaemonConfig) Populate() {
 	c.BGPAnnouncePodCIDR = viper.GetBool(BGPAnnouncePodCIDR)
 	c.BGPConfigPath = viper.GetString(BGPConfigPath)
 	c.ExternalClusterIP = viper.GetBool(ExternalClusterIPName)
+	c.EnableSpiffe = viper.GetBool(EnableSpiffe)
+	c.SpirePrivilegedAPISocketPath = viper.GetString(SpirePrivilegedAPISocketPath)
 
 	c.EnableIPv4Masquerade = viper.GetBool(EnableIPv4Masquerade) && c.EnableIPv4
 	c.EnableIPv6Masquerade = viper.GetBool(EnableIPv6Masquerade) && c.EnableIPv6
