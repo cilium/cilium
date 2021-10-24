@@ -125,8 +125,9 @@ func getEncryptionMode() {
 	switch encryptionStatusResponse.Mode {
 	case models.EncryptionStatusModeIPsec:
 		dumpIPsecStatus()
+	case models.EncryptionStatusModeWireguard:
+		dumpWireGuardStatus(encryptionStatusResponse)
 	}
-
 }
 
 func dumpIPsecStatus() {
@@ -140,5 +141,13 @@ func dumpIPsecStatus() {
 		for k, v := range errMap {
 			fmt.Printf("\t%s: %-26d\n", k, v)
 		}
+	}
+}
+
+func dumpWireGuardStatus(p *models.EncryptionStatus) {
+	for _, wg := range p.Wireguard.Interfaces {
+		fmt.Printf("Interface: %s\n", wg.Name)
+		fmt.Printf("\tPublic key: %s\n", wg.PublicKey)
+		fmt.Printf("\tNumber of peers: %d\n", wg.PeerCount)
 	}
 }
