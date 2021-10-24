@@ -1105,6 +1105,13 @@ const (
 	// EnablePMTUDiscovery enables path MTU discovery to send ICMP
 	// fragmentation-needed replies to the client (when needed).
 	EnablePMTUDiscovery = "enable-pmtu-discovery"
+	
+	// EnableSpiffe is the name of the option that enables the Cilium-SPIFFE integration.
+	EnableSpiffe = "enable-spiffe"
+
+	// SpirePrivilegedAPISocketPath is the name of the option that defines the
+	// path of the Unix domain socket used to contact the Spire agent.
+	SpirePrivilegedAPISocketPath = "spire-privileged-api-socket-path"
 )
 
 // Default string arguments
@@ -2257,6 +2264,13 @@ type DaemonConfig struct {
 
 	// EnvoySecretNamespace for TLS secrets. Used by CiliumEnvoyConfig via SDS.
 	EnvoySecretNamespace string
+	
+	// EnableSpiffe enables the Cilium-SPIFFE integration.
+	EnableSpiffe bool
+
+	// SpirePrivilegedAPISocketPath is the path of the Unix domain socket used
+	// to contact the Spire agent.
+	SpirePrivilegedAPISocketPath string
 }
 
 var (
@@ -2299,6 +2313,8 @@ var (
 		K8sEnableK8sEndpointSlice:    defaults.K8sEnableEndpointSlice,
 		AllocatorListTimeout:         defaults.AllocatorListTimeout,
 		EnableICMPRules:              defaults.EnableICMPRules,
+		EnableSpiffe:                 defaults.EnableSpiffe,
+		SpirePrivilegedAPISocketPath: defaults.SpirePrivilegedAPISocketPath,
 
 		K8sEnableLeasesFallbackDiscovery: defaults.K8sEnableLeasesFallbackDiscovery,
 		APIRateLimit:                     make(map[string]string),
@@ -2948,7 +2964,8 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableBPFMasquerade = vp.GetBool(EnableBPFMasquerade)
 	c.DeriveMasqIPAddrFromDevice = vp.GetString(DeriveMasqIPAddrFromDevice)
 	c.EnablePMTUDiscovery = vp.GetBool(EnablePMTUDiscovery)
-
+	c.EnableSpiffe = viper.GetBool(EnableSpiffe)
+	c.SpirePrivilegedAPISocketPath = viper.GetString(SpirePrivilegedAPISocketPath)
 	c.populateLoadBalancerSettings(vp)
 	c.populateDevices(vp)
 	c.EnableRuntimeDeviceDetection = vp.GetBool(EnableRuntimeDeviceDetection)

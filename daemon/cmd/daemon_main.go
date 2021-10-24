@@ -1059,6 +1059,12 @@ func initializeFlags() {
 	flags.Bool(option.EnablePMTUDiscovery, false, "Enable path MTU discovery to send ICMP fragmentation-needed replies to the client")
 	option.BindEnv(Vp, option.EnablePMTUDiscovery)
 
+	flags.Bool(option.EnableSpiffe, defaults.EnableSpiffe, "Enable SPIFFE integration")
+	option.BindEnv(option.EnableSpiffe)
+
+	flags.String(option.SpirePrivilegedAPISocketPath, defaults.SpirePrivilegedAPISocketPath, "Socket path to contact the Spire agent")
+	option.BindEnv(option.Config.SpirePrivilegedAPISocketPath)
+	
 	if err := Vp.BindPFlags(flags); err != nil {
 		log.Fatalf("BindPFlags failed: %s", err)
 	}

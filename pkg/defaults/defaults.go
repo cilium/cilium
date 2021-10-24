@@ -509,4 +509,9 @@ const (
 
 	// Enable BGP control plane features.
 	EnableBGPControlPlane = false
+	// EnableSpiffe is disabled by default
+	EnableSpiffe = false
+
+	// SpirePrivilegedAPISocketPath is the path of the Unix domain socket used to contact the Spire agent.
+	SpirePrivilegedAPISocketPath = "/run/spire/sockets-admin/admin.sock"
 )
