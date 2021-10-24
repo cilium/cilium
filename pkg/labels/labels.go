@@ -86,6 +86,9 @@ const (
 	// LabelSourceK8s is a label imported from Kubernetes
 	LabelSourceK8s = "k8s"
 
+	// LabelSourceSpiffe is a label imported from Spiffe
+	LabelSourceSpiffe = "spiffe"
+
 	// LabelSourceK8sKeyPrefix is prefix of a Kubernetes label
 	LabelSourceK8sKeyPrefix = LabelSourceK8s + "."
 

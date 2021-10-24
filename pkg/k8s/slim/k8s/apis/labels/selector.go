@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/selection"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/spiffe/go-spiffe/v2/spiffeid"
 
 	"github.com/google/go-cmp/cmp"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -877,6 +879,17 @@ func parse(selector string, _ *field.Path) (internalSelector, error) {
 }
 
 func validateLabelKey(k string, path *field.Path) *field.Error {
+	spiffeLabel := labels.LabelSourceSpiffe
+	if strings.HasPrefix(k, spiffeLabel) {
+		if len(k) > len(spiffeLabel)+1 {
+			spiffeID := "spiffe://" + k[len(spiffeLabel)+1:]
+			if _, err := spiffeid.FromString(spiffeID); err != nil {
+				errs := []string{err.Error()}
+				return field.Invalid(path, k, strings.Join(errs, "; "))
+			}
+		}
+		return nil
+	}
 	if errs := validation.IsQualifiedName(k); len(errs) != 0 {
 		return field.Invalid(path, k, strings.Join(errs, "; "))
 	}
