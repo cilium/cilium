@@ -710,3 +710,14 @@ func DualStackSupportBeta() bool {
 
 	return GetCurrentIntegration() == "" && supportedVersions(k8sVersion)
 }
+
+// CiliumEndpointSliceFeatureEnabled returns true only if the environment has a kubernetes version
+// greater than or equal to 1.21.
+func CiliumEndpointSliceFeatureEnabled() bool {
+	k8sVersionGreaterEqual121 := versioncheck.MustCompile(">=1.21.0")
+	k8sVersion, err := versioncheck.Version(GetCurrentK8SEnv())
+	if err != nil {
+		return false
+	}
+	return k8sVersionGreaterEqual121(k8sVersion) && GetCurrentIntegration() == ""
+}
