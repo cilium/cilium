@@ -202,6 +202,8 @@ type K8sWatcher struct {
 
 	nodeStore cache.Store
 
+	ciliumNodeStore cache.Store
+
 	namespaceStore cache.Store
 	datapath       datapath.Datapath
 
@@ -417,8 +419,7 @@ func (k *K8sWatcher) EnableK8sWatcher(ctx context.Context, resources []string) e
 			asyncControllers.Add(1)
 			go k.namespacesInit(k8s.WatcherClient(), asyncControllers)
 		case k8sAPIGroupCiliumNodeV2:
-			asyncControllers.Add(1)
-			go k.ciliumNodeInit(ciliumNPClient, asyncControllers)
+			go k.ciliumNodeInit(ciliumNPClient)
 		// Kubernetes built-in resources
 		case k8sAPIGroupNetworkingV1Core:
 			swgKNP := lock.NewStoppableWaitGroup()

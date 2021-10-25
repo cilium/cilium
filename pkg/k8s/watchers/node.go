@@ -5,15 +5,21 @@ package watchers
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/sirupsen/logrus"
 
 	v1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -118,7 +124,56 @@ func (k *K8sWatcher) updateK8sNodeV1(oldK8sNode, newK8sNode *v1.Node) error {
 	if err != nil {
 		return err
 	}
+
+	k.updateCiliumNodeLabels(newK8sNode.Name, newNodeLabels)
+
 	return nil
+}
+
+func (k *K8sWatcher) updateCiliumNodeLabels(nodeName string, newNodeLabels map[string]string) {
+	var (
+		controllerName = fmt.Sprintf("sync-node-labels-with-ciliumnode (%v)", nodeName)
+		scopedLog      = log.WithFields(logrus.Fields{
+			logfields.Controller: controllerName,
+			logfields.Node:       nodeName,
+		})
+	)
+
+	k8sCM.UpdateController(controllerName,
+		controller.ControllerParams{
+			DoFunc: func(ctx context.Context) (err error) {
+				pName := &v1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: nodeName,
+					},
+				}
+
+				if k.ciliumNodeStore == nil {
+					return errors.New("CiliumNode cache store not yet initialized")
+				}
+
+				ciliumNodeInterface, exists, err := k.ciliumNodeStore.Get(pName)
+				if err != nil {
+					scopedLog.WithError(err).
+						Error("Failed to get CiliumNode resource from cache store")
+					return err
+				}
+
+				if !exists {
+					return nil
+				}
+
+				ciliumNode := ciliumNodeInterface.(*cilium_v2.CiliumNode).DeepCopy()
+				ciliumNode.Labels = newNodeLabels
+
+				_, err = k8s.CiliumClient().CiliumV2().CiliumNodes().Update(ctx, ciliumNode, metav1.UpdateOptions{})
+				if err != nil {
+					scopedLog.WithError(err).
+						Error("Failed to update CiliumNode labels")
+				}
+				return err
+			},
+		})
 }
 
 // GetK8sNode returns the *local Node* from the local store.
