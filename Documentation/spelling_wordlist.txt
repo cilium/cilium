@@ -355,6 +355,7 @@ enableIPv
 enableIdentityMark
 enableIngressController
 enableK
+enableRuntimeDeviceDetection
 enableXTSocketFallback
 enablement
 endian

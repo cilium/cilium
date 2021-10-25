@@ -418,6 +418,12 @@ daemon:
 # program. When not specified, probing will automatically detect devices.
 # devices: ""
 
+# -- Enables experimental support for the detection of new and removed datapath
+# devices. When devices change the eBPF datapath is reloaded and services updated.
+# If "devices" is set then only those devices, or devices matching a wildcard will
+# be considered.
+enableRuntimeDeviceDetection: false
+
 # -- Chains to ignore when installing feeder rules.
 # disableIptablesFeederRules: ""
 
