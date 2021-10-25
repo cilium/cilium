@@ -35,6 +35,7 @@ import (
 	envoy_mongo_proxy "github.com/cilium/proxy/go/envoy/extensions/filters/network/mongo_proxy/v3"
 	envoy_mysql_proxy "github.com/cilium/proxy/go/envoy/extensions/filters/network/mysql_proxy/v3"
 	envoy_config_tcp "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
+	envoy_config_tls "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	envoy_config_upstream "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
 	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -109,6 +110,10 @@ type XDSServer struct {
 	// endpointMutator publishes endpoint updates to Envoy proxies.
 	// Manages it's own locking
 	endpointMutator xds.AckingResourceMutator
+
+	// secretMutator publishes secret updates to Envoy proxies.
+	// Manages it's own locking
+	secretMutator xds.AckingResourceMutator
 
 	// listeners is the set of names of listeners that have been added by
 	// calling AddListener.
@@ -196,6 +201,13 @@ func StartXDSServer(stateDir string) *XDSServer {
 		AckObserver: edsMutator,
 	}
 
+	sdsCache := xds.NewCache()
+	sdsMutator := xds.NewAckingResourceMutatorWrapper(sdsCache)
+	sdsConfig := &xds.ResourceTypeConfiguration{
+		Source:      sdsCache,
+		AckObserver: sdsMutator,
+	}
+
 	npdsCache := xds.NewCache()
 	npdsMutator := xds.NewAckingResourceMutatorWrapper(npdsCache)
 	npdsConfig := &xds.ResourceTypeConfiguration{
@@ -213,6 +225,7 @@ func StartXDSServer(stateDir string) *XDSServer {
 		RouteTypeURL:              rdsConfig,
 		ClusterTypeURL:            cdsConfig,
 		EndpointTypeURL:           edsConfig,
+		SecretTypeURL:             sdsConfig,
 		NetworkPolicyTypeURL:      npdsConfig,
 		NetworkPolicyHostsTypeURL: nphdsConfig,
 	}, 5*time.Second)
@@ -225,6 +238,7 @@ func StartXDSServer(stateDir string) *XDSServer {
 		routeMutator:           rdsMutator,
 		clusterMutator:         cdsMutator,
 		endpointMutator:        edsMutator,
+		secretMutator:          sdsMutator,
 		networkPolicyCache:     npdsCache,
 		NetworkPolicyMutator:   npdsMutator,
 		networkPolicyEndpoints: make(map[string]logger.EndpointUpdater),
@@ -610,6 +624,22 @@ func (s *XDSServer) deleteEndpoint(name string, wg *completion.WaitGroup, callba
 	defer s.mutex.Unlock()
 	// 'callback' is not called if there is no change and this configuration has already been acked.
 	return s.endpointMutator.Delete(EndpointTypeURL, name, []string{"127.0.0.1"}, wg, callback)
+}
+
+// upsertSecret either updates an existing SDS secret with 'name', or creates a new one.
+func (s *XDSServer) upsertSecret(name string, conf *envoy_config_tls.Secret, wg *completion.WaitGroup, callback func(error)) xds.AckingResourceMutatorRevertFunc {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	// 'callback' is not called if there is no change and this configuration has already been acked.
+	return s.secretMutator.Upsert(SecretTypeURL, name, conf, []string{"127.0.0.1"}, wg, callback)
+}
+
+// deleteSecret deletes an SDS secret.
+func (s *XDSServer) deleteSecret(name string, wg *completion.WaitGroup, callback func(error)) xds.AckingResourceMutatorRevertFunc {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	// 'callback' is not called if there is no change and this configuration has already been acked.
+	return s.secretMutator.Delete(SecretTypeURL, name, []string{"127.0.0.1"}, wg, callback)
 }
 
 func (s *XDSServer) getListenerConf(name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool) *envoy_config_listener.Listener {
