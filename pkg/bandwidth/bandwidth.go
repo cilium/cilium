@@ -4,6 +4,8 @@
 package bandwidth
 
 import (
+	"context"
+
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -12,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
+	"go.uber.org/fx"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -35,7 +38,30 @@ func GetBytesPerSec(bandwidth string) (uint64, error) {
 	return uint64(res.Value() / 8), err
 }
 
-func ProbeBandwidthManager() {
+type BandwidthManager struct {
+}
+
+func NewBandwidthManager(lc fx.Lifecycle, cfg *option.DaemonConfigProvider) *BandwidthManager {
+	// Perform an early probe on the underlying kernel on whether BandwidthManager
+	// can be supported or not. This needs to be done before device probing as it
+	// its outcome depends on BandwidthManager configuration.
+	probeBandwidthManager()
+
+	lc.Append(fx.Hook{
+		OnStart: func(context.Context) error {
+			initBandwidthManager(cfg)
+			return nil
+		},
+
+		OnStop: func(context.Context) error {
+			return nil
+		},
+	})
+
+	return &BandwidthManager{}
+}
+
+func probeBandwidthManager() {
 	if option.Config.DryMode || !option.Config.EnableBandwidthManager {
 		return
 	}
@@ -62,14 +88,14 @@ func ProbeBandwidthManager() {
 	}
 }
 
-func InitBandwidthManager() {
-	if option.Config.DryMode || !option.Config.EnableBandwidthManager {
+func initBandwidthManager(cfg *option.DaemonConfigProvider) {
+	if cfg.GetConfig().DryMode || !cfg.GetConfig().EnableBandwidthManager {
 		return
 	}
 
-	if len(option.Config.Devices) == 0 {
+	if len(cfg.GetConfig().Devices) == 0 {
 		log.Warn("BPF bandwidth manager could not detect host devices. Disabling the feature.")
-		option.Config.EnableBandwidthManager = false
+		cfg.GetConfig().EnableBandwidthManager = false
 		return
 	}
 
@@ -106,7 +132,7 @@ func InitBandwidthManager() {
 		}
 	}
 
-	for _, device := range option.Config.Devices {
+	for _, device := range cfg.GetConfig().Devices {
 		link, err := netlink.LinkByName(device)
 		if err != nil {
 			log.WithError(err).WithField("device", device).Warn("Link does not exist")

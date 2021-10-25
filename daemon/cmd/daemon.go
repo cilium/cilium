@@ -15,7 +15,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	health "github.com/cilium/cilium/cilium-health/launch"
-	"github.com/cilium/cilium/pkg/bandwidth"
 	"github.com/cilium/cilium/pkg/bgp/speaker"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -219,8 +218,6 @@ func (d *Daemon) init() error {
 	sockops.SkmsgDisable()
 
 	if !option.Config.DryMode {
-		bandwidth.InitBandwidthManager()
-
 		if err := d.createNodeConfigHeaderfile(); err != nil {
 			return err
 		}
@@ -599,11 +596,6 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 			return nil, nil, fmt.Errorf("failed to initialize wireguard agent: %w", err)
 		}
 	}
-
-	// Perform an early probe on the underlying kernel on whether BandwidthManager
-	// can be supported or not. This needs to be done before handleNativeDevices()
-	// as BandwidthManager needs these to be available for setup.
-	bandwidth.ProbeBandwidthManager()
 
 	// The kube-proxy replacement and host-fw devices detection should happen after
 	// establishing a connection to kube-apiserver, but before starting a k8s watcher.

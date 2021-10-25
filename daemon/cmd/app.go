@@ -8,6 +8,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/cilium/cilium/pkg/bandwidth"
+	"github.com/cilium/cilium/pkg/option"
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
 )
@@ -35,7 +37,9 @@ func NewLegacyDaemon(lc fx.Lifecycle) *LegacyDaemon {
 	return &LegacyDaemon{}
 }
 
-func Dummy(ld *LegacyDaemon) {
+// Dummy is a placeholder for grabbing reference to everything we want
+// to start. To be replaced by the proper leaf functions of the daemon.
+func Dummy(ld *LegacyDaemon, bw *bandwidth.BandwidthManager) {
 
 }
 
@@ -43,6 +47,8 @@ func newDaemonApp() *fx.App {
 	return fx.New(
 		fx.Provide(
 			NewLegacyDaemon,
+			bandwidth.NewBandwidthManager,
+			option.NewDaemonConfigProvider,
 		),
 
 		fx.Invoke(
