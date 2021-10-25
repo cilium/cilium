@@ -2472,7 +2472,7 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 
 	if RunsWithKubeProxyReplacement() || options["hostFirewall.enabled"] == "true" {
 		// Set devices
-		privateIface, err := kub.GetPrivateIface()
+		privateIface, err := kub.GetPrivateIface(K8s1)
 		if err != nil {
 			return err
 		}
@@ -2522,29 +2522,29 @@ func (kub *Kubectl) generateCiliumYaml(options map[string]string, filename strin
 // GetPrivateIface returns an interface name of a netdev which has InternalIP
 // addr.
 // Assumes that all nodes have identical interfaces.
-func (kub *Kubectl) GetPrivateIface() (string, error) {
-	ipAddr, err := kub.GetNodeIPByLabel(K8s1, false)
+func (kub *Kubectl) GetPrivateIface(label string) (string, error) {
+	ipAddr, err := kub.GetNodeIPByLabel(label, false)
 	if err != nil {
 		return "", err
 	} else if ipAddr == "" {
-		return "", fmt.Errorf("%s does not have InternalIP", K8s1)
+		return "", fmt.Errorf("%s does not have InternalIP", label)
 	}
 
-	return kub.getIfaceByIPAddr(K8s1, ipAddr)
+	return kub.getIfaceByIPAddr(label, ipAddr)
 }
 
 // GetPublicIface returns an interface name of a netdev which has ExternalIP
 // addr.
 // Assumes that all nodes have identical interfaces.
-func (kub *Kubectl) GetPublicIface() (string, error) {
-	ipAddr, err := kub.GetNodeIPByLabel(K8s1, true)
+func (kub *Kubectl) GetPublicIface(label string) (string, error) {
+	ipAddr, err := kub.GetNodeIPByLabel(label, true)
 	if err != nil {
 		return "", err
 	} else if ipAddr == "" {
-		return "", fmt.Errorf("%s does not have ExternalIP", K8s1)
+		return "", fmt.Errorf("%s does not have ExternalIP", label)
 	}
 
-	return kub.getIfaceByIPAddr(K8s1, ipAddr)
+	return kub.getIfaceByIPAddr(label, ipAddr)
 }
 
 func (kub *Kubectl) waitToDelete(name, label string) error {
@@ -4698,4 +4698,27 @@ func (kub *Kubectl) WaitForServiceBackend(node, ipAddr string) error {
 	return WithTimeout(body,
 		fmt.Sprintf("backend entry for %s was not found in time", ipAddr),
 		&TimeoutConfig{Timeout: HelperTimeout})
+}
+
+func (kub *Kubectl) AddVXLAN(nodeName, remote, dev, addr string, vxlanId int) *CmdRes {
+	cmd := fmt.Sprintf("ip link add vxlan%d type vxlan id %d remote %s dstport 4789 dev %s",
+		vxlanId, vxlanId, remote, dev)
+	res := kub.ExecInHostNetNS(context.TODO(), nodeName, cmd)
+	if !res.WasSuccessful() {
+		return res
+	}
+
+	cmd = fmt.Sprintf("ip addr add dev vxlan%d %s", vxlanId, addr)
+	res = kub.ExecInHostNetNS(context.TODO(), nodeName, cmd)
+	if !res.WasSuccessful() {
+		return res
+	}
+
+	cmd = fmt.Sprintf("ip link set dev vxlan%d up", vxlanId)
+	return kub.ExecInHostNetNS(context.TODO(), nodeName, cmd)
+}
+
+func (kub *Kubectl) DelVXLAN(nodeName string, vxlanId int) *CmdRes {
+	cmd := fmt.Sprintf("ip link del dev vxlan%d", vxlanId)
+	return kub.ExecInHostNetNS(context.TODO(), nodeName, cmd)
 }

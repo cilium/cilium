@@ -971,4 +971,77 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 			}
 		})
 	})
+
+	SkipContextIf(
+		func() bool {
+			return helpers.RunsWithKubeProxy() || helpers.DoesNotExistNodeWithoutCilium()
+		},
+		"Checks device reconfiguration",
+		func() {
+			var (
+				demoYAML string
+			)
+			const (
+				ipv4VXLANK8s1    = "192.168.254.1"
+				ipv4VXLANOutside = "192.168.254.2"
+			)
+
+			BeforeAll(func() {
+				demoYAML = helpers.ManifestGet(kubectl.BasePath(), "demo_ds.yaml")
+
+				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+					"enableRuntimeDeviceDetection": "true",
+					"devices":                      "",
+				})
+
+				res := kubectl.ApplyDefault(demoYAML)
+				Expect(res).Should(helpers.CMDSuccess(), "Unable to apply %s", demoYAML)
+				waitPodsDs(kubectl, []string{testDS})
+
+				// Setup a pair of vxlan devices between k8s1 and the outside node.
+				devOutside, err := kubectl.GetPrivateIface(ni.OutsideNodeName)
+				Expect(err).Should(BeNil(), "Cannot get public interface for %s", ni.OutsideNodeName)
+
+				devK8s1, err := kubectl.GetPrivateIface(helpers.K8s1)
+				Expect(err).Should(BeNil(), "Cannot get public interface for %s", helpers.K8s1)
+
+				res = kubectl.AddVXLAN(ni.OutsideNodeName, ni.K8s1IP, devOutside, ipv4VXLANOutside+"/24", 1)
+				Expect(res).Should(helpers.CMDSuccess(), "Error adding VXLAN device for outside node")
+
+				res = kubectl.AddVXLAN(ni.K8s1NodeName, ni.OutsideIP, devK8s1, ipv4VXLANK8s1+"/24", 1)
+				Expect(res).Should(helpers.CMDSuccess(), "Error adding VXLAN device for k8s1")
+
+			})
+
+			AfterAll(func() {
+				_ = kubectl.Delete(demoYAML)
+				ExpectAllPodsTerminated(kubectl)
+
+				res := kubectl.DelVXLAN(ni.K8s1NodeName, 1)
+				Expect(res).Should(helpers.CMDSuccess(), "Error removing vxlan1 from k8s1")
+				res = kubectl.DelVXLAN(ni.OutsideNodeName, 1)
+				Expect(res).Should(helpers.CMDSuccess(), "Error removing vxlan1 from outside node")
+			})
+
+			It("Detects newly added device and reloads datapath", func() {
+				var data v1.Service
+				err := kubectl.Get(helpers.DefaultNamespace, "svc test-nodeport").Unmarshal(&data)
+				Expect(err).Should(BeNil(), "Cannot retrieve service test-nodeport")
+				url := getHTTPLink(ipv4VXLANK8s1, data.Spec.Ports[0].NodePort)
+
+				// Try accessing the NodePort service from the external node over the VXLAN tunnel.
+				// We're expecting Cilium to detect the vxlan1 interface and reload the datapath,
+				// allowing us to access NodePort services.
+				// Note that this can be quite slow due to datapath recompilation!
+				Eventually(
+					func() bool {
+						res := kubectl.ExecInHostNetNS(
+							context.TODO(), ni.OutsideNodeName,
+							helpers.CurlFail(url))
+						return res.WasSuccessful()
+					},
+					60*time.Second, 1*time.Second,
+				).Should(BeTrue(), "Could not curl NodePort service over newly added device")
+			})
+		})
 })
