@@ -120,10 +120,7 @@ var (
 			}
 			log.WithFields(addrField).Info("Started gops server")
 
-			bootstrapStats.earlyInit.Start()
-			initEnv(cmd)
-			bootstrapStats.earlyInit.End(true)
-			runDaemon()
+			RunDaemonApp()
 		},
 	}
 
@@ -1040,7 +1037,7 @@ func restoreExecPermissions(searchDir string, patterns ...string) error {
 	return err
 }
 
-func initEnv(cmd *cobra.Command) {
+func initEnv() {
 	var debugDatapath bool
 
 	option.Config.SetMapElementSizes(

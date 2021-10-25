@@ -25,7 +25,7 @@ func NewLegacyDaemon(lc fx.Lifecycle) *LegacyDaemon {
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
 			// TODO start context?
-			go RootCmd.Execute()
+			go runDaemon()
 			return nil
 		},
 
@@ -75,6 +75,11 @@ func newDaemonApp() *fx.App {
 }
 
 func RunDaemonApp() {
+
+	bootstrapStats.earlyInit.Start()
+	initEnv()
+	bootstrapStats.earlyInit.End(true)
+
 	bootstrapStats.overall.Start()
 	interruptCh := cleaner.registerSigHandler()
 
