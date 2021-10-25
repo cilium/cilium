@@ -688,8 +688,8 @@ func initializeFlags() {
 	flags.Bool(option.EnableIPMasqAgent, false, "Enable BPF ip-masq-agent")
 	option.BindEnv(option.EnableIPMasqAgent)
 
-	flags.Bool(option.EnableEgressGateway, false, "Enable egress gateway")
-	option.BindEnv(option.EnableEgressGateway)
+	flags.Bool(option.EnableIPv4EgressGateway, false, "Enable egress gateway for IPv4")
+	option.BindEnv(option.EnableIPv4EgressGateway)
 
 	flags.String(option.IPMasqAgentConfigPath, "/etc/config/ip-masq-agent", "ip-masq-agent configuration file path")
 	option.BindEnv(option.IPMasqAgentConfigPath)

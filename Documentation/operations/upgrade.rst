@@ -353,6 +353,13 @@ New Options
   acceptable kvstore consecutive quorum errors before the agent assumes
   permanent failure.
 
+Renamed Options
+~~~~~~~~~~~~~~~
+
+The following option has been renamed:
+
+* ``enable-egress-gateway`` to ``enable-ipv4-egress-gateway``.
+
 Helm Options
 ~~~~~~~~~~~~
 

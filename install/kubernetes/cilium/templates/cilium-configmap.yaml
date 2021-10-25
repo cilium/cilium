@@ -723,7 +723,7 @@ data:
 {{- end }}
 
 {{- if .Values.egressGateway.enabled }}
-  enable-egress-gateway: "true"
+  enable-ipv4-egress-gateway: "true"
 {{- end }}
 
 {{- if .Values.enableK8sEventHandover }}
