@@ -31,19 +31,23 @@ type Task interface {
 type task struct {
 	id  string
 	run func(context.Context) error
+}
+
+type taskResult struct {
+	id  string
 	err error
 }
 
-// Ensure that task implements the Task interface.
-var _ Task = &task{}
+// Ensure that taskResult implements the Task interface.
+var _ Task = &taskResult{}
 
-// String implements fmt.Stringer for task.
-func (t *task) String() string {
+// String implements fmt.Stringer for taskResult.
+func (t *taskResult) String() string {
 	return t.id
 }
 
-// Err returns the error resulting from processing the task. It ensures that
-// the task struct implements the Task interface.
-func (t *task) Err() error {
+// Err returns the error resulting from processing the taskResult. It ensures
+// that the taskResult struct implements the Task interface.
+func (t *taskResult) Err() error {
 	return t.err
 }
