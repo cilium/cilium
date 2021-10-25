@@ -113,6 +113,10 @@ type IdentityAllocator interface {
 	// security identities to have been received.
 	WaitForInitialGlobalIdentities(context.Context) error
 
+	// IsLocalIdentityAllocatorInitialized returns true if the local identity
+	// allocator has been initialized.
+	IsLocalIdentityAllocatorInitialized() bool
+
 	// AllocateIdentity allocates an identity described by the specified labels.
 	AllocateIdentity(context.Context, labels.Labels, bool) (*identity.Identity, bool, error)
 
