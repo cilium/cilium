@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/link"
+	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/loader"
@@ -116,7 +117,7 @@ type Daemon struct {
 	monitorAgent *monitoragent.Agent
 	ciliumHealth *health.CiliumHealth
 
-	deviceManager *DeviceManager
+	deviceManager *linuxdatapath.DeviceManager
 
 	// dnsNameManager tracks which api.FQDNSelector are present in policy which
 	// apply to locally running endpoints.
@@ -487,7 +488,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		netConf:           netConf,
 		mtuConfig:         mtuConfig,
 		datapath:          dp,
-		deviceManager:     NewDeviceManager(),
+		deviceManager:     linuxdatapath.NewDeviceManager(),
 		nodeDiscovery:     nd,
 		endpointCreations: newEndpointCreationManager(),
 		apiLimiterSet:     apiLimiterSet,
@@ -852,7 +853,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// and the k8s service watcher depends on option.Config.EnableNodePort flag
 	// which can be modified after the device detection.
 	if err := d.deviceManager.Detect(); err != nil {
-		if areDevicesRequired() {
+		if linuxdatapath.AreDevicesRequired() {
 			// Fail hard if devices are required to function.
 			return nil, nil, fmt.Errorf("failed to detect devices: %w", err)
 		}

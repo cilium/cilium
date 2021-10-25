@@ -3,7 +3,7 @@
 
 // This module implements Cilium's network device detection.
 
-package cmd
+package linux
 
 import (
 	"fmt"
@@ -51,7 +51,7 @@ func NewDeviceManager() *DeviceManager {
 }
 
 // Detect tries to detect devices to which BPF programs may be loaded.
-// See areDevicesRequired() for features that require the device information.
+// See AreDevicesRequired() for features that require the device information.
 //
 // The devices are detected by looking at all the configured global unicast
 // routes in the system.
@@ -76,7 +76,7 @@ func (dm *DeviceManager) Detect() error {
 		l3DevOK = supportL3Dev()
 	}
 
-	if len(option.Config.Devices) == 0 && areDevicesRequired() {
+	if len(option.Config.Devices) == 0 && AreDevicesRequired() {
 		// Detect the devices from the system routing table by finding the devices
 		// which have global unicast routes.
 		family := netlink.FAMILY_ALL
@@ -343,7 +343,7 @@ func expandDeviceWildcards(devices []string, option string) ([]string, error) {
 	return expandedDevices, nil
 }
 
-func areDevicesRequired() bool {
+func AreDevicesRequired() bool {
 	return option.Config.EnableNodePort ||
 		option.Config.EnableHostFirewall ||
 		option.Config.EnableBandwidthManager
