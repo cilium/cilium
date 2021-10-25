@@ -6,12 +6,15 @@
 package linux
 
 import (
+	"context"
 	"fmt"
 	"net"
+	"runtime"
 	"sort"
 	"strings"
 
 	"github.com/vishvananda/netlink"
+	"github.com/vishvananda/netns"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
@@ -55,17 +58,17 @@ func NewDeviceManager() *DeviceManager {
 //
 // The devices are detected by looking at all the configured global unicast
 // routes in the system.
-func (dm *DeviceManager) Detect() error {
+func (dm *DeviceManager) Detect() ([]string, error) {
 	dm.Lock()
 	defer dm.Unlock()
 	dm.devices = make(map[string]struct{})
 
 	if err := expandDevices(); err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := expandDirectRoutingDevice(); err != nil {
-		return err
+		return nil, err
 	}
 
 	l3DevOK := true
@@ -88,7 +91,7 @@ func (dm *DeviceManager) Detect() error {
 
 		routes, err := netlink.RouteListFiltered(family, &routeFilter, routeFilterMask)
 		if err != nil {
-			return fmt.Errorf("cannot retrieve routes for device detection: %w", err)
+			return nil, fmt.Errorf("cannot retrieve routes for device detection: %w", err)
 		}
 		dm.updateDevicesFromRoutes(l3DevOK, routes)
 	} else {
@@ -116,7 +119,7 @@ func (dm *DeviceManager) Detect() error {
 			k8sNodeDev = k8sNodeLink.Attrs().Name
 			dm.devices[k8sNodeDev] = struct{}{}
 		} else if k8s.IsEnabled() {
-			return fmt.Errorf("k8s is enabled, but still failed to find node IP: %w", err)
+			return nil, fmt.Errorf("k8s is enabled, but still failed to find node IP: %w", err)
 		}
 
 		if detectDirectRoutingDev {
@@ -129,7 +132,7 @@ func (dm *DeviceManager) Detect() error {
 			} else if k8sNodeDev != "" {
 				option.Config.DirectRoutingDevice = k8sNodeDev
 			} else {
-				return fmt.Errorf("Unable to determine direct routing device. Use --%s to specify it",
+				return nil, fmt.Errorf("unable to determine direct routing device. Use --%s to specify it",
 					option.DirectRoutingDevice)
 			}
 			log.WithField(option.DirectRoutingDevice, option.Config.DirectRoutingDevice).
@@ -141,23 +144,15 @@ func (dm *DeviceManager) Detect() error {
 				option.Config.IPv6MCastDevice = k8sNodeDev
 				log.WithField(option.IPv6MCastDevice, option.Config.IPv6MCastDevice).Info("IPv6 multicast device detected")
 			} else {
-				return fmt.Errorf("Unable to determine Multicast device. Use --%s to specify it",
+				return nil, fmt.Errorf("unable to determine Multicast device. Use --%s to specify it",
 					option.IPv6MCastDevice)
 			}
 		}
 	}
 
-	option.Config.Devices = dm.getDevices()
-	log.WithField(logfields.Devices, option.Config.Devices).Info("Detected devices")
-
-	return nil
-}
-
-// GetDevices returns the current list of devices Cilium should attach programs to.
-func (dm *DeviceManager) GetDevices() []string {
-	dm.Lock()
-	defer dm.Unlock()
-	return dm.getDevices()
+	deviceList := dm.getDevices()
+	log.WithField(logfields.Devices, deviceList).Info("Detected devices")
+	return deviceList, nil
 }
 
 func (dm *DeviceManager) getDevices() []string {
@@ -171,6 +166,13 @@ func (dm *DeviceManager) getDevices() []string {
 
 // Exclude devices that have one or more of these flags set.
 var excludedIfFlagsMask uint32 = unix.IFF_SLAVE | unix.IFF_LOOPBACK
+
+// GetDevices returns the current set of devices.
+func (dm *DeviceManager) GetDevices() []string {
+	dm.Lock()
+	defer dm.Unlock()
+	return dm.getDevices()
+}
 
 // isViableDevice returns true if the given link is usable and Cilium should attach
 // programs to it.
@@ -280,9 +282,119 @@ func (dm *DeviceManager) updateDevicesFromRoutes(l3DevOK bool, routes []netlink.
 		if viable {
 			dm.devices[name] = struct{}{}
 			changed = true
+		} else {
+			log.WithField(logfields.Device, name).Debug("Skipping unviable device")
 		}
 	}
 	return changed
+}
+
+func (dm *DeviceManager) handleLinkUpdate(update netlink.LinkUpdate) bool {
+	if update.Header.Type != unix.RTM_DELLINK {
+		return false
+	}
+
+	name := update.Attrs().Name
+
+	if _, ok := dm.devices[name]; !ok {
+		return false
+	}
+
+	delete(dm.devices, name)
+
+	return true
+}
+
+// Listen starts listening to changes to network devices. When devices change the new set
+// of devices is sent on the returned channel.
+func (dm *DeviceManager) Listen(ctx context.Context) (chan []string, error) {
+	return dm.listen(ctx, nil)
+}
+
+// listen is the internal method to start listening for changes to network devices. This is split from the
+// public method to allow tests to listen to devices in specific network namespace.
+func (dm *DeviceManager) listen(ctx context.Context, netNS *netns.NsHandle) (chan []string, error) {
+	l3DevOK := supportL3Dev()
+	routeChan := make(chan netlink.RouteUpdate)
+	closeChan := make(chan struct{})
+
+	err := netlink.RouteSubscribeWithOptions(routeChan, closeChan,
+		netlink.RouteSubscribeOptions{
+			Namespace: netNS,
+			// List existing routes to make sure we did not miss changes that happened after Detect().
+			ListExisting: true,
+		})
+	if err != nil {
+		return nil, err
+	}
+
+	linkChan := make(chan netlink.LinkUpdate)
+	err = netlink.LinkSubscribeWithOptions(linkChan, closeChan, netlink.LinkSubscribeOptions{
+		Namespace: netNS,
+		// FIXME(JM): What if a device is removed between Detect() and Listen()?
+		ListExisting: false,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	devicesChan := make(chan []string)
+
+	go func() {
+		// If a specific namespace is requested, lock the thread and set the
+		// threads namespace. This is currently only relevant for testing.
+		if netNS != nil {
+			runtime.LockOSThread()
+			defer runtime.UnlockOSThread()
+			if err := netns.Set(*netNS); err != nil {
+				log.WithError(err).Fatal("Failed to set network namespace")
+			}
+		}
+
+		log.Info("Listening for device changes")
+
+		for {
+			devicesChanged := false
+
+			select {
+			case <-ctx.Done():
+				log.Debug("context closed, Listen() stopping")
+				close(closeChan)
+				close(devicesChan)
+				// drain the route and link channels
+				for range routeChan {
+				}
+				for range linkChan {
+				}
+				return
+
+			case update := <-routeChan:
+				if update.Type == unix.RTM_NEWROUTE {
+					dm.Lock()
+					devicesChanged = dm.updateDevicesFromRoutes(l3DevOK, []netlink.Route{update.Route})
+					dm.Unlock()
+				}
+
+			case update := <-linkChan:
+				dm.Lock()
+				devicesChanged = dm.handleLinkUpdate(update)
+				dm.Unlock()
+			}
+
+			if devicesChanged {
+				devices := dm.GetDevices()
+				log.WithField(logfields.Devices, devices).Info("Devices changed")
+				devicesChan <- devices
+			}
+		}
+	}()
+	return devicesChan, nil
+}
+
+func (dm *DeviceManager) AreDevicesRequired() bool {
+	return option.Config.EnableNodePort ||
+		option.Config.EnableHostFirewall ||
+		option.Config.EnableBandwidthManager
 }
 
 // expandDevices expands all wildcard device names to concrete devices.
@@ -312,7 +424,7 @@ func expandDirectRoutingDevice() error {
 func expandDeviceWildcards(devices []string, option string) ([]string, error) {
 	allLinks, err := netlink.LinkList()
 	if err != nil {
-		return nil, fmt.Errorf("Device wildcard expansion failed to fetch devices: %w", err)
+		return nil, fmt.Errorf("device wildcard expansion failed to fetch devices: %w", err)
 	}
 	expandedDevicesMap := make(map[string]struct{})
 	for _, iface := range devices {
@@ -331,7 +443,7 @@ func expandDeviceWildcards(devices []string, option string) ([]string, error) {
 	if len(devices) > 0 && len(expandedDevicesMap) == 0 {
 		// User defined devices, but expansion yielded no devices. Fail here to not
 		// surprise with auto-detection.
-		return nil, fmt.Errorf("Device wildcard expansion failed to detect devices. Please verify --%s option.",
+		return nil, fmt.Errorf("device wildcard expansion failed to detect devices. Please verify --%s option.",
 			option)
 	}
 
@@ -353,7 +465,7 @@ func findK8SNodeIPLink() (netlink.Link, error) {
 	nodeIP := node.GetK8sNodeIP()
 
 	if nodeIP == nil {
-		return nil, fmt.Errorf("Failed to find K8s node device as node IP is not known")
+		return nil, fmt.Errorf("failed to find K8s node device as node IP is not known")
 	}
 
 	var family int
