@@ -2395,6 +2395,9 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		options["imagePullSecrets[0].name"] = config.RegistrySecretName
 	}
 
+	if CiliumEndpointSliceFeatureEnabled() {
+		options["enableCiliumEndpointSlice"] = "true"
+	}
 	return nil
 }
 
