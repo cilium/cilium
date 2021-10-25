@@ -547,7 +547,12 @@ data:
   devices: {{ join " " .Values.devices | quote }}
 {{- end }}
 
+{{- if .Values.enableRuntimeDeviceDetection }}
+  enable-runtime-device-detection: "true"
+{{- end }}
+
   kube-proxy-replacement: {{ $kubeProxyReplacement | quote }}
+
 {{- if ne $kubeProxyReplacement "disabled" }}
   kube-proxy-replacement-healthz-bind-address: {{ default "" .Values.kubeProxyReplacementHealthzBindAddr | quote}}
 {{- end }}

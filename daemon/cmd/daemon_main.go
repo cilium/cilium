@@ -287,6 +287,9 @@ func initializeFlags() {
 	flags.String(option.DirectRoutingDevice, "", "Device name used to connect nodes in direct routing mode (used by BPF NodePort, BPF host routing; if empty, automatically set to a device with k8s InternalIP/ExternalIP or with a default route)")
 	option.BindEnv(option.DirectRoutingDevice)
 
+	flags.Bool(option.EnableRuntimeDeviceDetection, false, "Enable runtime device detection and datapath reconfiguration (experimental)")
+	option.BindEnv(option.EnableRuntimeDeviceDetection)
+
 	flags.String(option.LBDevInheritIPAddr, "", fmt.Sprintf("Device name which IP addr is inherited by devices running LB BPF program (--%s)", option.Devices))
 	option.BindEnv(option.LBDevInheritIPAddr)
 

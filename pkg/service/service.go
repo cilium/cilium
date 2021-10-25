@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/counter"
 	datapathOpt "github.com/cilium/cilium/pkg/datapath/option"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -479,7 +480,10 @@ func (s *Service) InitMaps(ipv6, ipv4, sockMaps, restore bool) error {
 func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
 	s.Lock()
 	defer s.Unlock()
+	return s.upsertService(params)
+}
 
+func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 	empty := Name{}
 
 	// Set L7 LB for this service if registered.
@@ -1553,4 +1557,77 @@ func segregateBackends(backends []lb.Backend) (activeBackends map[string]lb.Back
 	}
 
 	return activeBackends, nonActiveBackends
+}
+
+// SyncServicesOnDeviceChange finds and adds missing load-balancing entries for
+// new devices.
+func (s *Service) SyncServicesOnDeviceChange(nodeAddressing types.NodeAddressing) {
+	s.Lock()
+	defer s.Unlock()
+
+	existingFEs := make(map[string]struct{})
+
+	// Find all NodePort services by finding the surrogate services.
+	nodePortSvcs := make([]*svcInfo, 0)
+	for _, svc := range s.svcByID {
+		if svc.svcType != lb.SVCTypeNodePort {
+			continue
+		}
+
+		if svc.frontend.IP.IsUnspecified() {
+			nodePortSvcs = append(nodePortSvcs, svc)
+		} else {
+			existingFEs[svc.frontend.IP.String()] = struct{}{}
+		}
+	}
+
+	var newServices []*lb.SVC
+
+	// Create the missing IPv4 nodeport services
+	if option.Config.EnableIPv4 {
+		for _, ip := range nodeAddressing.IPv4().LoadBalancerNodeAddresses() {
+			if ip.IsUnspecified() {
+				continue
+			}
+			if _, ok := existingFEs[ip.String()]; !ok {
+				// No services for this frontend, create them.
+				for _, svcInfo := range nodePortSvcs {
+					fe := lb.NewL3n4AddrID(svcInfo.frontend.Protocol, ip, svcInfo.frontend.Port, svcInfo.frontend.Scope, 0)
+					svc := svcInfo.deepCopyToLBSVC()
+					svc.Frontend = *fe
+					newServices = append(newServices, svc)
+				}
+			}
+		}
+	}
+
+	// Create the missing IPv6 nodeport services
+	if option.Config.EnableIPv6 {
+		for _, ip := range nodeAddressing.IPv6().LoadBalancerNodeAddresses() {
+			if ip.IsUnspecified() {
+				continue
+			}
+			if _, ok := existingFEs[ip.String()]; !ok {
+				// No services for this frontend, create them.
+				for _, svcInfo := range nodePortSvcs {
+					fe := lb.NewL3n4AddrID(svcInfo.frontend.Protocol, ip, svcInfo.frontend.Port, svcInfo.frontend.Scope, 0)
+					svc := svcInfo.deepCopyToLBSVC()
+					svc.Frontend = *fe
+					newServices = append(newServices, svc)
+				}
+			}
+		}
+	}
+
+	for _, svc := range newServices {
+		log := log.WithField(logfields.K8sNamespace, svc.Namespace).
+			WithField(logfields.K8sSvcName, svc.Name).
+			WithField(logfields.L3n4Addr, svc.Frontend.L3n4Addr)
+		_, _, err := s.upsertService(svc)
+		if err != nil {
+			log.WithError(err).Warn("Could not create service for frontend")
+		} else {
+			log.Debug("Created nodeport service for new frontend")
+		}
+	}
 }
