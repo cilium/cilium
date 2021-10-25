@@ -165,11 +165,12 @@ func (wp *WorkerPool) Close() error {
 func (wp *WorkerPool) run(ctx context.Context) {
 	for t := range wp.tasks {
 		t := t
-		wp.results = append(wp.results, t)
+		result := taskResult{id: t.id}
+		wp.results = append(wp.results, &result)
 		wp.workers <- struct{}{}
 		go func() {
 			defer wp.wg.Done()
-			t.err = t.run(ctx)
+			result.err = t.run(ctx)
 			<-wp.workers
 		}()
 	}
