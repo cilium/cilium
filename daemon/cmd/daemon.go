@@ -852,13 +852,15 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// This is because the device detection requires self (Cilium)Node object,
 	// and the k8s service watcher depends on option.Config.EnableNodePort flag
 	// which can be modified after the device detection.
-	if err := d.deviceManager.Detect(); err != nil {
-		if linuxdatapath.AreDevicesRequired() {
+	if devices, err := d.deviceManager.Detect(); err != nil {
+		if d.deviceManager.AreDevicesRequired() {
 			// Fail hard if devices are required to function.
 			return nil, nil, fmt.Errorf("failed to detect devices: %w", err)
 		}
 		log.WithError(err).Warn("failed to detect devices, disabling BPF NodePort")
 		disableNodePort()
+	} else {
+		option.Config.Devices = devices
 	}
 	if err := finishKubeProxyReplacementInit(isKubeProxyReplacementStrict); err != nil {
 		log.WithError(err).Error("failed to finalise LB initialization")
