@@ -33,10 +33,14 @@ security@cilium.io - first, before disclosing them in any public forums.
 - Kernel version (run `uname -a`)
 - Orchestration system version in use (e.g. `kubectl version`, ...)
 - Link to relevant artifacts (policies, deployments scripts, ...)
-- Generate and upload a system zip:
-```
-curl -sLO https://git.io/cilium-sysdump-latest.zip && python cilium-sysdump-latest.zip
-```
+- Generate and upload a sysdump:
+
+  - [Install Cilium CLI](https://docs.cilium.io/en/stable/gettingstarted/k8s-install-default/#install-the-cilium-cli).
+  - Run `cilium sysdump` command:
+
+    ```
+    cilium sysdump
+    ```
 
 **How to reproduce the issue**
 
