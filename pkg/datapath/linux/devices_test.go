@@ -3,7 +3,7 @@
 
 //go:build linux && privileged_tests
 
-package cmd
+package linux
 
 import (
 	"net"
