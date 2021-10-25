@@ -1000,13 +1000,26 @@ func (d *Daemon) startStatusCollector() {
 				}
 			},
 		},
-	}
+		{
+			Name: "kube-proxy-replacement",
+			Probe: func(ctx context.Context) (interface{}, error) {
+				if k8s.IsEnabled() || option.Config.DatapathMode == datapathOption.DatapathModeLBOnly {
+					return d.getKubeProxyReplacementStatus(), nil
+				} else {
+					return nil, nil
+				}
+			},
+			OnStatusUpdate: func(status status.Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
 
-	if k8s.IsEnabled() || option.Config.DatapathMode == datapathOption.DatapathModeLBOnly {
-		// kube-proxy replacement configuration does not change after
-		// initKubeProxyReplacementOptions() has been executed, so it's fine to
-		// statically set the field here.
-		d.statusResponse.KubeProxyReplacement = d.getKubeProxyReplacementStatus()
+				if status.Err == nil {
+					if s, ok := status.Data.(*models.KubeProxyReplacement); ok {
+						d.statusResponse.KubeProxyReplacement = s
+					}
+				}
+			},
+		},
 	}
 
 	d.statusResponse.Masquerading = d.getMasqueradingStatus()
