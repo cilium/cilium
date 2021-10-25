@@ -799,16 +799,12 @@ func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8
 
 		for _, ingressStatus := range svc.Status.LoadBalancer.Ingress {
 			if ingressStatus.Hostname != "" {
-
 				ips, err := net.LookupHost(ingressStatus.Hostname)
 				if err != nil {
 					return nil, fmt.Errorf("could not resolve the hostname based load balancer %s: %v", ingressStatus.Hostname, err)
 				}
 
-				for _, ip := range ips {
-					ai.ServiceIPs = append(ai.ServiceIPs, ip)
-				}
-
+				ai.ServiceIPs = append(ai.ServiceIPs, ips...)
 			}
 
 			if ingressStatus.IP != "" {
