@@ -32,6 +32,12 @@
 #include "lib/identity.h"
 #include "lib/nodeport.h"
 
+#ifdef ENABLE_VTEP
+#include "lib/arp.h"
+#include "lib/encap.h"
+#include "lib/eps.h"
+#endif /* ENABLE_VTEP */
+
 #ifdef ENABLE_IPV6
 static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 				       __u32 *identity)
@@ -292,6 +298,51 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 					      CTX_ACT_DROP, METRIC_INGRESS);
 	return ret;
 }
+
+#ifdef ENABLE_VTEP
+#ifdef ENABLE_ARP_RESPONDER
+/*
+ * ARP responder for ARP requests from overlay
+ * Respond to remote VTEP endpoint with cilium_vxlan MAC
+ */
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ARP)
+int tail_handle_arp(struct __ctx_buff *ctx)
+{
+	union macaddr mac = NODE_MAC;
+	union macaddr smac;
+	__be32 sip;
+	__be32 tip;
+	__u32 monitor = 0;
+	struct remote_endpoint_info *info;
+	struct bpf_tunnel_key key = {};
+
+	if (unlikely(ctx_get_tunnel_key(ctx, &key, sizeof(key), 0) < 0))
+		return DROP_NO_TUNNEL_KEY;
+	if (key.tunnel_id == HOST_ID)
+		return DROP_INVALID_IDENTITY;
+	if (key.tunnel_id != WORLD_ID)
+		return DROP_INVALID_VNI;
+
+	if (!arp_validate(ctx, &mac, &smac, &sip, &tip))
+		return CTX_ACT_DROP;
+	if (!__lookup_ip4_endpoint(tip))
+		return CTX_ACT_DROP;
+	if (arp_prepare_response(ctx, &mac, tip, &smac, sip) < 0)
+		return CTX_ACT_DROP;
+
+	info = lookup_ip4_remote_endpoint(sip);
+
+	if (!info)
+		return DROP_NO_TUNNEL_ENDPOINT;
+	if (info->vtep_mac)
+		return __encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
+								info->sec_label, monitor);
+
+	return CTX_ACT_OK;
+}
+#endif /* ENABLE_ARP_RESPONDER */
+#endif /* ENABLE_VTEP */
+
 #endif /* ENABLE_IPV4 */
 
 /* Attached to the ingress of cilium_vxlan/cilium_geneve to execute on packets
@@ -325,6 +376,12 @@ int from_overlay(struct __ctx_buff *ctx)
 	}
 
 	switch (proto) {
+#if defined(ENABLE_VTEP) && defined(ENABLE_ARP_RESPONDER)
+	case bpf_htons(ETH_P_ARP):
+		ep_tail_call(ctx, CILIUM_CALL_ARP);
+		ret = DROP_MISSED_TAIL_CALL;
+		break;
+#endif
 	case bpf_htons(ETH_P_IPV6):
 #ifdef ENABLE_IPV6
 		ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_LXC);
