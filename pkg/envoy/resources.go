@@ -29,6 +29,9 @@ const (
 	// EndpointTypeURL is the type URL of Endpoint resources.
 	EndpointTypeURL = "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment"
 
+	// SecretTypeURL is the type URL of Endpoint resources.
+	SecretTypeURL = "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.Secret"
+
 	// NetworkPolicyTypeURL is the type URL of NetworkPolicy resources.
 	NetworkPolicyTypeURL = "type.googleapis.com/cilium.NetworkPolicy"
 

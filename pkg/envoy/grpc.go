@@ -15,6 +15,7 @@ import (
 	envoy_service_endpoint "github.com/cilium/proxy/go/envoy/service/endpoint/v3"
 	envoy_service_listener "github.com/cilium/proxy/go/envoy/service/listener/v3"
 	envoy_service_route "github.com/cilium/proxy/go/envoy/service/route/v3"
+	envoy_service_secret "github.com/cilium/proxy/go/envoy/service/secret/v3"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -40,6 +41,7 @@ func startXDSGRPCServer(listener net.Listener, config map[string]*xds.ResourceTy
 	// TODO: https://github.com/cilium/cilium/issues/5051
 	// Implement IncrementalAggregatedResources to support Incremental xDS.
 	//envoy_service_discovery_v3.RegisterAggregatedDiscoveryServiceServer(grpcServer, dsServer)
+	envoy_service_secret.RegisterSecretDiscoveryServiceServer(grpcServer, dsServer)
 	envoy_service_endpoint.RegisterEndpointDiscoveryServiceServer(grpcServer, dsServer)
 	envoy_service_cluster.RegisterClusterDiscoveryServiceServer(grpcServer, dsServer)
 	envoy_service_route.RegisterRouteDiscoveryServiceServer(grpcServer, dsServer)
@@ -120,6 +122,20 @@ func (s *xdsGRPCServer) StreamEndpoints(stream envoy_service_endpoint.EndpointDi
 }
 
 func (s *xdsGRPCServer) FetchEndpoints(ctx context.Context, req *envoy_service_discovery.DiscoveryRequest) (*envoy_service_discovery.DiscoveryResponse, error) {
+	// The Fetch methods are only called via the REST API, which is not
+	// implemented in Cilium. Only the Stream methods are called over gRPC.
+	return nil, ErrNotImplemented
+}
+
+func (s *xdsGRPCServer) DeltaSecrets(stream envoy_service_secret.SecretDiscoveryService_DeltaSecretsServer) error {
+	return ErrNotImplemented
+}
+
+func (s *xdsGRPCServer) StreamSecrets(stream envoy_service_secret.SecretDiscoveryService_StreamSecretsServer) error {
+	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, SecretTypeURL)
+}
+
+func (s *xdsGRPCServer) FetchSecrets(ctx context.Context, req *envoy_service_discovery.DiscoveryRequest) (*envoy_service_discovery.DiscoveryResponse, error) {
 	// The Fetch methods are only called via the REST API, which is not
 	// implemented in Cilium. Only the Stream methods are called over gRPC.
 	return nil, ErrNotImplemented

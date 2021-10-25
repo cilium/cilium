@@ -207,6 +207,7 @@ github.com/cilium/proxy/go/envoy/service/discovery/v3
 github.com/cilium/proxy/go/envoy/service/endpoint/v3
 github.com/cilium/proxy/go/envoy/service/listener/v3
 github.com/cilium/proxy/go/envoy/service/route/v3
+github.com/cilium/proxy/go/envoy/service/secret/v3
 github.com/cilium/proxy/go/envoy/type/http/v3
 github.com/cilium/proxy/go/envoy/type/matcher/v3
 github.com/cilium/proxy/go/envoy/type/metadata/v3
