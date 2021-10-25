@@ -41,7 +41,12 @@ func GetBytesPerSec(bandwidth string) (uint64, error) {
 type BandwidthManager struct {
 }
 
-func NewBandwidthManager(lc fx.Lifecycle, cfg *option.DaemonConfigProvider) *BandwidthManager {
+func (bw *BandwidthManager) Enabled() bool {
+	// FIXME(JM): Should be local state.
+	return option.Config.EnableBandwidthManager
+}
+
+func NewBandwidthManager(lc fx.Lifecycle, cfg *option.DaemonConfig) *BandwidthManager {
 	// Perform an early probe on the underlying kernel on whether BandwidthManager
 	// can be supported or not. This needs to be done before device probing as it
 	// its outcome depends on BandwidthManager configuration.
@@ -88,14 +93,14 @@ func probeBandwidthManager() {
 	}
 }
 
-func initBandwidthManager(cfg *option.DaemonConfigProvider) {
-	if cfg.GetConfig().DryMode || !cfg.GetConfig().EnableBandwidthManager {
+func initBandwidthManager(cfg *option.DaemonConfig) {
+	if cfg.DryMode || !cfg.EnableBandwidthManager {
 		return
 	}
 
-	if len(cfg.GetConfig().Devices) == 0 {
+	if len(cfg.Devices) == 0 {
 		log.Warn("BPF bandwidth manager could not detect host devices. Disabling the feature.")
-		cfg.GetConfig().EnableBandwidthManager = false
+		cfg.EnableBandwidthManager = false
 		return
 	}
 
@@ -132,7 +137,7 @@ func initBandwidthManager(cfg *option.DaemonConfigProvider) {
 		}
 	}
 
-	for _, device := range cfg.GetConfig().Devices {
+	for _, device := range cfg.Devices {
 		link, err := netlink.LinkByName(device)
 		if err != nil {
 			log.WithError(err).WithField("device", device).Warn("Link does not exist")

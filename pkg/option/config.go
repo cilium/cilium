@@ -3338,16 +3338,3 @@ func MightAutoDetectDevices() bool {
 		(Config.KubeProxyReplacement != KubeProxyReplacementDisabled &&
 			(len(Config.Devices) == 0 || Config.DirectRoutingDevice == ""))
 }
-
-// DaemonConfigProvider implements a constructor for the daemon application for
-// accessing the daemon configuration.
-// To be cleaned up.
-type DaemonConfigProvider struct{}
-
-func (dc *DaemonConfigProvider) GetConfig() *DaemonConfig {
-	return Config
-}
-
-func NewDaemonConfigProvider() *DaemonConfigProvider {
-	return &DaemonConfigProvider{}
-}

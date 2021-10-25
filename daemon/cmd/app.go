@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"time"
 
@@ -15,7 +16,7 @@ import (
 )
 
 // LegacyDaemon is an adapter for managing the lifecycle of the legacy daemon
-// code that has not yet been converted for use with Fx.
+// code that has not yet been converted to use Fx.
 type LegacyDaemon struct {
 }
 
@@ -40,23 +41,35 @@ func NewLegacyDaemon(lc fx.Lifecycle) *LegacyDaemon {
 // Dummy is a placeholder for grabbing reference to everything we want
 // to start. To be replaced by the proper leaf functions of the daemon.
 func Dummy(ld *LegacyDaemon, bw *bandwidth.BandwidthManager) {
+	fmt.Printf("DUMMY START\n")
+}
 
+func ValidateDaemonConfig(cfg *option.DaemonConfig) error {
+	// Validate the daemon-specific global options.
+	if err := cfg.Validate(); err != nil {
+		return fmt.Errorf("invalid daemon configuration: %s", err)
+	}
+	return nil
 }
 
 func newDaemonApp() *fx.App {
 	return fx.New(
 		fx.Provide(
+			func() *option.DaemonConfig { return option.Config },
 			NewLegacyDaemon,
 			bandwidth.NewBandwidthManager,
-			option.NewDaemonConfigProvider,
 		),
 
 		fx.Invoke(
+			ValidateDaemonConfig,
 			Dummy,
 		),
 
 		fx.WithLogger(
-			func() fxevent.Logger { return &fxevent.ConsoleLogger{os.Stdout} },
+			func() fxevent.Logger {
+				// FIXME(JM): Use pkg/logging.
+				return &fxevent.ConsoleLogger{W: os.Stdout}
+			},
 		),
 	)
 }
