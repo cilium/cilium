@@ -200,7 +200,7 @@ func (k *K8sWatcher) endpointUpdated(oldEndpoint, endpoint *types.CiliumEndpoint
 		}
 	}
 
-	if option.Config.EnableEgressGateway {
+	if option.Config.EnableIPv4EgressGateway {
 		k.egressGatewayManager.OnUpdateEndpoint(endpoint)
 	}
 }
@@ -233,7 +233,7 @@ func (k *K8sWatcher) endpointDeleted(endpoint *types.CiliumEndpoint) {
 			k.policyManager.TriggerPolicyUpdates(true, "Named ports deleted")
 		}
 	}
-	if option.Config.EnableEgressGateway {
+	if option.Config.EnableIPv4EgressGateway {
 		k.egressGatewayManager.OnDeleteEndpoint(endpoint)
 	}
 }

@@ -47,7 +47,7 @@ func agentCRDResourceNames() []string {
 	if !option.Config.DisableCiliumEndpointCRD {
 		result = append(result, CRDResourceName(v2.CEPName))
 	}
-	if option.Config.EnableEgressGateway {
+	if option.Config.EnableIPv4EgressGateway {
 		result = append(result, CRDResourceName(v2alpha1.CENPName))
 	}
 	if option.Config.EnableLocalRedirectPolicy {
