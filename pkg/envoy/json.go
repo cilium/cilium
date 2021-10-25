@@ -16,11 +16,13 @@ import (
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
+	envoy_config_tls "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 )
 
 // Resources contains all Envoy resources parsed from a CiliumEnvoyConfig CRD
 type Resources struct {
 	Listeners []*envoy_config_listener.Listener
+	Secrets   []*envoy_config_tls.Secret
 	Routes    []*envoy_config_route.RouteConfiguration
 	Clusters  []*envoy_config_cluster.Cluster
 	Endpoints []*envoy_config_endpoint.ClusterLoadAssignment
@@ -36,7 +38,7 @@ func ParseResources(namePrefix string, cec *cilium_v2alpha1.CiliumEnvoyConfig) (
 		}
 		typeURL := r.GetTypeUrl()
 		switch typeURL {
-		case "type.googleapis.com/envoy.config.listener.v3.Listener":
+		case ListenerTypeURL:
 			listener, ok := message.(*envoy_config_listener.Listener)
 			if !ok {
 				return Resources{}, fmt.Errorf("Invalid type for Listener: %T", message)
@@ -79,7 +81,7 @@ func ParseResources(namePrefix string, cec *cilium_v2alpha1.CiliumEnvoyConfig) (
 
 			log.Debugf("ParseResources: Parsed listener %s: %v", name, listener)
 
-		case "type.googleapis.com/envoy.config.route.v3.RouteConfiguration":
+		case RouteTypeURL:
 			route, ok := message.(*envoy_config_route.RouteConfiguration)
 			if !ok {
 				return Resources{}, fmt.Errorf("Invalid type for Route: %T", message)
@@ -91,7 +93,7 @@ func ParseResources(namePrefix string, cec *cilium_v2alpha1.CiliumEnvoyConfig) (
 
 			log.Debugf("ParseResources: Parsed route %s: %v", name, route)
 
-		case "type.googleapis.com/envoy.config.cluster.v3.Cluster":
+		case ClusterTypeURL:
 			cluster, ok := message.(*envoy_config_cluster.Cluster)
 			if !ok {
 				return Resources{}, fmt.Errorf("Invalid type for Route: %T", message)
@@ -112,7 +114,7 @@ func ParseResources(namePrefix string, cec *cilium_v2alpha1.CiliumEnvoyConfig) (
 
 			log.Debugf("ParseResources: Parsed cluster %s: %v", name, cluster)
 
-		case "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment":
+		case EndpointTypeURL:
 			endpoint, ok := message.(*envoy_config_endpoint.ClusterLoadAssignment)
 			if !ok {
 				return Resources{}, fmt.Errorf("Invalid type for Route: %T", message)
@@ -120,6 +122,15 @@ func ParseResources(namePrefix string, cec *cilium_v2alpha1.CiliumEnvoyConfig) (
 			resources.Endpoints = append(resources.Endpoints, endpoint)
 
 			log.Debugf("ParseResources: Parsed endpoint: %v", endpoint)
+
+		case SecretTypeURL:
+			secret, ok := message.(*envoy_config_tls.Secret)
+			if !ok {
+				return Resources{}, fmt.Errorf("Invalid type for Secret: %T", message)
+			}
+			resources.Secrets = append(resources.Secrets, secret)
+
+			log.Debugf("ParseResources: Parsed secret: %v", secret)
 
 		default:
 			return Resources{}, fmt.Errorf("Unsupported type: %s", typeURL)
@@ -148,6 +159,9 @@ func (s *XDSServer) UpsertEnvoyResources(ctx context.Context, resources Resource
 	}
 	for _, r := range resources.Endpoints {
 		revertFuncs = append(revertFuncs, s.upsertEndpoint(r.ClusterName, r, wg, nil))
+	}
+	for _, r := range resources.Secrets {
+		revertFuncs = append(revertFuncs, s.upsertSecret(r.Name, r, wg, nil))
 	}
 
 	start := time.Now()
@@ -254,6 +268,24 @@ func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 		revertFuncs = append(revertFuncs, s.deleteEndpoint(endpoint.ClusterName, wg, nil))
 	}
 
+	// Delete old secrets not added in 'new'
+	var deleteSecrets []*envoy_config_tls.Secret
+	for _, oldSecret := range old.Secrets {
+		found := false
+		for _, newSecret := range new.Secrets {
+			if newSecret.Name == oldSecret.Name {
+				found = true
+			}
+		}
+		if !found {
+			deleteSecrets = append(deleteSecrets, oldSecret)
+		}
+	}
+	log.Debugf("UpdateEnvoyResources: Deleting %d, Upserting %d secrets...", len(deleteSecrets), len(new.Secrets))
+	for _, secret := range deleteSecrets {
+		revertFuncs = append(revertFuncs, s.deleteSecret(secret.Name, wg, nil))
+	}
+
 	// Have to wait for deletes to complete before adding new listeners if a listener's port number is changed.
 	if waitForDelete {
 		start := time.Now()
@@ -267,6 +299,10 @@ func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 		wg = completion.NewWaitGroup(ctx)
 	}
 
+	// Add new Secrets
+	for _, r := range new.Secrets {
+		revertFuncs = append(revertFuncs, s.upsertSecret(r.Name, r, wg, nil))
+	}
 	// Add new Endpoints
 	for _, r := range new.Endpoints {
 		revertFuncs = append(revertFuncs, s.upsertEndpoint(r.ClusterName, r, wg, nil))
@@ -299,8 +335,8 @@ func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 
 // DeleteEnvoyResources deletes all Envoy resources in 'resources'.
 func (s *XDSServer) DeleteEnvoyResources(ctx context.Context, resources Resources) error {
-	log.Debugf("UpdateEnvoyResources: Deleting %d listeners, %d routes, %d clusters, and %d endpoints...",
-		len(resources.Listeners), len(resources.Routes), len(resources.Clusters), len(resources.Endpoints))
+	log.Debugf("UpdateEnvoyResources: Deleting %d listeners, %d routes, %d clusters, %d endpoints, and %d secrets...",
+		len(resources.Listeners), len(resources.Routes), len(resources.Clusters), len(resources.Endpoints), len(resources.Secrets))
 	wg := completion.NewWaitGroup(ctx)
 	var revertFuncs xds.AckingResourceMutatorRevertFuncList
 
@@ -315,6 +351,9 @@ func (s *XDSServer) DeleteEnvoyResources(ctx context.Context, resources Resource
 	}
 	for _, r := range resources.Endpoints {
 		revertFuncs = append(revertFuncs, s.deleteEndpoint(r.ClusterName, wg, nil))
+	}
+	for _, r := range resources.Secrets {
+		revertFuncs = append(revertFuncs, s.deleteSecret(r.Name, wg, nil))
 	}
 
 	start := time.Now()
