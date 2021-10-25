@@ -348,8 +348,8 @@ const (
 	// EnableIPMasqAgent enables BPF ip-masq-agent
 	EnableIPMasqAgent = "enable-ip-masq-agent"
 
-	// EnableEgressGateway enables egress-gateway
-	EnableEgressGateway = "enable-egress-gateway"
+	// EnableIPv4EgressGateway enables the IPv4 egress gateway
+	EnableIPv4EgressGateway = "enable-ipv4-egress-gateway"
 
 	// IPMasqAgentConfigPath is the configuration file path
 	IPMasqAgentConfigPath = "ip-masq-agent-config-path"
@@ -1490,7 +1490,7 @@ type DaemonConfig struct {
 	DeriveMasqIPAddrFromDevice string
 	EnableBPFClockProbe        bool
 	EnableIPMasqAgent          bool
-	EnableEgressGateway        bool
+	EnableIPv4EgressGateway    bool
 	IPMasqAgentConfigPath      string
 	InstallIptRules            bool
 	MonitorAggregation         string
@@ -2538,7 +2538,7 @@ func (c *DaemonConfig) Populate() {
 	c.LocalRouterIPv6 = viper.GetString(LocalRouterIPv6)
 	c.EnableBPFClockProbe = viper.GetBool(EnableBPFClockProbe)
 	c.EnableIPMasqAgent = viper.GetBool(EnableIPMasqAgent)
-	c.EnableEgressGateway = viper.GetBool(EnableEgressGateway)
+	c.EnableIPv4EgressGateway = viper.GetBool(EnableIPv4EgressGateway)
 	c.IPMasqAgentConfigPath = viper.GetString(IPMasqAgentConfigPath)
 	c.InstallIptRules = viper.GetBool(InstallIptRules)
 	c.IPTablesLockTimeout = viper.GetDuration(IPTablesLockTimeout)

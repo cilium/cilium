@@ -81,7 +81,6 @@ cilium-agent [flags]
       --enable-bpf-masquerade                                Masquerade packets from endpoints leaving the host with BPF instead of iptables
       --enable-bpf-tproxy                                    Enable BPF-based proxy redirection, if support available
       --enable-custom-calls                                  Enable tail call hooks for custom eBPF programs
-      --enable-egress-gateway                                Enable egress gateway
       --enable-endpoint-health-checking                      Enable connectivity health checking between virtual endpoints (default true)
       --enable-endpoint-routes                               Use per endpoint routes instead of routing via cilium_host
       --enable-external-ips                                  Enable k8s service externalIPs feature (requires enabling enable-node-port) (default true)
@@ -97,6 +96,7 @@ cilium-agent [flags]
       --enable-ip-masq-agent                                 Enable BPF ip-masq-agent
       --enable-ipsec                                         Enable IPSec support
       --enable-ipv4                                          Enable IPv4 support (default true)
+      --enable-ipv4-egress-gateway                           Enable egress gateway for IPv4
       --enable-ipv4-fragment-tracking                        Enable IPv4 fragments tracking for L4-based lookups (default true)
       --enable-ipv4-masquerade                               Masquerade IPv4 traffic from endpoints leaving the host (default true)
       --enable-ipv6                                          Enable IPv6 support (default true)

@@ -342,9 +342,9 @@ func initKubeProxyReplacementOptions() (bool, error) {
 					option.NodePortAcceleration, option.NodePortAccelerationDisabled, option.TunnelName, option.TunnelDisabled)
 			}
 
-			if option.Config.EnableEgressGateway {
+			if option.Config.EnableIPv4EgressGateway {
 				return false, fmt.Errorf("Cannot use NodePort acceleration with the egress gateway. Run cilium-agent with either --%s=%s or %s=false",
-					option.NodePortAcceleration, option.NodePortAccelerationDisabled, option.EnableEgressGateway)
+					option.NodePortAcceleration, option.NodePortAccelerationDisabled, option.EnableIPv4EgressGateway)
 			}
 		}
 

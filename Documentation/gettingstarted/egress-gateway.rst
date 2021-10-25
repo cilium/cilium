@@ -56,7 +56,7 @@ enable all requirements is as follows.
 
        .. code-block:: shell-session
 
-          enable-egress-gateway: true
+          enable-ipv4-egress-gateway: true
           enable-bpf-masquerade: true
           kube-proxy-replacement: strict
 
