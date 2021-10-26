@@ -75,6 +75,7 @@ func SetupVethWithNames(lxcIfName, tmpIfName string, mtu int, ep *models.Endpoin
 		LinkAttrs: netlink.LinkAttrs{
 			Name:         lxcIfName,
 			HardwareAddr: net.HardwareAddr(epHostMAC),
+			TxQLen:       1000,
 		},
 		PeerName:         tmpIfName,
 		PeerHardwareAddr: net.HardwareAddr(epLXCMAC),

@@ -202,6 +202,7 @@ func setupVethPair(name, peerName string) error {
 			LinkAttrs: netlink.LinkAttrs{
 				Name:         name,
 				HardwareAddr: net.HardwareAddr(hostMac),
+				TxQLen:       1000,
 			},
 			PeerName:         peerName,
 			PeerHardwareAddr: net.HardwareAddr(peerMac),
