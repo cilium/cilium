@@ -53,7 +53,8 @@ type EndpointManagerSuite struct {
 var _ = Suite(&EndpointManagerSuite{})
 
 func (s *EndpointManagerSuite) SetUpSuite(c *C) {
-	s.repo = policy.NewPolicyRepository(nil, nil)
+	idAllocator := testidentity.NewFakeIdentityAllocator(nil)
+	s.repo = policy.NewPolicyRepository(idAllocator, nil, nil)
 }
 
 func (s *EndpointManagerSuite) GetPolicyRepository() *policy.Repository {

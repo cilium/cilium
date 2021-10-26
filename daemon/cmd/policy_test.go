@@ -1009,11 +1009,11 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 							},
 						},
 					},
-					repo: policy.NewPolicyRepository(nil, nil),
+					repo: policy.NewPolicyRepository(nil, nil, nil),
 				}
 			},
 			setupWanted: func() wanted {
-				r := policy.NewPolicyRepository(nil, nil)
+				r := policy.NewPolicyRepository(nil, nil, nil)
 				r.AddList(api.Rules{
 					api.NewRule().
 						WithEndpointSelector(api.EndpointSelector{
@@ -1042,7 +1042,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 		{
 			name: "have a rule with user labels and update it without user labels, all other rules should be deleted",
 			setupArgs: func() args {
-				r := policy.NewPolicyRepository(nil, nil)
+				r := policy.NewPolicyRepository(nil, nil, nil)
 				lbls := utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy)
 				lbls = append(lbls, labels.ParseLabelArray("foo=bar")...).Sort()
 				r.AddList(api.Rules{
@@ -1085,7 +1085,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 				}
 			},
 			setupWanted: func() wanted {
-				r := policy.NewPolicyRepository(nil, nil)
+				r := policy.NewPolicyRepository(nil, nil, nil)
 				r.AddList(api.Rules{
 					api.NewRule().
 						WithEndpointSelector(api.EndpointSelector{
@@ -1114,7 +1114,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 		{
 			name: "have a rule without user labels and update it with user labels, all other rules should be deleted",
 			setupArgs: func() args {
-				r := policy.NewPolicyRepository(nil, nil)
+				r := policy.NewPolicyRepository(nil, nil, nil)
 				r.AddList(api.Rules{
 					{
 						EndpointSelector: api.EndpointSelector{
@@ -1156,7 +1156,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 				}
 			},
 			setupWanted: func() wanted {
-				r := policy.NewPolicyRepository(nil, nil)
+				r := policy.NewPolicyRepository(nil, nil, nil)
 				lbls := utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy)
 				lbls = append(lbls, labels.ParseLabelArray("foo=bar")...).Sort()
 				r.AddList(api.Rules{
@@ -1182,7 +1182,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 		{
 			name: "have a rule policy installed with multiple rules and apply an empty spec should delete all rules installed",
 			setupArgs: func() args {
-				r := policy.NewPolicyRepository(nil, nil)
+				r := policy.NewPolicyRepository(nil, nil, nil)
 				r.AddList(api.Rules{
 					{
 						EndpointSelector: api.EndpointSelector{
@@ -1229,7 +1229,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 				}
 			},
 			setupWanted: func() wanted {
-				r := policy.NewPolicyRepository(nil, nil)
+				r := policy.NewPolicyRepository(nil, nil, nil)
 				r.AddList(api.Rules{
 					{
 						EndpointSelector: api.EndpointSelector{
