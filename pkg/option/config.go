@@ -2007,6 +2007,9 @@ type DaemonConfig struct {
 	// ARPPingRefreshPeriod is the ARP entries refresher period.
 	ARPPingRefreshPeriod time.Duration
 
+	// ARPPingKernelManaged denotes whether kernel can auto-refresh Neighbor entries
+	ARPPingKernelManaged bool
+
 	// VLANBPFBypass list of explicitly allowed VLAN id's for bpf logic bypass
 	VLANBPFBypass []int
 	// EnableL2NeighDiscovery determines if cilium should perform L2 neighbor
