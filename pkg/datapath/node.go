@@ -132,5 +132,5 @@ type NodeHandler interface {
 
 	// NodeCleanNeighbors cleans all neighbor entries for the direct routing device
 	// and the encrypt interface.
-	NodeCleanNeighbors()
+	NodeCleanNeighbors(migrateOnly bool)
 }

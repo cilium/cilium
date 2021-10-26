@@ -229,7 +229,7 @@ func initializeFlags() {
 	flags.Bool(option.AnnotateK8sNode, defaults.AnnotateK8sNode, "Annotate Kubernetes node")
 	option.BindEnv(option.AnnotateK8sNode)
 
-	flags.Duration(option.ARPPingRefreshPeriod, 5*time.Minute, "Period for remote node ARP entry refresh (set 0 to disable)")
+	flags.Duration(option.ARPPingRefreshPeriod, defaults.ARPBaseReachableTime, "Period for remote node ARP entry refresh (set 0 to disable)")
 	option.BindEnv(option.ARPPingRefreshPeriod)
 
 	flags.Bool(option.EnableL2NeighDiscovery, true, "Enables L2 neighbor discovery used by kube-proxy-replacement and IPsec")
@@ -1766,14 +1766,17 @@ func runDaemon() {
 		log.WithError(err).Warn("Failed to send agent start monitor message")
 	}
 
-	// clean up all arp PERM entries that might have previously set by
-	// a Cilium instance
 	if !d.datapath.Node().NodeNeighDiscoveryEnabled() {
-		d.datapath.Node().NodeCleanNeighbors()
-	}
-	// Start periodical arping to refresh neighbor table
-	if d.datapath.Node().NodeNeighDiscoveryEnabled() && option.Config.ARPPingRefreshPeriod != 0 {
-		d.nodeDiscovery.Manager.StartNeighborRefresh(d.datapath.Node())
+		// Remove all non-GC'ed neighbor entries that might have previously set
+		// by a Cilium instance.
+		d.datapath.Node().NodeCleanNeighbors(false)
+	} else {
+		// If we came from an agent upgrade, migrate entries.
+		d.datapath.Node().NodeCleanNeighbors(true)
+		// Start periodical refresh of the neighbor table from the agent if needed.
+		if option.Config.ARPPingRefreshPeriod != 0 && !option.Config.ARPPingKernelManaged {
+			d.nodeDiscovery.Manager.StartNeighborRefresh(d.datapath.Node())
+		}
 	}
 
 	log.WithField("bootstrapTime", time.Since(bootstrapTimestamp)).

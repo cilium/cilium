@@ -441,4 +441,7 @@ const (
 	TunnelPortVXLAN = 8472
 	// TunnelPortGeneve is the default Geneve port
 	TunnelPortGeneve = 6081
+
+	// ARPBaseReachableTime resembles the kernel's NEIGH_VAR_BASE_REACHABLE_TIME which defaults to 30 seconds.
+	ARPBaseReachableTime = 30 * time.Second
 )

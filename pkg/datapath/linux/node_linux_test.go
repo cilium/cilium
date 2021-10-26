@@ -1429,7 +1429,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	c.Assert(found, check.Equals, true)
 
 	// We have stored the devices in NodeConfigurationChanged
-	linuxNodeHandler.NodeCleanNeighbors()
+	linuxNodeHandler.NodeCleanNeighbors(false)
 
 	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
 	c.Assert(err, check.IsNil)

@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/link"
-	"github.com/cilium/cilium/pkg/datapath/linux/arp"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -27,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
-	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -40,8 +38,6 @@ import (
 const (
 	wildcardIPv4 = "0.0.0.0"
 	wildcardIPv6 = "0::0"
-	success      = "success"
-	failed       = "failed"
 )
 
 const (
@@ -639,46 +635,41 @@ func (n *linuxNodeHandler) encryptNode(newNode *nodeTypes.Node) {
 
 }
 
-func getSrcAndNextHopIPv4(nodeIPv4 net.IP) (srcIPv4, nextHopIPv4 net.IP, err error) {
+func getNextHopIPv4(nodeIPv4 net.IP) (nextHopIPv4 net.IP, err error) {
 	// Figure out whether nodeIPv4 is directly reachable (i.e. in the same L2)
 	routes, err := netlink.RouteGet(nodeIPv4)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to retrieve route for remote node IP: %w", err)
+		return nil, fmt.Errorf("failed to retrieve route for remote node IP: %w", err)
 	}
 
 	if len(routes) == 0 {
-		return nil, nil, fmt.Errorf("remote node IP is non-routable")
+		return nil, fmt.Errorf("remote node IP is non-routable")
 	}
 
-	// Use the first available route by default
-	srcIPv4 = make(net.IP, net.IPv4len)
 	nextHopIPv4 = nodeIPv4
-	copy(srcIPv4, routes[0].Src.To4())
-
 	for _, route := range routes {
 		if route.Gw != nil {
 			// nodeIPv4 is in a different L2 subnet, so it must be reachable through
 			// a gateway. Send arping to the gw IP addr instead of nodeIPv4.
 			// NOTE: we currently don't handle multipath, so only one gw can be used.
-			copy(srcIPv4, route.Src.To4())
 			copy(nextHopIPv4, route.Gw.To4())
 			break
 		}
 	}
-	return srcIPv4, nextHopIPv4, nil
+	return nextHopIPv4, nil
 }
 
-// insertNeighbor inserts a permanent ARP entry for a nexthop to the given
-// "newNode" (ip route get newNodeIP.GetNodeIP()). The L2 addr of the nexthop
-// is determined by sending ARP request for the nexthop from an iface specified
-// by n.neighDiscoveryLink.
+// insertNeighbor inserts a non-GC'able neighbor entry for a nexthop to the given
+// "newNode" (ip route get newNodeIP.GetNodeIP()). The L2 addr of the nexthop is
+// determined by the Linux kernel's neighboring subsystem. The related iface for
+// the neighbor is specified by n.neighDiscoveryLink.
 //
 // The given "refresh" param denotes whether the method is called by a controller
-// which tries to update ARP entries previously inserted by insertNeighbor(). In
-// this case it does not bail out early if the ARP entry already exists, and
-// sends the ARP request anyway.
+// which tries to update neighbor entries previously inserted by insertNeighbor().
+// In this case the kernel refreshes the entry via NTF_USE.
 func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeTypes.Node, refresh bool) {
 	var link netlink.Link
+
 	n.neighLock.Lock()
 	if n.neighDiscoveryLink == nil || reflect.ValueOf(n.neighDiscoveryLink).IsNil() {
 		n.neighLock.Unlock()
@@ -695,17 +686,19 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.LogSubsys: "node-neigh-debug",
 		logfields.Interface: link.Attrs().Name,
+		logfields.IPAddr:    newNodeIP,
 	})
 
-	srcIPv4, nextHopIPv4, err := getSrcAndNextHopIPv4(nextHopIPv4)
+	nextHopIPv4, err := getNextHopIPv4(nextHopIPv4)
 	if err != nil {
 		scopedLog.WithError(err).Info("Unable to determine source and nexthop IP addr")
 		return
 	}
 	nextHopStr := nextHopIPv4.String()
-	scopedLog = scopedLog.WithField(logfields.IPAddr, nextHopIPv4)
+	scopedLog = scopedLog.WithField(logfields.NextHop, nextHopIPv4)
 
 	n.neighLock.Lock()
+	defer n.neighLock.Unlock()
 
 	nextHopIsNew := false
 	if existingNextHopStr, found := n.neighNextHopByNode[newNode.Identity()]; found {
@@ -716,12 +709,14 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 				// Note that we don't move the removal via netlink which might
 				// block from the hot path (e.g. with defer), as this case can
 				// happen very rarely.
+				//
+				// The neighbor's HW address is ignored on delete. Only the IP
+				// address and device is checked.
 				if err := netlink.NeighDel(neigh); err != nil {
 					scopedLog.WithFields(logrus.Fields{
-						logfields.IPAddr:       neigh.IP,
-						logfields.HardwareAddr: neigh.HardwareAddr,
-						logfields.LinkIndex:    neigh.LinkIndex,
-					}).WithError(err).Info("Unable to remove neighbor entry")
+						logfields.NextHop:   neigh.IP,
+						logfields.LinkIndex: neigh.LinkIndex,
+					}).WithError(err).Info("Unable to remove next hop")
 				}
 				delete(n.neighByNextHop, existingNextHopStr)
 				delete(n.neighLastPingByNextHop, existingNextHopStr)
@@ -732,8 +727,8 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 		}
 	} else {
 		// nextHop for the given node was previously not found, so let's
-		// increment ref counter.  This can happen upon regular NodeUpdate event
-		// or by the periodic ARP refresher which got executed before
+		// increment ref counter. This can happen upon regular NodeUpdate
+		// event or by the periodic ARP refresher which got executed before
 		// NodeUpdate().
 		nextHopIsNew = n.neighNextHopRefCount.Add(nextHopStr)
 	}
@@ -743,8 +738,6 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 	if refresh {
 		if lastPing, found := n.neighLastPingByNextHop[nextHopStr]; found &&
 			time.Now().Sub(lastPing) < option.Config.ARPPingRefreshPeriod {
-
-			n.neighLock.Unlock()
 			// Last ping was issued less than option.Config.ARPPingRefreshPeriod
 			// ago, so skip it (e.g. to avoid ddos'ing the same GW if nodes are
 			// L3 connected)
@@ -752,66 +745,60 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 		}
 	}
 
-	n.neighLock.Unlock() // to allow concurrent arpings below
+	n.neighLastPingByNextHop[nextHopStr] = time.Now()
 
-	// nextHop hasn't been arpinged before OR we are refreshing neigh entry
-	var hwAddr net.HardwareAddr
-	var now time.Time
-	if nextHopIsNew || refresh {
-		hwAddr, err = arp.PingOverLink(link, srcIPv4, nextHopIPv4)
-		if err != nil {
-			scopedLog.WithError(err).Debug("arping failed")
-			metrics.ArpingRequestsTotal.WithLabelValues(failed).Inc()
-			return
-		}
-		metrics.ArpingRequestsTotal.WithLabelValues(success).Inc()
-		now = time.Now()
+	if option.Config.NodePortHairpin {
+		// Remove nextHopIPv4 entry in the neigh BPF map. Otherwise,
+		// we risk to silently blackhole packets instead of emitting
+		// DROP_NO_FIB if the netlink.NeighSet() below fails.
+		defer neighborsmap.NeighRetire(nextHopIPv4)
 	}
 
-	n.neighLock.Lock()
-	defer n.neighLock.Unlock()
+	// Don't proceed if the refresh controller cancelled the context
+	select {
+	case <-ctx.Done():
+		return
+	default:
+	}
 
-	if hwAddr != nil {
-		if prev, found := n.neighLastPingByNextHop[nextHopStr]; found && prev.After(now) {
-			// Do not update the neigh entry if there was another goroutine which
-			// issued arping after us, as it might have a more recent hwAddr value.
-			return
-		}
-		n.neighLastPingByNextHop[nextHopStr] = now
-		if prevHwAddr, found := n.neighByNextHop[nextHopStr]; found && prevHwAddr.String() == hwAddr.String() {
-			// Nothing to update, return early to avoid calling to netlink. This
-			// is based on the assumption that n.neighByNextHop gets populated
-			// after the netlink call to insert the neigh has succeeded.
-			return
-		}
-
-		if option.Config.NodePortHairpin {
-			// Remove nextHopIPv4 entry in the neigh BPF map. Otherwise,
-			// we risk to silently blackhole packets instead of emitting
-			// DROP_NO_FIB if the netlink.NeighSet() below fails.
-			defer neighborsmap.NeighRetire(nextHopIPv4)
-		}
-
-		scopedLog = scopedLog.WithField(logfields.HardwareAddr, hwAddr)
-
-		neigh := netlink.Neigh{
+	neigh := netlink.Neigh{
+		LinkIndex:    link.Attrs().Index,
+		IP:           nextHopIPv4,
+		Flags:        netlink.NTF_EXT_LEARNED | netlink.NTF_USE,
+		HardwareAddr: nil,
+	}
+	if option.Config.ARPPingKernelManaged {
+		neigh.Flags = netlink.NTF_EXT_LEARNED
+		neigh.FlagsExt = netlink.NTF_EXT_MANAGED
+	} else if nextHopIsNew {
+		// Quirk for older kernels above. We cannot directly create a
+		// dynamic NUD_* with NTF_EXT_LEARNED|NTF_USE without having
+		// the following kernel fixes:
+		//   e4400bbf5b15 ("net, neigh: Fix NTF_EXT_LEARNED in combination with NTF_USE")
+		//   3dc20f4762c6 ("net, neigh: Enable state migration between NUD_PERMANENT and NTF_USE")
+		// Thus, first initialize the neighbor as NTF_EXT_LEARNED and
+		// then do the subsequent ping via NTF_USE.
+		neighInit := netlink.Neigh{
 			LinkIndex:    link.Attrs().Index,
 			IP:           nextHopIPv4,
-			HardwareAddr: hwAddr,
-			State:        netlink.NUD_PERMANENT,
+			State:        netlink.NUD_NONE,
+			Flags:        netlink.NTF_EXT_LEARNED,
+			HardwareAddr: nil,
 		}
-		// Don't proceed if the refresh controller cancelled the context
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-		if err := netlink.NeighSet(&neigh); err != nil {
-			scopedLog.WithError(err).Info("Unable to insert neighbor")
+		if err := netlink.NeighSet(&neighInit); err != nil {
+			scopedLog.WithError(err).WithFields(logrus.Fields{
+				"neighbor": fmt.Sprintf("%+v", neighInit),
+			}).Info("Unable to insert new next hop")
 			return
 		}
-		n.neighByNextHop[nextHopStr] = &neigh
 	}
+	if err := netlink.NeighSet(&neigh); err != nil {
+		scopedLog.WithError(err).WithFields(logrus.Fields{
+			"neighbor": fmt.Sprintf("%+v", neigh),
+		}).Info("Unable to refresh next hop")
+		return
+	}
+	n.neighByNextHop[nextHopStr] = &neigh
 }
 
 func (n *linuxNodeHandler) refreshNeighbor(ctx context.Context, nodeToRefresh *nodeTypes.Node, completed chan struct{}) {
@@ -836,13 +823,14 @@ func (n *linuxNodeHandler) deleteNeighbor(oldNode *nodeTypes.Node) {
 		delete(n.neighLastPingByNextHop, nextHopStr)
 
 		if found {
+			// Neighbor's HW address is ignored on delete. Only IP
+			// address and device is checked.
 			if err := netlink.NeighDel(neigh); err != nil {
 				log.WithFields(logrus.Fields{
-					logfields.LogSubsys:    "node-neigh-debug",
-					logfields.IPAddr:       neigh.IP,
-					logfields.HardwareAddr: neigh.HardwareAddr,
-					logfields.LinkIndex:    neigh.LinkIndex,
-				}).WithError(err).Info("Unable to remove neighbor entry")
+					logfields.LogSubsys: "node-neigh-debug",
+					logfields.NextHop:   neigh.IP,
+					logfields.LinkIndex: neigh.LinkIndex,
+				}).WithError(err).Info("Unable to remove next hop")
 				return
 			}
 
@@ -1495,9 +1483,12 @@ func (n *linuxNodeHandler) NodeNeighborRefresh(ctx context.Context, nodeToRefres
 }
 
 // NodeCleanNeighbors cleans all neighbor entries of previously used neighbor
-// discovery link interfaces. It should be used when the agent changes the state
-// from `n.enableNeighDiscovery = true` to `n.enableNeighDiscovery = false`.
-func (n *linuxNodeHandler) NodeCleanNeighbors() {
+// discovery link interfaces. If migrateOnly is true, then NodeCleanNeighbors
+// cleans old entries by trying to convert PERMANENT to dynamic, externally
+// learned ones. If set to false, then it removes all PERMANENT or externally
+// learned ones, e.g. when the agent got restarted and changed the state from
+// `n.enableNeighDiscovery = true` to `n.enableNeighDiscovery = false`.
+func (n *linuxNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
 	linkName, err := loadNeighLink(option.Config.StateDir)
 	if err != nil {
 		log.WithError(err).Error("Unable to load neigh discovery iface name" +
@@ -1533,7 +1524,6 @@ func (n *linuxNodeHandler) NodeCleanNeighbors() {
 	neighList, err := netlink.NeighListExecute(netlink.Ndmsg{
 		Family: netlink.FAMILY_V4,
 		Index:  uint32(l.Attrs().Index),
-		State:  netlink.NUD_PERMANENT,
 	})
 	if err != nil {
 		log.WithError(err).WithFields(logrus.Fields{
@@ -1544,31 +1534,80 @@ func (n *linuxNodeHandler) NodeCleanNeighbors() {
 		return
 	}
 
-	var successRemoval, errRemoval int
+	var neighSucceeded, neighErrored int
+	var which string
 	for _, neigh := range neighList {
-		err := netlink.NeighDel(&neigh)
+		var err error
+		// If this is a non-static neighbor entry, it will be GC'ed by
+		// the kernel eventually. Older Cilium versions might have left-
+		// overs installed as NUD_PERMANENT.
+		if neigh.State&netlink.NUD_PERMANENT == 0 &&
+			neigh.Flags&netlink.NTF_EXT_LEARNED == 0 {
+			continue
+		}
+		if migrateOnly {
+			// We only care to migrate NUD_PERMANENT over to dynamic
+			// state entries with NTF_EXT_LEARNED.
+			if neigh.State&netlink.NUD_PERMANENT == 0 {
+				continue
+			}
+
+			which = "migrate"
+			if option.Config.ARPPingKernelManaged {
+				neigh.State = netlink.NUD_REACHABLE
+				neigh.Flags = netlink.NTF_EXT_LEARNED
+				neigh.FlagsExt = netlink.NTF_EXT_MANAGED
+			} else {
+				neigh.State = netlink.NUD_REACHABLE
+				neigh.Flags = netlink.NTF_EXT_LEARNED
+				if err := netlink.NeighSet(&neigh); err != nil {
+					log.WithError(err).WithFields(logrus.Fields{
+						logfields.Device:    linkName,
+						logfields.LinkIndex: l.Attrs().Index,
+						"neighbor":          fmt.Sprintf("%+v", neigh),
+					}).Info("Unable to replace new next hop")
+					neighErrored++
+					successClean = false
+					continue
+				}
+				// Quirk for older kernels above. We cannot directly transition
+				// from NUD_PERMANENT to dynamic NUD_* with NTF_EXT_LEARNED|NTF_USE
+				// without having the following kernel fixes:
+				//   e4400bbf5b15 ("net, neigh: Fix NTF_EXT_LEARNED in combination with NTF_USE")
+				//   3dc20f4762c6 ("net, neigh: Enable state migration between NUD_PERMANENT and NTF_USE")
+				// Thus, migrate state temporarily to NUD_REACHABLE first, and then
+				// do the ping via NTF_USE.
+				neigh.State = netlink.NUD_REACHABLE
+				neigh.Flags = netlink.NTF_EXT_LEARNED | netlink.NTF_USE
+			}
+			err = netlink.NeighSet(&neigh)
+		} else {
+			which = "remove"
+			err = netlink.NeighDel(&neigh)
+		}
 		if err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
 				logfields.Device:    linkName,
 				logfields.LinkIndex: l.Attrs().Index,
-				"neighbor":          neigh.String(),
-			}).Errorf("Unable to remove PERM ARP entry of network device. "+
-				"Consider removing this entry manually with 'ip neigh del %s dev %s'", neigh.IP.String(), linkName)
-			errRemoval++
+				"neighbor":          fmt.Sprintf("%+v", neigh),
+			}).Errorf("Unable to %s non-GC'ed ARP entry of network device. "+
+				"Consider removing this entry manually with 'ip neigh del %s dev %s'",
+				which, neigh.IP.String(), linkName)
+			neighErrored++
 			successClean = false
 		} else {
-			successRemoval++
+			neighSucceeded++
 		}
 	}
-	if successRemoval != 0 {
+	if neighSucceeded != 0 {
 		log.WithFields(logrus.Fields{
-			logfields.Count: successRemoval,
-		}).Info("Removed PERM ARP entries previously installed by cilium-agent")
+			logfields.Count: neighSucceeded,
+		}).Infof("Successfully %sd non-GC'ed ARP entries previously installed by cilium-agent", which)
 	}
-	if errRemoval != 0 {
+	if neighErrored != 0 {
 		log.WithFields(logrus.Fields{
-			logfields.Count: errRemoval,
-		}).Warning("Unable to remove PERM ARP entries previously installed by cilium-agent")
+			logfields.Count: neighErrored,
+		}).Warningf("Unable to %s non-GC'ed ARP entries previously installed by cilium-agent", which)
 	}
 }
 
