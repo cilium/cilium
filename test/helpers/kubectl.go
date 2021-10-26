@@ -4404,7 +4404,7 @@ func (kub *Kubectl) CleanupCiliumComponents() {
 			"daemonset":          "cilium cilium-node-init",
 			"deployment":         "cilium-operator hubble-relay",
 			"clusterrolebinding": "cilium cilium-operator hubble-relay",
-			"clusterrole":        "cilium cilium-operator hubble-relay",
+			"clusterrole":        "cilium cilium-operator hubble-relay hubble-ui",
 			"serviceaccount":     "cilium cilium-operator hubble-relay",
 			"service":            "cilium-agent hubble-metrics hubble-relay",
 			"secret":             "hubble-relay-client-certs hubble-server-certs hubble-ca-secret",
