@@ -142,7 +142,7 @@ func (n *signalNodeHandler) NodeNeighborRefresh(ctx context.Context, node nodeTy
 	return
 }
 
-func (n *signalNodeHandler) NodeCleanNeighbors() {
+func (n *signalNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
 	return
 }
 

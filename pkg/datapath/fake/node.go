@@ -45,6 +45,6 @@ func (n *fakeNodeHandler) NodeNeighborRefresh(ctx context.Context, node nodeType
 	return
 }
 
-func (n *fakeNodeHandler) NodeCleanNeighbors() {
+func (n *fakeNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
 	return
 }

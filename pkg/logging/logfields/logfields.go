@@ -99,6 +99,9 @@ const (
 	// MACAddr is a MAC address
 	MACAddr = "macAddr"
 
+	// NextHop is an IPV4 or IPv6 address for the next hop
+	NextHop = "nextHop"
+
 	// IPAddr is an IPV4 or IPv6 address
 	IPAddr = "ipAddr"
 
