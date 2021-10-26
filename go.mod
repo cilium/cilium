@@ -21,7 +21,7 @@ require (
 	github.com/cilium/customvet v0.0.0-20201209211516-9852765c1ac4
 	github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e
 	github.com/cilium/ebpf v0.7.0
-	github.com/cilium/ipam v0.0.0-20201106170308-4184bc4bf9d6
+	github.com/cilium/ipam v0.0.0-20211026130907-54a76012817c
 	github.com/cilium/proxy v0.0.0-20210511221533-82a70d56bf32
 	github.com/cilium/workerpool v1.1.0
 	github.com/cncf/udpa/go v0.0.0-20201211205326-cc1b757b3edd // indirect
