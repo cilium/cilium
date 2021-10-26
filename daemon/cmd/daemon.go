@@ -38,7 +38,6 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -147,7 +146,7 @@ type Daemon struct {
 
 	endpointManager *endpointmanager.EndpointManager
 
-	identityAllocator *cache.CachingIdentityAllocator
+	identityAllocator CachingIdentityAllocator
 
 	k8sWatcher *watchers.K8sWatcher
 
@@ -409,7 +408,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		return nil, nil, fmt.Errorf("error while initializing BPF pcap recorder: %w", err)
 	}
 
-	d.identityAllocator = cache.NewCachingIdentityAllocator(&d)
+	d.identityAllocator = NewCachingIdentityAllocator(&d)
 	d.policy = policy.NewPolicyRepository(d.identityAllocator,
 		d.identityAllocator.GetIdentityCache(),
 		certificatemanager.NewManager(option.Config.CertDirectory, k8s.Client()))
@@ -832,7 +831,8 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		// well known identities have already been initialized above.
 		// Ignore the channel returned by this function, as we want the global
 		// identity allocator to run asynchronously.
-		d.identityAllocator.InitIdentityAllocator(k8s.CiliumClient(), nil)
+		realIdentityAllocator := d.identityAllocator
+		realIdentityAllocator.InitIdentityAllocator(k8s.CiliumClient(), nil)
 
 		d.bootstrapClusterMesh(nodeMngr)
 	}

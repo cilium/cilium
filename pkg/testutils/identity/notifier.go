@@ -5,6 +5,7 @@ package testidentity
 
 import (
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
@@ -33,7 +34,9 @@ func (d *DummyIdentityNotifier) Unlock() {
 }
 
 // RegisterForIdentityUpdatesLocked starts managing this selector.
-func (d *DummyIdentityNotifier) RegisterForIdentityUpdatesLocked(selector api.FQDNSelector) (identities []identity.NumericIdentity) {
+//
+// It doesn't implement the identity allocation semantics of the interface.
+func (d *DummyIdentityNotifier) RegisterForIdentityUpdatesLocked(allocator cache.IdentityAllocator, selector api.FQDNSelector) (identities []identity.NumericIdentity) {
 	ids, ok := d.selectors[selector]
 	if !ok {
 		d.selectors[selector] = []identity.NumericIdentity{}

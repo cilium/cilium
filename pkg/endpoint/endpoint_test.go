@@ -8,6 +8,7 @@ package endpoint
 
 import (
 	"context"
+	"net"
 	"reflect"
 	"strings"
 	"testing"
@@ -52,7 +53,7 @@ type EndpointSuite struct {
 	repo             *policy.Repository
 	compilationMutex *lock.RWMutex
 	datapath         datapath.Datapath
-	mgr              *cache.CachingIdentityAllocator
+	mgr              fakeIdentityAllocator
 
 	// Owners interface mock
 	OnGetPolicyRepository     func() *policy.Repository
@@ -117,12 +118,35 @@ func (s *EndpointSuite) GetDNSRules(epID uint16) restore.DNSRules {
 func (s *EndpointSuite) RemoveRestoredDNSRules(epID uint16) {
 }
 
+// TODO: Remove the etcd dependency from these tests with a full dummy
+// implementation of an identity allocator under pkg/testutils/identity.
+// Until we do that, these tests must rely on the real CachingIdentityAllocator
+// implementation inside.
+type fakeIdentityAllocator struct {
+	*cache.CachingIdentityAllocator
+}
+
+func (f fakeIdentityAllocator) AllocateCIDRsForIPs([]net.IP, map[string]*identity.Identity) ([]*identity.Identity, error) {
+	return nil, nil
+}
+
+func (f fakeIdentityAllocator) ReleaseCIDRIdentitiesByID(context.Context, []identity.NumericIdentity) {
+}
+
+func NewCachingIdentityAllocator(owner cache.IdentityAllocatorOwner) fakeIdentityAllocator {
+	return fakeIdentityAllocator{
+		CachingIdentityAllocator: cache.NewCachingIdentityAllocator(owner),
+	}
+}
+
+//func (f *fakeIdentityAllocator)
+
 func (s *EndpointSuite) SetUpTest(c *C) {
 	/* Required to test endpoint CEP policy model */
 	kvstore.SetupDummy("etcd")
 	identity.InitWellKnownIdentities(&fakeConfig.Config{})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
+	mgr := NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
 	<-mgr.InitIdentityAllocator(nil, nil)
 	s.mgr = mgr
 }
