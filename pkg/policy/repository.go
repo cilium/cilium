@@ -159,7 +159,7 @@ func NewPolicyRepository(idAllocator cache.IdentityAllocator, idCache cache.Iden
 	ruleReactionQueue := eventqueue.NewEventQueueBuffered("repository-reaction-queue", option.Config.PolicyQueueSize)
 	repoChangeQueue.Run()
 	ruleReactionQueue.Run()
-	selectorCache := NewSelectorCache(idCache)
+	selectorCache := NewSelectorCache(idAllocator, idCache)
 
 	repo := &Repository{
 		revision:              1,
