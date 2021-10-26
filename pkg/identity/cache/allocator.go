@@ -6,6 +6,7 @@ package cache
 import (
 	"context"
 	"fmt"
+	"net"
 	"path"
 
 	"github.com/cilium/cilium/pkg/allocator"
@@ -119,9 +120,35 @@ type IdentityAllocator interface {
 	// specified identity.
 	Release(context.Context, *identity.Identity) (released bool, err error)
 
+	// ReleaseSlice is the slice variant of Release().
+	ReleaseSlice(context.Context, IdentityAllocatorOwner, []*identity.Identity) error
+
+	// LookupIdentityByID returns the identity that corresponds to the given
+	// labels.
+	LookupIdentity(ctx context.Context, lbls labels.Labels) *identity.Identity
+
 	// LookupIdentityByID returns the identity that corresponds to the given
 	// numeric identity.
 	LookupIdentityByID(ctx context.Context, id identity.NumericIdentity) *identity.Identity
+
+	// GetIdentityCache returns the current cache of identities that the
+	// allocator has allocated. The caller should not modify the resulting
+	// identities by pointer.
+	GetIdentityCache() IdentityCache
+
+	// GetIdentities returns a copy of the current cache of identities.
+	GetIdentities() IdentitiesModel
+
+	// AllocateCIDRsForIPs attempts to allocate identities for a list of
+	// CIDRs. If any allocation fails, all allocations are rolled back and
+	// the error is returned. When an identity is freshly allocated for a
+	// CIDR, it is added to the ipcache if 'newlyAllocatedIdentities' is
+	// 'nil', otherwise the newly allocated identities are placed in
+	// 'newlyAllocatedIdentities' and it is the caller's responsibility to
+	// upsert them into ipcache by calling UpsertGeneratedIdentities().
+	//
+	// The implementation for this function currently lives in pkg/ipcache.
+	AllocateCIDRsForIPs(ips []net.IP, newlyAllocatedIdentities map[string]*identity.Identity) ([]*identity.Identity, error)
 }
 
 // InitIdentityAllocator creates the the identity allocator. Only the first

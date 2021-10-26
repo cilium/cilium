@@ -4,16 +4,23 @@
 package cmd
 
 import (
+	"net"
+
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
+	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	identitymodel "github.com/cilium/cilium/pkg/identity/model"
+	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/go-openapi/runtime/middleware"
+	k8sCache "k8s.io/client-go/tools/cache"
 )
 
 type getIdentity struct {
@@ -43,10 +50,10 @@ func (h *getIdentity) Handle(params GetIdentityParams) middleware.Responder {
 }
 
 type getIdentityID struct {
-	c *cache.CachingIdentityAllocator
+	c cache.IdentityAllocator
 }
 
-func newGetIdentityIDHandler(c *cache.CachingIdentityAllocator) GetIdentityIDHandler {
+func newGetIdentityIDHandler(c cache.IdentityAllocator) GetIdentityIDHandler {
 	return &getIdentityID{c: c}
 }
 
@@ -78,4 +85,29 @@ func (h *getIdentityEndpoints) Handle(params GetIdentityEndpointsParams) middlew
 	identities := identitymanager.GetIdentityModels()
 
 	return NewGetIdentityEndpointsOK().WithPayload(identities)
+}
+
+// CachingIdentityAllocator provides an abstraction over the concrete type in
+// pkg/identity/cache so that the underlying implementation can be mocked out
+// in unit tests.
+type CachingIdentityAllocator interface {
+	cache.IdentityAllocator
+
+	InitIdentityAllocator(versioned.Interface, k8sCache.Store) <-chan struct{}
+	WatchRemoteIdentities(kvstore.BackendOperations) (*allocator.RemoteCache, error)
+	Close()
+}
+
+type cachingIdentityAllocator struct {
+	*cache.CachingIdentityAllocator
+}
+
+func NewCachingIdentityAllocator(d *Daemon) cachingIdentityAllocator {
+	return cachingIdentityAllocator{
+		CachingIdentityAllocator: cache.NewCachingIdentityAllocator(d),
+	}
+}
+
+func (c cachingIdentityAllocator) AllocateCIDRsForIPs(ips []net.IP, newlyAllocatedIdentities map[string]*identity.Identity) ([]*identity.Identity, error) {
+	return ipcache.AllocateCIDRsForIPs(ips, newlyAllocatedIdentities)
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api/kafka"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/proxy/logger/test"
+	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	"github.com/cilium/cilium/pkg/u8proto"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
@@ -170,8 +171,8 @@ var (
 			labels.NewLabel("version", "v1", labels.LabelSourceK8s),
 		},
 	}
-
-	testSelectorCache = policy.NewSelectorCache(IdentityCache)
+	identityAllocator = testidentity.NewFakeIdentityAllocator(IdentityCache)
+	testSelectorCache = policy.NewSelectorCache(identityAllocator, IdentityCache)
 
 	wildcardCachedSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, api.WildcardEndpointSelector)
 
