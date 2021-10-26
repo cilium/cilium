@@ -87,7 +87,7 @@ Example ConfigMap extract for ipvlan in pure L3 mode:
      --set ipvlan.masterDevice=bond0 \\
      --set tunnel=disabled \\
      --set installIptablesRules=false \\
-     --set l7Proxy.enabled=false \\
+     --set l7Proxy=false \\
      --set autoDirectNodeRoutes=true
 
 Example ConfigMap extract for ipvlan in L3S mode with iptables
