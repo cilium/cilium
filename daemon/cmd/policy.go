@@ -397,7 +397,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 	// and will trigger deletions for those that are no longer used.
 	if len(removedPrefixes) > 0 {
 		logger.WithField("prefixes", removedPrefixes).Debug("Decrementing replaced CIDR refcounts when adding rules")
-		ipcache.ReleaseCIDRs(removedPrefixes)
+		ipcache.ReleaseCIDRIdentitiesByCIDR(removedPrefixes)
 		d.prefixLengths.Delete(removedPrefixes)
 	}
 
@@ -484,7 +484,7 @@ func reactToRuleUpdates(epsToBumpRevision, epsToRegen *policy.EndpointSet, rev u
 	// the stale identities are not used in policy map classifications after we regenerate the
 	// endpoints below.
 	if len(releasePrefixes) != 0 {
-		ipcache.ReleaseCIDRs(releasePrefixes)
+		ipcache.ReleaseCIDRIdentitiesByCIDR(releasePrefixes)
 	}
 
 	// Bump revision of endpoints which don't need to be regenerated.
@@ -663,7 +663,7 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 			log.WithError(err).WithField(logfields.PolicyRevision, rev).Error("enqueue of RuleReactionEvent failed")
 		}
 	} else {
-		ipcache.ReleaseCIDRs(prefixes)
+		ipcache.ReleaseCIDRIdentitiesByCIDR(prefixes)
 		d.TriggerPolicyUpdates(true, "policy rules deleted")
 	}
 
