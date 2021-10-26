@@ -208,7 +208,7 @@ func deleteToCidrFromEndpoint(
 			delSlice = append(delSlice, *delCIDRRule)
 		}
 		prefixes := policy.GetPrefixesFromCIDRSet(delSlice)
-		ipcache.ReleaseCIDRs(prefixes)
+		ipcache.ReleaseCIDRIdentitiesByCIDR(prefixes)
 	}
 
 	// if endpoint is not in CIDR or it's not generated it's ok to retain it

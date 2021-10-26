@@ -112,9 +112,9 @@ func allocateCIDRs(prefixes []*net.IPNet, newlyAllocatedIdentities map[string]*i
 	return allocatedIdentitiesSlice, nil
 }
 
-// ReleaseCIDRs releases the identities of a list of CIDRs. When the last use
+// ReleaseCIDRIdentitiesByCIDR releases the identities of a list of CIDRs. When the last use
 // of the identity is released, the ipcache entry is deleted.
-func ReleaseCIDRs(prefixes []*net.IPNet) {
+func ReleaseCIDRIdentitiesByCIDR(prefixes []*net.IPNet) {
 	for _, prefix := range prefixes {
 		if prefix == nil {
 			continue
