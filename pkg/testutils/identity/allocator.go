@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2018-2019 Authors of Cilium
 
-package allocator
+package testidentity
 
 import (
 	"context"
