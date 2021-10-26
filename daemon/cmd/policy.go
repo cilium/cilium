@@ -291,6 +291,9 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 	// With SelectiveRegeneration this is postponed to the rule reaction queue to be done
 	// after the affected endpoints have been regenerated, otherwise new identities are
 	// upserted to the ipcache before we return.
+	//
+	// Release of these identities will be tied to the corresponding policy
+	// in the policy.Repository and released upon policyDelete().
 	newlyAllocatedIdentities := make(map[string]*identity.Identity)
 	if _, err := ipcache.AllocateCIDRs(prefixes, newlyAllocatedIdentities); err != nil {
 		_ = d.prefixLengths.Delete(prefixes)
