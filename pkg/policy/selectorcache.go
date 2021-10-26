@@ -5,6 +5,7 @@ package policy
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"sort"
 	"strings"
@@ -19,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	"github.com/sirupsen/logrus"
@@ -543,11 +545,15 @@ func (l *labelIdentitySelector) matches(identity scIdentity) bool {
 // endpoint locks.
 func (sc *SelectorCache) UpdateFQDNSelector(fqdnSelec api.FQDNSelector, identities []identity.NumericIdentity, wg *sync.WaitGroup) {
 	sc.mutex.Lock()
-	sc.updateFQDNSelector(fqdnSelec, identities, wg)
+	identitiesToRelease := sc.updateFQDNSelector(fqdnSelec, identities, wg)
 	sc.mutex.Unlock()
+	// TODO: Remove timeouts for CIDR identity allocation (as it is local).
+	ctx, cancel := context.WithTimeout(context.TODO(), option.Config.KVstoreConnectivityTimeout)
+	defer cancel()
+	sc.idAllocator.ReleaseCIDRIdentitiesByID(ctx, identitiesToRelease)
 }
 
-func (sc *SelectorCache) updateFQDNSelector(fqdnSelec api.FQDNSelector, identities []identity.NumericIdentity, wg *sync.WaitGroup) {
+func (sc *SelectorCache) updateFQDNSelector(fqdnSelec api.FQDNSelector, identities []identity.NumericIdentity, wg *sync.WaitGroup) (identitiesToRelease []identity.NumericIdentity) {
 	fqdnKey := fqdnSelec.String()
 
 	var fqdnSel *fqdnSelector
@@ -567,10 +573,25 @@ func (sc *SelectorCache) updateFQDNSelector(fqdnSelec api.FQDNSelector, identiti
 		fqdnSel = selector.(*fqdnSelector)
 	}
 
+	// All identities handed into this function must have their references
+	// released at some point. This may occur because the incoming
+	// 'identities' slice is signalling that all identities should be
+	// deleted from the selector or because there are duplicates between
+	// 'identities' and the existing cached selections.
+	//
+	// Accumulate these and return them to the caller for deallocation
+	// outside the sc.mutex critical section.
+	maxToRelease := len(identities) + len(fqdnSel.cachedSelections)
+	identitiesToRelease = make([]identity.NumericIdentity, 0, maxToRelease)
+
 	// Convert identity slice to map for comparison with cachedSelections map.
 	idsAsMap := make(map[identity.NumericIdentity]struct{}, len(identities))
 	for _, v := range identities {
-		idsAsMap[v] = struct{}{}
+		if _, exists := idsAsMap[v]; exists {
+			identitiesToRelease = append(identitiesToRelease, v)
+		} else {
+			idsAsMap[v] = struct{}{}
+		}
 	}
 
 	// Note that 'added' and 'deleted' are guaranteed to be
@@ -592,6 +613,7 @@ func (sc *SelectorCache) updateFQDNSelector(fqdnSelec api.FQDNSelector, identiti
 		// Need to update deleted to be all in cached selections
 		for k := range fqdnSel.cachedSelections {
 			deleted = append(deleted, k)
+			identitiesToRelease = append(identitiesToRelease, k)
 		}
 		fqdnSel.cachedSelections = make(map[identity.NumericIdentity]struct{})
 	} else if len(identities) != 0 && len(fqdnSel.cachedSelections) == 0 {
@@ -612,6 +634,15 @@ func (sc *SelectorCache) updateFQDNSelector(fqdnSelec api.FQDNSelector, identiti
 				deleted = append(deleted, k)
 				delete(fqdnSel.cachedSelections, k)
 			}
+
+			// This function is passed a complete set of the new
+			// identities to associate with this selector, and each
+			// identity already has a reference count. Therefore,
+			// in order to balance references to the same
+			// identities, we should always remove references to
+			// identities that were preveiously selected by this
+			// selector.
+			identitiesToRelease = append(identitiesToRelease, k)
 		}
 
 		// Now iterate over the provided identities to update the
@@ -632,6 +663,8 @@ func (sc *SelectorCache) updateFQDNSelector(fqdnSelec api.FQDNSelector, identiti
 	// is the primary difference here between FQDNSelector and IdentitySelector.
 	fqdnSel.updateSelections()
 	fqdnSel.notifyUsers(sc, added, deleted, wg) // disjoint sets, see the comment above
+
+	return identitiesToRelease
 }
 
 // AddFQDNSelector adds the given api.FQDNSelector in to the selector cache. If
@@ -907,11 +940,17 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted cache.IdentityCache, wg
 // RemoveIdentitiesFQDNSelectors removes all identities from being mapped to the
 // set of FQDNSelectors.
 func (sc *SelectorCache) RemoveIdentitiesFQDNSelectors(fqdnSels []api.FQDNSelector, wg *sync.WaitGroup) {
+	identitiesToRelease := []identity.NumericIdentity{}
 	sc.mutex.Lock()
 	noIdentities := []identity.NumericIdentity{}
 
 	for i := range fqdnSels {
-		sc.updateFQDNSelector(fqdnSels[i], noIdentities, wg)
+		ids := sc.updateFQDNSelector(fqdnSels[i], noIdentities, wg)
+		identitiesToRelease = append(identitiesToRelease, ids...)
 	}
 	sc.mutex.Unlock()
+	// TODO: Remove timeouts for CIDR identity allocation (as it is local).
+	ctx, cancel := context.WithTimeout(context.TODO(), option.Config.KVstoreConnectivityTimeout)
+	defer cancel()
+	sc.idAllocator.ReleaseCIDRIdentitiesByID(ctx, identitiesToRelease)
 }
