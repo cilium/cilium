@@ -410,7 +410,8 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	}
 
 	d.identityAllocator = cache.NewCachingIdentityAllocator(&d)
-	d.policy = policy.NewPolicyRepository(d.identityAllocator.GetIdentityCache(),
+	d.policy = policy.NewPolicyRepository(d.identityAllocator,
+		d.identityAllocator.GetIdentityCache(),
 		certificatemanager.NewManager(option.Config.CertDirectory, k8s.Client()))
 	d.policy.SetEnvoyRulesFunc(envoy.GetEnvoyHTTPRules)
 
