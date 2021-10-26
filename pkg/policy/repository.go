@@ -154,7 +154,7 @@ func (p *Repository) GetPolicyCache() *PolicyCache {
 }
 
 // NewPolicyRepository creates a new policy repository.
-func NewPolicyRepository(idCache cache.IdentityCache, certManager CertificateManager) *Repository {
+func NewPolicyRepository(idAllocator cache.IdentityAllocator, idCache cache.IdentityCache, certManager CertificateManager) *Repository {
 	repoChangeQueue := eventqueue.NewEventQueueBuffered("repository-change-queue", option.Config.PolicyQueueSize)
 	ruleReactionQueue := eventqueue.NewEventQueueBuffered("repository-reaction-queue", option.Config.PolicyQueueSize)
 	repoChangeQueue.Run()
