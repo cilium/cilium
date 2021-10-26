@@ -46,6 +46,17 @@ func (s IdentitiesModel) Less(i, j int) bool {
 	return s[i].ID < s[j].ID
 }
 
+// FromIdentityCache populates the provided model from an identity cache.
+func (s IdentitiesModel) FromIdentityCache(cache IdentityCache) IdentitiesModel {
+	for id, lbls := range cache {
+		s = append(s, identitymodel.CreateModel(&identity.Identity{
+			ID:     id,
+			Labels: lbls.Labels(),
+		}))
+	}
+	return s
+}
+
 // GetIdentityCache returns a cache of all known identities
 func (m *CachingIdentityAllocator) GetIdentityCache() IdentityCache {
 	log.Debug("getting identity cache for identity allocator manager")

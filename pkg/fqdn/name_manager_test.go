@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy/api"
+	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 
 	. "gopkg.in/check.v1"
 )
@@ -38,7 +39,8 @@ func (ds *FQDNTestSuite) TestNameManagerCIDRGeneration(c *C) {
 	var (
 		selIPMap map[api.FQDNSelector][]net.IP
 
-		nameManager = NewNameManager(Config{
+		identityAllocator = testidentity.NewFakeIdentityAllocator(nil)
+		nameManager       = NewNameManager(Config{
 			MinTTL: 1,
 			Cache:  NewDNSCache(0),
 
@@ -53,7 +55,7 @@ func (ds *FQDNTestSuite) TestNameManagerCIDRGeneration(c *C) {
 
 	// add rules
 	nameManager.Lock()
-	ids := nameManager.RegisterForIdentityUpdatesLocked(ciliumIOSel)
+	ids := nameManager.RegisterForIdentityUpdatesLocked(identityAllocator, ciliumIOSel)
 	nameManager.Unlock()
 	c.Assert(len(ids), Equals, 0)
 	c.Assert(ids, Not(IsNil))
@@ -86,7 +88,8 @@ func (ds *FQDNTestSuite) TestNameManagerMultiIPUpdate(c *C) {
 	var (
 		selIPMap map[api.FQDNSelector][]net.IP
 
-		nameManager = NewNameManager(Config{
+		identityAllocator = testidentity.NewFakeIdentityAllocator(nil)
+		nameManager       = NewNameManager(Config{
 			MinTTL: 1,
 			Cache:  NewDNSCache(0),
 
@@ -103,7 +106,7 @@ func (ds *FQDNTestSuite) TestNameManagerMultiIPUpdate(c *C) {
 	selectorsToAdd := api.FQDNSelectorSlice{ciliumIOSel, githubSel}
 	nameManager.Lock()
 	for _, sel := range selectorsToAdd {
-		ids := nameManager.RegisterForIdentityUpdatesLocked(sel)
+		ids := nameManager.RegisterForIdentityUpdatesLocked(identityAllocator, sel)
 		c.Assert(ids, Not(IsNil))
 	}
 	nameManager.Unlock()
@@ -143,7 +146,7 @@ func (ds *FQDNTestSuite) TestNameManagerMultiIPUpdate(c *C) {
 
 	// Second registration fails because IdenitityAllocator is not initialized
 	nameManager.Lock()
-	ids := nameManager.RegisterForIdentityUpdatesLocked(githubSel)
+	ids := nameManager.RegisterForIdentityUpdatesLocked(identityAllocator, githubSel)
 	c.Assert(ids, IsNil)
 
 	nameManager.UnregisterForIdentityUpdatesLocked(githubSel)

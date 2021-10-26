@@ -34,7 +34,7 @@ var (
 	// identities from their numeric representation.
 	// TODO: plumb an allocator in from callers of these functions vs. having
 	// this as a package-level variable.
-	Allocator *cache.CachingIdentityAllocator
+	Allocator cache.IdentityAllocator
 )
 
 // EndpointLookup is any type which maps from IP to the endpoint owning that IP.
