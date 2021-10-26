@@ -16,7 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/testutils"
+	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 
 	. "gopkg.in/check.v1"
 )
@@ -615,7 +615,7 @@ func (ds *SelectorCacheTestSuite) TestIdentityUpdatesMultipleUsers(c *C) {
 
 func (ds *SelectorCacheTestSuite) TestIdentityNotifier(c *C) {
 	sc := testNewSelectorCache(cache.IdentityCache{})
-	idNotifier, ok := sc.localIdentityNotifier.(*testutils.DummyIdentityNotifier)
+	idNotifier, ok := sc.localIdentityNotifier.(*testidentity.DummyIdentityNotifier)
 	c.Assert(ok, Equals, true)
 	c.Assert(idNotifier, Not(IsNil))
 
@@ -674,6 +674,6 @@ func (ds *SelectorCacheTestSuite) TestIdentityNotifier(c *C) {
 
 func testNewSelectorCache(ids cache.IdentityCache) *SelectorCache {
 	sc := NewSelectorCache(ids)
-	sc.SetLocalIdentityNotifier(testutils.NewDummyIdentityNotifier())
+	sc.SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 	return sc
 }

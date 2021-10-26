@@ -22,7 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/testutils/allocator"
+	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	. "gopkg.in/check.v1"
 )
 
@@ -62,7 +62,7 @@ func (ds *EndpointSuite) endpointCreator(id uint16, secID identity.NumericIdenti
 	repo := ds.GetPolicyRepository()
 	repo.GetPolicyCache().LocalEndpointIdentityAdded(identity)
 
-	ep := NewEndpointWithState(ds, &FakeEndpointProxy{}, &allocator.FakeIdentityAllocator{}, id, StateReady)
+	ep := NewEndpointWithState(ds, &FakeEndpointProxy{}, &testidentity.FakeIdentityAllocator{}, id, StateReady)
 	// Random network ID and docker endpoint ID with 59 hex chars + 5 strID = 64 hex chars
 	ep.dockerNetworkID = "603e047d2268a57f5a5f93f7f9e1263e9207e348a06654bf64948def001" + strID
 	ep.dockerEndpointID = "93529fda8c401a071d21d6bd46fdf5499b9014dcb5a35f2e3efaa8d8002" + strID

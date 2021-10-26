@@ -13,14 +13,14 @@ import (
 
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/testutils/allocator"
+	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 
 	"github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
 )
 
 func (s *EndpointSuite) TestPolicyLog(c *C) {
-	ep := NewEndpointWithState(&DummyOwner{repo: policy.NewPolicyRepository(nil, nil)}, nil, &allocator.FakeIdentityAllocator{}, 12345, StateReady)
+	ep := NewEndpointWithState(&DummyOwner{repo: policy.NewPolicyRepository(nil, nil)}, nil, &testidentity.FakeIdentityAllocator{}, 12345, StateReady)
 
 	// Initially nil
 	policyLogger := ep.getPolicyLogger()
