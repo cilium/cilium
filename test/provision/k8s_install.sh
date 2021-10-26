@@ -327,8 +327,8 @@ case $K8S_VERSION in
         KUBEADM_WORKER_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
         KUBEADM_CONFIG="${KUBEADM_CONFIG_V1BETA2}"
-        CONTROLLER_FEATURE_GATES="EndpointSlice=true"
-        API_SERVER_FEATURE_GATES="EndpointSlice=true"
+        CONTROLLER_FEATURE_GATES="EndpointSlice=true,EndpointSliceTerminatingCondition=true"
+        API_SERVER_FEATURE_GATES="EndpointSlice=true,EndpointSliceTerminatingCondition=true"
         ;;
     "1.21")
         # kubeadm 1.21 requires conntrack to be installed, we can remove this
@@ -341,8 +341,8 @@ case $K8S_VERSION in
         KUBEADM_WORKER_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
         KUBEADM_CONFIG="${KUBEADM_CONFIG_V1BETA2}"
-        CONTROLLER_FEATURE_GATES="EndpointSlice=true"
-        API_SERVER_FEATURE_GATES="EndpointSlice=true"
+        CONTROLLER_FEATURE_GATES="EndpointSlice=true,EndpointSliceTerminatingCondition=true"
+        API_SERVER_FEATURE_GATES="EndpointSlice=true,EndpointSliceTerminatingCondition=true"
         ;;
     "1.22")
         # kubeadm 1.22 requires conntrack to be installed, we can remove this
@@ -355,8 +355,8 @@ case $K8S_VERSION in
         KUBEADM_WORKER_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
         KUBEADM_CONFIG="${KUBEADM_CONFIG_V1BETA3}"
-        CONTROLLER_FEATURE_GATES="EndpointSlice=true"
-        API_SERVER_FEATURE_GATES="EndpointSlice=true"
+        CONTROLLER_FEATURE_GATES="EndpointSlice=true,EndpointSliceTerminatingCondition=true"
+        API_SERVER_FEATURE_GATES="EndpointSlice=true,EndpointSliceTerminatingCondition=true"
         ;;
 esac
 
