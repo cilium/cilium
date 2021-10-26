@@ -67,6 +67,33 @@ func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSel
 	newlyAllocatedIdentities := make(map[string]*identity.Identity)
 
 	// Allocate identities for each IPNet and then map to selector
+	//
+	// The incoming IPs may already have had corresponding identities
+	// allocated for them from a prior call to this function, even with the
+	// exact same selector. In that case, this function will then allocate
+	// new references to the same identities again! Ideally we would avoid
+	// this, but at this layer we do not know which of the IPs already has
+	// had a corresponding identity allocated to it via this selector code.
+	//
+	// One might be tempted to think that if the Identity shows up in
+	// 'newlyAllocatedIdentities' that this is newly allocated by the
+	// selector (hence this code is responsible for release), and that if
+	// an Identity is *not* part of this slice then that means the selector
+	// already allocated this Identity (hence this code is not responsible
+	// for release). However, the Identity could have been previously
+	// allocated by some other path like via regular CIDR policy. If that's
+	// the case and we tried to use 'newlyAllocatedIdentities' to determine
+	// when we are duplicating identity allocation from the same selector,
+	// and then the user deleted the CIDR policy, then we could actually
+	// end up cleaning up the last reference to that identity, even though
+	// the selector referenced here is still using it.
+	//
+	// Therefore, for now we just let the duplicate allocations go through
+	// here and then balance the dereferences over in the corresponding
+	// SelectorCache.updateFQDNSelector() call where we have access both
+	// to the existing set of allocated identities and the newly allocated
+	// set here. This way we can ensure that each identity is referenced
+	// exactly once from each selector that selects the identity.
 	for selector, selectorIPs := range selectorsWithIPsToUpdate {
 		log.WithFields(logrus.Fields{
 			"fqdnSelector": selector,
