@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/testutils/allocator"
+	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 
 	. "gopkg.in/check.v1"
 )
@@ -39,7 +39,7 @@ func (s *EndpointManagerSuite) TestmarkAndSweep(c *C) {
 	healthyEndpointIDs := []uint16{1, 3, 5, 7}
 	allEndpointIDs := append(healthyEndpointIDs, endpointIDToDelete)
 	for _, id := range allEndpointIDs {
-		ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &allocator.FakeIdentityAllocator{}, id, endpoint.StateReady)
+		ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &testidentity.FakeIdentityAllocator{}, id, endpoint.StateReady)
 		mgr.expose(ep)
 	}
 	c.Assert(len(mgr.GetEndpoints()), Equals, len(allEndpointIDs))

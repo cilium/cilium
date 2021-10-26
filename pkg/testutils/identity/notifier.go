@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2020 Authors of Cilium
 
-package testutils
+package testidentity
 
 import (
 	"github.com/cilium/cilium/pkg/identity"
