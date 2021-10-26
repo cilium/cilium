@@ -241,6 +241,7 @@ func setupIpvlan(name string, nativeLink netlink.Link) (*netlink.IPVlan, error) 
 		LinkAttrs: netlink.LinkAttrs{
 			Name:        name,
 			ParentIndex: nativeLink.Attrs().Index,
+			TxQLen:      1000,
 		},
 		Mode: netlink.IPVLAN_MODE_L3,
 	}

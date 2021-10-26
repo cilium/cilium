@@ -156,6 +156,7 @@ func createIpvlanSlave(lxcIfName string, mtu, masterDev int, mode string, ep *mo
 		LinkAttrs: netlink.LinkAttrs{
 			Name:        lxcIfName,
 			ParentIndex: masterDev,
+			TxQLen:      1000,
 		},
 		Mode: ipvlanMode,
 	}
