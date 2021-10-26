@@ -18,7 +18,7 @@ import (
 )
 
 func (s *EndpointSuite) TestWriteInformationalComments(c *C) {
-	e := NewEndpointWithState(s, &FakeEndpointProxy{}, &testidentity.FakeIdentityAllocator{}, 100, StateWaitingForIdentity)
+	e := NewEndpointWithState(s, &FakeEndpointProxy{}, testidentity.NewFakeIdentityAllocator(nil), 100, StateWaitingForIdentity)
 
 	var f bytes.Buffer
 	err := e.writeInformationalComments(&f)
@@ -28,7 +28,7 @@ func (s *EndpointSuite) TestWriteInformationalComments(c *C) {
 type writeFunc func(io.Writer) error
 
 func BenchmarkWriteHeaderfile(b *testing.B) {
-	e := NewEndpointWithState(&suite, &FakeEndpointProxy{}, &testidentity.FakeIdentityAllocator{}, 100, StateWaitingForIdentity)
+	e := NewEndpointWithState(&suite, &FakeEndpointProxy{}, testidentity.NewFakeIdentityAllocator(nil), 100, StateWaitingForIdentity)
 	dp := linux.NewDatapath(linux.DatapathConfiguration{}, nil, nil)
 
 	targetComments := func(w io.Writer) error {
