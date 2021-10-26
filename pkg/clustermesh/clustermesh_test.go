@@ -32,7 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	fakeConfig "github.com/cilium/cilium/pkg/option/fake"
 	"github.com/cilium/cilium/pkg/testutils"
-	"github.com/cilium/cilium/pkg/testutils/allocator"
+	"github.com/cilium/cilium/pkg/testutils/identity"
 
 	. "gopkg.in/check.v1"
 )
@@ -104,7 +104,7 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 
 	identity.InitWellKnownIdentities(&fakeConfig.Config{})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	mgr := cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{})
+	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
 	<-mgr.InitIdentityAllocator(nil, nil)
 	defer mgr.Close()
 
