@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/testutils"
+	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 
 	. "gopkg.in/check.v1"
 )
@@ -49,7 +50,7 @@ var (
 )
 
 func (s *DistilleryTestSuite) TestCacheManagement(c *C) {
-	repo := NewPolicyRepository(nil, nil)
+	repo := NewPolicyRepository(nil, nil, nil)
 	cache := repo.policyCache
 	identity := ep1.GetSecurityIdentity()
 	c.Assert(ep2.GetSecurityIdentity(), Equals, identity)
@@ -85,7 +86,7 @@ func (s *DistilleryTestSuite) TestCacheManagement(c *C) {
 }
 
 func (s *DistilleryTestSuite) TestCachePopulation(c *C) {
-	repo := NewPolicyRepository(nil, nil)
+	repo := NewPolicyRepository(nil, nil, nil)
 	repo.revision = 42
 	cache := repo.policyCache
 
@@ -357,8 +358,9 @@ type policyDistillery struct {
 }
 
 func newPolicyDistillery(selectorCache *SelectorCache) *policyDistillery {
+	identityAllocator := testidentity.NewFakeIdentityAllocator(nil)
 	ret := &policyDistillery{
-		Repository: NewPolicyRepository(nil, nil),
+		Repository: NewPolicyRepository(identityAllocator, nil, nil),
 	}
 	ret.selectorCache = selectorCache
 	return ret
