@@ -20,7 +20,18 @@ func (i *IdentityAllocatorOwnerMock) GetNodeSuffix() string {
 }
 
 // FakeIdentityAllocator is used as a mock identity allocator for unit tests.
-type FakeIdentityAllocator struct{}
+type FakeIdentityAllocator struct {
+	cache.IdentityCache
+}
+
+func NewFakeIdentityAllocator(c cache.IdentityCache) *FakeIdentityAllocator {
+	if c == nil {
+		c = cache.IdentityCache{}
+	}
+	return &FakeIdentityAllocator{
+		IdentityCache: c,
+	}
+}
 
 // WaitForInitialGlobalIdentities does nothing.
 func (f *FakeIdentityAllocator) WaitForInitialGlobalIdentities(context.Context) error {
