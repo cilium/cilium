@@ -169,7 +169,7 @@ github.com/cilium/ebpf/internal
 github.com/cilium/ebpf/internal/btf
 github.com/cilium/ebpf/internal/unix
 github.com/cilium/ebpf/perf
-# github.com/cilium/ipam v0.0.0-20201106170308-4184bc4bf9d6
+# github.com/cilium/ipam v0.0.0-20211026130907-54a76012817c
 ## explicit; go 1.14
 github.com/cilium/ipam/cidrset
 github.com/cilium/ipam/service/allocator
