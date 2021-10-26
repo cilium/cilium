@@ -33,7 +33,7 @@ func newCmdSysdump() *cobra.Command {
 			// Collect the sysdump.
 			collector, err := sysdump.NewCollector(k8sClient, sysdumpOptions, time.Now())
 			if err != nil {
-				return nil
+				return fmt.Errorf("failed to create sysdump collector: %v", err)
 			}
 			if err = collector.Run(); err != nil {
 				return fmt.Errorf("failed to collect sysdump: %v", err)
