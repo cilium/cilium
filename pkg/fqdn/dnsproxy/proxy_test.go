@@ -34,7 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/source"
-	"github.com/cilium/cilium/pkg/testutils/allocator"
 
 	"github.com/golang/groupcache/lru"
 	"github.com/miekg/dns"
@@ -147,7 +146,7 @@ func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector policy.Cached
 
 // Setup identities, ports and endpoint IDs we will need
 var (
-	cacheAllocator          = cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{})
+	cacheAllocator          = cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
 	testSelectorCache       = policy.NewSelectorCache(cacheAllocator.GetIdentityCache())
 	dummySelectorCacheUser  = &DummySelectorCacheUser{}
 	DstID1Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst1=test"))
@@ -193,7 +192,7 @@ func (s *DNSProxyTestSuite) SetUpTest(c *C) {
 			if s.restoring {
 				return nil, fmt.Errorf("No EPs available when restoring")
 			}
-			return endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &allocator.FakeIdentityAllocator{}, uint16(epID1), endpoint.StateReady), nil
+			return endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &testidentity.FakeIdentityAllocator{}, uint16(epID1), endpoint.StateReady), nil
 		},
 		// LookupSecIDByIP
 		func(ip net.IP) (ipcache.Identity, bool) {
@@ -725,7 +724,7 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 
 	// Restore rules
-	ep1 := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &allocator.FakeIdentityAllocator{}, uint16(epID1), endpoint.StateReady)
+	ep1 := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &testidentity.FakeIdentityAllocator{}, uint16(epID1), endpoint.StateReady)
 	ep1.DNSRules = restored1
 	s.proxy.RestoreRules(ep1)
 	_, exists = s.proxy.restored[epID1]
@@ -771,7 +770,7 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 
 	// Restore rules for epID3
-	ep3 := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &allocator.FakeIdentityAllocator{}, uint16(epID3), endpoint.StateReady)
+	ep3 := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &testidentity.FakeIdentityAllocator{}, uint16(epID3), endpoint.StateReady)
 	ep3.DNSRules = restored3
 	s.proxy.RestoreRules(ep3)
 	_, exists = s.proxy.restored[epID3]
@@ -955,7 +954,7 @@ func (s *DNSProxyTestSuite) TestRestoredEndpoint(c *C) {
 
 	// restore rules, set the mock to restoring state
 	s.restoring = true
-	ep1 := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &allocator.FakeIdentityAllocator{}, uint16(epID1), endpoint.StateReady)
+	ep1 := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &testidentity.FakeIdentityAllocator{}, uint16(epID1), endpoint.StateReady)
 	ep1.IPv4, _ = addressing.NewCiliumIPv4("127.0.0.1")
 	ep1.IPv6, _ = addressing.NewCiliumIPv6("::1")
 	ep1.DNSRules = restored

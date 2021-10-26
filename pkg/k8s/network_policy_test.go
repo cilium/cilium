@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/testutils"
+	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 
 	. "gopkg.in/check.v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -93,7 +93,7 @@ type DummySelectorCacheUser struct{}
 
 func testNewPolicyRepository() *policy.Repository {
 	repo := policy.NewPolicyRepository(nil, nil)
-	repo.GetSelectorCache().SetLocalIdentityNotifier(testutils.NewDummyIdentityNotifier())
+	repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 	return repo
 }
 
