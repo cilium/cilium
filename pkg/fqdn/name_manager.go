@@ -12,8 +12,8 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ip"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -83,7 +83,7 @@ func (n *NameManager) Unlock() {
 // the FQDNSelector. All IPs which correspond to the DNS names which match this
 // Selector will be returned as CIDR identities, as other DNS Names which have
 // already been resolved may match this FQDNSelector.
-func (n *NameManager) RegisterForIdentityUpdatesLocked(selector api.FQDNSelector) []identity.NumericIdentity {
+func (n *NameManager) RegisterForIdentityUpdatesLocked(idAllocator cache.IdentityAllocator, selector api.FQDNSelector) []identity.NumericIdentity {
 	_, exists := n.allSelectors[selector]
 	if exists {
 		log.WithField("fqdnSelector", selector).Warning("FQDNSelector was already registered for updates, returning without any identities")
@@ -113,7 +113,7 @@ func (n *NameManager) RegisterForIdentityUpdatesLocked(selector api.FQDNSelector
 	// any existing IPs would typically already have been pushed to the ipcache as they would
 	// not be newly allocated. We need the 'allocation' here to get a reference count on the
 	// allocations.
-	if currentlyAllocatedIdentities, err = ipcache.AllocateCIDRsForIPs(selectorIPs, nil); err != nil {
+	if currentlyAllocatedIdentities, err = idAllocator.AllocateCIDRsForIPs(selectorIPs, nil); err != nil {
 		log.WithError(err).WithField("prefixes", selectorIPs).Warn(
 			"failed to allocate identities for IPs")
 		return nil

@@ -22,7 +22,7 @@ var (
 	// identities for CIDRs.
 	// TODO: plumb an allocator in from callers of these functions vs. having
 	// this as a package-level variable.
-	IdentityAllocator *cache.CachingIdentityAllocator
+	IdentityAllocator cache.IdentityAllocator
 )
 
 // AllocateCIDRs attempts to allocate identities for a list of CIDRs. If any

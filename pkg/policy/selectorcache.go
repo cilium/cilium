@@ -193,6 +193,10 @@ type userNotification struct {
 type SelectorCache struct {
 	mutex lock.RWMutex
 
+	// idAllocator is used to allocate and release identities. It is used
+	// by the NameManager to manage identities corresponding to FQDNs.
+	idAllocator cache.IdentityAllocator
+
 	// idCache contains all known identities as informed by the
 	// kv-store and the local identity facility via our
 	// UpdateIdentities() function.
@@ -270,10 +274,11 @@ func (sc *SelectorCache) queueUserNotification(user CachedSelectionUser, selecto
 }
 
 // NewSelectorCache creates a new SelectorCache with the given identities.
-func NewSelectorCache(ids cache.IdentityCache) *SelectorCache {
+func NewSelectorCache(allocator cache.IdentityAllocator, ids cache.IdentityCache) *SelectorCache {
 	sc := &SelectorCache{
-		idCache:   getIdentityCache(ids),
-		selectors: make(map[string]identitySelector),
+		idAllocator: allocator,
+		idCache:     getIdentityCache(ids),
+		selectors:   make(map[string]identitySelector),
 	}
 	sc.userCond = sync.NewCond(&sc.userMutex)
 	go sc.handleUserNotifications()
@@ -463,7 +468,13 @@ type identityNotifier interface {
 	// set of CIDR identities which match this FQDNSelector already from the
 	// identityNotifier on the first pass; any subsequent updates will eventually
 	// call `UpdateFQDNSelector`.
-	RegisterForIdentityUpdatesLocked(selector api.FQDNSelector) (identities []identity.NumericIdentity)
+	//
+	// The code currently allocates identities inside this function, but
+	// relies on the caller handling the identity release themselves.
+	// In future it likely makes sense to move that code out of the
+	// identityNotifier implementation into the caller to better balance
+	// the allocate/release calls.
+	RegisterForIdentityUpdatesLocked(allocator cache.IdentityAllocator, selector api.FQDNSelector) (identities []identity.NumericIdentity)
 
 	// UnregisterForIdentityUpdatesLocked removes this FQDNSelector from the set of
 	// FQDNSelectors which are being tracked by the identityNotifier. The result
@@ -666,7 +677,7 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api
 	// If this is called twice, one of the results will arbitrarily contain
 	// a real slice of ids, while the other will receive nil. We must fold
 	// them together below.
-	ids := sc.localIdentityNotifier.RegisterForIdentityUpdatesLocked(newFQDNSel.selector)
+	ids := sc.localIdentityNotifier.RegisterForIdentityUpdatesLocked(sc.idAllocator, newFQDNSel.selector)
 
 	// Do not go through the identity cache to see what identities "match" this
 	// selector. This has to be updated via whatever is getting the CIDR identities

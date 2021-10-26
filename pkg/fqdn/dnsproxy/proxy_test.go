@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/source"
+	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 
 	"github.com/golang/groupcache/lru"
 	"github.com/miekg/dns"
@@ -147,7 +148,8 @@ func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector policy.Cached
 // Setup identities, ports and endpoint IDs we will need
 var (
 	cacheAllocator          = cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
-	testSelectorCache       = policy.NewSelectorCache(cacheAllocator.GetIdentityCache())
+	fakeAllocator           = testidentity.NewFakeIdentityAllocator(cacheAllocator.GetIdentityCache())
+	testSelectorCache       = policy.NewSelectorCache(fakeAllocator, cacheAllocator.GetIdentityCache())
 	dummySelectorCacheUser  = &DummySelectorCacheUser{}
 	DstID1Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst1=test"))
 	cachedDstID1Selector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, DstID1Selector)
