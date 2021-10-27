@@ -9,6 +9,7 @@ package linux
 import (
 	"context"
 	"crypto/rand"
+	"fmt"
 	"net"
 	"runtime"
 	"sync"
@@ -26,6 +27,7 @@ import (
 	nodeaddressing "github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/testutils"
 
 	"github.com/containernetworking/plugins/pkg/ns"
@@ -65,6 +67,8 @@ var _ = check.Suite(&linuxPrivilegedIPv4AndIPv6TestSuite{})
 const (
 	dummyHostDeviceName     = "dummy_host"
 	dummyExternalDeviceName = "dummy_external"
+
+	baseTime = "net.ipv4.neigh.default.base_reachable_time_ms"
 )
 
 func (s *linuxPrivilegedBaseTestSuite) SetUpTest(c *check.C, addressing datapath.NodeAddressing, enableIPv6, enableIPv4 bool) {
@@ -958,6 +962,12 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	tmpDir := c.MkDir()
 	option.Config.StateDir = tmpDir
 
+	baseTimeOld, err := sysctl.Read(baseTime)
+	c.Assert(err, check.IsNil)
+	err = sysctl.Write(baseTime, fmt.Sprintf("%d", 2500))
+	c.Assert(err, check.IsNil)
+	defer func() { sysctl.Write(baseTime, baseTimeOld) }()
+
 	// 1. Test whether another node in the same L2 subnet can be arpinged.
 	//    The other node is in the different netns reachable via the veth pair.
 	//
@@ -973,7 +983,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 		LinkAttrs: netlink.LinkAttrs{Name: "veth0"},
 		PeerName:  "veth1",
 	}
-	err := netlink.LinkAdd(veth)
+	err = netlink.LinkAdd(veth)
 	c.Assert(err, check.IsNil)
 	defer netlink.LinkDel(veth)
 	veth0, err := netlink.LinkByName("veth0")
@@ -1070,7 +1080,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	c.Assert(err, check.IsNil)
 	found := false
 	for _, n := range neighs {
-		if n.IP.Equal(ip1) && n.State == netlink.NUD_PERMANENT {
+		if n.IP.Equal(ip1) && (n.State&netlink.NUD_REACHABLE) > 0 {
 			found = true
 			break
 		}
@@ -1100,7 +1110,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	c.Assert(err, check.IsNil)
 	found = false
 	for _, n := range neighs {
-		if n.IP.Equal(ip1) && n.State == netlink.NUD_PERMANENT {
+		if n.IP.Equal(ip1) && (n.State&netlink.NUD_REACHABLE) > 0 {
 			found = true
 			updatedHwAddrFromArpEntry = n.HardwareAddr
 			break
@@ -1119,7 +1129,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	c.Assert(err, check.IsNil)
 	found = false
 	for _, n := range neighs {
-		if n.IP.Equal(ip1) && n.State == netlink.NUD_PERMANENT {
+		if n.IP.Equal(ip1) && (n.State&netlink.NUD_REACHABLE) > 0 {
 			found = true
 			break
 		}
@@ -1145,14 +1155,6 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 		linuxNodeHandler.neighLock.Lock()
 		defer linuxNodeHandler.neighLock.Unlock()
 		return linuxNodeHandler.neighNextHopRefCount[nextHopStr]
-	}
-	neighHwAddr := func(nextHopStr string) string {
-		linuxNodeHandler.neighLock.Lock()
-		defer linuxNodeHandler.neighLock.Unlock()
-		if neigh, found := linuxNodeHandler.neighByNextHop[nextHopStr]; found {
-			return neigh.HardwareAddr.String()
-		}
-		return ""
 	}
 
 	done := make(chan struct{})
@@ -1191,16 +1193,15 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 			c.Assert(err, check.IsNil)
 			found = false
 			for _, n := range neighs {
-				if n.IP.Equal(ip1) && n.State == netlink.NUD_PERMANENT &&
+				if n.IP.Equal(ip1) && (n.State&netlink.NUD_REACHABLE) > 0 &&
 					n.HardwareAddr.String() == mac.String() &&
-					neighHwAddr(ip1.String()) == mac.String() &&
 					neighRefCount(ip1.String()) == 1 {
 					found = true
 					return true
 				}
 			}
 			return false
-		}, 5*time.Second, 200*time.Millisecond)
+		}, 20*time.Second, 200*time.Millisecond)
 		c.Assert(err, check.IsNil)
 		c.Assert(found, check.Equals, true)
 	}
@@ -1374,7 +1375,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	c.Assert(err, check.IsNil)
 	found = false
 	for _, n := range neighs {
-		if n.IP.Equal(nextHop) && n.State == netlink.NUD_PERMANENT {
+		if n.IP.Equal(nextHop) && (n.State&netlink.NUD_REACHABLE) > 0 {
 			found = true
 		} else if n.IP.Equal(node2IP) || n.IP.Equal(node3IP) {
 			c.ExpectFailure("node{2,3} should not be in the same L2")
@@ -1388,7 +1389,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
 	found = false
 	for _, n := range neighs {
-		if n.IP.Equal(nextHop) && n.State == netlink.NUD_PERMANENT {
+		if n.IP.Equal(nextHop) && (n.State&netlink.NUD_REACHABLE) > 0 {
 			found = true
 			break
 		}
@@ -1403,7 +1404,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
 	c.Assert(err, check.IsNil)
 	for _, n := range neighs {
-		if n.IP.Equal(nextHop) && n.State == netlink.NUD_PERMANENT {
+		if n.IP.Equal(nextHop) && (n.State&netlink.NUD_REACHABLE) > 0 {
 			found = true
 			break
 		}
@@ -1420,7 +1421,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	c.Assert(err, check.IsNil)
 	found = false
 	for _, n := range neighs {
-		if n.IP.Equal(nextHop) && n.State == netlink.NUD_PERMANENT {
+		if n.IP.Equal(nextHop) && (n.State&netlink.NUD_REACHABLE) > 0 {
 			found = true
 		} else if n.IP.Equal(node2IP) || n.IP.Equal(node3IP) {
 			c.ExpectFailure("node{2,3} should not be in the same L2")
@@ -1435,7 +1436,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	c.Assert(err, check.IsNil)
 	found = false
 	for _, n := range neighs {
-		if n.IP.Equal(nextHop) && n.State == netlink.NUD_PERMANENT {
+		if n.IP.Equal(nextHop) && (n.State&netlink.NUD_REACHABLE) > 0 {
 			found = true
 		} else if n.IP.Equal(node2IP) || n.IP.Equal(node3IP) {
 			c.ExpectFailure("node{2,3} should not be in the same L2")
