@@ -67,7 +67,7 @@ env:
   clusterName2: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-mesh-2
   zone: us-west2-a
   firewallRuleName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-rule
-  cilium_cli_version: v0.9.1
+  cilium_cli_version: v0.9.2
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
@@ -260,13 +260,9 @@ jobs:
 
       - name: Enable Relay
         run: |
-          cilium hubble enable --context ${{ steps.contexts.outputs.context1 }} ${{ steps.vars.outputs.hubble_enable_defaults }}
+          cilium hubble enable --context ${{ steps.contexts.outputs.context1 }} ${{ steps.vars.outputs.hubble_enable_defaults }} --wait=false
           cilium hubble enable --context ${{ steps.contexts.outputs.context2 }} ${{ steps.vars.outputs.hubble_enable_defaults }} --relay=false
-
-      - name: Wait for Cilium status to be ready
-        run: |
           cilium status --wait --context ${{ steps.contexts.outputs.context1 }}
-          cilium status --wait --context ${{ steps.contexts.outputs.context2 }}
 
       - name: Enable cluster mesh
         run: |
