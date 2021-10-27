@@ -85,6 +85,7 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 		synced.CRDResourceName(k8sconstv2.CEWName):        createCEWCRD,
 		synced.CRDResourceName(k8sconstv2.CLRPName):       createCLRPCRD,
 		synced.CRDResourceName(k8sconstv2alpha1.CENPName): createCENPCRD,
+		synced.CRDResourceName(k8sconstv2alpha1.CECName):  createCECCRD,
 	}
 	for _, r := range synced.AllCRDResourceNames() {
 		fn, ok := resourceToCreateFnMapping[r]
@@ -95,10 +96,6 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 			return fn(clientset)
 		})
 	}
-
-	g.Go(func() error {
-		return createCECCRD(clientset)
-	})
 
 	return g.Wait()
 }
