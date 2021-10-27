@@ -2,13 +2,13 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build (js && wasm) || plan9 || windows
-// +build js,wasm plan9 windows
+//go:build (js && wasm) || plan9 || solaris || windows
+// +build js,wasm plan9 solaris windows
 
 package agent
 
 import "syscall"
 
-func setsockoptReuseAddrAndPort(network, address string, c syscall.RawConn) error {
+func setReuseAddrAndPortSockopts(network, address string, c syscall.RawConn) error {
 	return nil
 }
