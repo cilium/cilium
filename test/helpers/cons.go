@@ -300,6 +300,7 @@ var badLogMessages = map[string][]string{
 	// Exceptions for level=error should only be added as a last resort, if the
 	// error cannot be fixed in Cilium or in the test.
 	"level=error": {lrpExists, opCantBeFulfilled, initLeaderElection, globalDataSupport, removeInexistentID, failedToListCRDs, retrieveResLock},
+	"level=warn":  nil,
 }
 
 var ciliumCLICommands = map[string]string{
