@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build !js && !plan9 && !windows
-// +build !js,!plan9,!windows
+//go:build !js && !plan9 && !solaris && !windows
+// +build !js,!plan9,!solaris,!windows
 
 package agent
 
@@ -13,10 +13,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// setsockoptReuseAddrAndPort sets the SO_REUSEADDR and SO_REUSEPORT socket
+// setReuseAddrAndPortSockopts sets the SO_REUSEADDR and SO_REUSEPORT socket
 // options on c's underlying socket in order to increase the chance to re-bind()
 // to the same address and port upon agent restart.
-func setsockoptReuseAddrAndPort(network, address string, c syscall.RawConn) error {
+func setReuseAddrAndPortSockopts(network, address string, c syscall.RawConn) error {
 	var soerr error
 	if err := c.Control(func(su uintptr) {
 		sock := int(su)
