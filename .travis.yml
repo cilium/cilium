@@ -37,6 +37,7 @@ addons:
     packages:
       - kernel-package
       - gnupg
+      - ipset
       - libelf-dev
       - libncurses5
 
