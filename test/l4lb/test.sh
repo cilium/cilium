@@ -47,6 +47,7 @@ nsenter -t $CONTROL_PLANE_PID -n /bin/sh -c "\
 helm install cilium ../../install/kubernetes/cilium \
     --wait \
     --namespace kube-system \
+    --set debug.enabled=true \
     --set image.repository="quay.io/${IMG_OWNER}/cilium-ci" \
     --set image.tag="${IMG_TAG}" \
     --set image.useDigest=false \
