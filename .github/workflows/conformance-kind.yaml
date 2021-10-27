@@ -22,7 +22,7 @@ concurrency:
 env:
   kind_version: v0.11.1
   kind_config: .github/kind-config.yaml
-  cilium_cli_version: v0.9.1
+  cilium_cli_version: v0.9.2
 
 jobs:
   installation-and-connectivity:
@@ -84,10 +84,6 @@ jobs:
         run: |
           cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
 
-      - name: Status
-        run: |
-          cilium status --wait
-
       - name: Port forward Relay
         run: |
           cilium hubble port-forward&
@@ -111,10 +107,6 @@ jobs:
       - name: Enable Relay
         run: |
           cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
-
-      - name: Wait for Cilium status to be ready
-        run: |
-          cilium status --wait
 
       - name: Port forward Relay
         run: |
