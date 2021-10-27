@@ -107,7 +107,7 @@ func Listen(opts Options) error {
 	}
 	var lc net.ListenConfig
 	if opts.ReuseSocketAddrAndPort {
-		lc.Control = setsockoptReuseAddrAndPort
+		lc.Control = setReuseAddrAndPortSockopts
 	}
 	listener, err = lc.Listen(context.Background(), "tcp", addr)
 	if err != nil {
