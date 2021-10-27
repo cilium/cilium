@@ -82,8 +82,12 @@ nsenter -t $(docker inspect kind-worker -f '{{ .State.Pid }}') -n /bin/sh -c \
     'tc qdisc add dev eth0 clsact && tc filter add dev eth0 ingress bpf direct-action object-file ./test_tc_tunnel.o section decap'
 
 collect_sysdump() {
-    curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
-    python cilium-sysdump.zip --output /tmp/cilium-sysdump-out
+    curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz{,.sha256sum}
+    sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
+    sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/bin
+    rm cilium-linux-amd64.tar.gz{,.sha256sum}
+    cilium sysdump --output-filename cilium-sysdump-out
+    mv cilium-sysdump-out.zip /tmp
 }
 
 trap collect_sysdump ERR
