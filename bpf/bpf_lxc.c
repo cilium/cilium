@@ -1273,7 +1273,7 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 	ret = ipv6_policy(ctx, 0, src_identity, &reason, NULL,
 			  &proxy_port, true);
 	if (ret == POLICY_ACT_PROXY_REDIRECT) {
-		ret = ctx_redirect_to_proxy_hairpin(ctx, proxy_port);
+		ret = ctx_redirect_to_proxy_hairpin_ipv6(ctx, proxy_port);
 		proxy_redirect = true;
 	}
 out:
@@ -1581,7 +1581,7 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 	ret = ipv4_policy(ctx, 0, src_identity, &reason, NULL,
 			  &proxy_port, true);
 	if (ret == POLICY_ACT_PROXY_REDIRECT) {
-		ret = ctx_redirect_to_proxy_hairpin(ctx, proxy_port);
+		ret = ctx_redirect_to_proxy_hairpin_ipv4(ctx, proxy_port);
 		proxy_redirect = true;
 	}
 out:
