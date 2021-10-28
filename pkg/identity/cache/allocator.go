@@ -149,6 +149,10 @@ type IdentityAllocator interface {
 	//
 	// The implementation for this function currently lives in pkg/ipcache.
 	AllocateCIDRsForIPs(ips []net.IP, newlyAllocatedIdentities map[string]*identity.Identity) ([]*identity.Identity, error)
+
+	// ReleaseCIDRIdentitiesByID() is a wrapper for ReleaseSlice() that
+	// also handles ipcache entries.
+	ReleaseCIDRIdentitiesByID(context.Context, []identity.NumericIdentity)
 }
 
 // InitIdentityAllocator creates the the identity allocator. Only the first

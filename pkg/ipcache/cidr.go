@@ -7,14 +7,18 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/cidr"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
+
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -31,6 +35,9 @@ var (
 // ipcache if 'newlyAllocatedIdentities' is 'nil', otherwise the newly allocated
 // identities are placed in 'newlyAllocatedIdentities' and it is the caller's
 // responsibility to upsert them into ipcache by calling UpsertGeneratedIdentities().
+//
+// Upon success, the caller must also arrange for the resulting identities to
+// be released via a subsequent call to ReleaseCIDRIdentitiesByCIDR().
 func AllocateCIDRs(prefixes []*net.IPNet, newlyAllocatedIdentities map[string]*identity.Identity) ([]*identity.Identity, error) {
 	return allocateCIDRs(prefixes, newlyAllocatedIdentities)
 }
@@ -41,6 +48,9 @@ func AllocateCIDRs(prefixes []*net.IPNet, newlyAllocatedIdentities map[string]*i
 // the ipcache if 'newlyAllocatedIdentities' is 'nil', otherwise the newly allocated
 // identities are placed in 'newlyAllocatedIdentities' and it is the caller's
 // responsibility to upsert them into ipcache by calling UpsertGeneratedIdentities().
+//
+// Upon success, the caller must also arrange for the resulting identities to
+// be released via a subsequent call to ReleaseCIDRIdentitiesByID().
 func AllocateCIDRsForIPs(prefixes []net.IP, newlyAllocatedIdentities map[string]*identity.Identity) ([]*identity.Identity, error) {
 	return allocateCIDRs(ip.GetCIDRPrefixesFromIPs(prefixes), newlyAllocatedIdentities)
 }
@@ -112,28 +122,66 @@ func allocateCIDRs(prefixes []*net.IPNet, newlyAllocatedIdentities map[string]*i
 	return allocatedIdentitiesSlice, nil
 }
 
-// ReleaseCIDRIdentitiesByCIDR releases the identities of a list of CIDRs. When the last use
-// of the identity is released, the ipcache entry is deleted.
+func releaseCIDRIdentities(ctx context.Context, identities map[string]*identity.Identity) {
+	for prefix, id := range identities {
+		released, err := IdentityAllocator.Release(ctx, id)
+		if err != nil {
+			log.WithFields(logrus.Fields{
+				logfields.Identity: id,
+				logfields.CIDR:     prefix,
+			}).WithError(err).Warning("Unable to release CIDR identity. Ignoring error. Identity may be leaked")
+		}
+
+		if released {
+			IPIdentityCache.Delete(prefix, source.Generated)
+		}
+	}
+}
+
+// ReleaseCIDRIdentitiesByCIDR releases the identities of a list of CIDRs.
+// When the last use of the identity is released, the ipcache entry is deleted.
 func ReleaseCIDRIdentitiesByCIDR(prefixes []*net.IPNet) {
+	// TODO: Structure the code to pass context down from the Daemon.
+	releaseCtx, cancel := context.WithTimeout(context.TODO(), option.Config.KVstoreConnectivityTimeout)
+	defer cancel()
+
+	identities := make(map[string]*identity.Identity, len(prefixes))
 	for _, prefix := range prefixes {
 		if prefix == nil {
 			continue
 		}
 
-		if id := IdentityAllocator.LookupIdentity(context.TODO(), cidr.GetCIDRLabels(prefix)); id != nil {
-			releaseCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
-			defer cancel()
-
-			released, err := IdentityAllocator.Release(releaseCtx, id)
-			if err != nil {
-				log.WithError(err).Warningf("Unable to release identity for CIDR %s. Ignoring error. Identity may be leaked", prefix.String())
-			}
-
-			if released {
-				IPIdentityCache.Delete(prefix.String(), source.Generated)
-			}
+		if id := IdentityAllocator.LookupIdentity(releaseCtx, cidr.GetCIDRLabels(prefix)); id != nil {
+			identities[prefix.String()] = id
 		} else {
 			log.Errorf("Unable to find identity of previously used CIDR %s", prefix.String())
 		}
 	}
+
+	releaseCIDRIdentities(releaseCtx, identities)
+}
+
+// ReleaseCIDRIdentitiesByID releases the specified identities.
+// When the last use of the identity is released, the ipcache entry is deleted.
+func ReleaseCIDRIdentitiesByID(ctx context.Context, identities []identity.NumericIdentity) {
+	fullIdentities := make(map[string]*identity.Identity, len(identities))
+	for _, nid := range identities {
+		if id := IdentityAllocator.LookupIdentityByID(ctx, nid); id != nil {
+			cidr := id.CIDRLabel.String()
+			if !strings.HasPrefix(cidr, labels.LabelSourceCIDR) {
+				log.WithFields(logrus.Fields{
+					logfields.Identity: nid,
+					logfields.Labels:   id.Labels,
+				}).Warn("Unexpected release of non-CIDR identity, will leak this identity. Please report this issue to the developers.")
+				continue
+			}
+			fullIdentities[strings.TrimPrefix(cidr, labels.LabelSourceCIDR+":")] = id
+		} else {
+			log.WithFields(logrus.Fields{
+				logfields.Identity: nid,
+			}).Warn("Unexpected release of numeric identity that is no longer allocated")
+		}
+	}
+
+	releaseCIDRIdentities(ctx, fullIdentities)
 }
