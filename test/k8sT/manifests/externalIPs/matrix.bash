@@ -108,8 +108,8 @@ if [[ -n "${namespace}" && -z "${ips}" ]]; then
                 fi
         done
         svcs=$(kubectl get svc -n ${namespace} -o jsonpath="{range .items[*]}{.metadata.name}{'-cluster-ip='}{.spec.clusterIP}{'\n'}{end}")
-        svcs_str="svc-a-external-ips-k8s1-public=192.0.2.233 svc-a-external-ips-k8s1-host-public=192.168.34.11 svc-a-external-ips-k8s1-host-private=192.168.33.11 \
-svc-b-external-ips-k8s1-public=192.0.2.233 svc-b-external-ips-k8s1-host-public=192.168.34.11 svc-b-external-ips-k8s1-host-private=192.168.33.11 \
+        svcs_str="svc-a-external-ips-k8s1-public=192.0.2.233 svc-a-external-ips-k8s1-host-public=192.168.61.11 svc-a-external-ips-k8s1-host-private=192.168.60.11 \
+svc-b-external-ips-k8s1-public=192.0.2.233 svc-b-external-ips-k8s1-host-public=192.168.61.11 svc-b-external-ips-k8s1-host-private=192.168.60.11 \
 localhost=127.0.0.1 "
 
         for svc in ${svcs}; do

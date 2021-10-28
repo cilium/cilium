@@ -61,7 +61,7 @@ Create a CiliumNode CR
    .. code-block:: shell-session
 
            $ cilium status --all-addresses
-           KVStore:                Ok   etcd: 1/1 connected, has-quorum=true: https://192.168.33.11:2379 - 3.3.12 (Leader)
+           KVStore:                Ok   etcd: 1/1 connected, has-quorum=true: https://192.168.60.11:2379 - 3.3.12 (Leader)
            [...]
            IPAM:                   IPv4: 2/4 allocated,
            Allocated addresses:

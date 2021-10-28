@@ -100,10 +100,10 @@ Vagrant.configure("2") do |config|
         server.vm.hostname = "runtime"
 
         server.vm.network "private_network",
-            ip: "192.168.36.10",
+            ip: "192.168.56.10",
             virtualbox__intnet: "cilium-k8s#{$BUILD_NUMBER}-#{$JOB_NAME}-#{$K8S_VERSION}"
         server.vm.network "private_network",
-            ip: "192.168.37.10",
+            ip: "192.168.57.10",
             virtualbox__intnet: "cilium-k8s-2#{$BUILD_NUMBER}-#{$JOB_NAME}-#{$K8S_VERSION}"
 
         # @TODO: Clean this one when https://github.com/hashicorp/vagrant/issues/9822 is fixed.
@@ -119,7 +119,7 @@ Vagrant.configure("2") do |config|
         # This network is only used by NFS
         if $NFS
             # This network is only used by NFS
-            server.vm.network "private_network", ip: "192.168.38.10"
+            server.vm.network "private_network", ip: "192.168.58.10"
             server.vm.synced_folder cilium_dir, cilium_path, type: "nfs", nfs_udp: false, mount_options: $NFS_OPTS
         else
             server.vm.synced_folder cilium_dir, cilium_path
@@ -172,10 +172,10 @@ Vagrant.configure("2") do |config|
                   auto_correct: true
             end
             server.vm.network "private_network",
-                ip: "192.168.36.1#{i}",
+                ip: "192.168.56.1#{i}",
                 virtualbox__intnet: "cilium-k8s#{$BUILD_NUMBER}-#{$JOB_NAME}-#{$K8S_VERSION}"
             server.vm.network "private_network",
-                ip: "192.168.37.1#{i}",
+                ip: "192.168.57.1#{i}",
                 virtualbox__intnet: "cilium-k8s-2#{$BUILD_NUMBER}-#{$JOB_NAME}-#{$K8S_VERSION}"
 
             # @TODO: Clean this one when https://github.com/hashicorp/vagrant/issues/9822 is fixed.
@@ -190,7 +190,7 @@ Vagrant.configure("2") do |config|
 
             if $NFS
                 # This network is only used by NFS
-                server.vm.network "private_network", ip: "192.168.38.1#{i}"
+                server.vm.network "private_network", ip: "192.168.58.1#{i}"
                 server.vm.synced_folder cilium_dir, cilium_path, type: "nfs", nfs_udp: false, mount_options: $NFS_OPTS
             else
                 server.vm.synced_folder cilium_dir, cilium_path
@@ -203,7 +203,7 @@ Vagrant.configure("2") do |config|
             server.vm.provision "shell" do |sh|
                 sh.path = "./provision/k8s_install.sh"
                 sh.args = [
-                    "k8s#{i}", "192.168.36.1#{i}", "#{$K8S_VERSION}",
+                    "k8s#{i}", "192.168.56.1#{i}", "#{$K8S_VERSION}",
                     "#{$IPv6}", "#{$CONTAINER_RUNTIME}", "#{$CNI_INTEGRATION}"]
                 sh.env = {"CILIUM_IMAGE" => "#{$CILIUM_IMAGE}",
                           "CILIUM_TAG" => "#{$CILIUM_TAG}",
