@@ -88,6 +88,9 @@ func (f *FakeIdentityAllocator) AllocateCIDRsForIPs(IPs []net.IP, newlyAllocated
 	return nil, nil
 }
 
+func (f *FakeIdentityAllocator) ReleaseCIDRIdentitiesByID(ctx context.Context, identities []identity.NumericIdentity) {
+}
+
 func (f *FakeIdentityAllocator) GetIdentityCache() cache.IdentityCache {
 	return f.IdentityCache
 }
