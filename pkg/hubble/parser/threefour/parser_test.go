@@ -59,7 +59,7 @@ func TestL34DecodeEmpty(t *testing.T) {
 
 func TestL34Decode(t *testing.T) {
 	//SOURCE          					DESTINATION           TYPE   SUMMARY
-	//192.168.33.11:6443(sun-sr-https)  10.16.236.178:54222   L3/4   TCP Flags: ACK
+	//192.168.60.11:6443(sun-sr-https)  10.16.236.178:54222   L3/4   TCP Flags: ACK
 	d := []byte{
 		4, 7, 0, 0, 7, 124, 26, 57, 66, 0, 0, 0, 66, 0, 0, 0, // NOTIFY_CAPTURE_HDR
 		1, 0, 0, 0, // source labels
@@ -70,7 +70,7 @@ func TestL34Decode(t *testing.T) {
 		0, 0, 0, 0, // ifindex
 		246, 141, 178, 45, 33, 217, 246, 141, 178,
 		45, 33, 217, 8, 0, 69, 0, 0, 52, 234, 28, 64, 0, 64, 6, 120, 49, 192,
-		168, 33, 11, 10, 16, 236, 178, 25, 43, 211, 206, 42, 239, 210, 28, 180,
+		168, 60, 11, 10, 16, 236, 178, 25, 43, 211, 206, 42, 239, 210, 28, 180,
 		152, 129, 103, 128, 16, 1, 152, 216, 156, 0, 0, 1, 1, 8, 10, 0, 90, 176,
 		98, 0, 90, 176, 97, 0, 0}
 
@@ -101,8 +101,8 @@ func TestL34Decode(t *testing.T) {
 		OnGetNamesOf: func(epID uint32, ip net.IP) (names []string) {
 			if epID == 1234 {
 				switch {
-				case ip.Equal(net.ParseIP("192.168.33.11")):
-					return []string{"host-192.168.33.11"}
+				case ip.Equal(net.ParseIP("192.168.60.11")):
+					return []string{"host-192.168.60.11"}
 				}
 			}
 			return nil
@@ -110,17 +110,17 @@ func TestL34Decode(t *testing.T) {
 	}
 	ipGetter := &testutils.FakeIPGetter{
 		OnGetK8sMetadata: func(ip net.IP) *ipcache.K8sMetadata {
-			if ip.String() == "192.168.33.11" {
+			if ip.String() == "192.168.60.11" {
 				return &ipcache.K8sMetadata{
 					Namespace: "remote",
-					PodName:   "pod-192.168.33.11",
+					PodName:   "pod-192.168.60.11",
 				}
 			}
 			return nil
 		},
 		OnLookupSecIDByIP: func(ip net.IP) (ipcache.Identity, bool) {
 			// pretend IP belongs to a pod on a remote node
-			if ip.String() == "192.168.33.11" {
+			if ip.String() == "192.168.60.11" {
 				// This numeric identity will be ignored because the above
 				// TraceNotify event already contains the source identity
 				return ipcache.Identity{
@@ -133,7 +133,7 @@ func TestL34Decode(t *testing.T) {
 	}
 	serviceGetter := &testutils.FakeServiceGetter{
 		OnGetServiceByAddr: func(ip net.IP, port uint16) *flowpb.Service {
-			if ip.Equal(net.ParseIP("192.168.33.11")) && (port == 6443) {
+			if ip.Equal(net.ParseIP("192.168.60.11")) && (port == 6443) {
 				return &flowpb.Service{
 					Name:      "service-1234",
 					Namespace: "remote",
@@ -156,11 +156,11 @@ func TestL34Decode(t *testing.T) {
 	err = parser.Decode(d, f)
 	require.NoError(t, err)
 
-	assert.Equal(t, []string{"host-192.168.33.11"}, f.GetSourceNames())
-	assert.Equal(t, "192.168.33.11", f.GetIP().GetSource())
+	assert.Equal(t, []string{"host-192.168.60.11"}, f.GetSourceNames())
+	assert.Equal(t, "192.168.60.11", f.GetIP().GetSource())
 	assert.True(t, f.GetIP().GetEncrypted())
 	assert.Equal(t, uint32(6443), f.L4.GetTCP().GetSourcePort())
-	assert.Equal(t, "pod-192.168.33.11", f.GetSource().GetPodName())
+	assert.Equal(t, "pod-192.168.60.11", f.GetSource().GetPodName())
 	assert.Equal(t, "remote", f.GetSource().GetNamespace())
 	assert.Equal(t, "service-1234", f.GetSourceService().GetName())
 	assert.Equal(t, "remote", f.GetSourceService().GetNamespace())
@@ -248,7 +248,7 @@ func BenchmarkL34Decode(b *testing.B) {
 	d := []byte{4, 7, 0, 0, 7, 124, 26, 57, 66, 0, 0, 0, 66, 0, 0, 0, 1, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 246, 141, 178, 45, 33, 217, 246, 141,
 		178, 45, 33, 217, 8, 0, 69, 0, 0, 52, 234, 28, 64, 0, 64, 6, 120, 49, 192,
-		168, 33, 11, 10, 16, 236, 178, 25, 43, 211, 206, 42, 239, 210, 28, 180, 152,
+		168, 60, 11, 10, 16, 236, 178, 25, 43, 211, 206, 42, 239, 210, 28, 180, 152,
 		129, 103, 128, 16, 1, 152, 216, 156, 0, 0, 1, 1, 8, 10, 0, 90, 176, 98, 0,
 		90, 176, 97, 0, 0}
 

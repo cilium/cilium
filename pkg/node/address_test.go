@@ -155,7 +155,7 @@ func (s *NodeSuite) Test_getCiliumHostIPsFromFile(c *C) {
  cilium.v6.internal.str f00d::a00:0:0:a4ad
  cilium.v6.nodeport.str []
 
- cilium.v4.external.str 192.168.33.11
+ cilium.v4.external.str 192.168.60.11
  cilium.v4.internal.str 10.0.0.2
  cilium.v4.nodeport.str []
 

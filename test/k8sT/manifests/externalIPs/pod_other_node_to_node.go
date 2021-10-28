@@ -58,49 +58,49 @@ var (
 		"svc-a-external-ips-k8s1-host-public": {
 			"svc-a-external-ips-svc-port": {
 				Description: "svc-a-external-ips-k8s1-host-public:svc-a-external-ips-svc-port",
-				IP:          "192.168.34.11",
+				IP:          "192.168.61.11",
 				Port:        "82",
 				Expected:    "app1",
 			},
 			"svc-b-external-ips-svc-port": {
 				Description: "svc-a-external-ips-k8s1-host-public:svc-b-external-ips-svc-port",
-				IP:          "192.168.34.11",
+				IP:          "192.168.61.11",
 				Port:        "30002",
 				Expected:    "app1",
 			},
 			"svc-c-node-port-svc-port": {
 				Description: "svc-a-external-ips-k8s1-host-public:svc-c-node-port-svc-port",
-				IP:          "192.168.34.11",
+				IP:          "192.168.61.11",
 				Port:        "83",
 				Expected:    "connection refused",
 			},
 			"svc-d-node-port-svc-port": {
 				Description: "svc-a-external-ips-k8s1-host-public:svc-d-node-port-svc-port",
-				IP:          "192.168.34.11",
+				IP:          "192.168.61.11",
 				Port:        "84",
 				Expected:    "connection refused",
 			},
 			"svc-e-node-port-svc-port": {
 				Description: "svc-a-external-ips-k8s1-host-public:svc-e-node-port-svc-port",
-				IP:          "192.168.34.11",
+				IP:          "192.168.61.11",
 				Port:        "85",
 				Expected:    "connection refused",
 			},
 			"svc-c-node-port-node-port": {
 				Description: "svc-a-external-ips-k8s1-host-public:svc-c-node-port-node-port",
-				IP:          "192.168.34.11",
+				IP:          "192.168.61.11",
 				Port:        "30003",
 				Expected:    "app2",
 			},
 			"svc-d-node-port-node-port": {
 				Description: "svc-a-external-ips-k8s1-host-public:svc-d-node-port-node-port",
-				IP:          "192.168.34.11",
+				IP:          "192.168.61.11",
 				Port:        "30004",
 				Expected:    "app4",
 			},
 			"svc-e-node-port-node-port": {
 				Description: "svc-a-external-ips-k8s1-host-public:svc-e-node-port-node-port",
-				IP:          "192.168.34.11",
+				IP:          "192.168.61.11",
 				Port:        "30005",
 				Expected:    "app6",
 				SkipReason:  "Because we SNAT the request. @dborkmann will fix it",
@@ -109,59 +109,59 @@ var (
 		"svc-a-external-ips-k8s1-host-private": {
 			"svc-a-external-ips-svc-port": {
 				Description: "svc-a-external-ips-k8s1-host-private:svc-a-external-ips-svc-port",
-				IP:          "192.168.33.11",
+				IP:          "192.168.60.11",
 				Port:        "82",
 				Expected:    "app1",
 			},
 			"svc-b-external-ips-svc-port": {
 				Description: "svc-a-external-ips-k8s1-host-private:svc-b-external-ips-svc-port",
-				IP:          "192.168.33.11",
+				IP:          "192.168.60.11",
 				Port:        "30002",
 				Expected:    "app1",
 			},
 			"svc-c-node-port-svc-port": {
 				Description: "svc-a-external-ips-k8s1-host-private:svc-c-node-port-svc-port",
-				IP:          "192.168.33.11",
+				IP:          "192.168.60.11",
 				Port:        "83",
 				Expected:    "connection refused",
 			},
 			"svc-d-node-port-svc-port": {
 				Description: "svc-a-external-ips-k8s1-host-private:svc-d-node-port-svc-port",
-				IP:          "192.168.33.11",
+				IP:          "192.168.60.11",
 				Port:        "84",
 				Expected:    "connection refused",
 			},
 			"svc-e-node-port-svc-port": {
 				Description: "svc-a-external-ips-k8s1-host-private:svc-e-node-port-svc-port",
-				IP:          "192.168.33.11",
+				IP:          "192.168.60.11",
 				Port:        "85",
 				Expected:    "connection refused",
 			},
 			"svc-c-node-port-node-port": {
 				Description: "svc-a-external-ips-k8s1-host-private:svc-c-node-port-node-port",
-				IP:          "192.168.33.11",
+				IP:          "192.168.60.11",
 				Port:        "30003",
 				Expected:    "app2",
 				SkipReason: "on the receiving node we only install a BPF program " +
-					"on the interface with the IP 192.168.34.11 so we can't translate " +
+					"on the interface with the IP 192.168.61.11 so we can't translate " +
 					"traffic incoming into this interface",
 			},
 			"svc-d-node-port-node-port": {
 				Description: "svc-a-external-ips-k8s1-host-private:svc-d-node-port-node-port",
-				IP:          "192.168.33.11",
+				IP:          "192.168.60.11",
 				Port:        "30004",
 				Expected:    "app4",
 				SkipReason: "on the receiving node we only install a BPF program " +
-					"on the interface with the IP 192.168.34.11 so we can't translate " +
+					"on the interface with the IP 192.168.61.11 so we can't translate " +
 					"traffic incoming into this interface",
 			},
 			"svc-e-node-port-node-port": {
 				Description: "svc-a-external-ips-k8s1-host-private:svc-e-node-port-node-port",
-				IP:          "192.168.33.11",
+				IP:          "192.168.60.11",
 				Port:        "30005",
 				Expected:    "app6",
 				SkipReason: "on the receiving node we only install a BPF program " +
-					"on the interface with the IP 192.168.34.11 so we can't translate " +
+					"on the interface with the IP 192.168.61.11 so we can't translate " +
 					"traffic incoming into this interface",
 			},
 		},
@@ -218,49 +218,49 @@ var (
 		"svc-b-external-ips-k8s1-host-public": {
 			"svc-a-external-ips-svc-port": {
 				Description: "svc-b-external-ips-k8s1-host-public:svc-a-external-ips-svc-port",
-				IP:          "192.168.34.11",
+				IP:          "192.168.61.11",
 				Port:        "82",
 				Expected:    "app1",
 			},
 			"svc-b-external-ips-svc-port": {
 				Description: "svc-b-external-ips-k8s1-host-public:svc-b-external-ips-svc-port",
-				IP:          "192.168.34.11",
+				IP:          "192.168.61.11",
 				Port:        "30002",
 				Expected:    "app1",
 			},
 			"svc-c-node-port-svc-port": {
 				Description: "svc-b-external-ips-k8s1-host-public:svc-c-node-port-svc-port",
-				IP:          "192.168.34.11",
+				IP:          "192.168.61.11",
 				Port:        "83",
 				Expected:    "connection refused",
 			},
 			"svc-d-node-port-svc-port": {
 				Description: "svc-b-external-ips-k8s1-host-public:svc-d-node-port-svc-port",
-				IP:          "192.168.34.11",
+				IP:          "192.168.61.11",
 				Port:        "84",
 				Expected:    "connection refused",
 			},
 			"svc-e-node-port-svc-port": {
 				Description: "svc-b-external-ips-k8s1-host-public:svc-e-node-port-svc-port",
-				IP:          "192.168.34.11",
+				IP:          "192.168.61.11",
 				Port:        "85",
 				Expected:    "connection refused",
 			},
 			"svc-c-node-port-node-port": {
 				Description: "svc-b-external-ips-k8s1-host-public:svc-c-node-port-node-port",
-				IP:          "192.168.34.11",
+				IP:          "192.168.61.11",
 				Port:        "30003",
 				Expected:    "app2",
 			},
 			"svc-d-node-port-node-port": {
 				Description: "svc-b-external-ips-k8s1-host-public:svc-d-node-port-node-port",
-				IP:          "192.168.34.11",
+				IP:          "192.168.61.11",
 				Port:        "30004",
 				Expected:    "app4",
 			},
 			"svc-e-node-port-node-port": {
 				Description: "svc-b-external-ips-k8s1-host-public:svc-e-node-port-node-port",
-				IP:          "192.168.34.11",
+				IP:          "192.168.61.11",
 				Port:        "30005",
 				Expected:    "app6",
 				SkipReason:  "Because we SNAT the request. @dborkmann will fix it",
@@ -269,59 +269,59 @@ var (
 		"svc-b-external-ips-k8s1-host-private": {
 			"svc-a-external-ips-svc-port": {
 				Description: "svc-b-external-ips-k8s1-host-private:svc-a-external-ips-svc-port",
-				IP:          "192.168.33.11",
+				IP:          "192.168.60.11",
 				Port:        "82",
 				Expected:    "app1",
 			},
 			"svc-b-external-ips-svc-port": {
 				Description: "svc-b-external-ips-k8s1-host-private:svc-b-external-ips-svc-port",
-				IP:          "192.168.33.11",
+				IP:          "192.168.60.11",
 				Port:        "30002",
 				Expected:    "app1",
 			},
 			"svc-c-node-port-svc-port": {
 				Description: "svc-b-external-ips-k8s1-host-private:svc-c-node-port-svc-port",
-				IP:          "192.168.33.11",
+				IP:          "192.168.60.11",
 				Port:        "83",
 				Expected:    "connection refused",
 			},
 			"svc-d-node-port-svc-port": {
 				Description: "svc-b-external-ips-k8s1-host-private:svc-d-node-port-svc-port",
-				IP:          "192.168.33.11",
+				IP:          "192.168.60.11",
 				Port:        "84",
 				Expected:    "connection refused",
 			},
 			"svc-e-node-port-svc-port": {
 				Description: "svc-b-external-ips-k8s1-host-private:svc-e-node-port-svc-port",
-				IP:          "192.168.33.11",
+				IP:          "192.168.60.11",
 				Port:        "85",
 				Expected:    "connection refused",
 			},
 			"svc-c-node-port-node-port": {
 				Description: "svc-b-external-ips-k8s1-host-private:svc-c-node-port-node-port",
-				IP:          "192.168.33.11",
+				IP:          "192.168.60.11",
 				Port:        "30003",
 				Expected:    "app2",
 				SkipReason: "on the receiving node we only install a BPF program " +
-					"on the interface with the IP 192.168.34.11 so we can't translate " +
+					"on the interface with the IP 192.168.61.11 so we can't translate " +
 					"traffic incoming into this interface",
 			},
 			"svc-d-node-port-node-port": {
 				Description: "svc-b-external-ips-k8s1-host-private:svc-d-node-port-node-port",
-				IP:          "192.168.33.11",
+				IP:          "192.168.60.11",
 				Port:        "30004",
 				Expected:    "app4",
 				SkipReason: "on the receiving node we only install a BPF program " +
-					"on the interface with the IP 192.168.34.11 so we can't translate " +
+					"on the interface with the IP 192.168.61.11 so we can't translate " +
 					"traffic incoming into this interface",
 			},
 			"svc-e-node-port-node-port": {
 				Description: "svc-b-external-ips-k8s1-host-private:svc-e-node-port-node-port",
-				IP:          "192.168.33.11",
+				IP:          "192.168.60.11",
 				Port:        "30005",
 				Expected:    "app6",
 				SkipReason: "on the receiving node we only install a BPF program " +
-					"on the interface with the IP 192.168.34.11 so we can't translate " +
+					"on the interface with the IP 192.168.61.11 so we can't translate " +
 					"traffic incoming into this interface",
 			},
 		},
