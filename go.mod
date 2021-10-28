@@ -4,7 +4,7 @@ go 1.17
 
 // direct dependencies
 require (
-	github.com/Azure/azure-sdk-for-go v54.0.0+incompatible
+	github.com/Azure/azure-sdk-for-go v54.3.0+incompatible
 	github.com/Azure/go-autorest/autorest v0.11.21
 	github.com/Azure/go-autorest/autorest/adal v0.9.14
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.7
