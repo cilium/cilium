@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"context"
 	"net"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -110,4 +111,8 @@ func NewCachingIdentityAllocator(d *Daemon) cachingIdentityAllocator {
 
 func (c cachingIdentityAllocator) AllocateCIDRsForIPs(ips []net.IP, newlyAllocatedIdentities map[string]*identity.Identity) ([]*identity.Identity, error) {
 	return ipcache.AllocateCIDRsForIPs(ips, newlyAllocatedIdentities)
+}
+
+func (c cachingIdentityAllocator) ReleaseCIDRIdentitiesByID(ctx context.Context, identities []identity.NumericIdentity) {
+	ipcache.ReleaseCIDRIdentitiesByID(ctx, identities)
 }
