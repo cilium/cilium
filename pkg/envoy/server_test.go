@@ -171,7 +171,7 @@ var (
 			labels.NewLabel("version", "v1", labels.LabelSourceK8s),
 		},
 	}
-	identityAllocator = testidentity.NewFakeIdentityAllocator(IdentityCache)
+	identityAllocator = testidentity.NewMockIdentityAllocator(IdentityCache)
 	testSelectorCache = policy.NewSelectorCache(identityAllocator, IdentityCache)
 
 	wildcardCachedSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, api.WildcardEndpointSelector)
