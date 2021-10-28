@@ -673,7 +673,7 @@ func (ds *SelectorCacheTestSuite) TestIdentityNotifier(c *C) {
 }
 
 func testNewSelectorCache(ids cache.IdentityCache) *SelectorCache {
-	sc := NewSelectorCache(testidentity.NewFakeIdentityAllocator(ids), ids)
+	sc := NewSelectorCache(testidentity.NewMockIdentityAllocator(ids), ids)
 	sc.SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 	return sc
 }

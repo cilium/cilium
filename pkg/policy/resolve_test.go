@@ -195,7 +195,7 @@ func (d DummyOwner) PolicyDebug(fields logrus.Fields, msg string) {
 func bootstrapRepo(ruleGenFunc func(int) api.Rules, numRules int, c *C) *Repository {
 	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
 	ids := mgr.GetIdentityCache()
-	fakeAllocator := testidentity.NewFakeIdentityAllocator(ids)
+	fakeAllocator := testidentity.NewMockIdentityAllocator(ids)
 	testRepo := NewPolicyRepository(fakeAllocator, ids, nil)
 
 	SetPolicyEnabled(option.DefaultEnforcement)

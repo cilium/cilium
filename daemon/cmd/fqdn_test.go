@@ -39,7 +39,7 @@ type DaemonFQDNSuite struct {
 var _ = Suite(&DaemonFQDNSuite{})
 
 type FakeRefcountingIdentityAllocator struct {
-	*testidentity.FakeIdentityAllocator
+	*testidentity.MockIdentityAllocator
 
 	// We create a simple identity allocator here to validate that identity
 	// allocation and release are balanced.
@@ -50,7 +50,7 @@ type FakeRefcountingIdentityAllocator struct {
 
 func NewFakeIdentityAllocator(c cache.IdentityCache) *FakeRefcountingIdentityAllocator {
 	return &FakeRefcountingIdentityAllocator{
-		FakeIdentityAllocator: testidentity.NewFakeIdentityAllocator(c),
+		MockIdentityAllocator: testidentity.NewMockIdentityAllocator(c),
 		currentID:             1000,
 		ipToIdentity:          make(map[string]int),
 		identityCount:         make(counter.IntCounter),
