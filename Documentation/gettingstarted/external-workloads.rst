@@ -29,6 +29,9 @@ Prerequisites
   service access from the external host to work, see
   :ref:`host-services` for details.
 
+* External workloads must have Docker 20.10 or newer installed on the
+  system (a version which supports ``--cgroupns`` CLI option).
+
 * External workloads must have IP connectivity with the nodes in your
   cluster. This requirement is typically met by running your VMs in
   the same cloud provider virtual network (e.g., GCP VPC) as your k8s
