@@ -1048,6 +1048,9 @@ static __always_inline bool nodeport_uses_dsr4(const struct ipv4_ct_tuple *tuple
  *
  * The function sets "addr" to the SNAT IP addr, and "from_endpoint" to true
  * if the packet is sent from a local endpoint.
+ *
+ * Callers should treat contents of "from_endpoint" and "addr" as undetermined,
+ * if function returns false.
  */
 static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 					   bool *from_endpoint __maybe_unused)
@@ -1059,25 +1062,6 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return false;
-
-#if defined(ENABLE_EGRESS_GATEWAY)
-	/* Check if SNAT needs to be applied to the packet. Apply SNAT if there
-	 * is an egress rule in ebpf map, and the packet is not coming out from
-	 * overlay interface. If the packet is coming from an overlay interface
-	 * it means it is forwarded to another node, instead of leaving the
-	 * cluster.
-	 */
-	if (1) {
-		struct egress_info *einfo;
-
-		einfo = lookup_ip4_egress_endpoint(ip4->saddr, ip4->daddr);
-		if (einfo && ctx->ifindex != ENCAP_IFINDEX) {
-			*addr = einfo->egress_ip;
-			*from_endpoint = true;
-			return true;
-		}
-	}
-#endif
 
 	/* Basic minimum is to only NAT when there is a potential of
 	 * overlapping tuples, e.g. applications in hostns reusing
@@ -1128,13 +1112,10 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 #endif
 
 	ep = __lookup_ip4_endpoint(ip4->saddr);
-	/* If this is not a local endpoint, or if this is a localhost endpoint,
-	 * no SNAT is needed.
-	 */
-	if (!ep || (ep->flags & ENDPOINT_F_HOST))
+	/* if this is a localhost endpoint, no SNAT is needed */
+	if (ep && (ep->flags & ENDPOINT_F_HOST))
 		return false;
 
-	*from_endpoint = true;
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 	if (info) {
 #ifdef ENABLE_IP_MASQ_AGENT
@@ -1161,8 +1142,37 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 		if (info->sec_label == REMOTE_NODE_ID)
 			return false;
 #endif
+ #if defined(ENABLE_EGRESS_GATEWAY)
+		/* Check egress gateway policy only for traffic which matches
+		 * one of the following conditions.
+		 *  - Not from a local endpoint (inc. local host): that tells us
+		 *    the traffic was redirected by an egress gateway policy to
+		 *    this node to be masqueraded.
+		 *  - Not destined for a remote node: that tells us the traffic
+		 *    is leaving the cluster. Inter-node traffic to remote pods
+		 *    would either leave through the tunnel or match the above
+		 *    IPV4_SNAT_EXCLUSION_DST_CIDR check.
+		 */
+		if (!ep || info->sec_label != REMOTE_NODE_ID) {
+			struct egress_info *einfo;
 
-		{
+			/* Check if SNAT needs to be applied to the packet.
+			 * Apply SNAT if there is an egress rule in ebpf map,
+			 * and the packet is not coming out from overlay
+			 * interface. If the packet is coming from an overlay
+			 * interface it means it is forwarded to another node,
+			 * instead of leaving the cluster.
+			 */
+			einfo = lookup_ip4_egress_endpoint(ip4->saddr, ip4->daddr);
+			if (einfo) {
+				*addr = einfo->egress_ip;
+				*from_endpoint = true;
+				return true;
+			}
+		}
+#endif
+
+		if (ep) {
 			bool is_reply = false;
 			struct ipv4_ct_tuple tuple = {
 				.nexthdr = ip4->protocol,
@@ -1180,6 +1190,7 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 			    is_reply)
 				return false;
 
+			*from_endpoint = true;
 			*addr = IPV4_MASQUERADE;
 			return true;
 		}
