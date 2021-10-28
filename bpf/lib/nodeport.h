@@ -1057,6 +1057,7 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 	struct iphdr *ip4;
 	struct ipv4_ct_tuple tuple __maybe_unused = {};
 	bool is_reply __maybe_unused = false;
+	struct remote_endpoint_info __maybe_unused *info;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return false;
@@ -1069,11 +1070,11 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 	 * cluster.
 	 */
 	if (1) {
-		struct egress_info *info;
+		struct egress_info *einfo;
 
-		info = lookup_ip4_egress_endpoint(ip4->saddr, ip4->daddr);
-		if (info && ctx->ifindex != ENCAP_IFINDEX) {
-			*addr = info->egress_ip;
+		einfo = lookup_ip4_egress_endpoint(ip4->saddr, ip4->daddr);
+		if (einfo && ctx->ifindex != ENCAP_IFINDEX) {
+			*addr = einfo->egress_ip;
 			*from_endpoint = true;
 			return true;
 		}
@@ -1129,55 +1130,56 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 #endif
 
 	ep = __lookup_ip4_endpoint(ip4->saddr);
-	if (ep && !(ep->flags & ENDPOINT_F_HOST)) {
-		struct remote_endpoint_info *info;
-		*from_endpoint = true;
+	/* If this is not a local endpoint, or if this is a localhost endpoint,
+	 * no SNAT is needed.
+	 */
+	if (!ep || (ep->flags & ENDPOINT_F_HOST))
+		return false;
 
-		info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr,
-				       V4_CACHE_KEY_LEN);
-		if (info) {
+	*from_endpoint = true;
+	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
+	if (info) {
 #ifdef ENABLE_IP_MASQ_AGENT
-			/* Do not SNAT if dst belongs to any ip-masq-agent
-			 * subnet.
-			 */
-			struct lpm_v4_key pfx;
+		/* Do not SNAT if dst belongs to any ip-masq-agent
+		 * subnet.
+		 */
+		struct lpm_v4_key pfx;
 
-			pfx.lpm.prefixlen = 32;
-			memcpy(pfx.lpm.data, &ip4->daddr, sizeof(pfx.addr));
-			if (map_lookup_elem(&IP_MASQ_AGENT_IPV4, &pfx))
-				return false;
+		pfx.lpm.prefixlen = 32;
+		memcpy(pfx.lpm.data, &ip4->daddr, sizeof(pfx.addr));
+		if (map_lookup_elem(&IP_MASQ_AGENT_IPV4, &pfx))
+			return false;
 #endif
 #ifndef TUNNEL_MODE
-			/* In the tunnel mode, a packet from a local ep
-			 * to a remote node is not encap'd, and is sent
-			 * via a native dev. Therefore, such packet has
-			 * to be MASQ'd. Otherwise, it might be dropped
-			 * either by underlying network (e.g. AWS drops
-			 * packets by default from unknown subnets) or
-			 * by the remote node if its native dev's
-			 * rp_filter=1.
-			 */
-			if (info->sec_label == REMOTE_NODE_ID)
-				return false;
+		/* In the tunnel mode, a packet from a local ep
+		 * to a remote node is not encap'd, and is sent
+		 * via a native dev. Therefore, such packet has
+		 * to be MASQ'd. Otherwise, it might be dropped
+		 * either by underlying network (e.g. AWS drops
+		 * packets by default from unknown subnets) or
+		 * by the remote node if its native dev's
+		 * rp_filter=1.
+		 */
+		if (info->sec_label == REMOTE_NODE_ID)
+			return false;
 #endif
 
-			tuple.nexthdr = ip4->protocol;
-			tuple.daddr = ip4->daddr;
-			tuple.saddr = ip4->saddr;
+		tuple.nexthdr = ip4->protocol;
+		tuple.daddr = ip4->daddr;
+		tuple.saddr = ip4->saddr;
 
-			/* The packet is a reply, which means that outside
-			 * has initiated the connection, so no need to SNAT
-			 * the reply.
-			 */
-			if (!ct_is_reply4(get_ct_map4(&tuple), ctx,
-					  ETH_HLEN + ipv4_hdrlen(ip4),
-					  &tuple, &is_reply) &&
-			    is_reply)
-				return false;
+		/* The packet is a reply, which means that outside
+		 * has initiated the connection, so no need to SNAT
+		 * the reply.
+		 */
+		if (!ct_is_reply4(get_ct_map4(&tuple), ctx,
+				  ETH_HLEN + ipv4_hdrlen(ip4),
+				  &tuple, &is_reply) &&
+		    is_reply)
+			return false;
 
-			*addr = IPV4_MASQUERADE;
-			return true;
-		}
+		*addr = IPV4_MASQUERADE;
+		return true;
 	}
 #endif /*ENABLE_MASQUERADE */
 
