@@ -29,7 +29,7 @@ func (ds *FQDNTestSuite) TestNameManagerCIDRGeneration(c *C) {
 	var (
 		selIPMap map[api.FQDNSelector][]net.IP
 
-		identityAllocator = testidentity.NewFakeIdentityAllocator(nil)
+		identityAllocator = testidentity.NewMockIdentityAllocator(nil)
 		nameManager       = NewNameManager(Config{
 			MinTTL: 1,
 			Cache:  NewDNSCache(0),
@@ -78,7 +78,7 @@ func (ds *FQDNTestSuite) TestNameManagerMultiIPUpdate(c *C) {
 	var (
 		selIPMap map[api.FQDNSelector][]net.IP
 
-		identityAllocator = testidentity.NewFakeIdentityAllocator(nil)
+		identityAllocator = testidentity.NewMockIdentityAllocator(nil)
 		nameManager       = NewNameManager(Config{
 			MinTTL: 1,
 			Cache:  NewDNSCache(0),

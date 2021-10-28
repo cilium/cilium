@@ -348,7 +348,7 @@ type policyDistillery struct {
 }
 
 func newPolicyDistillery(selectorCache *SelectorCache) *policyDistillery {
-	identityAllocator := testidentity.NewFakeIdentityAllocator(nil)
+	identityAllocator := testidentity.NewMockIdentityAllocator(nil)
 	ret := &policyDistillery{
 		Repository: NewPolicyRepository(identityAllocator, nil, nil),
 	}
