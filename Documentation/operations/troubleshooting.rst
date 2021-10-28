@@ -126,7 +126,7 @@ e.g.:
 .. code-block:: shell-session
 
    $ cilium status
-   KVStore:                Ok   etcd: 1/1 connected: https://192.168.33.11:2379 - 3.2.7 (Leader)
+   KVStore:                Ok   etcd: 1/1 connected: https://192.168.60.11:2379 - 3.2.7 (Leader)
    ContainerRuntime:       Ok
    Kubernetes:             Ok   OK
    Kubernetes APIs:        ["core/v1::Endpoint", "extensions/v1beta1::Ingress", "core/v1::Node", "CustomResourceDefinition", "cilium/v2::CiliumNetworkPolicy", "networking.k8s.io/v1::NetworkPolicy", "core/v1::Service"]
@@ -586,7 +586,7 @@ Understanding etcd status
 The etcd status is reported when running ``cilium status``. The following line
 represents the status of etcd::
 
-   KVStore:  Ok  etcd: 1/1 connected, lease-ID=29c6732d5d580cb5, lock lease-ID=29c6732d5d580cb7, has-quorum=true: https://192.168.33.11:2379 - 3.4.9 (Leader)
+   KVStore:  Ok  etcd: 1/1 connected, lease-ID=29c6732d5d580cb5, lock lease-ID=29c6732d5d580cb7, has-quorum=true: https://192.168.60.11:2379 - 3.4.9 (Leader)
 
 OK:
   The overall status. Either ``OK`` or ``Failure``.
@@ -606,7 +606,7 @@ has-quorum:
 consecutive-errors:
   Number of consecutive quorum errors. Only printed if errors are present.
 
-https://192.168.33.11:2379 - 3.4.9 (Leader):
+https://192.168.60.11:2379 - 3.4.9 (Leader):
   List of all etcd endpoints stating the etcd version and whether the
   particular endpoint is currently the elected leader. If an etcd endpoint
   cannot be reached, the error is shown.
@@ -644,7 +644,7 @@ cluster size. The larger the cluster, the longer the `interval
 Example of a status with a quorum failure which has not yet reached the
 threshold::
 
-    KVStore: Ok   etcd: 1/1 connected, lease-ID=29c6732d5d580cb5, lock lease-ID=29c6732d5d580cb7, has-quorum=2m2.778966915s since last heartbeat update has been received, consecutive-errors=1: https://192.168.33.11:2379 - 3.4.9 (Leader)
+    KVStore: Ok   etcd: 1/1 connected, lease-ID=29c6732d5d580cb5, lock lease-ID=29c6732d5d580cb7, has-quorum=2m2.778966915s since last heartbeat update has been received, consecutive-errors=1: https://192.168.60.11:2379 - 3.4.9 (Leader)
 
 Example of a status with the number of quorum failures exceeding the threshold::
 
@@ -842,7 +842,7 @@ State Propagation
            },
            endpoints: (map[k8s.ServiceID]*k8s.Endpoints) (len=2) {
              (k8s.ServiceID) kube-system/kube-dns: (*k8s.Endpoints)(0xc0000103c0)(10.16.127.105:53/TCP,10.16.127.105:53/UDP,10.16.127.105:9153/TCP),
-             (k8s.ServiceID) default/kubernetes: (*k8s.Endpoints)(0xc0000103f8)(192.168.33.11:6443/TCP)
+             (k8s.ServiceID) default/kubernetes: (*k8s.Endpoints)(0xc0000103f8)(192.168.60.11:6443/TCP)
            },
            externalEndpoints: (map[k8s.ServiceID]k8s.externalEndpoints) {
            }

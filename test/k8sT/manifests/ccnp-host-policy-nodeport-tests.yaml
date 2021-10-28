@@ -24,7 +24,7 @@ spec:
     - remote-node
   # Kubelet to node without Cilium
   - toCIDR:
-    - 192.168.36.13/32
+    - 192.168.56.13/32
     toPorts:
     - ports:
       - port: "10250"

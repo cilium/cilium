@@ -154,7 +154,7 @@ commands can be helpful:
                  "10.154.1.107/32",
                  "10.154.1.195/32"
                ],
-               "endpoint": "192.168.34.12:51871",
+               "endpoint": "192.168.61.12:51871",
                "last-handshake-time": "2021-05-05T12:31:24.418Z",
                "public-key": "RcYfs/GEkcnnv6moK5A1pKnd+YYUue21jO9I08Bv0zo="
              }
@@ -179,7 +179,7 @@ commands can be helpful:
                  "10.154.2.103/32",
                  "10.154.2.142/32"
                ],
-               "endpoint": "192.168.34.11:51871",
+               "endpoint": "192.168.61.11:51871",
                "last-handshake-time": "2021-05-05T12:31:24.631Z",
                "public-key": "DrAc2EloK45yqAcjhxerQKwoYUbLDjyrWgt9UXImbEY="
              }

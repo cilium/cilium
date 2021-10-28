@@ -39,7 +39,7 @@ spec:
           privileged: true
         env:
         - name: EGRESS_IPS
-          value: "192.168.33.100/24 192.168.33.101/24"
+          value: "192.168.60.100/24 192.168.60.101/24"
         args:
         - "for i in $EGRESS_IPS; do ip address add $i dev enp0s8; done; sleep 10000000"
         lifecycle:

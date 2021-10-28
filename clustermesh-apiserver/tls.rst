@@ -40,7 +40,7 @@ using an externally accessible service IP from your cluster:
 
 ::
 
-    192.168.36.11 clustermesh-apiserver.cilium.io
+    192.168.56.11 clustermesh-apiserver.cilium.io
 
 Manual instructions using openssl
 =================================
@@ -217,7 +217,7 @@ externally accessible service IP from your cluster:
 
 ::
 
-    192.168.36.11 clustermesh-apiserver.ciliumn.io
+    192.168.56.11 clustermesh-apiserver.ciliumn.io
 
 Starting Cilium in a Container in a VM
 ======================================
@@ -228,10 +228,10 @@ $ docker run -d --name cilium --restart always --privileged --cap-add ALL --log-
 --volume /home/vagrant/cilium/etcd:/var/lib/cilium/etcd
 
 
-/usr/bin/cilium-agent --kvstore etcd --kvstore-opt etcd.config=/var/lib/cilium/etcd/config.yaml --ipv4-node 192.168.36.10 --join-cluster
+/usr/bin/cilium-agent --kvstore etcd --kvstore-opt etcd.config=/var/lib/cilium/etcd/config.yaml --ipv4-node 192.168.56.10 --join-cluster
 sudo mount bpffs -t bpf /sys/fs/bpf
 
---add-host clustermesh-apiserver.cilium.io:192.168.36.11
+--add-host clustermesh-apiserver.cilium.io:192.168.56.11
 --network host
 --privileged
 --cap-add ALL
