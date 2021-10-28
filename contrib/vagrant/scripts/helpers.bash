@@ -31,7 +31,7 @@ if [[ -n "${IPV6_EXT}" ]]; then
     # controllers_ips[1] contains the IP without brackets
     controllers_ips=( "[${master_ip}]" "${master_ip}" )
 else
-    master_ip=${MASTER_IPV4:-"192.168.33.11"}
+    master_ip=${MASTER_IPV4:-"192.168.60.11"}
     controllers_ips=( "${master_ip}" "${master_ip}" )
 fi
 
