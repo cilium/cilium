@@ -7,9 +7,7 @@ package device
 
 import (
 	"container/list"
-	"encoding/base64"
 	"errors"
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -144,12 +142,29 @@ func (peer *Peer) SendBuffer(buffer []byte) error {
 }
 
 func (peer *Peer) String() string {
-	base64Key := base64.StdEncoding.EncodeToString(peer.handshake.remoteStatic[:])
-	abbreviatedKey := "invalid"
-	if len(base64Key) == 44 {
-		abbreviatedKey = base64Key[0:4] + "…" + base64Key[39:43]
+	// The awful goo that follows is identical to:
+	//
+	//   base64Key := base64.StdEncoding.EncodeToString(peer.handshake.remoteStatic[:])
+	//   abbreviatedKey := base64Key[0:4] + "…" + base64Key[39:43]
+	//   return fmt.Sprintf("peer(%s)", abbreviatedKey)
+	//
+	// except that it is considerably more efficient.
+	src := peer.handshake.remoteStatic
+	b64 := func(input byte) byte {
+		return input + 'A' + byte(((25-int(input))>>8)&6) - byte(((51-int(input))>>8)&75) - byte(((61-int(input))>>8)&15) + byte(((62-int(input))>>8)&3)
 	}
-	return fmt.Sprintf("peer(%s)", abbreviatedKey)
+	b := []byte("peer(____…____)")
+	const first = len("peer(")
+	const second = len("peer(____…")
+	b[first+0] = b64((src[0] >> 2) & 63)
+	b[first+1] = b64(((src[0] << 4) | (src[1] >> 4)) & 63)
+	b[first+2] = b64(((src[1] << 2) | (src[2] >> 6)) & 63)
+	b[first+3] = b64(src[2] & 63)
+	b[second+0] = b64(src[29] & 63)
+	b[second+1] = b64((src[30] >> 2) & 63)
+	b[second+2] = b64(((src[30] << 4) | (src[31] >> 4)) & 63)
+	b[second+3] = b64((src[31] << 2) & 63)
+	return string(b)
 }
 
 func (peer *Peer) Start() {
@@ -167,7 +182,7 @@ func (peer *Peer) Start() {
 	}
 
 	device := peer.device
-	device.log.Verbosef("%v - Starting...", peer)
+	device.log.Verbosef("%v - Starting", peer)
 
 	// reset routine state
 	peer.stopping.Wait()
@@ -243,7 +258,7 @@ func (peer *Peer) Stop() {
 		return
 	}
 
-	peer.device.log.Verbosef("%v - Stopping...", peer)
+	peer.device.log.Verbosef("%v - Stopping", peer)
 
 	peer.timersStop()
 	// Signal that RoutineSequentialSender and RoutineSequentialReceiver should exit.

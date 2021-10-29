@@ -8,7 +8,6 @@ package tun
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -35,18 +34,19 @@ type rateJuggler struct {
 
 type NativeTun struct {
 	wt        *wintun.Adapter
+	name      string
 	handle    windows.Handle
-	close     bool
-	closing   sync.RWMutex
-	events    chan Event
-	forcedMTU int
 	rate      rateJuggler
 	session   wintun.Session
 	readWait  windows.Handle
+	events    chan Event
+	running   sync.WaitGroup
 	closeOnce sync.Once
+	close     int32
+	forcedMTU int
 }
 
-var WintunPool, _ = wintun.MakePool("WireGuard")
+var WintunTunnelType = "WireGuard"
 var WintunStaticRequestedGUID *windows.GUID
 
 //go:linkname procyield runtime.procyield
@@ -68,24 +68,9 @@ func CreateTUN(ifname string, mtu int) (Device, error) {
 // a requested GUID. Should a Wintun interface with the same name exist, it is reused.
 //
 func CreateTUNWithRequestedGUID(ifname string, requestedGUID *windows.GUID, mtu int) (Device, error) {
-	var err error
-	var wt *wintun.Adapter
-
-	// Does an interface with this name already exist?
-	wt, err = WintunPool.OpenAdapter(ifname)
-	if err == nil {
-		// If so, we delete it, in case it has weird residual configuration.
-		_, err = wt.Delete(true)
-		if err != nil {
-			return nil, fmt.Errorf("Error deleting already existing interface: %w", err)
-		}
-	}
-	wt, rebootRequired, err := WintunPool.CreateAdapter(ifname, requestedGUID)
+	wt, err := wintun.CreateAdapter(ifname, WintunTunnelType, requestedGUID)
 	if err != nil {
 		return nil, fmt.Errorf("Error creating interface: %w", err)
-	}
-	if rebootRequired {
-		log.Println("Windows indicated a reboot is required.")
 	}
 
 	forcedMTU := 1420
@@ -95,6 +80,7 @@ func CreateTUNWithRequestedGUID(ifname string, requestedGUID *windows.GUID, mtu 
 
 	tun := &NativeTun{
 		wt:        wt,
+		name:      ifname,
 		handle:    windows.InvalidHandle,
 		events:    make(chan Event, 10),
 		forcedMTU: forcedMTU,
@@ -102,7 +88,7 @@ func CreateTUNWithRequestedGUID(ifname string, requestedGUID *windows.GUID, mtu 
 
 	tun.session, err = wt.StartSession(0x800000) // Ring capacity, 8 MiB
 	if err != nil {
-		tun.wt.Delete(false)
+		tun.wt.Close()
 		close(tun.events)
 		return nil, fmt.Errorf("Error starting session: %w", err)
 	}
@@ -111,12 +97,7 @@ func CreateTUNWithRequestedGUID(ifname string, requestedGUID *windows.GUID, mtu 
 }
 
 func (tun *NativeTun) Name() (string, error) {
-	tun.closing.RLock()
-	defer tun.closing.RUnlock()
-	if tun.close {
-		return "", os.ErrClosed
-	}
-	return tun.wt.Name()
+	return tun.name, nil
 }
 
 func (tun *NativeTun) File() *os.File {
@@ -130,12 +111,12 @@ func (tun *NativeTun) Events() chan Event {
 func (tun *NativeTun) Close() error {
 	var err error
 	tun.closeOnce.Do(func() {
-		tun.closing.Lock()
-		defer tun.closing.Unlock()
-		tun.close = true
+		atomic.StoreInt32(&tun.close, 1)
+		windows.SetEvent(tun.readWait)
+		tun.running.Wait()
 		tun.session.End()
 		if tun.wt != nil {
-			_, err = tun.wt.Delete(false)
+			tun.wt.Close()
 		}
 		close(tun.events)
 	})
@@ -148,22 +129,26 @@ func (tun *NativeTun) MTU() (int, error) {
 
 // TODO: This is a temporary hack. We really need to be monitoring the interface in real time and adapting to MTU changes.
 func (tun *NativeTun) ForceMTU(mtu int) {
+	update := tun.forcedMTU != mtu
 	tun.forcedMTU = mtu
+	if update {
+		tun.events <- EventMTUUpdate
+	}
 }
 
 // Note: Read() and Write() assume the caller comes only from a single thread; there's no locking.
 
 func (tun *NativeTun) Read(buff []byte, offset int) (int, error) {
-	tun.closing.RLock()
-	defer tun.closing.RUnlock()
+	tun.running.Add(1)
+	defer tun.running.Done()
 retry:
-	if tun.close {
+	if atomic.LoadInt32(&tun.close) == 1 {
 		return 0, os.ErrClosed
 	}
 	start := nanotime()
 	shouldSpin := atomic.LoadUint64(&tun.rate.current) >= spinloopRateThreshold && uint64(start-atomic.LoadInt64(&tun.rate.nextStartTime)) <= rateMeasurementGranularity*2
 	for {
-		if tun.close {
+		if atomic.LoadInt32(&tun.close) == 1 {
 			return 0, os.ErrClosed
 		}
 		packet, err := tun.session.ReceivePacket()
@@ -195,9 +180,9 @@ func (tun *NativeTun) Flush() error {
 }
 
 func (tun *NativeTun) Write(buff []byte, offset int) (int, error) {
-	tun.closing.RLock()
-	defer tun.closing.RUnlock()
-	if tun.close {
+	tun.running.Add(1)
+	defer tun.running.Done()
+	if atomic.LoadInt32(&tun.close) == 1 {
 		return 0, os.ErrClosed
 	}
 
@@ -221,9 +206,9 @@ func (tun *NativeTun) Write(buff []byte, offset int) (int, error) {
 
 // LUID returns Windows interface instance ID.
 func (tun *NativeTun) LUID() uint64 {
-	tun.closing.RLock()
-	defer tun.closing.RUnlock()
-	if tun.close {
+	tun.running.Add(1)
+	defer tun.running.Done()
+	if atomic.LoadInt32(&tun.close) == 1 {
 		return 0
 	}
 	return tun.wt.LUID()

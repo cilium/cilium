@@ -8,7 +8,9 @@ package device
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"net"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -227,7 +229,9 @@ func (device *Device) RoutineReadFromTUN() {
 
 		if err != nil {
 			if !device.isClosed() {
-				device.log.Errorf("Failed to read packet from TUN device: %v", err)
+				if !errors.Is(err, os.ErrClosed) {
+					device.log.Errorf("Failed to read packet from TUN device: %v", err)
+				}
 				go device.Close()
 			}
 			device.PutMessageBuffer(elem.buffer)
@@ -250,14 +254,14 @@ func (device *Device) RoutineReadFromTUN() {
 				continue
 			}
 			dst := elem.packet[IPv4offsetDst : IPv4offsetDst+net.IPv4len]
-			peer = device.allowedips.LookupIPv4(dst)
+			peer = device.allowedips.Lookup(dst)
 
 		case ipv6.Version:
 			if len(elem.packet) < ipv6.HeaderLen {
 				continue
 			}
 			dst := elem.packet[IPv6offsetDst : IPv6offsetDst+net.IPv6len]
-			peer = device.allowedips.LookupIPv6(dst)
+			peer = device.allowedips.Lookup(dst)
 
 		default:
 			device.log.Verbosef("Received packet with unknown IP version")
@@ -362,12 +366,12 @@ func calculatePaddingSize(packetSize, mtu int) int {
  *
  * Obs. One instance per core
  */
-func (device *Device) RoutineEncryption() {
+func (device *Device) RoutineEncryption(id int) {
 	var paddingZeros [PaddingMultiple]byte
 	var nonce [chacha20poly1305.NonceSize]byte
 
-	defer device.log.Verbosef("Routine: encryption worker - stopped")
-	device.log.Verbosef("Routine: encryption worker - started")
+	defer device.log.Verbosef("Routine: encryption worker %d - stopped", id)
+	device.log.Verbosef("Routine: encryption worker %d - started", id)
 
 	for elem := range device.queue.encryption.c {
 		// populate header fields

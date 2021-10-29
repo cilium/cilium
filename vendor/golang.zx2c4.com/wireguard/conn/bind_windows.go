@@ -121,10 +121,8 @@ func (*WinRingBind) ParseEndpoint(s string) (Endpoint, error) {
 	if (addrinfo.Family != windows.AF_INET && addrinfo.Family != windows.AF_INET6) || addrinfo.Addrlen > unsafe.Sizeof(WinRingEndpoint{}) {
 		return nil, windows.ERROR_INVALID_ADDRESS
 	}
-	var src []byte
 	var dst [unsafe.Sizeof(WinRingEndpoint{})]byte
-	unsafeSlice(unsafe.Pointer(&src), unsafe.Pointer(addrinfo.Addr), int(addrinfo.Addrlen))
-	copy(dst[:], src)
+	copy(dst[:], unsafe.Slice((*byte)(unsafe.Pointer(addrinfo.Addr)), addrinfo.Addrlen))
 	return (*WinRingEndpoint)(unsafe.Pointer(&dst[0])), nil
 }
 
@@ -357,6 +355,7 @@ func (bind *afWinRingBind) Receive(buf []byte, isOpen *uint32) (int, Endpoint, e
 	var count uint32
 	var results [1]winrio.Result
 retry:
+	count = 0
 	for tries := 0; count == 0 && tries < receiveSpins; tries++ {
 		if tries > 0 {
 			if atomic.LoadUint32(isOpen) != 1 {
@@ -579,22 +578,4 @@ func bindSocketToInterface4(handle windows.Handle, interfaceIndex uint32) error 
 func bindSocketToInterface6(handle windows.Handle, interfaceIndex uint32) error {
 	const IPV6_UNICAST_IF = 31
 	return windows.SetsockoptInt(handle, windows.IPPROTO_IPV6, IPV6_UNICAST_IF, int(interfaceIndex))
-}
-
-// unsafeSlice updates the slice slicePtr to be a slice
-// referencing the provided data with its length & capacity set to
-// lenCap.
-//
-// TODO: when Go 1.16 or Go 1.17 is the minimum supported version,
-// update callers to use unsafe.Slice instead of this.
-func unsafeSlice(slicePtr, data unsafe.Pointer, lenCap int) {
-	type sliceHeader struct {
-		Data unsafe.Pointer
-		Len  int
-		Cap  int
-	}
-	h := (*sliceHeader)(slicePtr)
-	h.Data = data
-	h.Len = lenCap
-	h.Cap = lenCap
 }

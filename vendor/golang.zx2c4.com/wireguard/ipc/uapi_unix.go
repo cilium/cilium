@@ -1,4 +1,4 @@
-// +build linux darwin freebsd openbsd
+//go:build linux || darwin || freebsd || openbsd
 
 /* SPDX-License-Identifier: MIT
  *

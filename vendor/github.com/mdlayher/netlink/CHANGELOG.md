@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## v1.4.1
+
+- [Improvement]: significant runtime network poller integration cleanup through
+  the use of `github.com/mdlayher/socket`.
+
 ## v1.4.0
 
 - [New API] [#185](https://github.com/mdlayher/netlink/pull/185): the
