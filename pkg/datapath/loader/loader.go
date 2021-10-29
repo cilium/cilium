@@ -256,7 +256,8 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 
 	for i, interfaceName := range interfaceNames {
 		symbol := symbols[i]
-		if err := replaceDatapath(ctx, interfaceName, objPaths[i], symbol, directions[i], false, ""); err != nil {
+		finalize, err := replaceDatapath(ctx, interfaceName, objPaths[i], symbol, directions[i], false, "")
+		if err != nil {
 			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 				logfields.Path: objPath,
 				logfields.Veth: interfaceName,
@@ -269,6 +270,8 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 			}
 			return err
 		}
+		// Defer map removal until all interfaces' progs have been replaced.
+		defer finalize()
 	}
 
 	return nil
@@ -303,7 +306,8 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 			return err
 		}
 	} else {
-		if err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress, false, ""); err != nil {
+		finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress, false, "")
+		if err != nil {
 			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 				logfields.Path: objPath,
 				logfields.Veth: ep.InterfaceName(),
@@ -316,9 +320,11 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 			}
 			return err
 		}
+		defer finalize()
 
 		if ep.RequireEgressProg() {
-			if err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolToEndpoint, dirEgress, false, ""); err != nil {
+			finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolToEndpoint, dirEgress, false, "")
+			if err != nil {
 				scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 					logfields.Path: objPath,
 					logfields.Veth: ep.InterfaceName(),
@@ -331,6 +337,7 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 				}
 				return err
 			}
+			defer finalize()
 		} else {
 			err := RemoveTCFilters(ep.InterfaceName(), netlink.HANDLE_MIN_EGRESS)
 			if err != nil {
@@ -363,9 +370,12 @@ func (l *Loader) replaceNetworkDatapath(ctx context.Context, interfaces []string
 		log.WithError(err).Fatal("failed to compile encryption programs")
 	}
 	for _, iface := range option.Config.EncryptInterface {
-		if err := replaceDatapath(ctx, iface, networkObj, symbolFromNetwork, dirIngress, false, ""); err != nil {
+		finalize, err := replaceDatapath(ctx, iface, networkObj, symbolFromNetwork, dirIngress, false, "")
+		if err != nil {
 			log.WithField(logfields.Interface, iface).WithError(err).Fatal("Load encryption network failed")
 		}
+		// Defer map removal until all interfaces' progs have been replaced.
+		defer finalize()
 	}
 	return nil
 }
