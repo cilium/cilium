@@ -100,10 +100,10 @@ func (tun *NativeTun) routineRouteListener(tunIfindex int) {
 			continue
 		}
 
-		if data[3 /* type */ ] != unix.RTM_IFINFO {
+		if data[3 /* type */] != unix.RTM_IFINFO {
 			continue
 		}
-		ifindex := int(*(*uint16)(unsafe.Pointer(&data[12 /* ifindex */ ])))
+		ifindex := int(*(*uint16)(unsafe.Pointer(&data[12 /* ifindex */])))
 		if ifindex != tunIfindex {
 			continue
 		}

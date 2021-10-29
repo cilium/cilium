@@ -1,4 +1,5 @@
-//+build linux
+//go:build linux
+// +build linux
 
 package wglinux
 
@@ -98,8 +99,6 @@ func (c *Client) Device(name string) (*wgtypes.Device, error) {
 		return nil, os.ErrNotExist
 	}
 
-	flags := netlink.Request | netlink.Dump
-
 	// Fetching a device by interface index is possible as well, but we only
 	// support fetching by name as it seems to be more convenient in general.
 	b, err := netlink.MarshalAttributes([]netlink.Attribute{{
@@ -110,7 +109,7 @@ func (c *Client) Device(name string) (*wgtypes.Device, error) {
 		return nil, err
 	}
 
-	msgs, err := c.execute(wgh.CmdGetDevice, flags, b)
+	msgs, err := c.execute(wgh.CmdGetDevice, netlink.Request|netlink.Dump, b)
 	if err != nil {
 		return nil, err
 	}
@@ -130,8 +129,7 @@ func (c *Client) ConfigureDevice(name string, cfg wgtypes.Config) error {
 		// Request acknowledgement of our request from netlink, even though the
 		// output messages are unused.  The netlink package checks and trims the
 		// status code value.
-		flags := netlink.Request | netlink.Acknowledge
-		if _, err := c.execute(wgh.CmdSetDevice, flags, attrs); err != nil {
+		if _, err := c.execute(wgh.CmdSetDevice, netlink.Request|netlink.Acknowledge, attrs); err != nil {
 			return err
 		}
 	}

@@ -86,14 +86,14 @@ require (
 	go.mongodb.org/mongo-driver v1.5.1 // indirect
 	go.uber.org/goleak v1.1.10
 	go.universe.tf/metallb v0.10.0
-	golang.org/x/crypto v0.0.0-20210503195802-e9a32991a82e
-	golang.org/x/net v0.0.0-20210520170846-37e1c6afe023
+	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
+	golang.org/x/net v0.0.0-20211020060615-d418f374d309
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20210906170528-6f6e22806c34
+	golang.org/x/sys v0.0.0-20211020174200-9d6173849985
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 	golang.org/x/tools v0.1.5
-	golang.zx2c4.com/wireguard v0.0.0-20210427022245-097af6e1351b
-	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20210506160403-92e472f520a5
+	golang.zx2c4.com/wireguard v0.0.0-20211028114750-eb6302c7eb71
+	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20211027115401-c9b1ec1aa6d8
 	google.golang.org/genproto v0.0.0-20210602131652-f16073e35f0c
 	google.golang.org/grpc v1.39.0
 	google.golang.org/protobuf v1.27.1
@@ -179,8 +179,9 @@ require (
 	github.com/mdlayher/ethernet v0.0.0-20190606142754-0394541c37b7 // indirect
 	github.com/mdlayher/genetlink v1.0.0 // indirect
 	github.com/mdlayher/ndp v0.0.0-20200602162440-17ab9e3e5567 // indirect
-	github.com/mdlayher/netlink v1.4.0 // indirect
+	github.com/mdlayher/netlink v1.4.1 // indirect
 	github.com/mdlayher/raw v0.0.0-20191009151244-50f2db8cc065 // indirect
+	github.com/mdlayher/socket v0.0.0-20210307095302-262dc9984e00 // indirect
 	github.com/mikioh/ipaddr v0.0.0-20190404000644-d465c8ab6721 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.4.1 // indirect

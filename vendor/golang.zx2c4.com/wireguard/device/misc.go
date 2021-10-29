@@ -39,10 +39,3 @@ func (a *AtomicBool) Set(val bool) {
 	}
 	atomic.StoreInt32(&a.int32, flag)
 }
-
-func min(a, b uint) uint {
-	if a > b {
-		return b
-	}
-	return a
-}
