@@ -55,6 +55,9 @@ const (
 	// ReusePolicyNone will disable re-use of tables.
 	// This is slightly faster than ReusePolicyAllow but may produce larger output.
 	ReusePolicyNone
+
+	// ReusePolicyMust must allow reuse and produce smaller output.
+	ReusePolicyMust
 )
 
 type Scratch struct {
@@ -114,6 +117,16 @@ type Scratch struct {
 	tmpOut         [4][]byte
 	fse            *fse.Scratch
 	huffWeight     [maxSymbolValue + 1]byte
+}
+
+// TransferCTable will transfer the previously used compression table.
+func (s *Scratch) TransferCTable(src *Scratch) {
+	if cap(s.prevTable) < len(src.prevTable) {
+		s.prevTable = make(cTable, 0, maxSymbolValue+1)
+	}
+	s.prevTable = s.prevTable[:len(src.prevTable)]
+	copy(s.prevTable, src.prevTable)
+	s.prevTableLog = src.prevTableLog
 }
 
 func (s *Scratch) prepare(in []byte) (*Scratch, error) {
@@ -230,6 +243,68 @@ func (c cTable) write(s *Scratch) error {
 	}
 	s.Out = op
 	return nil
+}
+
+func (c cTable) estTableSize(s *Scratch) (sz int, err error) {
+	var (
+		// precomputed conversion table
+		bitsToWeight [tableLogMax + 1]byte
+		huffLog      = s.actualTableLog
+		// last weight is not saved.
+		maxSymbolValue = uint8(s.symbolLen - 1)
+		huffWeight     = s.huffWeight[:256]
+	)
+	const (
+		maxFSETableLog = 6
+	)
+	// convert to weight
+	bitsToWeight[0] = 0
+	for n := uint8(1); n < huffLog+1; n++ {
+		bitsToWeight[n] = huffLog + 1 - n
+	}
+
+	// Acquire histogram for FSE.
+	hist := s.fse.Histogram()
+	hist = hist[:256]
+	for i := range hist[:16] {
+		hist[i] = 0
+	}
+	for n := uint8(0); n < maxSymbolValue; n++ {
+		v := bitsToWeight[c[n].nBits] & 15
+		huffWeight[n] = v
+		hist[v]++
+	}
+
+	// FSE compress if feasible.
+	if maxSymbolValue >= 2 {
+		huffMaxCnt := uint32(0)
+		huffMax := uint8(0)
+		for i, v := range hist[:16] {
+			if v == 0 {
+				continue
+			}
+			huffMax = byte(i)
+			if v > huffMaxCnt {
+				huffMaxCnt = v
+			}
+		}
+		s.fse.HistogramFinished(huffMax, int(huffMaxCnt))
+		s.fse.TableLog = maxFSETableLog
+		b, err := fse.Compress(huffWeight[:maxSymbolValue], s.fse)
+		if err == nil && len(b) < int(s.symbolLen>>1) {
+			sz += 1 + len(b)
+			return sz, nil
+		}
+		// Unable to compress (RLE/uncompressible)
+	}
+	// write raw values as 4-bits (max : 15)
+	if maxSymbolValue > (256 - 128) {
+		// should not happen : likely means source cannot be compressed
+		return 0, ErrIncompressible
+	}
+	// special case, pack weights 4 bits/weight.
+	sz += 1 + int(maxSymbolValue/2)
+	return sz, nil
 }
 
 // estimateSize returns the estimated size in bytes of the input represented in the
