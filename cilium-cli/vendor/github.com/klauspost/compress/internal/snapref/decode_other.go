@@ -2,9 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build !amd64 appengine !gc noasm
-
-package snappy
+package snapref
 
 // decode writes the decoding of src to dst. It assumes that the varint-encoded
 // length of the decompressed bytes has already been read, and that len(dst)
@@ -87,7 +85,7 @@ func decode(dst, src []byte) int {
 		}
 		// Copy from an earlier sub-slice of dst to a later sub-slice.
 		// If no overlap, use the built-in copy:
-		if offset > length {
+		if offset >= length {
 			copy(dst[d:d+length], dst[d-offset:])
 			d += length
 			continue
