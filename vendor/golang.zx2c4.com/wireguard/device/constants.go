@@ -35,7 +35,6 @@ const (
 /* Implementation constants */
 
 const (
-	UnderLoadQueueSize = QueueHandshakeSize / 8
 	UnderLoadAfterTime = time.Second // how long does the device remain under load after detected
 	MaxPeers           = 1 << 16     // maximum number of configured peers
 )

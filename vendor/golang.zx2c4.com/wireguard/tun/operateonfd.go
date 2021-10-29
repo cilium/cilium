@@ -1,4 +1,4 @@
-// +build !windows
+//go:build darwin || freebsd
 
 /* SPDX-License-Identifier: MIT
  *

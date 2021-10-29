@@ -210,7 +210,7 @@ func (device *Device) Down() error {
 func (device *Device) IsUnderLoad() bool {
 	// check if currently under load
 	now := time.Now()
-	underLoad := len(device.queue.handshake.c) >= UnderLoadQueueSize
+	underLoad := len(device.queue.handshake.c) >= QueueHandshakeSize/8
 	if underLoad {
 		atomic.StoreInt64(&device.rate.underLoadUntil, now.Add(UnderLoadAfterTime).UnixNano())
 		return true
@@ -304,9 +304,9 @@ func NewDevice(tunDevice tun.Device, bind conn.Bind, logger *Logger) *Device {
 	device.state.stopping.Wait()
 	device.queue.encryption.wg.Add(cpus) // One for each RoutineHandshake
 	for i := 0; i < cpus; i++ {
-		go device.RoutineEncryption()
-		go device.RoutineDecryption()
-		go device.RoutineHandshake()
+		go device.RoutineEncryption(i + 1)
+		go device.RoutineDecryption(i + 1)
+		go device.RoutineHandshake(i + 1)
 	}
 
 	device.state.stopping.Add(1)      // RoutineReadFromTUN

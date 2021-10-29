@@ -1,4 +1,5 @@
-//+build openbsd
+//go:build openbsd
+// +build openbsd
 
 package wgopenbsd
 

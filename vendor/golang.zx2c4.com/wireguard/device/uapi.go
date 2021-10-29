@@ -121,7 +121,7 @@ func (device *Device) IpcGetOperation(w io.Writer) error {
 			sendf("rx_bytes=%d", atomic.LoadUint64(&peer.stats.rxBytes))
 			sendf("persistent_keepalive_interval=%d", atomic.LoadUint32(&peer.persistentKeepaliveInterval))
 
-			device.allowedips.EntriesForPeer(peer, func(ip net.IP, cidr uint) bool {
+			device.allowedips.EntriesForPeer(peer, func(ip net.IP, cidr uint8) bool {
 				sendf("allowed_ip=%s/%d", ip.String(), cidr)
 				return true
 			})
@@ -379,7 +379,7 @@ func (device *Device) handlePeerLine(peer *ipcSetPeer, key, value string) error 
 			return nil
 		}
 		ones, _ := network.Mask.Size()
-		device.allowedips.Insert(network.IP, uint(ones), peer.Peer)
+		device.allowedips.Insert(network.IP, uint8(ones), peer.Peer)
 
 	case "protocol_version":
 		if value != "1" {
