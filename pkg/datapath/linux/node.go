@@ -24,7 +24,6 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -720,9 +719,6 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 				}
 				delete(n.neighByNextHop, existingNextHopStr)
 				delete(n.neighLastPingByNextHop, existingNextHopStr)
-				if option.Config.NodePortHairpin {
-					neighborsmap.NeighRetire(net.ParseIP(existingNextHopStr))
-				}
 			}
 		}
 	} else {
@@ -746,13 +742,6 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 	}
 
 	n.neighLastPingByNextHop[nextHopStr] = time.Now()
-
-	if option.Config.NodePortHairpin {
-		// Remove nextHopIPv4 entry in the neigh BPF map. Otherwise,
-		// we risk to silently blackhole packets instead of emitting
-		// DROP_NO_FIB if the netlink.NeighSet() below fails.
-		defer neighborsmap.NeighRetire(nextHopIPv4)
-	}
 
 	// Don't proceed if the refresh controller cancelled the context
 	select {
@@ -832,10 +821,6 @@ func (n *linuxNodeHandler) deleteNeighbor(oldNode *nodeTypes.Node) {
 					logfields.LinkIndex: neigh.LinkIndex,
 				}).WithError(err).Info("Unable to remove next hop")
 				return
-			}
-
-			if option.Config.NodePortHairpin {
-				neighborsmap.NeighRetire(neigh.IP)
 			}
 		}
 	}

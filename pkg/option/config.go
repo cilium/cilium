@@ -953,7 +953,8 @@ const (
 	// Otherwise, it will use the old scheme.
 	EgressMultiHomeIPRuleCompat = "egress-multi-home-ip-rule-compat"
 
-	// EnableBPFBypassFIBLookup instructs Cilium to enable the FIB lookup bypass optimization for nodeport reverse NAT handling.
+	// EnableBPFBypassFIBLookup instructs Cilium to enable the FIB lookup bypass
+	// optimization for nodeport reverse NAT handling (DEPRECATED).
 	EnableBPFBypassFIBLookup = "bpf-lb-bypass-fib-lookup"
 
 	// EnableCustomCallsName is the name of the option to enable tail calls
@@ -1729,9 +1730,6 @@ type DaemonConfig struct {
 	// via XDP ("none", "generic" or "native")
 	NodePortAcceleration string
 
-	// NodePortHairpin indicates whether the setup is a one-legged LB
-	NodePortHairpin bool
-
 	// NodePortBindProtection rejects bind requests to NodePort service ports
 	NodePortBindProtection bool
 
@@ -1978,9 +1976,6 @@ type DaemonConfig struct {
 	// store rules and routes under ENI and Azure IPAM modes, if false.
 	// Otherwise, it will use the old scheme.
 	EgressMultiHomeIPRuleCompat bool
-
-	// EnableBPFBypassFIBLookup instructs Cilium to enable the FIB lookup bypass optimization for nodeport reverse NAT handling.
-	EnableBPFBypassFIBLookup bool
 
 	// InstallNoConntrackIptRules instructs Cilium to install Iptables rules to skip netfilter connection tracking on all pod traffic.
 	InstallNoConntrackIptRules bool
@@ -2588,7 +2583,6 @@ func (c *DaemonConfig) Populate() {
 	c.LoadBalancerDSRL4Xlate = viper.GetString(LoadBalancerDSRL4Xlate)
 	c.LoadBalancerRSSv4CIDR = viper.GetString(LoadBalancerRSSv4CIDR)
 	c.LoadBalancerRSSv6CIDR = viper.GetString(LoadBalancerRSSv6CIDR)
-	c.EnableBPFBypassFIBLookup = viper.GetBool(EnableBPFBypassFIBLookup)
 	c.InstallNoConntrackIptRules = viper.GetBool(InstallNoConntrackIptRules)
 	c.EnableCustomCalls = viper.GetBool(EnableCustomCallsName)
 	c.BGPAnnounceLBIP = viper.GetBool(BGPAnnounceLBIP)

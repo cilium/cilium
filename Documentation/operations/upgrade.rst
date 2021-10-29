@@ -353,6 +353,11 @@ Deprecated Options
 * ``prefilter-device`` and ``prefilter-mode``: These options have been
   deprecated in favor of ``enable-xdp-prefilter`` and ``bpf-lb-acceleration``,
   and will be removed in 1.12.
+* The NodePort related ``bpf-lb-bypass-fib-lookup`` option to enable a FIB
+  lookup bypass optimization for NodePort's reverse NAT handling has been
+  deprecated as the Linux kernel's FIB table is now always consulted. Thus,
+  explicitly setting the option has no effect. It is scheduled for removal
+  in 1.12.
 
 New Options
 ~~~~~~~~~~~

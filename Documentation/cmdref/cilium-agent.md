@@ -35,7 +35,6 @@ cilium-agent [flags]
       --bpf-fragments-map-max int                            Maximum number of entries in fragments tracking map (default 8192)
       --bpf-lb-acceleration string                           BPF load balancing acceleration via XDP ("native", "disabled") (default "disabled")
       --bpf-lb-algorithm string                              BPF load balancing algorithm ("random", "maglev") (default "random")
-      --bpf-lb-bypass-fib-lookup                             Enable FIB lookup bypass optimization for nodeport reverse NAT handling (default true)
       --bpf-lb-dev-ip-addr-inherit string                    Device name which IP addr is inherited by devices running LB BPF program (--devices)
       --bpf-lb-dsr-dispatch string                           BPF load balancing DSR dispatch method ("opt", "ipip") (default "opt")
       --bpf-lb-dsr-l4-xlate string                           BPF load balancing DSR L4 DNAT method for IPIP ("frontend", "backend") (default "frontend")
