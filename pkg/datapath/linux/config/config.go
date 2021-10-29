@@ -363,9 +363,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
 			cDefinesMap["ENABLE_NODEPORT_ACCELERATION"] = "1"
 		}
-		if option.Config.NodePortHairpin {
-			cDefinesMap["ENABLE_NODEPORT_HAIRPIN"] = "1"
-		}
 		if !option.Config.EnableHostLegacyRouting {
 			cDefinesMap["ENABLE_REDIRECT_FAST"] = "1"
 		}
@@ -381,9 +378,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 				cDefinesMap["LB6_SRC_RANGE_MAP_SIZE"] =
 					fmt.Sprintf("%d", lbmap.SourceRange6Map.MapInfo.MaxEntries)
 			}
-		}
-		if option.Config.EnableBPFBypassFIBLookup {
-			cDefinesMap["ENABLE_FIB_LOOKUP_BYPASS"] = "1"
 		}
 
 		cDefinesMap["NODEPORT_PORT_MIN"] = fmt.Sprintf("%d", option.Config.NodePortMin)
