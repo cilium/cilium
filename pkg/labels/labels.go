@@ -56,6 +56,12 @@ var (
 
 	// LabelHost is the label used for the host endpoint.
 	LabelHost = Labels{IDNameHost: NewLabel(IDNameHost, "", LabelSourceReserved)}
+
+	// LabelWorld is the label used for world.
+	LabelWorld = Labels{IDNameWorld: NewLabel(IDNameWorld, "", LabelSourceReserved)}
+
+	// LabelRemoteNode is the label used for remote nodes.
+	LabelRemoteNode = Labels{IDNameRemoteNode: NewLabel(IDNameRemoteNode, "", LabelSourceReserved)}
 )
 
 const (
