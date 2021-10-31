@@ -55,7 +55,14 @@ func (meta *ObjectMeta) GetCreationTimestamp() metav1.Time { panic("not implemen
 func (meta *ObjectMeta) SetCreationTimestamp(_ metav1.Time) {
 	panic("not implemented")
 }
-func (meta *ObjectMeta) GetDeletionTimestamp() *metav1.Time { panic("not implemented") }
+func (meta *ObjectMeta) GetDeletionTimestamp() *metav1.Time {
+	if meta.DeletionTimestamp == nil {
+		return nil
+	}
+	return &metav1.Time{
+		Time: meta.DeletionTimestamp.Time,
+	}
+}
 func (meta *ObjectMeta) SetDeletionTimestamp(_ *metav1.Time) {
 	panic("not implemented")
 }
