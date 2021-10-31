@@ -129,6 +129,14 @@ func (in *ObjectMeta) DeepEqual(other *ObjectMeta) bool {
 	if in.UID != other.UID {
 		return false
 	}
+	if (in.DeletionTimestamp == nil) != (other.DeletionTimestamp == nil) {
+		return false
+	} else if in.DeletionTimestamp != nil {
+		if !in.DeletionTimestamp.DeepEqual(other.DeletionTimestamp) {
+			return false
+		}
+	}
+
 	if ((in.Labels != nil) && (other.Labels != nil)) || ((in.Labels == nil) != (other.Labels == nil)) {
 		in, other := &in.Labels, &other.Labels
 		if other == nil {
