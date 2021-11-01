@@ -140,6 +140,7 @@ configuration must include the following modules:
 ::
 
         CONFIG_NETFILTER_XT_TARGET_TPROXY=m
+        CONFIG_NETFILTER_XT_TARGET_CT=m
         CONFIG_NETFILTER_XT_MATCH_MARK=m
         CONFIG_NETFILTER_XT_MATCH_SOCKET=m
 
