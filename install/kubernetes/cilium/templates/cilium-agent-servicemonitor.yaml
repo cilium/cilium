@@ -9,6 +9,10 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    {{- with .Values.prometheus.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   selector:
     matchLabels:
@@ -35,6 +39,10 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    {{- with .Values.hubble.metrics.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   selector:
     matchLabels:

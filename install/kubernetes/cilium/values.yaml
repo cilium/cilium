@@ -585,6 +585,8 @@ hubble:
       # This requires the prometheus CRDs to be available.
       # ref: https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
       enabled: false
+      # -- Labels to add to ServiceMonitor hubble
+      labels: {}
 
   # -- Unix domain socket path to listen to when Hubble is enabled.
   socketPath: /var/run/cilium/hubble.sock
@@ -1038,6 +1040,8 @@ prometheus:
     # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
     #
     enabled: false
+    # -- Labels to add to ServiceMonitor cilium-agent
+    labels: {}
     # -- Specify the Kubernetes namespace where Prometheus expects to find
     # service monitors configured.
     # namespace: ""
@@ -1346,6 +1350,8 @@ operator:
       # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
       ##
       enabled: false
+      # -- Labels to add to ServiceMonitor cilium-operator
+      labels: {}
 
   # -- Skip CRDs creation for cilium-operator
   skipCRDCreation: false
