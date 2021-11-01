@@ -320,8 +320,8 @@ static __always_inline int policy_can_egress4(struct __ctx_buff *ctx,
  * Mark ctx to skip policy enforcement
  * @arg ctx	packet
  *
- * Will cause the packet to ignore the policy enforcement layer and
- * be considered accepted despite of the policy outcome.
+ * Will cause the packet to ignore the policy enforcement verdict for allow rules and
+ * be considered accepted despite of the policy outcome. Has no effect on deny rules.
  */
 static __always_inline void policy_mark_skip(struct __ctx_buff *ctx)
 {

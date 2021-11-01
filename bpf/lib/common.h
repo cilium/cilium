@@ -96,7 +96,9 @@
 #define CILIUM_CALL_IPV4_FROM_HOST		22
 #define CILIUM_CALL_IPV6_FROM_HOST		23
 #define CILIUM_CALL_IPV6_ENCAP_NODEPORT_NAT	24
-#define CILIUM_CALL_SIZE			25
+#define CILIUM_CALL_IPV4_FROM_LXC_CONT		25
+#define CILIUM_CALL_IPV6_FROM_LXC_CONT		26
+#define CILIUM_CALL_SIZE			27
 
 typedef __u64 mac_t;
 
@@ -588,6 +590,7 @@ enum {
 #define	CB_IPCACHE_SRC_LABEL	CB_IFINDEX	/* Alias, non-overlapping */
 	CB_POLICY,
 #define	CB_ADDR_V6_2		CB_POLICY	/* Alias, non-overlapping */
+#define	CB_BACKEND_ID		CB_POLICY       /* Alias, non-overlapping */
 	CB_NAT46_STATE,
 #define CB_NAT			CB_NAT46_STATE	/* Alias, non-overlapping */
 #define	CB_ADDR_V6_3		CB_NAT46_STATE	/* Alias, non-overlapping */
@@ -600,7 +603,10 @@ enum {
 #define	CB_CUSTOM_CALLS		CB_CT_STATE	/* Alias, non-overlapping */
 };
 
-/* Magic values for CB_FROM_HOST */
+/* Magic values for CB_FROM_HOST.
+ * CB_FROM_HOST overlaps with CB_NAT46_STATE, so this value must be distinct
+ * from any in enum NAT46 below!
+ */
 #define FROM_HOST_L7_LB 0xFACADE42
 
 /* State values for NAT46 */
