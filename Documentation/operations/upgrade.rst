@@ -128,6 +128,12 @@ you can delete the cilium-preflight and proceed with the upgrade.
 Upgrading Cilium
 ================
 
+During normal cluster operations, all Cilium components should run the same
+version. Upgrading just one of them (e.g., upgrading the agent without
+upgrading the operator) could result in unexpected cluster behavior.
+The following steps will describe how to upgrade all of the components from
+one stable release to a later stable release.
+
 .. include:: upgrade-warning.rst
 
 Step 1: Upgrade to latest micro version (Recommended)
