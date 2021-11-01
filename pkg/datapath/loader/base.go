@@ -242,6 +242,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	sysSettings := []sysctl.Setting{
 		{Name: "net.core.bpf_jit_enable", Val: "1", IgnoreErr: true},
 		{Name: "net.ipv4.conf.all.rp_filter", Val: "0", IgnoreErr: false},
+		{Name: "net.ipv4.fib_multipath_use_neigh", Val: "1", IgnoreErr: true},
 		{Name: "kernel.unprivileged_bpf_disabled", Val: "1", IgnoreErr: true},
 		{Name: "kernel.timer_migration", Val: "0", IgnoreErr: true},
 	}
