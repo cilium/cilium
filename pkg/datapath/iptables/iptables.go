@@ -163,7 +163,7 @@ func getFeedRule(name, args string) []string {
 }
 
 // skipPodTrafficConntrack returns true if it's possible to install iptables
-// `-j NOTRACK` rules to skip tracking pod traffic.
+// `-j CT --notrack` rules to skip tracking pod traffic.
 func skipPodTrafficConntrack(ipv6 bool) bool {
 	return !ipv6 && option.Config.InstallNoConntrackIptRules
 }
@@ -602,7 +602,7 @@ func (m *IptablesManager) installStaticProxyRules() error {
 			"-A", ciliumPreRawChain,
 			"-m", "mark", "--mark", matchToProxy,
 			"-m", "comment", "--comment", "cilium: NOTRACK for proxy traffic",
-			"-j", "NOTRACK"}, false)
+			"-j", "CT", "--notrack"}, false)
 		if err == nil {
 			// Explicit ACCEPT for the proxy traffic. Needed when the INPUT defaults to DROP.
 			// Matching needs to be the same as for the NOTRACK rule above.
@@ -621,7 +621,7 @@ func (m *IptablesManager) installStaticProxyRules() error {
 				"-o", "lxc+",
 				"-m", "mark", "--mark", matchProxyReply,
 				"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
-				"-j", "NOTRACK"}, false)
+				"-j", "CT", "--notrack"}, false)
 		}
 		if err == nil {
 			// No conntrack for proxy return traffic that is heading to cilium_host
@@ -631,7 +631,7 @@ func (m *IptablesManager) installStaticProxyRules() error {
 				"-o", "cilium_host",
 				"-m", "mark", "--mark", matchProxyReply,
 				"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
-				"-j", "NOTRACK"}, false)
+				"-j", "CT", "--notrack"}, false)
 		}
 		if err == nil {
 			// Explicit ACCEPT for the proxy return traffic. Needed when the OUTPUT defaults to DROP.
@@ -655,7 +655,7 @@ func (m *IptablesManager) installStaticProxyRules() error {
 			"-A", ciliumPreRawChain,
 			"-m", "mark", "--mark", matchToProxy,
 			"-m", "comment", "--comment", "cilium: NOTRACK for proxy traffic",
-			"-j", "NOTRACK"}, false)
+			"-j", "CT", "--notrack"}, false)
 		if err == nil {
 			// Explicit ACCEPT for the proxy traffic. Needed when the INPUT defaults to DROP.
 			// Matching needs to be the same as for the NOTRACK rule above.
@@ -673,7 +673,7 @@ func (m *IptablesManager) installStaticProxyRules() error {
 				"-A", ciliumOutputRawChain,
 				"-m", "mark", "--mark", matchProxyReply,
 				"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
-				"-j", "NOTRACK"}, false)
+				"-j", "CT", "--notrack"}, false)
 		}
 		if err == nil {
 			// Explicit ACCEPT for the proxy return traffic. Needed when the OUTPUT defaults to DROP.
@@ -804,17 +804,17 @@ func (m *IptablesManager) endpointNoTrackRules(prog iptablesInterface, cmd strin
 	protocol := strings.ToLower(port.Protocol)
 	p := strconv.FormatUint(uint64(port.Port), 10)
 	if ingress {
-		if _, err := prog.runProgCombinedOutput([]string{"-t", "raw", cmd, ciliumPreRawChain, "-p", protocol, "-d", IP, "--dport", p, "-j", "NOTRACK"}, false); err != nil {
+		if _, err := prog.runProgCombinedOutput([]string{"-t", "raw", cmd, ciliumPreRawChain, "-p", protocol, "-d", IP, "--dport", p, "-j", "CT", "--notrack"}, false); err != nil {
 			return err
 		}
 		if _, err := prog.runProgCombinedOutput([]string{"-t", "filter", cmd, ciliumInputChain, "-p", protocol, "-d", IP, "--dport", p, "-j", "ACCEPT"}, false); err != nil {
 			return err
 		}
-		if _, err := prog.runProgCombinedOutput([]string{"-t", "raw", cmd, ciliumOutputRawChain, "-p", protocol, "-d", IP, "--dport", p, "-j", "NOTRACK"}, false); err != nil {
+		if _, err := prog.runProgCombinedOutput([]string{"-t", "raw", cmd, ciliumOutputRawChain, "-p", protocol, "-d", IP, "--dport", p, "-j", "CT", "--notrack"}, false); err != nil {
 			return err
 		}
 	} else {
-		if _, err := prog.runProgCombinedOutput([]string{"-t", "raw", cmd, ciliumOutputRawChain, "-p", protocol, "-s", IP, "--sport", p, "-j", "NOTRACK"}, false); err != nil {
+		if _, err := prog.runProgCombinedOutput([]string{"-t", "raw", cmd, ciliumOutputRawChain, "-p", protocol, "-s", IP, "--sport", p, "-j", "CT", "--notrack"}, false); err != nil {
 			return err
 		}
 		if _, err := prog.runProgCombinedOutput([]string{"-t", "filter", cmd, ciliumOutputChain, "-p", protocol, "-s", IP, "--sport", p, "-j", "ACCEPT"}, false); err != nil {
@@ -1418,7 +1418,7 @@ func (m *IptablesManager) ciliumNoTrackXfrmRules(prog iptablesInterface, input s
 			"-t", "raw", input, ciliumPreRawChain,
 			"-m", "mark", "--mark", match,
 			"-m", "comment", "--comment", xfrmDescription,
-			"-j", "NOTRACK"}, false); err != nil {
+			"-j", "CT", "--notrack"}, false); err != nil {
 			return err
 		}
 	}
@@ -1490,7 +1490,7 @@ func (m *IptablesManager) addNoTrackPodTrafficRules(prog iptablesInterface, pods
 			"-I", chain,
 			"-s", podsCIDR,
 			"-m", "comment", "--comment", "cilium: NOTRACK for pod traffic",
-			"-j", "NOTRACK"},
+			"-j", "CT", "--notrack"},
 			false); err != nil {
 			return err
 		}
@@ -1500,7 +1500,7 @@ func (m *IptablesManager) addNoTrackPodTrafficRules(prog iptablesInterface, pods
 			"-I", chain,
 			"-d", podsCIDR,
 			"-m", "comment", "--comment", "cilium: NOTRACK for pod traffic",
-			"-j", "NOTRACK"},
+			"-j", "CT", "--notrack"},
 			false); err != nil {
 			return err
 		}
