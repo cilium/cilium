@@ -1472,8 +1472,8 @@ update_state:
 			 tuple->nexthdr, l3_off, l4_off, csum_off, key,
 			 backend, has_l4_header, skip_l3_xlate);
 drop_no_service:
-		tuple->flags = flags;
-		return DROP_NO_SERVICE;
+	tuple->flags = flags;
+	return DROP_NO_SERVICE;
 }
 #endif /* ENABLE_IPV4 */
 #endif /* __LB_H_ */
