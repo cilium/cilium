@@ -4,7 +4,16 @@
 package watchers
 
 import (
+	"context"
 	"fmt"
+
+	v1 "k8s.io/api/core/v1"
+
+	"github.com/cilium/cilium/pkg/k8s"
+
+	envoy_extensions_transport_sockets_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
+
+	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
 
 	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
@@ -21,9 +30,72 @@ import (
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 )
 
-func amazingIngressControllerBusinessLogic(ingress *slim_networkingv1.Ingress) (*v2alpha1.CiliumEnvoyConfig, error) {
+func (ic *ingressController) getSecret(namespace, name string) (string, string, error) {
+	secret := v1.Secret{}
+	err := k8s.Client().CoreV1().RESTClient().Get().Resource("secrets").Namespace(namespace).Name(name).Do(context.Background()).Into(&secret)
+	if err != nil {
+		return "", "", fmt.Errorf("failied to get secret %s/%s: %v", namespace, name, err)
+	}
+	ic.logger.WithField("data-fields", secret.Data).Info("Loaded secret. amazing")
+	ic.logger.WithField("data-string-fields", secret.StringData).Info("Loaded secret. amazing")
+	var tlsKey, tlsCrt []byte
+	var ok bool
+	if tlsKey, ok = secret.Data["tls.key"]; !ok {
+		return "", "", fmt.Errorf("missing tls.key field in secret: %s/%s", namespace, name)
+	}
+	if tlsCrt, ok = secret.Data["tls.crt"]; !ok {
+		return "", "", fmt.Errorf("missing tls.crt field in secret: %s/%s", namespace, name)
+	}
+	return string(tlsCrt), string(tlsKey), nil
+}
+
+func (ic *ingressController) getTLS(ingress *slim_networkingv1.Ingress) (map[string]*envoy_config_core_v3.TransportSocket, error) {
+	tls := make(map[string]*envoy_config_core_v3.TransportSocket)
+	for _, tlsConfig := range ingress.Spec.TLS {
+		crt, key, err := ic.getSecret(ingress.Namespace, tlsConfig.SecretName)
+		if err != nil {
+			return nil, err
+		}
+		for _, host := range tlsConfig.Hosts {
+			downStreamContext := envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext{
+				CommonTlsContext: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext{
+					TlsCertificates: []*envoy_extensions_transport_sockets_tls_v3.TlsCertificate{
+						{
+							CertificateChain: &envoy_config_core_v3.DataSource{
+								Specifier: &envoy_config_core_v3.DataSource_InlineString{
+									InlineString: crt,
+								},
+							},
+							PrivateKey: &envoy_config_core_v3.DataSource{
+								Specifier: &envoy_config_core_v3.DataSource_InlineString{
+									InlineString: key,
+								},
+							},
+						},
+					},
+				},
+			}
+			upstreamContextBytes, err := proto.Marshal(&downStreamContext)
+			if err != nil {
+				return nil, err
+			}
+			tls[host] = &envoy_config_core_v3.TransportSocket{
+				Name: "tls",
+				ConfigType: &envoy_config_core_v3.TransportSocket_TypedConfig{
+					TypedConfig: &anypb.Any{
+						TypeUrl: "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext",
+						Value:   upstreamContextBytes,
+					},
+				},
+			}
+		}
+	}
+	return tls, nil
+}
+
+func (ic *ingressController) amazingIngressControllerBusinessLogic(ingress *slim_networkingv1.Ingress) (*v2alpha1.CiliumEnvoyConfig, error) {
 	backendServices := getBackendServices(ingress)
-	resources, err := getResources(ingress, backendServices)
+	resources, err := ic.getResources(ingress, backendServices)
 	if err != nil {
 		return nil, err
 	}
@@ -68,9 +140,13 @@ func getBackendServices(ingress *slim_networkingv1.Ingress) []*v2alpha1.Service 
 	return backendServices
 }
 
-func getResources(ingress *slim_networkingv1.Ingress, backendServices []*v2alpha1.Service) ([]v2alpha1.XDSResource, error) {
+func (ic *ingressController) getResources(ingress *slim_networkingv1.Ingress, backendServices []*v2alpha1.Service) ([]v2alpha1.XDSResource, error) {
 	var resources []v2alpha1.XDSResource
-	listener, err := getListenerResource(ingress)
+	tls, err := ic.getTLS(ingress)
+	if err != nil {
+		ic.logger.WithError(err).Warn("Failed to get secret for ingress")
+	}
+	listener, err := getListenerResource(ingress, tls)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +164,7 @@ func getResources(ingress *slim_networkingv1.Ingress, backendServices []*v2alpha
 	return resources, nil
 }
 
-func getListenerResource(ingress *slim_networkingv1.Ingress) (v2alpha1.XDSResource, error) {
+func getListenerResource(ingress *slim_networkingv1.Ingress, tls map[string]*envoy_config_core_v3.TransportSocket) (v2alpha1.XDSResource, error) {
 	connectionManager := envoy_extensions_filters_network_http_connection_manager_v3.HttpConnectionManager{
 		StatPrefix: ingress.Name,
 		RouteSpecifier: &envoy_extensions_filters_network_http_connection_manager_v3.HttpConnectionManager_Rds{
@@ -123,6 +199,14 @@ func getListenerResource(ingress *slim_networkingv1.Ingress) (v2alpha1.XDSResour
 				},
 			},
 		},
+	}
+	if len(ingress.Spec.TLS) > 0 {
+		// just take the first one for now
+		domain := ingress.Spec.TLS[0].Hosts[0]
+		tlsconf := tls[domain]
+		if tlsconf != nil {
+			listener.FilterChains[0].TransportSocket = tlsconf
+		}
 	}
 	listenerBytes, err := proto.Marshal(&listener)
 	if err != nil {

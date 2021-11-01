@@ -412,6 +412,26 @@ func getIngressKeyForService(service *slim_corev1.Service) string {
 }
 
 func getServiceForIngress(ingress *slim_networkingv1.Ingress) *v1.Service {
+	ports := []v1.ServicePort{
+		{
+			Name:     "http",
+			Protocol: "TCP",
+			Port:     80,
+			// TODO(michi) how do we deal with multiple target ports?
+			TargetPort: intstr.IntOrString{IntVal: ingress.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Port.Number},
+		},
+	}
+	if len(ingress.Spec.TLS) > 0 {
+		ports = []v1.ServicePort{
+			{
+				Name:     "https",
+				Protocol: "TCP",
+				Port:     443,
+				// TODO(michi) how do we deal with multiple target ports?
+				TargetPort: intstr.IntOrString{IntVal: ingress.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Port.Number},
+			},
+		}
+	}
 	return &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      getServiceNameForIngress(ingress),
@@ -419,16 +439,8 @@ func getServiceForIngress(ingress *slim_networkingv1.Ingress) *v1.Service {
 			Labels:    map[string]string{ciliumIngressLabelKey: "true"},
 		},
 		Spec: v1.ServiceSpec{
-			Ports: []v1.ServicePort{
-				{
-					Name:     "http",
-					Protocol: "TCP",
-					Port:     80,
-					// TODO(michi) how do we deal with multiple target ports?
-					TargetPort: intstr.IntOrString{IntVal: ingress.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Port.Number},
-				},
-			},
-			Type: v1.ServiceTypeLoadBalancer,
+			Ports: ports,
+			Type:  v1.ServiceTypeLoadBalancer,
 		},
 	}
 }
@@ -514,7 +526,7 @@ func (ic *ingressController) createEndpoints(ingress *slim_networkingv1.Ingress)
 }
 
 func (ic *ingressController) createEnvoyConfig(ingress *slim_networkingv1.Ingress) error {
-	envoyConfig, err := amazingIngressControllerBusinessLogic(ingress)
+	envoyConfig, err := ic.amazingIngressControllerBusinessLogic(ingress)
 	if err != nil {
 		return err
 	}
