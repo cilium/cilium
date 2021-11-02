@@ -894,9 +894,9 @@
      - string
      - ``""``
    * - l2NeighDiscovery.arping-refresh-period
-     - Set period for arping
+     - Override the agent's default neighbor resolution refresh period.
      - string
-     - ``"5m"``
+     - ``"30s"``
    * - l2NeighDiscovery.enabled
      - Enable L2 neighbor discovery in the agent
      - bool
