@@ -54,6 +54,7 @@ type Client struct {
 func NewClient(contextName, kubeconfig string) (*Client, error) {
 	// Register the Cilium types in the default scheme.
 	_ = ciliumv2.AddToScheme(scheme.Scheme)
+	_ = ciliumv2alpha1.AddToScheme(scheme.Scheme)
 
 	restClientGetter := genericclioptions.ConfigFlags{
 		Context:    &contextName,
