@@ -34,5 +34,6 @@ Direct access to local BPF maps
 * [cilium bpf policy](../cilium_bpf_policy)	 - Manage policy related BPF maps
 * [cilium bpf recorder](../cilium_bpf_recorder)	 - PCAP recorder
 * [cilium bpf sha](../cilium_bpf_sha)	 - Manage compiled BPF template objects
+* [cilium bpf srv6](../cilium_bpf_srv6)	 - Manage the SRv6 routing rules
 * [cilium bpf tunnel](../cilium_bpf_tunnel)	 - Tunnel endpoint map
 
