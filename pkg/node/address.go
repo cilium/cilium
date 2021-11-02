@@ -375,9 +375,11 @@ func AutoComplete() error {
 // filesystem to be the most up-to-date source of truth. The chosen router IP
 // is then checked whether it is contained inside node CIDR (pod CIDR) range.
 // If not, then the router IP is discarded and not restored.
-func RestoreHostIPs(ipv6 bool, fromK8s, fromFS net.IP, cidr *cidr.CIDR) {
+//
+// The restored IP is returned.
+func RestoreHostIPs(ipv6 bool, fromK8s, fromFS net.IP, cidr *cidr.CIDR) net.IP {
 	if !option.Config.EnableHostIPRestore {
-		return
+		return nil
 	}
 
 	var (
@@ -398,6 +400,9 @@ func RestoreHostIPs(ipv6 bool, fromK8s, fromFS net.IP, cidr *cidr.CIDR) {
 			"The router IP (%s) considered for restoration does not belong in the Pod CIDR of the node. Discarding old router IP.",
 			ip,
 		)
+		// Indicate that this IP will not be restored by setting to nil after
+		// we've used it to log above.
+		ip = nil
 		setter(nil)
 	case err != nil && errors.Is(err, errMismatch):
 		log.Warnf(
@@ -408,6 +413,8 @@ func RestoreHostIPs(ipv6 bool, fromK8s, fromFS net.IP, cidr *cidr.CIDR) {
 	case err == nil:
 		setter(ip)
 	}
+
+	return ip
 }
 
 func chooseHostIPsToRestore(ipv6 bool, fromK8s, fromFS net.IP, cidr *cidr.CIDR) (ip net.IP, err error) {
