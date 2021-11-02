@@ -16,7 +16,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@1e204e9a9253d643386038d443f96446fa156a97
+    - uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
 
     - name: Set up Go
       uses: actions/setup-go@331ce1d993939866bb63c32c6cbbfd48fa76fc57
