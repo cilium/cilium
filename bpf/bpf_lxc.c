@@ -52,7 +52,7 @@
 #include "lib/policy_log.h"
 
 #if !defined(ENABLE_HOST_SERVICES_FULL) || defined(ENABLE_SOCKET_LB_HOST_ONLY)
-# define ENABLE_PER_PACKET_LB
+# define ENABLE_PER_PACKET_LB 1
 #endif
 
 #if defined(ENABLE_ARP_PASSTHROUGH) && defined(ENABLE_ARP_RESPONDER)
@@ -96,19 +96,24 @@ encode_custom_prog_meta(struct __ctx_buff *ctx, int ret, __u32 identity)
 #endif
 
 #ifdef ENABLE_IPV6
-static __always_inline int
-ipv6_l3_from_lxc(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
-		 struct ipv6hdr *ip6, __u32 *dst_id)
+/* Handle egress IPv6 traffic from a container after service translation has been done
+ * either at the socket level or by the caller.
+ * In the case of the caller doing the service translation it passes in state via CB,
+ * which we take in with lb6_ctx_restore_state().
+ *
+ * Kernel 4.9 verifier is very finicky about the order of this code, modify with caution.
+ */
+static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *dst_id)
 {
+	struct ipv6_ct_tuple tuple = {};
 #ifdef ENABLE_ROUTING
 	union macaddr router_mac = NODE_MAC;
 #endif
-	int ret, verdict = 0, l4_off, hdrlen, l3_off = ETH_HLEN;
-	struct csum_offset csum_off = {};
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+	int ret, verdict = 0, l3_off = ETH_HLEN, l4_off, hdrlen;
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
-	void *data, *data_end;
-	union v6addr *daddr __maybe_unused, orig_dip;
 	__u32 __maybe_unused tunnel_endpoint = 0;
 	__u8 __maybe_unused encrypt_key = 0;
 	__u32 monitor = 0;
@@ -120,94 +125,29 @@ ipv6_l3_from_lxc(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 	bool __maybe_unused dst_remote_ep = false;
 	__u16 proxy_port;
 
-	if (unlikely(!is_valid_lxc_src_ip(ip6)))
-		return DROP_INVALID_SIP;
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
 
-	ipv6_addr_copy(&tuple->daddr, (union v6addr *) &ip6->daddr);
-	ipv6_addr_copy(&tuple->saddr, (union v6addr *) &ip6->saddr);
+	tuple.nexthdr = ip6->nexthdr;
+	ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->daddr);
+	ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6->saddr);
 
-	hdrlen = ipv6_hdrlen(ctx, &tuple->nexthdr);
+	hdrlen = ipv6_hdrlen(ctx, &tuple.nexthdr);
 	if (hdrlen < 0)
 		return hdrlen;
 
 	l4_off = l3_off + hdrlen;
 
-#ifdef ENABLE_PER_PACKET_LB
-	{
-		struct lb6_service *svc;
-		struct lb6_key key = {};
-
-		ret = lb6_extract_key(ctx, tuple, l4_off, &key, &csum_off,
-				      CT_EGRESS);
-		if (IS_ERR(ret)) {
-			if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
-				goto skip_service_lookup;
-			else
-				return ret;
-		}
-
-		/*
-		 * Check if the destination address is among the address that should
-		 * be load balanced. This operation is performed before we go through
-		 * the connection tracker to allow storing the reverse nat index in
-		 * the CT entry for destination endpoints where we can't encode the
-		 * state in the address.
-		 */
-		svc = lb6_lookup_service(&key, is_defined(ENABLE_NODEPORT));
-		if (svc) {
-			ret = lb6_local(get_ct_map6(tuple), ctx, l3_off, l4_off,
-					&csum_off, &key, tuple, svc, &ct_state_new,
-					false);
-			if (IS_ERR(ret))
-				return ret;
-			hairpin_flow |= ct_state_new.loopback;
-		}
-	}
-
-skip_service_lookup:
-#endif /* ENABLE_PER_PACKET_LB */
-
-	/* The verifier wants to see this assignment here in case the above goto
-	 * skip_service_lookup is hit. However, in the case the packet
-	 * is _not_ TCP or UDP we should not be using proxy logic anyways. For
-	 * correctness it must be below the service handler in case the service
-	 * logic re-writes the tuple daddr. In "theory" however the assignment
-	 * should be OK to move above goto label.
+	/* Determine the destination category for policy fallback.  Service
+	 * translation of the destination address is done before this function,
+	 * so we can do this first. Also, verifier on kernel 4.9 insisted this
+	 * be done before the CT lookup below.
 	 */
-	ipv6_addr_copy(&orig_dip, (union v6addr *) &tuple->daddr);
-
-
-	/* WARNING: ip6 offset check invalidated, revalidate before use */
-
-	/* Pass all outgoing packets through conntrack. This will create an
-	 * entry to allow reverse packets and return set cb[CB_POLICY] to
-	 * POLICY_SKIP if the packet is a reply packet to an existing incoming
-	 * connection.
-	 */
-	ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, l4_off, CT_EGRESS,
-			 &ct_state, &monitor);
-	if (ret < 0)
-		return ret;
-
-	ct_status = (enum ct_status)ret;
-	reason = (enum trace_reason)ret;
-
-	/* Check it this is return traffic to an ingress proxy. */
-	if ((ct_status == CT_REPLY || ct_status == CT_RELATED) &&
-	    ct_state.proxy_redirect) {
-		/* Stack will do a socket match and deliver locally. */
-		return ctx_redirect_to_proxy6(ctx, tuple, 0, false);
-	}
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
-		return DROP_INVALID;
-
-	/* Determine the destination category for policy fallback. */
 	if (1) {
 		struct remote_endpoint_info *info;
 
-		info = lookup_ip6_remote_endpoint(&orig_dip);
-		if (info != NULL && info->sec_label) {
+		info = lookup_ip6_remote_endpoint(&tuple.daddr);
+		if (info && info->sec_label) {
 			*dst_id = info->sec_label;
 			tunnel_endpoint = info->tunnel_endpoint;
 			encrypt_key = get_min_encrypt_key(info->key);
@@ -219,9 +159,39 @@ skip_service_lookup:
 		} else {
 			*dst_id = WORLD_ID;
 		}
-
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
-			   orig_dip.p4, *dst_id);
+			   tuple.daddr.p4, *dst_id);
+	}
+
+#ifdef ENABLE_PER_PACKET_LB
+#if !defined(DEBUG) && defined(TUNNEL_MODE)
+	/* verifier workaround on kernel 4.9, not needed otherwise */
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
+#endif
+	/* Restore ct_state from per packet lb handling in the previous tail call. */
+	lb6_ctx_restore_state(ctx, &ct_state_new);
+	/* No hairpin/loopback support for IPv6, see lb6_local(). */
+#endif /* ENABLE_PER_PACKET_LB */
+
+	/* Pass all outgoing packets through conntrack. This will create an
+	 * entry to allow reverse packets and return set cb[CB_POLICY] to
+	 * POLICY_SKIP if the packet is a reply packet to an existing incoming
+	 * connection.
+	 */
+	ret = ct_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, CT_EGRESS,
+			 &ct_state, &monitor);
+	if (ret < 0)
+		return ret;
+
+	ct_status = (enum ct_status)ret;
+	reason = (enum trace_reason)ret;
+
+	/* Check it this is return traffic to an ingress proxy. */
+	if ((ct_status == CT_REPLY || ct_status == CT_RELATED) &&
+	    ct_state.proxy_redirect) {
+		/* Stack will do a socket match and deliver locally. */
+		return ctx_redirect_to_proxy6(ctx, &tuple, 0, false);
 	}
 
 	/* When an endpoint connects to itself via service clusterIP, we need
@@ -237,12 +207,12 @@ skip_service_lookup:
 	 * within the cluster, it must match policy or be dropped. If it's
 	 * bound for the host/outside, perform the CIDR policy check.
 	 */
-	verdict = policy_can_egress6(ctx, tuple, SECLABEL, *dst_id,
+	verdict = policy_can_egress6(ctx, &tuple, SECLABEL, *dst_id,
 				     &policy_match_type, &audited);
 
 	if (ct_status != CT_REPLY && ct_status != CT_RELATED && verdict < 0) {
-		send_policy_verdict_notify(ctx, *dst_id, tuple->dport,
-					   tuple->nexthdr, POLICY_EGRESS, 1,
+		send_policy_verdict_notify(ctx, *dst_id, tuple.dport,
+					   tuple.nexthdr, POLICY_EGRESS, 1,
 					   verdict, policy_match_type, audited);
 		return verdict;
 	}
@@ -251,8 +221,8 @@ skip_policy_enforcement:
 	switch (ct_status) {
 	case CT_NEW:
 		if (!hairpin_flow)
-			send_policy_verdict_notify(ctx, *dst_id, tuple->dport,
-						   tuple->nexthdr, POLICY_EGRESS, 1,
+			send_policy_verdict_notify(ctx, *dst_id, tuple.dport,
+						   tuple.nexthdr, POLICY_EGRESS, 1,
 						   verdict, policy_match_type, audited);
 ct_recreate6:
 		/* New connection implies that rev_nat_index remains untouched
@@ -261,7 +231,7 @@ ct_recreate6:
 		 * reverse NAT.
 		 */
 		ct_state_new.src_sec_id = SECLABEL;
-		ret = ct_create6(get_ct_map6(tuple), &CT_MAP_ANY6, tuple, ctx,
+		ret = ct_create6(get_ct_map6(&tuple), &CT_MAP_ANY6, &tuple, ctx,
 				 CT_EGRESS, &ct_state_new, verdict > 0);
 		if (IS_ERR(ret))
 			return ret;
@@ -270,8 +240,8 @@ ct_recreate6:
 
 	case CT_REOPENED:
 		if (!hairpin_flow)
-			send_policy_verdict_notify(ctx, *dst_id, tuple->dport,
-						   tuple->nexthdr, POLICY_EGRESS, 1,
+			send_policy_verdict_notify(ctx, *dst_id, tuple.dport,
+						   tuple.nexthdr, POLICY_EGRESS, 1,
 						   verdict, policy_match_type, audited);
 	case CT_ESTABLISHED:
 		/* Did we end up at a stale non-service entry? Recreate if so. */
@@ -286,7 +256,7 @@ ct_recreate6:
 #ifdef ENABLE_NODEPORT
 # ifdef ENABLE_DSR
 		if (ct_state.dsr) {
-			ret = xlate_dsr_v6(ctx, tuple, l4_off);
+			ret = xlate_dsr_v6(ctx, &tuple, l4_off);
 			if (ret != 0)
 				return ret;
 		} else
@@ -300,9 +270,13 @@ ct_recreate6:
 			return DROP_MISSED_TAIL_CALL;
 		}
 #endif /* ENABLE_NODEPORT */
+
 		if (ct_state.rev_nat_index) {
+			struct csum_offset csum_off = {};
+
+			csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 			ret = lb6_rev_nat(ctx, l4_off, &csum_off,
-					  ct_state.rev_nat_index, tuple, 0);
+					  ct_state.rev_nat_index, &tuple, 0);
 			if (IS_ERR(ret))
 				return ret;
 
@@ -325,13 +299,11 @@ ct_recreate6:
 		/* Trace the packet before it is forwarded to proxy */
 		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL, 0,
 				  bpf_ntohs(proxy_port), 0, reason, monitor);
-		return ctx_redirect_to_proxy6(ctx, tuple, proxy_port, false);
+		return ctx_redirect_to_proxy6(ctx, &tuple, proxy_port, false);
 	}
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
-
-	daddr = (union v6addr *)&ip6->daddr;
 
 	/* See handle_ipv4_from_lxc() re hairpin_flow */
 	if (is_defined(ENABLE_ROUTING) || hairpin_flow) {
@@ -378,6 +350,7 @@ ct_recreate6:
 # endif /* ENABLE_WIREGUARD */
 	{
 		struct endpoint_key key = {};
+		union v6addr *daddr = (union v6addr *)&ip6->daddr;
 
 		/* Lookup the destination prefix in the list of known
 		 * destination prefixes. If there is a match, the packet will
@@ -405,7 +378,7 @@ ct_recreate6:
 	}
 #endif
 #ifdef ENABLE_NAT46
-	if (unlikely(ipv6_addr_is_mapped(daddr))) {
+	if (unlikely(ipv6_addr_is_mapped((union v6addr *)&ip6->daddr))) {
 		ep_tail_call(ctx, CILIUM_CALL_NAT64);
 		return DROP_MISSED_TAIL_CALL;
 	}
@@ -426,7 +399,7 @@ to_host:
 
 pass_to_stack:
 #ifdef ENABLE_ROUTING
-	ret = ipv6_l3(ctx, l3_off, NULL, (__u8 *) &router_mac.addr, METRIC_EGRESS);
+	ret = ipv6_l3(ctx, l3_off, NULL, (__u8 *)&router_mac.addr, METRIC_EGRESS);
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
 #endif
@@ -474,9 +447,31 @@ encrypt_to_stack:
 	return CTX_ACT_OK;
 }
 
-static __always_inline int handle_ipv6(struct __ctx_buff *ctx, __u32 *dst_id)
+declare_tailcall_if(is_defined(ENABLE_PER_PACKET_LB), CILIUM_CALL_IPV6_FROM_LXC_CONT)
+int tail_handle_ipv6_cont(struct __ctx_buff *ctx)
 {
-	struct ipv6_ct_tuple tuple = {};
+	__u32 dst_id = 0;
+	int ret = handle_ipv6_from_lxc(ctx, &dst_id);
+
+	if (IS_ERR(ret))
+		return send_drop_notify(ctx, SECLABEL, dst_id, 0, ret,
+					CTX_ACT_DROP, METRIC_EGRESS);
+
+#ifdef ENABLE_CUSTOM_CALLS
+	if (!encode_custom_prog_meta(ctx, ret, dst_id)) {
+		tail_call_static(ctx, &CUSTOM_CALLS_MAP,
+				 CUSTOM_CALLS_IDX_IPV6_EGRESS);
+		update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
+			       REASON_MISSED_CUSTOM_CALL);
+	}
+#endif
+
+	return ret;
+}
+
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC)
+int tail_handle_ipv6(struct __ctx_buff *ctx)
+{
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	int ret;
@@ -497,38 +492,72 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx, __u32 *dst_id)
 			return ret;
 	}
 
-	/* Perform L3 action on the frame */
-	tuple.nexthdr = ip6->nexthdr;
-	return ipv6_l3_from_lxc(ctx, &tuple, ip6, dst_id);
-}
+	if (unlikely(!is_valid_lxc_src_ip(ip6)))
+		return DROP_INVALID_SIP;
 
-declare_tailcall_if(__or3(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6),
-			  is_defined(DEBUG)), CILIUM_CALL_IPV6_FROM_LXC)
-int tail_handle_ipv6(struct __ctx_buff *ctx)
-{
-	__u32 dst_id = 0;
-	int ret = handle_ipv6(ctx, &dst_id);
+#ifdef ENABLE_PER_PACKET_LB
+	{
+		struct ipv6_ct_tuple tuple = {};
+		int l3_off = ETH_HLEN, l4_off, hdrlen;
+		struct csum_offset csum_off = {};
+		struct ct_state ct_state_new = {};
+		struct lb6_service *svc;
+		struct lb6_key key = {};
 
-	if (IS_ERR(ret))
-		return send_drop_notify(ctx, SECLABEL, dst_id, 0, ret,
-					CTX_ACT_DROP, METRIC_EGRESS);
+		tuple.nexthdr = ip6->nexthdr;
+		ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->daddr);
+		ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6->saddr);
 
-#ifdef ENABLE_CUSTOM_CALLS
-	if (!encode_custom_prog_meta(ctx, ret, dst_id)) {
-		tail_call_static(ctx, &CUSTOM_CALLS_MAP,
-				 CUSTOM_CALLS_IDX_IPV6_EGRESS);
-		update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
-			       REASON_MISSED_CUSTOM_CALL);
+		hdrlen = ipv6_hdrlen(ctx, &tuple.nexthdr);
+		if (hdrlen < 0)
+			return hdrlen;
+
+		l4_off = l3_off + hdrlen;
+
+		ret = lb6_extract_key(ctx, &tuple, l4_off, &key, &csum_off,
+				      CT_EGRESS);
+		if (IS_ERR(ret)) {
+			if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
+				goto skip_service_lookup;
+			else
+				return ret;
+		}
+
+		/*
+		 * Check if the destination address is among the address that should
+		 * be load balanced. This operation is performed before we go through
+		 * the connection tracker to allow storing the reverse nat index in
+		 * the CT entry for destination endpoints where we can't encode the
+		 * state in the address.
+		 */
+		svc = lb6_lookup_service(&key, is_defined(ENABLE_NODEPORT));
+		if (svc) {
+			ret = lb6_local(get_ct_map6(&tuple), ctx, l3_off, l4_off,
+					&csum_off, &key, &tuple, svc, &ct_state_new,
+					false);
+			if (IS_ERR(ret))
+				return ret;
+		}
+
+skip_service_lookup:
+		/* Store state to be picked up on the continuation tail call. */
+		lb6_ctx_store_state(ctx, &ct_state_new);
 	}
-#endif
+#endif /* ENABLE_PER_PACKET_LB */
 
+	invoke_tailcall_if(is_defined(ENABLE_PER_PACKET_LB),
+			   CILIUM_CALL_IPV6_FROM_LXC_CONT, tail_handle_ipv6_cont);
 	return ret;
 }
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
-static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
-						__u32 *dst_id)
+/* Handle egress IPv6 traffic from a container after service translation has been done
+ * either at the socket level or by the caller.
+ * In the case of the caller doing the service translation it passes in state via CB,
+ * which we take in with lb4_ctx_restore_state().
+ */
+static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *dst_id)
 {
 	struct ipv4_ct_tuple tuple = {};
 #ifdef ENABLE_ROUTING
@@ -537,10 +566,8 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 	void *data, *data_end;
 	struct iphdr *ip4;
 	int ret, verdict = 0, l3_off = ETH_HLEN, l4_off;
-	struct csum_offset csum_off = {};
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
-	__be32 orig_dip;
 	__u32 __maybe_unused tunnel_endpoint = 0;
 	__u8 __maybe_unused encrypt_key = 0;
 	__u32 monitor = 0;
@@ -556,91 +583,20 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-/* If IPv4 fragmentation is disabled
- * AND a IPv4 fragmented packet is received,
- * then drop the packet.
- */
-#ifndef ENABLE_IPV4_FRAGMENTS
-	if (ipv4_is_fragment(ip4))
-		return DROP_FRAG_NOSUPPORT;
-#endif
-
 	has_l4_header = ipv4_has_l4_header(ip4);
 
 	tuple.nexthdr = ip4->protocol;
-
-	if (unlikely(!is_valid_lxc_src_ipv4(ip4)))
-		return DROP_INVALID_SIP;
-
 	tuple.daddr = ip4->daddr;
 	tuple.saddr = ip4->saddr;
 
 	l4_off = l3_off + ipv4_hdrlen(ip4);
 
-#ifdef ENABLE_PER_PACKET_LB
-	{
-		struct lb4_service *svc;
-		struct lb4_key key = {};
-
-		ret = lb4_extract_key(ctx, ip4, l4_off, &key, &csum_off,
-				      CT_EGRESS);
-		if (IS_ERR(ret)) {
-			if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
-				goto skip_service_lookup;
-			else
-				return ret;
-		}
-
-		svc = lb4_lookup_service(&key, is_defined(ENABLE_NODEPORT));
-		if (svc) {
-			ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off,
-					&csum_off, &key, &tuple, svc, &ct_state_new,
-					ip4->saddr, has_l4_header, false);
-			if (IS_ERR(ret))
-				return ret;
-			hairpin_flow |= ct_state_new.loopback;
-		}
-	}
-
-skip_service_lookup:
-#endif /* ENABLE_PER_PACKET_LB */
-
-	/* The verifier wants to see this assignment here in case the above goto
-	 * skip_service_lookup is hit. However, in the case the packet
-	 * is _not_ TCP or UDP we should not be using proxy logic anyways. For
-	 * correctness it must be below the service handler in case the service
-	 * logic re-writes the tuple daddr. In "theory" however the assignment
-	 * should be OK to move above goto label.
-	 */
-	orig_dip = tuple.daddr;
-
-	/* WARNING: ip4 offset check invalidated, revalidate before use */
-
-	/* Pass all outgoing packets through conntrack. This will create an
-	 * entry to allow reverse packets and return set cb[CB_POLICY] to
-	 * POLICY_SKIP if the packet is a reply packet to an existing incoming
-	 * connection.
-	 */
-	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_EGRESS,
-			 &ct_state, &monitor);
-	if (ret < 0)
-		return ret;
-
-	ct_status = (enum ct_status)ret;
-	reason = (enum trace_reason)ret;
-
-	/* Check it this is return traffic to an ingress proxy. */
-	if ((ct_status == CT_REPLY || ct_status == CT_RELATED) && ct_state.proxy_redirect) {
-		/* Stack will do a socket match and deliver locally. */
-		return ctx_redirect_to_proxy4(ctx, &tuple, 0, false);
-	}
-
 	/* Determine the destination category for policy fallback. */
 	if (1) {
 		struct remote_endpoint_info *info;
 
-		info = lookup_ip4_remote_endpoint(orig_dip);
-		if (info != NULL && info->sec_label) {
+		info = lookup_ip4_remote_endpoint(tuple.daddr);
+		if (info && info->sec_label) {
 			*dst_id = info->sec_label;
 			tunnel_endpoint = info->tunnel_endpoint;
 			encrypt_key = get_min_encrypt_key(info->key);
@@ -660,7 +616,32 @@ skip_service_lookup:
 		}
 
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
-			   orig_dip, *dst_id);
+			   tuple.daddr, *dst_id);
+	}
+
+#ifdef ENABLE_PER_PACKET_LB
+	/* Restore ct_state from per packet lb handling in the previous tail call. */
+	lb4_ctx_restore_state(ctx, &ct_state_new, &tuple);
+	hairpin_flow = ct_state_new.loopback;
+#endif /* ENABLE_PER_PACKET_LB */
+
+	/* Pass all outgoing packets through conntrack. This will create an
+	 * entry to allow reverse packets and return set cb[CB_POLICY] to
+	 * POLICY_SKIP if the packet is a reply packet to an existing incoming
+	 * connection.
+	 */
+	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_EGRESS,
+			 &ct_state, &monitor);
+	if (ret < 0)
+		return ret;
+
+	ct_status = (enum ct_status)ret;
+	reason = (enum trace_reason)ret;
+
+	/* Check it this is return traffic to an ingress proxy. */
+	if ((ct_status == CT_REPLY || ct_status == CT_RELATED) && ct_state.proxy_redirect) {
+		/* Stack will do a socket match and deliver locally. */
+		return ctx_redirect_to_proxy4(ctx, &tuple, 0, false);
 	}
 
 	/* When an endpoint connects to itself via service clusterIP, we need
@@ -747,6 +728,9 @@ ct_recreate4:
 #endif /* ENABLE_NODEPORT */
 
 		if (ct_state.rev_nat_index) {
+			struct csum_offset csum_off = {};
+
+			csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 			ret = lb4_rev_nat(ctx, l3_off, l4_off, &csum_off,
 					  &ct_state, &tuple, 0, has_l4_header);
 			if (IS_ERR(ret))
@@ -771,8 +755,6 @@ ct_recreate4:
 	/* After L4 write in port mapping: revalidate for direct packet access */
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
-
-	orig_dip = ip4->daddr;
 
 	/* Allow a hairpin packet to be redirected even if ENABLE_ROUTING is
 	 * disabled. Otherwise, the packet will be dropped by the kernel if
@@ -888,7 +870,7 @@ skip_egress_gateway:
 	{
 		struct endpoint_key key = {};
 
-		key.ip4 = orig_dip & IPV4_MASK;
+		key.ip4 = ip4->daddr & IPV4_MASK;
 		key.family = ENDPOINT_KEY_IPV4;
 
 		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key,
@@ -923,7 +905,7 @@ to_host:
 
 pass_to_stack:
 #ifdef ENABLE_ROUTING
-	ret = ipv4_l3(ctx, l3_off, NULL, (__u8 *) &router_mac.addr, ip4);
+	ret = ipv4_l3(ctx, l3_off, NULL, (__u8 *)&router_mac.addr, ip4);
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
 #endif
@@ -966,9 +948,8 @@ encrypt_to_stack:
 	return CTX_ACT_OK;
 }
 
-declare_tailcall_if(__or3(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6),
-			  is_defined(DEBUG)), CILIUM_CALL_IPV4_FROM_LXC)
-int tail_handle_ipv4(struct __ctx_buff *ctx)
+declare_tailcall_if(is_defined(ENABLE_PER_PACKET_LB), CILIUM_CALL_IPV4_FROM_LXC_CONT)
+int tail_handle_ipv4_cont(struct __ctx_buff *ctx)
 {
 	__u32 dst_id = 0;
 	int ret = handle_ipv4_from_lxc(ctx, &dst_id);
@@ -986,6 +967,73 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 	}
 #endif
 
+	return ret;
+}
+
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC)
+int tail_handle_ipv4(struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	struct iphdr *ip4;
+	int ret;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+/* If IPv4 fragmentation is disabled
+ * AND a IPv4 fragmented packet is received,
+ * then drop the packet.
+ */
+#ifndef ENABLE_IPV4_FRAGMENTS
+	if (ipv4_is_fragment(ip4))
+		return DROP_FRAG_NOSUPPORT;
+#endif
+
+	if (unlikely(!is_valid_lxc_src_ipv4(ip4)))
+		return DROP_INVALID_SIP;
+
+#ifdef ENABLE_PER_PACKET_LB
+	{
+		struct ipv4_ct_tuple tuple = {};
+		int l3_off = ETH_HLEN, l4_off;
+		struct csum_offset csum_off = {};
+		struct ct_state ct_state_new = {};
+		bool has_l4_header;
+		struct lb4_service *svc;
+		struct lb4_key key = {};
+
+		has_l4_header = ipv4_has_l4_header(ip4);
+		tuple.nexthdr = ip4->protocol;
+		tuple.daddr = ip4->daddr;
+		tuple.saddr = ip4->saddr;
+
+		l4_off = l3_off + ipv4_hdrlen(ip4);
+
+		ret = lb4_extract_key(ctx, ip4, l4_off, &key, &csum_off,
+				      CT_EGRESS);
+		if (IS_ERR(ret)) {
+			if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
+				goto skip_service_lookup;
+			else
+				return ret;
+		}
+
+		svc = lb4_lookup_service(&key, is_defined(ENABLE_NODEPORT));
+		if (svc) {
+			ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off,
+					&csum_off, &key, &tuple, svc, &ct_state_new,
+					ip4->saddr, has_l4_header, false);
+			if (IS_ERR(ret))
+				return ret;
+		}
+skip_service_lookup:
+		/* Store state to be picked up on the continuation tail call. */
+		lb4_ctx_store_state(ctx, &ct_state_new);
+	}
+#endif /* ENABLE_PER_PACKET_LB */
+
+	invoke_tailcall_if(is_defined(ENABLE_PER_PACKET_LB),
+			   CILIUM_CALL_IPV4_FROM_LXC_CONT, tail_handle_ipv4_cont);
 	return ret;
 }
 
@@ -1048,17 +1096,15 @@ int handle_xgress(struct __ctx_buff *ctx)
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		edt_set_aggregate(ctx, LXC_ID);
-		invoke_tailcall_if(__or3(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6),
-					 is_defined(DEBUG)),
-				   CILIUM_CALL_IPV6_FROM_LXC, tail_handle_ipv6);
+		ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_LXC);
+		ret = DROP_MISSED_TAIL_CALL;
 		break;
 #endif /* ENABLE_IPV6 */
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
 		edt_set_aggregate(ctx, LXC_ID);
-		invoke_tailcall_if(__or3(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6),
-					 is_defined(DEBUG)),
-				   CILIUM_CALL_IPV4_FROM_LXC, tail_handle_ipv4);
+		ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_LXC);
+		ret = DROP_MISSED_TAIL_CALL;
 		break;
 #ifdef ENABLE_ARP_PASSTHROUGH
 	case bpf_htons(ETH_P_ARP):
@@ -1108,9 +1154,9 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	policy_clear_mark(ctx);
 	tuple.nexthdr = ip6->nexthdr;
 
-	ipv6_addr_copy(&tuple.daddr, (union v6addr *) &ip6->daddr);
-	ipv6_addr_copy(&tuple.saddr, (union v6addr *) &ip6->saddr);
-	ipv6_addr_copy(&orig_sip, (union v6addr *) &ip6->saddr);
+	ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->daddr);
+	ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6->saddr);
+	ipv6_addr_copy(&orig_sip, (union v6addr *)&ip6->saddr);
 
 	/* If packet is coming from the ingress proxy we have to skip
 	 * redirection to the ingress proxy as we would loop forever.
@@ -1289,8 +1335,7 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 	return ret;
 }
 
-declare_tailcall_if(__or(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
-		    CILIUM_CALL_IPV6_TO_ENDPOINT)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_TO_ENDPOINT)
 int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 {
 	__u32 src_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
@@ -1308,7 +1353,7 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 
 	/* Packets from the proxy will already have a real identity. */
 	if (identity_is_reserved(src_identity)) {
-		union v6addr *src = (union v6addr *) &ip6->saddr;
+		union v6addr *src = (union v6addr *)&ip6->saddr;
 		struct remote_endpoint_info *info;
 
 		info = lookup_ip6_remote_endpoint(src);
@@ -1329,7 +1374,7 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 			}
 		}
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
-			   ((__u32 *) src)[3], src_identity);
+			   ((__u32 *)src)[3], src_identity);
 	}
 
 	cilium_dbg(ctx, DBG_LOCAL_DELIVERY, LXC_ID, SECLABEL);
@@ -1614,8 +1659,7 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 	return ret;
 }
 
-declare_tailcall_if(__or(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
-		    CILIUM_CALL_IPV4_TO_ENDPOINT)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_TO_ENDPOINT)
 int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 {
 	__u32 src_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
@@ -1756,11 +1800,12 @@ int tail_ipv6_to_ipv4(struct __ctx_buff *ctx)
 
 	ctx_store_meta(ctx, CB_NAT46_STATE, NAT64);
 
-	invoke_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
-			   CILIUM_CALL_IPV4_FROM_LXC, tail_handle_ipv4);
+#ifdef ENABLE_IPV4
+	ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_LXC);
+	ret = DROP_MISSED_TAIL_CALL;
+#endif
 drop_err:
-	return send_drop_notify(ctx, SECLABEL, 0, 0, ret, CTX_ACT_DROP,
-				METRIC_EGRESS);
+	return send_drop_notify_error(ctx, SECLABEL, ret, CTX_ACT_DROP, METRIC_EGRESS);
 }
 
 static __always_inline int handle_ipv4_to_ipv6(struct __ctx_buff *ctx)
@@ -1848,14 +1893,14 @@ int handle_to_container(struct __ctx_buff *ctx)
 #endif
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		invoke_tailcall_if(__or(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
-				   CILIUM_CALL_IPV6_TO_ENDPOINT, tail_ipv6_to_endpoint);
+		ep_tail_call(ctx, CILIUM_CALL_IPV6_TO_ENDPOINT);
+		ret = DROP_MISSED_TAIL_CALL;
 		break;
 #endif /* ENABLE_IPV6 */
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		invoke_tailcall_if(__or(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
-				   CILIUM_CALL_IPV4_TO_ENDPOINT, tail_ipv4_to_endpoint);
+		ep_tail_call(ctx, CILIUM_CALL_IPV4_TO_ENDPOINT);
+		ret = DROP_MISSED_TAIL_CALL;
 		break;
 #endif /* ENABLE_IPV4 */
 	default:
