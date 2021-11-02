@@ -14,6 +14,7 @@
 #include "csum.h"
 #include "l4.h"
 #include "proxy.h"
+#include "proxy_hairpin.h"
 
 #define TEMPLATE_LXC_ID 0xffff
 
@@ -55,40 +56,5 @@ int is_valid_lxc_src_ipv4(struct iphdr *ip4 __maybe_unused)
 	return 1;
 }
 #endif
-
-/**
- * ctx_redirect_to_proxy_hairpin redirects to the proxy by hairpining the
- * packet out the incoming interface
- */
-static __always_inline int
-ctx_redirect_to_proxy_hairpin(struct __ctx_buff *ctx, __be16 proxy_port)
-{
-	union macaddr host_mac = HOST_IFINDEX_MAC;
-	union macaddr router_mac = NODE_MAC;
-	void *data_end = (void *) (long) ctx->data_end;
-	void *data = (void *) (long) ctx->data;
-	struct iphdr *ip4;
-	int ret;
-
-	ctx_store_meta(ctx, CB_PROXY_MAGIC,
-		       MARK_MAGIC_TO_PROXY | (proxy_port << 16));
-	bpf_barrier(); /* verifier workaround */
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
-
-	ret = ipv4_l3(ctx, ETH_HLEN, (__u8 *) &router_mac, (__u8 *) &host_mac, ip4);
-	if (IS_ERR(ret))
-		return ret;
-
-	cilium_dbg(ctx, DBG_CAPTURE_PROXY_PRE, proxy_port, 0);
-
-	/* Note that the actual __ctx_buff preparation for submitting the
-	 * packet to the proxy will occur in a subsequent program via
-	 * ctx_redirect_to_proxy_first().
-	 */
-
-	return redirect(HOST_IFINDEX, 0);
-}
 
 #endif /* __LIB_LXC_H_ */
