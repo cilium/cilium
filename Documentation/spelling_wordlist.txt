@@ -360,6 +360,7 @@ eventBufferCapacity
 eventQueueSize
 extendable
 extensibility
+extern
 externalIPs
 externalWorkloads
 extraArgs
