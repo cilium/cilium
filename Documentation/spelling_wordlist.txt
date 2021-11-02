@@ -855,6 +855,7 @@ setupiptables
 sfc
 sg
 sha
+sid
 sidecarImageRegex
 sig
 skb
@@ -992,6 +993,7 @@ virtualization
 vlan
 vmlinux
 volumeMounts
+vrf
 vtep
 vxlan
 waitForMount
