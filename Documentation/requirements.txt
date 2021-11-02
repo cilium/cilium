@@ -20,7 +20,7 @@ snowballstemmer==1.2.1
 Sphinx==1.8.1
 sphinx-autobuild==0.7.1
 # forked read the docs themez
-git+git://github.com/cilium/sphinx_rtd_theme.git@v0.7; platform_machine != "aarch64"
+git+https://github.com/cilium/sphinx_rtd_theme.git@v0.7; platform_machine != "aarch64"
 sphinx-rtd-theme==0.2.4; platform_machine == "aarch64"
 sphinxcontrib-httpdomain==1.7.0
 sphinxcontrib-openapi==0.3.2
