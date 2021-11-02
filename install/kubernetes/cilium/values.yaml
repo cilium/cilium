@@ -1002,8 +1002,8 @@ kubeProxyReplacementHealthzBindAddr: ""
 l2NeighDiscovery:
   # -- Enable L2 neighbor discovery in the agent
   enabled: true
-  # -- Set period for arping
-  arping-refresh-period: "5m"
+  # -- Override the agent's default neighbor resolution refresh period.
+  arping-refresh-period: "30s"
 
 # -- Enable Layer 7 network policy.
 l7Proxy: true
