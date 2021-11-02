@@ -123,8 +123,8 @@ ipv6_l3_from_lxc(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 	if (unlikely(!is_valid_lxc_src_ip(ip6)))
 		return DROP_INVALID_SIP;
 
-	ipv6_addr_copy(&tuple->daddr, (union v6addr *) &ip6->daddr);
-	ipv6_addr_copy(&tuple->saddr, (union v6addr *) &ip6->saddr);
+	ipv6_addr_copy(&tuple->daddr, (union v6addr *)&ip6->daddr);
+	ipv6_addr_copy(&tuple->saddr, (union v6addr *)&ip6->saddr);
 
 	hdrlen = ipv6_hdrlen(ctx, &tuple->nexthdr);
 	if (hdrlen < 0)
@@ -174,7 +174,7 @@ skip_service_lookup:
 	 * logic re-writes the tuple daddr. In "theory" however the assignment
 	 * should be OK to move above goto label.
 	 */
-	ipv6_addr_copy(&orig_dip, (union v6addr *) &tuple->daddr);
+	ipv6_addr_copy(&orig_dip, (union v6addr *)&tuple->daddr);
 
 
 	/* WARNING: ip6 offset check invalidated, revalidate before use */
@@ -426,7 +426,7 @@ to_host:
 
 pass_to_stack:
 #ifdef ENABLE_ROUTING
-	ret = ipv6_l3(ctx, l3_off, NULL, (__u8 *) &router_mac.addr, METRIC_EGRESS);
+	ret = ipv6_l3(ctx, l3_off, NULL, (__u8 *)&router_mac.addr, METRIC_EGRESS);
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
 #endif
@@ -923,7 +923,7 @@ to_host:
 
 pass_to_stack:
 #ifdef ENABLE_ROUTING
-	ret = ipv4_l3(ctx, l3_off, NULL, (__u8 *) &router_mac.addr, ip4);
+	ret = ipv4_l3(ctx, l3_off, NULL, (__u8 *)&router_mac.addr, ip4);
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
 #endif
@@ -1108,9 +1108,9 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	policy_clear_mark(ctx);
 	tuple.nexthdr = ip6->nexthdr;
 
-	ipv6_addr_copy(&tuple.daddr, (union v6addr *) &ip6->daddr);
-	ipv6_addr_copy(&tuple.saddr, (union v6addr *) &ip6->saddr);
-	ipv6_addr_copy(&orig_sip, (union v6addr *) &ip6->saddr);
+	ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->daddr);
+	ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6->saddr);
+	ipv6_addr_copy(&orig_sip, (union v6addr *)&ip6->saddr);
 
 	/* If packet is coming from the ingress proxy we have to skip
 	 * redirection to the ingress proxy as we would loop forever.
@@ -1308,7 +1308,7 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 
 	/* Packets from the proxy will already have a real identity. */
 	if (identity_is_reserved(src_identity)) {
-		union v6addr *src = (union v6addr *) &ip6->saddr;
+		union v6addr *src = (union v6addr *)&ip6->saddr;
 		struct remote_endpoint_info *info;
 
 		info = lookup_ip6_remote_endpoint(src);
@@ -1329,7 +1329,7 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 			}
 		}
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
-			   ((__u32 *) src)[3], src_identity);
+			   ((__u32 *)src)[3], src_identity);
 	}
 
 	cilium_dbg(ctx, DBG_LOCAL_DELIVERY, LXC_ID, SECLABEL);
