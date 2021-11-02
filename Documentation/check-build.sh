@@ -57,7 +57,7 @@ if [ -n "${SKIP_LINT-}" ]; then
 else
   echo "Running linter..."
   CONF_PY_ROLES=$(sed -n "/^extlinks = {$/,/^}$/ s/^ *'\([^']\+\)':.*/\1/p" conf.py | tr '\n' ',')
-  CONF_PY_SUBSTITUTIONS=$(sed -n 's/^\.\. |\([^|]\+\)|.*/\1/p' conf.py | tr '\n' ',')
+  CONF_PY_SUBSTITUTIONS="$(sed -n 's/^\.\. |\([^|]\+\)|.*/\1/p' conf.py | tr '\n' ',')release"
   ignored_messages="("
   ignored_messages="${ignored_messages}bpf.rst:.*: \(INFO/1\) Enumerated list start value not ordinal"
   ignored_messages="${ignored_messages}|Hyperlink target .*is not referenced\."

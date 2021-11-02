@@ -129,7 +129,7 @@ Next, generate OpenShift manifests:
 
 Next, obtain Cilium manifest from ``cilium/cilium-olm`` repository and copy to ``${CLUSTER_NAME}/manifests``:
 
-.. code-block:: shell-session
+.. parsed-literal::
 
    cilium_olm_rev="master"
    cilium_version="\ |release|\ "
