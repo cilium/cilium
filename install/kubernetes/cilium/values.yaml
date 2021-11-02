@@ -258,7 +258,7 @@ bpf:
   policyMapMax: 16384
 
   # -- Configure auto-sizing for all BPF maps based on available memory.
-  # ref: https://docs.cilium.io/en/v1.9/concepts/ebpf/maps/#ebpf-maps
+  # ref: https://docs.cilium.io/en/stable/concepts/ebpf/maps/#ebpf-maps
   #mapDynamicSizeRatio: 0.0025
 
   # -- Configure the level of aggregation for monitor notifications.
