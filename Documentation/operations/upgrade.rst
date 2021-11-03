@@ -342,6 +342,8 @@ Removed Options
   please use the ``--kube-version`` flag (introduced in Helm 3.6.0) instead.
 * The deprecated ``hubble-ca-cert`` configmap has been removed. Use
   ``hubble-ca-secret`` secret instead.
+* The ``azure-cloud-name`` option for cilium-operator-azure was deprecated in
+  1.10 and is now removed.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
