@@ -13,7 +13,6 @@ export CILIUM_CONFIG_DIR="/opt/cilium"
 export PROVISIONSRC="/tmp/provision/"
 export SRC_FOLDER="/home/vagrant/go/src/github.com/cilium/cilium"
 export SYSTEMD_SERVICES="$SRC_FOLDER/contrib/systemd"
-MOUNT_SYSTEMD="sys-fs-bpf.mount"
 
 NODE=$1
 IP=$2
@@ -420,9 +419,7 @@ fi
 
 sudo mkdir -p ${CILIUM_CONFIG_DIR}
 
-sudo cp "$SYSTEMD_SERVICES/$MOUNT_SYSTEMD" /etc/systemd/system/
-sudo systemctl enable $MOUNT_SYSTEMD
-sudo systemctl restart $MOUNT_SYSTEMD
+sudo mount bpffs /sys/fs/bpf -t bpf
 sudo rm -rfv /var/lib/kubelet || true
 
 if [[ "${PRELOAD_VM}" == "true" ]]; then
