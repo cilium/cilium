@@ -152,9 +152,6 @@ const (
 
 	// Azure options
 
-	// AzureCloudName is the name of the cloud being used
-	AzureCloudName = "azure-cloud-name"
-
 	// AzureSubscriptionID is the subscription ID to use when accessing the Azure API
 	AzureSubscriptionID = "azure-subscription-id"
 
@@ -331,9 +328,6 @@ type OperatorConfig struct {
 
 	// Azure options
 
-	// AzureCloudName is the name of the cloud being used
-	AzureCloudName string
-
 	// AzureSubscriptionID is the subscription ID to use when accessing the Azure API
 	AzureSubscriptionID string
 
@@ -403,7 +397,6 @@ func (c *OperatorConfig) Populate() {
 
 	// Azure options
 
-	c.AzureCloudName = viper.GetString(AzureCloudName)
 	c.AzureSubscriptionID = viper.GetString(AzureSubscriptionID)
 	c.AzureResourceGroup = viper.GetString(AzureResourceGroup)
 	c.AzureUsePrimaryAddress = viper.GetBool(AzureUsePrimaryAddress)

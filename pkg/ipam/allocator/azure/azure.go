@@ -17,7 +17,6 @@ import (
 	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/spf13/viper"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-allocator-azure")
@@ -38,14 +37,10 @@ func (*AllocatorAzure) Start(ctx context.Context, getterUpdater ipam.CiliumNodeG
 
 	log.Info("Starting Azure IP allocator...")
 
-	azureCloudName := operatorOption.Config.AzureCloudName
-	if !viper.IsSet(operatorOption.AzureCloudName) {
-		log.Debug("Azure cloud name was not specified via CLI, retrieving it via Azure IMS")
-		var err error
-		azureCloudName, err = azureAPI.GetAzureCloudName(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("unsable to retrieve Azure cloud name: %w", err)
-		}
+	log.Debug("Retrieving Azure cloud name via Azure IMS")
+	azureCloudName, err := azureAPI.GetAzureCloudName(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve Azure cloud name: %w", err)
 	}
 
 	subscriptionID := operatorOption.Config.AzureSubscriptionID
