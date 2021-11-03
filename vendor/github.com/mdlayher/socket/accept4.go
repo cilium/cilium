@@ -1,4 +1,5 @@
-//+build freebsd linux
+//go:build dragonfly || freebsd || illumos || linux
+// +build dragonfly freebsd illumos linux
 
 package socket
 

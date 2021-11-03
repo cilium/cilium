@@ -17,11 +17,11 @@ package ecs
 
 // RouteEntry is a nested struct in ecs response
 type RouteEntry struct {
-	RouteTableId         string   `json:"RouteTableId" xml:"RouteTableId"`
-	DestinationCidrBlock string   `json:"DestinationCidrBlock" xml:"DestinationCidrBlock"`
 	Type                 string   `json:"Type" xml:"Type"`
 	Status               string   `json:"Status" xml:"Status"`
-	InstanceId           string   `json:"InstanceId" xml:"InstanceId"`
 	NextHopType          string   `json:"NextHopType" xml:"NextHopType"`
+	DestinationCidrBlock string   `json:"DestinationCidrBlock" xml:"DestinationCidrBlock"`
+	InstanceId           string   `json:"InstanceId" xml:"InstanceId"`
+	RouteTableId         string   `json:"RouteTableId" xml:"RouteTableId"`
 	NextHops             NextHops `json:"NextHops" xml:"NextHops"`
 }

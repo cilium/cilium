@@ -93,10 +93,10 @@ type AllocateEipAddressProRequest struct {
 type AllocateEipAddressProResponse struct {
 	*responses.BaseResponse
 	RequestId       string `json:"RequestId" xml:"RequestId"`
-	AllocationId    string `json:"AllocationId" xml:"AllocationId"`
-	EipAddress      string `json:"EipAddress" xml:"EipAddress"`
 	OrderId         int64  `json:"OrderId" xml:"OrderId"`
 	ResourceGroupId string `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	EipAddress      string `json:"EipAddress" xml:"EipAddress"`
+	AllocationId    string `json:"AllocationId" xml:"AllocationId"`
 }
 
 // CreateAllocateEipAddressProRequest creates a request to invoke AllocateEipAddressPro API

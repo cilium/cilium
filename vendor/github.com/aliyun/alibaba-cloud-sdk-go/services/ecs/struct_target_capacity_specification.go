@@ -17,8 +17,8 @@ package ecs
 
 // TargetCapacitySpecification is a nested struct in ecs response
 type TargetCapacitySpecification struct {
-	TotalTargetCapacity       float64 `json:"TotalTargetCapacity" xml:"TotalTargetCapacity"`
-	PayAsYouGoTargetCapacity  float64 `json:"PayAsYouGoTargetCapacity" xml:"PayAsYouGoTargetCapacity"`
 	SpotTargetCapacity        float64 `json:"SpotTargetCapacity" xml:"SpotTargetCapacity"`
+	PayAsYouGoTargetCapacity  float64 `json:"PayAsYouGoTargetCapacity" xml:"PayAsYouGoTargetCapacity"`
 	DefaultTargetCapacityType string  `json:"DefaultTargetCapacityType" xml:"DefaultTargetCapacityType"`
+	TotalTargetCapacity       float64 `json:"TotalTargetCapacity" xml:"TotalTargetCapacity"`
 }

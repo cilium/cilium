@@ -63,8 +63,8 @@ type ModifyFpgaImageAttributeInput struct {
 	// attribute.
 	UserGroups []string
 
-	// The AWS account IDs. This parameter is valid only when modifying the
-	// loadPermission attribute.
+	// The Amazon Web Services account IDs. This parameter is valid only when modifying
+	// the loadPermission attribute.
 	UserIds []string
 
 	noSmithyDocumentSerde

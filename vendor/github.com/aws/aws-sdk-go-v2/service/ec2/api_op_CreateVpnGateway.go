@@ -13,9 +13,9 @@ import (
 
 // Creates a virtual private gateway. A virtual private gateway is the endpoint on
 // the VPC side of your VPN connection. You can create a virtual private gateway
-// before creating the VPC itself. For more information, see AWS Site-to-Site VPN
-// (https://docs.aws.amazon.com/vpn/latest/s2svpn/VPC_VPN.html) in the AWS
-// Site-to-Site VPN User Guide.
+// before creating the VPC itself. For more information, see Amazon Web Services
+// Site-to-Site VPN (https://docs.aws.amazon.com/vpn/latest/s2svpn/VPC_VPN.html) in
+// the Amazon Web Services Site-to-Site VPN User Guide.
 func (c *Client) CreateVpnGateway(ctx context.Context, params *CreateVpnGatewayInput, optFns ...func(*Options)) (*CreateVpnGatewayOutput, error) {
 	if params == nil {
 		params = &CreateVpnGatewayInput{}

@@ -75,6 +75,7 @@ type ModifyDedicatedHostAutoRenewAttributeRequest struct {
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
 	Duration             requests.Integer `position:"Query" name:"Duration"`
 	RenewalStatus        string           `position:"Query" name:"RenewalStatus"`
+	AutoRenewWithEcs     string           `position:"Query" name:"AutoRenewWithEcs"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`

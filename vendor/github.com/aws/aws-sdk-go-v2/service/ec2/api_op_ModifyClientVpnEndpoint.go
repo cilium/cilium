@@ -74,13 +74,13 @@ type ModifyClientVpnEndpointInput struct {
 	SelfServicePortal types.SelfServicePortal
 
 	// The ARN of the server certificate to be used. The server certificate must be
-	// provisioned in AWS Certificate Manager (ACM).
+	// provisioned in Certificate Manager (ACM).
 	ServerCertificateArn *string
 
 	// Indicates whether the VPN is split-tunnel. For information about split-tunnel
-	// VPN endpoints, see Split-Tunnel AWS Client VPN Endpoint
+	// VPN endpoints, see Split-tunnel Client VPN endpoint
 	// (https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/split-tunnel-vpn.html)
-	// in the AWS Client VPN Administrator Guide.
+	// in the Client VPN Administrator Guide.
 	SplitTunnel *bool
 
 	// The ID of the VPC to associate with the Client VPN endpoint.

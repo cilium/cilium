@@ -21,8 +21,12 @@ import (
 // usage, and thereafter charges per second for instance usage. Before stopping an
 // instance, make sure it is in a state from which it can be restarted. Stopping an
 // instance does not preserve data stored in RAM. Performing this operation on an
-// instance that uses an instance store as its root device returns an error. For
-// more information, see Stopping instances
+// instance that uses an instance store as its root device returns an error. If you
+// attempt to start a T3 instance with host tenancy and the unlimted CPU credit
+// option, the request fails. The unlimited CPU credit option is not supported on
+// Dedicated Hosts. Before you start the instance, either change its CPU credit
+// option to standard, or change its tenancy to default or dedicated. For more
+// information, see Stopping instances
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Stop_Start.html) in the
 // Amazon EC2 User Guide.
 func (c *Client) StartInstances(ctx context.Context, params *StartInstancesInput, optFns ...func(*Options)) (*StartInstancesOutput, error) {

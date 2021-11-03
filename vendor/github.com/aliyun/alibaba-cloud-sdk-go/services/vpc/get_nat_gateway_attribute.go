@@ -81,21 +81,25 @@ type GetNatGatewayAttributeRequest struct {
 // GetNatGatewayAttributeResponse is the response struct for api GetNatGatewayAttribute
 type GetNatGatewayAttributeResponse struct {
 	*responses.BaseResponse
+	VpcId                  string                 `json:"VpcId" xml:"VpcId"`
+	CreationTime           string                 `json:"CreationTime" xml:"CreationTime"`
+	Status                 string                 `json:"Status" xml:"Status"`
+	NatType                string                 `json:"NatType" xml:"NatType"`
+	NetworkType            string                 `json:"NetworkType" xml:"NetworkType"`
+	RegionId               string                 `json:"RegionId" xml:"RegionId"`
+	EcsMetricEnabled       bool                   `json:"EcsMetricEnabled" xml:"EcsMetricEnabled"`
 	RequestId              string                 `json:"RequestId" xml:"RequestId"`
 	Description            string                 `json:"Description" xml:"Description"`
-	NatType                string                 `json:"NatType" xml:"NatType"`
-	EcsMetricEnabled       bool                   `json:"EcsMetricEnabled" xml:"EcsMetricEnabled"`
-	VpcId                  string                 `json:"VpcId" xml:"VpcId"`
-	NatGatewayId           string                 `json:"NatGatewayId" xml:"NatGatewayId"`
-	CreationTime           string                 `json:"CreationTime" xml:"CreationTime"`
 	ExpiredTime            string                 `json:"ExpiredTime" xml:"ExpiredTime"`
-	Name                   string                 `json:"Name" xml:"Name"`
-	Status                 string                 `json:"Status" xml:"Status"`
-	BusinessStatus         string                 `json:"BusinessStatus" xml:"BusinessStatus"`
-	RegionId               string                 `json:"RegionId" xml:"RegionId"`
 	ResourceGroupId        string                 `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	NatGatewayId           string                 `json:"NatGatewayId" xml:"NatGatewayId"`
+	BusinessStatus         string                 `json:"BusinessStatus" xml:"BusinessStatus"`
+	Name                   string                 `json:"Name" xml:"Name"`
+	PrivateLinkEnabled     bool                   `json:"PrivateLinkEnabled" xml:"PrivateLinkEnabled"`
+	PrivateLinkMode        string                 `json:"PrivateLinkMode" xml:"PrivateLinkMode"`
 	ForwardTable           ForwardTable           `json:"ForwardTable" xml:"ForwardTable"`
 	SnatTable              SnatTable              `json:"SnatTable" xml:"SnatTable"`
+	FullNatTable           FullNatTable           `json:"FullNatTable" xml:"FullNatTable"`
 	BillingConfig          BillingConfig          `json:"BillingConfig" xml:"BillingConfig"`
 	PrivateInfo            PrivateInfo            `json:"PrivateInfo" xml:"PrivateInfo"`
 	DeletionProtectionInfo DeletionProtectionInfo `json:"DeletionProtectionInfo" xml:"DeletionProtectionInfo"`

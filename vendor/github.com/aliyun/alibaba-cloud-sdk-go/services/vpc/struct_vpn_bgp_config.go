@@ -17,11 +17,12 @@ package vpc
 
 // VpnBgpConfig is a nested struct in vpc response
 type VpnBgpConfig struct {
-	PeerAsn    string `json:"PeerAsn" xml:"PeerAsn"`
+	PeerAsn    int64  `json:"PeerAsn" xml:"PeerAsn"`
+	LocalAsn   int64  `json:"LocalAsn" xml:"LocalAsn"`
 	EnableBgp  string `json:"EnableBgp" xml:"EnableBgp"`
-	TunnelCidr string `json:"TunnelCidr" xml:"TunnelCidr"`
+	AuthKey    string `json:"AuthKey" xml:"AuthKey"`
 	Status     string `json:"Status" xml:"Status"`
-	LocalBgpIp string `json:"LocalBgpIp" xml:"LocalBgpIp"`
+	TunnelCidr string `json:"TunnelCidr" xml:"TunnelCidr"`
 	PeerBgpIp  string `json:"PeerBgpIp" xml:"PeerBgpIp"`
-	LocalAsn   string `json:"LocalAsn" xml:"LocalAsn"`
+	LocalBgpIp string `json:"LocalBgpIp" xml:"LocalBgpIp"`
 }

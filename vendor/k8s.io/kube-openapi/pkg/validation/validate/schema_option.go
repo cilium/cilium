@@ -16,6 +16,7 @@ package validate
 
 // SchemaValidatorOptions defines optional rules for schema validation
 type SchemaValidatorOptions struct {
+	validationRulesEnabled bool
 }
 
 // Option sets optional rules for schema validation
@@ -23,5 +24,14 @@ type Option func(*SchemaValidatorOptions)
 
 // Options returns current options
 func (svo SchemaValidatorOptions) Options() []Option {
+	if svo.validationRulesEnabled {
+		return []Option{ValidationRulesEnabled}
+	}
 	return []Option{}
+}
+
+// ValidationRulesEnabled enables validation of rules defined in x-kubernetes-validations
+// schema extensions.
+var ValidationRulesEnabled = func(opts *SchemaValidatorOptions) {
+	opts.validationRulesEnabled = true
 }

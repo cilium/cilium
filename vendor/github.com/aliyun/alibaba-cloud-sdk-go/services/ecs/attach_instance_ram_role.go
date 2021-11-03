@@ -82,10 +82,10 @@ type AttachInstanceRamRoleRequest struct {
 // AttachInstanceRamRoleResponse is the response struct for api AttachInstanceRamRole
 type AttachInstanceRamRoleResponse struct {
 	*responses.BaseResponse
+	RamRoleName                  string                       `json:"RamRoleName" xml:"RamRoleName"`
 	RequestId                    string                       `json:"RequestId" xml:"RequestId"`
 	TotalCount                   int                          `json:"TotalCount" xml:"TotalCount"`
 	FailCount                    int                          `json:"FailCount" xml:"FailCount"`
-	RamRoleName                  string                       `json:"RamRoleName" xml:"RamRoleName"`
 	AttachInstanceRamRoleResults AttachInstanceRamRoleResults `json:"AttachInstanceRamRoleResults" xml:"AttachInstanceRamRoleResults"`
 }
 

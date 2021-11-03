@@ -90,8 +90,8 @@ type ModifyInstanceNetworkSpecRequest struct {
 // ModifyInstanceNetworkSpecResponse is the response struct for api ModifyInstanceNetworkSpec
 type ModifyInstanceNetworkSpecResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
 	OrderId   string `json:"OrderId" xml:"OrderId"`
+	RequestId string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateModifyInstanceNetworkSpecRequest creates a request to invoke ModifyInstanceNetworkSpec API

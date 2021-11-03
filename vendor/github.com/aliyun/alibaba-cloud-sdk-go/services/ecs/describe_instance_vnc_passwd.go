@@ -81,8 +81,8 @@ type DescribeInstanceVncPasswdRequest struct {
 // DescribeInstanceVncPasswdResponse is the response struct for api DescribeInstanceVncPasswd
 type DescribeInstanceVncPasswdResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
 	VncPasswd string `json:"VncPasswd" xml:"VncPasswd"`
+	RequestId string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateDescribeInstanceVncPasswdRequest creates a request to invoke DescribeInstanceVncPasswd API

@@ -87,15 +87,15 @@ type CreateSecurityGroupRequest struct {
 
 // CreateSecurityGroupTag is a repeated param struct in CreateSecurityGroupRequest
 type CreateSecurityGroupTag struct {
-	Value string `name:"Value"`
+	Value string `name:"value"`
 	Key   string `name:"Key"`
 }
 
 // CreateSecurityGroupResponse is the response struct for api CreateSecurityGroup
 type CreateSecurityGroupResponse struct {
 	*responses.BaseResponse
-	RequestId       string `json:"RequestId" xml:"RequestId"`
 	SecurityGroupId string `json:"SecurityGroupId" xml:"SecurityGroupId"`
+	RequestId       string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateCreateSecurityGroupRequest creates a request to invoke CreateSecurityGroup API

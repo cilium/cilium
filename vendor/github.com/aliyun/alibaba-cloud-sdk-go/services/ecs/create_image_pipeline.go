@@ -102,8 +102,8 @@ type CreateImagePipelineTag struct {
 // CreateImagePipelineResponse is the response struct for api CreateImagePipeline
 type CreateImagePipelineResponse struct {
 	*responses.BaseResponse
-	RequestId       string `json:"RequestId" xml:"RequestId"`
 	ImagePipelineId string `json:"ImagePipelineId" xml:"ImagePipelineId"`
+	RequestId       string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateCreateImagePipelineRequest creates a request to invoke CreateImagePipeline API

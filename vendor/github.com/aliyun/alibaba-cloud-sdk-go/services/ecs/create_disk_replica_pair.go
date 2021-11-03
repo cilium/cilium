@@ -86,8 +86,8 @@ type CreateDiskReplicaPairRequest struct {
 // CreateDiskReplicaPairResponse is the response struct for api CreateDiskReplicaPair
 type CreateDiskReplicaPairResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
 	PairId    string `json:"PairId" xml:"PairId"`
+	RequestId string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateCreateDiskReplicaPairRequest creates a request to invoke CreateDiskReplicaPair API

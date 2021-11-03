@@ -84,8 +84,8 @@ type DescribeDiskMonitorDataRequest struct {
 // DescribeDiskMonitorDataResponse is the response struct for api DescribeDiskMonitorData
 type DescribeDiskMonitorDataResponse struct {
 	*responses.BaseResponse
-	RequestId   string                               `json:"RequestId" xml:"RequestId"`
 	TotalCount  int                                  `json:"TotalCount" xml:"TotalCount"`
+	RequestId   string                               `json:"RequestId" xml:"RequestId"`
 	MonitorData MonitorDataInDescribeDiskMonitorData `json:"MonitorData" xml:"MonitorData"`
 }
 

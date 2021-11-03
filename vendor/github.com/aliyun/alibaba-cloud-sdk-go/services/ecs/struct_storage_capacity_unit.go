@@ -17,14 +17,15 @@ package ecs
 
 // StorageCapacityUnit is a nested struct in ecs response
 type StorageCapacityUnit struct {
-	RegionId              string `json:"RegionId" xml:"RegionId"`
-	StorageCapacityUnitId string `json:"StorageCapacityUnitId" xml:"StorageCapacityUnitId"`
-	Name                  string `json:"Name" xml:"Name"`
-	Capacity              int    `json:"Capacity" xml:"Capacity"`
-	Status                string `json:"Status" xml:"Status"`
-	CreationTime          string `json:"CreationTime" xml:"CreationTime"`
-	ExpiredTime           string `json:"ExpiredTime" xml:"ExpiredTime"`
-	StartTime             string `json:"StartTime" xml:"StartTime"`
-	Description           string `json:"Description" xml:"Description"`
-	AllocationStatus      string `json:"AllocationStatus" xml:"AllocationStatus"`
+	CreationTime          string                             `json:"CreationTime" xml:"CreationTime"`
+	Status                string                             `json:"Status" xml:"Status"`
+	StartTime             string                             `json:"StartTime" xml:"StartTime"`
+	Capacity              int                                `json:"Capacity" xml:"Capacity"`
+	Description           string                             `json:"Description" xml:"Description"`
+	AllocationStatus      string                             `json:"AllocationStatus" xml:"AllocationStatus"`
+	ExpiredTime           string                             `json:"ExpiredTime" xml:"ExpiredTime"`
+	StorageCapacityUnitId string                             `json:"StorageCapacityUnitId" xml:"StorageCapacityUnitId"`
+	Name                  string                             `json:"Name" xml:"Name"`
+	RegionId              string                             `json:"RegionId" xml:"RegionId"`
+	Tags                  TagsInDescribeStorageCapacityUnits `json:"Tags" xml:"Tags"`
 }

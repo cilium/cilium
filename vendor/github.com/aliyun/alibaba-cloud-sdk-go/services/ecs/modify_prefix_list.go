@@ -84,8 +84,8 @@ type ModifyPrefixListRequest struct {
 
 // ModifyPrefixListAddEntry is a repeated param struct in ModifyPrefixListRequest
 type ModifyPrefixListAddEntry struct {
-	Cidr        string `name:"Cidr"`
 	Description string `name:"Description"`
+	Cidr        string `name:"Cidr"`
 }
 
 // ModifyPrefixListRemoveEntry is a repeated param struct in ModifyPrefixListRequest

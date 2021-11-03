@@ -17,7 +17,7 @@ package ecs
 
 // LocalStorageCapacity is a nested struct in ecs response
 type LocalStorageCapacity struct {
-	TotalDisk        int    `json:"TotalDisk" xml:"TotalDisk"`
-	AvailableDisk    int    `json:"AvailableDisk" xml:"AvailableDisk"`
 	DataDiskCategory string `json:"DataDiskCategory" xml:"DataDiskCategory"`
+	AvailableDisk    int    `json:"AvailableDisk" xml:"AvailableDisk"`
+	TotalDisk        int    `json:"TotalDisk" xml:"TotalDisk"`
 }

@@ -71,26 +71,33 @@ func (client *Client) DescribeStorageCapacityUnitsWithCallback(request *Describe
 // DescribeStorageCapacityUnitsRequest is the request struct for api DescribeStorageCapacityUnits
 type DescribeStorageCapacityUnitsRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId       requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	PageNumber            requests.Integer `position:"Query" name:"PageNumber"`
-	Capacity              requests.Integer `position:"Query" name:"Capacity"`
-	StorageCapacityUnitId *[]string        `position:"Query" name:"StorageCapacityUnitId"  type:"Repeated"`
-	PageSize              requests.Integer `position:"Query" name:"PageSize"`
-	ResourceOwnerAccount  string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount          string           `position:"Query" name:"OwnerAccount"`
-	OwnerId               requests.Integer `position:"Query" name:"OwnerId"`
-	Name                  string           `position:"Query" name:"Name"`
-	Status                *[]string        `position:"Query" name:"Status"  type:"Repeated"`
-	AllocationType        string           `position:"Query" name:"AllocationType"`
+	ResourceOwnerId       requests.Integer                   `position:"Query" name:"ResourceOwnerId"`
+	PageNumber            requests.Integer                   `position:"Query" name:"PageNumber"`
+	Capacity              requests.Integer                   `position:"Query" name:"Capacity"`
+	StorageCapacityUnitId *[]string                          `position:"Query" name:"StorageCapacityUnitId"  type:"Repeated"`
+	PageSize              requests.Integer                   `position:"Query" name:"PageSize"`
+	Tag                   *[]DescribeStorageCapacityUnitsTag `position:"Query" name:"Tag"  type:"Repeated"`
+	ResourceOwnerAccount  string                             `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount          string                             `position:"Query" name:"OwnerAccount"`
+	OwnerId               requests.Integer                   `position:"Query" name:"OwnerId"`
+	Name                  string                             `position:"Query" name:"Name"`
+	AllocationType        string                             `position:"Query" name:"AllocationType"`
+	Status                *[]string                          `position:"Query" name:"Status"  type:"Repeated"`
+}
+
+// DescribeStorageCapacityUnitsTag is a repeated param struct in DescribeStorageCapacityUnitsRequest
+type DescribeStorageCapacityUnitsTag struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // DescribeStorageCapacityUnitsResponse is the response struct for api DescribeStorageCapacityUnits
 type DescribeStorageCapacityUnitsResponse struct {
 	*responses.BaseResponse
-	RequestId            string               `json:"RequestId" xml:"RequestId"`
-	TotalCount           int                  `json:"TotalCount" xml:"TotalCount"`
-	PageNumber           int                  `json:"PageNumber" xml:"PageNumber"`
 	PageSize             int                  `json:"PageSize" xml:"PageSize"`
+	RequestId            string               `json:"RequestId" xml:"RequestId"`
+	PageNumber           int                  `json:"PageNumber" xml:"PageNumber"`
+	TotalCount           int                  `json:"TotalCount" xml:"TotalCount"`
 	StorageCapacityUnits StorageCapacityUnits `json:"StorageCapacityUnits" xml:"StorageCapacityUnits"`
 }
 

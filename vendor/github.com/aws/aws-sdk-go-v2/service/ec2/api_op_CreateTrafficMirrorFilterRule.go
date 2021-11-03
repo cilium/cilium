@@ -37,7 +37,7 @@ type CreateTrafficMirrorFilterRuleInput struct {
 	// This member is required.
 	DestinationCidrBlock *string
 
-	// The action to take (accept | reject) on the filtered traffic.
+	// The action to take on the filtered traffic.
 	//
 	// This member is required.
 	RuleAction types.TrafficMirrorRuleAction
@@ -54,7 +54,7 @@ type CreateTrafficMirrorFilterRuleInput struct {
 	// This member is required.
 	SourceCidrBlock *string
 
-	// The type of traffic (ingress | egress).
+	// The type of traffic.
 	//
 	// This member is required.
 	TrafficDirection types.TrafficDirection
@@ -65,7 +65,7 @@ type CreateTrafficMirrorFilterRuleInput struct {
 	TrafficMirrorFilterId *string
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see How to Ensure Idempotency
+	// the request. For more information, see How to ensure idempotency
 	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
 	ClientToken *string
 
@@ -96,7 +96,7 @@ type CreateTrafficMirrorFilterRuleInput struct {
 type CreateTrafficMirrorFilterRuleOutput struct {
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see How to Ensure Idempotency
+	// the request. For more information, see How to ensure idempotency
 	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
 	ClientToken *string
 

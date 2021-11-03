@@ -17,7 +17,7 @@ package vpc
 
 // IpListItem is a nested struct in vpc response
 type IpListItem struct {
+	UsingStatus  string `json:"UsingStatus" xml:"UsingStatus"`
 	IpAddress    string `json:"IpAddress" xml:"IpAddress"`
 	AllocationId string `json:"AllocationId" xml:"AllocationId"`
-	UsingStatus  string `json:"UsingStatus" xml:"UsingStatus"`
 }

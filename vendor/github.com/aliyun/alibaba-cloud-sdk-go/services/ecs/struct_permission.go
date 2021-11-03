@@ -17,27 +17,27 @@ package ecs
 
 // Permission is a nested struct in ecs response
 type Permission struct {
-	IpProtocol              string `json:"IpProtocol" xml:"IpProtocol"`
-	PortRange               string `json:"PortRange" xml:"PortRange"`
-	SourcePortRange         string `json:"SourcePortRange" xml:"SourcePortRange"`
+	Direction               string `json:"Direction" xml:"Direction"`
 	SourceGroupId           string `json:"SourceGroupId" xml:"SourceGroupId"`
-	SourceGroupName         string `json:"SourceGroupName" xml:"SourceGroupName"`
-	SourceCidrIp            string `json:"SourceCidrIp" xml:"SourceCidrIp"`
-	Ipv6SourceCidrIp        string `json:"Ipv6SourceCidrIp" xml:"Ipv6SourceCidrIp"`
-	SourcePrefixListId      string `json:"SourcePrefixListId" xml:"SourcePrefixListId"`
-	SourcePrefixListName    string `json:"SourcePrefixListName" xml:"SourcePrefixListName"`
-	Policy                  string `json:"Policy" xml:"Policy"`
-	NicType                 string `json:"NicType" xml:"NicType"`
-	SourceGroupOwnerAccount string `json:"SourceGroupOwnerAccount" xml:"SourceGroupOwnerAccount"`
-	DestGroupId             string `json:"DestGroupId" xml:"DestGroupId"`
-	DestGroupName           string `json:"DestGroupName" xml:"DestGroupName"`
-	DestCidrIp              string `json:"DestCidrIp" xml:"DestCidrIp"`
-	Ipv6DestCidrIp          string `json:"Ipv6DestCidrIp" xml:"Ipv6DestCidrIp"`
+	DestGroupOwnerAccount   string `json:"DestGroupOwnerAccount" xml:"DestGroupOwnerAccount"`
 	DestPrefixListId        string `json:"DestPrefixListId" xml:"DestPrefixListId"`
 	DestPrefixListName      string `json:"DestPrefixListName" xml:"DestPrefixListName"`
-	DestGroupOwnerAccount   string `json:"DestGroupOwnerAccount" xml:"DestGroupOwnerAccount"`
-	Priority                string `json:"Priority" xml:"Priority"`
-	Direction               string `json:"Direction" xml:"Direction"`
-	Description             string `json:"Description" xml:"Description"`
+	SourceCidrIp            string `json:"SourceCidrIp" xml:"SourceCidrIp"`
+	Ipv6DestCidrIp          string `json:"Ipv6DestCidrIp" xml:"Ipv6DestCidrIp"`
 	CreateTime              string `json:"CreateTime" xml:"CreateTime"`
+	Ipv6SourceCidrIp        string `json:"Ipv6SourceCidrIp" xml:"Ipv6SourceCidrIp"`
+	DestGroupId             string `json:"DestGroupId" xml:"DestGroupId"`
+	DestCidrIp              string `json:"DestCidrIp" xml:"DestCidrIp"`
+	IpProtocol              string `json:"IpProtocol" xml:"IpProtocol"`
+	Priority                string `json:"Priority" xml:"Priority"`
+	DestGroupName           string `json:"DestGroupName" xml:"DestGroupName"`
+	NicType                 string `json:"NicType" xml:"NicType"`
+	Policy                  string `json:"Policy" xml:"Policy"`
+	Description             string `json:"Description" xml:"Description"`
+	PortRange               string `json:"PortRange" xml:"PortRange"`
+	SourcePrefixListName    string `json:"SourcePrefixListName" xml:"SourcePrefixListName"`
+	SourcePrefixListId      string `json:"SourcePrefixListId" xml:"SourcePrefixListId"`
+	SourceGroupOwnerAccount string `json:"SourceGroupOwnerAccount" xml:"SourceGroupOwnerAccount"`
+	SourceGroupName         string `json:"SourceGroupName" xml:"SourceGroupName"`
+	SourcePortRange         string `json:"SourcePortRange" xml:"SourcePortRange"`
 }

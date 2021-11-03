@@ -15,7 +15,7 @@ import (
 // available to you. If there is an event impacting a zone, you can use this
 // request to view the state and any provided messages for that zone. For more
 // information about Availability Zones, Local Zones, and Wavelength Zones, see
-// Regions, Zones and Outposts
+// Regions and zones
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html)
 // in the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) DescribeAvailabilityZones(ctx context.Context, params *DescribeAvailabilityZonesInput, optFns ...func(*Options)) (*DescribeAvailabilityZonesOutput, error) {

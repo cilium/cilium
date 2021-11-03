@@ -109,21 +109,25 @@ type DescribeInstanceTypesInput struct {
 	// for the local instance storage disks (hdd | ssd).
 	//
 	// *
-	// instance-storage-info.nvme-support - Indicates whether non-volatile memory
-	// express (NVMe) is supported for instance store (required | supported) |
-	// unsupported).
+	// instance-storage-info.encryption-supported - Indicates whether data is encrypted
+	// at rest (required | unsupported).
 	//
-	// * instance-storage-info.total-size-in-gb - The total amount of
-	// storage available from all local instance storage, in GB.
+	// * instance-storage-info.nvme-support -
+	// Indicates whether non-volatile memory express (NVMe) is supported for instance
+	// store (required | supported | unsupported).
 	//
 	// *
-	// instance-storage-supported - Indicates whether the instance type has local
-	// instance storage (true | false).
+	// instance-storage-info.total-size-in-gb - The total amount of storage available
+	// from all local instance storage, in GB.
 	//
-	// * instance-type - The instance type (for
-	// example c5.2xlarge or c5*).
+	// * instance-storage-supported -
+	// Indicates whether the instance type has local instance storage (true |
+	// false).
 	//
-	// * memory-info.size-in-mib - The memory size.
+	// * instance-type - The instance type (for example c5.2xlarge or c5*).
+	//
+	// *
+	// memory-info.size-in-mib - The memory size.
 	//
 	// *
 	// network-info.efa-info.maximum-efa-interfaces - The maximum number of Elastic
@@ -138,24 +142,25 @@ type DescribeInstanceTypesInput struct {
 	//
 	// *
 	// network-info.encryption-in-transit-supported - Indicates whether the instance
-	// type automatically encrypts in-transit traffic between instances.
+	// type automatically encrypts in-transit traffic between instances (true |
+	// false).
+	//
+	// * network-info.ipv4-addresses-per-interface - The maximum number of
+	// private IPv4 addresses per network interface.
 	//
 	// *
-	// network-info.ipv4-addresses-per-interface - The maximum number of private IPv4
+	// network-info.ipv6-addresses-per-interface - The maximum number of private IPv6
 	// addresses per network interface.
 	//
-	// * network-info.ipv6-addresses-per-interface -
-	// The maximum number of private IPv6 addresses per network interface.
+	// * network-info.ipv6-supported - Indicates
+	// whether the instance type supports IPv6 (true | false).
 	//
 	// *
-	// network-info.ipv6-supported - Indicates whether the instance type supports IPv6
-	// (true | false).
+	// network-info.maximum-network-interfaces - The maximum number of network
+	// interfaces per instance.
 	//
-	// * network-info.maximum-network-interfaces - The maximum number
-	// of network interfaces per instance.
-	//
-	// * network-info.network-performance - The
-	// network performance (for example, "25 Gigabit").
+	// * network-info.network-performance - The network
+	// performance (for example, "25 Gigabit").
 	//
 	// *
 	// processor-info.supported-architecture - The CPU architecture (arm64 | i386 |

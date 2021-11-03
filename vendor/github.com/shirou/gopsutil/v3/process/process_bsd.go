@@ -19,10 +19,6 @@ func (p *Process) TgidWithContext(ctx context.Context) (int32, error) {
 	return 0, common.ErrNotImplementedError
 }
 
-func (p *Process) CwdWithContext(ctx context.Context) (string, error) {
-	return "", common.ErrNotImplementedError
-}
-
 func (p *Process) IOniceWithContext(ctx context.Context) (int32, error) {
 	return 0, common.ErrNotImplementedError
 }
@@ -77,4 +73,3 @@ func parseKinfoProc(buf []byte) (KinfoProc, error) {
 	err := common.Read(br, binary.LittleEndian, &k)
 	return k, err
 }
-

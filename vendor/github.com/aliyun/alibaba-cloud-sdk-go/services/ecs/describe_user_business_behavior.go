@@ -81,8 +81,8 @@ type DescribeUserBusinessBehaviorRequest struct {
 // DescribeUserBusinessBehaviorResponse is the response struct for api DescribeUserBusinessBehavior
 type DescribeUserBusinessBehaviorResponse struct {
 	*responses.BaseResponse
-	RequestId   string `json:"RequestId" xml:"RequestId"`
 	StatusValue string `json:"StatusValue" xml:"StatusValue"`
+	RequestId   string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateDescribeUserBusinessBehaviorRequest creates a request to invoke DescribeUserBusinessBehavior API

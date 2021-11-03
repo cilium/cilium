@@ -81,9 +81,9 @@ type DescribeUserDataRequest struct {
 type DescribeUserDataResponse struct {
 	*responses.BaseResponse
 	RequestId  string `json:"RequestId" xml:"RequestId"`
-	RegionId   string `json:"RegionId" xml:"RegionId"`
 	InstanceId string `json:"InstanceId" xml:"InstanceId"`
 	UserData   string `json:"UserData" xml:"UserData"`
+	RegionId   string `json:"RegionId" xml:"RegionId"`
 }
 
 // CreateDescribeUserDataRequest creates a request to invoke DescribeUserData API

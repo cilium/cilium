@@ -17,6 +17,6 @@ package ecs
 
 // Link is a nested struct in ecs response
 type Link struct {
-	InstanceId string `json:"InstanceId" xml:"InstanceId"`
 	VpcId      string `json:"VpcId" xml:"VpcId"`
+	InstanceId string `json:"InstanceId" xml:"InstanceId"`
 }

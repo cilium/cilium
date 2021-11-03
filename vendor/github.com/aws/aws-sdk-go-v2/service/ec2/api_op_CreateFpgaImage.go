@@ -15,8 +15,8 @@ import (
 // The create operation is asynchronous. To verify that the AFI is ready for use,
 // check the output logs. An AFI contains the FPGA bitstream that is ready to
 // download to an FPGA. You can securely deploy an AFI on multiple FPGA-accelerated
-// instances. For more information, see the AWS FPGA Hardware Development Kit
-// (https://github.com/aws/aws-fpga/).
+// instances. For more information, see the Amazon Web Services FPGA Hardware
+// Development Kit (https://github.com/aws/aws-fpga/).
 func (c *Client) CreateFpgaImage(ctx context.Context, params *CreateFpgaImageInput, optFns ...func(*Options)) (*CreateFpgaImageOutput, error) {
 	if params == nil {
 		params = &CreateFpgaImageInput{}

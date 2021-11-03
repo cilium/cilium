@@ -12,7 +12,7 @@ import (
 	"github.com/cilium/cilium/plugins/cilium-cni/types"
 
 	"github.com/containernetworking/cni/pkg/skel"
-	cniTypesVer "github.com/containernetworking/cni/pkg/types/current"
+	cniTypesVer "github.com/containernetworking/cni/pkg/types/040"
 	"github.com/sirupsen/logrus"
 )
 

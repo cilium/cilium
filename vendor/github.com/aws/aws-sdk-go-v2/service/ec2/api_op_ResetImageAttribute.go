@@ -11,8 +11,7 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Resets an attribute of an AMI to its default value. The productCodes attribute
-// can't be reset.
+// Resets an attribute of an AMI to its default value.
 func (c *Client) ResetImageAttribute(ctx context.Context, params *ResetImageAttributeInput, optFns ...func(*Options)) (*ResetImageAttributeOutput, error) {
 	if params == nil {
 		params = &ResetImageAttributeInput{}

@@ -83,13 +83,13 @@ type DescribeSecurityGroupAttributeRequest struct {
 // DescribeSecurityGroupAttributeResponse is the response struct for api DescribeSecurityGroupAttribute
 type DescribeSecurityGroupAttributeResponse struct {
 	*responses.BaseResponse
-	RequestId         string      `json:"RequestId" xml:"RequestId"`
-	RegionId          string      `json:"RegionId" xml:"RegionId"`
-	SecurityGroupId   string      `json:"SecurityGroupId" xml:"SecurityGroupId"`
-	Description       string      `json:"Description" xml:"Description"`
-	SecurityGroupName string      `json:"SecurityGroupName" xml:"SecurityGroupName"`
 	VpcId             string      `json:"VpcId" xml:"VpcId"`
+	RequestId         string      `json:"RequestId" xml:"RequestId"`
 	InnerAccessPolicy string      `json:"InnerAccessPolicy" xml:"InnerAccessPolicy"`
+	Description       string      `json:"Description" xml:"Description"`
+	SecurityGroupId   string      `json:"SecurityGroupId" xml:"SecurityGroupId"`
+	SecurityGroupName string      `json:"SecurityGroupName" xml:"SecurityGroupName"`
+	RegionId          string      `json:"RegionId" xml:"RegionId"`
 	Permissions       Permissions `json:"Permissions" xml:"Permissions"`
 }
 

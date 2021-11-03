@@ -92,9 +92,9 @@ type DescribeImagePipelineExecutionsTag struct {
 // DescribeImagePipelineExecutionsResponse is the response struct for api DescribeImagePipelineExecutions
 type DescribeImagePipelineExecutionsResponse struct {
 	*responses.BaseResponse
+	NextToken              string                 `json:"NextToken" xml:"NextToken"`
 	RequestId              string                 `json:"RequestId" xml:"RequestId"`
 	TotalCount             int                    `json:"TotalCount" xml:"TotalCount"`
-	NextToken              string                 `json:"NextToken" xml:"NextToken"`
 	MaxResults             int                    `json:"MaxResults" xml:"MaxResults"`
 	ImagePipelineExecution ImagePipelineExecution `json:"ImagePipelineExecution" xml:"ImagePipelineExecution"`
 }

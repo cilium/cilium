@@ -19,9 +19,9 @@ package ecs
 type Activation struct {
 	DeregisteredCount int    `json:"DeregisteredCount" xml:"DeregisteredCount"`
 	InstanceCount     int    `json:"InstanceCount" xml:"InstanceCount"`
-	ActivationId      string `json:"ActivationId" xml:"ActivationId"`
-	TimeToLiveInHours int64  `json:"TimeToLiveInHours" xml:"TimeToLiveInHours"`
 	RegisteredCount   int    `json:"RegisteredCount" xml:"RegisteredCount"`
+	TimeToLiveInHours int64  `json:"TimeToLiveInHours" xml:"TimeToLiveInHours"`
+	ActivationId      string `json:"ActivationId" xml:"ActivationId"`
 	Disabled          bool   `json:"Disabled" xml:"Disabled"`
 	InstanceName      string `json:"InstanceName" xml:"InstanceName"`
 	CreationTime      string `json:"CreationTime" xml:"CreationTime"`

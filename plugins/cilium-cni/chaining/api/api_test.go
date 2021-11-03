@@ -10,7 +10,7 @@ import (
 	"context"
 	"testing"
 
-	cniTypesVer "github.com/containernetworking/cni/pkg/types/current"
+	cniTypesVer "github.com/containernetworking/cni/pkg/types/040"
 	"gopkg.in/check.v1"
 )
 

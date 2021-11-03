@@ -28,32 +28,32 @@ import (
 // root volume of an instance launched from the AMI is encrypted. For more
 // information, see Create a Linux AMI from a snapshot
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/creating-an-ami-ebs.html#creating-launching-ami-from-snapshot)
-// and Use encryption with EBS-backed AMIs
+// and Use encryption with Amazon EBS-backed AMIs
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AMIEncryption.html) in the
-// Amazon Elastic Compute Cloud User Guide. AWS Marketplace product codes If any
-// snapshots have AWS Marketplace product codes, they are copied to the new AMI.
-// Windows and some Linux distributions, such as Red Hat Enterprise Linux (RHEL)
-// and SUSE Linux Enterprise Server (SLES), use the EC2 billing product code
-// associated with an AMI to verify the subscription status for package updates. To
-// create a new AMI for operating systems that require a billing product code,
-// instead of registering the AMI, do the following to preserve the billing product
-// code association:
+// Amazon Elastic Compute Cloud User Guide. Amazon Web Services Marketplace product
+// codes If any snapshots have Amazon Web Services Marketplace product codes, they
+// are copied to the new AMI. Windows and some Linux distributions, such as Red Hat
+// Enterprise Linux (RHEL) and SUSE Linux Enterprise Server (SLES), use the Amazon
+// EC2 billing product code associated with an AMI to verify the subscription
+// status for package updates. To create a new AMI for operating systems that
+// require a billing product code, instead of registering the AMI, do the following
+// to preserve the billing product code association:
 //
-// * Launch an instance from an existing AMI with that billing
-// product code.
+// * Launch an instance from an
+// existing AMI with that billing product code.
 //
 // * Customize the instance.
 //
-// * Create an AMI from the instance
-// using CreateImage.
+// *
+// Create an AMI from the instance using CreateImage.
 //
-// If you purchase a Reserved Instance to apply to an On-Demand
-// Instance that was launched from an AMI with a billing product code, make sure
-// that the Reserved Instance has the matching billing product code. If you
-// purchase a Reserved Instance without the matching billing product code, the
-// Reserved Instance will not be applied to the On-Demand Instance. For information
-// about how to obtain the platform details and billing information of an AMI, see
-// Obtaining billing information
+// If you purchase a Reserved
+// Instance to apply to an On-Demand Instance that was launched from an AMI with a
+// billing product code, make sure that the Reserved Instance has the matching
+// billing product code. If you purchase a Reserved Instance without the matching
+// billing product code, the Reserved Instance will not be applied to the On-Demand
+// Instance. For information about how to obtain the platform details and billing
+// information of an AMI, see Understanding AMI billing
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ami-billing-info.html) in
 // the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) RegisterImage(ctx context.Context, params *RegisterImageInput, optFns ...func(*Options)) (*RegisterImageOutput, error) {
@@ -86,16 +86,16 @@ type RegisterImageInput struct {
 	Architecture types.ArchitectureValues
 
 	// The billing product codes. Your account must be authorized to specify billing
-	// product codes. Otherwise, you can use the AWS Marketplace to bill for the use of
-	// an AMI.
+	// product codes. Otherwise, you can use the Amazon Web Services Marketplace to
+	// bill for the use of an AMI.
 	BillingProducts []string
 
-	// The block device mapping entries. If you specify an EBS volume using the ID of
-	// an EBS snapshot, you can't specify the encryption state of the volume. If you
-	// create an AMI on an Outpost, then all backing snapshots must be on the same
-	// Outpost or in the Region of that Outpost. AMIs on an Outpost that include local
-	// snapshots can be used to launch instances on the same Outpost only. For more
-	// information,  Amazon EBS local snapshots on Outposts
+	// The block device mapping entries. If you specify an Amazon EBS volume using the
+	// ID of an Amazon EBS snapshot, you can't specify the encryption state of the
+	// volume. If you create an AMI on an Outpost, then all backing snapshots must be
+	// on the same Outpost or in the Region of that Outpost. AMIs on an Outpost that
+	// include local snapshots can be used to launch instances on the same Outpost
+	// only. For more information,  Amazon EBS local snapshots on Outposts
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshots-outposts.html#ami)
 	// in the Amazon Elastic Compute Cloud User Guide.
 	BlockDeviceMappings []types.BlockDeviceMapping

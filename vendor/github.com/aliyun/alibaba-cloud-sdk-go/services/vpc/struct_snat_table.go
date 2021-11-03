@@ -17,6 +17,6 @@ package vpc
 
 // SnatTable is a nested struct in vpc response
 type SnatTable struct {
-	SnatTableId    string `json:"SnatTableId" xml:"SnatTableId"`
 	SnatEntryCount int    `json:"SnatEntryCount" xml:"SnatEntryCount"`
+	SnatTableId    string `json:"SnatTableId" xml:"SnatTableId"`
 }

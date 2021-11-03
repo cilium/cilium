@@ -28,6 +28,12 @@ type AccessURI struct {
 	AccessSAS *string `json:"accessSAS,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for AccessURI.
+func (au AccessURI) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // AdditionalCapabilities enables or disables a capability on the virtual machine or virtual machine scale
 // set.
 type AdditionalCapabilities struct {
@@ -39,11 +45,11 @@ type AdditionalCapabilities struct {
 // Unattend.xml file, which is used by Windows Setup. Contents are defined by setting name, component name,
 // and the pass in which the content is applied.
 type AdditionalUnattendContent struct {
-	// PassName - The pass name. Currently, the only allowable value is OobeSystem. Possible values include: 'OobeSystem'
+	// PassName - The pass name. Currently, the only allowable value is OobeSystem. Possible values include: 'PassNamesOobeSystem'
 	PassName PassNames `json:"passName,omitempty"`
-	// ComponentName - The component name. Currently, the only allowable value is Microsoft-Windows-Shell-Setup. Possible values include: 'MicrosoftWindowsShellSetup'
+	// ComponentName - The component name. Currently, the only allowable value is Microsoft-Windows-Shell-Setup. Possible values include: 'ComponentNamesMicrosoftWindowsShellSetup'
 	ComponentName ComponentNames `json:"componentName,omitempty"`
-	// SettingName - Specifies the name of the setting to which the content applies. Possible values are: FirstLogonCommands and AutoLogon. Possible values include: 'AutoLogon', 'FirstLogonCommands'
+	// SettingName - Specifies the name of the setting to which the content applies. Possible values are: FirstLogonCommands and AutoLogon. Possible values include: 'SettingNamesAutoLogon', 'SettingNamesFirstLogonCommands'
 	SettingName SettingNames `json:"settingName,omitempty"`
 	// Content - Specifies the XML formatted content that is added to the unattend.xml file for the specified path and component. The XML must be less than 4KB and must include the root element for the setting or feature that is being inserted.
 	Content *string `json:"content,omitempty"`
@@ -104,14 +110,12 @@ type AutomaticRepairsPolicy struct {
 
 // AvailabilitySet specifies information about the availability set that the virtual machine should be
 // assigned to. Virtual machines specified in the same availability set are allocated to different nodes to
-// maximize availability. For more information about availability sets, see [Manage the availability of
-// virtual
-// machines](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-windows-manage-availability?toc=%2fazure%2fvirtual-machines%2fwindows%2ftoc.json).
-// <br><br> For more information on Azure planned maintenance, see [Planned maintenance for virtual
-// machines in
-// Azure](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-windows-planned-maintenance?toc=%2fazure%2fvirtual-machines%2fwindows%2ftoc.json)
-// <br><br> Currently, a VM can only be added to availability set at creation time. An existing VM cannot
-// be added to an availability set.
+// maximize availability. For more information about availability sets, see [Availability sets
+// overview](https://docs.microsoft.com/azure/virtual-machines/availability-set-overview). <br><br> For
+// more information on Azure planned maintenance, see [Maintenance and updates for Virtual Machines in
+// Azure](https://docs.microsoft.com/azure/virtual-machines/maintenance-and-updates) <br><br> Currently, a
+// VM can only be added to availability set at creation time. An existing VM cannot be added to an
+// availability set.
 type AvailabilitySet struct {
 	autorest.Response          `json:"-"`
 	*AvailabilitySetProperties `json:"properties,omitempty"`
@@ -504,6 +508,12 @@ type AvailablePatchSummary struct {
 	Error *APIError `json:"error,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for AvailablePatchSummary.
+func (aps AvailablePatchSummary) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // BillingProfile specifies the billing related details of a Azure Spot VM or VMSS. <br><br>Minimum
 // api-version: 2019-03-01.
 type BillingProfile struct {
@@ -529,6 +539,12 @@ type BootDiagnosticsInstanceView struct {
 	SerialConsoleLogBlobURI *string `json:"serialConsoleLogBlobUri,omitempty"`
 	// Status - READ-ONLY; The boot diagnostics status information for the VM. <br><br> NOTE: It will be set only if there are errors encountered in enabling boot diagnostics.
 	Status *InstanceViewStatus `json:"status,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for BootDiagnosticsInstanceView.
+func (bdiv BootDiagnosticsInstanceView) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // CloudError an error response from the Compute service.
@@ -841,7 +857,7 @@ type CloudServiceProperties struct {
 	// AllowModelOverride - (Optional) Indicates whether the role sku properties (roleProfile.roles.sku) specified in the model/template should override the role instance count and vm size specified in the .cscfg and .csdef respectively.
 	// The default value is `false`.
 	AllowModelOverride *bool `json:"allowModelOverride,omitempty"`
-	// UpgradeMode - Possible values include: 'Auto', 'Manual', 'Simultaneous'
+	// UpgradeMode - Possible values include: 'CloudServiceUpgradeModeAuto', 'CloudServiceUpgradeModeManual', 'CloudServiceUpgradeModeSimultaneous'
 	UpgradeMode      CloudServiceUpgradeMode       `json:"upgradeMode,omitempty"`
 	RoleProfile      *CloudServiceRoleProfile      `json:"roleProfile,omitempty"`
 	OsProfile        *CloudServiceOsProfile        `json:"osProfile,omitempty"`
@@ -1238,6 +1254,12 @@ type CloudServiceRoleProfileProperties struct {
 type CloudServiceRoleProperties struct {
 	// UniqueID - READ-ONLY; Specifies the ID which uniquely identifies a cloud service role.
 	UniqueID *string `json:"uniqueId,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for CloudServiceRoleProperties.
+func (csrp CloudServiceRoleProperties) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // CloudServiceRoleSku describes the cloud service role sku.
@@ -1670,7 +1692,7 @@ type CloudServiceVaultSecretGroup struct {
 
 // CreationData data used when creating a disk.
 type CreationData struct {
-	// CreateOption - This enumerates the possible sources of a disk's creation. Possible values include: 'Empty', 'Attach', 'FromImage', 'Import', 'Copy', 'Restore', 'Upload'
+	// CreateOption - This enumerates the possible sources of a disk's creation. Possible values include: 'DiskCreateOptionEmpty', 'DiskCreateOptionAttach', 'DiskCreateOptionFromImage', 'DiskCreateOptionImport', 'DiskCreateOptionCopy', 'DiskCreateOptionRestore', 'DiskCreateOptionUpload'
 	CreateOption DiskCreateOption `json:"createOption,omitempty"`
 	// StorageAccountID - Required if createOption is Import. The Azure Resource Manager identifier of the storage account containing the blob to import as a disk.
 	StorageAccountID *string `json:"storageAccountId,omitempty"`
@@ -1746,8 +1768,10 @@ type DataDisk struct {
 	DiskIOPSReadWrite *int64 `json:"diskIOPSReadWrite,omitempty"`
 	// DiskMBpsReadWrite - READ-ONLY; Specifies the bandwidth in MB per second for the managed disk when StorageAccountType is UltraSSD_LRS. Returned only for VirtualMachine ScaleSet VM disks. Can be updated only via updates to the VirtualMachine Scale Set.
 	DiskMBpsReadWrite *int64 `json:"diskMBpsReadWrite,omitempty"`
-	// DetachOption - Specifies the detach behavior to be used while detaching a disk or which is already in the process of detachment from the virtual machine. Supported values: **ForceDetach**. <br><br> detachOption: **ForceDetach** is applicable only for managed data disks. If a previous detachment attempt of the data disk did not complete due to an unexpected failure from the virtual machine and the disk is still not released then use force-detach as a last resort option to detach the disk forcibly from the VM. All writes might not have been flushed when using this detach behavior. <br><br> This feature is still in preview mode and is not supported for VirtualMachineScaleSet. To force-detach a data disk update toBeDetached to 'true' along with setting detachOption: 'ForceDetach'. Possible values include: 'ForceDetach'
+	// DetachOption - Specifies the detach behavior to be used while detaching a disk or which is already in the process of detachment from the virtual machine. Supported values: **ForceDetach**. <br><br> detachOption: **ForceDetach** is applicable only for managed data disks. If a previous detachment attempt of the data disk did not complete due to an unexpected failure from the virtual machine and the disk is still not released then use force-detach as a last resort option to detach the disk forcibly from the VM. All writes might not have been flushed when using this detach behavior. <br><br> This feature is still in preview mode and is not supported for VirtualMachineScaleSet. To force-detach a data disk update toBeDetached to 'true' along with setting detachOption: 'ForceDetach'. Possible values include: 'DiskDetachOptionTypesForceDetach'
 	DetachOption DiskDetachOptionTypes `json:"detachOption,omitempty"`
+	// DeleteOption - Specifies whether data disk should be deleted or detached upon VM deletion.<br><br> Possible values: <br><br> **Delete** If this value is used, the data disk is deleted when VM is deleted.<br><br> **Detach** If this value is used, the data disk is retained after VM is deleted.<br><br> The default value is set to **detach**. Possible values include: 'DiskDeleteOptionTypesDelete', 'DiskDeleteOptionTypesDetach'
+	DeleteOption DiskDeleteOptionTypes `json:"deleteOption,omitempty"`
 }
 
 // MarshalJSON is the custom marshaler for DataDisk.
@@ -1786,6 +1810,9 @@ func (dd DataDisk) MarshalJSON() ([]byte, error) {
 	if dd.DetachOption != "" {
 		objectMap["detachOption"] = dd.DetachOption
 	}
+	if dd.DeleteOption != "" {
+		objectMap["deleteOption"] = dd.DeleteOption
+	}
 	return json.Marshal(objectMap)
 }
 
@@ -1793,6 +1820,12 @@ func (dd DataDisk) MarshalJSON() ([]byte, error) {
 type DataDiskImage struct {
 	// Lun - READ-ONLY; Specifies the logical unit number of the data disk. This value is used to identify data disks within the VM and therefore must be unique for each data disk attached to a VM.
 	Lun *int32 `json:"lun,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for DataDiskImage.
+func (ddi DataDiskImage) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // DataDiskImageEncryption contains encryption settings for a data disk image.
@@ -2731,9 +2764,9 @@ type DiagnosticsProfile struct {
 // DiffDiskSettings describes the parameters of ephemeral disk settings that can be specified for operating
 // system disk. <br><br> NOTE: The ephemeral disk settings can only be specified for managed disk.
 type DiffDiskSettings struct {
-	// Option - Specifies the ephemeral disk settings for operating system disk. Possible values include: 'Local'
+	// Option - Specifies the ephemeral disk settings for operating system disk. Possible values include: 'DiffDiskOptionsLocal'
 	Option DiffDiskOptions `json:"option,omitempty"`
-	// Placement - Specifies the ephemeral disk placement for operating system disk.<br><br> Possible values are: <br><br> **CacheDisk** <br><br> **ResourceDisk** <br><br> Default: **CacheDisk** if one is configured for the VM size otherwise **ResourceDisk** is used.<br><br> Refer to VM size documentation for Windows VM at https://docs.microsoft.com/en-us/azure/virtual-machines/windows/sizes and Linux VM at https://docs.microsoft.com/en-us/azure/virtual-machines/linux/sizes to check which VM sizes exposes a cache disk. Possible values include: 'CacheDisk', 'ResourceDisk'
+	// Placement - Specifies the ephemeral disk placement for operating system disk.<br><br> Possible values are: <br><br> **CacheDisk** <br><br> **ResourceDisk** <br><br> Default: **CacheDisk** if one is configured for the VM size otherwise **ResourceDisk** is used.<br><br> Refer to VM size documentation for Windows VM at https://docs.microsoft.com/azure/virtual-machines/windows/sizes and Linux VM at https://docs.microsoft.com/azure/virtual-machines/linux/sizes to check which VM sizes exposes a cache disk. Possible values include: 'DiffDiskPlacementCacheDisk', 'DiffDiskPlacementResourceDisk'
 	Placement DiffDiskPlacement `json:"placement,omitempty"`
 }
 
@@ -3384,6 +3417,12 @@ type DiskAccessProperties struct {
 	TimeCreated *date.Time `json:"timeCreated,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for DiskAccessProperties.
+func (dap DiskAccessProperties) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // DiskAccessUpdate used for updating a disk access resource.
 type DiskAccessUpdate struct {
 	// Tags - Resource tags
@@ -3879,7 +3918,7 @@ func (desu *DiskEncryptionSetUpdate) UnmarshalJSON(body []byte) error {
 
 // DiskEncryptionSetUpdateProperties disk encryption set resource update properties.
 type DiskEncryptionSetUpdateProperties struct {
-	// EncryptionType - Possible values include: 'EncryptionAtRestWithCustomerKey', 'EncryptionAtRestWithPlatformAndCustomerKeys'
+	// EncryptionType - Possible values include: 'DiskEncryptionSetTypeEncryptionAtRestWithCustomerKey', 'DiskEncryptionSetTypeEncryptionAtRestWithPlatformAndCustomerKeys'
 	EncryptionType DiskEncryptionSetType    `json:"encryptionType,omitempty"`
 	ActiveKey      *KeyForDiskEncryptionSet `json:"activeKey,omitempty"`
 	// RotationToLatestKeyVersionEnabled - Set this flag to true to enable auto-updating of this disk encryption set to the latest key version.
@@ -4065,9 +4104,9 @@ func NewDiskListPage(cur DiskList, getNextPage func(context.Context, DiskList) (
 type DiskProperties struct {
 	// TimeCreated - READ-ONLY; The time when the disk was created.
 	TimeCreated *date.Time `json:"timeCreated,omitempty"`
-	// OsType - The Operating System type. Possible values include: 'Windows', 'Linux'
+	// OsType - The Operating System type. Possible values include: 'OperatingSystemTypesWindows', 'OperatingSystemTypesLinux'
 	OsType OperatingSystemTypes `json:"osType,omitempty"`
-	// HyperVGeneration - The hypervisor generation of the Virtual Machine. Applicable to OS disks only. Possible values include: 'V1', 'V2'
+	// HyperVGeneration - The hypervisor generation of the Virtual Machine. Applicable to OS disks only. Possible values include: 'HyperVGenerationV1', 'HyperVGenerationV2'
 	HyperVGeneration HyperVGeneration `json:"hyperVGeneration,omitempty"`
 	// PurchasePlan - Purchase plan information for the the image from which the OS disk was created. E.g. - {name: 2019-Datacenter, publisher: MicrosoftWindowsServer, product: WindowsServer}
 	PurchasePlan *PurchasePlan `json:"purchasePlan,omitempty"`
@@ -4091,7 +4130,7 @@ type DiskProperties struct {
 	DiskIOPSReadOnly *int64 `json:"diskIOPSReadOnly,omitempty"`
 	// DiskMBpsReadOnly - The total throughput (MBps) that will be allowed across all VMs mounting the shared disk as ReadOnly. MBps means millions of bytes per second - MB here uses the ISO notation, of powers of 10.
 	DiskMBpsReadOnly *int64 `json:"diskMBpsReadOnly,omitempty"`
-	// DiskState - The state of the disk. Possible values include: 'Unattached', 'Attached', 'Reserved', 'ActiveSAS', 'ReadyToUpload', 'ActiveUpload'
+	// DiskState - The state of the disk. Possible values include: 'DiskStateUnattached', 'DiskStateAttached', 'DiskStateReserved', 'DiskStateActiveSAS', 'DiskStateReadyToUpload', 'DiskStateActiveUpload'
 	DiskState DiskState `json:"diskState,omitempty"`
 	// Encryption - Encryption property can be used to encrypt data at rest with customer managed keys or platform managed keys.
 	Encryption *Encryption `json:"encryption,omitempty"`
@@ -4099,7 +4138,7 @@ type DiskProperties struct {
 	MaxShares *int32 `json:"maxShares,omitempty"`
 	// ShareInfo - READ-ONLY; Details of the list of all VMs that have the disk attached. maxShares should be set to a value greater than one for disks to allow attaching them to multiple VMs.
 	ShareInfo *[]ShareInfoElement `json:"shareInfo,omitempty"`
-	// NetworkAccessPolicy - Possible values include: 'AllowAll', 'AllowPrivate', 'DenyAll'
+	// NetworkAccessPolicy - Possible values include: 'NetworkAccessPolicyAllowAll', 'NetworkAccessPolicyAllowPrivate', 'NetworkAccessPolicyDenyAll'
 	NetworkAccessPolicy NetworkAccessPolicy `json:"networkAccessPolicy,omitempty"`
 	// DiskAccessID - ARM id of the DiskAccess resource for using private endpoints on disks.
 	DiskAccessID *string `json:"diskAccessId,omitempty"`
@@ -4415,9 +4454,9 @@ type DiskRestorePointProperties struct {
 	TimeCreated *date.Time `json:"timeCreated,omitempty"`
 	// SourceResourceID - READ-ONLY; arm id of source disk
 	SourceResourceID *string `json:"sourceResourceId,omitempty"`
-	// OsType - READ-ONLY; The Operating System type. Possible values include: 'Windows', 'Linux'
+	// OsType - READ-ONLY; The Operating System type. Possible values include: 'OperatingSystemTypesWindows', 'OperatingSystemTypesLinux'
 	OsType OperatingSystemTypes `json:"osType,omitempty"`
-	// HyperVGeneration - The hypervisor generation of the Virtual Machine. Applicable to OS disks only. Possible values include: 'V1', 'V2'
+	// HyperVGeneration - The hypervisor generation of the Virtual Machine. Applicable to OS disks only. Possible values include: 'HyperVGenerationV1', 'HyperVGenerationV2'
 	HyperVGeneration HyperVGeneration `json:"hyperVGeneration,omitempty"`
 	// PurchasePlan - Purchase plan information for the the image from which the OS disk was created.
 	PurchasePlan *PurchasePlan `json:"purchasePlan,omitempty"`
@@ -4527,7 +4566,7 @@ func (future *DisksDeleteFuture) result(client DisksClient) (ar autorest.Respons
 
 // DiskSecurityProfile contains the security related information for the resource.
 type DiskSecurityProfile struct {
-	// SecurityType - Possible values include: 'TrustedLaunch'
+	// SecurityType - Possible values include: 'DiskSecurityTypesTrustedLaunch'
 	SecurityType DiskSecurityTypes `json:"securityType,omitempty"`
 }
 
@@ -4577,7 +4616,7 @@ func (future *DisksGrantAccessFuture) result(client DisksClient) (au AccessURI, 
 // DiskSku the disks sku name. Can be Standard_LRS, Premium_LRS, StandardSSD_LRS, UltraSSD_LRS,
 // Premium_ZRS, or StandardSSD_ZRS.
 type DiskSku struct {
-	// Name - The sku name. Possible values include: 'StandardLRS', 'PremiumLRS', 'StandardSSDLRS', 'UltraSSDLRS', 'PremiumZRS', 'StandardSSDZRS'
+	// Name - The sku name. Possible values include: 'DiskStorageAccountTypesStandardLRS', 'DiskStorageAccountTypesPremiumLRS', 'DiskStorageAccountTypesStandardSSDLRS', 'DiskStorageAccountTypesUltraSSDLRS', 'DiskStorageAccountTypesPremiumZRS', 'DiskStorageAccountTypesStandardSSDZRS'
 	Name DiskStorageAccountTypes `json:"name,omitempty"`
 	// Tier - READ-ONLY; The sku tier.
 	Tier *string `json:"tier,omitempty"`
@@ -4738,7 +4777,7 @@ func (du *DiskUpdate) UnmarshalJSON(body []byte) error {
 
 // DiskUpdateProperties disk resource update properties.
 type DiskUpdateProperties struct {
-	// OsType - the Operating System type. Possible values include: 'Windows', 'Linux'
+	// OsType - the Operating System type. Possible values include: 'OperatingSystemTypesWindows', 'OperatingSystemTypesLinux'
 	OsType OperatingSystemTypes `json:"osType,omitempty"`
 	// DiskSizeGB - If creationData.createOption is Empty, this field is mandatory and it indicates the size of the disk to create. If this field is present for updates or creation with other options, it indicates a resize. Resizes are only allowed if the disk is not attached to a running VM, and can only increase the disk's size.
 	DiskSizeGB *int32 `json:"diskSizeGB,omitempty"`
@@ -4756,7 +4795,7 @@ type DiskUpdateProperties struct {
 	MaxShares *int32 `json:"maxShares,omitempty"`
 	// Encryption - Encryption property can be used to encrypt data at rest with customer managed keys or platform managed keys.
 	Encryption *Encryption `json:"encryption,omitempty"`
-	// NetworkAccessPolicy - Possible values include: 'AllowAll', 'AllowPrivate', 'DenyAll'
+	// NetworkAccessPolicy - Possible values include: 'NetworkAccessPolicyAllowAll', 'NetworkAccessPolicyAllowPrivate', 'NetworkAccessPolicyDenyAll'
 	NetworkAccessPolicy NetworkAccessPolicy `json:"networkAccessPolicy,omitempty"`
 	// DiskAccessID - ARM id of the DiskAccess resource for using private endpoints on disks.
 	DiskAccessID *string `json:"diskAccessId,omitempty"`
@@ -4861,7 +4900,7 @@ func (esi EncryptionSetIdentity) MarshalJSON() ([]byte, error) {
 
 // EncryptionSetProperties ...
 type EncryptionSetProperties struct {
-	// EncryptionType - Possible values include: 'EncryptionAtRestWithCustomerKey', 'EncryptionAtRestWithPlatformAndCustomerKeys'
+	// EncryptionType - Possible values include: 'DiskEncryptionSetTypeEncryptionAtRestWithCustomerKey', 'DiskEncryptionSetTypeEncryptionAtRestWithPlatformAndCustomerKeys'
 	EncryptionType DiskEncryptionSetType `json:"encryptionType,omitempty"`
 	// ActiveKey - The key vault key which is currently used by this disk encryption set.
 	ActiveKey *KeyForDiskEncryptionSet `json:"activeKey,omitempty"`
@@ -4912,7 +4951,7 @@ type EncryptionSettingsElement struct {
 type ExtendedLocation struct {
 	// Name - The name of the extended location.
 	Name *string `json:"name,omitempty"`
-	// Type - The type of the extended location. Possible values include: 'EdgeZone'
+	// Type - The type of the extended location. Possible values include: 'ExtendedLocationTypesEdgeZone'
 	Type ExtendedLocationTypes `json:"type,omitempty"`
 }
 
@@ -5418,7 +5457,7 @@ type GalleryApplicationProperties struct {
 	ReleaseNoteURI *string `json:"releaseNoteUri,omitempty"`
 	// EndOfLifeDate - The end of life date of the gallery Application Definition. This property can be used for decommissioning purposes. This property is updatable.
 	EndOfLifeDate *date.Time `json:"endOfLifeDate,omitempty"`
-	// SupportedOSType - This property allows you to specify the supported type of the OS that application is built for. <br><br> Possible values are: <br><br> **Windows** <br><br> **Linux**. Possible values include: 'Windows', 'Linux'
+	// SupportedOSType - This property allows you to specify the supported type of the OS that application is built for. <br><br> Possible values are: <br><br> **Windows** <br><br> **Linux**. Possible values include: 'OperatingSystemTypesWindows', 'OperatingSystemTypesLinux'
 	SupportedOSType OperatingSystemTypes `json:"supportedOSType,omitempty"`
 }
 
@@ -5892,7 +5931,7 @@ func NewGalleryApplicationVersionListPage(cur GalleryApplicationVersionList, get
 	}
 }
 
-// GalleryApplicationVersionProperties describes the properties of a gallery Image Version.
+// GalleryApplicationVersionProperties describes the properties of a gallery image version.
 type GalleryApplicationVersionProperties struct {
 	PublishingProfile *GalleryApplicationVersionPublishingProfile `json:"publishingProfile,omitempty"`
 	// ProvisioningState - READ-ONLY; The provisioning state, which only appears in the response. Possible values include: 'ProvisioningState1Creating', 'ProvisioningState1Updating', 'ProvisioningState1Failed', 'ProvisioningState1Succeeded', 'ProvisioningState1Deleting', 'ProvisioningState1Migrating'
@@ -5922,9 +5961,9 @@ type GalleryApplicationVersionPublishingProfile struct {
 	ReplicaCount *int32 `json:"replicaCount,omitempty"`
 	// ExcludeFromLatest - If set to true, Virtual Machines deployed from the latest version of the Image Definition won't use this Image Version.
 	ExcludeFromLatest *bool `json:"excludeFromLatest,omitempty"`
-	// PublishedDate - READ-ONLY; The timestamp for when the gallery Image Version is published.
+	// PublishedDate - READ-ONLY; The timestamp for when the gallery image version is published.
 	PublishedDate *date.Time `json:"publishedDate,omitempty"`
-	// EndOfLifeDate - The end of life date of the gallery Image Version. This property can be used for decommissioning purposes. This property is updatable.
+	// EndOfLifeDate - The end of life date of the gallery image version. This property can be used for decommissioning purposes. This property is updatable.
 	EndOfLifeDate *date.Time `json:"endOfLifeDate,omitempty"`
 	// StorageAccountType - Specifies the storage account type to be used to store the image. This property is not updatable. Possible values include: 'StorageAccountTypeStandardLRS', 'StorageAccountTypeStandardZRS', 'StorageAccountTypePremiumLRS'
 	StorageAccountType StorageAccountType `json:"storageAccountType,omitempty"`
@@ -6177,9 +6216,9 @@ type GalleryArtifactPublishingProfileBase struct {
 	ReplicaCount *int32 `json:"replicaCount,omitempty"`
 	// ExcludeFromLatest - If set to true, Virtual Machines deployed from the latest version of the Image Definition won't use this Image Version.
 	ExcludeFromLatest *bool `json:"excludeFromLatest,omitempty"`
-	// PublishedDate - READ-ONLY; The timestamp for when the gallery Image Version is published.
+	// PublishedDate - READ-ONLY; The timestamp for when the gallery image version is published.
 	PublishedDate *date.Time `json:"publishedDate,omitempty"`
-	// EndOfLifeDate - The end of life date of the gallery Image Version. This property can be used for decommissioning purposes. This property is updatable.
+	// EndOfLifeDate - The end of life date of the gallery image version. This property can be used for decommissioning purposes. This property is updatable.
 	EndOfLifeDate *date.Time `json:"endOfLifeDate,omitempty"`
 	// StorageAccountType - Specifies the storage account type to be used to store the image. This property is not updatable. Possible values include: 'StorageAccountTypeStandardLRS', 'StorageAccountTypeStandardZRS', 'StorageAccountTypePremiumLRS'
 	StorageAccountType StorageAccountType `json:"storageAccountType,omitempty"`
@@ -6213,8 +6252,10 @@ type GalleryArtifactSource struct {
 
 // GalleryArtifactVersionSource the gallery artifact version source.
 type GalleryArtifactVersionSource struct {
-	// ID - The id of the gallery artifact version source. Can specify a disk uri, snapshot uri, or user image.
+	// ID - The id of the gallery artifact version source. Can specify a disk uri, snapshot uri, user image or storage account resource.
 	ID *string `json:"id,omitempty"`
+	// URI - The uri of the gallery artifact version source. Currently used to specify vhd/blob source.
+	URI *string `json:"uri,omitempty"`
 }
 
 // GalleryDataDiskImage this is the data disk image.
@@ -6270,7 +6311,13 @@ type GalleryIdentifier struct {
 	UniqueName *string `json:"uniqueName,omitempty"`
 }
 
-// GalleryImage specifies information about the gallery Image Definition that you want to create or update.
+// MarshalJSON is the custom marshaler for GalleryIdentifier.
+func (gi GalleryIdentifier) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
+// GalleryImage specifies information about the gallery image definition that you want to create or update.
 type GalleryImage struct {
 	autorest.Response       `json:"-"`
 	*GalleryImageProperties `json:"properties,omitempty"`
@@ -6370,13 +6417,21 @@ func (gi *GalleryImage) UnmarshalJSON(body []byte) error {
 	return nil
 }
 
-// GalleryImageIdentifier this is the gallery Image Definition identifier.
+// GalleryImageFeature a feature for gallery image.
+type GalleryImageFeature struct {
+	// Name - The name of the gallery image feature.
+	Name *string `json:"name,omitempty"`
+	// Value - The value of the gallery image feature.
+	Value *string `json:"value,omitempty"`
+}
+
+// GalleryImageIdentifier this is the gallery image definition identifier.
 type GalleryImageIdentifier struct {
-	// Publisher - The name of the gallery Image Definition publisher.
+	// Publisher - The name of the gallery image definition publisher.
 	Publisher *string `json:"publisher,omitempty"`
-	// Offer - The name of the gallery Image Definition offer.
+	// Offer - The name of the gallery image definition offer.
 	Offer *string `json:"offer,omitempty"`
-	// Sku - The name of the gallery Image Definition SKU.
+	// Sku - The name of the gallery image definition SKU.
 	Sku *string `json:"sku,omitempty"`
 }
 
@@ -6385,7 +6440,7 @@ type GalleryImageList struct {
 	autorest.Response `json:"-"`
 	// Value - A list of Shared Image Gallery images.
 	Value *[]GalleryImage `json:"value,omitempty"`
-	// NextLink - The uri to fetch the next page of Image Definitions in the Shared Image Gallery. Call ListNext() with this to fetch the next page of gallery Image Definitions.
+	// NextLink - The uri to fetch the next page of Image Definitions in the Shared Image Gallery. Call ListNext() with this to fetch the next page of gallery image definitions.
 	NextLink *string `json:"nextLink,omitempty"`
 }
 
@@ -6539,23 +6594,23 @@ func NewGalleryImageListPage(cur GalleryImageList, getNextPage func(context.Cont
 	}
 }
 
-// GalleryImageProperties describes the properties of a gallery Image Definition.
+// GalleryImageProperties describes the properties of a gallery image definition.
 type GalleryImageProperties struct {
-	// Description - The description of this gallery Image Definition resource. This property is updatable.
+	// Description - The description of this gallery image definition resource. This property is updatable.
 	Description *string `json:"description,omitempty"`
-	// Eula - The Eula agreement for the gallery Image Definition.
+	// Eula - The Eula agreement for the gallery image definition.
 	Eula *string `json:"eula,omitempty"`
 	// PrivacyStatementURI - The privacy statement uri.
 	PrivacyStatementURI *string `json:"privacyStatementUri,omitempty"`
 	// ReleaseNoteURI - The release note uri.
 	ReleaseNoteURI *string `json:"releaseNoteUri,omitempty"`
-	// OsType - This property allows you to specify the type of the OS that is included in the disk when creating a VM from a managed image. <br><br> Possible values are: <br><br> **Windows** <br><br> **Linux**. Possible values include: 'Windows', 'Linux'
+	// OsType - This property allows you to specify the type of the OS that is included in the disk when creating a VM from a managed image. <br><br> Possible values are: <br><br> **Windows** <br><br> **Linux**. Possible values include: 'OperatingSystemTypesWindows', 'OperatingSystemTypesLinux'
 	OsType OperatingSystemTypes `json:"osType,omitempty"`
-	// OsState - This property allows the user to specify whether the virtual machines created under this image are 'Generalized' or 'Specialized'. Possible values include: 'Generalized', 'Specialized'
+	// OsState - This property allows the user to specify whether the virtual machines created under this image are 'Generalized' or 'Specialized'. Possible values include: 'OperatingSystemStateTypesGeneralized', 'OperatingSystemStateTypesSpecialized'
 	OsState OperatingSystemStateTypes `json:"osState,omitempty"`
-	// HyperVGeneration - The hypervisor generation of the Virtual Machine. Applicable to OS disks only. Possible values include: 'V1', 'V2'
+	// HyperVGeneration - The hypervisor generation of the Virtual Machine. Applicable to OS disks only. Possible values include: 'HyperVGenerationV1', 'HyperVGenerationV2'
 	HyperVGeneration HyperVGeneration `json:"hyperVGeneration,omitempty"`
-	// EndOfLifeDate - The end of life date of the gallery Image Definition. This property can be used for decommissioning purposes. This property is updatable.
+	// EndOfLifeDate - The end of life date of the gallery image definition. This property can be used for decommissioning purposes. This property is updatable.
 	EndOfLifeDate *date.Time                       `json:"endOfLifeDate,omitempty"`
 	Identifier    *GalleryImageIdentifier          `json:"identifier,omitempty"`
 	Recommended   *RecommendedMachineConfiguration `json:"recommended,omitempty"`
@@ -6563,6 +6618,8 @@ type GalleryImageProperties struct {
 	PurchasePlan  *ImagePurchasePlan               `json:"purchasePlan,omitempty"`
 	// ProvisioningState - READ-ONLY; The provisioning state, which only appears in the response. Possible values include: 'ProvisioningState2Creating', 'ProvisioningState2Updating', 'ProvisioningState2Failed', 'ProvisioningState2Succeeded', 'ProvisioningState2Deleting', 'ProvisioningState2Migrating'
 	ProvisioningState ProvisioningState2 `json:"provisioningState,omitempty"`
+	// Features - A list of gallery image features.
+	Features *[]GalleryImageFeature `json:"features,omitempty"`
 }
 
 // MarshalJSON is the custom marshaler for GalleryImageProperties.
@@ -6603,6 +6660,9 @@ func (gip GalleryImageProperties) MarshalJSON() ([]byte, error) {
 	}
 	if gip.PurchasePlan != nil {
 		objectMap["purchasePlan"] = gip.PurchasePlan
+	}
+	if gip.Features != nil {
+		objectMap["features"] = gip.Features
 	}
 	return json.Marshal(objectMap)
 }
@@ -6730,7 +6790,7 @@ func (future *GalleryImagesUpdateFuture) result(client GalleryImagesClient) (gi 
 	return
 }
 
-// GalleryImageUpdate specifies information about the gallery Image Definition that you want to update.
+// GalleryImageUpdate specifies information about the gallery image definition that you want to update.
 type GalleryImageUpdate struct {
 	*GalleryImageProperties `json:"properties,omitempty"`
 	// ID - READ-ONLY; Resource Id
@@ -6815,7 +6875,7 @@ func (giu *GalleryImageUpdate) UnmarshalJSON(body []byte) error {
 	return nil
 }
 
-// GalleryImageVersion specifies information about the gallery Image Version that you want to create or
+// GalleryImageVersion specifies information about the gallery image version that you want to create or
 // update.
 type GalleryImageVersion struct {
 	autorest.Response              `json:"-"`
@@ -6919,9 +6979,9 @@ func (giv *GalleryImageVersion) UnmarshalJSON(body []byte) error {
 // GalleryImageVersionList the List Gallery Image version operation response.
 type GalleryImageVersionList struct {
 	autorest.Response `json:"-"`
-	// Value - A list of gallery Image Versions.
+	// Value - A list of gallery image versions.
 	Value *[]GalleryImageVersion `json:"value,omitempty"`
-	// NextLink - The uri to fetch the next page of gallery Image Versions. Call ListNext() with this to fetch the next page of gallery Image Versions.
+	// NextLink - The uri to fetch the next page of gallery image versions. Call ListNext() with this to fetch the next page of gallery image versions.
 	NextLink *string `json:"nextLink,omitempty"`
 }
 
@@ -7075,7 +7135,7 @@ func NewGalleryImageVersionListPage(cur GalleryImageVersionList, getNextPage fun
 	}
 }
 
-// GalleryImageVersionProperties describes the properties of a gallery Image Version.
+// GalleryImageVersionProperties describes the properties of a gallery image version.
 type GalleryImageVersionProperties struct {
 	PublishingProfile *GalleryImageVersionPublishingProfile `json:"publishingProfile,omitempty"`
 	// ProvisioningState - READ-ONLY; The provisioning state, which only appears in the response. Possible values include: 'ProvisioningState3Creating', 'ProvisioningState3Updating', 'ProvisioningState3Failed', 'ProvisioningState3Succeeded', 'ProvisioningState3Deleting', 'ProvisioningState3Migrating'
@@ -7097,7 +7157,7 @@ func (givp GalleryImageVersionProperties) MarshalJSON() ([]byte, error) {
 	return json.Marshal(objectMap)
 }
 
-// GalleryImageVersionPublishingProfile the publishing profile of a gallery Image Version.
+// GalleryImageVersionPublishingProfile the publishing profile of a gallery image Version.
 type GalleryImageVersionPublishingProfile struct {
 	// TargetRegions - The target regions where the Image Version is going to be replicated to. This property is updatable.
 	TargetRegions *[]TargetRegion `json:"targetRegions,omitempty"`
@@ -7105,9 +7165,9 @@ type GalleryImageVersionPublishingProfile struct {
 	ReplicaCount *int32 `json:"replicaCount,omitempty"`
 	// ExcludeFromLatest - If set to true, Virtual Machines deployed from the latest version of the Image Definition won't use this Image Version.
 	ExcludeFromLatest *bool `json:"excludeFromLatest,omitempty"`
-	// PublishedDate - READ-ONLY; The timestamp for when the gallery Image Version is published.
+	// PublishedDate - READ-ONLY; The timestamp for when the gallery image version is published.
 	PublishedDate *date.Time `json:"publishedDate,omitempty"`
-	// EndOfLifeDate - The end of life date of the gallery Image Version. This property can be used for decommissioning purposes. This property is updatable.
+	// EndOfLifeDate - The end of life date of the gallery image version. This property can be used for decommissioning purposes. This property is updatable.
 	EndOfLifeDate *date.Time `json:"endOfLifeDate,omitempty"`
 	// StorageAccountType - Specifies the storage account type to be used to store the image. This property is not updatable. Possible values include: 'StorageAccountTypeStandardLRS', 'StorageAccountTypeStandardZRS', 'StorageAccountTypePremiumLRS'
 	StorageAccountType StorageAccountType `json:"storageAccountType,omitempty"`
@@ -7265,7 +7325,7 @@ func (future *GalleryImageVersionsUpdateFuture) result(client GalleryImageVersio
 	return
 }
 
-// GalleryImageVersionUpdate specifies information about the gallery Image Version that you want to update.
+// GalleryImageVersionUpdate specifies information about the gallery image version that you want to update.
 type GalleryImageVersionUpdate struct {
 	*GalleryImageVersionProperties `json:"properties,omitempty"`
 	// ID - READ-ONLY; Resource Id
@@ -7537,6 +7597,7 @@ type GalleryProperties struct {
 	Identifier  *GalleryIdentifier `json:"identifier,omitempty"`
 	// ProvisioningState - READ-ONLY; The provisioning state, which only appears in the response. Possible values include: 'ProvisioningStateCreating', 'ProvisioningStateUpdating', 'ProvisioningStateFailed', 'ProvisioningStateSucceeded', 'ProvisioningStateDeleting', 'ProvisioningStateMigrating'
 	ProvisioningState ProvisioningState `json:"provisioningState,omitempty"`
+	SharingProfile    *SharingProfile   `json:"sharingProfile,omitempty"`
 }
 
 // MarshalJSON is the custom marshaler for GalleryProperties.
@@ -7548,7 +7609,53 @@ func (gp GalleryProperties) MarshalJSON() ([]byte, error) {
 	if gp.Identifier != nil {
 		objectMap["identifier"] = gp.Identifier
 	}
+	if gp.SharingProfile != nil {
+		objectMap["sharingProfile"] = gp.SharingProfile
+	}
 	return json.Marshal(objectMap)
+}
+
+// GallerySharingProfileUpdateFuture an abstraction for monitoring and retrieving the results of a
+// long-running operation.
+type GallerySharingProfileUpdateFuture struct {
+	azure.FutureAPI
+	// Result returns the result of the asynchronous operation.
+	// If the operation has not completed it will return an error.
+	Result func(GallerySharingProfileClient) (SharingUpdate, error)
+}
+
+// UnmarshalJSON is the custom unmarshaller for CreateFuture.
+func (future *GallerySharingProfileUpdateFuture) UnmarshalJSON(body []byte) error {
+	var azFuture azure.Future
+	if err := json.Unmarshal(body, &azFuture); err != nil {
+		return err
+	}
+	future.FutureAPI = &azFuture
+	future.Result = future.result
+	return nil
+}
+
+// result is the default implementation for GallerySharingProfileUpdateFuture.Result.
+func (future *GallerySharingProfileUpdateFuture) result(client GallerySharingProfileClient) (su SharingUpdate, err error) {
+	var done bool
+	done, err = future.DoneWithContext(context.Background(), client)
+	if err != nil {
+		err = autorest.NewErrorWithError(err, "compute.GallerySharingProfileUpdateFuture", "Result", future.Response(), "Polling failure")
+		return
+	}
+	if !done {
+		su.Response.Response = future.Response()
+		err = azure.NewAsyncOpIncompleteError("compute.GallerySharingProfileUpdateFuture")
+		return
+	}
+	sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+	if su.Response.Response, err = future.GetResult(sender); err == nil && su.Response.Response.StatusCode != http.StatusNoContent {
+		su, err = client.UpdateResponder(su.Response.Response)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "compute.GallerySharingProfileUpdateFuture", "Result", su.Response.Response, "Failure responding to request")
+		}
+	}
+	return
 }
 
 // GalleryUpdate specifies information about the Shared Image Gallery that you want to update.
@@ -7638,7 +7745,7 @@ func (gu *GalleryUpdate) UnmarshalJSON(body []byte) error {
 
 // GrantAccessData data used for requesting a SAS.
 type GrantAccessData struct {
-	// Access - Possible values include: 'None', 'Read', 'Write'
+	// Access - Possible values include: 'AccessLevelNone', 'AccessLevelRead', 'AccessLevelWrite'
 	Access AccessLevel `json:"access,omitempty"`
 	// DurationInSeconds - Time duration in seconds until the SAS access expires.
 	DurationInSeconds *int32 `json:"durationInSeconds,omitempty"`
@@ -7646,7 +7753,7 @@ type GrantAccessData struct {
 
 // HardwareProfile specifies the hardware settings for the virtual machine.
 type HardwareProfile struct {
-	// VMSize - Specifies the size of the virtual machine. <br><br> The enum data type is currently deprecated and will be removed by December 23rd 2023. <br><br> Recommended way to get the list of available sizes is using these APIs: <br><br> [List all available virtual machine sizes in an availability set](https://docs.microsoft.com/rest/api/compute/availabilitysets/listavailablesizes) <br><br> [List all available virtual machine sizes in a region]( https://docs.microsoft.com/en-us/rest/api/compute/resourceskus/list) <br><br> [List all available virtual machine sizes for resizing](https://docs.microsoft.com/rest/api/compute/virtualmachines/listavailablesizes). For more information about virtual machine sizes, see [Sizes for virtual machines](https://docs.microsoft.com/en-us/azure/virtual-machines/sizes). <br><br> The available VM sizes depend on region and availability set. Possible values include: 'BasicA0', 'BasicA1', 'BasicA2', 'BasicA3', 'BasicA4', 'StandardA0', 'StandardA1', 'StandardA2', 'StandardA3', 'StandardA4', 'StandardA5', 'StandardA6', 'StandardA7', 'StandardA8', 'StandardA9', 'StandardA10', 'StandardA11', 'StandardA1V2', 'StandardA2V2', 'StandardA4V2', 'StandardA8V2', 'StandardA2mV2', 'StandardA4mV2', 'StandardA8mV2', 'StandardB1s', 'StandardB1ms', 'StandardB2s', 'StandardB2ms', 'StandardB4ms', 'StandardB8ms', 'StandardD1', 'StandardD2', 'StandardD3', 'StandardD4', 'StandardD11', 'StandardD12', 'StandardD13', 'StandardD14', 'StandardD1V2', 'StandardD2V2', 'StandardD3V2', 'StandardD4V2', 'StandardD5V2', 'StandardD2V3', 'StandardD4V3', 'StandardD8V3', 'StandardD16V3', 'StandardD32V3', 'StandardD64V3', 'StandardD2sV3', 'StandardD4sV3', 'StandardD8sV3', 'StandardD16sV3', 'StandardD32sV3', 'StandardD64sV3', 'StandardD11V2', 'StandardD12V2', 'StandardD13V2', 'StandardD14V2', 'StandardD15V2', 'StandardDS1', 'StandardDS2', 'StandardDS3', 'StandardDS4', 'StandardDS11', 'StandardDS12', 'StandardDS13', 'StandardDS14', 'StandardDS1V2', 'StandardDS2V2', 'StandardDS3V2', 'StandardDS4V2', 'StandardDS5V2', 'StandardDS11V2', 'StandardDS12V2', 'StandardDS13V2', 'StandardDS14V2', 'StandardDS15V2', 'StandardDS134V2', 'StandardDS132V2', 'StandardDS148V2', 'StandardDS144V2', 'StandardE2V3', 'StandardE4V3', 'StandardE8V3', 'StandardE16V3', 'StandardE32V3', 'StandardE64V3', 'StandardE2sV3', 'StandardE4sV3', 'StandardE8sV3', 'StandardE16sV3', 'StandardE32sV3', 'StandardE64sV3', 'StandardE3216V3', 'StandardE328sV3', 'StandardE6432sV3', 'StandardE6416sV3', 'StandardF1', 'StandardF2', 'StandardF4', 'StandardF8', 'StandardF16', 'StandardF1s', 'StandardF2s', 'StandardF4s', 'StandardF8s', 'StandardF16s', 'StandardF2sV2', 'StandardF4sV2', 'StandardF8sV2', 'StandardF16sV2', 'StandardF32sV2', 'StandardF64sV2', 'StandardF72sV2', 'StandardG1', 'StandardG2', 'StandardG3', 'StandardG4', 'StandardG5', 'StandardGS1', 'StandardGS2', 'StandardGS3', 'StandardGS4', 'StandardGS5', 'StandardGS48', 'StandardGS44', 'StandardGS516', 'StandardGS58', 'StandardH8', 'StandardH16', 'StandardH8m', 'StandardH16m', 'StandardH16r', 'StandardH16mr', 'StandardL4s', 'StandardL8s', 'StandardL16s', 'StandardL32s', 'StandardM64s', 'StandardM64ms', 'StandardM128s', 'StandardM128ms', 'StandardM6432ms', 'StandardM6416ms', 'StandardM12864ms', 'StandardM12832ms', 'StandardNC6', 'StandardNC12', 'StandardNC24', 'StandardNC24r', 'StandardNC6sV2', 'StandardNC12sV2', 'StandardNC24sV2', 'StandardNC24rsV2', 'StandardNC6sV3', 'StandardNC12sV3', 'StandardNC24sV3', 'StandardNC24rsV3', 'StandardND6s', 'StandardND12s', 'StandardND24s', 'StandardND24rs', 'StandardNV6', 'StandardNV12', 'StandardNV24'
+	// VMSize - Specifies the size of the virtual machine. <br><br> The enum data type is currently deprecated and will be removed by December 23rd 2023. <br><br> Recommended way to get the list of available sizes is using these APIs: <br><br> [List all available virtual machine sizes in an availability set](https://docs.microsoft.com/rest/api/compute/availabilitysets/listavailablesizes) <br><br> [List all available virtual machine sizes in a region]( https://docs.microsoft.com/rest/api/compute/resourceskus/list) <br><br> [List all available virtual machine sizes for resizing](https://docs.microsoft.com/rest/api/compute/virtualmachines/listavailablesizes). For more information about virtual machine sizes, see [Sizes for virtual machines](https://docs.microsoft.com/azure/virtual-machines/sizes). <br><br> The available VM sizes depend on region and availability set. Possible values include: 'VirtualMachineSizeTypesBasicA0', 'VirtualMachineSizeTypesBasicA1', 'VirtualMachineSizeTypesBasicA2', 'VirtualMachineSizeTypesBasicA3', 'VirtualMachineSizeTypesBasicA4', 'VirtualMachineSizeTypesStandardA0', 'VirtualMachineSizeTypesStandardA1', 'VirtualMachineSizeTypesStandardA2', 'VirtualMachineSizeTypesStandardA3', 'VirtualMachineSizeTypesStandardA4', 'VirtualMachineSizeTypesStandardA5', 'VirtualMachineSizeTypesStandardA6', 'VirtualMachineSizeTypesStandardA7', 'VirtualMachineSizeTypesStandardA8', 'VirtualMachineSizeTypesStandardA9', 'VirtualMachineSizeTypesStandardA10', 'VirtualMachineSizeTypesStandardA11', 'VirtualMachineSizeTypesStandardA1V2', 'VirtualMachineSizeTypesStandardA2V2', 'VirtualMachineSizeTypesStandardA4V2', 'VirtualMachineSizeTypesStandardA8V2', 'VirtualMachineSizeTypesStandardA2mV2', 'VirtualMachineSizeTypesStandardA4mV2', 'VirtualMachineSizeTypesStandardA8mV2', 'VirtualMachineSizeTypesStandardB1s', 'VirtualMachineSizeTypesStandardB1ms', 'VirtualMachineSizeTypesStandardB2s', 'VirtualMachineSizeTypesStandardB2ms', 'VirtualMachineSizeTypesStandardB4ms', 'VirtualMachineSizeTypesStandardB8ms', 'VirtualMachineSizeTypesStandardD1', 'VirtualMachineSizeTypesStandardD2', 'VirtualMachineSizeTypesStandardD3', 'VirtualMachineSizeTypesStandardD4', 'VirtualMachineSizeTypesStandardD11', 'VirtualMachineSizeTypesStandardD12', 'VirtualMachineSizeTypesStandardD13', 'VirtualMachineSizeTypesStandardD14', 'VirtualMachineSizeTypesStandardD1V2', 'VirtualMachineSizeTypesStandardD2V2', 'VirtualMachineSizeTypesStandardD3V2', 'VirtualMachineSizeTypesStandardD4V2', 'VirtualMachineSizeTypesStandardD5V2', 'VirtualMachineSizeTypesStandardD2V3', 'VirtualMachineSizeTypesStandardD4V3', 'VirtualMachineSizeTypesStandardD8V3', 'VirtualMachineSizeTypesStandardD16V3', 'VirtualMachineSizeTypesStandardD32V3', 'VirtualMachineSizeTypesStandardD64V3', 'VirtualMachineSizeTypesStandardD2sV3', 'VirtualMachineSizeTypesStandardD4sV3', 'VirtualMachineSizeTypesStandardD8sV3', 'VirtualMachineSizeTypesStandardD16sV3', 'VirtualMachineSizeTypesStandardD32sV3', 'VirtualMachineSizeTypesStandardD64sV3', 'VirtualMachineSizeTypesStandardD11V2', 'VirtualMachineSizeTypesStandardD12V2', 'VirtualMachineSizeTypesStandardD13V2', 'VirtualMachineSizeTypesStandardD14V2', 'VirtualMachineSizeTypesStandardD15V2', 'VirtualMachineSizeTypesStandardDS1', 'VirtualMachineSizeTypesStandardDS2', 'VirtualMachineSizeTypesStandardDS3', 'VirtualMachineSizeTypesStandardDS4', 'VirtualMachineSizeTypesStandardDS11', 'VirtualMachineSizeTypesStandardDS12', 'VirtualMachineSizeTypesStandardDS13', 'VirtualMachineSizeTypesStandardDS14', 'VirtualMachineSizeTypesStandardDS1V2', 'VirtualMachineSizeTypesStandardDS2V2', 'VirtualMachineSizeTypesStandardDS3V2', 'VirtualMachineSizeTypesStandardDS4V2', 'VirtualMachineSizeTypesStandardDS5V2', 'VirtualMachineSizeTypesStandardDS11V2', 'VirtualMachineSizeTypesStandardDS12V2', 'VirtualMachineSizeTypesStandardDS13V2', 'VirtualMachineSizeTypesStandardDS14V2', 'VirtualMachineSizeTypesStandardDS15V2', 'VirtualMachineSizeTypesStandardDS134V2', 'VirtualMachineSizeTypesStandardDS132V2', 'VirtualMachineSizeTypesStandardDS148V2', 'VirtualMachineSizeTypesStandardDS144V2', 'VirtualMachineSizeTypesStandardE2V3', 'VirtualMachineSizeTypesStandardE4V3', 'VirtualMachineSizeTypesStandardE8V3', 'VirtualMachineSizeTypesStandardE16V3', 'VirtualMachineSizeTypesStandardE32V3', 'VirtualMachineSizeTypesStandardE64V3', 'VirtualMachineSizeTypesStandardE2sV3', 'VirtualMachineSizeTypesStandardE4sV3', 'VirtualMachineSizeTypesStandardE8sV3', 'VirtualMachineSizeTypesStandardE16sV3', 'VirtualMachineSizeTypesStandardE32sV3', 'VirtualMachineSizeTypesStandardE64sV3', 'VirtualMachineSizeTypesStandardE3216V3', 'VirtualMachineSizeTypesStandardE328sV3', 'VirtualMachineSizeTypesStandardE6432sV3', 'VirtualMachineSizeTypesStandardE6416sV3', 'VirtualMachineSizeTypesStandardF1', 'VirtualMachineSizeTypesStandardF2', 'VirtualMachineSizeTypesStandardF4', 'VirtualMachineSizeTypesStandardF8', 'VirtualMachineSizeTypesStandardF16', 'VirtualMachineSizeTypesStandardF1s', 'VirtualMachineSizeTypesStandardF2s', 'VirtualMachineSizeTypesStandardF4s', 'VirtualMachineSizeTypesStandardF8s', 'VirtualMachineSizeTypesStandardF16s', 'VirtualMachineSizeTypesStandardF2sV2', 'VirtualMachineSizeTypesStandardF4sV2', 'VirtualMachineSizeTypesStandardF8sV2', 'VirtualMachineSizeTypesStandardF16sV2', 'VirtualMachineSizeTypesStandardF32sV2', 'VirtualMachineSizeTypesStandardF64sV2', 'VirtualMachineSizeTypesStandardF72sV2', 'VirtualMachineSizeTypesStandardG1', 'VirtualMachineSizeTypesStandardG2', 'VirtualMachineSizeTypesStandardG3', 'VirtualMachineSizeTypesStandardG4', 'VirtualMachineSizeTypesStandardG5', 'VirtualMachineSizeTypesStandardGS1', 'VirtualMachineSizeTypesStandardGS2', 'VirtualMachineSizeTypesStandardGS3', 'VirtualMachineSizeTypesStandardGS4', 'VirtualMachineSizeTypesStandardGS5', 'VirtualMachineSizeTypesStandardGS48', 'VirtualMachineSizeTypesStandardGS44', 'VirtualMachineSizeTypesStandardGS516', 'VirtualMachineSizeTypesStandardGS58', 'VirtualMachineSizeTypesStandardH8', 'VirtualMachineSizeTypesStandardH16', 'VirtualMachineSizeTypesStandardH8m', 'VirtualMachineSizeTypesStandardH16m', 'VirtualMachineSizeTypesStandardH16r', 'VirtualMachineSizeTypesStandardH16mr', 'VirtualMachineSizeTypesStandardL4s', 'VirtualMachineSizeTypesStandardL8s', 'VirtualMachineSizeTypesStandardL16s', 'VirtualMachineSizeTypesStandardL32s', 'VirtualMachineSizeTypesStandardM64s', 'VirtualMachineSizeTypesStandardM64ms', 'VirtualMachineSizeTypesStandardM128s', 'VirtualMachineSizeTypesStandardM128ms', 'VirtualMachineSizeTypesStandardM6432ms', 'VirtualMachineSizeTypesStandardM6416ms', 'VirtualMachineSizeTypesStandardM12864ms', 'VirtualMachineSizeTypesStandardM12832ms', 'VirtualMachineSizeTypesStandardNC6', 'VirtualMachineSizeTypesStandardNC12', 'VirtualMachineSizeTypesStandardNC24', 'VirtualMachineSizeTypesStandardNC24r', 'VirtualMachineSizeTypesStandardNC6sV2', 'VirtualMachineSizeTypesStandardNC12sV2', 'VirtualMachineSizeTypesStandardNC24sV2', 'VirtualMachineSizeTypesStandardNC24rsV2', 'VirtualMachineSizeTypesStandardNC6sV3', 'VirtualMachineSizeTypesStandardNC12sV3', 'VirtualMachineSizeTypesStandardNC24sV3', 'VirtualMachineSizeTypesStandardNC24rsV3', 'VirtualMachineSizeTypesStandardND6s', 'VirtualMachineSizeTypesStandardND12s', 'VirtualMachineSizeTypesStandardND24s', 'VirtualMachineSizeTypesStandardND24rs', 'VirtualMachineSizeTypesStandardNV6', 'VirtualMachineSizeTypesStandardNV12', 'VirtualMachineSizeTypesStandardNV24'
 	VMSize VirtualMachineSizeTypes `json:"vmSize,omitempty"`
 }
 
@@ -7973,9 +8080,9 @@ func NewImageListResultPage(cur ImageListResult, getNextPage func(context.Contex
 
 // ImageOSDisk describes an Operating System disk.
 type ImageOSDisk struct {
-	// OsType - This property allows you to specify the type of the OS that is included in the disk if creating a VM from a custom image. <br><br> Possible values are: <br><br> **Windows** <br><br> **Linux**. Possible values include: 'Windows', 'Linux'
+	// OsType - This property allows you to specify the type of the OS that is included in the disk if creating a VM from a custom image. <br><br> Possible values are: <br><br> **Windows** <br><br> **Linux**. Possible values include: 'OperatingSystemTypesWindows', 'OperatingSystemTypesLinux'
 	OsType OperatingSystemTypes `json:"osType,omitempty"`
-	// OsState - The OS State. Possible values include: 'Generalized', 'Specialized'
+	// OsState - The OS State. Possible values include: 'OperatingSystemStateTypesGeneralized', 'OperatingSystemStateTypesSpecialized'
 	OsState OperatingSystemStateTypes `json:"osState,omitempty"`
 	// Snapshot - The snapshot.
 	Snapshot *SubResource `json:"snapshot,omitempty"`
@@ -8020,7 +8127,7 @@ func (IP ImageProperties) MarshalJSON() ([]byte, error) {
 	return json.Marshal(objectMap)
 }
 
-// ImagePurchasePlan describes the gallery Image Definition purchase plan. This is used by marketplace
+// ImagePurchasePlan describes the gallery image definition purchase plan. This is used by marketplace
 // images.
 type ImagePurchasePlan struct {
 	// Name - The plan ID.
@@ -8152,9 +8259,9 @@ func (future *ImagesDeleteFuture) result(client ImagesClient) (ar autorest.Respo
 
 // ImageStorageProfile describes a storage profile.
 type ImageStorageProfile struct {
-	// OsDisk - Specifies information about the operating system disk used by the virtual machine. <br><br> For more information about disks, see [About disks and VHDs for Azure virtual machines](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-windows-about-disks-vhds?toc=%2fazure%2fvirtual-machines%2fwindows%2ftoc.json).
+	// OsDisk - Specifies information about the operating system disk used by the virtual machine. <br><br> For more information about disks, see [About disks and VHDs for Azure virtual machines](https://docs.microsoft.com/azure/virtual-machines/managed-disks-overview).
 	OsDisk *ImageOSDisk `json:"osDisk,omitempty"`
-	// DataDisks - Specifies the parameters that are used to add a data disk to a virtual machine. <br><br> For more information about disks, see [About disks and VHDs for Azure virtual machines](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-windows-about-disks-vhds?toc=%2fazure%2fvirtual-machines%2fwindows%2ftoc.json).
+	// DataDisks - Specifies the parameters that are used to add a data disk to a virtual machine. <br><br> For more information about disks, see [About disks and VHDs for Azure virtual machines](https://docs.microsoft.com/azure/virtual-machines/managed-disks-overview).
 	DataDisks *[]ImageDataDisk `json:"dataDisks,omitempty"`
 	// ZoneResilient - Specifies whether an image is zone resilient or not. Default is false. Zone resilient images can be created only in regions that provide Zone Redundant Storage (ZRS).
 	ZoneResilient *bool `json:"zoneResilient,omitempty"`
@@ -8270,11 +8377,17 @@ type InstanceSku struct {
 	Tier *string `json:"tier,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for InstanceSku.
+func (is InstanceSku) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // InstanceViewStatus instance view status.
 type InstanceViewStatus struct {
 	// Code - The status code.
 	Code *string `json:"code,omitempty"`
-	// Level - The level code. Possible values include: 'Info', 'Warning', 'Error'
+	// Level - The level code. Possible values include: 'StatusLevelTypesInfo', 'StatusLevelTypesWarning', 'StatusLevelTypesError'
 	Level StatusLevelTypes `json:"level,omitempty"`
 	// DisplayStatus - The short localizable label for the status.
 	DisplayStatus *string `json:"displayStatus,omitempty"`
@@ -8288,6 +8401,12 @@ type InstanceViewStatus struct {
 type InstanceViewStatusesSummary struct {
 	// StatusesSummary - READ-ONLY
 	StatusesSummary *[]StatusCodeCount `json:"statusesSummary,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for InstanceViewStatusesSummary.
+func (ivss InstanceViewStatusesSummary) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // KeyForDiskEncryptionSet key Vault Key Url to be used for server side encryption of Managed Disks and
@@ -8358,11 +8477,15 @@ type LastPatchInstallationSummary struct {
 	Error *APIError `json:"error,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for LastPatchInstallationSummary.
+func (lpis LastPatchInstallationSummary) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // LinuxConfiguration specifies the Linux operating system settings on the virtual machine. <br><br>For a
 // list of supported Linux distributions, see [Linux on Azure-Endorsed
-// Distributions](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-linux-endorsed-distros?toc=%2fazure%2fvirtual-machines%2flinux%2ftoc.json)
-// <br><br> For running non-endorsed distributions, see [Information for Non-Endorsed
-// Distributions](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-linux-create-upload-generic?toc=%2fazure%2fvirtual-machines%2flinux%2ftoc.json).
+// Distributions](https://docs.microsoft.com/azure/virtual-machines/linux/endorsed-distros).
 type LinuxConfiguration struct {
 	// DisablePasswordAuthentication - Specifies whether password authentication should be disabled.
 	DisablePasswordAuthentication *bool `json:"disablePasswordAuthentication,omitempty"`
@@ -8388,8 +8511,10 @@ type LinuxParameters struct {
 
 // LinuxPatchSettings specifies settings related to VM Guest Patching on Linux.
 type LinuxPatchSettings struct {
-	// PatchMode - Specifies the mode of VM Guest Patching to IaaS virtual machine.<br /><br /> Possible values are:<br /><br /> **ImageDefault** - The virtual machine's default patching configuration is used. <br /><br /> **AutomaticByPlatform** - The virtual machine will be automatically updated by the platform. The property provisionVMAgent must be true. Possible values include: 'ImageDefault', 'AutomaticByPlatform'
+	// PatchMode - Specifies the mode of VM Guest Patching to IaaS virtual machine or virtual machines associated to virtual machine scale set with OrchestrationMode as Flexible.<br /><br /> Possible values are:<br /><br /> **ImageDefault** - The virtual machine's default patching configuration is used. <br /><br /> **AutomaticByPlatform** - The virtual machine will be automatically updated by the platform. The property provisionVMAgent must be true. Possible values include: 'LinuxVMGuestPatchModeImageDefault', 'LinuxVMGuestPatchModeAutomaticByPlatform'
 	PatchMode LinuxVMGuestPatchMode `json:"patchMode,omitempty"`
+	// AssessmentMode - Specifies the mode of VM Guest Patch Assessment for the IaaS virtual machine.<br /><br /> Possible values are:<br /><br /> **ImageDefault** - You control the timing of patch assessments on a virtual machine. <br /><br /> **AutomaticByPlatform** - The platform will trigger periodic patch assessments. The property provisionVMAgent must be true. Possible values include: 'LinuxPatchAssessmentModeImageDefault', 'LinuxPatchAssessmentModeAutomaticByPlatform'
+	AssessmentMode LinuxPatchAssessmentMode `json:"assessmentMode,omitempty"`
 }
 
 // ListUsagesResult the List Usages operation response.
@@ -8710,10 +8835,22 @@ type LogAnalyticsOperationResult struct {
 	Properties *LogAnalyticsOutput `json:"properties,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for LogAnalyticsOperationResult.
+func (laor LogAnalyticsOperationResult) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // LogAnalyticsOutput logAnalytics output properties
 type LogAnalyticsOutput struct {
 	// Output - READ-ONLY; Output file Uri path to blob container.
 	Output *string `json:"output,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for LogAnalyticsOutput.
+func (lao LogAnalyticsOutput) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // MaintenanceRedeployStatus maintenance Operation Status.
@@ -8806,12 +8943,18 @@ func (nir *NetworkInterfaceReference) UnmarshalJSON(body []byte) error {
 type NetworkInterfaceReferenceProperties struct {
 	// Primary - Specifies the primary network interface in case the virtual machine has more than 1 network interface.
 	Primary *bool `json:"primary,omitempty"`
+	// DeleteOption - Specify what happens to the network interface when the VM is deleted. Possible values include: 'DeleteOptionsDelete', 'DeleteOptionsDetach'
+	DeleteOption DeleteOptions `json:"deleteOption,omitempty"`
 }
 
-// NetworkProfile specifies the network interfaces of the virtual machine.
+// NetworkProfile specifies the network interfaces or the networking configuration of the virtual machine.
 type NetworkProfile struct {
 	// NetworkInterfaces - Specifies the list of resource Ids for the network interfaces associated with the virtual machine.
 	NetworkInterfaces *[]NetworkInterfaceReference `json:"networkInterfaces,omitempty"`
+	// NetworkAPIVersion - specifies the Microsoft.Network API version used when creating networking resources in the Network Interface Configurations. Possible values include: 'NetworkAPIVersionTwoZeroTwoZeroHyphenMinusOneOneHyphenMinusZeroOne'
+	NetworkAPIVersion NetworkAPIVersion `json:"networkApiVersion,omitempty"`
+	// NetworkInterfaceConfigurations - Specifies the networking configurations that will be used to create the virtual machine networking resources.
+	NetworkInterfaceConfigurations *[]VirtualMachineNetworkInterfaceConfiguration `json:"networkInterfaceConfigurations,omitempty"`
 }
 
 // OperationListResult the List Compute Operation operation response.
@@ -8819,6 +8962,12 @@ type OperationListResult struct {
 	autorest.Response `json:"-"`
 	// Value - READ-ONLY; The list of compute operations
 	Value *[]OperationValue `json:"value,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for OperationListResult.
+func (olr OperationListResult) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // OperationValue describes the properties of a Compute Operation value.
@@ -8893,27 +9042,39 @@ type OperationValueDisplay struct {
 	Provider *string `json:"provider,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for OperationValueDisplay.
+func (ovd OperationValueDisplay) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // OrchestrationServiceStateInput the input for OrchestrationServiceState
 type OrchestrationServiceStateInput struct {
-	// ServiceName - The name of the service. Possible values include: 'AutomaticRepairs'
-	ServiceName OrchestrationServiceNames `json:"serviceName,omitempty"`
-	// Action - The action to be performed. Possible values include: 'Resume', 'Suspend'
+	// ServiceName - The name of the service.
+	ServiceName *string `json:"serviceName,omitempty"`
+	// Action - The action to be performed. Possible values include: 'OrchestrationServiceStateActionResume', 'OrchestrationServiceStateActionSuspend'
 	Action OrchestrationServiceStateAction `json:"action,omitempty"`
 }
 
 // OrchestrationServiceSummary summary for an orchestration service of a virtual machine scale set.
 type OrchestrationServiceSummary struct {
-	// ServiceName - READ-ONLY; The name of the service. Possible values include: 'AutomaticRepairs', 'DummyOrchestrationServiceName'
+	// ServiceName - READ-ONLY; The name of the service. Possible values include: 'OrchestrationServiceNamesAutomaticRepairs'
 	ServiceName OrchestrationServiceNames `json:"serviceName,omitempty"`
-	// ServiceState - READ-ONLY; The current state of the service. Possible values include: 'NotRunning', 'Running', 'Suspended'
+	// ServiceState - READ-ONLY; The current state of the service. Possible values include: 'OrchestrationServiceStateNotRunning', 'OrchestrationServiceStateRunning', 'OrchestrationServiceStateSuspended'
 	ServiceState OrchestrationServiceState `json:"serviceState,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for OrchestrationServiceSummary.
+func (oss OrchestrationServiceSummary) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // OSDisk specifies information about the operating system disk used by the virtual machine. <br><br> For
 // more information about disks, see [About disks and VHDs for Azure virtual
-// machines](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-windows-about-disks-vhds?toc=%2fazure%2fvirtual-machines%2fwindows%2ftoc.json).
+// machines](https://docs.microsoft.com/azure/virtual-machines/managed-disks-overview).
 type OSDisk struct {
-	// OsType - This property allows you to specify the type of the OS that is included in the disk if creating a VM from user-image or a specialized VHD. <br><br> Possible values are: <br><br> **Windows** <br><br> **Linux**. Possible values include: 'Windows', 'Linux'
+	// OsType - This property allows you to specify the type of the OS that is included in the disk if creating a VM from user-image or a specialized VHD. <br><br> Possible values are: <br><br> **Windows** <br><br> **Linux**. Possible values include: 'OperatingSystemTypesWindows', 'OperatingSystemTypesLinux'
 	OsType OperatingSystemTypes `json:"osType,omitempty"`
 	// EncryptionSettings - Specifies the encryption settings for the OS Disk. <br><br> Minimum api-version: 2015-06-15
 	EncryptionSettings *DiskEncryptionSettings `json:"encryptionSettings,omitempty"`
@@ -8935,11 +9096,13 @@ type OSDisk struct {
 	DiskSizeGB *int32 `json:"diskSizeGB,omitempty"`
 	// ManagedDisk - The managed disk parameters.
 	ManagedDisk *ManagedDiskParameters `json:"managedDisk,omitempty"`
+	// DeleteOption - Specifies whether OS Disk should be deleted or detached upon VM deletion. <br><br> Possible values: <br><br> **Delete** If this value is used, the OS disk is deleted when VM is deleted.<br><br> **Detach** If this value is used, the os disk is retained after VM is deleted. <br><br> The default value is set to **detach**. For an ephemeral OS Disk, the default value is set to **Delete**. User cannot change the delete option for ephemeral OS Disk. Possible values include: 'DiskDeleteOptionTypesDelete', 'DiskDeleteOptionTypesDetach'
+	DeleteOption DiskDeleteOptionTypes `json:"deleteOption,omitempty"`
 }
 
 // OSDiskImage contains the os disk image information.
 type OSDiskImage struct {
-	// OperatingSystem - The operating system of the osDiskImage. Possible values include: 'Windows', 'Linux'
+	// OperatingSystem - The operating system of the osDiskImage. Possible values include: 'OperatingSystemTypesWindows', 'OperatingSystemTypesLinux'
 	OperatingSystem OperatingSystemTypes `json:"operatingSystem,omitempty"`
 }
 
@@ -9139,20 +9302,26 @@ type OSFamilyProperties struct {
 	Versions *[]OSVersionPropertiesBase `json:"versions,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for OSFamilyProperties.
+func (ofp OSFamilyProperties) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // OSProfile specifies the operating system settings for the virtual machine. Some of the settings cannot
 // be changed once VM is provisioned.
 type OSProfile struct {
-	// ComputerName - Specifies the host OS name of the virtual machine. <br><br> This name cannot be updated after the VM is created. <br><br> **Max-length (Windows):** 15 characters <br><br> **Max-length (Linux):** 64 characters. <br><br> For naming conventions and restrictions see [Azure infrastructure services implementation guidelines](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-linux-infrastructure-subscription-accounts-guidelines?toc=%2fazure%2fvirtual-machines%2flinux%2ftoc.json#1-naming-conventions).
+	// ComputerName - Specifies the host OS name of the virtual machine. <br><br> This name cannot be updated after the VM is created. <br><br> **Max-length (Windows):** 15 characters <br><br> **Max-length (Linux):** 64 characters. <br><br> For naming conventions and restrictions see [Azure infrastructure services implementation guidelines](https://docs.microsoft.com/azure/azure-resource-manager/management/resource-name-rules).
 	ComputerName *string `json:"computerName,omitempty"`
-	// AdminUsername - Specifies the name of the administrator account. <br><br> This property cannot be updated after the VM is created. <br><br> **Windows-only restriction:** Cannot end in "." <br><br> **Disallowed values:** "administrator", "admin", "user", "user1", "test", "user2", "test1", "user3", "admin1", "1", "123", "a", "actuser", "adm", "admin2", "aspnet", "backup", "console", "david", "guest", "john", "owner", "root", "server", "sql", "support", "support_388945a0", "sys", "test2", "test3", "user4", "user5". <br><br> **Minimum-length (Linux):** 1  character <br><br> **Max-length (Linux):** 64 characters <br><br> **Max-length (Windows):** 20 characters  <br><br><li> For root access to the Linux VM, see [Using root privileges on Linux virtual machines in Azure](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-linux-use-root-privileges?toc=%2fazure%2fvirtual-machines%2flinux%2ftoc.json)<br><li> For a list of built-in system users on Linux that should not be used in this field, see [Selecting User Names for Linux on Azure](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-linux-usernames?toc=%2fazure%2fvirtual-machines%2flinux%2ftoc.json)
+	// AdminUsername - Specifies the name of the administrator account. <br><br> This property cannot be updated after the VM is created. <br><br> **Windows-only restriction:** Cannot end in "." <br><br> **Disallowed values:** "administrator", "admin", "user", "user1", "test", "user2", "test1", "user3", "admin1", "1", "123", "a", "actuser", "adm", "admin2", "aspnet", "backup", "console", "david", "guest", "john", "owner", "root", "server", "sql", "support", "support_388945a0", "sys", "test2", "test3", "user4", "user5". <br><br> **Minimum-length (Linux):** 1  character <br><br> **Max-length (Linux):** 64 characters <br><br> **Max-length (Windows):** 20 characters.
 	AdminUsername *string `json:"adminUsername,omitempty"`
-	// AdminPassword - Specifies the password of the administrator account. <br><br> **Minimum-length (Windows):** 8 characters <br><br> **Minimum-length (Linux):** 6 characters <br><br> **Max-length (Windows):** 123 characters <br><br> **Max-length (Linux):** 72 characters <br><br> **Complexity requirements:** 3 out of 4 conditions below need to be fulfilled <br> Has lower characters <br>Has upper characters <br> Has a digit <br> Has a special character (Regex match [\W_]) <br><br> **Disallowed values:** "abc@123", "P@$$w0rd", "P@ssw0rd", "P@ssword123", "Pa$$word", "pass@word1", "Password!", "Password1", "Password22", "iloveyou!" <br><br> For resetting the password, see [How to reset the Remote Desktop service or its login password in a Windows VM](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-windows-reset-rdp?toc=%2fazure%2fvirtual-machines%2fwindows%2ftoc.json) <br><br> For resetting root password, see [Manage users, SSH, and check or repair disks on Azure Linux VMs using the VMAccess Extension](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-linux-using-vmaccess-extension?toc=%2fazure%2fvirtual-machines%2flinux%2ftoc.json#reset-root-password)
+	// AdminPassword - Specifies the password of the administrator account. <br><br> **Minimum-length (Windows):** 8 characters <br><br> **Minimum-length (Linux):** 6 characters <br><br> **Max-length (Windows):** 123 characters <br><br> **Max-length (Linux):** 72 characters <br><br> **Complexity requirements:** 3 out of 4 conditions below need to be fulfilled <br> Has lower characters <br>Has upper characters <br> Has a digit <br> Has a special character (Regex match [\W_]) <br><br> **Disallowed values:** "abc@123", "P@$$w0rd", "P@ssw0rd", "P@ssword123", "Pa$$word", "pass@word1", "Password!", "Password1", "Password22", "iloveyou!" <br><br> For resetting the password, see [How to reset the Remote Desktop service or its login password in a Windows VM](https://docs.microsoft.com/troubleshoot/azure/virtual-machines/reset-rdp) <br><br> For resetting root password, see [Manage users, SSH, and check or repair disks on Azure Linux VMs using the VMAccess Extension](https://docs.microsoft.com/troubleshoot/azure/virtual-machines/troubleshoot-ssh-connection)
 	AdminPassword *string `json:"adminPassword,omitempty"`
-	// CustomData - Specifies a base-64 encoded string of custom data. The base-64 encoded string is decoded to a binary array that is saved as a file on the Virtual Machine. The maximum length of the binary array is 65535 bytes. <br><br> **Note: Do not pass any secrets or passwords in customData property** <br><br> This property cannot be updated after the VM is created. <br><br> customData is passed to the VM to be saved as a file, for more information see [Custom Data on Azure VMs](https://azure.microsoft.com/en-us/blog/custom-data-and-cloud-init-on-windows-azure/) <br><br> For using cloud-init for your Linux VM, see [Using cloud-init to customize a Linux VM during creation](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-linux-using-cloud-init?toc=%2fazure%2fvirtual-machines%2flinux%2ftoc.json)
+	// CustomData - Specifies a base-64 encoded string of custom data. The base-64 encoded string is decoded to a binary array that is saved as a file on the Virtual Machine. The maximum length of the binary array is 65535 bytes. <br><br> **Note: Do not pass any secrets or passwords in customData property** <br><br> This property cannot be updated after the VM is created. <br><br> customData is passed to the VM to be saved as a file, for more information see [Custom Data on Azure VMs](https://azure.microsoft.com/blog/custom-data-and-cloud-init-on-windows-azure/) <br><br> For using cloud-init for your Linux VM, see [Using cloud-init to customize a Linux VM during creation](https://docs.microsoft.com/azure/virtual-machines/linux/using-cloud-init)
 	CustomData *string `json:"customData,omitempty"`
 	// WindowsConfiguration - Specifies Windows operating system settings on the virtual machine.
 	WindowsConfiguration *WindowsConfiguration `json:"windowsConfiguration,omitempty"`
-	// LinuxConfiguration - Specifies the Linux operating system settings on the virtual machine. <br><br>For a list of supported Linux distributions, see [Linux on Azure-Endorsed Distributions](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-linux-endorsed-distros?toc=%2fazure%2fvirtual-machines%2flinux%2ftoc.json) <br><br> For running non-endorsed distributions, see [Information for Non-Endorsed Distributions](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-linux-create-upload-generic?toc=%2fazure%2fvirtual-machines%2flinux%2ftoc.json).
+	// LinuxConfiguration - Specifies the Linux operating system settings on the virtual machine. <br><br>For a list of supported Linux distributions, see [Linux on Azure-Endorsed Distributions](https://docs.microsoft.com/azure/virtual-machines/linux/endorsed-distros).
 	LinuxConfiguration *LinuxConfiguration `json:"linuxConfiguration,omitempty"`
 	// Secrets - Specifies set of certificates that should be installed onto the virtual machine.
 	Secrets *[]VaultSecretGroup `json:"secrets,omitempty"`
@@ -9358,6 +9527,12 @@ type OSVersionProperties struct {
 	IsActive *bool `json:"isActive,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for OSVersionProperties.
+func (ovp OSVersionProperties) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // OSVersionPropertiesBase configuration view of an OS version.
 type OSVersionPropertiesBase struct {
 	// Version - READ-ONLY; The OS version.
@@ -9368,6 +9543,12 @@ type OSVersionPropertiesBase struct {
 	IsDefault *bool `json:"isDefault,omitempty"`
 	// IsActive - READ-ONLY; Specifies whether this OS version is active.
 	IsActive *bool `json:"isActive,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for OSVersionPropertiesBase.
+func (ovpb OSVersionPropertiesBase) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // PatchInstallationDetail information about a specific patch that was encountered during an installation
@@ -9387,12 +9568,94 @@ type PatchInstallationDetail struct {
 	InstallationState PatchInstallationState `json:"installationState,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for PatchInstallationDetail.
+func (pid PatchInstallationDetail) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // PatchSettings specifies settings related to VM Guest Patching on Windows.
 type PatchSettings struct {
-	// PatchMode - Specifies the mode of VM Guest Patching to IaaS virtual machine.<br /><br /> Possible values are:<br /><br /> **Manual** - You  control the application of patches to a virtual machine. You do this by applying patches manually inside the VM. In this mode, automatic updates are disabled; the property WindowsConfiguration.enableAutomaticUpdates must be false<br /><br /> **AutomaticByOS** - The virtual machine will automatically be updated by the OS. The property WindowsConfiguration.enableAutomaticUpdates must be true. <br /><br /> **AutomaticByPlatform** - the virtual machine will automatically updated by the platform. The properties provisionVMAgent and WindowsConfiguration.enableAutomaticUpdates must be true. Possible values include: 'WindowsVMGuestPatchModeManual', 'WindowsVMGuestPatchModeAutomaticByOS', 'WindowsVMGuestPatchModeAutomaticByPlatform'
+	// PatchMode - Specifies the mode of VM Guest Patching to IaaS virtual machine or virtual machines associated to virtual machine scale set with OrchestrationMode as Flexible.<br /><br /> Possible values are:<br /><br /> **Manual** - You  control the application of patches to a virtual machine. You do this by applying patches manually inside the VM. In this mode, automatic updates are disabled; the property WindowsConfiguration.enableAutomaticUpdates must be false<br /><br /> **AutomaticByOS** - The virtual machine will automatically be updated by the OS. The property WindowsConfiguration.enableAutomaticUpdates must be true. <br /><br /> **AutomaticByPlatform** - the virtual machine will automatically updated by the platform. The properties provisionVMAgent and WindowsConfiguration.enableAutomaticUpdates must be true. Possible values include: 'WindowsVMGuestPatchModeManual', 'WindowsVMGuestPatchModeAutomaticByOS', 'WindowsVMGuestPatchModeAutomaticByPlatform'
 	PatchMode WindowsVMGuestPatchMode `json:"patchMode,omitempty"`
 	// EnableHotpatching - Enables customers to patch their Azure VMs without requiring a reboot. For enableHotpatching, the 'provisionVMAgent' must be set to true and 'patchMode' must be set to 'AutomaticByPlatform'.
 	EnableHotpatching *bool `json:"enableHotpatching,omitempty"`
+	// AssessmentMode - Specifies the mode of VM Guest patch assessment for the IaaS virtual machine.<br /><br /> Possible values are:<br /><br /> **ImageDefault** - You control the timing of patch assessments on a virtual machine.<br /><br /> **AutomaticByPlatform** - The platform will trigger periodic patch assessments. The property provisionVMAgent must be true. Possible values include: 'WindowsPatchAssessmentModeImageDefault', 'WindowsPatchAssessmentModeAutomaticByPlatform'
+	AssessmentMode WindowsPatchAssessmentMode `json:"assessmentMode,omitempty"`
+}
+
+// PirResource the Resource model definition.
+type PirResource struct {
+	// Name - READ-ONLY; Resource name
+	Name *string `json:"name,omitempty"`
+	// Location - READ-ONLY; Resource location
+	Location *string `json:"location,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for PirResource.
+func (pr PirResource) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
+// PirSharedGalleryResource base information about the shared gallery resource in pir.
+type PirSharedGalleryResource struct {
+	*SharedGalleryIdentifier `json:"identifier,omitempty"`
+	// Name - READ-ONLY; Resource name
+	Name *string `json:"name,omitempty"`
+	// Location - READ-ONLY; Resource location
+	Location *string `json:"location,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for PirSharedGalleryResource.
+func (psgr PirSharedGalleryResource) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	if psgr.SharedGalleryIdentifier != nil {
+		objectMap["identifier"] = psgr.SharedGalleryIdentifier
+	}
+	return json.Marshal(objectMap)
+}
+
+// UnmarshalJSON is the custom unmarshaler for PirSharedGalleryResource struct.
+func (psgr *PirSharedGalleryResource) UnmarshalJSON(body []byte) error {
+	var m map[string]*json.RawMessage
+	err := json.Unmarshal(body, &m)
+	if err != nil {
+		return err
+	}
+	for k, v := range m {
+		switch k {
+		case "identifier":
+			if v != nil {
+				var sharedGalleryIdentifier SharedGalleryIdentifier
+				err = json.Unmarshal(*v, &sharedGalleryIdentifier)
+				if err != nil {
+					return err
+				}
+				psgr.SharedGalleryIdentifier = &sharedGalleryIdentifier
+			}
+		case "name":
+			if v != nil {
+				var name string
+				err = json.Unmarshal(*v, &name)
+				if err != nil {
+					return err
+				}
+				psgr.Name = &name
+			}
+		case "location":
+			if v != nil {
+				var location string
+				err = json.Unmarshal(*v, &location)
+				if err != nil {
+					return err
+				}
+				psgr.Location = &location
+			}
+		}
+	}
+
+	return nil
 }
 
 // Plan specifies information about the marketplace image used to create the virtual machine. This element
@@ -9415,6 +9678,12 @@ type Plan struct {
 type PrivateEndpoint struct {
 	// ID - READ-ONLY; The ARM identifier for Private Endpoint
 	ID *string `json:"id,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for PrivateEndpoint.
+func (peVar PrivateEndpoint) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // PrivateEndpointConnection the Private Endpoint Connection resource.
@@ -9773,7 +10042,7 @@ func (plrp PrivateLinkResourceProperties) MarshalJSON() ([]byte, error) {
 // PrivateLinkServiceConnectionState a collection of information about the state of the connection between
 // service consumer and provider.
 type PrivateLinkServiceConnectionState struct {
-	// Status - Indicates whether the connection has been Approved/Rejected/Removed by the owner of the service. Possible values include: 'Pending', 'Approved', 'Rejected'
+	// Status - Indicates whether the connection has been Approved/Rejected/Removed by the owner of the service. Possible values include: 'PrivateEndpointServiceConnectionStatusPending', 'PrivateEndpointServiceConnectionStatusApproved', 'PrivateEndpointServiceConnectionStatusRejected'
 	Status PrivateEndpointServiceConnectionStatus `json:"status,omitempty"`
 	// Description - The reason for approval/rejection of the connection.
 	Description *string `json:"description,omitempty"`
@@ -10050,7 +10319,7 @@ func NewProximityPlacementGroupListResultPage(cur ProximityPlacementGroupListRes
 
 // ProximityPlacementGroupProperties describes the properties of a Proximity Placement Group.
 type ProximityPlacementGroupProperties struct {
-	// ProximityPlacementGroupType - Specifies the type of the proximity placement group. <br><br> Possible values are: <br><br> **Standard** : Co-locate resources within an Azure region or Availability Zone. <br><br> **Ultra** : For future use. Possible values include: 'Standard', 'Ultra'
+	// ProximityPlacementGroupType - Specifies the type of the proximity placement group. <br><br> Possible values are: <br><br> **Standard** : Co-locate resources within an Azure region or Availability Zone. <br><br> **Ultra** : For future use. Possible values include: 'ProximityPlacementGroupTypeStandard', 'ProximityPlacementGroupTypeUltra'
 	ProximityPlacementGroupType ProximityPlacementGroupType `json:"proximityPlacementGroupType,omitempty"`
 	// VirtualMachines - READ-ONLY; A list of references to all virtual machines in the proximity placement group.
 	VirtualMachines *[]SubResourceWithColocationStatus `json:"virtualMachines,omitempty"`
@@ -10099,6 +10368,37 @@ type ProxyOnlyResource struct {
 	Type *string `json:"type,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for ProxyOnlyResource.
+func (por ProxyOnlyResource) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
+// ProxyResource the resource model definition for an Azure Resource Manager proxy resource. It will not
+// have tags and a location
+type ProxyResource struct {
+	// ID - READ-ONLY; Resource Id
+	ID *string `json:"id,omitempty"`
+	// Name - READ-ONLY; Resource name
+	Name *string `json:"name,omitempty"`
+	// Type - READ-ONLY; Resource type
+	Type *string `json:"type,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for ProxyResource.
+func (pr ProxyResource) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
+// PublicIPAddressSku describes the public IP Sku
+type PublicIPAddressSku struct {
+	// PublicIPAddressSkuName - Specify public IP sku name. Possible values include: 'PublicIPAddressSkuNameBasic', 'PublicIPAddressSkuNameStandard'
+	PublicIPAddressSkuName PublicIPAddressSkuName `json:"publicIPAddressSkuName,omitempty"`
+	// PublicIPAddressSkuTier - Specify public IP sku tier. Possible values include: 'PublicIPAddressSkuTierRegional', 'PublicIPAddressSkuTierGlobal'
+	PublicIPAddressSkuTier PublicIPAddressSkuTier `json:"publicIPAddressSkuTier,omitempty"`
+}
+
 // PurchasePlan used for establishing the purchase context of any 3rd Party artifact through MarketPlace.
 type PurchasePlan struct {
 	// Publisher - The publisher ID.
@@ -10133,9 +10433,15 @@ type RecoveryWalkResponse struct {
 	NextPlatformUpdateDomain *int32 `json:"nextPlatformUpdateDomain,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for RecoveryWalkResponse.
+func (rwr RecoveryWalkResponse) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // RegionalReplicationStatus this is the regional replication status.
 type RegionalReplicationStatus struct {
-	// Region - READ-ONLY; The region to which the gallery Image Version is being replicated to.
+	// Region - READ-ONLY; The region to which the gallery image version is being replicated to.
 	Region *string `json:"region,omitempty"`
 	// State - READ-ONLY; This is the regional replication state. Possible values include: 'ReplicationStateUnknown', 'ReplicationStateReplicating', 'ReplicationStateCompleted', 'ReplicationStateFailed'
 	State ReplicationState `json:"state,omitempty"`
@@ -10145,17 +10451,29 @@ type RegionalReplicationStatus struct {
 	Progress *int32 `json:"progress,omitempty"`
 }
 
-// ReplicationStatus this is the replication status of the gallery Image Version.
+// MarshalJSON is the custom marshaler for RegionalReplicationStatus.
+func (rrs RegionalReplicationStatus) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
+// ReplicationStatus this is the replication status of the gallery image version.
 type ReplicationStatus struct {
-	// AggregatedState - READ-ONLY; This is the aggregated replication status based on all the regional replication status flags. Possible values include: 'Unknown', 'InProgress', 'Completed', 'Failed'
+	// AggregatedState - READ-ONLY; This is the aggregated replication status based on all the regional replication status flags. Possible values include: 'AggregatedReplicationStateUnknown', 'AggregatedReplicationStateInProgress', 'AggregatedReplicationStateCompleted', 'AggregatedReplicationStateFailed'
 	AggregatedState AggregatedReplicationState `json:"aggregatedState,omitempty"`
 	// Summary - READ-ONLY; This is a summary of replication status for each region.
 	Summary *[]RegionalReplicationStatus `json:"summary,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for ReplicationStatus.
+func (rs ReplicationStatus) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // RequestRateByIntervalInput api request input for LogAnalytics getRequestRateByInterval Api.
 type RequestRateByIntervalInput struct {
-	// IntervalLength - Interval value in minutes used to create LogAnalytics call rate logs. Possible values include: 'ThreeMins', 'FiveMins', 'ThirtyMins', 'SixtyMins'
+	// IntervalLength - Interval value in minutes used to create LogAnalytics call rate logs. Possible values include: 'IntervalInMinsThreeMins', 'IntervalInMinsFiveMins', 'IntervalInMinsThirtyMins', 'IntervalInMinsSixtyMins'
 	IntervalLength IntervalInMins `json:"intervalLength,omitempty"`
 	// BlobContainerSasURI - SAS Uri of the logging blob container to which LogAnalytics Api writes output logs to.
 	BlobContainerSasURI *string `json:"blobContainerSasUri,omitempty"`
@@ -10211,7 +10529,7 @@ type ResourceInstanceViewStatus struct {
 	Message *string `json:"message,omitempty"`
 	// Time - READ-ONLY; The time of the status.
 	Time *date.Time `json:"time,omitempty"`
-	// Level - The level code. Possible values include: 'Info', 'Warning', 'Error'
+	// Level - The level code. Possible values include: 'StatusLevelTypesInfo', 'StatusLevelTypesWarning', 'StatusLevelTypesError'
 	Level StatusLevelTypes `json:"level,omitempty"`
 }
 
@@ -10262,12 +10580,24 @@ type ResourceSku struct {
 	Restrictions *[]ResourceSkuRestrictions `json:"restrictions,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for ResourceSku.
+func (rs ResourceSku) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // ResourceSkuCapabilities describes The SKU capabilities object.
 type ResourceSkuCapabilities struct {
 	// Name - READ-ONLY; An invariant to describe the feature.
 	Name *string `json:"name,omitempty"`
 	// Value - READ-ONLY; An invariant if the feature is measured by quantity.
 	Value *string `json:"value,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for ResourceSkuCapabilities.
+func (rsc ResourceSkuCapabilities) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // ResourceSkuCapacity describes scaling information of a SKU.
@@ -10282,6 +10612,12 @@ type ResourceSkuCapacity struct {
 	ScaleType ResourceSkuCapacityScaleType `json:"scaleType,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for ResourceSkuCapacity.
+func (rsc ResourceSkuCapacity) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // ResourceSkuCosts describes metadata for retrieving price info.
 type ResourceSkuCosts struct {
 	// MeterID - READ-ONLY; Used for querying price from commerce.
@@ -10290,6 +10626,12 @@ type ResourceSkuCosts struct {
 	Quantity *int64 `json:"quantity,omitempty"`
 	// ExtendedUnit - READ-ONLY; An invariant to show the extended unit.
 	ExtendedUnit *string `json:"extendedUnit,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for ResourceSkuCosts.
+func (rsc ResourceSkuCosts) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // ResourceSkuLocationInfo ...
@@ -10302,6 +10644,12 @@ type ResourceSkuLocationInfo struct {
 	ZoneDetails *[]ResourceSkuZoneDetails `json:"zoneDetails,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for ResourceSkuLocationInfo.
+func (rsli ResourceSkuLocationInfo) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // ResourceSkuRestrictionInfo ...
 type ResourceSkuRestrictionInfo struct {
 	// Locations - READ-ONLY; Locations where the SKU is restricted
@@ -10310,16 +10658,28 @@ type ResourceSkuRestrictionInfo struct {
 	Zones *[]string `json:"zones,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for ResourceSkuRestrictionInfo.
+func (rsri ResourceSkuRestrictionInfo) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // ResourceSkuRestrictions describes scaling information of a SKU.
 type ResourceSkuRestrictions struct {
-	// Type - READ-ONLY; The type of restrictions. Possible values include: 'Location', 'Zone'
+	// Type - READ-ONLY; The type of restrictions. Possible values include: 'ResourceSkuRestrictionsTypeLocation', 'ResourceSkuRestrictionsTypeZone'
 	Type ResourceSkuRestrictionsType `json:"type,omitempty"`
 	// Values - READ-ONLY; The value of restrictions. If the restriction type is set to location. This would be different locations where the SKU is restricted.
 	Values *[]string `json:"values,omitempty"`
 	// RestrictionInfo - READ-ONLY; The information about the restriction where the SKU cannot be used.
 	RestrictionInfo *ResourceSkuRestrictionInfo `json:"restrictionInfo,omitempty"`
-	// ReasonCode - READ-ONLY; The reason for restriction. Possible values include: 'QuotaID', 'NotAvailableForSubscription'
+	// ReasonCode - READ-ONLY; The reason for restriction. Possible values include: 'ResourceSkuRestrictionsReasonCodeQuotaID', 'ResourceSkuRestrictionsReasonCodeNotAvailableForSubscription'
 	ReasonCode ResourceSkuRestrictionsReasonCode `json:"reasonCode,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for ResourceSkuRestrictions.
+func (rsr ResourceSkuRestrictions) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // ResourceSkusResult the List Resource Skus operation response.
@@ -10489,6 +10849,12 @@ type ResourceSkuZoneDetails struct {
 	Capabilities *[]ResourceSkuCapabilities `json:"capabilities,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for ResourceSkuZoneDetails.
+func (rszd ResourceSkuZoneDetails) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // ResourceURIList the List resources which are encrypted with the disk encryption set.
 type ResourceURIList struct {
 	autorest.Response `json:"-"`
@@ -10648,6 +11014,577 @@ func NewResourceURIListPage(cur ResourceURIList, getNextPage func(context.Contex
 	}
 }
 
+// RestorePoint restore Point details.
+type RestorePoint struct {
+	autorest.Response `json:"-"`
+	// SourceMetadata - READ-ONLY; Gets the details of the VM captured at the time of the restore point creation.
+	SourceMetadata *RestorePointSourceMetadata `json:"sourceMetadata,omitempty"`
+	// ProvisioningState - READ-ONLY; Gets the provisioning state of the restore point.
+	ProvisioningState *string `json:"provisioningState,omitempty"`
+	// ConsistencyMode - READ-ONLY; Gets the consistency mode for the restore point. Please refer to https://aka.ms/RestorePoints for more details. Possible values include: 'ConsistencyModeTypesCrashConsistent', 'ConsistencyModeTypesFileSystemConsistent', 'ConsistencyModeTypesApplicationConsistent'
+	ConsistencyMode ConsistencyModeTypes `json:"consistencyMode,omitempty"`
+	// ProvisioningDetails - READ-ONLY; Gets the provisioning details set by the server during Create restore point operation.
+	ProvisioningDetails *RestorePointProvisioningDetails `json:"provisioningDetails,omitempty"`
+	// ExcludeDisks - List of disk resource ids that the customer wishes to exclude from the restore point. If no disks are specified, all disks will be included.
+	ExcludeDisks *[]APIEntityReference `json:"excludeDisks,omitempty"`
+	// ID - READ-ONLY; Resource Id
+	ID *string `json:"id,omitempty"`
+	// Name - READ-ONLY; Resource name
+	Name *string `json:"name,omitempty"`
+	// Type - READ-ONLY; Resource type
+	Type *string `json:"type,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for RestorePoint.
+func (rp RestorePoint) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	if rp.ExcludeDisks != nil {
+		objectMap["excludeDisks"] = rp.ExcludeDisks
+	}
+	return json.Marshal(objectMap)
+}
+
+// RestorePointCollection create or update Restore Point collection parameters.
+type RestorePointCollection struct {
+	autorest.Response                 `json:"-"`
+	*RestorePointCollectionProperties `json:"properties,omitempty"`
+	// ID - READ-ONLY; Resource Id
+	ID *string `json:"id,omitempty"`
+	// Name - READ-ONLY; Resource name
+	Name *string `json:"name,omitempty"`
+	// Type - READ-ONLY; Resource type
+	Type *string `json:"type,omitempty"`
+	// Location - Resource location
+	Location *string `json:"location,omitempty"`
+	// Tags - Resource tags
+	Tags map[string]*string `json:"tags"`
+}
+
+// MarshalJSON is the custom marshaler for RestorePointCollection.
+func (RPCVar RestorePointCollection) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	if RPCVar.RestorePointCollectionProperties != nil {
+		objectMap["properties"] = RPCVar.RestorePointCollectionProperties
+	}
+	if RPCVar.Location != nil {
+		objectMap["location"] = RPCVar.Location
+	}
+	if RPCVar.Tags != nil {
+		objectMap["tags"] = RPCVar.Tags
+	}
+	return json.Marshal(objectMap)
+}
+
+// UnmarshalJSON is the custom unmarshaler for RestorePointCollection struct.
+func (RPCVar *RestorePointCollection) UnmarshalJSON(body []byte) error {
+	var m map[string]*json.RawMessage
+	err := json.Unmarshal(body, &m)
+	if err != nil {
+		return err
+	}
+	for k, v := range m {
+		switch k {
+		case "properties":
+			if v != nil {
+				var restorePointCollectionProperties RestorePointCollectionProperties
+				err = json.Unmarshal(*v, &restorePointCollectionProperties)
+				if err != nil {
+					return err
+				}
+				RPCVar.RestorePointCollectionProperties = &restorePointCollectionProperties
+			}
+		case "id":
+			if v != nil {
+				var ID string
+				err = json.Unmarshal(*v, &ID)
+				if err != nil {
+					return err
+				}
+				RPCVar.ID = &ID
+			}
+		case "name":
+			if v != nil {
+				var name string
+				err = json.Unmarshal(*v, &name)
+				if err != nil {
+					return err
+				}
+				RPCVar.Name = &name
+			}
+		case "type":
+			if v != nil {
+				var typeVar string
+				err = json.Unmarshal(*v, &typeVar)
+				if err != nil {
+					return err
+				}
+				RPCVar.Type = &typeVar
+			}
+		case "location":
+			if v != nil {
+				var location string
+				err = json.Unmarshal(*v, &location)
+				if err != nil {
+					return err
+				}
+				RPCVar.Location = &location
+			}
+		case "tags":
+			if v != nil {
+				var tags map[string]*string
+				err = json.Unmarshal(*v, &tags)
+				if err != nil {
+					return err
+				}
+				RPCVar.Tags = tags
+			}
+		}
+	}
+
+	return nil
+}
+
+// RestorePointCollectionListResult the List restore point collection operation response.
+type RestorePointCollectionListResult struct {
+	autorest.Response `json:"-"`
+	// Value - Gets the list of restore point collections.
+	Value *[]RestorePointCollection `json:"value,omitempty"`
+	// NextLink - The uri to fetch the next page of RestorePointCollections. Call ListNext() with this to fetch the next page of RestorePointCollections
+	NextLink *string `json:"nextLink,omitempty"`
+}
+
+// RestorePointCollectionListResultIterator provides access to a complete listing of RestorePointCollection
+// values.
+type RestorePointCollectionListResultIterator struct {
+	i    int
+	page RestorePointCollectionListResultPage
+}
+
+// NextWithContext advances to the next value.  If there was an error making
+// the request the iterator does not advance and the error is returned.
+func (iter *RestorePointCollectionListResultIterator) NextWithContext(ctx context.Context) (err error) {
+	if tracing.IsEnabled() {
+		ctx = tracing.StartSpan(ctx, fqdn+"/RestorePointCollectionListResultIterator.NextWithContext")
+		defer func() {
+			sc := -1
+			if iter.Response().Response.Response != nil {
+				sc = iter.Response().Response.Response.StatusCode
+			}
+			tracing.EndSpan(ctx, sc, err)
+		}()
+	}
+	iter.i++
+	if iter.i < len(iter.page.Values()) {
+		return nil
+	}
+	err = iter.page.NextWithContext(ctx)
+	if err != nil {
+		iter.i--
+		return err
+	}
+	iter.i = 0
+	return nil
+}
+
+// Next advances to the next value.  If there was an error making
+// the request the iterator does not advance and the error is returned.
+// Deprecated: Use NextWithContext() instead.
+func (iter *RestorePointCollectionListResultIterator) Next() error {
+	return iter.NextWithContext(context.Background())
+}
+
+// NotDone returns true if the enumeration should be started or is not yet complete.
+func (iter RestorePointCollectionListResultIterator) NotDone() bool {
+	return iter.page.NotDone() && iter.i < len(iter.page.Values())
+}
+
+// Response returns the raw server response from the last page request.
+func (iter RestorePointCollectionListResultIterator) Response() RestorePointCollectionListResult {
+	return iter.page.Response()
+}
+
+// Value returns the current value or a zero-initialized value if the
+// iterator has advanced beyond the end of the collection.
+func (iter RestorePointCollectionListResultIterator) Value() RestorePointCollection {
+	if !iter.page.NotDone() {
+		return RestorePointCollection{}
+	}
+	return iter.page.Values()[iter.i]
+}
+
+// Creates a new instance of the RestorePointCollectionListResultIterator type.
+func NewRestorePointCollectionListResultIterator(page RestorePointCollectionListResultPage) RestorePointCollectionListResultIterator {
+	return RestorePointCollectionListResultIterator{page: page}
+}
+
+// IsEmpty returns true if the ListResult contains no values.
+func (rpclr RestorePointCollectionListResult) IsEmpty() bool {
+	return rpclr.Value == nil || len(*rpclr.Value) == 0
+}
+
+// hasNextLink returns true if the NextLink is not empty.
+func (rpclr RestorePointCollectionListResult) hasNextLink() bool {
+	return rpclr.NextLink != nil && len(*rpclr.NextLink) != 0
+}
+
+// restorePointCollectionListResultPreparer prepares a request to retrieve the next set of results.
+// It returns nil if no more results exist.
+func (rpclr RestorePointCollectionListResult) restorePointCollectionListResultPreparer(ctx context.Context) (*http.Request, error) {
+	if !rpclr.hasNextLink() {
+		return nil, nil
+	}
+	return autorest.Prepare((&http.Request{}).WithContext(ctx),
+		autorest.AsJSON(),
+		autorest.AsGet(),
+		autorest.WithBaseURL(to.String(rpclr.NextLink)))
+}
+
+// RestorePointCollectionListResultPage contains a page of RestorePointCollection values.
+type RestorePointCollectionListResultPage struct {
+	fn    func(context.Context, RestorePointCollectionListResult) (RestorePointCollectionListResult, error)
+	rpclr RestorePointCollectionListResult
+}
+
+// NextWithContext advances to the next page of values.  If there was an error making
+// the request the page does not advance and the error is returned.
+func (page *RestorePointCollectionListResultPage) NextWithContext(ctx context.Context) (err error) {
+	if tracing.IsEnabled() {
+		ctx = tracing.StartSpan(ctx, fqdn+"/RestorePointCollectionListResultPage.NextWithContext")
+		defer func() {
+			sc := -1
+			if page.Response().Response.Response != nil {
+				sc = page.Response().Response.Response.StatusCode
+			}
+			tracing.EndSpan(ctx, sc, err)
+		}()
+	}
+	for {
+		next, err := page.fn(ctx, page.rpclr)
+		if err != nil {
+			return err
+		}
+		page.rpclr = next
+		if !next.hasNextLink() || !next.IsEmpty() {
+			break
+		}
+	}
+	return nil
+}
+
+// Next advances to the next page of values.  If there was an error making
+// the request the page does not advance and the error is returned.
+// Deprecated: Use NextWithContext() instead.
+func (page *RestorePointCollectionListResultPage) Next() error {
+	return page.NextWithContext(context.Background())
+}
+
+// NotDone returns true if the page enumeration should be started or is not yet complete.
+func (page RestorePointCollectionListResultPage) NotDone() bool {
+	return !page.rpclr.IsEmpty()
+}
+
+// Response returns the raw server response from the last page request.
+func (page RestorePointCollectionListResultPage) Response() RestorePointCollectionListResult {
+	return page.rpclr
+}
+
+// Values returns the slice of values for the current page or nil if there are no values.
+func (page RestorePointCollectionListResultPage) Values() []RestorePointCollection {
+	if page.rpclr.IsEmpty() {
+		return nil
+	}
+	return *page.rpclr.Value
+}
+
+// Creates a new instance of the RestorePointCollectionListResultPage type.
+func NewRestorePointCollectionListResultPage(cur RestorePointCollectionListResult, getNextPage func(context.Context, RestorePointCollectionListResult) (RestorePointCollectionListResult, error)) RestorePointCollectionListResultPage {
+	return RestorePointCollectionListResultPage{
+		fn:    getNextPage,
+		rpclr: cur,
+	}
+}
+
+// RestorePointCollectionProperties the restore point collection properties.
+type RestorePointCollectionProperties struct {
+	Source *RestorePointCollectionSourceProperties `json:"source,omitempty"`
+	// ProvisioningState - READ-ONLY; The provisioning state of the restore point collection.
+	ProvisioningState *string `json:"provisioningState,omitempty"`
+	// RestorePointCollectionID - READ-ONLY; The unique id of the restore point collection.
+	RestorePointCollectionID *string `json:"restorePointCollectionId,omitempty"`
+	// RestorePoints - READ-ONLY; A list containing all restore points created under this restore point collection.
+	RestorePoints *[]RestorePoint `json:"restorePoints,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for RestorePointCollectionProperties.
+func (rpcp RestorePointCollectionProperties) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	if rpcp.Source != nil {
+		objectMap["source"] = rpcp.Source
+	}
+	return json.Marshal(objectMap)
+}
+
+// RestorePointCollectionsDeleteFuture an abstraction for monitoring and retrieving the results of a
+// long-running operation.
+type RestorePointCollectionsDeleteFuture struct {
+	azure.FutureAPI
+	// Result returns the result of the asynchronous operation.
+	// If the operation has not completed it will return an error.
+	Result func(RestorePointCollectionsClient) (autorest.Response, error)
+}
+
+// UnmarshalJSON is the custom unmarshaller for CreateFuture.
+func (future *RestorePointCollectionsDeleteFuture) UnmarshalJSON(body []byte) error {
+	var azFuture azure.Future
+	if err := json.Unmarshal(body, &azFuture); err != nil {
+		return err
+	}
+	future.FutureAPI = &azFuture
+	future.Result = future.result
+	return nil
+}
+
+// result is the default implementation for RestorePointCollectionsDeleteFuture.Result.
+func (future *RestorePointCollectionsDeleteFuture) result(client RestorePointCollectionsClient) (ar autorest.Response, err error) {
+	var done bool
+	done, err = future.DoneWithContext(context.Background(), client)
+	if err != nil {
+		err = autorest.NewErrorWithError(err, "compute.RestorePointCollectionsDeleteFuture", "Result", future.Response(), "Polling failure")
+		return
+	}
+	if !done {
+		ar.Response = future.Response()
+		err = azure.NewAsyncOpIncompleteError("compute.RestorePointCollectionsDeleteFuture")
+		return
+	}
+	ar.Response = future.Response()
+	return
+}
+
+// RestorePointCollectionSourceProperties the properties of the source resource that this restore point
+// collection is created from.
+type RestorePointCollectionSourceProperties struct {
+	// Location - READ-ONLY; Location of the source resource used to create this restore point collection.
+	Location *string `json:"location,omitempty"`
+	// ID - Resource Id of the source resource used to create this restore point collection
+	ID *string `json:"id,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for RestorePointCollectionSourceProperties.
+func (rpcsp RestorePointCollectionSourceProperties) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	if rpcsp.ID != nil {
+		objectMap["id"] = rpcsp.ID
+	}
+	return json.Marshal(objectMap)
+}
+
+// RestorePointCollectionUpdate update Restore Point collection parameters.
+type RestorePointCollectionUpdate struct {
+	*RestorePointCollectionProperties `json:"properties,omitempty"`
+	// Tags - Resource tags
+	Tags map[string]*string `json:"tags"`
+}
+
+// MarshalJSON is the custom marshaler for RestorePointCollectionUpdate.
+func (rpcu RestorePointCollectionUpdate) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	if rpcu.RestorePointCollectionProperties != nil {
+		objectMap["properties"] = rpcu.RestorePointCollectionProperties
+	}
+	if rpcu.Tags != nil {
+		objectMap["tags"] = rpcu.Tags
+	}
+	return json.Marshal(objectMap)
+}
+
+// UnmarshalJSON is the custom unmarshaler for RestorePointCollectionUpdate struct.
+func (rpcu *RestorePointCollectionUpdate) UnmarshalJSON(body []byte) error {
+	var m map[string]*json.RawMessage
+	err := json.Unmarshal(body, &m)
+	if err != nil {
+		return err
+	}
+	for k, v := range m {
+		switch k {
+		case "properties":
+			if v != nil {
+				var restorePointCollectionProperties RestorePointCollectionProperties
+				err = json.Unmarshal(*v, &restorePointCollectionProperties)
+				if err != nil {
+					return err
+				}
+				rpcu.RestorePointCollectionProperties = &restorePointCollectionProperties
+			}
+		case "tags":
+			if v != nil {
+				var tags map[string]*string
+				err = json.Unmarshal(*v, &tags)
+				if err != nil {
+					return err
+				}
+				rpcu.Tags = tags
+			}
+		}
+	}
+
+	return nil
+}
+
+// RestorePointProvisioningDetails restore Point Provisioning details.
+type RestorePointProvisioningDetails struct {
+	// CreationTime - Gets the creation time of the restore point.
+	CreationTime *date.Time `json:"creationTime,omitempty"`
+	// TotalUsedSizeInBytes - Gets the total size of the data in all the disks which are part of the restore point.
+	TotalUsedSizeInBytes *int64 `json:"totalUsedSizeInBytes,omitempty"`
+	// StatusCode - Gets the status of the Create restore point operation.
+	StatusCode *int32 `json:"statusCode,omitempty"`
+	// StatusMessage - Gets the status message of the Create restore point operation.
+	StatusMessage *string `json:"statusMessage,omitempty"`
+}
+
+// RestorePointsCreateFuture an abstraction for monitoring and retrieving the results of a long-running
+// operation.
+type RestorePointsCreateFuture struct {
+	azure.FutureAPI
+	// Result returns the result of the asynchronous operation.
+	// If the operation has not completed it will return an error.
+	Result func(RestorePointsClient) (RestorePoint, error)
+}
+
+// UnmarshalJSON is the custom unmarshaller for CreateFuture.
+func (future *RestorePointsCreateFuture) UnmarshalJSON(body []byte) error {
+	var azFuture azure.Future
+	if err := json.Unmarshal(body, &azFuture); err != nil {
+		return err
+	}
+	future.FutureAPI = &azFuture
+	future.Result = future.result
+	return nil
+}
+
+// result is the default implementation for RestorePointsCreateFuture.Result.
+func (future *RestorePointsCreateFuture) result(client RestorePointsClient) (rp RestorePoint, err error) {
+	var done bool
+	done, err = future.DoneWithContext(context.Background(), client)
+	if err != nil {
+		err = autorest.NewErrorWithError(err, "compute.RestorePointsCreateFuture", "Result", future.Response(), "Polling failure")
+		return
+	}
+	if !done {
+		rp.Response.Response = future.Response()
+		err = azure.NewAsyncOpIncompleteError("compute.RestorePointsCreateFuture")
+		return
+	}
+	sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+	if rp.Response.Response, err = future.GetResult(sender); err == nil && rp.Response.Response.StatusCode != http.StatusNoContent {
+		rp, err = client.CreateResponder(rp.Response.Response)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "compute.RestorePointsCreateFuture", "Result", rp.Response.Response, "Failure responding to request")
+		}
+	}
+	return
+}
+
+// RestorePointsDeleteFuture an abstraction for monitoring and retrieving the results of a long-running
+// operation.
+type RestorePointsDeleteFuture struct {
+	azure.FutureAPI
+	// Result returns the result of the asynchronous operation.
+	// If the operation has not completed it will return an error.
+	Result func(RestorePointsClient) (autorest.Response, error)
+}
+
+// UnmarshalJSON is the custom unmarshaller for CreateFuture.
+func (future *RestorePointsDeleteFuture) UnmarshalJSON(body []byte) error {
+	var azFuture azure.Future
+	if err := json.Unmarshal(body, &azFuture); err != nil {
+		return err
+	}
+	future.FutureAPI = &azFuture
+	future.Result = future.result
+	return nil
+}
+
+// result is the default implementation for RestorePointsDeleteFuture.Result.
+func (future *RestorePointsDeleteFuture) result(client RestorePointsClient) (ar autorest.Response, err error) {
+	var done bool
+	done, err = future.DoneWithContext(context.Background(), client)
+	if err != nil {
+		err = autorest.NewErrorWithError(err, "compute.RestorePointsDeleteFuture", "Result", future.Response(), "Polling failure")
+		return
+	}
+	if !done {
+		ar.Response = future.Response()
+		err = azure.NewAsyncOpIncompleteError("compute.RestorePointsDeleteFuture")
+		return
+	}
+	ar.Response = future.Response()
+	return
+}
+
+// RestorePointSourceMetadata describes the properties of the Virtual Machine for which the restore point
+// was created. The properties provided are a subset and the snapshot of the overall Virtual Machine
+// properties captured at the time of the restore point creation.
+type RestorePointSourceMetadata struct {
+	// HardwareProfile - Gets the hardware profile.
+	HardwareProfile *HardwareProfile `json:"hardwareProfile,omitempty"`
+	// StorageProfile - Gets the storage profile.
+	StorageProfile *RestorePointSourceVMStorageProfile `json:"storageProfile,omitempty"`
+	// OsProfile - Gets the OS profile.
+	OsProfile *OSProfile `json:"osProfile,omitempty"`
+	// DiagnosticsProfile - Gets the diagnostics profile.
+	DiagnosticsProfile *DiagnosticsProfile `json:"diagnosticsProfile,omitempty"`
+	// LicenseType - Gets the license type, which is for bring your own license scenario.
+	LicenseType *string `json:"licenseType,omitempty"`
+	// VMID - Gets the virtual machine unique id.
+	VMID *string `json:"vmId,omitempty"`
+	// SecurityProfile - Gets the security profile.
+	SecurityProfile *SecurityProfile `json:"securityProfile,omitempty"`
+}
+
+// RestorePointSourceVMDataDisk describes a data disk.
+type RestorePointSourceVMDataDisk struct {
+	// Lun - Gets the logical unit number.
+	Lun *int32 `json:"lun,omitempty"`
+	// Name - Gets the disk name.
+	Name *string `json:"name,omitempty"`
+	// Caching - Gets the caching type. Possible values include: 'CachingTypesNone', 'CachingTypesReadOnly', 'CachingTypesReadWrite'
+	Caching CachingTypes `json:"caching,omitempty"`
+	// DiskSizeGB - Gets the initial disk size in GB for blank data disks, and the new desired size for existing OS and Data disks.
+	DiskSizeGB *int32 `json:"diskSizeGB,omitempty"`
+	// ManagedDisk - Gets the managed disk details
+	ManagedDisk *ManagedDiskParameters `json:"managedDisk,omitempty"`
+	// DiskRestorePoint - Gets the disk restore point Id.
+	DiskRestorePoint *APIEntityReference `json:"diskRestorePoint,omitempty"`
+}
+
+// RestorePointSourceVMOSDisk describes an Operating System disk.
+type RestorePointSourceVMOSDisk struct {
+	// OsType - Gets the Operating System type. Possible values include: 'OperatingSystemTypeWindows', 'OperatingSystemTypeLinux'
+	OsType OperatingSystemType `json:"osType,omitempty"`
+	// EncryptionSettings - Gets the disk encryption settings.
+	EncryptionSettings *DiskEncryptionSettings `json:"encryptionSettings,omitempty"`
+	// Name - Gets the disk name.
+	Name *string `json:"name,omitempty"`
+	// Caching - Gets the caching type. Possible values include: 'CachingTypesNone', 'CachingTypesReadOnly', 'CachingTypesReadWrite'
+	Caching CachingTypes `json:"caching,omitempty"`
+	// DiskSizeGB - Gets the disk size in GB.
+	DiskSizeGB *int32 `json:"diskSizeGB,omitempty"`
+	// ManagedDisk - Gets the managed disk details
+	ManagedDisk *ManagedDiskParameters `json:"managedDisk,omitempty"`
+	// DiskRestorePoint - Gets the disk restore point Id.
+	DiskRestorePoint *APIEntityReference `json:"diskRestorePoint,omitempty"`
+}
+
+// RestorePointSourceVMStorageProfile describes the storage profile.
+type RestorePointSourceVMStorageProfile struct {
+	// OsDisk - Gets the OS disk of the VM captured at the time of the restore point creation.
+	OsDisk *RestorePointSourceVMOSDisk `json:"osDisk,omitempty"`
+	// DataDisks - Gets the data disks of the VM captured at the time of the restore point creation.
+	DataDisks *[]RestorePointSourceVMDataDisk `json:"dataDisks,omitempty"`
+}
+
 // RetrieveBootDiagnosticsDataResult the SAS URIs of the console screenshot and serial log blobs.
 type RetrieveBootDiagnosticsDataResult struct {
 	autorest.Response `json:"-"`
@@ -10655,6 +11592,12 @@ type RetrieveBootDiagnosticsDataResult struct {
 	ConsoleScreenshotBlobURI *string `json:"consoleScreenshotBlobUri,omitempty"`
 	// SerialConsoleLogBlobURI - READ-ONLY; The serial console log blob URI.
 	SerialConsoleLogBlobURI *string `json:"serialConsoleLogBlobUri,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for RetrieveBootDiagnosticsDataResult.
+func (rbddr RetrieveBootDiagnosticsDataResult) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // RoleInstance ...
@@ -10697,6 +11640,12 @@ type RoleInstanceInstanceView struct {
 	PrivateID *string `json:"privateId,omitempty"`
 	// Statuses - READ-ONLY
 	Statuses *[]ResourceInstanceViewStatus `json:"statuses,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for RoleInstanceInstanceView.
+func (riiv RoleInstanceInstanceView) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // RoleInstanceListResult ...
@@ -10862,6 +11811,12 @@ type RoleInstanceNetworkProfile struct {
 	NetworkInterfaces *[]SubResource `json:"networkInterfaces,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for RoleInstanceNetworkProfile.
+func (rinp RoleInstanceNetworkProfile) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // RoleInstanceProperties ...
 type RoleInstanceProperties struct {
 	NetworkProfile *RoleInstanceNetworkProfile `json:"networkProfile,omitempty"`
@@ -10882,6 +11837,12 @@ type RollbackStatusInfo struct {
 	FailedRolledbackInstanceCount *int32 `json:"failedRolledbackInstanceCount,omitempty"`
 	// RollbackError - READ-ONLY; Error details if OS rollback failed.
 	RollbackError *APIError `json:"rollbackError,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for RollbackStatusInfo.
+func (rsi RollbackStatusInfo) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // RollingUpgradePolicy the configuration parameters used while performing a rolling upgrade.
@@ -10913,16 +11874,28 @@ type RollingUpgradeProgressInfo struct {
 	PendingInstanceCount *int32 `json:"pendingInstanceCount,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for RollingUpgradeProgressInfo.
+func (rupi RollingUpgradeProgressInfo) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // RollingUpgradeRunningStatus information about the current running state of the overall upgrade.
 type RollingUpgradeRunningStatus struct {
 	// Code - READ-ONLY; Code indicating the current status of the upgrade. Possible values include: 'RollingUpgradeStatusCodeRollingForward', 'RollingUpgradeStatusCodeCancelled', 'RollingUpgradeStatusCodeCompleted', 'RollingUpgradeStatusCodeFaulted'
 	Code RollingUpgradeStatusCode `json:"code,omitempty"`
 	// StartTime - READ-ONLY; Start time of the upgrade.
 	StartTime *date.Time `json:"startTime,omitempty"`
-	// LastAction - READ-ONLY; The last action performed on the rolling upgrade. Possible values include: 'Start', 'Cancel'
+	// LastAction - READ-ONLY; The last action performed on the rolling upgrade. Possible values include: 'RollingUpgradeActionTypeStart', 'RollingUpgradeActionTypeCancel'
 	LastAction RollingUpgradeActionType `json:"lastAction,omitempty"`
 	// LastActionTime - READ-ONLY; Last action time of the upgrade.
 	LastActionTime *date.Time `json:"lastActionTime,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for RollingUpgradeRunningStatus.
+func (rurs RollingUpgradeRunningStatus) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // RollingUpgradeStatusInfo the status of the latest virtual machine scale set rolling upgrade.
@@ -11037,6 +12010,12 @@ type RollingUpgradeStatusInfoProperties struct {
 	Error *APIError `json:"error,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for RollingUpgradeStatusInfoProperties.
+func (rusip RollingUpgradeStatusInfoProperties) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // RunCommandDocument describes the properties of a Run Command.
 type RunCommandDocument struct {
 	autorest.Response `json:"-"`
@@ -11048,7 +12027,7 @@ type RunCommandDocument struct {
 	Schema *string `json:"$schema,omitempty"`
 	// ID - The VM run command id.
 	ID *string `json:"id,omitempty"`
-	// OsType - The Operating System type. Possible values include: 'Windows', 'Linux'
+	// OsType - The Operating System type. Possible values include: 'OperatingSystemTypesWindows', 'OperatingSystemTypesLinux'
 	OsType OperatingSystemTypes `json:"osType,omitempty"`
 	// Label - The VM run command label.
 	Label *string `json:"label,omitempty"`
@@ -11062,7 +12041,7 @@ type RunCommandDocumentBase struct {
 	Schema *string `json:"$schema,omitempty"`
 	// ID - The VM run command id.
 	ID *string `json:"id,omitempty"`
-	// OsType - The Operating System type. Possible values include: 'Windows', 'Linux'
+	// OsType - The Operating System type. Possible values include: 'OperatingSystemTypesWindows', 'OperatingSystemTypesLinux'
 	OsType OperatingSystemTypes `json:"osType,omitempty"`
 	// Label - The VM run command label.
 	Label *string `json:"label,omitempty"`
@@ -11289,10 +12268,771 @@ type SecurityProfile struct {
 	SecurityType SecurityTypes `json:"securityType,omitempty"`
 }
 
+// SharedGallery specifies information about the Shared Gallery that you want to create or update.
+type SharedGallery struct {
+	autorest.Response        `json:"-"`
+	*SharedGalleryIdentifier `json:"identifier,omitempty"`
+	// Name - READ-ONLY; Resource name
+	Name *string `json:"name,omitempty"`
+	// Location - READ-ONLY; Resource location
+	Location *string `json:"location,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for SharedGallery.
+func (sg SharedGallery) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	if sg.SharedGalleryIdentifier != nil {
+		objectMap["identifier"] = sg.SharedGalleryIdentifier
+	}
+	return json.Marshal(objectMap)
+}
+
+// UnmarshalJSON is the custom unmarshaler for SharedGallery struct.
+func (sg *SharedGallery) UnmarshalJSON(body []byte) error {
+	var m map[string]*json.RawMessage
+	err := json.Unmarshal(body, &m)
+	if err != nil {
+		return err
+	}
+	for k, v := range m {
+		switch k {
+		case "identifier":
+			if v != nil {
+				var sharedGalleryIdentifier SharedGalleryIdentifier
+				err = json.Unmarshal(*v, &sharedGalleryIdentifier)
+				if err != nil {
+					return err
+				}
+				sg.SharedGalleryIdentifier = &sharedGalleryIdentifier
+			}
+		case "name":
+			if v != nil {
+				var name string
+				err = json.Unmarshal(*v, &name)
+				if err != nil {
+					return err
+				}
+				sg.Name = &name
+			}
+		case "location":
+			if v != nil {
+				var location string
+				err = json.Unmarshal(*v, &location)
+				if err != nil {
+					return err
+				}
+				sg.Location = &location
+			}
+		}
+	}
+
+	return nil
+}
+
+// SharedGalleryIdentifier the identifier information of shared gallery.
+type SharedGalleryIdentifier struct {
+	// UniqueID - The unique id of this shared gallery.
+	UniqueID *string `json:"uniqueId,omitempty"`
+}
+
+// SharedGalleryImage specifies information about the gallery image definition that you want to create or
+// update.
+type SharedGalleryImage struct {
+	autorest.Response             `json:"-"`
+	*SharedGalleryImageProperties `json:"properties,omitempty"`
+	*SharedGalleryIdentifier      `json:"identifier,omitempty"`
+	// Name - READ-ONLY; Resource name
+	Name *string `json:"name,omitempty"`
+	// Location - READ-ONLY; Resource location
+	Location *string `json:"location,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for SharedGalleryImage.
+func (sgi SharedGalleryImage) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	if sgi.SharedGalleryImageProperties != nil {
+		objectMap["properties"] = sgi.SharedGalleryImageProperties
+	}
+	if sgi.SharedGalleryIdentifier != nil {
+		objectMap["identifier"] = sgi.SharedGalleryIdentifier
+	}
+	return json.Marshal(objectMap)
+}
+
+// UnmarshalJSON is the custom unmarshaler for SharedGalleryImage struct.
+func (sgi *SharedGalleryImage) UnmarshalJSON(body []byte) error {
+	var m map[string]*json.RawMessage
+	err := json.Unmarshal(body, &m)
+	if err != nil {
+		return err
+	}
+	for k, v := range m {
+		switch k {
+		case "properties":
+			if v != nil {
+				var sharedGalleryImageProperties SharedGalleryImageProperties
+				err = json.Unmarshal(*v, &sharedGalleryImageProperties)
+				if err != nil {
+					return err
+				}
+				sgi.SharedGalleryImageProperties = &sharedGalleryImageProperties
+			}
+		case "identifier":
+			if v != nil {
+				var sharedGalleryIdentifier SharedGalleryIdentifier
+				err = json.Unmarshal(*v, &sharedGalleryIdentifier)
+				if err != nil {
+					return err
+				}
+				sgi.SharedGalleryIdentifier = &sharedGalleryIdentifier
+			}
+		case "name":
+			if v != nil {
+				var name string
+				err = json.Unmarshal(*v, &name)
+				if err != nil {
+					return err
+				}
+				sgi.Name = &name
+			}
+		case "location":
+			if v != nil {
+				var location string
+				err = json.Unmarshal(*v, &location)
+				if err != nil {
+					return err
+				}
+				sgi.Location = &location
+			}
+		}
+	}
+
+	return nil
+}
+
+// SharedGalleryImageList the List Shared Gallery Images operation response.
+type SharedGalleryImageList struct {
+	autorest.Response `json:"-"`
+	// Value - A list of shared gallery images.
+	Value *[]SharedGalleryImage `json:"value,omitempty"`
+	// NextLink - The uri to fetch the next page of shared gallery images. Call ListNext() with this to fetch the next page of shared gallery images.
+	NextLink *string `json:"nextLink,omitempty"`
+}
+
+// SharedGalleryImageListIterator provides access to a complete listing of SharedGalleryImage values.
+type SharedGalleryImageListIterator struct {
+	i    int
+	page SharedGalleryImageListPage
+}
+
+// NextWithContext advances to the next value.  If there was an error making
+// the request the iterator does not advance and the error is returned.
+func (iter *SharedGalleryImageListIterator) NextWithContext(ctx context.Context) (err error) {
+	if tracing.IsEnabled() {
+		ctx = tracing.StartSpan(ctx, fqdn+"/SharedGalleryImageListIterator.NextWithContext")
+		defer func() {
+			sc := -1
+			if iter.Response().Response.Response != nil {
+				sc = iter.Response().Response.Response.StatusCode
+			}
+			tracing.EndSpan(ctx, sc, err)
+		}()
+	}
+	iter.i++
+	if iter.i < len(iter.page.Values()) {
+		return nil
+	}
+	err = iter.page.NextWithContext(ctx)
+	if err != nil {
+		iter.i--
+		return err
+	}
+	iter.i = 0
+	return nil
+}
+
+// Next advances to the next value.  If there was an error making
+// the request the iterator does not advance and the error is returned.
+// Deprecated: Use NextWithContext() instead.
+func (iter *SharedGalleryImageListIterator) Next() error {
+	return iter.NextWithContext(context.Background())
+}
+
+// NotDone returns true if the enumeration should be started or is not yet complete.
+func (iter SharedGalleryImageListIterator) NotDone() bool {
+	return iter.page.NotDone() && iter.i < len(iter.page.Values())
+}
+
+// Response returns the raw server response from the last page request.
+func (iter SharedGalleryImageListIterator) Response() SharedGalleryImageList {
+	return iter.page.Response()
+}
+
+// Value returns the current value or a zero-initialized value if the
+// iterator has advanced beyond the end of the collection.
+func (iter SharedGalleryImageListIterator) Value() SharedGalleryImage {
+	if !iter.page.NotDone() {
+		return SharedGalleryImage{}
+	}
+	return iter.page.Values()[iter.i]
+}
+
+// Creates a new instance of the SharedGalleryImageListIterator type.
+func NewSharedGalleryImageListIterator(page SharedGalleryImageListPage) SharedGalleryImageListIterator {
+	return SharedGalleryImageListIterator{page: page}
+}
+
+// IsEmpty returns true if the ListResult contains no values.
+func (sgil SharedGalleryImageList) IsEmpty() bool {
+	return sgil.Value == nil || len(*sgil.Value) == 0
+}
+
+// hasNextLink returns true if the NextLink is not empty.
+func (sgil SharedGalleryImageList) hasNextLink() bool {
+	return sgil.NextLink != nil && len(*sgil.NextLink) != 0
+}
+
+// sharedGalleryImageListPreparer prepares a request to retrieve the next set of results.
+// It returns nil if no more results exist.
+func (sgil SharedGalleryImageList) sharedGalleryImageListPreparer(ctx context.Context) (*http.Request, error) {
+	if !sgil.hasNextLink() {
+		return nil, nil
+	}
+	return autorest.Prepare((&http.Request{}).WithContext(ctx),
+		autorest.AsJSON(),
+		autorest.AsGet(),
+		autorest.WithBaseURL(to.String(sgil.NextLink)))
+}
+
+// SharedGalleryImageListPage contains a page of SharedGalleryImage values.
+type SharedGalleryImageListPage struct {
+	fn   func(context.Context, SharedGalleryImageList) (SharedGalleryImageList, error)
+	sgil SharedGalleryImageList
+}
+
+// NextWithContext advances to the next page of values.  If there was an error making
+// the request the page does not advance and the error is returned.
+func (page *SharedGalleryImageListPage) NextWithContext(ctx context.Context) (err error) {
+	if tracing.IsEnabled() {
+		ctx = tracing.StartSpan(ctx, fqdn+"/SharedGalleryImageListPage.NextWithContext")
+		defer func() {
+			sc := -1
+			if page.Response().Response.Response != nil {
+				sc = page.Response().Response.Response.StatusCode
+			}
+			tracing.EndSpan(ctx, sc, err)
+		}()
+	}
+	for {
+		next, err := page.fn(ctx, page.sgil)
+		if err != nil {
+			return err
+		}
+		page.sgil = next
+		if !next.hasNextLink() || !next.IsEmpty() {
+			break
+		}
+	}
+	return nil
+}
+
+// Next advances to the next page of values.  If there was an error making
+// the request the page does not advance and the error is returned.
+// Deprecated: Use NextWithContext() instead.
+func (page *SharedGalleryImageListPage) Next() error {
+	return page.NextWithContext(context.Background())
+}
+
+// NotDone returns true if the page enumeration should be started or is not yet complete.
+func (page SharedGalleryImageListPage) NotDone() bool {
+	return !page.sgil.IsEmpty()
+}
+
+// Response returns the raw server response from the last page request.
+func (page SharedGalleryImageListPage) Response() SharedGalleryImageList {
+	return page.sgil
+}
+
+// Values returns the slice of values for the current page or nil if there are no values.
+func (page SharedGalleryImageListPage) Values() []SharedGalleryImage {
+	if page.sgil.IsEmpty() {
+		return nil
+	}
+	return *page.sgil.Value
+}
+
+// Creates a new instance of the SharedGalleryImageListPage type.
+func NewSharedGalleryImageListPage(cur SharedGalleryImageList, getNextPage func(context.Context, SharedGalleryImageList) (SharedGalleryImageList, error)) SharedGalleryImageListPage {
+	return SharedGalleryImageListPage{
+		fn:   getNextPage,
+		sgil: cur,
+	}
+}
+
+// SharedGalleryImageProperties describes the properties of a gallery image definition.
+type SharedGalleryImageProperties struct {
+	// OsType - This property allows you to specify the type of the OS that is included in the disk when creating a VM from a managed image. <br><br> Possible values are: <br><br> **Windows** <br><br> **Linux**. Possible values include: 'OperatingSystemTypesWindows', 'OperatingSystemTypesLinux'
+	OsType OperatingSystemTypes `json:"osType,omitempty"`
+	// OsState - This property allows the user to specify whether the virtual machines created under this image are 'Generalized' or 'Specialized'. Possible values include: 'OperatingSystemStateTypesGeneralized', 'OperatingSystemStateTypesSpecialized'
+	OsState OperatingSystemStateTypes `json:"osState,omitempty"`
+	// EndOfLifeDate - The end of life date of the gallery image definition. This property can be used for decommissioning purposes. This property is updatable.
+	EndOfLifeDate *date.Time                       `json:"endOfLifeDate,omitempty"`
+	Identifier    *GalleryImageIdentifier          `json:"identifier,omitempty"`
+	Recommended   *RecommendedMachineConfiguration `json:"recommended,omitempty"`
+	Disallowed    *Disallowed                      `json:"disallowed,omitempty"`
+	// HyperVGeneration - The hypervisor generation of the Virtual Machine. Applicable to OS disks only. Possible values include: 'HyperVGenerationV1', 'HyperVGenerationV2'
+	HyperVGeneration HyperVGeneration `json:"hyperVGeneration,omitempty"`
+	// Features - A list of gallery image features.
+	Features     *[]GalleryImageFeature `json:"features,omitempty"`
+	PurchasePlan *ImagePurchasePlan     `json:"purchasePlan,omitempty"`
+}
+
+// SharedGalleryImageVersion specifies information about the gallery image version that you want to create
+// or update.
+type SharedGalleryImageVersion struct {
+	autorest.Response                    `json:"-"`
+	*SharedGalleryImageVersionProperties `json:"properties,omitempty"`
+	*SharedGalleryIdentifier             `json:"identifier,omitempty"`
+	// Name - READ-ONLY; Resource name
+	Name *string `json:"name,omitempty"`
+	// Location - READ-ONLY; Resource location
+	Location *string `json:"location,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for SharedGalleryImageVersion.
+func (sgiv SharedGalleryImageVersion) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	if sgiv.SharedGalleryImageVersionProperties != nil {
+		objectMap["properties"] = sgiv.SharedGalleryImageVersionProperties
+	}
+	if sgiv.SharedGalleryIdentifier != nil {
+		objectMap["identifier"] = sgiv.SharedGalleryIdentifier
+	}
+	return json.Marshal(objectMap)
+}
+
+// UnmarshalJSON is the custom unmarshaler for SharedGalleryImageVersion struct.
+func (sgiv *SharedGalleryImageVersion) UnmarshalJSON(body []byte) error {
+	var m map[string]*json.RawMessage
+	err := json.Unmarshal(body, &m)
+	if err != nil {
+		return err
+	}
+	for k, v := range m {
+		switch k {
+		case "properties":
+			if v != nil {
+				var sharedGalleryImageVersionProperties SharedGalleryImageVersionProperties
+				err = json.Unmarshal(*v, &sharedGalleryImageVersionProperties)
+				if err != nil {
+					return err
+				}
+				sgiv.SharedGalleryImageVersionProperties = &sharedGalleryImageVersionProperties
+			}
+		case "identifier":
+			if v != nil {
+				var sharedGalleryIdentifier SharedGalleryIdentifier
+				err = json.Unmarshal(*v, &sharedGalleryIdentifier)
+				if err != nil {
+					return err
+				}
+				sgiv.SharedGalleryIdentifier = &sharedGalleryIdentifier
+			}
+		case "name":
+			if v != nil {
+				var name string
+				err = json.Unmarshal(*v, &name)
+				if err != nil {
+					return err
+				}
+				sgiv.Name = &name
+			}
+		case "location":
+			if v != nil {
+				var location string
+				err = json.Unmarshal(*v, &location)
+				if err != nil {
+					return err
+				}
+				sgiv.Location = &location
+			}
+		}
+	}
+
+	return nil
+}
+
+// SharedGalleryImageVersionList the List Shared Gallery Image versions operation response.
+type SharedGalleryImageVersionList struct {
+	autorest.Response `json:"-"`
+	// Value - A list of shared gallery images versions.
+	Value *[]SharedGalleryImageVersion `json:"value,omitempty"`
+	// NextLink - The uri to fetch the next page of shared gallery image versions. Call ListNext() with this to fetch the next page of shared gallery image versions.
+	NextLink *string `json:"nextLink,omitempty"`
+}
+
+// SharedGalleryImageVersionListIterator provides access to a complete listing of SharedGalleryImageVersion
+// values.
+type SharedGalleryImageVersionListIterator struct {
+	i    int
+	page SharedGalleryImageVersionListPage
+}
+
+// NextWithContext advances to the next value.  If there was an error making
+// the request the iterator does not advance and the error is returned.
+func (iter *SharedGalleryImageVersionListIterator) NextWithContext(ctx context.Context) (err error) {
+	if tracing.IsEnabled() {
+		ctx = tracing.StartSpan(ctx, fqdn+"/SharedGalleryImageVersionListIterator.NextWithContext")
+		defer func() {
+			sc := -1
+			if iter.Response().Response.Response != nil {
+				sc = iter.Response().Response.Response.StatusCode
+			}
+			tracing.EndSpan(ctx, sc, err)
+		}()
+	}
+	iter.i++
+	if iter.i < len(iter.page.Values()) {
+		return nil
+	}
+	err = iter.page.NextWithContext(ctx)
+	if err != nil {
+		iter.i--
+		return err
+	}
+	iter.i = 0
+	return nil
+}
+
+// Next advances to the next value.  If there was an error making
+// the request the iterator does not advance and the error is returned.
+// Deprecated: Use NextWithContext() instead.
+func (iter *SharedGalleryImageVersionListIterator) Next() error {
+	return iter.NextWithContext(context.Background())
+}
+
+// NotDone returns true if the enumeration should be started or is not yet complete.
+func (iter SharedGalleryImageVersionListIterator) NotDone() bool {
+	return iter.page.NotDone() && iter.i < len(iter.page.Values())
+}
+
+// Response returns the raw server response from the last page request.
+func (iter SharedGalleryImageVersionListIterator) Response() SharedGalleryImageVersionList {
+	return iter.page.Response()
+}
+
+// Value returns the current value or a zero-initialized value if the
+// iterator has advanced beyond the end of the collection.
+func (iter SharedGalleryImageVersionListIterator) Value() SharedGalleryImageVersion {
+	if !iter.page.NotDone() {
+		return SharedGalleryImageVersion{}
+	}
+	return iter.page.Values()[iter.i]
+}
+
+// Creates a new instance of the SharedGalleryImageVersionListIterator type.
+func NewSharedGalleryImageVersionListIterator(page SharedGalleryImageVersionListPage) SharedGalleryImageVersionListIterator {
+	return SharedGalleryImageVersionListIterator{page: page}
+}
+
+// IsEmpty returns true if the ListResult contains no values.
+func (sgivl SharedGalleryImageVersionList) IsEmpty() bool {
+	return sgivl.Value == nil || len(*sgivl.Value) == 0
+}
+
+// hasNextLink returns true if the NextLink is not empty.
+func (sgivl SharedGalleryImageVersionList) hasNextLink() bool {
+	return sgivl.NextLink != nil && len(*sgivl.NextLink) != 0
+}
+
+// sharedGalleryImageVersionListPreparer prepares a request to retrieve the next set of results.
+// It returns nil if no more results exist.
+func (sgivl SharedGalleryImageVersionList) sharedGalleryImageVersionListPreparer(ctx context.Context) (*http.Request, error) {
+	if !sgivl.hasNextLink() {
+		return nil, nil
+	}
+	return autorest.Prepare((&http.Request{}).WithContext(ctx),
+		autorest.AsJSON(),
+		autorest.AsGet(),
+		autorest.WithBaseURL(to.String(sgivl.NextLink)))
+}
+
+// SharedGalleryImageVersionListPage contains a page of SharedGalleryImageVersion values.
+type SharedGalleryImageVersionListPage struct {
+	fn    func(context.Context, SharedGalleryImageVersionList) (SharedGalleryImageVersionList, error)
+	sgivl SharedGalleryImageVersionList
+}
+
+// NextWithContext advances to the next page of values.  If there was an error making
+// the request the page does not advance and the error is returned.
+func (page *SharedGalleryImageVersionListPage) NextWithContext(ctx context.Context) (err error) {
+	if tracing.IsEnabled() {
+		ctx = tracing.StartSpan(ctx, fqdn+"/SharedGalleryImageVersionListPage.NextWithContext")
+		defer func() {
+			sc := -1
+			if page.Response().Response.Response != nil {
+				sc = page.Response().Response.Response.StatusCode
+			}
+			tracing.EndSpan(ctx, sc, err)
+		}()
+	}
+	for {
+		next, err := page.fn(ctx, page.sgivl)
+		if err != nil {
+			return err
+		}
+		page.sgivl = next
+		if !next.hasNextLink() || !next.IsEmpty() {
+			break
+		}
+	}
+	return nil
+}
+
+// Next advances to the next page of values.  If there was an error making
+// the request the page does not advance and the error is returned.
+// Deprecated: Use NextWithContext() instead.
+func (page *SharedGalleryImageVersionListPage) Next() error {
+	return page.NextWithContext(context.Background())
+}
+
+// NotDone returns true if the page enumeration should be started or is not yet complete.
+func (page SharedGalleryImageVersionListPage) NotDone() bool {
+	return !page.sgivl.IsEmpty()
+}
+
+// Response returns the raw server response from the last page request.
+func (page SharedGalleryImageVersionListPage) Response() SharedGalleryImageVersionList {
+	return page.sgivl
+}
+
+// Values returns the slice of values for the current page or nil if there are no values.
+func (page SharedGalleryImageVersionListPage) Values() []SharedGalleryImageVersion {
+	if page.sgivl.IsEmpty() {
+		return nil
+	}
+	return *page.sgivl.Value
+}
+
+// Creates a new instance of the SharedGalleryImageVersionListPage type.
+func NewSharedGalleryImageVersionListPage(cur SharedGalleryImageVersionList, getNextPage func(context.Context, SharedGalleryImageVersionList) (SharedGalleryImageVersionList, error)) SharedGalleryImageVersionListPage {
+	return SharedGalleryImageVersionListPage{
+		fn:    getNextPage,
+		sgivl: cur,
+	}
+}
+
+// SharedGalleryImageVersionProperties describes the properties of a gallery image version.
+type SharedGalleryImageVersionProperties struct {
+	// PublishedDate - The published date of the gallery image version Definition. This property can be used for decommissioning purposes. This property is updatable.
+	PublishedDate *date.Time `json:"publishedDate,omitempty"`
+	// EndOfLifeDate - The end of life date of the gallery image version Definition. This property can be used for decommissioning purposes. This property is updatable.
+	EndOfLifeDate *date.Time `json:"endOfLifeDate,omitempty"`
+}
+
+// SharedGalleryList the List Shared Galleries operation response.
+type SharedGalleryList struct {
+	autorest.Response `json:"-"`
+	// Value - A list of shared galleries.
+	Value *[]SharedGallery `json:"value,omitempty"`
+	// NextLink - The uri to fetch the next page of shared galleries. Call ListNext() with this to fetch the next page of shared galleries.
+	NextLink *string `json:"nextLink,omitempty"`
+}
+
+// SharedGalleryListIterator provides access to a complete listing of SharedGallery values.
+type SharedGalleryListIterator struct {
+	i    int
+	page SharedGalleryListPage
+}
+
+// NextWithContext advances to the next value.  If there was an error making
+// the request the iterator does not advance and the error is returned.
+func (iter *SharedGalleryListIterator) NextWithContext(ctx context.Context) (err error) {
+	if tracing.IsEnabled() {
+		ctx = tracing.StartSpan(ctx, fqdn+"/SharedGalleryListIterator.NextWithContext")
+		defer func() {
+			sc := -1
+			if iter.Response().Response.Response != nil {
+				sc = iter.Response().Response.Response.StatusCode
+			}
+			tracing.EndSpan(ctx, sc, err)
+		}()
+	}
+	iter.i++
+	if iter.i < len(iter.page.Values()) {
+		return nil
+	}
+	err = iter.page.NextWithContext(ctx)
+	if err != nil {
+		iter.i--
+		return err
+	}
+	iter.i = 0
+	return nil
+}
+
+// Next advances to the next value.  If there was an error making
+// the request the iterator does not advance and the error is returned.
+// Deprecated: Use NextWithContext() instead.
+func (iter *SharedGalleryListIterator) Next() error {
+	return iter.NextWithContext(context.Background())
+}
+
+// NotDone returns true if the enumeration should be started or is not yet complete.
+func (iter SharedGalleryListIterator) NotDone() bool {
+	return iter.page.NotDone() && iter.i < len(iter.page.Values())
+}
+
+// Response returns the raw server response from the last page request.
+func (iter SharedGalleryListIterator) Response() SharedGalleryList {
+	return iter.page.Response()
+}
+
+// Value returns the current value or a zero-initialized value if the
+// iterator has advanced beyond the end of the collection.
+func (iter SharedGalleryListIterator) Value() SharedGallery {
+	if !iter.page.NotDone() {
+		return SharedGallery{}
+	}
+	return iter.page.Values()[iter.i]
+}
+
+// Creates a new instance of the SharedGalleryListIterator type.
+func NewSharedGalleryListIterator(page SharedGalleryListPage) SharedGalleryListIterator {
+	return SharedGalleryListIterator{page: page}
+}
+
+// IsEmpty returns true if the ListResult contains no values.
+func (sgl SharedGalleryList) IsEmpty() bool {
+	return sgl.Value == nil || len(*sgl.Value) == 0
+}
+
+// hasNextLink returns true if the NextLink is not empty.
+func (sgl SharedGalleryList) hasNextLink() bool {
+	return sgl.NextLink != nil && len(*sgl.NextLink) != 0
+}
+
+// sharedGalleryListPreparer prepares a request to retrieve the next set of results.
+// It returns nil if no more results exist.
+func (sgl SharedGalleryList) sharedGalleryListPreparer(ctx context.Context) (*http.Request, error) {
+	if !sgl.hasNextLink() {
+		return nil, nil
+	}
+	return autorest.Prepare((&http.Request{}).WithContext(ctx),
+		autorest.AsJSON(),
+		autorest.AsGet(),
+		autorest.WithBaseURL(to.String(sgl.NextLink)))
+}
+
+// SharedGalleryListPage contains a page of SharedGallery values.
+type SharedGalleryListPage struct {
+	fn  func(context.Context, SharedGalleryList) (SharedGalleryList, error)
+	sgl SharedGalleryList
+}
+
+// NextWithContext advances to the next page of values.  If there was an error making
+// the request the page does not advance and the error is returned.
+func (page *SharedGalleryListPage) NextWithContext(ctx context.Context) (err error) {
+	if tracing.IsEnabled() {
+		ctx = tracing.StartSpan(ctx, fqdn+"/SharedGalleryListPage.NextWithContext")
+		defer func() {
+			sc := -1
+			if page.Response().Response.Response != nil {
+				sc = page.Response().Response.Response.StatusCode
+			}
+			tracing.EndSpan(ctx, sc, err)
+		}()
+	}
+	for {
+		next, err := page.fn(ctx, page.sgl)
+		if err != nil {
+			return err
+		}
+		page.sgl = next
+		if !next.hasNextLink() || !next.IsEmpty() {
+			break
+		}
+	}
+	return nil
+}
+
+// Next advances to the next page of values.  If there was an error making
+// the request the page does not advance and the error is returned.
+// Deprecated: Use NextWithContext() instead.
+func (page *SharedGalleryListPage) Next() error {
+	return page.NextWithContext(context.Background())
+}
+
+// NotDone returns true if the page enumeration should be started or is not yet complete.
+func (page SharedGalleryListPage) NotDone() bool {
+	return !page.sgl.IsEmpty()
+}
+
+// Response returns the raw server response from the last page request.
+func (page SharedGalleryListPage) Response() SharedGalleryList {
+	return page.sgl
+}
+
+// Values returns the slice of values for the current page or nil if there are no values.
+func (page SharedGalleryListPage) Values() []SharedGallery {
+	if page.sgl.IsEmpty() {
+		return nil
+	}
+	return *page.sgl.Value
+}
+
+// Creates a new instance of the SharedGalleryListPage type.
+func NewSharedGalleryListPage(cur SharedGalleryList, getNextPage func(context.Context, SharedGalleryList) (SharedGalleryList, error)) SharedGalleryListPage {
+	return SharedGalleryListPage{
+		fn:  getNextPage,
+		sgl: cur,
+	}
+}
+
 // ShareInfoElement ...
 type ShareInfoElement struct {
 	// VMURI - READ-ONLY; A relative URI containing the ID of the VM that has the disk attached.
 	VMURI *string `json:"vmUri,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for ShareInfoElement.
+func (sie ShareInfoElement) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
+// SharingProfile profile for gallery sharing to subscription or tenant
+type SharingProfile struct {
+	// Permissions - This property allows you to specify the permission of sharing gallery. <br><br> Possible values are: <br><br> **Private** <br><br> **Groups**. Possible values include: 'GallerySharingPermissionTypesPrivate', 'GallerySharingPermissionTypesGroups'
+	Permissions GallerySharingPermissionTypes `json:"permissions,omitempty"`
+	// Groups - READ-ONLY; A list of sharing profile groups.
+	Groups *[]SharingProfileGroup `json:"groups,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for SharingProfile.
+func (sp SharingProfile) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	if sp.Permissions != "" {
+		objectMap["permissions"] = sp.Permissions
+	}
+	return json.Marshal(objectMap)
+}
+
+// SharingProfileGroup group of the gallery sharing profile
+type SharingProfileGroup struct {
+	// Type - This property allows you to specify the type of sharing group. <br><br> Possible values are: <br><br> **Subscriptions** <br><br> **AADTenants**. Possible values include: 'SharingProfileGroupTypesSubscriptions', 'SharingProfileGroupTypesAADTenants'
+	Type SharingProfileGroupTypes `json:"type,omitempty"`
+	// Ids - A list of subscription/tenant ids the gallery is aimed to be shared to.
+	Ids *[]string `json:"ids,omitempty"`
+}
+
+// SharingUpdate specifies information about the gallery sharing profile update.
+type SharingUpdate struct {
+	autorest.Response `json:"-"`
+	// OperationType - This property allows you to specify the operation type of gallery sharing update. <br><br> Possible values are: <br><br> **Add** <br><br> **Remove** <br><br> **Reset**. Possible values include: 'SharingUpdateOperationTypesAdd', 'SharingUpdateOperationTypesRemove', 'SharingUpdateOperationTypesReset'
+	OperationType SharingUpdateOperationTypes `json:"operationType,omitempty"`
+	// Groups - A list of sharing profile groups.
+	Groups *[]SharingProfileGroup `json:"groups,omitempty"`
 }
 
 // Sku describes a virtual machine scale set sku. NOTE: If the new VM SKU is not supported on the hardware
@@ -11608,9 +13348,9 @@ func NewSnapshotListPage(cur SnapshotList, getNextPage func(context.Context, Sna
 type SnapshotProperties struct {
 	// TimeCreated - READ-ONLY; The time when the snapshot was created.
 	TimeCreated *date.Time `json:"timeCreated,omitempty"`
-	// OsType - The Operating System type. Possible values include: 'Windows', 'Linux'
+	// OsType - The Operating System type. Possible values include: 'OperatingSystemTypesWindows', 'OperatingSystemTypesLinux'
 	OsType OperatingSystemTypes `json:"osType,omitempty"`
-	// HyperVGeneration - The hypervisor generation of the Virtual Machine. Applicable to OS disks only. Possible values include: 'V1', 'V2'
+	// HyperVGeneration - The hypervisor generation of the Virtual Machine. Applicable to OS disks only. Possible values include: 'HyperVGenerationV1', 'HyperVGenerationV2'
 	HyperVGeneration HyperVGeneration `json:"hyperVGeneration,omitempty"`
 	// PurchasePlan - Purchase plan information for the image from which the source disk for the snapshot was originally created.
 	PurchasePlan *PurchasePlan `json:"purchasePlan,omitempty"`
@@ -11620,7 +13360,7 @@ type SnapshotProperties struct {
 	DiskSizeGB *int32 `json:"diskSizeGB,omitempty"`
 	// DiskSizeBytes - READ-ONLY; The size of the disk in bytes. This field is read only.
 	DiskSizeBytes *int64 `json:"diskSizeBytes,omitempty"`
-	// DiskState - The state of the snapshot. Possible values include: 'Unattached', 'Attached', 'Reserved', 'ActiveSAS', 'ReadyToUpload', 'ActiveUpload'
+	// DiskState - The state of the snapshot. Possible values include: 'DiskStateUnattached', 'DiskStateAttached', 'DiskStateReserved', 'DiskStateActiveSAS', 'DiskStateReadyToUpload', 'DiskStateActiveUpload'
 	DiskState DiskState `json:"diskState,omitempty"`
 	// UniqueID - READ-ONLY; Unique Guid identifying the resource.
 	UniqueID *string `json:"uniqueId,omitempty"`
@@ -11632,7 +13372,7 @@ type SnapshotProperties struct {
 	Incremental *bool `json:"incremental,omitempty"`
 	// Encryption - Encryption property can be used to encrypt data at rest with customer managed keys or platform managed keys.
 	Encryption *Encryption `json:"encryption,omitempty"`
-	// NetworkAccessPolicy - Possible values include: 'AllowAll', 'AllowPrivate', 'DenyAll'
+	// NetworkAccessPolicy - Possible values include: 'NetworkAccessPolicyAllowAll', 'NetworkAccessPolicyAllowPrivate', 'NetworkAccessPolicyDenyAll'
 	NetworkAccessPolicy NetworkAccessPolicy `json:"networkAccessPolicy,omitempty"`
 	// DiskAccessID - ARM id of the DiskAccess resource for using private endpoints on disks.
 	DiskAccessID *string `json:"diskAccessId,omitempty"`
@@ -11971,7 +13711,7 @@ func (su *SnapshotUpdate) UnmarshalJSON(body []byte) error {
 
 // SnapshotUpdateProperties snapshot resource update properties.
 type SnapshotUpdateProperties struct {
-	// OsType - the Operating System type. Possible values include: 'Windows', 'Linux'
+	// OsType - the Operating System type. Possible values include: 'OperatingSystemTypesWindows', 'OperatingSystemTypesLinux'
 	OsType OperatingSystemTypes `json:"osType,omitempty"`
 	// DiskSizeGB - If creationData.createOption is Empty, this field is mandatory and it indicates the size of the disk to create. If this field is present for updates or creation with other options, it indicates a resize. Resizes are only allowed if the disk is not attached to a running VM, and can only increase the disk's size.
 	DiskSizeGB *int32 `json:"diskSizeGB,omitempty"`
@@ -11979,7 +13719,7 @@ type SnapshotUpdateProperties struct {
 	EncryptionSettingsCollection *EncryptionSettingsCollection `json:"encryptionSettingsCollection,omitempty"`
 	// Encryption - Encryption property can be used to encrypt data at rest with customer managed keys or platform managed keys.
 	Encryption *Encryption `json:"encryption,omitempty"`
-	// NetworkAccessPolicy - Possible values include: 'AllowAll', 'AllowPrivate', 'DenyAll'
+	// NetworkAccessPolicy - Possible values include: 'NetworkAccessPolicyAllowAll', 'NetworkAccessPolicyAllowPrivate', 'NetworkAccessPolicyDenyAll'
 	NetworkAccessPolicy NetworkAccessPolicy `json:"networkAccessPolicy,omitempty"`
 	// DiskAccessID - ARM id of the DiskAccess resource for using private endpoints on disks.
 	DiskAccessID *string `json:"diskAccessId,omitempty"`
@@ -12005,7 +13745,7 @@ type SSHConfiguration struct {
 type SSHPublicKey struct {
 	// Path - Specifies the full path on the created VM where ssh public key is stored. If the file already exists, the specified key is appended to the file. Example: /home/user/.ssh/authorized_keys
 	Path *string `json:"path,omitempty"`
-	// KeyData - SSH public key certificate used to authenticate with the VM through ssh. The key needs to be at least 2048-bit and in ssh-rsa format. <br><br> For creating ssh keys, see [Create SSH keys on Linux and Mac for Linux VMs in Azure](https://docs.microsoft.com/en-us/azure/virtual-machines/linux/mac-create-ssh-keys?toc=%2fazure%2fvirtual-machines%2flinux%2ftoc.json).
+	// KeyData - SSH public key certificate used to authenticate with the VM through ssh. The key needs to be at least 2048-bit and in ssh-rsa format. <br><br> For creating ssh keys, see [Create SSH keys on Linux and Mac for Linux VMs in Azure]https://docs.microsoft.com/azure/virtual-machines/linux/create-ssh-keys-detailed).
 	KeyData *string `json:"keyData,omitempty"`
 }
 
@@ -12348,13 +14088,19 @@ type StatusCodeCount struct {
 	Count *int32 `json:"count,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for StatusCodeCount.
+func (scc StatusCodeCount) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // StorageProfile specifies the storage settings for the virtual machine disks.
 type StorageProfile struct {
 	// ImageReference - Specifies information about the image to use. You can specify information about platform images, marketplace images, or virtual machine images. This element is required when you want to use a platform image, marketplace image, or virtual machine image, but is not used in other creation operations.
 	ImageReference *ImageReference `json:"imageReference,omitempty"`
-	// OsDisk - Specifies information about the operating system disk used by the virtual machine. <br><br> For more information about disks, see [About disks and VHDs for Azure virtual machines](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-windows-about-disks-vhds?toc=%2fazure%2fvirtual-machines%2fwindows%2ftoc.json).
+	// OsDisk - Specifies information about the operating system disk used by the virtual machine. <br><br> For more information about disks, see [About disks and VHDs for Azure virtual machines](https://docs.microsoft.com/azure/virtual-machines/managed-disks-overview).
 	OsDisk *OSDisk `json:"osDisk,omitempty"`
-	// DataDisks - Specifies the parameters that are used to add a data disk to a virtual machine. <br><br> For more information about disks, see [About disks and VHDs for Azure virtual machines](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-windows-about-disks-vhds?toc=%2fazure%2fvirtual-machines%2fwindows%2ftoc.json).
+	// DataDisks - Specifies the parameters that are used to add a data disk to a virtual machine. <br><br> For more information about disks, see [About disks and VHDs for Azure virtual machines](https://docs.microsoft.com/azure/virtual-machines/managed-disks-overview).
 	DataDisks *[]DataDisk `json:"dataDisks,omitempty"`
 }
 
@@ -12368,6 +14114,12 @@ type SubResource struct {
 type SubResourceReadOnly struct {
 	// ID - READ-ONLY; Resource Id
 	ID *string `json:"id,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for SubResourceReadOnly.
+func (srro SubResourceReadOnly) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // SubResourceWithColocationStatus ...
@@ -12433,6 +14185,12 @@ type UpdateDomain struct {
 	ID *string `json:"id,omitempty"`
 	// Name - READ-ONLY; Resource Name
 	Name *string `json:"name,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for UpdateDomain.
+func (ud UpdateDomain) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // UpdateDomainListResult ...
@@ -12638,6 +14396,12 @@ type UpgradeOperationHistoricalStatusInfo struct {
 	Location *string `json:"location,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for UpgradeOperationHistoricalStatusInfo.
+func (uohsi UpgradeOperationHistoricalStatusInfo) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // UpgradeOperationHistoricalStatusInfoProperties describes each OS upgrade on the Virtual Machine Scale
 // Set.
 type UpgradeOperationHistoricalStatusInfoProperties struct {
@@ -12655,6 +14419,12 @@ type UpgradeOperationHistoricalStatusInfoProperties struct {
 	RollbackInfo *RollbackStatusInfo `json:"rollbackInfo,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for UpgradeOperationHistoricalStatusInfoProperties.
+func (uohsip UpgradeOperationHistoricalStatusInfoProperties) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // UpgradeOperationHistoryStatus information about the current running state of the overall upgrade.
 type UpgradeOperationHistoryStatus struct {
 	// Code - READ-ONLY; Code indicating the current status of the upgrade. Possible values include: 'UpgradeStateRollingForward', 'UpgradeStateCancelled', 'UpgradeStateCompleted', 'UpgradeStateFaulted'
@@ -12663,6 +14433,12 @@ type UpgradeOperationHistoryStatus struct {
 	StartTime *date.Time `json:"startTime,omitempty"`
 	// EndTime - READ-ONLY; End time of the upgrade.
 	EndTime *date.Time `json:"endTime,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for UpgradeOperationHistoryStatus.
+func (uohs UpgradeOperationHistoryStatus) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // UpgradePolicy describes an upgrade policy - automatic, manual, or rolling.
@@ -12932,6 +14708,12 @@ type VirtualMachineAssessPatchesResult struct {
 	AvailablePatches *[]VirtualMachineSoftwarePatchProperties `json:"availablePatches,omitempty"`
 	// Error - READ-ONLY; The errors that were encountered during execution of the operation. The details array contains the list of them.
 	Error *APIError `json:"error,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for VirtualMachineAssessPatchesResult.
+func (vmapr VirtualMachineAssessPatchesResult) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // VirtualMachineCaptureParameters capture Virtual Machine parameters.
@@ -13471,6 +15253,12 @@ type VirtualMachineHealthStatus struct {
 	Status *InstanceViewStatus `json:"status,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for VirtualMachineHealthStatus.
+func (vmhs VirtualMachineHealthStatus) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // VirtualMachineIdentity identity for the virtual machine.
 type VirtualMachineIdentity struct {
 	// PrincipalID - READ-ONLY; The principal id of virtual machine identity. This property will only be provided for a system assigned identity.
@@ -13501,6 +15289,12 @@ type VirtualMachineIdentityUserAssignedIdentitiesValue struct {
 	PrincipalID *string `json:"principalId,omitempty"`
 	// ClientID - READ-ONLY; The client id of user assigned identity.
 	ClientID *string `json:"clientId,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for VirtualMachineIdentityUserAssignedIdentitiesValue.
+func (vmiAiv VirtualMachineIdentityUserAssignedIdentitiesValue) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // VirtualMachineImage describes a Virtual Machine Image.
@@ -13672,7 +15466,7 @@ func (vmir VirtualMachineImageResource) MarshalJSON() ([]byte, error) {
 type VirtualMachineInstallPatchesParameters struct {
 	// MaximumDuration - Specifies the maximum amount of time that the operation will run. It must be an ISO 8601-compliant duration string such as PT4H (4 hours)
 	MaximumDuration *string `json:"maximumDuration,omitempty"`
-	// RebootSetting - Defines when it is acceptable to reboot a VM during a software update operation. Possible values include: 'IfRequired', 'Never', 'Always'
+	// RebootSetting - Defines when it is acceptable to reboot a VM during a software update operation. Possible values include: 'VMGuestPatchRebootSettingIfRequired', 'VMGuestPatchRebootSettingNever', 'VMGuestPatchRebootSettingAlways'
 	RebootSetting VMGuestPatchRebootSetting `json:"rebootSetting,omitempty"`
 	// WindowsParameters - Input for InstallPatches on a Windows VM, as directly received by the API
 	WindowsParameters *WindowsParameters `json:"windowsParameters,omitempty"`
@@ -13707,6 +15501,12 @@ type VirtualMachineInstallPatchesResult struct {
 	StartDateTime *date.Time `json:"startDateTime,omitempty"`
 	// Error - READ-ONLY; The errors that were encountered during execution of the operation. The details array contains the list of them.
 	Error *APIError `json:"error,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for VirtualMachineInstallPatchesResult.
+func (vmipr VirtualMachineInstallPatchesResult) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // VirtualMachineInstanceView the instance view of a virtual machine.
@@ -13792,6 +15592,14 @@ func (vmiv VirtualMachineInstanceView) MarshalJSON() ([]byte, error) {
 		objectMap["patchStatus"] = vmiv.PatchStatus
 	}
 	return json.Marshal(objectMap)
+}
+
+// VirtualMachineIPTag contains the IP tag associated with the public IP address.
+type VirtualMachineIPTag struct {
+	// IPTagType - IP tag type. Example: FirstPartyUsage.
+	IPTagType *string `json:"ipTagType,omitempty"`
+	// Tag - IP tag associated with the public IP. Example: SQL, Storage etc.
+	Tag *string `json:"tag,omitempty"`
 }
 
 // VirtualMachineListResult the List Virtual Machine operation response.
@@ -13953,6 +15761,160 @@ func NewVirtualMachineListResultPage(cur VirtualMachineListResult, getNextPage f
 	}
 }
 
+// VirtualMachineNetworkInterfaceConfiguration describes a virtual machine network interface
+// configurations.
+type VirtualMachineNetworkInterfaceConfiguration struct {
+	// Name - The network interface configuration name.
+	Name                                                   *string `json:"name,omitempty"`
+	*VirtualMachineNetworkInterfaceConfigurationProperties `json:"properties,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for VirtualMachineNetworkInterfaceConfiguration.
+func (vmnic VirtualMachineNetworkInterfaceConfiguration) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	if vmnic.Name != nil {
+		objectMap["name"] = vmnic.Name
+	}
+	if vmnic.VirtualMachineNetworkInterfaceConfigurationProperties != nil {
+		objectMap["properties"] = vmnic.VirtualMachineNetworkInterfaceConfigurationProperties
+	}
+	return json.Marshal(objectMap)
+}
+
+// UnmarshalJSON is the custom unmarshaler for VirtualMachineNetworkInterfaceConfiguration struct.
+func (vmnic *VirtualMachineNetworkInterfaceConfiguration) UnmarshalJSON(body []byte) error {
+	var m map[string]*json.RawMessage
+	err := json.Unmarshal(body, &m)
+	if err != nil {
+		return err
+	}
+	for k, v := range m {
+		switch k {
+		case "name":
+			if v != nil {
+				var name string
+				err = json.Unmarshal(*v, &name)
+				if err != nil {
+					return err
+				}
+				vmnic.Name = &name
+			}
+		case "properties":
+			if v != nil {
+				var virtualMachineNetworkInterfaceConfigurationProperties VirtualMachineNetworkInterfaceConfigurationProperties
+				err = json.Unmarshal(*v, &virtualMachineNetworkInterfaceConfigurationProperties)
+				if err != nil {
+					return err
+				}
+				vmnic.VirtualMachineNetworkInterfaceConfigurationProperties = &virtualMachineNetworkInterfaceConfigurationProperties
+			}
+		}
+	}
+
+	return nil
+}
+
+// VirtualMachineNetworkInterfaceConfigurationProperties describes a virtual machine network profile's IP
+// configuration.
+type VirtualMachineNetworkInterfaceConfigurationProperties struct {
+	// Primary - Specifies the primary network interface in case the virtual machine has more than 1 network interface.
+	Primary *bool `json:"primary,omitempty"`
+	// DeleteOption - Specify what happens to the network interface when the VM is deleted. Possible values include: 'DeleteOptionsDelete', 'DeleteOptionsDetach'
+	DeleteOption DeleteOptions `json:"deleteOption,omitempty"`
+	// EnableAcceleratedNetworking - Specifies whether the network interface is accelerated networking-enabled.
+	EnableAcceleratedNetworking *bool `json:"enableAcceleratedNetworking,omitempty"`
+	// EnableFpga - Specifies whether the network interface is FPGA networking-enabled.
+	EnableFpga *bool `json:"enableFpga,omitempty"`
+	// EnableIPForwarding - Whether IP forwarding enabled on this NIC.
+	EnableIPForwarding *bool `json:"enableIPForwarding,omitempty"`
+	// NetworkSecurityGroup - The network security group.
+	NetworkSecurityGroup *SubResource `json:"networkSecurityGroup,omitempty"`
+	// DNSSettings - The dns settings to be applied on the network interfaces.
+	DNSSettings *VirtualMachineNetworkInterfaceDNSSettingsConfiguration `json:"dnsSettings,omitempty"`
+	// IPConfigurations - Specifies the IP configurations of the network interface.
+	IPConfigurations  *[]VirtualMachineNetworkInterfaceIPConfiguration `json:"ipConfigurations,omitempty"`
+	DscpConfiguration *SubResource                                     `json:"dscpConfiguration,omitempty"`
+}
+
+// VirtualMachineNetworkInterfaceDNSSettingsConfiguration describes a virtual machines network
+// configuration's DNS settings.
+type VirtualMachineNetworkInterfaceDNSSettingsConfiguration struct {
+	// DNSServers - List of DNS servers IP addresses
+	DNSServers *[]string `json:"dnsServers,omitempty"`
+}
+
+// VirtualMachineNetworkInterfaceIPConfiguration describes a virtual machine network profile's IP
+// configuration.
+type VirtualMachineNetworkInterfaceIPConfiguration struct {
+	// Name - The IP configuration name.
+	Name                                                     *string `json:"name,omitempty"`
+	*VirtualMachineNetworkInterfaceIPConfigurationProperties `json:"properties,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for VirtualMachineNetworkInterfaceIPConfiguration.
+func (vmniic VirtualMachineNetworkInterfaceIPConfiguration) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	if vmniic.Name != nil {
+		objectMap["name"] = vmniic.Name
+	}
+	if vmniic.VirtualMachineNetworkInterfaceIPConfigurationProperties != nil {
+		objectMap["properties"] = vmniic.VirtualMachineNetworkInterfaceIPConfigurationProperties
+	}
+	return json.Marshal(objectMap)
+}
+
+// UnmarshalJSON is the custom unmarshaler for VirtualMachineNetworkInterfaceIPConfiguration struct.
+func (vmniic *VirtualMachineNetworkInterfaceIPConfiguration) UnmarshalJSON(body []byte) error {
+	var m map[string]*json.RawMessage
+	err := json.Unmarshal(body, &m)
+	if err != nil {
+		return err
+	}
+	for k, v := range m {
+		switch k {
+		case "name":
+			if v != nil {
+				var name string
+				err = json.Unmarshal(*v, &name)
+				if err != nil {
+					return err
+				}
+				vmniic.Name = &name
+			}
+		case "properties":
+			if v != nil {
+				var virtualMachineNetworkInterfaceIPConfigurationProperties VirtualMachineNetworkInterfaceIPConfigurationProperties
+				err = json.Unmarshal(*v, &virtualMachineNetworkInterfaceIPConfigurationProperties)
+				if err != nil {
+					return err
+				}
+				vmniic.VirtualMachineNetworkInterfaceIPConfigurationProperties = &virtualMachineNetworkInterfaceIPConfigurationProperties
+			}
+		}
+	}
+
+	return nil
+}
+
+// VirtualMachineNetworkInterfaceIPConfigurationProperties describes a virtual machine network interface IP
+// configuration properties.
+type VirtualMachineNetworkInterfaceIPConfigurationProperties struct {
+	// Subnet - Specifies the identifier of the subnet.
+	Subnet *SubResource `json:"subnet,omitempty"`
+	// Primary - Specifies the primary network interface in case the virtual machine has more than 1 network interface.
+	Primary *bool `json:"primary,omitempty"`
+	// PublicIPAddressConfiguration - The publicIPAddressConfiguration.
+	PublicIPAddressConfiguration *VirtualMachinePublicIPAddressConfiguration `json:"publicIPAddressConfiguration,omitempty"`
+	// PrivateIPAddressVersion - Available from Api-Version 2017-03-30 onwards, it represents whether the specific ipconfiguration is IPv4 or IPv6. Default is taken as IPv4.  Possible values are: 'IPv4' and 'IPv6'. Possible values include: 'IPVersionsIPv4', 'IPVersionsIPv6'
+	PrivateIPAddressVersion IPVersions `json:"privateIPAddressVersion,omitempty"`
+	// ApplicationSecurityGroups - Specifies an array of references to application security group.
+	ApplicationSecurityGroups *[]SubResource `json:"applicationSecurityGroups,omitempty"`
+	// ApplicationGatewayBackendAddressPools - Specifies an array of references to backend address pools of application gateways. A virtual machine can reference backend address pools of multiple application gateways. Multiple virtual machines cannot use the same application gateway.
+	ApplicationGatewayBackendAddressPools *[]SubResource `json:"applicationGatewayBackendAddressPools,omitempty"`
+	// LoadBalancerBackendAddressPools - Specifies an array of references to backend address pools of load balancers. A virtual machine can reference backend address pools of one public and one internal load balancer. [Multiple virtual machines cannot use the same basic sku load balancer].
+	LoadBalancerBackendAddressPools *[]SubResource `json:"loadBalancerBackendAddressPools,omitempty"`
+}
+
 // VirtualMachinePatchStatus the status of virtual machine patch operations.
 type VirtualMachinePatchStatus struct {
 	// AvailablePatchSummary - The available patch summary of the latest assessment operation for the virtual machine.
@@ -13991,15 +15953,15 @@ type VirtualMachineProperties struct {
 	SecurityProfile *SecurityProfile `json:"securityProfile,omitempty"`
 	// DiagnosticsProfile - Specifies the boot diagnostic settings state. <br><br>Minimum api-version: 2015-06-15.
 	DiagnosticsProfile *DiagnosticsProfile `json:"diagnosticsProfile,omitempty"`
-	// AvailabilitySet - Specifies information about the availability set that the virtual machine should be assigned to. Virtual machines specified in the same availability set are allocated to different nodes to maximize availability. For more information about availability sets, see [Manage the availability of virtual machines](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-windows-manage-availability?toc=%2fazure%2fvirtual-machines%2fwindows%2ftoc.json). <br><br> For more information on Azure planned maintenance, see [Planned maintenance for virtual machines in Azure](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-windows-planned-maintenance?toc=%2fazure%2fvirtual-machines%2fwindows%2ftoc.json) <br><br> Currently, a VM can only be added to availability set at creation time. The availability set to which the VM is being added should be under the same resource group as the availability set resource. An existing VM cannot be added to an availability set. <br><br>This property cannot exist along with a non-null properties.virtualMachineScaleSet reference.
+	// AvailabilitySet - Specifies information about the availability set that the virtual machine should be assigned to. Virtual machines specified in the same availability set are allocated to different nodes to maximize availability. For more information about availability sets, see [Availability sets overview](https://docs.microsoft.com/azure/virtual-machines/availability-set-overview). <br><br> For more information on Azure planned maintenance, see [Maintenance and updates for Virtual Machines in Azure](https://docs.microsoft.com/azure/virtual-machines/maintenance-and-updates) <br><br> Currently, a VM can only be added to availability set at creation time. The availability set to which the VM is being added should be under the same resource group as the availability set resource. An existing VM cannot be added to an availability set. <br><br>This property cannot exist along with a non-null properties.virtualMachineScaleSet reference.
 	AvailabilitySet *SubResource `json:"availabilitySet,omitempty"`
 	// VirtualMachineScaleSet - Specifies information about the virtual machine scale set that the virtual machine should be assigned to. Virtual machines specified in the same virtual machine scale set are allocated to different nodes to maximize availability. Currently, a VM can only be added to virtual machine scale set at creation time. An existing VM cannot be added to a virtual machine scale set. <br><br>This property cannot exist along with a non-null properties.availabilitySet reference. <br><br>Minimum api‐version: 2019‐03‐01
 	VirtualMachineScaleSet *SubResource `json:"virtualMachineScaleSet,omitempty"`
 	// ProximityPlacementGroup - Specifies information about the proximity placement group that the virtual machine should be assigned to. <br><br>Minimum api-version: 2018-04-01.
 	ProximityPlacementGroup *SubResource `json:"proximityPlacementGroup,omitempty"`
-	// Priority - Specifies the priority for the virtual machine. <br><br>Minimum api-version: 2019-03-01. Possible values include: 'Regular', 'Low', 'Spot'
+	// Priority - Specifies the priority for the virtual machine. <br><br>Minimum api-version: 2019-03-01. Possible values include: 'VirtualMachinePriorityTypesRegular', 'VirtualMachinePriorityTypesLow', 'VirtualMachinePriorityTypesSpot'
 	Priority VirtualMachinePriorityTypes `json:"priority,omitempty"`
-	// EvictionPolicy - Specifies the eviction policy for the Azure Spot virtual machine and Azure Spot scale set. <br><br>For Azure Spot virtual machines, both 'Deallocate' and 'Delete' are supported and the minimum api-version is 2019-03-01. <br><br>For Azure Spot scale sets, both 'Deallocate' and 'Delete' are supported and the minimum api-version is 2017-10-30-preview. Possible values include: 'Deallocate', 'Delete'
+	// EvictionPolicy - Specifies the eviction policy for the Azure Spot virtual machine and Azure Spot scale set. <br><br>For Azure Spot virtual machines, both 'Deallocate' and 'Delete' are supported and the minimum api-version is 2019-03-01. <br><br>For Azure Spot scale sets, both 'Deallocate' and 'Delete' are supported and the minimum api-version is 2017-10-30-preview. Possible values include: 'VirtualMachineEvictionPolicyTypesDeallocate', 'VirtualMachineEvictionPolicyTypesDelete'
 	EvictionPolicy VirtualMachineEvictionPolicyTypes `json:"evictionPolicy,omitempty"`
 	// BillingProfile - Specifies the billing related details of a Azure Spot virtual machine. <br><br>Minimum api-version: 2019-03-01.
 	BillingProfile *BillingProfile `json:"billingProfile,omitempty"`
@@ -14019,6 +15981,10 @@ type VirtualMachineProperties struct {
 	ExtensionsTimeBudget *string `json:"extensionsTimeBudget,omitempty"`
 	// PlatformFaultDomain - Specifies the scale set logical fault domain into which the Virtual Machine will be created. By default, the Virtual Machine will by automatically assigned to a fault domain that best maintains balance across available fault domains.<br><li>This is applicable only if the 'virtualMachineScaleSet' property of this Virtual Machine is set.<li>The Virtual Machine Scale Set that is referenced, must have 'platformFaultDomainCount' &gt; 1.<li>This property cannot be updated once the Virtual Machine is created.<li>Fault domain assignment can be viewed in the Virtual Machine Instance View.<br><br>Minimum api‐version: 2020‐12‐01
 	PlatformFaultDomain *int32 `json:"platformFaultDomain,omitempty"`
+	// ScheduledEventsProfile - Specifies Scheduled Event related configurations.
+	ScheduledEventsProfile *ScheduledEventsProfile `json:"scheduledEventsProfile,omitempty"`
+	// UserData - UserData for the VM, which must be base-64 encoded. Customer should not pass any secrets in here. <br><br>Minimum api-version: 2021-03-01
+	UserData *string `json:"userData,omitempty"`
 }
 
 // MarshalJSON is the custom marshaler for VirtualMachineProperties.
@@ -14078,7 +16044,105 @@ func (vmp VirtualMachineProperties) MarshalJSON() ([]byte, error) {
 	if vmp.PlatformFaultDomain != nil {
 		objectMap["platformFaultDomain"] = vmp.PlatformFaultDomain
 	}
+	if vmp.ScheduledEventsProfile != nil {
+		objectMap["scheduledEventsProfile"] = vmp.ScheduledEventsProfile
+	}
+	if vmp.UserData != nil {
+		objectMap["userData"] = vmp.UserData
+	}
 	return json.Marshal(objectMap)
+}
+
+// VirtualMachinePublicIPAddressConfiguration describes a virtual machines IP Configuration's
+// PublicIPAddress configuration
+type VirtualMachinePublicIPAddressConfiguration struct {
+	// Name - The publicIP address configuration name.
+	Name                                                  *string `json:"name,omitempty"`
+	*VirtualMachinePublicIPAddressConfigurationProperties `json:"properties,omitempty"`
+	Sku                                                   *PublicIPAddressSku `json:"sku,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for VirtualMachinePublicIPAddressConfiguration.
+func (vmpiac VirtualMachinePublicIPAddressConfiguration) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	if vmpiac.Name != nil {
+		objectMap["name"] = vmpiac.Name
+	}
+	if vmpiac.VirtualMachinePublicIPAddressConfigurationProperties != nil {
+		objectMap["properties"] = vmpiac.VirtualMachinePublicIPAddressConfigurationProperties
+	}
+	if vmpiac.Sku != nil {
+		objectMap["sku"] = vmpiac.Sku
+	}
+	return json.Marshal(objectMap)
+}
+
+// UnmarshalJSON is the custom unmarshaler for VirtualMachinePublicIPAddressConfiguration struct.
+func (vmpiac *VirtualMachinePublicIPAddressConfiguration) UnmarshalJSON(body []byte) error {
+	var m map[string]*json.RawMessage
+	err := json.Unmarshal(body, &m)
+	if err != nil {
+		return err
+	}
+	for k, v := range m {
+		switch k {
+		case "name":
+			if v != nil {
+				var name string
+				err = json.Unmarshal(*v, &name)
+				if err != nil {
+					return err
+				}
+				vmpiac.Name = &name
+			}
+		case "properties":
+			if v != nil {
+				var virtualMachinePublicIPAddressConfigurationProperties VirtualMachinePublicIPAddressConfigurationProperties
+				err = json.Unmarshal(*v, &virtualMachinePublicIPAddressConfigurationProperties)
+				if err != nil {
+					return err
+				}
+				vmpiac.VirtualMachinePublicIPAddressConfigurationProperties = &virtualMachinePublicIPAddressConfigurationProperties
+			}
+		case "sku":
+			if v != nil {
+				var sku PublicIPAddressSku
+				err = json.Unmarshal(*v, &sku)
+				if err != nil {
+					return err
+				}
+				vmpiac.Sku = &sku
+			}
+		}
+	}
+
+	return nil
+}
+
+// VirtualMachinePublicIPAddressConfigurationProperties describes a virtual machines IP Configuration's
+// PublicIPAddress configuration
+type VirtualMachinePublicIPAddressConfigurationProperties struct {
+	// IdleTimeoutInMinutes - The idle timeout of the public IP address.
+	IdleTimeoutInMinutes *int32 `json:"idleTimeoutInMinutes,omitempty"`
+	// DeleteOption - Specify what happens to the public IP address when the VM is deleted. Possible values include: 'DeleteOptionsDelete', 'DeleteOptionsDetach'
+	DeleteOption DeleteOptions `json:"deleteOption,omitempty"`
+	// DNSSettings - The dns settings to be applied on the publicIP addresses .
+	DNSSettings *VirtualMachinePublicIPAddressDNSSettingsConfiguration `json:"dnsSettings,omitempty"`
+	// IPTags - The list of IP tags associated with the public IP address.
+	IPTags *[]VirtualMachineIPTag `json:"ipTags,omitempty"`
+	// PublicIPPrefix - The PublicIPPrefix from which to allocate publicIP addresses.
+	PublicIPPrefix *SubResource `json:"publicIPPrefix,omitempty"`
+	// PublicIPAddressVersion - Available from Api-Version 2019-07-01 onwards, it represents whether the specific ipconfiguration is IPv4 or IPv6. Default is taken as IPv4. Possible values are: 'IPv4' and 'IPv6'. Possible values include: 'IPVersionsIPv4', 'IPVersionsIPv6'
+	PublicIPAddressVersion IPVersions `json:"publicIPAddressVersion,omitempty"`
+	// PublicIPAllocationMethod - Specify the public IP allocation type. Possible values include: 'PublicIPAllocationMethodDynamic', 'PublicIPAllocationMethodStatic'
+	PublicIPAllocationMethod PublicIPAllocationMethod `json:"publicIPAllocationMethod,omitempty"`
+}
+
+// VirtualMachinePublicIPAddressDNSSettingsConfiguration describes a virtual machines network
+// configuration's DNS settings.
+type VirtualMachinePublicIPAddressDNSSettingsConfiguration struct {
+	// DomainNameLabel - The Domain name label prefix of the PublicIPAddress resources that will be created. The generated name label is the concatenation of the domain name label and vm network profile unique ID.
+	DomainNameLabel *string `json:"domainNameLabel,omitempty"`
 }
 
 // VirtualMachineReimageParameters parameters for Reimaging Virtual Machine. NOTE: Virtual Machine OS disk
@@ -15374,6 +17438,12 @@ type VirtualMachineScaleSetIdentityUserAssignedIdentitiesValue struct {
 	ClientID *string `json:"clientId,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for VirtualMachineScaleSetIdentityUserAssignedIdentitiesValue.
+func (vmssiAiv VirtualMachineScaleSetIdentityUserAssignedIdentitiesValue) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // VirtualMachineScaleSetInstanceView the instance view of a virtual machine scale set.
 type VirtualMachineScaleSetInstanceView struct {
 	autorest.Response `json:"-"`
@@ -15401,6 +17471,12 @@ func (vmssiv VirtualMachineScaleSetInstanceView) MarshalJSON() ([]byte, error) {
 type VirtualMachineScaleSetInstanceViewStatusesSummary struct {
 	// StatusesSummary - READ-ONLY; The extensions information.
 	StatusesSummary *[]VirtualMachineStatusCodeCount `json:"statusesSummary,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for VirtualMachineScaleSetInstanceViewStatusesSummary.
+func (vmssivss VirtualMachineScaleSetInstanceViewStatusesSummary) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // VirtualMachineScaleSetIPConfiguration describes a virtual machine scale set network profile's IP
@@ -15479,7 +17555,7 @@ type VirtualMachineScaleSetIPConfigurationProperties struct {
 	Primary *bool `json:"primary,omitempty"`
 	// PublicIPAddressConfiguration - The publicIPAddressConfiguration.
 	PublicIPAddressConfiguration *VirtualMachineScaleSetPublicIPAddressConfiguration `json:"publicIPAddressConfiguration,omitempty"`
-	// PrivateIPAddressVersion - Available from Api-Version 2017-03-30 onwards, it represents whether the specific ipconfiguration is IPv4 or IPv6. Default is taken as IPv4.  Possible values are: 'IPv4' and 'IPv6'. Possible values include: 'IPv4', 'IPv6'
+	// PrivateIPAddressVersion - Available from Api-Version 2017-03-30 onwards, it represents whether the specific ipconfiguration is IPv4 or IPv6. Default is taken as IPv4.  Possible values are: 'IPv4' and 'IPv6'. Possible values include: 'IPVersionIPv4', 'IPVersionIPv6'
 	PrivateIPAddressVersion IPVersion `json:"privateIPAddressVersion,omitempty"`
 	// ApplicationGatewayBackendAddressPools - Specifies an array of references to backend address pools of application gateways. A scale set can reference backend address pools of multiple application gateways. Multiple scale sets cannot use the same application gateway.
 	ApplicationGatewayBackendAddressPools *[]SubResource `json:"applicationGatewayBackendAddressPools,omitempty"`
@@ -16240,6 +18316,8 @@ type VirtualMachineScaleSetNetworkConfigurationProperties struct {
 	IPConfigurations *[]VirtualMachineScaleSetIPConfiguration `json:"ipConfigurations,omitempty"`
 	// EnableIPForwarding - Whether IP forwarding enabled on this NIC.
 	EnableIPForwarding *bool `json:"enableIPForwarding,omitempty"`
+	// DeleteOption - Specify what happens to the network interface when the VM is deleted. Possible values include: 'DeleteOptionsDelete', 'DeleteOptionsDetach'
+	DeleteOption DeleteOptions `json:"deleteOption,omitempty"`
 }
 
 // VirtualMachineScaleSetNetworkProfile describes a virtual machine scale set network profile.
@@ -16248,6 +18326,8 @@ type VirtualMachineScaleSetNetworkProfile struct {
 	HealthProbe *APIEntityReference `json:"healthProbe,omitempty"`
 	// NetworkInterfaceConfigurations - The list of network configurations.
 	NetworkInterfaceConfigurations *[]VirtualMachineScaleSetNetworkConfiguration `json:"networkInterfaceConfigurations,omitempty"`
+	// NetworkAPIVersion - specifies the Microsoft.Network API version used when creating networking resources in the Network Interface Configurations for Virtual Machine Scale Set with orchestration mode 'Flexible'. Possible values include: 'NetworkAPIVersionTwoZeroTwoZeroHyphenMinusOneOneHyphenMinusZeroOne'
+	NetworkAPIVersion NetworkAPIVersion `json:"networkApiVersion,omitempty"`
 }
 
 // VirtualMachineScaleSetOSDisk describes a virtual machine scale set operating system disk.
@@ -16264,7 +18344,7 @@ type VirtualMachineScaleSetOSDisk struct {
 	DiffDiskSettings *DiffDiskSettings `json:"diffDiskSettings,omitempty"`
 	// DiskSizeGB - Specifies the size of the operating system disk in gigabytes. This element can be used to overwrite the size of the disk in a virtual machine image. <br><br> This value cannot be larger than 1023 GB
 	DiskSizeGB *int32 `json:"diskSizeGB,omitempty"`
-	// OsType - This property allows you to specify the type of the OS that is included in the disk if creating a VM from user-image or a specialized VHD. <br><br> Possible values are: <br><br> **Windows** <br><br> **Linux**. Possible values include: 'Windows', 'Linux'
+	// OsType - This property allows you to specify the type of the OS that is included in the disk if creating a VM from user-image or a specialized VHD. <br><br> Possible values are: <br><br> **Windows** <br><br> **Linux**. Possible values include: 'OperatingSystemTypesWindows', 'OperatingSystemTypesLinux'
 	OsType OperatingSystemTypes `json:"osType,omitempty"`
 	// Image - Specifies information about the unmanaged user image to base the scale set on.
 	Image *VirtualHardDisk `json:"image,omitempty"`
@@ -16278,15 +18358,15 @@ type VirtualMachineScaleSetOSDisk struct {
 type VirtualMachineScaleSetOSProfile struct {
 	// ComputerNamePrefix - Specifies the computer name prefix for all of the virtual machines in the scale set. Computer name prefixes must be 1 to 15 characters long.
 	ComputerNamePrefix *string `json:"computerNamePrefix,omitempty"`
-	// AdminUsername - Specifies the name of the administrator account. <br><br> **Windows-only restriction:** Cannot end in "." <br><br> **Disallowed values:** "administrator", "admin", "user", "user1", "test", "user2", "test1", "user3", "admin1", "1", "123", "a", "actuser", "adm", "admin2", "aspnet", "backup", "console", "david", "guest", "john", "owner", "root", "server", "sql", "support", "support_388945a0", "sys", "test2", "test3", "user4", "user5". <br><br> **Minimum-length (Linux):** 1  character <br><br> **Max-length (Linux):** 64 characters <br><br> **Max-length (Windows):** 20 characters  <br><br><li> For root access to the Linux VM, see [Using root privileges on Linux virtual machines in Azure](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-linux-use-root-privileges?toc=%2fazure%2fvirtual-machines%2flinux%2ftoc.json)<br><li> For a list of built-in system users on Linux that should not be used in this field, see [Selecting User Names for Linux on Azure](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-linux-usernames?toc=%2fazure%2fvirtual-machines%2flinux%2ftoc.json)
+	// AdminUsername - Specifies the name of the administrator account. <br><br> **Windows-only restriction:** Cannot end in "." <br><br> **Disallowed values:** "administrator", "admin", "user", "user1", "test", "user2", "test1", "user3", "admin1", "1", "123", "a", "actuser", "adm", "admin2", "aspnet", "backup", "console", "david", "guest", "john", "owner", "root", "server", "sql", "support", "support_388945a0", "sys", "test2", "test3", "user4", "user5". <br><br> **Minimum-length (Linux):** 1  character <br><br> **Max-length (Linux):** 64 characters <br><br> **Max-length (Windows):** 20 characters
 	AdminUsername *string `json:"adminUsername,omitempty"`
-	// AdminPassword - Specifies the password of the administrator account. <br><br> **Minimum-length (Windows):** 8 characters <br><br> **Minimum-length (Linux):** 6 characters <br><br> **Max-length (Windows):** 123 characters <br><br> **Max-length (Linux):** 72 characters <br><br> **Complexity requirements:** 3 out of 4 conditions below need to be fulfilled <br> Has lower characters <br>Has upper characters <br> Has a digit <br> Has a special character (Regex match [\W_]) <br><br> **Disallowed values:** "abc@123", "P@$$w0rd", "P@ssw0rd", "P@ssword123", "Pa$$word", "pass@word1", "Password!", "Password1", "Password22", "iloveyou!" <br><br> For resetting the password, see [How to reset the Remote Desktop service or its login password in a Windows VM](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-windows-reset-rdp?toc=%2fazure%2fvirtual-machines%2fwindows%2ftoc.json) <br><br> For resetting root password, see [Manage users, SSH, and check or repair disks on Azure Linux VMs using the VMAccess Extension](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-linux-using-vmaccess-extension?toc=%2fazure%2fvirtual-machines%2flinux%2ftoc.json#reset-root-password)
+	// AdminPassword - Specifies the password of the administrator account. <br><br> **Minimum-length (Windows):** 8 characters <br><br> **Minimum-length (Linux):** 6 characters <br><br> **Max-length (Windows):** 123 characters <br><br> **Max-length (Linux):** 72 characters <br><br> **Complexity requirements:** 3 out of 4 conditions below need to be fulfilled <br> Has lower characters <br>Has upper characters <br> Has a digit <br> Has a special character (Regex match [\W_]) <br><br> **Disallowed values:** "abc@123", "P@$$w0rd", "P@ssw0rd", "P@ssword123", "Pa$$word", "pass@word1", "Password!", "Password1", "Password22", "iloveyou!" <br><br> For resetting the password, see [How to reset the Remote Desktop service or its login password in a Windows VM](https://docs.microsoft.com/troubleshoot/azure/virtual-machines/reset-rdp) <br><br> For resetting root password, see [Manage users, SSH, and check or repair disks on Azure Linux VMs using the VMAccess Extension](https://docs.microsoft.com/troubleshoot/azure/virtual-machines/troubleshoot-ssh-connection)
 	AdminPassword *string `json:"adminPassword,omitempty"`
-	// CustomData - Specifies a base-64 encoded string of custom data. The base-64 encoded string is decoded to a binary array that is saved as a file on the Virtual Machine. The maximum length of the binary array is 65535 bytes. <br><br> For using cloud-init for your VM, see [Using cloud-init to customize a Linux VM during creation](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-linux-using-cloud-init?toc=%2fazure%2fvirtual-machines%2flinux%2ftoc.json)
+	// CustomData - Specifies a base-64 encoded string of custom data. The base-64 encoded string is decoded to a binary array that is saved as a file on the Virtual Machine. The maximum length of the binary array is 65535 bytes. <br><br> For using cloud-init for your VM, see [Using cloud-init to customize a Linux VM during creation](https://docs.microsoft.com/azure/virtual-machines/linux/using-cloud-init)
 	CustomData *string `json:"customData,omitempty"`
 	// WindowsConfiguration - Specifies Windows operating system settings on the virtual machine.
 	WindowsConfiguration *WindowsConfiguration `json:"windowsConfiguration,omitempty"`
-	// LinuxConfiguration - Specifies the Linux operating system settings on the virtual machine. <br><br>For a list of supported Linux distributions, see [Linux on Azure-Endorsed Distributions](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-linux-endorsed-distros?toc=%2fazure%2fvirtual-machines%2flinux%2ftoc.json) <br><br> For running non-endorsed distributions, see [Information for Non-Endorsed Distributions](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-linux-create-upload-generic?toc=%2fazure%2fvirtual-machines%2flinux%2ftoc.json).
+	// LinuxConfiguration - Specifies the Linux operating system settings on the virtual machine. <br><br>For a list of supported Linux distributions, see [Linux on Azure-Endorsed Distributions](https://docs.microsoft.com/azure/virtual-machines/linux/endorsed-distros).
 	LinuxConfiguration *LinuxConfiguration `json:"linuxConfiguration,omitempty"`
 	// Secrets - Specifies set of certificates that should be installed onto the virtual machines in the scale set.
 	Secrets *[]VaultSecretGroup `json:"secrets,omitempty"`
@@ -16322,7 +18402,7 @@ type VirtualMachineScaleSetProperties struct {
 	AdditionalCapabilities *AdditionalCapabilities `json:"additionalCapabilities,omitempty"`
 	// ScaleInPolicy - Specifies the scale-in policy that decides which virtual machines are chosen for removal when a Virtual Machine Scale Set is scaled-in.
 	ScaleInPolicy *ScaleInPolicy `json:"scaleInPolicy,omitempty"`
-	// OrchestrationMode - Specifies the orchestration mode for the virtual machine scale set. Possible values include: 'Uniform', 'Flexible'
+	// OrchestrationMode - Specifies the orchestration mode for the virtual machine scale set. Possible values include: 'OrchestrationModeUniform', 'OrchestrationModeFlexible'
 	OrchestrationMode OrchestrationMode `json:"orchestrationMode,omitempty"`
 }
 
@@ -16377,6 +18457,7 @@ type VirtualMachineScaleSetPublicIPAddressConfiguration struct {
 	// Name - The publicIP address configuration name.
 	Name                                                          *string `json:"name,omitempty"`
 	*VirtualMachineScaleSetPublicIPAddressConfigurationProperties `json:"properties,omitempty"`
+	Sku                                                           *PublicIPAddressSku `json:"sku,omitempty"`
 }
 
 // MarshalJSON is the custom marshaler for VirtualMachineScaleSetPublicIPAddressConfiguration.
@@ -16387,6 +18468,9 @@ func (vmsspiac VirtualMachineScaleSetPublicIPAddressConfiguration) MarshalJSON()
 	}
 	if vmsspiac.VirtualMachineScaleSetPublicIPAddressConfigurationProperties != nil {
 		objectMap["properties"] = vmsspiac.VirtualMachineScaleSetPublicIPAddressConfigurationProperties
+	}
+	if vmsspiac.Sku != nil {
+		objectMap["sku"] = vmsspiac.Sku
 	}
 	return json.Marshal(objectMap)
 }
@@ -16418,6 +18502,15 @@ func (vmsspiac *VirtualMachineScaleSetPublicIPAddressConfiguration) UnmarshalJSO
 				}
 				vmsspiac.VirtualMachineScaleSetPublicIPAddressConfigurationProperties = &virtualMachineScaleSetPublicIPAddressConfigurationProperties
 			}
+		case "sku":
+			if v != nil {
+				var sku PublicIPAddressSku
+				err = json.Unmarshal(*v, &sku)
+				if err != nil {
+					return err
+				}
+				vmsspiac.Sku = &sku
+			}
 		}
 	}
 
@@ -16442,8 +18535,10 @@ type VirtualMachineScaleSetPublicIPAddressConfigurationProperties struct {
 	IPTags *[]VirtualMachineScaleSetIPTag `json:"ipTags,omitempty"`
 	// PublicIPPrefix - The PublicIPPrefix from which to allocate publicIP addresses.
 	PublicIPPrefix *SubResource `json:"publicIPPrefix,omitempty"`
-	// PublicIPAddressVersion - Available from Api-Version 2019-07-01 onwards, it represents whether the specific ipconfiguration is IPv4 or IPv6. Default is taken as IPv4. Possible values are: 'IPv4' and 'IPv6'. Possible values include: 'IPv4', 'IPv6'
+	// PublicIPAddressVersion - Available from Api-Version 2019-07-01 onwards, it represents whether the specific ipconfiguration is IPv4 or IPv6. Default is taken as IPv4. Possible values are: 'IPv4' and 'IPv6'. Possible values include: 'IPVersionIPv4', 'IPVersionIPv6'
 	PublicIPAddressVersion IPVersion `json:"publicIPAddressVersion,omitempty"`
+	// DeleteOption - Specify what happens to the public IP when the VM is deleted. Possible values include: 'DeleteOptionsDelete', 'DeleteOptionsDetach'
+	DeleteOption DeleteOptions `json:"deleteOption,omitempty"`
 }
 
 // VirtualMachineScaleSetReimageParameters describes a Virtual Machine Scale Set VM Reimage Parameters.
@@ -16729,6 +18824,12 @@ type VirtualMachineScaleSetSku struct {
 	Capacity *VirtualMachineScaleSetSkuCapacity `json:"capacity,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for VirtualMachineScaleSetSku.
+func (vmsss VirtualMachineScaleSetSku) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // VirtualMachineScaleSetSkuCapacity describes scaling information of a sku.
 type VirtualMachineScaleSetSkuCapacity struct {
 	// Minimum - READ-ONLY; The minimum capacity.
@@ -16739,6 +18840,12 @@ type VirtualMachineScaleSetSkuCapacity struct {
 	DefaultCapacity *int64 `json:"defaultCapacity,omitempty"`
 	// ScaleType - READ-ONLY; The scale type applicable to the sku. Possible values include: 'VirtualMachineScaleSetSkuScaleTypeAutomatic', 'VirtualMachineScaleSetSkuScaleTypeNone'
 	ScaleType VirtualMachineScaleSetSkuScaleType `json:"scaleType,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for VirtualMachineScaleSetSkuCapacity.
+func (vmsssc VirtualMachineScaleSetSkuCapacity) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // VirtualMachineScaleSetsPerformMaintenanceFuture an abstraction for monitoring and retrieving the results
@@ -17041,9 +19148,9 @@ func (future *VirtualMachineScaleSetsStartFuture) result(client VirtualMachineSc
 type VirtualMachineScaleSetStorageProfile struct {
 	// ImageReference - Specifies information about the image to use. You can specify information about platform images, marketplace images, or virtual machine images. This element is required when you want to use a platform image, marketplace image, or virtual machine image, but is not used in other creation operations.
 	ImageReference *ImageReference `json:"imageReference,omitempty"`
-	// OsDisk - Specifies information about the operating system disk used by the virtual machines in the scale set. <br><br> For more information about disks, see [About disks and VHDs for Azure virtual machines](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-windows-about-disks-vhds?toc=%2fazure%2fvirtual-machines%2fwindows%2ftoc.json).
+	// OsDisk - Specifies information about the operating system disk used by the virtual machines in the scale set. <br><br> For more information about disks, see [About disks and VHDs for Azure virtual machines](https://docs.microsoft.com/azure/virtual-machines/managed-disks-overview).
 	OsDisk *VirtualMachineScaleSetOSDisk `json:"osDisk,omitempty"`
-	// DataDisks - Specifies the parameters that are used to add data disks to the virtual machines in the scale set. <br><br> For more information about disks, see [About disks and VHDs for Azure virtual machines](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-windows-about-disks-vhds?toc=%2fazure%2fvirtual-machines%2fwindows%2ftoc.json).
+	// DataDisks - Specifies the parameters that are used to add data disks to the virtual machines in the scale set. <br><br> For more information about disks, see [About disks and VHDs for Azure virtual machines](https://docs.microsoft.com/azure/virtual-machines/managed-disks-overview).
 	DataDisks *[]VirtualMachineScaleSetDataDisk `json:"dataDisks,omitempty"`
 }
 
@@ -17298,7 +19405,7 @@ type VirtualMachineScaleSetUpdateIPConfigurationProperties struct {
 	Primary *bool `json:"primary,omitempty"`
 	// PublicIPAddressConfiguration - The publicIPAddressConfiguration.
 	PublicIPAddressConfiguration *VirtualMachineScaleSetUpdatePublicIPAddressConfiguration `json:"publicIPAddressConfiguration,omitempty"`
-	// PrivateIPAddressVersion - Available from Api-Version 2017-03-30 onwards, it represents whether the specific ipconfiguration is IPv4 or IPv6. Default is taken as IPv4.  Possible values are: 'IPv4' and 'IPv6'. Possible values include: 'IPv4', 'IPv6'
+	// PrivateIPAddressVersion - Available from Api-Version 2017-03-30 onwards, it represents whether the specific ipconfiguration is IPv4 or IPv6. Default is taken as IPv4.  Possible values are: 'IPv4' and 'IPv6'. Possible values include: 'IPVersionIPv4', 'IPVersionIPv6'
 	PrivateIPAddressVersion IPVersion `json:"privateIPAddressVersion,omitempty"`
 	// ApplicationGatewayBackendAddressPools - The application gateway backend address pools.
 	ApplicationGatewayBackendAddressPools *[]SubResource `json:"applicationGatewayBackendAddressPools,omitempty"`
@@ -17395,6 +19502,8 @@ type VirtualMachineScaleSetUpdateNetworkConfigurationProperties struct {
 	IPConfigurations *[]VirtualMachineScaleSetUpdateIPConfiguration `json:"ipConfigurations,omitempty"`
 	// EnableIPForwarding - Whether IP forwarding enabled on this NIC.
 	EnableIPForwarding *bool `json:"enableIPForwarding,omitempty"`
+	// DeleteOption - Specify what happens to the network interface when the VM is deleted. Possible values include: 'DeleteOptionsDelete', 'DeleteOptionsDetach'
+	DeleteOption DeleteOptions `json:"deleteOption,omitempty"`
 }
 
 // VirtualMachineScaleSetUpdateNetworkProfile describes a virtual machine scale set network profile.
@@ -17403,6 +19512,8 @@ type VirtualMachineScaleSetUpdateNetworkProfile struct {
 	HealthProbe *APIEntityReference `json:"healthProbe,omitempty"`
 	// NetworkInterfaceConfigurations - The list of network configurations.
 	NetworkInterfaceConfigurations *[]VirtualMachineScaleSetUpdateNetworkConfiguration `json:"networkInterfaceConfigurations,omitempty"`
+	// NetworkAPIVersion - specifies the Microsoft.Network API version used when creating networking resources in the Network Interface Configurations for Virtual Machine Scale Set with orchestration mode 'Flexible'. Possible values include: 'NetworkAPIVersionTwoZeroTwoZeroHyphenMinusOneOneHyphenMinusZeroOne'
+	NetworkAPIVersion NetworkAPIVersion `json:"networkApiVersion,omitempty"`
 }
 
 // VirtualMachineScaleSetUpdateOSDisk describes virtual machine scale set operating system disk Update
@@ -17516,6 +19627,8 @@ type VirtualMachineScaleSetUpdatePublicIPAddressConfigurationProperties struct {
 	IdleTimeoutInMinutes *int32 `json:"idleTimeoutInMinutes,omitempty"`
 	// DNSSettings - The dns settings to be applied on the publicIP addresses .
 	DNSSettings *VirtualMachineScaleSetPublicIPAddressConfigurationDNSSettings `json:"dnsSettings,omitempty"`
+	// DeleteOption - Specify what happens to the public IP when the VM is deleted. Possible values include: 'DeleteOptionsDelete', 'DeleteOptionsDetach'
+	DeleteOption DeleteOptions `json:"deleteOption,omitempty"`
 }
 
 // VirtualMachineScaleSetUpdateStorageProfile describes a virtual machine scale set storage profile.
@@ -17548,6 +19661,8 @@ type VirtualMachineScaleSetUpdateVMProfile struct {
 	BillingProfile *BillingProfile `json:"billingProfile,omitempty"`
 	// ScheduledEventsProfile - Specifies Scheduled Event related configurations.
 	ScheduledEventsProfile *ScheduledEventsProfile `json:"scheduledEventsProfile,omitempty"`
+	// UserData - UserData for the VM, which must be base-64 encoded. Customer should not pass any secrets in here. <br><br>Minimum api-version: 2021-03-01
+	UserData *string `json:"userData,omitempty"`
 }
 
 // VirtualMachineScaleSetVM describes a virtual machine scale set virtual machine.
@@ -17874,6 +19989,12 @@ type VirtualMachineScaleSetVMExtensionsSummary struct {
 	Name *string `json:"name,omitempty"`
 	// StatusesSummary - READ-ONLY; The extensions information.
 	StatusesSummary *[]VirtualMachineStatusCodeCount `json:"statusesSummary,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for VirtualMachineScaleSetVMExtensionsSummary.
+func (vmssves VirtualMachineScaleSetVMExtensionsSummary) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // VirtualMachineScaleSetVMExtensionsUpdateFuture an abstraction for monitoring and retrieving the results
@@ -18252,14 +20373,16 @@ type VirtualMachineScaleSetVMProfile struct {
 	ExtensionProfile *VirtualMachineScaleSetExtensionProfile `json:"extensionProfile,omitempty"`
 	// LicenseType - Specifies that the image or disk that is being used was licensed on-premises. <br><br> Possible values for Windows Server operating system are: <br><br> Windows_Client <br><br> Windows_Server <br><br> Possible values for Linux Server operating system are: <br><br> RHEL_BYOS (for RHEL) <br><br> SLES_BYOS (for SUSE) <br><br> For more information, see [Azure Hybrid Use Benefit for Windows Server](https://docs.microsoft.com/azure/virtual-machines/windows/hybrid-use-benefit-licensing) <br><br> [Azure Hybrid Use Benefit for Linux Server](https://docs.microsoft.com/azure/virtual-machines/linux/azure-hybrid-benefit-linux) <br><br> Minimum api-version: 2015-06-15
 	LicenseType *string `json:"licenseType,omitempty"`
-	// Priority - Specifies the priority for the virtual machines in the scale set. <br><br>Minimum api-version: 2017-10-30-preview. Possible values include: 'Regular', 'Low', 'Spot'
+	// Priority - Specifies the priority for the virtual machines in the scale set. <br><br>Minimum api-version: 2017-10-30-preview. Possible values include: 'VirtualMachinePriorityTypesRegular', 'VirtualMachinePriorityTypesLow', 'VirtualMachinePriorityTypesSpot'
 	Priority VirtualMachinePriorityTypes `json:"priority,omitempty"`
-	// EvictionPolicy - Specifies the eviction policy for the Azure Spot virtual machine and Azure Spot scale set. <br><br>For Azure Spot virtual machines, both 'Deallocate' and 'Delete' are supported and the minimum api-version is 2019-03-01. <br><br>For Azure Spot scale sets, both 'Deallocate' and 'Delete' are supported and the minimum api-version is 2017-10-30-preview. Possible values include: 'Deallocate', 'Delete'
+	// EvictionPolicy - Specifies the eviction policy for the Azure Spot virtual machine and Azure Spot scale set. <br><br>For Azure Spot virtual machines, both 'Deallocate' and 'Delete' are supported and the minimum api-version is 2019-03-01. <br><br>For Azure Spot scale sets, both 'Deallocate' and 'Delete' are supported and the minimum api-version is 2017-10-30-preview. Possible values include: 'VirtualMachineEvictionPolicyTypesDeallocate', 'VirtualMachineEvictionPolicyTypesDelete'
 	EvictionPolicy VirtualMachineEvictionPolicyTypes `json:"evictionPolicy,omitempty"`
 	// BillingProfile - Specifies the billing related details of a Azure Spot VMSS. <br><br>Minimum api-version: 2019-03-01.
 	BillingProfile *BillingProfile `json:"billingProfile,omitempty"`
 	// ScheduledEventsProfile - Specifies Scheduled Event related configurations.
 	ScheduledEventsProfile *ScheduledEventsProfile `json:"scheduledEventsProfile,omitempty"`
+	// UserData - UserData for the virtual machines in the scale set, which must be base-64 encoded. Customer should not pass any secrets in here. <br><br>Minimum api-version: 2021-03-01
+	UserData *string `json:"userData,omitempty"`
 }
 
 // VirtualMachineScaleSetVMProperties describes the properties of a virtual machine scale set virtual
@@ -18287,7 +20410,7 @@ type VirtualMachineScaleSetVMProperties struct {
 	NetworkProfileConfiguration *VirtualMachineScaleSetVMNetworkProfileConfiguration `json:"networkProfileConfiguration,omitempty"`
 	// DiagnosticsProfile - Specifies the boot diagnostic settings state. <br><br>Minimum api-version: 2015-06-15.
 	DiagnosticsProfile *DiagnosticsProfile `json:"diagnosticsProfile,omitempty"`
-	// AvailabilitySet - Specifies information about the availability set that the virtual machine should be assigned to. Virtual machines specified in the same availability set are allocated to different nodes to maximize availability. For more information about availability sets, see [Manage the availability of virtual machines](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-windows-manage-availability?toc=%2fazure%2fvirtual-machines%2fwindows%2ftoc.json). <br><br> For more information on Azure planned maintenance, see [Planned maintenance for virtual machines in Azure](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-windows-planned-maintenance?toc=%2fazure%2fvirtual-machines%2fwindows%2ftoc.json) <br><br> Currently, a VM can only be added to availability set at creation time. An existing VM cannot be added to an availability set.
+	// AvailabilitySet - Specifies information about the availability set that the virtual machine should be assigned to. Virtual machines specified in the same availability set are allocated to different nodes to maximize availability. For more information about availability sets, see [Availability sets overview](https://docs.microsoft.com/azure/virtual-machines/availability-set-overview). <br><br> For more information on Azure planned maintenance, see [Maintenance and updates for Virtual Machines in Azure](https://docs.microsoft.com/azure/virtual-machines/maintenance-and-updates) <br><br> Currently, a VM can only be added to availability set at creation time. An existing VM cannot be added to an availability set.
 	AvailabilitySet *SubResource `json:"availabilitySet,omitempty"`
 	// ProvisioningState - READ-ONLY; The provisioning state, which only appears in the response.
 	ProvisioningState *string `json:"provisioningState,omitempty"`
@@ -18297,6 +20420,8 @@ type VirtualMachineScaleSetVMProperties struct {
 	ModelDefinitionApplied *string `json:"modelDefinitionApplied,omitempty"`
 	// ProtectionPolicy - Specifies the protection policy of the virtual machine.
 	ProtectionPolicy *VirtualMachineScaleSetVMProtectionPolicy `json:"protectionPolicy,omitempty"`
+	// UserData - UserData for the VM, which must be base-64 encoded. Customer should not pass any secrets in here. <br><br>Minimum api-version: 2021-03-01
+	UserData *string `json:"userData,omitempty"`
 }
 
 // MarshalJSON is the custom marshaler for VirtualMachineScaleSetVMProperties.
@@ -18334,6 +20459,9 @@ func (vmssvp VirtualMachineScaleSetVMProperties) MarshalJSON() ([]byte, error) {
 	}
 	if vmssvp.ProtectionPolicy != nil {
 		objectMap["protectionPolicy"] = vmssvp.ProtectionPolicy
+	}
+	if vmssvp.UserData != nil {
+		objectMap["userData"] = vmssvp.UserData
 	}
 	return json.Marshal(objectMap)
 }
@@ -19138,7 +21266,7 @@ func (future *VirtualMachinesInstallPatchesFuture) result(client VirtualMachines
 type VirtualMachineSize struct {
 	// Name - The name of the virtual machine size.
 	Name *string `json:"name,omitempty"`
-	// NumberOfCores - The number of cores supported by the virtual machine size.
+	// NumberOfCores - The number of cores supported by the virtual machine size. For Constrained vCPU capable VM sizes, this number represents the total vCPUs of quota that the VM uses. For accurate vCPU count, please refer to https://docs.microsoft.com/azure/virtual-machines/constrained-vcpu or https://docs.microsoft.com/rest/api/compute/resourceskus/list
 	NumberOfCores *int32 `json:"numberOfCores,omitempty"`
 	// OsDiskSizeInMB - The OS disk size, in MB, allowed by the virtual machine size.
 	OsDiskSizeInMB *int32 `json:"osDiskSizeInMB,omitempty"`
@@ -19179,6 +21307,12 @@ type VirtualMachineSoftwarePatchProperties struct {
 	LastModifiedDateTime *date.Time `json:"lastModifiedDateTime,omitempty"`
 	// AssessmentState - READ-ONLY; Describes the availability of a given patch. Possible values include: 'PatchAssessmentStateUnknown', 'PatchAssessmentStateAvailable'
 	AssessmentState PatchAssessmentState `json:"assessmentState,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for VirtualMachineSoftwarePatchProperties.
+func (vmspp VirtualMachineSoftwarePatchProperties) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // VirtualMachinesPerformMaintenanceFuture an abstraction for monitoring and retrieving the results of a
@@ -19492,6 +21626,12 @@ type VirtualMachineStatusCodeCount struct {
 	Count *int32 `json:"count,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for VirtualMachineStatusCodeCount.
+func (vmscc VirtualMachineStatusCodeCount) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // VirtualMachinesUpdateFuture an abstraction for monitoring and retrieving the results of a long-running
 // operation.
 type VirtualMachinesUpdateFuture struct {
@@ -19641,7 +21781,7 @@ type WindowsConfiguration struct {
 	ProvisionVMAgent *bool `json:"provisionVMAgent,omitempty"`
 	// EnableAutomaticUpdates - Indicates whether Automatic Updates is enabled for the Windows virtual machine. Default value is true. <br><br> For virtual machine scale sets, this property can be updated and updates will take effect on OS reprovisioning.
 	EnableAutomaticUpdates *bool `json:"enableAutomaticUpdates,omitempty"`
-	// TimeZone - Specifies the time zone of the virtual machine. e.g. "Pacific Standard Time". <br><br> Possible values can be [TimeZoneInfo.Id](https://docs.microsoft.com/en-us/dotnet/api/system.timezoneinfo.id?#System_TimeZoneInfo_Id) value from time zones returned by [TimeZoneInfo.GetSystemTimeZones](https://docs.microsoft.com/en-us/dotnet/api/system.timezoneinfo.getsystemtimezones).
+	// TimeZone - Specifies the time zone of the virtual machine. e.g. "Pacific Standard Time". <br><br> Possible values can be [TimeZoneInfo.Id](https://docs.microsoft.com/dotnet/api/system.timezoneinfo.id?#System_TimeZoneInfo_Id) value from time zones returned by [TimeZoneInfo.GetSystemTimeZones](https://docs.microsoft.com/dotnet/api/system.timezoneinfo.getsystemtimezones).
 	TimeZone *string `json:"timeZone,omitempty"`
 	// AdditionalUnattendContent - Specifies additional base-64 encoded XML formatted information that can be included in the Unattend.xml file, which is used by Windows Setup.
 	AdditionalUnattendContent *[]AdditionalUnattendContent `json:"additionalUnattendContent,omitempty"`
@@ -19673,7 +21813,7 @@ type WinRMConfiguration struct {
 
 // WinRMListener describes Protocol and thumbprint of Windows Remote Management listener
 type WinRMListener struct {
-	// Protocol - Specifies the protocol of WinRM listener. <br><br> Possible values are: <br>**http** <br><br> **https**. Possible values include: 'HTTP', 'HTTPS'
+	// Protocol - Specifies the protocol of WinRM listener. <br><br> Possible values are: <br>**http** <br><br> **https**. Possible values include: 'ProtocolTypesHTTP', 'ProtocolTypesHTTPS'
 	Protocol ProtocolTypes `json:"protocol,omitempty"`
 	// CertificateURL - This is the URL of a certificate that has been uploaded to Key Vault as a secret. For adding a secret to the Key Vault, see [Add a key or secret to the key vault](https://docs.microsoft.com/azure/key-vault/key-vault-get-started/#add). In this case, your certificate needs to be It is the Base64 encoding of the following JSON Object which is encoded in UTF-8: <br><br> {<br>  "data":"<Base64-encoded-certificate>",<br>  "dataType":"pfx",<br>  "password":"<pfx-file-password>"<br>}
 	CertificateURL *string `json:"certificateUrl,omitempty"`

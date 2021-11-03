@@ -73,14 +73,13 @@ type AllocateAddressInput struct {
 	DryRun *bool
 
 	// A unique set of Availability Zones, Local Zones, or Wavelength Zones from which
-	// AWS advertises IP addresses. Use this parameter to limit the IP address to this
-	// location. IP addresses cannot move between network border groups. Use
-	// DescribeAvailabilityZones
+	// Amazon Web Services advertises IP addresses. Use this parameter to limit the IP
+	// address to this location. IP addresses cannot move between network border
+	// groups. Use DescribeAvailabilityZones
 	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeAvailabilityZones.html)
 	// to view the network border groups. You cannot use a network border group with
-	// EC2 Classic. If you attempt this operation on EC2 classic, you will receive an
-	// InvalidParameterCombination error. For more information, see Error Codes
-	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/errors-overview.html).
+	// EC2 Classic. If you attempt this operation on EC2 Classic, you receive an
+	// InvalidParameterCombination error.
 	NetworkBorderGroup *string
 
 	// The ID of an address pool that you own. Use this parameter to let Amazon EC2
@@ -114,8 +113,8 @@ type AllocateAddressOutput struct {
 	// (vpc) or instances in EC2-Classic (standard).
 	Domain types.DomainType
 
-	// The set of Availability Zones, Local Zones, or Wavelength Zones from which AWS
-	// advertises IP addresses.
+	// The set of Availability Zones, Local Zones, or Wavelength Zones from which
+	// Amazon Web Services advertises IP addresses.
 	NetworkBorderGroup *string
 
 	// The Elastic IP address.

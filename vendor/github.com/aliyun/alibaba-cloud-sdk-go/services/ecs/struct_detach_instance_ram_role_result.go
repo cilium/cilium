@@ -17,9 +17,9 @@ package ecs
 
 // DetachInstanceRamRoleResult is a nested struct in ecs response
 type DetachInstanceRamRoleResult struct {
-	InstanceId          string                                     `json:"InstanceId" xml:"InstanceId"`
-	Success             bool                                       `json:"Success" xml:"Success"`
 	Code                string                                     `json:"Code" xml:"Code"`
 	Message             string                                     `json:"Message" xml:"Message"`
+	InstanceId          string                                     `json:"InstanceId" xml:"InstanceId"`
+	Success             bool                                       `json:"Success" xml:"Success"`
 	InstanceRamRoleSets InstanceRamRoleSetsInDetachInstanceRamRole `json:"InstanceRamRoleSets" xml:"InstanceRamRoleSets"`
 }

@@ -17,22 +17,22 @@ package ecs
 
 // PhysicalConnectionType is a nested struct in ecs response
 type PhysicalConnectionType struct {
-	PhysicalConnectionId          string `json:"PhysicalConnectionId" xml:"PhysicalConnectionId"`
-	AccessPointId                 string `json:"AccessPointId" xml:"AccessPointId"`
-	Type                          string `json:"Type" xml:"Type"`
-	Status                        string `json:"Status" xml:"Status"`
-	BusinessStatus                string `json:"BusinessStatus" xml:"BusinessStatus"`
-	CreationTime                  string `json:"CreationTime" xml:"CreationTime"`
-	EnabledTime                   string `json:"EnabledTime" xml:"EnabledTime"`
-	LineOperator                  string `json:"LineOperator" xml:"LineOperator"`
-	Spec                          string `json:"Spec" xml:"Spec"`
-	PeerLocation                  string `json:"PeerLocation" xml:"PeerLocation"`
-	PortType                      string `json:"PortType" xml:"PortType"`
-	RedundantPhysicalConnectionId string `json:"RedundantPhysicalConnectionId" xml:"RedundantPhysicalConnectionId"`
-	Name                          string `json:"Name" xml:"Name"`
-	Description                   string `json:"Description" xml:"Description"`
 	AdLocation                    string `json:"AdLocation" xml:"AdLocation"`
+	CreationTime                  string `json:"CreationTime" xml:"CreationTime"`
+	Status                        string `json:"Status" xml:"Status"`
+	Type                          string `json:"Type" xml:"Type"`
 	PortNumber                    string `json:"PortNumber" xml:"PortNumber"`
 	CircuitCode                   string `json:"CircuitCode" xml:"CircuitCode"`
+	Spec                          string `json:"Spec" xml:"Spec"`
 	Bandwidth                     int64  `json:"Bandwidth" xml:"Bandwidth"`
+	Description                   string `json:"Description" xml:"Description"`
+	PortType                      string `json:"PortType" xml:"PortType"`
+	EnabledTime                   string `json:"EnabledTime" xml:"EnabledTime"`
+	BusinessStatus                string `json:"BusinessStatus" xml:"BusinessStatus"`
+	LineOperator                  string `json:"LineOperator" xml:"LineOperator"`
+	Name                          string `json:"Name" xml:"Name"`
+	RedundantPhysicalConnectionId string `json:"RedundantPhysicalConnectionId" xml:"RedundantPhysicalConnectionId"`
+	PeerLocation                  string `json:"PeerLocation" xml:"PeerLocation"`
+	AccessPointId                 string `json:"AccessPointId" xml:"AccessPointId"`
+	PhysicalConnectionId          string `json:"PhysicalConnectionId" xml:"PhysicalConnectionId"`
 }

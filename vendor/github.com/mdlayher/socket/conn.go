@@ -10,7 +10,7 @@ import (
 )
 
 // A Conn is a low-level network connection which integrates with Go's runtime
-// network poller to provide synchronous I/O and deadline support.
+// network poller to provide asynchronous I/O and deadline support.
 type Conn struct {
 	// Indicates whether or not Conn.Close has been called. Must be accessed
 	// atomically. Atomics definitions must come first in the Conn struct.
@@ -352,6 +352,27 @@ func (c *Conn) Recvmsg(p, oob []byte, flags int) (int, int, int, unix.Sockaddr, 
 	return n, oobn, recvflags, from, os.NewSyscallError(op, err)
 }
 
+// Recvfrom wraps recvfrom(2)
+func (c *Conn) Recvfrom(p []byte, flags int) (int, unix.Sockaddr, error) {
+	const op = "recvfrom"
+
+	var (
+		n    int
+		addr unix.Sockaddr
+		err  error
+	)
+
+	doErr := c.read(op, func(fd int) error {
+		n, addr, err = unix.Recvfrom(fd, p, flags)
+		return err
+	})
+	if doErr != nil {
+		return 0, nil, doErr
+	}
+
+	return n, addr, os.NewSyscallError(op, err)
+}
+
 // Sendmsg wraps sendmsg(2).
 func (c *Conn) Sendmsg(p, oob []byte, to unix.Sockaddr, flags int) error {
 	const op = "sendmsg"
@@ -359,6 +380,22 @@ func (c *Conn) Sendmsg(p, oob []byte, to unix.Sockaddr, flags int) error {
 	var err error
 	doErr := c.write(op, func(fd int) error {
 		err = unix.Sendmsg(fd, p, oob, to, flags)
+		return err
+	})
+	if doErr != nil {
+		return doErr
+	}
+
+	return os.NewSyscallError(op, err)
+}
+
+// Sendto wraps Sendto(2).
+func (c *Conn) Sendto(b []byte, to unix.Sockaddr, flags int) error {
+	const op = "sendto"
+
+	var err error
+	doErr := c.write(op, func(fd int) error {
+		err = unix.Sendto(fd, b, flags, to)
 		return err
 	})
 	if doErr != nil {

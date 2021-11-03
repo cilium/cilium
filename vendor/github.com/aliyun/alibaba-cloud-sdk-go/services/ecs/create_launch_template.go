@@ -107,8 +107,8 @@ type CreateLaunchTemplateRequest struct {
 	InstanceType                 string                                  `position:"Query" name:"InstanceType"`
 	InstanceChargeType           string                                  `position:"Query" name:"InstanceChargeType"`
 	EnableVmOsConfig             requests.Boolean                        `position:"Query" name:"EnableVmOsConfig"`
-	NetworkInterface             *[]CreateLaunchTemplateNetworkInterface `position:"Query" name:"NetworkInterface"  type:"Repeated"`
 	DeploymentSetId              string                                  `position:"Query" name:"DeploymentSetId"`
+	NetworkInterface             *[]CreateLaunchTemplateNetworkInterface `position:"Query" name:"NetworkInterface"  type:"Repeated"`
 	ResourceOwnerAccount         string                                  `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount                 string                                  `position:"Query" name:"OwnerAccount"`
 	SystemDiskDiskName           string                                  `position:"Query" name:"SystemDisk.DiskName"`
@@ -136,32 +136,32 @@ type CreateLaunchTemplateTag struct {
 
 // CreateLaunchTemplateNetworkInterface is a repeated param struct in CreateLaunchTemplateRequest
 type CreateLaunchTemplateNetworkInterface struct {
-	PrimaryIpAddress     string    `name:"PrimaryIpAddress"`
 	VSwitchId            string    `name:"VSwitchId"`
-	SecurityGroupId      string    `name:"SecurityGroupId"`
 	NetworkInterfaceName string    `name:"NetworkInterfaceName"`
 	Description          string    `name:"Description"`
+	SecurityGroupId      string    `name:"SecurityGroupId"`
+	PrimaryIpAddress     string    `name:"PrimaryIpAddress"`
 	SecurityGroupIds     *[]string `name:"SecurityGroupIds" type:"Repeated"`
 }
 
 // CreateLaunchTemplateDataDisk is a repeated param struct in CreateLaunchTemplateRequest
 type CreateLaunchTemplateDataDisk struct {
-	Size               string `name:"Size"`
-	SnapshotId         string `name:"SnapshotId"`
-	Category           string `name:"Category"`
-	Encrypted          string `name:"Encrypted"`
-	DiskName           string `name:"DiskName"`
-	Description        string `name:"Description"`
-	DeleteWithInstance string `name:"DeleteWithInstance"`
-	Device             string `name:"Device"`
 	PerformanceLevel   string `name:"PerformanceLevel"`
+	Description        string `name:"Description"`
+	SnapshotId         string `name:"SnapshotId"`
+	Size               string `name:"Size"`
+	Device             string `name:"Device"`
+	DiskName           string `name:"DiskName"`
+	Category           string `name:"Category"`
+	DeleteWithInstance string `name:"DeleteWithInstance"`
+	Encrypted          string `name:"Encrypted"`
 }
 
 // CreateLaunchTemplateResponse is the response struct for api CreateLaunchTemplate
 type CreateLaunchTemplateResponse struct {
 	*responses.BaseResponse
-	RequestId        string `json:"RequestId" xml:"RequestId"`
 	LaunchTemplateId string `json:"LaunchTemplateId" xml:"LaunchTemplateId"`
+	RequestId        string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateCreateLaunchTemplateRequest creates a request to invoke CreateLaunchTemplate API

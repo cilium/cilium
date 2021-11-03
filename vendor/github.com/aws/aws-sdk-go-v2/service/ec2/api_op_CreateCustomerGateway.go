@@ -11,31 +11,32 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Provides information to AWS about your VPN customer gateway device. The customer
-// gateway is the appliance at your end of the VPN connection. (The device on the
-// AWS side of the VPN connection is the virtual private gateway.) You must provide
-// the internet-routable IP address of the customer gateway's external interface.
-// The IP address must be static and can be behind a device performing network
-// address translation (NAT). For devices that use Border Gateway Protocol (BGP),
-// you can also provide the device's BGP Autonomous System Number (ASN). You can
-// use an existing ASN assigned to your network. If you don't have an ASN already,
-// you can use a private ASN (in the 64512 - 65534 range). Amazon EC2 supports all
-// 4-byte ASN numbers in the range of 1 - 2147483647, with the exception of the
-// following:
+// Provides information to Amazon Web Services about your VPN customer gateway
+// device. The customer gateway is the appliance at your end of the VPN connection.
+// (The device on the Amazon Web Services side of the VPN connection is the virtual
+// private gateway.) You must provide the internet-routable IP address of the
+// customer gateway's external interface. The IP address must be static and can be
+// behind a device performing network address translation (NAT). For devices that
+// use Border Gateway Protocol (BGP), you can also provide the device's BGP
+// Autonomous System Number (ASN). You can use an existing ASN assigned to your
+// network. If you don't have an ASN already, you can use a private ASN (in the
+// 64512 - 65534 range). Amazon EC2 supports all 4-byte ASN numbers in the range of
+// 1 - 2147483647, with the exception of the following:
 //
-// * 7224 - reserved in the us-east-1 Region
+// * 7224 - reserved in the
+// us-east-1 Region
 //
-// * 9059 - reserved in the
-// eu-west-1 Region
+// * 9059 - reserved in the eu-west-1 Region
 //
-// * 17943 - reserved in the ap-southeast-1 Region
+// * 17943 - reserved
+// in the ap-southeast-1 Region
 //
-// * 10124 -
-// reserved in the ap-northeast-1 Region
+// * 10124 - reserved in the ap-northeast-1
+// Region
 //
-// For more information, see AWS
-// Site-to-Site VPN (https://docs.aws.amazon.com/vpn/latest/s2svpn/VPC_VPN.html) in
-// the AWS Site-to-Site VPN User Guide. To create more than one customer gateway
+// For more information, see Amazon Web Services Site-to-Site VPN
+// (https://docs.aws.amazon.com/vpn/latest/s2svpn/VPC_VPN.html) in the Amazon Web
+// Services Site-to-Site VPN User Guide. To create more than one customer gateway
 // with the same VPN type, IP address, and BGP ASN, specify a unique device name
 // for each customer gateway. Identical requests return information about the
 // existing customer gateway and do not create new customer gateways.

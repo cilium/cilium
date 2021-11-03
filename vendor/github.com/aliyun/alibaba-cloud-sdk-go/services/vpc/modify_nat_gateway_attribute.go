@@ -71,13 +71,16 @@ func (client *Client) ModifyNatGatewayAttributeWithCallback(request *ModifyNatGa
 // ModifyNatGatewayAttributeRequest is the request struct for api ModifyNatGatewayAttribute
 type ModifyNatGatewayAttributeRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	Description          string           `position:"Query" name:"Description"`
-	NatGatewayId         string           `position:"Query" name:"NatGatewayId"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	Name                 string           `position:"Query" name:"Name"`
+	ResourceOwnerId           requests.Integer `position:"Query" name:"ResourceOwnerId"`
+	SecurityProtectionEnabled requests.Boolean `position:"Query" name:"SecurityProtectionEnabled"`
+	Description               string           `position:"Query" name:"Description"`
+	IcmpReplyEnabled          requests.Boolean `position:"Query" name:"IcmpReplyEnabled"`
+	NatGatewayId              string           `position:"Query" name:"NatGatewayId"`
+	ResourceOwnerAccount      string           `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount              string           `position:"Query" name:"OwnerAccount"`
+	PrivateLinkMode           string           `position:"Query" name:"PrivateLinkMode"`
+	OwnerId                   requests.Integer `position:"Query" name:"OwnerId"`
+	Name                      string           `position:"Query" name:"Name"`
 }
 
 // ModifyNatGatewayAttributeResponse is the response struct for api ModifyNatGatewayAttribute

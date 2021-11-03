@@ -18,24 +18,24 @@ package ecs
 // InstanceType is a nested struct in ecs response
 type InstanceType struct {
 	MemorySize                  float64 `json:"MemorySize" xml:"MemorySize"`
-	EniPrivateIpAddressQuantity int     `json:"EniPrivateIpAddressQuantity" xml:"EniPrivateIpAddressQuantity"`
 	InstancePpsRx               int64   `json:"InstancePpsRx" xml:"InstancePpsRx"`
 	EriQuantity                 int     `json:"EriQuantity" xml:"EriQuantity"`
+	EniPrivateIpAddressQuantity int     `json:"EniPrivateIpAddressQuantity" xml:"EniPrivateIpAddressQuantity"`
 	CpuCoreCount                int     `json:"CpuCoreCount" xml:"CpuCoreCount"`
 	EniTotalQuantity            int     `json:"EniTotalQuantity" xml:"EniTotalQuantity"`
 	Cores                       int     `json:"Cores" xml:"Cores"`
 	InstanceTypeId              string  `json:"InstanceTypeId" xml:"InstanceTypeId"`
 	InstanceBandwidthRx         int     `json:"InstanceBandwidthRx" xml:"InstanceBandwidthRx"`
 	InstanceType                string  `json:"InstanceType" xml:"InstanceType"`
-	EniQuantity                 int     `json:"EniQuantity" xml:"EniQuantity"`
 	QueuePairNumber             int     `json:"QueuePairNumber" xml:"QueuePairNumber"`
+	EniQuantity                 int     `json:"EniQuantity" xml:"EniQuantity"`
 	Generation                  string  `json:"Generation" xml:"Generation"`
 	SupportIoOptimized          string  `json:"SupportIoOptimized" xml:"SupportIoOptimized"`
 	InstanceTypeFamily          string  `json:"InstanceTypeFamily" xml:"InstanceTypeFamily"`
 	InitialCredit               int     `json:"InitialCredit" xml:"InitialCredit"`
 	InstancePpsTx               int64   `json:"InstancePpsTx" xml:"InstancePpsTx"`
-	LocalStorageAmount          int     `json:"LocalStorageAmount" xml:"LocalStorageAmount"`
 	InstanceFamilyLevel         string  `json:"InstanceFamilyLevel" xml:"InstanceFamilyLevel"`
+	LocalStorageAmount          int     `json:"LocalStorageAmount" xml:"LocalStorageAmount"`
 	TotalEniQueueQuantity       int     `json:"TotalEniQueueQuantity" xml:"TotalEniQueueQuantity"`
 	GPUSpec                     string  `json:"GPUSpec" xml:"GPUSpec"`
 	SecondaryEniQueueNumber     int     `json:"SecondaryEniQueueNumber" xml:"SecondaryEniQueueNumber"`

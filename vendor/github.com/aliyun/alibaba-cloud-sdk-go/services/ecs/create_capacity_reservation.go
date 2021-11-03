@@ -107,8 +107,8 @@ type CreateCapacityReservationTag struct {
 // CreateCapacityReservationResponse is the response struct for api CreateCapacityReservation
 type CreateCapacityReservationResponse struct {
 	*responses.BaseResponse
-	RequestId            string `json:"RequestId" xml:"RequestId"`
 	PrivatePoolOptionsId string `json:"PrivatePoolOptionsId" xml:"PrivatePoolOptionsId"`
+	RequestId            string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateCreateCapacityReservationRequest creates a request to invoke CreateCapacityReservation API

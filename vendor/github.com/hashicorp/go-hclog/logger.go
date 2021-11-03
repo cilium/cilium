@@ -5,7 +5,6 @@ import (
 	"log"
 	"os"
 	"strings"
-	"sync"
 )
 
 var (
@@ -39,6 +38,9 @@ const (
 
 	// Error information about unrecoverable events.
 	Error Level = 5
+
+	// Off disables all logging output.
+	Off Level = 6
 )
 
 // Format is a simple convience type for when formatting is required. When
@@ -52,6 +54,24 @@ type Format []interface{}
 func Fmt(str string, args ...interface{}) Format {
 	return append(Format{str}, args...)
 }
+
+// A simple shortcut to format numbers in hex when displayed with the normal
+// text output. For example: L.Info("header value", Hex(17))
+type Hex int
+
+// A simple shortcut to format numbers in octal when displayed with the normal
+// text output. For example: L.Info("perms", Octal(17))
+type Octal int
+
+// A simple shortcut to format numbers in binary when displayed with the normal
+// text output. For example: L.Info("bits", Binary(17))
+type Binary int
+
+// A simple shortcut to format strings with Go quoting. Control and
+// non-printable characters will be escaped with their backslash equivalents in
+// output. Intended for untrusted or multiline strings which should be logged
+// as concisely as possible.
+type Quote string
 
 // ColorOption expresses how the output should be colored, if at all.
 type ColorOption uint8
@@ -85,8 +105,31 @@ func LevelFromString(levelStr string) Level {
 		return Warn
 	case "error":
 		return Error
+	case "off":
+		return Off
 	default:
 		return NoLevel
+	}
+}
+
+func (l Level) String() string {
+	switch l {
+	case Trace:
+		return "trace"
+	case Debug:
+		return "debug"
+	case Info:
+		return "info"
+	case Warn:
+		return "warn"
+	case Error:
+		return "error"
+	case NoLevel:
+		return "none"
+	case Off:
+		return "off"
+	default:
+		return "unknown"
 	}
 }
 
@@ -149,7 +192,8 @@ type Logger interface {
 	// the current name as well.
 	ResetNamed(name string) Logger
 
-	// Updates the level. This should affect all sub-loggers as well. If an
+	// Updates the level. This should affect all related loggers as well,
+	// unless they were created with IndependentLevels. If an
 	// implementation cannot update the level on the fly, it should no-op.
 	SetLevel(level Level)
 
@@ -186,8 +230,10 @@ type LoggerOptions struct {
 	// Where to write the logs to. Defaults to os.Stderr if nil
 	Output io.Writer
 
-	// An optional mutex pointer in case Output is shared
-	Mutex *sync.Mutex
+	// An optional Locker in case Output is shared. This can be a sync.Mutex or
+	// a NoopLocker if the caller wants control over output, e.g. for batching
+	// log lines.
+	Mutex Locker
 
 	// Control if the output should be in JSON.
 	JSONFormat bool
@@ -195,12 +241,32 @@ type LoggerOptions struct {
 	// Include file and line information in each log line
 	IncludeLocation bool
 
+	// AdditionalLocationOffset is the number of additional stack levels to skip
+	// when finding the file and line information for the log line
+	AdditionalLocationOffset int
+
 	// The time format to use instead of the default
 	TimeFormat string
+
+	// Control whether or not to display the time at all. This is required
+	// because setting TimeFormat to empty assumes the default format.
+	DisableTime bool
 
 	// Color the output. On Windows, colored logs are only avaiable for io.Writers that
 	// are concretely instances of *os.File.
 	Color ColorOption
+
+	// A function which is called with the log information and if it returns true the value
+	// should not be logged.
+	// This is useful when interacting with a system that you wish to suppress the log
+	// message for (because it's too noisy, etc)
+	Exclude func(level Level, msg string, args ...interface{}) bool
+
+	// IndependentLevels causes subloggers to be created with an independent
+	// copy of this logger's level. This means that using SetLevel on this
+	// logger will not effect any subloggers, and SetLevel on any subloggers
+	// will not effect the parent or sibling loggers.
+	IndependentLevels bool
 }
 
 // InterceptLogger describes the interface for using a logger
@@ -229,10 +295,10 @@ type InterceptLogger interface {
 	// the current name as well.
 	ResetNamedIntercept(name string) InterceptLogger
 
-	// Return a value that conforms to the stdlib log.Logger interface
+	// Deprecated: use StandardLogger
 	StandardLoggerIntercept(opts *StandardLoggerOptions) *log.Logger
 
-	// Return a value that conforms to io.Writer, which can be passed into log.SetOutput()
+	// Deprecated: use StandardWriter
 	StandardWriterIntercept(opts *StandardLoggerOptions) io.Writer
 }
 
@@ -260,3 +326,26 @@ type OutputResettable interface {
 	// given in opts will be used for the new output.
 	ResetOutputWithFlush(opts *LoggerOptions, flushable Flushable) error
 }
+
+// Locker is used for locking output. If not set when creating a logger, a
+// sync.Mutex will be used internally.
+type Locker interface {
+	// Lock is called when the output is going to be changed or written to
+	Lock()
+
+	// Unlock is called when the operation that called Lock() completes
+	Unlock()
+}
+
+// NoopLocker implements locker but does nothing. This is useful if the client
+// wants tight control over locking, in order to provide grouping of log
+// entries or other functionality.
+type NoopLocker struct{}
+
+// Lock does nothing
+func (n NoopLocker) Lock() {}
+
+// Unlock does nothing
+func (n NoopLocker) Unlock() {}
+
+var _ Locker = (*NoopLocker)(nil)

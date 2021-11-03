@@ -17,11 +17,11 @@ package ecs
 
 // StorageSet is a nested struct in ecs response
 type StorageSet struct {
-	StorageSetId              string `json:"StorageSetId" xml:"StorageSetId"`
 	CreationTime              string `json:"CreationTime" xml:"CreationTime"`
-	StorageSetName            string `json:"StorageSetName" xml:"StorageSetName"`
 	Description               string `json:"Description" xml:"Description"`
-	StorageSetPartitionNumber int    `json:"StorageSetPartitionNumber" xml:"StorageSetPartitionNumber"`
-	RegionId                  string `json:"RegionId" xml:"RegionId"`
 	ZoneId                    string `json:"ZoneId" xml:"ZoneId"`
+	StorageSetId              string `json:"StorageSetId" xml:"StorageSetId"`
+	StorageSetPartitionNumber int    `json:"StorageSetPartitionNumber" xml:"StorageSetPartitionNumber"`
+	StorageSetName            string `json:"StorageSetName" xml:"StorageSetName"`
+	RegionId                  string `json:"RegionId" xml:"RegionId"`
 }

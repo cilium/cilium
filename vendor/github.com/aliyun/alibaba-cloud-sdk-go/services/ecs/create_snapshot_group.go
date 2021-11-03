@@ -71,16 +71,25 @@ func (client *Client) CreateSnapshotGroupWithCallback(request *CreateSnapshotGro
 // CreateSnapshotGroupRequest is the request struct for api CreateSnapshotGroup
 type CreateSnapshotGroupRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId            requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	InstantAccess              requests.Boolean `position:"Query" name:"InstantAccess"`
-	ExcludeDiskId              *[]string        `position:"Query" name:"ExcludeDiskId"  type:"Repeated"`
-	Description                string           `position:"Query" name:"Description"`
-	InstantAccessRetentionDays requests.Integer `position:"Query" name:"InstantAccessRetentionDays"`
-	ResourceOwnerAccount       string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount               string           `position:"Query" name:"OwnerAccount"`
-	OwnerId                    requests.Integer `position:"Query" name:"OwnerId"`
-	InstanceId                 string           `position:"Query" name:"InstanceId"`
-	Name                       string           `position:"Query" name:"Name"`
+	ResourceOwnerId            requests.Integer          `position:"Query" name:"ResourceOwnerId"`
+	InstantAccess              requests.Boolean          `position:"Query" name:"InstantAccess"`
+	ExcludeDiskId              *[]string                 `position:"Query" name:"ExcludeDiskId"  type:"Repeated"`
+	Description                string                    `position:"Query" name:"Description"`
+	ResourceGroupId            string                    `position:"Query" name:"ResourceGroupId"`
+	InstantAccessRetentionDays requests.Integer          `position:"Query" name:"InstantAccessRetentionDays"`
+	DiskId                     *[]string                 `position:"Query" name:"DiskId"  type:"Repeated"`
+	Tag                        *[]CreateSnapshotGroupTag `position:"Query" name:"Tag"  type:"Repeated"`
+	ResourceOwnerAccount       string                    `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount               string                    `position:"Query" name:"OwnerAccount"`
+	OwnerId                    requests.Integer          `position:"Query" name:"OwnerId"`
+	InstanceId                 string                    `position:"Query" name:"InstanceId"`
+	Name                       string                    `position:"Query" name:"Name"`
+}
+
+// CreateSnapshotGroupTag is a repeated param struct in CreateSnapshotGroupRequest
+type CreateSnapshotGroupTag struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // CreateSnapshotGroupResponse is the response struct for api CreateSnapshotGroup

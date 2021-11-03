@@ -2,12 +2,13 @@ package sdk
 
 import (
 	"encoding/json"
-	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/utils"
 	"io"
 	"log"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/utils"
 )
 
 var logChannel string

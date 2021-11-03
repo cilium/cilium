@@ -153,6 +153,7 @@ func (h *Handle) LinkSetAllmulticastOn(link Link) error {
 	msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
 	msg.Change = unix.IFF_ALLMULTI
 	msg.Flags = unix.IFF_ALLMULTI
+
 	msg.Index = int32(base.Index)
 	req.AddData(msg)
 
@@ -1408,10 +1409,6 @@ func (h *Handle) linkModify(link Link, flags int) error {
 		data := linkInfo.AddRtAttr(nl.IFLA_INFO_DATA, nil)
 		data.AddRtAttr(nl.IFLA_IPVLAN_MODE, nl.Uint16Attr(uint16(link.Mode)))
 		data.AddRtAttr(nl.IFLA_IPVLAN_FLAG, nl.Uint16Attr(uint16(link.Flag)))
-	case *IPVtap:
-		data := linkInfo.AddRtAttr(nl.IFLA_INFO_DATA, nil)
-		data.AddRtAttr(nl.IFLA_IPVLAN_MODE, nl.Uint16Attr(uint16(link.Mode)))
-		data.AddRtAttr(nl.IFLA_IPVLAN_FLAG, nl.Uint16Attr(uint16(link.Flag)))
 	case *Macvlan:
 		if link.Mode != MACVLAN_MODE_DEFAULT {
 			data := linkInfo.AddRtAttr(nl.IFLA_INFO_DATA, nil)
@@ -1627,7 +1624,7 @@ func execGetLink(req *nl.NetlinkRequest) (Link, error) {
 	}
 }
 
-// LinkDeserialize deserializes a raw message received from netlink into
+// linkDeserialize deserializes a raw message received from netlink into
 // a link object.
 func LinkDeserialize(hdr *unix.NlMsghdr, m []byte) (Link, error) {
 	msg := nl.DeserializeIfInfomsg(m)
@@ -1644,9 +1641,6 @@ func LinkDeserialize(hdr *unix.NlMsghdr, m []byte) (Link, error) {
 	base.EncapType = msg.EncapType()
 	if msg.Flags&unix.IFF_PROMISC != 0 {
 		base.Promisc = 1
-	}
-	if msg.Flags&unix.IFF_ALLMULTI != 0 {
-		base.Allmulti = 1
 	}
 	var (
 		link      Link
@@ -1686,8 +1680,6 @@ func LinkDeserialize(hdr *unix.NlMsghdr, m []byte) (Link, error) {
 						link = &Bond{}
 					case "ipvlan":
 						link = &IPVlan{}
-					case "ipvtap":
-						link = &IPVtap{}
 					case "macvlan":
 						link = &Macvlan{}
 					case "macvtap":
@@ -1739,8 +1731,6 @@ func LinkDeserialize(hdr *unix.NlMsghdr, m []byte) (Link, error) {
 						parseBondData(link, data)
 					case "ipvlan":
 						parseIPVlanData(link, data)
-					case "ipvtap":
-						parseIPVtapData(link, data)
 					case "macvlan":
 						parseMacvlanData(link, data)
 					case "macvtap":
@@ -1783,10 +1773,7 @@ func LinkDeserialize(hdr *unix.NlMsghdr, m []byte) (Link, error) {
 					switch slaveType {
 					case "bond":
 						linkSlave = &BondSlave{}
-					case "vrf":
-						linkSlave = &VrfSlave{}
 					}
-
 				case nl.IFLA_INFO_SLAVE_DATA:
 					switch slaveType {
 					case "bond":
@@ -1795,12 +1782,6 @@ func LinkDeserialize(hdr *unix.NlMsghdr, m []byte) (Link, error) {
 							return nil, err
 						}
 						parseBondSlaveData(linkSlave, data)
-					case "vrf":
-						data, err := nl.ParseRouteAttr(info.Value)
-						if err != nil {
-							return nil, err
-						}
-						parseVrfSlaveData(linkSlave, data)
 					}
 				}
 			}
@@ -2057,6 +2038,7 @@ func linkSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- LinkUpdate, done <-c
 					continue
 				}
 				if m.Header.Type == unix.NLMSG_ERROR {
+					native := nl.NativeEndian()
 					error := int32(native.Uint32(m.Data[0:4]))
 					if error == 0 {
 						continue
@@ -2422,30 +2404,8 @@ func parseBondSlaveData(slave LinkSlave, data []syscall.NetlinkRouteAttr) {
 	}
 }
 
-func parseVrfSlaveData(slave LinkSlave, data []syscall.NetlinkRouteAttr) {
-	vrfSlave := slave.(*VrfSlave)
-	for i := range data {
-		switch data[i].Attr.Type {
-		case nl.IFLA_BOND_SLAVE_STATE:
-			vrfSlave.Table = native.Uint32(data[i].Value[0:4])
-		}
-	}
-}
-
 func parseIPVlanData(link Link, data []syscall.NetlinkRouteAttr) {
 	ipv := link.(*IPVlan)
-	for _, datum := range data {
-		switch datum.Attr.Type {
-		case nl.IFLA_IPVLAN_MODE:
-			ipv.Mode = IPVlanMode(native.Uint32(datum.Value[0:4]))
-		case nl.IFLA_IPVLAN_FLAG:
-			ipv.Flag = IPVlanFlag(native.Uint32(datum.Value[0:4]))
-		}
-	}
-}
-
-func parseIPVtapData(link Link, data []syscall.NetlinkRouteAttr) {
-	ipv := link.(*IPVtap)
 	for _, datum := range data {
 		switch datum.Attr.Type {
 		case nl.IFLA_IPVLAN_MODE:
@@ -2796,10 +2756,6 @@ func addIptunAttrs(iptun *Iptun, linkInfo *nl.RtAttr) {
 func parseIptunData(link Link, data []syscall.NetlinkRouteAttr) {
 	iptun := link.(*Iptun)
 	for _, datum := range data {
-		// NOTE: same with vxlan, ip tunnel may also has null datum.Value
-		if len(datum.Value) == 0 {
-			continue
-		}
 		switch datum.Attr.Type {
 		case nl.IFLA_IPTUN_LOCAL:
 			iptun.Local = net.IP(datum.Value[0:4])

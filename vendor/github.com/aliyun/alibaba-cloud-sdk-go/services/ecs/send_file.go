@@ -91,8 +91,8 @@ type SendFileRequest struct {
 // SendFileResponse is the response struct for api SendFile
 type SendFileResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
 	InvokeId  string `json:"InvokeId" xml:"InvokeId"`
+	RequestId string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateSendFileRequest creates a request to invoke SendFile API

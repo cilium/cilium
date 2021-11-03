@@ -208,6 +208,7 @@ loop:
 			case unix.NLMSG_DONE:
 				break loop
 			case unix.NLMSG_ERROR:
+				native := nl.NativeEndian()
 				error := int32(native.Uint32(m.Data[0:4]))
 				return nil, syscall.Errno(-error)
 			}

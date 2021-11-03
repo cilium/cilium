@@ -63,6 +63,8 @@ func (client VirtualHubIPConfigurationClient) CreateOrUpdate(ctx context.Context
 								Chain: []validation.Constraint{{Target: "parameters.HubIPConfigurationPropertiesFormat.PublicIPAddress.PublicIPAddressPropertiesFormat.IPConfiguration.IPConfigurationPropertiesFormat", Name: validation.Null, Rule: false,
 									Chain: []validation.Constraint{{Target: "parameters.HubIPConfigurationPropertiesFormat.PublicIPAddress.PublicIPAddressPropertiesFormat.IPConfiguration.IPConfigurationPropertiesFormat.PublicIPAddress", Name: validation.Null, Rule: false, Chain: nil}}},
 								}},
+								{Target: "parameters.HubIPConfigurationPropertiesFormat.PublicIPAddress.PublicIPAddressPropertiesFormat.ServicePublicIPAddress", Name: validation.Null, Rule: false, Chain: nil},
+								{Target: "parameters.HubIPConfigurationPropertiesFormat.PublicIPAddress.PublicIPAddressPropertiesFormat.LinkedPublicIPAddress", Name: validation.Null, Rule: false, Chain: nil},
 							}},
 					}},
 				}}}}}); err != nil {
@@ -77,7 +79,7 @@ func (client VirtualHubIPConfigurationClient) CreateOrUpdate(ctx context.Context
 
 	result, err = client.CreateOrUpdateSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.VirtualHubIPConfigurationClient", "CreateOrUpdate", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.VirtualHubIPConfigurationClient", "CreateOrUpdate", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -114,6 +116,7 @@ func (client VirtualHubIPConfigurationClient) CreateOrUpdatePreparer(ctx context
 // http.Response Body if it receives an error.
 func (client VirtualHubIPConfigurationClient) CreateOrUpdateSender(req *http.Request) (future VirtualHubIPConfigurationCreateOrUpdateFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
@@ -161,7 +164,7 @@ func (client VirtualHubIPConfigurationClient) Delete(ctx context.Context, resour
 
 	result, err = client.DeleteSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.VirtualHubIPConfigurationClient", "Delete", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.VirtualHubIPConfigurationClient", "Delete", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -194,6 +197,7 @@ func (client VirtualHubIPConfigurationClient) DeletePreparer(ctx context.Context
 // http.Response Body if it receives an error.
 func (client VirtualHubIPConfigurationClient) DeleteSender(req *http.Request) (future VirtualHubIPConfigurationDeleteFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return

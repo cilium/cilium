@@ -86,8 +86,8 @@ type DescribeReservedInstancesRequest struct {
 	OfferingType         string                          `position:"Query" name:"OfferingType"`
 	ZoneId               string                          `position:"Query" name:"ZoneId"`
 	ReservedInstanceName string                          `position:"Query" name:"ReservedInstanceName"`
-	Status               *[]string                       `position:"Query" name:"Status"  type:"Repeated"`
 	AllocationType       string                          `position:"Query" name:"AllocationType"`
+	Status               *[]string                       `position:"Query" name:"Status"  type:"Repeated"`
 }
 
 // DescribeReservedInstancesTag is a repeated param struct in DescribeReservedInstancesRequest
@@ -99,10 +99,10 @@ type DescribeReservedInstancesTag struct {
 // DescribeReservedInstancesResponse is the response struct for api DescribeReservedInstances
 type DescribeReservedInstancesResponse struct {
 	*responses.BaseResponse
-	RequestId         string            `json:"RequestId" xml:"RequestId"`
-	TotalCount        int               `json:"TotalCount" xml:"TotalCount"`
-	PageNumber        int               `json:"PageNumber" xml:"PageNumber"`
 	PageSize          int               `json:"PageSize" xml:"PageSize"`
+	RequestId         string            `json:"RequestId" xml:"RequestId"`
+	PageNumber        int               `json:"PageNumber" xml:"PageNumber"`
+	TotalCount        int               `json:"TotalCount" xml:"TotalCount"`
 	ReservedInstances ReservedInstances `json:"ReservedInstances" xml:"ReservedInstances"`
 }
 

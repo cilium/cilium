@@ -75,11 +75,11 @@ type CreateDedicatedBlockStorageClusterRequest struct {
 	DedicatedBlockStorageClusterName string           `position:"Query" name:"DedicatedBlockStorageClusterName"`
 	ClientToken                      string           `position:"Query" name:"ClientToken"`
 	Description                      string           `position:"Query" name:"Description"`
+	Type                             string           `position:"Query" name:"Type"`
 	Capacity                         requests.Integer `position:"Query" name:"Capacity"`
 	Period                           requests.Integer `position:"Query" name:"Period"`
 	FromApp                          string           `position:"Query" name:"FromApp"`
 	ResourceOwnerAccount             string           `position:"Query" name:"ResourceOwnerAccount"`
-	PerformanceLevel                 string           `position:"Query" name:"PerformanceLevel"`
 	OwnerAccount                     string           `position:"Query" name:"OwnerAccount"`
 	OwnerId                          requests.Integer `position:"Query" name:"OwnerId"`
 	PeriodUnit                       string           `position:"Query" name:"PeriodUnit"`
@@ -90,8 +90,8 @@ type CreateDedicatedBlockStorageClusterRequest struct {
 // CreateDedicatedBlockStorageClusterResponse is the response struct for api CreateDedicatedBlockStorageCluster
 type CreateDedicatedBlockStorageClusterResponse struct {
 	*responses.BaseResponse
-	RequestId                           string `json:"RequestId" xml:"RequestId"`
 	DedicatedBlockStorageClusterOrderId string `json:"DedicatedBlockStorageClusterOrderId" xml:"DedicatedBlockStorageClusterOrderId"`
+	RequestId                           string `json:"RequestId" xml:"RequestId"`
 	DedicatedBlockStorageClusterId      string `json:"DedicatedBlockStorageClusterId" xml:"DedicatedBlockStorageClusterId"`
 }
 

@@ -12,11 +12,13 @@ import (
 )
 
 // Describes the Regions that are enabled for your account, or all Regions. For a
-// list of the Regions supported by Amazon EC2, see  Regions and Endpoints
-// (https://docs.aws.amazon.com/general/latest/gr/rande.html#ec2_region). For
+// list of the Regions supported by Amazon EC2, see  Amazon Elastic Compute Cloud
+// endpoints and quotas
+// (https://docs.aws.amazon.com/general/latest/gr/ec2-service.html). For
 // information about enabling and disabling Regions for your account, see Managing
-// AWS Regions (https://docs.aws.amazon.com/general/latest/gr/rande-manage.html) in
-// the AWS General Reference.
+// Amazon Web Services Regions
+// (https://docs.aws.amazon.com/general/latest/gr/rande-manage.html) in the Amazon
+// Web Services General Reference.
 func (c *Client) DescribeRegions(ctx context.Context, params *DescribeRegionsInput, optFns ...func(*Options)) (*DescribeRegionsOutput, error) {
 	if params == nil {
 		params = &DescribeRegionsInput{}

@@ -29,7 +29,7 @@ func (c *Client) ModifyVpnTunnelCertificate(ctx context.Context, params *ModifyV
 
 type ModifyVpnTunnelCertificateInput struct {
 
-	// The ID of the AWS Site-to-Site VPN connection.
+	// The ID of the Amazon Web Services Site-to-Site VPN connection.
 	//
 	// This member is required.
 	VpnConnectionId *string

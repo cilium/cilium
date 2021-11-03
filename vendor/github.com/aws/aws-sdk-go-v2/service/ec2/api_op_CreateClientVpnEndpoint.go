@@ -64,7 +64,7 @@ type CreateClientVpnEndpointInput struct {
 	// This member is required.
 	ConnectionLogOptions *types.ConnectionLogOptions
 
-	// The ARN of the server certificate. For more information, see the AWS Certificate
+	// The ARN of the server certificate. For more information, see the Certificate
 	// Manager User Guide (https://docs.aws.amazon.com/acm/latest/userguide/).
 	//
 	// This member is required.
@@ -74,7 +74,7 @@ type CreateClientVpnEndpointInput struct {
 	ClientConnectOptions *types.ClientConnectOptions
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see How to Ensure Idempotency
+	// the request. For more information, see How to ensure idempotency
 	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
 	ClientToken *string
 
@@ -100,11 +100,11 @@ type CreateClientVpnEndpointInput struct {
 	// Default Value: enabled
 	SelfServicePortal types.SelfServicePortal
 
-	// Indicates whether split-tunnel is enabled on the AWS Client VPN endpoint. By
+	// Indicates whether split-tunnel is enabled on the Client VPN endpoint. By
 	// default, split-tunnel on a VPN endpoint is disabled. For information about
-	// split-tunnel VPN endpoints, see Split-Tunnel AWS Client VPN Endpoint
+	// split-tunnel VPN endpoints, see Split-tunnel Client VPN endpoint
 	// (https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/split-tunnel-vpn.html)
-	// in the AWS Client VPN Administrator Guide.
+	// in the Client VPN Administrator Guide.
 	SplitTunnel *bool
 
 	// The tags to apply to the Client VPN endpoint during creation.

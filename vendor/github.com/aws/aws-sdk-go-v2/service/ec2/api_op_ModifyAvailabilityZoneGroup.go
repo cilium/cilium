@@ -39,9 +39,10 @@ type ModifyAvailabilityZoneGroupInput struct {
 	GroupName *string
 
 	// Indicates whether you are opted in to the Local Zone group or Wavelength Zone
-	// group. The only valid value is opted-in. You must contact AWS Support
+	// group. The only valid value is opted-in. You must contact Amazon Web Services
+	// Support
 	// (https://console.aws.amazon.com/support/home#/case/create%3FissueType=customer-service%26serviceCode=general-info%26getting-started%26categoryCode=using-aws%26services)
-	// to opt out of a Local Zone group, or Wavelength Zone group.
+	// to opt out of a Local Zone or Wavelength Zone group.
 	//
 	// This member is required.
 	OptInStatus types.ModifyAvailabilityZoneOptInStatus
