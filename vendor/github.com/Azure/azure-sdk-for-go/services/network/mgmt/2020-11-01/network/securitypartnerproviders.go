@@ -55,7 +55,7 @@ func (client SecurityPartnerProvidersClient) CreateOrUpdate(ctx context.Context,
 
 	result, err = client.CreateOrUpdateSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.SecurityPartnerProvidersClient", "CreateOrUpdate", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.SecurityPartnerProvidersClient", "CreateOrUpdate", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -90,6 +90,7 @@ func (client SecurityPartnerProvidersClient) CreateOrUpdatePreparer(ctx context.
 // http.Response Body if it receives an error.
 func (client SecurityPartnerProvidersClient) CreateOrUpdateSender(req *http.Request) (future SecurityPartnerProvidersCreateOrUpdateFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
@@ -136,7 +137,7 @@ func (client SecurityPartnerProvidersClient) Delete(ctx context.Context, resourc
 
 	result, err = client.DeleteSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.SecurityPartnerProvidersClient", "Delete", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.SecurityPartnerProvidersClient", "Delete", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -168,6 +169,7 @@ func (client SecurityPartnerProvidersClient) DeletePreparer(ctx context.Context,
 // http.Response Body if it receives an error.
 func (client SecurityPartnerProvidersClient) DeleteSender(req *http.Request) (future SecurityPartnerProvidersDeleteFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return

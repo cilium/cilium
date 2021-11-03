@@ -377,7 +377,7 @@ func generateIpConfigName() string {
 func (c *Client) AssignPrivateIpAddressesVMSS(ctx context.Context, instanceID, vmssName, subnetID, interfaceName string, addresses int) error {
 	var netIfConfig *compute.VirtualMachineScaleSetNetworkConfiguration
 
-	result, err := c.vmss.Get(ctx, c.resourceGroup, vmssName, instanceID, compute.InstanceView)
+	result, err := c.vmss.Get(ctx, c.resourceGroup, vmssName, instanceID, compute.InstanceViewTypesInstanceView)
 	if err != nil {
 		return fmt.Errorf("failed to get VM %s from VMSS %s: %s", instanceID, vmssName, err)
 	}
@@ -411,7 +411,7 @@ func (c *Client) AssignPrivateIpAddressesVMSS(ctx context.Context, instanceID, v
 				Name: to.StringPtr(generateIpConfigName()),
 				VirtualMachineScaleSetIPConfigurationProperties: &compute.VirtualMachineScaleSetIPConfigurationProperties{
 					ApplicationSecurityGroups: appSecurityGroups,
-					PrivateIPAddressVersion:   compute.IPv4,
+					PrivateIPAddressVersion:   compute.IPVersionIPv4,
 					Subnet:                    &compute.APIEntityReference{ID: to.StringPtr(subnetID)},
 				},
 			},

@@ -17,6 +17,6 @@ package ecs
 
 // DedicatedBlockStorageClusterCapacity is a nested struct in ecs response
 type DedicatedBlockStorageClusterCapacity struct {
-	AvailableCapacity int64 `json:"AvailableCapacity" xml:"AvailableCapacity"`
 	TotalCapacity     int64 `json:"TotalCapacity" xml:"TotalCapacity"`
+	AvailableCapacity int64 `json:"AvailableCapacity" xml:"AvailableCapacity"`
 }

@@ -88,7 +88,7 @@ func (client DedicatedHostGroupsClient) CreateOrUpdatePreparer(ctx context.Conte
 		"subscriptionId":    autorest.Encode("path", client.SubscriptionID),
 	}
 
-	const APIVersion = "2020-12-01"
+	const APIVersion = "2021-03-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -166,7 +166,7 @@ func (client DedicatedHostGroupsClient) DeletePreparer(ctx context.Context, reso
 		"subscriptionId":    autorest.Encode("path", client.SubscriptionID),
 	}
 
-	const APIVersion = "2020-12-01"
+	const APIVersion = "2021-03-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -200,8 +200,9 @@ func (client DedicatedHostGroupsClient) DeleteResponder(resp *http.Response) (re
 // Parameters:
 // resourceGroupName - the name of the resource group.
 // hostGroupName - the name of the dedicated host group.
-// expand - the expand expression to apply on the operation. The response shows the list of instance view of
-// the dedicated hosts under the dedicated host group.
+// expand - the expand expression to apply on the operation. 'InstanceView' will retrieve the list of instance
+// views of the dedicated hosts under the dedicated host group. 'UserData' is not supported for dedicated host
+// group.
 func (client DedicatedHostGroupsClient) Get(ctx context.Context, resourceGroupName string, hostGroupName string, expand InstanceViewTypes) (result DedicatedHostGroup, err error) {
 	if tracing.IsEnabled() {
 		ctx = tracing.StartSpan(ctx, fqdn+"/DedicatedHostGroupsClient.Get")
@@ -243,7 +244,7 @@ func (client DedicatedHostGroupsClient) GetPreparer(ctx context.Context, resourc
 		"subscriptionId":    autorest.Encode("path", client.SubscriptionID),
 	}
 
-	const APIVersion = "2020-12-01"
+	const APIVersion = "2021-03-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -326,7 +327,7 @@ func (client DedicatedHostGroupsClient) ListByResourceGroupPreparer(ctx context.
 		"subscriptionId":    autorest.Encode("path", client.SubscriptionID),
 	}
 
-	const APIVersion = "2020-12-01"
+	const APIVersion = "2021-03-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -440,7 +441,7 @@ func (client DedicatedHostGroupsClient) ListBySubscriptionPreparer(ctx context.C
 		"subscriptionId": autorest.Encode("path", client.SubscriptionID),
 	}
 
-	const APIVersion = "2020-12-01"
+	const APIVersion = "2021-03-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -554,7 +555,7 @@ func (client DedicatedHostGroupsClient) UpdatePreparer(ctx context.Context, reso
 		"subscriptionId":    autorest.Encode("path", client.SubscriptionID),
 	}
 
-	const APIVersion = "2020-12-01"
+	const APIVersion = "2021-03-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}

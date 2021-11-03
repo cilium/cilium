@@ -92,8 +92,8 @@ type CreateNatGatewayBandwidthPackage struct {
 // CreateNatGatewayResponse is the response struct for api CreateNatGateway
 type CreateNatGatewayResponse struct {
 	*responses.BaseResponse
-	RequestId           string                                `json:"RequestId" xml:"RequestId"`
 	NatGatewayId        string                                `json:"NatGatewayId" xml:"NatGatewayId"`
+	RequestId           string                                `json:"RequestId" xml:"RequestId"`
 	ForwardTableIds     ForwardTableIdsInCreateNatGateway     `json:"ForwardTableIds" xml:"ForwardTableIds"`
 	BandwidthPackageIds BandwidthPackageIdsInCreateNatGateway `json:"BandwidthPackageIds" xml:"BandwidthPackageIds"`
 }

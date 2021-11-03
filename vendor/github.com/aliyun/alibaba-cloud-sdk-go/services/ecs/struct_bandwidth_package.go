@@ -17,19 +17,19 @@ package ecs
 
 // BandwidthPackage is a nested struct in ecs response
 type BandwidthPackage struct {
-	BandwidthPackageId string            `json:"BandwidthPackageId" xml:"BandwidthPackageId"`
+	Status             string            `json:"Status" xml:"Status"`
+	CreationTime       string            `json:"CreationTime" xml:"CreationTime"`
+	IpCount            string            `json:"IpCount" xml:"IpCount"`
 	RegionId           string            `json:"RegionId" xml:"RegionId"`
-	Name               string            `json:"Name" xml:"Name"`
-	Description        string            `json:"Description" xml:"Description"`
-	ZoneId             string            `json:"ZoneId" xml:"ZoneId"`
-	NatGatewayId       string            `json:"NatGatewayId" xml:"NatGatewayId"`
-	Bandwidth          string            `json:"Bandwidth" xml:"Bandwidth"`
 	InstanceChargeType string            `json:"InstanceChargeType" xml:"InstanceChargeType"`
+	BandwidthPackageId string            `json:"BandwidthPackageId" xml:"BandwidthPackageId"`
+	Description        string            `json:"Description" xml:"Description"`
+	Bandwidth          string            `json:"Bandwidth" xml:"Bandwidth"`
+	NatGatewayId       string            `json:"NatGatewayId" xml:"NatGatewayId"`
+	ZoneId             string            `json:"ZoneId" xml:"ZoneId"`
 	InternetChargeType string            `json:"InternetChargeType" xml:"InternetChargeType"`
 	BusinessStatus     string            `json:"BusinessStatus" xml:"BusinessStatus"`
-	IpCount            string            `json:"IpCount" xml:"IpCount"`
+	Name               string            `json:"Name" xml:"Name"`
 	ISP                string            `json:"ISP" xml:"ISP"`
-	CreationTime       string            `json:"CreationTime" xml:"CreationTime"`
-	Status             string            `json:"Status" xml:"Status"`
 	PublicIpAddresses  PublicIpAddresses `json:"PublicIpAddresses" xml:"PublicIpAddresses"`
 }

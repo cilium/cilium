@@ -16,9 +16,10 @@ import (
 	"time"
 )
 
-// Describes one or more of your VPN connections. For more information, see AWS
-// Site-to-Site VPN (https://docs.aws.amazon.com/vpn/latest/s2svpn/VPC_VPN.html) in
-// the AWS Site-to-Site VPN User Guide.
+// Describes one or more of your VPN connections. For more information, see Amazon
+// Web Services Site-to-Site VPN
+// (https://docs.aws.amazon.com/vpn/latest/s2svpn/VPC_VPN.html) in the Amazon Web
+// Services Site-to-Site VPN User Guide.
 func (c *Client) DescribeVpnConnections(ctx context.Context, params *DescribeVpnConnectionsInput, optFns ...func(*Options)) (*DescribeVpnConnectionsOutput, error) {
 	if params == nil {
 		params = &DescribeVpnConnectionsInput{}

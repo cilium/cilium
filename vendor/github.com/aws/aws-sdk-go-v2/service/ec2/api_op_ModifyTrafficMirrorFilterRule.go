@@ -72,7 +72,7 @@ type ModifyTrafficMirrorFilterRuleInput struct {
 	// The port range to assign to the Traffic Mirror rule.
 	SourcePortRange *types.TrafficMirrorPortRangeRequest
 
-	// The type of traffic (ingress | egress) to assign to the rule.
+	// The type of traffic to assign to the rule.
 	TrafficDirection types.TrafficDirection
 
 	noSmithyDocumentSerde

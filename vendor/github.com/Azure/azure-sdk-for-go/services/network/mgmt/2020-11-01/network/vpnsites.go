@@ -68,7 +68,7 @@ func (client VpnSitesClient) CreateOrUpdate(ctx context.Context, resourceGroupNa
 
 	result, err = client.CreateOrUpdateSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.VpnSitesClient", "CreateOrUpdate", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.VpnSitesClient", "CreateOrUpdate", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -103,6 +103,7 @@ func (client VpnSitesClient) CreateOrUpdatePreparer(ctx context.Context, resourc
 // http.Response Body if it receives an error.
 func (client VpnSitesClient) CreateOrUpdateSender(req *http.Request) (future VpnSitesCreateOrUpdateFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
@@ -149,7 +150,7 @@ func (client VpnSitesClient) Delete(ctx context.Context, resourceGroupName strin
 
 	result, err = client.DeleteSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.VpnSitesClient", "Delete", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.VpnSitesClient", "Delete", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -181,6 +182,7 @@ func (client VpnSitesClient) DeletePreparer(ctx context.Context, resourceGroupNa
 // http.Response Body if it receives an error.
 func (client VpnSitesClient) DeleteSender(req *http.Request) (future VpnSitesDeleteFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return

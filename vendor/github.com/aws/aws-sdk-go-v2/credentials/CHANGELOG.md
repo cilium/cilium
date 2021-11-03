@@ -1,3 +1,30 @@
+# v1.5.0 (2021-10-21)
+
+* **Feature**: Updated  to latest version
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.4.3 (2021-10-11)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.4.2 (2021-09-17)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.4.1 (2021-09-10)
+
+* **Documentation**: Fixes the AssumeRoleProvider's documentation for using custom TokenProviders.
+
+# v1.4.0 (2021-08-27)
+
+* **Feature**: Adds support for Tags and TransitiveTagKeys to stscreds.AssumeRoleProvider. Closes https://github.com/aws/aws-sdk-go-v2/issues/723
+* **Feature**: Updated `github.com/aws/smithy-go` to latest version
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.3.3 (2021-08-19)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.3.2 (2021-08-04)
 
 * **Dependency Update**: Updated `github.com/aws/smithy-go` to latest version.

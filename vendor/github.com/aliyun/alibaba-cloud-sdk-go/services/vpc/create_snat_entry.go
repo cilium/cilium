@@ -86,8 +86,8 @@ type CreateSnatEntryRequest struct {
 // CreateSnatEntryResponse is the response struct for api CreateSnatEntry
 type CreateSnatEntryResponse struct {
 	*responses.BaseResponse
-	RequestId   string `json:"RequestId" xml:"RequestId"`
 	SnatEntryId string `json:"SnatEntryId" xml:"SnatEntryId"`
+	RequestId   string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateCreateSnatEntryRequest creates a request to invoke CreateSnatEntry API

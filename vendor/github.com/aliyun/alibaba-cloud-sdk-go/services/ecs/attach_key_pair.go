@@ -81,10 +81,10 @@ type AttachKeyPairRequest struct {
 // AttachKeyPairResponse is the response struct for api AttachKeyPair
 type AttachKeyPairResponse struct {
 	*responses.BaseResponse
+	KeyPairName string                 `json:"KeyPairName" xml:"KeyPairName"`
 	RequestId   string                 `json:"RequestId" xml:"RequestId"`
 	TotalCount  string                 `json:"TotalCount" xml:"TotalCount"`
 	FailCount   string                 `json:"FailCount" xml:"FailCount"`
-	KeyPairName string                 `json:"KeyPairName" xml:"KeyPairName"`
 	Results     ResultsInAttachKeyPair `json:"Results" xml:"Results"`
 }
 

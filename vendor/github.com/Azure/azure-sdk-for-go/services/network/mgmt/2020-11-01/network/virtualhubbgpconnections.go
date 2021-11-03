@@ -173,7 +173,7 @@ func (client VirtualHubBgpConnectionsClient) ListAdvertisedRoutes(ctx context.Co
 
 	result, err = client.ListAdvertisedRoutesSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.VirtualHubBgpConnectionsClient", "ListAdvertisedRoutes", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.VirtualHubBgpConnectionsClient", "ListAdvertisedRoutes", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -206,6 +206,7 @@ func (client VirtualHubBgpConnectionsClient) ListAdvertisedRoutesPreparer(ctx co
 // http.Response Body if it receives an error.
 func (client VirtualHubBgpConnectionsClient) ListAdvertisedRoutesSender(req *http.Request) (future VirtualHubBgpConnectionsListAdvertisedRoutesFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
@@ -253,7 +254,7 @@ func (client VirtualHubBgpConnectionsClient) ListLearnedRoutes(ctx context.Conte
 
 	result, err = client.ListLearnedRoutesSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.VirtualHubBgpConnectionsClient", "ListLearnedRoutes", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.VirtualHubBgpConnectionsClient", "ListLearnedRoutes", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -286,6 +287,7 @@ func (client VirtualHubBgpConnectionsClient) ListLearnedRoutesPreparer(ctx conte
 // http.Response Body if it receives an error.
 func (client VirtualHubBgpConnectionsClient) ListLearnedRoutesSender(req *http.Request) (future VirtualHubBgpConnectionsListLearnedRoutesFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return

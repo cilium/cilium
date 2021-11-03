@@ -21,9 +21,9 @@ import (
 // VPN connection, you must reconfigure your customer gateway with the new
 // information returned from this call. This is an idempotent operation. If you
 // perform the operation more than once, Amazon EC2 doesn't return an error. For
-// more information, see AWS Site-to-Site VPN
-// (https://docs.aws.amazon.com/vpn/latest/s2svpn/VPC_VPN.html) in the AWS
-// Site-to-Site VPN User Guide.
+// more information, see Amazon Web Services Site-to-Site VPN
+// (https://docs.aws.amazon.com/vpn/latest/s2svpn/VPC_VPN.html) in the Amazon Web
+// Services Site-to-Site VPN User Guide.
 func (c *Client) CreateVpnConnection(ctx context.Context, params *CreateVpnConnectionInput, optFns ...func(*Options)) (*CreateVpnConnectionOutput, error) {
 	if params == nil {
 		params = &CreateVpnConnectionInput{}

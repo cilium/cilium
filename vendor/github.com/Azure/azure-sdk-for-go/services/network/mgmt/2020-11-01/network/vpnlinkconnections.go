@@ -56,7 +56,7 @@ func (client VpnLinkConnectionsClient) GetIkeSas(ctx context.Context, resourceGr
 
 	result, err = client.GetIkeSasSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.VpnLinkConnectionsClient", "GetIkeSas", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.VpnLinkConnectionsClient", "GetIkeSas", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -90,6 +90,7 @@ func (client VpnLinkConnectionsClient) GetIkeSasPreparer(ctx context.Context, re
 // http.Response Body if it receives an error.
 func (client VpnLinkConnectionsClient) GetIkeSasSender(req *http.Request) (future VpnLinkConnectionsGetIkeSasFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
@@ -107,7 +108,7 @@ func (client VpnLinkConnectionsClient) GetIkeSasResponder(resp *http.Response) (
 	err = autorest.Respond(
 		resp,
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted),
-		autorest.ByUnmarshallingJSON(&result),
+		autorest.ByUnmarshallingJSON(&result.Value),
 		autorest.ByClosing())
 	result.Response = autorest.Response{Response: resp}
 	return
@@ -258,7 +259,7 @@ func (client VpnLinkConnectionsClient) ResetConnection(ctx context.Context, reso
 
 	result, err = client.ResetConnectionSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.VpnLinkConnectionsClient", "ResetConnection", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.VpnLinkConnectionsClient", "ResetConnection", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -292,6 +293,7 @@ func (client VpnLinkConnectionsClient) ResetConnectionPreparer(ctx context.Conte
 // http.Response Body if it receives an error.
 func (client VpnLinkConnectionsClient) ResetConnectionSender(req *http.Request) (future VpnLinkConnectionsResetConnectionFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return

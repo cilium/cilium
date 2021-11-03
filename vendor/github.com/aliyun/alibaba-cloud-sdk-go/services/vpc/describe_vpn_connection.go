@@ -81,19 +81,19 @@ type DescribeVpnConnectionRequest struct {
 // DescribeVpnConnectionResponse is the response struct for api DescribeVpnConnection
 type DescribeVpnConnectionResponse struct {
 	*responses.BaseResponse
-	RequestId           string         `json:"RequestId" xml:"RequestId"`
-	VpnConnectionId     string         `json:"VpnConnectionId" xml:"VpnConnectionId"`
-	CustomerGatewayId   string         `json:"CustomerGatewayId" xml:"CustomerGatewayId"`
-	VpnGatewayId        string         `json:"VpnGatewayId" xml:"VpnGatewayId"`
-	Name                string         `json:"Name" xml:"Name"`
-	LocalSubnet         string         `json:"LocalSubnet" xml:"LocalSubnet"`
-	RemoteSubnet        string         `json:"RemoteSubnet" xml:"RemoteSubnet"`
+	Status              string         `json:"Status" xml:"Status"`
+	RemoteCaCertificate string         `json:"RemoteCaCertificate" xml:"RemoteCaCertificate"`
+	EnableNatTraversal  bool           `json:"EnableNatTraversal" xml:"EnableNatTraversal"`
 	CreateTime          int64          `json:"CreateTime" xml:"CreateTime"`
 	EffectImmediately   bool           `json:"EffectImmediately" xml:"EffectImmediately"`
-	Status              string         `json:"Status" xml:"Status"`
+	VpnGatewayId        string         `json:"VpnGatewayId" xml:"VpnGatewayId"`
+	LocalSubnet         string         `json:"LocalSubnet" xml:"LocalSubnet"`
+	RequestId           string         `json:"RequestId" xml:"RequestId"`
+	VpnConnectionId     string         `json:"VpnConnectionId" xml:"VpnConnectionId"`
+	RemoteSubnet        string         `json:"RemoteSubnet" xml:"RemoteSubnet"`
+	CustomerGatewayId   string         `json:"CustomerGatewayId" xml:"CustomerGatewayId"`
+	Name                string         `json:"Name" xml:"Name"`
 	EnableDpd           bool           `json:"EnableDpd" xml:"EnableDpd"`
-	EnableNatTraversal  bool           `json:"EnableNatTraversal" xml:"EnableNatTraversal"`
-	RemoteCaCertificate string         `json:"RemoteCaCertificate" xml:"RemoteCaCertificate"`
 	IkeConfig           IkeConfig      `json:"IkeConfig" xml:"IkeConfig"`
 	IpsecConfig         IpsecConfig    `json:"IpsecConfig" xml:"IpsecConfig"`
 	VcoHealthCheck      VcoHealthCheck `json:"VcoHealthCheck" xml:"VcoHealthCheck"`

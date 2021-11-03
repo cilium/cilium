@@ -17,14 +17,14 @@ package ecs
 
 // DedicatedBlockStorageCluster is a nested struct in ecs response
 type DedicatedBlockStorageCluster struct {
-	DedicatedBlockStorageClusterId       string                               `json:"DedicatedBlockStorageClusterId" xml:"DedicatedBlockStorageClusterId"`
-	DedicatedBlockStorageClusterName     string                               `json:"DedicatedBlockStorageClusterName" xml:"DedicatedBlockStorageClusterName"`
-	Description                          string                               `json:"Description" xml:"Description"`
-	ZoneId                               string                               `json:"ZoneId" xml:"ZoneId"`
 	Status                               string                               `json:"Status" xml:"Status"`
-	Category                             string                               `json:"Category" xml:"Category"`
-	PerformanceLevel                     string                               `json:"PerformanceLevel" xml:"PerformanceLevel"`
+	Type                                 string                               `json:"Type" xml:"Type"`
+	Description                          string                               `json:"Description" xml:"Description"`
 	ExpiredTime                          string                               `json:"ExpiredTime" xml:"ExpiredTime"`
 	CreateTime                           string                               `json:"CreateTime" xml:"CreateTime"`
+	ZoneId                               string                               `json:"ZoneId" xml:"ZoneId"`
+	Category                             string                               `json:"Category" xml:"Category"`
+	DedicatedBlockStorageClusterName     string                               `json:"DedicatedBlockStorageClusterName" xml:"DedicatedBlockStorageClusterName"`
+	DedicatedBlockStorageClusterId       string                               `json:"DedicatedBlockStorageClusterId" xml:"DedicatedBlockStorageClusterId"`
 	DedicatedBlockStorageClusterCapacity DedicatedBlockStorageClusterCapacity `json:"DedicatedBlockStorageClusterCapacity" xml:"DedicatedBlockStorageClusterCapacity"`
 }

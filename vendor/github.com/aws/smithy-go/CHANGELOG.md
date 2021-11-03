@@ -1,3 +1,9 @@
+# Release v1.8.1
+
+### Smithy Go Module
+* **Bug Fix**: Fixed an issue that would cause the HTTP Content-Length to be set to 0 if the stream body was not set.
+  * Fixes [aws/aws-sdk-go-v2#1418](https://github.com/aws/aws-sdk-go-v2/issues/1418)
+
 # Release v1.8.0
 
 ### Smithy Go Module

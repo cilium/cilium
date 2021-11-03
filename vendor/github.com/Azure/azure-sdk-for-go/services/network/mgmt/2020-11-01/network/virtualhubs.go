@@ -66,7 +66,7 @@ func (client VirtualHubsClient) CreateOrUpdate(ctx context.Context, resourceGrou
 
 	result, err = client.CreateOrUpdateSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.VirtualHubsClient", "CreateOrUpdate", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.VirtualHubsClient", "CreateOrUpdate", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -101,6 +101,7 @@ func (client VirtualHubsClient) CreateOrUpdatePreparer(ctx context.Context, reso
 // http.Response Body if it receives an error.
 func (client VirtualHubsClient) CreateOrUpdateSender(req *http.Request) (future VirtualHubsCreateOrUpdateFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
@@ -147,7 +148,7 @@ func (client VirtualHubsClient) Delete(ctx context.Context, resourceGroupName st
 
 	result, err = client.DeleteSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.VirtualHubsClient", "Delete", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.VirtualHubsClient", "Delete", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -179,6 +180,7 @@ func (client VirtualHubsClient) DeletePreparer(ctx context.Context, resourceGrou
 // http.Response Body if it receives an error.
 func (client VirtualHubsClient) DeleteSender(req *http.Request) (future VirtualHubsDeleteFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
@@ -302,7 +304,7 @@ func (client VirtualHubsClient) GetEffectiveVirtualHubRoutes(ctx context.Context
 
 	result, err = client.GetEffectiveVirtualHubRoutesSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.VirtualHubsClient", "GetEffectiveVirtualHubRoutes", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.VirtualHubsClient", "GetEffectiveVirtualHubRoutes", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -339,6 +341,7 @@ func (client VirtualHubsClient) GetEffectiveVirtualHubRoutesPreparer(ctx context
 // http.Response Body if it receives an error.
 func (client VirtualHubsClient) GetEffectiveVirtualHubRoutesSender(req *http.Request) (future VirtualHubsGetEffectiveVirtualHubRoutesFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return

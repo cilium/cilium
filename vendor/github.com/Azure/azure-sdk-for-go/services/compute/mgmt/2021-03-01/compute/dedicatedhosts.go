@@ -66,7 +66,7 @@ func (client DedicatedHostsClient) CreateOrUpdate(ctx context.Context, resourceG
 
 	result, err = client.CreateOrUpdateSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "compute.DedicatedHostsClient", "CreateOrUpdate", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "compute.DedicatedHostsClient", "CreateOrUpdate", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -82,7 +82,7 @@ func (client DedicatedHostsClient) CreateOrUpdatePreparer(ctx context.Context, r
 		"subscriptionId":    autorest.Encode("path", client.SubscriptionID),
 	}
 
-	const APIVersion = "2020-12-01"
+	const APIVersion = "2021-03-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -101,6 +101,7 @@ func (client DedicatedHostsClient) CreateOrUpdatePreparer(ctx context.Context, r
 // http.Response Body if it receives an error.
 func (client DedicatedHostsClient) CreateOrUpdateSender(req *http.Request) (future DedicatedHostsCreateOrUpdateFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
@@ -148,7 +149,7 @@ func (client DedicatedHostsClient) Delete(ctx context.Context, resourceGroupName
 
 	result, err = client.DeleteSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "compute.DedicatedHostsClient", "Delete", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "compute.DedicatedHostsClient", "Delete", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -164,7 +165,7 @@ func (client DedicatedHostsClient) DeletePreparer(ctx context.Context, resourceG
 		"subscriptionId":    autorest.Encode("path", client.SubscriptionID),
 	}
 
-	const APIVersion = "2020-12-01"
+	const APIVersion = "2021-03-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -181,6 +182,7 @@ func (client DedicatedHostsClient) DeletePreparer(ctx context.Context, resourceG
 // http.Response Body if it receives an error.
 func (client DedicatedHostsClient) DeleteSender(req *http.Request) (future DedicatedHostsDeleteFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
@@ -208,7 +210,8 @@ func (client DedicatedHostsClient) DeleteResponder(resp *http.Response) (result 
 // resourceGroupName - the name of the resource group.
 // hostGroupName - the name of the dedicated host group.
 // hostName - the name of the dedicated host.
-// expand - the expand expression to apply on the operation.
+// expand - the expand expression to apply on the operation. 'InstanceView' will retrieve the list of instance
+// views of the dedicated host. 'UserData' is not supported for dedicated host.
 func (client DedicatedHostsClient) Get(ctx context.Context, resourceGroupName string, hostGroupName string, hostName string, expand InstanceViewTypes) (result DedicatedHost, err error) {
 	if tracing.IsEnabled() {
 		ctx = tracing.StartSpan(ctx, fqdn+"/DedicatedHostsClient.Get")
@@ -251,7 +254,7 @@ func (client DedicatedHostsClient) GetPreparer(ctx context.Context, resourceGrou
 		"subscriptionId":    autorest.Encode("path", client.SubscriptionID),
 	}
 
-	const APIVersion = "2020-12-01"
+	const APIVersion = "2021-03-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -336,7 +339,7 @@ func (client DedicatedHostsClient) ListByHostGroupPreparer(ctx context.Context, 
 		"subscriptionId":    autorest.Encode("path", client.SubscriptionID),
 	}
 
-	const APIVersion = "2020-12-01"
+	const APIVersion = "2021-03-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -429,7 +432,7 @@ func (client DedicatedHostsClient) Update(ctx context.Context, resourceGroupName
 
 	result, err = client.UpdateSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "compute.DedicatedHostsClient", "Update", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "compute.DedicatedHostsClient", "Update", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -445,7 +448,7 @@ func (client DedicatedHostsClient) UpdatePreparer(ctx context.Context, resourceG
 		"subscriptionId":    autorest.Encode("path", client.SubscriptionID),
 	}
 
-	const APIVersion = "2020-12-01"
+	const APIVersion = "2021-03-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -464,6 +467,7 @@ func (client DedicatedHostsClient) UpdatePreparer(ctx context.Context, resourceG
 // http.Response Body if it receives an error.
 func (client DedicatedHostsClient) UpdateSender(req *http.Request) (future DedicatedHostsUpdateFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return

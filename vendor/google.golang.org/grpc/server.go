@@ -710,13 +710,6 @@ func (s *Server) GetServiceInfo() map[string]ServiceInfo {
 // the server being stopped.
 var ErrServerStopped = errors.New("grpc: the server has been stopped")
 
-func (s *Server) useTransportAuthenticator(rawConn net.Conn) (net.Conn, credentials.AuthInfo, error) {
-	if s.opts.creds == nil {
-		return rawConn, nil, nil
-	}
-	return s.opts.creds.ServerHandshake(rawConn)
-}
-
 type listenSocket struct {
 	net.Listener
 	channelzID int64
@@ -839,34 +832,14 @@ func (s *Server) handleRawConn(lisAddr string, rawConn net.Conn) {
 		return
 	}
 	rawConn.SetDeadline(time.Now().Add(s.opts.connectionTimeout))
-	conn, authInfo, err := s.useTransportAuthenticator(rawConn)
-	if err != nil {
-		// ErrConnDispatched means that the connection was dispatched away from
-		// gRPC; those connections should be left open.
-		if err != credentials.ErrConnDispatched {
-			// In deployments where a gRPC server runs behind a cloud load
-			// balancer which performs regular TCP level health checks, the
-			// connection is closed immediately by the latter. Skipping the
-			// error here will help reduce log clutter.
-			if err != io.EOF {
-				s.mu.Lock()
-				s.errorf("ServerHandshake(%q) failed: %v", rawConn.RemoteAddr(), err)
-				s.mu.Unlock()
-				channelz.Warningf(logger, s.channelzID, "grpc: Server.Serve failed to complete security handshake from %q: %v", rawConn.RemoteAddr(), err)
-			}
-			rawConn.Close()
-		}
-		rawConn.SetDeadline(time.Time{})
-		return
-	}
 
 	// Finish handshaking (HTTP2)
-	st := s.newHTTP2Transport(conn, authInfo)
+	st := s.newHTTP2Transport(rawConn)
+	rawConn.SetDeadline(time.Time{})
 	if st == nil {
 		return
 	}
 
-	rawConn.SetDeadline(time.Time{})
 	if !s.addConn(lisAddr, st) {
 		return
 	}
@@ -887,10 +860,11 @@ func (s *Server) drainServerTransports(addr string) {
 
 // newHTTP2Transport sets up a http/2 transport (using the
 // gRPC http2 server transport in transport/http2_server.go).
-func (s *Server) newHTTP2Transport(c net.Conn, authInfo credentials.AuthInfo) transport.ServerTransport {
+func (s *Server) newHTTP2Transport(c net.Conn) transport.ServerTransport {
 	config := &transport.ServerConfig{
 		MaxStreams:            s.opts.maxConcurrentStreams,
-		AuthInfo:              authInfo,
+		ConnectionTimeout:     s.opts.connectionTimeout,
+		Credentials:           s.opts.creds,
 		InTapHandle:           s.opts.inTapHandle,
 		StatsHandler:          s.opts.statsHandler,
 		KeepaliveParams:       s.opts.keepaliveParams,
@@ -908,8 +882,15 @@ func (s *Server) newHTTP2Transport(c net.Conn, authInfo credentials.AuthInfo) tr
 		s.mu.Lock()
 		s.errorf("NewServerTransport(%q) failed: %v", c.RemoteAddr(), err)
 		s.mu.Unlock()
-		c.Close()
-		channelz.Warning(logger, s.channelzID, "grpc: Server.Serve failed to create ServerTransport: ", err)
+		// ErrConnDispatched means that the connection was dispatched away from
+		// gRPC; those connections should be left open.
+		if err != credentials.ErrConnDispatched {
+			// Don't log on ErrConnDispatched and io.EOF to prevent log spam.
+			if err != io.EOF {
+				channelz.Warning(logger, s.channelzID, "grpc: Server.Serve failed to create ServerTransport: ", err)
+			}
+			c.Close()
+		}
 		return nil
 	}
 
@@ -1115,22 +1096,29 @@ func chainUnaryServerInterceptors(s *Server) {
 	} else if len(interceptors) == 1 {
 		chainedInt = interceptors[0]
 	} else {
-		chainedInt = func(ctx context.Context, req interface{}, info *UnaryServerInfo, handler UnaryHandler) (interface{}, error) {
-			return interceptors[0](ctx, req, info, getChainUnaryHandler(interceptors, 0, info, handler))
-		}
+		chainedInt = chainUnaryInterceptors(interceptors)
 	}
 
 	s.opts.unaryInt = chainedInt
 }
 
-// getChainUnaryHandler recursively generate the chained UnaryHandler
-func getChainUnaryHandler(interceptors []UnaryServerInterceptor, curr int, info *UnaryServerInfo, finalHandler UnaryHandler) UnaryHandler {
-	if curr == len(interceptors)-1 {
-		return finalHandler
-	}
-
-	return func(ctx context.Context, req interface{}) (interface{}, error) {
-		return interceptors[curr+1](ctx, req, info, getChainUnaryHandler(interceptors, curr+1, info, finalHandler))
+func chainUnaryInterceptors(interceptors []UnaryServerInterceptor) UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *UnaryServerInfo, handler UnaryHandler) (interface{}, error) {
+		// the struct ensures the variables are allocated together, rather than separately, since we
+		// know they should be garbage collected together. This saves 1 allocation and decreases
+		// time/call by about 10% on the microbenchmark.
+		var state struct {
+			i    int
+			next UnaryHandler
+		}
+		state.next = func(ctx context.Context, req interface{}) (interface{}, error) {
+			if state.i == len(interceptors)-1 {
+				return interceptors[state.i](ctx, req, info, handler)
+			}
+			state.i++
+			return interceptors[state.i-1](ctx, req, info, state.next)
+		}
+		return state.next(ctx, req)
 	}
 }
 
@@ -1144,7 +1132,9 @@ func (s *Server) processUnaryRPC(t transport.ServerTransport, stream *transport.
 		if sh != nil {
 			beginTime := time.Now()
 			statsBegin = &stats.Begin{
-				BeginTime: beginTime,
+				BeginTime:      beginTime,
+				IsClientStream: false,
+				IsServerStream: false,
 			}
 			sh.HandleRPC(stream.Context(), statsBegin)
 		}
@@ -1396,22 +1386,29 @@ func chainStreamServerInterceptors(s *Server) {
 	} else if len(interceptors) == 1 {
 		chainedInt = interceptors[0]
 	} else {
-		chainedInt = func(srv interface{}, ss ServerStream, info *StreamServerInfo, handler StreamHandler) error {
-			return interceptors[0](srv, ss, info, getChainStreamHandler(interceptors, 0, info, handler))
-		}
+		chainedInt = chainStreamInterceptors(interceptors)
 	}
 
 	s.opts.streamInt = chainedInt
 }
 
-// getChainStreamHandler recursively generate the chained StreamHandler
-func getChainStreamHandler(interceptors []StreamServerInterceptor, curr int, info *StreamServerInfo, finalHandler StreamHandler) StreamHandler {
-	if curr == len(interceptors)-1 {
-		return finalHandler
-	}
-
-	return func(srv interface{}, ss ServerStream) error {
-		return interceptors[curr+1](srv, ss, info, getChainStreamHandler(interceptors, curr+1, info, finalHandler))
+func chainStreamInterceptors(interceptors []StreamServerInterceptor) StreamServerInterceptor {
+	return func(srv interface{}, ss ServerStream, info *StreamServerInfo, handler StreamHandler) error {
+		// the struct ensures the variables are allocated together, rather than separately, since we
+		// know they should be garbage collected together. This saves 1 allocation and decreases
+		// time/call by about 10% on the microbenchmark.
+		var state struct {
+			i    int
+			next StreamHandler
+		}
+		state.next = func(srv interface{}, ss ServerStream) error {
+			if state.i == len(interceptors)-1 {
+				return interceptors[state.i](srv, ss, info, handler)
+			}
+			state.i++
+			return interceptors[state.i-1](srv, ss, info, state.next)
+		}
+		return state.next(srv, ss)
 	}
 }
 
@@ -1424,7 +1421,9 @@ func (s *Server) processStreamingRPC(t transport.ServerTransport, stream *transp
 	if sh != nil {
 		beginTime := time.Now()
 		statsBegin = &stats.Begin{
-			BeginTime: beginTime,
+			BeginTime:      beginTime,
+			IsClientStream: sd.ClientStreams,
+			IsServerStream: sd.ServerStreams,
 		}
 		sh.HandleRPC(stream.Context(), statsBegin)
 	}

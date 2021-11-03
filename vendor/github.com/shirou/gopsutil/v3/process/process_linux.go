@@ -82,7 +82,7 @@ func (p *Process) PpidWithContext(ctx context.Context) (int32, error) {
 
 func (p *Process) NameWithContext(ctx context.Context) (string, error) {
 	if p.name == "" {
-		if err := p.fillFromStatusWithContext(ctx); err != nil {
+		if err := p.fillNameWithContext(ctx); err != nil {
 			return "", err
 		}
 	}
@@ -351,7 +351,7 @@ func (p *Process) PageFaultsWithContext(ctx context.Context) (*PageFaultsStat, e
 func (p *Process) ChildrenWithContext(ctx context.Context) ([]*Process, error) {
 	pids, err := common.CallPgrepWithContext(ctx, invoke, p.Pid)
 	if err != nil {
-		if pids == nil || len(pids) == 0 {
+		if len(pids) == 0 {
 			return nil, ErrorNoChildren
 		}
 		return nil, err
@@ -678,10 +678,7 @@ func (p *Process) fillFromCmdlineWithContext(ctx context.Context) (string, error
 		return "", err
 	}
 	ret := strings.FieldsFunc(string(cmdline), func(r rune) bool {
-		if r == '\u0000' {
-			return true
-		}
-		return false
+		return r == '\u0000'
 	})
 
 	return strings.Join(ret, " "), nil
@@ -798,6 +795,28 @@ func (p *Process) fillFromStatmWithContext(ctx context.Context) (*MemoryInfoStat
 	}
 
 	return memInfo, memInfoEx, nil
+}
+
+// Get name from /proc/(pid)/comm or /proc/(pid)/status
+func (p *Process) fillNameWithContext(ctx context.Context) error {
+	err := p.fillFromCommWithContext(ctx)
+	if err == nil && p.name != "" && len(p.name) < 15 {
+		return nil
+	}
+	return p.fillFromStatusWithContext(ctx)
+}
+
+// Get name from /proc/(pid)/comm
+func (p *Process) fillFromCommWithContext(ctx context.Context) error {
+	pid := p.Pid
+	statPath := common.HostProc(strconv.Itoa(int(pid)), "comm")
+	contents, err := ioutil.ReadFile(statPath)
+	if err != nil {
+		return err
+	}
+
+	p.name = strings.TrimSuffix(string(contents), "\n")
+	return nil
 }
 
 // Get various status from /proc/(pid)/status

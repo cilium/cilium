@@ -73,6 +73,7 @@ func listenPacket(ifi *net.Interface, proto uint16, cfg Config) (*packetConn, er
 	}
 
 	if err := unix.SetNonblock(sock, true); err != nil {
+		unix.Close(sock)
 		return nil, err
 	}
 

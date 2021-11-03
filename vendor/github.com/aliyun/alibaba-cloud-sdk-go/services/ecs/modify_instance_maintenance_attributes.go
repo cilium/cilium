@@ -77,14 +77,14 @@ type ModifyInstanceMaintenanceAttributesRequest struct {
 	ResourceOwnerAccount string                                                  `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string                                                  `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer                                        `position:"Query" name:"OwnerId"`
-	InstanceId           *[]string                                               `position:"Query" name:"InstanceId"  type:"Repeated"`
 	NotifyOnMaintenance  requests.Boolean                                        `position:"Query" name:"NotifyOnMaintenance"`
+	InstanceId           *[]string                                               `position:"Query" name:"InstanceId"  type:"Repeated"`
 }
 
 // ModifyInstanceMaintenanceAttributesMaintenanceWindow is a repeated param struct in ModifyInstanceMaintenanceAttributesRequest
 type ModifyInstanceMaintenanceAttributesMaintenanceWindow struct {
-	StartTime string `name:"StartTime"`
 	EndTime   string `name:"EndTime"`
+	StartTime string `name:"StartTime"`
 }
 
 // ModifyInstanceMaintenanceAttributesResponse is the response struct for api ModifyInstanceMaintenanceAttributes

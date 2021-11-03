@@ -17,21 +17,21 @@ package ecs
 
 // InstanceMonitorData is a nested struct in ecs response
 type InstanceMonitorData struct {
-	InstanceId                   string  `json:"InstanceId" xml:"InstanceId"`
-	CPU                          int     `json:"CPU" xml:"CPU"`
-	IntranetRX                   int     `json:"IntranetRX" xml:"IntranetRX"`
-	IntranetTX                   int     `json:"IntranetTX" xml:"IntranetTX"`
-	IntranetBandwidth            int     `json:"IntranetBandwidth" xml:"IntranetBandwidth"`
-	InternetRX                   int     `json:"InternetRX" xml:"InternetRX"`
-	InternetTX                   int     `json:"InternetTX" xml:"InternetTX"`
-	InternetBandwidth            int     `json:"InternetBandwidth" xml:"InternetBandwidth"`
-	IOPSRead                     int     `json:"IOPSRead" xml:"IOPSRead"`
-	IOPSWrite                    int     `json:"IOPSWrite" xml:"IOPSWrite"`
-	BPSRead                      int     `json:"BPSRead" xml:"BPSRead"`
-	BPSWrite                     int     `json:"BPSWrite" xml:"BPSWrite"`
-	CPUCreditUsage               float64 `json:"CPUCreditUsage" xml:"CPUCreditUsage"`
 	CPUCreditBalance             float64 `json:"CPUCreditBalance" xml:"CPUCreditBalance"`
-	CPUAdvanceCreditBalance      float64 `json:"CPUAdvanceCreditBalance" xml:"CPUAdvanceCreditBalance"`
+	BPSRead                      int     `json:"BPSRead" xml:"BPSRead"`
+	InternetTX                   int     `json:"InternetTX" xml:"InternetTX"`
+	CPU                          int     `json:"CPU" xml:"CPU"`
+	CPUCreditUsage               float64 `json:"CPUCreditUsage" xml:"CPUCreditUsage"`
+	IOPSWrite                    int     `json:"IOPSWrite" xml:"IOPSWrite"`
+	IntranetTX                   int     `json:"IntranetTX" xml:"IntranetTX"`
+	InstanceId                   string  `json:"InstanceId" xml:"InstanceId"`
+	BPSWrite                     int     `json:"BPSWrite" xml:"BPSWrite"`
 	CPUNotpaidSurplusCreditUsage float64 `json:"CPUNotpaidSurplusCreditUsage" xml:"CPUNotpaidSurplusCreditUsage"`
+	CPUAdvanceCreditBalance      float64 `json:"CPUAdvanceCreditBalance" xml:"CPUAdvanceCreditBalance"`
+	IOPSRead                     int     `json:"IOPSRead" xml:"IOPSRead"`
+	InternetBandwidth            int     `json:"InternetBandwidth" xml:"InternetBandwidth"`
+	InternetRX                   int     `json:"InternetRX" xml:"InternetRX"`
 	TimeStamp                    string  `json:"TimeStamp" xml:"TimeStamp"`
+	IntranetRX                   int     `json:"IntranetRX" xml:"IntranetRX"`
+	IntranetBandwidth            int     `json:"IntranetBandwidth" xml:"IntranetBandwidth"`
 }

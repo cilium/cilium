@@ -17,10 +17,11 @@ package vpc
 
 // CustomerGateway is a nested struct in vpc response
 type CustomerGateway struct {
-	CustomerGatewayId string `json:"CustomerGatewayId" xml:"CustomerGatewayId"`
-	Name              string `json:"Name" xml:"Name"`
 	IpAddress         string `json:"IpAddress" xml:"IpAddress"`
+	Asn               int64  `json:"Asn" xml:"Asn"`
 	Description       string `json:"Description" xml:"Description"`
+	CustomerGatewayId string `json:"CustomerGatewayId" xml:"CustomerGatewayId"`
 	CreateTime        int64  `json:"CreateTime" xml:"CreateTime"`
-	Asn               int    `json:"Asn" xml:"Asn"`
+	Name              string `json:"Name" xml:"Name"`
+	AuthKey           string `json:"AuthKey" xml:"AuthKey"`
 }

@@ -84,7 +84,7 @@ func (client VirtualMachineImagesEdgeZoneClient) GetPreparer(ctx context.Context
 		"version":        autorest.Encode("path", version),
 	}
 
-	const APIVersion = "2020-12-01"
+	const APIVersion = "2021-03-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -170,7 +170,7 @@ func (client VirtualMachineImagesEdgeZoneClient) ListPreparer(ctx context.Contex
 		"subscriptionId": autorest.Encode("path", client.SubscriptionID),
 	}
 
-	const APIVersion = "2020-12-01"
+	const APIVersion = "2021-03-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -257,7 +257,7 @@ func (client VirtualMachineImagesEdgeZoneClient) ListOffersPreparer(ctx context.
 		"subscriptionId": autorest.Encode("path", client.SubscriptionID),
 	}
 
-	const APIVersion = "2020-12-01"
+	const APIVersion = "2021-03-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -333,7 +333,7 @@ func (client VirtualMachineImagesEdgeZoneClient) ListPublishersPreparer(ctx cont
 		"subscriptionId": autorest.Encode("path", client.SubscriptionID),
 	}
 
-	const APIVersion = "2020-12-01"
+	const APIVersion = "2021-03-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -413,7 +413,7 @@ func (client VirtualMachineImagesEdgeZoneClient) ListSkusPreparer(ctx context.Co
 		"subscriptionId": autorest.Encode("path", client.SubscriptionID),
 	}
 
-	const APIVersion = "2020-12-01"
+	const APIVersion = "2021-03-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}

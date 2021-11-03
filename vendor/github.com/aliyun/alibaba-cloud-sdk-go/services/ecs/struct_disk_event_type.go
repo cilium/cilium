@@ -18,8 +18,8 @@ package ecs
 // DiskEventType is a nested struct in ecs response
 type DiskEventType struct {
 	EventId      string    `json:"EventId" xml:"EventId"`
-	EventTime    string    `json:"EventTime" xml:"EventTime"`
 	EventEndTime string    `json:"EventEndTime" xml:"EventEndTime"`
+	EventTime    string    `json:"EventTime" xml:"EventTime"`
 	ImpactLevel  string    `json:"ImpactLevel" xml:"ImpactLevel"`
 	EventType    EventType `json:"EventType" xml:"EventType"`
 }

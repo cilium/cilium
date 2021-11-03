@@ -56,7 +56,7 @@ func (client VirtualMachineScaleSetExtensionsClient) CreateOrUpdate(ctx context.
 
 	result, err = client.CreateOrUpdateSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "compute.VirtualMachineScaleSetExtensionsClient", "CreateOrUpdate", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "compute.VirtualMachineScaleSetExtensionsClient", "CreateOrUpdate", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -72,7 +72,7 @@ func (client VirtualMachineScaleSetExtensionsClient) CreateOrUpdatePreparer(ctx 
 		"vmssExtensionName": autorest.Encode("path", vmssExtensionName),
 	}
 
-	const APIVersion = "2020-12-01"
+	const APIVersion = "2021-03-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -92,6 +92,7 @@ func (client VirtualMachineScaleSetExtensionsClient) CreateOrUpdatePreparer(ctx 
 // http.Response Body if it receives an error.
 func (client VirtualMachineScaleSetExtensionsClient) CreateOrUpdateSender(req *http.Request) (future VirtualMachineScaleSetExtensionsCreateOrUpdateFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
@@ -139,7 +140,7 @@ func (client VirtualMachineScaleSetExtensionsClient) Delete(ctx context.Context,
 
 	result, err = client.DeleteSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "compute.VirtualMachineScaleSetExtensionsClient", "Delete", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "compute.VirtualMachineScaleSetExtensionsClient", "Delete", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -155,7 +156,7 @@ func (client VirtualMachineScaleSetExtensionsClient) DeletePreparer(ctx context.
 		"vmssExtensionName": autorest.Encode("path", vmssExtensionName),
 	}
 
-	const APIVersion = "2020-12-01"
+	const APIVersion = "2021-03-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -172,6 +173,7 @@ func (client VirtualMachineScaleSetExtensionsClient) DeletePreparer(ctx context.
 // http.Response Body if it receives an error.
 func (client VirtualMachineScaleSetExtensionsClient) DeleteSender(req *http.Request) (future VirtualMachineScaleSetExtensionsDeleteFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
@@ -242,7 +244,7 @@ func (client VirtualMachineScaleSetExtensionsClient) GetPreparer(ctx context.Con
 		"vmssExtensionName": autorest.Encode("path", vmssExtensionName),
 	}
 
-	const APIVersion = "2020-12-01"
+	const APIVersion = "2021-03-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -326,7 +328,7 @@ func (client VirtualMachineScaleSetExtensionsClient) ListPreparer(ctx context.Co
 		"vmScaleSetName":    autorest.Encode("path", VMScaleSetName),
 	}
 
-	const APIVersion = "2020-12-01"
+	const APIVersion = "2021-03-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -419,7 +421,7 @@ func (client VirtualMachineScaleSetExtensionsClient) Update(ctx context.Context,
 
 	result, err = client.UpdateSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "compute.VirtualMachineScaleSetExtensionsClient", "Update", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "compute.VirtualMachineScaleSetExtensionsClient", "Update", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -435,7 +437,7 @@ func (client VirtualMachineScaleSetExtensionsClient) UpdatePreparer(ctx context.
 		"vmssExtensionName": autorest.Encode("path", vmssExtensionName),
 	}
 
-	const APIVersion = "2020-12-01"
+	const APIVersion = "2021-03-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -456,6 +458,7 @@ func (client VirtualMachineScaleSetExtensionsClient) UpdatePreparer(ctx context.
 // http.Response Body if it receives an error.
 func (client VirtualMachineScaleSetExtensionsClient) UpdateSender(req *http.Request) (future VirtualMachineScaleSetExtensionsUpdateFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return

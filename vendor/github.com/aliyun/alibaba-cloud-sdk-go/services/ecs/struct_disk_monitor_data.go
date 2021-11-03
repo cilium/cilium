@@ -17,14 +17,14 @@ package ecs
 
 // DiskMonitorData is a nested struct in ecs response
 type DiskMonitorData struct {
-	DiskId       string `json:"DiskId" xml:"DiskId"`
-	IOPSRead     int    `json:"IOPSRead" xml:"IOPSRead"`
-	IOPSWrite    int    `json:"IOPSWrite" xml:"IOPSWrite"`
-	IOPSTotal    int    `json:"IOPSTotal" xml:"IOPSTotal"`
 	BPSRead      int    `json:"BPSRead" xml:"BPSRead"`
-	BPSWrite     int    `json:"BPSWrite" xml:"BPSWrite"`
-	BPSTotal     int    `json:"BPSTotal" xml:"BPSTotal"`
+	IOPSRead     int    `json:"IOPSRead" xml:"IOPSRead"`
 	LatencyRead  int    `json:"LatencyRead" xml:"LatencyRead"`
-	LatencyWrite int    `json:"LatencyWrite" xml:"LatencyWrite"`
+	BPSTotal     int    `json:"BPSTotal" xml:"BPSTotal"`
+	IOPSTotal    int    `json:"IOPSTotal" xml:"IOPSTotal"`
 	TimeStamp    string `json:"TimeStamp" xml:"TimeStamp"`
+	LatencyWrite int    `json:"LatencyWrite" xml:"LatencyWrite"`
+	IOPSWrite    int    `json:"IOPSWrite" xml:"IOPSWrite"`
+	DiskId       string `json:"DiskId" xml:"DiskId"`
+	BPSWrite     int    `json:"BPSWrite" xml:"BPSWrite"`
 }

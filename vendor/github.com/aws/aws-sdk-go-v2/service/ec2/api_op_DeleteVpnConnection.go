@@ -18,9 +18,9 @@ import (
 // keys, without needing to delete the VPC or virtual private gateway. If you
 // create a new VPN connection, you must reconfigure the customer gateway device
 // using the new configuration information returned with the new VPN connection ID.
-// For certificate-based authentication, delete all AWS Certificate Manager (ACM)
-// private certificates used for the AWS-side tunnel endpoints for the VPN
-// connection before deleting the VPN connection.
+// For certificate-based authentication, delete all Certificate Manager (ACM)
+// private certificates used for the Amazon Web Services-side tunnel endpoints for
+// the VPN connection before deleting the VPN connection.
 func (c *Client) DeleteVpnConnection(ctx context.Context, params *DeleteVpnConnectionInput, optFns ...func(*Options)) (*DeleteVpnConnectionOutput, error) {
 	if params == nil {
 		params = &DeleteVpnConnectionInput{}

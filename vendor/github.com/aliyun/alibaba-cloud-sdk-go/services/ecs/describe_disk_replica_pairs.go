@@ -82,8 +82,8 @@ type DescribeDiskReplicaPairsRequest struct {
 // DescribeDiskReplicaPairsResponse is the response struct for api DescribeDiskReplicaPairs
 type DescribeDiskReplicaPairsResponse struct {
 	*responses.BaseResponse
-	RequestId        string           `json:"RequestId" xml:"RequestId"`
 	NextToken        string           `json:"NextToken" xml:"NextToken"`
+	RequestId        string           `json:"RequestId" xml:"RequestId"`
 	DiskReplicaPairs DiskReplicaPairs `json:"DiskReplicaPairs" xml:"DiskReplicaPairs"`
 }
 

@@ -18,7 +18,7 @@ package ecs
 // Bandwidth is a nested struct in ecs response
 type Bandwidth struct {
 	InternetChargeType string `json:"InternetChargeType" xml:"InternetChargeType"`
-	Min                int    `json:"Min" xml:"Min"`
 	Max                int    `json:"Max" xml:"Max"`
+	Min                int    `json:"Min" xml:"Min"`
 	Unit               string `json:"Unit" xml:"Unit"`
 }

@@ -91,8 +91,8 @@ type CreateVirtualBorderRouterRequest struct {
 // CreateVirtualBorderRouterResponse is the response struct for api CreateVirtualBorderRouter
 type CreateVirtualBorderRouterResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
 	VbrId     string `json:"VbrId" xml:"VbrId"`
+	RequestId string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateCreateVirtualBorderRouterRequest creates a request to invoke CreateVirtualBorderRouter API

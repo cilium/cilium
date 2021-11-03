@@ -57,7 +57,7 @@ func (client HubVirtualNetworkConnectionsClient) CreateOrUpdate(ctx context.Cont
 
 	result, err = client.CreateOrUpdateSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.HubVirtualNetworkConnectionsClient", "CreateOrUpdate", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.HubVirtualNetworkConnectionsClient", "CreateOrUpdate", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -93,6 +93,7 @@ func (client HubVirtualNetworkConnectionsClient) CreateOrUpdatePreparer(ctx cont
 // http.Response Body if it receives an error.
 func (client HubVirtualNetworkConnectionsClient) CreateOrUpdateSender(req *http.Request) (future HubVirtualNetworkConnectionsCreateOrUpdateFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
@@ -140,7 +141,7 @@ func (client HubVirtualNetworkConnectionsClient) Delete(ctx context.Context, res
 
 	result, err = client.DeleteSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.HubVirtualNetworkConnectionsClient", "Delete", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.HubVirtualNetworkConnectionsClient", "Delete", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -173,6 +174,7 @@ func (client HubVirtualNetworkConnectionsClient) DeletePreparer(ctx context.Cont
 // http.Response Body if it receives an error.
 func (client HubVirtualNetworkConnectionsClient) DeleteSender(req *http.Request) (future HubVirtualNetworkConnectionsDeleteFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return

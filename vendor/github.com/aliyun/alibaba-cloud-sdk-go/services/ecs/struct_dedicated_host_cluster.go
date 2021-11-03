@@ -17,12 +17,12 @@ package ecs
 
 // DedicatedHostCluster is a nested struct in ecs response
 type DedicatedHostCluster struct {
-	DedicatedHostClusterId       string                              `json:"DedicatedHostClusterId" xml:"DedicatedHostClusterId"`
-	RegionId                     string                              `json:"RegionId" xml:"RegionId"`
-	ZoneId                       string                              `json:"ZoneId" xml:"ZoneId"`
-	DedicatedHostClusterName     string                              `json:"DedicatedHostClusterName" xml:"DedicatedHostClusterName"`
 	Description                  string                              `json:"Description" xml:"Description"`
+	DedicatedHostClusterId       string                              `json:"DedicatedHostClusterId" xml:"DedicatedHostClusterId"`
 	ResourceGroupId              string                              `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	ZoneId                       string                              `json:"ZoneId" xml:"ZoneId"`
+	RegionId                     string                              `json:"RegionId" xml:"RegionId"`
+	DedicatedHostClusterName     string                              `json:"DedicatedHostClusterName" xml:"DedicatedHostClusterName"`
 	DedicatedHostIds             DedicatedHostIds                    `json:"DedicatedHostIds" xml:"DedicatedHostIds"`
 	DedicatedHostClusterCapacity DedicatedHostClusterCapacity        `json:"DedicatedHostClusterCapacity" xml:"DedicatedHostClusterCapacity"`
 	Tags                         TagsInDescribeDedicatedHostClusters `json:"Tags" xml:"Tags"`

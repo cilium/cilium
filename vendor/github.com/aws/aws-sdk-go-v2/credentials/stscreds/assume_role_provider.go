@@ -32,27 +32,31 @@
 // 	// from assumed role.
 // 	svc := s3.NewFromConfig(cfg)
 //
-// Assume Role with static MFA Token
+// Assume Role with custom MFA Token provider
 //
-// To assume an IAM role with a MFA token you can either specify a MFA token code
-// directly or provide a function to prompt the user each time the credentials
-// need to refresh the role's credentials. Specifying the TokenCode should be used
-// for short lived operations that will not need to be refreshed, and when you do
-// not want to have direct control over the user provides their MFA token.
+// To assume an IAM role with a MFA token you can either specify a custom MFA
+// token provider or use the SDK's built in StdinTokenProvider that will prompt
+// the user for a token code each time the credentials need to to be refreshed.
+// Specifying a custom token provider allows you to control where the token
+// code is retrieved from, and how it is refreshed.
 //
-// With TokenCode the AssumeRoleProvider will be not be able to refresh the role's
-// credentials.
+// With a custom token provider, the provider is responsible for refreshing the
+// token code when called.
 //
 // 	cfg, err := config.LoadDefaultConfig(context.TODO())
 // 	if err != nil {
 // 		panic(err)
 // 	}
 //
+//  staticTokenProvider := func() (string, error) {
+//      return someTokenCode, nil
+//  }
+//
 // 	// Create the credentials from AssumeRoleProvider to assume the role
 // 	// referenced by the "myRoleARN" ARN using the MFA token code provided.
 // 	creds := stscreds.NewAssumeRoleProvider(sts.NewFromConfig(cfg), "myRoleArn", func(o *stscreds.AssumeRoleOptions) {
 // 		o.SerialNumber = aws.String("myTokenSerialNumber")
-// 		o.TokenCode = aws.String("00000000")
+// 		o.TokenProvider = staticTokenProvider
 // 	})
 //
 // 	cfg.Credentials = aws.NewCredentialsCache(creds)
@@ -209,12 +213,23 @@ type AssumeRoleOptions struct {
 	// call. See StdinTokenProvider for a provider that prompts and reads from stdin.
 	//
 	// This token provider will be called when ever the assumed role's
-	// credentials need to be refreshed when SerialNumber is also set and
-	// TokenCode is not set.
-	//
-	// If both TokenCode and TokenProvider is set, TokenProvider will be used and
-	// TokenCode is ignored.
+	// credentials need to be refreshed when SerialNumber is set.
 	TokenProvider func() (string, error)
+
+	// A list of session tags that you want to pass. Each session tag consists of a key
+	// name and an associated value. For more information about session tags, see
+	// Tagging STS Sessions
+	// (https://docs.aws.amazon.com/IAM/latest/UserGuide/id_session-tags.html) in the
+	// IAM User Guide. This parameter is optional. You can pass up to 50 session tags.
+	Tags []types.Tag
+
+	// A list of keys for session tags that you want to set as transitive. If you set a
+	// tag key as transitive, the corresponding key and value passes to subsequent
+	// sessions in a role chain. For more information, see Chaining Roles with Session
+	// Tags
+	// (https://docs.aws.amazon.com/IAM/latest/UserGuide/id_session-tags.html#id_session-tags_role-chaining)
+	// in the IAM User Guide. This parameter is optional.
+	TransitiveTagKeys []string
 }
 
 // NewAssumeRoleProvider constructs and returns a credentials provider that
@@ -246,11 +261,13 @@ func (p *AssumeRoleProvider) Retrieve(ctx context.Context) (aws.Credentials, err
 		p.options.Duration = DefaultDuration
 	}
 	input := &sts.AssumeRoleInput{
-		DurationSeconds: aws.Int32(int32(p.options.Duration / time.Second)),
-		PolicyArns:      p.options.PolicyARNs,
-		RoleArn:         aws.String(p.options.RoleARN),
-		RoleSessionName: aws.String(p.options.RoleSessionName),
-		ExternalId:      p.options.ExternalID,
+		DurationSeconds:   aws.Int32(int32(p.options.Duration / time.Second)),
+		PolicyArns:        p.options.PolicyARNs,
+		RoleArn:           aws.String(p.options.RoleARN),
+		RoleSessionName:   aws.String(p.options.RoleSessionName),
+		ExternalId:        p.options.ExternalID,
+		Tags:              p.options.Tags,
+		TransitiveTagKeys: p.options.TransitiveTagKeys,
 	}
 	if p.options.Policy != nil {
 		input.Policy = p.options.Policy
@@ -264,7 +281,7 @@ func (p *AssumeRoleProvider) Retrieve(ctx context.Context) (aws.Credentials, err
 			}
 			input.TokenCode = aws.String(code)
 		} else {
-			return aws.Credentials{}, fmt.Errorf("assume role with MFA enabled, but neither TokenCode nor TokenProvider are set")
+			return aws.Credentials{}, fmt.Errorf("assume role with MFA enabled, but TokenProvider is not set")
 		}
 	}
 

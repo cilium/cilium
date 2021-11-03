@@ -1,3 +1,4 @@
+//go:build linux && go1.10
 // +build linux,go1.10
 
 package netns
@@ -133,32 +134,37 @@ func GetFromDocker(id string) (NsHandle, error) {
 }
 
 // borrowed from docker/utils/utils.go
-func findCgroupMountpoint(cgroupType string) (string, error) {
+func findCgroupMountpoint(cgroupType string) (int, string, error) {
 	output, err := ioutil.ReadFile("/proc/mounts")
 	if err != nil {
-		return "", err
+		return -1, "", err
 	}
 
 	// /proc/mounts has 6 fields per line, one mount per line, e.g.
 	// cgroup /sys/fs/cgroup/devices cgroup rw,relatime,devices 0 0
 	for _, line := range strings.Split(string(output), "\n") {
 		parts := strings.Split(line, " ")
-		if len(parts) == 6 && parts[2] == "cgroup" {
-			for _, opt := range strings.Split(parts[3], ",") {
-				if opt == cgroupType {
-					return parts[1], nil
+		if len(parts) == 6 {
+			switch parts[2] {
+			case "cgroup2":
+				return 2, parts[1], nil
+			case "cgroup":
+				for _, opt := range strings.Split(parts[3], ",") {
+					if opt == cgroupType {
+						return 1, parts[1], nil
+					}
 				}
 			}
 		}
 	}
 
-	return "", fmt.Errorf("cgroup mountpoint not found for %s", cgroupType)
+	return -1, "", fmt.Errorf("cgroup mountpoint not found for %s", cgroupType)
 }
 
 // Returns the relative path to the cgroup docker is running in.
 // borrowed from docker/utils/utils.go
 // modified to get the docker pid instead of using /proc/self
-func getThisCgroup(cgroupType string) (string, error) {
+func getDockerCgroup(cgroupVer int, cgroupType string) (string, error) {
 	dockerpid, err := ioutil.ReadFile("/var/run/docker.pid")
 	if err != nil {
 		return "", err
@@ -178,7 +184,8 @@ func getThisCgroup(cgroupType string) (string, error) {
 	for _, line := range strings.Split(string(output), "\n") {
 		parts := strings.Split(line, ":")
 		// any type used by docker should work
-		if parts[1] == cgroupType {
+		if (cgroupVer == 1 && parts[1] == cgroupType) ||
+			(cgroupVer == 2 && parts[1] == "") {
 			return parts[2], nil
 		}
 	}
@@ -190,40 +197,56 @@ func getThisCgroup(cgroupType string) (string, error) {
 // modified to only return the first pid
 // modified to glob with id
 // modified to search for newer docker containers
+// modified to look for cgroups v2
 func getPidForContainer(id string) (int, error) {
 	pid := 0
 
 	// memory is chosen randomly, any cgroup used by docker works
 	cgroupType := "memory"
 
-	cgroupRoot, err := findCgroupMountpoint(cgroupType)
+	cgroupVer, cgroupRoot, err := findCgroupMountpoint(cgroupType)
 	if err != nil {
 		return pid, err
 	}
 
-	cgroupThis, err := getThisCgroup(cgroupType)
+	cgroupDocker, err := getDockerCgroup(cgroupVer, cgroupType)
 	if err != nil {
 		return pid, err
 	}
 
 	id += "*"
 
+	var pidFile string
+	if cgroupVer == 1 {
+		pidFile = "tasks"
+	} else if cgroupVer == 2 {
+		pidFile = "cgroup.procs"
+	} else {
+		return -1, fmt.Errorf("Invalid cgroup version '%d'", cgroupVer)
+	}
+
 	attempts := []string{
-		filepath.Join(cgroupRoot, cgroupThis, id, "tasks"),
+		filepath.Join(cgroupRoot, cgroupDocker, id, pidFile),
 		// With more recent lxc versions use, cgroup will be in lxc/
-		filepath.Join(cgroupRoot, cgroupThis, "lxc", id, "tasks"),
+		filepath.Join(cgroupRoot, cgroupDocker, "lxc", id, pidFile),
 		// With more recent docker, cgroup will be in docker/
-		filepath.Join(cgroupRoot, cgroupThis, "docker", id, "tasks"),
+		filepath.Join(cgroupRoot, cgroupDocker, "docker", id, pidFile),
 		// Even more recent docker versions under systemd use docker-<id>.scope/
-		filepath.Join(cgroupRoot, "system.slice", "docker-"+id+".scope", "tasks"),
+		filepath.Join(cgroupRoot, "system.slice", "docker-"+id+".scope", pidFile),
 		// Even more recent docker versions under cgroup/systemd/docker/<id>/
-		filepath.Join(cgroupRoot, "..", "systemd", "docker", id, "tasks"),
-		// Kubernetes with docker and CNI is even more different
-		filepath.Join(cgroupRoot, "..", "systemd", "kubepods", "*", "pod*", id, "tasks"),
-		// Another flavor of containers location in recent kubernetes 1.11+
-		filepath.Join(cgroupRoot, cgroupThis, "kubepods.slice", "kubepods-besteffort.slice", "*", "docker-"+id+".scope", "tasks"),
-		// When runs inside of a container with recent kubernetes 1.11+
-		filepath.Join(cgroupRoot, "kubepods.slice", "kubepods-besteffort.slice", "*", "docker-"+id+".scope", "tasks"),
+		filepath.Join(cgroupRoot, "..", "systemd", "docker", id, pidFile),
+		// Kubernetes with docker and CNI is even more different. Works for BestEffort and Burstable QoS
+		filepath.Join(cgroupRoot, "..", "systemd", "kubepods", "*", "pod*", id, pidFile),
+		// Same as above but for Guaranteed QoS
+		filepath.Join(cgroupRoot, "..", "systemd", "kubepods", "pod*", id, pidFile),
+		// Another flavor of containers location in recent kubernetes 1.11+. Works for BestEffort and Burstable QoS
+		filepath.Join(cgroupRoot, cgroupDocker, "kubepods.slice", "*.slice", "*", "docker-"+id+".scope", pidFile),
+		// Same as above but for Guaranteed QoS
+		filepath.Join(cgroupRoot, cgroupDocker, "kubepods.slice", "*", "docker-"+id+".scope", pidFile),
+		// When runs inside of a container with recent kubernetes 1.11+. Works for BestEffort and Burstable QoS
+		filepath.Join(cgroupRoot, "kubepods.slice", "*.slice", "*", "docker-"+id+".scope", pidFile),
+		// Same as above but for Guaranteed QoS
+		filepath.Join(cgroupRoot, "kubepods.slice", "*", "docker-"+id+".scope", pidFile),
 	}
 
 	var filename string

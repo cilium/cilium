@@ -1,3 +1,119 @@
+# Release (2021-10-21)
+
+## General Highlights
+* **Feature**: Updated  to latest version
+* **Dependency Update**: Updated to the latest SDK module versions
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2`: v1.10.0
+  * **Feature**: Adds dynamic signing middleware that switches to unsigned payload when TLS is enabled.
+* `github.com/aws/aws-sdk-go-v2/service/appflow`: [v1.8.0](service/appflow/CHANGELOG.md#v180-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/applicationautoscaling`: [v1.8.0](service/applicationautoscaling/CHANGELOG.md#v180-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/autoscaling`: [v1.13.0](service/autoscaling/CHANGELOG.md#v1130-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/chimesdkmessaging`: [v1.3.0](service/chimesdkmessaging/CHANGELOG.md#v130-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/cloudformation`: [v1.11.0](service/cloudformation/CHANGELOG.md#v1110-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/cloudsearch`: [v1.7.0](service/cloudsearch/CHANGELOG.md#v170-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/cloudtrail`: [v1.7.0](service/cloudtrail/CHANGELOG.md#v170-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/cloudwatch`: [v1.9.0](service/cloudwatch/CHANGELOG.md#v190-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/cloudwatchevents`: [v1.7.0](service/cloudwatchevents/CHANGELOG.md#v170-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs`: [v1.8.0](service/cloudwatchlogs/CHANGELOG.md#v180-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/codedeploy`: [v1.7.0](service/codedeploy/CHANGELOG.md#v170-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/configservice`: [v1.10.0](service/configservice/CHANGELOG.md#v1100-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/dataexchange`: [v1.7.0](service/dataexchange/CHANGELOG.md#v170-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/directconnect`: [v1.9.0](service/directconnect/CHANGELOG.md#v190-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/docdb`: [v1.10.0](service/docdb/CHANGELOG.md#v1100-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/dynamodb`: [v1.6.0](service/dynamodb/CHANGELOG.md#v160-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/ec2`: [v1.20.0](service/ec2/CHANGELOG.md#v1200-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/ecr`: [v1.8.0](service/ecr/CHANGELOG.md#v180-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/ecs`: [v1.10.0](service/ecs/CHANGELOG.md#v1100-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/efs`: [v1.9.0](service/efs/CHANGELOG.md#v190-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/elasticache`: [v1.12.0](service/elasticache/CHANGELOG.md#v1120-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/elasticloadbalancing`: [v1.7.0](service/elasticloadbalancing/CHANGELOG.md#v170-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2`: [v1.10.0](service/elasticloadbalancingv2/CHANGELOG.md#v1100-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/emr`: [v1.10.0](service/emr/CHANGELOG.md#v1100-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/eventbridge`: [v1.8.0](service/eventbridge/CHANGELOG.md#v180-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/glacier`: [v1.6.0](service/glacier/CHANGELOG.md#v160-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/glue`: [v1.13.0](service/glue/CHANGELOG.md#v1130-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/ivs`: [v1.8.0](service/ivs/CHANGELOG.md#v180-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/kendra`: [v1.13.0](service/kendra/CHANGELOG.md#v1130-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/kinesis`: [v1.7.0](service/kinesis/CHANGELOG.md#v170-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/kinesisanalyticsv2`: [v1.7.0](service/kinesisanalyticsv2/CHANGELOG.md#v170-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/kms`: [v1.8.0](service/kms/CHANGELOG.md#v180-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/lambda`: [v1.10.0](service/lambda/CHANGELOG.md#v1100-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/mediaconvert`: [v1.13.0](service/mediaconvert/CHANGELOG.md#v1130-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/mediapackage`: [v1.9.0](service/mediapackage/CHANGELOG.md#v190-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/mediapackagevod`: [v1.10.0](service/mediapackagevod/CHANGELOG.md#v1100-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/mediatailor`: [v1.9.0](service/mediatailor/CHANGELOG.md#v190-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/neptune`: [v1.9.0](service/neptune/CHANGELOG.md#v190-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/panorama`: [v1.0.0](service/panorama/CHANGELOG.md#v100-2021-10-21)
+  * **Release**: New AWS service client module
+* `github.com/aws/aws-sdk-go-v2/service/quicksight`: [v1.13.0](service/quicksight/CHANGELOG.md#v1130-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/rds`: [v1.10.0](service/rds/CHANGELOG.md#v1100-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/redshift`: [v1.12.0](service/redshift/CHANGELOG.md#v1120-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/robomaker`: [v1.10.0](service/robomaker/CHANGELOG.md#v1100-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/s3`: [v1.17.0](service/s3/CHANGELOG.md#v1170-2021-10-21)
+  * **Feature**: Updates S3 streaming operations - PutObject, UploadPart, WriteGetObjectResponse to use unsigned payload signing auth when TLS is enabled.
+* `github.com/aws/aws-sdk-go-v2/service/sagemaker`: [v1.17.0](service/sagemaker/CHANGELOG.md#v1170-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/securityhub`: [v1.12.0](service/securityhub/CHANGELOG.md#v1120-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/sfn`: [v1.6.0](service/sfn/CHANGELOG.md#v160-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/sns`: [v1.9.0](service/sns/CHANGELOG.md#v190-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/sqs`: [v1.10.0](service/sqs/CHANGELOG.md#v1100-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/storagegateway`: [v1.7.0](service/storagegateway/CHANGELOG.md#v170-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/sts`: [v1.8.0](service/sts/CHANGELOG.md#v180-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/swf`: [v1.6.0](service/swf/CHANGELOG.md#v160-2021-10-21)
+  * **Feature**: API client updated
+* `github.com/aws/aws-sdk-go-v2/service/workmail`: [v1.8.0](service/workmail/CHANGELOG.md#v180-2021-10-21)
+  * **Feature**: API client updated
+
 # Release (2021-10-11)
 
 ## General Highlights

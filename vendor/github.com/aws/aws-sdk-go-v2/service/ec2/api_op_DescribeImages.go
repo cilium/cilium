@@ -21,12 +21,12 @@ import (
 
 // Describes the specified images (AMIs, AKIs, and ARIs) available to you or all of
 // the images available to you. The images available to you include public images,
-// private images that you own, and private images owned by other AWS accounts for
-// which you have explicit launch permissions. Recently deregistered images appear
-// in the returned results for a short interval and then return empty results.
-// After all instances that reference a deregistered AMI are terminated, specifying
-// the ID of the image will eventually return an error indicating that the AMI ID
-// cannot be found.
+// private images that you own, and private images owned by other Amazon Web
+// Services accounts for which you have explicit launch permissions. Recently
+// deregistered images appear in the returned results for a short interval and then
+// return empty results. After all instances that reference a deregistered AMI are
+// terminated, specifying the ID of the image will eventually return an error
+// indicating that the AMI ID cannot be found.
 func (c *Client) DescribeImages(ctx context.Context, params *DescribeImagesInput, optFns ...func(*Options)) (*DescribeImagesOutput, error) {
 	if params == nil {
 		params = &DescribeImagesInput{}
@@ -50,8 +50,8 @@ type DescribeImagesInput struct {
 	// UnauthorizedOperation.
 	DryRun *bool
 
-	// Scopes the images by users with explicit launch permissions. Specify an AWS
-	// account ID, self (the sender of the request), or all (public AMIs).
+	// Scopes the images by users with explicit launch permissions. Specify an Amazon
+	// Web Services account ID, self (the sender of the request), or all (public AMIs).
 	ExecutableUsers []string
 
 	// The filters.
@@ -67,50 +67,51 @@ type DescribeImagesInput struct {
 	// mapping (for example, /dev/sdh or xvdh).
 	//
 	// * block-device-mapping.snapshot-id -
-	// The ID of the snapshot used for the EBS volume.
+	// The ID of the snapshot used for the Amazon EBS volume.
 	//
 	// *
-	// block-device-mapping.volume-size - The volume size of the EBS volume, in GiB.
+	// block-device-mapping.volume-size - The volume size of the Amazon EBS volume, in
+	// GiB.
+	//
+	// * block-device-mapping.volume-type - The volume type of the Amazon EBS
+	// volume (io1 | io2 | gp2 | gp3 | sc1 | st1 | standard).
 	//
 	// *
-	// block-device-mapping.volume-type - The volume type of the EBS volume (gp2 | io1
-	// | io2 | st1 | sc1 | standard).
+	// block-device-mapping.encrypted - A Boolean that indicates whether the Amazon EBS
+	// volume is encrypted.
 	//
-	// * block-device-mapping.encrypted - A Boolean
-	// that indicates whether the EBS volume is encrypted.
+	// * description - The description of the image (provided
+	// during image creation).
 	//
-	// * description - The
-	// description of the image (provided during image creation).
+	// * ena-support - A Boolean that indicates whether
+	// enhanced networking with ENA is enabled.
 	//
-	// * ena-support - A
-	// Boolean that indicates whether enhanced networking with ENA is enabled.
+	// * hypervisor - The hypervisor type
+	// (ovm | xen).
+	//
+	// * image-id - The ID of the image.
+	//
+	// * image-type - The image type
+	// (machine | kernel | ramdisk).
+	//
+	// * is-public - A Boolean that indicates whether
+	// the image is public.
+	//
+	// * kernel-id - The kernel ID.
+	//
+	// * manifest-location - The
+	// location of the image manifest.
+	//
+	// * name - The name of the AMI (provided during
+	// image creation).
+	//
+	// * owner-alias - The owner alias (amazon | aws-marketplace).
+	// The valid aliases are defined in an Amazon-maintained list. This is not the
+	// Amazon Web Services account alias that can be set using the IAM console. We
+	// recommend that you use the Owner request parameter instead of this filter.
 	//
 	// *
-	// hypervisor - The hypervisor type (ovm | xen).
-	//
-	// * image-id - The ID of the
-	// image.
-	//
-	// * image-type - The image type (machine | kernel | ramdisk).
-	//
-	// * is-public
-	// - A Boolean that indicates whether the image is public.
-	//
-	// * kernel-id - The
-	// kernel ID.
-	//
-	// * manifest-location - The location of the image manifest.
-	//
-	// * name -
-	// The name of the AMI (provided during image creation).
-	//
-	// * owner-alias - The owner
-	// alias (amazon | aws-marketplace). The valid aliases are defined in an
-	// Amazon-maintained list. This is not the AWS account alias that can be set using
-	// the IAM console. We recommend that you use the Owner request parameter instead
-	// of this filter.
-	//
-	// * owner-id - The AWS account ID of the owner. We recommend that
+	// owner-id - The Amazon Web Services account ID of the owner. We recommend that
 	// you use the Owner request parameter instead of this filter.
 	//
 	// * platform - The
@@ -119,8 +120,8 @@ type DescribeImagesInput struct {
 	// * product-code - The
 	// product code.
 	//
-	// * product-code.type - The type of the product code (devpay |
-	// marketplace).
+	// * product-code.type - The type of the product code
+	// (marketplace).
 	//
 	// * ramdisk-id - The RAM disk ID.
 	//
@@ -167,9 +168,9 @@ type DescribeImagesInput struct {
 	IncludeDeprecated *bool
 
 	// Scopes the results to images with the specified owners. You can specify a
-	// combination of AWS account IDs, self, amazon, and aws-marketplace. If you omit
-	// this parameter, the results include all images for which you have launch
-	// permissions, regardless of ownership.
+	// combination of Amazon Web Services account IDs, self, amazon, and
+	// aws-marketplace. If you omit this parameter, the results include all images for
+	// which you have launch permissions, regardless of ownership.
 	Owners []string
 
 	noSmithyDocumentSerde

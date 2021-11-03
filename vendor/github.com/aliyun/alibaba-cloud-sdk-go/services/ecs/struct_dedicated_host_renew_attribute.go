@@ -17,9 +17,10 @@ package ecs
 
 // DedicatedHostRenewAttribute is a nested struct in ecs response
 type DedicatedHostRenewAttribute struct {
-	DedicatedHostId  string `json:"DedicatedHostId" xml:"DedicatedHostId"`
-	AutoRenewEnabled bool   `json:"AutoRenewEnabled" xml:"AutoRenewEnabled"`
-	Duration         int    `json:"Duration" xml:"Duration"`
 	PeriodUnit       string `json:"PeriodUnit" xml:"PeriodUnit"`
+	Duration         int    `json:"Duration" xml:"Duration"`
+	DedicatedHostId  string `json:"DedicatedHostId" xml:"DedicatedHostId"`
 	RenewalStatus    string `json:"RenewalStatus" xml:"RenewalStatus"`
+	AutoRenewEnabled bool   `json:"AutoRenewEnabled" xml:"AutoRenewEnabled"`
+	AutoRenewWithEcs string `json:"AutoRenewWithEcs" xml:"AutoRenewWithEcs"`
 }

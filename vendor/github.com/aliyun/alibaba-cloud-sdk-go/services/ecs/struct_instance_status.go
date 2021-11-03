@@ -17,6 +17,6 @@ package ecs
 
 // InstanceStatus is a nested struct in ecs response
 type InstanceStatus struct {
-	InstanceId string `json:"InstanceId" xml:"InstanceId"`
 	Status     string `json:"Status" xml:"Status"`
+	InstanceId string `json:"InstanceId" xml:"InstanceId"`
 }

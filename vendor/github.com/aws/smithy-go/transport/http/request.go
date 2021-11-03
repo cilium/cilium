@@ -132,9 +132,7 @@ func (r *Request) Build(ctx context.Context) *http.Request {
 
 	if r.stream != nil {
 		req.Body = iointernal.NewSafeReadCloser(ioutil.NopCloser(r.stream))
-	} else {
-		// we update the content-length to 0,
-		// if request stream was not set.
+	} else if req.ContentLength == -1 {
 		req.ContentLength = 0
 	}
 

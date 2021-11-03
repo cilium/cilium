@@ -92,8 +92,8 @@ type CreatePhysicalConnectionRequest struct {
 // CreatePhysicalConnectionResponse is the response struct for api CreatePhysicalConnection
 type CreatePhysicalConnectionResponse struct {
 	*responses.BaseResponse
-	RequestId            string `json:"RequestId" xml:"RequestId"`
 	PhysicalConnectionId string `json:"PhysicalConnectionId" xml:"PhysicalConnectionId"`
+	RequestId            string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateCreatePhysicalConnectionRequest creates a request to invoke CreatePhysicalConnection API

@@ -17,19 +17,19 @@ package ecs
 
 // InvocationResult is a nested struct in ecs response
 type InvocationResult struct {
-	CommandId          string `json:"CommandId" xml:"CommandId"`
-	InvokeId           string `json:"InvokeId" xml:"InvokeId"`
-	InstanceId         string `json:"InstanceId" xml:"InstanceId"`
-	StartTime          string `json:"StartTime" xml:"StartTime"`
-	StopTime           string `json:"StopTime" xml:"StopTime"`
-	FinishedTime       string `json:"FinishedTime" xml:"FinishedTime"`
+	InvocationStatus   string `json:"InvocationStatus" xml:"InvocationStatus"`
 	Repeats            int    `json:"Repeats" xml:"Repeats"`
+	CommandId          string `json:"CommandId" xml:"CommandId"`
+	InstanceId         string `json:"InstanceId" xml:"InstanceId"`
 	Output             string `json:"Output" xml:"Output"`
 	Dropped            int    `json:"Dropped" xml:"Dropped"`
-	InvokeRecordStatus string `json:"InvokeRecordStatus" xml:"InvokeRecordStatus"`
-	InvocationStatus   string `json:"InvocationStatus" xml:"InvocationStatus"`
+	StopTime           string `json:"StopTime" xml:"StopTime"`
 	ExitCode           int64  `json:"ExitCode" xml:"ExitCode"`
-	ErrorCode          string `json:"ErrorCode" xml:"ErrorCode"`
+	StartTime          string `json:"StartTime" xml:"StartTime"`
 	ErrorInfo          string `json:"ErrorInfo" xml:"ErrorInfo"`
+	ErrorCode          string `json:"ErrorCode" xml:"ErrorCode"`
+	FinishedTime       string `json:"FinishedTime" xml:"FinishedTime"`
+	InvokeId           string `json:"InvokeId" xml:"InvokeId"`
+	InvokeRecordStatus string `json:"InvokeRecordStatus" xml:"InvokeRecordStatus"`
 	Username           string `json:"Username" xml:"Username"`
 }

@@ -545,12 +545,12 @@ func getProcInodes(root string, pid int32, max int) (map[string][]inodeMap, erro
 		return ret, err
 	}
 	defer f.Close()
-	files, err := f.Readdir(max)
+	dirEntries, err := f.ReadDir(max)
 	if err != nil {
 		return ret, err
 	}
-	for _, fd := range files {
-		inodePath := fmt.Sprintf("%s/%d/fd/%s", root, pid, fd.Name())
+	for _, dirEntry := range dirEntries {
+		inodePath := fmt.Sprintf("%s/%d/fd/%s", root, pid, dirEntry.Name())
 
 		inode, err := os.Readlink(inodePath)
 		if err != nil {
@@ -566,7 +566,7 @@ func getProcInodes(root string, pid int32, max int) (map[string][]inodeMap, erro
 		if !ok {
 			ret[inode] = make([]inodeMap, 0)
 		}
-		fd, err := strconv.Atoi(fd.Name())
+		fd, err := strconv.Atoi(dirEntry.Name())
 		if err != nil {
 			continue
 		}

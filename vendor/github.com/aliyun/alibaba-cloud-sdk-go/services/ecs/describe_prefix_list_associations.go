@@ -83,8 +83,8 @@ type DescribePrefixListAssociationsRequest struct {
 // DescribePrefixListAssociationsResponse is the response struct for api DescribePrefixListAssociations
 type DescribePrefixListAssociationsResponse struct {
 	*responses.BaseResponse
-	RequestId              string                 `json:"RequestId" xml:"RequestId"`
 	NextToken              string                 `json:"NextToken" xml:"NextToken"`
+	RequestId              string                 `json:"RequestId" xml:"RequestId"`
 	PrefixListAssociations PrefixListAssociations `json:"PrefixListAssociations" xml:"PrefixListAssociations"`
 }
 

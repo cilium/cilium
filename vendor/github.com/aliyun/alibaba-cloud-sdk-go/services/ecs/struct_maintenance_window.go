@@ -17,6 +17,6 @@ package ecs
 
 // MaintenanceWindow is a nested struct in ecs response
 type MaintenanceWindow struct {
-	StartTime string `json:"StartTime" xml:"StartTime"`
 	EndTime   string `json:"EndTime" xml:"EndTime"`
+	StartTime string `json:"StartTime" xml:"StartTime"`
 }

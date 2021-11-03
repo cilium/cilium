@@ -42,7 +42,7 @@ import (
 
 	"github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
-	cniTypesVer "github.com/containernetworking/cni/pkg/types/current"
+	cniTypesVer "github.com/containernetworking/cni/pkg/types/040"
 	cniVersion "github.com/containernetworking/cni/pkg/version"
 	"github.com/containernetworking/plugins/pkg/ns"
 	gops "github.com/google/gops/agent"

@@ -18,15 +18,15 @@ package ecs
 // ResourceTypeCount is a nested struct in ecs response
 type ResourceTypeCount struct {
 	Instance         int `json:"Instance" xml:"Instance"`
-	Disk             int `json:"Disk" xml:"Disk"`
-	Volume           int `json:"Volume" xml:"Volume"`
 	Image            int `json:"Image" xml:"Image"`
-	Snapshot         int `json:"Snapshot" xml:"Snapshot"`
+	Ddh              int `json:"Ddh" xml:"Ddh"`
+	SnapshotPolicy   int `json:"SnapshotPolicy" xml:"SnapshotPolicy"`
 	Securitygroup    int `json:"Securitygroup" xml:"Securitygroup"`
+	Snapshot         int `json:"Snapshot" xml:"Snapshot"`
+	ReservedInstance int `json:"ReservedInstance" xml:"ReservedInstance"`
 	LaunchTemplate   int `json:"LaunchTemplate" xml:"LaunchTemplate"`
 	Eni              int `json:"Eni" xml:"Eni"`
-	Ddh              int `json:"Ddh" xml:"Ddh"`
+	Disk             int `json:"Disk" xml:"Disk"`
 	KeyPair          int `json:"KeyPair" xml:"KeyPair"`
-	SnapshotPolicy   int `json:"SnapshotPolicy" xml:"SnapshotPolicy"`
-	ReservedInstance int `json:"ReservedInstance" xml:"ReservedInstance"`
+	Volume           int `json:"Volume" xml:"Volume"`
 }

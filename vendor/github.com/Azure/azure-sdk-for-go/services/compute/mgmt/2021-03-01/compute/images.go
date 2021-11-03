@@ -54,7 +54,7 @@ func (client ImagesClient) CreateOrUpdate(ctx context.Context, resourceGroupName
 
 	result, err = client.CreateOrUpdateSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "compute.ImagesClient", "CreateOrUpdate", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "compute.ImagesClient", "CreateOrUpdate", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -69,7 +69,7 @@ func (client ImagesClient) CreateOrUpdatePreparer(ctx context.Context, resourceG
 		"subscriptionId":    autorest.Encode("path", client.SubscriptionID),
 	}
 
-	const APIVersion = "2020-12-01"
+	const APIVersion = "2021-03-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -88,6 +88,7 @@ func (client ImagesClient) CreateOrUpdatePreparer(ctx context.Context, resourceG
 // http.Response Body if it receives an error.
 func (client ImagesClient) CreateOrUpdateSender(req *http.Request) (future ImagesCreateOrUpdateFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
@@ -134,7 +135,7 @@ func (client ImagesClient) Delete(ctx context.Context, resourceGroupName string,
 
 	result, err = client.DeleteSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "compute.ImagesClient", "Delete", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "compute.ImagesClient", "Delete", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -149,7 +150,7 @@ func (client ImagesClient) DeletePreparer(ctx context.Context, resourceGroupName
 		"subscriptionId":    autorest.Encode("path", client.SubscriptionID),
 	}
 
-	const APIVersion = "2020-12-01"
+	const APIVersion = "2021-03-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -166,6 +167,7 @@ func (client ImagesClient) DeletePreparer(ctx context.Context, resourceGroupName
 // http.Response Body if it receives an error.
 func (client ImagesClient) DeleteSender(req *http.Request) (future ImagesDeleteFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
@@ -234,7 +236,7 @@ func (client ImagesClient) GetPreparer(ctx context.Context, resourceGroupName st
 		"subscriptionId":    autorest.Encode("path", client.SubscriptionID),
 	}
 
-	const APIVersion = "2020-12-01"
+	const APIVersion = "2021-03-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -314,7 +316,7 @@ func (client ImagesClient) ListPreparer(ctx context.Context) (*http.Request, err
 		"subscriptionId": autorest.Encode("path", client.SubscriptionID),
 	}
 
-	const APIVersion = "2020-12-01"
+	const APIVersion = "2021-03-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -430,7 +432,7 @@ func (client ImagesClient) ListByResourceGroupPreparer(ctx context.Context, reso
 		"subscriptionId":    autorest.Encode("path", client.SubscriptionID),
 	}
 
-	const APIVersion = "2020-12-01"
+	const APIVersion = "2021-03-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -522,7 +524,7 @@ func (client ImagesClient) Update(ctx context.Context, resourceGroupName string,
 
 	result, err = client.UpdateSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "compute.ImagesClient", "Update", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "compute.ImagesClient", "Update", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -537,7 +539,7 @@ func (client ImagesClient) UpdatePreparer(ctx context.Context, resourceGroupName
 		"subscriptionId":    autorest.Encode("path", client.SubscriptionID),
 	}
 
-	const APIVersion = "2020-12-01"
+	const APIVersion = "2021-03-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -556,6 +558,7 @@ func (client ImagesClient) UpdatePreparer(ctx context.Context, resourceGroupName
 // http.Response Body if it receives an error.
 func (client ImagesClient) UpdateSender(req *http.Request) (future ImagesUpdateFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return

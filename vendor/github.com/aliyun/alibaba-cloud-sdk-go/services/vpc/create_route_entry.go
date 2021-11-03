@@ -96,8 +96,8 @@ type CreateRouteEntryNextHopList struct {
 // CreateRouteEntryResponse is the response struct for api CreateRouteEntry
 type CreateRouteEntryResponse struct {
 	*responses.BaseResponse
-	RequestId    string `json:"RequestId" xml:"RequestId"`
 	RouteEntryId string `json:"RouteEntryId" xml:"RouteEntryId"`
+	RequestId    string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateCreateRouteEntryRequest creates a request to invoke CreateRouteEntry API

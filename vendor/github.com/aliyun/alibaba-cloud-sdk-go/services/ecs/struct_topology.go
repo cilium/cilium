@@ -17,6 +17,6 @@ package ecs
 
 // Topology is a nested struct in ecs response
 type Topology struct {
-	InstanceId string `json:"InstanceId" xml:"InstanceId"`
 	HostId     string `json:"HostId" xml:"HostId"`
+	InstanceId string `json:"InstanceId" xml:"InstanceId"`
 }

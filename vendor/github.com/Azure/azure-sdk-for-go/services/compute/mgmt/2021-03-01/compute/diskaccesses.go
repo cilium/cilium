@@ -57,7 +57,7 @@ func (client DiskAccessesClient) CreateOrUpdate(ctx context.Context, resourceGro
 
 	result, err = client.CreateOrUpdateSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "compute.DiskAccessesClient", "CreateOrUpdate", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "compute.DiskAccessesClient", "CreateOrUpdate", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -91,6 +91,7 @@ func (client DiskAccessesClient) CreateOrUpdatePreparer(ctx context.Context, res
 // http.Response Body if it receives an error.
 func (client DiskAccessesClient) CreateOrUpdateSender(req *http.Request) (future DiskAccessesCreateOrUpdateFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
@@ -139,7 +140,7 @@ func (client DiskAccessesClient) Delete(ctx context.Context, resourceGroupName s
 
 	result, err = client.DeleteSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "compute.DiskAccessesClient", "Delete", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "compute.DiskAccessesClient", "Delete", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -171,6 +172,7 @@ func (client DiskAccessesClient) DeletePreparer(ctx context.Context, resourceGro
 // http.Response Body if it receives an error.
 func (client DiskAccessesClient) DeleteSender(req *http.Request) (future DiskAccessesDeleteFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
@@ -219,7 +221,7 @@ func (client DiskAccessesClient) DeleteAPrivateEndpointConnection(ctx context.Co
 
 	result, err = client.DeleteAPrivateEndpointConnectionSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "compute.DiskAccessesClient", "DeleteAPrivateEndpointConnection", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "compute.DiskAccessesClient", "DeleteAPrivateEndpointConnection", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -252,6 +254,7 @@ func (client DiskAccessesClient) DeleteAPrivateEndpointConnectionPreparer(ctx co
 // http.Response Body if it receives an error.
 func (client DiskAccessesClient) DeleteAPrivateEndpointConnectionSender(req *http.Request) (future DiskAccessesDeleteAPrivateEndpointConnectionFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
@@ -885,7 +888,7 @@ func (client DiskAccessesClient) Update(ctx context.Context, resourceGroupName s
 
 	result, err = client.UpdateSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "compute.DiskAccessesClient", "Update", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "compute.DiskAccessesClient", "Update", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -919,6 +922,7 @@ func (client DiskAccessesClient) UpdatePreparer(ctx context.Context, resourceGro
 // http.Response Body if it receives an error.
 func (client DiskAccessesClient) UpdateSender(req *http.Request) (future DiskAccessesUpdateFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
@@ -978,7 +982,7 @@ func (client DiskAccessesClient) UpdateAPrivateEndpointConnection(ctx context.Co
 
 	result, err = client.UpdateAPrivateEndpointConnectionSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "compute.DiskAccessesClient", "UpdateAPrivateEndpointConnection", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "compute.DiskAccessesClient", "UpdateAPrivateEndpointConnection", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -1016,6 +1020,7 @@ func (client DiskAccessesClient) UpdateAPrivateEndpointConnectionPreparer(ctx co
 // http.Response Body if it receives an error.
 func (client DiskAccessesClient) UpdateAPrivateEndpointConnectionSender(req *http.Request) (future DiskAccessesUpdateAPrivateEndpointConnectionFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return

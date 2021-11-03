@@ -86,8 +86,8 @@ type CreateVSwitchRequest struct {
 // CreateVSwitchResponse is the response struct for api CreateVSwitch
 type CreateVSwitchResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
 	VSwitchId string `json:"VSwitchId" xml:"VSwitchId"`
+	RequestId string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateCreateVSwitchRequest creates a request to invoke CreateVSwitch API

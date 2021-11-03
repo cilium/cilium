@@ -73,16 +73,19 @@ type DescribeInstanceTypesRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
 	InstanceTypes        *[]string        `position:"Query" name:"InstanceTypes"  type:"Repeated"`
+	NextToken            string           `position:"Query" name:"NextToken"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	InstanceTypeFamily   string           `position:"Query" name:"InstanceTypeFamily"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
+	MaxResults           requests.Integer `position:"Query" name:"MaxResults"`
 }
 
 // DescribeInstanceTypesResponse is the response struct for api DescribeInstanceTypes
 type DescribeInstanceTypesResponse struct {
 	*responses.BaseResponse
 	RequestId     string                               `json:"RequestId" xml:"RequestId"`
+	NextToken     string                               `json:"NextToken" xml:"NextToken"`
 	InstanceTypes InstanceTypesInDescribeInstanceTypes `json:"InstanceTypes" xml:"InstanceTypes"`
 }
 

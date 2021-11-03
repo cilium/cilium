@@ -15,7 +15,7 @@ import (
 // Adds an ingress authorization rule to a Client VPN endpoint. Ingress
 // authorization rules act as firewall rules that grant access to networks. You
 // must configure ingress authorization rules to enable clients to access resources
-// in AWS or on-premises networks.
+// in Amazon Web Services or on-premises networks.
 func (c *Client) AuthorizeClientVpnIngress(ctx context.Context, params *AuthorizeClientVpnIngressInput, optFns ...func(*Options)) (*AuthorizeClientVpnIngressOutput, error) {
 	if params == nil {
 		params = &AuthorizeClientVpnIngressInput{}
@@ -55,7 +55,7 @@ type AuthorizeClientVpnIngressInput struct {
 	AuthorizeAllGroups *bool
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see How to Ensure Idempotency
+	// the request. For more information, see How to ensure idempotency
 	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
 	ClientToken *string
 

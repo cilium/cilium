@@ -3,11 +3,16 @@ load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_proto_library")
 load("@rules_java//java:defs.bzl", "java_proto_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+package(
+    default_visibility =
+        ["//visibility:public"],
+)
 
 proto_library(
     name = "validate_proto",
     srcs = ["validate.proto"],
-    visibility = ["//visibility:public"],
     deps = [
         "@com_google_protobuf//:descriptor_proto",
         "@com_google_protobuf//:duration_proto",
@@ -17,34 +22,48 @@ proto_library(
 
 cc_proto_library(
     name = "validate_cc",
-    visibility = ["//visibility:public"],
     deps = [":validate_proto"],
 )
 
 py_proto_library(
     name = "validate_py",
     srcs = ["validate.proto"],
-    default_runtime = "@com_google_protobuf//:protobuf_python",
-    protoc = "@com_google_protobuf//:protoc",
-    visibility = ["//visibility:public"],
     deps = ["@com_google_protobuf//:protobuf_python"],
 )
 
 go_proto_library(
-    name = "go_default_library",
+    name = "validate_go_proto",
     importpath = "github.com/envoyproxy/protoc-gen-validate/validate",
     proto = ":validate_proto",
-    visibility = ["//visibility:public"],
 )
 
 cc_library(
     name = "cc_validate",
     hdrs = ["validate.h"],
-    visibility = ["//visibility:public"],
+)
+
+go_library(
+    name = "validate_go",
+    embed = [":validate_go_proto"],
+    importpath = "github.com/envoyproxy/protoc-gen-validate/validate",
 )
 
 java_proto_library(
     name = "validate_java",
-    visibility = ["//visibility:public"],
     deps = [":validate_proto"],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":validate_go",
+    deprecation = "Use :validate instead of :go_default_library.  Details about the new naming convention: https://github.com/bazelbuild/bazel-gazelle/pull/863",
+    visibility = ["//visibility:public"],
+)
+
+# this alias allows build files generated with Gazelle in other repositories
+# to find validate as an external dependency
+alias(
+    name = "validate",
+    actual = ":validate_go",
+    visibility = ["//visibility:public"],
 )

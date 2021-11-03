@@ -17,7 +17,7 @@ package ecs
 
 // ActionOnMaintenance is a nested struct in ecs response
 type ActionOnMaintenance struct {
-	Value           string          `json:"Value" xml:"Value"`
 	DefaultValue    string          `json:"DefaultValue" xml:"DefaultValue"`
+	Value           string          `json:"Value" xml:"Value"`
 	SupportedValues SupportedValues `json:"SupportedValues" xml:"SupportedValues"`
 }

@@ -17,9 +17,9 @@ package vpc
 
 // PrivateInfo is a nested struct in vpc response
 type PrivateInfo struct {
-	EniInstanceId    string `json:"EniInstanceId" xml:"EniInstanceId"`
-	IzNo             string `json:"IzNo" xml:"IzNo"`
 	MaxBandwidth     int    `json:"MaxBandwidth" xml:"MaxBandwidth"`
-	PrivateIpAddress string `json:"PrivateIpAddress" xml:"PrivateIpAddress"`
 	VswitchId        string `json:"VswitchId" xml:"VswitchId"`
+	PrivateIpAddress string `json:"PrivateIpAddress" xml:"PrivateIpAddress"`
+	IzNo             string `json:"IzNo" xml:"IzNo"`
+	EniInstanceId    string `json:"EniInstanceId" xml:"EniInstanceId"`
 }

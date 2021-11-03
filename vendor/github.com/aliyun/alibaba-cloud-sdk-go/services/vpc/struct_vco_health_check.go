@@ -21,6 +21,6 @@ type VcoHealthCheck struct {
 	Sip      string `json:"Sip" xml:"Sip"`
 	Enable   string `json:"Enable" xml:"Enable"`
 	Interval int    `json:"Interval" xml:"Interval"`
-	Retry    int    `json:"Retry" xml:"Retry"`
 	Status   string `json:"Status" xml:"Status"`
+	Retry    int    `json:"Retry" xml:"Retry"`
 }

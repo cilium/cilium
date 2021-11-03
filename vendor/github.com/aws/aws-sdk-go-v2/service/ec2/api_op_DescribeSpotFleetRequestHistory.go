@@ -15,7 +15,10 @@ import (
 // Describes the events for the specified Spot Fleet request during the specified
 // time. Spot Fleet events are delayed by up to 30 seconds before they can be
 // described. This ensures that you can query by the last evaluated time and not
-// miss a recorded event. Spot Fleet events are available for 48 hours.
+// miss a recorded event. Spot Fleet events are available for 48 hours. For more
+// information, see Monitor fleet events using Amazon EventBridge
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/fleet-monitor.html) in the
+// Amazon EC2 User Guide for Linux Instances.
 func (c *Client) DescribeSpotFleetRequestHistory(ctx context.Context, params *DescribeSpotFleetRequestHistoryInput, optFns ...func(*Options)) (*DescribeSpotFleetRequestHistoryOutput, error) {
 	if params == nil {
 		params = &DescribeSpotFleetRequestHistoryInput{}

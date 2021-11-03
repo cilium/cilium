@@ -88,10 +88,15 @@ func NewSchemaValidator(schema *spec.Schema, rootSchema interface{}, root string
 		s.commonValidator(),
 		s.objectValidator(),
 	}
+	if s.Options.validationRulesEnabled {
+		if cv := s.celExpressionValidator(); cv != nil {
+			s.validators = append(s.validators, cv)
+		}
+	}
 	return &s
 }
 
-// SetPath sets the path for this schema valdiator
+// SetPath sets the path for this schema validator
 func (s *SchemaValidator) SetPath(path string) {
 	s.Path = path
 }
@@ -249,4 +254,8 @@ func (s *SchemaValidator) objectValidator() valueValidator {
 		KnownFormats:         s.KnownFormats,
 		Options:              s.Options,
 	}
+}
+
+func (s *SchemaValidator) celExpressionValidator() valueValidator {
+	return newCelExpressionValidator(s.Path, s.Schema)
 }

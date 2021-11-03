@@ -35,7 +35,6 @@ type LinkAttrs struct {
 	Alias        string
 	Statistics   *LinkStatistics
 	Promisc      int
-	Allmulti     int
 	Xdp          *LinkXdp
 	EncapType    string
 	Protinfo     *Protinfo
@@ -455,19 +454,6 @@ func (ipvlan *IPVlan) Attrs() *LinkAttrs {
 
 func (ipvlan *IPVlan) Type() string {
 	return "ipvlan"
-}
-
-// IPVtap - IPVtap is a virtual interfaces based on ipvlan
-type IPVtap struct {
-	IPVlan
-}
-
-func (ipvtap *IPVtap) Attrs() *LinkAttrs {
-	return &ipvtap.LinkAttrs
-}
-
-func (ipvtap IPVtap) Type() string {
-	return "ipvtap"
 }
 
 // VlanProtocol type
@@ -958,14 +944,6 @@ type BondSlave struct {
 
 func (b *BondSlave) SlaveType() string {
 	return "bond"
-}
-
-type VrfSlave struct {
-	Table uint32
-}
-
-func (v *VrfSlave) SlaveType() string {
-	return "vrf"
 }
 
 // Geneve devices must specify RemoteIP and ID (VNI) on create

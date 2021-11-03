@@ -23,8 +23,8 @@ type Image struct {
 	OSNameEn             string                                      `json:"OSNameEn" xml:"OSNameEn"`
 	ImageFamily          string                                      `json:"ImageFamily" xml:"ImageFamily"`
 	Architecture         string                                      `json:"Architecture" xml:"Architecture"`
-	Size                 int                                         `json:"Size" xml:"Size"`
 	IsSupportIoOptimized bool                                        `json:"IsSupportIoOptimized" xml:"IsSupportIoOptimized"`
+	Size                 int                                         `json:"Size" xml:"Size"`
 	ResourceGroupId      string                                      `json:"ResourceGroupId" xml:"ResourceGroupId"`
 	Description          string                                      `json:"Description" xml:"Description"`
 	Usage                string                                      `json:"Usage" xml:"Usage"`
@@ -42,6 +42,6 @@ type Image struct {
 	Status               string                                      `json:"Status" xml:"Status"`
 	ImageOwnerId         int64                                       `json:"ImageOwnerId" xml:"ImageOwnerId"`
 	IsPublic             bool                                        `json:"IsPublic" xml:"IsPublic"`
-	Tags                 TagsInDescribeImages                        `json:"Tags" xml:"Tags"`
+	Tags                 TagsInDescribeImageFromFamily               `json:"Tags" xml:"Tags"`
 	DiskDeviceMappings   DiskDeviceMappingsInDescribeImageFromFamily `json:"DiskDeviceMappings" xml:"DiskDeviceMappings"`
 }

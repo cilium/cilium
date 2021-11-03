@@ -80,18 +80,18 @@ type DescribeTaskAttributeRequest struct {
 // DescribeTaskAttributeResponse is the response struct for api DescribeTaskAttribute
 type DescribeTaskAttributeResponse struct {
 	*responses.BaseResponse
-	RequestId            string                                      `json:"RequestId" xml:"RequestId"`
-	TaskId               string                                      `json:"TaskId" xml:"TaskId"`
-	RegionId             string                                      `json:"RegionId" xml:"RegionId"`
-	TaskAction           string                                      `json:"TaskAction" xml:"TaskAction"`
-	TaskStatus           string                                      `json:"TaskStatus" xml:"TaskStatus"`
-	TaskProcess          string                                      `json:"TaskProcess" xml:"TaskProcess"`
+	CreationTime         string                                      `json:"CreationTime" xml:"CreationTime"`
 	SupportCancel        string                                      `json:"SupportCancel" xml:"SupportCancel"`
 	TotalCount           int                                         `json:"TotalCount" xml:"TotalCount"`
 	SuccessCount         int                                         `json:"SuccessCount" xml:"SuccessCount"`
+	RegionId             string                                      `json:"RegionId" xml:"RegionId"`
+	TaskAction           string                                      `json:"TaskAction" xml:"TaskAction"`
 	FailedCount          int                                         `json:"FailedCount" xml:"FailedCount"`
-	CreationTime         string                                      `json:"CreationTime" xml:"CreationTime"`
+	RequestId            string                                      `json:"RequestId" xml:"RequestId"`
+	TaskStatus           string                                      `json:"TaskStatus" xml:"TaskStatus"`
+	TaskProcess          string                                      `json:"TaskProcess" xml:"TaskProcess"`
 	FinishedTime         string                                      `json:"FinishedTime" xml:"FinishedTime"`
+	TaskId               string                                      `json:"TaskId" xml:"TaskId"`
 	OperationProgressSet OperationProgressSetInDescribeTaskAttribute `json:"OperationProgressSet" xml:"OperationProgressSet"`
 }
 

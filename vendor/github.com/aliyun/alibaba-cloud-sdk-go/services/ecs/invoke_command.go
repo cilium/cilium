@@ -88,8 +88,8 @@ type InvokeCommandRequest struct {
 // InvokeCommandResponse is the response struct for api InvokeCommand
 type InvokeCommandResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
 	InvokeId  string `json:"InvokeId" xml:"InvokeId"`
+	RequestId string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateInvokeCommandRequest creates a request to invoke InvokeCommand API

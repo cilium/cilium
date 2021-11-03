@@ -17,12 +17,14 @@ package ecs
 
 // SnapshotGroup is a nested struct in ecs response
 type SnapshotGroup struct {
-	InstanceId      string                            `json:"InstanceId" xml:"InstanceId"`
-	SnapshotGroupId string                            `json:"SnapshotGroupId" xml:"SnapshotGroupId"`
 	Status          string                            `json:"Status" xml:"Status"`
-	Name            string                            `json:"Name" xml:"Name"`
-	Description     string                            `json:"Description" xml:"Description"`
 	CreationTime    string                            `json:"CreationTime" xml:"CreationTime"`
+	Description     string                            `json:"Description" xml:"Description"`
 	ProgressStatus  string                            `json:"ProgressStatus" xml:"ProgressStatus"`
+	SnapshotGroupId string                            `json:"SnapshotGroupId" xml:"SnapshotGroupId"`
+	InstanceId      string                            `json:"InstanceId" xml:"InstanceId"`
+	Name            string                            `json:"Name" xml:"Name"`
+	ResourceGroupId string                            `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	Tags            TagsInDescribeSnapshotGroups      `json:"Tags" xml:"Tags"`
 	Snapshots       SnapshotsInDescribeSnapshotGroups `json:"Snapshots" xml:"Snapshots"`
 }

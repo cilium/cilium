@@ -89,10 +89,10 @@ type DescribeLaunchTemplateVersionsRequest struct {
 // DescribeLaunchTemplateVersionsResponse is the response struct for api DescribeLaunchTemplateVersions
 type DescribeLaunchTemplateVersionsResponse struct {
 	*responses.BaseResponse
-	RequestId                 string                    `json:"RequestId" xml:"RequestId"`
-	TotalCount                int                       `json:"TotalCount" xml:"TotalCount"`
-	PageNumber                int                       `json:"PageNumber" xml:"PageNumber"`
 	PageSize                  int                       `json:"PageSize" xml:"PageSize"`
+	RequestId                 string                    `json:"RequestId" xml:"RequestId"`
+	PageNumber                int                       `json:"PageNumber" xml:"PageNumber"`
+	TotalCount                int                       `json:"TotalCount" xml:"TotalCount"`
 	LaunchTemplateVersionSets LaunchTemplateVersionSets `json:"LaunchTemplateVersionSets" xml:"LaunchTemplateVersionSets"`
 }
 

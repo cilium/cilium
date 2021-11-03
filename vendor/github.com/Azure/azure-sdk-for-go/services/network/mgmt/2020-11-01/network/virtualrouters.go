@@ -66,7 +66,7 @@ func (client VirtualRoutersClient) CreateOrUpdate(ctx context.Context, resourceG
 
 	result, err = client.CreateOrUpdateSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.VirtualRoutersClient", "CreateOrUpdate", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.VirtualRoutersClient", "CreateOrUpdate", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -101,6 +101,7 @@ func (client VirtualRoutersClient) CreateOrUpdatePreparer(ctx context.Context, r
 // http.Response Body if it receives an error.
 func (client VirtualRoutersClient) CreateOrUpdateSender(req *http.Request) (future VirtualRoutersCreateOrUpdateFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
@@ -147,7 +148,7 @@ func (client VirtualRoutersClient) Delete(ctx context.Context, resourceGroupName
 
 	result, err = client.DeleteSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.VirtualRoutersClient", "Delete", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.VirtualRoutersClient", "Delete", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -179,6 +180,7 @@ func (client VirtualRoutersClient) DeletePreparer(ctx context.Context, resourceG
 // http.Response Body if it receives an error.
 func (client VirtualRoutersClient) DeleteSender(req *http.Request) (future VirtualRoutersDeleteFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return

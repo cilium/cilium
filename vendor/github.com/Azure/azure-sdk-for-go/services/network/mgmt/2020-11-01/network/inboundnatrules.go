@@ -63,6 +63,8 @@ func (client InboundNatRulesClient) CreateOrUpdate(ctx context.Context, resource
 										Chain: []validation.Constraint{{Target: "inboundNatRuleParameters.InboundNatRulePropertiesFormat.BackendIPConfiguration.InterfaceIPConfigurationPropertiesFormat.PublicIPAddress.PublicIPAddressPropertiesFormat.IPConfiguration.IPConfigurationPropertiesFormat", Name: validation.Null, Rule: false,
 											Chain: []validation.Constraint{{Target: "inboundNatRuleParameters.InboundNatRulePropertiesFormat.BackendIPConfiguration.InterfaceIPConfigurationPropertiesFormat.PublicIPAddress.PublicIPAddressPropertiesFormat.IPConfiguration.IPConfigurationPropertiesFormat.PublicIPAddress", Name: validation.Null, Rule: false, Chain: nil}}},
 										}},
+										{Target: "inboundNatRuleParameters.InboundNatRulePropertiesFormat.BackendIPConfiguration.InterfaceIPConfigurationPropertiesFormat.PublicIPAddress.PublicIPAddressPropertiesFormat.ServicePublicIPAddress", Name: validation.Null, Rule: false, Chain: nil},
+										{Target: "inboundNatRuleParameters.InboundNatRulePropertiesFormat.BackendIPConfiguration.InterfaceIPConfigurationPropertiesFormat.PublicIPAddress.PublicIPAddressPropertiesFormat.LinkedPublicIPAddress", Name: validation.Null, Rule: false, Chain: nil},
 									}},
 							}},
 						}},
@@ -79,7 +81,7 @@ func (client InboundNatRulesClient) CreateOrUpdate(ctx context.Context, resource
 
 	result, err = client.CreateOrUpdateSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.InboundNatRulesClient", "CreateOrUpdate", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.InboundNatRulesClient", "CreateOrUpdate", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -116,6 +118,7 @@ func (client InboundNatRulesClient) CreateOrUpdatePreparer(ctx context.Context, 
 // http.Response Body if it receives an error.
 func (client InboundNatRulesClient) CreateOrUpdateSender(req *http.Request) (future InboundNatRulesCreateOrUpdateFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
@@ -163,7 +166,7 @@ func (client InboundNatRulesClient) Delete(ctx context.Context, resourceGroupNam
 
 	result, err = client.DeleteSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.InboundNatRulesClient", "Delete", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.InboundNatRulesClient", "Delete", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -196,6 +199,7 @@ func (client InboundNatRulesClient) DeletePreparer(ctx context.Context, resource
 // http.Response Body if it receives an error.
 func (client InboundNatRulesClient) DeleteSender(req *http.Request) (future InboundNatRulesDeleteFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return

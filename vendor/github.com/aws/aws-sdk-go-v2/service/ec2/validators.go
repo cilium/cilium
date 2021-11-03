@@ -550,6 +550,26 @@ func (m *validateOpCancelBundleTask) HandleInitialize(ctx context.Context, in mi
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpCancelCapacityReservationFleets struct {
+}
+
+func (*validateOpCancelCapacityReservationFleets) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpCancelCapacityReservationFleets) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*CancelCapacityReservationFleetsInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpCancelCapacityReservationFleetsInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpCancelCapacityReservation struct {
 }
 
@@ -745,6 +765,26 @@ func (m *validateOpCopySnapshot) HandleInitialize(ctx context.Context, in middle
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpCopySnapshotInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpCreateCapacityReservationFleet struct {
+}
+
+func (*validateOpCreateCapacityReservationFleet) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpCreateCapacityReservationFleet) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*CreateCapacityReservationFleetInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpCreateCapacityReservationFleetInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -4290,6 +4330,26 @@ func (m *validateOpGetTransitGatewayRouteTablePropagations) HandleInitialize(ctx
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpGetVpnConnectionDeviceSampleConfiguration struct {
+}
+
+func (*validateOpGetVpnConnectionDeviceSampleConfiguration) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpGetVpnConnectionDeviceSampleConfiguration) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*GetVpnConnectionDeviceSampleConfigurationInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpGetVpnConnectionDeviceSampleConfigurationInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpImportClientVpnClientCertificateRevocationList struct {
 }
 
@@ -4405,6 +4465,26 @@ func (m *validateOpModifyAvailabilityZoneGroup) HandleInitialize(ctx context.Con
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpModifyAvailabilityZoneGroupInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpModifyCapacityReservationFleet struct {
+}
+
+func (*validateOpModifyCapacityReservationFleet) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpModifyCapacityReservationFleet) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*ModifyCapacityReservationFleetInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpModifyCapacityReservationFleetInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -6318,6 +6398,10 @@ func addOpCancelBundleTaskValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpCancelBundleTask{}, middleware.After)
 }
 
+func addOpCancelCapacityReservationFleetsValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpCancelCapacityReservationFleets{}, middleware.After)
+}
+
 func addOpCancelCapacityReservationValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpCancelCapacityReservation{}, middleware.After)
 }
@@ -6356,6 +6440,10 @@ func addOpCopyImageValidationMiddleware(stack *middleware.Stack) error {
 
 func addOpCopySnapshotValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpCopySnapshot{}, middleware.After)
+}
+
+func addOpCreateCapacityReservationFleetValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpCreateCapacityReservationFleet{}, middleware.After)
 }
 
 func addOpCreateCapacityReservationValidationMiddleware(stack *middleware.Stack) error {
@@ -7066,6 +7154,10 @@ func addOpGetTransitGatewayRouteTablePropagationsValidationMiddleware(stack *mid
 	return stack.Initialize.Add(&validateOpGetTransitGatewayRouteTablePropagations{}, middleware.After)
 }
 
+func addOpGetVpnConnectionDeviceSampleConfigurationValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpGetVpnConnectionDeviceSampleConfiguration{}, middleware.After)
+}
+
 func addOpImportClientVpnClientCertificateRevocationListValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpImportClientVpnClientCertificateRevocationList{}, middleware.After)
 }
@@ -7088,6 +7180,10 @@ func addOpModifyAddressAttributeValidationMiddleware(stack *middleware.Stack) er
 
 func addOpModifyAvailabilityZoneGroupValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpModifyAvailabilityZoneGroup{}, middleware.After)
+}
+
+func addOpModifyCapacityReservationFleetValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpModifyCapacityReservationFleet{}, middleware.After)
 }
 
 func addOpModifyCapacityReservationValidationMiddleware(stack *middleware.Stack) error {
@@ -8482,6 +8578,21 @@ func validateOpCancelBundleTaskInput(v *CancelBundleTaskInput) error {
 	}
 }
 
+func validateOpCancelCapacityReservationFleetsInput(v *CancelCapacityReservationFleetsInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "CancelCapacityReservationFleetsInput"}
+	if v.CapacityReservationFleetIds == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("CapacityReservationFleetIds"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpCancelCapacityReservationInput(v *CancelCapacityReservationInput) error {
 	if v == nil {
 		return nil
@@ -8642,6 +8753,24 @@ func validateOpCopySnapshotInput(v *CopySnapshotInput) error {
 	}
 	if v.SourceSnapshotId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("SourceSnapshotId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpCreateCapacityReservationFleetInput(v *CreateCapacityReservationFleetInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "CreateCapacityReservationFleetInput"}
+	if v.InstanceTypeSpecifications == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("InstanceTypeSpecifications"))
+	}
+	if v.TotalTargetCapacity == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("TotalTargetCapacity"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -9320,11 +9449,11 @@ func validateOpCreateSubnetInput(v *CreateSubnetInput) error {
 		return nil
 	}
 	invalidParams := smithy.InvalidParamsError{Context: "CreateSubnetInput"}
-	if v.VpcId == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("VpcId"))
-	}
 	if v.CidrBlock == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("CidrBlock"))
+	}
+	if v.VpcId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("VpcId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -11631,6 +11760,24 @@ func validateOpGetTransitGatewayRouteTablePropagationsInput(v *GetTransitGateway
 	}
 }
 
+func validateOpGetVpnConnectionDeviceSampleConfigurationInput(v *GetVpnConnectionDeviceSampleConfigurationInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "GetVpnConnectionDeviceSampleConfigurationInput"}
+	if v.VpnConnectionId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("VpnConnectionId"))
+	}
+	if v.VpnConnectionDeviceTypeId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("VpnConnectionDeviceTypeId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpImportClientVpnClientCertificateRevocationListInput(v *ImportClientVpnClientCertificateRevocationListInput) error {
 	if v == nil {
 		return nil
@@ -11741,6 +11888,21 @@ func validateOpModifyAvailabilityZoneGroupInput(v *ModifyAvailabilityZoneGroupIn
 	}
 	if len(v.OptInStatus) == 0 {
 		invalidParams.Add(smithy.NewErrParamRequired("OptInStatus"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpModifyCapacityReservationFleetInput(v *ModifyCapacityReservationFleetInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "ModifyCapacityReservationFleetInput"}
+	if v.CapacityReservationFleetId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("CapacityReservationFleetId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -13073,9 +13235,6 @@ func validateOpSearchLocalGatewayRoutesInput(v *SearchLocalGatewayRoutesInput) e
 	invalidParams := smithy.InvalidParamsError{Context: "SearchLocalGatewayRoutesInput"}
 	if v.LocalGatewayRouteTableId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("LocalGatewayRouteTableId"))
-	}
-	if v.Filters == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("Filters"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams

@@ -115,6 +115,7 @@ var (
 	procOpenThreadToken                                      = modadvapi32.NewProc("OpenThreadToken")
 	procQueryServiceConfig2W                                 = modadvapi32.NewProc("QueryServiceConfig2W")
 	procQueryServiceConfigW                                  = modadvapi32.NewProc("QueryServiceConfigW")
+	procQueryServiceDynamicInformation                       = modadvapi32.NewProc("QueryServiceDynamicInformation")
 	procQueryServiceLockStatusW                              = modadvapi32.NewProc("QueryServiceLockStatusW")
 	procQueryServiceStatus                                   = modadvapi32.NewProc("QueryServiceStatus")
 	procQueryServiceStatusEx                                 = modadvapi32.NewProc("QueryServiceStatusEx")
@@ -368,6 +369,7 @@ var (
 	procNtCreateNamedPipeFile                                = modntdll.NewProc("NtCreateNamedPipeFile")
 	procNtQueryInformationProcess                            = modntdll.NewProc("NtQueryInformationProcess")
 	procNtQuerySystemInformation                             = modntdll.NewProc("NtQuerySystemInformation")
+	procNtSetInformationFile                                 = modntdll.NewProc("NtSetInformationFile")
 	procNtSetInformationProcess                              = modntdll.NewProc("NtSetInformationProcess")
 	procNtSetSystemInformation                               = modntdll.NewProc("NtSetSystemInformation")
 	procRtlAddFunctionTable                                  = modntdll.NewProc("RtlAddFunctionTable")
@@ -969,6 +971,18 @@ func QueryServiceConfig2(service Handle, infoLevel uint32, buff *byte, buffSize 
 
 func QueryServiceConfig(service Handle, serviceConfig *QUERY_SERVICE_CONFIG, bufSize uint32, bytesNeeded *uint32) (err error) {
 	r1, _, e1 := syscall.Syscall6(procQueryServiceConfigW.Addr(), 4, uintptr(service), uintptr(unsafe.Pointer(serviceConfig)), uintptr(bufSize), uintptr(unsafe.Pointer(bytesNeeded)), 0, 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func QueryServiceDynamicInformation(service Handle, infoLevel uint32, dynamicInfo unsafe.Pointer) (err error) {
+	err = procQueryServiceDynamicInformation.Find()
+	if err != nil {
+		return
+	}
+	r1, _, e1 := syscall.Syscall(procQueryServiceDynamicInformation.Addr(), 3, uintptr(service), uintptr(infoLevel), uintptr(dynamicInfo))
 	if r1 == 0 {
 		err = errnoErr(e1)
 	}
@@ -3180,6 +3194,14 @@ func NtQueryInformationProcess(proc Handle, procInfoClass int32, procInfo unsafe
 
 func NtQuerySystemInformation(sysInfoClass int32, sysInfo unsafe.Pointer, sysInfoLen uint32, retLen *uint32) (ntstatus error) {
 	r0, _, _ := syscall.Syscall6(procNtQuerySystemInformation.Addr(), 4, uintptr(sysInfoClass), uintptr(sysInfo), uintptr(sysInfoLen), uintptr(unsafe.Pointer(retLen)), 0, 0)
+	if r0 != 0 {
+		ntstatus = NTStatus(r0)
+	}
+	return
+}
+
+func NtSetInformationFile(handle Handle, iosb *IO_STATUS_BLOCK, inBuffer *byte, inBufferLen uint32, class uint32) (ntstatus error) {
+	r0, _, _ := syscall.Syscall6(procNtSetInformationFile.Addr(), 5, uintptr(handle), uintptr(unsafe.Pointer(iosb)), uintptr(unsafe.Pointer(inBuffer)), uintptr(inBufferLen), uintptr(class), 0)
 	if r0 != 0 {
 		ntstatus = NTStatus(r0)
 	}

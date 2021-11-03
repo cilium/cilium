@@ -151,6 +151,7 @@ func (e *MPLSEncap) Decode(buf []byte) error {
 	if len(buf) < 4 {
 		return fmt.Errorf("lack of bytes")
 	}
+	native := nl.NativeEndian()
 	l := native.Uint16(buf)
 	if len(buf) < int(l) {
 		return fmt.Errorf("lack of bytes")
@@ -166,6 +167,7 @@ func (e *MPLSEncap) Decode(buf []byte) error {
 
 func (e *MPLSEncap) Encode() ([]byte, error) {
 	s := nl.EncodeMPLSStack(e.Labels...)
+	native := nl.NativeEndian()
 	hdr := make([]byte, 4)
 	native.PutUint16(hdr, uint16(len(s)+4))
 	native.PutUint16(hdr[2:], nl.MPLS_IPTUNNEL_DST)
@@ -221,6 +223,7 @@ func (e *SEG6Encap) Decode(buf []byte) error {
 	if len(buf) < 4 {
 		return fmt.Errorf("lack of bytes")
 	}
+	native := nl.NativeEndian()
 	// Get Length(l) & Type(typ) : 2 + 2 bytes
 	l := native.Uint16(buf)
 	if len(buf) < int(l) {
@@ -240,6 +243,7 @@ func (e *SEG6Encap) Decode(buf []byte) error {
 }
 func (e *SEG6Encap) Encode() ([]byte, error) {
 	s, err := nl.EncodeSEG6Encap(e.Mode, e.Segments)
+	native := nl.NativeEndian()
 	hdr := make([]byte, 4)
 	native.PutUint16(hdr, uint16(len(s)+4))
 	native.PutUint16(hdr[2:], nl.SEG6_IPTUNNEL_SRH)
@@ -300,6 +304,7 @@ func (e *SEG6LocalEncap) Decode(buf []byte) error {
 	if err != nil {
 		return err
 	}
+	native := nl.NativeEndian()
 	for _, attr := range attrs {
 		switch attr.Attr.Type {
 		case nl.SEG6_LOCAL_ACTION:
@@ -329,6 +334,7 @@ func (e *SEG6LocalEncap) Decode(buf []byte) error {
 }
 func (e *SEG6LocalEncap) Encode() ([]byte, error) {
 	var err error
+	native := nl.NativeEndian()
 	res := make([]byte, 8)
 	native.PutUint16(res, 8) // length
 	native.PutUint16(res[2:], nl.SEG6_LOCAL_ACTION)
@@ -498,6 +504,7 @@ func (v *Via) Encode() ([]byte, error) {
 }
 
 func (v *Via) Decode(b []byte) error {
+	native := nl.NativeEndian()
 	if len(b) < 6 {
 		return fmt.Errorf("decoding failed: buffer too small (%d bytes)", len(b))
 	}
@@ -545,14 +552,14 @@ func (h *Handle) RouteAppend(route *Route) error {
 
 // RouteAddEcmp will add a route to the system.
 func RouteAddEcmp(route *Route) error {
-	return pkgHandle.RouteAddEcmp(route)
+        return pkgHandle.RouteAddEcmp(route)
 }
 
 // RouteAddEcmp will add a route to the system.
 func (h *Handle) RouteAddEcmp(route *Route) error {
-	flags := unix.NLM_F_CREATE | unix.NLM_F_ACK
-	req := h.newNetlinkRequest(unix.RTM_NEWROUTE, flags)
-	return h.routeHandle(route, req, nl.NewRtMsg())
+        flags := unix.NLM_F_CREATE | unix.NLM_F_ACK
+        req := h.newNetlinkRequest(unix.RTM_NEWROUTE, flags)
+        return h.routeHandle(route, req, nl.NewRtMsg())
 }
 
 // RouteReplace will add a route to the system.
@@ -833,7 +840,10 @@ func (h *Handle) routeHandle(route *Route, req *nl.NetlinkRequest, msg *nl.RtMsg
 		req.AddData(attr)
 	}
 
-	b := make([]byte, 4)
+	var (
+		b      = make([]byte, 4)
+		native = nl.NativeEndian()
+	)
 	native.PutUint32(b, uint32(route.LinkIndex))
 
 	req.AddData(nl.NewRtAttr(unix.RTA_OIF, b))
@@ -948,6 +958,7 @@ func deserializeRoute(m []byte) (Route, error) {
 		Flags:    int(msg.Flags),
 	}
 
+	native := nl.NativeEndian()
 	var encap, encapType syscall.NetlinkRouteAttr
 	for _, attr := range attrs {
 		switch attr.Attr.Type {
@@ -1139,7 +1150,6 @@ func deserializeRoute(m []byte) (Route, error) {
 // RouteGetOptions contains a set of options to use with
 // RouteGetWithOptions
 type RouteGetOptions struct {
-	Iif     string
 	VrfName string
 	SrcAddr net.IP
 }
@@ -1188,22 +1198,13 @@ func (h *Handle) RouteGetWithOptions(destination net.IP, options *RouteGetOption
 			if err != nil {
 				return nil, err
 			}
-			b := make([]byte, 4)
+			var (
+				b      = make([]byte, 4)
+				native = nl.NativeEndian()
+			)
 			native.PutUint32(b, uint32(link.Attrs().Index))
 
 			req.AddData(nl.NewRtAttr(unix.RTA_OIF, b))
-		}
-
-		if len(options.Iif) > 0 {
-			link, err := LinkByName(options.Iif)
-			if err != nil {
-				return nil, err
-			}
-
-			b := make([]byte, 4)
-			native.PutUint32(b, uint32(link.Attrs().Index))
-
-			req.AddData(nl.NewRtAttr(unix.RTA_IIF, b))
 		}
 
 		if options.SrcAddr != nil {
@@ -1312,6 +1313,7 @@ func routeSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- RouteUpdate, done <
 					continue
 				}
 				if m.Header.Type == unix.NLMSG_ERROR {
+					native := nl.NativeEndian()
 					error := int32(native.Uint32(m.Data[0:4]))
 					if error == 0 {
 						continue

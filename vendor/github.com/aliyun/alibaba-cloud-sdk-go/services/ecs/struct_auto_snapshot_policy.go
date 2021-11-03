@@ -17,18 +17,19 @@ package ecs
 
 // AutoSnapshotPolicy is a nested struct in ecs response
 type AutoSnapshotPolicy struct {
-	AutoSnapshotPolicyId         string                             `json:"AutoSnapshotPolicyId" xml:"AutoSnapshotPolicyId"`
-	RegionId                     string                             `json:"RegionId" xml:"RegionId"`
-	AutoSnapshotPolicyName       string                             `json:"AutoSnapshotPolicyName" xml:"AutoSnapshotPolicyName"`
 	TimePoints                   string                             `json:"TimePoints" xml:"TimePoints"`
-	RepeatWeekdays               string                             `json:"RepeatWeekdays" xml:"RepeatWeekdays"`
-	RetentionDays                int                                `json:"RetentionDays" xml:"RetentionDays"`
-	DiskNums                     int                                `json:"DiskNums" xml:"DiskNums"`
-	VolumeNums                   int                                `json:"VolumeNums" xml:"VolumeNums"`
 	CreationTime                 string                             `json:"CreationTime" xml:"CreationTime"`
 	Status                       string                             `json:"Status" xml:"Status"`
-	EnableCrossRegionCopy        bool                               `json:"EnableCrossRegionCopy" xml:"EnableCrossRegionCopy"`
+	AutoSnapshotPolicyName       string                             `json:"AutoSnapshotPolicyName" xml:"AutoSnapshotPolicyName"`
 	TargetCopyRegions            string                             `json:"TargetCopyRegions" xml:"TargetCopyRegions"`
 	CopiedSnapshotsRetentionDays int                                `json:"CopiedSnapshotsRetentionDays" xml:"CopiedSnapshotsRetentionDays"`
+	AutoSnapshotPolicyId         string                             `json:"AutoSnapshotPolicyId" xml:"AutoSnapshotPolicyId"`
+	RetentionDays                int                                `json:"RetentionDays" xml:"RetentionDays"`
+	RegionId                     string                             `json:"RegionId" xml:"RegionId"`
+	DiskNums                     int                                `json:"DiskNums" xml:"DiskNums"`
+	EnableCrossRegionCopy        bool                               `json:"EnableCrossRegionCopy" xml:"EnableCrossRegionCopy"`
+	RepeatWeekdays               string                             `json:"RepeatWeekdays" xml:"RepeatWeekdays"`
+	VolumeNums                   int                                `json:"VolumeNums" xml:"VolumeNums"`
+	ResourceGroupId              string                             `json:"ResourceGroupId" xml:"ResourceGroupId"`
 	Tags                         TagsInDescribeAutoSnapshotPolicyEx `json:"Tags" xml:"Tags"`
 }

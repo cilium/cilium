@@ -81,10 +81,10 @@ type ModifyReservedInstancesRequest struct {
 
 // ModifyReservedInstancesConfiguration is a repeated param struct in ModifyReservedInstancesRequest
 type ModifyReservedInstancesConfiguration struct {
-	ZoneId               string `name:"ZoneId"`
 	ReservedInstanceName string `name:"ReservedInstanceName"`
-	InstanceType         string `name:"InstanceType"`
+	ZoneId               string `name:"ZoneId"`
 	Scope                string `name:"Scope"`
+	InstanceType         string `name:"InstanceType"`
 	InstanceAmount       string `name:"InstanceAmount"`
 }
 

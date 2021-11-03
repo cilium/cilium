@@ -83,10 +83,10 @@ type DescribeInstanceMaintenanceAttributesRequest struct {
 // DescribeInstanceMaintenanceAttributesResponse is the response struct for api DescribeInstanceMaintenanceAttributes
 type DescribeInstanceMaintenanceAttributesResponse struct {
 	*responses.BaseResponse
-	RequestId             string                `json:"RequestId" xml:"RequestId"`
-	TotalCount            int                   `json:"TotalCount" xml:"TotalCount"`
-	PageNumber            int                   `json:"PageNumber" xml:"PageNumber"`
 	PageSize              int                   `json:"PageSize" xml:"PageSize"`
+	RequestId             string                `json:"RequestId" xml:"RequestId"`
+	PageNumber            int                   `json:"PageNumber" xml:"PageNumber"`
+	TotalCount            int                   `json:"TotalCount" xml:"TotalCount"`
 	MaintenanceAttributes MaintenanceAttributes `json:"MaintenanceAttributes" xml:"MaintenanceAttributes"`
 }
 

@@ -94,8 +94,8 @@ type CreateImageComponentTag struct {
 // CreateImageComponentResponse is the response struct for api CreateImageComponent
 type CreateImageComponentResponse struct {
 	*responses.BaseResponse
-	RequestId        string `json:"RequestId" xml:"RequestId"`
 	ImageComponentId string `json:"ImageComponentId" xml:"ImageComponentId"`
+	RequestId        string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateCreateImageComponentRequest creates a request to invoke CreateImageComponent API

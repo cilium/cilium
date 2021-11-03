@@ -55,7 +55,7 @@ func (client DscpConfigurationClient) CreateOrUpdate(ctx context.Context, resour
 
 	result, err = client.CreateOrUpdateSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.DscpConfigurationClient", "CreateOrUpdate", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.DscpConfigurationClient", "CreateOrUpdate", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -90,6 +90,7 @@ func (client DscpConfigurationClient) CreateOrUpdatePreparer(ctx context.Context
 // http.Response Body if it receives an error.
 func (client DscpConfigurationClient) CreateOrUpdateSender(req *http.Request) (future DscpConfigurationCreateOrUpdateFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
@@ -136,7 +137,7 @@ func (client DscpConfigurationClient) Delete(ctx context.Context, resourceGroupN
 
 	result, err = client.DeleteSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.DscpConfigurationClient", "Delete", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.DscpConfigurationClient", "Delete", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -168,6 +169,7 @@ func (client DscpConfigurationClient) DeletePreparer(ctx context.Context, resour
 // http.Response Body if it receives an error.
 func (client DscpConfigurationClient) DeleteSender(req *http.Request) (future DscpConfigurationDeleteFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return

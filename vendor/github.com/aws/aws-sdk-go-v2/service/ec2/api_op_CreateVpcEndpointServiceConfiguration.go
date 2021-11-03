@@ -11,12 +11,12 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Creates a VPC endpoint service configuration to which service consumers (AWS
-// accounts, IAM users, and IAM roles) can connect. To create an endpoint service
-// configuration, you must first create one of the following for your service:
+// Creates a VPC endpoint service configuration to which service consumers (Amazon
+// Web Services accounts, IAM users, and IAM roles) can connect. To create an
+// endpoint service configuration, you must first create one of the following for
+// your service:
 //
-// * A
-// Network Load Balancer
+// * A Network Load Balancer
 // (https://docs.aws.amazon.com/elasticloadbalancing/latest/network/introduction.html).
 // Service consumers connect to your service using an interface endpoint.
 //
@@ -55,7 +55,7 @@ type CreateVpcEndpointServiceConfigurationInput struct {
 	AcceptanceRequired *bool
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see How to Ensure Idempotency
+	// the request. For more information, see How to ensure idempotency
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Run_Instance_Idempotency.html).
 	ClientToken *string
 

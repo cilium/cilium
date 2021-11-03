@@ -17,26 +17,27 @@ package vpc
 
 // CommonBandwidthPackage is a nested struct in vpc response
 type CommonBandwidthPackage struct {
-	BandwidthPackageId            string                                             `json:"BandwidthPackageId" xml:"BandwidthPackageId"`
-	RegionId                      string                                             `json:"RegionId" xml:"RegionId"`
-	Name                          string                                             `json:"Name" xml:"Name"`
-	Description                   string                                             `json:"Description" xml:"Description"`
-	Bandwidth                     string                                             `json:"Bandwidth" xml:"Bandwidth"`
-	InstanceChargeType            string                                             `json:"InstanceChargeType" xml:"InstanceChargeType"`
-	InternetChargeType            string                                             `json:"InternetChargeType" xml:"InternetChargeType"`
-	BusinessStatus                string                                             `json:"BusinessStatus" xml:"BusinessStatus"`
-	CreationTime                  string                                             `json:"CreationTime" xml:"CreationTime"`
-	ExpiredTime                   string                                             `json:"ExpiredTime" xml:"ExpiredTime"`
-	Status                        string                                             `json:"Status" xml:"Status"`
-	Ratio                         int                                                `json:"Ratio" xml:"Ratio"`
-	ResourceGroupId               string                                             `json:"ResourceGroupId" xml:"ResourceGroupId"`
-	HasReservationData            string                                             `json:"HasReservationData" xml:"HasReservationData"`
-	ReservationBandwidth          string                                             `json:"ReservationBandwidth" xml:"ReservationBandwidth"`
-	ReservationInternetChargeType string                                             `json:"ReservationInternetChargeType" xml:"ReservationInternetChargeType"`
-	ReservationActiveTime         string                                             `json:"ReservationActiveTime" xml:"ReservationActiveTime"`
-	ReservationOrderType          string                                             `json:"ReservationOrderType" xml:"ReservationOrderType"`
-	ISP                           string                                             `json:"ISP" xml:"ISP"`
-	DeletionProtection            bool                                               `json:"DeletionProtection" xml:"DeletionProtection"`
-	ServiceManaged                int                                                `json:"ServiceManaged" xml:"ServiceManaged"`
-	PublicIpAddresses             PublicIpAddressesInDescribeCommonBandwidthPackages `json:"PublicIpAddresses" xml:"PublicIpAddresses"`
+	ReservationActiveTime         string                                                   `json:"ReservationActiveTime" xml:"ReservationActiveTime"`
+	Status                        string                                                   `json:"Status" xml:"Status"`
+	CreationTime                  string                                                   `json:"CreationTime" xml:"CreationTime"`
+	ReservationOrderType          string                                                   `json:"ReservationOrderType" xml:"ReservationOrderType"`
+	DeletionProtection            bool                                                     `json:"DeletionProtection" xml:"DeletionProtection"`
+	ReservationInternetChargeType string                                                   `json:"ReservationInternetChargeType" xml:"ReservationInternetChargeType"`
+	Ratio                         int                                                      `json:"Ratio" xml:"Ratio"`
+	InstanceChargeType            string                                                   `json:"InstanceChargeType" xml:"InstanceChargeType"`
+	RegionId                      string                                                   `json:"RegionId" xml:"RegionId"`
+	BandwidthPackageId            string                                                   `json:"BandwidthPackageId" xml:"BandwidthPackageId"`
+	ServiceManaged                int                                                      `json:"ServiceManaged" xml:"ServiceManaged"`
+	Bandwidth                     string                                                   `json:"Bandwidth" xml:"Bandwidth"`
+	Description                   string                                                   `json:"Description" xml:"Description"`
+	ExpiredTime                   string                                                   `json:"ExpiredTime" xml:"ExpiredTime"`
+	ReservationBandwidth          string                                                   `json:"ReservationBandwidth" xml:"ReservationBandwidth"`
+	ResourceGroupId               string                                                   `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	InternetChargeType            string                                                   `json:"InternetChargeType" xml:"InternetChargeType"`
+	BusinessStatus                string                                                   `json:"BusinessStatus" xml:"BusinessStatus"`
+	Name                          string                                                   `json:"Name" xml:"Name"`
+	ISP                           string                                                   `json:"ISP" xml:"ISP"`
+	HasReservationData            string                                                   `json:"HasReservationData" xml:"HasReservationData"`
+	SecurityProtectionTypes       SecurityProtectionTypesInDescribeCommonBandwidthPackages `json:"SecurityProtectionTypes" xml:"SecurityProtectionTypes"`
+	PublicIpAddresses             PublicIpAddressesInDescribeCommonBandwidthPackages       `json:"PublicIpAddresses" xml:"PublicIpAddresses"`
 }

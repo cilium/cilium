@@ -88,11 +88,11 @@ type DescribeDeploymentSetsRequest struct {
 // DescribeDeploymentSetsResponse is the response struct for api DescribeDeploymentSets
 type DescribeDeploymentSetsResponse struct {
 	*responses.BaseResponse
-	RequestId      string         `json:"RequestId" xml:"RequestId"`
-	RegionId       string         `json:"RegionId" xml:"RegionId"`
-	TotalCount     int            `json:"TotalCount" xml:"TotalCount"`
-	PageNumber     int            `json:"PageNumber" xml:"PageNumber"`
 	PageSize       int            `json:"PageSize" xml:"PageSize"`
+	PageNumber     int            `json:"PageNumber" xml:"PageNumber"`
+	RequestId      string         `json:"RequestId" xml:"RequestId"`
+	TotalCount     int            `json:"TotalCount" xml:"TotalCount"`
+	RegionId       string         `json:"RegionId" xml:"RegionId"`
 	DeploymentSets DeploymentSets `json:"DeploymentSets" xml:"DeploymentSets"`
 }
 
