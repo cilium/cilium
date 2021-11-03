@@ -20,7 +20,7 @@ jobs:
     steps:
       - name: Checkout code
         if: ${{ !github.event.pull_request }}
-        uses: actions/checkout@1e204e9a9253d643386038d443f96446fa156a97
+        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
         with:
           persist-credentials: false
       - name: Check code changes
@@ -41,7 +41,7 @@ jobs:
       security-events: write
     steps:
     - name: Checkout repo
-      uses: actions/checkout@1e204e9a9253d643386038d443f96446fa156a97
+      uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
       with:
         persist-credentials: false
         fetch-depth: 1
