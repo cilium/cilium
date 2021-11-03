@@ -90,8 +90,8 @@ type ModifyPrepayInstanceSpecRequest struct {
 // ModifyPrepayInstanceSpecResponse is the response struct for api ModifyPrepayInstanceSpec
 type ModifyPrepayInstanceSpecResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
 	OrderId   string `json:"OrderId" xml:"OrderId"`
+	RequestId string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateModifyPrepayInstanceSpecRequest creates a request to invoke ModifyPrepayInstanceSpec API

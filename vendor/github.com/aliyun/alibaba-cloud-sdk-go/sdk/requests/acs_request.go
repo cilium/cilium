@@ -347,6 +347,16 @@ func flatRepeatedList(dataValue reflect.Value, request AcsRequest, position, pre
 				if err != nil {
 					return err
 				}
+			} else if typeTag == "Json" {
+				byt, err := json.Marshal(dataValue.Field(i).Interface())
+				if err != nil {
+					return err
+				}
+				key := prefix + name
+				err = addParam(request, fieldPosition, key, string(byt))
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -387,7 +397,6 @@ func handleParam(request AcsRequest, dataValue reflect.Value, prefix, key, field
 		}
 		for j := 0; j < dataValue.Len(); j++ {
 			err = addParam(request, fieldPosition, key+"."+strconv.Itoa(j+1), dataValue.Index(j).String())
-			fmt.Println(dataValue.Index(j).String())
 			if err != nil {
 				return
 			}

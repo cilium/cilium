@@ -34,7 +34,7 @@ type ImportClientVpnClientCertificateRevocationListInput struct {
 	// The client certificate revocation list file. For more information, see Generate
 	// a Client Certificate Revocation List
 	// (https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/cvpn-working-certificates.html#cvpn-working-certificates-generate)
-	// in the AWS Client VPN Administrator Guide.
+	// in the Client VPN Administrator Guide.
 	//
 	// This member is required.
 	CertificateRevocationList *string

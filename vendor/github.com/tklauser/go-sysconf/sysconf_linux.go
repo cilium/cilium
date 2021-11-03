@@ -117,23 +117,9 @@ func getNprocs() int64 {
 }
 
 func getNprocsConf() int64 {
-	// TODO(tk): read /sys/devices/system/cpu/present instead?
-	d, err := os.Open("/sys/devices/system/cpu")
+	count, err := numcpus.GetConfigured()
 	if err == nil {
-		defer d.Close()
-		fis, err := d.Readdir(-1)
-		if err == nil {
-			count := int64(0)
-			for _, fi := range fis {
-				if name := fi.Name(); fi.IsDir() && strings.HasPrefix(name, "cpu") {
-					_, err := strconv.ParseInt(name[3:], 10, 64)
-					if err == nil {
-						count++
-					}
-				}
-			}
-			return count
-		}
+		return int64(count)
 	}
 
 	// TODO(tk): fall back to reading /proc/cpuinfo on legacy systems

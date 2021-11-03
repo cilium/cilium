@@ -20,7 +20,7 @@ type IpList struct {
 	PrivateIpAddress string `json:"PrivateIpAddress" xml:"PrivateIpAddress"`
 	IpAddress        string `json:"IpAddress" xml:"IpAddress"`
 	ApAccessEnabled  bool   `json:"ApAccessEnabled" xml:"ApAccessEnabled"`
-	AllocationId     string `json:"AllocationId" xml:"AllocationId"`
 	UsingStatus      string `json:"UsingStatus" xml:"UsingStatus"`
 	SnatEntryEnabled bool   `json:"SnatEntryEnabled" xml:"SnatEntryEnabled"`
+	AllocationId     string `json:"AllocationId" xml:"AllocationId"`
 }

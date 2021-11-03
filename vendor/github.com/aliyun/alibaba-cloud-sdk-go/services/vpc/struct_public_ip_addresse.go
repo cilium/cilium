@@ -17,7 +17,7 @@ package vpc
 
 // PublicIpAddresse is a nested struct in vpc response
 type PublicIpAddresse struct {
-	AllocationId                     string `json:"AllocationId" xml:"AllocationId"`
 	IpAddress                        string `json:"IpAddress" xml:"IpAddress"`
+	AllocationId                     string `json:"AllocationId" xml:"AllocationId"`
 	BandwidthPackageIpRelationStatus string `json:"BandwidthPackageIpRelationStatus" xml:"BandwidthPackageIpRelationStatus"`
 }

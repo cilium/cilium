@@ -17,9 +17,7 @@ import (
 // the Traffic Mirror filter, all traffic related to that network service will be
 // mirrored. When you no longer want to mirror network services, use
 // RemoveNetworkServices to remove the network services from the Traffic Mirror
-// filter. For information about filter rule properties, see Network Services
-// (https://docs.aws.amazon.com/vpc/latest/mirroring/traffic-mirroring-considerations.html)
-// in the Traffic Mirroring User Guide .
+// filter.
 func (c *Client) ModifyTrafficMirrorFilterNetworkServices(ctx context.Context, params *ModifyTrafficMirrorFilterNetworkServicesInput, optFns ...func(*Options)) (*ModifyTrafficMirrorFilterNetworkServicesOutput, error) {
 	if params == nil {
 		params = &ModifyTrafficMirrorFilterNetworkServicesInput{}

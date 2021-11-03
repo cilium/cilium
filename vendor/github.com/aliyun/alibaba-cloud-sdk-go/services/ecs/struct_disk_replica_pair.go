@@ -17,12 +17,12 @@ package ecs
 
 // DiskReplicaPair is a nested struct in ecs response
 type DiskReplicaPair struct {
-	ReplicaPairId     string `json:"ReplicaPairId" xml:"ReplicaPairId"`
-	SourceRegion      string `json:"SourceRegion" xml:"SourceRegion"`
-	SourceDiskId      string `json:"SourceDiskId" xml:"SourceDiskId"`
-	DestinationRegion string `json:"DestinationRegion" xml:"DestinationRegion"`
-	DestinationDiskId string `json:"DestinationDiskId" xml:"DestinationDiskId"`
-	PairName          string `json:"PairName" xml:"PairName"`
-	Description       string `json:"Description" xml:"Description"`
 	Status            string `json:"Status" xml:"Status"`
+	SourceDiskId      string `json:"SourceDiskId" xml:"SourceDiskId"`
+	ReplicaPairId     string `json:"ReplicaPairId" xml:"ReplicaPairId"`
+	Description       string `json:"Description" xml:"Description"`
+	DestinationRegion string `json:"DestinationRegion" xml:"DestinationRegion"`
+	PairName          string `json:"PairName" xml:"PairName"`
+	SourceRegion      string `json:"SourceRegion" xml:"SourceRegion"`
+	DestinationDiskId string `json:"DestinationDiskId" xml:"DestinationDiskId"`
 }

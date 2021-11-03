@@ -255,7 +255,7 @@ func (client CloudServicesUpdateDomainClient) WalkUpdateDomain(ctx context.Conte
 
 	result, err = client.WalkUpdateDomainSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "compute.CloudServicesUpdateDomainClient", "WalkUpdateDomain", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "compute.CloudServicesUpdateDomainClient", "WalkUpdateDomain", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -295,6 +295,7 @@ func (client CloudServicesUpdateDomainClient) WalkUpdateDomainPreparer(ctx conte
 // http.Response Body if it receives an error.
 func (client CloudServicesUpdateDomainClient) WalkUpdateDomainSender(req *http.Request) (future CloudServicesUpdateDomainWalkUpdateDomainFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return

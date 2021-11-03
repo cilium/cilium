@@ -81,10 +81,10 @@ type DetachInstanceRamRoleRequest struct {
 // DetachInstanceRamRoleResponse is the response struct for api DetachInstanceRamRole
 type DetachInstanceRamRoleResponse struct {
 	*responses.BaseResponse
+	RamRoleName                  string                       `json:"RamRoleName" xml:"RamRoleName"`
 	RequestId                    string                       `json:"RequestId" xml:"RequestId"`
 	TotalCount                   int                          `json:"TotalCount" xml:"TotalCount"`
 	FailCount                    int                          `json:"FailCount" xml:"FailCount"`
-	RamRoleName                  string                       `json:"RamRoleName" xml:"RamRoleName"`
 	DetachInstanceRamRoleResults DetachInstanceRamRoleResults `json:"DetachInstanceRamRoleResults" xml:"DetachInstanceRamRoleResults"`
 }
 

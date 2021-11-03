@@ -32,15 +32,15 @@ func NewGalleryImageVersionsClientWithBaseURI(baseURI string, subscriptionID str
 	return GalleryImageVersionsClient{NewWithBaseURI(baseURI, subscriptionID)}
 }
 
-// CreateOrUpdate create or update a gallery Image Version.
+// CreateOrUpdate create or update a gallery image version.
 // Parameters:
 // resourceGroupName - the name of the resource group.
 // galleryName - the name of the Shared Image Gallery in which the Image Definition resides.
-// galleryImageName - the name of the gallery Image Definition in which the Image Version is to be created.
-// galleryImageVersionName - the name of the gallery Image Version to be created. Needs to follow semantic
+// galleryImageName - the name of the gallery image definition in which the Image Version is to be created.
+// galleryImageVersionName - the name of the gallery image version to be created. Needs to follow semantic
 // version name pattern: The allowed characters are digit and period. Digits must be within the range of a
 // 32-bit integer. Format: <MajorVersion>.<MinorVersion>.<Patch>
-// galleryImageVersion - parameters supplied to the create or update gallery Image Version operation.
+// galleryImageVersion - parameters supplied to the create or update gallery image version operation.
 func (client GalleryImageVersionsClient) CreateOrUpdate(ctx context.Context, resourceGroupName string, galleryName string, galleryImageName string, galleryImageVersionName string, galleryImageVersion GalleryImageVersion) (result GalleryImageVersionsCreateOrUpdateFuture, err error) {
 	if tracing.IsEnabled() {
 		ctx = tracing.StartSpan(ctx, fqdn+"/GalleryImageVersionsClient.CreateOrUpdate")
@@ -67,7 +67,7 @@ func (client GalleryImageVersionsClient) CreateOrUpdate(ctx context.Context, res
 
 	result, err = client.CreateOrUpdateSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "compute.GalleryImageVersionsClient", "CreateOrUpdate", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "compute.GalleryImageVersionsClient", "CreateOrUpdate", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -84,7 +84,7 @@ func (client GalleryImageVersionsClient) CreateOrUpdatePreparer(ctx context.Cont
 		"subscriptionId":          autorest.Encode("path", client.SubscriptionID),
 	}
 
-	const APIVersion = "2019-12-01"
+	const APIVersion = "2020-09-30"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -103,6 +103,7 @@ func (client GalleryImageVersionsClient) CreateOrUpdatePreparer(ctx context.Cont
 // http.Response Body if it receives an error.
 func (client GalleryImageVersionsClient) CreateOrUpdateSender(req *http.Request) (future GalleryImageVersionsCreateOrUpdateFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
@@ -126,12 +127,12 @@ func (client GalleryImageVersionsClient) CreateOrUpdateResponder(resp *http.Resp
 	return
 }
 
-// Delete delete a gallery Image Version.
+// Delete delete a gallery image version.
 // Parameters:
 // resourceGroupName - the name of the resource group.
 // galleryName - the name of the Shared Image Gallery in which the Image Definition resides.
-// galleryImageName - the name of the gallery Image Definition in which the Image Version resides.
-// galleryImageVersionName - the name of the gallery Image Version to be deleted.
+// galleryImageName - the name of the gallery image definition in which the Image Version resides.
+// galleryImageVersionName - the name of the gallery image version to be deleted.
 func (client GalleryImageVersionsClient) Delete(ctx context.Context, resourceGroupName string, galleryName string, galleryImageName string, galleryImageVersionName string) (result GalleryImageVersionsDeleteFuture, err error) {
 	if tracing.IsEnabled() {
 		ctx = tracing.StartSpan(ctx, fqdn+"/GalleryImageVersionsClient.Delete")
@@ -151,7 +152,7 @@ func (client GalleryImageVersionsClient) Delete(ctx context.Context, resourceGro
 
 	result, err = client.DeleteSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "compute.GalleryImageVersionsClient", "Delete", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "compute.GalleryImageVersionsClient", "Delete", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -168,7 +169,7 @@ func (client GalleryImageVersionsClient) DeletePreparer(ctx context.Context, res
 		"subscriptionId":          autorest.Encode("path", client.SubscriptionID),
 	}
 
-	const APIVersion = "2019-12-01"
+	const APIVersion = "2020-09-30"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -185,6 +186,7 @@ func (client GalleryImageVersionsClient) DeletePreparer(ctx context.Context, res
 // http.Response Body if it receives an error.
 func (client GalleryImageVersionsClient) DeleteSender(req *http.Request) (future GalleryImageVersionsDeleteFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
@@ -207,12 +209,12 @@ func (client GalleryImageVersionsClient) DeleteResponder(resp *http.Response) (r
 	return
 }
 
-// Get retrieves information about a gallery Image Version.
+// Get retrieves information about a gallery image version.
 // Parameters:
 // resourceGroupName - the name of the resource group.
 // galleryName - the name of the Shared Image Gallery in which the Image Definition resides.
-// galleryImageName - the name of the gallery Image Definition in which the Image Version resides.
-// galleryImageVersionName - the name of the gallery Image Version to be retrieved.
+// galleryImageName - the name of the gallery image definition in which the Image Version resides.
+// galleryImageVersionName - the name of the gallery image version to be retrieved.
 // expand - the expand expression to apply on the operation.
 func (client GalleryImageVersionsClient) Get(ctx context.Context, resourceGroupName string, galleryName string, galleryImageName string, galleryImageVersionName string, expand ReplicationStatusTypes) (result GalleryImageVersion, err error) {
 	if tracing.IsEnabled() {
@@ -257,7 +259,7 @@ func (client GalleryImageVersionsClient) GetPreparer(ctx context.Context, resour
 		"subscriptionId":          autorest.Encode("path", client.SubscriptionID),
 	}
 
-	const APIVersion = "2019-12-01"
+	const APIVersion = "2020-09-30"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -291,7 +293,7 @@ func (client GalleryImageVersionsClient) GetResponder(resp *http.Response) (resu
 	return
 }
 
-// ListByGalleryImage list gallery Image Versions in a gallery Image Definition.
+// ListByGalleryImage list gallery image versions in a gallery image definition.
 // Parameters:
 // resourceGroupName - the name of the resource group.
 // galleryName - the name of the Shared Image Gallery in which the Image Definition resides.
@@ -344,7 +346,7 @@ func (client GalleryImageVersionsClient) ListByGalleryImagePreparer(ctx context.
 		"subscriptionId":    autorest.Encode("path", client.SubscriptionID),
 	}
 
-	const APIVersion = "2019-12-01"
+	const APIVersion = "2020-09-30"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -412,15 +414,15 @@ func (client GalleryImageVersionsClient) ListByGalleryImageComplete(ctx context.
 	return
 }
 
-// Update update a gallery Image Version.
+// Update update a gallery image version.
 // Parameters:
 // resourceGroupName - the name of the resource group.
 // galleryName - the name of the Shared Image Gallery in which the Image Definition resides.
-// galleryImageName - the name of the gallery Image Definition in which the Image Version is to be updated.
-// galleryImageVersionName - the name of the gallery Image Version to be updated. Needs to follow semantic
+// galleryImageName - the name of the gallery image definition in which the Image Version is to be updated.
+// galleryImageVersionName - the name of the gallery image version to be updated. Needs to follow semantic
 // version name pattern: The allowed characters are digit and period. Digits must be within the range of a
 // 32-bit integer. Format: <MajorVersion>.<MinorVersion>.<Patch>
-// galleryImageVersion - parameters supplied to the update gallery Image Version operation.
+// galleryImageVersion - parameters supplied to the update gallery image version operation.
 func (client GalleryImageVersionsClient) Update(ctx context.Context, resourceGroupName string, galleryName string, galleryImageName string, galleryImageVersionName string, galleryImageVersion GalleryImageVersionUpdate) (result GalleryImageVersionsUpdateFuture, err error) {
 	if tracing.IsEnabled() {
 		ctx = tracing.StartSpan(ctx, fqdn+"/GalleryImageVersionsClient.Update")
@@ -440,7 +442,7 @@ func (client GalleryImageVersionsClient) Update(ctx context.Context, resourceGro
 
 	result, err = client.UpdateSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "compute.GalleryImageVersionsClient", "Update", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "compute.GalleryImageVersionsClient", "Update", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -457,7 +459,7 @@ func (client GalleryImageVersionsClient) UpdatePreparer(ctx context.Context, res
 		"subscriptionId":          autorest.Encode("path", client.SubscriptionID),
 	}
 
-	const APIVersion = "2019-12-01"
+	const APIVersion = "2020-09-30"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -476,6 +478,7 @@ func (client GalleryImageVersionsClient) UpdatePreparer(ctx context.Context, res
 // http.Response Body if it receives an error.
 func (client GalleryImageVersionsClient) UpdateSender(req *http.Request) (future GalleryImageVersionsUpdateFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return

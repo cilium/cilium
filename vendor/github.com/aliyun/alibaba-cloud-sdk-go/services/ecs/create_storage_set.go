@@ -85,8 +85,8 @@ type CreateStorageSetRequest struct {
 // CreateStorageSetResponse is the response struct for api CreateStorageSet
 type CreateStorageSetResponse struct {
 	*responses.BaseResponse
-	RequestId    string `json:"RequestId" xml:"RequestId"`
 	StorageSetId string `json:"StorageSetId" xml:"StorageSetId"`
+	RequestId    string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateCreateStorageSetRequest creates a request to invoke CreateStorageSet API

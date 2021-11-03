@@ -17,11 +17,11 @@ package ecs
 
 // PrefixList is a nested struct in ecs response
 type PrefixList struct {
-	PrefixListId     string `json:"PrefixListId" xml:"PrefixListId"`
-	PrefixListName   string `json:"PrefixListName" xml:"PrefixListName"`
-	AddressFamily    string `json:"AddressFamily" xml:"AddressFamily"`
-	MaxEntries       int    `json:"MaxEntries" xml:"MaxEntries"`
-	Description      string `json:"Description" xml:"Description"`
 	CreationTime     string `json:"CreationTime" xml:"CreationTime"`
 	AssociationCount int    `json:"AssociationCount" xml:"AssociationCount"`
+	MaxEntries       int    `json:"MaxEntries" xml:"MaxEntries"`
+	Description      string `json:"Description" xml:"Description"`
+	AddressFamily    string `json:"AddressFamily" xml:"AddressFamily"`
+	PrefixListName   string `json:"PrefixListName" xml:"PrefixListName"`
+	PrefixListId     string `json:"PrefixListId" xml:"PrefixListId"`
 }

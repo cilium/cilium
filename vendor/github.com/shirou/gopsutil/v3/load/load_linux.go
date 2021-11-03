@@ -92,6 +92,8 @@ func MiscWithContext(ctx context.Context) (*MiscStat, error) {
 			continue
 		}
 		switch fields[0] {
+		case "processes":
+			ret.ProcsCreated = int(v)
 		case "procs_running":
 			ret.ProcsRunning = int(v)
 		case "procs_blocked":

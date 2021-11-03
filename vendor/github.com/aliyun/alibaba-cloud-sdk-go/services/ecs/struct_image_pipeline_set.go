@@ -18,20 +18,20 @@ package ecs
 // ImagePipelineSet is a nested struct in ecs response
 type ImagePipelineSet struct {
 	CreationTime            string                       `json:"CreationTime" xml:"CreationTime"`
-	ImagePipelineId         string                       `json:"ImagePipelineId" xml:"ImagePipelineId"`
-	Name                    string                       `json:"Name" xml:"Name"`
-	Description             string                       `json:"Description" xml:"Description"`
-	BaseImageType           string                       `json:"BaseImageType" xml:"BaseImageType"`
-	BaseImage               string                       `json:"BaseImage" xml:"BaseImage"`
-	ImageName               string                       `json:"ImageName" xml:"ImageName"`
-	VSwitchId               string                       `json:"VSwitchId" xml:"VSwitchId"`
+	DeleteInstanceOnFailure bool                         `json:"DeleteInstanceOnFailure" xml:"DeleteInstanceOnFailure"`
 	InstanceType            string                       `json:"InstanceType" xml:"InstanceType"`
 	InternetMaxBandwidthOut int                          `json:"InternetMaxBandwidthOut" xml:"InternetMaxBandwidthOut"`
+	ImagePipelineId         string                       `json:"ImagePipelineId" xml:"ImagePipelineId"`
+	VSwitchId               string                       `json:"VSwitchId" xml:"VSwitchId"`
 	SystemDiskSize          int                          `json:"SystemDiskSize" xml:"SystemDiskSize"`
-	DeleteInstanceOnFailure bool                         `json:"DeleteInstanceOnFailure" xml:"DeleteInstanceOnFailure"`
-	BuildContent            string                       `json:"BuildContent" xml:"BuildContent"`
+	Description             string                       `json:"Description" xml:"Description"`
+	BaseImage               string                       `json:"BaseImage" xml:"BaseImage"`
 	ResourceGroupId         string                       `json:"ResourceGroupId" xml:"ResourceGroupId"`
-	AddAccounts             AddAccounts                  `json:"AddAccounts" xml:"AddAccounts"`
+	ImageName               string                       `json:"ImageName" xml:"ImageName"`
+	BaseImageType           string                       `json:"BaseImageType" xml:"BaseImageType"`
+	Name                    string                       `json:"Name" xml:"Name"`
+	BuildContent            string                       `json:"BuildContent" xml:"BuildContent"`
 	ToRegionIds             ToRegionIds                  `json:"ToRegionIds" xml:"ToRegionIds"`
+	AddAccounts             AddAccounts                  `json:"AddAccounts" xml:"AddAccounts"`
 	Tags                    TagsInDescribeImagePipelines `json:"Tags" xml:"Tags"`
 }

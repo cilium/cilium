@@ -83,10 +83,10 @@ type DescribeInstanceAttachmentAttributesRequest struct {
 // DescribeInstanceAttachmentAttributesResponse is the response struct for api DescribeInstanceAttachmentAttributes
 type DescribeInstanceAttachmentAttributesResponse struct {
 	*responses.BaseResponse
-	RequestId  string                                          `json:"RequestId" xml:"RequestId"`
-	TotalCount int                                             `json:"TotalCount" xml:"TotalCount"`
-	PageNumber int                                             `json:"PageNumber" xml:"PageNumber"`
 	PageSize   int                                             `json:"PageSize" xml:"PageSize"`
+	RequestId  string                                          `json:"RequestId" xml:"RequestId"`
+	PageNumber int                                             `json:"PageNumber" xml:"PageNumber"`
+	TotalCount int                                             `json:"TotalCount" xml:"TotalCount"`
 	Instances  InstancesInDescribeInstanceAttachmentAttributes `json:"Instances" xml:"Instances"`
 }
 

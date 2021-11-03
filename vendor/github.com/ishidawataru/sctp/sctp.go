@@ -1,3 +1,18 @@
+// Copyright 2019 Wataru Ishida. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+// implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package sctp
 
 import (
@@ -197,37 +212,58 @@ func htons(h uint16) uint16 {
 
 var ntohs = htons
 
-func setNumOstreams(fd, num int) error {
-	param := InitMsg{
-		NumOstreams: uint16(num),
-	}
-	optlen := unsafe.Sizeof(param)
-	_, _, err := setsockopt(fd, SCTP_INITMSG, uintptr(unsafe.Pointer(&param)), uintptr(optlen))
+// setInitOpts sets options for an SCTP association initialization
+// see https://tools.ietf.org/html/rfc4960#page-25
+func setInitOpts(fd int, options InitMsg) error {
+	optlen := unsafe.Sizeof(options)
+	_, _, err := setsockopt(fd, SCTP_INITMSG, uintptr(unsafe.Pointer(&options)), uintptr(optlen))
 	return err
 }
 
+func setNumOstreams(fd, num int) error {
+	return setInitOpts(fd, InitMsg{NumOstreams: uint16(num)})
+}
+
 type SCTPAddr struct {
-	IP   []net.IP
-	Port int
+	IPAddrs []net.IPAddr
+	Port    int
 }
 
 func (a *SCTPAddr) ToRawSockAddrBuf() []byte {
-	buf := []byte{}
 	p := htons(uint16(a.Port))
-	for _, ip := range a.IP {
-		if ip.To4() != nil {
+	if len(a.IPAddrs) == 0 { // if a.IPAddrs list is empty - fall back to IPv4 zero addr
+		s := syscall.RawSockaddrInet4{
+			Family: syscall.AF_INET,
+			Port:   p,
+		}
+		copy(s.Addr[:], net.IPv4zero)
+		return toBuf(s)
+	}
+	buf := []byte{}
+	for _, ip := range a.IPAddrs {
+		ipBytes := ip.IP
+		if len(ipBytes) == 0 {
+			ipBytes = net.IPv4zero
+		}
+		if ip4 := ipBytes.To4(); ip4 != nil {
 			s := syscall.RawSockaddrInet4{
 				Family: syscall.AF_INET,
 				Port:   p,
 			}
-			copy(s.Addr[:], ip.To4())
+			copy(s.Addr[:], ip4)
 			buf = append(buf, toBuf(s)...)
 		} else {
-			s := syscall.RawSockaddrInet6{
-				Family: syscall.AF_INET6,
-				Port:   p,
+			var scopeid uint32
+			ifi, err := net.InterfaceByName(ip.Zone)
+			if err == nil {
+				scopeid = uint32(ifi.Index)
 			}
-			copy(s.Addr[:], ip)
+			s := syscall.RawSockaddrInet6{
+				Family:   syscall.AF_INET6,
+				Port:     p,
+				Scope_id: scopeid,
+			}
+			copy(s.Addr[:], ipBytes)
 			buf = append(buf, toBuf(s)...)
 		}
 	}
@@ -237,15 +273,15 @@ func (a *SCTPAddr) ToRawSockAddrBuf() []byte {
 func (a *SCTPAddr) String() string {
 	var b bytes.Buffer
 
-	for n, i := range a.IP {
-		if a.IP[n].To4() != nil {
+	for n, i := range a.IPAddrs {
+		if i.IP.To4() != nil {
 			b.WriteString(i.String())
-		} else if a.IP[n].To16() != nil {
+		} else if i.IP.To16() != nil {
 			b.WriteRune('[')
 			b.WriteString(i.String())
 			b.WriteRune(']')
 		}
-		if n < len(a.IP)-1 {
+		if n < len(a.IPAddrs)-1 {
 			b.WriteRune('/')
 		}
 	}
@@ -260,6 +296,7 @@ func ResolveSCTPAddr(network, addrs string) (*SCTPAddr, error) {
 	tcpnet := ""
 	switch network {
 	case "", "sctp":
+		tcpnet = "tcp"
 	case "sctp4":
 		tcpnet = "tcp4"
 	case "sctp6":
@@ -271,26 +308,26 @@ func ResolveSCTPAddr(network, addrs string) (*SCTPAddr, error) {
 	if len(elems) == 0 {
 		return nil, fmt.Errorf("invalid input: %s", addrs)
 	}
-	ipaddrs := make([]net.IP, 0, len(elems))
+	ipaddrs := make([]net.IPAddr, 0, len(elems))
 	for _, e := range elems[:len(elems)-1] {
 		tcpa, err := net.ResolveTCPAddr(tcpnet, e+":")
 		if err != nil {
 			return nil, err
 		}
-		ipaddrs = append(ipaddrs, tcpa.IP)
+		ipaddrs = append(ipaddrs, net.IPAddr{IP: tcpa.IP, Zone: tcpa.Zone})
 	}
 	tcpa, err := net.ResolveTCPAddr(tcpnet, elems[len(elems)-1])
 	if err != nil {
 		return nil, err
 	}
 	if tcpa.IP != nil {
-		ipaddrs = append(ipaddrs, tcpa.IP)
+		ipaddrs = append(ipaddrs, net.IPAddr{IP: tcpa.IP, Zone: tcpa.Zone})
 	} else {
 		ipaddrs = nil
 	}
 	return &SCTPAddr{
-		IP:   ipaddrs,
-		Port: tcpa.Port,
+		IPAddrs: ipaddrs,
+		Port:    tcpa.Port,
 	}, nil
 }
 
@@ -357,15 +394,12 @@ func (c *SCTPConn) Read(b []byte) (int, error) {
 }
 
 func (c *SCTPConn) SetInitMsg(numOstreams, maxInstreams, maxAttempts, maxInitTimeout int) error {
-	param := InitMsg{
+	return setInitOpts(c.fd(), InitMsg{
 		NumOstreams:    uint16(numOstreams),
 		MaxInstreams:   uint16(maxInstreams),
 		MaxAttempts:    uint16(maxAttempts),
 		MaxInitTimeout: uint16(maxInitTimeout),
-	}
-	optlen := unsafe.Sizeof(param)
-	_, _, err := setsockopt(c.fd(), SCTP_INITMSG, uintptr(unsafe.Pointer(&param)), uintptr(optlen))
-	return err
+	})
 }
 
 func (c *SCTPConn) SubscribeEvents(flags int) error {
@@ -471,9 +505,17 @@ func (c *SCTPConn) GetDefaultSentParam() (*SndRcvInfo, error) {
 	return info, err
 }
 
+func (c *SCTPConn) Getsockopt(optname, optval, optlen uintptr) (uintptr, uintptr, error) {
+	return getsockopt(c.fd(), optname, optval, optlen)
+}
+
+func (c *SCTPConn) Setsockopt(optname, optval, optlen uintptr) (uintptr, uintptr, error) {
+	return setsockopt(c.fd(), optname, optval, optlen)
+}
+
 func resolveFromRawAddr(ptr unsafe.Pointer, n int) (*SCTPAddr, error) {
 	addr := &SCTPAddr{
-		IP: make([]net.IP, n),
+		IPAddrs: make([]net.IPAddr, n),
 	}
 
 	switch family := (*(*syscall.RawSockaddrAny)(ptr)).Addr.Family; family {
@@ -484,7 +526,7 @@ func resolveFromRawAddr(ptr unsafe.Pointer, n int) (*SCTPAddr, error) {
 		for i := 0; i < n; i++ {
 			a := *(*syscall.RawSockaddrInet4)(unsafe.Pointer(
 				uintptr(ptr) + size*uintptr(i)))
-			addr.IP[i] = a.Addr[:]
+			addr.IPAddrs[i] = net.IPAddr{IP: a.Addr[:]}
 		}
 	case syscall.AF_INET6:
 		addr.Port = int(ntohs(uint16((*(*syscall.RawSockaddrInet4)(ptr)).Port)))
@@ -493,7 +535,12 @@ func resolveFromRawAddr(ptr unsafe.Pointer, n int) (*SCTPAddr, error) {
 		for i := 0; i < n; i++ {
 			a := *(*syscall.RawSockaddrInet6)(unsafe.Pointer(
 				uintptr(ptr) + size*uintptr(i)))
-			addr.IP[i] = a.Addr[:]
+			var zone string
+			ifi, err := net.InterfaceByIndex(int(a.Scope_id))
+			if err == nil {
+				zone = ifi.Name
+			}
+			addr.IPAddrs[i] = net.IPAddr{IP: a.Addr[:], Zone: zone}
 		}
 	default:
 		return nil, fmt.Errorf("unknown address family: %d", family)
@@ -653,4 +700,38 @@ func (c *SCTPSndRcvInfoWrappedConn) SetReadDeadline(t time.Time) error {
 
 func (c *SCTPSndRcvInfoWrappedConn) SetWriteDeadline(t time.Time) error {
 	return c.conn.SetWriteDeadline(t)
+}
+
+func (c *SCTPSndRcvInfoWrappedConn) SetWriteBuffer(bytes int) error {
+	return c.conn.SetWriteBuffer(bytes)
+}
+
+func (c *SCTPSndRcvInfoWrappedConn) GetWriteBuffer() (int, error) {
+	return c.conn.GetWriteBuffer()
+}
+
+func (c *SCTPSndRcvInfoWrappedConn) SetReadBuffer(bytes int) error {
+	return c.conn.SetReadBuffer(bytes)
+}
+
+func (c *SCTPSndRcvInfoWrappedConn) GetReadBuffer() (int, error) {
+	return c.conn.GetReadBuffer()
+}
+
+// SocketConfig contains options for the SCTP socket.
+type SocketConfig struct {
+	// If Control is not nil it is called after the socket is created but before
+	// it is bound or connected.
+	Control func(network, address string, c syscall.RawConn) error
+
+	// InitMsg is the options to send in the initial SCTP message
+	InitMsg InitMsg
+}
+
+func (cfg *SocketConfig) Listen(net string, laddr *SCTPAddr) (*SCTPListener, error) {
+	return listenSCTPExtConfig(net, laddr, cfg.InitMsg, cfg.Control)
+}
+
+func (cfg *SocketConfig) Dial(net string, laddr, raddr *SCTPAddr) (*SCTPConn, error) {
+	return dialSCTPExtConfig(net, laddr, raddr, cfg.InitMsg, cfg.Control)
 }

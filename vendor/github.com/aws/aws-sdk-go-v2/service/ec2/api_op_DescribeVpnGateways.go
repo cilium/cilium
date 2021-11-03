@@ -12,9 +12,9 @@ import (
 )
 
 // Describes one or more of your virtual private gateways. For more information,
-// see AWS Site-to-Site VPN
-// (https://docs.aws.amazon.com/vpn/latest/s2svpn/VPC_VPN.html) in the AWS
-// Site-to-Site VPN User Guide.
+// see Amazon Web Services Site-to-Site VPN
+// (https://docs.aws.amazon.com/vpn/latest/s2svpn/VPC_VPN.html) in the Amazon Web
+// Services Site-to-Site VPN User Guide.
 func (c *Client) DescribeVpnGateways(ctx context.Context, params *DescribeVpnGatewaysInput, optFns ...func(*Options)) (*DescribeVpnGatewaysOutput, error) {
 	if params == nil {
 		params = &DescribeVpnGatewaysInput{}

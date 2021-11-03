@@ -88,8 +88,8 @@ type ModifyDedicatedHostsChargeTypeRequest struct {
 // ModifyDedicatedHostsChargeTypeResponse is the response struct for api ModifyDedicatedHostsChargeType
 type ModifyDedicatedHostsChargeTypeResponse struct {
 	*responses.BaseResponse
-	RequestId      string                                         `json:"RequestId" xml:"RequestId"`
 	OrderId        string                                         `json:"OrderId" xml:"OrderId"`
+	RequestId      string                                         `json:"RequestId" xml:"RequestId"`
 	FeeOfInstances FeeOfInstancesInModifyDedicatedHostsChargeType `json:"FeeOfInstances" xml:"FeeOfInstances"`
 }
 

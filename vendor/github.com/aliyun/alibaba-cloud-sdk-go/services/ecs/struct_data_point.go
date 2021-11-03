@@ -17,6 +17,6 @@ package ecs
 
 // DataPoint is a nested struct in ecs response
 type DataPoint struct {
-	TimeStamp string `json:"TimeStamp" xml:"TimeStamp"`
 	Size      int64  `json:"Size" xml:"Size"`
+	TimeStamp string `json:"TimeStamp" xml:"TimeStamp"`
 }

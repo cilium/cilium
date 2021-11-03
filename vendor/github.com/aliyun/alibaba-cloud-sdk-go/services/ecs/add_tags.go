@@ -81,7 +81,7 @@ type AddTagsRequest struct {
 
 // AddTagsTag is a repeated param struct in AddTagsRequest
 type AddTagsTag struct {
-	Value string `name:"Value"`
+	Value string `name:"value"`
 	Key   string `name:"Key"`
 }
 

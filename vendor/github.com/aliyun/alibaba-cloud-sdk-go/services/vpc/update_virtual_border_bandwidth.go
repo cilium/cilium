@@ -83,11 +83,11 @@ type UpdateVirtualBorderBandwidthRequest struct {
 // UpdateVirtualBorderBandwidthResponse is the response struct for api UpdateVirtualBorderBandwidth
 type UpdateVirtualBorderBandwidthResponse struct {
 	*responses.BaseResponse
-	RequestId      string `json:"RequestId" xml:"RequestId"`
-	Success        bool   `json:"Success" xml:"Success"`
+	Code           string `json:"Code" xml:"Code"`
 	HttpStatusCode string `json:"HttpStatusCode" xml:"HttpStatusCode"`
 	Message        string `json:"Message" xml:"Message"`
-	Code           string `json:"Code" xml:"Code"`
+	RequestId      string `json:"RequestId" xml:"RequestId"`
+	Success        bool   `json:"Success" xml:"Success"`
 }
 
 // CreateUpdateVirtualBorderBandwidthRequest creates a request to invoke UpdateVirtualBorderBandwidth API

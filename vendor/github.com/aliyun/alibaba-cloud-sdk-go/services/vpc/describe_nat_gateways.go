@@ -72,6 +72,7 @@ func (client *Client) DescribeNatGatewaysWithCallback(request *DescribeNatGatewa
 type DescribeNatGatewaysRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer          `position:"Query" name:"ResourceOwnerId"`
+	NetworkType          string                    `position:"Query" name:"NetworkType"`
 	Spec                 string                    `position:"Query" name:"Spec"`
 	PageNumber           requests.Integer          `position:"Query" name:"PageNumber"`
 	ResourceGroupId      string                    `position:"Query" name:"ResourceGroupId"`
@@ -80,12 +81,16 @@ type DescribeNatGatewaysRequest struct {
 	NatGatewayId         string                    `position:"Query" name:"NatGatewayId"`
 	Tag                  *[]DescribeNatGatewaysTag `position:"Query" name:"Tag"  type:"Repeated"`
 	InstanceChargeType   string                    `position:"Query" name:"InstanceChargeType"`
+	NatGatewayIds        *[]string                 `position:"Query" name:"NatGatewayIds"  type:"Repeated"`
 	DryRun               requests.Boolean          `position:"Query" name:"DryRun"`
 	ResourceOwnerAccount string                    `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string                    `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer          `position:"Query" name:"OwnerId"`
+	VSwitchId            string                    `position:"Query" name:"VSwitchId"`
 	VpcId                string                    `position:"Query" name:"VpcId"`
 	Name                 string                    `position:"Query" name:"Name"`
+	PrivateLinkEnabled   requests.Boolean          `position:"Query" name:"PrivateLinkEnabled"`
+	ZoneId               string                    `position:"Query" name:"ZoneId"`
 	Status               string                    `position:"Query" name:"Status"`
 }
 
@@ -98,10 +103,10 @@ type DescribeNatGatewaysTag struct {
 // DescribeNatGatewaysResponse is the response struct for api DescribeNatGateways
 type DescribeNatGatewaysResponse struct {
 	*responses.BaseResponse
-	RequestId   string      `json:"RequestId" xml:"RequestId"`
-	TotalCount  int         `json:"TotalCount" xml:"TotalCount"`
-	PageNumber  int         `json:"PageNumber" xml:"PageNumber"`
 	PageSize    int         `json:"PageSize" xml:"PageSize"`
+	RequestId   string      `json:"RequestId" xml:"RequestId"`
+	PageNumber  int         `json:"PageNumber" xml:"PageNumber"`
+	TotalCount  int         `json:"TotalCount" xml:"TotalCount"`
 	NatGateways NatGateways `json:"NatGateways" xml:"NatGateways"`
 }
 

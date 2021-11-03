@@ -55,7 +55,7 @@ func (client VpnServerConfigurationsAssociatedWithVirtualWanClient) List(ctx con
 
 	result, err = client.ListSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.VpnServerConfigurationsAssociatedWithVirtualWanClient", "List", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.VpnServerConfigurationsAssociatedWithVirtualWanClient", "List", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -87,6 +87,7 @@ func (client VpnServerConfigurationsAssociatedWithVirtualWanClient) ListPreparer
 // http.Response Body if it receives an error.
 func (client VpnServerConfigurationsAssociatedWithVirtualWanClient) ListSender(req *http.Request) (future VpnServerConfigurationsAssociatedWithVirtualWanListFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return

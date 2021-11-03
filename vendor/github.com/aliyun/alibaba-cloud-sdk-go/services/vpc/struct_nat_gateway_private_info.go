@@ -17,10 +17,10 @@ package vpc
 
 // NatGatewayPrivateInfo is a nested struct in vpc response
 type NatGatewayPrivateInfo struct {
-	EniInstanceId    string `json:"EniInstanceId" xml:"EniInstanceId"`
-	PrivateIpAddress string `json:"PrivateIpAddress" xml:"PrivateIpAddress"`
 	VswitchId        string `json:"VswitchId" xml:"VswitchId"`
-	IzNo             string `json:"IzNo" xml:"IzNo"`
+	EniInstanceId    string `json:"EniInstanceId" xml:"EniInstanceId"`
 	MaxBandwidth     int    `json:"MaxBandwidth" xml:"MaxBandwidth"`
+	PrivateIpAddress string `json:"PrivateIpAddress" xml:"PrivateIpAddress"`
+	IzNo             string `json:"IzNo" xml:"IzNo"`
 	EniType          string `json:"EniType" xml:"EniType"`
 }

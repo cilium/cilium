@@ -17,6 +17,6 @@ package ecs
 
 // ActivityDetail is a nested struct in ecs response
 type ActivityDetail struct {
-	Detail string `json:"Detail" xml:"Detail"`
 	Status string `json:"Status" xml:"Status"`
+	Detail string `json:"Detail" xml:"Detail"`
 }

@@ -1,5 +1,5 @@
 [dependencies]
-"github.com/aws/smithy-go" = "v1.8.0"
+"github.com/aws/smithy-go" = "v1.8.1"
 "github.com/google/go-cmp" = "v0.5.6"
 "github.com/jmespath/go-jmespath" = "v0.4.0"
 

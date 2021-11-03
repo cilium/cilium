@@ -17,15 +17,15 @@ package ecs
 
 // Vpc is a nested struct in ecs response
 type Vpc struct {
-	VpcId        string     `json:"VpcId" xml:"VpcId"`
-	RegionId     string     `json:"RegionId" xml:"RegionId"`
-	Status       string     `json:"Status" xml:"Status"`
-	VpcName      string     `json:"VpcName" xml:"VpcName"`
 	CreationTime string     `json:"CreationTime" xml:"CreationTime"`
-	CidrBlock    string     `json:"CidrBlock" xml:"CidrBlock"`
+	VpcName      string     `json:"VpcName" xml:"VpcName"`
+	Status       string     `json:"Status" xml:"Status"`
+	VpcId        string     `json:"VpcId" xml:"VpcId"`
 	VRouterId    string     `json:"VRouterId" xml:"VRouterId"`
-	Description  string     `json:"Description" xml:"Description"`
 	IsDefault    bool       `json:"IsDefault" xml:"IsDefault"`
+	CidrBlock    string     `json:"CidrBlock" xml:"CidrBlock"`
+	Description  string     `json:"Description" xml:"Description"`
+	RegionId     string     `json:"RegionId" xml:"RegionId"`
 	VSwitchIds   VSwitchIds `json:"VSwitchIds" xml:"VSwitchIds"`
 	UserCidrs    UserCidrs  `json:"UserCidrs" xml:"UserCidrs"`
 }

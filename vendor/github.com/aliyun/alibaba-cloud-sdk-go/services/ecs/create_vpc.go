@@ -85,9 +85,9 @@ type CreateVpcRequest struct {
 // CreateVpcResponse is the response struct for api CreateVpc
 type CreateVpcResponse struct {
 	*responses.BaseResponse
-	RequestId    string `json:"RequestId" xml:"RequestId"`
 	VpcId        string `json:"VpcId" xml:"VpcId"`
 	VRouterId    string `json:"VRouterId" xml:"VRouterId"`
+	RequestId    string `json:"RequestId" xml:"RequestId"`
 	RouteTableId string `json:"RouteTableId" xml:"RouteTableId"`
 }
 

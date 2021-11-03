@@ -89,8 +89,8 @@ type StartImagePipelineExecutionTemplateTag struct {
 // StartImagePipelineExecutionResponse is the response struct for api StartImagePipelineExecution
 type StartImagePipelineExecutionResponse struct {
 	*responses.BaseResponse
-	RequestId   string `json:"RequestId" xml:"RequestId"`
 	ExecutionId string `json:"ExecutionId" xml:"ExecutionId"`
+	RequestId   string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateStartImagePipelineExecutionRequest creates a request to invoke StartImagePipelineExecution API

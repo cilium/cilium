@@ -53,7 +53,7 @@ func (client CloudServiceRoleInstancesClient) Delete(ctx context.Context, roleIn
 
 	result, err = client.DeleteSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "compute.CloudServiceRoleInstancesClient", "Delete", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "compute.CloudServiceRoleInstancesClient", "Delete", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -86,6 +86,7 @@ func (client CloudServiceRoleInstancesClient) DeletePreparer(ctx context.Context
 // http.Response Body if it receives an error.
 func (client CloudServiceRoleInstancesClient) DeleteSender(req *http.Request) (future CloudServiceRoleInstancesDeleteFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
@@ -111,7 +112,7 @@ func (client CloudServiceRoleInstancesClient) DeleteResponder(resp *http.Respons
 // Get gets a role instance from a cloud service.
 // Parameters:
 // roleInstanceName - name of the role instance.
-// expand - the expand expression to apply to the operation.
+// expand - the expand expression to apply to the operation. 'UserData' is not supported for cloud services.
 func (client CloudServiceRoleInstancesClient) Get(ctx context.Context, roleInstanceName string, resourceGroupName string, cloudServiceName string, expand InstanceViewTypes) (result RoleInstance, err error) {
 	if tracing.IsEnabled() {
 		ctx = tracing.StartSpan(ctx, fqdn+"/CloudServiceRoleInstancesClient.Get")
@@ -342,7 +343,7 @@ func (client CloudServiceRoleInstancesClient) GetRemoteDesktopFileResponder(resp
 // List gets the list of all role instances in a cloud service. Use nextLink property in the response to get the next
 // page of role instances. Do this till nextLink is null to fetch all the role instances.
 // Parameters:
-// expand - the expand expression to apply to the operation.
+// expand - the expand expression to apply to the operation. 'UserData' is not supported for cloud services.
 func (client CloudServiceRoleInstancesClient) List(ctx context.Context, resourceGroupName string, cloudServiceName string, expand InstanceViewTypes) (result RoleInstanceListResultPage, err error) {
 	if tracing.IsEnabled() {
 		ctx = tracing.StartSpan(ctx, fqdn+"/CloudServiceRoleInstancesClient.List")
@@ -484,7 +485,7 @@ func (client CloudServiceRoleInstancesClient) Rebuild(ctx context.Context, roleI
 
 	result, err = client.RebuildSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "compute.CloudServiceRoleInstancesClient", "Rebuild", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "compute.CloudServiceRoleInstancesClient", "Rebuild", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -517,6 +518,7 @@ func (client CloudServiceRoleInstancesClient) RebuildPreparer(ctx context.Contex
 // http.Response Body if it receives an error.
 func (client CloudServiceRoleInstancesClient) RebuildSender(req *http.Request) (future CloudServiceRoleInstancesRebuildFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
@@ -562,7 +564,7 @@ func (client CloudServiceRoleInstancesClient) Reimage(ctx context.Context, roleI
 
 	result, err = client.ReimageSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "compute.CloudServiceRoleInstancesClient", "Reimage", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "compute.CloudServiceRoleInstancesClient", "Reimage", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -595,6 +597,7 @@ func (client CloudServiceRoleInstancesClient) ReimagePreparer(ctx context.Contex
 // http.Response Body if it receives an error.
 func (client CloudServiceRoleInstancesClient) ReimageSender(req *http.Request) (future CloudServiceRoleInstancesReimageFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
@@ -639,7 +642,7 @@ func (client CloudServiceRoleInstancesClient) Restart(ctx context.Context, roleI
 
 	result, err = client.RestartSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "compute.CloudServiceRoleInstancesClient", "Restart", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "compute.CloudServiceRoleInstancesClient", "Restart", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -672,6 +675,7 @@ func (client CloudServiceRoleInstancesClient) RestartPreparer(ctx context.Contex
 // http.Response Body if it receives an error.
 func (client CloudServiceRoleInstancesClient) RestartSender(req *http.Request) (future CloudServiceRoleInstancesRestartFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return

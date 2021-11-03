@@ -71,24 +71,32 @@ func (client *Client) DescribeSnapshotGroupsWithCallback(request *DescribeSnapsh
 // DescribeSnapshotGroupsRequest is the request struct for api DescribeSnapshotGroups
 type DescribeSnapshotGroupsRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	NextToken            string           `position:"Query" name:"NextToken"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	SnapshotGroupId      *[]string        `position:"Query" name:"SnapshotGroupId"  type:"Repeated"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	AdditionalAttributes *[]string        `position:"Query" name:"AdditionalAttributes"  type:"Repeated"`
-	InstanceId           string           `position:"Query" name:"InstanceId"`
-	Name                 string           `position:"Query" name:"Name"`
-	MaxResults           requests.Integer `position:"Query" name:"MaxResults"`
-	Status               *[]string        `position:"Query" name:"Status"  type:"Repeated"`
+	ResourceOwnerId      requests.Integer             `position:"Query" name:"ResourceOwnerId"`
+	ResourceGroupId      string                       `position:"Query" name:"ResourceGroupId"`
+	NextToken            string                       `position:"Query" name:"NextToken"`
+	Tag                  *[]DescribeSnapshotGroupsTag `position:"Query" name:"Tag"  type:"Repeated"`
+	ResourceOwnerAccount string                       `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                       `position:"Query" name:"OwnerAccount"`
+	SnapshotGroupId      *[]string                    `position:"Query" name:"SnapshotGroupId"  type:"Repeated"`
+	OwnerId              requests.Integer             `position:"Query" name:"OwnerId"`
+	AdditionalAttributes *[]string                    `position:"Query" name:"AdditionalAttributes"  type:"Repeated"`
+	InstanceId           string                       `position:"Query" name:"InstanceId"`
+	Name                 string                       `position:"Query" name:"Name"`
+	MaxResults           requests.Integer             `position:"Query" name:"MaxResults"`
+	Status               *[]string                    `position:"Query" name:"Status"  type:"Repeated"`
+}
+
+// DescribeSnapshotGroupsTag is a repeated param struct in DescribeSnapshotGroupsRequest
+type DescribeSnapshotGroupsTag struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // DescribeSnapshotGroupsResponse is the response struct for api DescribeSnapshotGroups
 type DescribeSnapshotGroupsResponse struct {
 	*responses.BaseResponse
-	RequestId      string         `json:"RequestId" xml:"RequestId"`
 	NextToken      string         `json:"NextToken" xml:"NextToken"`
+	RequestId      string         `json:"RequestId" xml:"RequestId"`
 	SnapshotGroups SnapshotGroups `json:"SnapshotGroups" xml:"SnapshotGroups"`
 }
 

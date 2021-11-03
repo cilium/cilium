@@ -91,8 +91,8 @@ type CreateDemandRequest struct {
 // CreateDemandResponse is the response struct for api CreateDemand
 type CreateDemandResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
 	DemandId  string `json:"DemandId" xml:"DemandId"`
+	RequestId string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateCreateDemandRequest creates a request to invoke CreateDemand API

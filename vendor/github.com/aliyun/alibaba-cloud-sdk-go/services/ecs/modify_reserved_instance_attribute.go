@@ -83,10 +83,10 @@ type ModifyReservedInstanceAttributeRequest struct {
 // ModifyReservedInstanceAttributeResponse is the response struct for api ModifyReservedInstanceAttribute
 type ModifyReservedInstanceAttributeResponse struct {
 	*responses.BaseResponse
-	RequestId      string `json:"RequestId" xml:"RequestId"`
+	HttpStatusCode int    `json:"HttpStatusCode" xml:"HttpStatusCode"`
 	Code           string `json:"Code" xml:"Code"`
 	Message        string `json:"Message" xml:"Message"`
-	HttpStatusCode int    `json:"HttpStatusCode" xml:"HttpStatusCode"`
+	RequestId      string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateModifyReservedInstanceAttributeRequest creates a request to invoke ModifyReservedInstanceAttribute API

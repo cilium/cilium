@@ -99,7 +99,7 @@ func (p PortBinding) HostAddr() (net.Addr, error) {
 	case TCP:
 		return &net.TCPAddr{IP: p.HostIP, Port: int(p.HostPort)}, nil
 	case SCTP:
-		return &sctp.SCTPAddr{IP: []net.IP{p.HostIP}, Port: int(p.HostPort)}, nil
+		return &sctp.SCTPAddr{IPAddrs: []net.IPAddr{{IP: p.HostIP}}, Port: int(p.HostPort)}, nil
 	default:
 		return nil, ErrInvalidProtocolBinding(p.Proto.String())
 	}
@@ -113,7 +113,7 @@ func (p PortBinding) ContainerAddr() (net.Addr, error) {
 	case TCP:
 		return &net.TCPAddr{IP: p.IP, Port: int(p.Port)}, nil
 	case SCTP:
-		return &sctp.SCTPAddr{IP: []net.IP{p.IP}, Port: int(p.Port)}, nil
+		return &sctp.SCTPAddr{IPAddrs: []net.IPAddr{{IP: p.IP}}, Port: int(p.Port)}, nil
 	default:
 		return nil, ErrInvalidProtocolBinding(p.Proto.String())
 	}
@@ -591,8 +591,6 @@ func (br badRequest) Error() string {
 }
 func (br badRequest) BadRequest() {}
 
-type maskBadRequest string
-
 type notFound string
 
 func (nf notFound) Error() string {
@@ -613,8 +611,6 @@ func (ns noService) Error() string {
 	return string(ns)
 }
 func (ns noService) NoService() {}
-
-type maskNoService string
 
 type timeout string
 

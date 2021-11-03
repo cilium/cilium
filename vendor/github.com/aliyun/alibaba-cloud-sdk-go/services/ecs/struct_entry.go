@@ -17,6 +17,6 @@ package ecs
 
 // Entry is a nested struct in ecs response
 type Entry struct {
-	Cidr        string `json:"Cidr" xml:"Cidr"`
 	Description string `json:"Description" xml:"Description"`
+	Cidr        string `json:"Cidr" xml:"Cidr"`
 }

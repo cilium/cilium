@@ -17,8 +17,8 @@ package ecs
 
 // SnapshotPackage is a nested struct in ecs response
 type SnapshotPackage struct {
-	StartTime    string `json:"StartTime" xml:"StartTime"`
-	EndTime      string `json:"EndTime" xml:"EndTime"`
-	InitCapacity int64  `json:"InitCapacity" xml:"InitCapacity"`
 	DisplayName  string `json:"DisplayName" xml:"DisplayName"`
+	EndTime      string `json:"EndTime" xml:"EndTime"`
+	StartTime    string `json:"StartTime" xml:"StartTime"`
+	InitCapacity int64  `json:"InitCapacity" xml:"InitCapacity"`
 }

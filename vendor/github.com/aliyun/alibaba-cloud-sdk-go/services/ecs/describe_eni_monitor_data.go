@@ -85,8 +85,8 @@ type DescribeEniMonitorDataRequest struct {
 // DescribeEniMonitorDataResponse is the response struct for api DescribeEniMonitorData
 type DescribeEniMonitorDataResponse struct {
 	*responses.BaseResponse
-	RequestId   string                              `json:"RequestId" xml:"RequestId"`
 	TotalCount  int                                 `json:"TotalCount" xml:"TotalCount"`
+	RequestId   string                              `json:"RequestId" xml:"RequestId"`
 	MonitorData MonitorDataInDescribeEniMonitorData `json:"MonitorData" xml:"MonitorData"`
 }
 

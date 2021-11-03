@@ -56,7 +56,7 @@ func (client VirtualApplianceSitesClient) CreateOrUpdate(ctx context.Context, re
 
 	result, err = client.CreateOrUpdateSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.VirtualApplianceSitesClient", "CreateOrUpdate", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.VirtualApplianceSitesClient", "CreateOrUpdate", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -93,6 +93,7 @@ func (client VirtualApplianceSitesClient) CreateOrUpdatePreparer(ctx context.Con
 // http.Response Body if it receives an error.
 func (client VirtualApplianceSitesClient) CreateOrUpdateSender(req *http.Request) (future VirtualApplianceSitesCreateOrUpdateFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
@@ -140,7 +141,7 @@ func (client VirtualApplianceSitesClient) Delete(ctx context.Context, resourceGr
 
 	result, err = client.DeleteSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.VirtualApplianceSitesClient", "Delete", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.VirtualApplianceSitesClient", "Delete", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -173,6 +174,7 @@ func (client VirtualApplianceSitesClient) DeletePreparer(ctx context.Context, re
 // http.Response Body if it receives an error.
 func (client VirtualApplianceSitesClient) DeleteSender(req *http.Request) (future VirtualApplianceSitesDeleteFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return

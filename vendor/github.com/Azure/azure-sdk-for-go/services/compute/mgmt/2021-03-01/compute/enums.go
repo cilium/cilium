@@ -10,51 +10,51 @@ package compute
 type AccessLevel string
 
 const (
-	// None ...
-	None AccessLevel = "None"
-	// Read ...
-	Read AccessLevel = "Read"
-	// Write ...
-	Write AccessLevel = "Write"
+	// AccessLevelNone ...
+	AccessLevelNone AccessLevel = "None"
+	// AccessLevelRead ...
+	AccessLevelRead AccessLevel = "Read"
+	// AccessLevelWrite ...
+	AccessLevelWrite AccessLevel = "Write"
 )
 
 // PossibleAccessLevelValues returns an array of possible values for the AccessLevel const type.
 func PossibleAccessLevelValues() []AccessLevel {
-	return []AccessLevel{None, Read, Write}
+	return []AccessLevel{AccessLevelNone, AccessLevelRead, AccessLevelWrite}
 }
 
 // AggregatedReplicationState enumerates the values for aggregated replication state.
 type AggregatedReplicationState string
 
 const (
-	// Completed ...
-	Completed AggregatedReplicationState = "Completed"
-	// Failed ...
-	Failed AggregatedReplicationState = "Failed"
-	// InProgress ...
-	InProgress AggregatedReplicationState = "InProgress"
-	// Unknown ...
-	Unknown AggregatedReplicationState = "Unknown"
+	// AggregatedReplicationStateCompleted ...
+	AggregatedReplicationStateCompleted AggregatedReplicationState = "Completed"
+	// AggregatedReplicationStateFailed ...
+	AggregatedReplicationStateFailed AggregatedReplicationState = "Failed"
+	// AggregatedReplicationStateInProgress ...
+	AggregatedReplicationStateInProgress AggregatedReplicationState = "InProgress"
+	// AggregatedReplicationStateUnknown ...
+	AggregatedReplicationStateUnknown AggregatedReplicationState = "Unknown"
 )
 
 // PossibleAggregatedReplicationStateValues returns an array of possible values for the AggregatedReplicationState const type.
 func PossibleAggregatedReplicationStateValues() []AggregatedReplicationState {
-	return []AggregatedReplicationState{Completed, Failed, InProgress, Unknown}
+	return []AggregatedReplicationState{AggregatedReplicationStateCompleted, AggregatedReplicationStateFailed, AggregatedReplicationStateInProgress, AggregatedReplicationStateUnknown}
 }
 
 // AvailabilitySetSkuTypes enumerates the values for availability set sku types.
 type AvailabilitySetSkuTypes string
 
 const (
-	// Aligned ...
-	Aligned AvailabilitySetSkuTypes = "Aligned"
-	// Classic ...
-	Classic AvailabilitySetSkuTypes = "Classic"
+	// AvailabilitySetSkuTypesAligned ...
+	AvailabilitySetSkuTypesAligned AvailabilitySetSkuTypes = "Aligned"
+	// AvailabilitySetSkuTypesClassic ...
+	AvailabilitySetSkuTypesClassic AvailabilitySetSkuTypes = "Classic"
 )
 
 // PossibleAvailabilitySetSkuTypesValues returns an array of possible values for the AvailabilitySetSkuTypes const type.
 func PossibleAvailabilitySetSkuTypesValues() []AvailabilitySetSkuTypes {
-	return []AvailabilitySetSkuTypes{Aligned, Classic}
+	return []AvailabilitySetSkuTypes{AvailabilitySetSkuTypesAligned, AvailabilitySetSkuTypesClassic}
 }
 
 // CachingTypes enumerates the values for caching types.
@@ -78,30 +78,47 @@ func PossibleCachingTypesValues() []CachingTypes {
 type CloudServiceUpgradeMode string
 
 const (
-	// Auto ...
-	Auto CloudServiceUpgradeMode = "Auto"
-	// Manual ...
-	Manual CloudServiceUpgradeMode = "Manual"
-	// Simultaneous ...
-	Simultaneous CloudServiceUpgradeMode = "Simultaneous"
+	// CloudServiceUpgradeModeAuto ...
+	CloudServiceUpgradeModeAuto CloudServiceUpgradeMode = "Auto"
+	// CloudServiceUpgradeModeManual ...
+	CloudServiceUpgradeModeManual CloudServiceUpgradeMode = "Manual"
+	// CloudServiceUpgradeModeSimultaneous ...
+	CloudServiceUpgradeModeSimultaneous CloudServiceUpgradeMode = "Simultaneous"
 )
 
 // PossibleCloudServiceUpgradeModeValues returns an array of possible values for the CloudServiceUpgradeMode const type.
 func PossibleCloudServiceUpgradeModeValues() []CloudServiceUpgradeMode {
-	return []CloudServiceUpgradeMode{Auto, Manual, Simultaneous}
+	return []CloudServiceUpgradeMode{CloudServiceUpgradeModeAuto, CloudServiceUpgradeModeManual, CloudServiceUpgradeModeSimultaneous}
 }
 
 // ComponentNames enumerates the values for component names.
 type ComponentNames string
 
 const (
-	// MicrosoftWindowsShellSetup ...
-	MicrosoftWindowsShellSetup ComponentNames = "Microsoft-Windows-Shell-Setup"
+	// ComponentNamesMicrosoftWindowsShellSetup ...
+	ComponentNamesMicrosoftWindowsShellSetup ComponentNames = "Microsoft-Windows-Shell-Setup"
 )
 
 // PossibleComponentNamesValues returns an array of possible values for the ComponentNames const type.
 func PossibleComponentNamesValues() []ComponentNames {
-	return []ComponentNames{MicrosoftWindowsShellSetup}
+	return []ComponentNames{ComponentNamesMicrosoftWindowsShellSetup}
+}
+
+// ConsistencyModeTypes enumerates the values for consistency mode types.
+type ConsistencyModeTypes string
+
+const (
+	// ConsistencyModeTypesApplicationConsistent ...
+	ConsistencyModeTypesApplicationConsistent ConsistencyModeTypes = "ApplicationConsistent"
+	// ConsistencyModeTypesCrashConsistent ...
+	ConsistencyModeTypesCrashConsistent ConsistencyModeTypes = "CrashConsistent"
+	// ConsistencyModeTypesFileSystemConsistent ...
+	ConsistencyModeTypesFileSystemConsistent ConsistencyModeTypes = "FileSystemConsistent"
+)
+
+// PossibleConsistencyModeTypesValues returns an array of possible values for the ConsistencyModeTypes const type.
+func PossibleConsistencyModeTypesValues() []ConsistencyModeTypes {
+	return []ConsistencyModeTypes{ConsistencyModeTypesApplicationConsistent, ConsistencyModeTypesCrashConsistent, ConsistencyModeTypesFileSystemConsistent}
 }
 
 // DedicatedHostLicenseTypes enumerates the values for dedicated host license types.
@@ -121,61 +138,76 @@ func PossibleDedicatedHostLicenseTypesValues() []DedicatedHostLicenseTypes {
 	return []DedicatedHostLicenseTypes{DedicatedHostLicenseTypesNone, DedicatedHostLicenseTypesWindowsServerHybrid, DedicatedHostLicenseTypesWindowsServerPerpetual}
 }
 
+// DeleteOptions enumerates the values for delete options.
+type DeleteOptions string
+
+const (
+	// DeleteOptionsDelete ...
+	DeleteOptionsDelete DeleteOptions = "Delete"
+	// DeleteOptionsDetach ...
+	DeleteOptionsDetach DeleteOptions = "Detach"
+)
+
+// PossibleDeleteOptionsValues returns an array of possible values for the DeleteOptions const type.
+func PossibleDeleteOptionsValues() []DeleteOptions {
+	return []DeleteOptions{DeleteOptionsDelete, DeleteOptionsDetach}
+}
+
 // DiffDiskOptions enumerates the values for diff disk options.
 type DiffDiskOptions string
 
 const (
-	// Local ...
-	Local DiffDiskOptions = "Local"
+	// DiffDiskOptionsLocal ...
+	DiffDiskOptionsLocal DiffDiskOptions = "Local"
 )
 
 // PossibleDiffDiskOptionsValues returns an array of possible values for the DiffDiskOptions const type.
 func PossibleDiffDiskOptionsValues() []DiffDiskOptions {
-	return []DiffDiskOptions{Local}
+	return []DiffDiskOptions{DiffDiskOptionsLocal}
 }
 
 // DiffDiskPlacement enumerates the values for diff disk placement.
 type DiffDiskPlacement string
 
 const (
-	// CacheDisk ...
-	CacheDisk DiffDiskPlacement = "CacheDisk"
-	// ResourceDisk ...
-	ResourceDisk DiffDiskPlacement = "ResourceDisk"
+	// DiffDiskPlacementCacheDisk ...
+	DiffDiskPlacementCacheDisk DiffDiskPlacement = "CacheDisk"
+	// DiffDiskPlacementResourceDisk ...
+	DiffDiskPlacementResourceDisk DiffDiskPlacement = "ResourceDisk"
 )
 
 // PossibleDiffDiskPlacementValues returns an array of possible values for the DiffDiskPlacement const type.
 func PossibleDiffDiskPlacementValues() []DiffDiskPlacement {
-	return []DiffDiskPlacement{CacheDisk, ResourceDisk}
+	return []DiffDiskPlacement{DiffDiskPlacementCacheDisk, DiffDiskPlacementResourceDisk}
 }
 
 // DiskCreateOption enumerates the values for disk create option.
 type DiskCreateOption string
 
 const (
-	// Attach Disk will be attached to a VM.
-	Attach DiskCreateOption = "Attach"
-	// Copy Create a new disk or snapshot by copying from a disk or snapshot specified by the given
-	// sourceResourceId.
-	Copy DiskCreateOption = "Copy"
-	// Empty Create an empty data disk of a size given by diskSizeGB.
-	Empty DiskCreateOption = "Empty"
-	// FromImage Create a new disk from a platform image specified by the given imageReference or
-	// galleryImageReference.
-	FromImage DiskCreateOption = "FromImage"
-	// Import Create a disk by importing from a blob specified by a sourceUri in a storage account specified by
-	// storageAccountId.
-	Import DiskCreateOption = "Import"
-	// Restore Create a new disk by copying from a backup recovery point.
-	Restore DiskCreateOption = "Restore"
-	// Upload Create a new disk by obtaining a write token and using it to directly upload the contents of the
-	// disk.
-	Upload DiskCreateOption = "Upload"
+	// DiskCreateOptionAttach Disk will be attached to a VM.
+	DiskCreateOptionAttach DiskCreateOption = "Attach"
+	// DiskCreateOptionCopy Create a new disk or snapshot by copying from a disk or snapshot specified by the
+	// given sourceResourceId.
+	DiskCreateOptionCopy DiskCreateOption = "Copy"
+	// DiskCreateOptionEmpty Create an empty data disk of a size given by diskSizeGB.
+	DiskCreateOptionEmpty DiskCreateOption = "Empty"
+	// DiskCreateOptionFromImage Create a new disk from a platform image specified by the given imageReference
+	// or galleryImageReference.
+	DiskCreateOptionFromImage DiskCreateOption = "FromImage"
+	// DiskCreateOptionImport Create a disk by importing from a blob specified by a sourceUri in a storage
+	// account specified by storageAccountId.
+	DiskCreateOptionImport DiskCreateOption = "Import"
+	// DiskCreateOptionRestore Create a new disk by copying from a backup recovery point.
+	DiskCreateOptionRestore DiskCreateOption = "Restore"
+	// DiskCreateOptionUpload Create a new disk by obtaining a write token and using it to directly upload the
+	// contents of the disk.
+	DiskCreateOptionUpload DiskCreateOption = "Upload"
 )
 
 // PossibleDiskCreateOptionValues returns an array of possible values for the DiskCreateOption const type.
 func PossibleDiskCreateOptionValues() []DiskCreateOption {
-	return []DiskCreateOption{Attach, Copy, Empty, FromImage, Import, Restore, Upload}
+	return []DiskCreateOption{DiskCreateOptionAttach, DiskCreateOptionCopy, DiskCreateOptionEmpty, DiskCreateOptionFromImage, DiskCreateOptionImport, DiskCreateOptionRestore, DiskCreateOptionUpload}
 }
 
 // DiskCreateOptionTypes enumerates the values for disk create option types.
@@ -195,17 +227,32 @@ func PossibleDiskCreateOptionTypesValues() []DiskCreateOptionTypes {
 	return []DiskCreateOptionTypes{DiskCreateOptionTypesAttach, DiskCreateOptionTypesEmpty, DiskCreateOptionTypesFromImage}
 }
 
+// DiskDeleteOptionTypes enumerates the values for disk delete option types.
+type DiskDeleteOptionTypes string
+
+const (
+	// DiskDeleteOptionTypesDelete ...
+	DiskDeleteOptionTypesDelete DiskDeleteOptionTypes = "Delete"
+	// DiskDeleteOptionTypesDetach ...
+	DiskDeleteOptionTypesDetach DiskDeleteOptionTypes = "Detach"
+)
+
+// PossibleDiskDeleteOptionTypesValues returns an array of possible values for the DiskDeleteOptionTypes const type.
+func PossibleDiskDeleteOptionTypesValues() []DiskDeleteOptionTypes {
+	return []DiskDeleteOptionTypes{DiskDeleteOptionTypesDelete, DiskDeleteOptionTypesDetach}
+}
+
 // DiskDetachOptionTypes enumerates the values for disk detach option types.
 type DiskDetachOptionTypes string
 
 const (
-	// ForceDetach ...
-	ForceDetach DiskDetachOptionTypes = "ForceDetach"
+	// DiskDetachOptionTypesForceDetach ...
+	DiskDetachOptionTypesForceDetach DiskDetachOptionTypes = "ForceDetach"
 )
 
 // PossibleDiskDetachOptionTypesValues returns an array of possible values for the DiskDetachOptionTypes const type.
 func PossibleDiskDetachOptionTypesValues() []DiskDetachOptionTypes {
-	return []DiskDetachOptionTypes{ForceDetach}
+	return []DiskDetachOptionTypes{DiskDetachOptionTypesForceDetach}
 }
 
 // DiskEncryptionSetIdentityType enumerates the values for disk encryption set identity type.
@@ -227,84 +274,85 @@ func PossibleDiskEncryptionSetIdentityTypeValues() []DiskEncryptionSetIdentityTy
 type DiskEncryptionSetType string
 
 const (
-	// EncryptionAtRestWithCustomerKey Resource using diskEncryptionSet would be encrypted at rest with
-	// Customer managed key that can be changed and revoked by a customer.
-	EncryptionAtRestWithCustomerKey DiskEncryptionSetType = "EncryptionAtRestWithCustomerKey"
-	// EncryptionAtRestWithPlatformAndCustomerKeys Resource using diskEncryptionSet would be encrypted at rest
-	// with two layers of encryption. One of the keys is Customer managed and the other key is Platform
-	// managed.
-	EncryptionAtRestWithPlatformAndCustomerKeys DiskEncryptionSetType = "EncryptionAtRestWithPlatformAndCustomerKeys"
+	// DiskEncryptionSetTypeEncryptionAtRestWithCustomerKey Resource using diskEncryptionSet would be encrypted
+	// at rest with Customer managed key that can be changed and revoked by a customer.
+	DiskEncryptionSetTypeEncryptionAtRestWithCustomerKey DiskEncryptionSetType = "EncryptionAtRestWithCustomerKey"
+	// DiskEncryptionSetTypeEncryptionAtRestWithPlatformAndCustomerKeys Resource using diskEncryptionSet would
+	// be encrypted at rest with two layers of encryption. One of the keys is Customer managed and the other
+	// key is Platform managed.
+	DiskEncryptionSetTypeEncryptionAtRestWithPlatformAndCustomerKeys DiskEncryptionSetType = "EncryptionAtRestWithPlatformAndCustomerKeys"
 )
 
 // PossibleDiskEncryptionSetTypeValues returns an array of possible values for the DiskEncryptionSetType const type.
 func PossibleDiskEncryptionSetTypeValues() []DiskEncryptionSetType {
-	return []DiskEncryptionSetType{EncryptionAtRestWithCustomerKey, EncryptionAtRestWithPlatformAndCustomerKeys}
+	return []DiskEncryptionSetType{DiskEncryptionSetTypeEncryptionAtRestWithCustomerKey, DiskEncryptionSetTypeEncryptionAtRestWithPlatformAndCustomerKeys}
 }
 
 // DiskSecurityTypes enumerates the values for disk security types.
 type DiskSecurityTypes string
 
 const (
-	// TrustedLaunch Trusted Launch provides security features such as secure boot and virtual Trusted Platform
-	// Module (vTPM)
-	TrustedLaunch DiskSecurityTypes = "TrustedLaunch"
+	// DiskSecurityTypesTrustedLaunch Trusted Launch provides security features such as secure boot and virtual
+	// Trusted Platform Module (vTPM)
+	DiskSecurityTypesTrustedLaunch DiskSecurityTypes = "TrustedLaunch"
 )
 
 // PossibleDiskSecurityTypesValues returns an array of possible values for the DiskSecurityTypes const type.
 func PossibleDiskSecurityTypesValues() []DiskSecurityTypes {
-	return []DiskSecurityTypes{TrustedLaunch}
+	return []DiskSecurityTypes{DiskSecurityTypesTrustedLaunch}
 }
 
 // DiskState enumerates the values for disk state.
 type DiskState string
 
 const (
-	// ActiveSAS The disk currently has an Active SAS Uri associated with it.
-	ActiveSAS DiskState = "ActiveSAS"
-	// ActiveUpload A disk is created for upload and a write token has been issued for uploading to it.
-	ActiveUpload DiskState = "ActiveUpload"
-	// Attached The disk is currently mounted to a running VM.
-	Attached DiskState = "Attached"
-	// ReadyToUpload A disk is ready to be created by upload by requesting a write token.
-	ReadyToUpload DiskState = "ReadyToUpload"
-	// Reserved The disk is mounted to a stopped-deallocated VM
-	Reserved DiskState = "Reserved"
-	// Unattached The disk is not being used and can be attached to a VM.
-	Unattached DiskState = "Unattached"
+	// DiskStateActiveSAS The disk currently has an Active SAS Uri associated with it.
+	DiskStateActiveSAS DiskState = "ActiveSAS"
+	// DiskStateActiveUpload A disk is created for upload and a write token has been issued for uploading to
+	// it.
+	DiskStateActiveUpload DiskState = "ActiveUpload"
+	// DiskStateAttached The disk is currently mounted to a running VM.
+	DiskStateAttached DiskState = "Attached"
+	// DiskStateReadyToUpload A disk is ready to be created by upload by requesting a write token.
+	DiskStateReadyToUpload DiskState = "ReadyToUpload"
+	// DiskStateReserved The disk is mounted to a stopped-deallocated VM
+	DiskStateReserved DiskState = "Reserved"
+	// DiskStateUnattached The disk is not being used and can be attached to a VM.
+	DiskStateUnattached DiskState = "Unattached"
 )
 
 // PossibleDiskStateValues returns an array of possible values for the DiskState const type.
 func PossibleDiskStateValues() []DiskState {
-	return []DiskState{ActiveSAS, ActiveUpload, Attached, ReadyToUpload, Reserved, Unattached}
+	return []DiskState{DiskStateActiveSAS, DiskStateActiveUpload, DiskStateAttached, DiskStateReadyToUpload, DiskStateReserved, DiskStateUnattached}
 }
 
 // DiskStorageAccountTypes enumerates the values for disk storage account types.
 type DiskStorageAccountTypes string
 
 const (
-	// PremiumLRS Premium SSD locally redundant storage. Best for production and performance sensitive
-	// workloads.
-	PremiumLRS DiskStorageAccountTypes = "Premium_LRS"
-	// PremiumZRS Premium SSD zone redundant storage. Best for the production workloads that need storage
-	// resiliency against zone failures.
-	PremiumZRS DiskStorageAccountTypes = "Premium_ZRS"
-	// StandardLRS Standard HDD locally redundant storage. Best for backup, non-critical, and infrequent
-	// access.
-	StandardLRS DiskStorageAccountTypes = "Standard_LRS"
-	// StandardSSDLRS Standard SSD locally redundant storage. Best for web servers, lightly used enterprise
-	// applications and dev/test.
-	StandardSSDLRS DiskStorageAccountTypes = "StandardSSD_LRS"
-	// StandardSSDZRS Standard SSD zone redundant storage. Best for web servers, lightly used enterprise
-	// applications and dev/test that need storage resiliency against zone failures.
-	StandardSSDZRS DiskStorageAccountTypes = "StandardSSD_ZRS"
-	// UltraSSDLRS Ultra SSD locally redundant storage. Best for IO-intensive workloads such as SAP HANA, top
-	// tier databases (for example, SQL, Oracle), and other transaction-heavy workloads.
-	UltraSSDLRS DiskStorageAccountTypes = "UltraSSD_LRS"
+	// DiskStorageAccountTypesPremiumLRS Premium SSD locally redundant storage. Best for production and
+	// performance sensitive workloads.
+	DiskStorageAccountTypesPremiumLRS DiskStorageAccountTypes = "Premium_LRS"
+	// DiskStorageAccountTypesPremiumZRS Premium SSD zone redundant storage. Best for the production workloads
+	// that need storage resiliency against zone failures.
+	DiskStorageAccountTypesPremiumZRS DiskStorageAccountTypes = "Premium_ZRS"
+	// DiskStorageAccountTypesStandardLRS Standard HDD locally redundant storage. Best for backup,
+	// non-critical, and infrequent access.
+	DiskStorageAccountTypesStandardLRS DiskStorageAccountTypes = "Standard_LRS"
+	// DiskStorageAccountTypesStandardSSDLRS Standard SSD locally redundant storage. Best for web servers,
+	// lightly used enterprise applications and dev/test.
+	DiskStorageAccountTypesStandardSSDLRS DiskStorageAccountTypes = "StandardSSD_LRS"
+	// DiskStorageAccountTypesStandardSSDZRS Standard SSD zone redundant storage. Best for web servers, lightly
+	// used enterprise applications and dev/test that need storage resiliency against zone failures.
+	DiskStorageAccountTypesStandardSSDZRS DiskStorageAccountTypes = "StandardSSD_ZRS"
+	// DiskStorageAccountTypesUltraSSDLRS Ultra SSD locally redundant storage. Best for IO-intensive workloads
+	// such as SAP HANA, top tier databases (for example, SQL, Oracle), and other transaction-heavy workloads.
+	DiskStorageAccountTypesUltraSSDLRS DiskStorageAccountTypes = "UltraSSD_LRS"
 )
 
 // PossibleDiskStorageAccountTypesValues returns an array of possible values for the DiskStorageAccountTypes const type.
 func PossibleDiskStorageAccountTypesValues() []DiskStorageAccountTypes {
-	return []DiskStorageAccountTypes{PremiumLRS, PremiumZRS, StandardLRS, StandardSSDLRS, StandardSSDZRS, UltraSSDLRS}
+	return []DiskStorageAccountTypes{DiskStorageAccountTypesPremiumLRS, DiskStorageAccountTypesPremiumZRS, DiskStorageAccountTypesStandardLRS, DiskStorageAccountTypesStandardSSDLRS, DiskStorageAccountTypesStandardSSDZRS, DiskStorageAccountTypesUltraSSDLRS}
 }
 
 // EncryptionType enumerates the values for encryption type.
@@ -352,17 +400,45 @@ func PossibleExecutionStateValues() []ExecutionState {
 	return []ExecutionState{ExecutionStateCanceled, ExecutionStateFailed, ExecutionStatePending, ExecutionStateRunning, ExecutionStateSucceeded, ExecutionStateTimedOut, ExecutionStateUnknown}
 }
 
+// ExpandTypesForGetVMScaleSets enumerates the values for expand types for get vm scale sets.
+type ExpandTypesForGetVMScaleSets string
+
+const (
+	// ExpandTypesForGetVMScaleSetsUserData ...
+	ExpandTypesForGetVMScaleSetsUserData ExpandTypesForGetVMScaleSets = "userData"
+)
+
+// PossibleExpandTypesForGetVMScaleSetsValues returns an array of possible values for the ExpandTypesForGetVMScaleSets const type.
+func PossibleExpandTypesForGetVMScaleSetsValues() []ExpandTypesForGetVMScaleSets {
+	return []ExpandTypesForGetVMScaleSets{ExpandTypesForGetVMScaleSetsUserData}
+}
+
 // ExtendedLocationTypes enumerates the values for extended location types.
 type ExtendedLocationTypes string
 
 const (
-	// EdgeZone ...
-	EdgeZone ExtendedLocationTypes = "EdgeZone"
+	// ExtendedLocationTypesEdgeZone ...
+	ExtendedLocationTypesEdgeZone ExtendedLocationTypes = "EdgeZone"
 )
 
 // PossibleExtendedLocationTypesValues returns an array of possible values for the ExtendedLocationTypes const type.
 func PossibleExtendedLocationTypesValues() []ExtendedLocationTypes {
-	return []ExtendedLocationTypes{EdgeZone}
+	return []ExtendedLocationTypes{ExtendedLocationTypesEdgeZone}
+}
+
+// GallerySharingPermissionTypes enumerates the values for gallery sharing permission types.
+type GallerySharingPermissionTypes string
+
+const (
+	// GallerySharingPermissionTypesGroups ...
+	GallerySharingPermissionTypesGroups GallerySharingPermissionTypes = "Groups"
+	// GallerySharingPermissionTypesPrivate ...
+	GallerySharingPermissionTypesPrivate GallerySharingPermissionTypes = "Private"
+)
+
+// PossibleGallerySharingPermissionTypesValues returns an array of possible values for the GallerySharingPermissionTypes const type.
+func PossibleGallerySharingPermissionTypesValues() []GallerySharingPermissionTypes {
+	return []GallerySharingPermissionTypes{GallerySharingPermissionTypesGroups, GallerySharingPermissionTypesPrivate}
 }
 
 // HostCaching enumerates the values for host caching.
@@ -386,15 +462,15 @@ func PossibleHostCachingValues() []HostCaching {
 type HyperVGeneration string
 
 const (
-	// V1 ...
-	V1 HyperVGeneration = "V1"
-	// V2 ...
-	V2 HyperVGeneration = "V2"
+	// HyperVGenerationV1 ...
+	HyperVGenerationV1 HyperVGeneration = "V1"
+	// HyperVGenerationV2 ...
+	HyperVGenerationV2 HyperVGeneration = "V2"
 )
 
 // PossibleHyperVGenerationValues returns an array of possible values for the HyperVGeneration const type.
 func PossibleHyperVGenerationValues() []HyperVGeneration {
-	return []HyperVGeneration{V1, V2}
+	return []HyperVGeneration{HyperVGenerationV1, HyperVGenerationV2}
 }
 
 // HyperVGenerationType enumerates the values for hyper v generation type.
@@ -431,62 +507,94 @@ func PossibleHyperVGenerationTypesValues() []HyperVGenerationTypes {
 type InstanceViewTypes string
 
 const (
-	// InstanceView ...
-	InstanceView InstanceViewTypes = "instanceView"
+	// InstanceViewTypesInstanceView ...
+	InstanceViewTypesInstanceView InstanceViewTypes = "instanceView"
+	// InstanceViewTypesUserData ...
+	InstanceViewTypesUserData InstanceViewTypes = "userData"
 )
 
 // PossibleInstanceViewTypesValues returns an array of possible values for the InstanceViewTypes const type.
 func PossibleInstanceViewTypesValues() []InstanceViewTypes {
-	return []InstanceViewTypes{InstanceView}
+	return []InstanceViewTypes{InstanceViewTypesInstanceView, InstanceViewTypesUserData}
 }
 
 // IntervalInMins enumerates the values for interval in mins.
 type IntervalInMins string
 
 const (
-	// FiveMins ...
-	FiveMins IntervalInMins = "FiveMins"
-	// SixtyMins ...
-	SixtyMins IntervalInMins = "SixtyMins"
-	// ThirtyMins ...
-	ThirtyMins IntervalInMins = "ThirtyMins"
-	// ThreeMins ...
-	ThreeMins IntervalInMins = "ThreeMins"
+	// IntervalInMinsFiveMins ...
+	IntervalInMinsFiveMins IntervalInMins = "FiveMins"
+	// IntervalInMinsSixtyMins ...
+	IntervalInMinsSixtyMins IntervalInMins = "SixtyMins"
+	// IntervalInMinsThirtyMins ...
+	IntervalInMinsThirtyMins IntervalInMins = "ThirtyMins"
+	// IntervalInMinsThreeMins ...
+	IntervalInMinsThreeMins IntervalInMins = "ThreeMins"
 )
 
 // PossibleIntervalInMinsValues returns an array of possible values for the IntervalInMins const type.
 func PossibleIntervalInMinsValues() []IntervalInMins {
-	return []IntervalInMins{FiveMins, SixtyMins, ThirtyMins, ThreeMins}
+	return []IntervalInMins{IntervalInMinsFiveMins, IntervalInMinsSixtyMins, IntervalInMinsThirtyMins, IntervalInMinsThreeMins}
 }
 
 // IPVersion enumerates the values for ip version.
 type IPVersion string
 
 const (
-	// IPv4 ...
-	IPv4 IPVersion = "IPv4"
-	// IPv6 ...
-	IPv6 IPVersion = "IPv6"
+	// IPVersionIPv4 ...
+	IPVersionIPv4 IPVersion = "IPv4"
+	// IPVersionIPv6 ...
+	IPVersionIPv6 IPVersion = "IPv6"
 )
 
 // PossibleIPVersionValues returns an array of possible values for the IPVersion const type.
 func PossibleIPVersionValues() []IPVersion {
-	return []IPVersion{IPv4, IPv6}
+	return []IPVersion{IPVersionIPv4, IPVersionIPv6}
+}
+
+// IPVersions enumerates the values for ip versions.
+type IPVersions string
+
+const (
+	// IPVersionsIPv4 ...
+	IPVersionsIPv4 IPVersions = "IPv4"
+	// IPVersionsIPv6 ...
+	IPVersionsIPv6 IPVersions = "IPv6"
+)
+
+// PossibleIPVersionsValues returns an array of possible values for the IPVersions const type.
+func PossibleIPVersionsValues() []IPVersions {
+	return []IPVersions{IPVersionsIPv4, IPVersionsIPv6}
+}
+
+// LinuxPatchAssessmentMode enumerates the values for linux patch assessment mode.
+type LinuxPatchAssessmentMode string
+
+const (
+	// LinuxPatchAssessmentModeAutomaticByPlatform ...
+	LinuxPatchAssessmentModeAutomaticByPlatform LinuxPatchAssessmentMode = "AutomaticByPlatform"
+	// LinuxPatchAssessmentModeImageDefault ...
+	LinuxPatchAssessmentModeImageDefault LinuxPatchAssessmentMode = "ImageDefault"
+)
+
+// PossibleLinuxPatchAssessmentModeValues returns an array of possible values for the LinuxPatchAssessmentMode const type.
+func PossibleLinuxPatchAssessmentModeValues() []LinuxPatchAssessmentMode {
+	return []LinuxPatchAssessmentMode{LinuxPatchAssessmentModeAutomaticByPlatform, LinuxPatchAssessmentModeImageDefault}
 }
 
 // LinuxVMGuestPatchMode enumerates the values for linux vm guest patch mode.
 type LinuxVMGuestPatchMode string
 
 const (
-	// AutomaticByPlatform ...
-	AutomaticByPlatform LinuxVMGuestPatchMode = "AutomaticByPlatform"
-	// ImageDefault ...
-	ImageDefault LinuxVMGuestPatchMode = "ImageDefault"
+	// LinuxVMGuestPatchModeAutomaticByPlatform ...
+	LinuxVMGuestPatchModeAutomaticByPlatform LinuxVMGuestPatchMode = "AutomaticByPlatform"
+	// LinuxVMGuestPatchModeImageDefault ...
+	LinuxVMGuestPatchModeImageDefault LinuxVMGuestPatchMode = "ImageDefault"
 )
 
 // PossibleLinuxVMGuestPatchModeValues returns an array of possible values for the LinuxVMGuestPatchMode const type.
 func PossibleLinuxVMGuestPatchModeValues() []LinuxVMGuestPatchMode {
-	return []LinuxVMGuestPatchMode{AutomaticByPlatform, ImageDefault}
+	return []LinuxVMGuestPatchMode{LinuxVMGuestPatchModeAutomaticByPlatform, LinuxVMGuestPatchModeImageDefault}
 }
 
 // MaintenanceOperationResultCodeTypes enumerates the values for maintenance operation result code types.
@@ -512,120 +620,149 @@ func PossibleMaintenanceOperationResultCodeTypesValues() []MaintenanceOperationR
 type NetworkAccessPolicy string
 
 const (
-	// AllowAll The disk can be exported or uploaded to from any network.
-	AllowAll NetworkAccessPolicy = "AllowAll"
-	// AllowPrivate The disk can be exported or uploaded to using a DiskAccess resource's private endpoints.
-	AllowPrivate NetworkAccessPolicy = "AllowPrivate"
-	// DenyAll The disk cannot be exported.
-	DenyAll NetworkAccessPolicy = "DenyAll"
+	// NetworkAccessPolicyAllowAll The disk can be exported or uploaded to from any network.
+	NetworkAccessPolicyAllowAll NetworkAccessPolicy = "AllowAll"
+	// NetworkAccessPolicyAllowPrivate The disk can be exported or uploaded to using a DiskAccess resource's
+	// private endpoints.
+	NetworkAccessPolicyAllowPrivate NetworkAccessPolicy = "AllowPrivate"
+	// NetworkAccessPolicyDenyAll The disk cannot be exported.
+	NetworkAccessPolicyDenyAll NetworkAccessPolicy = "DenyAll"
 )
 
 // PossibleNetworkAccessPolicyValues returns an array of possible values for the NetworkAccessPolicy const type.
 func PossibleNetworkAccessPolicyValues() []NetworkAccessPolicy {
-	return []NetworkAccessPolicy{AllowAll, AllowPrivate, DenyAll}
+	return []NetworkAccessPolicy{NetworkAccessPolicyAllowAll, NetworkAccessPolicyAllowPrivate, NetworkAccessPolicyDenyAll}
+}
+
+// NetworkAPIVersion enumerates the values for network api version.
+type NetworkAPIVersion string
+
+const (
+	// NetworkAPIVersionTwoZeroTwoZeroHyphenMinusOneOneHyphenMinusZeroOne ...
+	NetworkAPIVersionTwoZeroTwoZeroHyphenMinusOneOneHyphenMinusZeroOne NetworkAPIVersion = "2020-11-01"
+)
+
+// PossibleNetworkAPIVersionValues returns an array of possible values for the NetworkAPIVersion const type.
+func PossibleNetworkAPIVersionValues() []NetworkAPIVersion {
+	return []NetworkAPIVersion{NetworkAPIVersionTwoZeroTwoZeroHyphenMinusOneOneHyphenMinusZeroOne}
 }
 
 // OperatingSystemStateTypes enumerates the values for operating system state types.
 type OperatingSystemStateTypes string
 
 const (
-	// Generalized Generalized image. Needs to be provisioned during deployment time.
-	Generalized OperatingSystemStateTypes = "Generalized"
-	// Specialized Specialized image. Contains already provisioned OS Disk.
-	Specialized OperatingSystemStateTypes = "Specialized"
+	// OperatingSystemStateTypesGeneralized Generalized image. Needs to be provisioned during deployment time.
+	OperatingSystemStateTypesGeneralized OperatingSystemStateTypes = "Generalized"
+	// OperatingSystemStateTypesSpecialized Specialized image. Contains already provisioned OS Disk.
+	OperatingSystemStateTypesSpecialized OperatingSystemStateTypes = "Specialized"
 )
 
 // PossibleOperatingSystemStateTypesValues returns an array of possible values for the OperatingSystemStateTypes const type.
 func PossibleOperatingSystemStateTypesValues() []OperatingSystemStateTypes {
-	return []OperatingSystemStateTypes{Generalized, Specialized}
+	return []OperatingSystemStateTypes{OperatingSystemStateTypesGeneralized, OperatingSystemStateTypesSpecialized}
+}
+
+// OperatingSystemType enumerates the values for operating system type.
+type OperatingSystemType string
+
+const (
+	// OperatingSystemTypeLinux ...
+	OperatingSystemTypeLinux OperatingSystemType = "Linux"
+	// OperatingSystemTypeWindows ...
+	OperatingSystemTypeWindows OperatingSystemType = "Windows"
+)
+
+// PossibleOperatingSystemTypeValues returns an array of possible values for the OperatingSystemType const type.
+func PossibleOperatingSystemTypeValues() []OperatingSystemType {
+	return []OperatingSystemType{OperatingSystemTypeLinux, OperatingSystemTypeWindows}
 }
 
 // OperatingSystemTypes enumerates the values for operating system types.
 type OperatingSystemTypes string
 
 const (
-	// Linux ...
-	Linux OperatingSystemTypes = "Linux"
-	// Windows ...
-	Windows OperatingSystemTypes = "Windows"
+	// OperatingSystemTypesLinux ...
+	OperatingSystemTypesLinux OperatingSystemTypes = "Linux"
+	// OperatingSystemTypesWindows ...
+	OperatingSystemTypesWindows OperatingSystemTypes = "Windows"
 )
 
 // PossibleOperatingSystemTypesValues returns an array of possible values for the OperatingSystemTypes const type.
 func PossibleOperatingSystemTypesValues() []OperatingSystemTypes {
-	return []OperatingSystemTypes{Linux, Windows}
+	return []OperatingSystemTypes{OperatingSystemTypesLinux, OperatingSystemTypesWindows}
 }
 
 // OrchestrationMode enumerates the values for orchestration mode.
 type OrchestrationMode string
 
 const (
-	// Flexible ...
-	Flexible OrchestrationMode = "Flexible"
-	// Uniform ...
-	Uniform OrchestrationMode = "Uniform"
+	// OrchestrationModeFlexible ...
+	OrchestrationModeFlexible OrchestrationMode = "Flexible"
+	// OrchestrationModeUniform ...
+	OrchestrationModeUniform OrchestrationMode = "Uniform"
 )
 
 // PossibleOrchestrationModeValues returns an array of possible values for the OrchestrationMode const type.
 func PossibleOrchestrationModeValues() []OrchestrationMode {
-	return []OrchestrationMode{Flexible, Uniform}
+	return []OrchestrationMode{OrchestrationModeFlexible, OrchestrationModeUniform}
 }
 
 // OrchestrationServiceNames enumerates the values for orchestration service names.
 type OrchestrationServiceNames string
 
 const (
-	// AutomaticRepairs ...
-	AutomaticRepairs OrchestrationServiceNames = "AutomaticRepairs"
+	// OrchestrationServiceNamesAutomaticRepairs ...
+	OrchestrationServiceNamesAutomaticRepairs OrchestrationServiceNames = "AutomaticRepairs"
 )
 
 // PossibleOrchestrationServiceNamesValues returns an array of possible values for the OrchestrationServiceNames const type.
 func PossibleOrchestrationServiceNamesValues() []OrchestrationServiceNames {
-	return []OrchestrationServiceNames{AutomaticRepairs}
+	return []OrchestrationServiceNames{OrchestrationServiceNamesAutomaticRepairs}
 }
 
 // OrchestrationServiceState enumerates the values for orchestration service state.
 type OrchestrationServiceState string
 
 const (
-	// NotRunning ...
-	NotRunning OrchestrationServiceState = "NotRunning"
-	// Running ...
-	Running OrchestrationServiceState = "Running"
-	// Suspended ...
-	Suspended OrchestrationServiceState = "Suspended"
+	// OrchestrationServiceStateNotRunning ...
+	OrchestrationServiceStateNotRunning OrchestrationServiceState = "NotRunning"
+	// OrchestrationServiceStateRunning ...
+	OrchestrationServiceStateRunning OrchestrationServiceState = "Running"
+	// OrchestrationServiceStateSuspended ...
+	OrchestrationServiceStateSuspended OrchestrationServiceState = "Suspended"
 )
 
 // PossibleOrchestrationServiceStateValues returns an array of possible values for the OrchestrationServiceState const type.
 func PossibleOrchestrationServiceStateValues() []OrchestrationServiceState {
-	return []OrchestrationServiceState{NotRunning, Running, Suspended}
+	return []OrchestrationServiceState{OrchestrationServiceStateNotRunning, OrchestrationServiceStateRunning, OrchestrationServiceStateSuspended}
 }
 
 // OrchestrationServiceStateAction enumerates the values for orchestration service state action.
 type OrchestrationServiceStateAction string
 
 const (
-	// Resume ...
-	Resume OrchestrationServiceStateAction = "Resume"
-	// Suspend ...
-	Suspend OrchestrationServiceStateAction = "Suspend"
+	// OrchestrationServiceStateActionResume ...
+	OrchestrationServiceStateActionResume OrchestrationServiceStateAction = "Resume"
+	// OrchestrationServiceStateActionSuspend ...
+	OrchestrationServiceStateActionSuspend OrchestrationServiceStateAction = "Suspend"
 )
 
 // PossibleOrchestrationServiceStateActionValues returns an array of possible values for the OrchestrationServiceStateAction const type.
 func PossibleOrchestrationServiceStateActionValues() []OrchestrationServiceStateAction {
-	return []OrchestrationServiceStateAction{Resume, Suspend}
+	return []OrchestrationServiceStateAction{OrchestrationServiceStateActionResume, OrchestrationServiceStateActionSuspend}
 }
 
 // PassNames enumerates the values for pass names.
 type PassNames string
 
 const (
-	// OobeSystem ...
-	OobeSystem PassNames = "OobeSystem"
+	// PassNamesOobeSystem ...
+	PassNamesOobeSystem PassNames = "OobeSystem"
 )
 
 // PossiblePassNamesValues returns an array of possible values for the PassNames const type.
 func PossiblePassNamesValues() []PassNames {
-	return []PassNames{OobeSystem}
+	return []PassNames{PassNamesOobeSystem}
 }
 
 // PatchAssessmentState enumerates the values for patch assessment state.
@@ -711,32 +848,32 @@ func PossiblePrivateEndpointConnectionProvisioningStateValues() []PrivateEndpoin
 type PrivateEndpointServiceConnectionStatus string
 
 const (
-	// Approved ...
-	Approved PrivateEndpointServiceConnectionStatus = "Approved"
-	// Pending ...
-	Pending PrivateEndpointServiceConnectionStatus = "Pending"
-	// Rejected ...
-	Rejected PrivateEndpointServiceConnectionStatus = "Rejected"
+	// PrivateEndpointServiceConnectionStatusApproved ...
+	PrivateEndpointServiceConnectionStatusApproved PrivateEndpointServiceConnectionStatus = "Approved"
+	// PrivateEndpointServiceConnectionStatusPending ...
+	PrivateEndpointServiceConnectionStatusPending PrivateEndpointServiceConnectionStatus = "Pending"
+	// PrivateEndpointServiceConnectionStatusRejected ...
+	PrivateEndpointServiceConnectionStatusRejected PrivateEndpointServiceConnectionStatus = "Rejected"
 )
 
 // PossiblePrivateEndpointServiceConnectionStatusValues returns an array of possible values for the PrivateEndpointServiceConnectionStatus const type.
 func PossiblePrivateEndpointServiceConnectionStatusValues() []PrivateEndpointServiceConnectionStatus {
-	return []PrivateEndpointServiceConnectionStatus{Approved, Pending, Rejected}
+	return []PrivateEndpointServiceConnectionStatus{PrivateEndpointServiceConnectionStatusApproved, PrivateEndpointServiceConnectionStatusPending, PrivateEndpointServiceConnectionStatusRejected}
 }
 
 // ProtocolTypes enumerates the values for protocol types.
 type ProtocolTypes string
 
 const (
-	// HTTP ...
-	HTTP ProtocolTypes = "Http"
-	// HTTPS ...
-	HTTPS ProtocolTypes = "Https"
+	// ProtocolTypesHTTP ...
+	ProtocolTypesHTTP ProtocolTypes = "Http"
+	// ProtocolTypesHTTPS ...
+	ProtocolTypesHTTPS ProtocolTypes = "Https"
 )
 
 // PossibleProtocolTypesValues returns an array of possible values for the ProtocolTypes const type.
 func PossibleProtocolTypesValues() []ProtocolTypes {
-	return []ProtocolTypes{HTTP, HTTPS}
+	return []ProtocolTypes{ProtocolTypesHTTP, ProtocolTypesHTTPS}
 }
 
 // ProvisioningState enumerates the values for provisioning state.
@@ -835,15 +972,60 @@ func PossibleProvisioningState3Values() []ProvisioningState3 {
 type ProximityPlacementGroupType string
 
 const (
-	// Standard ...
-	Standard ProximityPlacementGroupType = "Standard"
-	// Ultra ...
-	Ultra ProximityPlacementGroupType = "Ultra"
+	// ProximityPlacementGroupTypeStandard ...
+	ProximityPlacementGroupTypeStandard ProximityPlacementGroupType = "Standard"
+	// ProximityPlacementGroupTypeUltra ...
+	ProximityPlacementGroupTypeUltra ProximityPlacementGroupType = "Ultra"
 )
 
 // PossibleProximityPlacementGroupTypeValues returns an array of possible values for the ProximityPlacementGroupType const type.
 func PossibleProximityPlacementGroupTypeValues() []ProximityPlacementGroupType {
-	return []ProximityPlacementGroupType{Standard, Ultra}
+	return []ProximityPlacementGroupType{ProximityPlacementGroupTypeStandard, ProximityPlacementGroupTypeUltra}
+}
+
+// PublicIPAddressSkuName enumerates the values for public ip address sku name.
+type PublicIPAddressSkuName string
+
+const (
+	// PublicIPAddressSkuNameBasic ...
+	PublicIPAddressSkuNameBasic PublicIPAddressSkuName = "Basic"
+	// PublicIPAddressSkuNameStandard ...
+	PublicIPAddressSkuNameStandard PublicIPAddressSkuName = "Standard"
+)
+
+// PossiblePublicIPAddressSkuNameValues returns an array of possible values for the PublicIPAddressSkuName const type.
+func PossiblePublicIPAddressSkuNameValues() []PublicIPAddressSkuName {
+	return []PublicIPAddressSkuName{PublicIPAddressSkuNameBasic, PublicIPAddressSkuNameStandard}
+}
+
+// PublicIPAddressSkuTier enumerates the values for public ip address sku tier.
+type PublicIPAddressSkuTier string
+
+const (
+	// PublicIPAddressSkuTierGlobal ...
+	PublicIPAddressSkuTierGlobal PublicIPAddressSkuTier = "Global"
+	// PublicIPAddressSkuTierRegional ...
+	PublicIPAddressSkuTierRegional PublicIPAddressSkuTier = "Regional"
+)
+
+// PossiblePublicIPAddressSkuTierValues returns an array of possible values for the PublicIPAddressSkuTier const type.
+func PossiblePublicIPAddressSkuTierValues() []PublicIPAddressSkuTier {
+	return []PublicIPAddressSkuTier{PublicIPAddressSkuTierGlobal, PublicIPAddressSkuTierRegional}
+}
+
+// PublicIPAllocationMethod enumerates the values for public ip allocation method.
+type PublicIPAllocationMethod string
+
+const (
+	// PublicIPAllocationMethodDynamic ...
+	PublicIPAllocationMethodDynamic PublicIPAllocationMethod = "Dynamic"
+	// PublicIPAllocationMethodStatic ...
+	PublicIPAllocationMethodStatic PublicIPAllocationMethod = "Static"
+)
+
+// PossiblePublicIPAllocationMethodValues returns an array of possible values for the PublicIPAllocationMethod const type.
+func PossiblePublicIPAllocationMethodValues() []PublicIPAllocationMethod {
+	return []PublicIPAllocationMethod{PublicIPAllocationMethodDynamic, PublicIPAllocationMethodStatic}
 }
 
 // ReplicationState enumerates the values for replication state.
@@ -918,45 +1100,58 @@ func PossibleResourceSkuCapacityScaleTypeValues() []ResourceSkuCapacityScaleType
 type ResourceSkuRestrictionsReasonCode string
 
 const (
-	// NotAvailableForSubscription ...
-	NotAvailableForSubscription ResourceSkuRestrictionsReasonCode = "NotAvailableForSubscription"
-	// QuotaID ...
-	QuotaID ResourceSkuRestrictionsReasonCode = "QuotaId"
+	// ResourceSkuRestrictionsReasonCodeNotAvailableForSubscription ...
+	ResourceSkuRestrictionsReasonCodeNotAvailableForSubscription ResourceSkuRestrictionsReasonCode = "NotAvailableForSubscription"
+	// ResourceSkuRestrictionsReasonCodeQuotaID ...
+	ResourceSkuRestrictionsReasonCodeQuotaID ResourceSkuRestrictionsReasonCode = "QuotaId"
 )
 
 // PossibleResourceSkuRestrictionsReasonCodeValues returns an array of possible values for the ResourceSkuRestrictionsReasonCode const type.
 func PossibleResourceSkuRestrictionsReasonCodeValues() []ResourceSkuRestrictionsReasonCode {
-	return []ResourceSkuRestrictionsReasonCode{NotAvailableForSubscription, QuotaID}
+	return []ResourceSkuRestrictionsReasonCode{ResourceSkuRestrictionsReasonCodeNotAvailableForSubscription, ResourceSkuRestrictionsReasonCodeQuotaID}
 }
 
 // ResourceSkuRestrictionsType enumerates the values for resource sku restrictions type.
 type ResourceSkuRestrictionsType string
 
 const (
-	// Location ...
-	Location ResourceSkuRestrictionsType = "Location"
-	// Zone ...
-	Zone ResourceSkuRestrictionsType = "Zone"
+	// ResourceSkuRestrictionsTypeLocation ...
+	ResourceSkuRestrictionsTypeLocation ResourceSkuRestrictionsType = "Location"
+	// ResourceSkuRestrictionsTypeZone ...
+	ResourceSkuRestrictionsTypeZone ResourceSkuRestrictionsType = "Zone"
 )
 
 // PossibleResourceSkuRestrictionsTypeValues returns an array of possible values for the ResourceSkuRestrictionsType const type.
 func PossibleResourceSkuRestrictionsTypeValues() []ResourceSkuRestrictionsType {
-	return []ResourceSkuRestrictionsType{Location, Zone}
+	return []ResourceSkuRestrictionsType{ResourceSkuRestrictionsTypeLocation, ResourceSkuRestrictionsTypeZone}
+}
+
+// RestorePointCollectionExpandOptions enumerates the values for restore point collection expand options.
+type RestorePointCollectionExpandOptions string
+
+const (
+	// RestorePointCollectionExpandOptionsRestorePoints ...
+	RestorePointCollectionExpandOptionsRestorePoints RestorePointCollectionExpandOptions = "restorePoints"
+)
+
+// PossibleRestorePointCollectionExpandOptionsValues returns an array of possible values for the RestorePointCollectionExpandOptions const type.
+func PossibleRestorePointCollectionExpandOptionsValues() []RestorePointCollectionExpandOptions {
+	return []RestorePointCollectionExpandOptions{RestorePointCollectionExpandOptionsRestorePoints}
 }
 
 // RollingUpgradeActionType enumerates the values for rolling upgrade action type.
 type RollingUpgradeActionType string
 
 const (
-	// Cancel ...
-	Cancel RollingUpgradeActionType = "Cancel"
-	// Start ...
-	Start RollingUpgradeActionType = "Start"
+	// RollingUpgradeActionTypeCancel ...
+	RollingUpgradeActionTypeCancel RollingUpgradeActionType = "Cancel"
+	// RollingUpgradeActionTypeStart ...
+	RollingUpgradeActionTypeStart RollingUpgradeActionType = "Start"
 )
 
 // PossibleRollingUpgradeActionTypeValues returns an array of possible values for the RollingUpgradeActionType const type.
 func PossibleRollingUpgradeActionTypeValues() []RollingUpgradeActionType {
-	return []RollingUpgradeActionType{Cancel, Start}
+	return []RollingUpgradeActionType{RollingUpgradeActionTypeCancel, RollingUpgradeActionTypeStart}
 }
 
 // RollingUpgradeStatusCode enumerates the values for rolling upgrade status code.
@@ -991,19 +1186,77 @@ func PossibleSecurityTypesValues() []SecurityTypes {
 	return []SecurityTypes{SecurityTypesTrustedLaunch}
 }
 
+// SelectPermissions enumerates the values for select permissions.
+type SelectPermissions string
+
+const (
+	// SelectPermissionsPermissions ...
+	SelectPermissionsPermissions SelectPermissions = "Permissions"
+)
+
+// PossibleSelectPermissionsValues returns an array of possible values for the SelectPermissions const type.
+func PossibleSelectPermissionsValues() []SelectPermissions {
+	return []SelectPermissions{SelectPermissionsPermissions}
+}
+
 // SettingNames enumerates the values for setting names.
 type SettingNames string
 
 const (
-	// AutoLogon ...
-	AutoLogon SettingNames = "AutoLogon"
-	// FirstLogonCommands ...
-	FirstLogonCommands SettingNames = "FirstLogonCommands"
+	// SettingNamesAutoLogon ...
+	SettingNamesAutoLogon SettingNames = "AutoLogon"
+	// SettingNamesFirstLogonCommands ...
+	SettingNamesFirstLogonCommands SettingNames = "FirstLogonCommands"
 )
 
 // PossibleSettingNamesValues returns an array of possible values for the SettingNames const type.
 func PossibleSettingNamesValues() []SettingNames {
-	return []SettingNames{AutoLogon, FirstLogonCommands}
+	return []SettingNames{SettingNamesAutoLogon, SettingNamesFirstLogonCommands}
+}
+
+// SharedToValues enumerates the values for shared to values.
+type SharedToValues string
+
+const (
+	// SharedToValuesTenant ...
+	SharedToValuesTenant SharedToValues = "tenant"
+)
+
+// PossibleSharedToValuesValues returns an array of possible values for the SharedToValues const type.
+func PossibleSharedToValuesValues() []SharedToValues {
+	return []SharedToValues{SharedToValuesTenant}
+}
+
+// SharingProfileGroupTypes enumerates the values for sharing profile group types.
+type SharingProfileGroupTypes string
+
+const (
+	// SharingProfileGroupTypesAADTenants ...
+	SharingProfileGroupTypesAADTenants SharingProfileGroupTypes = "AADTenants"
+	// SharingProfileGroupTypesSubscriptions ...
+	SharingProfileGroupTypesSubscriptions SharingProfileGroupTypes = "Subscriptions"
+)
+
+// PossibleSharingProfileGroupTypesValues returns an array of possible values for the SharingProfileGroupTypes const type.
+func PossibleSharingProfileGroupTypesValues() []SharingProfileGroupTypes {
+	return []SharingProfileGroupTypes{SharingProfileGroupTypesAADTenants, SharingProfileGroupTypesSubscriptions}
+}
+
+// SharingUpdateOperationTypes enumerates the values for sharing update operation types.
+type SharingUpdateOperationTypes string
+
+const (
+	// SharingUpdateOperationTypesAdd ...
+	SharingUpdateOperationTypesAdd SharingUpdateOperationTypes = "Add"
+	// SharingUpdateOperationTypesRemove ...
+	SharingUpdateOperationTypesRemove SharingUpdateOperationTypes = "Remove"
+	// SharingUpdateOperationTypesReset ...
+	SharingUpdateOperationTypesReset SharingUpdateOperationTypes = "Reset"
+)
+
+// PossibleSharingUpdateOperationTypesValues returns an array of possible values for the SharingUpdateOperationTypes const type.
+func PossibleSharingUpdateOperationTypesValues() []SharingUpdateOperationTypes {
+	return []SharingUpdateOperationTypes{SharingUpdateOperationTypesAdd, SharingUpdateOperationTypesRemove, SharingUpdateOperationTypesReset}
 }
 
 // SnapshotStorageAccountTypes enumerates the values for snapshot storage account types.
@@ -1027,17 +1280,17 @@ func PossibleSnapshotStorageAccountTypesValues() []SnapshotStorageAccountTypes {
 type StatusLevelTypes string
 
 const (
-	// Error ...
-	Error StatusLevelTypes = "Error"
-	// Info ...
-	Info StatusLevelTypes = "Info"
-	// Warning ...
-	Warning StatusLevelTypes = "Warning"
+	// StatusLevelTypesError ...
+	StatusLevelTypesError StatusLevelTypes = "Error"
+	// StatusLevelTypesInfo ...
+	StatusLevelTypesInfo StatusLevelTypes = "Info"
+	// StatusLevelTypesWarning ...
+	StatusLevelTypesWarning StatusLevelTypes = "Warning"
 )
 
 // PossibleStatusLevelTypesValues returns an array of possible values for the StatusLevelTypes const type.
 func PossibleStatusLevelTypesValues() []StatusLevelTypes {
-	return []StatusLevelTypes{Error, Info, Warning}
+	return []StatusLevelTypes{StatusLevelTypesError, StatusLevelTypesInfo, StatusLevelTypesWarning}
 }
 
 // StorageAccountType enumerates the values for storage account type.
@@ -1137,49 +1390,49 @@ func PossibleUpgradeStateValues() []UpgradeState {
 type VirtualMachineEvictionPolicyTypes string
 
 const (
-	// Deallocate ...
-	Deallocate VirtualMachineEvictionPolicyTypes = "Deallocate"
-	// Delete ...
-	Delete VirtualMachineEvictionPolicyTypes = "Delete"
+	// VirtualMachineEvictionPolicyTypesDeallocate ...
+	VirtualMachineEvictionPolicyTypesDeallocate VirtualMachineEvictionPolicyTypes = "Deallocate"
+	// VirtualMachineEvictionPolicyTypesDelete ...
+	VirtualMachineEvictionPolicyTypesDelete VirtualMachineEvictionPolicyTypes = "Delete"
 )
 
 // PossibleVirtualMachineEvictionPolicyTypesValues returns an array of possible values for the VirtualMachineEvictionPolicyTypes const type.
 func PossibleVirtualMachineEvictionPolicyTypesValues() []VirtualMachineEvictionPolicyTypes {
-	return []VirtualMachineEvictionPolicyTypes{Deallocate, Delete}
+	return []VirtualMachineEvictionPolicyTypes{VirtualMachineEvictionPolicyTypesDeallocate, VirtualMachineEvictionPolicyTypesDelete}
 }
 
 // VirtualMachinePriorityTypes enumerates the values for virtual machine priority types.
 type VirtualMachinePriorityTypes string
 
 const (
-	// Low ...
-	Low VirtualMachinePriorityTypes = "Low"
-	// Regular ...
-	Regular VirtualMachinePriorityTypes = "Regular"
-	// Spot ...
-	Spot VirtualMachinePriorityTypes = "Spot"
+	// VirtualMachinePriorityTypesLow ...
+	VirtualMachinePriorityTypesLow VirtualMachinePriorityTypes = "Low"
+	// VirtualMachinePriorityTypesRegular ...
+	VirtualMachinePriorityTypesRegular VirtualMachinePriorityTypes = "Regular"
+	// VirtualMachinePriorityTypesSpot ...
+	VirtualMachinePriorityTypesSpot VirtualMachinePriorityTypes = "Spot"
 )
 
 // PossibleVirtualMachinePriorityTypesValues returns an array of possible values for the VirtualMachinePriorityTypes const type.
 func PossibleVirtualMachinePriorityTypesValues() []VirtualMachinePriorityTypes {
-	return []VirtualMachinePriorityTypes{Low, Regular, Spot}
+	return []VirtualMachinePriorityTypes{VirtualMachinePriorityTypesLow, VirtualMachinePriorityTypesRegular, VirtualMachinePriorityTypesSpot}
 }
 
 // VirtualMachineScaleSetScaleInRules enumerates the values for virtual machine scale set scale in rules.
 type VirtualMachineScaleSetScaleInRules string
 
 const (
-	// Default ...
-	Default VirtualMachineScaleSetScaleInRules = "Default"
-	// NewestVM ...
-	NewestVM VirtualMachineScaleSetScaleInRules = "NewestVM"
-	// OldestVM ...
-	OldestVM VirtualMachineScaleSetScaleInRules = "OldestVM"
+	// VirtualMachineScaleSetScaleInRulesDefault ...
+	VirtualMachineScaleSetScaleInRulesDefault VirtualMachineScaleSetScaleInRules = "Default"
+	// VirtualMachineScaleSetScaleInRulesNewestVM ...
+	VirtualMachineScaleSetScaleInRulesNewestVM VirtualMachineScaleSetScaleInRules = "NewestVM"
+	// VirtualMachineScaleSetScaleInRulesOldestVM ...
+	VirtualMachineScaleSetScaleInRulesOldestVM VirtualMachineScaleSetScaleInRules = "OldestVM"
 )
 
 // PossibleVirtualMachineScaleSetScaleInRulesValues returns an array of possible values for the VirtualMachineScaleSetScaleInRules const type.
 func PossibleVirtualMachineScaleSetScaleInRulesValues() []VirtualMachineScaleSetScaleInRules {
-	return []VirtualMachineScaleSetScaleInRules{Default, NewestVM, OldestVM}
+	return []VirtualMachineScaleSetScaleInRules{VirtualMachineScaleSetScaleInRulesDefault, VirtualMachineScaleSetScaleInRulesNewestVM, VirtualMachineScaleSetScaleInRulesOldestVM}
 }
 
 // VirtualMachineScaleSetSkuScaleType enumerates the values for virtual machine scale set sku scale type.
@@ -1201,343 +1454,343 @@ func PossibleVirtualMachineScaleSetSkuScaleTypeValues() []VirtualMachineScaleSet
 type VirtualMachineSizeTypes string
 
 const (
-	// BasicA0 ...
-	BasicA0 VirtualMachineSizeTypes = "Basic_A0"
-	// BasicA1 ...
-	BasicA1 VirtualMachineSizeTypes = "Basic_A1"
-	// BasicA2 ...
-	BasicA2 VirtualMachineSizeTypes = "Basic_A2"
-	// BasicA3 ...
-	BasicA3 VirtualMachineSizeTypes = "Basic_A3"
-	// BasicA4 ...
-	BasicA4 VirtualMachineSizeTypes = "Basic_A4"
-	// StandardA0 ...
-	StandardA0 VirtualMachineSizeTypes = "Standard_A0"
-	// StandardA1 ...
-	StandardA1 VirtualMachineSizeTypes = "Standard_A1"
-	// StandardA10 ...
-	StandardA10 VirtualMachineSizeTypes = "Standard_A10"
-	// StandardA11 ...
-	StandardA11 VirtualMachineSizeTypes = "Standard_A11"
-	// StandardA1V2 ...
-	StandardA1V2 VirtualMachineSizeTypes = "Standard_A1_v2"
-	// StandardA2 ...
-	StandardA2 VirtualMachineSizeTypes = "Standard_A2"
-	// StandardA2mV2 ...
-	StandardA2mV2 VirtualMachineSizeTypes = "Standard_A2m_v2"
-	// StandardA2V2 ...
-	StandardA2V2 VirtualMachineSizeTypes = "Standard_A2_v2"
-	// StandardA3 ...
-	StandardA3 VirtualMachineSizeTypes = "Standard_A3"
-	// StandardA4 ...
-	StandardA4 VirtualMachineSizeTypes = "Standard_A4"
-	// StandardA4mV2 ...
-	StandardA4mV2 VirtualMachineSizeTypes = "Standard_A4m_v2"
-	// StandardA4V2 ...
-	StandardA4V2 VirtualMachineSizeTypes = "Standard_A4_v2"
-	// StandardA5 ...
-	StandardA5 VirtualMachineSizeTypes = "Standard_A5"
-	// StandardA6 ...
-	StandardA6 VirtualMachineSizeTypes = "Standard_A6"
-	// StandardA7 ...
-	StandardA7 VirtualMachineSizeTypes = "Standard_A7"
-	// StandardA8 ...
-	StandardA8 VirtualMachineSizeTypes = "Standard_A8"
-	// StandardA8mV2 ...
-	StandardA8mV2 VirtualMachineSizeTypes = "Standard_A8m_v2"
-	// StandardA8V2 ...
-	StandardA8V2 VirtualMachineSizeTypes = "Standard_A8_v2"
-	// StandardA9 ...
-	StandardA9 VirtualMachineSizeTypes = "Standard_A9"
-	// StandardB1ms ...
-	StandardB1ms VirtualMachineSizeTypes = "Standard_B1ms"
-	// StandardB1s ...
-	StandardB1s VirtualMachineSizeTypes = "Standard_B1s"
-	// StandardB2ms ...
-	StandardB2ms VirtualMachineSizeTypes = "Standard_B2ms"
-	// StandardB2s ...
-	StandardB2s VirtualMachineSizeTypes = "Standard_B2s"
-	// StandardB4ms ...
-	StandardB4ms VirtualMachineSizeTypes = "Standard_B4ms"
-	// StandardB8ms ...
-	StandardB8ms VirtualMachineSizeTypes = "Standard_B8ms"
-	// StandardD1 ...
-	StandardD1 VirtualMachineSizeTypes = "Standard_D1"
-	// StandardD11 ...
-	StandardD11 VirtualMachineSizeTypes = "Standard_D11"
-	// StandardD11V2 ...
-	StandardD11V2 VirtualMachineSizeTypes = "Standard_D11_v2"
-	// StandardD12 ...
-	StandardD12 VirtualMachineSizeTypes = "Standard_D12"
-	// StandardD12V2 ...
-	StandardD12V2 VirtualMachineSizeTypes = "Standard_D12_v2"
-	// StandardD13 ...
-	StandardD13 VirtualMachineSizeTypes = "Standard_D13"
-	// StandardD13V2 ...
-	StandardD13V2 VirtualMachineSizeTypes = "Standard_D13_v2"
-	// StandardD14 ...
-	StandardD14 VirtualMachineSizeTypes = "Standard_D14"
-	// StandardD14V2 ...
-	StandardD14V2 VirtualMachineSizeTypes = "Standard_D14_v2"
-	// StandardD15V2 ...
-	StandardD15V2 VirtualMachineSizeTypes = "Standard_D15_v2"
-	// StandardD16sV3 ...
-	StandardD16sV3 VirtualMachineSizeTypes = "Standard_D16s_v3"
-	// StandardD16V3 ...
-	StandardD16V3 VirtualMachineSizeTypes = "Standard_D16_v3"
-	// StandardD1V2 ...
-	StandardD1V2 VirtualMachineSizeTypes = "Standard_D1_v2"
-	// StandardD2 ...
-	StandardD2 VirtualMachineSizeTypes = "Standard_D2"
-	// StandardD2sV3 ...
-	StandardD2sV3 VirtualMachineSizeTypes = "Standard_D2s_v3"
-	// StandardD2V2 ...
-	StandardD2V2 VirtualMachineSizeTypes = "Standard_D2_v2"
-	// StandardD2V3 ...
-	StandardD2V3 VirtualMachineSizeTypes = "Standard_D2_v3"
-	// StandardD3 ...
-	StandardD3 VirtualMachineSizeTypes = "Standard_D3"
-	// StandardD32sV3 ...
-	StandardD32sV3 VirtualMachineSizeTypes = "Standard_D32s_v3"
-	// StandardD32V3 ...
-	StandardD32V3 VirtualMachineSizeTypes = "Standard_D32_v3"
-	// StandardD3V2 ...
-	StandardD3V2 VirtualMachineSizeTypes = "Standard_D3_v2"
-	// StandardD4 ...
-	StandardD4 VirtualMachineSizeTypes = "Standard_D4"
-	// StandardD4sV3 ...
-	StandardD4sV3 VirtualMachineSizeTypes = "Standard_D4s_v3"
-	// StandardD4V2 ...
-	StandardD4V2 VirtualMachineSizeTypes = "Standard_D4_v2"
-	// StandardD4V3 ...
-	StandardD4V3 VirtualMachineSizeTypes = "Standard_D4_v3"
-	// StandardD5V2 ...
-	StandardD5V2 VirtualMachineSizeTypes = "Standard_D5_v2"
-	// StandardD64sV3 ...
-	StandardD64sV3 VirtualMachineSizeTypes = "Standard_D64s_v3"
-	// StandardD64V3 ...
-	StandardD64V3 VirtualMachineSizeTypes = "Standard_D64_v3"
-	// StandardD8sV3 ...
-	StandardD8sV3 VirtualMachineSizeTypes = "Standard_D8s_v3"
-	// StandardD8V3 ...
-	StandardD8V3 VirtualMachineSizeTypes = "Standard_D8_v3"
-	// StandardDS1 ...
-	StandardDS1 VirtualMachineSizeTypes = "Standard_DS1"
-	// StandardDS11 ...
-	StandardDS11 VirtualMachineSizeTypes = "Standard_DS11"
-	// StandardDS11V2 ...
-	StandardDS11V2 VirtualMachineSizeTypes = "Standard_DS11_v2"
-	// StandardDS12 ...
-	StandardDS12 VirtualMachineSizeTypes = "Standard_DS12"
-	// StandardDS12V2 ...
-	StandardDS12V2 VirtualMachineSizeTypes = "Standard_DS12_v2"
-	// StandardDS13 ...
-	StandardDS13 VirtualMachineSizeTypes = "Standard_DS13"
-	// StandardDS132V2 ...
-	StandardDS132V2 VirtualMachineSizeTypes = "Standard_DS13-2_v2"
-	// StandardDS134V2 ...
-	StandardDS134V2 VirtualMachineSizeTypes = "Standard_DS13-4_v2"
-	// StandardDS13V2 ...
-	StandardDS13V2 VirtualMachineSizeTypes = "Standard_DS13_v2"
-	// StandardDS14 ...
-	StandardDS14 VirtualMachineSizeTypes = "Standard_DS14"
-	// StandardDS144V2 ...
-	StandardDS144V2 VirtualMachineSizeTypes = "Standard_DS14-4_v2"
-	// StandardDS148V2 ...
-	StandardDS148V2 VirtualMachineSizeTypes = "Standard_DS14-8_v2"
-	// StandardDS14V2 ...
-	StandardDS14V2 VirtualMachineSizeTypes = "Standard_DS14_v2"
-	// StandardDS15V2 ...
-	StandardDS15V2 VirtualMachineSizeTypes = "Standard_DS15_v2"
-	// StandardDS1V2 ...
-	StandardDS1V2 VirtualMachineSizeTypes = "Standard_DS1_v2"
-	// StandardDS2 ...
-	StandardDS2 VirtualMachineSizeTypes = "Standard_DS2"
-	// StandardDS2V2 ...
-	StandardDS2V2 VirtualMachineSizeTypes = "Standard_DS2_v2"
-	// StandardDS3 ...
-	StandardDS3 VirtualMachineSizeTypes = "Standard_DS3"
-	// StandardDS3V2 ...
-	StandardDS3V2 VirtualMachineSizeTypes = "Standard_DS3_v2"
-	// StandardDS4 ...
-	StandardDS4 VirtualMachineSizeTypes = "Standard_DS4"
-	// StandardDS4V2 ...
-	StandardDS4V2 VirtualMachineSizeTypes = "Standard_DS4_v2"
-	// StandardDS5V2 ...
-	StandardDS5V2 VirtualMachineSizeTypes = "Standard_DS5_v2"
-	// StandardE16sV3 ...
-	StandardE16sV3 VirtualMachineSizeTypes = "Standard_E16s_v3"
-	// StandardE16V3 ...
-	StandardE16V3 VirtualMachineSizeTypes = "Standard_E16_v3"
-	// StandardE2sV3 ...
-	StandardE2sV3 VirtualMachineSizeTypes = "Standard_E2s_v3"
-	// StandardE2V3 ...
-	StandardE2V3 VirtualMachineSizeTypes = "Standard_E2_v3"
-	// StandardE3216V3 ...
-	StandardE3216V3 VirtualMachineSizeTypes = "Standard_E32-16_v3"
-	// StandardE328sV3 ...
-	StandardE328sV3 VirtualMachineSizeTypes = "Standard_E32-8s_v3"
-	// StandardE32sV3 ...
-	StandardE32sV3 VirtualMachineSizeTypes = "Standard_E32s_v3"
-	// StandardE32V3 ...
-	StandardE32V3 VirtualMachineSizeTypes = "Standard_E32_v3"
-	// StandardE4sV3 ...
-	StandardE4sV3 VirtualMachineSizeTypes = "Standard_E4s_v3"
-	// StandardE4V3 ...
-	StandardE4V3 VirtualMachineSizeTypes = "Standard_E4_v3"
-	// StandardE6416sV3 ...
-	StandardE6416sV3 VirtualMachineSizeTypes = "Standard_E64-16s_v3"
-	// StandardE6432sV3 ...
-	StandardE6432sV3 VirtualMachineSizeTypes = "Standard_E64-32s_v3"
-	// StandardE64sV3 ...
-	StandardE64sV3 VirtualMachineSizeTypes = "Standard_E64s_v3"
-	// StandardE64V3 ...
-	StandardE64V3 VirtualMachineSizeTypes = "Standard_E64_v3"
-	// StandardE8sV3 ...
-	StandardE8sV3 VirtualMachineSizeTypes = "Standard_E8s_v3"
-	// StandardE8V3 ...
-	StandardE8V3 VirtualMachineSizeTypes = "Standard_E8_v3"
-	// StandardF1 ...
-	StandardF1 VirtualMachineSizeTypes = "Standard_F1"
-	// StandardF16 ...
-	StandardF16 VirtualMachineSizeTypes = "Standard_F16"
-	// StandardF16s ...
-	StandardF16s VirtualMachineSizeTypes = "Standard_F16s"
-	// StandardF16sV2 ...
-	StandardF16sV2 VirtualMachineSizeTypes = "Standard_F16s_v2"
-	// StandardF1s ...
-	StandardF1s VirtualMachineSizeTypes = "Standard_F1s"
-	// StandardF2 ...
-	StandardF2 VirtualMachineSizeTypes = "Standard_F2"
-	// StandardF2s ...
-	StandardF2s VirtualMachineSizeTypes = "Standard_F2s"
-	// StandardF2sV2 ...
-	StandardF2sV2 VirtualMachineSizeTypes = "Standard_F2s_v2"
-	// StandardF32sV2 ...
-	StandardF32sV2 VirtualMachineSizeTypes = "Standard_F32s_v2"
-	// StandardF4 ...
-	StandardF4 VirtualMachineSizeTypes = "Standard_F4"
-	// StandardF4s ...
-	StandardF4s VirtualMachineSizeTypes = "Standard_F4s"
-	// StandardF4sV2 ...
-	StandardF4sV2 VirtualMachineSizeTypes = "Standard_F4s_v2"
-	// StandardF64sV2 ...
-	StandardF64sV2 VirtualMachineSizeTypes = "Standard_F64s_v2"
-	// StandardF72sV2 ...
-	StandardF72sV2 VirtualMachineSizeTypes = "Standard_F72s_v2"
-	// StandardF8 ...
-	StandardF8 VirtualMachineSizeTypes = "Standard_F8"
-	// StandardF8s ...
-	StandardF8s VirtualMachineSizeTypes = "Standard_F8s"
-	// StandardF8sV2 ...
-	StandardF8sV2 VirtualMachineSizeTypes = "Standard_F8s_v2"
-	// StandardG1 ...
-	StandardG1 VirtualMachineSizeTypes = "Standard_G1"
-	// StandardG2 ...
-	StandardG2 VirtualMachineSizeTypes = "Standard_G2"
-	// StandardG3 ...
-	StandardG3 VirtualMachineSizeTypes = "Standard_G3"
-	// StandardG4 ...
-	StandardG4 VirtualMachineSizeTypes = "Standard_G4"
-	// StandardG5 ...
-	StandardG5 VirtualMachineSizeTypes = "Standard_G5"
-	// StandardGS1 ...
-	StandardGS1 VirtualMachineSizeTypes = "Standard_GS1"
-	// StandardGS2 ...
-	StandardGS2 VirtualMachineSizeTypes = "Standard_GS2"
-	// StandardGS3 ...
-	StandardGS3 VirtualMachineSizeTypes = "Standard_GS3"
-	// StandardGS4 ...
-	StandardGS4 VirtualMachineSizeTypes = "Standard_GS4"
-	// StandardGS44 ...
-	StandardGS44 VirtualMachineSizeTypes = "Standard_GS4-4"
-	// StandardGS48 ...
-	StandardGS48 VirtualMachineSizeTypes = "Standard_GS4-8"
-	// StandardGS5 ...
-	StandardGS5 VirtualMachineSizeTypes = "Standard_GS5"
-	// StandardGS516 ...
-	StandardGS516 VirtualMachineSizeTypes = "Standard_GS5-16"
-	// StandardGS58 ...
-	StandardGS58 VirtualMachineSizeTypes = "Standard_GS5-8"
-	// StandardH16 ...
-	StandardH16 VirtualMachineSizeTypes = "Standard_H16"
-	// StandardH16m ...
-	StandardH16m VirtualMachineSizeTypes = "Standard_H16m"
-	// StandardH16mr ...
-	StandardH16mr VirtualMachineSizeTypes = "Standard_H16mr"
-	// StandardH16r ...
-	StandardH16r VirtualMachineSizeTypes = "Standard_H16r"
-	// StandardH8 ...
-	StandardH8 VirtualMachineSizeTypes = "Standard_H8"
-	// StandardH8m ...
-	StandardH8m VirtualMachineSizeTypes = "Standard_H8m"
-	// StandardL16s ...
-	StandardL16s VirtualMachineSizeTypes = "Standard_L16s"
-	// StandardL32s ...
-	StandardL32s VirtualMachineSizeTypes = "Standard_L32s"
-	// StandardL4s ...
-	StandardL4s VirtualMachineSizeTypes = "Standard_L4s"
-	// StandardL8s ...
-	StandardL8s VirtualMachineSizeTypes = "Standard_L8s"
-	// StandardM12832ms ...
-	StandardM12832ms VirtualMachineSizeTypes = "Standard_M128-32ms"
-	// StandardM12864ms ...
-	StandardM12864ms VirtualMachineSizeTypes = "Standard_M128-64ms"
-	// StandardM128ms ...
-	StandardM128ms VirtualMachineSizeTypes = "Standard_M128ms"
-	// StandardM128s ...
-	StandardM128s VirtualMachineSizeTypes = "Standard_M128s"
-	// StandardM6416ms ...
-	StandardM6416ms VirtualMachineSizeTypes = "Standard_M64-16ms"
-	// StandardM6432ms ...
-	StandardM6432ms VirtualMachineSizeTypes = "Standard_M64-32ms"
-	// StandardM64ms ...
-	StandardM64ms VirtualMachineSizeTypes = "Standard_M64ms"
-	// StandardM64s ...
-	StandardM64s VirtualMachineSizeTypes = "Standard_M64s"
-	// StandardNC12 ...
-	StandardNC12 VirtualMachineSizeTypes = "Standard_NC12"
-	// StandardNC12sV2 ...
-	StandardNC12sV2 VirtualMachineSizeTypes = "Standard_NC12s_v2"
-	// StandardNC12sV3 ...
-	StandardNC12sV3 VirtualMachineSizeTypes = "Standard_NC12s_v3"
-	// StandardNC24 ...
-	StandardNC24 VirtualMachineSizeTypes = "Standard_NC24"
-	// StandardNC24r ...
-	StandardNC24r VirtualMachineSizeTypes = "Standard_NC24r"
-	// StandardNC24rsV2 ...
-	StandardNC24rsV2 VirtualMachineSizeTypes = "Standard_NC24rs_v2"
-	// StandardNC24rsV3 ...
-	StandardNC24rsV3 VirtualMachineSizeTypes = "Standard_NC24rs_v3"
-	// StandardNC24sV2 ...
-	StandardNC24sV2 VirtualMachineSizeTypes = "Standard_NC24s_v2"
-	// StandardNC24sV3 ...
-	StandardNC24sV3 VirtualMachineSizeTypes = "Standard_NC24s_v3"
-	// StandardNC6 ...
-	StandardNC6 VirtualMachineSizeTypes = "Standard_NC6"
-	// StandardNC6sV2 ...
-	StandardNC6sV2 VirtualMachineSizeTypes = "Standard_NC6s_v2"
-	// StandardNC6sV3 ...
-	StandardNC6sV3 VirtualMachineSizeTypes = "Standard_NC6s_v3"
-	// StandardND12s ...
-	StandardND12s VirtualMachineSizeTypes = "Standard_ND12s"
-	// StandardND24rs ...
-	StandardND24rs VirtualMachineSizeTypes = "Standard_ND24rs"
-	// StandardND24s ...
-	StandardND24s VirtualMachineSizeTypes = "Standard_ND24s"
-	// StandardND6s ...
-	StandardND6s VirtualMachineSizeTypes = "Standard_ND6s"
-	// StandardNV12 ...
-	StandardNV12 VirtualMachineSizeTypes = "Standard_NV12"
-	// StandardNV24 ...
-	StandardNV24 VirtualMachineSizeTypes = "Standard_NV24"
-	// StandardNV6 ...
-	StandardNV6 VirtualMachineSizeTypes = "Standard_NV6"
+	// VirtualMachineSizeTypesBasicA0 ...
+	VirtualMachineSizeTypesBasicA0 VirtualMachineSizeTypes = "Basic_A0"
+	// VirtualMachineSizeTypesBasicA1 ...
+	VirtualMachineSizeTypesBasicA1 VirtualMachineSizeTypes = "Basic_A1"
+	// VirtualMachineSizeTypesBasicA2 ...
+	VirtualMachineSizeTypesBasicA2 VirtualMachineSizeTypes = "Basic_A2"
+	// VirtualMachineSizeTypesBasicA3 ...
+	VirtualMachineSizeTypesBasicA3 VirtualMachineSizeTypes = "Basic_A3"
+	// VirtualMachineSizeTypesBasicA4 ...
+	VirtualMachineSizeTypesBasicA4 VirtualMachineSizeTypes = "Basic_A4"
+	// VirtualMachineSizeTypesStandardA0 ...
+	VirtualMachineSizeTypesStandardA0 VirtualMachineSizeTypes = "Standard_A0"
+	// VirtualMachineSizeTypesStandardA1 ...
+	VirtualMachineSizeTypesStandardA1 VirtualMachineSizeTypes = "Standard_A1"
+	// VirtualMachineSizeTypesStandardA10 ...
+	VirtualMachineSizeTypesStandardA10 VirtualMachineSizeTypes = "Standard_A10"
+	// VirtualMachineSizeTypesStandardA11 ...
+	VirtualMachineSizeTypesStandardA11 VirtualMachineSizeTypes = "Standard_A11"
+	// VirtualMachineSizeTypesStandardA1V2 ...
+	VirtualMachineSizeTypesStandardA1V2 VirtualMachineSizeTypes = "Standard_A1_v2"
+	// VirtualMachineSizeTypesStandardA2 ...
+	VirtualMachineSizeTypesStandardA2 VirtualMachineSizeTypes = "Standard_A2"
+	// VirtualMachineSizeTypesStandardA2mV2 ...
+	VirtualMachineSizeTypesStandardA2mV2 VirtualMachineSizeTypes = "Standard_A2m_v2"
+	// VirtualMachineSizeTypesStandardA2V2 ...
+	VirtualMachineSizeTypesStandardA2V2 VirtualMachineSizeTypes = "Standard_A2_v2"
+	// VirtualMachineSizeTypesStandardA3 ...
+	VirtualMachineSizeTypesStandardA3 VirtualMachineSizeTypes = "Standard_A3"
+	// VirtualMachineSizeTypesStandardA4 ...
+	VirtualMachineSizeTypesStandardA4 VirtualMachineSizeTypes = "Standard_A4"
+	// VirtualMachineSizeTypesStandardA4mV2 ...
+	VirtualMachineSizeTypesStandardA4mV2 VirtualMachineSizeTypes = "Standard_A4m_v2"
+	// VirtualMachineSizeTypesStandardA4V2 ...
+	VirtualMachineSizeTypesStandardA4V2 VirtualMachineSizeTypes = "Standard_A4_v2"
+	// VirtualMachineSizeTypesStandardA5 ...
+	VirtualMachineSizeTypesStandardA5 VirtualMachineSizeTypes = "Standard_A5"
+	// VirtualMachineSizeTypesStandardA6 ...
+	VirtualMachineSizeTypesStandardA6 VirtualMachineSizeTypes = "Standard_A6"
+	// VirtualMachineSizeTypesStandardA7 ...
+	VirtualMachineSizeTypesStandardA7 VirtualMachineSizeTypes = "Standard_A7"
+	// VirtualMachineSizeTypesStandardA8 ...
+	VirtualMachineSizeTypesStandardA8 VirtualMachineSizeTypes = "Standard_A8"
+	// VirtualMachineSizeTypesStandardA8mV2 ...
+	VirtualMachineSizeTypesStandardA8mV2 VirtualMachineSizeTypes = "Standard_A8m_v2"
+	// VirtualMachineSizeTypesStandardA8V2 ...
+	VirtualMachineSizeTypesStandardA8V2 VirtualMachineSizeTypes = "Standard_A8_v2"
+	// VirtualMachineSizeTypesStandardA9 ...
+	VirtualMachineSizeTypesStandardA9 VirtualMachineSizeTypes = "Standard_A9"
+	// VirtualMachineSizeTypesStandardB1ms ...
+	VirtualMachineSizeTypesStandardB1ms VirtualMachineSizeTypes = "Standard_B1ms"
+	// VirtualMachineSizeTypesStandardB1s ...
+	VirtualMachineSizeTypesStandardB1s VirtualMachineSizeTypes = "Standard_B1s"
+	// VirtualMachineSizeTypesStandardB2ms ...
+	VirtualMachineSizeTypesStandardB2ms VirtualMachineSizeTypes = "Standard_B2ms"
+	// VirtualMachineSizeTypesStandardB2s ...
+	VirtualMachineSizeTypesStandardB2s VirtualMachineSizeTypes = "Standard_B2s"
+	// VirtualMachineSizeTypesStandardB4ms ...
+	VirtualMachineSizeTypesStandardB4ms VirtualMachineSizeTypes = "Standard_B4ms"
+	// VirtualMachineSizeTypesStandardB8ms ...
+	VirtualMachineSizeTypesStandardB8ms VirtualMachineSizeTypes = "Standard_B8ms"
+	// VirtualMachineSizeTypesStandardD1 ...
+	VirtualMachineSizeTypesStandardD1 VirtualMachineSizeTypes = "Standard_D1"
+	// VirtualMachineSizeTypesStandardD11 ...
+	VirtualMachineSizeTypesStandardD11 VirtualMachineSizeTypes = "Standard_D11"
+	// VirtualMachineSizeTypesStandardD11V2 ...
+	VirtualMachineSizeTypesStandardD11V2 VirtualMachineSizeTypes = "Standard_D11_v2"
+	// VirtualMachineSizeTypesStandardD12 ...
+	VirtualMachineSizeTypesStandardD12 VirtualMachineSizeTypes = "Standard_D12"
+	// VirtualMachineSizeTypesStandardD12V2 ...
+	VirtualMachineSizeTypesStandardD12V2 VirtualMachineSizeTypes = "Standard_D12_v2"
+	// VirtualMachineSizeTypesStandardD13 ...
+	VirtualMachineSizeTypesStandardD13 VirtualMachineSizeTypes = "Standard_D13"
+	// VirtualMachineSizeTypesStandardD13V2 ...
+	VirtualMachineSizeTypesStandardD13V2 VirtualMachineSizeTypes = "Standard_D13_v2"
+	// VirtualMachineSizeTypesStandardD14 ...
+	VirtualMachineSizeTypesStandardD14 VirtualMachineSizeTypes = "Standard_D14"
+	// VirtualMachineSizeTypesStandardD14V2 ...
+	VirtualMachineSizeTypesStandardD14V2 VirtualMachineSizeTypes = "Standard_D14_v2"
+	// VirtualMachineSizeTypesStandardD15V2 ...
+	VirtualMachineSizeTypesStandardD15V2 VirtualMachineSizeTypes = "Standard_D15_v2"
+	// VirtualMachineSizeTypesStandardD16sV3 ...
+	VirtualMachineSizeTypesStandardD16sV3 VirtualMachineSizeTypes = "Standard_D16s_v3"
+	// VirtualMachineSizeTypesStandardD16V3 ...
+	VirtualMachineSizeTypesStandardD16V3 VirtualMachineSizeTypes = "Standard_D16_v3"
+	// VirtualMachineSizeTypesStandardD1V2 ...
+	VirtualMachineSizeTypesStandardD1V2 VirtualMachineSizeTypes = "Standard_D1_v2"
+	// VirtualMachineSizeTypesStandardD2 ...
+	VirtualMachineSizeTypesStandardD2 VirtualMachineSizeTypes = "Standard_D2"
+	// VirtualMachineSizeTypesStandardD2sV3 ...
+	VirtualMachineSizeTypesStandardD2sV3 VirtualMachineSizeTypes = "Standard_D2s_v3"
+	// VirtualMachineSizeTypesStandardD2V2 ...
+	VirtualMachineSizeTypesStandardD2V2 VirtualMachineSizeTypes = "Standard_D2_v2"
+	// VirtualMachineSizeTypesStandardD2V3 ...
+	VirtualMachineSizeTypesStandardD2V3 VirtualMachineSizeTypes = "Standard_D2_v3"
+	// VirtualMachineSizeTypesStandardD3 ...
+	VirtualMachineSizeTypesStandardD3 VirtualMachineSizeTypes = "Standard_D3"
+	// VirtualMachineSizeTypesStandardD32sV3 ...
+	VirtualMachineSizeTypesStandardD32sV3 VirtualMachineSizeTypes = "Standard_D32s_v3"
+	// VirtualMachineSizeTypesStandardD32V3 ...
+	VirtualMachineSizeTypesStandardD32V3 VirtualMachineSizeTypes = "Standard_D32_v3"
+	// VirtualMachineSizeTypesStandardD3V2 ...
+	VirtualMachineSizeTypesStandardD3V2 VirtualMachineSizeTypes = "Standard_D3_v2"
+	// VirtualMachineSizeTypesStandardD4 ...
+	VirtualMachineSizeTypesStandardD4 VirtualMachineSizeTypes = "Standard_D4"
+	// VirtualMachineSizeTypesStandardD4sV3 ...
+	VirtualMachineSizeTypesStandardD4sV3 VirtualMachineSizeTypes = "Standard_D4s_v3"
+	// VirtualMachineSizeTypesStandardD4V2 ...
+	VirtualMachineSizeTypesStandardD4V2 VirtualMachineSizeTypes = "Standard_D4_v2"
+	// VirtualMachineSizeTypesStandardD4V3 ...
+	VirtualMachineSizeTypesStandardD4V3 VirtualMachineSizeTypes = "Standard_D4_v3"
+	// VirtualMachineSizeTypesStandardD5V2 ...
+	VirtualMachineSizeTypesStandardD5V2 VirtualMachineSizeTypes = "Standard_D5_v2"
+	// VirtualMachineSizeTypesStandardD64sV3 ...
+	VirtualMachineSizeTypesStandardD64sV3 VirtualMachineSizeTypes = "Standard_D64s_v3"
+	// VirtualMachineSizeTypesStandardD64V3 ...
+	VirtualMachineSizeTypesStandardD64V3 VirtualMachineSizeTypes = "Standard_D64_v3"
+	// VirtualMachineSizeTypesStandardD8sV3 ...
+	VirtualMachineSizeTypesStandardD8sV3 VirtualMachineSizeTypes = "Standard_D8s_v3"
+	// VirtualMachineSizeTypesStandardD8V3 ...
+	VirtualMachineSizeTypesStandardD8V3 VirtualMachineSizeTypes = "Standard_D8_v3"
+	// VirtualMachineSizeTypesStandardDS1 ...
+	VirtualMachineSizeTypesStandardDS1 VirtualMachineSizeTypes = "Standard_DS1"
+	// VirtualMachineSizeTypesStandardDS11 ...
+	VirtualMachineSizeTypesStandardDS11 VirtualMachineSizeTypes = "Standard_DS11"
+	// VirtualMachineSizeTypesStandardDS11V2 ...
+	VirtualMachineSizeTypesStandardDS11V2 VirtualMachineSizeTypes = "Standard_DS11_v2"
+	// VirtualMachineSizeTypesStandardDS12 ...
+	VirtualMachineSizeTypesStandardDS12 VirtualMachineSizeTypes = "Standard_DS12"
+	// VirtualMachineSizeTypesStandardDS12V2 ...
+	VirtualMachineSizeTypesStandardDS12V2 VirtualMachineSizeTypes = "Standard_DS12_v2"
+	// VirtualMachineSizeTypesStandardDS13 ...
+	VirtualMachineSizeTypesStandardDS13 VirtualMachineSizeTypes = "Standard_DS13"
+	// VirtualMachineSizeTypesStandardDS132V2 ...
+	VirtualMachineSizeTypesStandardDS132V2 VirtualMachineSizeTypes = "Standard_DS13-2_v2"
+	// VirtualMachineSizeTypesStandardDS134V2 ...
+	VirtualMachineSizeTypesStandardDS134V2 VirtualMachineSizeTypes = "Standard_DS13-4_v2"
+	// VirtualMachineSizeTypesStandardDS13V2 ...
+	VirtualMachineSizeTypesStandardDS13V2 VirtualMachineSizeTypes = "Standard_DS13_v2"
+	// VirtualMachineSizeTypesStandardDS14 ...
+	VirtualMachineSizeTypesStandardDS14 VirtualMachineSizeTypes = "Standard_DS14"
+	// VirtualMachineSizeTypesStandardDS144V2 ...
+	VirtualMachineSizeTypesStandardDS144V2 VirtualMachineSizeTypes = "Standard_DS14-4_v2"
+	// VirtualMachineSizeTypesStandardDS148V2 ...
+	VirtualMachineSizeTypesStandardDS148V2 VirtualMachineSizeTypes = "Standard_DS14-8_v2"
+	// VirtualMachineSizeTypesStandardDS14V2 ...
+	VirtualMachineSizeTypesStandardDS14V2 VirtualMachineSizeTypes = "Standard_DS14_v2"
+	// VirtualMachineSizeTypesStandardDS15V2 ...
+	VirtualMachineSizeTypesStandardDS15V2 VirtualMachineSizeTypes = "Standard_DS15_v2"
+	// VirtualMachineSizeTypesStandardDS1V2 ...
+	VirtualMachineSizeTypesStandardDS1V2 VirtualMachineSizeTypes = "Standard_DS1_v2"
+	// VirtualMachineSizeTypesStandardDS2 ...
+	VirtualMachineSizeTypesStandardDS2 VirtualMachineSizeTypes = "Standard_DS2"
+	// VirtualMachineSizeTypesStandardDS2V2 ...
+	VirtualMachineSizeTypesStandardDS2V2 VirtualMachineSizeTypes = "Standard_DS2_v2"
+	// VirtualMachineSizeTypesStandardDS3 ...
+	VirtualMachineSizeTypesStandardDS3 VirtualMachineSizeTypes = "Standard_DS3"
+	// VirtualMachineSizeTypesStandardDS3V2 ...
+	VirtualMachineSizeTypesStandardDS3V2 VirtualMachineSizeTypes = "Standard_DS3_v2"
+	// VirtualMachineSizeTypesStandardDS4 ...
+	VirtualMachineSizeTypesStandardDS4 VirtualMachineSizeTypes = "Standard_DS4"
+	// VirtualMachineSizeTypesStandardDS4V2 ...
+	VirtualMachineSizeTypesStandardDS4V2 VirtualMachineSizeTypes = "Standard_DS4_v2"
+	// VirtualMachineSizeTypesStandardDS5V2 ...
+	VirtualMachineSizeTypesStandardDS5V2 VirtualMachineSizeTypes = "Standard_DS5_v2"
+	// VirtualMachineSizeTypesStandardE16sV3 ...
+	VirtualMachineSizeTypesStandardE16sV3 VirtualMachineSizeTypes = "Standard_E16s_v3"
+	// VirtualMachineSizeTypesStandardE16V3 ...
+	VirtualMachineSizeTypesStandardE16V3 VirtualMachineSizeTypes = "Standard_E16_v3"
+	// VirtualMachineSizeTypesStandardE2sV3 ...
+	VirtualMachineSizeTypesStandardE2sV3 VirtualMachineSizeTypes = "Standard_E2s_v3"
+	// VirtualMachineSizeTypesStandardE2V3 ...
+	VirtualMachineSizeTypesStandardE2V3 VirtualMachineSizeTypes = "Standard_E2_v3"
+	// VirtualMachineSizeTypesStandardE3216V3 ...
+	VirtualMachineSizeTypesStandardE3216V3 VirtualMachineSizeTypes = "Standard_E32-16_v3"
+	// VirtualMachineSizeTypesStandardE328sV3 ...
+	VirtualMachineSizeTypesStandardE328sV3 VirtualMachineSizeTypes = "Standard_E32-8s_v3"
+	// VirtualMachineSizeTypesStandardE32sV3 ...
+	VirtualMachineSizeTypesStandardE32sV3 VirtualMachineSizeTypes = "Standard_E32s_v3"
+	// VirtualMachineSizeTypesStandardE32V3 ...
+	VirtualMachineSizeTypesStandardE32V3 VirtualMachineSizeTypes = "Standard_E32_v3"
+	// VirtualMachineSizeTypesStandardE4sV3 ...
+	VirtualMachineSizeTypesStandardE4sV3 VirtualMachineSizeTypes = "Standard_E4s_v3"
+	// VirtualMachineSizeTypesStandardE4V3 ...
+	VirtualMachineSizeTypesStandardE4V3 VirtualMachineSizeTypes = "Standard_E4_v3"
+	// VirtualMachineSizeTypesStandardE6416sV3 ...
+	VirtualMachineSizeTypesStandardE6416sV3 VirtualMachineSizeTypes = "Standard_E64-16s_v3"
+	// VirtualMachineSizeTypesStandardE6432sV3 ...
+	VirtualMachineSizeTypesStandardE6432sV3 VirtualMachineSizeTypes = "Standard_E64-32s_v3"
+	// VirtualMachineSizeTypesStandardE64sV3 ...
+	VirtualMachineSizeTypesStandardE64sV3 VirtualMachineSizeTypes = "Standard_E64s_v3"
+	// VirtualMachineSizeTypesStandardE64V3 ...
+	VirtualMachineSizeTypesStandardE64V3 VirtualMachineSizeTypes = "Standard_E64_v3"
+	// VirtualMachineSizeTypesStandardE8sV3 ...
+	VirtualMachineSizeTypesStandardE8sV3 VirtualMachineSizeTypes = "Standard_E8s_v3"
+	// VirtualMachineSizeTypesStandardE8V3 ...
+	VirtualMachineSizeTypesStandardE8V3 VirtualMachineSizeTypes = "Standard_E8_v3"
+	// VirtualMachineSizeTypesStandardF1 ...
+	VirtualMachineSizeTypesStandardF1 VirtualMachineSizeTypes = "Standard_F1"
+	// VirtualMachineSizeTypesStandardF16 ...
+	VirtualMachineSizeTypesStandardF16 VirtualMachineSizeTypes = "Standard_F16"
+	// VirtualMachineSizeTypesStandardF16s ...
+	VirtualMachineSizeTypesStandardF16s VirtualMachineSizeTypes = "Standard_F16s"
+	// VirtualMachineSizeTypesStandardF16sV2 ...
+	VirtualMachineSizeTypesStandardF16sV2 VirtualMachineSizeTypes = "Standard_F16s_v2"
+	// VirtualMachineSizeTypesStandardF1s ...
+	VirtualMachineSizeTypesStandardF1s VirtualMachineSizeTypes = "Standard_F1s"
+	// VirtualMachineSizeTypesStandardF2 ...
+	VirtualMachineSizeTypesStandardF2 VirtualMachineSizeTypes = "Standard_F2"
+	// VirtualMachineSizeTypesStandardF2s ...
+	VirtualMachineSizeTypesStandardF2s VirtualMachineSizeTypes = "Standard_F2s"
+	// VirtualMachineSizeTypesStandardF2sV2 ...
+	VirtualMachineSizeTypesStandardF2sV2 VirtualMachineSizeTypes = "Standard_F2s_v2"
+	// VirtualMachineSizeTypesStandardF32sV2 ...
+	VirtualMachineSizeTypesStandardF32sV2 VirtualMachineSizeTypes = "Standard_F32s_v2"
+	// VirtualMachineSizeTypesStandardF4 ...
+	VirtualMachineSizeTypesStandardF4 VirtualMachineSizeTypes = "Standard_F4"
+	// VirtualMachineSizeTypesStandardF4s ...
+	VirtualMachineSizeTypesStandardF4s VirtualMachineSizeTypes = "Standard_F4s"
+	// VirtualMachineSizeTypesStandardF4sV2 ...
+	VirtualMachineSizeTypesStandardF4sV2 VirtualMachineSizeTypes = "Standard_F4s_v2"
+	// VirtualMachineSizeTypesStandardF64sV2 ...
+	VirtualMachineSizeTypesStandardF64sV2 VirtualMachineSizeTypes = "Standard_F64s_v2"
+	// VirtualMachineSizeTypesStandardF72sV2 ...
+	VirtualMachineSizeTypesStandardF72sV2 VirtualMachineSizeTypes = "Standard_F72s_v2"
+	// VirtualMachineSizeTypesStandardF8 ...
+	VirtualMachineSizeTypesStandardF8 VirtualMachineSizeTypes = "Standard_F8"
+	// VirtualMachineSizeTypesStandardF8s ...
+	VirtualMachineSizeTypesStandardF8s VirtualMachineSizeTypes = "Standard_F8s"
+	// VirtualMachineSizeTypesStandardF8sV2 ...
+	VirtualMachineSizeTypesStandardF8sV2 VirtualMachineSizeTypes = "Standard_F8s_v2"
+	// VirtualMachineSizeTypesStandardG1 ...
+	VirtualMachineSizeTypesStandardG1 VirtualMachineSizeTypes = "Standard_G1"
+	// VirtualMachineSizeTypesStandardG2 ...
+	VirtualMachineSizeTypesStandardG2 VirtualMachineSizeTypes = "Standard_G2"
+	// VirtualMachineSizeTypesStandardG3 ...
+	VirtualMachineSizeTypesStandardG3 VirtualMachineSizeTypes = "Standard_G3"
+	// VirtualMachineSizeTypesStandardG4 ...
+	VirtualMachineSizeTypesStandardG4 VirtualMachineSizeTypes = "Standard_G4"
+	// VirtualMachineSizeTypesStandardG5 ...
+	VirtualMachineSizeTypesStandardG5 VirtualMachineSizeTypes = "Standard_G5"
+	// VirtualMachineSizeTypesStandardGS1 ...
+	VirtualMachineSizeTypesStandardGS1 VirtualMachineSizeTypes = "Standard_GS1"
+	// VirtualMachineSizeTypesStandardGS2 ...
+	VirtualMachineSizeTypesStandardGS2 VirtualMachineSizeTypes = "Standard_GS2"
+	// VirtualMachineSizeTypesStandardGS3 ...
+	VirtualMachineSizeTypesStandardGS3 VirtualMachineSizeTypes = "Standard_GS3"
+	// VirtualMachineSizeTypesStandardGS4 ...
+	VirtualMachineSizeTypesStandardGS4 VirtualMachineSizeTypes = "Standard_GS4"
+	// VirtualMachineSizeTypesStandardGS44 ...
+	VirtualMachineSizeTypesStandardGS44 VirtualMachineSizeTypes = "Standard_GS4-4"
+	// VirtualMachineSizeTypesStandardGS48 ...
+	VirtualMachineSizeTypesStandardGS48 VirtualMachineSizeTypes = "Standard_GS4-8"
+	// VirtualMachineSizeTypesStandardGS5 ...
+	VirtualMachineSizeTypesStandardGS5 VirtualMachineSizeTypes = "Standard_GS5"
+	// VirtualMachineSizeTypesStandardGS516 ...
+	VirtualMachineSizeTypesStandardGS516 VirtualMachineSizeTypes = "Standard_GS5-16"
+	// VirtualMachineSizeTypesStandardGS58 ...
+	VirtualMachineSizeTypesStandardGS58 VirtualMachineSizeTypes = "Standard_GS5-8"
+	// VirtualMachineSizeTypesStandardH16 ...
+	VirtualMachineSizeTypesStandardH16 VirtualMachineSizeTypes = "Standard_H16"
+	// VirtualMachineSizeTypesStandardH16m ...
+	VirtualMachineSizeTypesStandardH16m VirtualMachineSizeTypes = "Standard_H16m"
+	// VirtualMachineSizeTypesStandardH16mr ...
+	VirtualMachineSizeTypesStandardH16mr VirtualMachineSizeTypes = "Standard_H16mr"
+	// VirtualMachineSizeTypesStandardH16r ...
+	VirtualMachineSizeTypesStandardH16r VirtualMachineSizeTypes = "Standard_H16r"
+	// VirtualMachineSizeTypesStandardH8 ...
+	VirtualMachineSizeTypesStandardH8 VirtualMachineSizeTypes = "Standard_H8"
+	// VirtualMachineSizeTypesStandardH8m ...
+	VirtualMachineSizeTypesStandardH8m VirtualMachineSizeTypes = "Standard_H8m"
+	// VirtualMachineSizeTypesStandardL16s ...
+	VirtualMachineSizeTypesStandardL16s VirtualMachineSizeTypes = "Standard_L16s"
+	// VirtualMachineSizeTypesStandardL32s ...
+	VirtualMachineSizeTypesStandardL32s VirtualMachineSizeTypes = "Standard_L32s"
+	// VirtualMachineSizeTypesStandardL4s ...
+	VirtualMachineSizeTypesStandardL4s VirtualMachineSizeTypes = "Standard_L4s"
+	// VirtualMachineSizeTypesStandardL8s ...
+	VirtualMachineSizeTypesStandardL8s VirtualMachineSizeTypes = "Standard_L8s"
+	// VirtualMachineSizeTypesStandardM12832ms ...
+	VirtualMachineSizeTypesStandardM12832ms VirtualMachineSizeTypes = "Standard_M128-32ms"
+	// VirtualMachineSizeTypesStandardM12864ms ...
+	VirtualMachineSizeTypesStandardM12864ms VirtualMachineSizeTypes = "Standard_M128-64ms"
+	// VirtualMachineSizeTypesStandardM128ms ...
+	VirtualMachineSizeTypesStandardM128ms VirtualMachineSizeTypes = "Standard_M128ms"
+	// VirtualMachineSizeTypesStandardM128s ...
+	VirtualMachineSizeTypesStandardM128s VirtualMachineSizeTypes = "Standard_M128s"
+	// VirtualMachineSizeTypesStandardM6416ms ...
+	VirtualMachineSizeTypesStandardM6416ms VirtualMachineSizeTypes = "Standard_M64-16ms"
+	// VirtualMachineSizeTypesStandardM6432ms ...
+	VirtualMachineSizeTypesStandardM6432ms VirtualMachineSizeTypes = "Standard_M64-32ms"
+	// VirtualMachineSizeTypesStandardM64ms ...
+	VirtualMachineSizeTypesStandardM64ms VirtualMachineSizeTypes = "Standard_M64ms"
+	// VirtualMachineSizeTypesStandardM64s ...
+	VirtualMachineSizeTypesStandardM64s VirtualMachineSizeTypes = "Standard_M64s"
+	// VirtualMachineSizeTypesStandardNC12 ...
+	VirtualMachineSizeTypesStandardNC12 VirtualMachineSizeTypes = "Standard_NC12"
+	// VirtualMachineSizeTypesStandardNC12sV2 ...
+	VirtualMachineSizeTypesStandardNC12sV2 VirtualMachineSizeTypes = "Standard_NC12s_v2"
+	// VirtualMachineSizeTypesStandardNC12sV3 ...
+	VirtualMachineSizeTypesStandardNC12sV3 VirtualMachineSizeTypes = "Standard_NC12s_v3"
+	// VirtualMachineSizeTypesStandardNC24 ...
+	VirtualMachineSizeTypesStandardNC24 VirtualMachineSizeTypes = "Standard_NC24"
+	// VirtualMachineSizeTypesStandardNC24r ...
+	VirtualMachineSizeTypesStandardNC24r VirtualMachineSizeTypes = "Standard_NC24r"
+	// VirtualMachineSizeTypesStandardNC24rsV2 ...
+	VirtualMachineSizeTypesStandardNC24rsV2 VirtualMachineSizeTypes = "Standard_NC24rs_v2"
+	// VirtualMachineSizeTypesStandardNC24rsV3 ...
+	VirtualMachineSizeTypesStandardNC24rsV3 VirtualMachineSizeTypes = "Standard_NC24rs_v3"
+	// VirtualMachineSizeTypesStandardNC24sV2 ...
+	VirtualMachineSizeTypesStandardNC24sV2 VirtualMachineSizeTypes = "Standard_NC24s_v2"
+	// VirtualMachineSizeTypesStandardNC24sV3 ...
+	VirtualMachineSizeTypesStandardNC24sV3 VirtualMachineSizeTypes = "Standard_NC24s_v3"
+	// VirtualMachineSizeTypesStandardNC6 ...
+	VirtualMachineSizeTypesStandardNC6 VirtualMachineSizeTypes = "Standard_NC6"
+	// VirtualMachineSizeTypesStandardNC6sV2 ...
+	VirtualMachineSizeTypesStandardNC6sV2 VirtualMachineSizeTypes = "Standard_NC6s_v2"
+	// VirtualMachineSizeTypesStandardNC6sV3 ...
+	VirtualMachineSizeTypesStandardNC6sV3 VirtualMachineSizeTypes = "Standard_NC6s_v3"
+	// VirtualMachineSizeTypesStandardND12s ...
+	VirtualMachineSizeTypesStandardND12s VirtualMachineSizeTypes = "Standard_ND12s"
+	// VirtualMachineSizeTypesStandardND24rs ...
+	VirtualMachineSizeTypesStandardND24rs VirtualMachineSizeTypes = "Standard_ND24rs"
+	// VirtualMachineSizeTypesStandardND24s ...
+	VirtualMachineSizeTypesStandardND24s VirtualMachineSizeTypes = "Standard_ND24s"
+	// VirtualMachineSizeTypesStandardND6s ...
+	VirtualMachineSizeTypesStandardND6s VirtualMachineSizeTypes = "Standard_ND6s"
+	// VirtualMachineSizeTypesStandardNV12 ...
+	VirtualMachineSizeTypesStandardNV12 VirtualMachineSizeTypes = "Standard_NV12"
+	// VirtualMachineSizeTypesStandardNV24 ...
+	VirtualMachineSizeTypesStandardNV24 VirtualMachineSizeTypes = "Standard_NV24"
+	// VirtualMachineSizeTypesStandardNV6 ...
+	VirtualMachineSizeTypesStandardNV6 VirtualMachineSizeTypes = "Standard_NV6"
 )
 
 // PossibleVirtualMachineSizeTypesValues returns an array of possible values for the VirtualMachineSizeTypes const type.
 func PossibleVirtualMachineSizeTypesValues() []VirtualMachineSizeTypes {
-	return []VirtualMachineSizeTypes{BasicA0, BasicA1, BasicA2, BasicA3, BasicA4, StandardA0, StandardA1, StandardA10, StandardA11, StandardA1V2, StandardA2, StandardA2mV2, StandardA2V2, StandardA3, StandardA4, StandardA4mV2, StandardA4V2, StandardA5, StandardA6, StandardA7, StandardA8, StandardA8mV2, StandardA8V2, StandardA9, StandardB1ms, StandardB1s, StandardB2ms, StandardB2s, StandardB4ms, StandardB8ms, StandardD1, StandardD11, StandardD11V2, StandardD12, StandardD12V2, StandardD13, StandardD13V2, StandardD14, StandardD14V2, StandardD15V2, StandardD16sV3, StandardD16V3, StandardD1V2, StandardD2, StandardD2sV3, StandardD2V2, StandardD2V3, StandardD3, StandardD32sV3, StandardD32V3, StandardD3V2, StandardD4, StandardD4sV3, StandardD4V2, StandardD4V3, StandardD5V2, StandardD64sV3, StandardD64V3, StandardD8sV3, StandardD8V3, StandardDS1, StandardDS11, StandardDS11V2, StandardDS12, StandardDS12V2, StandardDS13, StandardDS132V2, StandardDS134V2, StandardDS13V2, StandardDS14, StandardDS144V2, StandardDS148V2, StandardDS14V2, StandardDS15V2, StandardDS1V2, StandardDS2, StandardDS2V2, StandardDS3, StandardDS3V2, StandardDS4, StandardDS4V2, StandardDS5V2, StandardE16sV3, StandardE16V3, StandardE2sV3, StandardE2V3, StandardE3216V3, StandardE328sV3, StandardE32sV3, StandardE32V3, StandardE4sV3, StandardE4V3, StandardE6416sV3, StandardE6432sV3, StandardE64sV3, StandardE64V3, StandardE8sV3, StandardE8V3, StandardF1, StandardF16, StandardF16s, StandardF16sV2, StandardF1s, StandardF2, StandardF2s, StandardF2sV2, StandardF32sV2, StandardF4, StandardF4s, StandardF4sV2, StandardF64sV2, StandardF72sV2, StandardF8, StandardF8s, StandardF8sV2, StandardG1, StandardG2, StandardG3, StandardG4, StandardG5, StandardGS1, StandardGS2, StandardGS3, StandardGS4, StandardGS44, StandardGS48, StandardGS5, StandardGS516, StandardGS58, StandardH16, StandardH16m, StandardH16mr, StandardH16r, StandardH8, StandardH8m, StandardL16s, StandardL32s, StandardL4s, StandardL8s, StandardM12832ms, StandardM12864ms, StandardM128ms, StandardM128s, StandardM6416ms, StandardM6432ms, StandardM64ms, StandardM64s, StandardNC12, StandardNC12sV2, StandardNC12sV3, StandardNC24, StandardNC24r, StandardNC24rsV2, StandardNC24rsV3, StandardNC24sV2, StandardNC24sV3, StandardNC6, StandardNC6sV2, StandardNC6sV3, StandardND12s, StandardND24rs, StandardND24s, StandardND6s, StandardNV12, StandardNV24, StandardNV6}
+	return []VirtualMachineSizeTypes{VirtualMachineSizeTypesBasicA0, VirtualMachineSizeTypesBasicA1, VirtualMachineSizeTypesBasicA2, VirtualMachineSizeTypesBasicA3, VirtualMachineSizeTypesBasicA4, VirtualMachineSizeTypesStandardA0, VirtualMachineSizeTypesStandardA1, VirtualMachineSizeTypesStandardA10, VirtualMachineSizeTypesStandardA11, VirtualMachineSizeTypesStandardA1V2, VirtualMachineSizeTypesStandardA2, VirtualMachineSizeTypesStandardA2mV2, VirtualMachineSizeTypesStandardA2V2, VirtualMachineSizeTypesStandardA3, VirtualMachineSizeTypesStandardA4, VirtualMachineSizeTypesStandardA4mV2, VirtualMachineSizeTypesStandardA4V2, VirtualMachineSizeTypesStandardA5, VirtualMachineSizeTypesStandardA6, VirtualMachineSizeTypesStandardA7, VirtualMachineSizeTypesStandardA8, VirtualMachineSizeTypesStandardA8mV2, VirtualMachineSizeTypesStandardA8V2, VirtualMachineSizeTypesStandardA9, VirtualMachineSizeTypesStandardB1ms, VirtualMachineSizeTypesStandardB1s, VirtualMachineSizeTypesStandardB2ms, VirtualMachineSizeTypesStandardB2s, VirtualMachineSizeTypesStandardB4ms, VirtualMachineSizeTypesStandardB8ms, VirtualMachineSizeTypesStandardD1, VirtualMachineSizeTypesStandardD11, VirtualMachineSizeTypesStandardD11V2, VirtualMachineSizeTypesStandardD12, VirtualMachineSizeTypesStandardD12V2, VirtualMachineSizeTypesStandardD13, VirtualMachineSizeTypesStandardD13V2, VirtualMachineSizeTypesStandardD14, VirtualMachineSizeTypesStandardD14V2, VirtualMachineSizeTypesStandardD15V2, VirtualMachineSizeTypesStandardD16sV3, VirtualMachineSizeTypesStandardD16V3, VirtualMachineSizeTypesStandardD1V2, VirtualMachineSizeTypesStandardD2, VirtualMachineSizeTypesStandardD2sV3, VirtualMachineSizeTypesStandardD2V2, VirtualMachineSizeTypesStandardD2V3, VirtualMachineSizeTypesStandardD3, VirtualMachineSizeTypesStandardD32sV3, VirtualMachineSizeTypesStandardD32V3, VirtualMachineSizeTypesStandardD3V2, VirtualMachineSizeTypesStandardD4, VirtualMachineSizeTypesStandardD4sV3, VirtualMachineSizeTypesStandardD4V2, VirtualMachineSizeTypesStandardD4V3, VirtualMachineSizeTypesStandardD5V2, VirtualMachineSizeTypesStandardD64sV3, VirtualMachineSizeTypesStandardD64V3, VirtualMachineSizeTypesStandardD8sV3, VirtualMachineSizeTypesStandardD8V3, VirtualMachineSizeTypesStandardDS1, VirtualMachineSizeTypesStandardDS11, VirtualMachineSizeTypesStandardDS11V2, VirtualMachineSizeTypesStandardDS12, VirtualMachineSizeTypesStandardDS12V2, VirtualMachineSizeTypesStandardDS13, VirtualMachineSizeTypesStandardDS132V2, VirtualMachineSizeTypesStandardDS134V2, VirtualMachineSizeTypesStandardDS13V2, VirtualMachineSizeTypesStandardDS14, VirtualMachineSizeTypesStandardDS144V2, VirtualMachineSizeTypesStandardDS148V2, VirtualMachineSizeTypesStandardDS14V2, VirtualMachineSizeTypesStandardDS15V2, VirtualMachineSizeTypesStandardDS1V2, VirtualMachineSizeTypesStandardDS2, VirtualMachineSizeTypesStandardDS2V2, VirtualMachineSizeTypesStandardDS3, VirtualMachineSizeTypesStandardDS3V2, VirtualMachineSizeTypesStandardDS4, VirtualMachineSizeTypesStandardDS4V2, VirtualMachineSizeTypesStandardDS5V2, VirtualMachineSizeTypesStandardE16sV3, VirtualMachineSizeTypesStandardE16V3, VirtualMachineSizeTypesStandardE2sV3, VirtualMachineSizeTypesStandardE2V3, VirtualMachineSizeTypesStandardE3216V3, VirtualMachineSizeTypesStandardE328sV3, VirtualMachineSizeTypesStandardE32sV3, VirtualMachineSizeTypesStandardE32V3, VirtualMachineSizeTypesStandardE4sV3, VirtualMachineSizeTypesStandardE4V3, VirtualMachineSizeTypesStandardE6416sV3, VirtualMachineSizeTypesStandardE6432sV3, VirtualMachineSizeTypesStandardE64sV3, VirtualMachineSizeTypesStandardE64V3, VirtualMachineSizeTypesStandardE8sV3, VirtualMachineSizeTypesStandardE8V3, VirtualMachineSizeTypesStandardF1, VirtualMachineSizeTypesStandardF16, VirtualMachineSizeTypesStandardF16s, VirtualMachineSizeTypesStandardF16sV2, VirtualMachineSizeTypesStandardF1s, VirtualMachineSizeTypesStandardF2, VirtualMachineSizeTypesStandardF2s, VirtualMachineSizeTypesStandardF2sV2, VirtualMachineSizeTypesStandardF32sV2, VirtualMachineSizeTypesStandardF4, VirtualMachineSizeTypesStandardF4s, VirtualMachineSizeTypesStandardF4sV2, VirtualMachineSizeTypesStandardF64sV2, VirtualMachineSizeTypesStandardF72sV2, VirtualMachineSizeTypesStandardF8, VirtualMachineSizeTypesStandardF8s, VirtualMachineSizeTypesStandardF8sV2, VirtualMachineSizeTypesStandardG1, VirtualMachineSizeTypesStandardG2, VirtualMachineSizeTypesStandardG3, VirtualMachineSizeTypesStandardG4, VirtualMachineSizeTypesStandardG5, VirtualMachineSizeTypesStandardGS1, VirtualMachineSizeTypesStandardGS2, VirtualMachineSizeTypesStandardGS3, VirtualMachineSizeTypesStandardGS4, VirtualMachineSizeTypesStandardGS44, VirtualMachineSizeTypesStandardGS48, VirtualMachineSizeTypesStandardGS5, VirtualMachineSizeTypesStandardGS516, VirtualMachineSizeTypesStandardGS58, VirtualMachineSizeTypesStandardH16, VirtualMachineSizeTypesStandardH16m, VirtualMachineSizeTypesStandardH16mr, VirtualMachineSizeTypesStandardH16r, VirtualMachineSizeTypesStandardH8, VirtualMachineSizeTypesStandardH8m, VirtualMachineSizeTypesStandardL16s, VirtualMachineSizeTypesStandardL32s, VirtualMachineSizeTypesStandardL4s, VirtualMachineSizeTypesStandardL8s, VirtualMachineSizeTypesStandardM12832ms, VirtualMachineSizeTypesStandardM12864ms, VirtualMachineSizeTypesStandardM128ms, VirtualMachineSizeTypesStandardM128s, VirtualMachineSizeTypesStandardM6416ms, VirtualMachineSizeTypesStandardM6432ms, VirtualMachineSizeTypesStandardM64ms, VirtualMachineSizeTypesStandardM64s, VirtualMachineSizeTypesStandardNC12, VirtualMachineSizeTypesStandardNC12sV2, VirtualMachineSizeTypesStandardNC12sV3, VirtualMachineSizeTypesStandardNC24, VirtualMachineSizeTypesStandardNC24r, VirtualMachineSizeTypesStandardNC24rsV2, VirtualMachineSizeTypesStandardNC24rsV3, VirtualMachineSizeTypesStandardNC24sV2, VirtualMachineSizeTypesStandardNC24sV3, VirtualMachineSizeTypesStandardNC6, VirtualMachineSizeTypesStandardNC6sV2, VirtualMachineSizeTypesStandardNC6sV3, VirtualMachineSizeTypesStandardND12s, VirtualMachineSizeTypesStandardND24rs, VirtualMachineSizeTypesStandardND24s, VirtualMachineSizeTypesStandardND6s, VirtualMachineSizeTypesStandardNV12, VirtualMachineSizeTypesStandardNV24, VirtualMachineSizeTypesStandardNV6}
 }
 
 // VMDiskTypes enumerates the values for vm disk types.
@@ -1559,17 +1812,17 @@ func PossibleVMDiskTypesValues() []VMDiskTypes {
 type VMGuestPatchClassificationLinux string
 
 const (
-	// Critical ...
-	Critical VMGuestPatchClassificationLinux = "Critical"
-	// Other ...
-	Other VMGuestPatchClassificationLinux = "Other"
-	// Security ...
-	Security VMGuestPatchClassificationLinux = "Security"
+	// VMGuestPatchClassificationLinuxCritical ...
+	VMGuestPatchClassificationLinuxCritical VMGuestPatchClassificationLinux = "Critical"
+	// VMGuestPatchClassificationLinuxOther ...
+	VMGuestPatchClassificationLinuxOther VMGuestPatchClassificationLinux = "Other"
+	// VMGuestPatchClassificationLinuxSecurity ...
+	VMGuestPatchClassificationLinuxSecurity VMGuestPatchClassificationLinux = "Security"
 )
 
 // PossibleVMGuestPatchClassificationLinuxValues returns an array of possible values for the VMGuestPatchClassificationLinux const type.
 func PossibleVMGuestPatchClassificationLinuxValues() []VMGuestPatchClassificationLinux {
-	return []VMGuestPatchClassificationLinux{Critical, Other, Security}
+	return []VMGuestPatchClassificationLinux{VMGuestPatchClassificationLinuxCritical, VMGuestPatchClassificationLinuxOther, VMGuestPatchClassificationLinuxSecurity}
 }
 
 // VMGuestPatchClassificationWindows enumerates the values for vm guest patch classification windows.
@@ -1622,17 +1875,17 @@ func PossibleVMGuestPatchRebootBehaviorValues() []VMGuestPatchRebootBehavior {
 type VMGuestPatchRebootSetting string
 
 const (
-	// Always ...
-	Always VMGuestPatchRebootSetting = "Always"
-	// IfRequired ...
-	IfRequired VMGuestPatchRebootSetting = "IfRequired"
-	// Never ...
-	Never VMGuestPatchRebootSetting = "Never"
+	// VMGuestPatchRebootSettingAlways ...
+	VMGuestPatchRebootSettingAlways VMGuestPatchRebootSetting = "Always"
+	// VMGuestPatchRebootSettingIfRequired ...
+	VMGuestPatchRebootSettingIfRequired VMGuestPatchRebootSetting = "IfRequired"
+	// VMGuestPatchRebootSettingNever ...
+	VMGuestPatchRebootSettingNever VMGuestPatchRebootSetting = "Never"
 )
 
 // PossibleVMGuestPatchRebootSettingValues returns an array of possible values for the VMGuestPatchRebootSetting const type.
 func PossibleVMGuestPatchRebootSettingValues() []VMGuestPatchRebootSetting {
-	return []VMGuestPatchRebootSetting{Always, IfRequired, Never}
+	return []VMGuestPatchRebootSetting{VMGuestPatchRebootSettingAlways, VMGuestPatchRebootSettingIfRequired, VMGuestPatchRebootSettingNever}
 }
 
 // VMGuestPatchRebootStatus enumerates the values for vm guest patch reboot status.
@@ -1656,6 +1909,21 @@ const (
 // PossibleVMGuestPatchRebootStatusValues returns an array of possible values for the VMGuestPatchRebootStatus const type.
 func PossibleVMGuestPatchRebootStatusValues() []VMGuestPatchRebootStatus {
 	return []VMGuestPatchRebootStatus{VMGuestPatchRebootStatusCompleted, VMGuestPatchRebootStatusFailed, VMGuestPatchRebootStatusNotNeeded, VMGuestPatchRebootStatusRequired, VMGuestPatchRebootStatusStarted, VMGuestPatchRebootStatusUnknown}
+}
+
+// WindowsPatchAssessmentMode enumerates the values for windows patch assessment mode.
+type WindowsPatchAssessmentMode string
+
+const (
+	// WindowsPatchAssessmentModeAutomaticByPlatform ...
+	WindowsPatchAssessmentModeAutomaticByPlatform WindowsPatchAssessmentMode = "AutomaticByPlatform"
+	// WindowsPatchAssessmentModeImageDefault ...
+	WindowsPatchAssessmentModeImageDefault WindowsPatchAssessmentMode = "ImageDefault"
+)
+
+// PossibleWindowsPatchAssessmentModeValues returns an array of possible values for the WindowsPatchAssessmentMode const type.
+func PossibleWindowsPatchAssessmentModeValues() []WindowsPatchAssessmentMode {
+	return []WindowsPatchAssessmentMode{WindowsPatchAssessmentModeAutomaticByPlatform, WindowsPatchAssessmentModeImageDefault}
 }
 
 // WindowsVMGuestPatchMode enumerates the values for windows vm guest patch mode.

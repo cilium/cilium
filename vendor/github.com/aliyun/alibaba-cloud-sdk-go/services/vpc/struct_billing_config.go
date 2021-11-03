@@ -17,8 +17,8 @@ package vpc
 
 // BillingConfig is a nested struct in vpc response
 type BillingConfig struct {
-	Spec               string `json:"Spec" xml:"Spec"`
 	InternetChargeType string `json:"InternetChargeType" xml:"InternetChargeType"`
-	InstanceChargeType string `json:"InstanceChargeType" xml:"InstanceChargeType"`
 	AutoPay            string `json:"AutoPay" xml:"AutoPay"`
+	Spec               string `json:"Spec" xml:"Spec"`
+	InstanceChargeType string `json:"InstanceChargeType" xml:"InstanceChargeType"`
 }

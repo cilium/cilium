@@ -8,8 +8,8 @@ const brokenNaNs = true
 
 func mapElems(mapValue reflect.Value) ([]reflect.Value, []reflect.Value) {
 	key := mapValue.MapKeys()
-	value := make([]reflect.Value, len(key))
-	for i, k := range key {
+	value := make([]reflect.Value, 0, len(key))
+	for _, k := range key {
 		v := mapValue.MapIndex(k)
 		if !v.IsValid() {
 			// Note: we can't retrieve the value, probably because
@@ -17,7 +17,7 @@ func mapElems(mapValue reflect.Value) ([]reflect.Value, []reflect.Value) {
 			// add a zero value of the correct type in that case.
 			v = reflect.Zero(mapValue.Type().Elem())
 		}
-		value[i] = v
+		value = append(value, v)
 	}
 	return key, value
 }

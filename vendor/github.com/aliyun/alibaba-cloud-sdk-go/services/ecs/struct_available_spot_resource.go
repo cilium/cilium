@@ -17,8 +17,8 @@ package ecs
 
 // AvailableSpotResource is a nested struct in ecs response
 type AvailableSpotResource struct {
-	InstanceType        string  `json:"InstanceType" xml:"InstanceType"`
-	InterruptionRate    float64 `json:"InterruptionRate" xml:"InterruptionRate"`
 	InterruptRateDesc   string  `json:"InterruptRateDesc" xml:"InterruptRateDesc"`
 	AverageSpotDiscount int     `json:"AverageSpotDiscount" xml:"AverageSpotDiscount"`
+	InstanceType        string  `json:"InstanceType" xml:"InstanceType"`
+	InterruptionRate    float64 `json:"InterruptionRate" xml:"InterruptionRate"`
 }

@@ -95,8 +95,8 @@ type CopyImageTag struct {
 // CopyImageResponse is the response struct for api CopyImage
 type CopyImageResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
 	ImageId   string `json:"ImageId" xml:"ImageId"`
+	RequestId string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateCopyImageRequest creates a request to invoke CopyImage API

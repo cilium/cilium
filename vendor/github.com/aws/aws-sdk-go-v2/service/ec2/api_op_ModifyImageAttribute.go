@@ -13,11 +13,10 @@ import (
 
 // Modifies the specified attribute of the specified AMI. You can specify only one
 // attribute at a time. You can use the Attribute parameter to specify the
-// attribute or one of the following parameters: Description, LaunchPermission, or
-// ProductCode. AWS Marketplace product codes cannot be modified. Images with an
-// AWS Marketplace product code cannot be made public. To enable the
-// SriovNetSupport enhanced networking attribute of an image, enable
-// SriovNetSupport on an instance and create an AMI from the instance.
+// attribute or one of the following parameters: Description or LaunchPermission.
+// Images with an Amazon Web Services Marketplace product code cannot be made
+// public. To enable the SriovNetSupport enhanced networking attribute of an image,
+// enable SriovNetSupport on an instance and create an AMI from the instance.
 func (c *Client) ModifyImageAttribute(ctx context.Context, params *ModifyImageAttributeInput, optFns ...func(*Options)) (*ModifyImageAttributeOutput, error) {
 	if params == nil {
 		params = &ModifyImageAttributeInput{}
@@ -41,8 +40,8 @@ type ModifyImageAttributeInput struct {
 	// This member is required.
 	ImageId *string
 
-	// The name of the attribute to modify. The valid values are description,
-	// launchPermission, and productCodes.
+	// The name of the attribute to modify. The valid values are description and
+	// launchPermission.
 	Attribute *string
 
 	// A new description for the AMI.
@@ -61,20 +60,19 @@ type ModifyImageAttributeInput struct {
 	// is launchPermission.
 	OperationType types.OperationType
 
-	// The DevPay product codes. After you add a product code to an AMI, it can't be
-	// removed.
+	// Not supported.
 	ProductCodes []string
 
 	// The user groups. This parameter can be used only when the Attribute parameter is
 	// launchPermission.
 	UserGroups []string
 
-	// The AWS account IDs. This parameter can be used only when the Attribute
-	// parameter is launchPermission.
+	// The Amazon Web Services account IDs. This parameter can be used only when the
+	// Attribute parameter is launchPermission.
 	UserIds []string
 
 	// The value of the attribute being modified. This parameter can be used only when
-	// the Attribute parameter is description or productCodes.
+	// the Attribute parameter is description.
 	Value *string
 
 	noSmithyDocumentSerde

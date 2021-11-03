@@ -86,8 +86,8 @@ type DescribeDedicatedBlockStorageClustersRequest struct {
 // DescribeDedicatedBlockStorageClustersResponse is the response struct for api DescribeDedicatedBlockStorageClusters
 type DescribeDedicatedBlockStorageClustersResponse struct {
 	*responses.BaseResponse
-	RequestId                     string                        `json:"RequestId" xml:"RequestId"`
 	NextToken                     string                        `json:"NextToken" xml:"NextToken"`
+	RequestId                     string                        `json:"RequestId" xml:"RequestId"`
 	DedicatedBlockStorageClusters DedicatedBlockStorageClusters `json:"DedicatedBlockStorageClusters" xml:"DedicatedBlockStorageClusters"`
 }
 

@@ -81,13 +81,13 @@ type DescribePrefixListAttributesRequest struct {
 // DescribePrefixListAttributesResponse is the response struct for api DescribePrefixListAttributes
 type DescribePrefixListAttributesResponse struct {
 	*responses.BaseResponse
-	RequestId      string  `json:"RequestId" xml:"RequestId"`
-	PrefixListId   string  `json:"PrefixListId" xml:"PrefixListId"`
-	PrefixListName string  `json:"PrefixListName" xml:"PrefixListName"`
-	AddressFamily  string  `json:"AddressFamily" xml:"AddressFamily"`
-	MaxEntries     int     `json:"MaxEntries" xml:"MaxEntries"`
-	Description    string  `json:"Description" xml:"Description"`
 	CreationTime   string  `json:"CreationTime" xml:"CreationTime"`
+	MaxEntries     int     `json:"MaxEntries" xml:"MaxEntries"`
+	RequestId      string  `json:"RequestId" xml:"RequestId"`
+	Description    string  `json:"Description" xml:"Description"`
+	AddressFamily  string  `json:"AddressFamily" xml:"AddressFamily"`
+	PrefixListName string  `json:"PrefixListName" xml:"PrefixListName"`
+	PrefixListId   string  `json:"PrefixListId" xml:"PrefixListId"`
 	Entries        Entries `json:"Entries" xml:"Entries"`
 }
 

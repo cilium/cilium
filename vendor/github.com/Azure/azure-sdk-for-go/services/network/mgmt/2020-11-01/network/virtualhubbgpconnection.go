@@ -69,7 +69,7 @@ func (client VirtualHubBgpConnectionClient) CreateOrUpdate(ctx context.Context, 
 
 	result, err = client.CreateOrUpdateSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.VirtualHubBgpConnectionClient", "CreateOrUpdate", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.VirtualHubBgpConnectionClient", "CreateOrUpdate", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -106,6 +106,7 @@ func (client VirtualHubBgpConnectionClient) CreateOrUpdatePreparer(ctx context.C
 // http.Response Body if it receives an error.
 func (client VirtualHubBgpConnectionClient) CreateOrUpdateSender(req *http.Request) (future VirtualHubBgpConnectionCreateOrUpdateFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
@@ -153,7 +154,7 @@ func (client VirtualHubBgpConnectionClient) Delete(ctx context.Context, resource
 
 	result, err = client.DeleteSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.VirtualHubBgpConnectionClient", "Delete", nil, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.VirtualHubBgpConnectionClient", "Delete", result.Response(), "Failure sending request")
 		return
 	}
 
@@ -186,6 +187,7 @@ func (client VirtualHubBgpConnectionClient) DeletePreparer(ctx context.Context, 
 // http.Response Body if it receives an error.
 func (client VirtualHubBgpConnectionClient) DeleteSender(req *http.Request) (future VirtualHubBgpConnectionDeleteFuture, err error) {
 	var resp *http.Response
+	future.FutureAPI = &azure.Future{}
 	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return

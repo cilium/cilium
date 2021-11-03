@@ -97,10 +97,10 @@ type DescribeDemandsTag struct {
 // DescribeDemandsResponse is the response struct for api DescribeDemands
 type DescribeDemandsResponse struct {
 	*responses.BaseResponse
+	PageSize   int     `json:"PageSize" xml:"PageSize"`
+	PageNumber int     `json:"PageNumber" xml:"PageNumber"`
 	RequestId  string  `json:"RequestId" xml:"RequestId"`
 	TotalCount int     `json:"TotalCount" xml:"TotalCount"`
-	PageNumber int     `json:"PageNumber" xml:"PageNumber"`
-	PageSize   int     `json:"PageSize" xml:"PageSize"`
 	RegionId   string  `json:"RegionId" xml:"RegionId"`
 	Demands    Demands `json:"Demands" xml:"Demands"`
 }

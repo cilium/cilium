@@ -87,10 +87,10 @@ type DescribeManagedInstancesRequest struct {
 // DescribeManagedInstancesResponse is the response struct for api DescribeManagedInstances
 type DescribeManagedInstancesResponse struct {
 	*responses.BaseResponse
-	RequestId  string     `json:"RequestId" xml:"RequestId"`
-	TotalCount int64      `json:"TotalCount" xml:"TotalCount"`
-	PageNumber int64      `json:"PageNumber" xml:"PageNumber"`
 	PageSize   int64      `json:"PageSize" xml:"PageSize"`
+	RequestId  string     `json:"RequestId" xml:"RequestId"`
+	PageNumber int64      `json:"PageNumber" xml:"PageNumber"`
+	TotalCount int64      `json:"TotalCount" xml:"TotalCount"`
 	Instances  []Instance `json:"Instances" xml:"Instances"`
 }
 

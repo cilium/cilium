@@ -17,12 +17,12 @@ package ecs
 
 // VirtualBorderRouterForPhysicalConnectionType is a nested struct in ecs response
 type VirtualBorderRouterForPhysicalConnectionType struct {
-	VbrId           string `json:"VbrId" xml:"VbrId"`
-	VbrOwnerUid     int64  `json:"VbrOwnerUid" xml:"VbrOwnerUid"`
 	CreationTime    string `json:"CreationTime" xml:"CreationTime"`
-	ActivationTime  string `json:"ActivationTime" xml:"ActivationTime"`
-	TerminationTime string `json:"TerminationTime" xml:"TerminationTime"`
-	RecoveryTime    string `json:"RecoveryTime" xml:"RecoveryTime"`
-	VlanId          int    `json:"VlanId" xml:"VlanId"`
 	CircuitCode     string `json:"CircuitCode" xml:"CircuitCode"`
+	RecoveryTime    string `json:"RecoveryTime" xml:"RecoveryTime"`
+	TerminationTime string `json:"TerminationTime" xml:"TerminationTime"`
+	ActivationTime  string `json:"ActivationTime" xml:"ActivationTime"`
+	VbrOwnerUid     int64  `json:"VbrOwnerUid" xml:"VbrOwnerUid"`
+	VbrId           string `json:"VbrId" xml:"VbrId"`
+	VlanId          int    `json:"VlanId" xml:"VlanId"`
 }

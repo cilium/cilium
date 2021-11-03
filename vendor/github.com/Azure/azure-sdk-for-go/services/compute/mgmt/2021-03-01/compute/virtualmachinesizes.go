@@ -32,8 +32,7 @@ func NewVirtualMachineSizesClientWithBaseURI(baseURI string, subscriptionID stri
 	return VirtualMachineSizesClient{NewWithBaseURI(baseURI, subscriptionID)}
 }
 
-// List this API is deprecated. Use [Resources
-// Skus](https://docs.microsoft.com/en-us/rest/api/compute/resourceskus/list)
+// List this API is deprecated. Use [Resources Skus](https://docs.microsoft.com/rest/api/compute/resourceskus/list)
 // Parameters:
 // location - the location upon which virtual-machine-sizes is queried.
 func (client VirtualMachineSizesClient) List(ctx context.Context, location string) (result VirtualMachineSizeListResult, err error) {
@@ -82,7 +81,7 @@ func (client VirtualMachineSizesClient) ListPreparer(ctx context.Context, locati
 		"subscriptionId": autorest.Encode("path", client.SubscriptionID),
 	}
 
-	const APIVersion = "2020-12-01"
+	const APIVersion = "2021-03-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}

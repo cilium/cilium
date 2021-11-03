@@ -72,8 +72,8 @@ func (client *Client) DescribePrefixListsWithCallback(request *DescribePrefixLis
 type DescribePrefixListsRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	PrefixListId         *[]string        `position:"Query" name:"PrefixListId"  type:"Repeated"`
 	NextToken            string           `position:"Query" name:"NextToken"`
+	PrefixListId         *[]string        `position:"Query" name:"PrefixListId"  type:"Repeated"`
 	AddressFamily        string           `position:"Query" name:"AddressFamily"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
@@ -85,8 +85,8 @@ type DescribePrefixListsRequest struct {
 // DescribePrefixListsResponse is the response struct for api DescribePrefixLists
 type DescribePrefixListsResponse struct {
 	*responses.BaseResponse
-	RequestId   string      `json:"RequestId" xml:"RequestId"`
 	NextToken   string      `json:"NextToken" xml:"NextToken"`
+	RequestId   string      `json:"RequestId" xml:"RequestId"`
 	PrefixLists PrefixLists `json:"PrefixLists" xml:"PrefixLists"`
 }
 

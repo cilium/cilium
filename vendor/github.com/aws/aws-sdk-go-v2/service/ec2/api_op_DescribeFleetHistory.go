@@ -16,9 +16,9 @@ import (
 // Fleet events are delayed by up to 30 seconds before they can be described. This
 // ensures that you can query by the last evaluated time and not miss a recorded
 // event. EC2 Fleet events are available for 48 hours. For more information, see
-// Monitoring your EC2 Fleet
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet.html#monitor-ec2-fleet)
-// in the Amazon EC2 User Guide.
+// Monitor fleet events using Amazon EventBridge
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/fleet-monitor.html) in the
+// Amazon EC2 User Guide.
 func (c *Client) DescribeFleetHistory(ctx context.Context, params *DescribeFleetHistoryInput, optFns ...func(*Options)) (*DescribeFleetHistoryOutput, error) {
 	if params == nil {
 		params = &DescribeFleetHistoryInput{}

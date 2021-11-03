@@ -71,18 +71,19 @@ func (client *Client) DescribeCommonBandwidthPackagesWithCallback(request *Descr
 // DescribeCommonBandwidthPackagesRequest is the request struct for api DescribeCommonBandwidthPackages
 type DescribeCommonBandwidthPackagesRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId        requests.Integer                      `position:"Query" name:"ResourceOwnerId"`
-	IncludeReservationData requests.Boolean                      `position:"Query" name:"IncludeReservationData"`
-	PageNumber             requests.Integer                      `position:"Query" name:"PageNumber"`
-	ResourceGroupId        string                                `position:"Query" name:"ResourceGroupId"`
-	PageSize               requests.Integer                      `position:"Query" name:"PageSize"`
-	Tag                    *[]DescribeCommonBandwidthPackagesTag `position:"Query" name:"Tag"  type:"Repeated"`
-	BandwidthPackageId     string                                `position:"Query" name:"BandwidthPackageId"`
-	DryRun                 requests.Boolean                      `position:"Query" name:"DryRun"`
-	ResourceOwnerAccount   string                                `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount           string                                `position:"Query" name:"OwnerAccount"`
-	OwnerId                requests.Integer                      `position:"Query" name:"OwnerId"`
-	Name                   string                                `position:"Query" name:"Name"`
+	ResourceOwnerId           requests.Integer                      `position:"Query" name:"ResourceOwnerId"`
+	SecurityProtectionEnabled requests.Boolean                      `position:"Query" name:"SecurityProtectionEnabled"`
+	IncludeReservationData    requests.Boolean                      `position:"Query" name:"IncludeReservationData"`
+	PageNumber                requests.Integer                      `position:"Query" name:"PageNumber"`
+	ResourceGroupId           string                                `position:"Query" name:"ResourceGroupId"`
+	PageSize                  requests.Integer                      `position:"Query" name:"PageSize"`
+	Tag                       *[]DescribeCommonBandwidthPackagesTag `position:"Query" name:"Tag"  type:"Repeated"`
+	BandwidthPackageId        string                                `position:"Query" name:"BandwidthPackageId"`
+	DryRun                    requests.Boolean                      `position:"Query" name:"DryRun"`
+	ResourceOwnerAccount      string                                `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount              string                                `position:"Query" name:"OwnerAccount"`
+	OwnerId                   requests.Integer                      `position:"Query" name:"OwnerId"`
+	Name                      string                                `position:"Query" name:"Name"`
 }
 
 // DescribeCommonBandwidthPackagesTag is a repeated param struct in DescribeCommonBandwidthPackagesRequest
@@ -94,10 +95,10 @@ type DescribeCommonBandwidthPackagesTag struct {
 // DescribeCommonBandwidthPackagesResponse is the response struct for api DescribeCommonBandwidthPackages
 type DescribeCommonBandwidthPackagesResponse struct {
 	*responses.BaseResponse
-	RequestId               string                  `json:"RequestId" xml:"RequestId"`
-	TotalCount              int                     `json:"TotalCount" xml:"TotalCount"`
-	PageNumber              int                     `json:"PageNumber" xml:"PageNumber"`
 	PageSize                int                     `json:"PageSize" xml:"PageSize"`
+	RequestId               string                  `json:"RequestId" xml:"RequestId"`
+	PageNumber              int                     `json:"PageNumber" xml:"PageNumber"`
+	TotalCount              int                     `json:"TotalCount" xml:"TotalCount"`
 	CommonBandwidthPackages CommonBandwidthPackages `json:"CommonBandwidthPackages" xml:"CommonBandwidthPackages"`
 }
 

@@ -13,7 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	chainingapi "github.com/cilium/cilium/plugins/cilium-cni/chaining/api"
 
-	cniTypesVer "github.com/containernetworking/cni/pkg/types/current"
+	cniTypesVer "github.com/containernetworking/cni/pkg/types/040"
 	cniVersion "github.com/containernetworking/cni/pkg/version"
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/sirupsen/logrus"

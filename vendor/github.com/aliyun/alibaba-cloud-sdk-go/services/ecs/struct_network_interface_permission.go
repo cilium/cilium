@@ -20,7 +20,7 @@ type NetworkInterfacePermission struct {
 	Permission                   string `json:"Permission" xml:"Permission"`
 	AccountId                    int64  `json:"AccountId" xml:"AccountId"`
 	NetworkInterfaceId           string `json:"NetworkInterfaceId" xml:"NetworkInterfaceId"`
-	ServiceName                  string `json:"ServiceName" xml:"ServiceName"`
 	NetworkInterfacePermissionId string `json:"NetworkInterfacePermissionId" xml:"NetworkInterfacePermissionId"`
+	ServiceName                  string `json:"ServiceName" xml:"ServiceName"`
 	PermissionState              string `json:"PermissionState" xml:"PermissionState"`
 }

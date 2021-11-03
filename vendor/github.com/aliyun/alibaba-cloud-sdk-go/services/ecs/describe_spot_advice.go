@@ -74,8 +74,8 @@ type DescribeSpotAdviceRequest struct {
 	GpuSpec              string           `position:"Query" name:"GpuSpec"`
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
 	Memory               requests.Float   `position:"Query" name:"Memory"`
-	InstanceTypes        *[]string        `position:"Query" name:"InstanceTypes"  type:"Repeated"`
 	IoOptimized          string           `position:"Query" name:"IoOptimized"`
+	InstanceTypes        *[]string        `position:"Query" name:"InstanceTypes"  type:"Repeated"`
 	MinCores             requests.Integer `position:"Query" name:"MinCores"`
 	NetworkType          string           `position:"Query" name:"NetworkType"`
 	Cores                requests.Integer `position:"Query" name:"Cores"`
@@ -92,8 +92,8 @@ type DescribeSpotAdviceRequest struct {
 // DescribeSpotAdviceResponse is the response struct for api DescribeSpotAdvice
 type DescribeSpotAdviceResponse struct {
 	*responses.BaseResponse
-	RequestId          string             `json:"RequestId" xml:"RequestId"`
 	RegionId           string             `json:"RegionId" xml:"RegionId"`
+	RequestId          string             `json:"RequestId" xml:"RequestId"`
 	AvailableSpotZones AvailableSpotZones `json:"AvailableSpotZones" xml:"AvailableSpotZones"`
 }
 

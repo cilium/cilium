@@ -84,10 +84,10 @@ type DescribeCloudAssistantStatusRequest struct {
 // DescribeCloudAssistantStatusResponse is the response struct for api DescribeCloudAssistantStatus
 type DescribeCloudAssistantStatusResponse struct {
 	*responses.BaseResponse
-	RequestId                       string                          `json:"RequestId" xml:"RequestId"`
-	TotalCount                      int64                           `json:"TotalCount" xml:"TotalCount"`
-	PageNumber                      int64                           `json:"PageNumber" xml:"PageNumber"`
 	PageSize                        int64                           `json:"PageSize" xml:"PageSize"`
+	RequestId                       string                          `json:"RequestId" xml:"RequestId"`
+	PageNumber                      int64                           `json:"PageNumber" xml:"PageNumber"`
+	TotalCount                      int64                           `json:"TotalCount" xml:"TotalCount"`
 	InstanceCloudAssistantStatusSet InstanceCloudAssistantStatusSet `json:"InstanceCloudAssistantStatusSet" xml:"InstanceCloudAssistantStatusSet"`
 }
 

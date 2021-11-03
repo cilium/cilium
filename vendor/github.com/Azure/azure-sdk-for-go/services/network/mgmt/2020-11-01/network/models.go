@@ -4436,13 +4436,13 @@ type ApplicationRule struct {
 	Name *string `json:"name,omitempty"`
 	// Description - Description of the rule.
 	Description *string `json:"description,omitempty"`
-	// RuleType - Possible values include: 'RuleTypeRuleTypeFirewallPolicyRule', 'RuleTypeRuleTypeApplicationRule', 'RuleTypeRuleTypeNatRule', 'RuleTypeRuleTypeNetworkRule'
+	// RuleType - Possible values include: 'RuleTypeFirewallPolicyRule', 'RuleTypeApplicationRule', 'RuleTypeNatRule', 'RuleTypeNetworkRule'
 	RuleType RuleType `json:"ruleType,omitempty"`
 }
 
 // MarshalJSON is the custom marshaler for ApplicationRule.
 func (ar ApplicationRule) MarshalJSON() ([]byte, error) {
-	ar.RuleType = RuleTypeRuleTypeApplicationRule
+	ar.RuleType = RuleTypeApplicationRule
 	objectMap := make(map[string]interface{})
 	if ar.SourceAddresses != nil {
 		objectMap["sourceAddresses"] = ar.SourceAddresses
@@ -4798,6 +4798,12 @@ type ApplicationSecurityGroupPropertiesFormat struct {
 	ResourceGUID *string `json:"resourceGuid,omitempty"`
 	// ProvisioningState - READ-ONLY; The provisioning state of the application security group resource. Possible values include: 'ProvisioningStateSucceeded', 'ProvisioningStateUpdating', 'ProvisioningStateDeleting', 'ProvisioningStateFailed'
 	ProvisioningState ProvisioningState `json:"provisioningState,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for ApplicationSecurityGroupPropertiesFormat.
+func (asgpf ApplicationSecurityGroupPropertiesFormat) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // ApplicationSecurityGroupsCreateOrUpdateFuture an abstraction for monitoring and retrieving the results
@@ -5442,6 +5448,8 @@ type AvailablePrivateEndpointType struct {
 	Type *string `json:"type,omitempty"`
 	// ResourceName - The name of the service and resource.
 	ResourceName *string `json:"resourceName,omitempty"`
+	// DisplayName - Display name of the resource.
+	DisplayName *string `json:"displayName,omitempty"`
 }
 
 // AvailablePrivateEndpointTypesResult an array of available PrivateEndpoint types.
@@ -6397,6 +6405,12 @@ type AzureFirewallFqdnTagPropertiesFormat struct {
 	FqdnTagName *string `json:"fqdnTagName,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for AzureFirewallFqdnTagPropertiesFormat.
+func (afftpf AzureFirewallFqdnTagPropertiesFormat) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // AzureFirewallIPConfiguration IP configuration of an Azure Firewall.
 type AzureFirewallIPConfiguration struct {
 	// AzureFirewallIPConfigurationPropertiesFormat - Properties of the azure firewall IP configuration.
@@ -6516,6 +6530,12 @@ type AzureFirewallIPGroups struct {
 	ID *string `json:"id,omitempty"`
 	// ChangeNumber - READ-ONLY; The iteration number.
 	ChangeNumber *string `json:"changeNumber,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for AzureFirewallIPGroups.
+func (afig AzureFirewallIPGroups) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // AzureFirewallListResult response for ListAzureFirewalls API service call.
@@ -7456,6 +7476,12 @@ type AzureWebCategoryPropertiesFormat struct {
 	Group *string `json:"group,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for AzureWebCategoryPropertiesFormat.
+func (awcpf AzureWebCategoryPropertiesFormat) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // BackendAddressPool pool of backend IP addresses.
 type BackendAddressPool struct {
 	autorest.Response `json:"-"`
@@ -7600,6 +7626,12 @@ type BastionActiveSession struct {
 	TargetResourceID *string `json:"targetResourceId,omitempty"`
 	// SessionDurationInMins - READ-ONLY; Duration in mins the session has been active.
 	SessionDurationInMins *float64 `json:"sessionDurationInMins,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for BastionActiveSession.
+func (bas BastionActiveSession) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // BastionActiveSessionListResult response for GetActiveSessions.
@@ -8423,6 +8455,12 @@ type BastionSessionState struct {
 	State *string `json:"state,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for BastionSessionState.
+func (bss BastionSessionState) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // BastionShareableLink bastion Shareable Link.
 type BastionShareableLink struct {
 	// VM - Reference of the virtual machine resource.
@@ -8758,6 +8796,12 @@ type BgpPeerStatus struct {
 	MessagesSent *int64 `json:"messagesSent,omitempty"`
 	// MessagesReceived - READ-ONLY; The number of BGP messages received.
 	MessagesReceived *int64 `json:"messagesReceived,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for BgpPeerStatus.
+func (bps BgpPeerStatus) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // BgpPeerStatusListResult response for list BGP peer status API service call.
@@ -9114,6 +9158,12 @@ type ConfigurationDiagnosticResponse struct {
 	autorest.Response `json:"-"`
 	// Results - READ-ONLY; List of network configuration diagnostic results.
 	Results *[]ConfigurationDiagnosticResult `json:"results,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for ConfigurationDiagnosticResponse.
+func (cdr ConfigurationDiagnosticResponse) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // ConfigurationDiagnosticResult network configuration diagnostic result corresponded to provided traffic
@@ -9862,6 +9912,12 @@ type ConnectivityHop struct {
 	Issues *[]ConnectivityIssue `json:"issues,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for ConnectivityHop.
+func (ch ConnectivityHop) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // ConnectivityInformation information on the connectivity status.
 type ConnectivityInformation struct {
 	autorest.Response `json:"-"`
@@ -9881,6 +9937,12 @@ type ConnectivityInformation struct {
 	ProbesFailed *int32 `json:"probesFailed,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for ConnectivityInformation.
+func (ci ConnectivityInformation) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // ConnectivityIssue information about an issue encountered in the process of checking for connectivity.
 type ConnectivityIssue struct {
 	// Origin - READ-ONLY; The origin of the issue. Possible values include: 'OriginLocal', 'OriginInbound', 'OriginOutbound'
@@ -9891,6 +9953,12 @@ type ConnectivityIssue struct {
 	Type IssueType `json:"type,omitempty"`
 	// Context - READ-ONLY; Provides additional context on the issue.
 	Context *[]map[string]*string `json:"context,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for ConnectivityIssue.
+func (ci ConnectivityIssue) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // ConnectivityParameters parameters that determine how the connectivity check will be performed.
@@ -10202,6 +10270,12 @@ func (cniic *ContainerNetworkInterfaceIPConfiguration) UnmarshalJSON(body []byte
 type ContainerNetworkInterfaceIPConfigurationPropertiesFormat struct {
 	// ProvisioningState - READ-ONLY; The provisioning state of the container network interface IP configuration resource. Possible values include: 'ProvisioningStateSucceeded', 'ProvisioningStateUpdating', 'ProvisioningStateDeleting', 'ProvisioningStateFailed'
 	ProvisioningState ProvisioningState `json:"provisioningState,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for ContainerNetworkInterfaceIPConfigurationPropertiesFormat.
+func (cniicpf ContainerNetworkInterfaceIPConfigurationPropertiesFormat) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // ContainerNetworkInterfacePropertiesFormat properties of container network interface.
@@ -11147,6 +11221,12 @@ type DdosProtectionPlanPropertiesFormat struct {
 	VirtualNetworks *[]SubResource `json:"virtualNetworks,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for DdosProtectionPlanPropertiesFormat.
+func (dpppf DdosProtectionPlanPropertiesFormat) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // DdosProtectionPlansCreateOrUpdateFuture an abstraction for monitoring and retrieving the results of a
 // long-running operation.
 type DdosProtectionPlansCreateOrUpdateFuture struct {
@@ -11245,6 +11325,8 @@ type Delegation struct {
 	Name *string `json:"name,omitempty"`
 	// Etag - READ-ONLY; A unique read-only string that changes whenever the resource is updated.
 	Etag *string `json:"etag,omitempty"`
+	// Type - Resource type.
+	Type *string `json:"type,omitempty"`
 	// ID - Resource ID.
 	ID *string `json:"id,omitempty"`
 }
@@ -11257,6 +11339,9 @@ func (d Delegation) MarshalJSON() ([]byte, error) {
 	}
 	if d.Name != nil {
 		objectMap["name"] = d.Name
+	}
+	if d.Type != nil {
+		objectMap["type"] = d.Type
 	}
 	if d.ID != nil {
 		objectMap["id"] = d.ID
@@ -11299,6 +11384,15 @@ func (d *Delegation) UnmarshalJSON(body []byte) error {
 					return err
 				}
 				d.Etag = &etag
+			}
+		case "type":
+			if v != nil {
+				var typeVar string
+				err = json.Unmarshal(*v, &typeVar)
+				if err != nil {
+					return err
+				}
+				d.Type = &typeVar
 			}
 		case "id":
 			if v != nil {
@@ -13954,6 +14048,12 @@ type ExpressRouteConnectionID struct {
 	ID *string `json:"id,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for ExpressRouteConnectionID.
+func (erci ExpressRouteConnectionID) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // ExpressRouteConnectionList expressRouteConnection list.
 type ExpressRouteConnectionList struct {
 	autorest.Response `json:"-"`
@@ -16101,6 +16201,12 @@ type ExpressRoutePortsLocationBandwidths struct {
 	ValueInGbps *int32 `json:"valueInGbps,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for ExpressRoutePortsLocationBandwidths.
+func (erplb ExpressRoutePortsLocationBandwidths) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // ExpressRoutePortsLocationListResult response for ListExpressRoutePortsLocations API service call.
 type ExpressRoutePortsLocationListResult struct {
 	autorest.Response `json:"-"`
@@ -16812,13 +16918,13 @@ type FirewallPolicyFilterRuleCollection struct {
 	Name *string `json:"name,omitempty"`
 	// Priority - Priority of the Firewall Policy Rule Collection resource.
 	Priority *int32 `json:"priority,omitempty"`
-	// RuleCollectionType - Possible values include: 'RuleCollectionTypeRuleCollectionTypeFirewallPolicyRuleCollection', 'RuleCollectionTypeRuleCollectionTypeFirewallPolicyNatRuleCollection', 'RuleCollectionTypeRuleCollectionTypeFirewallPolicyFilterRuleCollection'
+	// RuleCollectionType - Possible values include: 'RuleCollectionTypeFirewallPolicyRuleCollection', 'RuleCollectionTypeFirewallPolicyNatRuleCollection', 'RuleCollectionTypeFirewallPolicyFilterRuleCollection'
 	RuleCollectionType RuleCollectionType `json:"ruleCollectionType,omitempty"`
 }
 
 // MarshalJSON is the custom marshaler for FirewallPolicyFilterRuleCollection.
 func (fpfrc FirewallPolicyFilterRuleCollection) MarshalJSON() ([]byte, error) {
-	fpfrc.RuleCollectionType = RuleCollectionTypeRuleCollectionTypeFirewallPolicyFilterRuleCollection
+	fpfrc.RuleCollectionType = RuleCollectionTypeFirewallPolicyFilterRuleCollection
 	objectMap := make(map[string]interface{})
 	if fpfrc.Action != nil {
 		objectMap["action"] = fpfrc.Action
@@ -17164,13 +17270,13 @@ type FirewallPolicyNatRuleCollection struct {
 	Name *string `json:"name,omitempty"`
 	// Priority - Priority of the Firewall Policy Rule Collection resource.
 	Priority *int32 `json:"priority,omitempty"`
-	// RuleCollectionType - Possible values include: 'RuleCollectionTypeRuleCollectionTypeFirewallPolicyRuleCollection', 'RuleCollectionTypeRuleCollectionTypeFirewallPolicyNatRuleCollection', 'RuleCollectionTypeRuleCollectionTypeFirewallPolicyFilterRuleCollection'
+	// RuleCollectionType - Possible values include: 'RuleCollectionTypeFirewallPolicyRuleCollection', 'RuleCollectionTypeFirewallPolicyNatRuleCollection', 'RuleCollectionTypeFirewallPolicyFilterRuleCollection'
 	RuleCollectionType RuleCollectionType `json:"ruleCollectionType,omitempty"`
 }
 
 // MarshalJSON is the custom marshaler for FirewallPolicyNatRuleCollection.
 func (fpnrc FirewallPolicyNatRuleCollection) MarshalJSON() ([]byte, error) {
-	fpnrc.RuleCollectionType = RuleCollectionTypeRuleCollectionTypeFirewallPolicyNatRuleCollection
+	fpnrc.RuleCollectionType = RuleCollectionTypeFirewallPolicyNatRuleCollection
 	objectMap := make(map[string]interface{})
 	if fpnrc.Action != nil {
 		objectMap["action"] = fpnrc.Action
@@ -17352,7 +17458,7 @@ type FirewallPolicyRule struct {
 	Name *string `json:"name,omitempty"`
 	// Description - Description of the rule.
 	Description *string `json:"description,omitempty"`
-	// RuleType - Possible values include: 'RuleTypeRuleTypeFirewallPolicyRule', 'RuleTypeRuleTypeApplicationRule', 'RuleTypeRuleTypeNatRule', 'RuleTypeRuleTypeNetworkRule'
+	// RuleType - Possible values include: 'RuleTypeFirewallPolicyRule', 'RuleTypeApplicationRule', 'RuleTypeNatRule', 'RuleTypeNetworkRule'
 	RuleType RuleType `json:"ruleType,omitempty"`
 }
 
@@ -17364,15 +17470,15 @@ func unmarshalBasicFirewallPolicyRule(body []byte) (BasicFirewallPolicyRule, err
 	}
 
 	switch m["ruleType"] {
-	case string(RuleTypeRuleTypeApplicationRule):
+	case string(RuleTypeApplicationRule):
 		var ar ApplicationRule
 		err := json.Unmarshal(body, &ar)
 		return ar, err
-	case string(RuleTypeRuleTypeNatRule):
+	case string(RuleTypeNatRule):
 		var nr NatRule
 		err := json.Unmarshal(body, &nr)
 		return nr, err
-	case string(RuleTypeRuleTypeNetworkRule):
+	case string(RuleTypeNetworkRule):
 		var r Rule
 		err := json.Unmarshal(body, &r)
 		return r, err
@@ -17403,7 +17509,7 @@ func unmarshalBasicFirewallPolicyRuleArray(body []byte) ([]BasicFirewallPolicyRu
 
 // MarshalJSON is the custom marshaler for FirewallPolicyRule.
 func (fpr FirewallPolicyRule) MarshalJSON() ([]byte, error) {
-	fpr.RuleType = RuleTypeRuleTypeFirewallPolicyRule
+	fpr.RuleType = RuleTypeFirewallPolicyRule
 	objectMap := make(map[string]interface{})
 	if fpr.Name != nil {
 		objectMap["name"] = fpr.Name
@@ -17463,7 +17569,7 @@ type FirewallPolicyRuleCollection struct {
 	Name *string `json:"name,omitempty"`
 	// Priority - Priority of the Firewall Policy Rule Collection resource.
 	Priority *int32 `json:"priority,omitempty"`
-	// RuleCollectionType - Possible values include: 'RuleCollectionTypeRuleCollectionTypeFirewallPolicyRuleCollection', 'RuleCollectionTypeRuleCollectionTypeFirewallPolicyNatRuleCollection', 'RuleCollectionTypeRuleCollectionTypeFirewallPolicyFilterRuleCollection'
+	// RuleCollectionType - Possible values include: 'RuleCollectionTypeFirewallPolicyRuleCollection', 'RuleCollectionTypeFirewallPolicyNatRuleCollection', 'RuleCollectionTypeFirewallPolicyFilterRuleCollection'
 	RuleCollectionType RuleCollectionType `json:"ruleCollectionType,omitempty"`
 }
 
@@ -17475,11 +17581,11 @@ func unmarshalBasicFirewallPolicyRuleCollection(body []byte) (BasicFirewallPolic
 	}
 
 	switch m["ruleCollectionType"] {
-	case string(RuleCollectionTypeRuleCollectionTypeFirewallPolicyNatRuleCollection):
+	case string(RuleCollectionTypeFirewallPolicyNatRuleCollection):
 		var fpnrc FirewallPolicyNatRuleCollection
 		err := json.Unmarshal(body, &fpnrc)
 		return fpnrc, err
-	case string(RuleCollectionTypeRuleCollectionTypeFirewallPolicyFilterRuleCollection):
+	case string(RuleCollectionTypeFirewallPolicyFilterRuleCollection):
 		var fpfrc FirewallPolicyFilterRuleCollection
 		err := json.Unmarshal(body, &fpfrc)
 		return fpfrc, err
@@ -17510,7 +17616,7 @@ func unmarshalBasicFirewallPolicyRuleCollectionArray(body []byte) ([]BasicFirewa
 
 // MarshalJSON is the custom marshaler for FirewallPolicyRuleCollection.
 func (fprc FirewallPolicyRuleCollection) MarshalJSON() ([]byte, error) {
-	fprc.RuleCollectionType = RuleCollectionTypeRuleCollectionTypeFirewallPolicyRuleCollection
+	fprc.RuleCollectionType = RuleCollectionTypeFirewallPolicyRuleCollection
 	objectMap := make(map[string]interface{})
 	if fprc.Name != nil {
 		objectMap["name"] = fprc.Name
@@ -18639,6 +18745,12 @@ type GatewayRoute struct {
 	Weight *int32 `json:"weight,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for GatewayRoute.
+func (gr GatewayRoute) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // GatewayRouteListResult list of virtual network gateway routes.
 type GatewayRouteListResult struct {
 	autorest.Response `json:"-"`
@@ -18898,6 +19010,12 @@ type HopLinkProperties struct {
 	RoundTripTimeAvg *int64 `json:"roundTripTimeAvg,omitempty"`
 	// RoundTripTimeMax - READ-ONLY; Maximum roundtrip time in milliseconds.
 	RoundTripTimeMax *int64 `json:"roundTripTimeMax,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for HopLinkProperties.
+func (hlp HopLinkProperties) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // HTTPConfiguration HTTP configuration of the connectivity check.
@@ -20370,6 +20488,8 @@ type InterfaceIPConfiguration struct {
 	Name *string `json:"name,omitempty"`
 	// Etag - READ-ONLY; A unique read-only string that changes whenever the resource is updated.
 	Etag *string `json:"etag,omitempty"`
+	// Type - Resource type.
+	Type *string `json:"type,omitempty"`
 	// ID - Resource ID.
 	ID *string `json:"id,omitempty"`
 }
@@ -20382,6 +20502,9 @@ func (iic InterfaceIPConfiguration) MarshalJSON() ([]byte, error) {
 	}
 	if iic.Name != nil {
 		objectMap["name"] = iic.Name
+	}
+	if iic.Type != nil {
+		objectMap["type"] = iic.Type
 	}
 	if iic.ID != nil {
 		objectMap["id"] = iic.ID
@@ -20424,6 +20547,15 @@ func (iic *InterfaceIPConfiguration) UnmarshalJSON(body []byte) error {
 					return err
 				}
 				iic.Etag = &etag
+			}
+		case "type":
+			if v != nil {
+				var typeVar string
+				err = json.Unmarshal(*v, &typeVar)
+				if err != nil {
+					return err
+				}
+				iic.Type = &typeVar
 			}
 		case "id":
 			if v != nil {
@@ -20618,6 +20750,12 @@ type InterfaceIPConfigurationPrivateLinkConnectionProperties struct {
 	RequiredMemberName *string `json:"requiredMemberName,omitempty"`
 	// Fqdns - READ-ONLY; List of FQDNs for current private link connection.
 	Fqdns *[]string `json:"fqdns,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for InterfaceIPConfigurationPrivateLinkConnectionProperties.
+func (iicplcp InterfaceIPConfigurationPrivateLinkConnectionProperties) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // InterfaceIPConfigurationPropertiesFormat properties of IP configuration.
@@ -21055,6 +21193,12 @@ type InterfacePropertiesFormat struct {
 	ResourceGUID *string `json:"resourceGuid,omitempty"`
 	// ProvisioningState - READ-ONLY; The provisioning state of the network interface resource. Possible values include: 'ProvisioningStateSucceeded', 'ProvisioningStateUpdating', 'ProvisioningStateDeleting', 'ProvisioningStateFailed'
 	ProvisioningState ProvisioningState `json:"provisioningState,omitempty"`
+	// NicType - Type of Network Interface resource. Possible values include: 'InterfaceNicTypeStandard', 'InterfaceNicTypeElastic'
+	NicType InterfaceNicType `json:"nicType,omitempty"`
+	// PrivateLinkService - Privatelinkservice of the network interface resource.
+	PrivateLinkService *PrivateLinkService `json:"privateLinkService,omitempty"`
+	// MigrationPhase - Migration phase of Network Interface resource. Possible values include: 'InterfaceMigrationPhaseNone', 'InterfaceMigrationPhasePrepare', 'InterfaceMigrationPhaseCommit', 'InterfaceMigrationPhaseAbort', 'InterfaceMigrationPhaseCommitted'
+	MigrationPhase InterfaceMigrationPhase `json:"migrationPhase,omitempty"`
 }
 
 // MarshalJSON is the custom marshaler for InterfacePropertiesFormat.
@@ -21074,6 +21218,15 @@ func (ipf InterfacePropertiesFormat) MarshalJSON() ([]byte, error) {
 	}
 	if ipf.EnableIPForwarding != nil {
 		objectMap["enableIPForwarding"] = ipf.EnableIPForwarding
+	}
+	if ipf.NicType != "" {
+		objectMap["nicType"] = ipf.NicType
+	}
+	if ipf.PrivateLinkService != nil {
+		objectMap["privateLinkService"] = ipf.PrivateLinkService
+	}
+	if ipf.MigrationPhase != "" {
+		objectMap["migrationPhase"] = ipf.MigrationPhase
 	}
 	return json.Marshal(objectMap)
 }
@@ -21607,6 +21760,8 @@ type IPAddressAvailabilityResult struct {
 	Available *bool `json:"available,omitempty"`
 	// AvailableIPAddresses - Contains other available private IP addresses if the asked for address is taken.
 	AvailableIPAddresses *[]string `json:"availableIPAddresses,omitempty"`
+	// IsPlatformReserved - Private IP address platform reserved.
+	IsPlatformReserved *bool `json:"isPlatformReserved,omitempty"`
 }
 
 // IPAllocation ipAllocation resource.
@@ -27177,6 +27332,12 @@ type ManagedServiceIdentityUserAssignedIdentitiesValue struct {
 	ClientID *string `json:"clientId,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for ManagedServiceIdentityUserAssignedIdentitiesValue.
+func (msiAiv ManagedServiceIdentityUserAssignedIdentitiesValue) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // MatchCondition define match conditions.
 type MatchCondition struct {
 	// MatchVariables - List of match variables.
@@ -27680,13 +27841,13 @@ type NatRule struct {
 	Name *string `json:"name,omitempty"`
 	// Description - Description of the rule.
 	Description *string `json:"description,omitempty"`
-	// RuleType - Possible values include: 'RuleTypeRuleTypeFirewallPolicyRule', 'RuleTypeRuleTypeApplicationRule', 'RuleTypeRuleTypeNatRule', 'RuleTypeRuleTypeNetworkRule'
+	// RuleType - Possible values include: 'RuleTypeFirewallPolicyRule', 'RuleTypeApplicationRule', 'RuleTypeNatRule', 'RuleTypeNetworkRule'
 	RuleType RuleType `json:"ruleType,omitempty"`
 }
 
 // MarshalJSON is the custom marshaler for NatRule.
 func (nr NatRule) MarshalJSON() ([]byte, error) {
-	nr.RuleType = RuleTypeRuleTypeNatRule
+	nr.RuleType = RuleTypeNatRule
 	objectMap := make(map[string]interface{})
 	if nr.IPProtocols != nil {
 		objectMap["ipProtocols"] = nr.IPProtocols
@@ -29772,6 +29933,12 @@ type PeerRoute struct {
 	AsPath *string `json:"asPath,omitempty"`
 	// Weight - READ-ONLY; The route's weight.
 	Weight *int32 `json:"weight,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for PeerRoute.
+func (pr PeerRoute) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // PeerRouteList list of virtual router peer routes.
@@ -32651,6 +32818,14 @@ type PublicIPAddressPropertiesFormat struct {
 	ResourceGUID *string `json:"resourceGuid,omitempty"`
 	// ProvisioningState - READ-ONLY; The provisioning state of the public IP address resource. Possible values include: 'ProvisioningStateSucceeded', 'ProvisioningStateUpdating', 'ProvisioningStateDeleting', 'ProvisioningStateFailed'
 	ProvisioningState ProvisioningState `json:"provisioningState,omitempty"`
+	// ServicePublicIPAddress - The service public IP address of the public IP address resource.
+	ServicePublicIPAddress *PublicIPAddress `json:"servicePublicIPAddress,omitempty"`
+	// NatGateway - The NatGateway for the Public IP address.
+	NatGateway *NatGateway `json:"natGateway,omitempty"`
+	// MigrationPhase - Migration phase of Public IP Address. Possible values include: 'PublicIPAddressMigrationPhaseNone', 'PublicIPAddressMigrationPhasePrepare', 'PublicIPAddressMigrationPhaseCommit', 'PublicIPAddressMigrationPhaseAbort', 'PublicIPAddressMigrationPhaseCommitted'
+	MigrationPhase PublicIPAddressMigrationPhase `json:"migrationPhase,omitempty"`
+	// LinkedPublicIPAddress - The linked public IP address of the public IP address resource.
+	LinkedPublicIPAddress *PublicIPAddress `json:"linkedPublicIPAddress,omitempty"`
 }
 
 // MarshalJSON is the custom marshaler for PublicIPAddressPropertiesFormat.
@@ -32679,6 +32854,18 @@ func (piapf PublicIPAddressPropertiesFormat) MarshalJSON() ([]byte, error) {
 	}
 	if piapf.IdleTimeoutInMinutes != nil {
 		objectMap["idleTimeoutInMinutes"] = piapf.IdleTimeoutInMinutes
+	}
+	if piapf.ServicePublicIPAddress != nil {
+		objectMap["servicePublicIPAddress"] = piapf.ServicePublicIPAddress
+	}
+	if piapf.NatGateway != nil {
+		objectMap["natGateway"] = piapf.NatGateway
+	}
+	if piapf.MigrationPhase != "" {
+		objectMap["migrationPhase"] = piapf.MigrationPhase
+	}
+	if piapf.LinkedPublicIPAddress != nil {
+		objectMap["linkedPublicIPAddress"] = piapf.LinkedPublicIPAddress
 	}
 	return json.Marshal(objectMap)
 }
@@ -33107,6 +33294,8 @@ type PublicIPPrefixPropertiesFormat struct {
 	ResourceGUID *string `json:"resourceGuid,omitempty"`
 	// ProvisioningState - READ-ONLY; The provisioning state of the public IP prefix resource. Possible values include: 'ProvisioningStateSucceeded', 'ProvisioningStateUpdating', 'ProvisioningStateDeleting', 'ProvisioningStateFailed'
 	ProvisioningState ProvisioningState `json:"provisioningState,omitempty"`
+	// NatGateway - NatGateway of Public IP Prefix.
+	NatGateway *NatGateway `json:"natGateway,omitempty"`
 }
 
 // MarshalJSON is the custom marshaler for PublicIPPrefixPropertiesFormat.
@@ -33123,6 +33312,9 @@ func (pippf PublicIPPrefixPropertiesFormat) MarshalJSON() ([]byte, error) {
 	}
 	if pippf.CustomIPPrefix != nil {
 		objectMap["customIPPrefix"] = pippf.CustomIPPrefix
+	}
+	if pippf.NatGateway != nil {
+		objectMap["natGateway"] = pippf.NatGateway
 	}
 	return json.Marshal(objectMap)
 }
@@ -34976,13 +35168,13 @@ type Rule struct {
 	Name *string `json:"name,omitempty"`
 	// Description - Description of the rule.
 	Description *string `json:"description,omitempty"`
-	// RuleType - Possible values include: 'RuleTypeRuleTypeFirewallPolicyRule', 'RuleTypeRuleTypeApplicationRule', 'RuleTypeRuleTypeNatRule', 'RuleTypeRuleTypeNetworkRule'
+	// RuleType - Possible values include: 'RuleTypeFirewallPolicyRule', 'RuleTypeApplicationRule', 'RuleTypeNatRule', 'RuleTypeNetworkRule'
 	RuleType RuleType `json:"ruleType,omitempty"`
 }
 
 // MarshalJSON is the custom marshaler for Rule.
 func (r Rule) MarshalJSON() ([]byte, error) {
-	r.RuleType = RuleTypeRuleTypeNetworkRule
+	r.RuleType = RuleTypeNetworkRule
 	objectMap := make(map[string]interface{})
 	if r.IPProtocols != nil {
 		objectMap["ipProtocols"] = r.IPProtocols
@@ -37221,6 +37413,12 @@ type ServiceTagInformation struct {
 	ID *string `json:"id,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for ServiceTagInformation.
+func (sti ServiceTagInformation) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // ServiceTagInformationPropertiesFormat properties of the service tag information.
 type ServiceTagInformationPropertiesFormat struct {
 	// ChangeNumber - READ-ONLY; The iteration number of service tag.
@@ -37231,6 +37429,14 @@ type ServiceTagInformationPropertiesFormat struct {
 	SystemService *string `json:"systemService,omitempty"`
 	// AddressPrefixes - READ-ONLY; The list of IP address prefixes.
 	AddressPrefixes *[]string `json:"addressPrefixes,omitempty"`
+	// State - READ-ONLY; The state of the service tag.
+	State *string `json:"state,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for ServiceTagInformationPropertiesFormat.
+func (stipf ServiceTagInformationPropertiesFormat) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // ServiceTagsListResult response for the ListServiceTags API service call.
@@ -37250,6 +37456,12 @@ type ServiceTagsListResult struct {
 	Values *[]ServiceTagInformation `json:"values,omitempty"`
 	// NextLink - READ-ONLY; The URL to get next page of service tag information resources.
 	NextLink *string `json:"nextLink,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for ServiceTagsListResult.
+func (stlr ServiceTagsListResult) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // SessionIds list of session IDs.
@@ -37283,6 +37495,8 @@ type Subnet struct {
 	Name *string `json:"name,omitempty"`
 	// Etag - READ-ONLY; A unique read-only string that changes whenever the resource is updated.
 	Etag *string `json:"etag,omitempty"`
+	// Type - Resource type.
+	Type *string `json:"type,omitempty"`
 	// ID - Resource ID.
 	ID *string `json:"id,omitempty"`
 }
@@ -37295,6 +37509,9 @@ func (s Subnet) MarshalJSON() ([]byte, error) {
 	}
 	if s.Name != nil {
 		objectMap["name"] = s.Name
+	}
+	if s.Type != nil {
+		objectMap["type"] = s.Type
 	}
 	if s.ID != nil {
 		objectMap["id"] = s.ID
@@ -37337,6 +37554,15 @@ func (s *Subnet) UnmarshalJSON(body []byte) error {
 					return err
 				}
 				s.Etag = &etag
+			}
+		case "type":
+			if v != nil {
+				var typeVar string
+				err = json.Unmarshal(*v, &typeVar)
+				if err != nil {
+					return err
+				}
+				s.Type = &typeVar
 			}
 		case "id":
 			if v != nil {
@@ -37568,6 +37794,8 @@ type SubnetPropertiesFormat struct {
 	PrivateEndpointNetworkPolicies VirtualNetworkPrivateEndpointNetworkPolicies `json:"privateEndpointNetworkPolicies,omitempty"`
 	// PrivateLinkServiceNetworkPolicies - Enable or Disable apply network policies on private link service in the subnet. Possible values include: 'VirtualNetworkPrivateLinkServiceNetworkPoliciesEnabled', 'VirtualNetworkPrivateLinkServiceNetworkPoliciesDisabled'
 	PrivateLinkServiceNetworkPolicies VirtualNetworkPrivateLinkServiceNetworkPolicies `json:"privateLinkServiceNetworkPolicies,omitempty"`
+	// ApplicationGatewayIPConfigurations - Application gateway IP configurations of virtual network resource.
+	ApplicationGatewayIPConfigurations *[]ApplicationGatewayIPConfiguration `json:"applicationGatewayIpConfigurations,omitempty"`
 }
 
 // MarshalJSON is the custom marshaler for SubnetPropertiesFormat.
@@ -37605,6 +37833,9 @@ func (spf SubnetPropertiesFormat) MarshalJSON() ([]byte, error) {
 	}
 	if spf.PrivateLinkServiceNetworkPolicies != "" {
 		objectMap["privateLinkServiceNetworkPolicies"] = spf.PrivateLinkServiceNetworkPolicies
+	}
+	if spf.ApplicationGatewayIPConfigurations != nil {
+		objectMap["applicationGatewayIpConfigurations"] = spf.ApplicationGatewayIPConfigurations
 	}
 	return json.Marshal(objectMap)
 }
@@ -37978,6 +38209,12 @@ type TunnelConnectionHealth struct {
 	EgressBytesTransferred *int64 `json:"egressBytesTransferred,omitempty"`
 	// LastConnectionEstablishedUtcTime - READ-ONLY; The time at which connection was established in Utc format.
 	LastConnectionEstablishedUtcTime *string `json:"lastConnectionEstablishedUtcTime,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for TunnelConnectionHealth.
+func (tch TunnelConnectionHealth) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // UnprepareNetworkPoliciesRequest details of UnprepareNetworkPolicies for Subnet.
@@ -38510,6 +38747,12 @@ type VirtualApplianceNicProperties struct {
 	PublicIPAddress *string `json:"publicIpAddress,omitempty"`
 	// PrivateIPAddress - READ-ONLY; Private IP address.
 	PrivateIPAddress *string `json:"privateIpAddress,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for VirtualApplianceNicProperties.
+func (vanp VirtualApplianceNicProperties) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // VirtualAppliancePropertiesFormat network Virtual Appliance definition.
@@ -39115,6 +39358,12 @@ type VirtualApplianceSkuInstances struct {
 	ScaleUnit *string `json:"scaleUnit,omitempty"`
 	// InstanceCount - READ-ONLY; Instance Count.
 	InstanceCount *int32 `json:"instanceCount,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for VirtualApplianceSkuInstances.
+func (vasi VirtualApplianceSkuInstances) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // VirtualApplianceSkuListResult response for ListNetworkVirtualApplianceSkus API service call.
@@ -42974,6 +43223,8 @@ type VirtualNetworkPeering struct {
 	Name *string `json:"name,omitempty"`
 	// Etag - READ-ONLY; A unique read-only string that changes whenever the resource is updated.
 	Etag *string `json:"etag,omitempty"`
+	// Type - Resource type.
+	Type *string `json:"type,omitempty"`
 	// ID - Resource ID.
 	ID *string `json:"id,omitempty"`
 }
@@ -42986,6 +43237,9 @@ func (vnp VirtualNetworkPeering) MarshalJSON() ([]byte, error) {
 	}
 	if vnp.Name != nil {
 		objectMap["name"] = vnp.Name
+	}
+	if vnp.Type != nil {
+		objectMap["type"] = vnp.Type
 	}
 	if vnp.ID != nil {
 		objectMap["id"] = vnp.ID
@@ -43028,6 +43282,15 @@ func (vnp *VirtualNetworkPeering) UnmarshalJSON(body []byte) error {
 					return err
 				}
 				vnp.Etag = &etag
+			}
+		case "type":
+			if v != nil {
+				var typeVar string
+				err = json.Unmarshal(*v, &typeVar)
+				if err != nil {
+					return err
+				}
+				vnp.Type = &typeVar
 			}
 		case "id":
 			if v != nil {
@@ -43225,6 +43488,10 @@ type VirtualNetworkPeeringPropertiesFormat struct {
 	PeeringState VirtualNetworkPeeringState `json:"peeringState,omitempty"`
 	// ProvisioningState - READ-ONLY; The provisioning state of the virtual network peering resource. Possible values include: 'ProvisioningStateSucceeded', 'ProvisioningStateUpdating', 'ProvisioningStateDeleting', 'ProvisioningStateFailed'
 	ProvisioningState ProvisioningState `json:"provisioningState,omitempty"`
+	// DoNotVerifyRemoteGateways - If we need to verify the provisioning state of the remote gateway.
+	DoNotVerifyRemoteGateways *bool `json:"doNotVerifyRemoteGateways,omitempty"`
+	// ResourceGUID - READ-ONLY; The resourceGuid property of the Virtual Network peering resource.
+	ResourceGUID *string `json:"resourceGuid,omitempty"`
 }
 
 // MarshalJSON is the custom marshaler for VirtualNetworkPeeringPropertiesFormat.
@@ -43253,6 +43520,9 @@ func (vnppf VirtualNetworkPeeringPropertiesFormat) MarshalJSON() ([]byte, error)
 	}
 	if vnppf.PeeringState != "" {
 		objectMap["peeringState"] = vnppf.PeeringState
+	}
+	if vnppf.DoNotVerifyRemoteGateways != nil {
+		objectMap["doNotVerifyRemoteGateways"] = vnppf.DoNotVerifyRemoteGateways
 	}
 	return json.Marshal(objectMap)
 }
@@ -43875,12 +44145,24 @@ type VirtualNetworkUsage struct {
 	Unit *string `json:"unit,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for VirtualNetworkUsage.
+func (vnu VirtualNetworkUsage) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // VirtualNetworkUsageName usage strings container.
 type VirtualNetworkUsageName struct {
 	// LocalizedValue - READ-ONLY; Localized subnet size and usage string.
 	LocalizedValue *string `json:"localizedValue,omitempty"`
 	// Value - READ-ONLY; Subnet size and usage string.
 	Value *string `json:"value,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for VirtualNetworkUsageName.
+func (vnun VirtualNetworkUsageName) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // VirtualRouter virtualRouter Resource.
@@ -44997,6 +45279,12 @@ type VpnClientConnectionHealthDetail struct {
 	IngressBytesTransferred *int64 `json:"ingressBytesTransferred,omitempty"`
 	// MaxPacketsPerSecond - READ-ONLY; The max packets transferred per second.
 	MaxPacketsPerSecond *int64 `json:"maxPacketsPerSecond,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for VpnClientConnectionHealthDetail.
+func (vcchd VpnClientConnectionHealthDetail) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // VpnClientConnectionHealthDetailListResult list of virtual network gateway vpn client connection health.
@@ -46762,6 +47050,12 @@ type VpnSiteID struct {
 	VpnSite *string `json:"vpnSite,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for VpnSiteID.
+func (vsi VpnSiteID) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
+}
+
 // VpnSiteLink vpnSiteLink Resource.
 type VpnSiteLink struct {
 	autorest.Response `json:"-"`
@@ -47360,6 +47654,12 @@ type WatcherListResult struct {
 type WatcherPropertiesFormat struct {
 	// ProvisioningState - READ-ONLY; The provisioning state of the network watcher resource. Possible values include: 'ProvisioningStateSucceeded', 'ProvisioningStateUpdating', 'ProvisioningStateDeleting', 'ProvisioningStateFailed'
 	ProvisioningState ProvisioningState `json:"provisioningState,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for WatcherPropertiesFormat.
+func (wpf WatcherPropertiesFormat) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // WatchersCheckConnectivityFuture an abstraction for monitoring and retrieving the results of a
@@ -48069,6 +48369,12 @@ type WebApplicationFirewallPolicyListResult struct {
 	Value *[]WebApplicationFirewallPolicy `json:"value,omitempty"`
 	// NextLink - READ-ONLY; URL to get the next set of WebApplicationFirewallPolicy objects if there are any.
 	NextLink *string `json:"nextLink,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for WebApplicationFirewallPolicyListResult.
+func (wafplr WebApplicationFirewallPolicyListResult) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	return json.Marshal(objectMap)
 }
 
 // WebApplicationFirewallPolicyListResultIterator provides access to a complete listing of

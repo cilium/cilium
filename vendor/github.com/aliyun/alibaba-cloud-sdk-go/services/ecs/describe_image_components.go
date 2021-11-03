@@ -76,6 +76,7 @@ type DescribeImageComponentsRequest struct {
 	ResourceGroupId      string                        `position:"Query" name:"ResourceGroupId"`
 	NextToken            string                        `position:"Query" name:"NextToken"`
 	Tag                  *[]DescribeImageComponentsTag `position:"Query" name:"Tag"  type:"Repeated"`
+	Owner                string                        `position:"Query" name:"Owner"`
 	ResourceOwnerAccount string                        `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string                        `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer              `position:"Query" name:"OwnerId"`
@@ -92,9 +93,9 @@ type DescribeImageComponentsTag struct {
 // DescribeImageComponentsResponse is the response struct for api DescribeImageComponents
 type DescribeImageComponentsResponse struct {
 	*responses.BaseResponse
+	NextToken      string         `json:"NextToken" xml:"NextToken"`
 	RequestId      string         `json:"RequestId" xml:"RequestId"`
 	TotalCount     int            `json:"TotalCount" xml:"TotalCount"`
-	NextToken      string         `json:"NextToken" xml:"NextToken"`
 	MaxResults     int            `json:"MaxResults" xml:"MaxResults"`
 	ImageComponent ImageComponent `json:"ImageComponent" xml:"ImageComponent"`
 }

@@ -86,8 +86,8 @@ type CreateActivationRequest struct {
 type CreateActivationResponse struct {
 	*responses.BaseResponse
 	RequestId      string `json:"RequestId" xml:"RequestId"`
-	ActivationId   string `json:"ActivationId" xml:"ActivationId"`
 	ActivationCode string `json:"ActivationCode" xml:"ActivationCode"`
+	ActivationId   string `json:"ActivationId" xml:"ActivationId"`
 }
 
 // CreateCreateActivationRequest creates a request to invoke CreateActivation API

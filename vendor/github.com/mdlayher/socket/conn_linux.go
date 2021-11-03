@@ -1,4 +1,5 @@
-//+build linux
+//go:build linux
+// +build linux
 
 package socket
 
@@ -46,4 +47,42 @@ func (c *Conn) SetsockoptSockFprog(level, opt int, fprog *unix.SockFprog) error 
 	}
 
 	return os.NewSyscallError(op, err)
+}
+
+// GetSockoptTpacketStats wraps getsockopt(2) for getting TpacketStats
+func (c *Conn) GetSockoptTpacketStats(level, name int) (*unix.TpacketStats, error) {
+	const op = "getsockopt"
+
+	var (
+		stats *unix.TpacketStats
+		err   error
+	)
+
+	doErr := c.control(op, func(fd int) error {
+		stats, err = unix.GetsockoptTpacketStats(fd, level, name)
+		return err
+	})
+	if doErr != nil {
+		return stats, doErr
+	}
+	return stats, os.NewSyscallError(op, err)
+}
+
+// GetSockoptTpacketStatsV3 wraps getsockopt(2) for getting TpacketStatsV3
+func (c *Conn) GetSockoptTpacketStatsV3(level, name int) (*unix.TpacketStatsV3, error) {
+	const op = "getsockopt"
+
+	var (
+		stats *unix.TpacketStatsV3
+		err   error
+	)
+
+	doErr := c.control(op, func(fd int) error {
+		stats, err = unix.GetsockoptTpacketStatsV3(fd, level, name)
+		return err
+	})
+	if doErr != nil {
+		return stats, doErr
+	}
+	return stats, os.NewSyscallError(op, err)
 }

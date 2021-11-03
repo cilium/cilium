@@ -57,6 +57,8 @@ const (
 	awsEc2MetadataServiceEndpointEnvVar = "AWS_EC2_METADATA_SERVICE_ENDPOINT"
 
 	awsEc2MetadataDisabled = "AWS_EC2_METADATA_DISABLED"
+
+	awsS3DisableMultiRegionAccessPointEnvVar = "AWS_S3_DISABLE_MULTIREGION_ACCESS_POINTS"
 )
 
 var (
@@ -202,6 +204,12 @@ type EnvConfig struct {
 	//
 	// AWS_EC2_METADATA_SERVICE_ENDPOINT=http://fd00:ec2::254
 	EC2IMDSEndpoint string
+
+	// Specifies if the S3 service should disable multi-region access points
+	// support.
+	//
+	// AWS_S3_DISABLE_MULTIREGION_ACCESS_POINTS=true
+	S3DisableMultiRegionAccessPoints *bool
 }
 
 // loadEnvConfig reads configuration values from the OS's environment variables.
@@ -255,6 +263,10 @@ func NewEnvConfig() (EnvConfig, error) {
 		return cfg, err
 	}
 	cfg.EC2IMDSEndpoint = os.Getenv(awsEc2MetadataServiceEndpointEnvVar)
+
+	if err := setBoolPtrFromEnvVal(&cfg.S3DisableMultiRegionAccessPoints, []string{awsS3DisableMultiRegionAccessPointEnvVar}); err != nil {
+		return cfg, err
+	}
 
 	return cfg, nil
 }
@@ -361,6 +373,16 @@ func (c EnvConfig) GetS3UseARNRegion(ctx context.Context) (value, ok bool, err e
 	}
 
 	return *c.S3UseARNRegion, true, nil
+}
+
+// GetS3DisableMultRegionAccessPoints returns whether to disable multi-region access point
+// support for the S3 client.
+func (c EnvConfig) GetS3DisableMultRegionAccessPoints(ctx context.Context) (value, ok bool, err error) {
+	if c.S3DisableMultiRegionAccessPoints == nil {
+		return false, false, nil
+	}
+
+	return *c.S3DisableMultiRegionAccessPoints, true, nil
 }
 
 func setStringFromEnvVal(dst *string, keys []string) {

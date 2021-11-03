@@ -20,8 +20,8 @@ type ElasticityAssuranceItem struct {
 	PrivatePoolOptionsName          string                                           `json:"PrivatePoolOptionsName" xml:"PrivatePoolOptionsName"`
 	PrivatePoolOptionsMatchCriteria string                                           `json:"PrivatePoolOptionsMatchCriteria" xml:"PrivatePoolOptionsMatchCriteria"`
 	LatestStartTime                 string                                           `json:"LatestStartTime" xml:"LatestStartTime"`
-	RegionId                        string                                           `json:"RegionId" xml:"RegionId"`
 	UsedAssuranceTimes              int                                              `json:"UsedAssuranceTimes" xml:"UsedAssuranceTimes"`
+	RegionId                        string                                           `json:"RegionId" xml:"RegionId"`
 	StartTime                       string                                           `json:"StartTime" xml:"StartTime"`
 	EndTime                         string                                           `json:"EndTime" xml:"EndTime"`
 	ResourceGroupId                 string                                           `json:"ResourceGroupId" xml:"ResourceGroupId"`
@@ -29,6 +29,6 @@ type ElasticityAssuranceItem struct {
 	Status                          string                                           `json:"Status" xml:"Status"`
 	Description                     string                                           `json:"Description" xml:"Description"`
 	PrivatePoolOptionsId            string                                           `json:"PrivatePoolOptionsId" xml:"PrivatePoolOptionsId"`
-	Tags                            TagsInDescribeElasticityAssurances               `json:"Tags" xml:"Tags"`
 	AllocatedResources              AllocatedResourcesInDescribeElasticityAssurances `json:"AllocatedResources" xml:"AllocatedResources"`
+	Tags                            TagsInDescribeElasticityAssurances               `json:"Tags" xml:"Tags"`
 }
