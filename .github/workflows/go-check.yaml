@@ -15,7 +15,7 @@ jobs:
         with:
           go-version: 1.14.15
       - name: Checkout code
-        uses: actions/checkout@v2.3.5
+        uses: actions/checkout@v2.4.0
       - name: Check module vendoring
         run: |
           go mod tidy
@@ -30,7 +30,7 @@ jobs:
         with:
           go-version: 1.14.15
       - name: Checkout code
-        uses: actions/checkout@v2.3.5
+        uses: actions/checkout@v2.4.0
         with:
           # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
           path: src/github.com/cilium/cilium
