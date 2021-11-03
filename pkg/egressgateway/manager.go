@@ -71,11 +71,6 @@ func (manager *Manager) AddEgressPolicy(config PolicyConfig) (bool, error) {
 		return false, errors.New("already exists")
 	}
 
-	err := manager.isValidPolicyConfig(config)
-	if err != nil {
-		return false, err
-	}
-
 	manager.policyConfigs[config.id] = &config
 	for _, endpoint := range manager.epDataStore {
 		if config.policyConfigSelectsEndpoint(endpoint) {
@@ -244,19 +239,6 @@ func getEndpointMetadata(endpoint *k8sTypes.CiliumEndpoint) (*endpointMetadata, 
 	}
 
 	return data, nil
-}
-
-// isValidPolicyConfig validates the given policy config.
-func (manager *Manager) isValidPolicyConfig(config PolicyConfig) error {
-	for _, policyConfig := range manager.policyConfigs {
-		if policyConfig.egressIP.String() == config.egressIP.String() {
-			return fmt.Errorf(
-				"CiliumEgressNatPolicy for egress IP %v already exists",
-				config.egressIP.String())
-
-		}
-	}
-	return nil
 }
 
 // upsertPolicyEndpoint updates or insert to endpoint policy mapping for given policy config and endpoints,
