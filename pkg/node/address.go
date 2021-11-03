@@ -412,12 +412,25 @@ func RestoreHostIPs(ipv6 bool, fromK8s, fromFS net.IP, cidr *cidr.CIDR) {
 
 func chooseHostIPsToRestore(ipv6 bool, fromK8s, fromFS net.IP, cidr *cidr.CIDR) (ip net.IP, err error) {
 	switch {
+	// If both IPs are available, then check both for validity. We prefer the
+	// local IP from the FS over the K8s IP.
 	case fromK8s != nil && fromFS != nil:
 		if fromK8s.Equal(fromFS) {
 			ip = fromK8s
 		} else {
 			ip = fromFS
 			err = errMismatch
+
+			// Check if we need to fallback to using the fromK8s IP, in the
+			// case that the IP from the FS is not within the CIDR. If we
+			// fallback, then we also need to check the fromK8s IP is also
+			// within the CIDR.
+			if cidr != nil && cidr.Contains(ip) {
+				return
+			} else if cidr != nil && cidr.Contains(fromK8s) {
+				ip = fromK8s
+				return
+			}
 		}
 	case fromK8s == nil && fromFS != nil:
 		ip = fromFS
