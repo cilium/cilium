@@ -23,7 +23,7 @@ jobs:
     if: github.repository == 'cilium/cilium'
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@1e204e9a9253d643386038d443f96446fa156a97
+      - uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
         with:
           persist-credentials: false
       - name: Add namespace object
