@@ -68,13 +68,20 @@ func init() {
 	flags.BoolP(option.DebugArg, "D", false, "Enable debugging mode")
 	option.BindEnv(option.DebugArg)
 
-	// We need to obtain from Cilium ConfigMap if the CiliumEndpointCRD option
-	// is enabled or disabled. This option is marked as hidden because the
-	// Cilium Endpoint CRD controller is not in this program and by having it
+	// We need to obtain from Cilium ConfigMap if these options are enabled
+	// or disabled. These options are marked as hidden because having it
 	// being printed by operator --help could confuse users.
 	flags.Bool(option.DisableCiliumEndpointCRDName, false, "")
 	flags.MarkHidden(option.DisableCiliumEndpointCRDName)
 	option.BindEnv(option.DisableCiliumEndpointCRDName)
+
+	flags.Bool(option.EnableIPv4EgressGateway, false, "")
+	flags.MarkHidden(option.EnableIPv4EgressGateway)
+	option.BindEnv(option.EnableIPv4EgressGateway)
+
+	flags.Bool(option.EnableLocalRedirectPolicy, false, "")
+	flags.MarkHidden(option.EnableLocalRedirectPolicy)
+	option.BindEnv(option.EnableLocalRedirectPolicy)
 
 	flags.Duration(operatorOption.EndpointGCInterval, operatorOption.EndpointGCIntervalDefault, "GC interval for cilium endpoints")
 	option.BindEnv(operatorOption.EndpointGCInterval)
