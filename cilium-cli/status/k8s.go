@@ -297,21 +297,21 @@ retry:
 	default:
 	}
 
-	s, err := k.status(ctx)
+	s := k.status(ctx)
 	// We collect the most recent status that even if the last status call
 	// fails, we can still display the most recent status
 	if s != nil {
 		mostRecentStatus = s
 	}
-	if (err != nil || !k.statusIsReady(s)) && k.params.Wait {
+	if !k.statusIsReady(s) && k.params.Wait {
 		time.Sleep(defaults.WaitRetryInterval)
 		goto retry
 	}
 
-	return mostRecentStatus, err
+	return mostRecentStatus, nil
 }
 
-func (k *K8sStatusCollector) status(ctx context.Context) (*Status, error) {
+func (k *K8sStatusCollector) status(ctx context.Context) *Status {
 	status := newStatus()
 
 	err := k.daemonSetStatus(ctx, status, defaults.AgentDaemonSetName)
@@ -405,5 +405,5 @@ func (k *K8sStatusCollector) status(ctx context.Context) (*Status, error) {
 		status.CollectionError(err)
 	}
 
-	return status, nil
+	return status
 }
