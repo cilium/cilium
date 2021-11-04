@@ -4,7 +4,7 @@ updates:
     directory: /
     schedule:
       interval: daily
-    open-pull-requests-limit: 1
+    open-pull-requests-limit: 5
     rebase-strategy: "disabled"
     ignore:
         # using a cilium-specific fork
@@ -20,7 +20,7 @@ updates:
     directory: /
     schedule:
       interval: daily
-    open-pull-requests-limit: 1
+    open-pull-requests-limit: 5
     rebase-strategy: "disabled"
     labels:
     - kind/enhancement
@@ -31,7 +31,7 @@ updates:
     schedule:
       interval: daily
     target-branch: "v1.10"
-    open-pull-requests-limit: 1
+    open-pull-requests-limit: 5
     rebase-strategy: "disabled"
     labels:
     - kind/enhancement
@@ -42,7 +42,7 @@ updates:
     schedule:
       interval: daily
     target-branch: "v1.9"
-    open-pull-requests-limit: 1
+    open-pull-requests-limit: 5
     rebase-strategy: "disabled"
     labels:
     - kind/enhancement
@@ -53,7 +53,7 @@ updates:
     schedule:
       interval: daily
     target-branch: "v1.8"
-    open-pull-requests-limit: 1
+    open-pull-requests-limit: 5
     rebase-strategy: "disabled"
     labels:
     - kind/enhancement
