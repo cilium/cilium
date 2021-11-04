@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"runtime"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -156,6 +157,39 @@ func (k *K8sClusterMesh) apiserverImage() string {
 	return utils.BuildImagePath(k.params.ApiserverImage, defaults.ClusterMeshApiserverImage, k.params.ApiserverVersion, k.imageVersion)
 }
 
+func (k *K8sClusterMesh) etcdImage() string {
+	etcdVersion := "v3.4.13"
+	arch := runtime.GOARCH
+	if arch == "amd64" {
+		return "quay.io/coreos/etcd:" + etcdVersion
+	}
+	return "quay.io/coreos/etcd:" + etcdVersion + "-" + arch
+}
+
+func (k *K8sClusterMesh) etcdEnvs() []corev1.EnvVar {
+	envs := []corev1.EnvVar{
+		{
+			Name:  "ETCDCTL_API",
+			Value: "3",
+		},
+		{
+			Name: "HOSTNAME_IP",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "status.podIP",
+				},
+			},
+		},
+	}
+	if runtime.GOARCH == "arm64" {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "ETCD_UNSUPPORTED_ARCH",
+			Value: "arm64",
+		})
+	}
+	return envs
+}
+
 func (k *K8sClusterMesh) generateDeployment(clustermeshApiserverArgs []string) *appsv1.Deployment {
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -198,22 +232,9 @@ func (k *K8sClusterMesh) generateDeployment(clustermeshApiserverArgs []string) *
 								"--initial-cluster-token=clustermesh-apiserver",
 								"--auto-compaction-retention=1",
 							},
-							Image:           "quay.io/coreos/etcd:v3.4.13",
+							Image:           k.etcdImage(),
 							ImagePullPolicy: corev1.PullIfNotPresent,
-							Env: []corev1.EnvVar{
-								{
-									Name:  "ETCDCTL_API",
-									Value: "3",
-								},
-								{
-									Name: "HOSTNAME_IP",
-									ValueFrom: &corev1.EnvVarSource{
-										FieldRef: &corev1.ObjectFieldSelector{
-											FieldPath: "status.podIP",
-										},
-									},
-								},
-							},
+							Env:             k.etcdEnvs(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "etcd-server-secrets",
@@ -286,22 +307,9 @@ func (k *K8sClusterMesh) generateDeployment(clustermeshApiserverArgs []string) *
 							Name:            "etcd-init",
 							Command:         []string{"/bin/sh", "-c"},
 							Args:            initContainerArgs,
-							Image:           "quay.io/coreos/etcd:v3.4.13",
+							Image:           k.etcdImage(),
 							ImagePullPolicy: corev1.PullIfNotPresent,
-							Env: []corev1.EnvVar{
-								{
-									Name:  "ETCDCTL_API",
-									Value: "3",
-								},
-								{
-									Name: "HOSTNAME_IP",
-									ValueFrom: &corev1.EnvVarSource{
-										FieldRef: &corev1.ObjectFieldSelector{
-											FieldPath: "status.podIP",
-										},
-									},
-								},
-							},
+							Env:             k.etcdEnvs(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "etcd-data-dir",
