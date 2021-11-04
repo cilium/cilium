@@ -684,6 +684,13 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		if !probes.NewProbeManager().GetMisc().HaveLargeInsnLimit {
 			return nil, nil, fmt.Errorf("egress gateway needs kernel 5.2 or newer")
 		}
+
+		// datapath code depends on remote node identities to distinguish between cluser-local and
+		// cluster-egress traffic
+		if !option.Config.EnableRemoteNodeIdentity {
+			return nil, nil, fmt.Errorf("egress gateway requires remote node identities (--%s=\"true\").",
+				option.EnableRemoteNodeIdentity)
+		}
 	}
 	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
 		// TODO(brb) nodeport + ipvlan constraints will be lifted once the SNAT BPF code has been refactored
