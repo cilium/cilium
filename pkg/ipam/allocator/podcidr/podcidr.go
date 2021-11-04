@@ -32,9 +32,7 @@ const (
 	v6AllocatorType = "IPv6"
 )
 
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "pod-cidr")
-)
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "pod-cidr")
 
 // ErrAllocatorNotFound is an error that should be used in case the node tries
 // to allocate a CIDR for an allocator that does not exist.
@@ -50,8 +48,7 @@ func (e *ErrAllocatorNotFound) Error() string {
 }
 
 // ErrAllocatorFull ...
-type ErrAllocatorFull struct {
-}
+type ErrAllocatorFull struct{}
 
 // Error returns the human-readable error for the ErrAllocatorFull
 func (e *ErrAllocatorFull) Error() string {
@@ -144,9 +141,7 @@ type ciliumNodeK8sOp struct {
 	op         k8sOp
 }
 
-var (
-	updateK8sInterval = 15 * time.Second
-)
+var updateK8sInterval = 15 * time.Second
 
 // NodesPodCIDRManager will be used to manage podCIDRs for the nodes in the
 // cluster.
@@ -446,9 +441,7 @@ func (n *NodesPodCIDRManager) Resync(context.Context, time.Time) {
 // allocate a CIDR for this node.
 // Needs n.Mutex to be held.
 func (n *NodesPodCIDRManager) allocateNode(node *v2.CiliumNode) (cn *v2.CiliumNode, allocated, updateStatus bool, err error) {
-	var (
-		cidrs *nodeCIDRs
-	)
+	var cidrs *nodeCIDRs
 
 	log = log.WithFields(logrus.Fields{
 		"node-name": node.Name,
@@ -582,11 +575,11 @@ func releaseCIDRs(cidrAllocators []CIDRAllocator, cidrsToRelease []*net.IPNet) {
 		return
 	}
 	for _, ipNet := range cidrsToRelease {
-		for _, v4ClusterCIDR := range cidrAllocators {
-			if !v4ClusterCIDR.InRange(ipNet) {
+		for _, clusterCIDR := range cidrAllocators {
+			if !clusterCIDR.InRange(ipNet) {
 				continue
 			}
-			err := v4ClusterCIDR.Release(ipNet)
+			err := clusterCIDR.Release(ipNet)
 			log = log.WithFields(logrus.Fields{
 				"cidr": ipNet.String(),
 			})
@@ -611,7 +604,6 @@ func (n *NodesPodCIDRManager) reuseIPNets(
 ) (
 	newNodeCIDRs *nodeCIDRs, allocated bool, err error,
 ) {
-
 	log = log.WithFields(logrus.Fields{
 		"node-name": nodeName,
 	})
