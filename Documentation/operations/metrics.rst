@@ -565,6 +565,32 @@ Options
 
 This metric supports :ref:`Context Options<hubble_context_options>`.
 
+``flows-to-world``
+~~~~~~~~~~~~~~~~~~
+
+This metric counts all non-reply flows containing the ``reserved:world`` label in their
+destination identity. By default, dropped flows are counted if and only if the drop reason
+is ``Policy denied``. Set ``any-drop`` option to count all dropped flows.
+
+================================ ======================================== ============================================
+Name                             Labels                                   Description
+================================ ======================================== ============================================
+``flows_to_world_total``         ``protocol``, ``verdict``                Total number of flows to ``reserved:world``.
+================================ ======================================== ============================================
+
+Options
+"""""""
+
+============== ============= ======================================================
+Option Key     Option Value  Description
+============== ============= ======================================================
+``any-drop``   N/A           Count any dropped flows regardless of the drop reason.
+``port``       N/A           Include the destination port as label ``port``.
+============== ============= ======================================================
+
+
+This metric supports :ref:`Context Options<hubble_context_options>`.
+
 ``http``
 ~~~~~~~~
 
