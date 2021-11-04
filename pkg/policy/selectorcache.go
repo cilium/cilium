@@ -449,6 +449,16 @@ func (f *fqdnSelector) notifyUsers(sc *SelectorCache, added, deleted []identity.
 // previously-cached selector (for example the same toFQDNs match pattern in
 // different rules).
 func (f *fqdnSelector) allocateIdentityMappings(idAllocator cache.IdentityAllocator, selectorIPMapping map[api.FQDNSelector][]net.IP) {
+	// We don't know whether the IPs are associated with this selector
+	// until we map those IPs to identities, which requires potentially
+	// allocating a CIDR identity for those IPs. Therefore, below we
+	// unconditionally allocate identities for all IPs in
+	// 'selectorIPMapping', then find out if any are duplicated with the
+	// existing selector content, and then release any that are already
+	// referenced by this selector. The new IPs will be then added to the
+	// cached selections and the corresponding identity reference will be
+	// released in releaseIdentityMappings(). This balances the
+	// allocation/release of all identities allocated from this function.
 	var (
 		currentlyAllocatedIdentities []*identity.Identity
 		selectorIPs                  []net.IP
@@ -478,9 +488,17 @@ func (f *fqdnSelector) allocateIdentityMappings(idAllocator cache.IdentityAlloca
 		ids = append(ids, currentlyAllocatedIdentities[i].ID)
 	}
 
+	identitiesToRelease := make([]identity.NumericIdentity, 0, len(ids))
 	for _, id := range ids {
+		if _, exists := f.cachedSelections[id]; exists {
+			identitiesToRelease = append(identitiesToRelease, id)
+		}
 		f.cachedSelections[id] = struct{}{}
 	}
+
+	ctx, cancel := context.WithTimeout(context.TODO(), option.Config.KVstoreConnectivityTimeout)
+	defer cancel()
+	idAllocator.ReleaseCIDRIdentitiesByID(ctx, identitiesToRelease)
 }
 
 // identityNotifier provides a means for other subsystems to be made aware of a
