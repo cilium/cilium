@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy/api"
-	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 
 	. "gopkg.in/check.v1"
 )
@@ -29,8 +28,7 @@ func (ds *FQDNTestSuite) TestNameManagerCIDRGeneration(c *C) {
 	var (
 		selIPMap map[api.FQDNSelector][]net.IP
 
-		identityAllocator = testidentity.NewMockIdentityAllocator(nil)
-		nameManager       = NewNameManager(Config{
+		nameManager = NewNameManager(Config{
 			MinTTL: 1,
 			Cache:  NewDNSCache(0),
 
@@ -45,10 +43,8 @@ func (ds *FQDNTestSuite) TestNameManagerCIDRGeneration(c *C) {
 
 	// add rules
 	nameManager.Lock()
-	ids := nameManager.RegisterForIdentityUpdatesLocked(identityAllocator, ciliumIOSel)
+	nameManager.RegisterForIdentityUpdatesLocked(ciliumIOSel)
 	nameManager.Unlock()
-	c.Assert(len(ids), Equals, 0)
-	c.Assert(ids, Not(IsNil))
 
 	// poll DNS once, check that we only generate 1 rule (for 1 IP) and that we
 	// still have 1 ToFQDN rule, and that the IP is correct
@@ -78,8 +74,7 @@ func (ds *FQDNTestSuite) TestNameManagerMultiIPUpdate(c *C) {
 	var (
 		selIPMap map[api.FQDNSelector][]net.IP
 
-		identityAllocator = testidentity.NewMockIdentityAllocator(nil)
-		nameManager       = NewNameManager(Config{
+		nameManager = NewNameManager(Config{
 			MinTTL: 1,
 			Cache:  NewDNSCache(0),
 
@@ -96,8 +91,7 @@ func (ds *FQDNTestSuite) TestNameManagerMultiIPUpdate(c *C) {
 	selectorsToAdd := api.FQDNSelectorSlice{ciliumIOSel, githubSel}
 	nameManager.Lock()
 	for _, sel := range selectorsToAdd {
-		ids := nameManager.RegisterForIdentityUpdatesLocked(identityAllocator, sel)
-		c.Assert(ids, Not(IsNil))
+		nameManager.RegisterForIdentityUpdatesLocked(sel)
 	}
 	nameManager.Unlock()
 
@@ -136,8 +130,7 @@ func (ds *FQDNTestSuite) TestNameManagerMultiIPUpdate(c *C) {
 
 	// Second registration fails because IdenitityAllocator is not initialized
 	nameManager.Lock()
-	ids := nameManager.RegisterForIdentityUpdatesLocked(identityAllocator, githubSel)
-	c.Assert(ids, IsNil)
+	nameManager.RegisterForIdentityUpdatesLocked(githubSel)
 
 	nameManager.UnregisterForIdentityUpdatesLocked(githubSel)
 	_, exists := nameManager.allSelectors[githubSel]
