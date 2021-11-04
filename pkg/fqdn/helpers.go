@@ -25,13 +25,13 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// mapSelectorsToIPs iterates through a set of FQDNSelectors and evalutes whether
-// they match the DNS Names in the cache. If so, the set of IPs which the cache
-// maintains as mapping to each DNS Name are mapped to the matching FQDNSelector.
-// Returns the mapping of DNSName to set of IPs which back said DNS name, the
-// set of FQDNSelectors which do not map to any IPs, and the set of
-// FQDNSelectors mapping to a set of IPs.
-func mapSelectorsToIPs(fqdnSelectors map[api.FQDNSelector]struct{}, cache *DNSCache) (selectorsMissingIPs []api.FQDNSelector, selectorIPMapping map[api.FQDNSelector][]net.IP) {
+// MapSelectorsToIPsLocked iterates through a set of FQDNSelectors and evalutes
+// whether they match the DNS Names in the cache. If so, the set of IPs which
+// the cache maintains as mapping to each DNS Name are mapped to the matching
+// FQDNSelector. Returns the mapping of DNSName to set of IPs which back said
+// DNS name, the set of FQDNSelectors which do not map to any IPs, and the set
+// of FQDNSelectors mapping to a set of IPs.
+func (n *NameManager) MapSelectorsToIPsLocked(fqdnSelectors map[api.FQDNSelector]struct{}) (selectorsMissingIPs []api.FQDNSelector, selectorIPMapping map[api.FQDNSelector][]net.IP) {
 	missing := make(map[api.FQDNSelector]struct{}) // a set to dedup missing dnsNames
 	selectorIPMapping = make(map[api.FQDNSelector][]net.IP)
 
@@ -43,7 +43,7 @@ func mapSelectorsToIPs(fqdnSelectors map[api.FQDNSelector]struct{}, cache *DNSCa
 		// lookup matching DNS names
 		if len(ToFQDN.MatchName) > 0 {
 			dnsName := prepareMatchName(ToFQDN.MatchName)
-			lookupIPs := cache.Lookup(dnsName)
+			lookupIPs := n.cache.Lookup(dnsName)
 
 			// Mark this FQDNSelector as having no IPs corresponding to it.
 			// FQDNSelectors are guaranteed to have only their MatchName OR
@@ -73,7 +73,7 @@ func mapSelectorsToIPs(fqdnSelectors map[api.FQDNSelector]struct{}, cache *DNSCa
 			if patternRE, err = regexp.Compile(patternREStr); err != nil {
 				log.WithError(err).Error("Error compiling matchPattern")
 			}
-			lookupIPs := cache.LookupByRegexp(patternRE)
+			lookupIPs := n.cache.LookupByRegexp(patternRE)
 
 			// Mark this pattern missing; it will be unmarked in the loop below
 			missing[ToFQDN] = struct{}{}

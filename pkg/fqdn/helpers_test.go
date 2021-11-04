@@ -96,22 +96,26 @@ func (ds *DNSCacheTestSuite) BenchmarkKeepUniqueNames(c *C) {
 func (ds *DNSCacheTestSuite) TestMapIPsToSelectors(c *C) {
 
 	var (
-		ciliumIP1 = net.ParseIP("1.2.3.4")
-		ciliumIP2 = net.ParseIP("1.2.3.5")
+		ciliumIP1   = net.ParseIP("1.2.3.4")
+		ciliumIP2   = net.ParseIP("1.2.3.5")
+		nameManager = NewNameManager(Config{
+			MinTTL: 1,
+			Cache:  NewDNSCache(0),
+		})
 	)
 
 	log.Level = logrus.DebugLevel
 
 	// Create DNS cache
 	now := time.Now()
-	cache := NewDNSCache(60)
+	cache := nameManager.cache
 
 	selectors := map[api.FQDNSelector]struct{}{
 		ciliumIOSel: {},
 	}
 
 	// Empty cache.
-	selsMissingIPs, selIPMapping := mapSelectorsToIPs(selectors, cache)
+	selsMissingIPs, selIPMapping := nameManager.MapSelectorsToIPsLocked(selectors)
 	c.Assert(len(selsMissingIPs), Equals, 1)
 	c.Assert(selsMissingIPs[0], Equals, ciliumIOSel)
 	c.Assert(len(selIPMapping), Equals, 0)
@@ -119,7 +123,7 @@ func (ds *DNSCacheTestSuite) TestMapIPsToSelectors(c *C) {
 	// Just one IP.
 	changed := cache.Update(now, prepareMatchName(ciliumIOSel.MatchName), []net.IP{ciliumIP1}, 100)
 	c.Assert(changed, Equals, true)
-	selsMissingIPs, selIPMapping = mapSelectorsToIPs(selectors, cache)
+	selsMissingIPs, selIPMapping = nameManager.MapSelectorsToIPsLocked(selectors)
 	c.Assert(len(selsMissingIPs), Equals, 0)
 	c.Assert(len(selIPMapping), Equals, 1)
 	ciliumIPs, ok := selIPMapping[ciliumIOSel]
@@ -130,7 +134,7 @@ func (ds *DNSCacheTestSuite) TestMapIPsToSelectors(c *C) {
 	// Two IPs now.
 	changed = cache.Update(now, prepareMatchName(ciliumIOSel.MatchName), []net.IP{ciliumIP1, ciliumIP2}, 100)
 	c.Assert(changed, Equals, true)
-	selsMissingIPs, selIPMapping = mapSelectorsToIPs(selectors, cache)
+	selsMissingIPs, selIPMapping = nameManager.MapSelectorsToIPsLocked(selectors)
 	c.Assert(len(selsMissingIPs), Equals, 0)
 	c.Assert(len(selIPMapping), Equals, 1)
 	ciliumIPs, ok = selIPMapping[ciliumIOSel]
@@ -143,7 +147,7 @@ func (ds *DNSCacheTestSuite) TestMapIPsToSelectors(c *C) {
 	selectors = map[api.FQDNSelector]struct{}{
 		ciliumIOSelMatchPattern: {},
 	}
-	selsMissingIPs, selIPMapping = mapSelectorsToIPs(selectors, cache)
+	selsMissingIPs, selIPMapping = nameManager.MapSelectorsToIPsLocked(selectors)
 	c.Assert(len(selsMissingIPs), Equals, 0)
 	c.Assert(len(selIPMapping), Equals, 1)
 	ciliumIPs, ok = selIPMapping[ciliumIOSelMatchPattern]
@@ -156,7 +160,7 @@ func (ds *DNSCacheTestSuite) TestMapIPsToSelectors(c *C) {
 		ciliumIOSelMatchPattern: {},
 		ciliumIOSel:             {},
 	}
-	selsMissingIPs, selIPMapping = mapSelectorsToIPs(selectors, cache)
+	selsMissingIPs, selIPMapping = nameManager.MapSelectorsToIPsLocked(selectors)
 	c.Assert(len(selsMissingIPs), Equals, 0)
 	c.Assert(len(selIPMapping), Equals, 2)
 	ciliumIPs, ok = selIPMapping[ciliumIOSelMatchPattern]
