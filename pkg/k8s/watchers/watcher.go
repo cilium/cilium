@@ -323,6 +323,8 @@ func (k *K8sWatcher) resourceGroups() []string {
 	// with the right service -> backend (k8s endpoints) translation.
 	if k8s.SupportsEndpointSlice() {
 		k8sGroups = append(k8sGroups, K8sAPIGroupEndpointSliceV1Beta1Discovery)
+	} else if k8s.SupportsEndpointSliceV1() {
+		k8sGroups = append(k8sGroups, K8sAPIGroupEndpointSliceV1Discovery)
 	}
 	k8sGroups = append(k8sGroups, K8sAPIGroupEndpointV1Core)
 
