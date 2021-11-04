@@ -12,7 +12,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -83,11 +82,11 @@ func (n *NameManager) Unlock() {
 // the FQDNSelector. All IPs which correspond to the DNS names which match this
 // Selector will be returned as CIDR identities, as other DNS Names which have
 // already been resolved may match this FQDNSelector.
-func (n *NameManager) RegisterForIdentityUpdatesLocked(idAllocator cache.IdentityAllocator, selector api.FQDNSelector) []identity.NumericIdentity {
+func (n *NameManager) RegisterForIdentityUpdatesLocked(selector api.FQDNSelector) {
 	_, exists := n.allSelectors[selector]
 	if exists {
 		log.WithField("fqdnSelector", selector).Warning("FQDNSelector was already registered for updates, returning without any identities")
-		return nil
+		return
 	}
 
 	// This error should never occur since the FQDNSelector has already been
@@ -95,40 +94,15 @@ func (n *NameManager) RegisterForIdentityUpdatesLocked(idAllocator cache.Identit
 	regex, err := selector.ToRegex()
 	if err != nil {
 		log.WithError(err).WithField("fqdnSelector", selector).Error("FQDNSelector did not compile to valid regex")
-		return nil
+		return
 	}
 
 	n.allSelectors[selector] = regex
-	_, selectorIPMapping := mapSelectorsToIPs(map[api.FQDNSelector]struct{}{selector: {}}, n.cache)
-
-	// Allocate identities for each IPNet and then map to selector
-	selectorIPs := selectorIPMapping[selector]
-	log.WithFields(logrus.Fields{
-		"fqdnSelector": selector,
-		"ips":          selectorIPs,
-	}).Debug("getting identities for IPs associated with FQDNSelector")
-	var currentlyAllocatedIdentities []*identity.Identity
-	// TODO: Consider if upserts to ipcache should be delayed until endpoint policies have been
-	// updated. This is the path from policy updates rather than for DNS proxy results. Hence
-	// any existing IPs would typically already have been pushed to the ipcache as they would
-	// not be newly allocated. We need the 'allocation' here to get a reference count on the
-	// allocations.
-	if currentlyAllocatedIdentities, err = idAllocator.AllocateCIDRsForIPs(selectorIPs, nil); err != nil {
-		log.WithError(err).WithField("prefixes", selectorIPs).Warn(
-			"failed to allocate identities for IPs")
-		return nil
-	}
-	numIDs := make([]identity.NumericIdentity, 0, len(currentlyAllocatedIdentities))
-	for i := range currentlyAllocatedIdentities {
-		numIDs = append(numIDs, currentlyAllocatedIdentities[i].ID)
-	}
-
-	return numIDs
 }
 
 // UnregisterForIdentityUpdatesLocked removes this FQDNSelector from the set of
-// FQDNSelectors which are being tracked by the NameManager. No more updates for IPs
-// which correspond to said selector are propagated.
+// FQDNSelectors which are being tracked by the NameManager. No more updates
+// for IPs which correspond to said selector are propagated.
 func (n *NameManager) UnregisterForIdentityUpdatesLocked(selector api.FQDNSelector) {
 	delete(n.allSelectors, selector)
 }
@@ -203,7 +177,7 @@ func (n *NameManager) ForceGenerateDNS(ctx context.Context, namesToRegen []strin
 		}
 	}
 
-	namesMissingIPs, selectorIPMapping := mapSelectorsToIPs(affectedFQDNSels, n.cache)
+	namesMissingIPs, selectorIPMapping := n.MapSelectorsToIPsLocked(affectedFQDNSels)
 	if len(namesMissingIPs) != 0 {
 		log.WithField(logfields.DNSName, namesMissingIPs).
 			Debug("No IPs to insert when generating DNS name selected by ToFQDN rule")
@@ -269,7 +243,7 @@ perDNSName:
 // map. Returns the set of FQDNSelectors which map to no IPs, and a mapping
 // of FQDNSelectors to IPs.
 func (n *NameManager) generateSelectorUpdates(fqdnSelectors map[api.FQDNSelector]struct{}) (namesMissingIPs []api.FQDNSelector, selectorIPMapping map[api.FQDNSelector][]net.IP) {
-	return mapSelectorsToIPs(fqdnSelectors, n.cache)
+	return n.MapSelectorsToIPsLocked(fqdnSelectors)
 }
 
 // updateIPsName will update the IPs for dnsName. It always retains a copy of

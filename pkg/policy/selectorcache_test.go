@@ -613,65 +613,6 @@ func (ds *SelectorCacheTestSuite) TestIdentityUpdatesMultipleUsers(c *C) {
 	c.Assert(len(sc.selectors), Equals, 0)
 }
 
-func (ds *SelectorCacheTestSuite) TestIdentityNotifier(c *C) {
-	sc := testNewSelectorCache(cache.IdentityCache{})
-	idNotifier, ok := sc.localIdentityNotifier.(*testidentity.DummyIdentityNotifier)
-	c.Assert(ok, Equals, true)
-	c.Assert(idNotifier, Not(IsNil))
-
-	// Add some identities to the identity cache
-	googleSel := api.FQDNSelector{MatchName: "google.com"}
-	ciliumSel := api.FQDNSelector{MatchName: "cilium.io"}
-
-	// Nothing should be registered yet.
-	c.Assert(idNotifier.IsRegistered(ciliumSel), Equals, false)
-	c.Assert(idNotifier.IsRegistered(googleSel), Equals, false)
-
-	injectedIDs := []identity.NumericIdentity{1000, 1001, 1002}
-	idNotifier.InjectIdentitiesForSelector(ciliumSel, injectedIDs)
-
-	// Add a user without adding identities explicitly. The identityNotifier
-	// should have populated them for us.
-	user1 := newUser(c, "user1", sc)
-	cached := user1.AddFQDNSelector(ciliumSel)
-	_, exists := sc.selectors[ciliumSel.String()]
-	c.Assert(exists, Equals, true)
-
-	selections := cached.GetSelections()
-	c.Assert(len(selections), Equals, 3)
-	for i, selection := range selections {
-		c.Assert(selection, Equals, injectedIDs[i])
-	}
-
-	// Add another selector from the same user
-	cached2 := user1.AddFQDNSelector(googleSel)
-	c.Assert(cached2, Not(Equals), cached)
-
-	selections2 := cached2.GetSelections()
-	c.Assert(len(selections2), Equals, 0)
-
-	wg := &sync.WaitGroup{}
-	sc.RemoveIdentitiesFQDNSelectors([]api.FQDNSelector{
-		googleSel,
-		ciliumSel,
-	}, wg)
-	wg.Wait()
-
-	selections = cached.GetSelections()
-	c.Assert(len(selections), Equals, 0)
-
-	selections2 = cached2.GetSelections()
-	c.Assert(len(selections2), Equals, 0)
-
-	sc.RemoveSelector(cached, user1)
-	c.Assert(idNotifier.IsRegistered(ciliumSel), Equals, false)
-	c.Assert(idNotifier.IsRegistered(googleSel), Equals, true)
-
-	sc.RemoveSelector(cached2, user1)
-	c.Assert(idNotifier.IsRegistered(googleSel), Equals, false)
-
-}
-
 func testNewSelectorCache(ids cache.IdentityCache) *SelectorCache {
 	sc := NewSelectorCache(testidentity.NewMockIdentityAllocator(ids), ids)
 	sc.SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())

@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"net"
 	"sort"
 	"strings"
 	"sync"
@@ -439,6 +440,49 @@ func (f *fqdnSelector) notifyUsers(sc *SelectorCache, added, deleted []identity.
 	}
 }
 
+// allocateIdentityMappings is an initializer for 'fqdnSelector' that takes a
+// slice of IPs that should be associated with the selector and caches those
+// selections. No notifications are propagated to the users.
+//
+// This function may be called at initialization for a new fqdnSelector, or
+// upon new use of an FQDN selector with the same string representation of a
+// previously-cached selector (for example the same toFQDNs match pattern in
+// different rules).
+func (f *fqdnSelector) allocateIdentityMappings(idAllocator cache.IdentityAllocator, selectorIPMapping map[api.FQDNSelector][]net.IP) {
+	var (
+		currentlyAllocatedIdentities []*identity.Identity
+		selectorIPs                  []net.IP
+		ids                          []identity.NumericIdentity
+		err                          error
+	)
+
+	// Allocate identities for each IPNet and then map to selector
+	selectorIPs = selectorIPMapping[f.selector]
+	log.WithFields(logrus.Fields{
+		"fqdnSelector": f.selector,
+		"ips":          selectorIPs,
+	}).Debug("getting identities for IPs associated with FQDNSelector")
+
+	// TODO: Consider if upserts to ipcache should be delayed until endpoint policies have been
+	// updated. This is the path from policy updates rather than for DNS proxy results. Hence
+	// any existing IPs would typically already have been pushed to the ipcache as they would
+	// not be newly allocated. We need the 'allocation' here to get a reference count on the
+	// allocations.
+	if currentlyAllocatedIdentities, err = idAllocator.AllocateCIDRsForIPs(selectorIPs, nil); err != nil {
+		log.WithError(err).WithField("prefixes", selectorIPs).Warn(
+			"failed to allocate identities for IPs")
+		return
+	}
+	ids = make([]identity.NumericIdentity, 0, len(currentlyAllocatedIdentities))
+	for i := range currentlyAllocatedIdentities {
+		ids = append(ids, currentlyAllocatedIdentities[i].ID)
+	}
+
+	for _, id := range ids {
+		f.cachedSelections[id] = struct{}{}
+	}
+}
+
 // identityNotifier provides a means for other subsystems to be made aware of a
 // given FQDNSelector (currently pkg/fqdn) so that said subsystems can notify
 // the SelectorCache about new IPs (via CIDR Identities) which correspond to
@@ -447,36 +491,20 @@ func (f *fqdnSelector) notifyUsers(sc *SelectorCache, added, deleted []identity.
 // relationship is contained only via DNS responses, which are handled
 // externally.
 type identityNotifier interface {
-	// Lock must be held during any calls to RegisterForIdentityUpdatesLocked or
-	// UnregisterForIdentityUpdatesLocked.
+	// Lock must be held during any calls to *Locked functions below.
 	Lock()
 
-	// Unlock must be called after calls to RegisterForIdentityUpdatesLocked or
-	// UnregisterForIdentityUpdatesLocked are done.
+	// Unlock must be called after calls to *Locked functions below.
 	Unlock()
 
 	// RegisterForIdentityUpdatesLocked exposes this FQDNSelector so that identities
-	// for IPs contained in a DNS response that matches said selector can be
-	// propagated back to the SelectorCache via `UpdateFQDNSelector`. When called,
-	// implementers (currently `pkg/fqdn/RuleGen`) should iterate over all DNS
-	// names that they are aware of, and see if they match the FQDNSelector.
-	// All IPs which correspond to the DNS names which match this Selector will
-	// be returned as CIDR identities, as other DNS Names which have already
-	// been resolved may match this FQDNSelector.
-	// Once this function is called, the SelectorCache will be updated any time
-	// new IPs are resolved for DNS names which match this FQDNSelector.
-	// This function is only called when the SelectorCache has been made aware
-	// of this FQDNSelector for the first time, since we only need to get the
-	// set of CIDR identities which match this FQDNSelector already from the
-	// identityNotifier on the first pass; any subsequent updates will eventually
-	// call `UpdateFQDNSelector`.
+	// for IPs contained in a DNS response that matches said selector can
+	// be propagated back to the SelectorCache via `UpdateFQDNSelector`.
 	//
-	// The code currently allocates identities inside this function, but
-	// relies on the caller handling the identity release themselves.
-	// In future it likely makes sense to move that code out of the
-	// identityNotifier implementation into the caller to better balance
-	// the allocate/release calls.
-	RegisterForIdentityUpdatesLocked(allocator cache.IdentityAllocator, selector api.FQDNSelector) (identities []identity.NumericIdentity)
+	// This function should only be called when the SelectorCache has been
+	// made aware of the FQDNSelector for the first time; subsequent
+	// updates to the selectors should be made via `UpdateFQDNSelector`.
+	RegisterForIdentityUpdatesLocked(selector api.FQDNSelector)
 
 	// UnregisterForIdentityUpdatesLocked removes this FQDNSelector from the set of
 	// FQDNSelectors which are being tracked by the identityNotifier. The result
@@ -485,6 +513,12 @@ type identityNotifier interface {
 	// This occurs when there are no more users of a given FQDNSelector for the
 	// SelectorCache.
 	UnregisterForIdentityUpdatesLocked(selector api.FQDNSelector)
+
+	// MapSelectorsToIPsLocked returns a slice of IPs that may be
+	// associated with the specified FQDN selector, based on the
+	// currently-known DNS mappings for the IPs held inside the
+	// identityNotifier.
+	MapSelectorsToIPsLocked(map[api.FQDNSelector]struct{}) (selectorsMissingIPs []api.FQDNSelector, selectorIPMapping map[api.FQDNSelector][]net.IP)
 }
 
 type labelIdentitySelector struct {
@@ -710,15 +744,9 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api
 	// If this is called twice, one of the results will arbitrarily contain
 	// a real slice of ids, while the other will receive nil. We must fold
 	// them together below.
-	ids := sc.localIdentityNotifier.RegisterForIdentityUpdatesLocked(sc.idAllocator, newFQDNSel.selector)
-
-	// Do not go through the identity cache to see what identities "match" this
-	// selector. This has to be updated via whatever is getting the CIDR identities
-	// which correspond go this FQDNSelector.
-	// Alternatively , we could go through the CIDR identities in the cache
-	// provided they have some 'field' which shows which FQDNs they correspond
-	// to? This would require we keep some set in the Identity for the CIDR.
-	// Is this feasible?
+	sc.localIdentityNotifier.RegisterForIdentityUpdatesLocked(newFQDNSel.selector)
+	selectors := map[api.FQDNSelector]struct{}{newFQDNSel.selector: {}}
+	_, selectorIPMapping := sc.localIdentityNotifier.MapSelectorsToIPsLocked(selectors)
 
 	// Note: No notifications are sent for the existing
 	// identities. Caller must use GetSelections() to get the
@@ -738,13 +766,12 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api
 		sc.selectors[key] = newFQDNSel
 	}
 
-	// Add the ids from the slice above to the FQDN selector in the cache.
-	// This could plausibly happen twice, once with an empty 'ids' slice
-	// and once with the real 'ids' slice. Either way, they are added to
-	// the selector that is stored in 'sc.selectors[]'
-	for _, id := range ids {
-		newFQDNSel.cachedSelections[id] = struct{}{}
-	}
+	// Allocate identities corresponding to the slice of IPs identified as
+	// being selected by this FQDN selector above. This could plausibly
+	// happen twice, once with an empty 'ids' slice and once with the real
+	// 'ids' slice. Either way, they are added to the selector that is
+	// stored in 'sc.selectors[]'.
+	newFQDNSel.allocateIdentityMappings(sc.idAllocator, selectorIPMapping)
 	newFQDNSel.updateSelections()
 
 	return newFQDNSel, newFQDNSel.addUser(user)
