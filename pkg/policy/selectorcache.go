@@ -144,6 +144,11 @@ type identitySelector interface {
 	// Called with NameManager and SelectorCache locks held
 	removeUser(CachedSelectionUser, identityNotifier) (last bool)
 
+	// releaseIdentityMappings must be called exactly once upon release of
+	// this selector to ensure that resources are cleaned up upon deletion
+	// of the selector.
+	releaseIdentityMappings(cache.IdentityAllocator)
+
 	// This may be called while the NameManager lock is held. wg.Wait()
 	// returns after user notifications have been completed, which may require
 	// taking Endpoint and SelectorCache locks, so these locks must not be
@@ -448,6 +453,11 @@ func (f *fqdnSelector) notifyUsers(sc *SelectorCache, added, deleted []identity.
 // upon new use of an FQDN selector with the same string representation of a
 // previously-cached selector (for example the same toFQDNs match pattern in
 // different rules).
+//
+// Calls to allocateIdentityMappings() will allocate identities and associate
+// them with the fqdnSelector, therefore the corresponding
+// releaseIdentityMappings() function must also be eventually called to clean
+// up this selector.
 func (f *fqdnSelector) allocateIdentityMappings(idAllocator cache.IdentityAllocator, selectorIPMapping map[api.FQDNSelector][]net.IP) {
 	// We don't know whether the IPs are associated with this selector
 	// until we map those IPs to identities, which requires potentially
@@ -499,6 +509,20 @@ func (f *fqdnSelector) allocateIdentityMappings(idAllocator cache.IdentityAlloca
 	ctx, cancel := context.WithTimeout(context.TODO(), option.Config.KVstoreConnectivityTimeout)
 	defer cancel()
 	idAllocator.ReleaseCIDRIdentitiesByID(ctx, identitiesToRelease)
+}
+
+// releaseIdentityMappings must be called exactly once for the received
+// 'fqdnSelector' in order to release CIDR identity references held in this
+// selector's cachedSelections.
+func (f *fqdnSelector) releaseIdentityMappings(idAllocator cache.IdentityAllocator) {
+	ids := make([]identity.NumericIdentity, 0, len(f.cachedSelections))
+	for id := range f.cachedSelections {
+		ids = append(ids, id)
+	}
+
+	ctx, cancel := context.WithTimeout(context.TODO(), option.Config.KVstoreConnectivityTimeout)
+	defer cancel()
+	idAllocator.ReleaseCIDRIdentitiesByID(ctx, ids)
 }
 
 // identityNotifier provides a means for other subsystems to be made aware of a
@@ -580,6 +604,10 @@ func (l *labelIdentitySelector) matchesNamespace(ns string) bool {
 
 func (l *labelIdentitySelector) matches(identity scIdentity) bool {
 	return l.matchesNamespace(identity.namespace) && l.selector.Matches(identity.lbls)
+}
+
+func (l *labelIdentitySelector) releaseIdentityMappings(idAllocator cache.IdentityAllocator) {
+	// labelIdentitySelectors don't retain identity references, so no-op.
 }
 
 //
@@ -869,6 +897,7 @@ func (sc *SelectorCache) removeSelectorLocked(selector CachedSelector, user Cach
 		if sel.removeUser(user, sc.localIdentityNotifier) {
 			delete(sc.selectors, key)
 		}
+		sel.releaseIdentityMappings(sc.idAllocator)
 	}
 }
 
