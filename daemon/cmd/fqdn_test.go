@@ -169,8 +169,7 @@ func (ds *DaemonFQDNSuite) TestFQDNIdentityReferenceCounting(c *C) {
 	selectorsToAdd := api.FQDNSelectorSlice{ciliumIOSel, ciliumIOSelMatchPattern, ebpfIOSel}
 	nameManager.Lock()
 	for _, sel := range selectorsToAdd {
-		ids := nameManager.RegisterForIdentityUpdatesLocked(idAllocator, sel)
-		c.Assert(ids, Not(IsNil))
+		nameManager.RegisterForIdentityUpdatesLocked(sel)
 	}
 	nameManager.Unlock()
 
