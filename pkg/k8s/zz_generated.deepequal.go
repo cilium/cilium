@@ -39,6 +39,9 @@ func (in *Backend) DeepEqual(other *Backend) bool {
 	if in.NodeName != other.NodeName {
 		return false
 	}
+	if in.Terminating != other.Terminating {
+		return false
+	}
 
 	return true
 }
