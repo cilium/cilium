@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2019 Authors of Cilium
+// Copyright 2021 Authors of Cilium
 
 //go:build !privileged_tests
 // +build !privileged_tests
@@ -82,6 +82,9 @@ var (
 	backends3 = []lb.Backend{
 		*lb.NewBackend(0, lb.TCP, net.ParseIP("fd00::2"), 8080),
 		*lb.NewBackend(0, lb.TCP, net.ParseIP("fd00::3"), 8080),
+	}
+	backends4 = []lb.Backend{
+		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.4"), 8080),
 	}
 )
 
@@ -712,4 +715,95 @@ func (m *ManagerTestSuite) TestLocalRedirectServiceOverride(c *C) {
 	// Local redirect service should not override the NodePort service.
 	c.Assert(err, NotNil)
 	c.Assert(created, Equals, false)
+}
+
+// Tests whether upsert service handles terminating backends, whereby terminating
+// backends are not added to the service map, but are added to the backends and
+// affinity maps.
+func (m *ManagerTestSuite) TestUpsertServiceWithTerminatingBackends(c *C) {
+	option.Config.NodePortAlg = option.NodePortAlgMaglev
+	backends := append(backends1, backends4...)
+	backends[2].Terminating = true
+	p := &lb.SVC{
+		Frontend:                  frontend1,
+		Backends:                  backends,
+		Type:                      lb.SVCTypeNodePort,
+		TrafficPolicy:             lb.SVCTrafficPolicyCluster,
+		SessionAffinity:           true,
+		SessionAffinityTimeoutSec: 100,
+		Name:                      "svc1",
+		Namespace:                 "ns1",
+	}
+
+	created, id1, err := m.svc.UpsertService(p)
+
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, true)
+	c.Assert(id1, Equals, lb.ID(1))
+	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 2)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 3)
+	c.Assert(m.svc.svcByID[id1].svcName, Equals, "svc1")
+	c.Assert(m.svc.svcByID[id1].svcNamespace, Equals, "ns1")
+	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 3)
+	for bID := range m.lbmap.BackendByID {
+		c.Assert(m.lbmap.AffinityMatch[uint16(id1)][bID], Equals, struct{}{})
+	}
+	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, len(backends1))
+
+	// Delete terminating backends.
+	p.Backends = []lb.Backend{}
+
+	created, id1, err = m.svc.UpsertService(p)
+
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, false)
+	c.Assert(id1, Equals, lb.ID(1))
+	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 0)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 0)
+	c.Assert(m.svc.svcByID[id1].svcName, Equals, "svc1")
+	c.Assert(m.svc.svcByID[id1].svcNamespace, Equals, "ns1")
+	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 0)
+}
+
+// Tests terminating backend entries are removed after service restore.
+func (m *ManagerTestSuite) TestRestoreServiceWithTerminatingBackends(c *C) {
+	option.Config.NodePortAlg = option.NodePortAlgMaglev
+	backends := append(backends1, backends4...)
+	backends[2].Terminating = true
+	p1 := &lb.SVC{
+		Frontend:                  frontend1,
+		Backends:                  backends,
+		SessionAffinity:           true,
+		SessionAffinityTimeoutSec: 100,
+		Type:                      lb.SVCTypeNodePort,
+		TrafficPolicy:             lb.SVCTrafficPolicyCluster,
+	}
+	_, id1, err := m.svc.UpsertService(p1)
+
+	c.Assert(err, IsNil)
+
+	// Simulate agent restart.
+	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
+	m.svc = NewService(nil)
+	m.svc.lbmap = lbmap
+
+	// Restore services from lbmap
+	err = m.svc.RestoreServices()
+	c.Assert(err, IsNil)
+
+	// Backends including terminating ones have been restored
+	c.Assert(len(m.svc.backendByHash), Equals, 3)
+	for _, b := range backends1 {
+		_, found := m.svc.backendByHash[b.Hash()]
+		c.Assert(found, Equals, true)
+	}
+
+	// Affinity matches including terminating ones were restored
+	matches, _ := m.lbmap.DumpAffinityMatches()
+	c.Assert(len(matches), Equals, 1)
+	c.Assert(len(matches[uint16(id1)]), Equals, 3)
+	for _, b := range m.lbmap.ServiceByID[uint16(id1)].Backends {
+		c.Assert(m.lbmap.AffinityMatch[uint16(id1)][b.ID], Equals, struct{}{})
+	}
+	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, len(backends1))
 }
