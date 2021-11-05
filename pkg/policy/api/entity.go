@@ -12,7 +12,7 @@ import (
 // individual identities.  Entities are used to describe "outside of cluster",
 // "host", etc.
 //
-// +kubebuilder:validation:Enum=all;world;cluster;host;init;unmanaged;remote-node;health;none
+// +kubebuilder:validation:Enum=all;world;cluster;host;init;unmanaged;remote-node;health;none;kube-apiserver
 type Entity string
 
 const (
@@ -44,6 +44,9 @@ const (
 
 	// EntityNone is an entity that can be selected but never exist
 	EntityNone Entity = "none"
+
+	// EntityNone is an entity that represents the kube-apiserver.
+	EntityKubeAPIServer Entity = "kube-apiserver"
 )
 
 var (
@@ -61,17 +64,20 @@ var (
 
 	endpointSelectorUnmanaged = NewESFromLabels(labels.NewLabel(labels.IDNameUnmanaged, "", labels.LabelSourceReserved))
 
+	endpointSelectorKubeAPIServer = NewESFromLabels(labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer])
+
 	// EntitySelectorMapping maps special entity names that come in
 	// policies to selectors
 	EntitySelectorMapping = map[Entity]EndpointSelectorSlice{
-		EntityAll:        {WildcardEndpointSelector},
-		EntityWorld:      {endpointSelectorWorld},
-		EntityHost:       {endpointSelectorHost},
-		EntityInit:       {endpointSelectorInit},
-		EntityRemoteNode: {endpointSelectorRemoteNode},
-		EntityHealth:     {endpointSelectorHealth},
-		EntityUnmanaged:  {endpointSelectorUnmanaged},
-		EntityNone:       {EndpointSelectorNone},
+		EntityAll:           {WildcardEndpointSelector},
+		EntityWorld:         {endpointSelectorWorld},
+		EntityHost:          {endpointSelectorHost},
+		EntityInit:          {endpointSelectorInit},
+		EntityRemoteNode:    {endpointSelectorRemoteNode},
+		EntityHealth:        {endpointSelectorHealth},
+		EntityUnmanaged:     {endpointSelectorUnmanaged},
+		EntityNone:          {EndpointSelectorNone},
+		EntityKubeAPIServer: {endpointSelectorKubeAPIServer},
 
 		// EntityCluster is populated with an empty entry to allow the
 		// cilium client importing this package to perform basic rule
@@ -109,6 +115,7 @@ func InitEntities(clusterName string, treatRemoteNodeAsHost bool) {
 		endpointSelectorInit,
 		endpointSelectorHealth,
 		endpointSelectorUnmanaged,
+		endpointSelectorKubeAPIServer,
 		NewESFromLabels(labels.NewLabel(k8sapi.PolicyLabelCluster, clusterName, labels.LabelSourceK8s)),
 	}
 
