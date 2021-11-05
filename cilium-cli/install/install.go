@@ -993,6 +993,7 @@ type k8sInstallerImplementation interface {
 	CiliumStatus(ctx context.Context, namespace, pod string) (*models.StatusResponse, error)
 	ListCiliumEndpoints(ctx context.Context, namespace string, opts metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error)
 	GetRunningCiliumVersion(ctx context.Context, namespace string) (string, error)
+	GetPlatform(ctx context.Context) (*k8s.Platform, error)
 }
 
 type K8sInstaller struct {
