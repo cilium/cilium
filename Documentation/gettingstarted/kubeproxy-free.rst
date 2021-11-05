@@ -1159,6 +1159,22 @@ The current Cilium kube-proxy replacement mode can also be introspected through 
     $ kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep KubeProxyReplacement
     KubeProxyReplacement:   Strict	[eth0 (DR)]
 
+Graceful Termination
+********************
+
+Cilium's eBPF kube-proxy replacement supports graceful termination of service
+endpoints deletion. The feature requires at least Kubernetes version 1.20, and
+the feature gate ``EndpointSliceTerminatingCondition`` needs to be enabled.
+By default, the Cilium agent then detects such terminating Pod state. If needed,
+the feature can be disabled with the configuration option ``enable-k8s-terminating-endpoint``.
+When Cilium agent receives a Kubernetes update event for a terminating endpoint,
+the datapath state for the endpoint is removed such that it won't service new
+connections, but the endpoint's active connections are able to terminate
+gracefully. The endpoint state is fully removed when the agent receives
+a Kubernetes delete event for the endpoint. The `Kubernetes
+pod termination <https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination>`_
+documentation contains more background on the behavior and configuration using ``terminationGracePeriodSeconds``.
+
 .. _session-affinity:
 
 Session Affinity
