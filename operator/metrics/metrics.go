@@ -142,14 +142,14 @@ func registerMetrics() []prometheus.Collector {
 
 	IdentityGCSize = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: Namespace,
-		Name:      "identity_gc_entries_total",
+		Name:      "identity_gc_entries",
 		Help:      "The number of alive and deleted identities at the end of a garbage collector run",
 	}, []string{LabelStatus})
 	collectors = append(collectors, IdentityGCSize)
 
 	IdentityGCRuns = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: Namespace,
-		Name:      "identity_gc_runs_total",
+		Name:      "identity_gc_runs",
 		Help:      "The number of times identity garbage collector has run",
 	}, []string{LabelOutcome})
 	collectors = append(collectors, IdentityGCRuns)

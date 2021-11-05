@@ -335,6 +335,12 @@ Annotations:
   interruption of the connectivity between the client pods and the egress
   gateway nodes.
 
+Removed Metrics/Labels
+~~~~~~~~~~~~~~~~~~~~~~
+
+* ``cilium_operator_identity_gc_entries_total`` is removed. Please use ``cilium_operator_identity_gc_entries`` instead.
+* ``cilium_operator_identity_gc_runs_total`` is removed. Please use ``cilium_operator_identity_gc_runs`` instead.
+
 Removed Options
 ~~~~~~~~~~~~~~~
 
