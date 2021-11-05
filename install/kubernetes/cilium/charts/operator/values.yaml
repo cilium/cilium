@@ -1,13 +1,13 @@
 image: operator
 
 # operator-legacy-digest
-legacyDigest: ""
+legacyDigest: "sha256:4e865ab71494c27df6c6f4f1ba113bdcdfa1313e2d69c4cfe54eed7fa13bde14"
 # operator-generic-digest
-genericDigest: ""
+genericDigest: "sha256:9e6677599565637d479886d038c366b40ce4acded54ab7bca1c7ad660b0c0a83"
 # operator-azure-digest
-azureDigest: ""
+azureDigest: "sha256:3e8c511cf17791b37f90afe502d39e62d4cfa7c891fa76c7347317a58d5e0652"
 # operator-aws-digest
-awsDigest: ""
+awsDigest: "sha256:1829d3cbcbf7541a6960f6cea7991fd4a55e921936a9d67636928f6481070162"
 useDigest: false
 
 # Service account annotations
