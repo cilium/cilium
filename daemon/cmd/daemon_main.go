@@ -1034,6 +1034,9 @@ func initializeFlags() {
 	flags.Bool(option.EnableCiliumEndpointSlice, false, "If set to true, CiliumEndpointSlice feature is enabled and cilium agent watch for CiliumEndpointSlice instead of CiliumEndpoint to update the IPCache.")
 	option.BindEnv(option.EnableCiliumEndpointSlice)
 
+	flags.Bool(option.EnableK8sTerminatingEndpoint, true, "Enable auto-detect of terminating endpoint condition")
+	option.BindEnv(option.EnableK8sTerminatingEndpoint)
+
 	viper.BindPFlags(flags)
 }
 
