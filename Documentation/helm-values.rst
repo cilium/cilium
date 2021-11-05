@@ -325,6 +325,10 @@
      - Configures the use of the KVStore to optimize Kubernetes event handling by mirroring it into the KVstore for reduced overhead in large clusters.
      - bool
      - ``false``
+   * - enableK8sTerminatingEndpoint
+     - Configure whether to enable auto detect of terminating state for endpoints in order to support graceful termination.
+     - bool
+     - ``true``
    * - enableXTSocketFallback
      - Enables the fallback compatibility solution for when the xt_socket kernel module is missing and it is needed for the datapath L7 redirection to work properly. See documentation for details on when this can be disabled: http://docs.cilium.io/en/stable/install/system_requirements/#admin-kernel-version.
      - bool
