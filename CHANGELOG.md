@@ -1,5 +1,36 @@
 # Changelog
 
+## v1.8.13
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Istio integration is updated to Istio release 1.10.4. (Backport PR #17388, Upstream PRs #14621, #14271, #14704, #17417, @jrajahalme)
+
+**Bugfixes:**
+* Set right User Agent in Kubernetes client for all Cilium components. (Backport PR #17533, Upstream PR #17417, @aanm)
+
+**CI Changes:**
+* [v1.8] fix MLH config trigger (#17421, @nbusseneau)
+* test: bump coredns version to 1.7.0 (Backport PR #17533, Upstream PR #17489, @aanm)
+* test: Skip Istio test on k8s <1.17 (Backport PR #17388, Upstream PR #17445, @jrajahalme)
+
+**Misc Changes:**
+* build(deps): bump actions/checkout from 2.3.4 to 2.3.5 (#17633, @dependabot[bot])
+* build(deps): bump actions/checkout from 2.3.5 to 2.4.0 (#17768, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 1.5.1 to 1.6.0 (#17323, @dependabot[bot])
+* contrib/backporting: add environment variables to set ORG and REPO (Backport PR #17533, Upstream PR #17424, @aanm)
+* docs: clarify language on libceph and kernel 5.8 in kubeproxy-free GSG (Backport PR #17533, Upstream PR #16969, @bluikko)
+* docs: Fix command for overwriting iptables on kube-proxy replacement install (Backport PR #17533, Upstream PR #16264, @Stijn98s)
+* jenkinsfiles: Don't display nulls in current build display name (Backport PR #17388, Upstream PR #17258, @twpayne)
+* v1.8: .github: Remove conformance test from lint workflow (#17334, @joestringer)
+* v1.8: Update Cilium base images (#17800, @joestringer)
+* vendor: update mongo-driver to 1.5.1 to fix CVE-2021-20329 (Backport PR #17388, Upstream PR #17234, @aanm)
+
+**Other Changes:**
+* install: Update image digests for v1.8.12 (#17296, @joestringer)
+
 ## v1.8.12
 
 Summary of Changes
