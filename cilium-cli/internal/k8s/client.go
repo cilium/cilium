@@ -426,6 +426,11 @@ type Flavor struct {
 	Kind        Kind
 }
 
+type Platform struct {
+	OS   string
+	Arch string
+}
+
 func (c *Client) AutodetectFlavor(ctx context.Context) (f Flavor, err error) {
 	f = Flavor{
 		ClusterName: c.ClusterName(),
@@ -667,4 +672,20 @@ func (c *Client) ListCiliumEgressNATPolicies(ctx context.Context, opts metav1.Li
 
 func (c *Client) ListCiliumLocalRedirectPolicies(ctx context.Context, namespace string, opts metav1.ListOptions) (*ciliumv2.CiliumLocalRedirectPolicyList, error) {
 	return c.CiliumClientset.CiliumV2().CiliumLocalRedirectPolicies(namespace).List(ctx, opts)
+}
+
+func (c *Client) GetPlatform(ctx context.Context) (*Platform, error) {
+	v, err := c.Clientset.Discovery().ServerVersion()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Kubernetes version: %w", err)
+	}
+	fileds := strings.Split(v.Platform, "/")
+	if len(fileds) != 2 {
+		return nil, fmt.Errorf("unknown platform type")
+	}
+	return &Platform{
+		OS:   fileds[0],
+		Arch: fileds[1],
+	}, err
+
 }
