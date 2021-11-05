@@ -631,6 +631,7 @@ func genCartesianProduct(
 						IP:     parsedIP,
 						L4Addr: *backendPort,
 					},
+					Terminating: backend.Terminating,
 				})
 			}
 		}

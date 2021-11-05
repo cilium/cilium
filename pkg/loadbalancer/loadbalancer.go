@@ -190,6 +190,9 @@ type Backend struct {
 	// a node.
 	NodeName string
 	L3n4Addr
+	// State indicating whether backend is terminating so that it can be
+	// gracefully removed
+	Terminating bool
 }
 
 func (b *Backend) String() string {
