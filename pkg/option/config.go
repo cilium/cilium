@@ -985,6 +985,10 @@ const (
 	// within IPAM upon endpoint restore and allows the use of the restored IP
 	// regardless of whether it's available in the pool.
 	BypassIPAvailabilityUponRestore = "bypass-ip-availability-upon-restore"
+
+	// EnableK8sTerminatingEndpoint enables the option to auto detect terminating
+	// state for endpoints in order to support graceful termination.
+	EnableK8sTerminatingEndpoint = "enable-k8s-terminating-endpoint"
 )
 
 // Default string arguments
@@ -2023,6 +2027,10 @@ type DaemonConfig struct {
 	// within IPAM upon endpoint restore and allows the use of the restored IP
 	// regardless of whether it's available in the pool.
 	BypassIPAvailabilityUponRestore bool
+
+	// EnableK8sTerminatingEndpoint enables auto-detect of terminating state for
+	// Kubernetes service endpoints.
+	EnableK8sTerminatingEndpoint bool
 }
 
 var (
@@ -2834,6 +2842,7 @@ func (c *DaemonConfig) Populate() {
 	c.DisableCNPStatusUpdates = viper.GetBool(DisableCNPStatusUpdates)
 	c.EnableICMPRules = viper.GetBool(EnableICMPRules)
 	c.BypassIPAvailabilityUponRestore = viper.GetBool(BypassIPAvailabilityUponRestore)
+	c.EnableK8sTerminatingEndpoint = viper.GetBool(EnableK8sTerminatingEndpoint)
 }
 
 func (c *DaemonConfig) populateDevices() {

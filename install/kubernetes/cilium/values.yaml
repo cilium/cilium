@@ -1774,3 +1774,7 @@ cgroup:
     enabled: true
   # -- Configure cgroup root where cgroup2 filesystem is mounted on the host (see also: `cgroup.autoMount`)
   hostRoot: /run/cilium/cgroupv2
+
+# -- Configure whether to enable auto detect of terminating state for endpoints
+# in order to support graceful termination.
+enableK8sTerminatingEndpoint: true
