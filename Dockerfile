@@ -50,7 +50,7 @@ RUN make NOSTRIP=$NOSTRIP LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 V=$V LIBNETWORK_PLUGI
 # built while allowing the new versions to make changes that are not
 # backwards compatible.
 #
-FROM quay.io/cilium/cilium-runtime:2021-08-30-v1.8@sha256:459c938edea6a4065e27948caa2cc18ecd1a04109295022ac83aeb71ae030ea6
+FROM quay.io/cilium/cilium-runtime:2021-11-05-v1.8@sha256:c91f9333647ba8bd7a9416a160d86c2ea9e24695d9e4797213ffca029b5b5dfe
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 LABEL maintainer="maintainer@cilium.io"
