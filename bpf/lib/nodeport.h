@@ -1867,7 +1867,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 	l4_off = l3_off + ipv4_hdrlen(ip4);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
-#if defined(ENABLE_EGRESS_GATEWAY) && !defined(TUNNEL_MODE)
+#if defined(ENABLE_EGRESS_GATEWAY) && !defined(TUNNEL_MODE) && __ctx_is == __ctx_skb
 	/* Traffic from clients to egress gateway nodes reaches said gateways
 	 * by a vxlan tunnel. If we are not using TUNNEL_MODE, we need to
 	 * identify reverse traffic from the gateway to clients and also steer
@@ -1985,7 +1985,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 
 	return CTX_ACT_OK;
 
-#if defined(ENABLE_EGRESS_GATEWAY) || defined(TUNNEL_MODE)
+#if (defined(ENABLE_EGRESS_GATEWAY) || defined(TUNNEL_MODE)) && __ctx_is == __ctx_skb
 encap_redirect:
 	ret = __encap_with_nodeid(ctx, tunnel_endpoint, SECLABEL, TRACE_PAYLOAD_LEN);
 	if (ret)
