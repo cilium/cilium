@@ -37,12 +37,6 @@ pipeline {
     }
 
     stages {
-        stage('Print env vars') {
-            steps {
-                sh 'env'
-
-            }
-        }
         stage('Set build name') {
             when {
                 not {
@@ -131,26 +125,17 @@ pipeline {
             }
         }
         stage('Log in to dockerhub') {
-            steps{
-                withCredentials([usernamePassword(credentialsId: 'CILIUM_BOT_DUMMY', usernameVariable: 'DOCKER_LOGIN', passwordVariable: 'DOCKER_PASSWORD')]) {
-                    sh 'echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_LOGIN} --password-stdin'
-                }
-            }
-        }
-        stage('Make Cilium images') {
-            environment {
-                TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
-            }
             steps {
-                retry(3){
-                    sh 'cd ${TESTDIR}; ./make-images-push-to-local-registry.sh $(./print-node-ip.sh) latest'
-                }
-            }
-            post {
-                unsuccessful {
+                withCredentials([usernamePassword(credentialsId: 'CILIUM_BOT_DUMMY', usernameVariable: 'DOCKER_LOGIN', passwordVariable: 'DOCKER_PASSWORD')]) {
                     script {
-                        if  (!currentBuild.displayName.contains('fail')) {
-                            currentBuild.displayName = 'building or pushing Cilium images failed ' + currentBuild.displayName
+                        sh 'echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_LOGIN} --password-stdin'
+                        if (env.ghprbActualCommit != "") {
+                            env.DOCKER_TAG = env.ghprbActualCommit
+                        } else {
+                            env.DOCKER_TAG = env.GIT_COMMIT
+                        }
+                        if (env.RACE?.trim()) {
+                            env.DOCKER_TAG = env.DOCKER_TAG + "-race"
                         }
                     }
                 }
@@ -170,53 +155,70 @@ pipeline {
                 }
             }
         }
-        stage ("Copy code and boot vms"){
-            options {
-                timeout(time: 50, unit: 'MINUTES')
-            }
+        stage("Wait for Cilium images and boot vms"){
+            parallel {
+                stage ("Copy code and boot vms"){
+                    options {
+                        timeout(time: 50, unit: 'MINUTES')
+                    }
 
-            environment {
-                FAILFAST=setIfLabel("ci/fail-fast", "true", "false")
-                CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
-                KUBECONFIG="vagrant-kubeconfig"
+                    environment {
+                        FAILFAST=setIfLabel("ci/fail-fast", "true", "false")
+                        CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
+                        KUBECONFIG="vagrant-kubeconfig"
 
-                // We need to define all ${KERNEL}-dependent env vars in stage instead of top environment block
-                // because jenkins doesn't initialize these values sequentially within one block
+                        // We need to define all ${KERNEL}-dependent env vars in stage instead of top environment block
+                        // because jenkins doesn't initialize these values sequentially within one block
 
-                // We set KUBEPROXY="0" if we are running net-next, 5.4, or 4.19; otherwise, KUBEPROXY="".
-                // If we are running in net-next, we need to set NETNEXT=1, K8S_NODES=3, and NO_CILIUM_ON_NODE="k8s3";
-                // otherwise we set NETNEXT=0, K8S_NODES=2, and NO_CILIUM_ON_NODE="".
-                NETNEXT="""${sh(
-                    returnStdout: true,
-                    script: 'if [ "${KERNEL}" = "net-next" ]; then echo -n "1"; else echo -n "0"; fi'
-                    )}"""
-                K8S_NODES="""${sh(
-                    returnStdout: true,
-                    script: 'if [ "${KERNEL}" = "net-next" ]; then echo -n "3"; else echo -n "2"; fi'
-                    )}"""
-                NO_CILIUM_ON_NODE="""${sh(
-                    returnStdout: true,
-                    script: 'if [ "${KERNEL}" = "net-next" ]; then echo -n "k8s3"; else echo -n ""; fi'
-                    )}"""
-                KUBEPROXY="""${sh(
-                    returnStdout: true,
-                    script: 'if [ "${KERNEL}" = "net-next" ] || [ "${KERNEL}" = "419" ] || [ "${KERNEL}" = "54" ]; then echo -n "0"; else echo -n ""; fi'
-                    )}"""
-            }
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'CILIUM_BOT_DUMMY', usernameVariable: 'DOCKER_LOGIN', passwordVariable: 'DOCKER_PASSWORD')]) {
-                    retry(3) {
-                        dir("${TESTDIR}") {
-                            sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" timeout 15m ./vagrant-ci-start.sh'
+                        // We set KUBEPROXY="0" if we are running net-next, 5.4, or 4.19; otherwise, KUBEPROXY="".
+                        // If we are running in net-next, we need to set NETNEXT=1, K8S_NODES=3, and NO_CILIUM_ON_NODE="k8s3";
+                        // otherwise we set NETNEXT=0, K8S_NODES=2, and NO_CILIUM_ON_NODE="".
+                        NETNEXT="""${sh(
+                            returnStdout: true,
+                            script: 'if [ "${KERNEL}" = "net-next" ]; then echo -n "1"; else echo -n "0"; fi'
+                            )}"""
+                        K8S_NODES="""${sh(
+                            returnStdout: true,
+                            script: 'if [ "${KERNEL}" = "net-next" ]; then echo -n "3"; else echo -n "2"; fi'
+                            )}"""
+                        NO_CILIUM_ON_NODE="""${sh(
+                            returnStdout: true,
+                            script: 'if [ "${KERNEL}" = "net-next" ]; then echo -n "k8s3"; else echo -n ""; fi'
+                            )}"""
+                        KUBEPROXY="""${sh(
+                            returnStdout: true,
+                            script: 'if [ "${KERNEL}" = "net-next" ] || [ "${KERNEL}" = "419" ] || [ "${KERNEL}" = "54" ]; then echo -n "0"; else echo -n ""; fi'
+                            )}"""
+                    }
+                    steps {
+                        withCredentials([usernamePassword(credentialsId: 'CILIUM_BOT_DUMMY', usernameVariable: 'DOCKER_LOGIN', passwordVariable: 'DOCKER_PASSWORD')]) {
+                            retry(3) {
+                                dir("${TESTDIR}") {
+                                    sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" timeout 15m ./vagrant-ci-start.sh'
+                                }
+                            }
+                        }
+                    }
+                    post {
+                        unsuccessful {
+                            script {
+                                if  (!currentBuild.displayName.contains('fail')) {
+                                    currentBuild.displayName = 'K8s vm provisioning fail\n' + currentBuild.displayName
+                                }
+                            }
                         }
                     }
                 }
-            }
-            post {
-                unsuccessful {
-                    script {
-                        if  (!currentBuild.displayName.contains('fail')) {
-                            currentBuild.displayName = 'K8s vm provisioning fail\n' + currentBuild.displayName
+                stage ("Wait for images") {
+                    options {
+                        timeout(time: 20, unit: 'MINUTES')
+                    }
+                    steps {
+                        retry(25) {
+                            sleep(time: 60)
+                            sh 'curl --silent -f -lSL "https://quay.io/api/v1/repository/cilium/cilium-ci/tag/${DOCKER_TAG}/images"'
+                            sh 'curl --silent -f -lSL "https://quay.io/api/v1/repository/cilium/operator-ci/tag/${DOCKER_TAG}/images"'
+                            sh 'curl --silent -f -lSL "https://quay.io/api/v1/repository/cilium/hubble-relay-ci/tag/${DOCKER_TAG}/images"'
                         }
                     }
                 }
@@ -254,10 +256,16 @@ pipeline {
                     returnStdout: true,
                     script: 'if [ "${KERNEL}" = "net-next" ] || [ "${KERNEL}" = "419" ] || [ "${KERNEL}" = "54" ]; then echo -n "0"; else echo -n ""; fi'
                     )}"""
+                CILIUM_IMAGE = "quay.io/cilium/cilium-ci"
+                CILIUM_TAG = "${DOCKER_TAG}"
+                CILIUM_OPERATOR_IMAGE= "quay.io/cilium/operator"
+                CILIUM_OPERATOR_TAG = "${DOCKER_TAG}"
+                HUBBLE_RELAY_IMAGE= "quay.io/cilium/hubble-relay-ci"
+                HUBBLE_RELAY_TAG = "${DOCKER_TAG}"
             }
             steps {
                 sh 'env'
-                sh 'cd ${TESTDIR}; HOME=${GOPATH} ginkgo --focus="${FOCUS}" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig -cilium.passCLIEnvironment=true -cilium.runQuarantined=${RUN_QUARANTINED}'
+                sh 'cd ${TESTDIR}; HOME=${GOPATH} ginkgo --focus="${FOCUS}" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig -cilium.passCLIEnvironment=true -cilium.runQuarantined=${RUN_QUARANTINED} -cilium.image=${CILIUM_IMAGE} -cilium.tag=${CILIUM_TAG} -cilium.operator-image=${CILIUM_OPERATOR_IMAGE} -cilium.operator-tag=${CILIUM_OPERATOR_TAG} -cilium.hubble-relay-image=${HUBBLE_RELAY_IMAGE} -cilium.hubble-relay-tag=${HUBBLE_RELAY_TAG} -cilium.operator-suffix="-ci"'
             }
             post {
                 always {
