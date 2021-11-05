@@ -317,6 +317,12 @@ Annotations:
 * The XDP-based prefilter is enabled for all devices specified by ``--devices``
   if ``--prefilter-device`` is set.
 
+Removed Metrics/Labels
+~~~~~~~~~~~~~~~~~~~~~~
+
+* ``cilium_operator_identity_gc_entries_total`` is removed. Please use ``cilium_operator_identity_gc_entries`` instead.
+* ``cilium_operator_identity_gc_runs_total`` is removed. Please use ``cilium_operator_identity_gc_runs`` instead.
+
 Removed Options
 ~~~~~~~~~~~~~~~
 
