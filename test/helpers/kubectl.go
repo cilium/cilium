@@ -1195,6 +1195,21 @@ func (kub *Kubectl) Logs(namespace string, pod string) *CmdRes {
 		fmt.Sprintf("%s -n %s logs %s", KubectlCmd, namespace, pod))
 }
 
+// LogsPreviousWithLabel returns a CmdRes with command output from the
+// execution of `kubectl logs --previous=true -l <label string> -n <namespace>`.
+func (kub *Kubectl) LogsPreviousWithLabel(namespace string, labelStr string) *CmdRes {
+	return kub.Exec(
+		fmt.Sprintf("%s -n %s -l %s logs --previous", KubectlCmd, namespace, labelStr))
+}
+
+// LogsStream returns a CmdRes with command output from the
+// execution of `kubectl logs -f <pod> -n <namespace>`.
+func (kub *Kubectl) LogsStream(namespace string, pod string, ctx context.Context) *CmdRes {
+	logCmd := fmt.Sprintf("%s -n %s logs -f %s", KubectlCmd, namespace, pod)
+
+	return kub.ExecInBackground(ctx, logCmd, ExecOptions{})
+}
+
 // MonitorStart runs cilium monitor in the background and returns the command
 // result, CmdRes, along with a cancel function. The cancel function is used to
 // stop the monitor.
@@ -4489,4 +4504,24 @@ func (kub *Kubectl) NslookupInPod(namespace, pod string, target string) (err err
 // Cilium into the cluster.
 func (kub *Kubectl) CiliumOptions() map[string]string {
 	return kub.ciliumOptions
+}
+
+// WaitForServiceBackend waits until the service backend with the given ipAddr
+// appears in "cilium bpf lb list" on the given node.
+func (kub *Kubectl) WaitForServiceBackend(node, ipAddr string) error {
+	ciliumPod, err := kub.GetCiliumPodOnNode(node)
+	if err != nil {
+		return err
+	}
+
+	body := func() bool {
+		ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
+		defer cancel()
+		cmd := fmt.Sprintf(`cilium bpf lb list | grep -q %s`, ipAddr)
+		return kub.CiliumExecContext(ctx, ciliumPod, cmd).WasSuccessful()
+	}
+
+	return WithTimeout(body,
+		fmt.Sprintf("backend entry for %s was not found in time", ipAddr),
+		&TimeoutConfig{Timeout: HelperTimeout})
 }

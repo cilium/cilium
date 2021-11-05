@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
@@ -1545,6 +1546,137 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			}
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, options)
 			testIPv4FragmentSupport(kubectl, ni)
+		})
+	})
+
+	SkipContextIf(func() bool {
+		// The graceful termination feature depends on enabling an alpha feature
+		// EndpointSliceTerminatingCondition in Kubernetes.
+		return helpers.SkipK8sVersions("<1.20.0") || helpers.RunsOnGKE() || helpers.RunsOnEKS()
+	}, "Checks graceful termination of service endpoints", func() {
+		const (
+			clientPodLabel = "app=graceful-term-client"
+			serverPodLabel = "app=graceful-term-server"
+			testPodLabel   = "zgroup=testDSClient"
+		)
+		var (
+			gracefulTermYAML string
+			clientPod        string
+			serverPod        string
+			wg               sync.WaitGroup
+		)
+
+		terminateServiceEndpointPod := func() {
+			By("Deleting service endpoint pod %s", serverPodLabel)
+			wg.Add(1)
+			// Delete the service pod asynchronously subsequent steps need
+			// to be checked while the pod is terminating.
+			go func() {
+				defer wg.Done()
+				res := kubectl.DeleteResource("pod", fmt.Sprintf("-n %s -l %s", helpers.DefaultNamespace, serverPodLabel))
+				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Unable to delete %s pod", serverPodLabel)
+			}()
+
+			By("Waiting until server is terminating")
+			ctx, cancel := context.WithCancel(context.Background())
+			res := kubectl.LogsStream(helpers.DefaultNamespace, serverPod, ctx)
+			Expect(res.WaitUntilMatch("terminating")).To(BeNil(),
+				"%s is not in the output after timeout", res.GetStdOut())
+			defer func() {
+				cancel()
+				res.WaitUntilFinish()
+			}()
+		}
+
+		BeforeAll(func() {
+			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+				"kubeProxyReplacement": "disabled",
+			})
+
+			_, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
+			Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
+			_, err = kubectl.GetCiliumPodOnNode(helpers.K8s2)
+			Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s2")
+
+			gracefulTermYAML = helpers.ManifestGet(kubectl.BasePath(), "graceful-termination.yaml")
+			res := kubectl.ApplyDefault(gracefulTermYAML)
+			Expect(res).Should(helpers.CMDSuccess(), "Unable to apply %s", gracefulTermYAML)
+		})
+
+		BeforeEach(func() {
+			gracefulTermYAML = helpers.ManifestGet(kubectl.BasePath(), "graceful-termination.yaml")
+			res := kubectl.ApplyDefault(gracefulTermYAML)
+			Expect(res).Should(helpers.CMDSuccess(), "Unable to apply %s", gracefulTermYAML)
+
+			pods := waitForServiceBackendPods(kubectl, serverPodLabel, 1)
+			serverPod = pods[0]
+		})
+
+		AfterFailed(func() {
+			kubectl.CiliumReport("cilium service list", "cilium bpf lb list")
+			kubectl.LogsPreviousWithLabel(helpers.DefaultNamespace, serverPodLabel)
+			kubectl.LogsPreviousWithLabel(helpers.DefaultNamespace, clientPodLabel)
+		})
+
+		AfterAll(func() {
+			wg.Wait()
+			_ = kubectl.Delete(gracefulTermYAML)
+		})
+
+		It("Checks client terminates gracefully on service endpoint deletion", func() {
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l "+clientPodLabel, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "Client pods failed to come up")
+			pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, clientPodLabel)
+			Expect(err).Should(BeNil(), "Cannot retrieve pod names by filter %s", clientPodLabel)
+			Expect(len(pods)).To(Equal(1), "Unexpected number of client pods")
+			clientPod = pods[0]
+			ctx, cancel := context.WithCancel(context.Background())
+			res := kubectl.LogsStream(helpers.DefaultNamespace, clientPod, ctx)
+			// Check if the client pod is able to get a response from the server once it's up and running
+			Expect(res.WaitUntilMatch("client received")).To(BeNil(),
+				"%s is not in the output after timeout", res.GetStdOut())
+			defer func() {
+				cancel()
+				res.WaitUntilFinish()
+			}()
+
+			terminateServiceEndpointPod()
+
+			// The client pod exits with status code 0 on graceful termination.
+			By("Checking if client pod terminated successfully")
+			Eventually(func() string {
+				filter := `{.status.phase}`
+				status, err := kubectl.GetPods(helpers.DefaultNamespace, clientPod).Filter(filter)
+				Expect(err).Should(BeNil(), "Failed to get pod status %s", clientPod)
+				return status.String()
+			}, 30*time.Second, time.Second).Should(BeIdenticalTo("Succeeded"), "Unexpected pod status \n")
+		})
+
+		It("Checks if terminating service endpoint doesn't serve new connections", func() {
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testDSClient", helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "Pods %s failed to come up", testPodLabel)
+			podIPs, err := kubectl.GetPodsIPs(helpers.DefaultNamespace, testPodLabel)
+			ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve pod IPs for %s", testPodLabel)
+
+			terminateServiceEndpointPod()
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			for pod, ip := range podIPs {
+				// Repeat the command as Kubernetes events propagation may have delays
+				Eventually(func() bool {
+					By("Checking if test pod connection is unsuccessful")
+					res := kubectl.ExecPodCmd(
+						helpers.DefaultNamespace, pod,
+						helpers.CurlFail("graceful-term-svc.default.svc.cluster.local.:8081"))
+
+					By("Checking if terminating service endpoint did not receive new connection")
+					msg := fmt.Sprintf("received connection from %s", ip)
+					res2 := kubectl.LogsStream(helpers.DefaultNamespace, serverPod, ctx)
+
+					return !res.WasSuccessful() || !res2.ExpectDoesNotContain(msg, "Server received connection from %s when it should not have", ip)
+				}, 10*time.Second, time.Second).Should(BeTrue(), "%q can connect when it should not work \n", pod)
+			}
 		})
 	})
 
