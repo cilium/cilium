@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"runtime"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -159,11 +158,10 @@ func (k *K8sClusterMesh) apiserverImage() string {
 
 func (k *K8sClusterMesh) etcdImage() string {
 	etcdVersion := "v3.4.13"
-	arch := runtime.GOARCH
-	if arch == "amd64" {
+	if k.clusterArch == "amd64" {
 		return "quay.io/coreos/etcd:" + etcdVersion
 	}
-	return "quay.io/coreos/etcd:" + etcdVersion + "-" + arch
+	return "quay.io/coreos/etcd:" + etcdVersion + "-" + k.clusterArch
 }
 
 func (k *K8sClusterMesh) etcdEnvs() []corev1.EnvVar {
@@ -181,7 +179,7 @@ func (k *K8sClusterMesh) etcdEnvs() []corev1.EnvVar {
 			},
 		},
 	}
-	if runtime.GOARCH == "arm64" {
+	if k.clusterArch == "arm64" {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "ETCD_UNSUPPORTED_ARCH",
 			Value: "arm64",
@@ -191,6 +189,7 @@ func (k *K8sClusterMesh) etcdEnvs() []corev1.EnvVar {
 }
 
 func (k *K8sClusterMesh) generateDeployment(clustermeshApiserverArgs []string) *appsv1.Deployment {
+
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   defaults.ClusterMeshDeploymentName,
@@ -425,6 +424,7 @@ type k8sClusterMeshImplementation interface {
 	DeleteCiliumExternalWorkload(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	GetRunningCiliumVersion(ctx context.Context, namespace string) (string, error)
 	ListCiliumEndpoints(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error)
+	GetPlatform(ctx context.Context) (*k8s.Platform, error)
 }
 
 type K8sClusterMesh struct {
@@ -436,6 +436,7 @@ type K8sClusterMesh struct {
 	clusterName     string
 	clusterID       string
 	imageVersion    string
+	clusterArch     string
 }
 
 type Parameters struct {
@@ -567,6 +568,12 @@ func (k *K8sClusterMesh) Enable(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	p, err := k.client.GetPlatform(ctx)
+	if err != nil {
+		return err
+	}
+	k.clusterArch = p.Arch
 
 	svc, err := k.generateService()
 	if err != nil {
