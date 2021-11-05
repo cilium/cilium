@@ -787,7 +787,16 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 	// Upsert service entries into BPF maps
 	backends := make(map[string]lb.BackendID, len(svc.backends))
 	for _, b := range svc.backends {
-		backends[b.String()] = b.ID
+		// Skip adding the terminating backend to the service map so that it
+		// won't be selected to serve new requests. However, the backend is still
+		// kept in the affinity and backend maps so that existing connections
+		// are able to terminate gracefully. The final clean-up for the backend
+		// will happen once the agent receives a delete event for the service
+		// endpoint as it'll be part of obsoleteBackendIDs/obsoleteSVCBackendIDs
+		// list passed to this function.
+		if !b.Terminating {
+			backends[b.String()] = b.ID
+		}
 	}
 
 	p := &lbmap.UpsertServiceParams{
