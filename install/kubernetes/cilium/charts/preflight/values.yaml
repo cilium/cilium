@@ -1,7 +1,7 @@
 image: cilium
 
 # cilium-digest
-digest: ""
+digest: "sha256:070a57faa72ca55b045861453a2f1697e4d582a75cf2b24937e0397684abcb3f"
 useDigest: false
 
 # Include the PreFlight DaemonSet

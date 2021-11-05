@@ -432,7 +432,7 @@ spec:
               key: custom-cni-conf
               name: cilium-config
               optional: true
-        image: "quay.io/cilium/cilium:v1.8.13"
+        image: "quay.io/cilium/cilium:v1.8.13@sha256:070a57faa72ca55b045861453a2f1697e4d582a75cf2b24937e0397684abcb3f"
         imagePullPolicy: IfNotPresent
         lifecycle:
           postStart:
@@ -495,7 +495,7 @@ spec:
               key: wait-bpf-mount
               name: cilium-config
               optional: true
-        image: "quay.io/cilium/cilium:v1.8.13"
+        image: "quay.io/cilium/cilium:v1.8.13@sha256:070a57faa72ca55b045861453a2f1697e4d582a75cf2b24937e0397684abcb3f"
         imagePullPolicy: IfNotPresent
         name: clean-cilium-state
         securityContext:
@@ -648,7 +648,7 @@ spec:
               key: AWS_DEFAULT_REGION
               name: cilium-aws
               optional: true
-        image: "quay.io/cilium/operator-generic:v1.8.13"
+        image: "quay.io/cilium/operator-generic:v1.8.13@sha256:9e6677599565637d479886d038c366b40ce4acded54ab7bca1c7ad660b0c0a83"
         imagePullPolicy: IfNotPresent
         name: cilium-operator
         livenessProbe:
