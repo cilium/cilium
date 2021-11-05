@@ -1,5 +1,52 @@
 # Changelog
 
+## v1.9.11
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Add metrics for identity garbage collection in cilium-operator (Backport PR #17399, Upstream PR #14254, @ArthurChiao)
+* agent: Silence some useless warnings (Backport PR #17532, Upstream PR #15450, @tgraf)
+* Cilium Istio integration is updated to Istio release 1.10.4 (Backport PR #17390, Upstream PRs #14621, #14704, #17275, @jrajahalme)
+
+**Bugfixes:**
+* Fix bug where timers used for retries sometimes fired immediately (Backport PR #17398, Upstream PR #16955, @gandro)
+* Fix transient policy deny during agent restart (Backport PR #17390, Upstream PR #17115, @jaffcheng)
+* node: Skip ipcache for remote node IPs if IPsec is enabled (Backport PR #17728, Upstream PR #17511, @pchaigno)
+* Remove CiliumNode deletion logic from CiliumNode watcher and guarantee CiliumNode's OwnerReference is always set (Backport PR #17396, Upstream PR #17329, @christarazi)
+* Set right User Agent in Kubernetes client for all Cilium components. (Backport PR #17532, Upstream PR #17417, @aanm)
+
+**CI Changes:**
+* [v1.9] fix MLH config trigger (#17422, @nbusseneau)
+* bpf/Makefile: Enable setting complexity options (Backport PR #17626, Upstream PR #17364, @pchaigno)
+* test/runtime: Look into log errors after test start (Backport PR #17390, Upstream PR #17351, @joamaki)
+* test: bump coredns version to 1.7.0 (Backport PR #17532, Upstream PR #17489, @aanm)
+* test: Skip Istio test on k8s <1.17 (Backport PR #17390, Upstream PR #17445, @jrajahalme)
+
+**Misc Changes:**
+* build(deps): bump 8398a7/action-slack from 3.9.2 to 3.9.3 (#17384, @dependabot[bot])
+* build(deps): bump 8398a7/action-slack from 3.9.3 to 3.10.0 (#17448, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 1.5.1 to 1.6.0 (#17324, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from 1.4.1 to 1.5.0 (#17748, @dependabot[bot])
+* contrib/backporting: add environment variables to set ORG and REPO (Backport PR #17532, Upstream PR #17424, @aanm)
+* contrib/backporting: Dockerize backporting scripts (Backport PR #17728, Upstream PR #17157, @aditighag)
+* daemon, ipam, option: Introduce ability to bypass IP availability error (Backport PR #17493, Upstream PR #17492, @christarazi)
+* docs: clarify language on libceph and kernel 5.8 in kubeproxy-free GSG (Backport PR #17532, Upstream PR #16969, @bluikko)
+* docs: Fix command for overwriting iptables on kube-proxy replacement install (Backport PR #17532, Upstream PR #16264, @Stijn98s)
+* docs: Fix helm value when deploying pure ipvlan l3 mode (Backport PR #17728, Upstream PR #17708, @chendotjs)
+* ethtool: use ioctl wrapper from golang.org/x/sys/unix (Backport PR #17390, Upstream PR #17153, @tklauser)
+* helm: set correct versions of docker images in Makefile (Backport PR #17567, Upstream PR #17477, @aanm)
+* jenkinsfiles: Don't display nulls in current build display name (Backport PR #17390, Upstream PR #17258, @twpayne)
+* operator: Improve identity GC efficiency (Backport PR #17398, Upstream PR #17359, @christarazi)
+* refactor: Remove `time.After` from any Loops (Backport PR #17398, Upstream PR #14380, @nathanjsweet)
+* v1.9: Update Cilium base images (#17801, @joestringer)
+* vendor: update mongo-driver to 1.5.1 to fix CVE-2021-20329 (Backport PR #17328, Upstream PR #17234, @aanm)
+* verifier-test.sh: allow for empty FOO_PROGS (Backport PR #17626, Upstream PR #17408, @kkourt)
+
+**Other Changes:**
+* install: Update image digests for v1.9.10 (#17297, @joestringer)
+
 ## v1.9.10
 
 Summary of Changes
