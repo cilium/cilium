@@ -246,6 +246,7 @@ spec:
                         - remote-node
                         - health
                         - none
+                        - kube-apiserver
                         type: string
                       type: array
                     toFQDNs:
@@ -1061,6 +1062,7 @@ spec:
                         - remote-node
                         - health
                         - none
+                        - kube-apiserver
                         type: string
                       type: array
                     toGroups:
@@ -1498,6 +1500,7 @@ spec:
                         - remote-node
                         - health
                         - none
+                        - kube-apiserver
                         type: string
                       type: array
                     fromRequires:
@@ -2146,6 +2149,7 @@ spec:
                         - remote-node
                         - health
                         - none
+                        - kube-apiserver
                         type: string
                       type: array
                     fromRequires:
@@ -2582,6 +2586,7 @@ spec:
                           - remote-node
                           - health
                           - none
+                          - kube-apiserver
                           type: string
                         type: array
                       toFQDNs:
@@ -3412,6 +3417,7 @@ spec:
                           - remote-node
                           - health
                           - none
+                          - kube-apiserver
                           type: string
                         type: array
                       toGroups:
@@ -3855,6 +3861,7 @@ spec:
                           - remote-node
                           - health
                           - none
+                          - kube-apiserver
                           type: string
                         type: array
                       fromRequires:
@@ -4512,6 +4519,7 @@ spec:
                           - remote-node
                           - health
                           - none
+                          - kube-apiserver
                           type: string
                         type: array
                       fromRequires:
