@@ -49,13 +49,14 @@ func (e *Endpoints) DeepEqual(o *Endpoints) bool {
 	return e.deepEqual(o)
 }
 
-// Backend contains all ports and the node name of a given backend
+// Backend contains all ports, terminating state, and the node name of a given backend
 //
 // +k8s:deepcopy-gen=true
 // +deepequal-gen=true
 type Backend struct {
-	Ports    serviceStore.PortConfiguration
-	NodeName string
+	Ports       serviceStore.PortConfiguration
+	NodeName    string
+	Terminating bool
 }
 
 // String returns the string representation of an endpoints resource, with
@@ -154,16 +155,32 @@ func ParseEndpointSliceID(es endpointSlice) EndpointSliceID {
 }
 
 // ParseEndpointSliceV1Beta1 parses a Kubernetes EndpointsSlice v1beta1 resource
+// It reads ready and terminating state of endpoints in the EndpointSlice to
+// return an EndpointSlice ID and a filtered list of Endpoints for service load-balancing.
 func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) (EndpointSliceID, *Endpoints) {
 	endpoints := newEndpoints()
 
 	for _, sub := range ep.Endpoints {
+		skipEndpoint := false
 		// ready indicates that this endpoint is prepared to receive traffic,
 		// according to whatever system is managing the endpoint. A nil value
 		// indicates an unknown state. In most cases consumers should interpret this
 		// unknown state as ready.
 		// More info: vendor/k8s.io/api/discovery/v1beta1/types.go
 		if sub.Conditions.Ready != nil && !*sub.Conditions.Ready {
+			skipEndpoint = true
+			if option.Config.EnableK8sTerminatingEndpoint {
+				// Terminating indicates that the endpoint is getting terminated. A
+				// nil values indicates an unknown state. Ready is never true when
+				// an endpoint is terminating. Propagate the terminating endpoint
+				// state so that we can gracefully remove those endpoints.
+				// More details : vendor/k8s.io/api/discovery/v1/types.go
+				if sub.Conditions.Terminating != nil && *sub.Conditions.Terminating {
+					skipEndpoint = false
+				}
+			}
+		}
+		if skipEndpoint {
 			continue
 		}
 		for _, addr := range sub.Addresses {
@@ -173,6 +190,11 @@ func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) (Endpoi
 				endpoints.Backends[addr] = backend
 				if nodeName, ok := sub.Topology["kubernetes.io/hostname"]; ok {
 					backend.NodeName = nodeName
+				}
+				if option.Config.EnableK8sTerminatingEndpoint {
+					if sub.Conditions.Terminating != nil && *sub.Conditions.Terminating {
+						backend.Terminating = true
+					}
 				}
 			}
 
@@ -213,17 +235,33 @@ func parseEndpointPortV1Beta1(port slim_discovery_v1beta1.EndpointPort) (string,
 	return name, lbPort
 }
 
-// ParseEndpointSliceV1 parses a Kubernetes Endpoints resource
+// ParseEndpointSliceV1 parses a Kubernetes EndpointSlice resource.
+// It reads ready and terminating state of endpoints in the EndpointSlice to
+// return an EndpointSlice ID and a filtered list of Endpoints for service load-balancing.
 func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) (EndpointSliceID, *Endpoints) {
 	endpoints := newEndpoints()
 
 	for _, sub := range ep.Endpoints {
+		skipEndpoint := false
 		// ready indicates that this endpoint is prepared to receive traffic,
 		// according to whatever system is managing the endpoint. A nil value
 		// indicates an unknown state. In most cases consumers should interpret this
 		// unknown state as ready.
 		// More info: vendor/k8s.io/api/discovery/v1/types.go
 		if sub.Conditions.Ready != nil && !*sub.Conditions.Ready {
+			skipEndpoint = true
+			if option.Config.EnableK8sTerminatingEndpoint {
+				// Terminating indicates that the endpoint is getting terminated. A
+				// nil values indicates an unknown state. Ready is never true when
+				// an endpoint is terminating. Propagate the terminating endpoint
+				// state so that we can gracefully remove those endpoints.
+				// More details : vendor/k8s.io/api/discovery/v1/types.go
+				if sub.Conditions.Terminating != nil && *sub.Conditions.Terminating {
+					skipEndpoint = false
+				}
+			}
+		}
+		if skipEndpoint {
 			continue
 		}
 		for _, addr := range sub.Addresses {
@@ -236,6 +274,11 @@ func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) (EndpointSliceID,
 				} else {
 					if nodeName, ok := sub.DeprecatedTopology["kubernetes.io/hostname"]; ok {
 						backend.NodeName = nodeName
+					}
+				}
+				if option.Config.EnableK8sTerminatingEndpoint {
+					if sub.Conditions.Terminating != nil && *sub.Conditions.Terminating {
+						backend.Terminating = true
 					}
 				}
 			}
