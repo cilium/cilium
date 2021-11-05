@@ -162,7 +162,7 @@ func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) (Endpoi
 		// according to whatever system is managing the endpoint. A nil value
 		// indicates an unknown state. In most cases consumers should interpret this
 		// unknown state as ready.
-		// More info: vendor/k8s.io/api/discovery/v1beta1/types.go:114
+		// More info: vendor/k8s.io/api/discovery/v1beta1/types.go
 		if sub.Conditions.Ready != nil && !*sub.Conditions.Ready {
 			continue
 		}
@@ -222,7 +222,7 @@ func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) (EndpointSliceID,
 		// according to whatever system is managing the endpoint. A nil value
 		// indicates an unknown state. In most cases consumers should interpret this
 		// unknown state as ready.
-		// More info: vendor/k8s.io/api/discovery/v1/types.go:117
+		// More info: vendor/k8s.io/api/discovery/v1/types.go
 		if sub.Conditions.Ready != nil && !*sub.Conditions.Ready {
 			continue
 		}
