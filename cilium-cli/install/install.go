@@ -1265,7 +1265,7 @@ func (k *K8sInstaller) generateConfigMap() (*corev1.ConfigMap, error) {
 			// wait-bpf-mount makes init container wait until bpf filesystem is mounted
 			"wait-bpf-mount": "true",
 
-			"enable-bpf-masquerade": "true",
+			"enable-bpf-masquerade": "false",
 
 			"enable-xt-socket-fallback":           "true",
 			"install-iptables-rules":              "true",
