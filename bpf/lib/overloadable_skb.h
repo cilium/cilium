@@ -83,9 +83,9 @@ redirect_self(const struct __sk_buff *ctx)
 	 * slave in netns already.
 	 */
 #ifdef ENABLE_HOST_REDIRECT
-	return redirect(ctx->ifindex, 0);
+	return ctx_redirect(ctx, ctx->ifindex, 0);
 #else
-	return redirect(ctx->ifindex, BPF_F_INGRESS);
+	return ctx_redirect(ctx, ctx->ifindex, BPF_F_INGRESS);
 #endif
 }
 

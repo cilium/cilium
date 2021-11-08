@@ -911,7 +911,7 @@ static __always_inline int redirect_ep(struct __ctx_buff *ctx __maybe_unused,
 	 */
 #ifdef ENABLE_HOST_REDIRECT
 	if (needs_backlog || !is_defined(ENABLE_REDIRECT_FAST)) {
-		return redirect(ifindex, 0);
+		return ctx_redirect(ctx, ifindex, 0);
 	} else {
 # ifdef ENCAP_IFINDEX
 		/* When coming from overlay, we need to set packet type
@@ -919,16 +919,7 @@ static __always_inline int redirect_ep(struct __ctx_buff *ctx __maybe_unused,
 		 */
 		ctx_change_type(ctx, PACKET_HOST);
 # endif /* ENCAP_IFINDEX */
-#if __ctx_is == __ctx_skb
-		return redirect_peer(ifindex, 0);
-#else
-		/* bpf_redirect_peer() is available only in TC BPF. However,
-		 * this path is not used by bpf_xdp. So to avoid compilation
-		 * errors protect it with #if until we have replaced all usage
-		 * of redirect{,_peer}() with ctx_redirect{,_peer}().
-		 */
-		return -ENOTSUP;
-#endif /* __ctx_is == __ctx_skb */
+		return ctx_redirect_peer(ctx, ifindex, 0);
 	}
 #else
 	return CTX_ACT_OK;

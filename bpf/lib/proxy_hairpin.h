@@ -58,7 +58,7 @@ ctx_redirect_to_proxy_hairpin(struct __ctx_buff *ctx, __be16 proxy_port, const b
 	 * ctx_redirect_to_proxy_first().
 	 */
 
-	return redirect(HOST_IFINDEX, 0);
+	return ctx_redirect(ctx, HOST_IFINDEX, 0);
 }
 
 #ifdef ENABLE_IPV4

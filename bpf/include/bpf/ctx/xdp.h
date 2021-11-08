@@ -258,6 +258,15 @@ ctx_redirect(const struct xdp_md *ctx, int ifindex, const __u32 flags)
 	return redirect(ifindex, flags);
 }
 
+static __always_inline __maybe_unused int
+ctx_redirect_peer(const struct xdp_md *ctx __maybe_unused,
+		  int ifindex __maybe_unused,
+		  const __u32 flags __maybe_unused)
+{
+	/* bpf_redirect_peer() is available only in TC BPF. */
+	return -ENOTSUP;
+}
+
 static __always_inline __maybe_unused __u64
 ctx_full_len(const struct xdp_md *ctx)
 {
