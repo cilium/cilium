@@ -151,7 +151,7 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	if (ret != 0)
 		return ret;
 
-	return redirect(ENCAP_IFINDEX, 0);
+	return ctx_redirect(ctx, ENCAP_IFINDEX, 0);
 }
 
 /* encap_and_redirect_with_nodeid returns IPSEC_ENDPOINT after ctx meta-data is

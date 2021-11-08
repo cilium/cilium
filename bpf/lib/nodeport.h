@@ -2135,7 +2135,7 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused)
 		if (ret != 0)
 			return ret;
 		ctx->mark |= MARK_MAGIC_HEALTH_IPIP_DONE;
-		return redirect(ENCAP4_IFINDEX, 0);
+		return ctx_redirect(ctx, ENCAP4_IFINDEX, 0);
 	}
 #endif
 #if defined(ENABLE_IPV6) && DSR_ENCAP_MODE == DSR_ENCAP_IPIP
@@ -2150,7 +2150,7 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused)
 		if (ret != 0)
 			return ret;
 		ctx->mark |= MARK_MAGIC_HEALTH_IPIP_DONE;
-		return redirect(ENCAP6_IFINDEX, 0);
+		return ctx_redirect(ctx, ENCAP6_IFINDEX, 0);
 	}
 #endif
 	default:

@@ -812,7 +812,7 @@ static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto
 	 * PACKET_HOST or otherwise fixup MAC addresses.
 	 */
 	if (encrypt_iface)
-		return redirect(encrypt_iface, 0);
+		return ctx_redirect(ctx, encrypt_iface, 0);
 #endif
 	return CTX_ACT_OK;
 }

@@ -60,7 +60,7 @@ redirect_direct_v6(struct __ctx_buff *ctx __maybe_unused,
 		return CTX_ACT_DROP;
 	if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
 		return CTX_ACT_DROP;
-	return redirect(oif, 0);
+	return ctx_redirect(ctx, oif, 0);
 # endif /* ENABLE_SKIP_FIB */
 	return CTX_ACT_DROP;
 }
@@ -120,7 +120,7 @@ redirect_direct_v4(struct __ctx_buff *ctx __maybe_unused,
 		return CTX_ACT_DROP;
 	if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
 		return CTX_ACT_DROP;
-	return redirect(oif, 0);
+	return ctx_redirect(ctx, oif, 0);
 # endif /* ENABLE_SKIP_FIB */
 	return CTX_ACT_DROP;
 }
