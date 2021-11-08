@@ -34,7 +34,9 @@
 
 {{- /* Default values when 1.10 was initially deployed */ -}}
 {{- if semverCompare ">=1.10" (default "1.10" .Values.upgradeCompatibility) -}}
-{{- $defaultKubeProxyReplacement = "disabled" -}}
+  {{- $defaultKubeProxyReplacement = "disabled" -}}
+  {{- /* Needs to be explicitly disabled because it was enabled on all versions >=v1.8 above. */ -}}
+  {{- $defaultBpfMasquerade = "false" -}}
 {{- end -}}
 
 {{- $ipam := (coalesce .Values.ipam.mode $defaultIPAM) -}}
