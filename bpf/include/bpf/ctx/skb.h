@@ -57,9 +57,15 @@
 #define get_hash_recalc(ctx)	get_hash(ctx)
 
 static __always_inline __maybe_unused int
-ctx_redirect(struct __sk_buff *ctx __maybe_unused, int ifindex, __u32 flags)
+ctx_redirect(const struct __sk_buff *ctx __maybe_unused, int ifindex, __u32 flags)
 {
 	return redirect(ifindex, flags);
+}
+
+static __always_inline __maybe_unused int
+ctx_redirect_peer(const struct __sk_buff *ctx __maybe_unused, int ifindex, __u32 flags)
+{
+	return redirect_peer(ifindex, flags);
 }
 
 static __always_inline __maybe_unused int

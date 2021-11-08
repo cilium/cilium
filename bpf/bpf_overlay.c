@@ -140,7 +140,7 @@ to_host:
 			return ret;
 
 		cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
-		return redirect(HOST_IFINDEX, 0);
+		return ctx_redirect(ctx, HOST_IFINDEX, 0);
 	}
 #else
 	return CTX_ACT_OK;
@@ -263,7 +263,7 @@ to_host:
 			return ret;
 
 		cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
-		return redirect(HOST_IFINDEX, 0);
+		return ctx_redirect(ctx, HOST_IFINDEX, 0);
 	}
 #else
 	return CTX_ACT_OK;
