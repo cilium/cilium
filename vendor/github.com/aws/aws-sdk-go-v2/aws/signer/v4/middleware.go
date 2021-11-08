@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -309,7 +310,61 @@ func (s *SignHTTPRequestMiddleware) HandleFinalize(ctx context.Context, in middl
 		return out, metadata, &SigningError{Err: fmt.Errorf("failed to sign http request, %w", err)}
 	}
 
+	ctx = awsmiddleware.SetSigningCredentials(ctx, credentials)
+
 	return next.HandleFinalize(ctx, in)
+}
+
+type streamingEventsPayload struct{}
+
+// AddStreamingEventsPayload adds the streamingEventsPayload middleware to the stack.
+func AddStreamingEventsPayload(stack *middleware.Stack) error {
+	return stack.Build.Add(&streamingEventsPayload{}, middleware.After)
+}
+
+func (s *streamingEventsPayload) ID() string {
+	return computePayloadHashMiddlewareID
+}
+
+func (s *streamingEventsPayload) HandleBuild(
+	ctx context.Context, in middleware.BuildInput, next middleware.BuildHandler,
+) (
+	out middleware.BuildOutput, metadata middleware.Metadata, err error,
+) {
+	contentSHA := GetPayloadHash(ctx)
+	if len(contentSHA) == 0 {
+		contentSHA = v4Internal.StreamingEventsPayload
+	}
+
+	ctx = SetPayloadHash(ctx, contentSHA)
+
+	return next.HandleBuild(ctx, in)
+}
+
+// GetSignedRequestSignature attempts to extract the signature of the request.
+// Returning an error if the request is unsigned, or unable to extract the
+// signature.
+func GetSignedRequestSignature(r *http.Request) ([]byte, error) {
+	const authHeaderSignatureElem = "Signature="
+
+	if auth := r.Header.Get(authorizationHeader); len(auth) != 0 {
+		ps := strings.Split(auth, ", ")
+		for _, p := range ps {
+			if idx := strings.Index(p, authHeaderSignatureElem); idx >= 0 {
+				sig := p[len(authHeaderSignatureElem):]
+				if len(sig) == 0 {
+					return nil, fmt.Errorf("invalid request signature authorization header")
+				}
+				return hex.DecodeString(sig)
+			}
+		}
+	}
+
+	if sig := r.URL.Query().Get("X-Amz-Signature"); len(sig) != 0 {
+		return hex.DecodeString(sig)
+	}
+
+	return nil, fmt.Errorf("request not signed")
 }
 
 func haveCredentialProvider(p aws.CredentialsProvider) bool {

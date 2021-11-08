@@ -10,11 +10,11 @@ require (
 	github.com/Azure/go-autorest/autorest/to v0.4.0
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.1322
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d
-	github.com/aws/aws-sdk-go-v2 v1.10.0
+	github.com/aws/aws-sdk-go-v2 v1.11.0
 	github.com/aws/aws-sdk-go-v2/config v1.9.0
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.7.0
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.20.0
-	github.com/aws/smithy-go v1.8.1
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.21.0
+	github.com/aws/smithy-go v1.9.0
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cilium/customvet v0.0.0-20201209211516-9852765c1ac4
 	github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e
@@ -115,8 +115,10 @@ require (
 	github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20211101200231-0802afb9c160 // indirect
 	github.com/armon/go-metrics v0.3.10 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.5.0 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.0 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.0.0 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.2.5 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.4.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.5.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.5.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.8.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect

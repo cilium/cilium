@@ -2,6 +2,76 @@
 
 package types
 
+type AcceleratorManufacturer string
+
+// Enum values for AcceleratorManufacturer
+const (
+	AcceleratorManufacturerNvidia            AcceleratorManufacturer = "nvidia"
+	AcceleratorManufacturerAmd               AcceleratorManufacturer = "amd"
+	AcceleratorManufacturerAmazonWebServices AcceleratorManufacturer = "amazon-web-services"
+	AcceleratorManufacturerXilinx            AcceleratorManufacturer = "xilinx"
+)
+
+// Values returns all known values for AcceleratorManufacturer. Note that this can
+// be expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (AcceleratorManufacturer) Values() []AcceleratorManufacturer {
+	return []AcceleratorManufacturer{
+		"nvidia",
+		"amd",
+		"amazon-web-services",
+		"xilinx",
+	}
+}
+
+type AcceleratorName string
+
+// Enum values for AcceleratorName
+const (
+	AcceleratorNameA100          AcceleratorName = "a100"
+	AcceleratorNameV100          AcceleratorName = "v100"
+	AcceleratorNameK80           AcceleratorName = "k80"
+	AcceleratorNameT4            AcceleratorName = "t4"
+	AcceleratorNameM60           AcceleratorName = "m60"
+	AcceleratorNameRadeonProV520 AcceleratorName = "radeon-pro-v520"
+	AcceleratorNameVu9p          AcceleratorName = "vu9p"
+)
+
+// Values returns all known values for AcceleratorName. Note that this can be
+// expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (AcceleratorName) Values() []AcceleratorName {
+	return []AcceleratorName{
+		"a100",
+		"v100",
+		"k80",
+		"t4",
+		"m60",
+		"radeon-pro-v520",
+		"vu9p",
+	}
+}
+
+type AcceleratorType string
+
+// Enum values for AcceleratorType
+const (
+	AcceleratorTypeGpu       AcceleratorType = "gpu"
+	AcceleratorTypeFpga      AcceleratorType = "fpga"
+	AcceleratorTypeInference AcceleratorType = "inference"
+)
+
+// Values returns all known values for AcceleratorType. Note that this can be
+// expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (AcceleratorType) Values() []AcceleratorType {
+	return []AcceleratorType{
+		"gpu",
+		"fpga",
+		"inference",
+	}
+}
+
 type AccountAttributeName string
 
 // Enum values for AccountAttributeName
@@ -384,6 +454,26 @@ func (AvailabilityZoneState) Values() []AvailabilityZoneState {
 	}
 }
 
+type BareMetal string
+
+// Enum values for BareMetal
+const (
+	BareMetalIncluded BareMetal = "included"
+	BareMetalRequired BareMetal = "required"
+	BareMetalExcluded BareMetal = "excluded"
+)
+
+// Values returns all known values for BareMetal. Note that this can be expanded in
+// the future, and so it is only as up to date as the client. The ordering of this
+// slice is not guaranteed to be stable across updates.
+func (BareMetal) Values() []BareMetal {
+	return []BareMetal{
+		"included",
+		"required",
+		"excluded",
+	}
+}
+
 type BatchState string
 
 // Enum values for BatchState
@@ -491,6 +581,26 @@ func (BundleTaskState) Values() []BundleTaskState {
 		"cancelling",
 		"complete",
 		"failed",
+	}
+}
+
+type BurstablePerformance string
+
+// Enum values for BurstablePerformance
+const (
+	BurstablePerformanceIncluded BurstablePerformance = "included"
+	BurstablePerformanceRequired BurstablePerformance = "required"
+	BurstablePerformanceExcluded BurstablePerformance = "excluded"
+)
+
+// Values returns all known values for BurstablePerformance. Note that this can be
+// expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (BurstablePerformance) Values() []BurstablePerformance {
+	return []BurstablePerformance{
+		"included",
+		"required",
+		"excluded",
 	}
 }
 
@@ -975,6 +1085,26 @@ const (
 func (CopyTagsFromSource) Values() []CopyTagsFromSource {
 	return []CopyTagsFromSource{
 		"volume",
+	}
+}
+
+type CpuManufacturer string
+
+// Enum values for CpuManufacturer
+const (
+	CpuManufacturerIntel             CpuManufacturer = "intel"
+	CpuManufacturerAmd               CpuManufacturer = "amd"
+	CpuManufacturerAmazonWebServices CpuManufacturer = "amazon-web-services"
+)
+
+// Values returns all known values for CpuManufacturer. Note that this can be
+// expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (CpuManufacturer) Values() []CpuManufacturer {
+	return []CpuManufacturer{
+		"intel",
+		"amd",
+		"amazon-web-services",
 	}
 }
 
@@ -2053,6 +2183,24 @@ func (InstanceEventWindowState) Values() []InstanceEventWindowState {
 	}
 }
 
+type InstanceGeneration string
+
+// Enum values for InstanceGeneration
+const (
+	InstanceGenerationCurrent  InstanceGeneration = "current"
+	InstanceGenerationPrevious InstanceGeneration = "previous"
+)
+
+// Values returns all known values for InstanceGeneration. Note that this can be
+// expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (InstanceGeneration) Values() []InstanceGeneration {
+	return []InstanceGeneration{
+		"current",
+		"previous",
+	}
+}
+
 type InstanceHealthStatus string
 
 // Enum values for InstanceHealthStatus
@@ -2520,6 +2668,7 @@ const (
 	InstanceTypeD3en6xlarge     InstanceType = "d3en.6xlarge"
 	InstanceTypeD3en8xlarge     InstanceType = "d3en.8xlarge"
 	InstanceTypeD3en12xlarge    InstanceType = "d3en.12xlarge"
+	InstanceTypeDl124xlarge     InstanceType = "dl1.24xlarge"
 	InstanceTypeF12xlarge       InstanceType = "f1.2xlarge"
 	InstanceTypeF14xlarge       InstanceType = "f1.4xlarge"
 	InstanceTypeF116xlarge      InstanceType = "f1.16xlarge"
@@ -2947,6 +3096,7 @@ func (InstanceType) Values() []InstanceType {
 		"d3en.6xlarge",
 		"d3en.8xlarge",
 		"d3en.12xlarge",
+		"dl1.24xlarge",
 		"f1.2xlarge",
 		"f1.4xlarge",
 		"f1.16xlarge",
@@ -3375,6 +3525,44 @@ func (LocalGatewayRouteType) Values() []LocalGatewayRouteType {
 	return []LocalGatewayRouteType{
 		"static",
 		"propagated",
+	}
+}
+
+type LocalStorage string
+
+// Enum values for LocalStorage
+const (
+	LocalStorageIncluded LocalStorage = "included"
+	LocalStorageRequired LocalStorage = "required"
+	LocalStorageExcluded LocalStorage = "excluded"
+)
+
+// Values returns all known values for LocalStorage. Note that this can be expanded
+// in the future, and so it is only as up to date as the client. The ordering of
+// this slice is not guaranteed to be stable across updates.
+func (LocalStorage) Values() []LocalStorage {
+	return []LocalStorage{
+		"included",
+		"required",
+		"excluded",
+	}
+}
+
+type LocalStorageType string
+
+// Enum values for LocalStorageType
+const (
+	LocalStorageTypeHdd LocalStorageType = "hdd"
+	LocalStorageTypeSsd LocalStorageType = "ssd"
+)
+
+// Values returns all known values for LocalStorageType. Note that this can be
+// expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (LocalStorageType) Values() []LocalStorageType {
+	return []LocalStorageType{
+		"hdd",
+		"ssd",
 	}
 }
 
@@ -4843,6 +5031,26 @@ func (SummaryStatus) Values() []SummaryStatus {
 		"insufficient-data",
 		"not-applicable",
 		"initializing",
+	}
+}
+
+type TargetCapacityUnitType string
+
+// Enum values for TargetCapacityUnitType
+const (
+	TargetCapacityUnitTypeVcpu      TargetCapacityUnitType = "vcpu"
+	TargetCapacityUnitTypeMemoryMib TargetCapacityUnitType = "memory-mib"
+	TargetCapacityUnitTypeUnits     TargetCapacityUnitType = "units"
+)
+
+// Values returns all known values for TargetCapacityUnitType. Note that this can
+// be expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (TargetCapacityUnitType) Values() []TargetCapacityUnitType {
+	return []TargetCapacityUnitType{
+		"vcpu",
+		"memory-mib",
+		"units",
 	}
 }
 

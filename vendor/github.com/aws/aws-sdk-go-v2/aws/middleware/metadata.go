@@ -165,3 +165,16 @@ func GetEndpointSource(ctx context.Context) (v aws.EndpointSource) {
 func SetEndpointSource(ctx context.Context, value aws.EndpointSource) context.Context {
 	return middleware.WithStackValue(ctx, endpointSourceKey{}, value)
 }
+
+type signingCredentialsKey struct{}
+
+// GetSigningCredentials returns the credentials that were used for signing if set on context.
+func GetSigningCredentials(ctx context.Context) (v aws.Credentials) {
+	v, _ = middleware.GetStackValue(ctx, signingCredentialsKey{}).(aws.Credentials)
+	return v
+}
+
+// SetSigningCredentials sets the credentails used for signing on the context.
+func SetSigningCredentials(ctx context.Context, value aws.Credentials) context.Context {
+	return middleware.WithStackValue(ctx, signingCredentialsKey{}, value)
+}

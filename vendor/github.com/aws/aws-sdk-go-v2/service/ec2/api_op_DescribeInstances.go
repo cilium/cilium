@@ -151,14 +151,17 @@ type DescribeInstancesInput struct {
 	// for the instance in the launch group (for example, 0, 1, 2, and so on).
 	//
 	// *
-	// launch-time - The time when the instance was launched.
+	// launch-time - The time when the instance was launched, in the ISO 8601 format in
+	// the UTC time zone (YYYY-MM-DDThh:mm:ss.sssZ), for example,
+	// 2021-09-29T11:04:43.305Z. You can use a wildcard (*), for example, 2021-09-29T*,
+	// which matches an entire day.
+	//
+	// * metadata-options.http-tokens - The metadata
+	// request authorization state (optional | required)
 	//
 	// *
-	// metadata-options.http-tokens - The metadata request authorization state
-	// (optional | required)
-	//
-	// * metadata-options.http-put-response-hop-limit - The http
-	// metadata request put response hop limit (integer, possible values 1 to 64)
+	// metadata-options.http-put-response-hop-limit - The http metadata request put
+	// response hop limit (integer, possible values 1 to 64)
 	//
 	// *
 	// metadata-options.http-endpoint - Enable or disable metadata access on http

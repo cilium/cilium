@@ -10,6 +10,7 @@ REPOTOOLS_CMD_UPDATE_MODULE_METADATA = ${REPOTOOLS_MODULE}/cmd/updatemodulemeta@
 REPOTOOLS_CMD_GENERATE_CHANGELOG = ${REPOTOOLS_MODULE}/cmd/generatechangelog@${REPOTOOLS_VERSION}
 REPOTOOLS_CMD_CHANGELOG = ${REPOTOOLS_MODULE}/cmd/changelog@${REPOTOOLS_VERSION}
 REPOTOOLS_CMD_TAG_RELEASE = ${REPOTOOLS_MODULE}/cmd/tagrelease@${REPOTOOLS_VERSION}
+REPOTOOLS_CMD_MODULE_VERSION = ${REPOTOOLS_MODULE}/cmd/moduleversion@${REPOTOOLS_VERSION}
 
 smithy-publish-local:
 	cd codegen && ./gradlew publishToMavenLocal
@@ -43,6 +44,9 @@ release: pre-release-validation
 	go run ${REPOTOOLS_CMD_GENERATE_CHANGELOG} -release ${RELEASE_MANIFEST_FILE} -o ${RELEASE_CHGLOG_DESC_FILE}
 	go run ${REPOTOOLS_CMD_CHANGELOG} rm -all
 	go run ${REPOTOOLS_CMD_TAG_RELEASE} -release ${RELEASE_MANIFEST_FILE}
+
+module-version:
+	@go run ${REPOTOOLS_CMD_MODULE_VERSION} .
 
 ##############
 # Repo Tools #

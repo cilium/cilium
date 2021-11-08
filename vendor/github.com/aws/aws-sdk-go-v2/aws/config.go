@@ -40,7 +40,13 @@ type Config struct {
 
 	// An endpoint resolver that can be used to provide or override an endpoint for the given
 	// service and region Please see the `aws.EndpointResolver` documentation on usage.
+	//
+	// Deprecated: See Config.EndpointResolverWithOptions
 	EndpointResolver EndpointResolver
+
+	// An endpoint resolver that can be used to provide or override an endpoint for the given
+	// service and region Please see the `aws.EndpointResolverWithOptions` documentation on usage.
+	EndpointResolverWithOptions EndpointResolverWithOptions
 
 	// Retryer is a function that provides a Retryer implementation. A Retryer guides how HTTP requests should be
 	// retried in case of recoverable failures. When nil the API client will use a default
