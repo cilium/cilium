@@ -40,8 +40,8 @@ type ModifyImageAttributeInput struct {
 	// This member is required.
 	ImageId *string
 
-	// The name of the attribute to modify. The valid values are description and
-	// launchPermission.
+	// The name of the attribute to modify. Valid values: description |
+	// launchPermission
 	Attribute *string
 
 	// A new description for the AMI.
@@ -59,6 +59,14 @@ type ModifyImageAttributeInput struct {
 	// The operation type. This parameter can be used only when the Attribute parameter
 	// is launchPermission.
 	OperationType types.OperationType
+
+	// The Amazon Resource Name (ARN) of an organization. This parameter can be used
+	// only when the Attribute parameter is launchPermission.
+	OrganizationArns []string
+
+	// The Amazon Resource Name (ARN) of an organizational unit (OU). This parameter
+	// can be used only when the Attribute parameter is launchPermission.
+	OrganizationalUnitArns []string
 
 	// Not supported.
 	ProductCodes []string

@@ -38,6 +38,7 @@ ENDPOINT_PREFIX_JSON=${CODEGEN_RESOURCES_PATH}/endpoint-prefix.json
 
 LICENSE_FILE=$(shell pwd)/LICENSE.txt
 
+SMITHY_GO_VERSION ?=
 RELEASE_MANIFEST_FILE ?=
 RELEASE_CHGLOG_DESC_FILE ?=
 
@@ -51,6 +52,7 @@ REPOTOOLS_CMD_UPDATE_MODULE_METADATA = ${REPOTOOLS_MODULE}/cmd/updatemodulemeta@
 REPOTOOLS_CMD_GENERATE_CHANGELOG = ${REPOTOOLS_MODULE}/cmd/generatechangelog@${REPOTOOLS_VERSION}
 REPOTOOLS_CMD_CHANGELOG = ${REPOTOOLS_MODULE}/cmd/changelog@${REPOTOOLS_VERSION}
 REPOTOOLS_CMD_TAG_RELEASE = ${REPOTOOLS_MODULE}/cmd/tagrelease@${REPOTOOLS_VERSION}
+REPOTOOLS_CMD_EDIT_MODULE_DEPENDENCY = ${REPOTOOLS_MODULE}/cmd/editmoduledependency@${REPOTOOLS_VERSION}
 
 REPOTOOLS_CALCULATE_RELEASE_VERBOSE ?= false
 REPOTOOLS_CALCULATE_RELEASE_VERBOSE_FLAG=-v=${REPOTOOLS_CALCULATE_RELEASE_VERBOSE}
@@ -421,6 +423,12 @@ release: pre-release-validation
 
 install-repotools:
 	go install ${REPOTOOLS_MODULE}/cmd/changelog@${REPOTOOLS_VERSION}
+
+set-smithy-go-version:
+	@if [[ -z "${SMITHY_GO_VERSION}" ]]; then \
+		echo "SMITHY_GO_VERSION is required to update SDK's smithy-go module dependency version" && false; \
+	fi
+	go run ${REPOTOOLS_CMD_EDIT_MODULE_DEPENDENCY} -s "github.com/aws/smithy-go" -v "${SMITHY_GO_VERSION}"
 
 ##################
 # Linting/Verify #

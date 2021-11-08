@@ -1,3 +1,133 @@
+# Release (2021-11-06)
+
+## General Highlights
+* **Feature**: The SDK now supports configuration of FIPS and DualStack endpoints using environment variables, shared configuration, or programmatically.
+* **Feature**: Updated `github.com/aws/smithy-go` to latest version
+* **Dependency Update**: Updated to the latest SDK module versions
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream`: [v1.0.0](aws/protocol/eventstream/CHANGELOG.md#v100-2021-11-06)
+  * **Announcement**: Support has been added for AWS EventStream APIs for Kinesis, S3, and Transcribe Streaming. Support for the Lex Runtime V2 EventStream API will be added in a future release.
+  * **Release**: Protocol support has been added for AWS event stream.
+* `github.com/aws/aws-sdk-go-v2/internal/endpoints/v2`: [v2.0.0](internal/endpoints/v2/CHANGELOG.md#v200-2021-11-06)
+  * **Release**: Endpoint Variant Model Support
+* `github.com/aws/aws-sdk-go-v2/service/applicationinsights`: [v1.6.0](service/applicationinsights/CHANGELOG.md#v160-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/appstream`: [v1.8.0](service/appstream/CHANGELOG.md#v180-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/auditmanager`: [v1.11.0](service/auditmanager/CHANGELOG.md#v1110-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/autoscaling`: [v1.14.0](service/autoscaling/CHANGELOG.md#v1140-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/chime`: [v1.13.0](service/chime/CHANGELOG.md#v1130-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/chimesdkidentity`: [v1.4.0](service/chimesdkidentity/CHANGELOG.md#v140-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/chimesdkmessaging`: [v1.4.0](service/chimesdkmessaging/CHANGELOG.md#v140-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/cloudfront`: [v1.10.0](service/cloudfront/CHANGELOG.md#v1100-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/codecommit`: [v1.7.0](service/codecommit/CHANGELOG.md#v170-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/connect`: [v1.10.0](service/connect/CHANGELOG.md#v1100-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/connectcontactlens`: [v1.7.0](service/connectcontactlens/CHANGELOG.md#v170-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/connectparticipant`: [v1.6.0](service/connectparticipant/CHANGELOG.md#v160-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/databasemigrationservice`: [v1.10.0](service/databasemigrationservice/CHANGELOG.md#v1100-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/datasync`: [v1.8.0](service/datasync/CHANGELOG.md#v180-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/docdb`: [v1.11.0](service/docdb/CHANGELOG.md#v1110-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/ebs`: [v1.9.0](service/ebs/CHANGELOG.md#v190-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/ec2`: [v1.21.0](service/ec2/CHANGELOG.md#v1210-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/ecr`: [v1.9.0](service/ecr/CHANGELOG.md#v190-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/ecs`: [v1.11.0](service/ecs/CHANGELOG.md#v1110-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/eks`: [v1.12.0](service/eks/CHANGELOG.md#v1120-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/elasticache`: [v1.13.0](service/elasticache/CHANGELOG.md#v1130-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/elasticsearchservice`: [v1.9.0](service/elasticsearchservice/CHANGELOG.md#v190-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/emrcontainers`: [v1.8.0](service/emrcontainers/CHANGELOG.md#v180-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/finspace`: [v1.4.0](service/finspace/CHANGELOG.md#v140-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/fsx`: [v1.12.0](service/fsx/CHANGELOG.md#v1120-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/gamelift`: [v1.8.0](service/gamelift/CHANGELOG.md#v180-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/health`: [v1.9.0](service/health/CHANGELOG.md#v190-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/iam`: [v1.12.0](service/iam/CHANGELOG.md#v1120-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/internal/eventstreamtesting`: [v1.0.0](service/internal/eventstreamtesting/CHANGELOG.md#v100-2021-11-06)
+  * **Release**: Protocol support has been added for AWS event stream.
+* `github.com/aws/aws-sdk-go-v2/service/iotsitewise`: [v1.13.0](service/iotsitewise/CHANGELOG.md#v1130-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/kendra`: [v1.14.0](service/kendra/CHANGELOG.md#v1140-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/kinesis`: [v1.8.0](service/kinesis/CHANGELOG.md#v180-2021-11-06)
+  * **Feature**: Support has been added for the SubscribeToShard API.
+* `github.com/aws/aws-sdk-go-v2/service/kms`: [v1.9.0](service/kms/CHANGELOG.md#v190-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/lightsail`: [v1.12.0](service/lightsail/CHANGELOG.md#v1120-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/macie2`: [v1.13.0](service/macie2/CHANGELOG.md#v1130-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/mgn`: [v1.6.0](service/mgn/CHANGELOG.md#v160-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/neptune`: [v1.10.0](service/neptune/CHANGELOG.md#v1100-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/networkmanager`: [v1.6.0](service/networkmanager/CHANGELOG.md#v160-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/nimble`: [v1.6.0](service/nimble/CHANGELOG.md#v160-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/opensearch`: [v1.3.0](service/opensearch/CHANGELOG.md#v130-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/quicksight`: [v1.14.0](service/quicksight/CHANGELOG.md#v1140-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/rds`: [v1.11.0](service/rds/CHANGELOG.md#v1110-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/rekognition`: [v1.10.0](service/rekognition/CHANGELOG.md#v1100-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/route53resolver`: [v1.9.0](service/route53resolver/CHANGELOG.md#v190-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/s3`: [v1.18.0](service/s3/CHANGELOG.md#v1180-2021-11-06)
+  * **Feature**: Support has been added for the SelectObjectContent API.
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/s3control`: [v1.13.0](service/s3control/CHANGELOG.md#v1130-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/sagemaker`: [v1.18.0](service/sagemaker/CHANGELOG.md#v1180-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/servicediscovery`: [v1.11.0](service/servicediscovery/CHANGELOG.md#v1110-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/ssmincidents`: [v1.6.0](service/ssmincidents/CHANGELOG.md#v160-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/sso`: [v1.6.0](service/sso/CHANGELOG.md#v160-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/storagegateway`: [v1.8.0](service/storagegateway/CHANGELOG.md#v180-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/support`: [v1.7.0](service/support/CHANGELOG.md#v170-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/textract`: [v1.8.0](service/textract/CHANGELOG.md#v180-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/transcribe`: [v1.10.0](service/transcribe/CHANGELOG.md#v1100-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/transcribestreaming`: [v1.0.0](service/transcribestreaming/CHANGELOG.md#v100-2021-11-06)
+  * **Release**: New AWS service client module
+  * **Feature**: Support has been added for the StartStreamTranscription and StartMedicalStreamTranscription APIs.
+* `github.com/aws/aws-sdk-go-v2/service/waf`: [v1.6.0](service/waf/CHANGELOG.md#v160-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+* `github.com/aws/aws-sdk-go-v2/service/wisdom`: [v1.2.0](service/wisdom/CHANGELOG.md#v120-2021-11-06)
+  * **Feature**: Updated service to latest API model.
+
 # Release (2021-10-21)
 
 ## General Highlights

@@ -51,7 +51,20 @@ type DescribeImagesInput struct {
 	DryRun *bool
 
 	// Scopes the images by users with explicit launch permissions. Specify an Amazon
-	// Web Services account ID, self (the sender of the request), or all (public AMIs).
+	// Web Services account ID, self (the sender of the request), or all (public
+	// AMIs).
+	//
+	// * If you specify an Amazon Web Services account ID that is not your own,
+	// only AMIs shared with that specific Amazon Web Services account ID are returned.
+	// However, AMIs that are shared with the account’s organization or organizational
+	// unit (OU) are not returned.
+	//
+	// * If you specify self or your own Amazon Web
+	// Services account ID, AMIs shared with your account are returned. In addition,
+	// AMIs that are shared with the organization or OU of which you are member are
+	// also returned.
+	//
+	// * If you specify all, all public AMIs are returned.
 	ExecutableUsers []string
 
 	// The filters.

@@ -19448,6 +19448,62 @@ func (m *awsEc2query_serializeOpGetHostReservationPurchasePreview) HandleSeriali
 	return next.HandleSerialize(ctx, in)
 }
 
+type awsEc2query_serializeOpGetInstanceTypesFromInstanceRequirements struct {
+}
+
+func (*awsEc2query_serializeOpGetInstanceTypesFromInstanceRequirements) ID() string {
+	return "OperationSerializer"
+}
+
+func (m *awsEc2query_serializeOpGetInstanceTypesFromInstanceRequirements) HandleSerialize(ctx context.Context, in middleware.SerializeInput, next middleware.SerializeHandler) (
+	out middleware.SerializeOutput, metadata middleware.Metadata, err error,
+) {
+	request, ok := in.Request.(*smithyhttp.Request)
+	if !ok {
+		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown transport type %T", in.Request)}
+	}
+
+	input, ok := in.Parameters.(*GetInstanceTypesFromInstanceRequirementsInput)
+	_ = input
+	if !ok {
+		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown input parameters type %T", in.Parameters)}
+	}
+
+	request.Request.URL.Path = "/"
+	request.Request.Method = "POST"
+	httpBindingEncoder, err := httpbinding.NewEncoder(request.URL.Path, request.URL.RawQuery, request.Header)
+	if err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+	httpBindingEncoder.SetHeader("Content-Type").String("application/x-www-form-urlencoded")
+
+	bodyWriter := bytes.NewBuffer(nil)
+	bodyEncoder := query.NewEncoder(bodyWriter)
+	body := bodyEncoder.Object()
+	body.Key("Action").String("GetInstanceTypesFromInstanceRequirements")
+	body.Key("Version").String("2016-11-15")
+
+	if err := awsEc2query_serializeOpDocumentGetInstanceTypesFromInstanceRequirementsInput(input, bodyEncoder.Value); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	err = bodyEncoder.Encode()
+	if err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	if request, err = request.SetStream(bytes.NewReader(bodyWriter.Bytes())); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	if request.Request, err = httpBindingEncoder.Encode(request.Request); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+	in.Request = request
+
+	return next.HandleSerialize(ctx, in)
+}
+
 type awsEc2query_serializeOpGetLaunchTemplateData struct {
 }
 
@@ -19764,6 +19820,62 @@ func (m *awsEc2query_serializeOpGetSerialConsoleAccessStatus) HandleSerialize(ct
 	body.Key("Version").String("2016-11-15")
 
 	if err := awsEc2query_serializeOpDocumentGetSerialConsoleAccessStatusInput(input, bodyEncoder.Value); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	err = bodyEncoder.Encode()
+	if err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	if request, err = request.SetStream(bytes.NewReader(bodyWriter.Bytes())); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	if request.Request, err = httpBindingEncoder.Encode(request.Request); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+	in.Request = request
+
+	return next.HandleSerialize(ctx, in)
+}
+
+type awsEc2query_serializeOpGetSpotPlacementScores struct {
+}
+
+func (*awsEc2query_serializeOpGetSpotPlacementScores) ID() string {
+	return "OperationSerializer"
+}
+
+func (m *awsEc2query_serializeOpGetSpotPlacementScores) HandleSerialize(ctx context.Context, in middleware.SerializeInput, next middleware.SerializeHandler) (
+	out middleware.SerializeOutput, metadata middleware.Metadata, err error,
+) {
+	request, ok := in.Request.(*smithyhttp.Request)
+	if !ok {
+		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown transport type %T", in.Request)}
+	}
+
+	input, ok := in.Parameters.(*GetSpotPlacementScoresInput)
+	_ = input
+	if !ok {
+		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown input parameters type %T", in.Parameters)}
+	}
+
+	request.Request.URL.Path = "/"
+	request.Request.Method = "POST"
+	httpBindingEncoder, err := httpbinding.NewEncoder(request.URL.Path, request.URL.RawQuery, request.Header)
+	if err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+	httpBindingEncoder.SetHeader("Content-Type").String("application/x-www-form-urlencoded")
+
+	bodyWriter := bytes.NewBuffer(nil)
+	bodyEncoder := query.NewEncoder(bodyWriter)
+	body := bodyEncoder.Object()
+	body.Key("Action").String("GetSpotPlacementScores")
+	body.Key("Version").String("2016-11-15")
+
+	if err := awsEc2query_serializeOpDocumentGetSpotPlacementScoresInput(input, bodyEncoder.Value); err != nil {
 		return out, metadata, &smithy.SerializationError{Err: err}
 	}
 
@@ -26391,6 +26503,113 @@ func (m *awsEc2query_serializeOpWithdrawByoipCidr) HandleSerialize(ctx context.C
 
 	return next.HandleSerialize(ctx, in)
 }
+func awsEc2query_serializeDocumentAcceleratorCount(v *types.AcceleratorCount, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.Max != nil {
+		objectKey := object.Key("Max")
+		objectKey.Integer(*v.Max)
+	}
+
+	if v.Min != nil {
+		objectKey := object.Key("Min")
+		objectKey.Integer(*v.Min)
+	}
+
+	return nil
+}
+
+func awsEc2query_serializeDocumentAcceleratorCountRequest(v *types.AcceleratorCountRequest, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.Max != nil {
+		objectKey := object.Key("Max")
+		objectKey.Integer(*v.Max)
+	}
+
+	if v.Min != nil {
+		objectKey := object.Key("Min")
+		objectKey.Integer(*v.Min)
+	}
+
+	return nil
+}
+
+func awsEc2query_serializeDocumentAcceleratorManufacturerSet(v []types.AcceleratorManufacturer, value query.Value) error {
+	if len(v) == 0 {
+		return nil
+	}
+	array := value.Array("Item")
+
+	for i := range v {
+		av := array.Value()
+		av.String(string(v[i]))
+	}
+	return nil
+}
+
+func awsEc2query_serializeDocumentAcceleratorNameSet(v []types.AcceleratorName, value query.Value) error {
+	if len(v) == 0 {
+		return nil
+	}
+	array := value.Array("Item")
+
+	for i := range v {
+		av := array.Value()
+		av.String(string(v[i]))
+	}
+	return nil
+}
+
+func awsEc2query_serializeDocumentAcceleratorTotalMemoryMiB(v *types.AcceleratorTotalMemoryMiB, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.Max != nil {
+		objectKey := object.Key("Max")
+		objectKey.Integer(*v.Max)
+	}
+
+	if v.Min != nil {
+		objectKey := object.Key("Min")
+		objectKey.Integer(*v.Min)
+	}
+
+	return nil
+}
+
+func awsEc2query_serializeDocumentAcceleratorTotalMemoryMiBRequest(v *types.AcceleratorTotalMemoryMiBRequest, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.Max != nil {
+		objectKey := object.Key("Max")
+		objectKey.Integer(*v.Max)
+	}
+
+	if v.Min != nil {
+		objectKey := object.Key("Min")
+		objectKey.Integer(*v.Min)
+	}
+
+	return nil
+}
+
+func awsEc2query_serializeDocumentAcceleratorTypeSet(v []types.AcceleratorType, value query.Value) error {
+	if len(v) == 0 {
+		return nil
+	}
+	array := value.Array("Item")
+
+	for i := range v {
+		av := array.Value()
+		av.String(string(v[i]))
+	}
+	return nil
+}
+
 func awsEc2query_serializeDocumentAccountAttributeNameStringList(v []types.AccountAttributeName, value query.Value) error {
 	if len(v) == 0 {
 		return nil
@@ -26458,6 +26677,19 @@ func awsEc2query_serializeDocumentAllocationIds(v []string, value query.Value) e
 	for i := range v {
 		av := array.Value()
 		av.String(v[i])
+	}
+	return nil
+}
+
+func awsEc2query_serializeDocumentArchitectureTypeSet(v []types.ArchitectureType, value query.Value) error {
+	if len(v) == 0 {
+		return nil
+	}
+	array := value.Array("Item")
+
+	for i := range v {
+		av := array.Value()
+		av.String(string(v[i]))
 	}
 	return nil
 }
@@ -26564,6 +26796,40 @@ func awsEc2query_serializeDocumentAvailabilityZoneStringList(v []string, value q
 		av := array.Value()
 		av.String(v[i])
 	}
+	return nil
+}
+
+func awsEc2query_serializeDocumentBaselineEbsBandwidthMbps(v *types.BaselineEbsBandwidthMbps, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.Max != nil {
+		objectKey := object.Key("Max")
+		objectKey.Integer(*v.Max)
+	}
+
+	if v.Min != nil {
+		objectKey := object.Key("Min")
+		objectKey.Integer(*v.Min)
+	}
+
+	return nil
+}
+
+func awsEc2query_serializeDocumentBaselineEbsBandwidthMbpsRequest(v *types.BaselineEbsBandwidthMbpsRequest, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.Max != nil {
+		objectKey := object.Key("Max")
+		objectKey.Integer(*v.Max)
+	}
+
+	if v.Min != nil {
+		objectKey := object.Key("Min")
+		objectKey.Integer(*v.Min)
+	}
+
 	return nil
 }
 
@@ -27009,6 +27275,19 @@ func awsEc2query_serializeDocumentConversionIdStringList(v []string, value query
 	for i := range v {
 		av := array.Value()
 		av.String(v[i])
+	}
+	return nil
+}
+
+func awsEc2query_serializeDocumentCpuManufacturerSet(v []types.CpuManufacturer, value query.Value) error {
+	if len(v) == 0 {
+		return nil
+	}
+	array := value.Array("Item")
+
+	for i := range v {
+		av := array.Value()
+		av.String(string(v[i]))
 	}
 	return nil
 }
@@ -27519,6 +27798,19 @@ func awsEc2query_serializeDocumentEnclaveOptionsRequest(v *types.EnclaveOptionsR
 	return nil
 }
 
+func awsEc2query_serializeDocumentExcludedInstanceTypeSet(v []string, value query.Value) error {
+	if len(v) == 0 {
+		return nil
+	}
+	array := value.Array("Item")
+
+	for i := range v {
+		av := array.Value()
+		av.String(v[i])
+	}
+	return nil
+}
+
 func awsEc2query_serializeDocumentExecutableByStringList(v []string, value query.Value) error {
 	if len(v) == 0 {
 		return nil
@@ -27724,6 +28016,13 @@ func awsEc2query_serializeDocumentFleetLaunchTemplateOverridesRequest(v *types.F
 	if v.AvailabilityZone != nil {
 		objectKey := object.Key("AvailabilityZone")
 		objectKey.String(*v.AvailabilityZone)
+	}
+
+	if v.InstanceRequirements != nil {
+		objectKey := object.Key("InstanceRequirements")
+		if err := awsEc2query_serializeDocumentInstanceRequirementsRequest(v.InstanceRequirements, objectKey); err != nil {
+			return err
+		}
 	}
 
 	if len(v.InstanceType) > 0 {
@@ -28456,6 +28755,19 @@ func awsEc2query_serializeDocumentInstanceEventWindowTimeRangeRequestSet(v []typ
 	return nil
 }
 
+func awsEc2query_serializeDocumentInstanceGenerationSet(v []types.InstanceGeneration, value query.Value) error {
+	if len(v) == 0 {
+		return nil
+	}
+	array := value.Array("Item")
+
+	for i := range v {
+		av := array.Value()
+		av.String(string(v[i]))
+	}
+	return nil
+}
+
 func awsEc2query_serializeDocumentInstanceIdList(v []string, value query.Value) error {
 	if len(v) == 0 {
 		return nil
@@ -28709,6 +29021,318 @@ func awsEc2query_serializeDocumentInstanceNetworkInterfaceSpecificationList(v []
 	return nil
 }
 
+func awsEc2query_serializeDocumentInstanceRequirements(v *types.InstanceRequirements, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.AcceleratorCount != nil {
+		objectKey := object.Key("AcceleratorCount")
+		if err := awsEc2query_serializeDocumentAcceleratorCount(v.AcceleratorCount, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.AcceleratorManufacturers != nil {
+		objectKey := object.FlatKey("AcceleratorManufacturerSet")
+		if err := awsEc2query_serializeDocumentAcceleratorManufacturerSet(v.AcceleratorManufacturers, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.AcceleratorNames != nil {
+		objectKey := object.FlatKey("AcceleratorNameSet")
+		if err := awsEc2query_serializeDocumentAcceleratorNameSet(v.AcceleratorNames, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.AcceleratorTotalMemoryMiB != nil {
+		objectKey := object.Key("AcceleratorTotalMemoryMiB")
+		if err := awsEc2query_serializeDocumentAcceleratorTotalMemoryMiB(v.AcceleratorTotalMemoryMiB, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.AcceleratorTypes != nil {
+		objectKey := object.FlatKey("AcceleratorTypeSet")
+		if err := awsEc2query_serializeDocumentAcceleratorTypeSet(v.AcceleratorTypes, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if len(v.BareMetal) > 0 {
+		objectKey := object.Key("BareMetal")
+		objectKey.String(string(v.BareMetal))
+	}
+
+	if v.BaselineEbsBandwidthMbps != nil {
+		objectKey := object.Key("BaselineEbsBandwidthMbps")
+		if err := awsEc2query_serializeDocumentBaselineEbsBandwidthMbps(v.BaselineEbsBandwidthMbps, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if len(v.BurstablePerformance) > 0 {
+		objectKey := object.Key("BurstablePerformance")
+		objectKey.String(string(v.BurstablePerformance))
+	}
+
+	if v.CpuManufacturers != nil {
+		objectKey := object.FlatKey("CpuManufacturerSet")
+		if err := awsEc2query_serializeDocumentCpuManufacturerSet(v.CpuManufacturers, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.ExcludedInstanceTypes != nil {
+		objectKey := object.FlatKey("ExcludedInstanceTypeSet")
+		if err := awsEc2query_serializeDocumentExcludedInstanceTypeSet(v.ExcludedInstanceTypes, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.InstanceGenerations != nil {
+		objectKey := object.FlatKey("InstanceGenerationSet")
+		if err := awsEc2query_serializeDocumentInstanceGenerationSet(v.InstanceGenerations, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if len(v.LocalStorage) > 0 {
+		objectKey := object.Key("LocalStorage")
+		objectKey.String(string(v.LocalStorage))
+	}
+
+	if v.LocalStorageTypes != nil {
+		objectKey := object.FlatKey("LocalStorageTypeSet")
+		if err := awsEc2query_serializeDocumentLocalStorageTypeSet(v.LocalStorageTypes, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.MemoryGiBPerVCpu != nil {
+		objectKey := object.Key("MemoryGiBPerVCpu")
+		if err := awsEc2query_serializeDocumentMemoryGiBPerVCpu(v.MemoryGiBPerVCpu, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.MemoryMiB != nil {
+		objectKey := object.Key("MemoryMiB")
+		if err := awsEc2query_serializeDocumentMemoryMiB(v.MemoryMiB, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.NetworkInterfaceCount != nil {
+		objectKey := object.Key("NetworkInterfaceCount")
+		if err := awsEc2query_serializeDocumentNetworkInterfaceCount(v.NetworkInterfaceCount, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.OnDemandMaxPricePercentageOverLowestPrice != nil {
+		objectKey := object.Key("OnDemandMaxPricePercentageOverLowestPrice")
+		objectKey.Integer(*v.OnDemandMaxPricePercentageOverLowestPrice)
+	}
+
+	if v.RequireHibernateSupport != nil {
+		objectKey := object.Key("RequireHibernateSupport")
+		objectKey.Boolean(*v.RequireHibernateSupport)
+	}
+
+	if v.SpotMaxPricePercentageOverLowestPrice != nil {
+		objectKey := object.Key("SpotMaxPricePercentageOverLowestPrice")
+		objectKey.Integer(*v.SpotMaxPricePercentageOverLowestPrice)
+	}
+
+	if v.TotalLocalStorageGB != nil {
+		objectKey := object.Key("TotalLocalStorageGB")
+		if err := awsEc2query_serializeDocumentTotalLocalStorageGB(v.TotalLocalStorageGB, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.VCpuCount != nil {
+		objectKey := object.Key("VCpuCount")
+		if err := awsEc2query_serializeDocumentVCpuCountRange(v.VCpuCount, objectKey); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func awsEc2query_serializeDocumentInstanceRequirementsRequest(v *types.InstanceRequirementsRequest, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.AcceleratorCount != nil {
+		objectKey := object.Key("AcceleratorCount")
+		if err := awsEc2query_serializeDocumentAcceleratorCountRequest(v.AcceleratorCount, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.AcceleratorManufacturers != nil {
+		objectKey := object.FlatKey("AcceleratorManufacturer")
+		if err := awsEc2query_serializeDocumentAcceleratorManufacturerSet(v.AcceleratorManufacturers, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.AcceleratorNames != nil {
+		objectKey := object.FlatKey("AcceleratorName")
+		if err := awsEc2query_serializeDocumentAcceleratorNameSet(v.AcceleratorNames, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.AcceleratorTotalMemoryMiB != nil {
+		objectKey := object.Key("AcceleratorTotalMemoryMiB")
+		if err := awsEc2query_serializeDocumentAcceleratorTotalMemoryMiBRequest(v.AcceleratorTotalMemoryMiB, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.AcceleratorTypes != nil {
+		objectKey := object.FlatKey("AcceleratorType")
+		if err := awsEc2query_serializeDocumentAcceleratorTypeSet(v.AcceleratorTypes, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if len(v.BareMetal) > 0 {
+		objectKey := object.Key("BareMetal")
+		objectKey.String(string(v.BareMetal))
+	}
+
+	if v.BaselineEbsBandwidthMbps != nil {
+		objectKey := object.Key("BaselineEbsBandwidthMbps")
+		if err := awsEc2query_serializeDocumentBaselineEbsBandwidthMbpsRequest(v.BaselineEbsBandwidthMbps, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if len(v.BurstablePerformance) > 0 {
+		objectKey := object.Key("BurstablePerformance")
+		objectKey.String(string(v.BurstablePerformance))
+	}
+
+	if v.CpuManufacturers != nil {
+		objectKey := object.FlatKey("CpuManufacturer")
+		if err := awsEc2query_serializeDocumentCpuManufacturerSet(v.CpuManufacturers, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.ExcludedInstanceTypes != nil {
+		objectKey := object.FlatKey("ExcludedInstanceType")
+		if err := awsEc2query_serializeDocumentExcludedInstanceTypeSet(v.ExcludedInstanceTypes, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.InstanceGenerations != nil {
+		objectKey := object.FlatKey("InstanceGeneration")
+		if err := awsEc2query_serializeDocumentInstanceGenerationSet(v.InstanceGenerations, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if len(v.LocalStorage) > 0 {
+		objectKey := object.Key("LocalStorage")
+		objectKey.String(string(v.LocalStorage))
+	}
+
+	if v.LocalStorageTypes != nil {
+		objectKey := object.FlatKey("LocalStorageType")
+		if err := awsEc2query_serializeDocumentLocalStorageTypeSet(v.LocalStorageTypes, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.MemoryGiBPerVCpu != nil {
+		objectKey := object.Key("MemoryGiBPerVCpu")
+		if err := awsEc2query_serializeDocumentMemoryGiBPerVCpuRequest(v.MemoryGiBPerVCpu, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.MemoryMiB != nil {
+		objectKey := object.Key("MemoryMiB")
+		if err := awsEc2query_serializeDocumentMemoryMiBRequest(v.MemoryMiB, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.NetworkInterfaceCount != nil {
+		objectKey := object.Key("NetworkInterfaceCount")
+		if err := awsEc2query_serializeDocumentNetworkInterfaceCountRequest(v.NetworkInterfaceCount, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.OnDemandMaxPricePercentageOverLowestPrice != nil {
+		objectKey := object.Key("OnDemandMaxPricePercentageOverLowestPrice")
+		objectKey.Integer(*v.OnDemandMaxPricePercentageOverLowestPrice)
+	}
+
+	if v.RequireHibernateSupport != nil {
+		objectKey := object.Key("RequireHibernateSupport")
+		objectKey.Boolean(*v.RequireHibernateSupport)
+	}
+
+	if v.SpotMaxPricePercentageOverLowestPrice != nil {
+		objectKey := object.Key("SpotMaxPricePercentageOverLowestPrice")
+		objectKey.Integer(*v.SpotMaxPricePercentageOverLowestPrice)
+	}
+
+	if v.TotalLocalStorageGB != nil {
+		objectKey := object.Key("TotalLocalStorageGB")
+		if err := awsEc2query_serializeDocumentTotalLocalStorageGBRequest(v.TotalLocalStorageGB, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.VCpuCount != nil {
+		objectKey := object.Key("VCpuCount")
+		if err := awsEc2query_serializeDocumentVCpuCountRangeRequest(v.VCpuCount, objectKey); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func awsEc2query_serializeDocumentInstanceRequirementsWithMetadataRequest(v *types.InstanceRequirementsWithMetadataRequest, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.ArchitectureTypes != nil {
+		objectKey := object.FlatKey("ArchitectureType")
+		if err := awsEc2query_serializeDocumentArchitectureTypeSet(v.ArchitectureTypes, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.InstanceRequirements != nil {
+		objectKey := object.Key("InstanceRequirements")
+		if err := awsEc2query_serializeDocumentInstanceRequirementsRequest(v.InstanceRequirements, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.VirtualizationTypes != nil {
+		objectKey := object.FlatKey("VirtualizationType")
+		if err := awsEc2query_serializeDocumentVirtualizationTypeSet(v.VirtualizationTypes, objectKey); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func awsEc2query_serializeDocumentInstanceSpecification(v *types.InstanceSpecification, value query.Value) error {
 	object := value.Object()
 	_ = object
@@ -28748,6 +29372,19 @@ func awsEc2query_serializeDocumentInstanceTypeList(v []types.InstanceType, value
 	for i := range v {
 		av := array.Value()
 		av.String(string(v[i]))
+	}
+	return nil
+}
+
+func awsEc2query_serializeDocumentInstanceTypes(v []string, value query.Value) error {
+	if len(v) == 0 {
+		return nil
+	}
+	array := value.Array("Member")
+
+	for i := range v {
+		av := array.Value()
+		av.String(v[i])
 	}
 	return nil
 }
@@ -29034,6 +29671,16 @@ func awsEc2query_serializeDocumentLaunchPermission(v *types.LaunchPermission, va
 	if len(v.Group) > 0 {
 		objectKey := object.Key("Group")
 		objectKey.String(string(v.Group))
+	}
+
+	if v.OrganizationalUnitArn != nil {
+		objectKey := object.Key("OrganizationalUnitArn")
+		objectKey.String(*v.OrganizationalUnitArn)
+	}
+
+	if v.OrganizationArn != nil {
+		objectKey := object.Key("OrganizationArn")
+		objectKey.String(*v.OrganizationArn)
 	}
 
 	if v.UserId != nil {
@@ -29566,6 +30213,13 @@ func awsEc2query_serializeDocumentLaunchTemplateOverrides(v *types.LaunchTemplat
 		objectKey.String(*v.AvailabilityZone)
 	}
 
+	if v.InstanceRequirements != nil {
+		objectKey := object.Key("InstanceRequirements")
+		if err := awsEc2query_serializeDocumentInstanceRequirements(v.InstanceRequirements, objectKey); err != nil {
+			return err
+		}
+	}
+
 	if len(v.InstanceType) > 0 {
 		objectKey := object.Key("InstanceType")
 		objectKey.String(string(v.InstanceType))
@@ -29961,6 +30615,139 @@ func awsEc2query_serializeDocumentLocalGatewayVirtualInterfaceIdSet(v []string, 
 	return nil
 }
 
+func awsEc2query_serializeDocumentLocalStorageTypeSet(v []types.LocalStorageType, value query.Value) error {
+	if len(v) == 0 {
+		return nil
+	}
+	array := value.Array("Item")
+
+	for i := range v {
+		av := array.Value()
+		av.String(string(v[i]))
+	}
+	return nil
+}
+
+func awsEc2query_serializeDocumentMemoryGiBPerVCpu(v *types.MemoryGiBPerVCpu, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.Max != nil {
+		objectKey := object.Key("Max")
+		switch {
+		case math.IsNaN(*v.Max):
+			objectKey.String("NaN")
+
+		case math.IsInf(*v.Max, 1):
+			objectKey.String("Infinity")
+
+		case math.IsInf(*v.Max, -1):
+			objectKey.String("-Infinity")
+
+		default:
+			objectKey.Double(*v.Max)
+
+		}
+	}
+
+	if v.Min != nil {
+		objectKey := object.Key("Min")
+		switch {
+		case math.IsNaN(*v.Min):
+			objectKey.String("NaN")
+
+		case math.IsInf(*v.Min, 1):
+			objectKey.String("Infinity")
+
+		case math.IsInf(*v.Min, -1):
+			objectKey.String("-Infinity")
+
+		default:
+			objectKey.Double(*v.Min)
+
+		}
+	}
+
+	return nil
+}
+
+func awsEc2query_serializeDocumentMemoryGiBPerVCpuRequest(v *types.MemoryGiBPerVCpuRequest, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.Max != nil {
+		objectKey := object.Key("Max")
+		switch {
+		case math.IsNaN(*v.Max):
+			objectKey.String("NaN")
+
+		case math.IsInf(*v.Max, 1):
+			objectKey.String("Infinity")
+
+		case math.IsInf(*v.Max, -1):
+			objectKey.String("-Infinity")
+
+		default:
+			objectKey.Double(*v.Max)
+
+		}
+	}
+
+	if v.Min != nil {
+		objectKey := object.Key("Min")
+		switch {
+		case math.IsNaN(*v.Min):
+			objectKey.String("NaN")
+
+		case math.IsInf(*v.Min, 1):
+			objectKey.String("Infinity")
+
+		case math.IsInf(*v.Min, -1):
+			objectKey.String("-Infinity")
+
+		default:
+			objectKey.Double(*v.Min)
+
+		}
+	}
+
+	return nil
+}
+
+func awsEc2query_serializeDocumentMemoryMiB(v *types.MemoryMiB, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.Max != nil {
+		objectKey := object.Key("Max")
+		objectKey.Integer(*v.Max)
+	}
+
+	if v.Min != nil {
+		objectKey := object.Key("Min")
+		objectKey.Integer(*v.Min)
+	}
+
+	return nil
+}
+
+func awsEc2query_serializeDocumentMemoryMiBRequest(v *types.MemoryMiBRequest, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.Max != nil {
+		objectKey := object.Key("Max")
+		objectKey.Integer(*v.Max)
+	}
+
+	if v.Min != nil {
+		objectKey := object.Key("Min")
+		objectKey.Integer(*v.Min)
+	}
+
+	return nil
+}
+
 func awsEc2query_serializeDocumentModifyTransitGatewayOptions(v *types.ModifyTransitGatewayOptions, value query.Value) error {
 	object := value.Object()
 	_ = object
@@ -30219,6 +31006,40 @@ func awsEc2query_serializeDocumentNetworkInterfaceAttachmentChanges(v *types.Net
 	return nil
 }
 
+func awsEc2query_serializeDocumentNetworkInterfaceCount(v *types.NetworkInterfaceCount, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.Max != nil {
+		objectKey := object.Key("Max")
+		objectKey.Integer(*v.Max)
+	}
+
+	if v.Min != nil {
+		objectKey := object.Key("Min")
+		objectKey.Integer(*v.Min)
+	}
+
+	return nil
+}
+
+func awsEc2query_serializeDocumentNetworkInterfaceCountRequest(v *types.NetworkInterfaceCountRequest, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.Max != nil {
+		objectKey := object.Key("Max")
+		objectKey.Integer(*v.Max)
+	}
+
+	if v.Min != nil {
+		objectKey := object.Key("Min")
+		objectKey.Integer(*v.Min)
+	}
+
+	return nil
+}
+
 func awsEc2query_serializeDocumentNetworkInterfaceIdList(v []string, value query.Value) error {
 	if len(v) == 0 {
 		return nil
@@ -30328,6 +31149,32 @@ func awsEc2query_serializeDocumentOnDemandOptionsRequest(v *types.OnDemandOption
 		objectKey.Boolean(*v.SingleInstanceType)
 	}
 
+	return nil
+}
+
+func awsEc2query_serializeDocumentOrganizationalUnitArnStringList(v []string, value query.Value) error {
+	if len(v) == 0 {
+		return nil
+	}
+	array := value.Array("OrganizationalUnitArn")
+
+	for i := range v {
+		av := array.Value()
+		av.String(v[i])
+	}
+	return nil
+}
+
+func awsEc2query_serializeDocumentOrganizationArnStringList(v []string, value query.Value) error {
+	if len(v) == 0 {
+		return nil
+	}
+	array := value.Array("OrganizationArn")
+
+	for i := range v {
+		av := array.Value()
+		av.String(v[i])
+	}
 	return nil
 }
 
@@ -30870,6 +31717,19 @@ func awsEc2query_serializeDocumentReasonCodesList(v []types.ReportInstanceReason
 	return nil
 }
 
+func awsEc2query_serializeDocumentRegionNames(v []string, value query.Value) error {
+	if len(v) == 0 {
+		return nil
+	}
+	array := value.Array("Member")
+
+	for i := range v {
+		av := array.Value()
+		av.String(v[i])
+	}
+	return nil
+}
+
 func awsEc2query_serializeDocumentRegionNameStringList(v []string, value query.Value) error {
 	if len(v) == 0 {
 		return nil
@@ -31071,6 +31931,13 @@ func awsEc2query_serializeDocumentRequestLaunchTemplateData(v *types.RequestLaun
 	if v.InstanceMarketOptions != nil {
 		objectKey := object.Key("InstanceMarketOptions")
 		if err := awsEc2query_serializeDocumentLaunchTemplateInstanceMarketOptionsRequest(v.InstanceMarketOptions, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.InstanceRequirements != nil {
+		objectKey := object.Key("InstanceRequirements")
+		if err := awsEc2query_serializeDocumentInstanceRequirementsRequest(v.InstanceRequirements, objectKey); err != nil {
 			return err
 		}
 	}
@@ -32294,6 +33161,13 @@ func awsEc2query_serializeDocumentSpotFleetLaunchSpecification(v *types.SpotFlee
 		objectKey.String(*v.ImageId)
 	}
 
+	if v.InstanceRequirements != nil {
+		objectKey := object.Key("InstanceRequirements")
+		if err := awsEc2query_serializeDocumentInstanceRequirements(v.InstanceRequirements, objectKey); err != nil {
+			return err
+		}
+	}
+
 	if len(v.InstanceType) > 0 {
 		objectKey := object.Key("InstanceType")
 		objectKey.String(string(v.InstanceType))
@@ -32540,6 +33414,11 @@ func awsEc2query_serializeDocumentSpotFleetRequestConfigData(v *types.SpotFleetR
 	if v.TargetCapacity != nil {
 		objectKey := object.Key("TargetCapacity")
 		objectKey.Integer(*v.TargetCapacity)
+	}
+
+	if len(v.TargetCapacityUnitType) > 0 {
+		objectKey := object.Key("TargetCapacityUnitType")
+		objectKey.String(string(v.TargetCapacityUnitType))
 	}
 
 	if v.TerminateInstancesWithExpiration != nil {
@@ -32871,6 +33750,11 @@ func awsEc2query_serializeDocumentTargetCapacitySpecificationRequest(v *types.Ta
 		objectKey.Integer(*v.SpotTargetCapacity)
 	}
 
+	if len(v.TargetCapacityUnitType) > 0 {
+		objectKey := object.Key("TargetCapacityUnitType")
+		objectKey.String(string(v.TargetCapacityUnitType))
+	}
+
 	if v.TotalTargetCapacity != nil {
 		objectKey := object.Key("TotalTargetCapacity")
 		objectKey.Integer(*v.TotalTargetCapacity)
@@ -32946,6 +33830,92 @@ func awsEc2query_serializeDocumentTargetGroupsConfig(v *types.TargetGroupsConfig
 		objectKey := object.FlatKey("TargetGroups")
 		if err := awsEc2query_serializeDocumentTargetGroups(v.TargetGroups, objectKey); err != nil {
 			return err
+		}
+	}
+
+	return nil
+}
+
+func awsEc2query_serializeDocumentTotalLocalStorageGB(v *types.TotalLocalStorageGB, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.Max != nil {
+		objectKey := object.Key("Max")
+		switch {
+		case math.IsNaN(*v.Max):
+			objectKey.String("NaN")
+
+		case math.IsInf(*v.Max, 1):
+			objectKey.String("Infinity")
+
+		case math.IsInf(*v.Max, -1):
+			objectKey.String("-Infinity")
+
+		default:
+			objectKey.Double(*v.Max)
+
+		}
+	}
+
+	if v.Min != nil {
+		objectKey := object.Key("Min")
+		switch {
+		case math.IsNaN(*v.Min):
+			objectKey.String("NaN")
+
+		case math.IsInf(*v.Min, 1):
+			objectKey.String("Infinity")
+
+		case math.IsInf(*v.Min, -1):
+			objectKey.String("-Infinity")
+
+		default:
+			objectKey.Double(*v.Min)
+
+		}
+	}
+
+	return nil
+}
+
+func awsEc2query_serializeDocumentTotalLocalStorageGBRequest(v *types.TotalLocalStorageGBRequest, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.Max != nil {
+		objectKey := object.Key("Max")
+		switch {
+		case math.IsNaN(*v.Max):
+			objectKey.String("NaN")
+
+		case math.IsInf(*v.Max, 1):
+			objectKey.String("Infinity")
+
+		case math.IsInf(*v.Max, -1):
+			objectKey.String("-Infinity")
+
+		default:
+			objectKey.Double(*v.Max)
+
+		}
+	}
+
+	if v.Min != nil {
+		objectKey := object.Key("Min")
+		switch {
+		case math.IsNaN(*v.Min):
+			objectKey.String("NaN")
+
+		case math.IsInf(*v.Min, 1):
+			objectKey.String("Infinity")
+
+		case math.IsInf(*v.Min, -1):
+			objectKey.String("-Infinity")
+
+		default:
+			objectKey.Double(*v.Min)
+
 		}
 	}
 
@@ -33350,6 +34320,40 @@ func awsEc2query_serializeDocumentValueStringList(v []string, value query.Value)
 	return nil
 }
 
+func awsEc2query_serializeDocumentVCpuCountRange(v *types.VCpuCountRange, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.Max != nil {
+		objectKey := object.Key("Max")
+		objectKey.Integer(*v.Max)
+	}
+
+	if v.Min != nil {
+		objectKey := object.Key("Min")
+		objectKey.Integer(*v.Min)
+	}
+
+	return nil
+}
+
+func awsEc2query_serializeDocumentVCpuCountRangeRequest(v *types.VCpuCountRangeRequest, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.Max != nil {
+		objectKey := object.Key("Max")
+		objectKey.Integer(*v.Max)
+	}
+
+	if v.Min != nil {
+		objectKey := object.Key("Min")
+		objectKey.Integer(*v.Min)
+	}
+
+	return nil
+}
+
 func awsEc2query_serializeDocumentVersionStringList(v []string, value query.Value) error {
 	if len(v) == 0 {
 		return nil
@@ -33359,6 +34363,19 @@ func awsEc2query_serializeDocumentVersionStringList(v []string, value query.Valu
 	for i := range v {
 		av := array.Value()
 		av.String(v[i])
+	}
+	return nil
+}
+
+func awsEc2query_serializeDocumentVirtualizationTypeSet(v []types.VirtualizationType, value query.Value) error {
+	if len(v) == 0 {
+		return nil
+	}
+	array := value.Array("Item")
+
+	for i := range v {
+		av := array.Value()
+		av.String(string(v[i]))
 	}
 	return nil
 }
@@ -44224,6 +45241,49 @@ func awsEc2query_serializeOpDocumentGetHostReservationPurchasePreviewInput(v *Ge
 	return nil
 }
 
+func awsEc2query_serializeOpDocumentGetInstanceTypesFromInstanceRequirementsInput(v *GetInstanceTypesFromInstanceRequirementsInput, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.ArchitectureTypes != nil {
+		objectKey := object.FlatKey("ArchitectureType")
+		if err := awsEc2query_serializeDocumentArchitectureTypeSet(v.ArchitectureTypes, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.DryRun != nil {
+		objectKey := object.Key("DryRun")
+		objectKey.Boolean(*v.DryRun)
+	}
+
+	if v.InstanceRequirements != nil {
+		objectKey := object.Key("InstanceRequirements")
+		if err := awsEc2query_serializeDocumentInstanceRequirementsRequest(v.InstanceRequirements, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.MaxResults != nil {
+		objectKey := object.Key("MaxResults")
+		objectKey.Integer(*v.MaxResults)
+	}
+
+	if v.NextToken != nil {
+		objectKey := object.Key("NextToken")
+		objectKey.String(*v.NextToken)
+	}
+
+	if v.VirtualizationTypes != nil {
+		objectKey := object.FlatKey("VirtualizationType")
+		if err := awsEc2query_serializeDocumentVirtualizationTypeSet(v.VirtualizationTypes, objectKey); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func awsEc2query_serializeOpDocumentGetLaunchTemplateDataInput(v *GetLaunchTemplateDataInput, value query.Value) error {
 	object := value.Object()
 	_ = object
@@ -44350,6 +45410,64 @@ func awsEc2query_serializeOpDocumentGetSerialConsoleAccessStatusInput(v *GetSeri
 	if v.DryRun != nil {
 		objectKey := object.Key("DryRun")
 		objectKey.Boolean(*v.DryRun)
+	}
+
+	return nil
+}
+
+func awsEc2query_serializeOpDocumentGetSpotPlacementScoresInput(v *GetSpotPlacementScoresInput, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.DryRun != nil {
+		objectKey := object.Key("DryRun")
+		objectKey.Boolean(*v.DryRun)
+	}
+
+	if v.InstanceRequirementsWithMetadata != nil {
+		objectKey := object.Key("InstanceRequirementsWithMetadata")
+		if err := awsEc2query_serializeDocumentInstanceRequirementsWithMetadataRequest(v.InstanceRequirementsWithMetadata, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.InstanceTypes != nil {
+		objectKey := object.FlatKey("InstanceType")
+		if err := awsEc2query_serializeDocumentInstanceTypes(v.InstanceTypes, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.MaxResults != nil {
+		objectKey := object.Key("MaxResults")
+		objectKey.Integer(*v.MaxResults)
+	}
+
+	if v.NextToken != nil {
+		objectKey := object.Key("NextToken")
+		objectKey.String(*v.NextToken)
+	}
+
+	if v.RegionNames != nil {
+		objectKey := object.FlatKey("RegionName")
+		if err := awsEc2query_serializeDocumentRegionNames(v.RegionNames, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.SingleAvailabilityZone != nil {
+		objectKey := object.Key("SingleAvailabilityZone")
+		objectKey.Boolean(*v.SingleAvailabilityZone)
+	}
+
+	if v.TargetCapacity != nil {
+		objectKey := object.Key("TargetCapacity")
+		objectKey.Integer(*v.TargetCapacity)
+	}
+
+	if len(v.TargetCapacityUnitType) > 0 {
+		objectKey := object.Key("TargetCapacityUnitType")
+		objectKey.String(string(v.TargetCapacityUnitType))
 	}
 
 	return nil
@@ -44969,6 +46087,11 @@ func awsEc2query_serializeOpDocumentModifyCapacityReservationInput(v *ModifyCapa
 		objectKey.Boolean(*v.Accept)
 	}
 
+	if v.AdditionalInfo != nil {
+		objectKey := object.Key("AdditionalInfo")
+		objectKey.String(*v.AdditionalInfo)
+	}
+
 	if v.CapacityReservationId != nil {
 		objectKey := object.Key("CapacityReservationId")
 		objectKey.String(*v.CapacityReservationId)
@@ -45326,6 +46449,20 @@ func awsEc2query_serializeOpDocumentModifyImageAttributeInput(v *ModifyImageAttr
 	if len(v.OperationType) > 0 {
 		objectKey := object.Key("OperationType")
 		objectKey.String(string(v.OperationType))
+	}
+
+	if v.OrganizationalUnitArns != nil {
+		objectKey := object.FlatKey("OrganizationalUnitArn")
+		if err := awsEc2query_serializeDocumentOrganizationalUnitArnStringList(v.OrganizationalUnitArns, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.OrganizationArns != nil {
+		objectKey := object.FlatKey("OrganizationArn")
+		if err := awsEc2query_serializeDocumentOrganizationArnStringList(v.OrganizationArns, objectKey); err != nil {
+			return err
+		}
 	}
 
 	if v.ProductCodes != nil {

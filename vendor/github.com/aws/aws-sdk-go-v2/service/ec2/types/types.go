@@ -7,6 +7,65 @@ import (
 	"time"
 )
 
+// The minimum and maximum number of accelerators (GPUs, FPGAs, or Amazon Web
+// Services Inferentia chips) on an instance.
+type AcceleratorCount struct {
+
+	// The maximum number of accelerators. If this parameter is not specified, there is
+	// no maximum limit.
+	Max *int32
+
+	// The minimum number of accelerators. If this parameter is not specified, there is
+	// no minimum limit.
+	Min *int32
+
+	noSmithyDocumentSerde
+}
+
+// The minimum and maximum number of accelerators (GPUs, FPGAs, or Amazon Web
+// Services Inferentia chips) on an instance. To exclude accelerator-enabled
+// instance types, set Max to 0.
+type AcceleratorCountRequest struct {
+
+	// The maximum number of accelerators. To specify no maximum limit, omit this
+	// parameter. To exclude accelerator-enabled instance types, set Max to 0.
+	Max *int32
+
+	// The minimum number of accelerators. To specify no minimum limit, omit this
+	// parameter.
+	Min *int32
+
+	noSmithyDocumentSerde
+}
+
+// The minimum and maximum amount of total accelerator memory, in MiB.
+type AcceleratorTotalMemoryMiB struct {
+
+	// The maximum amount of accelerator memory, in MiB. If this parameter is not
+	// specified, there is no maximum limit.
+	Max *int32
+
+	// The minimum amount of accelerator memory, in MiB. If this parameter is not
+	// specified, there is no minimum limit.
+	Min *int32
+
+	noSmithyDocumentSerde
+}
+
+// The minimum and maximum amount of total accelerator memory, in MiB.
+type AcceleratorTotalMemoryMiBRequest struct {
+
+	// The maximum amount of accelerator memory, in MiB. To specify no maximum limit,
+	// omit this parameter.
+	Max *int32
+
+	// The minimum amount of accelerator memory, in MiB. To specify no minimum limit,
+	// omit this parameter.
+	Min *int32
+
+	noSmithyDocumentSerde
+}
+
 // Describes an account attribute.
 type AccountAttribute struct {
 
@@ -507,6 +566,40 @@ type AvailableCapacity struct {
 
 	// The number of vCPUs available for launching instances onto the Dedicated Host.
 	AvailableVCpus *int32
+
+	noSmithyDocumentSerde
+}
+
+// The minimum and maximum baseline bandwidth to Amazon EBS, in Mbps. For more
+// information, see Amazon EBS–optimized instances
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-optimized.html) in the
+// Amazon EC2 User Guide.
+type BaselineEbsBandwidthMbps struct {
+
+	// The maximum baseline bandwidth, in Mbps. If this parameter is not specified,
+	// there is no maximum limit.
+	Max *int32
+
+	// The minimum baseline bandwidth, in Mbps. If this parameter is not specified,
+	// there is no minimum limit.
+	Min *int32
+
+	noSmithyDocumentSerde
+}
+
+// The minimum and maximum baseline bandwidth to Amazon EBS, in Mbps. For more
+// information, see Amazon EBS–optimized instances
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-optimized.html) in the
+// Amazon EC2 User Guide.
+type BaselineEbsBandwidthMbpsRequest struct {
+
+	// The maximum baseline bandwidth, in Mbps. To specify no maximum limit, omit this
+	// parameter.
+	Max *int32
+
+	// The minimum baseline bandwidth, in Mbps. To specify no minimum limit, omit this
+	// parameter.
+	Min *int32
 
 	noSmithyDocumentSerde
 }
@@ -3387,7 +3480,13 @@ type FleetLaunchTemplateOverrides struct {
 	// The Availability Zone in which to launch the instances.
 	AvailabilityZone *string
 
-	// The instance type.
+	// The attributes for the instance types. When you specify instance attributes,
+	// Amazon EC2 will identify instance types with those attributes. If you specify
+	// InstanceRequirements, you can't specify InstanceTypes.
+	InstanceRequirements *InstanceRequirements
+
+	// The instance type. If you specify InstanceTypes, you can't specify
+	// InstanceRequirements.
 	InstanceType InstanceType
 
 	// The maximum price per unit hour that you are willing to pay for a Spot Instance.
@@ -3423,7 +3522,13 @@ type FleetLaunchTemplateOverridesRequest struct {
 	// The Availability Zone in which to launch the instances.
 	AvailabilityZone *string
 
-	// The instance type.
+	// The attributes for the instance types. When you specify instance attributes,
+	// Amazon EC2 will identify instance types with those attributes. If you specify
+	// InstanceRequirements, you can't specify InstanceTypes.
+	InstanceRequirements *InstanceRequirementsRequest
+
+	// The instance type. If you specify InstanceTypes, you can't specify
+	// InstanceRequirements.
 	InstanceType InstanceType
 
 	// The maximum price per unit hour that you are willing to pay for a Spot Instance.
@@ -5330,6 +5435,495 @@ type InstancePrivateIpAddress struct {
 	noSmithyDocumentSerde
 }
 
+// The attributes for the instance types. When you specify instance attributes,
+// Amazon EC2 will identify instance types with these attributes. When you specify
+// multiple parameters, you get instance types that satisfy all of the specified
+// parameters. If you specify multiple values for a parameter, you get instance
+// types that satisfy any of the specified values. You must specify VCpuCount and
+// MemoryMiB. All other parameters are optional. Any unspecified optional parameter
+// is set to its default. For more information, see Attribute-based instance type
+// selection for EC2 Fleet
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet-attribute-based-instance-type-selection.html),
+// Attribute-based instance type selection for Spot Fleet
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-fleet-attribute-based-instance-type-selection.html),
+// and Spot placement score
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-placement-score.html)
+// in the Amazon EC2 User Guide.
+type InstanceRequirements struct {
+
+	// The minimum and maximum number of accelerators (GPUs, FPGAs, or Amazon Web
+	// Services Inferentia chips) on an instance. To exclude accelerator-enabled
+	// instance types, set Max to 0. Default: No minimum or maximum limits
+	AcceleratorCount *AcceleratorCount
+
+	// Indicates whether instance types must have accelerators by specific
+	// manufacturers.
+	//
+	// * For instance types with NVIDIA devices, specify nvidia.
+	//
+	// * For
+	// instance types with AMD devices, specify amd.
+	//
+	// * For instance types with Amazon
+	// Web Services devices, specify amazon-web-services.
+	//
+	// * For instance types with
+	// Xilinx devices, specify xilinx.
+	//
+	// Default: Any manufacturer
+	AcceleratorManufacturers []AcceleratorManufacturer
+
+	// The accelerators that must be on the instance type.
+	//
+	// * For instance types with
+	// NVIDIA A100 GPUs, specify a100.
+	//
+	// * For instance types with NVIDIA V100 GPUs,
+	// specify v100.
+	//
+	// * For instance types with NVIDIA K80 GPUs, specify k80.
+	//
+	// * For
+	// instance types with NVIDIA T4 GPUs, specify t4.
+	//
+	// * For instance types with
+	// NVIDIA M60 GPUs, specify m60.
+	//
+	// * For instance types with AMD Radeon Pro V520
+	// GPUs, specify radeon-pro-v520.
+	//
+	// * For instance types with Xilinx VU9P FPGAs,
+	// specify vu9p.
+	//
+	// Default: Any accelerator
+	AcceleratorNames []AcceleratorName
+
+	// The minimum and maximum amount of total accelerator memory, in MiB. Default: No
+	// minimum or maximum limits
+	AcceleratorTotalMemoryMiB *AcceleratorTotalMemoryMiB
+
+	// The accelerator types that must be on the instance type.
+	//
+	// * For instance types
+	// with GPU accelerators, specify gpu.
+	//
+	// * For instance types with FPGA
+	// accelerators, specify fpga.
+	//
+	// * For instance types with inference accelerators,
+	// specify inference.
+	//
+	// Default: Any accelerator type
+	AcceleratorTypes []AcceleratorType
+
+	// Indicates whether bare metal instance types must be included, excluded, or
+	// required.
+	//
+	// * To include bare metal instance types, specify included.
+	//
+	// * To
+	// require only bare metal instance types, specify required.
+	//
+	// * To exclude bare
+	// metal instance types, specify excluded.
+	//
+	// Default: excluded
+	BareMetal BareMetal
+
+	// The minimum and maximum baseline bandwidth to Amazon EBS, in Mbps. For more
+	// information, see Amazon EBS–optimized instances
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-optimized.html) in the
+	// Amazon EC2 User Guide. Default: No minimum or maximum limits
+	BaselineEbsBandwidthMbps *BaselineEbsBandwidthMbps
+
+	// Indicates whether burstable performance T instance types are included, excluded,
+	// or required. For more information, see Burstable performance instances
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances.html).
+	//
+	// *
+	// To include burstable performance instance types, specify included.
+	//
+	// * To require
+	// only burstable performance instance types, specify required.
+	//
+	// * To exclude
+	// burstable performance instance types, specify excluded.
+	//
+	// Default: excluded
+	BurstablePerformance BurstablePerformance
+
+	// The CPU manufacturers to include.
+	//
+	// * For instance types with Intel CPUs, specify
+	// intel.
+	//
+	// * For instance types with AMD CPUs, specify amd.
+	//
+	// * For instance types
+	// with Amazon Web Services CPUs, specify amazon-web-services.
+	//
+	// Don't confuse the
+	// CPU manufacturer with the CPU architecture. Instances will be launched with a
+	// compatible CPU architecture based on the Amazon Machine Image (AMI) that you
+	// specify in your launch template. Default: Any manufacturer
+	CpuManufacturers []CpuManufacturer
+
+	// The instance types to exclude. You can use strings with one or more wild cards,
+	// represented by an asterisk (*), to exclude an instance type, size, or
+	// generation. The following are examples: m5.8xlarge, c5*.*, m5a.*, r*, *3*. For
+	// example, if you specify c5*,Amazon EC2 will exclude the entire C5 instance
+	// family, which includes all C5a and C5n instance types. If you specify m5a.*,
+	// Amazon EC2 will exclude all the M5a instance types, but not the M5n instance
+	// types. Default: No excluded instance types
+	ExcludedInstanceTypes []string
+
+	// Indicates whether current or previous generation instance types are included.
+	// The current generation instance types are recommended for use. Current
+	// generation instance types are typically the latest two to three generations in
+	// each instance family. For more information, see Instance types
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html) in the
+	// Amazon EC2 User Guide. For current generation instance types, specify current.
+	// For previous generation instance types, specify previous. Default: Current and
+	// previous generation instance types
+	InstanceGenerations []InstanceGeneration
+
+	// Indicates whether instance types with instance store volumes are included,
+	// excluded, or required. For more information, Amazon EC2 instance store
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/InstanceStorage.html) in
+	// the Amazon EC2 User Guide.
+	//
+	// * To include instance types with instance store
+	// volumes, specify included.
+	//
+	// * To require only instance types with instance store
+	// volumes, specify required.
+	//
+	// * To exclude instance types with instance store
+	// volumes, specify excluded.
+	//
+	// Default: included
+	LocalStorage LocalStorage
+
+	// The type of local storage that is required.
+	//
+	// * For instance types with hard disk
+	// drive (HDD) storage, specify hdd.
+	//
+	// * For instance types with solid state drive
+	// (SDD) storage, specify sdd.
+	//
+	// Default: hdd and sdd
+	LocalStorageTypes []LocalStorageType
+
+	// The minimum and maximum amount of memory per vCPU, in GiB. Default: No minimum
+	// or maximum limits
+	MemoryGiBPerVCpu *MemoryGiBPerVCpu
+
+	// The minimum and maximum amount of memory, in MiB.
+	MemoryMiB *MemoryMiB
+
+	// The minimum and maximum number of network interfaces. Default: No minimum or
+	// maximum limits
+	NetworkInterfaceCount *NetworkInterfaceCount
+
+	// The price protection threshold for On-Demand Instances. This is the maximum
+	// you’ll pay for an On-Demand Instance, expressed as a percentage above the
+	// cheapest M, C, or R instance type with your specified attributes. When Amazon
+	// EC2 selects instance types with your attributes, it excludes instance types
+	// priced above your threshold. The parameter accepts an integer, which Amazon EC2
+	// interprets as a percentage. To turn off price protection, specify a high value,
+	// such as 999999. This parameter is not supported for GetSpotPlacementScores
+	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_GetSpotPlacementScores.html)
+	// and GetInstanceTypesFromInstanceRequirements
+	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_GetInstanceTypesFromInstanceRequirements.html).
+	// Default: 20
+	OnDemandMaxPricePercentageOverLowestPrice *int32
+
+	// Indicates whether instance types must support hibernation for On-Demand
+	// Instances. This parameter is not supported for GetSpotPlacementScores
+	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_GetSpotPlacementScores.html).
+	// Default: false
+	RequireHibernateSupport *bool
+
+	// The price protection threshold for Spot Instances. This is the maximum you’ll
+	// pay for a Spot Instance, expressed as a percentage above the cheapest M, C, or R
+	// instance type with your specified attributes. When Amazon EC2 selects instance
+	// types with your attributes, it excludes instance types priced above your
+	// threshold. The parameter accepts an integer, which Amazon EC2 interprets as a
+	// percentage. To turn off price protection, specify a high value, such as 999999.
+	// This parameter is not supported for GetSpotPlacementScores
+	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_GetSpotPlacementScores.html)
+	// and GetInstanceTypesFromInstanceRequirements
+	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_GetInstanceTypesFromInstanceRequirements.html).
+	// Default: 100
+	SpotMaxPricePercentageOverLowestPrice *int32
+
+	// The minimum and maximum amount of total local storage, in GB. Default: No
+	// minimum or maximum limits
+	TotalLocalStorageGB *TotalLocalStorageGB
+
+	// The minimum and maximum number of vCPUs.
+	VCpuCount *VCpuCountRange
+
+	noSmithyDocumentSerde
+}
+
+// The attributes for the instance types. When you specify instance attributes,
+// Amazon EC2 will identify instance types with these attributes. When you specify
+// multiple parameters, you get instance types that satisfy all of the specified
+// parameters. If you specify multiple values for a parameter, you get instance
+// types that satisfy any of the specified values. You must specify VCpuCount and
+// MemoryMiB. All other parameters are optional. Any unspecified optional parameter
+// is set to its default. For more information, see Attribute-based instance type
+// selection for EC2 Fleet
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet-attribute-based-instance-type-selection.html),
+// Attribute-based instance type selection for Spot Fleet
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-fleet-attribute-based-instance-type-selection.html),
+// and Spot placement score
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-placement-score.html)
+// in the Amazon EC2 User Guide.
+type InstanceRequirementsRequest struct {
+
+	// The minimum and maximum amount of memory, in MiB.
+	//
+	// This member is required.
+	MemoryMiB *MemoryMiBRequest
+
+	// The minimum and maximum number of vCPUs.
+	//
+	// This member is required.
+	VCpuCount *VCpuCountRangeRequest
+
+	// The minimum and maximum number of accelerators (GPUs, FPGAs, or Amazon Web
+	// Services Inferentia chips) on an instance. To exclude accelerator-enabled
+	// instance types, set Max to 0. Default: No minimum or maximum limits
+	AcceleratorCount *AcceleratorCountRequest
+
+	// Indicates whether instance types must have accelerators by specific
+	// manufacturers.
+	//
+	// * For instance types with NVIDIA devices, specify nvidia.
+	//
+	// * For
+	// instance types with AMD devices, specify amd.
+	//
+	// * For instance types with Amazon
+	// Web Services devices, specify amazon-web-services.
+	//
+	// * For instance types with
+	// Xilinx devices, specify xilinx.
+	//
+	// Default: Any manufacturer
+	AcceleratorManufacturers []AcceleratorManufacturer
+
+	// The accelerators that must be on the instance type.
+	//
+	// * For instance types with
+	// NVIDIA A100 GPUs, specify a100.
+	//
+	// * For instance types with NVIDIA V100 GPUs,
+	// specify v100.
+	//
+	// * For instance types with NVIDIA K80 GPUs, specify k80.
+	//
+	// * For
+	// instance types with NVIDIA T4 GPUs, specify t4.
+	//
+	// * For instance types with
+	// NVIDIA M60 GPUs, specify m60.
+	//
+	// * For instance types with AMD Radeon Pro V520
+	// GPUs, specify radeon-pro-v520.
+	//
+	// * For instance types with Xilinx VU9P FPGAs,
+	// specify  vu9p.
+	//
+	// Default: Any accelerator
+	AcceleratorNames []AcceleratorName
+
+	// The minimum and maximum amount of total accelerator memory, in MiB. Default: No
+	// minimum or maximum limits
+	AcceleratorTotalMemoryMiB *AcceleratorTotalMemoryMiBRequest
+
+	// The accelerator types that must be on the instance type.
+	//
+	// * To include instance
+	// types with GPU hardware, specify gpu.
+	//
+	// * To include instance types with FPGA
+	// hardware, specify fpga.
+	//
+	// * To include instance types with inference hardware,
+	// specify inference.
+	//
+	// Default: Any accelerator type
+	AcceleratorTypes []AcceleratorType
+
+	// Indicates whether bare metal instance types must be included, excluded, or
+	// required.
+	//
+	// * To include bare metal instance types, specify included.
+	//
+	// * To
+	// require only bare metal instance types, specify required.
+	//
+	// * To exclude bare
+	// metal instance types, specify excluded.
+	//
+	// Default: excluded
+	BareMetal BareMetal
+
+	// The minimum and maximum baseline bandwidth to Amazon EBS, in Mbps. For more
+	// information, see Amazon EBS–optimized instances
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-optimized.html) in the
+	// Amazon EC2 User Guide. Default: No minimum or maximum limits
+	BaselineEbsBandwidthMbps *BaselineEbsBandwidthMbpsRequest
+
+	// Indicates whether burstable performance T instance types are included, excluded,
+	// or required. For more information, see Burstable performance instances
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances.html).
+	//
+	// *
+	// To include burstable performance instance types, specify included.
+	//
+	// * To require
+	// only burstable performance instance types, specify required.
+	//
+	// * To exclude
+	// burstable performance instance types, specify excluded.
+	//
+	// Default: excluded
+	BurstablePerformance BurstablePerformance
+
+	// The CPU manufacturers to include.
+	//
+	// * For instance types with Intel CPUs, specify
+	// intel.
+	//
+	// * For instance types with AMD CPUs, specify amd.
+	//
+	// * For instance types
+	// with Amazon Web Services CPUs, specify amazon-web-services.
+	//
+	// Don't confuse the
+	// CPU manufacturer with the CPU architecture. Instances will be launched with a
+	// compatible CPU architecture based on the Amazon Machine Image (AMI) that you
+	// specify in your launch template. Default: Any manufacturer
+	CpuManufacturers []CpuManufacturer
+
+	// The instance types to exclude. You can use strings with one or more wild cards,
+	// represented by an asterisk (*), to exclude an instance family, type, size, or
+	// generation. The following are examples: m5.8xlarge, c5*.*, m5a.*, r*, *3*. For
+	// example, if you specify c5*,Amazon EC2 will exclude the entire C5 instance
+	// family, which includes all C5a and C5n instance types. If you specify m5a.*,
+	// Amazon EC2 will exclude all the M5a instance types, but not the M5n instance
+	// types. Default: No excluded instance types
+	ExcludedInstanceTypes []string
+
+	// Indicates whether current or previous generation instance types are included.
+	// The current generation instance types are recommended for use. Current
+	// generation instance types are typically the latest two to three generations in
+	// each instance family. For more information, see Instance types
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html) in the
+	// Amazon EC2 User Guide. For current generation instance types, specify current.
+	// For previous generation instance types, specify previous. Default: Current and
+	// previous generation instance types
+	InstanceGenerations []InstanceGeneration
+
+	// Indicates whether instance types with instance store volumes are included,
+	// excluded, or required. For more information, Amazon EC2 instance store
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/InstanceStorage.html) in
+	// the Amazon EC2 User Guide.
+	//
+	// * To include instance types with instance store
+	// volumes, specify included.
+	//
+	// * To require only instance types with instance store
+	// volumes, specify required.
+	//
+	// * To exclude instance types with instance store
+	// volumes, specify excluded.
+	//
+	// Default: included
+	LocalStorage LocalStorage
+
+	// The type of local storage that is required.
+	//
+	// * For instance types with hard disk
+	// drive (HDD) storage, specify hdd.
+	//
+	// * For instance types with solid state drive
+	// (SDD) storage, specify sdd.
+	//
+	// Default: hdd and sdd
+	LocalStorageTypes []LocalStorageType
+
+	// The minimum and maximum amount of memory per vCPU, in GiB. Default: No minimum
+	// or maximum limits
+	MemoryGiBPerVCpu *MemoryGiBPerVCpuRequest
+
+	// The minimum and maximum number of network interfaces. Default: No minimum or
+	// maximum limits
+	NetworkInterfaceCount *NetworkInterfaceCountRequest
+
+	// The price protection threshold for On-Demand Instances. This is the maximum
+	// you’ll pay for an On-Demand Instance, expressed as a percentage above the
+	// cheapest M, C, or R instance type with your specified attributes. When Amazon
+	// EC2 selects instance types with your attributes, it excludes instance types
+	// priced above your threshold. The parameter accepts an integer, which Amazon EC2
+	// interprets as a percentage. To turn off price protection, specify a high value,
+	// such as 999999. This parameter is not supported for GetSpotPlacementScores
+	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_GetSpotPlacementScores.html)
+	// and GetInstanceTypesFromInstanceRequirements
+	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_GetInstanceTypesFromInstanceRequirements.html).
+	// Default: 20
+	OnDemandMaxPricePercentageOverLowestPrice *int32
+
+	// Indicates whether instance types must support hibernation for On-Demand
+	// Instances. This parameter is not supported for GetSpotPlacementScores
+	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_GetSpotPlacementScores.html).
+	// Default: false
+	RequireHibernateSupport *bool
+
+	// The price protection threshold for Spot Instance. This is the maximum you’ll pay
+	// for an Spot Instance, expressed as a percentage above the cheapest M, C, or R
+	// instance type with your specified attributes. When Amazon EC2 selects instance
+	// types with your attributes, it excludes instance types priced above your
+	// threshold. The parameter accepts an integer, which Amazon EC2 interprets as a
+	// percentage. To turn off price protection, specify a high value, such as 999999.
+	// This parameter is not supported for GetSpotPlacementScores
+	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_GetSpotPlacementScores.html)
+	// and GetInstanceTypesFromInstanceRequirements
+	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_GetInstanceTypesFromInstanceRequirements.html).
+	// Default: 100
+	SpotMaxPricePercentageOverLowestPrice *int32
+
+	// The minimum and maximum amount of total local storage, in GB. Default: No
+	// minimum or maximum limits
+	TotalLocalStorageGB *TotalLocalStorageGBRequest
+
+	noSmithyDocumentSerde
+}
+
+// The architecture type, virtualization type, and other attributes for the
+// instance types. When you specify instance attributes, Amazon EC2 will identify
+// instance types with those attributes. If you specify
+// InstanceRequirementsWithMetadataRequest, you can't specify InstanceTypes.
+type InstanceRequirementsWithMetadataRequest struct {
+
+	// The architecture type.
+	ArchitectureTypes []ArchitectureType
+
+	// The attributes for the instance types. When you specify instance attributes,
+	// Amazon EC2 will identify instance types with those attributes.
+	InstanceRequirements *InstanceRequirementsRequest
+
+	// The virtualization type.
+	VirtualizationTypes []VirtualizationType
+
+	noSmithyDocumentSerde
+}
+
 // The instance details to specify which volumes should be snapshotted.
 type InstanceSpecification struct {
 
@@ -5586,6 +6180,15 @@ type InstanceTypeInfo struct {
 
 	// Describes the vCPU configurations for the instance type.
 	VCpuInfo *VCpuInfo
+
+	noSmithyDocumentSerde
+}
+
+// The list of instance types with the specified instance attributes.
+type InstanceTypeInfoFromInstanceRequirements struct {
+
+	// The matching instance type.
+	InstanceType *string
 
 	noSmithyDocumentSerde
 }
@@ -5887,6 +6490,12 @@ type LaunchPermission struct {
 
 	// The name of the group.
 	Group PermissionGroup
+
+	// The Amazon Resource Name (ARN) of an organization.
+	OrganizationArn *string
+
+	// The Amazon Resource Name (ARN) of an organizational unit (OU).
+	OrganizationalUnitArn *string
 
 	// The Amazon Web Services account ID. Constraints: Up to 10 000 account IDs can be
 	// specified in a single request.
@@ -6606,6 +7215,13 @@ type LaunchTemplateOverrides struct {
 	// The Availability Zone in which to launch the instances.
 	AvailabilityZone *string
 
+	// The instance requirements. When you specify instance requirements, Amazon EC2
+	// will identify instance types with the provided requirements, and then use your
+	// On-Demand and Spot allocation strategies to launch instances from these instance
+	// types, in the same way as when you specify a list of instance types. If you
+	// specify InstanceRequirements, you can't specify InstanceTypes.
+	InstanceRequirements *InstanceRequirements
+
 	// The instance type.
 	InstanceType InstanceType
 
@@ -7143,11 +7759,68 @@ type ManagedPrefixList struct {
 	noSmithyDocumentSerde
 }
 
+// The minimum and maximum amount of memory per vCPU, in GiB.
+type MemoryGiBPerVCpu struct {
+
+	// The maximum amount of memory per vCPU, in GiB. If this parameter is not
+	// specified, there is no maximum limit.
+	Max *float64
+
+	// The minimum amount of memory per vCPU, in GiB. If this parameter is not
+	// specified, there is no minimum limit.
+	Min *float64
+
+	noSmithyDocumentSerde
+}
+
+// The minimum and maximum amount of memory per vCPU, in GiB.
+type MemoryGiBPerVCpuRequest struct {
+
+	// The maximum amount of memory per vCPU, in GiB. To specify no maximum limit, omit
+	// this parameter.
+	Max *float64
+
+	// The minimum amount of memory per vCPU, in GiB. To specify no minimum limit, omit
+	// this parameter.
+	Min *float64
+
+	noSmithyDocumentSerde
+}
+
 // Describes the memory for the instance type.
 type MemoryInfo struct {
 
 	// The size of the memory, in MiB.
 	SizeInMiB *int64
+
+	noSmithyDocumentSerde
+}
+
+// The minimum and maximum amount of memory, in MiB.
+type MemoryMiB struct {
+
+	// The maximum amount of memory, in MiB. If this parameter is not specified, there
+	// is no maximum limit.
+	Max *int32
+
+	// The minimum amount of memory, in MiB. If this parameter is not specified, there
+	// is no minimum limit.
+	Min *int32
+
+	noSmithyDocumentSerde
+}
+
+// The minimum and maximum amount of memory, in MiB.
+type MemoryMiBRequest struct {
+
+	// The minimum amount of memory, in MiB. To specify no minimum limit, specify 0.
+	//
+	// This member is required.
+	Min *int32
+
+	// The maximum amount of memory, in MiB. To specify no maximum limit, omit this
+	// parameter.
+	Max *int32
 
 	noSmithyDocumentSerde
 }
@@ -7678,6 +8351,13 @@ type NetworkInterface struct {
 	// The Availability Zone.
 	AvailabilityZone *string
 
+	// Indicates whether a network interface with an IPv6 address is unreachable from
+	// the public internet. If the value is true, inbound traffic from the internet is
+	// dropped and you cannot assign an elastic IP address to the network interface.
+	// The network interface is reachable from peered VPCs and resources connected
+	// through a transit gateway, including on-premises networks.
+	DenyAllIgwTraffic *bool
+
 	// A description.
 	Description *string
 
@@ -7813,6 +8493,34 @@ type NetworkInterfaceAttachmentChanges struct {
 	// Indicates whether the network interface is deleted when the instance is
 	// terminated.
 	DeleteOnTermination *bool
+
+	noSmithyDocumentSerde
+}
+
+// The minimum and maximum number of network interfaces.
+type NetworkInterfaceCount struct {
+
+	// The maximum number of network interfaces. If this parameter is not specified,
+	// there is no maximum limit.
+	Max *int32
+
+	// The minimum number of network interfaces. If this parameter is not specified,
+	// there is no minimum limit.
+	Min *int32
+
+	noSmithyDocumentSerde
+}
+
+// The minimum and maximum number of network interfaces.
+type NetworkInterfaceCountRequest struct {
+
+	// The maximum number of network interfaces. To specify no maximum limit, omit this
+	// parameter.
+	Max *int32
+
+	// The minimum number of network interfaces. To specify no minimum limit, omit this
+	// parameter.
+	Min *int32
 
 	noSmithyDocumentSerde
 }
@@ -8850,9 +9558,15 @@ type RequestLaunchTemplateData struct {
 	// The market (purchasing) option for the instances.
 	InstanceMarketOptions *LaunchTemplateInstanceMarketOptionsRequest
 
+	// The attributes for the instance types. When you specify instance attributes,
+	// Amazon EC2 will identify instance types with these attributes. If you specify
+	// InstanceRequirements, you can't specify InstanceTypes.
+	InstanceRequirements *InstanceRequirementsRequest
+
 	// The instance type. For more information, see Instance Types
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html) in the
-	// Amazon Elastic Compute Cloud User Guide.
+	// Amazon Elastic Compute Cloud User Guide. If you specify InstanceTypes, you can't
+	// specify InstanceRequirements.
 	InstanceType InstanceType
 
 	// The ID of the kernel. We recommend that you use PV-GRUB instead of kernels and
@@ -9418,6 +10132,11 @@ type ResponseLaunchTemplateData struct {
 
 	// The market (purchasing) option for the instances.
 	InstanceMarketOptions *LaunchTemplateInstanceMarketOptions
+
+	// The attributes for the instance types. When you specify instance attributes,
+	// Amazon EC2 will identify instance types with these attributes. If you specify
+	// InstanceRequirements, you can't specify InstanceTypes.
+	InstanceRequirements *InstanceRequirements
 
 	// The instance type.
 	InstanceType InstanceType
@@ -10615,6 +11334,11 @@ type SpotFleetLaunchSpecification struct {
 	// The ID of the AMI.
 	ImageId *string
 
+	// The attributes for the instance types. When you specify instance attributes,
+	// Amazon EC2 will identify instance types with those attributes. If you specify
+	// InstanceRequirements, you can't specify InstanceTypes.
+	InstanceRequirements *InstanceRequirements
+
 	// The instance type.
 	InstanceType InstanceType
 
@@ -10868,6 +11592,10 @@ type SpotFleetRequestConfigData struct {
 	// after launch, see Tagging Your Resources
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html#tag-resources).
 	TagSpecifications []TagSpecification
+
+	// The unit for the target capacity. Default: units (translates to number of
+	// instances)
+	TargetCapacityUnitType TargetCapacityUnitType
 
 	// Indicates whether running Spot Instances are terminated when the Spot Fleet
 	// request expires.
@@ -11199,6 +11927,26 @@ type SpotPlacement struct {
 	// with a tenancy of dedicated runs on single-tenant hardware. The host tenancy is
 	// not supported for Spot Instances.
 	Tenancy Tenancy
+
+	noSmithyDocumentSerde
+}
+
+// The Spot placement score for this Region or Availability Zone. The score is
+// calculated based on the assumption that the capacity-optimized allocation
+// strategy is used and that all of the Availability Zones in the Region can be
+// used.
+type SpotPlacementScore struct {
+
+	// The Availability Zone.
+	AvailabilityZoneId *string
+
+	// The Region.
+	Region *string
+
+	// The placement score, on a scale from 1 to 10. A score of 10 indicates that your
+	// Spot request is highly likely to succeed in this Region or Availability Zone. A
+	// score of 1 indicates that your Spot request is not likely to succeed.
+	Score *int32
 
 	noSmithyDocumentSerde
 }
@@ -11601,6 +12349,10 @@ type TargetCapacitySpecification struct {
 	// On-Demand units, you cannot specify a target capacity for Spot units.
 	SpotTargetCapacity *int32
 
+	// The unit for the target capacity. Default: units (translates to number of
+	// instances)
+	TargetCapacityUnitType TargetCapacityUnitType
+
 	// The number of units to request, filled using DefaultTargetCapacityType.
 	TotalTargetCapacity *int32
 
@@ -11637,6 +12389,10 @@ type TargetCapacitySpecificationRequest struct {
 
 	// The number of Spot units to request.
 	SpotTargetCapacity *int32
+
+	// The unit for the target capacity. Default: units (translates to number of
+	// instances)
+	TargetCapacityUnitType TargetCapacityUnitType
 
 	noSmithyDocumentSerde
 }
@@ -11738,6 +12494,34 @@ type TerminateConnectionStatus struct {
 
 	// The state of the client connection.
 	PreviousStatus *ClientVpnConnectionStatus
+
+	noSmithyDocumentSerde
+}
+
+// The minimum and maximum amount of total local storage, in GB.
+type TotalLocalStorageGB struct {
+
+	// The maximum amount of total local storage, in GB. If this parameter is not
+	// specified, there is no maximum limit.
+	Max *float64
+
+	// The minimum amount of total local storage, in GB. If this parameter is not
+	// specified, there is no minimum limit.
+	Min *float64
+
+	noSmithyDocumentSerde
+}
+
+// The minimum and maximum amount of total local storage, in GB.
+type TotalLocalStorageGBRequest struct {
+
+	// The maximum amount of total local storage, in GB. To specify no maximum limit,
+	// omit this parameter.
+	Max *float64
+
+	// The minimum amount of total local storage, in GB. To specify no minimum limit,
+	// omit this parameter.
+	Min *float64
 
 	noSmithyDocumentSerde
 }
@@ -12892,6 +13676,33 @@ type ValidationWarning struct {
 	noSmithyDocumentSerde
 }
 
+// The minimum and maximum number of vCPUs.
+type VCpuCountRange struct {
+
+	// The maximum number of vCPUs. If this parameter is not specified, there is no
+	// maximum limit.
+	Max *int32
+
+	// The minimum number of vCPUs. If the value is 0, there is no minimum limit.
+	Min *int32
+
+	noSmithyDocumentSerde
+}
+
+// The minimum and maximum number of vCPUs.
+type VCpuCountRangeRequest struct {
+
+	// The minimum number of vCPUs. To specify no minimum limit, specify 0.
+	//
+	// This member is required.
+	Min *int32
+
+	// The maximum number of vCPUs. To specify no maximum limit, omit this parameter.
+	Max *int32
+
+	noSmithyDocumentSerde
+}
+
 // Describes the vCPU configurations for the instance type.
 type VCpuInfo struct {
 
@@ -13487,6 +14298,12 @@ type VpnConnection struct {
 	// Classic VPN connection.
 	Category *string
 
+	// The ARN of the core network.
+	CoreNetworkArn *string
+
+	// The ARN of the core network attachment.
+	CoreNetworkAttachmentArn *string
+
 	// The configuration information for the VPN connection's customer gateway (in the
 	// native XML format). This element is always present in the CreateVpnConnection
 	// response; however, it's present in the DescribeVpnConnections response only if
@@ -13495,6 +14312,9 @@ type VpnConnection struct {
 
 	// The ID of the customer gateway at your end of the VPN connection.
 	CustomerGatewayId *string
+
+	// The current state of the gateway association.
+	GatewayAssociationState *string
 
 	// The VPN connection options.
 	Options *VpnConnectionOptions
