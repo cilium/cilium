@@ -277,7 +277,7 @@ bpf:
   lbExternalClusterIP: false
 
   # -- Enable native IP masquerade support in eBPF
-  #masquerade: true
+  #masquerade: false
 
   # -- Configure whether direct routing mode should route traffic via
   # host stack (true) or directly and more efficiently out of BPF (false) if
