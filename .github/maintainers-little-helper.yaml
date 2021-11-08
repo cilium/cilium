@@ -118,7 +118,7 @@ flake-tracker:
         correlate-with-stable-jobs:
         - cilium-master-runtime-kernel-net-next
   max-flakes-per-test: 5
-  flake-similarity: 0.75
+  flake-similarity: 0.85
   ignore-failures:
   - failed due to BeforeAll failure
   - Cilium cannot be installed
