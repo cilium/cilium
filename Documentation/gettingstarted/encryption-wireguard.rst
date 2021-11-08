@@ -192,9 +192,9 @@ WireGuard support in Cilium currently lacks the following features,
 which may be resolved in upcoming Cilium releases:
 
  - Host-level encryption. Only traffic between two Cilium-managed endpoints
-   (i.e. pod to pod traffic) is encrypted. Traffic between a Cilium-managed
-   pod and a remote host, or traffic between two hosts running the Cilium
-   agent will currently not be encrypted.
+   (i.e. pod-to-pod traffic) is encrypted. Traffic between two nodes and
+   traffic between a Cilium-managed pod and a remote node currently won't be
+   encrypted.
  - L7 policy enforcement and visibility
  - eBPF-based host routing
  - Support for older kernels via user-mode WireGuard
