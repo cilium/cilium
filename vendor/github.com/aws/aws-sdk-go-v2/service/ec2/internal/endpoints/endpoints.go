@@ -4,13 +4,62 @@ package endpoints
 
 import (
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/internal/endpoints"
+	endpoints "github.com/aws/aws-sdk-go-v2/internal/endpoints/v2"
+	"github.com/aws/smithy-go/logging"
 	"regexp"
 )
 
 // Options is the endpoint resolver configuration options
 type Options struct {
+	// Logger is a logging implementation that log events should be sent to.
+	Logger logging.Logger
+
+	// LogDeprecated indicates that deprecated endpoints should be logged to the
+	// provided logger.
+	LogDeprecated bool
+
+	// ResolvedRegion is used to override the region to be resolved, rather then the
+	// using the value passed to the ResolveEndpoint method. This value is used by the
+	// SDK to translate regions like fips-us-east-1 or us-east-1-fips to an alternative
+	// name. You must not set this value directly in your application.
+	ResolvedRegion string
+
+	// DisableHTTPS informs the resolver to return an endpoint that does not use the
+	// HTTPS scheme.
 	DisableHTTPS bool
+
+	// UseDualStackEndpoint specifies the resolver must resolve a dual-stack endpoint.
+	UseDualStackEndpoint aws.DualStackEndpointState
+
+	// UseFIPSEndpoint specifies the resolver must resolve a FIPS endpoint.
+	UseFIPSEndpoint aws.FIPSEndpointState
+}
+
+func (o Options) GetResolvedRegion() string {
+	return o.ResolvedRegion
+}
+
+func (o Options) GetDisableHTTPS() bool {
+	return o.DisableHTTPS
+}
+
+func (o Options) GetUseDualStackEndpoint() aws.DualStackEndpointState {
+	return o.UseDualStackEndpoint
+}
+
+func (o Options) GetUseFIPSEndpoint() aws.FIPSEndpointState {
+	return o.UseFIPSEndpoint
+}
+
+func transformToSharedOptions(options Options) endpoints.Options {
+	return endpoints.Options{
+		Logger:               options.Logger,
+		LogDeprecated:        options.LogDeprecated,
+		ResolvedRegion:       options.ResolvedRegion,
+		DisableHTTPS:         options.DisableHTTPS,
+		UseDualStackEndpoint: options.UseDualStackEndpoint,
+		UseFIPSEndpoint:      options.UseFIPSEndpoint,
+	}
 }
 
 // Resolver EC2 endpoint resolver
@@ -24,9 +73,7 @@ func (r *Resolver) ResolveEndpoint(region string, options Options) (endpoint aws
 		return endpoint, &aws.MissingRegionError{}
 	}
 
-	opt := endpoints.Options{
-		DisableHTTPS: options.DisableHTTPS,
-	}
+	opt := transformToSharedOptions(options)
 	return r.partitions.ResolveEndpoint(region, opt)
 }
 
@@ -55,125 +102,359 @@ var partitionRegexp = struct {
 var defaultPartitions = endpoints.Partitions{
 	{
 		ID: "aws",
-		Defaults: endpoints.Endpoint{
-			Hostname:          "ec2.{region}.amazonaws.com",
-			Protocols:         []string{"http", "https"},
-			SignatureVersions: []string{"v4"},
+		Defaults: map[endpoints.DefaultKey]endpoints.Endpoint{
+			{
+				Variant: endpoints.DualStackVariant,
+			}: {
+				Hostname:          "ec2.{region}.api.aws",
+				Protocols:         []string{"http", "https"},
+				SignatureVersions: []string{"v4"},
+			},
+			{
+				Variant: endpoints.FIPSVariant,
+			}: {
+				Hostname:          "ec2-fips.{region}.amazonaws.com",
+				Protocols:         []string{"http", "https"},
+				SignatureVersions: []string{"v4"},
+			},
+			{
+				Variant: endpoints.FIPSVariant | endpoints.DualStackVariant,
+			}: {
+				Hostname:          "ec2-fips.{region}.api.aws",
+				Protocols:         []string{"http", "https"},
+				SignatureVersions: []string{"v4"},
+			},
+			{
+				Variant: 0,
+			}: {
+				Hostname:          "ec2.{region}.amazonaws.com",
+				Protocols:         []string{"http", "https"},
+				SignatureVersions: []string{"v4"},
+			},
 		},
 		RegionRegex:    partitionRegexp.Aws,
 		IsRegionalized: true,
 		Endpoints: endpoints.Endpoints{
-			"af-south-1":     endpoints.Endpoint{},
-			"ap-east-1":      endpoints.Endpoint{},
-			"ap-northeast-1": endpoints.Endpoint{},
-			"ap-northeast-2": endpoints.Endpoint{},
-			"ap-northeast-3": endpoints.Endpoint{},
-			"ap-south-1":     endpoints.Endpoint{},
-			"ap-southeast-1": endpoints.Endpoint{},
-			"ap-southeast-2": endpoints.Endpoint{},
-			"ca-central-1":   endpoints.Endpoint{},
-			"eu-central-1":   endpoints.Endpoint{},
-			"eu-north-1":     endpoints.Endpoint{},
-			"eu-south-1":     endpoints.Endpoint{},
-			"eu-west-1":      endpoints.Endpoint{},
-			"eu-west-2":      endpoints.Endpoint{},
-			"eu-west-3":      endpoints.Endpoint{},
-			"fips-ca-central-1": endpoints.Endpoint{
+			endpoints.EndpointKey{
+				Region: "af-south-1",
+			}: endpoints.Endpoint{},
+			endpoints.EndpointKey{
+				Region: "ap-east-1",
+			}: endpoints.Endpoint{},
+			endpoints.EndpointKey{
+				Region: "ap-northeast-1",
+			}: endpoints.Endpoint{},
+			endpoints.EndpointKey{
+				Region: "ap-northeast-2",
+			}: endpoints.Endpoint{},
+			endpoints.EndpointKey{
+				Region: "ap-northeast-3",
+			}: endpoints.Endpoint{},
+			endpoints.EndpointKey{
+				Region: "ap-south-1",
+			}: endpoints.Endpoint{},
+			endpoints.EndpointKey{
+				Region:  "ap-south-1",
+				Variant: endpoints.DualStackVariant,
+			}: {
+				Hostname: "api.ec2.ap-south-1.aws",
+			},
+			endpoints.EndpointKey{
+				Region: "ap-southeast-1",
+			}: endpoints.Endpoint{},
+			endpoints.EndpointKey{
+				Region: "ap-southeast-2",
+			}: endpoints.Endpoint{},
+			endpoints.EndpointKey{
+				Region: "ca-central-1",
+			}: endpoints.Endpoint{},
+			endpoints.EndpointKey{
+				Region:  "ca-central-1",
+				Variant: endpoints.FIPSVariant,
+			}: {
+				Hostname: "ec2-fips.ca-central-1.amazonaws.com",
+			},
+			endpoints.EndpointKey{
+				Region: "eu-central-1",
+			}: endpoints.Endpoint{},
+			endpoints.EndpointKey{
+				Region: "eu-north-1",
+			}: endpoints.Endpoint{},
+			endpoints.EndpointKey{
+				Region: "eu-south-1",
+			}: endpoints.Endpoint{},
+			endpoints.EndpointKey{
+				Region: "eu-west-1",
+			}: endpoints.Endpoint{},
+			endpoints.EndpointKey{
+				Region:  "eu-west-1",
+				Variant: endpoints.DualStackVariant,
+			}: {
+				Hostname: "api.ec2.eu-west-1.aws",
+			},
+			endpoints.EndpointKey{
+				Region: "eu-west-2",
+			}: endpoints.Endpoint{},
+			endpoints.EndpointKey{
+				Region: "eu-west-3",
+			}: endpoints.Endpoint{},
+			endpoints.EndpointKey{
+				Region: "fips-ca-central-1",
+			}: endpoints.Endpoint{
 				Hostname: "ec2-fips.ca-central-1.amazonaws.com",
 				CredentialScope: endpoints.CredentialScope{
 					Region: "ca-central-1",
 				},
+				Deprecated: aws.TrueTernary,
 			},
-			"fips-us-east-1": endpoints.Endpoint{
+			endpoints.EndpointKey{
+				Region: "fips-us-east-1",
+			}: endpoints.Endpoint{
 				Hostname: "ec2-fips.us-east-1.amazonaws.com",
 				CredentialScope: endpoints.CredentialScope{
 					Region: "us-east-1",
 				},
+				Deprecated: aws.TrueTernary,
 			},
-			"fips-us-east-2": endpoints.Endpoint{
+			endpoints.EndpointKey{
+				Region: "fips-us-east-2",
+			}: endpoints.Endpoint{
 				Hostname: "ec2-fips.us-east-2.amazonaws.com",
 				CredentialScope: endpoints.CredentialScope{
 					Region: "us-east-2",
 				},
+				Deprecated: aws.TrueTernary,
 			},
-			"fips-us-west-1": endpoints.Endpoint{
+			endpoints.EndpointKey{
+				Region: "fips-us-west-1",
+			}: endpoints.Endpoint{
 				Hostname: "ec2-fips.us-west-1.amazonaws.com",
 				CredentialScope: endpoints.CredentialScope{
 					Region: "us-west-1",
 				},
+				Deprecated: aws.TrueTernary,
 			},
-			"fips-us-west-2": endpoints.Endpoint{
+			endpoints.EndpointKey{
+				Region: "fips-us-west-2",
+			}: endpoints.Endpoint{
 				Hostname: "ec2-fips.us-west-2.amazonaws.com",
 				CredentialScope: endpoints.CredentialScope{
 					Region: "us-west-2",
 				},
+				Deprecated: aws.TrueTernary,
 			},
-			"me-south-1": endpoints.Endpoint{},
-			"sa-east-1":  endpoints.Endpoint{},
-			"us-east-1":  endpoints.Endpoint{},
-			"us-east-2":  endpoints.Endpoint{},
-			"us-west-1":  endpoints.Endpoint{},
-			"us-west-2":  endpoints.Endpoint{},
+			endpoints.EndpointKey{
+				Region: "me-south-1",
+			}: endpoints.Endpoint{},
+			endpoints.EndpointKey{
+				Region: "sa-east-1",
+			}: endpoints.Endpoint{},
+			endpoints.EndpointKey{
+				Region:  "sa-east-1",
+				Variant: endpoints.DualStackVariant,
+			}: {
+				Hostname: "api.ec2.sa-east-1.aws",
+			},
+			endpoints.EndpointKey{
+				Region: "us-east-1",
+			}: endpoints.Endpoint{},
+			endpoints.EndpointKey{
+				Region:  "us-east-1",
+				Variant: endpoints.DualStackVariant,
+			}: {
+				Hostname: "api.ec2.us-east-1.aws",
+			},
+			endpoints.EndpointKey{
+				Region:  "us-east-1",
+				Variant: endpoints.FIPSVariant,
+			}: {
+				Hostname: "ec2-fips.us-east-1.amazonaws.com",
+			},
+			endpoints.EndpointKey{
+				Region: "us-east-2",
+			}: endpoints.Endpoint{},
+			endpoints.EndpointKey{
+				Region:  "us-east-2",
+				Variant: endpoints.DualStackVariant,
+			}: {
+				Hostname: "api.ec2.us-east-2.aws",
+			},
+			endpoints.EndpointKey{
+				Region:  "us-east-2",
+				Variant: endpoints.FIPSVariant,
+			}: {
+				Hostname: "ec2-fips.us-east-2.amazonaws.com",
+			},
+			endpoints.EndpointKey{
+				Region: "us-west-1",
+			}: endpoints.Endpoint{},
+			endpoints.EndpointKey{
+				Region:  "us-west-1",
+				Variant: endpoints.FIPSVariant,
+			}: {
+				Hostname: "ec2-fips.us-west-1.amazonaws.com",
+			},
+			endpoints.EndpointKey{
+				Region: "us-west-2",
+			}: endpoints.Endpoint{},
+			endpoints.EndpointKey{
+				Region:  "us-west-2",
+				Variant: endpoints.DualStackVariant,
+			}: {
+				Hostname: "api.ec2.us-west-2.aws",
+			},
+			endpoints.EndpointKey{
+				Region:  "us-west-2",
+				Variant: endpoints.FIPSVariant,
+			}: {
+				Hostname: "ec2-fips.us-west-2.amazonaws.com",
+			},
 		},
 	},
 	{
 		ID: "aws-cn",
-		Defaults: endpoints.Endpoint{
-			Hostname:          "ec2.{region}.amazonaws.com.cn",
-			Protocols:         []string{"http", "https"},
-			SignatureVersions: []string{"v4"},
+		Defaults: map[endpoints.DefaultKey]endpoints.Endpoint{
+			{
+				Variant: endpoints.DualStackVariant,
+			}: {
+				Hostname:          "ec2.{region}.api.amazonwebservices.com.cn",
+				Protocols:         []string{"http", "https"},
+				SignatureVersions: []string{"v4"},
+			},
+			{
+				Variant: endpoints.FIPSVariant,
+			}: {
+				Hostname:          "ec2-fips.{region}.amazonaws.com.cn",
+				Protocols:         []string{"http", "https"},
+				SignatureVersions: []string{"v4"},
+			},
+			{
+				Variant: endpoints.FIPSVariant | endpoints.DualStackVariant,
+			}: {
+				Hostname:          "ec2-fips.{region}.api.amazonwebservices.com.cn",
+				Protocols:         []string{"http", "https"},
+				SignatureVersions: []string{"v4"},
+			},
+			{
+				Variant: 0,
+			}: {
+				Hostname:          "ec2.{region}.amazonaws.com.cn",
+				Protocols:         []string{"http", "https"},
+				SignatureVersions: []string{"v4"},
+			},
 		},
 		RegionRegex:    partitionRegexp.AwsCn,
 		IsRegionalized: true,
 		Endpoints: endpoints.Endpoints{
-			"cn-north-1":     endpoints.Endpoint{},
-			"cn-northwest-1": endpoints.Endpoint{},
+			endpoints.EndpointKey{
+				Region: "cn-north-1",
+			}: endpoints.Endpoint{},
+			endpoints.EndpointKey{
+				Region: "cn-northwest-1",
+			}: endpoints.Endpoint{},
 		},
 	},
 	{
 		ID: "aws-iso",
-		Defaults: endpoints.Endpoint{
-			Hostname:          "ec2.{region}.c2s.ic.gov",
-			Protocols:         []string{"https"},
-			SignatureVersions: []string{"v4"},
+		Defaults: map[endpoints.DefaultKey]endpoints.Endpoint{
+			{
+				Variant: endpoints.FIPSVariant,
+			}: {
+				Hostname:          "ec2-fips.{region}.c2s.ic.gov",
+				Protocols:         []string{"https"},
+				SignatureVersions: []string{"v4"},
+			},
+			{
+				Variant: 0,
+			}: {
+				Hostname:          "ec2.{region}.c2s.ic.gov",
+				Protocols:         []string{"https"},
+				SignatureVersions: []string{"v4"},
+			},
 		},
 		RegionRegex:    partitionRegexp.AwsIso,
 		IsRegionalized: true,
 		Endpoints: endpoints.Endpoints{
-			"us-iso-east-1": endpoints.Endpoint{},
-			"us-iso-west-1": endpoints.Endpoint{},
+			endpoints.EndpointKey{
+				Region: "us-iso-east-1",
+			}: endpoints.Endpoint{},
+			endpoints.EndpointKey{
+				Region: "us-iso-west-1",
+			}: endpoints.Endpoint{},
 		},
 	},
 	{
 		ID: "aws-iso-b",
-		Defaults: endpoints.Endpoint{
-			Hostname:          "ec2.{region}.sc2s.sgov.gov",
-			Protocols:         []string{"http", "https"},
-			SignatureVersions: []string{"v4"},
+		Defaults: map[endpoints.DefaultKey]endpoints.Endpoint{
+			{
+				Variant: endpoints.FIPSVariant,
+			}: {
+				Hostname:          "ec2-fips.{region}.sc2s.sgov.gov",
+				Protocols:         []string{"http", "https"},
+				SignatureVersions: []string{"v4"},
+			},
+			{
+				Variant: 0,
+			}: {
+				Hostname:          "ec2.{region}.sc2s.sgov.gov",
+				Protocols:         []string{"http", "https"},
+				SignatureVersions: []string{"v4"},
+			},
 		},
 		RegionRegex:    partitionRegexp.AwsIsoB,
 		IsRegionalized: true,
 		Endpoints: endpoints.Endpoints{
-			"us-isob-east-1": endpoints.Endpoint{},
+			endpoints.EndpointKey{
+				Region: "us-isob-east-1",
+			}: endpoints.Endpoint{},
 		},
 	},
 	{
 		ID: "aws-us-gov",
-		Defaults: endpoints.Endpoint{
-			Hostname:          "ec2.{region}.amazonaws.com",
-			Protocols:         []string{"https"},
-			SignatureVersions: []string{"v4"},
+		Defaults: map[endpoints.DefaultKey]endpoints.Endpoint{
+			{
+				Variant: endpoints.DualStackVariant,
+			}: {
+				Hostname:          "ec2.{region}.api.aws",
+				Protocols:         []string{"https"},
+				SignatureVersions: []string{"v4"},
+			},
+			{
+				Variant: endpoints.FIPSVariant,
+			}: {
+				Hostname:          "ec2-fips.{region}.amazonaws.com",
+				Protocols:         []string{"https"},
+				SignatureVersions: []string{"v4"},
+			},
+			{
+				Variant: endpoints.FIPSVariant | endpoints.DualStackVariant,
+			}: {
+				Hostname:          "ec2-fips.{region}.api.aws",
+				Protocols:         []string{"https"},
+				SignatureVersions: []string{"v4"},
+			},
+			{
+				Variant: 0,
+			}: {
+				Hostname:          "ec2.{region}.amazonaws.com",
+				Protocols:         []string{"https"},
+				SignatureVersions: []string{"v4"},
+			},
 		},
 		RegionRegex:    partitionRegexp.AwsUsGov,
 		IsRegionalized: true,
 		Endpoints: endpoints.Endpoints{
-			"us-gov-east-1": endpoints.Endpoint{
+			endpoints.EndpointKey{
+				Region: "us-gov-east-1",
+			}: endpoints.Endpoint{
 				Hostname: "ec2.us-gov-east-1.amazonaws.com",
 				CredentialScope: endpoints.CredentialScope{
 					Region: "us-gov-east-1",
 				},
 			},
-			"us-gov-west-1": endpoints.Endpoint{
+			endpoints.EndpointKey{
+				Region: "us-gov-west-1",
+			}: endpoints.Endpoint{
 				Hostname: "ec2.us-gov-west-1.amazonaws.com",
 				CredentialScope: endpoints.CredentialScope{
 					Region: "us-gov-west-1",

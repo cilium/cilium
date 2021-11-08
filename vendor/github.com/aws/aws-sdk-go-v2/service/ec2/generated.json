@@ -1,6 +1,8 @@
 {
     "dependencies": {
         "github.com/aws/aws-sdk-go-v2": "v1.4.0",
+        "github.com/aws/aws-sdk-go-v2/internal/configsources": "v0.0.0-00010101000000-000000000000",
+        "github.com/aws/aws-sdk-go-v2/internal/endpoints/v2": "v2.0.0-00010101000000-000000000000",
         "github.com/aws/aws-sdk-go-v2/service/internal/presigned-url": "v1.0.7",
         "github.com/aws/smithy-go": "v1.4.0",
         "github.com/jmespath/go-jmespath": "v0.4.0"
@@ -355,12 +357,14 @@
         "api_op_GetFlowLogsIntegrationTemplate.go",
         "api_op_GetGroupsForCapacityReservation.go",
         "api_op_GetHostReservationPurchasePreview.go",
+        "api_op_GetInstanceTypesFromInstanceRequirements.go",
         "api_op_GetLaunchTemplateData.go",
         "api_op_GetManagedPrefixListAssociations.go",
         "api_op_GetManagedPrefixListEntries.go",
         "api_op_GetPasswordData.go",
         "api_op_GetReservedInstancesExchangeQuote.go",
         "api_op_GetSerialConsoleAccessStatus.go",
+        "api_op_GetSpotPlacementScores.go",
         "api_op_GetSubnetCidrReservations.go",
         "api_op_GetTransitGatewayAttachmentPropagations.go",
         "api_op_GetTransitGatewayMulticastDomainAssociations.go",
