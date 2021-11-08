@@ -130,10 +130,18 @@ func (r *Request) SetStream(reader io.Reader) (rc *Request, err error) {
 func (r *Request) Build(ctx context.Context) *http.Request {
 	req := r.Request.Clone(ctx)
 
-	if r.stream != nil {
-		req.Body = iointernal.NewSafeReadCloser(ioutil.NopCloser(r.stream))
-	} else if req.ContentLength == -1 {
+	if r.stream == nil && req.ContentLength == -1 {
 		req.ContentLength = 0
+	}
+
+	switch stream := r.stream.(type) {
+	case *io.PipeReader:
+		req.Body = ioutil.NopCloser(stream)
+		req.ContentLength = -1
+	default:
+		if r.stream != nil {
+			req.Body = iointernal.NewSafeReadCloser(ioutil.NopCloser(stream))
+		}
 	}
 
 	return req
