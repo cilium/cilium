@@ -121,6 +121,20 @@ func Contains(ipNets []*net.IPNet, ipNet *net.IPNet) bool {
 	return false
 }
 
+// RemoveAll removes all cidrs specified in 'toRemove' from 'ipNets'
+func RemoveAll(ipNets, toRemove []*net.IPNet) []*net.IPNet {
+	newIPNets := ipNets[:0]
+	for _, n := range ipNets {
+		if !Contains(toRemove, n) {
+			newIPNets = append(newIPNets, n)
+		}
+	}
+	for i := len(newIPNets); i < len(ipNets); i++ {
+		ipNets[i] = nil // or the zero value of T
+	}
+	return newIPNets
+}
+
 // ParseCIDR parses the CIDR string using net.ParseCIDR
 func ParseCIDR(str string) (*CIDR, error) {
 	_, ipnet, err := net.ParseCIDR(str)
