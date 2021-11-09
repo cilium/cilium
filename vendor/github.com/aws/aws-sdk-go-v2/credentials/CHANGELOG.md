@@ -1,3 +1,9 @@
+# v1.6.0 (2021-11-06)
+
+* **Feature**: The SDK now supports configuration of FIPS and DualStack endpoints using environment variables, shared configuration, or programmatically.
+* **Feature**: Updated `github.com/aws/smithy-go` to latest version
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.5.0 (2021-10-21)
 
 * **Feature**: Updated  to latest version

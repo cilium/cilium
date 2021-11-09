@@ -64,6 +64,9 @@ const (
 
 	ec2MetadataServiceEndpointKey = "ec2_metadata_service_endpoint"
 
+	// Use DualStack Endpoint Resolution
+	useDualStackEndpoint = "use_dualstack_endpoint"
+
 	// DefaultSharedConfigProfile is the default profile to be used when
 	// loading configuration from the config files if another profile name
 	// is not provided.
@@ -71,6 +74,8 @@ const (
 
 	// S3 Disable Multi-Region AccessPoints
 	s3DisableMultiRegionAccessPointsKey = `s3_disable_multiregion_access_points`
+
+	useFIPSEndpointKey = "use_fips_endpoint"
 )
 
 // defaultSharedConfigProfile allows for swapping the default profile for testing
@@ -176,6 +181,18 @@ type SharedConfig struct {
 	//
 	// s3_disable_multiregion_access_points=true
 	S3DisableMultiRegionAccessPoints *bool
+
+	// Specifies that SDK clients must resolve a dual-stack endpoint for
+	// services.
+	//
+	// use_dualstack_endpoint=true
+	UseDualStackEndpoint aws.DualStackEndpointState
+
+	// Specifies that SDK clients must resolve a FIPS endpoint for
+	// services.
+	//
+	// use_fips_endpoint=true
+	UseFIPSEndpoint aws.FIPSEndpointState
 }
 
 // GetS3UseARNRegion returns if the S3 service should allow ARNs to direct the region
@@ -236,6 +253,26 @@ func (c SharedConfig) GetEC2IMDSEndpoint() (string, bool, error) {
 	}
 
 	return c.EC2IMDSEndpoint, true, nil
+}
+
+// GetUseDualStackEndpoint returns whether the service's dual-stack endpoint should be
+// used for requests.
+func (c SharedConfig) GetUseDualStackEndpoint(ctx context.Context) (value aws.DualStackEndpointState, found bool, err error) {
+	if c.UseDualStackEndpoint == aws.DualStackEndpointStateUnset {
+		return aws.DualStackEndpointStateUnset, false, nil
+	}
+
+	return c.UseDualStackEndpoint, true, nil
+}
+
+// GetUseFIPSEndpoint returns whether the service's FIPS endpoint should be
+// used for requests.
+func (c SharedConfig) GetUseFIPSEndpoint(ctx context.Context) (value aws.FIPSEndpointState, found bool, err error) {
+	if c.UseFIPSEndpoint == aws.FIPSEndpointStateUnset {
+		return aws.FIPSEndpointStateUnset, false, nil
+	}
+
+	return c.UseFIPSEndpoint, true, nil
 }
 
 // loadSharedConfigIgnoreNotExist is an alias for loadSharedConfig with the
@@ -951,6 +988,9 @@ func (c *SharedConfig) setFromIniSection(profile string, section ini.Section) er
 	}
 	updateString(&c.EC2IMDSEndpoint, section, ec2MetadataServiceEndpointKey)
 
+	updateUseDualStackEndpoint(&c.UseDualStackEndpoint, section, useDualStackEndpoint)
+	updateUseFIPSEndpoint(&c.UseFIPSEndpoint, section, useFIPSEndpointKey)
+
 	// Shared Credentials
 	creds := aws.Credentials{
 		AccessKeyID:     section.String(accessKeyIDKey),
@@ -1235,4 +1275,36 @@ func updateEndpointDiscoveryType(dst *aws.EndpointDiscoveryEnableState, section 
 	case strings.EqualFold(value, endpointDiscoveryAuto):
 		*dst = aws.EndpointDiscoveryAuto
 	}
+}
+
+// updateEndpointDiscoveryType will only update the dst with the value in the section, if
+// a valid key and corresponding EndpointDiscoveryType is found.
+func updateUseDualStackEndpoint(dst *aws.DualStackEndpointState, section ini.Section, key string) {
+	if !section.Has(key) {
+		return
+	}
+
+	if section.Bool(key) {
+		*dst = aws.DualStackEndpointStateEnabled
+	} else {
+		*dst = aws.DualStackEndpointStateDisabled
+	}
+
+	return
+}
+
+// updateEndpointDiscoveryType will only update the dst with the value in the section, if
+// a valid key and corresponding EndpointDiscoveryType is found.
+func updateUseFIPSEndpoint(dst *aws.FIPSEndpointState, section ini.Section, key string) {
+	if !section.Has(key) {
+		return
+	}
+
+	if section.Bool(key) {
+		*dst = aws.FIPSEndpointStateEnabled
+	} else {
+		*dst = aws.FIPSEndpointStateDisabled
+	}
+
+	return
 }
