@@ -251,6 +251,36 @@ func (t *CNITypesSuite) TestReadCNIConfAzurev2WithPlugins(c *check.C) {
 	testConfRead(c, confFile1, &netConf1)
 }
 
+func (t *CNITypesSuite) TestReadCNIConfClusterPoolV2(c *check.C) {
+	confFile1 := `
+{
+  "cniVersion":"0.3.1",
+  "name":"cilium",
+  "plugins": [
+    {
+      "cniVersion":"0.3.1",
+      "type":"cilium-cni",
+      "ipam": {
+        "pod-cidr-allocation-threshold": 10,
+        "pod-cidr-release-threshold": 20
+      }
+    }
+  ]
+}
+`
+	netConf1 := NetConf{
+		NetConf: cnitypes.NetConf{
+			CNIVersion: "0.3.1",
+			Type:       "cilium-cni",
+		},
+		IPAM: ipamTypes.IPAMSpec{
+			PodCIDRAllocationThreshold: 10,
+			PodCIDRReleaseThreshold:    20,
+		},
+	}
+	testConfRead(c, confFile1, &netConf1)
+}
+
 func (t *CNITypesSuite) TestReadCNIConfError(c *check.C) {
 	// Try to read errorneous CNI configuration file with MTU provided as
 	// string instead of int

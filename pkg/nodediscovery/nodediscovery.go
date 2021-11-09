@@ -493,6 +493,14 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 				nodeResource.Spec.IPAM.PreAllocate = c.ENI.PreAllocate
 			}
 
+			if c.IPAM.PodCIDRAllocationThreshold != 0 {
+				nodeResource.Spec.IPAM.PodCIDRAllocationThreshold = c.IPAM.PodCIDRAllocationThreshold
+			}
+
+			if c.IPAM.PodCIDRReleaseThreshold != 0 {
+				nodeResource.Spec.IPAM.PodCIDRReleaseThreshold = c.IPAM.PodCIDRReleaseThreshold
+			}
+
 			if c.ENI.FirstInterfaceIndex != nil {
 				nodeResource.Spec.ENI.FirstInterfaceIndex = c.ENI.FirstInterfaceIndex
 			}
