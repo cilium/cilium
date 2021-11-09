@@ -12,7 +12,7 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d
 	github.com/aws/aws-sdk-go-v2 v1.11.0
 	github.com/aws/aws-sdk-go-v2/config v1.9.0
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.7.0
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.8.0
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.21.0
 	github.com/aws/smithy-go v1.9.0
 	github.com/blang/semver/v4 v4.0.0
