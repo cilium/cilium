@@ -889,14 +889,15 @@ func (c *Collector) submitBugtoolTasks(ctx context.Context, pods []*corev1.Pod, 
 			// Run 'cilium-bugtool' in the pod.
 			command := append([]string{ciliumBugtoolCommand}, c.Options.CiliumBugtoolFlags...)
 			c.logDebug("Executing cilium-bugtool command: %v", command)
-			_, e, err := c.Client.ExecInPodWithStderr(ctx, p.Namespace, p.Name, containerName, command)
+			o, e, err := c.Client.ExecInPodWithStderr(ctx, p.Namespace, p.Name, containerName, command)
 			if err != nil {
 				return fmt.Errorf("failed to collect 'cilium-bugtool' output for %q in namespace %q: %w: %s", p.Name, p.Namespace, err, e.String())
 			}
 			// Capture the path to the resulting archive.
-			m := ciliumBugtoolFileNameRegex.FindStringSubmatch(e.String())
+			outString := o.String() + e.String()
+			m := ciliumBugtoolFileNameRegex.FindStringSubmatch(outString)
 			if len(m) != 2 || len(m[1]) == 0 {
-				return fmt.Errorf("failed to collect 'cilium-bugtool' output for %q in namespace %q: output doesn't contain archive name", p.Name, p.Namespace)
+				return fmt.Errorf("failed to collect 'cilium-bugtool' output for %q in namespace %q: output doesn't contain archive name: %s", p.Name, p.Namespace, outString)
 			}
 			// Grab the resulting archive's contents from the pod.
 			b, err := c.Client.ExecInPod(ctx, p.Namespace, p.Name, containerName, []string{"cat", m[1]})
