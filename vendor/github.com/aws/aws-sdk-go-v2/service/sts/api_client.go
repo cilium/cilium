@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
+	internalConfig "github.com/aws/aws-sdk-go-v2/internal/configsources"
 	presignedurlcust "github.com/aws/aws-sdk-go-v2/service/internal/presigned-url"
 	smithy "github.com/aws/smithy-go"
 	smithydocument "github.com/aws/smithy-go/document"
@@ -127,6 +128,8 @@ func (c *Client) invokeOperation(ctx context.Context, opID string, params interf
 		fn(&options)
 	}
 
+	finalizeClientEndpointResolverOptions(&options)
+
 	for _, fn := range stackFns {
 		if err := fn(stack, options); err != nil {
 			return nil, metadata, err
@@ -176,6 +179,8 @@ func NewFromConfig(cfg aws.Config, optFns ...func(*Options)) *Client {
 	}
 	resolveAWSRetryerProvider(cfg, &opts)
 	resolveAWSEndpointResolver(cfg, &opts)
+	resolveUseDualStackEndpoint(cfg, &opts)
+	resolveUseFIPSEndpoint(cfg, &opts)
 	return New(opts, optFns...)
 }
 
@@ -204,7 +209,7 @@ func resolveAWSEndpointResolver(cfg aws.Config, o *Options) {
 	if cfg.EndpointResolver == nil {
 		return
 	}
-	o.EndpointResolver = withEndpointResolver(cfg.EndpointResolver, NewDefaultEndpointResolver())
+	o.EndpointResolver = withEndpointResolver(cfg.EndpointResolver, cfg.EndpointResolverWithOptions, NewDefaultEndpointResolver())
 }
 
 func addClientUserAgent(stack *middleware.Stack) error {
@@ -244,6 +249,36 @@ func addRetryMiddlewares(stack *middleware.Stack, o Options) error {
 		LogRetryAttempts: o.ClientLogMode.IsRetries(),
 	}
 	return retry.AddRetryMiddlewares(stack, mo)
+}
+
+// resolves dual-stack endpoint configuration
+func resolveUseDualStackEndpoint(cfg aws.Config, o *Options) error {
+	if len(cfg.ConfigSources) == 0 {
+		return nil
+	}
+	value, found, err := internalConfig.ResolveUseDualStackEndpoint(context.Background(), cfg.ConfigSources)
+	if err != nil {
+		return err
+	}
+	if found {
+		o.EndpointOptions.UseDualStackEndpoint = value
+	}
+	return nil
+}
+
+// resolves FIPS endpoint configuration
+func resolveUseFIPSEndpoint(cfg aws.Config, o *Options) error {
+	if len(cfg.ConfigSources) == 0 {
+		return nil
+	}
+	value, found, err := internalConfig.ResolveUseFIPSEndpoint(context.Background(), cfg.ConfigSources)
+	if err != nil {
+		return err
+	}
+	if found {
+		o.EndpointOptions.UseFIPSEndpoint = value
+	}
+	return nil
 }
 
 func addRequestIDRetrieverMiddleware(stack *middleware.Stack) error {
