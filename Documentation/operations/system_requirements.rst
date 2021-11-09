@@ -42,7 +42,7 @@ Requirement              Minimum Version            In cilium container
 Key-Value store (etcd)   >= 3.1.0                   no
 Key-Value store (consul) >= 0.6.4                   no
 clang+LLVM               >= 10.0                    yes
-iproute2                 >= 5.0.0 [#iproute2_foot]_ yes
+iproute2                 >= 5.9.0 [#iproute2_foot]_ yes
 ======================== ========================== ===================
 
 .. [#iproute2_foot] Requires support for eBPF templating as documented
@@ -240,19 +240,10 @@ iproute2_ is a low level tool used to configure various networking related
 subsystems of the Linux kernel. Cilium uses iproute2 to configure networking
 and ``tc``, which is part of iproute2, to load eBPF programs into the kernel.
 
-The version of iproute2 must include the eBPF templating patches. See the
-links in the table below for documentation on how to install the correct
-version of iproute2 for your distribution.
+The version of iproute2 must include the eBPF templating patches. Also, it
+depends on Cilium's libbpf fork. See `Cilium iproute2 source`_ for more details.
 
-================= =========================
-Distribution      Link
-================= =========================
-Binary (OpenSUSE) `Open Build Service`_
-Source            `Cilium iproute2 source`_
-================= =========================
-
-.. _`Open Build Service`: https://build.opensuse.org/package/show/security:netfilter/iproute2
-.. _`Cilium iproute2 source`: https://github.com/cilium/iproute2/tree/static-data
+.. _`Cilium iproute2 source`: https://github.com/cilium/iproute2/
 
 .. _firewall_requirements:
 
