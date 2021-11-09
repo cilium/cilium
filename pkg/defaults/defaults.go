@@ -344,6 +344,14 @@ const (
 	// IPAMAPIQPSLimit is the default QPS limit when rate limiting access to external APIs
 	IPAMAPIQPSLimit = 20.0
 
+	// IPAMPodCIDRAllocationThreshold is the default value for
+	// CiliumNode.Spec.IPAM.PodCIDRAllocationThreshold if no value is set
+	IPAMPodCIDRAllocationThreshold = 8
+
+	// IPAMPodCIDRReleaseThreshold is the default value for
+	// CiliumNode.Spec.IPAM.PodCIDRReleaseThreshold if no value is set
+	IPAMPodCIDRReleaseThreshold = 16
+
 	// AutoCreateCiliumNodeResource enables automatic creation of a
 	// CiliumNode resource for the local node
 	AutoCreateCiliumNodeResource = true
