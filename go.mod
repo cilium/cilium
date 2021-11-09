@@ -6,7 +6,7 @@ require (
 	github.com/Azure/azure-sdk-for-go v59.1.0+incompatible
 	github.com/Azure/go-autorest/autorest v0.11.22
 	github.com/Azure/go-autorest/autorest/adal v0.9.17
-	github.com/Azure/go-autorest/autorest/azure/auth v0.5.8
+	github.com/Azure/go-autorest/autorest/azure/auth v0.5.9
 	github.com/Azure/go-autorest/autorest/to v0.4.0
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.1322
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d
