@@ -187,7 +187,7 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 	n.LocalNode.EncryptionKey = node.GetIPsecKeyIdentity()
 	n.LocalNode.WireguardPubKey = node.GetWireguardPubKey()
 	n.LocalNode.Labels = node.GetLabels()
-	n.LocalNode.NodeIdentity = identity.GetLocalNodeID().Uint32()
+	n.LocalNode.NodeIdentity = uint32(identity.ReservedIdentityHost)
 
 	if node.GetK8sExternalIPv4() != nil {
 		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
