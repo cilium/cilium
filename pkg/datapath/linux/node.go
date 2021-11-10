@@ -751,25 +751,29 @@ func (n *linuxNodeHandler) insertNeighbor4(ctx context.Context, newNode *nodeTyp
 
 	nextHopIsNew := false
 	if existingNextHopStr, found := n.neighNextHopByNode4[newNode.Identity()]; found {
-		if existingNextHopStr != nextHopStr && n.neighNextHopRefCount.Delete(existingNextHopStr) {
-			// nextHop has changed and nobody else is using it, so remove the old one.
-			neigh, found := n.neighByNextHop[existingNextHopStr]
-			if found {
-				// Note that we don't move the removal via netlink which might
-				// block from the hot path (e.g. with defer), as this case can
-				// happen very rarely.
-				//
-				// The neighbor's HW address is ignored on delete. Only the IP
-				// address and device is checked.
-				if err := netlink.NeighDel(neigh); err != nil {
-					scopedLog.WithFields(logrus.Fields{
-						logfields.NextHop:   neigh.IP,
-						logfields.LinkIndex: neigh.LinkIndex,
-					}).WithError(err).Info("Unable to remove next hop")
+		if existingNextHopStr != nextHopStr {
+			if n.neighNextHopRefCount.Delete(existingNextHopStr) {
+				neigh, found := n.neighByNextHop[existingNextHopStr]
+				if found {
+					// Note that we don't move the removal via netlink which might
+					// block from the hot path (e.g. with defer), as this case can
+					// happen very rarely.
+					//
+					// The neighbor's HW address is ignored on delete. Only the IP
+					// address and device is checked.
+					if err := netlink.NeighDel(neigh); err != nil {
+						scopedLog.WithFields(logrus.Fields{
+							logfields.NextHop:   neigh.IP,
+							logfields.LinkIndex: neigh.LinkIndex,
+						}).WithError(err).Info("Unable to remove next hop")
+					}
+					delete(n.neighByNextHop, existingNextHopStr)
+					delete(n.neighLastPingByNextHop, existingNextHopStr)
 				}
-				delete(n.neighByNextHop, existingNextHopStr)
-				delete(n.neighLastPingByNextHop, existingNextHopStr)
 			}
+			// Given nextHop has changed and we removed the old one, we
+			// now need to increment ref counter for the new one.
+			nextHopIsNew = n.neighNextHopRefCount.Add(nextHopStr)
 		}
 	} else {
 		// nextHop for the given node was previously not found, so let's
@@ -812,25 +816,30 @@ func (n *linuxNodeHandler) insertNeighbor6(ctx context.Context, newNode *nodeTyp
 
 	nextHopIsNew := false
 	if existingNextHopStr, found := n.neighNextHopByNode6[newNode.Identity()]; found {
-		if existingNextHopStr != nextHopStr && n.neighNextHopRefCount.Delete(existingNextHopStr) {
-			// nextHop has changed and nobody else is using it, so remove the old one.
-			neigh, found := n.neighByNextHop[existingNextHopStr]
-			if found {
-				// Note that we don't move the removal via netlink which might
-				// block from the hot path (e.g. with defer), as this case can
-				// happen very rarely.
-				//
-				// The neighbor's HW address is ignored on delete. Only the IP
-				// address and device is checked.
-				if err := netlink.NeighDel(neigh); err != nil {
-					scopedLog.WithFields(logrus.Fields{
-						logfields.NextHop:   neigh.IP,
-						logfields.LinkIndex: neigh.LinkIndex,
-					}).WithError(err).Info("Unable to remove next hop")
+		if existingNextHopStr != nextHopStr {
+			if n.neighNextHopRefCount.Delete(existingNextHopStr) {
+				// nextHop has changed and nobody else is using it, so remove the old one.
+				neigh, found := n.neighByNextHop[existingNextHopStr]
+				if found {
+					// Note that we don't move the removal via netlink which might
+					// block from the hot path (e.g. with defer), as this case can
+					// happen very rarely.
+					//
+					// The neighbor's HW address is ignored on delete. Only the IP
+					// address and device is checked.
+					if err := netlink.NeighDel(neigh); err != nil {
+						scopedLog.WithFields(logrus.Fields{
+							logfields.NextHop:   neigh.IP,
+							logfields.LinkIndex: neigh.LinkIndex,
+						}).WithError(err).Info("Unable to remove next hop")
+					}
+					delete(n.neighByNextHop, existingNextHopStr)
+					delete(n.neighLastPingByNextHop, existingNextHopStr)
 				}
-				delete(n.neighByNextHop, existingNextHopStr)
-				delete(n.neighLastPingByNextHop, existingNextHopStr)
 			}
+			// Given nextHop has changed and we removed the old one, we
+			// now need to increment ref counter for the new one.
+			nextHopIsNew = n.neighNextHopRefCount.Add(nextHopStr)
 		}
 	} else {
 		// nextHop for the given node was previously not found, so let's
