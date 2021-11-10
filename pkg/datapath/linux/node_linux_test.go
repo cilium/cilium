@@ -1043,7 +1043,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 		err := testutils.WaitUntil(func() bool {
 			linuxNodeHandler.neighLock.Lock()
 			defer linuxNodeHandler.neighLock.Unlock()
-			nextHop, found := linuxNodeHandler.neighNextHopByNode[nodeID]
+			nextHop, found := linuxNodeHandler.neighNextHopByNode4[nodeID]
 			if !found {
 				return waitForDelete
 			}
