@@ -1201,7 +1201,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 				}
 			}
 			return false
-		}, 20*time.Second, 200*time.Millisecond)
+		}, 25*time.Second, 200*time.Millisecond)
 		c.Assert(err, check.IsNil)
 		c.Assert(found, check.Equals, true)
 	}
