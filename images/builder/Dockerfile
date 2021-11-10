@@ -37,7 +37,6 @@ RUN \
       gcc \
       git \
       libc6-dev \
-      libelf-dev \
       make && \
     apt-get purge --auto-remove && \
     apt-get clean && \
