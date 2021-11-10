@@ -1267,8 +1267,9 @@ the neighbor resolution from BPF programs in the fast-path e.g. at the XDP layer
 
 From Cilium 1.11 onwards, the neighbor discovery has been fully reworked and the Cilium
 internal ARP resolution library has been removed from the agent. The agent now fully
-relies on the Linux kernel to discover gateways or hosts on the same L2 network. As per
-our recent kernel work `presented at Plumbers <https://linuxplumbersconf.org/event/11/contributions/953/>`__,
+relies on the Linux kernel to discover gateways or hosts on the same L2 network. Both
+IPv4 and IPv6 neighbor discovery is supported in the Cilium agent. As per our recent
+kernel work `presented at Plumbers <https://linuxplumbersconf.org/event/11/contributions/953/>`__,
 "managed" neighbor entries have been `upstreamed <https://lore.kernel.org/netdev/20211011121238.25542-1-daniel@iogearbox.net/>`__
 and will be available in Linux kernel v5.16 or later which the Cilium agent will detect
 and transparently use. In this case, the agent pushes down L3 addresses of new nodes
