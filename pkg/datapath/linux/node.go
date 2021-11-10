@@ -1619,8 +1619,7 @@ func (n *linuxNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
 	}
 
 	neighList, err := netlink.NeighListExecute(netlink.Ndmsg{
-		Family: netlink.FAMILY_V4,
-		Index:  uint32(l.Attrs().Index),
+		Index: uint32(l.Attrs().Index),
 	})
 	if err != nil {
 		log.WithError(err).WithFields(logrus.Fields{
