@@ -8,7 +8,6 @@
     - bc
     - pkg-config
     - libssl-dev
-    - libelf-dev
     - bison
     - flex
     - libncurses5-dev

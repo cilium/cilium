@@ -64,7 +64,6 @@ BuildRequires: bazel
 BuildRequires: ninja-build
 BuildRequires: systemd
 BuildRequires: gcc-c++
-BuildRequires: elfutils-libelf-devel
 BuildRequires: libstdc++-static
 BuildRequires: libtool
 BuildRequires: wget

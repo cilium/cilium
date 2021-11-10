@@ -39,10 +39,6 @@ jobs:
           directory: $HOME/.clang
           cached: ${{ steps.cache-llvm.outputs.cache-hit }}
 
-      - name: Install libelf
-        run: |
-          sudo apt-get install libelf-dev
-
       - name: Install ginkgo
         run: |
           go get github.com/onsi/ginkgo/ginkgo@v1.12.1
