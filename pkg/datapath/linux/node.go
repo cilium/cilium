@@ -58,7 +58,7 @@ type linuxNodeHandler struct {
 	enableNeighDiscovery   bool
 	neighLock              lock.Mutex // protects neigh* fields below
 	neighDiscoveryLink     netlink.Link
-	neighNextHopByNode     map[nodeTypes.Identity]string // val = string(net.IP)
+	neighNextHopByNode4    map[nodeTypes.Identity]string // val = string(net.IP)
 	neighNextHopRefCount   counter.StringCounter
 	neighByNextHop         map[string]*netlink.Neigh // key = string(net.IP)
 	neighLastPingByNextHop map[string]time.Time      // key = string(net.IP)
@@ -72,7 +72,7 @@ func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapat
 		nodeAddressing:         nodeAddressing,
 		datapathConfig:         datapathConfig,
 		nodes:                  map[nodeTypes.Identity]*nodeTypes.Node{},
-		neighNextHopByNode:     map[nodeTypes.Identity]string{},
+		neighNextHopByNode4:    map[nodeTypes.Identity]string{},
 		neighNextHopRefCount:   counter.StringCounter{},
 		neighByNextHop:         map[string]*netlink.Neigh{},
 		neighLastPingByNextHop: map[string]time.Time{},
@@ -658,26 +658,7 @@ func getNextHopIPv4(nodeIPv4 net.IP) (nextHopIPv4 net.IP, err error) {
 	return nextHopIPv4, nil
 }
 
-// insertNeighbor inserts a non-GC'able neighbor entry for a nexthop to the given
-// "newNode" (ip route get newNodeIP.GetNodeIP()). The L2 addr of the nexthop is
-// determined by the Linux kernel's neighboring subsystem. The related iface for
-// the neighbor is specified by n.neighDiscoveryLink.
-//
-// The given "refresh" param denotes whether the method is called by a controller
-// which tries to update neighbor entries previously inserted by insertNeighbor().
-// In this case the kernel refreshes the entry via NTF_USE.
-func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeTypes.Node, refresh bool) {
-	var link netlink.Link
-
-	n.neighLock.Lock()
-	if n.neighDiscoveryLink == nil || reflect.ValueOf(n.neighDiscoveryLink).IsNil() {
-		n.neighLock.Unlock()
-		// Nothing to do - the discovery link was not set yet
-		return
-	}
-	link = n.neighDiscoveryLink
-	n.neighLock.Unlock()
-
+func (n *linuxNodeHandler) insertNeighbor4(ctx context.Context, newNode *nodeTypes.Node, link netlink.Link, refresh bool) {
 	newNodeIP := newNode.GetNodeIP(false).To4()
 	nextHopIPv4 := make(net.IP, len(newNodeIP))
 	copy(nextHopIPv4, newNodeIP)
@@ -700,7 +681,7 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 	defer n.neighLock.Unlock()
 
 	nextHopIsNew := false
-	if existingNextHopStr, found := n.neighNextHopByNode[newNode.Identity()]; found {
+	if existingNextHopStr, found := n.neighNextHopByNode4[newNode.Identity()]; found {
 		if existingNextHopStr != nextHopStr && n.neighNextHopRefCount.Delete(existingNextHopStr) {
 			// nextHop has changed and nobody else is using it, so remove the old one.
 			neigh, found := n.neighByNextHop[existingNextHopStr]
@@ -729,7 +710,7 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 		nextHopIsNew = n.neighNextHopRefCount.Add(nextHopStr)
 	}
 
-	n.neighNextHopByNode[newNode.Identity()] = nextHopStr
+	n.neighNextHopByNode4[newNode.Identity()] = nextHopStr
 
 	if refresh {
 		if lastPing, found := n.neighLastPingByNextHop[nextHopStr]; found &&
@@ -790,21 +771,44 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 	n.neighByNextHop[nextHopStr] = &neigh
 }
 
+// insertNeighbor inserts a non-GC'able neighbor entry for a nexthop to the given
+// "newNode" (ip route get newNodeIP.GetNodeIP()). The L2 addr of the nexthop is
+// determined by the Linux kernel's neighboring subsystem. The related iface for
+// the neighbor is specified by n.neighDiscoveryLink.
+//
+// The given "refresh" param denotes whether the method is called by a controller
+// which tries to update neighbor entries previously inserted by insertNeighbor().
+// In this case the kernel refreshes the entry via NTF_USE.
+func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeTypes.Node, refresh bool) {
+	var link netlink.Link
+
+	n.neighLock.Lock()
+	if n.neighDiscoveryLink == nil || reflect.ValueOf(n.neighDiscoveryLink).IsNil() {
+		n.neighLock.Unlock()
+		// Nothing to do - the discovery link was not set yet
+		return
+	}
+	link = n.neighDiscoveryLink
+	n.neighLock.Unlock()
+
+	n.insertNeighbor4(ctx, newNode, link, refresh)
+}
+
 func (n *linuxNodeHandler) refreshNeighbor(ctx context.Context, nodeToRefresh *nodeTypes.Node, completed chan struct{}) {
 	defer close(completed)
 
 	n.insertNeighbor(ctx, nodeToRefresh, true)
 }
 
-func (n *linuxNodeHandler) deleteNeighbor(oldNode *nodeTypes.Node) {
+func (n *linuxNodeHandler) deleteNeighbor4(oldNode *nodeTypes.Node) {
 	n.neighLock.Lock()
 	defer n.neighLock.Unlock()
 
-	nextHopStr, found := n.neighNextHopByNode[oldNode.Identity()]
+	nextHopStr, found := n.neighNextHopByNode4[oldNode.Identity()]
 	if !found {
 		return
 	}
-	defer func() { delete(n.neighNextHopByNode, oldNode.Identity()) }()
+	defer func() { delete(n.neighNextHopByNode4, oldNode.Identity()) }()
 
 	if n.neighNextHopRefCount.Delete(nextHopStr) {
 		neigh, found := n.neighByNextHop[nextHopStr]
@@ -824,6 +828,10 @@ func (n *linuxNodeHandler) deleteNeighbor(oldNode *nodeTypes.Node) {
 			}
 		}
 	}
+}
+
+func (n *linuxNodeHandler) deleteNeighbor(oldNode *nodeTypes.Node) {
+	n.deleteNeighbor4(oldNode)
 }
 
 func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
