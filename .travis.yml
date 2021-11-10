@@ -37,7 +37,6 @@ addons:
     packages:
       - kernel-package
       - gnupg
-      - ipset
       - libncurses5
 
 before_install: ./.travis/prepare.sh
