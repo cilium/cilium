@@ -36,11 +36,12 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, asyncCo
 					if ciliumNode := k8s.ObjToCiliumNode(obj); ciliumNode != nil {
 						valid = true
 						n := nodeTypes.ParseCiliumNode(ciliumNode)
+						errs := k.CiliumNodeChain.OnAddCiliumNode(ciliumNode, swgNodes)
 						if n.IsLocal() {
 							return
 						}
 						k.nodeDiscoverManager.NodeUpdated(n)
-						k.K8sEventProcessed(metricCiliumNode, metricCreate, true)
+						k.K8sEventProcessed(metricCiliumNode, metricCreate, errs == nil)
 					}
 				},
 				UpdateFunc: func(oldObj, newObj interface{}) {
@@ -54,11 +55,12 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, asyncCo
 								return
 							}
 							n := nodeTypes.ParseCiliumNode(ciliumNode)
+							errs := k.CiliumNodeChain.OnUpdateCiliumNode(oldCN, ciliumNode, swgNodes)
 							if n.IsLocal() {
 								return
 							}
 							k.nodeDiscoverManager.NodeUpdated(n)
-							k.K8sEventProcessed(metricCiliumNode, metricUpdate, true)
+							k.K8sEventProcessed(metricCiliumNode, metricUpdate, errs == nil)
 						}
 					}
 				},
@@ -71,6 +73,10 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, asyncCo
 					}
 					valid = true
 					n := nodeTypes.ParseCiliumNode(ciliumNode)
+					errs := k.CiliumNodeChain.OnDeleteCiliumNode(ciliumNode, swgNodes)
+					if errs != nil {
+						valid = false
+					}
 					k.nodeDiscoverManager.NodeDeleted(n)
 				},
 			},
