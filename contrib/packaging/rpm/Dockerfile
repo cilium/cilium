@@ -8,7 +8,7 @@ RUN curl -sSL -o /etc/yum.repos.d/vbatts-bazel-fedora-28.repo \
 RUN dnf -y update && \
 	dnf -y install fedora-packager fedora-review golang gettext \
 		git glibc-devel.x86_64 cmake bazel libtool wget \
-		clang make gcc-c++ elfutils-libelf-devel libstdc++-static && \
+		clang make gcc-c++ libstdc++-static && \
     mkdir -p /opt/cilium/
 
 WORKDIR /opt/cilium

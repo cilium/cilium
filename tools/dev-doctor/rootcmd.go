@@ -84,7 +84,6 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			versionRegexp: regexp.MustCompile(`github\.com/docker/buildx v(\d+\.\d+\.\d+)`),
 			hint:          "see https://docs.docker.com/engine/install/",
 		},
-		// FIXME add libelf-devel check?
 		&binaryCheck{
 			name:          "ginkgo",
 			ifNotFound:    checkWarning,
