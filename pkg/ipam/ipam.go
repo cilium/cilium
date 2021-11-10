@@ -110,6 +110,15 @@ func NewIPAM(nodeAddressing datapath.NodeAddressing, c Configuration, owner Owne
 		if c.IPv4Enabled() {
 			ipam.IPv4Allocator = newHostScopeAllocator(nodeAddressing.IPv4().AllocationCIDR().IPNet)
 		}
+	case ipamOption.IPAMClusterPoolV2:
+		log.Info("Initializing ClusterPool v2 IPAM")
+
+		if c.IPv6Enabled() {
+			ipam.IPv6Allocator = newClusterPoolAllocator(IPv6, owner, k8sEventReg)
+		}
+		if c.IPv4Enabled() {
+			ipam.IPv4Allocator = newClusterPoolAllocator(IPv4, owner, k8sEventReg)
+		}
 	case ipamOption.IPAMCRD, ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
 		log.Info("Initializing CRD-based IPAM")
 		if c.IPv6Enabled() {

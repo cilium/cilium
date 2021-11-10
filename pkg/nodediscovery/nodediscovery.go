@@ -418,8 +418,8 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 	}
 
 	switch option.Config.IPAM {
-	case ipamOption.IPAMClusterPool:
-		// We want to keep the podCIDRs untouched in this IPAM mode because
+	case ipamOption.IPAMClusterPool, ipamOption.IPAMClusterPoolV2:
+		// We want to keep the podCIDRs untouched in these IPAM modes because
 		// the operator will verify if it can assign such podCIDRs.
 		// If the user was running in non-IPAM Operator mode and then switched
 		// to IPAM Operator, then it is possible that the previous cluster CIDR
