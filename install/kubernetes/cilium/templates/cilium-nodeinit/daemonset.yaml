@@ -51,7 +51,7 @@ spec:
             - mountPath: /run/xtables.lock
               name: xtables-lock
           lifecycle:
-{{- if and (.Values.eni.enabled) (not .Values.enableIPv4Masquerade) }}
+{{- if .Values.eni.enabled }}
             postStart:
               exec:
                 command:
