@@ -17,10 +17,12 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	ipPkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/trigger"
 )
@@ -358,13 +360,36 @@ func (n *NodesPodCIDRManager) Update(node *v2.CiliumNode) bool {
 
 // Needs n.Mutex to be held.
 func (n *NodesPodCIDRManager) update(node *v2.CiliumNode) bool {
-	cn, allocated, updateStatus, err := n.allocateNode(node)
-	if err != nil {
-		return false
+	var (
+		updateStatus, updateSpec bool
+		cn                       *v2.CiliumNode
+		err                      error
+	)
+	if option.Config.IPAMMode() == ipamOption.IPAMClusterPoolV2 {
+		cn, updateSpec, updateStatus, err = n.allocateNodeV2(node)
+		if err != nil {
+			return false
+		}
+	} else {
+		// FIXME: This code block falls back to the old behavior of clusterpool,
+		// where we only assign one pod CIDR for IPv4 and IPv6. Once v2 becomes
+		// fully backwards compatible with v1, we can remove this else block.
+		var allocated bool
+		cn, allocated, updateStatus, err = n.allocateNode(node)
+		if err != nil {
+			return false
+		}
+		// if allocated is false it means that we were unable to allocate
+		// a CIDR so we need to update the status of the node into k8s.
+		updateStatus = !allocated && updateStatus
+		// ClusterPool v1 never both the spec and the status
+		updateSpec = !updateStatus
 	}
-	// if allocated is false it means that we were unable to allocate
-	// a CIDR so we need to update the status of the node into k8s.
-	if !allocated && updateStatus {
+	if cn == nil {
+		// no-op
+		return true
+	}
+	if updateStatus {
 		// the n.syncNode will never fail because it's only adding elements to a
 		// map.
 		// NodesPodCIDRManager will later on sync the node into k8s by the
@@ -378,18 +403,15 @@ func (n *NodesPodCIDRManager) update(node *v2.CiliumNode) bool {
 		} else {
 			n.syncNode(k8sOpCreate, cn)
 		}
-		return true
 	}
-	if cn == nil {
-		// no-op
-		return true
-	}
-	// If the resource version is != "" it means the object already exists
-	// in kubernetes so we should perform an update instead of a create.
-	if cn.GetResourceVersion() != "" {
-		n.syncNode(k8sOpUpdate, cn)
-	} else {
-		n.syncNode(k8sOpCreate, cn)
+	if updateSpec {
+		// If the resource version is != "" it means the object already exists
+		// in kubernetes so we should perform an update instead of a create.
+		if cn.GetResourceVersion() != "" {
+			n.syncNode(k8sOpUpdate, cn)
+		} else {
+			n.syncNode(k8sOpCreate, cn)
+		}
 	}
 	return true
 }

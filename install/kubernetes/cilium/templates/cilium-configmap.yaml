@@ -715,7 +715,7 @@ data:
 {{- end }}
   ipam: {{ $ipam | quote }}
 
-{{- if eq $ipam "cluster-pool" }}
+{{- if or (eq $ipam "cluster-pool") (eq $ipam "cluster-pool-v2") }}
 {{- if .Values.ipv4.enabled }}
   {{- if .Values.ipam.operator.clusterPoolIPv4PodCIDRList }}
   cluster-pool-ipv4-cidr: {{ .Values.ipam.operator.clusterPoolIPv4PodCIDRList | join " " | quote }}
