@@ -45,7 +45,7 @@ jobs:
           creds: ${{ secrets.AZURE_PR_SP_CREDS }}
 
       - name: Display Azure CLI info
-        uses: azure/CLI@4b58c946a0f48d82cc2b6e31c0d15a6604859554
+        uses: azure/CLI@37ee7d1eebfd10307f0602833ec70333a359c4b5
         with:
           azcliversion: 2.0.72
           inlineScript: |
