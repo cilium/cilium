@@ -6,6 +6,7 @@ package speaker
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cilium/cilium/pkg/bgp/fence"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -25,6 +26,21 @@ const (
 	Update
 	Delete
 )
+
+func (o Op) String() string {
+	switch o {
+	case Undefined:
+		return "Undefined"
+	case Add:
+		return "Add"
+	case Update:
+		return "Update"
+	case Delete:
+		return "Delete"
+	default:
+		return fmt.Sprintf("Unknown(%d)", o)
+	}
+}
 
 // svcEvent holds the extracted fields from a K8s service event
 // which are of interest to the BGP package.
