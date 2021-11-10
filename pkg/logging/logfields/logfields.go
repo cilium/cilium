@@ -177,6 +177,12 @@ const (
 	// CIDR is a IPv4/IPv4 subnet/CIDR
 	CIDR = "cidr"
 
+	// OldCIDR is the previous subnet/CIDR
+	OldCIDR = "oldCIDR"
+
+	// NewCIDR is the new subnet/CIDR
+	NewCIDR = "newCIDR"
+
 	// IPAddrs is a lsit of IP addrs
 	IPAddrs = "ipAddrs"
 

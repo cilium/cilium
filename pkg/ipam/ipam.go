@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -72,6 +73,10 @@ type Owner interface {
 	// resource. The function must block until the custom resource has been
 	// created.
 	UpdateCiliumNodeResource()
+
+	// LocalAllocCIDRsUpdated informs the agent that the local allocation CIDRs have
+	// changed.
+	LocalAllocCIDRsUpdated(ipv4AllocCIDRs, ipv6AllocCIDRs []*cidr.CIDR)
 }
 
 type K8sEventRegister interface {
@@ -82,6 +87,11 @@ type K8sEventRegister interface {
 	// K8sEventProcessed is called to do metrics accounting for each processed
 	// Kubernetes event
 	K8sEventProcessed(scope string, action string, status bool)
+
+	// RegisterCiliumNodeSubscriber allows registration of subscriber.CiliumNode
+	// implementations. Events for all CiliumNode events (not just the local one)
+	// will be sent to the subscriber.
+	RegisterCiliumNodeSubscriber(s subscriber.CiliumNode)
 }
 
 type MtuConfiguration interface {
@@ -113,6 +123,15 @@ func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, 
 
 		if c.IPv4Enabled() {
 			ipam.IPv4Allocator = newHostScopeAllocator(nodeAddressing.IPv4().AllocationCIDR().IPNet)
+		}
+	case ipamOption.IPAMClusterPoolV2:
+		log.Info("Initializing ClusterPool v2 IPAM")
+
+		if c.IPv6Enabled() {
+			ipam.IPv6Allocator = newClusterPoolAllocator(IPv6, c, owner, k8sEventReg)
+		}
+		if c.IPv4Enabled() {
+			ipam.IPv4Allocator = newClusterPoolAllocator(IPv4, c, owner, k8sEventReg)
 		}
 	case ipamOption.IPAMCRD, ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
 		log.Info("Initializing CRD-based IPAM")

@@ -2943,7 +2943,7 @@ func (c *DaemonConfig) Populate() {
 	}
 
 	switch c.IPAM {
-	case ipamOption.IPAMKubernetes, ipamOption.IPAMClusterPool:
+	case ipamOption.IPAMKubernetes, ipamOption.IPAMClusterPool, ipamOption.IPAMClusterPoolV2:
 		if c.EnableIPv4 {
 			c.K8sRequireIPv4PodCIDR = true
 		}

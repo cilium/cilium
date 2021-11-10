@@ -13,7 +13,9 @@ import (
 	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/addressing"
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/fake"
+	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/mtu"
 )
 
@@ -21,7 +23,10 @@ type ownerMock struct{}
 
 func (o *ownerMock) K8sEventReceived(scope string, action string, valid, equal bool) {}
 func (o *ownerMock) K8sEventProcessed(scope string, action string, status bool)      {}
-func (o *ownerMock) UpdateCiliumNodeResource()                                       {}
+func (o *ownerMock) RegisterCiliumNodeSubscriber(s subscriber.CiliumNode)            {}
+
+func (o *ownerMock) UpdateCiliumNodeResource()                                          {}
+func (o *ownerMock) LocalAllocCIDRsUpdated(ipv4AllocCIDRs, ipv6AllocCIDRs []*cidr.CIDR) {}
 
 var mtuMock = mtu.NewConfiguration(0, false, false, false, 1500, nil)
 

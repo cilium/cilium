@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -425,8 +426,8 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 	}
 
 	switch option.Config.IPAM {
-	case ipamOption.IPAMClusterPool:
-		// We want to keep the podCIDRs untouched in this IPAM mode because
+	case ipamOption.IPAMClusterPool, ipamOption.IPAMClusterPoolV2:
+		// We want to keep the podCIDRs untouched in these IPAM modes because
 		// the operator will verify if it can assign such podCIDRs.
 		// If the user was running in non-IPAM Operator mode and then switched
 		// to IPAM Operator, then it is possible that the previous cluster CIDR
@@ -627,6 +628,61 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 
 func (n *NodeDiscovery) RegisterK8sNodeGetter(k8sNodeGetter k8sNodeGetter) {
 	n.k8sNodeGetter = k8sNodeGetter
+}
+
+// LocalAllocCIDRsUpdated informs the agent that the local allocation CIDRs have
+// changed. This will inform the datapath node manager to update the local node
+// routes accordingly.
+// The first CIDR in ipv[46]AllocCIDRs is presumed to be the primary CIDR: This
+// CIDR remains assigned to the local node and may not be switched out or be
+// removed.
+func (n *NodeDiscovery) LocalAllocCIDRsUpdated(ipv4AllocCIDRs, ipv6AllocCIDRs []*cidr.CIDR) {
+	n.localNodeLock.Lock()
+	defer n.localNodeLock.Unlock()
+
+	if option.Config.EnableIPv4 && len(ipv4AllocCIDRs) > 0 {
+		ipv4PrimaryCIDR, ipv4SecondaryCIDRs := splitAllocCIDRs(ipv4AllocCIDRs)
+		validatePrimaryCIDR(n.localNode.IPv4AllocCIDR, ipv4PrimaryCIDR, ipam.IPv4)
+		n.localNode.IPv4AllocCIDR = ipv4PrimaryCIDR
+		n.localNode.IPv4SecondaryAllocCIDRs = ipv4SecondaryCIDRs
+	}
+
+	if option.Config.EnableIPv6 && len(ipv6AllocCIDRs) > 0 {
+		ipv6PrimaryCIDR, ipv6SecondaryCIDRs := splitAllocCIDRs(ipv6AllocCIDRs)
+		validatePrimaryCIDR(n.localNode.IPv6AllocCIDR, ipv6PrimaryCIDR, ipam.IPv6)
+		n.localNode.IPv6AllocCIDR = ipv6PrimaryCIDR
+		n.localNode.IPv6SecondaryAllocCIDRs = ipv6SecondaryCIDRs
+	}
+
+	n.Manager.NodeUpdated(n.localNode)
+}
+
+func splitAllocCIDRs(allocCIDRs []*cidr.CIDR) (primaryCIDR *cidr.CIDR, secondaryCIDRS []*cidr.CIDR) {
+	secondaryCIDRS = make([]*cidr.CIDR, 0, len(allocCIDRs)-1)
+	for i, allocCIDR := range allocCIDRs {
+		if i == 0 {
+			primaryCIDR = allocCIDR
+		} else {
+			secondaryCIDRS = append(secondaryCIDRS, allocCIDR)
+		}
+	}
+
+	return primaryCIDR, secondaryCIDRS
+}
+
+func validatePrimaryCIDR(oldCIDR, newCIDR *cidr.CIDR, family ipam.Family) {
+	if oldCIDR != nil && !oldCIDR.Equal(newCIDR) {
+		newCIDRStr := "<nil>"
+		if newCIDR != nil {
+			newCIDRStr = newCIDR.String()
+		}
+
+		log.WithFields(logrus.Fields{
+			logfields.OldCIDR: oldCIDR.String(),
+			logfields.NewCIDR: newCIDRStr,
+			logfields.Family:  family,
+		}).Warn("Detected change of primary pod allocation CIDR. Agent restart required.")
+	}
 }
 
 func getInt(i int) *int {
