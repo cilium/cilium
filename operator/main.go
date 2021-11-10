@@ -366,7 +366,7 @@ func onOperatorStartLeading(ctx context.Context) {
 	log.WithField(logfields.Mode, option.Config.IPAM).Info("Initializing IPAM")
 
 	switch ipamMode := option.Config.IPAM; ipamMode {
-	case ipamOption.IPAMAzure, ipamOption.IPAMENI, ipamOption.IPAMClusterPool, ipamOption.IPAMAlibabaCloud:
+	case ipamOption.IPAMAzure, ipamOption.IPAMENI, ipamOption.IPAMClusterPool, ipamOption.IPAMClusterPoolV2, ipamOption.IPAMAlibabaCloud:
 		alloc, providerBuiltin := allocatorProviders[ipamMode]
 		if !providerBuiltin {
 			log.Fatalf("%s allocator is not supported by this version of %s", ipamMode, binaryName)
@@ -385,7 +385,7 @@ func onOperatorStartLeading(ctx context.Context) {
 		nodeManager = &nm
 
 		switch ipamMode {
-		case ipamOption.IPAMClusterPool:
+		case ipamOption.IPAMClusterPool, ipamOption.IPAMClusterPoolV2:
 			// We will use CiliumNodes as the source of truth for the podCIDRs.
 			// Once the CiliumNodes are synchronized with the operator we will
 			// be able to watch for K8s Node events which they will be used

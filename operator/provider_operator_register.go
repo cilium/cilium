@@ -14,4 +14,5 @@ import (
 
 func init() {
 	allocatorProviders[ipamOption.IPAMClusterPool] = &clusterpool.AllocatorOperator{}
+	allocatorProviders[ipamOption.IPAMClusterPoolV2] = &clusterpool.AllocatorOperator{}
 }
