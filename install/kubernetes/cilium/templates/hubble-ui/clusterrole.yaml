@@ -1,4 +1,4 @@
-{{- if and (or .Values.hubble.enabled .Values.hubble.ui.standalone.enabled) .Values.serviceAccounts.ui.create }}
+{{- if and (or .Values.hubble.enabled .Values.hubble.ui.standalone.enabled) .Values.hubble.ui.enabled .Values.serviceAccounts.ui.create }}
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
