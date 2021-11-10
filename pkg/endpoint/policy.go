@@ -194,7 +194,7 @@ func (e *Endpoint) regeneratePolicy() (retErr error) {
 	stats.totalTime.Start()
 
 	stats.waitingForPolicyRepository.Start()
-	repo := e.prg.GetPolicyRepository()
+	repo := e.policyGetter.GetPolicyRepository()
 	repo.Mutex.RLock()
 	revision := repo.GetRevision()
 	defer repo.Mutex.RUnlock()

@@ -616,12 +616,12 @@ func (mgr *EndpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.E
 func (mgr *EndpointManager) AddHostEndpoint(
 	ctx context.Context,
 	owner regeneration.Owner,
-	prg policyRepoGetter,
+	policyGetter policyRepoGetter,
 	proxy endpoint.EndpointProxy,
 	allocator cache.IdentityAllocator,
 	reason, nodeName string,
 ) error {
-	ep, err := endpoint.CreateHostEndpoint(owner, prg, proxy, allocator)
+	ep, err := endpoint.CreateHostEndpoint(owner, policyGetter, proxy, allocator)
 	if err != nil {
 		return err
 	}
