@@ -98,9 +98,9 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
 	void *data, *data_end;
-	union v6addr *daddr, orig_dip;
-	__u32 tunnel_endpoint = 0;
-	__u8 encrypt_key = 0;
+	union v6addr *daddr __maybe_unused, orig_dip;
+	__u32 __maybe_unused tunnel_endpoint = 0;
+	__u8 __maybe_unused encrypt_key = 0;
 	__u32 monitor = 0;
 	__u8 reason;
 	bool hairpin_flow = false; /* endpoint wants to access itself via service IP */
@@ -522,8 +522,8 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
 	__be32 orig_dip;
-	__u32 tunnel_endpoint = 0;
-	__u8 encrypt_key = 0;
+	__u32 __maybe_unused tunnel_endpoint = 0;
+	__u8 __maybe_unused encrypt_key = 0;
 	__u32 monitor = 0;
 	__u8 reason;
 	bool hairpin_flow = false; /* endpoint wants to access itself via service IP */
