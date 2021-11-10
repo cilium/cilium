@@ -35,7 +35,7 @@ SWAGGER := $(CONTAINER_ENGINE) run -u $(shell id -u):$(shell id -g) --rm -v $(CU
 
 COVERPKG_EVAL := $(shell if [ $$(echo "$(TESTPKGS)" | wc -w) -gt 1 ]; then echo "./..."; else echo "github.com/cilium/cilium/$(TESTPKGS)"; fi)
 COVERPKG ?= $(COVERPKG_EVAL)
-GOTEST_BASE := -test.v -timeout 420s
+GOTEST_BASE := -test.v -timeout 500s
 GOTEST_UNIT_BASE := $(GOTEST_BASE) -check.vv
 GOTEST_COVER_OPTS += -coverprofile=coverage.out -coverpkg $(COVERPKG)
 BENCH_EVAL := "."
