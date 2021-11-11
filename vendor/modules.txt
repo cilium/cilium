@@ -183,7 +183,7 @@ github.com/cilium/ebpf/perf
 github.com/cilium/ipam/cidrset
 github.com/cilium/ipam/service/allocator
 github.com/cilium/ipam/service/ipallocator
-# github.com/cilium/proxy v0.0.0-20210511221533-82a70d56bf32
+# github.com/cilium/proxy v0.0.0-20211111132323-3b108c64fa2a
 ## explicit; go 1.13
 github.com/cilium/proxy/go/cilium/api
 github.com/cilium/proxy/go/envoy/annotations
@@ -206,6 +206,7 @@ github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3
 github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3
 github.com/cilium/proxy/go/envoy/service/discovery/v3
 github.com/cilium/proxy/go/envoy/service/listener/v3
+github.com/cilium/proxy/go/envoy/type/http/v3
 github.com/cilium/proxy/go/envoy/type/matcher/v3
 github.com/cilium/proxy/go/envoy/type/metadata/v3
 github.com/cilium/proxy/go/envoy/type/tracing/v3
@@ -213,10 +214,6 @@ github.com/cilium/proxy/go/envoy/type/v3
 # github.com/cilium/workerpool v1.1.1
 ## explicit; go 1.15
 github.com/cilium/workerpool
-# github.com/cncf/udpa/go v0.0.0-20210930031921-04548b0d99d4
-## explicit; go 1.11
-github.com/cncf/udpa/go/udpa/annotations
-github.com/cncf/udpa/go/xds/core/v3
 # github.com/cncf/xds/go v0.0.0-20211011173535-cb28da3451f1
 ## explicit; go 1.11
 github.com/cncf/xds/go/udpa/annotations

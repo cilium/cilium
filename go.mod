@@ -20,7 +20,7 @@ require (
 	github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e
 	github.com/cilium/ebpf v0.7.0
 	github.com/cilium/ipam v0.0.0-20211026130907-54a76012817c
-	github.com/cilium/proxy v0.0.0-20210511221533-82a70d56bf32
+	github.com/cilium/proxy v0.0.0-20211111132323-3b108c64fa2a
 	github.com/cilium/workerpool v1.1.1
 	github.com/containernetworking/cni v1.0.1
 	github.com/containernetworking/plugins v1.0.1
@@ -124,7 +124,6 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/census-instrumentation/opencensus-proto v0.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
-	github.com/cncf/udpa/go v0.0.0-20210930031921-04548b0d99d4 // indirect
 	github.com/cncf/xds/go v0.0.0-20211011173535-cb28da3451f1 // indirect
 	github.com/containerd/containerd v1.5.7 // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect

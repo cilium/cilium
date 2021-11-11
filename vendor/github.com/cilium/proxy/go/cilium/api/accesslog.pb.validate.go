@@ -11,11 +11,12 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
 
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // ensure the imports are used
@@ -30,22 +31,57 @@ var (
 	_ = time.Duration(0)
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
-	_ = ptypes.DynamicAny{}
+	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on KeyValue with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *KeyValue) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on KeyValue with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in KeyValueMultiError, or nil
+// if none found.
+func (m *KeyValue) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *KeyValue) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for Key
 
 	// no validation rules for Value
 
+	if len(errors) > 0 {
+		return KeyValueMultiError(errors)
+	}
 	return nil
 }
+
+// KeyValueMultiError is an error wrapping multiple validation errors returned
+// by KeyValue.ValidateAll() if the designated constraints aren't met.
+type KeyValueMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m KeyValueMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m KeyValueMultiError) AllErrors() []error { return m }
 
 // KeyValueValidationError is the validation error returned by
 // KeyValue.Validate if the designated constraints aren't met.
@@ -102,12 +138,26 @@ var _ interface {
 } = KeyValueValidationError{}
 
 // Validate checks the field values on HttpLogEntry with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *HttpLogEntry) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on HttpLogEntry with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in HttpLogEntryMultiError, or
+// nil if none found.
+func (m *HttpLogEntry) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HttpLogEntry) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for HttpProtocol
 
@@ -122,7 +172,26 @@ func (m *HttpLogEntry) Validate() error {
 	for idx, item := range m.GetHeaders() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HttpLogEntryValidationError{
+						field:  fmt.Sprintf("Headers[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HttpLogEntryValidationError{
+						field:  fmt.Sprintf("Headers[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HttpLogEntryValidationError{
 					field:  fmt.Sprintf("Headers[%v]", idx),
@@ -139,7 +208,26 @@ func (m *HttpLogEntry) Validate() error {
 	for idx, item := range m.GetMissingHeaders() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HttpLogEntryValidationError{
+						field:  fmt.Sprintf("MissingHeaders[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HttpLogEntryValidationError{
+						field:  fmt.Sprintf("MissingHeaders[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HttpLogEntryValidationError{
 					field:  fmt.Sprintf("MissingHeaders[%v]", idx),
@@ -154,7 +242,26 @@ func (m *HttpLogEntry) Validate() error {
 	for idx, item := range m.GetRejectedHeaders() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HttpLogEntryValidationError{
+						field:  fmt.Sprintf("RejectedHeaders[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HttpLogEntryValidationError{
+						field:  fmt.Sprintf("RejectedHeaders[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HttpLogEntryValidationError{
 					field:  fmt.Sprintf("RejectedHeaders[%v]", idx),
@@ -166,8 +273,27 @@ func (m *HttpLogEntry) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return HttpLogEntryMultiError(errors)
+	}
 	return nil
 }
+
+// HttpLogEntryMultiError is an error wrapping multiple validation errors
+// returned by HttpLogEntry.ValidateAll() if the designated constraints aren't met.
+type HttpLogEntryMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HttpLogEntryMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HttpLogEntryMultiError) AllErrors() []error { return m }
 
 // HttpLogEntryValidationError is the validation error returned by
 // HttpLogEntry.Validate if the designated constraints aren't met.
@@ -224,12 +350,26 @@ var _ interface {
 } = HttpLogEntryValidationError{}
 
 // Validate checks the field values on KafkaLogEntry with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *KafkaLogEntry) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on KafkaLogEntry with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in KafkaLogEntryMultiError, or
+// nil if none found.
+func (m *KafkaLogEntry) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *KafkaLogEntry) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for CorrelationId
 
@@ -239,8 +379,28 @@ func (m *KafkaLogEntry) Validate() error {
 
 	// no validation rules for ApiKey
 
+	if len(errors) > 0 {
+		return KafkaLogEntryMultiError(errors)
+	}
 	return nil
 }
+
+// KafkaLogEntryMultiError is an error wrapping multiple validation errors
+// returned by KafkaLogEntry.ValidateAll() if the designated constraints
+// aren't met.
+type KafkaLogEntryMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m KafkaLogEntryMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m KafkaLogEntryMultiError) AllErrors() []error { return m }
 
 // KafkaLogEntryValidationError is the validation error returned by
 // KafkaLogEntry.Validate if the designated constraints aren't met.
@@ -297,18 +457,52 @@ var _ interface {
 } = KafkaLogEntryValidationError{}
 
 // Validate checks the field values on L7LogEntry with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *L7LogEntry) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on L7LogEntry with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in L7LogEntryMultiError, or
+// nil if none found.
+func (m *L7LogEntry) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *L7LogEntry) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for Proto
 
 	// no validation rules for Fields
 
+	if len(errors) > 0 {
+		return L7LogEntryMultiError(errors)
+	}
 	return nil
 }
+
+// L7LogEntryMultiError is an error wrapping multiple validation errors
+// returned by L7LogEntry.ValidateAll() if the designated constraints aren't met.
+type L7LogEntryMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m L7LogEntryMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m L7LogEntryMultiError) AllErrors() []error { return m }
 
 // L7LogEntryValidationError is the validation error returned by
 // L7LogEntry.Validate if the designated constraints aren't met.
@@ -365,11 +559,26 @@ var _ interface {
 } = L7LogEntryValidationError{}
 
 // Validate checks the field values on LogEntry with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *LogEntry) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on LogEntry with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in LogEntryMultiError, or nil
+// if none found.
+func (m *LogEntry) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *LogEntry) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for Timestamp
 
@@ -404,7 +613,26 @@ func (m *LogEntry) Validate() error {
 	for idx, item := range m.GetHeaders() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, LogEntryValidationError{
+						field:  fmt.Sprintf("Headers[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, LogEntryValidationError{
+						field:  fmt.Sprintf("Headers[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return LogEntryValidationError{
 					field:  fmt.Sprintf("Headers[%v]", idx),
@@ -420,7 +648,26 @@ func (m *LogEntry) Validate() error {
 
 	case *LogEntry_Http:
 
-		if v, ok := interface{}(m.GetHttp()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetHttp()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, LogEntryValidationError{
+						field:  "Http",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, LogEntryValidationError{
+						field:  "Http",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetHttp()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return LogEntryValidationError{
 					field:  "Http",
@@ -432,7 +679,26 @@ func (m *LogEntry) Validate() error {
 
 	case *LogEntry_Kafka:
 
-		if v, ok := interface{}(m.GetKafka()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetKafka()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, LogEntryValidationError{
+						field:  "Kafka",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, LogEntryValidationError{
+						field:  "Kafka",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetKafka()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return LogEntryValidationError{
 					field:  "Kafka",
@@ -444,7 +710,26 @@ func (m *LogEntry) Validate() error {
 
 	case *LogEntry_GenericL7:
 
-		if v, ok := interface{}(m.GetGenericL7()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetGenericL7()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, LogEntryValidationError{
+						field:  "GenericL7",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, LogEntryValidationError{
+						field:  "GenericL7",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetGenericL7()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return LogEntryValidationError{
 					field:  "GenericL7",
@@ -456,8 +741,27 @@ func (m *LogEntry) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return LogEntryMultiError(errors)
+	}
 	return nil
 }
+
+// LogEntryMultiError is an error wrapping multiple validation errors returned
+// by LogEntry.ValidateAll() if the designated constraints aren't met.
+type LogEntryMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m LogEntryMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m LogEntryMultiError) AllErrors() []error { return m }
 
 // LogEntryValidationError is the validation error returned by
 // LogEntry.Validate if the designated constraints aren't met.
