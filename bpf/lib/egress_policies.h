@@ -5,6 +5,33 @@
 #define __LIB_EGRESS_POLICIES_H_
 
 #ifdef ENABLE_EGRESS_GATEWAY
+/* is_cluster_destination returns true if the given destination is part of the
+ * cluster. It uses the ipcache and endpoint maps information.
+ */
+static __always_inline bool
+is_cluster_destination(struct iphdr *ip4, __u32 dst_id, __u32 tunnel_endpoint)
+{
+	/* If tunnel endpoint is found in ipcache, it means the remote endpoint
+	 * is in cluster.
+	 */
+	if (tunnel_endpoint != 0)
+		return true;
+
+	/* If the destination is a Cilium-managed node (remote or local), it's
+	 * part of the cluster.
+	 */
+	if (dst_id == REMOTE_NODE_ID || dst_id == HOST_ID)
+		return true;
+
+	/* Use the endpoint map to know if the destination is a local endpoint.
+	 */
+	if (lookup_ip4_endpoint(ip4))
+		return true;
+
+	/* Everything else is outside the cluster. */
+	return false;
+}
+
 /* EGRESS_STATIC_PREFIX gets sizeof non-IP, non-prefix part of egress_key */
 # define EGRESS_STATIC_PREFIX							\
 	(8 * (sizeof(struct egress_key) - sizeof(struct bpf_lpm_trie_key)	\
