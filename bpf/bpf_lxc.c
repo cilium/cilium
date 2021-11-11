@@ -796,17 +796,7 @@ ct_recreate4:
 		struct egress_info *info;
 		struct endpoint_key key = {};
 
-		/* If tunnel endpoint is found in ipcache, it means the remote endpoint is
-		 * in cluster. In this case, we should skip egress gateway. If destination
-		 * is either remote node or host node, also skip egress gateway.
-		 */
-		if (tunnel_endpoint != 0 || *dstID == REMOTE_NODE_ID || *dstID == HOST_ID)
-			goto skip_egress_gateway;
-
-		/* If destination ip matches a local endpoint, we should also
-		 * skip egress gateway.
-		 */
-		if (lookup_ip4_endpoint(ip4))
+		if (is_cluster_destination(ip4, *dstID, tunnel_endpoint))
 			goto skip_egress_gateway;
 
 		/* If the packet is a reply or is related, it means that outside
