@@ -1449,7 +1449,7 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 	prevConfig := n.nodeConfig
 	n.nodeConfig = newConfig
 
-	if n.nodeConfig.EnableIPv4 {
+	if n.nodeConfig.EnableIPv4 || n.nodeConfig.EnableIPv6 {
 		ifaceName := ""
 		switch {
 		case !option.Config.EnableL2NeighDiscovery:
