@@ -1629,15 +1629,21 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	c.Assert(err, check.IsNil)
 	// insertNeighbor is invoked async, so thus this wait based on last ping
 	wait(nodev1.Identity(), &now, false)
-
+refetch1:
 	// Check whether an arp entry for nodev1 IP addr (=veth1) was added
 	neighs, err := netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
 	c.Assert(err, check.IsNil)
 	found := false
 	for _, n := range neighs {
-		if n.IP.Equal(ip1) && (n.State&netlink.NUD_REACHABLE) > 0 {
-			found = true
-			break
+		if n.IP.Equal(ip1) {
+			good, retry := neighStateOk(n)
+			if good {
+				found = true
+				break
+			}
+			if retry {
+				goto refetch1
+			}
 		}
 	}
 	c.Assert(found, check.Equals, true)
@@ -1661,14 +1667,21 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 
 	linuxNodeHandler.NodeNeighborRefresh(context.TODO(), nodev1)
 	wait(nodev1.Identity(), &now, false)
+refetch2:
 	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
 	c.Assert(err, check.IsNil)
 	found = false
 	for _, n := range neighs {
-		if n.IP.Equal(ip1) && (n.State&netlink.NUD_REACHABLE) > 0 {
-			found = true
-			updatedHwAddrFromArpEntry = n.HardwareAddr
-			break
+		if n.IP.Equal(ip1) {
+			good, retry := neighStateOk(n)
+			if good {
+				found = true
+				updatedHwAddrFromArpEntry = n.HardwareAddr
+				break
+			}
+			if retry {
+				goto refetch2
+			}
 		}
 	}
 	c.Assert(found, check.Equals, true)
@@ -1684,7 +1697,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	c.Assert(err, check.IsNil)
 	found = false
 	for _, n := range neighs {
-		if n.IP.Equal(ip1) && (n.State&netlink.NUD_REACHABLE) > 0 {
+		if n.IP.Equal(ip1) {
 			found = true
 			break
 		}
@@ -1925,13 +1938,21 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	wait(nodev3.Identity(), &now, false)
 
 	nextHop := net.ParseIP("9.9.9.250")
+refetch3:
 	// Check that both node{2,3} are via nextHop (gw)
 	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
 	c.Assert(err, check.IsNil)
 	found = false
 	for _, n := range neighs {
-		if n.IP.Equal(nextHop) && (n.State&netlink.NUD_REACHABLE) > 0 {
-			found = true
+		if n.IP.Equal(nextHop) {
+			good, retry := neighStateOk(n)
+			if good {
+				found = true
+				break
+			}
+			if retry {
+				goto refetch3
+			}
 		} else if n.IP.Equal(node2IP) || n.IP.Equal(node3IP) {
 			c.ExpectFailure("node{2,3} should not be in the same L2")
 		}
@@ -1944,7 +1965,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
 	found = false
 	for _, n := range neighs {
-		if n.IP.Equal(nextHop) && (n.State&netlink.NUD_REACHABLE) > 0 {
+		if n.IP.Equal(nextHop) {
 			found = true
 			break
 		}
@@ -1959,7 +1980,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
 	c.Assert(err, check.IsNil)
 	for _, n := range neighs {
-		if n.IP.Equal(nextHop) && (n.State&netlink.NUD_REACHABLE) > 0 {
+		if n.IP.Equal(nextHop) {
 			found = true
 			break
 		}
@@ -1971,13 +1992,21 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	wait(nodev3.Identity(), &now, false)
 
 	nextHop = net.ParseIP("9.9.9.250")
+refetch4:
 	// Check that both node{2,3} are via nextHop (gw)
 	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
 	c.Assert(err, check.IsNil)
 	found = false
 	for _, n := range neighs {
-		if n.IP.Equal(nextHop) && (n.State&netlink.NUD_REACHABLE) > 0 {
-			found = true
+		if n.IP.Equal(nextHop) {
+			good, retry := neighStateOk(n)
+			if good {
+				found = true
+				break
+			}
+			if retry {
+				goto refetch4
+			}
 		} else if n.IP.Equal(node2IP) || n.IP.Equal(node3IP) {
 			c.ExpectFailure("node{2,3} should not be in the same L2")
 		}
@@ -1986,13 +2015,20 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 
 	// We have stored the devices in NodeConfigurationChanged
 	linuxNodeHandler.NodeCleanNeighbors(false)
-
+refetch5:
 	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
 	c.Assert(err, check.IsNil)
 	found = false
 	for _, n := range neighs {
-		if n.IP.Equal(nextHop) && (n.State&netlink.NUD_REACHABLE) > 0 {
-			found = true
+		if n.IP.Equal(nextHop) {
+			good, retry := neighStateOk(n)
+			if good {
+				found = true
+				break
+			}
+			if retry {
+				goto refetch5
+			}
 		} else if n.IP.Equal(node2IP) || n.IP.Equal(node3IP) {
 			c.ExpectFailure("node{2,3} should not be in the same L2")
 		}
