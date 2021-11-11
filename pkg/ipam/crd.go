@@ -162,7 +162,7 @@ func startLocalCiliumNodeInformer(nodeName string, k8sEventReg K8sEventRegister,
 					if newNode, ok := newObj.(*ciliumv2.CiliumNode); ok {
 						if oldNode.DeepEqual(newNode) {
 							equal = true
-							return
+							// still process, because the resourceVersion has changed
 						}
 						valid = true
 						onUpsert(newNode.DeepCopy())
