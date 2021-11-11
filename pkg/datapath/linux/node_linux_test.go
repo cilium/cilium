@@ -68,7 +68,8 @@ const (
 	dummyHostDeviceName     = "dummy_host"
 	dummyExternalDeviceName = "dummy_external"
 
-	baseTime = "net.ipv4.neigh.default.base_reachable_time_ms"
+	baseIPv4Time = "net.ipv4.neigh.default.base_reachable_time_ms"
+	baseIPv6Time = "net.ipv6.neigh.default.base_reachable_time_ms"
 )
 
 func (s *linuxPrivilegedBaseTestSuite) SetUpTest(c *check.C, addressing datapath.NodeAddressing, enableIPv6, enableIPv4 bool) {
@@ -947,6 +948,560 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeValidationDirectRouting(c *check.
 	}
 }
 
+func neighStateOk(n netlink.Neigh) (bool, bool) {
+	retry := false
+	good := false
+	switch {
+	case (n.State & netlink.NUD_REACHABLE) > 0:
+		fallthrough
+	case (n.State & netlink.NUD_STALE) > 0:
+		// Current final state
+		good = true
+	case (n.State & netlink.NUD_DELAY) > 0:
+		fallthrough
+	case (n.State & netlink.NUD_PROBE) > 0:
+		fallthrough
+	case (n.State & netlink.NUD_INCOMPLETE) > 0:
+		// Still potential ongoing resolution
+		retry = true
+	}
+	return good, retry
+}
+
+func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandling(c *check.C) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	prevEnableL2NeighDiscovery := option.Config.EnableL2NeighDiscovery
+	defer func() { option.Config.EnableL2NeighDiscovery = prevEnableL2NeighDiscovery }()
+
+	option.Config.EnableL2NeighDiscovery = true
+
+	prevStateDir := option.Config.StateDir
+	defer func() { option.Config.StateDir = prevStateDir }()
+
+	tmpDir := c.MkDir()
+	option.Config.StateDir = tmpDir
+
+	baseTimeOld, err := sysctl.Read(baseIPv6Time)
+	c.Assert(err, check.IsNil)
+	err = sysctl.Write(baseIPv6Time, fmt.Sprintf("%d", 2500))
+	c.Assert(err, check.IsNil)
+	defer func() { sysctl.Write(baseIPv6Time, baseTimeOld) }()
+
+	// 1. Test whether another node in the same L2 subnet can be arpinged.
+	//    The other node is in the different netns reachable via the veth pair.
+	//
+	//      +--------------+     +--------------+
+	//      |  host netns  |     |    netns0    |
+	//      |              |     |    nodev1    |
+	//      |         veth0+-----+veth1         |
+	//      | f00d::249/96 |     | f00d::250/96 |
+	//      +--------------+     +--------------+
+
+	// Setup
+	veth := &netlink.Veth{
+		LinkAttrs: netlink.LinkAttrs{Name: "veth0"},
+		PeerName:  "veth1",
+	}
+	err = netlink.LinkAdd(veth)
+	c.Assert(err, check.IsNil)
+	defer netlink.LinkDel(veth)
+	veth0, err := netlink.LinkByName("veth0")
+	c.Assert(err, check.IsNil)
+	veth1, err := netlink.LinkByName("veth1")
+	c.Assert(err, check.IsNil)
+	_, ipnet, err := net.ParseCIDR("f00d::/96")
+	ip0 := net.ParseIP("f00d::249")
+	ip1 := net.ParseIP("f00d::250")
+	ipnet.IP = ip0
+	addr := &netlink.Addr{IPNet: ipnet}
+	err = netlink.AddrAdd(veth0, addr)
+	c.Assert(err, check.IsNil)
+	err = netlink.LinkSetUp(veth0)
+	c.Assert(err, check.IsNil)
+
+	netns0, err := netns.ReplaceNetNSWithName("test-arping-netns0")
+	c.Assert(err, check.IsNil)
+	defer netns0.Close()
+	err = netlink.LinkSetNsFd(veth1, int(netns0.Fd()))
+	c.Assert(err, check.IsNil)
+	netns0.Do(func(ns.NetNS) error {
+		veth1, err := netlink.LinkByName("veth1")
+		c.Assert(err, check.IsNil)
+		ipnet.IP = ip1
+		addr = &netlink.Addr{IPNet: ipnet}
+		netlink.AddrAdd(veth1, addr)
+		c.Assert(err, check.IsNil)
+		err = netlink.LinkSetUp(veth1)
+		c.Assert(err, check.IsNil)
+		return nil
+	})
+
+	prevDRDev := option.Config.DirectRoutingDevice
+	defer func() { option.Config.DirectRoutingDevice = prevDRDev }()
+	option.Config.DirectRoutingDevice = "veth0"
+	prevNP := option.Config.EnableNodePort
+	defer func() { option.Config.EnableNodePort = prevNP }()
+	option.Config.EnableNodePort = true
+	dpConfig := DatapathConfiguration{HostDevice: "veth0"}
+	prevARPPeriod := option.Config.ARPPingRefreshPeriod
+	defer func() { option.Config.ARPPingRefreshPeriod = prevARPPeriod }()
+	option.Config.ARPPingRefreshPeriod = time.Duration(1 * time.Nanosecond)
+
+	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nil).(*linuxNodeHandler)
+	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
+
+	err = linuxNodeHandler.NodeConfigurationChanged(datapath.LocalNodeConfiguration{
+		EnableEncapsulation: false,
+		EnableIPv4:          s.enableIPv4,
+		EnableIPv6:          s.enableIPv6,
+	})
+	c.Assert(err, check.IsNil)
+
+	// wait waits for neigh entry update or waits for removal if waitForDelete=true
+	wait := func(nodeID nodeTypes.Identity, before *time.Time, waitForDelete bool) {
+		err := testutils.WaitUntil(func() bool {
+			linuxNodeHandler.neighLock.Lock()
+			defer linuxNodeHandler.neighLock.Unlock()
+			nextHop, found := linuxNodeHandler.neighNextHopByNode6[nodeID]
+			if !found {
+				return waitForDelete
+			}
+			lastPing, found := linuxNodeHandler.neighLastPingByNextHop[nextHop]
+			if !found {
+				return false
+			}
+			if waitForDelete {
+				return false
+			}
+			return before.Before(lastPing)
+		}, 5*time.Second)
+		c.Assert(err, check.IsNil)
+	}
+
+	nodev1 := nodeTypes.Node{
+		Name:        "node1",
+		IPAddresses: []nodeTypes.Address{{nodeaddressing.NodeInternalIP, ip1}},
+	}
+	now := time.Now()
+	err = linuxNodeHandler.NodeAdd(nodev1)
+	c.Assert(err, check.IsNil)
+	// insertNeighbor is invoked async
+	// Insert the same node second time. This should not increment refcount for
+	// the same nextHop. We test it by checking that NodeDelete has removed the
+	// related neigh entry.
+	err = linuxNodeHandler.NodeAdd(nodev1)
+	c.Assert(err, check.IsNil)
+	// insertNeighbor is invoked async, so thus this wait based on last ping
+	wait(nodev1.Identity(), &now, false)
+refetch1:
+	// Check whether an arp entry for nodev1 IP addr (=veth1) was added
+	neighs, err := netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V6)
+	c.Assert(err, check.IsNil)
+	found := false
+	for _, n := range neighs {
+		if n.IP.Equal(ip1) {
+			good, retry := neighStateOk(n)
+			if good {
+				found = true
+				break
+			}
+			if retry {
+				goto refetch1
+			}
+		}
+	}
+	c.Assert(found, check.Equals, true)
+
+	// Swap MAC addresses of veth0 and veth1 to ensure the MAC address of veth1 changed.
+	// Trigger neighbor refresh on veth0 and check whether the arp entry was updated.
+	var veth0HwAddr, veth1HwAddr, updatedHwAddrFromArpEntry net.HardwareAddr
+	veth0HwAddr = veth0.Attrs().HardwareAddr
+	netns0.Do(func(ns.NetNS) error {
+		veth1, err := netlink.LinkByName("veth1")
+		c.Assert(err, check.IsNil)
+		veth1HwAddr = veth1.Attrs().HardwareAddr
+		err = netlink.LinkSetHardwareAddr(veth1, veth0HwAddr)
+		c.Assert(err, check.IsNil)
+		return nil
+	})
+
+	now = time.Now()
+	err = netlink.LinkSetHardwareAddr(veth0, veth1HwAddr)
+	c.Assert(err, check.IsNil)
+
+	linuxNodeHandler.NodeNeighborRefresh(context.TODO(), nodev1)
+	wait(nodev1.Identity(), &now, false)
+refetch2:
+	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V6)
+	c.Assert(err, check.IsNil)
+	found = false
+	for _, n := range neighs {
+		if n.IP.Equal(ip1) {
+			good, retry := neighStateOk(n)
+			if good {
+				found = true
+				updatedHwAddrFromArpEntry = n.HardwareAddr
+				break
+			}
+			if retry {
+				goto refetch2
+			}
+		}
+	}
+	c.Assert(found, check.Equals, true)
+	c.Assert(updatedHwAddrFromArpEntry.String(), check.Equals, veth0HwAddr.String())
+
+	// Remove nodev1, and check whether the arp entry was removed
+	err = linuxNodeHandler.NodeDelete(nodev1)
+	c.Assert(err, check.IsNil)
+	// deleteNeighbor is invoked async too
+	wait(nodev1.Identity(), nil, true)
+
+	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V6)
+	c.Assert(err, check.IsNil)
+	found = false
+	for _, n := range neighs {
+		if n.IP.Equal(ip1) {
+			found = true
+			break
+		}
+	}
+	c.Assert(found, check.Equals, false)
+
+	// Create multiple goroutines which call insertNeighbor and check whether
+	// MAC changes of veth1 are properly handled. This is a basic randomized
+	// testing of insertNeighbor() fine-grained locking.
+	now = time.Now()
+	err = linuxNodeHandler.NodeAdd(nodev1)
+	c.Assert(err, check.IsNil)
+	wait(nodev1.Identity(), &now, false)
+
+	rndHWAddr := func() net.HardwareAddr {
+		mac := make([]byte, 6)
+		_, err := rand.Read(mac)
+		c.Assert(err, check.IsNil)
+		mac[0] = (mac[0] | 2) & 0xfe
+		return net.HardwareAddr(mac)
+	}
+	neighRefCount := func(nextHopStr string) int {
+		linuxNodeHandler.neighLock.Lock()
+		defer linuxNodeHandler.neighLock.Unlock()
+		return linuxNodeHandler.neighNextHopRefCount[nextHopStr]
+	}
+
+	done := make(chan struct{})
+	count := 30
+	var wg sync.WaitGroup
+	wg.Add(count)
+	for i := 0; i < count; i++ {
+		go func() {
+			defer wg.Done()
+			ticker := time.NewTicker(100 * time.Millisecond)
+			for {
+				linuxNodeHandler.insertNeighbor(context.Background(), &nodev1, true)
+				select {
+				case <-ticker.C:
+				case <-done:
+					return
+				}
+			}
+		}()
+	}
+	for i := 0; i < 10; i++ {
+		mac := rndHWAddr()
+		// Change MAC
+		netns0.Do(func(ns.NetNS) error {
+			veth1, err := netlink.LinkByName("veth1")
+			c.Assert(err, check.IsNil)
+			err = netlink.LinkSetHardwareAddr(veth1, mac)
+			c.Assert(err, check.IsNil)
+			return nil
+		})
+
+		// Check that MAC has been changed in the neigh table
+		var found bool
+		err := testutils.WaitUntilWithSleep(func() bool {
+			neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V6)
+			c.Assert(err, check.IsNil)
+			found = false
+			for _, n := range neighs {
+				if n.IP.Equal(ip1) && (n.State&netlink.NUD_REACHABLE) > 0 &&
+					n.HardwareAddr.String() == mac.String() &&
+					neighRefCount(ip1.String()) == 1 {
+					found = true
+					return true
+				}
+			}
+			return false
+		}, 25*time.Second, 200*time.Millisecond)
+		c.Assert(err, check.IsNil)
+		c.Assert(found, check.Equals, true)
+	}
+
+	// Cleanup
+	close(done)
+	wg.Wait()
+	now = time.Now()
+	err = linuxNodeHandler.NodeDelete(nodev1)
+	c.Assert(err, check.IsNil)
+	wait(nodev1.Identity(), nil, true)
+
+	// Setup routine for the 2. test
+	setupRemoteNode := func(vethName, vethPeerName, netnsName, vethCIDR, vethIPAddr,
+		vethPeerIPAddr string) (cleanup func(), errRet error) {
+
+		veth := &netlink.Veth{
+			LinkAttrs: netlink.LinkAttrs{Name: vethName},
+			PeerName:  vethPeerName,
+		}
+		errRet = netlink.LinkAdd(veth)
+		if errRet != nil {
+			return nil, err
+		}
+		cleanup1 := func() { netlink.LinkDel(veth) }
+		cleanup = cleanup1
+
+		veth2, err := netlink.LinkByName(vethName)
+		if err != nil {
+			errRet = err
+			return
+		}
+		veth3, err := netlink.LinkByName(vethPeerName)
+		if err != nil {
+			errRet = err
+			return
+		}
+		netns1, err := netns.ReplaceNetNSWithName(netnsName)
+		if err != nil {
+			errRet = err
+			return
+		}
+		cleanup = func() {
+			cleanup1()
+			netns1.Close()
+		}
+		if errRet = netlink.LinkSetNsFd(veth2, int(netns0.Fd())); errRet != nil {
+			return
+		}
+		if errRet = netlink.LinkSetNsFd(veth3, int(netns1.Fd())); errRet != nil {
+			return
+		}
+
+		ip, ipnet, err := net.ParseCIDR(vethCIDR)
+		if err != nil {
+			errRet = err
+			return
+		}
+		ip2 := net.ParseIP(vethIPAddr)
+		ip3 := net.ParseIP(vethPeerIPAddr)
+		ipnet.IP = ip2
+
+		if errRet = netns0.Do(func(ns.NetNS) error {
+			addr = &netlink.Addr{IPNet: ipnet}
+			if err := netlink.AddrAdd(veth2, addr); err != nil {
+				return err
+			}
+			if err := netlink.LinkSetUp(veth2); err != nil {
+				return err
+			}
+			if err := netlink.LinkSetUp(veth2); err != nil {
+				return err
+			}
+			return nil
+		}); errRet != nil {
+			return
+		}
+
+		ipnet.IP = ip
+		route := &netlink.Route{
+			Dst: ipnet,
+			Gw:  ip1,
+		}
+		if errRet = netlink.RouteAdd(route); errRet != nil {
+			return
+		}
+
+		if errRet = netns1.Do(func(ns.NetNS) error {
+			veth3, err := netlink.LinkByName(vethPeerName)
+			if err != nil {
+				return err
+			}
+			ipnet.IP = ip3
+			addr = &netlink.Addr{IPNet: ipnet}
+			if err := netlink.AddrAdd(veth3, addr); err != nil {
+				return err
+			}
+			if err := netlink.LinkSetUp(veth3); err != nil {
+				return err
+			}
+
+			_, ipnet, err := net.ParseCIDR("f00d::/96")
+			if err != nil {
+				return err
+			}
+			route := &netlink.Route{
+				Dst: ipnet,
+				Gw:  ip2,
+			}
+			if err := netlink.RouteAdd(route); err != nil {
+				return err
+			}
+			return nil
+		}); errRet != nil {
+			return
+		}
+
+		return
+	}
+
+	// 2. Add two nodes which are reachable from the host only via nodev1 (gw).
+	//    Arping should ping veth1 IP addr instead of veth3 or veth5.
+	//
+	//      +--------------+     +--------------+     +--------------+
+	//      |  host netns  |     |    netns0    |     |    netns1    |
+	//      |              |     |    nodev1    |     |    nodev2    |
+	//      |              |     |  f00a::249/96|     |              |
+	//      |              |     |           |  |     |              |
+	//      |         veth0+-----+veth1    veth2+-----+veth3         |
+	//      |          |   |     |   |          |     | |            |
+	//      | f00d::249/96 |     |f00d::250/96  |     | f00a::250/96 |
+	//      +--------------+     |         veth4+-+   +--------------+
+	//                           |           |  | |   +--------------+
+	//                           | f00b::249/96 | |   |    netns2    |
+	//                           +--------------+ |   |    nodev3    |
+	//                                            |   |              |
+	//                                            +---+veth5         |
+	//                                                | |            |
+	//                                                | f00b::250/96 |
+	//                                                +--------------+
+
+	cleanup1, err := setupRemoteNode("veth2", "veth3", "test-arping-netns1",
+		"f00a::/96", "f00a::249", "f00a::250")
+	c.Assert(err, check.IsNil)
+	defer cleanup1()
+	cleanup2, err := setupRemoteNode("veth4", "veth5", "test-arping-netns2",
+		"f00b::/96", "f00b::249", "f00b::250")
+	c.Assert(err, check.IsNil)
+	defer cleanup2()
+
+	node2IP := net.ParseIP("f00a::250")
+	nodev2 := nodeTypes.Node{
+		Name:        "node2",
+		IPAddresses: []nodeTypes.Address{{nodeaddressing.NodeInternalIP, node2IP}},
+	}
+	now = time.Now()
+	c.Assert(linuxNodeHandler.NodeAdd(nodev2), check.IsNil)
+	wait(nodev2.Identity(), &now, false)
+
+	node3IP := net.ParseIP("f00b::250")
+	nodev3 := nodeTypes.Node{
+		Name:        "node3",
+		IPAddresses: []nodeTypes.Address{{nodeaddressing.NodeInternalIP, node3IP}},
+	}
+	c.Assert(linuxNodeHandler.NodeAdd(nodev3), check.IsNil)
+	wait(nodev3.Identity(), &now, false)
+
+	nextHop := net.ParseIP("f00d::250")
+refetch3:
+	// Check that both node{2,3} are via nextHop (gw)
+	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V6)
+	c.Assert(err, check.IsNil)
+	found = false
+	for _, n := range neighs {
+		if n.IP.Equal(nextHop) {
+			good, retry := neighStateOk(n)
+			if good {
+				found = true
+				break
+			}
+			if retry {
+				goto refetch3
+			}
+		} else if n.IP.Equal(node2IP) || n.IP.Equal(node3IP) {
+			c.ExpectFailure("node{2,3} should not be in the same L2")
+		}
+	}
+	c.Assert(found, check.Equals, true)
+
+	// Check that removing node2 will not remove nextHop, as it is still used by node3
+	c.Assert(linuxNodeHandler.NodeDelete(nodev2), check.IsNil)
+	wait(nodev2.Identity(), nil, true)
+	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V6)
+	found = false
+	for _, n := range neighs {
+		if n.IP.Equal(nextHop) {
+			found = true
+			break
+		}
+	}
+	c.Assert(found, check.Equals, true)
+
+	// However, removing node3 should remove the neigh entry for nextHop
+	c.Assert(linuxNodeHandler.NodeDelete(nodev3), check.IsNil)
+	wait(nodev3.Identity(), nil, true)
+
+	found = false
+	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V6)
+	c.Assert(err, check.IsNil)
+	for _, n := range neighs {
+		if n.IP.Equal(nextHop) {
+			found = true
+			break
+		}
+	}
+	c.Assert(found, check.Equals, false)
+
+	now = time.Now()
+	c.Assert(linuxNodeHandler.NodeAdd(nodev3), check.IsNil)
+	wait(nodev3.Identity(), &now, false)
+
+	nextHop = net.ParseIP("f00d::250")
+refetch4:
+	// Check that both node{2,3} are via nextHop (gw)
+	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V6)
+	c.Assert(err, check.IsNil)
+	found = false
+	for _, n := range neighs {
+		if n.IP.Equal(nextHop) {
+			good, retry := neighStateOk(n)
+			if good {
+				found = true
+				break
+			}
+			if retry {
+				goto refetch4
+			}
+		} else if n.IP.Equal(node2IP) || n.IP.Equal(node3IP) {
+			c.ExpectFailure("node{2,3} should not be in the same L2")
+		}
+	}
+	c.Assert(found, check.Equals, true)
+
+	// We have stored the devices in NodeConfigurationChanged
+	linuxNodeHandler.NodeCleanNeighbors(false)
+refetch5:
+	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V6)
+	c.Assert(err, check.IsNil)
+	found = false
+	for _, n := range neighs {
+		if n.IP.Equal(nextHop) {
+			good, retry := neighStateOk(n)
+			if good {
+				found = true
+				break
+			}
+			if retry {
+				goto refetch5
+			}
+		} else if n.IP.Equal(node2IP) || n.IP.Equal(node3IP) {
+			c.ExpectFailure("node{2,3} should not be in the same L2")
+		}
+	}
+	c.Assert(found, check.Equals, false)
+}
+
 func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
@@ -962,11 +1517,11 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	tmpDir := c.MkDir()
 	option.Config.StateDir = tmpDir
 
-	baseTimeOld, err := sysctl.Read(baseTime)
+	baseTimeOld, err := sysctl.Read(baseIPv4Time)
 	c.Assert(err, check.IsNil)
-	err = sysctl.Write(baseTime, fmt.Sprintf("%d", 2500))
+	err = sysctl.Write(baseIPv4Time, fmt.Sprintf("%d", 2500))
 	c.Assert(err, check.IsNil)
-	defer func() { sysctl.Write(baseTime, baseTimeOld) }()
+	defer func() { sysctl.Write(baseIPv4Time, baseTimeOld) }()
 
 	// 1. Test whether another node in the same L2 subnet can be arpinged.
 	//    The other node is in the different netns reachable via the veth pair.
@@ -1443,7 +1998,6 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 		}
 	}
 	c.Assert(found, check.Equals, false)
-
 }
 
 func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdate(c *check.C, config datapath.LocalNodeConfiguration) {
