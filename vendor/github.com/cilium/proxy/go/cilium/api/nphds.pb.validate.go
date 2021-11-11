@@ -11,11 +11,12 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
 
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // ensure the imports are used
@@ -30,16 +31,31 @@ var (
 	_ = time.Duration(0)
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
-	_ = ptypes.DynamicAny{}
+	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on NetworkPolicyHosts with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *NetworkPolicyHosts) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on NetworkPolicyHosts with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// NetworkPolicyHostsMultiError, or nil if none found.
+func (m *NetworkPolicyHosts) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *NetworkPolicyHosts) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for Policy
 
@@ -49,25 +65,53 @@ func (m *NetworkPolicyHosts) Validate() error {
 		_, _ = idx, item
 
 		if _, exists := _NetworkPolicyHosts_HostAddresses_Unique[item]; exists {
-			return NetworkPolicyHostsValidationError{
+			err := NetworkPolicyHostsValidationError{
 				field:  fmt.Sprintf("HostAddresses[%v]", idx),
 				reason: "repeated value must contain unique items",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		} else {
 			_NetworkPolicyHosts_HostAddresses_Unique[item] = struct{}{}
 		}
 
 		if len(item) < 1 {
-			return NetworkPolicyHostsValidationError{
+			err := NetworkPolicyHostsValidationError{
 				field:  fmt.Sprintf("HostAddresses[%v]", idx),
 				reason: "value length must be at least 1 bytes",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	}
 
+	if len(errors) > 0 {
+		return NetworkPolicyHostsMultiError(errors)
+	}
 	return nil
 }
+
+// NetworkPolicyHostsMultiError is an error wrapping multiple validation errors
+// returned by NetworkPolicyHosts.ValidateAll() if the designated constraints
+// aren't met.
+type NetworkPolicyHostsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m NetworkPolicyHostsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m NetworkPolicyHostsMultiError) AllErrors() []error { return m }
 
 // NetworkPolicyHostsValidationError is the validation error returned by
 // NetworkPolicyHosts.Validate if the designated constraints aren't met.

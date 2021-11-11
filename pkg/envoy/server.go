@@ -1339,7 +1339,7 @@ func getNetworkPolicy(ep logger.EndpointUpdater, vis *policy.VisibilityPolicy, n
 	ingressPolicyEnforced, egressPolicyEnforced bool) *cilium.NetworkPolicy {
 	p := &cilium.NetworkPolicy{
 		Name:             name,
-		Policy:           uint64(ep.GetIdentityLocked()),
+		EndpointId:       uint64(ep.GetID()),
 		ConntrackMapName: ep.ConntrackNameLocked(),
 	}
 

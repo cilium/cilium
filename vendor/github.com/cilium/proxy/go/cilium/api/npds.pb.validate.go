@@ -11,11 +11,12 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
 
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
 )
@@ -32,27 +33,61 @@ var (
 	_ = time.Duration(0)
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
-	_ = ptypes.DynamicAny{}
+	_ = anypb.Any{}
+	_ = sort.Sort
 
 	_ = v3.SocketAddress_Protocol(0)
 )
 
 // Validate checks the field values on NetworkPolicy with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *NetworkPolicy) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on NetworkPolicy with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in NetworkPolicyMultiError, or
+// nil if none found.
+func (m *NetworkPolicy) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *NetworkPolicy) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	// no validation rules for Name
 
-	// no validation rules for Policy
+	// no validation rules for EndpointId
 
 	for idx, item := range m.GetIngressPerPortPolicies() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, NetworkPolicyValidationError{
+						field:  fmt.Sprintf("IngressPerPortPolicies[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, NetworkPolicyValidationError{
+						field:  fmt.Sprintf("IngressPerPortPolicies[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return NetworkPolicyValidationError{
 					field:  fmt.Sprintf("IngressPerPortPolicies[%v]", idx),
@@ -67,7 +102,26 @@ func (m *NetworkPolicy) Validate() error {
 	for idx, item := range m.GetEgressPerPortPolicies() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, NetworkPolicyValidationError{
+						field:  fmt.Sprintf("EgressPerPortPolicies[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, NetworkPolicyValidationError{
+						field:  fmt.Sprintf("EgressPerPortPolicies[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return NetworkPolicyValidationError{
 					field:  fmt.Sprintf("EgressPerPortPolicies[%v]", idx),
@@ -81,8 +135,28 @@ func (m *NetworkPolicy) Validate() error {
 
 	// no validation rules for ConntrackMapName
 
+	if len(errors) > 0 {
+		return NetworkPolicyMultiError(errors)
+	}
 	return nil
 }
+
+// NetworkPolicyMultiError is an error wrapping multiple validation errors
+// returned by NetworkPolicy.ValidateAll() if the designated constraints
+// aren't met.
+type NetworkPolicyMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m NetworkPolicyMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m NetworkPolicyMultiError) AllErrors() []error { return m }
 
 // NetworkPolicyValidationError is the validation error returned by
 // NetworkPolicy.Validate if the designated constraints aren't met.
@@ -139,18 +213,36 @@ var _ interface {
 } = NetworkPolicyValidationError{}
 
 // Validate checks the field values on PortNetworkPolicy with the rules defined
-// in the proto definition for this message. If any rules are violated, an
-// error is returned.
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
 func (m *PortNetworkPolicy) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on PortNetworkPolicy with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// PortNetworkPolicyMultiError, or nil if none found.
+func (m *PortNetworkPolicy) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *PortNetworkPolicy) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if m.GetPort() > 65535 {
-		return PortNetworkPolicyValidationError{
+		err := PortNetworkPolicyValidationError{
 			field:  "Port",
 			reason: "value must be less than or equal to 65535",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	// no validation rules for Protocol
@@ -158,7 +250,26 @@ func (m *PortNetworkPolicy) Validate() error {
 	for idx, item := range m.GetRules() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, PortNetworkPolicyValidationError{
+						field:  fmt.Sprintf("Rules[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, PortNetworkPolicyValidationError{
+						field:  fmt.Sprintf("Rules[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return PortNetworkPolicyValidationError{
 					field:  fmt.Sprintf("Rules[%v]", idx),
@@ -170,8 +281,28 @@ func (m *PortNetworkPolicy) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return PortNetworkPolicyMultiError(errors)
+	}
 	return nil
 }
+
+// PortNetworkPolicyMultiError is an error wrapping multiple validation errors
+// returned by PortNetworkPolicy.ValidateAll() if the designated constraints
+// aren't met.
+type PortNetworkPolicyMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m PortNetworkPolicyMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m PortNetworkPolicyMultiError) AllErrors() []error { return m }
 
 // PortNetworkPolicyValidationError is the validation error returned by
 // PortNetworkPolicy.Validate if the designated constraints aren't met.
@@ -230,11 +361,26 @@ var _ interface {
 } = PortNetworkPolicyValidationError{}
 
 // Validate checks the field values on TLSContext with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *TLSContext) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on TLSContext with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in TLSContextMultiError, or
+// nil if none found.
+func (m *TLSContext) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *TLSContext) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for TrustedCa
 
@@ -242,8 +388,27 @@ func (m *TLSContext) Validate() error {
 
 	// no validation rules for PrivateKey
 
+	if len(errors) > 0 {
+		return TLSContextMultiError(errors)
+	}
 	return nil
 }
+
+// TLSContextMultiError is an error wrapping multiple validation errors
+// returned by TLSContext.ValidateAll() if the designated constraints aren't met.
+type TLSContextMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m TLSContextMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m TLSContextMultiError) AllErrors() []error { return m }
 
 // TLSContextValidationError is the validation error returned by
 // TLSContext.Validate if the designated constraints aren't met.
@@ -301,11 +466,25 @@ var _ interface {
 
 // Validate checks the field values on PortNetworkPolicyRule with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *PortNetworkPolicyRule) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on PortNetworkPolicyRule with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// PortNetworkPolicyRuleMultiError, or nil if none found.
+func (m *PortNetworkPolicyRule) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *PortNetworkPolicyRule) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for Name
 
@@ -315,10 +494,14 @@ func (m *PortNetworkPolicyRule) Validate() error {
 		_, _ = idx, item
 
 		if _, exists := _PortNetworkPolicyRule_RemotePolicies_Unique[item]; exists {
-			return PortNetworkPolicyRuleValidationError{
+			err := PortNetworkPolicyRuleValidationError{
 				field:  fmt.Sprintf("RemotePolicies[%v]", idx),
 				reason: "repeated value must contain unique items",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		} else {
 			_PortNetworkPolicyRule_RemotePolicies_Unique[item] = struct{}{}
 		}
@@ -326,7 +509,26 @@ func (m *PortNetworkPolicyRule) Validate() error {
 		// no validation rules for RemotePolicies[idx]
 	}
 
-	if v, ok := interface{}(m.GetDownstreamTlsContext()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetDownstreamTlsContext()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, PortNetworkPolicyRuleValidationError{
+					field:  "DownstreamTlsContext",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, PortNetworkPolicyRuleValidationError{
+					field:  "DownstreamTlsContext",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetDownstreamTlsContext()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return PortNetworkPolicyRuleValidationError{
 				field:  "DownstreamTlsContext",
@@ -336,7 +538,26 @@ func (m *PortNetworkPolicyRule) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetUpstreamTlsContext()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetUpstreamTlsContext()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, PortNetworkPolicyRuleValidationError{
+					field:  "UpstreamTlsContext",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, PortNetworkPolicyRuleValidationError{
+					field:  "UpstreamTlsContext",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetUpstreamTlsContext()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return PortNetworkPolicyRuleValidationError{
 				field:  "UpstreamTlsContext",
@@ -352,7 +573,26 @@ func (m *PortNetworkPolicyRule) Validate() error {
 
 	case *PortNetworkPolicyRule_HttpRules:
 
-		if v, ok := interface{}(m.GetHttpRules()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetHttpRules()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, PortNetworkPolicyRuleValidationError{
+						field:  "HttpRules",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, PortNetworkPolicyRuleValidationError{
+						field:  "HttpRules",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetHttpRules()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return PortNetworkPolicyRuleValidationError{
 					field:  "HttpRules",
@@ -364,7 +604,26 @@ func (m *PortNetworkPolicyRule) Validate() error {
 
 	case *PortNetworkPolicyRule_KafkaRules:
 
-		if v, ok := interface{}(m.GetKafkaRules()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetKafkaRules()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, PortNetworkPolicyRuleValidationError{
+						field:  "KafkaRules",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, PortNetworkPolicyRuleValidationError{
+						field:  "KafkaRules",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetKafkaRules()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return PortNetworkPolicyRuleValidationError{
 					field:  "KafkaRules",
@@ -376,7 +635,26 @@ func (m *PortNetworkPolicyRule) Validate() error {
 
 	case *PortNetworkPolicyRule_L7Rules:
 
-		if v, ok := interface{}(m.GetL7Rules()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetL7Rules()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, PortNetworkPolicyRuleValidationError{
+						field:  "L7Rules",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, PortNetworkPolicyRuleValidationError{
+						field:  "L7Rules",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetL7Rules()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return PortNetworkPolicyRuleValidationError{
 					field:  "L7Rules",
@@ -388,8 +666,28 @@ func (m *PortNetworkPolicyRule) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return PortNetworkPolicyRuleMultiError(errors)
+	}
 	return nil
 }
+
+// PortNetworkPolicyRuleMultiError is an error wrapping multiple validation
+// errors returned by PortNetworkPolicyRule.ValidateAll() if the designated
+// constraints aren't met.
+type PortNetworkPolicyRuleMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m PortNetworkPolicyRuleMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m PortNetworkPolicyRuleMultiError) AllErrors() []error { return m }
 
 // PortNetworkPolicyRuleValidationError is the validation error returned by
 // PortNetworkPolicyRule.Validate if the designated constraints aren't met.
@@ -449,23 +747,60 @@ var _ interface {
 
 // Validate checks the field values on HttpNetworkPolicyRules with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *HttpNetworkPolicyRules) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on HttpNetworkPolicyRules with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// HttpNetworkPolicyRulesMultiError, or nil if none found.
+func (m *HttpNetworkPolicyRules) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HttpNetworkPolicyRules) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if len(m.GetHttpRules()) < 1 {
-		return HttpNetworkPolicyRulesValidationError{
+		err := HttpNetworkPolicyRulesValidationError{
 			field:  "HttpRules",
 			reason: "value must contain at least 1 item(s)",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	for idx, item := range m.GetHttpRules() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HttpNetworkPolicyRulesValidationError{
+						field:  fmt.Sprintf("HttpRules[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HttpNetworkPolicyRulesValidationError{
+						field:  fmt.Sprintf("HttpRules[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HttpNetworkPolicyRulesValidationError{
 					field:  fmt.Sprintf("HttpRules[%v]", idx),
@@ -477,8 +812,28 @@ func (m *HttpNetworkPolicyRules) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return HttpNetworkPolicyRulesMultiError(errors)
+	}
 	return nil
 }
+
+// HttpNetworkPolicyRulesMultiError is an error wrapping multiple validation
+// errors returned by HttpNetworkPolicyRules.ValidateAll() if the designated
+// constraints aren't met.
+type HttpNetworkPolicyRulesMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HttpNetworkPolicyRulesMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HttpNetworkPolicyRulesMultiError) AllErrors() []error { return m }
 
 // HttpNetworkPolicyRulesValidationError is the validation error returned by
 // HttpNetworkPolicyRules.Validate if the designated constraints aren't met.
@@ -537,18 +892,36 @@ var _ interface {
 } = HttpNetworkPolicyRulesValidationError{}
 
 // Validate checks the field values on HeaderMatch with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *HeaderMatch) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on HeaderMatch with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in HeaderMatchMultiError, or
+// nil if none found.
+func (m *HeaderMatch) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HeaderMatch) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if len(m.GetName()) < 1 {
-		return HeaderMatchValidationError{
+		err := HeaderMatchValidationError{
 			field:  "Name",
 			reason: "value length must be at least 1 bytes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	// no validation rules for Value
@@ -557,8 +930,27 @@ func (m *HeaderMatch) Validate() error {
 
 	// no validation rules for MismatchAction
 
+	if len(errors) > 0 {
+		return HeaderMatchMultiError(errors)
+	}
 	return nil
 }
+
+// HeaderMatchMultiError is an error wrapping multiple validation errors
+// returned by HeaderMatch.ValidateAll() if the designated constraints aren't met.
+type HeaderMatchMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HeaderMatchMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HeaderMatchMultiError) AllErrors() []error { return m }
 
 // HeaderMatchValidationError is the validation error returned by
 // HeaderMatch.Validate if the designated constraints aren't met.
@@ -616,16 +1008,49 @@ var _ interface {
 
 // Validate checks the field values on HttpNetworkPolicyRule with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *HttpNetworkPolicyRule) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on HttpNetworkPolicyRule with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// HttpNetworkPolicyRuleMultiError, or nil if none found.
+func (m *HttpNetworkPolicyRule) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HttpNetworkPolicyRule) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	for idx, item := range m.GetHeaders() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HttpNetworkPolicyRuleValidationError{
+						field:  fmt.Sprintf("Headers[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HttpNetworkPolicyRuleValidationError{
+						field:  fmt.Sprintf("Headers[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HttpNetworkPolicyRuleValidationError{
 					field:  fmt.Sprintf("Headers[%v]", idx),
@@ -640,7 +1065,26 @@ func (m *HttpNetworkPolicyRule) Validate() error {
 	for idx, item := range m.GetHeaderMatches() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HttpNetworkPolicyRuleValidationError{
+						field:  fmt.Sprintf("HeaderMatches[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HttpNetworkPolicyRuleValidationError{
+						field:  fmt.Sprintf("HeaderMatches[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HttpNetworkPolicyRuleValidationError{
 					field:  fmt.Sprintf("HeaderMatches[%v]", idx),
@@ -652,8 +1096,28 @@ func (m *HttpNetworkPolicyRule) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return HttpNetworkPolicyRuleMultiError(errors)
+	}
 	return nil
 }
+
+// HttpNetworkPolicyRuleMultiError is an error wrapping multiple validation
+// errors returned by HttpNetworkPolicyRule.ValidateAll() if the designated
+// constraints aren't met.
+type HttpNetworkPolicyRuleMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HttpNetworkPolicyRuleMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HttpNetworkPolicyRuleMultiError) AllErrors() []error { return m }
 
 // HttpNetworkPolicyRuleValidationError is the validation error returned by
 // HttpNetworkPolicyRule.Validate if the designated constraints aren't met.
@@ -713,23 +1177,60 @@ var _ interface {
 
 // Validate checks the field values on KafkaNetworkPolicyRules with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *KafkaNetworkPolicyRules) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on KafkaNetworkPolicyRules with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// KafkaNetworkPolicyRulesMultiError, or nil if none found.
+func (m *KafkaNetworkPolicyRules) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *KafkaNetworkPolicyRules) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if len(m.GetKafkaRules()) < 1 {
-		return KafkaNetworkPolicyRulesValidationError{
+		err := KafkaNetworkPolicyRulesValidationError{
 			field:  "KafkaRules",
 			reason: "value must contain at least 1 item(s)",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	for idx, item := range m.GetKafkaRules() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, KafkaNetworkPolicyRulesValidationError{
+						field:  fmt.Sprintf("KafkaRules[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, KafkaNetworkPolicyRulesValidationError{
+						field:  fmt.Sprintf("KafkaRules[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return KafkaNetworkPolicyRulesValidationError{
 					field:  fmt.Sprintf("KafkaRules[%v]", idx),
@@ -741,8 +1242,28 @@ func (m *KafkaNetworkPolicyRules) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return KafkaNetworkPolicyRulesMultiError(errors)
+	}
 	return nil
 }
+
+// KafkaNetworkPolicyRulesMultiError is an error wrapping multiple validation
+// errors returned by KafkaNetworkPolicyRules.ValidateAll() if the designated
+// constraints aren't met.
+type KafkaNetworkPolicyRulesMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m KafkaNetworkPolicyRulesMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m KafkaNetworkPolicyRulesMultiError) AllErrors() []error { return m }
 
 // KafkaNetworkPolicyRulesValidationError is the validation error returned by
 // KafkaNetworkPolicyRules.Validate if the designated constraints aren't met.
@@ -802,37 +1323,83 @@ var _ interface {
 
 // Validate checks the field values on KafkaNetworkPolicyRule with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *KafkaNetworkPolicyRule) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on KafkaNetworkPolicyRule with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// KafkaNetworkPolicyRuleMultiError, or nil if none found.
+func (m *KafkaNetworkPolicyRule) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *KafkaNetworkPolicyRule) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	// no validation rules for ApiVersion
 
 	if !_KafkaNetworkPolicyRule_ClientId_Pattern.MatchString(m.GetClientId()) {
-		return KafkaNetworkPolicyRuleValidationError{
+		err := KafkaNetworkPolicyRuleValidationError{
 			field:  "ClientId",
 			reason: "value does not match regex pattern \"^[a-zA-Z0-9._-]*$\"",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if utf8.RuneCountInString(m.GetTopic()) > 255 {
-		return KafkaNetworkPolicyRuleValidationError{
+		err := KafkaNetworkPolicyRuleValidationError{
 			field:  "Topic",
 			reason: "value length must be at most 255 runes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if !_KafkaNetworkPolicyRule_Topic_Pattern.MatchString(m.GetTopic()) {
-		return KafkaNetworkPolicyRuleValidationError{
+		err := KafkaNetworkPolicyRuleValidationError{
 			field:  "Topic",
 			reason: "value does not match regex pattern \"^[a-zA-Z0-9._-]*$\"",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
+	if len(errors) > 0 {
+		return KafkaNetworkPolicyRuleMultiError(errors)
+	}
 	return nil
 }
+
+// KafkaNetworkPolicyRuleMultiError is an error wrapping multiple validation
+// errors returned by KafkaNetworkPolicyRule.ValidateAll() if the designated
+// constraints aren't met.
+type KafkaNetworkPolicyRuleMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m KafkaNetworkPolicyRuleMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m KafkaNetworkPolicyRuleMultiError) AllErrors() []error { return m }
 
 // KafkaNetworkPolicyRuleValidationError is the validation error returned by
 // KafkaNetworkPolicyRule.Validate if the designated constraints aren't met.
@@ -896,16 +1463,49 @@ var _KafkaNetworkPolicyRule_Topic_Pattern = regexp.MustCompile("^[a-zA-Z0-9._-]*
 
 // Validate checks the field values on L7NetworkPolicyRules with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *L7NetworkPolicyRules) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on L7NetworkPolicyRules with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// L7NetworkPolicyRulesMultiError, or nil if none found.
+func (m *L7NetworkPolicyRules) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *L7NetworkPolicyRules) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	for idx, item := range m.GetL7AllowRules() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, L7NetworkPolicyRulesValidationError{
+						field:  fmt.Sprintf("L7AllowRules[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, L7NetworkPolicyRulesValidationError{
+						field:  fmt.Sprintf("L7AllowRules[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return L7NetworkPolicyRulesValidationError{
 					field:  fmt.Sprintf("L7AllowRules[%v]", idx),
@@ -920,7 +1520,26 @@ func (m *L7NetworkPolicyRules) Validate() error {
 	for idx, item := range m.GetL7DenyRules() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, L7NetworkPolicyRulesValidationError{
+						field:  fmt.Sprintf("L7DenyRules[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, L7NetworkPolicyRulesValidationError{
+						field:  fmt.Sprintf("L7DenyRules[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return L7NetworkPolicyRulesValidationError{
 					field:  fmt.Sprintf("L7DenyRules[%v]", idx),
@@ -932,8 +1551,28 @@ func (m *L7NetworkPolicyRules) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return L7NetworkPolicyRulesMultiError(errors)
+	}
 	return nil
 }
+
+// L7NetworkPolicyRulesMultiError is an error wrapping multiple validation
+// errors returned by L7NetworkPolicyRules.ValidateAll() if the designated
+// constraints aren't met.
+type L7NetworkPolicyRulesMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m L7NetworkPolicyRulesMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m L7NetworkPolicyRulesMultiError) AllErrors() []error { return m }
 
 // L7NetworkPolicyRulesValidationError is the validation error returned by
 // L7NetworkPolicyRules.Validate if the designated constraints aren't met.
@@ -993,11 +1632,25 @@ var _ interface {
 
 // Validate checks the field values on L7NetworkPolicyRule with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *L7NetworkPolicyRule) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on L7NetworkPolicyRule with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// L7NetworkPolicyRuleMultiError, or nil if none found.
+func (m *L7NetworkPolicyRule) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *L7NetworkPolicyRule) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for Name
 
@@ -1006,7 +1659,26 @@ func (m *L7NetworkPolicyRule) Validate() error {
 	for idx, item := range m.GetMetadataRule() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, L7NetworkPolicyRuleValidationError{
+						field:  fmt.Sprintf("MetadataRule[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, L7NetworkPolicyRuleValidationError{
+						field:  fmt.Sprintf("MetadataRule[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return L7NetworkPolicyRuleValidationError{
 					field:  fmt.Sprintf("MetadataRule[%v]", idx),
@@ -1018,8 +1690,28 @@ func (m *L7NetworkPolicyRule) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return L7NetworkPolicyRuleMultiError(errors)
+	}
 	return nil
 }
+
+// L7NetworkPolicyRuleMultiError is an error wrapping multiple validation
+// errors returned by L7NetworkPolicyRule.ValidateAll() if the designated
+// constraints aren't met.
+type L7NetworkPolicyRuleMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m L7NetworkPolicyRuleMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m L7NetworkPolicyRuleMultiError) AllErrors() []error { return m }
 
 // L7NetworkPolicyRuleValidationError is the validation error returned by
 // L7NetworkPolicyRule.Validate if the designated constraints aren't met.

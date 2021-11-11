@@ -7,7 +7,7 @@
 package envoy_config_core_v3
 
 import (
-	_ "github.com/cncf/udpa/go/udpa/annotations"
+	_ "github.com/cncf/xds/go/udpa/annotations"
 	_ "github.com/envoyproxy/protoc-gen-validate/validate"
 	proto "github.com/golang/protobuf/proto"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -876,6 +876,8 @@ type GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin struct
 	unknownFields protoimpl.UnknownFields
 
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// [#extension-category: envoy.grpc_credentials]
+	//
 	// Types that are assignable to ConfigType:
 	//	*GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_TypedConfig
 	ConfigType isGrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_ConfigType `protobuf_oneof:"config_type"`

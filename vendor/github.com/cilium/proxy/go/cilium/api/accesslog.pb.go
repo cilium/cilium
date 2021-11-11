@@ -189,7 +189,7 @@ type HttpLogEntry struct {
 	Host   string `protobuf:"bytes,3,opt,name=host,proto3" json:"host,omitempty"`     // Envoy ":authority" header
 	Path   string `protobuf:"bytes,4,opt,name=path,proto3" json:"path,omitempty"`     // Envoy ":path" header
 	Method string `protobuf:"bytes,5,opt,name=method,proto3" json:"method,omitempty"` // Envoy ":method" header
-	// Request headers not included above
+	// Request or response headers not included above
 	Headers []*KeyValue `protobuf:"bytes,6,rep,name=headers,proto3" json:"headers,omitempty"`
 	// Response info
 	Status uint32 `protobuf:"varint,7,opt,name=status,proto3" json:"status,omitempty"` // Envoy ":status" header, zero for request

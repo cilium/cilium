@@ -7,7 +7,7 @@
 package envoy_config_core_v3
 
 import (
-	_ "github.com/cncf/udpa/go/udpa/annotations"
+	_ "github.com/cncf/xds/go/udpa/annotations"
 	_ "github.com/envoyproxy/protoc-gen-validate/validate"
 	proto "github.com/golang/protobuf/proto"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -591,7 +591,7 @@ type CidrRange struct {
 
 	// IPv4 or IPv6 address, e.g. ``192.0.0.0`` or ``2001:db8::``.
 	AddressPrefix string `protobuf:"bytes,1,opt,name=address_prefix,json=addressPrefix,proto3" json:"address_prefix,omitempty"`
-	// Length of prefix, e.g. 0, 32.
+	// Length of prefix, e.g. 0, 32. Defaults to 0 when unset.
 	PrefixLen *wrapperspb.UInt32Value `protobuf:"bytes,2,opt,name=prefix_len,json=prefixLen,proto3" json:"prefix_len,omitempty"`
 }
 
