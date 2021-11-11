@@ -25,14 +25,14 @@ import (
 )
 
 var (
-	// idMDMU protects the IdentityMetadata map.
+	// idMDMU protects the identityMetadata map.
 	//
 	// If this mutex will be held at the same time as the IPCache mutex,
 	// this mutex must be taken first and then take the IPCache mutex in
 	// order to prevent deadlocks.
 	idMDMU lock.RWMutex
-	// IdentityMetadata maps IP prefixes (x.x.x.x/32) to their labels.
-	IdentityMetadata = make(map[string]labels.Labels)
+	// identityMetadata maps IP prefixes (x.x.x.x/32) to their labels.
+	identityMetadata = make(map[string]labels.Labels)
 
 	// ErrLocalIdentityAllocatorUninitialized is an error that's returned when
 	// the local identity allocator is uninitialized.
@@ -40,17 +40,17 @@ var (
 )
 
 // UpsertMetadata upserts a given IP and its corresponding labels associated
-// with it into the IdentityMetadata map. The given labels are not modified nor
+// with it into the identityMetadata map. The given labels are not modified nor
 // is its reference saved, as they're copied when inserting into the map.
 func UpsertMetadata(prefix string, lbls labels.Labels) {
 	l := labels.NewLabelsFromModel(nil)
 	l.MergeLabels(lbls)
 
 	idMDMU.Lock()
-	if cur, ok := IdentityMetadata[prefix]; ok {
+	if cur, ok := identityMetadata[prefix]; ok {
 		l.MergeLabels(cur)
 	}
-	IdentityMetadata[prefix] = l
+	identityMetadata[prefix] = l
 	idMDMU.Unlock()
 }
 
@@ -60,10 +60,10 @@ func UpsertMetadata(prefix string, lbls labels.Labels) {
 func GetIDMetadataByIP(prefix string) labels.Labels {
 	idMDMU.RLock()
 	defer idMDMU.RUnlock()
-	return IdentityMetadata[prefix]
+	return identityMetadata[prefix]
 }
 
-// InjectLabels injects labels from the IdentityMetadata (IDMD) map into the
+// InjectLabels injects labels from the identityMetadata (IDMD) map into the
 // identities used for the prefixes in the IPCache. The given source is the
 // source of the caller, as inserting into the IPCache requires knowing where
 // this updated information comes from.
@@ -95,7 +95,7 @@ func InjectLabels(src source.Source, updater identityUpdater, triggerer policyTr
 	idMDMU.Lock()
 	defer idMDMU.Unlock()
 
-	for prefix, lbls := range IdentityMetadata {
+	for prefix, lbls := range identityMetadata {
 		id, isNew, err := injectLabels(prefix, lbls)
 		if err != nil {
 			return fmt.Errorf("failed to allocate new identity for IP %v: %w", prefix, err)
@@ -250,7 +250,7 @@ func injectLabelsForCIDR(p string, lbls labels.Labels) (*identity.Identity, bool
 	return allocate(cidr, allLbls)
 }
 
-// FilterMetadataByLabels returns all the prefixes inside the IdentityMetadata
+// FilterMetadataByLabels returns all the prefixes inside the identityMetadata
 // map which contain the given labels. Note that `filter` is a subset match,
 // not a full match.
 func FilterMetadataByLabels(filter labels.Labels) []string {
@@ -259,7 +259,7 @@ func FilterMetadataByLabels(filter labels.Labels) []string {
 
 	var matching []string
 	sortedFilter := filter.SortedList()
-	for prefix, lbls := range IdentityMetadata {
+	for prefix, lbls := range identityMetadata {
 		if bytes.Contains(lbls.SortedList(), sortedFilter) {
 			matching = append(matching, prefix)
 		}
@@ -334,14 +334,14 @@ func RemoveLabels(prefix string, lbls labels.Labels, src source.Source) labels.L
 	idMDMU.Lock()
 	defer idMDMU.Unlock()
 
-	l, ok := IdentityMetadata[prefix]
+	l, ok := identityMetadata[prefix]
 	if !ok {
 		return nil
 	}
 
 	l = l.Remove(lbls)
 	if len(l) != 0 { // Labels left over, do not deallocate
-		IdentityMetadata[prefix] = l
+		identityMetadata[prefix] = l
 		return l
 	}
 
@@ -349,7 +349,7 @@ func RemoveLabels(prefix string, lbls labels.Labels, src source.Source) labels.L
 
 	IPIdentityCache.Lock()
 	defer IPIdentityCache.Unlock()
-	delete(IdentityMetadata, prefix)
+	delete(identityMetadata, prefix)
 	id, exists := IPIdentityCache.LookupByIPRLocked(prefix)
 	if !exists {
 		return nil

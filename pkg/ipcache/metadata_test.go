@@ -21,14 +21,14 @@ import (
 func TestInjectLabels(t *testing.T) {
 	setupTest(t)
 
-	assert.Len(t, IdentityMetadata, 1)
+	assert.Len(t, identityMetadata, 1)
 	assert.NoError(t, InjectLabels(source.Local, &mockUpdater{}, &mockTriggerer{}))
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 1)
 
 	// Insert kube-apiserver IP from outside of the cluster. This should create
 	// a CIDR ID for this IP.
 	UpsertMetadata("10.0.0.4", labels.LabelKubeAPIServer)
-	assert.Len(t, IdentityMetadata, 2)
+	assert.Len(t, identityMetadata, 2)
 	assert.NoError(t, InjectLabels(source.Local, &mockUpdater{}, &mockTriggerer{}))
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 2)
 	assert.True(t, IPIdentityCache.ipToIdentityCache["10.0.0.4"].ID.HasLocalScope())
@@ -37,7 +37,7 @@ func TestInjectLabels(t *testing.T) {
 	// deallocated and the kube-apiserver reserved ID is associated with this
 	// IP now.
 	UpsertMetadata("10.0.0.4", labels.LabelRemoteNode)
-	assert.Len(t, IdentityMetadata, 2)
+	assert.Len(t, identityMetadata, 2)
 	assert.NoError(t, InjectLabels(source.Local, &mockUpdater{}, &mockTriggerer{}))
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 2)
 	assert.False(t, IPIdentityCache.ipToIdentityCache["10.0.0.4"].ID.HasLocalScope())
@@ -56,15 +56,15 @@ func TestFilterMetadataByLabels(t *testing.T) {
 func TestRemoveLabelsFromIPs(t *testing.T) {
 	setupTest(t)
 
-	assert.Len(t, IdentityMetadata, 1)
+	assert.Len(t, identityMetadata, 1)
 	assert.NoError(t, InjectLabels(source.Local, &mockUpdater{}, &mockTriggerer{}))
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 1)
 
 	RemoveLabelsFromIPs(map[string]labels.Labels{
 		"1.1.1.1": labels.LabelKubeAPIServer,
 	}, source.Local, &mockUpdater{}, &mockTriggerer{})
-	assert.Len(t, IdentityMetadata, 1)
-	assert.Equal(t, labels.LabelHost, IdentityMetadata["1.1.1.1"])
+	assert.Len(t, identityMetadata, 1)
+	assert.Equal(t, labels.LabelHost, identityMetadata["1.1.1.1"])
 }
 
 func setupTest(t *testing.T) {
@@ -72,7 +72,7 @@ func setupTest(t *testing.T) {
 	IPIdentityCache.k8sSyncedChecker = &mockK8sSyncedChecker{}
 
 	IdentityAllocator = testidentity.NewMockIdentityAllocator(nil)
-	IdentityMetadata = make(map[string]labels.Labels)
+	identityMetadata = make(map[string]labels.Labels)
 
 	UpsertMetadata("1.1.1.1", labels.LabelKubeAPIServer)
 	UpsertMetadata("1.1.1.1", labels.LabelHost)

@@ -524,7 +524,7 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 	)
 }
 
-// upsertIntoIDMD upserts the given CIDR into the ipcache.IdentityMetadata
+// upsertIntoIDMD upserts the given CIDR into the ipcache.identityMetadata
 // (IDMD) map. The given node identity determines which labels are associated
 // with the CIDR.
 func upsertIntoIDMD(prefix string, id identity.NumericIdentity) {
