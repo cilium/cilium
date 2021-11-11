@@ -13,6 +13,7 @@
 #include "lb.h"
 #include "common.h"
 #include "overloadable.h"
+#include "egress_policies.h"
 #include "eps.h"
 #include "conntrack.h"
 #include "csum.h"

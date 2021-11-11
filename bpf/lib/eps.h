@@ -62,13 +62,6 @@ lookup_ip4_endpoint_policy_map(__u32 ip)
 	      - sizeof(union v6addr)))
 #define IPCACHE_PREFIX_LEN(PREFIX) (IPCACHE_STATIC_PREFIX + (PREFIX))
 
-/* EGRESS_STATIC_PREFIX gets sizeof non-IP, non-prefix part of ipcache_key */
-#define EGRESS_STATIC_PREFIX							\
-	(8 * (sizeof(struct egress_key) - sizeof(struct bpf_lpm_trie_key)	\
-	      - 4))
-#define EGRESS_PREFIX_LEN(PREFIX) (EGRESS_STATIC_PREFIX + (PREFIX))
-#define EGRESS_IPV4_PREFIX EGRESS_PREFIX_LEN(32)
-
 #define V6_CACHE_KEY_LEN (sizeof(union v6addr)*8)
 
 static __always_inline __maybe_unused struct remote_endpoint_info *
@@ -137,21 +130,5 @@ LPM_LOOKUP_FN(lookup_ip4_remote_endpoint, __be32, IPCACHE4_PREFIXES,
 #define lookup_ip4_remote_endpoint(addr) \
 	ipcache_lookup4(&IPCACHE_MAP, addr, V4_CACHE_KEY_LEN)
 #endif /* HAVE_LPM_TRIE_MAP_TYPE */
-
-#ifdef ENABLE_EGRESS_GATEWAY
-static __always_inline __maybe_unused struct egress_info *
-egress_lookup4(struct bpf_elf_map *map, __be32 sip, __be32 dip)
-{
-	struct egress_key key = {
-		.lpm_key = { EGRESS_IPV4_PREFIX, {} },
-		.sip = sip,
-		.dip = dip,
-	};
-	return map_lookup_elem(map, &key);
-}
-
-#define lookup_ip4_egress_endpoint(sip, dip) \
-	egress_lookup4(&EGRESS_MAP, sip, dip)
-#endif /* ENABLE_EGRESS_GATEWAY */
 
 #endif /* __LIB_EPS_H_ */
