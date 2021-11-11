@@ -843,7 +843,7 @@ skip_egress_gateway:
 		key.family = ENDPOINT_KEY_IPV4;
 
 		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key,
-									 &key, SECLABEL, monitor);
+					     &key, SECLABEL, monitor);
 		if (ret == DROP_NO_TUNNEL_ENDPOINT)
 			goto pass_to_stack;
 		/* If not redirected noteably due to IPSEC then pass up to stack
