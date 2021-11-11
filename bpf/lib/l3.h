@@ -154,21 +154,17 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 }
 #endif /* SKIP_POLICY_MAP */
 
-static __always_inline __u8 get_encrypt_key(void)
+static __always_inline __u8 get_min_encrypt_key(__u8 peer_key __maybe_unused)
 {
+#ifdef ENABLE_IPSEC
+	__u8 local_key = 0;
 	__u32 encrypt_key = 0;
 	struct encrypt_config *cfg;
 
 	cfg = map_lookup_elem(&ENCRYPT_MAP, &encrypt_key);
 	/* Having no key info for a context is the same as no encryption */
-	if (!cfg)
-		return 0;
-	return cfg->encrypt_key;
-}
-
-static __always_inline __u8 get_min_encrypt_key(__u8 peer_key)
-{
-	__u8 local_key = get_encrypt_key();
+	if (cfg)
+		local_key = cfg->encrypt_key;
 
 	/* If both ends can encrypt/decrypt use smaller of the two this
 	 * way both ends will have keys installed assuming key IDs are
@@ -183,6 +179,9 @@ static __always_inline __u8 get_min_encrypt_key(__u8 peer_key)
 	if (local_key == MAX_KEY_INDEX)
 		return peer_key == 1 ? local_key : peer_key;
 	return local_key < peer_key ? local_key : peer_key;
+#else
+	return 0;
+#endif /* ENABLE_IPSEC */
 }
 
 #endif
