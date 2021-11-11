@@ -385,7 +385,9 @@ type nodeUpdater interface {
 }
 
 type crdWatcher struct {
-	mutex           *lock.Mutex
+	mutex *lock.Mutex
+	conf  Configuration
+
 	ipv4Pool        *podCIDRPool
 	ipv6Pool        *podCIDRPool
 	ipv4PoolUpdated *sync.Cond
@@ -403,7 +405,7 @@ type crdWatcher struct {
 var crdWatcherInit sync.Once
 var sharedCRDWatcher *crdWatcher
 
-func newCRDWatcher(k8sEventReg K8sEventRegister, owner Owner, localNodeInformer localNodeInformer, nodeUpdater nodeUpdater) *crdWatcher {
+func newCRDWatcher(conf Configuration, k8sEventReg K8sEventRegister, owner Owner, localNodeInformer localNodeInformer, nodeUpdater nodeUpdater) *crdWatcher {
 	k8sController := controller.NewManager()
 	k8sUpdater, err := trigger.NewTrigger(trigger.Parameters{
 		MinInterval: 15 * time.Second,
@@ -420,6 +422,7 @@ func newCRDWatcher(k8sEventReg K8sEventRegister, owner Owner, localNodeInformer 
 	mutex := &lock.Mutex{}
 	c := &crdWatcher{
 		mutex:           mutex,
+		conf:            conf,
 		ipv4Pool:        nil,
 		ipv6Pool:        nil,
 		ipv4PoolUpdated: sync.NewCond(mutex),
@@ -458,8 +461,12 @@ func (c *crdWatcher) localNodeUpdated(newNode *ciliumv2.CiliumNode) {
 		allocationThreshold := newNode.Spec.IPAM.PodCIDRAllocationThreshold
 		releaseThreshold := newNode.Spec.IPAM.PodCIDRReleaseThreshold
 
-		c.ipv4Pool = newPodCIDRPool(allocationThreshold, releaseThreshold, releasedIPv4PodCIDRs)
-		c.ipv6Pool = newPodCIDRPool(allocationThreshold, releaseThreshold, releasedIPv6PodCIDRs)
+		if c.conf.IPv4Enabled() {
+			c.ipv4Pool = newPodCIDRPool(allocationThreshold, releaseThreshold, releasedIPv4PodCIDRs)
+		}
+		if c.conf.IPv6Enabled() {
+			c.ipv6Pool = newPodCIDRPool(allocationThreshold, releaseThreshold, releasedIPv6PodCIDRs)
+		}
 	}
 
 	// updatePool requires that the order of pod CIDRs is maintained
@@ -473,11 +480,14 @@ func (c *crdWatcher) localNodeUpdated(newNode *ciliumv2.CiliumNode) {
 		}
 	}
 
-	c.ipv4Pool.updatePool(ipv4PodCIDRs)
-	c.ipv4PoolUpdated.Broadcast()
-
-	c.ipv6Pool.updatePool(ipv6PodCIDRs)
-	c.ipv6PoolUpdated.Broadcast()
+	if c.conf.IPv4Enabled() {
+		c.ipv4Pool.updatePool(ipv4PodCIDRs)
+		c.ipv4PoolUpdated.Broadcast()
+	}
+	if c.conf.IPv6Enabled() {
+		c.ipv6Pool.updatePool(ipv6PodCIDRs)
+		c.ipv6PoolUpdated.Broadcast()
+	}
 
 	c.node = newNode
 }
@@ -487,8 +497,11 @@ func (c *crdWatcher) localNodeDeleted() {
 }
 
 func (c *crdWatcher) updateCiliumNodeStatus(ctx context.Context) error {
+	var ipv4Pool, ipv6Pool *podCIDRPool
 	c.mutex.Lock()
 	node := c.node.DeepCopy()
+	ipv4Pool = c.ipv4Pool
+	ipv6Pool = c.ipv6Pool
 	c.mutex.Unlock()
 
 	if node == nil {
@@ -497,11 +510,15 @@ func (c *crdWatcher) updateCiliumNodeStatus(ctx context.Context) error {
 
 	oldStatus := node.Status.IPAM.DeepCopy()
 	node.Status.IPAM.UsedPodCIDRs = types.UsedPodCIDRMap{}
-	for podCIDR, status := range c.ipv4Pool.status() {
-		node.Status.IPAM.UsedPodCIDRs[podCIDR] = status
+	if ipv4Pool != nil {
+		for podCIDR, status := range c.ipv4Pool.status() {
+			node.Status.IPAM.UsedPodCIDRs[podCIDR] = status
+		}
 	}
-	for podCIDR, status := range c.ipv6Pool.status() {
-		node.Status.IPAM.UsedPodCIDRs[podCIDR] = status
+	if ipv6Pool != nil {
+		for podCIDR, status := range c.ipv6Pool.status() {
+			node.Status.IPAM.UsedPodCIDRs[podCIDR] = status
+		}
 	}
 
 	if oldStatus.DeepEqual(&node.Status.IPAM) {
@@ -541,15 +558,19 @@ func (c *crdWatcher) waitForPool(family Family) <-chan *podCIDRPool {
 		c.mutex.Lock()
 		switch family {
 		case IPv4:
-			for c.ipv4Pool == nil || !c.ipv4Pool.hasAvailableIPs() {
-				c.ipv4PoolUpdated.Wait()
+			if c.conf.IPv4Enabled() {
+				for c.ipv4Pool == nil || !c.ipv4Pool.hasAvailableIPs() {
+					c.ipv4PoolUpdated.Wait()
+				}
+				pool = c.ipv4Pool
 			}
-			pool = c.ipv4Pool
 		case IPv6:
-			for c.ipv6Pool == nil || !c.ipv6Pool.hasAvailableIPs() {
-				c.ipv6PoolUpdated.Wait()
+			if c.conf.IPv6Enabled() {
+				for c.ipv6Pool == nil || !c.ipv6Pool.hasAvailableIPs() {
+					c.ipv6PoolUpdated.Wait()
+				}
+				pool = c.ipv6Pool
 			}
-			pool = c.ipv6Pool
 		}
 		c.mutex.Unlock()
 		ch <- pool
@@ -561,11 +582,11 @@ type clusterPoolAllocator struct {
 	pool *podCIDRPool
 }
 
-func newClusterPoolAllocator(family Family, owner Owner, k8sEventReg K8sEventRegister) Allocator {
+func newClusterPoolAllocator(family Family, conf Configuration, owner Owner, k8sEventReg K8sEventRegister) Allocator {
 	crdWatcherInit.Do(func() {
 		nodeClient := k8s.CiliumClient().CiliumV2().CiliumNodes()
 		nodeInformer := &defaultNodeInformer{}
-		sharedCRDWatcher = newCRDWatcher(k8sEventReg, owner, nodeInformer, nodeClient)
+		sharedCRDWatcher = newCRDWatcher(conf, k8sEventReg, owner, nodeInformer, nodeClient)
 	})
 
 	var pool *podCIDRPool
