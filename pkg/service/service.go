@@ -485,24 +485,11 @@ func (s *Service) RestoreServices() error {
 		return err
 	}
 
-	// Remove no longer existing affinity matches
-	if option.Config.EnableSessionAffinity {
-		if err := s.deleteOrphanAffinityMatchesLocked(); err != nil {
-			return err
-		}
-	}
-
 	// Remove LB source ranges for no longer existing services
 	if option.Config.EnableSVCSourceRangeCheck {
 		if err := s.restoreAndDeleteOrphanSourceRanges(); err != nil {
 			return err
 		}
-	}
-
-	// Remove obsolete backends and release their IDs
-	if err := s.deleteOrphanBackends(); err != nil {
-		log.WithError(err).Warn("Failed to remove orphan backends")
-
 	}
 
 	return nil
@@ -600,6 +587,19 @@ func (s *Service) SyncWithK8sFinished() error {
 				return fmt.Errorf("Unable to remove service %+v: %s", svc, err)
 			}
 		}
+	}
+
+	// Remove no longer existing affinity matches
+	if option.Config.EnableSessionAffinity {
+		if err := s.deleteOrphanAffinityMatchesLocked(); err != nil {
+			return err
+		}
+	}
+
+	// Remove obsolete backends and release their IDs
+	if err := s.deleteOrphanBackends(); err != nil {
+		log.WithError(err).Warn("Failed to remove orphan backends")
+
 	}
 
 	return nil
