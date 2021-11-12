@@ -287,12 +287,6 @@ func (m *ManagerTestSuite) TestRestoreServices(c *C) {
 	m.svc = NewService(nil)
 	m.svc.lbmap = lbmap
 
-	// Add non-existing affinity matches
-	lbmap.AddAffinityMatch(20, 300)
-	lbmap.AddAffinityMatch(20, 301)
-	lbmap.AddAffinityMatch(uint16(id1), 302)
-	lbmap.AddAffinityMatch(uint16(id2), 305)
-
 	// Restore services from lbmap
 	err = m.svc.RestoreServices()
 	c.Assert(err, IsNil)
@@ -333,15 +327,6 @@ func (m *ManagerTestSuite) TestRestoreServices(c *C) {
 	// Maglev lookup table too
 	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, len(backends1))
 	c.Assert(m.lbmap.DummyMaglevTable[uint16(id2)], Equals, len(backends2))
-
-	// Check that the non-existing affinity matches were removed
-	matches, _ := lbmap.DumpAffinityMatches()
-	c.Assert(len(matches), Equals, 1) // only the id2 svc has session affinity
-	c.Assert(len(matches[uint16(id2)]), Equals, 2)
-	for _, b := range lbmap.ServiceByID[uint16(id2)].Backends {
-		c.Assert(m.lbmap.AffinityMatch[uint16(id1)][b.ID], Equals, struct{}{})
-	}
-
 }
 
 func (m *ManagerTestSuite) TestSyncWithK8sFinished(c *C) {
@@ -379,22 +364,40 @@ func (m *ManagerTestSuite) TestSyncWithK8sFinished(c *C) {
 	// Imitate a situation where svc1 was deleted while we were down.
 	// In real life, the following upsert is called by k8s_watcher during
 	// the sync period of the cilium-agent's k8s service cache which happens
-	// during the initialization of cilium-agent.
+	// during the initialization of cilium-agent. P2 svc updated affinity is synced.
+	p2.SessionAffinity = true
+	p2.SessionAffinityTimeoutSec = 100
 	_, id2, err := m.svc.UpsertService(p2)
 	c.Assert(err, IsNil)
+
+	// Add non-existing affinity matches
+	lbmap.AddAffinityMatch(20, 300)
+	lbmap.AddAffinityMatch(20, 301)
+	lbmap.AddAffinityMatch(uint16(id1), 302)
+	lbmap.AddAffinityMatch(uint16(id2), 305)
 
 	// cilium-agent finished the initialization, and thus SyncWithK8sFinished
 	// is called
 	err = m.svc.SyncWithK8sFinished()
 	c.Assert(err, IsNil)
 
-	// svc1 should be removed from cilium
+	// svc1 should be removed from cilium while svc2 is synced
 	c.Assert(len(m.svc.svcByID), Equals, 1)
 	_, found := m.svc.svcByID[id2]
 	c.Assert(found, Equals, true)
+	_, found = m.svc.svcByID[id1]
+	c.Assert(found, Equals, false)
 	c.Assert(m.svc.svcByID[id2].svcName, Equals, "svc2")
 	c.Assert(m.svc.svcByID[id2].svcNamespace, Equals, "ns2")
-	c.Assert(len(m.lbmap.AffinityMatch), Equals, 0)
+	c.Assert(len(m.lbmap.AffinityMatch), Equals, 1)
+	// Check that the non-existing affinity matches were removed
+	matches, _ := lbmap.DumpAffinityMatches()
+	c.Assert(len(matches), Equals, 1) // id2 svc has updated session affinity
+	c.Assert(len(matches[uint16(id2)]), Equals, 2)
+	for _, b := range lbmap.ServiceByID[uint16(id2)].Backends {
+		c.Assert(m.lbmap.AffinityMatch[uint16(id2)][b.ID], Equals, struct{}{})
+	}
+
 }
 
 func (m *ManagerTestSuite) TestHealthCheckNodePort(c *C) {
