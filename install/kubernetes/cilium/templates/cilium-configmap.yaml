@@ -14,6 +14,7 @@
 {{- $fragmentTracking := "true" -}}
 {{- $crdWaitTimeout := "5m" -}}
 {{- $defaultKubeProxyReplacement := "probe" -}}
+{{- $defaultEnableCiliumEndpointSlice := "false" -}}
 
 {{- /* Default values when 1.8 was initially deployed */ -}}
 {{- if semverCompare ">=1.8" (default "1.8" .Values.upgradeCompatibility) -}}
@@ -35,6 +36,11 @@
 {{- /* Default values when 1.10 was initially deployed */ -}}
 {{- if semverCompare ">=1.10" (default "1.10" .Values.upgradeCompatibility) -}}
 {{- $defaultKubeProxyReplacement = "disabled" -}}
+{{- end -}}
+
+{{- /* Default values when 1.11 was initially deployed */ -}}
+{{- if semverCompare ">=1.11" (default "1.11" .Values.upgradeCompatibility) -}}
+{{- $defaultEnableCiliumEndpointSlice = "true" -}}
 {{- end -}}
 
 {{- $ipam := (coalesce .Values.ipam.mode $defaultIPAM) -}}
@@ -771,7 +777,7 @@ data:
   vlan-bpf-bypass: {{ .Values.bpf.vlanBypass | join " " | quote }}
 {{- end }}
 
-{{- if .Values.enableCiliumEndpointSlice }}
+{{- if or .Values.enableCiliumEndpointSlice (eq $defaultEnableCiliumEndpointSlice "true") }}
   enable-cilium-endpoint-slice: "true"
 {{- end }}
 

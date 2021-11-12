@@ -2412,6 +2412,9 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 
 	if CiliumEndpointSliceFeatureEnabled() {
 		options["enableCiliumEndpointSlice"] = "true"
+	} else {
+		// Explicitly unset here because we enable CES in helm from 1.11+
+		options["enableCiliumEndpointSlice"] = "false"
 	}
 	return nil
 }
