@@ -1339,7 +1339,7 @@ func (m *IptablesManager) installRules(ifName string) error {
 			return err
 		}
 
-		if option.Config.EnableIPv4Masquerade && !option.Config.EnableBPFMasquerade {
+		if option.Config.IptablesMasqueradingIPv4Enabled() {
 			if err := m.installMasqueradeRules(ip4tables, ifName, localDeliveryInterface,
 				datapath.RemoteSNATDstAddrExclusionCIDRv4().String(),
 				node.GetIPv4AllocRange().String(),
@@ -1355,7 +1355,7 @@ func (m *IptablesManager) installRules(ifName string) error {
 			return err
 		}
 
-		if option.Config.EnableIPv6Masquerade && !option.Config.EnableBPFMasquerade {
+		if option.Config.IptablesMasqueradingIPv6Enabled() {
 			if err := m.installMasqueradeRules(ip6tables, ifName, localDeliveryInterface,
 				datapath.RemoteSNATDstAddrExclusionCIDRv6().String(),
 				node.GetIPv6AllocRange().String(),
