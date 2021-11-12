@@ -6,34 +6,38 @@
 
 #include "lib/identity.h"
 
-#ifdef ENABLE_EGRESS_GATEWAY
+#if defined(ENABLE_EGRESS_GATEWAY) || defined(ENABLE_SRV6)
 /* is_cluster_destination returns true if the given destination is part of the
  * cluster. It uses the ipcache and endpoint maps information.
+ * We check three cases:
+ *  - Remote endpoints (non-zero tunnel endpoint field in ipcache)
+ *  - Cilium-managed node (remote or local)
+ *  - Local endpoint (present in endpoint map)
+ * Everything else is outside the cluster.
  */
-static __always_inline bool
-is_cluster_destination(struct iphdr *ip4, __u32 dst_id, __u32 tunnel_endpoint)
-{
-	/* If tunnel endpoint is found in ipcache, it means the remote endpoint
-	 * is in cluster.
-	 */
-	if (tunnel_endpoint != 0)
-		return true;
-
-	/* If the destination is a Cilium-managed node (remote or local), it's
-	 * part of the cluster.
-	 */
-	if (identity_is_node(dst_id))
-		return true;
-
-	/* Use the endpoint map to know if the destination is a local endpoint.
-	 */
-	if (lookup_ip4_endpoint(ip4))
-		return true;
-
-	/* Everything else is outside the cluster. */
-	return false;
+# define IS_CLUSTER_DESTINATION(NAME, TYPE, LOOKUP_FN)	\
+static __always_inline bool				\
+NAME(TYPE ip, __u32 dst_id, __u32 tunnel_endpoint)	\
+{							\
+	if (tunnel_endpoint != 0)			\
+		return true;				\
+							\
+	if (identity_is_node(dst_id))			\
+		return true;				\
+							\
+	if (LOOKUP_FN(ip))				\
+		return true;				\
+							\
+	return false;					\
 }
 
+# ifdef ENABLE_IPV4
+IS_CLUSTER_DESTINATION(is_cluster_destination4, struct iphdr *, lookup_ip4_endpoint)
+# endif /* ENABLE_IPV4 */
+IS_CLUSTER_DESTINATION(is_cluster_destination6, struct ipv6hdr *, lookup_ip6_endpoint)
+#endif /* ENABLE_EGRESS_GATEWAY || ENABLE_SRV6 */
+
+#ifdef ENABLE_EGRESS_GATEWAY
 /* EGRESS_STATIC_PREFIX gets sizeof non-IP, non-prefix part of egress_key */
 # define EGRESS_STATIC_PREFIX							\
 	(8 * (sizeof(struct egress_key) - sizeof(struct bpf_lpm_trie_key)	\

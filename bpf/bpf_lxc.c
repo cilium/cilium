@@ -796,7 +796,7 @@ ct_recreate4:
 		struct egress_info *info;
 		struct endpoint_key key = {};
 
-		if (is_cluster_destination(ip4, *dst_id, tunnel_endpoint))
+		if (is_cluster_destination4(ip4, *dst_id, tunnel_endpoint))
 			goto skip_egress_gateway;
 
 		info = lookup_ip4_egress_endpoint(ip4->saddr, ip4->daddr);
