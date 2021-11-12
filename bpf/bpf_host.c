@@ -55,6 +55,7 @@
 #include "lib/nodeport.h"
 #include "lib/eps.h"
 #include "lib/host_firewall.h"
+#include "lib/egress_policies.h"
 #include "lib/overloadable.h"
 #include "lib/encrypt.h"
 
@@ -1037,6 +1038,80 @@ handle_netdev(struct __ctx_buff *ctx, const bool from_host)
 	return do_netdev(ctx, proto, from_host);
 }
 
+#ifdef ENABLE_SRV6
+static __always_inline
+handle_srv6(struct __ctx_buff *ctx)
+{
+	__u32 *vrf_id, dst_id, tunnel_ep = 0;
+	struct iphdr *ip4 __maybe_unused;
+	struct remote_endpoint_info *ep;
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+	union v6addr *sid;
+	__u16 proto;
+
+	if (!validate_ethertype(ctx, &proto))
+		return DROP_UNSUPPORTED_L2;
+
+	switch (proto) {
+	case bpf_htons(ETH_P_IPV6):
+		if (!revalidate_data(ctx, &data, &data_end, &ip6))
+			return DROP_INVALID;
+
+		ep = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr);
+		if (ep) {
+			tunnel_ep = ep->tunnel_endpoint;
+			dst_id = ep->sec_label;
+		} else {
+			dst_id = WORLD_ID;
+		}
+
+		if (identity_is_cluster(dst_id))
+			return CTX_ACT_OK;
+
+		vrf_id = srv6_lookup_vrf6(&ip6->saddr, &ip6->daddr);
+		if (!vrf_id)
+			return CTX_ACT_OK;
+
+		sid = srv6_lookup_policy6(*vrf_id, &ip6->daddr);
+		if (!sid)
+			return CTX_ACT_OK;
+
+		/* TODO: Implement SRv6 encapsulation. */
+		break;
+# ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP):
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return DROP_INVALID;
+
+		ep = lookup_ip4_remote_endpoint(ip4->daddr);
+		if (ep) {
+			tunnel_ep = ep->tunnel_endpoint;
+			dst_id = ep->sec_label;
+		} else {
+			dst_id = WORLD_ID;
+		}
+
+		if (identity_is_cluster(dst_id))
+			return CTX_ACT_OK;
+
+		vrf_id = srv6_lookup_vrf4(ip4->saddr, ip4->daddr);
+		if (!vrf_id)
+			return CTX_ACT_OK;
+
+		sid = srv6_lookup_policy4(*vrf_id, ip4->daddr);
+		if (!sid)
+			return CTX_ACT_OK;
+
+		/* TODO: Implement SRv6 encapsulation. */
+		break;
+# endif
+	}
+
+	return CTX_ACT_OK;
+}
+#endif /* ENABLE_SRV6 */
+
 /*
  * from-netdev is attached as a tc ingress filter to one or more physical devices
  * managed by Cilium (e.g., eth0). This program is only attached when:
@@ -1167,6 +1242,13 @@ out:
 		return ret;
 	}
 #endif
+
+#ifdef ENABLE_SRV6
+	ret = handle_srv6(ctx);
+	if (ret != CTX_ACT_OK)
+		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
+					      METRIC_EGRESS);
+#endif /* ENABLE_SRV6 */
 
 #if defined(ENABLE_NODEPORT) && \
 	(!defined(ENABLE_DSR) || \
