@@ -1014,6 +1014,7 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	_, ipnet, err := net.ParseCIDR("f00d::/96")
 	ip0 := net.ParseIP("f00d::249")
 	ip1 := net.ParseIP("f00d::250")
+	ipG := net.ParseIP("f00d::251")
 	ipnet.IP = ip0
 	addr := &netlink.Addr{IPNet: ipnet}
 	err = netlink.AddrAdd(veth0, addr)
@@ -1030,6 +1031,10 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandling(c *check.C) {
 		veth1, err := netlink.LinkByName("veth1")
 		c.Assert(err, check.IsNil)
 		ipnet.IP = ip1
+		addr = &netlink.Addr{IPNet: ipnet}
+		netlink.AddrAdd(veth1, addr)
+		c.Assert(err, check.IsNil)
+		ipnet.IP = ipG
 		addr = &netlink.Addr{IPNet: ipnet}
 		netlink.AddrAdd(veth1, addr)
 		c.Assert(err, check.IsNil)
@@ -1500,6 +1505,193 @@ refetch5:
 		}
 	}
 	c.Assert(found, check.Equals, false)
+
+	// Setup routine for the 3. test
+	setupNewGateway := func(vethCIDR, gwIP string) (errRet error) {
+		ipGw := net.ParseIP(gwIP)
+		ip, ipnet, err := net.ParseCIDR(vethCIDR)
+		if err != nil {
+			errRet = err
+			return
+		}
+		ipnet.IP = ip
+		route := &netlink.Route{
+			Dst: ipnet,
+			Gw:  ipGw,
+		}
+		errRet = netlink.RouteReplace(route)
+		return
+	}
+
+	// In the last test, we add node 2,3 again, and then change the nextHop
+	// address to check the refcount behavior, and that the old one was
+	// deleted from the neighbor table as well as the new one added.
+	now = time.Now()
+	c.Assert(linuxNodeHandler.NodeAdd(nodev2), check.IsNil)
+	wait(nodev2.Identity(), &now, false)
+
+	now = time.Now()
+	c.Assert(linuxNodeHandler.NodeAdd(nodev3), check.IsNil)
+	wait(nodev3.Identity(), &now, false)
+
+	nextHop = net.ParseIP("f00d::250")
+refetch6:
+	// Check that both node{2,3} are via nextHop (gw)
+	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V6)
+	c.Assert(err, check.IsNil)
+	found = false
+	for _, n := range neighs {
+		if n.IP.Equal(nextHop) {
+			good, retry := neighStateOk(n)
+			if good {
+				found = true
+				break
+			}
+			if retry {
+				goto refetch6
+			}
+		} else if n.IP.Equal(node2IP) || n.IP.Equal(node3IP) {
+			c.ExpectFailure("node{2,3} should not be in the same L2")
+		}
+	}
+	c.Assert(found, check.Equals, true)
+
+	// Switch to new nextHop address for node2
+	err = setupNewGateway("f00a::/96", "f00d::251")
+	c.Assert(err, check.IsNil)
+
+	// waitGw waits for the nextHop to appear in the agent's nextHop table
+	waitGw := func(nextHopNew string, nodeID nodeTypes.Identity, before *time.Time) {
+		err := testutils.WaitUntil(func() bool {
+			linuxNodeHandler.neighLock.Lock()
+			defer linuxNodeHandler.neighLock.Unlock()
+			nextHop, found := linuxNodeHandler.neighNextHopByNode6[nodeID]
+			if !found {
+				return false
+			}
+			if nextHop != nextHopNew {
+				return false
+			}
+			lastPing, found := linuxNodeHandler.neighLastPingByNextHop[nextHop]
+			if !found {
+				return false
+			}
+			return before.Before(lastPing)
+		}, 5*time.Second)
+		c.Assert(err, check.IsNil)
+	}
+
+	// insertNeighbor is invoked async, so thus this wait based on last ping
+	now = time.Now()
+	linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev2)
+	linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev3)
+	waitGw("f00d::251", nodev2.Identity(), &now)
+	waitGw("f00d::250", nodev3.Identity(), &now)
+
+	// Both nextHops now need to be present
+	nextHop = net.ParseIP("f00d::250")
+refetch7:
+	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V6)
+	c.Assert(err, check.IsNil)
+	found = false
+	for _, n := range neighs {
+		if n.IP.Equal(nextHop) {
+			good, retry := neighStateOk(n)
+			if good {
+				found = true
+				break
+			}
+			if retry {
+				goto refetch7
+			}
+		} else if n.IP.Equal(node2IP) || n.IP.Equal(node3IP) {
+			c.ExpectFailure("node{2,3} should not be in the same L2")
+		}
+	}
+	c.Assert(found, check.Equals, true)
+
+	nextHop = net.ParseIP("f00d::251")
+refetch8:
+	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V6)
+	c.Assert(err, check.IsNil)
+	found = false
+	for _, n := range neighs {
+		if n.IP.Equal(nextHop) {
+			good, retry := neighStateOk(n)
+			if good {
+				found = true
+				break
+			}
+			if retry {
+				goto refetch8
+			}
+		} else if n.IP.Equal(node2IP) || n.IP.Equal(node3IP) {
+			c.ExpectFailure("node{2,3} should not be in the same L2")
+		}
+	}
+	c.Assert(found, check.Equals, true)
+
+	// Now also switch over the other node.
+	err = setupNewGateway("f00b::/96", "f00d::251")
+	c.Assert(err, check.IsNil)
+
+	// insertNeighbor is invoked async, so thus this wait based on last ping
+	now = time.Now()
+	linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev2)
+	linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev3)
+	waitGw("f00d::251", nodev2.Identity(), &now)
+	waitGw("f00d::251", nodev3.Identity(), &now)
+
+	nextHop = net.ParseIP("f00d::250")
+refetch9:
+	// Check that old nextHop address got removed
+	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V6)
+	c.Assert(err, check.IsNil)
+	found = false
+	for _, n := range neighs {
+		if n.IP.Equal(nextHop) {
+			good, retry := neighStateOk(n)
+			if good {
+				found = true
+				break
+			}
+			if retry {
+				goto refetch9
+			}
+		} else if n.IP.Equal(node2IP) || n.IP.Equal(node3IP) {
+			c.ExpectFailure("node{2,3} should not be in the same L2")
+		}
+	}
+	c.Assert(found, check.Equals, false)
+
+	nextHop = net.ParseIP("f00d::251")
+refetch10:
+	// Check that new nextHop address got added
+	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V6)
+	c.Assert(err, check.IsNil)
+	found = false
+	for _, n := range neighs {
+		if n.IP.Equal(nextHop) {
+			good, retry := neighStateOk(n)
+			if good {
+				found = true
+				break
+			}
+			if retry {
+				goto refetch10
+			}
+		} else if n.IP.Equal(node2IP) || n.IP.Equal(node3IP) {
+			c.ExpectFailure("node{2,3} should not be in the same L2")
+		}
+	}
+	c.Assert(found, check.Equals, true)
+
+	c.Assert(linuxNodeHandler.NodeDelete(nodev3), check.IsNil)
+	wait(nodev3.Identity(), nil, true)
+	c.Assert(linuxNodeHandler.NodeDelete(nodev2), check.IsNil)
+	wait(nodev2.Identity(), nil, true)
+
+	linuxNodeHandler.NodeCleanNeighbors(false)
 }
 
 func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
