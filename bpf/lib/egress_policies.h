@@ -59,4 +59,52 @@ egress_lookup4(const void *map, __be32 sip, __be32 dip)
 # define lookup_ip4_egress_endpoint(sip, dip) \
 	egress_lookup4(&EGRESS_MAP, sip, dip)
 #endif /* ENABLE_EGRESS_GATEWAY */
+
+#ifdef ENABLE_SRV6
+# ifdef ENABLE_IPV4
+
+/* SRV6_STATIC_PREFIX4 gets sizeof non-IP, non-prefix part of srv6_key4 */
+#  define SRV6_STATIC_PREFIX4							\
+	(8 * (sizeof(struct srv6_key4) - sizeof(struct bpf_lpm_trie_key)	\
+	      - 4))
+#  define SRV6_PREFIX4_LEN(PREFIX) (SRV6_STATIC_PREFIX4 + (PREFIX))
+#  define SRV6_IPV4_PREFIX SRV6_PREFIX4_LEN(32)
+static __always_inline __maybe_unused union v6addr *
+srv6_lookup4(const void *map, __be32 sip, __be32 dip)
+{
+	struct srv6_key4 key = {
+		.lpm = { SRV6_IPV4_PREFIX, {} },
+		.src_ip = sip,
+		.dst_cidr = dip,
+	};
+	return map_lookup_elem(map, &key);
+}
+
+#  define lookup_ip4_srv6(sip, dip) \
+	srv6_lookup4(&SRV6_MAP4, sip, dip)
+# endif /* ENABLE_IPV4 */
+
+/* SRV6_STATIC_PREFIX6 gets sizeof non-IP, non-prefix part of srv6_key6 */
+# define SRV6_STATIC_PREFIX6							\
+	(8 * (sizeof(struct srv6_key6) - sizeof(struct bpf_lpm_trie_key)	\
+	      - 4))
+# define SRV6_PREFIX6_LEN(PREFIX) (SRV6_STATIC_PREFIX6 + (PREFIX))
+# define SRV6_IPV6_PREFIX SRV6_PREFIX6_LEN(128)
+
+static __always_inline __maybe_unused union v6addr *
+srv6_lookup6(const void *map, const union v6addr *sip,
+	     const union v6addr *dip)
+{
+	struct srv6_key6 key = {
+		.lpm = { SRV6_IPV6_PREFIX, {} },
+		.src_ip = *sip,
+		.dst_cidr = *dip,
+	};
+	return map_lookup_elem(map, &key);
+}
+
+# define lookup_ip6_srv6(sip, dip) \
+	srv6_lookup6(&SRV6_MAP6, (union v6addr *)sip, (union v6addr *)dip)
+
+#endif /* ENABLE_SRV6 */
 #endif /* __LIB_EGRESS_POLICIES_H_ */
