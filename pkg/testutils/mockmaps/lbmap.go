@@ -45,8 +45,8 @@ func (m *LBMockMap) UpsertService(p *lbmap.UpsertServiceParams) error {
 		frontend := lb.NewL3n4AddrID(lb.NONE, p.IP, p.Port, p.Scope, lb.ID(p.ID))
 		svc = &lb.SVC{Frontend: *frontend}
 	} else {
-		if p.PrevBackendCount != len(svc.Backends) {
-			return fmt.Errorf("Invalid backends count: %d vs %d", p.PrevBackendCount, len(svc.Backends))
+		if p.PrevActiveBackendCount != len(svc.Backends) {
+			return fmt.Errorf("Invalid backends count: %d vs %d", p.PrevActiveBackendCount, len(svc.Backends))
 		}
 	}
 	svc.Backends = backendsList

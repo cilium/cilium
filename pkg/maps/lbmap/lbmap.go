@@ -56,7 +56,7 @@ type UpsertServiceParams struct {
 	IP                        net.IP
 	Port                      uint16
 	Backends                  map[string]loadbalancer.BackendID
-	PrevBackendCount          int
+	PrevActiveBackendCount    int
 	IPv6                      bool
 	Type                      loadbalancer.SVCType
 	Local                     bool
@@ -72,8 +72,9 @@ type UpsertServiceParams struct {
 // The corresponding backend entries (identified with the given backendIDs)
 // have to exist before calling the function.
 //
-// The given prevBackendCount denotes a previous service backend entries count,
-// so that the function can remove obsolete ones.
+// The service's prevActiveBackendCount denotes the count of previously active
+// backend entries that were added to the BPF map so that the function can remove
+// obsolete ones.
 func (lbmap *LBBPFMap) UpsertService(p *UpsertServiceParams) error {
 	var svcKey ServiceKey
 
@@ -136,7 +137,7 @@ func (lbmap *LBBPFMap) UpsertService(p *UpsertServiceParams) error {
 		return fmt.Errorf("Unable to update service %+v: %s", svcKey, err)
 	}
 
-	for i := slot; i <= p.PrevBackendCount; i++ {
+	for i := slot; i <= p.PrevActiveBackendCount; i++ {
 		svcKey.SetBackendSlot(i)
 		if err := deleteServiceLocked(svcKey); err != nil {
 			log.WithFields(logrus.Fields{
