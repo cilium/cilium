@@ -552,8 +552,7 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) error {
 		case option.Config.EnableIPSec:
 			msg = fmt.Sprintf("BPF host routing is incompatible with %s.", option.EnableIPSecName)
 		// Non-BPF masquerade requires netfilter and hence CT.
-		case (option.Config.EnableIPv4Masquerade || option.Config.EnableIPv6Masquerade) &&
-			!option.Config.EnableBPFMasquerade:
+		case option.Config.IptablesMasqueradingEnabled():
 			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableBPFMasquerade)
 		// All cases below still need to be implemented ...
 		case option.Config.EnableEndpointRoutes:

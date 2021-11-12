@@ -2180,6 +2180,24 @@ func (c *DaemonConfig) TunnelingEnabled() bool {
 	return c.Tunnel != TunnelDisabled
 }
 
+// IptablesMasqueradingIPv4Enabled returns true if iptables-based
+// masquerading is enabled for IPv4.
+func (c *DaemonConfig) IptablesMasqueradingIPv4Enabled() bool {
+	return !c.EnableBPFMasquerade && c.EnableIPv4Masquerade
+}
+
+// IptablesMasqueradingIPv6Enabled returns true if iptables-based
+// masquerading is enabled for IPv6.
+func (c *DaemonConfig) IptablesMasqueradingIPv6Enabled() bool {
+	return !c.EnableBPFMasquerade && c.EnableIPv6Masquerade
+}
+
+// IptablesMasqueradingEnabled returns true if iptables-based
+// masquerading is enabled.
+func (c *DaemonConfig) IptablesMasqueradingEnabled() bool {
+	return c.IptablesMasqueradingIPv4Enabled() || c.IptablesMasqueradingIPv6Enabled()
+}
+
 // RemoteNodeIdentitiesEnabled returns true if the remote-node identity feature
 // is enabled
 func (c *DaemonConfig) RemoteNodeIdentitiesEnabled() bool {
