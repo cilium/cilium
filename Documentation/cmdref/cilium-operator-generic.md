@@ -56,7 +56,6 @@ cilium-operator-generic [flags]
       --limit-ipam-api-qps float                  Queries per second limit when accessing external IPAM APIs (default 20)
       --log-driver strings                        Logging endpoints to use for example syslog
       --log-opt map                               Log driver options for cilium-operator, configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local4"} (default map[])
-      --nodes-gc-interval duration                GC interval for nodes store in the kvstore (default 2m0s)
       --operator-api-serve-addr string            Address to serve API requests (default "localhost:9234")
       --operator-prometheus-serve-addr string     Address to serve Prometheus metrics (default ":6942")
       --parallel-alloc-workers int                Maximum number of parallel IPAM workers (default 50)

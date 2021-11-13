@@ -283,7 +283,7 @@ func runCNPNodeStatusGC(name string, clusterwide bool, nodeStore cache.Store) {
 		controller.ControllerParams{
 			RunInterval: operatorOption.Config.CNPNodeStatusGCInterval,
 			DoFunc: func(ctx context.Context) error {
-				lastRun := v1.NewTime(v1.Now().Add(-operatorOption.Config.NodesGCInterval))
+				lastRun := v1.NewTime(v1.Now().Add(-operatorOption.Config.CNPNodeStatusGCInterval))
 				continueID := ""
 				wg := sync.WaitGroup{}
 				defer wg.Wait()
