@@ -373,6 +373,11 @@ The following option has been renamed:
 
 * ``enable-egress-gateway`` to ``enable-ipv4-egress-gateway``.
 
+Deprecated Options in Cilium Operator
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+* ``nodes-gc-interval``: This option will be removed in 1.12. Its value does not
+  have any effect in 1.11.
+
 Helm Options
 ~~~~~~~~~~~~
 

@@ -239,9 +239,6 @@ type OperatorConfig struct {
 	// IdentityHeartbeatTimeout is the timeout used to GC identities from k8s
 	IdentityHeartbeatTimeout time.Duration
 
-	// NodesGCInterval is the duration for which the nodes are GC in the KVStore.
-	NodesGCInterval time.Duration
-
 	OperatorAPIServeAddr        string
 	OperatorPrometheusServeAddr string
 
@@ -388,7 +385,6 @@ func (c *OperatorConfig) Populate() {
 	c.IdentityGCRateInterval = viper.GetDuration(IdentityGCRateInterval)
 	c.IdentityGCRateLimit = viper.GetInt64(IdentityGCRateLimit)
 	c.IdentityHeartbeatTimeout = viper.GetDuration(IdentityHeartbeatTimeout)
-	c.NodesGCInterval = viper.GetDuration(NodesGCInterval)
 	c.OperatorAPIServeAddr = viper.GetString(OperatorAPIServeAddr)
 	c.OperatorPrometheusServeAddr = viper.GetString(OperatorPrometheusServeAddr)
 	c.PProf = viper.GetBool(PProf)
@@ -400,7 +396,6 @@ func (c *OperatorConfig) Populate() {
 	c.NodeCIDRMaskSizeIPv6 = viper.GetInt(NodeCIDRMaskSizeIPv6)
 	c.ClusterPoolIPv4CIDR = viper.GetStringSlice(ClusterPoolIPv4CIDR)
 	c.ClusterPoolIPv6CIDR = viper.GetStringSlice(ClusterPoolIPv6CIDR)
-	c.NodesGCInterval = viper.GetDuration(NodesGCInterval)
 	c.LeaderElectionLeaseDuration = viper.GetDuration(LeaderElectionLeaseDuration)
 	c.LeaderElectionRenewDeadline = viper.GetDuration(LeaderElectionRenewDeadline)
 	c.LeaderElectionRetryPeriod = viper.GetDuration(LeaderElectionRetryPeriod)
