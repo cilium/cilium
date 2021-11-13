@@ -244,8 +244,10 @@ func init() {
 	flags.String(option.K8sKubeConfigPath, "", "Absolute path of the kubernetes kubeconfig file")
 	option.BindEnv(option.K8sKubeConfigPath)
 
+	// To be removed in Cilium 1.12
 	flags.Duration(operatorOption.NodesGCInterval, 2*time.Minute, "GC interval for nodes store in the kvstore")
 	option.BindEnv(operatorOption.NodesGCInterval)
+	flags.MarkDeprecated(operatorOption.NodesGCInterval, "Unused flag, will be removed in future Cilium releases")
 
 	flags.String(operatorOption.OperatorPrometheusServeAddr, operatorOption.PrometheusServeAddr, "Address to serve Prometheus metrics")
 	option.BindEnv(operatorOption.OperatorPrometheusServeAddr)
