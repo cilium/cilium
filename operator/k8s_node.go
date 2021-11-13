@@ -1,128 +1,29 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2019-2020 Authors of Cilium
+// Copyright 2019-2021 Authors of Cilium
 
 package main
 
 import (
 	"context"
 	"encoding/json"
-	"strings"
 	"sync"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/ipam/allocator"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/informer"
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
-	"github.com/cilium/cilium/pkg/kvstore/store"
-	nodeStore "github.com/cilium/cilium/pkg/node/store"
-	nodeTypes "github.com/cilium/cilium/pkg/node/types"
-	"github.com/cilium/cilium/pkg/option"
-
 	core_v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 )
 
-func runNodeWatcher() error {
-	if operatorOption.Config.CNPNodeStatusGCInterval != 0 {
-		go runCNPNodeStatusGC("cnp-node-gc", false, ciliumNodeStore)
-		go runCNPNodeStatusGC("ccnp-node-gc", true, ciliumNodeStore)
-	}
-	return nil
-}
-
-func runNodeWatcherKVStore(nodeManager *allocator.NodeEventHandler) error {
-
-	log.Info("Starting to synchronize k8s nodes to kvstore")
-
-	ciliumNodeKVStore, err := store.JoinSharedStore(store.Configuration{
-		Prefix:     nodeStore.NodeStorePrefix,
-		KeyCreator: nodeStore.KeyCreator,
-	})
-	if err != nil {
-		return err
-	}
-
-	resourceEventHandler := cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			if ciliumNode := k8s.ObjToCiliumNode(obj); ciliumNode != nil {
-				nodeNew := nodeTypes.ParseCiliumNode(ciliumNode)
-				ciliumNodeKVStore.UpdateKeySync(context.TODO(), &nodeNew)
-			}
-		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			if oldNode := k8s.ObjToCiliumNode(oldObj); oldNode != nil {
-				if newNode := k8s.ObjToCiliumNode(newObj); newNode != nil {
-					if oldNode.DeepEqual(newNode) {
-						return
-					}
-
-					nodeNew := nodeTypes.ParseCiliumNode(newNode)
-					ciliumNodeKVStore.UpdateKeySync(context.TODO(), &nodeNew)
-				}
-			}
-		},
-		DeleteFunc: func(obj interface{}) {
-			n := k8s.ObjToCiliumNode(obj)
-			if n == nil {
-				return
-			}
-			deletedNode := nodeTypes.ParseCiliumNode(n)
-			ciliumNodeKVStore.DeleteLocalKey(context.TODO(), &deletedNode)
-			deleteCiliumNode(nodeManager, n.Name)
-		},
-	}
-
-	nodeStore, nodeController := informer.NewInformer(
-		cache.NewListWatchFromClient(k8s.CiliumClient().CiliumV2().RESTClient(),
-			cilium_v2.CNPluralName, v1.NamespaceAll, fields.Everything()),
-		&cilium_v2.CiliumNode{},
-		0,
-		resourceEventHandler,
-		nil,
-	)
-
-	go nodeController.Run(wait.NeverStop)
-
-	go func() {
-		cache.WaitForCacheSync(wait.NeverStop, nodeController.HasSynced)
-
-		// Since we processed all events received from k8s we know that
-		// at this point the list in ciliumNodeStore should be the source of
-		// truth and we need to delete all nodes in the kvNodeStore that are
-		// *not* present in the ciliumNodeStore.
-		listOfCiliumNodes := ciliumNodeStore.ListKeys()
-
-		kvStoreNodes := ciliumNodeKVStore.SharedKeysMap()
-		for _, ciliumNode := range listOfCiliumNodes {
-			// The remaining kvStoreNodes are leftovers that need to be GCed
-			kvStoreNodeName := nodeTypes.GetKeyNodeName(option.Config.ClusterName, ciliumNode)
-			delete(kvStoreNodes, kvStoreNodeName)
-		}
-
-		for _, kvStoreNode := range kvStoreNodes {
-			// Only delete the nodes that belong to our cluster
-			if strings.HasPrefix(kvStoreNode.GetKeyName(), option.Config.ClusterName) {
-				ciliumNodeKVStore.DeleteLocalKey(context.TODO(), kvStoreNode)
-			}
-		}
-
-	}()
-
-	if operatorOption.Config.CNPNodeStatusGCInterval != 0 {
-		go runCNPNodeStatusGC("cnp-node-gc", false, nodeStore)
-		go runCNPNodeStatusGC("ccnp-node-gc", true, nodeStore)
-	}
-
-	return nil
+func RunCNPNodeStatusGC(nodeStore cache.Store) {
+	go runCNPNodeStatusGC("cnp-node-gc", false, nodeStore)
+	go runCNPNodeStatusGC("ccnp-node-gc", true, nodeStore)
 }
 
 // runCNPNodeStatusGC runs the node status garbage collector for cilium network
