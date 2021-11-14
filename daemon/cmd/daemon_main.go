@@ -1037,6 +1037,9 @@ func initializeFlags() {
 	flags.Bool(option.EnableK8sTerminatingEndpoint, true, "Enable auto-detect of terminating endpoint condition")
 	option.BindEnv(option.EnableK8sTerminatingEndpoint)
 
+	flags.Bool(option.ExternalWorkload, defaults.ExternalWorkload, "Specifies whether the agent runs in an external workload")
+	option.BindEnv(option.ExternalWorkload)
+
 	viper.BindPFlags(flags)
 }
 

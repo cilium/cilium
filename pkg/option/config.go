@@ -989,6 +989,9 @@ const (
 	// EnableK8sTerminatingEndpoint enables the option to auto detect terminating
 	// state for endpoints in order to support graceful termination.
 	EnableK8sTerminatingEndpoint = "enable-k8s-terminating-endpoint"
+
+	// ExternalWorkload specifies whether the agent runs in a external worload.
+	ExternalWorkload = "external-workload"
 )
 
 // Default string arguments
@@ -2031,6 +2034,9 @@ type DaemonConfig struct {
 	// EnableK8sTerminatingEndpoint enables auto-detect of terminating state for
 	// Kubernetes service endpoints.
 	EnableK8sTerminatingEndpoint bool
+
+	// ExternalWorload specifies whether the agent runs in an external workload
+	ExternalWorkload bool
 }
 
 var (
@@ -2079,6 +2085,7 @@ var (
 		APIRateLimit:                     make(map[string]string),
 
 		ExternalClusterIP: defaults.ExternalClusterIP,
+		ExternalWorkload:  defaults.ExternalWorkload,
 	}
 )
 
@@ -2843,6 +2850,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableICMPRules = viper.GetBool(EnableICMPRules)
 	c.BypassIPAvailabilityUponRestore = viper.GetBool(BypassIPAvailabilityUponRestore)
 	c.EnableK8sTerminatingEndpoint = viper.GetBool(EnableK8sTerminatingEndpoint)
+	c.ExternalWorkload = viper.GetBool(ExternalWorkload)
 }
 
 func (c *DaemonConfig) populateDevices() {
