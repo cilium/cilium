@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
@@ -179,7 +180,7 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 				specialIdentities = append(specialIdentities,
 					identity.IPIdentityPair{
 						IP: ip,
-						ID: identity.ReservedIdentityHost,
+						ID: identity.GetReservedID(labels.IDNameHost),
 					})
 			}
 		}
@@ -208,7 +209,7 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 				specialIdentities = append(specialIdentities,
 					identity.IPIdentityPair{
 						IP: ip,
-						ID: identity.ReservedIdentityHost,
+						ID: identity.GetReservedID(labels.IDNameHost),
 					})
 			}
 		}
@@ -228,7 +229,7 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 
 	for _, ipIDPair := range specialIdentities {
 		hostKey := node.GetIPsecKeyIdentity()
-		isHost := ipIDPair.ID == identity.ReservedIdentityHost
+		isHost := ipIDPair.ID == identity.GetReservedID(labels.IDNameHost)
 		if isHost {
 			added, err := lxcmap.SyncHostEntry(ipIDPair.IP)
 			if err != nil {

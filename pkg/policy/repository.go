@@ -554,7 +554,7 @@ func (p *Repository) getMatchingRules(securityIdentity *identity.Identity) (
 
 	matchingRules = []*rule{}
 	for _, r := range p.rules {
-		isNode := securityIdentity.ID == identity.ReservedIdentityHost
+		isNode := securityIdentity.ID == identity.GetReservedID(labels.IDNameHost)
 		selectsNode := r.NodeSelector.LabelSelector != nil
 		if selectsNode != isNode {
 			continue

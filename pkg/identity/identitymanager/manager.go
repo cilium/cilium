@@ -7,6 +7,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/model"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
@@ -104,7 +105,7 @@ func (idm *IdentityManager) RemoveOldAddNew(old, new *identity.Identity) {
 	}
 	// The host endpoint will always retain its reserved ID, but its labels may
 	// change so we need to update its identity.
-	if old != nil && new != nil && old.ID == new.ID && new.ID != identity.ReservedIdentityHost {
+	if old != nil && new != nil && old.ID == new.ID && new.ID != identity.GetReservedID(labels.IDNameHost) {
 		return
 	}
 

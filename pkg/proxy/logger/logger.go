@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -111,7 +112,7 @@ func (lr *LogRecord) fillEndpointInfo(info *accesslog.EndpointInfo, ip net.IP) {
 		// first we try to resolve and check if the IP is
 		// same as Host
 		if node.IsHostIPv4(ip) {
-			lr.endpointInfoRegistry.FillEndpointIdentityByID(identity.ReservedIdentityHost, info)
+			lr.endpointInfoRegistry.FillEndpointIdentityByID(identity.GetReservedID(labels.IDNameHost), info)
 		} else if !lr.endpointInfoRegistry.FillEndpointIdentityByIP(ip, info) {
 			// If we are unable to resolve the HostIP as well
 			// as the cluster IP we mark this as a 'world' identity.
@@ -121,7 +122,7 @@ func (lr *LogRecord) fillEndpointInfo(info *accesslog.EndpointInfo, ip net.IP) {
 		info.IPv6 = ip.String()
 
 		if node.IsHostIPv6(ip) {
-			lr.endpointInfoRegistry.FillEndpointIdentityByID(identity.ReservedIdentityHost, info)
+			lr.endpointInfoRegistry.FillEndpointIdentityByID(identity.GetReservedID(labels.IDNameHost), info)
 		} else if !lr.endpointInfoRegistry.FillEndpointIdentityByIP(ip, info) {
 			lr.endpointInfoRegistry.FillEndpointIdentityByID(identity.ReservedIdentityWorld, info)
 		}

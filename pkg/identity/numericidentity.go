@@ -420,10 +420,10 @@ func GetLocalNodeID() NumericIdentity {
 
 // SetLocalNodeID sets the local node id.
 // Note that currently changes to the local node id only take effect during agent bootstrap
-func SetLocalNodeID(nodeid uint32) {
+func SetLocalNodeID(nodeid NumericIdentity) {
 	localNodeIdentity.Lock()
 	defer localNodeIdentity.Unlock()
-	localNodeIdentity.identity = NumericIdentity(nodeid)
+	localNodeIdentity.identity = nodeid
 }
 
 func GetReservedID(name string) NumericIdentity {
@@ -464,4 +464,22 @@ func IterateReservedIdentities(f func(key string, value NumericIdentity)) {
 // HasLocalScope returns true if the identity has a local scope
 func (id NumericIdentity) HasLocalScope() bool {
 	return (id & LocalIdentityFlag) != 0
+}
+
+// SetReservedHostIdentity replaces the value of host identity(1)
+// with `nid` and adds labels specified by `lbls` to the host identity.
+// Called by JoinCluster() if option.Config.ExternalWorkload is set to true.
+func SetReservedHostIdentity(nid NumericIdentity, lbls map[string]string) {
+	// Delete default/exisiting ReservedHost identity
+	delete(reservedIdentityNames, GetReservedID(labels.IDNameHost))
+	delete(ReservedIdentityCache, GetReservedID(labels.IDNameHost))
+
+	// Update new host identity
+	reservedIdentities[labels.IDNameHost] = nid
+	reservedIdentityNames[nid] = labels.IDNameHost
+
+	newlables := labels.Map2Labels(lbls, labels.LabelSourceK8s)
+	newlables.MergeLabels(labels.LabelHost)
+	newHostIdentity := NewIdentity(nid, newlables)
+	ReservedIdentityCache[nid] = newHostIdentity
 }

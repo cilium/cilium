@@ -675,7 +675,7 @@ func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints api.EndpointSe
 	// then wildcard Host at L7.
 	if !pr.Rules.IsEmpty() && len(hostWildcardL7) > 0 {
 		for cs := range filter.L7RulesPerSelector {
-			if cs.Selects(identity.ReservedIdentityHost) {
+			if cs.Selects(identity.GetReservedID(labels.IDNameHost)) {
 				for _, name := range hostWildcardL7 {
 					selector := api.ReservedEndpointSelectors[name]
 					filter.cacheIdentitySelector(selector, policyCtx.GetSelectorCache(), policyCtx.IsDeny())

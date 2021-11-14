@@ -10,6 +10,7 @@ import (
 
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -198,6 +199,6 @@ func (cip *cachedSelectorPolicy) Consume(owner PolicyOwner) *EndpointPolicy {
 	// TODO: This currently computes the EndpointPolicy from SelectorPolicy
 	// on-demand, however in future the cip is intended to cache the
 	// EndpointPolicy for this Identity and emit datapath deltas instead.
-	isHost := cip.identity.ID == identityPkg.ReservedIdentityHost
+	isHost := cip.identity.ID == identityPkg.GetReservedID(labels.IDNameHost)
 	return cip.getPolicy().DistillPolicy(owner, isHost)
 }

@@ -636,7 +636,7 @@ func (r *rule) matches(securityIdentity *identity.Identity) bool {
 	if ruleMatches, cached := r.metadata.IdentitySelected[securityIdentity.ID]; cached {
 		return ruleMatches
 	}
-	isNode := securityIdentity.ID == identity.ReservedIdentityHost
+	isNode := securityIdentity.ID == identity.GetReservedID(labels.IDNameHost)
 	if (r.NodeSelector.LabelSelector != nil) != isNode {
 		r.metadata.IdentitySelected[securityIdentity.ID] = false
 		return ruleMatches

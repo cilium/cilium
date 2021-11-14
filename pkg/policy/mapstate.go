@@ -19,7 +19,7 @@ import (
 var (
 	// localHostKey represents an ingress L3 allow from the local host.
 	localHostKey = Key{
-		Identity:         identity.ReservedIdentityHost.Uint32(),
+		Identity:         identity.GetReservedID(labels.IDNameHost).Uint32(),
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
 	}
 	// localRemoteNodeKey represents an ingress L3 allow from remote nodes.
