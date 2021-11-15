@@ -42,12 +42,16 @@ func startSynchronizingCiliumNodes(nodeManager allocator.NodeEventHandler, withK
 	var (
 		resourceEventHandler  = cache.ResourceEventHandlerFuncs{}
 		ciliumNodeConvertFunc = k8s.ConvertToCiliumNode
+		ciliumNodeKVStore     *store.SharedStore
+		err                   error
 	)
 
+	// KVStore is enabled -> we will run the event handler to sync objects into
+	// KVStore.
 	if withKVStore {
 		log.Info("Starting to synchronize CiliumNode custom resources to KVStore")
 
-		ciliumNodeKVStore, err := store.JoinSharedStore(store.Configuration{
+		ciliumNodeKVStore, err = store.JoinSharedStore(store.Configuration{
 			Prefix:     nodeStore.NodeStorePrefix,
 			KeyCreator: nodeStore.KeyCreator,
 		})
@@ -79,134 +83,69 @@ func startSynchronizingCiliumNodes(nodeManager allocator.NodeEventHandler, withK
 				}
 			}
 		}()
-
-		// nodeManager is nil so we don't need to handle any events managed by
-		// the nodeManager and the events from Kubernetes will only be relevant
-		// for KVStore.
-		if nodeManager == nil {
-			resourceEventHandler = cache.ResourceEventHandlerFuncs{
-				AddFunc: func(obj interface{}) {
-					if ciliumNode := k8s.ObjToCiliumNode(obj); ciliumNode != nil {
-						nodeNew := nodeTypes.ParseCiliumNode(ciliumNode)
-						ciliumNodeKVStore.UpdateKeySync(context.TODO(), &nodeNew)
-					} else {
-						log.Warningf("Unknown CiliumNode object type %T received: %+v", obj, obj)
-					}
-				},
-				UpdateFunc: func(oldObj, newObj interface{}) {
-					if oldNode := k8s.ObjToCiliumNode(oldObj); oldNode != nil {
-						if newNode := k8s.ObjToCiliumNode(newObj); newNode != nil {
-							if oldNode.DeepEqual(newNode) {
-								return
-							}
-							nodeNew := nodeTypes.ParseCiliumNode(newNode)
-							ciliumNodeKVStore.UpdateKeySync(context.TODO(), &nodeNew)
-						} else {
-							log.Warningf("Unknown CiliumNode object type %T received: %+v", newNode, newNode)
-						}
-					} else {
-						log.Warningf("Unknown CiliumNode object type %T received: %+v", oldNode, oldNode)
-					}
-				},
-				DeleteFunc: func(obj interface{}) {
-					if ciliumNode := k8s.ObjToCiliumNode(obj); ciliumNode != nil {
-						deletedNode := nodeTypes.ParseCiliumNode(ciliumNode)
-						ciliumNodeKVStore.DeleteLocalKey(context.TODO(), &deletedNode)
-					} else {
-						log.Warningf("Unknown CiliumNode object type %T received: %+v", obj, obj)
-					}
-				},
-			}
-		} else {
-			// nodeManager not nil thus the events will be processed by
-			// ciliumNodeKVStore and the nodeManager
-			resourceEventHandler = cache.ResourceEventHandlerFuncs{
-				AddFunc: func(obj interface{}) {
-					if ciliumNode := k8s.ObjToCiliumNode(obj); ciliumNode != nil {
-						nodeNew := nodeTypes.ParseCiliumNode(ciliumNode)
-						ciliumNodeKVStore.UpdateKeySync(context.TODO(), &nodeNew)
-						// node is deep copied before it is stored in pkg/aws/eni
-						nodeManager.Create(ciliumNode)
-					} else {
-						log.Warningf("Unknown CiliumNode object type %T received: %+v", obj, obj)
-					}
-				},
-				UpdateFunc: func(oldObj, newObj interface{}) {
-					if oldNode := k8s.ObjToCiliumNode(oldObj); oldNode != nil {
-						if newNode := k8s.ObjToCiliumNode(newObj); newNode != nil {
-							if oldNode.DeepEqual(newNode) {
-								return
-							}
-							nodeNew := nodeTypes.ParseCiliumNode(newNode)
-							ciliumNodeKVStore.UpdateKeySync(context.TODO(), &nodeNew)
-							// node is deep copied before it is stored in pkg/aws/eni
-							nodeManager.Update(newNode)
-						} else {
-							log.Warningf("Unknown CiliumNode object type %T received: %+v", newNode, newNode)
-						}
-					} else {
-						log.Warningf("Unknown CiliumNode object type %T received: %+v", oldNode, oldNode)
-					}
-				},
-				DeleteFunc: func(obj interface{}) {
-					if ciliumNode := k8s.ObjToCiliumNode(obj); ciliumNode != nil {
-						deletedNode := nodeTypes.ParseCiliumNode(ciliumNode)
-						ciliumNodeKVStore.DeleteLocalKey(context.TODO(), &deletedNode)
-						nodeManager.Delete(ciliumNode.Name)
-					} else {
-						log.Warningf("Unknown CiliumNode object type %T received: %+v", obj, obj)
-					}
-				},
-			}
-		}
-
 	} else {
 		log.Info("Starting to synchronize CiliumNode custom resources")
-		if nodeManager == nil {
-			// Both nodeManager and KVStore are nil. We don't need to handle
-			// any watcher events, but we will need to keep all CiliumNodes in
-			// memory because 'ciliumNodeStore' is used across the operator
-			// to get the latest state of a CiliumNode.
+	}
 
-			// Since we won't be handling any events we don't need to convert
-			// objects.
-			ciliumNodeConvertFunc = nil
-		} else {
-			// nodeManager not nil but the KVStore is nil thus the events
-			// will only be relevant to the nodeManager.
-			resourceEventHandler = cache.ResourceEventHandlerFuncs{
-				AddFunc: func(obj interface{}) {
-					if ciliumNode := k8s.ObjToCiliumNode(obj); ciliumNode != nil {
+	// If Both nodeManager and KVStore are nil. We don't need to handle
+	// any watcher events, but we will need to keep all CiliumNodes in
+	// memory because 'ciliumNodeStore' is used across the operator
+	// to get the latest state of a CiliumNode.
+	if withKVStore || nodeManager != nil {
+		resourceEventHandler = cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				if ciliumNode := k8s.ObjToCiliumNode(obj); ciliumNode != nil {
+					if withKVStore {
+						nodeNew := nodeTypes.ParseCiliumNode(ciliumNode)
+						ciliumNodeKVStore.UpdateKeySync(context.TODO(), &nodeNew)
+					}
+					if nodeManager != nil {
 						// node is deep copied before it is stored in pkg/aws/eni
 						nodeManager.Create(ciliumNode)
-					} else {
-						log.Warningf("Unknown CiliumNode object type %T received: %+v", obj, obj)
 					}
-				},
-				UpdateFunc: func(oldObj, newObj interface{}) {
-					if oldNode := k8s.ObjToCiliumNode(oldObj); oldNode != nil {
-						if newNode := k8s.ObjToCiliumNode(newObj); newNode != nil {
+				} else {
+					log.Warningf("Unknown CiliumNode object type %T received: %+v", obj, obj)
+				}
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				if oldNode := k8s.ObjToCiliumNode(oldObj); oldNode != nil {
+					if newNode := k8s.ObjToCiliumNode(newObj); newNode != nil {
+						if withKVStore {
 							if oldNode.DeepEqual(newNode) {
 								return
 							}
+							nodeNew := nodeTypes.ParseCiliumNode(newNode)
+							ciliumNodeKVStore.UpdateKeySync(context.TODO(), &nodeNew)
+						}
+						if nodeManager != nil {
 							// node is deep copied before it is stored in pkg/aws/eni
 							nodeManager.Update(newNode)
-						} else {
-							log.Warningf("Unknown CiliumNode object type %T received: %+v", newNode, newNode)
 						}
 					} else {
-						log.Warningf("Unknown CiliumNode object type %T received: %+v", oldNode, oldNode)
+						log.Warningf("Unknown CiliumNode object type %T received: %+v", newNode, newNode)
 					}
-				},
-				DeleteFunc: func(obj interface{}) {
-					if ciliumNode := k8s.ObjToCiliumNode(obj); ciliumNode != nil {
+				} else {
+					log.Warningf("Unknown CiliumNode object type %T received: %+v", oldNode, oldNode)
+				}
+			},
+			DeleteFunc: func(obj interface{}) {
+				if ciliumNode := k8s.ObjToCiliumNode(obj); ciliumNode != nil {
+					if withKVStore {
+						deletedNode := nodeTypes.ParseCiliumNode(ciliumNode)
+						ciliumNodeKVStore.DeleteLocalKey(context.TODO(), &deletedNode)
+					}
+					if nodeManager != nil {
 						nodeManager.Delete(ciliumNode.Name)
-					} else {
-						log.Warningf("Unknown CiliumNode object type %T received: %+v", obj, obj)
 					}
-				},
-			}
+				} else {
+					log.Warningf("Unknown CiliumNode object type %T received: %+v", obj, obj)
+				}
+			},
 		}
+	} else {
+		// Since we won't be handling any events we don't need to convert
+		// objects.
+		ciliumNodeConvertFunc = nil
 	}
 
 	// TODO: The operator is currently storing a full copy of the
