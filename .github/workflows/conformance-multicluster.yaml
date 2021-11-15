@@ -321,7 +321,8 @@ jobs:
           cilium connectivity test \
             --context ${{ steps.contexts.outputs.context1 }} \
             --multi-cluster ${{ steps.contexts.outputs.context2 }} \
-            --test '!/pod-to-.*-nodeport,!client-egress-l7,!echo-ingress-l7,!to-fqdns,!dns-only' \
+            --test '!/pod-to-.*-nodeport' \
+            --test '!client-egress-l7,!echo-ingress-l7,!to-fqdns,!dns-only' \
             --test '!no-policies/pod-to-service' \
             --flow-validation=disabled
         # TODO: Once WireGuard supports the L7 proxy, the L7 tests can be
