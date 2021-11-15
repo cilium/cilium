@@ -300,7 +300,11 @@ jobs:
             --context ${{ steps.contexts.outputs.context1 }} \
             --multi-cluster ${{ steps.contexts.outputs.context2 }} \
             --test '!/pod-to-.*-nodeport' \
-             --flow-validation=disabled
+            --test '!no-policies/pod-to-service' \
+            --flow-validation=disabled
+        # TODO: Remove `no-policies/pod-to-service` test exception (unreliable
+        # on clustermesh) once https://github.com/cilium/cilium-cli/issues/600
+        # is fixed.
 
       - name: Enable WireGuard
         run: |
@@ -314,13 +318,17 @@ jobs:
 
       - name: Run connectivity test with WireGuard
         run: |
-          # TODO: Once WireGuard supports the L7 proxy, the L7 tests can be
-          # included here. See cilium/cilium#15462
           cilium connectivity test \
             --context ${{ steps.contexts.outputs.context1 }} \
             --multi-cluster ${{ steps.contexts.outputs.context2 }} \
             --test '!/pod-to-.*-nodeport,!client-egress-l7,!echo-ingress-l7,!to-fqdns,!dns-only' \
-             --flow-validation=disabled
+            --test '!no-policies/pod-to-service' \
+            --flow-validation=disabled
+        # TODO: Once WireGuard supports the L7 proxy, the L7 tests can be
+        # included here. See cilium/cilium#15462
+        # TODO: Remove `no-policies/pod-to-service` test exception (unreliable
+        # on clustermesh) once https://github.com/cilium/cilium-cli/issues/600
+        # is fixed.
 
       - name: Post-test information gathering
         if: ${{ !success() }}
