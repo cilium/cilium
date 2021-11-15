@@ -3614,32 +3614,47 @@ type FleetLaunchTemplateSpecificationRequest struct {
 // an elevated risk of being interrupted.
 type FleetSpotCapacityRebalance struct {
 
-	// To allow EC2 Fleet to launch a replacement Spot Instance when an instance
-	// rebalance notification is emitted for an existing Spot Instance in the fleet,
-	// specify launch. Only available for fleets of type maintain. When a replacement
-	// instance is launched, the instance marked for rebalance is not automatically
-	// terminated. You can terminate it, or you can leave it running. You are charged
-	// for both instances while they are running.
+	// The replacement strategy to use. Only available for fleets of type maintain.
+	// launch - EC2 Fleet launches a new replacement Spot Instance when a rebalance
+	// notification is emitted for an existing Spot Instance in the fleet. EC2 Fleet
+	// does not terminate the instances that receive a rebalance notification. You can
+	// terminate the old instances, or you can leave them running. You are charged for
+	// all instances while they are running. launch-before-terminate - EC2 Fleet
+	// launches a new replacement Spot Instance when a rebalance notification is
+	// emitted for an existing Spot Instance in the fleet, and then, after a delay that
+	// you specify (in TerminationDelay), terminates the instances that received a
+	// rebalance notification.
 	ReplacementStrategy FleetReplacementStrategy
+
+	// The amount of time (in seconds) that Amazon EC2 waits before terminating the old
+	// Spot Instance after launching a new replacement Spot Instance.
+	TerminationDelay *int32
 
 	noSmithyDocumentSerde
 }
 
-// The Spot Instance replacement strategy to use when Amazon EC2 emits a signal
-// that your Spot Instance is at an elevated risk of being interrupted. For more
-// information, see Capacity rebalancing
+// The Spot Instance replacement strategy to use when Amazon EC2 emits a rebalance
+// notification signal that your Spot Instance is at an elevated risk of being
+// interrupted. For more information, see Capacity rebalancing
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet-configuration-strategies.html#ec2-fleet-capacity-rebalance)
 // in the Amazon EC2 User Guide.
 type FleetSpotCapacityRebalanceRequest struct {
 
-	// The replacement strategy to use. Only available for fleets of type maintain. To
-	// allow EC2 Fleet to launch a replacement Spot Instance when an instance rebalance
-	// notification is emitted for an existing Spot Instance in the fleet, specify
-	// launch. You must specify a value, otherwise you get an error. When a replacement
-	// instance is launched, the instance marked for rebalance is not automatically
-	// terminated. You can terminate it, or you can leave it running. You are charged
-	// for all instances while they are running.
+	// The replacement strategy to use. Only available for fleets of type maintain.
+	// launch - EC2 Fleet launches a replacement Spot Instance when a rebalance
+	// notification is emitted for an existing Spot Instance in the fleet. EC2 Fleet
+	// does not terminate the instances that receive a rebalance notification. You can
+	// terminate the old instances, or you can leave them running. You are charged for
+	// all instances while they are running. launch-before-terminate - EC2 Fleet
+	// launches a replacement Spot Instance when a rebalance notification is emitted
+	// for an existing Spot Instance in the fleet, and then, after a delay that you
+	// specify (in TerminationDelay), terminates the instances that received a
+	// rebalance notification.
 	ReplacementStrategy FleetReplacementStrategy
+
+	// The amount of time (in seconds) that Amazon EC2 waits before terminating the old
+	// Spot Instance after launching a new replacement Spot Instance.
+	TerminationDelay *int32
 
 	noSmithyDocumentSerde
 }
@@ -5265,6 +5280,9 @@ type InstanceNetworkInterfaceAssociation struct {
 
 	// The carrier IP address associated with the network interface.
 	CarrierIp *string
+
+	// The customer-owned IP address associated with the network interface.
+	CustomerOwnedIp *string
 
 	// The ID of the owner of the Elastic IP address.
 	IpOwnerId *string
@@ -10189,6 +10207,8 @@ type Route struct {
 	// The ID of the carrier gateway.
 	CarrierGatewayId *string
 
+	CoreNetworkArn *string
+
 	// The IPv4 CIDR block used for the destination match.
 	DestinationCidrBlock *string
 
@@ -11271,14 +11291,21 @@ type SnapshotTaskDetail struct {
 // in the Amazon EC2 User Guide for Linux Instances.
 type SpotCapacityRebalance struct {
 
-	// The replacement strategy to use. Only available for fleets of type maintain. You
-	// must specify a value, otherwise you get an error. To allow Spot Fleet to launch
-	// a replacement Spot Instance when an instance rebalance notification is emitted
-	// for a Spot Instance in the fleet, specify launch. When a replacement instance is
-	// launched, the instance marked for rebalance is not automatically terminated. You
-	// can terminate it, or you can leave it running. You are charged for all instances
-	// while they are running.
+	// The replacement strategy to use. Only available for fleets of type maintain.
+	// launch - Spot Fleet launches a new replacement Spot Instance when a rebalance
+	// notification is emitted for an existing Spot Instance in the fleet. Spot Fleet
+	// does not terminate the instances that receive a rebalance notification. You can
+	// terminate the old instances, or you can leave them running. You are charged for
+	// all instances while they are running. launch-before-terminate - Spot Fleet
+	// launches a new replacement Spot Instance when a rebalance notification is
+	// emitted for an existing Spot Instance in the fleet, and then, after a delay that
+	// you specify (in TerminationDelay), terminates the instances that received a
+	// rebalance notification.
 	ReplacementStrategy ReplacementStrategy
+
+	// The amount of time (in seconds) that Amazon EC2 waits before terminating the old
+	// Spot Instance after launching a new replacement Spot Instance.
+	TerminationDelay *int32
 
 	noSmithyDocumentSerde
 }
@@ -14314,7 +14341,7 @@ type VpnConnection struct {
 	CustomerGatewayId *string
 
 	// The current state of the gateway association.
-	GatewayAssociationState *string
+	GatewayAssociationState GatewayAssociationState
 
 	// The VPN connection options.
 	Options *VpnConnectionOptions

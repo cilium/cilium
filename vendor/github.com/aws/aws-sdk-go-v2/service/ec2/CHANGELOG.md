@@ -1,3 +1,9 @@
+# v1.22.0 (2021-11-12)
+
+* **Feature**: Service clients now support custom endpoints that have an initial URI path defined.
+* **Feature**: Updated service to latest API model.
+* **Feature**: Waiters now have a `WaitForOutput` method, which can be used to retrieve the output of the successful wait operation. Thank you to [Andrew Haines](https://github.com/haines) for contributing this feature.
+
 # v1.21.0 (2021-11-06)
 
 * **Feature**: The SDK now supports configuration of FIPS and DualStack endpoints using environment variables, shared configuration, or programmatically.

@@ -1786,7 +1786,8 @@ type FleetReplacementStrategy string
 
 // Enum values for FleetReplacementStrategy
 const (
-	FleetReplacementStrategyLaunch FleetReplacementStrategy = "launch"
+	FleetReplacementStrategyLaunch                FleetReplacementStrategy = "launch"
+	FleetReplacementStrategyLaunchBeforeTerminate FleetReplacementStrategy = "launch-before-terminate"
 )
 
 // Values returns all known values for FleetReplacementStrategy. Note that this can
@@ -1795,6 +1796,7 @@ const (
 func (FleetReplacementStrategy) Values() []FleetReplacementStrategy {
 	return []FleetReplacementStrategy{
 		"launch",
+		"launch-before-terminate",
 	}
 }
 
@@ -1907,6 +1909,28 @@ func (FpgaImageStateCode) Values() []FpgaImageStateCode {
 		"failed",
 		"available",
 		"unavailable",
+	}
+}
+
+type GatewayAssociationState string
+
+// Enum values for GatewayAssociationState
+const (
+	GatewayAssociationStateAssociated     GatewayAssociationState = "associated"
+	GatewayAssociationStateNotAssociated  GatewayAssociationState = "not-associated"
+	GatewayAssociationStateAssociating    GatewayAssociationState = "associating"
+	GatewayAssociationStateDisassociating GatewayAssociationState = "disassociating"
+)
+
+// Values returns all known values for GatewayAssociationState. Note that this can
+// be expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (GatewayAssociationState) Values() []GatewayAssociationState {
+	return []GatewayAssociationState{
+		"associated",
+		"not-associated",
+		"associating",
+		"disassociating",
 	}
 }
 
@@ -4202,7 +4226,8 @@ type ReplacementStrategy string
 
 // Enum values for ReplacementStrategy
 const (
-	ReplacementStrategyLaunch ReplacementStrategy = "launch"
+	ReplacementStrategyLaunch                ReplacementStrategy = "launch"
+	ReplacementStrategyLaunchBeforeTerminate ReplacementStrategy = "launch-before-terminate"
 )
 
 // Values returns all known values for ReplacementStrategy. Note that this can be
@@ -4211,6 +4236,7 @@ const (
 func (ReplacementStrategy) Values() []ReplacementStrategy {
 	return []ReplacementStrategy{
 		"launch",
+		"launch-before-terminate",
 	}
 }
 

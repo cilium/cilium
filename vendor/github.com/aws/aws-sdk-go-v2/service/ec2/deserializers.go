@@ -58925,6 +58925,23 @@ func awsEc2query_deserializeDocumentFleetSpotCapacityRebalance(v **types.FleetSp
 				sv.ReplacementStrategy = types.FleetReplacementStrategy(xtv)
 			}
 
+		case strings.EqualFold("terminationDelay", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				i64, err := strconv.ParseInt(xtv, 10, 64)
+				if err != nil {
+					return err
+				}
+				sv.TerminationDelay = ptr.Int32(int32(i64))
+			}
+
 		default:
 			// Do nothing and ignore the unexpected tag element
 			err = decoder.Decoder.Skip()
@@ -67043,6 +67060,19 @@ func awsEc2query_deserializeDocumentInstanceNetworkInterfaceAssociation(v **type
 			{
 				xtv := string(val)
 				sv.CarrierIp = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("customerOwnedIp", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.CustomerOwnedIp = ptr.String(xtv)
 			}
 
 		case strings.EqualFold("ipOwnerId", t.Name.Local):
@@ -88007,6 +88037,19 @@ func awsEc2query_deserializeDocumentRoute(v **types.Route, decoder smithyxml.Nod
 				sv.CarrierGatewayId = ptr.String(xtv)
 			}
 
+		case strings.EqualFold("coreNetworkArn", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.CoreNetworkArn = ptr.String(xtv)
+			}
+
 		case strings.EqualFold("destinationCidrBlock", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -91884,6 +91927,23 @@ func awsEc2query_deserializeDocumentSpotCapacityRebalance(v **types.SpotCapacity
 			{
 				xtv := string(val)
 				sv.ReplacementStrategy = types.ReplacementStrategy(xtv)
+			}
+
+		case strings.EqualFold("terminationDelay", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				i64, err := strconv.ParseInt(xtv, 10, 64)
+				if err != nil {
+					return err
+				}
+				sv.TerminationDelay = ptr.Int32(int32(i64))
 			}
 
 		default:
@@ -107848,7 +107908,7 @@ func awsEc2query_deserializeDocumentVpnConnection(v **types.VpnConnection, decod
 			}
 			{
 				xtv := string(val)
-				sv.GatewayAssociationState = ptr.String(xtv)
+				sv.GatewayAssociationState = types.GatewayAssociationState(xtv)
 			}
 
 		case strings.EqualFold("options", t.Name.Local):
