@@ -172,6 +172,11 @@ jobs:
           done
           vagrant ssh-config >> ~/.ssh/config
 
+          brew install docker
+          KIND_IMG="kindest/node:v1.21.1@sha256:69860bda5563ac81e3c0057d654b5253219618a22ec3a346306239bba8cfa1a6"
+          docker pull "$KIND_IMG"
+          docker save "$KIND_IMG" | bzip2| ssh default sudo docker load
+
       - name: Wait for image to be available
         timeout-minutes: 10
         shell: bash
