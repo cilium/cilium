@@ -163,6 +163,8 @@ jobs:
         run: |
           brew install docker
           KIND_IMG="kindest/node:v1.21.1@sha256:69860bda5563ac81e3c0057d654b5253219618a22ec3a346306239bba8cfa1a6"
+          docker --version || true
+          sudo docker --version || true
           sudo docker pull "$KIND_IMG"
 
           ln -sf ./test/l4lb/Vagrantfile ./Vagrantfile
