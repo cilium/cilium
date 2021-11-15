@@ -32,6 +32,13 @@ var (
 	// order to prevent deadlocks.
 	idMDMU lock.RWMutex
 	// identityMetadata maps IP prefixes (x.x.x.x/32) to their labels.
+	//
+	// When allocating an identity to associate with each prefix, the
+	// identity allocation routines will merge this set of labels into the
+	// complete set of labels used for that local (CIDR) identity,
+	// thereby associating these labels with each prefix that is 'covered'
+	// by this prefix. Subsequently these labels may be matched by network
+	// policy and propagated in monitor output.
 	identityMetadata = make(map[string]labels.Labels)
 
 	// ErrLocalIdentityAllocatorUninitialized is an error that's returned when
