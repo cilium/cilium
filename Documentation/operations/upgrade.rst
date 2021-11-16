@@ -377,6 +377,8 @@ Helm Options
 ~~~~~~~~~~~~
 
 * ``hostFirewall`` was renamed to ``hostFirewall.enabled``.
+* ``ipam.operator.clusterPoolIPv4PodCIDR`` was deprecated in favor of ``ipam.operator.clusterPoolIPv4PodCIDRList``
+* ``ipam.operator.clusterPoolIPv6PodCIDR`` was deprecated in favor of ``ipam.operator.clusterPoolIPv6PodCIDRList``
 
 .. _1.10_upgrade_notes:
 
