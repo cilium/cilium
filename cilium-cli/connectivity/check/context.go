@@ -314,7 +314,6 @@ func (ct *ConnectivityTest) enableHubbleClient(ctx context.Context) error {
 		ct.Warn("Unable to contact Hubble Relay, disabling Hubble telescope and flow validation:", err)
 		ct.Info(`Expose Relay locally with:
    cilium hubble enable
-   cilium status --wait
    cilium hubble port-forward&`)
 		ct.hubbleClient = nil
 		ct.params.Hubble = false
