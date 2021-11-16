@@ -7,25 +7,22 @@ import (
 	"context"
 	"fmt"
 
-	v1 "k8s.io/api/core/v1"
-
-	"github.com/cilium/cilium/pkg/k8s"
-
-	envoy_extensions_transport_sockets_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
-
-	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
-
 	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
+	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_extensions_filters_network_http_connection_manager_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
-	"github.com/golang/protobuf/proto"
+	envoy_extensions_transport_sockets_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
+	envoy_config_upstream "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+	v1 "k8s.io/api/core/v1"
 	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/envoy"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 )
@@ -227,6 +224,15 @@ func getClusterResources(backendServices []*v2alpha1.Service) ([]v2alpha1.XDSRes
 			Name:           fmt.Sprintf("%s/%s", service.Namespace, service.Name),
 			ConnectTimeout: &durationpb.Duration{Seconds: 5},
 			LbPolicy:       envoy_config_cluster_v3.Cluster_ROUND_ROBIN,
+			TypedExtensionProtocolOptions: map[string]*anypb.Any{
+				"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_config_upstream.HttpProtocolOptions{
+					UpstreamProtocolOptions: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamProtocolConfig{
+						UseDownstreamProtocolConfig: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamHttpConfig{
+							Http2ProtocolOptions: &envoy_config_core_v3.Http2ProtocolOptions{},
+						},
+					},
+				}),
+			},
 			OutlierDetection: &envoy_config_cluster_v3.OutlierDetection{
 				SplitExternalLocalOriginErrors: true,
 				ConsecutiveLocalOriginFailure:  &wrapperspb.UInt32Value{Value: 2},
@@ -249,6 +255,14 @@ func getClusterResources(backendServices []*v2alpha1.Service) ([]v2alpha1.XDSRes
 	return resources, nil
 }
 
+func toAny(message proto.Message) *anypb.Any {
+	a, err := anypb.New(message)
+	if err != nil {
+		panic(err.Error())
+	}
+	return a
+}
+
 func getVirtualHost(ingress *slim_networkingv1.Ingress, rule slim_networkingv1.IngressRule) *envoy_config_route_v3.VirtualHost {
 	var routes []*envoy_config_route_v3.Route
 	for _, path := range rule.HTTP.Paths {
@@ -268,13 +282,17 @@ func getVirtualHost(ingress *slim_networkingv1.Ingress, rule slim_networkingv1.I
 		}
 		routes = append(routes, &route)
 	}
-	hostname := "*"
+	domains := []string{"*"}
 	if rule.Host != "" {
-		hostname = rule.Host
+		domains = []string{
+			rule.Host,
+			// match authority header with port (e.g. "example.com:80")
+			rule.Host + ":*",
+		}
 	}
 	return &envoy_config_route_v3.VirtualHost{
-		Name:    "ingress_route",
-		Domains: []string{hostname},
+		Name:    domains[0],
+		Domains: domains,
 		Routes:  routes,
 	}
 }
