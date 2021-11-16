@@ -29,7 +29,7 @@ kubectl apply -f test/k8sT/manifests/externalIPs
 ```
 
 We now have a 2 externalIPs services exposed in both nodes. We have 3 externalIPs
-configured on each service, 2 of those IPs (`192.168.60.11` and `192.168.61.11`)
+configured on each service, 2 of those IPs (`192.168.33.11` and `192.168.34.11`)
 should belong to k8s1, the 3rd (`192.0.2.233`) represent a externalIP that is
 routable in the cluster.
 
@@ -46,7 +46,7 @@ to the cluster running those 2 nodes:
 
 TODO: provide a way to run the script automatically for a 3rd host.
 Execute the same command **without** the `-c` flag in the host that is hosting
-both VMs. **Do not forget** to run `sudo ip route add 192.0.2.0/24 via 192.168.61.11` so
+both VMs. **Do not forget** to run `sudo ip route add 192.0.2.0/24 via 192.168.34.11` so
 you can actually make requests to `k8s1` with the destination IP `192.0.2.233`
 
 Also, **DO NOT FORGET** the remove the route after being done with the test in

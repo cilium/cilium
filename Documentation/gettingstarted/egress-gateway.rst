@@ -88,7 +88,7 @@ cluster, and use it as the destination of the egress traffic.
     Loaded: loaded (/lib/systemd/system/nginx.service; enabled; vendor preset: enabled)
     Active: active (running) since Sun 2021-04-04 21:58:57 UTC; 1min 3s ago
     [...]
-    $ curl http://192.168.60.13:80  # Assume 192.168.60.13 is the external IP of the node
+    $ curl http://192.168.33.13:80  # Assume 192.168.33.13 is the external IP of the node
     [...]
     <title>Welcome to nginx!</title>
     [...]
@@ -106,7 +106,7 @@ the configurations specified in the CiliumEgressNATPolicy.
     NAME                             READY   STATUS    RESTARTS   AGE
     pod/mediabot                     1/1     Running   0          14s
 
-    $ kubectl exec mediabot -- curl http://192.168.60.13:80
+    $ kubectl exec mediabot -- curl http://192.168.33.13:80
     <HTML><HEAD><meta http-equiv="content-type" content="text/html;charset=utf-8">
     [...]
 
@@ -118,9 +118,9 @@ will contain something like the following:
 
     $ tail /var/log/nginx/access.log
     [...]
-    192.168.60.11 - - [04/Apr/2021:22:06:57 +0000] "GET / HTTP/1.1" 200 612 "-" "curl/7.52.1"
+    192.168.33.11 - - [04/Apr/2021:22:06:57 +0000] "GET / HTTP/1.1" 200 612 "-" "curl/7.52.1"
 
-In the previous example, the client pod is running on the node ``192.168.60.11``, so the result makes sense.
+In the previous example, the client pod is running on the node ``192.168.33.11``, so the result makes sense.
 This is the default Kubernetes behavior without egress NAT.
 
 Configure Egress IPs
@@ -128,7 +128,7 @@ Configure Egress IPs
 
 Deploy the following deployment to assign additional egress IP to the gateway node. The node that runs the
 pod will have additional IP addresses configured on the external interface (``enp0s8`` as in the example),
-and become the egress gateway. In the following example, ``192.168.60.100`` and ``192.168.60.101`` becomes
+and become the egress gateway. In the following example, ``192.168.33.100`` and ``192.168.33.101`` becomes
 the egress IP which can be consumed by Egress NAT Policy. Please make sure these IP addresses are routable
 on the interface they are assigned to, otherwise the return traffic won't be able to route back.
 
@@ -139,8 +139,8 @@ Create Egress NAT Policy
 
 Apply the following Egress NAT Policy, which basically means: when the pod is running in the namespace
 ``default`` and the pod itself has label ``org: empire`` and ``class: mediabot``, if it's trying to talk to
-IP CIDR ``192.168.60.13/32``, then use egress IP ``192.168.60.100``. In this example, it tells Cilium to
-forward the packet from client pod to the gateway node with egress IP ``192.168.60.100``, and masquerade
+IP CIDR ``192.168.33.13/32``, then use egress IP ``192.168.33.100``. In this example, it tells Cilium to
+forward the packet from client pod to the gateway node with egress IP ``192.168.33.100``, and masquerade
 with that IP address.
 
 .. literalinclude:: ../../examples/kubernetes-egress-gateway/egress-nat-policy.yaml
@@ -149,17 +149,17 @@ Let's switch back to the client pod and verify it works.
 
 .. code-block:: shell-session
 
-    $ kubectl exec mediabot -- curl http://192.168.60.13:80
+    $ kubectl exec mediabot -- curl http://192.168.33.13:80
     <HTML><HEAD><meta http-equiv="content-type" content="text/html;charset=utf-8">
     [...]
 
 Verify access log from nginx node or service of your chose that the request is coming from egress IP now 
 instead of one of the nodes in Kubernetes cluster. In the nginx's case, you will see logs like the
-following shows that the request is coming from ``192.168.60.100`` now, instead of ``192.168.60.11``.
+following shows that the request is coming from ``192.168.33.100`` now, instead of ``192.168.33.11``.
 
 .. code-block:: shell-session
 
     $ tail /var/log/nginx/access.log
     [...]
-    192.168.60.100 - - [04/Apr/2021:22:06:57 +0000] "GET / HTTP/1.1" 200 612 "-" "curl/7.52.1"
+    192.168.33.100 - - [04/Apr/2021:22:06:57 +0000] "GET / HTTP/1.1" 200 612 "-" "curl/7.52.1"
 

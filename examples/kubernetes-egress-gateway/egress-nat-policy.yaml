@@ -15,5 +15,5 @@ spec:
     #  matchLabels:
     #    ns: default
   destinationCIDRs:
-  - 192.168.60.13/32
-  egressSourceIP: "192.168.60.100"
+  - 192.168.33.13/32
+  egressSourceIP: "192.168.33.100"

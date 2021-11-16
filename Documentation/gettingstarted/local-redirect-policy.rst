@@ -449,7 +449,7 @@ security credentials for pods.
   You can verify this by running a curl command to the AWS metadata server from
   one of the application pods, and tcpdump command on the same EKS cluster node as the
   pod. Following is an example output, where ``192.169.98.118`` is the ip
-  address of an application pod, and ``192.168.60.99`` is the ip address of the
+  address of an application pod, and ``192.168.33.99`` is the ip address of the
   kiam agent running on the same node as the application pod.
 
   .. code-block:: shell-session
@@ -467,11 +467,11 @@ security credentials for pods.
 
   .. code-block:: shell-session
 
-      $ sudo tcpdump -i any -enn "(port 8181) and (host 192.168.60.99 and 192.168.98.118)"
+      $ sudo tcpdump -i any -enn "(port 8181) and (host 192.168.33.99 and 192.168.98.118)"
       tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
       listening on any, link-type LINUX_SLL (Linux cooked), capture size 262144 bytes
-      05:16:05.229597  In de:e4:e9:94:b5:9f ethertype IPv4 (0x0800), length 76: 192.168.98.118.47934 > 192.168.60.99.8181: Flags [S], seq 669026791, win 62727, options [mss 8961,sackOK,TS val 2539579886 ecr 0,nop,wscale 7], length 0
-      05:16:05.229657 Out 56:8f:62:18:6f:85 ethertype IPv4 (0x0800), length 76: 192.168.60.99.8181 > 192.168.98.118.47934: Flags [S.], seq 2355192249, ack 669026792, win 62643, options [mss 8961,sackOK,TS val 4263010641 ecr 2539579886,nop,wscale 7], length 0
+      05:16:05.229597  In de:e4:e9:94:b5:9f ethertype IPv4 (0x0800), length 76: 192.168.98.118.47934 > 192.168.33.99.8181: Flags [S], seq 669026791, win 62727, options [mss 8961,sackOK,TS val 2539579886 ecr 0,nop,wscale 7], length 0
+      05:16:05.229657 Out 56:8f:62:18:6f:85 ethertype IPv4 (0x0800), length 76: 192.168.33.99.8181 > 192.168.98.118.47934: Flags [S.], seq 2355192249, ack 669026792, win 62643, options [mss 8961,sackOK,TS val 4263010641 ecr 2539579886,nop,wscale 7], length 0
 
 Miscellaneous
 =============
