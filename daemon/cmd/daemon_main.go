@@ -1411,6 +1411,10 @@ func initEnv(cmd *cobra.Command) {
 		option.Config.EnableBandwidthManager = false
 	}
 
+	if option.Config.EnableIPv6Masquerade && option.Config.EnableBPFMasquerade {
+		log.Fatal("BPF masquerade is not supported for IPv6.")
+	}
+
 	// If there is one device specified, use it to derive better default
 	// allocation prefixes
 	node.InitDefaultPrefix(option.Config.DirectRoutingDevice)
