@@ -1352,7 +1352,8 @@ For more information, ensure that you have the fix `Pull Request <https://github
 Limitations
 ###########
 
-    * Cilium's eBPF kube-proxy replacement currently cannot be used with :ref:`gsg_encryption`.
+    * Cilium's eBPF kube-proxy replacement currently cannot be used with :ref:`encryption_ipsec`
+      (but works with :ref:`encryption_wg`).
     * Cilium's eBPF kube-proxy replacement relies upon the :ref:`host-services` feature
       which uses eBPF cgroup hooks to implement the service translation. Using it with libceph
       deployments currently requires support for the getpeername(2) hook address translation in
