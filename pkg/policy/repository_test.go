@@ -45,7 +45,7 @@ func (ds *PolicyTestSuite) TestComputePolicyEnforcementAndRules(c *C) {
 	fooEgressRule1Label := labels.NewLabel(k8sConst.PolicyLabelName, "fooEgressRule1", labels.LabelSourceAny)
 	fooEgressRule2Label := labels.NewLabel(k8sConst.PolicyLabelName, "fooEgressRule2", labels.LabelSourceAny)
 	combinedLabel := labels.NewLabel(k8sConst.PolicyLabelName, "combined", labels.LabelSourceAny)
-	initIdentity := identity.ReservedIdentityCache[identity.ReservedIdentityInit]
+	initIdentity := identity.LookupReservedIdentity(identity.ReservedIdentityInit)
 
 	fooIngressRule1 := api.Rule{
 		EndpointSelector: api.NewESFromLabels(fooSelectLabel),

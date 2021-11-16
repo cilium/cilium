@@ -13,7 +13,7 @@ var (
 	cacheMU lock.RWMutex
 	// ReservedIdentityCache that maps all reserved identities from their
 	// numeric identity to their corresponding identity.
-	ReservedIdentityCache = map[NumericIdentity]*Identity{}
+	reservedIdentityCache = map[NumericIdentity]*Identity{}
 )
 
 // AddReservedIdentity adds the reserved numeric identity with the respective
@@ -23,7 +23,7 @@ func AddReservedIdentity(ni NumericIdentity, lbl string) {
 	// Pre-calculate the SHA256 hash.
 	identity.GetLabelsSHA256()
 	cacheMU.Lock()
-	ReservedIdentityCache[ni] = identity
+	reservedIdentityCache[ni] = identity
 	cacheMU.Unlock()
 }
 
@@ -34,7 +34,7 @@ func AddReservedIdentityWithLabels(ni NumericIdentity, lbls labels.Labels) {
 	// Pre-calculate the SHA256 hash.
 	identity.GetLabelsSHA256()
 	cacheMU.Lock()
-	ReservedIdentityCache[ni] = identity
+	reservedIdentityCache[ni] = identity
 	cacheMU.Unlock()
 }
 
@@ -43,9 +43,19 @@ func AddReservedIdentityWithLabels(ni NumericIdentity, lbls labels.Labels) {
 func LookupReservedIdentity(ni NumericIdentity) *Identity {
 	cacheMU.RLock()
 	defer cacheMU.RUnlock()
-	return ReservedIdentityCache[ni]
+	return reservedIdentityCache[ni]
 }
 
 func init() {
-	IterateReservedIdentities(AddReservedIdentityWithLabels)
+	iterateReservedIdentityLabels(AddReservedIdentityWithLabels)
+}
+
+// IterateReservedIdentities iterates over all reserved identities and
+// executes the given function for each identity.
+func IterateReservedIdentities(f func(_ NumericIdentity, _ *Identity)) {
+	cacheMU.RLock()
+	defer cacheMU.RUnlock()
+	for ni, identity := range reservedIdentityCache {
+		f(ni, identity)
+	}
 }
