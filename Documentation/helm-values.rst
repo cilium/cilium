@@ -862,17 +862,25 @@
      - int
      - ``24``
    * - ipam.operator.clusterPoolIPv4PodCIDR
-     - IPv4 CIDR range to delegate to individual nodes for IPAM.
+     - Deprecated in favor of ipam.operator.clusterPoolIPv4PodCIDRList. IPv4 CIDR range to delegate to individual nodes for IPAM.
      - string
      - ``"10.0.0.0/8"``
+   * - ipam.operator.clusterPoolIPv4PodCIDRList
+     - IPv4 CIDR list range to delegate to individual nodes for IPAM.
+     - list
+     - ``[]``
    * - ipam.operator.clusterPoolIPv6MaskSize
      - IPv6 CIDR mask size to delegate to individual nodes for IPAM.
      - int
      - ``120``
    * - ipam.operator.clusterPoolIPv6PodCIDR
-     - IPv6 CIDR range to delegate to individual nodes for IPAM.
+     - Deprecated in favor of ipam.operator.clusterPoolIPv6PodCIDRList. IPv6 CIDR range to delegate to individual nodes for IPAM.
      - string
      - ``"fd00::/104"``
+   * - ipam.operator.clusterPoolIPv6PodCIDRList
+     - IPv6 CIDR list range to delegate to individual nodes for IPAM.
+     - list
+     - ``[]``
    * - ipv4.enabled
      - Enable IPv4 support.
      - bool
