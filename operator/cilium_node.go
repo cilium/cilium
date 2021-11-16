@@ -24,12 +24,23 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 
 	core_v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 )
+
+// ciliumNodeName is only used to implement NamedKey interface.
+type ciliumNodeName struct {
+	name string
+}
+
+func (c *ciliumNodeName) GetKeyName() string {
+	return c.name
+}
 
 var (
 	// ciliumNodeStore contains all CiliumNodes present in k8s.
@@ -40,10 +51,13 @@ var (
 
 func startSynchronizingCiliumNodes(nodeManager allocator.NodeEventHandler, withKVStore bool) error {
 	var (
+		ciliumNodeKVStore *store.SharedStore
+		err               error
+		syncHandler       func(key string) error
+
 		resourceEventHandler  = cache.ResourceEventHandlerFuncs{}
 		ciliumNodeConvertFunc = k8s.ConvertToCiliumNode
-		ciliumNodeKVStore     *store.SharedStore
-		err                   error
+		queue                 = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	)
 
 	// KVStore is enabled -> we will run the event handler to sync objects into
@@ -92,35 +106,65 @@ func startSynchronizingCiliumNodes(nodeManager allocator.NodeEventHandler, withK
 	// memory because 'ciliumNodeStore' is used across the operator
 	// to get the latest state of a CiliumNode.
 	if withKVStore || nodeManager != nil {
+		syncHandler = func(key string) error {
+			_, name, err := cache.SplitMetaNamespaceKey(key)
+			if err != nil {
+				log.WithError(err).Error("Unable to process CiliumNode event")
+				return err
+			}
+			obj, exists, err := ciliumNodeStore.GetByKey(name)
+
+			// Delete handling
+			if !exists || errors.IsNotFound(err) {
+				if withKVStore {
+					ciliumNodeKVStore.DeleteLocalKey(context.TODO(), &ciliumNodeName{name: name})
+				}
+				if nodeManager != nil {
+					nodeManager.Delete(name)
+				}
+				return nil
+			}
+			if err != nil {
+				log.WithError(err).Warning("Unable to retrieve CiliumNode from watcher store")
+				return err
+			}
+			cn, ok := obj.(*cilium_v2.CiliumNode)
+			if !ok {
+				log.Errorf("Object stored in store is not *cilium_v2.CiliumNode but %T", obj)
+				return err
+			}
+			if withKVStore {
+				nodeNew := nodeTypes.ParseCiliumNode(cn)
+				ciliumNodeKVStore.UpdateKeySync(context.TODO(), &nodeNew)
+			}
+			if nodeManager != nil {
+				// node is deep copied before it is stored in pkg/aws/eni
+				nodeManager.Update(cn)
+			}
+			return nil
+		}
+
 		resourceEventHandler = cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				if ciliumNode := k8s.ObjToCiliumNode(obj); ciliumNode != nil {
-					if withKVStore {
-						nodeNew := nodeTypes.ParseCiliumNode(ciliumNode)
-						ciliumNodeKVStore.UpdateKeySync(context.TODO(), &nodeNew)
-					}
-					if nodeManager != nil {
-						// node is deep copied before it is stored in pkg/aws/eni
-						nodeManager.Create(ciliumNode)
-					}
-				} else {
-					log.Warningf("Unknown CiliumNode object type %T received: %+v", obj, obj)
+				key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+				if err != nil {
+					log.WithError(err).Warning("Unable to process CiliumNode Add event")
+					return
 				}
+				queue.Add(key)
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				if oldNode := k8s.ObjToCiliumNode(oldObj); oldNode != nil {
 					if newNode := k8s.ObjToCiliumNode(newObj); newNode != nil {
-						if withKVStore {
-							if oldNode.DeepEqual(newNode) {
-								return
-							}
-							nodeNew := nodeTypes.ParseCiliumNode(newNode)
-							ciliumNodeKVStore.UpdateKeySync(context.TODO(), &nodeNew)
+						if oldNode.DeepEqual(newNode) {
+							return
 						}
-						if nodeManager != nil {
-							// node is deep copied before it is stored in pkg/aws/eni
-							nodeManager.Update(newNode)
+						key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(newObj)
+						if err != nil {
+							log.WithError(err).Warning("Unable to process CiliumNode Update event")
+							return
 						}
+						queue.Add(key)
 					} else {
 						log.Warningf("Unknown CiliumNode object type %T received: %+v", newNode, newNode)
 					}
@@ -129,17 +173,12 @@ func startSynchronizingCiliumNodes(nodeManager allocator.NodeEventHandler, withK
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
-				if ciliumNode := k8s.ObjToCiliumNode(obj); ciliumNode != nil {
-					if withKVStore {
-						deletedNode := nodeTypes.ParseCiliumNode(ciliumNode)
-						ciliumNodeKVStore.DeleteLocalKey(context.TODO(), &deletedNode)
-					}
-					if nodeManager != nil {
-						nodeManager.Delete(ciliumNode.Name)
-					}
-				} else {
-					log.Warningf("Unknown CiliumNode object type %T received: %+v", obj, obj)
+				key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+				if err != nil {
+					log.WithError(err).Warning("Unable to process CiliumNode Delete event")
+					return
 				}
+				queue.Add(key)
 			},
 		}
 	} else {
@@ -164,11 +203,39 @@ func startSynchronizingCiliumNodes(nodeManager allocator.NodeEventHandler, withK
 	go func() {
 		cache.WaitForCacheSync(wait.NeverStop, ciliumNodeInformer.HasSynced)
 		close(k8sCiliumNodesCacheSynced)
+		// Only handle events if syncHandler is not nil. If it is nil then
+		// there isn't any event handler set for CiliumNodes events.
+		if syncHandler != nil {
+			for processNextWorkItem(queue, syncHandler) {
+			}
+		}
 	}()
 
 	go ciliumNodeInformer.Run(wait.NeverStop)
 
 	return nil
+}
+
+// processNextWorkItem process all events from the workqueue.
+func processNextWorkItem(queue workqueue.RateLimitingInterface, syncHandler func(key string) error) bool {
+	key, quit := queue.Get()
+	if quit {
+		return false
+	}
+	defer queue.Done(key)
+
+	err := syncHandler(key.(string))
+	if err == nil {
+		// If err is nil we can forget it from the queue, if it is not nil
+		// the queue handler will retry to process this key until it succeeds.
+		queue.Forget(key)
+		return true
+	}
+
+	log.WithError(err).Errorf("sync %q failed with %v", key, err)
+	queue.AddRateLimited(key)
+
+	return true
 }
 
 type ciliumNodeUpdateImplementation struct{}
