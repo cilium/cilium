@@ -2370,6 +2370,7 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 
 		if RunsOn419OrLaterKernel() {
 			opts["bpf.masquerade"] = "true"
+			opts["enableIPv6Masquerade"] = "false"
 		}
 
 		for key, value := range opts {
