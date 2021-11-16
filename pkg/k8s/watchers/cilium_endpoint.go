@@ -210,22 +210,16 @@ func (k *K8sWatcher) endpointDeleted(endpoint *types.CiliumEndpoint) {
 		namedPortsChanged := false
 		for _, pair := range endpoint.Networking.Addressing {
 			if pair.IPV4 != "" {
-				k8sMeta := ipcache.IPIdentityCache.GetK8sMetadata(pair.IPV4)
-				if k8sMeta != nil && k8sMeta.Namespace == endpoint.Namespace && k8sMeta.PodName == endpoint.Name {
-					portsChanged := ipcache.IPIdentityCache.Delete(pair.IPV4, source.CustomResource)
-					if portsChanged {
-						namedPortsChanged = true
-					}
+				portsChanged := ipcache.IPIdentityCache.DeleteOnMetadataMatch(pair.IPV4, source.CustomResource, endpoint.Namespace, endpoint.Name)
+				if portsChanged {
+					namedPortsChanged = true
 				}
 			}
 
 			if pair.IPV6 != "" {
-				k8sMeta := ipcache.IPIdentityCache.GetK8sMetadata(pair.IPV6)
-				if k8sMeta != nil && k8sMeta.Namespace == endpoint.Namespace && k8sMeta.PodName == endpoint.Name {
-					portsChanged := ipcache.IPIdentityCache.Delete(pair.IPV6, source.CustomResource)
-					if portsChanged {
-						namedPortsChanged = true
-					}
+				portsChanged := ipcache.IPIdentityCache.DeleteOnMetadataMatch(pair.IPV6, source.CustomResource, endpoint.Namespace, endpoint.Name)
+				if portsChanged {
+					namedPortsChanged = true
 				}
 			}
 		}
