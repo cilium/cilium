@@ -1379,7 +1379,7 @@ Export the current ConfigMap
           etcd-config: |-
             ---
             endpoints:
-            - https://192.168.60.11:2379
+            - https://192.168.33.11:2379
             #
             # In case you want to use TLS in etcd, uncomment the 'trusted-ca-file' line
             # and create a kubernetes secret by following the tutorial in
@@ -1440,7 +1440,7 @@ new options while keeping the configuration that we wanted:
           etcd-config: |-
             ---
             endpoints:
-            - https://192.168.60.11:2379
+            - https://192.168.33.11:2379
             #
             # In case you want to use TLS in etcd, uncomment the 'trusted-ca-file' line
             # and create a kubernetes secret by following the tutorial in
@@ -1609,13 +1609,13 @@ Example migration
 
       $ kubectl exec -n kube-system cilium-preflight-1234 -- cilium preflight migrate-identity
       INFO[0000] Setting up kvstore client
-      INFO[0000] Connecting to etcd server...                  config=/var/lib/cilium/etcd-config.yml endpoints="[https://192.168.60.11:2379]" subsys=kvstore
+      INFO[0000] Connecting to etcd server...                  config=/var/lib/cilium/etcd-config.yml endpoints="[https://192.168.33.11:2379]" subsys=kvstore
       INFO[0000] Setting up kubernetes client
-      INFO[0000] Establishing connection to apiserver          host="https://192.168.60.11:6443" subsys=k8s
+      INFO[0000] Establishing connection to apiserver          host="https://192.168.33.11:6443" subsys=k8s
       INFO[0000] Connected to apiserver                        subsys=k8s
       INFO[0000] Got lease ID 29c66c67db8870c8                 subsys=kvstore
       INFO[0000] Got lock lease ID 29c66c67db8870ca            subsys=kvstore
-      INFO[0000] Successfully verified version of etcd endpoint  config=/var/lib/cilium/etcd-config.yml endpoints="[https://192.168.60.11:2379]" etcdEndpoint="https://192.168.60.11:2379" subsys=kvstore version=3.3.13
+      INFO[0000] Successfully verified version of etcd endpoint  config=/var/lib/cilium/etcd-config.yml endpoints="[https://192.168.33.11:2379]" etcdEndpoint="https://192.168.33.11:2379" subsys=kvstore version=3.3.13
       INFO[0000] CRD (CustomResourceDefinition) is installed and up-to-date  name=CiliumNetworkPolicy/v2 subsys=k8s
       INFO[0000] Updating CRD (CustomResourceDefinition)...    name=v2.CiliumEndpoint subsys=k8s
       INFO[0001] CRD (CustomResourceDefinition) is installed and up-to-date  name=v2.CiliumEndpoint subsys=k8s

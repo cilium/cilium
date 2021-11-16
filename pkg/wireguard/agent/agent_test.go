@@ -50,12 +50,12 @@ func (f *fakeWgClient) ConfigureDevice(name string, cfg wgtypes.Config) error {
 var (
 	k8s1NodeName = "k8s1"
 	k8s1PubKey   = "YKQF5gwcQrsZWzxGd4ive+IeCOXjPN4aS9jiMSpAlCg="
-	k8s1NodeIPv4 = net.ParseIP("192.168.60.11")
+	k8s1NodeIPv4 = net.ParseIP("192.168.33.11")
 	k8s1NodeIPv6 = net.ParseIP("fd01::b")
 
 	k8s2NodeName = "k8s2"
 	k8s2PubKey   = "lH+Xsa0JClu1syeBVbXN0LZNQVB6rTPBzbzWOHwQLW4="
-	k8s2NodeIPv4 = net.ParseIP("192.168.60.12")
+	k8s2NodeIPv4 = net.ParseIP("192.168.33.12")
 	k8s2NodeIPv6 = net.ParseIP("fd01::c")
 
 	pod1IPv4Str = "10.0.0.1"

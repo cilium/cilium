@@ -122,8 +122,8 @@ breakages.
 .. code-block:: shell-session
 
     $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium monitor -t policy-verdict --related-to $HOST_EP_ID
-    Policy verdict log: flow 0x0 local EP ID 1687, remote ID 6, proto 1, ingress, action allow, match L3-Only, 192.168.60.12 -> 192.168.60.11 EchoRequest
-    Policy verdict log: flow 0x0 local EP ID 1687, remote ID 6, proto 6, ingress, action allow, match L3-Only, 192.168.60.12:37278 -> 192.168.60.11:2379 tcp SYN
+    Policy verdict log: flow 0x0 local EP ID 1687, remote ID 6, proto 1, ingress, action allow, match L3-Only, 192.168.33.12 -> 192.168.33.11 EchoRequest
+    Policy verdict log: flow 0x0 local EP ID 1687, remote ID 6, proto 6, ingress, action allow, match L3-Only, 192.168.33.12:37278 -> 192.168.33.11:2379 tcp SYN
     Policy verdict log: flow 0x0 local EP ID 1687, remote ID 2, proto 6, ingress, action audit, match none, 10.0.2.2:47500 -> 10.0.2.15:6443 tcp SYN
 
 For details on how to derive the network policies from the output of ``cilium

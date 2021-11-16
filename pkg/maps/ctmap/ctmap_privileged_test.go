@@ -116,15 +116,15 @@ func (k *CTMapTestSuite) TestCtGcIcmp(c *C) {
 	defer ctMap.Map.Unpin()
 
 	// Create the following entries and check that they get GC-ed:
-	//	- CT:	ICMP OUT 192.168.61.11:38193 -> 192.168.61.12:0 <..>
-	//	- NAT:	ICMP IN 192.168.61.12:0 -> 192.168.61.11:38193 XLATE_DST <..>
-	//	 		ICMP OUT 192.168.61.11:38193 -> 192.168.61.12:0 XLATE_SRC <..>
+	//	- CT:	ICMP OUT 192.168.34.11:38193 -> 192.168.34.12:0 <..>
+	//	- NAT:	ICMP IN 192.168.34.12:0 -> 192.168.34.11:38193 XLATE_DST <..>
+	//	 		ICMP OUT 192.168.34.11:38193 -> 192.168.34.12:0 XLATE_SRC <..>
 
 	ctKey := &CtKey4Global{
 		tuple.TupleKey4Global{
 			tuple.TupleKey4{
-				SourceAddr: types.IPv4{192, 168, 61, 12},
-				DestAddr:   types.IPv4{192, 168, 61, 11},
+				SourceAddr: types.IPv4{192, 168, 34, 12},
+				DestAddr:   types.IPv4{192, 168, 34, 11},
 				SourcePort: 0x3195,
 				DestPort:   0,
 				NextHeader: u8proto.ICMP,
@@ -144,8 +144,8 @@ func (k *CTMapTestSuite) TestCtGcIcmp(c *C) {
 	natKey := &nat.NatKey4{
 		tuple.TupleKey4Global{
 			tuple.TupleKey4{
-				DestAddr:   types.IPv4{192, 168, 61, 12},
-				SourceAddr: types.IPv4{192, 168, 61, 11},
+				DestAddr:   types.IPv4{192, 168, 34, 12},
+				SourceAddr: types.IPv4{192, 168, 34, 11},
 				DestPort:   0,
 				SourcePort: 0x3195,
 				NextHeader: u8proto.ICMP,
@@ -156,7 +156,7 @@ func (k *CTMapTestSuite) TestCtGcIcmp(c *C) {
 	natVal := &nat.NatEntry4{
 		Created:   37400,
 		HostLocal: 1,
-		Addr:      types.IPv4{192, 168, 61, 11},
+		Addr:      types.IPv4{192, 168, 34, 11},
 		Port:      0x3195,
 	}
 	err = bpf.UpdateElement(natMap.Map.GetFd(), natMap.Map.Name(), unsafe.Pointer(natKey),
@@ -165,8 +165,8 @@ func (k *CTMapTestSuite) TestCtGcIcmp(c *C) {
 	natKey = &nat.NatKey4{
 		tuple.TupleKey4Global{
 			tuple.TupleKey4{
-				SourceAddr: types.IPv4{192, 168, 61, 12},
-				DestAddr:   types.IPv4{192, 168, 61, 11},
+				SourceAddr: types.IPv4{192, 168, 34, 12},
+				DestAddr:   types.IPv4{192, 168, 34, 11},
 				SourcePort: 0,
 				DestPort:   0x3195,
 				NextHeader: u8proto.ICMP,
@@ -177,7 +177,7 @@ func (k *CTMapTestSuite) TestCtGcIcmp(c *C) {
 	natVal = &nat.NatEntry4{
 		Created:   37400,
 		HostLocal: 1,
-		Addr:      types.IPv4{192, 168, 61, 11},
+		Addr:      types.IPv4{192, 168, 34, 11},
 		Port:      0x3195,
 	}
 	err = bpf.UpdateElement(natMap.Map.GetFd(), natMap.Map.Name(), unsafe.Pointer(natKey),
@@ -247,9 +247,9 @@ func (k *CTMapTestSuite) TestOrphanNatGC(c *C) {
 	// to show for completion):
 	//
 	// - NodePort request from outside (subject to NodePort SNAT):
-	// 		CT: 	TCP OUT 192.168.61.1:63000 -> 10.0.1.99:80
-	// 		NAT: 	TCP IN 10.0.1.99:80 -> 10.0.0.134:63000 XLATE_DST 192.168.61.1:63000
-	// 		NAT: 	TCP OUT 192.168.61.1:63000 -> 10.0.1.99:80 XLATE_SRC 10.0.0.134:63000
+	// 		CT: 	TCP OUT 192.168.34.1:63000 -> 10.0.1.99:80
+	// 		NAT: 	TCP IN 10.0.1.99:80 -> 10.0.0.134:63000 XLATE_DST 192.168.34.1:63000
+	// 		NAT: 	TCP OUT 192.168.34.1:63000 -> 10.0.1.99:80 XLATE_SRC 10.0.0.134:63000
 	//
 	// - Local endpoint request to outside (subject to BPF-masq):
 	//		CT: 	TCP OUT 10.0.1.99:34520 -> 1.1.1.1:80
