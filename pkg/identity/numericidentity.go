@@ -139,7 +139,7 @@ func (w wellKnownIdentities) add(i NumericIdentity, lbls []string) {
 	}
 
 	cacheMU.Lock()
-	ReservedIdentityCache[i] = identity
+	reservedIdentityCache[i] = identity
 	cacheMU.Unlock()
 }
 
@@ -463,10 +463,10 @@ func GetAllReservedIdentities() []NumericIdentity {
 	return identities
 }
 
-// IterateReservedIdentities iterates over all reservedIdentityLabels and
+// iterateReservedIdentityLabels iterates over all reservedIdentityLabels and
 // executes the given function for each key, value pair in
 // reservedIdentityLabels.
-func IterateReservedIdentities(f func(_ NumericIdentity, _ labels.Labels)) {
+func iterateReservedIdentityLabels(f func(_ NumericIdentity, _ labels.Labels)) {
 	for ni, lbls := range reservedIdentityLabels {
 		f(ni, lbls)
 	}

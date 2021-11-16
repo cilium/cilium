@@ -64,9 +64,9 @@ func (m *CachingIdentityAllocator) GetIdentityCache() IdentityCache {
 		})
 	}
 
-	for key, identity := range identity.ReservedIdentityCache {
-		cache[key] = identity.Labels.LabelArray()
-	}
+	identity.IterateReservedIdentities(func(ni identity.NumericIdentity, id *identity.Identity) {
+		cache[ni] = id.Labels.LabelArray()
+	})
 
 	if m.isLocalIdentityAllocatorInitialized() {
 		for _, identity := range m.localIdentities.GetIdentities() {
@@ -90,10 +90,9 @@ func (m *CachingIdentityAllocator) GetIdentities() IdentitiesModel {
 
 		})
 	}
-	// append user reserved identities
-	for _, v := range identity.ReservedIdentityCache {
-		identities = append(identities, identitymodel.CreateModel(v))
-	}
+	identity.IterateReservedIdentities(func(ni identity.NumericIdentity, id *identity.Identity) {
+		identities = append(identities, identitymodel.CreateModel(id))
+	})
 
 	if m.isLocalIdentityAllocatorInitialized() {
 		for _, v := range m.localIdentities.GetIdentities() {
