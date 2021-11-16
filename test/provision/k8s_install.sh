@@ -22,7 +22,7 @@ IPv6=$4
 CONTAINER_RUNTIME=$5
 
 # Kubeadm default parameters
-export KUBEADM_ADDR='192.168.56.11'
+export KUBEADM_ADDR='192.168.36.11'
 export KUBEADM_POD_CIDR='10.10.0.0/16'
 export KUBEADM_V1BETA2_POD_CIDR='10.10.0.0/16,fd02::/112'
 export KUBEADM_SVC_CIDR='10.96.0.0/12'
@@ -82,12 +82,12 @@ cat <<EOF >> /etc/hosts
 ::1     localhost ip6-localhost ip6-loopback
 ff02::1 ip6-allnodes
 ff02::2 ip6-allrouters
-192.168.56.11 k8s1
-192.168.56.12 k8s2
-192.168.56.13 k8s3
-192.168.56.14 k8s4
-192.168.56.15 k8s5
-192.168.56.16 k8s6
+192.168.36.11 k8s1
+192.168.36.12 k8s2
+192.168.36.13 k8s3
+192.168.36.14 k8s4
+192.168.36.15 k8s5
+192.168.36.16 k8s6
 EOF
 
 # Configure default IPv6 route without this connectivity from host to

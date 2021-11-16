@@ -8,30 +8,30 @@ chmod a+x "$dir/restart.sh"
 
 # Master's IPv4 address. Workers' IPv4 address will have their IP incremented by
 # 1. The netmask used will be /24
-export 'MASTER_IPV4'=${MASTER_IPV4:-"192.168.60.11"}
+export 'MASTER_IPV4'=${MASTER_IPV4:-"192.168.33.11"}
 # NFS address is only set if NFS option is active. This will create a new
 # network interface for each VM with starting on this IP. This IP will be
 # available to reach from the host.
-export 'MASTER_IPV4_NFS'=${MASTER_IPV4_NFS:-"192.168.61.11"}
+export 'MASTER_IPV4_NFS'=${MASTER_IPV4_NFS:-"192.168.34.11"}
 # Enable IPv4 mode. It's enabled by default since it's required for several
 # runtime tests.
 export 'IPV4'=${IPV4:-1}
 # Exposed IPv6 node CIDR, only set if IPV4 is disabled. Each node will be setup
 # with a IPv6 network available from the host with $IPV6_PUBLIC_CIDR +
-# 6to4($MASTER_IPV4). For IPv4 "192.168.60.11" we will have for example:
+# 6to4($MASTER_IPV4). For IPv4 "192.168.33.11" we will have for example:
 #   master  : FD00::B/16
 #   worker 1: FD00::C/16
 # The netmask used will be /16
 export 'IPV6_PUBLIC_CIDR'=${IPV4+"FD00::"}
 # Internal IPv6 node CIDR, always set up by default. Each node will be setup
 # with a IPv6 network available from the host with IPV6_INTERNAL_CIDR +
-# 6to4($MASTER_IPV4). For IPv4 "192.168.60.11" we will have for example:
+# 6to4($MASTER_IPV4). For IPv4 "192.168.33.11" we will have for example:
 #   master  : FD01::B/16
 #   worker 1: FD01::C/16
 # The netmask used will be /16
 export 'IPV6_INTERNAL_CIDR'=${IPV4+"FD01::"}
 # Cilium IPv6 node CIDR. Each node will be setup with IPv6 network of
-# $CILIUM_IPV6_NODE_CIDR + 6to4($MASTER_IPV4). For IPv4 "192.168.60.11" we will
+# $CILIUM_IPV6_NODE_CIDR + 6to4($MASTER_IPV4). For IPv4 "192.168.33.11" we will
 # have for example:
 #   master  : FD02::0:0:0/96
 #   worker 1: FD02::1:0:0/96

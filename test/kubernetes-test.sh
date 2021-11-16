@@ -78,9 +78,9 @@ GO111MODULE=off make ginkgo
 GO111MODULE=off make WHAT='test/e2e/e2e.test'
 
 export KUBECTL_PATH=/usr/bin/kubectl
-export KUBE_MASTER=192.168.56.11
-export KUBE_MASTER_IP=192.168.56.11
-export KUBE_MASTER_URL="https://192.168.56.11:6443"
+export KUBE_MASTER=192.168.36.11
+export KUBE_MASTER_IP=192.168.36.11
+export KUBE_MASTER_URL="https://192.168.36.11:6443"
 
 echo "Running upstream services conformance tests"
 ${HOME}/go/bin/kubetest --provider=local --test \

@@ -283,9 +283,9 @@ Vagrant.configure(2) do |config|
     config.vm.synced_folder cilium_dir, cilium_path, type: "nfs", nfs_udp: false
     # Don't forget to enable this ports on your host before starting the VM
     # in order to have nfs working
-    # iptables -I INPUT -p tcp -s 192.168.61.0/24 --dport 111 -j ACCEPT
-    # iptables -I INPUT -p tcp -s 192.168.61.0/24 --dport 2049 -j ACCEPT
-    # iptables -I INPUT -p tcp -s 192.168.61.0/24 --dport 20048 -j ACCEPT
+    # iptables -I INPUT -p tcp -s 192.168.34.0/24 --dport 111 -j ACCEPT
+    # iptables -I INPUT -p tcp -s 192.168.34.0/24 --dport 2049 -j ACCEPT
+    # iptables -I INPUT -p tcp -s 192.168.34.0/24 --dport 20048 -j ACCEPT
     # if using nftables, in Fedora (with firewalld), use:
     # nft -f ./contrib/vagrant/nftables.rules
 
