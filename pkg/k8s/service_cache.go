@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
+	core_v1 "k8s.io/api/core/v1"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
@@ -31,6 +32,9 @@ const (
 	// DeleteService reflects that the service was deleted
 	DeleteService
 )
+
+// Used to implement the topology aware hints.
+const LabelTopologyZone = "topology.kubernetes.io/zone"
 
 // String returns the cache action as a string
 func (c CacheAction) String() string {
@@ -85,6 +89,8 @@ type ServiceCache struct {
 	externalEndpoints map[ServiceID]externalEndpoints
 
 	nodeAddressing datapath.NodeAddressing
+
+	selfNodeZoneLabel string
 }
 
 // NewServiceCache returns a new ServiceCache
@@ -420,6 +426,53 @@ func (s *ServiceCache) UniqueServiceFrontends() FrontendList {
 	return uniqueFrontends
 }
 
+// filterEndpoints filters local endpoints by using k8s service heuristics.
+// For now it only implements the topology aware hints.
+func (s *ServiceCache) filterEndpoints(localEndpoints *Endpoints, svc *Service) *Endpoints {
+	if !option.Config.EnableServiceTopology || svc == nil || !svc.TopologyAware {
+		return localEndpoints
+	}
+
+	if s.selfNodeZoneLabel == "" {
+		// The node doesn't have the zone label set, so we cannot filter endpoints
+		// by zone. Therefore, return all endpoints.
+		return localEndpoints
+	}
+
+	if svc.TrafficPolicy == loadbalancer.SVCTrafficPolicyLocal {
+		// According to https://kubernetes.io/docs/concepts/services-networking/topology-aware-hints/#constraints:
+		// """
+		// Topology Aware Hints are not used when either externalTrafficPolicy or
+		// internalTrafficPolicy is set to Local on a Service.
+		// """
+		return localEndpoints
+	}
+
+	filteredEndpoints := &Endpoints{Backends: map[string]*Backend{}}
+
+	for key, backend := range localEndpoints.Backends {
+		if len(backend.HintsForZones) == 0 {
+			return localEndpoints
+		}
+
+		for _, hint := range backend.HintsForZones {
+			if hint == s.selfNodeZoneLabel {
+				filteredEndpoints.Backends[key] = backend
+				break
+			}
+		}
+	}
+
+	if len(filteredEndpoints.Backends) == 0 {
+		// Fallback to all endpoints if there is no any which could match
+		// the zone. Otherwise, the node will start dropping requests to
+		// the service.
+		return localEndpoints
+	}
+
+	return filteredEndpoints
+}
+
 // correlateEndpoints builds a combined Endpoints of the local endpoints and
 // all external endpoints if the service is marked as a global service. Also
 // returns a boolean that indicates whether the service is ready to be plumbed,
@@ -431,15 +484,18 @@ func (s *ServiceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 	endpoints := newEndpoints()
 
 	localEndpoints := s.endpoints[id].GetEndpoints()
+	svc, svcFound := s.services[id]
+
 	hasLocalEndpoints := localEndpoints != nil
 	if hasLocalEndpoints {
+		localEndpoints = s.filterEndpoints(localEndpoints, svc)
+
 		for ip, e := range localEndpoints.Backends {
 			endpoints.Backends[ip] = e
 		}
 	}
 
-	svc, hasExternalService := s.services[id]
-	if hasExternalService && svc.IncludeExternal {
+	if svcFound && svc.IncludeExternal {
 		externalEndpoints, hasExternalEndpoints := s.externalEndpoints[id]
 		if hasExternalEndpoints {
 			// remote cluster endpoints already contain all Endpoints from all
@@ -632,4 +688,63 @@ func (s *ServiceCache) DebugStatus() string {
 	str := spew.Sdump(s)
 	s.mutex.RUnlock()
 	return str
+}
+
+// Implementation of subscriber.Node
+
+func (s *ServiceCache) OnAddNode(node *core_v1.Node, swg *lock.StoppableWaitGroup) error {
+	s.updateSelfNodeLabels(node.GetLabels(), swg)
+
+	return nil
+}
+
+func (s *ServiceCache) OnUpdateNode(oldNode, newNode *core_v1.Node,
+	swg *lock.StoppableWaitGroup) error {
+
+	s.updateSelfNodeLabels(newNode.GetLabels(), swg)
+
+	return nil
+}
+
+func (s *ServiceCache) OnDeleteNode(node *core_v1.Node,
+	swg *lock.StoppableWaitGroup) error {
+
+	return nil
+}
+
+func (s *ServiceCache) updateSelfNodeLabels(labels map[string]string,
+	swg *lock.StoppableWaitGroup) {
+
+	if !option.Config.EnableServiceTopology {
+		return
+	}
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	zone := labels[LabelTopologyZone]
+
+	if s.selfNodeZoneLabel == zone {
+		return
+	}
+
+	s.selfNodeZoneLabel = zone
+
+	for id, svc := range s.services {
+		if !svc.TopologyAware {
+			continue
+		}
+
+		if endpoints, ready := s.correlateEndpoints(id); ready {
+			swg.Add()
+			s.Events <- ServiceEvent{
+				Action:     UpdateService,
+				ID:         id,
+				Service:    svc,
+				OldService: svc,
+				Endpoints:  endpoints,
+				SWG:        swg,
+			}
+		}
+	}
 }
