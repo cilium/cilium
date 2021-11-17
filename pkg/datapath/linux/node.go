@@ -1585,6 +1585,13 @@ func (n *linuxNodeHandler) NodeNeighborRefresh(ctx context.Context, nodeToRefres
 // learned ones. If set to false, then it removes all PERMANENT or externally
 // learned ones, e.g. when the agent got restarted and changed the state from
 // `n.enableNeighDiscovery = true` to `n.enableNeighDiscovery = false`.
+//
+// Also, NodeCleanNeighbors is called after kubeapi server resync, so we have
+// the full picture of all nodes. If there are any externally learned neighbors
+// not in neighLastPingByNextHop, then we delete them as they could be stale
+// neighbors from a previous agent run where in the meantime the given node was
+// deleted (and the new agent instance did not see the delete event during the
+// down/up cycle).
 func (n *linuxNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
 	linkName, err := loadNeighLink(option.Config.StateDir)
 	if err != nil {
@@ -1630,6 +1637,14 @@ func (n *linuxNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
 		return
 	}
 
+	if migrateOnly {
+		// neighLastPingByNextHop holds both v4 and v6 neighbors and given
+		// we try to find stale neighbors, we need to check their presence
+		// again it.
+		n.neighLock.Lock()
+		defer n.neighLock.Unlock()
+	}
+
 	var neighSucceeded, neighErrored int
 	var which string
 	for _, neigh := range neighList {
@@ -1641,7 +1656,14 @@ func (n *linuxNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
 			neigh.Flags&netlink.NTF_EXT_LEARNED == 0 {
 			continue
 		}
+		migrateEntry := false
 		if migrateOnly {
+			nextHop := neigh.IP.String()
+			if _, found := n.neighLastPingByNextHop[nextHop]; found {
+				migrateEntry = true
+			}
+		}
+		if migrateEntry {
 			// We only care to migrate NUD_PERMANENT over to dynamic
 			// state entries with NTF_EXT_LEARNED.
 			if neigh.State&netlink.NUD_PERMANENT == 0 {
