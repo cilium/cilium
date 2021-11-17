@@ -507,6 +507,12 @@ func TestSpeakerOnDeleteNode(t *testing.T) {
 	if err := spkr.OnDeleteNode(nil, nil); err != ErrShutDown {
 		t.Fatalf("got: %v, want: %v", err, ErrShutDown)
 	}
+	if err := spkr.OnAddCiliumNode(nil, nil); err != ErrShutDown {
+		t.Fatalf("got: %v, want: %v", err, ErrShutDown)
+	}
+	if err := spkr.OnDeleteCiliumNode(nil, nil); err != ErrShutDown {
+		t.Fatalf("got: %v, want: %v", err, ErrShutDown)
+	}
 	if err := spkr.OnDeleteService(nil); err != ErrShutDown {
 		t.Fatalf("got: %v, want: %v", err, ErrShutDown)
 	}
@@ -518,5 +524,87 @@ func TestSpeakerOnDeleteNode(t *testing.T) {
 	}
 	if err := spkr.OnUpdateService(nil); err != ErrShutDown {
 		t.Fatalf("got: %v, want: %v", err, ErrShutDown)
+	}
+}
+
+func TestSpeakerOnUpdateAndDeleteCiliumNode(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
+	defer cancel()
+
+	labelChan := make(chan map[string]string, 1)
+	advertisementChan := make(chan []*metallbbgp.Advertisement, 1)
+
+	mockSession := &mock.MockSession{
+		Set_: func(advs ...*metallbbgp.Advertisement) error {
+			advertisementChan <- advs
+			return nil
+		},
+	}
+
+	mockSpeaker := &mock.MockMetalLBSpeaker{
+		SetNodeLabels_: func(labels map[string]string) types.SyncState {
+			labelChan <- labels
+			return types.SyncStateSuccess
+		},
+		PeerSession_: func() []metallbspr.Session {
+			return []metallbspr.Session{mockSession}
+		},
+	}
+
+	spkr := &MetalLBSpeaker{
+		Fencer:          fence.Fencer{},
+		speaker:         mockSpeaker,
+		announceLBIP:    true,
+		announcePodCIDR: true,
+		queue:           workqueue.New(),
+	}
+
+	go spkr.run(ctx)
+
+	// CiliumNode with one pod CIDR
+	node, advs := mock.GenTestCiliumNodeAndAdvertisements(1)
+	err := spkr.OnUpdateCiliumNode(nil, &node, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	receivedLabels := <-labelChan
+	if !cmp.Equal(receivedLabels, node.Labels) {
+		t.Fatalf(cmp.Diff(receivedLabels, node.Labels))
+	}
+
+	receivedAdvs := <-advertisementChan
+	if !cmp.Equal(receivedAdvs, advs) {
+		t.Fatalf(cmp.Diff(receivedAdvs, advs))
+	}
+
+	// Add two additional pod CIDRs to CiliumNode
+	oldNode := node
+	node, advs = mock.GenTestCiliumNodeAndAdvertisements(3)
+	err = spkr.OnUpdateCiliumNode(&oldNode, &node, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	receivedLabels = <-labelChan
+	if !cmp.Equal(receivedLabels, node.Labels) {
+		t.Fatalf(cmp.Diff(receivedLabels, node.Labels))
+	}
+
+	receivedAdvs = <-advertisementChan
+	if !cmp.Equal(receivedAdvs, advs) {
+		t.Fatalf(cmp.Diff(receivedAdvs, advs))
+	}
+
+	// Delete CiliumNode
+	err = spkr.OnDeleteCiliumNode(&node, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Withdrawal is represented as an empty list of advertisements
+	receivedAdvs = <-advertisementChan
+	if !cmp.Equal(len(receivedAdvs), 0) {
+		t.Fatalf(cmp.Diff(len(receivedAdvs), 0))
 	}
 }

@@ -4,8 +4,12 @@
 package mock
 
 import (
+	"fmt"
+
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/k8s"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
@@ -49,6 +53,46 @@ func GenTestNodeAndAdvertisements() (v1.Node, []*metallbbgp.Advertisement) {
 		{
 			Prefix: cidr.MustParseCIDR(CIDR).IPNet,
 		},
+	}
+	return node, advertisements
+}
+
+// GenTestCiliumNodeAndAdvertisements generates a ciliumv2.CiliumNode with
+// numPodCIDRs podCIDRs and the corresponding MetalLB Advertisements that would
+// be announced by this node.
+//
+// The returned Node's name is set to nodetypes.GetName()
+// to simulate it being the node the Cilium agent is running on.
+//
+// See definition for details.
+func GenTestCiliumNodeAndAdvertisements(numPodCIDRs int) (ciliumv2.CiliumNode, []*metallbbgp.Advertisement) {
+	podCIDRs := make([]string, numPodCIDRs)
+	for i := 0; i < numPodCIDRs; i++ {
+		podCIDRs[i] = fmt.Sprintf("10.%d.0.0/16", i)
+	}
+
+	meta := metav1.ObjectMeta{
+		Name: nodetypes.GetName(),
+		Labels: map[string]string{
+			"TestLabel": "TestLabel",
+		},
+		ResourceVersion: "1",
+	}
+	spec := ciliumv2.NodeSpec{
+		IPAM: types.IPAMSpec{
+			PodCIDRs: podCIDRs,
+		},
+	}
+	node := ciliumv2.CiliumNode{
+		ObjectMeta: meta,
+		Spec:       spec,
+	}
+
+	advertisements := make([]*metallbbgp.Advertisement, 0, numPodCIDRs)
+	for _, podCIDR := range podCIDRs {
+		advertisements = append(advertisements, &metallbbgp.Advertisement{
+			Prefix: cidr.MustParseCIDR(podCIDR).IPNet,
+		})
 	}
 	return node, advertisements
 }
