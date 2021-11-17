@@ -278,7 +278,7 @@ func (s *MetalLBSpeaker) OnUpdateEndpointSliceV1Beta1(eps *slim_discover_v1beta1
 }
 
 // OnAddNode notifies the Speaker of a new node.
-func (s *MetalLBSpeaker) OnAddNode(node *v1.Node) error {
+func (s *MetalLBSpeaker) OnAddNode(node *v1.Node, swg *lock.StoppableWaitGroup) error {
 	if s.shutDown() {
 		return ErrShutDown
 	}
@@ -308,7 +308,9 @@ func (s *MetalLBSpeaker) OnAddNode(node *v1.Node) error {
 }
 
 // OnUpdateNode notifies the Speaker of an update to a node.
-func (s *MetalLBSpeaker) OnUpdateNode(oldNode, newNode *v1.Node) error {
+func (s *MetalLBSpeaker) OnUpdateNode(oldNode, newNode *v1.Node,
+	swg *lock.StoppableWaitGroup) error {
+
 	if s.shutDown() {
 		return ErrShutDown
 	}
@@ -344,7 +346,7 @@ func (s *MetalLBSpeaker) OnUpdateNode(oldNode, newNode *v1.Node) error {
 // is shuttig down it will send a BGP message to its peer
 // instructing it to withdrawal all previously advertised
 // routes.
-func (s *MetalLBSpeaker) OnDeleteNode(node *v1.Node) error {
+func (s *MetalLBSpeaker) OnDeleteNode(node *v1.Node, swg *lock.StoppableWaitGroup) error {
 	if s.shutDown() {
 		return ErrShutDown
 	}
