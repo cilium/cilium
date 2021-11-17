@@ -1475,7 +1475,7 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 		if n.enableNeighDiscovery {
 			link, err := netlink.LinkByName(ifaceName)
 			if err != nil {
-				return fmt.Errorf("cannot find link by name %s for neigh discovery: %w",
+				return fmt.Errorf("cannot find link by name %s for neighbor discovery: %w",
 					ifaceName, err)
 			}
 
@@ -1484,8 +1484,8 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 			// disabled next time.
 			err = storeNeighLink(option.Config.StateDir, ifaceName)
 			if err != nil {
-				log.WithError(err).Warning("Unable to store neigh discovery iface." +
-					" Removing ARP PERM entries upon cilium-agent init when neigh" +
+				log.WithError(err).Warning("Unable to store neighbor discovery iface." +
+					" Removing PERM neighbor entries upon cilium-agent init when neighbor" +
 					" discovery is disabled will not work.")
 			}
 
@@ -1588,8 +1588,8 @@ func (n *linuxNodeHandler) NodeNeighborRefresh(ctx context.Context, nodeToRefres
 func (n *linuxNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
 	linkName, err := loadNeighLink(option.Config.StateDir)
 	if err != nil {
-		log.WithError(err).Error("Unable to load neigh discovery iface name" +
-			" for removing ARP PERM entries")
+		log.WithError(err).Error("Unable to load neighbor discovery iface name" +
+			" for removing PERM neighbor entries")
 		return
 	}
 	if len(linkName) == 0 {
@@ -1612,7 +1612,7 @@ func (n *linuxNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
 		if _, ok := err.(netlink.LinkNotFoundError); !ok {
 			log.WithError(err).WithFields(logrus.Fields{
 				logfields.Device: linkName,
-			}).Error("Unable to remove PERM ARP entries of network device")
+			}).Error("Unable to remove PERM neighbor entries of network device")
 			successClean = false
 		}
 		return
@@ -1625,7 +1625,7 @@ func (n *linuxNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
 		log.WithError(err).WithFields(logrus.Fields{
 			logfields.Device:    linkName,
 			logfields.LinkIndex: l.Attrs().Index,
-		}).Error("Unable to list PERM ARP entries for removal of network device")
+		}).Error("Unable to list PERM neighbor entries for removal of network device")
 		successClean = false
 		return
 	}
@@ -1686,7 +1686,7 @@ func (n *linuxNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
 				logfields.Device:    linkName,
 				logfields.LinkIndex: l.Attrs().Index,
 				"neighbor":          fmt.Sprintf("%+v", neigh),
-			}).Errorf("Unable to %s non-GC'ed ARP entry of network device. "+
+			}).Errorf("Unable to %s non-GC'ed neighbor entry of network device. "+
 				"Consider removing this entry manually with 'ip neigh del %s dev %s'",
 				which, neigh.IP.String(), linkName)
 			neighErrored++
@@ -1698,12 +1698,12 @@ func (n *linuxNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
 	if neighSucceeded != 0 {
 		log.WithFields(logrus.Fields{
 			logfields.Count: neighSucceeded,
-		}).Infof("Successfully %sd non-GC'ed ARP entries previously installed by cilium-agent", which)
+		}).Infof("Successfully %sd non-GC'ed neighbor entries previously installed by cilium-agent", which)
 	}
 	if neighErrored != 0 {
 		log.WithFields(logrus.Fields{
 			logfields.Count: neighErrored,
-		}).Warningf("Unable to %s non-GC'ed ARP entries previously installed by cilium-agent", which)
+		}).Warningf("Unable to %s non-GC'ed neighbor entries previously installed by cilium-agent", which)
 	}
 }
 
