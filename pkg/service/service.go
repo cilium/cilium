@@ -731,25 +731,27 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 
 	// Update sessionAffinity
 	if option.Config.EnableSessionAffinity {
-		if prevSessionAffinity && !svc.sessionAffinity {
-			// Remove backends from the affinity match because the svc's sessionAffinity
-			// has been disabled
+		if prevSessionAffinity {
 			toDeleteAffinity = make([]lb.BackendID, 0, len(obsoleteSVCBackendIDs)+len(svc.backends))
 			toDeleteAffinity = append(toDeleteAffinity, obsoleteSVCBackendIDs...)
-			for _, b := range svc.backends {
-				toDeleteAffinity = append(toDeleteAffinity, b.ID)
+			if !svc.sessionAffinity {
+				// Remove backends from the affinity match because the svc's sessionAffinity
+				// has been disabled
+				for _, b := range svc.backends {
+					toDeleteAffinity = append(toDeleteAffinity, b.ID)
+				}
+			} else {
+				// Add the new backends.
+				toAddAffinity = make([]lb.BackendID, 0, len(newBackends))
+				for _, b := range newBackends {
+					toAddAffinity = append(toAddAffinity, b.ID)
+				}
 			}
 		} else if svc.sessionAffinity {
+			// Service affinity has been enabled so add all the service's backends.
 			toAddAffinity = make([]lb.BackendID, 0, len(svc.backends))
 			for _, b := range svc.backends {
 				toAddAffinity = append(toAddAffinity, b.ID)
-			}
-			if prevSessionAffinity {
-				// Remove obsolete svc backends if previously the svc had the affinity enabled
-				toDeleteAffinity = make([]lb.BackendID, 0, len(obsoleteSVCBackendIDs))
-				for _, bID := range obsoleteSVCBackendIDs {
-					toDeleteAffinity = append(toDeleteAffinity, bID)
-				}
 			}
 		}
 

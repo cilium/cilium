@@ -126,14 +126,22 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(c *C) {
 		c.Assert(m.lbmap.AffinityMatch[uint16(id1)][bID], Equals, struct{}{})
 	}
 
+	// Update backends
+	p.Backends = append(backends1, backends4...)
+	created, id1, err = m.svc.UpsertService(p)
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, false)
+	c.Assert(id1, Equals, lb.ID(1))
+	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 3)
+
 	// Should remove session affinity
 	p.SessionAffinity = false
 	created, id1, err = m.svc.UpsertService(p)
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, false)
 	c.Assert(id1, Equals, lb.ID(1))
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 2)
-	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
+	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 3)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 3)
 	c.Assert(m.svc.svcByID[id1].svcName, Equals, "svc1")
 	c.Assert(m.svc.svcByID[id1].svcNamespace, Equals, "ns1")
 	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 0)
@@ -142,7 +150,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(c *C) {
 	// TODO(brb) test that backends are the same
 	// TODO(brb) check that .backends =~ .backendsByHash
 
-	// Should remove one backend and enable session affinity
+	// Should remove backends and enable session affinity
 	p.Backends = backends1[0:1]
 	p.SessionAffinity = true
 	p.SessionAffinityTimeoutSec = 200
