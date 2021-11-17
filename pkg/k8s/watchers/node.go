@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/lock"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 
 	v1 "k8s.io/api/core/v1"
@@ -30,6 +31,8 @@ var (
 
 func (k *K8sWatcher) NodesInit(k8sClient *k8s.K8sClient) {
 	onceNodeInitStart.Do(func() {
+		swg := lock.NewStoppableWaitGroup()
+
 		nodeStore, nodeController := informer.NewInformer(
 			cache.NewListWatchFromClient(k8sClient.CoreV1().RESTClient(),
 				"nodes", v1.NamespaceAll, fields.ParseSelectorOrDie("metadata.name="+nodeTypes.GetName())),
@@ -43,7 +46,7 @@ func (k *K8sWatcher) NodesInit(k8sClient *k8s.K8sClient) {
 						if hasAgentNotReadyTaint(node) || !k8s.HasCiliumIsUpCondition(node) {
 							k8sClient.ReMarkNodeReady()
 						}
-						errs := k.NodeChain.OnAddNode(node)
+						errs := k.NodeChain.OnAddNode(node, swg)
 						k.K8sEventProcessed(metricNode, metricCreate, errs == nil)
 					}
 					k.K8sEventReceived(metricNode, metricCreate, valid, false)
@@ -62,7 +65,7 @@ func (k *K8sWatcher) NodesInit(k8sClient *k8s.K8sClient) {
 							if comparator.MapStringEquals(oldNodeLabels, newNodeLabels) {
 								equal = true
 							} else {
-								errs := k.NodeChain.OnUpdateNode(oldNode, newNode)
+								errs := k.NodeChain.OnUpdateNode(oldNode, newNode, swg)
 								k.K8sEventProcessed(metricNode, metricUpdate, errs == nil)
 							}
 						}
@@ -77,7 +80,7 @@ func (k *K8sWatcher) NodesInit(k8sClient *k8s.K8sClient) {
 
 		k.nodeStore = nodeStore
 
-		k.blockWaitGroupToSyncResources(wait.NeverStop, nil, nodeController.HasSynced, k8sAPIGroupNodeV1Core)
+		k.blockWaitGroupToSyncResources(wait.NeverStop, swg, nodeController.HasSynced, k8sAPIGroupNodeV1Core)
 		go nodeController.Run(wait.NeverStop)
 		k.k8sAPIGroups.AddAPI(k8sAPIGroupNodeV1Core)
 	})
