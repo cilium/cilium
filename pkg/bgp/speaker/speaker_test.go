@@ -384,7 +384,7 @@ func TestSpeakerOnUpdateNode(t *testing.T) {
 
 	go spkr.run(ctx)
 
-	err := spkr.OnUpdateNode(&node, &node)
+	err := spkr.OnUpdateNode(&node, &node, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -478,7 +478,7 @@ func TestSpeakerOnDeleteNode(t *testing.T) {
 
 	go spkr.run(ctx)
 
-	err := spkr.OnDeleteNode(&node)
+	err := spkr.OnDeleteNode(&node, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -501,10 +501,10 @@ func TestSpeakerOnDeleteNode(t *testing.T) {
 	if spkr.shutDown() != true {
 		t.Fatalf("wanted speaker to be shutdown")
 	}
-	if err := spkr.OnAddNode(nil); err != ErrShutDown {
+	if err := spkr.OnAddNode(nil, nil); err != ErrShutDown {
 		t.Fatalf("got: %v, want: %v", err, ErrShutDown)
 	}
-	if err := spkr.OnDeleteNode(nil); err != ErrShutDown {
+	if err := spkr.OnDeleteNode(nil, nil); err != ErrShutDown {
 		t.Fatalf("got: %v, want: %v", err, ErrShutDown)
 	}
 	if err := spkr.OnDeleteService(nil); err != ErrShutDown {
@@ -513,7 +513,7 @@ func TestSpeakerOnDeleteNode(t *testing.T) {
 	if err := spkr.OnUpdateEndpoints(nil); err != ErrShutDown {
 		t.Fatalf("got: %v, want: %v", err, ErrShutDown)
 	}
-	if err := spkr.OnUpdateNode(nil, nil); err != ErrShutDown {
+	if err := spkr.OnUpdateNode(nil, nil, nil); err != ErrShutDown {
 		t.Fatalf("got: %v, want: %v", err, ErrShutDown)
 	}
 	if err := spkr.OnUpdateService(nil); err != ErrShutDown {
