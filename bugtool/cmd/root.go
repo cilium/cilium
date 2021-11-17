@@ -307,6 +307,7 @@ func runAll(commands []string, cmdDir string, k8sPods []string) {
 			continue
 		}
 
+		cmd := cmd // https://golang.org/doc/faq#closures_and_goroutines
 		err := wp.Submit(cmd, func(_ context.Context) error {
 			if strings.Contains(cmd, "xfrm state") {
 				//  Output of 'ip -s xfrm state' needs additional processing to replace
