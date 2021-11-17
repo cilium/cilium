@@ -128,12 +128,19 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 				defer func() { k8sEventReg.K8sEventReceived("CiliumNode", "update", valid, equal) }()
 				if oldNode, ok := oldObj.(*ciliumv2.CiliumNode); ok {
 					if newNode, ok := newObj.(*ciliumv2.CiliumNode); ok {
+						valid = true
+						newNode = newNode.DeepCopy()
 						if oldNode.DeepEqual(newNode) {
+							// The UpdateStatus call in refreshNode requires an up-to-date
+							// CiliumNode.ObjectMeta.ResourceVersion. Therefore, we store the most
+							// recent version here even if the nodes are equal, because
+							// CiliumNode.DeepEqual will consider two nodes to be equal even if
+							// their resource version differs.
+							store.setOwnNodeWithoutPoolUpdate(newNode)
 							equal = true
 							return
 						}
-						valid = true
-						store.updateLocalNodeResource(newNode.DeepCopy())
+						store.updateLocalNodeResource(newNode)
 						k8sEventReg.K8sEventProcessed("CiliumNode", "update", true)
 					} else {
 						log.Warningf("Unknown CiliumNode object type %T received: %+v", oldNode, oldNode)
@@ -323,6 +330,14 @@ func (n *nodeStore) updateLocalNodeResource(node *ciliumv2.CiliumNode) {
 			}
 		}
 	}
+}
+
+// setOwnNodeWithoutPoolUpdate overwrites the local node copy (e.g. to update
+// its resourceVersion) without updating the available IP pool.
+func (n *nodeStore) setOwnNodeWithoutPoolUpdate(node *ciliumv2.CiliumNode) {
+	n.mutex.Lock()
+	n.ownNode = node
+	n.mutex.Unlock()
 }
 
 // refreshNodeTrigger is called to refresh the custom resource after taking the
