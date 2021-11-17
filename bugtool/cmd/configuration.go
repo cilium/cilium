@@ -102,6 +102,11 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"bpftool prog show",
 		"bpftool net show",
 		"taskset -pc 1",
+		// systemd
+		"networkctl list",
+		"networkctl status -s -a",
+		"journalctl -n 2500 -r",
+		"systemd --version",
 		// iptables
 		"iptables-save -c",
 		"ip6tables-save -c",
