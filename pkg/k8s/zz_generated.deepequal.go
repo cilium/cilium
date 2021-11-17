@@ -42,6 +42,22 @@ func (in *Backend) DeepEqual(other *Backend) bool {
 	if in.Terminating != other.Terminating {
 		return false
 	}
+	if ((in.HintsForZones != nil) && (other.HintsForZones != nil)) || ((in.HintsForZones == nil) != (other.HintsForZones == nil)) {
+		in, other := &in.HintsForZones, &other.HintsForZones
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
 
 	return true
 }
@@ -257,6 +273,9 @@ func (in *Service) deepEqual(other *Service) bool {
 		return false
 	}
 	if in.SessionAffinityTimeoutSec != other.SessionAffinityTimeoutSec {
+		return false
+	}
+	if in.TopologyAware != other.TopologyAware {
 		return false
 	}
 
