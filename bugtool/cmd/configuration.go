@@ -83,25 +83,35 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		// Host and misc
 		"ps auxfw",
 		"hostname",
+		"uname -a",
+		"top -b -n 1",
+		"uptime",
+		"taskset -pc 1",
+		// BPF
+		"bpftool map show",
+		"bpftool prog show",
+		"bpftool net show",
+		// Kernel-related
+		"dmesg --time-format=iso",
+		"sysctl -a",
+		"lsmod",
+		// iproute2
 		"ip a",
 		"ip -4 r",
 		"ip -6 r",
-		"ip -d -s l",
 		"ip -4 n",
 		"ip -6 n",
+		"ip -d -s l",
+		"ip rule",
+		"ip -4 nt",
+		"ip -6 nt",
 		"ss -t -p -a -i -s",
 		"ss -u -p -a -i -s",
 		"tc qdisc show",
 		"tc -d -s qdisc show",
-		"uname -a",
-		"top -b -n 1",
-		"uptime",
-		"dmesg --time-format=iso",
-		"sysctl -a",
-		"bpftool map show",
-		"bpftool prog show",
-		"bpftool net show",
-		"taskset -pc 1",
+		// xfrm
+		"ip -s xfrm policy",
+		"ip -s xfrm state",
 		// systemd
 		"networkctl list",
 		"networkctl status -s -a",
@@ -114,18 +124,13 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"ip6tables-nft-save -c",
 		"iptables-legacy-save -c",
 		"ip6tables-legacy-save -c",
-		"ip rule",
 		"ipset list",
-		// xfrm
-		"ip -s xfrm policy",
-		"ip -s xfrm state",
 		// gops
 		fmt.Sprintf("gops memstats $(pidof %s)", components.CiliumAgentName),
 		fmt.Sprintf("gops stack $(pidof %s)", components.CiliumAgentName),
 		fmt.Sprintf("gops stats $(pidof %s)", components.CiliumAgentName),
 		// Get list of open file descriptors managed by the agent
 		fmt.Sprintf("ls -la /proc/$(pidof %s)/fd", components.CiliumAgentName),
-		"lsmod",
 	}
 
 	if bpffsMountpoint := bpffsMountpoint(); bpffsMountpoint != "" {
