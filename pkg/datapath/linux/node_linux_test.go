@@ -1117,6 +1117,10 @@ refetch1:
 			}
 		}
 	}
+	if !found {
+		log.Warningf("neigh addr: %+v", ip1)
+		log.Warningf("neigh list: %+v", neighs)
+	}
 	c.Assert(found, check.Equals, true)
 
 	// Swap MAC addresses of veth0 and veth1 to ensure the MAC address of veth1 changed.
