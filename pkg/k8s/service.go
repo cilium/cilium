@@ -26,6 +26,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
+const annotationTopologyAwareHints = "service.kubernetes.io/topology-aware-hints"
+
 func getAnnotationIncludeExternal(svc *slim_corev1.Service) bool {
 	if value, ok := svc.ObjectMeta.Annotations[annotation.GlobalService]; ok {
 		return strings.ToLower(value) == "true"
@@ -40,6 +42,14 @@ func getAnnotationShared(svc *slim_corev1.Service) bool {
 	}
 
 	return getAnnotationIncludeExternal(svc)
+}
+
+func getAnnotationTopologyAwareHints(svc *slim_corev1.Service) bool {
+	if value, ok := svc.ObjectMeta.Annotations[annotationTopologyAwareHints]; ok {
+		return strings.ToLower(value) == "auto"
+	}
+
+	return false
 }
 
 // isValidServiceFrontendIP returns true if the provided service frontend IP address type
@@ -209,6 +219,8 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing datapath.NodeAddressi
 		}
 	}
 
+	svcInfo.TopologyAware = getAnnotationTopologyAwareHints(svc)
+
 	return svcID, svcInfo
 }
 
@@ -323,6 +335,10 @@ type Service struct {
 	// Type is the internal service type
 	// +deepequal-gen=false
 	Type loadbalancer.SVCType
+
+	// TopologyAware denotes whether service endpoints might have topology aware
+	// hints
+	TopologyAware bool
 }
 
 // DeepEqual returns true if both the receiver and 'o' are deeply equal.
