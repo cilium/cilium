@@ -34,6 +34,11 @@ func (in *Backend) DeepCopyInto(out *Backend) {
 			(*out)[key] = outVal
 		}
 	}
+	if in.HintsForZones != nil {
+		in, out := &in.HintsForZones, &out.HintsForZones
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 
