@@ -79,6 +79,15 @@ type Endpoint struct {
 	// with the EndpointSliceNodeName feature gate.
 	// +optional
 	NodeName *string `json:"nodeName,omitempty" protobuf:"bytes,6,opt,name=nodeName"`
+
+	// zone is the name of the Zone this endpoint exists in.
+	// +optional
+	Zone *string `protobuf:"bytes,7,opt,name=zone"`
+	// hints contains information associated with how an endpoint should be
+	// consumed.
+	// +featureGate=TopologyAwareHints
+	// +optional
+	Hints *EndpointHints `protobuf:"bytes,8,opt,name=hints"`
 }
 
 // EndpointConditions represents the current condition of an endpoint.
@@ -126,6 +135,19 @@ type EndpointPort struct {
 	// If this is not specified, ports are not restricted and must be
 	// interpreted in the context of the specific consumer.
 	Port *int32 `json:"port,omitempty" protobuf:"bytes,3,opt,name=port"`
+}
+
+// EndpointHints provides hints describing how an endpoint should be consumed.
+type EndpointHints struct {
+	// forZones indicates the zone(s) this endpoint should be consumed by to
+	// enable topology aware routing. May contain a maximum of 8 entries.
+	ForZones []ForZone `protobuf:"bytes,1,rep,name=forZones"`
+}
+
+// ForZone provides information about which zones should consume this endpoint.
+type ForZone struct {
+	// name represents the name of the zone.
+	Name string `protobuf:"bytes,1,opt,name=name"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
