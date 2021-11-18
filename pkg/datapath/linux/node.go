@@ -1579,6 +1579,113 @@ func (n *linuxNodeHandler) NodeNeighborRefresh(ctx context.Context, nodeToRefres
 	}
 }
 
+func (n *linuxNodeHandler) NodeCleanNeighborsLink(l netlink.Link, migrateOnly bool) bool {
+	successClean := true
+
+	neighList, err := netlink.NeighListExecute(netlink.Ndmsg{
+		Index: uint32(l.Attrs().Index),
+	})
+	if err != nil {
+		log.WithError(err).WithFields(logrus.Fields{
+			logfields.Device:    l.Attrs().Name,
+			logfields.LinkIndex: l.Attrs().Index,
+		}).Error("Unable to list PERM neighbor entries for removal of network device")
+		return false
+	}
+
+	if migrateOnly {
+		// neighLastPingByNextHop holds both v4 and v6 neighbors and given
+		// we try to find stale neighbors, we need to check their presence
+		// again it.
+		n.neighLock.Lock()
+		defer n.neighLock.Unlock()
+	}
+
+	var neighSucceeded, neighErrored int
+	var which string
+	for _, neigh := range neighList {
+		var err error
+		// If this is a non-static neighbor entry, it will be GC'ed by
+		// the kernel eventually. Older Cilium versions might have left-
+		// overs installed as NUD_PERMANENT.
+		if neigh.State&netlink.NUD_PERMANENT == 0 &&
+			neigh.Flags&netlink.NTF_EXT_LEARNED == 0 {
+			continue
+		}
+		migrateEntry := false
+		if migrateOnly {
+			nextHop := neigh.IP.String()
+			if _, found := n.neighLastPingByNextHop[nextHop]; found {
+				migrateEntry = true
+			}
+		}
+		if migrateEntry {
+			// We only care to migrate NUD_PERMANENT over to dynamic
+			// state entries with NTF_EXT_LEARNED.
+			if neigh.State&netlink.NUD_PERMANENT == 0 {
+				continue
+			}
+
+			which = "migrate"
+			if option.Config.ARPPingKernelManaged {
+				neigh.State = netlink.NUD_REACHABLE
+				neigh.Flags = netlink.NTF_EXT_LEARNED
+				neigh.FlagsExt = netlink.NTF_EXT_MANAGED
+			} else {
+				neigh.State = netlink.NUD_REACHABLE
+				neigh.Flags = netlink.NTF_EXT_LEARNED
+				if err := netlink.NeighSet(&neigh); err != nil {
+					log.WithError(err).WithFields(logrus.Fields{
+						logfields.Device:    l.Attrs().Name,
+						logfields.LinkIndex: l.Attrs().Index,
+						"neighbor":          fmt.Sprintf("%+v", neigh),
+					}).Info("Unable to replace new next hop")
+					neighErrored++
+					successClean = false
+					continue
+				}
+				// Quirk for older kernels above. We cannot directly transition
+				// from NUD_PERMANENT to dynamic NUD_* with NTF_EXT_LEARNED|NTF_USE
+				// without having the following kernel fixes:
+				//   e4400bbf5b15 ("net, neigh: Fix NTF_EXT_LEARNED in combination with NTF_USE")
+				//   3dc20f4762c6 ("net, neigh: Enable state migration between NUD_PERMANENT and NTF_USE")
+				// Thus, migrate state temporarily to NUD_REACHABLE first, and then
+				// do the ping via NTF_USE.
+				neigh.State = netlink.NUD_REACHABLE
+				neigh.Flags = netlink.NTF_EXT_LEARNED | netlink.NTF_USE
+			}
+			err = netlink.NeighSet(&neigh)
+		} else {
+			which = "remove"
+			err = netlink.NeighDel(&neigh)
+		}
+		if err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				logfields.Device:    l.Attrs().Name,
+				logfields.LinkIndex: l.Attrs().Index,
+				"neighbor":          fmt.Sprintf("%+v", neigh),
+			}).Errorf("Unable to %s non-GC'ed neighbor entry of network device. "+
+				"Consider removing this entry manually with 'ip neigh del %s dev %s'",
+				which, neigh.IP.String(), l.Attrs().Name)
+			neighErrored++
+			successClean = false
+		} else {
+			neighSucceeded++
+		}
+	}
+	if neighSucceeded != 0 {
+		log.WithFields(logrus.Fields{
+			logfields.Count: neighSucceeded,
+		}).Infof("Successfully %sd non-GC'ed neighbor entries previously installed by cilium-agent", which)
+	}
+	if neighErrored != 0 {
+		log.WithFields(logrus.Fields{
+			logfields.Count: neighErrored,
+		}).Warningf("Unable to %s non-GC'ed neighbor entries previously installed by cilium-agent", which)
+	}
+	return successClean
+}
+
 // NodeCleanNeighbors cleans all neighbor entries of previously used neighbor
 // discovery link interfaces. If migrateOnly is true, then NodeCleanNeighbors
 // cleans old entries by trying to convert PERMANENT to dynamic, externally
@@ -1625,108 +1732,7 @@ func (n *linuxNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
 		return
 	}
 
-	neighList, err := netlink.NeighListExecute(netlink.Ndmsg{
-		Index: uint32(l.Attrs().Index),
-	})
-	if err != nil {
-		log.WithError(err).WithFields(logrus.Fields{
-			logfields.Device:    linkName,
-			logfields.LinkIndex: l.Attrs().Index,
-		}).Error("Unable to list PERM neighbor entries for removal of network device")
-		successClean = false
-		return
-	}
-
-	if migrateOnly {
-		// neighLastPingByNextHop holds both v4 and v6 neighbors and given
-		// we try to find stale neighbors, we need to check their presence
-		// again it.
-		n.neighLock.Lock()
-		defer n.neighLock.Unlock()
-	}
-
-	var neighSucceeded, neighErrored int
-	var which string
-	for _, neigh := range neighList {
-		var err error
-		// If this is a non-static neighbor entry, it will be GC'ed by
-		// the kernel eventually. Older Cilium versions might have left-
-		// overs installed as NUD_PERMANENT.
-		if neigh.State&netlink.NUD_PERMANENT == 0 &&
-			neigh.Flags&netlink.NTF_EXT_LEARNED == 0 {
-			continue
-		}
-		migrateEntry := false
-		if migrateOnly {
-			nextHop := neigh.IP.String()
-			if _, found := n.neighLastPingByNextHop[nextHop]; found {
-				migrateEntry = true
-			}
-		}
-		if migrateEntry {
-			// We only care to migrate NUD_PERMANENT over to dynamic
-			// state entries with NTF_EXT_LEARNED.
-			if neigh.State&netlink.NUD_PERMANENT == 0 {
-				continue
-			}
-
-			which = "migrate"
-			if option.Config.ARPPingKernelManaged {
-				neigh.State = netlink.NUD_REACHABLE
-				neigh.Flags = netlink.NTF_EXT_LEARNED
-				neigh.FlagsExt = netlink.NTF_EXT_MANAGED
-			} else {
-				neigh.State = netlink.NUD_REACHABLE
-				neigh.Flags = netlink.NTF_EXT_LEARNED
-				if err := netlink.NeighSet(&neigh); err != nil {
-					log.WithError(err).WithFields(logrus.Fields{
-						logfields.Device:    linkName,
-						logfields.LinkIndex: l.Attrs().Index,
-						"neighbor":          fmt.Sprintf("%+v", neigh),
-					}).Info("Unable to replace new next hop")
-					neighErrored++
-					successClean = false
-					continue
-				}
-				// Quirk for older kernels above. We cannot directly transition
-				// from NUD_PERMANENT to dynamic NUD_* with NTF_EXT_LEARNED|NTF_USE
-				// without having the following kernel fixes:
-				//   e4400bbf5b15 ("net, neigh: Fix NTF_EXT_LEARNED in combination with NTF_USE")
-				//   3dc20f4762c6 ("net, neigh: Enable state migration between NUD_PERMANENT and NTF_USE")
-				// Thus, migrate state temporarily to NUD_REACHABLE first, and then
-				// do the ping via NTF_USE.
-				neigh.State = netlink.NUD_REACHABLE
-				neigh.Flags = netlink.NTF_EXT_LEARNED | netlink.NTF_USE
-			}
-			err = netlink.NeighSet(&neigh)
-		} else {
-			which = "remove"
-			err = netlink.NeighDel(&neigh)
-		}
-		if err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.Device:    linkName,
-				logfields.LinkIndex: l.Attrs().Index,
-				"neighbor":          fmt.Sprintf("%+v", neigh),
-			}).Errorf("Unable to %s non-GC'ed neighbor entry of network device. "+
-				"Consider removing this entry manually with 'ip neigh del %s dev %s'",
-				which, neigh.IP.String(), linkName)
-			neighErrored++
-			successClean = false
-		} else {
-			neighSucceeded++
-		}
-	}
-	if neighSucceeded != 0 {
-		log.WithFields(logrus.Fields{
-			logfields.Count: neighSucceeded,
-		}).Infof("Successfully %sd non-GC'ed neighbor entries previously installed by cilium-agent", which)
-	}
-	if neighErrored != 0 {
-		log.WithFields(logrus.Fields{
-			logfields.Count: neighErrored,
-		}).Warningf("Unable to %s non-GC'ed neighbor entries previously installed by cilium-agent", which)
-	}
+	successClean = n.NodeCleanNeighborsLink(l, migrateOnly)
 }
 
 func storeNeighLink(dir string, name string) error {
