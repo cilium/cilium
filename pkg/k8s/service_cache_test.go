@@ -22,6 +22,8 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 
 	"gopkg.in/check.v1"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func (s *K8sSuite) TestGetUniqueServiceFrontends(c *check.C) {
@@ -873,6 +875,146 @@ func (s *K8sSuite) TestServiceCacheWith2EndpointSlice(c *check.C) {
 	swgEps.Stop()
 	c.Assert(testutils.WaitUntil(func() bool {
 		swgEps.Wait()
+		return true
+	}, 2*time.Second), check.IsNil)
+}
+
+func (s *K8sSuite) TestServiceEndpointFiltering(c *check.C) {
+	k8sSvc := &slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+			Labels:    map[string]string{"foo": "bar"},
+			Annotations: map[string]string{
+				annotationTopologyAwareHints: "auto",
+			},
+		},
+		Spec: slim_corev1.ServiceSpec{
+			ClusterIP: "127.0.0.1",
+			Selector:  map[string]string{"foo": "bar"},
+			Type:      slim_corev1.ServiceTypeClusterIP,
+		},
+	}
+	veryTrue := true
+	k8sEndpointSlice := &slim_discovery_v1.EndpointSlice{
+		AddressType: slim_discovery_v1.AddressTypeIPv4,
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo-ep-filtering",
+			Namespace: "bar",
+			Labels: map[string]string{
+				slim_discovery_v1.LabelServiceName: "foo",
+			},
+		},
+		Endpoints: []slim_discovery_v1.Endpoint{
+			{
+				Addresses: []string{"10.0.0.1"},
+				Hints: &slim_discovery_v1.EndpointHints{
+					ForZones: []slim_discovery_v1.ForZone{{Name: "test-zone-1"}},
+				},
+				Conditions: slim_discovery_v1.EndpointConditions{Ready: &veryTrue},
+			},
+			{
+				Addresses: []string{"10.0.0.2"},
+				Hints: &slim_discovery_v1.EndpointHints{
+					ForZones: []slim_discovery_v1.ForZone{{Name: "test-zone-2"}},
+				},
+				Conditions: slim_discovery_v1.EndpointConditions{Ready: &veryTrue},
+			},
+		},
+	}
+	k8sNode := &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "node1",
+			Labels: map[string]string{LabelTopologyZone: "test-zone-2"},
+		},
+	}
+
+	oldOptionEnableServiceTopology := option.Config.EnableServiceTopology
+	defer func() { option.Config.EnableServiceTopology = oldOptionEnableServiceTopology }()
+	option.Config.EnableServiceTopology = true
+
+	svcCache := NewServiceCache(fakeDatapath.NewNodeAddressing())
+
+	swg := lock.NewStoppableWaitGroup()
+
+	// Send self node update to set the node's zone label
+	svcCache.OnAddNode(k8sNode, swg)
+
+	// Now update service and endpointslice. This should result in the service
+	// update with 2.2.2.2 endpoint due to the zone filtering.
+	svcID0 := svcCache.UpdateService(k8sSvc, swg)
+	svcID1, eps := svcCache.UpdateEndpointSlicesV1(k8sEndpointSlice, swg)
+	c.Assert(svcID0, check.Equals, svcID1)
+	c.Assert(len(eps.Backends), check.Equals, 1)
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		c.Assert(event.Action, check.Equals, UpdateService)
+		c.Assert(event.ID, check.Equals, svcID0)
+		c.Assert(len(event.Endpoints.Backends), check.Equals, 1)
+		_, found := event.Endpoints.Backends["10.0.0.2"]
+		c.Assert(found, check.Equals, true)
+		return true
+	}, 2*time.Second), check.IsNil)
+
+	// Send self node update to remove the node's zone label. This should
+	// generate the service update with both endpoints selected
+	k8sNode.ObjectMeta.Labels = nil
+	svcCache.OnUpdateNode(k8sNode, k8sNode, swg)
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		c.Assert(event.Action, check.Equals, UpdateService)
+		c.Assert(event.ID, check.Equals, svcID0)
+		c.Assert(len(event.Endpoints.Backends), check.Equals, 2)
+		return true
+	}, 2*time.Second), check.IsNil)
+
+	// Set the node's zone to test-zone-1 to select the first endpoint
+	k8sNode.ObjectMeta.Labels = map[string]string{
+		LabelTopologyZone: "test-zone-1",
+	}
+	svcCache.OnUpdateNode(k8sNode, k8sNode, swg)
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		c.Assert(event.Action, check.Equals, UpdateService)
+		c.Assert(event.ID, check.Equals, svcID0)
+		c.Assert(len(event.Endpoints.Backends), check.Equals, 1)
+		_, found := event.Endpoints.Backends["10.0.0.1"]
+		c.Assert(found, check.Equals, true)
+		return true
+	}, 2*time.Second), check.IsNil)
+
+	// Remove the service hint, so that all endpoints all selected again
+	annotations := k8sSvc.ObjectMeta.Annotations
+	k8sSvc.ObjectMeta.Annotations = nil
+	svcID0 = svcCache.UpdateService(k8sSvc, swg)
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		c.Assert(event.Action, check.Equals, UpdateService)
+		c.Assert(event.ID, check.Equals, svcID0)
+		c.Assert(len(event.Endpoints.Backends), check.Equals, 2)
+		return true
+	}, 2*time.Second), check.IsNil)
+
+	// Set the hint back and the filtering should be back
+	k8sSvc.ObjectMeta.Annotations = annotations
+	svcID0 = svcCache.UpdateService(k8sSvc, swg)
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		c.Assert(event.Action, check.Equals, UpdateService)
+		c.Assert(event.ID, check.Equals, svcID0)
+		c.Assert(len(event.Endpoints.Backends), check.Equals, 1)
+		return true
+	}, 2*time.Second), check.IsNil)
+
+	// Remove the zone hints. This should select all endpoints
+	k8sEndpointSlice.Endpoints[0].Hints = nil
+	k8sEndpointSlice.Endpoints[1].Hints = nil
+	svcID1, _ = svcCache.UpdateEndpointSlicesV1(k8sEndpointSlice, swg)
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		c.Assert(event.Action, check.Equals, UpdateService)
+		c.Assert(event.ID, check.Equals, svcID1)
+		c.Assert(len(event.Endpoints.Backends), check.Equals, 2)
 		return true
 	}, 2*time.Second), check.IsNil)
 }
