@@ -296,7 +296,7 @@ func (s *ServiceCache) updateEndpoints(esID EndpointSliceID, newEndpoints *Endpo
 		}
 	}
 
-	return esID.ServiceID, newEndpoints
+	return esID.ServiceID, endpoints
 }
 
 // UpdateEndpoints parses a Kubernetes endpoints and adds or updates it in the
