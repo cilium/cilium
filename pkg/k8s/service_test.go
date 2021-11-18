@@ -156,6 +156,9 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 	defer func() {
 		option.Config.EnableNodePort = oldNodePort
 	}()
+	objMeta.Annotations = map[string]string{
+		annotationTopologyAwareHints: "auto",
+	}
 	k8sSvc = &slim_corev1.Service{
 		ObjectMeta: objMeta,
 		Spec: slim_corev1.ServiceSpec{
@@ -209,6 +212,7 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		K8sExternalIPs:           map[string]net.IP{},
 		LoadBalancerIPs:          map[string]net.IP{},
 		Type:                     loadbalancer.SVCTypeLoadBalancer,
+		TopologyAware:            true,
 	})
 }
 
