@@ -273,7 +273,7 @@ func (s *EndpointSuite) TestgetEndpointPolicyMapState(c *check.C) {
 	fooLbls := labels.Labels{"": labels.ParseLabel("foo")}
 	fooIdentity, _, err := e.allocator.AllocateIdentity(context.Background(), fooLbls, false)
 	c.Assert(err, check.Equals, nil)
-	defer s.mgr.Release(context.Background(), fooIdentity)
+	defer s.mgr.Release(context.Background(), fooIdentity, false)
 
 	e.desiredPolicy = policy.NewEndpointPolicy(s.repo)
 	e.desiredPolicy.IngressPolicyEnabled = true

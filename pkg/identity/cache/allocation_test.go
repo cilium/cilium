@@ -277,10 +277,10 @@ func (ias *IdentityAllocatorSuite) TestAllocator(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(id1a.ID, Equals, id1b.ID)
 
-	released, err := mgr.Release(context.Background(), id1a)
+	released, err := mgr.Release(context.Background(), id1a, false)
 	c.Assert(err, IsNil)
 	c.Assert(released, Equals, false)
-	released, err = mgr.Release(context.Background(), id1b)
+	released, err = mgr.Release(context.Background(), id1b, false)
 	c.Assert(err, IsNil)
 	c.Assert(released, Equals, true)
 	// KV-store still keeps the ID even when a single node has released it.
@@ -322,13 +322,13 @@ func (ias *IdentityAllocatorSuite) TestAllocator(c *C) {
 	c.Assert(owner.WaitUntilID(id3.ID), Not(Equals), 0)
 	c.Assert(owner.GetIdentity(id3.ID), checker.DeepEquals, lbls3.LabelArray())
 
-	released, err = mgr.Release(context.Background(), id1b)
+	released, err = mgr.Release(context.Background(), id1b, false)
 	c.Assert(err, IsNil)
 	c.Assert(released, Equals, true)
-	released, err = mgr.Release(context.Background(), id2)
+	released, err = mgr.Release(context.Background(), id2, false)
 	c.Assert(err, IsNil)
 	c.Assert(released, Equals, true)
-	released, err = mgr.Release(context.Background(), id3)
+	released, err = mgr.Release(context.Background(), id3, false)
 	c.Assert(err, IsNil)
 	c.Assert(released, Equals, true)
 
@@ -366,7 +366,7 @@ func (ias *IdentityAllocatorSuite) TestLocalAllocation(c *C) {
 	c.Assert(cache[id.ID], Not(IsNil))
 
 	// 1st Release, not released
-	released, err := mgr.Release(context.Background(), id)
+	released, err := mgr.Release(context.Background(), id, false)
 	c.Assert(err, IsNil)
 	c.Assert(released, Equals, false)
 
@@ -374,7 +374,7 @@ func (ias *IdentityAllocatorSuite) TestLocalAllocation(c *C) {
 	c.Assert(owner.GetIdentity(id.ID), checker.DeepEquals, lbls1.LabelArray())
 
 	// 2nd Release, released
-	released, err = mgr.Release(context.Background(), id)
+	released, err = mgr.Release(context.Background(), id, false)
 	c.Assert(err, IsNil)
 	c.Assert(released, Equals, true)
 
@@ -392,7 +392,7 @@ func (ias *IdentityAllocatorSuite) TestLocalAllocation(c *C) {
 	c.Assert(isNew, Equals, true)
 	c.Assert(id.ID.HasLocalScope(), Equals, true)
 
-	released, err = mgr.Release(context.Background(), id)
+	released, err = mgr.Release(context.Background(), id, false)
 	c.Assert(err, IsNil)
 	c.Assert(released, Equals, true)
 
