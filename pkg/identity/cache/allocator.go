@@ -456,7 +456,7 @@ func (m *CachingIdentityAllocator) ReleaseSlice(ctx context.Context, owner Ident
 		if id == nil {
 			continue
 		}
-		_, err2 := m.Release(ctx, id, true)
+		_, err2 := m.Release(ctx, id, false)
 		if err2 != nil {
 			log.WithError(err2).WithFields(logrus.Fields{
 				logfields.Identity: id,

@@ -138,7 +138,7 @@ func InjectLabels(src source.Source, updater identityUpdater, triggerer policyTr
 			// Unlikely, but to balance the allocation / release
 			// we must either add the identity to `toUpsert`, or
 			// immediately release it again. Otherwise it will leak.
-			if _, err := IdentityAllocator.Release(context.TODO(), id, true); err != nil {
+			if _, err := IdentityAllocator.Release(context.TODO(), id, false); err != nil {
 				log.WithError(err).WithFields(logrus.Fields{
 					logfields.IPAddr: prefix,
 					logfields.Labels: lbls,
@@ -193,7 +193,7 @@ func injectLabels(prefix string, lbls labels.Labels) (*identity.Identity, bool, 
 				logfields.IdentityLabels: realID.Labels,
 			})
 
-			released, err := IdentityAllocator.Release(context.TODO(), realID, true)
+			released, err := IdentityAllocator.Release(context.TODO(), realID, false)
 			if err != nil {
 				scopedLog.WithError(err).Warn(
 					"Failed to release previously assigned identity to IP, this might be a leak.",
@@ -365,7 +365,7 @@ func RemoveLabels(prefix string, lbls labels.Labels, src source.Source) labels.L
 	if realID == nil {
 		return nil
 	}
-	released, err := IdentityAllocator.Release(context.TODO(), realID, true)
+	released, err := IdentityAllocator.Release(context.TODO(), realID, false)
 	if err != nil {
 		log.WithError(err).WithFields(logrus.Fields{
 			logfields.IPAddr:         prefix,
