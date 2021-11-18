@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"time"
 
+	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/defaults"
 	metricsmock "github.com/cilium/cilium/pkg/ipam/metrics/mock"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
@@ -229,7 +230,8 @@ func newCiliumNode(node string, preAllocate, minAllocate, used int) *v2.CiliumNo
 		},
 		Status: v2.NodeStatus{
 			IPAM: ipamTypes.IPAMStatus{
-				Used: ipamTypes.AllocationMap{},
+				Used:       ipamTypes.AllocationMap{},
+				ReleaseIPs: map[string]ipamTypes.IPReleaseStatus{},
 			},
 		},
 	}
@@ -388,6 +390,7 @@ func (e *IPAMSuite) TestNodeManagerMinAllocateAndPreallocate(c *check.C) {
 // - PreAllocate 4
 // - MaxAboveWatermark 4
 func (e *IPAMSuite) TestNodeManagerReleaseAddress(c *check.C) {
+	operatorOption.Config.ExcessIPReleaseDelay = 2
 	am := newAllocationImplementationMock()
 	c.Assert(am, check.Not(check.IsNil))
 	mngr, err := NewNodeManager(am, k8sapi, metricsapi, 10, true)
@@ -431,9 +434,22 @@ func (e *IPAMSuite) TestNodeManagerReleaseAddress(c *check.C) {
 
 	// Trigger resync manually, excess IPs should be released down to 18
 	// (10 used + 4 prealloc + 4 max-above-watermark)
-	node = mngr.Get("node3")
-	syncTime := mngr.instancesAPI.Resync(context.TODO())
-	mngr.resyncNode(context.TODO(), node, &resyncStats{}, syncTime)
+	// Excess timestamps should be registered after this trigger
+	mngr.resyncTrigger.Trigger()
+
+	// Acknowledge release IPs after 3 secs
+	time.AfterFunc(3*time.Second, func() {
+		// Excess delay duration should have elapsed by now, trigger resync again.
+		// IPs should be marked as excess
+		mngr.resyncTrigger.Trigger()
+		time.Sleep(1 * time.Second)
+		node.PopulateIPReleaseStatus(node.resource)
+		// Fake acknowledge IPs for release like agent would.
+		testutils.FakeAcknowledgeReleaseIps(node.resource)
+		// Resync one more time to process acknowledgements.
+		mngr.resyncTrigger.Trigger()
+	})
+
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second), check.IsNil)
 	node = mngr.Get("node3")
 	c.Assert(node, check.Not(check.IsNil))
