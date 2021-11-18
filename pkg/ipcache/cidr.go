@@ -135,7 +135,7 @@ func allocateCIDRs(prefixes []*net.IPNet, newlyAllocatedIdentities map[string]*i
 
 func releaseCIDRIdentities(ctx context.Context, identities map[string]*identity.Identity) {
 	for prefix, id := range identities {
-		released, err := IdentityAllocator.Release(ctx, id, true)
+		released, err := IdentityAllocator.Release(ctx, id, false)
 		if err != nil {
 			log.WithFields(logrus.Fields{
 				logfields.Identity: id,
