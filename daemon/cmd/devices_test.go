@@ -175,6 +175,23 @@ func (s *DevicesSuite) TestExpandDevices(c *C) {
 	})
 }
 
+func (s *DevicesSuite) TestExpandDirectRoutingDevice(c *C) {
+	s.withFreshNetNS(c, func() {
+		c.Assert(createDummy("dummy0", "192.168.0.1/24", false), IsNil)
+		c.Assert(createDummy("dummy1", "192.168.1.2/24", false), IsNil)
+		c.Assert(createDummy("unmatched", "192.168.4.5/24", false), IsNil)
+
+		// 1. Check expansion works and non-matching prefixes are ignored
+		option.Config.DirectRoutingDevice = "dummy+"
+		c.Assert(expandDirectRoutingDevice(), IsNil)
+		c.Assert(option.Config.DirectRoutingDevice, Equals, "dummy0")
+
+		// 2. Check that expansion fails if directRoutingDevice is specified but yields empty expansion
+		option.Config.DirectRoutingDevice = "none+"
+		c.Assert(expandDirectRoutingDevice(), NotNil)
+	})
+}
+
 func (s *DevicesSuite) withFreshNetNS(c *C, test func()) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()

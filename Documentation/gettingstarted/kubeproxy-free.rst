@@ -838,9 +838,12 @@ via ``devices`` then Cilium will use that device for direct routing.
 Otherwise, Cilium will use a device with Kubernetes InternalIP or ExternalIP
 being set. InternalIP is preferred over ExternalIP if both exist. To change
 the direct routing device, set the ``nodePort.directRoutingDevice`` Helm
-option, e.g. ``nodePort.directRoutingDevice=eth1``. If the direct
-routing device does not exist within ``devices``, Cilium will add the
-device to the latter list. The direct routing device is used for
+option, e.g. ``nodePort.directRoutingDevice=eth1``. The wildcard option can be
+used as well as the devices option, e.g. ``directRoutingDevice=eth+``.
+If more than one devices match the wildcard option, Cilium will sort them
+in increasing alphanumerical order and pick the first one. If the direct routing
+device does not exist within ``devices``, Cilium will add the device to the latter
+list. The direct routing device is used for
 :ref:`the NodePort XDP acceleration<XDP Acceleration>` as well (if enabled).
 
 In addition, thanks to the :ref:`host-services` feature, the NodePort service can

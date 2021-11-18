@@ -63,6 +63,10 @@ func (dm *DeviceManager) Detect() error {
 		return err
 	}
 
+	if err := expandDirectRoutingDevice(); err != nil {
+		return err
+	}
+
 	l3DevOK := true
 	if !option.Config.EnableHostLegacyRouting {
 		// Probe whether fast redirect is supported for L3 devices. This will
@@ -283,37 +287,59 @@ func (dm *DeviceManager) updateDevicesFromRoutes(l3DevOK bool, routes []netlink.
 // expandDevices expands all wildcard device names to concrete devices.
 // e.g. device "eth+" expands to "eth0,eth1" etc. Non-matching wildcards are ignored.
 func expandDevices() error {
+	expandedDevices, err := expand(option.Config.Devices)
+	if err != nil {
+		return err
+	}
+	option.Config.Devices = expandedDevices
+	return nil
+}
+
+// expandDirectRoutingDevice expands all wildcard device names to concrete devices and picks a first one.
+func expandDirectRoutingDevice() error {
+	if option.Config.DirectRoutingDevice == "" {
+		return nil
+	}
+	expandedDevices, err := expand([]string{option.Config.DirectRoutingDevice})
+	if err != nil {
+		return err
+	}
+	option.Config.DirectRoutingDevice = expandedDevices[0]
+	return nil
+}
+
+func expand(devices []string) ([]string, error) {
 	allLinks, err := netlink.LinkList()
 	if err != nil {
-		return fmt.Errorf("Device wildcard expansion failed to fetch devices: %w", err)
+		return nil, fmt.Errorf("Device wildcard expansion failed to fetch devices: %w", err)
 	}
-	expandedDevices := make(map[string]struct{})
-	for _, iface := range option.Config.Devices {
+	expandedDevicesMap := make(map[string]struct{})
+	for _, iface := range devices {
 		if strings.HasSuffix(iface, "+") {
 			prefix := strings.TrimRight(iface, "+")
 			for _, link := range allLinks {
 				attrs := link.Attrs()
 				if strings.HasPrefix(attrs.Name, prefix) {
-					expandedDevices[attrs.Name] = struct{}{}
+					expandedDevicesMap[attrs.Name] = struct{}{}
 				}
 			}
 		} else {
-			expandedDevices[iface] = struct{}{}
+			expandedDevicesMap[iface] = struct{}{}
 		}
 	}
-	if len(option.Config.Devices) > 0 && len(expandedDevices) == 0 {
+	if len(devices) > 0 && len(expandedDevicesMap) == 0 {
 		// User defined devices, but expansion yielded no devices. Fail here to not
 		// surprise with auto-detection.
-		return fmt.Errorf("Device wildcard expansion failed to detect devices. Please verify --%s option.",
-			option.Devices)
+		return nil, fmt.Errorf("Device wildcard expansion failed to detect devices. Please verify --%s option.",
+			devices)
 	}
 
-	option.Config.Devices = make([]string, 0, len(expandedDevices))
-	for dev := range expandedDevices {
-		option.Config.Devices = append(option.Config.Devices, dev)
+	expandedDevices := make([]string, 0, len(expandedDevicesMap))
+	for dev := range expandedDevicesMap {
+		expandedDevices = append(expandedDevices, dev)
 	}
-	sort.Strings(option.Config.Devices)
-	return nil
+	sort.Strings(expandedDevices)
+	return expandedDevices, nil
 }
 
 func areDevicesRequired() bool {
