@@ -1523,7 +1523,7 @@ refetch5:
 		return
 	}
 
-	// In the last test, we add node 2,3 again, and then change the nextHop
+	// In the next test, we add node 2,3 again, and then change the nextHop
 	// address to check the refcount behavior, and that the old one was
 	// deleted from the neighbor table as well as the new one added.
 	now = time.Now()
@@ -1688,10 +1688,77 @@ refetch10:
 
 	c.Assert(linuxNodeHandler.NodeDelete(nodev3), check.IsNil)
 	wait(nodev3.Identity(), nil, true)
+
+	// In the next test, we have node2 left in the neighbor table, and
+	// we add an unrelated externally learned neighbor entry. Check that
+	// NodeCleanNeighbors() removes the unrelated one. This is to simulate
+	// the agent after kubeapi-server resync that it cleans up stale node
+	// entries from previous runs.
+
+	nextHop = net.ParseIP("f00d::1")
+	neigh := netlink.Neigh{
+		LinkIndex: veth0.Attrs().Index,
+		IP:        nextHop,
+		State:     netlink.NUD_NONE,
+		Flags:     netlink.NTF_EXT_LEARNED,
+	}
+	err = netlink.NeighSet(&neigh)
+	c.Assert(err, check.IsNil)
+
+	// Check that new nextHop address got added, we don't care about its NUD_* state
+	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V6)
+	c.Assert(err, check.IsNil)
+	found = false
+	for _, n := range neighs {
+		if n.IP.Equal(nextHop) {
+			found = true
+			break
+		}
+	}
+	c.Assert(found, check.Equals, true)
+
+	// Clean unrelated externally learned entries
+	linuxNodeHandler.NodeCleanNeighborsLink(veth0, true)
+
+	// Check that new nextHop address got removed
+	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V6)
+	c.Assert(err, check.IsNil)
+	found = false
+	for _, n := range neighs {
+		if n.IP.Equal(nextHop) {
+			found = true
+			break
+		}
+	}
+	c.Assert(found, check.Equals, false)
+
+	// Check that node2 nextHop address is still there
+	nextHop = net.ParseIP("f00d::251")
+refetch11:
+	// Check that new nextHop address got added
+	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V6)
+	c.Assert(err, check.IsNil)
+	found = false
+	for _, n := range neighs {
+		if n.IP.Equal(nextHop) {
+			good, retry := neighStateOk(n)
+			if good {
+				found = true
+				break
+			}
+			if retry {
+				goto refetch11
+			}
+		} else if n.IP.Equal(node2IP) {
+			c.ExpectFailure("node2 should not be in the same L2")
+		}
+	}
+	c.Assert(found, check.Equals, true)
+
 	c.Assert(linuxNodeHandler.NodeDelete(nodev2), check.IsNil)
 	wait(nodev2.Identity(), nil, true)
 
-	linuxNodeHandler.NodeCleanNeighbors(false)
+	linuxNodeHandler.NodeCleanNeighborsLink(veth0, false)
 }
 
 func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
