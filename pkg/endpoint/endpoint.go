@@ -1856,7 +1856,16 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) (
 	allocateCtx, cancel := context.WithTimeout(ctx, option.Config.KVstoreConnectivityTimeout)
 	defer cancel()
 
-	allocatedIdentity, _, err := e.allocator.AllocateIdentity(allocateCtx, newLabels, true)
+	// Typically, SelectorCache notification happens from the identityWatcher,
+	// requiring a round-trip to the kvstore to start updating policies for
+	// other endpoints on the node.
+	//
+	// To get a jump start on plumbing the handling of the identity for
+	// this endpoint, trigger the early notification via this call. If the
+	// identity is new, then this will start updating the policy for other
+	// co-located endpoints without having to wait for that RTT.
+	notifySelectorCache := true
+	allocatedIdentity, _, err := e.allocator.AllocateIdentity(allocateCtx, newLabels, notifySelectorCache)
 	if err != nil {
 		err = fmt.Errorf("unable to resolve identity: %s", err)
 		e.LogStatus(Other, Warning, fmt.Sprintf("%s (will retry)", err.Error()))
