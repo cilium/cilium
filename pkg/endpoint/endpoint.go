@@ -1131,7 +1131,7 @@ func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 		releaseCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
 		defer cancel()
 
-		_, err := e.allocator.Release(releaseCtx, e.SecurityIdentity)
+		_, err := e.allocator.Release(releaseCtx, e.SecurityIdentity, false)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("unable to release identity: %s", err))
 		}
@@ -1872,7 +1872,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) (
 	defer cancel()
 
 	releaseNewlyAllocatedIdentity := func() {
-		_, err := e.allocator.Release(releaseCtx, allocatedIdentity)
+		_, err := e.allocator.Release(releaseCtx, allocatedIdentity, false)
 		if err != nil {
 			// non fatal error as keys will expire after lease expires but log it
 			elog.WithFields(logrus.Fields{logfields.Identity: allocatedIdentity.ID}).
@@ -1932,7 +1932,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) (
 	e.SetIdentity(allocatedIdentity, false)
 
 	if oldIdentity != nil {
-		_, err := e.allocator.Release(releaseCtx, oldIdentity)
+		_, err := e.allocator.Release(releaseCtx, oldIdentity, false)
 		if err != nil {
 			elog.WithFields(logrus.Fields{logfields.Identity: oldIdentity.ID}).
 				WithError(err).Warn("Unable to release old endpoint identity")
