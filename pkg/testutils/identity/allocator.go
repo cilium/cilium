@@ -61,7 +61,7 @@ func (f *FakeIdentityAllocator) AllocateIdentity(context.Context, labels.Labels,
 }
 
 // Release does nothing.
-func (f *FakeIdentityAllocator) Release(context.Context, *identity.Identity) (released bool, err error) {
+func (f *FakeIdentityAllocator) Release(context.Context, *identity.Identity, bool) (released bool, err error) {
 	return true, nil
 }
 

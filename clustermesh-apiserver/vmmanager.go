@@ -181,6 +181,7 @@ func (m *VMManager) OnUpdate(k store.Key) {
 			nk := nodeOverrideFromCEW(n, cew)
 
 			log.Debugf("CEW: VM Cilium Node updated: %v -> %v", n, nk)
+			// FIXME: GH-17909 Balance this call with a call to release the identity.
 			id := m.AllocateNodeIdentity(nk)
 			if id != nil {
 				nid := id.ID.Uint32()
