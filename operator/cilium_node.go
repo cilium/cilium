@@ -49,7 +49,7 @@ var (
 	k8sCiliumNodesCacheSynced = make(chan struct{})
 )
 
-func startSynchronizingCiliumNodes(nodeManager allocator.NodeEventHandler, withKVStore bool) error {
+func startSynchronizingCiliumNodes(ctx context.Context, nodeManager allocator.NodeEventHandler, withKVStore bool) error {
 	var (
 		ciliumNodeKVStore *store.SharedStore
 		err               error
@@ -93,7 +93,7 @@ func startSynchronizingCiliumNodes(nodeManager allocator.NodeEventHandler, withK
 			for _, kvStoreNode := range kvStoreNodes {
 				// Only delete the nodes that belong to our cluster
 				if strings.HasPrefix(kvStoreNode.GetKeyName(), option.Config.ClusterName) {
-					ciliumNodeKVStore.DeleteLocalKey(context.TODO(), kvStoreNode)
+					ciliumNodeKVStore.DeleteLocalKey(ctx, kvStoreNode)
 				}
 			}
 		}()
@@ -117,7 +117,7 @@ func startSynchronizingCiliumNodes(nodeManager allocator.NodeEventHandler, withK
 			// Delete handling
 			if !exists || errors.IsNotFound(err) {
 				if withKVStore {
-					ciliumNodeKVStore.DeleteLocalKey(context.TODO(), &ciliumNodeName{name: name})
+					ciliumNodeKVStore.DeleteLocalKey(ctx, &ciliumNodeName{name: name})
 				}
 				if nodeManager != nil {
 					nodeManager.Delete(name)
@@ -135,7 +135,7 @@ func startSynchronizingCiliumNodes(nodeManager allocator.NodeEventHandler, withK
 			}
 			if withKVStore {
 				nodeNew := nodeTypes.ParseCiliumNode(cn)
-				ciliumNodeKVStore.UpdateKeySync(context.TODO(), &nodeNew)
+				ciliumNodeKVStore.UpdateKeySync(ctx, &nodeNew)
 			}
 			if nodeManager != nil {
 				// node is deep copied before it is stored in pkg/aws/eni

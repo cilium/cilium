@@ -443,7 +443,7 @@ func onOperatorStartLeading(ctx context.Context) {
 							logfields.ServiceName:      name,
 							logfields.ServiceNamespace: namespace,
 						}).Info("Retrieving service spec from k8s to perform automatic etcd service translation")
-						k8sSvc, err := k8s.Client().CoreV1().Services(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+						k8sSvc, err := k8s.Client().CoreV1().Services(namespace).Get(ctx, name, metav1.GetOptions{})
 						switch {
 						case err == nil:
 							// Create another service cache that contains the
@@ -477,7 +477,7 @@ func onOperatorStartLeading(ctx context.Context) {
 			scopedLog.Infof("%s running without service synchronization: automatic etcd service translation disabled", binaryName)
 		}
 		scopedLog.Info("Connecting to kvstore")
-		if err := kvstore.Setup(context.TODO(), option.Config.KVStore, option.Config.KVStoreOpt, goopts); err != nil {
+		if err := kvstore.Setup(ctx, option.Config.KVStore, option.Config.KVStoreOpt, goopts); err != nil {
 			scopedLog.WithError(err).Fatal("Unable to setup kvstore")
 		}
 
@@ -488,7 +488,7 @@ func onOperatorStartLeading(ctx context.Context) {
 		startKvstoreWatchdog()
 	}
 
-	if err := startSynchronizingCiliumNodes(nodeManager, withKVStore); err != nil {
+	if err := startSynchronizingCiliumNodes(ctx, nodeManager, withKVStore); err != nil {
 		log.WithError(err).Fatal("Unable to setup node watcher")
 	}
 
@@ -510,7 +510,7 @@ func onOperatorStartLeading(ctx context.Context) {
 		// knows all podCIDRs that are currently set in the cluster, that
 		// it can allocate podCIDRs for the nodes that don't have a podCIDR
 		// set.
-		nodeManager.Resync(context.Background(), time.Time{})
+		nodeManager.Resync(ctx, time.Time{})
 	}
 
 	if operatorOption.Config.IdentityGCInterval != 0 {
