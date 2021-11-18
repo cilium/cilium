@@ -704,18 +704,36 @@ func (n *linuxNodeHandler) insertNeighborCommon(scopedLog *logrus.Entry, ctx con
 		//   3dc20f4762c6 ("net, neigh: Enable state migration between NUD_PERMANENT and NTF_USE")
 		// Thus, first initialize the neighbor as NTF_EXT_LEARNED and
 		// then do the subsequent ping via NTF_USE.
+		//
+		// Notes on use of the NUD_STALE state. We have two scenarios:
+		// 1) Old entry was a PERMANENT one. In this case, the kernel
+		// takes the PERMANENT's lladdr in __neigh_update() and uses
+		// it for temporary STALE state. This ensures that whoever
+		// does a lookup in this short window can continue keep using
+		// the lladdr. The subsequent NTF_USE will trigger a fresh
+		// resolution in neigh_event_send() given STALE dictates it
+		// (as opposed to REACHABLE).
+		// 2) Old entry was a dynamic + externally learned one. This
+		// is similar as the PERMANENT one if the entry was NUD_VALID
+		// before. The subsequent NTF_USE will trigger a new resolution.
+		// 3) Old entry was non-existent. Given we don't push down a
+		// corresponding lladdr, the neighbor entry gets created by the
+		// kernel, but given prior state was not NUD_VALID then the
+		// __neigh_update() will error out (EINVAL). However, the entry
+		// is in the kernel, and subsequent NTF_USE will trigger a proper
+		// resolution. Hence, below NeighSet() does _not_ bail out given
+		// errors are expected in this case.
 		neighInit := netlink.Neigh{
 			LinkIndex:    link.Attrs().Index,
 			IP:           nextHop.IP,
-			State:        netlink.NUD_NONE,
+			State:        netlink.NUD_STALE,
 			Flags:        netlink.NTF_EXT_LEARNED,
 			HardwareAddr: nil,
 		}
 		if err := netlink.NeighSet(&neighInit); err != nil {
 			scopedLog.WithError(err).WithFields(logrus.Fields{
 				"neighbor": fmt.Sprintf("%+v", neighInit),
-			}).Info("Unable to insert new next hop")
-			return
+			}).Debug("Unable to insert new next hop")
 		}
 	}
 	if err := netlink.NeighSet(&neigh); err != nil {
