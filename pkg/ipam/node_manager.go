@@ -257,8 +257,10 @@ func (n *NodeManager) Update(resource *v2.CiliumNode) (nodeSynced bool) {
 	}()
 	if !ok {
 		node = &Node{
-			name:    resource.Name,
-			manager: n,
+			name:                resource.Name,
+			manager:             n,
+			ipsMarkedForRelease: make(map[string]time.Time),
+			ipReleaseStatus:     make(map[string]string),
 		}
 
 		node.ops = n.instancesAPI.CreateNode(resource, node)
@@ -306,7 +308,6 @@ func (n *NodeManager) Update(resource *v2.CiliumNode) (nodeSynced bool) {
 		node.poolMaintainer = poolMaintainer
 		node.k8sSync = k8sSync
 		n.nodes[node.name] = node
-
 		log.WithField(fieldName, resource.Name).Info("Discovered new CiliumNode custom resource")
 	}
 

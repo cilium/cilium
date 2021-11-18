@@ -519,6 +519,21 @@ spec:
                         description: Error is the error message set by cilium-operator.
                         type: string
                     type: object
+                  release-ips:
+                    additionalProperties:
+                      description: IPReleaseStatus  defines the valid states in IP
+                        release handshake
+                      enum:
+                      - marked-for-release
+                      - ready-for-release
+                      - do-not-release
+                      type: string
+                    description: 'ReleaseIPs tracks the state for every IP considered
+                      for release. value can be one of the following string : * marked-for-release
+                      : Set by operator as possible candidate for IP * ready-for-release  :
+                      Acknowledged as safe to release by agent * do-not-release     :
+                      IP already in use / not owned by the node. Set by agent'
+                    type: object
                   used:
                     additionalProperties:
                       description: AllocationIP is an IP which is available for allocation,
