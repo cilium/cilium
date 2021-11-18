@@ -12,8 +12,6 @@ import (
 	"sync"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	alibabaCloud "github.com/cilium/cilium/pkg/alibabacloud/utils"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/ip"
@@ -30,6 +28,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -261,7 +260,11 @@ func (n *nodeStore) hasMinimumIPsInPool() (minimumReached bool, required, numAva
 	}
 
 	if n.ownNode.Spec.IPAM.Pool != nil {
-		numAvailable = len(n.ownNode.Spec.IPAM.Pool)
+		for ip := range n.ownNode.Spec.IPAM.Pool {
+			if !n.isIPInReleaseHandshake(ip) {
+				numAvailable++
+			}
+		}
 		if len(n.ownNode.Spec.IPAM.Pool) >= required {
 			minimumReached = true
 		}
@@ -329,6 +332,50 @@ func (n *nodeStore) updateLocalNodeResource(node *ciliumv2.CiliumNode) {
 				}
 			}
 		}
+	}
+
+	releaseUpstreamSyncNeeded := false
+	// ACK or NACK IPs marked for release by the operator
+	for ip, status := range n.ownNode.Status.IPAM.ReleaseIPs {
+		if status != ipamOption.IPAMMarkForRelease || n.ownNode.Spec.IPAM.Pool == nil {
+			continue
+		}
+		// NACK the IP, if this node doesn't own the IP
+		if _, ok := n.ownNode.Spec.IPAM.Pool[ip]; !ok {
+			n.ownNode.Status.IPAM.ReleaseIPs[ip] = ipamOption.IPAMDoNotRelease
+			continue
+		}
+		// Retrieve the appropriate allocator
+		var allocator *crdAllocator
+		var ipFamily Family
+		if ipAddr := net.ParseIP(ip); ipAddr != nil {
+			ipFamily = DeriveFamily(ipAddr)
+		}
+		if ipFamily == "" {
+			continue
+		}
+		for _, a := range n.allocators {
+			if a.family == ipFamily {
+				allocator = a
+			}
+		}
+		if allocator == nil {
+			continue
+		}
+
+		allocator.mutex.Lock()
+		if _, ok := allocator.allocated[ip]; ok {
+			// IP still in use, update the operator to stop releasing the IP.
+			n.ownNode.Status.IPAM.ReleaseIPs[ip] = ipamOption.IPAMDoNotRelease
+		} else {
+			n.ownNode.Status.IPAM.ReleaseIPs[ip] = ipamOption.IPAMReadyForRelease
+		}
+		allocator.mutex.Unlock()
+		releaseUpstreamSyncNeeded = true
+	}
+
+	if releaseUpstreamSyncNeeded {
+		n.refreshTrigger.TriggerWithReason("excess IP release")
 	}
 }
 
@@ -404,12 +451,29 @@ func (n *nodeStore) allocate(ip net.IP) (*ipamTypes.AllocationIP, error) {
 		return nil, fmt.Errorf("No IPs available")
 	}
 
+	if n.isIPInReleaseHandshake(ip.String()) {
+		return nil, fmt.Errorf("IP not available, marked or ready for release")
+	}
+
 	ipInfo, ok := n.ownNode.Spec.IPAM.Pool[ip.String()]
 	if !ok {
 		return nil, NewIPNotAvailableInPoolError(ip)
 	}
 
 	return &ipInfo, nil
+}
+
+// isIPInReleaseHandshake validates if a given IP is currently in the process of being released
+func (n *nodeStore) isIPInReleaseHandshake(ip string) bool {
+	if n.ownNode.Status.IPAM.ReleaseIPs == nil {
+		return false
+	}
+	if status, ok := n.ownNode.Status.IPAM.ReleaseIPs[ip]; ok {
+		if status == ipamOption.IPAMMarkForRelease || status == ipamOption.IPAMReadyForRelease {
+			return true
+		}
+	}
+	return false
 }
 
 // allocateNext allocates the next available IP or returns an error
@@ -425,6 +489,10 @@ func (n *nodeStore) allocateNext(allocated ipamTypes.AllocationMap, family Famil
 	// optimized
 	for ip, ipInfo := range n.ownNode.Spec.IPAM.Pool {
 		if _, ok := allocated[ip]; !ok {
+
+			if n.isIPInReleaseHandshake(ip) {
+				continue // IP not available
+			}
 			parsedIP := net.ParseIP(ip)
 			if parsedIP == nil {
 				log.WithFields(logrus.Fields{
