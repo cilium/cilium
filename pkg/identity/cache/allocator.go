@@ -122,7 +122,7 @@ type IdentityAllocator interface {
 
 	// Release is the reverse operation of AllocateIdentity() and releases the
 	// specified identity.
-	Release(context.Context, *identity.Identity) (released bool, err error)
+	Release(context.Context, *identity.Identity, bool) (released bool, err error)
 
 	// ReleaseSlice is the slice variant of Release().
 	ReleaseSlice(context.Context, IdentityAllocatorOwner, []*identity.Identity) error
@@ -404,10 +404,16 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 // Release is the reverse operation of AllocateIdentity() and releases the
 // identity again. This function may result in kvstore operations.
 // After the last user has released the ID, the returned lastUse value is true.
-func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Identity) (released bool, err error) {
+func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Identity, notifyOwner bool) (released bool, err error) {
 	defer func() {
 		if released {
 			metrics.Identity.Dec()
+		}
+		if m.owner != nil && released && notifyOwner {
+			deleted := IdentityCache{
+				id.ID: id.LabelArray,
+			}
+			m.owner.UpdateIdentities(nil, deleted)
 		}
 	}()
 
@@ -418,15 +424,7 @@ func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Ide
 
 	if !identity.RequiresGlobalIdentity(id.Labels) {
 		<-m.localIdentityAllocatorInitialized
-		lastUse := m.localIdentities.release(id)
-		// Notify release of locally managed identities on last use
-		if m.owner != nil && lastUse {
-			deleted := IdentityCache{
-				id.ID: id.LabelArray,
-			}
-			m.owner.UpdateIdentities(nil, deleted)
-		}
-		return lastUse, nil
+		return m.localIdentities.release(id), nil
 	}
 
 	// This will block until the kvstore can be accessed and all identities
@@ -458,7 +456,7 @@ func (m *CachingIdentityAllocator) ReleaseSlice(ctx context.Context, owner Ident
 		if id == nil {
 			continue
 		}
-		_, err2 := m.Release(ctx, id)
+		_, err2 := m.Release(ctx, id, true)
 		if err2 != nil {
 			log.WithError(err2).WithFields(logrus.Fields{
 				logfields.Identity: id,

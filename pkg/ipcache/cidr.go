@@ -140,7 +140,7 @@ func allocate(prefix *net.IPNet, lbls labels.Labels) (*identity.Identity, bool, 
 
 func releaseCIDRIdentities(ctx context.Context, identities map[string]*identity.Identity) {
 	for prefix, id := range identities {
-		released, err := IdentityAllocator.Release(ctx, id)
+		released, err := IdentityAllocator.Release(ctx, id, true)
 		if err != nil {
 			log.WithFields(logrus.Fields{
 				logfields.Identity: id,
