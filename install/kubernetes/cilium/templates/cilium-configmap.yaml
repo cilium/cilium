@@ -572,6 +572,9 @@ data:
 {{- if hasKey .Values.loadBalancer "dsrDispatch" }}
   bpf-lb-dsr-dispatch: {{ .Values.loadBalancer.dsrDispatch | quote }}
 {{- end }}
+{{- if hasKey .Values.loadBalancer "serviceTopology" }}
+  enable-service-topology: {{ .Values.loadBalancer.serviceTopology | quote }}
+{{- end }}
 
 {{- end }}
 {{- if hasKey .Values.maglev "tableSize" }}
