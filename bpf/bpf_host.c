@@ -30,6 +30,10 @@
  */
 #define SKIP_ICMPV6_ECHO_HANDLING
 
+/* Controls the inclusion of the CILIUM_CALL_SRV6 section in the object file.
+ */
+#define SKIP_SRV6_HANDLING
+
 #ifndef VLAN_FILTER
 # define VLAN_FILTER(ifindex, vlan_id) return false;
 #endif

@@ -366,7 +366,9 @@ ct_recreate6:
 		if (!sid)
 			goto skip_srv6;
 
-		/* TODO: Perform SRv6 encapsulation. */
+		srv6_store_meta_sid(ctx, sid);
+		ep_tail_call(ctx, CILIUM_CALL_SRV6);
+		return DROP_MISSED_TAIL_CALL;
 	}
 skip_srv6:
 #endif
@@ -845,7 +847,9 @@ skip_egress_gateway:
 		if (!sid)
 			goto skip_srv6;
 
-		/* TODO: Perform SRv6 encapsulation. */
+		srv6_store_meta_sid(ctx, sid);
+		ep_tail_call(ctx, CILIUM_CALL_SRV6);
+		return DROP_MISSED_TAIL_CALL;
 	}
 skip_srv6:
 #endif
