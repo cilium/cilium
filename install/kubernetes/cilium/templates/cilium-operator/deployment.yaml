@@ -135,14 +135,16 @@ spec:
         - name: AZURE_RESOURCE_GROUP
           value: {{ .Values.azure.resourceGroup }}
         {{- end }}
-        {{- if .Values.azure.clientID }}
         - name: AZURE_CLIENT_ID
-          value: {{ .Values.azure.clientID }}
-        {{- end }}
-        {{- if .Values.azure.clientSecret }}
+          valueFrom:
+            secretKeyRef:
+              name: cilium-azure
+              key: AZURE_CLIENT_ID
         - name: AZURE_CLIENT_SECRET
-          value: {{ .Values.azure.clientSecret }}
-        {{- end }}
+          valueFrom:
+            secretKeyRef:
+              name: cilium-azure
+              key: AZURE_CLIENT_SECRET
         {{- end }}
         {{- range $key, $value := .Values.operator.extraEnv }}
         - name: {{ $key }}
