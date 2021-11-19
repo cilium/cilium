@@ -145,6 +145,7 @@ const DropReason_POLICY_DENY = flow.DropReason_POLICY_DENY
 const DropReason_VLAN_FILTERED = flow.DropReason_VLAN_FILTERED
 const DropReason_INVALID_VNI = flow.DropReason_INVALID_VNI
 const DropReason_INVALID_TC_BUFFER = flow.DropReason_INVALID_TC_BUFFER
+const DropReason_NO_SID = flow.DropReason_NO_SID
 
 var DropReason_name = flow.DropReason_name
 var DropReason_value = flow.DropReason_value

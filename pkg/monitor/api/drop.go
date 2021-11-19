@@ -80,6 +80,7 @@ var errors = map[uint8]string{
 	182: "VLAN traffic disallowed by VLAN filter",
 	183: "Incorrect VNI from VTEP",
 	184: "Failed to update or lookup TC buffer",
+	185: "No SID was found for the IP address",
 }
 
 func extendedReason(reason uint8, extError int8) string {
