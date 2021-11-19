@@ -47,7 +47,7 @@ github.com/PuerkitoBio/urlesc
 # github.com/StackExchange/wmi v1.2.1
 ## explicit; go 1.13
 github.com/StackExchange/wmi
-# github.com/aliyun/alibaba-cloud-sdk-go v1.61.1331
+# github.com/aliyun/alibaba-cloud-sdk-go v1.61.1333
 ## explicit; go 1.13
 github.com/aliyun/alibaba-cloud-sdk-go/sdk
 github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth
