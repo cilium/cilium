@@ -839,7 +839,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	 * session we are likely to get a TCP RST.
 	 */
 	backend = lb6_lookup_backend(ctx, state->backend_id);
-	if (!backend) {
+	if (!backend || backend->rev_nat_index != svc->rev_nat_index) {
 		key->backend_slot = 0;
 		svc = lb6_lookup_service(key, false);
 		if (!svc)
@@ -1401,7 +1401,12 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	 * session we are likely to get a TCP RST.
 	 */
 	backend = lb4_lookup_backend(ctx, state->backend_id);
-	if (!backend) {
+    /* When a endpoint was removed, but its CT entries were not, another
+     * endpoint maybe use the same backend_id,then a wrong backend can
+     * be selected.To avoid this, check that reverse NAT indices match.
+     * If not, select a new backend.
+	 */
+	if (!backend || backend->rev_nat_index != svc->rev_nat_index) {
 		key->backend_slot = 0;
 		svc = lb4_lookup_service(key, false);
 		if (!svc)

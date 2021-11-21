@@ -38,7 +38,7 @@ type LBMap interface {
 	UpsertMaglevLookupTable(uint16, map[string]lb.BackendID, bool) error
 	IsMaglevLookupTableRecreated(bool) bool
 	DeleteService(lb.L3n4AddrID, int, bool) error
-	AddBackend(lb.BackendID, net.IP, uint16, bool) error
+	AddBackend(lb.BackendID, net.IP, uint16, uint16, bool) error
 	DeleteBackendByID(lb.BackendID, bool) error
 	AddAffinityMatch(uint16, lb.BackendID) error
 	DeleteAffinityMatch(uint16, lb.BackendID) error
@@ -779,7 +779,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 		}).Debug("Adding new backend")
 
 		if err := s.lbmap.AddBackend(b.ID, b.L3n4Addr.IP,
-			b.L3n4Addr.L4Addr.Port, ipv6); err != nil {
+			b.L3n4Addr.L4Addr.Port, uint16(svc.frontend.ID), ipv6); err != nil {
 			return err
 		}
 	}

@@ -382,11 +382,12 @@ func (k *Backend4Key) GetID() loadbalancer.BackendID   { return loadbalancer.Bac
 type Backend4Value struct {
 	Address types.IPv4      `align:"address"`
 	Port    uint16          `align:"port"`
+	RevNat  uint16          `align:"rev_nat_index"`
 	Proto   u8proto.U8proto `align:"proto"`
-	Pad     uint8           `align:"pad"`
+	Pad     [3]uint8        `align:"pad"`
 }
 
-func NewBackend4Value(ip net.IP, port uint16, proto u8proto.U8proto) (*Backend4Value, error) {
+func NewBackend4Value(ip net.IP, port uint16, revNATID uint16, proto u8proto.U8proto) (*Backend4Value, error) {
 	ip4 := ip.To4()
 	if ip4 == nil {
 		return nil, fmt.Errorf("Not an IPv4 address")
@@ -394,6 +395,7 @@ func NewBackend4Value(ip net.IP, port uint16, proto u8proto.U8proto) (*Backend4V
 
 	val := Backend4Value{
 		Port:  port,
+        RevNat: revNATID,
 		Proto: proto,
 	}
 	copy(val.Address[:], ip.To4())
@@ -403,7 +405,7 @@ func NewBackend4Value(ip net.IP, port uint16, proto u8proto.U8proto) (*Backend4V
 
 func (v *Backend4Value) String() string {
 	vHost := v.ToHost().(*Backend4Value)
-	return fmt.Sprintf("%s://%s:%d", vHost.Proto, vHost.Address, vHost.Port)
+	return fmt.Sprintf("%s://%s:%d (%d)", vHost.Proto, vHost.Address, vHost.Port, vHost.RevNat)
 }
 
 func (v *Backend4Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
@@ -414,6 +416,7 @@ func (b *Backend4Value) GetPort() uint16    { return b.Port }
 func (v *Backend4Value) ToNetwork() BackendValue {
 	n := *v
 	n.Port = byteorder.HostToNetwork16(n.Port)
+	n.RevNat = byteorder.HostToNetwork16(n.RevNat)
 	return &n
 }
 
@@ -421,6 +424,7 @@ func (v *Backend4Value) ToNetwork() BackendValue {
 func (v *Backend4Value) ToHost() BackendValue {
 	h := *v
 	h.Port = byteorder.NetworkToHost16(h.Port)
+	h.RevNat = byteorder.NetworkToHost16(h.RevNat)
 	return &h
 }
 
@@ -429,8 +433,8 @@ type Backend4V2 struct {
 	Value *Backend4Value
 }
 
-func NewBackend4V2(id loadbalancer.BackendID, ip net.IP, port uint16, proto u8proto.U8proto) (*Backend4V2, error) {
-	val, err := NewBackend4Value(ip, port, proto)
+func NewBackend4V2(id loadbalancer.BackendID, ip net.IP, port uint16, revNATID uint16, proto u8proto.U8proto) (*Backend4V2, error) {
+	val, err := NewBackend4Value(ip, port, revNATID, proto)
 	if err != nil {
 		return nil, err
 	}

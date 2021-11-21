@@ -215,7 +215,7 @@ func (*LBBPFMap) DeleteService(svc loadbalancer.L3n4AddrID, backendCount int, us
 }
 
 // AddBackend adds a backend into a BPF map.
-func (*LBBPFMap) AddBackend(id loadbalancer.BackendID, ip net.IP, port uint16, ipv6 bool) error {
+func (*LBBPFMap) AddBackend(id loadbalancer.BackendID, ip net.IP, port uint16, revNATID uint16, ipv6 bool) error {
 	var (
 		backend Backend
 		err     error
@@ -226,9 +226,9 @@ func (*LBBPFMap) AddBackend(id loadbalancer.BackendID, ip net.IP, port uint16, i
 	}
 
 	if ipv6 {
-		backend, err = NewBackend6V2(loadbalancer.BackendID(id), ip, port, u8proto.ANY)
+		backend, err = NewBackend6V2(loadbalancer.BackendID(id), ip, port, revNATID, u8proto.ANY)
 	} else {
-		backend, err = NewBackend4V2(loadbalancer.BackendID(id), ip, port, u8proto.ANY)
+		backend, err = NewBackend4V2(loadbalancer.BackendID(id), ip, port, revNATID, u8proto.ANY)
 	}
 	if err != nil {
 		return fmt.Errorf("Unable to create backend (%d, %s, %d, %t): %s",

@@ -746,8 +746,9 @@ struct lb6_service {
 struct lb6_backend {
 	union v6addr address;
 	__be16 port;
+	__u16 rev_nat_index;	/* Reverse NAT ID in lb4_reverse_nat */
 	__u8 proto;
-	__u8 pad;
+	__u8 pad[3];
 };
 
 struct lb6_health {
@@ -799,8 +800,9 @@ struct lb4_service {
 struct lb4_backend {
 	__be32 address;		/* Service endpoint IPv4 address */
 	__be16 port;		/* L4 port filter */
+	__u16 rev_nat_index;	/* Reverse NAT ID in lb4_reverse_nat */
 	__u8 proto;		/* L4 protocol, currently not used (set to 0) */
-	__u8 pad;
+	__u8 pad[3];
 };
 
 struct lb4_health {
