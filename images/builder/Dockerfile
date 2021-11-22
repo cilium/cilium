@@ -24,8 +24,9 @@ ARG TARGETARCH
 RUN \
     apt-get update && \
     apt-get upgrade -y --no-install-recommends && \
-    # Only install cross tools on amd64
-    CROSSPKG="" && [ "$TARGETARCH" != "amd64" ] || CROSSPKG="gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross binutils-aarch64-linux-gnu" && \
+    # Install cross tools for arm64 on amd64, or for amd64 on arm64
+    CROSSPKG="gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross binutils-aarch64-linux-gnu" && \
+    [ "$TARGETARCH" == "amd64" ] || CROSSPKG="gcc-x86-64-linux-gnu g++-x86-64-linux-gnu libc6-dev-amd64-cross binutils-x86-64-linux-gnu" && \
     apt-get install -y --no-install-recommends \
       $CROSSPKG \
       # Dependencies to unzip protoc
