@@ -183,11 +183,11 @@ type EndpointResolverWithOptions interface {
 }
 
 // EndpointResolverWithOptionsFunc wraps a function to satisfy the EndpointResolverWithOptions interface.
-type EndpointResolverWithOptionsFunc func(service, region string, options interface{}) (Endpoint, error)
+type EndpointResolverWithOptionsFunc func(service, region string, options ...interface{}) (Endpoint, error)
 
 // ResolveEndpoint calls the wrapped function and returns the results.
-func (e EndpointResolverWithOptionsFunc) ResolveEndpoint(service, region string, options interface{}) (Endpoint, error) {
-	return e(service, region, options)
+func (e EndpointResolverWithOptionsFunc) ResolveEndpoint(service, region string, options ...interface{}) (Endpoint, error) {
+	return e(service, region, options...)
 }
 
 // GetDisableHTTPS takes a service's EndpointResolverOptions and returns the DisableHTTPS value.
