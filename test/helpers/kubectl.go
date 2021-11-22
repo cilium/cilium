@@ -635,18 +635,9 @@ func (kub *Kubectl) labelNodes() error {
 		return fmt.Errorf("unable to unmarshal string slice '%#v': %s", nodesList, err)
 	}
 
-	var (
-		index int = 1
-
-		noCiliumNode     = GetNodeWithoutCilium()
-		noCiliumNodeName string
-	)
+	index := 1
 	for _, nodeName := range nodesList {
 		ciNodeName := fmt.Sprintf("k8s%d", index)
-		if GetNodeWithoutCilium() == ciNodeName {
-			noCiliumNodeName = nodeName
-		}
-
 		cmd := fmt.Sprintf("%s label --overwrite node %s cilium.io/ci-node=%s", KubectlCmd, nodeName, ciNodeName)
 		res := kub.ExecShort(cmd)
 		if !res.WasSuccessful() {
@@ -655,10 +646,11 @@ func (kub *Kubectl) labelNodes() error {
 		index++
 	}
 
-	if noCiliumNode != "" {
+	noCiliumNodeNames := strings.Join(GetNodesWithoutCilium(), " ")
+	if noCiliumNodeNames != "" {
 		// Prevent scheduling any pods on the node, as it will be used as an external client
 		// to send requests to k8s{1,2}
-		cmd := fmt.Sprintf("%s taint --overwrite nodes %s key=value:NoSchedule", KubectlCmd, noCiliumNodeName)
+		cmd := fmt.Sprintf("%s taint --overwrite nodes %s key=value:NoSchedule", KubectlCmd, noCiliumNodeNames)
 		res := kub.ExecMiddle(cmd)
 		if !res.WasSuccessful() {
 			return fmt.Errorf("unable to taint node with '%s': %s", cmd, res.OutputPrettyPrint())
@@ -720,12 +712,7 @@ func (kub *Kubectl) GetNumCiliumNodes() int {
 	if !res.WasSuccessful() {
 		return 0
 	}
-	sub := 0
-	if ExistNodeWithoutCilium() {
-		sub = 1
-	}
-
-	return len(strings.Split(res.SingleOut(), " ")) - sub
+	return len(strings.Split(res.SingleOut(), " ")) - len(GetNodesWithoutCilium())
 }
 
 // CountMissedTailCalls returns the number of the sum of all drops due to
@@ -2338,12 +2325,16 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		options = addIfNotOverwritten(options, key, value)
 	}
 
-	// Do not schedule cilium-agent on the NO_CILIUM_ON_NODE node
-	if node := GetNodeWithoutCilium(); node != "" {
+	// Do not schedule cilium-agent on the NO_CILIUM_ON_NODE nodes
+	noCiliumNodes := GetNodesWithoutCilium()
+	if len(noCiliumNodes) > 0 {
 		opts := map[string]string{
-			"affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key":       "cilium.io/ci-node",
-			"affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator":  "NotIn",
-			"affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[0]": node,
+			"affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key":      "cilium.io/ci-node",
+			"affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator": "NotIn",
+		}
+		for i, n := range noCiliumNodes {
+			key := fmt.Sprintf("affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[%d]", i)
+			opts[key] = n
 		}
 		for key, value := range opts {
 			options = addIfNotOverwritten(options, key, value)
@@ -2828,9 +2819,8 @@ func (kub *Kubectl) CiliumNodesWait() (bool, error) {
 			return false
 		}
 		result := data.KVOutput()
-		ignoreNode := GetNodeWithoutCilium()
 		for k, v := range result {
-			if k == ignoreNode {
+			if IsNodeWithoutCilium(k) {
 				continue
 			}
 			if v == "" {
@@ -4345,8 +4335,13 @@ func logGathererSelector(allNodes bool) string {
 		return selector
 	}
 
-	if nodeName := GetNodeWithoutCilium(); nodeName != "" {
-		selector = fmt.Sprintf("%s --field-selector='spec.nodeName!=%s'", selector, nodeName)
+	noCiliumNodes := GetNodesWithoutCilium()
+	if len(noCiliumNodes) > 0 {
+		var fieldSelectors []string
+		for _, n := range noCiliumNodes {
+			fieldSelectors = append(fieldSelectors, fmt.Sprintf("spec.nodeName!=%s", n))
+		}
+		selector = fmt.Sprintf("%s --field-selector='%s'", selector, strings.Join(fieldSelectors, ","))
 	}
 
 	return selector
