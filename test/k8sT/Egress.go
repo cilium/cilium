@@ -57,7 +57,7 @@ var _ = SkipDescribeIf(func() bool {
 		res.ExpectSuccess()
 		echoPodYAML = strings.Trim(res.Stdout(), "\n")
 		kubectl.ExecMiddle(fmt.Sprintf("sed 's/NODE_WITHOUT_CILIUM/%s/' %s > %s",
-			helpers.GetNodeWithoutCilium(), originalEchoPodPath, echoPodYAML)).ExpectSuccess()
+			helpers.GetFirstNodeWithoutCilium(), originalEchoPodPath, echoPodYAML)).ExpectSuccess()
 		kubectl.ApplyDefault(echoPodYAML).ExpectSuccess("Cannot install echoserver application")
 		Expect(kubectl.WaitforPods(helpers.DefaultNamespace, "-l name=echoserver-hostnetns",
 			helpers.HelperTimeout)).Should(BeNil())
@@ -88,7 +88,7 @@ var _ = SkipDescribeIf(func() bool {
 
 		_, k8s1IP = kubectl.GetNodeInfo(helpers.K8s1)
 		_, k8s2IP = kubectl.GetNodeInfo(helpers.K8s2)
-		_, outsideIP = kubectl.GetNodeInfo(helpers.GetNodeWithoutCilium())
+		_, outsideIP = kubectl.GetNodeInfo(helpers.GetFirstNodeWithoutCilium())
 
 		egressIP = getEgressIP(k8s1IP)
 
@@ -170,7 +170,7 @@ var _ = SkipDescribeIf(func() bool {
 			fmt.Sprintf(`{"spec":{"externalIPs":["%s"],  "externalTrafficPolicy": "Local"}}`, hostIP))
 		ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Error patching external IP service with node IP")
 
-		outsideNodeName, outsideNodeIP := kubectl.GetNodeInfo(helpers.GetNodeWithoutCilium())
+		outsideNodeName, outsideNodeIP := kubectl.GetNodeInfo(helpers.GetFirstNodeWithoutCilium())
 
 		res = kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName,
 			helpers.CurlFail("http://%s:%d", hostIP, extIPsService.Spec.Ports[0].Port))

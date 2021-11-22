@@ -601,12 +601,12 @@ func RunsWithoutKubeProxy() bool {
 }
 
 // ExistNodeWithoutCilium returns true if there is a node in a cluster which does
-// not run cilium.
+// not run Cilium.
 func ExistNodeWithoutCilium() bool {
-	return GetNodeWithoutCilium() != ""
+	return len(GetNodesWithoutCilium()) > 0
 }
 
-// DoesNotExistNodeWithoutCilium is the complement function of ExistNodeWithoutCilium
+// DoesNotExistNodeWithoutCilium is the complement function of ExistNodeWithoutCilium.
 func DoesNotExistNodeWithoutCilium() bool {
 	return !ExistNodeWithoutCilium()
 }
@@ -641,9 +641,34 @@ func (kub *Kubectl) HasBPFNodePort(pod string) bool {
 	return strings.Contains(lines[0], "true")
 }
 
-// GetNodeWithoutCilium returns a name of a node which does not run cilium.
-func GetNodeWithoutCilium() string {
-	return os.Getenv("NO_CILIUM_ON_NODE")
+// GetNodesWithoutCilium returns a slice of names for nodes that do not run
+// Cilium.
+func GetNodesWithoutCilium() []string {
+	if os.Getenv("NO_CILIUM_ON_NODES") == "" {
+		if os.Getenv("NO_CILIUM_ON_NODE") == "" {
+			return []string{}
+		}
+		return []string{os.Getenv("NO_CILIUM_ON_NODE")}
+	}
+	return strings.Split(os.Getenv("NO_CILIUM_ON_NODES"), ",")
+}
+
+// GetFirstNodeWithoutCilium returns the first node that does not run Cilium.
+// It's the responsibility of the caller to check that there are nodes without
+// Cilium.
+func GetFirstNodeWithoutCilium() string {
+	noCiliumNodes := GetNodesWithoutCilium()
+	return noCiliumNodes[0]
+}
+
+// IsNodeWithoutCilium returns true if node node doesn't run Cilium.
+func IsNodeWithoutCilium(node string) bool {
+	for _, n := range GetNodesWithoutCilium() {
+		if n == node {
+			return true
+		}
+	}
+	return false
 }
 
 // GetLatestImageVersion infers which docker tag should be used
