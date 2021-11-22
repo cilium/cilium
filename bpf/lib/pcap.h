@@ -8,6 +8,7 @@
 #include <bpf/api.h>
 
 #include "common.h"
+#include "time_cache.h"
 #include "lb.h"
 
 struct pcap_timeval {
