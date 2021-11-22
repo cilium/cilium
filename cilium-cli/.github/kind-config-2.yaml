@@ -2,7 +2,7 @@ kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
   - role: control-plane
-    image: kindest/node:v1.19.1
+    image: kindest/node:v1.19.11
 networking:
   disableDefaultCNI: true
   podSubnet: "10.202.0.0/16"
