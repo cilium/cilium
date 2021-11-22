@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -24,6 +24,17 @@ import (
 
 type DNSNameProperCharacters struct {
 	CompiledExpression *regexp.Regexp
+}
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_dnsname_bad_character_in_label",
+		Description:   "Characters in labels of DNSNames MUST be alphanumeric, - , _ or *",
+		Citation:      "BRs: 7.1.4.2",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.CABEffectiveDate,
+		Lint:          &DNSNameProperCharacters{},
+	})
 }
 
 func (l *DNSNameProperCharacters) Initialize() error {
@@ -50,15 +61,4 @@ func (l *DNSNameProperCharacters) Execute(c *x509.Certificate) *lint.LintResult 
 		}
 	}
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_dnsname_bad_character_in_label",
-		Description:   "Characters in labels of DNSNames MUST be alphanumeric, - , _ or *",
-		Citation:      "BRs: 7.1.4.2",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.CABEffectiveDate,
-		Lint:          &DNSNameProperCharacters{},
-	})
 }

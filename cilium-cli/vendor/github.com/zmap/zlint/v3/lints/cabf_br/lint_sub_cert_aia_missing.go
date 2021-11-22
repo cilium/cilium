@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,6 +14,14 @@ package cabf_br
  * permissions and limitations under the License.
  */
 
+import (
+	"github.com/zmap/zcrypto/x509"
+	"github.com/zmap/zlint/v3/lint"
+	"github.com/zmap/zlint/v3/util"
+)
+
+type subCertAiaMissing struct{}
+
 /**************************************************************************************************
 BRs: 7.1.2.3
 authorityInformationAccess
@@ -23,13 +31,16 @@ marked critical, and it MUST contain the HTTP URL of the Issuing CA’s OCSP res
 (accessMethod = 1.3.6.1.5.5.7.48.2). See Section 13.2.1 for details.
 ***************************************************************************************************/
 
-import (
-	"github.com/zmap/zcrypto/x509"
-	"github.com/zmap/zlint/v3/lint"
-	"github.com/zmap/zlint/v3/util"
-)
-
-type subCertAiaMissing struct{}
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_sub_cert_aia_missing",
+		Description:   "Subscriber Certificate: authorityInformationAccess MUST be present.",
+		Citation:      "BRs: 7.1.2.3",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.CABEffectiveDate,
+		Lint:          &subCertAiaMissing{},
+	})
+}
 
 func (l *subCertAiaMissing) Initialize() error {
 	return nil
@@ -45,15 +56,4 @@ func (l *subCertAiaMissing) Execute(c *x509.Certificate) *lint.LintResult {
 	} else {
 		return &lint.LintResult{Status: lint.Error}
 	}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_sub_cert_aia_missing",
-		Description:   "Subscriber Certiifcate: authorityInformationAccess MUST be present, with the exception of stapling.",
-		Citation:      "BRs: 7.1.2.3",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.CABEffectiveDate,
-		Lint:          &subCertAiaMissing{},
-	})
 }

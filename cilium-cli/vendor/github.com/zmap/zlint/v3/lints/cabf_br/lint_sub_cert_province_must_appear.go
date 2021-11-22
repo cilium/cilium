@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -22,6 +22,17 @@ import (
 
 type subCertProvinceMustAppear struct{}
 
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_sub_cert_province_must_appear",
+		Description:   "Subscriber Certificate: subject:stateOrProvinceName MUST appear if the subject:organizationName, subject:givenName, or subject:surname fields are present and subject:localityName is absent.",
+		Citation:      "BRs: 7.1.4.2.2",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.CABGivenNameDate,
+		Lint:          &subCertProvinceMustAppear{},
+	})
+}
+
 func (l *subCertProvinceMustAppear) Initialize() error {
 	return nil
 }
@@ -39,15 +50,4 @@ func (l *subCertProvinceMustAppear) Execute(c *x509.Certificate) *lint.LintResul
 		}
 	}
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_sub_cert_province_must_appear",
-		Description:   "Subscriber Certificate: subject:stateOrProvinceName MUST appear if the subject:organizationName, subject:givenName, or subject:surname fields are present and subject:localityName is absent.",
-		Citation:      "BRs: 7.1.4.2.2",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.CABGivenNameDate,
-		Lint:          &subCertProvinceMustAppear{},
-	})
 }

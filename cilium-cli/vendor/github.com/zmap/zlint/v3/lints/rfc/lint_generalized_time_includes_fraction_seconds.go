@@ -1,7 +1,7 @@
 package rfc
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -13,6 +13,17 @@ package rfc
  * implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+
+import (
+	"encoding/asn1"
+
+	"github.com/zmap/zcrypto/x509"
+	"github.com/zmap/zlint/v3/lint"
+	"github.com/zmap/zlint/v3/util"
+)
+
+type generalizedTimeFraction struct {
+}
 
 /********************************************************************
 4.1.2.5.2.  GeneralizedTime
@@ -27,15 +38,15 @@ expressed in Greenwich Mean Time (Zulu) and MUST include seconds
 is zero.  GeneralizedTime values MUST NOT include fractional seconds.
 ********************************************************************/
 
-import (
-	"encoding/asn1"
-
-	"github.com/zmap/zcrypto/x509"
-	"github.com/zmap/zlint/v3/lint"
-	"github.com/zmap/zlint/v3/util"
-)
-
-type generalizedTimeFraction struct {
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_generalized_time_includes_fraction_seconds",
+		Description:   "Generalized time values MUST NOT include fractional seconds",
+		Citation:      "RFC 5280: 4.1.2.5.2",
+		Source:        lint.RFC5280,
+		EffectiveDate: util.RFC2459Date,
+		Lint:          &generalizedTimeFraction{},
+	})
 }
 
 func (l *generalizedTimeFraction) Initialize() error {
@@ -84,15 +95,4 @@ func checkFraction(r *lint.LintStatus, t asn1.RawValue) {
 			*r = lint.Error
 		}
 	}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_generalized_time_includes_fraction_seconds",
-		Description:   "Generalized time values MUST NOT include fractional seconds",
-		Citation:      "RFC 5280: 4.1.2.5.2",
-		Source:        lint.RFC5280,
-		EffectiveDate: util.RFC2459Date,
-		Lint:          &generalizedTimeFraction{},
-	})
 }

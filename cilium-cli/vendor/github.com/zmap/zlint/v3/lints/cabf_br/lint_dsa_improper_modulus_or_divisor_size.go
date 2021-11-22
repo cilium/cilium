@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -24,6 +24,17 @@ import (
 
 type dsaImproperSize struct{}
 
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_dsa_improper_modulus_or_divisor_size",
+		Description:   "Certificates MUST meet the following requirements for DSA algorithm type and key size: L=2048 and N=224,256 or L=3072 and N=256",
+		Citation:      "BRs v1.7.0: 6.1.5",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.ZeroDate,
+		Lint:          &dsaImproperSize{},
+	})
+}
+
 func (l *dsaImproperSize) Initialize() error {
 	return nil
 }
@@ -43,15 +54,4 @@ func (l *dsaImproperSize) Execute(c *x509.Certificate) *lint.LintResult {
 		return &lint.LintResult{Status: lint.Pass}
 	}
 	return &lint.LintResult{Status: lint.Error}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_dsa_improper_modulus_or_divisor_size",
-		Description:   "Certificates MUST meet the following requirements for DSA algorithm type and key size: L=2048 and N=224,256 or L=3072 and N=256",
-		Citation:      "BRs: 6.1.5",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.ZeroDate,
-		Lint:          &dsaImproperSize{},
-	})
 }

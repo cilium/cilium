@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -21,6 +21,17 @@ import (
 )
 
 type DNSNameWildcardLeftofPublicSuffix struct{}
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "n_dnsname_wildcard_left_of_public_suffix",
+		Description:   "the CA MUST establish and follow a documented procedure[^pubsuffix] that determines if the wildcard character occurs in the first label position to the left of a “registry‐controlled” label or “public suffix”",
+		Citation:      "BRs: 3.2.2.6",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.CABEffectiveDate,
+		Lint:          &DNSNameWildcardLeftofPublicSuffix{},
+	})
+}
 
 func (l *DNSNameWildcardLeftofPublicSuffix) Initialize() error {
 	return nil
@@ -53,15 +64,4 @@ func (l *DNSNameWildcardLeftofPublicSuffix) Execute(c *x509.Certificate) *lint.L
 		}
 	}
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "n_dnsname_wildcard_left_of_public_suffix",
-		Description:   "the CA MUST establish and follow a documented procedure[^pubsuffix] that determines if the wildcard character occurs in the first label position to the left of a “registry‐controlled” label or “public suffix”",
-		Citation:      "BRs: 3.2.2.6",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.CABEffectiveDate,
-		Lint:          &DNSNameWildcardLeftofPublicSuffix{},
-	})
 }

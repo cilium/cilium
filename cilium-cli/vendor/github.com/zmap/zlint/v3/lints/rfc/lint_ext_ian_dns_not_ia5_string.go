@@ -1,7 +1,7 @@
 package rfc
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -13,6 +13,14 @@ package rfc
  * implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+
+import (
+	"github.com/zmap/zcrypto/x509"
+	"github.com/zmap/zlint/v3/lint"
+	"github.com/zmap/zlint/v3/util"
+)
+
+type IANDNSNotIA5String struct{}
 
 /********************************************************************
 RFC 5280: 4.2.1.7
@@ -30,13 +38,16 @@ be used; such identities are to be encoded as rfc822Name.  Rules for
 encoding internationalized domain names are specified in Section 7.2.
 ********************************************************************/
 
-import (
-	"github.com/zmap/zcrypto/x509"
-	"github.com/zmap/zlint/v3/lint"
-	"github.com/zmap/zlint/v3/util"
-)
-
-type IANDNSNotIA5String struct{}
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_ext_ian_dns_not_ia5_string",
+		Description:   "DNSNames MUST be IA5 strings",
+		Citation:      "RFC 5280: 4.2.1.7",
+		Source:        lint.RFC5280,
+		EffectiveDate: util.RFC2459Date,
+		Lint:          &IANDNSNotIA5String{},
+	})
+}
 
 func (l *IANDNSNotIA5String) Initialize() error {
 	return nil
@@ -60,15 +71,4 @@ func (l *IANDNSNotIA5String) Execute(c *x509.Certificate) *lint.LintResult {
 	} else {
 		return &lint.LintResult{Status: lint.Error}
 	}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_ext_ian_dns_not_ia5_string",
-		Description:   "DNSNames MUST be IA5 strings",
-		Citation:      "RFC 5280: 4.2.1.7",
-		Source:        lint.RFC5280,
-		EffectiveDate: util.RFC2459Date,
-		Lint:          &IANDNSNotIA5String{},
-	})
 }

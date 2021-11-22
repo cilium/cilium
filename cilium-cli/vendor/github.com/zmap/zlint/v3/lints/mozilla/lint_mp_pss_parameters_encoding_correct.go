@@ -1,7 +1,7 @@
 package mozilla
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -13,6 +13,18 @@ package mozilla
  * implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+
+import (
+	"bytes"
+	"encoding/hex"
+	"fmt"
+
+	"github.com/zmap/zcrypto/x509"
+	"github.com/zmap/zlint/v3/lint"
+	"github.com/zmap/zlint/v3/util"
+)
+
+type rsaPssAidEncoding struct{}
 
 /************************************************
 
@@ -45,17 +57,16 @@ The encoded AlgorithmIdentifier MUST match the following hex-encoded bytes:
 0500a203020140
 ************************************************/
 
-import (
-	"bytes"
-	"encoding/hex"
-	"fmt"
-
-	"github.com/zmap/zcrypto/x509"
-	"github.com/zmap/zlint/v3/lint"
-	"github.com/zmap/zlint/v3/util"
-)
-
-type rsaPssAidEncoding struct{}
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_mp_rsassa-pss_parameters_encoding_in_signature_algorithm_correct",
+		Description:   "The encoded AlgorithmIdentifier for RSASSA-PSS in the signature algorithm MUST match specific bytes",
+		Citation:      "Mozilla Root Store Policy / Section 5.1.1",
+		Source:        lint.MozillaRootStorePolicy,
+		EffectiveDate: util.MozillaPolicy27Date,
+		Lint:          &rsaPssAidEncoding{},
+	})
+}
 
 var RSASSAPSSAlgorithmIDToDER = [3][]byte{
 	// RSASSA-PSS with SHA-256, MGF-1 with SHA-256, salt length 32 bytes
@@ -87,15 +98,4 @@ func (l *rsaPssAidEncoding) Execute(c *x509.Certificate) *lint.LintResult {
 	}
 
 	return &lint.LintResult{Status: lint.Error, Details: fmt.Sprintf("RSASSA-PSS parameters are not properly encoded. %v presentations are allowed but got the unsupported %s", len(RSASSAPSSAlgorithmIDToDER), hex.EncodeToString(signatureAlgoID))}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_mp_rsassa-pss_parameters_encoding_in_signature_algorithm_correct",
-		Description:   "The encoded AlgorithmIdentifier for RSASSA-PSS in the signature algorithm MUST match specific bytes",
-		Citation:      "Mozilla Root Store Policy / Section 5.1.1",
-		Source:        lint.MozillaRootStorePolicy,
-		EffectiveDate: util.MozillaPolicy27Date,
-		Lint:          &rsaPssAidEncoding{},
-	})
 }
