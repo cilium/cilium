@@ -1,7 +1,7 @@
 package cabf_ev
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -22,6 +22,17 @@ import (
 
 type evNoBiz struct{}
 
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_ev_business_category_missing",
+		Description:   "EV certificates must include businessCategory in subject",
+		Citation:      "EVGs: 9.2.3",
+		Source:        lint.CABFEVGuidelines,
+		EffectiveDate: util.ZeroDate,
+		Lint:          &evNoBiz{},
+	})
+}
+
 func (l *evNoBiz) Initialize() error {
 	return nil
 }
@@ -36,15 +47,4 @@ func (l *evNoBiz) Execute(c *x509.Certificate) *lint.LintResult {
 	} else {
 		return &lint.LintResult{Status: lint.Error}
 	}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_ev_business_category_missing",
-		Description:   "EV certificates must include businessCategory in subject",
-		Citation:      "EVGs: 9.2.3",
-		Source:        lint.CABFEVGuidelines,
-		EffectiveDate: util.ZeroDate,
-		Lint:          &evNoBiz{},
-	})
 }

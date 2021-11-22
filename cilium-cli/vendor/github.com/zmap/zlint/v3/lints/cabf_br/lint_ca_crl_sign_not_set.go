@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -20,6 +20,8 @@ import (
 	"github.com/zmap/zlint/v3/util"
 )
 
+type caCRLSignNotSet struct{}
+
 /************************************************
 BRs: 7.1.2.1b
 This extension MUST be present and MUST be marked critical. Bit positions for
@@ -27,7 +29,16 @@ keyCertSign and cRLSign MUST be set. If the Root CA Private Key is used for
 signing OCSP responses, then the digitalSignature bit MUST be set.
 ************************************************/
 
-type caCRLSignNotSet struct{}
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_ca_crl_sign_not_set",
+		Description:   "Root and Subordinate CA certificate keyUsage extension's crlSign bit MUST be set",
+		Citation:      "BRs: 7.1.2.1",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.CABEffectiveDate,
+		Lint:          &caCRLSignNotSet{},
+	})
+}
 
 func (l *caCRLSignNotSet) Initialize() error {
 	return nil
@@ -43,15 +54,4 @@ func (l *caCRLSignNotSet) Execute(c *x509.Certificate) *lint.LintResult {
 	} else {
 		return &lint.LintResult{Status: lint.Error}
 	}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_ca_crl_sign_not_set",
-		Description:   "Root and Subordinate CA certificate keyUsage extension's crlSign bit MUST be set",
-		Citation:      "BRs: 7.1.2.1",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.CABEffectiveDate,
-		Lint:          &caCRLSignNotSet{},
-	})
 }

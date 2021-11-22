@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -25,6 +25,17 @@ import (
 
 type dsaUniqueCorrectRepresentation struct{}
 
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_dsa_unique_correct_representation",
+		Description:   "DSA: Public key value has the unique correct representation in the field, and that the key has the correct order in the subgroup",
+		Citation:      "BRs v1.7.0: 6.1.6",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.CABEffectiveDate,
+		Lint:          &dsaUniqueCorrectRepresentation{},
+	})
+}
+
 func (l *dsaUniqueCorrectRepresentation) Initialize() error {
 	return nil
 }
@@ -46,15 +57,4 @@ func (l *dsaUniqueCorrectRepresentation) Execute(c *x509.Certificate) *lint.Lint
 		return &lint.LintResult{Status: lint.Error}
 	}
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_dsa_unique_correct_representation",
-		Description:   "DSA: Public key value has the unique correct representation in the field, and that the key has the correct order in the subgroup",
-		Citation:      "BRs: 6.1.6",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.CABEffectiveDate,
-		Lint:          &dsaUniqueCorrectRepresentation{},
-	})
 }

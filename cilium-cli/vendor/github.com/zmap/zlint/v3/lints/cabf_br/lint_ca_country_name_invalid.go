@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -20,6 +20,8 @@ import (
 	"github.com/zmap/zlint/v3/util"
 )
 
+type caCountryNameInvalid struct{}
+
 /************************************************
 BRs: 7.1.2.1e
 The	Certificate	Subject	MUST contain the following:
@@ -28,7 +30,16 @@ This field MUST	contain	the	two‐letter	ISO	3166‐1 country code	for	the count
 in which the CA’s place	of business	is located.
 ************************************************/
 
-type caCountryNameInvalid struct{}
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_ca_country_name_invalid",
+		Description:   "Root and Subordinate CA certificates MUST have a two-letter country code specified in ISO 3166-1",
+		Citation:      "BRs: 7.1.2.1",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.CABEffectiveDate,
+		Lint:          &caCountryNameInvalid{},
+	})
+}
 
 func (l *caCountryNameInvalid) Initialize() error {
 	return nil
@@ -49,15 +60,4 @@ func (l *caCountryNameInvalid) Execute(c *x509.Certificate) *lint.LintResult {
 	} else {
 		return &lint.LintResult{Status: lint.NA}
 	}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_ca_country_name_invalid",
-		Description:   "Root and Subordinate CA certificates MUST have a two-letter country code specified in ISO 3166-1",
-		Citation:      "BRs: 7.1.2.1",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.CABEffectiveDate,
-		Lint:          &caCountryNameInvalid{},
-	})
 }

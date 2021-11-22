@@ -11,9 +11,9 @@ repository requires Go version 1.9.
  - [Repository Structure](#repository-structure)
  - [Trillian CT Personality](#trillian-ct-personality)
  - [Working on the Code](#working-on-the-code)
+     - [Running Codebase Checks](#running-codebase-checks)
      - [Rebuilding Generated Code](#rebuilding-generated-code)
      - [Updating Vendor Code](#updating-vendor-code)
-     - [Running Codebase Checks](#running-codebase-checks)
 
 ## Repository Structure
 
@@ -29,57 +29,45 @@ The main parts of the repository are:
      [pre-certificates defined in RFC 6962](https://tools.ietf.org/html/rfc6962#section-3.1).
    - `tls` holds a library for processing TLS-encoded data as described in
      [RFC 5246](https://tools.ietf.org/html/rfc5246).
-   - `x509util` provides additional utilities for dealing with
+   - `x509util/` provides additional utilities for dealing with
      `x509.Certificate`s.
  - CT client libraries:
    - The top-level `ct` package (in `.`) holds types and utilities for working
      with CT data structures defined in
      [RFC 6962](https://tools.ietf.org/html/rfc6962).
    - `client/` and `jsonclient/` hold libraries that allow access to CT Logs
-     via entrypoints described in
+     via HTTP entrypoints described in
      [section 4 of RFC 6962](https://tools.ietf.org/html/rfc6962#section-4).
+   - `dnsclient/` has a library that allows access to CT Logs over
+     [DNS](https://github.com/google/certificate-transparency-rfcs/blob/master/dns/draft-ct-over-dns.md).
    - `scanner/` holds a library for scanning the entire contents of an existing
      CT Log.
+ - CT Personality for [Trillian](https://github.com/google/trillian):
+    - `trillian/` holds code that allows a Certificate Transparency Log to be
+      run using a Trillian Log as its back-end -- see
+      [below](#trillian-ct-personality).
  - Command line tools:
-   - `./client/ctclient` allows interaction with a CT Log
+   - `./client/ctclient` allows interaction with a CT Log.
+   - `./ctutil/sctcheck` allows SCTs (signed certificate timestamps) from a CT
+     Log to be verified.
    - `./scanner/scanlog` allows an existing CT Log to be scanned for certificates
       of interest; please be polite when running this tool against a Log.
    - `./x509util/certcheck` allows display and verification of certificates
    - `./x509util/crlcheck` allows display and verification of certificate
      revocation lists (CRLs).
- - CT Personality for [Trillian](https://github.com/google/trillian):
-    - `trillian/` holds code that allows a Certificate Transparency Log to be
-      run using a Trillian Log as its back-end -- see
-      [below](#trillian-ct-personality).
+ - Other libraries related to CT:
+   - `ctutil/` holds utility functions for validating and verifying CT data
+     structures.
+   - `loglist/` has a library for reading v1 JSON lists of CT Logs.
+   - `loglist2/` has a library for reading
+     [v2 JSON lists of CT Logs](https://www.certificate-transparency.org/known-logs).
 
 
 ## Trillian CT Personality
 
 The `trillian/` subdirectory holds code and scripts for running a CT Log based
-on the [Trillian](https://github.com/google/trillian) general transparency Log.
-
-The main code for the CT personality is held in `trillian/ctfe`; this code
-responds to HTTP requests on the
-[CT API paths](https://tools.ietf.org/html/rfc6962#section-4) and translates
-them to the equivalent gRPC API requests to the Trillian Log.
-
-This obviously relies on the gRPC API definitions at
-`github.com/google/trillian`; the code also uses common libraries from the
-Trillian project for:
- - exposing monitoring and statistics via an `interface` and corresponding
-   Prometheus implementation (`github.com/google/trillian/monitoring/...`)
- - dealing with cryptographic keys (`github.com/google/trillian/crypto/...`).
-
-The `trillian/integration/` directory holds scripts and tests for running the whole
-system locally.  In particular:
- - `trillian/integration/ct_integration_test.sh` brings up local processes
-   running a Trillian Log server, signer and a CT personality, and exercises the
-   complete set of RFC 6962 API entrypoints.
- - `trillian/integration/ct_hammer_test.sh` brings up a complete system and runs
-   a continuous randomized test of the CT entrypoints.
-
-These scripts require a local database instance to be configured as described
-in the [Trillian instructions](https://github.com/google/trillian#mysql-setup).
+on the [Trillian](https://github.com/google/trillian) general transparency Log,
+and is [documented separately](trillian/README.md).
 
 
 ## Working on the Code
@@ -89,6 +77,34 @@ dependencies and tools, described in the following sections.  The
 [Travis configuration](.travis.yml) for the codebase is also useful reference
 for the required tools and scripts, as it may be more up-to-date than this
 document.
+
+In order for the `go generate` command to work properly, the code must
+be checked out to the following location:
+`$GOPATH/src/github.com/google/certificate-transparency-go`
+
+
+### Running Codebase Checks
+
+The [`scripts/presubmit.sh`](scripts/presubmit.sh) script runs various tools
+and tests over the codebase; please ensure this script passes before sending
+pull requests for review.
+
+```bash
+# Install golangci-lint
+go get -u github.com/golangci/golangci-lint/cmd/golangci-lint
+cd $GOPATH/src/github.com/golangci/golangci-lint/cmd/golangci-lint
+go install -ldflags "-X 'main.version=$(git describe --tags)' -X 'main.commit=$(git rev-parse --short HEAD)' -X 'main.date=$(date)'"
+cd -
+
+# Run code generation, build, test and linters
+./scripts/presubmit.sh
+
+# Run build, test and linters but skip code generation
+./scripts/presubmit.sh  --no-generate
+
+# Or just run the linters alone:
+golangci-lint run
+```
 
 ### Rebuilding Generated Code
 
@@ -121,24 +137,3 @@ upstream repository does not guarantee back-compatibility between the tip
 `master` branch and the current stable release).  See
 [instructions in the Trillian repo](https://github.com/google/trillian#updating-vendor-code)
 for how to update vendored subtrees.
-
-
-### Running Codebase Checks
-
-The [`scripts/presubmit.sh`](scripts/presubmit.sh) script runs various tools
-and tests over the codebase.
-
-```bash
-# Install gometalinter and all linters
-go get -u github.com/alecthomas/gometalinter
-gometalinter --install
-
-# Run code generation, build, test and linters
-./scripts/presubmit.sh
-
-# Run build, test and linters but skip code generation
-./scripts/presubmit.sh  --no-generate
-
-# Or just run the linters alone:
-gometalinter --config=gometalinter.json ./...
-```

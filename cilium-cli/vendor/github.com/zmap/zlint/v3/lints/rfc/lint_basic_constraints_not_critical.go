@@ -1,7 +1,7 @@
 package rfc
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -20,6 +20,8 @@ import (
 	"github.com/zmap/zlint/v3/util"
 )
 
+type basicConstCrit struct{}
+
 /************************************************
 RFC 5280: 4.2.1.9
 Conforming CAs MUST include this extension in all CA certificates that contain
@@ -32,7 +34,16 @@ exclusively for validating digital signatures on CRLs and ones that contain key
 management public keys used with certificate.
 ************************************************/
 
-type basicConstCrit struct{}
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_basic_constraints_not_critical",
+		Description:   "basicConstraints MUST appear as a critical extension",
+		Citation:      "RFC 5280: 4.2.1.9",
+		Source:        lint.RFC5280,
+		EffectiveDate: util.RFC2459Date,
+		Lint:          &basicConstCrit{},
+	})
+}
 
 func (l *basicConstCrit) Initialize() error {
 	return nil
@@ -52,15 +63,4 @@ func (l *basicConstCrit) Execute(c *x509.Certificate) *lint.LintResult {
 	} else {
 		return &lint.LintResult{Status: lint.NA}
 	}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_basic_constraints_not_critical",
-		Description:   "basicConstraints MUST appear as a critical extension",
-		Citation:      "RFC 5280: 4.2.1.9",
-		Source:        lint.RFC5280,
-		EffectiveDate: util.RFC2459Date,
-		Lint:          &basicConstCrit{},
-	})
 }

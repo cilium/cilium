@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -22,6 +22,17 @@ import (
 
 type subCertSubjectGnOrSnContainsPolicy struct{}
 
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_sub_cert_given_name_surname_contains_correct_policy",
+		Description:   "Subscriber Certificate: A certificate containing a subject:givenName field or subject:surname field MUST contain the (2.23.140.1.2.3) certPolicy OID.",
+		Citation:      "BRs: 7.1.4.2.2",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.CABGivenNameDate,
+		Lint:          &subCertSubjectGnOrSnContainsPolicy{},
+	})
+}
+
 func (l *subCertSubjectGnOrSnContainsPolicy) Initialize() error {
 	return nil
 }
@@ -38,15 +49,4 @@ func (l *subCertSubjectGnOrSnContainsPolicy) Execute(c *x509.Certificate) *lint.
 		}
 	}
 	return &lint.LintResult{Status: lint.Error}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_sub_cert_given_name_surname_contains_correct_policy",
-		Description:   "Subscriber Certificate: A certificate containing a subject:givenName field or subject:surname field MUST contain the (2.23.140.1.2.3) certPolicy OID.",
-		Citation:      "BRs: 7.1.4.2.2",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.CABGivenNameDate,
-		Lint:          &subCertSubjectGnOrSnContainsPolicy{},
-	})
 }

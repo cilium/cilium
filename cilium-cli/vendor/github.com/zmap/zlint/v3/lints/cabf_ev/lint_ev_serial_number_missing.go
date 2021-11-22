@@ -1,7 +1,7 @@
 package cabf_ev
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -22,6 +22,17 @@ import (
 
 type evSNMissing struct{}
 
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_ev_serial_number_missing",
+		Description:   "EV certificates must include serialNumber in subject",
+		Citation:      "EVGs: 9.2.6",
+		Source:        lint.CABFEVGuidelines,
+		EffectiveDate: util.ZeroDate,
+		Lint:          &evSNMissing{},
+	})
+}
+
 func (l *evSNMissing) Initialize() error {
 	return nil
 }
@@ -35,15 +46,4 @@ func (l *evSNMissing) Execute(c *x509.Certificate) *lint.LintResult {
 		return &lint.LintResult{Status: lint.Error}
 	}
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_ev_serial_number_missing",
-		Description:   "EV certificates must include serialNumber in subject",
-		Citation:      "EVGs: 9.2.6",
-		Source:        lint.CABFEVGuidelines,
-		EffectiveDate: util.ZeroDate,
-		Lint:          &evSNMissing{},
-	})
 }

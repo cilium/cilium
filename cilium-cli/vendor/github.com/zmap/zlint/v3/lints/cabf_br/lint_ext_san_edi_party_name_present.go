@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,6 +14,14 @@ package cabf_br
  * permissions and limitations under the License.
  */
 
+import (
+	"github.com/zmap/zcrypto/x509"
+	"github.com/zmap/zlint/v3/lint"
+	"github.com/zmap/zlint/v3/util"
+)
+
+type SANEDI struct{}
+
 /************************************************************************************************************
 7.1.4.2.1. Subject Alternative Name Extension
 Certificate Field: extensions:subjectAltName
@@ -25,13 +33,16 @@ right to use it by the Domain Name Registrant or IP address assignee, as appropr
 Wildcard FQDNs are permitted.
 *************************************************************************************************************/
 
-import (
-	"github.com/zmap/zcrypto/x509"
-	"github.com/zmap/zlint/v3/lint"
-	"github.com/zmap/zlint/v3/util"
-)
-
-type SANEDI struct{}
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_ext_san_edi_party_name_present",
+		Description:   "The Subject Alternate Name extension MUST contain only 'dnsName' and 'ipaddress' name types",
+		Citation:      "BRs: 7.1.4.2.1",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.CABEffectiveDate,
+		Lint:          &SANEDI{},
+	})
+}
 
 func (l *SANEDI) Initialize() error {
 	return nil
@@ -46,15 +57,4 @@ func (l *SANEDI) Execute(c *x509.Certificate) *lint.LintResult {
 		return &lint.LintResult{Status: lint.Error}
 	}
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_ext_san_edi_party_name_present",
-		Description:   "The Subject Alternate Name extension MUST contain only 'dnsName' and 'ipaddress' name types",
-		Citation:      "BRs: 7.1.4.2.1",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.CABEffectiveDate,
-		Lint:          &SANEDI{},
-	})
 }

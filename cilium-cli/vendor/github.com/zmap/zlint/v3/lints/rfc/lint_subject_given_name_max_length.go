@@ -1,7 +1,7 @@
 package rfc
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,14 +14,6 @@ package rfc
  * permissions and limitations under the License.
  */
 
-/************************************************
-RFC 5280: A.1
-	* In this Appendix, there is a list of upperbounds
-	for fields in a x509 Certificate. *
-	ub-given-name-length INTEGER ::= 16
-
-************************************************/
-
 import (
 	"unicode/utf8"
 
@@ -31,6 +23,25 @@ import (
 )
 
 type subjectGivenNameMaxLength struct{}
+
+/************************************************
+RFC 5280: A.1
+	* In this Appendix, there is a list of upperbounds
+	for fields in a x509 Certificate. *
+	ub-given-name-length INTEGER ::= 16
+
+************************************************/
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_subject_given_name_max_length",
+		Description:   "The 'GivenName' field of the subject MUST be less than 17 characters",
+		Citation:      "RFC 5280: A.1",
+		Source:        lint.RFC5280,
+		EffectiveDate: util.RFC2459Date,
+		Lint:          &subjectGivenNameMaxLength{},
+	})
+}
 
 func (l *subjectGivenNameMaxLength) Initialize() error {
 	return nil
@@ -48,15 +59,4 @@ func (l *subjectGivenNameMaxLength) Execute(c *x509.Certificate) *lint.LintResul
 	}
 
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_subject_given_name_max_length",
-		Description:   "The 'GivenName' field of the subject MUST be less than 17 characters",
-		Citation:      "RFC 5280: A.1",
-		Source:        lint.RFC5280,
-		EffectiveDate: util.RFC2459Date,
-		Lint:          &subjectGivenNameMaxLength{},
-	})
 }

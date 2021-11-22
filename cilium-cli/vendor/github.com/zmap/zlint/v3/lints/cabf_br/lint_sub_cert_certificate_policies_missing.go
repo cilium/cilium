@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,12 +14,6 @@ package cabf_br
  * permissions and limitations under the License.
  */
 
-/******************************************************************************
-BRs: 7.1.2.3
-certificatePolicies
-This extension MUST be present and SHOULD NOT be marked critical.
-******************************************************************************/
-
 import (
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zlint/v3/lint"
@@ -27,6 +21,23 @@ import (
 )
 
 type subCertPolicy struct{}
+
+/******************************************************************************
+BRs: 7.1.2.3
+certificatePolicies
+This extension MUST be present and SHOULD NOT be marked critical.
+******************************************************************************/
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_sub_cert_certificate_policies_missing",
+		Description:   "Subscriber Certificate: certificatePolicies MUST be present and SHOULD NOT be marked critical.",
+		Citation:      "BRs: 7.1.2.3",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.CABEffectiveDate,
+		Lint:          &subCertPolicy{},
+	})
+}
 
 func (l *subCertPolicy) Initialize() error {
 	return nil
@@ -42,15 +53,4 @@ func (l *subCertPolicy) Execute(c *x509.Certificate) *lint.LintResult {
 	} else {
 		return &lint.LintResult{Status: lint.Error}
 	}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_sub_cert_certificate_policies_missing",
-		Description:   "Subscriber Certificate: certificatePolicies MUST be present and SHOULD NOT be marked critical.",
-		Citation:      "BRs: 7.1.2.2",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.CABEffectiveDate,
-		Lint:          &subCertPolicy{},
-	})
 }

@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -23,6 +23,17 @@ import (
 )
 
 type caIsCA struct{}
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_ca_is_ca",
+		Description:   "Root and Sub CA Certificate: The CA field MUST be set to true.",
+		Citation:      "BRs: 7.1.2.1, BRs: 7.1.2.2",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.CABEffectiveDate,
+		Lint:          &caIsCA{},
+	})
+}
 
 type basicConstraints struct {
 	IsCA       bool `asn1:"optional"`
@@ -49,15 +60,4 @@ func (l *caIsCA) Execute(c *x509.Certificate) *lint.LintResult {
 	} else {
 		return &lint.LintResult{Status: lint.Error}
 	}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_ca_is_ca",
-		Description:   "Root and Sub CA Certificate: The CA field MUST be set to true.",
-		Citation:      "BRs: 7.1.2.1, BRs: 7.1.2.2",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.CABEffectiveDate,
-		Lint:          &caIsCA{},
-	})
 }

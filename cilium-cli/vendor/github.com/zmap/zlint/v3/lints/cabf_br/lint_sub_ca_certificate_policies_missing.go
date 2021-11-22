@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,11 +14,6 @@ package cabf_br
  * permissions and limitations under the License.
  */
 
-/************************************************
-BRs: 7.1.2.2a certificatePolicies
-This extension MUST be present and SHOULD NOT be marked critical.
-************************************************/
-
 import (
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zlint/v3/lint"
@@ -26,6 +21,22 @@ import (
 )
 
 type subCACertPolicyMissing struct{}
+
+/************************************************
+BRs: 7.1.2.2a certificatePolicies
+This extension MUST be present and SHOULD NOT be marked critical.
+************************************************/
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_sub_ca_certificate_policies_missing",
+		Description:   "Subordinate CA certificates must have a certificatePolicies extension",
+		Citation:      "BRs: 7.1.2.2",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.CABEffectiveDate,
+		Lint:          &subCACertPolicyMissing{},
+	})
+}
 
 func (l *subCACertPolicyMissing) Initialize() error {
 	return nil
@@ -41,15 +52,4 @@ func (l *subCACertPolicyMissing) Execute(c *x509.Certificate) *lint.LintResult {
 	} else {
 		return &lint.LintResult{Status: lint.Error}
 	}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_sub_ca_certificate_policies_missing",
-		Description:   "Subordinate CA certificates must have a certificatePolicies extension",
-		Citation:      "BRs: 7.1.2.2",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.CABEffectiveDate,
-		Lint:          &subCACertPolicyMissing{},
-	})
 }

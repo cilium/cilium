@@ -1,5 +1,5 @@
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -23,6 +23,18 @@ import (
 )
 
 type serverCertValidityAlmostTooLong struct{}
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name: "w_tls_server_cert_valid_time_longer_than_397_days",
+		Description: "TLS server certificates issued on or after September 1, 2020 " +
+			"00:00 GMT/UTC should not have a validity period greater than 397 days",
+		Citation:      "https://support.apple.com/en-us/HT211025",
+		Source:        lint.AppleRootStorePolicy,
+		EffectiveDate: util.AppleReducedLifetimeDate,
+		Lint:          &serverCertValidityAlmostTooLong{},
+	})
+}
 
 func (l *serverCertValidityAlmostTooLong) Initialize() error {
 	return nil
@@ -52,16 +64,4 @@ func (l *serverCertValidityAlmostTooLong) Execute(c *x509.Certificate) *lint.Lin
 	}
 
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name: "w_tls_server_cert_valid_time_longer_than_397_days",
-		Description: "TLS server certificates issued on or after September 1, 2020 " +
-			"00:00 GMT/UTC should not have a validity period greater than 397 days",
-		Citation:      "https://support.apple.com/en-us/HT211025",
-		Source:        lint.AppleRootStorePolicy,
-		EffectiveDate: util.AppleReducedLifetimeDate,
-		Lint:          &serverCertValidityAlmostTooLong{},
-	})
 }

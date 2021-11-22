@@ -1,7 +1,7 @@
 package rfc
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,8 +14,6 @@ package rfc
  * permissions and limitations under the License.
  */
 
-// "When present, conforming CAs SHOULD mark this extension as critical."
-
 import (
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zlint/v3/lint"
@@ -23,6 +21,19 @@ import (
 )
 
 type checkKeyUsageCritical struct{}
+
+// "When present, conforming CAs SHOULD mark this extension as critical."
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "w_ext_key_usage_not_critical",
+		Description:   "The keyUsage extension SHOULD be critical",
+		Citation:      "RFC 5280: 4.2.1.3",
+		Source:        lint.RFC5280,
+		EffectiveDate: util.RFC2459Date,
+		Lint:          &checkKeyUsageCritical{},
+	})
+}
 
 func (l *checkKeyUsageCritical) Initialize() error {
 	return nil
@@ -42,15 +53,4 @@ func (l *checkKeyUsageCritical) Execute(c *x509.Certificate) *lint.LintResult {
 	} else {
 		return &lint.LintResult{Status: lint.Warn}
 	}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "w_ext_key_usage_not_critical",
-		Description:   "The keyUsage extension SHOULD be critical",
-		Citation:      "RFC 5280: 4.2.1.3",
-		Source:        lint.RFC5280,
-		EffectiveDate: util.RFC2459Date,
-		Lint:          &checkKeyUsageCritical{},
-	})
 }
