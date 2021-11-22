@@ -525,7 +525,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 	__u32 tunnel_endpoint = 0;
 	__u8 encrypt_key = 0;
 	__u32 monitor = 0;
-	__u8 reason;
+	__u8 ct_ret;
 	bool hairpin_flow = false; /* endpoint wants to access itself via service IP */
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
@@ -600,15 +600,13 @@ skip_service_lookup:
 	 * POLICY_SKIP if the packet is a reply packet to an existing incoming
 	 * connection.
 	 */
-	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_EGRESS,
-			 &ct_state, &monitor);
-	if (ret < 0)
-		return ret;
-
-	reason = ret;
+	ct_ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_EGRESS,
+			    &ct_state, &monitor);
+	if (ct_ret < 0)
+		return ct_ret;
 
 	/* Check it this is return traffic to an ingress proxy. */
-	if ((ret == CT_REPLY || ret == CT_RELATED) && ct_state.proxy_redirect) {
+	if ((ct_ret == CT_REPLY || ct_ret == CT_RELATED) && ct_state.proxy_redirect) {
 		/* Stack will do a socket match and deliver locally. */
 		return ctx_redirect_to_proxy4(ctx, &tuple, 0, false);
 	}
@@ -658,7 +656,7 @@ skip_service_lookup:
 	verdict = policy_can_egress4(ctx, &tuple, SECLABEL, *dstID,
 				     &policy_match_type, &audited);
 
-	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
+	if (ct_ret != CT_REPLY && ct_ret != CT_RELATED && verdict < 0) {
 		send_policy_verdict_notify(ctx, *dstID, tuple.dport,
 					   tuple.nexthdr, POLICY_EGRESS, 0,
 					   verdict, policy_match_type, audited);
@@ -666,7 +664,7 @@ skip_service_lookup:
 	}
 
 skip_policy_enforcement:
-	switch (ret) {
+	switch (ct_ret) {
 	case CT_NEW:
 		if (!hairpin_flow)
 			send_policy_verdict_notify(ctx, *dstID, tuple.dport,
@@ -736,10 +734,10 @@ ct_recreate4:
 
 	hairpin_flow |= ct_state.loopback;
 
-	if (redirect_to_proxy(verdict, reason)) {
+	if (redirect_to_proxy(verdict, ct_ret)) {
 		/* Trace the packet before it is forwarded to proxy */
 		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL, 0,
-				  0, 0, reason, monitor);
+				  0, 0, ct_ret, monitor);
 		return ctx_redirect_to_proxy4(ctx, &tuple, verdict, false);
 	}
 
@@ -815,7 +813,7 @@ ct_recreate4:
 		 * gateway, since an egress policy is only matching connections
 		 * originating from a pod.
 		 */
-		if (reason == CT_REPLY || reason == CT_RELATED)
+		if (ct_ret == CT_REPLY || ct_ret == CT_RELATED)
 			goto skip_egress_gateway;
 
 		info = lookup_ip4_egress_endpoint(ip4->saddr, ip4->daddr);
@@ -875,7 +873,7 @@ skip_egress_gateway:
 to_host:
 	if (is_defined(ENABLE_HOST_FIREWALL) && *dstID == HOST_ID) {
 		send_trace_notify(ctx, TRACE_TO_HOST, SECLABEL, HOST_ID, 0,
-				  HOST_IFINDEX, reason, monitor);
+				  HOST_IFINDEX, ct_ret, monitor);
 		return redirect(HOST_IFINDEX, BPF_F_INGRESS);
 	}
 #endif
@@ -917,7 +915,7 @@ pass_to_stack:
 encrypt_to_stack:
 #endif
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL, *dstID, 0, 0,
-			  reason, monitor);
+			  ct_ret, monitor);
 	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 0);
 	return CTX_ACT_OK;
 }
