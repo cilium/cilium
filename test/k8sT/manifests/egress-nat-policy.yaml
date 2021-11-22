@@ -31,3 +31,22 @@ spec:
   destinationCIDRs:
   - 0.0.0.0/0
   egressSourceIP: 192.0.2.13 # It's a black hole, https://datatracker.ietf.org/doc/html/rfc5737#section-3
+---
+# egress-testds is a policy matching all traffic (i.e. destination CIDR
+# 0.0.0.0/0) from the zgroup=testDS echo server pods.
+#
+# This policy is used to test that reply traffic from pods that are selected by
+# an egress policy is not SNATed with the egress IP (only connections
+# originating from these pods should go through egress gateway).
+apiVersion: cilium.io/v2alpha1
+kind: CiliumEgressNATPolicy
+metadata:
+  name: egress-testds
+spec:
+  egress:
+  - podSelector:
+      matchLabels:
+        zgroup: testDS
+  destinationCIDRs:
+  - 0.0.0.0/0
+  egressSourceIP: INPUT_EGRESS_IP
