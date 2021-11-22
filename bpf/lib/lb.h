@@ -1349,6 +1349,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	struct lb4_backend *backend;
 	__u32 backend_id = 0;
 	int ret;
+	bool svc_affinity = false;
 #ifdef ENABLE_SESSION_AFFINITY
 	union lb4_affinity_client_id client_id = {
 		.client_ip = saddr,
@@ -1413,11 +1414,13 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	 */
 	if (state->rev_nat_index != svc->rev_nat_index) {
 #ifdef ENABLE_SESSION_AFFINITY
-		if (lb4_svc_is_affinity(svc))
+		if (lb4_svc_is_affinity(svc)) {
 			backend_id = lb4_affinity_backend_id_by_addr(svc,
 								     &client_id);
+			svc_affinity = true;
+		}
 #endif
-		if (!backend_id) {
+		if (!(svc_affinity && backend_id)) {
 			backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
 			if (!backend_id)
 				goto drop_no_service;
