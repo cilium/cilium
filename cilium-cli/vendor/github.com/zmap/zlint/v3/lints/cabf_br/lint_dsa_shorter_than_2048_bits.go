@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -24,6 +24,18 @@ import (
 
 type dsaTooShort struct{}
 
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:        "e_dsa_shorter_than_2048_bits",
+		Description: "DSA modulus size must be at least 2048 bits",
+		Citation:    "BRs v1.7.0: 6.1.5",
+		// Refer to BRs: 6.1.5, taking the statement "Before 31 Dec 2010" literally
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.ZeroDate,
+		Lint:          &dsaTooShort{},
+	})
+}
+
 func (l *dsaTooShort) Initialize() error {
 	return nil
 }
@@ -44,16 +56,4 @@ func (l *dsaTooShort) Execute(c *x509.Certificate) *lint.LintResult {
 		return &lint.LintResult{Status: lint.Pass}
 	}
 	return &lint.LintResult{Status: lint.Error}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:        "e_dsa_shorter_than_2048_bits",
-		Description: "DSA modulus size must be at least 2048 bits",
-		Citation:    "BRs: 6.1.5",
-		// Refer to BRs: 6.1.5, taking the statement "Before 31 Dec 2010" literally
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.ZeroDate,
-		Lint:          &dsaTooShort{},
-	})
 }

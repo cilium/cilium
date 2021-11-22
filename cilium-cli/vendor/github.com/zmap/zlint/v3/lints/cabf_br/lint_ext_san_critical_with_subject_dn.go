@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,6 +14,14 @@ package cabf_br
  * permissions and limitations under the License.
  */
 
+import (
+	"github.com/zmap/zcrypto/x509"
+	"github.com/zmap/zlint/v3/lint"
+	"github.com/zmap/zlint/v3/util"
+)
+
+type ExtSANCriticalWithSubjectDN struct{}
+
 /************************************************
 Further, if the only subject identity included in the certificate is an
  alternative name form (e.g., an electronic mail address), then the subject
@@ -25,13 +33,16 @@ Further, if the only subject identity included in the certificate is an
  subjectAltName extension as non-critical.
 ************************************************/
 
-import (
-	"github.com/zmap/zcrypto/x509"
-	"github.com/zmap/zlint/v3/lint"
-	"github.com/zmap/zlint/v3/util"
-)
-
-type ExtSANCriticalWithSubjectDN struct{}
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "w_ext_san_critical_with_subject_dn",
+		Description:   "If the subject contains a distinguished name, subjectAlternateName SHOULD be non-critical",
+		Citation:      "RFC 5280: 4.2.1.6",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.RFC5280Date,
+		Lint:          &ExtSANCriticalWithSubjectDN{},
+	})
+}
 
 func (l *ExtSANCriticalWithSubjectDN) Initialize() error {
 	return nil
@@ -47,15 +58,4 @@ func (l *ExtSANCriticalWithSubjectDN) Execute(cert *x509.Certificate) *lint.Lint
 		return &lint.LintResult{Status: lint.Warn}
 	}
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "w_ext_san_critical_with_subject_dn",
-		Description:   "If the subject contains a distinguished name, subjectAlternateName SHOULD be non-critical",
-		Citation:      "RFC 5280: 4.2.1.6",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.RFC5280Date,
-		Lint:          &ExtSANCriticalWithSubjectDN{},
-	})
 }

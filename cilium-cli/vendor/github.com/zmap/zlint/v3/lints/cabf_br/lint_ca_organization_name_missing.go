@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,11 +14,6 @@ package cabf_br
  * permissions and limitations under the License.
  */
 
-/************************************************
-BRs: 7.1.2.1e
-The Certificate Subject MUST contain the following: organizationName (OID 2.5.4.10): This field MUST be present and the contents MUST contain either the Subject CA’s name or DBA as verified under Section 3.2.2.2.
-************************************************/
-
 import (
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zlint/v3/lint"
@@ -26,6 +21,22 @@ import (
 )
 
 type caOrganizationNameMissing struct{}
+
+/************************************************
+BRs: 7.1.2.1e
+The Certificate Subject MUST contain the following: organizationName (OID 2.5.4.10): This field MUST be present and the contents MUST contain either the Subject CA’s name or DBA as verified under Section 3.2.2.2.
+************************************************/
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_ca_organization_name_missing",
+		Description:   "Root and Subordinate CA certificates MUST have a organizationName present in subject information",
+		Citation:      "BRs: 7.1.2.1",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.CABEffectiveDate,
+		Lint:          &caOrganizationNameMissing{},
+	})
+}
 
 func (l *caOrganizationNameMissing) Initialize() error {
 	return nil
@@ -41,15 +52,4 @@ func (l *caOrganizationNameMissing) Execute(c *x509.Certificate) *lint.LintResul
 	} else {
 		return &lint.LintResult{Status: lint.Error}
 	}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_ca_organization_name_missing",
-		Description:   "Root and Subordinate CA certificates MUST have a organizationName present in subject information",
-		Citation:      "BRs: 7.1.2.1",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.CABEffectiveDate,
-		Lint:          &caOrganizationNameMissing{},
-	})
 }

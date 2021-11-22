@@ -5,7 +5,6 @@
 package x509
 
 import (
-	"crypto/dsa"
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"encoding/asn1"
@@ -13,6 +12,8 @@ import (
 	"errors"
 	"net"
 	"sort"
+
+	"github.com/zmap/zcrypto/dsa"
 
 	"strings"
 	"time"

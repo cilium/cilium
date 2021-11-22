@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -23,6 +23,17 @@ import (
 )
 
 type DNSNameLeftLabelWildcardCheck struct{}
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_dnsname_left_label_wildcard_correct",
+		Description:   "Wildcards in the left label of DNSName should only be *",
+		Citation:      "BRs: 1.6.1, Wildcard Certificate and Wildcard Domain Name",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.CABEffectiveDate,
+		Lint:          &DNSNameLeftLabelWildcardCheck{},
+	})
+}
 
 func (l *DNSNameLeftLabelWildcardCheck) Initialize() error {
 	return nil
@@ -53,15 +64,4 @@ func (l *DNSNameLeftLabelWildcardCheck) Execute(c *x509.Certificate) *lint.LintR
 		}
 	}
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_dnsname_left_label_wildcard_correct",
-		Description:   "Wildcards in the left label of DNSName should only be *",
-		Citation:      "BRs: 7.1.4.2",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.CABEffectiveDate,
-		Lint:          &DNSNameLeftLabelWildcardCheck{},
-	})
 }

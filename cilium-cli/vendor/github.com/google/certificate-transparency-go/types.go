@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All Rights Reserved.
+// Copyright 2015 Google LLC. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,7 +38,6 @@ type LogEntryType tls.Enum // tls:"maxval:65535"
 const (
 	X509LogEntryType    LogEntryType = 0
 	PrecertLogEntryType LogEntryType = 1
-	XJSONLogEntryType   LogEntryType = 0x8000 // Experimental.  Don't rely on this!
 )
 
 func (e LogEntryType) String() string {
@@ -47,8 +46,6 @@ func (e LogEntryType) String() string {
 		return "X509LogEntryType"
 	case PrecertLogEntryType:
 		return "PrecertLogEntryType"
-	case XJSONLogEntryType:
-		return "XJSONLogEntryType"
 	default:
 		return fmt.Sprintf("UnknownEntryType(%d)", e)
 	}
@@ -298,6 +295,23 @@ type SignedTreeHead struct {
 	LogID             SHA256Hash      `json:"log_id"`              // The SHA256 hash of the log's public key
 }
 
+func (s SignedTreeHead) String() string {
+	sigStr, err := s.TreeHeadSignature.Base64String()
+	if err != nil {
+		sigStr = tls.DigitallySigned(s.TreeHeadSignature).String()
+	}
+
+	// If the LogID field in the SignedTreeHead is empty, don't include it in
+	// the string.
+	var logIDStr string
+	if id, empty := s.LogID, (SHA256Hash{}); id != empty {
+		logIDStr = fmt.Sprintf("LogID:%s, ", id.Base64String())
+	}
+
+	return fmt.Sprintf("{%sTreeSize:%d, Timestamp:%d, SHA256RootHash:%q, TreeHeadSignature:%q}",
+		logIDStr, s.TreeSize, s.Timestamp, s.SHA256RootHash.Base64String(), sigStr)
+}
+
 // TreeHeadSignature holds the data over which the signature in an STH is
 // generated; see section 3.5
 type TreeHeadSignature struct {
@@ -445,6 +459,36 @@ type AddChainResponse struct {
 	Signature  []byte  `json:"signature"`   // Log signature for this SCT
 }
 
+// ToSignedCertificateTimestamp creates a SignedCertificateTimestamp from the
+// AddChainResponse.
+func (r *AddChainResponse) ToSignedCertificateTimestamp() (*SignedCertificateTimestamp, error) {
+	sct := SignedCertificateTimestamp{
+		SCTVersion: r.SCTVersion,
+		Timestamp:  r.Timestamp,
+	}
+
+	if len(r.ID) != sha256.Size {
+		return nil, fmt.Errorf("id is invalid length, expected %d got %d", sha256.Size, len(r.ID))
+	}
+	copy(sct.LogID.KeyID[:], r.ID)
+
+	exts, err := base64.StdEncoding.DecodeString(r.Extensions)
+	if err != nil {
+		return nil, fmt.Errorf("invalid base64 data in Extensions (%q): %v", r.Extensions, err)
+	}
+	sct.Extensions = CTExtensions(exts)
+
+	var ds DigitallySigned
+	if rest, err := tls.Unmarshal(r.Signature, &ds); err != nil {
+		return nil, fmt.Errorf("tls.Unmarshal(): %s", err)
+	} else if len(rest) > 0 {
+		return nil, fmt.Errorf("trailing data (%d bytes) after DigitallySigned", len(rest))
+	}
+	sct.Signature = ds
+
+	return &sct, nil
+}
+
 // AddJSONRequest represents the JSON request body sent to the add-json POST method.
 // The corresponding response re-uses AddChainResponse.
 // This is an experimental addition not covered by RFC6962.
@@ -452,7 +496,7 @@ type AddJSONRequest struct {
 	Data interface{} `json:"data"`
 }
 
-// GetSTHResponse respresents the JSON response to the get-sth GET method from section 4.3.
+// GetSTHResponse represents the JSON response to the get-sth GET method from section 4.3.
 type GetSTHResponse struct {
 	TreeSize          uint64 `json:"tree_size"`           // Number of certs in the current tree
 	Timestamp         uint64 `json:"timestamp"`           // Time that the tree was created

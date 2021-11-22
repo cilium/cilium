@@ -1,7 +1,7 @@
 package rfc
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -13,6 +13,14 @@ package rfc
  * implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+
+import (
+	"github.com/zmap/zcrypto/x509"
+	"github.com/zmap/zlint/v3/lint"
+	"github.com/zmap/zlint/v3/util"
+)
+
+type subjectKeyIdMissingSubscriber struct{}
 
 /**********************************************************************
    To facilitate certification path construction, this extension MUST
@@ -34,13 +42,16 @@ package rfc
    this extension SHOULD be included in all end entity certificates.
 **********************************************************************/
 
-import (
-	"github.com/zmap/zcrypto/x509"
-	"github.com/zmap/zlint/v3/lint"
-	"github.com/zmap/zlint/v3/util"
-)
-
-type subjectKeyIdMissingSubscriber struct{}
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "w_ext_subject_key_identifier_missing_sub_cert",
+		Description:   "Sub certificates SHOULD include Subject Key Identifier in end entity certs",
+		Citation:      "RFC 5280: 4.2 & 4.2.1.2",
+		Source:        lint.RFC5280,
+		EffectiveDate: util.RFC2459Date,
+		Lint:          &subjectKeyIdMissingSubscriber{},
+	})
+}
 
 func (l *subjectKeyIdMissingSubscriber) Initialize() error {
 	return nil
@@ -56,15 +67,4 @@ func (l *subjectKeyIdMissingSubscriber) Execute(cert *x509.Certificate) *lint.Li
 	} else {
 		return &lint.LintResult{Status: lint.Warn}
 	}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "w_ext_subject_key_identifier_missing_sub_cert",
-		Description:   "Sub certificates SHOULD include Subject Key Identifier in end entity certs",
-		Citation:      "RFC 5280: 4.2 & 4.2.1.2",
-		Source:        lint.RFC5280,
-		EffectiveDate: util.RFC2459Date,
-		Lint:          &subjectKeyIdMissingSubscriber{},
-	})
 }

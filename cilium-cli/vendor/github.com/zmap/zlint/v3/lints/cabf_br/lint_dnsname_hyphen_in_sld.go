@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -23,6 +23,17 @@ import (
 )
 
 type DNSNameHyphenInSLD struct{}
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_dnsname_hyphen_in_sld",
+		Description:   "DNSName should not have a hyphen beginning or ending the SLD",
+		Citation:      "BRs 7.1.4.2",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.RFC5280Date,
+		Lint:          &DNSNameHyphenInSLD{},
+	})
+}
 
 func (l *DNSNameHyphenInSLD) Initialize() error {
 	return nil
@@ -53,15 +64,4 @@ func (l *DNSNameHyphenInSLD) Execute(c *x509.Certificate) *lint.LintResult {
 		}
 	}
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_dnsname_hyphen_in_sld",
-		Description:   "DNSName should not have a hyphen beginning or ending the SLD",
-		Citation:      "BRs 7.1.4.2",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.RFC5280Date,
-		Lint:          &DNSNameHyphenInSLD{},
-	})
 }

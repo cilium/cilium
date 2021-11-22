@@ -1,7 +1,7 @@
 package rfc
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,11 +14,6 @@ package rfc
  * permissions and limitations under the License.
  */
 
-/*******************************************************************************************************
-"RFC5280: RFC 4055, Section 1.2"
-RSA: Encoded algorithm identifier MUST have NULL parameters.
-*******************************************************************************************************/
-
 import (
 	"fmt"
 
@@ -28,6 +23,22 @@ import (
 )
 
 type rsaSPKIEncryptionParamNotNULL struct{}
+
+/*******************************************************************************************************
+"RFC5280: RFC 4055, Section 1.2"
+RSA: Encoded algorithm identifier MUST have NULL parameters.
+*******************************************************************************************************/
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_spki_rsa_encryption_parameter_not_null",
+		Description:   "RSA: Encoded public key algorithm identifier MUST have NULL parameters",
+		Citation:      "RFC 4055, Section 1.2",
+		Source:        lint.RFC5280, // RFC4055 is referenced in lint.RFC5280, Section 1
+		EffectiveDate: util.RFC5280Date,
+		Lint:          &rsaSPKIEncryptionParamNotNULL{},
+	})
+}
 
 func (l *rsaSPKIEncryptionParamNotNULL) Initialize() error {
 	return nil
@@ -52,15 +63,4 @@ func (l *rsaSPKIEncryptionParamNotNULL) Execute(c *x509.Certificate) *lint.LintR
 	}
 
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_spki_rsa_encryption_parameter_not_null",
-		Description:   "RSA: Encoded public key algorithm identifier MUST have NULL parameters",
-		Citation:      "RFC 4055, Section 1.2",
-		Source:        lint.RFC5280, // RFC4055 is referenced in lint.RFC5280, Section 1
-		EffectiveDate: util.RFC5280Date,
-		Lint:          &rsaSPKIEncryptionParamNotNULL{},
-	})
 }

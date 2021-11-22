@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,8 +14,6 @@ package cabf_br
  * permissions and limitations under the License.
  */
 
-/*If the Certificate asserts the policy identifier of 2.23.140.1.2.2, then it MUST also include organizationName, localityName (to the extent such field is required under Section 7.1.4.2.2), stateOrProvinceName (to the extent such field is required under Section 7.1.4.2.2), and countryName in the Subject field.*/
-
 import (
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zlint/v3/lint"
@@ -23,6 +21,27 @@ import (
 )
 
 type CertPolicyRequiresOrg struct{}
+
+/************************************************
+BRs: 7.1.6.4
+Certificate Policy Identifier: 2.23.140.1.2.2
+If the Certificate complies with these Requirements and includes Subject Identity Information
+that is verified in accordance with Section 3.2.2.1.
+Such Certificates MUST also include organizationName, localityName (to the extent such
+field is required under Section 7.1.4.2.2), stateOrProvinceName (to the extent such field is
+required under Section 7.1.4.2.2), and countryName in the Subject field.
+************************************************/
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_cab_ov_requires_org",
+		Description:   "If certificate policy 2.23.140.1.2.2 is included, organizationName MUST be included in subject",
+		Citation:      "BRs: 7.1.6.4",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.CABEffectiveDate,
+		Lint:          &CertPolicyRequiresOrg{},
+	})
+}
 
 func (l *CertPolicyRequiresOrg) Initialize() error {
 	return nil
@@ -40,15 +59,4 @@ func (l *CertPolicyRequiresOrg) Execute(cert *x509.Certificate) *lint.LintResult
 		out.Status = lint.Error
 	}
 	return &out
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_cab_ov_requires_org",
-		Description:   "If certificate policy 2.23.140.1.2.2 is included, organizationName MUST be included in subject",
-		Citation:      "BRs: 7.1.6.1",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.CABEffectiveDate,
-		Lint:          &CertPolicyRequiresOrg{},
-	})
 }

@@ -1,5 +1,5 @@
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -32,6 +32,19 @@ const (
 
 type torValidityTooLarge struct{}
 
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name: "e_onion_subject_validity_time_too_large",
+		Description: fmt.Sprintf(
+			"certificates with .onion names can not be valid for more than %d months",
+			maxOnionValidityMonths),
+		Citation:      "EVGs: Appendix F",
+		Source:        lint.CABFEVGuidelines,
+		EffectiveDate: util.OnionOnlyEVDate,
+		Lint:          &torValidityTooLarge{},
+	})
+}
+
 // Initialize for a torValidityTooLarge linter is a NOP.
 func (l *torValidityTooLarge) Initialize() error {
 	return nil
@@ -53,17 +66,4 @@ func (l *torValidityTooLarge) Execute(c *x509.Certificate) *lint.LintResult {
 		}
 	}
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name: "e_onion_subject_validity_time_too_large",
-		Description: fmt.Sprintf(
-			"certificates with .onion names can not be valid for more than %d months",
-			maxOnionValidityMonths),
-		Citation:      "EVGs: Appendix F",
-		Source:        lint.CABFEVGuidelines,
-		EffectiveDate: util.OnionOnlyEVDate,
-		Lint:          &torValidityTooLarge{},
-	})
 }

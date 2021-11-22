@@ -1,7 +1,7 @@
 package rfc
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -13,6 +13,14 @@ package rfc
  * implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+
+import (
+	"github.com/zmap/zcrypto/x509"
+	"github.com/zmap/zlint/v3/lint"
+	"github.com/zmap/zlint/v3/util"
+)
+
+type utcNoSecond struct{}
 
 /************************************************************************
 4.1.2.5.1.  UTCTime
@@ -32,13 +40,15 @@ systems MUST interpret the year field (YY) as follows:
       Where YY is less than 50, the year SHALL be interpreted as 20YY.
 ************************************************************************/
 
-import (
-	"github.com/zmap/zcrypto/x509"
-	"github.com/zmap/zlint/v3/lint"
-	"github.com/zmap/zlint/v3/util"
-)
-
-type utcNoSecond struct {
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_utc_time_does_not_include_seconds",
+		Description:   "UTCTime values MUST include seconds",
+		Citation:      "RFC 5280: 4.1.2.5.1",
+		Source:        lint.RFC5280,
+		EffectiveDate: util.RFC2459Date,
+		Lint:          &utcNoSecond{},
+	})
 }
 
 func (l *utcNoSecond) Initialize() error {
@@ -69,15 +79,4 @@ func (l *utcNoSecond) Execute(c *x509.Certificate) *lint.LintResult {
 		}
 	}
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_utc_time_does_not_include_seconds",
-		Description:   "UTCTime values MUST include seconds",
-		Citation:      "RFC 5280: 4.1.2.5.1",
-		Source:        lint.RFC5280,
-		EffectiveDate: util.RFC2459Date,
-		Lint:          &utcNoSecond{},
-	})
 }
