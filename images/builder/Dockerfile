@@ -24,10 +24,16 @@ ARG TARGETARCH
 RUN \
     apt-get update && \
     apt-get upgrade -y --no-install-recommends && \
-    # Only install cross tools on amd64
-    CROSSPKG="" && [ "$TARGETARCH" != "amd64" ] || CROSSPKG="gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross binutils-aarch64-linux-gnu" && \
     apt-get install -y --no-install-recommends \
-      $CROSSPKG \
+      # Install cross tools for both arm64 on amd64
+      gcc-aarch64-linux-gnu \
+      g++-aarch64-linux-gnu \
+      libc6-dev-arm64-cross \
+      binutils-aarch64-linux-gnu \
+      gcc-x86-64-linux-gnu \
+      g++-x86-64-linux-gnu \
+      libc6-dev-amd64-cross \
+      binutils-x86-64-linux-gnu \
       # Dependencies to unzip protoc
       unzip \
       # Base Cilium-build dependencies
