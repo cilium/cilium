@@ -799,6 +799,14 @@ ct_recreate4:
 		if (is_cluster_destination(ip4, *dst_id, tunnel_endpoint))
 			goto skip_egress_gateway;
 
+		/* If the packet is a reply or is related, it means that outside
+		 * has initiated the connection, and so we should skip egress
+		 * gateway, since an egress policy is only matching connections
+		 * originating from a pod.
+		 */
+		if (reason == CT_REPLY || reason == CT_RELATED)
+			goto skip_egress_gateway;
+
 		info = lookup_ip4_egress_endpoint(ip4->saddr, ip4->daddr);
 		if (!info)
 			goto skip_egress_gateway;
