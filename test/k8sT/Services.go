@@ -99,7 +99,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 		ni.k8s1NodeName, ni.k8s1IP = kubectl.GetNodeInfo(helpers.K8s1)
 		ni.k8s2NodeName, ni.k8s2IP = kubectl.GetNodeInfo(helpers.K8s2)
 		if helpers.ExistNodeWithoutCilium() {
-			ni.outsideNodeName, ni.outsideIP = kubectl.GetNodeInfo(helpers.GetNodeWithoutCilium())
+			ni.outsideNodeName, ni.outsideIP = kubectl.GetNodeInfo(helpers.GetFirstNodeWithoutCilium())
 		}
 
 		ni.privateIface, err = kubectl.GetPrivateIface()

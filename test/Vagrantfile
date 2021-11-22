@@ -28,7 +28,7 @@ $HUBBLE_RELAY_TAG = ENV['HUBBLE_RELAY_TAG'] || ""
 $PRELOAD_VM = ENV['PRELOAD_VM'] || "false"
 $PROVISION_EXTERNAL_WORKLOAD = ENV['PROVISION_EXTERNAL_WORKLOAD'] || "false"
 $SKIP_K8S_PROVISION = ENV['SKIP_K8S_PROVISION'] || "false"
-$NO_CILIUM_ON_NODE = ENV['NO_CILIUM_ON_NODE'] || ""
+$NO_CILIUM_ON_NODES = ENV['NO_CILIUM_ON_NODES'] || ENV['NO_CILIUM_ON_NODE'] || ""
 $KUBEPROXY = (ENV['KUBEPROXY'] || "1")
 $RACE = ENV['RACE'] || ""
 $LOCKDEBUG = ENV['LOCKDEBUG'] || ""
@@ -145,7 +145,8 @@ Vagrant.configure("2") do |config|
                 vb.customize ["modifyvm", :id, "--hwvirtex", "on"]
                 vb.cpus = $CPU
                 vb.memory = $MEMORY
-                if "k8s#{i}" == $NO_CILIUM_ON_NODE
+                no_cilium_nodes = $NO_CILIUM_ON_NODES.split(',')
+                if no_cilium_nodes.include? "k8s#{i}"
                   vb.memory = $MEMORY / 2
                   vb.cpus = 1
                 end

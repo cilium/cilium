@@ -396,7 +396,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			res.ExpectSuccess()
 			tmpEchoPodPath = strings.Trim(res.Stdout(), "\n")
 			kubectl.ExecMiddle(fmt.Sprintf("sed 's/NODE_WITHOUT_CILIUM/%s/' %s > %s",
-				helpers.GetNodeWithoutCilium(), echoPodPath, tmpEchoPodPath)).ExpectSuccess()
+				helpers.GetFirstNodeWithoutCilium(), echoPodPath, tmpEchoPodPath)).ExpectSuccess()
 			kubectl.ApplyDefault(tmpEchoPodPath).ExpectSuccess("Cannot install echoserver application")
 			Expect(kubectl.WaitforPods(helpers.DefaultNamespace, "-l name=echoserver-hostnetns",
 				helpers.HelperTimeout)).Should(BeNil())
@@ -439,7 +439,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		testIPMasqAgent := func() {
 			// Check that requests to the echoserver from client pods are masqueraded.
-			nodeIP, err := kubectl.GetNodeIPByLabel(helpers.GetNodeWithoutCilium(), false)
+			nodeIP, err := kubectl.GetNodeIPByLabel(helpers.GetFirstNodeWithoutCilium(), false)
 			Expect(err).Should(BeNil())
 			Expect(testPodHTTPToOutside(kubectl,
 				fmt.Sprintf("http://%s:80", nodeIP), true, false)).Should(BeTrue(),
@@ -1115,10 +1115,10 @@ func testPodHTTPToOutside(kubectl *helpers.Kubectl, outsideURL string, expectNod
 
 		if expectPodIP {
 			// Make pods reachable from the host which doesn't run Cilium
-			kubectl.AddIPRoute(helpers.GetNodeWithoutCilium(), podIP, hostIP, false).
+			kubectl.AddIPRoute(helpers.GetFirstNodeWithoutCilium(), podIP, hostIP, false).
 				ExpectSuccess("Failed to add ip route")
 			defer func() {
-				kubectl.DelIPRoute(helpers.GetNodeWithoutCilium(), podIP, hostIP).
+				kubectl.DelIPRoute(helpers.GetFirstNodeWithoutCilium(), podIP, hostIP).
 					ExpectSuccess("Failed to del ip route")
 			}()
 		}
