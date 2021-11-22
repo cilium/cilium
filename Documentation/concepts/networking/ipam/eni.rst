@@ -396,7 +396,7 @@ ENI Deletion Policy
 ENIs can be marked for deletion when the EC2 instance to which the ENI is
 attached to is terminated. In order to enable this, the option
 ``spec.eni.delete-on-termination`` can be enabled. If enabled, the ENI
-is modifying after creation using ``ModifyNetworkInterface`` to specify this
+is modified after creation using ``ModifyNetworkInterfaceAttribute`` to specify this
 deletion policy.
 
 Node Termination
@@ -421,7 +421,7 @@ perform ENI creation and IP allocation:
  * ``DescribeSecurityGroups``
  * ``CreateNetworkInterface``
  * ``AttachNetworkInterface``
- * ``ModifyNetworkInterface``
+ * ``ModifyNetworkInterfaceAttribute``
  * ``AssignPrivateIpAddresses``
  * ``CreateTags``
 
