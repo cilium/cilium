@@ -1190,6 +1190,31 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 		if (info->sec_label == REMOTE_NODE_ID)
 			return false;
 #endif
+
+		/* Check if this packet belongs to reply traffic coming from a
+		 * local endpoint.
+		 *
+		 * If ep is NULL, it means there's no endpoint running on the
+		 * node which matches the packet source IP, which means we can
+		 * skip the CT lookup since this cannot be reply traffic.
+		 */
+		if (ep) {
+			bool is_reply = false;
+			struct ipv4_ct_tuple tuple = {
+				.nexthdr = ip4->protocol,
+				.daddr = ip4->daddr,
+				.saddr = ip4->saddr
+			};
+
+			/* If the packet is a reply it means that outside has
+			 * initiated the connection, so no need to SNAT the
+			 * reply.
+			 */
+			if (!ct_is_reply4(get_ct_map4(&tuple), ctx, ETH_HLEN + ipv4_hdrlen(ip4),
+					  &tuple, &is_reply) && is_reply)
+				return false;
+		}
+
  #if defined(ENABLE_EGRESS_GATEWAY)
 		/* Check egress gateway policy only for traffic which matches
 		 * one of the following conditions.
@@ -1219,25 +1244,7 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 			}
 		}
 #endif
-
 		if (ep) {
-			bool is_reply = false;
-			struct ipv4_ct_tuple tuple = {
-				.nexthdr = ip4->protocol,
-				.daddr = ip4->daddr,
-				.saddr = ip4->saddr
-			};
-
-			/* The packet is a reply, which means that outside
-			 * has initiated the connection, so no need to SNAT
-			 * the reply.
-			 */
-			if (!ct_is_reply4(get_ct_map4(&tuple), ctx,
-					  ETH_HLEN + ipv4_hdrlen(ip4),
-					  &tuple, &is_reply) &&
-			    is_reply)
-				return false;
-
 			*from_endpoint = true;
 			*addr = IPV4_MASQUERADE;
 			return true;
