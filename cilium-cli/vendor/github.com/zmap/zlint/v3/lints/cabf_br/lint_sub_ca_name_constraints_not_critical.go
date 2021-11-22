@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,6 +14,14 @@ package cabf_br
  * permissions and limitations under the License.
  */
 
+import (
+	"github.com/zmap/zcrypto/x509"
+	"github.com/zmap/zlint/v3/lint"
+	"github.com/zmap/zlint/v3/util"
+)
+
+type SubCANameConstraintsNotCritical struct{}
+
 /************************************************
 CA Brower Forum Baseline Requirements, Section 7.1.2.2:
 
@@ -25,13 +33,16 @@ Name Constraints extension is supported by Application Software Suppliers whose 
 substantial portion of Relying Parties worldwide
 ************************************************/
 
-import (
-	"github.com/zmap/zcrypto/x509"
-	"github.com/zmap/zlint/v3/lint"
-	"github.com/zmap/zlint/v3/util"
-)
-
-type SubCANameConstraintsNotCritical struct{}
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "w_sub_ca_name_constraints_not_critical",
+		Description:   "Subordinate CA Certificate: NameConstraints if present, SHOULD be marked critical.",
+		Citation:      "BRs: 7.1.2.2",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.CABV102Date,
+		Lint:          &SubCANameConstraintsNotCritical{},
+	})
+}
 
 func (l *SubCANameConstraintsNotCritical) Initialize() error {
 	return nil
@@ -47,15 +58,4 @@ func (l *SubCANameConstraintsNotCritical) Execute(cert *x509.Certificate) *lint.
 	} else {
 		return &lint.LintResult{Status: lint.Warn}
 	}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "w_sub_ca_name_constraints_not_critical",
-		Description:   "Subordinate CA Certificate: NameConstraints if present, SHOULD be marked critical.",
-		Citation:      "BRs: 7.1.2.2",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.CABV102Date,
-		Lint:          &SubCANameConstraintsNotCritical{},
-	})
 }

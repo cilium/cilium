@@ -1,7 +1,7 @@
 package rfc
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -13,6 +13,14 @@ package rfc
  * implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+
+import (
+	"github.com/zmap/zcrypto/x509"
+	"github.com/zmap/zlint/v3/lint"
+	"github.com/zmap/zlint/v3/util"
+)
+
+type explicitTextIA5String struct{}
 
 /********************************************************************
 
@@ -28,13 +36,16 @@ is used, all character sequences SHOULD be normalized according
 to Unicode normalization form C (NFC) [NFC].
 ********************************************************************/
 
-import (
-	"github.com/zmap/zcrypto/x509"
-	"github.com/zmap/zlint/v3/lint"
-	"github.com/zmap/zlint/v3/util"
-)
-
-type explicitTextIA5String struct{}
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_ext_cert_policy_explicit_text_ia5_string",
+		Description:   "Compliant certificates must not encode explicitTest as an IA5String",
+		Citation:      "RFC 6818: 3",
+		Source:        lint.RFC5280,
+		EffectiveDate: util.RFC6818Date,
+		Lint:          &explicitTextIA5String{},
+	})
+}
 
 func (l *explicitTextIA5String) Initialize() error {
 	return nil
@@ -58,15 +69,4 @@ func (l *explicitTextIA5String) Execute(c *x509.Certificate) *lint.LintResult {
 		}
 	}
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_ext_cert_policy_explicit_text_ia5_string",
-		Description:   "Compliant certificates must not encode explicitTest as an IA5String",
-		Citation:      "RFC 6818: 3",
-		Source:        lint.RFC5280,
-		EffectiveDate: util.RFC6818Date,
-		Lint:          &explicitTextIA5String{},
-	})
 }

@@ -1,7 +1,7 @@
 package rfc
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -24,6 +24,17 @@ import (
 
 type SubjectDNSerialNumberMaxLength struct{}
 
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_subject_dn_serial_number_max_length",
+		Description:   "The 'Serial Number' field of the subject MUST be less than 65 characters",
+		Citation:      "RFC 5280: Appendix A",
+		Source:        lint.RFC5280,
+		EffectiveDate: util.ZeroDate,
+		Lint:          &SubjectDNSerialNumberMaxLength{},
+	})
+}
+
 func (l *SubjectDNSerialNumberMaxLength) Initialize() error {
 	return nil
 }
@@ -37,15 +48,4 @@ func (l *SubjectDNSerialNumberMaxLength) Execute(c *x509.Certificate) *lint.Lint
 		return &lint.LintResult{Status: lint.Error}
 	}
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_subject_dn_serial_number_max_length",
-		Description:   "The 'Serial Number' field of the subject MUST be less than 65 characters",
-		Citation:      "RFC 5280: Appendix A",
-		Source:        lint.RFC5280,
-		EffectiveDate: util.ZeroDate,
-		Lint:          &SubjectDNSerialNumberMaxLength{},
-	})
 }

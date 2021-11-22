@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,12 +14,6 @@ package cabf_br
  * permissions and limitations under the License.
  */
 
-/************************************************
-BRs: 7.1.2.2b cRLDistributionPoints
-This extension MUST be present and MUST NOT be marked critical.
-It MUST contain the HTTP URL of the CA’s CRL service.
-************************************************/
-
 import (
 	"strings"
 
@@ -29,6 +23,23 @@ import (
 )
 
 type subCACRLDistNoUrl struct{}
+
+/************************************************
+BRs: 7.1.2.2b cRLDistributionPoints
+This extension MUST be present and MUST NOT be marked critical.
+It MUST contain the HTTP URL of the CA’s CRL service.
+************************************************/
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_sub_ca_crl_distribution_points_does_not_contain_url",
+		Description:   "Subordinate CA Certificate: cRLDistributionPoints MUST contain the HTTP URL of the CA's CRL service.",
+		Citation:      "BRs: 7.1.2.2",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.CABEffectiveDate,
+		Lint:          &subCACRLDistNoUrl{},
+	})
+}
 
 func (l *subCACRLDistNoUrl) Initialize() error {
 	return nil
@@ -45,15 +56,4 @@ func (l *subCACRLDistNoUrl) Execute(c *x509.Certificate) *lint.LintResult {
 		}
 	}
 	return &lint.LintResult{Status: lint.Error}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_sub_ca_crl_distribution_points_does_not_contain_url",
-		Description:   "Subordinate CA Certificate: cRLDistributionPoints MUST contain the HTTP URL of the CA's CRL service.",
-		Citation:      "BRs: 7.1.2.2",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.CABEffectiveDate,
-		Lint:          &subCACRLDistNoUrl{},
-	})
 }

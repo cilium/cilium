@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,13 +14,6 @@ package cabf_br
  * permissions and limitations under the License.
  */
 
-/************************************************
-BRs: 7.1.4.2.1
-Subject Alternative Name Extension
-Certificate Field: extensions:subjectAltName
-Required/Optional: Required
-************************************************/
-
 import (
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zlint/v3/lint"
@@ -28,6 +21,24 @@ import (
 )
 
 type SANMissing struct{}
+
+/************************************************
+BRs: 7.1.4.2.1
+Subject Alternative Name Extension
+Certificate Field: extensions:subjectAltName
+Required/Optional: Required
+************************************************/
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_ext_san_missing",
+		Description:   "Subscriber certificates MUST contain the Subject Alternate Name extension",
+		Citation:      "BRs: 7.1.4.2.1",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.CABEffectiveDate,
+		Lint:          &SANMissing{},
+	})
+}
 
 func (l *SANMissing) Initialize() error {
 	return nil
@@ -43,15 +54,4 @@ func (l *SANMissing) Execute(c *x509.Certificate) *lint.LintResult {
 	} else {
 		return &lint.LintResult{Status: lint.Error}
 	}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_ext_san_missing",
-		Description:   "Subscriber certificates MUST contain the Subject Alternate Name extension",
-		Citation:      "BRs: 7.1.4.2.1",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.CABEffectiveDate,
-		Lint:          &SANMissing{},
-	})
 }

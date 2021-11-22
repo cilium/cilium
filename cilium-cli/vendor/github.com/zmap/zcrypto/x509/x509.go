@@ -21,10 +21,12 @@ import (
 
 	"bytes"
 	"crypto"
-	"crypto/dsa"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rsa"
+	_ "crypto/sha1"
+	_ "crypto/sha256"
+	_ "crypto/sha512"
 	"encoding/asn1"
 	"encoding/pem"
 	"errors"
@@ -34,9 +36,12 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/zmap/zcrypto/dsa"
+
 	"github.com/weppos/publicsuffix-go/publicsuffix"
 	"github.com/zmap/zcrypto/x509/ct"
 	"github.com/zmap/zcrypto/x509/pkix"
+	"golang.org/x/crypto/ed25519"
 )
 
 // pkixPublicKey reflects a PKIX public key structure. See SubjectPublicKeyInfo
@@ -97,8 +102,14 @@ func marshalPublicKey(pub interface{}) (publicKeyBytes []byte, publicKeyAlgorith
 		publicKeyAlgorithm.Parameters.FullBytes = paramBytes
 	case *AugmentedECDSA:
 		return marshalPublicKey(pub.Pub)
+	case ed25519.PublicKey:
+		publicKeyAlgorithm.Algorithm = oidKeyEd25519
+		return []byte(pub), publicKeyAlgorithm, nil
+	case X25519PublicKey:
+		publicKeyAlgorithm.Algorithm = oidKeyX25519
+		return []byte(pub), publicKeyAlgorithm, nil
 	default:
-		return nil, pkix.AlgorithmIdentifier{}, errors.New("x509: only RSA and ECDSA public keys supported")
+		return nil, pkix.AlgorithmIdentifier{}, errors.New("x509: only RSA, ECDSA, ed25519, or X25519 public keys supported")
 	}
 
 	return publicKeyBytes, publicKeyAlgorithm, nil
@@ -200,6 +211,7 @@ const (
 	SHA256WithRSAPSS
 	SHA384WithRSAPSS
 	SHA512WithRSAPSS
+	Ed25519Sig
 )
 
 func (algo SignatureAlgorithm) isRSAPSS() bool {
@@ -227,6 +239,7 @@ var algoName = [...]string{
 	ECDSAWithSHA256:  "ECDSA-SHA256",
 	ECDSAWithSHA384:  "ECDSA-SHA384",
 	ECDSAWithSHA512:  "ECDSA-SHA512",
+	Ed25519Sig:       "Ed25519",
 }
 
 func (algo SignatureAlgorithm) String() string {
@@ -241,6 +254,8 @@ var keyAlgorithmNames = []string{
 	"RSA",
 	"DSA",
 	"ECDSA",
+	"Ed25519",
+	"X25519",
 }
 
 type PublicKeyAlgorithm int
@@ -250,8 +265,13 @@ const (
 	RSA
 	DSA
 	ECDSA
+	Ed25519
+	X25519
 	total_key_algorithms
 )
+
+// curve25519 package does not expose key types
+type X25519PublicKey []byte
 
 // OIDs for signature algorithms
 //
@@ -330,6 +350,13 @@ var (
 	oidISOSignatureSHA1WithRSA = asn1.ObjectIdentifier{1, 3, 14, 3, 2, 29}
 )
 
+// cryptoNoDigest means that the signature algorithm does not require a hash
+// digest. The distinction between cryptoNoDigest and crypto.Hash(0)
+// is purely superficial. crypto.Hash(0) is used in place of a null value
+// when hashing is not supported for the given algorithm (as in the case of
+// MD2WithRSA below).
+var cryptoNoDigest = crypto.Hash(0)
+
 var signatureAlgorithmDetails = []struct {
 	algo       SignatureAlgorithm
 	oid        asn1.ObjectIdentifier
@@ -352,6 +379,7 @@ var signatureAlgorithmDetails = []struct {
 	{ECDSAWithSHA256, oidSignatureECDSAWithSHA256, ECDSA, crypto.SHA256},
 	{ECDSAWithSHA384, oidSignatureECDSAWithSHA384, ECDSA, crypto.SHA384},
 	{ECDSAWithSHA512, oidSignatureECDSAWithSHA512, ECDSA, crypto.SHA512},
+	{Ed25519Sig, oidKeyEd25519, Ed25519, cryptoNoDigest},
 }
 
 // pssParameters reflects the parameters in an AlgorithmIdentifier that
@@ -490,6 +518,10 @@ func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm 
 		return DSA
 	case oid.Equal(oidPublicKeyECDSA):
 		return ECDSA
+	case oid.Equal(oidKeyEd25519):
+		return Ed25519
+	case oid.Equal(oidKeyX25519):
+		return X25519
 	}
 	return UnknownPublicKeyAlgorithm
 }
@@ -515,6 +547,14 @@ var (
 	oidNamedCurveP256 = asn1.ObjectIdentifier{1, 2, 840, 10045, 3, 1, 7}
 	oidNamedCurveP384 = asn1.ObjectIdentifier{1, 3, 132, 0, 34}
 	oidNamedCurveP521 = asn1.ObjectIdentifier{1, 3, 132, 0, 35}
+)
+
+// https://datatracker.ietf.org/doc/draft-ietf-curdle-pkix/?include_text=1
+// id-X25519    OBJECT IDENTIFIER ::= { 1 3 101 110 }
+// id-Ed25519   OBJECT IDENTIFIER ::= { 1 3 101 112 }
+var (
+	oidKeyX25519  = asn1.ObjectIdentifier{1, 3, 101, 110}
+	oidKeyEd25519 = asn1.ObjectIdentifier{1, 3, 101, 112}
 )
 
 func namedCurveFromOID(oid asn1.ObjectIdentifier) elliptic.Curve {
@@ -785,6 +825,8 @@ type Certificate struct {
 	ExcludedDNSNames        []GeneralSubtreeString
 	PermittedEmailAddresses []GeneralSubtreeString
 	ExcludedEmailAddresses  []GeneralSubtreeString
+	PermittedURIs           []GeneralSubtreeString
+	ExcludedURIs            []GeneralSubtreeString
 	PermittedIPAddresses    []GeneralSubtreeIP
 	ExcludedIPAddresses     []GeneralSubtreeIP
 	PermittedDirectoryNames []GeneralSubtreeName
@@ -1015,17 +1057,16 @@ func CheckSignatureFromKey(publicKey interface{}, algo SignatureAlgorithm, signe
 	//case MD2WithRSA, MD5WithRSA:
 	case MD2WithRSA:
 		return InsecureAlgorithmError(algo)
+	case Ed25519Sig:
+		hashType = 0
 	default:
 		return ErrUnsupportedAlgorithm
 	}
 
-	if !hashType.Available() {
+	if hashType != 0 && !hashType.Available() {
 		return ErrUnsupportedAlgorithm
 	}
-	h := hashType.New()
-
-	h.Write(signed)
-	digest := h.Sum(nil)
+	digest := hash(hashType, signed)
 
 	switch pub := publicKey.(type) {
 	case *rsa.PublicKey:
@@ -1072,6 +1113,11 @@ func CheckSignatureFromKey(publicKey interface{}, algo SignatureAlgorithm, signe
 		}
 		if !ecdsa.Verify(pub.Pub, digest, ecdsaSig.R, ecdsaSig.S) {
 			return errors.New("x509: ECDSA verification failure")
+		}
+		return
+	case ed25519.PublicKey:
+		if !ed25519.Verify(pub, digest, signature) {
+			return errors.New("x509: Ed25519 verification failure")
 		}
 		return
 	}
@@ -1207,6 +1253,16 @@ func maxValidationLevel(a, b CertValidationLevel) CertValidationLevel {
 	return b
 }
 
+func hash(hashFunc crypto.Hash, raw []byte) []byte {
+	digest := raw
+	if hashFunc != 0 {
+		h := hashFunc.New()
+		h.Write(raw)
+		digest = h.Sum(nil)
+	}
+	return digest
+}
+
 func getMaxCertValidationLevel(oids []asn1.ObjectIdentifier) CertValidationLevel {
 	maxOID := UnknownValidationLevel
 	for _, oid := range oids {
@@ -1313,6 +1369,18 @@ func parsePublicKey(algo PublicKeyAlgorithm, keyData *publicKeyInfo) (interface{
 			Raw: keyData.PublicKey,
 		}
 		return pub, nil
+	case Ed25519:
+		p := ed25519.PublicKey(asn1Data)
+		if len(p) > ed25519.PublicKeySize {
+			return nil, errors.New("x509: trailing data after Ed25519 data")
+		}
+		return p, nil
+	case X25519:
+		p := X25519PublicKey(asn1Data)
+		if len(p) > 32 {
+			return nil, errors.New("x509: trailing data after X25519 public key")
+		}
+		return p, nil
 	default:
 		return nil, nil
 	}
@@ -1656,6 +1724,8 @@ func parseCertificate(in *certificate) (*Certificate, error) {
 							return out, err
 						}
 						out.PermittedEdiPartyNames = append(out.PermittedEdiPartyNames, GeneralSubtreeEdi{Data: ediName, Max: subtree.Max, Min: subtree.Min})
+					case 6:
+						out.PermittedURIs = append(out.PermittedURIs, GeneralSubtreeString{Data: string(subtree.Value.Bytes), Max: subtree.Max, Min: subtree.Min})
 					case 7:
 						switch len(subtree.Value.Bytes) {
 						case net.IPv4len * 2:
@@ -1699,6 +1769,8 @@ func parseCertificate(in *certificate) (*Certificate, error) {
 							return out, err
 						}
 						out.ExcludedEdiPartyNames = append(out.ExcludedEdiPartyNames, GeneralSubtreeEdi{Data: ediName, Max: subtree.Max, Min: subtree.Min})
+					case 6:
+						out.ExcludedURIs = append(out.ExcludedURIs, GeneralSubtreeString{Data: string(subtree.Value.Bytes), Max: subtree.Max, Min: subtree.Min})
 					case 7:
 						switch len(subtree.Value.Bytes) {
 						case net.IPv4len * 2:
@@ -1893,28 +1965,9 @@ func parseCertificate(in *certificate) (*Certificate, error) {
 				}
 			}
 		} else if e.Id.Equal(oidExtensionSignedCertificateTimestampList) {
-			// SignedCertificateTimestamp
-			//var scts asn1.RawValue
-			var scts []byte
-			if _, err = asn1.Unmarshal(e.Value, &scts); err != nil {
+			err := parseSignedCertificateTimestampList(out, e)
+			if err != nil {
 				return nil, err
-			}
-			// ignore length of
-			if len(scts) < 2 {
-				return nil, errors.New("malformed SCT extension: length field")
-			}
-			scts = scts[2:]
-			for len(scts) > 0 {
-				length := int(scts[1]) + (int(scts[0]) << 8)
-				if (length + 2) > len(scts) {
-					return nil, errors.New("malformed SCT extension: incomplete SCT")
-				}
-				sct, err := ct.DeserializeSCT(bytes.NewReader(scts[2 : length+2]))
-				if err != nil {
-					return nil, err
-				}
-				scts = scts[2+length:]
-				out.SignedCertificateTimestampList = append(out.SignedCertificateTimestampList, sct)
 			}
 		} else if e.Id.Equal(oidExtensionCTPrecertificatePoison) {
 			if e.Value[0] == 5 && e.Value[1] == 0 {
@@ -1960,6 +2013,38 @@ func parseCertificate(in *certificate) (*Certificate, error) {
 	}
 
 	return out, nil
+}
+
+func parseSignedCertificateTimestampList(out *Certificate, ext pkix.Extension) error {
+	var scts []byte
+	if _, err := asn1.Unmarshal(ext.Value, &scts); err != nil {
+		return err
+	}
+	// ignore length of
+	if len(scts) < 2 {
+		return errors.New("malformed SCT extension: incomplete length field")
+	}
+	scts = scts[2:]
+	headerLength := 2
+	for {
+		switch len(scts) {
+		case 0:
+			return nil
+		case 1:
+			return errors.New("malformed SCT extension: trailing data")
+		default:
+			sctLength := int(scts[1]) + (int(scts[0]) << 8) + headerLength
+			if !(sctLength <= len(scts)) {
+				return errors.New("malformed SCT extension: incomplete SCT")
+			}
+			sct, err := ct.DeserializeSCT(bytes.NewReader(scts[headerLength:sctLength]))
+			if err != nil {
+				return fmt.Errorf("malformed SCT extension: SCT parse err: %v", err)
+			}
+			out.SignedCertificateTimestampList = append(out.SignedCertificateTimestampList, sct)
+			scts = scts[sctLength:]
+		}
+	}
 }
 
 // ParseCertificate parses a single certificate from the given ASN.1 DER data.
@@ -2344,6 +2429,7 @@ func subjectBytes(cert *Certificate) ([]byte, error) {
 // signature algorithm.
 func signingParamsForPublicKey(pub interface{}, requestedSigAlgo SignatureAlgorithm) (hashFunc crypto.Hash, sigAlgo pkix.AlgorithmIdentifier, err error) {
 	var pubType PublicKeyAlgorithm
+	shouldHash := true
 
 	switch pub := pub.(type) {
 	case *rsa.PublicKey:
@@ -2369,8 +2455,14 @@ func signingParamsForPublicKey(pub interface{}, requestedSigAlgo SignatureAlgori
 			err = errors.New("x509: unknown elliptic curve")
 		}
 
+	case ed25519.PublicKey:
+		pubType = Ed25519
+		hashFunc = 0
+		shouldHash = false
+		sigAlgo.Algorithm = oidKeyEd25519
+
 	default:
-		err = errors.New("x509: only RSA and ECDSA keys supported")
+		err = errors.New("x509: only RSA, ECDSA, Ed25519, and X25519 keys supported")
 	}
 
 	if err != nil {
@@ -2389,7 +2481,7 @@ func signingParamsForPublicKey(pub interface{}, requestedSigAlgo SignatureAlgori
 				return
 			}
 			sigAlgo.Algorithm, hashFunc = details.oid, details.hash
-			if hashFunc == 0 {
+			if hashFunc == 0 && shouldHash {
 				err = errors.New("x509: cannot sign with hash function requested")
 				return
 			}
@@ -2483,12 +2575,9 @@ func CreateCertificate(rand io.Reader, template, parent *Certificate, pub, priv 
 	if err != nil {
 		return
 	}
-
 	c.Raw = tbsCertContents
 
-	h := hashFunc.New()
-	h.Write(tbsCertContents)
-	digest := h.Sum(nil)
+	digest := hash(hashFunc, c.Raw)
 
 	var signerOpts crypto.SignerOpts
 	signerOpts = hashFunc
@@ -2590,9 +2679,7 @@ func (c *Certificate) CreateCRL(rand io.Reader, priv interface{}, revokedCerts [
 		return
 	}
 
-	h := hashFunc.New()
-	h.Write(tbsCertListContents)
-	digest := h.Sum(nil)
+	digest := hash(hashFunc, tbsCertListContents)
 
 	var signature []byte
 	signature, err = key.Sign(rand, digest, hashFunc)
@@ -2869,9 +2956,7 @@ func CreateCertificateRequest(rand io.Reader, template *CertificateRequest, priv
 	}
 	tbsCSR.Raw = tbsCSRContents
 
-	h := hashFunc.New()
-	h.Write(tbsCSRContents)
-	digest := h.Sum(nil)
+	digest := hash(hashFunc, tbsCSRContents)
 
 	var signature []byte
 	signature, err = key.Sign(rand, digest, hashFunc)

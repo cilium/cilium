@@ -1,7 +1,7 @@
 package rfc
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,6 +14,14 @@ package rfc
  * permissions and limitations under the License.
  */
 
+import (
+	"github.com/zmap/zcrypto/x509"
+	"github.com/zmap/zlint/v3/lint"
+	"github.com/zmap/zlint/v3/util"
+)
+
+type keyUsageCertSignNoCa struct{}
+
 /************************************************************************
 RFC 5280: 4.2.1.9
 The cA boolean indicates whether the certified public key may be used
@@ -25,13 +33,16 @@ The cA boolean indicates whether the certified public key may be used
    verify certificate signatures.
 ************************************************************************/
 
-import (
-	"github.com/zmap/zcrypto/x509"
-	"github.com/zmap/zlint/v3/lint"
-	"github.com/zmap/zlint/v3/util"
-)
-
-type keyUsageCertSignNoCa struct{}
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_ext_key_usage_cert_sign_without_ca",
+		Description:   "if the keyCertSign bit is asserted, then the cA bit in the basic constraints extension MUST also be asserted",
+		Citation:      "RFC 5280: 4.2.1.3 & 4.2.1.9",
+		Source:        lint.RFC5280,
+		EffectiveDate: util.RFC3280Date,
+		Lint:          &keyUsageCertSignNoCa{},
+	})
+}
 
 func (l *keyUsageCertSignNoCa) Initialize() error {
 	return nil
@@ -51,15 +62,4 @@ func (l *keyUsageCertSignNoCa) Execute(c *x509.Certificate) *lint.LintResult {
 	} else {
 		return &lint.LintResult{Status: lint.Pass}
 	}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_ext_key_usage_cert_sign_without_ca",
-		Description:   "if the keyCertSign bit is asserted, then the cA bit in the basic constraints extension MUST also be asserted",
-		Citation:      "RFC 5280: 4.2.1.3 & 4.2.1.9",
-		Source:        lint.RFC5280,
-		EffectiveDate: util.RFC3280Date,
-		Lint:          &keyUsageCertSignNoCa{},
-	})
 }

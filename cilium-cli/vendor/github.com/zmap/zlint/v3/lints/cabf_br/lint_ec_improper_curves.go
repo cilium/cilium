@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,12 +14,6 @@ package cabf_br
  * permissions and limitations under the License.
  */
 
-/************************************************
-BRs: 6.1.5
-Certificates MUST meet the following requirements for algorithm type and key size.
-ECC Curve: NIST P-256, P-384, or P-521
-************************************************/
-
 import (
 	"crypto/ecdsa"
 
@@ -29,6 +23,24 @@ import (
 )
 
 type ecImproperCurves struct{}
+
+/************************************************
+BRs: 6.1.5
+Certificates MUST meet the following requirements for algorithm type and key size.
+ECC Curve: NIST P-256, P-384, or P-521
+************************************************/
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:        "e_ec_improper_curves",
+		Description: "Only one of NIST P‐256, P‐384, or P‐521 can be used",
+		Citation:    "BRs: 6.1.5",
+		Source:      lint.CABFBaselineRequirements,
+		// Refer to BRs: 6.1.5, taking the statement "Before 31 Dec 2010" literally
+		EffectiveDate: util.ZeroDate,
+		Lint:          &ecImproperCurves{},
+	})
+}
 
 func (l *ecImproperCurves) Initialize() error {
 	return nil
@@ -56,16 +68,4 @@ func (l *ecImproperCurves) Execute(c *x509.Certificate) *lint.LintResult {
 	default:
 		return &lint.LintResult{Status: lint.Error}
 	}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:        "e_ec_improper_curves",
-		Description: "Only one of NIST P‐256, P‐384, or P‐521 can be used",
-		Citation:    "BRs: 6.1.5",
-		Source:      lint.CABFBaselineRequirements,
-		// Refer to BRs: 6.1.5, taking the statement "Before 31 Dec 2010" literally
-		EffectiveDate: util.ZeroDate,
-		Lint:          &ecImproperCurves{},
-	})
 }

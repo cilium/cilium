@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,15 +14,6 @@ package cabf_br
  * permissions and limitations under the License.
  */
 
-/************************************************
-BRs: 7.1.4.2.1
-Also as of the Effective Date, the CA SHALL NOT
-issue a certificate with an Expiry Date later than
-1 November 2015 with a subjectAlternativeName extension
-or Subject commonName field containing a Reserved IP
-Address or Internal Name.
-************************************************/
-
 import (
 	"net"
 
@@ -32,6 +23,26 @@ import (
 )
 
 type subjectReservedIP struct{}
+
+/************************************************
+BRs: 7.1.4.2.1
+Also as of the Effective Date, the CA SHALL NOT
+issue a certificate with an Expiry Date later than
+1 November 2015 with a subjectAlternativeName extension
+or Subject commonName field containing a Reserved IP
+Address or Internal Name.
+************************************************/
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_subject_contains_reserved_ip",
+		Description:   "Certificates expiring later than 11 Jan 2015 MUST NOT contain a reserved IP address in the common name field",
+		Citation:      "BRs: 7.1.4.2.1",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.CABEffectiveDate,
+		Lint:          &subjectReservedIP{},
+	})
+}
 
 func (l *subjectReservedIP) Initialize() error {
 	return nil
@@ -46,15 +57,4 @@ func (l *subjectReservedIP) Execute(c *x509.Certificate) *lint.LintResult {
 		return &lint.LintResult{Status: lint.Error}
 	}
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_subject_contains_reserved_ip",
-		Description:   "Certificates expiring later than 11 Jan 2015 MUST NOT contain a reserved IP address in the common name field",
-		Citation:      "BRs: 7.1.4.2.1",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.CABEffectiveDate,
-		Lint:          &subjectReservedIP{},
-	})
 }

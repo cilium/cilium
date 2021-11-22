@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,10 +14,6 @@ package cabf_br
  * permissions and limitations under the License.
  */
 
-/************************************************
-Certificates MUST be of type X.509 v3.
-************************************************/
-
 import (
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zlint/v3/lint"
@@ -25,6 +21,21 @@ import (
 )
 
 type InvalidCertificateVersion struct{}
+
+/************************************************
+Certificates MUST be of type X.509 v3.
+************************************************/
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_invalid_certificate_version",
+		Description:   "Certificates MUST be of type X.590 v3",
+		Citation:      "BRs: 7.1.1",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.CABV130Date,
+		Lint:          &InvalidCertificateVersion{},
+	})
+}
 
 func (l *InvalidCertificateVersion) Initialize() error {
 	return nil
@@ -39,15 +50,4 @@ func (l *InvalidCertificateVersion) Execute(cert *x509.Certificate) *lint.LintRe
 		return &lint.LintResult{Status: lint.Error}
 	}
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_invalid_certificate_version",
-		Description:   "Certificates MUST be of type X.590 v3",
-		Citation:      "BRs: 7.1.1",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.CABV130Date,
-		Lint:          &InvalidCertificateVersion{},
-	})
 }

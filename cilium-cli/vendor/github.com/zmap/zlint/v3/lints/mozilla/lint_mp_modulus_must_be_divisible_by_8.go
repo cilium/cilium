@@ -1,5 +1,5 @@
 /*
- * ZLint Copyright 2019 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -12,11 +12,6 @@
  * permissions and limitations under the License.
  */
 
-/********************************************************************
-Section 5.1 - Algorithms
-RSA keys whose modulus size in bits is divisible by 8, and is at least 2048.
-********************************************************************/
-
 package mozilla
 
 import (
@@ -28,6 +23,22 @@ import (
 )
 
 type modulusDivisibleBy8 struct{}
+
+/********************************************************************
+Section 5.1 - Algorithms
+RSA keys whose modulus size in bits is divisible by 8, and is at least 2048.
+********************************************************************/
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_mp_modulus_must_be_divisible_by_8",
+		Description:   "RSA keys must have a modulus size divisible by 8",
+		Citation:      "Mozilla Root Store Policy / Section 5.1",
+		Source:        lint.MozillaRootStorePolicy,
+		EffectiveDate: util.MozillaPolicy24Date,
+		Lint:          &modulusDivisibleBy8{},
+	})
+}
 
 func (l *modulusDivisibleBy8) Initialize() error {
 	return nil
@@ -51,15 +62,4 @@ func (l *modulusDivisibleBy8) Execute(c *x509.Certificate) *lint.LintResult {
 	}
 
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_mp_modulus_must_be_divisible_by_8",
-		Description:   "RSA keys must have a modulus size divisible by 8",
-		Citation:      "Mozilla Root Store Policy / Section 5.1",
-		Source:        lint.MozillaRootStorePolicy,
-		EffectiveDate: util.MozillaPolicy24Date,
-		Lint:          &modulusDivisibleBy8{},
-	})
 }

@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -22,6 +22,17 @@ import (
 
 type subCertValidTimeLongerThan39Months struct{}
 
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_sub_cert_valid_time_longer_than_39_months",
+		Description:   "Subscriber Certificates issued after 1 July 2016 but prior to 1 March 2018 MUST have a Validity Period no greater than 39 months.",
+		Citation:      "BRs: 6.3.2",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.SubCert39Month,
+		Lint:          &subCertValidTimeLongerThan39Months{},
+	})
+}
+
 func (l *subCertValidTimeLongerThan39Months) Initialize() error {
 	return nil
 }
@@ -35,15 +46,4 @@ func (l *subCertValidTimeLongerThan39Months) Execute(c *x509.Certificate) *lint.
 		return &lint.LintResult{Status: lint.Error}
 	}
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_sub_cert_valid_time_longer_than_39_months",
-		Description:   "Subscriber Certificates issued after 1 July 2016 but prior to 1 March 2018 MUST have a Validity Period no greater than 39 months.",
-		Citation:      "BRs: 6.3.2",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.SubCert39Month,
-		Lint:          &subCertValidTimeLongerThan39Months{},
-	})
 }

@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,11 +14,6 @@ package cabf_br
  * permissions and limitations under the License.
  */
 
-/************************************************
-BRs: 7.1.2.1d extendedKeyUsage
-This extension MUST NOT be present.
-************************************************/
-
 import (
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zlint/v3/lint"
@@ -26,6 +21,22 @@ import (
 )
 
 type rootCAContainsEKU struct{}
+
+/************************************************
+BRs: 7.1.2.1d extendedKeyUsage
+This extension MUST NOT be present.
+************************************************/
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_root_ca_extended_key_usage_present",
+		Description:   "Root CA Certificate: extendedKeyUsage MUST NOT be present.t",
+		Citation:      "BRs: 7.1.2.1",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.CABEffectiveDate,
+		Lint:          &rootCAContainsEKU{},
+	})
+}
 
 func (l *rootCAContainsEKU) Initialize() error {
 	return nil
@@ -41,15 +52,4 @@ func (l *rootCAContainsEKU) Execute(c *x509.Certificate) *lint.LintResult {
 	} else {
 		return &lint.LintResult{Status: lint.Pass}
 	}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_root_ca_extended_key_usage_present",
-		Description:   "Root CA Certificate: extendedKeyUsage MUST NOT be present.t",
-		Citation:      "BRs: 7.1.2.1",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.CABEffectiveDate,
-		Lint:          &rootCAContainsEKU{},
-	})
 }

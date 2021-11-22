@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,6 +14,14 @@ package cabf_br
  * permissions and limitations under the License.
  */
 
+import (
+	"github.com/zmap/zcrypto/x509"
+	"github.com/zmap/zlint/v3/lint"
+	"github.com/zmap/zlint/v3/util"
+)
+
+type caAiaMissing struct{}
+
 /***********************************************
 CAB 7.1.2.2c
 With the exception of stapling, which is noted below, this extension MUST be present. It MUST NOT be
@@ -22,13 +30,16 @@ marked critical, and it MUST contain the HTTP URL of the Issuing CA’s OCSP res
 (accessMethod = 1.3.6.1.5.5.7.48.2).
 ************************************************/
 
-import (
-	"github.com/zmap/zcrypto/x509"
-	"github.com/zmap/zlint/v3/lint"
-	"github.com/zmap/zlint/v3/util"
-)
-
-type caAiaMissing struct{}
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_sub_ca_aia_missing",
+		Description:   "Subordinate CA Certificate: authorityInformationAccess MUST be present, with the exception of stapling.",
+		Citation:      "BRs: 7.1.2.2",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.CABEffectiveDate,
+		Lint:          &caAiaMissing{},
+	})
+}
 
 func (l *caAiaMissing) Initialize() error {
 	return nil
@@ -44,15 +55,4 @@ func (l *caAiaMissing) Execute(c *x509.Certificate) *lint.LintResult {
 	} else {
 		return &lint.LintResult{Status: lint.Error}
 	}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_sub_ca_aia_missing",
-		Description:   "Subordinate CA Certificate: authorityInformationAccess MUST be present, with the exception of stapling.",
-		Citation:      "BRs: 7.1.2.2",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.CABEffectiveDate,
-		Lint:          &caAiaMissing{},
-	})
 }

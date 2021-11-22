@@ -1,7 +1,7 @@
 package rfc
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -13,6 +13,14 @@ package rfc
  * implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+
+import (
+	"github.com/zmap/zcrypto/x509"
+	"github.com/zmap/zlint/v3/lint"
+	"github.com/zmap/zlint/v3/util"
+)
+
+type CertContainsUniqueIdentifier struct{}
 
 /************************************************
  These fields MUST only appear if the version is 2 or 3 (Section 4.1.2.1).
@@ -27,13 +35,16 @@ package rfc
  unique identifiers.
 ************************************************/
 
-import (
-	"github.com/zmap/zcrypto/x509"
-	"github.com/zmap/zlint/v3/lint"
-	"github.com/zmap/zlint/v3/util"
-)
-
-type CertContainsUniqueIdentifier struct{}
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_cert_contains_unique_identifier",
+		Description:   "CAs MUST NOT generate certificate with unique identifiers",
+		Source:        lint.RFC5280,
+		Citation:      "RFC 5280: 4.1.2.8",
+		EffectiveDate: util.RFC5280Date,
+		Lint:          &CertContainsUniqueIdentifier{},
+	})
+}
 
 func (l *CertContainsUniqueIdentifier) Initialize() error {
 	return nil
@@ -48,15 +59,4 @@ func (l *CertContainsUniqueIdentifier) Execute(cert *x509.Certificate) *lint.Lin
 		return &lint.LintResult{Status: lint.Pass}
 	}
 	return &lint.LintResult{Status: lint.Error}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_cert_contains_unique_identifier",
-		Description:   "CAs MUST NOT generate certificate with unique identifiers",
-		Source:        lint.RFC5280,
-		Citation:      "RFC 5280: 4.1.2.8",
-		EffectiveDate: util.RFC5280Date,
-		Lint:          &CertContainsUniqueIdentifier{},
-	})
 }

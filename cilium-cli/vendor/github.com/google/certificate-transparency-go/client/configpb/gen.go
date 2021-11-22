@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc. All Rights Reserved.
+// Copyright 2017 Google LLC. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,4 +14,4 @@
 
 package configpb
 
-//go:generate protoc -I=. -I=$GOPATH/src --go_out=:. multilog.proto
+//go:generate sh -c "protoc -I=. -I=$GOPATH/src --go_out=paths=source_relative:. multilog.proto"

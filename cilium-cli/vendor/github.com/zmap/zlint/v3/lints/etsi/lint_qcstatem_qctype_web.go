@@ -1,5 +1,5 @@
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -24,6 +24,17 @@ import (
 )
 
 type qcStatemQctypeWeb struct{}
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "w_qcstatem_qctype_web",
+		Description:   "Checks that a QC Statement of the type Id-etsi-qcs-QcType features features at least the type IdEtsiQcsQctWeb",
+		Citation:      "ETSI EN 319 412 - 5 V2.2.1 (2017 - 11) / Section 4.2.3",
+		Source:        lint.EtsiEsi,
+		EffectiveDate: util.EtsiEn319_412_5_V2_2_1_Date,
+		Lint:          &qcStatemQctypeWeb{},
+	})
+}
 
 func (this *qcStatemQctypeWeb) getStatementOid() *asn1.ObjectIdentifier {
 	return &util.IdEtsiQcsQcType
@@ -76,15 +87,4 @@ func (l *qcStatemQctypeWeb) Execute(c *x509.Certificate) *lint.LintResult {
 	} else {
 		return &lint.LintResult{Status: lint.Error, Details: errString}
 	}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "w_qcstatem_qctype_web",
-		Description:   "Checks that a QC Statement of the type Id-etsi-qcs-QcType features features at least the type IdEtsiQcsQctWeb",
-		Citation:      "ETSI EN 319 412 - 5 V2.2.1 (2017 - 11) / Section 4.2.3",
-		Source:        lint.EtsiEsi,
-		EffectiveDate: util.EtsiEn319_412_5_V2_2_1_Date,
-		Lint:          &qcStatemQctypeWeb{},
-	})
 }

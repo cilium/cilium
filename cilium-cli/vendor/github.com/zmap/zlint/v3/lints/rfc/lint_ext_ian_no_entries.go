@@ -1,7 +1,7 @@
 package rfc
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -13,6 +13,14 @@ package rfc
  * implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+
+import (
+	"github.com/zmap/zcrypto/x509"
+	"github.com/zmap/zlint/v3/lint"
+	"github.com/zmap/zlint/v3/util"
+)
+
+type IANNoEntry struct{}
 
 /**********************************************************************
 RFC 5280: 4.2.1.7
@@ -26,13 +34,16 @@ If the issuerAltName extension is present, the sequence MUST contain
    path is not defined by this profile.
 ***********************************************************************/
 
-import (
-	"github.com/zmap/zcrypto/x509"
-	"github.com/zmap/zlint/v3/lint"
-	"github.com/zmap/zlint/v3/util"
-)
-
-type IANNoEntry struct{}
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_ext_ian_no_entries",
+		Description:   "If present, the IAN extension must contain at least one entry",
+		Citation:      "RFC 5280: 4.2.1.7",
+		Source:        lint.RFC5280,
+		EffectiveDate: util.RFC2459Date,
+		Lint:          &IANNoEntry{},
+	})
+}
 
 func (l *IANNoEntry) Initialize() error {
 	return nil
@@ -49,15 +60,4 @@ func (l *IANNoEntry) Execute(c *x509.Certificate) *lint.LintResult {
 	} else {
 		return &lint.LintResult{Status: lint.Pass}
 	}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_ext_ian_no_entries",
-		Description:   "If present, the IAN extension must contain at least one entry",
-		Citation:      "RFC 5280: 4.2.1.7",
-		Source:        lint.RFC5280,
-		EffectiveDate: util.RFC2459Date,
-		Lint:          &IANNoEntry{},
-	})
 }

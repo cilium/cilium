@@ -1,7 +1,7 @@
 package rfc
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,12 +14,6 @@ package rfc
  * permissions and limitations under the License.
  */
 
-/********************************************************************
-The user notice has two optional fields: the noticeRef field and the
-explicitText field. Conforming CAs SHOULD NOT use the noticeRef
-option.
-********************************************************************/
-
 import (
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zlint/v3/lint"
@@ -27,6 +21,23 @@ import (
 )
 
 type noticeRefPres struct{}
+
+/********************************************************************
+The user notice has two optional fields: the noticeRef field and the
+explicitText field. Conforming CAs SHOULD NOT use the noticeRef
+option.
+********************************************************************/
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "w_ext_cert_policy_contains_noticeref",
+		Description:   "Compliant certificates SHOULD NOT use the noticeRef option",
+		Citation:      "RFC 5280: 4.2.1.4",
+		Source:        lint.RFC5280,
+		EffectiveDate: util.RFC5280Date,
+		Lint:          &noticeRefPres{},
+	})
+}
 
 func (l *noticeRefPres) Initialize() error {
 	return nil
@@ -53,15 +64,4 @@ func (l *noticeRefPres) Execute(c *x509.Certificate) *lint.LintResult {
 	}
 
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "w_ext_cert_policy_contains_noticeref",
-		Description:   "Compliant certificates SHOULD NOT use the noticeRef option",
-		Citation:      "RFC 5280: 4.2.1.4",
-		Source:        lint.RFC5280,
-		EffectiveDate: util.RFC5280Date,
-		Lint:          &noticeRefPres{},
-	})
 }

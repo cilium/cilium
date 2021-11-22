@@ -1,7 +1,7 @@
 package mozilla
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,14 +14,6 @@ package mozilla
  * permissions and limitations under the License.
  */
 
-/************************************************
-https://www.mozilla.org/en-US/about/governance/policies/security-group/certs/policy/
-
-Section 5.1.1 RSA
-
-CAs MUST NOT use the id-RSASSA-PSS OID (1.2.840.113549.1.1.10) within a SubjectPublicKeyInfo to represent a RSA key.
-************************************************/
-
 import (
 	"fmt"
 
@@ -31,6 +23,25 @@ import (
 )
 
 type rsaPssInSPKI struct{}
+
+/************************************************
+https://www.mozilla.org/en-US/about/governance/policies/security-group/certs/policy/
+
+Section 5.1.1 RSA
+
+CAs MUST NOT use the id-RSASSA-PSS OID (1.2.840.113549.1.1.10) within a SubjectPublicKeyInfo to represent a RSA key.
+************************************************/
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_mp_rsassa-pss_in_spki",
+		Description:   "CAs MUST NOT use the id-RSASSA-PSS OID (1.2.840.113549.1.1.10) within a SubjectPublicKeyInfo to represent a RSA key.",
+		Citation:      "Mozilla Root Store Policy / Section 5.1.1",
+		Source:        lint.MozillaRootStorePolicy,
+		EffectiveDate: util.MozillaPolicy27Date,
+		Lint:          &rsaPssInSPKI{},
+	})
+}
 
 func (l *rsaPssInSPKI) Initialize() error {
 	return nil
@@ -52,15 +63,4 @@ func (l *rsaPssInSPKI) Execute(c *x509.Certificate) *lint.LintResult {
 	}
 
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_mp_rsassa-pss_in_spki",
-		Description:   "CAs MUST NOT use the id-RSASSA-PSS OID (1.2.840.113549.1.1.10) within a SubjectPublicKeyInfo to represent a RSA key.",
-		Citation:      "Mozilla Root Store Policy / Section 5.1.1",
-		Source:        lint.MozillaRootStorePolicy,
-		EffectiveDate: util.MozillaPolicy27Date,
-		Lint:          &rsaPssInSPKI{},
-	})
 }

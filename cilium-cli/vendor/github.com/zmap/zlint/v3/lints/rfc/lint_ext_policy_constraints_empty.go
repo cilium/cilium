@@ -1,7 +1,7 @@
 package rfc
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,15 +14,6 @@ package rfc
  * permissions and limitations under the License.
  */
 
-/*************************************************************************
-RFC 5280: 4.2.1.11
-Conforming CAs MUST NOT issue certificates where policy constraints
-   is an empty sequence.  That is, either the inhibitPolicyMapping field
-   or the requireExplicitPolicy field MUST be present.  The behavior of
-   clients that encounter an empty policy constraints field is not
-   addressed in this profile.
-*************************************************************************/
-
 import (
 	"encoding/asn1"
 
@@ -32,6 +23,26 @@ import (
 )
 
 type policyConstraintsContents struct{}
+
+/*************************************************************************
+RFC 5280: 4.2.1.11
+Conforming CAs MUST NOT issue certificates where policy constraints
+   is an empty sequence.  That is, either the inhibitPolicyMapping field
+   or the requireExplicitPolicy field MUST be present.  The behavior of
+   clients that encounter an empty policy constraints field is not
+   addressed in this profile.
+*************************************************************************/
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_ext_policy_constraints_empty",
+		Description:   "Conforming CAs MUST NOT issue certificates where policy constraints is an empty sequence. That is, either the inhibitPolicyMapping field or the requireExplicityPolicy field MUST be present",
+		Citation:      "RFC 5280: 4.2.1.11",
+		Source:        lint.RFC5280,
+		EffectiveDate: util.RFC2459Date,
+		Lint:          &policyConstraintsContents{},
+	})
+}
 
 func (l *policyConstraintsContents) Initialize() error {
 	return nil
@@ -62,15 +73,4 @@ func (l *policyConstraintsContents) Execute(c *x509.Certificate) *lint.LintResul
 	}
 
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_ext_policy_constraints_empty",
-		Description:   "Conforming CAs MUST NOT issue certificates where policy constraints is an empty sequence. That is, either the inhibitPolicyMapping field or the requireExplicityPolicy field MUST be present",
-		Citation:      "RFC 5280: 4.2.1.11",
-		Source:        lint.RFC5280,
-		EffectiveDate: util.RFC2459Date,
-		Lint:          &policyConstraintsContents{},
-	})
 }

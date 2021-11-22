@@ -1,7 +1,7 @@
 package rfc
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,11 +14,6 @@ package rfc
  * permissions and limitations under the License.
  */
 
-/**********************************************************
-RFC 5280: 4.2.1.2
- Conforming CAs MUST mark this extension as non-critical.
-**********************************************************/
-
 import (
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zlint/v3/lint"
@@ -26,6 +21,22 @@ import (
 )
 
 type subjectKeyIdCritical struct{}
+
+/**********************************************************
+RFC 5280: 4.2.1.2
+ Conforming CAs MUST mark this extension as non-critical.
+**********************************************************/
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_ext_subject_key_identifier_critical",
+		Description:   "The subject key identifier extension MUST be non-critical",
+		Citation:      "RFC 5280: 4.2.1.2",
+		Source:        lint.RFC5280,
+		EffectiveDate: util.RFC2459Date,
+		Lint:          &subjectKeyIdCritical{},
+	})
+}
 
 func (l *subjectKeyIdCritical) Initialize() error {
 	return nil
@@ -42,15 +53,4 @@ func (l *subjectKeyIdCritical) Execute(c *x509.Certificate) *lint.LintResult {
 	} else { //implies !ski.Critical
 		return &lint.LintResult{Status: lint.Pass}
 	}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_ext_subject_key_identifier_critical",
-		Description:   "The subject key identifier extension MUST be non-critical",
-		Citation:      "RFC 5280: 4.2.1.2",
-		Source:        lint.RFC5280,
-		EffectiveDate: util.RFC2459Date,
-		Lint:          &subjectKeyIdCritical{},
-	})
 }

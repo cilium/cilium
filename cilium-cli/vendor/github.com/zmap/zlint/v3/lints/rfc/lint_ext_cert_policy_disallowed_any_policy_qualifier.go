@@ -1,7 +1,7 @@
 package rfc
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,6 +14,14 @@ package rfc
  * permissions and limitations under the License.
  */
 
+import (
+	"github.com/zmap/zcrypto/x509"
+	"github.com/zmap/zlint/v3/lint"
+	"github.com/zmap/zlint/v3/util"
+)
+
+type unrecommendedQualifier struct{}
+
 /*******************************************************************
 RFC 5280: 4.2.1.4
 To promote interoperability, this profile RECOMMENDS that policy
@@ -25,13 +33,16 @@ limited to the qualifiers identified in this section.  Only those
 qualifiers returned as a result of path validation are considered.
 ********************************************************************/
 
-import (
-	"github.com/zmap/zcrypto/x509"
-	"github.com/zmap/zlint/v3/lint"
-	"github.com/zmap/zlint/v3/util"
-)
-
-type unrecommendedQualifier struct{}
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_ext_cert_policy_disallowed_any_policy_qualifier",
+		Description:   "When qualifiers are used with the special policy anyPolicy, they must be limited to qualifiers identified in this section: (4.2.1.4)",
+		Citation:      "RFC 5280: 4.2.1.4",
+		Source:        lint.RFC5280,
+		EffectiveDate: util.RFC3280Date,
+		Lint:          &unrecommendedQualifier{},
+	})
+}
 
 func (l *unrecommendedQualifier) Initialize() error {
 	return nil
@@ -50,15 +61,4 @@ func (l *unrecommendedQualifier) Execute(c *x509.Certificate) *lint.LintResult {
 		}
 	}
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_ext_cert_policy_disallowed_any_policy_qualifier",
-		Description:   "When qualifiers are used with the special policy anyPolicy, they must be limited to qualifiers identified in this section: (4.2.1.4)",
-		Citation:      "RFC 5280: 4.2.1.4",
-		Source:        lint.RFC5280,
-		EffectiveDate: util.RFC3280Date,
-		Lint:          &unrecommendedQualifier{},
-	})
 }

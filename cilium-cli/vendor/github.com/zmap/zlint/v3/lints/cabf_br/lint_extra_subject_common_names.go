@@ -1,5 +1,5 @@
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -22,6 +22,17 @@ import (
 
 type extraSubjectCommonNames struct{}
 
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "w_extra_subject_common_names",
+		Description:   "if present the subject commonName field MUST contain a single IP address or Fully-Qualified Domain Name",
+		Citation:      "BRs: 7.1.4.2.2",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.CABEffectiveDate,
+		Lint:          &extraSubjectCommonNames{},
+	})
+}
+
 func (l *extraSubjectCommonNames) Initialize() error {
 	return nil
 }
@@ -38,15 +49,4 @@ func (l *extraSubjectCommonNames) Execute(c *x509.Certificate) *lint.LintResult 
 		return &lint.LintResult{Status: lint.Warn}
 	}
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "w_extra_subject_common_names",
-		Description:   "if present the subject commonName field MUST contain a single IP address or Fully-Qualified Domain Name",
-		Citation:      "BRs: 7.1.4.2.2",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.CABEffectiveDate,
-		Lint:          &extraSubjectCommonNames{},
-	})
 }

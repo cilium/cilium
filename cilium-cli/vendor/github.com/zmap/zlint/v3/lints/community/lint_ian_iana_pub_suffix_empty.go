@@ -1,7 +1,7 @@
 package community
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -24,6 +24,17 @@ import (
 
 type IANPubSuffix struct{}
 
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "w_ian_iana_pub_suffix_empty",
+		Description:   "Domain SHOULD NOT have a bare public suffix",
+		Citation:      "awslabs certlint",
+		Source:        lint.Community,
+		EffectiveDate: util.ZeroDate,
+		Lint:          &IANPubSuffix{},
+	})
+}
+
 func (l *IANPubSuffix) Initialize() error {
 	return nil
 }
@@ -39,15 +50,4 @@ func (l *IANPubSuffix) Execute(c *x509.Certificate) *lint.LintResult {
 		}
 	}
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "w_ian_iana_pub_suffix_empty",
-		Description:   "Domain SHOULD NOT have a bare public suffix",
-		Citation:      "awslabs certlint",
-		Source:        lint.Community,
-		EffectiveDate: util.ZeroDate,
-		Lint:          &IANPubSuffix{},
-	})
 }
