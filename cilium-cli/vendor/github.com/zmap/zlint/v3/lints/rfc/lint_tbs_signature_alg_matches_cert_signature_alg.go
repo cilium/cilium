@@ -1,5 +1,5 @@
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -11,13 +11,6 @@
  * implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-
-/*******************************************************************
-RFC 5280: 4.1.1.2
-[the Certificate signatureAlgorithm] field MUST contain the same
-algorithm identifier as the signature field in the sequence
-tbsCertificate
-********************************************************************/
 
 package rfc
 
@@ -32,6 +25,24 @@ import (
 )
 
 type mismatchingSigAlg struct{}
+
+/*******************************************************************
+RFC 5280: 4.1.1.2
+[the Certificate signatureAlgorithm] field MUST contain the same
+algorithm identifier as the signature field in the sequence
+tbsCertificate
+********************************************************************/
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_cert_sig_alg_not_match_tbs_sig_alg",
+		Description:   "Certificate signature field must match TBSCertificate signature field",
+		Citation:      "RFC 5280, Section 4.1.1.2",
+		Source:        lint.RFC5280,
+		EffectiveDate: util.RFC5280Date,
+		Lint:          &mismatchingSigAlg{},
+	})
+}
 
 func (l *mismatchingSigAlg) Initialize() error {
 	return nil
@@ -74,15 +85,4 @@ func (l *mismatchingSigAlg) Execute(c *x509.Certificate) *lint.LintResult {
 	}
 
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_cert_sig_alg_not_match_tbs_sig_alg",
-		Description:   "Certificate signature field must match TBSCertificate signature field",
-		Citation:      "RFC 5280, Section 4.1.1.2",
-		Source:        lint.RFC5280,
-		EffectiveDate: util.RFC5280Date,
-		Lint:          &mismatchingSigAlg{},
-	})
 }

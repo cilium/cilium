@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,12 +14,6 @@ package cabf_br
  * permissions and limitations under the License.
  */
 
-/**************************************************************************
-BRs: 7.1.2.3
-keyUsage (optional)
-If present, bit positions for keyCertSign and cRLSign MUST NOT be set.
-***************************************************************************/
-
 import (
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zlint/v3/lint"
@@ -27,6 +21,23 @@ import (
 )
 
 type subCertKeyUsageBitSet struct{}
+
+/**************************************************************************
+BRs: 7.1.2.3
+keyUsage (optional)
+If present, bit positions for keyCertSign and cRLSign MUST NOT be set.
+***************************************************************************/
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_sub_cert_key_usage_cert_sign_bit_set",
+		Description:   "Subscriber Certificate: keyUsage if present, bit positions for keyCertSign and cRLSign MUST NOT be set.",
+		Citation:      "BRs: 7.1.2.3",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.CABEffectiveDate,
+		Lint:          &subCertKeyUsageBitSet{},
+	})
+}
 
 func (l *subCertKeyUsageBitSet) Initialize() error {
 	return nil
@@ -42,15 +53,4 @@ func (l *subCertKeyUsageBitSet) Execute(c *x509.Certificate) *lint.LintResult {
 	} else { //key usage doesn't allow cert signing or isn't present
 		return &lint.LintResult{Status: lint.Pass}
 	}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_sub_cert_key_usage_cert_sign_bit_set",
-		Description:   "Subscriber Certificate: keyUsage if present, bit positions for keyCertSign and cRLSign MUST NOT be set.",
-		Citation:      "BRs: 7.1.2.3",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.CABEffectiveDate,
-		Lint:          &subCertKeyUsageBitSet{},
-	})
 }

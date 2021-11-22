@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,13 +14,6 @@ package cabf_br
  * permissions and limitations under the License.
  */
 
-/************************************************
-BRs: 7.1.4.2.2
-If present, this field MUST contain a single IP address
-or Fully‐Qualified Domain Name that is one of the values
-contained in the Certificate’s subjectAltName extension (see Section 7.1.4.2.1).
-************************************************/
-
 import (
 	"strings"
 
@@ -30,6 +23,24 @@ import (
 )
 
 type subjectCommonNameNotFromSAN struct{}
+
+/************************************************
+BRs: 7.1.4.2.2
+If present, this field MUST contain a single IP address
+or Fully‐Qualified Domain Name that is one of the values
+contained in the Certificate’s subjectAltName extension (see Section 7.1.4.2.1).
+************************************************/
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_subject_common_name_not_from_san",
+		Description:   "The common name field in subscriber certificates must include only names from the SAN extension",
+		Citation:      "BRs: 7.1.4.2.2",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.CABEffectiveDate,
+		Lint:          &subjectCommonNameNotFromSAN{},
+	})
+}
 
 func (l *subjectCommonNameNotFromSAN) Initialize() error {
 	return nil
@@ -55,15 +66,4 @@ func (l *subjectCommonNameNotFromSAN) Execute(c *x509.Certificate) *lint.LintRes
 	}
 
 	return &lint.LintResult{Status: lint.Error}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_subject_common_name_not_from_san",
-		Description:   "The common name field in subscriber certificates must include only names from the SAN extension",
-		Citation:      "BRs: 7.1.4.2.2",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.CABEffectiveDate,
-		Lint:          &subjectCommonNameNotFromSAN{},
-	})
 }

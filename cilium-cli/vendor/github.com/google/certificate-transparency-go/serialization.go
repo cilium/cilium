@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All Rights Reserved.
+// Copyright 2015 Google LLC. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,9 +17,7 @@ package ct
 import (
 	"crypto"
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/certificate-transparency-go/tls"
@@ -46,8 +44,6 @@ func SerializeSCTSignatureInput(sct SignedCertificateTimestamp, entry LogEntry) 
 				IssuerKeyHash:  entry.Leaf.TimestampedEntry.PrecertEntry.IssuerKeyHash,
 				TBSCertificate: entry.Leaf.TimestampedEntry.PrecertEntry.TBSCertificate,
 			}
-		case XJSONLogEntryType:
-			input.JSONEntry = entry.Leaf.TimestampedEntry.JSONEntry
 		default:
 			return nil, fmt.Errorf("unsupported entry type %s", entry.Leaf.TimestampedEntry.EntryType)
 		}
@@ -88,32 +84,6 @@ func CreateX509MerkleTreeLeaf(cert ASN1Cert, timestamp uint64) *MerkleTreeLeaf {
 			Timestamp: timestamp,
 			EntryType: X509LogEntryType,
 			X509Entry: &cert,
-		},
-	}
-}
-
-// CreateJSONMerkleTreeLeaf creates the merkle tree leaf for json data.
-func CreateJSONMerkleTreeLeaf(data interface{}, timestamp uint64) *MerkleTreeLeaf {
-	jsonData, err := json.Marshal(AddJSONRequest{Data: data})
-	if err != nil {
-		return nil
-	}
-	// Match the JSON serialization implemented by json-c
-	jsonStr := strings.Replace(string(jsonData), ":", ": ", -1)
-	jsonStr = strings.Replace(jsonStr, ",", ", ", -1)
-	jsonStr = strings.Replace(jsonStr, "{", "{ ", -1)
-	jsonStr = strings.Replace(jsonStr, "}", " }", -1)
-	jsonStr = strings.Replace(jsonStr, "/", `\/`, -1)
-	// TODO: Pending google/certificate-transparency#1243, replace with
-	// ObjectHash once supported by CT server.
-
-	return &MerkleTreeLeaf{
-		Version:  V1,
-		LeafType: TimestampedEntryLeafType,
-		TimestampedEntry: &TimestampedEntry{
-			Timestamp: timestamp,
-			EntryType: XJSONLogEntryType,
-			JSONEntry: &JSONDataEntry{Data: []byte(jsonStr)},
 		},
 	}
 }

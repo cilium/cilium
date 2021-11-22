@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,6 +14,14 @@ package cabf_br
  * permissions and limitations under the License.
  */
 
+import (
+	"github.com/zmap/zcrypto/x509"
+	"github.com/zmap/zlint/v3/lint"
+	"github.com/zmap/zlint/v3/util"
+)
+
+type NCReservedIPNet struct{}
+
 /************************************************
 BRs: 7.1.5
 (b) For each iPAddress range in permittedSubtrees, the CA MUST confirm that the
@@ -25,13 +33,16 @@ CAs SHALL NOT issue certificates with a subjectAlternativeName extension or
 Subject commonName field containing a Reserved IP Address or Internal Name.
 ************************************************/
 
-import (
-	"github.com/zmap/zcrypto/x509"
-	"github.com/zmap/zlint/v3/lint"
-	"github.com/zmap/zlint/v3/util"
-)
-
-type NCReservedIPNet struct{}
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_ext_nc_intersects_reserved_ip",
+		Description:   "iPAddress name constraint intersects an IANA reserved network",
+		Citation:      "BRs: 7.1.5 / 7.1.4.2.1",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.CABEffectiveDate,
+		Lint:          &NCReservedIPNet{},
+	})
+}
 
 func (l *NCReservedIPNet) Initialize() error {
 	return nil
@@ -49,15 +60,4 @@ func (l *NCReservedIPNet) Execute(c *x509.Certificate) *lint.LintResult {
 	}
 
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_ext_nc_intersects_reserved_ip",
-		Description:   "iPAddress name constraint intersects an IANA reserved network",
-		Citation:      "BRs: 7.1.5 / 7.1.4.2.1",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.CABEffectiveDate,
-		Lint:          &NCReservedIPNet{},
-	})
 }

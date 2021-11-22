@@ -1,5 +1,5 @@
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -24,6 +24,17 @@ import (
 )
 
 type subjectDNNotPrintableCharacters struct{}
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_subject_dn_not_printable_characters",
+		Description:   "X520 Subject fields MUST only contain printable control characters",
+		Citation:      "RFC 5280: Appendix A",
+		Source:        lint.RFC5280,
+		EffectiveDate: util.ZeroDate,
+		Lint:          &subjectDNNotPrintableCharacters{},
+	})
+}
 
 func (l *subjectDNNotPrintableCharacters) Initialize() error {
 	return nil
@@ -60,15 +71,4 @@ func (l *subjectDNNotPrintableCharacters) Execute(c *x509.Certificate) *lint.Lin
 	}
 
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_subject_dn_not_printable_characters",
-		Description:   "X520 Subject fields MUST only contain printable control characters",
-		Citation:      "RFC 5280: Appendix A",
-		Source:        lint.RFC5280,
-		EffectiveDate: util.ZeroDate,
-		Lint:          &subjectDNNotPrintableCharacters{},
-	})
 }

@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -21,6 +21,17 @@ import (
 )
 
 type dnsNameContainsBareIANASuffix struct{}
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_dnsname_contains_bare_iana_suffix",
+		Description:   "DNSNames should not contain a bare IANA suffix.",
+		Citation:      "BRs: 1.6.1, Base Domain Name",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.CABEffectiveDate,
+		Lint:          &dnsNameContainsBareIANASuffix{},
+	})
+}
 
 func (l *dnsNameContainsBareIANASuffix) Initialize() error {
 	return nil
@@ -42,15 +53,4 @@ func (l *dnsNameContainsBareIANASuffix) Execute(c *x509.Certificate) *lint.LintR
 		}
 	}
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_dnsname_contains_bare_iana_suffix",
-		Description:   "DNSNames should not contain a bare IANA suffix.",
-		Citation:      "BRs: 7.1.4.2",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.CABEffectiveDate,
-		Lint:          &dnsNameContainsBareIANASuffix{},
-	})
 }

@@ -30,11 +30,11 @@ func (g GzippedText) Value() (driver.Value, error) {
 // the wire and storing the raw result in the GzippedText.
 func (g *GzippedText) Scan(src interface{}) error {
 	var source []byte
-	switch src.(type) {
+	switch src := src.(type) {
 	case string:
-		source = []byte(src.(string))
+		source = []byte(src)
 	case []byte:
-		source = src.([]byte)
+		source = src
 	default:
 		return errors.New("Incompatible type for GzippedText")
 	}
@@ -104,7 +104,7 @@ func (j *JSONText) Scan(src interface{}) error {
 	default:
 		return errors.New("Incompatible type for JSONText")
 	}
-	*j = JSONText(append((*j)[0:0], source...))
+	*j = append((*j)[0:0], source...)
 	return nil
 }
 

@@ -1,5 +1,5 @@
 /*
- * ZLint Copyright 2019 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -11,6 +11,18 @@
  * implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+
+package mozilla
+
+import (
+	"time"
+
+	"github.com/zmap/zcrypto/x509"
+	"github.com/zmap/zlint/v3/lint"
+	"github.com/zmap/zlint/v3/util"
+)
+
+type allowedEKU struct{}
 
 /********************************************************************
 Section 5.3 - Intermediate Certificates
@@ -24,17 +36,16 @@ Note that the lint cannot distinguish cross-certificates from other
 intermediates.
 ********************************************************************/
 
-package mozilla
-
-import (
-	"time"
-
-	"github.com/zmap/zcrypto/x509"
-	"github.com/zmap/zlint/v3/lint"
-	"github.com/zmap/zlint/v3/util"
-)
-
-type allowedEKU struct{}
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "n_mp_allowed_eku",
+		Description:   "A SubCA certificate must not have key usage that allows for both server auth and email protection, and must not use anyKeyUsage",
+		Citation:      "Mozilla Root Store Policy / Section 5.3",
+		Source:        lint.MozillaRootStorePolicy,
+		EffectiveDate: time.Date(2019, time.January, 1, 0, 0, 0, 0, time.UTC),
+		Lint:          &allowedEKU{},
+	})
+}
 
 func (l *allowedEKU) Initialize() error {
 	return nil
@@ -62,15 +73,4 @@ func (l *allowedEKU) Execute(c *x509.Certificate) *lint.LintResult {
 	}
 
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "n_mp_allowed_eku",
-		Description:   "A SubCA certificate must not have key usage that allows for both server auth and email protection, and must not use anyKeyUsage",
-		Citation:      "Mozilla Root Store Policy / Section 5.3",
-		Source:        lint.MozillaRootStorePolicy,
-		EffectiveDate: time.Date(2019, time.January, 1, 0, 0, 0, 0, time.UTC),
-		Lint:          &allowedEKU{},
-	})
 }

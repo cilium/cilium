@@ -1,5 +1,5 @@
 /*
- * ZLint Copyright 2019 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -12,12 +12,6 @@
  * permissions and limitations under the License.
  */
 
-/********************************************************************
-Section 5.2 - Forbidden and Required Practices
-CAs MUST NOT issue certificates that have:
-- invalid public keys (e.g., RSA certificates with public exponent equal to 1);
-********************************************************************/
-
 package mozilla
 
 import (
@@ -29,6 +23,23 @@ import (
 )
 
 type exponentCannotBeOne struct{}
+
+/********************************************************************
+Section 5.2 - Forbidden and Required Practices
+CAs MUST NOT issue certificates that have:
+- invalid public keys (e.g., RSA certificates with public exponent equal to 1);
+********************************************************************/
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_mp_exponent_cannot_be_one",
+		Description:   "CAs MUST NOT issue certificates that have invalid public keys (e.g., RSA certificates with public exponent equal to 1)",
+		Citation:      "Mozilla Root Store Policy / Section 5.2",
+		Source:        lint.MozillaRootStorePolicy,
+		EffectiveDate: util.MozillaPolicy24Date,
+		Lint:          &exponentCannotBeOne{},
+	})
+}
 
 func (l *exponentCannotBeOne) Initialize() error {
 	return nil
@@ -52,15 +63,4 @@ func (l *exponentCannotBeOne) Execute(c *x509.Certificate) *lint.LintResult {
 	}
 
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_mp_exponent_cannot_be_one",
-		Description:   "CAs MUST NOT issue certificates that have invalid public keys (e.g., RSA certificates with public exponent equal to 1)",
-		Citation:      "Mozilla Root Store Policy / Section 5.2",
-		Source:        lint.MozillaRootStorePolicy,
-		EffectiveDate: util.MozillaPolicy24Date,
-		Lint:          &exponentCannotBeOne{},
-	})
 }

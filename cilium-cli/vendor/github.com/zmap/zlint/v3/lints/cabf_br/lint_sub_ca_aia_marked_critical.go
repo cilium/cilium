@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -22,6 +22,17 @@ import (
 
 type subCaAIAMarkedCritical struct{}
 
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_sub_ca_aia_marked_critical",
+		Description:   "Subordinate CA Certificate: authorityInformationAccess MUST NOT be marked critical",
+		Citation:      "BRs: 7.1.2.2",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.ZeroDate,
+		Lint:          &subCaAIAMarkedCritical{},
+	})
+}
+
 func (l *subCaAIAMarkedCritical) Initialize() error {
 	return nil
 }
@@ -37,15 +48,4 @@ func (l *subCaAIAMarkedCritical) Execute(c *x509.Certificate) *lint.LintResult {
 	} else {
 		return &lint.LintResult{Status: lint.Pass}
 	}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_sub_ca_aia_marked_critical",
-		Description:   "Subordinate CA Certificate: authorityInformationAccess MUST NOT be marked critical",
-		Citation:      "BRs: 7.1.2.2",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.ZeroDate,
-		Lint:          &subCaAIAMarkedCritical{},
-	})
 }

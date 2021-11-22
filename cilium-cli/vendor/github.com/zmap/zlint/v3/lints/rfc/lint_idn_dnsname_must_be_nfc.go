@@ -1,7 +1,7 @@
 package rfc
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -25,6 +25,17 @@ import (
 )
 
 type IDNNotNFC struct{}
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_international_dns_name_not_nfc",
+		Description:   "Internationalized DNSNames must be normalized by unicode normalization form C",
+		Citation:      "RFC 8399",
+		Source:        lint.RFC5891,
+		EffectiveDate: util.RFC8399Date,
+		Lint:          &IDNNotNFC{},
+	})
+}
 
 func (l *IDNNotNFC) Initialize() error {
 	return nil
@@ -50,15 +61,4 @@ func (l *IDNNotNFC) Execute(c *x509.Certificate) *lint.LintResult {
 		}
 	}
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_international_dns_name_not_nfc",
-		Description:   "Internationalized DNSNames must be normalized by unicode normalization form C",
-		Citation:      "RFC 8399",
-		Source:        lint.RFC5891,
-		EffectiveDate: util.RFC8399Date,
-		Lint:          &IDNNotNFC{},
-	})
 }

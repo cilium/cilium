@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,11 +14,6 @@ package cabf_br
  * permissions and limitations under the License.
  */
 
-/*******************************************************************************************************
-"BRs: 6.1.6"
-RSA: The CA SHALL confirm that the value of the public exponent is an odd number equal to 3 or more. Additionally, the public exponent SHOULD be in the range between 2^16+1 and 2^256-1. The modulus SHOULD also have the following characteristics: an odd number, not the power of a prime, and have no factors smaller than 752. [Citation: Section 5.3.3, NIST SP 800-89].
-*******************************************************************************************************/
-
 import (
 	"crypto/rsa"
 	"math/big"
@@ -30,6 +25,22 @@ import (
 
 type rsaParsedTestsExpInRange struct {
 	upperBound *big.Int
+}
+
+/*******************************************************************************************************
+"BRs: 6.1.6"
+RSA: The CA SHALL confirm that the value of the public exponent is an odd number equal to 3 or more. Additionally, the public exponent SHOULD be in the range between 2^16+1 and 2^256-1. The modulus SHOULD also have the following characteristics: an odd number, not the power of a prime, and have no factors smaller than 752. [Citation: Section 5.3.3, NIST SP 800-89].
+*******************************************************************************************************/
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "w_rsa_public_exponent_not_in_range",
+		Description:   "RSA: Public exponent SHOULD be in the range between 2^16 + 1 and 2^256 - 1",
+		Citation:      "BRs: 6.1.6",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.CABV113Date,
+		Lint:          &rsaParsedTestsExpInRange{},
+	})
 }
 
 func (l *rsaParsedTestsExpInRange) Initialize() error {
@@ -51,15 +62,4 @@ func (l *rsaParsedTestsExpInRange) Execute(c *x509.Certificate) *lint.LintResult
 		return &lint.LintResult{Status: lint.Pass}
 	}
 	return &lint.LintResult{Status: lint.Warn}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "w_rsa_public_exponent_not_in_range",
-		Description:   "RSA: Public exponent SHOULD be in the range between 2^16 + 1 and 2^256 - 1",
-		Citation:      "BRs: 6.1.6",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.CABV113Date,
-		Lint:          &rsaParsedTestsExpInRange{},
-	})
 }

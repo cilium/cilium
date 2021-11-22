@@ -1,5 +1,5 @@
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -19,7 +19,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/weppos/publicsuffix-go/publicsuffix"
 	zcutil "github.com/zmap/zcrypto/util"
 	"github.com/zmap/zcrypto/x509"
 )
@@ -108,10 +107,6 @@ func DNSNamesExist(cert *x509.Certificate) bool {
 	} else {
 		return true
 	}
-}
-
-func ICANNPublicSuffixParse(domain string) (*publicsuffix.DomainName, error) {
-	return publicsuffix.ParseFromListWithOptions(publicsuffix.DefaultList, domain, &publicsuffix.FindOptions{IgnorePrivate: true, DefaultRule: publicsuffix.DefaultRule})
 }
 
 func CommonNameIsIP(cert *x509.Certificate) bool {

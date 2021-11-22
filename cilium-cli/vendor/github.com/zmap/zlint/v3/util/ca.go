@@ -1,5 +1,5 @@
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -42,6 +42,13 @@ func IsSelfSigned(c *x509.Certificate) bool {
 // self-signed.
 func IsSubscriberCert(c *x509.Certificate) bool {
 	return !IsCACert(c) && !IsSelfSigned(c)
+}
+
+// IsDelegatedOCSPResponderCert returns true if the id-kp-OCSPSigning EKU is set
+// According https://tools.ietf.org/html/rfc6960#section-4.2.2.2 it is not sufficient
+// to have only the id-kp-anyExtendedKeyUsage included
+func IsDelegatedOCSPResponderCert(cert *x509.Certificate) bool {
+	return HasEKU(cert, x509.ExtKeyUsageOcspSigning)
 }
 
 func IsServerAuthCert(cert *x509.Certificate) bool {

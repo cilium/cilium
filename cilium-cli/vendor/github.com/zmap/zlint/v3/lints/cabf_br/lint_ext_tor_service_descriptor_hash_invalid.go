@@ -1,5 +1,5 @@
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -25,6 +25,17 @@ import (
 )
 
 type torServiceDescHashInvalid struct{}
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_ext_tor_service_descriptor_hash_invalid",
+		Description:   "certificates with v2 .onion names need valid TorServiceDescriptors in extension",
+		Citation:      "BRs: Ballot 201, Ballot SC27",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.CABV201Date,
+		Lint:          &torServiceDescHashInvalid{},
+	})
+}
 
 func (l *torServiceDescHashInvalid) Initialize() error {
 	// There is nothing to initialize for a torServiceDescHashInvalid linter.
@@ -206,15 +217,4 @@ func (l *torServiceDescHashInvalid) Execute(c *x509.Certificate) *lint.LintResul
 	return &lint.LintResult{
 		Status: lint.Pass,
 	}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_ext_tor_service_descriptor_hash_invalid",
-		Description:   "certificates with v2 .onion names need valid TorServiceDescriptors in extension",
-		Citation:      "BRs: Ballot 201, Ballot SC27",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.CABV201Date,
-		Lint:          &torServiceDescHashInvalid{},
-	})
 }

@@ -20,7 +20,7 @@ const (
 	// Version identifies the current library version.
 	// This is a pro forma convention given that Go dependencies
 	// tends to be fetched directly from the repo.
-	Version = "0.13.0"
+	Version = "0.15.0"
 
 	// NormalType represents a normal rule such as "com"
 	NormalType = 1
@@ -227,15 +227,15 @@ func NewRule(content string) (*Rule, error) {
 	var rule *Rule
 	var value string
 
-	switch content[0:1] {
-	case "*": // wildcard
+	switch content[0] {
+	case '*': // wildcard
 		if content == "*" {
 			value = ""
 		} else {
 			value = content[2:]
 		}
 		rule = &Rule{Type: WildcardType, Value: value, Length: len(Labels(value)) + 1}
-	case "!": // exception
+	case '!': // exception
 		value = content[1:]
 		rule = &Rule{Type: ExceptionType, Value: value, Length: len(Labels(value))}
 	default: // normal
@@ -297,7 +297,7 @@ func (r *Rule) Match(name string) bool {
 // according to the rule definition and type.
 func (r *Rule) Decompose(name string) (result [2]string) {
 	if r == DefaultRule {
-		i := strings.LastIndex(name, ".")
+		i := strings.LastIndexByte(name, '.')
 		if i < 0 {
 			return
 		}
@@ -317,7 +317,7 @@ func (r *Rule) Decompose(name string) (result [2]string) {
 			return
 		}
 		name = name[:len(name)-1]
-		i := strings.LastIndex(name, ".")
+		i := strings.LastIndexByte(name, '.')
 		if i < 0 {
 			return
 		}
@@ -467,7 +467,7 @@ func ParseFromListWithOptions(l *List, name string, options *FindOptions) (*Doma
 		Rule: r,
 		TLD:  tld,
 	}
-	if i := strings.LastIndex(left, "."); i < 0 {
+	if i := strings.LastIndexByte(left, '.'); i < 0 {
 		dn.SLD = left
 	} else {
 		dn.TRD = left[:i]

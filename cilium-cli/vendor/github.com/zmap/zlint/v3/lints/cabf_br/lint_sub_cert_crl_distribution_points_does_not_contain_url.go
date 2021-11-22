@@ -1,7 +1,7 @@
 package cabf_br
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,13 +14,6 @@ package cabf_br
  * permissions and limitations under the License.
  */
 
-/*******************************************************************************************************
-BRs: 7.1.2.3
-cRLDistributionPoints
-This extension MAY be present. If present, it MUST NOT be marked critical, and it MUST contain the HTTP
-URL of the CA’s CRL service.
-*******************************************************************************************************/
-
 import (
 	"strings"
 
@@ -30,6 +23,24 @@ import (
 )
 
 type subCRLDistNoURL struct{}
+
+/*******************************************************************************************************
+BRs: 7.1.2.3
+cRLDistributionPoints
+This extension MAY be present. If present, it MUST NOT be marked critical, and it MUST contain the HTTP
+URL of the CA’s CRL service.
+*******************************************************************************************************/
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_sub_cert_crl_distribution_points_does_not_contain_url",
+		Description:   "Subscriber certificate cRLDistributionPoints extension must contain the HTTP URL of the CA’s CRL service",
+		Citation:      "BRs: 7.1.2.3",
+		Source:        lint.CABFBaselineRequirements,
+		EffectiveDate: util.CABEffectiveDate,
+		Lint:          &subCRLDistNoURL{},
+	})
+}
 
 func (l *subCRLDistNoURL) Initialize() error {
 	return nil
@@ -46,15 +57,4 @@ func (l *subCRLDistNoURL) Execute(c *x509.Certificate) *lint.LintResult {
 		}
 	}
 	return &lint.LintResult{Status: lint.Error}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_sub_cert_crl_distribution_points_does_not_contain_url",
-		Description:   "Subscriber certificate cRLDistributionPoints extension must contain the HTTP URL of the CA’s CRL service",
-		Citation:      "BRs: 7.1.2.3",
-		Source:        lint.CABFBaselineRequirements,
-		EffectiveDate: util.CABEffectiveDate,
-		Lint:          &subCRLDistNoURL{},
-	})
 }

@@ -1,7 +1,7 @@
 package rfc
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,14 +14,6 @@ package rfc
  * permissions and limitations under the License.
  */
 
-/*********************************************************************
-CAs conforming to this profile MUST always encode certificate
-validity dates through the year 2049 as UTCTime; certificate validity
-dates in 2050 or later MUST be encoded as GeneralizedTime.
-Conforming applications MUST be able to process validity dates that
-are encoded in either UTCTime or GeneralizedTime.
-*********************************************************************/
-
 import (
 	"encoding/asn1"
 	"time"
@@ -32,6 +24,25 @@ import (
 )
 
 type generalizedPre2050 struct{}
+
+/*********************************************************************
+CAs conforming to this profile MUST always encode certificate
+validity dates through the year 2049 as UTCTime; certificate validity
+dates in 2050 or later MUST be encoded as GeneralizedTime.
+Conforming applications MUST be able to process validity dates that
+are encoded in either UTCTime or GeneralizedTime.
+*********************************************************************/
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "e_wrong_time_format_pre2050",
+		Description:   "Certificates valid through the year 2049 MUST be encoded in UTC time",
+		Citation:      "RFC 5280: 4.1.2.5",
+		Source:        lint.RFC5280,
+		EffectiveDate: util.RFC2459Date,
+		Lint:          &generalizedPre2050{},
+	})
+}
 
 func (l *generalizedPre2050) Initialize() error {
 	return nil
@@ -72,15 +83,4 @@ func (l *generalizedPre2050) Execute(c *x509.Certificate) *lint.LintResult {
 		}
 	}
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "e_wrong_time_format_pre2050",
-		Description:   "Certificates valid through the year 2049 MUST be encoded in UTC time",
-		Citation:      "RFC 5280: 4.1.2.5",
-		Source:        lint.RFC5280,
-		EffectiveDate: util.RFC2459Date,
-		Lint:          &generalizedPre2050{},
-	})
 }

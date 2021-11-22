@@ -1,7 +1,7 @@
 package rfc
 
 /*
- * ZLint Copyright 2020 Regents of the University of Michigan
+ * ZLint Copyright 2021 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,11 +14,6 @@ package rfc
  * permissions and limitations under the License.
  */
 
-/************************************************
-  When the UTF8String encoding is used, all character sequences SHOULD be
-  normalized according to Unicode normalization form C (NFC) [NFC].
-************************************************/
-
 import (
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zlint/v3/lint"
@@ -27,6 +22,22 @@ import (
 )
 
 type ExtCertPolicyExplicitTextNotNFC struct{}
+
+/************************************************
+  When the UTF8String encoding is used, all character sequences SHOULD be
+  normalized according to Unicode normalization form C (NFC) [NFC].
+************************************************/
+
+func init() {
+	lint.RegisterLint(&lint.Lint{
+		Name:          "w_ext_cert_policy_explicit_text_not_nfc",
+		Description:   "When utf8string or bmpstring encoding is used for explicitText field in certificate policy, it SHOULD be normalized by NFC format",
+		Citation:      "RFC6181 3",
+		Source:        lint.RFC5280,
+		EffectiveDate: util.RFC6818Date,
+		Lint:          &ExtCertPolicyExplicitTextNotNFC{},
+	})
+}
 
 func (l *ExtCertPolicyExplicitTextNotNFC) Initialize() error {
 	return nil
@@ -52,15 +63,4 @@ func (l *ExtCertPolicyExplicitTextNotNFC) Execute(c *x509.Certificate) *lint.Lin
 		}
 	}
 	return &lint.LintResult{Status: lint.Pass}
-}
-
-func init() {
-	lint.RegisterLint(&lint.Lint{
-		Name:          "w_ext_cert_policy_explicit_text_not_nfc",
-		Description:   "When utf8string or bmpstring encoding is used for explicitText field in certificate policy, it SHOULD be normalized by NFC format",
-		Citation:      "RFC6181 3",
-		Source:        lint.RFC5280,
-		EffectiveDate: util.RFC6818Date,
-		Lint:          &ExtCertPolicyExplicitTextNotNFC{},
-	})
 }
