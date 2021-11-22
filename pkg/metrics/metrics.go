@@ -1260,6 +1260,7 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 				Namespace: Namespace,
 				Name:      "endpoint_propagation_delay_seconds",
 				Help:      "CiliumEndpoint roundtrip propagation delay in seconds",
+				Buckets:   []float64{.05, .1, 1, 5, 30, 60, 120, 240, 300, 600},
 			}, []string{})
 
 			collectors = append(collectors, EndpointPropagationDelay)
