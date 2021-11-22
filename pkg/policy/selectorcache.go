@@ -493,17 +493,13 @@ func (f *fqdnSelector) allocateIdentityMappings(idAllocator cache.IdentityAlloca
 			"failed to allocate identities for IPs")
 		return
 	}
-	ids = make([]identity.NumericIdentity, 0, len(currentlyAllocatedIdentities))
-	for i := range currentlyAllocatedIdentities {
-		ids = append(ids, currentlyAllocatedIdentities[i].ID)
-	}
 
 	identitiesToRelease := make([]identity.NumericIdentity, 0, len(ids))
-	for _, id := range ids {
-		if _, exists := f.cachedSelections[id]; exists {
-			identitiesToRelease = append(identitiesToRelease, id)
+	for _, id := range currentlyAllocatedIdentities {
+		if _, exists := f.cachedSelections[id.ID]; exists {
+			identitiesToRelease = append(identitiesToRelease, id.ID)
 		}
-		f.cachedSelections[id] = struct{}{}
+		f.cachedSelections[id.ID] = struct{}{}
 	}
 
 	ctx, cancel := context.WithTimeout(context.TODO(), option.Config.KVstoreConnectivityTimeout)
