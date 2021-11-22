@@ -1,3 +1,7 @@
+# v2.0.1 (2021-11-19)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v2.0.0 (2021-11-06)
 
 * **Release**: Endpoint Variant Model Support

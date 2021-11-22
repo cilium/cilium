@@ -1786,7 +1786,8 @@ type FleetReplacementStrategy string
 
 // Enum values for FleetReplacementStrategy
 const (
-	FleetReplacementStrategyLaunch FleetReplacementStrategy = "launch"
+	FleetReplacementStrategyLaunch                FleetReplacementStrategy = "launch"
+	FleetReplacementStrategyLaunchBeforeTerminate FleetReplacementStrategy = "launch-before-terminate"
 )
 
 // Values returns all known values for FleetReplacementStrategy. Note that this can
@@ -1795,6 +1796,7 @@ const (
 func (FleetReplacementStrategy) Values() []FleetReplacementStrategy {
 	return []FleetReplacementStrategy{
 		"launch",
+		"launch-before-terminate",
 	}
 }
 
@@ -1907,6 +1909,28 @@ func (FpgaImageStateCode) Values() []FpgaImageStateCode {
 		"failed",
 		"available",
 		"unavailable",
+	}
+}
+
+type GatewayAssociationState string
+
+// Enum values for GatewayAssociationState
+const (
+	GatewayAssociationStateAssociated     GatewayAssociationState = "associated"
+	GatewayAssociationStateNotAssociated  GatewayAssociationState = "not-associated"
+	GatewayAssociationStateAssociating    GatewayAssociationState = "associating"
+	GatewayAssociationStateDisassociating GatewayAssociationState = "disassociating"
+)
+
+// Values returns all known values for GatewayAssociationState. Note that this can
+// be expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (GatewayAssociationState) Values() []GatewayAssociationState {
+	return []GatewayAssociationState{
+		"associated",
+		"not-associated",
+		"associating",
+		"disassociating",
 	}
 }
 
@@ -2625,6 +2649,15 @@ const (
 	InstanceTypeC6gn8xlarge     InstanceType = "c6gn.8xlarge"
 	InstanceTypeC6gn12xlarge    InstanceType = "c6gn.12xlarge"
 	InstanceTypeC6gn16xlarge    InstanceType = "c6gn.16xlarge"
+	InstanceTypeC6iLarge        InstanceType = "c6i.large"
+	InstanceTypeC6iXlarge       InstanceType = "c6i.xlarge"
+	InstanceTypeC6i2xlarge      InstanceType = "c6i.2xlarge"
+	InstanceTypeC6i4xlarge      InstanceType = "c6i.4xlarge"
+	InstanceTypeC6i8xlarge      InstanceType = "c6i.8xlarge"
+	InstanceTypeC6i12xlarge     InstanceType = "c6i.12xlarge"
+	InstanceTypeC6i16xlarge     InstanceType = "c6i.16xlarge"
+	InstanceTypeC6i24xlarge     InstanceType = "c6i.24xlarge"
+	InstanceTypeC6i32xlarge     InstanceType = "c6i.32xlarge"
 	InstanceTypeCc14xlarge      InstanceType = "cc1.4xlarge"
 	InstanceTypeCc28xlarge      InstanceType = "cc2.8xlarge"
 	InstanceTypeG22xlarge       InstanceType = "g2.2xlarge"
@@ -2819,6 +2852,14 @@ const (
 	InstanceTypeVt13xlarge      InstanceType = "vt1.3xlarge"
 	InstanceTypeVt16xlarge      InstanceType = "vt1.6xlarge"
 	InstanceTypeVt124xlarge     InstanceType = "vt1.24xlarge"
+	InstanceTypeG5Xlarge        InstanceType = "g5.xlarge"
+	InstanceTypeG52xlarge       InstanceType = "g5.2xlarge"
+	InstanceTypeG54xlarge       InstanceType = "g5.4xlarge"
+	InstanceTypeG58xlarge       InstanceType = "g5.8xlarge"
+	InstanceTypeG512xlarge      InstanceType = "g5.12xlarge"
+	InstanceTypeG516xlarge      InstanceType = "g5.16xlarge"
+	InstanceTypeG524xlarge      InstanceType = "g5.24xlarge"
+	InstanceTypeG548xlarge      InstanceType = "g5.48xlarge"
 )
 
 // Values returns all known values for InstanceType. Note that this can be expanded
@@ -3053,6 +3094,15 @@ func (InstanceType) Values() []InstanceType {
 		"c6gn.8xlarge",
 		"c6gn.12xlarge",
 		"c6gn.16xlarge",
+		"c6i.large",
+		"c6i.xlarge",
+		"c6i.2xlarge",
+		"c6i.4xlarge",
+		"c6i.8xlarge",
+		"c6i.12xlarge",
+		"c6i.16xlarge",
+		"c6i.24xlarge",
+		"c6i.32xlarge",
 		"cc1.4xlarge",
 		"cc2.8xlarge",
 		"g2.2xlarge",
@@ -3247,6 +3297,14 @@ func (InstanceType) Values() []InstanceType {
 		"vt1.3xlarge",
 		"vt1.6xlarge",
 		"vt1.24xlarge",
+		"g5.xlarge",
+		"g5.2xlarge",
+		"g5.4xlarge",
+		"g5.8xlarge",
+		"g5.12xlarge",
+		"g5.16xlarge",
+		"g5.24xlarge",
+		"g5.48xlarge",
 	}
 }
 
@@ -4202,7 +4260,8 @@ type ReplacementStrategy string
 
 // Enum values for ReplacementStrategy
 const (
-	ReplacementStrategyLaunch ReplacementStrategy = "launch"
+	ReplacementStrategyLaunch                ReplacementStrategy = "launch"
+	ReplacementStrategyLaunchBeforeTerminate ReplacementStrategy = "launch-before-terminate"
 )
 
 // Values returns all known values for ReplacementStrategy. Note that this can be
@@ -4211,6 +4270,7 @@ const (
 func (ReplacementStrategy) Values() []ReplacementStrategy {
 	return []ReplacementStrategy{
 		"launch",
+		"launch-before-terminate",
 	}
 }
 

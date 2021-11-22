@@ -46,6 +46,10 @@ type ModifySubnetAttributeInput struct {
 	// this value when you specify true for MapCustomerOwnedIpOnLaunch.
 	CustomerOwnedIpv4Pool *string
 
+	// Indicates whether DNS queries made to the Amazon-provided DNS Resolver in this
+	// subnet should return synthetic IPv6 addresses for IPv4-only destinations.
+	EnableDns64 *types.AttributeBooleanValue
+
 	// Specify true to indicate that network interfaces attached to instances created
 	// in the specified subnet should be assigned a customer-owned IPv4 address. When
 	// this value is true, you must specify the customer-owned IP pool using
