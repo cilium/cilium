@@ -29,6 +29,7 @@ jobs:
         with:
           filters: |
             src:
+              - .github/workflows/lint-codeql.yaml
               - '**/*.go'
               - 'go.mod'
               - 'go.sum'
