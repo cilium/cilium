@@ -58,19 +58,18 @@ static __always_inline bool redirect_to_proxy(int verdict, __u8 dir)
 #endif
 
 #ifdef ENABLE_IPV6
-static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
-					    struct ipv6_ct_tuple *tuple,
-					    int l3_off, struct ipv6hdr *ip6,
-					    __u32 *dst_id)
+static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *dst_id)
 {
+	struct ipv6_ct_tuple tuple = {};
 #ifdef ENABLE_ROUTING
 	union macaddr router_mac = NODE_MAC;
 #endif
-	int ret, verdict = 0, l4_off, hdrlen;
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+        int ret, verdict = 0, l3_off = ETH_HLEN, l4_off, hdrlen;
 	struct csum_offset csum_off = {};
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
-	void *data, *data_end;
 	union v6addr *daddr, orig_dip;
 	__u32 tunnel_endpoint = 0;
 	__u8 encrypt_key = 0;
@@ -80,13 +79,30 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
 
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	/* Handle special ICMPv6 messages. This includes echo requests to the
+	 * logical router address, neighbour advertisements to the router.
+	 * All remaining packets are subjected to forwarding into the container.
+	 */
+	if (unlikely(ip6->nexthdr == IPPROTO_ICMPV6)) {
+		if (data + sizeof(*ip6) + ETH_HLEN + sizeof(struct icmp6hdr) > data_end)
+			return DROP_INVALID;
+
+		ret = icmp6_handle(ctx, ETH_HLEN, ip6, METRIC_EGRESS);
+		if (IS_ERR(ret))
+			return ret;
+	}
+
 	if (unlikely(!is_valid_lxc_src_ip(ip6)))
 		return DROP_INVALID_SIP;
 
-	ipv6_addr_copy(&tuple->daddr, (union v6addr *)&ip6->daddr);
-	ipv6_addr_copy(&tuple->saddr, (union v6addr *)&ip6->saddr);
+	tuple.nexthdr = ip6->nexthdr;
+	ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->daddr);
+	ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6->saddr);
 
-	hdrlen = ipv6_hdrlen(ctx, l3_off, &tuple->nexthdr);
+	hdrlen = ipv6_hdrlen(ctx, l3_off, &tuple.nexthdr);
 	if (hdrlen < 0)
 		return hdrlen;
 
@@ -97,7 +113,7 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 		struct lb6_service *svc;
 		struct lb6_key key = {};
 
-		ret = lb6_extract_key(ctx, tuple, l4_off, &key, &csum_off,
+		ret = lb6_extract_key(ctx, &tuple, l4_off, &key, &csum_off,
 				      CT_EGRESS);
 		if (IS_ERR(ret)) {
 			if (ret == DROP_UNKNOWN_L4)
@@ -115,8 +131,8 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 		 */
 		svc = lb6_lookup_service(&key, is_defined(ENABLE_NODEPORT));
 		if (svc) {
-			ret = lb6_local(get_ct_map6(tuple), ctx, l3_off, l4_off,
-					&csum_off, &key, tuple, svc, &ct_state_new);
+			ret = lb6_local(get_ct_map6(&tuple), ctx, l3_off, l4_off,
+					&csum_off, &key, &tuple, svc, &ct_state_new);
 			if (IS_ERR(ret))
 				return ret;
 			hairpin_flow |= ct_state_new.loopback;
@@ -133,7 +149,7 @@ skip_service_lookup:
 	 * logic re-writes the tuple daddr. In "theory" however the assignment
 	 * should be OK to move above goto label.
 	 */
-	ipv6_addr_copy(&orig_dip, (union v6addr *)&tuple->daddr);
+	ipv6_addr_copy(&orig_dip, (union v6addr *)&tuple.daddr);
 
 
 	/* WARNING: ip6 offset check invalidated, revalidate before use */
@@ -143,7 +159,7 @@ skip_service_lookup:
 	 * POLICY_SKIP if the packet is a reply packet to an existing incoming
 	 * connection.
 	 */
-	ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, l4_off, CT_EGRESS,
+	ret = ct_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, CT_EGRESS,
 			 &ct_state, &monitor);
 	if (ret < 0)
 		return ret;
@@ -153,7 +169,7 @@ skip_service_lookup:
 	/* Check it this is return traffic to an ingress proxy. */
 	if ((ret == CT_REPLY || ret == CT_RELATED) && ct_state.proxy_redirect) {
 		/* Stack will do a socket match and deliver locally. */
-		return ctx_redirect_to_proxy6(ctx, tuple, 0, false);
+		return ctx_redirect_to_proxy6(ctx, &tuple, 0, false);
 	}
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -189,12 +205,12 @@ skip_service_lookup:
 	 * within the cluster, it must match policy or be dropped. If it's
 	 * bound for the host/outside, perform the CIDR policy check.
 	 */
-	verdict = policy_can_egress6(ctx, tuple, SECLABEL, *dst_id,
+	verdict = policy_can_egress6(ctx, &tuple, SECLABEL, *dst_id,
 				     &policy_match_type, &audited);
 
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
-		send_policy_verdict_notify(ctx, *dst_id, tuple->dport,
-					   tuple->nexthdr, POLICY_EGRESS, 1,
+		send_policy_verdict_notify(ctx, *dst_id, tuple.dport,
+					   tuple.nexthdr, POLICY_EGRESS, 1,
 					   verdict, policy_match_type, audited);
 		return verdict;
 	}
@@ -203,8 +219,8 @@ skip_policy_enforcement:
 	switch (ret) {
 	case CT_NEW:
 		if (!hairpin_flow)
-			send_policy_verdict_notify(ctx, *dst_id, tuple->dport,
-						   tuple->nexthdr, POLICY_EGRESS, 1,
+			send_policy_verdict_notify(ctx, *dst_id, tuple.dport,
+						   tuple.nexthdr, POLICY_EGRESS, 1,
 						   verdict, policy_match_type, audited);
 ct_recreate6:
 		/* New connection implies that rev_nat_index remains untouched
@@ -213,7 +229,7 @@ ct_recreate6:
 		 * reverse NAT.
 		 */
 		ct_state_new.src_sec_id = SECLABEL;
-		ret = ct_create6(get_ct_map6(tuple), &CT_MAP_ANY6, tuple, ctx,
+		ret = ct_create6(get_ct_map6(&tuple), &CT_MAP_ANY6, &tuple, ctx,
 				 CT_EGRESS, &ct_state_new, verdict > 0);
 		if (IS_ERR(ret))
 			return ret;
@@ -222,8 +238,8 @@ ct_recreate6:
 
 	case CT_REOPENED:
 		if (!hairpin_flow)
-			send_policy_verdict_notify(ctx, *dst_id, tuple->dport,
-						   tuple->nexthdr, POLICY_EGRESS, 1,
+			send_policy_verdict_notify(ctx, *dst_id, tuple.dport,
+						   tuple.nexthdr, POLICY_EGRESS, 1,
 						   verdict, policy_match_type, audited);
 	case CT_ESTABLISHED:
 		/* Did we end up at a stale non-service entry? Recreate if so. */
@@ -244,7 +260,7 @@ ct_recreate6:
 		}
 # ifdef ENABLE_DSR
 		if (ct_state.dsr) {
-			ret = xlate_dsr_v6(ctx, tuple, l4_off);
+			ret = xlate_dsr_v6(ctx, &tuple, l4_off);
 			if (ret != 0)
 				return ret;
 		}
@@ -252,7 +268,7 @@ ct_recreate6:
 #endif /* ENABLE_NODEPORT */
 		if (ct_state.rev_nat_index) {
 			ret = lb6_rev_nat(ctx, l4_off, &csum_off,
-					  ct_state.rev_nat_index, tuple, 0);
+					  ct_state.rev_nat_index, &tuple, 0);
 			if (IS_ERR(ret))
 				return ret;
 
@@ -274,7 +290,7 @@ ct_recreate6:
 		/* Trace the packet before it is forwarded to proxy */
 		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL, 0,
 				  0, 0, reason, monitor);
-		return ctx_redirect_to_proxy6(ctx, tuple, verdict, false);
+		return ctx_redirect_to_proxy6(ctx, &tuple, verdict, false);
 	}
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -412,40 +428,12 @@ encrypt_to_stack:
 	return CTX_ACT_OK;
 }
 
-static __always_inline int handle_ipv6(struct __ctx_buff *ctx, __u32 *dst_id)
-{
-	struct ipv6_ct_tuple tuple = {};
-	void *data, *data_end;
-	struct ipv6hdr *ip6;
-	int ret;
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
-		return DROP_INVALID;
-
-	/* Handle special ICMPv6 messages. This includes echo requests to the
-	 * logical router address, neighbour advertisements to the router.
-	 * All remaining packets are subjected to forwarding into the container.
-	 */
-	if (unlikely(ip6->nexthdr == IPPROTO_ICMPV6)) {
-		if (data + sizeof(*ip6) + ETH_HLEN + sizeof(struct icmp6hdr) > data_end)
-			return DROP_INVALID;
-
-		ret = icmp6_handle(ctx, ETH_HLEN, ip6, METRIC_EGRESS);
-		if (IS_ERR(ret))
-			return ret;
-	}
-
-	/* Perform L3 action on the frame */
-	tuple.nexthdr = ip6->nexthdr;
-	return ipv6_l3_from_lxc(ctx, &tuple, ETH_HLEN, ip6, dst_id);
-}
-
 declare_tailcall_if(__or3(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6),
 			  is_defined(DEBUG)), CILIUM_CALL_IPV6_FROM_LXC)
 int tail_handle_ipv6(struct __ctx_buff *ctx)
 {
 	__u32 dst_id = 0;
-	int ret = handle_ipv6(ctx, &dst_id);
+	int ret = handle_ipv6_from_lxc(ctx, &dst_id);
 
 	if (IS_ERR(ret)) {
 		return send_drop_notify(ctx, SECLABEL, dst_id, 0, ret,
@@ -457,8 +445,7 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
-static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
-						__u32 *dst_id)
+static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *dst_id)
 {
 	struct ipv4_ct_tuple tuple = {};
 #ifdef ENABLE_ROUTING
