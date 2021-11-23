@@ -2924,6 +2924,15 @@ func init() {
                 }
               }
             },
+            "gracefulTermination": {
+              "description": "\n\n+k8s:deepcopy-gen=true",
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
+            },
             "hostPort": {
               "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
@@ -7385,6 +7394,15 @@ func init() {
                 }
               }
             },
+            "gracefulTermination": {
+              "description": "\n\n+k8s:deepcopy-gen=true",
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
+            },
             "hostPort": {
               "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
@@ -7501,6 +7519,15 @@ func init() {
             }
           }
         },
+        "gracefulTermination": {
+          "description": "\n\n+k8s:deepcopy-gen=true",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          }
+        },
         "hostPort": {
           "description": "\n\n+k8s:deepcopy-gen=true",
           "type": "object",
@@ -7578,6 +7605,15 @@ func init() {
       }
     },
     "KubeProxyReplacementFeaturesExternalIPs": {
+      "description": "\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "KubeProxyReplacementFeaturesGracefulTermination": {
       "description": "\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
