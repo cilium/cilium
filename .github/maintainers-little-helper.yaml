@@ -1,36 +1,5 @@
 project: "https://github.com/cilium/cilium/projects/155"
 column: "In progress"
-move-to-projects-for-labels-xored:
-  v1.10:
-    needs-backport/1.10:
-      project: "https://github.com/cilium/cilium/projects/169"
-      column: "Needs backport from master"
-    backport-pending/1.10:
-      project: "https://github.com/cilium/cilium/projects/169"
-      column: "Backport pending to v1.10"
-    backport-done/1.10:
-      project: "https://github.com/cilium/cilium/projects/169"
-      column: "Backport done to v1.10"
-  v1.9:
-    needs-backport/1.9:
-      project: "https://github.com/cilium/cilium/projects/171"
-      column: "Needs backport from master"
-    backport-pending/1.9:
-      project: "https://github.com/cilium/cilium/projects/171"
-      column: "Backport pending to v1.9"
-    backport-done/1.9:
-      project: "https://github.com/cilium/cilium/projects/171"
-      column: "Backport done to v1.9"
-  v1.8:
-    needs-backport/1.8:
-      project: "https://github.com/cilium/cilium/projects/170"
-      column: "Needs backport from master"
-    backport-pending/1.8:
-      project: "https://github.com/cilium/cilium/projects/170"
-      column: "Backport pending to v1.8"
-    backport-done/1.8:
-      project: "https://github.com/cilium/cilium/projects/170"
-      column: "Backport done to v1.8"
 require-msgs-in-commit:
   - msg: "Signed-off-by"
     helper: "https://docs.cilium.io/en/stable/contributing/development/contributing_guide/#developer-s-certificate-of-origin"
@@ -50,73 +19,73 @@ flake-tracker:
     - ci/flake
   jenkins-config:
     jenkins-url: https://jenkins.cilium.io
-    regex-trigger: (^/?test(-me-please)?)
+    regex-trigger: (^/?test-backport-1.11)
     stable-jobs:
-    - cilium-master-gke
-    - cilium-master-k8s-1.16-kernel-net-next
-    - cilium-master-k8s-1.17-kernel-4.9
-    - cilium-master-k8s-1.18-kernel-4.9
-    - cilium-master-k8s-1.19-kernel-4.9
-    - cilium-master-k8s-1.20-kernel-4.9
-    - cilium-master-k8s-1.20-kernel-5.4
-    - cilium-master-k8s-1.21-kernel-4.19
-    - cilium-master-k8s-1.22-kernel-4.9
-    - cilium-master-k8s-upstream
-    - cilium-master-runtime-kernel-net-next
+    - cilium-v1.11-gke
+    - cilium-v1.11-k8s-1.16-kernel-net-next
+    - cilium-v1.11-k8s-1.17-kernel-4.9
+    - cilium-v1.11-k8s-1.18-kernel-4.9
+    - cilium-v1.11-k8s-1.19-kernel-4.9
+    - cilium-v1.11-k8s-1.20-kernel-4.9
+    - cilium-v1.11-k8s-1.20-kernel-5.4
+    - cilium-v1.11-k8s-1.21-kernel-4.19
+    - cilium-v1.11-k8s-1.22-kernel-4.9
+    - cilium-v1.11-k8s-upstream
+    - cilium-v1.11-runtime-kernel-net-next
     pr-jobs:
       Cilium-PR-K8s-1.16-net-next:
         correlate-with-stable-jobs:
-        - cilium-master-k8s-1.16-kernel-net-next
+        - cilium-v1.11-k8s-1.16-kernel-net-next
       Cilium-PR-K8s-1.17-kernel-4.9:
         correlate-with-stable-jobs:
-        - cilium-master-k8s-1.17-kernel-4.9
-        - cilium-master-k8s-1.18-kernel-4.9
-        - cilium-master-k8s-1.19-kernel-4.9
-        - cilium-master-k8s-1.20-kernel-4.9
-        - cilium-master-k8s-1.22-kernel-4.9
+        - cilium-v1.11-k8s-1.17-kernel-4.9
+        - cilium-v1.11-k8s-1.18-kernel-4.9
+        - cilium-v1.11-k8s-1.19-kernel-4.9
+        - cilium-v1.11-k8s-1.20-kernel-4.9
+        - cilium-v1.11-k8s-1.22-kernel-4.9
       Cilium-PR-K8s-1.18-kernel-4.9:
         correlate-with-stable-jobs:
-        - cilium-master-k8s-1.17-kernel-4.9
-        - cilium-master-k8s-1.18-kernel-4.9
-        - cilium-master-k8s-1.19-kernel-4.9
-        - cilium-master-k8s-1.20-kernel-4.9
-        - cilium-master-k8s-1.22-kernel-4.9
+        - cilium-v1.11-k8s-1.17-kernel-4.9
+        - cilium-v1.11-k8s-1.18-kernel-4.9
+        - cilium-v1.11-k8s-1.19-kernel-4.9
+        - cilium-v1.11-k8s-1.20-kernel-4.9
+        - cilium-v1.11-k8s-1.22-kernel-4.9
       Cilium-PR-K8s-1.19-kernel-4.9:
         correlate-with-stable-jobs:
-        - cilium-master-k8s-1.17-kernel-4.9
-        - cilium-master-k8s-1.18-kernel-4.9
-        - cilium-master-k8s-1.19-kernel-4.9
-        - cilium-master-k8s-1.20-kernel-4.9
-        - cilium-master-k8s-1.22-kernel-4.9
+        - cilium-v1.11-k8s-1.17-kernel-4.9
+        - cilium-v1.11-k8s-1.18-kernel-4.9
+        - cilium-v1.11-k8s-1.19-kernel-4.9
+        - cilium-v1.11-k8s-1.20-kernel-4.9
+        - cilium-v1.11-k8s-1.22-kernel-4.9
       Cilium-PR-K8s-1.20-kernel-4.9:
         correlate-with-stable-jobs:
-        - cilium-master-k8s-1.17-kernel-4.9
-        - cilium-master-k8s-1.18-kernel-4.9
-        - cilium-master-k8s-1.19-kernel-4.9
-        - cilium-master-k8s-1.20-kernel-4.9
-        - cilium-master-k8s-1.22-kernel-4.9
+        - cilium-v1.11-k8s-1.17-kernel-4.9
+        - cilium-v1.11-k8s-1.18-kernel-4.9
+        - cilium-v1.11-k8s-1.19-kernel-4.9
+        - cilium-v1.11-k8s-1.20-kernel-4.9
+        - cilium-v1.11-k8s-1.22-kernel-4.9
       Cilium-PR-K8s-1.20-kernel-5.4:
         correlate-with-stable-jobs:
-        - cilium-master-k8s-1.20-kernel-5.4
+        - cilium-v1.11-k8s-1.20-kernel-5.4
       Cilium-PR-K8s-1.21-kernel-4.19:
         correlate-with-stable-jobs:
-        - cilium-master-k8s-1.21-kernel-4.19
+        - cilium-v1.11-k8s-1.21-kernel-4.19
       Cilium-PR-K8s-1.22-kernel-4.9:
         correlate-with-stable-jobs:
-        - cilium-master-k8s-1.17-kernel-4.9
-        - cilium-master-k8s-1.18-kernel-4.9
-        - cilium-master-k8s-1.19-kernel-4.9
-        - cilium-master-k8s-1.20-kernel-4.9
-        - cilium-master-k8s-1.22-kernel-4.9
+        - cilium-v1.11-k8s-1.17-kernel-4.9
+        - cilium-v1.11-k8s-1.18-kernel-4.9
+        - cilium-v1.11-k8s-1.19-kernel-4.9
+        - cilium-v1.11-k8s-1.20-kernel-4.9
+        - cilium-v1.11-k8s-1.22-kernel-4.9
       Cilium-PR-K8s-GKE:
         correlate-with-stable-jobs:
-        - cilium-master-gke
+        - cilium-v1.11-gke
       Cilium-PR-K8s-Upstream:
         correlate-with-stable-jobs:
-        - cilium-master-k8s-upstream
+        - cilium-v1.11-k8s-upstream
       Cilium-PR-Runtime-net-next:
         correlate-with-stable-jobs:
-        - cilium-master-runtime-kernel-net-next
+        - cilium-v1.11-runtime-kernel-net-next
   max-flakes-per-test: 5
   flake-similarity: 0.85
   ignore-failures:

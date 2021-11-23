@@ -8,7 +8,7 @@ on:
       - 'test/**'
   push:
     branches:
-      - master
+      - v1.11
     paths-ignore:
       - 'Documentation/**'
       - 'test/**'
