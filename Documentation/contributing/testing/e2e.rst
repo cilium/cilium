@@ -288,6 +288,31 @@ needing to run the full test, you can build the test directory:
 
     make -C test/ build
 
+Updating Cilium images for Kubernetes tests
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Sometimes when running the CI suite for a feature under development, it's common
+to re-run the CI suite on the CI VMs running on a local development machine after
+applying some changes to Cilium. For this the new Cilium images have to be
+built, and then used by the CI suite. To do so, one can run the following
+commands on the ``k8s1`` VM:
+
+.. code-block:: shell-session
+
+   cd go/src/github.com/cilium/cilium
+
+   make LOCKDEBUG=1 docker-cilium-image
+   docker tag quay.io/cilium/cilium:latest \
+	k8s1:5000/cilium/cilium-dev:latest
+   docker push k8s1:5000/cilium/cilium-dev:latest
+
+   make -B LOCKDEBUG=1 docker-operator-generic-image
+   docker tag quay.io/cilium/operator-generic:latest \
+	k8s1:5000/cilium/operator-generic:latest
+   docker push k8s1:5000/cilium/operator-generic:latest
+
+The commands were adapted from the ``test/provision/compile.sh`` script.
+
 Test Reports
 ~~~~~~~~~~~~
 
