@@ -498,6 +498,15 @@ microk8s: check-microk8s ## Build cilium-dev docker image and import to microk8s
 kind: ## Create a kind cluster for Cilium development.
 	$(QUIET)./contrib/scripts/kind.sh
 
+kind-image: export DOCKER_REGISTRY=localhost:5000
+kind-image: export LOCAL_IMAGE=$(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/cilium-dev:$(LOCAL_IMAGE_TAG)
+kind-image:
+	@$(ECHO_CHECK) kind is ready...
+	@kind get clusters >/dev/null
+	$(QUIET)$(MAKE) dev-docker-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
+	@echo "  DEPLOY image to kind ($(LOCAL_IMAGE))"
+	$(QUIET)kind load docker-image $(LOCAL_IMAGE)
+
 precheck: logging-subsys-field ## Peform build precheck for the source code.
 ifeq ($(SKIP_K8S_CODE_GEN_CHECK),"false")
 	@$(ECHO_CHECK) contrib/scripts/check-k8s-code-gen.sh
