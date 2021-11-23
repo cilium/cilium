@@ -47,7 +47,7 @@ if ! git branch -a | grep -q "${UPSTREAM_REMOTE}/v${BRANCH}$" || [ ! -e "$SUMMAR
     echo "(branch version: ${BRANCH}, pr-summary: ${SUMMARY}, upstream remote: ${UPSTREAM_REMOTE})" 1>&2
     exit 1
 fi
-AUTHORS="$(grep -ho "@[^)]*" "$SUMMARY" | sort -u | tr '\n' ',' | sed -e 's/@//g' -e 's/,$//')"
+AUTHORS="$(grep -ho "@[^)]*" "$SUMMARY" | grep -v "$(get_user)" | sort -u | tr '\n' ',' | sed -e 's/@//g' -e 's/,$//')"
 
 echo -e "Sending PR for branch v$BRANCH:\n" 1>&2
 cat $SUMMARY 1>&2
@@ -55,7 +55,11 @@ echo -e "\nSending pull request..." 2>&1
 PR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 git config --local "branch.${PR_BRANCH}.remote" "$USER_REMOTE"
 git push -q "$USER_REMOTE" "$PR_BRANCH"
-hub pull-request -b "v$BRANCH" -l kind/backports,backport/$BRANCH -F $SUMMARY -r $AUTHORS
+if [ -z "$AUTHORS" ]; then
+  hub pull-request -b "v$BRANCH" -l kind/backports,backport/$BRANCH -F $SUMMARY
+else
+  hub pull-request -b "v$BRANCH" -l kind/backports,backport/$BRANCH -F $SUMMARY -r $AUTHORS
+fi
 
 prs=$(grep "contrib/backporting/set-labels.py" $SUMMARY | sed -e 's/^.*for pr in \([0-9 ]\+\);.*$/\1/g')
 echo -e "\nUpdating labels for PRs $prs\n" 2>&1
