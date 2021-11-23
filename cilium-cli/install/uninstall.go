@@ -81,12 +81,14 @@ func (k *K8sUninstaller) Uninstall(ctx context.Context) error {
 			k.Log("❌ Failed to patch the %q DaemonSet, please remove it's node selector manually", AwsNodeDaemonSetName)
 		}
 	case k8s.KindGKE:
-		k.Log("🔥 Deleting GKE Node Init DaemonSet...")
-		k.client.DeleteDaemonSet(ctx, k.params.Namespace, gkeInitName, metav1.DeleteOptions{})
-
 		k.Log("🔥 Deleting resource quotas...")
 		k.client.DeleteResourceQuota(ctx, k.params.Namespace, defaults.AgentResourceQuota, metav1.DeleteOptions{})
 		k.client.DeleteResourceQuota(ctx, k.params.Namespace, defaults.OperatorResourceQuota, metav1.DeleteOptions{})
+	}
+
+	if _, exists := nodeInitScript[k.flavor.Kind]; exists {
+		k.Log("🔥 Deleting node init daemonset...")
+		k.client.DeleteDaemonSet(ctx, k.params.Namespace, nodeInitName(k.flavor.Kind), metav1.DeleteOptions{})
 	}
 
 	if k.params.Wait {
