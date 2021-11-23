@@ -32,15 +32,20 @@ get_remote () {
   echo "$remote"
 }
 
+get_user() {
+  gh_username=$(hub api user --flat | awk '/.login/ {print $2}')
+  if [ "$gh_username" = "" ]; then
+    echo "Error: could not get user info from hub" 1>&2
+    exit 1
+  fi
+  echo $gh_username
+}
+
 # $1 - override
 get_user_remote() {
   USER_REMOTE=${1:-}
   if [ "$USER_REMOTE" = "" ]; then
-      gh_username=$(hub api user --flat | awk '/.login/ {print $2}')
-      if [ "$gh_username" = "" ]; then
-          echo "Error: could not get user info from hub" 1>&2
-          exit 1
-      fi
+      gh_username=$(get_user)
       USER_REMOTE=$(get_remote "$gh_username")
       echo "Using GitHub repository ${gh_username}/cilium (git remote: ${USER_REMOTE})" 1>&2
   fi
