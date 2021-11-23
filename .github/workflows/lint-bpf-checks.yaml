@@ -5,7 +5,7 @@ on:
   pull_request: {}
   push:
     branches:
-      - master
+      - v1.11
 
 permissions: read-all
 
