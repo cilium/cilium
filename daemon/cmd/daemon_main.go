@@ -1751,10 +1751,13 @@ func runDaemon() {
 		log.WithError(err).Warn("Failed to send agent start monitor message")
 	}
 
-	// clean up all arp PERM entries that might have previously set by
-	// a Cilium instance
 	if !d.datapath.Node().NodeNeighDiscoveryEnabled() {
-		d.datapath.Node().NodeCleanNeighbors()
+		// Clean up all arp PERM entries that might have previously
+		// set by a Cilium instance.
+		d.datapath.Node().NodeCleanNeighbors(false)
+	} else {
+		// Only clean up stale entries that are not relevant anymore.
+		d.datapath.Node().NodeCleanNeighbors(true)
 	}
 	// Start periodical arping to refresh neighbor table
 	if d.datapath.Node().NodeNeighDiscoveryEnabled() && option.Config.ARPPingRefreshPeriod != 0 {

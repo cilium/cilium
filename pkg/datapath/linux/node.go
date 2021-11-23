@@ -1508,7 +1508,7 @@ func (n *linuxNodeHandler) NodeNeighborRefresh(ctx context.Context, nodeToRefres
 // NodeCleanNeighbors cleans all neighbor entries of previously used neighbor
 // discovery link interfaces. It should be used when the agent changes the state
 // from `n.enableNeighDiscovery = true` to `n.enableNeighDiscovery = false`.
-func (n *linuxNodeHandler) NodeCleanNeighbors() {
+func (n *linuxNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
 	linkName, err := loadNeighLink(option.Config.StateDir)
 	if err != nil {
 		log.WithError(err).Error("Unable to load neigh discovery iface name" +
@@ -1555,8 +1555,28 @@ func (n *linuxNodeHandler) NodeCleanNeighbors() {
 		return
 	}
 
+	if migrateOnly {
+		// neighLastPingByNextHop holds v4 neighbors and given we try to
+		// find stale neighbors, we need to check their presence against it.
+		n.neighLock.Lock()
+		defer n.neighLock.Unlock()
+	}
+
 	var successRemoval, errRemoval int
 	for _, neigh := range neighList {
+		// If this is a non-static neighbor entry, it will be GC'ed by
+		// the kernel eventually. Older Cilium versions might have left-
+		// overs installed as NUD_PERMANENT.
+		if neigh.State&netlink.NUD_PERMANENT == 0 &&
+			neigh.Flags&netlink.NTF_EXT_LEARNED == 0 {
+			continue
+		}
+		if migrateOnly {
+			nextHop := neigh.IP.String()
+			if _, found := n.neighLastPingByNextHop[nextHop]; found {
+				continue
+			}
+		}
 		err := netlink.NeighDel(&neigh)
 		if err != nil {
 			log.WithError(err).WithFields(logrus.Fields{

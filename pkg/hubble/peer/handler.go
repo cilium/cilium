@@ -131,7 +131,7 @@ func (h handler) NodeNeighborRefresh(_ context.Context, _ types.Node) {
 	return
 }
 
-func (h handler) NodeCleanNeighbors() {
+func (h handler) NodeCleanNeighbors(migrateOnly bool) {
 	// no-op
 	return
 }

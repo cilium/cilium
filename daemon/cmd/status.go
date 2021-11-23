@@ -496,7 +496,7 @@ func (c *clusterNodesClient) NodeNeighborRefresh(ctx context.Context, node nodeT
 	return
 }
 
-func (c *clusterNodesClient) NodeCleanNeighbors() {
+func (c *clusterNodesClient) NodeCleanNeighbors(migrateOnly bool) {
 	// no-op
 	return
 }
