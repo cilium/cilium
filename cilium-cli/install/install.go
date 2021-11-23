@@ -1349,9 +1349,9 @@ func (k *K8sInstaller) generateConfigMap() (*corev1.ConfigMap, error) {
 		m.Data["enable-bpf-masquerade"] = "false"
 	}
 
-	switch k.flavor.Kind {
-	case k8s.KindGKE:
-		m.Data["gke-node-init-script"] = nodeInitStartupScriptGKE
+	// Put the init script in place (if any).
+	if initScript, exists := nodeInitScript[k.flavor.Kind]; exists {
+		m.Data[nodeInitScriptConfigMapKey(k.flavor.Kind)] = initScript
 	}
 
 	switch k.params.Encryption {
@@ -1649,15 +1649,16 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 		}
 	})
 
-	switch k.flavor.Kind {
-	case k8s.KindGKE:
-		k.Log("🚀 Creating GKE Node Init DaemonSet...")
-		if _, err := k.client.CreateDaemonSet(ctx, k.params.Namespace, k.generateGKEInitDaemonSet(), metav1.CreateOptions{}); err != nil {
+	// Create the node-init daemonset if one is required for the current kind.
+	if _, exists := nodeInitScript[k.flavor.Kind]; exists {
+		k.Log("🚀 Creating %s Node Init DaemonSet...", k.flavor.Kind.String())
+		ds := k.generateNodeInitDaemonSet(k.flavor.Kind)
+		if _, err := k.client.CreateDaemonSet(ctx, k.params.Namespace, ds, metav1.CreateOptions{}); err != nil {
 			return err
 		}
 		k.pushRollbackStep(func(ctx context.Context) {
-			if err := k.client.DeleteDaemonSet(ctx, k.params.Namespace, gkeInitName, metav1.DeleteOptions{}); err != nil {
-				k.Log("Cannot delete %s DaemonSet: %s", gkeInitName, err)
+			if err := k.client.DeleteDaemonSet(ctx, k.params.Namespace, ds.Name, metav1.DeleteOptions{}); err != nil {
+				k.Log("Cannot delete %s DaemonSet: %s", ds.Name, err)
 			}
 		})
 	}
