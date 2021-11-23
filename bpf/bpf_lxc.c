@@ -61,7 +61,7 @@ static __always_inline bool redirect_to_proxy(int verdict, __u8 dir)
 static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 					    struct ipv6_ct_tuple *tuple,
 					    int l3_off, struct ipv6hdr *ip6,
-					    __u32 *dstID)
+					    __u32 *dst_id)
 {
 #ifdef ENABLE_ROUTING
 	union macaddr router_mac = NODE_MAC;
@@ -174,26 +174,26 @@ skip_service_lookup:
 
 		info = lookup_ip6_remote_endpoint(&orig_dip);
 		if (info != NULL && info->sec_label) {
-			*dstID = info->sec_label;
+			*dst_id = info->sec_label;
 			tunnel_endpoint = info->tunnel_endpoint;
 			encrypt_key = get_min_encrypt_key(info->key);
 		} else {
-			*dstID = WORLD_ID;
+			*dst_id = WORLD_ID;
 		}
 
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
-			   orig_dip.p4, *dstID);
+			   orig_dip.p4, *dst_id);
 	}
 
 	/* If the packet is in the establishing direction and it's destined
 	 * within the cluster, it must match policy or be dropped. If it's
 	 * bound for the host/outside, perform the CIDR policy check.
 	 */
-	verdict = policy_can_egress6(ctx, tuple, SECLABEL, *dstID,
+	verdict = policy_can_egress6(ctx, tuple, SECLABEL, *dst_id,
 				     &policy_match_type, &audited);
 
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
-		send_policy_verdict_notify(ctx, *dstID, tuple->dport,
+		send_policy_verdict_notify(ctx, *dst_id, tuple->dport,
 					   tuple->nexthdr, POLICY_EGRESS, 1,
 					   verdict, policy_match_type, audited);
 		return verdict;
@@ -203,7 +203,7 @@ skip_policy_enforcement:
 	switch (ret) {
 	case CT_NEW:
 		if (!hairpin_flow)
-			send_policy_verdict_notify(ctx, *dstID, tuple->dport,
+			send_policy_verdict_notify(ctx, *dst_id, tuple->dport,
 						   tuple->nexthdr, POLICY_EGRESS, 1,
 						   verdict, policy_match_type, audited);
 ct_recreate6:
@@ -222,7 +222,7 @@ ct_recreate6:
 
 	case CT_REOPENED:
 		if (!hairpin_flow)
-			send_policy_verdict_notify(ctx, *dstID, tuple->dport,
+			send_policy_verdict_notify(ctx, *dst_id, tuple->dport,
 						   tuple->nexthdr, POLICY_EGRESS, 1,
 						   verdict, policy_match_type, audited);
 	case CT_ESTABLISHED:
@@ -353,7 +353,7 @@ ct_recreate6:
 #ifdef ENABLE_ROUTING
 to_host:
 	if (is_defined(HOST_REDIRECT_TO_INGRESS) ||
-	    (is_defined(ENABLE_HOST_FIREWALL) && *dstID == HOST_ID)) {
+	    (is_defined(ENABLE_HOST_FIREWALL) && *dst_id == HOST_ID)) {
 		if (is_defined(HOST_REDIRECT_TO_INGRESS)) {
 			union macaddr host_mac = HOST_IFINDEX_MAC;
 
@@ -404,7 +404,7 @@ pass_to_stack:
 #ifdef ENCAP_IFINDEX
 encrypt_to_stack:
 #endif
-	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL, *dstID, 0, 0,
+	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL, *dst_id, 0, 0,
 			  reason, monitor);
 
 	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 0);
@@ -412,7 +412,7 @@ encrypt_to_stack:
 	return CTX_ACT_OK;
 }
 
-static __always_inline int handle_ipv6(struct __ctx_buff *ctx, __u32 *dstID)
+static __always_inline int handle_ipv6(struct __ctx_buff *ctx, __u32 *dst_id)
 {
 	struct ipv6_ct_tuple tuple = {};
 	void *data, *data_end;
@@ -437,18 +437,18 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx, __u32 *dstID)
 
 	/* Perform L3 action on the frame */
 	tuple.nexthdr = ip6->nexthdr;
-	return ipv6_l3_from_lxc(ctx, &tuple, ETH_HLEN, ip6, dstID);
+	return ipv6_l3_from_lxc(ctx, &tuple, ETH_HLEN, ip6, dst_id);
 }
 
 declare_tailcall_if(__or3(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6),
 			  is_defined(DEBUG)), CILIUM_CALL_IPV6_FROM_LXC)
 int tail_handle_ipv6(struct __ctx_buff *ctx)
 {
-	__u32 dstID = 0;
-	int ret = handle_ipv6(ctx, &dstID);
+	__u32 dst_id = 0;
+	int ret = handle_ipv6(ctx, &dst_id);
 
 	if (IS_ERR(ret)) {
-		return send_drop_notify(ctx, SECLABEL, dstID, 0, ret,
+		return send_drop_notify(ctx, SECLABEL, dst_id, 0, ret,
 					CTX_ACT_DROP, METRIC_EGRESS);
 	}
 
@@ -458,7 +458,7 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 
 #ifdef ENABLE_IPV4
 static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
-						__u32 *dstID)
+						__u32 *dst_id)
 {
 	struct ipv4_ct_tuple tuple = {};
 #ifdef ENABLE_ROUTING
@@ -566,26 +566,26 @@ skip_service_lookup:
 
 		info = lookup_ip4_remote_endpoint(orig_dip);
 		if (info != NULL && info->sec_label) {
-			*dstID = info->sec_label;
+			*dst_id = info->sec_label;
 			tunnel_endpoint = info->tunnel_endpoint;
 			encrypt_key = get_min_encrypt_key(info->key);
 		} else {
-			*dstID = WORLD_ID;
+			*dst_id = WORLD_ID;
 		}
 
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
-			   orig_dip, *dstID);
+			   orig_dip, *dst_id);
 	}
 
 	/* If the packet is in the establishing direction and it's destined
 	 * within the cluster, it must match policy or be dropped. If it's
 	 * bound for the host/outside, perform the CIDR policy check.
 	 */
-	verdict = policy_can_egress4(ctx, &tuple, SECLABEL, *dstID,
+	verdict = policy_can_egress4(ctx, &tuple, SECLABEL, *dst_id,
 				     &policy_match_type, &audited);
 
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
-		send_policy_verdict_notify(ctx, *dstID, tuple.dport,
+		send_policy_verdict_notify(ctx, *dst_id, tuple.dport,
 					   tuple.nexthdr, POLICY_EGRESS, 0,
 					   verdict, policy_match_type, audited);
 		return verdict;
@@ -595,7 +595,7 @@ skip_policy_enforcement:
 	switch (ret) {
 	case CT_NEW:
 		if (!hairpin_flow)
-			send_policy_verdict_notify(ctx, *dstID, tuple.dport,
+			send_policy_verdict_notify(ctx, *dst_id, tuple.dport,
 						   tuple.nexthdr, POLICY_EGRESS, 0,
 						   verdict, policy_match_type, audited);
 ct_recreate4:
@@ -616,7 +616,7 @@ ct_recreate4:
 
 	case CT_REOPENED:
 		if (!hairpin_flow)
-			send_policy_verdict_notify(ctx, *dstID, tuple.dport,
+			send_policy_verdict_notify(ctx, *dst_id, tuple.dport,
 						   tuple.nexthdr, POLICY_EGRESS, 0,
 						   verdict, policy_match_type, audited);
 	case CT_ESTABLISHED:
@@ -738,7 +738,7 @@ ct_recreate4:
 #ifdef ENABLE_ROUTING
 to_host:
 	if (is_defined(HOST_REDIRECT_TO_INGRESS) ||
-	    (is_defined(ENABLE_HOST_FIREWALL) && *dstID == HOST_ID)) {
+	    (is_defined(ENABLE_HOST_FIREWALL) && *dst_id == HOST_ID)) {
 		if (is_defined(HOST_REDIRECT_TO_INGRESS)) {
 			union macaddr host_mac = HOST_IFINDEX_MAC;
 
@@ -785,7 +785,7 @@ pass_to_stack:
 #ifdef ENCAP_IFINDEX
 encrypt_to_stack:
 #endif
-	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL, *dstID, 0, 0,
+	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL, *dst_id, 0, 0,
 			  reason, monitor);
 	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 0);
 	return CTX_ACT_OK;
@@ -795,11 +795,11 @@ declare_tailcall_if(__or3(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6),
 			  is_defined(DEBUG)), CILIUM_CALL_IPV4_FROM_LXC)
 int tail_handle_ipv4(struct __ctx_buff *ctx)
 {
-	__u32 dstID = 0;
-	int ret = handle_ipv4_from_lxc(ctx, &dstID);
+	__u32 dst_id = 0;
+	int ret = handle_ipv4_from_lxc(ctx, &dst_id);
 
 	if (IS_ERR(ret))
-		return send_drop_notify(ctx, SECLABEL, dstID, 0, ret,
+		return send_drop_notify(ctx, SECLABEL, dst_id, 0, ret,
 					CTX_ACT_DROP, METRIC_EGRESS);
 
 	return ret;
