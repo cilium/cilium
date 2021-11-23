@@ -322,6 +322,15 @@ Annotations:
   only considers devices that have a global unicast route in some routing table.
 * The XDP-based prefilter is enabled for all devices specified by ``--devices``
   if ``--prefilter-device`` is set.
+* New flags were added to enable installation where alternative VXLAN/Geneve and
+  health ports need to be used (``--tunnel-port`` and ``--cluster-health-port``).
+  Default values of these flags haven't changed, however if ``--tunnel-port`` gets
+  set to non-default values on upgrade, there will datapath downtime between nodes.
+  If ``--tunnel-port`` needs to change, it's recommended to perform the upgrade
+  first, and change the port afterwards, in order to separate agent upgrade from
+  configuration update. Changing ``--cluster-health-port`` will not affect datapath,
+  however it's recommended to still handle configuration change separately from
+  agent upgrade. Changing both ports simultaneously shouldn't cause any issues.
 
 Removed Options
 ~~~~~~~~~~~~~~~
