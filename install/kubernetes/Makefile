@@ -88,27 +88,32 @@ update-versions:
 		# Fix up the container image tags										\
 		cilium_version="v$(VERSION)";											\
 		branch="$$cilium_version";											\
-		hubble_version=$(HUBBLE_UI_VERSION);										\
+		hubble_version_frontend=$(HUBBLE_UI_VERSION);									\
+		hubble_version_backend=$(HUBBLE_UI_BACKEND_VERSION);								\
 		pull_policy="IfNotPresent";											\
-		use_digest="false";											\
+		use_digest="false";												\
 		if echo "$(VERSION)" | grep -q $(LATEST_VERSION_REGEX); then							\
 			cilium_version="latest";										\
 			branch="master";											\
-			hubble_version="latest";										\
+			hubble_version_frontend="latest";									\
+			hubble_version_backend="latest";									\
 			pull_policy="Always";											\
 			use_digest="false";											\
 		elif echo "$(VERSION)" | grep -q $(DEV_VERSION_REGEX); then							\
 			cilium_version="v$(subst -dev,,$(VERSION))";								\
 			branch="$$cilium_version";										\
-			hubble_version="$(HUBBLE_UI_VERSION)";									\
+			hubble_version_frontend="$(HUBBLE_UI_VERSION)";								\
+			hubble_version_backend="$(HUBBLE_UI_BACKEND_VERSION)";							\
 			pull_policy="Always";											\
 			use_digest="false";											\
 		fi;														\
 		sed -i 's;icon:.*;icon: $(LOGO_BASE_URL)/cilium@'$$branch'/$(LOGO_PATH);' $(CHART_FILE);			\
 		# image.tag operator.image.tag preflight.image.tag hubble.relay.image.tag;					\
 		sed -i 's/tag: .*/tag: '$$cilium_version'/g' $(CILIUM_VALUES);							\
-		# hubble.ui.frontend.image.tag hubble.ui.backend.image.tag;							\
-		sed -i '/repository.*hubble-ui.*/{!b;n;s/tag.*/tag: '$$hubble_version'/}' $(CILIUM_VALUES);			\
+		# hubble.ui.frontend.image.tag;											\
+		sed -i '/repository.*hubble-ui.*/{!b;n;s/tag.*/tag: '$$hubble_version_frontend'/}' $(CILIUM_VALUES);	\
+		# hubble.ui.backend.image.tag;							\
+		sed -i '/repository.*hubble-ui-backend.*/{!b;n;s/tag.*/tag: '$$hubble_version_backend'/}' $(CILIUM_VALUES);	\
 		# etcd.image.tag												\
 		sed -i '/repository.*etcd-operator.*/{!b;n;s/tag.*/tag: '$(MANAGED_ETCD_VERSION)'/}' $(CILIUM_VALUES)		\
 		# clustermesh.apiserver.etcd.image.tag										\
