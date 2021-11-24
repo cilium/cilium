@@ -172,30 +172,6 @@ Remove all policies
     cilium policy delete --all
 
 
-Tracing
-~~~~~~~
-
-
-Check policy enforcement between two labels on port 80:
-
-.. code-block:: shell-session
-
-    cilium policy trace -s <app.from> -d <app.to> --dport 80
-
-
-Check policy enforcement between two identities
-
-.. code-block:: shell-session
-
-    cilium policy trace --src-identity <from-id> --dst-identity <to-id>
-
-Check policy enforcement between two pods:
-
-.. code-block:: shell-session
-
-    cilium policy trace --src-k8s-pod <namespace>:<pod.from> --dst-k8s-pod <namespace>:<pod.to>
-
-
 Monitoring
 ~~~~~~~~~~~
 
