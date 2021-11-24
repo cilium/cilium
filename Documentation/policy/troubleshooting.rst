@@ -10,81 +10,6 @@
 Troubleshooting
 ***************
 
-.. _policy_tracing:
-
-Policy Tracing
-==============
-
-If Cilium is allowing / denying connections in a way that is not aligned with the
-intent of your Cilium Network policy, there is an easy way to
-verify if and what policy rules apply between two
-endpoints. We can use the ``cilium policy trace`` to simulate a policy decision 
-between the source and destination endpoints.
-
-We will use the example from the `Identity-Aware and HTTP-Aware Policy Enforcement Guide <https://cilium.readthedocs.io/en/latest/gettingstarted/http/>`_ to trace the policy. In this example, there is:
-
-* ``deathstar`` service identified by labels: ``org=empire, class=deathstar``. The service is backed by two pods.
-* ``tiefighter`` spaceship client pod with labels: ``org=empire, class=tiefighter``
-* ``xwing`` spaceship client pod with labels: ``org=alliance, class=xwing``
-
-An L3/L4 policy is enforced on the ``deathstar`` service to allow access to all spaceships with labels ``org=empire``. With this policy, the ``tiefighter`` access is allowed but ``xwing`` access will be denied. Let's use the ``cilium policy trace`` to simulate the policy decision. The command provides flexibility to run using pod names, labels or Cilium security identities.
-
-.. note::
-
-    If the ``--dport`` option is not specified, then L4 policy will not be
-    consulted in this policy trace command.
-
-    Currently, there is no support for tracing L7 policies via this tool.
-
-.. code-block:: shell-session
-
-    # Policy trace using pod name and service labels
-
-    $ kubectl exec -ti cilium-88k78 -n kube-system -- cilium policy trace --src-k8s-pod default:xwing -d any:class=deathstar,k8s:org=empire,k8s:io.kubernetes.pod.namespace=default --dport 80
-    level=info msg="Waiting for k8s api-server to be ready..." subsys=k8s
-    level=info msg="Connected to k8s api-server" ipAddr="https://10.96.0.1:443" subsys=k8s
-    ----------------------------------------------------------------
-    Tracing From: [k8s:class=xwing, k8s:io.cilium.k8s.policy.serviceaccount=default, k8s:io.kubernetes.pod.namespace=default, k8s:org=alliance] => To: [any:class=deathstar, k8s:org=empire, k8s:io.kubernetes.pod.namespace=default] Ports: [80/ANY]
-    
-    Resolving ingress policy for [any:class=deathstar k8s:org=empire k8s:io.kubernetes.pod.namespace=default]
-    * Rule {"matchLabels":{"any:class":"deathstar","any:org":"empire","k8s:io.kubernetes.pod.namespace":"default"}}: selected
-        Allows from labels {"matchLabels":{"any:org":"empire","k8s:io.kubernetes.pod.namespace":"default"}}
-          Labels [k8s:class=xwing k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.kubernetes.pod.namespace=default k8s:org=alliance] not found
-    1/1 rules selected
-    Found no allow rule
-    Ingress verdict: denied
-
-    Final verdict: DENIED
-
-.. code-block:: shell-session
-
-    $ # Get the Cilium security id
-
-    $ kubectl exec -ti cilium-88k78 -n kube-system -- cilium endpoint list | egrep  'deathstar|xwing|tiefighter'
-    ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])                              IPv6                 IPv4            STATUS   
-               ENFORCEMENT        ENFORCEMENT
-    568        Enabled            Disabled          22133      k8s:class=deathstar                                      f00d::a0f:0:0:238    10.15.65.193    ready   
-    900        Enabled            Disabled          22133      k8s:class=deathstar                                      f00d::a0f:0:0:384    10.15.114.17    ready   
-    33633      Disabled           Disabled          53208      k8s:class=xwing                                          f00d::a0f:0:0:8361   10.15.151.230   ready   
-    38654      Disabled           Disabled          22962      k8s:class=tiefighter                                     f00d::a0f:0:0:96fe   10.15.88.156    ready   
-
-    $ # Policy trace using Cilium security ids
-
-    $ kubectl exec -ti cilium-88k78 -n kube-system -- cilium policy trace --src-identity 53208 --dst-identity 22133  --dport 80
-    ----------------------------------------------------------------
-    Tracing From: [k8s:class=xwing, k8s:io.cilium.k8s.policy.serviceaccount=default, k8s:io.kubernetes.pod.namespace=default, k8s:org=alliance] => To: [any:class=deathstar, k8s:org=empire, k8s:io.kubernetes.pod.namespace=default] Ports: [80/ANY]
-
-    Resolving ingress policy for [any:class=deathstar k8s:org=empire k8s:io.kubernetes.pod.namespace=default]
-    * Rule {"matchLabels":{"any:class":"deathstar","any:org":"empire","k8s:io.kubernetes.pod.namespace":"default"}}: selected
-        Allows from labels {"matchLabels":{"any:org":"empire","k8s:io.kubernetes.pod.namespace":"default"}}
-          Labels [k8s:class=xwing k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.kubernetes.pod.namespace=default k8s:org=alliance] not found
-    1/1 rules selected
-    Found no allow rule
-    Ingress verdict: denied
-
-    Final verdict: DENIED
-    
-
 Policy Rule to Endpoint Mapping
 ===============================
 
@@ -270,7 +195,3 @@ the state of applying FQDN policy in multiple layers of the daemon:
       # cilium identity list | grep -A 1 104.244.42.194
       16777220   cidr:104.244.42.194/32
                  reserved:world
-
-#. Given the identity of the traffic that should be allowed, the regular
-   :ref:`policy_tracing` steps can be used to validate that the policy is
-   calculated correctly.

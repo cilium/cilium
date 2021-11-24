@@ -25,7 +25,6 @@ Manage security policies
 * [cilium policy get](../cilium_policy_get)	 - Display policy node information
 * [cilium policy import](../cilium_policy_import)	 - Import security policy in JSON format
 * [cilium policy selectors](../cilium_policy_selectors)	 - Display cached information about selectors
-* [cilium policy trace](../cilium_policy_trace)	 - Trace a policy decision
 * [cilium policy validate](../cilium_policy_validate)	 - Validate a policy
 * [cilium policy wait](../cilium_policy_wait)	 - Wait for all endpoints to have updated to a given policy revision
 
