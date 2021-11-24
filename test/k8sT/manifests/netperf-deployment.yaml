@@ -36,4 +36,4 @@ spec:
   ports:
   - port: 12865
   selector:
-    name: netperf-server
+    id: netperf-server
