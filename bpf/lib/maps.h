@@ -187,12 +187,12 @@ struct bpf_elf_map __section_maps ENCRYPT_MAP = {
 };
 
 #ifdef ENABLE_EGRESS_GATEWAY
-struct bpf_elf_map __section_maps EGRESS_MAP = {
+struct bpf_elf_map __section_maps EGRESS_POLICY_MAP = {
 	.type		= LPM_MAP_TYPE,
-	.size_key	= sizeof(struct egress_key),
-	.size_value	= sizeof(struct egress_info),
+	.size_key	= sizeof(struct egress_gw_policy_key),
+	.size_value	= sizeof(struct egress_gw_policy_entry),
 	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= EGRESS_MAP_SIZE,
+	.max_elem	= EGRESS_POLICY_MAP_SIZE,
 	.flags		= BPF_F_NO_PREALLOC,
 };
 #endif /* ENABLE_EGRESS_GATEWAY */
