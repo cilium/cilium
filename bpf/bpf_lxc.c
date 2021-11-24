@@ -41,6 +41,10 @@
 #include "lib/nodeport.h"
 #include "lib/policy_log.h"
 
+#ifndef ENABLE_HOST_SERVICES_FULL
+#define ENABLE_PER_PACKET_LB
+#endif
+
 #if defined(ENABLE_ARP_PASSTHROUGH) && defined(ENABLE_ARP_RESPONDER)
 #error "Either ENABLE_ARP_PASSTHROUGH or ENABLE_ARP_RESPONDER can be defined"
 #endif
@@ -88,7 +92,7 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 
 	l4_off = l3_off + hdrlen;
 
-#ifndef ENABLE_HOST_SERVICES_FULL
+#ifdef ENABLE_PER_PACKET_LB
 	{
 		struct lb6_service *svc;
 		struct lb6_key key = {};
@@ -120,7 +124,7 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 	}
 
 skip_service_lookup:
-#endif /* !ENABLE_HOST_SERVICES_FULL */
+#endif /* ENABLE_PER_PACKET_LB */
 
 	/* The verifier wants to see this assignment here in case the above goto
 	 * skip_service_lookup is hit. However, in the case the packet
@@ -490,7 +494,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 
 	l4_off = l3_off + ipv4_hdrlen(ip4);
 
-#ifndef ENABLE_HOST_SERVICES_FULL
+#ifdef ENABLE_PER_PACKET_LB
 	{
 		struct lb4_service *svc;
 		struct lb4_key key = {};
@@ -516,7 +520,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 	}
 
 skip_service_lookup:
-#endif /* !ENABLE_HOST_SERVICES_FULL */
+#endif /* ENABLE_PER_PACKET_LB */
 
 	/* The verifier wants to see this assignment here in case the above goto
 	 * skip_service_lookup is hit. However, in the case the packet
@@ -1212,7 +1216,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 			return ret2;
 	}
 
-#if !defined(ENABLE_HOST_SERVICES_FULL) && !defined(DISABLE_LOOPBACK_LB)
+#if defined(ENABLE_PER_PACKET_LB) && !defined(DISABLE_LOOPBACK_LB)
 	/* When an endpoint connects to itself via service clusterIP, we need
 	 * to skip the policy enforcement. If we didn't, the user would have to
 	 * define policy rules to allow pods to talk to themselves. We still
@@ -1221,7 +1225,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	 */
 	if (unlikely(ct_state.loopback))
 		goto skip_policy_enforcement;
-#endif /* !ENABLE_HOST_SERVICES_FULL && !DISABLE_LOOPBACK_LB */
+#endif /* ENABLE_PER_PACKET_LB && !DISABLE_LOOPBACK_LB */
 
 	verdict = policy_can_access_ingress(ctx, src_label, SECLABEL,
 					    tuple.dport, tuple.nexthdr,
@@ -1247,7 +1251,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 					   verdict, policy_match_type, audited);
 	}
 
-#if !defined(ENABLE_HOST_SERVICES_FULL) && !defined(DISABLE_LOOPBACK_LB)
+#if defined(ENABLE_PER_PACKET_LB) && !defined(DISABLE_LOOPBACK_LB)
 skip_policy_enforcement:
 #endif /* !ENABLE_HOST_SERVICES_FULL && !DISABLE_LOOPBACK_LB */
 
