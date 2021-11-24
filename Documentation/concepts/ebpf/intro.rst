@@ -45,19 +45,6 @@ hook see :ref:`bpf_guide`.
   attached to the tc ingress hook as well Cilium can monitor and enforce
   policy on all traffic entering or exiting the node.
 
-  Depending on the use case, containers may also be connected through ipvlan
-  devices instead of a veth pair. In this mode, the physical device in the
-  host is the ipvlan master where virtual ipvlan devices in slave mode are
-  set up inside the container. One of the benefits of ipvlan over a veth pair
-  is that the stack requires less resources to push the packet into the
-  ipvlan slave device of the other network namespace and therefore may
-  achieve better latency results. This option can be used for unprivileged
-  containers. The BPF programs for tc are then attached to the tc egress
-  hook on the ipvlan slave device inside the container's network namespace
-  in order to have Cilium apply L3/L4 endpoint policy, for example, combined
-  with another BPF program running on the tc ingress hook of the ipvlan master
-  such that also incoming traffic on the node can be enforced.
-
 * **Socket operations:** The socket operations hook is attached to a specific
   cgroup and runs on TCP events. Cilium attaches a BPF socket operations
   program to the root cgroup and uses this to monitor for TCP state transitions,
