@@ -63,7 +63,6 @@ following label sources are currently supported:
 
 - ``container:`` for labels derived from the local container runtime
 - ``k8s:`` for labels derived from Kubernetes
-- ``mesos:`` for labels derived from Mesos
 - ``reserved:`` for special reserved labels, see :ref:`reserved_labels`.
 - ``unspec:`` for labels with unspecified source
 
@@ -121,8 +120,6 @@ currently supported:
 | System              | Description                                       |
 +=====================+===================================================+
 | Kubernetes          | Pod labels (via k8s API)                          |
-+---------------------+---------------------------------------------------+
-| Mesos               | Labels (via CNI)                                  |
 +---------------------+---------------------------------------------------+
 | containerd (Docker) | Container labels (via Docker API)                 |
 +---------------------+---------------------------------------------------+
