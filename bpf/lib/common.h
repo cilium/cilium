@@ -294,15 +294,15 @@ struct metrics_value {
 	__u64	bytes;
 };
 
-struct egress_key {
+struct egress_gw_policy_key {
 	struct bpf_lpm_trie_key lpm_key;
-	__u32 sip;
-	__u32 dip;
+	__u32 saddr;
+	__u32 daddr;
 };
 
-struct egress_info {
+struct egress_gw_policy_entry {
 	__u32 egress_ip;
-	__u32 tunnel_endpoint;
+	__u32 gateway_ip;
 };
 
 enum {
