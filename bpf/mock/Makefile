@@ -22,13 +22,13 @@ check_helper_headers: generate_helper_headers mock_helpers
 	# Generate temp headers from lib/helpers.h, lib/helpers_skb.h and lib/helpers_xdp.h.
 	# Compare them to the headers within the current directory.
 	# The temp headers are removed after finishing.
-	rm -r mocks;
+	$(QUIET)rm -r mocks;
 
 generate_helper_headers:
 	# Auto-generate helpers.h, helpers_skb.h, and helpers_xdp.h.
 	# Take contents from bpf/helpers.h, bpf/helpers_skb.h and bpf/helpers_xdp.h.
 	# Prune to be ready to mock and save to the current directory.
-	mkdir -p mocks; \
+	$(QUIET)mkdir -p mocks; \
 	sed -f helpers.sed ../include/bpf/helpers.h > mocks/helpers.h; \
 	sed -f helpers_skb.sed ../include/bpf/helpers_skb.h > mocks/helpers_skb.h; \
 	sed -f helpers_xdp.sed ../include/bpf/helpers_xdp.h > mocks/helpers_xdp.h;
