@@ -1181,7 +1181,7 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 		 *    IPV4_SNAT_EXCLUSION_DST_CIDR check.
 		 */
 		if (!ep || !identity_is_remote_node(info->sec_label)) {
-			struct egress_info *einfo;
+			struct egress_gw_policy_entry *egress_gw_policy;
 
 			/* Check if SNAT needs to be applied to the packet.
 			 * Apply SNAT if there is an egress rule in ebpf map,
@@ -1190,9 +1190,9 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 			 * interface it means it is forwarded to another node,
 			 * instead of leaving the cluster.
 			 */
-			einfo = lookup_ip4_egress_endpoint(ip4->saddr, ip4->daddr);
-			if (einfo) {
-				*addr = einfo->egress_ip;
+			egress_gw_policy = lookup_ip4_egress_gw_policy(ip4->saddr, ip4->daddr);
+			if (egress_gw_policy) {
+				*addr = egress_gw_policy->egress_ip;
 				*from_endpoint = true;
 				return true;
 			}
@@ -1915,10 +1915,10 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 	 * via the tunnel.
 	 */
 	{
-		struct egress_info *einfo;
+		struct egress_gw_policy_entry *egress_policy;
 
-		einfo = lookup_ip4_egress_endpoint(ip4->daddr, ip4->saddr);
-		if (einfo) {
+		egress_policy = lookup_ip4_egress_gw_policy(ip4->daddr, ip4->saddr);
+		if (egress_policy) {
 			struct remote_endpoint_info *info;
 
 			info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);

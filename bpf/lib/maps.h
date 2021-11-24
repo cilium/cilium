@@ -190,12 +190,12 @@ struct {
 #ifdef ENABLE_EGRESS_GATEWAY
 struct {
 	__uint(type, LPM_MAP_TYPE);
-	__type(key, struct egress_key);
-	__type(value, struct egress_info);
+	__type(key, struct egress_gw_policy_key);
+	__type(value, struct egress_gw_policy_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, EGRESS_MAP_SIZE);
+	__uint(max_entries, EGRESS_POLICY_MAP_SIZE);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
-} EGRESS_MAP __section_maps_btf;
+} EGRESS_POLICY_MAP __section_maps_btf;
 
 #endif /* ENABLE_EGRESS_GATEWAY */
 
