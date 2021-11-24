@@ -287,7 +287,7 @@ func (dm *DeviceManager) updateDevicesFromRoutes(l3DevOK bool, routes []netlink.
 // expandDevices expands all wildcard device names to concrete devices.
 // e.g. device "eth+" expands to "eth0,eth1" etc. Non-matching wildcards are ignored.
 func expandDevices() error {
-	expandedDevices, err := expand(option.Config.Devices)
+	expandedDevices, err := expandDeviceWildcards(option.Config.Devices, option.Devices)
 	if err != nil {
 		return err
 	}
@@ -300,7 +300,7 @@ func expandDirectRoutingDevice() error {
 	if option.Config.DirectRoutingDevice == "" {
 		return nil
 	}
-	expandedDevices, err := expand([]string{option.Config.DirectRoutingDevice})
+	expandedDevices, err := expandDeviceWildcards([]string{option.Config.DirectRoutingDevice}, option.DirectRoutingDevice)
 	if err != nil {
 		return err
 	}
@@ -308,7 +308,7 @@ func expandDirectRoutingDevice() error {
 	return nil
 }
 
-func expand(devices []string) ([]string, error) {
+func expandDeviceWildcards(devices []string, option string) ([]string, error) {
 	allLinks, err := netlink.LinkList()
 	if err != nil {
 		return nil, fmt.Errorf("Device wildcard expansion failed to fetch devices: %w", err)
@@ -331,7 +331,7 @@ func expand(devices []string) ([]string, error) {
 		// User defined devices, but expansion yielded no devices. Fail here to not
 		// surprise with auto-detection.
 		return nil, fmt.Errorf("Device wildcard expansion failed to detect devices. Please verify --%s option.",
-			devices)
+			option)
 	}
 
 	expandedDevices := make([]string, 0, len(expandedDevicesMap))
