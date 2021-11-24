@@ -286,7 +286,7 @@
      - string
      - ``"/var/run/cilium"``
    * - datapathMode
-     - Configure which datapath mode should be used for configuring container connectivity. Valid options are "veth" or "ipvlan".
+     - Configure which datapath mode should be used for configuring container connectivity. Valid options are "veth" or "ipvlan". Deprecated, to be removed in v1.12.
      - string
      - ``"veth"``
    * - debug.enabled
@@ -890,7 +890,7 @@
      - bool
      - ``false``
    * - ipvlan.enabled
-     - Enable the IPVLAN datapath
+     - Enable the IPVLAN datapath (deprecated)
      - bool
      - ``false``
    * - k8s

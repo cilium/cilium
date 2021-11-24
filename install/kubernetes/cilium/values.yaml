@@ -383,7 +383,8 @@ customCalls:
   enabled: false
 
 # -- Configure which datapath mode should be used for configuring container
-# connectivity. Valid options are "veth" or "ipvlan".
+# connectivity. Valid options are "veth" or "ipvlan". Deprecated, to be removed
+# in v1.12.
 datapathMode: veth
 
 daemon:
@@ -957,7 +958,7 @@ ipv6:
   enabled: false
 
 ipvlan:
-  # -- Enable the IPVLAN datapath
+  # -- Enable the IPVLAN datapath (deprecated)
   enabled: false
 
   # -- masterDevice is the name of the device to use to attach secondary IPVLAN
