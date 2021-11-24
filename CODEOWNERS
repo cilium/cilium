@@ -57,7 +57,6 @@ Makefile* @cilium/build
 /contrib/ @cilium/contributing
 /contrib/packaging/ @cilium/build
 /contrib/vagrant/ @cilium/contributing
-/contrib/checkpatch/ @cilium/bpf
 /contrib/coccinelle/ @cilium/bpf
 /daemon/ @cilium/agent
 /daemon/cmd/datapath.go @cilium/bpf
@@ -83,9 +82,7 @@ Makefile* @cilium/build
 /Documentation/check-crd-compat-table.sh @cilium/docs-structure
 /Documentation/check-examples.sh @cilium/docs-structure
 /Documentation/check-helmvalues.sh @cilium/docs-structure
-/Documentation/cilium_operator.rst @cilium/operator
 /Documentation/cmdref/ @cilium/nonexistantteam
-/Documentation/commit-access.rst @cilium/contributing @cilium/docs-structure
 /Documentation/community.rst @cilium/contributing
 /Documentation/concepts/ebpf/ @cilium/bpf @cilium/docs-structure
 /Documentation/concepts/index.rst @cilium/docs-structure
@@ -99,6 +96,7 @@ Makefile* @cilium/build
 /Documentation/conf.py @cilium/docs-structure
 /Documentation/configuration/index.rst @cilium/docs-structure
 /Documentation/contributing/ @cilium/contributing @cilium/docs-structure
+/Documentation/contributing/governance/commit_access.rst @cilium/contributing @cilium/docs-structure
 /Documentation/Dockerfile @cilium/docs-structure
 /Documentation/gettinghelp.rst @cilium/contributing @cilium/docs-structure
 /Documentation/gettingstarted/alibabacloud* @cilium/alibabacloud @cilium/docs-structure
@@ -106,7 +104,6 @@ Makefile* @cilium/build
 /Documentation/gettingstarted/bandwidth-manager.rst @cilium/bpf @cilium/docs-structure
 /Documentation/gettingstarted/cni-chaining-aws-cni.rst @cilium/aws @cilium/docs-structure
 /Documentation/gettingstarted/cni-chaining-azure-cni.rst @cilium/azure @cilium/docs-structure
-/Documentation/gettingstarted/docker.rst @cilium/docker @cilium/docs-structure
 /Documentation/gettingstarted/http.rst @cilium/policy @cilium/docs-structure
 /Documentation/gettingstarted/hubble* @cilium/hubble @cilium/docs-structure
 /Documentation/gettingstarted/index.rst @cilium/docs-structure
@@ -115,9 +112,11 @@ Makefile* @cilium/build
 /Documentation/gettingstarted/kubeproxy-free.rst @cilium/loadbalancer @cilium/docs-structure
 /Documentation/gettingstarted/policy-creation.rst @cilium/policy @cilium/docs-structure
 /Documentation/glossary.rst @cilium/docs-structure
-/Documentation/hubble.rst @cilium/hubble @cilium/docs-structure
 /Documentation/images/re-request-review.png @cilium/contributing @cilium/docs-structure
 /Documentation/index.rst @cilium/docs-structure
+/Documentation/internals/index.rst @cilium/docs-structure
+/Documentation/internals/cilium_operator.rst @cilium/operator @cilium/docs-structure
+/Documentation/internals/hubble.rst @cilium/hubble @cilium/docs-structure
 /Documentation/intro.rst @cilium/docs-structure
 /Documentation/images/bpf* @cilium/bpf @cilium/docs-structure
 /Documentation/images/hubble_getflows.png @cilium/hubble @cilium/docs-structure
@@ -132,7 +131,6 @@ Makefile* @cilium/build
 /Documentation/yaml.config @cilium/docs-structure
 /envoy/ @cilium/proxy
 /examples/ @cilium/docs-structure
-/pkg/k8s/apis/cilium.io/v2/client/crds/ @cilium/kubernetes
 /examples/kubernetes/ @cilium/kubernetes
 /examples/minikube/ @cilium/kubernetes
 *.Jenkinsfile @cilium/ci-structure
@@ -141,7 +139,6 @@ Makefile* @cilium/build
 /install/kubernetes/ @cilium/kubernetes @cilium/helm
 /install/kubernetes/cilium/templates/hubble* @cilium/kubernetes @cilium/helm @cilium/hubble
 jenkinsfiles @cilium/ci-structure
-Jenkinsfile.nightly @cilium/ci-structure
 /operator/ @cilium/operator
 /pkg/annotation @cilium/kubernetes
 /pkg/alibabacloud/ @cilium/alibabacloud
@@ -184,6 +181,7 @@ Jenkinsfile.nightly @cilium/ci-structure
 /pkg/ipcache/ @cilium/ipcache
 /pkg/ipmasq @cilium/agent
 /pkg/k8s/ @cilium/kubernetes
+/pkg/k8s/apis/cilium.io/client/crds/v2/ @cilium/kubernetes
 /pkg/k8s/apis/cilium.io/v2/ @cilium/api @cilium/kubernetes
 /pkg/k8s/client/clientset/versioned/ @cilium/api
 /pkg/k8s/client/informers/ @cilium/api
