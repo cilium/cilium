@@ -127,7 +127,6 @@ Makefile* @cilium/build
 /Documentation/policy/ @cilium/policy @cilium/docs-structure
 /Documentation/requirements.txt @cilium/docs-structure
 /Documentation/spelling_wordlist.txt @cilium/docs-structure
-/Documentation/tech-preview.rst @cilium/docs-structure
 /Documentation/update-cmdref.sh @cilium/docs-structure
 /Documentation/update-spelling_wordlist.sh @cilium/docs-structure
 /Documentation/yaml.config @cilium/docs-structure

@@ -292,6 +292,7 @@ func initializeFlags() {
 
 	flags.StringP(option.IpvlanMasterDevice, "", "undefined", "Device facing external network acting as ipvlan master")
 	option.BindEnv(option.IpvlanMasterDevice)
+	flags.MarkDeprecated(option.IpvlanMasterDevice, "This option will be removed in v1.12")
 
 	flags.Bool(option.DisableConntrack, false, "Disable connection tracking")
 	option.BindEnv(option.DisableConntrack)
