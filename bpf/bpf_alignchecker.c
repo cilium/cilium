@@ -86,8 +86,8 @@ int main(void)
 	DECLARE(struct, lb6_src_range_key, iter);
 	DECLARE(struct, edt_id, iter);
 	DECLARE(struct, edt_info, iter);
-	DECLARE(struct, egress_key, iter);
-	DECLARE(struct, egress_info, iter);
+	DECLARE(struct, egress_gw_policy_key, iter);
+	DECLARE(struct, egress_gw_policy_entry, iter);
 	DECLARE(struct, capture4_wcard, iter);
 	DECLARE(struct, capture6_wcard, iter);
 	DECLARE(struct, capture_rule, iter);
