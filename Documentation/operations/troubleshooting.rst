@@ -437,6 +437,32 @@ If pod networking is not managed by Cilium. Ingress and egress policy rules
 selecting the respective pods will not be applied. See the section
 :ref:`network_policy` for more details.
 
+For a quick assessment of whether any pods are not managed by Cilium, the
+`Cilium CLI <https://github.com/cilium/cilium-cli>`_ will print the number
+of managed pods. If this prints that all of the pods are managed by Cilium,
+then there is no problem:
+
+.. code-block:: shell-session
+
+   $ cilium status
+       /¯¯\
+    /¯¯\__/¯¯\    Cilium:         OK
+    \__/¯¯\__/    Operator:       OK
+    /¯¯\__/¯¯\    Hubble:         OK
+    \__/¯¯\__/    ClusterMesh:    disabled
+       \__/
+
+   Deployment        cilium-operator    Desired: 2, Ready: 2/2, Available: 2/2
+   Deployment        hubble-relay       Desired: 1, Ready: 1/1, Available: 1/1
+   Deployment        hubble-ui          Desired: 1, Ready: 1/1, Available: 1/1
+   DaemonSet         cilium             Desired: 2, Ready: 2/2, Available: 2/2
+   Containers:       cilium-operator    Running: 2
+                     hubble-relay       Running: 1
+                     hubble-ui          Running: 1
+                     cilium             Running: 2
+   Cluster Pods:     5/5 managed by Cilium
+   ...
+
 You can run the following script to list the pods which are *not* managed by
 Cilium:
 
