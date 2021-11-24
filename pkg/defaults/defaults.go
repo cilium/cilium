@@ -350,11 +350,11 @@ const (
 
 	// IPAMPodCIDRAllocationThreshold is the default value for
 	// CiliumNode.Spec.IPAM.PodCIDRAllocationThreshold if no value is set
-	IPAMPodCIDRAllocationThreshold = 8
+	IPAMPodCIDRAllocationThreshold = 4
 
 	// IPAMPodCIDRReleaseThreshold is the default value for
 	// CiliumNode.Spec.IPAM.PodCIDRReleaseThreshold if no value is set
-	IPAMPodCIDRReleaseThreshold = 16
+	IPAMPodCIDRReleaseThreshold = 8
 
 	// AutoCreateCiliumNodeResource enables automatic creation of a
 	// CiliumNode resource for the local node
