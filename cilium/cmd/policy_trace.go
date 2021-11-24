@@ -43,6 +43,7 @@ SOURCE:KEY[=VALUE].
 dports can be can be for example: 80/tcp, 53 or 23/udp.
 If multiple sources and / or destinations are provided, each source is tested whether there is a policy allowing traffic between it and each destination.
 --src-k8s-pod and --dst-k8s-pod requires cilium-agent to be running with disable-endpoint-crd option set to "false".`,
+	Deprecated: "the output is not correct for all policy types. Consider instead using https://app.networkpolicy.io\n",
 	Run: func(cmd *cobra.Command, args []string) {
 
 		srcSlices := [][]string{}
@@ -161,6 +162,8 @@ If multiple sources and / or destinations are provided, each source is tested wh
 				}
 			}
 		}
+
+		fmt.Fprintf(os.Stderr, "\nWarning: Due to changes to the internal policy handling in Cilium, the above output may be incorrect in some cases. This command has been deprecated and is planned for removal in a future Cilium release.\n")
 	},
 }
 

@@ -159,10 +159,6 @@ tooling to provide:
   the full label information of both the sender and receiver among a lot of
   other information.
 
-- Policy decision tracing: Why is a packet being dropped or a request rejected.
-  The policy tracing framework allows to trace the policy decision process for
-  both, running workloads and based on arbitrary label definitions.
-
 - Metrics export via Prometheus: Key metrics are exported via Prometheus for
   integration with your existing dashboards.
 
