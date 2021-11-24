@@ -542,7 +542,8 @@ func (c *crdWatcher) restoreFinished() {
 
 	// creating a new controller will execute DoFunc immediately
 	c.controller.UpdateController(clusterPoolStatusControllerName, controller.ControllerParams{
-		DoFunc: c.updateCiliumNodeStatus,
+		DoFunc:      c.updateCiliumNodeStatus,
+		RunInterval: 5 * time.Second, // FIXME: Release trigger
 	})
 	c.finishedRestore = true
 }
