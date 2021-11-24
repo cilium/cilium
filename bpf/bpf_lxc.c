@@ -793,7 +793,7 @@ ct_recreate4:
 
 #ifdef ENABLE_EGRESS_GATEWAY
 	{
-		struct egress_info *info;
+		struct egress_gw_policy_entry *egress_gw_policy;
 		struct endpoint_key key = {};
 
 		if (is_cluster_destination(ip4, *dstID, tunnel_endpoint))
@@ -807,8 +807,8 @@ ct_recreate4:
 		if (ct_ret == CT_REPLY || ct_ret == CT_RELATED)
 			goto skip_egress_gateway;
 
-		info = lookup_ip4_egress_endpoint(ip4->saddr, ip4->daddr);
-		if (!info)
+		egress_gw_policy = lookup_ip4_egress_gw_policy(ip4->saddr, ip4->daddr);
+		if (!egress_gw_policy)
 			goto skip_egress_gateway;
 
 		/* Encap and redirect the packet to egress gateway node through a tunnel.
@@ -816,7 +816,7 @@ ct_recreate4:
 		 * path to be consistent. In future, it can be optimized by directly
 		 * direct to external interface.
 		 */
-		ret = encap_and_redirect_lxc(ctx, info->tunnel_endpoint, encrypt_key,
+		ret = encap_and_redirect_lxc(ctx, egress_gw_policy->gateway_ip, encrypt_key,
 					     &key, SECLABEL, monitor);
 		if (ret == IPSEC_ENDPOINT)
 			goto encrypt_to_stack;
