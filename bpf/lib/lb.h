@@ -1464,4 +1464,31 @@ drop_no_service:
 	return DROP_NO_SERVICE;
 }
 #endif /* ENABLE_IPV4 */
+
+/* lb_ctx_store_state() stores per packet load balancing state to be picked
+ * up on the continuation tail call.
+ */
+static __always_inline void lb_ctx_store_state(struct __ctx_buff *ctx,
+					       const struct ct_state *state)
+{
+	ctx_store_meta(ctx, CB_BACKEND_ID, state->backend_id);
+	ctx_store_meta(ctx, CB_CT_STATE, (__u32)state->rev_nat_index << 16 | state->loopback);
+}
+
+/* lb_ctx_restore_state() restores per packet load balancing state from the
+ * previous tail call.
+ */
+static __always_inline void lb_ctx_restore_state(struct __ctx_buff *ctx,
+						 struct ct_state *state)
+{
+	__u32 meta = ctx_load_meta(ctx, CB_CT_STATE);
+
+	state->rev_nat_index = meta >> 16;
+	state->loopback = meta & 1;
+
+	state->backend_id = ctx_load_meta(ctx, CB_BACKEND_ID);
+	/* must clear to avoid policy bypass as CB_BACKEND_ID aliases CB_POLICY. */
+	ctx_store_meta(ctx, CB_BACKEND_ID, 0);
+}
+
 #endif /* __LB_H_ */
