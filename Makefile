@@ -488,11 +488,11 @@ check-microk8s: ## Validate if microk8s is ready to install cilium.
 		|| (echo "Error: Microk8s is not running" && exit 1)
 
 LOCAL_IMAGE_TAG=local
-LOCAL_IMAGE=localhost:32000/$(DOCKER_DEV_ACCOUNT)/cilium-dev:$(LOCAL_IMAGE_TAG)
-microk8s: check-microk8s ## Build cilium-dev docker image and import to mircrok8s
+microk8s: export DOCKER_REGISTRY=localhost:32000
+microk8s: export LOCAL_IMAGE=$(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/cilium-dev:$(LOCAL_IMAGE_TAG)
+microk8s: check-microk8s ## Build cilium-dev docker image and import to microk8s
 	$(QUIET)$(MAKE) dev-docker-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
 	@echo "  DEPLOY image to microk8s ($(LOCAL_IMAGE))"
-	$(QUIET)$(CONTAINER_ENGINE) tag $(IMAGE_REPOSITORY)/cilium-dev:$(LOCAL_IMAGE_TAG) $(LOCAL_IMAGE)
 	$(QUIET)./contrib/scripts/microk8s-import.sh $(LOCAL_IMAGE)
 
 kind: ## Create a kind cluster for Cilium development.
