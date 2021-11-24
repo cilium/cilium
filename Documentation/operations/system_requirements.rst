@@ -33,14 +33,13 @@ When running Cilium as a native process on your host (i.e. **not** running the
 When running Cilium without Kubernetes these additional requirements
 must be met:
 
-- :ref:`req_kvstore` etcd >= 3.1.0 or consul >= 0.6.4
+- :ref:`req_kvstore` etcd >= 3.1.0
 
 ======================== ========================== ===================
 Requirement              Minimum Version            In cilium container
 ======================== ========================== ===================
 `Linux kernel`_          >= 4.9.17                  no
 Key-Value store (etcd)   >= 3.1.0                   no
-Key-Value store (consul) >= 0.6.4                   no
 clang+LLVM               >= 10.0                    yes
 iproute2                 >= 5.9.0 [#iproute2_foot]_ yes
 ======================== ========================== ===================
@@ -200,7 +199,6 @@ synchronize and distribute security identities across all cluster
 nodes. The following Key-Value stores are currently supported:
 
 - etcd >= 3.1.0
-- consul >= 0.6.4
 
 Cilium can be used without a Key-Value store when CRD-based state
 management is used with Kubernetes. This is the default for new Cilium
