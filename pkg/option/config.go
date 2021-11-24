@@ -812,7 +812,7 @@ const (
 	IdentityAllocationMode = "identity-allocation-mode"
 
 	// IdentityAllocationModeKVstore enables use of a key-value store such
-	// as etcd or consul for identity allocation
+	// as etcd for identity allocation
 	IdentityAllocationModeKVstore = "kvstore"
 
 	// IdentityAllocationModeCRD enables use of Kubernetes CRDs for

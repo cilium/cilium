@@ -187,7 +187,7 @@ pkg/kafka
   Kafka protocol proxy and policy implementation
 
 pkg/kvstore
-  Key-value store abstraction layer with backends for etcd and consul
+  Key-value store abstraction layer with backends for etcd
 
 pkg/labels
   Base metadata type to describe all label/metadata requirements for workload
