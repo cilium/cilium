@@ -367,6 +367,16 @@ Deprecated Options
   deprecated as the Linux kernel's FIB table is now always consulted. Thus,
   explicitly setting the option has no effect. It is scheduled for removal
   in 1.12.
+* IPVLAN support has been deprecated due to lack of feature support and lack
+  of community interest. `Recent improvements Virtual Ethernet device performance
+  <https://cilium.io/blog/2020/11/10/cilium-19#veth>`_ have granted many of the
+  benefits of IPVLAN to the standard veth mode.
+* Support for Consul as a kvstore backend has been deprecated due to a lack
+  of community interest.
+* The in-pod Cilium CLI command ``cilium policy trace`` has been deprecated
+  in favor of approaches using the `Network Policy Editor <https://app.networkpolicy.io>`_
+  or guide for `policy_verdicts`.
+* Cilium no longer recognizes label sources from Mesos.
 
 New Options
 ~~~~~~~~~~~
