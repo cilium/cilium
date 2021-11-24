@@ -331,6 +331,9 @@ Annotations:
   configuration update. Changing ``--cluster-health-port`` will not affect datapath,
   however it's recommended to still handle configuration change separately from
   agent upgrade. Changing both ports simultaneously shouldn't cause any issues.
+* When Egress Gateway is enabled, upgrading to 1.11 will cause a brief
+  interruption of the connectivity between the client pods and the egress
+  gateway nodes.
 
 Removed Options
 ~~~~~~~~~~~~~~~
