@@ -19,7 +19,7 @@ Prerequisites
 ^^^^^^^^^^^^^
 
 Some tests interact with the kvstore and depend on a local kvstore instances of
-both etcd and consul. To start the local instances, run:
+etcd. To start the local instances, run:
 
 .. code-block:: shell-session
 

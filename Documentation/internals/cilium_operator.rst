@@ -189,7 +189,7 @@ KVStore Identity garbage collection
 While the CRD allocation mode for identities is more common, it is
 limited in terms of scale. When running in a very large environment, a
 saner choice is to use the KVStore allocation mode. This mode stores
-the identities in an external store like etcd or Consul.
+the identities in an external store like etcd.
 
 For more information on Cilium's scalability visit :ref:`scalability_guide`.
 
