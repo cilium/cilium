@@ -355,7 +355,7 @@ func CreateKubectl(vmName string, log *logrus.Entry) (k *Kubectl) {
 		}
 		k.setBasePath()
 		if err := k.ensureKubectlVersion(); err != nil {
-			ginkgoext.Failf("failed to ensure kubectl version")
+			ginkgoext.Failf("failed to ensure kubectl version: %s", err)
 		}
 	}
 
@@ -4449,8 +4449,9 @@ func (kub *Kubectl) ensureKubectlVersion() error {
 	//check current kubectl version
 	type Version struct {
 		ClientVersion struct {
-			Major string `json:"major"`
-			Minor string `json:"minor"`
+			Major      string `json:"major"`
+			Minor      string `json:"minor"`
+			GitVersion string `json:"gitVersion"`
 		} `json:"clientVersion"`
 	}
 	res := kub.ExecShort(fmt.Sprintf("%s version --client -o json", KubectlCmd))
@@ -4477,8 +4478,8 @@ func (kub *Kubectl) ensureKubectlVersion() error {
 	}
 	path := path.Join(GetKubectlPath(), "kubectl")
 	res = kub.Exec(
-		fmt.Sprintf("curl --output %s https://storage.googleapis.com/kubernetes-release/release/v%s.0/bin/linux/amd64/kubectl && chmod +x %s",
-			path, GetCurrentK8SEnv(), path))
+		fmt.Sprintf("curl --output %s https://storage.googleapis.com/kubernetes-release/release/%s/bin/linux/amd64/kubectl && chmod +x %s",
+			path, v.ClientVersion.GitVersion, path))
 	if !res.WasSuccessful() {
 		return fmt.Errorf("failed to download kubectl")
 	}
