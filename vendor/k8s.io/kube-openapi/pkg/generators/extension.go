@@ -66,9 +66,9 @@ var tagToExtension = map[string]extensionAttributes{
 		kind:          types.Struct,
 		allowedValues: sets.NewString("atomic", "granular"),
 	},
-	"validator": {
+	"validations": {
 		xName: "x-kubernetes-validations",
-		kind:  types.Struct,
+		kind:  types.Slice,
 	},
 }
 

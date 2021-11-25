@@ -97,7 +97,7 @@ func (c *FakeCiliumClusterwideNetworkPolicies) UpdateStatus(ctx context.Context,
 // Delete takes name of the ciliumClusterwideNetworkPolicy and deletes it. Returns an error if one occurs.
 func (c *FakeCiliumClusterwideNetworkPolicies) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteAction(ciliumclusterwidenetworkpoliciesResource, name), &v2.CiliumClusterwideNetworkPolicy{})
+		Invokes(testing.NewRootDeleteActionWithOptions(ciliumclusterwidenetworkpoliciesResource, name, opts), &v2.CiliumClusterwideNetworkPolicy{})
 	return err
 }
 

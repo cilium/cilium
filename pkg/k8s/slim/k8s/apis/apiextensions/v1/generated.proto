@@ -18,11 +18,17 @@ option go_package = "v1";
 // CustomResourceDefinition represents a resource that should be exposed on the API server.  Its name MUST be in the format
 // <.spec.name>.<.spec.group>.
 message CustomResourceDefinition {
+  // Standard object's metadata
+  // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+  // +optional
   optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ObjectMeta metadata = 1;
 }
 
 // CustomResourceDefinitionList is a list of CustomResourceDefinition objects.
 message CustomResourceDefinitionList {
+  // Standard object's metadata
+  // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+  // +optional
   optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ListMeta metadata = 1;
 
   // items list individual CustomResourceDefinition objects
