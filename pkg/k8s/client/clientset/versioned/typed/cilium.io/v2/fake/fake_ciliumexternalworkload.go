@@ -97,7 +97,7 @@ func (c *FakeCiliumExternalWorkloads) UpdateStatus(ctx context.Context, ciliumEx
 // Delete takes name of the ciliumExternalWorkload and deletes it. Returns an error if one occurs.
 func (c *FakeCiliumExternalWorkloads) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteAction(ciliumexternalworkloadsResource, name), &v2.CiliumExternalWorkload{})
+		Invokes(testing.NewRootDeleteActionWithOptions(ciliumexternalworkloadsResource, name, opts), &v2.CiliumExternalWorkload{})
 	return err
 }
 

@@ -104,7 +104,7 @@ func (c *FakeCiliumLocalRedirectPolicies) UpdateStatus(ctx context.Context, cili
 // Delete takes name of the ciliumLocalRedirectPolicy and deletes it. Returns an error if one occurs.
 func (c *FakeCiliumLocalRedirectPolicies) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(ciliumlocalredirectpoliciesResource, c.ns, name), &v2.CiliumLocalRedirectPolicy{})
+		Invokes(testing.NewDeleteActionWithOptions(ciliumlocalredirectpoliciesResource, c.ns, name, opts), &v2.CiliumLocalRedirectPolicy{})
 
 	return err
 }
