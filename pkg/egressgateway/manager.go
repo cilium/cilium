@@ -1,26 +1,10 @@
-//  Copyright 2021 Authors of Cilium
-//
-//  Licensed under the Apache License, Version 2.0 (the "License");
-//  you may not use this file except in compliance with the License.
-//  You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-//  Unless required by applicable law or agreed to in writing, software
-//  distributed under the License is distributed on an "AS IS" BASIS,
-//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//  See the License for the specific language governing permissions and
-//  limitations under the License.
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2021 Authors of Cilium
 
 package egressgateway
 
 import (
-	"errors"
-	"fmt"
-	"net"
-
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -34,94 +18,93 @@ var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "egressgateway")
 )
 
-// The egressgateway manager stores the internal data tracking the policy
-// and endpoint mappings. It also hooks up all the callbacks to update
-// egress bpf map accordingly.
+type k8sCacheSyncedChecker interface {
+	WaitUntilK8sCacheIsSynced()
+	K8sCacheIsSynced() bool
+}
+
+// The egressgateway manager stores the internal data tracking policies and
+// endpoints. It also hooks up all the callbacks to update egress bpf policy map
+// accordingly.
 type Manager struct {
 	mutex lock.Mutex
 
-	// Stores endpoint to policy mapping
-	policyEndpoints map[endpointID][]policyID
-	// Stores policy configs indexed by policyID
+	// k8sCacheSyncedChecker is used to check if the agent has synced its
+	// cache with the k8s API server
+	k8sCacheSyncedChecker k8sCacheSyncedChecker
+
+	// policyConfigs stores policy configs indexed by policyID
 	policyConfigs map[policyID]*PolicyConfig
-	// Stores endpointId to endpoint metadata mapping
+
+	// epDataStore stores endpointId to endpoint metadata mapping
 	epDataStore map[endpointID]*endpointMetadata
 }
 
-func NewEgressGatewayManager() *Manager {
-	return &Manager{
-		policyEndpoints: make(map[endpointID][]policyID),
-		policyConfigs:   make(map[policyID]*PolicyConfig),
-		epDataStore:     make(map[endpointID]*endpointMetadata),
+// NewEgressGatewayManager returns a new Egress Gateway Manager.
+func NewEgressGatewayManager(k8sCacheSyncedChecker k8sCacheSyncedChecker) *Manager {
+	manager := &Manager{
+		k8sCacheSyncedChecker: k8sCacheSyncedChecker,
+		policyConfigs:         make(map[policyID]*PolicyConfig),
+		epDataStore:           make(map[endpointID]*endpointMetadata),
 	}
+
+	manager.runReconciliationAfterK8sSync()
+
+	return manager
+}
+
+// runReconciliationAfterK8sSync spawns a goroutine that waits for the agent to
+// sync with k8s and then runs the first reconciliation.
+func (manager *Manager) runReconciliationAfterK8sSync() {
+	go func() {
+		manager.k8sCacheSyncedChecker.WaitUntilK8sCacheIsSynced()
+
+		manager.mutex.Lock()
+		defer manager.mutex.Unlock()
+
+		manager.reconcile()
+	}()
 }
 
 // Event handlers
 
-// AddEgressPolicy parses the given policy config, and updates internal state with the config fields.
-// returns bool indicates if policy is added, err inidates first encountered error
-func (manager *Manager) AddEgressPolicy(config PolicyConfig) (bool, error) {
+// OnAddEgressPolicy and updates the manager internal state with the policy
+// config fields.
+func (manager *Manager) OnAddEgressPolicy(config PolicyConfig) {
 	manager.mutex.Lock()
 	defer manager.mutex.Unlock()
 
-	_, ok := manager.policyConfigs[config.id]
-	if ok {
-		log.WithField(
-			logfields.CiliumEgressNATPolicyName, config.id.Name).Warn("CiliumEgressNATPolicy already exists and is not re-added.")
-		return false, errors.New("already exists")
+	logger := log.WithField(logfields.CiliumEgressNATPolicyName, config.id.Name)
+
+	if _, ok := manager.policyConfigs[config.id]; !ok {
+		logger.Info("Added CiliumEgressNATPolicy")
+	} else {
+		logger.Info("Updated CiliumEgressNATPolicy")
 	}
 
 	manager.policyConfigs[config.id] = &config
-	for _, endpoint := range manager.epDataStore {
-		if config.policyConfigSelectsEndpoint(endpoint) {
-			if err := manager.upsertPolicyEndpoint(&config, endpoint); err != nil {
-				return false, err
-			}
-		}
-	}
 
-	return true, nil
+	manager.reconcile()
 }
 
-// Deletes the internal state associated with the given policy, including egress eBPF map entries
-func (manager *Manager) DeleteEgressPolicy(configID policyID) error {
+// OnDeleteEgressPolicy deletes the internal state associated with the given
+// policy.
+func (manager *Manager) OnDeleteEgressPolicy(configID policyID) {
 	manager.mutex.Lock()
 	defer manager.mutex.Unlock()
 
-	storedConfig := manager.policyConfigs[configID]
-	if storedConfig == nil {
-		return fmt.Errorf("policy not found")
-	}
-	log.WithFields(logrus.Fields{"policyID": configID}).
-		Debug("Delete local egress policy.")
+	logger := log.WithField(logfields.CiliumEgressNATPolicyName, configID.Name)
 
-	for endpointId, policies := range manager.policyEndpoints {
-		var newPolicyList []policyID
-		// make a new list excluding policy that is to be deleted
-		for _, policyId := range policies {
-			if policyId == storedConfig.id {
-				// found policy to endpoint mapping, need to delete egress map entry
-				// identified by endpoint and config
-				epData, ok := manager.epDataStore[endpointId]
-				if !ok {
-					return fmt.Errorf("failed to get endpoint data for %v", endpointId)
-				}
-				if err := manager.deleteEgressMap(storedConfig, epData); err != nil {
-					return err
-				}
-			} else {
-				newPolicyList = append(newPolicyList, policyId)
-			}
-		}
-		if len(newPolicyList) > 0 {
-			manager.policyEndpoints[endpointId] = newPolicyList
-		} else {
-			// epDataStore untouched here since endpoint data is unchanged
-			delete(manager.policyEndpoints, endpointId)
-		}
+	if manager.policyConfigs[configID] == nil {
+		logger.Warn("Can't delete CiliumEgressNATPolicy: policy not found")
+		return
 	}
+
+	logger.Info("Deleted CiliumEgressNATPolicy")
+
 	delete(manager.policyConfigs, configID)
-	return nil
+
+	manager.reconcile()
 }
 
 // OnUpdateEndpoint is the event handler for endpoint additions and updates.
@@ -132,53 +115,26 @@ func (manager *Manager) OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 	manager.mutex.Lock()
 	defer manager.mutex.Unlock()
 
+	logger := log.WithFields(logrus.Fields{
+		logfields.K8sEndpointName: endpoint.Name,
+		logfields.K8sNamespace:    endpoint.Namespace,
+	})
+
 	if len(endpoint.Networking.Addressing) == 0 {
-		log.WithError(err).WithFields(logrus.Fields{
-			logfields.K8sEndpointName: endpoint.Name,
-			logfields.K8sNamespace:    endpoint.Namespace,
-		}).Error("Failed to get valid endpoint IPs, skipping update to egress policy.")
+		logger.WithError(err).
+			Error("Failed to get valid endpoint IPs, skipping update to egress policy.")
 		return
 	}
 
 	if epData, err = getEndpointMetadata(endpoint); err != nil {
-		log.WithError(err).WithFields(logrus.Fields{
-			logfields.K8sEndpointName: endpoint.Name,
-			logfields.K8sNamespace:    endpoint.Namespace,
-		}).Error("Failed to get valid endpoint metadata, skipping update to egress policy.")
+		logger.WithError(err).
+			Error("Failed to get valid endpoint metadata, skipping update to egress policy.")
 		return
 	}
 
-	// Remove old: check if the endpoint was previously selected by any of the policies.
-	if policies, ok := manager.policyEndpoints[epData.id]; ok {
-		for _, policy := range policies {
-			config := manager.policyConfigs[policy]
-			err := manager.deleteEgressMap(config, epData)
-			if err != nil {
-				log.WithError(err).WithFields(logrus.Fields{
-					logfields.K8sEndpointName: endpoint.Name,
-					logfields.K8sNamespace:    endpoint.Namespace,
-				}).Error("Error updating endpoint mapping.")
-				return
-			}
-		}
-		delete(manager.policyEndpoints, epData.id)
-		delete(manager.epDataStore, epData.id)
-	}
-
-	// Upsert new: check if current policies select new endpoint. Also updates endpoint cache
 	manager.epDataStore[epData.id] = epData
-	for _, config := range manager.policyConfigs {
-		if config.policyConfigSelectsEndpoint(epData) {
-			err := manager.upsertPolicyEndpoint(config, epData)
-			if err != nil {
-				log.WithError(err).WithFields(logrus.Fields{
-					logfields.K8sEndpointName: endpoint.Name,
-					logfields.K8sNamespace:    endpoint.Namespace,
-				}).Error("Error upserting pod mapping for pod.")
-				return
-			}
-		}
-	}
+
+	manager.reconcile()
 }
 
 // OnDeleteEndpoint is the event handler for endpoint deletions.
@@ -191,104 +147,121 @@ func (manager *Manager) OnDeleteEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 		Namespace: endpoint.GetNamespace(),
 	}
 
-	var epData *endpointMetadata
-	var err error
-	if epData, err = getEndpointMetadata(endpoint); err != nil {
-		log.WithError(err).WithFields(logrus.Fields{
-			logfields.K8sEndpointName: endpoint.Name,
-			logfields.K8sNamespace:    endpoint.Namespace,
-		}).Error("Failed to get valid endpoint metadata, abort deleting endpoint mapping.")
+	delete(manager.epDataStore, id)
+
+	manager.reconcile()
+}
+
+// addMissingEgressRules is responsible for adding any missing egress gateway policy stored in the
+// manager (i.e. k8s CiliumEgressNATPolicies) to the egress policy BPF map.
+func (manager *Manager) addMissingEgressRules() {
+	egressPolicies := map[egressmap.EgressPolicyKey4]egressmap.EgressPolicyVal4{}
+	egressmap.EgressPolicyMap.IterateWithCallback(
+		func(key *egressmap.EgressPolicyKey4, val *egressmap.EgressPolicyVal4) {
+			egressPolicies[*key] = *val
+		})
+
+	for _, policyConfig := range manager.policyConfigs {
+		for _, endpoint := range manager.epDataStore {
+			if !policyConfig.selectsEndpoint(endpoint) {
+				continue
+			}
+
+			for _, endpointIP := range endpoint.ips {
+				for _, dstCIDR := range policyConfig.dstCIDRs {
+					policyKey := egressmap.NewEgressPolicyKey4(endpointIP, dstCIDR.IP, dstCIDR.Mask)
+					policyVal, policyPresent := egressPolicies[policyKey]
+
+					if policyPresent && policyVal.Match(policyConfig.egressIP, policyConfig.egressIP) {
+						continue
+					}
+
+					logger := log.WithFields(logrus.Fields{
+						logfields.SourceIP:        endpointIP,
+						logfields.DestinationCIDR: *dstCIDR,
+						logfields.EgressIP:        policyConfig.egressIP,
+						logfields.GatewayIP:       policyConfig.egressIP,
+					})
+
+					if err := egressmap.EgressPolicyMap.Update(endpointIP, *dstCIDR, policyConfig.egressIP, policyConfig.egressIP); err != nil {
+						logger.WithError(err).Error("Error applying egress gateway policy")
+					} else {
+						logger.Info("Egress gateway policy applied")
+					}
+				}
+			}
+		}
+	}
+}
+
+// removeUnusedEgressRules is responsible for removing any entry in the egress policy BPF map which
+// is not baked by an actual k8s CiliumEgressNATPolicy.
+//
+// The algorithm for this function can be expressed as:
+//
+//    nextPolicyKey:
+//    for each entry in the egress_policy map {
+//        for each policy in k8s CiliumEgressNATPolices {
+//            if policy matches entry {
+//                // we found one k8s policy that matches the current BPF entry, move to the next one
+//                continue nextPolicyKey
+//            }
+//        }
+//
+//        // the current BPF entry is not backed by any k8s policy, delete it
+//        egressmap.RemoveEgressPolicy(entry)
+//    }
+func (manager *Manager) removeUnusedEgressRules() {
+	egressPolicies := map[egressmap.EgressPolicyKey4]egressmap.EgressPolicyVal4{}
+	egressmap.EgressPolicyMap.IterateWithCallback(
+		func(key *egressmap.EgressPolicyKey4, val *egressmap.EgressPolicyVal4) {
+			egressPolicies[*key] = *val
+		})
+
+nextPolicyKey:
+	for policyKey, policyVal := range egressPolicies {
+		for _, policyConfig := range manager.policyConfigs {
+			for _, endpoint := range manager.epDataStore {
+				if !policyConfig.selectsEndpoint(endpoint) {
+					continue
+				}
+
+				for _, endpointIP := range endpoint.ips {
+					for _, dstCIDR := range policyConfig.dstCIDRs {
+						if policyKey.Match(endpointIP, dstCIDR) &&
+							policyVal.Match(policyConfig.egressIP, policyConfig.egressIP) {
+							continue nextPolicyKey
+						}
+					}
+				}
+			}
+		}
+
+		logger := log.WithFields(logrus.Fields{
+			logfields.SourceIP:        policyKey.GetSourceIP(),
+			logfields.DestinationCIDR: policyKey.GetDestCIDR(),
+		})
+
+		if err := egressmap.EgressPolicyMap.Delete(policyKey.GetSourceIP(), *policyKey.GetDestCIDR()); err != nil {
+			logger.WithError(err).Error("Error removing egress gateway policy")
+		} else {
+			logger.Info("Egress gateway policy removed")
+		}
+	}
+}
+
+// reconcile is responsible for reconciling the state of the manager (i.e. the
+// desired state) with the actual state of the node (egress policy map entries).
+//
+// Whenever it encounters an error, it will just log it and move to the next
+// item, in order to reconcile as many states as possible.
+func (manager *Manager) reconcile() {
+	if !manager.k8sCacheSyncedChecker.K8sCacheIsSynced() {
 		return
 	}
 
-	if policies, ok := manager.policyEndpoints[id]; ok {
-		for _, policy := range policies {
-			config := manager.policyConfigs[policy]
-			manager.deleteEgressMap(config, epData)
-		}
-		delete(manager.policyEndpoints, id)
-	}
-	delete(manager.epDataStore, id)
-}
-
-func getEndpointMetadata(endpoint *k8sTypes.CiliumEndpoint) (*endpointMetadata, error) {
-	var ipv4s []string
-	id := types.NamespacedName{
-		Name:      endpoint.GetName(),
-		Namespace: endpoint.GetNamespace(),
-	}
-
-	if endpoint.Networking == nil {
-		return nil, fmt.Errorf("endpoint has no networking metadata")
-	}
-
-	for _, pair := range endpoint.Networking.Addressing {
-		if pair.IPV4 != "" {
-			ipv4s = append(ipv4s, pair.IPV4)
-		}
-	}
-
-	if endpoint.Identity == nil {
-		return nil, fmt.Errorf("endpoint has no identity metadata")
-	}
-
-	data := &endpointMetadata{
-		ips:    ipv4s,
-		labels: labels.NewLabelsFromModel(endpoint.Identity.Labels).K8sStringMap(),
-		id:     id,
-	}
-
-	return data, nil
-}
-
-// upsertPolicyEndpoint updates or insert to endpoint policy mapping for given policy config and endpoints,
-// it also upserts egress map to keep in sync
-func (manager *Manager) upsertPolicyEndpoint(config *PolicyConfig, epData *endpointMetadata) error {
-	if err := manager.updateEgressMap(epData.ips, config); err != nil {
-		return err
-	}
-
-	if endpointPolicies, ok := manager.policyEndpoints[epData.id]; ok {
-		for _, polID := range endpointPolicies {
-			if polID == config.id {
-				log.Debug("Endpoint to policy mapping already exists.")
-				return nil
-			}
-		}
-		// Add policy to existing list
-		manager.policyEndpoints[epData.id] = append(manager.policyEndpoints[epData.id], config.id)
-	} else {
-		// Add policy to new list
-		pe := []policyID{config.id}
-		manager.policyEndpoints[epData.id] = pe
-	}
-	return nil
-}
-
-func (manager *Manager) updateEgressMap(ips []string, config *PolicyConfig) error {
-	for _, ip := range ips {
-		sip := net.ParseIP(ip).To4()
-		for _, dstCIDR := range config.dstCIDRs {
-			// As currently designed, the egressIP serves two purposes, one for forwarding traffic
-			// to the gateway node, the other for SNATing the egress traffic on the gateway.
-			err := egressmap.EgressPolicyMap.Update(sip, *dstCIDR, config.egressIP, config.egressIP)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func (manager *Manager) deleteEgressMap(config *PolicyConfig, epData *endpointMetadata) error {
-	for _, ip := range epData.ips {
-		sip := net.ParseIP(ip).To4()
-		for _, dstCIDR := range config.dstCIDRs {
-			err := egressmap.EgressPolicyMap.Delete(sip, *dstCIDR)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	// The order of the next 2 function calls matters, as by first adding missing policies and
+	// only then removing obsolete ones we make sure there will be no connectivity disruption
+	manager.addMissingEgressRules()
+	manager.removeUnusedEgressRules()
 }
