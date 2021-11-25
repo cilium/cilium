@@ -40,26 +40,12 @@ type PolicyConfig struct {
 	egressIP          net.IP
 }
 
-// PolicyID includes endpoint name and namespace
-type endpointID = types.NamespacedName
-
 // PolicyID includes policy name and namespace
 type policyID = types.NamespacedName
 
-// endpointMetadata stores relevant metadata associated with a endpoint that's updated during endpoint
-// add/update events
-type endpointMetadata struct {
-	// Endpoint labels
-	labels map[string]string
-	// Endpoint ID
-	id endpointID
-	// ips are endpoint's unique IPs
-	ips []string
-}
-
-// policyConfigSelectsEndpoint determines if the given endpoint is selected by the policy
+// selectsEndpoint determines if the given endpoint is selected by the policy
 // config based on matching labels of config and endpoint.
-func (config *PolicyConfig) policyConfigSelectsEndpoint(endpointInfo *endpointMetadata) bool {
+func (config *PolicyConfig) selectsEndpoint(endpointInfo *endpointMetadata) bool {
 	labelsToMatch := k8sLabels.Set(endpointInfo.labels)
 	for _, selector := range config.endpointSelectors {
 		if selector.Matches(labelsToMatch) {
@@ -84,6 +70,8 @@ func ParsePolicy(cenp *v2alpha1.CiliumEgressNATPolicy) (*PolicyConfig, error) {
 	if name == "" {
 		return nil, fmt.Errorf("CiliumEgressNATPolicy must have a name")
 	}
+
+	egressIP := net.ParseIP(cenp.Spec.EgressSourceIP).To4()
 
 	for _, cidrString := range cenp.Spec.DestinationCIDRs {
 		_, cidr, err := net.ParseCIDR(string(cidrString))
@@ -134,7 +122,7 @@ func ParsePolicy(cenp *v2alpha1.CiliumEgressNATPolicy) (*PolicyConfig, error) {
 	return &PolicyConfig{
 		endpointSelectors: endpointSelectorList,
 		dstCIDRs:          dstCidrList,
-		egressIP:          net.ParseIP(cenp.Spec.EgressSourceIP).To4(),
+		egressIP:          egressIP,
 		id: types.NamespacedName{
 			Name: name,
 		},

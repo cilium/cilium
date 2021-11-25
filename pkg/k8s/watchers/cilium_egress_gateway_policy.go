@@ -48,18 +48,13 @@ func (k *K8sWatcher) ciliumEgressNATPolicyInit(ciliumNPClient *k8s.K8sCiliumClie
 				var valid, equal bool
 				defer func() { k.K8sEventReceived(metricCENP, metricUpdate, valid, equal) }()
 
-				oldCenp := k8s.ObjToCENP(oldObj)
-				if oldCenp == nil {
-					return
-				}
-				deleteErr := k.deleteCiliumEgressNATPolicy(oldCenp)
 				newCenp := k8s.ObjToCENP(newObj)
 				if newCenp == nil {
 					return
 				}
 				valid = true
 				addErr := k.addCiliumEgressNATPolicy(newCenp)
-				k.K8sEventProcessed(metricCENP, metricUpdate, deleteErr == nil && addErr == nil)
+				k.K8sEventProcessed(metricCENP, metricUpdate, addErr == nil)
 			},
 			DeleteFunc: func(obj interface{}) {
 				var valid, equal bool
@@ -69,8 +64,8 @@ func (k *K8sWatcher) ciliumEgressNATPolicyInit(ciliumNPClient *k8s.K8sCiliumClie
 					return
 				}
 				valid = true
-				err := k.deleteCiliumEgressNATPolicy(cenp)
-				k.K8sEventProcessed(metricCENP, metricDelete, err == nil)
+				k.deleteCiliumEgressNATPolicy(cenp)
+				k.K8sEventProcessed(metricCENP, metricDelete, true)
 			},
 		},
 		k8s.ConvertToCiliumEgressNATPolicy,
@@ -99,28 +94,12 @@ func (k *K8sWatcher) addCiliumEgressNATPolicy(cenp *cilium_v2alpha1.CiliumEgress
 		scopedLog.WithError(err).Warn("Failed to add CiliumEgressNATPolicy: malformed policy config.")
 		return err
 	}
-	if _, err := k.egressGatewayManager.AddEgressPolicy(*ep); err != nil {
-		scopedLog.WithError(err).Warn("Failed to add CiliumEgressNATPolicy.")
-		return err
-	}
+	k.egressGatewayManager.OnAddEgressPolicy(*ep)
 
-	scopedLog.Info("Added CiliumEgressNATPolicy")
 	return err
 }
 
-func (k *K8sWatcher) deleteCiliumEgressNATPolicy(cenp *cilium_v2alpha1.CiliumEgressNATPolicy) error {
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.CiliumEgressNATPolicyName: cenp.ObjectMeta.Name,
-		logfields.K8sUID:                    cenp.ObjectMeta.UID,
-		logfields.K8sAPIVersion:             cenp.TypeMeta.APIVersion,
-	})
-
+func (k *K8sWatcher) deleteCiliumEgressNATPolicy(cenp *cilium_v2alpha1.CiliumEgressNATPolicy) {
 	epID := egressgateway.ParsePolicyConfigID(cenp)
-	if err := k.egressGatewayManager.DeleteEgressPolicy(epID); err != nil {
-		scopedLog.WithError(err).Warn("Failed to delete CiliumEgressNATPolicy.")
-		return err
-	}
-
-	scopedLog.Info("Deleted CiliumEgressNATPolicy")
-	return nil
+	k.egressGatewayManager.OnDeleteEgressPolicy(epID)
 }
