@@ -441,7 +441,9 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		}
 	}
 
-	d.egressGatewayManager = egressgateway.NewEgressGatewayManager()
+	if option.Config.EnableIPv4EgressGateway {
+		d.egressGatewayManager = egressgateway.NewEgressGatewayManager(&d)
+	}
 
 	d.k8sWatcher = watchers.NewK8sWatcher(
 		d.endpointManager,
