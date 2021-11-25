@@ -77,7 +77,7 @@ define DOCKER_IMAGE_TEMPLATE
 .PHONY: $(1)
 $(1): GIT_VERSION $(2) $(2).dockerignore GIT_VERSION builder-info
 	$(eval IMAGE_NAME := $(subst %,$$$$*,$(3))$(UNSTRIPPED))
-	$(QUIET)docker buildx build -f $(subst %,$$*,$(2)) \
+	$(QUIET) $(CONTAINER_ENGINE) buildx build -f $(subst %,$$*,$(2)) \
 		$(DOCKER_FLAGS) \
 		--build-arg BASE_IMAGE=${BASE_IMAGE} \
 		--build-arg NOSTRIP=${NOSTRIP} \
@@ -92,7 +92,7 @@ $(1): GIT_VERSION $(2) $(2).dockerignore GIT_VERSION builder-info
 ifeq ($(findstring --push,$(DOCKER_FLAGS)),)
 	@echo 'Define "DOCKER_FLAGS=--push" to push the build results.'
 else
-	docker buildx imagetools inspect $(IMAGE_REPOSITORY)/$(IMAGE_NAME):$(4)
+	$(CONTAINER_ENGINE) buildx imagetools inspect $(IMAGE_REPOSITORY)/$(IMAGE_NAME):$(4)
 	@echo '^^^ Images pushed, multi-arch manifest should be above. ^^^'
 endif
 
