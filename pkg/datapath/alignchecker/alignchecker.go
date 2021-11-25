@@ -84,8 +84,8 @@ func CheckStructAlignments(path string) error {
 		"lb6_src_range_key": {reflect.TypeOf(lbmap.SourceRangeKey6{})},
 		"edt_id":            {reflect.TypeOf(bwmap.EdtId{})},
 		"edt_info":          {reflect.TypeOf(bwmap.EdtInfo{})},
-		"egress_key":        {reflect.TypeOf(egressmap.Key4{})},
-		"egress_info":       {reflect.TypeOf(egressmap.EgressInfo4{})},
+		"egress_key":        {reflect.TypeOf(egressmap.EgressPolicyKey4{})},
+		"egress_info":       {reflect.TypeOf(egressmap.EgressPolicyVal4{})},
 	}
 	if err := check.CheckStructAlignments(path, toCheck, true); err != nil {
 		return err
