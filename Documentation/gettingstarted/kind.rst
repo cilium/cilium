@@ -154,51 +154,8 @@ We can now create the respective clusters:
     kind create cluster --name=cluster1 --config=kind-cluster1.yaml
     kind create cluster --name=cluster2 --config=kind-cluster2.yaml
 
-Deploy Cilium
--------------
-
-This is the same helm command as from :ref:`kind_install_cilium`. However
-we're enabling managed etcd and setting both ``cluster-name`` and
-``cluster-id`` for each cluster.
-
-Make sure context is set to ``kind-cluster2`` cluster.
-
-.. code-block:: shell-session
-
-   kubectl config use-context kind-cluster2
-
-.. parsed-literal::
-
-   helm install cilium |CHART_RELEASE| \\
-      --namespace kube-system \\
-      --set kubeProxyReplacement=partial \\
-      --set hostServices.enabled=false \\
-      --set externalIPs.enabled=true \\
-      --set nodePort.enabled=true \\
-      --set hostPort.enabled=true \\
-      --set cluster.name=cluster2 \\
-      --set cluster.id=2
-
-Change the kubectl context to ``kind-cluster1`` cluster:
-
-.. code-block:: shell-session
-
-   kubectl config use-context kind-cluster1
-
-.. parsed-literal::
-
-   helm install cilium |CHART_RELEASE| \\
-      --namespace kube-system \\
-      --set kubeProxyReplacement=partial \\
-      --set hostServices.enabled=false \\
-      --set externalIPs.enabled=true \\
-      --set nodePort.enabled=true \\
-      --set hostPort.enabled=true \\
-      --set cluster.name=cluster1 \\
-      --set cluster.id=1
-
 Setting up Cluster Mesh
 ------------------------
 
-We can complete setup by following the Cluster Mesh guide with :ref:`gs_clustermesh`.
-For Kind, we'll want to deploy the ``NodePort`` service into the ``kube-system`` namespace.
+We can deploy Cilium, and complete setup by following the Cluster Mesh guide
+with :ref:`gs_clustermesh`. For Kind, we'll want to deploy the ``NodePort`` service into the ``kube-system`` namespace.
