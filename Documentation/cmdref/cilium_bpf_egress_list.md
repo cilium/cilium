@@ -2,11 +2,11 @@
 
 ## cilium bpf egress list
 
-List egress entries
+List egress policy entries
 
 ### Synopsis
 
-List egress entries.
+List egress policy entries.
 
 Note that for Linux kernel versions between 4.11 and 4.15 inclusive, the native
 LPM map type used for implementing this feature does not provide the ability to
