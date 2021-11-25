@@ -86,7 +86,7 @@ func (c *FakeCustomResourceDefinitions) Update(ctx context.Context, customResour
 // Delete takes name of the customResourceDefinition and deletes it. Returns an error if one occurs.
 func (c *FakeCustomResourceDefinitions) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteAction(customresourcedefinitionsResource, name), &apiextensionsv1.CustomResourceDefinition{})
+		Invokes(testing.NewRootDeleteActionWithOptions(customresourcedefinitionsResource, name, opts), &apiextensionsv1.CustomResourceDefinition{})
 	return err
 }
 

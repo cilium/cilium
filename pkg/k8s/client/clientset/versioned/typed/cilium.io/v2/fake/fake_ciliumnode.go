@@ -97,7 +97,7 @@ func (c *FakeCiliumNodes) UpdateStatus(ctx context.Context, ciliumNode *v2.Ciliu
 // Delete takes name of the ciliumNode and deletes it. Returns an error if one occurs.
 func (c *FakeCiliumNodes) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteAction(ciliumnodesResource, name), &v2.CiliumNode{})
+		Invokes(testing.NewRootDeleteActionWithOptions(ciliumnodesResource, name, opts), &v2.CiliumNode{})
 	return err
 }
 

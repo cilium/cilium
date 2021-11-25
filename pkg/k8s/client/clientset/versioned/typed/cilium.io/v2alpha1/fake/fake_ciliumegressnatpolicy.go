@@ -86,7 +86,7 @@ func (c *FakeCiliumEgressNATPolicies) Update(ctx context.Context, ciliumEgressNA
 // Delete takes name of the ciliumEgressNATPolicy and deletes it. Returns an error if one occurs.
 func (c *FakeCiliumEgressNATPolicies) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteAction(ciliumegressnatpoliciesResource, name), &v2alpha1.CiliumEgressNATPolicy{})
+		Invokes(testing.NewRootDeleteActionWithOptions(ciliumegressnatpoliciesResource, name, opts), &v2alpha1.CiliumEgressNATPolicy{})
 	return err
 }
 

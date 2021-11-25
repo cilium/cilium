@@ -24,14 +24,5 @@ type Option func(*SchemaValidatorOptions)
 
 // Options returns current options
 func (svo SchemaValidatorOptions) Options() []Option {
-	if svo.validationRulesEnabled {
-		return []Option{ValidationRulesEnabled}
-	}
 	return []Option{}
-}
-
-// ValidationRulesEnabled enables validation of rules defined in x-kubernetes-validations
-// schema extensions.
-var ValidationRulesEnabled = func(opts *SchemaValidatorOptions) {
-	opts.validationRulesEnabled = true
 }

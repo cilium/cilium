@@ -1,5 +1,5 @@
 # File source
-# https://raw.githubusercontent.com/kubernetes/kubernetes/release-1.22/cluster/addons/dns/coredns/coredns.yaml.base
+# https://raw.githubusercontent.com/kubernetes/kubernetes/release-1.23/cluster/addons/dns/coredns/coredns.yaml.base
 
 apiVersion: v1
 kind: Service
@@ -17,6 +17,7 @@ metadata:
 spec:
   selector:
     k8s-app: kube-dns
+  ipFamilyPolicy: "PreferDualStack"
   ipFamilies:
     - IPv4
     - IPv6
