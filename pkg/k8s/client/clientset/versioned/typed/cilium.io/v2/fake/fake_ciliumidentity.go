@@ -86,7 +86,7 @@ func (c *FakeCiliumIdentities) Update(ctx context.Context, ciliumIdentity *v2.Ci
 // Delete takes name of the ciliumIdentity and deletes it. Returns an error if one occurs.
 func (c *FakeCiliumIdentities) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteAction(ciliumidentitiesResource, name), &v2.CiliumIdentity{})
+		Invokes(testing.NewRootDeleteActionWithOptions(ciliumidentitiesResource, name, opts), &v2.CiliumIdentity{})
 	return err
 }
 
