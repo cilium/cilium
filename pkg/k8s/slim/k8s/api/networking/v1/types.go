@@ -28,6 +28,7 @@ type NetworkPolicy struct {
 
 // PolicyType string describes the NetworkPolicy type
 // This type is beta-level in 1.8
+// +enum
 type PolicyType string
 
 const (
