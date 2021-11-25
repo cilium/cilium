@@ -314,8 +314,10 @@ func (d *Daemon) initMaps() error {
 		return err
 	}
 
-	if _, err := egressmap.EgressMap.OpenOrCreate(); err != nil {
-		return err
+	if option.Config.EnableIPv4EgressGateway {
+		if err := egressmap.InitEgressMaps(); err != nil {
+			return err
+		}
 	}
 
 	pm := probes.NewProbeManager()
