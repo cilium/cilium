@@ -22,6 +22,7 @@ const (
 	PerCPUHash = ciliumebpf.PerCPUHash
 	Array      = ciliumebpf.Array
 	HashOfMaps = ciliumebpf.HashOfMaps
+	LPMTrie    = ciliumebpf.LPMTrie
 
 	PinByName = ciliumebpf.PinByName
 )
