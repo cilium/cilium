@@ -96,7 +96,7 @@ Enable Encryption in Cilium
    When using Cilium in any direct routing configuration, ensure that the
    native routing CIDR is set properly. This is done using
    ``--ipv4-native-routing-cidr=CIDR`` with the CLI or ``--set
-   nativeRoutingCIDR=CIDR`` with Helm.
+   ipv4NativeRoutingCIDR=CIDR`` with Helm.
 
 At this point the Cilium managed nodes will be using IPsec for all traffic. For further
 information on Cilium's transparent encryption, see :ref:`ebpf_datapath`.
