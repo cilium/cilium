@@ -622,7 +622,7 @@ func TestService_Equals(t *testing.T) {
 						},
 					},
 					K8sExternalIPs: map[string]net.IP{
-						"2.2.2.2": net.ParseIP("2.2.2.2"),
+						"10.0.0.2": net.ParseIP("10.0.0.2"),
 					},
 					Labels: map[string]string{
 						"foo": "bar",
@@ -825,7 +825,7 @@ func (s *K8sSuite) TestNewClusterService(c *check.C) {
 		},
 		Subsets: []slim_corev1.EndpointSubset{
 			{
-				Addresses: []slim_corev1.EndpointAddress{{IP: "2.2.2.2"}},
+				Addresses: []slim_corev1.EndpointAddress{{IP: "10.0.0.2"}},
 				Ports: []slim_corev1.EndpointPort{
 					{
 						Name:     "http-test-svc",
@@ -847,7 +847,7 @@ func (s *K8sSuite) TestNewClusterService(c *check.C) {
 			"127.0.0.1": {},
 		},
 		Backends: map[string]serviceStore.PortConfiguration{
-			"2.2.2.2": {
+			"10.0.0.2": {
 				"http-test-svc": {Protocol: loadbalancer.TCP, Port: 8080},
 			},
 		},

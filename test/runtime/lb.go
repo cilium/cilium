@@ -102,7 +102,7 @@ var _ = Describe("RuntimeLB", func() {
 		result.ExpectFail("unexpected success adding service with id -1")
 		result = vm.ServiceAdd(1, "[::]:10000", []string{"[::1]:90", "[::2]:91"})
 		result.ExpectFail("unexpected success adding service with duplicate id 1")
-		result = vm.ServiceAdd(2, "2.2.2.2:0", []string{"3.3.3.3:90", "4.4.4.4:91"})
+		result = vm.ServiceAdd(2, "10.2.2.2:0", []string{"3.3.3.3:90", "4.4.4.4:91"})
 		result.ExpectFail("unexpected success adding service with L3=>L4 redirect")
 
 		By("Adding duplicate service FE address (IPv6)")
@@ -143,7 +143,7 @@ var _ = Describe("RuntimeLB", func() {
 		})
 
 		It("validates service recovery on restart", func() {
-			service := "2.2.2.2:80"
+			service := "10.2.2.2:80"
 			svcID := 1
 			testCmd := helpers.CurlFail(fmt.Sprintf("http://%s/public", service))
 
@@ -229,9 +229,9 @@ var _ = Describe("RuntimeLB", func() {
 
 			By("Configuring services")
 
-			service1 := net.JoinHostPort("2.2.2.100", fmt.Sprintf("%d", svcPort))
+			service1 := net.JoinHostPort("10.2.2.100", fmt.Sprintf("%d", svcPort))
 			service2 := net.JoinHostPort("f00d::1:1", fmt.Sprintf("%d", svcPort))
-			service3 := net.JoinHostPort("2.2.2.101", fmt.Sprintf("%d", svcPort))
+			service3 := net.JoinHostPort("10.2.2.101", fmt.Sprintf("%d", svcPort))
 			services := map[string]string{
 				service1: net.JoinHostPort(httpd1[helpers.IPv4], "80"),
 				service2: net.JoinHostPort(httpd2[helpers.IPv6], "80"),

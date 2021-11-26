@@ -11,17 +11,17 @@ import (
 )
 
 var (
-	IPv4InternalAddress = net.ParseIP("2.2.2.2")
-	IPv4NodePortAddress = net.ParseIP("3.3.3.3")
+	IPv4InternalAddress = net.ParseIP("10.0.0.2")
+	IPv4NodePortAddress = net.ParseIP("10.0.0.3")
 
 	fakeIPv4 = addressFamily{
 		router:          net.ParseIP("1.1.1.2"),
 		primaryExternal: net.ParseIP("1.1.1.1"),
 		allocCIDR:       cidr.MustParseCIDR("1.1.1.0/24"),
 		localAddresses: []net.IP{
-			net.ParseIP("2.2.2.2"),
-			net.ParseIP("3.3.3.3"),
-			net.ParseIP("4.4.4.4"),
+			net.ParseIP("10.0.0.2"),
+			net.ParseIP("10.0.0.3"),
+			net.ParseIP("10.0.0.4"),
 		},
 		lbNodeAddresses: []net.IP{net.IPv4(0, 0, 0, 0), IPv4InternalAddress, IPv4NodePortAddress},
 	}

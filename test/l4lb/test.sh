@@ -99,7 +99,7 @@ kubectl -n kube-system wait --for=condition=Ready pod "$CILIUM_POD_NAME" --timeo
 #  TEST  #
 ##########
 
-LB_VIP="2.2.2.2"
+LB_VIP="10.0.0.2"
 
 nsenter -t $(docker inspect kind-worker -f '{{ .State.Pid }}') -n /bin/sh -c \
     "ip a a dev eth0 ${LB_VIP}/32"

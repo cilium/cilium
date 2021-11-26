@@ -141,7 +141,7 @@ func TestMemcache(t *testing.T) {
 		>
 		`, tc.policy)})
 
-			buf := CheckOnNewConnection(t, mod, "memcache", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "bm1",
+			buf := CheckOnNewConnection(t, mod, "memcache", 1, true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "bm1",
 				30, proxylib.OK, 1)
 
 			tc.onDataChecks(t)

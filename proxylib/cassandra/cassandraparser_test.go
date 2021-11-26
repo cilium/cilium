@@ -69,7 +69,7 @@ func hexData(c *C, dataHex ...string) [][]byte {
 }
 
 func (s *CassandraSuite) TestCassandraOnDataNoHeader(c *C) {
-	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "no-policy")
+	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "no-policy")
 	data := hexData(c, "0400")
 	conn.CheckOnDataOK(c, false, false, &data, []byte{},
 		proxylib.MORE, 9-len(data[0]))
@@ -97,7 +97,7 @@ func (s *CassandraSuite) TestCassandraOnDataOptionsReq(c *C) {
 		  >
 		>
 		`})
-	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "cp6")
+	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "cp6")
 
 	data := hexData(c, "040000000500000000")
 	conn.CheckOnDataOK(c, false, false, &data, []byte{},
@@ -128,7 +128,7 @@ func (s *CassandraSuite) TestCassandraOnDataPartialReq(c *C) {
 		  >
 		>
 		`})
-	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "cp5")
+	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "cp5")
 	data := hexData(c, "0400000407000000760000006f53454c45435420636c75737465725f6e616d652c20646174615f63656e7465722c207261636b2c20746f6b656e732c20706172746974696f6e65722c20736368656d615f76657273696f6e2046524f4d2073797374656d2e6c6f63616c205748455245206b65793d276c6f63616c270001")
 	conn.CheckOnDataOK(c, false, false, &data, []byte{},
 		proxylib.MORE, 1)
@@ -156,7 +156,7 @@ func (s *CassandraSuite) TestCassandraOnDataQueryReq(c *C) {
 		  >
 		>
 		`})
-	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "cp4")
+	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "cp4")
 	data := hexData(c, "0400000407000000760000006f53454c45435420636c75737465725f6e616d652c20646174615f63656e7465722c207261636b2c20746f6b656e732c20706172746974696f6e65722c20736368656d615f76657273696f6e2046524f4d2073797374656d2e6c6f63616c205748455245206b65793d276c6f63616c27000100")
 	conn.CheckOnDataOK(c, false, false, &data, []byte{},
 		proxylib.PASS, len(data[0]),
@@ -185,7 +185,7 @@ func (s *CassandraSuite) TestCassandraOnDataSplitQueryReq(c *C) {
 		  >
 		>
 		`})
-	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "cp3")
+	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "cp3")
 	data := hexData(c, "04000004070000007600", "00006f53454c45435420636c75737465725f6e616d652c20646174615f63656e7465722c207261636b2c20746f6b656e732c20706172746974696f6e65722c20736368656d615f76657273696f6e2046524f4d2073797374656d2e6c6f63616c205748455245206b65793d276c6f63616c27000100")
 	conn.CheckOnDataOK(c, false, false, &data, []byte{},
 		proxylib.PASS, len(data[0])+len(data[1]),
@@ -215,7 +215,7 @@ func (s *CassandraSuite) TestCassandraOnDataMultiReq(c *C) {
 		>
 		`})
 
-	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "cp2")
+	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "cp2")
 
 	data := hexData(c, "040000000500000000",
 		"0400000407000000760000006f53454c45435420636c75737465725f6e616d652c20646174615f63656e7465722c207261636b2c20746f6b656e732c20706172746974696f6e65722c20736368656d615f76657273696f6e2046524f4d2073797374656d2e6c6f63616c205748455245206b65793d276c6f63616c27000100")
@@ -248,7 +248,7 @@ func (s *CassandraSuite) TestSimpleCassandraPolicy(c *C) {
 		>
 		`})
 
-	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "cp1")
+	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "cp1")
 
 	unauthMsg := createUnauthMsg(0x4)
 	data := hexData(c, "040000000500000000",
@@ -295,7 +295,7 @@ func (s *CassandraSuite) TestCassandraBatchRequestPolicy(c *C) {
 		>
 		`})
 
-	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "cp1")
+	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "cp1")
 
 	batchMsg := []byte{
 		0x04,     // version
@@ -356,7 +356,7 @@ func (s *CassandraSuite) TestCassandraBatchRequestPolicyDenied(c *C) {
 		>
 		`})
 
-	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "cp1")
+	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "cp1")
 
 	batchMsg := []byte{
 		0x04,     // version
@@ -419,7 +419,7 @@ func (s *CassandraSuite) TestCassandraBatchRequestPreparedStatement(c *C) {
 		>
 		`})
 
-	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "cp1")
+	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "cp1")
 
 	cassParser, ok := (conn.Parser).(*CassandraParser)
 	if !ok {
@@ -488,7 +488,7 @@ func (s *CassandraSuite) TestCassandraBatchRequestPreparedStatementDenied(c *C) 
 		>
 		`})
 
-	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "cp1")
+	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "cp1")
 
 	cassParser, ok := (conn.Parser).(*CassandraParser)
 	if !ok {
@@ -558,7 +558,7 @@ func (s *CassandraSuite) TestCassandraExecutePreparedStatement(c *C) {
 		>
 		`})
 
-	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "cp1")
+	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "cp1")
 
 	cassParser, ok := (conn.Parser).(*CassandraParser)
 	if !ok {
@@ -595,7 +595,7 @@ func (s *CassandraSuite) TestCassandraExecutePreparedStatement(c *C) {
 // test execute statement with unknown prepared-id
 func (s *CassandraSuite) TestCassandraExecutePreparedStatementUnknownID(c *C) {
 
-	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "cp1")
+	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "cp1")
 
 	executeMsg := []byte{
 		0x04,     // version
@@ -622,7 +622,7 @@ func (s *CassandraSuite) TestCassandraExecutePreparedStatementUnknownID(c *C) {
 // test parsing of a prepared query reply
 func (s *CassandraSuite) TestCassandraPreparedResultReply(c *C) {
 
-	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "cp1")
+	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "cp1")
 
 	cassParser, ok := (conn.Parser).(*CassandraParser)
 	if !ok {
@@ -682,7 +682,7 @@ func (s *CassandraSuite) TestCassandraAdditionalQueries(c *C) {
 		>
 		`})
 
-	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "cp1")
+	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "cp1")
 
 	queries := []string{"CREATE TABLE db4.t1 (f1 varchar, f2 timeuuid, PRIMARY KEY ((f1), f2))",
 		"INSERT INTO db4.t1 (f1, f2, f3) values ('dan', now(), 'Cilium!')",
@@ -752,7 +752,7 @@ func (s *CassandraSuite) TestCassandraUseQuery(c *C) {
 		>
 		`})
 
-	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "cp1")
+	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "cp1")
 
 	// note: the second insert command intentionally does not include a keyspace, so that it will only
 	// be allowed if we properly propagate the keyspace from the previous use command
