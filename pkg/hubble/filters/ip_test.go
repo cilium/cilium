@@ -32,8 +32,8 @@ func TestIPFilter(t *testing.T) {
 					{SourceIp: []string{"1.1.1.1", "f00d::a10:0:0:9195"}},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", Destination: "2.2.2.2"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "2.2.2.2", Destination: "1.1.1.1"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", Destination: "10.0.0.2"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "10.0.0.2", Destination: "1.1.1.1"}}},
 					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "f00d::a10:0:0:9195", Destination: "ff02::1:ff00:b3e5"}}},
 					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "ff02::1:ff00:b3e5", Destination: "f00d::a10:0:0:9195"}}},
 				},
@@ -52,8 +52,8 @@ func TestIPFilter(t *testing.T) {
 					{DestinationIp: []string{"1.1.1.1", "f00d::a10:0:0:9195"}},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", Destination: "2.2.2.2"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "2.2.2.2", Destination: "1.1.1.1"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", Destination: "10.0.0.2"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "10.0.0.2", Destination: "1.1.1.1"}}},
 					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "f00d::a10:0:0:9195", Destination: "ff02::1:ff00:b3e5"}}},
 					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "ff02::1:ff00:b3e5", Destination: "f00d::a10:0:0:9195"}}},
 				},
@@ -71,12 +71,12 @@ func TestIPFilter(t *testing.T) {
 				f: []*flowpb.FlowFilter{
 					{
 						SourceIp:      []string{"1.1.1.1", "f00d::a10:0:0:9195"},
-						DestinationIp: []string{"2.2.2.2", "ff02::1:ff00:b3e5"},
+						DestinationIp: []string{"10.0.0.2", "ff02::1:ff00:b3e5"},
 					},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", Destination: "2.2.2.2"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "2.2.2.2", Destination: "1.1.1.1"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", Destination: "10.0.0.2"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "10.0.0.2", Destination: "1.1.1.1"}}},
 					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "f00d::a10:0:0:9195", Destination: "ff02::1:ff00:b3e5"}}},
 					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "ff02::1:ff00:b3e5", Destination: "f00d::a10:0:0:9195"}}},
 				},
@@ -93,13 +93,13 @@ func TestIPFilter(t *testing.T) {
 			args: args{
 				f: []*flowpb.FlowFilter{
 					{SourceIp: []string{"1.1.1.1"}},
-					{DestinationIp: []string{"2.2.2.2"}},
+					{DestinationIp: []string{"10.0.0.2"}},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", Destination: "2.2.2.2"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "2.2.2.2", Destination: "1.1.1.1"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", Destination: "10.0.0.2"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "10.0.0.2", Destination: "1.1.1.1"}}},
 					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", Destination: "1.1.1.1"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "2.2.2.2", Destination: "2.2.2.2"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "10.0.0.2", Destination: "10.0.0.2"}}},
 				},
 			},
 			want: []bool{
@@ -152,8 +152,8 @@ func TestIPFilter(t *testing.T) {
 			args: args{
 				f: []*flowpb.FlowFilter{{SourceIp: []string{"1.1.1.0/24", "f00d::/16"}}},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", Destination: "2.2.2.2"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "2.2.2.2", Destination: "1.1.1.1"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", Destination: "10.0.0.2"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "10.0.0.2", Destination: "1.1.1.1"}}},
 					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "f00d::a10:0:0:9195", Destination: "ff02::1:ff00:b3e5"}}},
 					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "ff02::1:ff00:b3e5", Destination: "f00d::a10:0:0:9195"}}},
 				},
@@ -170,8 +170,8 @@ func TestIPFilter(t *testing.T) {
 			args: args{
 				f: []*flowpb.FlowFilter{{DestinationIp: []string{"1.1.1.0/24", "f00d::/16"}}},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Destination: "1.1.1.1", Source: "2.2.2.2"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Destination: "2.2.2.2", Source: "1.1.1.1"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Destination: "1.1.1.1", Source: "10.0.0.2"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Destination: "10.0.0.2", Source: "1.1.1.1"}}},
 					{Event: &flowpb.Flow{IP: &flowpb.IP{Destination: "f00d::a10:0:0:9195", Source: "ff02::1:ff00:b3e5"}}},
 					{Event: &flowpb.Flow{IP: &flowpb.IP{Destination: "ff02::1:ff00:b3e5", Source: "f00d::a10:0:0:9195"}}},
 				},
