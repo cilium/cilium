@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"time"
 
@@ -17,6 +18,9 @@ import (
 
 func newCmdInstall() *cobra.Command {
 	var params = install.Parameters{Writer: os.Stdout}
+	var deprecated struct {
+		NativeRoutingCIDR string
+	}
 
 	cmd := &cobra.Command{
 		Use:   "install",
@@ -32,6 +36,13 @@ cilium install
 cilium install --context kind-cluster1 --cluster-id 1 --cluster-name cluster1
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			switch {
+			case deprecated.NativeRoutingCIDR != "" && params.IPv4NativeRoutingCIDR != "":
+				return fmt.Errorf("cannot set both --native-routing-cidr and --ipv4-native-routing-cidr")
+			case deprecated.NativeRoutingCIDR != "" && params.IPv4NativeRoutingCIDR == "":
+				params.IPv4NativeRoutingCIDR = deprecated.NativeRoutingCIDR
+			}
+
 			installer, err := install.NewK8sInstaller(k8sClient, params)
 			if err != nil {
 				return err
@@ -55,7 +66,9 @@ cilium install --context kind-cluster1 --cluster-id 1 --cluster-name cluster1
 	cmd.Flags().MarkHidden("base-version")
 	cmd.Flags().StringVar(&params.DatapathMode, "datapath-mode", "", "Datapath mode to use")
 	cmd.Flags().StringVar(&params.IPAM, "ipam", "", "IP Address Management (IPAM) mode")
-	cmd.Flags().StringVar(&params.NativeRoutingCIDR, "native-routing-cidr", "", "CIDR within which native routing is possible")
+	cmd.Flags().StringVar(&params.IPv4NativeRoutingCIDR, "ipv4-native-routing-cidr", "", "IPv4 CIDR within which native routing is possible")
+	cmd.Flags().StringVar(&deprecated.NativeRoutingCIDR, "native-routing-cidr", "", "IPv4 CIDR within which native routing is possible. Deprecated in favor of --ipv4-native-routing-cidr")
+	cmd.Flags().MarkDeprecated("native-routing-cidr", "use --ipv4-native-routing-cidr instead")
 	cmd.Flags().IntVar(&params.ClusterID, "cluster-id", 0, "Unique cluster identifier for multi-cluster")
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 	cmd.Flags().StringVar(&params.InheritCA, "inherit-ca", "", "Inherit/import CA from another cluster")
