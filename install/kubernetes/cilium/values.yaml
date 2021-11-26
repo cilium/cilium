@@ -558,6 +558,9 @@ certgen:
   ttlSecondsAfterFinished: 1800
   # -- Labels to be added to hubble-certgen pods
   podLabels: {}
+  # -- Node tolerations for pod assignment on nodes with taints
+  # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+  tolerations: []
 
 hubble:
   # -- Enable Hubble (true by default).
