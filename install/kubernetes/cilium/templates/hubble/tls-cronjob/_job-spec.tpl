@@ -37,6 +37,10 @@ spec:
             - "--hubble-relay-server-cert-validity-duration={{ $certValiditySecondsStr }}"
             {{- end }}
       hostNetwork: true
+      {{- with .Values.certgen.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       serviceAccount: {{ .Values.serviceAccounts.hubblecertgen.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.hubblecertgen.name | quote }}
       {{- with .Values.imagePullSecrets }}
