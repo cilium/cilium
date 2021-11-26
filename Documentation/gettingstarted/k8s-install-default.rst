@@ -149,7 +149,7 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
        <https://github.com/weaveworks/eksctl>`_ for instructions on how to
        install ``eksctl`` and prepare your account.
 
-       .. code-block:: shell-session
+       .. code-block:: none
 
            export NAME="$(whoami)-$RANDOM"
            cat <<EOF >eks-config.yaml
@@ -164,8 +164,8 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
            - name: ng-1
              desiredCapacity: 2
              privateNetworking: true
-             ## taint nodes so that application pods are
-             ## not scheduled until Cilium is deployed.
+             # taint nodes so that application pods are
+             # not scheduled until Cilium is deployed.
              taints:
               - key: "node.cilium.io/agent-not-ready"
                 value: "true"
