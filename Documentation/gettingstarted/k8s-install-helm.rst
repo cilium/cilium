@@ -73,7 +73,7 @@ Install Cilium
             --set cni.binPath=/home/kubernetes/bin \\
             --set gke.enabled=true \\
             --set ipam.mode=kubernetes \\
-            --set nativeRoutingCIDR=$NATIVE_CIDR
+            --set ipv4NativeRoutingCIDR=$NATIVE_CIDR
 
        The NodeInit DaemonSet is required to prepare the GKE nodes as nodes are added
        to the cluster. The NodeInit DaemonSet will perform the following actions:
