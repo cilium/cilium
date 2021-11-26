@@ -222,7 +222,7 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
           cilium install
 
-    .. group-tab:: GCP/GKE
+    .. group-tab:: GKE
 
        .. include:: requirements-gke.rst
 
@@ -234,7 +234,7 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
            cilium install
 
-    .. group-tab:: Azure/AKS
+    .. group-tab:: AKS
 
        .. include:: requirements-aks.rst
 
@@ -246,7 +246,7 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
            cilium install --azure-resource-group "${AZURE_RESOURCE_GROUP}"
 
-    .. group-tab:: AWS/EKS
+    .. group-tab:: EKS
 
        .. include:: requirements-eks.rst
 
