@@ -1024,29 +1024,29 @@ type AzureParameters struct {
 }
 
 type Parameters struct {
-	Namespace            string
-	Writer               io.Writer
-	ClusterName          string
-	DisableChecks        []string
-	Version              string
-	AgentImage           string
-	OperatorImage        string
-	InheritCA            string
-	Wait                 bool
-	WaitDuration         time.Duration
-	DatapathMode         string
-	TunnelType           string
-	NativeRoutingCIDR    string
-	ClusterID            int
-	IPAM                 string
-	KubeProxyReplacement string
-	Azure                AzureParameters
-	RestartUnmanagedPods bool
-	Encryption           string
-	NodeEncryption       bool
-	ConfigOverwrites     []string
-	configOverwrites     map[string]string
-	Rollback             bool
+	Namespace             string
+	Writer                io.Writer
+	ClusterName           string
+	DisableChecks         []string
+	Version               string
+	AgentImage            string
+	OperatorImage         string
+	InheritCA             string
+	Wait                  bool
+	WaitDuration          time.Duration
+	DatapathMode          string
+	TunnelType            string
+	IPv4NativeRoutingCIDR string
+	ClusterID             int
+	IPAM                  string
+	KubeProxyReplacement  string
+	Azure                 AzureParameters
+	RestartUnmanagedPods  bool
+	Encryption            string
+	NodeEncryption        bool
+	ConfigOverwrites      []string
+	configOverwrites      map[string]string
+	Rollback              bool
 
 	// CiliumReadyTimeout defines the wait timeout for Cilium to become ready
 	// after installing.
@@ -1171,6 +1171,9 @@ func (k *K8sInstaller) getCiliumVersion() semver.Version {
 }
 
 func (k *K8sInstaller) generateConfigMap() (*corev1.ConfigMap, error) {
+	v := k.getCiliumVersion()
+	k.Log("🚀 Creating ConfigMap for Cilium version %s...", v.String())
+
 	m := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: defaults.ConfigMapName,
@@ -1290,8 +1293,14 @@ func (k *K8sInstaller) generateConfigMap() (*corev1.ConfigMap, error) {
 		m.Data["cluster-id"] = fmt.Sprintf("%d", k.params.ClusterID)
 	}
 
-	if k.params.NativeRoutingCIDR != "" {
-		m.Data["native-routing-cidr"] = k.params.NativeRoutingCIDR
+	if k.params.IPv4NativeRoutingCIDR != "" {
+		// NOTE: Cilium v1.11 replaced --native-routing-cidr by
+		// --ipv4-native-routing-cidr
+		if v.LT(versioncheck.MustVersion("1.11.0")) {
+			m.Data["native-routing-cidr"] = k.params.IPv4NativeRoutingCIDR
+		} else {
+			m.Data["ipv4-native-routing-cidr"] = k.params.IPv4NativeRoutingCIDR
+		}
 	}
 
 	m.Data["kube-proxy-replacement"] = k.params.KubeProxyReplacement
@@ -1302,9 +1311,6 @@ func (k *K8sInstaller) generateConfigMap() (*corev1.ConfigMap, error) {
 		m.Data["cluster-pool-ipv4-cidr"] = "10.0.0.0/8"
 		m.Data["cluster-pool-ipv4-mask-size"] = "24"
 	}
-
-	v := k.getCiliumVersion()
-	k.Log("🚀 Creating ConfigMap for Cilium version %s...", v.String())
 
 	masqueradeOption := "enable-ipv4-masquerade"
 	if v.LT(versioncheck.MustVersion("1.10.0")) {
@@ -1543,14 +1549,14 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 			}
 		}
 	case k8s.KindGKE:
-		if k.params.NativeRoutingCIDR == "" {
+		if k.params.IPv4NativeRoutingCIDR == "" {
 			cidr, err := k.gkeNativeRoutingCIDR(ctx, k.client.ContextName())
 			if err != nil {
 				k.Log("❌ Unable to auto-detect GKE native routing CIDR. Is \"gcloud\" installed?")
-				k.Log("ℹ️  You can set the native routing CIDR manually with --native-routing-cidr")
+				k.Log("ℹ️  You can set the native routing CIDR manually with --ipv4-native-routing-cidr")
 				return err
 			}
-			k.params.NativeRoutingCIDR = cidr
+			k.params.IPv4NativeRoutingCIDR = cidr
 		}
 
 		if err := k.deployResourceQuotas(ctx); err != nil {
