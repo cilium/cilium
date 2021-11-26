@@ -112,7 +112,7 @@ The resulting configuration will look like this:
 You may wish to make a few changes, e.g. increase the number of nodes.
 
 If you do change any of the CIDRs, you will need to make sure that Helm values in ``${CLUSTER_NAME}/manifests/cluster-network-07-cilium-ciliumconfig.yaml``
-reflect those changes. Namely ``clusterNetwork`` should match ``nativeRoutingCIDR``, ``clusterPoolIPv4PodCIDRList`` and ``clusterPoolIPv4MaskSize``.
+reflect those changes. Namely ``clusterNetwork`` should match ``ipv4NativeRoutingCIDR``, ``clusterPoolIPv4PodCIDRList`` and ``clusterPoolIPv4MaskSize``.
 Also make sure that the ``clusterNetwork`` does not conflict with ``machineNetwork`` (which represents the VPC CIDR in AWS).
 
 .. warning::
