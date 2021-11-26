@@ -33,7 +33,7 @@ spec:
       - args:
         - -conf
         - /etc/coredns/Corefile
-        image: docker.io/coredns/coredns:1.0.6
+        image: k8s.gcr.io/coredns/coredns:v1.8.3
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 5
@@ -121,6 +121,13 @@ rules:
   - services
   - pods
   - namespaces
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
   verbs:
   - list
   - watch
