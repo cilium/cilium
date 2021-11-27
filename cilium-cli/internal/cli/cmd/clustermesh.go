@@ -58,7 +58,7 @@ func newCmdClusterMeshEnable() *cobra.Command {
 	cmd.Flags().StringVar(&params.ServiceType, "service-type", "", "Type of Kubernetes service to expose control plane { ClusterIP | LoadBalancer | NodePort }")
 	cmd.Flags().StringVar(&params.ApiserverImage, "apiserver-image", "", "Container image for clustermesh-apiserver")
 	cmd.Flags().StringVar(&params.ApiserverVersion, "apiserver-version", "", "Container image version for clustermesh-apiserver")
-	cmd.Flags().BoolVar(&params.CreateCA, "create-ca", false, "Automatically create CA if needed")
+	cmd.Flags().BoolVar(&params.CreateCA, "create-ca", true, "Automatically create CA if needed")
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 	cmd.Flags().StringSliceVar(&params.ConfigOverwrites, "config", []string{}, "clustermesh-apiserver config entries (key=value)")
 
