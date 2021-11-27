@@ -4,6 +4,8 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
+.. _gsg_istio:
+
 ***************************
 Getting Started Using Istio
 ***************************

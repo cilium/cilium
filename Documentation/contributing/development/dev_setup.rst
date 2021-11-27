@@ -477,7 +477,8 @@ Minor version
 
 #. Check if it is possible to remove the last supported Kubernetes version from
    :ref:`k8scompatibility`, :ref:`k8s_requirements`, :ref:`test_matrix`,
-   :ref:`running_k8s_tests`, and add the new Kubernetes version to that list.
+   :ref:`running_k8s_tests`, :ref:`gsg_istio` and add the new Kubernetes
+   version to that list.
 
 #. If the minimal supported version changed, leave a note in the upgrade guide
    stating the minimal supported Kubernetes version.
@@ -491,37 +492,84 @@ Minor version
    ``MinimalVersionConstraint`` in ``pkg/k8s/version/version.go``
 
 #. Sync all "``slim``" types by following the instructions in
-   ``pkg/k8s/slim/README.md``.
+   ``pkg/k8s/slim/README.md``.  The overall goal is to update changed fields or
+   deprecated fields from the upstream code. New functions / fields / structs
+   added in upstream that are not used in Cilium, can be removed.
 
-#. If necessary, update the ``coredns`` files from
-   ``contrib/vagrant/deployments`` with newer versions.
+#. Open files ``jenkinsfiles/{kubernetes-upstream,ginkgo-kernel}.Jenkinsfile``,
+   and bump the versions being tested. More important is to make sure the
+   pipeline used on all PRs are running with the new Kubernetes version by
+   default. Make sure the files ``contributing/testing/{ci,e2e}.rst`` are up to
+   date with these changes.
 
-#. Open all files in the ``jenkinsfiles/`` directory, and bump all versions
-   being tested. More important is to make sure the pipeline used on all PRs
-   is running with the new Kubernetes version by default. Make sure the files
-   ``contributing/testing/{ci,e2e.rst}`` are up to date with these changes.
+#  Update documentation files:
+   - Documentation/concepts/kubernetes/compatibility.rst
+   - Documentation/concepts/kubernetes/requirements.rst
+   - Documentation/contributing/testing/e2e.rst
+   - Documentation/gettingstarted/istio.rst
 
 #. Update the Kubernetes version with the newer version in ``test/Vagrantfile``,
    ``test/test_suite_test.go`` and ``test/vagrant-local-start.sh``.
 
+#. Add the new coredns files specific for the Kubernetes version,
+   for ``1.19`` is ``test/provision/manifest/1.19``. The coredns deployment
+   files can be found upstream as mentioned in the previous k8s version
+   coredns files. Perform a diff with the previous versions to check which
+   changes are required for our CI and which changes were added upstream.
+
+#. If necessary, update the ``coredns`` files from
+   ``contrib/vagrant/deployments`` with newer the file versions from upstream.
+
 #. Update the constraint in the function ``getK8sSupportedConstraints``, that
    exists in the ``test/helpers/utils.go``, with the new Kubernetes version that
-   Cilium supports.
+   Cilium supports. It is possible that a new ``IsCiliumV1*`` var in that file
+   is required as well.
 
 #. Add the new version in ``test/provision/k8s_install.sh``, if it is an RC
    install it using binaries.
 
-#. Add the new coredns files specific for the Kubernetes version,
-   for ``1.19`` is ``test/provision/manifest/1.19``.
+#. Bump the Kubernetes version in ``contrib/vagrant/scripts/helpers.bash`` and
+   the etcd version to the latest version.
 
-#. Bump the Kubernetes version in ``contrib/vagrant/scripts/helpers.bash``
+#. Run ``./contrib/scripts/check-k8s-code-gen.sh``
+
+#. Run ``go mod vendor && go mod tidy``
+
+#. Run ``./contrib/scripts/check-k8s-code-gen.sh`` (again)
+
+#. Run ``make -C Documentation update-helm-values``
+
+#. Compile the code locally to make sure all the library updates didn't removed
+   any used code.
+
+#. Provision a new dev VM to check if the provisioning scripts work correctly
+   with the new k8s version.
+
+#. Run ``git add vendor/ test/provision/manifest/ Documentation/ && git commit -sam "Update k8s tests and libraries to v1.23.0-rc.0"``
 
 #. Submit all your changes into a new PR.
+
+#. Ping the CI team to make changes in Jenkins (adding new pipeline and
+   dedicated test trigger ``/test-X.XX-4.9`` where ``X.XX`` is the new
+   Kubernetes version).
+
+#. Run ``/test-upstream`` and the new ``/test-X.XX-4.9`` from the PR once
+   Jenkins is up-to-date.
+
+#. Once CI is green and PR has been merged, ping the CI team again so that they:
+   #. Rotate the Jenkins pipelines and triggers due to removed/added K8s versions.
+
+   #. Update the `Cilium CI matrix`_, ``.github/maintainers-little-helper.yaml``,
+      and GitHub required PR checks accordingly.
+
+.. _Cilium CI matrix: https://docs.google.com/spreadsheets/d/1TThkqvVZxaqLR-Ela4ZrcJ0lrTJByCqrbdCjnI32_X0
 
 Patch version
 ^^^^^^^^^^^^^
 
-#. Bump the Kubernetes version in ``contrib/vagrant/scripts/helpers.bash``
+#. Bump the Kubernetes version in ``contrib/vagrant/scripts/helpers.bash``.
+
+#. Bump the Kubernetes version in ``test/provision/k8s_install.sh``.
 
 #. Submit all your changes into a new PR.
 
