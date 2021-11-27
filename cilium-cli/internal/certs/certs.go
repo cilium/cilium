@@ -47,20 +47,37 @@ func NewCertManager(client k8sCertManagerImplementation, p Parameters) *CertMana
 	}
 }
 
-func (c *CertManager) LoadCAFromK8s(ctx context.Context) error {
-	s, err := c.client.GetSecret(ctx, c.params.Namespace, defaults.CASecretName, metav1.GetOptions{})
+// GetOrCreateCASecret Returns a pointer to the secret data for the Cilium CA. If the
+// Cilium CA does not already exist this function will generate a new one
+// when createCA is true.
+func (c *CertManager) GetOrCreateCASecret(ctx context.Context, caSecretName string, createCA bool) (*corev1.Secret, error) {
+	s, err := c.client.GetSecret(ctx, c.params.Namespace, caSecretName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("unable to get secret %s/%s: %w", c.params.Namespace, defaults.CASecretName, err)
-	}
+		if createCA {
+			if err := c.GenerateCA(); err != nil {
+				return nil, fmt.Errorf("unable to generate CA: %w", err)
+			}
 
-	if key, ok := s.Data[defaults.CASecretKeyName]; ok {
+			s, err = c.StoreCAInK8s(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("unable to store CA in secret: %w", err)
+			}
+		} else {
+			return nil, err
+		}
+	}
+	return s, err
+}
+
+func (c *CertManager) LoadCAFromK8s(ctx context.Context, secret *corev1.Secret) error {
+	if key, ok := secret.Data[defaults.CASecretKeyName]; ok {
 		c.caKey = make([]byte, len(key))
 		copy(c.caKey, key)
 	} else {
 		return fmt.Errorf("secret %q does not contain a key %q", defaults.CASecretName, defaults.CASecretKeyName)
 	}
 
-	if cert, ok := s.Data[defaults.CASecretCertName]; ok {
+	if cert, ok := secret.Data[defaults.CASecretCertName]; ok {
 		c.caCert = make([]byte, len(cert))
 		copy(c.caCert, cert)
 	} else {
@@ -70,9 +87,9 @@ func (c *CertManager) LoadCAFromK8s(ctx context.Context) error {
 	return nil
 }
 
-func (c *CertManager) StoreCAInK8s(ctx context.Context) error {
+func (c *CertManager) StoreCAInK8s(ctx context.Context) (*corev1.Secret, error) {
 	if len(c.caKey) == 0 || len(c.caCert) == 0 {
-		return fmt.Errorf("no CA available")
+		return nil, fmt.Errorf("no CA available")
 	}
 
 	data := map[string][]byte{
@@ -80,12 +97,12 @@ func (c *CertManager) StoreCAInK8s(ctx context.Context) error {
 		defaults.CASecretCertName: c.caCert,
 	}
 
-	_, err := c.client.CreateSecret(ctx, c.params.Namespace, k8s.NewSecret(defaults.CASecretName, c.params.Namespace, data), metav1.CreateOptions{})
+	secret, err := c.client.CreateSecret(ctx, c.params.Namespace, k8s.NewSecret(defaults.CASecretName, c.params.Namespace, data), metav1.CreateOptions{})
 	if err != nil {
-		return fmt.Errorf("unable to create secret %s/%s: %w", c.params.Namespace, defaults.CASecretName, err)
+		return nil, fmt.Errorf("unable to create secret %s/%s: %w", c.params.Namespace, defaults.CASecretName, err)
 	}
 
-	return nil
+	return secret, nil
 }
 
 func (c *CertManager) GenerateCA() error {
