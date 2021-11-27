@@ -94,23 +94,23 @@ func (k *K8sInstaller) installCerts(ctx context.Context) error {
 		})
 	}
 
-	err := k.certManager.LoadCAFromK8s(ctx)
+	caSecret, err := k.certManager.GetOrCreateCASecret(ctx, defaults.CASecretName, true)
 	if err != nil {
-		k.Log("🔑 Generating CA...")
-		if err := k.certManager.GenerateCA(); err != nil {
-			return fmt.Errorf("unable to generate ca: %w", err)
-		}
+		k.Log("❌ Unable to get or create the Cilium CA Secret: %s", err)
+		return err
+	}
 
-		if err := k.certManager.StoreCAInK8s(ctx); err != nil {
-			return fmt.Errorf("unable to store CA in secret: %w", err)
+	if caSecret != nil {
+		err = k.certManager.LoadCAFromK8s(ctx, caSecret)
+		if err != nil {
+			k.pushRollbackStep(func(ctx context.Context) {
+				if err := k.client.DeleteSecret(ctx, k.params.Namespace, caSecret.Name, metav1.DeleteOptions{}); err != nil {
+					k.Log("Cannot delete %s Secret: %s", caSecret.Name, err)
+				}
+			})
+			return err
 		}
-		k.pushRollbackStep(func(ctx context.Context) {
-			if err := k.client.DeleteSecret(ctx, k.params.Namespace, defaults.CASecretName, metav1.DeleteOptions{}); err != nil {
-				k.Log("Cannot delete %s Secret: %s", defaults.CASecretName, err)
-			}
-		})
-	} else {
-		k.Log("🔑 Found existing CA in secret %s", defaults.CASecretName)
+		k.Log("🔑 Found CA in secret %s", caSecret.Name)
 	}
 
 	k.Log("🔑 Generating certificates for Hubble...")
