@@ -776,7 +776,7 @@
    * - hubble.ui.ingress
      - hubble-ui ingress configuration.
      - object
-     - ``{"annotations":{},"enabled":false,"hosts":["chart-example.local"],"tls":[]}``
+     - ``{"annotations":{},"className":"","enabled":false,"hosts":["chart-example.local"],"tls":[]}``
    * - hubble.ui.nodeSelector
      - Node labels for pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object
