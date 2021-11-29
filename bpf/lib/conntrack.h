@@ -817,6 +817,19 @@ ct_update6_rev_nat_index(const void *map, const struct ipv6_ct_tuple *tuple,
 	entry->rev_nat_index = state->rev_nat_index;
 }
 
+static __always_inline void
+ct_update6_dsr(const void *map, const struct ipv6_ct_tuple *tuple,
+	       const bool dsr)
+{
+	struct ct_entry *entry;
+
+	entry = map_lookup_elem(map, tuple);
+	if (!entry)
+		return;
+
+	entry->dsr = dsr;
+}
+
 /* Offset must point to IPv6 */
 static __always_inline int ct_create6(const void *map_main, const void *map_related,
 				      struct ipv6_ct_tuple *tuple,
@@ -909,6 +922,19 @@ ct_update4_rev_nat_index(const void *map, const struct ipv4_ct_tuple *tuple,
 		return;
 
 	entry->rev_nat_index = state->rev_nat_index;
+}
+
+static __always_inline void
+ct_update4_dsr(const void *map, const struct ipv4_ct_tuple *tuple,
+	       const bool dsr)
+{
+	struct ct_entry *entry;
+
+	entry = map_lookup_elem(map, tuple);
+	if (!entry)
+		return;
+
+	entry->dsr = dsr;
 }
 
 static __always_inline int ct_create4(const void *map_main,
@@ -1060,6 +1086,13 @@ ct_update6_rev_nat_index(const void *map __maybe_unused,
 {
 }
 
+static __always_inline void
+ct_update6_dsr(const void *map __maybe_unused,
+	       const struct ipv6_ct_tuple *tuple __maybe_unused,
+	       const bool dsr __maybe_unused)
+{
+}
+
 static __always_inline int
 ct_create6(const void *map_main __maybe_unused,
 	   const void *map_related __maybe_unused,
@@ -1082,6 +1115,13 @@ static __always_inline void
 ct_update4_rev_nat_index(const void *map __maybe_unused,
 			 const struct ipv4_ct_tuple *tuple __maybe_unused,
 			 const struct ct_state *state __maybe_unused)
+{
+}
+
+static __always_inline void
+ct_update4_dsr(const void *map __maybe_unused,
+	       const struct ipv4_ct_tuple *tuple __maybe_unused,
+	       const bool dsr __maybe_unused)
 {
 }
 
