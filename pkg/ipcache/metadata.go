@@ -114,6 +114,7 @@ func InjectLabels(src source.Source, updater identityUpdater, triggerer policyTr
 		// remote-node, host, or CIDR labels.
 		// Also, any new identity should be upserted.
 		if id.IsReserved() || isNew {
+			tmpSrc := src
 			if lbls.Has(labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer]) {
 				// Overwrite the source because any IP associated with the
 				// kube-apiserver takes the strongest precedence. This is
@@ -122,7 +123,7 @@ func InjectLabels(src source.Source, updater identityUpdater, triggerer policyTr
 				//
 				// Also, trigger policy recalculations to update kube-apiserver
 				// identity.
-				src = source.KubeAPIServer
+				tmpSrc = source.KubeAPIServer
 				trigger = true
 				if id.IsReserved() {
 					identity.AddReservedIdentityWithLabels(id.ID, lbls)
@@ -132,7 +133,7 @@ func InjectLabels(src source.Source, updater identityUpdater, triggerer policyTr
 
 			toUpsert[prefix] = Identity{
 				ID:     id.ID,
-				Source: src,
+				Source: tmpSrc,
 			}
 		} else {
 			// Unlikely, but to balance the allocation / release
@@ -169,7 +170,7 @@ func InjectLabels(src source.Source, updater identityUpdater, triggerer policyTr
 		meta := IPIdentityCache.getK8sMetadata(ip)
 		if _, err := IPIdentityCache.upsertLocked(ip, hIP, key, meta, Identity{
 			ID:     id.ID,
-			Source: src,
+			Source: id.Source,
 		}); err != nil {
 			return fmt.Errorf("failed to upsert %s into ipcache with identity %d: %w", ip, id.ID, err)
 		}
