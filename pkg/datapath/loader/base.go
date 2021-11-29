@@ -93,12 +93,13 @@ func (l *Loader) writeNetdevHeader(dir string, o datapath.BaseProgramOwner) erro
 func writePreFilterHeader(preFilter *prefilter.PreFilter, dir string) error {
 	headerPath := filepath.Join(dir, preFilterHeaderFileName)
 	log.WithField(logfields.Path, headerPath).Debug("writing configuration")
+
 	f, err := os.Create(headerPath)
 	if err != nil {
 		return fmt.Errorf("failed to open file %s for writing: %s", headerPath, err)
-
 	}
 	defer f.Close()
+
 	fw := bufio.NewWriter(f)
 	fmt.Fprint(fw, "/*\n")
 	fmt.Fprintf(fw, " * XDP devices: %s\n", strings.Join(option.Config.Devices, " "))
@@ -402,7 +403,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	// Datapath initialization
 	hostDev1, hostDev2, err := setupBaseDevice(devices, mode, deviceMTU)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to setup base devices in mode %s: %w", mode, err)
 	}
 	args[initArgHostDev1] = hostDev1.Attrs().Name
 	args[initArgHostDev2] = hostDev2.Attrs().Name
