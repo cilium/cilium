@@ -392,9 +392,9 @@ func RemoveLabels(prefix string, lbls labels.Labels, src source.Source) labels.L
 // The following diagram describes the relationship between the label injector
 // triggered here and the callers/callees.
 //
-//       +------------+  (1)        (1)  +------------+
-//      | EP Watcher +-----+      +-----+ CN Watcher |
-//      +-----+------+   W |      | W   +------+-----+
+//      +------------+  (1)        (1)  +-----------------------------+
+//      | EP Watcher +-----+      +-----+ CN Watcher / Node Discovery |
+//      +-----+------+   W |      | W   +------+----------------------+
 //            |            |      |            |
 //            |            v      v            |
 //            |            +------+            |
@@ -404,7 +404,7 @@ func RemoveLabels(prefix string, lbls labels.Labels, src source.Source) labels.L
 //            |               |                |
 //            |           (3) |R               |
 //            | (2)    +------+--------+   (2) |
-//            +------> |Label Injector |<------+
+//            +------->|Label Injector |<------+
 //           Trigger   +-------+-------+ Trigger
 //                         (4) |W
 //                             |
