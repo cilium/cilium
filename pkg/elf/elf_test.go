@@ -76,7 +76,13 @@ func (s *ELFTestSuite) TestWrite(c *C) {
 	defer os.RemoveAll(tmpDir)
 
 	elf, err := Open(baseObjPath)
-	c.Assert(err, IsNil)
+	if errors.Is(err, fs.ErrNotExist) {
+		// If the ELF file couldn't be found most likely it
+		// wasn't built. See https://github.com/cilium/cilium/issues/17535
+		c.Skip("ELF file not found, skipping test")
+	} else {
+		c.Assert(err, IsNil)
+	}
 	defer elf.Close()
 
 	validOptions := IsNil
