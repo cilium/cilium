@@ -31,4 +31,5 @@ const (
 	IPAMMarkForRelease  = "marked-for-release"
 	IPAMReadyForRelease = "ready-for-release"
 	IPAMDoNotRelease    = "do-not-release"
+	IPAMReleased        = "released"
 )
