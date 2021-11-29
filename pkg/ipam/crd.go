@@ -337,12 +337,20 @@ func (n *nodeStore) updateLocalNodeResource(node *ciliumv2.CiliumNode) {
 	releaseUpstreamSyncNeeded := false
 	// ACK or NACK IPs marked for release by the operator
 	for ip, status := range n.ownNode.Status.IPAM.ReleaseIPs {
-		if status != ipamOption.IPAMMarkForRelease || n.ownNode.Spec.IPAM.Pool == nil {
+		if n.ownNode.Spec.IPAM.Pool == nil {
 			continue
 		}
-		// NACK the IP, if this node doesn't own the IP
+		if status == ipamOption.IPAMReadyForRelease || status == ipamOption.IPAMDoNotRelease {
+			continue
+		}
 		if _, ok := n.ownNode.Spec.IPAM.Pool[ip]; !ok {
-			n.ownNode.Status.IPAM.ReleaseIPs[ip] = ipamOption.IPAMDoNotRelease
+			if status == ipamOption.IPAMReleased {
+				// Remove entry from release-ips only when its removed the .spec.ipam.pool
+				delete(n.ownNode.Status.IPAM.ReleaseIPs, ip)
+			} else if status == ipamOption.IPAMMarkForRelease {
+				// NACK the IP, if this node doesn't own the IP
+				n.ownNode.Status.IPAM.ReleaseIPs[ip] = ipamOption.IPAMDoNotRelease
+			}
 			continue
 		}
 		// Retrieve the appropriate allocator
@@ -469,7 +477,7 @@ func (n *nodeStore) isIPInReleaseHandshake(ip string) bool {
 		return false
 	}
 	if status, ok := n.ownNode.Status.IPAM.ReleaseIPs[ip]; ok {
-		if status == ipamOption.IPAMMarkForRelease || status == ipamOption.IPAMReadyForRelease {
+		if status == ipamOption.IPAMMarkForRelease || status == ipamOption.IPAMReadyForRelease || status == ipamOption.IPAMReleased {
 			return true
 		}
 	}
