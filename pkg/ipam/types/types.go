@@ -102,7 +102,7 @@ type IPAMSpec struct {
 
 // IPReleaseStatus  defines the valid states in IP release handshake
 //
-// +kubebuilder:validation:Enum=marked-for-release;ready-for-release;do-not-release
+// +kubebuilder:validation:Enum=marked-for-release;ready-for-release;do-not-release;released
 type IPReleaseStatus string
 
 // IPAMStatus is the IPAM status of a node
@@ -125,6 +125,7 @@ type IPAMStatus struct {
 	// * marked-for-release : Set by operator as possible candidate for IP
 	// * ready-for-release  : Acknowledged as safe to release by agent
 	// * do-not-release     : IP already in use / not owned by the node. Set by agent
+	// * released           : IP successfully released. Set by operator
 	//
 	// +optional
 	ReleaseIPs map[string]IPReleaseStatus `json:"release-ips,omitempty"`

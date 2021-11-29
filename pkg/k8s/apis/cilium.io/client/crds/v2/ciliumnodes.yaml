@@ -527,12 +527,14 @@ spec:
                       - marked-for-release
                       - ready-for-release
                       - do-not-release
+                      - released
                       type: string
                     description: 'ReleaseIPs tracks the state for every IP considered
                       for release. value can be one of the following string : * marked-for-release
                       : Set by operator as possible candidate for IP * ready-for-release  :
                       Acknowledged as safe to release by agent * do-not-release     :
-                      IP already in use / not owned by the node. Set by agent'
+                      IP already in use / not owned by the node. Set by agent * released           :
+                      IP successfully released. Set by operator'
                     type: object
                   used:
                     additionalProperties:
