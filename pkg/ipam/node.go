@@ -97,9 +97,10 @@ type Node struct {
 	ipsMarkedForRelease map[string]time.Time
 
 	// ipReleaseStatus tracks the state for every IP considered for release.
-	// 0 - IPAMMarkForRelease : Marked for Release
-	// 1 - IPAMReadyForRelease : Acknowledged as safe to release by agent
-	// 2 - IPAMDoNotRelease : Release request denied by agent
+	// IPAMMarkForRelease  : Marked for Release
+	// IPAMReadyForRelease : Acknowledged as safe to release by agent
+	// IPAMDoNotRelease    : Release request denied by agent
+	// IPAMReleased        : IP released by the operator
 	ipReleaseStatus map[string]string
 }
 
@@ -569,6 +570,20 @@ func (n *Node) determineMaintenanceAction() (*maintenanceAction, error) {
 	return a, nil
 }
 
+// removeStaleReleaseIPs Removes stale entries in local n.ipReleaseStatus. Once the handshake is complete agent would
+// remove entries from IP release status map in ciliumnode CRD's status. These IPs need to be purged from
+// n.ipReleaseStatus
+func (n *Node) removeStaleReleaseIPs() {
+	for ip, status := range n.ipReleaseStatus {
+		if status != ipamOption.IPAMReleased {
+			continue
+		}
+		if _, ok := n.resource.Status.IPAM.ReleaseIPs[ip]; !ok {
+			delete(n.ipReleaseStatus, ip)
+		}
+	}
+}
+
 // maintainIPPool attempts to allocate or release all required IPs to fulfill the needed gap.
 // returns instanceMutated which tracks if state changed with the cloud provider and is used
 // to determine if IPAM pool maintainer trigger func needs to be invoked.
@@ -609,6 +624,9 @@ func (n *Node) maintainIPPool(ctx context.Context) (instanceMutated bool, err er
 		// Resetting ipsMarkedForRelease if there are no IPs to release in this iteration
 		n.ipsMarkedForRelease = make(map[string]time.Time)
 	}
+
+	n.removeStaleReleaseIPs()
+
 	for markedIP, ts := range n.ipsMarkedForRelease {
 		// Determine which IPs are still marked for release.
 		stillMarkedForRelease := false
@@ -671,7 +689,7 @@ func (n *Node) maintainIPPool(ctx context.Context) (instanceMutated bool, err er
 			// Remove the IPs from ipsMarkedForRelease
 			for _, ip := range ipsToRelease {
 				delete(n.ipsMarkedForRelease, ip)
-				delete(n.ipReleaseStatus, ip)
+				n.ipReleaseStatus[ip] = ipamOption.IPAMReleased
 			}
 			return true, nil
 		}
