@@ -819,7 +819,7 @@ ct_update6_rev_nat_index(const void *map, const struct ipv6_ct_tuple *tuple,
 
 static __always_inline void
 ct_update6_dsr(const void *map, const struct ipv6_ct_tuple *tuple,
-			   bool dsr)
+	       bool dsr)
 {
 	struct ct_entry *entry;
 
@@ -926,7 +926,7 @@ ct_update4_rev_nat_index(const void *map, const struct ipv4_ct_tuple *tuple,
 
 static __always_inline void
 ct_update4_dsr(const void *map, const struct ipv4_ct_tuple *tuple,
-			   bool dsr)
+	       bool dsr)
 {
 	struct ct_entry *entry;
 
@@ -1088,8 +1088,8 @@ ct_update6_rev_nat_index(const void *map __maybe_unused,
 
 static __always_inline void
 ct_update6_dsr(const void *map __maybe_unused, 
-			   const struct ipv6_ct_tuple *tuple __maybe_unused,
-			   bool dsr __maybe_unused)
+	       const struct ipv6_ct_tuple *tuple __maybe_unused,
+	       bool dsr __maybe_unused)
 {
 }
 
@@ -1120,8 +1120,8 @@ ct_update4_rev_nat_index(const void *map __maybe_unused,
 
 static __always_inline void
 ct_update4_dsr(const void *map __maybe_unused, 
-			   const struct ipv4_ct_tuple *tuple __maybe_unused,
-			   bool dsr __maybe_unused)
+	       const struct ipv4_ct_tuple *tuple __maybe_unused,
+	       bool dsr __maybe_unused)
 {
 }
 
