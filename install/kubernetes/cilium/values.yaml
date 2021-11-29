@@ -893,6 +893,7 @@ hubble:
       annotations: {}
         # kubernetes.io/ingress.class: nginx
         # kubernetes.io/tls-acme: "true"
+      className: ""
       hosts:
         - chart-example.local
       tls: []
