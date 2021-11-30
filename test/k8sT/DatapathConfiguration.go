@@ -169,7 +169,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 	})
 
-	Context("Encapsulation", func() {
+	SkipContextIf(helpers.SkipQuarantined, "Encapsulation", func() {
 		validateBPFTunnelMap := func() {
 			By("Checking that BPF tunnels are in place")
 			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
