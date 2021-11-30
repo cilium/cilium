@@ -961,6 +961,8 @@ func neighStateOk(n netlink.Neigh) (bool, bool) {
 		fallthrough
 	case (n.State & netlink.NUD_PROBE) > 0:
 		fallthrough
+	case (n.State & netlink.NUD_FAILED) > 0:
+		fallthrough
 	case (n.State & netlink.NUD_INCOMPLETE) > 0:
 		// Still potential ongoing resolution
 		retry = true
