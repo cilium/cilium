@@ -3614,32 +3614,51 @@ type FleetLaunchTemplateSpecificationRequest struct {
 // an elevated risk of being interrupted.
 type FleetSpotCapacityRebalance struct {
 
-	// To allow EC2 Fleet to launch a replacement Spot Instance when an instance
-	// rebalance notification is emitted for an existing Spot Instance in the fleet,
-	// specify launch. Only available for fleets of type maintain. When a replacement
-	// instance is launched, the instance marked for rebalance is not automatically
-	// terminated. You can terminate it, or you can leave it running. You are charged
-	// for both instances while they are running.
+	// The replacement strategy to use. Only available for fleets of type maintain.
+	// launch - EC2 Fleet launches a new replacement Spot Instance when a rebalance
+	// notification is emitted for an existing Spot Instance in the fleet. EC2 Fleet
+	// does not terminate the instances that receive a rebalance notification. You can
+	// terminate the old instances, or you can leave them running. You are charged for
+	// all instances while they are running. launch-before-terminate - EC2 Fleet
+	// launches a new replacement Spot Instance when a rebalance notification is
+	// emitted for an existing Spot Instance in the fleet, and then, after a delay that
+	// you specify (in TerminationDelay), terminates the instances that received a
+	// rebalance notification.
 	ReplacementStrategy FleetReplacementStrategy
+
+	// The amount of time (in seconds) that Amazon EC2 waits before terminating the old
+	// Spot Instance after launching a new replacement Spot Instance. Valid only when
+	// replacementStrategy is set to launch-before-terminate. Valid values: Minimum
+	// value of 120 seconds. Maximum value of 7200 seconds.
+	TerminationDelay *int32
 
 	noSmithyDocumentSerde
 }
 
-// The Spot Instance replacement strategy to use when Amazon EC2 emits a signal
-// that your Spot Instance is at an elevated risk of being interrupted. For more
-// information, see Capacity rebalancing
+// The Spot Instance replacement strategy to use when Amazon EC2 emits a rebalance
+// notification signal that your Spot Instance is at an elevated risk of being
+// interrupted. For more information, see Capacity rebalancing
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet-configuration-strategies.html#ec2-fleet-capacity-rebalance)
 // in the Amazon EC2 User Guide.
 type FleetSpotCapacityRebalanceRequest struct {
 
-	// The replacement strategy to use. Only available for fleets of type maintain. To
-	// allow EC2 Fleet to launch a replacement Spot Instance when an instance rebalance
-	// notification is emitted for an existing Spot Instance in the fleet, specify
-	// launch. You must specify a value, otherwise you get an error. When a replacement
-	// instance is launched, the instance marked for rebalance is not automatically
-	// terminated. You can terminate it, or you can leave it running. You are charged
-	// for all instances while they are running.
+	// The replacement strategy to use. Only available for fleets of type maintain.
+	// launch - EC2 Fleet launches a replacement Spot Instance when a rebalance
+	// notification is emitted for an existing Spot Instance in the fleet. EC2 Fleet
+	// does not terminate the instances that receive a rebalance notification. You can
+	// terminate the old instances, or you can leave them running. You are charged for
+	// all instances while they are running. launch-before-terminate - EC2 Fleet
+	// launches a replacement Spot Instance when a rebalance notification is emitted
+	// for an existing Spot Instance in the fleet, and then, after a delay that you
+	// specify (in TerminationDelay), terminates the instances that received a
+	// rebalance notification.
 	ReplacementStrategy FleetReplacementStrategy
+
+	// The amount of time (in seconds) that Amazon EC2 waits before terminating the old
+	// Spot Instance after launching a new replacement Spot Instance. Valid only when
+	// ReplacementStrategy is set to launch-before-terminate. Valid values: Minimum
+	// value of 120 seconds. Maximum value of 7200 seconds.
+	TerminationDelay *int32
 
 	noSmithyDocumentSerde
 }
@@ -4711,6 +4730,9 @@ type Instance struct {
 	// The instance type.
 	InstanceType InstanceType
 
+	// The IPv6 address assigned to the instance.
+	Ipv6Address *string
+
 	// The kernel associated with this instance, if applicable.
 	KernelId *string
 
@@ -4756,6 +4778,9 @@ type Instance struct {
 	// using the Amazon-provided DNS server in your VPC, your custom domain name
 	// servers must resolve the hostname as appropriate.
 	PrivateDnsName *string
+
+	// The options for the instance hostname.
+	PrivateDnsNameOptions *PrivateDnsNameOptionsResponse
 
 	// The private IPv4 address assigned to the instance.
 	PrivateIpAddress *string
@@ -5265,6 +5290,9 @@ type InstanceNetworkInterfaceAssociation struct {
 
 	// The carrier IP address associated with the network interface.
 	CarrierIp *string
+
+	// The customer-owned IP address associated with the network interface.
+	CustomerOwnedIp *string
 
 	// The ID of the owner of the Elastic IP address.
 	IpOwnerId *string
@@ -7314,6 +7342,44 @@ type LaunchTemplatePlacementRequest struct {
 	noSmithyDocumentSerde
 }
 
+// Describes the options for instance hostnames.
+type LaunchTemplatePrivateDnsNameOptions struct {
+
+	// Indicates whether to respond to DNS queries for instance hostnames with DNS AAAA
+	// records.
+	EnableResourceNameDnsAAAARecord *bool
+
+	// Indicates whether to respond to DNS queries for instance hostnames with DNS A
+	// records.
+	EnableResourceNameDnsARecord *bool
+
+	// The type of hostname to assign to an instance.
+	HostnameType HostnameType
+
+	noSmithyDocumentSerde
+}
+
+// Describes the options for instance hostnames.
+type LaunchTemplatePrivateDnsNameOptionsRequest struct {
+
+	// Indicates whether to respond to DNS queries for instance hostnames with DNS AAAA
+	// records.
+	EnableResourceNameDnsAAAARecord *bool
+
+	// Indicates whether to respond to DNS queries for instance hostnames with DNS A
+	// records.
+	EnableResourceNameDnsARecord *bool
+
+	// The type of hostname for Amazon EC2 instances. For IPv4 only subnets, an
+	// instance DNS name must be based on the instance IPv4 address. For IPv6 native
+	// subnets, an instance DNS name must be based on the instance ID. For dual-stack
+	// subnets, you can specify whether DNS names use the instance IPv4 address or the
+	// instance ID.
+	HostnameType HostnameType
+
+	noSmithyDocumentSerde
+}
+
 // Describes the monitoring for the instance.
 type LaunchTemplatesMonitoring struct {
 
@@ -8370,8 +8436,14 @@ type NetworkInterface struct {
 	// The IPv4 prefixes that are assigned to the network interface.
 	Ipv4Prefixes []Ipv4PrefixSpecification
 
+	// The IPv6 globally unique address associated with the network interface.
+	Ipv6Address *string
+
 	// The IPv6 addresses associated with the network interface.
 	Ipv6Addresses []NetworkInterfaceIpv6Address
+
+	// Indicates whether this is an IPv6 only network interface.
+	Ipv6Native *bool
 
 	// The IPv6 prefixes that are assigned to the network interface.
 	Ipv6Prefixes []Ipv6PrefixSpecification
@@ -8605,12 +8677,11 @@ type NewDhcpConfiguration struct {
 // Describes the configuration of On-Demand Instances in an EC2 Fleet.
 type OnDemandOptions struct {
 
-	// The order of the launch template overrides to use in fulfilling On-Demand
-	// capacity. If you specify lowest-price, EC2 Fleet uses price to determine the
-	// order, launching the lowest price first. If you specify prioritized, EC2 Fleet
+	// The strategy that determines the order of the launch template overrides to use
+	// in fulfilling On-Demand capacity. lowest-price - EC2 Fleet uses price to
+	// determine the order, launching the lowest price first. prioritized - EC2 Fleet
 	// uses the priority that you assigned to each launch template override, launching
-	// the highest priority first. If you do not specify a value, EC2 Fleet defaults to
-	// lowest-price.
+	// the highest priority first. Default: lowest-price
 	AllocationStrategy FleetOnDemandAllocationStrategy
 
 	// The strategy for using unused Capacity Reservations for fulfilling On-Demand
@@ -8621,7 +8692,9 @@ type OnDemandOptions struct {
 	MaxTotalPrice *string
 
 	// The minimum target capacity for On-Demand Instances in the fleet. If the minimum
-	// target capacity is not reached, the fleet launches no instances.
+	// target capacity is not reached, the fleet launches no instances. Supported only
+	// for fleets of type instant. At least one of the following must be specified:
+	// SingleAvailabilityZone | SingleInstanceType
 	MinTargetCapacity *int32
 
 	// Indicates that the fleet launches all On-Demand Instances into a single
@@ -8638,12 +8711,11 @@ type OnDemandOptions struct {
 // Describes the configuration of On-Demand Instances in an EC2 Fleet.
 type OnDemandOptionsRequest struct {
 
-	// The order of the launch template overrides to use in fulfilling On-Demand
-	// capacity. If you specify lowest-price, EC2 Fleet uses price to determine the
-	// order, launching the lowest price first. If you specify prioritized, EC2 Fleet
+	// The strategy that determines the order of the launch template overrides to use
+	// in fulfilling On-Demand capacity. lowest-price - EC2 Fleet uses price to
+	// determine the order, launching the lowest price first. prioritized - EC2 Fleet
 	// uses the priority that you assigned to each launch template override, launching
-	// the highest priority first. If you do not specify a value, EC2 Fleet defaults to
-	// lowest-price.
+	// the highest priority first. Default: lowest-price
 	AllocationStrategy FleetOnDemandAllocationStrategy
 
 	// The strategy for using unused Capacity Reservations for fulfilling On-Demand
@@ -8654,7 +8726,9 @@ type OnDemandOptionsRequest struct {
 	MaxTotalPrice *string
 
 	// The minimum target capacity for On-Demand Instances in the fleet. If the minimum
-	// target capacity is not reached, the fleet launches no instances.
+	// target capacity is not reached, the fleet launches no instances. Supported only
+	// for fleets of type instant. At least one of the following must be specified:
+	// SingleAvailabilityZone | SingleInstanceType
 	MinTargetCapacity *int32
 
 	// Indicates that the fleet launches all On-Demand Instances into a single
@@ -8934,7 +9008,7 @@ type Placement struct {
 	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateFleet).
 	HostResourceGroupArn *string
 
-	// The number of the partition the instance is in. Valid only if the placement
+	// The number of the partition that the instance is in. Valid only if the placement
 	// group strategy is set to partition. This parameter is not supported by
 	// CreateFleet
 	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateFleet).
@@ -9170,6 +9244,63 @@ type PrivateDnsNameConfiguration struct {
 	// The value the service provider adds to the private DNS name domain record before
 	// verification.
 	Value *string
+
+	noSmithyDocumentSerde
+}
+
+// Describes the options for instance hostnames.
+type PrivateDnsNameOptionsOnLaunch struct {
+
+	// Indicates whether to respond to DNS queries for instance hostname with DNS AAAA
+	// records.
+	EnableResourceNameDnsAAAARecord *bool
+
+	// Indicates whether to respond to DNS queries for instance hostnames with DNS A
+	// records.
+	EnableResourceNameDnsARecord *bool
+
+	// The type of hostname for EC2 instances. For IPv4 only subnets, an instance DNS
+	// name must be based on the instance IPv4 address. For IPv6 only subnets, an
+	// instance DNS name must be based on the instance ID. For dual-stack subnets, you
+	// can specify whether DNS names use the instance IPv4 address or the instance ID.
+	HostnameType HostnameType
+
+	noSmithyDocumentSerde
+}
+
+// Describes the options for instance hostnames.
+type PrivateDnsNameOptionsRequest struct {
+
+	// Indicates whether to respond to DNS queries for instance hostnames with DNS AAAA
+	// records.
+	EnableResourceNameDnsAAAARecord *bool
+
+	// Indicates whether to respond to DNS queries for instance hostnames with DNS A
+	// records.
+	EnableResourceNameDnsARecord *bool
+
+	// The type of hostname for EC2 instances. For IPv4 only subnets, an instance DNS
+	// name must be based on the instance IPv4 address. For IPv6 only subnets, an
+	// instance DNS name must be based on the instance ID. For dual-stack subnets, you
+	// can specify whether DNS names use the instance IPv4 address or the instance ID.
+	HostnameType HostnameType
+
+	noSmithyDocumentSerde
+}
+
+// Describes the options for instance hostnames.
+type PrivateDnsNameOptionsResponse struct {
+
+	// Indicates whether to respond to DNS queries for instance hostnames with DNS AAAA
+	// records.
+	EnableResourceNameDnsAAAARecord *bool
+
+	// Indicates whether to respond to DNS queries for instance hostnames with DNS A
+	// records.
+	EnableResourceNameDnsARecord *bool
+
+	// The type of hostname to assign to an instance.
+	HostnameType HostnameType
 
 	noSmithyDocumentSerde
 }
@@ -9601,6 +9732,10 @@ type RequestLaunchTemplateData struct {
 
 	// The placement for the instance.
 	Placement *LaunchTemplatePlacementRequest
+
+	// The options for the instance hostname. The default values are inherited from the
+	// subnet.
+	PrivateDnsNameOptions *LaunchTemplatePrivateDnsNameOptionsRequest
 
 	// The ID of the RAM disk. We recommend that you use PV-GRUB instead of kernels and
 	// RAM disks. For more information, see User Provided Kernels
@@ -10165,6 +10300,9 @@ type ResponseLaunchTemplateData struct {
 	// The placement of the instance.
 	Placement *LaunchTemplatePlacement
 
+	// The options for the instance hostname.
+	PrivateDnsNameOptions *LaunchTemplatePrivateDnsNameOptions
+
 	// The ID of the RAM disk, if applicable.
 	RamDiskId *string
 
@@ -10188,6 +10326,9 @@ type Route struct {
 
 	// The ID of the carrier gateway.
 	CarrierGatewayId *string
+
+	// The Amazon Resource Name (ARN) of the core network.
+	CoreNetworkArn *string
 
 	// The IPv4 CIDR block used for the destination match.
 	DestinationCidrBlock *string
@@ -11095,6 +11236,10 @@ type Snapshot struct {
 	// The progress of the snapshot, as a percentage.
 	Progress *string
 
+	// Only for archived snapshots that are temporarily restored. Indicates the date
+	// and time when a temporarily restored snapshot will be automatically re-archived.
+	RestoreExpiryTime *time.Time
+
 	// The ID of the snapshot. Each snapshot receives a unique identifier when it is
 	// created.
 	SnapshotId *string
@@ -11111,6 +11256,12 @@ type Snapshot struct {
 	// you diagnose why the error occurred. This parameter is only returned by
 	// DescribeSnapshots.
 	StateMessage *string
+
+	// The storage tier in which the snapshot is stored. standard indicates that the
+	// snapshot is stored in the standard snapshot storage tier and that it is ready
+	// for use. archive indicates that the snapshot is currently archived and that it
+	// must be restored before it can be used.
+	StorageTier StorageTier
 
 	// Any tags assigned to the snapshot.
 	Tags []Tag
@@ -11225,6 +11376,28 @@ type SnapshotInfo struct {
 	noSmithyDocumentSerde
 }
 
+// Information about a snapshot that is currently in the Recycle Bin.
+type SnapshotRecycleBinInfo struct {
+
+	// The description for the snapshot.
+	Description *string
+
+	// The date and time when the snaphsot entered the Recycle Bin.
+	RecycleBinEnterTime *time.Time
+
+	// The date and time when the snapshot is to be permanently deleted from the
+	// Recycle Bin.
+	RecycleBinExitTime *time.Time
+
+	// The ID of the snapshot.
+	SnapshotId *string
+
+	// The ID of the volume from which the snapshot was created.
+	VolumeId *string
+
+	noSmithyDocumentSerde
+}
+
 // Details about the import snapshot task.
 type SnapshotTaskDetail struct {
 
@@ -11264,6 +11437,52 @@ type SnapshotTaskDetail struct {
 	noSmithyDocumentSerde
 }
 
+// Provides information about a snapshot's storage tier.
+type SnapshotTierStatus struct {
+
+	// The date and time when the last archive process was completed.
+	ArchivalCompleteTime *time.Time
+
+	// The status of the last archive or restore process.
+	LastTieringOperationStatus TieringOperationStatus
+
+	// A message describing the status of the last archive or restore process.
+	LastTieringOperationStatusDetail *string
+
+	// The progress of the last archive or restore process, as a percentage.
+	LastTieringProgress *int32
+
+	// The date and time when the last archive or restore process was started.
+	LastTieringStartTime *time.Time
+
+	// The ID of the Amazon Web Services account that owns the snapshot.
+	OwnerId *string
+
+	// Only for archived snapshots that are temporarily restored. Indicates the date
+	// and time when a temporarily restored snapshot will be automatically re-archived.
+	RestoreExpiryTime *time.Time
+
+	// The ID of the snapshot.
+	SnapshotId *string
+
+	// The state of the snapshot.
+	Status SnapshotState
+
+	// The storage tier in which the snapshot is stored. standard indicates that the
+	// snapshot is stored in the standard snapshot storage tier and that it is ready
+	// for use. archive indicates that the snapshot is currently archived and that it
+	// must be restored before it can be used.
+	StorageTier StorageTier
+
+	// The tags that are assigned to the snapshot.
+	Tags []Tag
+
+	// The ID of the volume from which the snapshot was created.
+	VolumeId *string
+
+	noSmithyDocumentSerde
+}
+
 // The Spot Instance replacement strategy to use when Amazon EC2 emits a signal
 // that your Spot Instance is at an elevated risk of being interrupted. For more
 // information, see Capacity rebalancing
@@ -11271,14 +11490,23 @@ type SnapshotTaskDetail struct {
 // in the Amazon EC2 User Guide for Linux Instances.
 type SpotCapacityRebalance struct {
 
-	// The replacement strategy to use. Only available for fleets of type maintain. You
-	// must specify a value, otherwise you get an error. To allow Spot Fleet to launch
-	// a replacement Spot Instance when an instance rebalance notification is emitted
-	// for a Spot Instance in the fleet, specify launch. When a replacement instance is
-	// launched, the instance marked for rebalance is not automatically terminated. You
-	// can terminate it, or you can leave it running. You are charged for all instances
-	// while they are running.
+	// The replacement strategy to use. Only available for fleets of type maintain.
+	// launch - Spot Fleet launches a new replacement Spot Instance when a rebalance
+	// notification is emitted for an existing Spot Instance in the fleet. Spot Fleet
+	// does not terminate the instances that receive a rebalance notification. You can
+	// terminate the old instances, or you can leave them running. You are charged for
+	// all instances while they are running. launch-before-terminate - Spot Fleet
+	// launches a new replacement Spot Instance when a rebalance notification is
+	// emitted for an existing Spot Instance in the fleet, and then, after a delay that
+	// you specify (in TerminationDelay), terminates the instances that received a
+	// rebalance notification.
 	ReplacementStrategy ReplacementStrategy
+
+	// The amount of time (in seconds) that Amazon EC2 waits before terminating the old
+	// Spot Instance after launching a new replacement Spot Instance. Valid only when
+	// ReplacementStrategy is set to launch-before-terminate. Valid values: Minimum
+	// value of 120 seconds. Maximum value of 7200 seconds.
+	TerminationDelay *int32
 
 	noSmithyDocumentSerde
 }
@@ -11798,38 +12026,37 @@ type SpotMarketOptions struct {
 // Describes the configuration of Spot Instances in an EC2 Fleet.
 type SpotOptions struct {
 
-	// Indicates how to allocate the target Spot Instance capacity across the Spot
-	// Instance pools specified by the EC2 Fleet. If the allocation strategy is
-	// lowest-price, EC2 Fleet launches instances from the Spot Instance pools with the
-	// lowest price. This is the default allocation strategy. If the allocation
-	// strategy is diversified, EC2 Fleet launches instances from all of the Spot
-	// Instance pools that you specify. If the allocation strategy is
-	// capacity-optimized (recommended), EC2 Fleet launches instances from Spot
-	// Instance pools with optimal capacity for the number of instances that are
-	// launching. To give certain instance types a higher chance of launching first,
-	// use capacity-optimized-prioritized. Set a priority for each instance type by
-	// using the Priority parameter for LaunchTemplateOverrides. You can assign the
-	// same priority to different LaunchTemplateOverrides. EC2 implements the
-	// priorities on a best-effort basis, but optimizes for capacity first.
-	// capacity-optimized-prioritized is supported only if your fleet uses a launch
-	// template. Note that if the On-Demand AllocationStrategy is set to prioritized,
-	// the same priority is applied when fulfilling On-Demand capacity.
+	// The strategy that determines how to allocate the target Spot Instance capacity
+	// across the Spot Instance pools specified by the EC2 Fleet. lowest-price - EC2
+	// Fleet launches instances from the Spot Instance pools with the lowest price.
+	// diversified - EC2 Fleet launches instances from all of the Spot Instance pools
+	// that you specify. capacity-optimized (recommended) - EC2 Fleet launches
+	// instances from Spot Instance pools with optimal capacity for the number of
+	// instances that are launching. To give certain instance types a higher chance of
+	// launching first, use capacity-optimized-prioritized. Set a priority for each
+	// instance type by using the Priority parameter for LaunchTemplateOverrides. You
+	// can assign the same priority to different LaunchTemplateOverrides. EC2
+	// implements the priorities on a best-effort basis, but optimizes for capacity
+	// first. capacity-optimized-prioritized is supported only if your fleet uses a
+	// launch template. Note that if the On-Demand AllocationStrategy is set to
+	// prioritized, the same priority is applied when fulfilling On-Demand capacity.
+	// Default: lowest-price
 	AllocationStrategy SpotAllocationStrategy
 
-	// The behavior when a Spot Instance is interrupted. The default is terminate.
+	// The behavior when a Spot Instance is interrupted. Default: terminate
 	InstanceInterruptionBehavior SpotInstanceInterruptionBehavior
 
 	// The number of Spot pools across which to allocate your target Spot capacity.
-	// Valid only when AllocationStrategy is set to lowest-price. EC2 Fleet selects the
-	// cheapest Spot pools and evenly allocates your target Spot capacity across the
-	// number of Spot pools that you specify. Note that EC2 Fleet attempts to draw Spot
-	// Instances from the number of pools that you specify on a best effort basis. If a
-	// pool runs out of Spot capacity before fulfilling your target capacity, EC2 Fleet
-	// will continue to fulfill your request by drawing from the next cheapest pool. To
-	// ensure that your target capacity is met, you might receive Spot Instances from
-	// more than the number of pools that you specified. Similarly, if most of the
-	// pools have no Spot capacity, you might receive your full target capacity from
-	// fewer than the number of pools that you specified.
+	// Supported only when AllocationStrategy is set to lowest-price. EC2 Fleet selects
+	// the cheapest Spot pools and evenly allocates your target Spot capacity across
+	// the number of Spot pools that you specify. Note that EC2 Fleet attempts to draw
+	// Spot Instances from the number of pools that you specify on a best effort basis.
+	// If a pool runs out of Spot capacity before fulfilling your target capacity, EC2
+	// Fleet will continue to fulfill your request by drawing from the next cheapest
+	// pool. To ensure that your target capacity is met, you might receive Spot
+	// Instances from more than the number of pools that you specified. Similarly, if
+	// most of the pools have no Spot capacity, you might receive your full target
+	// capacity from fewer than the number of pools that you specified.
 	InstancePoolsToUseCount *int32
 
 	// The strategies for managing your workloads on your Spot Instances that will be
@@ -11840,7 +12067,9 @@ type SpotOptions struct {
 	MaxTotalPrice *string
 
 	// The minimum target capacity for Spot Instances in the fleet. If the minimum
-	// target capacity is not reached, the fleet launches no instances.
+	// target capacity is not reached, the fleet launches no instances. Supported only
+	// for fleets of type instant. At least one of the following must be specified:
+	// SingleAvailabilityZone | SingleInstanceType
 	MinTargetCapacity *int32
 
 	// Indicates that the fleet launches all Spot Instances into a single Availability
@@ -11857,29 +12086,28 @@ type SpotOptions struct {
 // Describes the configuration of Spot Instances in an EC2 Fleet request.
 type SpotOptionsRequest struct {
 
-	// Indicates how to allocate the target Spot Instance capacity across the Spot
-	// Instance pools specified by the EC2 Fleet. If the allocation strategy is
-	// lowest-price, EC2 Fleet launches instances from the Spot Instance pools with the
-	// lowest price. This is the default allocation strategy. If the allocation
-	// strategy is diversified, EC2 Fleet launches instances from all of the Spot
-	// Instance pools that you specify. If the allocation strategy is
-	// capacity-optimized (recommended), EC2 Fleet launches instances from Spot
-	// Instance pools with optimal capacity for the number of instances that are
-	// launching. To give certain instance types a higher chance of launching first,
-	// use capacity-optimized-prioritized. Set a priority for each instance type by
-	// using the Priority parameter for LaunchTemplateOverrides. You can assign the
-	// same priority to different LaunchTemplateOverrides. EC2 implements the
-	// priorities on a best-effort basis, but optimizes for capacity first.
-	// capacity-optimized-prioritized is supported only if your fleet uses a launch
-	// template. Note that if the On-Demand AllocationStrategy is set to prioritized,
-	// the same priority is applied when fulfilling On-Demand capacity.
+	// The strategy that determines how to allocate the target Spot Instance capacity
+	// across the Spot Instance pools specified by the EC2 Fleet. lowest-price - EC2
+	// Fleet launches instances from the Spot Instance pools with the lowest price.
+	// diversified - EC2 Fleet launches instances from all of the Spot Instance pools
+	// that you specify. capacity-optimized (recommended) - EC2 Fleet launches
+	// instances from Spot Instance pools with optimal capacity for the number of
+	// instances that are launching. To give certain instance types a higher chance of
+	// launching first, use capacity-optimized-prioritized. Set a priority for each
+	// instance type by using the Priority parameter for LaunchTemplateOverrides. You
+	// can assign the same priority to different LaunchTemplateOverrides. EC2
+	// implements the priorities on a best-effort basis, but optimizes for capacity
+	// first. capacity-optimized-prioritized is supported only if your fleet uses a
+	// launch template. Note that if the On-Demand AllocationStrategy is set to
+	// prioritized, the same priority is applied when fulfilling On-Demand capacity.
+	// Default: lowest-price
 	AllocationStrategy SpotAllocationStrategy
 
-	// The behavior when a Spot Instance is interrupted. The default is terminate.
+	// The behavior when a Spot Instance is interrupted. Default: terminate
 	InstanceInterruptionBehavior SpotInstanceInterruptionBehavior
 
 	// The number of Spot pools across which to allocate your target Spot capacity.
-	// Valid only when Spot AllocationStrategy is set to lowest-price. EC2 Fleet
+	// Supported only when Spot AllocationStrategy is set to lowest-price. EC2 Fleet
 	// selects the cheapest Spot pools and evenly allocates your target Spot capacity
 	// across the number of Spot pools that you specify. Note that EC2 Fleet attempts
 	// to draw Spot Instances from the number of pools that you specify on a best
@@ -11899,7 +12127,9 @@ type SpotOptionsRequest struct {
 	MaxTotalPrice *string
 
 	// The minimum target capacity for Spot Instances in the fleet. If the minimum
-	// target capacity is not reached, the fleet launches no instances.
+	// target capacity is not reached, the fleet launches no instances. Supported only
+	// for fleets of type instant. At least one of the following must be specified:
+	// SingleAvailabilityZone | SingleInstanceType
 	MinTargetCapacity *int32
 
 	// Indicates that the fleet launches all Spot Instances into a single Availability
@@ -12156,8 +12386,15 @@ type Subnet struct {
 	// Indicates whether this is the default subnet for the Availability Zone.
 	DefaultForAz *bool
 
+	// Indicates whether DNS queries made to the Amazon-provided DNS Resolver in this
+	// subnet should return synthetic IPv6 addresses for IPv4-only destinations.
+	EnableDns64 *bool
+
 	// Information about the IPv6 CIDR blocks associated with the subnet.
 	Ipv6CidrBlockAssociationSet []SubnetIpv6CidrBlockAssociation
+
+	// Indicates whether this is an IPv6 only subnet.
+	Ipv6Native *bool
 
 	// Indicates whether a network interface created in this subnet (including a
 	// network interface created by RunInstances) receives a customer-owned IPv4
@@ -12173,6 +12410,10 @@ type Subnet struct {
 
 	// The ID of the Amazon Web Services account that owns the subnet.
 	OwnerId *string
+
+	// The type of hostnames to assign to instances in the subnet at launch. An
+	// instance hostname is based on the IPv4 address or ID of the instance.
+	PrivateDnsNameOptionsOnLaunch *PrivateDnsNameOptionsOnLaunch
 
 	// The current state of the subnet.
 	State SubnetState
@@ -12243,16 +12484,16 @@ type SubnetCidrReservation struct {
 	noSmithyDocumentSerde
 }
 
-// Describes an IPv6 CIDR block associated with a subnet.
+// Describes an association between a subnet and an IPv6 CIDR block.
 type SubnetIpv6CidrBlockAssociation struct {
 
-	// The association ID for the CIDR block.
+	// The ID of the association.
 	AssociationId *string
 
 	// The IPv6 CIDR block.
 	Ipv6CidrBlock *string
 
-	// Information about the state of the CIDR block.
+	// The state of the CIDR block.
 	Ipv6CidrBlockState *SubnetCidrBlockState
 
 	noSmithyDocumentSerde
@@ -14314,7 +14555,7 @@ type VpnConnection struct {
 	CustomerGatewayId *string
 
 	// The current state of the gateway association.
-	GatewayAssociationState *string
+	GatewayAssociationState GatewayAssociationState
 
 	// The VPN connection options.
 	Options *VpnConnectionOptions

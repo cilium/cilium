@@ -359,8 +359,17 @@ func NewVolumeAvailableWaiter(client DescribeVolumesAPIClient, optFns ...func(*V
 // maximum wait duration the waiter will wait. The maxWaitDur is required and must
 // be greater than zero.
 func (w *VolumeAvailableWaiter) Wait(ctx context.Context, params *DescribeVolumesInput, maxWaitDur time.Duration, optFns ...func(*VolumeAvailableWaiterOptions)) error {
+	_, err := w.WaitForOutput(ctx, params, maxWaitDur, optFns...)
+	return err
+}
+
+// WaitForOutput calls the waiter function for VolumeAvailable waiter and returns
+// the output of the successful operation. The maxWaitDur is the maximum wait
+// duration the waiter will wait. The maxWaitDur is required and must be greater
+// than zero.
+func (w *VolumeAvailableWaiter) WaitForOutput(ctx context.Context, params *DescribeVolumesInput, maxWaitDur time.Duration, optFns ...func(*VolumeAvailableWaiterOptions)) (*DescribeVolumesOutput, error) {
 	if maxWaitDur <= 0 {
-		return fmt.Errorf("maximum wait time for waiter must be greater than zero")
+		return nil, fmt.Errorf("maximum wait time for waiter must be greater than zero")
 	}
 
 	options := w.options
@@ -373,7 +382,7 @@ func (w *VolumeAvailableWaiter) Wait(ctx context.Context, params *DescribeVolume
 	}
 
 	if options.MinDelay > options.MaxDelay {
-		return fmt.Errorf("minimum waiter delay %v must be lesser than or equal to maximum waiter delay of %v.", options.MinDelay, options.MaxDelay)
+		return nil, fmt.Errorf("minimum waiter delay %v must be lesser than or equal to maximum waiter delay of %v.", options.MinDelay, options.MaxDelay)
 	}
 
 	ctx, cancelFn := context.WithTimeout(ctx, maxWaitDur)
@@ -401,10 +410,10 @@ func (w *VolumeAvailableWaiter) Wait(ctx context.Context, params *DescribeVolume
 
 		retryable, err := options.Retryable(ctx, params, out, err)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if !retryable {
-			return nil
+			return out, nil
 		}
 
 		remainingTime -= time.Since(start)
@@ -417,16 +426,16 @@ func (w *VolumeAvailableWaiter) Wait(ctx context.Context, params *DescribeVolume
 			attempt, options.MinDelay, options.MaxDelay, remainingTime,
 		)
 		if err != nil {
-			return fmt.Errorf("error computing waiter delay, %w", err)
+			return nil, fmt.Errorf("error computing waiter delay, %w", err)
 		}
 
 		remainingTime -= delay
 		// sleep for the delay amount before invoking a request
 		if err := smithytime.SleepWithContext(ctx, delay); err != nil {
-			return fmt.Errorf("request cancelled while waiting, %w", err)
+			return nil, fmt.Errorf("request cancelled while waiting, %w", err)
 		}
 	}
-	return fmt.Errorf("exceeded max wait time for VolumeAvailable waiter")
+	return nil, fmt.Errorf("exceeded max wait time for VolumeAvailable waiter")
 }
 
 func volumeAvailableStateRetryable(ctx context.Context, input *DescribeVolumesInput, output *DescribeVolumesOutput, err error) (bool, error) {
@@ -549,8 +558,16 @@ func NewVolumeDeletedWaiter(client DescribeVolumesAPIClient, optFns ...func(*Vol
 // maximum wait duration the waiter will wait. The maxWaitDur is required and must
 // be greater than zero.
 func (w *VolumeDeletedWaiter) Wait(ctx context.Context, params *DescribeVolumesInput, maxWaitDur time.Duration, optFns ...func(*VolumeDeletedWaiterOptions)) error {
+	_, err := w.WaitForOutput(ctx, params, maxWaitDur, optFns...)
+	return err
+}
+
+// WaitForOutput calls the waiter function for VolumeDeleted waiter and returns the
+// output of the successful operation. The maxWaitDur is the maximum wait duration
+// the waiter will wait. The maxWaitDur is required and must be greater than zero.
+func (w *VolumeDeletedWaiter) WaitForOutput(ctx context.Context, params *DescribeVolumesInput, maxWaitDur time.Duration, optFns ...func(*VolumeDeletedWaiterOptions)) (*DescribeVolumesOutput, error) {
 	if maxWaitDur <= 0 {
-		return fmt.Errorf("maximum wait time for waiter must be greater than zero")
+		return nil, fmt.Errorf("maximum wait time for waiter must be greater than zero")
 	}
 
 	options := w.options
@@ -563,7 +580,7 @@ func (w *VolumeDeletedWaiter) Wait(ctx context.Context, params *DescribeVolumesI
 	}
 
 	if options.MinDelay > options.MaxDelay {
-		return fmt.Errorf("minimum waiter delay %v must be lesser than or equal to maximum waiter delay of %v.", options.MinDelay, options.MaxDelay)
+		return nil, fmt.Errorf("minimum waiter delay %v must be lesser than or equal to maximum waiter delay of %v.", options.MinDelay, options.MaxDelay)
 	}
 
 	ctx, cancelFn := context.WithTimeout(ctx, maxWaitDur)
@@ -591,10 +608,10 @@ func (w *VolumeDeletedWaiter) Wait(ctx context.Context, params *DescribeVolumesI
 
 		retryable, err := options.Retryable(ctx, params, out, err)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if !retryable {
-			return nil
+			return out, nil
 		}
 
 		remainingTime -= time.Since(start)
@@ -607,16 +624,16 @@ func (w *VolumeDeletedWaiter) Wait(ctx context.Context, params *DescribeVolumesI
 			attempt, options.MinDelay, options.MaxDelay, remainingTime,
 		)
 		if err != nil {
-			return fmt.Errorf("error computing waiter delay, %w", err)
+			return nil, fmt.Errorf("error computing waiter delay, %w", err)
 		}
 
 		remainingTime -= delay
 		// sleep for the delay amount before invoking a request
 		if err := smithytime.SleepWithContext(ctx, delay); err != nil {
-			return fmt.Errorf("request cancelled while waiting, %w", err)
+			return nil, fmt.Errorf("request cancelled while waiting, %w", err)
 		}
 	}
-	return fmt.Errorf("exceeded max wait time for VolumeDeleted waiter")
+	return nil, fmt.Errorf("exceeded max wait time for VolumeDeleted waiter")
 }
 
 func volumeDeletedStateRetryable(ctx context.Context, input *DescribeVolumesInput, output *DescribeVolumesOutput, err error) (bool, error) {
@@ -727,8 +744,16 @@ func NewVolumeInUseWaiter(client DescribeVolumesAPIClient, optFns ...func(*Volum
 // maximum wait duration the waiter will wait. The maxWaitDur is required and must
 // be greater than zero.
 func (w *VolumeInUseWaiter) Wait(ctx context.Context, params *DescribeVolumesInput, maxWaitDur time.Duration, optFns ...func(*VolumeInUseWaiterOptions)) error {
+	_, err := w.WaitForOutput(ctx, params, maxWaitDur, optFns...)
+	return err
+}
+
+// WaitForOutput calls the waiter function for VolumeInUse waiter and returns the
+// output of the successful operation. The maxWaitDur is the maximum wait duration
+// the waiter will wait. The maxWaitDur is required and must be greater than zero.
+func (w *VolumeInUseWaiter) WaitForOutput(ctx context.Context, params *DescribeVolumesInput, maxWaitDur time.Duration, optFns ...func(*VolumeInUseWaiterOptions)) (*DescribeVolumesOutput, error) {
 	if maxWaitDur <= 0 {
-		return fmt.Errorf("maximum wait time for waiter must be greater than zero")
+		return nil, fmt.Errorf("maximum wait time for waiter must be greater than zero")
 	}
 
 	options := w.options
@@ -741,7 +766,7 @@ func (w *VolumeInUseWaiter) Wait(ctx context.Context, params *DescribeVolumesInp
 	}
 
 	if options.MinDelay > options.MaxDelay {
-		return fmt.Errorf("minimum waiter delay %v must be lesser than or equal to maximum waiter delay of %v.", options.MinDelay, options.MaxDelay)
+		return nil, fmt.Errorf("minimum waiter delay %v must be lesser than or equal to maximum waiter delay of %v.", options.MinDelay, options.MaxDelay)
 	}
 
 	ctx, cancelFn := context.WithTimeout(ctx, maxWaitDur)
@@ -769,10 +794,10 @@ func (w *VolumeInUseWaiter) Wait(ctx context.Context, params *DescribeVolumesInp
 
 		retryable, err := options.Retryable(ctx, params, out, err)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if !retryable {
-			return nil
+			return out, nil
 		}
 
 		remainingTime -= time.Since(start)
@@ -785,16 +810,16 @@ func (w *VolumeInUseWaiter) Wait(ctx context.Context, params *DescribeVolumesInp
 			attempt, options.MinDelay, options.MaxDelay, remainingTime,
 		)
 		if err != nil {
-			return fmt.Errorf("error computing waiter delay, %w", err)
+			return nil, fmt.Errorf("error computing waiter delay, %w", err)
 		}
 
 		remainingTime -= delay
 		// sleep for the delay amount before invoking a request
 		if err := smithytime.SleepWithContext(ctx, delay); err != nil {
-			return fmt.Errorf("request cancelled while waiting, %w", err)
+			return nil, fmt.Errorf("request cancelled while waiting, %w", err)
 		}
 	}
-	return fmt.Errorf("exceeded max wait time for VolumeInUse waiter")
+	return nil, fmt.Errorf("exceeded max wait time for VolumeInUse waiter")
 }
 
 func volumeInUseStateRetryable(ctx context.Context, input *DescribeVolumesInput, output *DescribeVolumesOutput, err error) (bool, error) {

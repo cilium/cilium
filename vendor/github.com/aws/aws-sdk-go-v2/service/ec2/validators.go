@@ -4970,6 +4970,26 @@ func (m *validateOpModifySnapshotAttribute) HandleInitialize(ctx context.Context
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpModifySnapshotTier struct {
+}
+
+func (*validateOpModifySnapshotTier) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpModifySnapshotTier) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*ModifySnapshotTierInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpModifySnapshotTierInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpModifySpotFleetRequest struct {
 }
 
@@ -5985,6 +6005,46 @@ func (m *validateOpRestoreManagedPrefixListVersion) HandleInitialize(ctx context
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpRestoreManagedPrefixListVersionInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpRestoreSnapshotFromRecycleBin struct {
+}
+
+func (*validateOpRestoreSnapshotFromRecycleBin) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpRestoreSnapshotFromRecycleBin) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*RestoreSnapshotFromRecycleBinInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpRestoreSnapshotFromRecycleBinInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpRestoreSnapshotTier struct {
+}
+
+func (*validateOpRestoreSnapshotTier) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpRestoreSnapshotTier) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*RestoreSnapshotTierInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpRestoreSnapshotTierInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -7322,6 +7382,10 @@ func addOpModifySnapshotAttributeValidationMiddleware(stack *middleware.Stack) e
 	return stack.Initialize.Add(&validateOpModifySnapshotAttribute{}, middleware.After)
 }
 
+func addOpModifySnapshotTierValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpModifySnapshotTier{}, middleware.After)
+}
+
 func addOpModifySpotFleetRequestValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpModifySpotFleetRequest{}, middleware.After)
 }
@@ -7524,6 +7588,14 @@ func addOpRestoreAddressToClassicValidationMiddleware(stack *middleware.Stack) e
 
 func addOpRestoreManagedPrefixListVersionValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpRestoreManagedPrefixListVersion{}, middleware.After)
+}
+
+func addOpRestoreSnapshotFromRecycleBinValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpRestoreSnapshotFromRecycleBin{}, middleware.After)
+}
+
+func addOpRestoreSnapshotTierValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpRestoreSnapshotTier{}, middleware.After)
 }
 
 func addOpRevokeClientVpnIngressValidationMiddleware(stack *middleware.Stack) error {
@@ -9647,9 +9719,6 @@ func validateOpCreateSubnetInput(v *CreateSubnetInput) error {
 		return nil
 	}
 	invalidParams := smithy.InvalidParamsError{Context: "CreateSubnetInput"}
-	if v.CidrBlock == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("CidrBlock"))
-	}
 	if v.VpcId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("VpcId"))
 	}
@@ -12531,6 +12600,21 @@ func validateOpModifySnapshotAttributeInput(v *ModifySnapshotAttributeInput) err
 	}
 }
 
+func validateOpModifySnapshotTierInput(v *ModifySnapshotTierInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "ModifySnapshotTierInput"}
+	if v.SnapshotId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("SnapshotId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpModifySpotFleetRequestInput(v *ModifySpotFleetRequestInput) error {
 	if v == nil {
 		return nil
@@ -13375,6 +13459,36 @@ func validateOpRestoreManagedPrefixListVersionInput(v *RestoreManagedPrefixListV
 	}
 	if v.CurrentVersion == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("CurrentVersion"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpRestoreSnapshotFromRecycleBinInput(v *RestoreSnapshotFromRecycleBinInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "RestoreSnapshotFromRecycleBinInput"}
+	if v.SnapshotId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("SnapshotId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpRestoreSnapshotTierInput(v *RestoreSnapshotTierInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "RestoreSnapshotTierInput"}
+	if v.SnapshotId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("SnapshotId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams

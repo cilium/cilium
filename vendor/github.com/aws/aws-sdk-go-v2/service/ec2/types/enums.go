@@ -1786,7 +1786,8 @@ type FleetReplacementStrategy string
 
 // Enum values for FleetReplacementStrategy
 const (
-	FleetReplacementStrategyLaunch FleetReplacementStrategy = "launch"
+	FleetReplacementStrategyLaunch                FleetReplacementStrategy = "launch"
+	FleetReplacementStrategyLaunchBeforeTerminate FleetReplacementStrategy = "launch-before-terminate"
 )
 
 // Values returns all known values for FleetReplacementStrategy. Note that this can
@@ -1795,6 +1796,7 @@ const (
 func (FleetReplacementStrategy) Values() []FleetReplacementStrategy {
 	return []FleetReplacementStrategy{
 		"launch",
+		"launch-before-terminate",
 	}
 }
 
@@ -1910,6 +1912,28 @@ func (FpgaImageStateCode) Values() []FpgaImageStateCode {
 	}
 }
 
+type GatewayAssociationState string
+
+// Enum values for GatewayAssociationState
+const (
+	GatewayAssociationStateAssociated     GatewayAssociationState = "associated"
+	GatewayAssociationStateNotAssociated  GatewayAssociationState = "not-associated"
+	GatewayAssociationStateAssociating    GatewayAssociationState = "associating"
+	GatewayAssociationStateDisassociating GatewayAssociationState = "disassociating"
+)
+
+// Values returns all known values for GatewayAssociationState. Note that this can
+// be expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (GatewayAssociationState) Values() []GatewayAssociationState {
+	return []GatewayAssociationState{
+		"associated",
+		"not-associated",
+		"associating",
+		"disassociating",
+	}
+}
+
 type GatewayType string
 
 // Enum values for GatewayType
@@ -1923,6 +1947,24 @@ const (
 func (GatewayType) Values() []GatewayType {
 	return []GatewayType{
 		"ipsec.1",
+	}
+}
+
+type HostnameType string
+
+// Enum values for HostnameType
+const (
+	HostnameTypeIpName       HostnameType = "ip-name"
+	HostnameTypeResourceName HostnameType = "resource-name"
+)
+
+// Values returns all known values for HostnameType. Note that this can be expanded
+// in the future, and so it is only as up to date as the client. The ordering of
+// this slice is not guaranteed to be stable across updates.
+func (HostnameType) Values() []HostnameType {
+	return []HostnameType{
+		"ip-name",
+		"resource-name",
 	}
 }
 
@@ -2625,6 +2667,15 @@ const (
 	InstanceTypeC6gn8xlarge     InstanceType = "c6gn.8xlarge"
 	InstanceTypeC6gn12xlarge    InstanceType = "c6gn.12xlarge"
 	InstanceTypeC6gn16xlarge    InstanceType = "c6gn.16xlarge"
+	InstanceTypeC6iLarge        InstanceType = "c6i.large"
+	InstanceTypeC6iXlarge       InstanceType = "c6i.xlarge"
+	InstanceTypeC6i2xlarge      InstanceType = "c6i.2xlarge"
+	InstanceTypeC6i4xlarge      InstanceType = "c6i.4xlarge"
+	InstanceTypeC6i8xlarge      InstanceType = "c6i.8xlarge"
+	InstanceTypeC6i12xlarge     InstanceType = "c6i.12xlarge"
+	InstanceTypeC6i16xlarge     InstanceType = "c6i.16xlarge"
+	InstanceTypeC6i24xlarge     InstanceType = "c6i.24xlarge"
+	InstanceTypeC6i32xlarge     InstanceType = "c6i.32xlarge"
 	InstanceTypeCc14xlarge      InstanceType = "cc1.4xlarge"
 	InstanceTypeCc28xlarge      InstanceType = "cc2.8xlarge"
 	InstanceTypeG22xlarge       InstanceType = "g2.2xlarge"
@@ -2797,6 +2848,16 @@ const (
 	InstanceTypeM6gd8xlarge     InstanceType = "m6gd.8xlarge"
 	InstanceTypeM6gd12xlarge    InstanceType = "m6gd.12xlarge"
 	InstanceTypeM6gd16xlarge    InstanceType = "m6gd.16xlarge"
+	InstanceTypeM6aLarge        InstanceType = "m6a.large"
+	InstanceTypeM6aXlarge       InstanceType = "m6a.xlarge"
+	InstanceTypeM6a2xlarge      InstanceType = "m6a.2xlarge"
+	InstanceTypeM6a4xlarge      InstanceType = "m6a.4xlarge"
+	InstanceTypeM6a8xlarge      InstanceType = "m6a.8xlarge"
+	InstanceTypeM6a12xlarge     InstanceType = "m6a.12xlarge"
+	InstanceTypeM6a16xlarge     InstanceType = "m6a.16xlarge"
+	InstanceTypeM6a24xlarge     InstanceType = "m6a.24xlarge"
+	InstanceTypeM6a32xlarge     InstanceType = "m6a.32xlarge"
+	InstanceTypeM6a48xlarge     InstanceType = "m6a.48xlarge"
 	InstanceTypeM6iLarge        InstanceType = "m6i.large"
 	InstanceTypeM6iXlarge       InstanceType = "m6i.xlarge"
 	InstanceTypeM6i2xlarge      InstanceType = "m6i.2xlarge"
@@ -2819,6 +2880,20 @@ const (
 	InstanceTypeVt13xlarge      InstanceType = "vt1.3xlarge"
 	InstanceTypeVt16xlarge      InstanceType = "vt1.6xlarge"
 	InstanceTypeVt124xlarge     InstanceType = "vt1.24xlarge"
+	InstanceTypeG5gXlarge       InstanceType = "g5g.xlarge"
+	InstanceTypeG5g2xlarge      InstanceType = "g5g.2xlarge"
+	InstanceTypeG5g4xlarge      InstanceType = "g5g.4xlarge"
+	InstanceTypeG5g8xlarge      InstanceType = "g5g.8xlarge"
+	InstanceTypeG5g16xlarge     InstanceType = "g5g.16xlarge"
+	InstanceTypeG5gMetal        InstanceType = "g5g.metal"
+	InstanceTypeG5Xlarge        InstanceType = "g5.xlarge"
+	InstanceTypeG52xlarge       InstanceType = "g5.2xlarge"
+	InstanceTypeG54xlarge       InstanceType = "g5.4xlarge"
+	InstanceTypeG58xlarge       InstanceType = "g5.8xlarge"
+	InstanceTypeG512xlarge      InstanceType = "g5.12xlarge"
+	InstanceTypeG516xlarge      InstanceType = "g5.16xlarge"
+	InstanceTypeG524xlarge      InstanceType = "g5.24xlarge"
+	InstanceTypeG548xlarge      InstanceType = "g5.48xlarge"
 )
 
 // Values returns all known values for InstanceType. Note that this can be expanded
@@ -3053,6 +3128,15 @@ func (InstanceType) Values() []InstanceType {
 		"c6gn.8xlarge",
 		"c6gn.12xlarge",
 		"c6gn.16xlarge",
+		"c6i.large",
+		"c6i.xlarge",
+		"c6i.2xlarge",
+		"c6i.4xlarge",
+		"c6i.8xlarge",
+		"c6i.12xlarge",
+		"c6i.16xlarge",
+		"c6i.24xlarge",
+		"c6i.32xlarge",
 		"cc1.4xlarge",
 		"cc2.8xlarge",
 		"g2.2xlarge",
@@ -3225,6 +3309,16 @@ func (InstanceType) Values() []InstanceType {
 		"m6gd.8xlarge",
 		"m6gd.12xlarge",
 		"m6gd.16xlarge",
+		"m6a.large",
+		"m6a.xlarge",
+		"m6a.2xlarge",
+		"m6a.4xlarge",
+		"m6a.8xlarge",
+		"m6a.12xlarge",
+		"m6a.16xlarge",
+		"m6a.24xlarge",
+		"m6a.32xlarge",
+		"m6a.48xlarge",
 		"m6i.large",
 		"m6i.xlarge",
 		"m6i.2xlarge",
@@ -3247,6 +3341,20 @@ func (InstanceType) Values() []InstanceType {
 		"vt1.3xlarge",
 		"vt1.6xlarge",
 		"vt1.24xlarge",
+		"g5g.xlarge",
+		"g5g.2xlarge",
+		"g5g.4xlarge",
+		"g5g.8xlarge",
+		"g5g.16xlarge",
+		"g5g.metal",
+		"g5.xlarge",
+		"g5.2xlarge",
+		"g5.4xlarge",
+		"g5.8xlarge",
+		"g5.12xlarge",
+		"g5.16xlarge",
+		"g5.24xlarge",
+		"g5.48xlarge",
 	}
 }
 
@@ -4202,7 +4310,8 @@ type ReplacementStrategy string
 
 // Enum values for ReplacementStrategy
 const (
-	ReplacementStrategyLaunch ReplacementStrategy = "launch"
+	ReplacementStrategyLaunch                ReplacementStrategy = "launch"
+	ReplacementStrategyLaunchBeforeTerminate ReplacementStrategy = "launch-before-terminate"
 )
 
 // Values returns all known values for ReplacementStrategy. Note that this can be
@@ -4211,6 +4320,7 @@ const (
 func (ReplacementStrategy) Values() []ReplacementStrategy {
 	return []ReplacementStrategy{
 		"launch",
+		"launch-before-terminate",
 	}
 }
 
@@ -4741,9 +4851,11 @@ type SnapshotState string
 
 // Enum values for SnapshotState
 const (
-	SnapshotStatePending   SnapshotState = "pending"
-	SnapshotStateCompleted SnapshotState = "completed"
-	SnapshotStateError     SnapshotState = "error"
+	SnapshotStatePending     SnapshotState = "pending"
+	SnapshotStateCompleted   SnapshotState = "completed"
+	SnapshotStateError       SnapshotState = "error"
+	SnapshotStateRecoverable SnapshotState = "recoverable"
+	SnapshotStateRecovering  SnapshotState = "recovering"
 )
 
 // Values returns all known values for SnapshotState. Note that this can be
@@ -4754,6 +4866,8 @@ func (SnapshotState) Values() []SnapshotState {
 		"pending",
 		"completed",
 		"error",
+		"recoverable",
+		"recovering",
 	}
 }
 
@@ -4948,6 +5062,24 @@ func (StatusType) Values() []StatusType {
 	}
 }
 
+type StorageTier string
+
+// Enum values for StorageTier
+const (
+	StorageTierArchive  StorageTier = "archive"
+	StorageTierStandard StorageTier = "standard"
+)
+
+// Values returns all known values for StorageTier. Note that this can be expanded
+// in the future, and so it is only as up to date as the client. The ordering of
+// this slice is not guaranteed to be stable across updates.
+func (StorageTier) Values() []StorageTier {
+	return []StorageTier{
+		"archive",
+		"standard",
+	}
+}
+
 type SubnetCidrBlockStateCode string
 
 // Enum values for SubnetCidrBlockStateCode
@@ -5054,6 +5186,22 @@ func (TargetCapacityUnitType) Values() []TargetCapacityUnitType {
 	}
 }
 
+type TargetStorageTier string
+
+// Enum values for TargetStorageTier
+const (
+	TargetStorageTierArchive TargetStorageTier = "archive"
+)
+
+// Values returns all known values for TargetStorageTier. Note that this can be
+// expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (TargetStorageTier) Values() []TargetStorageTier {
+	return []TargetStorageTier{
+		"archive",
+	}
+}
+
 type TelemetryStatus string
 
 // Enum values for TelemetryStatus
@@ -5089,6 +5237,38 @@ func (Tenancy) Values() []Tenancy {
 		"default",
 		"dedicated",
 		"host",
+	}
+}
+
+type TieringOperationStatus string
+
+// Enum values for TieringOperationStatus
+const (
+	TieringOperationStatusArchivalInProgress         TieringOperationStatus = "archival-in-progress"
+	TieringOperationStatusArchivalCompleted          TieringOperationStatus = "archival-completed"
+	TieringOperationStatusArchivalFailed             TieringOperationStatus = "archival-failed"
+	TieringOperationStatusTemporaryRestoreInProgress TieringOperationStatus = "temporary-restore-in-progress"
+	TieringOperationStatusTemporaryRestoreCompleted  TieringOperationStatus = "temporary-restore-completed"
+	TieringOperationStatusTemporaryRestoreFailed     TieringOperationStatus = "temporary-restore-failed"
+	TieringOperationStatusPermanentRestoreInProgress TieringOperationStatus = "permanent-restore-in-progress"
+	TieringOperationStatusPermanentRestoreCompleted  TieringOperationStatus = "permanent-restore-completed"
+	TieringOperationStatusPermanentRestoreFailed     TieringOperationStatus = "permanent-restore-failed"
+)
+
+// Values returns all known values for TieringOperationStatus. Note that this can
+// be expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (TieringOperationStatus) Values() []TieringOperationStatus {
+	return []TieringOperationStatus{
+		"archival-in-progress",
+		"archival-completed",
+		"archival-failed",
+		"temporary-restore-in-progress",
+		"temporary-restore-completed",
+		"temporary-restore-failed",
+		"permanent-restore-in-progress",
+		"permanent-restore-completed",
+		"permanent-restore-failed",
 	}
 }
 

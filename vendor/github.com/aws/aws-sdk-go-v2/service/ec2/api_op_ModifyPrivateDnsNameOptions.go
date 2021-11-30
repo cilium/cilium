@@ -11,33 +11,23 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Deletes the specified set of tags from the specified set of resources. To list
-// the current tags, use DescribeTags. For more information about tags, see Tagging
-// Your Resources
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html) in the
-// Amazon Elastic Compute Cloud User Guide.
-func (c *Client) DeleteTags(ctx context.Context, params *DeleteTagsInput, optFns ...func(*Options)) (*DeleteTagsOutput, error) {
+// Modifies the options for instance hostnames for the specified instance.
+func (c *Client) ModifyPrivateDnsNameOptions(ctx context.Context, params *ModifyPrivateDnsNameOptionsInput, optFns ...func(*Options)) (*ModifyPrivateDnsNameOptionsOutput, error) {
 	if params == nil {
-		params = &DeleteTagsInput{}
+		params = &ModifyPrivateDnsNameOptionsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DeleteTags", params, optFns, c.addOperationDeleteTagsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ModifyPrivateDnsNameOptions", params, optFns, c.addOperationModifyPrivateDnsNameOptionsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*DeleteTagsOutput)
+	out := result.(*ModifyPrivateDnsNameOptionsOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type DeleteTagsInput struct {
-
-	// The IDs of the resources, separated by spaces. Constraints: Up to 1000 resource
-	// IDs. We recommend breaking up this request into smaller batches.
-	//
-	// This member is required.
-	Resources []string
+type ModifyPrivateDnsNameOptionsInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
@@ -45,31 +35,43 @@ type DeleteTagsInput struct {
 	// UnauthorizedOperation.
 	DryRun *bool
 
-	// The tags to delete. Specify a tag key and an optional tag value to delete
-	// specific tags. If you specify a tag key without a tag value, we delete any tag
-	// with this key regardless of its value. If you specify a tag key with an empty
-	// string as the tag value, we delete the tag only if its value is an empty string.
-	// If you omit this parameter, we delete all user-defined tags for the specified
-	// resources. We do not delete Amazon Web Services-generated tags (tags that have
-	// the aws: prefix). Constraints: Up to 1000 tags.
-	Tags []types.Tag
+	// Indicates whether to respond to DNS queries for instance hostnames with DNS AAAA
+	// records.
+	EnableResourceNameDnsAAAARecord *bool
+
+	// Indicates whether to respond to DNS queries for instance hostnames with DNS A
+	// records.
+	EnableResourceNameDnsARecord *bool
+
+	// The ID of the instance.
+	InstanceId *string
+
+	// The type of hostname for EC2 instances. For IPv4 only subnets, an instance DNS
+	// name must be based on the instance IPv4 address. For IPv6 only subnets, an
+	// instance DNS name must be based on the instance ID. For dual-stack subnets, you
+	// can specify whether DNS names use the instance IPv4 address or the instance ID.
+	PrivateDnsHostnameType types.HostnameType
 
 	noSmithyDocumentSerde
 }
 
-type DeleteTagsOutput struct {
+type ModifyPrivateDnsNameOptionsOutput struct {
+
+	// Returns true if the request succeeds; otherwise, it returns an error.
+	Return *bool
+
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
 
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationDeleteTagsMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	err = stack.Serialize.Add(&awsEc2query_serializeOpDeleteTags{}, middleware.After)
+func (c *Client) addOperationModifyPrivateDnsNameOptionsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyPrivateDnsNameOptions{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpDeleteTags{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpModifyPrivateDnsNameOptions{}, middleware.After)
 	if err != nil {
 		return err
 	}
@@ -109,10 +111,7 @@ func (c *Client) addOperationDeleteTagsMiddlewares(stack *middleware.Stack, opti
 	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
 		return err
 	}
-	if err = addOpDeleteTagsValidationMiddleware(stack); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDeleteTags(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifyPrivateDnsNameOptions(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -127,11 +126,11 @@ func (c *Client) addOperationDeleteTagsMiddlewares(stack *middleware.Stack, opti
 	return nil
 }
 
-func newServiceMetadataMiddleware_opDeleteTags(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opModifyPrivateDnsNameOptions(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
 		SigningName:   "ec2",
-		OperationName: "DeleteTags",
+		OperationName: "ModifyPrivateDnsNameOptions",
 	}
 }

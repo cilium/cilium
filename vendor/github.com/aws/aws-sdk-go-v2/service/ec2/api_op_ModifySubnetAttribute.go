@@ -46,6 +46,18 @@ type ModifySubnetAttributeInput struct {
 	// this value when you specify true for MapCustomerOwnedIpOnLaunch.
 	CustomerOwnedIpv4Pool *string
 
+	// Indicates whether DNS queries made to the Amazon-provided DNS Resolver in this
+	// subnet should return synthetic IPv6 addresses for IPv4-only destinations.
+	EnableDns64 *types.AttributeBooleanValue
+
+	// Indicates whether to respond to DNS queries for instance hostnames with DNS AAAA
+	// records.
+	EnableResourceNameDnsAAAARecordOnLaunch *types.AttributeBooleanValue
+
+	// Indicates whether to respond to DNS queries for instance hostnames with DNS A
+	// records.
+	EnableResourceNameDnsARecordOnLaunch *types.AttributeBooleanValue
+
 	// Specify true to indicate that network interfaces attached to instances created
 	// in the specified subnet should be assigned a customer-owned IPv4 address. When
 	// this value is true, you must specify the customer-owned IP pool using
@@ -55,6 +67,13 @@ type ModifySubnetAttributeInput struct {
 	// Specify true to indicate that network interfaces attached to instances created
 	// in the specified subnet should be assigned a public IPv4 address.
 	MapPublicIpOnLaunch *types.AttributeBooleanValue
+
+	// The type of hostnames to assign to instances in the subnet at launch. For IPv4
+	// only subnets, an instance DNS name must be based on the instance IPv4 address.
+	// For IPv6 only subnets, an instance DNS name must be based on the instance ID.
+	// For dual-stack subnets, you can specify whether DNS names use the instance IPv4
+	// address or the instance ID.
+	PrivateDnsHostnameTypeOnLaunch types.HostnameType
 
 	noSmithyDocumentSerde
 }
