@@ -258,8 +258,8 @@ func routeCommands() []string {
 	routes, _ := execCommand("ip route show table all | grep -E --only-matching 'table [0-9]+'")
 
 	for _, r := range bytes.Split(bytes.TrimSuffix(routes, []byte("\n")), []byte("\n")) {
-		routeTablev4 := fmt.Sprintf("ip -4 route show %v", r)
-		routeTablev6 := fmt.Sprintf("ip -6 route show %v", r)
+		routeTablev4 := fmt.Sprintf("ip -4 route show %s", r)
+		routeTablev6 := fmt.Sprintf("ip -6 route show %s", r)
 		commands = append(commands, routeTablev4, routeTablev6)
 	}
 	return commands
