@@ -148,7 +148,7 @@ func (e *MalformedPolicyDocumentException) ErrorFault() smithy.ErrorFault { retu
 // IAM User Guide. You could receive this error even though you meet other defined
 // session policy and session tag limits. For more information, see IAM and STS
 // Entity Character Limits
-// (https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_enable-regions.html)
+// (https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-quotas.html#reference_iam-limits-entity-length)
 // in the IAM User Guide.
 type PackedPolicyTooLargeException struct {
 	Message *string

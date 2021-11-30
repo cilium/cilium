@@ -24,7 +24,7 @@ import (
 // operations that produce temporary credentials, see Requesting Temporary Security
 // Credentials
 // (https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_request.html)
-// and Comparing the STS API operations
+// and Comparing the Amazon Web Services STS API operations
 // (https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_request.html#stsapi_comparison)
 // in the IAM User Guide. Session Duration The GetSessionToken operation must be
 // called by using the long-term Amazon Web Services security credentials of the
@@ -90,11 +90,11 @@ type GetSessionTokenInput struct {
 	// policy that requires MFA authentication. The value is either the serial number
 	// for a hardware device (such as GAHT12345678) or an Amazon Resource Name (ARN)
 	// for a virtual device (such as arn:aws:iam::123456789012:mfa/user). You can find
-	// the device for an IAM user by going to the Management Console and viewing the
-	// user's security credentials. The regex used to validate this parameter is a
-	// string of characters consisting of upper- and lower-case alphanumeric characters
-	// with no spaces. You can also include underscores or any of the following
-	// characters: =,.@:/-
+	// the device for an IAM user by going to the Amazon Web Services Management
+	// Console and viewing the user's security credentials. The regex used to validate
+	// this parameter is a string of characters consisting of upper- and lower-case
+	// alphanumeric characters with no spaces. You can also include underscores or any
+	// of the following characters: =,.@:/-
 	SerialNumber *string
 
 	// The value provided by the MFA device, if MFA is required. If any policy requires
