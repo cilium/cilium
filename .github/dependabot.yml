@@ -12,6 +12,10 @@ updates:
         # k8s dependencies will be updated manually along with tests
       - dependency-name: "k8s.io/*"
       - dependency-name: "sigs.k8s.io/*"
+        # cloud provider SDKs are updated too frequently, update them manually
+      - dependency-name: "github.com/aliyun/alibaba-cloud-sdk-go"
+      - dependency-name: "github.com/aws/aws-sdk-go-v2"
+      - dependency-name: "github.com/Azure/*"
     labels:
     - kind/enhancement
     - release-note/misc
