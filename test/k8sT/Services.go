@@ -1037,7 +1037,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 					})
 				})
 
-				Context("Tests with direct routing", func() {
+				SkipContextIf(helpers.SkipQuarantined, "Tests with direct routing", func() {
 
 					var directRoutingOpts = map[string]string{
 						"tunnel":               "disabled",
