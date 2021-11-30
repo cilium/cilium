@@ -22,15 +22,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func cancelOnSignal(cancel context.CancelFunc, sig ...os.Signal) {
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, sig...)
-	go func() {
-		<-c
-		cancel()
-	}()
-}
-
 func main() {
 	var (
 		pidfilePath string
@@ -41,8 +32,7 @@ func main() {
 	flag.Parse()
 
 	// Shutdown gracefully to halt server and remove pidfile
-	ctx, cancel := context.WithCancel(context.Background())
-	cancelOnSignal(cancel, unix.SIGINT, unix.SIGHUP, unix.SIGTERM, unix.SIGQUIT)
+	ctx, cancel := signal.NotifyContext(context.Background(), unix.SIGINT, unix.SIGHUP, unix.SIGTERM, unix.SIGQUIT)
 
 	srv := responder.NewServer(listen)
 	defer srv.Shutdown()
