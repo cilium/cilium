@@ -302,7 +302,6 @@ func (p *parser) readPythonMultilines(line string, bufferSize int) (string, erro
 	parserBufferPeekResult, _ := p.buf.Peek(bufferSize)
 	peekBuffer := bytes.NewBuffer(parserBufferPeekResult)
 
-	indentSize := 0
 	for {
 		peekData, peekErr := peekBuffer.ReadBytes('\n')
 		if peekErr != nil {
@@ -329,19 +328,6 @@ func (p *parser) readPythonMultilines(line string, bufferSize int) (string, erro
 			return line, nil
 		}
 
-		// Determine indent size and line prefix.
-		currentIndentSize := len(peekMatches[1])
-		if indentSize < 1 {
-			indentSize = currentIndentSize
-			p.debug("readPythonMultilines: indent size is %d", indentSize)
-		}
-
-		// Make sure each line is indented at least as far as first line.
-		if currentIndentSize < indentSize {
-			p.debug("readPythonMultilines: end of value, current indent: %d, expected indent: %d, line: %q", currentIndentSize, indentSize, line)
-			return line, nil
-		}
-
 		// Advance the parser reader (buffer) in-sync with the peek buffer.
 		_, err := p.buf.Discard(len(peekData))
 		if err != nil {
@@ -349,8 +335,7 @@ func (p *parser) readPythonMultilines(line string, bufferSize int) (string, erro
 			return "", err
 		}
 
-		// Handle indented empty line.
-		line += "\n" + peekMatches[1][indentSize:] + peekMatches[2]
+		line += "\n" + peekMatches[0]
 	}
 }
 
