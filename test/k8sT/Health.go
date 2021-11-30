@@ -26,7 +26,9 @@ var _ = Describe("K8sHealthTest", func() {
 			kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 			ciliumFilename = helpers.TimestampFilename("cilium.yaml")
-			DeployCiliumAndDNS(kubectl, ciliumFilename)
+			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+				"clusterHealthPort": "9940", // tests use of custom port
+			})
 		})
 
 		AfterFailed(func() {
