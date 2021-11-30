@@ -304,7 +304,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 
 	pidfile := filepath.Join(option.Config.StateDir, PidfilePath)
 	prog := "ip"
-	args := []string{"netns", "exec", netNSName, binaryName, "--pidfile", pidfile}
+	args := []string{"netns", "exec", netNSName, binaryName, "--listen", strconv.Itoa(option.Config.ClusterHealthPort), "--pidfile", pidfile}
 	cmd.SetTarget(prog)
 	cmd.SetArgs(args)
 	log.Debugf("Spawning health endpoint with command %q %q", prog, args)
