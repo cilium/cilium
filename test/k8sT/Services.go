@@ -1642,14 +1642,27 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 			terminateServiceEndpointPod()
 
+			By("Checking if client pod terminated gracefully")
+			ctx, cancel = context.WithCancel(context.Background())
+			res = kubectl.LogsStream(helpers.DefaultNamespace, clientPod, ctx)
+			// The log message indicates that the connectivity between client and
+			// server was intact even after the service endpoint pod was terminated,
+			// and that the client connection terminated gracefully.
+			Expect(res.WaitUntilMatch("exiting on graceful termination")).To(BeNil(),
+				"%s is not in the output after timeout", res.GetStdOut())
+			defer func() {
+				cancel()
+				res.WaitUntilFinish()
+			}()
+
 			// The client pod exits with status code 0 on graceful termination.
-			By("Checking if client pod terminated successfully")
+			By("Checking if client pod exited successfully")
 			Eventually(func() string {
 				filter := `{.status.phase}`
 				status, err := kubectl.GetPods(helpers.DefaultNamespace, clientPod).Filter(filter)
 				Expect(err).Should(BeNil(), "Failed to get pod status %s", clientPod)
 				return status.String()
-			}, 30*time.Second, time.Second).Should(BeIdenticalTo("Succeeded"), "Unexpected pod status \n")
+			}, 15*time.Second, time.Second).Should(BeIdenticalTo("Succeeded"), "Unexpected pod status \n")
 		})
 
 		It("Checks if terminating service endpoint doesn't serve new connections", func() {
