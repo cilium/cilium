@@ -92,6 +92,7 @@ var (
 		"hubble.relay.image.repository": "k8s1:5000/cilium/hubble-relay",
 		"hubble.relay.image.tag":        "latest",
 		"hubble.relay.image.useDigest":  "false",
+		"hubble.eventBufferCapacity":    "65535",
 		"debug.enabled":                 "true",
 		"k8s.requireIPv4PodCIDR":        "true",
 		"pprof.enabled":                 "true",
