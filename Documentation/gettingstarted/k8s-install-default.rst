@@ -291,14 +291,14 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
     .. group-tab:: k3s
 
        .. include:: requirements-k3s.rst
-      
+
        **Install Cilium:**
 
        Install Cilium into your newly created Kubernetes cluster:
 
        .. code-block:: shell-session
 
-           cilium install
+           KUBECONFIG=/etc/rancher/k3s/k3s.yaml cilium install
 
 
 If the installation fails for some reason, run ``cilium status`` to retrieve
