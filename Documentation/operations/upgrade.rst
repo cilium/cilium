@@ -343,6 +343,9 @@ Annotations:
 * The default setting for ``kubeProxyReplacement`` has been changed from
   ``probe`` to ``disabled``. For any new installation, if you want to use
   kube-proxy replacement, set  ``kubeProxyReplacement`` to ``strict``.
+* When Egress Gateway is enabled, upgrading to 1.10.6 will cause a brief
+  interruption of the connectivity between the client pods and the egress
+  gateway nodes.
 
 Removed Metrics/Labels
 ~~~~~~~~~~~~~~~~~~~~~~
