@@ -153,12 +153,23 @@ func InjectLabels(src source.Source, updater identityUpdater, triggerer policyTr
 				}).Error(
 					"Failed to release assigned identity during label injection, this might be a leak.",
 				)
+			} else {
+				log.WithFields(logrus.Fields{
+					logfields.IPAddr:   prefix,
+					logfields.Identity: id,
+				}).Debug(
+					"Released identity to balance reference counts",
+				)
 			}
 		}
 	}
 
 	// Recalculate policy first before upserting into the ipcache.
 	if trigger {
+		// GH-17962: Refactor to call (*Daemon).UpdateIdentities(), instead of
+		// re-implementing the same logic here. It will also allow removing the
+		// dependencies that are passed into this function.
+
 		// Accumulate the desired policy map changes as the identities have
 		// been updated with new labels.
 		var wg sync.WaitGroup
@@ -186,50 +197,38 @@ func InjectLabels(src source.Source, updater identityUpdater, triggerer policyTr
 	return nil
 }
 
+// injectLabels will allocate an identity for the given prefix and the given
+// labels. The caller of this function can expect that an identity is newly
+// allocated with reference count of 1 or an identity is looked up and its
+// reference count is incremented.
+//
+// The release of the identity must be managed by the caller, except for the
+// case where a CIDR policy exists first and then the kube-apiserver policy is
+// applied. This is because the CIDR identities before the kube-apiserver
+// policy is applied will need to be converted (released and re-allocated) to
+// account for the new kube-apiserver label that will be attached to them. This
+// is a known issue, see GH-17962 below.
 func injectLabels(prefix string, lbls labels.Labels) (*identity.Identity, bool, error) {
-	// Before allocating an identity, check if we should deallocate the old one
-	// first, if it exists.
-	if id, exists := IPIdentityCache.LookupByIP(prefix); exists {
-		// But not if it's only the kube-apiserver reserved identity. The
-		// kube-apiserver label can be associated with the host and CIDR
-		// labels.
-		realID := IdentityAllocator.LookupIdentityByID(context.TODO(), id.ID)
-		if realID != nil && !realID.Labels.Equals(labels.LabelKubeAPIServer) {
-			scopedLog := log.WithFields(logrus.Fields{
-				logfields.IPAddr:         prefix,
-				logfields.OldIdentity:    realID,
-				logfields.IdentityLabels: realID.Labels,
-			})
-
-			released, err := IdentityAllocator.Release(context.TODO(), realID, false)
-			if err != nil {
-				scopedLog.WithError(err).Warn(
-					"Failed to release previously assigned identity to IP, this might be a leak.",
-				)
-			} else {
-				scopedLog.WithFields(logrus.Fields{
-					"released":       released,
-					logfields.Labels: lbls,
-				}).Debug(
-					"Releasing old identity with previously assigned to IP and updating with new set of labels",
-				)
-			}
-		}
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), option.Config.IPAllocationTimeout)
+	defer cancel()
 
 	// If no other labels are associated with this IP, we assume that it's
-	// outside of the cluster and hence needs a CIDR identity. This might be a
-	// temporary identity.
+	// outside of the cluster and hence needs a CIDR identity.
 	if lbls.Equals(labels.LabelKubeAPIServer) {
-		// The release of the identitiy allocated has been handled above. This
-		// can happen if we discover that the prefix is also associated with
-		// other labels besides kube-apiserver, i.e. if the kube-apiserver is
-		// not running outside of the cluster.
+		// GH-17962: Handle the following case:
+		//   1) Apply ToCIDR policy (matching IPs of kube-apiserver)
+		//   2) Apply kube-apiserver policy
+		//
+		// Possible implementation:
+		//   Lookup CIDR ID => get all CIDR labels minus kube-apiserver label.
+		//   If found, means that ToCIDR policy already applied. Convert CIDR
+		//   IDs to include a new identity with kube-apiserver label. We don't
+		//   need to remove old entries from ipcache because the caller will
+		//   overwrite the ipcache entry anyway.
+
 		return injectLabelsForCIDR(prefix, lbls)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), option.Config.IPAllocationTimeout)
-	defer cancel()
 	return IdentityAllocator.AllocateIdentity(ctx, lbls, false)
 }
 
