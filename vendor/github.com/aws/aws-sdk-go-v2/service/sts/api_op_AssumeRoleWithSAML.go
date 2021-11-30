@@ -17,7 +17,7 @@ import (
 // For a comparison of AssumeRoleWithSAML with the other API operations that
 // produce temporary credentials, see Requesting Temporary Security Credentials
 // (https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_request.html)
-// and Comparing the STS API operations
+// and Comparing the Amazon Web Services STS API operations
 // (https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_request.html#stsapi_comparison)
 // in the IAM User Guide. The temporary security credentials returned by this
 // operation consist of an access key ID, a secret access key, and a security
@@ -174,7 +174,7 @@ type AssumeRoleWithSAMLInput struct {
 	// federation endpoint for a console sign-in token takes a SessionDuration
 	// parameter that specifies the maximum length of the console session. For more
 	// information, see Creating a URL that Enables Federated Users to Access the
-	// Management Console
+	// Amazon Web Services Management Console
 	// (https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_enable-console-custom-url.html)
 	// in the IAM User Guide.
 	DurationSeconds *int32
