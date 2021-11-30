@@ -658,7 +658,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 		})
 
 		SkipContextIf(func() bool {
-			return helpers.RunsWithKubeProxyReplacement() || helpers.GetCurrentIntegration() != ""
+			return helpers.RunsWithKubeProxyReplacement() || helpers.GetCurrentIntegration() != "" || helpers.SkipQuarantined()
 		}, "IPv6 masquerading", func() {
 			var (
 				k8s1EndpointIPs map[string]string
