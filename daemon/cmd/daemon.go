@@ -481,7 +481,9 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		d.bgpSpeaker = speaker.New()
 	}
 
-	d.egressGatewayManager = egressgateway.NewEgressGatewayManager()
+	if option.Config.EnableEgressGateway {
+		d.egressGatewayManager = egressgateway.NewEgressGatewayManager(&d)
+	}
 
 	d.k8sWatcher = watchers.NewK8sWatcher(
 		d.endpointManager,

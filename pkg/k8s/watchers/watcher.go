@@ -163,8 +163,8 @@ type bgpSpeakerManager interface {
 	OnUpdateNode(node *corev1.Node)
 }
 type egressGatewayManager interface {
-	AddEgressPolicy(config egressgateway.PolicyConfig) (bool, error)
-	DeleteEgressPolicy(configID types.NamespacedName) error
+	OnAddEgressPolicy(config egressgateway.PolicyConfig)
+	OnDeleteEgressPolicy(configID types.NamespacedName)
 	OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint)
 	OnDeleteEndpoint(endpoint *k8sTypes.CiliumEndpoint)
 }
