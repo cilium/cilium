@@ -311,7 +311,7 @@ func RemoveLabelsFromIPs(
 			la = l.LabelArray()
 		}
 		idsToDelete[id.ID] = la
-		if len(lbls) > 0 {
+		if len(la) > 0 {
 			// If for example kube-apiserver label is removed from
 			// a remote-node, then RemoveLabels() will return a
 			// non-empty set representing the new full set of
