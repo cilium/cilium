@@ -139,6 +139,7 @@ func (r *request) buildHTTP(mediaType, basePath string, producers map[string]run
 					if err := mp.WriteField(fn, vi); err != nil {
 						pw.CloseWithError(err)
 						log.Println(err)
+						return
 					}
 				}
 			}
@@ -152,18 +153,16 @@ func (r *request) buildHTTP(mediaType, basePath string, producers map[string]run
 			}()
 			for fn, f := range r.fileFields {
 				for _, fi := range f {
-					buf := bytes.NewBuffer([]byte{})
-
 					// Need to read the data so that we can detect the content type
-					_, err := io.Copy(buf, fi)
+					buf := make([]byte, 512)
+					size, err := fi.Read(buf)
 					if err != nil {
 						_ = pw.CloseWithError(err)
 						log.Println(err)
+						return
 					}
-					fileBytes := buf.Bytes()
-					fileContentType := http.DetectContentType(fileBytes)
-
-					newFi := runtime.NamedReader(fi.Name(), buf)
+					fileContentType := http.DetectContentType(buf)
+					newFi := runtime.NamedReader(fi.Name(), io.MultiReader(bytes.NewReader(buf[:size]), fi))
 
 					// Create the MIME headers for the new part
 					h := make(textproto.MIMEHeader)
@@ -176,7 +175,9 @@ func (r *request) buildHTTP(mediaType, basePath string, producers map[string]run
 					if err != nil {
 						pw.CloseWithError(err)
 						log.Println(err)
-					} else if _, err := io.Copy(wrtr, newFi); err != nil {
+						return
+					}
+					if _, err := io.Copy(wrtr, newFi); err != nil {
 						pw.CloseWithError(err)
 						log.Println(err)
 					}
@@ -273,12 +274,36 @@ DoneChoosingBodySource:
 		}
 	}
 
+	// In case the basePath or the request pathPattern include static query parameters,
+	// parse those out before constructing the final path. The parameters themselves
+	// will be merged with the ones set by the client, with the priority given first to
+	// the ones set by the client, then the path pattern, and lastly the base path.
+	basePathURL, err := url.Parse(basePath)
+	if err != nil {
+		return nil, err
+	}
+	staticQueryParams := basePathURL.Query()
+
+	pathPatternURL, err := url.Parse(r.pathPattern)
+	if err != nil {
+		return nil, err
+	}
+	for name, values := range pathPatternURL.Query() {
+		if _, present := staticQueryParams[name]; present {
+			staticQueryParams.Del(name)
+		}
+		for _, value := range values {
+			staticQueryParams.Add(name, value)
+		}
+	}
+
 	// create http request
 	var reinstateSlash bool
-	if r.pathPattern != "" && r.pathPattern != "/" && r.pathPattern[len(r.pathPattern)-1] == '/' {
+	if pathPatternURL.Path != "" && pathPatternURL.Path != "/" && pathPatternURL.Path[len(pathPatternURL.Path)-1] == '/' {
 		reinstateSlash = true
 	}
-	urlPath := path.Join(basePath, r.pathPattern)
+
+	urlPath := path.Join(basePathURL.Path, pathPatternURL.Path)
 	for k, v := range r.pathParams {
 		urlPath = strings.Replace(urlPath, "{"+k+"}", url.PathEscape(v), -1)
 	}
@@ -289,6 +314,19 @@ DoneChoosingBodySource:
 	req, err := http.NewRequest(r.method, urlPath, body)
 	if err != nil {
 		return nil, err
+	}
+
+	originalParams := r.GetQueryParams()
+
+	// Merge the query parameters extracted from the basePath with the ones set by
+	// the client in this struct. In case of conflict, the client wins.
+	for k, v := range staticQueryParams {
+		_, present := originalParams[k]
+		if !present {
+			if err = r.SetQueryParam(k, v...); err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	req.URL.RawQuery = r.query.Encode()

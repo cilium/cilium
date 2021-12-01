@@ -1,9 +1,8 @@
 package client
 
 import (
+	"fmt"
 	"net/http"
-	"regexp"
-	"strings"
 
 	"github.com/go-openapi/strfmt"
 	"github.com/opentracing/opentracing-go"
@@ -29,7 +28,11 @@ func newOpenTracingTransport(transport runtime.ClientTransport, host string, opt
 }
 
 func (t *tracingTransport) Submit(op *runtime.ClientOperation) (interface{}, error) {
-	authInfo := op.AuthInfo
+	if op.Context == nil {
+		return t.transport.Submit(op)
+	}
+
+	params := op.Params
 	reader := op.Reader
 
 	var span opentracing.Span
@@ -39,9 +42,9 @@ func (t *tracingTransport) Submit(op *runtime.ClientOperation) (interface{}, err
 		}
 	}()
 
-	op.AuthInfo = runtime.ClientAuthInfoWriterFunc(func(req runtime.ClientRequest, reg strfmt.Registry) error {
+	op.Params = runtime.ClientRequestWriterFunc(func(req runtime.ClientRequest, reg strfmt.Registry) error {
 		span = createClientSpan(op, req.GetHeaderParams(), t.host, t.opts)
-		return authInfo.AuthenticateRequest(req, reg)
+		return params.WriteToRequest(req, reg)
 	})
 
 	op.Reader = runtime.ClientResponseReaderFunc(func(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
@@ -71,7 +74,7 @@ func createClientSpan(op *runtime.ClientOperation, header http.Header, host stri
 	if span != nil {
 		opts = append(opts, ext.SpanKindRPCClient)
 		span, _ = opentracing.StartSpanFromContextWithTracer(
-			ctx, span.Tracer(), toSnakeCase(op.ID), opts...)
+			ctx, span.Tracer(), operationName(op), opts...)
 
 		ext.Component.Set(span, "go-openapi")
 		ext.PeerHostname.Set(span, host)
@@ -88,11 +91,9 @@ func createClientSpan(op *runtime.ClientOperation, header http.Header, host stri
 	return nil
 }
 
-var matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
-var matchAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
-
-func toSnakeCase(str string) string {
-	snake := matchFirstCap.ReplaceAllString(str, "${1}_${2}")
-	snake = matchAllCap.ReplaceAllString(snake, "${1}_${2}")
-	return strings.ToLower(snake)
+func operationName(op *runtime.ClientOperation) string {
+	if op.ID != "" {
+		return op.ID
+	}
+	return fmt.Sprintf("%s_%s", op.Method, op.PathPattern)
 }

@@ -23,6 +23,7 @@
 #undef GetMessage
 #undef interface
 #undef TRUE
+#undef min
 
 #endif
 

@@ -21,7 +21,7 @@ import (
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:resource:singular="ciliumexternalworkload",path="ciliumexternalworkloads",scope="Cluster",shortName={cew}
+// +kubebuilder:resource:categories={cilium},singular="ciliumexternalworkload",path="ciliumexternalworkloads",scope="Cluster",shortName={cew}
 // +kubebuilder:printcolumn:JSONPath=".status.id",name="Cilium ID",type=integer
 // +kubebuilder:printcolumn:JSONPath=".status.ip",name="IP",type=string
 // +kubebuilder:subresource:status

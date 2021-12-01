@@ -68,6 +68,37 @@ func (e Extensions) GetStringSlice(key string) ([]string, bool) {
 	return nil, false
 }
 
+// GetObject gets the object value from the extensions.
+// out must be a json serializable type; the json go struct
+// tags of out are used to populate it.
+func (e Extensions) GetObject(key string, out interface{}) error {
+	// This json serialization/deserialization could be replaced with
+	// an approach using reflection if the optimization becomes justified.
+	if v, ok := e[strings.ToLower(key)]; ok {
+		b, err := json.Marshal(v)
+		if err != nil {
+			return err
+		}
+		err = json.Unmarshal(b, out)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ValidationRules defines the format of the x-kubernetes-validations schema extension.
+type ValidationRules []ValidationRule
+
+// ValidationRule defines the format of each rule in CELValidationRules.
+type ValidationRule struct {
+	// Rule represents the validation rule which will be evaluated by CEL.
+	// ref: https://github.com/google/cel-spec
+	Rule string `json:"rule"`
+	// Message represents the message displayed when validation failed.
+	Message string `json:"message"`
+}
+
 // VendorExtensible composition block.
 type VendorExtensible struct {
 	Extensions Extensions

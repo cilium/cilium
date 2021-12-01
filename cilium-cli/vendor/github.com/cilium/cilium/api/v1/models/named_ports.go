@@ -20,6 +20,7 @@ import (
 // Policy specs.
 //
 // +deepequal-gen=true
+// +k8s:deepcopy-gen=true
 //
 // swagger:model NamedPorts
 type NamedPorts []*Port

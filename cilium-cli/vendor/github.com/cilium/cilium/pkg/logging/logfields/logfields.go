@@ -1,16 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
 // Copyright 2017-2018 Authors of Cilium
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
 
 // Package logfields defines common logging fields which are used across packages
 package logfields
@@ -109,6 +98,9 @@ const (
 
 	// MACAddr is a MAC address
 	MACAddr = "macAddr"
+
+	// NextHop is an IPV4 or IPv6 address for the next hop
+	NextHop = "nextHop"
 
 	// IPAddr is an IPV4 or IPv6 address
 	IPAddr = "ipAddr"
@@ -293,9 +285,6 @@ const (
 
 	// BPFMapValue is a value from a BPF map
 	BPFMapValue = "bpfMapValue"
-
-	// XDPDevice is the device name
-	XDPDevice = "xdpDevice"
 
 	// Device is the device name
 	Device = "device"
@@ -547,9 +536,24 @@ const (
 	// ExpectedENIs are the ENIs which are expected to be available
 	ExpectedENIs = "expectedENIs"
 
-	// NumEntries is the number of entries counted
-	NumEntries = "entries"
-
 	// Hint helps nudge the user in the right direction when troubleshooting.
 	Hint = "hint"
+
+	// CEPName is the name of the CiliumEndpoint.
+	CEPName = "ciliumEndpointName"
+
+	// CESName is the name of the CiliumEndpointSlice.
+	CESName = "ciliumEndpointSliceName"
+
+	// WorkQueueQPSLimit is the QPS limit for WorkQueues.
+	WorkQueueQPSLimit = "workQueueQPSLimit"
+
+	// WorkQueueBurstLimit is the burst limit for WorkQueues.
+	WorkQueueBurstLimit = "workQueueBurstLimit"
+
+	// WorkQueueSyncBackoff is the backoff time used by workqueues before an attempt to retry sync with k8s-apiserver.
+	WorkQueueSyncBackOff = "workQueueSyncBackOff"
+
+	// CESSliceMode indicates the name of algorithm used to batch CEPs in a CES.
+	CESSliceMode = "ciliumEndpointSliceMode"
 )

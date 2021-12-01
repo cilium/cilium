@@ -18,6 +18,10 @@ import (
 // swagger:model EndpointDatapathConfiguration
 type EndpointDatapathConfiguration struct {
 
+	// Disable source IP verification for the endpoint.
+	//
+	DisableSipVerification bool `json:"disable-sip-verification,omitempty"`
+
 	// Indicates that IPAM is done external to Cilium. This will prevent the IP from being released and re-allocation of the IP address is skipped on restore.
 	//
 	ExternalIpam bool `json:"external-ipam,omitempty"`

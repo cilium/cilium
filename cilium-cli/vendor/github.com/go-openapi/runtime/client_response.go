@@ -27,6 +27,7 @@ type ClientResponse interface {
 	Code() int
 	Message() string
 	GetHeader(string) string
+	GetHeaders(string) []string
 	Body() io.ReadCloser
 }
 

@@ -25,6 +25,9 @@ type DaemonConfigurationStatus struct {
 	// addressing
 	Addressing *NodeAddressing `json:"addressing,omitempty"`
 
+	// Config map which contains all the active daemon configurations
+	DaemonConfigurationMap map[string]interface{} `json:"daemonConfigurationMap,omitempty"`
+
 	// datapath mode
 	DatapathMode DatapathMode `json:"datapathMode,omitempty"`
 
