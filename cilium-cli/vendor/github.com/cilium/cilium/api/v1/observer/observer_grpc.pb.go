@@ -11,7 +11,8 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-const _ = grpc.SupportPackageIsVersion6
+// Requires gRPC-Go v1.32.0 or later.
+const _ = grpc.SupportPackageIsVersion7
 
 // ObserverClient is the client API for Observer service.
 //
@@ -38,7 +39,7 @@ func NewObserverClient(cc grpc.ClientConnInterface) ObserverClient {
 }
 
 func (c *observerClient) GetFlows(ctx context.Context, in *GetFlowsRequest, opts ...grpc.CallOption) (Observer_GetFlowsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_Observer_serviceDesc.Streams[0], "/observer.Observer/GetFlows", opts...)
+	stream, err := c.cc.NewStream(ctx, &Observer_ServiceDesc.Streams[0], "/observer.Observer/GetFlows", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +71,7 @@ func (x *observerGetFlowsClient) Recv() (*GetFlowsResponse, error) {
 }
 
 func (c *observerClient) GetAgentEvents(ctx context.Context, in *GetAgentEventsRequest, opts ...grpc.CallOption) (Observer_GetAgentEventsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_Observer_serviceDesc.Streams[1], "/observer.Observer/GetAgentEvents", opts...)
+	stream, err := c.cc.NewStream(ctx, &Observer_ServiceDesc.Streams[1], "/observer.Observer/GetAgentEvents", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +103,7 @@ func (x *observerGetAgentEventsClient) Recv() (*GetAgentEventsResponse, error) {
 }
 
 func (c *observerClient) GetDebugEvents(ctx context.Context, in *GetDebugEventsRequest, opts ...grpc.CallOption) (Observer_GetDebugEventsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_Observer_serviceDesc.Streams[2], "/observer.Observer/GetDebugEvents", opts...)
+	stream, err := c.cc.NewStream(ctx, &Observer_ServiceDesc.Streams[2], "/observer.Observer/GetDebugEvents", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -171,24 +172,31 @@ type ObserverServer interface {
 type UnimplementedObserverServer struct {
 }
 
-func (*UnimplementedObserverServer) GetFlows(*GetFlowsRequest, Observer_GetFlowsServer) error {
+func (UnimplementedObserverServer) GetFlows(*GetFlowsRequest, Observer_GetFlowsServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetFlows not implemented")
 }
-func (*UnimplementedObserverServer) GetAgentEvents(*GetAgentEventsRequest, Observer_GetAgentEventsServer) error {
+func (UnimplementedObserverServer) GetAgentEvents(*GetAgentEventsRequest, Observer_GetAgentEventsServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetAgentEvents not implemented")
 }
-func (*UnimplementedObserverServer) GetDebugEvents(*GetDebugEventsRequest, Observer_GetDebugEventsServer) error {
+func (UnimplementedObserverServer) GetDebugEvents(*GetDebugEventsRequest, Observer_GetDebugEventsServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetDebugEvents not implemented")
 }
-func (*UnimplementedObserverServer) GetNodes(context.Context, *GetNodesRequest) (*GetNodesResponse, error) {
+func (UnimplementedObserverServer) GetNodes(context.Context, *GetNodesRequest) (*GetNodesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetNodes not implemented")
 }
-func (*UnimplementedObserverServer) ServerStatus(context.Context, *ServerStatusRequest) (*ServerStatusResponse, error) {
+func (UnimplementedObserverServer) ServerStatus(context.Context, *ServerStatusRequest) (*ServerStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ServerStatus not implemented")
 }
 
-func RegisterObserverServer(s *grpc.Server, srv ObserverServer) {
-	s.RegisterService(&_Observer_serviceDesc, srv)
+// UnsafeObserverServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ObserverServer will
+// result in compilation errors.
+type UnsafeObserverServer interface {
+	mustEmbedUnimplementedObserverServer()
+}
+
+func RegisterObserverServer(s grpc.ServiceRegistrar, srv ObserverServer) {
+	s.RegisterService(&Observer_ServiceDesc, srv)
 }
 
 func _Observer_GetFlows_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -290,7 +298,10 @@ func _Observer_ServerStatus_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
-var _Observer_serviceDesc = grpc.ServiceDesc{
+// Observer_ServiceDesc is the grpc.ServiceDesc for Observer service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var Observer_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "observer.Observer",
 	HandlerType: (*ObserverServer)(nil),
 	Methods: []grpc.MethodDesc{

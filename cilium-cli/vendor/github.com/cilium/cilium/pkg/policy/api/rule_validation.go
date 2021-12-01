@@ -1,16 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
 // Copyright 2016-2019 Authors of Cilium
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
 
 package api
 
@@ -27,7 +16,8 @@ import (
 )
 
 const (
-	maxPorts = 40
+	maxPorts      = 40
+	maxICMPFields = 40
 )
 
 type exists struct{}
@@ -135,6 +125,14 @@ func (i *IngressRule) sanitize() error {
 		}
 	}
 
+	if len(i.ICMPs) > 0 && !option.Config.EnableICMPRules {
+		return fmt.Errorf("ICMP rules can only be applied when the %q flag is set", option.EnableICMPRules)
+	}
+
+	if len(i.ICMPs) > 0 && len(i.ToPorts) > 0 {
+		return fmt.Errorf("The ICMPs block may only be present without ToPorts. Define a separate rule to use ToPorts.")
+	}
+
 	for _, es := range i.FromEndpoints {
 		if err := es.sanitize(); err != nil {
 			return err
@@ -149,6 +147,12 @@ func (i *IngressRule) sanitize() error {
 
 	for n := range i.ToPorts {
 		if err := i.ToPorts[n].sanitize(true); err != nil {
+			return err
+		}
+	}
+
+	for n := range i.ICMPs {
+		if err := i.ICMPs[n].verify(); err != nil {
 			return err
 		}
 	}
@@ -230,6 +234,14 @@ func (e *EgressRule) sanitize() error {
 		}
 	}
 
+	if len(e.ICMPs) > 0 && !option.Config.EnableICMPRules {
+		return fmt.Errorf("ICMP rules can only be applied when the %q flag is set", option.EnableICMPRules)
+	}
+
+	if len(e.ICMPs) > 0 && len(e.ToPorts) > 0 {
+		return fmt.Errorf("The ICMPs block may only be present without ToPorts. Define a separate rule to use ToPorts.")
+	}
+
 	for _, es := range e.ToEndpoints {
 		if err := es.sanitize(); err != nil {
 			return err
@@ -244,6 +256,12 @@ func (e *EgressRule) sanitize() error {
 
 	for i := range e.ToPorts {
 		if err := e.ToPorts[i].sanitize(false); err != nil {
+			return err
+		}
+	}
+
+	for n := range e.ICMPs {
+		if err := e.ICMPs[n].verify(); err != nil {
 			return err
 		}
 	}
@@ -399,6 +417,20 @@ func (pp *PortProtocol) sanitize() (isZero bool, err error) {
 
 	pp.Protocol, err = ParseL4Proto(string(pp.Protocol))
 	return isZero, err
+}
+
+func (ir *ICMPRule) verify() error {
+	if len(ir.Fields) > maxICMPFields {
+		return fmt.Errorf("too many types, the max is %d", maxICMPFields)
+	}
+
+	for _, f := range ir.Fields {
+		if f.Family != IPv4Family && f.Family != IPv6Family && f.Family != "" {
+			return fmt.Errorf("wrong family: %s", f.Family)
+		}
+	}
+
+	return nil
 }
 
 // sanitize the given CIDR. If successful, returns the prefixLength specified
