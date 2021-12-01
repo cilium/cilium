@@ -67,6 +67,8 @@ require (
 	github.com/spf13/cobra v1.2.1
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.9.0
+	github.com/spiffe/go-spiffe/v2 v2.0.0-beta.10
+	github.com/spiffe/spire-api-sdk v1.1.1
 	github.com/stretchr/testify v1.7.0
 	github.com/vishvananda/netlink v1.1.1-0.20211101163509-b10eb8fe5cf6
 	github.com/vishvananda/netns v0.0.0-20211101163701-50045581ed74
@@ -199,6 +201,7 @@ require (
 	github.com/subosito/gotenv v1.2.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.9 // indirect
 	github.com/tklauser/numcpus v0.3.0 // indirect
+	github.com/zeebo/errs v1.2.2 // indirect
 	gitlab.com/golang-commonmark/puny v0.0.0-20191124015043-9f83538fa04f // indirect
 	go.mongodb.org/mongo-driver v1.7.5 // indirect
 	go.uber.org/atomic v1.9.0 // indirect

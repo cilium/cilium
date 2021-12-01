@@ -1,0 +1,21 @@
+syntax = "proto3";
+package spire.api.types;
+option go_package = "github.com/spiffe/spire-api-sdk/proto/spire/api/types";
+
+import "spire/api/types/spiffeid.proto";
+
+// JWT SPIFFE Verifiable Identity Document. It contains the raw JWT token
+// as well as a few denormalized fields for convenience.
+message JWTSVID {
+    // The serialized JWT token.
+    string token = 1;
+
+    // The SPIFFE ID of the JWT-SVID.
+    spire.api.types.SPIFFEID id = 2;
+
+    // Expiration timestamp (seconds since Unix epoch).
+    int64 expires_at = 3;
+
+    // Issuance timestamp (seconds since Unix epoch).
+    int64 issued_at = 4;
+}
