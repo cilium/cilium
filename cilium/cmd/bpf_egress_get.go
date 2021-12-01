@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 
@@ -41,7 +40,7 @@ var bpfEgressGetCmd = &cobra.Command{
 		var (
 			ipv4Mask = net.IPv4Mask(255, 255, 255, 255)
 			err      error
-			value    bpf.MapValue
+			value    *egressmap.EgressPolicyVal4
 		)
 
 		sip := net.ParseIP(args[0]).To4()
@@ -54,9 +53,7 @@ var bpfEgressGetCmd = &cobra.Command{
 			Fatalf("Unable to parse IP '%s'", args[1])
 		}
 
-		key := egressmap.NewKey(sip, dip, ipv4Mask)
-
-		if value, err = egressmap.EgressMap.Lookup(&key); err != nil {
+		if value, err = egressmap.EgressPolicyMap.Lookup(sip, net.IPNet{IP: dip, Mask: ipv4Mask}); err != nil {
 			Fatalf("error lookup contents of map: %s\n", err)
 		}
 

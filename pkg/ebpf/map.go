@@ -31,8 +31,16 @@ type MapSpec = ciliumebpf.MapSpec
 
 const (
 	PerCPUHash = ciliumebpf.PerCPUHash
+	Array      = ciliumebpf.Array
+	HashOfMaps = ciliumebpf.HashOfMaps
+	LPMTrie    = ciliumebpf.LPMTrie
 
 	PinByName = ciliumebpf.PinByName
+)
+
+var (
+	ErrKeyNotExist = ciliumebpf.ErrKeyNotExist
+	LoadPinnedMap  = ciliumebpf.LoadPinnedMap
 )
 
 // IterateCallback represents the signature of the callback function expected by
@@ -54,6 +62,26 @@ func NewMap(spec *MapSpec) *Map {
 	return &Map{
 		spec: spec,
 	}
+}
+
+// OpenMap opens the given bpf map and generates the Map object based on the
+// information stored in the bpf map.
+func OpenMap(mapName string) (*Map, error) {
+	path := bpf.MapPath(mapName)
+
+	newMap, err := LoadPinnedMap(path, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	m := &Map{
+		Map:  newMap,
+		path: path,
+	}
+
+	registerMap(m)
+
+	return m, nil
 }
 
 // OpenOrCreate tries to open or create the eBPF map identified by the spec in

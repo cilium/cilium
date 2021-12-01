@@ -58,12 +58,7 @@ var bpfEgressUpdateCmd = &cobra.Command{
 			Fatalf("Unable to parse IP '%s'", args[3])
 		}
 
-		key := egressmap.NewKey(sip, cidr.IP, cidr.Mask)
-		value := &egressmap.EgressInfo4{}
-		copy(value.TunnelEndpoint[:], gwip)
-		copy(value.EgressIP[:], eip)
-
-		if err := egressmap.EgressMap.Update(&key, value); err != nil {
+		if err := egressmap.EgressPolicyMap.Update(sip, *cidr, gwip, eip); err != nil {
 			fmt.Fprintf(os.Stderr, "error updating contents of map: %s\n", err)
 			os.Exit(1)
 		}
