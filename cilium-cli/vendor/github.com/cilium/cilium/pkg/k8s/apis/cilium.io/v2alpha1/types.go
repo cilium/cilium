@@ -1,29 +1,21 @@
+// SPDX-License-Identifier: Apache-2.0
 // Copyright 2021 Authors of Cilium
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
 
 package v2alpha1
 
 import (
-	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/api/v1/models"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:resource:singular="ciliumegressnatpolicy",path="ciliumegressnatpolicies",scope="Cluster"
-// +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",description="The age of the identity",name="Age",type=date
+// +kubebuilder:resource:categories={cilium,ciliumpolicy},singular="ciliumegressnatpolicy",path="ciliumegressnatpolicies",scope="Cluster"
+// +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:storageversion
 
 type CiliumEgressNATPolicy struct {
@@ -81,4 +73,56 @@ type EgressRule struct {
 	// This is a label selector which selects Pods. This field follows standard label
 	// selector semantics; if present but empty, it selects all pods.
 	PodSelector *slimv1.LabelSelector `json:"podSelector,omitempty"`
+}
+
+// CoreCiliumEndpoint is slim version of status of CiliumEndpoint.
+type CoreCiliumEndpoint struct {
+	// Name indicate as CiliumEndpoint name.
+	Name string `json:"name,omitempty"`
+	// IdentityID is the numeric identity of the endpoint
+	IdentityID int64 `json:"id,omitempty"`
+	// Networking is the networking properties of the endpoint.
+
+	// +kubebuilder:validation:Optional
+	Networking *cilium_v2.EndpointNetworking `json:"networking,omitempty"`
+	// Encryption is the encryption configuration of the node
+
+	// +kubebuilder:validation:Optional
+	Encryption cilium_v2.EncryptionSpec `json:"encryption,omitempty"`
+	NamedPorts models.NamedPorts        `json:"named-ports,omitempty"`
+}
+
+// +genclient
+// +genclient:nonNamespaced
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories={cilium},singular="ciliumendpointslice",path="ciliumendpointslices",scope="Cluster",shortName={ces}
+// +kubebuilder:storageversion
+
+// CiliumEndpointSlice contains a group of CoreCiliumendpoints.
+type CiliumEndpointSlice struct {
+	// +deepequal-gen=false
+	metav1.TypeMeta `json:",inline"`
+	// +deepequal-gen=false
+	metav1.ObjectMeta `json:"metadata"`
+
+	// Namespace indicate as CiliumEndpointSlice namespace.
+	// All the CiliumEndpoints within the same namespace are put together
+	// in CiliumEndpointSlice.
+	Namespace string `json:"namespace,omitempty"`
+
+	// Endpoints is a list of coreCEPs packed in a CiliumEndpointSlice
+	Endpoints []CoreCiliumEndpoint `json:"endpoints"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=false
+// +deepequal-gen=false
+
+// CiliumEndpointSliceList is a list of CiliumEndpointSlice objects.
+type CiliumEndpointSliceList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	// Items is a list of CiliumEndpointSlice.
+	Items []CiliumEndpointSlice `json:"items"`
 }

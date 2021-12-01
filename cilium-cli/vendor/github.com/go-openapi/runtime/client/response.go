@@ -39,6 +39,10 @@ func (r response) GetHeader(name string) string {
 	return r.resp.Header.Get(name)
 }
 
+func (r response) GetHeaders(name string) []string {
+	return r.resp.Header.Values(name)
+}
+
 func (r response) Body() io.ReadCloser {
 	return r.resp.Body
 }

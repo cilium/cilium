@@ -1,4 +1,4 @@
-// +build !darwin,!linux,!freebsd,!openbsd,!solaris,!windows
+// +build !darwin,!linux,!freebsd,!openbsd,!solaris,!windows,!plan9
 
 package mem
 

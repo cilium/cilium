@@ -20,9 +20,8 @@ import (
 	"strings"
 
 	pb "go.etcd.io/etcd/api/v3/etcdserverpb"
+	"go.etcd.io/etcd/client/pkg/v3/types"
 	v3 "go.etcd.io/etcd/client/v3"
-	"go.etcd.io/etcd/etcdctl/v3/snapshot"
-	"go.etcd.io/etcd/pkg/v3/types"
 )
 
 type simplePrinter struct {
@@ -166,13 +165,6 @@ func (s *simplePrinter) EndpointStatus(statusList []epStatus) {
 
 func (s *simplePrinter) EndpointHashKV(hashList []epHashKV) {
 	_, rows := makeEndpointHashKVTable(hashList)
-	for _, row := range rows {
-		fmt.Println(strings.Join(row, ", "))
-	}
-}
-
-func (s *simplePrinter) DBStatus(ds snapshot.Status) {
-	_, rows := makeDBStatusTable(ds)
 	for _, row := range rows {
 		fmt.Println(strings.Join(row, ", "))
 	}

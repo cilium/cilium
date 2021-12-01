@@ -1,16 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
 // Copyright 2016-2020 Authors of Cilium
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
 
 package defaults
 
@@ -21,6 +10,9 @@ import (
 const (
 	// AgentHealthPort is the default value for option.AgentHealthPort
 	AgentHealthPort = 9876
+
+	// ClusterHealthPort is the default value for option.ClusterHealthPort
+	ClusterHealthPort = 4240
 
 	// GopsPortAgent is the default value for option.GopsPort in the agent
 	GopsPortAgent = 9890
@@ -324,6 +316,10 @@ const (
 	// KVstoreLeaseTTL is the time-to-live of the kvstore lease.
 	KVstoreLeaseTTL = 15 * time.Minute
 
+	// KVstoreMaxConsecutiveQuorumErrors is the maximum number of acceptable
+	// kvstore consecutive quorum errors before the agent assumes permanent failure
+	KVstoreMaxConsecutiveQuorumErrors = 2
+
 	// KVstoreKeepAliveIntervalFactor is the factor to calculate the interval
 	// from KVstoreLeaseTTL in which KVstore lease is being renewed.
 	KVstoreKeepAliveIntervalFactor = 3
@@ -422,9 +418,6 @@ const (
 	// KubeProxyReplacementHealthzBindAddr is the default kubeproxyReplacement healthz server bind addr
 	KubeProxyReplacementHealthzBindAddr = ""
 
-	// EnableBPFBypassFIBLookup instructs Cilium to enable the FIB lookup bypass optimization for nodeport reverse NAT handling.
-	EnableBPFBypassFIBLookup = true
-
 	// InstallNoConntrackRules instructs Cilium to install Iptables rules to skip netfilter connection tracking on all pod traffic.
 	InstallNoConntrackIptRules = false
 
@@ -437,4 +430,15 @@ const (
 	// ExternalClusterIP enables cluster external access to ClusterIP services.
 	// Defaults to false to retain prior behaviour of not routing external packets to ClusterIPs.
 	ExternalClusterIP = false
+
+	// EnableICMPRules enables ICMP-based rule support for Cilium Network Policies.
+	EnableICMPRules = false
+
+	// TunnelPortVXLAN is the default VXLAN port
+	TunnelPortVXLAN = 8472
+	// TunnelPortGeneve is the default Geneve port
+	TunnelPortGeneve = 6081
+
+	// ARPBaseReachableTime resembles the kernel's NEIGH_VAR_BASE_REACHABLE_TIME which defaults to 30 seconds.
+	ARPBaseReachableTime = 30 * time.Second
 )

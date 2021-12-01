@@ -1,17 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
 // Copyright 2016 The Kubernetes Authors.
 // Copyright 2020-2021 Authors of Cilium
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
 
 package v1
 
@@ -82,9 +71,11 @@ func (meta *ObjectMeta) GetAnnotations() map[string]string            { return m
 func (meta *ObjectMeta) SetAnnotations(annotations map[string]string) { meta.Annotations = annotations }
 func (meta *ObjectMeta) GetFinalizers() []string                      { panic("not implemented") }
 func (meta *ObjectMeta) SetFinalizers(_ []string)                     { panic("not implemented") }
-func (meta *ObjectMeta) GetOwnerReferences() []metav1.OwnerReference  { panic("not implemented") }
-func (meta *ObjectMeta) SetOwnerReferences(_ []metav1.OwnerReference) {
-	panic("not implemented")
+func (meta *ObjectMeta) GetOwnerReferences() []metav1.OwnerReference {
+	return FullOwnerReferences(meta.OwnerReferences)
+}
+func (meta *ObjectMeta) SetOwnerReferences(references []metav1.OwnerReference) {
+	meta.OwnerReferences = SlimOwnerReferences(references)
 }
 func (meta *ObjectMeta) GetClusterName() string                         { panic("not implemented") }
 func (meta *ObjectMeta) SetClusterName(_ string)                        { panic("not implemented") }
