@@ -1,16 +1,5 @@
-// Copyright 2017-2021 Authors of Cilium
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2017-2019 Authors of Cilium
 
 // Package metrics holds prometheus metrics objects and related utility functions. It
 // does not abstract away the prometheus client but the caller rarely needs to
@@ -204,6 +193,11 @@ var (
 	// EndpointRegenerationTimeStats is the total time taken to regenerate
 	// endpoints, labeled by span name and status ("success" or "failure")
 	EndpointRegenerationTimeStats = NoOpObserverVec
+
+	// EndpointPropagationDelay is the delay between creation of local CiliumEndpoint
+	// and update for that CiliumEndpoint received through CiliumEndpointSlice.
+	// Measure of local CEP roundtrip time with CiliumEndpointSlice feature enabled.
+	EndpointPropagationDelay = NoOpObserverVec
 
 	// Policy
 	// Policy is the number of policies loaded into the agent
@@ -452,6 +446,7 @@ type Configuration struct {
 	EndpointRegenerationCountEnabled        bool
 	EndpointStateCountEnabled               bool
 	EndpointRegenerationTimeStatsEnabled    bool
+	EndpointPropagationDelayEnabled         bool
 	PolicyCountEnabled                      bool
 	PolicyRegenerationCountEnabled          bool
 	PolicyRegenerationTimeStatsEnabled      bool
@@ -539,6 +534,7 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_drop_bytes_total":                                              {},
 		Namespace + "_forward_count_total":                                           {},
 		Namespace + "_forward_bytes_total":                                           {},
+		Namespace + "_endpoint_propagation_delay_seconds":                            {},
 		Namespace + "_" + SubsystemDatapath + "_conntrack_dump_resets_total":         {},
 		Namespace + "_" + SubsystemDatapath + "_conntrack_gc_runs_total":             {},
 		Namespace + "_" + SubsystemDatapath + "_conntrack_gc_key_fallbacks_total":    {},
@@ -1258,6 +1254,18 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, ArpingRequestsTotal)
 			c.ArpingRequestsTotalEnabled = true
+
+		case Namespace + "_endpoint_propagation_delay_seconds":
+			EndpointPropagationDelay = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+				Namespace: Namespace,
+				Name:      "endpoint_propagation_delay_seconds",
+				Help:      "CiliumEndpoint roundtrip propagation delay in seconds",
+				Buckets:   []float64{.05, .1, 1, 5, 30, 60, 120, 240, 300, 600},
+			}, []string{})
+
+			collectors = append(collectors, EndpointPropagationDelay)
+			c.EndpointPropagationDelayEnabled = true
+
 		}
 	}
 

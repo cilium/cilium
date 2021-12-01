@@ -1,16 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
 // Copyright 2016-2021 Authors of Cilium
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
 
 package api
 
@@ -169,6 +158,16 @@ type EgressRule struct {
 	//
 	// +kubebuilder:validation:Optional
 	ToFQDNs FQDNSelectorSlice `json:"toFQDNs,omitempty"`
+
+	// ICMPs is a list of ICMP rule identified by type number
+	// which the endpoint subject to the rule is allowed to connect to.
+	//
+	// Example:
+	// Any endpoint with the label "app=httpd" is allowed to initiate
+	// type 8 ICMP connections.
+	//
+	// +kubebuilder:validation:Optional
+	ICMPs ICMPRules `json:"icmps,omitempty"`
 }
 
 // EgressDenyRule contains all rule types which can be applied at egress, i.e.
@@ -199,6 +198,16 @@ type EgressDenyRule struct {
 	//
 	// +kubebuilder:validation:Optional
 	ToPorts PortDenyRules `json:"toPorts,omitempty"`
+
+	// ICMPs is a list of ICMP rule identified by type number
+	// which the endpoint subject to the rule is not allowed to connect to.
+	//
+	// Example:
+	// Any endpoint with the label "app=httpd" is not allowed to initiate
+	// type 8 ICMP connections.
+	//
+	// +kubebuilder:validation:Optional
+	ICMPs ICMPRules `json:"icmps,omitempty"`
 }
 
 // SetAggregatedSelectors creates a single slice containing all of the following
@@ -253,7 +262,7 @@ func (e *EgressCommonRule) SetAggregatedSelectors() {
 }
 
 // GetDestinationEndpointSelectorsWithRequirements returns a slice of endpoints selectors covering
-// all L3 source selectors of the ingress rule
+// all L3 dst selectors of the egress rule
 func (e *EgressRule) GetDestinationEndpointSelectorsWithRequirements(requirements []slim_metav1.LabelSelectorRequirement) EndpointSelectorSlice {
 	if e.aggregatedSelectors == nil {
 		e.SetAggregatedSelectors()

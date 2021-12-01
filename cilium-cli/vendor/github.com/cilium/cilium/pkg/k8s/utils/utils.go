@@ -1,16 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
 // Copyright 2018-2020 Authors of Cilium
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
 
 package utils
 
@@ -72,9 +61,9 @@ func GetObjNamespaceName(obj NamespaceNameGetter) string {
 
 // ServiceConfiguration is the required configuration for GetServiceListOptionsModifier
 type ServiceConfiguration interface {
-	// K8sServiceProxyName must return the value of the proxy name
+	// K8sServiceProxyNameValue must return the value of the proxy name
 	// annotation. If set, only services with this label will be handled.
-	K8sServiceProxyName() string
+	K8sServiceProxyNameValue() string
 }
 
 // GetServiceListOptionsModifier returns the options modifier for service object list.
@@ -96,12 +85,12 @@ func GetServiceListOptionsModifier(cfg ServiceConfiguration) (func(options *v1me
 		return nil, err
 	}
 
-	if cfg.K8sServiceProxyName() == "" {
+	if cfg.K8sServiceProxyNameValue() == "" {
 		serviceNameSelector, err = labels.NewRequirement(
 			serviceProxyNameLabel, selection.DoesNotExist, nil)
 	} else {
 		serviceNameSelector, err = labels.NewRequirement(
-			serviceProxyNameLabel, selection.DoubleEquals, []string{cfg.K8sServiceProxyName()})
+			serviceProxyNameLabel, selection.DoubleEquals, []string{cfg.K8sServiceProxyNameValue()})
 	}
 
 	if err != nil {

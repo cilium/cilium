@@ -22,6 +22,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"sort"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -54,6 +55,13 @@ func (ew *errWriter) write(a ...interface{}) {
 		return
 	}
 	_, ew.err = fmt.Fprint(ew.w, a...)
+}
+
+func (ew *errWriter) writef(format string, a ...interface{}) {
+	if ew.err != nil {
+		return
+	}
+	_, ew.err = fmt.Fprintf(ew.w, format, a...)
 }
 
 // New Printer.
@@ -195,10 +203,12 @@ func GetFlowType(f *pb.Flow) string {
 		return api.DropReason(uint8(f.GetEventType().GetSubType()))
 	case api.MessageTypePolicyVerdict:
 		switch f.GetVerdict() {
-		case pb.Verdict_FORWARDED:
+		case pb.Verdict_FORWARDED, pb.Verdict_AUDIT, pb.Verdict_REDIRECTED:
 			return api.PolicyMatchType(f.GetPolicyMatchType()).String()
 		case pb.Verdict_DROPPED:
 			return api.DropReason(uint8(f.GetDropReason()))
+		case pb.Verdict_ERROR:
+			// ERROR should only happen for L7 events.
 		}
 	case api.MessageTypeCapture:
 		return f.GetDebugCapturePoint().String()
@@ -210,7 +220,7 @@ func GetFlowType(f *pb.Flow) string {
 func (p Printer) getVerdict(f *pb.Flow) string {
 	verdict := f.GetVerdict()
 	switch verdict {
-	case pb.Verdict_FORWARDED:
+	case pb.Verdict_FORWARDED, pb.Verdict_REDIRECTED:
 		return p.color.verdictForwarded(verdict.String())
 	case pb.Verdict_DROPPED, pb.Verdict_ERROR:
 		return p.color.verdictDropped(verdict.String())
@@ -732,4 +742,102 @@ func (p *Printer) WriteGetFlowsResponse(res *observerpb.GetFlowsResponse) error 
 		}
 		return nil
 	}
+}
+
+// WriteServerStatusResponse writes server status response into the output
+// writer.
+func (p *Printer) WriteServerStatusResponse(res *observerpb.ServerStatusResponse) error {
+	if res == nil {
+		return nil
+	}
+
+	numConnectedNodes := "N/A"
+	if n := res.GetNumConnectedNodes(); n != nil {
+		numConnectedNodes = fmt.Sprintf("%d", n.Value)
+	}
+	numUnavailableNodes := "N/A"
+	if n := res.GetNumUnavailableNodes(); n != nil {
+		numUnavailableNodes = fmt.Sprintf("%d", n.Value)
+	}
+
+	switch p.opts.output {
+	case TabOutput:
+		ew := &errWriter{w: p.tw}
+		ew.write(
+			"NUM FLOWS", tab,
+			"MAX FLOWS", tab,
+			"SEEN FLOWS", tab,
+			"UPTIME", tab,
+			"NUM CONNECTED NODES", tab,
+			"NUM UNAVAILABLE NODES", tab,
+			"VERSION", newline,
+			uint64Grouping(res.GetNumFlows()), tab,
+			uint64Grouping(res.GetMaxFlows()), tab,
+			uint64Grouping(res.GetSeenFlows()), tab,
+			formatDurationNS(res.GetUptimeNs()), tab,
+			numConnectedNodes, tab,
+			numUnavailableNodes, tab,
+			res.GetVersion(), newline,
+		)
+		if ew.err != nil {
+			return fmt.Errorf("failed to write out server status: %v", ew.err)
+		}
+	case DictOutput:
+		ew := &errWriter{w: p.opts.w}
+		ew.write(
+			"          NUM FLOWS: ", uint64Grouping(res.GetNumFlows()), newline,
+			"          MAX FLOWS: ", uint64Grouping(res.GetMaxFlows()), newline,
+			"         SEEN FLOWS: ", uint64Grouping(res.GetSeenFlows()), newline,
+			"             UPTIME: ", formatDurationNS(res.GetUptimeNs()), newline,
+			"NUM CONNECTED NODES: ", numConnectedNodes, newline,
+			" NUM UNAVAIL. NODES: ", numUnavailableNodes, newline,
+			"            VERSION: ", res.GetVersion(), newline,
+		)
+		if ew.err != nil {
+			return fmt.Errorf("failed to write out server status: %v", ew.err)
+		}
+	case CompactOutput:
+		ew := &errWriter{w: p.opts.w}
+		flowsRatio := ""
+		if res.MaxFlows > 0 {
+			flowsRatio = fmt.Sprintf(" (%.2f%%)", (float64(res.NumFlows)/float64(res.MaxFlows))*100)
+		}
+		ew.writef("Current/Max Flows: %v/%v%s\n", uint64Grouping(res.NumFlows), uint64Grouping(res.MaxFlows), flowsRatio)
+
+		flowsPerSec := "N/A"
+		if uptime := time.Duration(res.UptimeNs).Seconds(); uptime > 0 {
+			flowsPerSec = fmt.Sprintf("%.2f", float64(res.SeenFlows)/uptime)
+		}
+		ew.writef("Flows/s: %s\n", flowsPerSec)
+
+		numConnected := res.GetNumConnectedNodes()
+		numUnavailable := res.GetNumUnavailableNodes()
+		if numConnected != nil {
+			total := ""
+			if numUnavailable != nil {
+				total = fmt.Sprintf("/%d", numUnavailable.Value+numConnected.Value)
+			}
+			ew.writef("Connected Nodes: %d%s\n", numConnected.Value, total)
+		}
+		if numUnavailable != nil && numUnavailable.Value > 0 {
+			if unavailable := res.GetUnavailableNodes(); unavailable != nil {
+				sort.Strings(unavailable) // it's nicer when displaying unavailable nodes list
+				if numUnavailable.Value > uint32(len(unavailable)) {
+					unavailable = append(unavailable, fmt.Sprintf("and %d more...", numUnavailable.Value-uint32(len(unavailable))))
+				}
+				ew.writef("Unavailable Nodes: %d\n  - %s\n",
+					numUnavailable.Value,
+					strings.Join(unavailable, "\n  - "),
+				)
+			} else {
+				ew.writef("Unavailable Nodes: %d\n", numUnavailable.Value)
+			}
+		}
+		if ew.err != nil {
+			return fmt.Errorf("failed to write out server status: %v", ew.err)
+		}
+	case JSONOutput, JSONPBOutput:
+		return p.jsonEncoder.Encode(res)
+	}
+	return nil
 }
