@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build cluster_proxy
 // +build cluster_proxy
 
 package integration
@@ -24,7 +25,6 @@ import (
 	"go.etcd.io/etcd/client/v3/namespace"
 	"go.etcd.io/etcd/server/v3/proxy/grpcproxy"
 	"go.etcd.io/etcd/server/v3/proxy/grpcproxy/adapter"
-
 	"go.uber.org/zap"
 )
 
@@ -55,7 +55,7 @@ func toGRPC(c *clientv3.Client) grpcAPI {
 	// TODO: Refactor to a separate clientv3.Client instance instead of the context alone.
 	ctx, ctxCancel := context.WithCancel(context.WithValue(context.TODO(), "_name", "grpcProxyContext"))
 
-	lg := zap.NewExample()
+	lg := c.GetLogger()
 
 	if v, ok := proxies[c]; ok {
 		return v.grpc
@@ -108,7 +108,8 @@ func (pc *proxyCloser) Close() error {
 	return err
 }
 
-func newClientV3(cfg clientv3.Config) (*clientv3.Client, error) {
+func newClientV3(cfg clientv3.Config, lg *zap.Logger) (*clientv3.Client, error) {
+	cfg.Logger = lg
 	c, err := clientv3.New(cfg)
 	if err != nil {
 		return nil, err

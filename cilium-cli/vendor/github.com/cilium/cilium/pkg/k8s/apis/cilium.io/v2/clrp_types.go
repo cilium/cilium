@@ -29,7 +29,7 @@ import (
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:resource:singular="ciliumlocalredirectpolicy",path="ciliumlocalredirectpolicies",scope="Namespaced",shortName={clrp}
+// +kubebuilder:resource:categories={cilium,ciliumpolicy},singular="ciliumlocalredirectpolicy",path="ciliumlocalredirectpolicies",scope="Namespaced",shortName={clrp}
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 
 // CiliumLocalRedirectPolicy is a Kubernetes Custom Resource that contains a

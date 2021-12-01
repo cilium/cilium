@@ -1,16 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
 // Copyright 2016-2021 Authors of Cilium
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
 
 package api
 
@@ -116,6 +105,17 @@ type IngressRule struct {
 	//
 	// +kubebuilder:validation:Optional
 	ToPorts PortRules `json:"toPorts,omitempty"`
+
+	// ICMPs is a list of ICMP rule identified by type number
+	// which the endpoint subject to the rule is allowed to
+	// receive connections on.
+	//
+	// Example:
+	// Any endpoint with the label "app=httpd" can only accept incoming
+	// type 8 ICMP connections.
+	//
+	// +kubebuilder:validation:Optional
+	ICMPs ICMPRules `json:"icmps,omitempty"`
 }
 
 // IngressDenyRule contains all rule types which can be applied at ingress,
@@ -146,6 +146,17 @@ type IngressDenyRule struct {
 	//
 	// +kubebuilder:validation:Optional
 	ToPorts PortDenyRules `json:"toPorts,omitempty"`
+
+	// ICMPs is a list of ICMP rule identified by type number
+	// which the endpoint subject to the rule is not allowed to
+	// receive connections on.
+	//
+	// Example:
+	// Any endpoint with the label "app=httpd" can not accept incoming
+	// type 8 ICMP connections.
+	//
+	// +kubebuilder:validation:Optional
+	ICMPs ICMPRules `json:"icmps,omitempty"`
 }
 
 // SetAggregatedSelectors creates a single slice containing all of the following

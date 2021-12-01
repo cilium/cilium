@@ -155,12 +155,12 @@ func (m *RWMutex) RLocker() sync.Locker {
 	return (*rlocker)(m)
 }
 
-func preLock(skip int, p interface{}) {
-	lo.preLock(skip, p)
+func preLock(stack []uintptr, p interface{}) {
+	lo.preLock(stack, p)
 }
 
-func postLock(skip int, p interface{}) {
-	lo.postLock(skip, p)
+func postLock(stack []uintptr, p interface{}) {
+	lo.postLock(stack, p)
 }
 
 func postUnlock(p interface{}) {
@@ -172,11 +172,13 @@ func lock(lockFn func(), ptr interface{}) {
 		lockFn()
 		return
 	}
-	preLock(4, ptr)
+	stack := callers(1)
+	preLock(stack, ptr)
 	if Opts.DeadlockTimeout <= 0 {
 		lockFn()
 	} else {
 		ch := make(chan struct{})
+		currentID := goid.Get()
 		go func() {
 			for {
 				t := time.NewTimer(Opts.DeadlockTimeout)
@@ -195,8 +197,8 @@ func lock(lockFn func(), ptr interface{}) {
 					fmt.Fprintf(Opts.LogBuf, "goroutine %v lock %p\n", prev.gid, ptr)
 					printStack(Opts.LogBuf, prev.stack)
 					fmt.Fprintln(Opts.LogBuf, "Have been trying to lock it again for more than", Opts.DeadlockTimeout)
-					fmt.Fprintf(Opts.LogBuf, "goroutine %v lock %p\n", goid.Get(), ptr)
-					printStack(Opts.LogBuf, callers(2))
+					fmt.Fprintf(Opts.LogBuf, "goroutine %v lock %p\n", currentID, ptr)
+					printStack(Opts.LogBuf, stack)
 					stacks := stacks()
 					grs := bytes.Split(stacks, []byte("\n\n"))
 					for _, g := range grs {
@@ -226,11 +228,11 @@ func lock(lockFn func(), ptr interface{}) {
 			}
 		}()
 		lockFn()
-		postLock(4, ptr)
+		postLock(stack, ptr)
 		close(ch)
 		return
 	}
-	postLock(4, ptr)
+	postLock(stack, ptr)
 }
 
 type lockOrder struct {
@@ -263,19 +265,17 @@ func newLockOrder() *lockOrder {
 	}
 }
 
-func (l *lockOrder) postLock(skip int, p interface{}) {
-	stack := callers(skip)
+func (l *lockOrder) postLock(stack []uintptr, p interface{}) {
 	gid := goid.Get()
 	l.mu.Lock()
 	l.cur[p] = stackGID{stack, gid}
 	l.mu.Unlock()
 }
 
-func (l *lockOrder) preLock(skip int, p interface{}) {
+func (l *lockOrder) preLock(stack []uintptr, p interface{}) {
 	if Opts.DisableLockOrderDetection {
 		return
 	}
-	stack := callers(skip)
 	gid := goid.Get()
 	l.mu.Lock()
 	for b, bs := range l.cur {

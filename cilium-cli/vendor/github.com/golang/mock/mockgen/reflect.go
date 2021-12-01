@@ -20,7 +20,9 @@ import (
 	"bytes"
 	"encoding/gob"
 	"flag"
+	"fmt"
 	"go/build"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -38,6 +40,43 @@ var (
 	execOnly   = flag.String("exec_only", "", "(reflect mode) If set, execute this reflection program.")
 	buildFlags = flag.String("build_flags", "", "(reflect mode) Additional flags for go build.")
 )
+
+// reflectMode generates mocks via reflection on an interface.
+func reflectMode(importPath string, symbols []string) (*model.Package, error) {
+	if *execOnly != "" {
+		return run(*execOnly)
+	}
+
+	program, err := writeProgram(importPath, symbols)
+	if err != nil {
+		return nil, err
+	}
+
+	if *progOnly {
+		if _, err := os.Stdout.Write(program); err != nil {
+			return nil, err
+		}
+		os.Exit(0)
+	}
+
+	wd, _ := os.Getwd()
+
+	// Try to run the reflection program  in the current working directory.
+	if p, err := runInDir(program, wd); err == nil {
+		return p, nil
+	}
+
+	// Try to run the program in the same directory as the input package.
+	if p, err := build.Import(importPath, wd, build.FindOnly); err == nil {
+		dir := p.Dir
+		if p, err := runInDir(program, dir); err == nil {
+			return p, nil
+		}
+	}
+
+	// Try to run it in a standard temp directory.
+	return runInDir(program, "")
+}
 
 func writeProgram(importPath string, symbols []string) ([]byte, error) {
 	var program bytes.Buffer
@@ -122,54 +161,22 @@ func runInDir(program []byte, dir string) (*model.Package, error) {
 	cmdArgs = append(cmdArgs, "-o", progBinary, progSource)
 
 	// Build the program.
+	buf := bytes.NewBuffer(nil)
 	cmd := exec.Command("go", cmdArgs...)
 	cmd.Dir = tmpDir
 	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stderr = io.MultiWriter(os.Stderr, buf)
 	if err := cmd.Run(); err != nil {
+		sErr := buf.String()
+		if strings.Contains(sErr, `cannot find package "."`) &&
+			strings.Contains(sErr, "github.com/golang/mock/mockgen/model") {
+			fmt.Fprint(os.Stderr, "Please reference the steps in the README to fix this error:\n\thttps://github.com/golang/mock#reflect-vendoring-error.")
+			return nil, err
+		}
 		return nil, err
 	}
 
 	return run(filepath.Join(tmpDir, progBinary))
-}
-
-// reflectMode generates mocks via reflection on an interface.
-func reflectMode(importPath string, symbols []string) (*model.Package, error) {
-	// TODO: sanity check arguments
-
-	if *execOnly != "" {
-		return run(*execOnly)
-	}
-
-	program, err := writeProgram(importPath, symbols)
-	if err != nil {
-		return nil, err
-	}
-
-	if *progOnly {
-		if _, err := os.Stdout.Write(program); err != nil {
-			return nil, err
-		}
-		os.Exit(0)
-	}
-
-	wd, _ := os.Getwd()
-
-	// Try to run the reflection program  in the current working directory.
-	if p, err := runInDir(program, wd); err == nil {
-		return p, nil
-	}
-
-	// Try to run the program in the same directory as the input package.
-	if p, err := build.Import(importPath, wd, build.FindOnly); err == nil {
-		dir := p.Dir
-		if p, err := runInDir(program, dir); err == nil {
-			return p, nil
-		}
-	}
-
-	// Try to run it in a standard temp directory.
-	return runInDir(program, "")
 }
 
 type reflectData struct {

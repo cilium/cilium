@@ -1,25 +1,18 @@
+// SPDX-License-Identifier: Apache-2.0
 // Copyright 2016-2017 Authors of Cilium
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
 
 package id
 
 import (
 	"fmt"
+	"math"
 	"net"
 	"strconv"
 	"strings"
 )
+
+// MaxEndpointId is the maximum endpoint identifier.
+const MaxEndpointId = math.MaxUint16
 
 // PrefixType describes the type of endpoint identifier
 type PrefixType string
@@ -103,8 +96,11 @@ func ParseCiliumID(id string) (int64, error) {
 		return 0, fmt.Errorf("not a cilium identifier")
 	}
 	n, err := strconv.ParseInt(id, 0, 64)
-	if err != nil {
+	if err != nil || n < 0 {
 		return 0, fmt.Errorf("invalid numeric cilium id: %s", err)
+	}
+	if n > MaxEndpointId {
+		return 0, fmt.Errorf("endpoint id too large: %d", n)
 	}
 	return n, nil
 }

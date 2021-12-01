@@ -1,16 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
 // Copyright 2020-2021 Authors of Cilium
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
 
 package types
 
@@ -138,6 +127,13 @@ type AzureInterface struct {
 	resourceGroup string `json:"-"`
 }
 
+// SetID sets the Azure interface ID, as well as extracting other fields from
+// the ID itself.
+func (a *AzureInterface) SetID(id string) {
+	a.ID = id
+	a.extractIDs()
+}
+
 // InterfaceID returns the identifier of the interface
 func (a *AzureInterface) InterfaceID() string {
 	return a.ID
@@ -170,25 +166,16 @@ func (a *AzureInterface) extractIDs() {
 
 // GetResourceGroup returns the resource group the interface belongs to
 func (a *AzureInterface) GetResourceGroup() string {
-	if a.resourceGroup == "" {
-		a.extractIDs()
-	}
 	return a.resourceGroup
 }
 
 // GetVMScaleSetName returns the VM scale set name the interface belongs to
 func (a *AzureInterface) GetVMScaleSetName() string {
-	if a.vmssName == "" {
-		a.extractIDs()
-	}
 	return a.vmssName
 }
 
 // GetVMID returns the VM ID the interface belongs to
 func (a *AzureInterface) GetVMID() string {
-	if a.vmID == "" {
-		a.extractIDs()
-	}
 	return a.vmID
 }
 

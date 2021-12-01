@@ -1,16 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
 // Copyright 2017-2021 Authors of Cilium
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
 
 package v2alpha1
 
@@ -34,7 +23,7 @@ const (
 	//
 	// Maintainers: Run ./Documentation/check-crd-compat-table.sh for each release
 	// Developers: Bump patch for each change in the CRD schema.
-	CustomResourceDefinitionSchemaVersion = "1.23.3"
+	CustomResourceDefinitionSchemaVersion = "1.24.1"
 
 	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
 	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
@@ -52,6 +41,20 @@ const (
 
 	// CENPName is the full name of Cilium Egress NAT Policy
 	CENPName = CENPPluralName + "." + CustomResourceDefinitionGroup
+
+	// Cilium Endpoint Slice (CES)
+
+	// CESSingularName is the singular name of Cilium Endpoint Slice
+	CESSingularName = "ciliumendpointslice"
+
+	// CESPluralName is the plural name of Cilium Endpoint Slice
+	CESPluralName = "ciliumendpointslices"
+
+	// CESKindDefinition is the kind name of Cilium Endpoint Slice
+	CESKindDefinition = "CiliumEndpointSlice"
+
+	// CESName is the full name of Cilium Endpoint Slice
+	CESName = CESPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -97,6 +100,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&CiliumEgressNATPolicy{},
 		&CiliumEgressNATPolicyList{},
+		&CiliumEndpointSlice{},
+		&CiliumEndpointSliceList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

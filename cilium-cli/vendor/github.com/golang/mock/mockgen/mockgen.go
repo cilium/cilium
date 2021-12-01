@@ -38,6 +38,7 @@ import (
 
 	"github.com/golang/mock/mockgen/model"
 
+	"golang.org/x/mod/modfile"
 	toolsimports "golang.org/x/tools/imports"
 )
 
@@ -84,6 +85,7 @@ func main() {
 			log.Fatal("Expected exactly two arguments")
 		}
 		packageName = flag.Arg(0)
+		interfaces := strings.Split(flag.Arg(1), ",")
 		if packageName == "." {
 			dir, err := os.Getwd()
 			if err != nil {
@@ -94,7 +96,7 @@ func main() {
 				log.Fatalf("Parse package name failed: %v", err)
 			}
 		}
-		pkg, err = reflectMode(packageName, strings.Split(flag.Arg(1), ","))
+		pkg, err = reflectMode(packageName, interfaces)
 	}
 	if err != nil {
 		log.Fatalf("Loading input failed: %v", err)
@@ -134,12 +136,15 @@ func main() {
 	outputPackagePath := *selfPackage
 	if outputPackagePath == "" && *destination != "" {
 		dstPath, err := filepath.Abs(filepath.Dir(*destination))
-		if err != nil {
-			log.Fatalf("Unable to determine destination file path: %v", err)
-		}
-		outputPackagePath, err = parsePackageImport(dstPath)
-		if err != nil {
-			log.Fatalf("Unable to determine destination file path: %v", err)
+		if err == nil {
+			pkgPath, err := parsePackageImport(dstPath)
+			if err == nil {
+				outputPackagePath = pkgPath
+			} else {
+				log.Println("Unable to infer -self_package from destination file path:", err)
+			}
+		} else {
+			log.Println("Unable to determine destination file path:", err)
 		}
 	}
 
@@ -229,13 +234,6 @@ func (g *generator) out() {
 	if len(g.indent) > 0 {
 		g.indent = g.indent[0 : len(g.indent)-1]
 	}
-}
-
-func removeDot(s string) string {
-	if len(s) > 0 && s[len(s)-1] == '.' {
-		return s[0 : len(s)-1]
-	}
-	return s
 }
 
 // sanitize cleans up a string to make a suitable package name.
@@ -393,11 +391,6 @@ func (g *generator) GenerateMockInterface(intf *model.Interface, outputPackagePa
 	g.out()
 	g.p("}")
 	g.p("")
-
-	// TODO: Re-enable this if we can import the interface reliably.
-	// g.p("// Verify that the mock satisfies the interface at compile time.")
-	// g.p("var _ %v = (*%v)(nil)", typeName, mockType)
-	// g.p("")
 
 	g.p("// New%v creates a new mock instance.", mockType)
 	g.p("func New%v(ctrl *gomock.Controller) *%v {", mockType, mockType)
@@ -664,4 +657,45 @@ func printVersion() {
 	} else {
 		printModuleVersion()
 	}
+}
+
+// parseImportPackage get package import path via source file
+// an alternative implementation is to use:
+// cfg := &packages.Config{Mode: packages.NeedName, Tests: true, Dir: srcDir}
+// pkgs, err := packages.Load(cfg, "file="+source)
+// However, it will call "go list" and slow down the performance
+func parsePackageImport(srcDir string) (string, error) {
+	moduleMode := os.Getenv("GO111MODULE")
+	// trying to find the module
+	if moduleMode != "off" {
+		currentDir := srcDir
+		for {
+			dat, err := ioutil.ReadFile(filepath.Join(currentDir, "go.mod"))
+			if os.IsNotExist(err) {
+				if currentDir == filepath.Dir(currentDir) {
+					// at the root
+					break
+				}
+				currentDir = filepath.Dir(currentDir)
+				continue
+			} else if err != nil {
+				return "", err
+			}
+			modulePath := modfile.ModulePath(dat)
+			return filepath.ToSlash(filepath.Join(modulePath, strings.TrimPrefix(srcDir, currentDir))), nil
+		}
+	}
+	// fall back to GOPATH mode
+	goPaths := os.Getenv("GOPATH")
+	if goPaths == "" {
+		return "", fmt.Errorf("GOPATH is not set")
+	}
+	goPathList := strings.Split(goPaths, string(os.PathListSeparator))
+	for _, goPath := range goPathList {
+		sourceRoot := filepath.Join(goPath, "src") + string(os.PathSeparator)
+		if strings.HasPrefix(srcDir, sourceRoot) {
+			return filepath.ToSlash(strings.TrimPrefix(srcDir, sourceRoot)), nil
+		}
+	}
+	return "", errOutsideGoPath
 }
