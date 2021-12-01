@@ -356,7 +356,7 @@ func CreateKubectl(vmName string, log *logrus.Entry) (k *Kubectl) {
 		}
 		k.setBasePath()
 		if err := k.ensureKubectlVersion(); err != nil {
-			ginkgoext.Failf("failed to ensure kubectl version")
+			ginkgoext.Failf("failed to ensure kubectl version: %s", err)
 		}
 	}
 
@@ -4477,9 +4477,17 @@ func (kub *Kubectl) ensureKubectlVersion() error {
 		return err
 	}
 	path := path.Join(GetKubectlPath(), "kubectl")
+	rcVersion := fmt.Sprintf("v%s.0-rc.0", GetCurrentK8SEnv())
+	switch GetCurrentK8SEnv() {
+	// These versions never released a ".0". Only since 1.19 Kubernetes started
+	// to release RC starting from '0'. We can then use the '.0' release for
+	// these versions.
+	case "1.16", "1.17", "1.18":
+		rcVersion = fmt.Sprintf("v%s.0", GetCurrentK8SEnv())
+	}
 	res = kub.Exec(
-		fmt.Sprintf("curl --output %s https://storage.googleapis.com/kubernetes-release/release/v%s.0/bin/linux/amd64/kubectl && chmod +x %s",
-			path, GetCurrentK8SEnv(), path))
+		fmt.Sprintf("curl --output %s https://storage.googleapis.com/kubernetes-release/release/%s/bin/linux/amd64/kubectl && chmod +x %s",
+			path, rcVersion, path))
 	if !res.WasSuccessful() {
 		return fmt.Errorf("failed to download kubectl")
 	}
