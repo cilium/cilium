@@ -726,10 +726,7 @@ func (p *Process) fillFromIOWithContext(ctx context.Context) (*IOCountersStat, e
 		if err != nil {
 			return nil, err
 		}
-		param := field[0]
-		if strings.HasSuffix(param, ":") {
-			param = param[:len(param)-1]
-		}
+		param := strings.TrimSuffix(field[0], ":")
 		switch param {
 		case "syscr":
 			ret.ReadCount = t
