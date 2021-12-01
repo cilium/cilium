@@ -820,8 +820,15 @@ github.com/spf13/viper/internal/encoding/javaproperties
 github.com/spf13/viper/internal/encoding/json
 github.com/spf13/viper/internal/encoding/toml
 github.com/spf13/viper/internal/encoding/yaml
-# github.com/stretchr/testify v1.8.1
+# github.com/spiffe/go-spiffe/v2 v2.0.0-beta.10
 ## explicit; go 1.13
+github.com/spiffe/go-spiffe/v2/spiffeid
+# github.com/spiffe/spire-api-sdk v1.1.1
+## explicit; go 1.12
+github.com/spiffe/spire-api-sdk/proto/spire/api/agent/delegatedidentity/v1
+github.com/spiffe/spire-api-sdk/proto/spire/api/types
+## explicit; go 1.13
+# github.com/stretchr/testify v1.8.1
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
 # github.com/subosito/gotenv v1.4.1
@@ -855,6 +862,9 @@ github.com/vishvananda/netns
 # github.com/yusufpapurcu/wmi v1.2.2
 ## explicit; go 1.16
 github.com/yusufpapurcu/wmi
+# github.com/zeebo/errs v1.2.2
+## explicit; go 1.12
+github.com/zeebo/errs
 # gitlab.com/golang-commonmark/puny v0.0.0-20191124015043-9f83538fa04f
 ## explicit; go 1.13
 gitlab.com/golang-commonmark/puny
