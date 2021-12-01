@@ -7,6 +7,8 @@ updates:
     open-pull-requests-limit: 1
     rebase-strategy: disabled
     ignore:
+      - dependency-name: "github.com/cilium/cilium"
+      - dependency-name: "github.com/cilium/hubble"
         # k8s dependencies will be updated manually all at once
       - dependency-name: "k8s.io/*"
       - dependency-name: "sigs.k8s.io/*"
