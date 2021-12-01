@@ -552,4 +552,16 @@ const (
 
 	// Hint helps nudge the user in the right direction when troubleshooting.
 	Hint = "hint"
+
+	// SourceIP is a source IP
+	SourceIP = "sourceIP"
+
+	// DestinationCIDR is a destination CIDR
+	DestinationCIDR = "destinationCIDR"
+
+	// EgressIP is the egress IP used in a given egress policy
+	EgressIP = "egressIP"
+
+	// GatewayIP is the gateway IP used in a given egress policy
+	GatewayIP = "gatewayIP"
 )

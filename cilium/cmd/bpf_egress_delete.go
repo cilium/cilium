@@ -45,9 +45,7 @@ var bpfEgressDeleteCmd = &cobra.Command{
 			Fatalf("error parsing cidr %s: %s", args[1], err)
 		}
 
-		key := egressmap.NewKey(sip, cidr.IP, cidr.Mask)
-
-		if err := egressmap.EgressMap.Delete(&key); err != nil {
+		if err := egressmap.EgressPolicyMap.Delete(sip, *cidr); err != nil {
 			Fatalf("error deleting contents of map: %s\n", err)
 		}
 	},
