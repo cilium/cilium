@@ -65,7 +65,7 @@ type operations interface {
 	getRemovedCEPs(string) map[string]struct{}
 	clearRemovedCEPs(string, map[string]struct{})
 	createCES(cesName string) *cesTracker
-	addCEPtoCES(ces *cilium_v2.CoreCiliumEndpoint, cesName string)
+	addCEPtoCES(cep *cilium_v2.CoreCiliumEndpoint, ces *cesTracker)
 	insertCESInWorkQueue(ces *cesTracker, baseDelay time.Duration)
 	// APIs to collect metrics of CES and CEP
 	getTotalCEPCount() int
@@ -143,8 +143,7 @@ func newCESManagerIdentity(workQueue workqueue.RateLimitingInterface, maxCEPsInC
 
 // addCEPtoCES inserts the CEP in a CES, if the CEP already exists in a CES
 // it replaces with new CEP.
-func (c *cesMgr) addCEPtoCES(cep *cilium_v2.CoreCiliumEndpoint, cesName string) {
-	ces := c.desiredCESs.getCESTrackerOnly(cesName)
+func (c *cesMgr) addCEPtoCES(cep *cilium_v2.CoreCiliumEndpoint, ces *cesTracker) {
 	ces.backendMutex.Lock()
 	defer ces.backendMutex.Unlock()
 	// If cep already exists in ces, compare new cep with cached cep.
@@ -300,14 +299,15 @@ func (c *cesMgr) InsertCEPInCache(cep *cilium_v2.CoreCiliumEndpoint, ns string) 
 	// check the given cep is already exists in any of the CES.
 	// if yes, Update a ces with the given cep object.
 	if cesName, exists := c.desiredCESs.getCESName(GetCEPNameFromCCEP(cep, ns)); exists {
+		ces := c.desiredCESs.getCESTrackerOnly(cesName)
 		// add a cep into the ces
-		c.addCEPtoCES(cep, cesName)
+		c.addCEPtoCES(cep, ces)
 		return cesName
 	}
 
 	// If given cep object isn't packed in any of the CES. find a new ces
 	// to pack this cep.
-	cb := func() *cesTracker {
+	cb, cesName := func() (*cesTracker, string) {
 		// get first available CES
 		for _, ces := range c.desiredCESs.getAllCESs() {
 			ces.backendMutex.RLock()
@@ -315,22 +315,22 @@ func (c *cesMgr) InsertCEPInCache(cep *cilium_v2.CoreCiliumEndpoint, ns string) 
 				ces.backendMutex.RUnlock()
 				continue
 			}
-			ces.backendMutex.RUnlock()
-			return ces
+			defer ces.backendMutex.RUnlock()
+			return ces, ces.ces.GetName()
 		}
 		// allocate a new cesTracker and return
 		newCES := c.createCES("")
 		// Update the namespace to CES
 		newCES.ces.Namespace = ns
-		return newCES
+		return newCES, newCES.ces.GetName()
 	}()
 
 	// Cache CEP name with newly allocated CES.
-	c.desiredCESs.insertCEP(GetCEPNameFromCCEP(cep, ns), cb.ces.GetName())
+	c.desiredCESs.insertCEP(GetCEPNameFromCCEP(cep, ns), cesName)
 
 	// Queue the CEP in CES
-	c.addCEPtoCES(cep, cb.ces.GetName())
-	return cb.ces.GetName()
+	c.addCEPtoCES(cep, cb)
+	return cesName
 }
 
 // RemoveCEPFromCache is used to remove the CEP from local cache, this may result in
@@ -531,15 +531,16 @@ func (c *cesManagerIdentity) InsertCEPInCache(cep *cilium_v2.CoreCiliumEndpoint,
 		if c.cesToIdentity[cesName] != cep.IdentityID {
 			c.RemoveCEPFromCache(GetCEPNameFromCCEP(cep, ns), DelayedCESSyncTime)
 		} else {
+			ces := c.desiredCESs.getCESTrackerOnly(cesName)
 			// add a cep into the ces
-			c.addCEPtoCES(cep, cesName)
+			c.addCEPtoCES(cep, ces)
 			return cesName
 		}
 	}
 
 	// If given cep object isn't packed in any of the CES. find a new ces
 	// to pack this cep.
-	cb := func() *cesTracker {
+	cb, cesName := func() (*cesTracker, string) {
 		// get first available CES
 		if cess, exist := c.identityToCES[cep.IdentityID]; exist {
 			for _, ces := range cess {
@@ -548,8 +549,8 @@ func (c *cesManagerIdentity) InsertCEPInCache(cep *cilium_v2.CoreCiliumEndpoint,
 					ces.backendMutex.RUnlock()
 					continue
 				}
-				ces.backendMutex.RUnlock()
-				return ces
+				defer ces.backendMutex.RUnlock()
+				return ces, ces.ces.GetName()
 			}
 		}
 		// allocate a new cesTracker and return
@@ -563,15 +564,15 @@ func (c *cesManagerIdentity) InsertCEPInCache(cep *cilium_v2.CoreCiliumEndpoint,
 		c.cesToIdentity[ces.ces.GetName()] = cep.IdentityID
 		c.identityLock.Unlock()
 
-		return ces
+		return ces, ces.ces.GetName()
 	}()
 
 	// Cache CEP name with newly allocated CES.
-	c.desiredCESs.insertCEP(GetCEPNameFromCCEP(cep, ns), cb.ces.GetName())
+	c.desiredCESs.insertCEP(GetCEPNameFromCCEP(cep, ns), cesName)
 
 	// Queue the CEP in CES
-	c.addCEPtoCES(cep, cb.ces.GetName())
-	return cb.ces.GetName()
+	c.addCEPtoCES(cep, cb)
+	return cesName
 }
 
 // updateCESInCache function copies the ciliumEndpoint object in local cache. if isDeepCopy flag is set,
