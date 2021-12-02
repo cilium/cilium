@@ -244,31 +244,38 @@ jobs:
         run: |
           cilium connectivity test --flow-validation=disabled
 
+      # EKS testing with encryption is disabled due to https://github.com/cilium/cilium/issues/16938
       - name: Clean up Cilium
+        if: ${{ false }} # see comment above for details
         run: |
           cilium uninstall --wait
           pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay"
 
       - name: Create custom IPsec secret
+        if: ${{ false }} # see comment above for details
         run: |
           kubectl create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="15 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
 
       - name: Install Cilium with encryption
+        if: ${{ false }} # see comment above for details
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
             --encryption=ipsec
 
       - name: Enable Relay
+        if: ${{ false }} # see comment above for details
         run: |
           cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
 
       - name: Port forward Relay
+        if: ${{ false }} # see comment above for details
         run: |
           cilium hubble port-forward&
           sleep 10s
           [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
 
       - name: Run connectivity test
+        if: ${{ false }} # see comment above for details
         run: |
           cilium connectivity test --force-deploy --flow-validation=disabled \
             --test '!client-egress-l7,!echo-ingress-l7'
