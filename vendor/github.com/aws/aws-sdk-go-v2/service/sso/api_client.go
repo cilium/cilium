@@ -203,7 +203,7 @@ func resolveAWSRetryerProvider(cfg aws.Config, o *Options) {
 }
 
 func resolveAWSEndpointResolver(cfg aws.Config, o *Options) {
-	if cfg.EndpointResolver == nil {
+	if cfg.EndpointResolver == nil && cfg.EndpointResolverWithOptions == nil {
 		return
 	}
 	o.EndpointResolver = withEndpointResolver(cfg.EndpointResolver, cfg.EndpointResolverWithOptions, NewDefaultEndpointResolver())
