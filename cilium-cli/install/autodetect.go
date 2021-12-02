@@ -140,9 +140,7 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context) error {
 		if k.params.DatapathMode != "" {
 			k.Log("🔮 Auto-detected datapath mode: %s", k.params.DatapathMode)
 		}
-	}
-
-	if k.params.DatapathMode != "" {
+	} else {
 		k.Log("🔮 Custom datapath mode: %s", k.params.DatapathMode)
 	}
 
