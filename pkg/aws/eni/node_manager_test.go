@@ -562,6 +562,8 @@ type nodeState struct {
 // - PreAllocate 1
 // - FirstInterfaceIndex 1
 func (e *ENISuite) TestNodeManagerManyNodes(c *check.C) {
+	c.Skip("This test is flaky, see https://github.com/cilium/cilium/issues/11560")
+
 	const (
 		numNodes    = 100
 		minAllocate = 10
