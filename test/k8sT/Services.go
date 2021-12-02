@@ -950,7 +950,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						testExternalIPs(kubectl, ni)
 					})
 
-					SkipContextIf(helpers.RunsOnGKE, "With host policy", func() {
+					SkipContextIf(func() bool { return true }, "With host policy", func() {
 						var ccnpHostPolicy string
 
 						BeforeAll(func() {

@@ -234,6 +234,11 @@ func installDirectRoute(CIDR *cidr.CIDR, nodeIP net.IP) (routeSpec *netlink.Rout
 		return
 	}
 
+	log.WithFields(logrus.Fields{
+		logfields.IPAddr: nodeIP,
+		"allocCIDR":      CIDR,
+	}).Debug("!!! install direct route")
+
 	err = netlink.RouteReplace(routeSpec)
 	return
 }
