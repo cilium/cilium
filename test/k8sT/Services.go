@@ -1409,9 +1409,9 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 				SkipItIf(func() bool {
 					// Quarantine when running with the third node as it's
-					// flaky. See #12511.
-					return helpers.GetCurrentIntegration() != "" ||
-						(helpers.SkipQuarantined() && helpers.ExistNodeWithoutCilium())
+					// flaky. See GH-12511.
+					// It's also flaky for IPv6 traffic, see GH-18072
+					return helpers.SkipQuarantined()
 				}, "Tests with secondary NodePort device", func() {
 					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 						"tunnel":               "disabled",
