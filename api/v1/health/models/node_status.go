@@ -19,8 +19,13 @@ import (
 // swagger:model NodeStatus
 type NodeStatus struct {
 
-	// Connectivity status to simulated endpoint on node IP
+	// DEPRECATED: Please use the health-endpoint field instead, which
+	// supports reporting the status of different addresses for the endpoint
+	//
 	Endpoint *PathStatus `json:"endpoint,omitempty"`
+
+	// Connectivity status to simulated endpoint on the node
+	HealthEndpoint *EndpointStatus `json:"health-endpoint,omitempty"`
 
 	// Connectivity status to cilium-health instance on node IP
 	Host *HostStatus `json:"host,omitempty"`
@@ -34,6 +39,10 @@ func (m *NodeStatus) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateEndpoint(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateHealthEndpoint(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -57,6 +66,24 @@ func (m *NodeStatus) validateEndpoint(formats strfmt.Registry) error {
 		if err := m.Endpoint.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("endpoint")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *NodeStatus) validateHealthEndpoint(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.HealthEndpoint) { // not required
+		return nil
+	}
+
+	if m.HealthEndpoint != nil {
+		if err := m.HealthEndpoint.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("health-endpoint")
 			}
 			return err
 		}
