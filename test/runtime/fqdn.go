@@ -992,10 +992,24 @@ INITSYSTEM=SYSTEMD`
 			monitorCMD.WaitUntilMatch("xx drop (Policy denied)")
 			monitorCMD.ExpectContains("xx drop (Policy denied)")
 
+			// On Kernel 4.9, Cilium does not synchronously update
+			// Envoy with the FQDN Identity updates prior to
+			// releasing the DNS response. As a result, if we don't
+			// wait long enough between DNS response and HTTP
+			// query, then the check below will fail (see
+			// GH-17994). Mitigate this by performing the inner
+			// curl request in a loop to ensure that the new
+			// identity is successfully plumbed into Envoy.
+			//
+			// On newer kernels, Envoy pulls the ipcache state
+			// directly from the eBPF map, which *is* synchronously
+			// updated, thereby mitigating this issue.
 			By("Testing connectivity to %q", world1Target)
 			monitorCMD.Reset()
-			res = vm.ContainerExec(helpers.App1, helpers.CurlFail(world1Target))
-			res.ExpectSuccess("Cannot access to %q when it should work", world1Target)
+			Eventually(func() *helpers.CmdRes {
+				return vm.ContainerExec(helpers.App1, helpers.CurlFail(world1Target))
+			}, helpers.MidCommandTimeout, 1*time.Second).
+				Should(helpers.CMDSuccess(), fmt.Sprintf("Cannot access to %q when it should work", world1Target))
 			monitorCMD.WaitUntilMatch("verdict Forwarded GET http://world1.cilium.test/ => 200")
 			monitorCMD.ExpectContains("verdict Forwarded GET http://world1.cilium.test/ => 200")
 		})
