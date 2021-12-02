@@ -304,12 +304,7 @@ func (p *parser) readPythonMultilines(line string, bufferSize int) (string, erro
 
 	for {
 		peekData, peekErr := peekBuffer.ReadBytes('\n')
-		if peekErr != nil {
-			if peekErr == io.EOF {
-				p.debug("readPythonMultilines: io.EOF, peekData: %q, line: %q", string(peekData), line)
-				return line, nil
-			}
-
+		if peekErr != nil && peekErr != io.EOF {
 			p.debug("readPythonMultilines: failed to peek with error: %v", peekErr)
 			return "", peekErr
 		}
