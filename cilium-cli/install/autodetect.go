@@ -74,7 +74,7 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context) error {
 		for _, check := range validationChecks[f.Kind] {
 			name := check.Name()
 			if k.params.checkDisabled(name) {
-				k.Log("⏭️  Skipping disabled validtion test %q", name)
+				k.Log("⏭️  Skipping disabled validation test %q", name)
 				continue
 			}
 
