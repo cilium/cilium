@@ -333,7 +333,8 @@ Annotations:
   agent upgrade. Changing both ports simultaneously shouldn't cause any issues.
 * When Egress Gateway is enabled, upgrading to 1.11 will cause a brief
   interruption of the connectivity between the client pods and the egress
-  gateway nodes.
+  gateway nodes. Once the connectivity is restored, clients will need to
+  reconnect.
 
 Removed Metrics/Labels
 ~~~~~~~~~~~~~~~~~~~~~~
