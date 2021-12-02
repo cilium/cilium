@@ -1580,12 +1580,11 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			By("Waiting until server is terminating")
 			ctx, cancel := context.WithCancel(context.Background())
 			res := kubectl.LogsStream(helpers.DefaultNamespace, serverPod, ctx)
-			Expect(res.WaitUntilMatch("terminating")).To(BeNil(),
-				"%s is not in the output after timeout", res.GetStdOut())
-			defer func() {
-				cancel()
-				res.WaitUntilFinish()
-			}()
+			find := "terminating"
+			Eventually(func() bool {
+				return strings.Contains(res.OutputPrettyPrint(), find)
+			}, 60*time.Second, time.Second).Should(BeTrue(), "[%s] is not in the output after timeout\n%s", find, res.Stdout())
+			defer cancel()
 		}
 
 		BeforeAll(func() {
@@ -1633,12 +1632,11 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			ctx, cancel := context.WithCancel(context.Background())
 			res := kubectl.LogsStream(helpers.DefaultNamespace, clientPod, ctx)
 			// Check if the client pod is able to get a response from the server once it's up and running
-			Expect(res.WaitUntilMatch("client received")).To(BeNil(),
-				"%s is not in the output after timeout", res.GetStdOut())
-			defer func() {
-				cancel()
-				res.WaitUntilFinish()
-			}()
+			find := "client received"
+			Eventually(func() bool {
+				return strings.Contains(res.OutputPrettyPrint(), find)
+			}, 60*time.Second, time.Second).Should(BeTrue(), "[%s] is not in the output after timeout\n%s", find, res.Stdout())
+			defer cancel()
 
 			terminateServiceEndpointPod()
 
@@ -1648,12 +1646,11 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			// The log message indicates that the connectivity between client and
 			// server was intact even after the service endpoint pod was terminated,
 			// and that the client connection terminated gracefully.
-			Expect(res.WaitUntilMatch("exiting on graceful termination")).To(BeNil(),
-				"%s is not in the output after timeout", res.GetStdOut())
-			defer func() {
-				cancel()
-				res.WaitUntilFinish()
-			}()
+			find = "exiting on graceful termination"
+			Eventually(func() bool {
+				return strings.Contains(res.OutputPrettyPrint(), find)
+			}, 60*time.Second, time.Second).Should(BeTrue(), "[%s] is not in the output after timeout\n%s", find, res.Stdout())
+			defer cancel()
 
 			// The client pod exits with status code 0 on graceful termination.
 			By("Checking if client pod exited successfully")
