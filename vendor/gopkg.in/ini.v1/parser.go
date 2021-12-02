@@ -304,12 +304,7 @@ func (p *parser) readPythonMultilines(line string, bufferSize int) (string, erro
 
 	for {
 		peekData, peekErr := peekBuffer.ReadBytes('\n')
-		if peekErr != nil {
-			if peekErr == io.EOF {
-				p.debug("readPythonMultilines: io.EOF, peekData: %q, line: %q", string(peekData), line)
-				return line, nil
-			}
-
+		if peekErr != nil && peekErr != io.EOF {
 			p.debug("readPythonMultilines: failed to peek with error: %v", peekErr)
 			return "", peekErr
 		}
@@ -446,6 +441,8 @@ func (f *File) parse(reader io.Reader) (err error) {
 			// Reset auto-counter and comments
 			p.comment.Reset()
 			p.count = 1
+			// Nested values can't span sections
+			isLastValueEmpty = false
 
 			inUnparseableSection = false
 			for i := range f.options.UnparseableSections {
