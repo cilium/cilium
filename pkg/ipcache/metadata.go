@@ -267,13 +267,37 @@ func injectLabelsForCIDR(p string, lbls labels.Labels) (*identity.Identity, bool
 	return allocate(cidr, allLbls)
 }
 
-// FilterMetadataByLabels returns all the prefixes inside the identityMetadata
+// RemoveLabelsExcluded removes the given labels from all IPs inside the IDMD
+// except for the IPs / prefixes inside the given excluded set. This may cause
+// updates to the ipcache, as well as to the identity and policy logic via
+// 'updater' and 'triggerer'.
+func RemoveLabelsExcluded(
+	lbls labels.Labels,
+	toExclude map[string]struct{},
+	src source.Source,
+	updater identityUpdater,
+	triggerer policyTriggerer,
+) {
+	idMDMU.Lock()
+	defer idMDMU.Unlock()
+
+	oldSet := filterMetadataByLabels(lbls)
+	toRemove := make(map[string]labels.Labels)
+	for _, ip := range oldSet {
+		if _, ok := toExclude[ip]; !ok {
+			toRemove[ip] = lbls
+		}
+	}
+
+	removeLabelsFromIPs(toRemove, src, updater, triggerer)
+}
+
+// filterMetadataByLabels returns all the prefixes inside the identityMetadata
 // map which contain the given labels. Note that `filter` is a subset match,
 // not a full match.
-func FilterMetadataByLabels(filter labels.Labels) []string {
-	idMDMU.RLock()
-	defer idMDMU.RUnlock()
-
+//
+// Assumes that the IDMD read lock is taken!
+func filterMetadataByLabels(filter labels.Labels) []string {
 	var matching []string
 	sortedFilter := filter.SortedList()
 	for prefix, lbls := range identityMetadata {
@@ -290,7 +314,9 @@ func FilterMetadataByLabels(filter labels.Labels) []string {
 //
 // A prefix will only be removed from the IDMD if the set of labels becomes
 // empty.
-func RemoveLabelsFromIPs(
+//
+// Assumes that the IDMD lock is taken!
+func removeLabelsFromIPs(
 	m map[string]labels.Labels,
 	src source.Source,
 	updater identityUpdater,
@@ -302,9 +328,6 @@ func RemoveLabelsFromIPs(
 		// toReplace stores the identity to replace in the ipcache.
 		toReplace = make(map[string]Identity)
 	)
-
-	idMDMU.Lock()
-	defer idMDMU.Unlock()
 
 	IPIdentityCache.Lock()
 	defer IPIdentityCache.Unlock()
