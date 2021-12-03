@@ -37,10 +37,12 @@ var _ = Suite(&IDAllocTestSuite{})
 
 func (e *IDAllocTestSuite) SetUpTest(c *C) {
 	serviceIDAlloc.resetLocalID()
+	backendIDAlloc.resetLocalID()
 }
 
 func (e *IDAllocTestSuite) TearDownTest(c *C) {
 	serviceIDAlloc.resetLocalID()
+	backendIDAlloc.resetLocalID()
 }
 
 var (
@@ -58,6 +60,14 @@ var (
 	}
 	l3n4Addr4 = loadbalancer.L3n4Addr{
 		IP:     net.IPv6loopback,
+		L4Addr: loadbalancer.L4Addr{Port: 2, Protocol: "UDP"},
+	}
+	l3n4Addr5 = loadbalancer.L3n4Addr{
+		IP:     net.ParseIP("::2"),
+		L4Addr: loadbalancer.L4Addr{Port: 2, Protocol: "UDP"},
+	}
+	l3n4Addr6 = loadbalancer.L3n4Addr{
+		IP:     net.ParseIP("::3"),
 		L4Addr: loadbalancer.L4Addr{Port: 2, Protocol: "UDP"},
 	}
 	wantL3n4AddrID = &loadbalancer.L3n4AddrID{
@@ -188,6 +198,14 @@ func (s *IDAllocTestSuite) TestBackendID(c *C) {
 	existingID1, err := LookupBackendID(l3n4Addr1)
 	c.Assert(err, Equals, nil)
 	c.Assert(existingID1, Equals, id1)
+
+	// Check that the backend ID restoration advances the nextID
+	err = RestoreBackendID(l3n4Addr5, firstBackendID+10)
+	c.Assert(err, Equals, nil)
+	id3, err := AcquireBackendID(l3n4Addr6)
+	c.Assert(err, Equals, nil)
+	c.Assert(id3, Equals, firstBackendID+11)
+
 }
 
 func (s *IDAllocTestSuite) BenchmarkAllocation(c *C) {
