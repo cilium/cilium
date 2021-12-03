@@ -16,6 +16,14 @@ import (
 )
 
 func (k *K8sInstaller) Upgrade(ctx context.Context) error {
+	if err := k.autodetect(ctx); err != nil {
+		return err
+	}
+
+	// no need to determine KPR setting on upgrade, keep the setting configured with the old
+	// version.
+	k.detectDatapathMode(false)
+
 	daemonSet, err := k.client.GetDaemonSet(ctx, k.params.Namespace, defaults.AgentDaemonSetName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to retrieve DaemonSet of cilium-agent: %s", err)
