@@ -26,7 +26,6 @@ type MockIdentityAllocator struct {
 
 	currentID        int // Regular identities
 	localID          int // CIDR identities
-	idRefCount       map[int]int
 	ipToIdentity     map[string]int
 	idToIdentity     map[int]*identity.Identity
 	labelsToIdentity map[string]int // labels are sorted as a key
@@ -45,7 +44,6 @@ func NewMockIdentityAllocator(c cache.IdentityCache) *MockIdentityAllocator {
 		currentID:        1000,
 		localID:          int(identity.LocalIdentityFlag),
 		ipToIdentity:     make(map[string]int),
-		idRefCount:       make(map[int]int),
 		idToIdentity:     make(map[int]*identity.Identity),
 		labelsToIdentity: make(map[string]int),
 	}
@@ -74,8 +72,16 @@ func (f *MockIdentityAllocator) AllocateIdentity(_ context.Context, lbls labels.
 		return reservedIdentity, false, nil
 	}
 
+	requiresGlobal := identity.RequiresGlobalIdentity(lbls)
+
+	if numID, ok := f.labelsToIdentity[lbls.String()]; ok && !requiresGlobal {
+		id := f.idToIdentity[numID]
+		id.ReferenceCount++
+		return id, false, nil
+	}
+
 	var id int
-	if identity.RequiresGlobalIdentity(lbls) {
+	if requiresGlobal {
 		id = f.currentID
 		f.currentID++
 	} else {
@@ -87,11 +93,11 @@ func (f *MockIdentityAllocator) AllocateIdentity(_ context.Context, lbls labels.
 	f.labelsToIdentity[lbls.String()] = id
 
 	realID := &identity.Identity{
-		ID:     identity.NumericIdentity(id),
-		Labels: lbls,
+		ID:             identity.NumericIdentity(id),
+		Labels:         lbls,
+		ReferenceCount: 1,
 	}
 	f.idToIdentity[id] = realID
-	f.idRefCount[id]++
 
 	return realID, true, nil
 }
@@ -99,19 +105,17 @@ func (f *MockIdentityAllocator) AllocateIdentity(_ context.Context, lbls labels.
 // Release releases a fake identity. It is meant to generally mock the
 // canonical identity release logic.
 func (f *MockIdentityAllocator) Release(_ context.Context, id *identity.Identity, _ bool) (released bool, err error) {
-	count, ok := f.idRefCount[int(id.ID)]
+	realID, ok := f.idToIdentity[int(id.ID)]
 	if !ok {
 		return false, nil
 	}
-	if count == 1 {
-		delete(f.idRefCount, int(id.ID))
+	if realID.ReferenceCount == 1 {
+		delete(f.idToIdentity, int(id.ID))
+		delete(f.IdentityCache, id.ID)
 	} else {
-		count--
-		f.idRefCount[int(id.ID)] = count
+		realID.ReferenceCount--
 		return false, nil
 	}
-	delete(f.idToIdentity, int(id.ID))
-	delete(f.IdentityCache, id.ID)
 	return true, nil
 }
 
@@ -151,7 +155,6 @@ func (f *MockIdentityAllocator) AllocateCIDRsForIPs(IPs []net.IP, _ map[string]*
 		if !ok {
 			id = f.localID
 			f.ipToIdentity[ip.String()] = id
-			f.idRefCount[id]++
 			f.localID = id + 1
 		}
 		cidrLabels := append([]string{}, ip.String())
