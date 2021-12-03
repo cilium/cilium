@@ -225,7 +225,7 @@ func (ic *ingressController) handleIngressAddedEvent(event ingressAddedEvent) er
 		return nil
 	}
 	if err := ic.createEnvoyConfig(event.ingress); err != nil {
-		ic.logger.WithError(err).Warn("failed to create endpoints")
+		ic.logger.WithError(err).Warn("failed to create CiliumEnvoyConfig")
 		return err
 	}
 	if err := ic.createEndpoints(event.ingress); err != nil {
@@ -487,7 +487,7 @@ func (ic *ingressController) createLoadBalancer(ingress *slim_networkingv1.Ingre
 	if err != nil {
 		log.WithError(err).WithField("ingress", ingress.Name).Error("Failed to create a service for ingress")
 	} else {
-		log.WithError(err).WithField("service", svcKey).Info("Created Service")
+		log.WithField("service", svcKey).Info("Created Service for Ingress")
 	}
 	return err
 }
@@ -520,7 +520,7 @@ func (ic *ingressController) createEndpoints(ingress *slim_networkingv1.Ingress)
 	if err != nil {
 		log.WithError(err).WithField("ingress", ingress.Name).Error("Failed to create endpoints for ingress")
 	} else {
-		log.WithError(err).WithField("endpoints", key).Info("Created Endpoints")
+		log.WithField("endpoints", key).Info("Created Endpoints for Ingress")
 	}
 	return err
 }
