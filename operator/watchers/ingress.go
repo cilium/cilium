@@ -239,6 +239,26 @@ func (ic *ingressController) handleIngressAddedEvent(event ingressAddedEvent) er
 	return nil
 }
 
+func (ic *ingressController) handleIngressUpdatedEvent(event ingressUpdatedEvent) error {
+	ingressClass := event.newIngress.Spec.IngressClassName
+	if ingressClass == nil || *ingressClass != ciliumIngressClassName {
+		return nil
+	}
+	if err := ic.createEnvoyConfig(event.newIngress); err != nil {
+		ic.logger.WithError(err).Warn("failed to update CiliumEnvoyConfig")
+		return err
+	}
+	if err := ic.createEndpoints(event.newIngress); err != nil {
+		ic.logger.WithError(err).Warn("failed to update endpoints")
+		return err
+	}
+	if err := ic.createLoadBalancer(event.newIngress); err != nil {
+		ic.logger.WithError(err).Warn("failed to update load balancer")
+		return err
+	}
+	return nil
+}
+
 func (ic *ingressController) handleIngressDeletedEvent(event ingressDeletedEvent) error {
 	ic.logger.WithField("ingress", event.ingress.Name).Info("Deleting Service for ingress")
 	if err := ic.deleteLoadBalancer(event.ingress); err != nil {
@@ -364,6 +384,7 @@ func (ic *ingressController) handleEvent(event interface{}) error {
 		break
 	case ingressUpdatedEvent:
 		ic.logger.Info("handling ingress updated event")
+		err = ic.handleIngressUpdatedEvent(ev)
 		break
 	case ingressDeletedEvent:
 		ic.logger.Info("handling ingress deleted event")
@@ -543,18 +564,29 @@ func (ic *ingressController) createEnvoyConfig(ingress *slim_networkingv1.Ingres
 		return err
 	}
 	if exists {
-		_, ok := objFromCache.(*v2alpha1.CiliumEnvoyConfig)
+		existingEnvoyConfig, ok := objFromCache.(*v2alpha1.CiliumEnvoyConfig)
 		if !ok {
 			return fmt.Errorf("got invalid object from cache")
 		}
-		// CiliumEnvoyConfig already exists in the cache. For now assume that it was created by the ingress
-		// controller.
-		log.WithField("cilium-envoy-config", key).Info("CiliumEnvoyConfig already exists. Continuing...")
-		return nil
+		if envoyConfig.DeepEqual(existingEnvoyConfig) {
+			log.WithField("cilium-envoy-config", key).Info("Equal CiliumEnvoyConfig already exists. Continuing...")
+			return nil
+		}
+		// Update existing CEC
+		existingEnvoyConfig.Spec = envoyConfig.Spec
+		_, err = k8s.CiliumClient().CiliumV2alpha1().CiliumEnvoyConfigs().Update(context.Background(), existingEnvoyConfig, metav1.UpdateOptions{})
+		if err != nil {
+			log.WithError(err).WithField("ingress", ingress.Name).Error("Failed to update CiliumEnvoyConfig for ingress")
+		} else {
+			log.WithField("ingress", ingress.Name).Error("Updated CiliumEnvoyConfig for ingress")
+		}
+		return err
 	}
 	_, err = k8s.CiliumClient().CiliumV2alpha1().CiliumEnvoyConfigs().Create(context.Background(), envoyConfig, metav1.CreateOptions{})
 	if err != nil {
 		log.WithError(err).WithField("ingress", ingress.Name).Error("Failed to create CiliumEnvoyConfig for ingress")
+	} else {
+		log.WithField("ingress", ingress.Name).Error("Create CiliumEnvoyConfig for ingress")
 	}
 	return err
 }
