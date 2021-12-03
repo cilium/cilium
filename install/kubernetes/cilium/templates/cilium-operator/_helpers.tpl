@@ -13,11 +13,11 @@
 {{- define "cilium.operator.imageDigestName" -}}
 {{- $imageDigest := (.Values.operator.image.useDigest | default false) | ternary (printf "@%s" .Values.operator.image.genericDigest) "" -}}
 {{- if .Values.eni.enabled -}}
-  {{- $imageDigest := (.Values.operator.image.useDigest | default false) | ternary (printf "@%s" .Values.operator.image.awsDigest) "" -}}
+  {{- $imageDigest = (.Values.operator.image.useDigest | default false) | ternary (printf "@%s" .Values.operator.image.awsDigest) "" -}}
 {{- else if .Values.azure.enabled -}}
-  {{- $imageDigest := (.Values.operator.image.useDigest | default false) | ternary (printf "@%s" .Values.operator.image.azureDigest) "" -}}
+  {{- $imageDigest = (.Values.operator.image.useDigest | default false) | ternary (printf "@%s" .Values.operator.image.azureDigest) "" -}}
 {{- else if .Values.alibabacloud.enabled -}}
-  {{- $imageDigest := (.Values.operator.image.useDigest | default false) | ternary (printf "@%s" .Values.operator.image.alibabacloudDigest) "" -}}
+  {{- $imageDigest = (.Values.operator.image.useDigest | default false) | ternary (printf "@%s" .Values.operator.image.alibabacloudDigest) "" -}}
 {{- end -}}
 {{- $imageDigest -}}
 {{- end -}}
