@@ -545,6 +545,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_CUSTOM_CALLS"] = "1"
 	}
 
+	if option.Config.SupportServiceProtocols {
+		cDefinesMap["ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION"] = "1"
+	}
+
 	// Since golang maps are unordered, we sort the keys in the map
 	// to get a consistent writtern format to the writer. This maintains
 	// the consistency when we try to calculate hash for a datapath after

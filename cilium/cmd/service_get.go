@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/spf13/cobra"
 )
@@ -36,6 +37,15 @@ var serviceGetCmd = &cobra.Command{
 		if err != nil {
 			Fatalf("Unable to parse service ID: %s", svcIDstr)
 		}
+
+		conf, err := client.ConfigGet()
+		if err != nil {
+			Fatalf("Cannot get Cilium configuration: %s", err)
+		}
+
+		// this option is used by the loadbalancer package to determine how to
+		// format the string representation of a L3n4Addr.
+		option.Config.SupportServiceProtocols = conf.Status.SupportServiceProtocols
 
 		svc, err := client.GetServiceID(id)
 		if err != nil {

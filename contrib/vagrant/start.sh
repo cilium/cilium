@@ -309,7 +309,7 @@ function write_cilium_cfg() {
     cilium_options="\
       --debug --pprof --enable-hubble --hubble-listen-address :4244 --enable-k8s-event-handover \
       --k8s-require-ipv4-pod-cidr --enable-bandwidth-manager --kube-proxy-replacement probe \
-      --enable-remote-node-identity"
+      --enable-remote-node-identity --enable-host-reachable-services=false"
     cilium_operator_options=" --debug"
 
     if [[ "${IPV4}" -eq "1" ]]; then

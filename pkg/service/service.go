@@ -50,7 +50,7 @@ type LBMap interface {
 	UpsertMaglevLookupTable(uint16, map[string]uint16, bool) error
 	IsMaglevLookupTableRecreated(bool) bool
 	DeleteService(lb.L3n4AddrID, int, bool) error
-	AddBackend(uint16, net.IP, uint16, bool) error
+	AddBackend(uint16, net.IP, lb.L4Type, uint16, bool) error
 	DeleteBackendByID(uint16, bool) error
 	AddAffinityMatch(uint16, uint16) error
 	DeleteAffinityMatch(uint16, uint16) error
@@ -621,6 +621,10 @@ func (s *Service) SyncWithK8sFinished() error {
 
 	for _, svc := range s.svcByHash {
 		if svc.restoredFromDatapath {
+			if svc.frontend.Protocol == lb.NONE {
+				continue
+			}
+
 			log.WithFields(logrus.Fields{
 				logfields.ServiceID: svc.frontend.ID,
 				logfields.L3n4Addr:  logfields.Repr(svc.frontend.L3n4Addr)}).
@@ -809,6 +813,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 		}).Debug("Adding new backend")
 
 		if err := s.lbmap.AddBackend(uint16(b.ID), b.L3n4Addr.IP,
+			b.L3n4Addr.L4Addr.Protocol,
 			b.L3n4Addr.L4Addr.Port, ipv6); err != nil {
 			return err
 		}
@@ -835,6 +840,10 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 		CheckSourceRange:          checkLBSrcRange,
 		UseMaglev:                 svc.useMaglev(),
 	}
+	if option.Config.SupportServiceProtocols {
+		p.Protocol = string(svc.frontend.L3n4Addr.L4Addr.Protocol)
+	}
+
 	if err := s.lbmap.UpsertService(p); err != nil {
 		return err
 	}
@@ -906,6 +915,13 @@ func (s *Service) restoreServicesLocked() error {
 	}
 
 	for _, svc := range svcs {
+		if option.Config.SupportServiceProtocols && svc.Frontend.Protocol == lb.NONE {
+			// If the service does not have a protocol and we are running
+			// with support for service protocols, just skip it.
+			// It will be recreated by the k8s service watcher.
+			//continue
+		}
+
 		scopedLog := log.WithFields(logrus.Fields{
 			logfields.ServiceID: svc.Frontend.ID,
 			logfields.ServiceIP: svc.Frontend.L3n4Addr.String(),
