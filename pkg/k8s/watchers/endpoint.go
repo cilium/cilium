@@ -131,15 +131,9 @@ func (k *K8sWatcher) handleKubeAPIServerServiceEPChanges(desiredIPs map[string]s
 	//     an update event.
 	//   * if the entire object is deleted, then it will quickly be recreated
 	//     and this will be in the form of an add event.
-	oldAPIServerIPs := ipcache.FilterMetadataByLabels(labels.LabelKubeAPIServer)
-	toRemove := make(map[string]labels.Labels)
-	for _, ip := range oldAPIServerIPs {
-		if _, ok := desiredIPs[ip]; !ok {
-			toRemove[ip] = labels.LabelKubeAPIServer
-		}
-	}
-	ipcache.RemoveLabelsFromIPs(
-		toRemove,
+	ipcache.RemoveLabelsExcluded(
+		labels.LabelKubeAPIServer,
+		desiredIPs,
 		src,
 		k.policyRepository.GetSelectorCache(),
 		k.policyManager,
