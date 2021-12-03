@@ -52,8 +52,8 @@ func TestFilterMetadataByLabels(t *testing.T) {
 	UpsertMetadata("2.1.1.1", labels.LabelWorld)
 	UpsertMetadata("3.1.1.1", labels.LabelWorld)
 
-	assert.Len(t, FilterMetadataByLabels(labels.LabelKubeAPIServer), 1)
-	assert.Len(t, FilterMetadataByLabels(labels.LabelWorld), 2)
+	assert.Len(t, filterMetadataByLabels(labels.LabelKubeAPIServer), 1)
+	assert.Len(t, filterMetadataByLabels(labels.LabelWorld), 2)
 }
 
 func TestRemoveLabelsFromIPs(t *testing.T) {
@@ -63,7 +63,7 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	assert.NoError(t, InjectLabels(source.Local, &mockUpdater{}, &mockTriggerer{}))
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 1)
 
-	RemoveLabelsFromIPs(map[string]labels.Labels{
+	removeLabelsFromIPs(map[string]labels.Labels{
 		"1.1.1.1": labels.LabelKubeAPIServer,
 	}, source.Local, &mockUpdater{}, &mockTriggerer{})
 	assert.Len(t, identityMetadata, 1)
@@ -90,7 +90,7 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Len(t, ids, 1)
 	assert.Equal(t, 2, id.ReferenceCount)
-	RemoveLabelsFromIPs(map[string]labels.Labels{ // remove kube-apiserver policy
+	removeLabelsFromIPs(map[string]labels.Labels{ // remove kube-apiserver policy
 		"1.1.1.1": labels.LabelKubeAPIServer,
 	}, source.Local, &mockUpdater{}, &mockTriggerer{})
 	assert.NotContains(t, identityMetadata["1.1.1.1"], labels.LabelKubeAPIServer)
