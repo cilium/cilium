@@ -164,8 +164,8 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
            - name: ng-1
              desiredCapacity: 2
              privateNetworking: true
-             # taint nodes so that application pods are
-             # not scheduled until Cilium is deployed.
+             ## taint nodes so that application pods are
+             ## not scheduled until Cilium is deployed.
              taints:
               - key: "node.cilium.io/agent-not-ready"
                 value: "true"
