@@ -73,12 +73,15 @@ func GetIDMetadataByIP(prefix string) labels.Labels {
 // InjectLabels injects labels from the identityMetadata (IDMD) map into the
 // identities used for the prefixes in the IPCache. The given source is the
 // source of the caller, as inserting into the IPCache requires knowing where
-// this updated information comes from.
+// this updated information comes from. Conversely, RemoveLabelsExcluded()
+// performs the inverse: removes labels from the IDMD map and releases
+// identities allocated by this function.
 //
 // Note that as this function iterates through the IDMD, if it detects a change
 // in labels for a given prefix, then this might allocate a new identity. If a
 // prefix was previously associated with an identity, it will get deallocated,
-// so a balance is kept.
+// so a balance is kept, ensuring a one-to-one mapping between prefix and
+// identity.
 func InjectLabels(src source.Source, updater identityUpdater, triggerer policyTriggerer) error {
 	if IdentityAllocator == nil || !IdentityAllocator.IsLocalIdentityAllocatorInitialized() {
 		return ErrLocalIdentityAllocatorUninitialized
@@ -131,8 +134,8 @@ func InjectLabels(src source.Source, updater identityUpdater, triggerer policyTr
 				newLbls := id.Labels
 				tmpSrc = source.KubeAPIServer
 				trigger = true
-				// If any reserved ID has changed, update its labels.
-				if id.IsReserved() {
+				// If host identity has changed, update its labels.
+				if id.ID == identity.ReservedIdentityHost {
 					identity.AddReservedIdentityWithLabels(id.ID, newLbls)
 				}
 				idsToPropagate[id.ID] = newLbls.LabelArray()
@@ -189,7 +192,7 @@ func InjectLabels(src source.Source, updater identityUpdater, triggerer policyTr
 		if _, err := IPIdentityCache.upsertLocked(ip, hIP, key, meta, Identity{
 			ID:     id.ID,
 			Source: id.Source,
-		}); err != nil {
+		}, false /* !force */); err != nil {
 			return fmt.Errorf("failed to upsert %s into ipcache with identity %d: %w", ip, id.ID, err)
 		}
 	}
@@ -281,12 +284,9 @@ func FilterMetadataByLabels(filter labels.Labels) []string {
 	return matching
 }
 
-// RemoveLabelsFromIPs wraps RemoveLabels to provide a convenient method for
-// the caller to remove all given prefixes at once. This function will trigger
-// policy update and recalculation if necessary on behalf of the caller if any
-// changes to the kube-apiserver were detected.
-//
-// Identities allocated by InjectLabels() may be released by RemoveLabels().
+// removeLabelsFromIPs removes all given prefixes at once. This function will
+// trigger policy update and recalculation if necessary on behalf of the
+// caller.
 //
 // A prefix will only be removed from the IDMD if the set of labels becomes
 // empty.
@@ -299,27 +299,58 @@ func RemoveLabelsFromIPs(
 	var (
 		idsToAdd    = make(map[identity.NumericIdentity]labels.LabelArray)
 		idsToDelete = make(map[identity.NumericIdentity]labels.LabelArray)
+		// toReplace stores the identity to replace in the ipcache.
+		toReplace = make(map[string]Identity)
 	)
+
+	idMDMU.Lock()
+	defer idMDMU.Unlock()
+
+	IPIdentityCache.Lock()
+	defer IPIdentityCache.Unlock()
+
 	for prefix, lbls := range m {
-		id, exists := IPIdentityCache.LookupByIP(prefix)
+		id, exists := IPIdentityCache.LookupByIPRLocked(prefix)
 		if !exists {
 			continue
 		}
+
+		idsToDelete[id.ID] = nil // labels for deletion don't matter to UpdateIdentities()
+
 		// Insert to propagate the updated set of labels after removal.
-		var la labels.LabelArray
-		if l := RemoveLabels(prefix, lbls, src); l != nil {
-			la = l.LabelArray()
-		}
-		idsToDelete[id.ID] = la
-		if len(la) > 0 {
-			// If for example kube-apiserver label is removed from
-			// a remote-node, then RemoveLabels() will return a
-			// non-empty set representing the new full set of
-			// labels to associate with the node. In order to
-			// propagate the new identity, we must emit a delete
-			// event for the old identity and then an add event for
-			// the new identity.
-			idsToAdd[id.ID] = la
+		l := removeLabels(prefix, lbls, src)
+		if len(l) > 0 {
+			// If for example kube-apiserver label is removed from the local
+			// host identity (when the kube-apiserver is running within the
+			// cluster and it is no longer running on the current local host),
+			// then removeLabels() will return a non-empty set representing the
+			// new full set of labels to associate with the node (in this
+			// example, just the local host label). In order to propagate the
+			// new identity, we must emit a delete event for the old identity
+			// and then an add event for the new identity.
+
+			// If host identity has changed, update its labels.
+			if id.ID == identity.ReservedIdentityHost {
+				identity.AddReservedIdentityWithLabels(id.ID, l)
+			}
+
+			newID, _, err := IdentityAllocator.AllocateIdentity(context.TODO(), l, false)
+			if err != nil {
+				log.WithError(err).WithFields(logrus.Fields{
+					logfields.IPAddr:         prefix,
+					logfields.Identity:       id,
+					logfields.IdentityLabels: l,    // new labels
+					logfields.Labels:         lbls, // removed labels
+				}).Error(
+					"Failed to allocate new identity after dissociating labels from existing identity. Traffic may be disrupted.",
+				)
+				continue
+			}
+			idsToAdd[newID.ID] = l.LabelArray()
+			toReplace[prefix] = Identity{
+				ID:     newID.ID,
+				Source: sourceByLabels(src, l),
+			}
 		}
 	}
 	if len(idsToDelete) > 0 {
@@ -334,42 +365,88 @@ func RemoveLabelsFromIPs(
 
 		triggerer.TriggerPolicyUpdates(false, "kube-apiserver identity updated by removal")
 	}
+	for ip, id := range toReplace {
+		hIP, key := IPIdentityCache.getHostIPCache(ip)
+		meta := IPIdentityCache.getK8sMetadata(ip)
+		if _, err := IPIdentityCache.upsertLocked(
+			ip,
+			hIP,
+			key,
+			meta,
+			id,
+			true, /* force upsert */
+		); err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				logfields.IPAddr:   ip,
+				logfields.Identity: id,
+			}).Error("Failed to replace ipcache entry with new identity after label removal. Traffic may be disrupted.")
+		}
+	}
 }
 
-// RemoveLabels removes the given labels association with the given prefix. The
-// leftover labels are returned, if any.
+// removeLabels removes the given labels association with the given prefix. The
+// leftover labels are returned, if any. If there are leftover labels, the
+// caller must allocate a new identity and do the following *in order* to avoid
+// drops:
+//   1) policy recalculation must be implemented into the datapath and
+//   2) new identity must have a new entry upserted into the IPCache
+// Note: GH-17962, triggering policy recalculation doesn't actually *implement*
+// the changes into datapath (because it's an async call), this is a known
+// issue. There's a very small window for drops when two policies select the
+// same traffic and the identity changes. For example, this is possible if an
+// IP is associated with the kube-apiserver and referenced inside a ToCIDR
+// policy, and then the IP is no longer associated with the kube-apiserver.
 //
 // Identities are deallocated and their subequent entry in the IPCache is
 // removed if the prefix is no longer associated with any labels.
 //
-// It is the responsibility of the caller to trigger policy recalculation after
-// calling this function.
-func RemoveLabels(prefix string, lbls labels.Labels, src source.Source) labels.Labels {
-	idMDMU.Lock()
-	defer idMDMU.Unlock()
-
+// This function assumes that the IDMD and the IPIdentityCache locks are taken!
+func removeLabels(prefix string, lbls labels.Labels, src source.Source) labels.Labels {
 	l, ok := identityMetadata[prefix]
 	if !ok {
 		return nil
 	}
 
 	l = l.Remove(lbls)
-	if len(l) != 0 { // Labels left over, do not deallocate
+	if len(l) == 0 { // Labels empty, delete
+		// No labels left. Example case: when the kube-apiserver is running
+		// outside of the cluster, meaning that the IDMD only ever had the
+		// kube-apiserver label (CIDR labels are not added) and it's now being
+		// removed.
+		delete(identityMetadata, prefix)
+	} else {
+		// This case is only hit if the prefix for the kube-apiserver is
+		// running within the cluster. Therefore, the IDMD can only ever has
+		// the following labels:
+		//   * kube-apiserver + remote-node
+		//   * kube-apiserver + host
 		identityMetadata[prefix] = l
-		return l
 	}
 
-	// No labels left, perform deallocation
-
-	IPIdentityCache.Lock()
-	defer IPIdentityCache.Unlock()
-	delete(identityMetadata, prefix)
 	id, exists := IPIdentityCache.LookupByIPRLocked(prefix)
 	if !exists {
+		log.WithFields(logrus.Fields{
+			logfields.CIDR:   prefix,
+			logfields.Labels: lbls,
+		}).Warn(
+			"Identity for prefix was unexpectedly not found in ipcache, unable " +
+				"to remove labels from prefix. If a network policy is applied, check " +
+				"for any drops. It's possible that insertion or removal from " +
+				"the ipcache failed.",
+		)
 		return nil
 	}
 	realID := IdentityAllocator.LookupIdentityByID(context.TODO(), id.ID)
 	if realID == nil {
+		log.WithFields(logrus.Fields{
+			logfields.CIDR:     prefix,
+			logfields.Labels:   lbls,
+			logfields.Identity: id,
+		}).Warn(
+			"Identity unexpectedly not found within the identity allocator, " +
+				"unable to remove labels from prefix. It's possible that insertion " +
+				"or removal from the ipcache failed.",
+		)
 		return nil
 	}
 	released, err := IdentityAllocator.Release(context.TODO(), realID, false)
@@ -382,14 +459,28 @@ func RemoveLabels(prefix string, lbls labels.Labels, src source.Source) labels.L
 		}).Error(
 			"Failed to release assigned identity to IP while removing label association, this might be a leak.",
 		)
+		return nil
 	}
 	if released {
-		if lbls.Has(labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer]) {
-			src = source.KubeAPIServer
-		}
-		IPIdentityCache.deleteLocked(prefix, src)
+		IPIdentityCache.deleteLocked(prefix, sourceByLabels(src, lbls))
+		return nil
 	}
-	return nil
+
+	// Generate new identity with the label removed. This should be the case
+	// where the existing identity had >1 refcount, meaning that something was
+	// referring to it.
+	allLbls := labels.NewLabelsFromModel(nil)
+	allLbls.MergeLabels(realID.Labels)
+	allLbls = allLbls.Remove(lbls)
+
+	return allLbls
+}
+
+func sourceByLabels(d source.Source, lbls labels.Labels) source.Source {
+	if lbls.Has(labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer]) {
+		return source.KubeAPIServer
+	}
+	return d
 }
 
 // TriggerLabelInjection triggers the label injection controller to iterate
