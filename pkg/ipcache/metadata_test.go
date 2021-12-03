@@ -7,9 +7,12 @@
 package ipcache
 
 import (
+	"context"
+	"net"
 	"sync"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/source"
@@ -65,6 +68,33 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	}, source.Local, &mockUpdater{}, &mockTriggerer{})
 	assert.Len(t, identityMetadata, 1)
 	assert.Equal(t, labels.LabelHost, identityMetadata["1.1.1.1"])
+
+	// Simulate kube-apiserver policy + CIDR policy on same prefix. Validate
+	// that removing the kube-apiserver policy will result in a new CIDR
+	// identity for the CIDR policy.
+
+	delete(identityMetadata, "1.1.1.1") // clean slate first
+	// Entry with only kube-apiserver labels means kube-apiserver is outside of
+	// the cluster, and thus will have a CIDR identity when InjectLabels() is
+	// called.
+	UpsertMetadata("1.1.1.1", labels.LabelKubeAPIServer)
+	assert.NoError(t, InjectLabels(source.Local, &mockUpdater{}, &mockTriggerer{}))
+	id := IdentityAllocator.LookupIdentityByID(
+		context.TODO(),
+		identity.LocalIdentityFlag, // we assume first local ID
+	)
+	assert.NotNil(t, id)
+	assert.Equal(t, 1, id.ReferenceCount)
+	// Simulate adding CIDR policy.
+	ids, err := AllocateCIDRsForIPs([]net.IP{net.ParseIP("1.1.1.1")}, nil)
+	assert.Nil(t, err)
+	assert.Len(t, ids, 1)
+	assert.Equal(t, 2, id.ReferenceCount)
+	RemoveLabelsFromIPs(map[string]labels.Labels{ // remove kube-apiserver policy
+		"1.1.1.1": labels.LabelKubeAPIServer,
+	}, source.Local, &mockUpdater{}, &mockTriggerer{})
+	assert.NotContains(t, identityMetadata["1.1.1.1"], labels.LabelKubeAPIServer)
+	assert.Equal(t, 1, id.ReferenceCount) // CIDR policy is left
 }
 
 func setupTest(t *testing.T) {

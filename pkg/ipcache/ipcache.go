@@ -223,10 +223,23 @@ func (ipc *IPCache) updateNamedPorts() (namedPortsChanged bool) {
 func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8sMetadata, newIdentity Identity) (namedPortsChanged bool, err error) {
 	ipc.mutex.Lock()
 	defer ipc.mutex.Unlock()
-	return ipc.upsertLocked(ip, hostIP, hostKey, k8sMeta, newIdentity)
+	return ipc.upsertLocked(ip, hostIP, hostKey, k8sMeta, newIdentity, false /* !force */)
 }
 
-func (ipc *IPCache) upsertLocked(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8sMetadata, newIdentity Identity) (namedPortsChanged bool, err error) {
+// upsertLocked adds / updates the provided IP and identity into the IPCache,
+// assuming that the IPCache lock has been taken. Warning, do not use force
+// unless you know exactly what you're doing. Forcing adding / updating the
+// IPCache will not take into account the source of the identity and bypasses
+// the overwrite logic! Once GH-18301 is addressed, there will be no need for
+// any force logic.
+func (ipc *IPCache) upsertLocked(
+	ip string,
+	hostIP net.IP,
+	hostKey uint8,
+	k8sMeta *K8sMetadata,
+	newIdentity Identity,
+	force bool,
+) (namedPortsChanged bool, err error) {
 	var newNamedPorts policy.NamedPortMap
 	if k8sMeta != nil {
 		newNamedPorts = k8sMeta.NamedPorts
@@ -258,7 +271,7 @@ func (ipc *IPCache) upsertLocked(ip string, hostIP net.IP, hostKey uint8, k8sMet
 
 	cachedIdentity, found := ipc.ipToIdentityCache[ip]
 	if found {
-		if !source.AllowOverwrite(cachedIdentity.Source, newIdentity.Source) {
+		if !force && !source.AllowOverwrite(cachedIdentity.Source, newIdentity.Source) {
 			return false, NewErrOverwrite(cachedIdentity.Source, newIdentity.Source)
 		}
 
