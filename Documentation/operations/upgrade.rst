@@ -349,7 +349,7 @@ Deprecated Options
   ``ipv4-native-routing-cidr`` and will be removed in 1.12.
 * ``prefilter-device`` and ``prefilter-mode``: These options have been
   deprecated in favor of ``enable-xdp-prefilter`` and ``bpf-lb-acceleration``,
-  and will be removed in 1.12.
+  and will be removed in 1.12. To select the prefilter devices use ``devices``.
 * The NodePort related ``bpf-lb-bypass-fib-lookup`` option to enable a FIB
   lookup bypass optimization for NodePort's reverse NAT handling has been
   deprecated as the Linux kernel's FIB table is now always consulted. Thus,
