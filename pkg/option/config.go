@@ -1964,14 +1964,6 @@ type DaemonConfig struct {
 
 	K8sEnableAPIDiscovery bool
 
-	// k8sEnableLeasesFallbackDiscovery enables k8s to fallback to API probing to check
-	// for the support of Leases in Kubernetes when there is an error in discovering
-	// API groups using Discovery API.
-	// We require to check for Leases capabilities in operator only, which uses Leases for leader
-	// election purposes in HA mode.
-	// This is only enabled for cilium-operator
-	K8sEnableLeasesFallbackDiscovery bool
-
 	// LBMapEntries is the maximum number of entries allowed in BPF lbmap.
 	LBMapEntries int
 
@@ -2085,8 +2077,7 @@ var (
 		AllocatorListTimeout:         defaults.AllocatorListTimeout,
 		EnableICMPRules:              defaults.EnableICMPRules,
 
-		K8sEnableLeasesFallbackDiscovery: defaults.K8sEnableLeasesFallbackDiscovery,
-		APIRateLimit:                     make(map[string]string),
+		APIRateLimit: make(map[string]string),
 
 		ExternalClusterIP: defaults.ExternalClusterIP,
 	}
@@ -2233,19 +2224,6 @@ func (c *DaemonConfig) CiliumNamespaceName() string {
 // resources is enabled
 func (c *DaemonConfig) K8sAPIDiscoveryEnabled() bool {
 	return c.K8sEnableAPIDiscovery
-}
-
-// K8sLeasesFallbackDiscoveryEnabled returns true if we should fallback to direct API
-// probing when checking for support of Leases in case Discovery API fails to discover
-// required groups.
-func (c *DaemonConfig) K8sLeasesFallbackDiscoveryEnabled() bool {
-	return c.K8sEnableAPIDiscovery
-}
-
-// EnableK8sLeasesFallbackDiscovery enables using direct API probing as a fallback to check
-// for the support of Leases when discovering API groups is not possible.
-func (c *DaemonConfig) EnableK8sLeasesFallbackDiscovery() {
-	c.K8sEnableAPIDiscovery = true
 }
 
 func (c *DaemonConfig) validateIPv6ClusterAllocCIDR() error {

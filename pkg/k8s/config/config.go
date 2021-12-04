@@ -10,8 +10,6 @@ import (
 // Configuration is the configuration interface for the k8s package
 type Configuration interface {
 	K8sAPIDiscoveryEnabled() bool
-
-	K8sLeasesFallbackDiscoveryEnabled() bool
 }
 
 // DefaultConfiguration is an implementation of Configuration with default
@@ -28,11 +26,4 @@ func NewDefaultConfiguration() Configuration {
 // resources is enabled
 func (d *DefaultConfiguration) K8sAPIDiscoveryEnabled() bool {
 	return defaults.K8sEnableAPIDiscovery
-}
-
-// K8sLeasesFallbackDiscoveryEnabled returns true if we should fallback to direct API
-// probing when checking for support of Leases in case Discovery API fails to discover
-// required groups.
-func (d *DefaultConfiguration) K8sLeasesFallbackDiscoveryEnabled() bool {
-	return defaults.K8sEnableLeasesFallbackDiscovery
 }

@@ -131,9 +131,6 @@ func initEnv() {
 	}
 
 	option.LogRegisteredOptions(log)
-	// Enable fallback to direct API probing to check for support of Leases in
-	// case Discovery API fails.
-	option.Config.EnableK8sLeasesFallbackDiscovery()
 }
 
 func initK8s(k8sInitDone chan struct{}) {
@@ -273,15 +270,6 @@ func runOperator() {
 		}
 	} else {
 		log.Info("Skipping creation of CRDs")
-	}
-
-	// We only support Operator in HA mode for Kubernetes Versions having support for
-	// LeasesResourceLock.
-	// See docs on capabilities.LeasesResourceLock for more context.
-	if !capabilities.LeasesResourceLock {
-		log.Info("Support for coordination.k8s.io/v1 not present, fallback to non HA mode")
-		onOperatorStartLeading(leaderElectionCtx)
-		return
 	}
 
 	// Get hostname for identity name of the lease lock holder.
