@@ -4467,7 +4467,7 @@ func (kub *Kubectl) ensureKubectlVersion() error {
 	}
 
 	versionstring := fmt.Sprintf("%s.%s", v.ClientVersion.Major, v.ClientVersion.Minor)
-	if versionstring == GetCurrentK8SEnv() {
+	if strings.HasPrefix(GetCurrentK8SEnv(), versionstring) {
 		//version available on host is matching current env
 		return nil
 	}
