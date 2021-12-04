@@ -471,8 +471,6 @@ original author of that PR directly so they can backport the PR themselves.
 
 Follow the :ref:`backport_process` guide to know how to perform this task.
 
-.. _dev_coo:
-
 Coordination
 ++++++++++++
 
@@ -501,6 +499,8 @@ been merged, then please coordinate with the previous / next backporter to
 check what the status is and establish who will work on getting the backports
 into the tree (for instance by investigating CI failures and addressing review
 feedback). There's leeway to negotiate depending on who has time available.
+
+.. _dev_coo:
 
 Developer's Certificate of Origin
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -560,4 +560,3 @@ then you just add a line saying:
    Signed-off-by: Random J Developer <random@developer.example.org>
 
 Use your real name (sorry, no pseudonyms or anonymous contributions.)
-
