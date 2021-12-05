@@ -1,6 +1,6 @@
 # cilium
 
-![Version: 1.11.0-rc3](https://img.shields.io/badge/Version-1.11.0--rc3-informational?style=flat-square) ![AppVersion: 1.11.0-rc3](https://img.shields.io/badge/AppVersion-1.11.0--rc3-informational?style=flat-square)
+![Version: 1.11.0](https://img.shields.io/badge/Version-1.11.0-informational?style=flat-square) ![AppVersion: 1.11.0](https://img.shields.io/badge/AppVersion-1.11.0-informational?style=flat-square)
 
 Cilium is open source software for providing and transparently securing
 network connectivity and loadbalancing between application workloads such as
@@ -82,7 +82,7 @@ contributors across the globe, there is almost always someone available to help.
 | cluster.id | int | `nil` | Unique ID of the cluster. Must be unique across all connected clusters and in the range of 1 to 255. Only required for Cluster Mesh. |
 | cluster.name | string | `"default"` | Name of the cluster. Only required for Cluster Mesh. |
 | clustermesh.apiserver.etcd.image | object | `{"pullPolicy":"IfNotPresent","repository":"quay.io/coreos/etcd","tag":"v3.4.13"}` | Clustermesh API server etcd image. |
-| clustermesh.apiserver.image | object | `{"digest":"sha256:bd853e813be9f0ebb4ec9fdec19d2062d7f7dbe25464c3e654fdc2752dabd574","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/clustermesh-apiserver","tag":"v1.11.0-rc3","useDigest":true}` | Clustermesh API server image. |
+| clustermesh.apiserver.image | object | `{"digest":"","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/clustermesh-apiserver","tag":"v1.11.0","useDigest":false}` | Clustermesh API server image. |
 | clustermesh.apiserver.nodeSelector | object | `{}` | Node labels for pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/ |
 | clustermesh.apiserver.podAnnotations | object | `{}` | Annotations to be added to clustermesh-apiserver pods |
 | clustermesh.apiserver.podLabels | object | `{}` | Labels to be added to clustermesh-apiserver pods |
@@ -204,7 +204,7 @@ contributors across the globe, there is almost always someone available to help.
 | hubble.metrics.serviceMonitor.labels | object | `{}` | Labels to add to ServiceMonitor hubble |
 | hubble.relay.dialTimeout | string | `nil` | Dial timeout to connect to the local hubble instance to receive peer information (e.g. "30s"). |
 | hubble.relay.enabled | bool | `false` | Enable Hubble Relay (requires hubble.enabled=true) |
-| hubble.relay.image | object | `{"digest":"sha256:1197f0caea15922296d4d9e1f1fee68d872e0c0a839604019fc029373c0bcc72","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-relay","tag":"v1.11.0-rc3","useDigest":true}` | Hubble-relay container image. |
+| hubble.relay.image | object | `{"digest":"","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-relay","tag":"v1.11.0","useDigest":false}` | Hubble-relay container image. |
 | hubble.relay.listenHost | string | `""` | Host to listen to. Specify an empty string to bind to all the interfaces. |
 | hubble.relay.listenPort | string | `"4245"` | Port to listen to. |
 | hubble.relay.nodeSelector | object | `{}` | Node labels for pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/ |
@@ -259,7 +259,7 @@ contributors across the globe, there is almost always someone available to help.
 | hubble.ui.tolerations | list | `[]` | Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/ |
 | hubble.ui.updateStrategy | object | `{"rollingUpdate":{"maxUnavailable":1},"type":"RollingUpdate"}` | hubble-ui update strategy. |
 | identityAllocationMode | string | `"crd"` | Method to use for identity allocation (`crd` or `kvstore`). |
-| image | object | `{"digest":"sha256:176e0b3f8354d8705ae6d7527da606fa14f7ed4aa553848670d5aee7b1063ed3","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.11.0-rc3","useDigest":true}` | Agent container image. |
+| image | object | `{"digest":"","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.11.0","useDigest":false}` | Agent container image. |
 | imagePullSecrets | string | `nil` | Configure image pull secrets for pulling container images |
 | installIptablesRules | bool | `true` | Configure whether to install iptables rules to allow for TPROXY (L7 proxy injection), iptables-based masquerading and compatibility with kube-proxy. |
 | installNoConntrackIptablesRules | bool | `false` | Install Iptables rules to skip netfilter connection tracking on all pod traffic. This option is only effective when Cilium is running in direct routing and full KPR mode. Moreover, this option cannot be enabled when Cilium is running in a managed Kubernetes environment or in a chained CNI setup. |
@@ -320,7 +320,7 @@ contributors across the globe, there is almost always someone available to help.
 | operator.extraInitContainers | list | `[]` | Additional InitContainers to initialize the pod. |
 | operator.identityGCInterval | string | `"15m0s"` | Interval for identity garbage collection. |
 | operator.identityHeartbeatTimeout | string | `"30m0s"` | Timeout for identity heartbeats. |
-| operator.image | object | `{"alibabacloudDigest":"sha256:40707d247ffb1bcf2bcef8cc11521fdcb2d79a95bc3e768eb6200242703e7d1b","awsDigest":"sha256:5ea0ccb6a866a5fb13f4bdfcf1ed8bce12a1355cb10a0914ea52af25f3a8f931","azureDigest":"sha256:065ca3bc77c1e577accbb8e3ca4a16664264db6d51bd4dcc16f4a6f4cb809665","genericDigest":"sha256:bdaa42d80f8a11c5af398bc1f0c6e7656a05a6be0895a3c931a3bd3c41db7ebe","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/operator","suffix":"","tag":"v1.11.0-rc3","useDigest":true}` | cilium-operator image. |
+| operator.image | object | `{"alibabacloudDigest":"","awsDigest":"","azureDigest":"","genericDigest":"","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/operator","suffix":"","tag":"v1.11.0","useDigest":false}` | cilium-operator image. |
 | operator.nodeSelector | object | `{}` | Node labels for cilium-operator pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/ |
 | operator.podAnnotations | object | `{}` | Annotations to be added to cilium-operator pods |
 | operator.podDisruptionBudget | object | `{"enabled":false,"maxUnavailable":1}` | PodDisruptionBudget settings ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/ |
@@ -347,7 +347,7 @@ contributors across the globe, there is almost always someone available to help.
 | preflight.extraEnv | object | `{}` | Additional preflight environment variables. |
 | preflight.extraHostPathMounts | list | `[]` | Additional preflight host path mounts. |
 | preflight.extraInitContainers | list | `[]` | Additional preflight init containers. |
-| preflight.image | object | `{"digest":"sha256:176e0b3f8354d8705ae6d7527da606fa14f7ed4aa553848670d5aee7b1063ed3","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.11.0-rc3","useDigest":true}` | Cilium pre-flight image. |
+| preflight.image | object | `{"digest":"","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.11.0","useDigest":false}` | Cilium pre-flight image. |
 | preflight.nodeSelector | object | `{}` | Node labels for preflight pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/ |
 | preflight.podAnnotations | object | `{}` | Annotations to be added to preflight pods |
 | preflight.podDisruptionBudget | object | `{"enabled":true,"maxUnavailable":2}` | PodDisruptionBudget settings ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/ |
