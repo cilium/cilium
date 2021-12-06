@@ -75,3 +75,10 @@ annotations:
         Cilium Endpoint represents the status of individual pods or nodes in
         the cluster which are managed by Cilium, including enforcement status,
         IP addressing and whether the networking is succesfully operational.
+    - kind: CiliumEgressNATPolicy
+      version: v2alpha1
+      name: ciliumegressnatpolicies.cilium.io
+      displayName: Cilium Egress NAT Policy
+      description: |
+        Cilium Egress NAT Policy provides control over the way that traffic
+        leaves the cluster and which source addresses to use for that traffic.
