@@ -687,5 +687,12 @@ func (c *Client) GetPlatform(ctx context.Context) (*Platform, error) {
 		OS:   fileds[0],
 		Arch: fileds[1],
 	}, err
+}
 
+func (c *Client) CreateIngressClass(ctx context.Context, ingressClass *networkingv1.IngressClass, opts metav1.CreateOptions) (*networkingv1.IngressClass, error) {
+	return c.Clientset.NetworkingV1().IngressClasses().Create(ctx, ingressClass, opts)
+}
+
+func (c *Client) DeleteIngressClass(ctx context.Context, name string, opts metav1.DeleteOptions) error {
+	return c.Clientset.NetworkingV1().IngressClasses().Delete(ctx, name, opts)
 }

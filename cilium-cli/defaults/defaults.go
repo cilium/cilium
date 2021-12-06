@@ -86,6 +86,9 @@ const (
 
 	ConfigMapKeyMonitorAggregation      = "monitor-aggregation"
 	ConfigMapValueMonitorAggregatonNone = "none"
+
+	IngressClassName      = "cilium"
+	IngressControllerName = "cilium.io/ingress-controller"
 )
 
 var (

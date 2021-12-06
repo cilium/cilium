@@ -23,6 +23,7 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1025,6 +1026,8 @@ type k8sInstallerImplementation interface {
 	ListCiliumEndpoints(ctx context.Context, namespace string, opts metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error)
 	GetRunningCiliumVersion(ctx context.Context, namespace string) (string, error)
 	GetPlatform(ctx context.Context) (*k8s.Platform, error)
+	CreateIngressClass(ctx context.Context, r *networkingv1.IngressClass, opts metav1.CreateOptions) (*networkingv1.IngressClass, error)
+	DeleteIngressClass(ctx context.Context, name string, opts metav1.DeleteOptions) error
 }
 
 type K8sInstaller struct {
@@ -1665,6 +1668,15 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 			return err
 		}
 	}
+
+	if _, err := k.client.CreateIngressClass(ctx, k8s.NewIngressClass(defaults.IngressClassName, defaults.IngressControllerName), metav1.CreateOptions{}); err != nil {
+		return err
+	}
+	k.pushRollbackStep(func(ctx context.Context) {
+		if err := k.client.DeleteIngressClass(ctx, defaults.IngressClassName, metav1.DeleteOptions{}); err != nil {
+			k.Log("Cannot delete %s IngressClass: %s", defaults.IngressClassName, err)
+		}
+	})
 
 	configMap, err := k.generateConfigMap()
 	if err != nil {
