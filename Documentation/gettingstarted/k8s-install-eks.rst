@@ -105,7 +105,7 @@ Deploy Cilium release via Helm:
    This allows running more pods per Kubernetes worker node than the ENI limit, but means
    that pod connectivity to resources outside the cluster (e.g., VMs in the VPC or AWS managed
    services) is masqueraded (i.e., SNAT) by Cilium to use the VPC IP address of the Kubernetes worker node.
-   Excluding the lines for ``eni=true`` and ``tunnel=disabled`` from the
+   Excluding the lines for ``eni=true``, ``--set ipam.mode=eni`` and ``tunnel=disabled`` from the
    helm command will configure Cilium to use overlay routing mode (which is the helm default).
 
 .. include:: aws-create-nodegroup.rst
