@@ -650,20 +650,20 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(testPodNetperfSameNodes(kubectl, namespace, helpers.TCP_STREAM)).Should(BeTrue(), "Connectivity test TCP_STREAM on same node failed")
 		}, 600)
 
-		It("Check performance with sockops and direct routing", func() {
+		It("Check performance with sockops and direct routing TCP_CRR", func() {
 			Skip("Skipping TCP_CRR until fix reaches upstream")
 			deploymentManager.DeployCilium(sockopsEnabledOptions, DeployCiliumOptionsAndDNS)
 			namespace := deployNetperf()
 			Expect(testPodNetperfSameNodes(kubectl, namespace, helpers.TCP_CRR)).Should(BeTrue(), "Connectivity test TCP_CRR on same node failed")
 		}, 600)
 
-		It("Check performance with sockops and direct routing", func() {
+		It("Check performance with sockops and direct routing TCP_RR", func() {
 			deploymentManager.DeployCilium(sockopsEnabledOptions, DeployCiliumOptionsAndDNS)
 			namespace := deployNetperf()
 			Expect(testPodNetperfSameNodes(kubectl, namespace, helpers.TCP_RR)).Should(BeTrue(), "Connectivity test TCP_RR on same node failed")
 		}, 600)
 
-		It("Check performance with sockops and direct routing", func() {
+		It("Check performance with sockops and direct routing TCP_STREAM", func() {
 			deploymentManager.DeployCilium(sockopsEnabledOptions, DeployCiliumOptionsAndDNS)
 			namespace := deployNetperf()
 			Expect(testPodNetperfSameNodes(kubectl, namespace, helpers.TCP_STREAM)).Should(BeTrue(), "Connectivity test TCP_STREAM on same node failed")
