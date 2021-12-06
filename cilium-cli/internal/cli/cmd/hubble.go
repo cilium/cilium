@@ -58,10 +58,6 @@ func newCmdHubbleEnable() *cobra.Command {
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 	cmd.Flags().BoolVar(&params.Wait, "wait", true, "Wait for status to report success (no errors)")
 	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", defaults.StatusWaitDuration, "Maximum time to wait for status")
-	// TODO(tklauser): remove for release 0.9.3
-	cmd.Flags().DurationVar(&params.WaitDuration, "cilium-ready-timeout", defaults.StatusWaitDuration,
-		"Timeout for Cilium to become ready before deploying Hubble components (deprecated, alias for --wait-duration)")
-	cmd.Flags().MarkHidden("cilium-ready-timeout")
 
 	return cmd
 }
