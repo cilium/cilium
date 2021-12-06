@@ -64,6 +64,8 @@ func (k *K8sUninstaller) Uninstall(ctx context.Context) error {
 	k.client.DeleteDaemonSet(ctx, k.params.Namespace, defaults.AgentDaemonSetName, metav1.DeleteOptions{})
 	k.Log("🔥 Deleting operator Deployment...")
 	k.client.DeleteDeployment(ctx, k.params.Namespace, defaults.OperatorDeploymentName, metav1.DeleteOptions{})
+	k.Log("🔥 Deleting IngressClass...")
+	k.client.DeleteIngressClass(ctx, defaults.IngressClassName, metav1.DeleteOptions{})
 
 	clustermesh.NewK8sClusterMesh(k.client, clustermesh.Parameters{
 		Namespace: k.params.Namespace,
