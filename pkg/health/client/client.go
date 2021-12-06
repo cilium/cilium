@@ -253,6 +253,15 @@ func GetHostPrimaryAddress(node *models.NodeStatus) *models.PathStatus {
 	return node.Host.PrimaryAddress
 }
 
+// GetHostSecondaryAddresses returns the secondary host addresses (if any)
+func GetHostSecondaryAddresses(node *models.NodeStatus) []*models.PathStatus {
+	if node.Host == nil {
+		return nil
+	}
+
+	return node.Host.SecondaryAddresses
+}
+
 // GetAllHostAddresses returns a list of all addresses (primary and any
 // and any secondary) for the host of a given node. If node.Host is nil,
 // returns nil.
@@ -272,6 +281,16 @@ func GetEndpointPrimaryAddress(node *models.NodeStatus) *models.PathStatus {
 	}
 
 	return node.HealthEndpoint.PrimaryAddress
+}
+
+// GetEndpointSecondaryAddresses returns the secondary health endpoint addresses
+// (if any)
+func GetEndpointSecondaryAddresses(node *models.NodeStatus) []*models.PathStatus {
+	if node.HealthEndpoint == nil {
+		return nil
+	}
+
+	return node.HealthEndpoint.SecondaryAddresses
 }
 
 // GetAllEndpointAddresses returns a list of all addresses (primary and any
@@ -300,13 +319,15 @@ func formatNodeStatus(w io.Writer, node *models.NodeStatus, printAll, succinct, 
 	} else {
 		fmt.Fprintf(w, "  %s%s:\n", node.Name, localStr)
 		formatPathStatus(w, "Host", GetHostPrimaryAddress(node), "    ", verbose)
-		if verbose && node.Host != nil {
+		unhealthyPaths := !allPathsAreHealthyOrUnknown(GetHostSecondaryAddresses(node))
+		if (verbose || unhealthyPaths) && node.Host != nil {
 			for _, addr := range node.Host.SecondaryAddresses {
 				formatPathStatus(w, "Secondary", addr, "      ", verbose)
 			}
 		}
 		formatPathStatus(w, "Endpoint", GetEndpointPrimaryAddress(node), "    ", verbose)
-		if verbose && node.HealthEndpoint != nil {
+		unhealthyPaths = !allPathsAreHealthyOrUnknown(GetEndpointSecondaryAddresses(node))
+		if (verbose || unhealthyPaths) && node.HealthEndpoint != nil {
 			for _, addr := range node.HealthEndpoint.SecondaryAddresses {
 				formatPathStatus(w, "Secondary", addr, "      ", verbose)
 			}
