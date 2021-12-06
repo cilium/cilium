@@ -24,7 +24,7 @@ annotations:
   artifacthub.io/crds: |
     - kind: CiliumNetworkPolicy
       version: v2
-      name: ciliumnetworkpolicy
+      name: ciliumnetworkpolicies.cilium.io
       displayName: Cilium Network Policy
       description: |
         Cilium Network Policies provide additional functionality beyond what
@@ -32,28 +32,28 @@ annotations:
         to allow traffic based on FQDNs, or to filter at Layer 7.
     - kind: CiliumClusterwideNetworkPolicy
       version: v2
-      name: ciliumclusterwidenetworkpolicy
+      name: ciliumclusterwidenetworkpolicies.cilium.io
       displayName: Cilium Clusterwide Network Policy
       description: |
         Cilium Clusterwide Network Policies support configuring network traffic
         policiies across the entire cluster, including applying node firewalls.
     - kind: CiliumExternalWorkload
       version: v2
-      name: ciliumnetworkpolicy
+      name: ciliumexternalworkloads.cilium.io
       displayName: Cilium External Workload
       description: |
         Cilium External Workload supports configuring the ability for external
         non-Kubernetes workloads to join the cluster.
     - kind: CiliumLocalRedirectPolicy
       version: v2
-      name: ciliumlocalredirectpolicy
+      name: ciliumlocalredirectpolicies.cilium.io
       displayName: Cilium Local Redirect Policy
       description: |
         Cilium Local Redirect Policy allows local redirects to be configured
         within a node to support use cases like Node-Local DNS or KIAM.
     - kind: CiliumNode
       version: v2
-      name: ciliumnode
+      name: ciliumnodes.cilium.io
       displayName: Cilium Node
       description: |
         Cilium Node represents a node managed by Cilium. It contains a
@@ -61,7 +61,7 @@ annotations:
         and a status section to represent the status of the node.
     - kind: CiliumIdentity
       version: v2
-      name: ciliumidentity
+      name: ciliumidentities.cilium.io
       displayName: Cilium Identity
       description: |
         Cilium Identity allows introspection into security identities that
@@ -69,7 +69,7 @@ annotations:
         individual endpoints in the cluster.
     - kind: CiliumEndpoint
       version: v2
-      name: ciliumendpoint
+      name: ciliumendpoints.cilium.io
       displayName: Cilium Endpoint
       description: |
         Cilium Endpoint represents the status of individual pods or nodes in
