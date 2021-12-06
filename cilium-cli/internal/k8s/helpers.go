@@ -4,13 +4,10 @@
 package k8s
 
 import (
-	//appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-
-	//"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	//"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func NewServiceAccount(name string) *corev1.ServiceAccount {
@@ -37,6 +34,17 @@ func NewClusterRoleBinding(name, namespace, serviceAccount string) *rbacv1.Clust
 				Name:      serviceAccount,
 				Namespace: namespace,
 			},
+		},
+	}
+}
+
+func NewIngressClass(name, controllerName string) *networkingv1.IngressClass {
+	return &networkingv1.IngressClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: networkingv1.IngressClassSpec{
+			Controller: controllerName,
 		},
 	}
 }
