@@ -76,6 +76,9 @@ type Parameters struct {
 	PortForward      int
 	CreateCA         bool
 	UI               bool
+	UIImage          string
+	UIBackendImage   string
+	UIVersion        string
 	UIPortForward    int
 	Writer           io.Writer
 	Context          string // Only for 'kubectl' pass-through commands
@@ -88,10 +91,15 @@ func (p *Parameters) Log(format string, a ...interface{}) {
 }
 
 func (p *Parameters) validateParams() error {
-	if p.RelayImage != defaults.RelayImage {
-		return nil
-	} else if !utils.CheckVersion(p.RelayVersion) && p.RelayVersion != "" {
-		return fmt.Errorf("invalid syntax %q for image tag", p.RelayVersion)
+	if p.RelayImage == defaults.RelayImage {
+		if !utils.CheckVersion(p.RelayVersion) && p.RelayVersion != "" {
+			return fmt.Errorf("invalid syntax %q for image tag", p.RelayVersion)
+		}
+	}
+	if p.UIImage == defaults.HubbleUIImage || p.UIBackendImage == defaults.HubbleUIBackendImage {
+		if !utils.CheckVersion(p.UIVersion) && p.UIVersion != "" {
+			return fmt.Errorf("invalid syntax %q for image tag", p.UIVersion)
+		}
 	}
 	return nil
 }
