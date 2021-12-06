@@ -85,8 +85,8 @@ var _ = Describe("K8sHealthTest", func() {
 			Expect(status.Stdout()).ShouldNot(ContainSubstring("error"))
 
 			apiPaths := []string{
-				"endpoint.icmp",
-				"endpoint.http",
+				"health-endpoint.primary-address.icmp",
+				"health-endpoint.primary-address.http",
 				"host.primary-address.icmp",
 				"host.primary-address.http",
 			}
