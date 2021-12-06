@@ -439,6 +439,10 @@ func getServiceForIngress(ingress *slim_networkingv1.Ingress) *v1.Service {
 			Protocol: "TCP",
 			Port:     80,
 			// TODO(michi) how do we deal with multiple target ports?
+			// TODO(jarno) It seems that when service is accessed via
+			//             NodePort all these targetports are ignored anyway,
+			//             and the targetport defined in the backend service is
+			//             used regardless what is specified here.
 			TargetPort: intstr.IntOrString{IntVal: ingress.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Port.Number},
 		},
 	}
