@@ -205,18 +205,30 @@ func (s *ClientTestSuite) TestFormatNodeStatus(c *C) {
 		possibleHostStatuses = append(possibleHostStatuses, hostStatus)
 	}
 
+	// Assemble possible health-endpoint statuses.
+	possibleEndpointStatuses := []*models.EndpointStatus{
+		nil,
+	}
+	for _, possiblePrimaryAddress := range possiblePathStatuses {
+		hostStatus := &models.EndpointStatus{
+			PrimaryAddress:     possiblePrimaryAddress,
+			SecondaryAddresses: possibleSecondaryAddresses,
+		}
+		possibleEndpointStatuses = append(possibleEndpointStatuses, hostStatus)
+	}
+
 	printAllOptions := []bool{true, false}
 	succinctOptions := []bool{true, false}
 	verboseOptions := []bool{true, false}
 	localhostOptions := []bool{true, false}
 
-	for _, possibleEndpointStatus := range possiblePathStatuses {
+	for _, possibleEndpointStatus := range possibleEndpointStatuses {
 		for _, hostStatus := range possibleHostStatuses {
 			for _, name := range possibleNames {
 				ns := &models.NodeStatus{
-					Endpoint: possibleEndpointStatus,
-					Host:     hostStatus,
-					Name:     name,
+					HealthEndpoint: possibleEndpointStatus,
+					Host:           hostStatus,
+					Name:           name,
 				}
 				for _, printAllOpt := range printAllOptions {
 					for _, succintOpt := range succinctOptions {
