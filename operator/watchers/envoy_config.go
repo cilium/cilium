@@ -27,6 +27,10 @@ import (
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 )
 
+func getResourceNameForIngress(ingress *slim_networkingv1.Ingress) string {
+	return ciliumIngressPrefix + ingress.Namespace + "-" + ingress.Name
+}
+
 func (ic *ingressController) getSecret(namespace, name string) (string, string, error) {
 	secret := v1.Secret{}
 	err := k8s.Client().CoreV1().RESTClient().Get().Resource("secrets").Namespace(namespace).Name(name).Do(context.Background()).Into(&secret)
@@ -102,14 +106,14 @@ func (ic *ingressController) amazingIngressControllerBusinessLogic(ingress *slim
 			APIVersion: "cilium.io/v2alpha1",
 		},
 		ObjectMeta: v1meta.ObjectMeta{
-			Name: ingress.Name,
+			Name: getResourceNameForIngress(ingress),
 		},
 		Spec: v2alpha1.CiliumEnvoyConfigSpec{
 			Services: []*v2alpha1.ServiceListener{
 				{
 					Name:      getServiceNameForIngress(ingress),
 					Namespace: ingress.Namespace,
-					Listener:  ingress.Name,
+					Listener:  getResourceNameForIngress(ingress),
 				},
 			},
 			BackendServices: backendServices,
@@ -167,7 +171,7 @@ func getListenerResource(ingress *slim_networkingv1.Ingress, tls map[string]*env
 		RouteSpecifier: &envoy_extensions_filters_network_http_connection_manager_v3.HttpConnectionManager_Rds{
 			Rds: &envoy_extensions_filters_network_http_connection_manager_v3.Rds{
 				ConfigSource:    nil,
-				RouteConfigName: "ingress_route",
+				RouteConfigName: getResourceNameForIngress(ingress) + "_route",
 			},
 		},
 		HttpFilters: []*envoy_extensions_filters_network_http_connection_manager_v3.HttpFilter{
@@ -179,7 +183,7 @@ func getListenerResource(ingress *slim_networkingv1.Ingress, tls map[string]*env
 		return v2alpha1.XDSResource{}, err
 	}
 	listener := envoy_config_listener.Listener{
-		Name: ingress.Name,
+		Name: getResourceNameForIngress(ingress),
 		FilterChains: []*envoy_config_listener.FilterChain{
 			{
 				Filters: []*envoy_config_listener.Filter{
@@ -228,6 +232,7 @@ func getClusterResources(backendServices []*v2alpha1.Service) ([]v2alpha1.XDSRes
 				"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_config_upstream.HttpProtocolOptions{
 					UpstreamProtocolOptions: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamProtocolConfig{
 						UseDownstreamProtocolConfig: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamHttpConfig{
+							// Empty HTTP/2 options has no effect, so this should not be needed
 							Http2ProtocolOptions: &envoy_config_core_v3.Http2ProtocolOptions{},
 						},
 					},
@@ -303,7 +308,7 @@ func getRouteConfigurationResource(ingress *slim_networkingv1.Ingress) (v2alpha1
 		virtualhosts = append(virtualhosts, getVirtualHost(ingress, rule))
 	}
 	routeConfig := envoy_config_route_v3.RouteConfiguration{
-		Name:         "ingress_route",
+		Name:         getResourceNameForIngress(ingress) + "_route",
 		VirtualHosts: virtualhosts,
 	}
 	routeBytes, err := proto.Marshal(&routeConfig)
