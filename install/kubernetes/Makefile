@@ -92,7 +92,12 @@ update-versions:
 		sed -i '/# operator-generic-digest.*/{!b;n;s/genericDigest.*/genericDigest: "'$(OPERATOR_GENERIC_DIGEST)'"/}' $(CILIUM_VALUES); \
 		sed -i '/# clustermesh-apiserver-digest.*/{!b;n;s/digest.*/digest: "'$(CLUSTERMESH_APISERVER_DIGEST)'"/}' $(CILIUM_VALUES)
 
+CRDS = $(foreach path,$(patsubst %.yaml,%,$(shell find $(ROOT_DIR)/examples/crds/*/ -type f)),$(shell basename $(path)))
 lint:
+	$(QUIET)for crd in $(CRDS); do \
+		grep -q $$crd $(CHART_FILE) \
+		|| (echo -e "$$crd not found in $(CHART_FILE).\nPlease update the chart to include $$crd."; exit 1); \
+	done
 	$(QUIET)helm lint --with-subcharts --values ./cilium/values.yaml ./cilium
 
 docs:
