@@ -148,10 +148,19 @@ var operatorClusterRole = &rbacv1.ClusterRole{
 		{
 			APIGroups: []string{""},
 			Resources: []string{
-				"services", "endpoints", // to perform the translation of a CNP that contains `ToGroup` to its endpoints
 				"namespaces", // to check apiserver connectivity
+				"secrets",    // for ingress controller / envoy-config to access TLS certificates
 			},
 			Verbs: []string{"get", "list", "watch"},
+		},
+		{
+			APIGroups: []string{""},
+			Resources: []string{
+				// - to perform the translation of a CNP that contains `ToGroup` to its endpoints
+				// - ingress controller creates / deletes services / endpoints.
+				"services", "endpoints",
+			},
+			Verbs: []string{"get", "list", "watch", "create", "update", "delete"},
 		},
 		{
 
@@ -210,6 +219,17 @@ var operatorClusterRole = &rbacv1.ClusterRole{
 			APIGroups: []string{"coordination.k8s.io"},
 			Resources: []string{"leases"},
 			Verbs:     []string{"create", "get", "update"},
+		},
+		// For ingress controller
+		{
+			APIGroups: []string{"networking.k8s.io"},
+			Resources: []string{"ingresses"},
+			Verbs:     []string{"get", "list", "watch"},
+		},
+		{
+			APIGroups: []string{"networking.k8s.io"},
+			Resources: []string{"ingresses/status"}, // To update ingress status with load balancer IP.
+			Verbs:     []string{"update"},
 		},
 	},
 }
