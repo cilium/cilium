@@ -86,7 +86,7 @@ func (c *FakeCiliumEnvoyConfigs) Update(ctx context.Context, ciliumEnvoyConfig *
 // Delete takes name of the ciliumEnvoyConfig and deletes it. Returns an error if one occurs.
 func (c *FakeCiliumEnvoyConfigs) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteAction(ciliumenvoyconfigsResource, name), &v2alpha1.CiliumEnvoyConfig{})
+		Invokes(testing.NewRootDeleteActionWithOptions(ciliumenvoyconfigsResource, name, opts), &v2alpha1.CiliumEnvoyConfig{})
 	return err
 }
 
