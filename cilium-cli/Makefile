@@ -26,7 +26,7 @@ release:
 		--env "RELEASE_GID=$(RELEASE_GID)" \
 		--rm \
 		--workdir /cilium \
-		--volume `pwd`:/cilium docker.io/library/golang:1.17.3-alpine3.14 \
+		--volume `pwd`:/cilium docker.io/library/golang:1.17.4-alpine3.14 \
 		sh -c "apk add --no-cache make git && make local-release VERSION=${VERSION}"
 
 local-release: clean
