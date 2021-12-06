@@ -18,6 +18,7 @@ import (
 	"sync"
 	"text/tabwriter"
 	"time"
+	"unicode"
 
 	"github.com/cilium/cilium/api/v1/models"
 	cnpv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -4466,7 +4467,12 @@ func (kub *Kubectl) ensureKubectlVersion() error {
 		return err
 	}
 
-	versionstring := fmt.Sprintf("%s.%s", v.ClientVersion.Major, v.ClientVersion.Minor)
+	// For some -rc versions we observe minor versions with trailing non-numeric characters,
+	// e.g. minor: "23+". Strip these.
+	minor := strings.TrimRightFunc(v.ClientVersion.Minor, func(r rune) bool {
+		return !unicode.IsNumber(r)
+	})
+	versionstring := fmt.Sprintf("%s.%s", v.ClientVersion.Major, minor)
 	if versionstring == GetCurrentK8SEnv() {
 		//version available on host is matching current env
 		return nil
