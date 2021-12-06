@@ -95,10 +95,6 @@ func (ic ingressController) handleUpdateService(oldObj, newObj interface{}) {
 	ic.queue.Add(serviceUpdatedEvent{oldService: oldService, newService: newService})
 }
 
-func removePrefix(val string) {
-
-}
-
 func (ic ingressController) handleDeleteService(obj interface{}) {
 	switch concreteObj := obj.(type) {
 	case *slim_corev1.Service:
@@ -523,6 +519,10 @@ func (ic *ingressController) createLoadBalancer(ingress *slim_networkingv1.Ingre
 func (ic *ingressController) createEndpoints(ingress *slim_networkingv1.Ingress) error {
 	endpoints := getEndpointsForIngress(ingress)
 	key, err := cache.MetaNamespaceKeyFunc(endpoints)
+	if err != nil {
+		ic.logger.WithError(err).Warn("MetaNamespaceKeyFunc returned an error")
+		return err
+	}
 
 	// check if the endpoints resource already exists
 	objFromCache, exists, err := ic.endpointsStore.GetByKey(key)
@@ -557,6 +557,10 @@ func (ic *ingressController) createEnvoyConfig(ingress *slim_networkingv1.Ingres
 
 	// check if the CiliumEnvoyConfig resource already exists
 	key, err := cache.MetaNamespaceKeyFunc(envoyConfig)
+	if err != nil {
+		ic.logger.WithError(err).Warn("MetaNamespaceKeyFunc returned an error")
+		return err
+	}
 	objFromCache, exists, err := ic.envoyConfigStore.GetByKey(key)
 	if err != nil {
 		ic.logger.WithError(err).Warn("CiliumEnvoyConfig lookup failed")
@@ -593,6 +597,10 @@ func (ic *ingressController) createEnvoyConfig(ingress *slim_networkingv1.Ingres
 func (ic *ingressController) deleteEndpoints(ingress *slim_networkingv1.Ingress) error {
 	endpoints := getEndpointsForIngress(ingress)
 	key, err := cache.MetaNamespaceKeyFunc(endpoints)
+	if err != nil {
+		ic.logger.WithError(err).Warn("MetaNamespaceKeyFunc returned an error")
+		return err
+	}
 	// check if the endpoints resource exists.
 	_, exists, err := ic.endpointsStore.GetByKey(key)
 	if err != nil {
@@ -613,6 +621,10 @@ func (ic *ingressController) deleteEndpoints(ingress *slim_networkingv1.Ingress)
 func (ic *ingressController) deleteLoadBalancer(ingress *slim_networkingv1.Ingress) error {
 	service := getServiceForIngress(ingress)
 	key, err := cache.MetaNamespaceKeyFunc(service)
+	if err != nil {
+		ic.logger.WithError(err).Warn("MetaNamespaceKeyFunc returned an error")
+		return err
+	}
 	// check if the service resource exists.
 	_, exists, err := ic.serviceStore.GetByKey(key)
 	if err != nil {
