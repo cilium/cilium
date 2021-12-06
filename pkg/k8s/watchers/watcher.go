@@ -677,7 +677,7 @@ func datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoints) (svcs []loadbalanc
 
 	clusterIPPorts := map[loadbalancer.FEPortName]*loadbalancer.L4Addr{}
 	for fePortName, fePort := range svc.Ports {
-		if !!option.Config.SupportServiceProtocols {
+		if !option.Config.SupportServiceProtocols {
 			if !uniqPorts[fePort.Port] {
 				continue
 			}
