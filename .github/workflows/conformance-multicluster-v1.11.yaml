@@ -146,6 +146,7 @@ jobs:
             --operator-image=quay.io/${{ github.repository_owner }}/operator-generic-ci \
             --version=${SHA} \
             --wait=false \
+            --rollback=false \
             --config monitor-aggregation=none"
           HUBBLE_ENABLE_DEFAULTS="--relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
             --relay-version=${SHA}"
