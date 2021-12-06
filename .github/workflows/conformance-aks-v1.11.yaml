@@ -147,6 +147,7 @@ jobs:
             --version=${SHA} \
             --azure-resource-group ${{ env.name }} \
             --wait=false \
+            --rollback=false \
             --config monitor-aggregation=none"
           HUBBLE_ENABLE_DEFAULTS="--relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
             --relay-version=${SHA}"
