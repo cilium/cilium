@@ -151,27 +151,27 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 		}
 	}
 
-	Context("Testing test script", func() {
-		It("Validating test script correctness", func() {
-			By("Validating test script correctness")
-			res := kubectl.ExecInHostNetNS(context.TODO(), ni.k8s1NodeName, testCommand("echo FOOBAR", 1, 0))
-			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Test script could not 'echo'")
-			res.ExpectContains("FOOBAR", "Test script failed to execute echo: %s", res.Stdout())
+	//Context("Testing test script", func() {
+	//	It("Validating test script correctness", func() {
+	//		By("Validating test script correctness")
+	//		res := kubectl.ExecInHostNetNS(context.TODO(), ni.k8s1NodeName, testCommand("echo FOOBAR", 1, 0))
+	//		ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Test script could not 'echo'")
+	//		res.ExpectContains("FOOBAR", "Test script failed to execute echo: %s", res.Stdout())
 
-			res = kubectl.ExecInHostNetNS(context.TODO(), ni.k8s1NodeName, testCommand("FOOBAR", 3, 0))
-			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(), "Test script successfully executed FOOBAR")
-			res.ExpectMatchesRegexp("failed: :[0-9]*/1=127:[0-9]*/2=127:[0-9]*/3=127", "Test script failed to execute echo 3 times: %s", res.Stdout())
+	//		res = kubectl.ExecInHostNetNS(context.TODO(), ni.k8s1NodeName, testCommand("FOOBAR", 3, 0))
+	//		ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(), "Test script successfully executed FOOBAR")
+	//		res.ExpectMatchesRegexp("failed: :[0-9]*/1=127:[0-9]*/2=127:[0-9]*/3=127", "Test script failed to execute echo 3 times: %s", res.Stdout())
 
-			res = kubectl.ExecInHostNetNS(context.TODO(), ni.k8s1NodeName, testCommand("FOOBAR", 1, 1))
-			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Test script could not allow failure")
+	//		res = kubectl.ExecInHostNetNS(context.TODO(), ni.k8s1NodeName, testCommand("FOOBAR", 1, 1))
+	//		ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Test script could not allow failure")
 
-			res = kubectl.ExecInHostNetNS(context.TODO(), ni.k8s1NodeName, testCommand("echo FOOBAR", 3, 0))
-			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Test script could not 'echo' three times")
-			res.ExpectMatchesRegexp("(?s)(FOOBAR.*exit code: 0.*){3}", "Test script failed to execute echo 3 times: %s", res.Stdout())
-		})
-	})
+	//		res = kubectl.ExecInHostNetNS(context.TODO(), ni.k8s1NodeName, testCommand("echo FOOBAR", 3, 0))
+	//		ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Test script could not 'echo' three times")
+	//		res.ExpectMatchesRegexp("(?s)(FOOBAR.*exit code: 0.*){3}", "Test script failed to execute echo 3 times: %s", res.Stdout())
+	//	})
+	//})
 
-	Context("Checks ClusterIP Connectivity", func() {
+	SkipContextIf(func() bool { return true }, "Checks ClusterIP Connectivity", func() {
 		var (
 			demoYAML             string
 			demoYAMLV6           string
@@ -362,7 +362,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 				ciliumDelService(kubectl, 20069)
 			})
 
-			SkipItIf(helpers.SkipQuarantined, "Checks service on same node", func() {
+			SkipItIf(func() bool { return false }, "Checks service on same node", func() {
 				status := kubectl.ExecInHostNetNS(context.TODO(), ni.k8s1NodeName,
 					helpers.CurlFail(`"http://[%s]/"`, demoClusterIPv6))
 				status.ExpectSuccess("cannot curl to service IP from host")
@@ -481,6 +481,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 	})
 
 	SkipContextIf(func() bool {
+		return true
 		return helpers.DoesNotRunWithKubeProxyReplacement() || helpers.DoesNotRunOnNetNextKernel()
 	}, "Checks connectivity when skipping socket lb in pod ns", func() {
 		var (
@@ -568,10 +569,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 		})
 	})
 
-	SkipContextIf(func() bool {
-		return helpers.SkipQuarantined() && helpers.RunsOnNetNextKernel()
-	}, "Checks service across nodes", func() {
-
+	Context("Checks service across nodes", func() {
 		var (
 			demoYAML   string
 			demoYAMLV6 string
@@ -632,7 +630,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			}
 		})
 
-		SkipContextIf(manualIPv6TestingNotRequired(helpers.DoesNotRunWithKubeProxyReplacement), "IPv6 Connectivity", func() {
+		SkipContextIf(func() bool { return true }, "IPv6 Connectivity", func() {
 			testDSIPv6 := "fd03::310"
 
 			BeforeAll(func() {
@@ -658,7 +656,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 		})
 
 		SkipContextIf(func() bool {
-			return helpers.RunsWithKubeProxyReplacement() || helpers.GetCurrentIntegration() != "" || helpers.SkipQuarantined()
+			return helpers.RunsWithKubeProxyReplacement() || helpers.GetCurrentIntegration() != ""
 		}, "IPv6 masquerading", func() {
 			var (
 				k8s1EndpointIPs map[string]string
@@ -712,12 +710,12 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 				deploymentManager.DeleteCilium()
 			})
 
-			It("with the host firewall and externalTrafficPolicy=Local", func() {
-				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-					"hostFirewall.enabled": "true",
-				})
-				testExternalTrafficPolicyLocal(kubectl, ni)
-			})
+			//It("with the host firewall and externalTrafficPolicy=Local", func() {
+			//	DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+			//		"hostFirewall.enabled": "true",
+			//	})
+			//	testExternalTrafficPolicyLocal(kubectl, ni)
+			//})
 
 			It("with externalTrafficPolicy=Local", func() {
 				DeployCiliumAndDNS(kubectl, ciliumFilename)
@@ -950,7 +948,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						testExternalIPs(kubectl, ni)
 					})
 
-					SkipContextIf(helpers.RunsOnGKE, "With host policy", func() {
+					SkipContextIf(func() bool { return true }, "With host policy", func() {
 						var ccnpHostPolicy string
 
 						BeforeAll(func() {
@@ -1027,7 +1025,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						// Quarantine when running with the third node as it's
 						// flaky. See #12511.
 						return helpers.GetCurrentIntegration() != "" ||
-							(helpers.SkipQuarantined() && helpers.ExistNodeWithoutCilium())
+							helpers.ExistNodeWithoutCilium()
 					}, "Tests with secondary NodePort device", func() {
 						DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 							"devices": fmt.Sprintf(`'{%s,%s}'`, ni.privateIface, helpers.SecondaryIface),
@@ -1037,7 +1035,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 					})
 				})
 
-				SkipContextIf(helpers.SkipQuarantined, "Tests with direct routing", func() {
+				SkipContextIf(func() bool { return false }, "Tests with direct routing", func() {
 
 					var directRoutingOpts = map[string]string{
 						"tunnel":               "disabled",
@@ -1080,7 +1078,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						testExternalIPs(kubectl, ni)
 					})
 
-					SkipContextIf(helpers.RunsOnGKE, "With host policy", func() {
+					SkipContextIf(func() bool { return true }, "With host policy", func() {
 						var ccnpHostPolicy string
 
 						BeforeAll(func() {
@@ -1411,7 +1409,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 					// Quarantine when running with the third node as it's
 					// flaky. See GH-12511.
 					// It's also flaky for IPv6 traffic, see GH-18072
-					return helpers.SkipQuarantined()
+					return false
 				}, "Tests with secondary NodePort device", func() {
 					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 						"tunnel":               "disabled",
@@ -1535,7 +1533,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 		// LRU requirement.
 		SkipItIf(func() bool {
 			return helpers.DoesNotRunOn419OrLaterKernel() ||
-				(helpers.SkipQuarantined() && helpers.RunsOnGKE())
+				helpers.RunsOnGKE()
 		}, "Supports IPv4 fragments", func() {
 			options := map[string]string{}
 			// On GKE we need to disable endpoint routes as fragment tracking
@@ -1552,7 +1550,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 	SkipContextIf(func() bool {
 		// The graceful termination feature depends on enabling an alpha feature
 		// EndpointSliceTerminatingCondition in Kubernetes.
-		return helpers.SkipK8sVersions("<1.20.0") || helpers.RunsOnGKE() || helpers.RunsOnEKS()
+		return true
 	}, "Checks graceful termination of service endpoints", func() {
 		const (
 			clientPodLabel = "app=graceful-term-client"

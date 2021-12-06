@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net"
 	"os"
 	"path/filepath"
@@ -259,29 +260,39 @@ func testCurlFromPodInHostNetNSExpectingHTTPCode(kubectl *helpers.Kubectl, url s
 func testCurlFromOutsideWithLocalPort(kubectl *helpers.Kubectl, ni *nodesInfo, url string, count int, checkSourceIP bool, fromPort int) {
 	var cmd string
 
+	allocPort := fromPort == 0
+
 	By("Making %d HTTP requests from outside cluster to %q", count, url)
 	for i := 1; i <= count; i++ {
-		if fromPort == 0 {
-			cmd = helpers.CurlFail(url)
-		} else {
-			cmd = helpers.CurlFail("--local-port %d %s", fromPort, url)
+		if allocPort {
+			min := 32768
+			max := 60999
+			s1 := rand.NewSource(time.Now().UnixNano())
+			r1 := rand.New(s1)
+			fromPort = r1.Intn(max-min+1) + min
+			//cmd = helpers.CurlFail(url)
 		}
+		cmd = helpers.CurlFail("--local-port %d %s", fromPort, url)
 		if checkSourceIP {
 			cmd += " | grep client_address="
 		}
 		res := kubectl.ExecInHostNetNS(context.TODO(), ni.outsideNodeName, cmd)
-		ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
-			"Can not connect to service %q from outside cluster (%d/%d)", url, i, count)
-		if checkSourceIP {
-			// Parse the IPs to avoid issues with 4-in-6 formats
-			sourceIP := net.ParseIP(strings.TrimSpace(strings.Split(res.Stdout(), "=")[1]))
-			var outIP net.IP
-			if sourceIP.To4() != nil {
-				outIP = net.ParseIP(ni.outsideIP)
-			} else {
-				outIP = net.ParseIP(ni.outsideIPv6)
+		if res.GetExitCode() != 45 {
+			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
+				"Can not connect to service %q from outside cluster (%d/%d) from port (%d)", url, i, count, fromPort)
+			if checkSourceIP {
+				// Parse the IPs to avoid issues with 4-in-6 formats
+				sourceIP := net.ParseIP(strings.TrimSpace(strings.Split(res.Stdout(), "=")[1]))
+				var outIP net.IP
+				if sourceIP.To4() != nil {
+					outIP = net.ParseIP(ni.outsideIP)
+				} else {
+					outIP = net.ParseIP(ni.outsideIPv6)
+				}
+				ExpectWithOffset(1, sourceIP).To(Equal(outIP))
 			}
-			ExpectWithOffset(1, sourceIP).To(Equal(outIP))
+		} else {
+			By("Got 45 %d/%d to %s from %d", i, count, url, fromPort)
 		}
 	}
 }

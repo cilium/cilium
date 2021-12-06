@@ -16,7 +16,7 @@ import (
 
 var (
 	// HelperTimeout is a predefined timeout value for commands.
-	HelperTimeout = 4 * time.Minute
+	HelperTimeout = 8 * time.Minute
 
 	// ShortCommandTimeout is a timeout for commands which should not take a
 	// long time to execute.
