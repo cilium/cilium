@@ -188,7 +188,7 @@ func (k *K8sHubble) generateHubbleUIDeployment() *appsv1.Deployment {
 					Containers: []corev1.Container{
 						{
 							Name:            "frontend",
-							Image:           "quay.io/cilium/hubble-ui:v0.8.3@sha256:018ed122968de658d8874e2982fa6b3a8ae64b43d2356c05f977004176a89310",
+							Image:           k.uiImage(),
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Ports: []corev1.ContainerPort{
 								{
@@ -199,7 +199,7 @@ func (k *K8sHubble) generateHubbleUIDeployment() *appsv1.Deployment {
 						},
 						{
 							Name:            "backend",
-							Image:           "quay.io/cilium/hubble-ui-backend:v0.8.3@sha256:13a16ed3ae9749682c817d3b834b2f2de901da6fb41de7753d7dce16650982b3",
+							Image:           k.uiBackendImage(),
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Env: []corev1.EnvVar{
 								{Name: "EVENTS_SERVER_PORT", Value: "8090"},
@@ -256,6 +256,14 @@ func (k *K8sHubble) generateHubbleUIDeployment() *appsv1.Deployment {
 	return d
 }
 
+func (k *K8sHubble) uiImage() string {
+	return utils.BuildImagePath(k.params.UIImage, defaults.HubbleUIImage, k.params.UIVersion, defaults.HubbleUIVersion)
+}
+
+func (k *K8sHubble) uiBackendImage() string {
+	return utils.BuildImagePath(k.params.UIBackendImage, defaults.HubbleUIBackendImage, k.params.UIVersion, defaults.HubbleUIVersion)
+}
+
 func (k *K8sHubble) disableUI(ctx context.Context) error {
 	k.Log("🔥 Deleting Hubble UI...")
 	k.client.DeleteService(ctx, k.params.Namespace, defaults.HubbleUIServiceName, metav1.DeleteOptions{})
@@ -275,7 +283,7 @@ func (k *K8sHubble) enableUI(ctx context.Context) error {
 		return nil
 	}
 
-	k.Log("✨ Deploying Hubble UI...")
+	k.Log("✨ Deploying Hubble UI from %s and Hubble UI Backend from %s...", k.uiImage(), k.uiBackendImage())
 	if _, err := k.client.CreateConfigMap(ctx, k.params.Namespace, k.generateHubbleUIConfigMap(), metav1.CreateOptions{}); err != nil {
 		return err
 	}
