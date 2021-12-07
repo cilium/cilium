@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 
 package labels
 
@@ -85,9 +85,6 @@ const (
 
 	// LabelSourceK8s is a label imported from Kubernetes
 	LabelSourceK8s = "k8s"
-
-	// LabelSourceMesos is a label imported from Mesos
-	LabelSourceMesos = "mesos"
 
 	// LabelSourceK8sKeyPrefix is prefix of a Kubernetes label
 	LabelSourceK8sKeyPrefix = LabelSourceK8s + "."
