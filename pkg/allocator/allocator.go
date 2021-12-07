@@ -7,12 +7,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/backoff"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -519,6 +521,10 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 	id, strID, unmaskedID := a.selectAvailableID()
 	if id == 0 {
 		return 0, false, false, fmt.Errorf("no more available IDs in configured space")
+	}
+
+	if id > math.MaxUint32 || !identity.IsInClusterIdentityRange(identity.NumericIdentity(id)) {
+		return 0, false, false, fmt.Errorf("allocated ID %v is out of cluster identity range", id)
 	}
 
 	kvstore.Trace("Selected available key ID", nil, logrus.Fields{fieldID: id})
