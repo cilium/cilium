@@ -264,7 +264,7 @@ func (k *K8sInstaller) generateAgentDaemonSet() *appsv1.DaemonSet {
 							Image:           k.fqAgentImage(),
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							LivenessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Host:   "127.0.0.1",
 										Path:   "/healthz",
@@ -285,7 +285,7 @@ func (k *K8sInstaller) generateAgentDaemonSet() *appsv1.DaemonSet {
 								FailureThreshold:    int32(10),
 							},
 							ReadinessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Host:   "127.0.0.1",
 										Path:   "/healthz",
@@ -378,12 +378,12 @@ func (k *K8sInstaller) generateAgentDaemonSet() *appsv1.DaemonSet {
 								},
 							},
 							Lifecycle: &corev1.Lifecycle{
-								PostStart: &corev1.Handler{
+								PostStart: &corev1.LifecycleHandler{
 									Exec: &corev1.ExecAction{
 										Command: []string{"/cni-install.sh", "--enable-debug=false"},
 									},
 								},
-								PreStop: &corev1.Handler{
+								PreStop: &corev1.LifecycleHandler{
 									Exec: &corev1.ExecAction{
 										Command: []string{"/cni-uninstall.sh"},
 									},

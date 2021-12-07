@@ -54,5 +54,8 @@ func AddMetaToScheme(scheme *runtime.Scheme) error {
 }
 
 func init() {
+	scheme.AddUnversionedTypes(SchemeGroupVersion)
+
 	utilruntime.Must(AddMetaToScheme(scheme))
+
 }

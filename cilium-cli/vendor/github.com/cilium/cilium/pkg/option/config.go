@@ -295,6 +295,8 @@ const (
 	// EnableSessionAffinity enables a support for service sessionAffinity
 	EnableSessionAffinity = "enable-session-affinity"
 
+	EnableServiceTopology = "enable-service-topology"
+
 	// EnableIdentityMark enables setting the mark field with the identity for
 	// local traffic. This may be disabled if chaining modes and Cilium use
 	// conflicting marks.
@@ -812,7 +814,7 @@ const (
 	IdentityAllocationMode = "identity-allocation-mode"
 
 	// IdentityAllocationModeKVstore enables use of a key-value store such
-	// as etcd or consul for identity allocation
+	// as etcd for identity allocation
 	IdentityAllocationModeKVstore = "kvstore"
 
 	// IdentityAllocationModeCRD enables use of Kubernetes CRDs for
@@ -1792,6 +1794,8 @@ type DaemonConfig struct {
 	// EnableSessionAffinity enables a support for service sessionAffinity
 	EnableSessionAffinity bool
 
+	EnableServiceTopology bool
+
 	// Selection of BPF main clock source (ktime vs jiffies)
 	ClockSource BPFClockSource
 
@@ -2500,6 +2504,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableAutoProtectNodePortRange = viper.GetBool(EnableAutoProtectNodePortRange)
 	c.KubeProxyReplacement = viper.GetString(KubeProxyReplacement)
 	c.EnableSessionAffinity = viper.GetBool(EnableSessionAffinity)
+	c.EnableServiceTopology = viper.GetBool(EnableServiceTopology)
 	c.EnableBandwidthManager = viper.GetBool(EnableBandwidthManager)
 	c.EnableRecorder = viper.GetBool(EnableRecorder)
 	c.EnableMKE = viper.GetBool(EnableMKE)
