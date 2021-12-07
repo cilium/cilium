@@ -2,8 +2,9 @@ The following people, in alphabetical order, have either authored or signed
 off on commits in the Cilium repository:
 
 Àbéjídé Àyodélé                         abejideayodele@gmail.com
-AdamKorcz                               adam@adalogics.com
+Adam Korcz                              adam@adalogics.com
 Adam Wolfe Gordon                       awg@digitalocean.com
+adamzhoul                               adamzhoul186@gmail.com
 Aditi Ghag                              aditi@cilium.io
 Adrien Trouillaud                       adrienjt@users.noreply.github.com
 Akshat Agarwal                          humancalico@disroot.org
@@ -36,13 +37,13 @@ Arvind Soni                             arvind@covalent.io
 Ashray Jain                             ashrayj@palantir.com
 Ashwin Paranjpe                         ashwin@covalent.io
 Assiya Khuzyakhmetova                   assiya.khuzyakhmetova@nu.edu.kz
+Austin Cawley-Edwards                   austin.cawley@gmail.com
 Ayush Dwivedi                           ayush.dwivedi@accuknox.com
 Barun Acharya                           barun1024@gmail.com
 Beatriz Martínez                        beatriz@isovalent.com
 Benjamin Pineau                         benjamin.pineau@datadoghq.com
 Bingshen Wang                           bingshen.wbs@alibaba-inc.com
 Bingwu Yang                             detailyang@gmail.com
-Blazek, Ondrej                          ondrej.blazek@firma.seznam.cz
 Bob Bouteillier                         bob.bouteillier@datadoghq.com
 Bokang Li                               libokang.dev@gmail.com
 Bolun Zhao                              blzhao@google.com
@@ -63,7 +64,7 @@ Christian Hörtnagl                      christian2@univie.ac.at
 Christian Hüning                        christian.huening@finleap.com
 Christine Chen                          christine.chen@datadoghq.com
 Christopher Biscardi                    chris@christopherbiscardi.com
-강주희                                  claudiajkang@gmail.com
+Claudia J. Kang                         claudiajkang@gmail.com
 cndoit18                                cndoit18@outlook.com
 Connor Jones                            cj@cjmakes.com
 Craig Box                               craig.box@gmail.com
@@ -93,6 +94,7 @@ Diego Casati                            diego.casati@gmail.com
 Divyansh Kamboj                         divyansh.kamboj@accuknox.com
 Divya Rani                              ranidivya063@gmail.com
 Djalal Harouni                          tixxdz@gmail.com
+Dmitriy Zinin                           admin@kami-no.ru
 Dmitry Kharitonov                       geakstr@me.com
 Dmitry Savintsev                        dsavints@verizonmedia.com
 Dom Del Nano                            ddelnano@gmail.com
@@ -185,6 +187,7 @@ Laurent Bernaille                       laurent.bernaille@datadoghq.com
 Lehner Florian                          dev@der-flo.net
 leonliao                                xiaobo.liao@gmail.com
 Liang Zhou                              zhoul110@chinatelecom.cn
+Li Cheng                                rapid.li@huolala.cn
 LiHui                                   andrewli@yunify.com
 Lior Rozen                              liorr@tailorbrands.com
 Liu Qun                                 qunliu@zyhx-group.com
@@ -216,7 +219,7 @@ Matthew Fenwick                         mfenwick100@gmail.com
 Matthew Gumport                         me@gum.pt
 Matt Layher                             mdlayher@gmail.com
 Mauricio Vásquez                        mauricio@kinvolk.io
-Maxime VISONNEAU                        maxime.visonneau@gmail.com
+Maxime Visonneau                        maxime.visonneau@gmail.com
 Maximilian Bischoff                     maximilian.bischoff@inovex.de
 Maximilian Mack                         max@mack.io
 Melissa Peiffer                         mbp83@nau.edu
@@ -242,6 +245,7 @@ Nick M                                  4718+rkage@users.noreply.github.com
 Nicolas Busseneau                       nicolas@isovalent.com
 Nirmoy Das                              ndas@suse.de
 Ole Markus With                         o.with@sportradar.com
+Ondrej Blazek                           ondrej.blazek@firma.seznam.cz
 Patrice Peterson                        patrice.peterson@mailbox.org
 Patrick Mahoney                         pmahoney@greenkeytech.com
 Patrik Cyvoct                           patrik@ptrk.io
@@ -309,6 +313,7 @@ Timo Beckers                            timo@isovalent.com
 Timo Reimann                            ttr314@googlemail.com
 Tobias Klauser                          tobias@cilium.io
 Tobias Kohlbau                          tobias@kohlbau.de
+Tobias Mose                             mosetobias@gmail.com
 Tom Hadlaw                              thomas.hadlaw@hootsuite.com
 Tomoki Sugiura                          cheztomo513@gmail.com
 Tom Payne                               tom@isovalent.com
@@ -336,8 +341,7 @@ Wazir Ahmed                             wazir@accuknox.com
 Weilong Cui                             cuiwl@google.com
 Wenxian Li                              wofanli@gmail.com
 Will Deuschle                           wdeuschle@palantir.com
-Will                                    will@northflank.com
-xentobias                               mosetobias@gmail.com
+Will Stewart                            will@northflank.com
 Xinyuan Zhang                           zhangxinyuan@google.com
 Yiannis Yiakoumis                       yiannis@selfienetworks.com
 Yongkun Gui                             ygui@google.com
@@ -351,8 +355,6 @@ Zang Li                                 zangli@google.com
 Zhang Qiang                             qiangzhang@qiyi.com
 Zhiyuan Hou                             zhiyuan2048@linux.alibaba.com
 Zhu Yan                                 hackzhuyan@gmail.com
-Zinin D.A                               admin@kami-no.ru
-李成(rapid.li)                          rapid.li@huolala.cn
 
 The following additional people are mentioned in commit logs as having provided
 helpful bug reports, suggestions or have otherwise provided value to the
