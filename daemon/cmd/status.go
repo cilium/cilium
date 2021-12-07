@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -684,6 +685,15 @@ func (d *Daemon) getStatus(brief bool) models.StatusResponse {
 	return sr
 }
 
+func (d *Daemon) getIdentityRange() *models.IdentityRange {
+	s := &models.IdentityRange{
+		MinIdentity: int64(identity.MinimalAllocationIdentity),
+		MaxIdentity: int64(identity.MaximumAllocationIdentity),
+	}
+
+	return s
+}
+
 func (d *Daemon) startStatusCollector() {
 	probes := []status.Probe{
 		{
@@ -997,6 +1007,7 @@ func (d *Daemon) startStatusCollector() {
 	d.statusResponse.ClockSource = d.getClockSourceStatus()
 	d.statusResponse.BpfMaps = d.getBPFMapStatus()
 	d.statusResponse.CniChaining = d.getCNIChainingStatus()
+	d.statusResponse.IdentityRange = d.getIdentityRange()
 
 	d.statusCollector = status.NewCollector(probes, status.Config{})
 
