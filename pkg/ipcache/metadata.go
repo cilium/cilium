@@ -108,14 +108,19 @@ func InjectLabels(src source.Source, updater identityUpdater, triggerer policyTr
 			return fmt.Errorf("failed to allocate new identity for IP %v: %w", prefix, err)
 		}
 
-		// Reserved IDs should always be upserted if there was a change to
-		// their labels. This is especially important for IDs such as
-		// kube-apiserver which is can be accompanied by other labels such as
-		// remote-node, host, or CIDR labels.
-		// Also, any new identity should be upserted.
-		if id.IsReserved() || isNew {
+		hasKubeAPIServerLabel := lbls.Has(
+			labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer],
+		)
+		// Identities with the kube-apiserver label should always be upserted
+		// if there was a change in their labels. This is especially important
+		// for IDs such as kube-apiserver or host (which can have the
+		// kube-apiserver label when the kube-apiserver is deployed within the
+		// cluster), or CIDR IDs for kube-apiservers deployed outside of the
+		// cluster.
+		// Also, any new identity should be upserted, regardless.
+		if hasKubeAPIServerLabel || isNew {
 			tmpSrc := src
-			if lbls.Has(labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer]) {
+			if hasKubeAPIServerLabel {
 				// Overwrite the source because any IP associated with the
 				// kube-apiserver takes the strongest precedence. This is
 				// because we need to overwrite Local if only the local node IP
@@ -123,12 +128,14 @@ func InjectLabels(src source.Source, updater identityUpdater, triggerer policyTr
 				//
 				// Also, trigger policy recalculations to update kube-apiserver
 				// identity.
+				newLbls := id.Labels
 				tmpSrc = source.KubeAPIServer
 				trigger = true
+				// If any reserved ID has changed, update its labels.
 				if id.IsReserved() {
-					identity.AddReservedIdentityWithLabels(id.ID, lbls)
-					idsToPropagate[id.ID] = lbls.LabelArray()
+					identity.AddReservedIdentityWithLabels(id.ID, newLbls)
 				}
+				idsToPropagate[id.ID] = newLbls.LabelArray()
 			}
 
 			toUpsert[prefix] = Identity{
