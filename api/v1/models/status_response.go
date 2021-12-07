@@ -67,6 +67,9 @@ type StatusResponse struct {
 	// Status of Hubble server
 	Hubble *HubbleStatus `json:"hubble,omitempty"`
 
+	// Status of identity range of the cluster
+	IdentityRange *IdentityRange `json:"identity-range,omitempty"`
+
 	// Status of IP address management
 	Ipam *IPAMStatus `json:"ipam,omitempty"`
 
@@ -145,6 +148,10 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateHubble(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateIdentityRange(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -410,6 +417,24 @@ func (m *StatusResponse) validateHubble(formats strfmt.Registry) error {
 		if err := m.Hubble.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("hubble")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) validateIdentityRange(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.IdentityRange) { // not required
+		return nil
+	}
+
+	if m.IdentityRange != nil {
+		if err := m.IdentityRange.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("identity-range")
 			}
 			return err
 		}

@@ -1744,6 +1744,9 @@ definitions:
       proxy:
         description: Status of proxy
         "$ref": "#/definitions/ProxyStatus"
+      identity-range:
+        description: Status of identity range of the cluster
+        "$ref": "#/definitions/IdentityRange"
       bandwidth-manager:
         description: Status of bandwidth manager
         "$ref": "#/definitions/BandwidthManager"
@@ -2690,6 +2693,18 @@ definitions:
         type: array
         items:
           "$ref": "#/definitions/ProxyRedirect"
+  IdentityRange:
+    description: |-
+      Status of identity range of the cluster
+
+      +k8s:deepcopy-gen=true
+    properties:
+      min-identity:
+        description: Minimum identity of the cluster
+        type: integer
+      max-identity:
+        description: Maximum identity of the cluster
+        type: integer
   ProxyRedirect:
     description: Configured proxy redirection state
     type: object

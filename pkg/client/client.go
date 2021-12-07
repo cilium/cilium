@@ -510,6 +510,13 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		fmt.Fprintf(w, "Proxy Status:\tNo managed proxy redirect\n")
 	}
 
+	if sr.IdentityRange != nil {
+		fmt.Fprintf(w, "Global Identity Range:\tmin %d, max %d\n",
+			sr.IdentityRange.MinIdentity, sr.IdentityRange.MaxIdentity)
+	} else {
+		fmt.Fprintf(w, "Global Identity Range:\tUnknown\n")
+	}
+
 	if sr.Hubble != nil {
 		var fields []string
 

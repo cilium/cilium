@@ -2833,6 +2833,19 @@ func init() {
         }
       }
     },
+    "IdentityRange": {
+      "description": "Status of identity range of the cluster\n\n+k8s:deepcopy-gen=true",
+      "properties": {
+        "max-identity": {
+          "description": "Maximum identity of the cluster",
+          "type": "integer"
+        },
+        "min-identity": {
+          "description": "Minimum identity of the cluster",
+          "type": "integer"
+        }
+      }
+    },
     "IpvlanConfiguration": {
       "description": "Setup for datapath when operating in ipvlan mode.",
       "type": "object",
@@ -3925,6 +3938,10 @@ func init() {
         "hubble": {
           "description": "Status of Hubble server",
           "$ref": "#/definitions/HubbleStatus"
+        },
+        "identity-range": {
+          "description": "Status of identity range of the cluster",
+          "$ref": "#/definitions/IdentityRange"
         },
         "ipam": {
           "description": "Status of IP address management",
@@ -7335,6 +7352,19 @@ func init() {
         }
       }
     },
+    "IdentityRange": {
+      "description": "Status of identity range of the cluster\n\n+k8s:deepcopy-gen=true",
+      "properties": {
+        "max-identity": {
+          "description": "Maximum identity of the cluster",
+          "type": "integer"
+        },
+        "min-identity": {
+          "description": "Minimum identity of the cluster",
+          "type": "integer"
+        }
+      }
+    },
     "IpvlanConfiguration": {
       "description": "Setup for datapath when operating in ipvlan mode.",
       "type": "object",
@@ -8673,6 +8703,10 @@ func init() {
         "hubble": {
           "description": "Status of Hubble server",
           "$ref": "#/definitions/HubbleStatus"
+        },
+        "identity-range": {
+          "description": "Status of identity range of the cluster",
+          "$ref": "#/definitions/IdentityRange"
         },
         "ipam": {
           "description": "Status of IP address management",
