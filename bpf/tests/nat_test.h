@@ -125,15 +125,16 @@ size_t bpf_hash_ipv4_ct_tuple(const void *key)
 // encoded in the callback functions as required by the stub functions in CMock.
 // So we need different callback funcs for different fake maps.
 void *ipv4_ct_tuple_map_lookup_elem_callback(const void* map, const void* key, int cmock_num_calls) {
-  return fake_lookup_elem(&ipv4_ct_tuple_map, key);
+  return fake_lookup_elem((hashmap_void_t *)&ipv4_ct_tuple_map, key);
 }
 
 int ipv4_ct_tuple_map_update_elem_callback(const void* map, const void* key, const void* value, __u32 flags, int cmock_num_calls) {
-  return fake_update_elem(&ipv4_ct_tuple_map, key, value, flags, SNAT_MAPPING_IPV4_SIZE);
+  return fake_update_elem((hashmap_void_t *)&ipv4_ct_tuple_map, key, value, flags,
+			 SNAT_MAPPING_IPV4_SIZE);
 }
 
 int ipv4_ct_tuple_map_delete_elem_callback(const void* map, const void* key, int cmock_num_calls) {
-  return fake_delete_elem(&ipv4_ct_tuple_map, key);
+  return fake_delete_elem((hashmap_void_t *)&ipv4_ct_tuple_map, key);
 }
 
 void test_snat_v4_new_mapping() {
@@ -143,7 +144,8 @@ void test_snat_v4_new_mapping() {
     struct ipv4_nat_target target;
 
     // Initiate the map.
-    fake_init_map(&ipv4_ct_tuple_map, bpf_hash_ipv4_ct_tuple, bpf_compare_ipv4_ct_tuple);
+    fake_init_map((hashmap_void_t *)&ipv4_ct_tuple_map, bpf_hash_ipv4_ct_tuple,
+		  bpf_compare_ipv4_ct_tuple);
 
     get_prandom_u32_ExpectAndReturn(0);
     // Stub the map helpers with the callbacks defined above.
