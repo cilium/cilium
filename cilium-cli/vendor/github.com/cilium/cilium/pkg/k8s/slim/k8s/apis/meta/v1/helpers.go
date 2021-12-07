@@ -9,7 +9,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/selection"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 )
@@ -24,13 +23,13 @@ func LabelSelectorAsSelector(ps *LabelSelector) (labels.Selector, error) {
 	if len(ps.MatchLabels)+len(ps.MatchExpressions) == 0 {
 		return labels.Everything(), nil
 	}
-	selector := labels.NewSelector()
+	requirements := make([]labels.Requirement, 0, len(ps.MatchLabels)+len(ps.MatchExpressions))
 	for k, v := range ps.MatchLabels {
 		r, err := labels.NewRequirement(k, selection.Equals, []string{v})
 		if err != nil {
 			return nil, err
 		}
-		selector = selector.Add(*r)
+		requirements = append(requirements, *r)
 	}
 	for _, expr := range ps.MatchExpressions {
 		var op selection.Operator
@@ -50,8 +49,10 @@ func LabelSelectorAsSelector(ps *LabelSelector) (labels.Selector, error) {
 		if err != nil {
 			return nil, err
 		}
-		selector = selector.Add(*r)
+		requirements = append(requirements, *r)
 	}
+	selector := labels.NewSelector()
+	selector = selector.Add(requirements...)
 	return selector, nil
 }
 
@@ -82,22 +83,6 @@ func LabelSelectorAsMap(ps *LabelSelector) (map[string]string, error) {
 		}
 	}
 	return selector, nil
-}
-
-// SetAsLabelSelector converts the labels.Set object into a LabelSelector api object.
-func SetAsLabelSelector(ls labels.Set) *LabelSelector {
-	if ls == nil {
-		return nil
-	}
-
-	selector := &LabelSelector{
-		MatchLabels: make(map[string]string),
-	}
-	for label, value := range ls {
-		selector.MatchLabels[label] = value
-	}
-
-	return selector
 }
 
 // FormatLabelSelector convert labelSelector into plain string
