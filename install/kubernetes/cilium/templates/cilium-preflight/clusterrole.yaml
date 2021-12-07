@@ -104,9 +104,13 @@ rules:
   - ciliumlocalredirectpolicies
   - ciliumlocalredirectpolicies/status
   - ciliumlocalredirectpolicies/finalizers
-  - ciliumegressnatpolicies
   - ciliumendpointslices
+  - ciliumegressnatpolicies
+  - ciliumegressnatpolicies/status
+  - ciliumegressnatpolicies/finalizers
   - ciliumenvoyconfigs
+  - ciliumenvoyconfigs/status
+  - ciliumenvoyconfigs/finalizers
   verbs:
   - '*'
 {{- end }}
