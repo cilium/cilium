@@ -896,8 +896,8 @@ func (sc *SelectorCache) removeSelectorLocked(selector CachedSelector, user Cach
 	if exists {
 		if sel.removeUser(user, sc.localIdentityNotifier) {
 			delete(sc.selectors, key)
+			sel.releaseIdentityMappings(sc.idAllocator)
 		}
-		sel.releaseIdentityMappings(sc.idAllocator)
 	}
 }
 
