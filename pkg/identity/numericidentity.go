@@ -371,6 +371,16 @@ func IsUserReservedIdentity(id NumericIdentity) bool {
 		id.Uint32() < MinimalNumericIdentity.Uint32()
 }
 
+// IsInClusterIdentityRange returns true if the given identity is in the
+// valid identity range of this cluster.
+func IsInClusterIdentityRange(id NumericIdentity) bool {
+	if id < MinimalAllocationIdentity || id > MaximumAllocationIdentity {
+		return false
+	}
+
+	return true
+}
+
 // AddUserDefinedNumericIdentity adds the given numeric identity and respective
 // label to the list of reservedIdentities. If the numeric identity is not
 // between UserReservedNumericIdentity and MinimalNumericIdentity it will return

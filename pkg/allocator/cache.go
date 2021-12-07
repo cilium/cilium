@@ -5,9 +5,11 @@ package allocator
 
 import (
 	"context"
+	"math"
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
@@ -158,7 +160,11 @@ func (c *cache) OnDelete(id idpool.ID, key AllocatorKey) {
 	}
 
 	delete(c.nextCache, id)
-	a.idPool.Insert(id)
+
+	// Only insert IDs that are in the valid identity range of this cluster
+	if id > math.MaxUint32 || identity.IsInClusterIdentityRange(identity.NumericIdentity(id)) {
+		a.idPool.Insert(id)
+	}
 
 	c.sendEvent(kvstore.EventTypeDelete, id, key)
 }

@@ -14,6 +14,7 @@ import (
 
 	. "gopkg.in/check.v1"
 
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
@@ -245,9 +246,9 @@ func (s *AllocatorSuite) TestPrefixMask(c *C) {
 	a.Delete()
 }
 
-func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
+func testAllocator(c *C, minID, maxID idpool.ID, allocatorName string, suffix string) {
 	backend := newDummyBackend()
-	allocator, err := NewAllocator(TestAllocatorKey(""), backend, WithMax(maxID), WithoutGC())
+	allocator, err := NewAllocator(TestAllocatorKey(""), backend, WithMin(minID), WithMax(maxID), WithoutGC())
 	c.Assert(err, IsNil)
 	c.Assert(allocator, Not(IsNil))
 
@@ -255,7 +256,7 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	allocator.DeleteAllKeys()
 
 	// allocate all available IDs
-	for i := idpool.ID(1); i <= maxID; i++ {
+	for i := minID; i <= maxID; i++ {
 		key := TestAllocatorKey(fmt.Sprintf("key%04d", i))
 		id, new, firstUse, err := allocator.Allocate(context.Background(), key)
 		c.Assert(err, IsNil)
@@ -279,7 +280,7 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	allocator.backoffTemplate.Factor = saved
 
 	// allocate all IDs again using the same set of keys, refcnt should go to 2
-	for i := idpool.ID(1); i <= maxID; i++ {
+	for i := minID; i <= maxID; i++ {
 		key := TestAllocatorKey(fmt.Sprintf("key%04d", i))
 		id, new, firstUse, err := allocator.Allocate(context.Background(), key)
 		c.Assert(err, IsNil)
@@ -297,7 +298,7 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	c.Assert(allocator2, Not(IsNil))
 
 	// allocate all IDs again using the same set of keys, refcnt should go to 2
-	for i := idpool.ID(1); i <= maxID; i++ {
+	for i := minID; i <= maxID; i++ {
 		key := TestAllocatorKey(fmt.Sprintf("key%04d", i))
 		id, new, firstUse, err := allocator2.Allocate(context.Background(), key)
 		c.Assert(err, IsNil)
@@ -315,12 +316,12 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	}
 
 	// release 2nd reference of all IDs
-	for i := idpool.ID(1); i <= maxID; i++ {
+	for i := minID; i <= maxID; i++ {
 		allocator.Release(context.Background(), TestAllocatorKey(fmt.Sprintf("key%04d", i)))
 	}
 
 	// refcnt should be back to 1
-	for i := idpool.ID(1); i <= maxID; i++ {
+	for i := minID; i <= maxID; i++ {
 		key := TestAllocatorKey(fmt.Sprintf("key%04d", i))
 		c.Assert(allocator.localKeys.keys[allocator.encodeKey(key)].refcnt, Equals, uint64(1))
 	}
@@ -331,11 +332,11 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	allocator.RunGC(rateLimiter, nil)
 
 	// release final reference of all IDs
-	for i := idpool.ID(1); i <= maxID; i++ {
+	for i := minID; i <= maxID; i++ {
 		allocator.Release(context.Background(), TestAllocatorKey(fmt.Sprintf("key%04d", i)))
 	}
 
-	for i := idpool.ID(1); i <= maxID; i++ {
+	for i := minID; i <= maxID; i++ {
 		key := TestAllocatorKey(fmt.Sprintf("key%04d", i))
 		c.Assert(allocator.localKeys.keys[allocator.encodeKey(key)], IsNil)
 	}
@@ -349,7 +350,9 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 }
 
 func (s *AllocatorSuite) TestAllocateCached(c *C) {
-	testAllocator(c, idpool.ID(256), randomTestName(), "a") // enable use of local cache
+	minID := idpool.ID(identity.MinimalAllocationIdentity)
+	maxID := minID + 256
+	testAllocator(c, minID, maxID, randomTestName(), "a") // enable use of local cache
 }
 
 // The following tests are currently disabled as they are not 100% reliable in
