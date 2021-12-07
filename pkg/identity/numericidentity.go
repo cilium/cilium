@@ -311,10 +311,13 @@ func InitWellKnownIdentities(c Configuration) int {
 	WellKnown.add(ReservedCiliumEtcdOperator2, append(ciliumEtcdOperatorLabels,
 		fmt.Sprintf("k8s:%s=%s", api.PodNamespaceMetaNameLabel, c.CiliumNamespaceName())))
 
-	// For ClusterID > 0, the identity range just starts from cluster shift,
-	// no well known identities need to be reserved from that range.
 	if option.Config.ClusterID > 0 {
+		// For ClusterID > 0, the identity range just starts from cluster shift,
+		// no well-known-identities need to be reserved from the range.
 		MinimalAllocationIdentity = NumericIdentity((1 << ClusterIDShift) * option.Config.ClusterID)
+		// The maximum identity also needs to be recalculated as ClusterID
+		// may be overwritten by runtime parameters.
+		MaximumAllocationIdentity = NumericIdentity((1<<ClusterIDShift)*(option.Config.ClusterID+1) - 1)
 	}
 
 	return len(WellKnown)
