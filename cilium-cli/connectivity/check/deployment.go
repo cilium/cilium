@@ -128,7 +128,7 @@ func newService(name string, selector map[string]string, labels map[string]strin
 
 func newLocalReadinessProbe(port int, path string) *corev1.Probe {
 	return &corev1.Probe{
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Path:   path,
 				Port:   intstr.FromInt(port),
