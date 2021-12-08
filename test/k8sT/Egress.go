@@ -97,7 +97,10 @@ var _ = SkipDescribeIf(func() bool {
 		// We deploy cilium, to run the echo server and assign egress IP, and redeploy with
 		// different configurations for the tests.
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
-		DeployCiliumAndDNS(kubectl, ciliumFilename)
+		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename,
+			// TODO Disable CES until https://github.com/cilium/cilium/issues/17669
+			//      has been resolved
+			map[string]string{"enableCiliumEndpointSlice": "false"})
 
 		runEchoServer()
 		assignEgressIP()
@@ -271,41 +274,45 @@ var _ = SkipDescribeIf(func() bool {
 
 	doContext("tunnel disabled with endpointRoutes enabled",
 		map[string]string{
-			"egressGateway.enabled":  "true",
-			"bpf.masquerade":         "true",
-			"tunnel":                 "disabled",
-			"autoDirectNodeRoutes":   "true",
-			"endpointRoutes.enabled": "true",
+			"egressGateway.enabled":     "true",
+			"bpf.masquerade":            "true",
+			"tunnel":                    "disabled",
+			"autoDirectNodeRoutes":      "true",
+			"endpointRoutes.enabled":    "true",
+			"enableCiliumEndpointSlice": "false",
 		},
 	)
 
 	doContext("tunnel disabled with endpointRoutes disabled",
 		map[string]string{
-			"egressGateway.enabled":  "true",
-			"bpf.masquerade":         "true",
-			"tunnel":                 "disabled",
-			"autoDirectNodeRoutes":   "true",
-			"endpointRoutes.enabled": "false",
+			"egressGateway.enabled":     "true",
+			"bpf.masquerade":            "true",
+			"tunnel":                    "disabled",
+			"autoDirectNodeRoutes":      "true",
+			"endpointRoutes.enabled":    "false",
+			"enableCiliumEndpointSlice": "false",
 		},
 	)
 
 	doContext("tunnel vxlan with endpointRoutes enabled",
 		map[string]string{
-			"egressGateway.enabled":  "true",
-			"bpf.masquerade":         "true",
-			"tunnel":                 "vxlan",
-			"autoDirectNodeRoutes":   "false",
-			"endpointRoutes.enabled": "true",
+			"egressGateway.enabled":     "true",
+			"bpf.masquerade":            "true",
+			"tunnel":                    "vxlan",
+			"autoDirectNodeRoutes":      "false",
+			"endpointRoutes.enabled":    "true",
+			"enableCiliumEndpointSlice": "false",
 		},
 	)
 
 	doContext("tunnel vxlan with endpointRoutes disabled",
 		map[string]string{
-			"egressGateway.enabled":  "true",
-			"bpf.masquerade":         "true",
-			"tunnel":                 "vxlan",
-			"autoDirectNodeRoutes":   "false",
-			"endpointRoutes.enabled": "false",
+			"egressGateway.enabled":     "true",
+			"bpf.masquerade":            "true",
+			"tunnel":                    "vxlan",
+			"autoDirectNodeRoutes":      "false",
+			"endpointRoutes.enabled":    "false",
+			"enableCiliumEndpointSlice": "false",
 		},
 	)
 })
