@@ -33,7 +33,7 @@ const (
 	KafkaClientImage = "docker.io/cilium/kafkaclient2:1.0"
 
 	// Zookeeper image is the image used for running Zookeeper.
-	ZookeeperImage = "docker.io/digitalwonderland/zookeeper:latest"
+	ZookeeperImage = "docker.io/cilium/zookeeper:1.0"
 
 	// BuxyboxImage is a space efficient-image used for basic testing.
 	BusyboxImage = "docker.io/library/busybox:1.31.1"
