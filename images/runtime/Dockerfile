@@ -15,7 +15,7 @@ FROM ${CILIUM_LLVM_IMAGE} as llvm-dist
 FROM ${CILIUM_BPFTOOL_IMAGE} as bpftool-dist
 FROM ${CILIUM_IPROUTE2_IMAGE} as iproute2-dist
 
-FROM --platform=linux/amd64 ${GOLANG_IMAGE} as gops-cni-builder
+FROM --platform=${BUILDPLATFORM} ${GOLANG_IMAGE} as gops-cni-builder
 
 RUN apt-get update && apt-get install -y binutils-aarch64-linux-gnu
 
