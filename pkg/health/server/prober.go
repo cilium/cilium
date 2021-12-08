@@ -356,7 +356,8 @@ func newProber(s *Server, nodes nodeMap) *prober {
 		nodes:        make(nodeMap),
 	}
 	prober.MaxRTT = s.ProbeDeadline
-
+	// FIXME: Doubling the default payload size to 16 is a workaround for GH-18177
+	prober.Size = 2 * fastping.TimeSliceLength
 	prober.setNodes(nodes, nil)
 	prober.OnRecv = func(addr *net.IPAddr, rtt time.Duration) {
 		prober.Lock()
