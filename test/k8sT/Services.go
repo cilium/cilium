@@ -362,7 +362,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 				ciliumDelService(kubectl, 20069)
 			})
 
-			SkipItIf(helpers.SkipQuarantined, "Checks service on same node", func() {
+			It("Checks service on same node", func() {
 				status := kubectl.ExecInHostNetNS(context.TODO(), ni.k8s1NodeName,
 					helpers.CurlFail(`"http://[%s]/"`, demoClusterIPv6))
 				status.ExpectSuccess("cannot curl to service IP from host")
