@@ -381,7 +381,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			kubectl.ExecMiddle(fmt.Sprintf("echo 'nonMasqueradeCIDRs:\n%s' > %s",
 				cidrsInYaml, tmpConfigMapPath)).ExpectSuccess()
 			kubectl.CreateResource("configmap",
-				fmt.Sprintf("ip-masq-agent --from-file=%s --namespace=%s -o yaml --dry-run > %s",
+				fmt.Sprintf("ip-masq-agent --from-file=%s --namespace=%s -o yaml --dry-run=client > %s",
 					tmpConfigMapDirPath, ns, tmpConfigYAMLPath)).
 				ExpectSuccess("Failed to create ip-masq-agent configmap file")
 			kubectl.ApplyDefault(tmpConfigYAMLPath).ExpectSuccess("Failed to apply configmap")
