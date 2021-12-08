@@ -4206,7 +4206,17 @@ func validateCiliumSvc(cSvc models.Service, k8sSvcs []v1.Service, k8sEps []v1.En
 			k8sService = &k8sSvc
 			break
 		}
+		for _, clusterIP := range k8sSvc.Spec.ClusterIPs {
+			if clusterIP == cSvc.Status.Realized.FrontendAddress.IP {
+				k8sService = &k8sSvc
+				break
+			}
+		}
+		if k8sService != nil {
+			break
+		}
 	}
+
 	if k8sService == nil {
 		return fmt.Errorf("Could not find Cilium service with ip %s in k8s", cSvc.Spec.FrontendAddress.IP)
 	}
