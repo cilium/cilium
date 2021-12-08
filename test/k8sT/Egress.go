@@ -97,7 +97,10 @@ var _ = SkipDescribeIf(func() bool {
 		// We deploy cilium, to run the echo server and assign egress IP, and redeploy with
 		// different configurations for the tests.
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
-		DeployCiliumAndDNS(kubectl, ciliumFilename)
+		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename,
+			// TODO Disable CES until https://github.com/cilium/cilium/issues/17669
+			//      has been resolved
+			map[string]string{"enableCiliumEndpointSlice": "false"})
 
 		runEchoServer()
 		assignEgressIP()
@@ -276,6 +279,7 @@ var _ = SkipDescribeIf(func() bool {
 			"tunnel":                 "disabled",
 			"autoDirectNodeRoutes":   "true",
 			"endpointRoutes.enabled": "true",
+			"ciliumEndpointSlices":   "false",
 		},
 	)
 
@@ -286,6 +290,7 @@ var _ = SkipDescribeIf(func() bool {
 			"tunnel":                 "disabled",
 			"autoDirectNodeRoutes":   "true",
 			"endpointRoutes.enabled": "false",
+			"ciliumEndpointSlices":   "false",
 		},
 	)
 
@@ -296,6 +301,7 @@ var _ = SkipDescribeIf(func() bool {
 			"tunnel":                 "vxlan",
 			"autoDirectNodeRoutes":   "false",
 			"endpointRoutes.enabled": "true",
+			"ciliumEndpointSlices":   "false",
 		},
 	)
 
@@ -306,6 +312,7 @@ var _ = SkipDescribeIf(func() bool {
 			"tunnel":                 "vxlan",
 			"autoDirectNodeRoutes":   "false",
 			"endpointRoutes.enabled": "false",
+			"ciliumEndpointSlices":   "false",
 		},
 	)
 })
