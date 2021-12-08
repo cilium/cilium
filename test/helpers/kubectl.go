@@ -3738,7 +3738,16 @@ func (kub *Kubectl) ciliumControllersPreFlightCheck() error {
 func (kub *Kubectl) ciliumHealthPreFlightCheck() error {
 	ginkgoext.By("Performing Cilium health check")
 	var nodesFilter = `{.nodes[*].name}`
-	var statusFilter = `{range .nodes[*]}{.name}{"="}{.host.primary-address.http.status}{"\n"}{end}`
+	var statusPaths = []string{
+		".host.primary-address.icmp.status",
+		".host.primary-address.http.status",
+		".host.secondary-addresses[*].icmp.status",
+		".host.secondary-addresses[*].http.status",
+		".health-endpoint.primary-address.icmp.status",
+		".health-endpoint.primary-address.http.status",
+		".health-endpoint.secondary-addresses[*].icmp.status",
+		".health-endpoint.secondary-addresses[*].http.status",
+	}
 
 	ciliumPods, err := kub.GetCiliumPods()
 	if err != nil {
@@ -3765,17 +3774,21 @@ func (kub *Kubectl) ciliumHealthPreFlightCheck() error {
 				pod, len(ciliumPods), len(nodeCount), nodeCount)
 		}
 
-		healthStatus, err := status.Filter(statusFilter)
-		if err != nil {
-			return fmt.Errorf("Cannot unmarshal health status: %s", err)
-		}
+		for _, statusPath := range statusPaths {
+			kvExpr := fmt.Sprintf(`{range .nodes[*]}{.name}{"%s="}{%s}{"\n"}{end}`, statusPath, statusPath)
+			healthStatus, err := status.Filter(kvExpr)
+			if err != nil {
+				return fmt.Errorf("Cannot unmarshal health status: %s", err)
+			}
 
-		for node, status := range healthStatus.KVOutput() {
-			if status != "" {
-				return fmt.Errorf("cilium-agent '%s': connectivity to node '%s' is unhealthy: '%s'",
-					pod, node, status)
+			for path, status := range healthStatus.KVOutput() {
+				if status != "" {
+					return fmt.Errorf("cilium-agent '%s': connectivity to path '%s' is unhealthy: '%s'",
+						pod, path, status)
+				}
 			}
 		}
+
 	}
 	return nil
 }
