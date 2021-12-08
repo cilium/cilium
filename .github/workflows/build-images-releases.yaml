@@ -102,7 +102,7 @@ jobs:
 
       # Upload artifact digests
       - name: Upload artifact digests
-        uses: actions/upload-artifact@27121b0bdffd731efa15d66772be8dc71245d074
+        uses: actions/upload-artifact@da838ae9595ac94171fa2d4de5a2f117b3e7ac32
         with:
           name: image-digest ${{ matrix.name }}
           path: image-digest
@@ -157,7 +157,7 @@ jobs:
 
       # Upload artifact digests
       - name: Upload artifact digests
-        uses: actions/upload-artifact@27121b0bdffd731efa15d66772be8dc71245d074
+        uses: actions/upload-artifact@da838ae9595ac94171fa2d4de5a2f117b3e7ac32
         with:
           name: image-digest-output.txt-${{ steps.tag.outputs.tag }}
           path: image-digest-output.txt
@@ -165,7 +165,7 @@ jobs:
 
       # Upload artifact digests
       - name: Upload artifact digests
-        uses: actions/upload-artifact@27121b0bdffd731efa15d66772be8dc71245d074
+        uses: actions/upload-artifact@da838ae9595ac94171fa2d4de5a2f117b3e7ac32
         with:
           name: Makefile.digests-${{ steps.tag.outputs.tag }}
           path: Makefile.digests
