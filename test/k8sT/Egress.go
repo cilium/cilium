@@ -238,7 +238,6 @@ var _ = SkipDescribeIf(func() bool {
 
 			AfterAll(func() {
 				deploymentManager.DeleteAll()
-				DeployCiliumAndDNS(kubectl, ciliumFilename)
 			})
 
 			Context("no egress gw policy", func() {
