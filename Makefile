@@ -505,6 +505,7 @@ kind-image:
 	@kind get clusters >/dev/null
 	$(QUIET)$(MAKE) dev-docker-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
 	@echo "  DEPLOY image to kind ($(LOCAL_IMAGE))"
+	$(QUIET)$(CONTAINER_ENGINE) push $(LOCAL_IMAGE)
 	$(QUIET)kind load docker-image $(LOCAL_IMAGE)
 
 precheck: logging-subsys-field ## Peform build precheck for the source code.
