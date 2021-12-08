@@ -4394,7 +4394,15 @@ func (kub *Kubectl) AddIPRoute(nodeName, subnet, gw string, replace bool) *CmdRe
 	}
 	cmd := fmt.Sprintf("ip route %s %s via %s", action, subnet, gw)
 
-	return kub.ExecInHostNetNS(context.TODO(), nodeName, cmd)
+	res := kub.ExecInHostNetNS(context.TODO(), nodeName, cmd)
+
+	if !replace && res.GetExitCode() != 0 &&
+		strings.Contains(res.GetStdErr().String(), "File exists") {
+
+		kub.ExecInHostNetNS(context.TODO(), nodeName, "ip route list")
+	}
+
+	return res
 }
 
 // DelIPRoute deletes a route to a given IP address and a gateway on a given
