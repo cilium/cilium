@@ -45,15 +45,14 @@ enum {
 };
 
 /* Reasons for forwarding a packet. */
-enum {
+enum trace_reason {
 	TRACE_REASON_POLICY = CT_NEW,
 	TRACE_REASON_CT_ESTABLISHED = CT_ESTABLISHED,
 	TRACE_REASON_CT_REPLY = CT_REPLY,
 	TRACE_REASON_CT_RELATED = CT_RELATED,
 	TRACE_REASON_CT_REOPENED = CT_REOPENED,
-};
-
-#define TRACE_REASON_ENCRYPTED	    0x80
+	TRACE_REASON_ENCRYPTED = 0x80
+} __packed;
 
 /* Trace aggregation levels. */
 enum {
@@ -75,7 +74,7 @@ enum {
  * Update metrics based on a trace event
  */
 static __always_inline void
-update_trace_metrics(struct __ctx_buff *ctx, __u8 obs_point, __u8 reason)
+update_trace_metrics(struct __ctx_buff *ctx, __u8 obs_point, enum trace_reason reason)
 {
 	__u8 encrypted;
 
@@ -166,7 +165,7 @@ static __always_inline bool emit_trace_notify(__u8 obs_point, __u32 monitor)
 
 static __always_inline void
 send_trace_notify(struct __ctx_buff *ctx, __u8 obs_point, __u32 src, __u32 dst,
-		   __u16 dst_id, __u32 ifindex, __u8 reason, __u32 monitor)
+		   __u16 dst_id, __u32 ifindex, enum trace_reason reason, __u32 monitor)
 {
 	__u64 ctx_len = ctx_full_len(ctx);
 	__u64 cap_len = min_t(__u64, monitor ? : TRACE_PAYLOAD_LEN,
@@ -196,7 +195,7 @@ send_trace_notify(struct __ctx_buff *ctx, __u8 obs_point, __u32 src, __u32 dst,
 
 static __always_inline void
 send_trace_notify4(struct __ctx_buff *ctx, __u8 obs_point, __u32 src, __u32 dst,
-		   __be32 orig_addr, __u16 dst_id, __u32 ifindex, __u8 reason,
+		   __be32 orig_addr, __u16 dst_id, __u32 ifindex, enum trace_reason reason,
 		   __u32 monitor)
 {
 	__u64 ctx_len = ctx_full_len(ctx);
@@ -229,7 +228,7 @@ send_trace_notify4(struct __ctx_buff *ctx, __u8 obs_point, __u32 src, __u32 dst,
 static __always_inline void
 send_trace_notify6(struct __ctx_buff *ctx, __u8 obs_point, __u32 src, __u32 dst,
 		   union v6addr *orig_addr, __u16 dst_id, __u32 ifindex,
-		   __u8 reason, __u32 monitor)
+		   enum trace_reason reason, __u32 monitor)
 {
 	__u64 ctx_len = ctx_full_len(ctx);
 	__u64 cap_len = min_t(__u64, monitor ? : TRACE_PAYLOAD_LEN,
@@ -263,7 +262,7 @@ static __always_inline void
 send_trace_notify(struct __ctx_buff *ctx, __u8 obs_point,
 		  __u32 src __maybe_unused, __u32 dst __maybe_unused,
 		  __u16 dst_id __maybe_unused, __u32 ifindex __maybe_unused,
-		  __u8 reason, __u32 monitor __maybe_unused)
+		  enum trace_reason reason, __u32 monitor __maybe_unused)
 {
 	update_trace_metrics(ctx, obs_point, reason);
 }
@@ -272,7 +271,7 @@ static __always_inline void
 send_trace_notify4(struct __ctx_buff *ctx, __u8 obs_point,
 		   __u32 src __maybe_unused, __u32 dst __maybe_unused,
 		   __be32 orig_addr __maybe_unused, __u16 dst_id __maybe_unused,
-		   __u32 ifindex __maybe_unused, __u8 reason,
+		   __u32 ifindex __maybe_unused, enum trace_reason reason,
 		   __u32 monitor __maybe_unused)
 {
 	update_trace_metrics(ctx, obs_point, reason);
@@ -283,7 +282,7 @@ send_trace_notify6(struct __ctx_buff *ctx, __u8 obs_point,
 		   __u32 src __maybe_unused, __u32 dst __maybe_unused,
 		   union v6addr *orig_addr __maybe_unused,
 		   __u16 dst_id __maybe_unused, __u32 ifindex __maybe_unused,
-		   __u8 reason, __u32 monitor __maybe_unused)
+		   enum trace_reason reason, __u32 monitor __maybe_unused)
 {
 	update_trace_metrics(ctx, obs_point, reason);
 }
