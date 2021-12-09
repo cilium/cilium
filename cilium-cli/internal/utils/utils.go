@@ -35,6 +35,10 @@ func BuildImagePath(userImage, defaultImage, userVersion, defaultVersion string)
 	if userImage == "" {
 		switch {
 		case userVersion == "":
+			// ':' in defaultVersion?
+			if strings.Contains(defaultVersion, ":") {
+				return defaultImage + defaultVersion
+			}
 			return defaultImage + ":" + defaultVersion
 		case strings.Contains(userVersion, ":"):
 			// userVersion already contains the colon. Useful for ":latest",
