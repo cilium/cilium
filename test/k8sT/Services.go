@@ -568,10 +568,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 		})
 	})
 
-	SkipContextIf(func() bool {
-		return helpers.SkipQuarantined() && helpers.RunsOnNetNextKernel()
-	}, "Checks service across nodes", func() {
-
+	Context("Checks service across nodes", func() {
 		var (
 			demoYAML   string
 			demoYAMLV6 string
@@ -1027,7 +1024,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						// Quarantine when running with the third node as it's
 						// flaky. See #12511.
 						return helpers.GetCurrentIntegration() != "" ||
-							(helpers.SkipQuarantined() && helpers.ExistNodeWithoutCilium())
+							helpers.ExistNodeWithoutCilium()
 					}, "Tests with secondary NodePort device", func() {
 						DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 							"devices": fmt.Sprintf(`'{%s,%s}'`, ni.privateIface, helpers.SecondaryIface),
@@ -1037,7 +1034,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 					})
 				})
 
-				SkipContextIf(helpers.SkipQuarantined, "Tests with direct routing", func() {
+				Context("Tests with direct routing", func() {
 
 					var directRoutingOpts = map[string]string{
 						"tunnel":               "disabled",
@@ -1407,12 +1404,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						})
 					})
 
-				SkipItIf(func() bool {
-					// Quarantine when running with the third node as it's
-					// flaky. See GH-12511.
-					// It's also flaky for IPv6 traffic, see GH-18072
-					return helpers.SkipQuarantined()
-				}, "Tests with secondary NodePort device", func() {
+				It("Tests with secondary NodePort device", func() {
 					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 						"tunnel":               "disabled",
 						"autoDirectNodeRoutes": "true",
