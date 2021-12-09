@@ -17,7 +17,7 @@ metadata:
 spec:
   containers:
     - name: server
-      image: docker.io/cilium/graceful-termination-test-apps:latest
+      image: docker.io/cilium/graceful-termination-test-apps:1.0.0
       imagePullPolicy: IfNotPresent
       ports:
         - containerPort: 8081
@@ -46,7 +46,7 @@ spec:
   terminationGracePeriodSeconds: 0
   containers:
     - name: client
-      image: docker.io/cilium/graceful-termination-test-apps:latest
+      image: docker.io/cilium/graceful-termination-test-apps:1.0.0
       imagePullPolicy: IfNotPresent
       command: [ "/client", "graceful-term-svc.default.svc.cluster.local.:8081" ]
 ---
