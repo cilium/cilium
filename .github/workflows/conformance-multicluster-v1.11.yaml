@@ -73,8 +73,8 @@ jobs:
     name: Deduce required tests from code changes
     if: |
       (github.event_name == 'issue_comment' && (
-        github.event.comment.body, '/ci-multicluster-1.11' ||
-        github.event.comment.body, '/test-backport-1.11'
+        github.event.comment.body == '/ci-multicluster-1.11' ||
+        github.event.comment.body == '/test-backport-1.11'
       )) ||
       (github.event_name == 'schedule' && github.repository == 'cilium/cilium') ||
       github.event_name == 'pull_request'
@@ -113,7 +113,7 @@ jobs:
     needs: check_changes
     if: |
       (github.event_name == 'issue_comment' && (
-        github.event.comment.body, '/ci-multicluster-1.11' ||
+        github.event.comment.body == '/ci-multicluster-1.11' ||
         (github.event.comment.body == '/test-backport-1.11' && needs.check_changes.outputs.tested == 'true')
       )) ||
       (github.event_name == 'schedule' && github.repository == 'cilium/cilium') ||
