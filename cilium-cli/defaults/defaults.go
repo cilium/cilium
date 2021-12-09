@@ -70,7 +70,7 @@ const (
 
 	ConfigMapName   = "cilium-config"
 	Version         = "v1.11.0"
-	HubbleUIVersion = "v0.8.3"
+	HubbleUIVersion = "v0.8.5"
 
 	TunnelType = "vxlan"
 
