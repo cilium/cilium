@@ -6,6 +6,10 @@ on:
       tag:
         description: 'Docker Image Tag'
         required: true
+      suffix:
+        description: 'Docker Image Suffix (e.g. "beta" -> "cilium-beta")'
+        required: true
+        default: "beta"
 
 permissions: read-all
 
@@ -64,7 +68,7 @@ jobs:
         id: tag-in-repositories
         shell: bash
         run: |
-          if docker buildx imagetools inspect quay.io/${{ github.repository_owner }}/${{ matrix.name }}-beta:${{ github.event.inputs.tag }} &>/dev/null; then
+          if docker buildx imagetools inspect quay.io/${{ github.repository_owner }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}:${{ github.event.inputs.tag }} &>/dev/null; then
             echo "Tag already exists!"
             exit 1
           fi
@@ -83,7 +87,7 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-beta:${{ github.event.inputs.tag }}
+            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}:${{ github.event.inputs.tag }}
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ github.sha }}
           build-args: |
             OPERATOR_VARIANT=${{ matrix.name }}
@@ -94,7 +98,7 @@ jobs:
           mkdir -p image-digest/
           echo "## ${{ matrix.name }}" > image-digest/${{ matrix.name }}.txt
           echo "" >> image-digest/${{ matrix.name }}.txt
-          echo "\`quay.io/${{ github.repository_owner }}/${{ matrix.name }}-beta:${{ github.event.inputs.tag }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
+          echo "\`quay.io/${{ github.repository_owner }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}:${{ github.event.inputs.tag }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
           echo "\`quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ github.sha }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
           echo "" >> image-digest/${{ matrix.name }}.txt
 
