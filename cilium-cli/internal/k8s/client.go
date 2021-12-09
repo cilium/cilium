@@ -661,6 +661,14 @@ func (c *Client) GetRunningCiliumVersion(ctx context.Context, namespace string) 
 		if digest := strings.Index(v, "@"); digest > 0 {
 			v = v[:digest]
 		}
+		// Add any part in the pod image separated by a '-` to the version,
+		// e.g., "quay.io/cilium/cilium-ci:1234" -> "-ci:1234"
+		base := strings.Split(version[0], "/")
+		last := base[len(base)-1]
+		dash := strings.Index(last, "-")
+		if dash >= 0 {
+			v = last[dash:] + ":" + v
+		}
 		return v, nil
 	}
 	return "", errors.New("unable to obtain cilium version: no cilium pods found")
