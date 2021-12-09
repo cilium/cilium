@@ -117,6 +117,11 @@ Users (Alphabetically)
       U: Networking, network policy, and network visibility
       L: https://cloud.google.com/blog/products/containers-kubernetes/bringing-ebpf-and-cilium-to-google-kubernetes-engine
 
+    * N: Meltwater
+      D: Meltwater is using Cilim in AWS on self-hosted multi-tenant k8s clusters as the CNI plugin
+      U: ENI Networking, Encryption, Monitoring via Prometheus metrics & Hubble
+      Q: @recollir, @dezmodue
+
     * N: Northflank
       D: Northflank is a PaaS and uses Cilium as the main CNI plugin across GCP, Azure, AWS and bare-metal
       U: Networking, network policy, hubble, packet monitoring and network visibility
