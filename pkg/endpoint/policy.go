@@ -151,7 +151,7 @@ func (e *Endpoint) useCurrentNetworkPolicy(proxyWaitGroup *completion.WaitGroup)
 		return
 	}
 
-	if e.proxy != nil {
+	if !e.isProxyDisabled() {
 		// Wait for the current network policy to be acked
 		e.proxy.UseCurrentNetworkPolicy(e, e.desiredPolicy.L4Policy, proxyWaitGroup)
 	}
