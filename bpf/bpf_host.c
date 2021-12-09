@@ -950,8 +950,7 @@ handle_netdev(struct __ctx_buff *ctx, const bool from_host)
 		return send_drop_notify(ctx, SECLABEL, WORLD_ID, 0, ret,
 					CTX_ACT_DROP, METRIC_EGRESS);
 #else
-		send_trace_notify(ctx, TRACE_TO_STACK, HOST_ID, 0, 0, 0,
-				  REASON_FORWARDED, 0);
+		send_trace_notify(ctx, TRACE_TO_STACK, HOST_ID, 0, 0, 0, 0, 0);
 		/* Pass unknown traffic to the stack */
 		return CTX_ACT_OK;
 #endif /* ENABLE_HOST_FIREWALL */
@@ -1098,7 +1097,7 @@ out:
 					      METRIC_EGRESS);
 #endif
 	send_trace_notify(ctx, TRACE_TO_NETWORK, src_id, 0, 0,
-			  0, ret, monitor);
+			  0, 0, monitor);
 
 	return ret;
 }
@@ -1145,7 +1144,7 @@ int to_host(struct __ctx_buff *ctx)
 
 	if (!traced)
 		send_trace_notify(ctx, TRACE_TO_STACK, src_id, 0, 0,
-				  CILIUM_IFINDEX, ret, 0);
+				  CILIUM_IFINDEX, 0, 0);
 
 #ifdef ENABLE_HOST_FIREWALL
 	if (!validate_ethertype(ctx, &proto)) {
