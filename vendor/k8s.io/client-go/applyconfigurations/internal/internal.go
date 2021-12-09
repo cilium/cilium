@@ -4514,6 +4514,17 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: readOnly
       type:
         scalar: boolean
+- name: io.k8s.api.core.v1.GRPCAction
+  map:
+    fields:
+    - name: port
+      type:
+        scalar: numeric
+      default: 0
+    - name: service
+      type:
+        scalar: string
+      default: ""
 - name: io.k8s.api.core.v1.GitRepoVolumeSource
   map:
     fields:
@@ -5973,6 +5984,9 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: failureThreshold
       type:
         scalar: numeric
+    - name: grpc
+      type:
+        namedType: io.k8s.api.core.v1.GRPCAction
     - name: httpGet
       type:
         namedType: io.k8s.api.core.v1.HTTPGetAction
