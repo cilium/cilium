@@ -56,7 +56,7 @@ concurrency:
     ${{
       (github.event_name == 'schedule' && github.sha) ||
       (github.event_name == 'issue_comment' && (
-        github.event.comment.body == '/ci-awscni') ||
+        github.event.comment.body == '/ci-awscni' ||
         github.event.comment.body == '/test'
       ) && github.event.issue.number) ||
       (github.event_name == 'pull_request' && github.event.pull_request.number)
