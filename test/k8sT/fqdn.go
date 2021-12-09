@@ -260,7 +260,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sFQDNTest", func() {
 		res := kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App2],
 			helpers.CurlFail("--retry 5 "+world1Target))
-		res.ExpectSuccess("Can't connect to to a valid target when it should work")
+		res.ExpectSuccess("Can't connect to a valid target when it should work")
 
 		res = kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App2],
@@ -272,12 +272,12 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sFQDNTest", func() {
 		res = kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App3],
 			helpers.CurlWithRetries(world2Target, 5, true))
-		res.ExpectSuccess("Can't connect to to a valid target when it should work")
+		res.ExpectSuccess("Can't connect to a valid target when it should work")
 
 		res = kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App3],
 			helpers.CurlFail(world1Target))
-		res.ExpectFail("Can connect to to a valid target when it should NOT work")
+		res.ExpectFail("Can connect to a valid target when it should NOT work")
 	})
 
 	It("Validate that FQDN policy continues to work after being updated", func() {
@@ -296,7 +296,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sFQDNTest", func() {
 		res := kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App2],
 			helpers.CurlFail("--retry 5 "+world1Target))
-		res.ExpectSuccess("Can't connect to to a valid target when it should work")
+		res.ExpectSuccess("Can't connect to a valid target when it should work")
 
 		res = kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App2],
@@ -314,7 +314,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sFQDNTest", func() {
 		res = kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App2],
 			helpers.CurlFail("--retry 5 "+world1Target))
-		res.ExpectSuccess("Can't connect to to a valid target when it should work")
+		res.ExpectSuccess("Can't connect to a valid target when it should work")
 
 		res = kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App2],
