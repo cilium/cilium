@@ -26,7 +26,7 @@ import (
 // option, the request fails. The unlimited CPU credit option is not supported on
 // Dedicated Hosts. Before you start the instance, either change its CPU credit
 // option to standard, or change its tenancy to default or dedicated. For more
-// information, see Stopping instances
+// information, see Stop and start your instance
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Stop_Start.html) in the
 // Amazon EC2 User Guide.
 func (c *Client) StartInstances(ctx context.Context, params *StartInstancesInput, optFns ...func(*Options)) (*StartInstancesOutput, error) {

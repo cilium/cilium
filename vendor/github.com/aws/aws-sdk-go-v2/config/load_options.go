@@ -31,8 +31,18 @@ type LoadOptions struct {
 	HTTPClient HTTPClient
 
 	// EndpointResolver that can be used to provide or override an endpoint for the given
-	// service and region Please see the `aws.EndpointResolver` documentation on usage.
+	// service and region.
+	//
+	// See the `aws.EndpointResolver` documentation on usage.
+	//
+	// Deprecated: See EndpointResolverWithOptions
 	EndpointResolver aws.EndpointResolver
+
+	// EndpointResolverWithOptions that can be used to provide or override an endpoint for the given
+	// service and region.
+	//
+	// See the `aws.EndpointResolverWithOptions` documentation on usage.
+	EndpointResolverWithOptions aws.EndpointResolverWithOptions
 
 	// Retryer is a function that provides a Retryer implementation. A Retryer guides how HTTP requests should be
 	// retried in case of recoverable failures.
@@ -533,12 +543,33 @@ func (o LoadOptions) getEndpointResolver(ctx context.Context) (aws.EndpointResol
 }
 
 // WithEndpointResolver is a helper function to construct functional options
-// that sets endpoint resolver on LoadOptions. The EndpointResolver is set to nil,
+// that sets the EndpointResolver on LoadOptions. If the EndpointResolver is set to nil,
 // the EndpointResolver value is ignored. If multiple WithEndpointResolver calls
 // are made, the last call overrides the previous call values.
+//
+// Deprecated: See WithEndpointResolverWithOptions
 func WithEndpointResolver(v aws.EndpointResolver) LoadOptionsFunc {
 	return func(o *LoadOptions) error {
 		o.EndpointResolver = v
+		return nil
+	}
+}
+
+func (o LoadOptions) getEndpointResolverWithOptions(ctx context.Context) (aws.EndpointResolverWithOptions, bool, error) {
+	if o.EndpointResolverWithOptions == nil {
+		return nil, false, nil
+	}
+
+	return o.EndpointResolverWithOptions, true, nil
+}
+
+// WithEndpointResolverWithOptions is a helper function to construct functional options
+// that sets the EndpointResolverWithOptions on LoadOptions. If the EndpointResolverWithOptions is set to nil,
+// the EndpointResolver value is ignored. If multiple WithEndpointResolver calls
+// are made, the last call overrides the previous call values.
+func WithEndpointResolverWithOptions(v aws.EndpointResolverWithOptions) LoadOptionsFunc {
+	return func(o *LoadOptions) error {
+		o.EndpointResolverWithOptions = v
 		return nil
 	}
 }

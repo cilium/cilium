@@ -48,13 +48,13 @@ type ModifyInstanceMetadataOptionsInput struct {
 	// UnauthorizedOperation.
 	DryRun *bool
 
-	// This parameter enables or disables the HTTP metadata endpoint on your instances.
-	// If the parameter is not specified, the existing state is maintained. If you
-	// specify a value of disabled, you will not be able to access your instance
-	// metadata.
+	// Enables or disables the HTTP metadata endpoint on your instances. If the
+	// parameter is not specified, the existing state is maintained. If you specify a
+	// value of disabled, you cannot access your instance metadata.
 	HttpEndpoint types.InstanceMetadataEndpointState
 
-	// Enables or disables the IPv6 endpoint for the instance metadata service.
+	// Enables or disables the IPv6 endpoint for the instance metadata service. This
+	// setting applies only if you have enabled the HTTP metadata endpoint.
 	HttpProtocolIpv6 types.InstanceMetadataProtocolState
 
 	// The desired HTTP PUT response hop limit for instance metadata requests. The

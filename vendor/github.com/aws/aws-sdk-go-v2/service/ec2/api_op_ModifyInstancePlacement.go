@@ -73,7 +73,8 @@ type ModifyInstancePlacementInput struct {
 	// The ARN of the host resource group in which to place the instance.
 	HostResourceGroupArn *string
 
-	// Reserved for future use.
+	// The number of the partition in which to place the instance. Valid only if the
+	// placement group strategy is set to partition.
 	PartitionNumber *int32
 
 	// The tenancy for the instance. For T3 instances, you can't change the tenancy
