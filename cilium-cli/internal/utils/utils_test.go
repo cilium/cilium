@@ -48,34 +48,68 @@ func TestCheckVersion(t *testing.T) {
 }
 
 func TestBuildImagePath(t *testing.T) {
+	defaultImage := "quay.io/cilium/cilium:v1.10.4@sha256:7d354052ccf2a7445101d78cebd14444c7c40129ce7889f2f04b89374dbf8a1d"
 	tests := []struct {
-		userImage      string
-		defaultImage   string
-		userVersion    string
-		defaultVersion string
-		want           string
+		userImage     string
+		userVersion   string
+		imagePathMode ImagePathMode
+		want          string
 	}{
-		{"", "", "", "", ":"},
-		{"", "", "", "v1.10.4", ":v1.10.4"},
-		{"", "", "v1.9.10", "v1.10.4", ":v1.9.10"},
-		{"", "", "1.11.0-rc1", "v1.10.4", ":v1.11.0-rc1"},
-		{"", "quay.io/cilium/cilium", "", "v1.10.4", "quay.io/cilium/cilium:v1.10.4"},
-		{"", "quay.io/cilium/cilium", "v1.9.10", "v1.10.4", "quay.io/cilium/cilium:v1.9.10"},
-		{"", "quay.io/cilium/cilium", "1.9.10", "v1.10.4", "quay.io/cilium/cilium:v1.9.10"},
-		{"", "quay.io/cilium/cilium", ":latest", "v1.10.4", "quay.io/cilium/cilium:latest"},
-		{"", "quay.io/cilium/cilium", "-ci:92ff7ffa762f6f8bc397a28e6f3147906e20e8fa", "v1.10.4", "quay.io/cilium/cilium-ci:92ff7ffa762f6f8bc397a28e6f3147906e20e8fa"},
-		{"quay.io/cilium/cilium-ci", "quay.io/cilium/cilium", "v1.9.10", "v1.10.4", "quay.io/cilium/cilium-ci:v1.9.10"},
-		{"quay.io/cilium/cilium-ci", "quay.io/cilium/cilium", "latest", "v1.10.4", "quay.io/cilium/cilium-ci:latest"},
-		{"quay.io/cilium/cilium-ci", "quay.io/cilium/cilium", ":latest", "v1.10.4", "quay.io/cilium/cilium-ci:latest"},
-		{"quay.io/cilium/cilium-ci:92ff7ffa762f6f8bc397a28e6f3147906e20e8fa", "quay.io/cilium/cilium", "", "v1.10.4", "quay.io/cilium/cilium-ci:92ff7ffa762f6f8bc397a28e6f3147906e20e8fa"},
-		{"quay.io/cilium/cilium-ci:92ff7ffa762f6f8bc397a28e6f3147906e20e8fa", "quay.io/cilium/cilium", "foobar", "v1.10.4", "quay.io/cilium/cilium-ci:92ff7ffa762f6f8bc397a28e6f3147906e20e8fa"},
+		{
+			userVersion:   "",
+			imagePathMode: ImagePathIncludeDigest,
+			want:          "quay.io/cilium/cilium:v1.10.4@sha256:7d354052ccf2a7445101d78cebd14444c7c40129ce7889f2f04b89374dbf8a1d",
+		},
+		{
+			userVersion: "",
+			want:        "quay.io/cilium/cilium:v1.10.4",
+		},
+		{
+			userVersion: "v1.9.10",
+			want:        "quay.io/cilium/cilium:v1.9.10",
+		},
+		{
+			userVersion: "1.9.10",
+			want:        "quay.io/cilium/cilium:v1.9.10",
+		},
+		{
+			userVersion: "-ci:92ff7ffa762f6f8bc397a28e6f3147906e20e8fa",
+			want:        "quay.io/cilium/cilium-ci:92ff7ffa762f6f8bc397a28e6f3147906e20e8fa",
+		},
+		{
+			userVersion: ":latest",
+			want:        "quay.io/cilium/cilium:latest",
+		},
+		{
+			userImage:   "quay.io/cilium/cilium-ci",
+			userVersion: "v1.9.10",
+			want:        "quay.io/cilium/cilium-ci:v1.9.10",
+		},
+		{
+			userImage:   "quay.io/cilium/cilium-ci",
+			userVersion: "latest",
+			want:        "quay.io/cilium/cilium-ci:latest",
+		},
+		{
+			userImage: "quay.io/cilium/cilium-ci:92ff7ffa762f6f8bc397a28e6f3147906e20e8fa",
+			want:      "quay.io/cilium/cilium-ci:92ff7ffa762f6f8bc397a28e6f3147906e20e8fa",
+		},
+		{
+			userVersion:   "v1.11.0",
+			imagePathMode: ImagePathIncludeDigest,
+			want:          "quay.io/cilium/cilium:v1.11.0@sha256:ea677508010800214b0b5497055f38ed3bff57963fa2399bcb1c69cf9476453a",
+		},
+		{
+			userVersion: "v1.11.0",
+			want:        "quay.io/cilium/cilium:v1.11.0",
+		},
 	}
 	for _, tt := range tests {
-		ui, di, uv, dv := tt.userImage, tt.defaultImage, tt.userVersion, tt.defaultVersion
-		fn := fmt.Sprintf("BuildImagePath(%q, %q, %q, %q)", ui, di, uv, dv)
+		ui, uv, di, ipm := tt.userImage, tt.userVersion, defaultImage, tt.imagePathMode
+		fn := fmt.Sprintf("BuildImagePath(%q, %q, %q, %v)", ui, uv, di, ipm)
 		t.Run(fn, func(t *testing.T) {
-			if got := BuildImagePath(ui, di, uv, dv); got != tt.want {
-				t.Errorf("%s = %q, want %q", fn, got, tt.want)
+			if got := BuildImagePath(ui, uv, di, ipm); got != tt.want {
+				t.Errorf("%s == %q, want %q", fn, got, tt.want)
 			}
 		})
 	}

@@ -101,7 +101,7 @@ func (k *K8sHubble) generateRelayDeployment() *appsv1.Deployment {
 							Args: []string{
 								"serve",
 							},
-							Image:           k.relayImage(),
+							Image:           k.relayImage(utils.ImagePathIncludeDigest),
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Ports: []corev1.ContainerPort{
 								{
@@ -236,8 +236,9 @@ disable-server-tls: true
 	}
 }
 
-func (k *K8sHubble) relayImage() string {
-	return utils.BuildImagePath(k.params.RelayImage, defaults.RelayImage, k.params.RelayVersion, k.ciliumVersion)
+func (k *K8sHubble) relayImage(imagePathMode utils.ImagePathMode) string {
+	defaultImage := defaults.RelayImage + ":" + k.ciliumVersion
+	return utils.BuildImagePath(k.params.RelayImage, k.params.RelayVersion, defaultImage, imagePathMode)
 }
 
 func (k *K8sHubble) disableRelay(ctx context.Context) error {
@@ -267,7 +268,7 @@ func (k *K8sHubble) enableRelay(ctx context.Context) error {
 
 	//	k.Log("✨ Generating certificates...")
 
-	k.Log("✨ Deploying Relay from %s...", k.relayImage())
+	k.Log("✨ Deploying Relay from %s...", k.relayImage(utils.ImagePathExcludeDigest))
 	if _, err := k.client.CreateConfigMap(ctx, k.params.Namespace, k.generateRelayConfigMap(), metav1.CreateOptions{}); err != nil {
 		return err
 	}
