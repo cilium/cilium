@@ -34,8 +34,10 @@ var defaultAWSConfigResolvers = []awsConfigResolver{
 
 	// Sets the endpoint resolving behavior the API Clients will use for making
 	// requests to. Clients default to their own clients this allows overrides
-	// to be specified.
+	// to be specified. The resolveEndpointResolver option is deprecated, but we still need to set it for
+	// backwards compatability on config construction.
 	resolveEndpointResolver,
+	resolveEndpointResolverWithOptions,
 
 	// Sets the retry behavior API clients will use within their retry attempt
 	// middleware. Defaults to unset, allowing API clients to define their own
