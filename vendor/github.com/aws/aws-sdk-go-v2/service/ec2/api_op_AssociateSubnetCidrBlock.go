@@ -46,7 +46,7 @@ type AssociateSubnetCidrBlockInput struct {
 
 type AssociateSubnetCidrBlockOutput struct {
 
-	// Information about the IPv6 CIDR block association.
+	// Information about the IPv6 association.
 	Ipv6CidrBlockAssociation *types.SubnetIpv6CidrBlockAssociation
 
 	// The ID of the subnet.

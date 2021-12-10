@@ -47,17 +47,15 @@ func (c *Client) CreateVpc(ctx context.Context, params *CreateVpcInput, optFns .
 
 type CreateVpcInput struct {
 
-	// The IPv4 network range for the VPC, in CIDR notation. For example, 10.0.0.0/16.
-	// We modify the specified CIDR block to its canonical form; for example, if you
-	// specify 100.68.0.18/18, we modify it to 100.68.0.0/18.
-	//
-	// This member is required.
-	CidrBlock *string
-
 	// Requests an Amazon-provided IPv6 CIDR block with a /56 prefix length for the
 	// VPC. You cannot specify the range of IP addresses, or the size of the CIDR
 	// block.
 	AmazonProvidedIpv6CidrBlock *bool
+
+	// The IPv4 network range for the VPC, in CIDR notation. For example, 10.0.0.0/16.
+	// We modify the specified CIDR block to its canonical form; for example, if you
+	// specify 100.68.0.18/18, we modify it to 100.68.0.0/18.
+	CidrBlock *string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
@@ -74,6 +72,15 @@ type CreateVpcInput struct {
 	// only. Default: default
 	InstanceTenancy types.Tenancy
 
+	// The ID of an IPv4 IPAM pool you want to use for allocating this VPC's CIDR. For
+	// more information, see What is IPAM? in the Amazon VPC IPAM User Guide.
+	Ipv4IpamPoolId *string
+
+	// The netmask length of the IPv4 CIDR you want to allocate to this VPC from an
+	// Amazon VPC IP Address Manager (IPAM) pool. For more information about IPAM, see
+	// What is IPAM? in the Amazon VPC IPAM User Guide.
+	Ipv4NetmaskLength *int32
+
 	// The IPv6 CIDR block from the IPv6 address pool. You must also specify Ipv6Pool
 	// in the request. To let Amazon choose the IPv6 CIDR block for you, omit this
 	// parameter.
@@ -83,6 +90,19 @@ type CreateVpcInput struct {
 	// parameter to limit the address to this location. You must set
 	// AmazonProvidedIpv6CidrBlock to true to use this parameter.
 	Ipv6CidrBlockNetworkBorderGroup *string
+
+	// The ID of an IPv6 IPAM pool which will be used to allocate this VPC an IPv6
+	// CIDR. IPAM is a VPC feature that you can use to automate your IP address
+	// management workflows including assigning, tracking, troubleshooting, and
+	// auditing IP addresses across Amazon Web Services Regions and accounts throughout
+	// your Amazon Web Services Organization. For more information, see What is IPAM?
+	// in the Amazon VPC IPAM User Guide.
+	Ipv6IpamPoolId *string
+
+	// The netmask length of the IPv6 CIDR you want to allocate to this VPC from an
+	// Amazon VPC IP Address Manager (IPAM) pool. For more information about IPAM, see
+	// What is IPAM? in the Amazon VPC IPAM User Guide.
+	Ipv6NetmaskLength *int32
 
 	// The ID of an IPv6 address pool from which to allocate the IPv6 CIDR block.
 	Ipv6Pool *string
@@ -147,9 +167,6 @@ func (c *Client) addOperationCreateVpcMiddlewares(stack *middleware.Stack, optio
 		return err
 	}
 	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addOpCreateVpcValidationMiddleware(stack); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateVpc(options.Region), middleware.Before); err != nil {
