@@ -293,7 +293,7 @@ func (k *K8sInstaller) generateAgentDaemonSet() *appsv1.DaemonSet {
 							Name:            defaults.AgentContainerName,
 							Command:         []string{"cilium-agent"},
 							Args:            []string{"--config-dir=/tmp/cilium/config-map"},
-							Image:           k.fqAgentImage(),
+							Image:           k.fqAgentImage(utils.ImagePathIncludeDigest),
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							LivenessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
@@ -476,7 +476,7 @@ func (k *K8sInstaller) generateAgentDaemonSet() *appsv1.DaemonSet {
 						{
 							Name:            "clean-cilium-state",
 							Command:         []string{"/init-container.sh"},
-							Image:           k.fqAgentImage(),
+							Image:           k.fqAgentImage(utils.ImagePathIncludeDigest),
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Env: []corev1.EnvVar{
 								{
@@ -684,7 +684,7 @@ func (k *K8sInstaller) generateAgentDaemonSet() *appsv1.DaemonSet {
 	case k8s.KindGKE:
 		nodeInitContainers = append(nodeInitContainers, corev1.Container{
 			Name:            "wait-for-node-init",
-			Image:           k.fqAgentImage(),
+			Image:           k.fqAgentImage(utils.ImagePathIncludeDigest),
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Command:         []string{"sh", "-c", `until stat /tmp/cilium-bootstrap/time > /dev/null 2>&1; do echo "Waiting for GKE node-init to run..."; sleep 1; done`},
 			VolumeMounts: []corev1.VolumeMount{
@@ -710,7 +710,7 @@ func (k *K8sInstaller) generateAgentDaemonSet() *appsv1.DaemonSet {
 	mountCmd := `mount | grep "/sys/fs/bpf type bpf" || { echo "Mounting eBPF filesystem..."; mount bpffs /sys/fs/bpf -t bpf; }`
 	nodeInitContainers = append(nodeInitContainers, corev1.Container{
 		Name:            "ebpf-mount",
-		Image:           k.fqAgentImage(),
+		Image:           k.fqAgentImage(utils.ImagePathIncludeDigest),
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Command:         []string{"nsenter", "--mount=/hostproc/1/ns/mnt", "--", "sh", "-c", mountCmd},
 		SecurityContext: &corev1.SecurityContext{
@@ -826,7 +826,7 @@ func (k *K8sInstaller) generateOperatorDeployment() *appsv1.Deployment {
 							Name:            "cilium-operator",
 							Command:         k.operatorCommand(),
 							Args:            []string{"--config-dir=/tmp/cilium/config-map"},
-							Image:           k.fqOperatorImage(),
+							Image:           k.fqOperatorImage(utils.ImagePathIncludeDigest),
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Env: []corev1.EnvVar{
 								{
@@ -1141,20 +1141,21 @@ func (k *K8sInstaller) daemonRunPathOnHost() string {
 	return "/var/run/cilium"
 }
 
-func (k *K8sInstaller) fqAgentImage() string {
-	return utils.BuildImagePath(k.params.AgentImage, defaults.AgentImage, k.params.Version, defaults.Version)
+func (k *K8sInstaller) fqAgentImage(imagePathMode utils.ImagePathMode) string {
+	defaultImage := defaults.AgentImage + ":" + defaults.Version
+	return utils.BuildImagePath(k.params.AgentImage, k.params.Version, defaultImage, imagePathMode)
 }
 
-func (k *K8sInstaller) fqOperatorImage() string {
-	defaultImage := defaults.OperatorImage
+func (k *K8sInstaller) fqOperatorImage(imagePathMode utils.ImagePathMode) string {
+	defaultImage := defaults.OperatorImage + ":" + defaults.Version
 	switch k.params.DatapathMode {
 	case DatapathAwsENI:
-		defaultImage = defaults.OperatorImageAWS
+		defaultImage = defaults.OperatorImageAWS + ":" + defaults.Version
 	case DatapathAzure:
-		defaultImage = defaults.OperatorImageAzure
+		defaultImage = defaults.OperatorImageAzure + ":" + defaults.Version
 	}
 
-	return utils.BuildImagePath(k.params.OperatorImage, defaultImage, k.params.Version, defaults.Version)
+	return utils.BuildImagePath(k.params.OperatorImage, k.params.Version, defaultImage, imagePathMode)
 }
 
 func (k *K8sInstaller) operatorCommand() []string {

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/internal/utils"
 	"github.com/cilium/cilium-cli/status"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,11 +37,12 @@ func (k *K8sInstaller) Upgrade(ctx context.Context) error {
 
 	var patched int
 
-	if deployment.Spec.Template.Spec.Containers[0].Image == k.fqOperatorImage() {
+	if deployment.Spec.Template.Spec.Containers[0].Image == k.fqOperatorImage(utils.ImagePathIncludeDigest) ||
+		deployment.Spec.Template.Spec.Containers[0].Image == k.fqOperatorImage(utils.ImagePathExcludeDigest) {
 		k.Log("✅ cilium-operator is already up to date")
 	} else {
-		k.Log("🚀 Upgrading cilium-operator to version %s...", k.fqOperatorImage())
-		patch := []byte(`{"spec":{"template":{"spec":{"containers":[{"name": "cilium-operator", "image":"` + k.fqOperatorImage() + `"}]}}}}`)
+		k.Log("🚀 Upgrading cilium-operator to version %s...", k.fqOperatorImage(utils.ImagePathExcludeDigest))
+		patch := []byte(`{"spec":{"template":{"spec":{"containers":[{"name": "cilium-operator", "image":"` + k.fqOperatorImage(utils.ImagePathIncludeDigest) + `"}]}}}}`)
 
 		_, err = k.client.PatchDeployment(ctx, k.params.Namespace, defaults.OperatorDeploymentName, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
 		if err != nil {
@@ -50,7 +52,7 @@ func (k *K8sInstaller) Upgrade(ctx context.Context) error {
 		patched++
 	}
 
-	agentImage := k.fqAgentImage()
+	agentImage := k.fqAgentImage(utils.ImagePathIncludeDigest)
 	var containerPatches []string
 	for _, c := range daemonSet.Spec.Template.Spec.Containers {
 		if c.Image != agentImage {
@@ -67,7 +69,7 @@ func (k *K8sInstaller) Upgrade(ctx context.Context) error {
 	if len(containerPatches) == 0 && len(initContainerPatches) == 0 {
 		k.Log("✅ Cilium is already up to date")
 	} else {
-		k.Log("🚀 Upgrading cilium to version %s...", k.fqAgentImage())
+		k.Log("🚀 Upgrading cilium to version %s...", k.fqAgentImage(utils.ImagePathExcludeDigest))
 
 		patch := []byte(`{"spec":{"template":{"spec":{"containers":[` + strings.Join(containerPatches, ",") + `], "initContainers":[` + strings.Join(initContainerPatches, ",") + `]}}}}`)
 		_, err = k.client.PatchDaemonSet(ctx, k.params.Namespace, defaults.AgentDaemonSetName, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
