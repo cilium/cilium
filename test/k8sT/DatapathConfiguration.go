@@ -377,12 +377,11 @@ var _ = Describe("K8sDatapathConfig", func() {
 		)
 
 		installConfig := func(cidrsInYaml string) {
-			ns := helpers.GetCiliumNamespace(helpers.GetCurrentIntegration())
 			kubectl.ExecMiddle(fmt.Sprintf("echo 'nonMasqueradeCIDRs:\n%s' > %s",
 				cidrsInYaml, tmpConfigMapPath)).ExpectSuccess()
 			kubectl.CreateResource("configmap",
 				fmt.Sprintf("ip-masq-agent --from-file=%s --namespace=%s -o yaml --dry-run=client > %s",
-					tmpConfigMapDirPath, ns, tmpConfigYAMLPath)).
+					tmpConfigMapDirPath, helpers.CiliumNamespace, tmpConfigYAMLPath)).
 				ExpectSuccess("Failed to create ip-masq-agent configmap file")
 			kubectl.ApplyDefault(tmpConfigYAMLPath).ExpectSuccess("Failed to apply configmap")
 		}
@@ -423,8 +422,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 
 		AfterAll(func() {
-			ns := helpers.GetCiliumNamespace(helpers.GetCurrentIntegration())
-			kubectl.DeleteResource("configmap", fmt.Sprintf("ip-masq-agent --namespace=%s", ns))
+			kubectl.DeleteResource("configmap", fmt.Sprintf("ip-masq-agent --namespace=%s", helpers.CiliumNamespace))
 
 			if tmpEchoPodPath != "" {
 				kubectl.Delete(tmpEchoPodPath)

@@ -297,12 +297,6 @@ func IsIntegration(integration string) bool {
 	return GetCurrentIntegration() == integration
 }
 
-// GetCiliumNamespace returns the namespace into which cilium should be
-// installed for this integration.
-func GetCiliumNamespace(integration string) string {
-	return CiliumNamespaceDefault
-}
-
 // Kubectl is a wrapper around an SSHMeta. It is used to run Kubernetes-specific
 // commands on the node which is accessible via the SSH metadata stored in its
 // SSHMeta.
