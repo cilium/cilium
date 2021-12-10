@@ -19,8 +19,17 @@ func CheckVersion(version string) bool {
 	return versionRegexp(version)
 }
 
+type ImagePathMode int
+
+const (
+	ImagePathExcludeDigest ImagePathMode = iota
+	ImagePathIncludeDigest
+)
+
+var imageRegexp = regexp.MustCompile(`\A(.*?)(?:(:.*?)(@sha256:[0-9a-f]{64})?)?\z`)
+
 // BuildImagePath builds a fully-qualified image path from the given
-// default and user image and version.
+// user image and version and default image.
 //
 // NOTE: Currently 'userVersion' is never passed as an empty string as
 // it is defaulted on the CLI interface to the default version.
@@ -31,33 +40,48 @@ func CheckVersion(version string) bool {
 // colon 'userVersion' is always prepended with 'v' if it is missing.
 // This is also useful for postfixing the image name with "-ci", for
 // example ("--version -ci:4fac771179959ca575eb6f993d566653d3bfa167").
-func BuildImagePath(userImage, defaultImage, userVersion, defaultVersion string) string {
-	if userImage == "" {
-		switch {
-		case userVersion == "":
-			// ':' in defaultVersion?
-			if strings.Contains(defaultVersion, ":") {
-				return defaultImage + defaultVersion
-			}
-			return defaultImage + ":" + defaultVersion
-		case strings.Contains(userVersion, ":"):
-			// userVersion already contains the colon. Useful for ":latest",
-			// or for "-ci:<hash>"
-			return defaultImage + userVersion
-		case !strings.HasPrefix(userVersion, "v"):
-			return defaultImage + ":" + "v" + userVersion
+//
+// If imagePathMode is ImagePathIncludeDigest and the resulting image is well
+// known (i.e. is in defaults.WellKnownImageDigests) then its digest is appended
+// to the path.
+func BuildImagePath(userImage, userVersion, defaultImage string, imagePathMode ImagePathMode) string {
+	m := imageRegexp.FindStringSubmatch(defaultImage)
+	if m == nil {
+		panic(fmt.Sprintf("invalid syntax %q for image", defaultImage))
+	}
+	defaultPath := m[1]
+
+	var image string
+	switch {
+	case userImage == "" && userVersion == "":
+		image = defaultImage
+	case userImage == "" && strings.Contains(userVersion, ":"):
+		// userVersion already contains the colon. Useful for ":latest",
+		// or for "-ci:<hash>"
+		image = defaultPath + userVersion
+	case userImage == "" && !strings.HasPrefix(userVersion, "v"):
+		image = defaultPath + ":v" + userVersion
+	case userImage == "":
+		image = defaultPath + ":" + userVersion
+	case strings.Contains(userImage, ":"):
+		// Fully-qualified userImage?
+		image = userImage
+	case strings.Contains(userVersion, ":"):
+		// ':' in userVersion?
+		image = userImage + userVersion
+	default:
+		image = userImage + ":" + userVersion
+	}
+
+	switch imagePathMode {
+	case ImagePathIncludeDigest:
+		image = image + defaults.WellKnownImageDigests[image]
+	case ImagePathExcludeDigest:
+		if m := imageRegexp.FindStringSubmatch(image); m != nil {
+			image = m[1] + m[2]
 		}
-		return defaultImage + ":" + userVersion
 	}
-	// Fully-qualified userImage?
-	if strings.Contains(userImage, ":") {
-		return userImage
-	}
-	// ':' in userVersion?
-	if strings.Contains(userVersion, ":") {
-		return userImage + userVersion
-	}
-	return userImage + ":" + userVersion
+	return image
 }
 
 type LogFunc func(err error, waitTime string)

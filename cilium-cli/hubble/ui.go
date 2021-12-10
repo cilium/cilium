@@ -188,7 +188,7 @@ func (k *K8sHubble) generateHubbleUIDeployment() *appsv1.Deployment {
 					Containers: []corev1.Container{
 						{
 							Name:            "frontend",
-							Image:           k.uiImage(),
+							Image:           k.uiImage(utils.ImagePathIncludeDigest),
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Ports: []corev1.ContainerPort{
 								{
@@ -199,7 +199,7 @@ func (k *K8sHubble) generateHubbleUIDeployment() *appsv1.Deployment {
 						},
 						{
 							Name:            "backend",
-							Image:           k.uiBackendImage(),
+							Image:           k.uiBackendImage(utils.ImagePathIncludeDigest),
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Env: []corev1.EnvVar{
 								{Name: "EVENTS_SERVER_PORT", Value: "8090"},
@@ -256,12 +256,14 @@ func (k *K8sHubble) generateHubbleUIDeployment() *appsv1.Deployment {
 	return d
 }
 
-func (k *K8sHubble) uiImage() string {
-	return utils.BuildImagePath(k.params.UIImage, defaults.HubbleUIImage, k.params.UIVersion, defaults.HubbleUIVersion)
+func (k *K8sHubble) uiImage(imagePathMode utils.ImagePathMode) string {
+	defaultImage := defaults.HubbleUIImage + ":" + defaults.HubbleUIVersion
+	return utils.BuildImagePath(k.params.UIImage, k.params.UIVersion, defaultImage, imagePathMode)
 }
 
-func (k *K8sHubble) uiBackendImage() string {
-	return utils.BuildImagePath(k.params.UIBackendImage, defaults.HubbleUIBackendImage, k.params.UIVersion, defaults.HubbleUIVersion)
+func (k *K8sHubble) uiBackendImage(imagePathMode utils.ImagePathMode) string {
+	defaultImage := defaults.HubbleUIBackendImage + ":" + defaults.HubbleUIVersion
+	return utils.BuildImagePath(k.params.UIBackendImage, k.params.UIVersion, defaultImage, imagePathMode)
 }
 
 func (k *K8sHubble) disableUI(ctx context.Context) error {
@@ -283,7 +285,7 @@ func (k *K8sHubble) enableUI(ctx context.Context) error {
 		return nil
 	}
 
-	k.Log("✨ Deploying Hubble UI from %s and Hubble UI Backend from %s...", k.uiImage(), k.uiBackendImage())
+	k.Log("✨ Deploying Hubble UI from %s and Hubble UI Backend from %s...", k.uiImage(utils.ImagePathExcludeDigest), k.uiBackendImage(utils.ImagePathExcludeDigest))
 	if _, err := k.client.CreateConfigMap(ctx, k.params.Namespace, k.generateHubbleUIConfigMap(), metav1.CreateOptions{}); err != nil {
 		return err
 	}
