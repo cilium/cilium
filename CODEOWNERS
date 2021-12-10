@@ -31,9 +31,17 @@
 # after the less specific paths, otherwise the ownership for the specific paths
 # is not properly picked up in Github.
 * @cilium/tophat
+/AUTHORS @cilium/tophat
+/CODE_OF_CONDUCT.md @cilium/contributing
 /CODEOWNERS @cilium/contributing
+/CONTRIBUTING.md @cilium/contributing
+/.authors.aux @cilium/tophat
+/.gitattributes @cilium/tophat
 /.github/ @cilium/contributing
 /.github/workflows/ @cilium/github-sec @cilium/ci-structure
+/.gitignore @cilium/tophat
+/.golangci.yaml @cilium/ci-structure
+/.mailmap @cilium/tophat
 /.travis/ @cilium/ci-structure
 /.travis.yml @cilium/ci-structure
 /api/ @cilium/api
@@ -50,11 +58,13 @@ Makefile* @cilium/build
 /bpf/init.sh @cilium/loader
 /bpf/custom/Makefile* @cilium/build @cilium/loader
 /bpf/sockops/Makefile* @cilium/build @cilium/loader
+/bugtool/ @cilium/tophat
 /bugtool/cmd/ @cilium/cli
 /cilium/ @cilium/cli
 /cilium/cmd/preflight_k8s_valid_cnp.go @cilium/kubernetes
 /cilium-health/ @cilium/health
 /cilium-health/cmd/ @cilium/health @cilium/cli
+/clustermesh-apiserver @cilium/tophat
 /contrib/ @cilium/contributing
 /contrib/packaging/ @cilium/build
 /contrib/vagrant/ @cilium/contributing
@@ -134,13 +144,20 @@ Makefile* @cilium/build
 /examples/ @cilium/docs-structure
 /examples/kubernetes/ @cilium/kubernetes
 /examples/minikube/ @cilium/kubernetes
+/FURTHER_READINGS.rst @cilium/docs-structure
+/hack/ @cilium/tophat
+/GO_VERSION @cilium/agent
 *.Jenkinsfile @cilium/ci-structure
 /hubble-relay/ @cilium/hubble
 /images @cilium/build
 /install/kubernetes/ @cilium/kubernetes @cilium/helm
 /install/kubernetes/cilium/templates/hubble* @cilium/kubernetes @cilium/helm @cilium/hubble
 jenkinsfiles @cilium/ci-structure
+/LICENSE @cilium/tophat
+/MAINTAINERS.md @cilium/contributing
+/netlify.toml @cilium/ci-structure
 /operator/ @cilium/operator
+/pkg/ @cilium/tophat
 /pkg/annotation @cilium/kubernetes
 /pkg/alibabacloud/ @cilium/alibabacloud
 /pkg/api/ @cilium/api
@@ -224,6 +241,8 @@ jenkinsfiles @cilium/ci-structure
 /plugins/cilium-docker/ @cilium/docker
 /proxylib/ @cilium/proxy
 /README.rst @cilium/docs-structure
+/SECURITY.md @cilium/contributing
+/stable.txt @cilium/tophat
 /test/ @cilium/ci-structure
 /test/Makefile* @cilium/ci-structure @cilium/build
 # Service handling tests
@@ -268,9 +287,11 @@ jenkinsfiles @cilium/ci-structure
 /test/runtime/chaos_agent.go @cilium/agent @cilium/ci-structure
 /test/runtime/chaos_endpoint.go @cilium/endpoint @cilium/ci-structure
 /tools/ @cilium/contributing
+/USERS.md @cilium/tophat
 Vagrantfile @cilium/ci-structure
 /Vagrantfile @cilium/contributing
 /go.sum @cilium/vendor
 /go.mod @cilium/vendor
 /vagrant_box_defaults.rb @cilium/ci-structure
 /vendor/ @cilium/vendor
+/VERSION @cilium/tophat
