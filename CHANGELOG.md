@@ -1,5 +1,93 @@
 # Changelog
 
+## v1.10.6
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* datapath,daemon: Enable multi-dev XDP (Backport PR #18066, Upstream PR #17655, @brb)
+* helm: Disable BPF masquerading in v1.10+ (Backport PR #17985, Upstream PR #17824, @pchaigno)
+* Reduce bugtool memory usage (Backport PR #17861, Upstream PR #17546, @tklauser)
+* service: Always allocate higher ID for svc/backend (Backport PR #18146, Upstream PR #18113, @brb)
+
+**Bugfixes:**
+* Adds an `ACCEPT` rule for untracked pkts in `filter:CILIUM_OUTPUT` (Backport PR #17861, Upstream PR #17585, @Weil0ng)
+* bpf: exclude pod's reply traffic from egress gateway logic (Backport PR #17985, Upstream PR #17869, @jibi)
+* bug/pkg/health: Fix Nil Address Issue in Node Update Mechanism (Backport PR #17861, Upstream PR #17667, @nathanjsweet)
+* bugtool: fix data race occurring when running commands (Backport PR #17985, Upstream PR #17916, @rolinh)
+* bugtool: fix IP route debug gathering commands (Backport PR #18066, Upstream PR #18059, @tklauser)
+* daemon, node: Remove old, discarded router IPs from `cilium_host` (Backport PR #18088, Upstream PR #17762, @christarazi)
+* Define operator feature flags to allow the operator to register related CRDs. (Backport PR #17861, Upstream PR #17772, @pchaigno)
+* egressgateway: Allow several CENPs with same egress IP (Backport PR #17861, Upstream PR #17773, @pchaigno)
+* egressgateway: fix manager logic (Backport PR #18082, Upstream PR #17813, @jibi)
+* Fix bug where the agents would silently skip all IPv6 masquerading due to an incorrect configuration. (Backport PR #17985, Upstream PR #17906, @pchaigno)
+* Fix identity leak via FQDN selectors (Backport PR #17861, #17987, #18189, Upstream PRs #17699, #17788, #18166, @joestringer)
+* Fix incorrect application of egress gateway policy to internal cluster traffic. Require  a 5.2 kernel or later for the egress gateway policy feature. (Backport PR #17861, Upstream PR #17639, @kkourt)
+* Fix issue where local host IPs may be briefly associated with the remote-node identity, causing policy drops when policy should allow traffic from the host. (Backport PR #17861, Upstream PR #17836, @joestringer)
+* Fix several complexity and program size issues when only one of IPv4/IPv6 is enabled. (Backport PR #17652, Upstream PR #17573, @pchaigno)
+* Fixes an issue which can cause traffic to be dropped when running Cilium in ENI mode due to the presence of iptables rules left over by the AWS VPC CNI plugin. Notable features that could be impacted include the egress gateway functionality. (Backport PR #17985, Upstream PR #17845, @bmcustodio)
+* Fixes for IPsec and endpoint routes (Backport PR #17985, Upstream PR #17865, @kkourt)
+* node-init: cleanup snat iptables rules when running in eni mode with masquerading disabled (Backport PR #17861, Upstream PR #16840, @bmcustodio)
+* node: Skip ipcache for remote node IPs if IPsec is enabled (Backport PR #17652, Upstream PR #17511, @pchaigno)
+
+**CI Changes:**
+* .github: Fix codeQL workflow skip logic (Backport PR #17625, Upstream PR #17587, @joestringer)
+* aks: fix AKS cluster creation following new taint limitations (Backport PR #17625, Upstream PR #17529, @nbusseneau)
+* bpf/Makefile: Enable setting complexity options (Backport PR #17625, Upstream PR #17364, @pchaigno)
+* bpf: Add WireGuard to complexity and compile tests (Backport PR #18146, Upstream PR #18048, @pchaigno)
+* ci: Restart pods when toggling KPR switch (Backport PR #18146, Upstream PR #18031, @brb)
+* k8sT/Egress: fixes (Backport PR #17625, Upstream PR #17581, @kkourt)
+* mlh: switch runtime from kernel 4.9 to net-next (#18096, @nbusseneau)
+* test/contrib: Bump CoreDNS version to 1.8.3 (Backport PR #18146, Upstream PR #18018, @brb)
+* test/K8sVerifier: Cover several datapath configurations (Backport PR #17652, Upstream PR #17470, @pchaigno)
+* test: Do not require netpols in 'waitNextPolicyRevisions()' (Backport PR #17861, Upstream PR #17769, @jrajahalme)
+* test: Extend coredns clusterrole with additional resource permissions (Backport PR #18146, Upstream PR #18104, @aditighag)
+* test: Fix incorrect selector for netperf-service (Backport PR #18146, Upstream PR #18006, @christarazi)
+* test: use stable zookeeper image (Backport PR #18210, Upstream PR #18186, @tklauser)
+* workflows: Fix use of paths-filter on master pushes (Backport PR #17652, Upstream PR #16507, @pchaigno)
+* workflows: Run CodeQL workflow is the workflow is edited (Backport PR #18189, Upstream PR #17982, @pchaigno)
+
+**Misc Changes:**
+* .github: Increase reporting threshold for new flakes (Backport PR #17861, Upstream PR #17812, @pchaigno)
+* .github: Rename `project/ci-force` to `ci/flake` (Backport PR #17861, Upstream PR #17344, @pchaigno)
+* Adds a warning in the upgrade doc about split cluster (Backport PR #17861, Upstream PR #17755, @Weil0ng)
+* Allow to add custom labels to ServiceMonitors cilium-agent, cilium-operator, hubble in the Cilium Helm chart. (Backport PR #17746, Upstream PR #17509, @canhnt)
+* bpf: Refactoring egress gateway datapath (Backport PR #17985, Upstream PR #17868, @pchaigno)
+* build(deps): bump 8398a7/action-slack from 3.10.0 to 3.11.0 (#17888, @dependabot[bot])
+* build(deps): bump 8398a7/action-slack from 3.11.0 to 3.12.0 (#17964, @dependabot[bot])
+* build(deps): bump actions/cache from 2.1.6 to 2.1.7 (#17970, @dependabot[bot])
+* build(deps): bump actions/checkout from 2.3.4 to 2.3.5 (#17634, @dependabot[bot])
+* build(deps): bump actions/checkout from 2.3.5 to 2.4.0 (#17784, @dependabot[bot])
+* build(deps): bump actions/download-artifact from 2.0.10 to 2.1.0 (#18160, @dependabot[bot])
+* build(deps): bump actions/upload-artifact from 2.2.4 to 2.3.0 (#18162, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from 1.4.1 to 1.5.0 (#17749, @dependabot[bot])
+* contrib/backporting: Dockerize backporting scripts (Backport PR #17652, Upstream PR #17157, @aditighag)
+* daemon: add K8sCacheIsSynced() method (Backport PR #17861, Upstream PR #17651, @jibi)
+* daemons: name init functions and have one `init` (Backport PR #17727, Upstream PR #17616, @nebril)
+* docs: add registry (quay.io/) for pre-loading images for kind (Backport PR #18066, Upstream PR #18017, @adamzhoul)
+* docs: fix a block directive in OpenShift GSG (Backport PR #17861, Upstream PR #17760, @qmonnet)
+* docs: fix eksctl ClusterConfig to allow copy (Backport PR #18146, Upstream PR #18110, @aanm)
+* docs: Fix helm value when deploying pure ipvlan l3 mode (Backport PR #17727, Upstream PR #17708, @chendotjs)
+* docs: fix link to signoff / certificate of origin section (Backport PR #18146, Upstream PR #18123, @timoreimann)
+* docs: KUBECONFIG for cilium-cli with k3s (Backport PR #18146, Upstream PR #18068, @kkourt)
+* docs: Mention about KubeVirt in KPR docs (Backport PR #17861, Upstream PR #17847, @brb)
+* docs: Reword sentence on WireGuard limitation (Backport PR #17861, Upstream PR #17822, @pchaigno)
+* docs: Update the minimum required Minikube version (Backport PR #18189, Upstream PR #18155, @pchaigno)
+* docs: Use cilium sysdump instead of python sysdump (Backport PR #17727, Upstream PR #17402, @michi-covalent)
+* docs: Use git+https in requirements.txt (Backport PR #17861, Upstream PR #17756, @michi-covalent)
+* Fix documented EC2 IAM action (Backport PR #18066, Upstream PR #17958, @austince)
+* install/kubernetes/cilium: reference stable docs for eBPF maps (Backport PR #17861, Upstream PR #17757, @tklauser)
+* install: Update image digests for v1.10.5 (#17608, @joestringer)
+* Minor egress gateway fixups (Backport PR #17861, Upstream PR #17663, @pchaigno)
+* monitor: Initialize agent in deamon early (Backport PR #17727, Upstream PR #17407, @gandro)
+* pkg: rename egresspolicy package to egressgateway (Backport PR #17727, Upstream PR #17630, @jibi)
+* test: Disable unreliable K8sBookInfoDemoTest test (Backport PR #17985, Upstream PR #17550, @twpayne)
+* ui: v0.8.5 (Backport PR #18210, Upstream PR #18203, @geakstr)
+* v1.10: Update Go to 1.16.10 (#17793, @tklauser)
+* v1.10: Update Go to 1.16.11 (#18130, @tklauser)
+* verifier-test.sh: allow for empty FOO_PROGS (Backport PR #17625, Upstream PR #17408, @kkourt)
+
 ## v1.10.5
 
 Summary of Changes
