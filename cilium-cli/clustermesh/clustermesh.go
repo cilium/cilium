@@ -134,17 +134,17 @@ func (k *K8sClusterMesh) generateService() (*corev1.Service, error) {
 var initContainerArgs = []string{`rm -rf /var/run/etcd/*;
 export ETCDCTL_API=3;
 /usr/local/bin/etcd --data-dir=/var/run/etcd --name=clustermesh-apiserver --listen-client-urls=http://127.0.0.1:2379 --advertise-client-urls=http://127.0.0.1:2379 --initial-cluster-token=clustermesh-apiserver --initial-cluster-state=new --auto-compaction-retention=1 &
-export rootpw=` + "`" + `head /dev/urandom | tr -dc A-Za-z0-9 | head -c 16` + "`" + `;
+export rootpw="$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 16)";
 echo $rootpw | etcdctl --interactive=false user add root;
 etcdctl user grant-role root root;
-export vmpw=` + "`" + `head /dev/urandom | tr -dc A-Za-z0-9 | head -c 16` + "`" + `;
+export vmpw="$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 16)";
 echo $vmpw | etcdctl --interactive=false user add externalworkload;
 etcdctl role add externalworkload;
 etcdctl role grant-permission externalworkload --from-key read '';
 etcdctl role grant-permission externalworkload readwrite --prefix cilium/state/noderegister/v1/;
 etcdctl role grant-permission externalworkload readwrite --prefix cilium/.initlock/;
 etcdctl user grant-role externalworkload externalworkload;
-export remotepw=` + "`" + `head /dev/urandom | tr -dc A-Za-z0-9 | head -c 16` + "`" + `;
+export remotepw="$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 16)";
 echo $remotepw | etcdctl --interactive=false user add remote;
 etcdctl role add remote;
 etcdctl role grant-permission remote --from-key read '';
