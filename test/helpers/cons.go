@@ -249,9 +249,8 @@ const (
 )
 
 var (
-	// CiliumNamespace is where cilium should run. In some deployments this cannot
-	// be kube-system.
-	CiliumNamespace = GetCiliumNamespace(GetCurrentIntegration())
+	// CiliumNamespace is where cilium should run.
+	CiliumNamespace = CiliumNamespaceDefault
 
 	// LogGathererNamespace is where log-gatherer should run. It follows cilium
 	// for simplicity.
