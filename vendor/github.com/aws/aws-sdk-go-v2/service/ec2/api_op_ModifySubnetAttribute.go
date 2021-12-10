@@ -11,7 +11,26 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Modifies a subnet attribute. You can only modify one attribute at a time.
+// Modifies a subnet attribute. You can only modify one attribute at a time. Use
+// this action to modify subnets on Amazon Web Services Outposts.
+//
+// * To modify a
+// subnet on an Outpost rack, set both MapCustomerOwnedIpOnLaunch and
+// CustomerOwnedIpv4Pool. These two parameters act as a single attribute.
+//
+// * To
+// modify a subnet on an Outpost server, set either EnableLniAtDeviceIndex or
+// DisableLniAtDeviceIndex.
+//
+// For more information about Amazon Web Services
+// Outposts, see the following:
+//
+// * Outpost servers
+// (https://docs.aws.amazon.com/outposts/latest/userguide/how-servers-work.html)
+//
+// *
+// Outpost racks
+// (https://docs.aws.amazon.com/outposts/latest/userguide/how-racks-work.html)
 func (c *Client) ModifySubnetAttribute(ctx context.Context, params *ModifySubnetAttributeInput, optFns ...func(*Options)) (*ModifySubnetAttributeOutput, error) {
 	if params == nil {
 		params = &ModifySubnetAttributeInput{}
@@ -46,6 +65,28 @@ type ModifySubnetAttributeInput struct {
 	// this value when you specify true for MapCustomerOwnedIpOnLaunch.
 	CustomerOwnedIpv4Pool *string
 
+	// Specify true to indicate that local network interfaces at the current position
+	// should be disabled.
+	DisableLniAtDeviceIndex *types.AttributeBooleanValue
+
+	// Indicates whether DNS queries made to the Amazon-provided DNS Resolver in this
+	// subnet should return synthetic IPv6 addresses for IPv4-only destinations.
+	EnableDns64 *types.AttributeBooleanValue
+
+	// Indicates the device position for local network interfaces in this subnet. For
+	// example, 1 indicates local network interfaces in this subnet are the secondary
+	// network interface (eth1). A local network interface cannot be the primary
+	// network interface (eth0).
+	EnableLniAtDeviceIndex *int32
+
+	// Indicates whether to respond to DNS queries for instance hostnames with DNS AAAA
+	// records.
+	EnableResourceNameDnsAAAARecordOnLaunch *types.AttributeBooleanValue
+
+	// Indicates whether to respond to DNS queries for instance hostnames with DNS A
+	// records.
+	EnableResourceNameDnsARecordOnLaunch *types.AttributeBooleanValue
+
 	// Specify true to indicate that network interfaces attached to instances created
 	// in the specified subnet should be assigned a customer-owned IPv4 address. When
 	// this value is true, you must specify the customer-owned IP pool using
@@ -55,6 +96,13 @@ type ModifySubnetAttributeInput struct {
 	// Specify true to indicate that network interfaces attached to instances created
 	// in the specified subnet should be assigned a public IPv4 address.
 	MapPublicIpOnLaunch *types.AttributeBooleanValue
+
+	// The type of hostnames to assign to instances in the subnet at launch. For IPv4
+	// only subnets, an instance DNS name must be based on the instance IPv4 address.
+	// For IPv6 only subnets, an instance DNS name must be based on the instance ID.
+	// For dual-stack subnets, you can specify whether DNS names use the instance IPv4
+	// address or the instance ID.
+	PrivateDnsHostnameTypeOnLaunch types.HostnameType
 
 	noSmithyDocumentSerde
 }

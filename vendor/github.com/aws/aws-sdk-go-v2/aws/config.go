@@ -39,13 +39,20 @@ type Config struct {
 	HTTPClient HTTPClient
 
 	// An endpoint resolver that can be used to provide or override an endpoint for the given
-	// service and region Please see the `aws.EndpointResolver` documentation on usage.
+	// service and region.
+	//
+	// See the `aws.EndpointResolver` documentation for additional usage information.
 	//
 	// Deprecated: See Config.EndpointResolverWithOptions
 	EndpointResolver EndpointResolver
 
 	// An endpoint resolver that can be used to provide or override an endpoint for the given
-	// service and region Please see the `aws.EndpointResolverWithOptions` documentation on usage.
+	// service and region.
+	//
+	// When EndpointResolverWithOptions is specified, it will be used by a service client rather than using
+	// EndpointResolver if also specified.
+	//
+	// See the `aws.EndpointResolverWithOptions` documentation for additional usage information.
 	EndpointResolverWithOptions EndpointResolverWithOptions
 
 	// Retryer is a function that provides a Retryer implementation. A Retryer guides how HTTP requests should be
