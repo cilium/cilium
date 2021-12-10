@@ -123,8 +123,8 @@ func (n *nodeOperationsMock) PrepareIPRelease(excessIPs int, scopedLog *logrus.E
 func (n *nodeOperationsMock) releaseIP(ip string) error {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
-	n.allocator.mutex.RLock()
-	defer n.allocator.mutex.RUnlock()
+	n.allocator.mutex.Lock()
+	defer n.allocator.mutex.Unlock()
 	for i, allocatedIP := range n.allocatedIPs {
 		if allocatedIP == ip {
 			n.allocatedIPs = append(n.allocatedIPs[:i], n.allocatedIPs[i+1:]...)
