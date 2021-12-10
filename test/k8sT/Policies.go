@@ -28,6 +28,8 @@ var _ = SkipDescribeIf(func() bool {
 	// We only need to run on 4.9 with kube-proxy and net-next with KPR
 	// and the third node. Other CI jobs are not expected to increase
 	// code coverage.
+	//
+	// For GKE coverage, see the K8sPolicyTestExtended Describe block below.
 	return helpers.RunsOnGKE() || helpers.RunsOn419Kernel() || helpers.RunsOn54Kernel()
 }, "K8sPolicyTest", func() {
 
@@ -1293,7 +1295,6 @@ var _ = SkipDescribeIf(func() bool {
 				checkProxyRedirection(app1PodIP, true, policy.ParserTypeHTTP, false)
 			})
 		})
-
 	})
 
 	Context("Multi-node policy test", func() {
@@ -1570,6 +1571,7 @@ var _ = SkipDescribeIf(func() bool {
 
 		Context("validates fromEntities policies", func() {
 			const (
+				HostConnectivityDeny        = false
 				HostConnectivityAllow       = true
 				RemoteNodeConnectivityDeny  = false
 				RemoteNodeConnectivityAllow = true
@@ -2338,6 +2340,302 @@ var _ = SkipDescribeIf(func() bool {
 	})
 })
 
+// This Describe block is needed to run some tests in GKE. For example, the
+// kube-apiserver policy matching feature needs coverage on GKE as there are
+// two cases for that feature:
+//   * kube-apiserver running within the cluster (Vagrant VMs)
+//   * kube-apiserver running outside of the cluster (GKE)
+var _ = SkipDescribeIf(helpers.DoesNotRunOn419OrLaterKernel,
+	"K8sPolicyTestExtended", func() {
+		var (
+			kubectl *helpers.Kubectl
+
+			// these are set in BeforeAll()
+			ciliumFilename string
+			daemonCfg      map[string]string
+		)
+
+		BeforeAll(func() {
+			kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
+			daemonCfg = map[string]string{
+				"tls.secretsBackend": "k8s",
+				"debug.verbose":      "flow",
+				"hubble.enabled":     "true",
+			}
+			ciliumFilename = helpers.TimestampFilename("cilium.yaml")
+		})
+
+		AfterAll(func() {
+			UninstallCiliumFromManifest(kubectl, ciliumFilename)
+			kubectl.CloseSSHClient()
+		})
+
+		AfterFailed(func() {
+			kubectl.CiliumReport("cilium service list", "cilium endpoint list")
+		})
+
+		AfterEach(func() {
+			ExpectAllPodsTerminated(kubectl)
+		})
+
+		JustAfterEach(func() {
+			kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+		})
+
+		// Test must run with KPR enabled, see below comments.
+		Context("Validate toEntities KubeAPIServer", func() {
+			var (
+				k8s1Name, k8s1IP         string
+				k8s1PodName, k8s2PodName string
+				k8s1PodIP, k8s2PodIP     string
+				outsideNodeName          string
+
+				demoLocalYAML                  string
+				cnpToEntitiesKubeAPIServer     string
+				cnpToEntitiesKubeAPIServerDeny string
+
+				kubeAPIServerService *v1.Service
+
+				testNamespace = helpers.DefaultNamespace
+			)
+
+			BeforeAll(func() {
+				cnpToEntitiesKubeAPIServer = helpers.ManifestGet(
+					kubectl.BasePath(), "cnp-to-entities-kube-apiserver.yaml",
+				)
+				cnpToEntitiesKubeAPIServerDeny = helpers.ManifestGet(
+					kubectl.BasePath(), "cnp-to-entities-kube-apiserver-deny.yaml",
+				)
+
+				By("Redeploying Cilium with tunnel disabled and KPR enabled")
+				RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg, map[string]string{
+					// The following are needed because of
+					// https://github.com/cilium/cilium/issues/17962 &&
+					// https://github.com/cilium/cilium/issues/16197.
+					"tunnel":               "disabled",
+					"autoDirectNodeRoutes": "true",
+					"kubeProxyReplacement": "strict",
+				})
+
+				By("Deploying demo local daemonset")
+				demoLocalYAML = helpers.ManifestGet(kubectl.BasePath(), "demo_ds_local.yaml")
+				kubectl.ApplyDefault(demoLocalYAML).ExpectSuccess("Unable to apply %s", demoLocalYAML)
+				Expect(kubectl.WaitforPods(
+					testNamespace,
+					fmt.Sprintf("-l %s", testDS), helpers.HelperTimeout),
+				).Should(BeNil())
+				k8s1Name, k8s1IP = kubectl.GetNodeInfo(helpers.K8s1)
+				k8s1PodName, k8s1PodIP = kubectl.GetPodOnNodeLabeledWithOffset(helpers.K8s1, testDS, 0)
+				k8s2PodName, k8s2PodIP = kubectl.GetPodOnNodeLabeledWithOffset(helpers.K8s2, testDS, 0)
+				if helpers.ExistNodeWithoutCilium() {
+					outsideNodeName, _ = kubectl.GetNodeInfo(helpers.GetFirstNodeWithoutCilium())
+				}
+
+				var err error
+				kubeAPIServerService, err = kubectl.GetService(helpers.DefaultNamespace, "kubernetes")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(kubeAPIServerService).ToNot(BeNil())
+			})
+
+			AfterAll(func() {
+				// Explicitly ignore result of deletion of resources to
+				// avoid incomplete teardown if any step fails.
+				_ = kubectl.Delete(demoLocalYAML)
+				ExpectAllPodsTerminated(kubectl)
+			})
+
+			AfterEach(func() {
+				cmd := fmt.Sprintf("%s delete --all cnp,ccnp,netpol -n %s", helpers.KubectlCmd, testNamespace)
+				_ = kubectl.Exec(cmd)
+			})
+
+			validateConnectivity := func(
+				expectHostSuccess, expectRemoteNodeSuccess, expectPodSuccess, expectWorldSuccess bool,
+			) {
+				var wg sync.WaitGroup
+				wg.Add(1)
+				go func() {
+					defer GinkgoRecover()
+					defer wg.Done()
+					switch helpers.GetCurrentIntegration() {
+					case helpers.CIIntegrationEKS, helpers.CIIntegrationEKSChaining, helpers.CIIntegrationGKE:
+						By("Checking ingress connectivity from k8s1 node to k8s1 pod (host)")
+					default:
+						// We need to bypass this check as in a non-managed
+						// environment like Vagrant, the kube-apiserver is
+						// running locally on K8s1. This means that local host
+						// traffic cannot be disambiguated from kube-apiserver
+						// traffic.
+						By("Bypassing check for ingress connectivity for host, which cannot be done in non-managed environments")
+						return
+					}
+					res := kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
+						helpers.CurlFail(k8s1PodIP))
+					ExpectWithOffset(1, res).To(getMatcher(expectHostSuccess),
+						"HTTP ingress connectivity to pod %q from local host", k8s1PodIP)
+				}()
+
+				wg.Add(1)
+				go func() {
+					defer GinkgoRecover()
+					defer wg.Done()
+					switch helpers.GetCurrentIntegration() {
+					case helpers.CIIntegrationEKS, helpers.CIIntegrationEKSChaining, helpers.CIIntegrationGKE:
+						By("Checking ingress connectivity from k8s1 node to k8s2 pod (remote-node)")
+					default:
+						// We need to bypass this check as in a two node
+						// cluster, the kube-apiserver will be running on at
+						// least one of the two nodes, which means that any
+						// traffic to or from will be considered to / from
+						// kube-apiserver, and not remote-node. If we had a
+						// third node with Cilium installed, then we wouldn't
+						// need to bypass this check.
+						By("Bypassing check for ingress connectivity for remote-node, which cannot be done in a two-node cluster")
+						return
+					}
+					res := kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
+						helpers.CurlFail(k8s2PodIP))
+					ExpectWithOffset(1, res).To(getMatcher(expectRemoteNodeSuccess),
+						"HTTP ingress connectivity to pod %q from remote node", k8s2PodIP)
+				}()
+
+				wg.Add(1)
+				go func() {
+					defer GinkgoRecover()
+					defer wg.Done()
+					By("Checking ingress connectivity from k8s1 pod to k8s2 pod")
+					res := kubectl.ExecPodCmd(testNamespace, k8s1PodName, helpers.CurlFail(k8s2PodIP))
+					ExpectWithOffset(1, res).To(getMatcher(expectPodSuccess),
+						"HTTP ingress connectivity to pod %q from pod %q", k8s2PodIP, k8s1PodIP)
+				}()
+
+				if helpers.ExistNodeWithoutCilium() {
+					wg.Add(1)
+					go func() {
+						defer GinkgoRecover()
+						defer wg.Done()
+						By("Checking ingress connectivity from world to k8s1 pod")
+						By("Adding a static route to %s on the %s node (outside)", k8s1PodIP, outsideNodeName)
+						res := kubectl.AddIPRoute(outsideNodeName, k8s1PodIP, k8s1IP, true)
+						Expect(res).To(getMatcher(true))
+
+						if expectWorldSuccess {
+							testCurlFromOutside(kubectl, &nodesInfo{
+								outsideNodeName: outsideNodeName,
+							}, k8s1PodIP, 1, false)
+						} else {
+							testCurlFailFromOutside(kubectl, &nodesInfo{
+								outsideNodeName: outsideNodeName,
+							}, k8s1PodIP, 1)
+						}
+					}()
+				}
+				wg.Wait()
+			}
+
+			It("Allows connection to KubeAPIServer", func() {
+				installDefaultDenyIngressPolicy(
+					kubectl,
+					testNamespace,
+					validateConnectivity,
+				)
+				installDefaultDenyEgressPolicy(
+					kubectl,
+					testNamespace,
+					validateConnectivity,
+				)
+
+				By("Verifying KubeAPIServer connectivity is not yet allowed")
+				Expect(
+					kubectl.ExecPodCmd(
+						testNamespace, k8s2PodName, helpers.CurlWithHTTPCode(
+							"https://%s %s",
+							kubeAPIServerService.Spec.ClusterIP,
+							"--insecure", // kube-apiserver needs cert, skip verification
+						),
+					),
+				).To(getMatcher(false),
+					"HTTP egress connectivity should have been denied to pod %q to kube-apiserver %q",
+					k8s2PodName, kubeAPIServerService.Spec.ClusterIP,
+				)
+
+				By("Installing toEntities KubeAPIServer")
+				importPolicy(
+					kubectl,
+					testNamespace,
+					cnpToEntitiesKubeAPIServer,
+					"to-entities-kube-apiserver",
+				)
+
+				By("Verifying policy correctness")
+				validateConnectivity(
+					true,  /*HostConnectivityAllow*/
+					false, /*RemoteNodeConnectivityDeny*/
+					false, /*PodConnectivityDeny*/
+					false, /*WorldConnectivityDeny*/
+				)
+
+				By("Verifying KubeAPIServer connectivity")
+				// A 403 is a sign of success in this test due to lack of HTTP
+				// egress policy. We expect to get back 403 because we
+				// purposefully didn't provide the auth token to fully talk to
+				// the kube-apiserver.
+				Expect(
+					kubectl.ExecPodCmd(
+						testNamespace, k8s2PodName, helpers.CurlWithHTTPCode(
+							"https://%s %s",
+							kubeAPIServerService.Spec.ClusterIP,
+							"--insecure", // kube-apiserver needs cert, skip verification
+						),
+					).Stdout(),
+				).To(Equal("403"),
+					"HTTP egress connectivity to pod %q to kube-apiserver %q",
+					k8s2PodName, kubeAPIServerService.Spec.ClusterIP,
+				)
+			})
+
+			It("Denies connection to KubeAPIServer", func() {
+				By("Installing allow-all egress policy")
+				importPolicy(
+					kubectl,
+					testNamespace,
+					helpers.ManifestGet(kubectl.BasePath(), "cnp-to-entities-all.yaml"),
+					"allow-all-egress",
+				)
+
+				By("Installing toEntities KubeAPIServer")
+				importPolicy(
+					kubectl,
+					testNamespace,
+					cnpToEntitiesKubeAPIServerDeny,
+					"to-entities-kube-apiserver-deny",
+				)
+
+				By("Verifying policy correctness")
+				validateConnectivity(
+					true, /*HostConnectivityAllow*/
+					true, /*RemoteNodeConnectivityAllow*/
+					true, /*PodConnectivityAllow*/
+					true, /*WorldConnectivityAllow*/
+				)
+
+				By("Verifying KubeAPIServer connectivity is denied")
+				Expect(
+					kubectl.ExecPodCmd(
+						testNamespace, k8s2PodName, helpers.CurlWithHTTPCode(
+							"https://%s %s",
+							kubeAPIServerService.Spec.ClusterIP,
+							"--insecure", // kube-apiserver needs cert, skip verification
+						),
+					),
+				).To(getMatcher(false),
+					"HTTP egress connectivity should have been denied to pod %q to kube-apiserver %q",
+					k8s2PodName, kubeAPIServerService.Spec.ClusterIP,
+				)
+			})
+		})
+	})
+
 func importPolicy(kubectl *helpers.Kubectl, namespace, file, name string) {
 	_, err := kubectl.CiliumPolicyAction(namespace,
 		file,
@@ -2356,6 +2654,25 @@ func installDefaultDenyIngressPolicy(
 
 	By("Installing default-deny ingress policy")
 	importPolicy(kubectl, ns, denyIngress, "default-deny-ingress")
+
+	By("Checking that remote-node is disallowed by default")
+	f(
+		true,  /*HostConnectivityAllow*/
+		false, /*RemoteNodeConnectivityDeny*/
+		false, /*PodConnectivityDeny*/
+		false, /*WorldConnectivityDeny*/
+	)
+}
+
+func installDefaultDenyEgressPolicy(
+	kubectl *helpers.Kubectl,
+	ns string,
+	f func(bool, bool, bool, bool),
+) {
+	denyEgress := helpers.ManifestGet(kubectl.BasePath(), "cnp-default-deny-egress.yaml")
+
+	By("Installing default-deny egress policy")
+	importPolicy(kubectl, ns, denyEgress, "default-deny-egress")
 
 	By("Checking that remote-node is disallowed by default")
 	f(
