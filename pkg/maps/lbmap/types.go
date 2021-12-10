@@ -65,6 +65,12 @@ type ServiceValue interface {
 	// Get the number of backends
 	GetCount() int
 
+	// Set the number of local backends
+	SetLocalCount(int)
+
+	// Get the number of local backends
+	GetLocalCount() int
+
 	// Set reverse NAT identifier
 	SetRevNat(int)
 

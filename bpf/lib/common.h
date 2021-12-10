@@ -598,6 +598,7 @@ enum {
 						 * Not used by xfrm.
 						 */
 #define	CB_CUSTOM_CALLS		CB_CT_STATE	/* Alias, non-overlapping */
+#define	CB_LB_SELECTION_RULE	CB_CT_STATE	/* Alias, non-overlapping */
 };
 
 /* State values for NAT46 */
@@ -629,6 +630,8 @@ enum {
 	CT_RELATED,
 	CT_REOPENED,
 };
+
+#define LB_LOCAL_BACKEND_ONLY	0xFFA0
 
 /* Service flags (lb{4,6}_service->flags) */
 enum {
@@ -736,10 +739,10 @@ struct lb6_service {
 		__u32 affinity_timeout;	/* In seconds, only for svc frontend */
 	};
 	__u16 count;
+	__u16 local_count;
 	__u16 rev_nat_index;
 	__u8 flags;
 	__u8 flags2;
-	__u8 pad[2];
 };
 
 /* See lb4_backend comments */
@@ -790,10 +793,10 @@ struct lb4_service {
 	 * slots (otherwise zero).
 	 */
 	__u16 count;
+	__u16 local_count;
 	__u16 rev_nat_index;	/* Reverse NAT ID in lb4_reverse_nat */
 	__u8 flags;
 	__u8 flags2;
-	__u8  pad[2];
 };
 
 struct lb4_backend {

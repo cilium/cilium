@@ -58,6 +58,8 @@ func dumpSVC(serviceList map[string][]string) {
 		svc := svcKey.String()
 		svcKey = svcKey.ToHost()
 		revNATID := svcVal.GetRevNat()
+		count := svcVal.GetCount()
+		localCount := svcVal.GetLocalCount()
 		backendID := svcVal.GetBackendID()
 		flags := loadbalancer.ServiceFlags(svcVal.GetFlags())
 
@@ -66,7 +68,7 @@ func dumpSVC(serviceList map[string][]string) {
 			if svcKey.IsIPv6() {
 				ip = "[::]"
 			}
-			entry = fmt.Sprintf("%s:%d (%d) [%s]", ip, 0, revNATID, flags)
+			entry = fmt.Sprintf("%s:%d (%d) (%d) (%d) [%s]", ip, 0, revNATID, count, localCount, flags)
 		} else if backend, found := backendMap[backendID]; !found {
 			entry = fmt.Sprintf("backend %d not found", backendID)
 		} else {

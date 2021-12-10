@@ -786,6 +786,8 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 
 	// Upsert service entries into BPF maps
 	backends := make(map[string]lb.BackendID, len(svc.backends))
+	localBackends := make([]uint16, 0)
+	remoteBackends := make([]uint16, 0)
 	activeBackendsCount := 0
 	for _, b := range svc.backends {
 		// Skip adding the terminating backend to the service map so that it
@@ -798,6 +800,12 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 		if !b.Terminating {
 			backends[b.String()] = b.ID
 			activeBackendsCount++
+
+			if b.NodeName == nodeTypes.GetName() {
+				localBackends = append(localBackends, uint16(b.ID))
+				continue
+			}
+			remoteBackends = append(remoteBackends, uint16(b.ID))
 		}
 	}
 	svc.activeBackendsCount = activeBackendsCount
@@ -807,6 +815,8 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 		IP:                        svc.frontend.L3n4Addr.IP,
 		Port:                      svc.frontend.L3n4Addr.L4Addr.Port,
 		Backends:                  backends,
+		LocalBackends:             localBackends,
+		RemoteBackends:            remoteBackends,
 		PrevActiveBackendCount:    prevActiveBackendCount,
 		IPv6:                      ipv6,
 		Type:                      svc.svcType,

@@ -99,7 +99,8 @@ func initKubeProxyReplacementOptions() (bool, error) {
 
 		if option.Config.NodePortMode != option.NodePortModeSNAT &&
 			option.Config.NodePortMode != option.NodePortModeDSR &&
-			option.Config.NodePortMode != option.NodePortModeHybrid {
+			option.Config.NodePortMode != option.NodePortModeHybrid &&
+			option.Config.NodePortMode != option.NodePortModeDSRTunl {
 			return false, fmt.Errorf("Invalid value for --%s: %s", option.NodePortMode, option.Config.NodePortMode)
 		}
 
@@ -107,7 +108,9 @@ func initKubeProxyReplacementOptions() (bool, error) {
 			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchOption &&
 			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchIPIP ||
 			option.Config.NodePortMode == option.NodePortModeHybrid &&
-				option.Config.LoadBalancerDSRDispatch != option.DSRDispatchOption {
+				option.Config.LoadBalancerDSRDispatch != option.DSRDispatchOption ||
+			option.Config.NodePortMode == option.NodePortModeDSRTunl &&
+				option.Config.LoadBalancerDSRDispatch != option.DSRDispatchIPIP {
 			return false, fmt.Errorf("Invalid value for --%s: %s", option.LoadBalancerDSRDispatch, option.Config.LoadBalancerDSRDispatch)
 		}
 
@@ -115,6 +118,12 @@ func initKubeProxyReplacementOptions() (bool, error) {
 			option.Config.LoadBalancerDSRL4Xlate != option.DSRL4XlateFrontend &&
 			option.Config.LoadBalancerDSRL4Xlate != option.DSRL4XlateBackend {
 			return false, fmt.Errorf("Invalid value for --%s: %s", option.LoadBalancerDSRL4Xlate, option.Config.LoadBalancerDSRL4Xlate)
+		}
+
+		if option.Config.NodePortMode == option.NodePortModeDSRTunl &&
+			!option.Config.EnableRemoteNodeIdentity {
+			log.Infof("auto-enable %s due to %s mode", option.EnableRemoteNodeIdentity, option.NodePortModeDSRTunl)
+			option.Config.EnableRemoteNodeIdentity = true
 		}
 
 		if option.Config.LoadBalancerRSSv4CIDR != "" {
@@ -152,7 +161,8 @@ func initKubeProxyReplacementOptions() (bool, error) {
 		}
 
 		if (option.Config.LoadBalancerRSSv4CIDR != "" || option.Config.LoadBalancerRSSv6CIDR != "") &&
-			(option.Config.NodePortMode != option.NodePortModeDSR ||
+			((option.Config.NodePortMode != option.NodePortModeDSR &&
+				option.Config.NodePortMode != option.NodePortModeDSRTunl) ||
 				option.Config.LoadBalancerDSRDispatch != option.DSRDispatchIPIP) {
 			return false, fmt.Errorf("Invalid value for --%s/%s: currently only supported under IPIP dispatch for DSR",
 				option.LoadBalancerRSSv4CIDR, option.LoadBalancerRSSv6CIDR)
@@ -329,10 +339,9 @@ func initKubeProxyReplacementOptions() (bool, error) {
 
 	if option.Config.EnableNodePort {
 		if option.Config.TunnelingEnabled() &&
-			option.Config.NodePortMode != option.NodePortModeSNAT {
-
-			log.Warnf("Disabling NodePort's %q mode feature due to tunneling mode being enabled",
-				option.Config.NodePortMode)
+			option.Config.NodePortMode != option.NodePortModeSNAT &&
+			option.Config.NodePortMode != option.NodePortModeDSRTunl {
+			log.Warnf("Disabling NodePort's %q mode feature due to tunneling mode being enabled or not DSR-Tunl mode", option.Config.NodePortMode)
 			option.Config.NodePortMode = option.NodePortModeSNAT
 		}
 

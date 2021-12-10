@@ -277,13 +277,13 @@ ct_recreate6:
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT);
 			return DROP_MISSED_TAIL_CALL;
 		}
-# ifdef ENABLE_DSR
+# if defined(ENABLE_DSR) && !defined(ENABLE_DSR_TUNL)
 		if (ct_state.dsr) {
 			ret = xlate_dsr_v6(ctx, tuple, l4_off);
 			if (ret != 0)
 				return ret;
 		}
-# endif /* ENABLE_DSR */
+# endif /* ENABLE_DSR && !ENABLE_DSR_TUNL */
 #endif /* ENABLE_NODEPORT */
 		if (ct_state.rev_nat_index) {
 			ret = lb6_rev_nat(ctx, l4_off, &csum_off,
@@ -710,13 +710,13 @@ ct_recreate4:
 			ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT);
 			return DROP_MISSED_TAIL_CALL;
 		}
-# ifdef ENABLE_DSR
+# if defined(ENABLE_DSR) && !defined(ENABLE_DSR_TUNL)
 		if (ct_state.dsr) {
 			ret = xlate_dsr_v4(ctx, &tuple, l4_off, has_l4_header);
 			if (ret != 0)
 				return ret;
 		}
-# endif /* ENABLE_DSR */
+# endif /* ENABLE_DSR && !ENABLE_DSR_TUNL */
 #endif /* ENABLE_NODEPORT */
 
 		if (ct_state.rev_nat_index) {
@@ -1120,7 +1120,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	}
 
 	if (ret == CT_NEW) {
-#ifdef ENABLE_DSR
+#if defined(ENABLE_DSR) && !defined(ENABLE_DSR_TUNL)
 	{
 		bool dsr = false;
 
@@ -1130,7 +1130,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 
 		ct_state_new.dsr = dsr;
 	}
-#endif /* ENABLE_DSR */
+#endif /* ENABLE_DSR && !ENABLE_DSR_TUNL */
 
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.node_port = ct_state.node_port;
@@ -1422,7 +1422,7 @@ skip_policy_enforcement:
 #endif /* !ENABLE_HOST_SERVICES_FULL && !DISABLE_LOOPBACK_LB */
 
 	if (ret == CT_NEW) {
-#ifdef ENABLE_DSR
+#if defined(ENABLE_DSR) && !defined(ENABLE_DSR_TUNL)
 	{
 		bool dsr = false;
 
@@ -1432,7 +1432,7 @@ skip_policy_enforcement:
 
 		ct_state_new.dsr = dsr;
 	}
-#endif /* ENABLE_DSR */
+#endif /* ENABLE_DSR && !ENABLE_DSR_TUNL */
 
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.node_port = ct_state.node_port;

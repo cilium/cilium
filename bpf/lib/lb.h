@@ -9,6 +9,7 @@
 #include "ipv4.h"
 #include "hash.h"
 #include "ids.h"
+#include "eps.h"
 
 #ifdef ENABLE_IPV6
 struct {
@@ -266,7 +267,11 @@ bool lb6_svc_has_src_range_check(const struct lb6_service *svc __maybe_unused)
 
 static __always_inline bool lb_skip_l4_dnat(void)
 {
+#ifdef ENABLE_DSR_TUNL
+	return false;
+#else
 	return DSR_XLATE_MODE == DSR_XLATE_FRONTEND;
+#endif /* ENABLE_DSR_TUNL */
 }
 
 static __always_inline
@@ -1111,7 +1116,7 @@ struct lb4_service *lb4_lookup_backend_slot(struct __ctx_buff *ctx __maybe_unuse
 /* Backend slot 0 is always reserved for the service frontend. */
 #if LB_SELECTION == LB_SELECTION_RANDOM
 static __always_inline __u32
-lb4_select_backend_id(struct __ctx_buff *ctx,
+lb4_select_backend_id_internal(struct __ctx_buff *ctx,
 		      struct lb4_key *key,
 		      const struct ipv4_ct_tuple *tuple __maybe_unused,
 		      const struct lb4_service *svc)
@@ -1123,7 +1128,7 @@ lb4_select_backend_id(struct __ctx_buff *ctx,
 }
 #elif LB_SELECTION == LB_SELECTION_MAGLEV
 static __always_inline __u32
-lb4_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
+lb4_select_backend_id_internal(struct __ctx_buff *ctx __maybe_unused,
 		      struct lb4_key *key __maybe_unused,
 		      const struct ipv4_ct_tuple *tuple,
 		      const struct lb4_service *svc)
@@ -1146,6 +1151,37 @@ lb4_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
 #else
 # error "Invalid load balancer backend selection algorithm!"
 #endif /* LB_SELECTION */
+
+static __always_inline __u16
+lb4_select_backend_id(struct __ctx_buff *ctx,
+		      struct lb4_key *key,
+		      const struct ipv4_ct_tuple *tuple __maybe_unused,
+		      const struct lb4_service *svc)
+{
+	__u32 __maybe_unused lb_selection_rule = 0;
+	__u32 __maybe_unused slot = 0;
+	struct lb4_service __maybe_unused *be = NULL;
+
+#ifdef ENABLE_DSR_TUNL
+	if (lb4_svc_is_loadbalancer(svc) || lb4_svc_is_external_ip(svc)) {
+		lb_selection_rule = ctx_load_meta(ctx, CB_LB_SELECTION_RULE);
+
+		if (svc->local_count > 0) {
+			slot = (get_prandom_u32() % svc->local_count) + 1;
+			be = lb4_lookup_backend_slot(ctx, key, slot);
+			if (be) {
+				return be->backend_id;
+			}
+		}
+
+		if ((lb_selection_rule & LB_LOCAL_BACKEND_ONLY) == LB_LOCAL_BACKEND_ONLY) {
+			return 0;
+		}
+	}
+#endif
+
+	return lb4_select_backend_id_internal(ctx, key, tuple, svc);
+}
 
 static __always_inline int
 lb4_xlate(struct __ctx_buff *ctx, __be32 *new_daddr, __be32 *new_saddr __maybe_unused,
@@ -1316,11 +1352,16 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	__u8 flags = tuple->flags;
 	struct lb4_backend *backend;
 	__u32 backend_id = 0;
+	bool r_skip_l3_xlate = skip_l3_xlate;
 	int ret;
 #ifdef ENABLE_SESSION_AFFINITY
 	union lb4_affinity_client_id client_id = {
 		.client_ip = saddr,
 	};
+#ifdef ENABLE_DSR_TUNL
+	bool backend_local;
+#endif
+
 #endif
 	ret = ct_lookup4(map, tuple, ctx, l4_off, CT_SERVICE, state, &monitor);
 	switch (ret) {
@@ -1447,10 +1488,17 @@ update_state:
 #endif
 		tuple->daddr = backend->address;
 
+#ifdef ENABLE_DSR_TUNL
+	backend_local = __lookup_ip4_endpoint(tuple->daddr);
+	if (backend_local) {
+		r_skip_l3_xlate = false;
+	}
+#endif
+
 	return lb_skip_l4_dnat() ? CTX_ACT_OK :
 	       lb4_xlate(ctx, &new_daddr, &new_saddr, &saddr,
 			 tuple->nexthdr, l3_off, l4_off, csum_off, key,
-			 backend, has_l4_header, skip_l3_xlate);
+			 backend, has_l4_header, r_skip_l3_xlate);
 drop_no_service:
 		tuple->flags = flags;
 		return DROP_NO_SERVICE;

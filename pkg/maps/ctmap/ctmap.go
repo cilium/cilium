@@ -564,7 +564,8 @@ func GC(m *Map, filter *GCFilter) int {
 // The function only handles 1-3 cases, the 4. case is TODO(brb).
 func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 	if option.Config.NodePortMode == option.NodePortModeDSR ||
-		option.Config.NodePortMode == option.NodePortModeHybrid {
+		option.Config.NodePortMode == option.NodePortModeHybrid ||
+		option.Config.NodePortMode == option.NodePortModeDSRTunl {
 		return nil
 	}
 

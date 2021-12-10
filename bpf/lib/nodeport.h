@@ -92,7 +92,9 @@ struct dsr_opt_v6 {
 
 static __always_inline bool nodeport_uses_dsr(__u8 nexthdr __maybe_unused)
 {
-# if defined(ENABLE_DSR) && !defined(ENABLE_DSR_HYBRID)
+# if defined(ENABLE_DSR_TUNL)
+	return true;
+# elif defined(ENABLE_DSR) && !defined(ENABLE_DSR_HYBRID)
 	return true;
 # elif defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)
 	if (nexthdr == IPPROTO_TCP)
@@ -1297,6 +1299,47 @@ static __always_inline int dsr_set_ipip4(struct __ctx_buff *ctx,
 	if (l3_csum_replace(ctx, l3_off + offsetof(struct iphdr, check),
 			    0, sum, 0) < 0)
 		return DROP_CSUM_L3;
+
+	return 0;
+}
+
+static __always_inline int dsr_tunl_set_ipip4(struct __ctx_buff *ctx,
+					 const struct iphdr *ip4,
+					 __be32 backend_addr,
+					 __be32 l4_hint, int *ohead)
+{
+	__u16 tot_len = bpf_ntohs(ip4->tot_len) + sizeof(*ip4);
+	const int l3_off = ETH_HLEN;
+	__be32 sum __maybe_unused;
+	struct iphdr outer_ip4;
+
+	outer_ip4 = *ip4;
+	outer_ip4.ihl = sizeof(struct iphdr) >> 2;
+	outer_ip4.version = IPVERSION;
+	outer_ip4.tot_len = bpf_htons(tot_len),
+	outer_ip4.ttl = IPDEFTTL;
+	outer_ip4.protocol = IPPROTO_IPIP;
+	outer_ip4.saddr = rss_gen_src4(ip4->saddr, l4_hint);
+	outer_ip4.daddr = backend_addr;
+
+	if (dsr_is_too_big(ctx, tot_len)) {
+		*ohead = sizeof(*ip4);
+		return DROP_FRAG_NEEDED;
+	}
+
+	if (ctx_adjust_hroom(ctx, sizeof(struct iphdr), BPF_ADJ_ROOM_MAC,
+			     ctx_adjust_hroom_dsr_flags()))
+		return DROP_INVALID;
+
+	sum = csum_diff(NULL, 0, &outer_ip4, sizeof(struct iphdr), 0);
+	if (ctx_store_bytes(ctx, l3_off,
+			    &outer_ip4, sizeof(struct iphdr), 0) < 0)
+		return DROP_WRITE_ERROR;
+
+	if (l3_csum_replace(ctx, l3_off + offsetof(struct iphdr, check),
+			    0, sum, 0) < 0)
+		return DROP_CSUM_L3;
+
 	return 0;
 }
 #elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
@@ -1509,24 +1552,45 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 	void *data, *data_end;
 	int ret, ohead = 0;
 	struct iphdr *ip4;
-	bool l2_hdr_required = true;
+	struct iphdr inner_ip4 __maybe_unused;
+	bool l2_hdr_required __maybe_unused = true;
+	__be32 node_addr __maybe_unused = 0;
+	__be32 backend_addr __maybe_unused = 0;
+	struct remote_endpoint_info *info __maybe_unused = NULL;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
 
-#if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+#if defined(ENABLE_DSR_TUNL)
+# if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+	backend_addr = ctx_load_meta(ctx, CB_ADDR_V4);
+	info = lookup_ip4_remote_endpoint(backend_addr);
+	if (!info) {
+		ret = DROP_INVALID;
+		goto drop_err;
+	}
+	node_addr = info->tunnel_endpoint;
+	ret = dsr_tunl_set_ipip4(ctx, ip4,
+					node_addr,
+					ctx_load_meta(ctx, CB_HINT), &ohead);
+# else
+#  error "Invalid load balancer DSR encapsulation mode!"
+# endif
+#else
+# if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 	ret = dsr_set_ipip4(ctx, ip4,
 			    ctx_load_meta(ctx, CB_ADDR_V4),
 			    ctx_load_meta(ctx, CB_HINT), &ohead);
-#elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
+# elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
 	ret = dsr_set_opt4(ctx, ip4,
-			   ctx_load_meta(ctx, CB_ADDR_V4),
-			   ctx_load_meta(ctx, CB_PORT), &ohead);
-#else
-# error "Invalid load balancer DSR encapsulation mode!"
-#endif
+			    ctx_load_meta(ctx, CB_ADDR_V4),
+			    ctx_load_meta(ctx, CB_PORT), &ohead);
+# else
+#  error "Invalid load balancer DSR encapsulation mode!"
+# endif
+#endif /* ENABLE_DSR_TUNL */
 	if (unlikely(ret)) {
 		if (dsr_fail_needs_reply(ret))
 			return dsr_reply_icmp4(ctx, ip4, ret, ohead);
@@ -2205,6 +2269,113 @@ static __always_inline int handle_nat_fwd(struct __ctx_buff *ctx)
 	}
 	return ret;
 }
+
+#ifdef ENABLE_DSR_TUNL
+static __always_inline int decap_ipv4_needed(struct __ctx_buff *ctx, bool *decap_ipv4_outer)
+{
+	void *data, *data_end;
+	struct iphdr *outer_ip4_hdr, inner_ipv4_hdr;
+	int ret,  l3_off = ETH_HLEN, inner_ipv4_off, l4_off;
+	struct csum_offset csum_off = {};
+	struct lb4_service *svc;
+	struct lb4_key key = {};
+
+	*decap_ipv4_outer = false;
+
+	if (!revalidate_data(ctx, &data, &data_end, &outer_ip4_hdr))
+		return DROP_INVALID;
+
+	inner_ipv4_off = l3_off + ipv4_hdrlen(outer_ip4_hdr);
+	if (ctx_load_bytes(ctx, inner_ipv4_off, &inner_ipv4_hdr,
+								sizeof(inner_ipv4_hdr)) < 0)
+		return DROP_INVALID;
+
+	l4_off = inner_ipv4_off + ipv4_hdrlen(&inner_ipv4_hdr);
+	ret = lb4_extract_key(ctx, &inner_ipv4_hdr, l4_off, &key, &csum_off, CT_EGRESS);
+	if (IS_ERR(ret)) {
+		if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
+			return CTX_ACT_OK;
+		else
+			return ret;
+	}
+
+	svc = lb4_lookup_service(&key, false);
+	if (svc) {
+		if (lb4_svc_is_external_ip(svc) || lb4_svc_is_loadbalancer(svc)) {
+			*decap_ipv4_outer = true;
+		}
+	}
+
+	return CTX_ACT_OK;
+}
+
+static __always_inline int decap_ipv4_ipip(struct __ctx_buff *ctx, struct iphdr *iph_outer)
+{
+	int ret = CTX_ACT_OK;
+	int olen = ipv4_hdrlen(iph_outer);
+	bool decap_ipv4_outer = false;
+	struct remote_endpoint_info *info = NULL;
+
+	if (iph_outer->protocol != IPPROTO_IPIP) {
+		return CTX_ACT_OK;
+	}
+
+	ret = decap_ipv4_needed(ctx, &decap_ipv4_outer);
+	if (IS_ERR(ret)) {
+		return ret;
+	}
+
+	if (!decap_ipv4_outer) {
+		return CTX_ACT_OK;
+	}
+
+	info = lookup_ip4_remote_endpoint(iph_outer->saddr);
+	if (info != NULL && info->sec_label == REMOTE_NODE_ID) {
+		ctx_store_meta(ctx, CB_LB_SELECTION_RULE, LB_LOCAL_BACKEND_ONLY);
+	}
+
+	if (ctx_adjust_hroom(ctx, -olen, BPF_ADJ_ROOM_MAC,
+				BPF_F_ADJ_ROOM_FIXED_GSO))
+		return CTX_ACT_DROP;
+
+	return CTX_ACT_OK;
+}
+
+static __always_inline int decap_ipv4(struct __ctx_buff *ctx)
+{
+	struct iphdr iph_outer;
+
+	if (ctx_load_bytes(ctx, ETH_HLEN, &iph_outer, sizeof(iph_outer)) < 0)
+		return CTX_ACT_OK;
+
+	if (iph_outer.ihl != 5) {
+		return CTX_ACT_OK;
+	}
+
+	return decap_ipv4_ipip(ctx, &iph_outer);
+}
+
+static __always_inline int decap_ipip(struct __ctx_buff *ctx)
+{
+	int ret = CTX_ACT_OK;
+
+	__u16 proto = ctx_get_protocol(ctx);
+
+	switch (proto) {
+	case bpf_htons(ETH_P_IP):
+		return decap_ipv4(ctx);
+
+	case bpf_htons(ETH_P_IPV6):
+		/* TODO - not supported yet */
+
+	default:
+		/* does not match, ignore */
+		return CTX_ACT_OK;
+	}
+
+	return ret;
+}
+#endif /* ENABLE_DSR_TUNL */
 
 #endif /* ENABLE_NODEPORT */
 #endif /* __NODEPORT_H_ */

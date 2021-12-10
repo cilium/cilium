@@ -1946,6 +1946,7 @@ definitions:
                 - SNAT
                 - DSR
                 - Hybrid
+                - DSR-Tunl
               algorithm:
                 type: string
                 enum:

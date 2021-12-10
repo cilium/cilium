@@ -842,6 +842,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 {
 	__u32 __maybe_unused identity = 0;
 	__u32 __maybe_unused ipcache_srcid = 0;
+	__u32 __maybe_unused lb_selection_rule = 0;
 	int ret;
 
 #ifdef ENABLE_IPSEC
@@ -857,7 +858,18 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 			return CTX_ACT_OK;
 	}
 #endif
+
+#ifdef ENABLE_DSR_TUNL
+	lb_selection_rule = ctx_load_meta(ctx, CB_LB_SELECTION_RULE);
+#endif
+
 	bpf_clear_meta(ctx);
+
+#ifdef ENABLE_DSR_TUNL
+	if ((lb_selection_rule & LB_LOCAL_BACKEND_ONLY) == LB_LOCAL_BACKEND_ONLY) {
+		ctx_store_meta(ctx, CB_LB_SELECTION_RULE, LB_LOCAL_BACKEND_ONLY);
+	}
+#endif
 
 	if (from_host) {
 		int trace = TRACE_FROM_HOST;
@@ -969,7 +981,15 @@ handle_netdev(struct __ctx_buff *ctx, const bool from_host)
 __section("from-netdev")
 int from_netdev(struct __ctx_buff *ctx)
 {
+	int __maybe_unused ret = CTX_ACT_OK;
 	__u32 __maybe_unused vlan_id;
+
+#ifdef ENABLE_DSR_TUNL
+	ret = decap_ipip(ctx);
+	if (IS_ERR(ret)) {
+		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_INGRESS);
+	}
+#endif
 
 	/* Filter allowed vlan id's and pass them back to kernel.
 	 */
@@ -1077,6 +1097,7 @@ out:
 #if defined(ENABLE_NODEPORT) && \
 	(!defined(ENABLE_DSR) || \
 	 (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) || \
+	 (defined(ENABLE_DSR) && defined(ENABLE_DSR_TUNL)) || \
 	 defined(ENABLE_MASQUERADE) || \
 	 defined(ENABLE_EGRESS_GATEWAY))
 	if ((ctx->mark & MARK_MAGIC_SNAT_DONE) != MARK_MAGIC_SNAT_DONE) {

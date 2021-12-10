@@ -56,6 +56,8 @@ type UpsertServiceParams struct {
 	IP                        net.IP
 	Port                      uint16
 	Backends                  map[string]loadbalancer.BackendID
+	LocalBackends             []uint16
+	RemoteBackends            []uint16
 	PrevActiveBackendCount    int
 	IPv6                      bool
 	Type                      loadbalancer.SVCType
@@ -97,10 +99,7 @@ func (lbmap *LBBPFMap) UpsertService(p *UpsertServiceParams) error {
 		}
 	}
 
-	backendIDs := make([]loadbalancer.BackendID, 0, len(p.Backends))
-	for _, id := range p.Backends {
-		backendIDs = append(backendIDs, id)
-	}
+	backendIDs := append(p.LocalBackends, p.RemoteBackends...)
 	for _, backendID := range backendIDs {
 		if backendID == 0 {
 			return fmt.Errorf("Invalid backend ID 0")
@@ -130,7 +129,7 @@ func (lbmap *LBBPFMap) UpsertService(p *UpsertServiceParams) error {
 		return fmt.Errorf("Unable to update reverse NAT %+v => %+v: %s", revNATKey, revNATValue, err)
 	}
 
-	if err := updateMasterService(svcKey, len(backendIDs), int(p.ID), p.Type, p.Local,
+	if err := updateMasterService(svcKey, len(backendIDs), len(p.LocalBackends), int(p.ID), p.Type, p.Local,
 		p.SessionAffinity, p.SessionAffinityTimeoutSec, p.CheckSourceRange); err != nil {
 
 		deleteRevNatLocked(revNATKey)
@@ -499,7 +498,7 @@ func (*LBBPFMap) IsMaglevLookupTableRecreated(ipv6 bool) bool {
 	return maglevRecreatedIPv4
 }
 
-func updateMasterService(fe ServiceKey, nbackends int, revNATID int, svcType loadbalancer.SVCType,
+func updateMasterService(fe ServiceKey, nbackends, nLocalBackends, revNATID int, svcType loadbalancer.SVCType,
 	svcLocal bool, sessionAffinity bool, sessionAffinityTimeoutSec uint32,
 	checkSourceRange bool) error {
 
@@ -510,6 +509,7 @@ func updateMasterService(fe ServiceKey, nbackends int, revNATID int, svcType loa
 	fe.SetBackendSlot(0)
 	zeroValue := fe.NewValue().(ServiceValue)
 	zeroValue.SetCount(nbackends)
+	zeroValue.SetLocalCount(nLocalBackends)
 	zeroValue.SetRevNat(revNATID)
 	flag := loadbalancer.NewSvcFlag(&loadbalancer.SvcFlagParam{
 		SvcType:          svcType,

@@ -581,7 +581,7 @@ func initializeFlags() {
 	flags.MarkHidden(option.CgroupPathMKE)
 	option.BindEnv(option.CgroupPathMKE)
 
-	flags.String(option.NodePortMode, option.NodePortModeSNAT, "BPF NodePort mode (\"snat\", \"dsr\", \"hybrid\")")
+	flags.String(option.NodePortMode, option.NodePortModeSNAT, "BPF NodePort mode (\"snat\", \"dsr\", \"hybrid\", \"dsr-tunl\")")
 	flags.MarkHidden(option.NodePortMode)
 	option.BindEnv(option.NodePortMode)
 
@@ -595,7 +595,7 @@ func initializeFlags() {
 	flags.MarkHidden(option.NodePortAcceleration)
 	option.BindEnv(option.NodePortAcceleration)
 
-	flags.String(option.LoadBalancerMode, option.NodePortModeSNAT, "BPF load balancing mode (\"snat\", \"dsr\", \"hybrid\")")
+	flags.String(option.LoadBalancerMode, option.NodePortModeSNAT, "BPF load balancing mode (\"snat\", \"dsr\", \"hybrid\", \"dsr-tunl\")")
 	option.BindEnv(option.LoadBalancerMode)
 
 	flags.String(option.LoadBalancerAlg, option.NodePortAlgRandom, "BPF load balancing algorithm (\"random\", \"maglev\")")

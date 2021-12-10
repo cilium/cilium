@@ -239,7 +239,7 @@ const (
 	EnableSVCSourceRangeCheck = "enable-svc-source-range-check"
 
 	// NodePortMode indicates in which mode NodePort implementation should run
-	// ("snat", "dsr" or "hybrid")
+	// ("snat", "dsr", "hybrid" or "dsr-tunl")
 	NodePortMode = "node-port-mode"
 
 	// NodePortAlg indicates which algorithm is used for backend selection
@@ -1087,6 +1087,9 @@ const (
 	// NodePortModeHybrid is a dual mode of the above, that is, DSR for TCP and SNAT for UDP
 	NodePortModeHybrid = "hybrid"
 
+	// NodePortModeDSRTunl is a special dsr mode implemented by ipip tunneling
+	NodePortModeDSRTunl = "dsr-tunl"
+
 	// DSR dispatch mode to encode service into IP option or extension header
 	DSRDispatchOption = "opt"
 
@@ -1707,7 +1710,7 @@ type DaemonConfig struct {
 	EnableHostLegacyRouting bool
 
 	// NodePortMode indicates in which mode NodePort implementation should run
-	// ("snat", "dsr" or "hybrid")
+	// ("snat", "dsr", "hybrid" or "dsr-tunl")
 	NodePortMode string
 
 	// NodePortAlg indicates which backend selection algorithm is used

@@ -316,13 +316,17 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["DSR_XLATE_FRONTEND"] = fmt.Sprintf("%d", dsrL4XlateFrontend)
 		cDefinesMap["DSR_XLATE_BACKEND"] = fmt.Sprintf("%d", dsrL4XlateBackend)
 		if option.Config.NodePortMode == option.NodePortModeDSR ||
-			option.Config.NodePortMode == option.NodePortModeHybrid {
+			option.Config.NodePortMode == option.NodePortModeHybrid ||
+			option.Config.NodePortMode == option.NodePortModeDSRTunl {
 			cDefinesMap["ENABLE_DSR"] = "1"
 			if option.Config.LoadBalancerPMTUDiscovery {
 				cDefinesMap["ENABLE_DSR_ICMP_ERRORS"] = "1"
 			}
 			if option.Config.NodePortMode == option.NodePortModeHybrid {
 				cDefinesMap["ENABLE_DSR_HYBRID"] = "1"
+			}
+			if option.Config.NodePortMode == option.NodePortModeDSRTunl {
+				cDefinesMap["ENABLE_DSR_TUNL"] = "1"
 			}
 			if option.Config.LoadBalancerDSRDispatch == option.DSRDispatchOption {
 				cDefinesMap["DSR_ENCAP_MODE"] = fmt.Sprintf("%d", dsrEncapNone)

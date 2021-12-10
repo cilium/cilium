@@ -42,7 +42,7 @@ cilium-agent [flags]
       --bpf-lb-maglev-hash-seed string                       Maglev cluster-wide hash seed (base64 encoded) (default "JLfvgnHc2kaSUFaI")
       --bpf-lb-maglev-table-size uint                        Maglev per service backend table size (parameter M) (default 16381)
       --bpf-lb-map-max int                                   Maximum number of entries in Cilium BPF lbmap (default 65536)
-      --bpf-lb-mode string                                   BPF load balancing mode ("snat", "dsr", "hybrid") (default "snat")
+      --bpf-lb-mode string                                   BPF load balancing mode ("snat", "dsr", "hybrid", "dsr-tunl") (default "snat")
       --bpf-lb-rss-ipv4-src-cidr string                      BPF load balancing RSS outer source IPv4 CIDR prefix for IPIP
       --bpf-lb-rss-ipv6-src-cidr string                      BPF load balancing RSS outer source IPv6 CIDR prefix for IPIP
       --bpf-lb-sock-hostns-only                              Skip socket LB for services when inside a pod namespace, in favor of service LB at the pod interface. Socket LB is still used when in the host namespace. Required by service mesh (e.g., Istio, Linkerd).
