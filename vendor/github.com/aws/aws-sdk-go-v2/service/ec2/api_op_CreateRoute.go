@@ -55,6 +55,9 @@ type CreateRouteInput struct {
 	// contains a subnet which is associated with a Wavelength Zone.
 	CarrierGatewayId *string
 
+	// The Amazon Resource Name (ARN) of the core network.
+	CoreNetworkArn *string
+
 	// The IPv4 CIDR address block used for the destination match. Routing decisions
 	// are based on the most specific match. We modify the specified CIDR block to its
 	// canonical form; for example, if you specify 100.68.0.18/18, we modify it to

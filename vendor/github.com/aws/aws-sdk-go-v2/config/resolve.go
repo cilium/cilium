@@ -166,6 +166,22 @@ func resolveEndpointResolver(ctx context.Context, cfg *aws.Config, configs confi
 	return nil
 }
 
+// resolveEndpointResolver extracts the first instance of a EndpointResolverFunc from the config slice
+// and sets the functions result on the aws.Config.EndpointResolver
+func resolveEndpointResolverWithOptions(ctx context.Context, cfg *aws.Config, configs configs) error {
+	endpointResolver, found, err := getEndpointResolverWithOptions(ctx, configs)
+	if err != nil {
+		return err
+	}
+	if !found {
+		return nil
+	}
+
+	cfg.EndpointResolverWithOptions = endpointResolver
+
+	return nil
+}
+
 func resolveLogger(ctx context.Context, cfg *aws.Config, configs configs) error {
 	logger, found, err := getLogger(ctx, configs)
 	if err != nil {

@@ -44,6 +44,11 @@ type CreateDefaultSubnetInput struct {
 	// UnauthorizedOperation.
 	DryRun *bool
 
+	// Indicates whether to create an IPv6 only subnet. If you already have a default
+	// subnet for this Availability Zone, you must delete it before you can create an
+	// IPv6 only subnet.
+	Ipv6Native *bool
+
 	noSmithyDocumentSerde
 }
 
