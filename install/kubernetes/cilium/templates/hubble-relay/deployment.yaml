@@ -31,6 +31,10 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
+      {{- with .Values.hubble.relay.securityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:

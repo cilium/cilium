@@ -727,6 +727,9 @@ hubble:
         maxUnavailable: 1
       type: RollingUpdate
 
+    # -- hubble-relay security context
+    securityContext: {}
+
     # -- Host to listen to. Specify an empty string to bind to all the interfaces.
     listenHost: ""
 
