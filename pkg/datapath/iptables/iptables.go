@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	oldCiliumPrefix       = "OLD_CILIUM_"
+	oldCiliumPrefix       = "OLD_"
 	ciliumInputChain      = "CILIUM_INPUT"
 	ciliumOutputChain     = "CILIUM_OUTPUT"
 	ciliumOutputRawChain  = "CILIUM_OUTPUT_raw"
@@ -497,19 +497,19 @@ func (m *IptablesManager) removeOldRules(quiet bool) {
 	// Set of tables that have had iptables rules in any Cilium version
 	tables := []string{"nat", "mangle", "raw", "filter"}
 	for _, t := range tables {
-		m.removeCiliumRules(t, ip4tables, oldCiliumPrefix)
+		m.removeCiliumRules(t, ip4tables, oldCiliumPrefix+"CILIUM_")
 	}
 
 	// Set of tables that have had ip6tables rules in any Cilium version
 	if m.haveIp6tables {
 		tables6 := []string{"nat", "mangle", "raw", "filter"}
 		for _, t := range tables6 {
-			m.removeCiliumRules(t, ip6tables, oldCiliumPrefix)
+			m.removeCiliumRules(t, ip6tables, oldCiliumPrefix+"CILIUM_")
 		}
 	}
 
 	for _, c := range ciliumChains {
-		c.name = "OLD_" + c.name
+		c.name = oldCiliumPrefix + c.name
 		c.remove(quiet)
 	}
 }
@@ -1283,7 +1283,7 @@ func (m *IptablesManager) InstallRules(ifName string, firstInitialization, insta
 
 	// Rename any old chains we may have
 	for _, c := range ciliumChains {
-		c.rename("OLD_"+c.name, quiet)
+		c.rename(oldCiliumPrefix+c.name, quiet)
 	}
 
 	// install rules if needed
@@ -1294,7 +1294,7 @@ func (m *IptablesManager) InstallRules(ifName string, firstInitialization, insta
 		if firstInitialization {
 			match = "cilium-dns-egress"
 		}
-		m.copyProxyRules("OLD_"+ciliumPreMangleChain, match)
+		m.copyProxyRules(oldCiliumPrefix+ciliumPreMangleChain, match)
 	}
 
 	// only remove old rules if new ones were successfully installed
