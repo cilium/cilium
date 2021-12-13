@@ -1135,9 +1135,8 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 	 * or node, skip SNAT since only traffic leaving the cluster is supposed
 	 * to be masqueraded with an egress IP.
 	 */
-	if (!local_ep || (remote_ep &&
-			  is_cluster_destination(ip4, remote_ep->sec_label,
-						 remote_ep->tunnel_endpoint)))
+	if (remote_ep &&
+	    is_cluster_destination(ip4, remote_ep->sec_label, remote_ep->tunnel_endpoint))
 		goto skip_egress_gateway;
 
 	/* If the packet is a reply it means that outside has initiated the
