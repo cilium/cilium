@@ -87,3 +87,11 @@ func (m *Map) DeleteTunnelEndpoint(prefix net.IP) error {
 	log.WithField(fieldPrefix, prefix).Debug("Deleting tunnel map entry")
 	return TunnelMap.Delete(newTunnelEndpoint(prefix))
 }
+
+// SilentDeleteTunnelEndpoint removes a prefix => tunnel-endpoint mapping.
+// If the prefix is not found no error is returned.
+func (m *Map) SilentDeleteTunnelEndpoint(prefix net.IP) error {
+	log.WithField(fieldPrefix, prefix).Debug("Silently deleting tunnel map entry")
+	_, err := TunnelMap.SilentDelete(newTunnelEndpoint(prefix))
+	return err
+}
