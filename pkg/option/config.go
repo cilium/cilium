@@ -2172,8 +2172,7 @@ func (c *DaemonConfig) AlwaysAllowLocalhost() bool {
 	}
 }
 
-// TunnelingEnabled returns true if the remote-node identity feature
-// is enabled
+// TunnelingEnabled returns true if tunneling is enabled, i.e. not set to "disabled".
 func (c *DaemonConfig) TunnelingEnabled() bool {
 	return c.Tunnel != TunnelDisabled
 }
