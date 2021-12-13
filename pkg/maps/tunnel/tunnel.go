@@ -40,12 +40,8 @@ func NewTunnelMap(name string) *Map {
 		MaxEntries,
 		0, 0,
 		bpf.ConvertKeyValue,
-	).WithCache().WithPressureMetric(),
+	).WithCache().WithPressureMetric().WithNonPersistent(),
 	}
-}
-
-func init() {
-	TunnelMap.NonPersistent = true
 }
 
 // +k8s:deepcopy-gen=true
