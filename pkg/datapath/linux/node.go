@@ -156,14 +156,20 @@ func deleteTunnelMapping(oldCIDR *cidr.CIDR, quietMode bool) {
 		return
 	}
 
-	log.WithField("allocCIDR", oldCIDR).Debug("Deleting tunnel map entry")
+	log.WithFields(logrus.Fields{
+		"allocCIDR": oldCIDR,
+		"quietMode": quietMode,
+	}).Debug("Deleting tunnel map entry")
 
-	if err := tunnel.TunnelMap.DeleteTunnelEndpoint(oldCIDR.IP); err != nil {
-		if !quietMode {
+	if !quietMode {
+		if err := tunnel.TunnelMap.DeleteTunnelEndpoint(oldCIDR.IP); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
 				"allocCIDR": oldCIDR,
 			}).Error("Unable to delete in tunnel endpoint map")
 		}
+	} else {
+		_ = tunnel.TunnelMap.SilentDeleteTunnelEndpoint(oldCIDR.IP)
+
 	}
 }
 
