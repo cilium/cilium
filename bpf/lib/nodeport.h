@@ -1057,10 +1057,10 @@ static __always_inline bool nodeport_uses_dsr4(const struct ipv4_ct_tuple *tuple
 static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 					   bool *from_endpoint __maybe_unused)
 {
-	struct endpoint_info *ep __maybe_unused;
 	void *data, *data_end;
 	struct iphdr *ip4;
-	struct remote_endpoint_info __maybe_unused *info;
+	struct endpoint_info *local_ep __maybe_unused;
+	struct remote_endpoint_info *remote_ep __maybe_unused;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return false;
@@ -1113,13 +1113,13 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 		return false;
 #endif
 
-	ep = __lookup_ip4_endpoint(ip4->saddr);
+	local_ep = __lookup_ip4_endpoint(ip4->saddr);
 	/* if this is a localhost endpoint, no SNAT is needed */
-	if (ep && (ep->flags & ENDPOINT_F_HOST))
+	if (local_ep && (local_ep->flags & ENDPOINT_F_HOST))
 		return false;
 
-	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
-	if (info) {
+	remote_ep = lookup_ip4_remote_endpoint(ip4->daddr);
+	if (remote_ep) {
 #ifdef ENABLE_IP_MASQ_AGENT
 		/* Do not SNAT if dst belongs to any ip-masq-agent
 		 * subnet.
@@ -1141,18 +1141,18 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 		 * by the remote node if its native dev's
 		 * rp_filter=1.
 		 */
-		if (identity_is_remote_node(info->sec_label))
+		if (identity_is_remote_node(remote_ep->sec_label))
 			return false;
 #endif
 
 		/* Check if this packet belongs to reply traffic coming from a
 		 * local endpoint.
 		 *
-		 * If ep is NULL, it means there's no endpoint running on the
-		 * node which matches the packet source IP, which means we can
-		 * skip the CT lookup since this cannot be reply traffic.
+		 * If local_ep is NULL, it means there's no endpoint running on
+		 * the node which matches the packet source IP, which means we
+		 * can skip the CT lookup since this cannot be reply traffic.
 		 */
-		if (ep) {
+		if (local_ep) {
 			bool is_reply = false;
 			struct ipv4_ct_tuple tuple = {
 				.nexthdr = ip4->protocol,
@@ -1180,7 +1180,7 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 		 *    would either leave through the tunnel or match the above
 		 *    IPV4_SNAT_EXCLUSION_DST_CIDR check.
 		 */
-		if (!ep || !identity_is_remote_node(info->sec_label)) {
+		if (!local_ep || !identity_is_remote_node(remote_ep->sec_label)) {
 			struct egress_gw_policy_entry *egress_gw_policy;
 
 			/* Check if SNAT needs to be applied to the packet.
@@ -1198,7 +1198,7 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 			}
 		}
 #endif
-		if (ep) {
+		if (local_ep) {
 			*from_endpoint = true;
 			*addr = IPV4_MASQUERADE;
 			return true;
