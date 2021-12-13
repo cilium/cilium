@@ -794,6 +794,11 @@ ct_recreate4:
 		struct egress_gw_policy_entry *egress_gw_policy;
 		struct endpoint_key key = {};
 
+		/* If the packet is destined to an entity inside the cluster,
+		 * either EP or node, it should not be forwarded to an egress
+		 * gateway since only traffic leaving the cluster is supposed to
+		 * be masqueraded with an egress IP.
+		 */
 		if (is_cluster_destination(ip4, *dst_id, tunnel_endpoint))
 			goto skip_egress_gateway;
 

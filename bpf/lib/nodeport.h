@@ -1061,6 +1061,8 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 	struct iphdr *ip4;
 	struct endpoint_info *local_ep __maybe_unused;
 	struct remote_endpoint_info *remote_ep __maybe_unused;
+	struct egress_gw_policy_entry *egress_gw_policy __maybe_unused;
+	bool is_reply = false;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return false;
@@ -1092,6 +1094,26 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 # endif
 #endif /* defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY) */
 
+	local_ep = __lookup_ip4_endpoint(ip4->saddr);
+	remote_ep = lookup_ip4_remote_endpoint(ip4->daddr);
+
+	/* Check if this packet belongs to reply traffic coming from a
+	 * local endpoint.
+	 *
+	 * If local_ep is NULL, it means there's no endpoint running on the
+	 * node which matches the packet source IP, which means we can
+	 * skip the CT lookup since this cannot be reply traffic.
+	 */
+	if (local_ep) {
+		struct ipv4_ct_tuple tuple = {
+			.nexthdr = ip4->protocol,
+			.daddr = ip4->daddr,
+			.saddr = ip4->saddr
+		};
+
+		ct_is_reply4(get_ct_map4(&tuple), ctx, ETH_HLEN +
+			     ipv4_hdrlen(ip4), &tuple, &is_reply);
+	}
 
 #ifdef ENABLE_MASQUERADE /* SNAT local pod to world packets */
 # ifdef IS_BPF_OVERLAY
@@ -1101,6 +1123,41 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 	 */
 	return false;
 # endif
+
+/* Check if the packet matches an egress NAT policy and so needs to be SNAT'ed.
+ *
+ * This check must happen before the IPV4_SNAT_EXCLUSION_DST_CIDR check below as
+ * the destination may be in the SNAT exclusion CIDR but regardless of that we
+ * always want to SNAT a packet if it's matched by an egress NAT policy.
+ */
+#if defined(ENABLE_EGRESS_GATEWAY)
+	/* If the packet is destined to an entity inside the cluster, either EP
+	 * or node, skip SNAT since only traffic leaving the cluster is supposed
+	 * to be masqueraded with an egress IP.
+	 */
+	if (!local_ep || (remote_ep &&
+			  is_cluster_destination(ip4, remote_ep->sec_label,
+						 remote_ep->tunnel_endpoint)))
+		goto skip_egress_gateway;
+
+	/* If the packet is a reply it means that outside has initiated the
+	 * connection, so no need to SNAT the reply.
+	 */
+	if (is_reply)
+		goto skip_egress_gateway;
+
+	egress_gw_policy = lookup_ip4_egress_gw_policy(ip4->saddr, ip4->daddr);
+	if (!egress_gw_policy)
+		goto skip_egress_gateway;
+
+	*addr = egress_gw_policy->egress_ip;
+	*from_endpoint = true;
+
+	return true;
+
+skip_egress_gateway:
+#endif
+
 #ifdef IPV4_SNAT_EXCLUSION_DST_CIDR
 	/* Do not MASQ if a dst IP belongs to a pods CIDR
 	 * (ipv4-native-routing-cidr if specified, otherwise local pod CIDR).
@@ -1113,12 +1170,10 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 		return false;
 #endif
 
-	local_ep = __lookup_ip4_endpoint(ip4->saddr);
 	/* if this is a localhost endpoint, no SNAT is needed */
 	if (local_ep && (local_ep->flags & ENDPOINT_F_HOST))
 		return false;
 
-	remote_ep = lookup_ip4_remote_endpoint(ip4->daddr);
 	if (remote_ep) {
 #ifdef ENABLE_IP_MASQ_AGENT
 		/* Do not SNAT if dst belongs to any ip-masq-agent
@@ -1145,60 +1200,11 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 			return false;
 #endif
 
-		/* Check if this packet belongs to reply traffic coming from a
-		 * local endpoint.
-		 *
-		 * If local_ep is NULL, it means there's no endpoint running on
-		 * the node which matches the packet source IP, which means we
-		 * can skip the CT lookup since this cannot be reply traffic.
+		/* If the packet is a reply it means that outside has
+		 * initiated the connection, so no need to SNAT the
+		 * reply.
 		 */
-		if (local_ep) {
-			bool is_reply = false;
-			struct ipv4_ct_tuple tuple = {
-				.nexthdr = ip4->protocol,
-				.daddr = ip4->daddr,
-				.saddr = ip4->saddr
-			};
-
-			/* If the packet is a reply it means that outside has
-			 * initiated the connection, so no need to SNAT the
-			 * reply.
-			 */
-			if (!ct_is_reply4(get_ct_map4(&tuple), ctx, ETH_HLEN + ipv4_hdrlen(ip4),
-					  &tuple, &is_reply) && is_reply)
-				return false;
-		}
-
- #if defined(ENABLE_EGRESS_GATEWAY)
-		/* Check egress gateway policy only for traffic which matches
-		 * one of the following conditions.
-		 *  - Not from a local endpoint (inc. local host): that tells us
-		 *    the traffic was redirected by an egress gateway policy to
-		 *    this node to be masqueraded.
-		 *  - Not destined for a remote node: that tells us the traffic
-		 *    is leaving the cluster. Inter-node traffic to remote pods
-		 *    would either leave through the tunnel or match the above
-		 *    IPV4_SNAT_EXCLUSION_DST_CIDR check.
-		 */
-		if (!local_ep || !identity_is_remote_node(remote_ep->sec_label)) {
-			struct egress_gw_policy_entry *egress_gw_policy;
-
-			/* Check if SNAT needs to be applied to the packet.
-			 * Apply SNAT if there is an egress rule in ebpf map,
-			 * and the packet is not coming out from overlay
-			 * interface. If the packet is coming from an overlay
-			 * interface it means it is forwarded to another node,
-			 * instead of leaving the cluster.
-			 */
-			egress_gw_policy = lookup_ip4_egress_gw_policy(ip4->saddr, ip4->daddr);
-			if (egress_gw_policy) {
-				*addr = egress_gw_policy->egress_ip;
-				*from_endpoint = true;
-				return true;
-			}
-		}
-#endif
-		if (local_ep) {
+		if (!is_reply && local_ep) {
 			*from_endpoint = true;
 			*addr = IPV4_MASQUERADE;
 			return true;
