@@ -3564,7 +3564,8 @@ func (kub *Kubectl) GeneratePodLogGatheringCommands(ctx context.Context, reportC
 	}
 
 	for _, pod := range pods {
-		for _, containerStatus := range pod.Status.ContainerStatuses {
+		containerStatuses := append(pod.Status.InitContainerStatuses, pod.Status.ContainerStatuses...)
+		for _, containerStatus := range containerStatuses {
 			logCmd := fmt.Sprintf("%s -n %s logs --timestamps %s -c %s", KubectlCmd, pod.Namespace, pod.Name, containerStatus.Name)
 			logfileName := fmt.Sprintf("pod-%s-%s-%s.log", pod.Namespace, pod.Name, containerStatus.Name)
 			reportCmds[logCmd] = logfileName
