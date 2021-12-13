@@ -1104,11 +1104,6 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 
 		return nil
 	} else if firstAddition {
-		// When encapsulation is disabled, then the initial node addition
-		// triggers a removal of eventual old tunnel map entries.
-		deleteTunnelMapping(newNode.IPv4AllocCIDR, true)
-		deleteTunnelMapping(newNode.IPv6AllocCIDR, true)
-
 		if rt, _ := n.lookupNodeRoute(newNode.IPv4AllocCIDR, isLocalNode); rt != nil {
 			n.deleteNodeRoute(newNode.IPv4AllocCIDR, isLocalNode)
 		}
