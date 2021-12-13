@@ -26,18 +26,14 @@ On Freeze date
 #. Protect the branch using the GitHub UI to disallow direct push and require
    merging via PRs with proper reviews. `Direct link <https://github.com/cilium/cilium/settings/branches>`_
 
-#. Replace the contents of the ``CODEOWNERS`` file with the following to reduce
-   code reviews to essential approvals:
+#. Update the contents of the ``CODEOWNERS`` file to reduce code reviews to
+   essential approvals:
 
-   ::
-
-        * @cilium/janitors
-        .github/workflows/ @cilium/cilium-maintainers
-        api/ @cilium/api
-        pkg/apisocket/ @cilium/api
-        pkg/monitor/payload @cilium/api
-        pkg/policy/api/ @cilium/api
-        pkg/proxy/accesslog @cilium/api
+   #. Keep ``* @cilium/janitors`` fallback entry.
+   #. Keep ``/.github/workflows/`` entry for CI/CD security.
+   #. Keep all ``@cilium/api`` assignments for API stability on the release
+      branch.
+   #. Remove everything else so that it is handled by janitors / Top Hat.
 
 #. Delete the ``stable.txt`` file.
 
