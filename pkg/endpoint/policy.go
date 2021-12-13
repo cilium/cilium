@@ -647,7 +647,7 @@ var reasonRegenRetry = "retrying regeneration"
 // ran again unless another build failure occurs. If the call to `Regenerate`
 // fails inside of the controller,
 func (e *Endpoint) startRegenerationFailureHandler() {
-	e.UpdateController(fmt.Sprintf("endpoint-%s-regeneration-recovery", e.StringID()), controller.ControllerParams{
+	e.controllers.UpdateController(fmt.Sprintf("endpoint-%s-regeneration-recovery", e.StringID()), controller.ControllerParams{
 		DoFunc: func(ctx context.Context) error {
 			select {
 			case <-e.regenFailedChan:
