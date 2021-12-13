@@ -1,5 +1,6 @@
 # Code owners groups and a brief description of their areas:
 # @cilium/janitors           Catch-all for code not otherwise owned
+# @cilium/api                API stability guarantees
 # @cilium/agent              Cilium Agent
 # @cilium/alibabacloud       Integration with AlibabaCloud
 # @cilium/aws                Integration with AWS
