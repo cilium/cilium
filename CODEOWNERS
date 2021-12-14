@@ -15,17 +15,21 @@
 # @cilium/endpoint           Endpoint package
 # @cilium/github-sec         GitHub security (handling of secrets, consequences of pull_request_target, etc.)
 # @cilium/health             Cilium cluster health tool
+# @cilium/helm               Helm charts and best practices
 # @cilium/hubble             Hubble integration
 # @cilium/ipam               IPAM
+# @cilium/ipcache            Maintenance of pkg/ipcache
 # @cilium/kubernetes         K8s integration, K8s CNI plugin
 # @cilium/kvstore            Key/Value store: Consul, etcd
 # @cilium/loadbalancer       Load balancer
 # @cilium/loader             All related to LLVM, bpftool, Cilium loader, templating, etc.
+# @cilium/metrics            Metrics of the Cilium Agent
 # @cilium/operator           Cilium operator
 # @cilium/policy             Policy behaviour
 # @cilium/proxy              L7 proxy, Envoy
 # @cilium/vendor             Vendoring, dependency management
 # @cilium/wireguard          Wireguard integration
+# @cilium/nonexistantteam    Fake team to tell GitHub to skip assignment
 
 # The following filepaths should be sorted so that more specific paths occur
 # after the less specific paths, otherwise the ownership for the specific paths
