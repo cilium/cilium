@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,18 +32,53 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on TcpProtocolOptions with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *TcpProtocolOptions) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on TcpProtocolOptions with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// TcpProtocolOptionsMultiError, or nil if none found.
+func (m *TcpProtocolOptions) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *TcpProtocolOptions) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
+	if len(errors) > 0 {
+		return TcpProtocolOptionsMultiError(errors)
+	}
 	return nil
 }
+
+// TcpProtocolOptionsMultiError is an error wrapping multiple validation errors
+// returned by TcpProtocolOptions.ValidateAll() if the designated constraints
+// aren't met.
+type TcpProtocolOptionsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m TcpProtocolOptionsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m TcpProtocolOptionsMultiError) AllErrors() []error { return m }
 
 // TcpProtocolOptionsValidationError is the validation error returned by
 // TcpProtocolOptions.Validate if the designated constraints aren't met.
@@ -102,18 +138,52 @@ var _ interface {
 
 // Validate checks the field values on UpstreamHttpProtocolOptions with the
 // rules defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *UpstreamHttpProtocolOptions) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on UpstreamHttpProtocolOptions with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// UpstreamHttpProtocolOptionsMultiError, or nil if none found.
+func (m *UpstreamHttpProtocolOptions) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *UpstreamHttpProtocolOptions) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for AutoSni
 
 	// no validation rules for AutoSanValidation
 
+	if len(errors) > 0 {
+		return UpstreamHttpProtocolOptionsMultiError(errors)
+	}
 	return nil
 }
+
+// UpstreamHttpProtocolOptionsMultiError is an error wrapping multiple
+// validation errors returned by UpstreamHttpProtocolOptions.ValidateAll() if
+// the designated constraints aren't met.
+type UpstreamHttpProtocolOptionsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m UpstreamHttpProtocolOptionsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m UpstreamHttpProtocolOptionsMultiError) AllErrors() []error { return m }
 
 // UpstreamHttpProtocolOptionsValidationError is the validation error returned
 // by UpstreamHttpProtocolOptions.Validate if the designated constraints
@@ -174,13 +244,46 @@ var _ interface {
 
 // Validate checks the field values on HttpProtocolOptions with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *HttpProtocolOptions) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on HttpProtocolOptions with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// HttpProtocolOptionsMultiError, or nil if none found.
+func (m *HttpProtocolOptions) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HttpProtocolOptions) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetIdleTimeout()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetIdleTimeout()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpProtocolOptionsValidationError{
+					field:  "IdleTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpProtocolOptionsValidationError{
+					field:  "IdleTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetIdleTimeout()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpProtocolOptionsValidationError{
 				field:  "IdleTimeout",
@@ -190,7 +293,26 @@ func (m *HttpProtocolOptions) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetMaxConnectionDuration()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetMaxConnectionDuration()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpProtocolOptionsValidationError{
+					field:  "MaxConnectionDuration",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpProtocolOptionsValidationError{
+					field:  "MaxConnectionDuration",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMaxConnectionDuration()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpProtocolOptionsValidationError{
 				field:  "MaxConnectionDuration",
@@ -203,15 +325,38 @@ func (m *HttpProtocolOptions) Validate() error {
 	if wrapper := m.GetMaxHeadersCount(); wrapper != nil {
 
 		if wrapper.GetValue() < 1 {
-			return HttpProtocolOptionsValidationError{
+			err := HttpProtocolOptionsValidationError{
 				field:  "MaxHeadersCount",
 				reason: "value must be greater than or equal to 1",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	}
 
-	if v, ok := interface{}(m.GetMaxStreamDuration()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetMaxStreamDuration()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpProtocolOptionsValidationError{
+					field:  "MaxStreamDuration",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpProtocolOptionsValidationError{
+					field:  "MaxStreamDuration",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMaxStreamDuration()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpProtocolOptionsValidationError{
 				field:  "MaxStreamDuration",
@@ -223,8 +368,28 @@ func (m *HttpProtocolOptions) Validate() error {
 
 	// no validation rules for HeadersWithUnderscoresAction
 
+	if len(errors) > 0 {
+		return HttpProtocolOptionsMultiError(errors)
+	}
 	return nil
 }
+
+// HttpProtocolOptionsMultiError is an error wrapping multiple validation
+// errors returned by HttpProtocolOptions.ValidateAll() if the designated
+// constraints aren't met.
+type HttpProtocolOptionsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HttpProtocolOptionsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HttpProtocolOptionsMultiError) AllErrors() []error { return m }
 
 // HttpProtocolOptionsValidationError is the validation error returned by
 // HttpProtocolOptions.Validate if the designated constraints aren't met.
@@ -284,13 +449,46 @@ var _ interface {
 
 // Validate checks the field values on Http1ProtocolOptions with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *Http1ProtocolOptions) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Http1ProtocolOptions with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// Http1ProtocolOptionsMultiError, or nil if none found.
+func (m *Http1ProtocolOptions) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Http1ProtocolOptions) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetAllowAbsoluteUrl()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetAllowAbsoluteUrl()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, Http1ProtocolOptionsValidationError{
+					field:  "AllowAbsoluteUrl",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, Http1ProtocolOptionsValidationError{
+					field:  "AllowAbsoluteUrl",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetAllowAbsoluteUrl()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return Http1ProtocolOptionsValidationError{
 				field:  "AllowAbsoluteUrl",
@@ -304,7 +502,26 @@ func (m *Http1ProtocolOptions) Validate() error {
 
 	// no validation rules for DefaultHostForHttp_10
 
-	if v, ok := interface{}(m.GetHeaderKeyFormat()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetHeaderKeyFormat()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, Http1ProtocolOptionsValidationError{
+					field:  "HeaderKeyFormat",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, Http1ProtocolOptionsValidationError{
+					field:  "HeaderKeyFormat",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetHeaderKeyFormat()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return Http1ProtocolOptionsValidationError{
 				field:  "HeaderKeyFormat",
@@ -316,8 +533,28 @@ func (m *Http1ProtocolOptions) Validate() error {
 
 	// no validation rules for EnableTrailers
 
+	if len(errors) > 0 {
+		return Http1ProtocolOptionsMultiError(errors)
+	}
 	return nil
 }
+
+// Http1ProtocolOptionsMultiError is an error wrapping multiple validation
+// errors returned by Http1ProtocolOptions.ValidateAll() if the designated
+// constraints aren't met.
+type Http1ProtocolOptionsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Http1ProtocolOptionsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Http1ProtocolOptionsMultiError) AllErrors() []error { return m }
 
 // Http1ProtocolOptionsValidationError is the validation error returned by
 // Http1ProtocolOptions.Validate if the designated constraints aren't met.
@@ -377,13 +614,46 @@ var _ interface {
 
 // Validate checks the field values on Http2ProtocolOptions with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *Http2ProtocolOptions) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Http2ProtocolOptions with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// Http2ProtocolOptionsMultiError, or nil if none found.
+func (m *Http2ProtocolOptions) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Http2ProtocolOptions) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetHpackTableSize()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetHpackTableSize()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, Http2ProtocolOptionsValidationError{
+					field:  "HpackTableSize",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, Http2ProtocolOptionsValidationError{
+					field:  "HpackTableSize",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetHpackTableSize()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return Http2ProtocolOptionsValidationError{
 				field:  "HpackTableSize",
@@ -396,10 +666,14 @@ func (m *Http2ProtocolOptions) Validate() error {
 	if wrapper := m.GetMaxConcurrentStreams(); wrapper != nil {
 
 		if val := wrapper.GetValue(); val < 1 || val > 2147483647 {
-			return Http2ProtocolOptionsValidationError{
+			err := Http2ProtocolOptionsValidationError{
 				field:  "MaxConcurrentStreams",
 				reason: "value must be inside range [1, 2147483647]",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	}
@@ -407,10 +681,14 @@ func (m *Http2ProtocolOptions) Validate() error {
 	if wrapper := m.GetInitialStreamWindowSize(); wrapper != nil {
 
 		if val := wrapper.GetValue(); val < 65535 || val > 2147483647 {
-			return Http2ProtocolOptionsValidationError{
+			err := Http2ProtocolOptionsValidationError{
 				field:  "InitialStreamWindowSize",
 				reason: "value must be inside range [65535, 2147483647]",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	}
@@ -418,10 +696,14 @@ func (m *Http2ProtocolOptions) Validate() error {
 	if wrapper := m.GetInitialConnectionWindowSize(); wrapper != nil {
 
 		if val := wrapper.GetValue(); val < 65535 || val > 2147483647 {
-			return Http2ProtocolOptionsValidationError{
+			err := Http2ProtocolOptionsValidationError{
 				field:  "InitialConnectionWindowSize",
 				reason: "value must be inside range [65535, 2147483647]",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	}
@@ -433,10 +715,14 @@ func (m *Http2ProtocolOptions) Validate() error {
 	if wrapper := m.GetMaxOutboundFrames(); wrapper != nil {
 
 		if wrapper.GetValue() < 1 {
-			return Http2ProtocolOptionsValidationError{
+			err := Http2ProtocolOptionsValidationError{
 				field:  "MaxOutboundFrames",
 				reason: "value must be greater than or equal to 1",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	}
@@ -444,15 +730,38 @@ func (m *Http2ProtocolOptions) Validate() error {
 	if wrapper := m.GetMaxOutboundControlFrames(); wrapper != nil {
 
 		if wrapper.GetValue() < 1 {
-			return Http2ProtocolOptionsValidationError{
+			err := Http2ProtocolOptionsValidationError{
 				field:  "MaxOutboundControlFrames",
 				reason: "value must be greater than or equal to 1",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	}
 
-	if v, ok := interface{}(m.GetMaxConsecutiveInboundFramesWithEmptyPayload()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetMaxConsecutiveInboundFramesWithEmptyPayload()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, Http2ProtocolOptionsValidationError{
+					field:  "MaxConsecutiveInboundFramesWithEmptyPayload",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, Http2ProtocolOptionsValidationError{
+					field:  "MaxConsecutiveInboundFramesWithEmptyPayload",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMaxConsecutiveInboundFramesWithEmptyPayload()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return Http2ProtocolOptionsValidationError{
 				field:  "MaxConsecutiveInboundFramesWithEmptyPayload",
@@ -462,7 +771,26 @@ func (m *Http2ProtocolOptions) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetMaxInboundPriorityFramesPerStream()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetMaxInboundPriorityFramesPerStream()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, Http2ProtocolOptionsValidationError{
+					field:  "MaxInboundPriorityFramesPerStream",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, Http2ProtocolOptionsValidationError{
+					field:  "MaxInboundPriorityFramesPerStream",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMaxInboundPriorityFramesPerStream()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return Http2ProtocolOptionsValidationError{
 				field:  "MaxInboundPriorityFramesPerStream",
@@ -475,10 +803,14 @@ func (m *Http2ProtocolOptions) Validate() error {
 	if wrapper := m.GetMaxInboundWindowUpdateFramesPerDataFrameSent(); wrapper != nil {
 
 		if wrapper.GetValue() < 1 {
-			return Http2ProtocolOptionsValidationError{
+			err := Http2ProtocolOptionsValidationError{
 				field:  "MaxInboundWindowUpdateFramesPerDataFrameSent",
 				reason: "value must be greater than or equal to 1",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	}
@@ -488,7 +820,26 @@ func (m *Http2ProtocolOptions) Validate() error {
 	for idx, item := range m.GetCustomSettingsParameters() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, Http2ProtocolOptionsValidationError{
+						field:  fmt.Sprintf("CustomSettingsParameters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, Http2ProtocolOptionsValidationError{
+						field:  fmt.Sprintf("CustomSettingsParameters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return Http2ProtocolOptionsValidationError{
 					field:  fmt.Sprintf("CustomSettingsParameters[%v]", idx),
@@ -500,8 +851,28 @@ func (m *Http2ProtocolOptions) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return Http2ProtocolOptionsMultiError(errors)
+	}
 	return nil
 }
+
+// Http2ProtocolOptionsMultiError is an error wrapping multiple validation
+// errors returned by Http2ProtocolOptions.ValidateAll() if the designated
+// constraints aren't met.
+type Http2ProtocolOptionsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Http2ProtocolOptionsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Http2ProtocolOptionsMultiError) AllErrors() []error { return m }
 
 // Http2ProtocolOptionsValidationError is the validation error returned by
 // Http2ProtocolOptions.Validate if the designated constraints aren't met.
@@ -561,13 +932,46 @@ var _ interface {
 
 // Validate checks the field values on GrpcProtocolOptions with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *GrpcProtocolOptions) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on GrpcProtocolOptions with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// GrpcProtocolOptionsMultiError, or nil if none found.
+func (m *GrpcProtocolOptions) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *GrpcProtocolOptions) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetHttp2ProtocolOptions()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetHttp2ProtocolOptions()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, GrpcProtocolOptionsValidationError{
+					field:  "Http2ProtocolOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, GrpcProtocolOptionsValidationError{
+					field:  "Http2ProtocolOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetHttp2ProtocolOptions()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return GrpcProtocolOptionsValidationError{
 				field:  "Http2ProtocolOptions",
@@ -577,8 +981,28 @@ func (m *GrpcProtocolOptions) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return GrpcProtocolOptionsMultiError(errors)
+	}
 	return nil
 }
+
+// GrpcProtocolOptionsMultiError is an error wrapping multiple validation
+// errors returned by GrpcProtocolOptions.ValidateAll() if the designated
+// constraints aren't met.
+type GrpcProtocolOptionsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m GrpcProtocolOptionsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m GrpcProtocolOptionsMultiError) AllErrors() []error { return m }
 
 // GrpcProtocolOptionsValidationError is the validation error returned by
 // GrpcProtocolOptions.Validate if the designated constraints aren't met.
@@ -638,17 +1062,51 @@ var _ interface {
 
 // Validate checks the field values on Http1ProtocolOptions_HeaderKeyFormat
 // with the rules defined in the proto definition for this message. If any
-// rules are violated, an error is returned.
+// rules are violated, the first error encountered is returned, or nil if
+// there are no violations.
 func (m *Http1ProtocolOptions_HeaderKeyFormat) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Http1ProtocolOptions_HeaderKeyFormat
+// with the rules defined in the proto definition for this message. If any
+// rules are violated, the result is a list of violation errors wrapped in
+// Http1ProtocolOptions_HeaderKeyFormatMultiError, or nil if none found.
+func (m *Http1ProtocolOptions_HeaderKeyFormat) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Http1ProtocolOptions_HeaderKeyFormat) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	switch m.HeaderFormat.(type) {
 
 	case *Http1ProtocolOptions_HeaderKeyFormat_ProperCaseWords_:
 
-		if v, ok := interface{}(m.GetProperCaseWords()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetProperCaseWords()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, Http1ProtocolOptions_HeaderKeyFormatValidationError{
+						field:  "ProperCaseWords",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, Http1ProtocolOptions_HeaderKeyFormatValidationError{
+						field:  "ProperCaseWords",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetProperCaseWords()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return Http1ProtocolOptions_HeaderKeyFormatValidationError{
 					field:  "ProperCaseWords",
@@ -659,15 +1117,40 @@ func (m *Http1ProtocolOptions_HeaderKeyFormat) Validate() error {
 		}
 
 	default:
-		return Http1ProtocolOptions_HeaderKeyFormatValidationError{
+		err := Http1ProtocolOptions_HeaderKeyFormatValidationError{
 			field:  "HeaderFormat",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 
 	}
 
+	if len(errors) > 0 {
+		return Http1ProtocolOptions_HeaderKeyFormatMultiError(errors)
+	}
 	return nil
 }
+
+// Http1ProtocolOptions_HeaderKeyFormatMultiError is an error wrapping multiple
+// validation errors returned by
+// Http1ProtocolOptions_HeaderKeyFormat.ValidateAll() if the designated
+// constraints aren't met.
+type Http1ProtocolOptions_HeaderKeyFormatMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Http1ProtocolOptions_HeaderKeyFormatMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Http1ProtocolOptions_HeaderKeyFormatMultiError) AllErrors() []error { return m }
 
 // Http1ProtocolOptions_HeaderKeyFormatValidationError is the validation error
 // returned by Http1ProtocolOptions_HeaderKeyFormat.Validate if the designated
@@ -728,15 +1211,52 @@ var _ interface {
 
 // Validate checks the field values on
 // Http1ProtocolOptions_HeaderKeyFormat_ProperCaseWords with the rules defined
-// in the proto definition for this message. If any rules are violated, an
-// error is returned.
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
 func (m *Http1ProtocolOptions_HeaderKeyFormat_ProperCaseWords) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// Http1ProtocolOptions_HeaderKeyFormat_ProperCaseWords with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in
+// Http1ProtocolOptions_HeaderKeyFormat_ProperCaseWordsMultiError, or nil if
+// none found.
+func (m *Http1ProtocolOptions_HeaderKeyFormat_ProperCaseWords) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Http1ProtocolOptions_HeaderKeyFormat_ProperCaseWords) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
+	if len(errors) > 0 {
+		return Http1ProtocolOptions_HeaderKeyFormat_ProperCaseWordsMultiError(errors)
+	}
 	return nil
 }
+
+// Http1ProtocolOptions_HeaderKeyFormat_ProperCaseWordsMultiError is an error
+// wrapping multiple validation errors returned by
+// Http1ProtocolOptions_HeaderKeyFormat_ProperCaseWords.ValidateAll() if the
+// designated constraints aren't met.
+type Http1ProtocolOptions_HeaderKeyFormat_ProperCaseWordsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Http1ProtocolOptions_HeaderKeyFormat_ProperCaseWordsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Http1ProtocolOptions_HeaderKeyFormat_ProperCaseWordsMultiError) AllErrors() []error { return m }
 
 // Http1ProtocolOptions_HeaderKeyFormat_ProperCaseWordsValidationError is the
 // validation error returned by
@@ -804,36 +1324,83 @@ var _ interface {
 
 // Validate checks the field values on Http2ProtocolOptions_SettingsParameter
 // with the rules defined in the proto definition for this message. If any
-// rules are violated, an error is returned.
+// rules are violated, the first error encountered is returned, or nil if
+// there are no violations.
 func (m *Http2ProtocolOptions_SettingsParameter) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// Http2ProtocolOptions_SettingsParameter with the rules defined in the proto
+// definition for this message. If any rules are violated, the result is a
+// list of violation errors wrapped in
+// Http2ProtocolOptions_SettingsParameterMultiError, or nil if none found.
+func (m *Http2ProtocolOptions_SettingsParameter) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Http2ProtocolOptions_SettingsParameter) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if wrapper := m.GetIdentifier(); wrapper != nil {
 
 		if val := wrapper.GetValue(); val < 1 || val > 65536 {
-			return Http2ProtocolOptions_SettingsParameterValidationError{
+			err := Http2ProtocolOptions_SettingsParameterValidationError{
 				field:  "Identifier",
 				reason: "value must be inside range [1, 65536]",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	} else {
-		return Http2ProtocolOptions_SettingsParameterValidationError{
+		err := Http2ProtocolOptions_SettingsParameterValidationError{
 			field:  "Identifier",
 			reason: "value is required and must not be nil.",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if m.GetValue() == nil {
-		return Http2ProtocolOptions_SettingsParameterValidationError{
+		err := Http2ProtocolOptions_SettingsParameterValidationError{
 			field:  "Value",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
-	if v, ok := interface{}(m.GetValue()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetValue()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, Http2ProtocolOptions_SettingsParameterValidationError{
+					field:  "Value",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, Http2ProtocolOptions_SettingsParameterValidationError{
+					field:  "Value",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetValue()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return Http2ProtocolOptions_SettingsParameterValidationError{
 				field:  "Value",
@@ -843,8 +1410,29 @@ func (m *Http2ProtocolOptions_SettingsParameter) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return Http2ProtocolOptions_SettingsParameterMultiError(errors)
+	}
 	return nil
 }
+
+// Http2ProtocolOptions_SettingsParameterMultiError is an error wrapping
+// multiple validation errors returned by
+// Http2ProtocolOptions_SettingsParameter.ValidateAll() if the designated
+// constraints aren't met.
+type Http2ProtocolOptions_SettingsParameterMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Http2ProtocolOptions_SettingsParameterMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Http2ProtocolOptions_SettingsParameterMultiError) AllErrors() []error { return m }
 
 // Http2ProtocolOptions_SettingsParameterValidationError is the validation
 // error returned by Http2ProtocolOptions_SettingsParameter.Validate if the

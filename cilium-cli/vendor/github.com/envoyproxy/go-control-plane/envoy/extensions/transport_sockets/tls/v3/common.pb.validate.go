@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,32 +32,75 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on TlsParameters with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *TlsParameters) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on TlsParameters with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in TlsParametersMultiError, or
+// nil if none found.
+func (m *TlsParameters) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *TlsParameters) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if _, ok := TlsParameters_TlsProtocol_name[int32(m.GetTlsMinimumProtocolVersion())]; !ok {
-		return TlsParametersValidationError{
+		err := TlsParametersValidationError{
 			field:  "TlsMinimumProtocolVersion",
 			reason: "value must be one of the defined enum values",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if _, ok := TlsParameters_TlsProtocol_name[int32(m.GetTlsMaximumProtocolVersion())]; !ok {
-		return TlsParametersValidationError{
+		err := TlsParametersValidationError{
 			field:  "TlsMaximumProtocolVersion",
 			reason: "value must be one of the defined enum values",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
+	if len(errors) > 0 {
+		return TlsParametersMultiError(errors)
+	}
 	return nil
 }
+
+// TlsParametersMultiError is an error wrapping multiple validation errors
+// returned by TlsParameters.ValidateAll() if the designated constraints
+// aren't met.
+type TlsParametersMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m TlsParametersMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m TlsParametersMultiError) AllErrors() []error { return m }
 
 // TlsParametersValidationError is the validation error returned by
 // TlsParameters.Validate if the designated constraints aren't met.
@@ -114,24 +158,61 @@ var _ interface {
 
 // Validate checks the field values on PrivateKeyProvider with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *PrivateKeyProvider) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on PrivateKeyProvider with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// PrivateKeyProviderMultiError, or nil if none found.
+func (m *PrivateKeyProvider) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *PrivateKeyProvider) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if utf8.RuneCountInString(m.GetProviderName()) < 1 {
-		return PrivateKeyProviderValidationError{
+		err := PrivateKeyProviderValidationError{
 			field:  "ProviderName",
 			reason: "value length must be at least 1 runes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	switch m.ConfigType.(type) {
 
 	case *PrivateKeyProvider_TypedConfig:
 
-		if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetTypedConfig()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, PrivateKeyProviderValidationError{
+						field:  "TypedConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, PrivateKeyProviderValidationError{
+						field:  "TypedConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return PrivateKeyProviderValidationError{
 					field:  "TypedConfig",
@@ -141,22 +222,30 @@ func (m *PrivateKeyProvider) Validate() error {
 			}
 		}
 
-	case *PrivateKeyProvider_HiddenEnvoyDeprecatedConfig:
-
-		if v, ok := interface{}(m.GetHiddenEnvoyDeprecatedConfig()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return PrivateKeyProviderValidationError{
-					field:  "HiddenEnvoyDeprecatedConfig",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
-			}
-		}
-
 	}
 
+	if len(errors) > 0 {
+		return PrivateKeyProviderMultiError(errors)
+	}
 	return nil
 }
+
+// PrivateKeyProviderMultiError is an error wrapping multiple validation errors
+// returned by PrivateKeyProvider.ValidateAll() if the designated constraints
+// aren't met.
+type PrivateKeyProviderMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m PrivateKeyProviderMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m PrivateKeyProviderMultiError) AllErrors() []error { return m }
 
 // PrivateKeyProviderValidationError is the validation error returned by
 // PrivateKeyProvider.Validate if the designated constraints aren't met.
@@ -215,14 +304,47 @@ var _ interface {
 } = PrivateKeyProviderValidationError{}
 
 // Validate checks the field values on TlsCertificate with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *TlsCertificate) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on TlsCertificate with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in TlsCertificateMultiError,
+// or nil if none found.
+func (m *TlsCertificate) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *TlsCertificate) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetCertificateChain()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetCertificateChain()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, TlsCertificateValidationError{
+					field:  "CertificateChain",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, TlsCertificateValidationError{
+					field:  "CertificateChain",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCertificateChain()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return TlsCertificateValidationError{
 				field:  "CertificateChain",
@@ -232,7 +354,26 @@ func (m *TlsCertificate) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetPrivateKey()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetPrivateKey()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, TlsCertificateValidationError{
+					field:  "PrivateKey",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, TlsCertificateValidationError{
+					field:  "PrivateKey",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetPrivateKey()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return TlsCertificateValidationError{
 				field:  "PrivateKey",
@@ -242,7 +383,55 @@ func (m *TlsCertificate) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetWatchedDirectory()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetPkcs12()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, TlsCertificateValidationError{
+					field:  "Pkcs12",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, TlsCertificateValidationError{
+					field:  "Pkcs12",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetPkcs12()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return TlsCertificateValidationError{
+				field:  "Pkcs12",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetWatchedDirectory()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, TlsCertificateValidationError{
+					field:  "WatchedDirectory",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, TlsCertificateValidationError{
+					field:  "WatchedDirectory",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetWatchedDirectory()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return TlsCertificateValidationError{
 				field:  "WatchedDirectory",
@@ -252,7 +441,26 @@ func (m *TlsCertificate) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetPrivateKeyProvider()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetPrivateKeyProvider()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, TlsCertificateValidationError{
+					field:  "PrivateKeyProvider",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, TlsCertificateValidationError{
+					field:  "PrivateKeyProvider",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetPrivateKeyProvider()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return TlsCertificateValidationError{
 				field:  "PrivateKeyProvider",
@@ -262,7 +470,26 @@ func (m *TlsCertificate) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetPassword()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetPassword()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, TlsCertificateValidationError{
+					field:  "Password",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, TlsCertificateValidationError{
+					field:  "Password",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetPassword()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return TlsCertificateValidationError{
 				field:  "Password",
@@ -272,7 +499,26 @@ func (m *TlsCertificate) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetOcspStaple()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetOcspStaple()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, TlsCertificateValidationError{
+					field:  "OcspStaple",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, TlsCertificateValidationError{
+					field:  "OcspStaple",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetOcspStaple()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return TlsCertificateValidationError{
 				field:  "OcspStaple",
@@ -285,7 +531,26 @@ func (m *TlsCertificate) Validate() error {
 	for idx, item := range m.GetSignedCertificateTimestamp() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, TlsCertificateValidationError{
+						field:  fmt.Sprintf("SignedCertificateTimestamp[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, TlsCertificateValidationError{
+						field:  fmt.Sprintf("SignedCertificateTimestamp[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return TlsCertificateValidationError{
 					field:  fmt.Sprintf("SignedCertificateTimestamp[%v]", idx),
@@ -297,8 +562,28 @@ func (m *TlsCertificate) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return TlsCertificateMultiError(errors)
+	}
 	return nil
 }
+
+// TlsCertificateMultiError is an error wrapping multiple validation errors
+// returned by TlsCertificate.ValidateAll() if the designated constraints
+// aren't met.
+type TlsCertificateMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m TlsCertificateMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m TlsCertificateMultiError) AllErrors() []error { return m }
 
 // TlsCertificateValidationError is the validation error returned by
 // TlsCertificate.Validate if the designated constraints aren't met.
@@ -356,23 +641,60 @@ var _ interface {
 
 // Validate checks the field values on TlsSessionTicketKeys with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *TlsSessionTicketKeys) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on TlsSessionTicketKeys with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// TlsSessionTicketKeysMultiError, or nil if none found.
+func (m *TlsSessionTicketKeys) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *TlsSessionTicketKeys) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if len(m.GetKeys()) < 1 {
-		return TlsSessionTicketKeysValidationError{
+		err := TlsSessionTicketKeysValidationError{
 			field:  "Keys",
 			reason: "value must contain at least 1 item(s)",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	for idx, item := range m.GetKeys() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, TlsSessionTicketKeysValidationError{
+						field:  fmt.Sprintf("Keys[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, TlsSessionTicketKeysValidationError{
+						field:  fmt.Sprintf("Keys[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return TlsSessionTicketKeysValidationError{
 					field:  fmt.Sprintf("Keys[%v]", idx),
@@ -384,8 +706,28 @@ func (m *TlsSessionTicketKeys) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return TlsSessionTicketKeysMultiError(errors)
+	}
 	return nil
 }
+
+// TlsSessionTicketKeysMultiError is an error wrapping multiple validation
+// errors returned by TlsSessionTicketKeys.ValidateAll() if the designated
+// constraints aren't met.
+type TlsSessionTicketKeysMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m TlsSessionTicketKeysMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m TlsSessionTicketKeysMultiError) AllErrors() []error { return m }
 
 // TlsSessionTicketKeysValidationError is the validation error returned by
 // TlsSessionTicketKeys.Validate if the designated constraints aren't met.
@@ -445,18 +787,54 @@ var _ interface {
 
 // Validate checks the field values on CertificateProviderPluginInstance with
 // the rules defined in the proto definition for this message. If any rules
-// are violated, an error is returned.
+// are violated, the first error encountered is returned, or nil if there are
+// no violations.
 func (m *CertificateProviderPluginInstance) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on CertificateProviderPluginInstance
+// with the rules defined in the proto definition for this message. If any
+// rules are violated, the result is a list of violation errors wrapped in
+// CertificateProviderPluginInstanceMultiError, or nil if none found.
+func (m *CertificateProviderPluginInstance) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *CertificateProviderPluginInstance) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for InstanceName
 
 	// no validation rules for CertificateName
 
+	if len(errors) > 0 {
+		return CertificateProviderPluginInstanceMultiError(errors)
+	}
 	return nil
 }
+
+// CertificateProviderPluginInstanceMultiError is an error wrapping multiple
+// validation errors returned by
+// CertificateProviderPluginInstance.ValidateAll() if the designated
+// constraints aren't met.
+type CertificateProviderPluginInstanceMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m CertificateProviderPluginInstanceMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m CertificateProviderPluginInstanceMultiError) AllErrors() []error { return m }
 
 // CertificateProviderPluginInstanceValidationError is the validation error
 // returned by CertificateProviderPluginInstance.Validate if the designated
@@ -517,13 +895,46 @@ var _ interface {
 
 // Validate checks the field values on CertificateValidationContext with the
 // rules defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *CertificateValidationContext) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on CertificateValidationContext with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// CertificateValidationContextMultiError, or nil if none found.
+func (m *CertificateValidationContext) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *CertificateValidationContext) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetTrustedCa()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetTrustedCa()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CertificateValidationContextValidationError{
+					field:  "TrustedCa",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CertificateValidationContextValidationError{
+					field:  "TrustedCa",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetTrustedCa()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CertificateValidationContextValidationError{
 				field:  "TrustedCa",
@@ -533,7 +944,26 @@ func (m *CertificateValidationContext) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetCaCertificateProviderInstance()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetCaCertificateProviderInstance()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CertificateValidationContextValidationError{
+					field:  "CaCertificateProviderInstance",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CertificateValidationContextValidationError{
+					field:  "CaCertificateProviderInstance",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCaCertificateProviderInstance()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CertificateValidationContextValidationError{
 				field:  "CaCertificateProviderInstance",
@@ -543,7 +973,26 @@ func (m *CertificateValidationContext) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetWatchedDirectory()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetWatchedDirectory()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CertificateValidationContextValidationError{
+					field:  "WatchedDirectory",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CertificateValidationContextValidationError{
+					field:  "WatchedDirectory",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetWatchedDirectory()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CertificateValidationContextValidationError{
 				field:  "WatchedDirectory",
@@ -557,17 +1006,25 @@ func (m *CertificateValidationContext) Validate() error {
 		_, _ = idx, item
 
 		if utf8.RuneCountInString(item) < 44 {
-			return CertificateValidationContextValidationError{
+			err := CertificateValidationContextValidationError{
 				field:  fmt.Sprintf("VerifyCertificateSpki[%v]", idx),
 				reason: "value length must be at least 44 runes",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 		if len(item) > 44 {
-			return CertificateValidationContextValidationError{
+			err := CertificateValidationContextValidationError{
 				field:  fmt.Sprintf("VerifyCertificateSpki[%v]", idx),
 				reason: "value length must be at most 44 bytes",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	}
@@ -576,17 +1033,25 @@ func (m *CertificateValidationContext) Validate() error {
 		_, _ = idx, item
 
 		if utf8.RuneCountInString(item) < 64 {
-			return CertificateValidationContextValidationError{
+			err := CertificateValidationContextValidationError{
 				field:  fmt.Sprintf("VerifyCertificateHash[%v]", idx),
 				reason: "value length must be at least 64 runes",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 		if len(item) > 95 {
-			return CertificateValidationContextValidationError{
+			err := CertificateValidationContextValidationError{
 				field:  fmt.Sprintf("VerifyCertificateHash[%v]", idx),
 				reason: "value length must be at most 95 bytes",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	}
@@ -594,7 +1059,26 @@ func (m *CertificateValidationContext) Validate() error {
 	for idx, item := range m.GetMatchSubjectAltNames() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, CertificateValidationContextValidationError{
+						field:  fmt.Sprintf("MatchSubjectAltNames[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, CertificateValidationContextValidationError{
+						field:  fmt.Sprintf("MatchSubjectAltNames[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return CertificateValidationContextValidationError{
 					field:  fmt.Sprintf("MatchSubjectAltNames[%v]", idx),
@@ -606,7 +1090,26 @@ func (m *CertificateValidationContext) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetRequireSignedCertificateTimestamp()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetRequireSignedCertificateTimestamp()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CertificateValidationContextValidationError{
+					field:  "RequireSignedCertificateTimestamp",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CertificateValidationContextValidationError{
+					field:  "RequireSignedCertificateTimestamp",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetRequireSignedCertificateTimestamp()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CertificateValidationContextValidationError{
 				field:  "RequireSignedCertificateTimestamp",
@@ -616,7 +1119,26 @@ func (m *CertificateValidationContext) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetCrl()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetCrl()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CertificateValidationContextValidationError{
+					field:  "Crl",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CertificateValidationContextValidationError{
+					field:  "Crl",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCrl()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CertificateValidationContextValidationError{
 				field:  "Crl",
@@ -629,13 +1151,36 @@ func (m *CertificateValidationContext) Validate() error {
 	// no validation rules for AllowExpiredCertificate
 
 	if _, ok := CertificateValidationContext_TrustChainVerification_name[int32(m.GetTrustChainVerification())]; !ok {
-		return CertificateValidationContextValidationError{
+		err := CertificateValidationContextValidationError{
 			field:  "TrustChainVerification",
 			reason: "value must be one of the defined enum values",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
-	if v, ok := interface{}(m.GetCustomValidatorConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetCustomValidatorConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CertificateValidationContextValidationError{
+					field:  "CustomValidatorConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CertificateValidationContextValidationError{
+					field:  "CustomValidatorConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCustomValidatorConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CertificateValidationContextValidationError{
 				field:  "CustomValidatorConfig",
@@ -645,8 +1190,30 @@ func (m *CertificateValidationContext) Validate() error {
 		}
 	}
 
+	// no validation rules for OnlyVerifyLeafCertCrl
+
+	if len(errors) > 0 {
+		return CertificateValidationContextMultiError(errors)
+	}
 	return nil
 }
+
+// CertificateValidationContextMultiError is an error wrapping multiple
+// validation errors returned by CertificateValidationContext.ValidateAll() if
+// the designated constraints aren't met.
+type CertificateValidationContextMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m CertificateValidationContextMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m CertificateValidationContextMultiError) AllErrors() []error { return m }
 
 // CertificateValidationContextValidationError is the validation error returned
 // by CertificateValidationContext.Validate if the designated constraints

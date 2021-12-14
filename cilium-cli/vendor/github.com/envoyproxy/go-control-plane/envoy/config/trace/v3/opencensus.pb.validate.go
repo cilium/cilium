@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,17 +32,51 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on OpenCensusConfig with the rules defined
-// in the proto definition for this message. If any rules are violated, an
-// error is returned.
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
 func (m *OpenCensusConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on OpenCensusConfig with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// OpenCensusConfigMultiError, or nil if none found.
+func (m *OpenCensusConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *OpenCensusConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetTraceConfig()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetTraceConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, OpenCensusConfigValidationError{
+					field:  "TraceConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, OpenCensusConfigValidationError{
+					field:  "TraceConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetTraceConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return OpenCensusConfigValidationError{
 				field:  "TraceConfig",
@@ -59,7 +94,26 @@ func (m *OpenCensusConfig) Validate() error {
 
 	// no validation rules for StackdriverAddress
 
-	if v, ok := interface{}(m.GetStackdriverGrpcService()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetStackdriverGrpcService()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, OpenCensusConfigValidationError{
+					field:  "StackdriverGrpcService",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, OpenCensusConfigValidationError{
+					field:  "StackdriverGrpcService",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetStackdriverGrpcService()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return OpenCensusConfigValidationError{
 				field:  "StackdriverGrpcService",
@@ -77,7 +131,26 @@ func (m *OpenCensusConfig) Validate() error {
 
 	// no validation rules for OcagentAddress
 
-	if v, ok := interface{}(m.GetOcagentGrpcService()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetOcagentGrpcService()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, OpenCensusConfigValidationError{
+					field:  "OcagentGrpcService",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, OpenCensusConfigValidationError{
+					field:  "OcagentGrpcService",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetOcagentGrpcService()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return OpenCensusConfigValidationError{
 				field:  "OcagentGrpcService",
@@ -87,8 +160,28 @@ func (m *OpenCensusConfig) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return OpenCensusConfigMultiError(errors)
+	}
 	return nil
 }
+
+// OpenCensusConfigMultiError is an error wrapping multiple validation errors
+// returned by OpenCensusConfig.ValidateAll() if the designated constraints
+// aren't met.
+type OpenCensusConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m OpenCensusConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m OpenCensusConfigMultiError) AllErrors() []error { return m }
 
 // OpenCensusConfigValidationError is the validation error returned by
 // OpenCensusConfig.Validate if the designated constraints aren't met.

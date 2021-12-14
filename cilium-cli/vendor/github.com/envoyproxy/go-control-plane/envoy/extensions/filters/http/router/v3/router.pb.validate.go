@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,16 +32,50 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on Router with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *Router) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Router with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in RouterMultiError, or nil if none found.
+func (m *Router) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Router) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetDynamicStats()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetDynamicStats()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RouterValidationError{
+					field:  "DynamicStats",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RouterValidationError{
+					field:  "DynamicStats",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetDynamicStats()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return RouterValidationError{
 				field:  "DynamicStats",
@@ -55,7 +90,26 @@ func (m *Router) Validate() error {
 	for idx, item := range m.GetUpstreamLog() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, RouterValidationError{
+						field:  fmt.Sprintf("UpstreamLog[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, RouterValidationError{
+						field:  fmt.Sprintf("UpstreamLog[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return RouterValidationError{
 					field:  fmt.Sprintf("UpstreamLog[%v]", idx),
@@ -73,10 +127,14 @@ func (m *Router) Validate() error {
 		_, _ = idx, item
 
 		if _, ok := _Router_StrictCheckHeaders_InLookup[item]; !ok {
-			return RouterValidationError{
+			err := RouterValidationError{
 				field:  fmt.Sprintf("StrictCheckHeaders[%v]", idx),
 				reason: "value must be in list [x-envoy-upstream-rq-timeout-ms x-envoy-upstream-rq-per-try-timeout-ms x-envoy-max-retries x-envoy-retry-grpc-on x-envoy-retry-on]",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	}
@@ -85,8 +143,27 @@ func (m *Router) Validate() error {
 
 	// no validation rules for SuppressGrpcRequestFailureCodeStats
 
+	if len(errors) > 0 {
+		return RouterMultiError(errors)
+	}
 	return nil
 }
+
+// RouterMultiError is an error wrapping multiple validation errors returned by
+// Router.ValidateAll() if the designated constraints aren't met.
+type RouterMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m RouterMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m RouterMultiError) AllErrors() []error { return m }
 
 // RouterValidationError is the validation error returned by Router.Validate if
 // the designated constraints aren't met.

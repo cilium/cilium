@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,34 +32,76 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on HttpConnectionManager with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *HttpConnectionManager) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on HttpConnectionManager with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// HttpConnectionManagerMultiError, or nil if none found.
+func (m *HttpConnectionManager) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HttpConnectionManager) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if _, ok := HttpConnectionManager_CodecType_name[int32(m.GetCodecType())]; !ok {
-		return HttpConnectionManagerValidationError{
+		err := HttpConnectionManagerValidationError{
 			field:  "CodecType",
 			reason: "value must be one of the defined enum values",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if utf8.RuneCountInString(m.GetStatPrefix()) < 1 {
-		return HttpConnectionManagerValidationError{
+		err := HttpConnectionManagerValidationError{
 			field:  "StatPrefix",
 			reason: "value length must be at least 1 runes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	for idx, item := range m.GetHttpFilters() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HttpConnectionManagerValidationError{
+						field:  fmt.Sprintf("HttpFilters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HttpConnectionManagerValidationError{
+						field:  fmt.Sprintf("HttpFilters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HttpConnectionManagerValidationError{
 					field:  fmt.Sprintf("HttpFilters[%v]", idx),
@@ -70,7 +113,26 @@ func (m *HttpConnectionManager) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetAddUserAgent()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetAddUserAgent()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "AddUserAgent",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "AddUserAgent",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetAddUserAgent()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
 				field:  "AddUserAgent",
@@ -80,7 +142,26 @@ func (m *HttpConnectionManager) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetTracing()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetTracing()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "Tracing",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "Tracing",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetTracing()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
 				field:  "Tracing",
@@ -90,7 +171,26 @@ func (m *HttpConnectionManager) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetCommonHttpProtocolOptions()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetCommonHttpProtocolOptions()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "CommonHttpProtocolOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "CommonHttpProtocolOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCommonHttpProtocolOptions()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
 				field:  "CommonHttpProtocolOptions",
@@ -100,7 +200,26 @@ func (m *HttpConnectionManager) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetHttpProtocolOptions()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetHttpProtocolOptions()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "HttpProtocolOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "HttpProtocolOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetHttpProtocolOptions()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
 				field:  "HttpProtocolOptions",
@@ -110,7 +229,26 @@ func (m *HttpConnectionManager) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetHttp2ProtocolOptions()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetHttp2ProtocolOptions()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "Http2ProtocolOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "Http2ProtocolOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetHttp2ProtocolOptions()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
 				field:  "Http2ProtocolOptions",
@@ -120,7 +258,26 @@ func (m *HttpConnectionManager) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetHttp3ProtocolOptions()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetHttp3ProtocolOptions()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "Http3ProtocolOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "Http3ProtocolOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetHttp3ProtocolOptions()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
 				field:  "Http3ProtocolOptions",
@@ -131,20 +288,47 @@ func (m *HttpConnectionManager) Validate() error {
 	}
 
 	if !_HttpConnectionManager_ServerName_Pattern.MatchString(m.GetServerName()) {
-		return HttpConnectionManagerValidationError{
+		err := HttpConnectionManagerValidationError{
 			field:  "ServerName",
 			reason: "value does not match regex pattern \"^[^\\x00\\n\\r]*$\"",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if _, ok := HttpConnectionManager_ServerHeaderTransformation_name[int32(m.GetServerHeaderTransformation())]; !ok {
-		return HttpConnectionManagerValidationError{
+		err := HttpConnectionManagerValidationError{
 			field:  "ServerHeaderTransformation",
 			reason: "value must be one of the defined enum values",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
-	if v, ok := interface{}(m.GetSchemeHeaderTransformation()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetSchemeHeaderTransformation()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "SchemeHeaderTransformation",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "SchemeHeaderTransformation",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetSchemeHeaderTransformation()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
 				field:  "SchemeHeaderTransformation",
@@ -157,15 +341,38 @@ func (m *HttpConnectionManager) Validate() error {
 	if wrapper := m.GetMaxRequestHeadersKb(); wrapper != nil {
 
 		if val := wrapper.GetValue(); val <= 0 || val > 8192 {
-			return HttpConnectionManagerValidationError{
+			err := HttpConnectionManagerValidationError{
 				field:  "MaxRequestHeadersKb",
 				reason: "value must be inside range (0, 8192]",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	}
 
-	if v, ok := interface{}(m.GetStreamIdleTimeout()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetStreamIdleTimeout()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "StreamIdleTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "StreamIdleTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetStreamIdleTimeout()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
 				field:  "StreamIdleTimeout",
@@ -175,7 +382,26 @@ func (m *HttpConnectionManager) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetRequestTimeout()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetRequestTimeout()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "RequestTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "RequestTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetRequestTimeout()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
 				field:  "RequestTimeout",
@@ -188,25 +414,53 @@ func (m *HttpConnectionManager) Validate() error {
 	if d := m.GetRequestHeadersTimeout(); d != nil {
 		dur, err := d.AsDuration(), d.CheckValid()
 		if err != nil {
-			return HttpConnectionManagerValidationError{
+			err = HttpConnectionManagerValidationError{
 				field:  "RequestHeadersTimeout",
 				reason: "value is not a valid duration",
 				cause:  err,
 			}
-		}
-
-		gte := time.Duration(0*time.Second + 0*time.Nanosecond)
-
-		if dur < gte {
-			return HttpConnectionManagerValidationError{
-				field:  "RequestHeadersTimeout",
-				reason: "value must be greater than or equal to 0s",
+			if !all {
+				return err
 			}
-		}
+			errors = append(errors, err)
+		} else {
 
+			gte := time.Duration(0*time.Second + 0*time.Nanosecond)
+
+			if dur < gte {
+				err := HttpConnectionManagerValidationError{
+					field:  "RequestHeadersTimeout",
+					reason: "value must be greater than or equal to 0s",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
+
+		}
 	}
 
-	if v, ok := interface{}(m.GetDrainTimeout()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetDrainTimeout()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "DrainTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "DrainTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetDrainTimeout()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
 				field:  "DrainTimeout",
@@ -216,7 +470,26 @@ func (m *HttpConnectionManager) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetDelayedCloseTimeout()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetDelayedCloseTimeout()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "DelayedCloseTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "DelayedCloseTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetDelayedCloseTimeout()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
 				field:  "DelayedCloseTimeout",
@@ -229,7 +502,26 @@ func (m *HttpConnectionManager) Validate() error {
 	for idx, item := range m.GetAccessLog() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HttpConnectionManagerValidationError{
+						field:  fmt.Sprintf("AccessLog[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HttpConnectionManagerValidationError{
+						field:  fmt.Sprintf("AccessLog[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HttpConnectionManagerValidationError{
 					field:  fmt.Sprintf("AccessLog[%v]", idx),
@@ -241,7 +533,26 @@ func (m *HttpConnectionManager) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetUseRemoteAddress()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetUseRemoteAddress()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "UseRemoteAddress",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "UseRemoteAddress",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetUseRemoteAddress()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
 				field:  "UseRemoteAddress",
@@ -256,7 +567,26 @@ func (m *HttpConnectionManager) Validate() error {
 	for idx, item := range m.GetOriginalIpDetectionExtensions() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HttpConnectionManagerValidationError{
+						field:  fmt.Sprintf("OriginalIpDetectionExtensions[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HttpConnectionManagerValidationError{
+						field:  fmt.Sprintf("OriginalIpDetectionExtensions[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HttpConnectionManagerValidationError{
 					field:  fmt.Sprintf("OriginalIpDetectionExtensions[%v]", idx),
@@ -268,7 +598,26 @@ func (m *HttpConnectionManager) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetInternalAddressConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetInternalAddressConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "InternalAddressConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "InternalAddressConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetInternalAddressConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
 				field:  "InternalAddressConfig",
@@ -281,13 +630,36 @@ func (m *HttpConnectionManager) Validate() error {
 	// no validation rules for SkipXffAppend
 
 	if !_HttpConnectionManager_Via_Pattern.MatchString(m.GetVia()) {
-		return HttpConnectionManagerValidationError{
+		err := HttpConnectionManagerValidationError{
 			field:  "Via",
 			reason: "value does not match regex pattern \"^[^\\x00\\n\\r]*$\"",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
-	if v, ok := interface{}(m.GetGenerateRequestId()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetGenerateRequestId()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "GenerateRequestId",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "GenerateRequestId",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetGenerateRequestId()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
 				field:  "GenerateRequestId",
@@ -302,13 +674,36 @@ func (m *HttpConnectionManager) Validate() error {
 	// no validation rules for AlwaysSetRequestIdInResponse
 
 	if _, ok := HttpConnectionManager_ForwardClientCertDetails_name[int32(m.GetForwardClientCertDetails())]; !ok {
-		return HttpConnectionManagerValidationError{
+		err := HttpConnectionManagerValidationError{
 			field:  "ForwardClientCertDetails",
 			reason: "value must be one of the defined enum values",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
-	if v, ok := interface{}(m.GetSetCurrentClientCertDetails()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetSetCurrentClientCertDetails()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "SetCurrentClientCertDetails",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "SetCurrentClientCertDetails",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetSetCurrentClientCertDetails()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
 				field:  "SetCurrentClientCertDetails",
@@ -325,7 +720,26 @@ func (m *HttpConnectionManager) Validate() error {
 	for idx, item := range m.GetUpgradeConfigs() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HttpConnectionManagerValidationError{
+						field:  fmt.Sprintf("UpgradeConfigs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HttpConnectionManagerValidationError{
+						field:  fmt.Sprintf("UpgradeConfigs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HttpConnectionManagerValidationError{
 					field:  fmt.Sprintf("UpgradeConfigs[%v]", idx),
@@ -337,7 +751,26 @@ func (m *HttpConnectionManager) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetNormalizePath()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetNormalizePath()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "NormalizePath",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "NormalizePath",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetNormalizePath()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
 				field:  "NormalizePath",
@@ -351,7 +784,26 @@ func (m *HttpConnectionManager) Validate() error {
 
 	// no validation rules for PathWithEscapedSlashesAction
 
-	if v, ok := interface{}(m.GetRequestIdExtension()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetRequestIdExtension()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "RequestIdExtension",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "RequestIdExtension",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetRequestIdExtension()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
 				field:  "RequestIdExtension",
@@ -361,7 +813,26 @@ func (m *HttpConnectionManager) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetLocalReplyConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetLocalReplyConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "LocalReplyConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "LocalReplyConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLocalReplyConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
 				field:  "LocalReplyConfig",
@@ -373,7 +844,26 @@ func (m *HttpConnectionManager) Validate() error {
 
 	// no validation rules for StripMatchingHostPort
 
-	if v, ok := interface{}(m.GetStreamErrorOnInvalidHttpMessage()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetStreamErrorOnInvalidHttpMessage()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "StreamErrorOnInvalidHttpMessage",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "StreamErrorOnInvalidHttpMessage",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetStreamErrorOnInvalidHttpMessage()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
 				field:  "StreamErrorOnInvalidHttpMessage",
@@ -383,7 +873,26 @@ func (m *HttpConnectionManager) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetPathNormalizationOptions()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetPathNormalizationOptions()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "PathNormalizationOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "PathNormalizationOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetPathNormalizationOptions()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
 				field:  "PathNormalizationOptions",
@@ -395,21 +904,30 @@ func (m *HttpConnectionManager) Validate() error {
 
 	// no validation rules for StripTrailingHostDot
 
-	if v, ok := interface{}(m.GetHiddenEnvoyDeprecatedIdleTimeout()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return HttpConnectionManagerValidationError{
-				field:  "HiddenEnvoyDeprecatedIdleTimeout",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
-
 	switch m.RouteSpecifier.(type) {
 
 	case *HttpConnectionManager_Rds:
 
-		if v, ok := interface{}(m.GetRds()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetRds()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HttpConnectionManagerValidationError{
+						field:  "Rds",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HttpConnectionManagerValidationError{
+						field:  "Rds",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetRds()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HttpConnectionManagerValidationError{
 					field:  "Rds",
@@ -421,7 +939,26 @@ func (m *HttpConnectionManager) Validate() error {
 
 	case *HttpConnectionManager_RouteConfig:
 
-		if v, ok := interface{}(m.GetRouteConfig()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetRouteConfig()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HttpConnectionManagerValidationError{
+						field:  "RouteConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HttpConnectionManagerValidationError{
+						field:  "RouteConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetRouteConfig()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HttpConnectionManagerValidationError{
 					field:  "RouteConfig",
@@ -433,7 +970,26 @@ func (m *HttpConnectionManager) Validate() error {
 
 	case *HttpConnectionManager_ScopedRoutes:
 
-		if v, ok := interface{}(m.GetScopedRoutes()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetScopedRoutes()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HttpConnectionManagerValidationError{
+						field:  "ScopedRoutes",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HttpConnectionManagerValidationError{
+						field:  "ScopedRoutes",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetScopedRoutes()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HttpConnectionManagerValidationError{
 					field:  "ScopedRoutes",
@@ -444,10 +1000,14 @@ func (m *HttpConnectionManager) Validate() error {
 		}
 
 	default:
-		return HttpConnectionManagerValidationError{
+		err := HttpConnectionManagerValidationError{
 			field:  "RouteSpecifier",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 
 	}
 
@@ -458,8 +1018,28 @@ func (m *HttpConnectionManager) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return HttpConnectionManagerMultiError(errors)
+	}
 	return nil
 }
+
+// HttpConnectionManagerMultiError is an error wrapping multiple validation
+// errors returned by HttpConnectionManager.ValidateAll() if the designated
+// constraints aren't met.
+type HttpConnectionManagerMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HttpConnectionManagerMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HttpConnectionManagerMultiError) AllErrors() []error { return m }
 
 // HttpConnectionManagerValidationError is the validation error returned by
 // HttpConnectionManager.Validate if the designated constraints aren't met.
@@ -522,17 +1102,50 @@ var _HttpConnectionManager_ServerName_Pattern = regexp.MustCompile("^[^\x00\n\r]
 var _HttpConnectionManager_Via_Pattern = regexp.MustCompile("^[^\x00\n\r]*$")
 
 // Validate checks the field values on LocalReplyConfig with the rules defined
-// in the proto definition for this message. If any rules are violated, an
-// error is returned.
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
 func (m *LocalReplyConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on LocalReplyConfig with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// LocalReplyConfigMultiError, or nil if none found.
+func (m *LocalReplyConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *LocalReplyConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	for idx, item := range m.GetMappers() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, LocalReplyConfigValidationError{
+						field:  fmt.Sprintf("Mappers[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, LocalReplyConfigValidationError{
+						field:  fmt.Sprintf("Mappers[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return LocalReplyConfigValidationError{
 					field:  fmt.Sprintf("Mappers[%v]", idx),
@@ -544,7 +1157,26 @@ func (m *LocalReplyConfig) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetBodyFormat()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetBodyFormat()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, LocalReplyConfigValidationError{
+					field:  "BodyFormat",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, LocalReplyConfigValidationError{
+					field:  "BodyFormat",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetBodyFormat()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return LocalReplyConfigValidationError{
 				field:  "BodyFormat",
@@ -554,8 +1186,28 @@ func (m *LocalReplyConfig) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return LocalReplyConfigMultiError(errors)
+	}
 	return nil
 }
+
+// LocalReplyConfigMultiError is an error wrapping multiple validation errors
+// returned by LocalReplyConfig.ValidateAll() if the designated constraints
+// aren't met.
+type LocalReplyConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m LocalReplyConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m LocalReplyConfigMultiError) AllErrors() []error { return m }
 
 // LocalReplyConfigValidationError is the validation error returned by
 // LocalReplyConfig.Validate if the designated constraints aren't met.
@@ -612,21 +1264,58 @@ var _ interface {
 } = LocalReplyConfigValidationError{}
 
 // Validate checks the field values on ResponseMapper with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *ResponseMapper) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ResponseMapper with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in ResponseMapperMultiError,
+// or nil if none found.
+func (m *ResponseMapper) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ResponseMapper) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if m.GetFilter() == nil {
-		return ResponseMapperValidationError{
+		err := ResponseMapperValidationError{
 			field:  "Filter",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
-	if v, ok := interface{}(m.GetFilter()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetFilter()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ResponseMapperValidationError{
+					field:  "Filter",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ResponseMapperValidationError{
+					field:  "Filter",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetFilter()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ResponseMapperValidationError{
 				field:  "Filter",
@@ -639,15 +1328,38 @@ func (m *ResponseMapper) Validate() error {
 	if wrapper := m.GetStatusCode(); wrapper != nil {
 
 		if val := wrapper.GetValue(); val < 200 || val >= 600 {
-			return ResponseMapperValidationError{
+			err := ResponseMapperValidationError{
 				field:  "StatusCode",
 				reason: "value must be inside range [200, 600)",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	}
 
-	if v, ok := interface{}(m.GetBody()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetBody()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ResponseMapperValidationError{
+					field:  "Body",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ResponseMapperValidationError{
+					field:  "Body",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetBody()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ResponseMapperValidationError{
 				field:  "Body",
@@ -657,7 +1369,26 @@ func (m *ResponseMapper) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetBodyFormatOverride()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetBodyFormatOverride()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ResponseMapperValidationError{
+					field:  "BodyFormatOverride",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ResponseMapperValidationError{
+					field:  "BodyFormatOverride",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetBodyFormatOverride()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ResponseMapperValidationError{
 				field:  "BodyFormatOverride",
@@ -668,16 +1399,39 @@ func (m *ResponseMapper) Validate() error {
 	}
 
 	if len(m.GetHeadersToAdd()) > 1000 {
-		return ResponseMapperValidationError{
+		err := ResponseMapperValidationError{
 			field:  "HeadersToAdd",
 			reason: "value must contain no more than 1000 item(s)",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	for idx, item := range m.GetHeadersToAdd() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ResponseMapperValidationError{
+						field:  fmt.Sprintf("HeadersToAdd[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ResponseMapperValidationError{
+						field:  fmt.Sprintf("HeadersToAdd[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ResponseMapperValidationError{
 					field:  fmt.Sprintf("HeadersToAdd[%v]", idx),
@@ -689,8 +1443,28 @@ func (m *ResponseMapper) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return ResponseMapperMultiError(errors)
+	}
 	return nil
 }
+
+// ResponseMapperMultiError is an error wrapping multiple validation errors
+// returned by ResponseMapper.ValidateAll() if the designated constraints
+// aren't met.
+type ResponseMapperMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ResponseMapperMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ResponseMapperMultiError) AllErrors() []error { return m }
 
 // ResponseMapperValidationError is the validation error returned by
 // ResponseMapper.Validate if the designated constraints aren't met.
@@ -747,20 +1521,57 @@ var _ interface {
 } = ResponseMapperValidationError{}
 
 // Validate checks the field values on Rds with the rules defined in the proto
-// definition for this message. If any rules are violated, an error is returned.
+// definition for this message. If any rules are violated, the first error
+// encountered is returned, or nil if there are no violations.
 func (m *Rds) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Rds with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in RdsMultiError, or nil if none found.
+func (m *Rds) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Rds) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if m.GetConfigSource() == nil {
-		return RdsValidationError{
+		err := RdsValidationError{
 			field:  "ConfigSource",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
-	if v, ok := interface{}(m.GetConfigSource()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetConfigSource()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RdsValidationError{
+					field:  "ConfigSource",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RdsValidationError{
+					field:  "ConfigSource",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetConfigSource()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return RdsValidationError{
 				field:  "ConfigSource",
@@ -772,8 +1583,27 @@ func (m *Rds) Validate() error {
 
 	// no validation rules for RouteConfigName
 
+	if len(errors) > 0 {
+		return RdsMultiError(errors)
+	}
 	return nil
 }
+
+// RdsMultiError is an error wrapping multiple validation errors returned by
+// Rds.ValidateAll() if the designated constraints aren't met.
+type RdsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m RdsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m RdsMultiError) AllErrors() []error { return m }
 
 // RdsValidationError is the validation error returned by Rds.Validate if the
 // designated constraints aren't met.
@@ -831,23 +1661,60 @@ var _ interface {
 
 // Validate checks the field values on ScopedRouteConfigurationsList with the
 // rules defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *ScopedRouteConfigurationsList) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ScopedRouteConfigurationsList with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the result is a list of violation errors wrapped in
+// ScopedRouteConfigurationsListMultiError, or nil if none found.
+func (m *ScopedRouteConfigurationsList) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ScopedRouteConfigurationsList) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if len(m.GetScopedRouteConfigurations()) < 1 {
-		return ScopedRouteConfigurationsListValidationError{
+		err := ScopedRouteConfigurationsListValidationError{
 			field:  "ScopedRouteConfigurations",
 			reason: "value must contain at least 1 item(s)",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	for idx, item := range m.GetScopedRouteConfigurations() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ScopedRouteConfigurationsListValidationError{
+						field:  fmt.Sprintf("ScopedRouteConfigurations[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ScopedRouteConfigurationsListValidationError{
+						field:  fmt.Sprintf("ScopedRouteConfigurations[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ScopedRouteConfigurationsListValidationError{
 					field:  fmt.Sprintf("ScopedRouteConfigurations[%v]", idx),
@@ -859,8 +1726,28 @@ func (m *ScopedRouteConfigurationsList) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return ScopedRouteConfigurationsListMultiError(errors)
+	}
 	return nil
 }
+
+// ScopedRouteConfigurationsListMultiError is an error wrapping multiple
+// validation errors returned by ScopedRouteConfigurationsList.ValidateAll()
+// if the designated constraints aren't met.
+type ScopedRouteConfigurationsListMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ScopedRouteConfigurationsListMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ScopedRouteConfigurationsListMultiError) AllErrors() []error { return m }
 
 // ScopedRouteConfigurationsListValidationError is the validation error
 // returned by ScopedRouteConfigurationsList.Validate if the designated
@@ -920,28 +1807,69 @@ var _ interface {
 } = ScopedRouteConfigurationsListValidationError{}
 
 // Validate checks the field values on ScopedRoutes with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *ScopedRoutes) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ScopedRoutes with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in ScopedRoutesMultiError, or
+// nil if none found.
+func (m *ScopedRoutes) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ScopedRoutes) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if utf8.RuneCountInString(m.GetName()) < 1 {
-		return ScopedRoutesValidationError{
+		err := ScopedRoutesValidationError{
 			field:  "Name",
 			reason: "value length must be at least 1 runes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if m.GetScopeKeyBuilder() == nil {
-		return ScopedRoutesValidationError{
+		err := ScopedRoutesValidationError{
 			field:  "ScopeKeyBuilder",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
-	if v, ok := interface{}(m.GetScopeKeyBuilder()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetScopeKeyBuilder()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ScopedRoutesValidationError{
+					field:  "ScopeKeyBuilder",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ScopedRoutesValidationError{
+					field:  "ScopeKeyBuilder",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetScopeKeyBuilder()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ScopedRoutesValidationError{
 				field:  "ScopeKeyBuilder",
@@ -951,14 +1879,26 @@ func (m *ScopedRoutes) Validate() error {
 		}
 	}
 
-	if m.GetRdsConfigSource() == nil {
-		return ScopedRoutesValidationError{
-			field:  "RdsConfigSource",
-			reason: "value is required",
+	if all {
+		switch v := interface{}(m.GetRdsConfigSource()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ScopedRoutesValidationError{
+					field:  "RdsConfigSource",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ScopedRoutesValidationError{
+					field:  "RdsConfigSource",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
 		}
-	}
-
-	if v, ok := interface{}(m.GetRdsConfigSource()).(interface{ Validate() error }); ok {
+	} else if v, ok := interface{}(m.GetRdsConfigSource()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ScopedRoutesValidationError{
 				field:  "RdsConfigSource",
@@ -972,7 +1912,26 @@ func (m *ScopedRoutes) Validate() error {
 
 	case *ScopedRoutes_ScopedRouteConfigurationsList:
 
-		if v, ok := interface{}(m.GetScopedRouteConfigurationsList()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetScopedRouteConfigurationsList()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ScopedRoutesValidationError{
+						field:  "ScopedRouteConfigurationsList",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ScopedRoutesValidationError{
+						field:  "ScopedRouteConfigurationsList",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetScopedRouteConfigurationsList()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ScopedRoutesValidationError{
 					field:  "ScopedRouteConfigurationsList",
@@ -984,7 +1943,26 @@ func (m *ScopedRoutes) Validate() error {
 
 	case *ScopedRoutes_ScopedRds:
 
-		if v, ok := interface{}(m.GetScopedRds()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetScopedRds()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ScopedRoutesValidationError{
+						field:  "ScopedRds",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ScopedRoutesValidationError{
+						field:  "ScopedRds",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetScopedRds()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ScopedRoutesValidationError{
 					field:  "ScopedRds",
@@ -995,15 +1973,38 @@ func (m *ScopedRoutes) Validate() error {
 		}
 
 	default:
-		return ScopedRoutesValidationError{
+		err := ScopedRoutesValidationError{
 			field:  "ConfigSpecifier",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 
 	}
 
+	if len(errors) > 0 {
+		return ScopedRoutesMultiError(errors)
+	}
 	return nil
 }
+
+// ScopedRoutesMultiError is an error wrapping multiple validation errors
+// returned by ScopedRoutes.ValidateAll() if the designated constraints aren't met.
+type ScopedRoutesMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ScopedRoutesMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ScopedRoutesMultiError) AllErrors() []error { return m }
 
 // ScopedRoutesValidationError is the validation error returned by
 // ScopedRoutes.Validate if the designated constraints aren't met.
@@ -1060,20 +2061,58 @@ var _ interface {
 } = ScopedRoutesValidationError{}
 
 // Validate checks the field values on ScopedRds with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *ScopedRds) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ScopedRds with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in ScopedRdsMultiError, or nil
+// if none found.
+func (m *ScopedRds) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ScopedRds) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if m.GetScopedRdsConfigSource() == nil {
-		return ScopedRdsValidationError{
+		err := ScopedRdsValidationError{
 			field:  "ScopedRdsConfigSource",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
-	if v, ok := interface{}(m.GetScopedRdsConfigSource()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetScopedRdsConfigSource()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ScopedRdsValidationError{
+					field:  "ScopedRdsConfigSource",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ScopedRdsValidationError{
+					field:  "ScopedRdsConfigSource",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetScopedRdsConfigSource()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ScopedRdsValidationError{
 				field:  "ScopedRdsConfigSource",
@@ -1085,8 +2124,27 @@ func (m *ScopedRds) Validate() error {
 
 	// no validation rules for SrdsResourcesLocator
 
+	if len(errors) > 0 {
+		return ScopedRdsMultiError(errors)
+	}
 	return nil
 }
+
+// ScopedRdsMultiError is an error wrapping multiple validation errors returned
+// by ScopedRds.ValidateAll() if the designated constraints aren't met.
+type ScopedRdsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ScopedRdsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ScopedRdsMultiError) AllErrors() []error { return m }
 
 // ScopedRdsValidationError is the validation error returned by
 // ScopedRds.Validate if the designated constraints aren't met.
@@ -1143,17 +2201,36 @@ var _ interface {
 } = ScopedRdsValidationError{}
 
 // Validate checks the field values on HttpFilter with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *HttpFilter) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on HttpFilter with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in HttpFilterMultiError, or
+// nil if none found.
+func (m *HttpFilter) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HttpFilter) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if utf8.RuneCountInString(m.GetName()) < 1 {
-		return HttpFilterValidationError{
+		err := HttpFilterValidationError{
 			field:  "Name",
 			reason: "value length must be at least 1 runes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	// no validation rules for IsOptional
@@ -1162,7 +2239,26 @@ func (m *HttpFilter) Validate() error {
 
 	case *HttpFilter_TypedConfig:
 
-		if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetTypedConfig()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HttpFilterValidationError{
+						field:  "TypedConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HttpFilterValidationError{
+						field:  "TypedConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HttpFilterValidationError{
 					field:  "TypedConfig",
@@ -1174,7 +2270,26 @@ func (m *HttpFilter) Validate() error {
 
 	case *HttpFilter_ConfigDiscovery:
 
-		if v, ok := interface{}(m.GetConfigDiscovery()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetConfigDiscovery()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HttpFilterValidationError{
+						field:  "ConfigDiscovery",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HttpFilterValidationError{
+						field:  "ConfigDiscovery",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetConfigDiscovery()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HttpFilterValidationError{
 					field:  "ConfigDiscovery",
@@ -1184,22 +2299,29 @@ func (m *HttpFilter) Validate() error {
 			}
 		}
 
-	case *HttpFilter_HiddenEnvoyDeprecatedConfig:
-
-		if v, ok := interface{}(m.GetHiddenEnvoyDeprecatedConfig()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return HttpFilterValidationError{
-					field:  "HiddenEnvoyDeprecatedConfig",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
-			}
-		}
-
 	}
 
+	if len(errors) > 0 {
+		return HttpFilterMultiError(errors)
+	}
 	return nil
 }
+
+// HttpFilterMultiError is an error wrapping multiple validation errors
+// returned by HttpFilter.ValidateAll() if the designated constraints aren't met.
+type HttpFilterMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HttpFilterMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HttpFilterMultiError) AllErrors() []error { return m }
 
 // HttpFilterValidationError is the validation error returned by
 // HttpFilter.Validate if the designated constraints aren't met.
@@ -1257,13 +2379,46 @@ var _ interface {
 
 // Validate checks the field values on RequestIDExtension with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *RequestIDExtension) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on RequestIDExtension with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// RequestIDExtensionMultiError, or nil if none found.
+func (m *RequestIDExtension) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *RequestIDExtension) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetTypedConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RequestIDExtensionValidationError{
+					field:  "TypedConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RequestIDExtensionValidationError{
+					field:  "TypedConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return RequestIDExtensionValidationError{
 				field:  "TypedConfig",
@@ -1273,8 +2428,28 @@ func (m *RequestIDExtension) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return RequestIDExtensionMultiError(errors)
+	}
 	return nil
 }
+
+// RequestIDExtensionMultiError is an error wrapping multiple validation errors
+// returned by RequestIDExtension.ValidateAll() if the designated constraints
+// aren't met.
+type RequestIDExtensionMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m RequestIDExtensionMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m RequestIDExtensionMultiError) AllErrors() []error { return m }
 
 // RequestIDExtensionValidationError is the validation error returned by
 // RequestIDExtension.Validate if the designated constraints aren't met.
@@ -1334,13 +2509,47 @@ var _ interface {
 
 // Validate checks the field values on EnvoyMobileHttpConnectionManager with
 // the rules defined in the proto definition for this message. If any rules
-// are violated, an error is returned.
+// are violated, the first error encountered is returned, or nil if there are
+// no violations.
 func (m *EnvoyMobileHttpConnectionManager) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on EnvoyMobileHttpConnectionManager with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the result is a list of violation errors wrapped in
+// EnvoyMobileHttpConnectionManagerMultiError, or nil if none found.
+func (m *EnvoyMobileHttpConnectionManager) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *EnvoyMobileHttpConnectionManager) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, EnvoyMobileHttpConnectionManagerValidationError{
+					field:  "Config",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, EnvoyMobileHttpConnectionManagerValidationError{
+					field:  "Config",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return EnvoyMobileHttpConnectionManagerValidationError{
 				field:  "Config",
@@ -1350,8 +2559,29 @@ func (m *EnvoyMobileHttpConnectionManager) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return EnvoyMobileHttpConnectionManagerMultiError(errors)
+	}
 	return nil
 }
+
+// EnvoyMobileHttpConnectionManagerMultiError is an error wrapping multiple
+// validation errors returned by
+// EnvoyMobileHttpConnectionManager.ValidateAll() if the designated
+// constraints aren't met.
+type EnvoyMobileHttpConnectionManagerMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m EnvoyMobileHttpConnectionManagerMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m EnvoyMobileHttpConnectionManagerMultiError) AllErrors() []error { return m }
 
 // EnvoyMobileHttpConnectionManagerValidationError is the validation error
 // returned by EnvoyMobileHttpConnectionManager.Validate if the designated
@@ -1412,13 +2642,46 @@ var _ interface {
 
 // Validate checks the field values on HttpConnectionManager_Tracing with the
 // rules defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *HttpConnectionManager_Tracing) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on HttpConnectionManager_Tracing with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the result is a list of violation errors wrapped in
+// HttpConnectionManager_TracingMultiError, or nil if none found.
+func (m *HttpConnectionManager_Tracing) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HttpConnectionManager_Tracing) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetClientSampling()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetClientSampling()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpConnectionManager_TracingValidationError{
+					field:  "ClientSampling",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpConnectionManager_TracingValidationError{
+					field:  "ClientSampling",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetClientSampling()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManager_TracingValidationError{
 				field:  "ClientSampling",
@@ -1428,7 +2691,26 @@ func (m *HttpConnectionManager_Tracing) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetRandomSampling()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetRandomSampling()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpConnectionManager_TracingValidationError{
+					field:  "RandomSampling",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpConnectionManager_TracingValidationError{
+					field:  "RandomSampling",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetRandomSampling()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManager_TracingValidationError{
 				field:  "RandomSampling",
@@ -1438,7 +2720,26 @@ func (m *HttpConnectionManager_Tracing) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetOverallSampling()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetOverallSampling()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpConnectionManager_TracingValidationError{
+					field:  "OverallSampling",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpConnectionManager_TracingValidationError{
+					field:  "OverallSampling",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetOverallSampling()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManager_TracingValidationError{
 				field:  "OverallSampling",
@@ -1450,7 +2751,26 @@ func (m *HttpConnectionManager_Tracing) Validate() error {
 
 	// no validation rules for Verbose
 
-	if v, ok := interface{}(m.GetMaxPathTagLength()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetMaxPathTagLength()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpConnectionManager_TracingValidationError{
+					field:  "MaxPathTagLength",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpConnectionManager_TracingValidationError{
+					field:  "MaxPathTagLength",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMaxPathTagLength()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManager_TracingValidationError{
 				field:  "MaxPathTagLength",
@@ -1463,7 +2783,26 @@ func (m *HttpConnectionManager_Tracing) Validate() error {
 	for idx, item := range m.GetCustomTags() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HttpConnectionManager_TracingValidationError{
+						field:  fmt.Sprintf("CustomTags[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HttpConnectionManager_TracingValidationError{
+						field:  fmt.Sprintf("CustomTags[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HttpConnectionManager_TracingValidationError{
 					field:  fmt.Sprintf("CustomTags[%v]", idx),
@@ -1475,7 +2814,26 @@ func (m *HttpConnectionManager_Tracing) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetProvider()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetProvider()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpConnectionManager_TracingValidationError{
+					field:  "Provider",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpConnectionManager_TracingValidationError{
+					field:  "Provider",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetProvider()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManager_TracingValidationError{
 				field:  "Provider",
@@ -1485,15 +2843,28 @@ func (m *HttpConnectionManager_Tracing) Validate() error {
 		}
 	}
 
-	if _, ok := HttpConnectionManager_Tracing_OperationName_name[int32(m.GetHiddenEnvoyDeprecatedOperationName())]; !ok {
-		return HttpConnectionManager_TracingValidationError{
-			field:  "HiddenEnvoyDeprecatedOperationName",
-			reason: "value must be one of the defined enum values",
-		}
+	if len(errors) > 0 {
+		return HttpConnectionManager_TracingMultiError(errors)
 	}
-
 	return nil
 }
+
+// HttpConnectionManager_TracingMultiError is an error wrapping multiple
+// validation errors returned by HttpConnectionManager_Tracing.ValidateAll()
+// if the designated constraints aren't met.
+type HttpConnectionManager_TracingMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HttpConnectionManager_TracingMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HttpConnectionManager_TracingMultiError) AllErrors() []error { return m }
 
 // HttpConnectionManager_TracingValidationError is the validation error
 // returned by HttpConnectionManager_Tracing.Validate if the designated
@@ -1554,16 +2925,53 @@ var _ interface {
 
 // Validate checks the field values on
 // HttpConnectionManager_InternalAddressConfig with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *HttpConnectionManager_InternalAddressConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// HttpConnectionManager_InternalAddressConfig with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in
+// HttpConnectionManager_InternalAddressConfigMultiError, or nil if none found.
+func (m *HttpConnectionManager_InternalAddressConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HttpConnectionManager_InternalAddressConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	// no validation rules for UnixSockets
 
+	if len(errors) > 0 {
+		return HttpConnectionManager_InternalAddressConfigMultiError(errors)
+	}
 	return nil
 }
+
+// HttpConnectionManager_InternalAddressConfigMultiError is an error wrapping
+// multiple validation errors returned by
+// HttpConnectionManager_InternalAddressConfig.ValidateAll() if the designated
+// constraints aren't met.
+type HttpConnectionManager_InternalAddressConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HttpConnectionManager_InternalAddressConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HttpConnectionManager_InternalAddressConfigMultiError) AllErrors() []error { return m }
 
 // HttpConnectionManager_InternalAddressConfigValidationError is the validation
 // error returned by HttpConnectionManager_InternalAddressConfig.Validate if
@@ -1624,14 +3032,48 @@ var _ interface {
 
 // Validate checks the field values on
 // HttpConnectionManager_SetCurrentClientCertDetails with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *HttpConnectionManager_SetCurrentClientCertDetails) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// HttpConnectionManager_SetCurrentClientCertDetails with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in
+// HttpConnectionManager_SetCurrentClientCertDetailsMultiError, or nil if none found.
+func (m *HttpConnectionManager_SetCurrentClientCertDetails) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HttpConnectionManager_SetCurrentClientCertDetails) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetSubject()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetSubject()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpConnectionManager_SetCurrentClientCertDetailsValidationError{
+					field:  "Subject",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpConnectionManager_SetCurrentClientCertDetailsValidationError{
+					field:  "Subject",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetSubject()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManager_SetCurrentClientCertDetailsValidationError{
 				field:  "Subject",
@@ -1649,8 +3091,29 @@ func (m *HttpConnectionManager_SetCurrentClientCertDetails) Validate() error {
 
 	// no validation rules for Uri
 
+	if len(errors) > 0 {
+		return HttpConnectionManager_SetCurrentClientCertDetailsMultiError(errors)
+	}
 	return nil
 }
+
+// HttpConnectionManager_SetCurrentClientCertDetailsMultiError is an error
+// wrapping multiple validation errors returned by
+// HttpConnectionManager_SetCurrentClientCertDetails.ValidateAll() if the
+// designated constraints aren't met.
+type HttpConnectionManager_SetCurrentClientCertDetailsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HttpConnectionManager_SetCurrentClientCertDetailsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HttpConnectionManager_SetCurrentClientCertDetailsMultiError) AllErrors() []error { return m }
 
 // HttpConnectionManager_SetCurrentClientCertDetailsValidationError is the
 // validation error returned by
@@ -1718,18 +3181,52 @@ var _ interface {
 
 // Validate checks the field values on HttpConnectionManager_UpgradeConfig with
 // the rules defined in the proto definition for this message. If any rules
-// are violated, an error is returned.
+// are violated, the first error encountered is returned, or nil if there are
+// no violations.
 func (m *HttpConnectionManager_UpgradeConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on HttpConnectionManager_UpgradeConfig
+// with the rules defined in the proto definition for this message. If any
+// rules are violated, the result is a list of violation errors wrapped in
+// HttpConnectionManager_UpgradeConfigMultiError, or nil if none found.
+func (m *HttpConnectionManager_UpgradeConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HttpConnectionManager_UpgradeConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for UpgradeType
 
 	for idx, item := range m.GetFilters() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HttpConnectionManager_UpgradeConfigValidationError{
+						field:  fmt.Sprintf("Filters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HttpConnectionManager_UpgradeConfigValidationError{
+						field:  fmt.Sprintf("Filters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HttpConnectionManager_UpgradeConfigValidationError{
 					field:  fmt.Sprintf("Filters[%v]", idx),
@@ -1741,7 +3238,26 @@ func (m *HttpConnectionManager_UpgradeConfig) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetEnabled()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetEnabled()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpConnectionManager_UpgradeConfigValidationError{
+					field:  "Enabled",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpConnectionManager_UpgradeConfigValidationError{
+					field:  "Enabled",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetEnabled()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManager_UpgradeConfigValidationError{
 				field:  "Enabled",
@@ -1751,8 +3267,29 @@ func (m *HttpConnectionManager_UpgradeConfig) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return HttpConnectionManager_UpgradeConfigMultiError(errors)
+	}
 	return nil
 }
+
+// HttpConnectionManager_UpgradeConfigMultiError is an error wrapping multiple
+// validation errors returned by
+// HttpConnectionManager_UpgradeConfig.ValidateAll() if the designated
+// constraints aren't met.
+type HttpConnectionManager_UpgradeConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HttpConnectionManager_UpgradeConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HttpConnectionManager_UpgradeConfigMultiError) AllErrors() []error { return m }
 
 // HttpConnectionManager_UpgradeConfigValidationError is the validation error
 // returned by HttpConnectionManager_UpgradeConfig.Validate if the designated
@@ -1813,14 +3350,48 @@ var _ interface {
 
 // Validate checks the field values on
 // HttpConnectionManager_PathNormalizationOptions with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *HttpConnectionManager_PathNormalizationOptions) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// HttpConnectionManager_PathNormalizationOptions with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in
+// HttpConnectionManager_PathNormalizationOptionsMultiError, or nil if none found.
+func (m *HttpConnectionManager_PathNormalizationOptions) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HttpConnectionManager_PathNormalizationOptions) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetForwardingTransformation()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetForwardingTransformation()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpConnectionManager_PathNormalizationOptionsValidationError{
+					field:  "ForwardingTransformation",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpConnectionManager_PathNormalizationOptionsValidationError{
+					field:  "ForwardingTransformation",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetForwardingTransformation()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManager_PathNormalizationOptionsValidationError{
 				field:  "ForwardingTransformation",
@@ -1830,7 +3401,26 @@ func (m *HttpConnectionManager_PathNormalizationOptions) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetHttpFilterTransformation()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetHttpFilterTransformation()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpConnectionManager_PathNormalizationOptionsValidationError{
+					field:  "HttpFilterTransformation",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpConnectionManager_PathNormalizationOptionsValidationError{
+					field:  "HttpFilterTransformation",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetHttpFilterTransformation()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManager_PathNormalizationOptionsValidationError{
 				field:  "HttpFilterTransformation",
@@ -1840,8 +3430,29 @@ func (m *HttpConnectionManager_PathNormalizationOptions) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return HttpConnectionManager_PathNormalizationOptionsMultiError(errors)
+	}
 	return nil
 }
+
+// HttpConnectionManager_PathNormalizationOptionsMultiError is an error
+// wrapping multiple validation errors returned by
+// HttpConnectionManager_PathNormalizationOptions.ValidateAll() if the
+// designated constraints aren't met.
+type HttpConnectionManager_PathNormalizationOptionsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HttpConnectionManager_PathNormalizationOptionsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HttpConnectionManager_PathNormalizationOptionsMultiError) AllErrors() []error { return m }
 
 // HttpConnectionManager_PathNormalizationOptionsValidationError is the
 // validation error returned by
@@ -1905,23 +3516,60 @@ var _ interface {
 
 // Validate checks the field values on ScopedRoutes_ScopeKeyBuilder with the
 // rules defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *ScopedRoutes_ScopeKeyBuilder) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ScopedRoutes_ScopeKeyBuilder with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ScopedRoutes_ScopeKeyBuilderMultiError, or nil if none found.
+func (m *ScopedRoutes_ScopeKeyBuilder) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ScopedRoutes_ScopeKeyBuilder) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if len(m.GetFragments()) < 1 {
-		return ScopedRoutes_ScopeKeyBuilderValidationError{
+		err := ScopedRoutes_ScopeKeyBuilderValidationError{
 			field:  "Fragments",
 			reason: "value must contain at least 1 item(s)",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	for idx, item := range m.GetFragments() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ScopedRoutes_ScopeKeyBuilderValidationError{
+						field:  fmt.Sprintf("Fragments[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ScopedRoutes_ScopeKeyBuilderValidationError{
+						field:  fmt.Sprintf("Fragments[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ScopedRoutes_ScopeKeyBuilderValidationError{
 					field:  fmt.Sprintf("Fragments[%v]", idx),
@@ -1933,8 +3581,28 @@ func (m *ScopedRoutes_ScopeKeyBuilder) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return ScopedRoutes_ScopeKeyBuilderMultiError(errors)
+	}
 	return nil
 }
+
+// ScopedRoutes_ScopeKeyBuilderMultiError is an error wrapping multiple
+// validation errors returned by ScopedRoutes_ScopeKeyBuilder.ValidateAll() if
+// the designated constraints aren't met.
+type ScopedRoutes_ScopeKeyBuilderMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ScopedRoutes_ScopeKeyBuilderMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ScopedRoutes_ScopeKeyBuilderMultiError) AllErrors() []error { return m }
 
 // ScopedRoutes_ScopeKeyBuilderValidationError is the validation error returned
 // by ScopedRoutes_ScopeKeyBuilder.Validate if the designated constraints
@@ -1995,17 +3663,52 @@ var _ interface {
 
 // Validate checks the field values on
 // ScopedRoutes_ScopeKeyBuilder_FragmentBuilder with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// ScopedRoutes_ScopeKeyBuilder_FragmentBuilder with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in
+// ScopedRoutes_ScopeKeyBuilder_FragmentBuilderMultiError, or nil if none found.
+func (m *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	switch m.Type.(type) {
 
 	case *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_:
 
-		if v, ok := interface{}(m.GetHeaderValueExtractor()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetHeaderValueExtractor()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ScopedRoutes_ScopeKeyBuilder_FragmentBuilderValidationError{
+						field:  "HeaderValueExtractor",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ScopedRoutes_ScopeKeyBuilder_FragmentBuilderValidationError{
+						field:  "HeaderValueExtractor",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetHeaderValueExtractor()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ScopedRoutes_ScopeKeyBuilder_FragmentBuilderValidationError{
 					field:  "HeaderValueExtractor",
@@ -2016,15 +3719,40 @@ func (m *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder) Validate() error {
 		}
 
 	default:
-		return ScopedRoutes_ScopeKeyBuilder_FragmentBuilderValidationError{
+		err := ScopedRoutes_ScopeKeyBuilder_FragmentBuilderValidationError{
 			field:  "Type",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 
 	}
 
+	if len(errors) > 0 {
+		return ScopedRoutes_ScopeKeyBuilder_FragmentBuilderMultiError(errors)
+	}
 	return nil
 }
+
+// ScopedRoutes_ScopeKeyBuilder_FragmentBuilderMultiError is an error wrapping
+// multiple validation errors returned by
+// ScopedRoutes_ScopeKeyBuilder_FragmentBuilder.ValidateAll() if the
+// designated constraints aren't met.
+type ScopedRoutes_ScopeKeyBuilder_FragmentBuilderMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ScopedRoutes_ScopeKeyBuilder_FragmentBuilderMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ScopedRoutes_ScopeKeyBuilder_FragmentBuilderMultiError) AllErrors() []error { return m }
 
 // ScopedRoutes_ScopeKeyBuilder_FragmentBuilderValidationError is the
 // validation error returned by
@@ -2087,17 +3815,37 @@ var _ interface {
 // Validate checks the field values on
 // ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor with the
 // rules defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractorMultiError,
+// or nil if none found.
+func (m *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if utf8.RuneCountInString(m.GetName()) < 1 {
-		return ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractorValidationError{
+		err := ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractorValidationError{
 			field:  "Name",
 			reason: "value length must be at least 1 runes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	// no validation rules for ElementSeparator
@@ -2109,7 +3857,26 @@ func (m *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor) Vali
 
 	case *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_Element:
 
-		if v, ok := interface{}(m.GetElement()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetElement()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractorValidationError{
+						field:  "Element",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractorValidationError{
+						field:  "Element",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetElement()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractorValidationError{
 					field:  "Element",
@@ -2121,7 +3888,30 @@ func (m *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor) Vali
 
 	}
 
+	if len(errors) > 0 {
+		return ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractorMultiError(errors)
+	}
 	return nil
+}
+
+// ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractorMultiError
+// is an error wrapping multiple validation errors returned by
+// ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor.ValidateAll()
+// if the designated constraints aren't met.
+type ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractorMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractorMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractorMultiError) AllErrors() []error {
+	return m
 }
 
 // ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractorValidationError
@@ -2193,27 +3983,75 @@ var _ interface {
 // Validate checks the field values on
 // ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvElement
 // with the rules defined in the proto definition for this message. If any
-// rules are violated, an error is returned.
+// rules are violated, the first error encountered is returned, or nil if
+// there are no violations.
 func (m *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvElement) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvElement
+// with the rules defined in the proto definition for this message. If any
+// rules are violated, the result is a list of violation errors wrapped in
+// ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvElementMultiError,
+// or nil if none found.
+func (m *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvElement) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvElement) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if utf8.RuneCountInString(m.GetSeparator()) < 1 {
-		return ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvElementValidationError{
+		err := ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvElementValidationError{
 			field:  "Separator",
 			reason: "value length must be at least 1 runes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if utf8.RuneCountInString(m.GetKey()) < 1 {
-		return ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvElementValidationError{
+		err := ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvElementValidationError{
 			field:  "Key",
 			reason: "value length must be at least 1 runes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
+	if len(errors) > 0 {
+		return ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvElementMultiError(errors)
+	}
 	return nil
+}
+
+// ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvElementMultiError
+// is an error wrapping multiple validation errors returned by
+// ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvElement.ValidateAll()
+// if the designated constraints aren't met.
+type ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvElementMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvElementMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvElementMultiError) AllErrors() []error {
+	return m
 }
 
 // ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvElementValidationError
