@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -33,22 +34,56 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 
 	_ = v3.ClientResourceStatus(0)
 )
 
 // Validate checks the field values on ClientStatusRequest with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *ClientStatusRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ClientStatusRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ClientStatusRequestMultiError, or nil if none found.
+func (m *ClientStatusRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ClientStatusRequest) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	for idx, item := range m.GetNodeMatchers() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ClientStatusRequestValidationError{
+						field:  fmt.Sprintf("NodeMatchers[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ClientStatusRequestValidationError{
+						field:  fmt.Sprintf("NodeMatchers[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ClientStatusRequestValidationError{
 					field:  fmt.Sprintf("NodeMatchers[%v]", idx),
@@ -60,7 +95,26 @@ func (m *ClientStatusRequest) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetNode()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetNode()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClientStatusRequestValidationError{
+					field:  "Node",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClientStatusRequestValidationError{
+					field:  "Node",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetNode()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClientStatusRequestValidationError{
 				field:  "Node",
@@ -70,8 +124,28 @@ func (m *ClientStatusRequest) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return ClientStatusRequestMultiError(errors)
+	}
 	return nil
 }
+
+// ClientStatusRequestMultiError is an error wrapping multiple validation
+// errors returned by ClientStatusRequest.ValidateAll() if the designated
+// constraints aren't met.
+type ClientStatusRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ClientStatusRequestMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ClientStatusRequestMultiError) AllErrors() []error { return m }
 
 // ClientStatusRequestValidationError is the validation error returned by
 // ClientStatusRequest.Validate if the designated constraints aren't met.
@@ -130,12 +204,26 @@ var _ interface {
 } = ClientStatusRequestValidationError{}
 
 // Validate checks the field values on PerXdsConfig with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *PerXdsConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on PerXdsConfig with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in PerXdsConfigMultiError, or
+// nil if none found.
+func (m *PerXdsConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *PerXdsConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for Status
 
@@ -145,7 +233,26 @@ func (m *PerXdsConfig) Validate() error {
 
 	case *PerXdsConfig_ListenerConfig:
 
-		if v, ok := interface{}(m.GetListenerConfig()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetListenerConfig()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, PerXdsConfigValidationError{
+						field:  "ListenerConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, PerXdsConfigValidationError{
+						field:  "ListenerConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetListenerConfig()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return PerXdsConfigValidationError{
 					field:  "ListenerConfig",
@@ -157,7 +264,26 @@ func (m *PerXdsConfig) Validate() error {
 
 	case *PerXdsConfig_ClusterConfig:
 
-		if v, ok := interface{}(m.GetClusterConfig()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetClusterConfig()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, PerXdsConfigValidationError{
+						field:  "ClusterConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, PerXdsConfigValidationError{
+						field:  "ClusterConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetClusterConfig()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return PerXdsConfigValidationError{
 					field:  "ClusterConfig",
@@ -169,7 +295,26 @@ func (m *PerXdsConfig) Validate() error {
 
 	case *PerXdsConfig_RouteConfig:
 
-		if v, ok := interface{}(m.GetRouteConfig()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetRouteConfig()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, PerXdsConfigValidationError{
+						field:  "RouteConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, PerXdsConfigValidationError{
+						field:  "RouteConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetRouteConfig()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return PerXdsConfigValidationError{
 					field:  "RouteConfig",
@@ -181,7 +326,26 @@ func (m *PerXdsConfig) Validate() error {
 
 	case *PerXdsConfig_ScopedRouteConfig:
 
-		if v, ok := interface{}(m.GetScopedRouteConfig()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetScopedRouteConfig()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, PerXdsConfigValidationError{
+						field:  "ScopedRouteConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, PerXdsConfigValidationError{
+						field:  "ScopedRouteConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetScopedRouteConfig()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return PerXdsConfigValidationError{
 					field:  "ScopedRouteConfig",
@@ -193,7 +357,26 @@ func (m *PerXdsConfig) Validate() error {
 
 	case *PerXdsConfig_EndpointConfig:
 
-		if v, ok := interface{}(m.GetEndpointConfig()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetEndpointConfig()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, PerXdsConfigValidationError{
+						field:  "EndpointConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, PerXdsConfigValidationError{
+						field:  "EndpointConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetEndpointConfig()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return PerXdsConfigValidationError{
 					field:  "EndpointConfig",
@@ -205,8 +388,27 @@ func (m *PerXdsConfig) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return PerXdsConfigMultiError(errors)
+	}
 	return nil
 }
+
+// PerXdsConfigMultiError is an error wrapping multiple validation errors
+// returned by PerXdsConfig.ValidateAll() if the designated constraints aren't met.
+type PerXdsConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m PerXdsConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m PerXdsConfigMultiError) AllErrors() []error { return m }
 
 // PerXdsConfigValidationError is the validation error returned by
 // PerXdsConfig.Validate if the designated constraints aren't met.
@@ -263,14 +465,47 @@ var _ interface {
 } = PerXdsConfigValidationError{}
 
 // Validate checks the field values on ClientConfig with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *ClientConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ClientConfig with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in ClientConfigMultiError, or
+// nil if none found.
+func (m *ClientConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ClientConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetNode()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetNode()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClientConfigValidationError{
+					field:  "Node",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClientConfigValidationError{
+					field:  "Node",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetNode()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClientConfigValidationError{
 				field:  "Node",
@@ -283,7 +518,26 @@ func (m *ClientConfig) Validate() error {
 	for idx, item := range m.GetXdsConfig() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ClientConfigValidationError{
+						field:  fmt.Sprintf("XdsConfig[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ClientConfigValidationError{
+						field:  fmt.Sprintf("XdsConfig[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ClientConfigValidationError{
 					field:  fmt.Sprintf("XdsConfig[%v]", idx),
@@ -298,7 +552,26 @@ func (m *ClientConfig) Validate() error {
 	for idx, item := range m.GetGenericXdsConfigs() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ClientConfigValidationError{
+						field:  fmt.Sprintf("GenericXdsConfigs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ClientConfigValidationError{
+						field:  fmt.Sprintf("GenericXdsConfigs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ClientConfigValidationError{
 					field:  fmt.Sprintf("GenericXdsConfigs[%v]", idx),
@@ -310,8 +583,27 @@ func (m *ClientConfig) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return ClientConfigMultiError(errors)
+	}
 	return nil
 }
+
+// ClientConfigMultiError is an error wrapping multiple validation errors
+// returned by ClientConfig.ValidateAll() if the designated constraints aren't met.
+type ClientConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ClientConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ClientConfigMultiError) AllErrors() []error { return m }
 
 // ClientConfigValidationError is the validation error returned by
 // ClientConfig.Validate if the designated constraints aren't met.
@@ -369,16 +661,49 @@ var _ interface {
 
 // Validate checks the field values on ClientStatusResponse with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *ClientStatusResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ClientStatusResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ClientStatusResponseMultiError, or nil if none found.
+func (m *ClientStatusResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ClientStatusResponse) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	for idx, item := range m.GetConfig() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ClientStatusResponseValidationError{
+						field:  fmt.Sprintf("Config[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ClientStatusResponseValidationError{
+						field:  fmt.Sprintf("Config[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ClientStatusResponseValidationError{
 					field:  fmt.Sprintf("Config[%v]", idx),
@@ -390,8 +715,28 @@ func (m *ClientStatusResponse) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return ClientStatusResponseMultiError(errors)
+	}
 	return nil
 }
+
+// ClientStatusResponseMultiError is an error wrapping multiple validation
+// errors returned by ClientStatusResponse.ValidateAll() if the designated
+// constraints aren't met.
+type ClientStatusResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ClientStatusResponseMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ClientStatusResponseMultiError) AllErrors() []error { return m }
 
 // ClientStatusResponseValidationError is the validation error returned by
 // ClientStatusResponse.Validate if the designated constraints aren't met.
@@ -451,11 +796,25 @@ var _ interface {
 
 // Validate checks the field values on ClientConfig_GenericXdsConfig with the
 // rules defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *ClientConfig_GenericXdsConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ClientConfig_GenericXdsConfig with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the result is a list of violation errors wrapped in
+// ClientConfig_GenericXdsConfigMultiError, or nil if none found.
+func (m *ClientConfig_GenericXdsConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ClientConfig_GenericXdsConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for TypeUrl
 
@@ -463,7 +822,26 @@ func (m *ClientConfig_GenericXdsConfig) Validate() error {
 
 	// no validation rules for VersionInfo
 
-	if v, ok := interface{}(m.GetXdsConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetXdsConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClientConfig_GenericXdsConfigValidationError{
+					field:  "XdsConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClientConfig_GenericXdsConfigValidationError{
+					field:  "XdsConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetXdsConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClientConfig_GenericXdsConfigValidationError{
 				field:  "XdsConfig",
@@ -473,7 +851,26 @@ func (m *ClientConfig_GenericXdsConfig) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetLastUpdated()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClientConfig_GenericXdsConfigValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClientConfig_GenericXdsConfigValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClientConfig_GenericXdsConfigValidationError{
 				field:  "LastUpdated",
@@ -487,7 +884,26 @@ func (m *ClientConfig_GenericXdsConfig) Validate() error {
 
 	// no validation rules for ClientStatus
 
-	if v, ok := interface{}(m.GetErrorState()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetErrorState()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClientConfig_GenericXdsConfigValidationError{
+					field:  "ErrorState",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClientConfig_GenericXdsConfigValidationError{
+					field:  "ErrorState",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetErrorState()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClientConfig_GenericXdsConfigValidationError{
 				field:  "ErrorState",
@@ -499,8 +915,28 @@ func (m *ClientConfig_GenericXdsConfig) Validate() error {
 
 	// no validation rules for IsStaticResource
 
+	if len(errors) > 0 {
+		return ClientConfig_GenericXdsConfigMultiError(errors)
+	}
 	return nil
 }
+
+// ClientConfig_GenericXdsConfigMultiError is an error wrapping multiple
+// validation errors returned by ClientConfig_GenericXdsConfig.ValidateAll()
+// if the designated constraints aren't met.
+type ClientConfig_GenericXdsConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ClientConfig_GenericXdsConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ClientConfig_GenericXdsConfigMultiError) AllErrors() []error { return m }
 
 // ClientConfig_GenericXdsConfigValidationError is the validation error
 // returned by ClientConfig_GenericXdsConfig.Validate if the designated

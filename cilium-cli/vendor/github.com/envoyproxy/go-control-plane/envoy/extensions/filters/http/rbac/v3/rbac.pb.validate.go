@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,16 +32,50 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on RBAC with the rules defined in the proto
-// definition for this message. If any rules are violated, an error is returned.
+// definition for this message. If any rules are violated, the first error
+// encountered is returned, or nil if there are no violations.
 func (m *RBAC) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on RBAC with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in RBACMultiError, or nil if none found.
+func (m *RBAC) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *RBAC) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetRules()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetRules()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RBACValidationError{
+					field:  "Rules",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RBACValidationError{
+					field:  "Rules",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetRules()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return RBACValidationError{
 				field:  "Rules",
@@ -50,7 +85,26 @@ func (m *RBAC) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetShadowRules()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetShadowRules()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RBACValidationError{
+					field:  "ShadowRules",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RBACValidationError{
+					field:  "ShadowRules",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetShadowRules()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return RBACValidationError{
 				field:  "ShadowRules",
@@ -62,8 +116,27 @@ func (m *RBAC) Validate() error {
 
 	// no validation rules for ShadowRulesStatPrefix
 
+	if len(errors) > 0 {
+		return RBACMultiError(errors)
+	}
 	return nil
 }
+
+// RBACMultiError is an error wrapping multiple validation errors returned by
+// RBAC.ValidateAll() if the designated constraints aren't met.
+type RBACMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m RBACMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m RBACMultiError) AllErrors() []error { return m }
 
 // RBACValidationError is the validation error returned by RBAC.Validate if the
 // designated constraints aren't met.
@@ -120,14 +193,47 @@ var _ interface {
 } = RBACValidationError{}
 
 // Validate checks the field values on RBACPerRoute with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *RBACPerRoute) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on RBACPerRoute with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in RBACPerRouteMultiError, or
+// nil if none found.
+func (m *RBACPerRoute) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *RBACPerRoute) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetRbac()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetRbac()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RBACPerRouteValidationError{
+					field:  "Rbac",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RBACPerRouteValidationError{
+					field:  "Rbac",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetRbac()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return RBACPerRouteValidationError{
 				field:  "Rbac",
@@ -137,8 +243,27 @@ func (m *RBACPerRoute) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return RBACPerRouteMultiError(errors)
+	}
 	return nil
 }
+
+// RBACPerRouteMultiError is an error wrapping multiple validation errors
+// returned by RBACPerRoute.ValidateAll() if the designated constraints aren't met.
+type RBACPerRouteMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m RBACPerRouteMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m RBACPerRouteMultiError) AllErrors() []error { return m }
 
 // RBACPerRouteValidationError is the validation error returned by
 // RBACPerRoute.Validate if the designated constraints aren't met.

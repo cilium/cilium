@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,17 +32,52 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on SrdsDummy with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *SrdsDummy) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on SrdsDummy with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in SrdsDummyMultiError, or nil
+// if none found.
+func (m *SrdsDummy) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *SrdsDummy) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
+	if len(errors) > 0 {
+		return SrdsDummyMultiError(errors)
+	}
 	return nil
 }
+
+// SrdsDummyMultiError is an error wrapping multiple validation errors returned
+// by SrdsDummy.ValidateAll() if the designated constraints aren't met.
+type SrdsDummyMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m SrdsDummyMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m SrdsDummyMultiError) AllErrors() []error { return m }
 
 // SrdsDummyValidationError is the validation error returned by
 // SrdsDummy.Validate if the designated constraints aren't met.

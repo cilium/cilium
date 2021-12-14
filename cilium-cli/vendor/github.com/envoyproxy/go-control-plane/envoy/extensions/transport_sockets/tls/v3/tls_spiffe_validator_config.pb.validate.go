@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,27 +32,65 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on SPIFFECertValidatorConfig with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *SPIFFECertValidatorConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on SPIFFECertValidatorConfig with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// SPIFFECertValidatorConfigMultiError, or nil if none found.
+func (m *SPIFFECertValidatorConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *SPIFFECertValidatorConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if len(m.GetTrustDomains()) < 1 {
-		return SPIFFECertValidatorConfigValidationError{
+		err := SPIFFECertValidatorConfigValidationError{
 			field:  "TrustDomains",
 			reason: "value must contain at least 1 item(s)",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	for idx, item := range m.GetTrustDomains() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, SPIFFECertValidatorConfigValidationError{
+						field:  fmt.Sprintf("TrustDomains[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, SPIFFECertValidatorConfigValidationError{
+						field:  fmt.Sprintf("TrustDomains[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return SPIFFECertValidatorConfigValidationError{
 					field:  fmt.Sprintf("TrustDomains[%v]", idx),
@@ -63,8 +102,28 @@ func (m *SPIFFECertValidatorConfig) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return SPIFFECertValidatorConfigMultiError(errors)
+	}
 	return nil
 }
+
+// SPIFFECertValidatorConfigMultiError is an error wrapping multiple validation
+// errors returned by SPIFFECertValidatorConfig.ValidateAll() if the
+// designated constraints aren't met.
+type SPIFFECertValidatorConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m SPIFFECertValidatorConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m SPIFFECertValidatorConfigMultiError) AllErrors() []error { return m }
 
 // SPIFFECertValidatorConfigValidationError is the validation error returned by
 // SPIFFECertValidatorConfig.Validate if the designated constraints aren't met.
@@ -124,20 +183,58 @@ var _ interface {
 
 // Validate checks the field values on SPIFFECertValidatorConfig_TrustDomain
 // with the rules defined in the proto definition for this message. If any
-// rules are violated, an error is returned.
+// rules are violated, the first error encountered is returned, or nil if
+// there are no violations.
 func (m *SPIFFECertValidatorConfig_TrustDomain) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on SPIFFECertValidatorConfig_TrustDomain
+// with the rules defined in the proto definition for this message. If any
+// rules are violated, the result is a list of violation errors wrapped in
+// SPIFFECertValidatorConfig_TrustDomainMultiError, or nil if none found.
+func (m *SPIFFECertValidatorConfig_TrustDomain) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *SPIFFECertValidatorConfig_TrustDomain) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if utf8.RuneCountInString(m.GetName()) < 1 {
-		return SPIFFECertValidatorConfig_TrustDomainValidationError{
+		err := SPIFFECertValidatorConfig_TrustDomainValidationError{
 			field:  "Name",
 			reason: "value length must be at least 1 runes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
-	if v, ok := interface{}(m.GetTrustBundle()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetTrustBundle()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, SPIFFECertValidatorConfig_TrustDomainValidationError{
+					field:  "TrustBundle",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, SPIFFECertValidatorConfig_TrustDomainValidationError{
+					field:  "TrustBundle",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetTrustBundle()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return SPIFFECertValidatorConfig_TrustDomainValidationError{
 				field:  "TrustBundle",
@@ -147,8 +244,29 @@ func (m *SPIFFECertValidatorConfig_TrustDomain) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return SPIFFECertValidatorConfig_TrustDomainMultiError(errors)
+	}
 	return nil
 }
+
+// SPIFFECertValidatorConfig_TrustDomainMultiError is an error wrapping
+// multiple validation errors returned by
+// SPIFFECertValidatorConfig_TrustDomain.ValidateAll() if the designated
+// constraints aren't met.
+type SPIFFECertValidatorConfig_TrustDomainMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m SPIFFECertValidatorConfig_TrustDomainMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m SPIFFECertValidatorConfig_TrustDomainMultiError) AllErrors() []error { return m }
 
 // SPIFFECertValidatorConfig_TrustDomainValidationError is the validation error
 // returned by SPIFFECertValidatorConfig_TrustDomain.Validate if the

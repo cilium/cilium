@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,34 +32,76 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on ApiConfigSource with the rules defined
-// in the proto definition for this message. If any rules are violated, an
-// error is returned.
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
 func (m *ApiConfigSource) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ApiConfigSource with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ApiConfigSourceMultiError, or nil if none found.
+func (m *ApiConfigSource) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ApiConfigSource) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if _, ok := ApiConfigSource_ApiType_name[int32(m.GetApiType())]; !ok {
-		return ApiConfigSourceValidationError{
+		err := ApiConfigSourceValidationError{
 			field:  "ApiType",
 			reason: "value must be one of the defined enum values",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if _, ok := ApiVersion_name[int32(m.GetTransportApiVersion())]; !ok {
-		return ApiConfigSourceValidationError{
+		err := ApiConfigSourceValidationError{
 			field:  "TransportApiVersion",
 			reason: "value must be one of the defined enum values",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	for idx, item := range m.GetGrpcServices() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ApiConfigSourceValidationError{
+						field:  fmt.Sprintf("GrpcServices[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ApiConfigSourceValidationError{
+						field:  fmt.Sprintf("GrpcServices[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ApiConfigSourceValidationError{
 					field:  fmt.Sprintf("GrpcServices[%v]", idx),
@@ -70,7 +113,26 @@ func (m *ApiConfigSource) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetRefreshDelay()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetRefreshDelay()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ApiConfigSourceValidationError{
+					field:  "RefreshDelay",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ApiConfigSourceValidationError{
+					field:  "RefreshDelay",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetRefreshDelay()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ApiConfigSourceValidationError{
 				field:  "RefreshDelay",
@@ -83,25 +145,53 @@ func (m *ApiConfigSource) Validate() error {
 	if d := m.GetRequestTimeout(); d != nil {
 		dur, err := d.AsDuration(), d.CheckValid()
 		if err != nil {
-			return ApiConfigSourceValidationError{
+			err = ApiConfigSourceValidationError{
 				field:  "RequestTimeout",
 				reason: "value is not a valid duration",
 				cause:  err,
 			}
-		}
-
-		gt := time.Duration(0*time.Second + 0*time.Nanosecond)
-
-		if dur <= gt {
-			return ApiConfigSourceValidationError{
-				field:  "RequestTimeout",
-				reason: "value must be greater than 0s",
+			if !all {
+				return err
 			}
-		}
+			errors = append(errors, err)
+		} else {
 
+			gt := time.Duration(0*time.Second + 0*time.Nanosecond)
+
+			if dur <= gt {
+				err := ApiConfigSourceValidationError{
+					field:  "RequestTimeout",
+					reason: "value must be greater than 0s",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
+
+		}
 	}
 
-	if v, ok := interface{}(m.GetRateLimitSettings()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetRateLimitSettings()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ApiConfigSourceValidationError{
+					field:  "RateLimitSettings",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ApiConfigSourceValidationError{
+					field:  "RateLimitSettings",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetRateLimitSettings()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ApiConfigSourceValidationError{
 				field:  "RateLimitSettings",
@@ -113,8 +203,28 @@ func (m *ApiConfigSource) Validate() error {
 
 	// no validation rules for SetNodeOnFirstMessageOnly
 
+	if len(errors) > 0 {
+		return ApiConfigSourceMultiError(errors)
+	}
 	return nil
 }
+
+// ApiConfigSourceMultiError is an error wrapping multiple validation errors
+// returned by ApiConfigSource.ValidateAll() if the designated constraints
+// aren't met.
+type ApiConfigSourceMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ApiConfigSourceMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ApiConfigSourceMultiError) AllErrors() []error { return m }
 
 // ApiConfigSourceValidationError is the validation error returned by
 // ApiConfigSource.Validate if the designated constraints aren't met.
@@ -172,14 +282,48 @@ var _ interface {
 
 // Validate checks the field values on AggregatedConfigSource with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *AggregatedConfigSource) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on AggregatedConfigSource with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// AggregatedConfigSourceMultiError, or nil if none found.
+func (m *AggregatedConfigSource) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *AggregatedConfigSource) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
+	if len(errors) > 0 {
+		return AggregatedConfigSourceMultiError(errors)
+	}
 	return nil
 }
+
+// AggregatedConfigSourceMultiError is an error wrapping multiple validation
+// errors returned by AggregatedConfigSource.ValidateAll() if the designated
+// constraints aren't met.
+type AggregatedConfigSourceMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m AggregatedConfigSourceMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m AggregatedConfigSourceMultiError) AllErrors() []error { return m }
 
 // AggregatedConfigSourceValidationError is the validation error returned by
 // AggregatedConfigSource.Validate if the designated constraints aren't met.
@@ -238,22 +382,60 @@ var _ interface {
 } = AggregatedConfigSourceValidationError{}
 
 // Validate checks the field values on SelfConfigSource with the rules defined
-// in the proto definition for this message. If any rules are violated, an
-// error is returned.
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
 func (m *SelfConfigSource) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on SelfConfigSource with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// SelfConfigSourceMultiError, or nil if none found.
+func (m *SelfConfigSource) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *SelfConfigSource) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if _, ok := ApiVersion_name[int32(m.GetTransportApiVersion())]; !ok {
-		return SelfConfigSourceValidationError{
+		err := SelfConfigSourceValidationError{
 			field:  "TransportApiVersion",
 			reason: "value must be one of the defined enum values",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
+	if len(errors) > 0 {
+		return SelfConfigSourceMultiError(errors)
+	}
 	return nil
 }
+
+// SelfConfigSourceMultiError is an error wrapping multiple validation errors
+// returned by SelfConfigSource.ValidateAll() if the designated constraints
+// aren't met.
+type SelfConfigSourceMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m SelfConfigSourceMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m SelfConfigSourceMultiError) AllErrors() []error { return m }
 
 // SelfConfigSourceValidationError is the validation error returned by
 // SelfConfigSource.Validate if the designated constraints aren't met.
@@ -310,14 +492,47 @@ var _ interface {
 } = SelfConfigSourceValidationError{}
 
 // Validate checks the field values on RateLimitSettings with the rules defined
-// in the proto definition for this message. If any rules are violated, an
-// error is returned.
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
 func (m *RateLimitSettings) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on RateLimitSettings with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// RateLimitSettingsMultiError, or nil if none found.
+func (m *RateLimitSettings) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *RateLimitSettings) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetMaxTokens()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetMaxTokens()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RateLimitSettingsValidationError{
+					field:  "MaxTokens",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RateLimitSettingsValidationError{
+					field:  "MaxTokens",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMaxTokens()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return RateLimitSettingsValidationError{
 				field:  "MaxTokens",
@@ -330,16 +545,40 @@ func (m *RateLimitSettings) Validate() error {
 	if wrapper := m.GetFillRate(); wrapper != nil {
 
 		if wrapper.GetValue() <= 0 {
-			return RateLimitSettingsValidationError{
+			err := RateLimitSettingsValidationError{
 				field:  "FillRate",
 				reason: "value must be greater than 0",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	}
 
+	if len(errors) > 0 {
+		return RateLimitSettingsMultiError(errors)
+	}
 	return nil
 }
+
+// RateLimitSettingsMultiError is an error wrapping multiple validation errors
+// returned by RateLimitSettings.ValidateAll() if the designated constraints
+// aren't met.
+type RateLimitSettingsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m RateLimitSettingsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m RateLimitSettingsMultiError) AllErrors() []error { return m }
 
 // RateLimitSettingsValidationError is the validation error returned by
 // RateLimitSettings.Validate if the designated constraints aren't met.
@@ -398,14 +637,47 @@ var _ interface {
 } = RateLimitSettingsValidationError{}
 
 // Validate checks the field values on ConfigSource with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *ConfigSource) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ConfigSource with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in ConfigSourceMultiError, or
+// nil if none found.
+func (m *ConfigSource) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ConfigSource) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetInitialFetchTimeout()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetInitialFetchTimeout()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ConfigSourceValidationError{
+					field:  "InitialFetchTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ConfigSourceValidationError{
+					field:  "InitialFetchTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetInitialFetchTimeout()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ConfigSourceValidationError{
 				field:  "InitialFetchTimeout",
@@ -416,10 +688,14 @@ func (m *ConfigSource) Validate() error {
 	}
 
 	if _, ok := ApiVersion_name[int32(m.GetResourceApiVersion())]; !ok {
-		return ConfigSourceValidationError{
+		err := ConfigSourceValidationError{
 			field:  "ResourceApiVersion",
 			reason: "value must be one of the defined enum values",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	switch m.ConfigSourceSpecifier.(type) {
@@ -429,7 +705,26 @@ func (m *ConfigSource) Validate() error {
 
 	case *ConfigSource_ApiConfigSource:
 
-		if v, ok := interface{}(m.GetApiConfigSource()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetApiConfigSource()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ConfigSourceValidationError{
+						field:  "ApiConfigSource",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ConfigSourceValidationError{
+						field:  "ApiConfigSource",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetApiConfigSource()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ConfigSourceValidationError{
 					field:  "ApiConfigSource",
@@ -441,7 +736,26 @@ func (m *ConfigSource) Validate() error {
 
 	case *ConfigSource_Ads:
 
-		if v, ok := interface{}(m.GetAds()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetAds()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ConfigSourceValidationError{
+						field:  "Ads",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ConfigSourceValidationError{
+						field:  "Ads",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetAds()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ConfigSourceValidationError{
 					field:  "Ads",
@@ -453,7 +767,26 @@ func (m *ConfigSource) Validate() error {
 
 	case *ConfigSource_Self:
 
-		if v, ok := interface{}(m.GetSelf()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetSelf()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ConfigSourceValidationError{
+						field:  "Self",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ConfigSourceValidationError{
+						field:  "Self",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetSelf()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ConfigSourceValidationError{
 					field:  "Self",
@@ -464,15 +797,38 @@ func (m *ConfigSource) Validate() error {
 		}
 
 	default:
-		return ConfigSourceValidationError{
+		err := ConfigSourceValidationError{
 			field:  "ConfigSourceSpecifier",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 
 	}
 
+	if len(errors) > 0 {
+		return ConfigSourceMultiError(errors)
+	}
 	return nil
 }
+
+// ConfigSourceMultiError is an error wrapping multiple validation errors
+// returned by ConfigSource.ValidateAll() if the designated constraints aren't met.
+type ConfigSourceMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ConfigSourceMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ConfigSourceMultiError) AllErrors() []error { return m }
 
 // ConfigSourceValidationError is the validation error returned by
 // ConfigSource.Validate if the designated constraints aren't met.

@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,17 +32,51 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on UdpListenerConfig with the rules defined
-// in the proto definition for this message. If any rules are violated, an
-// error is returned.
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
 func (m *UdpListenerConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on UdpListenerConfig with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// UdpListenerConfigMultiError, or nil if none found.
+func (m *UdpListenerConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *UdpListenerConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetDownstreamSocketConfig()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetDownstreamSocketConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, UdpListenerConfigValidationError{
+					field:  "DownstreamSocketConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, UdpListenerConfigValidationError{
+					field:  "DownstreamSocketConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetDownstreamSocketConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return UdpListenerConfigValidationError{
 				field:  "DownstreamSocketConfig",
@@ -51,7 +86,26 @@ func (m *UdpListenerConfig) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetQuicOptions()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetQuicOptions()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, UdpListenerConfigValidationError{
+					field:  "QuicOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, UdpListenerConfigValidationError{
+					field:  "QuicOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetQuicOptions()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return UdpListenerConfigValidationError{
 				field:  "QuicOptions",
@@ -61,24 +115,28 @@ func (m *UdpListenerConfig) Validate() error {
 		}
 	}
 
-	switch m.ConfigType.(type) {
-
-	case *UdpListenerConfig_HiddenEnvoyDeprecatedConfig:
-
-		if v, ok := interface{}(m.GetHiddenEnvoyDeprecatedConfig()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return UdpListenerConfigValidationError{
-					field:  "HiddenEnvoyDeprecatedConfig",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
-			}
-		}
-
+	if len(errors) > 0 {
+		return UdpListenerConfigMultiError(errors)
 	}
-
 	return nil
 }
+
+// UdpListenerConfigMultiError is an error wrapping multiple validation errors
+// returned by UdpListenerConfig.ValidateAll() if the designated constraints
+// aren't met.
+type UdpListenerConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m UdpListenerConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m UdpListenerConfigMultiError) AllErrors() []error { return m }
 
 // UdpListenerConfigValidationError is the validation error returned by
 // UdpListenerConfig.Validate if the designated constraints aren't met.
@@ -138,14 +196,48 @@ var _ interface {
 
 // Validate checks the field values on ActiveRawUdpListenerConfig with the
 // rules defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *ActiveRawUdpListenerConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ActiveRawUdpListenerConfig with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ActiveRawUdpListenerConfigMultiError, or nil if none found.
+func (m *ActiveRawUdpListenerConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ActiveRawUdpListenerConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
+	if len(errors) > 0 {
+		return ActiveRawUdpListenerConfigMultiError(errors)
+	}
 	return nil
 }
+
+// ActiveRawUdpListenerConfigMultiError is an error wrapping multiple
+// validation errors returned by ActiveRawUdpListenerConfig.ValidateAll() if
+// the designated constraints aren't met.
+type ActiveRawUdpListenerConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ActiveRawUdpListenerConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ActiveRawUdpListenerConfigMultiError) AllErrors() []error { return m }
 
 // ActiveRawUdpListenerConfigValidationError is the validation error returned
 // by ActiveRawUdpListenerConfig.Validate if the designated constraints aren't met.

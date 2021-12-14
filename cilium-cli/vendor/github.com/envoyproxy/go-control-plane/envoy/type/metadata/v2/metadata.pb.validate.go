@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,34 +32,76 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on MetadataKey with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *MetadataKey) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on MetadataKey with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in MetadataKeyMultiError, or
+// nil if none found.
+func (m *MetadataKey) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *MetadataKey) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if len(m.GetKey()) < 1 {
-		return MetadataKeyValidationError{
+		err := MetadataKeyValidationError{
 			field:  "Key",
 			reason: "value length must be at least 1 bytes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if len(m.GetPath()) < 1 {
-		return MetadataKeyValidationError{
+		err := MetadataKeyValidationError{
 			field:  "Path",
 			reason: "value must contain at least 1 item(s)",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	for idx, item := range m.GetPath() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, MetadataKeyValidationError{
+						field:  fmt.Sprintf("Path[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, MetadataKeyValidationError{
+						field:  fmt.Sprintf("Path[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return MetadataKeyValidationError{
 					field:  fmt.Sprintf("Path[%v]", idx),
@@ -70,8 +113,27 @@ func (m *MetadataKey) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return MetadataKeyMultiError(errors)
+	}
 	return nil
 }
+
+// MetadataKeyMultiError is an error wrapping multiple validation errors
+// returned by MetadataKey.ValidateAll() if the designated constraints aren't met.
+type MetadataKeyMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m MetadataKeyMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m MetadataKeyMultiError) AllErrors() []error { return m }
 
 // MetadataKeyValidationError is the validation error returned by
 // MetadataKey.Validate if the designated constraints aren't met.
@@ -128,18 +190,51 @@ var _ interface {
 } = MetadataKeyValidationError{}
 
 // Validate checks the field values on MetadataKind with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *MetadataKind) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on MetadataKind with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in MetadataKindMultiError, or
+// nil if none found.
+func (m *MetadataKind) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *MetadataKind) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	switch m.Kind.(type) {
 
 	case *MetadataKind_Request_:
 
-		if v, ok := interface{}(m.GetRequest()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetRequest()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, MetadataKindValidationError{
+						field:  "Request",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, MetadataKindValidationError{
+						field:  "Request",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetRequest()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return MetadataKindValidationError{
 					field:  "Request",
@@ -151,7 +246,26 @@ func (m *MetadataKind) Validate() error {
 
 	case *MetadataKind_Route_:
 
-		if v, ok := interface{}(m.GetRoute()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetRoute()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, MetadataKindValidationError{
+						field:  "Route",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, MetadataKindValidationError{
+						field:  "Route",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetRoute()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return MetadataKindValidationError{
 					field:  "Route",
@@ -163,7 +277,26 @@ func (m *MetadataKind) Validate() error {
 
 	case *MetadataKind_Cluster_:
 
-		if v, ok := interface{}(m.GetCluster()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetCluster()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, MetadataKindValidationError{
+						field:  "Cluster",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, MetadataKindValidationError{
+						field:  "Cluster",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetCluster()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return MetadataKindValidationError{
 					field:  "Cluster",
@@ -175,7 +308,26 @@ func (m *MetadataKind) Validate() error {
 
 	case *MetadataKind_Host_:
 
-		if v, ok := interface{}(m.GetHost()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetHost()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, MetadataKindValidationError{
+						field:  "Host",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, MetadataKindValidationError{
+						field:  "Host",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetHost()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return MetadataKindValidationError{
 					field:  "Host",
@@ -186,15 +338,38 @@ func (m *MetadataKind) Validate() error {
 		}
 
 	default:
-		return MetadataKindValidationError{
+		err := MetadataKindValidationError{
 			field:  "Kind",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 
 	}
 
+	if len(errors) > 0 {
+		return MetadataKindMultiError(errors)
+	}
 	return nil
 }
+
+// MetadataKindMultiError is an error wrapping multiple validation errors
+// returned by MetadataKind.ValidateAll() if the designated constraints aren't met.
+type MetadataKindMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m MetadataKindMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m MetadataKindMultiError) AllErrors() []error { return m }
 
 // MetadataKindValidationError is the validation error returned by
 // MetadataKind.Validate if the designated constraints aren't met.
@@ -252,33 +427,75 @@ var _ interface {
 
 // Validate checks the field values on MetadataKey_PathSegment with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *MetadataKey_PathSegment) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on MetadataKey_PathSegment with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// MetadataKey_PathSegmentMultiError, or nil if none found.
+func (m *MetadataKey_PathSegment) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *MetadataKey_PathSegment) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	switch m.Segment.(type) {
 
 	case *MetadataKey_PathSegment_Key:
 
 		if len(m.GetKey()) < 1 {
-			return MetadataKey_PathSegmentValidationError{
+			err := MetadataKey_PathSegmentValidationError{
 				field:  "Key",
 				reason: "value length must be at least 1 bytes",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	default:
-		return MetadataKey_PathSegmentValidationError{
+		err := MetadataKey_PathSegmentValidationError{
 			field:  "Segment",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 
 	}
 
+	if len(errors) > 0 {
+		return MetadataKey_PathSegmentMultiError(errors)
+	}
 	return nil
 }
+
+// MetadataKey_PathSegmentMultiError is an error wrapping multiple validation
+// errors returned by MetadataKey_PathSegment.ValidateAll() if the designated
+// constraints aren't met.
+type MetadataKey_PathSegmentMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m MetadataKey_PathSegmentMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m MetadataKey_PathSegmentMultiError) AllErrors() []error { return m }
 
 // MetadataKey_PathSegmentValidationError is the validation error returned by
 // MetadataKey_PathSegment.Validate if the designated constraints aren't met.
@@ -338,14 +555,48 @@ var _ interface {
 
 // Validate checks the field values on MetadataKind_Request with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *MetadataKind_Request) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on MetadataKind_Request with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// MetadataKind_RequestMultiError, or nil if none found.
+func (m *MetadataKind_Request) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *MetadataKind_Request) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
+	if len(errors) > 0 {
+		return MetadataKind_RequestMultiError(errors)
+	}
 	return nil
 }
+
+// MetadataKind_RequestMultiError is an error wrapping multiple validation
+// errors returned by MetadataKind_Request.ValidateAll() if the designated
+// constraints aren't met.
+type MetadataKind_RequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m MetadataKind_RequestMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m MetadataKind_RequestMultiError) AllErrors() []error { return m }
 
 // MetadataKind_RequestValidationError is the validation error returned by
 // MetadataKind_Request.Validate if the designated constraints aren't met.
@@ -405,14 +656,48 @@ var _ interface {
 
 // Validate checks the field values on MetadataKind_Route with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *MetadataKind_Route) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on MetadataKind_Route with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// MetadataKind_RouteMultiError, or nil if none found.
+func (m *MetadataKind_Route) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *MetadataKind_Route) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
+	if len(errors) > 0 {
+		return MetadataKind_RouteMultiError(errors)
+	}
 	return nil
 }
+
+// MetadataKind_RouteMultiError is an error wrapping multiple validation errors
+// returned by MetadataKind_Route.ValidateAll() if the designated constraints
+// aren't met.
+type MetadataKind_RouteMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m MetadataKind_RouteMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m MetadataKind_RouteMultiError) AllErrors() []error { return m }
 
 // MetadataKind_RouteValidationError is the validation error returned by
 // MetadataKind_Route.Validate if the designated constraints aren't met.
@@ -472,14 +757,48 @@ var _ interface {
 
 // Validate checks the field values on MetadataKind_Cluster with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *MetadataKind_Cluster) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on MetadataKind_Cluster with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// MetadataKind_ClusterMultiError, or nil if none found.
+func (m *MetadataKind_Cluster) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *MetadataKind_Cluster) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
+	if len(errors) > 0 {
+		return MetadataKind_ClusterMultiError(errors)
+	}
 	return nil
 }
+
+// MetadataKind_ClusterMultiError is an error wrapping multiple validation
+// errors returned by MetadataKind_Cluster.ValidateAll() if the designated
+// constraints aren't met.
+type MetadataKind_ClusterMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m MetadataKind_ClusterMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m MetadataKind_ClusterMultiError) AllErrors() []error { return m }
 
 // MetadataKind_ClusterValidationError is the validation error returned by
 // MetadataKind_Cluster.Validate if the designated constraints aren't met.
@@ -538,15 +857,49 @@ var _ interface {
 } = MetadataKind_ClusterValidationError{}
 
 // Validate checks the field values on MetadataKind_Host with the rules defined
-// in the proto definition for this message. If any rules are violated, an
-// error is returned.
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
 func (m *MetadataKind_Host) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on MetadataKind_Host with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// MetadataKind_HostMultiError, or nil if none found.
+func (m *MetadataKind_Host) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *MetadataKind_Host) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
+	if len(errors) > 0 {
+		return MetadataKind_HostMultiError(errors)
+	}
 	return nil
 }
+
+// MetadataKind_HostMultiError is an error wrapping multiple validation errors
+// returned by MetadataKind_Host.ValidateAll() if the designated constraints
+// aren't met.
+type MetadataKind_HostMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m MetadataKind_HostMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m MetadataKind_HostMultiError) AllErrors() []error { return m }
 
 // MetadataKind_HostValidationError is the validation error returned by
 // MetadataKind_Host.Validate if the designated constraints aren't met.

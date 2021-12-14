@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,17 +32,51 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on GenericSecret with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *GenericSecret) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on GenericSecret with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in GenericSecretMultiError, or
+// nil if none found.
+func (m *GenericSecret) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *GenericSecret) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetSecret()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetSecret()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, GenericSecretValidationError{
+					field:  "Secret",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, GenericSecretValidationError{
+					field:  "Secret",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetSecret()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return GenericSecretValidationError{
 				field:  "Secret",
@@ -51,8 +86,28 @@ func (m *GenericSecret) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return GenericSecretMultiError(errors)
+	}
 	return nil
 }
+
+// GenericSecretMultiError is an error wrapping multiple validation errors
+// returned by GenericSecret.ValidateAll() if the designated constraints
+// aren't met.
+type GenericSecretMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m GenericSecretMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m GenericSecretMultiError) AllErrors() []error { return m }
 
 // GenericSecretValidationError is the validation error returned by
 // GenericSecret.Validate if the designated constraints aren't met.
@@ -109,21 +164,58 @@ var _ interface {
 } = GenericSecretValidationError{}
 
 // Validate checks the field values on SdsSecretConfig with the rules defined
-// in the proto definition for this message. If any rules are violated, an
-// error is returned.
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
 func (m *SdsSecretConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on SdsSecretConfig with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// SdsSecretConfigMultiError, or nil if none found.
+func (m *SdsSecretConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *SdsSecretConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if utf8.RuneCountInString(m.GetName()) < 1 {
-		return SdsSecretConfigValidationError{
+		err := SdsSecretConfigValidationError{
 			field:  "Name",
 			reason: "value length must be at least 1 runes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
-	if v, ok := interface{}(m.GetSdsConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetSdsConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, SdsSecretConfigValidationError{
+					field:  "SdsConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, SdsSecretConfigValidationError{
+					field:  "SdsConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetSdsConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return SdsSecretConfigValidationError{
 				field:  "SdsConfig",
@@ -133,8 +225,28 @@ func (m *SdsSecretConfig) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return SdsSecretConfigMultiError(errors)
+	}
 	return nil
 }
+
+// SdsSecretConfigMultiError is an error wrapping multiple validation errors
+// returned by SdsSecretConfig.ValidateAll() if the designated constraints
+// aren't met.
+type SdsSecretConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m SdsSecretConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m SdsSecretConfigMultiError) AllErrors() []error { return m }
 
 // SdsSecretConfigValidationError is the validation error returned by
 // SdsSecretConfig.Validate if the designated constraints aren't met.
@@ -191,11 +303,25 @@ var _ interface {
 } = SdsSecretConfigValidationError{}
 
 // Validate checks the field values on Secret with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *Secret) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Secret with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in SecretMultiError, or nil if none found.
+func (m *Secret) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Secret) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for Name
 
@@ -203,7 +329,26 @@ func (m *Secret) Validate() error {
 
 	case *Secret_TlsCertificate:
 
-		if v, ok := interface{}(m.GetTlsCertificate()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetTlsCertificate()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, SecretValidationError{
+						field:  "TlsCertificate",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, SecretValidationError{
+						field:  "TlsCertificate",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetTlsCertificate()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return SecretValidationError{
 					field:  "TlsCertificate",
@@ -215,7 +360,26 @@ func (m *Secret) Validate() error {
 
 	case *Secret_SessionTicketKeys:
 
-		if v, ok := interface{}(m.GetSessionTicketKeys()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetSessionTicketKeys()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, SecretValidationError{
+						field:  "SessionTicketKeys",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, SecretValidationError{
+						field:  "SessionTicketKeys",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetSessionTicketKeys()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return SecretValidationError{
 					field:  "SessionTicketKeys",
@@ -227,7 +391,26 @@ func (m *Secret) Validate() error {
 
 	case *Secret_ValidationContext:
 
-		if v, ok := interface{}(m.GetValidationContext()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetValidationContext()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, SecretValidationError{
+						field:  "ValidationContext",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, SecretValidationError{
+						field:  "ValidationContext",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetValidationContext()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return SecretValidationError{
 					field:  "ValidationContext",
@@ -239,7 +422,26 @@ func (m *Secret) Validate() error {
 
 	case *Secret_GenericSecret:
 
-		if v, ok := interface{}(m.GetGenericSecret()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetGenericSecret()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, SecretValidationError{
+						field:  "GenericSecret",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, SecretValidationError{
+						field:  "GenericSecret",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetGenericSecret()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return SecretValidationError{
 					field:  "GenericSecret",
@@ -251,8 +453,27 @@ func (m *Secret) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return SecretMultiError(errors)
+	}
 	return nil
 }
+
+// SecretMultiError is an error wrapping multiple validation errors returned by
+// Secret.ValidateAll() if the designated constraints aren't met.
+type SecretMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m SecretMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m SecretMultiError) AllErrors() []error { return m }
 
 // SecretValidationError is the validation error returned by Secret.Validate if
 // the designated constraints aren't met.

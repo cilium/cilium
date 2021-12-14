@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,19 +32,54 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on ConfigDump with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *ConfigDump) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ConfigDump with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in ConfigDumpMultiError, or
+// nil if none found.
+func (m *ConfigDump) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ConfigDump) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	for idx, item := range m.GetConfigs() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ConfigDumpValidationError{
+						field:  fmt.Sprintf("Configs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ConfigDumpValidationError{
+						field:  fmt.Sprintf("Configs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ConfigDumpValidationError{
 					field:  fmt.Sprintf("Configs[%v]", idx),
@@ -55,8 +91,27 @@ func (m *ConfigDump) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return ConfigDumpMultiError(errors)
+	}
 	return nil
 }
+
+// ConfigDumpMultiError is an error wrapping multiple validation errors
+// returned by ConfigDump.ValidateAll() if the designated constraints aren't met.
+type ConfigDumpMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ConfigDumpMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ConfigDumpMultiError) AllErrors() []error { return m }
 
 // ConfigDumpValidationError is the validation error returned by
 // ConfigDump.Validate if the designated constraints aren't met.
@@ -114,13 +169,46 @@ var _ interface {
 
 // Validate checks the field values on UpdateFailureState with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *UpdateFailureState) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on UpdateFailureState with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// UpdateFailureStateMultiError, or nil if none found.
+func (m *UpdateFailureState) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *UpdateFailureState) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetFailedConfiguration()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetFailedConfiguration()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, UpdateFailureStateValidationError{
+					field:  "FailedConfiguration",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, UpdateFailureStateValidationError{
+					field:  "FailedConfiguration",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetFailedConfiguration()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return UpdateFailureStateValidationError{
 				field:  "FailedConfiguration",
@@ -130,7 +218,26 @@ func (m *UpdateFailureState) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetLastUpdateAttempt()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetLastUpdateAttempt()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, UpdateFailureStateValidationError{
+					field:  "LastUpdateAttempt",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, UpdateFailureStateValidationError{
+					field:  "LastUpdateAttempt",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLastUpdateAttempt()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return UpdateFailureStateValidationError{
 				field:  "LastUpdateAttempt",
@@ -144,8 +251,28 @@ func (m *UpdateFailureState) Validate() error {
 
 	// no validation rules for VersionInfo
 
+	if len(errors) > 0 {
+		return UpdateFailureStateMultiError(errors)
+	}
 	return nil
 }
+
+// UpdateFailureStateMultiError is an error wrapping multiple validation errors
+// returned by UpdateFailureState.ValidateAll() if the designated constraints
+// aren't met.
+type UpdateFailureStateMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m UpdateFailureStateMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m UpdateFailureStateMultiError) AllErrors() []error { return m }
 
 // UpdateFailureStateValidationError is the validation error returned by
 // UpdateFailureState.Validate if the designated constraints aren't met.
@@ -205,13 +332,46 @@ var _ interface {
 
 // Validate checks the field values on BootstrapConfigDump with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *BootstrapConfigDump) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on BootstrapConfigDump with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// BootstrapConfigDumpMultiError, or nil if none found.
+func (m *BootstrapConfigDump) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *BootstrapConfigDump) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetBootstrap()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetBootstrap()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, BootstrapConfigDumpValidationError{
+					field:  "Bootstrap",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, BootstrapConfigDumpValidationError{
+					field:  "Bootstrap",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetBootstrap()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return BootstrapConfigDumpValidationError{
 				field:  "Bootstrap",
@@ -221,7 +381,26 @@ func (m *BootstrapConfigDump) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetLastUpdated()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, BootstrapConfigDumpValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, BootstrapConfigDumpValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return BootstrapConfigDumpValidationError{
 				field:  "LastUpdated",
@@ -231,8 +410,28 @@ func (m *BootstrapConfigDump) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return BootstrapConfigDumpMultiError(errors)
+	}
 	return nil
 }
+
+// BootstrapConfigDumpMultiError is an error wrapping multiple validation
+// errors returned by BootstrapConfigDump.ValidateAll() if the designated
+// constraints aren't met.
+type BootstrapConfigDumpMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m BootstrapConfigDumpMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m BootstrapConfigDumpMultiError) AllErrors() []error { return m }
 
 // BootstrapConfigDumpValidationError is the validation error returned by
 // BootstrapConfigDump.Validate if the designated constraints aren't met.
@@ -292,18 +491,51 @@ var _ interface {
 
 // Validate checks the field values on ListenersConfigDump with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *ListenersConfigDump) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ListenersConfigDump with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ListenersConfigDumpMultiError, or nil if none found.
+func (m *ListenersConfigDump) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ListenersConfigDump) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for VersionInfo
 
 	for idx, item := range m.GetStaticListeners() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ListenersConfigDumpValidationError{
+						field:  fmt.Sprintf("StaticListeners[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ListenersConfigDumpValidationError{
+						field:  fmt.Sprintf("StaticListeners[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ListenersConfigDumpValidationError{
 					field:  fmt.Sprintf("StaticListeners[%v]", idx),
@@ -318,7 +550,26 @@ func (m *ListenersConfigDump) Validate() error {
 	for idx, item := range m.GetDynamicListeners() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ListenersConfigDumpValidationError{
+						field:  fmt.Sprintf("DynamicListeners[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ListenersConfigDumpValidationError{
+						field:  fmt.Sprintf("DynamicListeners[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ListenersConfigDumpValidationError{
 					field:  fmt.Sprintf("DynamicListeners[%v]", idx),
@@ -330,8 +581,28 @@ func (m *ListenersConfigDump) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return ListenersConfigDumpMultiError(errors)
+	}
 	return nil
 }
+
+// ListenersConfigDumpMultiError is an error wrapping multiple validation
+// errors returned by ListenersConfigDump.ValidateAll() if the designated
+// constraints aren't met.
+type ListenersConfigDumpMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ListenersConfigDumpMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ListenersConfigDumpMultiError) AllErrors() []error { return m }
 
 // ListenersConfigDumpValidationError is the validation error returned by
 // ListenersConfigDump.Validate if the designated constraints aren't met.
@@ -391,18 +662,51 @@ var _ interface {
 
 // Validate checks the field values on ClustersConfigDump with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *ClustersConfigDump) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ClustersConfigDump with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ClustersConfigDumpMultiError, or nil if none found.
+func (m *ClustersConfigDump) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ClustersConfigDump) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for VersionInfo
 
 	for idx, item := range m.GetStaticClusters() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ClustersConfigDumpValidationError{
+						field:  fmt.Sprintf("StaticClusters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ClustersConfigDumpValidationError{
+						field:  fmt.Sprintf("StaticClusters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ClustersConfigDumpValidationError{
 					field:  fmt.Sprintf("StaticClusters[%v]", idx),
@@ -417,7 +721,26 @@ func (m *ClustersConfigDump) Validate() error {
 	for idx, item := range m.GetDynamicActiveClusters() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ClustersConfigDumpValidationError{
+						field:  fmt.Sprintf("DynamicActiveClusters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ClustersConfigDumpValidationError{
+						field:  fmt.Sprintf("DynamicActiveClusters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ClustersConfigDumpValidationError{
 					field:  fmt.Sprintf("DynamicActiveClusters[%v]", idx),
@@ -432,7 +755,26 @@ func (m *ClustersConfigDump) Validate() error {
 	for idx, item := range m.GetDynamicWarmingClusters() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ClustersConfigDumpValidationError{
+						field:  fmt.Sprintf("DynamicWarmingClusters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ClustersConfigDumpValidationError{
+						field:  fmt.Sprintf("DynamicWarmingClusters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ClustersConfigDumpValidationError{
 					field:  fmt.Sprintf("DynamicWarmingClusters[%v]", idx),
@@ -444,8 +786,28 @@ func (m *ClustersConfigDump) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return ClustersConfigDumpMultiError(errors)
+	}
 	return nil
 }
+
+// ClustersConfigDumpMultiError is an error wrapping multiple validation errors
+// returned by ClustersConfigDump.ValidateAll() if the designated constraints
+// aren't met.
+type ClustersConfigDumpMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ClustersConfigDumpMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ClustersConfigDumpMultiError) AllErrors() []error { return m }
 
 // ClustersConfigDumpValidationError is the validation error returned by
 // ClustersConfigDump.Validate if the designated constraints aren't met.
@@ -504,17 +866,50 @@ var _ interface {
 } = ClustersConfigDumpValidationError{}
 
 // Validate checks the field values on RoutesConfigDump with the rules defined
-// in the proto definition for this message. If any rules are violated, an
-// error is returned.
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
 func (m *RoutesConfigDump) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on RoutesConfigDump with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// RoutesConfigDumpMultiError, or nil if none found.
+func (m *RoutesConfigDump) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *RoutesConfigDump) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	for idx, item := range m.GetStaticRouteConfigs() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, RoutesConfigDumpValidationError{
+						field:  fmt.Sprintf("StaticRouteConfigs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, RoutesConfigDumpValidationError{
+						field:  fmt.Sprintf("StaticRouteConfigs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return RoutesConfigDumpValidationError{
 					field:  fmt.Sprintf("StaticRouteConfigs[%v]", idx),
@@ -529,7 +924,26 @@ func (m *RoutesConfigDump) Validate() error {
 	for idx, item := range m.GetDynamicRouteConfigs() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, RoutesConfigDumpValidationError{
+						field:  fmt.Sprintf("DynamicRouteConfigs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, RoutesConfigDumpValidationError{
+						field:  fmt.Sprintf("DynamicRouteConfigs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return RoutesConfigDumpValidationError{
 					field:  fmt.Sprintf("DynamicRouteConfigs[%v]", idx),
@@ -541,8 +955,28 @@ func (m *RoutesConfigDump) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return RoutesConfigDumpMultiError(errors)
+	}
 	return nil
 }
+
+// RoutesConfigDumpMultiError is an error wrapping multiple validation errors
+// returned by RoutesConfigDump.ValidateAll() if the designated constraints
+// aren't met.
+type RoutesConfigDumpMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m RoutesConfigDumpMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m RoutesConfigDumpMultiError) AllErrors() []error { return m }
 
 // RoutesConfigDumpValidationError is the validation error returned by
 // RoutesConfigDump.Validate if the designated constraints aren't met.
@@ -600,16 +1034,49 @@ var _ interface {
 
 // Validate checks the field values on ScopedRoutesConfigDump with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *ScopedRoutesConfigDump) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ScopedRoutesConfigDump with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ScopedRoutesConfigDumpMultiError, or nil if none found.
+func (m *ScopedRoutesConfigDump) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ScopedRoutesConfigDump) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	for idx, item := range m.GetInlineScopedRouteConfigs() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ScopedRoutesConfigDumpValidationError{
+						field:  fmt.Sprintf("InlineScopedRouteConfigs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ScopedRoutesConfigDumpValidationError{
+						field:  fmt.Sprintf("InlineScopedRouteConfigs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ScopedRoutesConfigDumpValidationError{
 					field:  fmt.Sprintf("InlineScopedRouteConfigs[%v]", idx),
@@ -624,7 +1091,26 @@ func (m *ScopedRoutesConfigDump) Validate() error {
 	for idx, item := range m.GetDynamicScopedRouteConfigs() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ScopedRoutesConfigDumpValidationError{
+						field:  fmt.Sprintf("DynamicScopedRouteConfigs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ScopedRoutesConfigDumpValidationError{
+						field:  fmt.Sprintf("DynamicScopedRouteConfigs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ScopedRoutesConfigDumpValidationError{
 					field:  fmt.Sprintf("DynamicScopedRouteConfigs[%v]", idx),
@@ -636,8 +1122,28 @@ func (m *ScopedRoutesConfigDump) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return ScopedRoutesConfigDumpMultiError(errors)
+	}
 	return nil
 }
+
+// ScopedRoutesConfigDumpMultiError is an error wrapping multiple validation
+// errors returned by ScopedRoutesConfigDump.ValidateAll() if the designated
+// constraints aren't met.
+type ScopedRoutesConfigDumpMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ScopedRoutesConfigDumpMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ScopedRoutesConfigDumpMultiError) AllErrors() []error { return m }
 
 // ScopedRoutesConfigDumpValidationError is the validation error returned by
 // ScopedRoutesConfigDump.Validate if the designated constraints aren't met.
@@ -696,17 +1202,50 @@ var _ interface {
 } = ScopedRoutesConfigDumpValidationError{}
 
 // Validate checks the field values on SecretsConfigDump with the rules defined
-// in the proto definition for this message. If any rules are violated, an
-// error is returned.
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
 func (m *SecretsConfigDump) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on SecretsConfigDump with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// SecretsConfigDumpMultiError, or nil if none found.
+func (m *SecretsConfigDump) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *SecretsConfigDump) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	for idx, item := range m.GetStaticSecrets() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, SecretsConfigDumpValidationError{
+						field:  fmt.Sprintf("StaticSecrets[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, SecretsConfigDumpValidationError{
+						field:  fmt.Sprintf("StaticSecrets[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return SecretsConfigDumpValidationError{
 					field:  fmt.Sprintf("StaticSecrets[%v]", idx),
@@ -721,7 +1260,26 @@ func (m *SecretsConfigDump) Validate() error {
 	for idx, item := range m.GetDynamicActiveSecrets() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, SecretsConfigDumpValidationError{
+						field:  fmt.Sprintf("DynamicActiveSecrets[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, SecretsConfigDumpValidationError{
+						field:  fmt.Sprintf("DynamicActiveSecrets[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return SecretsConfigDumpValidationError{
 					field:  fmt.Sprintf("DynamicActiveSecrets[%v]", idx),
@@ -736,7 +1294,26 @@ func (m *SecretsConfigDump) Validate() error {
 	for idx, item := range m.GetDynamicWarmingSecrets() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, SecretsConfigDumpValidationError{
+						field:  fmt.Sprintf("DynamicWarmingSecrets[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, SecretsConfigDumpValidationError{
+						field:  fmt.Sprintf("DynamicWarmingSecrets[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return SecretsConfigDumpValidationError{
 					field:  fmt.Sprintf("DynamicWarmingSecrets[%v]", idx),
@@ -748,8 +1325,28 @@ func (m *SecretsConfigDump) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return SecretsConfigDumpMultiError(errors)
+	}
 	return nil
 }
+
+// SecretsConfigDumpMultiError is an error wrapping multiple validation errors
+// returned by SecretsConfigDump.ValidateAll() if the designated constraints
+// aren't met.
+type SecretsConfigDumpMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m SecretsConfigDumpMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m SecretsConfigDumpMultiError) AllErrors() []error { return m }
 
 // SecretsConfigDumpValidationError is the validation error returned by
 // SecretsConfigDump.Validate if the designated constraints aren't met.
@@ -809,16 +1406,49 @@ var _ interface {
 
 // Validate checks the field values on EndpointsConfigDump with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *EndpointsConfigDump) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on EndpointsConfigDump with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// EndpointsConfigDumpMultiError, or nil if none found.
+func (m *EndpointsConfigDump) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *EndpointsConfigDump) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	for idx, item := range m.GetStaticEndpointConfigs() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, EndpointsConfigDumpValidationError{
+						field:  fmt.Sprintf("StaticEndpointConfigs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, EndpointsConfigDumpValidationError{
+						field:  fmt.Sprintf("StaticEndpointConfigs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return EndpointsConfigDumpValidationError{
 					field:  fmt.Sprintf("StaticEndpointConfigs[%v]", idx),
@@ -833,7 +1463,26 @@ func (m *EndpointsConfigDump) Validate() error {
 	for idx, item := range m.GetDynamicEndpointConfigs() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, EndpointsConfigDumpValidationError{
+						field:  fmt.Sprintf("DynamicEndpointConfigs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, EndpointsConfigDumpValidationError{
+						field:  fmt.Sprintf("DynamicEndpointConfigs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return EndpointsConfigDumpValidationError{
 					field:  fmt.Sprintf("DynamicEndpointConfigs[%v]", idx),
@@ -845,8 +1494,28 @@ func (m *EndpointsConfigDump) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return EndpointsConfigDumpMultiError(errors)
+	}
 	return nil
 }
+
+// EndpointsConfigDumpMultiError is an error wrapping multiple validation
+// errors returned by EndpointsConfigDump.ValidateAll() if the designated
+// constraints aren't met.
+type EndpointsConfigDumpMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m EndpointsConfigDumpMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m EndpointsConfigDumpMultiError) AllErrors() []error { return m }
 
 // EndpointsConfigDumpValidationError is the validation error returned by
 // EndpointsConfigDump.Validate if the designated constraints aren't met.
@@ -906,13 +1575,47 @@ var _ interface {
 
 // Validate checks the field values on ListenersConfigDump_StaticListener with
 // the rules defined in the proto definition for this message. If any rules
-// are violated, an error is returned.
+// are violated, the first error encountered is returned, or nil if there are
+// no violations.
 func (m *ListenersConfigDump_StaticListener) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ListenersConfigDump_StaticListener
+// with the rules defined in the proto definition for this message. If any
+// rules are violated, the result is a list of violation errors wrapped in
+// ListenersConfigDump_StaticListenerMultiError, or nil if none found.
+func (m *ListenersConfigDump_StaticListener) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ListenersConfigDump_StaticListener) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetListener()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetListener()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ListenersConfigDump_StaticListenerValidationError{
+					field:  "Listener",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ListenersConfigDump_StaticListenerValidationError{
+					field:  "Listener",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetListener()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ListenersConfigDump_StaticListenerValidationError{
 				field:  "Listener",
@@ -922,7 +1625,26 @@ func (m *ListenersConfigDump_StaticListener) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetLastUpdated()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ListenersConfigDump_StaticListenerValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ListenersConfigDump_StaticListenerValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ListenersConfigDump_StaticListenerValidationError{
 				field:  "LastUpdated",
@@ -932,8 +1654,29 @@ func (m *ListenersConfigDump_StaticListener) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return ListenersConfigDump_StaticListenerMultiError(errors)
+	}
 	return nil
 }
+
+// ListenersConfigDump_StaticListenerMultiError is an error wrapping multiple
+// validation errors returned by
+// ListenersConfigDump_StaticListener.ValidateAll() if the designated
+// constraints aren't met.
+type ListenersConfigDump_StaticListenerMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ListenersConfigDump_StaticListenerMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ListenersConfigDump_StaticListenerMultiError) AllErrors() []error { return m }
 
 // ListenersConfigDump_StaticListenerValidationError is the validation error
 // returned by ListenersConfigDump_StaticListener.Validate if the designated
@@ -994,15 +1737,50 @@ var _ interface {
 
 // Validate checks the field values on ListenersConfigDump_DynamicListenerState
 // with the rules defined in the proto definition for this message. If any
-// rules are violated, an error is returned.
+// rules are violated, the first error encountered is returned, or nil if
+// there are no violations.
 func (m *ListenersConfigDump_DynamicListenerState) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// ListenersConfigDump_DynamicListenerState with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in
+// ListenersConfigDump_DynamicListenerStateMultiError, or nil if none found.
+func (m *ListenersConfigDump_DynamicListenerState) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ListenersConfigDump_DynamicListenerState) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	// no validation rules for VersionInfo
 
-	if v, ok := interface{}(m.GetListener()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetListener()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ListenersConfigDump_DynamicListenerStateValidationError{
+					field:  "Listener",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ListenersConfigDump_DynamicListenerStateValidationError{
+					field:  "Listener",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetListener()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ListenersConfigDump_DynamicListenerStateValidationError{
 				field:  "Listener",
@@ -1012,7 +1790,26 @@ func (m *ListenersConfigDump_DynamicListenerState) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetLastUpdated()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ListenersConfigDump_DynamicListenerStateValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ListenersConfigDump_DynamicListenerStateValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ListenersConfigDump_DynamicListenerStateValidationError{
 				field:  "LastUpdated",
@@ -1022,8 +1819,29 @@ func (m *ListenersConfigDump_DynamicListenerState) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return ListenersConfigDump_DynamicListenerStateMultiError(errors)
+	}
 	return nil
 }
+
+// ListenersConfigDump_DynamicListenerStateMultiError is an error wrapping
+// multiple validation errors returned by
+// ListenersConfigDump_DynamicListenerState.ValidateAll() if the designated
+// constraints aren't met.
+type ListenersConfigDump_DynamicListenerStateMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ListenersConfigDump_DynamicListenerStateMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ListenersConfigDump_DynamicListenerStateMultiError) AllErrors() []error { return m }
 
 // ListenersConfigDump_DynamicListenerStateValidationError is the validation
 // error returned by ListenersConfigDump_DynamicListenerState.Validate if the
@@ -1084,15 +1902,49 @@ var _ interface {
 
 // Validate checks the field values on ListenersConfigDump_DynamicListener with
 // the rules defined in the proto definition for this message. If any rules
-// are violated, an error is returned.
+// are violated, the first error encountered is returned, or nil if there are
+// no violations.
 func (m *ListenersConfigDump_DynamicListener) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ListenersConfigDump_DynamicListener
+// with the rules defined in the proto definition for this message. If any
+// rules are violated, the result is a list of violation errors wrapped in
+// ListenersConfigDump_DynamicListenerMultiError, or nil if none found.
+func (m *ListenersConfigDump_DynamicListener) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ListenersConfigDump_DynamicListener) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	// no validation rules for Name
 
-	if v, ok := interface{}(m.GetActiveState()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetActiveState()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ListenersConfigDump_DynamicListenerValidationError{
+					field:  "ActiveState",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ListenersConfigDump_DynamicListenerValidationError{
+					field:  "ActiveState",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetActiveState()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ListenersConfigDump_DynamicListenerValidationError{
 				field:  "ActiveState",
@@ -1102,7 +1954,26 @@ func (m *ListenersConfigDump_DynamicListener) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetWarmingState()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetWarmingState()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ListenersConfigDump_DynamicListenerValidationError{
+					field:  "WarmingState",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ListenersConfigDump_DynamicListenerValidationError{
+					field:  "WarmingState",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetWarmingState()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ListenersConfigDump_DynamicListenerValidationError{
 				field:  "WarmingState",
@@ -1112,7 +1983,26 @@ func (m *ListenersConfigDump_DynamicListener) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetDrainingState()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetDrainingState()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ListenersConfigDump_DynamicListenerValidationError{
+					field:  "DrainingState",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ListenersConfigDump_DynamicListenerValidationError{
+					field:  "DrainingState",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetDrainingState()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ListenersConfigDump_DynamicListenerValidationError{
 				field:  "DrainingState",
@@ -1122,7 +2012,26 @@ func (m *ListenersConfigDump_DynamicListener) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetErrorState()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetErrorState()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ListenersConfigDump_DynamicListenerValidationError{
+					field:  "ErrorState",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ListenersConfigDump_DynamicListenerValidationError{
+					field:  "ErrorState",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetErrorState()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ListenersConfigDump_DynamicListenerValidationError{
 				field:  "ErrorState",
@@ -1134,8 +2043,29 @@ func (m *ListenersConfigDump_DynamicListener) Validate() error {
 
 	// no validation rules for ClientStatus
 
+	if len(errors) > 0 {
+		return ListenersConfigDump_DynamicListenerMultiError(errors)
+	}
 	return nil
 }
+
+// ListenersConfigDump_DynamicListenerMultiError is an error wrapping multiple
+// validation errors returned by
+// ListenersConfigDump_DynamicListener.ValidateAll() if the designated
+// constraints aren't met.
+type ListenersConfigDump_DynamicListenerMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ListenersConfigDump_DynamicListenerMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ListenersConfigDump_DynamicListenerMultiError) AllErrors() []error { return m }
 
 // ListenersConfigDump_DynamicListenerValidationError is the validation error
 // returned by ListenersConfigDump_DynamicListener.Validate if the designated
@@ -1196,13 +2126,47 @@ var _ interface {
 
 // Validate checks the field values on ClustersConfigDump_StaticCluster with
 // the rules defined in the proto definition for this message. If any rules
-// are violated, an error is returned.
+// are violated, the first error encountered is returned, or nil if there are
+// no violations.
 func (m *ClustersConfigDump_StaticCluster) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ClustersConfigDump_StaticCluster with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the result is a list of violation errors wrapped in
+// ClustersConfigDump_StaticClusterMultiError, or nil if none found.
+func (m *ClustersConfigDump_StaticCluster) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ClustersConfigDump_StaticCluster) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetCluster()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetCluster()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClustersConfigDump_StaticClusterValidationError{
+					field:  "Cluster",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClustersConfigDump_StaticClusterValidationError{
+					field:  "Cluster",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCluster()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClustersConfigDump_StaticClusterValidationError{
 				field:  "Cluster",
@@ -1212,7 +2176,26 @@ func (m *ClustersConfigDump_StaticCluster) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetLastUpdated()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClustersConfigDump_StaticClusterValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClustersConfigDump_StaticClusterValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClustersConfigDump_StaticClusterValidationError{
 				field:  "LastUpdated",
@@ -1222,8 +2205,29 @@ func (m *ClustersConfigDump_StaticCluster) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return ClustersConfigDump_StaticClusterMultiError(errors)
+	}
 	return nil
 }
+
+// ClustersConfigDump_StaticClusterMultiError is an error wrapping multiple
+// validation errors returned by
+// ClustersConfigDump_StaticCluster.ValidateAll() if the designated
+// constraints aren't met.
+type ClustersConfigDump_StaticClusterMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ClustersConfigDump_StaticClusterMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ClustersConfigDump_StaticClusterMultiError) AllErrors() []error { return m }
 
 // ClustersConfigDump_StaticClusterValidationError is the validation error
 // returned by ClustersConfigDump_StaticCluster.Validate if the designated
@@ -1284,15 +2288,49 @@ var _ interface {
 
 // Validate checks the field values on ClustersConfigDump_DynamicCluster with
 // the rules defined in the proto definition for this message. If any rules
-// are violated, an error is returned.
+// are violated, the first error encountered is returned, or nil if there are
+// no violations.
 func (m *ClustersConfigDump_DynamicCluster) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ClustersConfigDump_DynamicCluster
+// with the rules defined in the proto definition for this message. If any
+// rules are violated, the result is a list of violation errors wrapped in
+// ClustersConfigDump_DynamicClusterMultiError, or nil if none found.
+func (m *ClustersConfigDump_DynamicCluster) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ClustersConfigDump_DynamicCluster) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	// no validation rules for VersionInfo
 
-	if v, ok := interface{}(m.GetCluster()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetCluster()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClustersConfigDump_DynamicClusterValidationError{
+					field:  "Cluster",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClustersConfigDump_DynamicClusterValidationError{
+					field:  "Cluster",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCluster()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClustersConfigDump_DynamicClusterValidationError{
 				field:  "Cluster",
@@ -1302,7 +2340,26 @@ func (m *ClustersConfigDump_DynamicCluster) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetLastUpdated()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClustersConfigDump_DynamicClusterValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClustersConfigDump_DynamicClusterValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClustersConfigDump_DynamicClusterValidationError{
 				field:  "LastUpdated",
@@ -1312,7 +2369,26 @@ func (m *ClustersConfigDump_DynamicCluster) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetErrorState()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetErrorState()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClustersConfigDump_DynamicClusterValidationError{
+					field:  "ErrorState",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClustersConfigDump_DynamicClusterValidationError{
+					field:  "ErrorState",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetErrorState()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClustersConfigDump_DynamicClusterValidationError{
 				field:  "ErrorState",
@@ -1324,8 +2400,29 @@ func (m *ClustersConfigDump_DynamicCluster) Validate() error {
 
 	// no validation rules for ClientStatus
 
+	if len(errors) > 0 {
+		return ClustersConfigDump_DynamicClusterMultiError(errors)
+	}
 	return nil
 }
+
+// ClustersConfigDump_DynamicClusterMultiError is an error wrapping multiple
+// validation errors returned by
+// ClustersConfigDump_DynamicCluster.ValidateAll() if the designated
+// constraints aren't met.
+type ClustersConfigDump_DynamicClusterMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ClustersConfigDump_DynamicClusterMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ClustersConfigDump_DynamicClusterMultiError) AllErrors() []error { return m }
 
 // ClustersConfigDump_DynamicClusterValidationError is the validation error
 // returned by ClustersConfigDump_DynamicCluster.Validate if the designated
@@ -1386,13 +2483,47 @@ var _ interface {
 
 // Validate checks the field values on RoutesConfigDump_StaticRouteConfig with
 // the rules defined in the proto definition for this message. If any rules
-// are violated, an error is returned.
+// are violated, the first error encountered is returned, or nil if there are
+// no violations.
 func (m *RoutesConfigDump_StaticRouteConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on RoutesConfigDump_StaticRouteConfig
+// with the rules defined in the proto definition for this message. If any
+// rules are violated, the result is a list of violation errors wrapped in
+// RoutesConfigDump_StaticRouteConfigMultiError, or nil if none found.
+func (m *RoutesConfigDump_StaticRouteConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *RoutesConfigDump_StaticRouteConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetRouteConfig()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetRouteConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RoutesConfigDump_StaticRouteConfigValidationError{
+					field:  "RouteConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RoutesConfigDump_StaticRouteConfigValidationError{
+					field:  "RouteConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetRouteConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return RoutesConfigDump_StaticRouteConfigValidationError{
 				field:  "RouteConfig",
@@ -1402,7 +2533,26 @@ func (m *RoutesConfigDump_StaticRouteConfig) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetLastUpdated()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RoutesConfigDump_StaticRouteConfigValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RoutesConfigDump_StaticRouteConfigValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return RoutesConfigDump_StaticRouteConfigValidationError{
 				field:  "LastUpdated",
@@ -1412,8 +2562,29 @@ func (m *RoutesConfigDump_StaticRouteConfig) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return RoutesConfigDump_StaticRouteConfigMultiError(errors)
+	}
 	return nil
 }
+
+// RoutesConfigDump_StaticRouteConfigMultiError is an error wrapping multiple
+// validation errors returned by
+// RoutesConfigDump_StaticRouteConfig.ValidateAll() if the designated
+// constraints aren't met.
+type RoutesConfigDump_StaticRouteConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m RoutesConfigDump_StaticRouteConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m RoutesConfigDump_StaticRouteConfigMultiError) AllErrors() []error { return m }
 
 // RoutesConfigDump_StaticRouteConfigValidationError is the validation error
 // returned by RoutesConfigDump_StaticRouteConfig.Validate if the designated
@@ -1474,15 +2645,49 @@ var _ interface {
 
 // Validate checks the field values on RoutesConfigDump_DynamicRouteConfig with
 // the rules defined in the proto definition for this message. If any rules
-// are violated, an error is returned.
+// are violated, the first error encountered is returned, or nil if there are
+// no violations.
 func (m *RoutesConfigDump_DynamicRouteConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on RoutesConfigDump_DynamicRouteConfig
+// with the rules defined in the proto definition for this message. If any
+// rules are violated, the result is a list of violation errors wrapped in
+// RoutesConfigDump_DynamicRouteConfigMultiError, or nil if none found.
+func (m *RoutesConfigDump_DynamicRouteConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *RoutesConfigDump_DynamicRouteConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	// no validation rules for VersionInfo
 
-	if v, ok := interface{}(m.GetRouteConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetRouteConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RoutesConfigDump_DynamicRouteConfigValidationError{
+					field:  "RouteConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RoutesConfigDump_DynamicRouteConfigValidationError{
+					field:  "RouteConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetRouteConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return RoutesConfigDump_DynamicRouteConfigValidationError{
 				field:  "RouteConfig",
@@ -1492,7 +2697,26 @@ func (m *RoutesConfigDump_DynamicRouteConfig) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetLastUpdated()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RoutesConfigDump_DynamicRouteConfigValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RoutesConfigDump_DynamicRouteConfigValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return RoutesConfigDump_DynamicRouteConfigValidationError{
 				field:  "LastUpdated",
@@ -1502,7 +2726,26 @@ func (m *RoutesConfigDump_DynamicRouteConfig) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetErrorState()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetErrorState()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RoutesConfigDump_DynamicRouteConfigValidationError{
+					field:  "ErrorState",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RoutesConfigDump_DynamicRouteConfigValidationError{
+					field:  "ErrorState",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetErrorState()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return RoutesConfigDump_DynamicRouteConfigValidationError{
 				field:  "ErrorState",
@@ -1514,8 +2757,29 @@ func (m *RoutesConfigDump_DynamicRouteConfig) Validate() error {
 
 	// no validation rules for ClientStatus
 
+	if len(errors) > 0 {
+		return RoutesConfigDump_DynamicRouteConfigMultiError(errors)
+	}
 	return nil
 }
+
+// RoutesConfigDump_DynamicRouteConfigMultiError is an error wrapping multiple
+// validation errors returned by
+// RoutesConfigDump_DynamicRouteConfig.ValidateAll() if the designated
+// constraints aren't met.
+type RoutesConfigDump_DynamicRouteConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m RoutesConfigDump_DynamicRouteConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m RoutesConfigDump_DynamicRouteConfigMultiError) AllErrors() []error { return m }
 
 // RoutesConfigDump_DynamicRouteConfigValidationError is the validation error
 // returned by RoutesConfigDump_DynamicRouteConfig.Validate if the designated
@@ -1576,19 +2840,53 @@ var _ interface {
 
 // Validate checks the field values on
 // ScopedRoutesConfigDump_InlineScopedRouteConfigs with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *ScopedRoutesConfigDump_InlineScopedRouteConfigs) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// ScopedRoutesConfigDump_InlineScopedRouteConfigs with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in
+// ScopedRoutesConfigDump_InlineScopedRouteConfigsMultiError, or nil if none found.
+func (m *ScopedRoutesConfigDump_InlineScopedRouteConfigs) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ScopedRoutesConfigDump_InlineScopedRouteConfigs) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for Name
 
 	for idx, item := range m.GetScopedRouteConfigs() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ScopedRoutesConfigDump_InlineScopedRouteConfigsValidationError{
+						field:  fmt.Sprintf("ScopedRouteConfigs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ScopedRoutesConfigDump_InlineScopedRouteConfigsValidationError{
+						field:  fmt.Sprintf("ScopedRouteConfigs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ScopedRoutesConfigDump_InlineScopedRouteConfigsValidationError{
 					field:  fmt.Sprintf("ScopedRouteConfigs[%v]", idx),
@@ -1600,7 +2898,26 @@ func (m *ScopedRoutesConfigDump_InlineScopedRouteConfigs) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetLastUpdated()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ScopedRoutesConfigDump_InlineScopedRouteConfigsValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ScopedRoutesConfigDump_InlineScopedRouteConfigsValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ScopedRoutesConfigDump_InlineScopedRouteConfigsValidationError{
 				field:  "LastUpdated",
@@ -1610,8 +2927,29 @@ func (m *ScopedRoutesConfigDump_InlineScopedRouteConfigs) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return ScopedRoutesConfigDump_InlineScopedRouteConfigsMultiError(errors)
+	}
 	return nil
 }
+
+// ScopedRoutesConfigDump_InlineScopedRouteConfigsMultiError is an error
+// wrapping multiple validation errors returned by
+// ScopedRoutesConfigDump_InlineScopedRouteConfigs.ValidateAll() if the
+// designated constraints aren't met.
+type ScopedRoutesConfigDump_InlineScopedRouteConfigsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ScopedRoutesConfigDump_InlineScopedRouteConfigsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ScopedRoutesConfigDump_InlineScopedRouteConfigsMultiError) AllErrors() []error { return m }
 
 // ScopedRoutesConfigDump_InlineScopedRouteConfigsValidationError is the
 // validation error returned by
@@ -1677,12 +3015,27 @@ var _ interface {
 
 // Validate checks the field values on
 // ScopedRoutesConfigDump_DynamicScopedRouteConfigs with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *ScopedRoutesConfigDump_DynamicScopedRouteConfigs) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// ScopedRoutesConfigDump_DynamicScopedRouteConfigs with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in
+// ScopedRoutesConfigDump_DynamicScopedRouteConfigsMultiError, or nil if none found.
+func (m *ScopedRoutesConfigDump_DynamicScopedRouteConfigs) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ScopedRoutesConfigDump_DynamicScopedRouteConfigs) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for Name
 
@@ -1691,7 +3044,26 @@ func (m *ScopedRoutesConfigDump_DynamicScopedRouteConfigs) Validate() error {
 	for idx, item := range m.GetScopedRouteConfigs() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ScopedRoutesConfigDump_DynamicScopedRouteConfigsValidationError{
+						field:  fmt.Sprintf("ScopedRouteConfigs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ScopedRoutesConfigDump_DynamicScopedRouteConfigsValidationError{
+						field:  fmt.Sprintf("ScopedRouteConfigs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ScopedRoutesConfigDump_DynamicScopedRouteConfigsValidationError{
 					field:  fmt.Sprintf("ScopedRouteConfigs[%v]", idx),
@@ -1703,7 +3075,26 @@ func (m *ScopedRoutesConfigDump_DynamicScopedRouteConfigs) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetLastUpdated()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ScopedRoutesConfigDump_DynamicScopedRouteConfigsValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ScopedRoutesConfigDump_DynamicScopedRouteConfigsValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ScopedRoutesConfigDump_DynamicScopedRouteConfigsValidationError{
 				field:  "LastUpdated",
@@ -1713,7 +3104,26 @@ func (m *ScopedRoutesConfigDump_DynamicScopedRouteConfigs) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetErrorState()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetErrorState()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ScopedRoutesConfigDump_DynamicScopedRouteConfigsValidationError{
+					field:  "ErrorState",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ScopedRoutesConfigDump_DynamicScopedRouteConfigsValidationError{
+					field:  "ErrorState",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetErrorState()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ScopedRoutesConfigDump_DynamicScopedRouteConfigsValidationError{
 				field:  "ErrorState",
@@ -1725,8 +3135,29 @@ func (m *ScopedRoutesConfigDump_DynamicScopedRouteConfigs) Validate() error {
 
 	// no validation rules for ClientStatus
 
+	if len(errors) > 0 {
+		return ScopedRoutesConfigDump_DynamicScopedRouteConfigsMultiError(errors)
+	}
 	return nil
 }
+
+// ScopedRoutesConfigDump_DynamicScopedRouteConfigsMultiError is an error
+// wrapping multiple validation errors returned by
+// ScopedRoutesConfigDump_DynamicScopedRouteConfigs.ValidateAll() if the
+// designated constraints aren't met.
+type ScopedRoutesConfigDump_DynamicScopedRouteConfigsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ScopedRoutesConfigDump_DynamicScopedRouteConfigsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ScopedRoutesConfigDump_DynamicScopedRouteConfigsMultiError) AllErrors() []error { return m }
 
 // ScopedRoutesConfigDump_DynamicScopedRouteConfigsValidationError is the
 // validation error returned by
@@ -1794,17 +3225,50 @@ var _ interface {
 
 // Validate checks the field values on SecretsConfigDump_DynamicSecret with the
 // rules defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *SecretsConfigDump_DynamicSecret) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on SecretsConfigDump_DynamicSecret with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the result is a list of violation errors wrapped in
+// SecretsConfigDump_DynamicSecretMultiError, or nil if none found.
+func (m *SecretsConfigDump_DynamicSecret) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *SecretsConfigDump_DynamicSecret) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for Name
 
 	// no validation rules for VersionInfo
 
-	if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetLastUpdated()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, SecretsConfigDump_DynamicSecretValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, SecretsConfigDump_DynamicSecretValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return SecretsConfigDump_DynamicSecretValidationError{
 				field:  "LastUpdated",
@@ -1814,7 +3278,26 @@ func (m *SecretsConfigDump_DynamicSecret) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetSecret()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetSecret()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, SecretsConfigDump_DynamicSecretValidationError{
+					field:  "Secret",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, SecretsConfigDump_DynamicSecretValidationError{
+					field:  "Secret",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetSecret()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return SecretsConfigDump_DynamicSecretValidationError{
 				field:  "Secret",
@@ -1824,7 +3307,26 @@ func (m *SecretsConfigDump_DynamicSecret) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetErrorState()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetErrorState()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, SecretsConfigDump_DynamicSecretValidationError{
+					field:  "ErrorState",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, SecretsConfigDump_DynamicSecretValidationError{
+					field:  "ErrorState",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetErrorState()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return SecretsConfigDump_DynamicSecretValidationError{
 				field:  "ErrorState",
@@ -1836,8 +3338,28 @@ func (m *SecretsConfigDump_DynamicSecret) Validate() error {
 
 	// no validation rules for ClientStatus
 
+	if len(errors) > 0 {
+		return SecretsConfigDump_DynamicSecretMultiError(errors)
+	}
 	return nil
 }
+
+// SecretsConfigDump_DynamicSecretMultiError is an error wrapping multiple
+// validation errors returned by SecretsConfigDump_DynamicSecret.ValidateAll()
+// if the designated constraints aren't met.
+type SecretsConfigDump_DynamicSecretMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m SecretsConfigDump_DynamicSecretMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m SecretsConfigDump_DynamicSecretMultiError) AllErrors() []error { return m }
 
 // SecretsConfigDump_DynamicSecretValidationError is the validation error
 // returned by SecretsConfigDump_DynamicSecret.Validate if the designated
@@ -1898,15 +3420,48 @@ var _ interface {
 
 // Validate checks the field values on SecretsConfigDump_StaticSecret with the
 // rules defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *SecretsConfigDump_StaticSecret) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on SecretsConfigDump_StaticSecret with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the result is a list of violation errors wrapped in
+// SecretsConfigDump_StaticSecretMultiError, or nil if none found.
+func (m *SecretsConfigDump_StaticSecret) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *SecretsConfigDump_StaticSecret) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	// no validation rules for Name
 
-	if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetLastUpdated()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, SecretsConfigDump_StaticSecretValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, SecretsConfigDump_StaticSecretValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return SecretsConfigDump_StaticSecretValidationError{
 				field:  "LastUpdated",
@@ -1916,7 +3471,26 @@ func (m *SecretsConfigDump_StaticSecret) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetSecret()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetSecret()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, SecretsConfigDump_StaticSecretValidationError{
+					field:  "Secret",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, SecretsConfigDump_StaticSecretValidationError{
+					field:  "Secret",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetSecret()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return SecretsConfigDump_StaticSecretValidationError{
 				field:  "Secret",
@@ -1926,8 +3500,28 @@ func (m *SecretsConfigDump_StaticSecret) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return SecretsConfigDump_StaticSecretMultiError(errors)
+	}
 	return nil
 }
+
+// SecretsConfigDump_StaticSecretMultiError is an error wrapping multiple
+// validation errors returned by SecretsConfigDump_StaticSecret.ValidateAll()
+// if the designated constraints aren't met.
+type SecretsConfigDump_StaticSecretMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m SecretsConfigDump_StaticSecretMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m SecretsConfigDump_StaticSecretMultiError) AllErrors() []error { return m }
 
 // SecretsConfigDump_StaticSecretValidationError is the validation error
 // returned by SecretsConfigDump_StaticSecret.Validate if the designated
@@ -1988,13 +3582,48 @@ var _ interface {
 
 // Validate checks the field values on EndpointsConfigDump_StaticEndpointConfig
 // with the rules defined in the proto definition for this message. If any
-// rules are violated, an error is returned.
+// rules are violated, the first error encountered is returned, or nil if
+// there are no violations.
 func (m *EndpointsConfigDump_StaticEndpointConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// EndpointsConfigDump_StaticEndpointConfig with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in
+// EndpointsConfigDump_StaticEndpointConfigMultiError, or nil if none found.
+func (m *EndpointsConfigDump_StaticEndpointConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *EndpointsConfigDump_StaticEndpointConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetEndpointConfig()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetEndpointConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, EndpointsConfigDump_StaticEndpointConfigValidationError{
+					field:  "EndpointConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, EndpointsConfigDump_StaticEndpointConfigValidationError{
+					field:  "EndpointConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetEndpointConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return EndpointsConfigDump_StaticEndpointConfigValidationError{
 				field:  "EndpointConfig",
@@ -2004,7 +3633,26 @@ func (m *EndpointsConfigDump_StaticEndpointConfig) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetLastUpdated()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, EndpointsConfigDump_StaticEndpointConfigValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, EndpointsConfigDump_StaticEndpointConfigValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return EndpointsConfigDump_StaticEndpointConfigValidationError{
 				field:  "LastUpdated",
@@ -2014,8 +3662,29 @@ func (m *EndpointsConfigDump_StaticEndpointConfig) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return EndpointsConfigDump_StaticEndpointConfigMultiError(errors)
+	}
 	return nil
 }
+
+// EndpointsConfigDump_StaticEndpointConfigMultiError is an error wrapping
+// multiple validation errors returned by
+// EndpointsConfigDump_StaticEndpointConfig.ValidateAll() if the designated
+// constraints aren't met.
+type EndpointsConfigDump_StaticEndpointConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m EndpointsConfigDump_StaticEndpointConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m EndpointsConfigDump_StaticEndpointConfigMultiError) AllErrors() []error { return m }
 
 // EndpointsConfigDump_StaticEndpointConfigValidationError is the validation
 // error returned by EndpointsConfigDump_StaticEndpointConfig.Validate if the
@@ -2076,15 +3745,50 @@ var _ interface {
 
 // Validate checks the field values on
 // EndpointsConfigDump_DynamicEndpointConfig with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *EndpointsConfigDump_DynamicEndpointConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// EndpointsConfigDump_DynamicEndpointConfig with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in
+// EndpointsConfigDump_DynamicEndpointConfigMultiError, or nil if none found.
+func (m *EndpointsConfigDump_DynamicEndpointConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *EndpointsConfigDump_DynamicEndpointConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	// no validation rules for VersionInfo
 
-	if v, ok := interface{}(m.GetEndpointConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetEndpointConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, EndpointsConfigDump_DynamicEndpointConfigValidationError{
+					field:  "EndpointConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, EndpointsConfigDump_DynamicEndpointConfigValidationError{
+					field:  "EndpointConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetEndpointConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return EndpointsConfigDump_DynamicEndpointConfigValidationError{
 				field:  "EndpointConfig",
@@ -2094,7 +3798,26 @@ func (m *EndpointsConfigDump_DynamicEndpointConfig) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetLastUpdated()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, EndpointsConfigDump_DynamicEndpointConfigValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, EndpointsConfigDump_DynamicEndpointConfigValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return EndpointsConfigDump_DynamicEndpointConfigValidationError{
 				field:  "LastUpdated",
@@ -2104,7 +3827,26 @@ func (m *EndpointsConfigDump_DynamicEndpointConfig) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetErrorState()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetErrorState()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, EndpointsConfigDump_DynamicEndpointConfigValidationError{
+					field:  "ErrorState",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, EndpointsConfigDump_DynamicEndpointConfigValidationError{
+					field:  "ErrorState",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetErrorState()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return EndpointsConfigDump_DynamicEndpointConfigValidationError{
 				field:  "ErrorState",
@@ -2116,8 +3858,29 @@ func (m *EndpointsConfigDump_DynamicEndpointConfig) Validate() error {
 
 	// no validation rules for ClientStatus
 
+	if len(errors) > 0 {
+		return EndpointsConfigDump_DynamicEndpointConfigMultiError(errors)
+	}
 	return nil
 }
+
+// EndpointsConfigDump_DynamicEndpointConfigMultiError is an error wrapping
+// multiple validation errors returned by
+// EndpointsConfigDump_DynamicEndpointConfig.ValidateAll() if the designated
+// constraints aren't met.
+type EndpointsConfigDump_DynamicEndpointConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m EndpointsConfigDump_DynamicEndpointConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m EndpointsConfigDump_DynamicEndpointConfigMultiError) AllErrors() []error { return m }
 
 // EndpointsConfigDump_DynamicEndpointConfigValidationError is the validation
 // error returned by EndpointsConfigDump_DynamicEndpointConfig.Validate if the

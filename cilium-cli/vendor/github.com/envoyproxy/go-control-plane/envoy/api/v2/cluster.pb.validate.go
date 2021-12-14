@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,19 +32,53 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on Cluster with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *Cluster) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Cluster with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in ClusterMultiError, or nil if none found.
+func (m *Cluster) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Cluster) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	for idx, item := range m.GetTransportSocketMatches() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ClusterValidationError{
+						field:  fmt.Sprintf("TransportSocketMatches[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ClusterValidationError{
+						field:  fmt.Sprintf("TransportSocketMatches[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ClusterValidationError{
 					field:  fmt.Sprintf("TransportSocketMatches[%v]", idx),
@@ -56,15 +91,38 @@ func (m *Cluster) Validate() error {
 	}
 
 	if len(m.GetName()) < 1 {
-		return ClusterValidationError{
+		err := ClusterValidationError{
 			field:  "Name",
 			reason: "value length must be at least 1 bytes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	// no validation rules for AltStatName
 
-	if v, ok := interface{}(m.GetEdsClusterConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetEdsClusterConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "EdsClusterConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "EdsClusterConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetEdsClusterConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterValidationError{
 				field:  "EdsClusterConfig",
@@ -77,25 +135,53 @@ func (m *Cluster) Validate() error {
 	if d := m.GetConnectTimeout(); d != nil {
 		dur, err := d.AsDuration(), d.CheckValid()
 		if err != nil {
-			return ClusterValidationError{
+			err = ClusterValidationError{
 				field:  "ConnectTimeout",
 				reason: "value is not a valid duration",
 				cause:  err,
 			}
-		}
-
-		gt := time.Duration(0*time.Second + 0*time.Nanosecond)
-
-		if dur <= gt {
-			return ClusterValidationError{
-				field:  "ConnectTimeout",
-				reason: "value must be greater than 0s",
+			if !all {
+				return err
 			}
-		}
+			errors = append(errors, err)
+		} else {
 
+			gt := time.Duration(0*time.Second + 0*time.Nanosecond)
+
+			if dur <= gt {
+				err := ClusterValidationError{
+					field:  "ConnectTimeout",
+					reason: "value must be greater than 0s",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
+
+		}
 	}
 
-	if v, ok := interface{}(m.GetPerConnectionBufferLimitBytes()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetPerConnectionBufferLimitBytes()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "PerConnectionBufferLimitBytes",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "PerConnectionBufferLimitBytes",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetPerConnectionBufferLimitBytes()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterValidationError{
 				field:  "PerConnectionBufferLimitBytes",
@@ -106,16 +192,39 @@ func (m *Cluster) Validate() error {
 	}
 
 	if _, ok := Cluster_LbPolicy_name[int32(m.GetLbPolicy())]; !ok {
-		return ClusterValidationError{
+		err := ClusterValidationError{
 			field:  "LbPolicy",
 			reason: "value must be one of the defined enum values",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	for idx, item := range m.GetHosts() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ClusterValidationError{
+						field:  fmt.Sprintf("Hosts[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ClusterValidationError{
+						field:  fmt.Sprintf("Hosts[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ClusterValidationError{
 					field:  fmt.Sprintf("Hosts[%v]", idx),
@@ -127,7 +236,26 @@ func (m *Cluster) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetLoadAssignment()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetLoadAssignment()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "LoadAssignment",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "LoadAssignment",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLoadAssignment()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterValidationError{
 				field:  "LoadAssignment",
@@ -140,7 +268,26 @@ func (m *Cluster) Validate() error {
 	for idx, item := range m.GetHealthChecks() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ClusterValidationError{
+						field:  fmt.Sprintf("HealthChecks[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ClusterValidationError{
+						field:  fmt.Sprintf("HealthChecks[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ClusterValidationError{
 					field:  fmt.Sprintf("HealthChecks[%v]", idx),
@@ -152,7 +299,26 @@ func (m *Cluster) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetMaxRequestsPerConnection()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetMaxRequestsPerConnection()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "MaxRequestsPerConnection",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "MaxRequestsPerConnection",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMaxRequestsPerConnection()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterValidationError{
 				field:  "MaxRequestsPerConnection",
@@ -162,7 +328,26 @@ func (m *Cluster) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetCircuitBreakers()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetCircuitBreakers()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "CircuitBreakers",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "CircuitBreakers",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCircuitBreakers()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterValidationError{
 				field:  "CircuitBreakers",
@@ -172,7 +357,26 @@ func (m *Cluster) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetTlsContext()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetTlsContext()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "TlsContext",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "TlsContext",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetTlsContext()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterValidationError{
 				field:  "TlsContext",
@@ -182,7 +386,26 @@ func (m *Cluster) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetUpstreamHttpProtocolOptions()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetUpstreamHttpProtocolOptions()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "UpstreamHttpProtocolOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "UpstreamHttpProtocolOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetUpstreamHttpProtocolOptions()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterValidationError{
 				field:  "UpstreamHttpProtocolOptions",
@@ -192,7 +415,26 @@ func (m *Cluster) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetCommonHttpProtocolOptions()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetCommonHttpProtocolOptions()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "CommonHttpProtocolOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "CommonHttpProtocolOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCommonHttpProtocolOptions()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterValidationError{
 				field:  "CommonHttpProtocolOptions",
@@ -202,7 +444,26 @@ func (m *Cluster) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetHttpProtocolOptions()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetHttpProtocolOptions()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "HttpProtocolOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "HttpProtocolOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetHttpProtocolOptions()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterValidationError{
 				field:  "HttpProtocolOptions",
@@ -212,7 +473,26 @@ func (m *Cluster) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetHttp2ProtocolOptions()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetHttp2ProtocolOptions()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "Http2ProtocolOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "Http2ProtocolOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetHttp2ProtocolOptions()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterValidationError{
 				field:  "Http2ProtocolOptions",
@@ -222,62 +502,148 @@ func (m *Cluster) Validate() error {
 		}
 	}
 
-	for key, val := range m.GetExtensionProtocolOptions() {
-		_ = val
+	{
+		sorted_keys := make([]string, len(m.GetExtensionProtocolOptions()))
+		i := 0
+		for key := range m.GetExtensionProtocolOptions() {
+			sorted_keys[i] = key
+			i++
+		}
+		sort.Slice(sorted_keys, func(i, j int) bool { return sorted_keys[i] < sorted_keys[j] })
+		for _, key := range sorted_keys {
+			val := m.GetExtensionProtocolOptions()[key]
+			_ = val
 
-		// no validation rules for ExtensionProtocolOptions[key]
+			// no validation rules for ExtensionProtocolOptions[key]
 
-		if v, ok := interface{}(val).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return ClusterValidationError{
-					field:  fmt.Sprintf("ExtensionProtocolOptions[%v]", key),
-					reason: "embedded message failed validation",
-					cause:  err,
+			if all {
+				switch v := interface{}(val).(type) {
+				case interface{ ValidateAll() error }:
+					if err := v.ValidateAll(); err != nil {
+						errors = append(errors, ClusterValidationError{
+							field:  fmt.Sprintf("ExtensionProtocolOptions[%v]", key),
+							reason: "embedded message failed validation",
+							cause:  err,
+						})
+					}
+				case interface{ Validate() error }:
+					if err := v.Validate(); err != nil {
+						errors = append(errors, ClusterValidationError{
+							field:  fmt.Sprintf("ExtensionProtocolOptions[%v]", key),
+							reason: "embedded message failed validation",
+							cause:  err,
+						})
+					}
+				}
+			} else if v, ok := interface{}(val).(interface{ Validate() error }); ok {
+				if err := v.Validate(); err != nil {
+					return ClusterValidationError{
+						field:  fmt.Sprintf("ExtensionProtocolOptions[%v]", key),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
-		}
 
+		}
 	}
 
-	for key, val := range m.GetTypedExtensionProtocolOptions() {
-		_ = val
+	{
+		sorted_keys := make([]string, len(m.GetTypedExtensionProtocolOptions()))
+		i := 0
+		for key := range m.GetTypedExtensionProtocolOptions() {
+			sorted_keys[i] = key
+			i++
+		}
+		sort.Slice(sorted_keys, func(i, j int) bool { return sorted_keys[i] < sorted_keys[j] })
+		for _, key := range sorted_keys {
+			val := m.GetTypedExtensionProtocolOptions()[key]
+			_ = val
 
-		// no validation rules for TypedExtensionProtocolOptions[key]
+			// no validation rules for TypedExtensionProtocolOptions[key]
 
-		if v, ok := interface{}(val).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return ClusterValidationError{
-					field:  fmt.Sprintf("TypedExtensionProtocolOptions[%v]", key),
-					reason: "embedded message failed validation",
-					cause:  err,
+			if all {
+				switch v := interface{}(val).(type) {
+				case interface{ ValidateAll() error }:
+					if err := v.ValidateAll(); err != nil {
+						errors = append(errors, ClusterValidationError{
+							field:  fmt.Sprintf("TypedExtensionProtocolOptions[%v]", key),
+							reason: "embedded message failed validation",
+							cause:  err,
+						})
+					}
+				case interface{ Validate() error }:
+					if err := v.Validate(); err != nil {
+						errors = append(errors, ClusterValidationError{
+							field:  fmt.Sprintf("TypedExtensionProtocolOptions[%v]", key),
+							reason: "embedded message failed validation",
+							cause:  err,
+						})
+					}
+				}
+			} else if v, ok := interface{}(val).(interface{ Validate() error }); ok {
+				if err := v.Validate(); err != nil {
+					return ClusterValidationError{
+						field:  fmt.Sprintf("TypedExtensionProtocolOptions[%v]", key),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
-		}
 
+		}
 	}
 
 	if d := m.GetDnsRefreshRate(); d != nil {
 		dur, err := d.AsDuration(), d.CheckValid()
 		if err != nil {
-			return ClusterValidationError{
+			err = ClusterValidationError{
 				field:  "DnsRefreshRate",
 				reason: "value is not a valid duration",
 				cause:  err,
 			}
-		}
-
-		gt := time.Duration(0*time.Second + 1000000*time.Nanosecond)
-
-		if dur <= gt {
-			return ClusterValidationError{
-				field:  "DnsRefreshRate",
-				reason: "value must be greater than 1ms",
+			if !all {
+				return err
 			}
-		}
+			errors = append(errors, err)
+		} else {
 
+			gt := time.Duration(0*time.Second + 1000000*time.Nanosecond)
+
+			if dur <= gt {
+				err := ClusterValidationError{
+					field:  "DnsRefreshRate",
+					reason: "value must be greater than 1ms",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
+
+		}
 	}
 
-	if v, ok := interface{}(m.GetDnsFailureRefreshRate()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetDnsFailureRefreshRate()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "DnsFailureRefreshRate",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "DnsFailureRefreshRate",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetDnsFailureRefreshRate()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterValidationError{
 				field:  "DnsFailureRefreshRate",
@@ -290,16 +656,39 @@ func (m *Cluster) Validate() error {
 	// no validation rules for RespectDnsTtl
 
 	if _, ok := Cluster_DnsLookupFamily_name[int32(m.GetDnsLookupFamily())]; !ok {
-		return ClusterValidationError{
+		err := ClusterValidationError{
 			field:  "DnsLookupFamily",
 			reason: "value must be one of the defined enum values",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	for idx, item := range m.GetDnsResolvers() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ClusterValidationError{
+						field:  fmt.Sprintf("DnsResolvers[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ClusterValidationError{
+						field:  fmt.Sprintf("DnsResolvers[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ClusterValidationError{
 					field:  fmt.Sprintf("DnsResolvers[%v]", idx),
@@ -313,7 +702,26 @@ func (m *Cluster) Validate() error {
 
 	// no validation rules for UseTcpForDnsLookups
 
-	if v, ok := interface{}(m.GetOutlierDetection()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetOutlierDetection()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "OutlierDetection",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "OutlierDetection",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetOutlierDetection()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterValidationError{
 				field:  "OutlierDetection",
@@ -326,25 +734,53 @@ func (m *Cluster) Validate() error {
 	if d := m.GetCleanupInterval(); d != nil {
 		dur, err := d.AsDuration(), d.CheckValid()
 		if err != nil {
-			return ClusterValidationError{
+			err = ClusterValidationError{
 				field:  "CleanupInterval",
 				reason: "value is not a valid duration",
 				cause:  err,
 			}
-		}
-
-		gt := time.Duration(0*time.Second + 0*time.Nanosecond)
-
-		if dur <= gt {
-			return ClusterValidationError{
-				field:  "CleanupInterval",
-				reason: "value must be greater than 0s",
+			if !all {
+				return err
 			}
-		}
+			errors = append(errors, err)
+		} else {
 
+			gt := time.Duration(0*time.Second + 0*time.Nanosecond)
+
+			if dur <= gt {
+				err := ClusterValidationError{
+					field:  "CleanupInterval",
+					reason: "value must be greater than 0s",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
+
+		}
 	}
 
-	if v, ok := interface{}(m.GetUpstreamBindConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetUpstreamBindConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "UpstreamBindConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "UpstreamBindConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetUpstreamBindConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterValidationError{
 				field:  "UpstreamBindConfig",
@@ -354,7 +790,26 @@ func (m *Cluster) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetLbSubsetConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetLbSubsetConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "LbSubsetConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "LbSubsetConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLbSubsetConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterValidationError{
 				field:  "LbSubsetConfig",
@@ -364,7 +819,26 @@ func (m *Cluster) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetCommonLbConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetCommonLbConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "CommonLbConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "CommonLbConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCommonLbConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterValidationError{
 				field:  "CommonLbConfig",
@@ -374,7 +848,26 @@ func (m *Cluster) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetTransportSocket()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetTransportSocket()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "TransportSocket",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "TransportSocket",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetTransportSocket()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterValidationError{
 				field:  "TransportSocket",
@@ -384,7 +877,26 @@ func (m *Cluster) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetMetadata()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetMetadata()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "Metadata",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "Metadata",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMetadata()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterValidationError{
 				field:  "Metadata",
@@ -396,7 +908,26 @@ func (m *Cluster) Validate() error {
 
 	// no validation rules for ProtocolSelection
 
-	if v, ok := interface{}(m.GetUpstreamConnectionOptions()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetUpstreamConnectionOptions()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "UpstreamConnectionOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "UpstreamConnectionOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetUpstreamConnectionOptions()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterValidationError{
 				field:  "UpstreamConnectionOptions",
@@ -413,7 +944,26 @@ func (m *Cluster) Validate() error {
 	for idx, item := range m.GetFilters() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ClusterValidationError{
+						field:  fmt.Sprintf("Filters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ClusterValidationError{
+						field:  fmt.Sprintf("Filters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ClusterValidationError{
 					field:  fmt.Sprintf("Filters[%v]", idx),
@@ -425,7 +975,26 @@ func (m *Cluster) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetLoadBalancingPolicy()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetLoadBalancingPolicy()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "LoadBalancingPolicy",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "LoadBalancingPolicy",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLoadBalancingPolicy()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterValidationError{
 				field:  "LoadBalancingPolicy",
@@ -435,7 +1004,26 @@ func (m *Cluster) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetLrsServer()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetLrsServer()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "LrsServer",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClusterValidationError{
+					field:  "LrsServer",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLrsServer()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterValidationError{
 				field:  "LrsServer",
@@ -452,15 +1040,38 @@ func (m *Cluster) Validate() error {
 	case *Cluster_Type:
 
 		if _, ok := Cluster_DiscoveryType_name[int32(m.GetType())]; !ok {
-			return ClusterValidationError{
+			err := ClusterValidationError{
 				field:  "Type",
 				reason: "value must be one of the defined enum values",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	case *Cluster_ClusterType:
 
-		if v, ok := interface{}(m.GetClusterType()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetClusterType()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ClusterValidationError{
+						field:  "ClusterType",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ClusterValidationError{
+						field:  "ClusterType",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetClusterType()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ClusterValidationError{
 					field:  "ClusterType",
@@ -476,7 +1087,26 @@ func (m *Cluster) Validate() error {
 
 	case *Cluster_RingHashLbConfig_:
 
-		if v, ok := interface{}(m.GetRingHashLbConfig()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetRingHashLbConfig()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ClusterValidationError{
+						field:  "RingHashLbConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ClusterValidationError{
+						field:  "RingHashLbConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetRingHashLbConfig()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ClusterValidationError{
 					field:  "RingHashLbConfig",
@@ -488,7 +1118,26 @@ func (m *Cluster) Validate() error {
 
 	case *Cluster_OriginalDstLbConfig_:
 
-		if v, ok := interface{}(m.GetOriginalDstLbConfig()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetOriginalDstLbConfig()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ClusterValidationError{
+						field:  "OriginalDstLbConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ClusterValidationError{
+						field:  "OriginalDstLbConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetOriginalDstLbConfig()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ClusterValidationError{
 					field:  "OriginalDstLbConfig",
@@ -500,7 +1149,26 @@ func (m *Cluster) Validate() error {
 
 	case *Cluster_LeastRequestLbConfig_:
 
-		if v, ok := interface{}(m.GetLeastRequestLbConfig()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetLeastRequestLbConfig()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ClusterValidationError{
+						field:  "LeastRequestLbConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ClusterValidationError{
+						field:  "LeastRequestLbConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetLeastRequestLbConfig()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ClusterValidationError{
 					field:  "LeastRequestLbConfig",
@@ -512,8 +1180,27 @@ func (m *Cluster) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return ClusterMultiError(errors)
+	}
 	return nil
 }
+
+// ClusterMultiError is an error wrapping multiple validation errors returned
+// by Cluster.ValidateAll() if the designated constraints aren't met.
+type ClusterMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ClusterMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ClusterMultiError) AllErrors() []error { return m }
 
 // ClusterValidationError is the validation error returned by Cluster.Validate
 // if the designated constraints aren't met.
@@ -571,16 +1258,49 @@ var _ interface {
 
 // Validate checks the field values on LoadBalancingPolicy with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *LoadBalancingPolicy) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on LoadBalancingPolicy with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// LoadBalancingPolicyMultiError, or nil if none found.
+func (m *LoadBalancingPolicy) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *LoadBalancingPolicy) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	for idx, item := range m.GetPolicies() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, LoadBalancingPolicyValidationError{
+						field:  fmt.Sprintf("Policies[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, LoadBalancingPolicyValidationError{
+						field:  fmt.Sprintf("Policies[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return LoadBalancingPolicyValidationError{
 					field:  fmt.Sprintf("Policies[%v]", idx),
@@ -592,8 +1312,28 @@ func (m *LoadBalancingPolicy) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return LoadBalancingPolicyMultiError(errors)
+	}
 	return nil
 }
+
+// LoadBalancingPolicyMultiError is an error wrapping multiple validation
+// errors returned by LoadBalancingPolicy.ValidateAll() if the designated
+// constraints aren't met.
+type LoadBalancingPolicyMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m LoadBalancingPolicyMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m LoadBalancingPolicyMultiError) AllErrors() []error { return m }
 
 // LoadBalancingPolicyValidationError is the validation error returned by
 // LoadBalancingPolicy.Validate if the designated constraints aren't met.
@@ -653,13 +1393,46 @@ var _ interface {
 
 // Validate checks the field values on UpstreamBindConfig with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *UpstreamBindConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on UpstreamBindConfig with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// UpstreamBindConfigMultiError, or nil if none found.
+func (m *UpstreamBindConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *UpstreamBindConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetSourceAddress()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetSourceAddress()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, UpstreamBindConfigValidationError{
+					field:  "SourceAddress",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, UpstreamBindConfigValidationError{
+					field:  "SourceAddress",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetSourceAddress()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return UpstreamBindConfigValidationError{
 				field:  "SourceAddress",
@@ -669,8 +1442,28 @@ func (m *UpstreamBindConfig) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return UpstreamBindConfigMultiError(errors)
+	}
 	return nil
 }
+
+// UpstreamBindConfigMultiError is an error wrapping multiple validation errors
+// returned by UpstreamBindConfig.ValidateAll() if the designated constraints
+// aren't met.
+type UpstreamBindConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m UpstreamBindConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m UpstreamBindConfigMultiError) AllErrors() []error { return m }
 
 // UpstreamBindConfigValidationError is the validation error returned by
 // UpstreamBindConfig.Validate if the designated constraints aren't met.
@@ -730,13 +1523,46 @@ var _ interface {
 
 // Validate checks the field values on UpstreamConnectionOptions with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *UpstreamConnectionOptions) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on UpstreamConnectionOptions with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// UpstreamConnectionOptionsMultiError, or nil if none found.
+func (m *UpstreamConnectionOptions) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *UpstreamConnectionOptions) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetTcpKeepalive()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetTcpKeepalive()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, UpstreamConnectionOptionsValidationError{
+					field:  "TcpKeepalive",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, UpstreamConnectionOptionsValidationError{
+					field:  "TcpKeepalive",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetTcpKeepalive()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return UpstreamConnectionOptionsValidationError{
 				field:  "TcpKeepalive",
@@ -746,8 +1572,28 @@ func (m *UpstreamConnectionOptions) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return UpstreamConnectionOptionsMultiError(errors)
+	}
 	return nil
 }
+
+// UpstreamConnectionOptionsMultiError is an error wrapping multiple validation
+// errors returned by UpstreamConnectionOptions.ValidateAll() if the
+// designated constraints aren't met.
+type UpstreamConnectionOptionsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m UpstreamConnectionOptionsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m UpstreamConnectionOptionsMultiError) AllErrors() []error { return m }
 
 // UpstreamConnectionOptionsValidationError is the validation error returned by
 // UpstreamConnectionOptions.Validate if the designated constraints aren't met.
@@ -807,20 +1653,57 @@ var _ interface {
 
 // Validate checks the field values on Cluster_TransportSocketMatch with the
 // rules defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *Cluster_TransportSocketMatch) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Cluster_TransportSocketMatch with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// Cluster_TransportSocketMatchMultiError, or nil if none found.
+func (m *Cluster_TransportSocketMatch) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Cluster_TransportSocketMatch) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if utf8.RuneCountInString(m.GetName()) < 1 {
-		return Cluster_TransportSocketMatchValidationError{
+		err := Cluster_TransportSocketMatchValidationError{
 			field:  "Name",
 			reason: "value length must be at least 1 runes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
-	if v, ok := interface{}(m.GetMatch()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetMatch()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, Cluster_TransportSocketMatchValidationError{
+					field:  "Match",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, Cluster_TransportSocketMatchValidationError{
+					field:  "Match",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMatch()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return Cluster_TransportSocketMatchValidationError{
 				field:  "Match",
@@ -830,7 +1713,26 @@ func (m *Cluster_TransportSocketMatch) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetTransportSocket()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetTransportSocket()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, Cluster_TransportSocketMatchValidationError{
+					field:  "TransportSocket",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, Cluster_TransportSocketMatchValidationError{
+					field:  "TransportSocket",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetTransportSocket()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return Cluster_TransportSocketMatchValidationError{
 				field:  "TransportSocket",
@@ -840,8 +1742,28 @@ func (m *Cluster_TransportSocketMatch) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return Cluster_TransportSocketMatchMultiError(errors)
+	}
 	return nil
 }
+
+// Cluster_TransportSocketMatchMultiError is an error wrapping multiple
+// validation errors returned by Cluster_TransportSocketMatch.ValidateAll() if
+// the designated constraints aren't met.
+type Cluster_TransportSocketMatchMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Cluster_TransportSocketMatchMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Cluster_TransportSocketMatchMultiError) AllErrors() []error { return m }
 
 // Cluster_TransportSocketMatchValidationError is the validation error returned
 // by Cluster_TransportSocketMatch.Validate if the designated constraints
@@ -902,20 +1824,57 @@ var _ interface {
 
 // Validate checks the field values on Cluster_CustomClusterType with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *Cluster_CustomClusterType) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Cluster_CustomClusterType with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// Cluster_CustomClusterTypeMultiError, or nil if none found.
+func (m *Cluster_CustomClusterType) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Cluster_CustomClusterType) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if len(m.GetName()) < 1 {
-		return Cluster_CustomClusterTypeValidationError{
+		err := Cluster_CustomClusterTypeValidationError{
 			field:  "Name",
 			reason: "value length must be at least 1 bytes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
-	if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetTypedConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, Cluster_CustomClusterTypeValidationError{
+					field:  "TypedConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, Cluster_CustomClusterTypeValidationError{
+					field:  "TypedConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return Cluster_CustomClusterTypeValidationError{
 				field:  "TypedConfig",
@@ -925,8 +1884,28 @@ func (m *Cluster_CustomClusterType) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return Cluster_CustomClusterTypeMultiError(errors)
+	}
 	return nil
 }
+
+// Cluster_CustomClusterTypeMultiError is an error wrapping multiple validation
+// errors returned by Cluster_CustomClusterType.ValidateAll() if the
+// designated constraints aren't met.
+type Cluster_CustomClusterTypeMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Cluster_CustomClusterTypeMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Cluster_CustomClusterTypeMultiError) AllErrors() []error { return m }
 
 // Cluster_CustomClusterTypeValidationError is the validation error returned by
 // Cluster_CustomClusterType.Validate if the designated constraints aren't met.
@@ -986,13 +1965,46 @@ var _ interface {
 
 // Validate checks the field values on Cluster_EdsClusterConfig with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *Cluster_EdsClusterConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Cluster_EdsClusterConfig with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// Cluster_EdsClusterConfigMultiError, or nil if none found.
+func (m *Cluster_EdsClusterConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Cluster_EdsClusterConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetEdsConfig()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetEdsConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, Cluster_EdsClusterConfigValidationError{
+					field:  "EdsConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, Cluster_EdsClusterConfigValidationError{
+					field:  "EdsConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetEdsConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return Cluster_EdsClusterConfigValidationError{
 				field:  "EdsConfig",
@@ -1004,8 +2016,28 @@ func (m *Cluster_EdsClusterConfig) Validate() error {
 
 	// no validation rules for ServiceName
 
+	if len(errors) > 0 {
+		return Cluster_EdsClusterConfigMultiError(errors)
+	}
 	return nil
 }
+
+// Cluster_EdsClusterConfigMultiError is an error wrapping multiple validation
+// errors returned by Cluster_EdsClusterConfig.ValidateAll() if the designated
+// constraints aren't met.
+type Cluster_EdsClusterConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Cluster_EdsClusterConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Cluster_EdsClusterConfigMultiError) AllErrors() []error { return m }
 
 // Cluster_EdsClusterConfigValidationError is the validation error returned by
 // Cluster_EdsClusterConfig.Validate if the designated constraints aren't met.
@@ -1065,20 +2097,57 @@ var _ interface {
 
 // Validate checks the field values on Cluster_LbSubsetConfig with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *Cluster_LbSubsetConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Cluster_LbSubsetConfig with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// Cluster_LbSubsetConfigMultiError, or nil if none found.
+func (m *Cluster_LbSubsetConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Cluster_LbSubsetConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if _, ok := Cluster_LbSubsetConfig_LbSubsetFallbackPolicy_name[int32(m.GetFallbackPolicy())]; !ok {
-		return Cluster_LbSubsetConfigValidationError{
+		err := Cluster_LbSubsetConfigValidationError{
 			field:  "FallbackPolicy",
 			reason: "value must be one of the defined enum values",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
-	if v, ok := interface{}(m.GetDefaultSubset()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetDefaultSubset()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, Cluster_LbSubsetConfigValidationError{
+					field:  "DefaultSubset",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, Cluster_LbSubsetConfigValidationError{
+					field:  "DefaultSubset",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetDefaultSubset()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return Cluster_LbSubsetConfigValidationError{
 				field:  "DefaultSubset",
@@ -1091,7 +2160,26 @@ func (m *Cluster_LbSubsetConfig) Validate() error {
 	for idx, item := range m.GetSubsetSelectors() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, Cluster_LbSubsetConfigValidationError{
+						field:  fmt.Sprintf("SubsetSelectors[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, Cluster_LbSubsetConfigValidationError{
+						field:  fmt.Sprintf("SubsetSelectors[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return Cluster_LbSubsetConfigValidationError{
 					field:  fmt.Sprintf("SubsetSelectors[%v]", idx),
@@ -1111,8 +2199,28 @@ func (m *Cluster_LbSubsetConfig) Validate() error {
 
 	// no validation rules for ListAsAny
 
+	if len(errors) > 0 {
+		return Cluster_LbSubsetConfigMultiError(errors)
+	}
 	return nil
 }
+
+// Cluster_LbSubsetConfigMultiError is an error wrapping multiple validation
+// errors returned by Cluster_LbSubsetConfig.ValidateAll() if the designated
+// constraints aren't met.
+type Cluster_LbSubsetConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Cluster_LbSubsetConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Cluster_LbSubsetConfigMultiError) AllErrors() []error { return m }
 
 // Cluster_LbSubsetConfigValidationError is the validation error returned by
 // Cluster_LbSubsetConfig.Validate if the designated constraints aren't met.
@@ -1172,25 +2280,63 @@ var _ interface {
 
 // Validate checks the field values on Cluster_LeastRequestLbConfig with the
 // rules defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *Cluster_LeastRequestLbConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Cluster_LeastRequestLbConfig with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// Cluster_LeastRequestLbConfigMultiError, or nil if none found.
+func (m *Cluster_LeastRequestLbConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Cluster_LeastRequestLbConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if wrapper := m.GetChoiceCount(); wrapper != nil {
 
 		if wrapper.GetValue() < 2 {
-			return Cluster_LeastRequestLbConfigValidationError{
+			err := Cluster_LeastRequestLbConfigValidationError{
 				field:  "ChoiceCount",
 				reason: "value must be greater than or equal to 2",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	}
 
+	if len(errors) > 0 {
+		return Cluster_LeastRequestLbConfigMultiError(errors)
+	}
 	return nil
 }
+
+// Cluster_LeastRequestLbConfigMultiError is an error wrapping multiple
+// validation errors returned by Cluster_LeastRequestLbConfig.ValidateAll() if
+// the designated constraints aren't met.
+type Cluster_LeastRequestLbConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Cluster_LeastRequestLbConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Cluster_LeastRequestLbConfigMultiError) AllErrors() []error { return m }
 
 // Cluster_LeastRequestLbConfigValidationError is the validation error returned
 // by Cluster_LeastRequestLbConfig.Validate if the designated constraints
@@ -1251,43 +2397,89 @@ var _ interface {
 
 // Validate checks the field values on Cluster_RingHashLbConfig with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *Cluster_RingHashLbConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Cluster_RingHashLbConfig with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// Cluster_RingHashLbConfigMultiError, or nil if none found.
+func (m *Cluster_RingHashLbConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Cluster_RingHashLbConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if wrapper := m.GetMinimumRingSize(); wrapper != nil {
 
 		if wrapper.GetValue() > 8388608 {
-			return Cluster_RingHashLbConfigValidationError{
+			err := Cluster_RingHashLbConfigValidationError{
 				field:  "MinimumRingSize",
 				reason: "value must be less than or equal to 8388608",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	}
 
 	if _, ok := Cluster_RingHashLbConfig_HashFunction_name[int32(m.GetHashFunction())]; !ok {
-		return Cluster_RingHashLbConfigValidationError{
+		err := Cluster_RingHashLbConfigValidationError{
 			field:  "HashFunction",
 			reason: "value must be one of the defined enum values",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if wrapper := m.GetMaximumRingSize(); wrapper != nil {
 
 		if wrapper.GetValue() > 8388608 {
-			return Cluster_RingHashLbConfigValidationError{
+			err := Cluster_RingHashLbConfigValidationError{
 				field:  "MaximumRingSize",
 				reason: "value must be less than or equal to 8388608",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	}
 
+	if len(errors) > 0 {
+		return Cluster_RingHashLbConfigMultiError(errors)
+	}
 	return nil
 }
+
+// Cluster_RingHashLbConfigMultiError is an error wrapping multiple validation
+// errors returned by Cluster_RingHashLbConfig.ValidateAll() if the designated
+// constraints aren't met.
+type Cluster_RingHashLbConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Cluster_RingHashLbConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Cluster_RingHashLbConfigMultiError) AllErrors() []error { return m }
 
 // Cluster_RingHashLbConfigValidationError is the validation error returned by
 // Cluster_RingHashLbConfig.Validate if the designated constraints aren't met.
@@ -1347,16 +2539,50 @@ var _ interface {
 
 // Validate checks the field values on Cluster_OriginalDstLbConfig with the
 // rules defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *Cluster_OriginalDstLbConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Cluster_OriginalDstLbConfig with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// Cluster_OriginalDstLbConfigMultiError, or nil if none found.
+func (m *Cluster_OriginalDstLbConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Cluster_OriginalDstLbConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	// no validation rules for UseHttpHeader
 
+	if len(errors) > 0 {
+		return Cluster_OriginalDstLbConfigMultiError(errors)
+	}
 	return nil
 }
+
+// Cluster_OriginalDstLbConfigMultiError is an error wrapping multiple
+// validation errors returned by Cluster_OriginalDstLbConfig.ValidateAll() if
+// the designated constraints aren't met.
+type Cluster_OriginalDstLbConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Cluster_OriginalDstLbConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Cluster_OriginalDstLbConfigMultiError) AllErrors() []error { return m }
 
 // Cluster_OriginalDstLbConfigValidationError is the validation error returned
 // by Cluster_OriginalDstLbConfig.Validate if the designated constraints
@@ -1417,13 +2643,46 @@ var _ interface {
 
 // Validate checks the field values on Cluster_CommonLbConfig with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *Cluster_CommonLbConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Cluster_CommonLbConfig with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// Cluster_CommonLbConfigMultiError, or nil if none found.
+func (m *Cluster_CommonLbConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Cluster_CommonLbConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetHealthyPanicThreshold()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetHealthyPanicThreshold()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, Cluster_CommonLbConfigValidationError{
+					field:  "HealthyPanicThreshold",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, Cluster_CommonLbConfigValidationError{
+					field:  "HealthyPanicThreshold",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetHealthyPanicThreshold()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return Cluster_CommonLbConfigValidationError{
 				field:  "HealthyPanicThreshold",
@@ -1433,7 +2692,26 @@ func (m *Cluster_CommonLbConfig) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetUpdateMergeWindow()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetUpdateMergeWindow()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, Cluster_CommonLbConfigValidationError{
+					field:  "UpdateMergeWindow",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, Cluster_CommonLbConfigValidationError{
+					field:  "UpdateMergeWindow",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetUpdateMergeWindow()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return Cluster_CommonLbConfigValidationError{
 				field:  "UpdateMergeWindow",
@@ -1447,7 +2725,26 @@ func (m *Cluster_CommonLbConfig) Validate() error {
 
 	// no validation rules for CloseConnectionsOnHostSetChange
 
-	if v, ok := interface{}(m.GetConsistentHashingLbConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetConsistentHashingLbConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, Cluster_CommonLbConfigValidationError{
+					field:  "ConsistentHashingLbConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, Cluster_CommonLbConfigValidationError{
+					field:  "ConsistentHashingLbConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetConsistentHashingLbConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return Cluster_CommonLbConfigValidationError{
 				field:  "ConsistentHashingLbConfig",
@@ -1461,7 +2758,26 @@ func (m *Cluster_CommonLbConfig) Validate() error {
 
 	case *Cluster_CommonLbConfig_ZoneAwareLbConfig_:
 
-		if v, ok := interface{}(m.GetZoneAwareLbConfig()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetZoneAwareLbConfig()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, Cluster_CommonLbConfigValidationError{
+						field:  "ZoneAwareLbConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, Cluster_CommonLbConfigValidationError{
+						field:  "ZoneAwareLbConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetZoneAwareLbConfig()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return Cluster_CommonLbConfigValidationError{
 					field:  "ZoneAwareLbConfig",
@@ -1473,7 +2789,26 @@ func (m *Cluster_CommonLbConfig) Validate() error {
 
 	case *Cluster_CommonLbConfig_LocalityWeightedLbConfig_:
 
-		if v, ok := interface{}(m.GetLocalityWeightedLbConfig()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetLocalityWeightedLbConfig()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, Cluster_CommonLbConfigValidationError{
+						field:  "LocalityWeightedLbConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, Cluster_CommonLbConfigValidationError{
+						field:  "LocalityWeightedLbConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetLocalityWeightedLbConfig()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return Cluster_CommonLbConfigValidationError{
 					field:  "LocalityWeightedLbConfig",
@@ -1485,8 +2820,28 @@ func (m *Cluster_CommonLbConfig) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return Cluster_CommonLbConfigMultiError(errors)
+	}
 	return nil
 }
+
+// Cluster_CommonLbConfigMultiError is an error wrapping multiple validation
+// errors returned by Cluster_CommonLbConfig.ValidateAll() if the designated
+// constraints aren't met.
+type Cluster_CommonLbConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Cluster_CommonLbConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Cluster_CommonLbConfigMultiError) AllErrors() []error { return m }
 
 // Cluster_CommonLbConfigValidationError is the validation error returned by
 // Cluster_CommonLbConfig.Validate if the designated constraints aren't met.
@@ -1546,63 +2901,119 @@ var _ interface {
 
 // Validate checks the field values on Cluster_RefreshRate with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *Cluster_RefreshRate) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Cluster_RefreshRate with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// Cluster_RefreshRateMultiError, or nil if none found.
+func (m *Cluster_RefreshRate) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Cluster_RefreshRate) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if m.GetBaseInterval() == nil {
-		return Cluster_RefreshRateValidationError{
+		err := Cluster_RefreshRateValidationError{
 			field:  "BaseInterval",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if d := m.GetBaseInterval(); d != nil {
 		dur, err := d.AsDuration(), d.CheckValid()
 		if err != nil {
-			return Cluster_RefreshRateValidationError{
+			err = Cluster_RefreshRateValidationError{
 				field:  "BaseInterval",
 				reason: "value is not a valid duration",
 				cause:  err,
 			}
-		}
-
-		gt := time.Duration(0*time.Second + 1000000*time.Nanosecond)
-
-		if dur <= gt {
-			return Cluster_RefreshRateValidationError{
-				field:  "BaseInterval",
-				reason: "value must be greater than 1ms",
+			if !all {
+				return err
 			}
-		}
+			errors = append(errors, err)
+		} else {
 
+			gt := time.Duration(0*time.Second + 1000000*time.Nanosecond)
+
+			if dur <= gt {
+				err := Cluster_RefreshRateValidationError{
+					field:  "BaseInterval",
+					reason: "value must be greater than 1ms",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
+
+		}
 	}
 
 	if d := m.GetMaxInterval(); d != nil {
 		dur, err := d.AsDuration(), d.CheckValid()
 		if err != nil {
-			return Cluster_RefreshRateValidationError{
+			err = Cluster_RefreshRateValidationError{
 				field:  "MaxInterval",
 				reason: "value is not a valid duration",
 				cause:  err,
 			}
-		}
-
-		gt := time.Duration(0*time.Second + 1000000*time.Nanosecond)
-
-		if dur <= gt {
-			return Cluster_RefreshRateValidationError{
-				field:  "MaxInterval",
-				reason: "value must be greater than 1ms",
+			if !all {
+				return err
 			}
-		}
+			errors = append(errors, err)
+		} else {
 
+			gt := time.Duration(0*time.Second + 1000000*time.Nanosecond)
+
+			if dur <= gt {
+				err := Cluster_RefreshRateValidationError{
+					field:  "MaxInterval",
+					reason: "value must be greater than 1ms",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
+
+		}
 	}
 
+	if len(errors) > 0 {
+		return Cluster_RefreshRateMultiError(errors)
+	}
 	return nil
 }
+
+// Cluster_RefreshRateMultiError is an error wrapping multiple validation
+// errors returned by Cluster_RefreshRate.ValidateAll() if the designated
+// constraints aren't met.
+type Cluster_RefreshRateMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Cluster_RefreshRateMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Cluster_RefreshRateMultiError) AllErrors() []error { return m }
 
 // Cluster_RefreshRateValidationError is the validation error returned by
 // Cluster_RefreshRate.Validate if the designated constraints aren't met.
@@ -1662,21 +3073,62 @@ var _ interface {
 
 // Validate checks the field values on Cluster_LbSubsetConfig_LbSubsetSelector
 // with the rules defined in the proto definition for this message. If any
-// rules are violated, an error is returned.
+// rules are violated, the first error encountered is returned, or nil if
+// there are no violations.
 func (m *Cluster_LbSubsetConfig_LbSubsetSelector) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// Cluster_LbSubsetConfig_LbSubsetSelector with the rules defined in the proto
+// definition for this message. If any rules are violated, the result is a
+// list of violation errors wrapped in
+// Cluster_LbSubsetConfig_LbSubsetSelectorMultiError, or nil if none found.
+func (m *Cluster_LbSubsetConfig_LbSubsetSelector) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Cluster_LbSubsetConfig_LbSubsetSelector) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if _, ok := Cluster_LbSubsetConfig_LbSubsetSelector_LbSubsetSelectorFallbackPolicy_name[int32(m.GetFallbackPolicy())]; !ok {
-		return Cluster_LbSubsetConfig_LbSubsetSelectorValidationError{
+		err := Cluster_LbSubsetConfig_LbSubsetSelectorValidationError{
 			field:  "FallbackPolicy",
 			reason: "value must be one of the defined enum values",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
+	if len(errors) > 0 {
+		return Cluster_LbSubsetConfig_LbSubsetSelectorMultiError(errors)
+	}
 	return nil
 }
+
+// Cluster_LbSubsetConfig_LbSubsetSelectorMultiError is an error wrapping
+// multiple validation errors returned by
+// Cluster_LbSubsetConfig_LbSubsetSelector.ValidateAll() if the designated
+// constraints aren't met.
+type Cluster_LbSubsetConfig_LbSubsetSelectorMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Cluster_LbSubsetConfig_LbSubsetSelectorMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Cluster_LbSubsetConfig_LbSubsetSelectorMultiError) AllErrors() []error { return m }
 
 // Cluster_LbSubsetConfig_LbSubsetSelectorValidationError is the validation
 // error returned by Cluster_LbSubsetConfig_LbSubsetSelector.Validate if the
@@ -1737,13 +3189,48 @@ var _ interface {
 
 // Validate checks the field values on Cluster_CommonLbConfig_ZoneAwareLbConfig
 // with the rules defined in the proto definition for this message. If any
-// rules are violated, an error is returned.
+// rules are violated, the first error encountered is returned, or nil if
+// there are no violations.
 func (m *Cluster_CommonLbConfig_ZoneAwareLbConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// Cluster_CommonLbConfig_ZoneAwareLbConfig with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in
+// Cluster_CommonLbConfig_ZoneAwareLbConfigMultiError, or nil if none found.
+func (m *Cluster_CommonLbConfig_ZoneAwareLbConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Cluster_CommonLbConfig_ZoneAwareLbConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetRoutingEnabled()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetRoutingEnabled()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, Cluster_CommonLbConfig_ZoneAwareLbConfigValidationError{
+					field:  "RoutingEnabled",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, Cluster_CommonLbConfig_ZoneAwareLbConfigValidationError{
+					field:  "RoutingEnabled",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetRoutingEnabled()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return Cluster_CommonLbConfig_ZoneAwareLbConfigValidationError{
 				field:  "RoutingEnabled",
@@ -1753,7 +3240,26 @@ func (m *Cluster_CommonLbConfig_ZoneAwareLbConfig) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetMinClusterSize()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetMinClusterSize()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, Cluster_CommonLbConfig_ZoneAwareLbConfigValidationError{
+					field:  "MinClusterSize",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, Cluster_CommonLbConfig_ZoneAwareLbConfigValidationError{
+					field:  "MinClusterSize",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMinClusterSize()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return Cluster_CommonLbConfig_ZoneAwareLbConfigValidationError{
 				field:  "MinClusterSize",
@@ -1765,8 +3271,29 @@ func (m *Cluster_CommonLbConfig_ZoneAwareLbConfig) Validate() error {
 
 	// no validation rules for FailTrafficOnPanic
 
+	if len(errors) > 0 {
+		return Cluster_CommonLbConfig_ZoneAwareLbConfigMultiError(errors)
+	}
 	return nil
 }
+
+// Cluster_CommonLbConfig_ZoneAwareLbConfigMultiError is an error wrapping
+// multiple validation errors returned by
+// Cluster_CommonLbConfig_ZoneAwareLbConfig.ValidateAll() if the designated
+// constraints aren't met.
+type Cluster_CommonLbConfig_ZoneAwareLbConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Cluster_CommonLbConfig_ZoneAwareLbConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Cluster_CommonLbConfig_ZoneAwareLbConfigMultiError) AllErrors() []error { return m }
 
 // Cluster_CommonLbConfig_ZoneAwareLbConfigValidationError is the validation
 // error returned by Cluster_CommonLbConfig_ZoneAwareLbConfig.Validate if the
@@ -1827,15 +3354,51 @@ var _ interface {
 
 // Validate checks the field values on
 // Cluster_CommonLbConfig_LocalityWeightedLbConfig with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *Cluster_CommonLbConfig_LocalityWeightedLbConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// Cluster_CommonLbConfig_LocalityWeightedLbConfig with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in
+// Cluster_CommonLbConfig_LocalityWeightedLbConfigMultiError, or nil if none found.
+func (m *Cluster_CommonLbConfig_LocalityWeightedLbConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Cluster_CommonLbConfig_LocalityWeightedLbConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
+	if len(errors) > 0 {
+		return Cluster_CommonLbConfig_LocalityWeightedLbConfigMultiError(errors)
+	}
 	return nil
 }
+
+// Cluster_CommonLbConfig_LocalityWeightedLbConfigMultiError is an error
+// wrapping multiple validation errors returned by
+// Cluster_CommonLbConfig_LocalityWeightedLbConfig.ValidateAll() if the
+// designated constraints aren't met.
+type Cluster_CommonLbConfig_LocalityWeightedLbConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Cluster_CommonLbConfig_LocalityWeightedLbConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Cluster_CommonLbConfig_LocalityWeightedLbConfigMultiError) AllErrors() []error { return m }
 
 // Cluster_CommonLbConfig_LocalityWeightedLbConfigValidationError is the
 // validation error returned by
@@ -1901,17 +3464,53 @@ var _ interface {
 
 // Validate checks the field values on
 // Cluster_CommonLbConfig_ConsistentHashingLbConfig with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *Cluster_CommonLbConfig_ConsistentHashingLbConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// Cluster_CommonLbConfig_ConsistentHashingLbConfig with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in
+// Cluster_CommonLbConfig_ConsistentHashingLbConfigMultiError, or nil if none found.
+func (m *Cluster_CommonLbConfig_ConsistentHashingLbConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Cluster_CommonLbConfig_ConsistentHashingLbConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	// no validation rules for UseHostnameForHashing
 
+	if len(errors) > 0 {
+		return Cluster_CommonLbConfig_ConsistentHashingLbConfigMultiError(errors)
+	}
 	return nil
 }
+
+// Cluster_CommonLbConfig_ConsistentHashingLbConfigMultiError is an error
+// wrapping multiple validation errors returned by
+// Cluster_CommonLbConfig_ConsistentHashingLbConfig.ValidateAll() if the
+// designated constraints aren't met.
+type Cluster_CommonLbConfig_ConsistentHashingLbConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Cluster_CommonLbConfig_ConsistentHashingLbConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Cluster_CommonLbConfig_ConsistentHashingLbConfigMultiError) AllErrors() []error { return m }
 
 // Cluster_CommonLbConfig_ConsistentHashingLbConfigValidationError is the
 // validation error returned by
@@ -1979,15 +3578,48 @@ var _ interface {
 
 // Validate checks the field values on LoadBalancingPolicy_Policy with the
 // rules defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *LoadBalancingPolicy_Policy) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on LoadBalancingPolicy_Policy with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// LoadBalancingPolicy_PolicyMultiError, or nil if none found.
+func (m *LoadBalancingPolicy_Policy) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *LoadBalancingPolicy_Policy) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	// no validation rules for Name
 
-	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, LoadBalancingPolicy_PolicyValidationError{
+					field:  "Config",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, LoadBalancingPolicy_PolicyValidationError{
+					field:  "Config",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return LoadBalancingPolicy_PolicyValidationError{
 				field:  "Config",
@@ -1997,7 +3629,26 @@ func (m *LoadBalancingPolicy_Policy) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetTypedConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, LoadBalancingPolicy_PolicyValidationError{
+					field:  "TypedConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, LoadBalancingPolicy_PolicyValidationError{
+					field:  "TypedConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return LoadBalancingPolicy_PolicyValidationError{
 				field:  "TypedConfig",
@@ -2007,8 +3658,28 @@ func (m *LoadBalancingPolicy_Policy) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return LoadBalancingPolicy_PolicyMultiError(errors)
+	}
 	return nil
 }
+
+// LoadBalancingPolicy_PolicyMultiError is an error wrapping multiple
+// validation errors returned by LoadBalancingPolicy_Policy.ValidateAll() if
+// the designated constraints aren't met.
+type LoadBalancingPolicy_PolicyMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m LoadBalancingPolicy_PolicyMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m LoadBalancingPolicy_PolicyMultiError) AllErrors() []error { return m }
 
 // LoadBalancingPolicy_PolicyValidationError is the validation error returned
 // by LoadBalancingPolicy_Policy.Validate if the designated constraints aren't met.

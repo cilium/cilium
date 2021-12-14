@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,30 +32,73 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on TapRequest with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *TapRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on TapRequest with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in TapRequestMultiError, or
+// nil if none found.
+func (m *TapRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *TapRequest) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if utf8.RuneCountInString(m.GetConfigId()) < 1 {
-		return TapRequestValidationError{
+		err := TapRequestValidationError{
 			field:  "ConfigId",
 			reason: "value length must be at least 1 runes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if m.GetTapConfig() == nil {
-		return TapRequestValidationError{
+		err := TapRequestValidationError{
 			field:  "TapConfig",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
-	if v, ok := interface{}(m.GetTapConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetTapConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, TapRequestValidationError{
+					field:  "TapConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, TapRequestValidationError{
+					field:  "TapConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetTapConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return TapRequestValidationError{
 				field:  "TapConfig",
@@ -64,8 +108,27 @@ func (m *TapRequest) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return TapRequestMultiError(errors)
+	}
 	return nil
 }
+
+// TapRequestMultiError is an error wrapping multiple validation errors
+// returned by TapRequest.ValidateAll() if the designated constraints aren't met.
+type TapRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m TapRequestMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m TapRequestMultiError) AllErrors() []error { return m }
 
 // TapRequestValidationError is the validation error returned by
 // TapRequest.Validate if the designated constraints aren't met.
