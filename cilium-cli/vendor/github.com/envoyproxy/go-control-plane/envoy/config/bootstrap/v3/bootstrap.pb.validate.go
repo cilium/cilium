@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,16 +32,51 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on Bootstrap with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *Bootstrap) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Bootstrap with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in BootstrapMultiError, or nil
+// if none found.
+func (m *Bootstrap) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Bootstrap) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetNode()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetNode()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "Node",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "Node",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetNode()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return BootstrapValidationError{
 				field:  "Node",
@@ -50,7 +86,26 @@ func (m *Bootstrap) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetStaticResources()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetStaticResources()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "StaticResources",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "StaticResources",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetStaticResources()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return BootstrapValidationError{
 				field:  "StaticResources",
@@ -60,7 +115,26 @@ func (m *Bootstrap) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetDynamicResources()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetDynamicResources()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "DynamicResources",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "DynamicResources",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetDynamicResources()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return BootstrapValidationError{
 				field:  "DynamicResources",
@@ -70,7 +144,26 @@ func (m *Bootstrap) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetClusterManager()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetClusterManager()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "ClusterManager",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "ClusterManager",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetClusterManager()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return BootstrapValidationError{
 				field:  "ClusterManager",
@@ -80,7 +173,26 @@ func (m *Bootstrap) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetHdsConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetHdsConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "HdsConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "HdsConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetHdsConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return BootstrapValidationError{
 				field:  "HdsConfig",
@@ -95,7 +207,26 @@ func (m *Bootstrap) Validate() error {
 	for idx, item := range m.GetStatsSinks() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, BootstrapValidationError{
+						field:  fmt.Sprintf("StatsSinks[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, BootstrapValidationError{
+						field:  fmt.Sprintf("StatsSinks[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return BootstrapValidationError{
 					field:  fmt.Sprintf("StatsSinks[%v]", idx),
@@ -107,7 +238,26 @@ func (m *Bootstrap) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetStatsConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetStatsConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "StatsConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "StatsConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetStatsConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return BootstrapValidationError{
 				field:  "StatsConfig",
@@ -120,26 +270,54 @@ func (m *Bootstrap) Validate() error {
 	if d := m.GetStatsFlushInterval(); d != nil {
 		dur, err := d.AsDuration(), d.CheckValid()
 		if err != nil {
-			return BootstrapValidationError{
+			err = BootstrapValidationError{
 				field:  "StatsFlushInterval",
 				reason: "value is not a valid duration",
 				cause:  err,
 			}
-		}
-
-		lt := time.Duration(300*time.Second + 0*time.Nanosecond)
-		gte := time.Duration(0*time.Second + 1000000*time.Nanosecond)
-
-		if dur < gte || dur >= lt {
-			return BootstrapValidationError{
-				field:  "StatsFlushInterval",
-				reason: "value must be inside range [1ms, 5m0s)",
+			if !all {
+				return err
 			}
-		}
+			errors = append(errors, err)
+		} else {
 
+			lt := time.Duration(300*time.Second + 0*time.Nanosecond)
+			gte := time.Duration(0*time.Second + 1000000*time.Nanosecond)
+
+			if dur < gte || dur >= lt {
+				err := BootstrapValidationError{
+					field:  "StatsFlushInterval",
+					reason: "value must be inside range [1ms, 5m0s)",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
+
+		}
 	}
 
-	if v, ok := interface{}(m.GetWatchdog()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetWatchdog()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "Watchdog",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "Watchdog",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetWatchdog()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return BootstrapValidationError{
 				field:  "Watchdog",
@@ -149,7 +327,26 @@ func (m *Bootstrap) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetWatchdogs()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetWatchdogs()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "Watchdogs",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "Watchdogs",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetWatchdogs()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return BootstrapValidationError{
 				field:  "Watchdogs",
@@ -159,7 +356,26 @@ func (m *Bootstrap) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetTracing()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetTracing()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "Tracing",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "Tracing",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetTracing()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return BootstrapValidationError{
 				field:  "Tracing",
@@ -169,7 +385,26 @@ func (m *Bootstrap) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetLayeredRuntime()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetLayeredRuntime()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "LayeredRuntime",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "LayeredRuntime",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLayeredRuntime()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return BootstrapValidationError{
 				field:  "LayeredRuntime",
@@ -179,7 +414,26 @@ func (m *Bootstrap) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetAdmin()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetAdmin()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "Admin",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "Admin",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetAdmin()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return BootstrapValidationError{
 				field:  "Admin",
@@ -189,7 +443,26 @@ func (m *Bootstrap) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetOverloadManager()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetOverloadManager()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "OverloadManager",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "OverloadManager",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetOverloadManager()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return BootstrapValidationError{
 				field:  "OverloadManager",
@@ -203,7 +476,26 @@ func (m *Bootstrap) Validate() error {
 
 	// no validation rules for HeaderPrefix
 
-	if v, ok := interface{}(m.GetStatsServerVersionOverride()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetStatsServerVersionOverride()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "StatsServerVersionOverride",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "StatsServerVersionOverride",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetStatsServerVersionOverride()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return BootstrapValidationError{
 				field:  "StatsServerVersionOverride",
@@ -215,7 +507,26 @@ func (m *Bootstrap) Validate() error {
 
 	// no validation rules for UseTcpForDnsLookups
 
-	if v, ok := interface{}(m.GetDnsResolutionConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetDnsResolutionConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "DnsResolutionConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "DnsResolutionConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetDnsResolutionConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return BootstrapValidationError{
 				field:  "DnsResolutionConfig",
@@ -225,7 +536,26 @@ func (m *Bootstrap) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetTypedDnsResolverConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetTypedDnsResolverConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "TypedDnsResolverConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "TypedDnsResolverConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetTypedDnsResolverConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return BootstrapValidationError{
 				field:  "TypedDnsResolverConfig",
@@ -238,7 +568,26 @@ func (m *Bootstrap) Validate() error {
 	for idx, item := range m.GetBootstrapExtensions() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, BootstrapValidationError{
+						field:  fmt.Sprintf("BootstrapExtensions[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, BootstrapValidationError{
+						field:  fmt.Sprintf("BootstrapExtensions[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return BootstrapValidationError{
 					field:  fmt.Sprintf("BootstrapExtensions[%v]", idx),
@@ -253,7 +602,26 @@ func (m *Bootstrap) Validate() error {
 	for idx, item := range m.GetFatalActions() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, BootstrapValidationError{
+						field:  fmt.Sprintf("FatalActions[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, BootstrapValidationError{
+						field:  fmt.Sprintf("FatalActions[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return BootstrapValidationError{
 					field:  fmt.Sprintf("FatalActions[%v]", idx),
@@ -268,7 +636,26 @@ func (m *Bootstrap) Validate() error {
 	for idx, item := range m.GetConfigSources() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, BootstrapValidationError{
+						field:  fmt.Sprintf("ConfigSources[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, BootstrapValidationError{
+						field:  fmt.Sprintf("ConfigSources[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return BootstrapValidationError{
 					field:  fmt.Sprintf("ConfigSources[%v]", idx),
@@ -280,7 +667,26 @@ func (m *Bootstrap) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetDefaultConfigSource()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetDefaultConfigSource()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "DefaultConfigSource",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, BootstrapValidationError{
+					field:  "DefaultConfigSource",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetDefaultConfigSource()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return BootstrapValidationError{
 				field:  "DefaultConfigSource",
@@ -292,27 +698,75 @@ func (m *Bootstrap) Validate() error {
 
 	// no validation rules for DefaultSocketInterface
 
-	for key, val := range m.GetCertificateProviderInstances() {
-		_ = val
+	{
+		sorted_keys := make([]string, len(m.GetCertificateProviderInstances()))
+		i := 0
+		for key := range m.GetCertificateProviderInstances() {
+			sorted_keys[i] = key
+			i++
+		}
+		sort.Slice(sorted_keys, func(i, j int) bool { return sorted_keys[i] < sorted_keys[j] })
+		for _, key := range sorted_keys {
+			val := m.GetCertificateProviderInstances()[key]
+			_ = val
 
-		// no validation rules for CertificateProviderInstances[key]
+			// no validation rules for CertificateProviderInstances[key]
 
-		if v, ok := interface{}(val).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return BootstrapValidationError{
-					field:  fmt.Sprintf("CertificateProviderInstances[%v]", key),
-					reason: "embedded message failed validation",
-					cause:  err,
+			if all {
+				switch v := interface{}(val).(type) {
+				case interface{ ValidateAll() error }:
+					if err := v.ValidateAll(); err != nil {
+						errors = append(errors, BootstrapValidationError{
+							field:  fmt.Sprintf("CertificateProviderInstances[%v]", key),
+							reason: "embedded message failed validation",
+							cause:  err,
+						})
+					}
+				case interface{ Validate() error }:
+					if err := v.Validate(); err != nil {
+						errors = append(errors, BootstrapValidationError{
+							field:  fmt.Sprintf("CertificateProviderInstances[%v]", key),
+							reason: "embedded message failed validation",
+							cause:  err,
+						})
+					}
+				}
+			} else if v, ok := interface{}(val).(interface{ Validate() error }); ok {
+				if err := v.Validate(); err != nil {
+					return BootstrapValidationError{
+						field:  fmt.Sprintf("CertificateProviderInstances[%v]", key),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
-		}
 
+		}
 	}
 
 	for idx, item := range m.GetInlineHeaders() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, BootstrapValidationError{
+						field:  fmt.Sprintf("InlineHeaders[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, BootstrapValidationError{
+						field:  fmt.Sprintf("InlineHeaders[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return BootstrapValidationError{
 					field:  fmt.Sprintf("InlineHeaders[%v]", idx),
@@ -324,31 +778,44 @@ func (m *Bootstrap) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetHiddenEnvoyDeprecatedRuntime()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return BootstrapValidationError{
-				field:  "HiddenEnvoyDeprecatedRuntime",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
-
 	switch m.StatsFlush.(type) {
 
 	case *Bootstrap_StatsFlushOnAdmin:
 
 		if m.GetStatsFlushOnAdmin() != true {
-			return BootstrapValidationError{
+			err := BootstrapValidationError{
 				field:  "StatsFlushOnAdmin",
 				reason: "value must equal true",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	}
 
+	if len(errors) > 0 {
+		return BootstrapMultiError(errors)
+	}
 	return nil
 }
+
+// BootstrapMultiError is an error wrapping multiple validation errors returned
+// by Bootstrap.ValidateAll() if the designated constraints aren't met.
+type BootstrapMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m BootstrapMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m BootstrapMultiError) AllErrors() []error { return m }
 
 // BootstrapValidationError is the validation error returned by
 // Bootstrap.Validate if the designated constraints aren't met.
@@ -405,16 +872,49 @@ var _ interface {
 } = BootstrapValidationError{}
 
 // Validate checks the field values on Admin with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *Admin) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Admin with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in AdminMultiError, or nil if none found.
+func (m *Admin) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Admin) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	for idx, item := range m.GetAccessLog() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, AdminValidationError{
+						field:  fmt.Sprintf("AccessLog[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, AdminValidationError{
+						field:  fmt.Sprintf("AccessLog[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return AdminValidationError{
 					field:  fmt.Sprintf("AccessLog[%v]", idx),
@@ -430,7 +930,26 @@ func (m *Admin) Validate() error {
 
 	// no validation rules for ProfilePath
 
-	if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetAddress()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, AdminValidationError{
+					field:  "Address",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, AdminValidationError{
+					field:  "Address",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return AdminValidationError{
 				field:  "Address",
@@ -443,7 +962,26 @@ func (m *Admin) Validate() error {
 	for idx, item := range m.GetSocketOptions() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, AdminValidationError{
+						field:  fmt.Sprintf("SocketOptions[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, AdminValidationError{
+						field:  fmt.Sprintf("SocketOptions[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return AdminValidationError{
 					field:  fmt.Sprintf("SocketOptions[%v]", idx),
@@ -455,8 +993,27 @@ func (m *Admin) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return AdminMultiError(errors)
+	}
 	return nil
 }
+
+// AdminMultiError is an error wrapping multiple validation errors returned by
+// Admin.ValidateAll() if the designated constraints aren't met.
+type AdminMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m AdminMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m AdminMultiError) AllErrors() []error { return m }
 
 // AdminValidationError is the validation error returned by Admin.Validate if
 // the designated constraints aren't met.
@@ -513,16 +1070,49 @@ var _ interface {
 } = AdminValidationError{}
 
 // Validate checks the field values on ClusterManager with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *ClusterManager) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ClusterManager with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in ClusterManagerMultiError,
+// or nil if none found.
+func (m *ClusterManager) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ClusterManager) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	// no validation rules for LocalClusterName
 
-	if v, ok := interface{}(m.GetOutlierDetection()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetOutlierDetection()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClusterManagerValidationError{
+					field:  "OutlierDetection",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClusterManagerValidationError{
+					field:  "OutlierDetection",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetOutlierDetection()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterManagerValidationError{
 				field:  "OutlierDetection",
@@ -532,7 +1122,26 @@ func (m *ClusterManager) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetUpstreamBindConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetUpstreamBindConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClusterManagerValidationError{
+					field:  "UpstreamBindConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClusterManagerValidationError{
+					field:  "UpstreamBindConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetUpstreamBindConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterManagerValidationError{
 				field:  "UpstreamBindConfig",
@@ -542,7 +1151,26 @@ func (m *ClusterManager) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetLoadStatsConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetLoadStatsConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClusterManagerValidationError{
+					field:  "LoadStatsConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClusterManagerValidationError{
+					field:  "LoadStatsConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLoadStatsConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterManagerValidationError{
 				field:  "LoadStatsConfig",
@@ -552,8 +1180,28 @@ func (m *ClusterManager) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return ClusterManagerMultiError(errors)
+	}
 	return nil
 }
+
+// ClusterManagerMultiError is an error wrapping multiple validation errors
+// returned by ClusterManager.ValidateAll() if the designated constraints
+// aren't met.
+type ClusterManagerMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ClusterManagerMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ClusterManagerMultiError) AllErrors() []error { return m }
 
 // ClusterManagerValidationError is the validation error returned by
 // ClusterManager.Validate if the designated constraints aren't met.
@@ -610,13 +1258,47 @@ var _ interface {
 } = ClusterManagerValidationError{}
 
 // Validate checks the field values on Watchdogs with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *Watchdogs) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Watchdogs with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in WatchdogsMultiError, or nil
+// if none found.
+func (m *Watchdogs) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Watchdogs) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetMainThreadWatchdog()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetMainThreadWatchdog()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, WatchdogsValidationError{
+					field:  "MainThreadWatchdog",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, WatchdogsValidationError{
+					field:  "MainThreadWatchdog",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMainThreadWatchdog()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return WatchdogsValidationError{
 				field:  "MainThreadWatchdog",
@@ -626,7 +1308,26 @@ func (m *Watchdogs) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetWorkerWatchdog()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetWorkerWatchdog()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, WatchdogsValidationError{
+					field:  "WorkerWatchdog",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, WatchdogsValidationError{
+					field:  "WorkerWatchdog",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetWorkerWatchdog()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return WatchdogsValidationError{
 				field:  "WorkerWatchdog",
@@ -636,8 +1337,27 @@ func (m *Watchdogs) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return WatchdogsMultiError(errors)
+	}
 	return nil
 }
+
+// WatchdogsMultiError is an error wrapping multiple validation errors returned
+// by Watchdogs.ValidateAll() if the designated constraints aren't met.
+type WatchdogsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m WatchdogsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m WatchdogsMultiError) AllErrors() []error { return m }
 
 // WatchdogsValidationError is the validation error returned by
 // Watchdogs.Validate if the designated constraints aren't met.
@@ -694,16 +1414,50 @@ var _ interface {
 } = WatchdogsValidationError{}
 
 // Validate checks the field values on Watchdog with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *Watchdog) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Watchdog with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in WatchdogMultiError, or nil
+// if none found.
+func (m *Watchdog) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Watchdog) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	for idx, item := range m.GetActions() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, WatchdogValidationError{
+						field:  fmt.Sprintf("Actions[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, WatchdogValidationError{
+						field:  fmt.Sprintf("Actions[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return WatchdogValidationError{
 					field:  fmt.Sprintf("Actions[%v]", idx),
@@ -715,7 +1469,26 @@ func (m *Watchdog) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetMissTimeout()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetMissTimeout()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, WatchdogValidationError{
+					field:  "MissTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, WatchdogValidationError{
+					field:  "MissTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMissTimeout()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return WatchdogValidationError{
 				field:  "MissTimeout",
@@ -725,7 +1498,26 @@ func (m *Watchdog) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetMegamissTimeout()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetMegamissTimeout()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, WatchdogValidationError{
+					field:  "MegamissTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, WatchdogValidationError{
+					field:  "MegamissTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMegamissTimeout()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return WatchdogValidationError{
 				field:  "MegamissTimeout",
@@ -735,7 +1527,26 @@ func (m *Watchdog) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetKillTimeout()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetKillTimeout()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, WatchdogValidationError{
+					field:  "KillTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, WatchdogValidationError{
+					field:  "KillTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetKillTimeout()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return WatchdogValidationError{
 				field:  "KillTimeout",
@@ -748,25 +1559,53 @@ func (m *Watchdog) Validate() error {
 	if d := m.GetMaxKillTimeoutJitter(); d != nil {
 		dur, err := d.AsDuration(), d.CheckValid()
 		if err != nil {
-			return WatchdogValidationError{
+			err = WatchdogValidationError{
 				field:  "MaxKillTimeoutJitter",
 				reason: "value is not a valid duration",
 				cause:  err,
 			}
-		}
-
-		gte := time.Duration(0*time.Second + 0*time.Nanosecond)
-
-		if dur < gte {
-			return WatchdogValidationError{
-				field:  "MaxKillTimeoutJitter",
-				reason: "value must be greater than or equal to 0s",
+			if !all {
+				return err
 			}
-		}
+			errors = append(errors, err)
+		} else {
 
+			gte := time.Duration(0*time.Second + 0*time.Nanosecond)
+
+			if dur < gte {
+				err := WatchdogValidationError{
+					field:  "MaxKillTimeoutJitter",
+					reason: "value must be greater than or equal to 0s",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
+
+		}
 	}
 
-	if v, ok := interface{}(m.GetMultikillTimeout()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetMultikillTimeout()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, WatchdogValidationError{
+					field:  "MultikillTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, WatchdogValidationError{
+					field:  "MultikillTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMultikillTimeout()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return WatchdogValidationError{
 				field:  "MultikillTimeout",
@@ -776,7 +1615,26 @@ func (m *Watchdog) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetMultikillThreshold()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetMultikillThreshold()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, WatchdogValidationError{
+					field:  "MultikillThreshold",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, WatchdogValidationError{
+					field:  "MultikillThreshold",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMultikillThreshold()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return WatchdogValidationError{
 				field:  "MultikillThreshold",
@@ -786,8 +1644,27 @@ func (m *Watchdog) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return WatchdogMultiError(errors)
+	}
 	return nil
 }
+
+// WatchdogMultiError is an error wrapping multiple validation errors returned
+// by Watchdog.ValidateAll() if the designated constraints aren't met.
+type WatchdogMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m WatchdogMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m WatchdogMultiError) AllErrors() []error { return m }
 
 // WatchdogValidationError is the validation error returned by
 // Watchdog.Validate if the designated constraints aren't met.
@@ -844,14 +1721,47 @@ var _ interface {
 } = WatchdogValidationError{}
 
 // Validate checks the field values on FatalAction with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *FatalAction) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on FatalAction with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in FatalActionMultiError, or
+// nil if none found.
+func (m *FatalAction) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *FatalAction) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, FatalActionValidationError{
+					field:  "Config",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, FatalActionValidationError{
+					field:  "Config",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return FatalActionValidationError{
 				field:  "Config",
@@ -861,8 +1771,27 @@ func (m *FatalAction) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return FatalActionMultiError(errors)
+	}
 	return nil
 }
+
+// FatalActionMultiError is an error wrapping multiple validation errors
+// returned by FatalAction.ValidateAll() if the designated constraints aren't met.
+type FatalActionMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m FatalActionMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m FatalActionMultiError) AllErrors() []error { return m }
 
 // FatalActionValidationError is the validation error returned by
 // FatalAction.Validate if the designated constraints aren't met.
@@ -919,11 +1848,25 @@ var _ interface {
 } = FatalActionValidationError{}
 
 // Validate checks the field values on Runtime with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *Runtime) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Runtime with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in RuntimeMultiError, or nil if none found.
+func (m *Runtime) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Runtime) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for SymlinkRoot
 
@@ -931,7 +1874,26 @@ func (m *Runtime) Validate() error {
 
 	// no validation rules for OverrideSubdirectory
 
-	if v, ok := interface{}(m.GetBase()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetBase()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RuntimeValidationError{
+					field:  "Base",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RuntimeValidationError{
+					field:  "Base",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetBase()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return RuntimeValidationError{
 				field:  "Base",
@@ -941,8 +1903,27 @@ func (m *Runtime) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return RuntimeMultiError(errors)
+	}
 	return nil
 }
+
+// RuntimeMultiError is an error wrapping multiple validation errors returned
+// by Runtime.ValidateAll() if the designated constraints aren't met.
+type RuntimeMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m RuntimeMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m RuntimeMultiError) AllErrors() []error { return m }
 
 // RuntimeValidationError is the validation error returned by Runtime.Validate
 // if the designated constraints aren't met.
@@ -999,25 +1980,62 @@ var _ interface {
 } = RuntimeValidationError{}
 
 // Validate checks the field values on RuntimeLayer with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *RuntimeLayer) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on RuntimeLayer with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in RuntimeLayerMultiError, or
+// nil if none found.
+func (m *RuntimeLayer) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *RuntimeLayer) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if utf8.RuneCountInString(m.GetName()) < 1 {
-		return RuntimeLayerValidationError{
+		err := RuntimeLayerValidationError{
 			field:  "Name",
 			reason: "value length must be at least 1 runes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	switch m.LayerSpecifier.(type) {
 
 	case *RuntimeLayer_StaticLayer:
 
-		if v, ok := interface{}(m.GetStaticLayer()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetStaticLayer()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, RuntimeLayerValidationError{
+						field:  "StaticLayer",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, RuntimeLayerValidationError{
+						field:  "StaticLayer",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetStaticLayer()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return RuntimeLayerValidationError{
 					field:  "StaticLayer",
@@ -1029,7 +2047,26 @@ func (m *RuntimeLayer) Validate() error {
 
 	case *RuntimeLayer_DiskLayer_:
 
-		if v, ok := interface{}(m.GetDiskLayer()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetDiskLayer()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, RuntimeLayerValidationError{
+						field:  "DiskLayer",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, RuntimeLayerValidationError{
+						field:  "DiskLayer",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetDiskLayer()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return RuntimeLayerValidationError{
 					field:  "DiskLayer",
@@ -1041,7 +2078,26 @@ func (m *RuntimeLayer) Validate() error {
 
 	case *RuntimeLayer_AdminLayer_:
 
-		if v, ok := interface{}(m.GetAdminLayer()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetAdminLayer()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, RuntimeLayerValidationError{
+						field:  "AdminLayer",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, RuntimeLayerValidationError{
+						field:  "AdminLayer",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetAdminLayer()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return RuntimeLayerValidationError{
 					field:  "AdminLayer",
@@ -1053,7 +2109,26 @@ func (m *RuntimeLayer) Validate() error {
 
 	case *RuntimeLayer_RtdsLayer_:
 
-		if v, ok := interface{}(m.GetRtdsLayer()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetRtdsLayer()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, RuntimeLayerValidationError{
+						field:  "RtdsLayer",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, RuntimeLayerValidationError{
+						field:  "RtdsLayer",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetRtdsLayer()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return RuntimeLayerValidationError{
 					field:  "RtdsLayer",
@@ -1064,15 +2139,38 @@ func (m *RuntimeLayer) Validate() error {
 		}
 
 	default:
-		return RuntimeLayerValidationError{
+		err := RuntimeLayerValidationError{
 			field:  "LayerSpecifier",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 
 	}
 
+	if len(errors) > 0 {
+		return RuntimeLayerMultiError(errors)
+	}
 	return nil
 }
+
+// RuntimeLayerMultiError is an error wrapping multiple validation errors
+// returned by RuntimeLayer.ValidateAll() if the designated constraints aren't met.
+type RuntimeLayerMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m RuntimeLayerMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m RuntimeLayerMultiError) AllErrors() []error { return m }
 
 // RuntimeLayerValidationError is the validation error returned by
 // RuntimeLayer.Validate if the designated constraints aren't met.
@@ -1129,17 +2227,50 @@ var _ interface {
 } = RuntimeLayerValidationError{}
 
 // Validate checks the field values on LayeredRuntime with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *LayeredRuntime) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on LayeredRuntime with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in LayeredRuntimeMultiError,
+// or nil if none found.
+func (m *LayeredRuntime) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *LayeredRuntime) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	for idx, item := range m.GetLayers() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, LayeredRuntimeValidationError{
+						field:  fmt.Sprintf("Layers[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, LayeredRuntimeValidationError{
+						field:  fmt.Sprintf("Layers[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return LayeredRuntimeValidationError{
 					field:  fmt.Sprintf("Layers[%v]", idx),
@@ -1151,8 +2282,28 @@ func (m *LayeredRuntime) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return LayeredRuntimeMultiError(errors)
+	}
 	return nil
 }
+
+// LayeredRuntimeMultiError is an error wrapping multiple validation errors
+// returned by LayeredRuntime.ValidateAll() if the designated constraints
+// aren't met.
+type LayeredRuntimeMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m LayeredRuntimeMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m LayeredRuntimeMultiError) AllErrors() []error { return m }
 
 // LayeredRuntimeValidationError is the validation error returned by
 // LayeredRuntime.Validate if the designated constraints aren't met.
@@ -1210,35 +2361,81 @@ var _ interface {
 
 // Validate checks the field values on CustomInlineHeader with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *CustomInlineHeader) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on CustomInlineHeader with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// CustomInlineHeaderMultiError, or nil if none found.
+func (m *CustomInlineHeader) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *CustomInlineHeader) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if utf8.RuneCountInString(m.GetInlineHeaderName()) < 1 {
-		return CustomInlineHeaderValidationError{
+		err := CustomInlineHeaderValidationError{
 			field:  "InlineHeaderName",
 			reason: "value length must be at least 1 runes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if !_CustomInlineHeader_InlineHeaderName_Pattern.MatchString(m.GetInlineHeaderName()) {
-		return CustomInlineHeaderValidationError{
+		err := CustomInlineHeaderValidationError{
 			field:  "InlineHeaderName",
 			reason: "value does not match regex pattern \"^[^\\x00\\n\\r]*$\"",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if _, ok := CustomInlineHeader_InlineHeaderType_name[int32(m.GetInlineHeaderType())]; !ok {
-		return CustomInlineHeaderValidationError{
+		err := CustomInlineHeaderValidationError{
 			field:  "InlineHeaderType",
 			reason: "value must be one of the defined enum values",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
+	if len(errors) > 0 {
+		return CustomInlineHeaderMultiError(errors)
+	}
 	return nil
 }
+
+// CustomInlineHeaderMultiError is an error wrapping multiple validation errors
+// returned by CustomInlineHeader.ValidateAll() if the designated constraints
+// aren't met.
+type CustomInlineHeaderMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m CustomInlineHeaderMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m CustomInlineHeaderMultiError) AllErrors() []error { return m }
 
 // CustomInlineHeaderValidationError is the validation error returned by
 // CustomInlineHeader.Validate if the designated constraints aren't met.
@@ -1300,16 +2497,49 @@ var _CustomInlineHeader_InlineHeaderName_Pattern = regexp.MustCompile("^[^\x00\n
 
 // Validate checks the field values on Bootstrap_StaticResources with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *Bootstrap_StaticResources) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Bootstrap_StaticResources with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// Bootstrap_StaticResourcesMultiError, or nil if none found.
+func (m *Bootstrap_StaticResources) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Bootstrap_StaticResources) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	for idx, item := range m.GetListeners() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, Bootstrap_StaticResourcesValidationError{
+						field:  fmt.Sprintf("Listeners[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, Bootstrap_StaticResourcesValidationError{
+						field:  fmt.Sprintf("Listeners[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return Bootstrap_StaticResourcesValidationError{
 					field:  fmt.Sprintf("Listeners[%v]", idx),
@@ -1324,7 +2554,26 @@ func (m *Bootstrap_StaticResources) Validate() error {
 	for idx, item := range m.GetClusters() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, Bootstrap_StaticResourcesValidationError{
+						field:  fmt.Sprintf("Clusters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, Bootstrap_StaticResourcesValidationError{
+						field:  fmt.Sprintf("Clusters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return Bootstrap_StaticResourcesValidationError{
 					field:  fmt.Sprintf("Clusters[%v]", idx),
@@ -1339,7 +2588,26 @@ func (m *Bootstrap_StaticResources) Validate() error {
 	for idx, item := range m.GetSecrets() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, Bootstrap_StaticResourcesValidationError{
+						field:  fmt.Sprintf("Secrets[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, Bootstrap_StaticResourcesValidationError{
+						field:  fmt.Sprintf("Secrets[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return Bootstrap_StaticResourcesValidationError{
 					field:  fmt.Sprintf("Secrets[%v]", idx),
@@ -1351,8 +2619,28 @@ func (m *Bootstrap_StaticResources) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return Bootstrap_StaticResourcesMultiError(errors)
+	}
 	return nil
 }
+
+// Bootstrap_StaticResourcesMultiError is an error wrapping multiple validation
+// errors returned by Bootstrap_StaticResources.ValidateAll() if the
+// designated constraints aren't met.
+type Bootstrap_StaticResourcesMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Bootstrap_StaticResourcesMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Bootstrap_StaticResourcesMultiError) AllErrors() []error { return m }
 
 // Bootstrap_StaticResourcesValidationError is the validation error returned by
 // Bootstrap_StaticResources.Validate if the designated constraints aren't met.
@@ -1412,13 +2700,46 @@ var _ interface {
 
 // Validate checks the field values on Bootstrap_DynamicResources with the
 // rules defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *Bootstrap_DynamicResources) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Bootstrap_DynamicResources with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// Bootstrap_DynamicResourcesMultiError, or nil if none found.
+func (m *Bootstrap_DynamicResources) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Bootstrap_DynamicResources) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetLdsConfig()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetLdsConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, Bootstrap_DynamicResourcesValidationError{
+					field:  "LdsConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, Bootstrap_DynamicResourcesValidationError{
+					field:  "LdsConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLdsConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return Bootstrap_DynamicResourcesValidationError{
 				field:  "LdsConfig",
@@ -1430,7 +2751,26 @@ func (m *Bootstrap_DynamicResources) Validate() error {
 
 	// no validation rules for LdsResourcesLocator
 
-	if v, ok := interface{}(m.GetCdsConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetCdsConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, Bootstrap_DynamicResourcesValidationError{
+					field:  "CdsConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, Bootstrap_DynamicResourcesValidationError{
+					field:  "CdsConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCdsConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return Bootstrap_DynamicResourcesValidationError{
 				field:  "CdsConfig",
@@ -1442,7 +2782,26 @@ func (m *Bootstrap_DynamicResources) Validate() error {
 
 	// no validation rules for CdsResourcesLocator
 
-	if v, ok := interface{}(m.GetAdsConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetAdsConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, Bootstrap_DynamicResourcesValidationError{
+					field:  "AdsConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, Bootstrap_DynamicResourcesValidationError{
+					field:  "AdsConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetAdsConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return Bootstrap_DynamicResourcesValidationError{
 				field:  "AdsConfig",
@@ -1452,8 +2811,28 @@ func (m *Bootstrap_DynamicResources) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return Bootstrap_DynamicResourcesMultiError(errors)
+	}
 	return nil
 }
+
+// Bootstrap_DynamicResourcesMultiError is an error wrapping multiple
+// validation errors returned by Bootstrap_DynamicResources.ValidateAll() if
+// the designated constraints aren't met.
+type Bootstrap_DynamicResourcesMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Bootstrap_DynamicResourcesMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Bootstrap_DynamicResourcesMultiError) AllErrors() []error { return m }
 
 // Bootstrap_DynamicResourcesValidationError is the validation error returned
 // by Bootstrap_DynamicResources.Validate if the designated constraints aren't met.
@@ -1513,15 +2892,48 @@ var _ interface {
 
 // Validate checks the field values on ClusterManager_OutlierDetection with the
 // rules defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *ClusterManager_OutlierDetection) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ClusterManager_OutlierDetection with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the result is a list of violation errors wrapped in
+// ClusterManager_OutlierDetectionMultiError, or nil if none found.
+func (m *ClusterManager_OutlierDetection) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ClusterManager_OutlierDetection) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	// no validation rules for EventLogPath
 
-	if v, ok := interface{}(m.GetEventService()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetEventService()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClusterManager_OutlierDetectionValidationError{
+					field:  "EventService",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClusterManager_OutlierDetectionValidationError{
+					field:  "EventService",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetEventService()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterManager_OutlierDetectionValidationError{
 				field:  "EventService",
@@ -1531,8 +2943,28 @@ func (m *ClusterManager_OutlierDetection) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return ClusterManager_OutlierDetectionMultiError(errors)
+	}
 	return nil
 }
+
+// ClusterManager_OutlierDetectionMultiError is an error wrapping multiple
+// validation errors returned by ClusterManager_OutlierDetection.ValidateAll()
+// if the designated constraints aren't met.
+type ClusterManager_OutlierDetectionMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ClusterManager_OutlierDetectionMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ClusterManager_OutlierDetectionMultiError) AllErrors() []error { return m }
 
 // ClusterManager_OutlierDetectionValidationError is the validation error
 // returned by ClusterManager_OutlierDetection.Validate if the designated
@@ -1593,13 +3025,46 @@ var _ interface {
 
 // Validate checks the field values on Watchdog_WatchdogAction with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *Watchdog_WatchdogAction) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Watchdog_WatchdogAction with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// Watchdog_WatchdogActionMultiError, or nil if none found.
+func (m *Watchdog_WatchdogAction) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Watchdog_WatchdogAction) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, Watchdog_WatchdogActionValidationError{
+					field:  "Config",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, Watchdog_WatchdogActionValidationError{
+					field:  "Config",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return Watchdog_WatchdogActionValidationError{
 				field:  "Config",
@@ -1610,14 +3075,38 @@ func (m *Watchdog_WatchdogAction) Validate() error {
 	}
 
 	if _, ok := Watchdog_WatchdogAction_WatchdogEvent_name[int32(m.GetEvent())]; !ok {
-		return Watchdog_WatchdogActionValidationError{
+		err := Watchdog_WatchdogActionValidationError{
 			field:  "Event",
 			reason: "value must be one of the defined enum values",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
+	if len(errors) > 0 {
+		return Watchdog_WatchdogActionMultiError(errors)
+	}
 	return nil
 }
+
+// Watchdog_WatchdogActionMultiError is an error wrapping multiple validation
+// errors returned by Watchdog_WatchdogAction.ValidateAll() if the designated
+// constraints aren't met.
+type Watchdog_WatchdogActionMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Watchdog_WatchdogActionMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Watchdog_WatchdogActionMultiError) AllErrors() []error { return m }
 
 // Watchdog_WatchdogActionValidationError is the validation error returned by
 // Watchdog_WatchdogAction.Validate if the designated constraints aren't met.
@@ -1677,11 +3166,25 @@ var _ interface {
 
 // Validate checks the field values on RuntimeLayer_DiskLayer with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *RuntimeLayer_DiskLayer) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on RuntimeLayer_DiskLayer with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// RuntimeLayer_DiskLayerMultiError, or nil if none found.
+func (m *RuntimeLayer_DiskLayer) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *RuntimeLayer_DiskLayer) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for SymlinkRoot
 
@@ -1689,8 +3192,28 @@ func (m *RuntimeLayer_DiskLayer) Validate() error {
 
 	// no validation rules for AppendServiceCluster
 
+	if len(errors) > 0 {
+		return RuntimeLayer_DiskLayerMultiError(errors)
+	}
 	return nil
 }
+
+// RuntimeLayer_DiskLayerMultiError is an error wrapping multiple validation
+// errors returned by RuntimeLayer_DiskLayer.ValidateAll() if the designated
+// constraints aren't met.
+type RuntimeLayer_DiskLayerMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m RuntimeLayer_DiskLayerMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m RuntimeLayer_DiskLayerMultiError) AllErrors() []error { return m }
 
 // RuntimeLayer_DiskLayerValidationError is the validation error returned by
 // RuntimeLayer_DiskLayer.Validate if the designated constraints aren't met.
@@ -1750,14 +3273,48 @@ var _ interface {
 
 // Validate checks the field values on RuntimeLayer_AdminLayer with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *RuntimeLayer_AdminLayer) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on RuntimeLayer_AdminLayer with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// RuntimeLayer_AdminLayerMultiError, or nil if none found.
+func (m *RuntimeLayer_AdminLayer) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *RuntimeLayer_AdminLayer) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
+	if len(errors) > 0 {
+		return RuntimeLayer_AdminLayerMultiError(errors)
+	}
 	return nil
 }
+
+// RuntimeLayer_AdminLayerMultiError is an error wrapping multiple validation
+// errors returned by RuntimeLayer_AdminLayer.ValidateAll() if the designated
+// constraints aren't met.
+type RuntimeLayer_AdminLayerMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m RuntimeLayer_AdminLayerMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m RuntimeLayer_AdminLayerMultiError) AllErrors() []error { return m }
 
 // RuntimeLayer_AdminLayerValidationError is the validation error returned by
 // RuntimeLayer_AdminLayer.Validate if the designated constraints aren't met.
@@ -1817,15 +3374,48 @@ var _ interface {
 
 // Validate checks the field values on RuntimeLayer_RtdsLayer with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *RuntimeLayer_RtdsLayer) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on RuntimeLayer_RtdsLayer with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// RuntimeLayer_RtdsLayerMultiError, or nil if none found.
+func (m *RuntimeLayer_RtdsLayer) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *RuntimeLayer_RtdsLayer) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	// no validation rules for Name
 
-	if v, ok := interface{}(m.GetRtdsConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetRtdsConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RuntimeLayer_RtdsLayerValidationError{
+					field:  "RtdsConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RuntimeLayer_RtdsLayerValidationError{
+					field:  "RtdsConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetRtdsConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return RuntimeLayer_RtdsLayerValidationError{
 				field:  "RtdsConfig",
@@ -1835,8 +3425,28 @@ func (m *RuntimeLayer_RtdsLayer) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return RuntimeLayer_RtdsLayerMultiError(errors)
+	}
 	return nil
 }
+
+// RuntimeLayer_RtdsLayerMultiError is an error wrapping multiple validation
+// errors returned by RuntimeLayer_RtdsLayer.ValidateAll() if the designated
+// constraints aren't met.
+type RuntimeLayer_RtdsLayerMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m RuntimeLayer_RtdsLayerMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m RuntimeLayer_RtdsLayerMultiError) AllErrors() []error { return m }
 
 // RuntimeLayer_RtdsLayerValidationError is the validation error returned by
 // RuntimeLayer_RtdsLayer.Validate if the designated constraints aren't met.

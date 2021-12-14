@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -33,22 +34,56 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 
 	_ = core.RoutingPriority(0)
 )
 
 // Validate checks the field values on CircuitBreakers with the rules defined
-// in the proto definition for this message. If any rules are violated, an
-// error is returned.
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
 func (m *CircuitBreakers) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on CircuitBreakers with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// CircuitBreakersMultiError, or nil if none found.
+func (m *CircuitBreakers) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *CircuitBreakers) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	for idx, item := range m.GetThresholds() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, CircuitBreakersValidationError{
+						field:  fmt.Sprintf("Thresholds[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, CircuitBreakersValidationError{
+						field:  fmt.Sprintf("Thresholds[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return CircuitBreakersValidationError{
 					field:  fmt.Sprintf("Thresholds[%v]", idx),
@@ -60,8 +95,28 @@ func (m *CircuitBreakers) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return CircuitBreakersMultiError(errors)
+	}
 	return nil
 }
+
+// CircuitBreakersMultiError is an error wrapping multiple validation errors
+// returned by CircuitBreakers.ValidateAll() if the designated constraints
+// aren't met.
+type CircuitBreakersMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m CircuitBreakersMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m CircuitBreakersMultiError) AllErrors() []error { return m }
 
 // CircuitBreakersValidationError is the validation error returned by
 // CircuitBreakers.Validate if the designated constraints aren't met.
@@ -119,20 +174,57 @@ var _ interface {
 
 // Validate checks the field values on CircuitBreakers_Thresholds with the
 // rules defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *CircuitBreakers_Thresholds) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on CircuitBreakers_Thresholds with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// CircuitBreakers_ThresholdsMultiError, or nil if none found.
+func (m *CircuitBreakers_Thresholds) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *CircuitBreakers_Thresholds) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if _, ok := core.RoutingPriority_name[int32(m.GetPriority())]; !ok {
-		return CircuitBreakers_ThresholdsValidationError{
+		err := CircuitBreakers_ThresholdsValidationError{
 			field:  "Priority",
 			reason: "value must be one of the defined enum values",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
-	if v, ok := interface{}(m.GetMaxConnections()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetMaxConnections()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CircuitBreakers_ThresholdsValidationError{
+					field:  "MaxConnections",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CircuitBreakers_ThresholdsValidationError{
+					field:  "MaxConnections",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMaxConnections()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CircuitBreakers_ThresholdsValidationError{
 				field:  "MaxConnections",
@@ -142,7 +234,26 @@ func (m *CircuitBreakers_Thresholds) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetMaxPendingRequests()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetMaxPendingRequests()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CircuitBreakers_ThresholdsValidationError{
+					field:  "MaxPendingRequests",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CircuitBreakers_ThresholdsValidationError{
+					field:  "MaxPendingRequests",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMaxPendingRequests()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CircuitBreakers_ThresholdsValidationError{
 				field:  "MaxPendingRequests",
@@ -152,7 +263,26 @@ func (m *CircuitBreakers_Thresholds) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetMaxRequests()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetMaxRequests()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CircuitBreakers_ThresholdsValidationError{
+					field:  "MaxRequests",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CircuitBreakers_ThresholdsValidationError{
+					field:  "MaxRequests",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMaxRequests()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CircuitBreakers_ThresholdsValidationError{
 				field:  "MaxRequests",
@@ -162,7 +292,26 @@ func (m *CircuitBreakers_Thresholds) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetMaxRetries()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetMaxRetries()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CircuitBreakers_ThresholdsValidationError{
+					field:  "MaxRetries",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CircuitBreakers_ThresholdsValidationError{
+					field:  "MaxRetries",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMaxRetries()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CircuitBreakers_ThresholdsValidationError{
 				field:  "MaxRetries",
@@ -172,7 +321,26 @@ func (m *CircuitBreakers_Thresholds) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetRetryBudget()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetRetryBudget()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CircuitBreakers_ThresholdsValidationError{
+					field:  "RetryBudget",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CircuitBreakers_ThresholdsValidationError{
+					field:  "RetryBudget",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetRetryBudget()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CircuitBreakers_ThresholdsValidationError{
 				field:  "RetryBudget",
@@ -184,7 +352,26 @@ func (m *CircuitBreakers_Thresholds) Validate() error {
 
 	// no validation rules for TrackRemaining
 
-	if v, ok := interface{}(m.GetMaxConnectionPools()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetMaxConnectionPools()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CircuitBreakers_ThresholdsValidationError{
+					field:  "MaxConnectionPools",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CircuitBreakers_ThresholdsValidationError{
+					field:  "MaxConnectionPools",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMaxConnectionPools()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CircuitBreakers_ThresholdsValidationError{
 				field:  "MaxConnectionPools",
@@ -194,8 +381,28 @@ func (m *CircuitBreakers_Thresholds) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return CircuitBreakers_ThresholdsMultiError(errors)
+	}
 	return nil
 }
+
+// CircuitBreakers_ThresholdsMultiError is an error wrapping multiple
+// validation errors returned by CircuitBreakers_Thresholds.ValidateAll() if
+// the designated constraints aren't met.
+type CircuitBreakers_ThresholdsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m CircuitBreakers_ThresholdsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m CircuitBreakers_ThresholdsMultiError) AllErrors() []error { return m }
 
 // CircuitBreakers_ThresholdsValidationError is the validation error returned
 // by CircuitBreakers_Thresholds.Validate if the designated constraints aren't met.
@@ -255,13 +462,48 @@ var _ interface {
 
 // Validate checks the field values on CircuitBreakers_Thresholds_RetryBudget
 // with the rules defined in the proto definition for this message. If any
-// rules are violated, an error is returned.
+// rules are violated, the first error encountered is returned, or nil if
+// there are no violations.
 func (m *CircuitBreakers_Thresholds_RetryBudget) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// CircuitBreakers_Thresholds_RetryBudget with the rules defined in the proto
+// definition for this message. If any rules are violated, the result is a
+// list of violation errors wrapped in
+// CircuitBreakers_Thresholds_RetryBudgetMultiError, or nil if none found.
+func (m *CircuitBreakers_Thresholds_RetryBudget) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *CircuitBreakers_Thresholds_RetryBudget) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetBudgetPercent()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetBudgetPercent()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CircuitBreakers_Thresholds_RetryBudgetValidationError{
+					field:  "BudgetPercent",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CircuitBreakers_Thresholds_RetryBudgetValidationError{
+					field:  "BudgetPercent",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetBudgetPercent()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CircuitBreakers_Thresholds_RetryBudgetValidationError{
 				field:  "BudgetPercent",
@@ -271,7 +513,26 @@ func (m *CircuitBreakers_Thresholds_RetryBudget) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetMinRetryConcurrency()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetMinRetryConcurrency()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CircuitBreakers_Thresholds_RetryBudgetValidationError{
+					field:  "MinRetryConcurrency",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CircuitBreakers_Thresholds_RetryBudgetValidationError{
+					field:  "MinRetryConcurrency",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMinRetryConcurrency()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CircuitBreakers_Thresholds_RetryBudgetValidationError{
 				field:  "MinRetryConcurrency",
@@ -281,8 +542,29 @@ func (m *CircuitBreakers_Thresholds_RetryBudget) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return CircuitBreakers_Thresholds_RetryBudgetMultiError(errors)
+	}
 	return nil
 }
+
+// CircuitBreakers_Thresholds_RetryBudgetMultiError is an error wrapping
+// multiple validation errors returned by
+// CircuitBreakers_Thresholds_RetryBudget.ValidateAll() if the designated
+// constraints aren't met.
+type CircuitBreakers_Thresholds_RetryBudgetMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m CircuitBreakers_Thresholds_RetryBudgetMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m CircuitBreakers_Thresholds_RetryBudgetMultiError) AllErrors() []error { return m }
 
 // CircuitBreakers_Thresholds_RetryBudgetValidationError is the validation
 // error returned by CircuitBreakers_Thresholds_RetryBudget.Validate if the

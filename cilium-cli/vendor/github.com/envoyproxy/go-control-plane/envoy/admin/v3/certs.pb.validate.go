@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,20 +32,54 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on Certificates with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *Certificates) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Certificates with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in CertificatesMultiError, or
+// nil if none found.
+func (m *Certificates) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Certificates) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	for idx, item := range m.GetCertificates() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, CertificatesValidationError{
+						field:  fmt.Sprintf("Certificates[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, CertificatesValidationError{
+						field:  fmt.Sprintf("Certificates[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return CertificatesValidationError{
 					field:  fmt.Sprintf("Certificates[%v]", idx),
@@ -56,8 +91,27 @@ func (m *Certificates) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return CertificatesMultiError(errors)
+	}
 	return nil
 }
+
+// CertificatesMultiError is an error wrapping multiple validation errors
+// returned by Certificates.ValidateAll() if the designated constraints aren't met.
+type CertificatesMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m CertificatesMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m CertificatesMultiError) AllErrors() []error { return m }
 
 // CertificatesValidationError is the validation error returned by
 // Certificates.Validate if the designated constraints aren't met.
@@ -114,17 +168,50 @@ var _ interface {
 } = CertificatesValidationError{}
 
 // Validate checks the field values on Certificate with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *Certificate) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Certificate with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in CertificateMultiError, or
+// nil if none found.
+func (m *Certificate) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Certificate) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	for idx, item := range m.GetCaCert() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, CertificateValidationError{
+						field:  fmt.Sprintf("CaCert[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, CertificateValidationError{
+						field:  fmt.Sprintf("CaCert[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return CertificateValidationError{
 					field:  fmt.Sprintf("CaCert[%v]", idx),
@@ -139,7 +226,26 @@ func (m *Certificate) Validate() error {
 	for idx, item := range m.GetCertChain() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, CertificateValidationError{
+						field:  fmt.Sprintf("CertChain[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, CertificateValidationError{
+						field:  fmt.Sprintf("CertChain[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return CertificateValidationError{
 					field:  fmt.Sprintf("CertChain[%v]", idx),
@@ -151,8 +257,27 @@ func (m *Certificate) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return CertificateMultiError(errors)
+	}
 	return nil
 }
+
+// CertificateMultiError is an error wrapping multiple validation errors
+// returned by Certificate.ValidateAll() if the designated constraints aren't met.
+type CertificateMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m CertificateMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m CertificateMultiError) AllErrors() []error { return m }
 
 // CertificateValidationError is the validation error returned by
 // Certificate.Validate if the designated constraints aren't met.
@@ -210,11 +335,25 @@ var _ interface {
 
 // Validate checks the field values on CertificateDetails with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *CertificateDetails) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on CertificateDetails with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// CertificateDetailsMultiError, or nil if none found.
+func (m *CertificateDetails) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *CertificateDetails) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for Path
 
@@ -223,7 +362,26 @@ func (m *CertificateDetails) Validate() error {
 	for idx, item := range m.GetSubjectAltNames() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, CertificateDetailsValidationError{
+						field:  fmt.Sprintf("SubjectAltNames[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, CertificateDetailsValidationError{
+						field:  fmt.Sprintf("SubjectAltNames[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return CertificateDetailsValidationError{
 					field:  fmt.Sprintf("SubjectAltNames[%v]", idx),
@@ -237,7 +395,26 @@ func (m *CertificateDetails) Validate() error {
 
 	// no validation rules for DaysUntilExpiration
 
-	if v, ok := interface{}(m.GetValidFrom()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetValidFrom()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CertificateDetailsValidationError{
+					field:  "ValidFrom",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CertificateDetailsValidationError{
+					field:  "ValidFrom",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetValidFrom()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CertificateDetailsValidationError{
 				field:  "ValidFrom",
@@ -247,7 +424,26 @@ func (m *CertificateDetails) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetExpirationTime()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetExpirationTime()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CertificateDetailsValidationError{
+					field:  "ExpirationTime",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CertificateDetailsValidationError{
+					field:  "ExpirationTime",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetExpirationTime()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CertificateDetailsValidationError{
 				field:  "ExpirationTime",
@@ -257,7 +453,26 @@ func (m *CertificateDetails) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetOcspDetails()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetOcspDetails()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CertificateDetailsValidationError{
+					field:  "OcspDetails",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CertificateDetailsValidationError{
+					field:  "OcspDetails",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetOcspDetails()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CertificateDetailsValidationError{
 				field:  "OcspDetails",
@@ -267,8 +482,28 @@ func (m *CertificateDetails) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return CertificateDetailsMultiError(errors)
+	}
 	return nil
 }
+
+// CertificateDetailsMultiError is an error wrapping multiple validation errors
+// returned by CertificateDetails.ValidateAll() if the designated constraints
+// aren't met.
+type CertificateDetailsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m CertificateDetailsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m CertificateDetailsMultiError) AllErrors() []error { return m }
 
 // CertificateDetailsValidationError is the validation error returned by
 // CertificateDetails.Validate if the designated constraints aren't met.
@@ -328,11 +563,25 @@ var _ interface {
 
 // Validate checks the field values on SubjectAlternateName with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *SubjectAlternateName) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on SubjectAlternateName with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// SubjectAlternateNameMultiError, or nil if none found.
+func (m *SubjectAlternateName) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *SubjectAlternateName) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	switch m.Name.(type) {
 
@@ -347,8 +596,28 @@ func (m *SubjectAlternateName) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return SubjectAlternateNameMultiError(errors)
+	}
 	return nil
 }
+
+// SubjectAlternateNameMultiError is an error wrapping multiple validation
+// errors returned by SubjectAlternateName.ValidateAll() if the designated
+// constraints aren't met.
+type SubjectAlternateNameMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m SubjectAlternateNameMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m SubjectAlternateNameMultiError) AllErrors() []error { return m }
 
 // SubjectAlternateNameValidationError is the validation error returned by
 // SubjectAlternateName.Validate if the designated constraints aren't met.
@@ -408,13 +677,46 @@ var _ interface {
 
 // Validate checks the field values on CertificateDetails_OcspDetails with the
 // rules defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *CertificateDetails_OcspDetails) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on CertificateDetails_OcspDetails with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the result is a list of violation errors wrapped in
+// CertificateDetails_OcspDetailsMultiError, or nil if none found.
+func (m *CertificateDetails_OcspDetails) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *CertificateDetails_OcspDetails) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetValidFrom()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetValidFrom()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CertificateDetails_OcspDetailsValidationError{
+					field:  "ValidFrom",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CertificateDetails_OcspDetailsValidationError{
+					field:  "ValidFrom",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetValidFrom()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CertificateDetails_OcspDetailsValidationError{
 				field:  "ValidFrom",
@@ -424,7 +726,26 @@ func (m *CertificateDetails_OcspDetails) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetExpiration()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetExpiration()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CertificateDetails_OcspDetailsValidationError{
+					field:  "Expiration",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CertificateDetails_OcspDetailsValidationError{
+					field:  "Expiration",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetExpiration()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CertificateDetails_OcspDetailsValidationError{
 				field:  "Expiration",
@@ -434,8 +755,28 @@ func (m *CertificateDetails_OcspDetails) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return CertificateDetails_OcspDetailsMultiError(errors)
+	}
 	return nil
 }
+
+// CertificateDetails_OcspDetailsMultiError is an error wrapping multiple
+// validation errors returned by CertificateDetails_OcspDetails.ValidateAll()
+// if the designated constraints aren't met.
+type CertificateDetails_OcspDetailsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m CertificateDetails_OcspDetailsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m CertificateDetails_OcspDetailsMultiError) AllErrors() []error { return m }
 
 // CertificateDetails_OcspDetailsValidationError is the validation error
 // returned by CertificateDetails_OcspDetails.Validate if the designated

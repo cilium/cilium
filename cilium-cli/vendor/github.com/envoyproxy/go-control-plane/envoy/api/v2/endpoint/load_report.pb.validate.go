@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,17 +32,51 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on UpstreamLocalityStats with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *UpstreamLocalityStats) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on UpstreamLocalityStats with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// UpstreamLocalityStatsMultiError, or nil if none found.
+func (m *UpstreamLocalityStats) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *UpstreamLocalityStats) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetLocality()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetLocality()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, UpstreamLocalityStatsValidationError{
+					field:  "Locality",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, UpstreamLocalityStatsValidationError{
+					field:  "Locality",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLocality()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return UpstreamLocalityStatsValidationError{
 				field:  "Locality",
@@ -62,7 +97,26 @@ func (m *UpstreamLocalityStats) Validate() error {
 	for idx, item := range m.GetLoadMetricStats() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, UpstreamLocalityStatsValidationError{
+						field:  fmt.Sprintf("LoadMetricStats[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, UpstreamLocalityStatsValidationError{
+						field:  fmt.Sprintf("LoadMetricStats[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return UpstreamLocalityStatsValidationError{
 					field:  fmt.Sprintf("LoadMetricStats[%v]", idx),
@@ -77,7 +131,26 @@ func (m *UpstreamLocalityStats) Validate() error {
 	for idx, item := range m.GetUpstreamEndpointStats() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, UpstreamLocalityStatsValidationError{
+						field:  fmt.Sprintf("UpstreamEndpointStats[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, UpstreamLocalityStatsValidationError{
+						field:  fmt.Sprintf("UpstreamEndpointStats[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return UpstreamLocalityStatsValidationError{
 					field:  fmt.Sprintf("UpstreamEndpointStats[%v]", idx),
@@ -91,8 +164,28 @@ func (m *UpstreamLocalityStats) Validate() error {
 
 	// no validation rules for Priority
 
+	if len(errors) > 0 {
+		return UpstreamLocalityStatsMultiError(errors)
+	}
 	return nil
 }
+
+// UpstreamLocalityStatsMultiError is an error wrapping multiple validation
+// errors returned by UpstreamLocalityStats.ValidateAll() if the designated
+// constraints aren't met.
+type UpstreamLocalityStatsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m UpstreamLocalityStatsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m UpstreamLocalityStatsMultiError) AllErrors() []error { return m }
 
 // UpstreamLocalityStatsValidationError is the validation error returned by
 // UpstreamLocalityStats.Validate if the designated constraints aren't met.
@@ -152,13 +245,46 @@ var _ interface {
 
 // Validate checks the field values on UpstreamEndpointStats with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *UpstreamEndpointStats) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on UpstreamEndpointStats with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// UpstreamEndpointStatsMultiError, or nil if none found.
+func (m *UpstreamEndpointStats) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *UpstreamEndpointStats) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetAddress()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, UpstreamEndpointStatsValidationError{
+					field:  "Address",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, UpstreamEndpointStatsValidationError{
+					field:  "Address",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return UpstreamEndpointStatsValidationError{
 				field:  "Address",
@@ -168,7 +294,26 @@ func (m *UpstreamEndpointStats) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetMetadata()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetMetadata()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, UpstreamEndpointStatsValidationError{
+					field:  "Metadata",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, UpstreamEndpointStatsValidationError{
+					field:  "Metadata",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMetadata()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return UpstreamEndpointStatsValidationError{
 				field:  "Metadata",
@@ -189,7 +334,26 @@ func (m *UpstreamEndpointStats) Validate() error {
 	for idx, item := range m.GetLoadMetricStats() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, UpstreamEndpointStatsValidationError{
+						field:  fmt.Sprintf("LoadMetricStats[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, UpstreamEndpointStatsValidationError{
+						field:  fmt.Sprintf("LoadMetricStats[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return UpstreamEndpointStatsValidationError{
 					field:  fmt.Sprintf("LoadMetricStats[%v]", idx),
@@ -201,8 +365,28 @@ func (m *UpstreamEndpointStats) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return UpstreamEndpointStatsMultiError(errors)
+	}
 	return nil
 }
+
+// UpstreamEndpointStatsMultiError is an error wrapping multiple validation
+// errors returned by UpstreamEndpointStats.ValidateAll() if the designated
+// constraints aren't met.
+type UpstreamEndpointStatsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m UpstreamEndpointStatsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m UpstreamEndpointStatsMultiError) AllErrors() []error { return m }
 
 // UpstreamEndpointStatsValidationError is the validation error returned by
 // UpstreamEndpointStats.Validate if the designated constraints aren't met.
@@ -262,11 +446,25 @@ var _ interface {
 
 // Validate checks the field values on EndpointLoadMetricStats with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *EndpointLoadMetricStats) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on EndpointLoadMetricStats with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// EndpointLoadMetricStatsMultiError, or nil if none found.
+func (m *EndpointLoadMetricStats) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *EndpointLoadMetricStats) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for MetricName
 
@@ -274,8 +472,28 @@ func (m *EndpointLoadMetricStats) Validate() error {
 
 	// no validation rules for TotalMetricValue
 
+	if len(errors) > 0 {
+		return EndpointLoadMetricStatsMultiError(errors)
+	}
 	return nil
 }
+
+// EndpointLoadMetricStatsMultiError is an error wrapping multiple validation
+// errors returned by EndpointLoadMetricStats.ValidateAll() if the designated
+// constraints aren't met.
+type EndpointLoadMetricStatsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m EndpointLoadMetricStatsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m EndpointLoadMetricStatsMultiError) AllErrors() []error { return m }
 
 // EndpointLoadMetricStatsValidationError is the validation error returned by
 // EndpointLoadMetricStats.Validate if the designated constraints aren't met.
@@ -334,33 +552,74 @@ var _ interface {
 } = EndpointLoadMetricStatsValidationError{}
 
 // Validate checks the field values on ClusterStats with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *ClusterStats) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ClusterStats with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in ClusterStatsMultiError, or
+// nil if none found.
+func (m *ClusterStats) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ClusterStats) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if len(m.GetClusterName()) < 1 {
-		return ClusterStatsValidationError{
+		err := ClusterStatsValidationError{
 			field:  "ClusterName",
 			reason: "value length must be at least 1 bytes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	// no validation rules for ClusterServiceName
 
 	if len(m.GetUpstreamLocalityStats()) < 1 {
-		return ClusterStatsValidationError{
+		err := ClusterStatsValidationError{
 			field:  "UpstreamLocalityStats",
 			reason: "value must contain at least 1 item(s)",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	for idx, item := range m.GetUpstreamLocalityStats() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ClusterStatsValidationError{
+						field:  fmt.Sprintf("UpstreamLocalityStats[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ClusterStatsValidationError{
+						field:  fmt.Sprintf("UpstreamLocalityStats[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ClusterStatsValidationError{
 					field:  fmt.Sprintf("UpstreamLocalityStats[%v]", idx),
@@ -377,7 +636,26 @@ func (m *ClusterStats) Validate() error {
 	for idx, item := range m.GetDroppedRequests() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ClusterStatsValidationError{
+						field:  fmt.Sprintf("DroppedRequests[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ClusterStatsValidationError{
+						field:  fmt.Sprintf("DroppedRequests[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ClusterStatsValidationError{
 					field:  fmt.Sprintf("DroppedRequests[%v]", idx),
@@ -389,7 +667,26 @@ func (m *ClusterStats) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetLoadReportInterval()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetLoadReportInterval()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClusterStatsValidationError{
+					field:  "LoadReportInterval",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClusterStatsValidationError{
+					field:  "LoadReportInterval",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLoadReportInterval()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterStatsValidationError{
 				field:  "LoadReportInterval",
@@ -399,8 +696,27 @@ func (m *ClusterStats) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return ClusterStatsMultiError(errors)
+	}
 	return nil
 }
+
+// ClusterStatsMultiError is an error wrapping multiple validation errors
+// returned by ClusterStats.ValidateAll() if the designated constraints aren't met.
+type ClusterStatsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ClusterStatsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ClusterStatsMultiError) AllErrors() []error { return m }
 
 // ClusterStatsValidationError is the validation error returned by
 // ClusterStats.Validate if the designated constraints aren't met.
@@ -458,23 +774,61 @@ var _ interface {
 
 // Validate checks the field values on ClusterStats_DroppedRequests with the
 // rules defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *ClusterStats_DroppedRequests) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ClusterStats_DroppedRequests with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ClusterStats_DroppedRequestsMultiError, or nil if none found.
+func (m *ClusterStats_DroppedRequests) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ClusterStats_DroppedRequests) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if len(m.GetCategory()) < 1 {
-		return ClusterStats_DroppedRequestsValidationError{
+		err := ClusterStats_DroppedRequestsValidationError{
 			field:  "Category",
 			reason: "value length must be at least 1 bytes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	// no validation rules for DroppedCount
 
+	if len(errors) > 0 {
+		return ClusterStats_DroppedRequestsMultiError(errors)
+	}
 	return nil
 }
+
+// ClusterStats_DroppedRequestsMultiError is an error wrapping multiple
+// validation errors returned by ClusterStats_DroppedRequests.ValidateAll() if
+// the designated constraints aren't met.
+type ClusterStats_DroppedRequestsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ClusterStats_DroppedRequestsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ClusterStats_DroppedRequestsMultiError) AllErrors() []error { return m }
 
 // ClusterStats_DroppedRequestsValidationError is the validation error returned
 // by ClusterStats_DroppedRequests.Validate if the designated constraints

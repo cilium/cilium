@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,20 +32,55 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on HashPolicy with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *HashPolicy) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on HashPolicy with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in HashPolicyMultiError, or
+// nil if none found.
+func (m *HashPolicy) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HashPolicy) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	switch m.PolicySpecifier.(type) {
 
 	case *HashPolicy_SourceIp_:
 
-		if v, ok := interface{}(m.GetSourceIp()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetSourceIp()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HashPolicyValidationError{
+						field:  "SourceIp",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HashPolicyValidationError{
+						field:  "SourceIp",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetSourceIp()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HashPolicyValidationError{
 					field:  "SourceIp",
@@ -55,15 +91,38 @@ func (m *HashPolicy) Validate() error {
 		}
 
 	default:
-		return HashPolicyValidationError{
+		err := HashPolicyValidationError{
 			field:  "PolicySpecifier",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 
 	}
 
+	if len(errors) > 0 {
+		return HashPolicyMultiError(errors)
+	}
 	return nil
 }
+
+// HashPolicyMultiError is an error wrapping multiple validation errors
+// returned by HashPolicy.ValidateAll() if the designated constraints aren't met.
+type HashPolicyMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HashPolicyMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HashPolicyMultiError) AllErrors() []error { return m }
 
 // HashPolicyValidationError is the validation error returned by
 // HashPolicy.Validate if the designated constraints aren't met.
@@ -121,14 +180,48 @@ var _ interface {
 
 // Validate checks the field values on HashPolicy_SourceIp with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *HashPolicy_SourceIp) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on HashPolicy_SourceIp with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// HashPolicy_SourceIpMultiError, or nil if none found.
+func (m *HashPolicy_SourceIp) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HashPolicy_SourceIp) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
+	if len(errors) > 0 {
+		return HashPolicy_SourceIpMultiError(errors)
+	}
 	return nil
 }
+
+// HashPolicy_SourceIpMultiError is an error wrapping multiple validation
+// errors returned by HashPolicy_SourceIp.ValidateAll() if the designated
+// constraints aren't met.
+type HashPolicy_SourceIpMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HashPolicy_SourceIpMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HashPolicy_SourceIpMultiError) AllErrors() []error { return m }
 
 // HashPolicy_SourceIpValidationError is the validation error returned by
 // HashPolicy_SourceIp.Validate if the designated constraints aren't met.

@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,28 +32,66 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on ResourceMonitor with the rules defined
-// in the proto definition for this message. If any rules are violated, an
-// error is returned.
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
 func (m *ResourceMonitor) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ResourceMonitor with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ResourceMonitorMultiError, or nil if none found.
+func (m *ResourceMonitor) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ResourceMonitor) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if utf8.RuneCountInString(m.GetName()) < 1 {
-		return ResourceMonitorValidationError{
+		err := ResourceMonitorValidationError{
 			field:  "Name",
 			reason: "value length must be at least 1 runes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	switch m.ConfigType.(type) {
 
 	case *ResourceMonitor_TypedConfig:
 
-		if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetTypedConfig()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ResourceMonitorValidationError{
+						field:  "TypedConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ResourceMonitorValidationError{
+						field:  "TypedConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ResourceMonitorValidationError{
 					field:  "TypedConfig",
@@ -62,22 +101,30 @@ func (m *ResourceMonitor) Validate() error {
 			}
 		}
 
-	case *ResourceMonitor_HiddenEnvoyDeprecatedConfig:
-
-		if v, ok := interface{}(m.GetHiddenEnvoyDeprecatedConfig()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return ResourceMonitorValidationError{
-					field:  "HiddenEnvoyDeprecatedConfig",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
-			}
-		}
-
 	}
 
+	if len(errors) > 0 {
+		return ResourceMonitorMultiError(errors)
+	}
 	return nil
 }
+
+// ResourceMonitorMultiError is an error wrapping multiple validation errors
+// returned by ResourceMonitor.ValidateAll() if the designated constraints
+// aren't met.
+type ResourceMonitorMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ResourceMonitorMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ResourceMonitorMultiError) AllErrors() []error { return m }
 
 // ResourceMonitorValidationError is the validation error returned by
 // ResourceMonitor.Validate if the designated constraints aren't met.
@@ -134,22 +181,60 @@ var _ interface {
 } = ResourceMonitorValidationError{}
 
 // Validate checks the field values on ThresholdTrigger with the rules defined
-// in the proto definition for this message. If any rules are violated, an
-// error is returned.
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
 func (m *ThresholdTrigger) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ThresholdTrigger with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ThresholdTriggerMultiError, or nil if none found.
+func (m *ThresholdTrigger) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ThresholdTrigger) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if val := m.GetValue(); val < 0 || val > 1 {
-		return ThresholdTriggerValidationError{
+		err := ThresholdTriggerValidationError{
 			field:  "Value",
 			reason: "value must be inside range [0, 1]",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
+	if len(errors) > 0 {
+		return ThresholdTriggerMultiError(errors)
+	}
 	return nil
 }
+
+// ThresholdTriggerMultiError is an error wrapping multiple validation errors
+// returned by ThresholdTrigger.ValidateAll() if the designated constraints
+// aren't met.
+type ThresholdTriggerMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ThresholdTriggerMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ThresholdTriggerMultiError) AllErrors() []error { return m }
 
 // ThresholdTriggerValidationError is the validation error returned by
 // ThresholdTrigger.Validate if the designated constraints aren't met.
@@ -206,29 +291,71 @@ var _ interface {
 } = ThresholdTriggerValidationError{}
 
 // Validate checks the field values on ScaledTrigger with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *ScaledTrigger) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ScaledTrigger with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in ScaledTriggerMultiError, or
+// nil if none found.
+func (m *ScaledTrigger) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ScaledTrigger) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if val := m.GetScalingThreshold(); val < 0 || val > 1 {
-		return ScaledTriggerValidationError{
+		err := ScaledTriggerValidationError{
 			field:  "ScalingThreshold",
 			reason: "value must be inside range [0, 1]",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if val := m.GetSaturationThreshold(); val < 0 || val > 1 {
-		return ScaledTriggerValidationError{
+		err := ScaledTriggerValidationError{
 			field:  "SaturationThreshold",
 			reason: "value must be inside range [0, 1]",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
+	if len(errors) > 0 {
+		return ScaledTriggerMultiError(errors)
+	}
 	return nil
 }
+
+// ScaledTriggerMultiError is an error wrapping multiple validation errors
+// returned by ScaledTrigger.ValidateAll() if the designated constraints
+// aren't met.
+type ScaledTriggerMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ScaledTriggerMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ScaledTriggerMultiError) AllErrors() []error { return m }
 
 // ScaledTriggerValidationError is the validation error returned by
 // ScaledTrigger.Validate if the designated constraints aren't met.
@@ -285,24 +412,61 @@ var _ interface {
 } = ScaledTriggerValidationError{}
 
 // Validate checks the field values on Trigger with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *Trigger) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Trigger with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in TriggerMultiError, or nil if none found.
+func (m *Trigger) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Trigger) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if utf8.RuneCountInString(m.GetName()) < 1 {
-		return TriggerValidationError{
+		err := TriggerValidationError{
 			field:  "Name",
 			reason: "value length must be at least 1 runes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	switch m.TriggerOneof.(type) {
 
 	case *Trigger_Threshold:
 
-		if v, ok := interface{}(m.GetThreshold()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetThreshold()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, TriggerValidationError{
+						field:  "Threshold",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, TriggerValidationError{
+						field:  "Threshold",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetThreshold()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return TriggerValidationError{
 					field:  "Threshold",
@@ -314,7 +478,26 @@ func (m *Trigger) Validate() error {
 
 	case *Trigger_Scaled:
 
-		if v, ok := interface{}(m.GetScaled()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetScaled()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, TriggerValidationError{
+						field:  "Scaled",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, TriggerValidationError{
+						field:  "Scaled",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetScaled()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return TriggerValidationError{
 					field:  "Scaled",
@@ -325,15 +508,38 @@ func (m *Trigger) Validate() error {
 		}
 
 	default:
-		return TriggerValidationError{
+		err := TriggerValidationError{
 			field:  "TriggerOneof",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 
 	}
 
+	if len(errors) > 0 {
+		return TriggerMultiError(errors)
+	}
 	return nil
 }
+
+// TriggerMultiError is an error wrapping multiple validation errors returned
+// by Trigger.ValidateAll() if the designated constraints aren't met.
+type TriggerMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m TriggerMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m TriggerMultiError) AllErrors() []error { return m }
 
 // TriggerValidationError is the validation error returned by Trigger.Validate
 // if the designated constraints aren't met.
@@ -391,23 +597,60 @@ var _ interface {
 
 // Validate checks the field values on ScaleTimersOverloadActionConfig with the
 // rules defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *ScaleTimersOverloadActionConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ScaleTimersOverloadActionConfig with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the result is a list of violation errors wrapped in
+// ScaleTimersOverloadActionConfigMultiError, or nil if none found.
+func (m *ScaleTimersOverloadActionConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ScaleTimersOverloadActionConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if len(m.GetTimerScaleFactors()) < 1 {
-		return ScaleTimersOverloadActionConfigValidationError{
+		err := ScaleTimersOverloadActionConfigValidationError{
 			field:  "TimerScaleFactors",
 			reason: "value must contain at least 1 item(s)",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	for idx, item := range m.GetTimerScaleFactors() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ScaleTimersOverloadActionConfigValidationError{
+						field:  fmt.Sprintf("TimerScaleFactors[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ScaleTimersOverloadActionConfigValidationError{
+						field:  fmt.Sprintf("TimerScaleFactors[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ScaleTimersOverloadActionConfigValidationError{
 					field:  fmt.Sprintf("TimerScaleFactors[%v]", idx),
@@ -419,8 +662,28 @@ func (m *ScaleTimersOverloadActionConfig) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return ScaleTimersOverloadActionConfigMultiError(errors)
+	}
 	return nil
 }
+
+// ScaleTimersOverloadActionConfigMultiError is an error wrapping multiple
+// validation errors returned by ScaleTimersOverloadActionConfig.ValidateAll()
+// if the designated constraints aren't met.
+type ScaleTimersOverloadActionConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ScaleTimersOverloadActionConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ScaleTimersOverloadActionConfigMultiError) AllErrors() []error { return m }
 
 // ScaleTimersOverloadActionConfigValidationError is the validation error
 // returned by ScaleTimersOverloadActionConfig.Validate if the designated
@@ -480,31 +743,72 @@ var _ interface {
 } = ScaleTimersOverloadActionConfigValidationError{}
 
 // Validate checks the field values on OverloadAction with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *OverloadAction) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on OverloadAction with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in OverloadActionMultiError,
+// or nil if none found.
+func (m *OverloadAction) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *OverloadAction) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if utf8.RuneCountInString(m.GetName()) < 1 {
-		return OverloadActionValidationError{
+		err := OverloadActionValidationError{
 			field:  "Name",
 			reason: "value length must be at least 1 runes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if len(m.GetTriggers()) < 1 {
-		return OverloadActionValidationError{
+		err := OverloadActionValidationError{
 			field:  "Triggers",
 			reason: "value must contain at least 1 item(s)",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	for idx, item := range m.GetTriggers() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, OverloadActionValidationError{
+						field:  fmt.Sprintf("Triggers[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, OverloadActionValidationError{
+						field:  fmt.Sprintf("Triggers[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return OverloadActionValidationError{
 					field:  fmt.Sprintf("Triggers[%v]", idx),
@@ -516,7 +820,26 @@ func (m *OverloadAction) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetTypedConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, OverloadActionValidationError{
+					field:  "TypedConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, OverloadActionValidationError{
+					field:  "TypedConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return OverloadActionValidationError{
 				field:  "TypedConfig",
@@ -526,8 +849,28 @@ func (m *OverloadAction) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return OverloadActionMultiError(errors)
+	}
 	return nil
 }
+
+// OverloadActionMultiError is an error wrapping multiple validation errors
+// returned by OverloadAction.ValidateAll() if the designated constraints
+// aren't met.
+type OverloadActionMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m OverloadActionMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m OverloadActionMultiError) AllErrors() []error { return m }
 
 // OverloadActionValidationError is the validation error returned by
 // OverloadAction.Validate if the designated constraints aren't met.
@@ -585,21 +928,59 @@ var _ interface {
 
 // Validate checks the field values on BufferFactoryConfig with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *BufferFactoryConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on BufferFactoryConfig with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// BufferFactoryConfigMultiError, or nil if none found.
+func (m *BufferFactoryConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *BufferFactoryConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if val := m.GetMinimumAccountToTrackPowerOfTwo(); val < 10 || val > 56 {
-		return BufferFactoryConfigValidationError{
+		err := BufferFactoryConfigValidationError{
 			field:  "MinimumAccountToTrackPowerOfTwo",
 			reason: "value must be inside range [10, 56]",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
+	if len(errors) > 0 {
+		return BufferFactoryConfigMultiError(errors)
+	}
 	return nil
 }
+
+// BufferFactoryConfigMultiError is an error wrapping multiple validation
+// errors returned by BufferFactoryConfig.ValidateAll() if the designated
+// constraints aren't met.
+type BufferFactoryConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m BufferFactoryConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m BufferFactoryConfigMultiError) AllErrors() []error { return m }
 
 // BufferFactoryConfigValidationError is the validation error returned by
 // BufferFactoryConfig.Validate if the designated constraints aren't met.
@@ -658,14 +1039,47 @@ var _ interface {
 } = BufferFactoryConfigValidationError{}
 
 // Validate checks the field values on OverloadManager with the rules defined
-// in the proto definition for this message. If any rules are violated, an
-// error is returned.
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
 func (m *OverloadManager) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on OverloadManager with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// OverloadManagerMultiError, or nil if none found.
+func (m *OverloadManager) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *OverloadManager) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetRefreshInterval()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetRefreshInterval()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, OverloadManagerValidationError{
+					field:  "RefreshInterval",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, OverloadManagerValidationError{
+					field:  "RefreshInterval",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetRefreshInterval()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return OverloadManagerValidationError{
 				field:  "RefreshInterval",
@@ -676,16 +1090,39 @@ func (m *OverloadManager) Validate() error {
 	}
 
 	if len(m.GetResourceMonitors()) < 1 {
-		return OverloadManagerValidationError{
+		err := OverloadManagerValidationError{
 			field:  "ResourceMonitors",
 			reason: "value must contain at least 1 item(s)",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	for idx, item := range m.GetResourceMonitors() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, OverloadManagerValidationError{
+						field:  fmt.Sprintf("ResourceMonitors[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, OverloadManagerValidationError{
+						field:  fmt.Sprintf("ResourceMonitors[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return OverloadManagerValidationError{
 					field:  fmt.Sprintf("ResourceMonitors[%v]", idx),
@@ -700,7 +1137,26 @@ func (m *OverloadManager) Validate() error {
 	for idx, item := range m.GetActions() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, OverloadManagerValidationError{
+						field:  fmt.Sprintf("Actions[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, OverloadManagerValidationError{
+						field:  fmt.Sprintf("Actions[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return OverloadManagerValidationError{
 					field:  fmt.Sprintf("Actions[%v]", idx),
@@ -712,7 +1168,26 @@ func (m *OverloadManager) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetBufferFactoryConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetBufferFactoryConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, OverloadManagerValidationError{
+					field:  "BufferFactoryConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, OverloadManagerValidationError{
+					field:  "BufferFactoryConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetBufferFactoryConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return OverloadManagerValidationError{
 				field:  "BufferFactoryConfig",
@@ -722,8 +1197,28 @@ func (m *OverloadManager) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return OverloadManagerMultiError(errors)
+	}
 	return nil
 }
+
+// OverloadManagerMultiError is an error wrapping multiple validation errors
+// returned by OverloadManager.ValidateAll() if the designated constraints
+// aren't met.
+type OverloadManagerMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m OverloadManagerMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m OverloadManagerMultiError) AllErrors() []error { return m }
 
 // OverloadManagerValidationError is the validation error returned by
 // OverloadManager.Validate if the designated constraints aren't met.
@@ -781,31 +1276,74 @@ var _ interface {
 
 // Validate checks the field values on
 // ScaleTimersOverloadActionConfig_ScaleTimer with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *ScaleTimersOverloadActionConfig_ScaleTimer) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// ScaleTimersOverloadActionConfig_ScaleTimer with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in
+// ScaleTimersOverloadActionConfig_ScaleTimerMultiError, or nil if none found.
+func (m *ScaleTimersOverloadActionConfig_ScaleTimer) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ScaleTimersOverloadActionConfig_ScaleTimer) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if _, ok := _ScaleTimersOverloadActionConfig_ScaleTimer_Timer_NotInLookup[m.GetTimer()]; ok {
-		return ScaleTimersOverloadActionConfig_ScaleTimerValidationError{
+		err := ScaleTimersOverloadActionConfig_ScaleTimerValidationError{
 			field:  "Timer",
 			reason: "value must not be in list [0]",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if _, ok := ScaleTimersOverloadActionConfig_TimerType_name[int32(m.GetTimer())]; !ok {
-		return ScaleTimersOverloadActionConfig_ScaleTimerValidationError{
+		err := ScaleTimersOverloadActionConfig_ScaleTimerValidationError{
 			field:  "Timer",
 			reason: "value must be one of the defined enum values",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	switch m.OverloadAdjust.(type) {
 
 	case *ScaleTimersOverloadActionConfig_ScaleTimer_MinTimeout:
 
-		if v, ok := interface{}(m.GetMinTimeout()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetMinTimeout()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ScaleTimersOverloadActionConfig_ScaleTimerValidationError{
+						field:  "MinTimeout",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ScaleTimersOverloadActionConfig_ScaleTimerValidationError{
+						field:  "MinTimeout",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetMinTimeout()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ScaleTimersOverloadActionConfig_ScaleTimerValidationError{
 					field:  "MinTimeout",
@@ -817,7 +1355,26 @@ func (m *ScaleTimersOverloadActionConfig_ScaleTimer) Validate() error {
 
 	case *ScaleTimersOverloadActionConfig_ScaleTimer_MinScale:
 
-		if v, ok := interface{}(m.GetMinScale()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetMinScale()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ScaleTimersOverloadActionConfig_ScaleTimerValidationError{
+						field:  "MinScale",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ScaleTimersOverloadActionConfig_ScaleTimerValidationError{
+						field:  "MinScale",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetMinScale()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ScaleTimersOverloadActionConfig_ScaleTimerValidationError{
 					field:  "MinScale",
@@ -828,15 +1385,40 @@ func (m *ScaleTimersOverloadActionConfig_ScaleTimer) Validate() error {
 		}
 
 	default:
-		return ScaleTimersOverloadActionConfig_ScaleTimerValidationError{
+		err := ScaleTimersOverloadActionConfig_ScaleTimerValidationError{
 			field:  "OverloadAdjust",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 
 	}
 
+	if len(errors) > 0 {
+		return ScaleTimersOverloadActionConfig_ScaleTimerMultiError(errors)
+	}
 	return nil
 }
+
+// ScaleTimersOverloadActionConfig_ScaleTimerMultiError is an error wrapping
+// multiple validation errors returned by
+// ScaleTimersOverloadActionConfig_ScaleTimer.ValidateAll() if the designated
+// constraints aren't met.
+type ScaleTimersOverloadActionConfig_ScaleTimerMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ScaleTimersOverloadActionConfig_ScaleTimerMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ScaleTimersOverloadActionConfig_ScaleTimerMultiError) AllErrors() []error { return m }
 
 // ScaleTimersOverloadActionConfig_ScaleTimerValidationError is the validation
 // error returned by ScaleTimersOverloadActionConfig_ScaleTimer.Validate if

@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,14 +32,30 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on StatsSink with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *StatsSink) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on StatsSink with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in StatsSinkMultiError, or nil
+// if none found.
+func (m *StatsSink) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *StatsSink) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for Name
 
@@ -46,7 +63,26 @@ func (m *StatsSink) Validate() error {
 
 	case *StatsSink_TypedConfig:
 
-		if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetTypedConfig()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, StatsSinkValidationError{
+						field:  "TypedConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, StatsSinkValidationError{
+						field:  "TypedConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return StatsSinkValidationError{
 					field:  "TypedConfig",
@@ -56,22 +92,29 @@ func (m *StatsSink) Validate() error {
 			}
 		}
 
-	case *StatsSink_HiddenEnvoyDeprecatedConfig:
-
-		if v, ok := interface{}(m.GetHiddenEnvoyDeprecatedConfig()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return StatsSinkValidationError{
-					field:  "HiddenEnvoyDeprecatedConfig",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
-			}
-		}
-
 	}
 
+	if len(errors) > 0 {
+		return StatsSinkMultiError(errors)
+	}
 	return nil
 }
+
+// StatsSinkMultiError is an error wrapping multiple validation errors returned
+// by StatsSink.ValidateAll() if the designated constraints aren't met.
+type StatsSinkMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m StatsSinkMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m StatsSinkMultiError) AllErrors() []error { return m }
 
 // StatsSinkValidationError is the validation error returned by
 // StatsSink.Validate if the designated constraints aren't met.
@@ -128,17 +171,50 @@ var _ interface {
 } = StatsSinkValidationError{}
 
 // Validate checks the field values on StatsConfig with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *StatsConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on StatsConfig with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in StatsConfigMultiError, or
+// nil if none found.
+func (m *StatsConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *StatsConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	for idx, item := range m.GetStatsTags() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, StatsConfigValidationError{
+						field:  fmt.Sprintf("StatsTags[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, StatsConfigValidationError{
+						field:  fmt.Sprintf("StatsTags[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return StatsConfigValidationError{
 					field:  fmt.Sprintf("StatsTags[%v]", idx),
@@ -150,7 +226,26 @@ func (m *StatsConfig) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetUseAllDefaultTags()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetUseAllDefaultTags()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, StatsConfigValidationError{
+					field:  "UseAllDefaultTags",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, StatsConfigValidationError{
+					field:  "UseAllDefaultTags",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetUseAllDefaultTags()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return StatsConfigValidationError{
 				field:  "UseAllDefaultTags",
@@ -160,7 +255,26 @@ func (m *StatsConfig) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetStatsMatcher()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetStatsMatcher()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, StatsConfigValidationError{
+					field:  "StatsMatcher",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, StatsConfigValidationError{
+					field:  "StatsMatcher",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetStatsMatcher()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return StatsConfigValidationError{
 				field:  "StatsMatcher",
@@ -173,7 +287,26 @@ func (m *StatsConfig) Validate() error {
 	for idx, item := range m.GetHistogramBucketSettings() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, StatsConfigValidationError{
+						field:  fmt.Sprintf("HistogramBucketSettings[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, StatsConfigValidationError{
+						field:  fmt.Sprintf("HistogramBucketSettings[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return StatsConfigValidationError{
 					field:  fmt.Sprintf("HistogramBucketSettings[%v]", idx),
@@ -185,8 +318,27 @@ func (m *StatsConfig) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return StatsConfigMultiError(errors)
+	}
 	return nil
 }
+
+// StatsConfigMultiError is an error wrapping multiple validation errors
+// returned by StatsConfig.ValidateAll() if the designated constraints aren't met.
+type StatsConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m StatsConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m StatsConfigMultiError) AllErrors() []error { return m }
 
 // StatsConfigValidationError is the validation error returned by
 // StatsConfig.Validate if the designated constraints aren't met.
@@ -243,12 +395,26 @@ var _ interface {
 } = StatsConfigValidationError{}
 
 // Validate checks the field values on StatsMatcher with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *StatsMatcher) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on StatsMatcher with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in StatsMatcherMultiError, or
+// nil if none found.
+func (m *StatsMatcher) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *StatsMatcher) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	switch m.StatsMatcher.(type) {
 
@@ -257,7 +423,26 @@ func (m *StatsMatcher) Validate() error {
 
 	case *StatsMatcher_ExclusionList:
 
-		if v, ok := interface{}(m.GetExclusionList()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetExclusionList()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, StatsMatcherValidationError{
+						field:  "ExclusionList",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, StatsMatcherValidationError{
+						field:  "ExclusionList",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetExclusionList()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return StatsMatcherValidationError{
 					field:  "ExclusionList",
@@ -269,7 +454,26 @@ func (m *StatsMatcher) Validate() error {
 
 	case *StatsMatcher_InclusionList:
 
-		if v, ok := interface{}(m.GetInclusionList()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetInclusionList()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, StatsMatcherValidationError{
+						field:  "InclusionList",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, StatsMatcherValidationError{
+						field:  "InclusionList",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetInclusionList()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return StatsMatcherValidationError{
 					field:  "InclusionList",
@@ -280,15 +484,38 @@ func (m *StatsMatcher) Validate() error {
 		}
 
 	default:
-		return StatsMatcherValidationError{
+		err := StatsMatcherValidationError{
 			field:  "StatsMatcher",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 
 	}
 
+	if len(errors) > 0 {
+		return StatsMatcherMultiError(errors)
+	}
 	return nil
 }
+
+// StatsMatcherMultiError is an error wrapping multiple validation errors
+// returned by StatsMatcher.ValidateAll() if the designated constraints aren't met.
+type StatsMatcherMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m StatsMatcherMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m StatsMatcherMultiError) AllErrors() []error { return m }
 
 // StatsMatcherValidationError is the validation error returned by
 // StatsMatcher.Validate if the designated constraints aren't met.
@@ -345,12 +572,26 @@ var _ interface {
 } = StatsMatcherValidationError{}
 
 // Validate checks the field values on TagSpecifier with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *TagSpecifier) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on TagSpecifier with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in TagSpecifierMultiError, or
+// nil if none found.
+func (m *TagSpecifier) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *TagSpecifier) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for TagName
 
@@ -359,10 +600,14 @@ func (m *TagSpecifier) Validate() error {
 	case *TagSpecifier_Regex:
 
 		if len(m.GetRegex()) > 1024 {
-			return TagSpecifierValidationError{
+			err := TagSpecifierValidationError{
 				field:  "Regex",
 				reason: "value length must be at most 1024 bytes",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	case *TagSpecifier_FixedValue:
@@ -370,8 +615,27 @@ func (m *TagSpecifier) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return TagSpecifierMultiError(errors)
+	}
 	return nil
 }
+
+// TagSpecifierMultiError is an error wrapping multiple validation errors
+// returned by TagSpecifier.ValidateAll() if the designated constraints aren't met.
+type TagSpecifierMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m TagSpecifierMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m TagSpecifierMultiError) AllErrors() []error { return m }
 
 // TagSpecifierValidationError is the validation error returned by
 // TagSpecifier.Validate if the designated constraints aren't met.
@@ -429,20 +693,57 @@ var _ interface {
 
 // Validate checks the field values on HistogramBucketSettings with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *HistogramBucketSettings) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on HistogramBucketSettings with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// HistogramBucketSettingsMultiError, or nil if none found.
+func (m *HistogramBucketSettings) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HistogramBucketSettings) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if m.GetMatch() == nil {
-		return HistogramBucketSettingsValidationError{
+		err := HistogramBucketSettingsValidationError{
 			field:  "Match",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
-	if v, ok := interface{}(m.GetMatch()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetMatch()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HistogramBucketSettingsValidationError{
+					field:  "Match",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HistogramBucketSettingsValidationError{
+					field:  "Match",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMatch()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HistogramBucketSettingsValidationError{
 				field:  "Match",
@@ -453,10 +754,14 @@ func (m *HistogramBucketSettings) Validate() error {
 	}
 
 	if len(m.GetBuckets()) < 1 {
-		return HistogramBucketSettingsValidationError{
+		err := HistogramBucketSettingsValidationError{
 			field:  "Buckets",
 			reason: "value must contain at least 1 item(s)",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	_HistogramBucketSettings_Buckets_Unique := make(map[float64]struct{}, len(m.GetBuckets()))
@@ -465,25 +770,53 @@ func (m *HistogramBucketSettings) Validate() error {
 		_, _ = idx, item
 
 		if _, exists := _HistogramBucketSettings_Buckets_Unique[item]; exists {
-			return HistogramBucketSettingsValidationError{
+			err := HistogramBucketSettingsValidationError{
 				field:  fmt.Sprintf("Buckets[%v]", idx),
 				reason: "repeated value must contain unique items",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		} else {
 			_HistogramBucketSettings_Buckets_Unique[item] = struct{}{}
 		}
 
 		if item <= 0 {
-			return HistogramBucketSettingsValidationError{
+			err := HistogramBucketSettingsValidationError{
 				field:  fmt.Sprintf("Buckets[%v]", idx),
 				reason: "value must be greater than 0",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	}
 
+	if len(errors) > 0 {
+		return HistogramBucketSettingsMultiError(errors)
+	}
 	return nil
 }
+
+// HistogramBucketSettingsMultiError is an error wrapping multiple validation
+// errors returned by HistogramBucketSettings.ValidateAll() if the designated
+// constraints aren't met.
+type HistogramBucketSettingsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HistogramBucketSettingsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HistogramBucketSettingsMultiError) AllErrors() []error { return m }
 
 // HistogramBucketSettingsValidationError is the validation error returned by
 // HistogramBucketSettings.Validate if the designated constraints aren't met.
@@ -542,11 +875,26 @@ var _ interface {
 } = HistogramBucketSettingsValidationError{}
 
 // Validate checks the field values on StatsdSink with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *StatsdSink) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on StatsdSink with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in StatsdSinkMultiError, or
+// nil if none found.
+func (m *StatsdSink) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *StatsdSink) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for Prefix
 
@@ -554,7 +902,26 @@ func (m *StatsdSink) Validate() error {
 
 	case *StatsdSink_Address:
 
-		if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetAddress()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, StatsdSinkValidationError{
+						field:  "Address",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, StatsdSinkValidationError{
+						field:  "Address",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return StatsdSinkValidationError{
 					field:  "Address",
@@ -568,15 +935,38 @@ func (m *StatsdSink) Validate() error {
 		// no validation rules for TcpClusterName
 
 	default:
-		return StatsdSinkValidationError{
+		err := StatsdSinkValidationError{
 			field:  "StatsdSpecifier",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 
 	}
 
+	if len(errors) > 0 {
+		return StatsdSinkMultiError(errors)
+	}
 	return nil
 }
+
+// StatsdSinkMultiError is an error wrapping multiple validation errors
+// returned by StatsdSink.ValidateAll() if the designated constraints aren't met.
+type StatsdSinkMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m StatsdSinkMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m StatsdSinkMultiError) AllErrors() []error { return m }
 
 // StatsdSinkValidationError is the validation error returned by
 // StatsdSink.Validate if the designated constraints aren't met.
@@ -633,22 +1023,40 @@ var _ interface {
 } = StatsdSinkValidationError{}
 
 // Validate checks the field values on DogStatsdSink with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *DogStatsdSink) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on DogStatsdSink with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in DogStatsdSinkMultiError, or
+// nil if none found.
+func (m *DogStatsdSink) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *DogStatsdSink) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for Prefix
 
 	if wrapper := m.GetMaxBytesPerDatagram(); wrapper != nil {
 
 		if wrapper.GetValue() <= 0 {
-			return DogStatsdSinkValidationError{
+			err := DogStatsdSinkValidationError{
 				field:  "MaxBytesPerDatagram",
 				reason: "value must be greater than 0",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	}
@@ -657,7 +1065,26 @@ func (m *DogStatsdSink) Validate() error {
 
 	case *DogStatsdSink_Address:
 
-		if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetAddress()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, DogStatsdSinkValidationError{
+						field:  "Address",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, DogStatsdSinkValidationError{
+						field:  "Address",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return DogStatsdSinkValidationError{
 					field:  "Address",
@@ -668,15 +1095,39 @@ func (m *DogStatsdSink) Validate() error {
 		}
 
 	default:
-		return DogStatsdSinkValidationError{
+		err := DogStatsdSinkValidationError{
 			field:  "DogStatsdSpecifier",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 
 	}
 
+	if len(errors) > 0 {
+		return DogStatsdSinkMultiError(errors)
+	}
 	return nil
 }
+
+// DogStatsdSinkMultiError is an error wrapping multiple validation errors
+// returned by DogStatsdSink.ValidateAll() if the designated constraints
+// aren't met.
+type DogStatsdSinkMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m DogStatsdSinkMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m DogStatsdSinkMultiError) AllErrors() []error { return m }
 
 // DogStatsdSinkValidationError is the validation error returned by
 // DogStatsdSink.Validate if the designated constraints aren't met.
@@ -733,17 +1184,50 @@ var _ interface {
 } = DogStatsdSinkValidationError{}
 
 // Validate checks the field values on HystrixSink with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *HystrixSink) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on HystrixSink with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in HystrixSinkMultiError, or
+// nil if none found.
+func (m *HystrixSink) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HystrixSink) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	// no validation rules for NumBuckets
 
+	if len(errors) > 0 {
+		return HystrixSinkMultiError(errors)
+	}
 	return nil
 }
+
+// HystrixSinkMultiError is an error wrapping multiple validation errors
+// returned by HystrixSink.ValidateAll() if the designated constraints aren't met.
+type HystrixSinkMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HystrixSinkMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HystrixSinkMultiError) AllErrors() []error { return m }
 
 // HystrixSinkValidationError is the validation error returned by
 // HystrixSink.Validate if the designated constraints aren't met.

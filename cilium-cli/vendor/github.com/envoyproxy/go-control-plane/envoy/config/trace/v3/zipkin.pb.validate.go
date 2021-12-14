@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,33 +32,75 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on ZipkinConfig with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *ZipkinConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ZipkinConfig with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in ZipkinConfigMultiError, or
+// nil if none found.
+func (m *ZipkinConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ZipkinConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if utf8.RuneCountInString(m.GetCollectorCluster()) < 1 {
-		return ZipkinConfigValidationError{
+		err := ZipkinConfigValidationError{
 			field:  "CollectorCluster",
 			reason: "value length must be at least 1 runes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if utf8.RuneCountInString(m.GetCollectorEndpoint()) < 1 {
-		return ZipkinConfigValidationError{
+		err := ZipkinConfigValidationError{
 			field:  "CollectorEndpoint",
 			reason: "value length must be at least 1 runes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	// no validation rules for TraceId_128Bit
 
-	if v, ok := interface{}(m.GetSharedSpanContext()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetSharedSpanContext()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ZipkinConfigValidationError{
+					field:  "SharedSpanContext",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ZipkinConfigValidationError{
+					field:  "SharedSpanContext",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetSharedSpanContext()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ZipkinConfigValidationError{
 				field:  "SharedSpanContext",
@@ -71,8 +114,27 @@ func (m *ZipkinConfig) Validate() error {
 
 	// no validation rules for CollectorHostname
 
+	if len(errors) > 0 {
+		return ZipkinConfigMultiError(errors)
+	}
 	return nil
 }
+
+// ZipkinConfigMultiError is an error wrapping multiple validation errors
+// returned by ZipkinConfig.ValidateAll() if the designated constraints aren't met.
+type ZipkinConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ZipkinConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ZipkinConfigMultiError) AllErrors() []error { return m }
 
 // ZipkinConfigValidationError is the validation error returned by
 // ZipkinConfig.Validate if the designated constraints aren't met.

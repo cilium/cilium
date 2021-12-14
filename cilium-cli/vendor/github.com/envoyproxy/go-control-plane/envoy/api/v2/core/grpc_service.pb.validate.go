@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,17 +32,51 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on GrpcService with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *GrpcService) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on GrpcService with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in GrpcServiceMultiError, or
+// nil if none found.
+func (m *GrpcService) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *GrpcService) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetTimeout()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetTimeout()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, GrpcServiceValidationError{
+					field:  "Timeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, GrpcServiceValidationError{
+					field:  "Timeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetTimeout()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return GrpcServiceValidationError{
 				field:  "Timeout",
@@ -54,7 +89,26 @@ func (m *GrpcService) Validate() error {
 	for idx, item := range m.GetInitialMetadata() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, GrpcServiceValidationError{
+						field:  fmt.Sprintf("InitialMetadata[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, GrpcServiceValidationError{
+						field:  fmt.Sprintf("InitialMetadata[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return GrpcServiceValidationError{
 					field:  fmt.Sprintf("InitialMetadata[%v]", idx),
@@ -70,7 +124,26 @@ func (m *GrpcService) Validate() error {
 
 	case *GrpcService_EnvoyGrpc_:
 
-		if v, ok := interface{}(m.GetEnvoyGrpc()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetEnvoyGrpc()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, GrpcServiceValidationError{
+						field:  "EnvoyGrpc",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, GrpcServiceValidationError{
+						field:  "EnvoyGrpc",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetEnvoyGrpc()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return GrpcServiceValidationError{
 					field:  "EnvoyGrpc",
@@ -82,7 +155,26 @@ func (m *GrpcService) Validate() error {
 
 	case *GrpcService_GoogleGrpc_:
 
-		if v, ok := interface{}(m.GetGoogleGrpc()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetGoogleGrpc()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, GrpcServiceValidationError{
+						field:  "GoogleGrpc",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, GrpcServiceValidationError{
+						field:  "GoogleGrpc",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetGoogleGrpc()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return GrpcServiceValidationError{
 					field:  "GoogleGrpc",
@@ -93,15 +185,38 @@ func (m *GrpcService) Validate() error {
 		}
 
 	default:
-		return GrpcServiceValidationError{
+		err := GrpcServiceValidationError{
 			field:  "TargetSpecifier",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 
 	}
 
+	if len(errors) > 0 {
+		return GrpcServiceMultiError(errors)
+	}
 	return nil
 }
+
+// GrpcServiceMultiError is an error wrapping multiple validation errors
+// returned by GrpcService.ValidateAll() if the designated constraints aren't met.
+type GrpcServiceMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m GrpcServiceMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m GrpcServiceMultiError) AllErrors() []error { return m }
 
 // GrpcServiceValidationError is the validation error returned by
 // GrpcService.Validate if the designated constraints aren't met.
@@ -159,21 +274,59 @@ var _ interface {
 
 // Validate checks the field values on GrpcService_EnvoyGrpc with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *GrpcService_EnvoyGrpc) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on GrpcService_EnvoyGrpc with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// GrpcService_EnvoyGrpcMultiError, or nil if none found.
+func (m *GrpcService_EnvoyGrpc) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *GrpcService_EnvoyGrpc) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if len(m.GetClusterName()) < 1 {
-		return GrpcService_EnvoyGrpcValidationError{
+		err := GrpcService_EnvoyGrpcValidationError{
 			field:  "ClusterName",
 			reason: "value length must be at least 1 bytes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
+	if len(errors) > 0 {
+		return GrpcService_EnvoyGrpcMultiError(errors)
+	}
 	return nil
 }
+
+// GrpcService_EnvoyGrpcMultiError is an error wrapping multiple validation
+// errors returned by GrpcService_EnvoyGrpc.ValidateAll() if the designated
+// constraints aren't met.
+type GrpcService_EnvoyGrpcMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m GrpcService_EnvoyGrpcMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m GrpcService_EnvoyGrpcMultiError) AllErrors() []error { return m }
 
 // GrpcService_EnvoyGrpcValidationError is the validation error returned by
 // GrpcService_EnvoyGrpc.Validate if the designated constraints aren't met.
@@ -233,20 +386,57 @@ var _ interface {
 
 // Validate checks the field values on GrpcService_GoogleGrpc with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *GrpcService_GoogleGrpc) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on GrpcService_GoogleGrpc with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// GrpcService_GoogleGrpcMultiError, or nil if none found.
+func (m *GrpcService_GoogleGrpc) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *GrpcService_GoogleGrpc) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if len(m.GetTargetUri()) < 1 {
-		return GrpcService_GoogleGrpcValidationError{
+		err := GrpcService_GoogleGrpcValidationError{
 			field:  "TargetUri",
 			reason: "value length must be at least 1 bytes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
-	if v, ok := interface{}(m.GetChannelCredentials()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetChannelCredentials()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, GrpcService_GoogleGrpcValidationError{
+					field:  "ChannelCredentials",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, GrpcService_GoogleGrpcValidationError{
+					field:  "ChannelCredentials",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetChannelCredentials()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return GrpcService_GoogleGrpcValidationError{
 				field:  "ChannelCredentials",
@@ -259,7 +449,26 @@ func (m *GrpcService_GoogleGrpc) Validate() error {
 	for idx, item := range m.GetCallCredentials() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, GrpcService_GoogleGrpcValidationError{
+						field:  fmt.Sprintf("CallCredentials[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, GrpcService_GoogleGrpcValidationError{
+						field:  fmt.Sprintf("CallCredentials[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return GrpcService_GoogleGrpcValidationError{
 					field:  fmt.Sprintf("CallCredentials[%v]", idx),
@@ -272,15 +481,38 @@ func (m *GrpcService_GoogleGrpc) Validate() error {
 	}
 
 	if len(m.GetStatPrefix()) < 1 {
-		return GrpcService_GoogleGrpcValidationError{
+		err := GrpcService_GoogleGrpcValidationError{
 			field:  "StatPrefix",
 			reason: "value length must be at least 1 bytes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	// no validation rules for CredentialsFactoryName
 
-	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, GrpcService_GoogleGrpcValidationError{
+					field:  "Config",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, GrpcService_GoogleGrpcValidationError{
+					field:  "Config",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return GrpcService_GoogleGrpcValidationError{
 				field:  "Config",
@@ -290,8 +522,28 @@ func (m *GrpcService_GoogleGrpc) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return GrpcService_GoogleGrpcMultiError(errors)
+	}
 	return nil
 }
+
+// GrpcService_GoogleGrpcMultiError is an error wrapping multiple validation
+// errors returned by GrpcService_GoogleGrpc.ValidateAll() if the designated
+// constraints aren't met.
+type GrpcService_GoogleGrpcMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m GrpcService_GoogleGrpcMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m GrpcService_GoogleGrpcMultiError) AllErrors() []error { return m }
 
 // GrpcService_GoogleGrpcValidationError is the validation error returned by
 // GrpcService_GoogleGrpc.Validate if the designated constraints aren't met.
@@ -351,13 +603,47 @@ var _ interface {
 
 // Validate checks the field values on GrpcService_GoogleGrpc_SslCredentials
 // with the rules defined in the proto definition for this message. If any
-// rules are violated, an error is returned.
+// rules are violated, the first error encountered is returned, or nil if
+// there are no violations.
 func (m *GrpcService_GoogleGrpc_SslCredentials) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on GrpcService_GoogleGrpc_SslCredentials
+// with the rules defined in the proto definition for this message. If any
+// rules are violated, the result is a list of violation errors wrapped in
+// GrpcService_GoogleGrpc_SslCredentialsMultiError, or nil if none found.
+func (m *GrpcService_GoogleGrpc_SslCredentials) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *GrpcService_GoogleGrpc_SslCredentials) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetRootCerts()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetRootCerts()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, GrpcService_GoogleGrpc_SslCredentialsValidationError{
+					field:  "RootCerts",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, GrpcService_GoogleGrpc_SslCredentialsValidationError{
+					field:  "RootCerts",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetRootCerts()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return GrpcService_GoogleGrpc_SslCredentialsValidationError{
 				field:  "RootCerts",
@@ -367,7 +653,26 @@ func (m *GrpcService_GoogleGrpc_SslCredentials) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetPrivateKey()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetPrivateKey()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, GrpcService_GoogleGrpc_SslCredentialsValidationError{
+					field:  "PrivateKey",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, GrpcService_GoogleGrpc_SslCredentialsValidationError{
+					field:  "PrivateKey",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetPrivateKey()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return GrpcService_GoogleGrpc_SslCredentialsValidationError{
 				field:  "PrivateKey",
@@ -377,7 +682,26 @@ func (m *GrpcService_GoogleGrpc_SslCredentials) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetCertChain()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetCertChain()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, GrpcService_GoogleGrpc_SslCredentialsValidationError{
+					field:  "CertChain",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, GrpcService_GoogleGrpc_SslCredentialsValidationError{
+					field:  "CertChain",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCertChain()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return GrpcService_GoogleGrpc_SslCredentialsValidationError{
 				field:  "CertChain",
@@ -387,8 +711,29 @@ func (m *GrpcService_GoogleGrpc_SslCredentials) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return GrpcService_GoogleGrpc_SslCredentialsMultiError(errors)
+	}
 	return nil
 }
+
+// GrpcService_GoogleGrpc_SslCredentialsMultiError is an error wrapping
+// multiple validation errors returned by
+// GrpcService_GoogleGrpc_SslCredentials.ValidateAll() if the designated
+// constraints aren't met.
+type GrpcService_GoogleGrpc_SslCredentialsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m GrpcService_GoogleGrpc_SslCredentialsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m GrpcService_GoogleGrpc_SslCredentialsMultiError) AllErrors() []error { return m }
 
 // GrpcService_GoogleGrpc_SslCredentialsValidationError is the validation error
 // returned by GrpcService_GoogleGrpc_SslCredentials.Validate if the
@@ -449,14 +794,51 @@ var _ interface {
 
 // Validate checks the field values on
 // GrpcService_GoogleGrpc_GoogleLocalCredentials with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *GrpcService_GoogleGrpc_GoogleLocalCredentials) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// GrpcService_GoogleGrpc_GoogleLocalCredentials with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in
+// GrpcService_GoogleGrpc_GoogleLocalCredentialsMultiError, or nil if none found.
+func (m *GrpcService_GoogleGrpc_GoogleLocalCredentials) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *GrpcService_GoogleGrpc_GoogleLocalCredentials) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
+	if len(errors) > 0 {
+		return GrpcService_GoogleGrpc_GoogleLocalCredentialsMultiError(errors)
+	}
 	return nil
 }
+
+// GrpcService_GoogleGrpc_GoogleLocalCredentialsMultiError is an error wrapping
+// multiple validation errors returned by
+// GrpcService_GoogleGrpc_GoogleLocalCredentials.ValidateAll() if the
+// designated constraints aren't met.
+type GrpcService_GoogleGrpc_GoogleLocalCredentialsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m GrpcService_GoogleGrpc_GoogleLocalCredentialsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m GrpcService_GoogleGrpc_GoogleLocalCredentialsMultiError) AllErrors() []error { return m }
 
 // GrpcService_GoogleGrpc_GoogleLocalCredentialsValidationError is the
 // validation error returned by
@@ -520,17 +902,52 @@ var _ interface {
 
 // Validate checks the field values on
 // GrpcService_GoogleGrpc_ChannelCredentials with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *GrpcService_GoogleGrpc_ChannelCredentials) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// GrpcService_GoogleGrpc_ChannelCredentials with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in
+// GrpcService_GoogleGrpc_ChannelCredentialsMultiError, or nil if none found.
+func (m *GrpcService_GoogleGrpc_ChannelCredentials) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *GrpcService_GoogleGrpc_ChannelCredentials) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	switch m.CredentialSpecifier.(type) {
 
 	case *GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials:
 
-		if v, ok := interface{}(m.GetSslCredentials()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetSslCredentials()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, GrpcService_GoogleGrpc_ChannelCredentialsValidationError{
+						field:  "SslCredentials",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, GrpcService_GoogleGrpc_ChannelCredentialsValidationError{
+						field:  "SslCredentials",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetSslCredentials()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return GrpcService_GoogleGrpc_ChannelCredentialsValidationError{
 					field:  "SslCredentials",
@@ -542,7 +959,26 @@ func (m *GrpcService_GoogleGrpc_ChannelCredentials) Validate() error {
 
 	case *GrpcService_GoogleGrpc_ChannelCredentials_GoogleDefault:
 
-		if v, ok := interface{}(m.GetGoogleDefault()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetGoogleDefault()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, GrpcService_GoogleGrpc_ChannelCredentialsValidationError{
+						field:  "GoogleDefault",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, GrpcService_GoogleGrpc_ChannelCredentialsValidationError{
+						field:  "GoogleDefault",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetGoogleDefault()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return GrpcService_GoogleGrpc_ChannelCredentialsValidationError{
 					field:  "GoogleDefault",
@@ -554,7 +990,26 @@ func (m *GrpcService_GoogleGrpc_ChannelCredentials) Validate() error {
 
 	case *GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials:
 
-		if v, ok := interface{}(m.GetLocalCredentials()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetLocalCredentials()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, GrpcService_GoogleGrpc_ChannelCredentialsValidationError{
+						field:  "LocalCredentials",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, GrpcService_GoogleGrpc_ChannelCredentialsValidationError{
+						field:  "LocalCredentials",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetLocalCredentials()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return GrpcService_GoogleGrpc_ChannelCredentialsValidationError{
 					field:  "LocalCredentials",
@@ -565,15 +1020,40 @@ func (m *GrpcService_GoogleGrpc_ChannelCredentials) Validate() error {
 		}
 
 	default:
-		return GrpcService_GoogleGrpc_ChannelCredentialsValidationError{
+		err := GrpcService_GoogleGrpc_ChannelCredentialsValidationError{
 			field:  "CredentialSpecifier",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 
 	}
 
+	if len(errors) > 0 {
+		return GrpcService_GoogleGrpc_ChannelCredentialsMultiError(errors)
+	}
 	return nil
 }
+
+// GrpcService_GoogleGrpc_ChannelCredentialsMultiError is an error wrapping
+// multiple validation errors returned by
+// GrpcService_GoogleGrpc_ChannelCredentials.ValidateAll() if the designated
+// constraints aren't met.
+type GrpcService_GoogleGrpc_ChannelCredentialsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m GrpcService_GoogleGrpc_ChannelCredentialsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m GrpcService_GoogleGrpc_ChannelCredentialsMultiError) AllErrors() []error { return m }
 
 // GrpcService_GoogleGrpc_ChannelCredentialsValidationError is the validation
 // error returned by GrpcService_GoogleGrpc_ChannelCredentials.Validate if the
@@ -634,11 +1114,27 @@ var _ interface {
 
 // Validate checks the field values on GrpcService_GoogleGrpc_CallCredentials
 // with the rules defined in the proto definition for this message. If any
-// rules are violated, an error is returned.
+// rules are violated, the first error encountered is returned, or nil if
+// there are no violations.
 func (m *GrpcService_GoogleGrpc_CallCredentials) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// GrpcService_GoogleGrpc_CallCredentials with the rules defined in the proto
+// definition for this message. If any rules are violated, the result is a
+// list of violation errors wrapped in
+// GrpcService_GoogleGrpc_CallCredentialsMultiError, or nil if none found.
+func (m *GrpcService_GoogleGrpc_CallCredentials) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	switch m.CredentialSpecifier.(type) {
 
@@ -647,7 +1143,26 @@ func (m *GrpcService_GoogleGrpc_CallCredentials) Validate() error {
 
 	case *GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine:
 
-		if v, ok := interface{}(m.GetGoogleComputeEngine()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetGoogleComputeEngine()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, GrpcService_GoogleGrpc_CallCredentialsValidationError{
+						field:  "GoogleComputeEngine",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, GrpcService_GoogleGrpc_CallCredentialsValidationError{
+						field:  "GoogleComputeEngine",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetGoogleComputeEngine()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return GrpcService_GoogleGrpc_CallCredentialsValidationError{
 					field:  "GoogleComputeEngine",
@@ -662,7 +1177,26 @@ func (m *GrpcService_GoogleGrpc_CallCredentials) Validate() error {
 
 	case *GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJwtAccess:
 
-		if v, ok := interface{}(m.GetServiceAccountJwtAccess()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetServiceAccountJwtAccess()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, GrpcService_GoogleGrpc_CallCredentialsValidationError{
+						field:  "ServiceAccountJwtAccess",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, GrpcService_GoogleGrpc_CallCredentialsValidationError{
+						field:  "ServiceAccountJwtAccess",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetServiceAccountJwtAccess()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return GrpcService_GoogleGrpc_CallCredentialsValidationError{
 					field:  "ServiceAccountJwtAccess",
@@ -674,7 +1208,26 @@ func (m *GrpcService_GoogleGrpc_CallCredentials) Validate() error {
 
 	case *GrpcService_GoogleGrpc_CallCredentials_GoogleIam:
 
-		if v, ok := interface{}(m.GetGoogleIam()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetGoogleIam()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, GrpcService_GoogleGrpc_CallCredentialsValidationError{
+						field:  "GoogleIam",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, GrpcService_GoogleGrpc_CallCredentialsValidationError{
+						field:  "GoogleIam",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetGoogleIam()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return GrpcService_GoogleGrpc_CallCredentialsValidationError{
 					field:  "GoogleIam",
@@ -686,7 +1239,26 @@ func (m *GrpcService_GoogleGrpc_CallCredentials) Validate() error {
 
 	case *GrpcService_GoogleGrpc_CallCredentials_FromPlugin:
 
-		if v, ok := interface{}(m.GetFromPlugin()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetFromPlugin()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, GrpcService_GoogleGrpc_CallCredentialsValidationError{
+						field:  "FromPlugin",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, GrpcService_GoogleGrpc_CallCredentialsValidationError{
+						field:  "FromPlugin",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetFromPlugin()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return GrpcService_GoogleGrpc_CallCredentialsValidationError{
 					field:  "FromPlugin",
@@ -698,7 +1270,26 @@ func (m *GrpcService_GoogleGrpc_CallCredentials) Validate() error {
 
 	case *GrpcService_GoogleGrpc_CallCredentials_StsService_:
 
-		if v, ok := interface{}(m.GetStsService()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetStsService()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, GrpcService_GoogleGrpc_CallCredentialsValidationError{
+						field:  "StsService",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, GrpcService_GoogleGrpc_CallCredentialsValidationError{
+						field:  "StsService",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetStsService()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return GrpcService_GoogleGrpc_CallCredentialsValidationError{
 					field:  "StsService",
@@ -709,15 +1300,40 @@ func (m *GrpcService_GoogleGrpc_CallCredentials) Validate() error {
 		}
 
 	default:
-		return GrpcService_GoogleGrpc_CallCredentialsValidationError{
+		err := GrpcService_GoogleGrpc_CallCredentialsValidationError{
 			field:  "CredentialSpecifier",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 
 	}
 
+	if len(errors) > 0 {
+		return GrpcService_GoogleGrpc_CallCredentialsMultiError(errors)
+	}
 	return nil
 }
+
+// GrpcService_GoogleGrpc_CallCredentialsMultiError is an error wrapping
+// multiple validation errors returned by
+// GrpcService_GoogleGrpc_CallCredentials.ValidateAll() if the designated
+// constraints aren't met.
+type GrpcService_GoogleGrpc_CallCredentialsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m GrpcService_GoogleGrpc_CallCredentialsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m GrpcService_GoogleGrpc_CallCredentialsMultiError) AllErrors() []error { return m }
 
 // GrpcService_GoogleGrpc_CallCredentialsValidationError is the validation
 // error returned by GrpcService_GoogleGrpc_CallCredentials.Validate if the
@@ -779,17 +1395,57 @@ var _ interface {
 // Validate checks the field values on
 // GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials
 // with the rules defined in the proto definition for this message. If any
-// rules are violated, an error is returned.
+// rules are violated, the first error encountered is returned, or nil if
+// there are no violations.
 func (m *GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials
+// with the rules defined in the proto definition for this message. If any
+// rules are violated, the result is a list of violation errors wrapped in
+// GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentialsMultiError,
+// or nil if none found.
+func (m *GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for JsonKey
 
 	// no validation rules for TokenLifetimeSeconds
 
+	if len(errors) > 0 {
+		return GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentialsMultiError(errors)
+	}
 	return nil
+}
+
+// GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentialsMultiError
+// is an error wrapping multiple validation errors returned by
+// GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials.ValidateAll()
+// if the designated constraints aren't met.
+type GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentialsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentialsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentialsMultiError) AllErrors() []error {
+	return m
 }
 
 // GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentialsValidationError
@@ -861,17 +1517,56 @@ var _ interface {
 // Validate checks the field values on
 // GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentialsMultiError, or
+// nil if none found.
+func (m *GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for AuthorizationToken
 
 	// no validation rules for AuthoritySelector
 
+	if len(errors) > 0 {
+		return GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentialsMultiError(errors)
+	}
 	return nil
+}
+
+// GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentialsMultiError is an
+// error wrapping multiple validation errors returned by
+// GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials.ValidateAll()
+// if the designated constraints aren't met.
+type GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentialsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentialsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentialsMultiError) AllErrors() []error {
+	return m
 }
 
 // GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentialsValidationError
@@ -943,11 +1638,28 @@ var _ interface {
 // Validate checks the field values on
 // GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin with
 // the rules defined in the proto definition for this message. If any rules
-// are violated, an error is returned.
+// are violated, the first error encountered is returned, or nil if there are
+// no violations.
 func (m *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the result is a list of violation errors wrapped in
+// GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPluginMultiError,
+// or nil if none found.
+func (m *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for Name
 
@@ -955,7 +1667,26 @@ func (m *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) V
 
 	case *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_Config:
 
-		if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetConfig()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPluginValidationError{
+						field:  "Config",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPluginValidationError{
+						field:  "Config",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPluginValidationError{
 					field:  "Config",
@@ -967,7 +1698,26 @@ func (m *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) V
 
 	case *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_TypedConfig:
 
-		if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetTypedConfig()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPluginValidationError{
+						field:  "TypedConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPluginValidationError{
+						field:  "TypedConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPluginValidationError{
 					field:  "TypedConfig",
@@ -979,7 +1729,30 @@ func (m *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) V
 
 	}
 
+	if len(errors) > 0 {
+		return GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPluginMultiError(errors)
+	}
 	return nil
+}
+
+// GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPluginMultiError
+// is an error wrapping multiple validation errors returned by
+// GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin.ValidateAll()
+// if the designated constraints aren't met.
+type GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPluginMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPluginMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPluginMultiError) AllErrors() []error {
+	return m
 }
 
 // GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPluginValidationError
@@ -1050,12 +1823,27 @@ var _ interface {
 
 // Validate checks the field values on
 // GrpcService_GoogleGrpc_CallCredentials_StsService with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *GrpcService_GoogleGrpc_CallCredentials_StsService) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// GrpcService_GoogleGrpc_CallCredentials_StsService with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in
+// GrpcService_GoogleGrpc_CallCredentials_StsServiceMultiError, or nil if none found.
+func (m *GrpcService_GoogleGrpc_CallCredentials_StsService) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials_StsService) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for TokenExchangeServiceUri
 
@@ -1068,25 +1856,54 @@ func (m *GrpcService_GoogleGrpc_CallCredentials_StsService) Validate() error {
 	// no validation rules for RequestedTokenType
 
 	if len(m.GetSubjectTokenPath()) < 1 {
-		return GrpcService_GoogleGrpc_CallCredentials_StsServiceValidationError{
+		err := GrpcService_GoogleGrpc_CallCredentials_StsServiceValidationError{
 			field:  "SubjectTokenPath",
 			reason: "value length must be at least 1 bytes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if len(m.GetSubjectTokenType()) < 1 {
-		return GrpcService_GoogleGrpc_CallCredentials_StsServiceValidationError{
+		err := GrpcService_GoogleGrpc_CallCredentials_StsServiceValidationError{
 			field:  "SubjectTokenType",
 			reason: "value length must be at least 1 bytes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	// no validation rules for ActorTokenPath
 
 	// no validation rules for ActorTokenType
 
+	if len(errors) > 0 {
+		return GrpcService_GoogleGrpc_CallCredentials_StsServiceMultiError(errors)
+	}
 	return nil
 }
+
+// GrpcService_GoogleGrpc_CallCredentials_StsServiceMultiError is an error
+// wrapping multiple validation errors returned by
+// GrpcService_GoogleGrpc_CallCredentials_StsService.ValidateAll() if the
+// designated constraints aren't met.
+type GrpcService_GoogleGrpc_CallCredentials_StsServiceMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m GrpcService_GoogleGrpc_CallCredentials_StsServiceMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m GrpcService_GoogleGrpc_CallCredentials_StsServiceMultiError) AllErrors() []error { return m }
 
 // GrpcService_GoogleGrpc_CallCredentials_StsServiceValidationError is the
 // validation error returned by

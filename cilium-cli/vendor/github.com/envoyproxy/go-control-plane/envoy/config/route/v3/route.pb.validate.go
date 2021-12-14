@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,22 +32,56 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on RouteConfiguration with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *RouteConfiguration) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on RouteConfiguration with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// RouteConfigurationMultiError, or nil if none found.
+func (m *RouteConfiguration) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *RouteConfiguration) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for Name
 
 	for idx, item := range m.GetVirtualHosts() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, RouteConfigurationValidationError{
+						field:  fmt.Sprintf("VirtualHosts[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, RouteConfigurationValidationError{
+						field:  fmt.Sprintf("VirtualHosts[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return RouteConfigurationValidationError{
 					field:  fmt.Sprintf("VirtualHosts[%v]", idx),
@@ -58,7 +93,26 @@ func (m *RouteConfiguration) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetVhds()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetVhds()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RouteConfigurationValidationError{
+					field:  "Vhds",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RouteConfigurationValidationError{
+					field:  "Vhds",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetVhds()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return RouteConfigurationValidationError{
 				field:  "Vhds",
@@ -72,25 +126,52 @@ func (m *RouteConfiguration) Validate() error {
 		_, _ = idx, item
 
 		if !_RouteConfiguration_InternalOnlyHeaders_Pattern.MatchString(item) {
-			return RouteConfigurationValidationError{
+			err := RouteConfigurationValidationError{
 				field:  fmt.Sprintf("InternalOnlyHeaders[%v]", idx),
 				reason: "value does not match regex pattern \"^[^\\x00\\n\\r]*$\"",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	}
 
 	if len(m.GetResponseHeadersToAdd()) > 1000 {
-		return RouteConfigurationValidationError{
+		err := RouteConfigurationValidationError{
 			field:  "ResponseHeadersToAdd",
 			reason: "value must contain no more than 1000 item(s)",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	for idx, item := range m.GetResponseHeadersToAdd() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, RouteConfigurationValidationError{
+						field:  fmt.Sprintf("ResponseHeadersToAdd[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, RouteConfigurationValidationError{
+						field:  fmt.Sprintf("ResponseHeadersToAdd[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return RouteConfigurationValidationError{
 					field:  fmt.Sprintf("ResponseHeadersToAdd[%v]", idx),
@@ -106,25 +187,52 @@ func (m *RouteConfiguration) Validate() error {
 		_, _ = idx, item
 
 		if !_RouteConfiguration_ResponseHeadersToRemove_Pattern.MatchString(item) {
-			return RouteConfigurationValidationError{
+			err := RouteConfigurationValidationError{
 				field:  fmt.Sprintf("ResponseHeadersToRemove[%v]", idx),
 				reason: "value does not match regex pattern \"^[^\\x00\\n\\r]*$\"",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	}
 
 	if len(m.GetRequestHeadersToAdd()) > 1000 {
-		return RouteConfigurationValidationError{
+		err := RouteConfigurationValidationError{
 			field:  "RequestHeadersToAdd",
 			reason: "value must contain no more than 1000 item(s)",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	for idx, item := range m.GetRequestHeadersToAdd() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, RouteConfigurationValidationError{
+						field:  fmt.Sprintf("RequestHeadersToAdd[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, RouteConfigurationValidationError{
+						field:  fmt.Sprintf("RequestHeadersToAdd[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return RouteConfigurationValidationError{
 					field:  fmt.Sprintf("RequestHeadersToAdd[%v]", idx),
@@ -140,17 +248,40 @@ func (m *RouteConfiguration) Validate() error {
 		_, _ = idx, item
 
 		if !_RouteConfiguration_RequestHeadersToRemove_Pattern.MatchString(item) {
-			return RouteConfigurationValidationError{
+			err := RouteConfigurationValidationError{
 				field:  fmt.Sprintf("RequestHeadersToRemove[%v]", idx),
 				reason: "value does not match regex pattern \"^[^\\x00\\n\\r]*$\"",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	}
 
 	// no validation rules for MostSpecificHeaderMutationsWins
 
-	if v, ok := interface{}(m.GetValidateClusters()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetValidateClusters()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RouteConfigurationValidationError{
+					field:  "ValidateClusters",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RouteConfigurationValidationError{
+					field:  "ValidateClusters",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetValidateClusters()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return RouteConfigurationValidationError{
 				field:  "ValidateClusters",
@@ -160,7 +291,26 @@ func (m *RouteConfiguration) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetMaxDirectResponseBodySizeBytes()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetMaxDirectResponseBodySizeBytes()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RouteConfigurationValidationError{
+					field:  "MaxDirectResponseBodySizeBytes",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RouteConfigurationValidationError{
+					field:  "MaxDirectResponseBodySizeBytes",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMaxDirectResponseBodySizeBytes()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return RouteConfigurationValidationError{
 				field:  "MaxDirectResponseBodySizeBytes",
@@ -173,7 +323,26 @@ func (m *RouteConfiguration) Validate() error {
 	for idx, item := range m.GetClusterSpecifierPlugins() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, RouteConfigurationValidationError{
+						field:  fmt.Sprintf("ClusterSpecifierPlugins[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, RouteConfigurationValidationError{
+						field:  fmt.Sprintf("ClusterSpecifierPlugins[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return RouteConfigurationValidationError{
 					field:  fmt.Sprintf("ClusterSpecifierPlugins[%v]", idx),
@@ -185,8 +354,28 @@ func (m *RouteConfiguration) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return RouteConfigurationMultiError(errors)
+	}
 	return nil
 }
+
+// RouteConfigurationMultiError is an error wrapping multiple validation errors
+// returned by RouteConfiguration.ValidateAll() if the designated constraints
+// aren't met.
+type RouteConfigurationMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m RouteConfigurationMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m RouteConfigurationMultiError) AllErrors() []error { return m }
 
 // RouteConfigurationValidationError is the validation error returned by
 // RouteConfiguration.Validate if the designated constraints aren't met.
@@ -252,13 +441,46 @@ var _RouteConfiguration_RequestHeadersToRemove_Pattern = regexp.MustCompile("^[^
 
 // Validate checks the field values on ClusterSpecifierPlugin with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *ClusterSpecifierPlugin) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ClusterSpecifierPlugin with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ClusterSpecifierPluginMultiError, or nil if none found.
+func (m *ClusterSpecifierPlugin) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ClusterSpecifierPlugin) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetExtension()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetExtension()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClusterSpecifierPluginValidationError{
+					field:  "Extension",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClusterSpecifierPluginValidationError{
+					field:  "Extension",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetExtension()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterSpecifierPluginValidationError{
 				field:  "Extension",
@@ -268,8 +490,28 @@ func (m *ClusterSpecifierPlugin) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return ClusterSpecifierPluginMultiError(errors)
+	}
 	return nil
 }
+
+// ClusterSpecifierPluginMultiError is an error wrapping multiple validation
+// errors returned by ClusterSpecifierPlugin.ValidateAll() if the designated
+// constraints aren't met.
+type ClusterSpecifierPluginMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ClusterSpecifierPluginMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ClusterSpecifierPluginMultiError) AllErrors() []error { return m }
 
 // ClusterSpecifierPluginValidationError is the validation error returned by
 // ClusterSpecifierPlugin.Validate if the designated constraints aren't met.
@@ -328,20 +570,57 @@ var _ interface {
 } = ClusterSpecifierPluginValidationError{}
 
 // Validate checks the field values on Vhds with the rules defined in the proto
-// definition for this message. If any rules are violated, an error is returned.
+// definition for this message. If any rules are violated, the first error
+// encountered is returned, or nil if there are no violations.
 func (m *Vhds) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Vhds with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in VhdsMultiError, or nil if none found.
+func (m *Vhds) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Vhds) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if m.GetConfigSource() == nil {
-		return VhdsValidationError{
+		err := VhdsValidationError{
 			field:  "ConfigSource",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
-	if v, ok := interface{}(m.GetConfigSource()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetConfigSource()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, VhdsValidationError{
+					field:  "ConfigSource",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, VhdsValidationError{
+					field:  "ConfigSource",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetConfigSource()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return VhdsValidationError{
 				field:  "ConfigSource",
@@ -351,8 +630,27 @@ func (m *Vhds) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return VhdsMultiError(errors)
+	}
 	return nil
 }
+
+// VhdsMultiError is an error wrapping multiple validation errors returned by
+// Vhds.ValidateAll() if the designated constraints aren't met.
+type VhdsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m VhdsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m VhdsMultiError) AllErrors() []error { return m }
 
 // VhdsValidationError is the validation error returned by Vhds.Validate if the
 // designated constraints aren't met.

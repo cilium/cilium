@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,17 +32,52 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on RtdsDummy with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *RtdsDummy) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on RtdsDummy with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in RtdsDummyMultiError, or nil
+// if none found.
+func (m *RtdsDummy) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *RtdsDummy) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
+	if len(errors) > 0 {
+		return RtdsDummyMultiError(errors)
+	}
 	return nil
 }
+
+// RtdsDummyMultiError is an error wrapping multiple validation errors returned
+// by RtdsDummy.ValidateAll() if the designated constraints aren't met.
+type RtdsDummyMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m RtdsDummyMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m RtdsDummyMultiError) AllErrors() []error { return m }
 
 // RtdsDummyValidationError is the validation error returned by
 // RtdsDummy.Validate if the designated constraints aren't met.
@@ -98,20 +134,57 @@ var _ interface {
 } = RtdsDummyValidationError{}
 
 // Validate checks the field values on Runtime with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *Runtime) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Runtime with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in RuntimeMultiError, or nil if none found.
+func (m *Runtime) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Runtime) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if len(m.GetName()) < 1 {
-		return RuntimeValidationError{
+		err := RuntimeValidationError{
 			field:  "Name",
 			reason: "value length must be at least 1 bytes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
-	if v, ok := interface{}(m.GetLayer()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetLayer()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RuntimeValidationError{
+					field:  "Layer",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RuntimeValidationError{
+					field:  "Layer",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLayer()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return RuntimeValidationError{
 				field:  "Layer",
@@ -121,8 +194,27 @@ func (m *Runtime) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return RuntimeMultiError(errors)
+	}
 	return nil
 }
+
+// RuntimeMultiError is an error wrapping multiple validation errors returned
+// by Runtime.ValidateAll() if the designated constraints aren't met.
+type RuntimeMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m RuntimeMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m RuntimeMultiError) AllErrors() []error { return m }
 
 // RuntimeValidationError is the validation error returned by Runtime.Validate
 // if the designated constraints aren't met.

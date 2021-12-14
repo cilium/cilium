@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,17 +32,51 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on LoadStatsRequest with the rules defined
-// in the proto definition for this message. If any rules are violated, an
-// error is returned.
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
 func (m *LoadStatsRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on LoadStatsRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// LoadStatsRequestMultiError, or nil if none found.
+func (m *LoadStatsRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *LoadStatsRequest) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetNode()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetNode()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, LoadStatsRequestValidationError{
+					field:  "Node",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, LoadStatsRequestValidationError{
+					field:  "Node",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetNode()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return LoadStatsRequestValidationError{
 				field:  "Node",
@@ -54,7 +89,26 @@ func (m *LoadStatsRequest) Validate() error {
 	for idx, item := range m.GetClusterStats() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, LoadStatsRequestValidationError{
+						field:  fmt.Sprintf("ClusterStats[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, LoadStatsRequestValidationError{
+						field:  fmt.Sprintf("ClusterStats[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return LoadStatsRequestValidationError{
 					field:  fmt.Sprintf("ClusterStats[%v]", idx),
@@ -66,8 +120,28 @@ func (m *LoadStatsRequest) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return LoadStatsRequestMultiError(errors)
+	}
 	return nil
 }
+
+// LoadStatsRequestMultiError is an error wrapping multiple validation errors
+// returned by LoadStatsRequest.ValidateAll() if the designated constraints
+// aren't met.
+type LoadStatsRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m LoadStatsRequestMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m LoadStatsRequestMultiError) AllErrors() []error { return m }
 
 // LoadStatsRequestValidationError is the validation error returned by
 // LoadStatsRequest.Validate if the designated constraints aren't met.
@@ -124,16 +198,49 @@ var _ interface {
 } = LoadStatsRequestValidationError{}
 
 // Validate checks the field values on LoadStatsResponse with the rules defined
-// in the proto definition for this message. If any rules are violated, an
-// error is returned.
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
 func (m *LoadStatsResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on LoadStatsResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// LoadStatsResponseMultiError, or nil if none found.
+func (m *LoadStatsResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *LoadStatsResponse) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	// no validation rules for SendAllClusters
 
-	if v, ok := interface{}(m.GetLoadReportingInterval()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetLoadReportingInterval()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, LoadStatsResponseValidationError{
+					field:  "LoadReportingInterval",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, LoadStatsResponseValidationError{
+					field:  "LoadReportingInterval",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLoadReportingInterval()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return LoadStatsResponseValidationError{
 				field:  "LoadReportingInterval",
@@ -145,8 +252,28 @@ func (m *LoadStatsResponse) Validate() error {
 
 	// no validation rules for ReportEndpointGranularity
 
+	if len(errors) > 0 {
+		return LoadStatsResponseMultiError(errors)
+	}
 	return nil
 }
+
+// LoadStatsResponseMultiError is an error wrapping multiple validation errors
+// returned by LoadStatsResponse.ValidateAll() if the designated constraints
+// aren't met.
+type LoadStatsResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m LoadStatsResponseMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m LoadStatsResponseMultiError) AllErrors() []error { return m }
 
 // LoadStatsResponseValidationError is the validation error returned by
 // LoadStatsResponse.Validate if the designated constraints aren't met.

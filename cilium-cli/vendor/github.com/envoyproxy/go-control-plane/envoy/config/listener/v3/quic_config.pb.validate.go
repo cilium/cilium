@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,17 +32,51 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on QuicProtocolOptions with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *QuicProtocolOptions) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on QuicProtocolOptions with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// QuicProtocolOptionsMultiError, or nil if none found.
+func (m *QuicProtocolOptions) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *QuicProtocolOptions) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetQuicProtocolOptions()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetQuicProtocolOptions()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, QuicProtocolOptionsValidationError{
+					field:  "QuicProtocolOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, QuicProtocolOptionsValidationError{
+					field:  "QuicProtocolOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetQuicProtocolOptions()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return QuicProtocolOptionsValidationError{
 				field:  "QuicProtocolOptions",
@@ -51,7 +86,26 @@ func (m *QuicProtocolOptions) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetIdleTimeout()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetIdleTimeout()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, QuicProtocolOptionsValidationError{
+					field:  "IdleTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, QuicProtocolOptionsValidationError{
+					field:  "IdleTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetIdleTimeout()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return QuicProtocolOptionsValidationError{
 				field:  "IdleTimeout",
@@ -61,7 +115,26 @@ func (m *QuicProtocolOptions) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetCryptoHandshakeTimeout()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetCryptoHandshakeTimeout()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, QuicProtocolOptionsValidationError{
+					field:  "CryptoHandshakeTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, QuicProtocolOptionsValidationError{
+					field:  "CryptoHandshakeTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCryptoHandshakeTimeout()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return QuicProtocolOptionsValidationError{
 				field:  "CryptoHandshakeTimeout",
@@ -71,7 +144,26 @@ func (m *QuicProtocolOptions) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetEnabled()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetEnabled()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, QuicProtocolOptionsValidationError{
+					field:  "Enabled",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, QuicProtocolOptionsValidationError{
+					field:  "Enabled",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetEnabled()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return QuicProtocolOptionsValidationError{
 				field:  "Enabled",
@@ -84,15 +176,38 @@ func (m *QuicProtocolOptions) Validate() error {
 	if wrapper := m.GetPacketsToReadToConnectionCountRatio(); wrapper != nil {
 
 		if wrapper.GetValue() < 1 {
-			return QuicProtocolOptionsValidationError{
+			err := QuicProtocolOptionsValidationError{
 				field:  "PacketsToReadToConnectionCountRatio",
 				reason: "value must be greater than or equal to 1",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	}
 
-	if v, ok := interface{}(m.GetCryptoStreamConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetCryptoStreamConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, QuicProtocolOptionsValidationError{
+					field:  "CryptoStreamConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, QuicProtocolOptionsValidationError{
+					field:  "CryptoStreamConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCryptoStreamConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return QuicProtocolOptionsValidationError{
 				field:  "CryptoStreamConfig",
@@ -102,7 +217,26 @@ func (m *QuicProtocolOptions) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetProofSourceConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetProofSourceConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, QuicProtocolOptionsValidationError{
+					field:  "ProofSourceConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, QuicProtocolOptionsValidationError{
+					field:  "ProofSourceConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetProofSourceConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return QuicProtocolOptionsValidationError{
 				field:  "ProofSourceConfig",
@@ -112,8 +246,28 @@ func (m *QuicProtocolOptions) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return QuicProtocolOptionsMultiError(errors)
+	}
 	return nil
 }
+
+// QuicProtocolOptionsMultiError is an error wrapping multiple validation
+// errors returned by QuicProtocolOptions.ValidateAll() if the designated
+// constraints aren't met.
+type QuicProtocolOptionsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m QuicProtocolOptionsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m QuicProtocolOptionsMultiError) AllErrors() []error { return m }
 
 // QuicProtocolOptionsValidationError is the validation error returned by
 // QuicProtocolOptions.Validate if the designated constraints aren't met.

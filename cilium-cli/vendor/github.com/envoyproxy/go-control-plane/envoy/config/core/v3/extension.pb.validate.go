@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,36 +32,79 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on TypedExtensionConfig with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *TypedExtensionConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on TypedExtensionConfig with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// TypedExtensionConfigMultiError, or nil if none found.
+func (m *TypedExtensionConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *TypedExtensionConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if utf8.RuneCountInString(m.GetName()) < 1 {
-		return TypedExtensionConfigValidationError{
+		err := TypedExtensionConfigValidationError{
 			field:  "Name",
 			reason: "value length must be at least 1 runes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if m.GetTypedConfig() == nil {
-		return TypedExtensionConfigValidationError{
+		err := TypedExtensionConfigValidationError{
 			field:  "TypedConfig",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if a := m.GetTypedConfig(); a != nil {
 
 	}
 
+	if len(errors) > 0 {
+		return TypedExtensionConfigMultiError(errors)
+	}
 	return nil
 }
+
+// TypedExtensionConfigMultiError is an error wrapping multiple validation
+// errors returned by TypedExtensionConfig.ValidateAll() if the designated
+// constraints aren't met.
+type TypedExtensionConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m TypedExtensionConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m TypedExtensionConfigMultiError) AllErrors() []error { return m }
 
 // TypedExtensionConfigValidationError is the validation error returned by
 // TypedExtensionConfig.Validate if the designated constraints aren't met.
@@ -120,24 +164,61 @@ var _ interface {
 
 // Validate checks the field values on ExtensionConfigSource with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *ExtensionConfigSource) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ExtensionConfigSource with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ExtensionConfigSourceMultiError, or nil if none found.
+func (m *ExtensionConfigSource) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ExtensionConfigSource) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if m.GetConfigSource() == nil {
-		return ExtensionConfigSourceValidationError{
+		err := ExtensionConfigSourceValidationError{
 			field:  "ConfigSource",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if a := m.GetConfigSource(); a != nil {
 
 	}
 
-	if v, ok := interface{}(m.GetDefaultConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetDefaultConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ExtensionConfigSourceValidationError{
+					field:  "DefaultConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ExtensionConfigSourceValidationError{
+					field:  "DefaultConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetDefaultConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ExtensionConfigSourceValidationError{
 				field:  "DefaultConfig",
@@ -150,14 +231,38 @@ func (m *ExtensionConfigSource) Validate() error {
 	// no validation rules for ApplyDefaultConfigWithoutWarming
 
 	if len(m.GetTypeUrls()) < 1 {
-		return ExtensionConfigSourceValidationError{
+		err := ExtensionConfigSourceValidationError{
 			field:  "TypeUrls",
 			reason: "value must contain at least 1 item(s)",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
+	if len(errors) > 0 {
+		return ExtensionConfigSourceMultiError(errors)
+	}
 	return nil
 }
+
+// ExtensionConfigSourceMultiError is an error wrapping multiple validation
+// errors returned by ExtensionConfigSource.ValidateAll() if the designated
+// constraints aren't met.
+type ExtensionConfigSourceMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ExtensionConfigSourceMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ExtensionConfigSourceMultiError) AllErrors() []error { return m }
 
 // ExtensionConfigSourceValidationError is the validation error returned by
 // ExtensionConfigSource.Validate if the designated constraints aren't met.
