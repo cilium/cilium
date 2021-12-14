@@ -220,6 +220,24 @@ version which was installed in this cluster. Valid options are:
         --namespace=kube-system \\
         -f my-values.yaml
 
+When upgrading from one minor release to another minor release using
+``helm upgrade``, do *not* use Helm's ``--reuse-values`` flag.
+The ``--reuse-values`` flag ignores any newly introduced values present in
+the new release and thus may cause the Helm template to render incorrectly.
+Instead, if you want to reuse the values from your existing installation,
+save the old values in a values file, check the file for any renamed or
+deprecated values, and then pass it to the ``helm upgrade`` command as
+described above. You can retrieve and save the values from an existing
+installation with the following command:
+
+.. code-block:: shell-session
+
+  helm get values cilium --namespace=kube-system -o yaml > old-values.yaml
+
+The ``--reuse-values`` flag may only be safely used if the Cilium chart version
+remains unchanged, for example when ``helm upgrade`` is used to apply
+configuration changes without upgrading Cilium.
+
 Step 3: Rolling Back
 --------------------
 
