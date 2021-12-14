@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,17 +32,51 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on UpstreamTlsContext with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *UpstreamTlsContext) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on UpstreamTlsContext with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// UpstreamTlsContextMultiError, or nil if none found.
+func (m *UpstreamTlsContext) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *UpstreamTlsContext) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetCommonTlsContext()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetCommonTlsContext()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, UpstreamTlsContextValidationError{
+					field:  "CommonTlsContext",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, UpstreamTlsContextValidationError{
+					field:  "CommonTlsContext",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCommonTlsContext()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return UpstreamTlsContextValidationError{
 				field:  "CommonTlsContext",
@@ -52,15 +87,38 @@ func (m *UpstreamTlsContext) Validate() error {
 	}
 
 	if len(m.GetSni()) > 255 {
-		return UpstreamTlsContextValidationError{
+		err := UpstreamTlsContextValidationError{
 			field:  "Sni",
 			reason: "value length must be at most 255 bytes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	// no validation rules for AllowRenegotiation
 
-	if v, ok := interface{}(m.GetMaxSessionKeys()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetMaxSessionKeys()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, UpstreamTlsContextValidationError{
+					field:  "MaxSessionKeys",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, UpstreamTlsContextValidationError{
+					field:  "MaxSessionKeys",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMaxSessionKeys()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return UpstreamTlsContextValidationError{
 				field:  "MaxSessionKeys",
@@ -70,8 +128,28 @@ func (m *UpstreamTlsContext) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return UpstreamTlsContextMultiError(errors)
+	}
 	return nil
 }
+
+// UpstreamTlsContextMultiError is an error wrapping multiple validation errors
+// returned by UpstreamTlsContext.ValidateAll() if the designated constraints
+// aren't met.
+type UpstreamTlsContextMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m UpstreamTlsContextMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m UpstreamTlsContextMultiError) AllErrors() []error { return m }
 
 // UpstreamTlsContextValidationError is the validation error returned by
 // UpstreamTlsContext.Validate if the designated constraints aren't met.
@@ -131,13 +209,46 @@ var _ interface {
 
 // Validate checks the field values on DownstreamTlsContext with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *DownstreamTlsContext) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on DownstreamTlsContext with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// DownstreamTlsContextMultiError, or nil if none found.
+func (m *DownstreamTlsContext) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *DownstreamTlsContext) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetCommonTlsContext()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetCommonTlsContext()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, DownstreamTlsContextValidationError{
+					field:  "CommonTlsContext",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, DownstreamTlsContextValidationError{
+					field:  "CommonTlsContext",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCommonTlsContext()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return DownstreamTlsContextValidationError{
 				field:  "CommonTlsContext",
@@ -147,7 +258,26 @@ func (m *DownstreamTlsContext) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetRequireClientCertificate()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetRequireClientCertificate()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, DownstreamTlsContextValidationError{
+					field:  "RequireClientCertificate",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, DownstreamTlsContextValidationError{
+					field:  "RequireClientCertificate",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetRequireClientCertificate()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return DownstreamTlsContextValidationError{
 				field:  "RequireClientCertificate",
@@ -157,7 +287,26 @@ func (m *DownstreamTlsContext) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetRequireSni()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetRequireSni()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, DownstreamTlsContextValidationError{
+					field:  "RequireSni",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, DownstreamTlsContextValidationError{
+					field:  "RequireSni",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetRequireSni()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return DownstreamTlsContextValidationError{
 				field:  "RequireSni",
@@ -170,37 +319,69 @@ func (m *DownstreamTlsContext) Validate() error {
 	if d := m.GetSessionTimeout(); d != nil {
 		dur, err := d.AsDuration(), d.CheckValid()
 		if err != nil {
-			return DownstreamTlsContextValidationError{
+			err = DownstreamTlsContextValidationError{
 				field:  "SessionTimeout",
 				reason: "value is not a valid duration",
 				cause:  err,
 			}
-		}
-
-		lt := time.Duration(4294967296*time.Second + 0*time.Nanosecond)
-		gte := time.Duration(0*time.Second + 0*time.Nanosecond)
-
-		if dur < gte || dur >= lt {
-			return DownstreamTlsContextValidationError{
-				field:  "SessionTimeout",
-				reason: "value must be inside range [0s, 1193046h28m16s)",
+			if !all {
+				return err
 			}
-		}
+			errors = append(errors, err)
+		} else {
 
+			lt := time.Duration(4294967296*time.Second + 0*time.Nanosecond)
+			gte := time.Duration(0*time.Second + 0*time.Nanosecond)
+
+			if dur < gte || dur >= lt {
+				err := DownstreamTlsContextValidationError{
+					field:  "SessionTimeout",
+					reason: "value must be inside range [0s, 1193046h28m16s)",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
+
+		}
 	}
 
 	if _, ok := DownstreamTlsContext_OcspStaplePolicy_name[int32(m.GetOcspStaplePolicy())]; !ok {
-		return DownstreamTlsContextValidationError{
+		err := DownstreamTlsContextValidationError{
 			field:  "OcspStaplePolicy",
 			reason: "value must be one of the defined enum values",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	switch m.SessionTicketKeysType.(type) {
 
 	case *DownstreamTlsContext_SessionTicketKeys:
 
-		if v, ok := interface{}(m.GetSessionTicketKeys()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetSessionTicketKeys()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, DownstreamTlsContextValidationError{
+						field:  "SessionTicketKeys",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, DownstreamTlsContextValidationError{
+						field:  "SessionTicketKeys",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetSessionTicketKeys()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return DownstreamTlsContextValidationError{
 					field:  "SessionTicketKeys",
@@ -212,7 +393,26 @@ func (m *DownstreamTlsContext) Validate() error {
 
 	case *DownstreamTlsContext_SessionTicketKeysSdsSecretConfig:
 
-		if v, ok := interface{}(m.GetSessionTicketKeysSdsSecretConfig()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetSessionTicketKeysSdsSecretConfig()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, DownstreamTlsContextValidationError{
+						field:  "SessionTicketKeysSdsSecretConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, DownstreamTlsContextValidationError{
+						field:  "SessionTicketKeysSdsSecretConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetSessionTicketKeysSdsSecretConfig()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return DownstreamTlsContextValidationError{
 					field:  "SessionTicketKeysSdsSecretConfig",
@@ -227,8 +427,28 @@ func (m *DownstreamTlsContext) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return DownstreamTlsContextMultiError(errors)
+	}
 	return nil
 }
+
+// DownstreamTlsContextMultiError is an error wrapping multiple validation
+// errors returned by DownstreamTlsContext.ValidateAll() if the designated
+// constraints aren't met.
+type DownstreamTlsContextMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m DownstreamTlsContextMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m DownstreamTlsContextMultiError) AllErrors() []error { return m }
 
 // DownstreamTlsContextValidationError is the validation error returned by
 // DownstreamTlsContext.Validate if the designated constraints aren't met.
@@ -287,14 +507,47 @@ var _ interface {
 } = DownstreamTlsContextValidationError{}
 
 // Validate checks the field values on CommonTlsContext with the rules defined
-// in the proto definition for this message. If any rules are violated, an
-// error is returned.
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
 func (m *CommonTlsContext) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on CommonTlsContext with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// CommonTlsContextMultiError, or nil if none found.
+func (m *CommonTlsContext) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *CommonTlsContext) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetTlsParams()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetTlsParams()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CommonTlsContextValidationError{
+					field:  "TlsParams",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CommonTlsContextValidationError{
+					field:  "TlsParams",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetTlsParams()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CommonTlsContextValidationError{
 				field:  "TlsParams",
@@ -307,7 +560,26 @@ func (m *CommonTlsContext) Validate() error {
 	for idx, item := range m.GetTlsCertificates() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, CommonTlsContextValidationError{
+						field:  fmt.Sprintf("TlsCertificates[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, CommonTlsContextValidationError{
+						field:  fmt.Sprintf("TlsCertificates[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return CommonTlsContextValidationError{
 					field:  fmt.Sprintf("TlsCertificates[%v]", idx),
@@ -320,16 +592,39 @@ func (m *CommonTlsContext) Validate() error {
 	}
 
 	if len(m.GetTlsCertificateSdsSecretConfigs()) > 2 {
-		return CommonTlsContextValidationError{
+		err := CommonTlsContextValidationError{
 			field:  "TlsCertificateSdsSecretConfigs",
 			reason: "value must contain no more than 2 item(s)",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	for idx, item := range m.GetTlsCertificateSdsSecretConfigs() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, CommonTlsContextValidationError{
+						field:  fmt.Sprintf("TlsCertificateSdsSecretConfigs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, CommonTlsContextValidationError{
+						field:  fmt.Sprintf("TlsCertificateSdsSecretConfigs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return CommonTlsContextValidationError{
 					field:  fmt.Sprintf("TlsCertificateSdsSecretConfigs[%v]", idx),
@@ -341,7 +636,26 @@ func (m *CommonTlsContext) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetTlsCertificateProviderInstance()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetTlsCertificateProviderInstance()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CommonTlsContextValidationError{
+					field:  "TlsCertificateProviderInstance",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CommonTlsContextValidationError{
+					field:  "TlsCertificateProviderInstance",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetTlsCertificateProviderInstance()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CommonTlsContextValidationError{
 				field:  "TlsCertificateProviderInstance",
@@ -351,7 +665,26 @@ func (m *CommonTlsContext) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetTlsCertificateCertificateProvider()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetTlsCertificateCertificateProvider()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CommonTlsContextValidationError{
+					field:  "TlsCertificateCertificateProvider",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CommonTlsContextValidationError{
+					field:  "TlsCertificateCertificateProvider",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetTlsCertificateCertificateProvider()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CommonTlsContextValidationError{
 				field:  "TlsCertificateCertificateProvider",
@@ -361,7 +694,26 @@ func (m *CommonTlsContext) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetTlsCertificateCertificateProviderInstance()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetTlsCertificateCertificateProviderInstance()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CommonTlsContextValidationError{
+					field:  "TlsCertificateCertificateProviderInstance",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CommonTlsContextValidationError{
+					field:  "TlsCertificateCertificateProviderInstance",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetTlsCertificateCertificateProviderInstance()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CommonTlsContextValidationError{
 				field:  "TlsCertificateCertificateProviderInstance",
@@ -371,7 +723,26 @@ func (m *CommonTlsContext) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetCustomHandshaker()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetCustomHandshaker()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CommonTlsContextValidationError{
+					field:  "CustomHandshaker",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CommonTlsContextValidationError{
+					field:  "CustomHandshaker",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCustomHandshaker()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CommonTlsContextValidationError{
 				field:  "CustomHandshaker",
@@ -385,7 +756,26 @@ func (m *CommonTlsContext) Validate() error {
 
 	case *CommonTlsContext_ValidationContext:
 
-		if v, ok := interface{}(m.GetValidationContext()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetValidationContext()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, CommonTlsContextValidationError{
+						field:  "ValidationContext",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, CommonTlsContextValidationError{
+						field:  "ValidationContext",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetValidationContext()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return CommonTlsContextValidationError{
 					field:  "ValidationContext",
@@ -397,7 +787,26 @@ func (m *CommonTlsContext) Validate() error {
 
 	case *CommonTlsContext_ValidationContextSdsSecretConfig:
 
-		if v, ok := interface{}(m.GetValidationContextSdsSecretConfig()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetValidationContextSdsSecretConfig()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, CommonTlsContextValidationError{
+						field:  "ValidationContextSdsSecretConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, CommonTlsContextValidationError{
+						field:  "ValidationContextSdsSecretConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetValidationContextSdsSecretConfig()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return CommonTlsContextValidationError{
 					field:  "ValidationContextSdsSecretConfig",
@@ -409,7 +818,26 @@ func (m *CommonTlsContext) Validate() error {
 
 	case *CommonTlsContext_CombinedValidationContext:
 
-		if v, ok := interface{}(m.GetCombinedValidationContext()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetCombinedValidationContext()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, CommonTlsContextValidationError{
+						field:  "CombinedValidationContext",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, CommonTlsContextValidationError{
+						field:  "CombinedValidationContext",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetCombinedValidationContext()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return CommonTlsContextValidationError{
 					field:  "CombinedValidationContext",
@@ -421,7 +849,26 @@ func (m *CommonTlsContext) Validate() error {
 
 	case *CommonTlsContext_ValidationContextCertificateProvider:
 
-		if v, ok := interface{}(m.GetValidationContextCertificateProvider()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetValidationContextCertificateProvider()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, CommonTlsContextValidationError{
+						field:  "ValidationContextCertificateProvider",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, CommonTlsContextValidationError{
+						field:  "ValidationContextCertificateProvider",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetValidationContextCertificateProvider()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return CommonTlsContextValidationError{
 					field:  "ValidationContextCertificateProvider",
@@ -433,7 +880,26 @@ func (m *CommonTlsContext) Validate() error {
 
 	case *CommonTlsContext_ValidationContextCertificateProviderInstance:
 
-		if v, ok := interface{}(m.GetValidationContextCertificateProviderInstance()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetValidationContextCertificateProviderInstance()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, CommonTlsContextValidationError{
+						field:  "ValidationContextCertificateProviderInstance",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, CommonTlsContextValidationError{
+						field:  "ValidationContextCertificateProviderInstance",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetValidationContextCertificateProviderInstance()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return CommonTlsContextValidationError{
 					field:  "ValidationContextCertificateProviderInstance",
@@ -445,8 +911,28 @@ func (m *CommonTlsContext) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return CommonTlsContextMultiError(errors)
+	}
 	return nil
 }
+
+// CommonTlsContextMultiError is an error wrapping multiple validation errors
+// returned by CommonTlsContext.ValidateAll() if the designated constraints
+// aren't met.
+type CommonTlsContextMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m CommonTlsContextMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m CommonTlsContextMultiError) AllErrors() []error { return m }
 
 // CommonTlsContextValidationError is the validation error returned by
 // CommonTlsContext.Validate if the designated constraints aren't met.
@@ -504,24 +990,62 @@ var _ interface {
 
 // Validate checks the field values on CommonTlsContext_CertificateProvider
 // with the rules defined in the proto definition for this message. If any
-// rules are violated, an error is returned.
+// rules are violated, the first error encountered is returned, or nil if
+// there are no violations.
 func (m *CommonTlsContext_CertificateProvider) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on CommonTlsContext_CertificateProvider
+// with the rules defined in the proto definition for this message. If any
+// rules are violated, the result is a list of violation errors wrapped in
+// CommonTlsContext_CertificateProviderMultiError, or nil if none found.
+func (m *CommonTlsContext_CertificateProvider) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *CommonTlsContext_CertificateProvider) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if utf8.RuneCountInString(m.GetName()) < 1 {
-		return CommonTlsContext_CertificateProviderValidationError{
+		err := CommonTlsContext_CertificateProviderValidationError{
 			field:  "Name",
 			reason: "value length must be at least 1 runes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	switch m.Config.(type) {
 
 	case *CommonTlsContext_CertificateProvider_TypedConfig:
 
-		if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetTypedConfig()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, CommonTlsContext_CertificateProviderValidationError{
+						field:  "TypedConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, CommonTlsContext_CertificateProviderValidationError{
+						field:  "TypedConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return CommonTlsContext_CertificateProviderValidationError{
 					field:  "TypedConfig",
@@ -532,15 +1056,40 @@ func (m *CommonTlsContext_CertificateProvider) Validate() error {
 		}
 
 	default:
-		return CommonTlsContext_CertificateProviderValidationError{
+		err := CommonTlsContext_CertificateProviderValidationError{
 			field:  "Config",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 
 	}
 
+	if len(errors) > 0 {
+		return CommonTlsContext_CertificateProviderMultiError(errors)
+	}
 	return nil
 }
+
+// CommonTlsContext_CertificateProviderMultiError is an error wrapping multiple
+// validation errors returned by
+// CommonTlsContext_CertificateProvider.ValidateAll() if the designated
+// constraints aren't met.
+type CommonTlsContext_CertificateProviderMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m CommonTlsContext_CertificateProviderMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m CommonTlsContext_CertificateProviderMultiError) AllErrors() []error { return m }
 
 // CommonTlsContext_CertificateProviderValidationError is the validation error
 // returned by CommonTlsContext_CertificateProvider.Validate if the designated
@@ -601,18 +1150,55 @@ var _ interface {
 
 // Validate checks the field values on
 // CommonTlsContext_CertificateProviderInstance with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *CommonTlsContext_CertificateProviderInstance) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// CommonTlsContext_CertificateProviderInstance with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in
+// CommonTlsContext_CertificateProviderInstanceMultiError, or nil if none found.
+func (m *CommonTlsContext_CertificateProviderInstance) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *CommonTlsContext_CertificateProviderInstance) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for InstanceName
 
 	// no validation rules for CertificateName
 
+	if len(errors) > 0 {
+		return CommonTlsContext_CertificateProviderInstanceMultiError(errors)
+	}
 	return nil
 }
+
+// CommonTlsContext_CertificateProviderInstanceMultiError is an error wrapping
+// multiple validation errors returned by
+// CommonTlsContext_CertificateProviderInstance.ValidateAll() if the
+// designated constraints aren't met.
+type CommonTlsContext_CertificateProviderInstanceMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m CommonTlsContext_CertificateProviderInstanceMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m CommonTlsContext_CertificateProviderInstanceMultiError) AllErrors() []error { return m }
 
 // CommonTlsContext_CertificateProviderInstanceValidationError is the
 // validation error returned by
@@ -675,20 +1261,59 @@ var _ interface {
 // Validate checks the field values on
 // CommonTlsContext_CombinedCertificateValidationContext with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *CommonTlsContext_CombinedCertificateValidationContext) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// CommonTlsContext_CombinedCertificateValidationContext with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// CommonTlsContext_CombinedCertificateValidationContextMultiError, or nil if
+// none found.
+func (m *CommonTlsContext_CombinedCertificateValidationContext) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *CommonTlsContext_CombinedCertificateValidationContext) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if m.GetDefaultValidationContext() == nil {
-		return CommonTlsContext_CombinedCertificateValidationContextValidationError{
+		err := CommonTlsContext_CombinedCertificateValidationContextValidationError{
 			field:  "DefaultValidationContext",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
-	if v, ok := interface{}(m.GetDefaultValidationContext()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetDefaultValidationContext()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CommonTlsContext_CombinedCertificateValidationContextValidationError{
+					field:  "DefaultValidationContext",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CommonTlsContext_CombinedCertificateValidationContextValidationError{
+					field:  "DefaultValidationContext",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetDefaultValidationContext()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CommonTlsContext_CombinedCertificateValidationContextValidationError{
 				field:  "DefaultValidationContext",
@@ -699,13 +1324,36 @@ func (m *CommonTlsContext_CombinedCertificateValidationContext) Validate() error
 	}
 
 	if m.GetValidationContextSdsSecretConfig() == nil {
-		return CommonTlsContext_CombinedCertificateValidationContextValidationError{
+		err := CommonTlsContext_CombinedCertificateValidationContextValidationError{
 			field:  "ValidationContextSdsSecretConfig",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
-	if v, ok := interface{}(m.GetValidationContextSdsSecretConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetValidationContextSdsSecretConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CommonTlsContext_CombinedCertificateValidationContextValidationError{
+					field:  "ValidationContextSdsSecretConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CommonTlsContext_CombinedCertificateValidationContextValidationError{
+					field:  "ValidationContextSdsSecretConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetValidationContextSdsSecretConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CommonTlsContext_CombinedCertificateValidationContextValidationError{
 				field:  "ValidationContextSdsSecretConfig",
@@ -715,7 +1363,26 @@ func (m *CommonTlsContext_CombinedCertificateValidationContext) Validate() error
 		}
 	}
 
-	if v, ok := interface{}(m.GetValidationContextCertificateProvider()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetValidationContextCertificateProvider()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CommonTlsContext_CombinedCertificateValidationContextValidationError{
+					field:  "ValidationContextCertificateProvider",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CommonTlsContext_CombinedCertificateValidationContextValidationError{
+					field:  "ValidationContextCertificateProvider",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetValidationContextCertificateProvider()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CommonTlsContext_CombinedCertificateValidationContextValidationError{
 				field:  "ValidationContextCertificateProvider",
@@ -725,7 +1392,26 @@ func (m *CommonTlsContext_CombinedCertificateValidationContext) Validate() error
 		}
 	}
 
-	if v, ok := interface{}(m.GetValidationContextCertificateProviderInstance()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetValidationContextCertificateProviderInstance()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CommonTlsContext_CombinedCertificateValidationContextValidationError{
+					field:  "ValidationContextCertificateProviderInstance",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CommonTlsContext_CombinedCertificateValidationContextValidationError{
+					field:  "ValidationContextCertificateProviderInstance",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetValidationContextCertificateProviderInstance()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CommonTlsContext_CombinedCertificateValidationContextValidationError{
 				field:  "ValidationContextCertificateProviderInstance",
@@ -735,7 +1421,30 @@ func (m *CommonTlsContext_CombinedCertificateValidationContext) Validate() error
 		}
 	}
 
+	if len(errors) > 0 {
+		return CommonTlsContext_CombinedCertificateValidationContextMultiError(errors)
+	}
 	return nil
+}
+
+// CommonTlsContext_CombinedCertificateValidationContextMultiError is an error
+// wrapping multiple validation errors returned by
+// CommonTlsContext_CombinedCertificateValidationContext.ValidateAll() if the
+// designated constraints aren't met.
+type CommonTlsContext_CombinedCertificateValidationContextMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m CommonTlsContext_CombinedCertificateValidationContextMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m CommonTlsContext_CombinedCertificateValidationContextMultiError) AllErrors() []error {
+	return m
 }
 
 // CommonTlsContext_CombinedCertificateValidationContextValidationError is the

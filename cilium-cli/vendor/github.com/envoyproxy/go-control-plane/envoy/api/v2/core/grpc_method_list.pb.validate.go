@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,20 +32,54 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on GrpcMethodList with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *GrpcMethodList) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on GrpcMethodList with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in GrpcMethodListMultiError,
+// or nil if none found.
+func (m *GrpcMethodList) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *GrpcMethodList) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	for idx, item := range m.GetServices() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, GrpcMethodListValidationError{
+						field:  fmt.Sprintf("Services[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, GrpcMethodListValidationError{
+						field:  fmt.Sprintf("Services[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return GrpcMethodListValidationError{
 					field:  fmt.Sprintf("Services[%v]", idx),
@@ -56,8 +91,28 @@ func (m *GrpcMethodList) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return GrpcMethodListMultiError(errors)
+	}
 	return nil
 }
+
+// GrpcMethodListMultiError is an error wrapping multiple validation errors
+// returned by GrpcMethodList.ValidateAll() if the designated constraints
+// aren't met.
+type GrpcMethodListMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m GrpcMethodListMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m GrpcMethodListMultiError) AllErrors() []error { return m }
 
 // GrpcMethodListValidationError is the validation error returned by
 // GrpcMethodList.Validate if the designated constraints aren't met.
@@ -115,28 +170,70 @@ var _ interface {
 
 // Validate checks the field values on GrpcMethodList_Service with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *GrpcMethodList_Service) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on GrpcMethodList_Service with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// GrpcMethodList_ServiceMultiError, or nil if none found.
+func (m *GrpcMethodList_Service) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *GrpcMethodList_Service) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if len(m.GetName()) < 1 {
-		return GrpcMethodList_ServiceValidationError{
+		err := GrpcMethodList_ServiceValidationError{
 			field:  "Name",
 			reason: "value length must be at least 1 bytes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if len(m.GetMethodNames()) < 1 {
-		return GrpcMethodList_ServiceValidationError{
+		err := GrpcMethodList_ServiceValidationError{
 			field:  "MethodNames",
 			reason: "value must contain at least 1 item(s)",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
+	if len(errors) > 0 {
+		return GrpcMethodList_ServiceMultiError(errors)
+	}
 	return nil
 }
+
+// GrpcMethodList_ServiceMultiError is an error wrapping multiple validation
+// errors returned by GrpcMethodList_Service.ValidateAll() if the designated
+// constraints aren't met.
+type GrpcMethodList_ServiceMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m GrpcMethodList_ServiceMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m GrpcMethodList_ServiceMultiError) AllErrors() []error { return m }
 
 // GrpcMethodList_ServiceValidationError is the validation error returned by
 // GrpcMethodList_Service.Validate if the designated constraints aren't met.

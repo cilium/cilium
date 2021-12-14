@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,16 +32,51 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on TapConfig with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *TapConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on TapConfig with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in TapConfigMultiError, or nil
+// if none found.
+func (m *TapConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *TapConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetMatchConfig()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetMatchConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, TapConfigValidationError{
+					field:  "MatchConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, TapConfigValidationError{
+					field:  "MatchConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMatchConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return TapConfigValidationError{
 				field:  "MatchConfig",
@@ -50,7 +86,26 @@ func (m *TapConfig) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetMatch()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetMatch()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, TapConfigValidationError{
+					field:  "Match",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, TapConfigValidationError{
+					field:  "Match",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMatch()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return TapConfigValidationError{
 				field:  "Match",
@@ -61,13 +116,36 @@ func (m *TapConfig) Validate() error {
 	}
 
 	if m.GetOutputConfig() == nil {
-		return TapConfigValidationError{
+		err := TapConfigValidationError{
 			field:  "OutputConfig",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
-	if v, ok := interface{}(m.GetOutputConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetOutputConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, TapConfigValidationError{
+					field:  "OutputConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, TapConfigValidationError{
+					field:  "OutputConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetOutputConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return TapConfigValidationError{
 				field:  "OutputConfig",
@@ -77,7 +155,26 @@ func (m *TapConfig) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetTapEnabled()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetTapEnabled()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, TapConfigValidationError{
+					field:  "TapEnabled",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, TapConfigValidationError{
+					field:  "TapEnabled",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetTapEnabled()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return TapConfigValidationError{
 				field:  "TapEnabled",
@@ -87,8 +184,27 @@ func (m *TapConfig) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return TapConfigMultiError(errors)
+	}
 	return nil
 }
+
+// TapConfigMultiError is an error wrapping multiple validation errors returned
+// by TapConfig.ValidateAll() if the designated constraints aren't met.
+type TapConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m TapConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m TapConfigMultiError) AllErrors() []error { return m }
 
 // TapConfigValidationError is the validation error returned by
 // TapConfig.Validate if the designated constraints aren't met.
@@ -145,18 +261,51 @@ var _ interface {
 } = TapConfigValidationError{}
 
 // Validate checks the field values on MatchPredicate with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *MatchPredicate) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on MatchPredicate with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in MatchPredicateMultiError,
+// or nil if none found.
+func (m *MatchPredicate) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *MatchPredicate) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	switch m.Rule.(type) {
 
 	case *MatchPredicate_OrMatch:
 
-		if v, ok := interface{}(m.GetOrMatch()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetOrMatch()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, MatchPredicateValidationError{
+						field:  "OrMatch",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, MatchPredicateValidationError{
+						field:  "OrMatch",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetOrMatch()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return MatchPredicateValidationError{
 					field:  "OrMatch",
@@ -168,7 +317,26 @@ func (m *MatchPredicate) Validate() error {
 
 	case *MatchPredicate_AndMatch:
 
-		if v, ok := interface{}(m.GetAndMatch()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetAndMatch()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, MatchPredicateValidationError{
+						field:  "AndMatch",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, MatchPredicateValidationError{
+						field:  "AndMatch",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetAndMatch()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return MatchPredicateValidationError{
 					field:  "AndMatch",
@@ -180,7 +348,26 @@ func (m *MatchPredicate) Validate() error {
 
 	case *MatchPredicate_NotMatch:
 
-		if v, ok := interface{}(m.GetNotMatch()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetNotMatch()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, MatchPredicateValidationError{
+						field:  "NotMatch",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, MatchPredicateValidationError{
+						field:  "NotMatch",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetNotMatch()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return MatchPredicateValidationError{
 					field:  "NotMatch",
@@ -193,15 +380,38 @@ func (m *MatchPredicate) Validate() error {
 	case *MatchPredicate_AnyMatch:
 
 		if m.GetAnyMatch() != true {
-			return MatchPredicateValidationError{
+			err := MatchPredicateValidationError{
 				field:  "AnyMatch",
 				reason: "value must equal true",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	case *MatchPredicate_HttpRequestHeadersMatch:
 
-		if v, ok := interface{}(m.GetHttpRequestHeadersMatch()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetHttpRequestHeadersMatch()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, MatchPredicateValidationError{
+						field:  "HttpRequestHeadersMatch",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, MatchPredicateValidationError{
+						field:  "HttpRequestHeadersMatch",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetHttpRequestHeadersMatch()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return MatchPredicateValidationError{
 					field:  "HttpRequestHeadersMatch",
@@ -213,7 +423,26 @@ func (m *MatchPredicate) Validate() error {
 
 	case *MatchPredicate_HttpRequestTrailersMatch:
 
-		if v, ok := interface{}(m.GetHttpRequestTrailersMatch()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetHttpRequestTrailersMatch()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, MatchPredicateValidationError{
+						field:  "HttpRequestTrailersMatch",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, MatchPredicateValidationError{
+						field:  "HttpRequestTrailersMatch",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetHttpRequestTrailersMatch()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return MatchPredicateValidationError{
 					field:  "HttpRequestTrailersMatch",
@@ -225,7 +454,26 @@ func (m *MatchPredicate) Validate() error {
 
 	case *MatchPredicate_HttpResponseHeadersMatch:
 
-		if v, ok := interface{}(m.GetHttpResponseHeadersMatch()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetHttpResponseHeadersMatch()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, MatchPredicateValidationError{
+						field:  "HttpResponseHeadersMatch",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, MatchPredicateValidationError{
+						field:  "HttpResponseHeadersMatch",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetHttpResponseHeadersMatch()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return MatchPredicateValidationError{
 					field:  "HttpResponseHeadersMatch",
@@ -237,7 +485,26 @@ func (m *MatchPredicate) Validate() error {
 
 	case *MatchPredicate_HttpResponseTrailersMatch:
 
-		if v, ok := interface{}(m.GetHttpResponseTrailersMatch()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetHttpResponseTrailersMatch()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, MatchPredicateValidationError{
+						field:  "HttpResponseTrailersMatch",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, MatchPredicateValidationError{
+						field:  "HttpResponseTrailersMatch",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetHttpResponseTrailersMatch()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return MatchPredicateValidationError{
 					field:  "HttpResponseTrailersMatch",
@@ -249,7 +516,26 @@ func (m *MatchPredicate) Validate() error {
 
 	case *MatchPredicate_HttpRequestGenericBodyMatch:
 
-		if v, ok := interface{}(m.GetHttpRequestGenericBodyMatch()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetHttpRequestGenericBodyMatch()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, MatchPredicateValidationError{
+						field:  "HttpRequestGenericBodyMatch",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, MatchPredicateValidationError{
+						field:  "HttpRequestGenericBodyMatch",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetHttpRequestGenericBodyMatch()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return MatchPredicateValidationError{
 					field:  "HttpRequestGenericBodyMatch",
@@ -261,7 +547,26 @@ func (m *MatchPredicate) Validate() error {
 
 	case *MatchPredicate_HttpResponseGenericBodyMatch:
 
-		if v, ok := interface{}(m.GetHttpResponseGenericBodyMatch()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetHttpResponseGenericBodyMatch()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, MatchPredicateValidationError{
+						field:  "HttpResponseGenericBodyMatch",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, MatchPredicateValidationError{
+						field:  "HttpResponseGenericBodyMatch",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetHttpResponseGenericBodyMatch()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return MatchPredicateValidationError{
 					field:  "HttpResponseGenericBodyMatch",
@@ -272,15 +577,39 @@ func (m *MatchPredicate) Validate() error {
 		}
 
 	default:
-		return MatchPredicateValidationError{
+		err := MatchPredicateValidationError{
 			field:  "Rule",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 
 	}
 
+	if len(errors) > 0 {
+		return MatchPredicateMultiError(errors)
+	}
 	return nil
 }
+
+// MatchPredicateMultiError is an error wrapping multiple validation errors
+// returned by MatchPredicate.ValidateAll() if the designated constraints
+// aren't met.
+type MatchPredicateMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m MatchPredicateMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m MatchPredicateMultiError) AllErrors() []error { return m }
 
 // MatchPredicateValidationError is the validation error returned by
 // MatchPredicate.Validate if the designated constraints aren't met.
@@ -337,17 +666,50 @@ var _ interface {
 } = MatchPredicateValidationError{}
 
 // Validate checks the field values on HttpHeadersMatch with the rules defined
-// in the proto definition for this message. If any rules are violated, an
-// error is returned.
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
 func (m *HttpHeadersMatch) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on HttpHeadersMatch with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// HttpHeadersMatchMultiError, or nil if none found.
+func (m *HttpHeadersMatch) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HttpHeadersMatch) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	for idx, item := range m.GetHeaders() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HttpHeadersMatchValidationError{
+						field:  fmt.Sprintf("Headers[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HttpHeadersMatchValidationError{
+						field:  fmt.Sprintf("Headers[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HttpHeadersMatchValidationError{
 					field:  fmt.Sprintf("Headers[%v]", idx),
@@ -359,8 +721,28 @@ func (m *HttpHeadersMatch) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return HttpHeadersMatchMultiError(errors)
+	}
 	return nil
 }
+
+// HttpHeadersMatchMultiError is an error wrapping multiple validation errors
+// returned by HttpHeadersMatch.ValidateAll() if the designated constraints
+// aren't met.
+type HttpHeadersMatchMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HttpHeadersMatchMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HttpHeadersMatchMultiError) AllErrors() []error { return m }
 
 // HttpHeadersMatchValidationError is the validation error returned by
 // HttpHeadersMatch.Validate if the designated constraints aren't met.
@@ -418,25 +800,62 @@ var _ interface {
 
 // Validate checks the field values on HttpGenericBodyMatch with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *HttpGenericBodyMatch) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on HttpGenericBodyMatch with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// HttpGenericBodyMatchMultiError, or nil if none found.
+func (m *HttpGenericBodyMatch) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HttpGenericBodyMatch) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	// no validation rules for BytesLimit
 
 	if len(m.GetPatterns()) < 1 {
-		return HttpGenericBodyMatchValidationError{
+		err := HttpGenericBodyMatchValidationError{
 			field:  "Patterns",
 			reason: "value must contain at least 1 item(s)",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	for idx, item := range m.GetPatterns() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HttpGenericBodyMatchValidationError{
+						field:  fmt.Sprintf("Patterns[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HttpGenericBodyMatchValidationError{
+						field:  fmt.Sprintf("Patterns[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HttpGenericBodyMatchValidationError{
 					field:  fmt.Sprintf("Patterns[%v]", idx),
@@ -448,8 +867,28 @@ func (m *HttpGenericBodyMatch) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return HttpGenericBodyMatchMultiError(errors)
+	}
 	return nil
 }
+
+// HttpGenericBodyMatchMultiError is an error wrapping multiple validation
+// errors returned by HttpGenericBodyMatch.ValidateAll() if the designated
+// constraints aren't met.
+type HttpGenericBodyMatchMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HttpGenericBodyMatchMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HttpGenericBodyMatchMultiError) AllErrors() []error { return m }
 
 // HttpGenericBodyMatchValidationError is the validation error returned by
 // HttpGenericBodyMatch.Validate if the designated constraints aren't met.
@@ -508,24 +947,61 @@ var _ interface {
 } = HttpGenericBodyMatchValidationError{}
 
 // Validate checks the field values on OutputConfig with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *OutputConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on OutputConfig with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in OutputConfigMultiError, or
+// nil if none found.
+func (m *OutputConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *OutputConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if len(m.GetSinks()) != 1 {
-		return OutputConfigValidationError{
+		err := OutputConfigValidationError{
 			field:  "Sinks",
 			reason: "value must contain exactly 1 item(s)",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	for idx, item := range m.GetSinks() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, OutputConfigValidationError{
+						field:  fmt.Sprintf("Sinks[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, OutputConfigValidationError{
+						field:  fmt.Sprintf("Sinks[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return OutputConfigValidationError{
 					field:  fmt.Sprintf("Sinks[%v]", idx),
@@ -537,7 +1013,26 @@ func (m *OutputConfig) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetMaxBufferedRxBytes()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetMaxBufferedRxBytes()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, OutputConfigValidationError{
+					field:  "MaxBufferedRxBytes",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, OutputConfigValidationError{
+					field:  "MaxBufferedRxBytes",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMaxBufferedRxBytes()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return OutputConfigValidationError{
 				field:  "MaxBufferedRxBytes",
@@ -547,7 +1042,26 @@ func (m *OutputConfig) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetMaxBufferedTxBytes()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetMaxBufferedTxBytes()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, OutputConfigValidationError{
+					field:  "MaxBufferedTxBytes",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, OutputConfigValidationError{
+					field:  "MaxBufferedTxBytes",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMaxBufferedTxBytes()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return OutputConfigValidationError{
 				field:  "MaxBufferedTxBytes",
@@ -559,8 +1073,27 @@ func (m *OutputConfig) Validate() error {
 
 	// no validation rules for Streaming
 
+	if len(errors) > 0 {
+		return OutputConfigMultiError(errors)
+	}
 	return nil
 }
+
+// OutputConfigMultiError is an error wrapping multiple validation errors
+// returned by OutputConfig.ValidateAll() if the designated constraints aren't met.
+type OutputConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m OutputConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m OutputConfigMultiError) AllErrors() []error { return m }
 
 // OutputConfigValidationError is the validation error returned by
 // OutputConfig.Validate if the designated constraints aren't met.
@@ -617,24 +1150,62 @@ var _ interface {
 } = OutputConfigValidationError{}
 
 // Validate checks the field values on OutputSink with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *OutputSink) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on OutputSink with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in OutputSinkMultiError, or
+// nil if none found.
+func (m *OutputSink) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *OutputSink) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if _, ok := OutputSink_Format_name[int32(m.GetFormat())]; !ok {
-		return OutputSinkValidationError{
+		err := OutputSinkValidationError{
 			field:  "Format",
 			reason: "value must be one of the defined enum values",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	switch m.OutputSinkType.(type) {
 
 	case *OutputSink_StreamingAdmin:
 
-		if v, ok := interface{}(m.GetStreamingAdmin()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetStreamingAdmin()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, OutputSinkValidationError{
+						field:  "StreamingAdmin",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, OutputSinkValidationError{
+						field:  "StreamingAdmin",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetStreamingAdmin()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return OutputSinkValidationError{
 					field:  "StreamingAdmin",
@@ -646,7 +1217,26 @@ func (m *OutputSink) Validate() error {
 
 	case *OutputSink_FilePerTap:
 
-		if v, ok := interface{}(m.GetFilePerTap()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetFilePerTap()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, OutputSinkValidationError{
+						field:  "FilePerTap",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, OutputSinkValidationError{
+						field:  "FilePerTap",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetFilePerTap()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return OutputSinkValidationError{
 					field:  "FilePerTap",
@@ -658,7 +1248,26 @@ func (m *OutputSink) Validate() error {
 
 	case *OutputSink_StreamingGrpc:
 
-		if v, ok := interface{}(m.GetStreamingGrpc()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetStreamingGrpc()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, OutputSinkValidationError{
+						field:  "StreamingGrpc",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, OutputSinkValidationError{
+						field:  "StreamingGrpc",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetStreamingGrpc()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return OutputSinkValidationError{
 					field:  "StreamingGrpc",
@@ -669,15 +1278,38 @@ func (m *OutputSink) Validate() error {
 		}
 
 	default:
-		return OutputSinkValidationError{
+		err := OutputSinkValidationError{
 			field:  "OutputSinkType",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 
 	}
 
+	if len(errors) > 0 {
+		return OutputSinkMultiError(errors)
+	}
 	return nil
 }
+
+// OutputSinkMultiError is an error wrapping multiple validation errors
+// returned by OutputSink.ValidateAll() if the designated constraints aren't met.
+type OutputSinkMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m OutputSinkMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m OutputSinkMultiError) AllErrors() []error { return m }
 
 // OutputSinkValidationError is the validation error returned by
 // OutputSink.Validate if the designated constraints aren't met.
@@ -735,14 +1367,48 @@ var _ interface {
 
 // Validate checks the field values on StreamingAdminSink with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *StreamingAdminSink) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on StreamingAdminSink with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// StreamingAdminSinkMultiError, or nil if none found.
+func (m *StreamingAdminSink) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *StreamingAdminSink) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
+	if len(errors) > 0 {
+		return StreamingAdminSinkMultiError(errors)
+	}
 	return nil
 }
+
+// StreamingAdminSinkMultiError is an error wrapping multiple validation errors
+// returned by StreamingAdminSink.ValidateAll() if the designated constraints
+// aren't met.
+type StreamingAdminSinkMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m StreamingAdminSinkMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m StreamingAdminSinkMultiError) AllErrors() []error { return m }
 
 // StreamingAdminSinkValidationError is the validation error returned by
 // StreamingAdminSink.Validate if the designated constraints aren't met.
@@ -801,22 +1467,60 @@ var _ interface {
 } = StreamingAdminSinkValidationError{}
 
 // Validate checks the field values on FilePerTapSink with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *FilePerTapSink) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on FilePerTapSink with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in FilePerTapSinkMultiError,
+// or nil if none found.
+func (m *FilePerTapSink) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *FilePerTapSink) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if utf8.RuneCountInString(m.GetPathPrefix()) < 1 {
-		return FilePerTapSinkValidationError{
+		err := FilePerTapSinkValidationError{
 			field:  "PathPrefix",
 			reason: "value length must be at least 1 runes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
+	if len(errors) > 0 {
+		return FilePerTapSinkMultiError(errors)
+	}
 	return nil
 }
+
+// FilePerTapSinkMultiError is an error wrapping multiple validation errors
+// returned by FilePerTapSink.ValidateAll() if the designated constraints
+// aren't met.
+type FilePerTapSinkMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m FilePerTapSinkMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m FilePerTapSinkMultiError) AllErrors() []error { return m }
 
 // FilePerTapSinkValidationError is the validation error returned by
 // FilePerTapSink.Validate if the designated constraints aren't met.
@@ -873,23 +1577,60 @@ var _ interface {
 } = FilePerTapSinkValidationError{}
 
 // Validate checks the field values on StreamingGrpcSink with the rules defined
-// in the proto definition for this message. If any rules are violated, an
-// error is returned.
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
 func (m *StreamingGrpcSink) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on StreamingGrpcSink with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// StreamingGrpcSinkMultiError, or nil if none found.
+func (m *StreamingGrpcSink) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *StreamingGrpcSink) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	// no validation rules for TapId
 
 	if m.GetGrpcService() == nil {
-		return StreamingGrpcSinkValidationError{
+		err := StreamingGrpcSinkValidationError{
 			field:  "GrpcService",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
-	if v, ok := interface{}(m.GetGrpcService()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetGrpcService()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, StreamingGrpcSinkValidationError{
+					field:  "GrpcService",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, StreamingGrpcSinkValidationError{
+					field:  "GrpcService",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetGrpcService()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return StreamingGrpcSinkValidationError{
 				field:  "GrpcService",
@@ -899,8 +1640,28 @@ func (m *StreamingGrpcSink) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return StreamingGrpcSinkMultiError(errors)
+	}
 	return nil
 }
+
+// StreamingGrpcSinkMultiError is an error wrapping multiple validation errors
+// returned by StreamingGrpcSink.ValidateAll() if the designated constraints
+// aren't met.
+type StreamingGrpcSinkMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m StreamingGrpcSinkMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m StreamingGrpcSinkMultiError) AllErrors() []error { return m }
 
 // StreamingGrpcSinkValidationError is the validation error returned by
 // StreamingGrpcSink.Validate if the designated constraints aren't met.
@@ -960,23 +1721,60 @@ var _ interface {
 
 // Validate checks the field values on MatchPredicate_MatchSet with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *MatchPredicate_MatchSet) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on MatchPredicate_MatchSet with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// MatchPredicate_MatchSetMultiError, or nil if none found.
+func (m *MatchPredicate_MatchSet) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *MatchPredicate_MatchSet) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if len(m.GetRules()) < 2 {
-		return MatchPredicate_MatchSetValidationError{
+		err := MatchPredicate_MatchSetValidationError{
 			field:  "Rules",
 			reason: "value must contain at least 2 item(s)",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	for idx, item := range m.GetRules() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, MatchPredicate_MatchSetValidationError{
+						field:  fmt.Sprintf("Rules[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, MatchPredicate_MatchSetValidationError{
+						field:  fmt.Sprintf("Rules[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return MatchPredicate_MatchSetValidationError{
 					field:  fmt.Sprintf("Rules[%v]", idx),
@@ -988,8 +1786,28 @@ func (m *MatchPredicate_MatchSet) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return MatchPredicate_MatchSetMultiError(errors)
+	}
 	return nil
 }
+
+// MatchPredicate_MatchSetMultiError is an error wrapping multiple validation
+// errors returned by MatchPredicate_MatchSet.ValidateAll() if the designated
+// constraints aren't met.
+type MatchPredicate_MatchSetMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m MatchPredicate_MatchSetMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m MatchPredicate_MatchSetMultiError) AllErrors() []error { return m }
 
 // MatchPredicate_MatchSetValidationError is the validation error returned by
 // MatchPredicate_MatchSet.Validate if the designated constraints aren't met.
@@ -1049,42 +1867,90 @@ var _ interface {
 
 // Validate checks the field values on HttpGenericBodyMatch_GenericTextMatch
 // with the rules defined in the proto definition for this message. If any
-// rules are violated, an error is returned.
+// rules are violated, the first error encountered is returned, or nil if
+// there are no violations.
 func (m *HttpGenericBodyMatch_GenericTextMatch) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on HttpGenericBodyMatch_GenericTextMatch
+// with the rules defined in the proto definition for this message. If any
+// rules are violated, the result is a list of violation errors wrapped in
+// HttpGenericBodyMatch_GenericTextMatchMultiError, or nil if none found.
+func (m *HttpGenericBodyMatch_GenericTextMatch) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HttpGenericBodyMatch_GenericTextMatch) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	switch m.Rule.(type) {
 
 	case *HttpGenericBodyMatch_GenericTextMatch_StringMatch:
 
 		if utf8.RuneCountInString(m.GetStringMatch()) < 1 {
-			return HttpGenericBodyMatch_GenericTextMatchValidationError{
+			err := HttpGenericBodyMatch_GenericTextMatchValidationError{
 				field:  "StringMatch",
 				reason: "value length must be at least 1 runes",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	case *HttpGenericBodyMatch_GenericTextMatch_BinaryMatch:
 
 		if len(m.GetBinaryMatch()) < 1 {
-			return HttpGenericBodyMatch_GenericTextMatchValidationError{
+			err := HttpGenericBodyMatch_GenericTextMatchValidationError{
 				field:  "BinaryMatch",
 				reason: "value length must be at least 1 bytes",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	default:
-		return HttpGenericBodyMatch_GenericTextMatchValidationError{
+		err := HttpGenericBodyMatch_GenericTextMatchValidationError{
 			field:  "Rule",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 
 	}
 
+	if len(errors) > 0 {
+		return HttpGenericBodyMatch_GenericTextMatchMultiError(errors)
+	}
 	return nil
 }
+
+// HttpGenericBodyMatch_GenericTextMatchMultiError is an error wrapping
+// multiple validation errors returned by
+// HttpGenericBodyMatch_GenericTextMatch.ValidateAll() if the designated
+// constraints aren't met.
+type HttpGenericBodyMatch_GenericTextMatchMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HttpGenericBodyMatch_GenericTextMatchMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HttpGenericBodyMatch_GenericTextMatchMultiError) AllErrors() []error { return m }
 
 // HttpGenericBodyMatch_GenericTextMatchValidationError is the validation error
 // returned by HttpGenericBodyMatch_GenericTextMatch.Validate if the

@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,16 +32,51 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on FaultDelay with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *FaultDelay) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on FaultDelay with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in FaultDelayMultiError, or
+// nil if none found.
+func (m *FaultDelay) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *FaultDelay) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetPercentage()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetPercentage()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, FaultDelayValidationError{
+					field:  "Percentage",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, FaultDelayValidationError{
+					field:  "Percentage",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetPercentage()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return FaultDelayValidationError{
 				field:  "Percentage",
@@ -50,8 +86,6 @@ func (m *FaultDelay) Validate() error {
 		}
 	}
 
-	// no validation rules for HiddenEnvoyDeprecatedType
-
 	switch m.FaultDelaySecifier.(type) {
 
 	case *FaultDelay_FixedDelay:
@@ -59,27 +93,55 @@ func (m *FaultDelay) Validate() error {
 		if d := m.GetFixedDelay(); d != nil {
 			dur, err := d.AsDuration(), d.CheckValid()
 			if err != nil {
-				return FaultDelayValidationError{
+				err = FaultDelayValidationError{
 					field:  "FixedDelay",
 					reason: "value is not a valid duration",
 					cause:  err,
 				}
-			}
-
-			gt := time.Duration(0*time.Second + 0*time.Nanosecond)
-
-			if dur <= gt {
-				return FaultDelayValidationError{
-					field:  "FixedDelay",
-					reason: "value must be greater than 0s",
+				if !all {
+					return err
 				}
-			}
+				errors = append(errors, err)
+			} else {
 
+				gt := time.Duration(0*time.Second + 0*time.Nanosecond)
+
+				if dur <= gt {
+					err := FaultDelayValidationError{
+						field:  "FixedDelay",
+						reason: "value must be greater than 0s",
+					}
+					if !all {
+						return err
+					}
+					errors = append(errors, err)
+				}
+
+			}
 		}
 
 	case *FaultDelay_HeaderDelay_:
 
-		if v, ok := interface{}(m.GetHeaderDelay()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetHeaderDelay()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, FaultDelayValidationError{
+						field:  "HeaderDelay",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, FaultDelayValidationError{
+						field:  "HeaderDelay",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetHeaderDelay()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return FaultDelayValidationError{
 					field:  "HeaderDelay",
@@ -90,15 +152,38 @@ func (m *FaultDelay) Validate() error {
 		}
 
 	default:
-		return FaultDelayValidationError{
+		err := FaultDelayValidationError{
 			field:  "FaultDelaySecifier",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 
 	}
 
+	if len(errors) > 0 {
+		return FaultDelayMultiError(errors)
+	}
 	return nil
 }
+
+// FaultDelayMultiError is an error wrapping multiple validation errors
+// returned by FaultDelay.ValidateAll() if the designated constraints aren't met.
+type FaultDelayMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m FaultDelayMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m FaultDelayMultiError) AllErrors() []error { return m }
 
 // FaultDelayValidationError is the validation error returned by
 // FaultDelay.Validate if the designated constraints aren't met.
@@ -155,14 +240,47 @@ var _ interface {
 } = FaultDelayValidationError{}
 
 // Validate checks the field values on FaultRateLimit with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *FaultRateLimit) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on FaultRateLimit with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in FaultRateLimitMultiError,
+// or nil if none found.
+func (m *FaultRateLimit) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *FaultRateLimit) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetPercentage()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetPercentage()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, FaultRateLimitValidationError{
+					field:  "Percentage",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, FaultRateLimitValidationError{
+					field:  "Percentage",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetPercentage()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return FaultRateLimitValidationError{
 				field:  "Percentage",
@@ -176,7 +294,26 @@ func (m *FaultRateLimit) Validate() error {
 
 	case *FaultRateLimit_FixedLimit_:
 
-		if v, ok := interface{}(m.GetFixedLimit()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetFixedLimit()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, FaultRateLimitValidationError{
+						field:  "FixedLimit",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, FaultRateLimitValidationError{
+						field:  "FixedLimit",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetFixedLimit()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return FaultRateLimitValidationError{
 					field:  "FixedLimit",
@@ -188,7 +325,26 @@ func (m *FaultRateLimit) Validate() error {
 
 	case *FaultRateLimit_HeaderLimit_:
 
-		if v, ok := interface{}(m.GetHeaderLimit()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetHeaderLimit()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, FaultRateLimitValidationError{
+						field:  "HeaderLimit",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, FaultRateLimitValidationError{
+						field:  "HeaderLimit",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetHeaderLimit()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return FaultRateLimitValidationError{
 					field:  "HeaderLimit",
@@ -199,15 +355,39 @@ func (m *FaultRateLimit) Validate() error {
 		}
 
 	default:
-		return FaultRateLimitValidationError{
+		err := FaultRateLimitValidationError{
 			field:  "LimitType",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 
 	}
 
+	if len(errors) > 0 {
+		return FaultRateLimitMultiError(errors)
+	}
 	return nil
 }
+
+// FaultRateLimitMultiError is an error wrapping multiple validation errors
+// returned by FaultRateLimit.ValidateAll() if the designated constraints
+// aren't met.
+type FaultRateLimitMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m FaultRateLimitMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m FaultRateLimitMultiError) AllErrors() []error { return m }
 
 // FaultRateLimitValidationError is the validation error returned by
 // FaultRateLimit.Validate if the designated constraints aren't met.
@@ -265,14 +445,48 @@ var _ interface {
 
 // Validate checks the field values on FaultDelay_HeaderDelay with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *FaultDelay_HeaderDelay) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on FaultDelay_HeaderDelay with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// FaultDelay_HeaderDelayMultiError, or nil if none found.
+func (m *FaultDelay_HeaderDelay) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *FaultDelay_HeaderDelay) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
+	if len(errors) > 0 {
+		return FaultDelay_HeaderDelayMultiError(errors)
+	}
 	return nil
 }
+
+// FaultDelay_HeaderDelayMultiError is an error wrapping multiple validation
+// errors returned by FaultDelay_HeaderDelay.ValidateAll() if the designated
+// constraints aren't met.
+type FaultDelay_HeaderDelayMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m FaultDelay_HeaderDelayMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m FaultDelay_HeaderDelayMultiError) AllErrors() []error { return m }
 
 // FaultDelay_HeaderDelayValidationError is the validation error returned by
 // FaultDelay_HeaderDelay.Validate if the designated constraints aren't met.
@@ -332,21 +546,59 @@ var _ interface {
 
 // Validate checks the field values on FaultRateLimit_FixedLimit with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *FaultRateLimit_FixedLimit) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on FaultRateLimit_FixedLimit with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// FaultRateLimit_FixedLimitMultiError, or nil if none found.
+func (m *FaultRateLimit_FixedLimit) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *FaultRateLimit_FixedLimit) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if m.GetLimitKbps() < 1 {
-		return FaultRateLimit_FixedLimitValidationError{
+		err := FaultRateLimit_FixedLimitValidationError{
 			field:  "LimitKbps",
 			reason: "value must be greater than or equal to 1",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
+	if len(errors) > 0 {
+		return FaultRateLimit_FixedLimitMultiError(errors)
+	}
 	return nil
 }
+
+// FaultRateLimit_FixedLimitMultiError is an error wrapping multiple validation
+// errors returned by FaultRateLimit_FixedLimit.ValidateAll() if the
+// designated constraints aren't met.
+type FaultRateLimit_FixedLimitMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m FaultRateLimit_FixedLimitMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m FaultRateLimit_FixedLimitMultiError) AllErrors() []error { return m }
 
 // FaultRateLimit_FixedLimitValidationError is the validation error returned by
 // FaultRateLimit_FixedLimit.Validate if the designated constraints aren't met.
@@ -406,14 +658,48 @@ var _ interface {
 
 // Validate checks the field values on FaultRateLimit_HeaderLimit with the
 // rules defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *FaultRateLimit_HeaderLimit) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on FaultRateLimit_HeaderLimit with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// FaultRateLimit_HeaderLimitMultiError, or nil if none found.
+func (m *FaultRateLimit_HeaderLimit) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *FaultRateLimit_HeaderLimit) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
+	if len(errors) > 0 {
+		return FaultRateLimit_HeaderLimitMultiError(errors)
+	}
 	return nil
 }
+
+// FaultRateLimit_HeaderLimitMultiError is an error wrapping multiple
+// validation errors returned by FaultRateLimit_HeaderLimit.ValidateAll() if
+// the designated constraints aren't met.
+type FaultRateLimit_HeaderLimitMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m FaultRateLimit_HeaderLimitMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m FaultRateLimit_HeaderLimitMultiError) AllErrors() []error { return m }
 
 // FaultRateLimit_HeaderLimitValidationError is the validation error returned
 // by FaultRateLimit_HeaderLimit.Validate if the designated constraints aren't met.

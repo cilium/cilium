@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -33,27 +34,66 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 
 	_ = core.TrafficDirection(0)
 )
 
 // Validate checks the field values on Listener with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *Listener) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Listener with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in ListenerMultiError, or nil
+// if none found.
+func (m *Listener) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Listener) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	// no validation rules for Name
 
 	if m.GetAddress() == nil {
-		return ListenerValidationError{
+		err := ListenerValidationError{
 			field:  "Address",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
-	if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetAddress()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ListenerValidationError{
+					field:  "Address",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ListenerValidationError{
+					field:  "Address",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ListenerValidationError{
 				field:  "Address",
@@ -66,7 +106,26 @@ func (m *Listener) Validate() error {
 	for idx, item := range m.GetFilterChains() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ListenerValidationError{
+						field:  fmt.Sprintf("FilterChains[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ListenerValidationError{
+						field:  fmt.Sprintf("FilterChains[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ListenerValidationError{
 					field:  fmt.Sprintf("FilterChains[%v]", idx),
@@ -78,7 +137,26 @@ func (m *Listener) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetUseOriginalDst()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetUseOriginalDst()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ListenerValidationError{
+					field:  "UseOriginalDst",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ListenerValidationError{
+					field:  "UseOriginalDst",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetUseOriginalDst()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ListenerValidationError{
 				field:  "UseOriginalDst",
@@ -88,7 +166,26 @@ func (m *Listener) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetPerConnectionBufferLimitBytes()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetPerConnectionBufferLimitBytes()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ListenerValidationError{
+					field:  "PerConnectionBufferLimitBytes",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ListenerValidationError{
+					field:  "PerConnectionBufferLimitBytes",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetPerConnectionBufferLimitBytes()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ListenerValidationError{
 				field:  "PerConnectionBufferLimitBytes",
@@ -98,7 +195,26 @@ func (m *Listener) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetMetadata()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetMetadata()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ListenerValidationError{
+					field:  "Metadata",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ListenerValidationError{
+					field:  "Metadata",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMetadata()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ListenerValidationError{
 				field:  "Metadata",
@@ -108,7 +224,26 @@ func (m *Listener) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetDeprecatedV1()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetDeprecatedV1()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ListenerValidationError{
+					field:  "DeprecatedV1",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ListenerValidationError{
+					field:  "DeprecatedV1",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetDeprecatedV1()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ListenerValidationError{
 				field:  "DeprecatedV1",
@@ -123,7 +258,26 @@ func (m *Listener) Validate() error {
 	for idx, item := range m.GetListenerFilters() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ListenerValidationError{
+						field:  fmt.Sprintf("ListenerFilters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ListenerValidationError{
+						field:  fmt.Sprintf("ListenerFilters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ListenerValidationError{
 					field:  fmt.Sprintf("ListenerFilters[%v]", idx),
@@ -135,7 +289,26 @@ func (m *Listener) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetListenerFiltersTimeout()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetListenerFiltersTimeout()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ListenerValidationError{
+					field:  "ListenerFiltersTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ListenerValidationError{
+					field:  "ListenerFiltersTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetListenerFiltersTimeout()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ListenerValidationError{
 				field:  "ListenerFiltersTimeout",
@@ -147,7 +320,26 @@ func (m *Listener) Validate() error {
 
 	// no validation rules for ContinueOnListenerFiltersTimeout
 
-	if v, ok := interface{}(m.GetTransparent()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetTransparent()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ListenerValidationError{
+					field:  "Transparent",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ListenerValidationError{
+					field:  "Transparent",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetTransparent()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ListenerValidationError{
 				field:  "Transparent",
@@ -157,7 +349,26 @@ func (m *Listener) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetFreebind()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetFreebind()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ListenerValidationError{
+					field:  "Freebind",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ListenerValidationError{
+					field:  "Freebind",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetFreebind()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ListenerValidationError{
 				field:  "Freebind",
@@ -170,7 +381,26 @@ func (m *Listener) Validate() error {
 	for idx, item := range m.GetSocketOptions() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ListenerValidationError{
+						field:  fmt.Sprintf("SocketOptions[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ListenerValidationError{
+						field:  fmt.Sprintf("SocketOptions[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ListenerValidationError{
 					field:  fmt.Sprintf("SocketOptions[%v]", idx),
@@ -182,7 +412,26 @@ func (m *Listener) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetTcpFastOpenQueueLength()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetTcpFastOpenQueueLength()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ListenerValidationError{
+					field:  "TcpFastOpenQueueLength",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ListenerValidationError{
+					field:  "TcpFastOpenQueueLength",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetTcpFastOpenQueueLength()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ListenerValidationError{
 				field:  "TcpFastOpenQueueLength",
@@ -194,7 +443,26 @@ func (m *Listener) Validate() error {
 
 	// no validation rules for TrafficDirection
 
-	if v, ok := interface{}(m.GetUdpListenerConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetUdpListenerConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ListenerValidationError{
+					field:  "UdpListenerConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ListenerValidationError{
+					field:  "UdpListenerConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetUdpListenerConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ListenerValidationError{
 				field:  "UdpListenerConfig",
@@ -204,7 +472,26 @@ func (m *Listener) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetApiListener()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetApiListener()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ListenerValidationError{
+					field:  "ApiListener",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ListenerValidationError{
+					field:  "ApiListener",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetApiListener()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ListenerValidationError{
 				field:  "ApiListener",
@@ -214,7 +501,26 @@ func (m *Listener) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetConnectionBalanceConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetConnectionBalanceConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ListenerValidationError{
+					field:  "ConnectionBalanceConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ListenerValidationError{
+					field:  "ConnectionBalanceConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetConnectionBalanceConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ListenerValidationError{
 				field:  "ConnectionBalanceConfig",
@@ -229,7 +535,26 @@ func (m *Listener) Validate() error {
 	for idx, item := range m.GetAccessLog() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ListenerValidationError{
+						field:  fmt.Sprintf("AccessLog[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ListenerValidationError{
+						field:  fmt.Sprintf("AccessLog[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ListenerValidationError{
 					field:  fmt.Sprintf("AccessLog[%v]", idx),
@@ -241,8 +566,27 @@ func (m *Listener) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return ListenerMultiError(errors)
+	}
 	return nil
 }
+
+// ListenerMultiError is an error wrapping multiple validation errors returned
+// by Listener.ValidateAll() if the designated constraints aren't met.
+type ListenerMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ListenerMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ListenerMultiError) AllErrors() []error { return m }
 
 // ListenerValidationError is the validation error returned by
 // Listener.Validate if the designated constraints aren't met.
@@ -300,13 +644,46 @@ var _ interface {
 
 // Validate checks the field values on Listener_DeprecatedV1 with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *Listener_DeprecatedV1) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Listener_DeprecatedV1 with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// Listener_DeprecatedV1MultiError, or nil if none found.
+func (m *Listener_DeprecatedV1) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Listener_DeprecatedV1) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetBindToPort()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetBindToPort()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, Listener_DeprecatedV1ValidationError{
+					field:  "BindToPort",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, Listener_DeprecatedV1ValidationError{
+					field:  "BindToPort",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetBindToPort()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return Listener_DeprecatedV1ValidationError{
 				field:  "BindToPort",
@@ -316,8 +693,28 @@ func (m *Listener_DeprecatedV1) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return Listener_DeprecatedV1MultiError(errors)
+	}
 	return nil
 }
+
+// Listener_DeprecatedV1MultiError is an error wrapping multiple validation
+// errors returned by Listener_DeprecatedV1.ValidateAll() if the designated
+// constraints aren't met.
+type Listener_DeprecatedV1MultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Listener_DeprecatedV1MultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Listener_DeprecatedV1MultiError) AllErrors() []error { return m }
 
 // Listener_DeprecatedV1ValidationError is the validation error returned by
 // Listener_DeprecatedV1.Validate if the designated constraints aren't met.
@@ -377,17 +774,51 @@ var _ interface {
 
 // Validate checks the field values on Listener_ConnectionBalanceConfig with
 // the rules defined in the proto definition for this message. If any rules
-// are violated, an error is returned.
+// are violated, the first error encountered is returned, or nil if there are
+// no violations.
 func (m *Listener_ConnectionBalanceConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Listener_ConnectionBalanceConfig with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the result is a list of violation errors wrapped in
+// Listener_ConnectionBalanceConfigMultiError, or nil if none found.
+func (m *Listener_ConnectionBalanceConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Listener_ConnectionBalanceConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	switch m.BalanceType.(type) {
 
 	case *Listener_ConnectionBalanceConfig_ExactBalance_:
 
-		if v, ok := interface{}(m.GetExactBalance()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetExactBalance()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, Listener_ConnectionBalanceConfigValidationError{
+						field:  "ExactBalance",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, Listener_ConnectionBalanceConfigValidationError{
+						field:  "ExactBalance",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetExactBalance()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return Listener_ConnectionBalanceConfigValidationError{
 					field:  "ExactBalance",
@@ -398,15 +829,40 @@ func (m *Listener_ConnectionBalanceConfig) Validate() error {
 		}
 
 	default:
-		return Listener_ConnectionBalanceConfigValidationError{
+		err := Listener_ConnectionBalanceConfigValidationError{
 			field:  "BalanceType",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 
 	}
 
+	if len(errors) > 0 {
+		return Listener_ConnectionBalanceConfigMultiError(errors)
+	}
 	return nil
 }
+
+// Listener_ConnectionBalanceConfigMultiError is an error wrapping multiple
+// validation errors returned by
+// Listener_ConnectionBalanceConfig.ValidateAll() if the designated
+// constraints aren't met.
+type Listener_ConnectionBalanceConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Listener_ConnectionBalanceConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Listener_ConnectionBalanceConfigMultiError) AllErrors() []error { return m }
 
 // Listener_ConnectionBalanceConfigValidationError is the validation error
 // returned by Listener_ConnectionBalanceConfig.Validate if the designated
@@ -467,14 +923,51 @@ var _ interface {
 
 // Validate checks the field values on
 // Listener_ConnectionBalanceConfig_ExactBalance with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *Listener_ConnectionBalanceConfig_ExactBalance) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// Listener_ConnectionBalanceConfig_ExactBalance with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in
+// Listener_ConnectionBalanceConfig_ExactBalanceMultiError, or nil if none found.
+func (m *Listener_ConnectionBalanceConfig_ExactBalance) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Listener_ConnectionBalanceConfig_ExactBalance) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
+	if len(errors) > 0 {
+		return Listener_ConnectionBalanceConfig_ExactBalanceMultiError(errors)
+	}
 	return nil
 }
+
+// Listener_ConnectionBalanceConfig_ExactBalanceMultiError is an error wrapping
+// multiple validation errors returned by
+// Listener_ConnectionBalanceConfig_ExactBalance.ValidateAll() if the
+// designated constraints aren't met.
+type Listener_ConnectionBalanceConfig_ExactBalanceMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Listener_ConnectionBalanceConfig_ExactBalanceMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Listener_ConnectionBalanceConfig_ExactBalanceMultiError) AllErrors() []error { return m }
 
 // Listener_ConnectionBalanceConfig_ExactBalanceValidationError is the
 // validation error returned by

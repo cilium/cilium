@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,20 +32,55 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on ResourceAnnotation with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *ResourceAnnotation) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ResourceAnnotation with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ResourceAnnotationMultiError, or nil if none found.
+func (m *ResourceAnnotation) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ResourceAnnotation) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	// no validation rules for Type
 
+	if len(errors) > 0 {
+		return ResourceAnnotationMultiError(errors)
+	}
 	return nil
 }
+
+// ResourceAnnotationMultiError is an error wrapping multiple validation errors
+// returned by ResourceAnnotation.ValidateAll() if the designated constraints
+// aren't met.
+type ResourceAnnotationMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ResourceAnnotationMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ResourceAnnotationMultiError) AllErrors() []error { return m }
 
 // ResourceAnnotationValidationError is the validation error returned by
 // ResourceAnnotation.Validate if the designated constraints aren't met.

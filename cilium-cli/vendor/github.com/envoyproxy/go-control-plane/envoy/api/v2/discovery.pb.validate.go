@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,19 +32,53 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on DiscoveryRequest with the rules defined
-// in the proto definition for this message. If any rules are violated, an
-// error is returned.
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
 func (m *DiscoveryRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on DiscoveryRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// DiscoveryRequestMultiError, or nil if none found.
+func (m *DiscoveryRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *DiscoveryRequest) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	// no validation rules for VersionInfo
 
-	if v, ok := interface{}(m.GetNode()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetNode()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, DiscoveryRequestValidationError{
+					field:  "Node",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, DiscoveryRequestValidationError{
+					field:  "Node",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetNode()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return DiscoveryRequestValidationError{
 				field:  "Node",
@@ -57,7 +92,26 @@ func (m *DiscoveryRequest) Validate() error {
 
 	// no validation rules for ResponseNonce
 
-	if v, ok := interface{}(m.GetErrorDetail()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetErrorDetail()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, DiscoveryRequestValidationError{
+					field:  "ErrorDetail",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, DiscoveryRequestValidationError{
+					field:  "ErrorDetail",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetErrorDetail()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return DiscoveryRequestValidationError{
 				field:  "ErrorDetail",
@@ -67,8 +121,28 @@ func (m *DiscoveryRequest) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return DiscoveryRequestMultiError(errors)
+	}
 	return nil
 }
+
+// DiscoveryRequestMultiError is an error wrapping multiple validation errors
+// returned by DiscoveryRequest.ValidateAll() if the designated constraints
+// aren't met.
+type DiscoveryRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m DiscoveryRequestMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m DiscoveryRequestMultiError) AllErrors() []error { return m }
 
 // DiscoveryRequestValidationError is the validation error returned by
 // DiscoveryRequest.Validate if the designated constraints aren't met.
@@ -125,19 +199,52 @@ var _ interface {
 } = DiscoveryRequestValidationError{}
 
 // Validate checks the field values on DiscoveryResponse with the rules defined
-// in the proto definition for this message. If any rules are violated, an
-// error is returned.
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
 func (m *DiscoveryResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on DiscoveryResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// DiscoveryResponseMultiError, or nil if none found.
+func (m *DiscoveryResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *DiscoveryResponse) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for VersionInfo
 
 	for idx, item := range m.GetResources() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, DiscoveryResponseValidationError{
+						field:  fmt.Sprintf("Resources[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, DiscoveryResponseValidationError{
+						field:  fmt.Sprintf("Resources[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return DiscoveryResponseValidationError{
 					field:  fmt.Sprintf("Resources[%v]", idx),
@@ -155,7 +262,26 @@ func (m *DiscoveryResponse) Validate() error {
 
 	// no validation rules for Nonce
 
-	if v, ok := interface{}(m.GetControlPlane()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetControlPlane()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, DiscoveryResponseValidationError{
+					field:  "ControlPlane",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, DiscoveryResponseValidationError{
+					field:  "ControlPlane",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetControlPlane()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return DiscoveryResponseValidationError{
 				field:  "ControlPlane",
@@ -165,8 +291,28 @@ func (m *DiscoveryResponse) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return DiscoveryResponseMultiError(errors)
+	}
 	return nil
 }
+
+// DiscoveryResponseMultiError is an error wrapping multiple validation errors
+// returned by DiscoveryResponse.ValidateAll() if the designated constraints
+// aren't met.
+type DiscoveryResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m DiscoveryResponseMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m DiscoveryResponseMultiError) AllErrors() []error { return m }
 
 // DiscoveryResponseValidationError is the validation error returned by
 // DiscoveryResponse.Validate if the designated constraints aren't met.
@@ -226,13 +372,46 @@ var _ interface {
 
 // Validate checks the field values on DeltaDiscoveryRequest with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *DeltaDiscoveryRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on DeltaDiscoveryRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// DeltaDiscoveryRequestMultiError, or nil if none found.
+func (m *DeltaDiscoveryRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *DeltaDiscoveryRequest) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetNode()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetNode()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, DeltaDiscoveryRequestValidationError{
+					field:  "Node",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, DeltaDiscoveryRequestValidationError{
+					field:  "Node",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetNode()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return DeltaDiscoveryRequestValidationError{
 				field:  "Node",
@@ -248,7 +427,26 @@ func (m *DeltaDiscoveryRequest) Validate() error {
 
 	// no validation rules for ResponseNonce
 
-	if v, ok := interface{}(m.GetErrorDetail()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetErrorDetail()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, DeltaDiscoveryRequestValidationError{
+					field:  "ErrorDetail",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, DeltaDiscoveryRequestValidationError{
+					field:  "ErrorDetail",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetErrorDetail()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return DeltaDiscoveryRequestValidationError{
 				field:  "ErrorDetail",
@@ -258,8 +456,28 @@ func (m *DeltaDiscoveryRequest) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return DeltaDiscoveryRequestMultiError(errors)
+	}
 	return nil
 }
+
+// DeltaDiscoveryRequestMultiError is an error wrapping multiple validation
+// errors returned by DeltaDiscoveryRequest.ValidateAll() if the designated
+// constraints aren't met.
+type DeltaDiscoveryRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m DeltaDiscoveryRequestMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m DeltaDiscoveryRequestMultiError) AllErrors() []error { return m }
 
 // DeltaDiscoveryRequestValidationError is the validation error returned by
 // DeltaDiscoveryRequest.Validate if the designated constraints aren't met.
@@ -319,18 +537,51 @@ var _ interface {
 
 // Validate checks the field values on DeltaDiscoveryResponse with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *DeltaDiscoveryResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on DeltaDiscoveryResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// DeltaDiscoveryResponseMultiError, or nil if none found.
+func (m *DeltaDiscoveryResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *DeltaDiscoveryResponse) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for SystemVersionInfo
 
 	for idx, item := range m.GetResources() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, DeltaDiscoveryResponseValidationError{
+						field:  fmt.Sprintf("Resources[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, DeltaDiscoveryResponseValidationError{
+						field:  fmt.Sprintf("Resources[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return DeltaDiscoveryResponseValidationError{
 					field:  fmt.Sprintf("Resources[%v]", idx),
@@ -346,8 +597,28 @@ func (m *DeltaDiscoveryResponse) Validate() error {
 
 	// no validation rules for Nonce
 
+	if len(errors) > 0 {
+		return DeltaDiscoveryResponseMultiError(errors)
+	}
 	return nil
 }
+
+// DeltaDiscoveryResponseMultiError is an error wrapping multiple validation
+// errors returned by DeltaDiscoveryResponse.ValidateAll() if the designated
+// constraints aren't met.
+type DeltaDiscoveryResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m DeltaDiscoveryResponseMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m DeltaDiscoveryResponseMultiError) AllErrors() []error { return m }
 
 // DeltaDiscoveryResponseValidationError is the validation error returned by
 // DeltaDiscoveryResponse.Validate if the designated constraints aren't met.
@@ -406,17 +677,51 @@ var _ interface {
 } = DeltaDiscoveryResponseValidationError{}
 
 // Validate checks the field values on Resource with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *Resource) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Resource with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in ResourceMultiError, or nil
+// if none found.
+func (m *Resource) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Resource) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for Name
 
 	// no validation rules for Version
 
-	if v, ok := interface{}(m.GetResource()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetResource()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ResourceValidationError{
+					field:  "Resource",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ResourceValidationError{
+					field:  "Resource",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetResource()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ResourceValidationError{
 				field:  "Resource",
@@ -426,8 +731,27 @@ func (m *Resource) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return ResourceMultiError(errors)
+	}
 	return nil
 }
+
+// ResourceMultiError is an error wrapping multiple validation errors returned
+// by Resource.ValidateAll() if the designated constraints aren't met.
+type ResourceMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ResourceMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ResourceMultiError) AllErrors() []error { return m }
 
 // ResourceValidationError is the validation error returned by
 // Resource.Validate if the designated constraints aren't met.

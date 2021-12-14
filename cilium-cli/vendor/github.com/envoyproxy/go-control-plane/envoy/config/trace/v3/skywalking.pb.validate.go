@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,24 +32,62 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on SkyWalkingConfig with the rules defined
-// in the proto definition for this message. If any rules are violated, an
-// error is returned.
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
 func (m *SkyWalkingConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on SkyWalkingConfig with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// SkyWalkingConfigMultiError, or nil if none found.
+func (m *SkyWalkingConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *SkyWalkingConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if m.GetGrpcService() == nil {
-		return SkyWalkingConfigValidationError{
+		err := SkyWalkingConfigValidationError{
 			field:  "GrpcService",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
-	if v, ok := interface{}(m.GetGrpcService()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetGrpcService()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, SkyWalkingConfigValidationError{
+					field:  "GrpcService",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, SkyWalkingConfigValidationError{
+					field:  "GrpcService",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetGrpcService()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return SkyWalkingConfigValidationError{
 				field:  "GrpcService",
@@ -58,7 +97,26 @@ func (m *SkyWalkingConfig) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetClientConfig()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetClientConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, SkyWalkingConfigValidationError{
+					field:  "ClientConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, SkyWalkingConfigValidationError{
+					field:  "ClientConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetClientConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return SkyWalkingConfigValidationError{
 				field:  "ClientConfig",
@@ -68,8 +126,28 @@ func (m *SkyWalkingConfig) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return SkyWalkingConfigMultiError(errors)
+	}
 	return nil
 }
+
+// SkyWalkingConfigMultiError is an error wrapping multiple validation errors
+// returned by SkyWalkingConfig.ValidateAll() if the designated constraints
+// aren't met.
+type SkyWalkingConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m SkyWalkingConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m SkyWalkingConfigMultiError) AllErrors() []error { return m }
 
 // SkyWalkingConfigValidationError is the validation error returned by
 // SkyWalkingConfig.Validate if the designated constraints aren't met.
@@ -126,18 +204,51 @@ var _ interface {
 } = SkyWalkingConfigValidationError{}
 
 // Validate checks the field values on ClientConfig with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *ClientConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ClientConfig with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in ClientConfigMultiError, or
+// nil if none found.
+func (m *ClientConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ClientConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for ServiceName
 
 	// no validation rules for InstanceName
 
-	if v, ok := interface{}(m.GetMaxCacheSize()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetMaxCacheSize()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClientConfigValidationError{
+					field:  "MaxCacheSize",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClientConfigValidationError{
+					field:  "MaxCacheSize",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMaxCacheSize()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClientConfigValidationError{
 				field:  "MaxCacheSize",
@@ -154,8 +265,27 @@ func (m *ClientConfig) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return ClientConfigMultiError(errors)
+	}
 	return nil
 }
+
+// ClientConfigMultiError is an error wrapping multiple validation errors
+// returned by ClientConfig.ValidateAll() if the designated constraints aren't met.
+type ClientConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ClientConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ClientConfigMultiError) AllErrors() []error { return m }
 
 // ClientConfigValidationError is the validation error returned by
 // ClientConfig.Validate if the designated constraints aren't met.

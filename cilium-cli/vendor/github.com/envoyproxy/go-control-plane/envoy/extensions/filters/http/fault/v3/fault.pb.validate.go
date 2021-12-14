@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,16 +32,51 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on FaultAbort with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *FaultAbort) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on FaultAbort with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in FaultAbortMultiError, or
+// nil if none found.
+func (m *FaultAbort) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *FaultAbort) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetPercentage()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetPercentage()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, FaultAbortValidationError{
+					field:  "Percentage",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, FaultAbortValidationError{
+					field:  "Percentage",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetPercentage()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return FaultAbortValidationError{
 				field:  "Percentage",
@@ -55,10 +91,14 @@ func (m *FaultAbort) Validate() error {
 	case *FaultAbort_HttpStatus:
 
 		if val := m.GetHttpStatus(); val < 200 || val >= 600 {
-			return FaultAbortValidationError{
+			err := FaultAbortValidationError{
 				field:  "HttpStatus",
 				reason: "value must be inside range [200, 600)",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	case *FaultAbort_GrpcStatus:
@@ -66,7 +106,26 @@ func (m *FaultAbort) Validate() error {
 
 	case *FaultAbort_HeaderAbort_:
 
-		if v, ok := interface{}(m.GetHeaderAbort()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetHeaderAbort()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, FaultAbortValidationError{
+						field:  "HeaderAbort",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, FaultAbortValidationError{
+						field:  "HeaderAbort",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetHeaderAbort()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return FaultAbortValidationError{
 					field:  "HeaderAbort",
@@ -77,15 +136,38 @@ func (m *FaultAbort) Validate() error {
 		}
 
 	default:
-		return FaultAbortValidationError{
+		err := FaultAbortValidationError{
 			field:  "ErrorType",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 
 	}
 
+	if len(errors) > 0 {
+		return FaultAbortMultiError(errors)
+	}
 	return nil
 }
+
+// FaultAbortMultiError is an error wrapping multiple validation errors
+// returned by FaultAbort.ValidateAll() if the designated constraints aren't met.
+type FaultAbortMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m FaultAbortMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m FaultAbortMultiError) AllErrors() []error { return m }
 
 // FaultAbortValidationError is the validation error returned by
 // FaultAbort.Validate if the designated constraints aren't met.
@@ -142,13 +224,47 @@ var _ interface {
 } = FaultAbortValidationError{}
 
 // Validate checks the field values on HTTPFault with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *HTTPFault) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on HTTPFault with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in HTTPFaultMultiError, or nil
+// if none found.
+func (m *HTTPFault) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HTTPFault) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetDelay()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetDelay()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HTTPFaultValidationError{
+					field:  "Delay",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HTTPFaultValidationError{
+					field:  "Delay",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetDelay()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HTTPFaultValidationError{
 				field:  "Delay",
@@ -158,7 +274,26 @@ func (m *HTTPFault) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetAbort()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetAbort()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HTTPFaultValidationError{
+					field:  "Abort",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HTTPFaultValidationError{
+					field:  "Abort",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetAbort()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HTTPFaultValidationError{
 				field:  "Abort",
@@ -173,7 +308,26 @@ func (m *HTTPFault) Validate() error {
 	for idx, item := range m.GetHeaders() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HTTPFaultValidationError{
+						field:  fmt.Sprintf("Headers[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HTTPFaultValidationError{
+						field:  fmt.Sprintf("Headers[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HTTPFaultValidationError{
 					field:  fmt.Sprintf("Headers[%v]", idx),
@@ -185,7 +339,26 @@ func (m *HTTPFault) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetMaxActiveFaults()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetMaxActiveFaults()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HTTPFaultValidationError{
+					field:  "MaxActiveFaults",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HTTPFaultValidationError{
+					field:  "MaxActiveFaults",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMaxActiveFaults()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HTTPFaultValidationError{
 				field:  "MaxActiveFaults",
@@ -195,7 +368,26 @@ func (m *HTTPFault) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetResponseRateLimit()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetResponseRateLimit()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HTTPFaultValidationError{
+					field:  "ResponseRateLimit",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HTTPFaultValidationError{
+					field:  "ResponseRateLimit",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetResponseRateLimit()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HTTPFaultValidationError{
 				field:  "ResponseRateLimit",
@@ -221,8 +413,27 @@ func (m *HTTPFault) Validate() error {
 
 	// no validation rules for DisableDownstreamClusterStats
 
+	if len(errors) > 0 {
+		return HTTPFaultMultiError(errors)
+	}
 	return nil
 }
+
+// HTTPFaultMultiError is an error wrapping multiple validation errors returned
+// by HTTPFault.ValidateAll() if the designated constraints aren't met.
+type HTTPFaultMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HTTPFaultMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HTTPFaultMultiError) AllErrors() []error { return m }
 
 // HTTPFaultValidationError is the validation error returned by
 // HTTPFault.Validate if the designated constraints aren't met.
@@ -280,14 +491,48 @@ var _ interface {
 
 // Validate checks the field values on FaultAbort_HeaderAbort with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *FaultAbort_HeaderAbort) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on FaultAbort_HeaderAbort with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// FaultAbort_HeaderAbortMultiError, or nil if none found.
+func (m *FaultAbort_HeaderAbort) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *FaultAbort_HeaderAbort) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
+	if len(errors) > 0 {
+		return FaultAbort_HeaderAbortMultiError(errors)
+	}
 	return nil
 }
+
+// FaultAbort_HeaderAbortMultiError is an error wrapping multiple validation
+// errors returned by FaultAbort_HeaderAbort.ValidateAll() if the designated
+// constraints aren't met.
+type FaultAbort_HeaderAbortMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m FaultAbort_HeaderAbortMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m FaultAbort_HeaderAbortMultiError) AllErrors() []error { return m }
 
 // FaultAbort_HeaderAbortValidationError is the validation error returned by
 // FaultAbort_HeaderAbort.Validate if the designated constraints aren't met.

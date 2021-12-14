@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,48 +32,80 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on HttpUri with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *HttpUri) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on HttpUri with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in HttpUriMultiError, or nil if none found.
+func (m *HttpUri) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HttpUri) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if utf8.RuneCountInString(m.GetUri()) < 1 {
-		return HttpUriValidationError{
+		err := HttpUriValidationError{
 			field:  "Uri",
 			reason: "value length must be at least 1 runes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if m.GetTimeout() == nil {
-		return HttpUriValidationError{
+		err := HttpUriValidationError{
 			field:  "Timeout",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if d := m.GetTimeout(); d != nil {
 		dur, err := d.AsDuration(), d.CheckValid()
 		if err != nil {
-			return HttpUriValidationError{
+			err = HttpUriValidationError{
 				field:  "Timeout",
 				reason: "value is not a valid duration",
 				cause:  err,
 			}
-		}
-
-		gte := time.Duration(0*time.Second + 0*time.Nanosecond)
-
-		if dur < gte {
-			return HttpUriValidationError{
-				field:  "Timeout",
-				reason: "value must be greater than or equal to 0s",
+			if !all {
+				return err
 			}
-		}
+			errors = append(errors, err)
+		} else {
 
+			gte := time.Duration(0*time.Second + 0*time.Nanosecond)
+
+			if dur < gte {
+				err := HttpUriValidationError{
+					field:  "Timeout",
+					reason: "value must be greater than or equal to 0s",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
+
+		}
 	}
 
 	switch m.HttpUpstreamType.(type) {
@@ -80,22 +113,49 @@ func (m *HttpUri) Validate() error {
 	case *HttpUri_Cluster:
 
 		if utf8.RuneCountInString(m.GetCluster()) < 1 {
-			return HttpUriValidationError{
+			err := HttpUriValidationError{
 				field:  "Cluster",
 				reason: "value length must be at least 1 runes",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	default:
-		return HttpUriValidationError{
+		err := HttpUriValidationError{
 			field:  "HttpUpstreamType",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 
 	}
 
+	if len(errors) > 0 {
+		return HttpUriMultiError(errors)
+	}
 	return nil
 }
+
+// HttpUriMultiError is an error wrapping multiple validation errors returned
+// by HttpUri.ValidateAll() if the designated constraints aren't met.
+type HttpUriMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HttpUriMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HttpUriMultiError) AllErrors() []error { return m }
 
 // HttpUriValidationError is the validation error returned by HttpUri.Validate
 // if the designated constraints aren't met.

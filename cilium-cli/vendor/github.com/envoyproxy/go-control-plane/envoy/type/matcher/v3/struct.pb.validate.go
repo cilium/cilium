@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,27 +32,65 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on StructMatcher with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *StructMatcher) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on StructMatcher with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in StructMatcherMultiError, or
+// nil if none found.
+func (m *StructMatcher) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *StructMatcher) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if len(m.GetPath()) < 1 {
-		return StructMatcherValidationError{
+		err := StructMatcherValidationError{
 			field:  "Path",
 			reason: "value must contain at least 1 item(s)",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	for idx, item := range m.GetPath() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, StructMatcherValidationError{
+						field:  fmt.Sprintf("Path[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, StructMatcherValidationError{
+						field:  fmt.Sprintf("Path[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return StructMatcherValidationError{
 					field:  fmt.Sprintf("Path[%v]", idx),
@@ -64,13 +103,36 @@ func (m *StructMatcher) Validate() error {
 	}
 
 	if m.GetValue() == nil {
-		return StructMatcherValidationError{
+		err := StructMatcherValidationError{
 			field:  "Value",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
-	if v, ok := interface{}(m.GetValue()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetValue()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, StructMatcherValidationError{
+					field:  "Value",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, StructMatcherValidationError{
+					field:  "Value",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetValue()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return StructMatcherValidationError{
 				field:  "Value",
@@ -80,8 +142,28 @@ func (m *StructMatcher) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return StructMatcherMultiError(errors)
+	}
 	return nil
 }
+
+// StructMatcherMultiError is an error wrapping multiple validation errors
+// returned by StructMatcher.ValidateAll() if the designated constraints
+// aren't met.
+type StructMatcherMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m StructMatcherMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m StructMatcherMultiError) AllErrors() []error { return m }
 
 // StructMatcherValidationError is the validation error returned by
 // StructMatcher.Validate if the designated constraints aren't met.
@@ -139,33 +221,75 @@ var _ interface {
 
 // Validate checks the field values on StructMatcher_PathSegment with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *StructMatcher_PathSegment) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on StructMatcher_PathSegment with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// StructMatcher_PathSegmentMultiError, or nil if none found.
+func (m *StructMatcher_PathSegment) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *StructMatcher_PathSegment) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	switch m.Segment.(type) {
 
 	case *StructMatcher_PathSegment_Key:
 
 		if utf8.RuneCountInString(m.GetKey()) < 1 {
-			return StructMatcher_PathSegmentValidationError{
+			err := StructMatcher_PathSegmentValidationError{
 				field:  "Key",
 				reason: "value length must be at least 1 runes",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	default:
-		return StructMatcher_PathSegmentValidationError{
+		err := StructMatcher_PathSegmentValidationError{
 			field:  "Segment",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 
 	}
 
+	if len(errors) > 0 {
+		return StructMatcher_PathSegmentMultiError(errors)
+	}
 	return nil
 }
+
+// StructMatcher_PathSegmentMultiError is an error wrapping multiple validation
+// errors returned by StructMatcher_PathSegment.ValidateAll() if the
+// designated constraints aren't met.
+type StructMatcher_PathSegmentMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m StructMatcher_PathSegmentMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m StructMatcher_PathSegmentMultiError) AllErrors() []error { return m }
 
 // StructMatcher_PathSegmentValidationError is the validation error returned by
 // StructMatcher_PathSegment.Validate if the designated constraints aren't met.

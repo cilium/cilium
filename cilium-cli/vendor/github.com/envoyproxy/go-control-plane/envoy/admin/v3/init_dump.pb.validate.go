@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,20 +32,54 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on UnreadyTargetsDumps with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *UnreadyTargetsDumps) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on UnreadyTargetsDumps with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// UnreadyTargetsDumpsMultiError, or nil if none found.
+func (m *UnreadyTargetsDumps) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *UnreadyTargetsDumps) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	for idx, item := range m.GetUnreadyTargetsDumps() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, UnreadyTargetsDumpsValidationError{
+						field:  fmt.Sprintf("UnreadyTargetsDumps[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, UnreadyTargetsDumpsValidationError{
+						field:  fmt.Sprintf("UnreadyTargetsDumps[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return UnreadyTargetsDumpsValidationError{
 					field:  fmt.Sprintf("UnreadyTargetsDumps[%v]", idx),
@@ -56,8 +91,28 @@ func (m *UnreadyTargetsDumps) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return UnreadyTargetsDumpsMultiError(errors)
+	}
 	return nil
 }
+
+// UnreadyTargetsDumpsMultiError is an error wrapping multiple validation
+// errors returned by UnreadyTargetsDumps.ValidateAll() if the designated
+// constraints aren't met.
+type UnreadyTargetsDumpsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m UnreadyTargetsDumpsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m UnreadyTargetsDumpsMultiError) AllErrors() []error { return m }
 
 // UnreadyTargetsDumpsValidationError is the validation error returned by
 // UnreadyTargetsDumps.Validate if the designated constraints aren't met.
@@ -117,16 +172,53 @@ var _ interface {
 
 // Validate checks the field values on UnreadyTargetsDumps_UnreadyTargetsDump
 // with the rules defined in the proto definition for this message. If any
-// rules are violated, an error is returned.
+// rules are violated, the first error encountered is returned, or nil if
+// there are no violations.
 func (m *UnreadyTargetsDumps_UnreadyTargetsDump) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// UnreadyTargetsDumps_UnreadyTargetsDump with the rules defined in the proto
+// definition for this message. If any rules are violated, the result is a
+// list of violation errors wrapped in
+// UnreadyTargetsDumps_UnreadyTargetsDumpMultiError, or nil if none found.
+func (m *UnreadyTargetsDumps_UnreadyTargetsDump) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *UnreadyTargetsDumps_UnreadyTargetsDump) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	// no validation rules for Name
 
+	if len(errors) > 0 {
+		return UnreadyTargetsDumps_UnreadyTargetsDumpMultiError(errors)
+	}
 	return nil
 }
+
+// UnreadyTargetsDumps_UnreadyTargetsDumpMultiError is an error wrapping
+// multiple validation errors returned by
+// UnreadyTargetsDumps_UnreadyTargetsDump.ValidateAll() if the designated
+// constraints aren't met.
+type UnreadyTargetsDumps_UnreadyTargetsDumpMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m UnreadyTargetsDumps_UnreadyTargetsDumpMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m UnreadyTargetsDumps_UnreadyTargetsDumpMultiError) AllErrors() []error { return m }
 
 // UnreadyTargetsDumps_UnreadyTargetsDumpValidationError is the validation
 // error returned by UnreadyTargetsDumps_UnreadyTargetsDump.Validate if the

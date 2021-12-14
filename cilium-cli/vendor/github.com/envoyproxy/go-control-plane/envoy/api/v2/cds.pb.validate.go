@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,17 +32,52 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on CdsDummy with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *CdsDummy) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on CdsDummy with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in CdsDummyMultiError, or nil
+// if none found.
+func (m *CdsDummy) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *CdsDummy) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
+	if len(errors) > 0 {
+		return CdsDummyMultiError(errors)
+	}
 	return nil
 }
+
+// CdsDummyMultiError is an error wrapping multiple validation errors returned
+// by CdsDummy.ValidateAll() if the designated constraints aren't met.
+type CdsDummyMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m CdsDummyMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m CdsDummyMultiError) AllErrors() []error { return m }
 
 // CdsDummyValidationError is the validation error returned by
 // CdsDummy.Validate if the designated constraints aren't met.

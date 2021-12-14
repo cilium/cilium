@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,21 +32,55 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on DoubleMatcher with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *DoubleMatcher) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on DoubleMatcher with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in DoubleMatcherMultiError, or
+// nil if none found.
+func (m *DoubleMatcher) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *DoubleMatcher) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	switch m.MatchPattern.(type) {
 
 	case *DoubleMatcher_Range:
 
-		if v, ok := interface{}(m.GetRange()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetRange()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, DoubleMatcherValidationError{
+						field:  "Range",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, DoubleMatcherValidationError{
+						field:  "Range",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetRange()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return DoubleMatcherValidationError{
 					field:  "Range",
@@ -59,15 +94,39 @@ func (m *DoubleMatcher) Validate() error {
 		// no validation rules for Exact
 
 	default:
-		return DoubleMatcherValidationError{
+		err := DoubleMatcherValidationError{
 			field:  "MatchPattern",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 
 	}
 
+	if len(errors) > 0 {
+		return DoubleMatcherMultiError(errors)
+	}
 	return nil
 }
+
+// DoubleMatcherMultiError is an error wrapping multiple validation errors
+// returned by DoubleMatcher.ValidateAll() if the designated constraints
+// aren't met.
+type DoubleMatcherMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m DoubleMatcherMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m DoubleMatcherMultiError) AllErrors() []error { return m }
 
 // DoubleMatcherValidationError is the validation error returned by
 // DoubleMatcher.Validate if the designated constraints aren't met.
