@@ -19,6 +19,7 @@ jobs:
     outputs:
       added-files: ${{ steps.changes.outputs.added-files }}
       deleted-files: ${{ steps.changes.outputs.deleted-files }}
+      codeowners-changed: ${{ steps.changes.outputs.codeowners-changed }}
     steps:
       - name: Check code changes
         uses: dorny/paths-filter@b2feaf19c27470162a626bd6fa8438ae5b263721
@@ -29,6 +30,8 @@ jobs:
               - added: '**'
             deleted-files:
               - deleted: '**'
+            codeowners-changed:
+              - 'CODEOWNERS'
 
   codeowners:
     needs: check_changes
@@ -97,5 +100,26 @@ jobs:
           fi
           if [[ ${EXIT_STATUS} -ne 0 ]]; then
               echo '::error title=stale_patterns::The patterns above should be removed from CODEOWNERS.'
+              exit ${EXIT_STATUS}
+          fi
+
+      - name: Check if all teams in CODEOWNERS rules are documented in the file
+        if: ${{ needs.check_changes.outputs.codeowners-changed == 'true' }}
+        run: |
+          EXIT_STATUS=0
+          # List all teams used in CODEOWNERS rules: discard comments and empty
+          # lines, discard the first field (pattern to match) for the remaining
+          # rules, split the list of teams by replacing spaces with line
+          # breaks, sort the results. Then grep for each team name among
+          # CODEOWNERS's comments.
+          cd src/github.com/cilium/cilium
+          for team in $(sed -e '/^\(#\|$\)/d' -e 's/^[^ #]\+ //' -e 's/ /\n/g' CODEOWNERS | sort -u); do
+              if ! grep -q "^# ${team} " CODEOWNERS; then
+                  echo "${team}";
+                  EXIT_STATUS=1
+              fi;
+          done
+          if [[ ${EXIT_STATUS} -ne 0 ]]; then
+              echo '::error title=missing_team::The teams above are not documented in CODEOWNERS. Typo?'
               exit ${EXIT_STATUS}
           fi
