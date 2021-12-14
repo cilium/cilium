@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,32 +32,75 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on DatadogConfig with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *DatadogConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on DatadogConfig with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in DatadogConfigMultiError, or
+// nil if none found.
+func (m *DatadogConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *DatadogConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if utf8.RuneCountInString(m.GetCollectorCluster()) < 1 {
-		return DatadogConfigValidationError{
+		err := DatadogConfigValidationError{
 			field:  "CollectorCluster",
 			reason: "value length must be at least 1 runes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if utf8.RuneCountInString(m.GetServiceName()) < 1 {
-		return DatadogConfigValidationError{
+		err := DatadogConfigValidationError{
 			field:  "ServiceName",
 			reason: "value length must be at least 1 runes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
+	if len(errors) > 0 {
+		return DatadogConfigMultiError(errors)
+	}
 	return nil
 }
+
+// DatadogConfigMultiError is an error wrapping multiple validation errors
+// returned by DatadogConfig.ValidateAll() if the designated constraints
+// aren't met.
+type DatadogConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m DatadogConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m DatadogConfigMultiError) AllErrors() []error { return m }
 
 // DatadogConfigValidationError is the validation error returned by
 // DatadogConfig.Validate if the designated constraints aren't met.

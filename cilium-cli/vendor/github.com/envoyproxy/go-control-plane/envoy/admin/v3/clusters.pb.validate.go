@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -33,21 +34,56 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 
 	_ = v3.HealthStatus(0)
 )
 
 // Validate checks the field values on Clusters with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *Clusters) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Clusters with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in ClustersMultiError, or nil
+// if none found.
+func (m *Clusters) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Clusters) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	for idx, item := range m.GetClusterStatuses() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ClustersValidationError{
+						field:  fmt.Sprintf("ClusterStatuses[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ClustersValidationError{
+						field:  fmt.Sprintf("ClusterStatuses[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ClustersValidationError{
 					field:  fmt.Sprintf("ClusterStatuses[%v]", idx),
@@ -59,8 +95,27 @@ func (m *Clusters) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return ClustersMultiError(errors)
+	}
 	return nil
 }
+
+// ClustersMultiError is an error wrapping multiple validation errors returned
+// by Clusters.ValidateAll() if the designated constraints aren't met.
+type ClustersMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ClustersMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ClustersMultiError) AllErrors() []error { return m }
 
 // ClustersValidationError is the validation error returned by
 // Clusters.Validate if the designated constraints aren't met.
@@ -117,18 +172,51 @@ var _ interface {
 } = ClustersValidationError{}
 
 // Validate checks the field values on ClusterStatus with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *ClusterStatus) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ClusterStatus with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in ClusterStatusMultiError, or
+// nil if none found.
+func (m *ClusterStatus) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ClusterStatus) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for Name
 
 	// no validation rules for AddedViaApi
 
-	if v, ok := interface{}(m.GetSuccessRateEjectionThreshold()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetSuccessRateEjectionThreshold()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClusterStatusValidationError{
+					field:  "SuccessRateEjectionThreshold",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClusterStatusValidationError{
+					field:  "SuccessRateEjectionThreshold",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetSuccessRateEjectionThreshold()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterStatusValidationError{
 				field:  "SuccessRateEjectionThreshold",
@@ -141,7 +229,26 @@ func (m *ClusterStatus) Validate() error {
 	for idx, item := range m.GetHostStatuses() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ClusterStatusValidationError{
+						field:  fmt.Sprintf("HostStatuses[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ClusterStatusValidationError{
+						field:  fmt.Sprintf("HostStatuses[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ClusterStatusValidationError{
 					field:  fmt.Sprintf("HostStatuses[%v]", idx),
@@ -153,7 +260,26 @@ func (m *ClusterStatus) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetLocalOriginSuccessRateEjectionThreshold()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetLocalOriginSuccessRateEjectionThreshold()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClusterStatusValidationError{
+					field:  "LocalOriginSuccessRateEjectionThreshold",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClusterStatusValidationError{
+					field:  "LocalOriginSuccessRateEjectionThreshold",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLocalOriginSuccessRateEjectionThreshold()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterStatusValidationError{
 				field:  "LocalOriginSuccessRateEjectionThreshold",
@@ -163,7 +289,26 @@ func (m *ClusterStatus) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetCircuitBreakers()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetCircuitBreakers()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClusterStatusValidationError{
+					field:  "CircuitBreakers",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClusterStatusValidationError{
+					field:  "CircuitBreakers",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCircuitBreakers()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterStatusValidationError{
 				field:  "CircuitBreakers",
@@ -175,8 +320,28 @@ func (m *ClusterStatus) Validate() error {
 
 	// no validation rules for ObservabilityName
 
+	if len(errors) > 0 {
+		return ClusterStatusMultiError(errors)
+	}
 	return nil
 }
+
+// ClusterStatusMultiError is an error wrapping multiple validation errors
+// returned by ClusterStatus.ValidateAll() if the designated constraints
+// aren't met.
+type ClusterStatusMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ClusterStatusMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ClusterStatusMultiError) AllErrors() []error { return m }
 
 // ClusterStatusValidationError is the validation error returned by
 // ClusterStatus.Validate if the designated constraints aren't met.
@@ -233,13 +398,47 @@ var _ interface {
 } = ClusterStatusValidationError{}
 
 // Validate checks the field values on HostStatus with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *HostStatus) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on HostStatus with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in HostStatusMultiError, or
+// nil if none found.
+func (m *HostStatus) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HostStatus) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetAddress()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HostStatusValidationError{
+					field:  "Address",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HostStatusValidationError{
+					field:  "Address",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HostStatusValidationError{
 				field:  "Address",
@@ -252,7 +451,26 @@ func (m *HostStatus) Validate() error {
 	for idx, item := range m.GetStats() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HostStatusValidationError{
+						field:  fmt.Sprintf("Stats[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HostStatusValidationError{
+						field:  fmt.Sprintf("Stats[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HostStatusValidationError{
 					field:  fmt.Sprintf("Stats[%v]", idx),
@@ -264,7 +482,26 @@ func (m *HostStatus) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetHealthStatus()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetHealthStatus()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HostStatusValidationError{
+					field:  "HealthStatus",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HostStatusValidationError{
+					field:  "HealthStatus",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetHealthStatus()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HostStatusValidationError{
 				field:  "HealthStatus",
@@ -274,7 +511,26 @@ func (m *HostStatus) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetSuccessRate()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetSuccessRate()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HostStatusValidationError{
+					field:  "SuccessRate",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HostStatusValidationError{
+					field:  "SuccessRate",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetSuccessRate()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HostStatusValidationError{
 				field:  "SuccessRate",
@@ -290,7 +546,26 @@ func (m *HostStatus) Validate() error {
 
 	// no validation rules for Priority
 
-	if v, ok := interface{}(m.GetLocalOriginSuccessRate()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetLocalOriginSuccessRate()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HostStatusValidationError{
+					field:  "LocalOriginSuccessRate",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HostStatusValidationError{
+					field:  "LocalOriginSuccessRate",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLocalOriginSuccessRate()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HostStatusValidationError{
 				field:  "LocalOriginSuccessRate",
@@ -300,7 +575,26 @@ func (m *HostStatus) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetLocality()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetLocality()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HostStatusValidationError{
+					field:  "Locality",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HostStatusValidationError{
+					field:  "Locality",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLocality()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HostStatusValidationError{
 				field:  "Locality",
@@ -310,8 +604,27 @@ func (m *HostStatus) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return HostStatusMultiError(errors)
+	}
 	return nil
 }
+
+// HostStatusMultiError is an error wrapping multiple validation errors
+// returned by HostStatus.ValidateAll() if the designated constraints aren't met.
+type HostStatusMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HostStatusMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HostStatusMultiError) AllErrors() []error { return m }
 
 // HostStatusValidationError is the validation error returned by
 // HostStatus.Validate if the designated constraints aren't met.
@@ -368,12 +681,26 @@ var _ interface {
 } = HostStatusValidationError{}
 
 // Validate checks the field values on HostHealthStatus with the rules defined
-// in the proto definition for this message. If any rules are violated, an
-// error is returned.
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
 func (m *HostHealthStatus) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on HostHealthStatus with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// HostHealthStatusMultiError, or nil if none found.
+func (m *HostHealthStatus) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HostHealthStatus) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for FailedActiveHealthCheck
 
@@ -391,8 +718,28 @@ func (m *HostHealthStatus) Validate() error {
 
 	// no validation rules for EdsHealthStatus
 
+	if len(errors) > 0 {
+		return HostHealthStatusMultiError(errors)
+	}
 	return nil
 }
+
+// HostHealthStatusMultiError is an error wrapping multiple validation errors
+// returned by HostHealthStatus.ValidateAll() if the designated constraints
+// aren't met.
+type HostHealthStatusMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HostHealthStatusMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HostHealthStatusMultiError) AllErrors() []error { return m }
 
 // HostHealthStatusValidationError is the validation error returned by
 // HostHealthStatus.Validate if the designated constraints aren't met.

@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,31 +32,73 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on Pipe with the rules defined in the proto
-// definition for this message. If any rules are violated, an error is returned.
+// definition for this message. If any rules are violated, the first error
+// encountered is returned, or nil if there are no violations.
 func (m *Pipe) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Pipe with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in PipeMultiError, or nil if none found.
+func (m *Pipe) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Pipe) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if len(m.GetPath()) < 1 {
-		return PipeValidationError{
+		err := PipeValidationError{
 			field:  "Path",
 			reason: "value length must be at least 1 bytes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if m.GetMode() > 511 {
-		return PipeValidationError{
+		err := PipeValidationError{
 			field:  "Mode",
 			reason: "value must be less than or equal to 511",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
+	if len(errors) > 0 {
+		return PipeMultiError(errors)
+	}
 	return nil
 }
+
+// PipeMultiError is an error wrapping multiple validation errors returned by
+// Pipe.ValidateAll() if the designated constraints aren't met.
+type PipeMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m PipeMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m PipeMultiError) AllErrors() []error { return m }
 
 // PipeValidationError is the validation error returned by Pipe.Validate if the
 // designated constraints aren't met.
@@ -112,25 +155,47 @@ var _ interface {
 } = PipeValidationError{}
 
 // Validate checks the field values on SocketAddress with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *SocketAddress) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on SocketAddress with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in SocketAddressMultiError, or
+// nil if none found.
+func (m *SocketAddress) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *SocketAddress) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if _, ok := SocketAddress_Protocol_name[int32(m.GetProtocol())]; !ok {
-		return SocketAddressValidationError{
+		err := SocketAddressValidationError{
 			field:  "Protocol",
 			reason: "value must be one of the defined enum values",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if len(m.GetAddress()) < 1 {
-		return SocketAddressValidationError{
+		err := SocketAddressValidationError{
 			field:  "Address",
 			reason: "value length must be at least 1 bytes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	// no validation rules for ResolverName
@@ -142,25 +207,53 @@ func (m *SocketAddress) Validate() error {
 	case *SocketAddress_PortValue:
 
 		if m.GetPortValue() > 65535 {
-			return SocketAddressValidationError{
+			err := SocketAddressValidationError{
 				field:  "PortValue",
 				reason: "value must be less than or equal to 65535",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	case *SocketAddress_NamedPort:
 		// no validation rules for NamedPort
 
 	default:
-		return SocketAddressValidationError{
+		err := SocketAddressValidationError{
 			field:  "PortSpecifier",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 
 	}
 
+	if len(errors) > 0 {
+		return SocketAddressMultiError(errors)
+	}
 	return nil
 }
+
+// SocketAddressMultiError is an error wrapping multiple validation errors
+// returned by SocketAddress.ValidateAll() if the designated constraints
+// aren't met.
+type SocketAddressMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m SocketAddressMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m SocketAddressMultiError) AllErrors() []error { return m }
 
 // SocketAddressValidationError is the validation error returned by
 // SocketAddress.Validate if the designated constraints aren't met.
@@ -217,14 +310,47 @@ var _ interface {
 } = SocketAddressValidationError{}
 
 // Validate checks the field values on TcpKeepalive with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *TcpKeepalive) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on TcpKeepalive with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in TcpKeepaliveMultiError, or
+// nil if none found.
+func (m *TcpKeepalive) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *TcpKeepalive) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetKeepaliveProbes()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetKeepaliveProbes()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, TcpKeepaliveValidationError{
+					field:  "KeepaliveProbes",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, TcpKeepaliveValidationError{
+					field:  "KeepaliveProbes",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetKeepaliveProbes()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return TcpKeepaliveValidationError{
 				field:  "KeepaliveProbes",
@@ -234,7 +360,26 @@ func (m *TcpKeepalive) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetKeepaliveTime()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetKeepaliveTime()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, TcpKeepaliveValidationError{
+					field:  "KeepaliveTime",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, TcpKeepaliveValidationError{
+					field:  "KeepaliveTime",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetKeepaliveTime()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return TcpKeepaliveValidationError{
 				field:  "KeepaliveTime",
@@ -244,7 +389,26 @@ func (m *TcpKeepalive) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetKeepaliveInterval()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetKeepaliveInterval()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, TcpKeepaliveValidationError{
+					field:  "KeepaliveInterval",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, TcpKeepaliveValidationError{
+					field:  "KeepaliveInterval",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetKeepaliveInterval()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return TcpKeepaliveValidationError{
 				field:  "KeepaliveInterval",
@@ -254,8 +418,27 @@ func (m *TcpKeepalive) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return TcpKeepaliveMultiError(errors)
+	}
 	return nil
 }
+
+// TcpKeepaliveMultiError is an error wrapping multiple validation errors
+// returned by TcpKeepalive.ValidateAll() if the designated constraints aren't met.
+type TcpKeepaliveMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m TcpKeepaliveMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m TcpKeepaliveMultiError) AllErrors() []error { return m }
 
 // TcpKeepaliveValidationError is the validation error returned by
 // TcpKeepalive.Validate if the designated constraints aren't met.
@@ -312,20 +495,58 @@ var _ interface {
 } = TcpKeepaliveValidationError{}
 
 // Validate checks the field values on BindConfig with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *BindConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on BindConfig with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in BindConfigMultiError, or
+// nil if none found.
+func (m *BindConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *BindConfig) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if m.GetSourceAddress() == nil {
-		return BindConfigValidationError{
+		err := BindConfigValidationError{
 			field:  "SourceAddress",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
-	if v, ok := interface{}(m.GetSourceAddress()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetSourceAddress()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, BindConfigValidationError{
+					field:  "SourceAddress",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, BindConfigValidationError{
+					field:  "SourceAddress",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetSourceAddress()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return BindConfigValidationError{
 				field:  "SourceAddress",
@@ -335,7 +556,26 @@ func (m *BindConfig) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetFreebind()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetFreebind()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, BindConfigValidationError{
+					field:  "Freebind",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, BindConfigValidationError{
+					field:  "Freebind",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetFreebind()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return BindConfigValidationError{
 				field:  "Freebind",
@@ -348,7 +588,26 @@ func (m *BindConfig) Validate() error {
 	for idx, item := range m.GetSocketOptions() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, BindConfigValidationError{
+						field:  fmt.Sprintf("SocketOptions[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, BindConfigValidationError{
+						field:  fmt.Sprintf("SocketOptions[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return BindConfigValidationError{
 					field:  fmt.Sprintf("SocketOptions[%v]", idx),
@@ -360,8 +619,27 @@ func (m *BindConfig) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return BindConfigMultiError(errors)
+	}
 	return nil
 }
+
+// BindConfigMultiError is an error wrapping multiple validation errors
+// returned by BindConfig.ValidateAll() if the designated constraints aren't met.
+type BindConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m BindConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m BindConfigMultiError) AllErrors() []error { return m }
 
 // BindConfigValidationError is the validation error returned by
 // BindConfig.Validate if the designated constraints aren't met.
@@ -418,17 +696,50 @@ var _ interface {
 } = BindConfigValidationError{}
 
 // Validate checks the field values on Address with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *Address) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Address with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in AddressMultiError, or nil if none found.
+func (m *Address) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Address) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	switch m.Address.(type) {
 
 	case *Address_SocketAddress:
 
-		if v, ok := interface{}(m.GetSocketAddress()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetSocketAddress()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, AddressValidationError{
+						field:  "SocketAddress",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, AddressValidationError{
+						field:  "SocketAddress",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetSocketAddress()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return AddressValidationError{
 					field:  "SocketAddress",
@@ -440,7 +751,26 @@ func (m *Address) Validate() error {
 
 	case *Address_Pipe:
 
-		if v, ok := interface{}(m.GetPipe()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetPipe()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, AddressValidationError{
+						field:  "Pipe",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, AddressValidationError{
+						field:  "Pipe",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetPipe()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return AddressValidationError{
 					field:  "Pipe",
@@ -451,15 +781,38 @@ func (m *Address) Validate() error {
 		}
 
 	default:
-		return AddressValidationError{
+		err := AddressValidationError{
 			field:  "Address",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 
 	}
 
+	if len(errors) > 0 {
+		return AddressMultiError(errors)
+	}
 	return nil
 }
+
+// AddressMultiError is an error wrapping multiple validation errors returned
+// by Address.ValidateAll() if the designated constraints aren't met.
+type AddressMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m AddressMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m AddressMultiError) AllErrors() []error { return m }
 
 // AddressValidationError is the validation error returned by Address.Validate
 // if the designated constraints aren't met.
@@ -516,32 +869,74 @@ var _ interface {
 } = AddressValidationError{}
 
 // Validate checks the field values on CidrRange with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *CidrRange) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on CidrRange with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in CidrRangeMultiError, or nil
+// if none found.
+func (m *CidrRange) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *CidrRange) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if len(m.GetAddressPrefix()) < 1 {
-		return CidrRangeValidationError{
+		err := CidrRangeValidationError{
 			field:  "AddressPrefix",
 			reason: "value length must be at least 1 bytes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if wrapper := m.GetPrefixLen(); wrapper != nil {
 
 		if wrapper.GetValue() > 128 {
-			return CidrRangeValidationError{
+			err := CidrRangeValidationError{
 				field:  "PrefixLen",
 				reason: "value must be less than or equal to 128",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	}
 
+	if len(errors) > 0 {
+		return CidrRangeMultiError(errors)
+	}
 	return nil
 }
+
+// CidrRangeMultiError is an error wrapping multiple validation errors returned
+// by CidrRange.ValidateAll() if the designated constraints aren't met.
+type CidrRangeMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m CidrRangeMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m CidrRangeMultiError) AllErrors() []error { return m }
 
 // CidrRangeValidationError is the validation error returned by
 // CidrRange.Validate if the designated constraints aren't met.

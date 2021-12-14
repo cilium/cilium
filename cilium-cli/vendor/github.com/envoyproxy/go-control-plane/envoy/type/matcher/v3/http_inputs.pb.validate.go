@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,25 +32,64 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on HttpRequestHeaderMatchInput with the
 // rules defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *HttpRequestHeaderMatchInput) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on HttpRequestHeaderMatchInput with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// HttpRequestHeaderMatchInputMultiError, or nil if none found.
+func (m *HttpRequestHeaderMatchInput) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HttpRequestHeaderMatchInput) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if !_HttpRequestHeaderMatchInput_HeaderName_Pattern.MatchString(m.GetHeaderName()) {
-		return HttpRequestHeaderMatchInputValidationError{
+		err := HttpRequestHeaderMatchInputValidationError{
 			field:  "HeaderName",
 			reason: "value does not match regex pattern \"^[^\\x00\\n\\r]*$\"",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
+	if len(errors) > 0 {
+		return HttpRequestHeaderMatchInputMultiError(errors)
+	}
 	return nil
 }
+
+// HttpRequestHeaderMatchInputMultiError is an error wrapping multiple
+// validation errors returned by HttpRequestHeaderMatchInput.ValidateAll() if
+// the designated constraints aren't met.
+type HttpRequestHeaderMatchInputMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HttpRequestHeaderMatchInputMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HttpRequestHeaderMatchInputMultiError) AllErrors() []error { return m }
 
 // HttpRequestHeaderMatchInputValidationError is the validation error returned
 // by HttpRequestHeaderMatchInput.Validate if the designated constraints
@@ -112,21 +152,59 @@ var _HttpRequestHeaderMatchInput_HeaderName_Pattern = regexp.MustCompile("^[^\x0
 
 // Validate checks the field values on HttpRequestTrailerMatchInput with the
 // rules defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *HttpRequestTrailerMatchInput) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on HttpRequestTrailerMatchInput with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// HttpRequestTrailerMatchInputMultiError, or nil if none found.
+func (m *HttpRequestTrailerMatchInput) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HttpRequestTrailerMatchInput) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if !_HttpRequestTrailerMatchInput_HeaderName_Pattern.MatchString(m.GetHeaderName()) {
-		return HttpRequestTrailerMatchInputValidationError{
+		err := HttpRequestTrailerMatchInputValidationError{
 			field:  "HeaderName",
 			reason: "value does not match regex pattern \"^[^\\x00\\n\\r]*$\"",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
+	if len(errors) > 0 {
+		return HttpRequestTrailerMatchInputMultiError(errors)
+	}
 	return nil
 }
+
+// HttpRequestTrailerMatchInputMultiError is an error wrapping multiple
+// validation errors returned by HttpRequestTrailerMatchInput.ValidateAll() if
+// the designated constraints aren't met.
+type HttpRequestTrailerMatchInputMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HttpRequestTrailerMatchInputMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HttpRequestTrailerMatchInputMultiError) AllErrors() []error { return m }
 
 // HttpRequestTrailerMatchInputValidationError is the validation error returned
 // by HttpRequestTrailerMatchInput.Validate if the designated constraints
@@ -189,21 +267,59 @@ var _HttpRequestTrailerMatchInput_HeaderName_Pattern = regexp.MustCompile("^[^\x
 
 // Validate checks the field values on HttpResponseHeaderMatchInput with the
 // rules defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *HttpResponseHeaderMatchInput) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on HttpResponseHeaderMatchInput with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// HttpResponseHeaderMatchInputMultiError, or nil if none found.
+func (m *HttpResponseHeaderMatchInput) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HttpResponseHeaderMatchInput) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if !_HttpResponseHeaderMatchInput_HeaderName_Pattern.MatchString(m.GetHeaderName()) {
-		return HttpResponseHeaderMatchInputValidationError{
+		err := HttpResponseHeaderMatchInputValidationError{
 			field:  "HeaderName",
 			reason: "value does not match regex pattern \"^[^\\x00\\n\\r]*$\"",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
+	if len(errors) > 0 {
+		return HttpResponseHeaderMatchInputMultiError(errors)
+	}
 	return nil
 }
+
+// HttpResponseHeaderMatchInputMultiError is an error wrapping multiple
+// validation errors returned by HttpResponseHeaderMatchInput.ValidateAll() if
+// the designated constraints aren't met.
+type HttpResponseHeaderMatchInputMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HttpResponseHeaderMatchInputMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HttpResponseHeaderMatchInputMultiError) AllErrors() []error { return m }
 
 // HttpResponseHeaderMatchInputValidationError is the validation error returned
 // by HttpResponseHeaderMatchInput.Validate if the designated constraints
@@ -266,21 +382,59 @@ var _HttpResponseHeaderMatchInput_HeaderName_Pattern = regexp.MustCompile("^[^\x
 
 // Validate checks the field values on HttpResponseTrailerMatchInput with the
 // rules defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *HttpResponseTrailerMatchInput) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on HttpResponseTrailerMatchInput with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the result is a list of violation errors wrapped in
+// HttpResponseTrailerMatchInputMultiError, or nil if none found.
+func (m *HttpResponseTrailerMatchInput) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HttpResponseTrailerMatchInput) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if !_HttpResponseTrailerMatchInput_HeaderName_Pattern.MatchString(m.GetHeaderName()) {
-		return HttpResponseTrailerMatchInputValidationError{
+		err := HttpResponseTrailerMatchInputValidationError{
 			field:  "HeaderName",
 			reason: "value does not match regex pattern \"^[^\\x00\\n\\r]*$\"",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
+	if len(errors) > 0 {
+		return HttpResponseTrailerMatchInputMultiError(errors)
+	}
 	return nil
 }
+
+// HttpResponseTrailerMatchInputMultiError is an error wrapping multiple
+// validation errors returned by HttpResponseTrailerMatchInput.ValidateAll()
+// if the designated constraints aren't met.
+type HttpResponseTrailerMatchInputMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HttpResponseTrailerMatchInputMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HttpResponseTrailerMatchInputMultiError) AllErrors() []error { return m }
 
 // HttpResponseTrailerMatchInputValidationError is the validation error
 // returned by HttpResponseTrailerMatchInput.Validate if the designated

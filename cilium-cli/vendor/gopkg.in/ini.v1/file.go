@@ -142,6 +142,12 @@ func (f *File) GetSection(name string) (*Section, error) {
 	return secs[0], err
 }
 
+// HasSection returns true if the file contains a section with given name.
+func (f *File) HasSection(name string) bool {
+	section, _ := f.GetSection(name)
+	return section != nil
+}
+
 // SectionsByName returns all sections with given name.
 func (f *File) SectionsByName(name string) ([]*Section, error) {
 	if len(name) == 0 {

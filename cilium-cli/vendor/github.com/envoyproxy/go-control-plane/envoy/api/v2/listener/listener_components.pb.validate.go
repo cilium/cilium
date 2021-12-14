@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,27 +32,65 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on Filter with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *Filter) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Filter with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in FilterMultiError, or nil if none found.
+func (m *Filter) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Filter) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if len(m.GetName()) < 1 {
-		return FilterValidationError{
+		err := FilterValidationError{
 			field:  "Name",
 			reason: "value length must be at least 1 bytes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	switch m.ConfigType.(type) {
 
 	case *Filter_Config:
 
-		if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetConfig()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, FilterValidationError{
+						field:  "Config",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, FilterValidationError{
+						field:  "Config",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return FilterValidationError{
 					field:  "Config",
@@ -63,7 +102,26 @@ func (m *Filter) Validate() error {
 
 	case *Filter_TypedConfig:
 
-		if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetTypedConfig()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, FilterValidationError{
+						field:  "TypedConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, FilterValidationError{
+						field:  "TypedConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return FilterValidationError{
 					field:  "TypedConfig",
@@ -75,8 +133,27 @@ func (m *Filter) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return FilterMultiError(errors)
+	}
 	return nil
 }
+
+// FilterMultiError is an error wrapping multiple validation errors returned by
+// Filter.ValidateAll() if the designated constraints aren't met.
+type FilterMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m FilterMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m FilterMultiError) AllErrors() []error { return m }
 
 // FilterValidationError is the validation error returned by Filter.Validate if
 // the designated constraints aren't met.
@@ -133,20 +210,38 @@ var _ interface {
 } = FilterValidationError{}
 
 // Validate checks the field values on FilterChainMatch with the rules defined
-// in the proto definition for this message. If any rules are violated, an
-// error is returned.
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
 func (m *FilterChainMatch) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on FilterChainMatch with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// FilterChainMatchMultiError, or nil if none found.
+func (m *FilterChainMatch) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *FilterChainMatch) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if wrapper := m.GetDestinationPort(); wrapper != nil {
 
 		if val := wrapper.GetValue(); val < 1 || val > 65535 {
-			return FilterChainMatchValidationError{
+			err := FilterChainMatchValidationError{
 				field:  "DestinationPort",
 				reason: "value must be inside range [1, 65535]",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	}
@@ -154,7 +249,26 @@ func (m *FilterChainMatch) Validate() error {
 	for idx, item := range m.GetPrefixRanges() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, FilterChainMatchValidationError{
+						field:  fmt.Sprintf("PrefixRanges[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, FilterChainMatchValidationError{
+						field:  fmt.Sprintf("PrefixRanges[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return FilterChainMatchValidationError{
 					field:  fmt.Sprintf("PrefixRanges[%v]", idx),
@@ -168,7 +282,26 @@ func (m *FilterChainMatch) Validate() error {
 
 	// no validation rules for AddressSuffix
 
-	if v, ok := interface{}(m.GetSuffixLen()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetSuffixLen()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, FilterChainMatchValidationError{
+					field:  "SuffixLen",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, FilterChainMatchValidationError{
+					field:  "SuffixLen",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetSuffixLen()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return FilterChainMatchValidationError{
 				field:  "SuffixLen",
@@ -179,16 +312,39 @@ func (m *FilterChainMatch) Validate() error {
 	}
 
 	if _, ok := FilterChainMatch_ConnectionSourceType_name[int32(m.GetSourceType())]; !ok {
-		return FilterChainMatchValidationError{
+		err := FilterChainMatchValidationError{
 			field:  "SourceType",
 			reason: "value must be one of the defined enum values",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	for idx, item := range m.GetSourcePrefixRanges() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, FilterChainMatchValidationError{
+						field:  fmt.Sprintf("SourcePrefixRanges[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, FilterChainMatchValidationError{
+						field:  fmt.Sprintf("SourcePrefixRanges[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return FilterChainMatchValidationError{
 					field:  fmt.Sprintf("SourcePrefixRanges[%v]", idx),
@@ -204,18 +360,42 @@ func (m *FilterChainMatch) Validate() error {
 		_, _ = idx, item
 
 		if val := item; val < 1 || val > 65535 {
-			return FilterChainMatchValidationError{
+			err := FilterChainMatchValidationError{
 				field:  fmt.Sprintf("SourcePorts[%v]", idx),
 				reason: "value must be inside range [1, 65535]",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	}
 
 	// no validation rules for TransportProtocol
 
+	if len(errors) > 0 {
+		return FilterChainMatchMultiError(errors)
+	}
 	return nil
 }
+
+// FilterChainMatchMultiError is an error wrapping multiple validation errors
+// returned by FilterChainMatch.ValidateAll() if the designated constraints
+// aren't met.
+type FilterChainMatchMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m FilterChainMatchMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m FilterChainMatchMultiError) AllErrors() []error { return m }
 
 // FilterChainMatchValidationError is the validation error returned by
 // FilterChainMatch.Validate if the designated constraints aren't met.
@@ -272,14 +452,47 @@ var _ interface {
 } = FilterChainMatchValidationError{}
 
 // Validate checks the field values on FilterChain with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *FilterChain) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on FilterChain with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in FilterChainMultiError, or
+// nil if none found.
+func (m *FilterChain) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *FilterChain) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetFilterChainMatch()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetFilterChainMatch()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, FilterChainValidationError{
+					field:  "FilterChainMatch",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, FilterChainValidationError{
+					field:  "FilterChainMatch",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetFilterChainMatch()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return FilterChainValidationError{
 				field:  "FilterChainMatch",
@@ -289,7 +502,26 @@ func (m *FilterChain) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetTlsContext()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetTlsContext()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, FilterChainValidationError{
+					field:  "TlsContext",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, FilterChainValidationError{
+					field:  "TlsContext",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetTlsContext()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return FilterChainValidationError{
 				field:  "TlsContext",
@@ -302,7 +534,26 @@ func (m *FilterChain) Validate() error {
 	for idx, item := range m.GetFilters() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, FilterChainValidationError{
+						field:  fmt.Sprintf("Filters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, FilterChainValidationError{
+						field:  fmt.Sprintf("Filters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return FilterChainValidationError{
 					field:  fmt.Sprintf("Filters[%v]", idx),
@@ -314,7 +565,26 @@ func (m *FilterChain) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetUseProxyProto()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetUseProxyProto()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, FilterChainValidationError{
+					field:  "UseProxyProto",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, FilterChainValidationError{
+					field:  "UseProxyProto",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetUseProxyProto()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return FilterChainValidationError{
 				field:  "UseProxyProto",
@@ -324,7 +594,26 @@ func (m *FilterChain) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetMetadata()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetMetadata()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, FilterChainValidationError{
+					field:  "Metadata",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, FilterChainValidationError{
+					field:  "Metadata",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMetadata()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return FilterChainValidationError{
 				field:  "Metadata",
@@ -334,7 +623,26 @@ func (m *FilterChain) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetTransportSocket()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetTransportSocket()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, FilterChainValidationError{
+					field:  "TransportSocket",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, FilterChainValidationError{
+					field:  "TransportSocket",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetTransportSocket()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return FilterChainValidationError{
 				field:  "TransportSocket",
@@ -346,8 +654,27 @@ func (m *FilterChain) Validate() error {
 
 	// no validation rules for Name
 
+	if len(errors) > 0 {
+		return FilterChainMultiError(errors)
+	}
 	return nil
 }
+
+// FilterChainMultiError is an error wrapping multiple validation errors
+// returned by FilterChain.ValidateAll() if the designated constraints aren't met.
+type FilterChainMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m FilterChainMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m FilterChainMultiError) AllErrors() []error { return m }
 
 // FilterChainValidationError is the validation error returned by
 // FilterChain.Validate if the designated constraints aren't met.
@@ -405,17 +732,51 @@ var _ interface {
 
 // Validate checks the field values on ListenerFilterChainMatchPredicate with
 // the rules defined in the proto definition for this message. If any rules
-// are violated, an error is returned.
+// are violated, the first error encountered is returned, or nil if there are
+// no violations.
 func (m *ListenerFilterChainMatchPredicate) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ListenerFilterChainMatchPredicate
+// with the rules defined in the proto definition for this message. If any
+// rules are violated, the result is a list of violation errors wrapped in
+// ListenerFilterChainMatchPredicateMultiError, or nil if none found.
+func (m *ListenerFilterChainMatchPredicate) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ListenerFilterChainMatchPredicate) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	switch m.Rule.(type) {
 
 	case *ListenerFilterChainMatchPredicate_OrMatch:
 
-		if v, ok := interface{}(m.GetOrMatch()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetOrMatch()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ListenerFilterChainMatchPredicateValidationError{
+						field:  "OrMatch",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ListenerFilterChainMatchPredicateValidationError{
+						field:  "OrMatch",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetOrMatch()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ListenerFilterChainMatchPredicateValidationError{
 					field:  "OrMatch",
@@ -427,7 +788,26 @@ func (m *ListenerFilterChainMatchPredicate) Validate() error {
 
 	case *ListenerFilterChainMatchPredicate_AndMatch:
 
-		if v, ok := interface{}(m.GetAndMatch()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetAndMatch()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ListenerFilterChainMatchPredicateValidationError{
+						field:  "AndMatch",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ListenerFilterChainMatchPredicateValidationError{
+						field:  "AndMatch",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetAndMatch()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ListenerFilterChainMatchPredicateValidationError{
 					field:  "AndMatch",
@@ -439,7 +819,26 @@ func (m *ListenerFilterChainMatchPredicate) Validate() error {
 
 	case *ListenerFilterChainMatchPredicate_NotMatch:
 
-		if v, ok := interface{}(m.GetNotMatch()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetNotMatch()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ListenerFilterChainMatchPredicateValidationError{
+						field:  "NotMatch",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ListenerFilterChainMatchPredicateValidationError{
+						field:  "NotMatch",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetNotMatch()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ListenerFilterChainMatchPredicateValidationError{
 					field:  "NotMatch",
@@ -452,15 +851,38 @@ func (m *ListenerFilterChainMatchPredicate) Validate() error {
 	case *ListenerFilterChainMatchPredicate_AnyMatch:
 
 		if m.GetAnyMatch() != true {
-			return ListenerFilterChainMatchPredicateValidationError{
+			err := ListenerFilterChainMatchPredicateValidationError{
 				field:  "AnyMatch",
 				reason: "value must equal true",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
 
 	case *ListenerFilterChainMatchPredicate_DestinationPortRange:
 
-		if v, ok := interface{}(m.GetDestinationPortRange()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetDestinationPortRange()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ListenerFilterChainMatchPredicateValidationError{
+						field:  "DestinationPortRange",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ListenerFilterChainMatchPredicateValidationError{
+						field:  "DestinationPortRange",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetDestinationPortRange()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ListenerFilterChainMatchPredicateValidationError{
 					field:  "DestinationPortRange",
@@ -471,15 +893,40 @@ func (m *ListenerFilterChainMatchPredicate) Validate() error {
 		}
 
 	default:
-		return ListenerFilterChainMatchPredicateValidationError{
+		err := ListenerFilterChainMatchPredicateValidationError{
 			field:  "Rule",
 			reason: "value is required",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 
 	}
 
+	if len(errors) > 0 {
+		return ListenerFilterChainMatchPredicateMultiError(errors)
+	}
 	return nil
 }
+
+// ListenerFilterChainMatchPredicateMultiError is an error wrapping multiple
+// validation errors returned by
+// ListenerFilterChainMatchPredicate.ValidateAll() if the designated
+// constraints aren't met.
+type ListenerFilterChainMatchPredicateMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ListenerFilterChainMatchPredicateMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ListenerFilterChainMatchPredicateMultiError) AllErrors() []error { return m }
 
 // ListenerFilterChainMatchPredicateValidationError is the validation error
 // returned by ListenerFilterChainMatchPredicate.Validate if the designated
@@ -539,21 +986,58 @@ var _ interface {
 } = ListenerFilterChainMatchPredicateValidationError{}
 
 // Validate checks the field values on ListenerFilter with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *ListenerFilter) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ListenerFilter with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in ListenerFilterMultiError,
+// or nil if none found.
+func (m *ListenerFilter) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ListenerFilter) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if len(m.GetName()) < 1 {
-		return ListenerFilterValidationError{
+		err := ListenerFilterValidationError{
 			field:  "Name",
 			reason: "value length must be at least 1 bytes",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
-	if v, ok := interface{}(m.GetFilterDisabled()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetFilterDisabled()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ListenerFilterValidationError{
+					field:  "FilterDisabled",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ListenerFilterValidationError{
+					field:  "FilterDisabled",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetFilterDisabled()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ListenerFilterValidationError{
 				field:  "FilterDisabled",
@@ -567,7 +1051,26 @@ func (m *ListenerFilter) Validate() error {
 
 	case *ListenerFilter_Config:
 
-		if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetConfig()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ListenerFilterValidationError{
+						field:  "Config",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ListenerFilterValidationError{
+						field:  "Config",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ListenerFilterValidationError{
 					field:  "Config",
@@ -579,7 +1082,26 @@ func (m *ListenerFilter) Validate() error {
 
 	case *ListenerFilter_TypedConfig:
 
-		if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(m.GetTypedConfig()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ListenerFilterValidationError{
+						field:  "TypedConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ListenerFilterValidationError{
+						field:  "TypedConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ListenerFilterValidationError{
 					field:  "TypedConfig",
@@ -591,8 +1113,28 @@ func (m *ListenerFilter) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return ListenerFilterMultiError(errors)
+	}
 	return nil
 }
+
+// ListenerFilterMultiError is an error wrapping multiple validation errors
+// returned by ListenerFilter.ValidateAll() if the designated constraints
+// aren't met.
+type ListenerFilterMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ListenerFilterMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ListenerFilterMultiError) AllErrors() []error { return m }
 
 // ListenerFilterValidationError is the validation error returned by
 // ListenerFilter.Validate if the designated constraints aren't met.
@@ -650,23 +1192,62 @@ var _ interface {
 
 // Validate checks the field values on
 // ListenerFilterChainMatchPredicate_MatchSet with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *ListenerFilterChainMatchPredicate_MatchSet) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// ListenerFilterChainMatchPredicate_MatchSet with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in
+// ListenerFilterChainMatchPredicate_MatchSetMultiError, or nil if none found.
+func (m *ListenerFilterChainMatchPredicate_MatchSet) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ListenerFilterChainMatchPredicate_MatchSet) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if len(m.GetRules()) < 2 {
-		return ListenerFilterChainMatchPredicate_MatchSetValidationError{
+		err := ListenerFilterChainMatchPredicate_MatchSetValidationError{
 			field:  "Rules",
 			reason: "value must contain at least 2 item(s)",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	for idx, item := range m.GetRules() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ListenerFilterChainMatchPredicate_MatchSetValidationError{
+						field:  fmt.Sprintf("Rules[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ListenerFilterChainMatchPredicate_MatchSetValidationError{
+						field:  fmt.Sprintf("Rules[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ListenerFilterChainMatchPredicate_MatchSetValidationError{
 					field:  fmt.Sprintf("Rules[%v]", idx),
@@ -678,8 +1259,29 @@ func (m *ListenerFilterChainMatchPredicate_MatchSet) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return ListenerFilterChainMatchPredicate_MatchSetMultiError(errors)
+	}
 	return nil
 }
+
+// ListenerFilterChainMatchPredicate_MatchSetMultiError is an error wrapping
+// multiple validation errors returned by
+// ListenerFilterChainMatchPredicate_MatchSet.ValidateAll() if the designated
+// constraints aren't met.
+type ListenerFilterChainMatchPredicate_MatchSetMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ListenerFilterChainMatchPredicate_MatchSetMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ListenerFilterChainMatchPredicate_MatchSetMultiError) AllErrors() []error { return m }
 
 // ListenerFilterChainMatchPredicate_MatchSetValidationError is the validation
 // error returned by ListenerFilterChainMatchPredicate_MatchSet.Validate if
