@@ -240,7 +240,7 @@ func parseStatLine(line string) (*TimesStat, error) {
 		return nil, errors.New("stat does not contain cpu info")
 	}
 
-	if strings.HasPrefix(fields[0], "cpu") == false {
+	if !strings.HasPrefix(fields[0], "cpu") {
 		return nil, errors.New("not contain cpu")
 	}
 
