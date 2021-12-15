@@ -574,14 +574,37 @@ func (n *Node) determineMaintenanceAction() (*maintenanceAction, error) {
 // remove entries from IP release status map in ciliumnode CRD's status. These IPs need to be purged from
 // n.ipReleaseStatus
 func (n *Node) removeStaleReleaseIPs() {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
 	for ip, status := range n.ipReleaseStatus {
 		if status != ipamOption.IPAMReleased {
 			continue
 		}
 		if _, ok := n.resource.Status.IPAM.ReleaseIPs[ip]; !ok {
-			n.deleteLocalReleaseStatus(ip)
+			delete(n.ipReleaseStatus, ip)
 		}
 	}
+}
+
+// handleIPReleaseResponse handles IPs agent has already responded to
+func (n *Node) handleIPReleaseResponse(markedIP string, ipsToRelease *[]string) bool {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+	if n.resource.Status.IPAM.ReleaseIPs != nil {
+		if status, ok := n.resource.Status.IPAM.ReleaseIPs[markedIP]; ok {
+			switch status {
+			case ipamOption.IPAMReadyForRelease:
+				*ipsToRelease = append(*ipsToRelease, markedIP)
+			case ipamOption.IPAMDoNotRelease:
+				delete(n.ipsMarkedForRelease, markedIP)
+				delete(n.ipReleaseStatus, markedIP)
+			}
+			// 'released' state is already handled in removeStaleReleaseIPs()
+			// Other states don't need additional handling.
+			return true
+		}
+	}
+	return false
 }
 
 func (n *Node) deleteLocalReleaseStatus(ip string) {
@@ -594,6 +617,10 @@ func (n *Node) deleteLocalReleaseStatus(ip string) {
 // returns instanceMutated which tracks if state changed with the cloud provider and is used
 // to determine if IPAM pool maintainer trigger func needs to be invoked.
 func (n *Node) maintainIPPool(ctx context.Context) (instanceMutated bool, err error) {
+	if n.manager.releaseExcessIPs {
+		n.removeStaleReleaseIPs()
+	}
+
 	a, err := n.determineMaintenanceAction()
 	if err != nil {
 		return false, err
@@ -602,10 +629,6 @@ func (n *Node) maintainIPPool(ctx context.Context) (instanceMutated bool, err er
 	// Maintenance request has already been fulfilled
 	if a == nil {
 		return false, nil
-	}
-
-	if n.ipReleaseStatus == nil {
-		n.ipReleaseStatus = make(map[string]string)
 	}
 
 	// Update timestamps for IPs from this iteration
@@ -631,8 +654,6 @@ func (n *Node) maintainIPPool(ctx context.Context) (instanceMutated bool, err er
 		n.ipsMarkedForRelease = make(map[string]time.Time)
 	}
 
-	n.removeStaleReleaseIPs()
-
 	for markedIP, ts := range n.ipsMarkedForRelease {
 		// Determine which IPs are still marked for release.
 		stillMarkedForRelease := false
@@ -654,20 +675,11 @@ func (n *Node) maintainIPPool(ctx context.Context) (instanceMutated bool, err er
 		if ts.Add(time.Duration(operatorOption.Config.ExcessIPReleaseDelay) * time.Second).After(time.Now()) {
 			continue
 		}
-		// Handle IPs we've already heard back from agent.
-		if n.resource.Status.IPAM.ReleaseIPs != nil {
-			if status, ok := n.resource.Status.IPAM.ReleaseIPs[markedIP]; ok {
-				switch status {
-				case ipamOption.IPAMReadyForRelease:
-					ipsToRelease = append(ipsToRelease, markedIP)
-				case ipamOption.IPAMDoNotRelease:
-					scopedLog.WithFields(logrus.Fields{logfields.IPAddr: markedIP}).Debug("IP release request denied from agent")
-					delete(n.ipsMarkedForRelease, markedIP)
-					n.deleteLocalReleaseStatus(markedIP)
-				}
-				continue
-			}
+		// Handling for IPs we've already heard back from agent.
+		if n.handleIPReleaseResponse(markedIP, &ipsToRelease) {
+			continue
 		}
+		// markedIP can now be considered excess and is not currently in an active handshake
 		ipsToMark = append(ipsToMark, markedIP)
 	}
 	// Update cilium node CRD with IPs that need to be marked for release
@@ -794,11 +806,14 @@ func (n *Node) MaintainIPPool(ctx context.Context) error {
 
 // Update cilium node IPAM status with excess IP release data
 func (n *Node) PopulateIPReleaseStatus(node *v2.CiliumNode) {
+	// maintainIPPool() might not have run yet since the last update from agent.
+	// Attempt to remove any stale entries
+	n.removeStaleReleaseIPs()
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 	releaseStatus := make(map[string]ipamTypes.IPReleaseStatus)
 	for ip, status := range n.ipReleaseStatus {
-		if existingStatus, ok := node.Status.IPAM.ReleaseIPs[ip]; ok {
+		if existingStatus, ok := node.Status.IPAM.ReleaseIPs[ip]; ok && status == ipamOption.IPAMMarkForRelease {
 			// retain status if agent already responded to this IP
 			if existingStatus == ipamOption.IPAMReadyForRelease || existingStatus == ipamOption.IPAMDoNotRelease {
 				releaseStatus[ip] = existingStatus
