@@ -54,9 +54,20 @@ Then, install Cilium release via Helm:
 
 .. note::
 
-   To fully enable Cilium's kube-proxy replacement (:ref:`kubeproxy-free`), cgroup v1
-   controllers ``net_cls`` and ``net_prio`` have to be disabled, or cgroup v1 has
-   to be disabled (e.g. by setting the kernel ``cgroup_no_v1="all"`` parameter).
+   To fully enable Cilium's kube-proxy replacement (:ref:`kubeproxy-free`), cgroup v2
+   needs to be enabled by setting the kernel ``systemd.unified_cgroup_hierarchy=1`` parameter.
+   Also, cgroup v1 controllers ``net_cls`` and ``net_prio`` have to be disabled, or
+   cgroup v1 has to be disabled (e.g. by setting the kernel ``cgroup_no_v1="all"`` parameter).
+   This ensures that Kind nodes have their own cgroup namespace, and Cilium can
+   attach BPF programs at the right cgroup hierarchy. To verify this, run the
+   following commands on the host, and check that the output values are different.
+
+   .. code-block:: shell-session
+
+      $ sudo ls -al /proc/$(docker inspect -f '{{.State.Pid}}' kind-control-plane)/ns/cgroup
+      $ sudo ls -al /proc/self/ns/cgroup
+
+   See the `Pull Request <https://github.com/cilium/cilium/pull/16259>`__ for more details.
 
 .. include:: k8s-install-validate.rst
 
