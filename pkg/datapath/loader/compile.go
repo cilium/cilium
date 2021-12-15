@@ -362,8 +362,8 @@ func compileDatapath(ctx context.Context, dirs *directoryInfo, isHost bool, logg
 			if ctx.Err() == nil {
 				scopedLog.WithField(logfields.Params, logfields.Repr(p)).
 					WithError(err).Debug("JoinEP: Failed to compile")
+				return err
 			}
-			return err
 		}
 	}
 
@@ -379,8 +379,8 @@ func compileDatapath(ctx context.Context, dirs *directoryInfo, isHost bool, logg
 		if ctx.Err() == nil {
 			scopedLog.WithField(logfields.Params, logfields.Repr(prog)).
 				WithError(err).Warn("JoinEP: Failed to compile")
+			return err
 		}
-		return err
 	}
 
 	return nil

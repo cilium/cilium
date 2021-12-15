@@ -109,7 +109,7 @@ func (e *Endpoint) PolicyRevisionBumpEvent(rev uint64) {
 	}
 }
 
-/// EndpointNoTrackEvent contains all fields necessary to update the NOTRACK rules.
+// EndpointNoTrackEvent contains all fields necessary to update the NOTRACK rules.
 type EndpointNoTrackEvent struct {
 	ep     *Endpoint
 	annoCB AnnotationsResolverCB
@@ -361,6 +361,9 @@ func (e *Endpoint) Start(id uint16) {
 // datapath state (for instance, because the daemon is shutting down but the
 // endpoint should remain operational while the daemon is not running).
 func (e *Endpoint) Stop() {
+	// Cancel active controllers for the endpoint tied to e.aliveCtx.
+	e.aliveCancel()
+
 	// Since the endpoint is being deleted, we no longer need to run events
 	// in its event queue. This is a no-op if the queue has already been
 	// closed elsewhere.
@@ -379,7 +382,4 @@ func (e *Endpoint) Stop() {
 	// if anything is blocking on it. If a delete request has already been
 	// enqueued for this endpoint, this is a no-op.
 	e.closeBPFProgramChannel()
-
-	// Cancel active controllers for the endpoint tied to e.aliveCtx.
-	e.aliveCancel()
 }

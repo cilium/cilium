@@ -265,8 +265,8 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 			// loading the program.
 			if ctx.Err() == nil {
 				scopedLog.WithError(err).Warningf("JoinEP: Failed to load program for host endpoint (%s)", symbol)
+				return err
 			}
-			return err
 		}
 	}
 
@@ -298,8 +298,8 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 			// loading the program.
 			if ctx.Err() == nil {
 				scopedLog.WithError(err).Warn("JoinEP: Failed to load program")
+				return err
 			}
-			return err
 		}
 	} else {
 		if err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress, false, ""); err != nil {
@@ -312,8 +312,8 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 			// loading the program.
 			if ctx.Err() == nil {
 				scopedLog.WithError(err).Warn("JoinEP: Failed to load program")
+				return err
 			}
-			return err
 		}
 
 		if ep.RequireEgressProg() {
@@ -327,8 +327,8 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 				// loading the program.
 				if ctx.Err() == nil {
 					scopedLog.WithError(err).Warn("JoinEP: Failed to load program")
+					return err
 				}
-				return err
 			}
 		} else {
 			err := RemoveTCFilters(ep.InterfaceName(), netlink.HANDLE_MIN_EGRESS)
