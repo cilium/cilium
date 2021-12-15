@@ -140,7 +140,8 @@ jobs:
             --version=${SHA} \
             --wait=false \
             --rollback=false \
-            --config monitor-aggregation=none"
+            --config monitor-aggregation=none" \
+            --base-version=v1.10
           HUBBLE_ENABLE_DEFAULTS="--relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
             --relay-version=${SHA}"
           echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
