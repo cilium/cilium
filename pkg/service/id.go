@@ -46,7 +46,11 @@ func getMaxServiceID() (uint32, error) {
 
 // AcquireBackendID acquires a new local ID for the given backend.
 func AcquireBackendID(l3n4Addr loadbalancer.L3n4Addr) (loadbalancer.BackendID, error) {
-	return restoreBackendID(l3n4Addr, 0)
+	newID, err := restoreBackendID(l3n4Addr, 0)
+	if err == nil {
+		fmt.Println("!!a", l3n4Addr, newID)
+	}
+	return newID, err
 }
 
 // RestoreBackendID tries to restore the given local ID for the given backend.
@@ -65,6 +69,8 @@ func RestoreBackendID(l3n4Addr loadbalancer.L3n4Addr, id loadbalancer.BackendID)
 		return fmt.Errorf("restored backend ID for %+v does not match (%d != %d)",
 			l3n4Addr, newID, id)
 	}
+
+	fmt.Println("!!r", l3n4Addr, newID)
 
 	return nil
 }

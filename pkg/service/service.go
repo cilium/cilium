@@ -211,7 +211,9 @@ func (s *Service) populateBackendMapV2FromV1(ipv4, ipv6 bool) error {
 				v2BackendKey = lbmap.NewBackend6KeyV2(backendKey.GetID())
 			}
 
-			err := v2Map.Update(v2BackendKey, value.DeepCopyMapValue())
+			val := value.DeepCopyMapValue()
+			fmt.Println("!!p", v2BackendKey, val)
+			err := v2Map.Update(v2BackendKey, val)
 			if err != nil {
 				log.WithError(err).WithField(logfields.BPFMapName, v2Map.Name()).Warn("Error updating map")
 			}
