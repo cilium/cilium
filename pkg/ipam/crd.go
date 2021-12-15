@@ -340,17 +340,26 @@ func (n *nodeStore) updateLocalNodeResource(node *ciliumv2.CiliumNode) {
 		if n.ownNode.Spec.IPAM.Pool == nil {
 			continue
 		}
+		// Ignore states that agent previously responded to.
 		if status == ipamOption.IPAMReadyForRelease || status == ipamOption.IPAMDoNotRelease {
 			continue
 		}
 		if _, ok := n.ownNode.Spec.IPAM.Pool[ip]; !ok {
 			if status == ipamOption.IPAMReleased {
-				// Remove entry from release-ips only when its removed the .spec.ipam.pool
+				// Remove entry from release-ips only when it is removed from .spec.ipam.pool as well
 				delete(n.ownNode.Status.IPAM.ReleaseIPs, ip)
+				releaseUpstreamSyncNeeded = true
 			} else if status == ipamOption.IPAMMarkForRelease {
 				// NACK the IP, if this node doesn't own the IP
 				n.ownNode.Status.IPAM.ReleaseIPs[ip] = ipamOption.IPAMDoNotRelease
+				releaseUpstreamSyncNeeded = true
 			}
+			continue
+		}
+
+		// Ignore all other states, transition to do-not-release and ready-for-release are allowed only from
+		// marked-for-release
+		if status != ipamOption.IPAMMarkForRelease {
 			continue
 		}
 		// Retrieve the appropriate allocator
@@ -370,7 +379,6 @@ func (n *nodeStore) updateLocalNodeResource(node *ciliumv2.CiliumNode) {
 		if allocator == nil {
 			continue
 		}
-
 		allocator.mutex.Lock()
 		if _, ok := allocator.allocated[ip]; ok {
 			// IP still in use, update the operator to stop releasing the IP.
