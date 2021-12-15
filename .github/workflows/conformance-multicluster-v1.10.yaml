@@ -141,8 +141,8 @@ jobs:
             --version=${SHA} \
             --wait=false \
             --rollback=false \
-            --config monitor-aggregation=none" \
-            --base-version=v1.10
+            --config monitor-aggregation=none \
+            --base-version=v1.10"
           HUBBLE_ENABLE_DEFAULTS="--relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
             --relay-version=${SHA}"
           CLUSTERMESH_ENABLE_DEFAULTS="--apiserver-image=quay.io/${{ github.repository_owner }}/clustermesh-apiserver-ci \
