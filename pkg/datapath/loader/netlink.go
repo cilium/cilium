@@ -5,6 +5,7 @@ package loader
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 
@@ -99,7 +100,9 @@ func replaceDatapath(ctx context.Context, ifName, objPath, progSec, progDirectio
 	}
 
 	cmd := exec.CommandContext(ctx, loaderProg, args...).WithFilters(libbpfFixupMsg)
-	if _, err := cmd.CombinedOutput(log, true); err != nil {
+	// Context cancellation check ensures that we don't log errors when the
+	// endpoint is deleted as the ep.aliveCtx is cancelled.
+	if _, err := cmd.CombinedOutput(log, true); err != nil && !errors.Is(err, context.Canceled) {
 		// Program/object replacement unsuccessful, revert bpffs migration.
 		revert = true
 		return fmt.Errorf("Failed to load prog with %s: %w", loaderProg, err)
