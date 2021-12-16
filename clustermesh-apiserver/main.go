@@ -89,6 +89,13 @@ var (
 
 			runServer(cmd)
 		},
+		PreRun: func(cmd *cobra.Command, args []string) {
+			option.Config.Populate()
+			if option.Config.Debug {
+				log.Logger.SetLevel(logrus.DebugLevel)
+			}
+			option.LogRegisteredOptions(log)
+		},
 	}
 
 	mockFile        string
@@ -221,7 +228,6 @@ func runApiserver() error {
 	option.BindEnv(option.AllocatorListTimeoutName)
 
 	viper.BindPFlags(flags)
-	option.Config.Populate()
 
 	if err := rootCmd.Execute(); err != nil {
 		return err
@@ -621,5 +627,4 @@ func runServer(cmd *cobra.Command) {
 
 	<-shutdownSignal
 	log.Info("Received termination signal. Shutting down")
-	return
 }
