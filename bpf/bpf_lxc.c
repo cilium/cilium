@@ -2005,6 +2005,12 @@ int handle_to_container(struct __ctx_buff *ctx)
 	magic = inherit_identity_from_host(ctx, &identity);
 	if (magic == MARK_MAGIC_PROXY_INGRESS || magic == MARK_MAGIC_PROXY_EGRESS)
 		trace = TRACE_FROM_PROXY;
+#if defined(ENABLE_L7_LB)
+	else if (magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
+		tail_call_dynamic(ctx, &POLICY_EGRESSCALL_MAP, identity);
+		return DROP_MISSED_TAIL_CALL;
+	}
+#endif
 
 	send_trace_notify(ctx, trace, identity, 0, 0,
 			  ctx->ingress_ifindex, 0, TRACE_PAYLOAD_LEN);

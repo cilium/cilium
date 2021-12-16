@@ -1045,6 +1045,20 @@ int to_netdev(struct __ctx_buff *ctx __maybe_unused)
 		}
 	}
 
+#if defined(ENABLE_L7_LB)
+	{
+		__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
+
+		if (magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
+			__u32 lxc_id = get_epid(ctx);
+
+			ctx->mark = 0;
+			tail_call_dynamic(ctx, &POLICY_EGRESSCALL_MAP, lxc_id);
+			return DROP_MISSED_TAIL_CALL;
+		}
+	}
+#endif
+
 #ifdef ENABLE_HOST_FIREWALL
 	if (!proto && !validate_ethertype(ctx, &proto)) {
 		ret = DROP_UNSUPPORTED_L2;
