@@ -1047,8 +1047,12 @@ int to_netdev(struct __ctx_buff *ctx __maybe_unused)
 	{
 		__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
 
+		cilium_dbg3(ctx, DBG_L7_LB, 0x01010101, 0x02020202, magic);
+
 		if (magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
 			__u32 lxc_id = get_epid(ctx);
+
+			cilium_dbg3(ctx, DBG_L7_LB, 0x01010101, 0x03030303, lxc_id);
 
 			ctx->mark = 0;
 			tail_call_dynamic(ctx, &POLICY_EGRESSCALL_MAP, lxc_id);

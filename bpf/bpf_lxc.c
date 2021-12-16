@@ -625,6 +625,9 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,	__u32 *d
 	 */
 	ct_ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_EGRESS,
 			    &ct_state, &monitor);
+
+	cilium_dbg3(ctx, DBG_L7_LB, 0x03030303, 0x05050505, ct_ret);
+
 	if (ct_ret < 0)
 		return ct_ret;
 
@@ -789,8 +792,10 @@ ct_recreate4:
 		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL, 0,
 				  bpf_ntohs(verdict), 0, ct_ret, monitor);
 #if defined(ENABLE_L7_LB)
-		if (from_l7lb)
+		if (from_l7lb) {
+			cilium_dbg3(ctx, DBG_L7_LB, 0x03030303, 0x06060606, verdict);
 			return ctx_redirect_to_proxy_hairpin_ipv4(ctx, verdict);
+		}
 #endif
 		return ctx_redirect_to_proxy4(ctx, &tuple, verdict, false);
 	}
@@ -1809,6 +1814,8 @@ int handle_policy_egress(struct __ctx_buff *ctx)
 	edt_set_aggregate(ctx, 0); /* do not count this traffic again */
 	send_trace_notify(ctx, TRACE_FROM_PROXY, SECLABEL, 0, 0,
 			  ifindex, 0, TRACE_PAYLOAD_LEN);
+
+	cilium_dbg3(ctx, DBG_L7_LB, 0x02020202, 0x04040404, ifindex);
 
 	switch (proto) {
 #ifdef ENABLE_IPV6
