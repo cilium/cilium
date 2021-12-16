@@ -295,11 +295,10 @@ func (m *endpointCreationManager) DebugStatus() (output string) {
 // createEndpoint attempts to create the endpoint corresponding to the change
 // request that was specified.
 func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, epTemplate *models.EndpointChangeRequest) (*endpoint.Endpoint, int, error) {
+	if epTemplate.DatapathConfiguration == nil {
+		epTemplate.DatapathConfiguration = &models.EndpointDatapathConfiguration{}
+	}
 	if option.Config.EnableEndpointRoutes {
-		if epTemplate.DatapathConfiguration == nil {
-			epTemplate.DatapathConfiguration = &models.EndpointDatapathConfiguration{}
-		}
-
 		// Indicate to insert a per endpoint route instead of routing
 		// via cilium_host interface
 		epTemplate.DatapathConfiguration.InstallEndpointRoute = true
@@ -313,6 +312,10 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 		// between BPF programs.
 		disabled := false
 		epTemplate.DatapathConfiguration.RequireRouting = &disabled
+	}
+
+	if option.Config.DisableSipVerification {
+		epTemplate.DatapathConfiguration.DisableSipVerification = true
 	}
 
 	log.WithFields(logrus.Fields{
@@ -1045,7 +1048,6 @@ func (h *putEndpointIDLabels) Handle(params PatchEndpointIDLabelsParams) middlew
 func (d *Daemon) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {
 	// Acquire build permit. This may block.
 	err := d.buildEndpointSem.Acquire(ctx, 1)
-
 	if err != nil {
 		return nil, err // Acquire failed
 	}
