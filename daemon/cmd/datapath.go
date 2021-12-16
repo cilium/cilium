@@ -320,8 +320,11 @@ func (d *Daemon) initMaps() error {
 		return err
 	}
 
-	if _, err := tunnel.TunnelMap.OpenOrCreate(); err != nil {
-		return err
+	if option.Config.TunnelingEnabled() || option.Config.EnableEgressGateway {
+		// The IPv4 egress gateway feature also uses tunnel map
+		if _, err := tunnel.TunnelMap.OpenOrCreate(); err != nil {
+			return err
+		}
 	}
 
 	if option.Config.EnableEgressGateway {
