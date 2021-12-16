@@ -136,14 +136,14 @@ one stable release to a later stable release.
 
 .. include:: upgrade-warning.rst
 
-Step 1: Upgrade to latest micro version (Recommended)
+Step 1: Upgrade to latest patch version (Recommended)
 -----------------------------------------------------
 
 When upgrading from one minor release to another minor release, for example
-1.x to 1.y, it is recommended to upgrade to the latest micro release for a
-Cilium release series first. The latest micro releases for each supported
+1.x to 1.y, it is recommended to upgrade to the latest patch release for a
+Cilium release series first. The latest patch releases for each supported
 version of Cilium are `here <https://github.com/cilium/cilium#stable-releases>`_.
-Upgrading to the latest micro release ensures the most seamless experience if a
+Upgrading to the latest patch release ensures the most seamless experience if a
 rollback is required following the minor release upgrade. The upgrade guides
 for previous versions can be found for each minor version at the bottom left
 corner.
