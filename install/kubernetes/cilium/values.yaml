@@ -1798,3 +1798,6 @@ cgroup:
 # -- Configure whether to enable auto detect of terminating state for endpoints
 # in order to support graceful termination.
 enableK8sTerminatingEndpoint: true
+
+# -- Allows to disable the helm validation checks
+enableHelmValidation: true

@@ -1,3 +1,4 @@
+{{- if .Values.enableHelmValidation }}
 {{/* validate hubble config */}}
 {{- if and .Values.hubble.ui.enabled (not .Values.hubble.ui.standalone.enabled) }}
   {{- if not .Values.hubble.relay.enabled }}
@@ -32,4 +33,5 @@
   {{- if not .Values.clustermesh.apiserver.tls.auto.certManagerIssuerRef }}
     {{ fail "ClusterMesh TLS certgen method=certmanager requires user specify .Values.clustermesh.apiserver.tls.auto.certManagerIssuerRef" }}
   {{- end }}  
+{{- end }}
 {{- end }}
