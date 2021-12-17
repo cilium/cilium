@@ -1,7 +1,9 @@
 name: codeql
 
 on:
-  pull_request: {}
+  pull_request:
+    branches:
+      - master
   push:
     branches:
       - master
