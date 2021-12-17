@@ -11,7 +11,7 @@ import (
 // LBMap is the interface describing methods for manipulating service maps.
 type LBMap interface {
 	UpsertService(*UpsertServiceParams) error
-	UpsertMaglevLookupTable(uint16, map[string]loadbalancer.BackendID, bool) error
+	UpsertMaglevLookupTable(uint16, map[string]loadbalancer.Backend, bool) error
 	IsMaglevLookupTableRecreated(bool) bool
 	DeleteService(loadbalancer.L3n4AddrID, int, bool, loadbalancer.SVCNatPolicy) error
 	AddBackend(*loadbalancer.Backend, bool) error
@@ -33,8 +33,8 @@ type UpsertServiceParams struct {
 
 	// PreferredBackends is a subset of ActiveBackends
 	// Note: this is only used in clustermesh with service affinity annotation.
-	PreferredBackends         map[string]loadbalancer.BackendID
-	ActiveBackends            map[string]loadbalancer.BackendID
+	PreferredBackends         map[string]loadbalancer.Backend
+	ActiveBackends            map[string]loadbalancer.Backend
 	NonActiveBackends         []loadbalancer.BackendID
 	PrevBackendsCount         int
 	IPv6                      bool
@@ -55,13 +55,13 @@ type UpsertServiceParams struct {
 // Encapsulates logic to be also used in unit tests.
 func (p *UpsertServiceParams) GetOrderedBackends() []loadbalancer.BackendID {
 	backendIDs := make([]loadbalancer.BackendID, 0, len(p.ActiveBackends)+len(p.NonActiveBackends))
-	for _, id := range p.ActiveBackends {
-		backendIDs = append(backendIDs, id)
+	for _, b := range p.ActiveBackends {
+		backendIDs = append(backendIDs, b.ID)
 	}
 
 	preferredMap := map[loadbalancer.BackendID]struct{}{}
-	for _, id := range p.PreferredBackends {
-		preferredMap[id] = struct{}{}
+	for _, b := range p.PreferredBackends {
+		preferredMap[b.ID] = struct{}{}
 	}
 
 	// Map iterations are non-deterministic so sort the backends by their IDs

@@ -1625,6 +1625,11 @@ func init() {
             "quarantined",
             "maintenance"
           ]
+        },
+        "weight": {
+          "description": "Backend weight",
+          "type": "integer",
+          "format": "uint8"
         }
       }
     },
@@ -6111,6 +6116,12 @@ func init() {
             "quarantined",
             "maintenance"
           ]
+        },
+        "weight": {
+          "description": "Backend weight",
+          "type": "integer",
+          "format": "uint8",
+          "minimum": 0
         }
       }
     },

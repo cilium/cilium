@@ -743,6 +743,7 @@ func genCartesianProduct(
 					},
 					State:     backendState,
 					Preferred: loadbalancer.Preferred(backend.Preferred),
+					Weight:    1,
 				})
 			}
 		}

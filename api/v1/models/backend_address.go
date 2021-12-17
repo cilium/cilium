@@ -39,6 +39,10 @@ type BackendAddress struct {
 	// State of the backend for load-balancing service traffic
 	// Enum: [active terminating quarantined maintenance]
 	State string `json:"state,omitempty"`
+
+	// Backend weight
+	// Minimum: 0
+	Weight *uint8 `json:"weight,omitempty"`
 }
 
 // Validate validates this backend address
@@ -50,6 +54,10 @@ func (m *BackendAddress) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateState(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateWeight(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -111,6 +119,19 @@ func (m *BackendAddress) validateState(formats strfmt.Registry) error {
 
 	// value enum
 	if err := m.validateStateEnum("state", "body", m.State); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *BackendAddress) validateWeight(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Weight) { // not required
+		return nil
+	}
+
+	if err := validate.MinimumInt("weight", "body", int64(*m.Weight), 0, false); err != nil {
 		return err
 	}
 
