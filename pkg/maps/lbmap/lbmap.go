@@ -55,7 +55,7 @@ type UpsertServiceParams struct {
 	ID                        uint16
 	IP                        net.IP
 	Port                      uint16
-	Backends                  map[string]loadbalancer.BackendID
+	Backends                  map[string]*loadbalancer.Backend
 	PrevActiveBackendCount    int
 	IPv6                      bool
 	Type                      loadbalancer.SVCType
@@ -98,8 +98,8 @@ func (lbmap *LBBPFMap) UpsertService(p *UpsertServiceParams) error {
 	}
 
 	backendIDs := make([]loadbalancer.BackendID, 0, len(p.Backends))
-	for _, id := range p.Backends {
-		backendIDs = append(backendIDs, id)
+	for _, b := range p.Backends {
+		backendIDs = append(backendIDs, b.ID)
 	}
 	for _, backendID := range backendIDs {
 		if backendID == 0 {
@@ -152,10 +152,12 @@ func (lbmap *LBBPFMap) UpsertService(p *UpsertServiceParams) error {
 
 // UpsertMaglevLookupTable calculates Maglev lookup table for given backends, and
 // inserts into the Maglev BPF map.
-func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]loadbalancer.BackendID, ipv6 bool) error {
+func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]*loadbalancer.Backend, ipv6 bool) error {
 	backendNames := make([]string, 0, len(backends))
-	for name := range backends {
-		backendNames = append(backendNames, name)
+	for name, b := range backends {
+		if b != nil && b.Weight > 0 {
+			backendNames = append(backendNames, name)
+		}
 	}
 	// Maglev algorithm might produce different lookup table for the same
 	// set of backends listed in a different order. To avoid that sort
@@ -164,7 +166,7 @@ func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string
 	sort.Strings(backendNames)
 	table := maglev.GetLookupTable(backendNames, lbmap.maglevTableSize)
 	for i, pos := range table {
-		lbmap.maglevBackendIDsBuffer[i] = backends[backendNames[pos]]
+		lbmap.maglevBackendIDsBuffer[i] = backends[backendNames[pos]].ID
 	}
 
 	if err := updateMaglevTable(ipv6, svcID, lbmap.maglevBackendIDsBuffer); err != nil {

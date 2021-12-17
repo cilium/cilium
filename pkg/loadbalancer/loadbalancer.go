@@ -186,6 +186,8 @@ type ID uint32
 type Backend struct {
 	// ID of the backend
 	ID BackendID
+	// Weight of backend {0, 1}
+	Weight uint16
 	// Node hosting this backend. This is used to determine backends local to
 	// a node.
 	NodeName string
@@ -380,7 +382,7 @@ func NewBackendFromBackendModel(base *models.BackendAddress) (*Backend, error) {
 		return nil, fmt.Errorf("invalid IP address \"%s\"", *base.IP)
 	}
 
-	return &Backend{NodeName: base.NodeName, L3n4Addr: L3n4Addr{IP: ip, L4Addr: *l4addr}}, nil
+	return &Backend{NodeName: base.NodeName, L3n4Addr: L3n4Addr{IP: ip, L4Addr: *l4addr}, Weight: base.Weight}, nil
 }
 
 func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error) {
@@ -423,6 +425,7 @@ func (b *Backend) GetBackendModel() *models.BackendAddress {
 		IP:       &ip,
 		Port:     b.Port,
 		NodeName: b.NodeName,
+		Weight:   b.Weight,
 	}
 }
 

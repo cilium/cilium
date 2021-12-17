@@ -11,6 +11,7 @@ cilium service update [flags]
 ### Options
 
 ```
+      --backend-weights uints       Backend weights {0, 1} (0 means maintenance) (default [])
       --backends strings            Backend address or addresses (<IP:Port>)
       --frontend string             Frontend address
   -h, --help                        help for update

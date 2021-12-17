@@ -2466,6 +2466,10 @@ definitions:
       nodeName:
         description: Optional name of the node on which this backend runs
         type: string
+      weight:
+        description: Backend weight {0, 1}
+        type: integer
+        format: uint16
   LRPBackend:
     description: Pod backend of an LRP
     type: object

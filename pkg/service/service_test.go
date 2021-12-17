@@ -807,3 +807,40 @@ func (m *ManagerTestSuite) TestRestoreServiceWithTerminatingBackends(c *C) {
 	}
 	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, len(backends1))
 }
+
+func (m *ManagerTestSuite) TestUpsertServiceWithZeroWeightBackends(c *C) {
+	option.Config.NodePortAlg = option.NodePortAlgMaglev
+	backends := append(backends1, backends4...)
+	backends[1].Weight = 0
+	backends[2].Weight = 0
+
+	p := &lb.SVC{
+		Frontend:                  frontend1,
+		Backends:                  backends,
+		Type:                      lb.SVCTypeNodePort,
+		TrafficPolicy:             lb.SVCTrafficPolicyCluster,
+		SessionAffinity:           true,
+		SessionAffinityTimeoutSec: 100,
+		Name:                      "svc1",
+		Namespace:                 "ns1",
+	}
+
+	created, id1, err := m.svc.UpsertService(p)
+
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, true)
+	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 3)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 3)
+	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, 1)
+
+	// Delete backends with weight 0
+	p.Backends = backends[:1]
+
+	created, id1, err = m.svc.UpsertService(p)
+
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, false)
+	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 1)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 1)
+	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, 1)
+}

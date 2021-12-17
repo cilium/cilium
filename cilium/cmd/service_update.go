@@ -27,6 +27,7 @@ var (
 	idU                uint64
 	frontend           string
 	backends           []string
+	backendWeights     []uint
 )
 
 // serviceUpdateCmd represents the service_update command
@@ -50,6 +51,7 @@ func init() {
 	serviceUpdateCmd.Flags().BoolVarP(&k8sClusterInternal, "k8s-cluster-internal", "", false, "Set service as cluster-internal for externalTrafficPolicy=Local")
 	serviceUpdateCmd.Flags().StringVarP(&frontend, "frontend", "", "", "Frontend address")
 	serviceUpdateCmd.Flags().StringSliceVarP(&backends, "backends", "", []string{}, "Backend address or addresses (<IP:Port>)")
+	serviceUpdateCmd.Flags().UintSliceVarP(&backendWeights, "backend-weights", "", []uint{}, "Backend weights {0, 1} (0 means maintenance)")
 }
 
 func parseFrontendAddress(address string) (*models.FrontendAddress, net.IP) {
@@ -137,8 +139,17 @@ func updateService(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	if len(backendWeights) == 0 {
+		backendWeights = make([]uint, len(backends))
+		for idx := range backends {
+			backendWeights[idx] = 1
+		}
+	} else if len(backendWeights) != len(backends) {
+		Fatalf("Mismatch between number of backend weights and number of backends")
+	}
+
 	spec.BackendAddresses = nil
-	for _, backend := range backends {
+	for idx, backend := range backends {
 		beAddr, err := net.ResolveTCPAddr("tcp", backend)
 		if err != nil {
 			Fatalf("Cannot parse backend address \"%s\": %s", backend, err)
@@ -146,6 +157,7 @@ func updateService(cmd *cobra.Command, args []string) {
 
 		// Backend ID will be set by the daemon
 		be := loadbalancer.NewBackend(0, loadbalancer.TCP, beAddr.IP, uint16(beAddr.Port))
+		be.Weight = uint16(backendWeights[idx])
 
 		if be.IsIPv6() && faIP.To4() != nil {
 			Fatalf("Address mismatch between frontend and backend %s", backend)

@@ -35,7 +35,7 @@ var (
 // LBMap is the interface describing methods for manipulating service maps.
 type LBMap interface {
 	UpsertService(*lbmap.UpsertServiceParams) error
-	UpsertMaglevLookupTable(uint16, map[string]lb.BackendID, bool) error
+	UpsertMaglevLookupTable(uint16, map[string]*lb.Backend, bool) error
 	IsMaglevLookupTableRecreated(bool) bool
 	DeleteService(lb.L3n4AddrID, int, bool) error
 	AddBackend(lb.BackendID, net.IP, uint16, bool) error
@@ -363,7 +363,8 @@ func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
 		// Local redirect services or services with trafficPolicy=Local may
 		// only use node-local backends for external scope. We implement this by
 		// filtering out all backend IPs which are not a local endpoint.
-		if filterBackends && len(b.NodeName) > 0 && b.NodeName != nodeTypes.GetName() {
+		// We also filter out backends that have weight equal to 0.
+		if filterBackends && len(b.NodeName) > 0 && b.NodeName != nodeTypes.GetName() || b.Weight == 0 {
 			continue
 		}
 		backendsCopy = append(backendsCopy, *b.DeepCopy())
@@ -718,7 +719,7 @@ func (s *Service) addBackendsToAffinityMatchMap(svcID lb.ID, backendIDs []lb.Bac
 }
 
 func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
-	prevActiveBackendCount int, newBackends []lb.Backend, obsoleteBackendIDs []lb.BackendID,
+	prevActiveBackendCount int, newBackends []*lb.Backend, obsoleteBackendIDs []lb.BackendID,
 	prevSessionAffinity bool, prevLoadBalancerSourceRanges []*cidr.CIDR,
 	obsoleteSVCBackendIDs []lb.BackendID, scopedLog *logrus.Entry) error {
 
@@ -785,9 +786,9 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 	}
 
 	// Upsert service entries into BPF maps
-	backends := make(map[string]lb.BackendID, len(svc.backends))
+	backends := make(map[string]*lb.Backend, len(svc.backends))
 	activeBackendsCount := 0
-	for _, b := range svc.backends {
+	for idx, b := range svc.backends {
 		// Skip adding the terminating backend to the service map so that it
 		// won't be selected to serve new requests. However, the backend is still
 		// kept in the affinity and backend maps so that existing connections
@@ -796,7 +797,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 		// endpoint as it'll be part of obsoleteBackendIDs/obsoleteSVCBackendIDs
 		// list passed to this function.
 		if !b.Terminating {
-			backends[b.String()] = b.ID
+			backends[b.String()] = &svc.backends[idx]
 			activeBackendsCount++
 		}
 	}
@@ -930,9 +931,9 @@ func (s *Service) restoreServicesLocked() error {
 		if option.Config.DatapathMode == datapathOpt.DatapathModeLBOnly &&
 			newSVC.useMaglev() && s.lbmap.IsMaglevLookupTableRecreated(ipv6) {
 
-			backends := make(map[string]lb.BackendID, len(newSVC.backends))
-			for _, b := range newSVC.backends {
-				backends[b.String()] = b.ID
+			backends := make(map[string]*lb.Backend, len(newSVC.backends))
+			for idx, b := range newSVC.backends {
+				backends[b.String()] = &newSVC.backends[idx]
 			}
 			if err := s.lbmap.UpsertMaglevLookupTable(uint16(newSVC.frontend.ID), backends, ipv6); err != nil {
 				return err
@@ -1010,11 +1011,11 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 }
 
 func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []lb.Backend) (
-	[]lb.Backend, []lb.BackendID, []lb.BackendID, error) {
+	[]*lb.Backend, []lb.BackendID, []lb.BackendID, error) {
 
 	obsoleteBackendIDs := []lb.BackendID{}    // not used by any svc
 	obsoleteSVCBackendIDs := []lb.BackendID{} // removed from the svc, but might be used by other svc
-	newBackends := []lb.Backend{}             // previously not used by any svc
+	newBackends := []*lb.Backend{}            // previously not used by any svc
 	backendSet := map[string]struct{}{}
 
 	for i, backend := range backends {
@@ -1029,7 +1030,7 @@ func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []lb.Backend)
 						backend.L3n4Addr, err)
 				}
 				backends[i].ID = id
-				newBackends = append(newBackends, backends[i])
+				newBackends = append(newBackends, &backends[i])
 				// TODO make backendByHash by value not by ref
 				s.backendByHash[hash] = &backends[i]
 			} else {

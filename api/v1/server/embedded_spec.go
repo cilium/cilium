@@ -1598,6 +1598,11 @@ func init() {
           "description": "Layer 4 port number",
           "type": "integer",
           "format": "uint16"
+        },
+        "weight": {
+          "description": "Backend weight {0, 1}",
+          "type": "integer",
+          "format": "uint16"
         }
       }
     },
@@ -5984,6 +5989,11 @@ func init() {
         },
         "port": {
           "description": "Layer 4 port number",
+          "type": "integer",
+          "format": "uint16"
+        },
+        "weight": {
+          "description": "Backend weight {0, 1}",
           "type": "integer",
           "format": "uint16"
         }
