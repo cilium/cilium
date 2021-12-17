@@ -76,12 +76,12 @@ func (m *LBMockMap) UpsertService(p *datapathTypes.UpsertServiceParams) error {
 	return nil
 }
 
-func (m *LBMockMap) upsertMaglevLookupTable(svcID uint16, backends map[string]lb.BackendID, ipv6 bool) error {
+func (m *LBMockMap) upsertMaglevLookupTable(svcID uint16, backends map[string]lb.Backend, ipv6 bool) error {
 	m.DummyMaglevTable[svcID] = len(backends)
 	return nil
 }
 
-func (m *LBMockMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]lb.BackendID, ipv6 bool) error {
+func (m *LBMockMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]lb.Backend, ipv6 bool) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.upsertMaglevLookupTable(svcID, backends, ipv6)

@@ -325,6 +325,8 @@ type Backend struct {
 	FEPortName string
 	// ID of the backend
 	ID BackendID
+	// Weight of backend
+	Weight uint8
 	// Node hosting this backend. This is used to determine backends local to
 	// a node.
 	NodeName string
@@ -574,13 +576,19 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 
 // NewBackend creates the Backend struct instance from given params.
 // The default state for the returned Backend is BackendStateActive.
-func NewBackend(id BackendID, protocol L4Type, ip net.IP, portNumber uint16) *Backend {
+func NewBackend(id BackendID, protocol L4Type, ip net.IP, portNumber uint16, weight uint8) *Backend {
 	lbport := NewL4Addr(protocol, portNumber)
 	b := Backend{
-		ID:        BackendID(id),
-		L3n4Addr:  L3n4Addr{IP: ip, L4Addr: *lbport},
-		State:     BackendStateActive,
+		ID:       BackendID(id),
+		L3n4Addr: L3n4Addr{IP: ip, L4Addr: *lbport},
 		Preferred: Preferred(false),
+		Weight:   weight,
+	}
+
+	if weight == 0 {
+		b.State = BackendStateMaintenance
+	} else {
+		b.State = BackendStateActive
 	}
 
 	return &b
@@ -617,11 +625,15 @@ func NewBackendFromBackendModel(base *models.BackendAddress) (*Backend, error) {
 		return nil, fmt.Errorf("invalid backend state [%s]", base.State)
 	}
 
+	if *base.Weight == 0 {
+		state = BackendStateMaintenance
+	}
 	return &Backend{
 		NodeName:  base.NodeName,
 		L3n4Addr:  L3n4Addr{IP: ip, L4Addr: *l4addr},
 		State:     state,
 		Preferred: Preferred(base.Preferred),
+		Weight: *base.Weight,
 	}, nil
 }
 
@@ -663,11 +675,12 @@ func (b *Backend) GetBackendModel() *models.BackendAddress {
 	ip := b.IP.String()
 	stateStr, _ := b.State.String()
 	return &models.BackendAddress{
-		IP:        &ip,
-		Port:      b.Port,
-		NodeName:  b.NodeName,
-		State:     stateStr,
+		IP:       &ip,
+		Port:     b.Port,
+		NodeName: b.NodeName,
+		State:    stateStr,
 		Preferred: bool(b.Preferred),
+		Weight:   &b.Weight,
 	}
 }
 

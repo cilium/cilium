@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"sort"
 	"strconv"
 
 	"github.com/sirupsen/logrus"
@@ -83,7 +82,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 	svcVal := svcKey.NewValue().(ServiceValue)
 
 	// start off with #backends = 0 for updateMasterService()
-	backends := make(map[string]loadbalancer.BackendID)
+	backends := make(map[string]loadbalancer.Backend)
 	if backendsOk {
 		backends = p.ActiveBackends
 		if len(p.PreferredBackends) > 0 {
@@ -179,21 +178,11 @@ func (lbmap *LBBPFMap) UpsertService(p *datapathTypes.UpsertServiceParams) error
 
 // UpsertMaglevLookupTable calculates Maglev lookup table for given backends, and
 // inserts into the Maglev BPF map.
-func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]loadbalancer.BackendID, ipv6 bool) error {
-	backendNames := make([]string, 0, len(backends))
-	for name := range backends {
-		backendNames = append(backendNames, name)
+func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]loadbalancer.Backend, ipv6 bool) error {
+	table := maglev.GetLookupTable(backends, lbmap.maglevTableSize)
+	for i, id := range table {
+		lbmap.maglevBackendIDsBuffer[i] = loadbalancer.BackendID(id)
 	}
-	// Maglev algorithm might produce different lookup table for the same
-	// set of backends listed in a different order. To avoid that sort
-	// backends by name, as the names are the same on all nodes (in opposite
-	// to backend IDs which are node-local).
-	sort.Strings(backendNames)
-	table := maglev.GetLookupTable(backendNames, lbmap.maglevTableSize)
-	for i, pos := range table {
-		lbmap.maglevBackendIDsBuffer[i] = backends[backendNames[pos]]
-	}
-
 	if err := updateMaglevTable(ipv6, svcID, lbmap.maglevBackendIDsBuffer); err != nil {
 		return err
 	}

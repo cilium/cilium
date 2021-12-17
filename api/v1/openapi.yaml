@@ -2510,6 +2510,11 @@ definitions:
           Indicator if this backend is preferred in the context of clustermesh service affinity. The value is set based
           on related annotation of global service. Applicable for active state only.
         type: boolean
+      weight:
+        description: Backend weight
+        type: integer
+        format: uint8
+        minimum: 0
   LRPBackend:
     description: Pod backend of an LRP
     type: object
