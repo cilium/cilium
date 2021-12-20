@@ -90,12 +90,15 @@ func (s *MaglevSuite) TestInitMaps(c *C) {
 	c.Assert(err, IsNil)
 	lbm := New()
 	params := &datapathTypes.UpsertServiceParams{
-		ID:             1,
-		IP:             net.ParseIP("1.1.1.1"),
-		Port:           8080,
-		ActiveBackends: map[string]loadbalancer.BackendID{"backend-1": 1},
-		Type:           loadbalancer.SVCTypeNodePort,
-		UseMaglev:      true,
+		ID:   1,
+		IP:   net.ParseIP("1.1.1.1"),
+		Port: 8080,
+		ActiveBackends: map[string]loadbalancer.Backend{"backend-1": {
+			ID:     1,
+			Weight: 1,
+		}},
+		Type:      loadbalancer.SVCTypeNodePort,
+		UseMaglev: true,
 	}
 	err = lbm.UpsertService(params)
 	c.Assert(err, IsNil)

@@ -141,7 +141,6 @@ func (m *LBMockMap) UpdateBackendWithState(b *lb.Backend) error {
 			"state can be updated", be.String(), b.String())
 	}
 	be.State = b.State
-
 	return nil
 }
 
