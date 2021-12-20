@@ -672,7 +672,9 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		log.WithError(err).Warn("failed to detect devices, disabling BPF NodePort")
 		disableNodePort()
 	}
-	finishKubeProxyReplacementInit(isKubeProxyReplacementStrict)
+	if err := finishKubeProxyReplacementInit(isKubeProxyReplacementStrict); err != nil {
+		return nil, nil, fmt.Errorf("failed to finalise LB initialization: %w", err)
+	}
 
 	if k8s.IsEnabled() {
 		bootstrapStats.k8sInit.Start()
