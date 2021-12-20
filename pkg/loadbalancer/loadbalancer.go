@@ -360,11 +360,12 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 }
 
 // NewBackend creates the Backend struct instance from given params.
-func NewBackend(id BackendID, protocol L4Type, ip net.IP, portNumber uint16) *Backend {
+func NewBackend(id BackendID, protocol L4Type, ip net.IP, portNumber, weight uint16) *Backend {
 	lbport := NewL4Addr(protocol, portNumber)
 	b := Backend{
 		ID:       BackendID(id),
 		L3n4Addr: L3n4Addr{IP: ip, L4Addr: *lbport},
+		Weight:   weight,
 	}
 
 	return &b

@@ -98,7 +98,7 @@ func (m *LBMockMap) AddBackend(id lb.BackendID, ip net.IP, port uint16, ipv6 boo
 		return fmt.Errorf("Backend %d already exists", id)
 	}
 
-	m.BackendByID[id] = lb.NewBackend(lb.BackendID(id), lb.NONE, ip, port)
+	m.BackendByID[id] = lb.NewBackend(lb.BackendID(id), lb.NONE, ip, port, 1)
 
 	return nil
 }

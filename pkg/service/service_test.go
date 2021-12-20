@@ -72,19 +72,19 @@ var (
 	frontend2 = *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("1.1.1.2"), 80, lb.ScopeExternal, 0)
 	frontend3 = *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("f00d::1"), 80, lb.ScopeExternal, 0)
 	backends1 = []lb.Backend{
-		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.1"), 8080),
-		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.2"), 8080),
+		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.1"), 8080, 1),
+		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.2"), 8080, 1),
 	}
 	backends2 = []lb.Backend{
-		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.2"), 8080),
-		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.3"), 8080),
+		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.2"), 8080, 1),
+		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.3"), 8080, 1),
 	}
 	backends3 = []lb.Backend{
-		*lb.NewBackend(0, lb.TCP, net.ParseIP("fd00::2"), 8080),
-		*lb.NewBackend(0, lb.TCP, net.ParseIP("fd00::3"), 8080),
+		*lb.NewBackend(0, lb.TCP, net.ParseIP("fd00::2"), 8080, 1),
+		*lb.NewBackend(0, lb.TCP, net.ParseIP("fd00::3"), 8080, 1),
 	}
 	backends4 = []lb.Backend{
-		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.4"), 8080),
+		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.4"), 8080, 1),
 	}
 )
 
@@ -411,16 +411,16 @@ func (m *ManagerTestSuite) TestHealthCheckNodePort(c *C) {
 	clusterIP := *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("10.20.30.40"), 80, lb.ScopeExternal, 0)
 
 	// Create two node-local backends
-	localBackend1 := *lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.1"), 8080)
-	localBackend2 := *lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.2"), 8080)
+	localBackend1 := *lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.1"), 8080, 1)
+	localBackend2 := *lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.2"), 8080, 1)
 	localBackend1.NodeName = nodeTypes.GetName()
 	localBackend2.NodeName = nodeTypes.GetName()
 	localBackends := []lb.Backend{localBackend1, localBackend2}
 
 	// Create three remote backends
-	remoteBackend1 := *lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.3"), 8080)
-	remoteBackend2 := *lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.4"), 8080)
-	remoteBackend3 := *lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.5"), 8080)
+	remoteBackend1 := *lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.3"), 8080, 1)
+	remoteBackend2 := *lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.4"), 8080, 1)
+	remoteBackend3 := *lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.5"), 8080, 1)
 	remoteBackend1.NodeName = "not-" + nodeTypes.GetName()
 	remoteBackend2.NodeName = "not-" + nodeTypes.GetName()
 	remoteBackend3.NodeName = "not-" + nodeTypes.GetName()

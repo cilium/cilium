@@ -363,8 +363,7 @@ func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
 		// Local redirect services or services with trafficPolicy=Local may
 		// only use node-local backends for external scope. We implement this by
 		// filtering out all backend IPs which are not a local endpoint.
-		// We also filter out backends that have weight equal to 0.
-		if filterBackends && len(b.NodeName) > 0 && b.NodeName != nodeTypes.GetName() || b.Weight == 0 {
+		if filterBackends && len(b.NodeName) > 0 && b.NodeName != nodeTypes.GetName() {
 			continue
 		}
 		backendsCopy = append(backendsCopy, *b.DeepCopy())
