@@ -628,10 +628,6 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) error {
 		}
 	}
 
-	if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled &&
-		len(option.Config.Devices) != 1 {
-		return fmt.Errorf("Cannot set NodePort acceleration due to multi-device setup (%q). Specify --%s with a single device to enable NodePort acceleration.", option.Config.Devices, option.Devices)
-	}
 	return nil
 }
 
