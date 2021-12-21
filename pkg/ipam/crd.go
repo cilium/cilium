@@ -379,14 +379,22 @@ func (n *nodeStore) updateLocalNodeResource(node *ciliumv2.CiliumNode) {
 		if allocator == nil {
 			continue
 		}
+
+		// Some functions like crdAllocator.Allocate() acquire lock on allocator first and then on nodeStore.
+		// So release nodestore lock before acquiring allocator lock to avoid potential deadlocks from inconsistent
+		// lock ordering.
+		n.mutex.Unlock()
 		allocator.mutex.Lock()
-		if _, ok := allocator.allocated[ip]; ok {
+		_, ok := allocator.allocated[ip]
+		allocator.mutex.Unlock()
+		n.mutex.Lock()
+
+		if ok {
 			// IP still in use, update the operator to stop releasing the IP.
 			n.ownNode.Status.IPAM.ReleaseIPs[ip] = ipamOption.IPAMDoNotRelease
 		} else {
 			n.ownNode.Status.IPAM.ReleaseIPs[ip] = ipamOption.IPAMReadyForRelease
 		}
-		allocator.mutex.Unlock()
 		releaseUpstreamSyncNeeded = true
 	}
 
