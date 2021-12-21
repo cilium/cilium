@@ -52,7 +52,7 @@ jobs:
           gcloud info
 
       - name: Set up Go
-        uses: actions/setup-go@331ce1d993939866bb63c32c6cbbfd48fa76fc57
+        uses: actions/setup-go@424fc82d43fa5a37540bae62709ddcc23d9520d4
         with:
           go-version: 1.17.5
 
