@@ -1,0 +1,16 @@
+{{- if and .Values.preflight.enabled .Values.preflight.validateCNPs .Values.preflight.podDisruptionBudget.enabled }}
+apiVersion: {{ include "podDisruptionBudget.apiVersion" . }}
+kind: PodDisruptionBudget
+metadata:
+  name: cilium-pre-flight-check
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: cilium-pre-flight-check-deployment
+    kubernetes.io/cluster-service: "true"
+spec:
+  maxUnavailable: {{ .Values.preflight.podDisruptionBudget.maxUnavailable }}
+  selector:
+    matchLabels:
+      k8s-app: cilium-pre-flight-check-deployment
+      kubernetes.io/cluster-service: "true"
+{{- end }}

@@ -1,0 +1,14 @@
+{{- if and (or .Values.hubble.enabled .Values.hubble.ui.standalone.enabled) .Values.hubble.ui.enabled .Values.hubble.ui.podDisruptionBudget.enabled }}
+apiVersion: {{ include "podDisruptionBudget.apiVersion" . }}
+kind: PodDisruptionBudget
+metadata:
+  name: hubble-ui
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: hubble-ui
+spec:
+  maxUnavailable: {{ .Values.hubble.ui.podDisruptionBudget.maxUnavailable }}
+  selector:
+    matchLabels:
+      k8s-app: hubble-ui
+{{- end }}

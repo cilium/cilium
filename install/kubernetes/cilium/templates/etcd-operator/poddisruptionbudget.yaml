@@ -1,0 +1,16 @@
+{{- if and .Values.etcd.managed .Values.etcd.podDisruptionBudget.enabled }}
+apiVersion: {{ include "podDisruptionBudget.apiVersion" . }}
+kind: PodDisruptionBudget
+metadata:
+  name: cilium-etcd-operator
+  namespace: {{ .Release.Namespace }}
+  labels:
+    io.cilium/app: etcd-operator
+    name: cilium-etcd-operator
+spec:
+  maxUnavailable: {{ .Values.etcd.podDisruptionBudget.maxUnavailable }}
+  selector:
+    matchLabels:
+      io.cilium/app: etcd-operator
+      name: cilium-etcd-operator
+{{- end }}
