@@ -166,12 +166,6 @@ podAnnotations: {}
 # -- Labels to be added to agent pods
 podLabels: {}
 
-# -- PodDisruptionBudget settings
-# ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
-podDisruptionBudget:
-  enabled: true
-  maxUnavailable: 2
-
 # -- Agent resource limits & requests
 # ref: https://kubernetes.io/docs/user-guide/compute-resources/
 resources: {}
@@ -705,6 +699,12 @@ hubble:
     # -- Labels to be added to hubble-relay pods
     podLabels: {}
 
+    # -- PodDisruptionBudget settings
+    # ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
+    podDisruptionBudget:
+      enabled: false
+      maxUnavailable: 1
+
     # -- Node tolerations for pod assignment on nodes with taints
     # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
     tolerations: []
@@ -864,6 +864,12 @@ hubble:
 
     # -- Labels to be added to hubble-ui pods
     podLabels: {}
+
+    # -- PodDisruptionBudget settings
+    # ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
+    podDisruptionBudget:
+      enabled: false
+      maxUnavailable: 1
 
     # -- Node labels for pod assignment
     # ref: https://kubernetes.io/docs/user-guide/node-selection/
@@ -1268,8 +1274,8 @@ etcd:
   # -- PodDisruptionBudget settings
   # ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
   podDisruptionBudget:
-    enabled: true
-    maxUnavailable: 2
+    enabled: false
+    maxUnavailable: 1
 
   # -- cilium-etcd-operator resource limits & requests
   # ref: https://kubernetes.io/docs/user-guide/compute-resources/
@@ -1506,12 +1512,6 @@ nodeinit:
   # -- Labels to be added to node-init pods.
   podLabels: {}
 
-  # -- PodDisruptionBudget settings
-  # ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
-  podDisruptionBudget:
-    enabled: true
-    maxUnavailable: 2
-
   # -- nodeinit resource limits & requests
   # ref: https://kubernetes.io/docs/user-guide/compute-resources/
   resources:
@@ -1598,8 +1598,8 @@ preflight:
   # -- PodDisruptionBudget settings
   # ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
   podDisruptionBudget:
-    enabled: true
-    maxUnavailable: 2
+    enabled: false
+    maxUnavailable: 1
 
   # -- preflight resource limits & requests
   # ref: https://kubernetes.io/docs/user-guide/compute-resources/
@@ -1679,6 +1679,12 @@ clustermesh:
 
     # -- Labels to be added to clustermesh-apiserver pods
     podLabels: {}
+
+    # -- PodDisruptionBudget settings
+    # ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
+    podDisruptionBudget:
+      enabled: false
+      maxUnavailable: 1
 
     # -- Resource requests and limits for the clustermesh-apiserver container of the clustermesh-apiserver deployment, such as
     #     resources:

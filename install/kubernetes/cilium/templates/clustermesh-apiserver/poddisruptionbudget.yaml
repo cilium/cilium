@@ -1,0 +1,14 @@
+{{- if and (or .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer) .Values.clustermesh.apiserver.podDisruptionBudget.enabled }}
+apiVersion: {{ include "podDisruptionBudget.apiVersion" . }}
+kind: PodDisruptionBudget
+metadata:
+  name: clustermesh-apiserver
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: clustermesh-apiserver
+spec:
+  maxUnavailable: {{ .Values.clustermesh.apiserver.podDisruptionBudget.maxUnavailable }}
+  selector:
+    matchLabels:
+      k8s-app: clustermesh-apiserver
+{{- end }}

@@ -1,0 +1,14 @@
+{{- if and .Values.hubble.enabled .Values.hubble.relay.enabled .Values.hubble.relay.podDisruptionBudget.enabled }}
+apiVersion: {{ include "podDisruptionBudget.apiVersion" . }}
+kind: PodDisruptionBudget
+metadata:
+  name: hubble-relay
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: hubble-relay
+spec:
+  maxUnavailable: {{ .Values.hubble.relay.podDisruptionBudget.maxUnavailable }}
+  selector:
+    matchLabels:
+      k8s-app: hubble-relay
+{{- end }}

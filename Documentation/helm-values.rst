@@ -141,6 +141,10 @@
      - Annotations to be added to clustermesh-apiserver pods
      - object
      - ``{}``
+   * - clustermesh.apiserver.podDisruptionBudget
+     - PodDisruptionBudget settings ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
+     - object
+     - ``{"enabled":false,"maxUnavailable":1}``
    * - clustermesh.apiserver.podLabels
      - Labels to be added to clustermesh-apiserver pods
      - object
@@ -476,7 +480,7 @@
    * - etcd.podDisruptionBudget
      - PodDisruptionBudget settings ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
      - object
-     - ``{"enabled":true,"maxUnavailable":2}``
+     - ``{"enabled":false,"maxUnavailable":1}``
    * - etcd.podLabels
      - Labels to be added to cilium-etcd-operator pods
      - object
@@ -637,6 +641,10 @@
      - Annotations to be added to hubble-relay pods
      - object
      - ``{}``
+   * - hubble.relay.podDisruptionBudget
+     - PodDisruptionBudget settings ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
+     - object
+     - ``{"enabled":false,"maxUnavailable":1}``
    * - hubble.relay.podLabels
      - Labels to be added to hubble-relay pods
      - object
@@ -785,6 +793,10 @@
      - Annotations to be added to hubble-ui pods
      - object
      - ``{}``
+   * - hubble.ui.podDisruptionBudget
+     - PodDisruptionBudget settings ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
+     - object
+     - ``{"enabled":false,"maxUnavailable":1}``
    * - hubble.ui.podLabels
      - Labels to be added to hubble-ui pods
      - object
@@ -1013,10 +1025,6 @@
      - Annotations to be added to node-init pods.
      - object
      - ``{}``
-   * - nodeinit.podDisruptionBudget
-     - PodDisruptionBudget settings ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
-     - object
-     - ``{"enabled":true,"maxUnavailable":2}``
    * - nodeinit.podLabels
      - Labels to be added to node-init pods.
      - object
@@ -1153,10 +1161,6 @@
      - Annotations to be added to agent pods
      - object
      - ``{}``
-   * - podDisruptionBudget
-     - PodDisruptionBudget settings ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
-     - object
-     - ``{"enabled":true,"maxUnavailable":2}``
    * - podLabels
      - Labels to be added to agent pods
      - object
@@ -1204,7 +1208,7 @@
    * - preflight.podDisruptionBudget
      - PodDisruptionBudget settings ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
      - object
-     - ``{"enabled":true,"maxUnavailable":2}``
+     - ``{"enabled":false,"maxUnavailable":1}``
    * - preflight.podLabels
      - Labels to be added to the preflight pod.
      - object
