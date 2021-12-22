@@ -32,6 +32,8 @@ type Options struct {
 	CiliumLabelSelector string
 	// The namespace Cilium is running in.
 	CiliumNamespace string
+	// The labels used to target Cilium daemon set. Usually, this label is same as CiliumLabelSelector.
+	CiliumDaemonSetSelector string
 	// The labels used to target Cilium operator pods.
 	CiliumOperatorLabelSelector string
 	// The labels used to target 'clustermesh-apiserver' pods.
@@ -437,11 +439,16 @@ func (c *Collector) Run() error {
 			Description: "Collecting the Cilium daemonset",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
-				v, err := c.Client.GetDaemonSet(ctx, c.Options.CiliumNamespace, ciliumDaemonSetName, metav1.GetOptions{})
+				v, err := c.Client.ListDaemonSet(ctx, c.Options.CiliumNamespace, metav1.ListOptions{
+					LabelSelector: c.Options.CiliumDaemonSetSelector,
+				})
 				if err != nil {
 					return fmt.Errorf("failed to collect the Cilium daemonset: %w", err)
 				}
-				if err := c.WriteYAML(ciliumDaemonSetFileName, v); err != nil {
+				if len(v.Items) == 0 {
+					return fmt.Errorf("failed to find Cilium daemonset with label %q in namespace %q", c.Options.CiliumDaemonSetSelector, c.Options.CiliumNamespace)
+				}
+				if err = c.WriteYAML(ciliumDaemonSetFileName, &v.Items[0]); err != nil {
 					return fmt.Errorf("failed to collect the Cilium daemonset: %w", err)
 				}
 				return nil
