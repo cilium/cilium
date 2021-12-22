@@ -17,7 +17,6 @@ const (
 	awsNodeDaemonSetNamespace          = metav1.NamespaceSystem
 	ciliumAgentContainerName           = defaults.AgentContainerName
 	ciliumConfigMapName                = defaults.ConfigMapName
-	ciliumDaemonSetName                = defaults.AgentDaemonSetName
 	ciliumEtcdSecretsSecretName        = "cilium-etcd-secrets"
 	ciliumOperatorDeploymentName       = defaults.OperatorDeploymentName
 	clustermeshApiserverDeploymentName = defaults.ClusterMeshDeploymentName

@@ -8,7 +8,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/cilium/cilium-cli/internal/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -17,6 +16,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"github.com/cilium/cilium-cli/internal/k8s"
 )
 
 type KubernetesClient interface {
@@ -38,6 +39,7 @@ type KubernetesClient interface {
 	ListCiliumLocalRedirectPolicies(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2.CiliumLocalRedirectPolicyList, error)
 	ListCiliumNetworkPolicies(ctx context.Context, namespace string, opts metav1.ListOptions) (*ciliumv2.CiliumNetworkPolicyList, error)
 	ListCiliumNodes(ctx context.Context) (*ciliumv2.CiliumNodeList, error)
+	ListDaemonSet(ctx context.Context, namespace string, o metav1.ListOptions) (*appsv1.DaemonSetList, error)
 	ListEvents(ctx context.Context, o metav1.ListOptions) (*corev1.EventList, error)
 	ListNamespaces(ctx context.Context, o metav1.ListOptions) (*corev1.NamespaceList, error)
 	ListNetworkPolicies(ctx context.Context, o metav1.ListOptions) (*networkingv1.NetworkPolicyList, error)
