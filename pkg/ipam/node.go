@@ -397,6 +397,10 @@ func (n *Node) allocationNeeded() (needed bool) {
 func (n *Node) releaseNeeded() (needed bool) {
 	n.mutex.RLock()
 	needed = n.manager.releaseExcessIPs && !n.waitingForPoolMaintenance && n.resyncNeeded.IsZero() && n.stats.ExcessIPs > 0
+	if n.resource != nil {
+		releaseInProgress := len(n.resource.Status.IPAM.ReleaseIPs) > 0
+		needed = needed || releaseInProgress
+	}
 	n.mutex.RUnlock()
 	return
 }
@@ -586,6 +590,30 @@ func (n *Node) removeStaleReleaseIPs() {
 	}
 }
 
+// abortNoLongerExcessIPs allows for aborting release of IP if new allocations on the node result in a change of excess
+// count or the interface selected for release.
+func (n *Node) abortNoLongerExcessIPs(excessMap map[string]bool) {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+	if len(n.resource.Status.IPAM.ReleaseIPs) == 0 {
+		return
+	}
+	for ip, status := range n.resource.Status.IPAM.ReleaseIPs {
+		if excessMap[ip] {
+			continue
+		}
+		// Handshake can be aborted from every state except 'released'
+		// 'released' state is removed by the agent once the IP has been removed from ciliumnode's IPAM pool as well.
+		if status == ipamOption.IPAMReleased {
+			continue
+		}
+		if status, ok := n.ipReleaseStatus[ip]; ok && status != ipamOption.IPAMReleased {
+			delete(n.ipsMarkedForRelease, ip)
+			delete(n.ipReleaseStatus, ip)
+		}
+	}
+}
+
 // handleIPReleaseResponse handles IPs agent has already responded to
 func (n *Node) handleIPReleaseResponse(markedIP string, ipsToRelease *[]string) bool {
 	n.mutex.Lock()
@@ -617,17 +645,23 @@ func (n *Node) deleteLocalReleaseStatus(ip string) {
 // returns instanceMutated which tracks if state changed with the cloud provider and is used
 // to determine if IPAM pool maintainer trigger func needs to be invoked.
 func (n *Node) maintainIPPool(ctx context.Context) (instanceMutated bool, err error) {
+	scopedLog := n.logger()
+	var ipsToMark []string
+	var ipsToRelease []string
+
 	if n.manager.releaseExcessIPs {
 		n.removeStaleReleaseIPs()
 	}
 
 	a, err := n.determineMaintenanceAction()
 	if err != nil {
+		n.abortNoLongerExcessIPs(nil)
 		return false, err
 	}
 
 	// Maintenance request has already been fulfilled
 	if a == nil {
+		n.abortNoLongerExcessIPs(nil)
 		return false, nil
 	}
 
@@ -640,14 +674,6 @@ func (n *Node) maintainIPPool(ctx context.Context) (instanceMutated bool, err er
 			}
 		}
 	}
-	scopedLog := n.logger()
-
-	// Attempt to release if :
-	// * IP is still marked for release in the current iteration's a.release.IPsToRelease
-	// * Marked for release for more than excess-ip-release-delay seconds
-	// * IP is not in use by any pod according to pod informer cache
-	var ipsToMark []string
-	var ipsToRelease []string
 
 	if n.ipsMarkedForRelease == nil || a.release == nil || len(a.release.IPsToRelease) == 0 {
 		// Resetting ipsMarkedForRelease if there are no IPs to release in this iteration
@@ -682,13 +708,23 @@ func (n *Node) maintainIPPool(ctx context.Context) (instanceMutated bool, err er
 		// markedIP can now be considered excess and is not currently in an active handshake
 		ipsToMark = append(ipsToMark, markedIP)
 	}
-	// Update cilium node CRD with IPs that need to be marked for release
+
 	n.mutex.Lock()
 	for _, ip := range ipsToMark {
 		scopedLog.WithFields(logrus.Fields{logfields.IPAddr: ip}).Debug("Marking IP for release")
 		n.ipReleaseStatus[ip] = ipamOption.IPAMMarkForRelease
 	}
 	n.mutex.Unlock()
+
+	// Abort handshake for IPs that are in the middle of handshake, but are no longer considered excess
+	var excessMap map[string]bool
+	if a.release != nil && len(a.release.IPsToRelease) > 0 {
+		excessMap = make(map[string]bool, len(a.release.IPsToRelease))
+		for _, ip := range a.release.IPsToRelease {
+			excessMap[ip] = true
+		}
+	}
+	n.abortNoLongerExcessIPs(excessMap)
 
 	if len(ipsToRelease) > 0 {
 		a.release.IPsToRelease = ipsToRelease
