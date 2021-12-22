@@ -384,6 +384,10 @@ func (c *Client) GetDaemonSet(ctx context.Context, namespace, name string, opts 
 	return c.Clientset.AppsV1().DaemonSets(namespace).Get(ctx, name, opts)
 }
 
+func (c *Client) ListDaemonSet(ctx context.Context, namespace string, o metav1.ListOptions) (*appsv1.DaemonSetList, error) {
+	return c.Clientset.AppsV1().DaemonSets(namespace).List(ctx, o)
+}
+
 func (c *Client) DeleteDaemonSet(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
 	return c.Clientset.AppsV1().DaemonSets(namespace).Delete(ctx, name, opts)
 }
