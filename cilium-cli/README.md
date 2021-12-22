@@ -53,7 +53,7 @@ To install Cilium while automatically detected:
  - [x] self-managed
  - [x] GKE
  - [x] AKS
- - [ ] k3s
+ - [x] k3s
  - [ ] Rancher
 
 ### Cluster Context Management
