@@ -126,15 +126,6 @@ var _ = SkipDescribeIf(func() bool {
 		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 	})
 
-	// getMatcher returns a helper.CMDSucess() matcher for success or
-	// failure situations.
-	getMatcher := func(val bool) types.GomegaMatcher {
-		if val {
-			return helpers.CMDSuccess()
-		}
-		return Not(helpers.CMDSuccess())
-	}
-
 	Context("Basic Test", func() {
 		var (
 			ciliumPod        string
@@ -1632,13 +1623,6 @@ var _ = SkipDescribeIf(func() bool {
 				RedeployCilium(kubectl, ciliumFilename, daemonCfg)
 			})
 
-			testCurlFromOutside := func(url string, outsideNodeName string, expectSuccess bool) {
-				By("Making HTTP requests from outside cluster to %q", url)
-				res := kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName, helpers.CurlFail(url))
-				ExpectWithOffset(1, res).To(getMatcher(expectSuccess),
-					"HTTP ingress connectivity to %q from %s host", url, outsideNodeName)
-			}
-
 			validateConnectivity := func(expectHostSuccess, expectRemoteNodeSuccess, expectPodSuccess, expectWorldSuccess bool) {
 				var wg sync.WaitGroup
 				wg.Add(1)
@@ -1683,18 +1667,18 @@ var _ = SkipDescribeIf(func() bool {
 						res := kubectl.AddIPRoute(outsideNodeName, k8s1PodIP, k8s1IP, true)
 						Expect(res).To(getMatcher(true))
 
-						testCurlFromOutside(k8s1PodIP, outsideNodeName, expectWorldSuccess)
+						if expectWorldSuccess {
+							testCurlFromOutside(kubectl, &nodesInfo{
+								outsideNodeName: outsideNodeName,
+							}, k8s1PodIP, 1, false)
+						} else {
+							testCurlFailFromOutside(kubectl, &nodesInfo{
+								outsideNodeName: outsideNodeName,
+							}, k8s1PodIP, 1)
+						}
 					}()
 				}
 				wg.Wait()
-			}
-
-			installDefaultDenyIngressPolicy := func() {
-				By("Installing default-deny ingress policy")
-				importPolicy(kubectl, testNamespace, cnpDenyIngress, "default-deny-ingress")
-
-				By("Checking that remote-node is disallowed by default")
-				validateConnectivity(HostConnectivityAllow, RemoteNodeConnectivityDeny, PodConnectivityDeny, WorldConnectivityDeny)
 			}
 
 			Context("with remote-node identity disabled", func() {
@@ -1728,7 +1712,7 @@ var _ = SkipDescribeIf(func() bool {
 				})
 
 				It("Validates fromEntities remote-node policy", func() {
-					installDefaultDenyIngressPolicy()
+					installDefaultDenyIngressPolicy(kubectl, testNamespace, validateConnectivity)
 
 					By("Installing fromEntities remote-node policy")
 					importPolicy(kubectl, testNamespace, cnpFromEntitiesRemoteNode, "from-entities-remote-node")
@@ -1739,7 +1723,7 @@ var _ = SkipDescribeIf(func() bool {
 			})
 
 			It("Validates fromEntities cluster policy", func() {
-				installDefaultDenyIngressPolicy()
+				installDefaultDenyIngressPolicy(kubectl, testNamespace, validateConnectivity)
 
 				By("Installing fromEntities cluster policy")
 				importPolicy(kubectl, testNamespace, cnpFromEntitiesCluster, "from-entities-cluster")
@@ -1749,7 +1733,7 @@ var _ = SkipDescribeIf(func() bool {
 			})
 
 			It("Validates fromEntities all policy", func() {
-				installDefaultDenyIngressPolicy()
+				installDefaultDenyIngressPolicy(kubectl, testNamespace, validateConnectivity)
 
 				By("Installing fromEntities all policy")
 				importPolicy(kubectl, testNamespace, cnpFromEntitiesAll, "from-entities-all")
@@ -2361,4 +2345,32 @@ func importPolicy(kubectl *helpers.Kubectl, namespace, file, name string) {
 		helpers.HelperTimeout)
 	ExpectWithOffset(1, err).Should(BeNil(),
 		"policy %s cannot be applied in %q namespace", file, namespace)
+}
+
+func installDefaultDenyIngressPolicy(
+	kubectl *helpers.Kubectl,
+	ns string,
+	f func(bool, bool, bool, bool),
+) {
+	denyIngress := helpers.ManifestGet(kubectl.BasePath(), "cnp-default-deny-ingress.yaml")
+
+	By("Installing default-deny ingress policy")
+	importPolicy(kubectl, ns, denyIngress, "default-deny-ingress")
+
+	By("Checking that remote-node is disallowed by default")
+	f(
+		true,  /*HostConnectivityAllow*/
+		false, /*RemoteNodeConnectivityDeny*/
+		false, /*PodConnectivityDeny*/
+		false, /*WorldConnectivityDeny*/
+	)
+}
+
+// getMatcher returns a helper.CMDSucess() matcher for success or failure
+// situations.
+func getMatcher(val bool) types.GomegaMatcher {
+	if val {
+		return helpers.CMDSuccess()
+	}
+	return Not(helpers.CMDSuccess())
 }
