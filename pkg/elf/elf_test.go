@@ -1,18 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2019-2021 Authors of Cilium
 
-//go:build !privileged_tests
-// +build !privileged_tests
+//go:build !privileged_tests && integration_tests
+// +build !privileged_tests,integration_tests
 
 package elf
 
 import (
 	"bytes"
 	"crypto/sha256"
-	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -76,13 +74,7 @@ func (s *ELFTestSuite) TestWrite(c *C) {
 	defer os.RemoveAll(tmpDir)
 
 	elf, err := Open(baseObjPath)
-	if errors.Is(err, fs.ErrNotExist) {
-		// If the ELF file couldn't be found most likely it
-		// wasn't built. See https://github.com/cilium/cilium/issues/17535
-		c.Skip("ELF file not found, skipping test")
-	} else {
-		c.Assert(err, IsNil)
-	}
+	c.Assert(err, IsNil)
 	defer elf.Close()
 
 	validOptions := IsNil
@@ -212,13 +204,7 @@ func BenchmarkWriteELF(b *testing.B) {
 	defer os.RemoveAll(tmpDir)
 
 	elf, err := Open(baseObjPath)
-	if errors.Is(err, fs.ErrNotExist) {
-		// If the ELF file couldn't be found most likely it
-		// wasn't built. See https://github.com/cilium/cilium/issues/17535
-		b.Skip("ELF file not found, skipping benchmark")
-	} else if err != nil {
-		b.Fatal(err)
-	}
+	b.Fatal(err)
 	defer elf.Close()
 
 	b.ResetTimer()
