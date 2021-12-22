@@ -174,6 +174,10 @@ func (c *fakeClient) ListCiliumNodes(ctx context.Context) (*ciliumv2.CiliumNodeL
 	panic("implement me")
 }
 
+func (c *fakeClient) ListDaemonSet(ctx context.Context, namespace string, o metav1.ListOptions) (*appsv1.DaemonSetList, error) {
+	panic("implement me")
+}
+
 func (c *fakeClient) ListEvents(ctx context.Context, o metav1.ListOptions) (*corev1.EventList, error) {
 	panic("implement me")
 }
