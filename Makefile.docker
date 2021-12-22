@@ -28,7 +28,7 @@ ifdef ARCH
   DOCKER_FLAGS += --push --platform $(DOCKER_PLATFORMS)
 else
   ifeq ($(findstring --push,$(DOCKER_FLAGS)),)
-    # ARCH and --push are not specified, build for the host platfrom without pushing, mimicking regular docker build
+    # ARCH and --push are not specified, build for the host platform without pushing, mimicking regular docker build
     DOCKER_FLAGS += --load
   endif
 endif
