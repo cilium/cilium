@@ -187,11 +187,11 @@ allocation:
 
 ``spec.eni.first-interface-index``
   The index of the first ENI to use for IP allocation, e.g. if the node has
-  ``eth0``, ``eth1``, ``eth2`` and FirstInterfaceIndex is set to 0, then only
+  ``eth0``, ``eth1``, ``eth2`` and FirstInterfaceIndex is set to 1, then only
   ``eth1`` and ``eth2`` will be used for IP allocation, ``eth0`` will be
   ignored for PodIP allocation.
 
-  If unspecified, this value defaults to 1 which means that ``eth0`` will not
+  If unspecified, this value defaults to 0 which means that ``eth0`` will
   be used for pod IPs.
 
 ``spec.eni.security-group-tags``
