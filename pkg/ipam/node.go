@@ -641,29 +641,23 @@ func (n *Node) deleteLocalReleaseStatus(ip string) {
 	delete(n.ipReleaseStatus, ip)
 }
 
-// maintainIPPool attempts to allocate or release all required IPs to fulfill the needed gap.
-// returns instanceMutated which tracks if state changed with the cloud provider and is used
-// to determine if IPAM pool maintainer trigger func needs to be invoked.
-func (n *Node) maintainIPPool(ctx context.Context) (instanceMutated bool, err error) {
+// handleIPRelease implements IP release handshake needed for releasing excess IPs on the node.
+// Operator initiates the handshake after an IP remains unused and excess for more than the number of seconds configured
+// by excess-ip-release-delay flag. Operator uses a map in ciliumnode's IPAM status field to exchange handshake
+// information with the agent. Once the operator marks an IP for release, agent can either acknowledge or NACK IPs.
+// If agent acknowledges, operator will release the IP and update the state to released. After the IP is removed from
+// spec.ipam.pool and status is set to released, agent will remove the entry from map completing the handshake.
+// Handshake is implemented with 4 states :
+// * marked-for-release : Set by operator as possible candidate for IP
+// * ready-for-release  : Acknowledged as safe to release by agent
+// * do-not-release     : IP already in use / not owned by the node. Set by agent
+// * released           : IP successfully released. Set by operator
+//
+// Handshake would be aborted if there are new allocations and the node doesn't have IPs in excess anymore.
+func (n *Node) handleIPRelease(ctx context.Context, a *maintenanceAction) (instanceMutated bool, err error) {
 	scopedLog := n.logger()
 	var ipsToMark []string
 	var ipsToRelease []string
-
-	if n.manager.releaseExcessIPs {
-		n.removeStaleReleaseIPs()
-	}
-
-	a, err := n.determineMaintenanceAction()
-	if err != nil {
-		n.abortNoLongerExcessIPs(nil)
-		return false, err
-	}
-
-	// Maintenance request has already been fulfilled
-	if a == nil {
-		n.abortNoLongerExcessIPs(nil)
-		return false, nil
-	}
 
 	// Update timestamps for IPs from this iteration
 	releaseTS := time.Now()
@@ -758,7 +752,13 @@ func (n *Node) maintainIPPool(ctx context.Context) (instanceMutated bool, err er
 		}).WithError(err).Warning("Unable to unassign IPs from interface")
 		return false, err
 	}
+	return false, nil
+}
 
+// handleIPAllocation allocates the necessary IPs needed to resolve deficit on the node.
+// If existing interfaces don't have enough capacity, new interface would be created.
+func (n *Node) handleIPAllocation(ctx context.Context, a *maintenanceAction) (instanceMutated bool, err error) {
+	scopedLog := n.logger()
 	if a.allocation == nil {
 		scopedLog.Debug("No allocation action required")
 		return false, nil
@@ -784,6 +784,33 @@ func (n *Node) maintainIPPool(ctx context.Context) (instanceMutated bool, err er
 
 	err = n.createInterface(ctx, a.allocation)
 	return err != nil, err
+}
+
+// maintainIPPool attempts to allocate or release all required IPs to fulfill the needed gap.
+// returns instanceMutated which tracks if state changed with the cloud provider and is used
+// to determine if IPAM pool maintainer trigger func needs to be invoked.
+func (n *Node) maintainIPPool(ctx context.Context) (instanceMutated bool, err error) {
+	if n.manager.releaseExcessIPs {
+		n.removeStaleReleaseIPs()
+	}
+
+	a, err := n.determineMaintenanceAction()
+	if err != nil {
+		n.abortNoLongerExcessIPs(nil)
+		return false, err
+	}
+
+	// Maintenance request has already been fulfilled
+	if a == nil {
+		n.abortNoLongerExcessIPs(nil)
+		return false, nil
+	}
+
+	if instanceMutated, err := n.handleIPRelease(ctx, a); instanceMutated || err != nil {
+		return instanceMutated, err
+	}
+
+	return n.handleIPAllocation(ctx, a)
 }
 
 func (n *Node) isInstanceRunning() (isRunning bool) {
