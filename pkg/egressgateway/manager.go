@@ -4,6 +4,8 @@
 package egressgateway
 
 import (
+	"time"
+
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -19,7 +21,6 @@ var (
 )
 
 type k8sCacheSyncedChecker interface {
-	WaitUntilK8sCacheIsSynced()
 	K8sCacheIsSynced() bool
 }
 
@@ -57,7 +58,13 @@ func NewEgressGatewayManager(k8sCacheSyncedChecker k8sCacheSyncedChecker) *Manag
 // sync with k8s and then runs the first reconciliation.
 func (manager *Manager) runReconciliationAfterK8sSync() {
 	go func() {
-		manager.k8sCacheSyncedChecker.WaitUntilK8sCacheIsSynced()
+		for {
+			if manager.k8sCacheSyncedChecker.K8sCacheIsSynced() {
+				break
+			}
+
+			time.Sleep(1 * time.Second)
+		}
 
 		manager.mutex.Lock()
 		defer manager.mutex.Unlock()
