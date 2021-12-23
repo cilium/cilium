@@ -69,7 +69,8 @@ func Wrk(endpoint string) string {
 // CurlFail returns the string representing the curl command with `-s` and
 // `--fail` options enabled to curl the specified endpoint.  It takes a
 // variadic optionalValues argument. This is passed on to fmt.Sprintf() and
-// used into the curl message.
+// used into the curl message. Note that `endpoint` is expected to be a format
+// string (first argument to fmt.Sprintf()) if optionalValues are used.
 func CurlFail(endpoint string, optionalValues ...interface{}) string {
 	statsInfo := `time-> DNS: '%{time_namelookup}(%{remote_ip})', Connect: '%{time_connect}',` +
 		`Transfer '%{time_starttransfer}', total '%{time_total}'`
@@ -83,7 +84,7 @@ func CurlFail(endpoint string, optionalValues ...interface{}) string {
 }
 
 // CurlFailNoStats does the same as CurlFail() except that it does not print
-// the stats info.
+// the stats info. See note about optionalValues on CurlFail().
 func CurlFailNoStats(endpoint string, optionalValues ...interface{}) string {
 	if len(optionalValues) > 0 {
 		endpoint = fmt.Sprintf(endpoint, optionalValues...)
@@ -96,7 +97,8 @@ func CurlFailNoStats(endpoint string, optionalValues ...interface{}) string {
 // CurlWithHTTPCode retunrs the string representation of the curl command which
 // only outputs the HTTP code returned by its execution against the specified
 // endpoint. It takes a variadic optinalValues argument. This is passed on to
-// fmt.Sprintf() and uses into the curl message
+// fmt.Sprintf() and uses into the curl message. See note about optionalValues
+// on CurlFail().
 func CurlWithHTTPCode(endpoint string, optionalValues ...interface{}) string {
 	if len(optionalValues) > 0 {
 		endpoint = fmt.Sprintf(endpoint, optionalValues...)
@@ -112,7 +114,7 @@ func CurlWithHTTPCode(endpoint string, optionalValues ...interface{}) string {
 // indicates the maximum number of attempts.  If flag "fail" is true, the
 // function will call CurlFail() and add --retry flag at the end of the command
 // and return.  If flag "fail" is false, the function will generate the command
-// with --retry flag and return.
+// with --retry flag and return. See note about optionalValues on CurlFail().
 func CurlWithRetries(endpoint string, retries int, fail bool, optionalValues ...interface{}) string {
 	if fail {
 		return fmt.Sprintf(
@@ -141,7 +143,8 @@ func SuperNetperf(sessions int, endpoint string, perfTest PerfTest, options stri
 
 // Netcat returns the string representing the netcat command to the specified
 // endpoint. It takes a variadic optionalValues arguments, This is passed to
-// fmt.Sprintf uses in the netcat message.
+// fmt.Sprintf uses in the netcat message. See note about optionalValues on
+// CurlFail().
 func Netcat(endpoint string, optionalValues ...interface{}) string {
 	if len(optionalValues) > 0 {
 		endpoint = fmt.Sprintf(endpoint, optionalValues...)
