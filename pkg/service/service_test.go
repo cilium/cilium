@@ -22,14 +22,15 @@ import (
 )
 
 type ManagerTestSuite struct {
-	svc                       *Service
-	lbmap                     *mockmaps.LBMockMap // for accessing public fields
-	svcHealth                 *healthserver.MockHealthHTTPServerFactory
-	prevOptionSessionAffinity bool
-	prevOptionLBSourceRanges  bool
-	prevOptionNPAlgo          string
-	prevOptionDPMode          string
-	ipv6                      bool
+	svc                         *Service
+	lbmap                       *mockmaps.LBMockMap // for accessing public fields
+	svcHealth                   *healthserver.MockHealthHTTPServerFactory
+	prevOptionSessionAffinity   bool
+	prevOptionLBSourceRanges    bool
+	prevOptionNPAlgo            string
+	prevOptionDPMode            string
+	prevOptionExternalClusterIP bool
+	ipv6                        bool
 }
 
 var _ = Suite(&ManagerTestSuite{})
@@ -53,6 +54,7 @@ func (m *ManagerTestSuite) SetUpTest(c *C) {
 
 	m.prevOptionNPAlgo = option.Config.NodePortAlg
 	m.prevOptionDPMode = option.Config.DatapathMode
+	m.prevOptionExternalClusterIP = option.Config.ExternalClusterIP
 
 	m.ipv6 = option.Config.EnableIPv6
 }
@@ -64,6 +66,7 @@ func (m *ManagerTestSuite) TearDownTest(c *C) {
 	option.Config.EnableSVCSourceRangeCheck = m.prevOptionLBSourceRanges
 	option.Config.NodePortAlg = m.prevOptionNPAlgo
 	option.Config.DatapathMode = m.prevOptionDPMode
+	option.Config.ExternalClusterIP = m.prevOptionExternalClusterIP
 	option.Config.EnableIPv6 = m.ipv6
 }
 
@@ -763,6 +766,57 @@ func (m *ManagerTestSuite) TestUpsertServiceWithTerminatingBackends(c *C) {
 	c.Assert(m.svc.svcByID[id1].svcName, Equals, "svc1")
 	c.Assert(m.svc.svcByID[id1].svcNamespace, Equals, "ns1")
 	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 0)
+}
+
+// Tests whether upsert service provisions the Maglev LUT for ClusterIP,
+// if ExternalClusterIP is true
+func (m *ManagerTestSuite) TestUpsertServiceWithExternalClusterIP(c *C) {
+	option.Config.NodePortAlg = option.NodePortAlgMaglev
+	option.Config.ExternalClusterIP = true
+	p := &lb.SVC{
+		Frontend:      frontend1,
+		Backends:      backends1,
+		Type:          lb.SVCTypeClusterIP,
+		TrafficPolicy: lb.SVCTrafficPolicyCluster,
+		Name:          "svc1",
+		Namespace:     "ns1",
+	}
+
+	created, id1, err := m.svc.UpsertService(p)
+
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, true)
+	c.Assert(id1, Equals, lb.ID(1))
+	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 2)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
+	c.Assert(m.svc.svcByID[id1].svcName, Equals, "svc1")
+	c.Assert(m.svc.svcByID[id1].svcNamespace, Equals, "ns1")
+	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, len(backends1))
+}
+
+// Tests whether upsert service doesn't provision the Maglev LUT for ClusterIP,
+// if ExternalClusterIP is false
+func (m *ManagerTestSuite) TestUpsertServiceWithOutExternalClusterIP(c *C) {
+	option.Config.NodePortAlg = option.NodePortAlgMaglev
+	p := &lb.SVC{
+		Frontend:      frontend1,
+		Backends:      backends1,
+		Type:          lb.SVCTypeClusterIP,
+		TrafficPolicy: lb.SVCTrafficPolicyCluster,
+		Name:          "svc1",
+		Namespace:     "ns1",
+	}
+
+	created, id1, err := m.svc.UpsertService(p)
+
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, true)
+	c.Assert(id1, Equals, lb.ID(1))
+	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 2)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
+	c.Assert(m.svc.svcByID[id1].svcName, Equals, "svc1")
+	c.Assert(m.svc.svcByID[id1].svcNamespace, Equals, "ns1")
+	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, 0)
 }
 
 // Tests terminating backend entries are removed after service restore.
