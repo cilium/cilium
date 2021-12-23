@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"net"
 	"testing"
-	"time"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -62,15 +61,6 @@ type parsedEgressRule struct {
 
 type k8sCacheSyncedCheckerMock struct {
 	synced bool
-}
-
-func (k *k8sCacheSyncedCheckerMock) WaitUntilK8sCacheIsSynced() {
-	for {
-		if k.synced {
-			break
-		}
-		time.Sleep(1 * time.Second)
-	}
 }
 
 func (k *k8sCacheSyncedCheckerMock) K8sCacheIsSynced() bool {
