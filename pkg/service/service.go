@@ -116,7 +116,11 @@ func (svc *svcInfo) useMaglev() bool {
 	return option.Config.NodePortAlg == option.NodePortAlgMaglev &&
 		((svc.svcType == lb.SVCTypeNodePort && !isWildcardAddr(svc.frontend)) ||
 			svc.svcType == lb.SVCTypeExternalIPs ||
-			svc.svcType == lb.SVCTypeLoadBalancer)
+			svc.svcType == lb.SVCTypeLoadBalancer ||
+			// Provision the Maglev LUT for ClusterIP only if ExternalClusterIP is enabled
+			// because ClusterIP can also be accessed from outside with this setting.
+			// We don't do it unconditionally to avoid increasing memory footprint.
+			(option.Config.ExternalClusterIP && svc.svcType == lb.SVCTypeClusterIP))
 }
 
 // Service is a service handler. Its main responsibility is to reflect

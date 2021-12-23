@@ -456,6 +456,9 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			BeforeAll(func() {
 				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 					"bpf.lbExternalClusterIP": "true",
+					// Enable Maglev to check if the Maglev LUT for ClusterIP is properly populated,
+					// and external clients can access ClusterIP with it.
+					"loadBalancer.algorithm": "maglev",
 				})
 				clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, appServiceName)
 				svcIP = clusterIP
@@ -489,6 +492,9 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 		BeforeAll(func() {
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 				"hostServices.hostNamespaceOnly": "true",
+				// Enable Maglev to check if traffic destined to ClusterIP from Pod is properly handled
+				// by bpf_lxc.c using LB_SELECTION_RANDOM even if Maglev is enabled.
+				"loadBalancer.algorithm": "maglev",
 			})
 			demoDSYAML = helpers.ManifestGet(kubectl.BasePath(), "demo_ds.yaml")
 			res := kubectl.ApplyDefault(demoDSYAML)
