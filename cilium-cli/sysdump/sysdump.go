@@ -18,7 +18,7 @@ import (
 	"github.com/cilium/cilium-cli/internal/utils"
 
 	"github.com/cilium/workerpool"
-	archiver "github.com/mholt/archiver/v3"
+	"github.com/mholt/archiver/v3"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -899,21 +899,31 @@ func (c *Collector) submitBugtoolTasks(ctx context.Context, pods []*corev1.Pod, 
 			if len(m) != 2 || len(m[1]) == 0 {
 				return fmt.Errorf("failed to collect 'cilium-bugtool' output for %q in namespace %q: output doesn't contain archive name: %s", p.Name, p.Namespace, outString)
 			}
+
+			// Gzip bugtool tar file to reduce the size of transferred file
+			o, e, err = c.Client.ExecInPodWithStderr(ctx, p.Namespace, p.Name, containerName, []string{"gzip", m[1]})
+			if err != nil {
+				return fmt.Errorf("failed to compress 'cilium-bugtool' output for %q in namespace %q: %w: %s", p.Name, p.Namespace, err, e.String())
+			}
+			tarGzFile := m[1] + ".gz"
+
 			// Grab the resulting archive's contents from the pod.
-			b, err := c.Client.ExecInPod(ctx, p.Namespace, p.Name, containerName, []string{"cat", m[1]})
+			b, err := c.Client.ExecInPod(ctx, p.Namespace, p.Name, containerName, []string{"cat", tarGzFile})
 			if err != nil {
 				return fmt.Errorf("failed to collect 'cilium-bugtool' output for %q: %w", p.Name, err)
 			}
-			// Dump the resulting file's contents to the temporary directory.
+
 			f := c.AbsoluteTempPath(fmt.Sprintf(ciliumBugtoolFileName, p.Name))
 			if err := writeBytes(f, b.Bytes()); err != nil {
 				return fmt.Errorf("failed to collect 'cilium-bugtool' output for %q: %w", p.Name, err)
 			}
 			// Untar the resulting file.
-			t := archiver.Tar{
-				StripComponents: 1,
+			t := archiver.TarGz{
+				Tar: &archiver.Tar{
+					StripComponents: 1,
+				},
 			}
-			if err := t.Unarchive(f, strings.Replace(f, ".tar", "", -1)); err != nil {
+			if err := t.Unarchive(f, strings.Replace(f, ".tar.gz", "", -1)); err != nil {
 				c.logWarn("Failed to unarchive 'cilium-bugtool' output for %q: %v", p.Name, err)
 				return nil
 			}
@@ -923,7 +933,7 @@ func (c *Collector) submitBugtoolTasks(ctx context.Context, pods []*corev1.Pod, 
 				return nil
 			}
 			// Remove the file from the pod.
-			if _, err = c.Client.ExecInPod(ctx, p.Namespace, p.Name, containerName, []string{rmCommand, m[1]}); err != nil {
+			if _, err = c.Client.ExecInPod(ctx, p.Namespace, p.Name, containerName, []string{rmCommand, tarGzFile}); err != nil {
 				c.logWarn("Failed to delete 'cilium-bugtool' output from pod %q in namespace %q: %w", p.Name, p.Namespace, err)
 				return nil
 			}
