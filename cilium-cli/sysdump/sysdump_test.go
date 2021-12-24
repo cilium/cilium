@@ -102,6 +102,10 @@ type fakeClient struct {
 	nodeList *corev1.NodeList
 }
 
+func (c *fakeClient) CopyFromPod(ctx context.Context, namespace, pod, container string, fromFile, destFile string) error {
+	panic("implement me")
+}
+
 func (c *fakeClient) AutodetectFlavor(ctx context.Context) (f k8s.Flavor, err error) {
 	panic("implement me")
 }
