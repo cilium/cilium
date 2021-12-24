@@ -1259,7 +1259,7 @@ func initEnv(cmd *cobra.Command) {
 	}
 
 	// The standard operation is to mount the BPF filesystem to the
-	// standard location (/sys/fs/bpf). The user may chose to specify
+	// standard location (/sys/fs/bpf). The user may choose to specify
 	// the path to an already mounted filesystem instead. This is
 	// useful if the daemon is being round inside a namespace and the
 	// BPF filesystem is mapped into the slave namespace.

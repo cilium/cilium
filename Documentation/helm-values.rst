@@ -81,6 +81,10 @@
      - Enables pre-allocation of eBPF map values. This increases memory usage but can reduce latency.
      - bool
      - ``false``
+   * - bpf.root
+     - Configure the mount point for the BPF filesystem
+     - string
+     - ``"/sys/fs/bpf"``
    * - certgen
      - Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually.
      - object
