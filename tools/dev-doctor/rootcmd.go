@@ -146,6 +146,20 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			versionArgs:   []string{"--version"},
 			versionRegexp: regexp.MustCompile(`pip (\d+\.\d+\S*)`),
 		},
+		&binaryCheck{
+			name:          "cfssl",
+			ifNotFound:    checkWarning,
+			versionArgs:   []string{"version"},
+			versionRegexp: regexp.MustCompile(`Version: (.*)`),
+			hint:          "See https://github.com/cloudflare/cfssl#installation.",
+		},
+		&binaryCheck{
+			name:          "cfssljson",
+			ifNotFound:    checkWarning,
+			versionArgs:   []string{"-version"},
+			versionRegexp: regexp.MustCompile(`Version: (.*)`),
+			hint:          "See https://github.com/cloudflare/cfssl#installation.",
+		},
 		dockerGroupCheck{},
 	}
 
