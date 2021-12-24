@@ -223,6 +223,9 @@ bgp:
     podCIDR: false
 
 bpf:
+  # -- Configure the mount point for the BPF filesystem
+  root: /sys/fs/bpf
+
   # -- Enable BPF clock source probing for more efficient tick retrieval.
   clockProbe: false
 
