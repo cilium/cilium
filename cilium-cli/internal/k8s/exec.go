@@ -28,12 +28,12 @@ type ExecParameters struct {
 	TTY       bool // fuses stderr into stdout if 'true', needed for Ctrl-C support
 }
 
-func (c *Client) execInPod(ctx context.Context, p ExecParameters) (*ExecResult, error) {
+func (c *Client) execInPodWithWriters(ctx context.Context, p ExecParameters, stdout, stderr io.Writer) error {
 	req := c.Clientset.CoreV1().RESTClient().Post().Resource("pods").Name(p.Pod).Namespace(p.Namespace).SubResource("exec")
 
 	scheme := runtime.NewScheme()
 	if err := corev1.AddToScheme(scheme); err != nil {
-		return nil, fmt.Errorf("error adding to scheme: %w", err)
+		return fmt.Errorf("error adding to scheme: %w", err)
 	}
 
 	parameterCodec := runtime.NewParameterCodec(scheme)
@@ -49,9 +49,8 @@ func (c *Client) execInPod(ctx context.Context, p ExecParameters) (*ExecResult, 
 
 	exec, err := remotecommand.NewSPDYExecutor(c.Config, "POST", req.URL())
 	if err != nil {
-		return nil, fmt.Errorf("error while creating executor: %w", err)
+		return fmt.Errorf("error while creating executor: %w", err)
 	}
-	result := &ExecResult{}
 
 	var stdin io.ReadCloser
 	if p.TTY {
@@ -64,10 +63,17 @@ func (c *Client) execInPod(ctx context.Context, p ExecParameters) (*ExecResult, 
 
 	err = exec.Stream(remotecommand.StreamOptions{
 		Stdin:  stdin,
-		Stdout: &result.Stdout,
-		Stderr: &result.Stderr,
+		Stdout: stdout,
+		Stderr: stderr,
 		Tty:    p.TTY,
 	})
+
+	return err
+}
+
+func (c *Client) execInPod(ctx context.Context, p ExecParameters) (*ExecResult, error) {
+	result := &ExecResult{}
+	err := c.execInPodWithWriters(ctx, p, &result.Stdout, &result.Stderr)
 
 	// TTY support may introduce "\r\n" sequences as line separators.
 	// Replace them with "\n" to allow callers to not care.
