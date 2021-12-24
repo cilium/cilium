@@ -907,14 +907,10 @@ func (c *Collector) submitBugtoolTasks(ctx context.Context, pods []*corev1.Pod, 
 			}
 			tarGzFile := m[1] + ".gz"
 
-			// Grab the resulting archive's contents from the pod.
-			b, err := c.Client.ExecInPod(ctx, p.Namespace, p.Name, containerName, []string{"cat", tarGzFile})
-			if err != nil {
-				return fmt.Errorf("failed to collect 'cilium-bugtool' output for %q: %w", p.Name, err)
-			}
-
+			// Dump the resulting file's contents to the temporary directory.
 			f := c.AbsoluteTempPath(fmt.Sprintf(ciliumBugtoolFileName, p.Name))
-			if err := writeBytes(f, b.Bytes()); err != nil {
+			err = c.Client.CopyFromPod(ctx, p.Namespace, p.Name, containerName, tarGzFile, f)
+			if err != nil {
 				return fmt.Errorf("failed to collect 'cilium-bugtool' output for %q: %w", p.Name, err)
 			}
 			// Untar the resulting file.
