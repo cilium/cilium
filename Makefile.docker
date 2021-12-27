@@ -78,11 +78,11 @@ endif
 define DOCKER_IMAGE_TEMPLATE
 .PHONY: $(1)
 $(1): GIT_VERSION $(2) $(2).dockerignore GIT_VERSION builder-info
-	$(eval IMAGE_NAME := $(subst %,$$$$*,$(3))$(UNSTRIPPED))
+	$(eval IMAGE_NAME := $(subst %,$$$$*,$(3)))
 	$(QUIET) $(CONTAINER_ENGINE) buildx build -f $(subst %,$$*,$(2)) \
 		$(DOCKER_FLAGS) \
 		--build-arg BASE_IMAGE=${BASE_IMAGE} \
-		--build-arg NOSTRIP=${NOSTRIP} \
+		--build-arg NOSTRIP=$${NOSTRIP} \
 		--build-arg NOOPT=${NOOPT} \
 		--build-arg LOCKDEBUG=${LOCKDEBUG} \
 		--build-arg RACE=${RACE}\
@@ -90,7 +90,7 @@ $(1): GIT_VERSION $(2) $(2).dockerignore GIT_VERSION builder-info
 		--build-arg LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} \
 		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
 		--build-arg OPERATOR_VARIANT=$(IMAGE_NAME) \
-		-t $(IMAGE_REPOSITORY)/$(IMAGE_NAME):$(4) .
+		-t $(IMAGE_REPOSITORY)/$(IMAGE_NAME)$${UNSTRIPPED}:$(4) .
 ifeq ($(findstring --push,$(DOCKER_FLAGS)),)
 	@echo 'Define "DOCKER_FLAGS=--push" to push the build results.'
 else
@@ -101,6 +101,7 @@ endif
 $(1)-unstripped: NOSTRIP=1
 $(1)-unstripped: UNSTRIPPED=-unstripped
 $(1)-unstripped: $(1)
+	@echo
 endef
 
 # docker-cilium-image
