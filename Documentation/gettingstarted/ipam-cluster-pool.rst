@@ -25,8 +25,8 @@ Enable Cluster-pool IPAM mode
 #. Depending if you are using IPv4 and / or IPv6, you might want to adjust
    the ``podCIDR`` allocated for your cluster's pods with the options:
 
-   * ``--set ipam.operator.clusterPoolIPv4PodCIDR=<IPv4CIDR>``
-   * ``--set ipam.operator.clusterPoolIPv6PodCIDR=<IPv6CIDR>``
+   * ``--set ipam.operator.clusterPoolIPv4PodCIDRList=<IPv4CIDR>``
+   * ``--set ipam.operator.clusterPoolIPv6PodCIDRList=<IPv6CIDR>``
 
 #. To adjust the CIDR size that should be allocated for each node you can use
    the following options:

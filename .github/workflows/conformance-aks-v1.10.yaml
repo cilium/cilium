@@ -53,10 +53,8 @@ concurrency:
     ${{
       (github.event_name == 'schedule' && github.sha) ||
       (github.event_name == 'issue_comment' && (
-        startsWith(github.event.comment.body, 'ci-aks-1.10') ||
-        startsWith(github.event.comment.body, '/ci-aks-1.10') ||
-        startsWith(github.event.comment.body, 'test-backport-1.10') ||
-        startsWith(github.event.comment.body, '/test-backport-1.10')
+        github.event.comment.body == '/ci-aks-1.10' ||
+        github.event.comment.body == '/test-backport-1.10'
       ) && github.event.issue.number) ||
       (github.event_name == 'pull_request' && github.event.pull_request.number)
     }}
@@ -66,7 +64,7 @@ env:
   name: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   location: westeurope
   cost_reduction: --node-vm-size Standard_B2s --node-osdisk-size 30
-  cilium_cli_version: v0.9.3
+  cilium_cli_version: v0.10.0
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
@@ -74,10 +72,8 @@ jobs:
     name: Deduce required tests from code changes
     if: |
       (github.event_name == 'issue_comment' && (
-        startsWith(github.event.comment.body, 'ci-aks-1.10') ||
-        startsWith(github.event.comment.body, '/ci-aks-1.10') ||
-        startsWith(github.event.comment.body, 'test-backport-1.10') ||
-        startsWith(github.event.comment.body, '/test-backport-1.10')
+        github.event.comment.body == '/ci-aks-1.10' ||
+        github.event.comment.body == '/test-backport-1.10'
       )) ||
       (github.event_name == 'schedule' && github.repository == 'cilium/cilium') ||
       github.event_name == 'pull_request'
@@ -116,10 +112,8 @@ jobs:
     needs: check_changes
     if: |
       (github.event_name == 'issue_comment' && (
-        startsWith(github.event.comment.body, 'ci-aks-1.10') ||
-        startsWith(github.event.comment.body, '/ci-aks-1.10') ||
-        startsWith(github.event.comment.body, 'test-backport-1.10') && needs.check_changes.outputs.tested == 'true' ||
-        startsWith(github.event.comment.body, '/test-backport-1.10') && needs.check_changes.outputs.tested == 'true'
+        github.event.comment.body == '/ci-aks-1.10' ||
+        (github.event.comment.body == '/test-backport-1.10' && needs.check_changes.outputs.tested == 'true')
       )) ||
       (github.event_name == 'schedule' && github.repository == 'cilium/cilium') ||
       github.event_name == 'pull_request'
@@ -147,7 +141,9 @@ jobs:
             --version=${SHA} \
             --azure-resource-group ${{ env.name }} \
             --wait=false \
-            --config monitor-aggregation=none"
+            --rollback=false \
+            --config monitor-aggregation=none \
+            --base-version=v1.10"
           HUBBLE_ENABLE_DEFAULTS="--relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
             --relay-version=${SHA}"
           echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
@@ -174,7 +170,7 @@ jobs:
           cilium version
 
       - name: Login to Azure
-        uses: azure/login@89d153571fe9a34ed70fcf9f1d95ab8debea7a73
+        uses: azure/login@66d2e78565ab7af265d2b627085bc34c73ce6abb
         with:
           creds: ${{ secrets.AZURE_PR_SP_CREDS }}
 
@@ -319,7 +315,7 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@27121b0bdffd731efa15d66772be8dc71245d074
+        uses: actions/upload-artifact@82c141cc518b40d92cc801eee768e7aafc9c2fa2
         with:
           name: cilium-sysdump-out.zip
           path: cilium-sysdump-out.zip
@@ -360,7 +356,7 @@ jobs:
 
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
-        uses: 8398a7/action-slack@b17d9de8e9ed64b041e4fac845d6fdb2be6b9b04
+        uses: 8398a7/action-slack@c9ff874f8549f97317ec9f6162d5449ee77bc984
         with:
           status: ${{ job.status }}
           fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)

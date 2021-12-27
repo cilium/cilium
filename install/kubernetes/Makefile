@@ -4,8 +4,8 @@
 include Makefile.digests ../../Makefile.defs
 
 HUBBLE_PROXY_VERSION := "v1.18.4@sha256:e5c2bb2870d0e59ce917a5100311813b4ede96ce4eb0c6bfa879e3fbe3e83935"
-HUBBLE_UI_VERSION := "v0.8.2@sha256:a6f80b0517a5266783d619ae14d846d4fbb692f6aaff37804fc8851bf1095a30"
-HUBBLE_UI_BACKEND_VERSION := "v0.8.2@sha256:43c1e824751639b1df9460e5c5d5a3fd732f834bb96b3012a4164eeee457cbb6"
+HUBBLE_UI_VERSION := "v0.8.5@sha256:4eaca1ec1741043cfba6066a165b3bf251590cf4ac66371c4f63fbed2224ebb4"
+HUBBLE_UI_BACKEND_VERSION := "v0.8.5@sha256:2bce50cf6c32719d072706f7ceccad654bfa907b2745a496da99610776fe31ed"
 MANAGED_ETCD_VERSION := "v2.0.7"
 ETCD_VERSION := "v3.4.13"
 NODEINIT_VERSION := "62bfbe88c17778aad7bef9fa57ff9e2d4a9ba0d8"
@@ -92,7 +92,12 @@ update-versions:
 		sed -i '/# operator-generic-digest.*/{!b;n;s/genericDigest.*/genericDigest: "'$(OPERATOR_GENERIC_DIGEST)'"/}' $(CILIUM_VALUES); \
 		sed -i '/# clustermesh-apiserver-digest.*/{!b;n;s/digest.*/digest: "'$(CLUSTERMESH_APISERVER_DIGEST)'"/}' $(CILIUM_VALUES)
 
+CRDS = $(foreach path,$(patsubst %.yaml,%,$(shell find $(ROOT_DIR)/examples/crds/*/ -type f)),$(shell basename $(path)))
 lint:
+	$(QUIET)for crd in $(CRDS); do \
+		grep -q $$crd $(CHART_FILE) \
+		|| (echo -e "$$crd not found in $(CHART_FILE).\nPlease update the chart to include $$crd."; exit 1); \
+	done
 	$(QUIET)helm lint --with-subcharts --values ./cilium/values.yaml ./cilium
 
 docs:

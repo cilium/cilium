@@ -26,11 +26,12 @@ configure Cilium to use an external kvstore such as etcd. If you are unsure
 whether you need to use a kvstore at all, the following is a list of reasons
 when to use a kvstore:
 
- * If you are running in an environment with more than 250 nodes, 5k pods, or
-   if you observe a high overhead in state propagation caused by Kubernetes
-   events.
+ * If you are running in an environment where you observe a high overhead in
+   state propagation caused by Kubernetes events.
  * If you do not want Cilium to store state in Kubernetes custom resources
    (CRDs).
+ * If you run a cluster with more pods and more nodes than the ones tested
+   in the :ref:`scalability_guide`.
 
 .. _ds_deploy:
 

@@ -260,7 +260,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sFQDNTest", func() {
 		res := kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App2],
 			helpers.CurlFail("--retry 5 "+world1Target))
-		res.ExpectSuccess("Can't connect to to a valid target when it should work")
+		res.ExpectSuccess("Can't connect to a valid target when it should work")
 
 		res = kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App2],
@@ -272,11 +272,54 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sFQDNTest", func() {
 		res = kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App3],
 			helpers.CurlWithRetries(world2Target, 5, true))
-		res.ExpectSuccess("Can't connect to to a valid target when it should work")
+		res.ExpectSuccess("Can't connect to a valid target when it should work")
 
 		res = kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App3],
 			helpers.CurlFail(world1Target))
-		res.ExpectFail("Can connect to to a valid target when it should NOT work")
+		res.ExpectFail("Can connect to a valid target when it should NOT work")
 	})
+
+	It("Validate that FQDN policy continues to work after being updated", func() {
+		// To make sure that UUID in multiple specs are plumbed correctly to
+		// Cilium Policy
+		fqdnPolicy := helpers.ManifestGet(kubectl.BasePath(), "fqdn-proxy-multiple-specs.yaml")
+		world1Target := worldTarget
+		world2Target := worldInvalidTarget
+
+		_, err := kubectl.CiliumPolicyAction(
+			helpers.DefaultNamespace, fqdnPolicy,
+			helpers.KubectlApply, helpers.HelperTimeout)
+		Expect(err).To(BeNil(), "Cannot install fqdn proxy policy")
+
+		By("Validating APP2 policy connectivity")
+		res := kubectl.ExecPodCmd(
+			helpers.DefaultNamespace, appPods[helpers.App2],
+			helpers.CurlFail("--retry 5 "+world1Target))
+		res.ExpectSuccess("Can't connect to a valid target when it should work")
+
+		res = kubectl.ExecPodCmd(
+			helpers.DefaultNamespace, appPods[helpers.App2],
+			helpers.CurlFail(world2Target))
+		res.ExpectFail("Can connect to a valid target when it should NOT work")
+
+		By("Updating the policy to include an extra FQDN allow statement")
+		fqdnPolicy2 := helpers.ManifestGet(kubectl.BasePath(), "fqdn-proxy-multiple-specs-v2.yaml")
+		_, err = kubectl.CiliumPolicyAction(
+			helpers.DefaultNamespace, fqdnPolicy2,
+			helpers.KubectlApply, helpers.HelperTimeout)
+		Expect(err).To(BeNil(), "Cannot install fqdn proxy policy")
+
+		By("Validating APP2 policy connectivity after policy change")
+		res = kubectl.ExecPodCmd(
+			helpers.DefaultNamespace, appPods[helpers.App2],
+			helpers.CurlFail("--retry 5 "+world1Target))
+		res.ExpectSuccess("Can't connect to a valid target when it should work")
+
+		res = kubectl.ExecPodCmd(
+			helpers.DefaultNamespace, appPods[helpers.App2],
+			helpers.CurlFail(world2Target))
+		res.ExpectFail("Can connect to a valid target when it should NOT work")
+	})
+
 })

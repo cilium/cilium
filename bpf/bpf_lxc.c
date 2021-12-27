@@ -525,7 +525,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 	__u32 __maybe_unused tunnel_endpoint = 0;
 	__u8 __maybe_unused encrypt_key = 0;
 	__u32 monitor = 0;
-	__u8 reason;
+	__u8 ct_ret;
 	bool hairpin_flow = false; /* endpoint wants to access itself via service IP */
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
@@ -600,15 +600,13 @@ skip_service_lookup:
 	 * POLICY_SKIP if the packet is a reply packet to an existing incoming
 	 * connection.
 	 */
-	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_EGRESS,
-			 &ct_state, &monitor);
-	if (ret < 0)
-		return ret;
-
-	reason = ret;
+	ct_ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_EGRESS,
+			    &ct_state, &monitor);
+	if (ct_ret < 0)
+		return ct_ret;
 
 	/* Check it this is return traffic to an ingress proxy. */
-	if ((ret == CT_REPLY || ret == CT_RELATED) && ct_state.proxy_redirect) {
+	if ((ct_ret == CT_REPLY || ct_ret == CT_RELATED) && ct_state.proxy_redirect) {
 		/* Stack will do a socket match and deliver locally. */
 		return ctx_redirect_to_proxy4(ctx, &tuple, 0, false);
 	}
@@ -657,7 +655,7 @@ skip_service_lookup:
 	verdict = policy_can_egress4(ctx, &tuple, SECLABEL, *dst_id,
 				     &policy_match_type, &audited);
 
-	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
+	if (ct_ret != CT_REPLY && ct_ret != CT_RELATED && verdict < 0) {
 		send_policy_verdict_notify(ctx, *dst_id, tuple.dport,
 					   tuple.nexthdr, POLICY_EGRESS, 0,
 					   verdict, policy_match_type, audited);
@@ -665,7 +663,7 @@ skip_service_lookup:
 	}
 
 skip_policy_enforcement:
-	switch (ret) {
+	switch (ct_ret) {
 	case CT_NEW:
 		if (!hairpin_flow)
 			send_policy_verdict_notify(ctx, *dst_id, tuple.dport,
@@ -735,10 +733,10 @@ ct_recreate4:
 
 	hairpin_flow |= ct_state.loopback;
 
-	if (redirect_to_proxy(verdict, reason)) {
+	if (redirect_to_proxy(verdict, ct_ret)) {
 		/* Trace the packet before it is forwarded to proxy */
 		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL, 0,
-				  bpf_ntohs(verdict), 0, reason, monitor);
+				  bpf_ntohs(verdict), 0, ct_ret, monitor);
 		return ctx_redirect_to_proxy4(ctx, &tuple, verdict, false);
 	}
 
@@ -793,14 +791,22 @@ ct_recreate4:
 
 #ifdef ENABLE_EGRESS_GATEWAY
 	{
-		struct egress_info *info;
+		struct egress_gw_policy_entry *egress_gw_policy;
 		struct endpoint_key key = {};
 
 		if (is_cluster_destination(ip4, *dst_id, tunnel_endpoint))
 			goto skip_egress_gateway;
 
-		info = lookup_ip4_egress_endpoint(ip4->saddr, ip4->daddr);
-		if (!info)
+		/* If the packet is a reply or is related, it means that outside
+		 * has initiated the connection, and so we should skip egress
+		 * gateway, since an egress policy is only matching connections
+		 * originating from a pod.
+		 */
+		if (ct_ret == CT_REPLY || ct_ret == CT_RELATED)
+			goto skip_egress_gateway;
+
+		egress_gw_policy = lookup_ip4_egress_gw_policy(ip4->saddr, ip4->daddr);
+		if (!egress_gw_policy)
 			goto skip_egress_gateway;
 
 		/* Encap and redirect the packet to egress gateway node through a tunnel.
@@ -808,7 +814,7 @@ ct_recreate4:
 		 * path to be consistent. In future, it can be optimized by directly
 		 * direct to external interface.
 		 */
-		ret = encap_and_redirect_lxc(ctx, info->tunnel_endpoint, encrypt_key,
+		ret = encap_and_redirect_lxc(ctx, egress_gw_policy->gateway_ip, encrypt_key,
 					     &key, SECLABEL, monitor);
 		if (ret == IPSEC_ENDPOINT)
 			goto encrypt_to_stack;
@@ -856,7 +862,7 @@ skip_egress_gateway:
 to_host:
 	if (is_defined(ENABLE_HOST_FIREWALL) && *dst_id == HOST_ID) {
 		send_trace_notify(ctx, TRACE_TO_HOST, SECLABEL, HOST_ID, 0,
-				  HOST_IFINDEX, reason, monitor);
+				  HOST_IFINDEX, ct_ret, monitor);
 		return ctx_redirect(ctx, HOST_IFINDEX, BPF_F_INGRESS);
 	}
 #endif
@@ -898,7 +904,7 @@ pass_to_stack:
 encrypt_to_stack:
 #endif
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL, *dst_id, 0, 0,
-			  reason, monitor);
+			  ct_ret, monitor);
 	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 0);
 	return CTX_ACT_OK;
 }
@@ -1113,19 +1119,22 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 					   verdict, policy_match_type, audited);
 	}
 
-	if (ret == CT_NEW) {
 #ifdef ENABLE_DSR
-	{
+	if (ret == CT_NEW || ret == CT_REOPENED) {
 		bool dsr = false;
+		int ret2;
 
-		ret = handle_dsr_v6(ctx, &dsr);
-		if (ret != 0)
-			return ret;
+		ret2 = handle_dsr_v6(ctx, &dsr);
+		if (ret2 != 0)
+			return ret2;
 
 		ct_state_new.dsr = dsr;
+		if (ret == CT_REOPENED)
+			ct_update6_dsr(get_ct_map6(&tuple), &tuple, dsr);
 	}
 #endif /* ENABLE_DSR */
 
+	if (ret == CT_NEW) {
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.node_port = ct_state.node_port;
 		ct_state_new.ifindex = ct_state.ifindex;
@@ -1415,19 +1424,22 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 skip_policy_enforcement:
 #endif /* !ENABLE_HOST_SERVICES_FULL && !DISABLE_LOOPBACK_LB */
 
-	if (ret == CT_NEW) {
 #ifdef ENABLE_DSR
-	{
+	if (ret == CT_NEW || ret == CT_REOPENED) {
 		bool dsr = false;
+		int ret2;
 
-		ret = handle_dsr_v4(ctx, &dsr);
-		if (ret != 0)
-			return ret;
+		ret2 = handle_dsr_v4(ctx, &dsr);
+		if (ret2 != 0)
+			return ret2;
 
 		ct_state_new.dsr = dsr;
+		if (ret == CT_REOPENED)
+			ct_update4_dsr(get_ct_map4(&tuple), &tuple, dsr);
 	}
 #endif /* ENABLE_DSR */
 
+	if (ret == CT_NEW) {
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.node_port = ct_state.node_port;
 		ct_state_new.ifindex = ct_state.ifindex;

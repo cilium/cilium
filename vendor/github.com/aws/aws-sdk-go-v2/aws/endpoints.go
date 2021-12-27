@@ -160,22 +160,28 @@ func (e *EndpointNotFoundError) Unwrap() error {
 // available. If the EndpointResolver returns an EndpointNotFoundError error,
 // API clients will fallback to attempting to resolve the endpoint using its
 // internal default endpoint resolver.
+//
+// Deprecated: See EndpointResolverWithOptions
 type EndpointResolver interface {
 	ResolveEndpoint(service, region string) (Endpoint, error)
 }
 
 // EndpointResolverFunc wraps a function to satisfy the EndpointResolver interface.
+//
+// Deprecated: See EndpointResolverWithOptionsFunc
 type EndpointResolverFunc func(service, region string) (Endpoint, error)
 
 // ResolveEndpoint calls the wrapped function and returns the results.
+//
+// Deprecated: See EndpointResolverWithOptions.ResolveEndpoint
 func (e EndpointResolverFunc) ResolveEndpoint(service, region string) (Endpoint, error) {
 	return e(service, region)
 }
 
 // EndpointResolverWithOptions is an endpoint resolver that can be used to provide or
-// override an endpoint for the given service, region, and the service clients EndpointOptions. API clients will
-// attempt to use the EndpointResolver first to resolve an endpoint if
-// available. If the EndpointResolver returns an EndpointNotFoundError error,
+// override an endpoint for the given service, region, and the service client's EndpointOptions. API clients will
+// attempt to use the EndpointResolverWithOptions first to resolve an endpoint if
+// available. If the EndpointResolverWithOptions returns an EndpointNotFoundError error,
 // API clients will fallback to attempting to resolve the endpoint using its
 // internal default endpoint resolver.
 type EndpointResolverWithOptions interface {
@@ -183,11 +189,11 @@ type EndpointResolverWithOptions interface {
 }
 
 // EndpointResolverWithOptionsFunc wraps a function to satisfy the EndpointResolverWithOptions interface.
-type EndpointResolverWithOptionsFunc func(service, region string, options interface{}) (Endpoint, error)
+type EndpointResolverWithOptionsFunc func(service, region string, options ...interface{}) (Endpoint, error)
 
 // ResolveEndpoint calls the wrapped function and returns the results.
-func (e EndpointResolverWithOptionsFunc) ResolveEndpoint(service, region string, options interface{}) (Endpoint, error) {
-	return e(service, region, options)
+func (e EndpointResolverWithOptionsFunc) ResolveEndpoint(service, region string, options ...interface{}) (Endpoint, error) {
+	return e(service, region, options...)
 }
 
 // GetDisableHTTPS takes a service's EndpointResolverOptions and returns the DisableHTTPS value.

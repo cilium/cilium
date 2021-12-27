@@ -292,6 +292,7 @@ func initializeFlags() {
 
 	flags.StringP(option.IpvlanMasterDevice, "", "undefined", "Device facing external network acting as ipvlan master")
 	option.BindEnv(option.IpvlanMasterDevice)
+	flags.MarkDeprecated(option.IpvlanMasterDevice, "This option will be removed in v1.12")
 
 	flags.Bool(option.DisableConntrack, false, "Disable connection tracking")
 	option.BindEnv(option.DisableConntrack)
@@ -637,6 +638,9 @@ func initializeFlags() {
 	flags.Bool(option.EnableSessionAffinity, false, "Enable support for service session affinity")
 	option.BindEnv(option.EnableSessionAffinity)
 
+	flags.Bool(option.EnableServiceTopology, false, "Enable support for service topology aware hints")
+	option.BindEnv(option.EnableServiceTopology)
+
 	flags.Bool(option.EnableIdentityMark, true, "Enable setting identity mark for local traffic")
 	option.BindEnv(option.EnableIdentityMark)
 
@@ -651,6 +655,9 @@ func initializeFlags() {
 
 	flags.String(option.IPv4NativeRoutingCIDR, "", "Allows to explicitly specify the IPv4 CIDR for native routing. This value corresponds to the configured cluster-cidr.")
 	option.BindEnv(option.IPv4NativeRoutingCIDR)
+
+	flags.String(option.IPv6NativeRoutingCIDR, "", "Allows to explicitly specify the IPv6 CIDR for native routing. This value corresponds to the configured cluster-cidr.")
+	option.BindEnv(option.IPv6NativeRoutingCIDR)
 
 	flags.String(option.LibDir, defaults.LibraryPath, "Directory path to store runtime build environment")
 	option.BindEnv(option.LibDir)
@@ -722,6 +729,9 @@ func initializeFlags() {
 
 	flags.Int(option.MTUName, 0, "Overwrite auto-detected MTU of underlying network")
 	option.BindEnv(option.MTUName)
+
+	flags.Int(option.RouteMetric, 0, "Overwrite the metric used by cilium when adding routes to its 'cilium_host' device")
+	option.BindEnv(option.RouteMetric)
 
 	flags.Bool(option.PrependIptablesChainsName, true, "Prepend custom iptables chains instead of appending")
 	option.BindEnvWithLegacyEnvFallback(option.PrependIptablesChainsName, "CILIUM_PREPEND_IPTABLES_CHAIN")
@@ -1409,6 +1419,10 @@ func initEnv(cmd *cobra.Command) {
 	if option.Config.EnableBandwidthManager && option.Config.EnableIPSec {
 		log.Warning("The bandwidth manager cannot be used with IPSec. Disabling the bandwidth manager.")
 		option.Config.EnableBandwidthManager = false
+	}
+
+	if option.Config.EnableIPv6Masquerade && option.Config.EnableBPFMasquerade {
+		log.Fatal("BPF masquerade is not supported for IPv6.")
 	}
 
 	// If there is one device specified, use it to derive better default

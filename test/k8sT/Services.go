@@ -99,7 +99,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 		ni.k8s1NodeName, ni.k8s1IP = kubectl.GetNodeInfo(helpers.K8s1)
 		ni.k8s2NodeName, ni.k8s2IP = kubectl.GetNodeInfo(helpers.K8s2)
 		if helpers.ExistNodeWithoutCilium() {
-			ni.outsideNodeName, ni.outsideIP = kubectl.GetNodeInfo(helpers.GetNodeWithoutCilium())
+			ni.outsideNodeName, ni.outsideIP = kubectl.GetNodeInfo(helpers.GetFirstNodeWithoutCilium())
 		}
 
 		ni.privateIface, err = kubectl.GetPrivateIface()
@@ -658,7 +658,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 		})
 
 		SkipContextIf(func() bool {
-			return helpers.RunsWithKubeProxyReplacement() || helpers.GetCurrentIntegration() != ""
+			return helpers.RunsWithKubeProxyReplacement() || helpers.GetCurrentIntegration() != "" || helpers.SkipQuarantined()
 		}, "IPv6 masquerading", func() {
 			var (
 				k8s1EndpointIPs map[string]string
@@ -668,8 +668,9 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 			BeforeAll(func() {
 				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-					"tunnel":               "disabled",
-					"autoDirectNodeRoutes": "true",
+					"tunnel":                "disabled",
+					"autoDirectNodeRoutes":  "true",
+					"ipv6NativeRoutingCIDR": helpers.IPv6NativeRoutingCIDR,
 				})
 
 				pod, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
@@ -684,8 +685,42 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 				ciliumAddService(kubectl, 31080, net.JoinHostPort(testDSK8s1IPv6, "80"), k8s1Backends, "ClusterIP", "Cluster")
 			})
 
-			It("across K8s nodes", func() {
+			It("across K8s nodes, skipped due to native routing CIDR", func() {
+				// Because a native routing CIDR is set, the
+				// IPv6 for packets routed to another node are
+				// _not_ masqueraded. Retrieve the address for
+				// the client, and make sure the echo server
+				// receives it unchanged.
+				pod, err := kubectl.GetCiliumPodOnNode(helpers.K8s2)
+				Expect(err).Should(BeNil(), "Cannot get cilium pod on node %s", helpers.K8s2)
+				k8s2EndpointIPs := kubectl.CiliumEndpointIPv6(pod, fmt.Sprintf("-l k8s:%s,k8s:io.kubernetes.pod.namespace=default", testDSK8s2))
+				k8s2ClientIPv6 := ""
+				for _, epIP := range k8s2EndpointIPs {
+					k8s2ClientIPv6 = epIP
+					break
+				}
+				Expect(k8s2ClientIPv6).ShouldNot(BeEmpty(), "Cannot get client IPv6")
+
 				url := fmt.Sprintf(`"http://[%s]:80/"`, testDSK8s1IPv6)
+				testCurlFromPodWithSourceIPCheck(kubectl, testDSK8s2, url, 5, k8s2ClientIPv6)
+
+				for _, epIP := range k8s1EndpointIPs {
+					url = fmt.Sprintf(`"http://[%s]:80/"`, epIP)
+					testCurlFromPodWithSourceIPCheck(kubectl, testDSK8s2, url, 5, k8s2ClientIPv6)
+				}
+			})
+
+			// Note: At the time we add the test below, it does not
+			// run on the CI because the only job which is running
+			// with a 3rd, non-K8s node (net-next) also has KPR,
+			// and skips the context we're in. Run locally.
+			SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "for external traffic", func() {
+				// A native routing CIDR is set, but it does
+				// not prevent masquerading for packets going
+				// outside of the K8s cluster. Check that the
+				// echo server sees the IPv6 address of the
+				// client's node.
+				url := fmt.Sprintf(`"http://[%s]:80/"`, ni.outsideIPv6)
 				testCurlFromPodWithSourceIPCheck(kubectl, testDSK8s2, url, 5, ni.primaryK8s2IPv6)
 
 				for _, epIP := range k8s1EndpointIPs {
@@ -1037,7 +1072,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 					})
 				})
 
-				Context("Tests with direct routing", func() {
+				SkipContextIf(helpers.SkipQuarantined, "Tests with direct routing", func() {
 
 					var directRoutingOpts = map[string]string{
 						"tunnel":               "disabled",
@@ -1409,9 +1444,9 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 				SkipItIf(func() bool {
 					// Quarantine when running with the third node as it's
-					// flaky. See #12511.
-					return helpers.GetCurrentIntegration() != "" ||
-						(helpers.SkipQuarantined() && helpers.ExistNodeWithoutCilium())
+					// flaky. See GH-12511.
+					// It's also flaky for IPv6 traffic, see GH-18072
+					return helpers.SkipQuarantined()
 				}, "Tests with secondary NodePort device", func() {
 					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 						"tunnel":               "disabled",
@@ -1552,7 +1587,8 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 	SkipContextIf(func() bool {
 		// The graceful termination feature depends on enabling an alpha feature
 		// EndpointSliceTerminatingCondition in Kubernetes.
-		return helpers.SkipK8sVersions("<1.20.0") || helpers.RunsOnGKE() || helpers.RunsOnEKS()
+		return helpers.SkipK8sVersions("<1.20.0") || helpers.RunsOnGKE() || helpers.RunsOnEKS() ||
+			helpers.RunsWithoutKubeProxy()
 	}, "Checks graceful termination of service endpoints", func() {
 		const (
 			clientPodLabel = "app=graceful-term-client"
@@ -1580,12 +1616,11 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			By("Waiting until server is terminating")
 			ctx, cancel := context.WithCancel(context.Background())
 			res := kubectl.LogsStream(helpers.DefaultNamespace, serverPod, ctx)
-			Expect(res.WaitUntilMatch("terminating")).To(BeNil(),
-				"%s is not in the output after timeout", res.GetStdOut())
-			defer func() {
-				cancel()
-				res.WaitUntilFinish()
-			}()
+			find := "terminating"
+			Eventually(func() bool {
+				return strings.Contains(res.OutputPrettyPrint(), find)
+			}, 60*time.Second, time.Second).Should(BeTrue(), "[%s] is not in the output after timeout\n%s", find, res.Stdout())
+			defer cancel()
 		}
 
 		BeforeAll(func() {
@@ -1633,23 +1668,34 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			ctx, cancel := context.WithCancel(context.Background())
 			res := kubectl.LogsStream(helpers.DefaultNamespace, clientPod, ctx)
 			// Check if the client pod is able to get a response from the server once it's up and running
-			Expect(res.WaitUntilMatch("client received")).To(BeNil(),
-				"%s is not in the output after timeout", res.GetStdOut())
-			defer func() {
-				cancel()
-				res.WaitUntilFinish()
-			}()
+			find := "client received"
+			Eventually(func() bool {
+				return strings.Contains(res.OutputPrettyPrint(), find)
+			}, 60*time.Second, time.Second).Should(BeTrue(), "[%s] is not in the output after timeout\n%s", find, res.Stdout())
+			defer cancel()
 
 			terminateServiceEndpointPod()
 
+			By("Checking if client pod terminated gracefully")
+			ctx, cancel = context.WithCancel(context.Background())
+			res = kubectl.LogsStream(helpers.DefaultNamespace, clientPod, ctx)
+			// The log message indicates that the connectivity between client and
+			// server was intact even after the service endpoint pod was terminated,
+			// and that the client connection terminated gracefully.
+			find = "exiting on graceful termination"
+			Eventually(func() bool {
+				return strings.Contains(res.OutputPrettyPrint(), find)
+			}, 60*time.Second, time.Second).Should(BeTrue(), "[%s] is not in the output after timeout\n%s", find, res.Stdout())
+			defer cancel()
+
 			// The client pod exits with status code 0 on graceful termination.
-			By("Checking if client pod terminated successfully")
+			By("Checking if client pod exited successfully")
 			Eventually(func() string {
 				filter := `{.status.phase}`
 				status, err := kubectl.GetPods(helpers.DefaultNamespace, clientPod).Filter(filter)
 				Expect(err).Should(BeNil(), "Failed to get pod status %s", clientPod)
 				return status.String()
-			}, 30*time.Second, time.Second).Should(BeIdenticalTo("Succeeded"), "Unexpected pod status \n")
+			}, 15*time.Second, time.Second).Should(BeIdenticalTo("Succeeded"), "Unexpected pod status \n")
 		})
 
 		It("Checks if terminating service endpoint doesn't serve new connections", func() {

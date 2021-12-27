@@ -56,10 +56,8 @@ concurrency:
     ${{
       (github.event_name == 'schedule' && github.sha) ||
       (github.event_name == 'issue_comment' && (
-        startsWith(github.event.comment.body, 'ci-external-workloads') && !startsWith(github.event.comment.body, 'ci-external-workloads-') ||
-        startsWith(github.event.comment.body, '/ci-external-workloads') && !startsWith(github.event.comment.body, '/ci-external-workloads-') ||
-        startsWith(github.event.comment.body, 'test-me-please') && !startsWith(github.event.comment.body, 'test-me-please-') ||
-        startsWith(github.event.comment.body, '/test') && !startsWith(github.event.comment.body, '/test-')
+        github.event.comment.body == '/ci-external-workloads' ||
+        github.event.comment.body == '/test'
       ) && github.event.issue.number) ||
       (github.event_name == 'pull_request' && github.event.pull_request.number)
     }}
@@ -70,7 +68,7 @@ env:
   vmName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-vm
   zone: us-west2-a
   vmStartupScript: .github/gcp-vm-startup.sh
-  cilium_cli_version: v0.9.3
+  cilium_cli_version: v0.10.0
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
@@ -78,10 +76,8 @@ jobs:
     name: Deduce required tests from code changes
     if: |
       (github.event_name == 'issue_comment' && (
-        startsWith(github.event.comment.body, 'ci-external-workloads') && !startsWith(github.event.comment.body, 'ci-external-workloads-') ||
-        startsWith(github.event.comment.body, '/ci-external-workloads') && !startsWith(github.event.comment.body, '/ci-external-workloads-') ||
-        startsWith(github.event.comment.body, 'test-me-please') && !startsWith(github.event.comment.body, 'test-me-please-') ||
-        startsWith(github.event.comment.body, '/test') && !startsWith(github.event.comment.body, '/test-')
+        github.event.comment.body == '/ci-external-workloads' ||
+        github.event.comment.body == '/test'
       )) ||
       (github.event_name == 'schedule' && github.repository == 'cilium/cilium') ||
       github.event_name == 'pull_request'
@@ -120,10 +116,8 @@ jobs:
     needs: check_changes
     if: |
       (github.event_name == 'issue_comment' && (
-        startsWith(github.event.comment.body, 'ci-external-workloads') && !startsWith(github.event.comment.body, 'ci-external-workloads-') ||
-        startsWith(github.event.comment.body, '/ci-external-workloads') && !startsWith(github.event.comment.body, '/ci-external-workloads-') ||
-        startsWith(github.event.comment.body, 'test-me-please') && !startsWith(github.event.comment.body, 'test-me-please-') && needs.check_changes.outputs.tested == 'true' ||
-        startsWith(github.event.comment.body, '/test') && !startsWith(github.event.comment.body, '/test-') && needs.check_changes.outputs.tested == 'true'
+        github.event.comment.body == '/ci-external-workloads' ||
+        (github.event.comment.body == '/test' && needs.check_changes.outputs.tested == 'true')
       )) ||
       (github.event_name == 'schedule' && github.repository == 'cilium/cilium') ||
       github.event_name == 'pull_request'
@@ -150,6 +144,7 @@ jobs:
             --operator-image=quay.io/${{ github.repository_owner }}/operator-generic-ci \
             --version=${SHA} \
             --wait=false \
+            --rollback=false \
             --config monitor-aggregation=none \
             --config tunnel=vxlan \
             --kube-proxy-replacement=strict"
@@ -187,7 +182,7 @@ jobs:
           cilium version
 
       - name: Set up gcloud CLI
-        uses: google-github-actions/setup-gcloud@daadedc81d5f9d3c06d2c92f49202a3cc2b919ba
+        uses: google-github-actions/setup-gcloud@a45a0825993ace67ae6e11cf3011b3e7d6795f82
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           service_account_key: ${{ secrets.GCP_PR_SA_KEY }}
@@ -198,7 +193,7 @@ jobs:
           gcloud info
 
       - name: Create GCP VM
-        uses: nick-invision/retry@002ef572db3a198cb4a15e23c0121bcdcfdb016d
+        uses: nick-invision/retry@7f8f3d9f0f62fe5925341be21c2e8314fd4f7c7c
         with:
           retry_on: error
           timeout_minutes: 1
@@ -305,7 +300,7 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@27121b0bdffd731efa15d66772be8dc71245d074
+        uses: actions/upload-artifact@82c141cc518b40d92cc801eee768e7aafc9c2fa2
         with:
           name: cilium-sysdump-out.zip
           path: cilium-sysdump-out.zip
@@ -346,7 +341,7 @@ jobs:
 
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
-        uses: 8398a7/action-slack@b17d9de8e9ed64b041e4fac845d6fdb2be6b9b04
+        uses: 8398a7/action-slack@c9ff874f8549f97317ec9f6162d5449ee77bc984
         with:
           status: ${{ job.status }}
           fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)

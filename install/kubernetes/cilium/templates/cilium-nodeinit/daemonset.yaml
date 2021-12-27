@@ -51,14 +51,14 @@ spec:
             - mountPath: /run/xtables.lock
               name: xtables-lock
           lifecycle:
-{{- if and (.Values.eni.enabled) (not .Values.enableIPv4Masquerade) }}
+{{- if .Values.eni.enabled }}
             postStart:
               exec:
                 command:
                   - "/bin/sh"
                   - "-c"
                   - |
-                    {{- tpl (.Files.Get "files/nodeinit/poststart.bash") . | nindent 20 }}
+                    {{- tpl (.Files.Get "files/nodeinit/poststart-eni.bash") . | nindent 20 }}
 {{- end }}
 {{- if .Values.nodeinit.revertReconfigureKubelet }}
             preStop:

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/StackExchange/wmi"
+	"github.com/yusufpapurcu/wmi"
 	"github.com/shirou/gopsutil/v3/internal/common"
 	"golang.org/x/sys/windows"
 )

@@ -18,6 +18,7 @@ import (
 	"sync"
 	"text/tabwriter"
 	"time"
+	"unicode"
 
 	"github.com/cilium/cilium/api/v1/models"
 	cnpv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -68,7 +69,8 @@ const (
 	LogGathererSelector = "k8s-app=cilium-test-logs"
 	CiliumSelector      = "k8s-app=cilium"
 
-	NativeRoutingCIDR = "10.0.0.0/8"
+	IPv4NativeRoutingCIDR = "10.0.0.0/8"
+	IPv6NativeRoutingCIDR = "fd02::/112"
 )
 
 var (
@@ -92,6 +94,7 @@ var (
 		"hubble.relay.image.repository": "k8s1:5000/cilium/hubble-relay",
 		"hubble.relay.image.tag":        "latest",
 		"hubble.relay.image.useDigest":  "false",
+		"hubble.eventBufferCapacity":    "65535",
 		"debug.enabled":                 "true",
 		"k8s.requireIPv4PodCIDR":        "true",
 		"pprof.enabled":                 "true",
@@ -109,7 +112,8 @@ var (
 
 		// We need CNP node status to know when a policy is being enforced
 		"enableCnpStatusUpdates": "true",
-		"nativeRoutingCIDR":      NativeRoutingCIDR,
+		"ipv4NativeRoutingCIDR":  IPv4NativeRoutingCIDR,
+		"ipv6NativeRoutingCIDR":  IPv6NativeRoutingCIDR,
 
 		"ipam.operator.clusterPoolIPv6PodCIDR": "fd02::/112",
 	}
@@ -293,12 +297,6 @@ func IsIntegration(integration string) bool {
 	return GetCurrentIntegration() == integration
 }
 
-// GetCiliumNamespace returns the namespace into which cilium should be
-// installed for this integration.
-func GetCiliumNamespace(integration string) string {
-	return CiliumNamespaceDefault
-}
-
 // Kubectl is a wrapper around an SSHMeta. It is used to run Kubernetes-specific
 // commands on the node which is accessible via the SSH metadata stored in its
 // SSHMeta.
@@ -355,7 +353,7 @@ func CreateKubectl(vmName string, log *logrus.Entry) (k *Kubectl) {
 		}
 		k.setBasePath()
 		if err := k.ensureKubectlVersion(); err != nil {
-			ginkgoext.Failf("failed to ensure kubectl version")
+			ginkgoext.Failf("failed to ensure kubectl version: %s", err)
 		}
 	}
 
@@ -633,18 +631,9 @@ func (kub *Kubectl) labelNodes() error {
 		return fmt.Errorf("unable to unmarshal string slice '%#v': %s", nodesList, err)
 	}
 
-	var (
-		index int = 1
-
-		noCiliumNode     = GetNodeWithoutCilium()
-		noCiliumNodeName string
-	)
+	index := 1
 	for _, nodeName := range nodesList {
 		ciNodeName := fmt.Sprintf("k8s%d", index)
-		if GetNodeWithoutCilium() == ciNodeName {
-			noCiliumNodeName = nodeName
-		}
-
 		cmd := fmt.Sprintf("%s label --overwrite node %s cilium.io/ci-node=%s", KubectlCmd, nodeName, ciNodeName)
 		res := kub.ExecShort(cmd)
 		if !res.WasSuccessful() {
@@ -653,10 +642,11 @@ func (kub *Kubectl) labelNodes() error {
 		index++
 	}
 
-	if noCiliumNode != "" {
+	noCiliumNodeNames := strings.Join(GetNodesWithoutCilium(), " ")
+	if noCiliumNodeNames != "" {
 		// Prevent scheduling any pods on the node, as it will be used as an external client
 		// to send requests to k8s{1,2}
-		cmd := fmt.Sprintf("%s taint --overwrite nodes %s key=value:NoSchedule", KubectlCmd, noCiliumNodeName)
+		cmd := fmt.Sprintf("%s taint --overwrite nodes %s key=value:NoSchedule", KubectlCmd, noCiliumNodeNames)
 		res := kub.ExecMiddle(cmd)
 		if !res.WasSuccessful() {
 			return fmt.Errorf("unable to taint node with '%s': %s", cmd, res.OutputPrettyPrint())
@@ -718,12 +708,7 @@ func (kub *Kubectl) GetNumCiliumNodes() int {
 	if !res.WasSuccessful() {
 		return 0
 	}
-	sub := 0
-	if ExistNodeWithoutCilium() {
-		sub = 1
-	}
-
-	return len(strings.Split(res.SingleOut(), " ")) - sub
+	return len(strings.Split(res.SingleOut(), " ")) - len(GetNodesWithoutCilium())
 }
 
 // CountMissedTailCalls returns the number of the sum of all drops due to
@@ -2336,12 +2321,16 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		options = addIfNotOverwritten(options, key, value)
 	}
 
-	// Do not schedule cilium-agent on the NO_CILIUM_ON_NODE node
-	if node := GetNodeWithoutCilium(); node != "" {
+	// Do not schedule cilium-agent on the NO_CILIUM_ON_NODE nodes
+	noCiliumNodes := GetNodesWithoutCilium()
+	if len(noCiliumNodes) > 0 {
 		opts := map[string]string{
-			"affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key":       "cilium.io/ci-node",
-			"affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator":  "NotIn",
-			"affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[0]": node,
+			"affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key":      "cilium.io/ci-node",
+			"affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator": "NotIn",
+		}
+		for i, n := range noCiliumNodes {
+			key := fmt.Sprintf("affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[%d]", i)
+			opts[key] = n
 		}
 		for key, value := range opts {
 			options = addIfNotOverwritten(options, key, value)
@@ -2370,6 +2359,7 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 
 		if RunsOn419OrLaterKernel() {
 			opts["bpf.masquerade"] = "true"
+			opts["enableIPv6Masquerade"] = "false"
 		}
 
 		for key, value := range opts {
@@ -2410,7 +2400,9 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		options["imagePullSecrets[0].name"] = config.RegistrySecretName
 	}
 
-	if CiliumEndpointSliceFeatureEnabled() {
+	if _, found := options["enableCiliumEndpointSlice"]; !found &&
+		CiliumEndpointSliceFeatureEnabled() {
+
 		options["enableCiliumEndpointSlice"] = "true"
 	}
 	return nil
@@ -2823,9 +2815,8 @@ func (kub *Kubectl) CiliumNodesWait() (bool, error) {
 			return false
 		}
 		result := data.KVOutput()
-		ignoreNode := GetNodeWithoutCilium()
 		for k, v := range result {
-			if k == ignoreNode {
+			if IsNodeWithoutCilium(k) {
 				continue
 			}
 			if v == "" {
@@ -3567,7 +3558,8 @@ func (kub *Kubectl) GeneratePodLogGatheringCommands(ctx context.Context, reportC
 	}
 
 	for _, pod := range pods {
-		for _, containerStatus := range pod.Status.ContainerStatuses {
+		containerStatuses := append(pod.Status.InitContainerStatuses, pod.Status.ContainerStatuses...)
+		for _, containerStatus := range containerStatuses {
 			logCmd := fmt.Sprintf("%s -n %s logs --timestamps %s -c %s", KubectlCmd, pod.Namespace, pod.Name, containerStatus.Name)
 			logfileName := fmt.Sprintf("pod-%s-%s-%s.log", pod.Namespace, pod.Name, containerStatus.Name)
 			reportCmds[logCmd] = logfileName
@@ -3740,7 +3732,16 @@ func (kub *Kubectl) ciliumControllersPreFlightCheck() error {
 func (kub *Kubectl) ciliumHealthPreFlightCheck() error {
 	ginkgoext.By("Performing Cilium health check")
 	var nodesFilter = `{.nodes[*].name}`
-	var statusFilter = `{range .nodes[*]}{.name}{"="}{.host.primary-address.http.status}{"\n"}{end}`
+	var statusPaths = []string{
+		".host.primary-address.icmp.status",
+		".host.primary-address.http.status",
+		".host.secondary-addresses[*].icmp.status",
+		".host.secondary-addresses[*].http.status",
+		".health-endpoint.primary-address.icmp.status",
+		".health-endpoint.primary-address.http.status",
+		".health-endpoint.secondary-addresses[*].icmp.status",
+		".health-endpoint.secondary-addresses[*].http.status",
+	}
 
 	ciliumPods, err := kub.GetCiliumPods()
 	if err != nil {
@@ -3767,17 +3768,21 @@ func (kub *Kubectl) ciliumHealthPreFlightCheck() error {
 				pod, len(ciliumPods), len(nodeCount), nodeCount)
 		}
 
-		healthStatus, err := status.Filter(statusFilter)
-		if err != nil {
-			return fmt.Errorf("Cannot unmarshal health status: %s", err)
-		}
+		for _, statusPath := range statusPaths {
+			kvExpr := fmt.Sprintf(`{range .nodes[*]}{.name}{"%s="}{%s}{"\n"}{end}`, statusPath, statusPath)
+			healthStatus, err := status.Filter(kvExpr)
+			if err != nil {
+				return fmt.Errorf("Cannot unmarshal health status: %s", err)
+			}
 
-		for node, status := range healthStatus.KVOutput() {
-			if status != "" {
-				return fmt.Errorf("cilium-agent '%s': connectivity to node '%s' is unhealthy: '%s'",
-					pod, node, status)
+			for path, status := range healthStatus.KVOutput() {
+				if status != "" {
+					return fmt.Errorf("cilium-agent '%s': connectivity to path '%s' is unhealthy: '%s'",
+						pod, path, status)
+				}
 			}
 		}
+
 	}
 	return nil
 }
@@ -4201,7 +4206,17 @@ func validateCiliumSvc(cSvc models.Service, k8sSvcs []v1.Service, k8sEps []v1.En
 			k8sService = &k8sSvc
 			break
 		}
+		for _, clusterIP := range k8sSvc.Spec.ClusterIPs {
+			if clusterIP == cSvc.Status.Realized.FrontendAddress.IP {
+				k8sService = &k8sSvc
+				break
+			}
+		}
+		if k8sService != nil {
+			break
+		}
 	}
+
 	if k8sService == nil {
 		return fmt.Errorf("Could not find Cilium service with ip %s in k8s", cSvc.Spec.FrontendAddress.IP)
 	}
@@ -4330,8 +4345,13 @@ func logGathererSelector(allNodes bool) string {
 		return selector
 	}
 
-	if nodeName := GetNodeWithoutCilium(); nodeName != "" {
-		selector = fmt.Sprintf("%s --field-selector='spec.nodeName!=%s'", selector, nodeName)
+	noCiliumNodes := GetNodesWithoutCilium()
+	if len(noCiliumNodes) > 0 {
+		var fieldSelectors []string
+		for _, n := range noCiliumNodes {
+			fieldSelectors = append(fieldSelectors, fmt.Sprintf("spec.nodeName!=%s", n))
+		}
+		selector = fmt.Sprintf("%s --field-selector='%s'", selector, strings.Join(fieldSelectors, ","))
 	}
 
 	return selector
@@ -4464,7 +4484,12 @@ func (kub *Kubectl) ensureKubectlVersion() error {
 		return err
 	}
 
-	versionstring := fmt.Sprintf("%s.%s", v.ClientVersion.Major, v.ClientVersion.Minor)
+	// For some -rc versions we observe minor versions with trailing non-numeric characters,
+	// e.g. minor: "23+". Strip these.
+	minor := strings.TrimRightFunc(v.ClientVersion.Minor, func(r rune) bool {
+		return !unicode.IsNumber(r)
+	})
+	versionstring := fmt.Sprintf("%s.%s", v.ClientVersion.Major, minor)
 	if versionstring == GetCurrentK8SEnv() {
 		//version available on host is matching current env
 		return nil
@@ -4475,9 +4500,17 @@ func (kub *Kubectl) ensureKubectlVersion() error {
 		return err
 	}
 	path := path.Join(GetKubectlPath(), "kubectl")
+	rcVersion := fmt.Sprintf("v%s.0-rc.0", GetCurrentK8SEnv())
+	switch GetCurrentK8SEnv() {
+	// These versions never released a ".0". Only since 1.19 Kubernetes started
+	// to release RC starting from '0'. We can then use the '.0' release for
+	// these versions.
+	case "1.16", "1.17", "1.18":
+		rcVersion = fmt.Sprintf("v%s.0", GetCurrentK8SEnv())
+	}
 	res = kub.Exec(
-		fmt.Sprintf("curl --output %s https://storage.googleapis.com/kubernetes-release/release/v%s.0/bin/linux/amd64/kubectl && chmod +x %s",
-			path, GetCurrentK8SEnv(), path))
+		fmt.Sprintf("curl --output %s https://storage.googleapis.com/kubernetes-release/release/%s/bin/linux/amd64/kubectl && chmod +x %s",
+			path, rcVersion, path))
 	if !res.WasSuccessful() {
 		return fmt.Errorf("failed to download kubectl")
 	}

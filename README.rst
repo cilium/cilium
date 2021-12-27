@@ -31,13 +31,13 @@ For upgrades to new major releases please consult the `Cilium Upgrade Guide
 Listed below are the actively maintained release branches along with their latest
 minor release, corresponding image pull tags and their release notes:
 
-+---------------------------------------------------------+------------+-----------------------------------+---------------------------------------------------------------------------+-------------------------------------------------------------------------+
-| `v1.10 <https://github.com/cilium/cilium/tree/v1.10>`__ | 2021-10-13 | ``quay.io/cilium/cilium:v1.10.5`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.10.5>`__ | `General Announcement <https://cilium.io/blog/2021/05/20/cilium-110>`__ |
-+---------------------------------------------------------+------------+-----------------------------------+---------------------------------------------------------------------------+-------------------------------------------------------------------------+
-| `v1.9 <https://github.com/cilium/cilium/tree/v1.9>`__   | 2021-11-05 | ``quay.io/cilium/cilium:v1.9.11`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.9.11>`__ | `General Announcement <https://cilium.io/blog/2020/11/10/cilium-19>`__  |
-+---------------------------------------------------------+------------+-----------------------------------+---------------------------------------------------------------------------+-------------------------------------------------------------------------+
-| `v1.8 <https://github.com/cilium/cilium/tree/v1.8>`__   | 2021-11-05 | ``quay.io/cilium/cilium:v1.8.13`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.8.13>`__ | `General Announcement <https://cilium.io/blog/2020/06/22/cilium-18>`__  |
-+---------------------------------------------------------+------------+-----------------------------------+---------------------------------------------------------------------------+-------------------------------------------------------------------------+
++---------------------------------------------------------+------------+-----------------------------------+---------------------------------------------------------------------------+--------------------------------------------------------------------------------+
+| `v1.11 <https://github.com/cilium/cilium/tree/v1.11>`__ | 2021-12-09 | ``quay.io/cilium/cilium:v1.11.0`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.11.0>`__ | `General Announcement <https://isovalent.com/blog/post/2021-12-release-111>`__ |
++---------------------------------------------------------+------------+-----------------------------------+---------------------------------------------------------------------------+--------------------------------------------------------------------------------+
+| `v1.10 <https://github.com/cilium/cilium/tree/v1.10>`__ | 2021-12-09 | ``quay.io/cilium/cilium:v1.10.6`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.10.6>`__ | `General Announcement <https://cilium.io/blog/2021/05/20/cilium-110>`__        |
++---------------------------------------------------------+------------+-----------------------------------+---------------------------------------------------------------------------+--------------------------------------------------------------------------------+
+| `v1.9 <https://github.com/cilium/cilium/tree/v1.9>`__   | 2021-11-05 | ``quay.io/cilium/cilium:v1.9.11`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.9.11>`__ | `General Announcement <https://cilium.io/blog/2020/11/10/cilium-19>`__         |
++---------------------------------------------------------+------------+-----------------------------------+---------------------------------------------------------------------------+--------------------------------------------------------------------------------+
 
 Functionality Overview
 ======================
@@ -158,10 +158,6 @@ tooling to provide:
   just report the source and destination IP of the packet, the tool provides
   the full label information of both the sender and receiver among a lot of
   other information.
-
-- Policy decision tracing: Why is a packet being dropped or a request rejected.
-  The policy tracing framework allows to trace the policy decision process for
-  both, running workloads and based on arbitrary label definitions.
 
 - Metrics export via Prometheus: Key metrics are exported via Prometheus for
   integration with your existing dashboards.

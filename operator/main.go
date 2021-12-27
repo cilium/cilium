@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2018-2020 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 
 // Ensure build fails on versions of Go that are not supported by Cilium.
 // This build tag should be kept in sync with the version specified in go.mod.
@@ -376,8 +376,9 @@ func onOperatorStartLeading(ctx context.Context) {
 	}
 
 	var (
-		nodeManager *allocator.NodeEventHandler
+		nodeManager allocator.NodeEventHandler
 		err         error
+		withKVStore bool
 	)
 
 	log.WithField(logfields.Mode, option.Config.IPAM).Info("Initializing IPAM")
@@ -398,40 +399,12 @@ func onOperatorStartLeading(ctx context.Context) {
 			log.WithError(err).Fatalf("Unable to start %s allocator", ipamMode)
 		}
 
-		startSynchronizingCiliumNodes(nm)
-		nodeManager = &nm
-
-		switch ipamMode {
-		case ipamOption.IPAMClusterPool:
-			// We will use CiliumNodes as the source of truth for the podCIDRs.
-			// Once the CiliumNodes are synchronized with the operator we will
-			// be able to watch for K8s Node events which they will be used
-			// to create the remaining CiliumNodes.
-			<-k8sCiliumNodesCacheSynced
-
-			// We don't want CiliumNodes that don't have podCIDRs to be
-			// allocated with a podCIDR already being used by another node.
-			// For this reason we will call Resync after all CiliumNodes are
-			// synced with the operator to signal the node manager, since it
-			// knows all podCIDRs that are currently set in the cluster, that
-			// it can allocate podCIDRs for the nodes that don't have a podCIDR
-			// set.
-			nm.Resync(context.Background(), time.Time{})
-		}
-	default:
-		startSynchronizingCiliumNodes(NOPNodeManager)
-		nodeManager = &NOPNodeManager
+		nodeManager = nm
 	}
 
 	if operatorOption.Config.BGPAnnounceLBIP {
 		log.Info("Starting LB IP allocator")
 		operatorWatchers.StartLBIPAllocator(ctx, option.Config)
-	}
-
-	if operatorOption.Config.CNPNodeStatusGCInterval != 0 {
-		if err := runNodeWatcher(); err != nil {
-			log.WithError(err).Error("Unable to setup node watcher")
-		}
 	}
 
 	if kvstoreEnabled() {
@@ -470,7 +443,7 @@ func onOperatorStartLeading(ctx context.Context) {
 							logfields.ServiceName:      name,
 							logfields.ServiceNamespace: namespace,
 						}).Info("Retrieving service spec from k8s to perform automatic etcd service translation")
-						k8sSvc, err := k8s.Client().CoreV1().Services(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+						k8sSvc, err := k8s.Client().CoreV1().Services(namespace).Get(ctx, name, metav1.GetOptions{})
 						switch {
 						case err == nil:
 							// Create another service cache that contains the
@@ -504,17 +477,40 @@ func onOperatorStartLeading(ctx context.Context) {
 			scopedLog.Infof("%s running without service synchronization: automatic etcd service translation disabled", binaryName)
 		}
 		scopedLog.Info("Connecting to kvstore")
-		if err := kvstore.Setup(context.TODO(), option.Config.KVStore, option.Config.KVStoreOpt, goopts); err != nil {
+		if err := kvstore.Setup(ctx, option.Config.KVStore, option.Config.KVStoreOpt, goopts); err != nil {
 			scopedLog.WithError(err).Fatal("Unable to setup kvstore")
 		}
 
 		if operatorOption.Config.SyncK8sNodes {
-			if err := runNodeWatcherKVStore(nodeManager); err != nil {
-				log.WithError(err).Error("Unable to setup node watcher")
-			}
+			withKVStore = true
 		}
 
 		startKvstoreWatchdog()
+	}
+
+	if err := startSynchronizingCiliumNodes(ctx, nodeManager, withKVStore); err != nil {
+		log.WithError(err).Fatal("Unable to setup node watcher")
+	}
+
+	if operatorOption.Config.CNPNodeStatusGCInterval != 0 {
+		RunCNPNodeStatusGC(ciliumNodeStore)
+	}
+
+	if option.Config.IPAM == ipamOption.IPAMClusterPool {
+		// We will use CiliumNodes as the source of truth for the podCIDRs.
+		// Once the CiliumNodes are synchronized with the operator we will
+		// be able to watch for K8s Node events which they will be used
+		// to create the remaining CiliumNodes.
+		<-k8sCiliumNodesCacheSynced
+
+		// We don't want CiliumNodes that don't have podCIDRs to be
+		// allocated with a podCIDR already being used by another node.
+		// For this reason we will call Resync after all CiliumNodes are
+		// synced with the operator to signal the node manager, since it
+		// knows all podCIDRs that are currently set in the cluster, that
+		// it can allocate podCIDRs for the nodes that don't have a podCIDR
+		// set.
+		nodeManager.Resync(ctx, time.Time{})
 	}
 
 	if operatorOption.Config.IdentityGCInterval != 0 {

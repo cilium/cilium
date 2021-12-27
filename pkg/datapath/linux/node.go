@@ -156,14 +156,20 @@ func deleteTunnelMapping(oldCIDR *cidr.CIDR, quietMode bool) {
 		return
 	}
 
-	log.WithField("allocCIDR", oldCIDR).Debug("Deleting tunnel map entry")
+	log.WithFields(logrus.Fields{
+		"allocCIDR": oldCIDR,
+		"quietMode": quietMode,
+	}).Debug("Deleting tunnel map entry")
 
-	if err := tunnel.TunnelMap.DeleteTunnelEndpoint(oldCIDR.IP); err != nil {
-		if !quietMode {
+	if !quietMode {
+		if err := tunnel.TunnelMap.DeleteTunnelEndpoint(oldCIDR.IP); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
 				"allocCIDR": oldCIDR,
 			}).Error("Unable to delete in tunnel endpoint map")
 		}
+	} else {
+		_ = tunnel.TunnelMap.SilentDeleteTunnelEndpoint(oldCIDR.IP)
+
 	}
 }
 
@@ -354,11 +360,12 @@ func (n *linuxNodeHandler) createNodeRouteSpec(prefix *cidr.CIDR, isLocalNode bo
 
 	// The default routing table accounts for encryption overhead for encrypt-node traffic
 	return route.Route{
-		Nexthop: &nexthop,
-		Local:   local,
-		Device:  n.datapathConfig.HostDevice,
-		Prefix:  *prefix.IPNet,
-		MTU:     mtu,
+		Nexthop:  &nexthop,
+		Local:    local,
+		Device:   n.datapathConfig.HostDevice,
+		Prefix:   *prefix.IPNet,
+		MTU:      mtu,
+		Priority: option.Config.RouteMetric,
 	}, nil
 }
 
@@ -704,18 +711,36 @@ func (n *linuxNodeHandler) insertNeighborCommon(scopedLog *logrus.Entry, ctx con
 		//   3dc20f4762c6 ("net, neigh: Enable state migration between NUD_PERMANENT and NTF_USE")
 		// Thus, first initialize the neighbor as NTF_EXT_LEARNED and
 		// then do the subsequent ping via NTF_USE.
+		//
+		// Notes on use of the NUD_STALE state. We have two scenarios:
+		// 1) Old entry was a PERMANENT one. In this case, the kernel
+		// takes the PERMANENT's lladdr in __neigh_update() and uses
+		// it for temporary STALE state. This ensures that whoever
+		// does a lookup in this short window can continue keep using
+		// the lladdr. The subsequent NTF_USE will trigger a fresh
+		// resolution in neigh_event_send() given STALE dictates it
+		// (as opposed to REACHABLE).
+		// 2) Old entry was a dynamic + externally learned one. This
+		// is similar as the PERMANENT one if the entry was NUD_VALID
+		// before. The subsequent NTF_USE will trigger a new resolution.
+		// 3) Old entry was non-existent. Given we don't push down a
+		// corresponding lladdr, the neighbor entry gets created by the
+		// kernel, but given prior state was not NUD_VALID then the
+		// __neigh_update() will error out (EINVAL). However, the entry
+		// is in the kernel, and subsequent NTF_USE will trigger a proper
+		// resolution. Hence, below NeighSet() does _not_ bail out given
+		// errors are expected in this case.
 		neighInit := netlink.Neigh{
 			LinkIndex:    link.Attrs().Index,
 			IP:           nextHop.IP,
-			State:        netlink.NUD_NONE,
+			State:        netlink.NUD_STALE,
 			Flags:        netlink.NTF_EXT_LEARNED,
 			HardwareAddr: nil,
 		}
 		if err := netlink.NeighSet(&neighInit); err != nil {
 			scopedLog.WithError(err).WithFields(logrus.Fields{
 				"neighbor": fmt.Sprintf("%+v", neighInit),
-			}).Info("Unable to insert new next hop")
-			return
+			}).Debug("Unable to insert new next hop")
 		}
 	}
 	if err := netlink.NeighSet(&neigh); err != nil {
@@ -1079,11 +1104,6 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 
 		return nil
 	} else if firstAddition {
-		// When encapsulation is disabled, then the initial node addition
-		// triggers a removal of eventual old tunnel map entries.
-		deleteTunnelMapping(newNode.IPv4AllocCIDR, true)
-		deleteTunnelMapping(newNode.IPv6AllocCIDR, true)
-
 		if rt, _ := n.lookupNodeRoute(newNode.IPv4AllocCIDR, isLocalNode); rt != nil {
 			n.deleteNodeRoute(newNode.IPv4AllocCIDR, isLocalNode)
 		}
@@ -1475,7 +1495,7 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 		if n.enableNeighDiscovery {
 			link, err := netlink.LinkByName(ifaceName)
 			if err != nil {
-				return fmt.Errorf("cannot find link by name %s for neigh discovery: %w",
+				return fmt.Errorf("cannot find link by name %s for neighbor discovery: %w",
 					ifaceName, err)
 			}
 
@@ -1484,8 +1504,8 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 			// disabled next time.
 			err = storeNeighLink(option.Config.StateDir, ifaceName)
 			if err != nil {
-				log.WithError(err).Warning("Unable to store neigh discovery iface." +
-					" Removing ARP PERM entries upon cilium-agent init when neigh" +
+				log.WithError(err).Warning("Unable to store neighbor discovery iface." +
+					" Removing PERM neighbor entries upon cilium-agent init when neighbor" +
 					" discovery is disabled will not work.")
 			}
 
@@ -1579,55 +1599,26 @@ func (n *linuxNodeHandler) NodeNeighborRefresh(ctx context.Context, nodeToRefres
 	}
 }
 
-// NodeCleanNeighbors cleans all neighbor entries of previously used neighbor
-// discovery link interfaces. If migrateOnly is true, then NodeCleanNeighbors
-// cleans old entries by trying to convert PERMANENT to dynamic, externally
-// learned ones. If set to false, then it removes all PERMANENT or externally
-// learned ones, e.g. when the agent got restarted and changed the state from
-// `n.enableNeighDiscovery = true` to `n.enableNeighDiscovery = false`.
-func (n *linuxNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
-	linkName, err := loadNeighLink(option.Config.StateDir)
-	if err != nil {
-		log.WithError(err).Error("Unable to load neigh discovery iface name" +
-			" for removing ARP PERM entries")
-		return
-	}
-	if len(linkName) == 0 {
-		return
-	}
-
-	// Delete the file after cleaning up neighbor list if we were able to clean
-	// up all neighbors.
+func (n *linuxNodeHandler) NodeCleanNeighborsLink(l netlink.Link, migrateOnly bool) bool {
 	successClean := true
-	defer func() {
-		if successClean {
-			os.Remove(filepath.Join(option.Config.StateDir, neighFileName))
-		}
-	}()
-
-	l, err := netlink.LinkByName(linkName)
-	if err != nil {
-		// If the link is not found we don't need to keep retrying cleaning
-		// up the neihbor entries so we can keep successClean=true
-		if _, ok := err.(netlink.LinkNotFoundError); !ok {
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.Device: linkName,
-			}).Error("Unable to remove PERM ARP entries of network device")
-			successClean = false
-		}
-		return
-	}
 
 	neighList, err := netlink.NeighListExecute(netlink.Ndmsg{
 		Index: uint32(l.Attrs().Index),
 	})
 	if err != nil {
 		log.WithError(err).WithFields(logrus.Fields{
-			logfields.Device:    linkName,
+			logfields.Device:    l.Attrs().Name,
 			logfields.LinkIndex: l.Attrs().Index,
-		}).Error("Unable to list PERM ARP entries for removal of network device")
-		successClean = false
-		return
+		}).Error("Unable to list PERM neighbor entries for removal of network device")
+		return false
+	}
+
+	if migrateOnly {
+		// neighLastPingByNextHop holds both v4 and v6 neighbors and given
+		// we try to find stale neighbors, we need to check their presence
+		// again it.
+		n.neighLock.Lock()
+		defer n.neighLock.Unlock()
 	}
 
 	var neighSucceeded, neighErrored int
@@ -1641,7 +1632,14 @@ func (n *linuxNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
 			neigh.Flags&netlink.NTF_EXT_LEARNED == 0 {
 			continue
 		}
+		migrateEntry := false
 		if migrateOnly {
+			nextHop := neigh.IP.String()
+			if _, found := n.neighLastPingByNextHop[nextHop]; found {
+				migrateEntry = true
+			}
+		}
+		if migrateEntry {
 			// We only care to migrate NUD_PERMANENT over to dynamic
 			// state entries with NTF_EXT_LEARNED.
 			if neigh.State&netlink.NUD_PERMANENT == 0 {
@@ -1658,7 +1656,7 @@ func (n *linuxNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
 				neigh.Flags = netlink.NTF_EXT_LEARNED
 				if err := netlink.NeighSet(&neigh); err != nil {
 					log.WithError(err).WithFields(logrus.Fields{
-						logfields.Device:    linkName,
+						logfields.Device:    l.Attrs().Name,
 						logfields.LinkIndex: l.Attrs().Index,
 						"neighbor":          fmt.Sprintf("%+v", neigh),
 					}).Info("Unable to replace new next hop")
@@ -1683,12 +1681,12 @@ func (n *linuxNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
 		}
 		if err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
-				logfields.Device:    linkName,
+				logfields.Device:    l.Attrs().Name,
 				logfields.LinkIndex: l.Attrs().Index,
 				"neighbor":          fmt.Sprintf("%+v", neigh),
-			}).Errorf("Unable to %s non-GC'ed ARP entry of network device. "+
+			}).Errorf("Unable to %s non-GC'ed neighbor entry of network device. "+
 				"Consider removing this entry manually with 'ip neigh del %s dev %s'",
-				which, neigh.IP.String(), linkName)
+				which, neigh.IP.String(), l.Attrs().Name)
 			neighErrored++
 			successClean = false
 		} else {
@@ -1698,13 +1696,63 @@ func (n *linuxNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
 	if neighSucceeded != 0 {
 		log.WithFields(logrus.Fields{
 			logfields.Count: neighSucceeded,
-		}).Infof("Successfully %sd non-GC'ed ARP entries previously installed by cilium-agent", which)
+		}).Infof("Successfully %sd non-GC'ed neighbor entries previously installed by cilium-agent", which)
 	}
 	if neighErrored != 0 {
 		log.WithFields(logrus.Fields{
 			logfields.Count: neighErrored,
-		}).Warningf("Unable to %s non-GC'ed ARP entries previously installed by cilium-agent", which)
+		}).Warningf("Unable to %s non-GC'ed neighbor entries previously installed by cilium-agent", which)
 	}
+	return successClean
+}
+
+// NodeCleanNeighbors cleans all neighbor entries of previously used neighbor
+// discovery link interfaces. If migrateOnly is true, then NodeCleanNeighbors
+// cleans old entries by trying to convert PERMANENT to dynamic, externally
+// learned ones. If set to false, then it removes all PERMANENT or externally
+// learned ones, e.g. when the agent got restarted and changed the state from
+// `n.enableNeighDiscovery = true` to `n.enableNeighDiscovery = false`.
+//
+// Also, NodeCleanNeighbors is called after kubeapi server resync, so we have
+// the full picture of all nodes. If there are any externally learned neighbors
+// not in neighLastPingByNextHop, then we delete them as they could be stale
+// neighbors from a previous agent run where in the meantime the given node was
+// deleted (and the new agent instance did not see the delete event during the
+// down/up cycle).
+func (n *linuxNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
+	linkName, err := loadNeighLink(option.Config.StateDir)
+	if err != nil {
+		log.WithError(err).Error("Unable to load neighbor discovery iface name" +
+			" for removing PERM neighbor entries")
+		return
+	}
+	if len(linkName) == 0 {
+		return
+	}
+
+	// Delete the file after cleaning up neighbor list if we were able to clean
+	// up all neighbors.
+	successClean := true
+	defer func() {
+		if successClean {
+			os.Remove(filepath.Join(option.Config.StateDir, neighFileName))
+		}
+	}()
+
+	l, err := netlink.LinkByName(linkName)
+	if err != nil {
+		// If the link is not found we don't need to keep retrying cleaning
+		// up the neihbor entries so we can keep successClean=true
+		if _, ok := err.(netlink.LinkNotFoundError); !ok {
+			log.WithError(err).WithFields(logrus.Fields{
+				logfields.Device: linkName,
+			}).Error("Unable to remove PERM neighbor entries of network device")
+			successClean = false
+		}
+		return
+	}
+
+	successClean = n.NodeCleanNeighborsLink(l, migrateOnly)
 }
 
 func storeNeighLink(dir string, name string) error {

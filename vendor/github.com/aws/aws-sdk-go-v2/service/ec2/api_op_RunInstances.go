@@ -133,8 +133,7 @@ type RunInstancesInput struct {
 	// Constraints: Maximum 64 ASCII characters
 	ClientToken *string
 
-	// The CPU options for the instance. For more information, see Optimizing CPU
-	// options
+	// The CPU options for the instance. For more information, see Optimize CPU options
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-optimize-cpu.html)
 	// in the Amazon EC2 User Guide.
 	CpuOptions *types.CpuOptionsRequest
@@ -275,6 +274,10 @@ type RunInstancesInput struct {
 	// The placement for the instance.
 	Placement *types.Placement
 
+	// The options for the instance hostname. The default values are inherited from the
+	// subnet.
+	PrivateDnsNameOptions *types.PrivateDnsNameOptionsRequest
+
 	// [EC2-VPC] The primary IPv4 address. You must specify a value from the IPv4
 	// address range of the subnet. Only one private IP address can be designated as
 	// primary. You can't specify this option if you've specified the option to
@@ -318,14 +321,14 @@ type RunInstancesInput struct {
 	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTags.html).
 	TagSpecifications []types.TagSpecification
 
-	// The user data to make available to the instance. For more information, see
-	// Running commands on your Linux instance at launch
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html) (Linux) and
-	// Adding User Data
-	// (https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/ec2-instance-metadata.html#instancedata-add-user-data)
-	// (Windows). If you are using a command line tool, base64-encoding is performed
-	// for you, and you can load the text from a file. Otherwise, you must provide
-	// base64-encoded text. User data is limited to 16 KB.
+	// The user data to make available to the instance. For more information, see Run
+	// commands on your Linux instance at launch
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html) and Run
+	// commands on your Windows instance at launch
+	// (https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/ec2-windows-user-data.html).
+	// If you are using a command line tool, base64-encoding is performed for you, and
+	// you can load the text from a file. Otherwise, you must provide base64-encoded
+	// text. User data is limited to 16 KB.
 	UserData *string
 
 	noSmithyDocumentSerde

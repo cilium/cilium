@@ -295,6 +295,8 @@ const (
 	// EnableSessionAffinity enables a support for service sessionAffinity
 	EnableSessionAffinity = "enable-session-affinity"
 
+	EnableServiceTopology = "enable-service-topology"
+
 	// EnableIdentityMark enables setting the mark field with the identity for
 	// local traffic. This may be disabled if chaining modes and Cilium use
 	// conflicting marks.
@@ -444,6 +446,9 @@ const (
 
 	// MTUName is the name of the MTU option
 	MTUName = "mtu"
+
+	// RouteMetric is the name of the route-metric option
+	RouteMetric = "route-metric"
 
 	// DatapathMode is the name of the DatapathMode option
 	DatapathMode = "datapath-mode"
@@ -796,6 +801,9 @@ const (
 	// IPv4NativeRoutingCIDR describes a v4 CIDR in which pod IPs are routable
 	IPv4NativeRoutingCIDR = "ipv4-native-routing-cidr"
 
+	// IPv6NativeRoutingCIDR describes a v6 CIDR in which pod IPs are routable
+	IPv6NativeRoutingCIDR = "ipv6-native-routing-cidr"
+
 	// EgressMasqueradeInterfaces is the selector used to select interfaces
 	// subject to egress masquerading
 	EgressMasqueradeInterfaces = "egress-masquerade-interfaces"
@@ -809,7 +817,7 @@ const (
 	IdentityAllocationMode = "identity-allocation-mode"
 
 	// IdentityAllocationModeKVstore enables use of a key-value store such
-	// as etcd or consul for identity allocation
+	// as etcd for identity allocation
 	IdentityAllocationModeKVstore = "kvstore"
 
 	// IdentityAllocationModeCRD enables use of Kubernetes CRDs for
@@ -1281,6 +1289,9 @@ type DaemonConfig struct {
 
 	// MTU is the maximum transmission unit of the underlying network
 	MTU int
+
+	// RouteMetric is the metric used for the routes added to the cilium_host device
+	RouteMetric int
 
 	// ClusterName is the name of the cluster
 	ClusterName string
@@ -1786,6 +1797,8 @@ type DaemonConfig struct {
 	// EnableSessionAffinity enables a support for service sessionAffinity
 	EnableSessionAffinity bool
 
+	EnableServiceTopology bool
+
 	// Selection of BPF main clock source (ktime vs jiffies)
 	ClockSource BPFClockSource
 
@@ -1816,6 +1829,9 @@ type DaemonConfig struct {
 
 	// IPv4NativeRoutingCIDR describes a CIDR in which pod IPs are routable
 	IPv4NativeRoutingCIDR *cidr.CIDR
+
+	// IPv6NativeRoutingCIDR describes a CIDR in which pod IPs are routable
+	IPv6NativeRoutingCIDR *cidr.CIDR
 
 	// EgressMasqueradeInterfaces is the selector used to select interfaces
 	// subject to egress masquerading
@@ -2097,6 +2113,21 @@ func (c *DaemonConfig) SetIPv4NativeRoutingCIDR(cidr *cidr.CIDR) {
 	c.ConfigPatchMutex.Unlock()
 }
 
+// GetIPv6NativeRoutingCIDR returns the native routing CIDR if configured
+func (c *DaemonConfig) GetIPv6NativeRoutingCIDR() (cidr *cidr.CIDR) {
+	c.ConfigPatchMutex.RLock()
+	cidr = c.IPv6NativeRoutingCIDR
+	c.ConfigPatchMutex.RUnlock()
+	return
+}
+
+// SetIPv6NativeRoutingCIDR sets the native routing CIDR
+func (c *DaemonConfig) SetIPv6NativeRoutingCIDR(cidr *cidr.CIDR) {
+	c.ConfigPatchMutex.Lock()
+	c.IPv6NativeRoutingCIDR = cidr
+	c.ConfigPatchMutex.Unlock()
+}
+
 // IsExcludedLocalAddress returns true if the specified IP matches one of the
 // excluded local IP ranges
 func (c *DaemonConfig) IsExcludedLocalAddress(ip net.IP) bool {
@@ -2141,8 +2172,7 @@ func (c *DaemonConfig) AlwaysAllowLocalhost() bool {
 	}
 }
 
-// TunnelingEnabled returns true if the remote-node identity feature
-// is enabled
+// TunnelingEnabled returns true if tunneling is enabled, i.e. not set to "disabled".
 func (c *DaemonConfig) TunnelingEnabled() bool {
 	return c.Tunnel != TunnelDisabled
 }
@@ -2268,6 +2298,10 @@ func (c *DaemonConfig) Validate() error {
 		return fmt.Errorf("MTU '%d' cannot be negative", c.MTU)
 	}
 
+	if c.RouteMetric < 0 {
+		return fmt.Errorf("RouteMetric '%d' cannot be negative", c.RouteMetric)
+	}
+
 	if c.IPAM == ipamOption.IPAMENI && c.EnableIPv6 {
 		return fmt.Errorf("IPv6 cannot be enabled in ENI IPAM mode")
 	}
@@ -2309,6 +2343,10 @@ func (c *DaemonConfig) Validate() error {
 	}
 
 	if err := c.checkIPv4NativeRoutingCIDR(); err != nil {
+		return err
+	}
+
+	if err := c.checkIPv6NativeRoutingCIDR(); err != nil {
 		return err
 	}
 
@@ -2490,6 +2528,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableAutoProtectNodePortRange = viper.GetBool(EnableAutoProtectNodePortRange)
 	c.KubeProxyReplacement = viper.GetString(KubeProxyReplacement)
 	c.EnableSessionAffinity = viper.GetBool(EnableSessionAffinity)
+	c.EnableServiceTopology = viper.GetBool(EnableServiceTopology)
 	c.EnableBandwidthManager = viper.GetBool(EnableBandwidthManager)
 	c.EnableRecorder = viper.GetBool(EnableRecorder)
 	c.EnableMKE = viper.GetBool(EnableMKE)
@@ -2572,6 +2611,7 @@ func (c *DaemonConfig) Populate() {
 	c.ProxyPrometheusPort = viper.GetInt(ProxyPrometheusPort)
 	c.ReadCNIConfiguration = viper.GetString(ReadCNIConfiguration)
 	c.RestoreState = viper.GetBool(Restore)
+	c.RouteMetric = viper.GetInt(RouteMetric)
 	c.RunDir = viper.GetString(StateDir)
 	c.SidecarIstioProxyImage = viper.GetString(SidecarIstioProxyImage)
 	c.UseSingleClusterRoute = viper.GetBool(SingleClusterRouteName)
@@ -2644,6 +2684,16 @@ func (c *DaemonConfig) Populate() {
 
 		if len(c.IPv4NativeRoutingCIDR.IP) != net.IPv4len {
 			log.Fatalf("%s must be an IPv4 CIDR", IPv4NativeRoutingCIDR)
+		}
+	}
+
+	ipv6NativeRoutingCIDR := viper.GetString(IPv6NativeRoutingCIDR)
+
+	if ipv6NativeRoutingCIDR != "" {
+		c.IPv6NativeRoutingCIDR = cidr.MustParseCIDR(ipv6NativeRoutingCIDR)
+
+		if len(c.IPv6NativeRoutingCIDR.IP) != net.IPv6len {
+			log.Fatalf("%s must be an IPv6 CIDR", IPv6NativeRoutingCIDR)
 		}
 	}
 
@@ -3023,6 +3073,19 @@ func (c *DaemonConfig) checkIPv4NativeRoutingCIDR() error {
 				"in combination with --%s --%s=%s --%s=%s --%s=true",
 			IPv4NativeRoutingCIDR, EnableIPv4Masquerade, TunnelName, c.Tunnel,
 			IPAM, c.IPAMMode(), EnableIPv4Name)
+	}
+
+	return nil
+}
+
+func (c *DaemonConfig) checkIPv6NativeRoutingCIDR() error {
+	if c.GetIPv6NativeRoutingCIDR() == nil && c.EnableIPv6Masquerade && c.Tunnel == TunnelDisabled &&
+		c.EnableIPv6 {
+		return fmt.Errorf(
+			"native routing cidr must be configured with option --%s "+
+				"in combination with --%s --%s=%s --%s=true",
+			IPv6NativeRoutingCIDR, EnableIPv6Masquerade, TunnelName, c.Tunnel,
+			EnableIPv6Name)
 	}
 
 	return nil

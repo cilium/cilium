@@ -178,7 +178,7 @@ func init() {
 	flags.Bool(option.EnableIPv4Name, defaults.EnableIPv4, "Enable IPv4 support")
 	option.BindEnv(option.EnableIPv4Name)
 
-	flags.String(operatorOption.ClusterPoolIPv4CIDR, "",
+	flags.StringSlice(operatorOption.ClusterPoolIPv4CIDR, []string{},
 		fmt.Sprintf("IPv4 CIDR Range for Pods in cluster. Requires '%s=%s' and '%s=%s'",
 			option.IPAM, ipamOption.IPAMClusterPool,
 			option.EnableIPv4Name, "true"))
@@ -193,7 +193,7 @@ func init() {
 	flags.Bool(option.EnableIPv6Name, defaults.EnableIPv6, "Enable IPv6 support")
 	option.BindEnv(option.EnableIPv6Name)
 
-	flags.String(operatorOption.ClusterPoolIPv6CIDR, "",
+	flags.StringSlice(operatorOption.ClusterPoolIPv6CIDR, []string{},
 		fmt.Sprintf("IPv6 CIDR Range for Pods in cluster. Requires '%s=%s' and '%s=%s'",
 			option.IPAM, ipamOption.IPAMClusterPool,
 			option.EnableIPv6Name, "true"))
@@ -244,8 +244,10 @@ func init() {
 	flags.String(option.K8sKubeConfigPath, "", "Absolute path of the kubernetes kubeconfig file")
 	option.BindEnv(option.K8sKubeConfigPath)
 
+	// To be removed in Cilium 1.12
 	flags.Duration(operatorOption.NodesGCInterval, 2*time.Minute, "GC interval for nodes store in the kvstore")
 	option.BindEnv(operatorOption.NodesGCInterval)
+	flags.MarkDeprecated(operatorOption.NodesGCInterval, "Unused flag, will be removed in future Cilium releases")
 
 	flags.String(operatorOption.OperatorPrometheusServeAddr, operatorOption.PrometheusServeAddr, "Address to serve Prometheus metrics")
 	option.BindEnv(operatorOption.OperatorPrometheusServeAddr)

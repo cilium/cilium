@@ -115,6 +115,7 @@ cilium-agent [flags]
       --enable-policy string                                 Enable policy enforcement (default "default")
       --enable-recorder                                      Enable BPF datapath pcap recorder
       --enable-remote-node-identity                          Enable use of remote node identity
+      --enable-service-topology                              Enable support for service topology aware hints
       --enable-session-affinity                              Enable support for service session affinity
       --enable-svc-source-range-check                        Enable check of service source ranges (currently, only for LoadBalancer) (default true)
       --enable-tracing                                       Enable tracing while determining policy (debugging)
@@ -175,11 +176,11 @@ cilium-agent [flags]
       --ipv4-service-range string                            Kubernetes IPv4 services CIDR if not inside cluster prefix (default "auto")
       --ipv6-cluster-alloc-cidr string                       IPv6 /64 CIDR used to allocate per node endpoint /96 CIDR (default "f00d::/64")
       --ipv6-mcast-device string                             Device that joins a Solicited-Node multicast group for IPv6
+      --ipv6-native-routing-cidr string                      Allows to explicitly specify the IPv6 CIDR for native routing. This value corresponds to the configured cluster-cidr.
       --ipv6-node string                                     IPv6 address of node (default "auto")
       --ipv6-pod-subnets strings                             List of IPv6 pod subnets to preconfigure for encryption
       --ipv6-range string                                    Per-node IPv6 endpoint prefix, e.g. fd02:1:1::/96 (default "auto")
       --ipv6-service-range string                            Kubernetes IPv6 services CIDR if not inside cluster prefix (default "auto")
-      --ipvlan-master-device string                          Device facing external network acting as ipvlan master (default "undefined")
       --join-cluster                                         Join a Cilium cluster via kvstore registration
       --k8s-api-server string                                Kubernetes API server URL
       --k8s-heartbeat-timeout duration                       Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
@@ -225,6 +226,7 @@ cilium-agent [flags]
       --proxy-prometheus-port int                            Port to serve Envoy metrics on. Default 0 (disabled).
       --read-cni-conf string                                 Read to the CNI configuration at specified path to extract per node configuration
       --restore                                              Restores state, if possible, from previous daemon (default true)
+      --route-metric int                                     Overwrite the metric used by cilium when adding routes to its 'cilium_host' device
       --sidecar-istio-proxy-image string                     Regular expression matching compatible Istio sidecar istio-proxy container image names (default "cilium/istio_proxy")
       --single-cluster-route                                 Use a single cluster route instead of per node routes
       --socket-path string                                   Sets daemon's socket path to listen for connections (default "/var/run/cilium/cilium.sock")

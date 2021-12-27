@@ -1144,7 +1144,32 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 		if (identity_is_remote_node(info->sec_label))
 			return false;
 #endif
-#if defined(ENABLE_EGRESS_GATEWAY)
+
+		/* Check if this packet belongs to reply traffic coming from a
+		 * local endpoint.
+		 *
+		 * If ep is NULL, it means there's no endpoint running on the
+		 * node which matches the packet source IP, which means we can
+		 * skip the CT lookup since this cannot be reply traffic.
+		 */
+		if (ep) {
+			bool is_reply = false;
+			struct ipv4_ct_tuple tuple = {
+				.nexthdr = ip4->protocol,
+				.daddr = ip4->daddr,
+				.saddr = ip4->saddr
+			};
+
+			/* If the packet is a reply it means that outside has
+			 * initiated the connection, so no need to SNAT the
+			 * reply.
+			 */
+			if (!ct_is_reply4(get_ct_map4(&tuple), ctx, ETH_HLEN + ipv4_hdrlen(ip4),
+					  &tuple, &is_reply) && is_reply)
+				return false;
+		}
+
+ #if defined(ENABLE_EGRESS_GATEWAY)
 		/* Check egress gateway policy only for traffic which matches
 		 * one of the following conditions.
 		 *  - Not from a local endpoint (inc. local host): that tells us
@@ -1156,7 +1181,7 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 		 *    IPV4_SNAT_EXCLUSION_DST_CIDR check.
 		 */
 		if (!ep || !identity_is_remote_node(info->sec_label)) {
-			struct egress_info *einfo;
+			struct egress_gw_policy_entry *egress_gw_policy;
 
 			/* Check if SNAT needs to be applied to the packet.
 			 * Apply SNAT if there is an egress rule in ebpf map,
@@ -1165,33 +1190,15 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 			 * interface it means it is forwarded to another node,
 			 * instead of leaving the cluster.
 			 */
-			einfo = lookup_ip4_egress_endpoint(ip4->saddr, ip4->daddr);
-			if (einfo) {
-				*addr = einfo->egress_ip;
+			egress_gw_policy = lookup_ip4_egress_gw_policy(ip4->saddr, ip4->daddr);
+			if (egress_gw_policy) {
+				*addr = egress_gw_policy->egress_ip;
 				*from_endpoint = true;
 				return true;
 			}
 		}
 #endif
-
 		if (ep) {
-			bool is_reply = false;
-			struct ipv4_ct_tuple tuple = {
-				.nexthdr = ip4->protocol,
-				.daddr = ip4->daddr,
-				.saddr = ip4->saddr
-			};
-
-			/* The packet is a reply, which means that outside
-			 * has initiated the connection, so no need to SNAT
-			 * the reply.
-			 */
-			if (!ct_is_reply4(get_ct_map4(&tuple), ctx,
-					  ETH_HLEN + ipv4_hdrlen(ip4),
-					  &tuple, &is_reply) &&
-			    is_reply)
-				return false;
-
 			*from_endpoint = true;
 			*addr = IPV4_MASQUERADE;
 			return true;
@@ -1908,10 +1915,10 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 	 * via the tunnel.
 	 */
 	{
-		struct egress_info *einfo;
+		struct egress_gw_policy_entry *egress_policy;
 
-		einfo = lookup_ip4_egress_endpoint(ip4->daddr, ip4->saddr);
-		if (einfo) {
+		egress_policy = lookup_ip4_egress_gw_policy(ip4->daddr, ip4->saddr);
+		if (egress_policy) {
 			struct remote_endpoint_info *info;
 
 			info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);

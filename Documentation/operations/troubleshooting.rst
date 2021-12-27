@@ -209,37 +209,6 @@ in the last three minutes:
 You may also use ``-o json`` to obtain more detailed information about each
 flow event.
 
-In the following example the first command extracts the numeric security
-identities for all dropped flows which originated in the ``default/xwing`` pod
-in the last three minutes. The numeric security identity can then be used
-together with the Cilium CLI to obtain more information about why a particular
-flow was dropped:
-
-.. code-block:: shell-session
-
-   $ kubectl exec -n kube-system cilium-77lk6 -- \
-       hubble observe --since 3m --type drop --from-pod default/xwing -o json | \
-       jq .destination.identity | sort -u
-   788
-   $ kubectl exec -n kube-system cilium-77lk6 -- \
-       cilium policy trace --src-k8s-pod default:xwing --dst-identity 788
-   ----------------------------------------------------------------
-
-   Tracing From: [k8s:class=xwing, k8s:io.cilium.k8s.policy.cluster=default, k8s:io.cilium.k8s.policy.serviceaccount=default, k8s:io.kubernetes.pod.namespace=default, k8s:org=alliance] => To: [k8s:class=deathstar, k8s:io.cilium.k8s.policy.cluster=default, k8s:io.cilium.k8s.policy.serviceaccount=default, k8s:io.kubernetes.pod.namespace=default, k8s:org=empire] Ports: [0/ANY]
-
-   Resolving ingress policy for [k8s:class=deathstar k8s:io.cilium.k8s.policy.cluster=default k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.kubernetes.pod.namespace=default k8s:org=empire]
-   * Rule {"matchLabels":{"any:class":"deathstar","any:org":"empire","k8s:io.kubernetes.pod.namespace":"default"}}: selected
-       Allows from labels {"matchLabels":{"any:org":"empire","k8s:io.kubernetes.pod.namespace":"default"}}
-         No label match for [k8s:class=xwing k8s:io.cilium.k8s.policy.cluster=default k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.kubernetes.pod.namespace=default k8s:org=alliance]
-   1/1 rules selected
-   Found no allow rule
-   Ingress verdict: denied
-
-   Final verdict: DENIED
-
-Please refer to the :ref:`policy troubleshooting guide<policy_tracing>` for
-more details about how to troubleshoot policy related drops.
-
 .. note::
    **Hubble Relay**  allows you to query multiple Hubble instances
    simultaneously without having to first manually target a specific node.  See
@@ -468,6 +437,32 @@ If pod networking is not managed by Cilium. Ingress and egress policy rules
 selecting the respective pods will not be applied. See the section
 :ref:`network_policy` for more details.
 
+For a quick assessment of whether any pods are not managed by Cilium, the
+`Cilium CLI <https://github.com/cilium/cilium-cli>`_ will print the number
+of managed pods. If this prints that all of the pods are managed by Cilium,
+then there is no problem:
+
+.. code-block:: shell-session
+
+   $ cilium status
+       /¯¯\
+    /¯¯\__/¯¯\    Cilium:         OK
+    \__/¯¯\__/    Operator:       OK
+    /¯¯\__/¯¯\    Hubble:         OK
+    \__/¯¯\__/    ClusterMesh:    disabled
+       \__/
+
+   Deployment        cilium-operator    Desired: 2, Ready: 2/2, Available: 2/2
+   Deployment        hubble-relay       Desired: 1, Ready: 1/1, Available: 1/1
+   Deployment        hubble-ui          Desired: 1, Ready: 1/1, Available: 1/1
+   DaemonSet         cilium             Desired: 2, Ready: 2/2, Available: 2/2
+   Containers:       cilium-operator    Running: 2
+                     hubble-relay       Running: 1
+                     hubble-ui          Running: 1
+                     cilium             Running: 2
+   Cluster Pods:     5/5 managed by Cilium
+   ...
+
 You can run the following script to list the pods which are *not* managed by
 Cilium:
 
@@ -481,9 +476,6 @@ Cilium:
    kube-system/kube-dns-54cccfbdf8-zmv2c
    kube-system/kubernetes-dashboard-77d8b98585-g52k5
    kube-system/storage-provisioner
-
-See section :ref:`policy_tracing` for details and examples on how to use the
-policy tracing feature.
 
 Understand the rendering of your policy
 ---------------------------------------

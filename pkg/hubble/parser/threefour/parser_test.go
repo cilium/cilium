@@ -814,15 +814,15 @@ func TestTraceNotifyOriginalIP(t *testing.T) {
 		DstMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
 	}
 	ip := layers.IPv4{
-		SrcIP: net.ParseIP("2.2.2.2"),
-		DstIP: net.ParseIP("3.3.3.3"),
+		SrcIP: net.ParseIP("10.0.0.2"),
+		DstIP: net.ParseIP("10.0.0.3"),
 	}
 	data, err := testutils.CreateL3L4Payload(v0, &eth, &ip, &layers.TCP{})
 	require.NoError(t, err)
 
 	err = parser.Decode(data, f)
 	require.NoError(t, err)
-	assert.Equal(t, f.IP.Source, "2.2.2.2")
+	assert.Equal(t, f.IP.Source, "10.0.0.2")
 
 	v1 := monitor.TraceNotifyV1{
 		TraceNotifyV0: monitor.TraceNotifyV0{
@@ -855,8 +855,8 @@ func TestICMP(t *testing.T) {
 		DstMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
 	}
 	ip := layers.IPv4{
-		SrcIP:    net.ParseIP("2.2.2.2"),
-		DstIP:    net.ParseIP("3.3.3.3"),
+		SrcIP:    net.ParseIP("10.0.0.2"),
+		DstIP:    net.ParseIP("10.0.0.3"),
 		Protocol: layers.IPProtocolICMPv4,
 	}
 	icmpv4 := layers.ICMPv4{
@@ -926,8 +926,8 @@ func TestTraceNotifyLocalEndpoint(t *testing.T) {
 		DstMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
 	}
 	ip := layers.IPv4{
-		SrcIP:    net.ParseIP("2.2.2.2"),
-		DstIP:    net.ParseIP("3.3.3.3"),
+		SrcIP:    net.ParseIP("10.0.0.2"),
+		DstIP:    net.ParseIP("10.0.0.3"),
 		Protocol: layers.IPProtocolTCP,
 	}
 	data, err := testutils.CreateL3L4Payload(v0, &eth, &ip, &layers.TCP{})
@@ -971,8 +971,8 @@ func TestDebugCapture(t *testing.T) {
 		DstMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
 	}
 	ip := layers.IPv4{
-		SrcIP:    net.ParseIP("2.2.2.2"),
-		DstIP:    net.ParseIP("3.3.3.3"),
+		SrcIP:    net.ParseIP("10.0.0.2"),
+		DstIP:    net.ParseIP("10.0.0.3"),
 		Protocol: layers.IPProtocolTCP,
 	}
 	data, err := testutils.CreateL3L4Payload(dbg, &eth, &ip, &layers.TCP{})

@@ -309,6 +309,11 @@ func (d *Daemon) allocateIPs() error {
 
 	if option.Config.EnableIPv6 {
 		log.Infof("  IPv6 allocation prefix: %s", node.GetIPv6AllocRange())
+
+		if c := option.Config.GetIPv6NativeRoutingCIDR(); c != nil {
+			log.Infof("  IPv6 native routing prefix: %s", c.String())
+		}
+
 		log.Infof("  IPv6 router address: %s", node.GetIPv6Router())
 
 		if addrs, err := d.datapath.LocalNodeAddressing().IPv6().LocalAddresses(); err != nil {

@@ -104,7 +104,7 @@ func (c *FakeCiliumEndpoints) UpdateStatus(ctx context.Context, ciliumEndpoint *
 // Delete takes name of the ciliumEndpoint and deletes it. Returns an error if one occurs.
 func (c *FakeCiliumEndpoints) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(ciliumendpointsResource, c.ns, name), &v2.CiliumEndpoint{})
+		Invokes(testing.NewDeleteActionWithOptions(ciliumendpointsResource, c.ns, name, opts), &v2.CiliumEndpoint{})
 
 	return err
 }

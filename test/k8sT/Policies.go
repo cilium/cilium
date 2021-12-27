@@ -1360,7 +1360,7 @@ var _ = SkipDescribeIf(func() bool {
 					})
 
 				By("Retrieving backend pod and outside node IP addresses")
-				outsideNodeName, outsideIP = kubectl.GetNodeInfo(helpers.GetNodeWithoutCilium())
+				outsideNodeName, outsideIP = kubectl.GetNodeInfo(helpers.GetFirstNodeWithoutCilium())
 
 				var demoPods v1.PodList
 				kubectl.GetPods(testNamespace, fmt.Sprintf("-l %s", testDS)).Unmarshal(&demoPods)
@@ -1613,7 +1613,7 @@ var _ = SkipDescribeIf(func() bool {
 				_, k8s2PodIP = kubectl.GetPodOnNodeLabeledWithOffset(helpers.K8s2, testDS, 0)
 
 				if helpers.ExistNodeWithoutCilium() {
-					outsideNodeName, _ = kubectl.GetNodeInfo(helpers.GetNodeWithoutCilium())
+					outsideNodeName, _ = kubectl.GetNodeInfo(helpers.GetFirstNodeWithoutCilium())
 				}
 
 				// Masquerade function should be disabled

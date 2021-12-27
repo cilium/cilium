@@ -1613,6 +1613,44 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1(c *check.C) {
 				return svcEP
 			},
 		},
+		{
+			name: "endpoints have zone hints",
+			setupArgs: func() args {
+				return args{
+					eps: &slim_discovery_v1.EndpointSlice{
+						ObjectMeta: slim_metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Endpoints: []slim_discovery_v1.Endpoint{
+							{
+								Addresses: []string{"172.0.0.1"},
+								Hints: &slim_discovery_v1.EndpointHints{
+									ForZones: []slim_discovery_v1.ForZone{{Name: "testing"}},
+								},
+							},
+						},
+						Ports: []slim_discovery_v1.EndpointPort{
+							{
+								Name:     func() *string { a := "http-test-svc"; return &a }(),
+								Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
+								Port:     func() *int32 { a := int32(8080); return &a }(),
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() *Endpoints {
+				svcEP := newEndpoints()
+				svcEP.Backends["172.0.0.1"] = &Backend{
+					Ports: serviceStore.PortConfiguration{
+						"http-test-svc": loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
+					},
+					HintsForZones: []string{"testing"},
+				}
+				return svcEP
+			},
+		},
 	}
 	for _, tt := range tests {
 		args := tt.setupArgs()

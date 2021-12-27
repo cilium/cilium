@@ -1,13 +1,13 @@
 #!/bin/bash
 
-# Copyright 2017-2020 Authors of Cilium
+# Copyright 2017-2021 Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
 set -o errexit
 set -o pipefail
 set -o nounset
 
-MAKER_IMAGE="${MAKER_IMAGE:-quay.io/cilium/image-maker:ca3f9135c0c8cb88c979f829d93a167838776615@sha256:b64f9168f52dae5538cd8ca06922e522eb84e36d3f727583c352266e3ed15894}"
+MAKER_IMAGE="${MAKER_IMAGE:-quay.io/cilium/image-maker:7de7f1c855ce063bdbe57fdfb28599a3ad5ec8f1@sha256:dde8500cbfbb6c41433d376fdfcb3831e2df9cec50cf4f49e8553dc6eba74e72}"
 
 root_dir="$(git rev-parse --show-toplevel)"
 

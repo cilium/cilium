@@ -129,13 +129,28 @@ definitions:
       host:
         description: Connectivity status to cilium-health instance on node IP
         "$ref": "#/definitions/HostStatus"
+      health-endpoint:
+        description: Connectivity status to simulated endpoint on the node
+        "$ref": "#/definitions/EndpointStatus"
       endpoint:
-        description: Connectivity status to simulated endpoint on node IP
+        description: |
+          DEPRECATED: Please use the health-endpoint field instead, which
+          supports reporting the status of different addresses for the endpoint
         "$ref": "#/definitions/PathStatus"
   HostStatus:
     description: |
       Connectivity status to host cilium-health instance via different paths,
       probing via all known IP addresses
+    properties:
+      primary-address:
+        "$ref": "#/definitions/PathStatus"
+      secondary-addresses:
+        type: array
+        items:
+          "$ref": "#/definitions/PathStatus"
+  EndpointStatus:
+    description: |
+      Connectivity status to host cilium-health endpoints via different paths
     properties:
       primary-address:
         "$ref": "#/definitions/PathStatus"

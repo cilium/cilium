@@ -155,13 +155,14 @@ Use ``--verbose`` for full details:
     $ kubectl exec -it -n kube-system cilium-fmh8d -- cilium status --verbose
     [...]
     KubeProxyReplacement Details:
-      Status:              Strict
-      Protocols:           TCP, UDP
-      Devices:             eth0 (Direct Routing), eth1
-      Mode:                SNAT
-      Backend Selection:   Random
-      Session Affinity:    Enabled
-      XDP Acceleration:    Disabled
+      Status:                Strict
+      Protocols:             TCP, UDP
+      Devices:               eth0 (Direct Routing), eth1
+      Mode:                  SNAT
+      Backend Selection:     Random
+      Session Affinity:      Enabled
+      Graceful Termination:  Enabled
+      XDP Acceleration:      Disabled
       Services:
       - ClusterIP:      Enabled
       - NodePort:       Enabled (Range: 30000-32767)
@@ -657,8 +658,8 @@ As an instance example, ``m5n.xlarge`` is used in the config ``nodegroup-config.
       desiredCapacity: 2
       ssh:
         allow: true
-      # taint nodes so that application pods are
-      # not scheduled until Cilium is deployed.
+      ## taint nodes so that application pods are
+      ## not scheduled until Cilium is deployed.
       taints:
         - key: "node.cilium.io/agent-not-ready"
           value: "true"
@@ -1163,10 +1164,22 @@ Graceful Termination
 ********************
 
 Cilium's eBPF kube-proxy replacement supports graceful termination of service
-endpoints deletion. The feature requires at least Kubernetes version 1.20, and
+endpoint pods. The feature requires at least Kubernetes version 1.20, and
 the feature gate ``EndpointSliceTerminatingCondition`` needs to be enabled.
 By default, the Cilium agent then detects such terminating Pod state. If needed,
 the feature can be disabled with the configuration option ``enable-k8s-terminating-endpoint``.
+
+The cilium agent feature flag can be probed by running ``cilium status`` command:
+
+.. code-block:: shell-session
+
+    $ kubectl exec -it -n kube-system cilium-fmh8d -- cilium status --verbose
+    [...]
+    KubeProxyReplacement Details:
+     [...]
+     Graceful Termination:  Enabled
+    [...]
+
 When Cilium agent receives a Kubernetes update event for a terminating endpoint,
 the datapath state for the endpoint is removed such that it won't service new
 connections, but the endpoint's active connections are able to terminate
@@ -1258,6 +1271,14 @@ working, take a look at `this KEP
     If Cilium with a non-empty service proxy name is meant to manage all services in kube-proxy
     free mode, make sure that default Kubernetes services like ``kube-dns`` and ``kubernetes``
     have the required label value.
+
+Topology Aware Hints
+********************
+
+The kube-proxy replacement implements the K8s service
+`Topology Aware Hints <https://kubernetes.io/docs/concepts/services-networking/topology-aware-hints>`__.
+This allows Cilium nodes to prefer service endpoints residing in the same zone.
+To enable the feature, set ``loadBalancer.serviceTopology=true``.
 
 Neighbor Discovery
 ******************

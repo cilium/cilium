@@ -156,7 +156,7 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_ep_to_policy", bpffsMountpoint),
 			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_throttle", bpffsMountpoint),
 			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_encrypt_state", bpffsMountpoint),
-			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_egress_v4", bpffsMountpoint),
+			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_egress_gw_policy_v4", bpffsMountpoint),
 			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lb4_services_v2", bpffsMountpoint),
 			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lb4_services", bpffsMountpoint),
 			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lb4_backends_v2", bpffsMountpoint),
@@ -258,8 +258,8 @@ func routeCommands() []string {
 	routes, _ := execCommand("ip route show table all | grep -E --only-matching 'table [0-9]+'")
 
 	for _, r := range bytes.Split(bytes.TrimSuffix(routes, []byte("\n")), []byte("\n")) {
-		routeTablev4 := fmt.Sprintf("ip -4 route show %v", r)
-		routeTablev6 := fmt.Sprintf("ip -6 route show %v", r)
+		routeTablev4 := fmt.Sprintf("ip -4 route show %s", r)
+		routeTablev6 := fmt.Sprintf("ip -6 route show %s", r)
 		commands = append(commands, routeTablev4, routeTablev6)
 	}
 	return commands
@@ -352,7 +352,7 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 		"cilium recorder list",
 		"cilium status --verbose",
 		"cilium identity list",
-		"cilium-health status",
+		"cilium-health status --verbose",
 		"cilium policy selectors -o json",
 		"cilium node list",
 	}

@@ -375,9 +375,11 @@ func AutoComplete() error {
 // filesystem to be the most up-to-date source of truth. The chosen router IP
 // is then checked whether it is contained inside node CIDR (pod CIDR) range.
 // If not, then the router IP is discarded and not restored.
-func RestoreHostIPs(ipv6 bool, fromK8s, fromFS net.IP, cidr *cidr.CIDR) {
+//
+// The restored IP is returned.
+func RestoreHostIPs(ipv6 bool, fromK8s, fromFS net.IP, cidr *cidr.CIDR) net.IP {
 	if !option.Config.EnableHostIPRestore {
-		return
+		return nil
 	}
 
 	var (
@@ -398,6 +400,9 @@ func RestoreHostIPs(ipv6 bool, fromK8s, fromFS net.IP, cidr *cidr.CIDR) {
 			"The router IP (%s) considered for restoration does not belong in the Pod CIDR of the node. Discarding old router IP.",
 			ip,
 		)
+		// Indicate that this IP will not be restored by setting to nil after
+		// we've used it to log above.
+		ip = nil
 		setter(nil)
 	case err != nil && errors.Is(err, errMismatch):
 		log.Warnf(
@@ -408,16 +413,31 @@ func RestoreHostIPs(ipv6 bool, fromK8s, fromFS net.IP, cidr *cidr.CIDR) {
 	case err == nil:
 		setter(ip)
 	}
+
+	return ip
 }
 
 func chooseHostIPsToRestore(ipv6 bool, fromK8s, fromFS net.IP, cidr *cidr.CIDR) (ip net.IP, err error) {
 	switch {
+	// If both IPs are available, then check both for validity. We prefer the
+	// local IP from the FS over the K8s IP.
 	case fromK8s != nil && fromFS != nil:
 		if fromK8s.Equal(fromFS) {
 			ip = fromK8s
 		} else {
 			ip = fromFS
 			err = errMismatch
+
+			// Check if we need to fallback to using the fromK8s IP, in the
+			// case that the IP from the FS is not within the CIDR. If we
+			// fallback, then we also need to check the fromK8s IP is also
+			// within the CIDR.
+			if cidr != nil && cidr.Contains(ip) {
+				return
+			} else if cidr != nil && cidr.Contains(fromK8s) {
+				ip = fromK8s
+				return
+			}
 		}
 	case fromK8s == nil && fromFS != nil:
 		ip = fromFS

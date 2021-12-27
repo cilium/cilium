@@ -66,7 +66,6 @@ Advanced Networking
    alibabacloud-eni
    kube-router
    bird
-   ipvlan
    encryption
    host-services
    kubeproxy-free

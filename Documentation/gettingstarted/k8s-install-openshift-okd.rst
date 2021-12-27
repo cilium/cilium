@@ -112,7 +112,7 @@ The resulting configuration will look like this:
 You may wish to make a few changes, e.g. increase the number of nodes.
 
 If you do change any of the CIDRs, you will need to make sure that Helm values in ``${CLUSTER_NAME}/manifests/cluster-network-07-cilium-ciliumconfig.yaml``
-reflect those changes. Namely ``clusterNetwork`` should match ``nativeRoutingCIDR``, ``clusterPoolIPv4PodCIDR`` and ``clusterPoolIPv4MaskSize``.
+reflect those changes. Namely ``clusterNetwork`` should match ``ipv4NativeRoutingCIDR``, ``clusterPoolIPv4PodCIDRList`` and ``clusterPoolIPv4MaskSize``.
 Also make sure that the ``clusterNetwork`` does not conflict with ``machineNetwork`` (which represents the VPC CIDR in AWS).
 
 .. warning::
@@ -195,70 +195,6 @@ Create the cluster:
    INFO Access the OpenShift web-console here: https://console-openshift-console.apps.cluster-name.ilya-openshift-test-1.cilium.rocks
    INFO Login to the console with user: "kubeadmin", and password: "<REDACTED>"
    INFO Time elapsed: 32m9s
-
-Next, the firewall configuration must be updated to allow Cilium ports :ref:`firewall_requirements`.
-``openshift-install`` does not support custom firewall rules, so you will need to
-use one of the following scripts if you are using AWS or GCP. Azure does not
-need additional configuration.
-
-.. warning::
-
-   **You need to execute the following command to configure firewall rules just after**
-   ``INFO Waiting up to 40m0s for bootstrapping to complete...`` **appears in the logs,
-   or the installation will fail**. It is safe to apply these changes once, OpenShift will
-   not override these.
-
-.. tabs::
-
-   .. tab:: AWS: enable Cilium ports
-
-      This script depends on ``jq`` and the AWS CLI (``aws``). Make sure to run
-      it inside of the same working directory where ``${CLUSTER_NAME}``
-      directory is present.
-
-      .. code-block:: shell-session
-
-         infraID="$(jq -r < "${CLUSTER_NAME}/metadata.json" '.infraID')"
-         aws_region="$(jq -r < "${CLUSTER_NAME}/metadata.json" '.aws.region')"
-         cluster_tag="$(jq -r < "${CLUSTER_NAME}/metadata.json" '.aws.identifier[0] | to_entries | "Name=tag:\(.[0].key),Values=\(.[0].value)"')"
-
-         worker_sg="$(aws ec2 describe-security-groups --region "${aws_region}" --filters "${cluster_tag}" "Name=tag:Name,Values=${infraID}-worker-sg" | jq -r '.SecurityGroups[0].GroupId')"
-         master_sg="$(aws ec2 describe-security-groups --region "${aws_region}" --filters "${cluster_tag}" "Name=tag:Name,Values=${infraID}-master-sg" | jq -r '.SecurityGroups[0].GroupId')"
-
-         aws ec2 authorize-security-group-ingress --region "${aws_region}" \
-            --ip-permissions \
-               "IpProtocol=udp,FromPort=8472,ToPort=8472,UserIdGroupPairs=[{GroupId=${worker_sg}},{GroupId=${master_sg}}]" \
-               "IpProtocol=tcp,FromPort=4240,ToPort=4240,UserIdGroupPairs=[{GroupId=${worker_sg}},{GroupId=${master_sg}}]" \
-            --group-id "${worker_sg}"
-
-         aws ec2 authorize-security-group-ingress --region "${aws_region}" \
-            --ip-permissions \
-               "IpProtocol=udp,FromPort=8472,ToPort=8472,UserIdGroupPairs=[{GroupId=${worker_sg}},{GroupId=${master_sg}}]" \
-               "IpProtocol=tcp,FromPort=4240,ToPort=4240,UserIdGroupPairs=[{GroupId=${worker_sg}},{GroupId=${master_sg}}]" \
-            --group-id "${master_sg}"
-
-   .. tab:: GCP: enable Cilium ports
-
-      This script depends on ``jq`` and the Google Cloud SDK (``gcloud``). Make
-      sure to run it inside of the same working directory where
-      ``${CLUSTER_NAME}`` directory is present.
-
-      .. code-block:: shell-session
-
-         infraID="$(jq -r < "${CLUSTER_NAME}/metadata.json" '.infraID')"
-         gcp_projectID="$(jq -r < "${CLUSTER_NAME}/metadata.json" '.gcp.projectID')"
-
-         gcloud compute firewall-rules create \
-            --project="${gcp_projectID}" \
-            --network="${infraID}-network" \
-            --allow=tcp:4240,udp:8472,icmp \
-            --source-tags="${infraID}-worker,${infraID}-master" \
-            --target-tags="${infraID}-worker,${infraID}-master" \
-              "${infraID}-cilium"
-
-   .. tab:: Azure: enable Cilium ports
-
-      No additional configuration is needed.
 
 Accessing the cluster
 ---------------------

@@ -79,6 +79,7 @@ import (
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 
 	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -261,7 +262,13 @@ func restoreCiliumHostIPs(ipv6 bool, fromK8s net.IP) {
 	)
 
 	if ipv6 {
-		cidr = node.GetIPv6AllocRange()
+		switch option.Config.IPAMMode() {
+		case ipamOption.IPAMCRD:
+			// The native routing CIDR is the pod CIDR in these IPAM modes.
+			cidr = option.Config.GetIPv6NativeRoutingCIDR()
+		default:
+			cidr = node.GetIPv6AllocRange()
+		}
 		fromFS = node.GetIPv6Router()
 	} else {
 		switch option.Config.IPAMMode() {
@@ -274,7 +281,50 @@ func restoreCiliumHostIPs(ipv6 bool, fromK8s net.IP) {
 		fromFS = node.GetInternalIPv4Router()
 	}
 
-	node.RestoreHostIPs(ipv6, fromK8s, fromFS, cidr)
+	restoredIP := node.RestoreHostIPs(ipv6, fromK8s, fromFS, cidr)
+	if err := removeOldRouterState(restoredIP); err != nil {
+		log.WithError(err).Warnf(
+			"Failed to remove old router IPs (restored IP: %s) from cilium_host. Manual intervention is required to remove all other old IPs.",
+			restoredIP,
+		)
+	}
+}
+
+// removeOldRouterState will try to ensure that the only IP assigned to the
+// `cilium_host` interface is the given restored IP. If the given IP is nil,
+// then it attempts to clear all IPs from the interface.
+func removeOldRouterState(restoredIP net.IP) error {
+	l, err := netlink.LinkByName(defaults.HostDevice)
+	if err != nil {
+		return err
+	}
+
+	family := netlink.FAMILY_V6
+	if restoredIP.To4() != nil {
+		family = netlink.FAMILY_V4
+	}
+	addrs, err := netlink.AddrList(l, family)
+	if err != nil {
+		return err
+	}
+	if len(addrs) > 1 {
+		log.Info("More than one router IP was found on the cilium_host device after restoration, cleaning up old router IPs.")
+	}
+
+	var errs []error
+	for _, a := range addrs {
+		if restoredIP != nil && restoredIP.Equal(a.IP) {
+			continue
+		}
+		if err := netlink.AddrDel(l, &a); err != nil {
+			errs = append(errs, fmt.Errorf("failed to remove IP %s: %w", a.IP, err))
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("failed to remove all old router IPs: %v", errs)
+	}
+
+	return nil
 }
 
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
@@ -441,7 +491,9 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		}
 	}
 
-	d.egressGatewayManager = egressgateway.NewEgressGatewayManager()
+	if option.Config.EnableIPv4EgressGateway {
+		d.egressGatewayManager = egressgateway.NewEgressGatewayManager(&d)
+	}
 
 	d.k8sWatcher = watchers.NewK8sWatcher(
 		d.endpointManager,
@@ -462,7 +514,15 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	d.k8sWatcher.NodeChain.Register(d.endpointManager)
 	if option.Config.BGPAnnounceLBIP || option.Config.BGPAnnouncePodCIDR {
-		d.k8sWatcher.NodeChain.Register(d.bgpSpeaker)
+		switch option.Config.IPAMMode() {
+		case ipamOption.IPAMKubernetes:
+			d.k8sWatcher.NodeChain.Register(d.bgpSpeaker)
+		case ipamOption.IPAMClusterPool:
+			d.k8sWatcher.CiliumNodeChain.Register(d.bgpSpeaker)
+		}
+	}
+	if option.Config.EnableServiceTopology {
+		d.k8sWatcher.NodeChain.Register(&d.k8sWatcher.K8sSvcCache)
 	}
 
 	d.redirectPolicyManager.RegisterSvcCache(&d.k8sWatcher.K8sSvcCache)
@@ -1043,4 +1103,10 @@ func (d *Daemon) K8sCacheIsSynced() bool {
 	default:
 		return false
 	}
+}
+
+// WaitUntilK8sCacheIsSynced waits until the agent has fully synced its k8s cache with the API
+// server
+func (d *Daemon) WaitUntilK8sCacheIsSynced() {
+	_, _ = <-d.k8sCachesSynced
 }

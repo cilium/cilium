@@ -383,7 +383,8 @@ customCalls:
   enabled: false
 
 # -- Configure which datapath mode should be used for configuring container
-# connectivity. Valid options are "veth" or "ipvlan".
+# connectivity. Valid options are "veth" or "ipvlan". Deprecated, to be removed
+# in v1.12.
 datapathMode: veth
 
 daemon:
@@ -557,6 +558,9 @@ certgen:
   ttlSecondsAfterFinished: 1800
   # -- Labels to be added to hubble-certgen pods
   podLabels: {}
+  # -- Node tolerations for pod assignment on nodes with taints
+  # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+  tolerations: []
 
 hubble:
   # -- Enable Hubble (true by default).
@@ -889,6 +893,7 @@ hubble:
       annotations: {}
         # kubernetes.io/ingress.class: nginx
         # kubernetes.io/tls-acme: "true"
+      className: ""
       hosts:
         - chart-example.local
       tls: []
@@ -926,12 +931,18 @@ ipam:
   # ref: https://docs.cilium.io/en/stable/concepts/networking/ipam/
   mode: "cluster-pool"
   operator:
-    # -- IPv4 CIDR range to delegate to individual nodes for IPAM.
+    # -- Deprecated in favor of ipam.operator.clusterPoolIPv4PodCIDRList.
+    # IPv4 CIDR range to delegate to individual nodes for IPAM.
     clusterPoolIPv4PodCIDR: "10.0.0.0/8"
+    # -- IPv4 CIDR list range to delegate to individual nodes for IPAM.
+    clusterPoolIPv4PodCIDRList: []
     # -- IPv4 CIDR mask size to delegate to individual nodes for IPAM.
     clusterPoolIPv4MaskSize: 24
-    # -- IPv6 CIDR range to delegate to individual nodes for IPAM.
+    # -- Deprecated in favor of ipam.operator.clusterPoolIPv6PodCIDRList.
+    # IPv6 CIDR range to delegate to individual nodes for IPAM.
     clusterPoolIPv6PodCIDR: "fd00::/104"
+     # -- IPv6 CIDR list range to delegate to individual nodes for IPAM.
+    clusterPoolIPv6PodCIDRList: []
     # -- IPv6 CIDR mask size to delegate to individual nodes for IPAM.
     clusterPoolIPv6MaskSize: 120
 
@@ -951,7 +962,7 @@ ipv6:
   enabled: false
 
 ipvlan:
-  # -- Enable the IPVLAN datapath
+  # -- Enable the IPVLAN datapath (deprecated)
   enabled: false
 
   # -- masterDevice is the name of the device to use to attach secondary IPVLAN
@@ -1054,6 +1065,11 @@ egressGateway:
 # This value corresponds to the configured cluster-cidr.
 # ipv4NativeRoutingCIDR:
 
+# -- Specify the IPv6 CIDR for native routing (ie to avoid IP masquerade for).
+# This value corresponds to the configured cluster-cidr.
+# ipv6NativeRoutingCIDR:
+
+# -- cilium-monitor sidecar.
 monitor:
   # -- Enable the cilium-monitor sidecar.
   enabled: false
@@ -1079,6 +1095,10 @@ monitor:
   # -- dsrDispatch configures whether IP option or IPIP encapsulation is
   # used to pass a service IP and port to remote backend
   # dsrDispatch: opt
+
+  # -- serviceTopology enables K8s Topology Aware Hints -based service
+  # endpoints filtering
+  # serviceTopology: false
 
 # -- Configure N-S k8s service loadbalancing
 nodePort:

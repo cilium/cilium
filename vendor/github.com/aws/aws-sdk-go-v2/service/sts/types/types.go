@@ -94,7 +94,8 @@ type PolicyDescriptorType struct {
 
 // You can pass custom key-value pair attributes when you assume a role or federate
 // a user. These are called session tags. You can then use the session tags to
-// control access to resources. For more information, see Tagging STS Sessions
+// control access to resources. For more information, see Tagging Amazon Web
+// Services STS Sessions
 // (https://docs.aws.amazon.com/IAM/latest/UserGuide/id_session-tags.html) in the
 // IAM User Guide.
 type Tag struct {

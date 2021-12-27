@@ -84,11 +84,15 @@
    * - certgen
      - Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually.
      - object
-     - ``{"image":{"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.1.5"},"podLabels":{},"ttlSecondsAfterFinished":1800}``
+     - ``{"image":{"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.1.5"},"podLabels":{},"tolerations":[],"ttlSecondsAfterFinished":1800}``
    * - certgen.podLabels
      - Labels to be added to hubble-certgen pods
      - object
      - ``{}``
+   * - certgen.tolerations
+     - Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+     - list
+     - ``[]``
    * - certgen.ttlSecondsAfterFinished
      - Seconds after which the completed job pod will be deleted
      - int
@@ -286,7 +290,7 @@
      - string
      - ``"/var/run/cilium"``
    * - datapathMode
-     - Configure which datapath mode should be used for configuring container connectivity. Valid options are "veth" or "ipvlan".
+     - Configure which datapath mode should be used for configuring container connectivity. Valid options are "veth" or "ipvlan". Deprecated, to be removed in v1.12.
      - string
      - ``"veth"``
    * - debug.enabled
@@ -772,7 +776,7 @@
    * - hubble.ui.ingress
      - hubble-ui ingress configuration.
      - object
-     - ``{"annotations":{},"enabled":false,"hosts":["chart-example.local"],"tls":[]}``
+     - ``{"annotations":{},"className":"","enabled":false,"hosts":["chart-example.local"],"tls":[]}``
    * - hubble.ui.nodeSelector
      - Node labels for pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object
@@ -862,17 +866,25 @@
      - int
      - ``24``
    * - ipam.operator.clusterPoolIPv4PodCIDR
-     - IPv4 CIDR range to delegate to individual nodes for IPAM.
+     - Deprecated in favor of ipam.operator.clusterPoolIPv4PodCIDRList. IPv4 CIDR range to delegate to individual nodes for IPAM.
      - string
      - ``"10.0.0.0/8"``
+   * - ipam.operator.clusterPoolIPv4PodCIDRList
+     - IPv4 CIDR list range to delegate to individual nodes for IPAM.
+     - list
+     - ``[]``
    * - ipam.operator.clusterPoolIPv6MaskSize
      - IPv6 CIDR mask size to delegate to individual nodes for IPAM.
      - int
      - ``120``
    * - ipam.operator.clusterPoolIPv6PodCIDR
-     - IPv6 CIDR range to delegate to individual nodes for IPAM.
+     - Deprecated in favor of ipam.operator.clusterPoolIPv6PodCIDRList. IPv6 CIDR range to delegate to individual nodes for IPAM.
      - string
      - ``"fd00::/104"``
+   * - ipam.operator.clusterPoolIPv6PodCIDRList
+     - IPv6 CIDR list range to delegate to individual nodes for IPAM.
+     - list
+     - ``[]``
    * - ipv4.enabled
      - Enable IPv4 support.
      - bool
@@ -882,7 +894,7 @@
      - bool
      - ``false``
    * - ipvlan.enabled
-     - Enable the IPVLAN datapath
+     - Enable the IPVLAN datapath (deprecated)
      - bool
      - ``false``
    * - k8s
@@ -934,7 +946,7 @@
      - object
      - ``{}``
    * - monitor
-     - Specify the IPv4 CIDR for native routing (ie to avoid IP masquerade for). This value corresponds to the configured cluster-cidr. ipv4NativeRoutingCIDR:
+     - cilium-monitor sidecar.
      - object
      - ``{"enabled":false}``
    * - monitor.enabled

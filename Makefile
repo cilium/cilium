@@ -35,7 +35,7 @@ SWAGGER := $(CONTAINER_ENGINE) run -u $(shell id -u):$(shell id -g) --rm -v $(CU
 
 COVERPKG_EVAL := $(shell if [ $$(echo "$(TESTPKGS)" | wc -w) -gt 1 ]; then echo "./..."; else echo "github.com/cilium/cilium/$(TESTPKGS)"; fi)
 COVERPKG ?= $(COVERPKG_EVAL)
-GOTEST_BASE := -test.v -timeout 500s
+GOTEST_BASE := -test.v -timeout 600s
 GOTEST_UNIT_BASE := $(GOTEST_BASE) -check.vv
 GOTEST_COVER_OPTS += -coverprofile=coverage.out -coverpkg $(COVERPKG)
 BENCH_EVAL := "."
@@ -488,15 +488,25 @@ check-microk8s: ## Validate if microk8s is ready to install cilium.
 		|| (echo "Error: Microk8s is not running" && exit 1)
 
 LOCAL_IMAGE_TAG=local
-LOCAL_IMAGE=localhost:32000/$(DOCKER_DEV_ACCOUNT)/cilium-dev:$(LOCAL_IMAGE_TAG)
-microk8s: check-microk8s ## Build cilium-dev docker image and import to mircrok8s
+microk8s: export DOCKER_REGISTRY=localhost:32000
+microk8s: export LOCAL_IMAGE=$(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/cilium-dev:$(LOCAL_IMAGE_TAG)
+microk8s: check-microk8s ## Build cilium-dev docker image and import to microk8s
 	$(QUIET)$(MAKE) dev-docker-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
 	@echo "  DEPLOY image to microk8s ($(LOCAL_IMAGE))"
-	$(QUIET)$(CONTAINER_ENGINE) tag $(IMAGE_REPOSITORY)/cilium-dev:$(LOCAL_IMAGE_TAG) $(LOCAL_IMAGE)
 	$(QUIET)./contrib/scripts/microk8s-import.sh $(LOCAL_IMAGE)
 
 kind: ## Create a kind cluster for Cilium development.
 	$(QUIET)./contrib/scripts/kind.sh
+
+kind-image: export DOCKER_REGISTRY=localhost:5000
+kind-image: export LOCAL_IMAGE=$(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/cilium-dev:$(LOCAL_IMAGE_TAG)
+kind-image:
+	@$(ECHO_CHECK) kind is ready...
+	@kind get clusters >/dev/null
+	$(QUIET)$(MAKE) dev-docker-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
+	@echo "  DEPLOY image to kind ($(LOCAL_IMAGE))"
+	$(QUIET)$(CONTAINER_ENGINE) push $(LOCAL_IMAGE)
+	$(QUIET)kind load docker-image $(LOCAL_IMAGE)
 
 precheck: logging-subsys-field ## Peform build precheck for the source code.
 ifeq ($(SKIP_K8S_CODE_GEN_CHECK),"false")

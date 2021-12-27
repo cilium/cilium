@@ -12,8 +12,6 @@ import (
 	"sync"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	alibabaCloud "github.com/cilium/cilium/pkg/alibabacloud/utils"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/ip"
@@ -30,6 +28,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -128,12 +127,19 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 				defer func() { k8sEventReg.K8sEventReceived("CiliumNode", "update", valid, equal) }()
 				if oldNode, ok := oldObj.(*ciliumv2.CiliumNode); ok {
 					if newNode, ok := newObj.(*ciliumv2.CiliumNode); ok {
+						valid = true
+						newNode = newNode.DeepCopy()
 						if oldNode.DeepEqual(newNode) {
+							// The UpdateStatus call in refreshNode requires an up-to-date
+							// CiliumNode.ObjectMeta.ResourceVersion. Therefore, we store the most
+							// recent version here even if the nodes are equal, because
+							// CiliumNode.DeepEqual will consider two nodes to be equal even if
+							// their resource version differs.
+							store.setOwnNodeWithoutPoolUpdate(newNode)
 							equal = true
 							return
 						}
-						valid = true
-						store.updateLocalNodeResource(newNode.DeepCopy())
+						store.updateLocalNodeResource(newNode)
 						k8sEventReg.K8sEventProcessed("CiliumNode", "update", true)
 					} else {
 						log.Warningf("Unknown CiliumNode object type %T received: %+v", oldNode, oldNode)
@@ -254,7 +260,11 @@ func (n *nodeStore) hasMinimumIPsInPool() (minimumReached bool, required, numAva
 	}
 
 	if n.ownNode.Spec.IPAM.Pool != nil {
-		numAvailable = len(n.ownNode.Spec.IPAM.Pool)
+		for ip := range n.ownNode.Spec.IPAM.Pool {
+			if !n.isIPInReleaseHandshake(ip) {
+				numAvailable++
+			}
+		}
 		if len(n.ownNode.Spec.IPAM.Pool) >= required {
 			minimumReached = true
 		}
@@ -323,6 +333,82 @@ func (n *nodeStore) updateLocalNodeResource(node *ciliumv2.CiliumNode) {
 			}
 		}
 	}
+
+	releaseUpstreamSyncNeeded := false
+	// ACK or NACK IPs marked for release by the operator
+	for ip, status := range n.ownNode.Status.IPAM.ReleaseIPs {
+		if n.ownNode.Spec.IPAM.Pool == nil {
+			continue
+		}
+		// Ignore states that agent previously responded to.
+		if status == ipamOption.IPAMReadyForRelease || status == ipamOption.IPAMDoNotRelease {
+			continue
+		}
+		if _, ok := n.ownNode.Spec.IPAM.Pool[ip]; !ok {
+			if status == ipamOption.IPAMReleased {
+				// Remove entry from release-ips only when it is removed from .spec.ipam.pool as well
+				delete(n.ownNode.Status.IPAM.ReleaseIPs, ip)
+				releaseUpstreamSyncNeeded = true
+			} else if status == ipamOption.IPAMMarkForRelease {
+				// NACK the IP, if this node doesn't own the IP
+				n.ownNode.Status.IPAM.ReleaseIPs[ip] = ipamOption.IPAMDoNotRelease
+				releaseUpstreamSyncNeeded = true
+			}
+			continue
+		}
+
+		// Ignore all other states, transition to do-not-release and ready-for-release are allowed only from
+		// marked-for-release
+		if status != ipamOption.IPAMMarkForRelease {
+			continue
+		}
+		// Retrieve the appropriate allocator
+		var allocator *crdAllocator
+		var ipFamily Family
+		if ipAddr := net.ParseIP(ip); ipAddr != nil {
+			ipFamily = DeriveFamily(ipAddr)
+		}
+		if ipFamily == "" {
+			continue
+		}
+		for _, a := range n.allocators {
+			if a.family == ipFamily {
+				allocator = a
+			}
+		}
+		if allocator == nil {
+			continue
+		}
+
+		// Some functions like crdAllocator.Allocate() acquire lock on allocator first and then on nodeStore.
+		// So release nodestore lock before acquiring allocator lock to avoid potential deadlocks from inconsistent
+		// lock ordering.
+		n.mutex.Unlock()
+		allocator.mutex.Lock()
+		_, ok := allocator.allocated[ip]
+		allocator.mutex.Unlock()
+		n.mutex.Lock()
+
+		if ok {
+			// IP still in use, update the operator to stop releasing the IP.
+			n.ownNode.Status.IPAM.ReleaseIPs[ip] = ipamOption.IPAMDoNotRelease
+		} else {
+			n.ownNode.Status.IPAM.ReleaseIPs[ip] = ipamOption.IPAMReadyForRelease
+		}
+		releaseUpstreamSyncNeeded = true
+	}
+
+	if releaseUpstreamSyncNeeded {
+		n.refreshTrigger.TriggerWithReason("excess IP release")
+	}
+}
+
+// setOwnNodeWithoutPoolUpdate overwrites the local node copy (e.g. to update
+// its resourceVersion) without updating the available IP pool.
+func (n *nodeStore) setOwnNodeWithoutPoolUpdate(node *ciliumv2.CiliumNode) {
+	n.mutex.Lock()
+	n.ownNode = node
+	n.mutex.Unlock()
 }
 
 // refreshNodeTrigger is called to refresh the custom resource after taking the
@@ -389,12 +475,29 @@ func (n *nodeStore) allocate(ip net.IP) (*ipamTypes.AllocationIP, error) {
 		return nil, fmt.Errorf("No IPs available")
 	}
 
+	if n.isIPInReleaseHandshake(ip.String()) {
+		return nil, fmt.Errorf("IP not available, marked or ready for release")
+	}
+
 	ipInfo, ok := n.ownNode.Spec.IPAM.Pool[ip.String()]
 	if !ok {
 		return nil, NewIPNotAvailableInPoolError(ip)
 	}
 
 	return &ipInfo, nil
+}
+
+// isIPInReleaseHandshake validates if a given IP is currently in the process of being released
+func (n *nodeStore) isIPInReleaseHandshake(ip string) bool {
+	if n.ownNode.Status.IPAM.ReleaseIPs == nil {
+		return false
+	}
+	if status, ok := n.ownNode.Status.IPAM.ReleaseIPs[ip]; ok {
+		if status == ipamOption.IPAMMarkForRelease || status == ipamOption.IPAMReadyForRelease || status == ipamOption.IPAMReleased {
+			return true
+		}
+	}
+	return false
 }
 
 // allocateNext allocates the next available IP or returns an error
@@ -410,6 +513,10 @@ func (n *nodeStore) allocateNext(allocated ipamTypes.AllocationMap, family Famil
 	// optimized
 	for ip, ipInfo := range n.ownNode.Spec.IPAM.Pool {
 		if _, ok := allocated[ip]; !ok {
+
+			if n.isIPInReleaseHandshake(ip) {
+				continue // IP not available
+			}
 			parsedIP := net.ParseIP(ip)
 			if parsedIP == nil {
 				log.WithFields(logrus.Fields{

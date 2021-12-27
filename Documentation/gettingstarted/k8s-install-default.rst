@@ -164,8 +164,8 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
            - name: ng-1
              desiredCapacity: 2
              privateNetworking: true
-             # taint nodes so that application pods are
-             # not scheduled until Cilium is deployed.
+             ## taint nodes so that application pods are
+             ## not scheduled until Cilium is deployed.
              taints:
               - key: "node.cilium.io/agent-not-ready"
                 value: "true"
@@ -185,7 +185,7 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
 
     .. group-tab:: minikube
 
-       Install minikube >= v1.5.2 as per minikube documentation: 
+       Install minikube >= v1.12 as per minikube documentation: 
        `Install Minikube <https://kubernetes.io/docs/tasks/tools/install-minikube/>`_.
        The following command will bring up a single node minikube cluster prepared for installing cilium.
 
@@ -291,14 +291,14 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
     .. group-tab:: k3s
 
        .. include:: requirements-k3s.rst
-      
+
        **Install Cilium:**
 
        Install Cilium into your newly created Kubernetes cluster:
 
        .. code-block:: shell-session
 
-           cilium install
+           KUBECONFIG=/etc/rancher/k3s/k3s.yaml cilium install
 
 
 If the installation fails for some reason, run ``cilium status`` to retrieve

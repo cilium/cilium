@@ -43,13 +43,6 @@ func (c *Client) CreateSubnet(ctx context.Context, params *CreateSubnetInput, op
 
 type CreateSubnetInput struct {
 
-	// The IPv4 network range for the subnet, in CIDR notation. For example,
-	// 10.0.0.0/24. We modify the specified CIDR block to its canonical form; for
-	// example, if you specify 100.68.0.18/18, we modify it to 100.68.0.0/18.
-	//
-	// This member is required.
-	CidrBlock *string
-
 	// The ID of the VPC.
 	//
 	// This member is required.
@@ -70,6 +63,12 @@ type CreateSubnetInput struct {
 	// The AZ ID or the Local Zone ID of the subnet.
 	AvailabilityZoneId *string
 
+	// The IPv4 network range for the subnet, in CIDR notation. For example,
+	// 10.0.0.0/24. We modify the specified CIDR block to its canonical form; for
+	// example, if you specify 100.68.0.18/18, we modify it to 100.68.0.0/18. This
+	// parameter is not supported for an IPv6 only subnet.
+	CidrBlock *string
+
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
@@ -77,8 +76,11 @@ type CreateSubnetInput struct {
 	DryRun *bool
 
 	// The IPv6 network range for the subnet, in CIDR notation. The subnet size must
-	// use a /64 prefix length.
+	// use a /64 prefix length. This parameter is required for an IPv6 only subnet.
 	Ipv6CidrBlock *string
+
+	// Indicates whether to create an IPv6 only subnet.
+	Ipv6Native *bool
 
 	// The Amazon Resource Name (ARN) of the Outpost. If you specify an Outpost ARN,
 	// you must also specify the Availability Zone of the Outpost subnet.

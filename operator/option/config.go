@@ -141,6 +141,10 @@ const (
 	// the number of API calls to AWS EC2 service.
 	AWSReleaseExcessIPs = "aws-release-excess-ips"
 
+	// ExcessIPReleaseDelay controls how long operator would wait before an IP previously marked as excess is released.
+	// Defaults to 180 secs
+	ExcessIPReleaseDelay = "excess-ip-release-delay"
+
 	// ENITags are the tags that will be added to every ENI created by the
 	// AWS ENI IPAM.
 	ENITags = "eni-tags"
@@ -239,9 +243,6 @@ type OperatorConfig struct {
 	// IdentityHeartbeatTimeout is the timeout used to GC identities from k8s
 	IdentityHeartbeatTimeout time.Duration
 
-	// NodesGCInterval is the duration for which the nodes are GC in the KVStore.
-	NodesGCInterval time.Duration
-
 	OperatorAPIServeAddr        string
 	OperatorPrometheusServeAddr string
 
@@ -337,6 +338,10 @@ type OperatorConfig struct {
 	// instancetype to adapter limit mapping.
 	UpdateEC2AdapterLimitViaAPI bool
 
+	// ExcessIPReleaseDelay controls how long operator would wait before an IP previously marked as excess is released.
+	// Defaults to 180 secs
+	ExcessIPReleaseDelay int
+
 	// EC2APIEndpoint is the custom API endpoint to use for the EC2 AWS service,
 	// e.g. "ec2-fips.us-west-1.amazonaws.com" to use a FIPS endpoint in the us-west-1 region.
 	EC2APIEndpoint string
@@ -388,7 +393,6 @@ func (c *OperatorConfig) Populate() {
 	c.IdentityGCRateInterval = viper.GetDuration(IdentityGCRateInterval)
 	c.IdentityGCRateLimit = viper.GetInt64(IdentityGCRateLimit)
 	c.IdentityHeartbeatTimeout = viper.GetDuration(IdentityHeartbeatTimeout)
-	c.NodesGCInterval = viper.GetDuration(NodesGCInterval)
 	c.OperatorAPIServeAddr = viper.GetString(OperatorAPIServeAddr)
 	c.OperatorPrometheusServeAddr = viper.GetString(OperatorPrometheusServeAddr)
 	c.PProf = viper.GetBool(PProf)
@@ -400,7 +404,6 @@ func (c *OperatorConfig) Populate() {
 	c.NodeCIDRMaskSizeIPv6 = viper.GetInt(NodeCIDRMaskSizeIPv6)
 	c.ClusterPoolIPv4CIDR = viper.GetStringSlice(ClusterPoolIPv4CIDR)
 	c.ClusterPoolIPv6CIDR = viper.GetStringSlice(ClusterPoolIPv6CIDR)
-	c.NodesGCInterval = viper.GetDuration(NodesGCInterval)
 	c.LeaderElectionLeaseDuration = viper.GetDuration(LeaderElectionLeaseDuration)
 	c.LeaderElectionRenewDeadline = viper.GetDuration(LeaderElectionRenewDeadline)
 	c.LeaderElectionRetryPeriod = viper.GetDuration(LeaderElectionRetryPeriod)
@@ -419,6 +422,7 @@ func (c *OperatorConfig) Populate() {
 	c.AWSReleaseExcessIPs = viper.GetBool(AWSReleaseExcessIPs)
 	c.UpdateEC2AdapterLimitViaAPI = viper.GetBool(UpdateEC2AdapterLimitViaAPI)
 	c.EC2APIEndpoint = viper.GetString(EC2APIEndpoint)
+	c.ExcessIPReleaseDelay = viper.GetInt(ExcessIPReleaseDelay)
 
 	// Azure options
 

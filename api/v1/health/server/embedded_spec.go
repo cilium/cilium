@@ -113,6 +113,20 @@ func init() {
         }
       }
     },
+    "EndpointStatus": {
+      "description": "Connectivity status to host cilium-health endpoints via different paths\n",
+      "properties": {
+        "primary-address": {
+          "$ref": "#/definitions/PathStatus"
+        },
+        "secondary-addresses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PathStatus"
+          }
+        }
+      }
+    },
     "HealthResponse": {
       "description": "Health and status information of local node",
       "type": "object",
@@ -188,8 +202,12 @@ func init() {
       "type": "object",
       "properties": {
         "endpoint": {
-          "description": "Connectivity status to simulated endpoint on node IP",
+          "description": "DEPRECATED: Please use the health-endpoint field instead, which\nsupports reporting the status of different addresses for the endpoint\n",
           "$ref": "#/definitions/PathStatus"
+        },
+        "health-endpoint": {
+          "description": "Connectivity status to simulated endpoint on the node",
+          "$ref": "#/definitions/EndpointStatus"
         },
         "host": {
           "description": "Connectivity status to cilium-health instance on node IP",
@@ -342,6 +360,20 @@ func init() {
         }
       }
     },
+    "EndpointStatus": {
+      "description": "Connectivity status to host cilium-health endpoints via different paths\n",
+      "properties": {
+        "primary-address": {
+          "$ref": "#/definitions/PathStatus"
+        },
+        "secondary-addresses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PathStatus"
+          }
+        }
+      }
+    },
     "HealthResponse": {
       "description": "Health and status information of local node",
       "type": "object",
@@ -417,8 +449,12 @@ func init() {
       "type": "object",
       "properties": {
         "endpoint": {
-          "description": "Connectivity status to simulated endpoint on node IP",
+          "description": "DEPRECATED: Please use the health-endpoint field instead, which\nsupports reporting the status of different addresses for the endpoint\n",
           "$ref": "#/definitions/PathStatus"
+        },
+        "health-endpoint": {
+          "description": "Connectivity status to simulated endpoint on the node",
+          "$ref": "#/definitions/EndpointStatus"
         },
         "host": {
           "description": "Connectivity status to cilium-health instance on node IP",

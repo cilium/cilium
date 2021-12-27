@@ -98,7 +98,7 @@ func (f *MockIdentityAllocator) AllocateIdentity(_ context.Context, lbls labels.
 
 // Release releases a fake identity. It is meant to generally mock the
 // canonical identity release logic.
-func (f *MockIdentityAllocator) Release(_ context.Context, id *identity.Identity) (released bool, err error) {
+func (f *MockIdentityAllocator) Release(_ context.Context, id *identity.Identity, _ bool) (released bool, err error) {
 	count, ok := f.idRefCount[int(id.ID)]
 	if !ok {
 		return false, nil
@@ -118,7 +118,7 @@ func (f *MockIdentityAllocator) Release(_ context.Context, id *identity.Identity
 // ReleaseSlice wraps Release for slices.
 func (f *MockIdentityAllocator) ReleaseSlice(ctx context.Context, _ cache.IdentityAllocatorOwner, identities []*identity.Identity) error {
 	for _, id := range identities {
-		if _, err := f.Release(ctx, id); err != nil {
+		if _, err := f.Release(ctx, id, false); err != nil {
 			return err
 		}
 	}

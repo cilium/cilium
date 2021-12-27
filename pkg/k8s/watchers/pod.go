@@ -824,10 +824,7 @@ func (k *K8sWatcher) deletePodHostData(pod *slim_corev1.Pod) (bool, error) {
 			continue
 		}
 
-		k8sMeta := ipcache.IPIdentityCache.GetK8sMetadata(podIP)
-		if k8sMeta.Namespace == pod.Namespace && k8sMeta.PodName == pod.Name {
-			ipcache.IPIdentityCache.Delete(podIP, source.Kubernetes)
-		}
+		ipcache.IPIdentityCache.DeleteOnMetadataMatch(podIP, source.Kubernetes, pod.Namespace, pod.Name)
 	}
 
 	if len(errs) != 0 {

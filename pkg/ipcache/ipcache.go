@@ -499,6 +499,18 @@ func (ipc *IPCache) GetNamedPorts() (npm policy.NamedPortMultiMap) {
 	return npm
 }
 
+// DeleteOnMetadataMatch removes the provided IP to security identity mapping from the IPCache
+// if the metadata cache holds the same "owner" metadata as the triggering pod event.
+func (ipc *IPCache) DeleteOnMetadataMatch(IP string, source source.Source, namespace, name string) (namedPortsChanged bool) {
+	ipc.mutex.Lock()
+	defer ipc.mutex.Unlock()
+	k8sMeta := ipc.getK8sMetadata(IP)
+	if k8sMeta != nil && k8sMeta.Namespace == namespace && k8sMeta.PodName == name {
+		return ipc.deleteLocked(IP, source)
+	}
+	return false
+}
+
 // Delete removes the provided IP-to-security-identity mapping from the IPCache.
 func (ipc *IPCache) Delete(IP string, source source.Source) (namedPortsChanged bool) {
 	ipc.mutex.Lock()

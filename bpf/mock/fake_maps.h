@@ -21,23 +21,26 @@ void fake_init_map(hashmap_void_t *map, size_t (*hash)(const void *key), int (*c
 }
 
 // Loop up the value of given key.
-void *fake_lookup_elem(hashmap_void_t *map, void *key) {
+void *fake_lookup_elem(hashmap_void_t *map, const void *key)
+{
   return hashmap_get(map, key);
 }
 
 // Update the value of given key.
-int fake_update_elem(hashmap_void_t *map, void *key, void *value, __u32 flags, size_t size) {
+int fake_update_elem(hashmap_void_t *map, const void *key, const void *value, __u32 flags,
+		     size_t size)
+{
   void *entry = hashmap_get(map, key);
   if (entry == NULL && hashmap_size(map) >= size) {
       printf("Update failed: Map is full\n");
       return -1;
     }
 
-  int r = hashmap_put(map, key, value);
+  int r = hashmap_put(map, key, (void *)value);
   if (r == -EEXIST) {
     if (flags == BPF_NOEXIST) return -1;
     hashmap_remove(map, key);
-    hashmap_put(map, key, value);
+    hashmap_put(map, key, (void *)value);
     return 0;
   } else if (r == 0) {
     if (flags == BPF_EXIST) {
@@ -51,6 +54,7 @@ int fake_update_elem(hashmap_void_t *map, void *key, void *value, __u32 flags, s
 }
 
 // Delete given key.
-int fake_delete_elem(hashmap_void_t *map, void *key) {
-  return hashmap_remove(map, key);
+int fake_delete_elem(hashmap_void_t *map, const void *key)
+{
+  return (int)hashmap_remove(map, key);
 }

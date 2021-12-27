@@ -151,7 +151,7 @@ func (e *Endpoint) useCurrentNetworkPolicy(proxyWaitGroup *completion.WaitGroup)
 		return
 	}
 
-	if e.proxy != nil {
+	if !e.isProxyDisabled() {
 		// Wait for the current network policy to be acked
 		e.proxy.UseCurrentNetworkPolicy(e, e.desiredPolicy.L4Policy, proxyWaitGroup)
 	}
@@ -647,7 +647,7 @@ var reasonRegenRetry = "retrying regeneration"
 // ran again unless another build failure occurs. If the call to `Regenerate`
 // fails inside of the controller,
 func (e *Endpoint) startRegenerationFailureHandler() {
-	e.controllers.UpdateController(fmt.Sprintf("endpoint-%s-regeneration-recovery", e.StringID()), controller.ControllerParams{
+	e.UpdateController(fmt.Sprintf("endpoint-%s-regeneration-recovery", e.StringID()), controller.ControllerParams{
 		DoFunc: func(ctx context.Context) error {
 			select {
 			case <-e.regenFailedChan:

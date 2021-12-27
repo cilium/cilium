@@ -18,32 +18,6 @@ Key-Value Store
 | --kvstore-opt OPTS  |                                      |                      |
 +---------------------+--------------------------------------+----------------------+
 
-consul
-------
-
-When using consul, the consul agent address needs to be provided with the
-``consul.address``:  ``consul.tlsconfig`` is optional, and is only required
-for TLS authentication:
-
-+---------------------+---------+---------------------------------------------------+
-| Option              |  Type   | Description                                       |
-+---------------------+---------+---------------------------------------------------+
-| consul.address      | Address | Address of consul agent                           |
-+---------------------+---------+---------------------------------------------------+
-| consul.tlsconfig    | Path    | Path to a consul configuration file               |
-|                     |         | for client server authentication                  |
-+---------------------+---------+---------------------------------------------------+
-
-Example of the consul configuration file:
-
-.. code-block:: yaml
-
-    ---
-    cafile: '/var/lib/cilium/consul-ca.pem'
-    keyfile: '/var/lib/cilium/client-key.pem'
-    certfile: '/var/lib/cilium/client.pem'
-    #insecureskipverify: true
-
 etcd
 ----
 

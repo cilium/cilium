@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy/api"
-	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 
 	. "gopkg.in/check.v1"
 )
@@ -29,8 +28,7 @@ func (ds *FQDNTestSuite) TestNameManagerCIDRGeneration(c *C) {
 	var (
 		selIPMap map[api.FQDNSelector][]net.IP
 
-		identityAllocator = testidentity.NewMockIdentityAllocator(nil)
-		nameManager       = NewNameManager(Config{
+		nameManager = NewNameManager(Config{
 			MinTTL: 1,
 			Cache:  NewDNSCache(0),
 
@@ -45,10 +43,8 @@ func (ds *FQDNTestSuite) TestNameManagerCIDRGeneration(c *C) {
 
 	// add rules
 	nameManager.Lock()
-	ids := nameManager.RegisterForIdentityUpdatesLocked(identityAllocator, ciliumIOSel)
+	nameManager.RegisterForIdentityUpdatesLocked(ciliumIOSel)
 	nameManager.Unlock()
-	c.Assert(len(ids), Equals, 0)
-	c.Assert(ids, Not(IsNil))
 
 	// poll DNS once, check that we only generate 1 rule (for 1 IP) and that we
 	// still have 1 ToFQDN rule, and that the IP is correct
@@ -65,10 +61,10 @@ func (ds *FQDNTestSuite) TestNameManagerCIDRGeneration(c *C) {
 	// inserted) and that we still have 1 ToFQDN rule, and that the IP, now
 	// different, is correct
 	selIPMap = make(map[api.FQDNSelector][]net.IP)
-	_, _, err = nameManager.UpdateGenerateDNS(context.Background(), time.Now(), map[string]*DNSIPRecords{dns.FQDN("cilium.io"): {TTL: 60, IPs: []net.IP{net.ParseIP("2.2.2.2")}}})
+	_, _, err = nameManager.UpdateGenerateDNS(context.Background(), time.Now(), map[string]*DNSIPRecords{dns.FQDN("cilium.io"): {TTL: 60, IPs: []net.IP{net.ParseIP("10.0.0.2")}}})
 	c.Assert(err, IsNil, Commentf("Error generating IP CIDR rules"))
 	c.Assert(len(selIPMap), Equals, 1, Commentf("Only one entry per FQDNSelector should be present"))
-	expectedIPs = []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("2.2.2.2")}
+	expectedIPs = []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("10.0.0.2")}
 	c.Assert(selIPMap[ciliumIOSel][0].Equal(expectedIPs[0]), Equals, true)
 	c.Assert(selIPMap[ciliumIOSel][1].Equal(expectedIPs[1]), Equals, true)
 }
@@ -78,8 +74,7 @@ func (ds *FQDNTestSuite) TestNameManagerMultiIPUpdate(c *C) {
 	var (
 		selIPMap map[api.FQDNSelector][]net.IP
 
-		identityAllocator = testidentity.NewMockIdentityAllocator(nil)
-		nameManager       = NewNameManager(Config{
+		nameManager = NewNameManager(Config{
 			MinTTL: 1,
 			Cache:  NewDNSCache(0),
 
@@ -96,8 +91,7 @@ func (ds *FQDNTestSuite) TestNameManagerMultiIPUpdate(c *C) {
 	selectorsToAdd := api.FQDNSelectorSlice{ciliumIOSel, githubSel}
 	nameManager.Lock()
 	for _, sel := range selectorsToAdd {
-		ids := nameManager.RegisterForIdentityUpdatesLocked(identityAllocator, sel)
-		c.Assert(ids, Not(IsNil))
+		nameManager.RegisterForIdentityUpdatesLocked(sel)
 	}
 	nameManager.Unlock()
 
@@ -111,33 +105,32 @@ func (ds *FQDNTestSuite) TestNameManagerMultiIPUpdate(c *C) {
 	// poll DNS once, check that we only generate 3 IPs, 2 cached from before and 1 new one for github.com
 	selIPMap = make(map[api.FQDNSelector][]net.IP)
 	_, _, err = nameManager.UpdateGenerateDNS(context.Background(), time.Now(), map[string]*DNSIPRecords{
-		dns.FQDN("cilium.io"):  {TTL: 60, IPs: []net.IP{net.ParseIP("2.2.2.2")}},
-		dns.FQDN("github.com"): {TTL: 60, IPs: []net.IP{net.ParseIP("3.3.3.3")}}})
+		dns.FQDN("cilium.io"):  {TTL: 60, IPs: []net.IP{net.ParseIP("10.0.0.2")}},
+		dns.FQDN("github.com"): {TTL: 60, IPs: []net.IP{net.ParseIP("10.0.0.3")}}})
 	c.Assert(err, IsNil, Commentf("Error mapping selectors to IPs"))
 	c.Assert(len(selIPMap), Equals, 2, Commentf("More than 2 FQDN selectors while only 2 were added"))
 	c.Assert(len(selIPMap[ciliumIOSel]), Equals, 2, Commentf("Incorrect number of IPs for cilium.io selector"))
 	c.Assert(len(selIPMap[githubSel]), Equals, 1, Commentf("Incorrect number of IPs for github.com selector"))
 	c.Assert(selIPMap[ciliumIOSel][0].Equal(net.ParseIP("1.1.1.1")), Equals, true, Commentf("Incorrect IP mapping to FQDN"))
-	c.Assert(selIPMap[ciliumIOSel][1].Equal(net.ParseIP("2.2.2.2")), Equals, true, Commentf("Incorrect IP mapping to FQDN"))
-	c.Assert(selIPMap[githubSel][0].Equal(net.ParseIP("3.3.3.3")), Equals, true, Commentf("Incorrect IP mapping to FQDN"))
+	c.Assert(selIPMap[ciliumIOSel][1].Equal(net.ParseIP("10.0.0.2")), Equals, true, Commentf("Incorrect IP mapping to FQDN"))
+	c.Assert(selIPMap[githubSel][0].Equal(net.ParseIP("10.0.0.3")), Equals, true, Commentf("Incorrect IP mapping to FQDN"))
 
 	// poll DNS once, check that we only generate 4 IPs, 2 cilium.io cached IPs, 1 cached github.com IP, 1 new github.com IP
 	selIPMap = make(map[api.FQDNSelector][]net.IP)
 	_, _, err = nameManager.UpdateGenerateDNS(context.Background(), time.Now(), map[string]*DNSIPRecords{
-		dns.FQDN("cilium.io"):  {TTL: 60, IPs: []net.IP{net.ParseIP("2.2.2.2")}},
-		dns.FQDN("github.com"): {TTL: 60, IPs: []net.IP{net.ParseIP("4.4.4.4")}}})
+		dns.FQDN("cilium.io"):  {TTL: 60, IPs: []net.IP{net.ParseIP("10.0.0.2")}},
+		dns.FQDN("github.com"): {TTL: 60, IPs: []net.IP{net.ParseIP("10.0.0.4")}}})
 	c.Assert(err, IsNil, Commentf("Error mapping selectors to IPs"))
 	c.Assert(len(selIPMap[ciliumIOSel]), Equals, 2, Commentf("Incorrect number of IPs for cilium.io selector"))
 	c.Assert(len(selIPMap[githubSel]), Equals, 2, Commentf("Incorrect number of IPs for github.com selector"))
 	c.Assert(selIPMap[ciliumIOSel][0].Equal(net.ParseIP("1.1.1.1")), Equals, true, Commentf("Incorrect IP mapping to FQDN"))
-	c.Assert(selIPMap[ciliumIOSel][1].Equal(net.ParseIP("2.2.2.2")), Equals, true, Commentf("Incorrect IP mapping to FQDN"))
-	c.Assert(selIPMap[githubSel][0].Equal(net.ParseIP("3.3.3.3")), Equals, true, Commentf("Incorrect IP mapping to FQDN"))
-	c.Assert(selIPMap[githubSel][1].Equal(net.ParseIP("4.4.4.4")), Equals, true, Commentf("Incorrect IP mapping to FQDN"))
+	c.Assert(selIPMap[ciliumIOSel][1].Equal(net.ParseIP("10.0.0.2")), Equals, true, Commentf("Incorrect IP mapping to FQDN"))
+	c.Assert(selIPMap[githubSel][0].Equal(net.ParseIP("10.0.0.3")), Equals, true, Commentf("Incorrect IP mapping to FQDN"))
+	c.Assert(selIPMap[githubSel][1].Equal(net.ParseIP("10.0.0.4")), Equals, true, Commentf("Incorrect IP mapping to FQDN"))
 
 	// Second registration fails because IdenitityAllocator is not initialized
 	nameManager.Lock()
-	ids := nameManager.RegisterForIdentityUpdatesLocked(identityAllocator, githubSel)
-	c.Assert(ids, IsNil)
+	nameManager.RegisterForIdentityUpdatesLocked(githubSel)
 
 	nameManager.UnregisterForIdentityUpdatesLocked(githubSel)
 	_, exists := nameManager.allSelectors[githubSel]

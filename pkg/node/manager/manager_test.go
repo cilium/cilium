@@ -383,7 +383,7 @@ func (s *managerTestSuite) TestIpcache(c *check.C) {
 		Cluster: "c1",
 		IPAddresses: []nodeTypes.Address{
 			{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("1.1.1.1")},
-			{Type: addressing.NodeInternalIP, IP: net.ParseIP("2.2.2.2")},
+			{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.0.2")},
 			{Type: addressing.NodeExternalIP, IP: net.ParseIP("f00d::1")},
 		},
 	}
@@ -430,7 +430,7 @@ func (s *managerTestSuite) TestIpcacheHealthIP(c *check.C) {
 		IPAddresses: []nodeTypes.Address{
 			{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("1.1.1.1")},
 		},
-		IPv4HealthIP: net.ParseIP("4.4.4.4"),
+		IPv4HealthIP: net.ParseIP("10.0.0.4"),
 		IPv6HealthIP: net.ParseIP("f00d::4"),
 	}
 	mngr.NodeUpdated(n1)
@@ -444,9 +444,9 @@ func (s *managerTestSuite) TestIpcacheHealthIP(c *check.C) {
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", ip: net.ParseIP("4.4.4.4")})
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", ip: net.ParseIP("10.0.0.4")})
 	case <-time.After(5 * time.Second):
-		c.Errorf("timeout while waiting for ipcache upsert for IP 4.4.4.4")
+		c.Errorf("timeout while waiting for ipcache upsert for IP 10.0.0.4")
 	}
 
 	select {
@@ -473,9 +473,9 @@ func (s *managerTestSuite) TestIpcacheHealthIP(c *check.C) {
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", ip: net.ParseIP("4.4.4.4")})
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", ip: net.ParseIP("10.0.0.4")})
 	case <-time.After(5 * time.Second):
-		c.Errorf("timeout while waiting for ipcache delete for IP 4.4.4.4")
+		c.Errorf("timeout while waiting for ipcache delete for IP 10.0.0.4")
 	}
 
 	select {
@@ -503,7 +503,7 @@ func (s *managerTestSuite) TestRemoteNodeIdentities(c *check.C) {
 		Cluster: "c1",
 		IPAddresses: []nodeTypes.Address{
 			{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("1.1.1.1")},
-			{Type: addressing.NodeInternalIP, IP: net.ParseIP("2.2.2.2")},
+			{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.0.2")},
 			{Type: addressing.NodeExternalIP, IP: net.ParseIP("f00d::1")},
 		},
 	}
@@ -518,9 +518,9 @@ func (s *managerTestSuite) TestRemoteNodeIdentities(c *check.C) {
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", ip: net.ParseIP("2.2.2.2")})
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", ip: net.ParseIP("10.0.0.2")})
 	case <-time.After(5 * time.Second):
-		c.Errorf("timeout while waiting for ipcache upsert for IP 2.2.2.2")
+		c.Errorf("timeout while waiting for ipcache upsert for IP 10.0.0.2")
 	}
 
 	select {
@@ -547,9 +547,9 @@ func (s *managerTestSuite) TestRemoteNodeIdentities(c *check.C) {
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", ip: net.ParseIP("2.2.2.2")})
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", ip: net.ParseIP("10.0.0.2")})
 	case <-time.After(5 * time.Second):
-		c.Errorf("timeout while waiting for ipcache delete for IP 2.2.2.2")
+		c.Errorf("timeout while waiting for ipcache delete for IP 10.0.0.2")
 	}
 
 	select {
@@ -577,7 +577,7 @@ func (s *managerTestSuite) TestNodeEncryption(c *check.C) {
 		Cluster: "c1",
 		IPAddresses: []nodeTypes.Address{
 			{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("1.1.1.1")},
-			{Type: addressing.NodeInternalIP, IP: net.ParseIP("2.2.2.2")},
+			{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.0.2")},
 			{Type: addressing.NodeExternalIP, IP: net.ParseIP("f00d::1")},
 		},
 	}
@@ -592,9 +592,9 @@ func (s *managerTestSuite) TestNodeEncryption(c *check.C) {
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", ip: net.ParseIP("2.2.2.2")})
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", ip: net.ParseIP("10.0.0.2")})
 	case <-time.After(5 * time.Second):
-		c.Errorf("timeout while waiting for ipcache upsert for IP 2.2.2.2")
+		c.Errorf("timeout while waiting for ipcache upsert for IP 10.0.0.2")
 	}
 
 	select {
@@ -621,9 +621,9 @@ func (s *managerTestSuite) TestNodeEncryption(c *check.C) {
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", ip: net.ParseIP("2.2.2.2")})
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", ip: net.ParseIP("10.0.0.2")})
 	case <-time.After(5 * time.Second):
-		c.Errorf("timeout while waiting for ipcache delete for IP 2.2.2.2")
+		c.Errorf("timeout while waiting for ipcache delete for IP 10.0.0.2")
 	}
 
 	select {

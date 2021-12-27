@@ -310,12 +310,17 @@ func (d *Daemon) initMaps() error {
 		return err
 	}
 
-	if _, err := tunnel.TunnelMap.OpenOrCreate(); err != nil {
-		return err
+	if option.Config.TunnelingEnabled() || option.Config.EnableIPv4EgressGateway {
+		// The IPv4 egress gateway feature also uses tunnel map
+		if _, err := tunnel.TunnelMap.OpenOrCreate(); err != nil {
+			return err
+		}
 	}
 
-	if _, err := egressmap.EgressMap.OpenOrCreate(); err != nil {
-		return err
+	if option.Config.EnableIPv4EgressGateway {
+		if err := egressmap.InitEgressMaps(); err != nil {
+			return err
+		}
 	}
 
 	pm := probes.NewProbeManager()

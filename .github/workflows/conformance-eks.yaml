@@ -56,10 +56,8 @@ concurrency:
     ${{
       (github.event_name == 'schedule' && github.sha) ||
       (github.event_name == 'issue_comment' && (
-        startsWith(github.event.comment.body, 'ci-eks') && !startsWith(github.event.comment.body, 'ci-eks-') ||
-        startsWith(github.event.comment.body, '/ci-eks') && !startsWith(github.event.comment.body, '/ci-eks-') ||
-        startsWith(github.event.comment.body, 'test-me-please') && !startsWith(github.event.comment.body, 'test-me-please-') ||
-        startsWith(github.event.comment.body, '/test') && !startsWith(github.event.comment.body, '/test-')
+        github.event.comment.body == '/ci-eks' ||
+        github.event.comment.body == '/test'
       ) && github.event.issue.number) ||
       (github.event_name == 'pull_request' && github.event.pull_request.number)
     }}
@@ -68,7 +66,7 @@ concurrency:
 env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   region: us-east-2
-  cilium_cli_version: v0.9.3
+  cilium_cli_version: v0.10.0
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
@@ -76,10 +74,8 @@ jobs:
     name: Deduce required tests from code changes
     if: |
       (github.event_name == 'issue_comment' && (
-        startsWith(github.event.comment.body, 'ci-eks') && !startsWith(github.event.comment.body, 'ci-eks-') ||
-        startsWith(github.event.comment.body, '/ci-eks') && !startsWith(github.event.comment.body, '/ci-eks-') ||
-        startsWith(github.event.comment.body, 'test-me-please') && !startsWith(github.event.comment.body, 'test-me-please-') ||
-        startsWith(github.event.comment.body, '/test') && !startsWith(github.event.comment.body, '/test-')
+        github.event.comment.body == '/ci-eks' ||
+        github.event.comment.body == '/test'
       )) ||
       (github.event_name == 'schedule' && github.repository == 'cilium/cilium') ||
       github.event_name == 'pull_request'
@@ -118,10 +114,8 @@ jobs:
     needs: check_changes
     if: |
       (github.event_name == 'issue_comment' && (
-        startsWith(github.event.comment.body, 'ci-eks') && !startsWith(github.event.comment.body, 'ci-eks-') ||
-        startsWith(github.event.comment.body, '/ci-eks') && !startsWith(github.event.comment.body, '/ci-eks-') ||
-        startsWith(github.event.comment.body, 'test-me-please') && !startsWith(github.event.comment.body, 'test-me-please-') && needs.check_changes.outputs.tested == 'true' ||
-        startsWith(github.event.comment.body, '/test') && !startsWith(github.event.comment.body, '/test-') && needs.check_changes.outputs.tested == 'true'
+        github.event.comment.body == '/ci-eks' ||
+        (github.event.comment.body == '/test' && needs.check_changes.outputs.tested == 'true')
       )) ||
       (github.event_name == 'schedule' && github.repository == 'cilium/cilium') ||
       github.event_name == 'pull_request'
@@ -148,6 +142,7 @@ jobs:
             --operator-image=quay.io/${{ github.repository_owner }}/operator-aws-ci \
             --version=${SHA} \
             --wait=false \
+            --rollback=false \
             --config monitor-aggregation=none"
           HUBBLE_ENABLE_DEFAULTS="--relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
             --relay-version=${SHA}"
@@ -181,7 +176,7 @@ jobs:
           rm eksctl_$(uname -s)_amd64.tar.gz
 
       - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@0d9a5be0dceea74e09396820e1e522ba4a110d2f
+        uses: aws-actions/configure-aws-credentials@ea7b857d8a33dc2fb4ef5a724500044281b49a5e
         with:
           aws-access-key-id: ${{ secrets.AWS_PR_SA_ID }}
           aws-secret-access-key: ${{ secrets.AWS_PR_SA_KEY }}
@@ -244,31 +239,38 @@ jobs:
         run: |
           cilium connectivity test --flow-validation=disabled
 
+      # EKS testing with encryption is disabled due to https://github.com/cilium/cilium/issues/16938
       - name: Clean up Cilium
+        if: ${{ false }} # see comment above for details
         run: |
           cilium uninstall --wait
           pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay"
 
       - name: Create custom IPsec secret
+        if: ${{ false }} # see comment above for details
         run: |
           kubectl create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="15 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
 
       - name: Install Cilium with encryption
+        if: ${{ false }} # see comment above for details
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
             --encryption=ipsec
 
       - name: Enable Relay
+        if: ${{ false }} # see comment above for details
         run: |
           cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
 
       - name: Port forward Relay
+        if: ${{ false }} # see comment above for details
         run: |
           cilium hubble port-forward&
           sleep 10s
           [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
 
       - name: Run connectivity test
+        if: ${{ false }} # see comment above for details
         run: |
           cilium connectivity test --force-deploy --flow-validation=disabled \
             --test '!client-egress-l7,!echo-ingress-l7'
@@ -292,7 +294,7 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@27121b0bdffd731efa15d66772be8dc71245d074
+        uses: actions/upload-artifact@82c141cc518b40d92cc801eee768e7aafc9c2fa2
         with:
           name: cilium-sysdump-out.zip
           path: cilium-sysdump-out.zip
@@ -333,7 +335,7 @@ jobs:
 
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
-        uses: 8398a7/action-slack@b17d9de8e9ed64b041e4fac845d6fdb2be6b9b04
+        uses: 8398a7/action-slack@c9ff874f8549f97317ec9f6162d5449ee77bc984
         with:
           status: ${{ job.status }}
           fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)

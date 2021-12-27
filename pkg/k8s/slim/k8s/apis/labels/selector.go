@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/selection"
 
+	"github.com/google/go-cmp/cmp"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -19,12 +20,15 @@ import (
 )
 
 var (
-	validRequirementOperators = []string{
+	unaryOperators = []string{
+		string(selection.Exists), string(selection.DoesNotExist),
+	}
+	binaryOperators = []string{
 		string(selection.In), string(selection.NotIn),
 		string(selection.Equals), string(selection.DoubleEquals), string(selection.NotEquals),
-		string(selection.Exists), string(selection.DoesNotExist),
 		string(selection.GreaterThan), string(selection.LessThan),
 	}
+	validRequirementOperators = append(binaryOperators, unaryOperators...)
 )
 
 // Requirements is AND of all requirements.
@@ -128,7 +132,7 @@ type Requirement struct {
 
 // NewRequirement is the constructor for a Requirement.
 // If any of these rules is violated, an error is returned:
-// (1) The operator can only be In, NotIn, Equals, DoubleEquals, NotEquals, Exists, or DoesNotExist.
+// (1) The operator can only be In, NotIn, Equals, DoubleEquals, Gt, Lt, NotEquals, Exists, or DoesNotExist.
 // (2) If the operator is In or NotIn, the values set must be non-empty.
 // (3) If the operator is Equals, DoubleEquals, or NotEquals, the values set must contain one value.
 // (4) If the operator is Exists or DoesNotExist, the value set must be empty.
@@ -265,6 +269,17 @@ func (r *Requirement) Values() sets.String {
 	return ret
 }
 
+// Equal checks the equality of requirement.
+func (r Requirement) Equal(x Requirement) bool {
+	if r.key != x.key {
+		return false
+	}
+	if r.operator != x.operator {
+		return false
+	}
+	return cmp.Equal(r.strValues, x.strValues)
+}
+
 // Empty returns true if the internalSelector doesn't restrict selection space
 func (s internalSelector) Empty() bool {
 	if s == nil {
@@ -341,13 +356,9 @@ func safeSort(in []string) []string {
 
 // Add adds requirements to the selector. It copies the current selector returning a new one
 func (s internalSelector) Add(reqs ...Requirement) Selector {
-	var ret internalSelector
-	for ix := range s {
-		ret = append(ret, s[ix])
-	}
-	for _, r := range reqs {
-		ret = append(ret, r)
-	}
+	ret := make(internalSelector, 0, len(s)+len(reqs))
+	ret = append(ret, s...)
+	ret = append(ret, reqs...)
 	sort.Sort(ByKey(ret))
 	return ret
 }
@@ -729,7 +740,7 @@ func (p *Parser) parseOperator() (op selection.Operator, err error) {
 	case NotEqualsToken:
 		op = selection.NotEquals
 	default:
-		return "", fmt.Errorf("found '%s', expected: '=', '!=', '==', 'in', notin'", lit)
+		return "", fmt.Errorf("found '%s', expected: %v", lit, strings.Join(binaryOperators, ", "))
 	}
 	return op, nil
 }
@@ -843,8 +854,8 @@ func (p *Parser) parseExactValue() (sets.String, error) {
 //      the KEY exists and can be any VALUE.
 //  (5) A requirement with just !KEY requires that the KEY not exist.
 //
-func Parse(selector string) (Selector, error) {
-	parsedSelector, err := parse(selector)
+func Parse(selector string, opts ...field.PathOption) (Selector, error) {
+	parsedSelector, err := parse(selector, field.ToPath(opts...))
 	if err == nil {
 		return parsedSelector, nil
 	}
@@ -855,7 +866,7 @@ func Parse(selector string) (Selector, error) {
 // The callers of this method can then decide how to return the internalSelector struct to their
 // callers. This function has two callers now, one returns a Selector interface and the other
 // returns a list of requirements.
-func parse(selector string) (internalSelector, error) {
+func parse(selector string, _ *field.Path) (internalSelector, error) {
 	p := &Parser{l: &Lexer{s: selector, pos: 0}}
 	items, err := p.parse()
 	if err != nil {
@@ -921,4 +932,13 @@ func SelectorFromValidatedSet(ls Set) Selector {
 	// sort to have deterministic string representation
 	sort.Sort(ByKey(requirements))
 	return internalSelector(requirements)
+}
+
+// ParseToRequirements takes a string representing a selector and returns a list of
+// requirements. This function is suitable for those callers that perform additional
+// processing on selector requirements.
+// See the documentation for Parse() function for more details.
+// TODO: Consider exporting the internalSelector type instead.
+func ParseToRequirements(selector string, opts ...field.PathOption) ([]Requirement, error) {
+	return parse(selector, field.ToPath(opts...))
 }
