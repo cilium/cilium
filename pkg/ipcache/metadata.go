@@ -103,11 +103,11 @@ func InjectLabels(src source.Source, updater identityUpdater, triggerer policyTr
 	)
 
 	idMDMU.Lock()
-	defer idMDMU.Unlock()
 
 	for prefix, lbls := range identityMetadata {
 		id, isNew, err := injectLabels(prefix, lbls)
 		if err != nil {
+			idMDMU.Unlock()
 			return fmt.Errorf("failed to allocate new identity for IP %v: %w", prefix, err)
 		}
 
@@ -166,6 +166,8 @@ func InjectLabels(src source.Source, updater identityUpdater, triggerer policyTr
 			}
 		}
 	}
+	// Don't hold lock while calling UpdateIdentities, as it will otherwise run into a deadlock
+	idMDMU.Unlock()
 
 	// Recalculate policy first before upserting into the ipcache.
 	if trigger {
