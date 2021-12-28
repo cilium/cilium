@@ -141,14 +141,23 @@ Installing Kubernetes cluster with Cilium as CNI
 
 Kubespray uses Ansible as its substrate for provisioning and orchestration. Once the infrastructure is created, you can run the Ansible playbook to install Kubernetes and all the required dependencies. Execute the below command in the kubespray clone repo, providing the correct path of the AWS EC2 ssh private key in ``ansible_ssh_private_key_file=<path to EC2 SSH private key file>``
 
-We recommend using the `latest released Cilium version`_ by editing ``roles/download/defaults/main.yml``. Open the file, search for ``cilium_version``, and replace the version with the latest released. As an example, the updated version entry will look like: ``cilium_version: "v1.2.0"``.
-
+We recommend using the `latest released Cilium version`_ by passing the variable when running the ``ansible-playbook`` command.
+For example, you could add the following flag to the command below: ``-e cilium_version=v1.11.0``.
 
 .. code-block:: shell-session
 
   $ ansible-playbook -i ./inventory/hosts ./cluster.yml -e ansible_user=core -e bootstrap_os=coreos -e kube_network_plugin=cilium -b --become-user=root --flush-cache  -e ansible_ssh_private_key_file=<path to EC2 SSH private key file>
 
 .. _latest released Cilium version: https://github.com/cilium/cilium/releases
+
+If you are interested in configuring your Kubernetes cluster setup, you should consider copying the sample inventory. Then, you can edit the variables in the relevant file in the ``group_vars`` directory.
+
+.. code-block:: shell-session
+
+  $ cp -r inventory/sample inventory/my-inventory
+  $ cp ./inventory/hosts ./inventory/my-inventory/hosts
+  $ echo 'cilium_version: "v1.11.0"' >> ./inventory/my-inventory/group_vars/k8s_cluster/k8s-net-cilium.yml
+  $ ansible-playbook -i ./inventory/my-inventory/hosts ./cluster.yml -e ansible_user=core -e bootstrap_os=coreos -e kube_network_plugin=cilium -b --become-user=root --flush-cache -e ansible_ssh_private_key_file=<path to EC2 SSH private key file>
 
 Validate Cluster
 ================
