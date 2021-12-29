@@ -310,6 +310,11 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		}
 		fmt.Fprintf(w, "\n")
 	}
+
+	if sr.CniChaining != nil {
+		fmt.Fprintf(w, "CNI Chaining:\t%s\n", sr.CniChaining.Mode)
+	}
+
 	if sr.Cilium != nil {
 		fmt.Fprintf(w, "Cilium:\t%s   %s\n", sr.Cilium.State, sr.Cilium.Msg)
 	}

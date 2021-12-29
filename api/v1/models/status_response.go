@@ -46,6 +46,9 @@ type StatusResponse struct {
 	// Status of ClusterMesh
 	ClusterMesh *ClusterMeshStatus `json:"cluster-mesh,omitempty"`
 
+	// Status of CNI chaining
+	CniChaining *CNIChainingStatus `json:"cni-chaining,omitempty"`
+
 	// Status of local container runtime
 	ContainerRuntime *Status `json:"container-runtime,omitempty"`
 
@@ -114,6 +117,10 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateClusterMesh(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateCniChaining(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -279,6 +286,24 @@ func (m *StatusResponse) validateClusterMesh(formats strfmt.Registry) error {
 		if err := m.ClusterMesh.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("cluster-mesh")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) validateCniChaining(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.CniChaining) { // not required
+		return nil
+	}
+
+	if m.CniChaining != nil {
+		if err := m.CniChaining.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("cni-chaining")
 			}
 			return err
 		}

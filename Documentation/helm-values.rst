@@ -238,7 +238,7 @@
      - string
      - ``"/opt/cni/bin"``
    * - cni.chainingMode
-     - Configure chaining on top of other CNI plugins. Possible values:  - none  - generic-veth  - aws-cni  - portmap
+     - Configure chaining on top of other CNI plugins. Possible values:  - none  - aws-cni  - flannel  - generic-veth  - portmap
      - string
      - ``"none"``
    * - cni.confFileMountPath

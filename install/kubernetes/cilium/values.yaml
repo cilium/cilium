@@ -315,8 +315,9 @@ cni:
 
   # -- Configure chaining on top of other CNI plugins. Possible values:
   #  - none
-  #  - generic-veth
   #  - aws-cni
+  #  - flannel
+  #  - generic-veth
   #  - portmap
   chainingMode: none
 

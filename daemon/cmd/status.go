@@ -6,6 +6,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -194,6 +195,17 @@ func (d *Daemon) getClockSourceStatus() *models.ClockSource {
 		s.Hertz = int64(option.Config.KernelHz)
 	}
 	return s
+}
+
+func (d *Daemon) getCNIChainingStatus() *models.CNIChainingStatus {
+	// CNI chaining is enabled only from CILIUM_CNI_CHAINING_MODE env
+	mode := os.Getenv("CILIUM_CNI_CHAINING_MODE")
+	if len(mode) == 0 {
+		mode = models.CNIChainingStatusModeNone
+	}
+	return &models.CNIChainingStatus{
+		Mode: mode,
+	}
 }
 
 func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
@@ -984,6 +996,7 @@ func (d *Daemon) startStatusCollector() {
 	d.statusResponse.HostRouting = d.getHostRoutingStatus()
 	d.statusResponse.ClockSource = d.getClockSourceStatus()
 	d.statusResponse.BpfMaps = d.getBPFMapStatus()
+	d.statusResponse.CniChaining = d.getCNIChainingStatus()
 
 	d.statusCollector = status.NewCollector(probes, status.Config{})
 
