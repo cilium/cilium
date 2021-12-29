@@ -1652,6 +1652,21 @@ func init() {
         }
       }
     },
+    "CNIChainingStatus": {
+      "description": "Status of CNI chaining\n\n+k8s:deepcopy-gen=true",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "none",
+            "aws-cni",
+            "flannel",
+            "generic-veth",
+            "portmap"
+          ]
+        }
+      }
+    },
     "ClockSource": {
       "description": "Status of BPF clock source\n\n+k8s:deepcopy-gen=true",
       "type": "object",
@@ -3883,6 +3898,10 @@ func init() {
           "description": "Status of ClusterMesh",
           "$ref": "#/definitions/ClusterMeshStatus"
         },
+        "cni-chaining": {
+          "description": "Status of CNI chaining",
+          "$ref": "#/definitions/CNIChainingStatus"
+        },
         "container-runtime": {
           "description": "Status of local container runtime",
           "$ref": "#/definitions/Status"
@@ -6018,6 +6037,21 @@ func init() {
           "items": {
             "$ref": "#/definitions/PolicyRule"
           }
+        }
+      }
+    },
+    "CNIChainingStatus": {
+      "description": "Status of CNI chaining\n\n+k8s:deepcopy-gen=true",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "none",
+            "aws-cni",
+            "flannel",
+            "generic-veth",
+            "portmap"
+          ]
         }
       }
     },
@@ -8611,6 +8645,10 @@ func init() {
         "cluster-mesh": {
           "description": "Status of ClusterMesh",
           "$ref": "#/definitions/ClusterMeshStatus"
+        },
+        "cni-chaining": {
+          "description": "Status of CNI chaining",
+          "$ref": "#/definitions/CNIChainingStatus"
         },
         "container-runtime": {
           "description": "Status of local container runtime",

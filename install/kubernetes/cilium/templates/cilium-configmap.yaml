@@ -405,6 +405,7 @@ data:
   #  - none
   #  - aws-cni
   #  - flannel
+  #  - generic-veth
   #  - portmap (Enables HostPort support for Cilium)
   cni-chaining-mode: {{ .Values.cni.chainingMode }}
 
