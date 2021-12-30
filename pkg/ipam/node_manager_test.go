@@ -9,6 +9,7 @@ package ipam
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
@@ -113,8 +114,10 @@ func (n *nodeOperationsMock) PrepareIPRelease(excessIPs int, scopedLog *logrus.E
 	n.mutex.RLock()
 	excessIPs = math.IntMin(excessIPs, len(n.allocatedIPs))
 	r := &ReleaseAction{PoolID: testPoolID}
-	for i := 0; i < excessIPs; i++ {
-		r.IPsToRelease = append(r.IPsToRelease, n.allocatedIPs[i])
+	for i := 1; i <= excessIPs; i++ {
+		// Release from the end of slice to avoid releasing used IPs
+		releaseIndex := len(n.allocatedIPs) - (excessIPs + i - 1)
+		r.IPsToRelease = append(r.IPsToRelease, n.allocatedIPs[releaseIndex])
 	}
 	n.mutex.RUnlock()
 	return r
@@ -243,7 +246,7 @@ func newCiliumNode(node string, preAllocate, minAllocate, used int) *v2.CiliumNo
 
 func updateCiliumNode(cn *v2.CiliumNode, used int) *v2.CiliumNode {
 	cn.Spec.IPAM.Pool = ipamTypes.AllocationMap{}
-	for i := 0; i < used; i++ {
+	for i := 1; i <= used; i++ {
 		cn.Spec.IPAM.Pool[fmt.Sprintf("1.1.1.%d", i)] = ipamTypes.AllocationIP{Resource: "foo"}
 	}
 
@@ -455,6 +458,81 @@ func (e *IPAMSuite) TestNodeManagerReleaseAddress(c *check.C) {
 	c.Assert(node, check.Not(check.IsNil))
 	c.Assert(node.Stats().AvailableIPs, check.Equals, 18)
 	c.Assert(node.Stats().UsedIPs, check.Equals, 10)
+}
+
+// TestNodeManagerAbortRelease tests aborting IP release handshake if a new allocation on the node results in excess
+// being resolved
+func (e *IPAMSuite) TestNodeManagerAbortRelease(c *check.C) {
+	var wg sync.WaitGroup
+	operatorOption.Config.ExcessIPReleaseDelay = 2
+	am := newAllocationImplementationMock()
+	c.Assert(am, check.Not(check.IsNil))
+	mngr, err := NewNodeManager(am, k8sapi, metricsapi, 10, true)
+	c.Assert(err, check.IsNil)
+	c.Assert(mngr, check.Not(check.IsNil))
+
+	// Announce node, wait for IPs to become available
+	cn := newCiliumNode("node3", 1, 3, 0)
+	mngr.Update(cn)
+	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 1*time.Second), check.IsNil)
+
+	node := mngr.Get("node3")
+	c.Assert(node, check.Not(check.IsNil))
+	c.Assert(node.Stats().AvailableIPs, check.Equals, 3)
+	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
+
+	// Use 3 out of 4 IPs, no additional IPs should be allocated
+	mngr.Update(updateCiliumNode(cn, 3))
+	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second), check.IsNil)
+	node = mngr.Get("node3")
+	c.Assert(node, check.Not(check.IsNil))
+	c.Assert(node.Stats().AvailableIPs, check.Equals, 4)
+	c.Assert(node.Stats().UsedIPs, check.Equals, 3)
+
+	mngr.Update(updateCiliumNode(node.resource, 2))
+	node = mngr.Get("node3")
+	c.Assert(node, check.Not(check.IsNil))
+	c.Assert(node.Stats().AvailableIPs, check.Equals, 4)
+	c.Assert(node.Stats().UsedIPs, check.Equals, 2)
+
+	// Trigger resync manually, excess IPs should be released down to 3
+	// Excess timestamps should be registered after this trigger
+	mngr.resyncTrigger.Trigger()
+	wg.Add(1)
+
+	// Acknowledge release IPs after 3 secs
+	time.AfterFunc(3*time.Second, func() {
+		defer wg.Done()
+		// Excess delay duration should have elapsed by now, trigger resync again.
+		// IPs should be marked as excess
+		mngr.resyncTrigger.Trigger()
+		time.Sleep(1 * time.Second)
+		node.PopulateIPReleaseStatus(node.resource)
+
+		c.Assert(len(node.resource.Status.IPAM.ReleaseIPs), check.Equals, 1)
+
+		// Fake acknowledge IPs for release like agent would.
+		testutils.FakeAcknowledgeReleaseIps(node.resource)
+
+		// Use up one more IP to make excess = 0
+		mngr.Update(updateCiliumNode(node.resource, 3))
+		node.poolMaintainer.Trigger()
+		// Resync one more time to process acknowledgements.
+		mngr.resyncTrigger.Trigger()
+
+		time.Sleep(1 * time.Second)
+		node.PopulateIPReleaseStatus(node.resource)
+
+		// Verify that the entry for previously marked IP is removed, instead of being set to released state.
+		c.Assert(len(node.resource.Status.IPAM.ReleaseIPs), check.Equals, 0)
+	})
+
+	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second), check.IsNil)
+	wg.Wait()
+	node = mngr.Get("node3")
+	c.Assert(node, check.Not(check.IsNil))
+	c.Assert(node.Stats().AvailableIPs, check.Equals, 4)
+	c.Assert(node.Stats().UsedIPs, check.Equals, 3)
 }
 
 type nodeState struct {
