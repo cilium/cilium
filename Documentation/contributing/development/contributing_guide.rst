@@ -293,7 +293,7 @@ Pull requests review process for committers
    example below, the committer belonging to the CI team is re-requesting a
    review for other team members to review the PR. This allows other team
    members belonging to the CI team to see the PR as part of the PRs that
-   require review in the `filter provided above <https://github.com/cilium/cilium/pulls?q=is%3Apr+is%3Aopen+draft%3Afalse+review-requested%3A%40me+sort%3Aupdated-asc>`_
+   require review in the `filter <https://github.com/cilium/cilium/pulls?q=is%3Apr+is%3Aopen+draft%3Afalse+review-requested%3A%40me+sort%3Aupdated-asc>`_
 
    .. image:: ../../images/re-request-review.png
       :align: center
