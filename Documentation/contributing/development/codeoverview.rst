@@ -150,7 +150,7 @@ pkg/controller
 pkg/datapath
   Abstraction layer for datapath interaction
 
-pkg/default
+pkg/defaults
   All default values
 
 pkg/elf
