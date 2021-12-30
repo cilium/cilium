@@ -215,8 +215,11 @@ Getting a pull request merged
    ``/test`` as described in :ref:`trigger_phrases`. If you are a core team
    member, you may trigger the CI run yourself.
 
-   #. Hound: basic ``golang/lint`` static code analyzer. You need to make the
-      puppy happy.
+   #. Basic static code analyzer by Github Action and Travis CI. Golang linter
+      suggestions are added in-line on PRs. For other failed jobs, please refer
+      to build log for required action (e.g. Please run ``go mod tidy && go mod
+      vendor`` and submit your changes, etc).
+
    #. :ref:`ci_jenkins`: Will run a series of tests:
 
       #. Unit tests
