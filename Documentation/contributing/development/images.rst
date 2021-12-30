@@ -87,7 +87,7 @@ build your own cilium-runtime and cilium-builder images:
 
 .. code-block:: shell-session
 
-    make docker-image-runtime
+    make -C images runtime-image
 
 After the build finishes update the runtime image references in other
 Dockerfiles (``docker buildx imagetools inspect`` is useful for finding
@@ -95,7 +95,7 @@ image information). Then proceed to build the cilium-builder:
 
 .. code-block:: shell-session
 
-    make docker-image-builder
+    make -C images builder-image
 
 After the build finishes update the main Cilium Dockerfile with the
 new builder reference, then proceed to build Hubble from
