@@ -30,16 +30,19 @@ function cleanup {
 }
 
 function get_cilium_pods {
-    kubectl -n "${K8S_NAMESPACE}" get pods -l k8s-app=cilium | \
-       awk '{print $1}' | \
+    kubectl -n "${K8S_NAMESPACE}" get pods -l k8s-app=cilium -o custom-columns=NAME:.metadata.name,NODE:.spec.nodeName | \
        grep cilium
 }
 
 K8S_NAMESPACE="${K8S_NAMESPACE:-kube-system}"
 CONTAINER="${CONTAINER:-cilium-agent}"
 
-while read -r p; do
-	kubectl -n "${K8S_NAMESPACE}" exec -c "${CONTAINER}" "${p}" -- "${@}" &
+while read -r podName nodeName ; do
+	(
+		title="==== detail from pod $podName , on node $nodeName "
+		msg=$( kubectl -n "${K8S_NAMESPACE}" exec -c "${CONTAINER}" "${podName}" -- "${@}" 2>&1 )
+		echo -e "$title \n$msg\n"
+	)&
 done <<< "$(get_cilium_pods)"
 
 wait
