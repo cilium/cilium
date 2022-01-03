@@ -54,6 +54,7 @@ type LaunchTemplateData struct {
 	ResourceGroupId              string                                            `json:"ResourceGroupId" xml:"ResourceGroupId"`
 	InternetChargeType           string                                            `json:"InternetChargeType" xml:"InternetChargeType"`
 	ZoneId                       string                                            `json:"ZoneId" xml:"ZoneId"`
+	Ipv6AddressCount             int                                               `json:"Ipv6AddressCount" xml:"Ipv6AddressCount"`
 	SecurityGroupIds             SecurityGroupIdsInDescribeLaunchTemplateVersions  `json:"SecurityGroupIds" xml:"SecurityGroupIds"`
 	DataDisks                    DataDisks                                         `json:"DataDisks" xml:"DataDisks"`
 	NetworkInterfaces            NetworkInterfacesInDescribeLaunchTemplateVersions `json:"NetworkInterfaces" xml:"NetworkInterfaces"`

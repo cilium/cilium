@@ -84,6 +84,7 @@ type CreateLaunchTemplateRequest struct {
 	TemplateTag                  *[]CreateLaunchTemplateTemplateTag      `position:"Query" name:"TemplateTag"  type:"Repeated"`
 	Tag                          *[]CreateLaunchTemplateTag              `position:"Query" name:"Tag"  type:"Repeated"`
 	Period                       requests.Integer                        `position:"Query" name:"Period"`
+	Ipv6AddressCount             requests.Integer                        `position:"Query" name:"Ipv6AddressCount"`
 	TemplateResourceGroupId      string                                  `position:"Query" name:"TemplateResourceGroupId"`
 	OwnerId                      requests.Integer                        `position:"Query" name:"OwnerId"`
 	VSwitchId                    string                                  `position:"Query" name:"VSwitchId"`

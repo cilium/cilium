@@ -1,3 +1,7 @@
+# v1.11.1 (2021-12-21)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.11.0 (2021-12-02)
 
 * **Feature**: Add support for specifying `EndpointResolverWithOptions` on `LoadOptions`, and associated `WithEndpointResolverWithOptions`.

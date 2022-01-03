@@ -1,3 +1,7 @@
+# v1.12.0 (2021-12-21)
+
+* **Feature**: Updated to latest service endpoints
+
 # v1.11.1 (2021-12-02)
 
 * **Bug Fix**: Fixes a bug that prevented aws.EndpointResolverWithOptions from being used by the service client. ([#1514](https://github.com/aws/aws-sdk-go-v2/pull/1514))
