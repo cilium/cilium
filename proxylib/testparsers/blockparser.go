@@ -9,10 +9,10 @@ import (
 	"math"
 	"strconv"
 
-	. "github.com/cilium/cilium/proxylib/proxylib"
-
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	log "github.com/sirupsen/logrus"
+
+	. "github.com/cilium/cilium/proxylib/proxylib"
 )
 
 //

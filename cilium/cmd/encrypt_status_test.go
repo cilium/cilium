@@ -8,12 +8,13 @@ package cmd
 
 import (
 	"encoding/hex"
-	"github.com/vishvananda/netlink"
-	"github.com/vishvananda/netns"
-	. "gopkg.in/check.v1"
 	"net"
 	"runtime"
 	"testing"
+
+	"github.com/vishvananda/netlink"
+	"github.com/vishvananda/netns"
+	. "gopkg.in/check.v1"
 )
 
 // Hook up gocheck into the "go test" runner.

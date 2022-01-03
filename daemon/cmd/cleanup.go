@@ -9,11 +9,11 @@ import (
 	"os/signal"
 	"sync"
 
+	gops "github.com/google/gops/agent"
+	"golang.org/x/sys/unix"
+
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/pidfile"
-	gops "github.com/google/gops/agent"
-
-	"golang.org/x/sys/unix"
 )
 
 var cleaner = &daemonCleanup{

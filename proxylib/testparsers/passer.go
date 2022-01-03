@@ -4,9 +4,9 @@
 package testparsers
 
 import (
-	. "github.com/cilium/cilium/proxylib/proxylib"
-
 	log "github.com/sirupsen/logrus"
+
+	. "github.com/cilium/cilium/proxylib/proxylib"
 )
 
 type PasserParserFactory struct{}

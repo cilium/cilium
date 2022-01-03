@@ -13,6 +13,9 @@ import (
 	"sync/atomic"
 	"unsafe"
 
+	cilium "github.com/cilium/proxy/go/cilium/api"
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/iana"
 	"github.com/cilium/cilium/pkg/identity"
@@ -23,9 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
-	cilium "github.com/cilium/proxy/go/cilium/api"
-
-	"github.com/sirupsen/logrus"
 )
 
 // __canSkipArgs is a wrapper structure to store all boolean conditions for the

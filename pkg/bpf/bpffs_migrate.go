@@ -1,18 +1,17 @@
 package bpf
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
 
-	"encoding/binary"
-
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/ebpf"
-
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
+
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const bpffsPending = ":pending"

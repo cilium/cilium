@@ -14,13 +14,14 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/cidr"
-	"github.com/cilium/cilium/pkg/defaults"
-	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/google/go-cmp/cmp"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	. "gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/defaults"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 )
 
 func (s *OptionSuite) TestValidateIPv6ClusterAllocCIDR(c *C) {

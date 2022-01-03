@@ -9,12 +9,11 @@ package r2d2
 import (
 	"testing"
 
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/proxylib/accesslog"
 	"github.com/cilium/cilium/proxylib/proxylib"
 	"github.com/cilium/cilium/proxylib/test"
-
-	// log "github.com/sirupsen/logrus"
-	. "gopkg.in/check.v1"
 )
 
 // Hook up gocheck into the "go test" runner.

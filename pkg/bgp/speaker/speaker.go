@@ -10,6 +10,12 @@ import (
 	"errors"
 	"sync/atomic"
 
+	"github.com/sirupsen/logrus"
+	metallbspr "go.universe.tf/metallb/pkg/speaker"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/workqueue"
+
 	"github.com/cilium/cilium/pkg/bgp/fence"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -19,12 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/lock"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
-	"github.com/sirupsen/logrus"
-
-	metallbspr "go.universe.tf/metallb/pkg/speaker"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/util/workqueue"
 )
 
 var (

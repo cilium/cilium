@@ -9,12 +9,11 @@ package envoy
 import (
 	"encoding/json"
 
+	cilium "github.com/cilium/proxy/go/cilium/api"
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	logger_test "github.com/cilium/cilium/pkg/proxy/logger/test"
-
-	"github.com/cilium/proxy/go/cilium/api"
-
-	. "gopkg.in/check.v1"
 )
 
 type AccessLogServerSuite struct{}

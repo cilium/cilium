@@ -20,10 +20,11 @@ import (
 	"net"
 	"strings"
 
-	. "github.com/cilium/cilium/test/ginkgo-ext"
-	"github.com/cilium/cilium/test/helpers"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
+
+	. "github.com/cilium/cilium/test/ginkgo-ext"
+	"github.com/cilium/cilium/test/helpers"
 )
 
 var _ = SkipDescribeIf(func() bool {

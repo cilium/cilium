@@ -7,11 +7,12 @@ import (
 	"net"
 	"regexp"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/sirupsen/logrus"
 )
 
 // MapSelectorsToIPsLocked iterates through a set of FQDNSelectors and evalutes

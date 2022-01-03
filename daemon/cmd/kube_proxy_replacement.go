@@ -16,6 +16,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/loader"
@@ -28,8 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/probe"
 	"github.com/cilium/cilium/pkg/sysctl"
-	"github.com/vishvananda/netlink"
-	"golang.org/x/sys/unix"
 )
 
 // initKubeProxyReplacementOptions will grok the global config and determine

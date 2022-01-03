@@ -5,7 +5,7 @@ package awscni
 
 import (
 	chainingapi "github.com/cilium/cilium/plugins/cilium-cni/chaining/api"
-	"github.com/cilium/cilium/plugins/cilium-cni/chaining/generic-veth"
+	genericveth "github.com/cilium/cilium/plugins/cilium-cni/chaining/generic-veth"
 )
 
 func init() {

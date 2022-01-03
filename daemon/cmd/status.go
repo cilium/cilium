@@ -9,6 +9,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-openapi/runtime/middleware"
+	"github.com/go-openapi/strfmt"
+	"github.com/sirupsen/logrus"
+	versionapi "k8s.io/apimachinery/pkg/version"
+
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/backoff"
@@ -36,11 +41,6 @@ import (
 	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/version"
-	"github.com/sirupsen/logrus"
-
-	"github.com/go-openapi/runtime/middleware"
-	"github.com/go-openapi/strfmt"
-	versionapi "k8s.io/apimachinery/pkg/version"
 )
 
 const (

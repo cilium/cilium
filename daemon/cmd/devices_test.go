@@ -10,14 +10,14 @@ import (
 	"net"
 	"runtime"
 
+	"github.com/vishvananda/netlink"
+	"github.com/vishvananda/netns"
+	"golang.org/x/sys/unix"
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
-	"golang.org/x/sys/unix"
-
-	"github.com/vishvananda/netlink"
-	"github.com/vishvananda/netns"
-	. "gopkg.in/check.v1"
 )
 
 type DevicesSuite struct {

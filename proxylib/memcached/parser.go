@@ -10,14 +10,13 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/cilium/cilium/proxylib/proxylib"
+	cilium "github.com/cilium/proxy/go/cilium/api"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/proxylib/memcached/binary"
 	"github.com/cilium/cilium/proxylib/memcached/meta"
 	"github.com/cilium/cilium/proxylib/memcached/text"
-
-	"github.com/cilium/proxy/go/cilium/api"
-	log "github.com/sirupsen/logrus"
+	"github.com/cilium/cilium/proxylib/proxylib"
 )
 
 // Rule matches against memcached requests

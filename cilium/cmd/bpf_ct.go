@@ -4,9 +4,10 @@
 package cmd
 
 import (
+	"github.com/spf13/cobra"
+
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/spf13/cobra"
 )
 
 // bpfCtCmd represents the bpf_ct command

@@ -4,13 +4,14 @@
 package proxy
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/fqdn/proxy"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/revert"
-	"github.com/sirupsen/logrus"
 )
 
 var (

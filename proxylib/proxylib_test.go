@@ -11,15 +11,13 @@ import (
 	"testing"
 	"time"
 
-	_ "gopkg.in/check.v1"
+	cilium "github.com/cilium/proxy/go/cilium/api"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/proxylib/proxylib"
 	"github.com/cilium/cilium/proxylib/test"
 	_ "github.com/cilium/cilium/proxylib/testparsers"
-
-	cilium "github.com/cilium/proxy/go/cilium/api"
-	log "github.com/sirupsen/logrus"
 )
 
 const debug = false

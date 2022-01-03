@@ -12,17 +12,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/test/config"
-	. "github.com/cilium/cilium/test/ginkgo-ext"
-	"github.com/cilium/cilium/test/helpers"
-	"github.com/cilium/cilium/test/logger"
 	gops "github.com/google/gops/agent"
 	"github.com/onsi/ginkgo"
 	ginkgoconfig "github.com/onsi/ginkgo/config"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
 	"github.com/sirupsen/logrus"
+
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/test/config"
+	. "github.com/cilium/cilium/test/ginkgo-ext"
+	"github.com/cilium/cilium/test/helpers"
+	"github.com/cilium/cilium/test/logger"
 )
 
 var (

@@ -13,6 +13,8 @@ import (
 	"sync"
 
 	"github.com/aws/smithy-go"
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/aws/eni/limits"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
@@ -22,8 +24,6 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/math"
-
-	"github.com/sirupsen/logrus"
 )
 
 const (

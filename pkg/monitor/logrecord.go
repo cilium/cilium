@@ -8,8 +8,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/miekg/dns"
+
+	"github.com/cilium/cilium/pkg/proxy/accesslog"
 )
 
 // LogRecordNotify is a proxy access log notification

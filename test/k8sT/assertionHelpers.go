@@ -7,10 +7,11 @@ import (
 	"fmt"
 	"time"
 
+	. "github.com/onsi/gomega"
+
 	"github.com/cilium/cilium/test/config"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
-	. "github.com/onsi/gomega"
 )
 
 var longTimeout = 10 * time.Minute

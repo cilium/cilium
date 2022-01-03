@@ -10,14 +10,15 @@ import (
 	"sync"
 	"time"
 
+	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/policy/api"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 	"github.com/cilium/cilium/test/helpers/constants"
-	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/types"
-	"github.com/sirupsen/logrus"
 )
 
 const (

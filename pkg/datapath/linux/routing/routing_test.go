@@ -11,13 +11,13 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/vishvananda/netlink"
+	"github.com/vishvananda/netns"
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/mac"
-	"github.com/vishvananda/netlink"
-	"github.com/vishvananda/netns"
-
-	. "gopkg.in/check.v1"
 )
 
 func Test(t *testing.T) {

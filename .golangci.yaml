@@ -51,6 +51,8 @@ linters-settings:
   govet:
     enable:
       - nilness
+  goimports:
+    local-prefixes: github.com/cilium/cilium
   misspell:
     # Correct spellings using locale preferences for US or UK.
     # Default is to use a neutral variety of English.
@@ -79,11 +81,16 @@ issues:
     - path: test/
       linters:
         - unused
+    # Skip goimports check on generated files
+    - path: \\.(generated\\.deepcopy|pb)\\.go$
+      linters:
+        - goimports
 linters:
   disable-all: true
   enable:
     - goerr113
     - gofmt
+    - goimports
     - govet
     - ineffassign
     - misspell

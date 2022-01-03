@@ -9,17 +9,17 @@ import (
 	"context"
 	"os"
 
-	bgpconfig "github.com/cilium/cilium/pkg/bgp/config"
-	bgpk8s "github.com/cilium/cilium/pkg/bgp/k8s"
-	bgplog "github.com/cilium/cilium/pkg/bgp/log"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/sirupsen/logrus"
-
 	metallballoc "go.universe.tf/metallb/pkg/allocator"
 	metallbctl "go.universe.tf/metallb/pkg/controller"
 	"go.universe.tf/metallb/pkg/k8s"
 	"go.universe.tf/metallb/pkg/k8s/types"
 	v1 "k8s.io/api/core/v1"
+
+	bgpconfig "github.com/cilium/cilium/pkg/bgp/config"
+	bgpk8s "github.com/cilium/cilium/pkg/bgp/k8s"
+	bgplog "github.com/cilium/cilium/pkg/bgp/log"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // Controller provides a method set for interfacing with a BGP Controller.

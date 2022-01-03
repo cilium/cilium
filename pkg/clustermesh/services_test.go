@@ -13,6 +13,8 @@ import (
 	"path"
 	"time"
 
+	. "gopkg.in/check.v1"
+
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
@@ -26,9 +28,7 @@ import (
 	fakeConfig "github.com/cilium/cilium/pkg/option/fake"
 	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/testutils"
-	"github.com/cilium/cilium/pkg/testutils/identity"
-
-	. "gopkg.in/check.v1"
+	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 
 var etcdConfig = []byte(fmt.Sprintf("endpoints:\n- %s\n", kvstore.EtcdDummyAddress()))

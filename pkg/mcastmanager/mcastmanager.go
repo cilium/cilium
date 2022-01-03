@@ -4,12 +4,13 @@
 package mcastmanager
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/multicast"
-	"github.com/sirupsen/logrus"
 )
 
 var (

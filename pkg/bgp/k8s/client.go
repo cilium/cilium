@@ -8,11 +8,11 @@ package k8s
 import (
 	"context"
 
-	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/sirupsen/logrus"
-
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/cilium/cilium/pkg/k8s"
 )
 
 func New(l *logrus.Logger) *Client {

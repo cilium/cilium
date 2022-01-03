@@ -6,12 +6,13 @@ package multicast
 import (
 	"net"
 
+	"github.com/vishvananda/netlink"
+	"golang.org/x/net/ipv6"
+
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/vishvananda/netlink"
-	"golang.org/x/net/ipv6"
 )
 
 var (

@@ -18,6 +18,9 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/types"
+
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sLabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
@@ -25,9 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/sirupsen/logrus"
-
-	"k8s.io/apimachinery/pkg/types"
 )
 
 // PolicyConfig is the internal representation of Cilium Egress NAT Policy.

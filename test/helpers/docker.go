@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cilium/cilium/test/helpers/constants"
 	"github.com/onsi/ginkgo"
+
+	"github.com/cilium/cilium/test/helpers/constants"
 )
 
 // ContainerExec executes cmd in the container with the provided name along with

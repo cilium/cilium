@@ -12,13 +12,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/cilium/cilium/pkg/inctimer"
-	"github.com/cilium/cilium/pkg/lock"
 	cilium "github.com/cilium/proxy/go/cilium/api"
-
 	"github.com/golang/protobuf/proto"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
+
+	"github.com/cilium/cilium/pkg/inctimer"
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 type AccessLogServer struct {
