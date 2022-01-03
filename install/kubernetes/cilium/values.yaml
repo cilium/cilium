@@ -324,6 +324,10 @@ cni:
   # agent downtime.
   exclusive: true
 
+  # -- Configure the log file for CNI logging with retention policy of 7 days.
+  # Disable CNI file logging by setting this field to empty explicitly.
+  logFile: /var/run/cilium/cilium-cni.log
+
   # -- Skip writing of the CNI configuration. This can be used if
   # writing of the CNI configuration is performed by external automation.
   customConf: false

@@ -122,6 +122,7 @@ contributors across the globe, there is almost always someone available to help.
 | cni.exclusive | bool | `true` | Make Cilium take ownership over the `/etc/cni/net.d` directory on the node, renaming all non-Cilium CNI configurations to `*.cilium_bak`. This ensures no Pods can be scheduled using other CNI plugins during Cilium agent downtime. |
 | cni.hostConfDirMountPath | string | `"/host/etc/cni/net.d"` | Configure the path to where the CNI configuration directory is mounted inside the agent pod. |
 | cni.install | bool | `true` | Install the CNI configuration and binary files into the filesystem. |
+| cni.logFile | string | `"/var/run/cilium/cilium-cni.log"` | Configure the log file for CNI logging with retention policy of 7 days. Disable CNI file logging by setting this field to empty explicitly. |
 | containerRuntime | object | `{"integration":"none"}` | Configure container runtime specific integration. |
 | containerRuntime.integration | string | `"none"` | Enables specific integrations for container runtimes. Supported values: - containerd - crio - docker - none - auto (automatically detect the container runtime) |
 | customCalls | object | `{"enabled":false}` | Tail call hooks for custom eBPF programs. |

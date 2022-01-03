@@ -285,6 +285,10 @@
      - Install the CNI configuration and binary files into the filesystem.
      - bool
      - ``true``
+   * - cni.logFile
+     - Configure the log file for CNI logging with retention policy of 7 days. Disable CNI file logging by setting this field to empty explicitly.
+     - string
+     - ``"/var/run/cilium/cilium-cni.log"``
    * - containerRuntime
      - Configure container runtime specific integration.
      - object
