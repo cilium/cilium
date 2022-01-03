@@ -14,18 +14,18 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/informer"
-
 	. "gopkg.in/check.v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
+
+	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/informer"
 )
 
 func Test(t *testing.T) {

@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/cilium/cilium/pkg/lock"
-
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_service_disacovery "github.com/cilium/proxy/go/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/proto"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 type PolicyClient interface {

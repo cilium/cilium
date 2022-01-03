@@ -11,9 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/vishvananda/netlink"
 	. "gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/pkg/addressing"
 )
 
 func Test(t *testing.T) { TestingT(t) }

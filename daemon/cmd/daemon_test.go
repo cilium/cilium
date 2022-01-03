@@ -8,13 +8,16 @@ package cmd
 
 import (
 	"context"
-	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
-	"github.com/cilium/cilium/pkg/proxy"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
 	"time"
+
+	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
+	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/prometheus/client_golang/prometheus"
+	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/controller"
@@ -31,9 +34,6 @@ import (
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-
-	"github.com/prometheus/client_golang/prometheus"
-	. "gopkg.in/check.v1"
 )
 
 // Hook up gocheck into the "go test" runner.

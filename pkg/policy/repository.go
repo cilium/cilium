@@ -10,6 +10,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	cilium "github.com/cilium/proxy/go/cilium/api"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/identity"
@@ -21,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/proxy/go/cilium/api"
 )
 
 type CertificateManager interface {

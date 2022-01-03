@@ -7,10 +7,11 @@ package v1
 import (
 	"fmt"
 
-	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
-	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/selection"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/selection"
 )
 
 // LabelSelectorAsSelector converts the LabelSelector api type into a struct that implements

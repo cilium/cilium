@@ -12,15 +12,15 @@ import (
 	"syscall"
 	"time"
 
+	cilium "github.com/cilium/proxy/go/cilium/api"
+	"github.com/golang/protobuf/proto"
+	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
+
 	"github.com/cilium/cilium/pkg/flowdebug"
 	kafka_api "github.com/cilium/cilium/pkg/policy/api/kafka"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
-
-	"github.com/cilium/proxy/go/cilium/api"
-	"github.com/golang/protobuf/proto"
-	"github.com/sirupsen/logrus"
-	"golang.org/x/sys/unix"
 )
 
 func getAccessLogPath(stateDir string) string {

@@ -7,11 +7,11 @@
 package completion
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
 
-	"context"
 	. "gopkg.in/check.v1"
 )
 

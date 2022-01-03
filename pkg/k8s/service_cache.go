@@ -6,6 +6,10 @@ package k8s
 import (
 	"net"
 
+	"github.com/davecgh/go-spew/spew"
+	"github.com/sirupsen/logrus"
+	core_v1 "k8s.io/api/core/v1"
+
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/ip"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -16,10 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
-	core_v1 "k8s.io/api/core/v1"
-
-	"github.com/davecgh/go-spew/spew"
-	"github.com/sirupsen/logrus"
 )
 
 // CacheAction is the type of action that was performed on the cache

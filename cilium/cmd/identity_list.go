@@ -9,6 +9,9 @@ import (
 	"sort"
 	"text/tabwriter"
 
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+
 	identityApi "github.com/cilium/cilium/api/v1/client/policy"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/api"
@@ -17,9 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/spf13/viper"
-
-	"github.com/spf13/cobra"
 )
 
 // identityListCmd represents the identity_list command

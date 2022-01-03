@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cilium/proxy/go/cilium/api"
+	cilium "github.com/cilium/proxy/go/cilium/api"
 	log "github.com/sirupsen/logrus"
 )
 

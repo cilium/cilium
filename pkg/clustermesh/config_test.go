@@ -11,11 +11,11 @@ import (
 	"path"
 	"time"
 
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/testutils"
-	"github.com/cilium/cilium/pkg/testutils/identity"
-
-	. "gopkg.in/check.v1"
+	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 
 func createFile(c *C, name string) {

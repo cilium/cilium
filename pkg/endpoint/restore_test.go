@@ -15,6 +15,8 @@ import (
 	"path/filepath"
 	"sort"
 
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/checker"
 	linuxDatapath "github.com/cilium/cilium/pkg/datapath/linux"
@@ -23,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
-	. "gopkg.in/check.v1"
 )
 
 func (ds *EndpointSuite) createEndpoints() ([]*Endpoint, map[uint16]*Endpoint) {

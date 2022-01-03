@@ -9,10 +9,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/cilium/cilium/proxylib/proxylib"
-
-	"github.com/cilium/proxy/go/cilium/api"
+	cilium "github.com/cilium/proxy/go/cilium/api"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/cilium/cilium/proxylib/proxylib"
 )
 
 //

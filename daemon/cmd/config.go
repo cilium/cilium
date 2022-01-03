@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/go-openapi/runtime/middleware"
+
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/api"
@@ -16,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/go-openapi/runtime/middleware"
 )
 
 // ConfigModifyEvent is a wrapper around the parameters for configModify.

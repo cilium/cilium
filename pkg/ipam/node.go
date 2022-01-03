@@ -7,19 +7,19 @@ package ipam
 import (
 	"context"
 	"fmt"
-	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"time"
+
+	"github.com/sirupsen/logrus"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/defaults"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/math"
 	"github.com/cilium/cilium/pkg/trigger"
-
-	"github.com/sirupsen/logrus"
 )
 
 const (

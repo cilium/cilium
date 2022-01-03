@@ -6,9 +6,9 @@ package testparsers
 import (
 	"bytes"
 
-	. "github.com/cilium/cilium/proxylib/proxylib"
-
 	log "github.com/sirupsen/logrus"
+
+	. "github.com/cilium/cilium/proxylib/proxylib"
 )
 
 //

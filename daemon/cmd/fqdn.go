@@ -15,6 +15,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-openapi/runtime/middleware"
+	"github.com/go-openapi/strfmt"
+	"github.com/miekg/dns"
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/api"
@@ -35,11 +40,6 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/u8proto"
-	"github.com/go-openapi/runtime/middleware"
-	"github.com/go-openapi/strfmt"
-	"github.com/sirupsen/logrus"
-
-	"github.com/miekg/dns"
 )
 
 const (

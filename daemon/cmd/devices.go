@@ -11,6 +11,9 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
+
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/lock"
@@ -18,8 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/vishvananda/netlink"
-	"golang.org/x/sys/unix"
 )
 
 var (

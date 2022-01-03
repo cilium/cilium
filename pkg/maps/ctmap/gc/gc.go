@@ -9,6 +9,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/inctimer"
@@ -17,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/signal"
-	"github.com/sirupsen/logrus"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ct-gc")

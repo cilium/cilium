@@ -12,9 +12,10 @@ import (
 	"os"
 	"testing"
 
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/datapath/linux"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
-	. "gopkg.in/check.v1"
 )
 
 func (s *EndpointSuite) TestWriteInformationalComments(c *C) {

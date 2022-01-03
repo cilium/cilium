@@ -9,6 +9,8 @@ package endpoint
 import (
 	"context"
 
+	"gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
@@ -25,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/u8proto"
-	"gopkg.in/check.v1"
 )
 
 type RedirectSuite struct{}

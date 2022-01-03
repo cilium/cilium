@@ -12,6 +12,11 @@ import (
 	"os"
 	"time"
 
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/perf"
+	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
+
 	"github.com/cilium/cilium/api/v1/models"
 	oldBPF "github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/lock"
@@ -20,11 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/monitor/agent/listener"
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/monitor/payload"
-	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/perf"
-
-	"github.com/sirupsen/logrus"
-	"golang.org/x/sys/unix"
 )
 
 const eventsMapName = "cilium_events"

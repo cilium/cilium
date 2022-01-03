@@ -7,10 +7,11 @@
 package policy
 
 import (
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/u8proto"
-	. "gopkg.in/check.v1"
 )
 
 func (ds *PolicyTestSuite) TestGenerateL7RulesByParser(c *C) {

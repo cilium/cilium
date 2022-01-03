@@ -10,14 +10,14 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/prometheus/procfs"
+	"github.com/spf13/cobra"
+	"github.com/vishvananda/netlink"
+
 	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
-	"github.com/prometheus/procfs"
-	"github.com/vishvananda/netlink"
-
-	"github.com/spf13/cobra"
 )
 
 const (

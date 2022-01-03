@@ -8,11 +8,11 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/cilium/cilium/pkg/flowdebug"
-
-	"github.com/cilium/proxy/go/cilium/api"
+	cilium "github.com/cilium/proxy/go/cilium/api"
 	core "github.com/cilium/proxy/go/envoy/config/core/v3"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/cilium/cilium/pkg/flowdebug"
 )
 
 // Each L7 rule implements this interface

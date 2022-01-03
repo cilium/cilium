@@ -4,7 +4,7 @@
 package proxylib
 
 import (
-	"github.com/cilium/proxy/go/cilium/api"
+	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_service_disacovery "github.com/cilium/proxy/go/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"

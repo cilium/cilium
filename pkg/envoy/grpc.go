@@ -9,13 +9,13 @@ import (
 	"net"
 	"time"
 
-	"github.com/cilium/cilium/pkg/envoy/xds"
-
-	"github.com/cilium/proxy/go/cilium/api"
+	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_service_discovery "github.com/cilium/proxy/go/envoy/service/discovery/v3"
 	envoy_service_listener "github.com/cilium/proxy/go/envoy/service/listener/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+
+	"github.com/cilium/cilium/pkg/envoy/xds"
 )
 
 var (

@@ -6,17 +6,16 @@ package connector
 import (
 	"fmt"
 
-	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/datapath/link"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
-
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
-
 	"golang.org/x/sys/unix"
+
+	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/datapath/link"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 func getEntryProgInstructions(fd int) asm.Instructions {

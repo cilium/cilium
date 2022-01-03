@@ -8,12 +8,12 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/sirupsen/logrus"
-
 	metallbbgp "go.universe.tf/metallb/pkg/bgp"
 	metallbspr "go.universe.tf/metallb/pkg/speaker"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/cilium/cilium/pkg/cidr"
 )
 
 var (

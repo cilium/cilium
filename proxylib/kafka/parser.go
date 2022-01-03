@@ -6,13 +6,12 @@ package kafka
 import (
 	"encoding/binary"
 
-	. "github.com/cilium/cilium/proxylib/proxylib"
+	cilium "github.com/cilium/proxy/go/cilium/api"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/kafka"
-	cilium "github.com/cilium/proxy/go/cilium/api"
-
-	log "github.com/sirupsen/logrus"
+	. "github.com/cilium/cilium/proxylib/proxylib"
 )
 
 const (

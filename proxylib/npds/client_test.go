@@ -13,14 +13,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cilium/cilium/pkg/completion"
-	"github.com/cilium/cilium/pkg/envoy"
-	"github.com/cilium/cilium/proxylib/test"
-
-	"github.com/cilium/proxy/go/cilium/api"
+	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_service_disacovery "github.com/cilium/proxy/go/envoy/service/discovery/v3"
 	log "github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/envoy"
+	"github.com/cilium/cilium/proxylib/test"
 )
 
 // Hook up gocheck into the "go test" runner.

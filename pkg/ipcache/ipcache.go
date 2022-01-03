@@ -6,6 +6,8 @@ package ipcache
 import (
 	"net"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
@@ -13,7 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/source"
-	"github.com/sirupsen/logrus"
 )
 
 var (

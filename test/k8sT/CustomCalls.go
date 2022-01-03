@@ -9,11 +9,12 @@ import (
 	"strconv"
 	"strings"
 
+	. "github.com/onsi/gomega"
+	v1 "k8s.io/api/core/v1"
+
 	"github.com/cilium/cilium/pkg/defaults"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
-	. "github.com/onsi/gomega"
-	v1 "k8s.io/api/core/v1"
 )
 
 var _ = Describe("K8sCustomCalls", func() {

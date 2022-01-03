@@ -17,19 +17,19 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/perf"
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
+	log "github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/tuple"
 	"github.com/cilium/cilium/pkg/types"
-	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/perf"
-
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
-	log "github.com/sirupsen/logrus"
-	"golang.org/x/sys/unix"
 )
 
 type ct4GlobalMap map[ctmap.CtKey4Global]ctmap.CtEntry

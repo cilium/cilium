@@ -9,14 +9,14 @@ import (
 	"net"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
+
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/backoff"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/sirupsen/logrus"
-
-	"github.com/vishvananda/netlink"
-	"golang.org/x/sys/unix"
 )
 
 type eniDeviceConfig struct {

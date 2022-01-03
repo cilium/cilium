@@ -9,6 +9,10 @@ package main
 import "C"
 
 import (
+	log "github.com/sirupsen/logrus"
+
+	"github.com/cilium/cilium/pkg/flowdebug"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/proxylib/accesslog"
 	_ "github.com/cilium/cilium/proxylib/cassandra"
 	_ "github.com/cilium/cilium/proxylib/kafka"
@@ -17,10 +21,6 @@ import (
 	. "github.com/cilium/cilium/proxylib/proxylib"
 	_ "github.com/cilium/cilium/proxylib/r2d2"
 	_ "github.com/cilium/cilium/proxylib/testparsers"
-
-	"github.com/cilium/cilium/pkg/flowdebug"
-	"github.com/cilium/cilium/pkg/lock"
-	log "github.com/sirupsen/logrus"
 )
 
 var (

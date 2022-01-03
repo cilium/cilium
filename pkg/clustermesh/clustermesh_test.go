@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -22,9 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	fakeConfig "github.com/cilium/cilium/pkg/option/fake"
 	"github.com/cilium/cilium/pkg/testutils"
-	"github.com/cilium/cilium/pkg/testutils/identity"
-
-	. "gopkg.in/check.v1"
+	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 
 func Test(t *testing.T) {

@@ -10,13 +10,13 @@ import (
 	"fmt"
 	"testing"
 
+	_ "gopkg.in/check.v1"
+
 	_ "github.com/cilium/cilium/proxylib/memcached"
 	binarymemcache "github.com/cilium/cilium/proxylib/memcached/binary"
 	textmemcache "github.com/cilium/cilium/proxylib/memcached/text"
 	"github.com/cilium/cilium/proxylib/proxylib"
 	"github.com/cilium/cilium/proxylib/test"
-
-	_ "gopkg.in/check.v1"
 )
 
 var setHelloText = []byte("set key 0 0 5\r\nhello\r\n")

@@ -10,14 +10,15 @@ import (
 	"net/http"
 	"syscall"
 
+	"github.com/go-openapi/loads"
+	"github.com/go-openapi/runtime"
+	"golang.org/x/sys/unix"
+
 	operatorApi "github.com/cilium/cilium/api/v1/operator/server"
 	"github.com/cilium/cilium/api/v1/operator/server/restapi"
 	"github.com/cilium/cilium/api/v1/operator/server/restapi/operator"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/go-openapi/loads"
-	"github.com/go-openapi/runtime"
-	"golang.org/x/sys/unix"
 )
 
 var (

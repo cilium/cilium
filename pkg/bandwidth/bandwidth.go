@@ -4,16 +4,16 @@
 package bandwidth
 
 import (
+	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/sysctl"
-	"github.com/sirupsen/logrus"
-	"github.com/vishvananda/netlink"
-
-	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 const (

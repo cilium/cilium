@@ -9,8 +9,9 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/cilium/cilium/pkg/murmur3"
 	"github.com/shirou/gopsutil/v3/mem"
+
+	"github.com/cilium/cilium/pkg/murmur3"
 )
 
 const (

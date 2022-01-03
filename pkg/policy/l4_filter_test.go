@@ -11,6 +11,9 @@ import (
 	"fmt"
 	stdlog "log"
 
+	cilium "github.com/cilium/proxy/go/cilium/api"
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
@@ -18,9 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/api/kafka"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
-	"github.com/cilium/proxy/go/cilium/api"
-
-	. "gopkg.in/check.v1"
 )
 
 var (

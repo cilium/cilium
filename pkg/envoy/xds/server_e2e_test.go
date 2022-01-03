@@ -15,16 +15,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cilium/cilium/pkg/checker"
-	"github.com/cilium/cilium/pkg/completion"
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_service_disacovery "github.com/cilium/proxy/go/envoy/service/discovery/v3"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 	"google.golang.org/genproto/googleapis/rpc/status"
 	. "gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/completion"
 )
 
 // Hook up gocheck into the "go test" runner.
