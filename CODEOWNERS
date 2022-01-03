@@ -1,11 +1,11 @@
 # Code owners groups and a brief description of their areas:
-# @cilium/janitors           Catch-all for code not otherwise owned
+# @cilium/tophat             Catch-all for code not otherwise owned
 # @cilium/api                API stability guarantees
 
 # The following filepaths should be sorted so that more specific paths occur
 # after the less specific paths, otherwise the ownership for the specific paths
 # is not properly picked up in Github.
-* @cilium/janitors
+* @cilium/tophat
 .github/workflows/ @cilium/github-sec @cilium/ci-structure
 api/ @cilium/api
 pkg/apisocket/ @cilium/api
