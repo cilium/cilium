@@ -1,9 +1,11 @@
+//go:build linux || freebsd || openbsd || darwin || solaris
 // +build linux freebsd openbsd darwin solaris
 
 package process
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/user"
@@ -122,8 +124,8 @@ func PidExistsWithContext(ctx context.Context, pid int32) (bool, error) {
 	if err.Error() == "os: process already finished" {
 		return false, nil
 	}
-	errno, ok := err.(syscall.Errno)
-	if !ok {
+	var errno syscall.Errno
+	if !errors.As(err, &errno) {
 		return false, err
 	}
 	switch errno {

@@ -1,3 +1,4 @@
+//go:build freebsd || darwin
 // +build freebsd darwin
 
 package net
@@ -80,7 +81,6 @@ func ConnectionsPidWithContext(ctx context.Context, kind string, pid int32) ([]C
 		}
 		n, err := parseNetLine(rr)
 		if err != nil {
-
 			continue
 		}
 

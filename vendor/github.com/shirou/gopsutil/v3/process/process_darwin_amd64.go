@@ -218,10 +218,12 @@ type AuditinfoAddr struct {
 	Asid   int32
 	Flags  uint64
 }
+
 type AuMask struct {
 	Success uint32
 	Failure uint32
 }
+
 type AuTidAddr struct {
 	Port int32
 	Type uint32

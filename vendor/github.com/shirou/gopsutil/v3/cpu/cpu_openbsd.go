@@ -1,3 +1,4 @@
+//go:build openbsd
 // +build openbsd
 
 package cpu
@@ -108,7 +109,7 @@ func TimesWithContext(ctx context.Context, percpu bool) ([]TimesStat, error) {
 			j *= 2
 		}
 
-		var cpuTimes = make([]int32, cpUStates)
+		cpuTimes := make([]int32, cpUStates)
 		var mib []int32
 		if percpu {
 			mib = []int32{ctlKern, kernCptime2, int32(j)}

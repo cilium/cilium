@@ -1,3 +1,4 @@
+//go:build linux
 // +build linux
 
 package process
@@ -82,7 +83,7 @@ func (p *Process) PpidWithContext(ctx context.Context) (int32, error) {
 
 func (p *Process) NameWithContext(ctx context.Context) (string, error) {
 	if p.name == "" {
-		if err := p.fillNameWithContext(ctx); err != nil {
+		if err := p.fillNameWithContext(); err != nil {
 			return "", err
 		}
 	}
@@ -91,7 +92,7 @@ func (p *Process) NameWithContext(ctx context.Context) (string, error) {
 
 func (p *Process) TgidWithContext(ctx context.Context) (int32, error) {
 	if p.tgid == 0 {
-		if err := p.fillFromStatusWithContext(ctx); err != nil {
+		if err := p.fillFromStatusWithContext(); err != nil {
 			return 0, err
 		}
 	}
@@ -99,7 +100,7 @@ func (p *Process) TgidWithContext(ctx context.Context) (int32, error) {
 }
 
 func (p *Process) ExeWithContext(ctx context.Context) (string, error) {
-	return p.fillFromExeWithContext(ctx)
+	return p.fillFromExeWithContext()
 }
 
 func (p *Process) CmdlineWithContext(ctx context.Context) (string, error) {
@@ -119,11 +120,11 @@ func (p *Process) createTimeWithContext(ctx context.Context) (int64, error) {
 }
 
 func (p *Process) CwdWithContext(ctx context.Context) (string, error) {
-	return p.fillFromCwdWithContext(ctx)
+	return p.fillFromCwdWithContext()
 }
 
 func (p *Process) ParentWithContext(ctx context.Context) (*Process, error) {
-	err := p.fillFromStatusWithContext(ctx)
+	err := p.fillFromStatusWithContext()
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +135,7 @@ func (p *Process) ParentWithContext(ctx context.Context) (*Process, error) {
 }
 
 func (p *Process) StatusWithContext(ctx context.Context) ([]string, error) {
-	err := p.fillFromStatusWithContext(ctx)
+	err := p.fillFromStatusWithContext()
 	if err != nil {
 		return []string{""}, err
 	}
@@ -159,7 +160,7 @@ func (p *Process) ForegroundWithContext(ctx context.Context) (bool, error) {
 }
 
 func (p *Process) UidsWithContext(ctx context.Context) ([]int32, error) {
-	err := p.fillFromStatusWithContext(ctx)
+	err := p.fillFromStatusWithContext()
 	if err != nil {
 		return []int32{}, err
 	}
@@ -167,7 +168,7 @@ func (p *Process) UidsWithContext(ctx context.Context) ([]int32, error) {
 }
 
 func (p *Process) GidsWithContext(ctx context.Context) ([]int32, error) {
-	err := p.fillFromStatusWithContext(ctx)
+	err := p.fillFromStatusWithContext()
 	if err != nil {
 		return []int32{}, err
 	}
@@ -175,7 +176,7 @@ func (p *Process) GidsWithContext(ctx context.Context) ([]int32, error) {
 }
 
 func (p *Process) GroupsWithContext(ctx context.Context) ([]int32, error) {
-	err := p.fillFromStatusWithContext(ctx)
+	err := p.fillFromStatusWithContext()
 	if err != nil {
 		return []int32{}, err
 	}
@@ -212,7 +213,7 @@ func (p *Process) RlimitWithContext(ctx context.Context) ([]RlimitStat, error) {
 }
 
 func (p *Process) RlimitUsageWithContext(ctx context.Context, gatherUsed bool) ([]RlimitStat, error) {
-	rlimits, err := p.fillFromLimitsWithContext(ctx)
+	rlimits, err := p.fillFromLimitsWithContext()
 	if !gatherUsed || err != nil {
 		return rlimits, err
 	}
@@ -221,7 +222,7 @@ func (p *Process) RlimitUsageWithContext(ctx context.Context, gatherUsed bool) (
 	if err != nil {
 		return nil, err
 	}
-	if err := p.fillFromStatusWithContext(ctx); err != nil {
+	if err := p.fillFromStatusWithContext(); err != nil {
 		return nil, err
 	}
 
@@ -251,7 +252,7 @@ func (p *Process) RlimitUsageWithContext(ctx context.Context, gatherUsed bool) (
 		case RLIMIT_AS:
 			rs.Used = uint64(p.memInfo.VMS)
 		case RLIMIT_LOCKS:
-			//TODO we can get the used value from /proc/$pid/locks. But linux doesn't enforce it, so not a high priority.
+			// TODO we can get the used value from /proc/$pid/locks. But linux doesn't enforce it, so not a high priority.
 		case RLIMIT_SIGPENDING:
 			rs.Used = p.sigInfo.PendingProcess
 		case RLIMIT_NICE:
@@ -267,11 +268,11 @@ func (p *Process) RlimitUsageWithContext(ctx context.Context, gatherUsed bool) (
 }
 
 func (p *Process) IOCountersWithContext(ctx context.Context) (*IOCountersStat, error) {
-	return p.fillFromIOWithContext(ctx)
+	return p.fillFromIOWithContext()
 }
 
 func (p *Process) NumCtxSwitchesWithContext(ctx context.Context) (*NumCtxSwitchesStat, error) {
-	err := p.fillFromStatusWithContext(ctx)
+	err := p.fillFromStatusWithContext()
 	if err != nil {
 		return nil, err
 	}
@@ -284,7 +285,7 @@ func (p *Process) NumFDsWithContext(ctx context.Context) (int32, error) {
 }
 
 func (p *Process) NumThreadsWithContext(ctx context.Context) (int32, error) {
-	err := p.fillFromStatusWithContext(ctx)
+	err := p.fillFromStatusWithContext()
 	if err != nil {
 		return 0, err
 	}
@@ -324,7 +325,7 @@ func (p *Process) CPUAffinityWithContext(ctx context.Context) ([]int32, error) {
 }
 
 func (p *Process) MemoryInfoWithContext(ctx context.Context) (*MemoryInfoStat, error) {
-	meminfo, _, err := p.fillFromStatmWithContext(ctx)
+	meminfo, _, err := p.fillFromStatmWithContext()
 	if err != nil {
 		return nil, err
 	}
@@ -332,7 +333,7 @@ func (p *Process) MemoryInfoWithContext(ctx context.Context) (*MemoryInfoStat, e
 }
 
 func (p *Process) MemoryInfoExWithContext(ctx context.Context) (*MemoryInfoExStat, error) {
-	_, memInfoEx, err := p.fillFromStatmWithContext(ctx)
+	_, memInfoEx, err := p.fillFromStatmWithContext()
 	if err != nil {
 		return nil, err
 	}
@@ -345,7 +346,6 @@ func (p *Process) PageFaultsWithContext(ctx context.Context) (*PageFaultsStat, e
 		return nil, err
 	}
 	return pageFaults, nil
-
 }
 
 func (p *Process) ChildrenWithContext(ctx context.Context) ([]*Process, error) {
@@ -503,17 +503,16 @@ func (p *Process) EnvironWithContext(ctx context.Context) ([]string, error) {
 func limitToUint(val string) (uint64, error) {
 	if val == "unlimited" {
 		return math.MaxUint64, nil
-	} else {
-		res, err := strconv.ParseUint(val, 10, 64)
-		if err != nil {
-			return 0, err
-		}
-		return res, nil
 	}
+	res, err := strconv.ParseUint(val, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return res, nil
 }
 
 // Get num_fds from /proc/(pid)/limits
-func (p *Process) fillFromLimitsWithContext(ctx context.Context) ([]RlimitStat, error) {
+func (p *Process) fillFromLimitsWithContext() ([]RlimitStat, error) {
 	pid := p.Pid
 	limitsFile := common.HostProc(strconv.Itoa(int(pid)), "limits")
 	d, err := os.Open(limitsFile)
@@ -548,7 +547,7 @@ func (p *Process) fillFromLimitsWithContext(ctx context.Context) ([]RlimitStat, 
 		// Remove last item from string
 		str = str[:len(str)-1]
 
-		//Now last item is a Soft limit
+		// Now last item is a Soft limit
 		statItem.Soft, err = limitToUint(str[len(str)-1])
 		if err != nil {
 			return nil, err
@@ -556,7 +555,7 @@ func (p *Process) fillFromLimitsWithContext(ctx context.Context) ([]RlimitStat, 
 		// Remove last item from string
 		str = str[:len(str)-1]
 
-		//The rest is a stats name
+		// The rest is a stats name
 		resourceName := strings.Join(str, " ")
 		switch resourceName {
 		case "Max cpu time":
@@ -648,7 +647,7 @@ func (p *Process) fillFromfdWithContext(ctx context.Context) (int32, []*OpenFile
 }
 
 // Get cwd from /proc/(pid)/cwd
-func (p *Process) fillFromCwdWithContext(ctx context.Context) (string, error) {
+func (p *Process) fillFromCwdWithContext() (string, error) {
 	pid := p.Pid
 	cwdPath := common.HostProc(strconv.Itoa(int(pid)), "cwd")
 	cwd, err := os.Readlink(cwdPath)
@@ -659,7 +658,7 @@ func (p *Process) fillFromCwdWithContext(ctx context.Context) (string, error) {
 }
 
 // Get exe from /proc/(pid)/exe
-func (p *Process) fillFromExeWithContext(ctx context.Context) (string, error) {
+func (p *Process) fillFromExeWithContext() (string, error) {
 	pid := p.Pid
 	exePath := common.HostProc(strconv.Itoa(int(pid)), "exe")
 	exe, err := os.Readlink(exePath)
@@ -707,7 +706,7 @@ func (p *Process) fillSliceFromCmdlineWithContext(ctx context.Context) ([]string
 }
 
 // Get IO status from /proc/(pid)/io
-func (p *Process) fillFromIOWithContext(ctx context.Context) (*IOCountersStat, error) {
+func (p *Process) fillFromIOWithContext() (*IOCountersStat, error) {
 	pid := p.Pid
 	ioPath := common.HostProc(strconv.Itoa(int(pid)), "io")
 	ioline, err := ioutil.ReadFile(ioPath)
@@ -743,7 +742,7 @@ func (p *Process) fillFromIOWithContext(ctx context.Context) (*IOCountersStat, e
 }
 
 // Get memory info from /proc/(pid)/statm
-func (p *Process) fillFromStatmWithContext(ctx context.Context) (*MemoryInfoStat, *MemoryInfoExStat, error) {
+func (p *Process) fillFromStatmWithContext() (*MemoryInfoStat, *MemoryInfoExStat, error) {
 	pid := p.Pid
 	memPath := common.HostProc(strconv.Itoa(int(pid)), "statm")
 	contents, err := ioutil.ReadFile(memPath)
@@ -795,16 +794,16 @@ func (p *Process) fillFromStatmWithContext(ctx context.Context) (*MemoryInfoStat
 }
 
 // Get name from /proc/(pid)/comm or /proc/(pid)/status
-func (p *Process) fillNameWithContext(ctx context.Context) error {
-	err := p.fillFromCommWithContext(ctx)
+func (p *Process) fillNameWithContext() error {
+	err := p.fillFromCommWithContext()
 	if err == nil && p.name != "" && len(p.name) < 15 {
 		return nil
 	}
-	return p.fillFromStatusWithContext(ctx)
+	return p.fillFromStatusWithContext()
 }
 
 // Get name from /proc/(pid)/comm
-func (p *Process) fillFromCommWithContext(ctx context.Context) error {
+func (p *Process) fillFromCommWithContext() error {
 	pid := p.Pid
 	statPath := common.HostProc(strconv.Itoa(int(pid)), "comm")
 	contents, err := ioutil.ReadFile(statPath)
@@ -817,7 +816,7 @@ func (p *Process) fillFromCommWithContext(ctx context.Context) error {
 }
 
 // Get various status from /proc/(pid)/status
-func (p *Process) fillFromStatusWithContext(ctx context.Context) error {
+func (p *Process) fillFromStatusWithContext() error {
 	pid := p.Pid
 	statPath := common.HostProc(strconv.Itoa(int(pid)), "status")
 	contents, err := ioutil.ReadFile(statPath)

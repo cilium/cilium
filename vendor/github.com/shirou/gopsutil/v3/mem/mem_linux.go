@@ -1,3 +1,4 @@
+//go:build linux
 // +build linux
 
 package mem
@@ -35,7 +36,7 @@ func VirtualMemory() (*VirtualMemoryStat, error) {
 }
 
 func VirtualMemoryWithContext(ctx context.Context) (*VirtualMemoryStat, error) {
-	vm, _, err := fillFromMeminfoWithContext(ctx)
+	vm, _, err := fillFromMeminfoWithContext()
 	if err != nil {
 		return nil, err
 	}
@@ -47,14 +48,14 @@ func VirtualMemoryEx() (*VirtualMemoryExStat, error) {
 }
 
 func VirtualMemoryExWithContext(ctx context.Context) (*VirtualMemoryExStat, error) {
-	_, vmEx, err := fillFromMeminfoWithContext(ctx)
+	_, vmEx, err := fillFromMeminfoWithContext()
 	if err != nil {
 		return nil, err
 	}
 	return vmEx, nil
 }
 
-func fillFromMeminfoWithContext(ctx context.Context) (*VirtualMemoryStat, *VirtualMemoryExStat, error) {
+func fillFromMeminfoWithContext() (*VirtualMemoryStat, *VirtualMemoryExStat, error) {
 	filename := common.HostProc("meminfo")
 	lines, _ := common.ReadLines(filename)
 
@@ -331,7 +332,7 @@ func SwapMemoryWithContext(ctx context.Context) (*SwapMemoryStat, error) {
 		Free:  uint64(sysinfo.Freeswap) * uint64(sysinfo.Unit),
 	}
 	ret.Used = ret.Total - ret.Free
-	//check Infinity
+	// check Infinity
 	if ret.Total != 0 {
 		ret.UsedPercent = float64(ret.Total-ret.Free) / float64(ret.Total) * 100.0
 	} else {
@@ -394,7 +395,6 @@ func calcuateAvailVmem(ret *VirtualMemoryStat, retEx *VirtualMemoryExStat) uint6
 
 	fn := common.HostProc("zoneinfo")
 	lines, err := common.ReadLines(fn)
-
 	if err != nil {
 		return ret.Free + ret.Cached // fallback under kernel 2.6.13
 	}
@@ -407,7 +407,6 @@ func calcuateAvailVmem(ret *VirtualMemoryStat, retEx *VirtualMemoryExStat) uint6
 
 		if strings.HasPrefix(fields[0], "low") {
 			lowValue, err := strconv.ParseUint(fields[1], 10, 64)
-
 			if err != nil {
 				lowValue = 0
 			}

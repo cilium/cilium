@@ -1,3 +1,4 @@
+//go:build !darwin && !linux && !freebsd && !openbsd && !windows && !solaris && !plan9
 // +build !darwin,!linux,!freebsd,!openbsd,!windows,!solaris,!plan9
 
 package process
@@ -27,8 +28,7 @@ type MemoryMapsStat struct {
 	Swap         uint64 `json:"swap"`
 }
 
-type MemoryInfoExStat struct {
-}
+type MemoryInfoExStat struct{}
 
 func pidsWithContext(ctx context.Context) ([]int32, error) {
 	return nil, common.ErrNotImplementedError
