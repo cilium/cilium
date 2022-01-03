@@ -84,6 +84,7 @@ type CreateLaunchTemplateVersionRequest struct {
 	Tag                          *[]CreateLaunchTemplateVersionTag              `position:"Query" name:"Tag"  type:"Repeated"`
 	Period                       requests.Integer                               `position:"Query" name:"Period"`
 	LaunchTemplateId             string                                         `position:"Query" name:"LaunchTemplateId"`
+	Ipv6AddressCount             requests.Integer                               `position:"Query" name:"Ipv6AddressCount"`
 	OwnerId                      requests.Integer                               `position:"Query" name:"OwnerId"`
 	VSwitchId                    string                                         `position:"Query" name:"VSwitchId"`
 	SpotStrategy                 string                                         `position:"Query" name:"SpotStrategy"`

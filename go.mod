@@ -3,17 +3,17 @@ module github.com/cilium/cilium
 go 1.17
 
 require (
-	github.com/Azure/azure-sdk-for-go v59.4.0+incompatible
-	github.com/Azure/go-autorest/autorest v0.11.22
-	github.com/Azure/go-autorest/autorest/adal v0.9.17
-	github.com/Azure/go-autorest/autorest/azure/auth v0.5.9
+	github.com/Azure/azure-sdk-for-go v61.0.0+incompatible
+	github.com/Azure/go-autorest/autorest v0.11.23
+	github.com/Azure/go-autorest/autorest/adal v0.9.18
+	github.com/Azure/go-autorest/autorest/azure/auth v0.5.10
 	github.com/Azure/go-autorest/autorest/to v0.4.0
-	github.com/aliyun/alibaba-cloud-sdk-go v1.61.1357
+	github.com/aliyun/alibaba-cloud-sdk-go v1.61.1422
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d
 	github.com/aws/aws-sdk-go-v2 v1.11.2
-	github.com/aws/aws-sdk-go-v2/config v1.11.0
+	github.com/aws/aws-sdk-go-v2/config v1.11.1
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.8.2
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.25.0
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.26.0
 	github.com/aws/smithy-go v1.9.0
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cilium/customvet v0.0.0-20201209211516-9852765c1ac4
@@ -112,13 +112,13 @@ require (
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/armon/go-metrics v0.3.10 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.6.4 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.6.5 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.2 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.0.2 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.5.2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.6.2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.11.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.7.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.12.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/census-instrumentation/opencensus-proto v0.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect

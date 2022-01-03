@@ -112,6 +112,8 @@ type DescribeNetworkInterfaceAttributeResponse struct {
 	SecurityGroupIds            SecurityGroupIdsInDescribeNetworkInterfaceAttribute `json:"SecurityGroupIds" xml:"SecurityGroupIds"`
 	AssociatedPublicIp          AssociatedPublicIp                                  `json:"AssociatedPublicIp" xml:"AssociatedPublicIp"`
 	Attachment                  Attachment                                          `json:"Attachment" xml:"Attachment"`
+	BondInterfaceSpecification  BondInterfaceSpecification                          `json:"BondInterfaceSpecification" xml:"BondInterfaceSpecification"`
+	SlaveInterfaceSpecification SlaveInterfaceSpecification                         `json:"SlaveInterfaceSpecification" xml:"SlaveInterfaceSpecification"`
 	PrivateIpSets               PrivateIpSetsInDescribeNetworkInterfaceAttribute    `json:"PrivateIpSets" xml:"PrivateIpSets"`
 	Ipv6Sets                    Ipv6SetsInDescribeNetworkInterfaceAttribute         `json:"Ipv6Sets" xml:"Ipv6Sets"`
 	Tags                        TagsInDescribeNetworkInterfaceAttribute             `json:"Tags" xml:"Tags"`

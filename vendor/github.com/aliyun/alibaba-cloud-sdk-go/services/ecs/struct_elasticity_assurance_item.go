@@ -26,8 +26,10 @@ type ElasticityAssuranceItem struct {
 	EndTime                         string                                           `json:"EndTime" xml:"EndTime"`
 	ResourceGroupId                 string                                           `json:"ResourceGroupId" xml:"ResourceGroupId"`
 	TotalAssuranceTimes             string                                           `json:"TotalAssuranceTimes" xml:"TotalAssuranceTimes"`
+	StartTimeType                   string                                           `json:"StartTimeType" xml:"StartTimeType"`
 	Status                          string                                           `json:"Status" xml:"Status"`
 	Description                     string                                           `json:"Description" xml:"Description"`
+	InstanceChargeType              string                                           `json:"InstanceChargeType" xml:"InstanceChargeType"`
 	PrivatePoolOptionsId            string                                           `json:"PrivatePoolOptionsId" xml:"PrivatePoolOptionsId"`
 	AllocatedResources              AllocatedResourcesInDescribeElasticityAssurances `json:"AllocatedResources" xml:"AllocatedResources"`
 	Tags                            TagsInDescribeElasticityAssurances               `json:"Tags" xml:"Tags"`

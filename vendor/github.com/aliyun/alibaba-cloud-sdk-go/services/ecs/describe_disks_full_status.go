@@ -71,19 +71,27 @@ func (client *Client) DescribeDisksFullStatusWithCallback(request *DescribeDisks
 // DescribeDisksFullStatusRequest is the request struct for api DescribeDisksFullStatus
 type DescribeDisksFullStatusRequest struct {
 	*requests.RpcRequest
-	EventId              *[]string        `position:"Query" name:"EventId"  type:"Repeated"`
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	PageNumber           requests.Integer `position:"Query" name:"PageNumber"`
-	EventTimeStart       string           `position:"Query" name:"EventTime.Start"`
-	PageSize             requests.Integer `position:"Query" name:"PageSize"`
-	DiskId               *[]string        `position:"Query" name:"DiskId"  type:"Repeated"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	EventTimeEnd         string           `position:"Query" name:"EventTime.End"`
-	HealthStatus         string           `position:"Query" name:"HealthStatus"`
-	EventType            string           `position:"Query" name:"EventType"`
-	Status               string           `position:"Query" name:"Status"`
+	EventId              *[]string                     `position:"Query" name:"EventId"  type:"Repeated"`
+	ResourceOwnerId      requests.Integer              `position:"Query" name:"ResourceOwnerId"`
+	PageNumber           requests.Integer              `position:"Query" name:"PageNumber"`
+	EventTimeStart       string                        `position:"Query" name:"EventTime.Start"`
+	ResourceGroupId      string                        `position:"Query" name:"ResourceGroupId"`
+	PageSize             requests.Integer              `position:"Query" name:"PageSize"`
+	DiskId               *[]string                     `position:"Query" name:"DiskId"  type:"Repeated"`
+	Tag                  *[]DescribeDisksFullStatusTag `position:"Query" name:"Tag"  type:"Repeated"`
+	ResourceOwnerAccount string                        `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                        `position:"Query" name:"OwnerAccount"`
+	OwnerId              requests.Integer              `position:"Query" name:"OwnerId"`
+	EventTimeEnd         string                        `position:"Query" name:"EventTime.End"`
+	HealthStatus         string                        `position:"Query" name:"HealthStatus"`
+	EventType            string                        `position:"Query" name:"EventType"`
+	Status               string                        `position:"Query" name:"Status"`
+}
+
+// DescribeDisksFullStatusTag is a repeated param struct in DescribeDisksFullStatusRequest
+type DescribeDisksFullStatusTag struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // DescribeDisksFullStatusResponse is the response struct for api DescribeDisksFullStatus

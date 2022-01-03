@@ -1,3 +1,7 @@
+# v1.7.0 (2021-12-21)
+
+* **Feature**: API Paginators now support specifying the initial starting token, and support stopping on empty string tokens.
+
 # v1.6.2 (2021-12-02)
 
 * **Bug Fix**: Fixes a bug that prevented aws.EndpointResolverWithOptions from being used by the service client. ([#1514](https://github.com/aws/aws-sdk-go-v2/pull/1514))
