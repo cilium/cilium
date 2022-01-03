@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 package common
@@ -162,7 +163,7 @@ func NewWin32PerformanceCounter(postName, counterName string) (*Win32Performance
 	if err != nil {
 		return nil, err
 	}
-	var counter = Win32PerformanceCounter{
+	counter := Win32PerformanceCounter{
 		Query:       query,
 		PostName:    postName,
 		CounterName: counterName,

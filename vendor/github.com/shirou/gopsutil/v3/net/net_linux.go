@@ -1,3 +1,4 @@
+//go:build linux
 // +build linux
 
 package net
@@ -233,7 +234,6 @@ func FilterCountersWithContext(ctx context.Context) ([]FilterStat, error) {
 	maxfile := common.HostProc("sys/net/netfilter/nf_conntrack_max")
 
 	count, err := common.ReadInts(countfile)
-
 	if err != nil {
 		return nil, err
 	}
@@ -331,21 +331,25 @@ var kindTCP4 = netConnectionKindType{
 	sockType: syscall.SOCK_STREAM,
 	filename: "tcp",
 }
+
 var kindTCP6 = netConnectionKindType{
 	family:   syscall.AF_INET6,
 	sockType: syscall.SOCK_STREAM,
 	filename: "tcp6",
 }
+
 var kindUDP4 = netConnectionKindType{
 	family:   syscall.AF_INET,
 	sockType: syscall.SOCK_DGRAM,
 	filename: "udp",
 }
+
 var kindUDP6 = netConnectionKindType{
 	family:   syscall.AF_INET6,
 	sockType: syscall.SOCK_DGRAM,
 	filename: "udp6",
 }
+
 var kindUNIX = netConnectionKindType{
 	family:   syscall.AF_UNIX,
 	filename: "unix",
@@ -468,7 +472,7 @@ func connectionsPidMaxWithoutUidsWithContext(ctx context.Context, kind string, p
 		}
 	}
 	if err != nil {
-		return nil, fmt.Errorf("cound not get pid(s), %d: %s", pid, err)
+		return nil, fmt.Errorf("cound not get pid(s), %d: %w", pid, err)
 	}
 	return statsFromInodes(root, pid, tmap, inodes, skipUids)
 }
@@ -672,7 +676,7 @@ func getProcInodesAll(root string, max int) (map[string][]inodeMap, error) {
 		t, err := getProcInodes(root, pid, max)
 		if err != nil {
 			// skip if permission error or no longer exists
-			if os.IsPermission(err) || os.IsNotExist(err) || err == io.EOF {
+			if os.IsPermission(err) || os.IsNotExist(err) || errors.Is(err, io.EOF) {
 				continue
 			}
 			return ret, err
@@ -702,7 +706,7 @@ func decodeAddress(family uint32, src string) (Addr, error) {
 	}
 	decoded, err := hex.DecodeString(addr)
 	if err != nil {
-		return Addr{}, fmt.Errorf("decode error, %s", err)
+		return Addr{}, fmt.Errorf("decode error, %w", err)
 	}
 	var ip net.IP
 	// Assumes this is little_endian
@@ -747,7 +751,6 @@ func parseIPv6HexString(src []byte) (net.IP, error) {
 }
 
 func processInet(file string, kind netConnectionKindType, inodes map[string][]inodeMap, filterPid int32) ([]connTmp, error) {
-
 	if strings.HasSuffix(file, "6") && !common.PathExists(file) {
 		// IPv6 not supported, return empty.
 		return []connTmp{}, nil

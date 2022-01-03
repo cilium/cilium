@@ -1,3 +1,4 @@
+//go:build linux
 // +build linux
 
 package cpu
@@ -30,7 +31,7 @@ func Times(percpu bool) ([]TimesStat, error) {
 
 func TimesWithContext(ctx context.Context, percpu bool) ([]TimesStat, error) {
 	filename := common.HostProc("stat")
-	var lines = []string{}
+	lines := []string{}
 	if percpu {
 		statlines, err := common.ReadLines(filename)
 		if err != nil || len(statlines) < 2 {
@@ -63,7 +64,7 @@ func sysCPUPath(cpu int32, relPath string) string {
 	return common.HostSys(fmt.Sprintf("devices/system/cpu/cpu%d", cpu), relPath)
 }
 
-func finishCPUInfo(c *InfoStat) error {
+func finishCPUInfo(c *InfoStat) {
 	var lines []string
 	var err error
 	var value float64
@@ -82,17 +83,16 @@ func finishCPUInfo(c *InfoStat) error {
 	// if we encounter errors below such as there are no cpuinfo_max_freq file,
 	// we just ignore. so let Mhz is 0.
 	if err != nil || len(lines) == 0 {
-		return nil
+		return
 	}
 	value, err = strconv.ParseFloat(lines[0], 64)
 	if err != nil {
-		return nil
+		return
 	}
 	c.Mhz = value / 1000.0 // value is in kHz
 	if c.Mhz > 9999 {
 		c.Mhz = c.Mhz / 1000.0 // value in Hz
 	}
-	return nil
 }
 
 // CPUInfo on linux will return 1 item per physical thread.
@@ -127,10 +127,7 @@ func InfoWithContext(ctx context.Context) ([]InfoStat, error) {
 			processorName = value
 		case "processor":
 			if c.CPU >= 0 {
-				err := finishCPUInfo(&c)
-				if err != nil {
-					return ret, err
-				}
+				finishCPUInfo(&c)
 				ret = append(ret, c)
 			}
 			c = InfoStat{Cores: 1, ModelName: processorName}
@@ -224,10 +221,7 @@ func InfoWithContext(ctx context.Context) ([]InfoStat, error) {
 		}
 	}
 	if c.CPU >= 0 {
-		err := finishCPUInfo(&c)
-		if err != nil {
-			return ret, err
-		}
+		finishCPUInfo(&c)
 		ret = append(ret, c)
 	}
 	return ret, nil
@@ -345,7 +339,7 @@ func CountsWithContext(ctx context.Context, logical bool) (int, error) {
 	}
 	// physical cores
 	// https://github.com/giampaolo/psutil/blob/8415355c8badc9c94418b19bdf26e622f06f0cce/psutil/_pslinux.py#L615-L628
-	var threadSiblingsLists = make(map[string]bool)
+	threadSiblingsLists := make(map[string]bool)
 	// These 2 files are the same but */core_cpus_list is newer while */thread_siblings_list is deprecated and may disappear in the future.
 	// https://www.kernel.org/doc/Documentation/admin-guide/cputopology.rst
 	// https://github.com/giampaolo/psutil/pull/1727#issuecomment-707624964

@@ -15,15 +15,17 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-var ClocksPerSec = float64(128)
-var cpuMatch = regexp.MustCompile(`^CPU:`)
-var originMatch = regexp.MustCompile(`Origin\s*=\s*"(.+)"\s+Id\s*=\s*(.+)\s+Family\s*=\s*(.+)\s+Model\s*=\s*(.+)\s+Stepping\s*=\s*(.+)`)
-var featuresMatch = regexp.MustCompile(`Features=.+<(.+)>`)
-var featuresMatch2 = regexp.MustCompile(`Features2=[a-f\dx]+<(.+)>`)
-var cpuEnd = regexp.MustCompile(`^Trying to mount root`)
-var cpuCores = regexp.MustCompile(`FreeBSD/SMP: (\d*) package\(s\) x (\d*) core\(s\)`)
-var cpuTimesSize int
-var emptyTimes cpuTimes
+var (
+	ClocksPerSec   = float64(128)
+	cpuMatch       = regexp.MustCompile(`^CPU:`)
+	originMatch    = regexp.MustCompile(`Origin\s*=\s*"(.+)"\s+Id\s*=\s*(.+)\s+Family\s*=\s*(.+)\s+Model\s*=\s*(.+)\s+Stepping\s*=\s*(.+)`)
+	featuresMatch  = regexp.MustCompile(`Features=.+<(.+)>`)
+	featuresMatch2 = regexp.MustCompile(`Features2=[a-f\dx]+<(.+)>`)
+	cpuEnd         = regexp.MustCompile(`^Trying to mount root`)
+	cpuCores       = regexp.MustCompile(`FreeBSD/SMP: (\d*) package\(s\) x (\d*) core\(s\)`)
+	cpuTimesSize   int
+	emptyTimes     cpuTimes
+)
 
 func init() {
 	clkTck, err := sysconf.Sysconf(sysconf.SC_CLK_TCK)

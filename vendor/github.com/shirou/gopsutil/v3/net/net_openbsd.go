@@ -1,3 +1,4 @@
+//go:build openbsd
 // +build openbsd
 
 package net
@@ -298,7 +299,6 @@ func ConnectionsWithContext(ctx context.Context, kind string) ([]ConnectionStat,
 		return nil, err
 	}
 	out, err := invoke.CommandWithContext(ctx, netstat, args...)
-
 	if err != nil {
 		return nil, err
 	}

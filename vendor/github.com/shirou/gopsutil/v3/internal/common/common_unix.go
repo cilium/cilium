@@ -1,3 +1,4 @@
+//go:build linux || freebsd || darwin || openbsd
 // +build linux freebsd darwin openbsd
 
 package common
@@ -56,7 +57,7 @@ func CallPgrepWithContext(ctx context.Context, invoke Invoker, pid int32) ([]int
 		if len(l) == 0 {
 			continue
 		}
-		i, err := strconv.Atoi(l)
+		i, err := strconv.ParseInt(l, 10, 32)
 		if err != nil {
 			continue
 		}

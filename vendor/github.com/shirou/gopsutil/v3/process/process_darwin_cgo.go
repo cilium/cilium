@@ -1,5 +1,5 @@
-// +build darwin
-// +build cgo
+//go:build darwin && cgo
+// +build darwin,cgo
 
 package process
 
@@ -10,6 +10,7 @@ package process
 // #include <sys/proc_info.h>
 // #include <sys/sysctl.h>
 import "C"
+
 import (
 	"bytes"
 	"context"

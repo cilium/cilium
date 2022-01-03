@@ -1,3 +1,4 @@
+//go:build aix
 // +build aix
 
 package cpu
@@ -36,9 +37,9 @@ func TimesWithContext(ctx context.Context, percpu bool) ([]TimesStat, error) {
 		}
 		ct := &TimesStat{
 			CPU:    "cpu-total",
-			Idle:   float64(c.IdlePct), 
-			User:   float64(c.UserPct), 
-			System: float64(c.KernPct), 
+			Idle:   float64(c.IdlePct),
+			User:   float64(c.UserPct),
+			System: float64(c.KernPct),
 			Iowait: float64(c.WaitPct),
 		}
 		ret = append(ret, *ct)
@@ -56,11 +57,11 @@ func InfoWithContext(ctx context.Context) ([]InfoStat, error) {
 		return nil, err
 	}
 	info := InfoStat{
-		CPU: 0,
-		Mhz: float64(c.ProcessorHz / 1000000),
+		CPU:   0,
+		Mhz:   float64(c.ProcessorHz / 1000000),
 		Cores: int32(c.NCpusCfg),
-		}
-	result := []InfoStat{info};
+	}
+	result := []InfoStat{info}
 	return result, nil
 }
 
@@ -71,4 +72,3 @@ func CountsWithContext(ctx context.Context, logical bool) (int, error) {
 	}
 	return c.NCpusCfg, nil
 }
-

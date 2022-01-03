@@ -281,7 +281,7 @@ func (p *Process) IsRunningWithContext(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	p2, err := NewProcessWithContext(ctx, p.Pid)
-	if err == ErrorProcessNotRunning {
+	if errors.Is(err, ErrorProcessNotRunning) {
 		return false, nil
 	}
 	createTime2, err := p2.CreateTimeWithContext(ctx)

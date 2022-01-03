@@ -1,3 +1,4 @@
+//go:build darwin
 // +build darwin
 
 package process
@@ -125,7 +126,7 @@ func (p *Process) createTimeWithContext(ctx context.Context) (int64, error) {
 		elapsedDurations = append(elapsedDurations, time.Duration(p))
 	}
 
-	var elapsed = time.Duration(elapsedDurations[0]) * time.Second
+	elapsed := time.Duration(elapsedDurations[0]) * time.Second
 	if len(elapsedDurations) > 1 {
 		elapsed += time.Duration(elapsedDurations[1]) * time.Minute
 	}
@@ -305,7 +306,6 @@ func convertCPUTimes(s string) (ret float64, err error) {
 
 func (p *Process) TimesWithContext(ctx context.Context) (*cpu.TimesStat, error) {
 	r, err := callPsWithContext(ctx, "utime,stime", p.Pid, false, false)
-
 	if err != nil {
 		return nil, err
 	}

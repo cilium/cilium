@@ -24,7 +24,7 @@ func init() {
 	}
 }
 
-//sum all values in a float64 map with float64 keys
+// sum all values in a float64 map with float64 keys
 func msum(x map[float64]float64) float64 {
 	total := 0.0
 	for _, y := range x {
@@ -47,7 +47,7 @@ func TimesWithContext(ctx context.Context, percpu bool) ([]TimesStat, error) {
 	user := make(map[float64]float64)
 	kern := make(map[float64]float64)
 	iowt := make(map[float64]float64)
-	//swap := make(map[float64]float64)
+	// swap := make(map[float64]float64)
 	kstatSysOut, err := invoke.CommandWithContext(ctx, kstatSys, "-p", "cpu_stat:*:*:/^idle$|^user$|^kernel$|^iowait$|^swap$/")
 	if err != nil {
 		return nil, fmt.Errorf("cannot execute kstat: %s", err)
