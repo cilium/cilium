@@ -686,11 +686,16 @@ func (a *crdAllocator) Allocate(ip net.IP, owner string) (*AllocationResult, err
 		return nil, err
 	}
 
+	result, err := a.buildAllocationResult(ip, ipInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to associate IP %s inside CiliumNode: %w", ip, err)
+	}
+
 	a.markAllocated(ip, owner, *ipInfo)
 	// Update custom resource to reflect the newly allocated IP.
 	a.store.refreshTrigger.TriggerWithReason(fmt.Sprintf("allocation of IP %s", ip.String()))
 
-	return a.buildAllocationResult(ip, ipInfo)
+	return result, nil
 }
 
 // AllocateWithoutSyncUpstream will attempt to find the specified IP in the
@@ -710,9 +715,14 @@ func (a *crdAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner string) (*Al
 		return nil, err
 	}
 
+	result, err := a.buildAllocationResult(ip, ipInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to associate IP %s inside CiliumNode: %w", ip, err)
+	}
+
 	a.markAllocated(ip, owner, *ipInfo)
 
-	return a.buildAllocationResult(ip, ipInfo)
+	return result, nil
 }
 
 // Release will release the specified IP or return an error if the IP has not
@@ -751,11 +761,16 @@ func (a *crdAllocator) AllocateNext(owner string) (*AllocationResult, error) {
 		return nil, err
 	}
 
+	result, err := a.buildAllocationResult(ip, ipInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to associate IP %s inside CiliumNode: %w", ip, err)
+	}
+
 	a.markAllocated(ip, owner, *ipInfo)
 	// Update custom resource to reflect the newly allocated IP.
 	a.store.refreshTrigger.TriggerWithReason(fmt.Sprintf("allocation of IP %s", ip.String()))
 
-	return a.buildAllocationResult(ip, ipInfo)
+	return result, nil
 }
 
 // AllocateNextWithoutSyncUpstream allocates the next available IP as offered
@@ -770,9 +785,14 @@ func (a *crdAllocator) AllocateNextWithoutSyncUpstream(owner string) (*Allocatio
 		return nil, err
 	}
 
+	result, err := a.buildAllocationResult(ip, ipInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to associate IP %s inside CiliumNode: %w", ip, err)
+	}
+
 	a.markAllocated(ip, owner, *ipInfo)
 
-	return a.buildAllocationResult(ip, ipInfo)
+	return result, nil
 }
 
 // totalPoolSize returns the total size of the allocation pool
