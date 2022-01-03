@@ -572,6 +572,7 @@ loadbalancing
 localRedirectPolicy
 localhost
 lockless
+logFile
 logSystemLoad
 logfile
 login

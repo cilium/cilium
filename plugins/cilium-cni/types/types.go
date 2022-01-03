@@ -30,6 +30,7 @@ type NetConf struct {
 	AlibabaCloud alibabaCloudTypes.Spec `json:"alibaba-cloud,omitempty"`
 	EnableDebug  bool                   `json:"enable-debug"`
 	LogFormat    string                 `json:"log-format"`
+	LogFile      string                 `json:"log-file"`
 }
 
 // NetConfList is a CNI chaining configuration
