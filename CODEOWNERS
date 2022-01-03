@@ -1,5 +1,5 @@
 # Code owners groups and a brief description of their areas:
-# @cilium/janitors           Catch-all for code not otherwise owned
+# @cilium/tophat           Catch-all for code not otherwise owned
 # @cilium/agent              Cilium Agent
 # @cilium/aws                Integration with AWS
 # @cilium/azure              Integration with Azure
@@ -26,7 +26,7 @@
 # The following filepaths should be sorted so that more specific paths occur
 # after the less specific paths, otherwise the ownership for the specific paths
 # is not properly picked up in Github.
-* @cilium/janitors
+* @cilium/tophat
 /.github/workflows/ @cilium/maintainers
 /api/ @cilium/api
 /pkg/monitor/payload @cilium/api
