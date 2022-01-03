@@ -1517,14 +1517,6 @@ func initEnv(cmd *cobra.Command) {
 		}
 	}
 
-	// This is necessary because the code inside pkg/k8s.NewService() for
-	// parsing services would not trigger unless NodePort is enabled. Without
-	// NodePort enabled, the external and LB IPs would not be parsed out.
-	if option.Config.BGPAnnounceLBIP {
-		option.Config.EnableNodePort = true
-		log.Infof("Auto-set BPF NodePort (%q) because LB IP announcements via BGP depend on it.", option.EnableNodePort)
-	}
-
 	if option.Config.BGPAnnouncePodCIDR &&
 		(option.Config.IPAM != ipamOption.IPAMClusterPool &&
 			option.Config.IPAM != ipamOption.IPAMKubernetes) {

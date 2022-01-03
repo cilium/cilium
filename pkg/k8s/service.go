@@ -444,8 +444,21 @@ func NewService(ips []net.IP, externalIPs, loadBalancerIPs, loadBalancerSourceRa
 		loadBalancerSourceCIDRs[cidr.String()] = cidr
 	}
 
+	// If EnableNodePort is not true we do not want to process
+	// events which only differ in external or load balancer IPs.
+	// By omitting these IPs in the returned Service object, they
+	// are no longer considered in equality checks and thus save
+	// CPU cycles processing events Cilium will not act upon.
 	if option.Config.EnableNodePort {
 		k8sExternalIPs = parseIPs(externalIPs)
+		k8sLoadBalancerIPs = parseIPs(loadBalancerIPs)
+	} else if option.Config.BGPAnnounceLBIP {
+		// The BGP LB Announcement feature requires that
+		// loadBalancerIPs be parsed. This is because
+		// an event must occur when a Service's Status field
+		// is updated with a new Ingress, ultimately triggering a
+		// BGP announcement. If we do not parse loadBalancerIPs
+		// this will not occur.
 		k8sLoadBalancerIPs = parseIPs(loadBalancerIPs)
 	}
 
