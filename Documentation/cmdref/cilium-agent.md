@@ -166,7 +166,7 @@ cilium-agent [flags]
       --ipsec-key-file string                                Path to IPSec key file
       --iptables-lock-timeout duration                       Time to pass to each iptables invocation to wait for xtables lock acquisition (default 5s)
       --iptables-random-fully                                Set iptables flag random-fully on masquerading rules
-      --ipv4-native-routing-cidr string                      Allows to explicitly specify the IPv4 CIDR for native routing. This value corresponds to the configured cluster-cidr.
+      --ipv4-native-routing-cidr string                      Allows to explicitly specify the IPv4 CIDR for native routing. When specified, Cilium assumes networking for this CIDR is preconfigured and hands traffic destined for that range to the Linux network stack without applying any SNAT. Generally speaking, specifying a native routing CIDR implies that Cilium can depend on the underlying networking stack to route packets to their destination. To offer a concrete example, if Cilium is configured to use direct routing and the Kubernetes CIDR is included in the native routing CIDR, the user must configure the routes to reach pods, either manually or by setting the auto-direct-node-routes flag.
       --ipv4-node string                                     IPv4 address of node (default "auto")
       --ipv4-pod-subnets strings                             List of IPv4 pod subnets to preconfigure for encryption
       --ipv4-range string                                    Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16 (default "auto")
@@ -174,7 +174,7 @@ cilium-agent [flags]
       --ipv4-service-range string                            Kubernetes IPv4 services CIDR if not inside cluster prefix (default "auto")
       --ipv6-cluster-alloc-cidr string                       IPv6 /64 CIDR used to allocate per node endpoint /96 CIDR (default "f00d::/64")
       --ipv6-mcast-device string                             Device that joins a Solicited-Node multicast group for IPv6
-      --ipv6-native-routing-cidr string                      Allows to explicitly specify the IPv6 CIDR for native routing. This value corresponds to the configured cluster-cidr.
+      --ipv6-native-routing-cidr string                      Allows to explicitly specify the IPv6 CIDR for native routing. When specified, Cilium assumes networking for this CIDR is preconfigured and hands traffic destined for that range to the Linux network stack without applying any SNAT. Generally speaking, specifying a native routing CIDR implies that Cilium can depend on the underlying networking stack to route packets to their destination. To offer a concrete example, if Cilium is configured to use direct routing and the Kubernetes CIDR is included in the native routing CIDR, the user must configure the routes to reach pods, either manually or by setting the auto-direct-node-routes flag.
       --ipv6-node string                                     IPv6 address of node (default "auto")
       --ipv6-pod-subnets strings                             List of IPv6 pod subnets to preconfigure for encryption
       --ipv6-range string                                    Per-node IPv6 endpoint prefix, e.g. fd02:1:1::/96 (default "auto")
