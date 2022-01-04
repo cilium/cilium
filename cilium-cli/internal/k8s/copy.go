@@ -22,10 +22,11 @@ func (c *Client) CopyFromPod(ctx context.Context, namespace, pod, container stri
 		ReadFunc: readFromPod(ctx, c, namespace, pod, container, srcFile),
 	})
 
-	outFile, err := os.Create(destFile)
+	outFile, err := os.OpenFile(destFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
+	defer outFile.Close()
 
 	if _, err = io.Copy(outFile, pipe); err != nil {
 		return err
