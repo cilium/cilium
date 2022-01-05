@@ -320,15 +320,6 @@ func (m *Map) UnpinIfExists() error {
 	return m.Unpin()
 }
 
-// DeepEquals compares the current map against another map to see that the
-// attributes of the two maps are the same.
-func (m *Map) DeepEquals(other *Map) bool {
-	return m.name == other.name &&
-		m.path == other.path &&
-		m.NonPersistent == other.NonPersistent &&
-		reflect.DeepEqual(m.MapInfo, other.MapInfo)
-}
-
 func (m *Map) controllerName() string {
 	return fmt.Sprintf("bpf-map-sync-%s", m.name)
 }
