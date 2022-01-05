@@ -26,7 +26,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sIstioTest", func() {
 		// installed.
 		istioSystemNamespace = "istio-system"
 
-		istioVersion = "1.10.4"
+		istioVersion = "1.10.6"
 
 		// Modifiers for pre-release testing, normally empty
 		prerelease     = "" // "-beta.1"
@@ -36,15 +36,17 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sIstioTest", func() {
 		// - remind how to test with prerelease images in future
 		// - cause CI infra to prepull these images so that they do not
 		//   need to be pulled on demand during the test
-		// " --set values.pilot.image=quay.io/cilium/istio_pilot:1.10.4" + prerelease +
-		// " --set values.global.proxy.image=quay.io/cilium/istio_proxy:1.10.4" + prerelease +
-		// " --set values.global.proxy_init.image=quay.io/cilium/istio_proxy:1.10.4" + prerelease +
+		// " --set values.pilot.image=quay.io/cilium/istio_pilot:1.10.6" + prerelease +
+		// " --set values.global.proxy.image=quay.io/cilium/istio_proxy:1.10.6" + prerelease +
+		// " --set values.global.proxy_init.image=quay.io/cilium/istio_proxy:1.10.6" + prerelease +
 		// " --set values.global.proxy.logLevel=debug" +
 		// " --set values.global.logging.level=debug"
 		// " --set values.global.mtls.auto=false"
 		ciliumOptions = map[string]string{
+			// These comments are retained for Istio release update testing:
+			// "kubeProxyReplacement": "probe",
+			// "hostServices.hostNamespaceOnly": "true",
 			// "proxy.sidecarImageRegex": "jrajahalme/istio_proxy",
-			// "kubeProxyReplacement": "disabled",
 			// "debug.enabled": "true",
 			// "debug.verbose": "flow",
 		}
