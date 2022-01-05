@@ -460,6 +460,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 	}
 
+	if option.Config.ResetQueueMapping {
+		cDefinesMap["RESET_QUEUES"] = "1"
+	}
+
 	if option.Config.EnableBandwidthManager {
 		cDefinesMap["ENABLE_BANDWIDTH_MANAGER"] = "1"
 		cDefinesMap["THROTTLE_MAP"] = bwmap.MapName
