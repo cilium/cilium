@@ -34,6 +34,11 @@ Vagrant.configure("2") do |config|
     curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
     chmod +x ./get_helm.sh
     ./get_helm.sh
+
+    curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz{,.sha256sum}
+    sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
+    sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/bin
+    rm cilium-linux-amd64.tar.gz{,.sha256sum}
     SHELL
   end
 end
