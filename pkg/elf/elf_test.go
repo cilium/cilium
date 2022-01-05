@@ -9,6 +9,7 @@ package elf
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"os"
@@ -217,4 +218,36 @@ func BenchmarkWriteELF(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+func (elf *ELF) findString(key string) error {
+	opt, exists := elf.symbols.strings[key]
+	if !exists {
+		return fmt.Errorf("no such string %q in ELF", key)
+	}
+	if _, err := elf.readValue(int64(opt.offset), int64(opt.size)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (elf *ELF) readOption(key string) (result uint32, err error) {
+	opt, exists := elf.symbols.data[key]
+	if !exists {
+		return 0, fmt.Errorf("no such option %q in ELF", key)
+	}
+	value, err := elf.readValue(int64(opt.offset), int64(opt.size))
+	if err != nil {
+		return 0, err
+	}
+	return elf.metadata.ByteOrder.Uint32(value), err
+}
+
+func (elf *ELF) readValue(offset int64, size int64) ([]byte, error) {
+	reader := io.NewSectionReader(elf.file, offset, size)
+	result := make([]byte, size)
+	if err := binary.Read(reader, elf.metadata.ByteOrder, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
