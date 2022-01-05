@@ -41,6 +41,9 @@ var (
 	// policy and propagated in monitor output.
 	identityMetadata = make(map[string]labels.Labels)
 
+	// applyIDMDChangesMutex protects InjectLabels and RemoveLabelsExcluded from being run in parallel
+	applyIDMDChangesMutex lock.Mutex
+
 	// ErrLocalIdentityAllocatorUninitialized is an error that's returned when
 	// the local identity allocator is uninitialized.
 	ErrLocalIdentityAllocatorUninitialized = errors.New("local identity allocator uninitialized")
@@ -101,6 +104,9 @@ func InjectLabels(src source.Source, updater identityUpdater, triggerer policyTr
 		// selector cache.
 		idsToPropagate = make(map[identity.NumericIdentity]labels.LabelArray)
 	)
+
+	applyIDMDChangesMutex.Lock()
+	defer applyIDMDChangesMutex.Unlock()
 
 	idMDMU.Lock()
 
@@ -280,6 +286,9 @@ func RemoveLabelsExcluded(
 	updater identityUpdater,
 	triggerer policyTriggerer,
 ) {
+	applyIDMDChangesMutex.Lock()
+	defer applyIDMDChangesMutex.Unlock()
+
 	idMDMU.Lock()
 	defer idMDMU.Unlock()
 
