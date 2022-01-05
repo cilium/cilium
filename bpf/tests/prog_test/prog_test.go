@@ -21,7 +21,7 @@ import (
 	"github.com/cilium/ebpf/perf"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -203,7 +203,7 @@ func dumpDebugMessages(eventsReader *perf.Reader) error {
 func testCt4Rst(spec *ebpf.Collection) error {
 	eventsReader, err := perf.NewReader(spec.Maps["test_events_map"], 1024*4096)
 	if err != nil {
-		log.WithError(err).Fatal("Cannot initialise BPF perf ring buffer sockets")
+		logrus.WithError(err).Fatal("Cannot initialise BPF perf ring buffer sockets")
 	}
 	defer func() {
 		eventsReader.Close()
@@ -390,7 +390,7 @@ func TestMain(m *testing.M) {
 		Max: unix.RLIM_INFINITY,
 	}
 	if err := unix.Setrlimit(unix.RLIMIT_MEMLOCK, &lim); err != nil {
-		log.Fatalf("setrlimit: %v", err)
+		logrus.Fatalf("setrlimit: %v", err)
 	}
 	os.Exit(m.Run())
 }

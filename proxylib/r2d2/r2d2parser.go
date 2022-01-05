@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/proxylib/proxylib"
 )
@@ -57,19 +57,19 @@ func (rule *r2d2Rule) Matches(data interface{}) bool {
 	}
 
 	if !ok {
-		log.Warning("Matches() called with type other than R2d2RequestData")
+		logrus.Warning("Matches() called with type other than R2d2RequestData")
 		return false
 	}
 	if len(rule.cmdExact) > 0 && rule.cmdExact != reqData.cmd {
-		log.Debugf("R2d2Rule: cmd mismatch %s, %s", rule.cmdExact, reqData.cmd)
+		logrus.Debugf("R2d2Rule: cmd mismatch %s, %s", rule.cmdExact, reqData.cmd)
 		return false
 	}
 	if rule.fileRegexCompiled != nil &&
 		!rule.fileRegexCompiled.MatchString(reqData.file) {
-		log.Debugf("R2d2Rule: file mismatch %s, %s", rule.fileRegexCompiled.String(), reqData.file)
+		logrus.Debugf("R2d2Rule: file mismatch %s, %s", rule.fileRegexCompiled.String(), reqData.file)
 		return false
 	}
-	log.Debugf("policy match for rule: '%s' '%s'", rule.cmdExact, regexStr)
+	logrus.Debugf("policy match for rule: '%s' '%s'", rule.cmdExact, regexStr)
 	return true
 }
 
@@ -111,7 +111,7 @@ func ruleParser(rule *cilium.PortNetworkPolicyRule) []proxylib.L7NetworkPolicyRu
 		if rr.fileRegexCompiled != nil {
 			regexStr = rr.fileRegexCompiled.String()
 		}
-		log.Debugf("Parsed rule '%s' '%s'", rr.cmdExact, regexStr)
+		logrus.Debugf("Parsed rule '%s' '%s'", rr.cmdExact, regexStr)
 		rules = append(rules, &rr)
 	}
 	return rules
@@ -120,7 +120,7 @@ func ruleParser(rule *cilium.PortNetworkPolicyRule) []proxylib.L7NetworkPolicyRu
 type factory struct{}
 
 func init() {
-	log.Debug("init(): Registering r2d2ParserFactory")
+	logrus.Debug("init(): Registering r2d2ParserFactory")
 	proxylib.RegisterParserFactory("r2d2", &factory{})
 	proxylib.RegisterL7RuleParser("r2d2", ruleParser)
 }
@@ -130,7 +130,7 @@ type parser struct {
 }
 
 func (f *factory) Create(connection *proxylib.Connection) interface{} {
-	log.Debugf("R2d2ParserFactory: Create: %v", connection)
+	logrus.Debugf("R2d2ParserFactory: Create: %v", connection)
 
 	return &parser{connection: connection}
 }
@@ -140,21 +140,21 @@ func (p *parser) OnData(reply, endStream bool, dataArray [][]byte) (proxylib.OpT
 	// inefficient, but simple
 	data := string(bytes.Join(dataArray, []byte{}))
 
-	log.Debugf("OnData: '%s'", data)
+	logrus.Debugf("OnData: '%s'", data)
 	msgLen := strings.Index(data, "\r\n")
 	if msgLen < 0 {
 		// No delimiter, request more data
-		log.Debugf("No delimiter found, requesting more bytes")
+		logrus.Debugf("No delimiter found, requesting more bytes")
 		return proxylib.MORE, 1
 	}
 
 	msgStr := data[:msgLen] // read single request
 	msgLen += 2             // include "\r\n"
-	log.Debugf("Request = '%s'", msgStr)
+	logrus.Debugf("Request = '%s'", msgStr)
 
 	// we don't process reply traffic for now
 	if reply {
-		log.Debugf("reply, passing %d bytes", msgLen)
+		logrus.Debugf("reply, passing %d bytes", msgLen)
 		return proxylib.PASS, msgLen
 	}
 
@@ -188,7 +188,7 @@ func (p *parser) OnData(reply, endStream bool, dataArray [][]byte) (proxylib.OpT
 
 	if !matches {
 		p.connection.Inject(true, []byte("ERROR\r\n"))
-		log.Debugf("Policy mismatch, dropping %d bytes", msgLen)
+		logrus.Debugf("Policy mismatch, dropping %d bytes", msgLen)
 		return proxylib.DROP, msgLen
 	}
 

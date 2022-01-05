@@ -10,7 +10,7 @@ import (
 	"strconv"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 
 	. "github.com/cilium/cilium/proxylib/proxylib"
 )
@@ -28,7 +28,7 @@ const (
 )
 
 func init() {
-	log.Debug("init(): Registering blockParserFactory")
+	logrus.Debug("init(): Registering blockParserFactory")
 	RegisterParserFactory(blockParserName, blockParserFactory)
 }
 
@@ -38,7 +38,7 @@ type BlockParser struct {
 }
 
 func (p *BlockParserFactory) Create(connection *Connection) interface{} {
-	log.Debugf("BlockParserFactory: Create: %v", connection)
+	logrus.Debugf("BlockParserFactory: Create: %v", connection)
 	return &BlockParser{connection: connection}
 }
 
@@ -105,7 +105,7 @@ func getBlock(data [][]byte) ([]byte, int, int, error) {
 func (p *BlockParser) OnData(reply, endStream bool, data [][]byte) (OpType, int) {
 	block, block_len, missing, err := getBlock(data)
 	if err != nil {
-		log.WithError(err).Warnf("BlockParser: Invalid frame length")
+		logrus.WithError(err).Warnf("BlockParser: Invalid frame length")
 		return ERROR, int(ERROR_INVALID_FRAME_LENGTH)
 	}
 
@@ -122,9 +122,9 @@ func (p *BlockParser) OnData(reply, endStream bool, data [][]byte) (OpType, int)
 	}
 
 	if !reply {
-		log.Debugf("BlockParser: Request: %s", block)
+		logrus.Debugf("BlockParser: Request: %s", block)
 	} else {
-		log.Debugf("BlockParser: Response: %s", block)
+		logrus.Debugf("BlockParser: Response: %s", block)
 	}
 
 	if missing == 0 && block_len == 0 {
@@ -132,7 +132,7 @@ func (p *BlockParser) OnData(reply, endStream bool, data [][]byte) (OpType, int)
 		return NOP, 0
 	}
 
-	log.Debugf("BlockParser: missing: %d", missing)
+	logrus.Debugf("BlockParser: missing: %d", missing)
 
 	if bytes.Contains(block, []byte("PASS")) {
 		p.connection.Log(cilium.EntryType_Request, &cilium.LogEntry_GenericL7{

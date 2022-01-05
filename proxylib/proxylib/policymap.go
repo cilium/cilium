@@ -10,7 +10,7 @@ import (
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	core "github.com/cilium/proxy/go/envoy/config/core/v3"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/flowdebug"
 )
@@ -32,7 +32,7 @@ var l7RuleParsers map[string]L7RuleParser = make(map[string]L7RuleParser)
 // This is called from parser init() functions while we are still single-threaded
 func RegisterL7RuleParser(l7PolicyTypeName string, parserFunc L7RuleParser) {
 	if flowdebug.Enabled() {
-		log.Debugf("NPDS: Registering L7 rule parser: %s", l7PolicyTypeName)
+		logrus.Debugf("NPDS: Registering L7 rule parser: %s", l7PolicyTypeName)
 	}
 	l7RuleParsers[l7PolicyTypeName] = parserFunc
 }
@@ -54,7 +54,7 @@ func newPortNetworkPolicyRule(config *cilium.PortNetworkPolicyRule) (PortNetwork
 	}
 	for _, remote := range config.GetRemotePolicies() {
 		if flowdebug.Enabled() {
-			log.Debugf("NPDS::PortNetworkPolicyRule: Allowing remote %d", remote)
+			logrus.Debugf("NPDS::PortNetworkPolicyRule: Allowing remote %d", remote)
 		}
 		rule.AllowedRemotes[remote] = struct{}{}
 	}
@@ -76,11 +76,11 @@ func newPortNetworkPolicyRule(config *cilium.PortNetworkPolicyRule) (PortNetwork
 		l7Parser, ok := l7RuleParsers[l7Name]
 		if ok {
 			if flowdebug.Enabled() {
-				log.Debugf("NPDS::PortNetworkPolicyRule: Calling L7Parser %s on %v", l7Name, config.String())
+				logrus.Debugf("NPDS::PortNetworkPolicyRule: Calling L7Parser %s on %v", l7Name, config.String())
 			}
 			rule.L7Rules = l7Parser(config)
 		} else if flowdebug.Enabled() {
-			log.Debugf("NPDS::PortNetworkPolicyRule: Unknown L7 (%s), should drop everything.", l7Name)
+			logrus.Debugf("NPDS::PortNetworkPolicyRule: Unknown L7 (%s), should drop everything.", l7Name)
 		}
 		// Unknown parsers are expected, but will result in drop-all policy
 		return rule, l7Name, ok
@@ -100,7 +100,7 @@ func (p *PortNetworkPolicyRule) Matches(remoteId uint32, l7 interface{}) bool {
 		for _, rule := range p.L7Rules {
 			if rule.Matches(l7) {
 				if flowdebug.Enabled() {
-					log.Debugf("NPDS::PortNetworkPolicyRule: L7 rule matches (%v)", p)
+					logrus.Debugf("NPDS::PortNetworkPolicyRule: L7 rule matches (%v)", p)
 				}
 				return true
 			}
@@ -109,7 +109,7 @@ func (p *PortNetworkPolicyRule) Matches(remoteId uint32, l7 interface{}) bool {
 	}
 	// Empty set matches any payload
 	if flowdebug.Enabled() {
-		log.Debugf("NPDS::PortNetworkPolicyRule: Empty L7Rules matches (%v)", p)
+		logrus.Debugf("NPDS::PortNetworkPolicyRule: Empty L7Rules matches (%v)", p)
 	}
 	return true
 }
@@ -123,7 +123,7 @@ func newPortNetworkPolicyRules(config []*cilium.PortNetworkPolicyRule, port uint
 		Rules: make([]PortNetworkPolicyRule, 0, len(config)),
 	}
 	if len(config) == 0 && flowdebug.Enabled() {
-		log.Debugf("NPDS::PortNetworkPolicyRules: No rules, will allow everything.")
+		logrus.Debugf("NPDS::PortNetworkPolicyRules: No rules, will allow everything.")
 	}
 	var firstTypeName string
 	for _, rule := range config {
@@ -148,14 +148,14 @@ func (p *PortNetworkPolicyRules) Matches(remoteId uint32, l7 interface{}) bool {
 	// Empty set matches any payload from anyone
 	if len(p.Rules) == 0 {
 		if flowdebug.Enabled() {
-			log.Debugf("NPDS::PortNetworkPolicyRules: No Rules; matches (%v)", p)
+			logrus.Debugf("NPDS::PortNetworkPolicyRules: No Rules; matches (%v)", p)
 		}
 		return true
 	}
 	for _, rule := range p.Rules {
 		if rule.Matches(remoteId, l7) {
 			if flowdebug.Enabled() {
-				log.Debugf("NPDS::PortNetworkPolicyRules(remoteId=%d): rule matches (%v)", remoteId, p)
+				logrus.Debugf("NPDS::PortNetworkPolicyRules(remoteId=%d): rule matches (%v)", remoteId, p)
 			}
 			return true
 		}
@@ -190,11 +190,11 @@ func newPortNetworkPolicies(config []*cilium.PortNetworkPolicy, dir string) Port
 		rules, ok := newPortNetworkPolicyRules(rule.GetRules(), port)
 		if ok {
 			if flowdebug.Enabled() {
-				log.Debugf("NPDS::PortNetworkPolicies(): installed %s TCP policy for port %d from rule %s", dir, port, rule.String())
+				logrus.Debugf("NPDS::PortNetworkPolicies(): installed %s TCP policy for port %d from rule %s", dir, port, rule.String())
 			}
 			policy.Rules[port] = rules
 		} else if flowdebug.Enabled() {
-			log.Debugf("NPDS::PortNetworkPolicies(): Skipped %s port due to unsupported L7: %d", dir, port)
+			logrus.Debugf("NPDS::PortNetworkPolicies(): Skipped %s port due to unsupported L7: %d", dir, port)
 		}
 	}
 	return policy
@@ -205,7 +205,7 @@ func (p *PortNetworkPolicies) Matches(port, remoteId uint32, l7 interface{}) boo
 	if found {
 		if rules.Matches(remoteId, l7) {
 			if flowdebug.Enabled() {
-				log.Debugf("NPDS::PortNetworkPolicies(port=%d, remoteId=%d): rule matches (%v)", port, remoteId, p)
+				logrus.Debugf("NPDS::PortNetworkPolicies(port=%d, remoteId=%d): rule matches (%v)", port, remoteId, p)
 			}
 			return true
 		}
@@ -215,7 +215,7 @@ func (p *PortNetworkPolicies) Matches(port, remoteId uint32, l7 interface{}) boo
 	if foundWc {
 		if rules.Matches(remoteId, l7) {
 			if flowdebug.Enabled() {
-				log.Debugf("NPDS::PortNetworkPolicies(port=*, remoteId=%d): rule matches (%v)", remoteId, p)
+				logrus.Debugf("NPDS::PortNetworkPolicies(port=*, remoteId=%d): rule matches (%v)", remoteId, p)
 			}
 			return true
 		}
@@ -226,10 +226,10 @@ func (p *PortNetworkPolicies) Matches(port, remoteId uint32, l7 interface{}) boo
 	// to pass through since the bpf datapath already allowed it.
 	// TODO: Change back to false only when non-bpf datapath is supported?
 
-	//	log.Debugf("NPDS::PortNetworkPolicies(port=%d, remoteId=%d): allowing traffic on port for which there is no policy, assuming L3/L4 has passed it! (%v)", port, remoteId, p)
+	//	logrus.Debugf("NPDS::PortNetworkPolicies(port=%d, remoteId=%d): allowing traffic on port for which there is no policy, assuming L3/L4 has passed it! (%v)", port, remoteId, p)
 	//	return !(found || foundWc)
 	if !(found || foundWc) {
-		log.Debugf("NPDS::PortNetworkPolicies(port=%d, remoteId=%d): Dropping traffic on port for which there is no policy! (%v)", port, remoteId, p)
+		logrus.Debugf("NPDS::PortNetworkPolicies(port=%d, remoteId=%d): Dropping traffic on port for which there is no policy! (%v)", port, remoteId, p)
 	}
 	return false
 }
@@ -242,7 +242,7 @@ type PolicyInstance struct {
 
 func newPolicyInstance(config *cilium.NetworkPolicy) *PolicyInstance {
 	if flowdebug.Enabled() {
-		log.Debugf("NPDS::PolicyInstance: Inserting policy %s", config.String())
+		logrus.Debugf("NPDS::PolicyInstance: Inserting policy %s", config.String())
 	}
 	return &PolicyInstance{
 		protobuf: config,
@@ -253,7 +253,7 @@ func newPolicyInstance(config *cilium.NetworkPolicy) *PolicyInstance {
 
 func (p *PolicyInstance) Matches(ingress bool, port, remoteId uint32, l7 interface{}) bool {
 	if flowdebug.Enabled() {
-		log.Debugf("NPDS::PolicyInstance::Matches(ingress: %v, port: %d, remoteId: %d, l7: %v (policy: %s)", ingress, port, remoteId, l7, p.protobuf.String())
+		logrus.Debugf("NPDS::PolicyInstance::Matches(ingress: %v, port: %d, remoteId: %d, l7: %v (policy: %s)", ingress, port, remoteId, l7, p.protobuf.String())
 	}
 	if ingress {
 		return p.Ingress.Matches(port, remoteId, l7)

@@ -10,7 +10,7 @@ import (
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	"github.com/golang/protobuf/proto"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/proxylib/proxylib"
@@ -48,10 +48,10 @@ func (cl *Client) connect() *net.UnixConn {
 	if conn != nil {
 		conn.Close() // not setting conn to nil!
 	}
-	log.Debugf("Accesslog: Connecting to Cilium access log socket: %s", cl.path)
+	logrus.Debugf("Accesslog: Connecting to Cilium access log socket: %s", cl.path)
 	conn, err := net.DialUnix("unixpacket", nil, &net.UnixAddr{Name: cl.path, Net: "unixpacket"})
 	if err != nil {
-		log.WithError(err).Error("Accesslog: DialUnix() failed")
+		logrus.WithError(err).Error("Accesslog: DialUnix() failed")
 		return nil
 	}
 
@@ -67,18 +67,18 @@ func (cl *Client) Log(pblog *cilium.LogEntry) {
 		// Encode
 		logmsg, err := proto.Marshal(pblog)
 		if err != nil {
-			log.WithError(err).Error("Accesslog: Protobuf marshaling error")
+			logrus.WithError(err).Error("Accesslog: Protobuf marshaling error")
 			return
 		}
 
 		// Write
 		_, err = conn.Write(logmsg)
 		if err != nil {
-			log.WithError(err).Error("Accesslog: Write() failed")
+			logrus.WithError(err).Error("Accesslog: Write() failed")
 			atomic.StoreUint32(&cl.connected, 0) // Mark connection as broken
 		}
 	} else {
-		log.Debugf("Accesslog: No connection, cannot send: %s", pblog.String())
+		logrus.Debugf("Accesslog: No connection, cannot send: %s", pblog.String())
 	}
 }
 

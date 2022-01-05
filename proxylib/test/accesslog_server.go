@@ -14,7 +14,7 @@ import (
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	"github.com/golang/protobuf/proto"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/inctimer"
@@ -87,17 +87,17 @@ func StartAccessLogServer(accessLogName string, bufSize int) *AccessLogServer {
 	var err error
 	server.listener, err = net.ListenUnix("unixpacket", &net.UnixAddr{Name: accessLogPath, Net: "unixpacket"})
 	if err != nil {
-		log.Fatalf("Failed to open access log listen socket at %s: %v", accessLogPath, err)
+		logrus.Fatalf("Failed to open access log listen socket at %s: %v", accessLogPath, err)
 	}
 	server.listener.SetUnlinkOnClose(true)
 
 	// Make the socket accessible by non-root Envoy proxies, e.g. running in
 	// sidecar containers.
 	if err = os.Chmod(accessLogPath, 0777); err != nil {
-		log.Fatalf("Failed to change mode of access log listen socket at %s: %v", accessLogPath, err)
+		logrus.Fatalf("Failed to change mode of access log listen socket at %s: %v", accessLogPath, err)
 	}
 
-	log.Debug("Starting Access Log Server")
+	logrus.Debug("Starting Access Log Server")
 	go func() {
 		for {
 			// Each Envoy listener opens a new connection over the Unix domain socket.
@@ -110,7 +110,7 @@ func StartAccessLogServer(accessLogName string, bufSize int) *AccessLogServer {
 					errors.Is(err, syscall.EINVAL) {
 					break
 				}
-				log.WithError(err).Warn("Failed to accept access log connection")
+				logrus.WithError(err).Warn("Failed to accept access log connection")
 				continue
 			}
 
@@ -118,7 +118,7 @@ func StartAccessLogServer(accessLogName string, bufSize int) *AccessLogServer {
 				break
 			}
 
-			log.Debug("Accepted access log connection")
+			logrus.Debug("Accepted access log connection")
 
 			server.mu.Lock()
 			server.conns = append(server.conns, uc)
@@ -141,7 +141,7 @@ func isEOF(err error) bool {
 
 func (s *AccessLogServer) accessLogger(conn *net.UnixConn) {
 	defer func() {
-		log.Debug("Closing access log connection")
+		logrus.Debug("Closing access log connection")
 		conn.Close()
 	}()
 
@@ -150,22 +150,22 @@ func (s *AccessLogServer) accessLogger(conn *net.UnixConn) {
 		n, _, flags, _, err := conn.ReadMsgUnix(buf, nil)
 		if err != nil {
 			if !isEOF(err) && !s.isClosing() {
-				log.WithError(err).Error("Error while reading from access log connection")
+				logrus.WithError(err).Error("Error while reading from access log connection")
 			}
 			break
 		}
 		if flags&unix.MSG_TRUNC != 0 {
-			log.Warning("Discarded truncated access log message")
+			logrus.Warning("Discarded truncated access log message")
 			continue
 		}
 		pblog := cilium.LogEntry{}
 		err = proto.Unmarshal(buf[:n], &pblog)
 		if err != nil {
-			log.WithError(err).Warning("Discarded invalid access log message")
+			logrus.WithError(err).Warning("Discarded invalid access log message")
 			continue
 		}
 
-		log.Debugf("Access log message: %s", pblog.String())
+		logrus.Debugf("Access log message: %s", pblog.String())
 		s.Logs <- pblog.EntryType
 	}
 }

@@ -8,7 +8,7 @@ import (
 	envoy_service_disacovery "github.com/cilium/proxy/go/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
 )
 
@@ -26,15 +26,15 @@ func (ins *Instance) InsertPolicyText(version string, policies []string, expectF
 		err := proto.UnmarshalText(policy, pb)
 		if err != nil {
 			if expectFail != "unmarshal" {
-				log.Fatalf("Policy UnmarshalText failed: %v", err)
+				logrus.Fatalf("Policy UnmarshalText failed: %v", err)
 			}
 			return err
 		}
-		log.Debugf("Text -> proto.Message: %s -> %v", policy, pb)
+		logrus.Debugf("Text -> proto.Message: %s -> %v", policy, pb)
 		data, err := proto.Marshal(pb)
 		if err != nil {
 			if expectFail != "marshal" {
-				log.Fatalf("Policy marshal failed: %v", err)
+				logrus.Fatalf("Policy marshal failed: %v", err)
 			}
 			return err
 		}
@@ -56,7 +56,7 @@ func (ins *Instance) InsertPolicyText(version string, policies []string, expectF
 	err := ins.PolicyUpdate(msg)
 	if err != nil {
 		if expectFail != "update" {
-			log.Fatalf("Policy Update failed: %v", err)
+			logrus.Fatalf("Policy Update failed: %v", err)
 		}
 	}
 	return err
@@ -109,5 +109,5 @@ func (conn *Connection) CheckOnData(c *C, reply, endStream bool, data *[][]byte,
 	// Clear the same-direction inject buffer, simulating the datapath forwarding the injected data
 	injectBuf := conn.getInjectBuf(reply)
 	*injectBuf = (*injectBuf)[:0]
-	log.Debugf("proxylib test helper: Cleared inject buf, used %d/%d", len(*injectBuf), cap(*injectBuf))
+	logrus.Debugf("proxylib test helper: Cleared inject buf, used %d/%d", len(*injectBuf), cap(*injectBuf))
 }

@@ -15,7 +15,7 @@ import (
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_service_disacovery "github.com/cilium/proxy/go/envoy/service/discovery/v3"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/completion"
@@ -54,10 +54,10 @@ func (cs *ClientSuite) UpsertNetworkPolicy(c *C, s *envoy.XDSServer, p *cilium.N
 
 	callback := func(err error) {
 		if err == nil {
-			log.Debug("ACK Callback called")
+			logrus.Debug("ACK Callback called")
 			atomic.AddUint64(&cs.acks, 1)
 		} else {
-			log.Debug("NACK Callback called")
+			logrus.Debug("NACK Callback called")
 			atomic.AddUint64(&cs.nacks, 1)
 		}
 	}
@@ -68,7 +68,7 @@ func (cs *ClientSuite) UpsertNetworkPolicy(c *C, s *envoy.XDSServer, p *cilium.N
 type updater struct{}
 
 func (u *updater) PolicyUpdate(resp *envoy_service_disacovery.DiscoveryResponse) error {
-	log.Debugf("Received policy update: %s", resp.String())
+	logrus.Debugf("Received policy update: %s", resp.String())
 	return nil
 }
 

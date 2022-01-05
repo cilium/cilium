@@ -15,15 +15,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/onsi/ginkgo"
+	"github.com/onsi/gomega"
+	"github.com/sirupsen/logrus"
+
 	cnpv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/test/helpers"
 	"github.com/cilium/cilium/test/helpers/constants"
-
-	"github.com/onsi/ginkgo"
-	"github.com/onsi/gomega"
-	log "github.com/sirupsen/logrus"
 )
 
 var timeout = 10 * time.Minute
@@ -336,7 +336,7 @@ func (t *TestSpec) RunTest(kub *helpers.Kubectl) {
 
 	manifest, err := t.ApplyManifest(kub.BasePath())
 	gomega.Expect(err).To(gomega.BeNil(), "cannot apply pods manifest for %s", t.Prefix)
-	log.WithField("prefix", t.Prefix).Infof("Manifest '%s' is created correctly", manifest)
+	logrus.WithField("prefix", t.Prefix).Infof("Manifest '%s' is created correctly", manifest)
 
 	err = t.Destination.CreateApplyManifest(t, kub.BasePath())
 	gomega.Expect(err).To(gomega.BeNil(), "cannot apply destination for %s", t.Prefix)
@@ -653,7 +653,7 @@ func (t *TestSpec) NetworkPolicyApply(base string) error {
 
 	if policy == "" {
 		//This only happens on L3:No Policy L4:No Policy L7:No Policy
-		log.Info("No policy so do not import it")
+		logrus.Info("No policy so do not import it")
 		return nil
 	}
 

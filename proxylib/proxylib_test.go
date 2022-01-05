@@ -12,7 +12,7 @@ import (
 	"time"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/proxylib/proxylib"
@@ -189,7 +189,7 @@ type PanicParser struct {
 }
 
 func (p *PanicParserFactory) Create(connection *proxylib.Connection) interface{} {
-	log.Debugf("PanicParserFactory: Create: %v", connection)
+	logrus.Debugf("PanicParserFactory: Create: %v", connection)
 	return &PanicParser{connection: connection}
 }
 
@@ -533,7 +533,7 @@ func TestTwoRulesOnSamePortMismatchingL7(t *testing.T) {
 	if err == nil {
 		t.Errorf("Expected Policy Update to fail due to mismatching L7 protocols on the same port, but it succeeded")
 	} else {
-		log.Debugf("Expected error: %s", err)
+		logrus.Debugf("Expected error: %s", err)
 	}
 }
 
@@ -702,7 +702,7 @@ func TestAllowAllPolicyL3Egress(t *testing.T) {
 	}
 
 	//logging.ToggleDebugLogs(true)
-	//log.SetLevel(log.DebugLevel)
+	//logrus.SetLevel(logrus.DebugLevel)
 
 	insertPolicyText(t, mod, "1", []string{`
 		name: "FooBar"

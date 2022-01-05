@@ -9,7 +9,7 @@ import (
 	"strconv"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/proxylib/memcached/meta"
 	"github.com/cilium/cilium/proxylib/proxylib"
@@ -20,7 +20,7 @@ type ParserFactory struct{}
 
 // Create creates binary memcached parser
 func (p *ParserFactory) Create(connection *proxylib.Connection) interface{} {
-	log.Debugf("ParserFactory: Create: %v", connection)
+	logrus.Debugf("ParserFactory: Create: %v", connection)
 	return &Parser{connection: connection, injectQueue: make([]queuedInject, 0)}
 }
 
@@ -56,11 +56,11 @@ func (p *Parser) OnData(reply, endStream bool, dataBuffers [][]byte) (proxylib.O
 
 	//TODO don't copy data from buffers
 	data := bytes.Join(dataBuffers, []byte{})
-	log.Debugf("Data length: %d", len(data))
+	logrus.Debugf("Data length: %d", len(data))
 
 	if headerSize > len(data) {
 		headerMissing := headerSize - len(data)
-		log.Debugf("Did not receive needed header data, need %d more bytes", headerMissing)
+		logrus.Debugf("Did not receive needed header data, need %d more bytes", headerMissing)
 		return proxylib.MORE, headerMissing
 	}
 
@@ -73,7 +73,7 @@ func (p *Parser) OnData(reply, endStream bool, dataBuffers [][]byte) (proxylib.O
 		neededData := headerSize + int(keyLength) + int(extrasLength)
 		if neededData > len(data) {
 			keyMissing := neededData - len(data)
-			log.Debugf("Did not receive enough bytes for key, need %d more bytes", keyMissing)
+			logrus.Debugf("Did not receive enough bytes for key, need %d more bytes", keyMissing)
 			return proxylib.MORE, keyMissing
 		}
 	}
@@ -95,7 +95,7 @@ func (p *Parser) OnData(reply, endStream bool, dataBuffers [][]byte) (proxylib.O
 
 	// we don't filter reply traffic
 	if reply {
-		log.Debugf("reply, passing %d bytes", len(data))
+		logrus.Debugf("reply, passing %d bytes", len(data))
 		p.connection.Log(cilium.EntryType_Response, logEntry)
 		p.replyCount++
 		return proxylib.PASS, int(bodyLength + headerSize)
@@ -162,7 +162,7 @@ const (
 
 func (p *Parser) getOpcodeAndKey(data []byte, extrasLength byte, keyLength uint16) (byte, []byte, proxylib.OpError) {
 	if data[0]&RequestMagic != RequestMagic {
-		log.Warnf("Direction bit is 'response', but memcached parser only parses requests")
+		logrus.Warnf("Direction bit is 'response', but memcached parser only parses requests")
 		return 0, []byte{}, proxylib.ERROR_INVALID_FRAME_TYPE
 	}
 
