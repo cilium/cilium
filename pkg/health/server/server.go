@@ -106,6 +106,11 @@ func (s *Server) getNodes() (nodeMap, nodeMap, error) {
 	nodesAdded := nodeElementSliceToNodeMap(resp.Payload.NodesAdded)
 	nodesRemoved := nodeElementSliceToNodeMap(resp.Payload.NodesRemoved)
 
+	log.WithField("nodes-added", nodesAdded).
+		WithField("nodes-removed", nodesRemoved).
+		WithField("client-id", resp.Payload.ClientID).
+		Debug("Got cilium /cluster/nodes")
+
 	return nodesAdded, nodesRemoved, nil
 }
 

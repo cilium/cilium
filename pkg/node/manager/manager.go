@@ -442,6 +442,7 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		// update (kvstore, k8s, ...) The datapath is only updated if
 		// that source of truth is updated.
 		if err != nil {
+			log.WithError(err).WithField("ip-address", address).Debug("ipcache IP upsert error")
 			dpUpdate = false
 		} else {
 			ipsAdded = append(ipsAdded, ipAddrStr)
@@ -458,6 +459,7 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 			Source: n.Source,
 		})
 		if err != nil {
+			log.WithError(err).WithField("ip-address", address).Debug("ipcache health IP upsert error")
 			dpUpdate = false
 		} else {
 			healthIPsAdded = append(healthIPsAdded, addrStr)
@@ -483,6 +485,7 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		oldNode := entry.node
 		entry.node = n
 		if dpUpdate {
+			log.Debug("updating old node in subscribers")
 			m.Iter(func(nh datapath.NodeHandler) {
 				nh.NodeUpdate(oldNode, entry.node)
 			})
@@ -510,6 +513,7 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		m.nodes[nodeIdentity] = entry
 		m.mutex.Unlock()
 		if dpUpdate {
+			log.Debug("adding node in subscribers")
 			m.Iter(func(nh datapath.NodeHandler) {
 				nh.NodeAdd(entry.node)
 			})

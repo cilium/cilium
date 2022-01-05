@@ -181,6 +181,9 @@ func (p *prober) setNodes(added nodeMap, removed nodeMap) {
 
 	for _, n := range added {
 		for elem, primary := range n.Addresses() {
+			log.
+				WithField("element", *elem).
+				Debug("Resolving address")
 			_, addr := resolveIP(&n, elem, "icmp", primary)
 			if addr == nil {
 				continue

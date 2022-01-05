@@ -450,6 +450,9 @@ func (c *clusterNodesClient) NodeUpdate(oldNode, newNode nodeTypes.Node) error {
 	c.Lock()
 	defer c.Unlock()
 
+	log.WithField("new-node", newNode).Debug("adding node in subscribers")
+	log.WithField("old-node", oldNode).Debug("removing node in subscribers")
+
 	// If the node is on the added list, just update it
 	for i, added := range c.NodesAdded {
 		if added.Name == newNode.Fullname() {
@@ -569,8 +572,30 @@ func (h *getNodes) Handle(params GetClusterNodesParams) middleware.Responder {
 		h.clients[clientID] = c
 	}
 	c.Lock()
+
 	// Copy the ClusterNodeStatus to the response
 	cns = c.ClusterNodeStatus
+
+	var nodesAdded, nodesRemoved []string
+	for _, nodeAdded := range cns.NodesAdded {
+		if nodeAdded.HealthEndpointAddress != nil && nodeAdded.HealthEndpointAddress.IPV4 != nil {
+			nodesAdded = append(nodesAdded, fmt.Sprintf("node-%s=health-%v", nodeAdded.Name, *nodeAdded.HealthEndpointAddress.IPV4))
+		} else {
+			nodesAdded = append(nodesAdded, fmt.Sprintf("node-%s=health-<nil>", nodeAdded.Name))
+		}
+	}
+	for _, nodeRemoved := range cns.NodesRemoved {
+		if nodeRemoved.HealthEndpointAddress != nil && nodeRemoved.HealthEndpointAddress.IPV4 != nil {
+			nodesRemoved = append(nodesRemoved, fmt.Sprintf("node-%s=health-%v", nodeRemoved.Name, *nodeRemoved.HealthEndpointAddress.IPV4))
+		} else {
+			nodesRemoved = append(nodesRemoved, fmt.Sprintf("node-%s=health-<nil>", nodeRemoved.Name))
+		}
+	}
+	log.WithField("nodes-added", nodesAdded).
+		WithField("nodes-removed", nodesRemoved).
+		WithField("client-id", clientID).
+		Debug("Sent node cluster node status")
+
 	// Store a new ClusterNodeStatus to reset the list of nodes
 	// added / removed.
 	c.ClusterNodeStatus = &models.ClusterNodeStatus{
