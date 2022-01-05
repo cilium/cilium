@@ -12,7 +12,7 @@ import (
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
-	envoy_service_disacovery "github.com/cilium/proxy/go/envoy/service/discovery/v3"
+	envoy_service_discovery "github.com/cilium/proxy/go/envoy/service/discovery/v3"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
@@ -158,7 +158,7 @@ func (c *Client) Run(connected func()) (err error) {
 	// VersionInfo must be empty as we have not received anything yet.
 	// ResourceNames is empty to request for all policies.
 	// ResponseNonce is copied from the response, initially empty.
-	req := envoy_service_disacovery.DiscoveryRequest{
+	req := envoy_service_discovery.DiscoveryRequest{
 		TypeUrl:       NPDSTypeURL,
 		VersionInfo:   "",
 		Node:          &envoy_config_core.Node{Id: c.nodeId},

@@ -14,7 +14,7 @@ import (
 	"time"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
-	envoy_service_disacovery "github.com/cilium/proxy/go/envoy/service/discovery/v3"
+	envoy_service_discovery "github.com/cilium/proxy/go/envoy/service/discovery/v3"
 	"github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
 
@@ -67,7 +67,7 @@ func (cs *ClientSuite) UpsertNetworkPolicy(c *C, s *envoy.XDSServer, p *cilium.N
 
 type updater struct{}
 
-func (u *updater) PolicyUpdate(resp *envoy_service_disacovery.DiscoveryResponse) error {
+func (u *updater) PolicyUpdate(resp *envoy_service_discovery.DiscoveryResponse) error {
 	logrus.Debugf("Received policy update: %s", resp.String())
 	return nil
 }
