@@ -1763,6 +1763,9 @@ type DaemonConfig struct {
 	// EnableBandwidthManager enables EDT-based pacing
 	EnableBandwidthManager bool
 
+	// ResetQueueMapping resets the Pod's skb queue mapping
+	ResetQueueMapping bool
+
 	// EnableRecorder enables the datapath pcap recorder
 	EnableRecorder bool
 
