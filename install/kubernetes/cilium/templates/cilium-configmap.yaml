@@ -684,14 +684,14 @@ data:
   # Capacity of the buffer to store recent events.
   hubble-event-buffer-capacity: {{ .Values.hubble.eventBufferCapacity | quote }}
 {{- end }}
-{{- if .Values.hubble.metrics.enabled }}
+{{- if .Values.hubble.metrics.serviceMonitor.enabled }}
   # Address to expose Hubble metrics (e.g. ":7070"). Metrics server will be disabled if this
   # field is not set.
   hubble-metrics-server: ":{{ .Values.hubble.metrics.port }}"
   # A space separated list of metrics to enable. See [0] for available metrics.
   #
   # https://github.com/cilium/hubble/blob/master/Documentation/metrics.md
-  hubble-metrics: {{- range .Values.hubble.metrics.enabled }}
+  hubble-metrics: {{- range .Values.hubble.metrics.serviceMonitor.enabled }}
     {{.}}
 {{- end }}
 {{- end }}

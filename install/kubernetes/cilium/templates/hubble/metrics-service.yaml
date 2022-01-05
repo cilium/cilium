@@ -1,4 +1,4 @@
-{{- if and .Values.hubble.enabled .Values.hubble.metrics.enabled }}
+{{- if and .Values.hubble.enabled .Values.hubble.metrics.serviceMonitor.enabled }}
 apiVersion: v1
 kind: Service
 metadata:

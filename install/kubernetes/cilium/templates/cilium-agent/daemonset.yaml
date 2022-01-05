@@ -219,7 +219,7 @@ spec:
         resources:
           {{- toYaml . | trim | nindent 10 }}
         {{- end }}
-        {{- if or .Values.prometheus.enabled .Values.hubble.metrics.enabled }}
+        {{- if or .Values.prometheus.enabled .Values.hubble.metrics.serviceMonitor.enabled }}
         ports:
         {{- if .Values.prometheus.enabled }}
         - name: prometheus
@@ -233,7 +233,7 @@ spec:
           protocol: TCP
         {{- end }}
         {{- end }}
-        {{- if .Values.hubble.metrics.enabled }}
+        {{- if .Values.hubble.metrics.serviceMonitor.enabled }}
         - name: hubble-metrics
           containerPort: {{ .Values.hubble.metrics.port }}
           hostPort: {{ .Values.hubble.metrics.port }}
