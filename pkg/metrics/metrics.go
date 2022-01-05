@@ -19,7 +19,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -1286,13 +1286,13 @@ func (gwt *GaugeWithThreshold) Set(value float64) {
 	if gwt.active && !overThreshold {
 		gwt.active = !Unregister(gwt.gauge)
 		if gwt.active {
-			log.WithField("metric", gwt.gauge.Desc().String()).Warning("Failed to unregister metric")
+			logrus.WithField("metric", gwt.gauge.Desc().String()).Warning("Failed to unregister metric")
 		}
 	} else if !gwt.active && overThreshold {
 		err := Register(gwt.gauge)
 		gwt.active = err == nil
 		if err != nil {
-			log.WithField("metric", gwt.gauge.Desc().String()).WithError(err).Warning("Failed to register metric")
+			logrus.WithField("metric", gwt.gauge.Desc().String()).WithError(err).Warning("Failed to register metric")
 		}
 	}
 

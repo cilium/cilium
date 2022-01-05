@@ -13,7 +13,7 @@ import (
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_service_disacovery "github.com/cilium/proxy/go/envoy/service/discovery/v3"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 
@@ -42,7 +42,7 @@ func (c *Client) Close() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	if !c.closing {
-		log.Debugf("NPDS: Client %s closing on %s", c.nodeId, c.path)
+		logrus.Debugf("NPDS: Client %s closing on %s", c.nodeId, c.path)
 		c.closing = true
 		if c.stream != nil {
 			c.stream.CloseSend()
@@ -66,7 +66,7 @@ func NewClient(path, nodeId string, updater proxylib.PolicyUpdater) proxylib.Pol
 		path:    path,
 		nodeId:  nodeId,
 	}
-	log.Debugf("NPDS: Client %s starting on %s", c.nodeId, c.path)
+	logrus.Debugf("NPDS: Client %s starting on %s", c.nodeId, c.path)
 
 	// These are used to return error if the 1st try fails
 	// Only used for testing and logging, as we keep on trying anyway.
@@ -88,14 +88,14 @@ func NewClient(path, nodeId string, updater proxylib.PolicyUpdater) proxylib.Pol
 					close(startErr)
 					starting = false
 				}
-				log.Debugf("NPDS: Client %s connected on %s", c.nodeId, c.path)
+				logrus.Debugf("NPDS: Client %s connected on %s", c.nodeId, c.path)
 			})
 			c.mutex.Lock()
 			closing := c.closing
 			c.mutex.Unlock()
 
 			if err != nil {
-				log.Debug(err)
+				logrus.Debug(err)
 				if starting {
 					startErr <- err
 					close(startErr)
@@ -177,7 +177,7 @@ func (c *Client) Run(connected func()) (err error) {
 		// server has a new version to send, which may take a long time.
 		resp, err := stream.Recv()
 		if err == io.EOF || errors.Is(err, io.ErrUnexpectedEOF) {
-			log.Debugf("NPDS: Client %s stream on %s closed.", c.nodeId, c.path)
+			logrus.Debugf("NPDS: Client %s stream on %s closed.", c.nodeId, c.path)
 			break
 		}
 		if err != nil {
@@ -188,16 +188,16 @@ func (c *Client) Run(connected func()) (err error) {
 		if resp.TypeUrl != req.TypeUrl {
 			msg := fmt.Sprintf("NPDS: Client %s rejecting mismatching resource type on %s: %s", c.nodeId, c.path, resp.TypeUrl)
 			req.ErrorDetail = &status.Status{Message: msg}
-			log.Warning(msg)
+			logrus.Warning(msg)
 		} else {
 			err = c.updater.PolicyUpdate(resp)
 			if err != nil {
 				msg := fmt.Sprintf("NPDS: Client %s rejecting invalid policy on %s: %s", c.nodeId, c.path, err)
 				req.ErrorDetail = &status.Status{Message: msg}
-				log.Warning(msg)
+				logrus.Warning(msg)
 			} else {
 				// Success, update the last applied version
-				log.Debugf("NPDS: Client %s acking new policy version on %s: %s", c.nodeId, c.path, resp.VersionInfo)
+				logrus.Debugf("NPDS: Client %s acking new policy version on %s: %s", c.nodeId, c.path, resp.VersionInfo)
 				req.ErrorDetail = nil
 				req.VersionInfo = resp.VersionInfo
 			}

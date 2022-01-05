@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/cilium/cilium/test/helpers"
+	"github.com/sirupsen/logrus"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/cilium/cilium/test/helpers"
 )
 
 // HTTPAction runs a helpers.CurlFail from specified pod to a specified target.
@@ -21,7 +21,7 @@ func HTTPAction(srcPod string, target string, kub *helpers.Kubectl) ResultType {
 		helpers.KubectlCmd, helpers.DefaultNamespace,
 		srcPod, helpers.CurlFail(target))
 
-	log.Infof("Executing HTTPAction '%s'", command)
+	logrus.Infof("Executing HTTPAction '%s'", command)
 	res := kub.Exec(command)
 	if res.WasSuccessful() {
 		return ResultOK
@@ -43,7 +43,7 @@ func HTTPAction(srcPod string, target string, kub *helpers.Kubectl) ResultType {
 		}
 		return ResultAuth
 	default:
-		log.Infof("HTTPAction returned unexpected exit code %d", exitCode)
+		logrus.Infof("HTTPAction returned unexpected exit code %d", exitCode)
 	}
 	return ResultOK
 }

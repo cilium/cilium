@@ -9,7 +9,7 @@ package main
 import "C"
 
 import (
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/lock"
@@ -31,7 +31,7 @@ var (
 )
 
 func init() {
-	log.Info("proxylib: Initializing library")
+	logrus.Info("proxylib: Initializing library")
 }
 
 // Copy value string from C-memory to Go-memory.
@@ -132,7 +132,7 @@ func OpenModule(params [][2]string, debug bool) uint64 {
 
 	if debug {
 		mutex.Lock()
-		log.SetLevel(log.DebugLevel)
+		logrus.SetLevel(logrus.DebugLevel)
 		flowdebug.Enable()
 		mutex.Unlock()
 	}

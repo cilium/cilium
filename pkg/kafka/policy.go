@@ -4,10 +4,10 @@
 package kafka
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/flowdebug"
 	api "github.com/cilium/cilium/pkg/policy/api/kafka"
-
-	log "github.com/sirupsen/logrus"
 )
 
 type Rule struct {
@@ -119,12 +119,12 @@ func isTopicAPIKey(kind int16) bool {
 func (r Rule) Matches(data interface{}) bool {
 	req, ok := data.(*RequestMessage)
 	if !ok {
-		log.Warningf("Matches() called with type other than Kafka RequestMessage: %v", data)
+		logrus.Warningf("Matches() called with type other than Kafka RequestMessage: %v", data)
 		return false
 	}
 
 	if flowdebug.Enabled() {
-		log.Debugf("Matching Kafka request %s against rule %v", req.String(), r)
+		logrus.Debugf("Matching Kafka request %s against rule %v", req.String(), r)
 	}
 
 	if !r.CheckAPIKeyRole(req.kind) {

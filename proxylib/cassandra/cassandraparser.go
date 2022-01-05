@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 
 	. "github.com/cilium/cilium/proxylib/proxylib"
 )
@@ -54,18 +54,18 @@ func (rule *CassandraRule) Matches(data interface{}) bool {
 
 	path, ok := data.(string)
 	if !ok {
-		log.Warning("Matches() called with type other than string")
+		logrus.Warning("Matches() called with type other than string")
 		return false
 	}
-	log.Debugf("Policy Match test for '%s'", path)
+	logrus.Debugf("Policy Match test for '%s'", path)
 	regexStr := ""
 	if rule.tableRegexCompiled != nil {
 		regexStr = rule.tableRegexCompiled.String()
 	}
 
-	log.Debugf("Rule: action '%s', table '%s'", rule.queryActionExact, regexStr)
+	logrus.Debugf("Rule: action '%s', table '%s'", rule.queryActionExact, regexStr)
 	if path == unknownPreparedQueryPath {
-		log.Warning("Dropping execute for unknown prepared-id")
+		logrus.Warning("Dropping execute for unknown prepared-id")
 		return false
 	}
 	parts := strings.Split(path, "/")
@@ -75,17 +75,17 @@ func (rule *CassandraRule) Matches(data interface{}) bool {
 	} else if len(parts) < 4 {
 		// should never happen unless we've messed up internally
 		// as path is either /<opcode> or /<opcode>/<action>/<table>
-		log.Errorf("Invalid parsed path: '%s'", path)
+		logrus.Errorf("Invalid parsed path: '%s'", path)
 		return false
 	}
 	if rule.queryActionExact != "" && rule.queryActionExact != parts[2] {
-		log.Debugf("CassandraRule: query_action mismatch %v, %s", rule.queryActionExact, parts[1])
+		logrus.Debugf("CassandraRule: query_action mismatch %v, %s", rule.queryActionExact, parts[1])
 		return false
 	}
 	if len(parts[3]) > 0 &&
 		rule.tableRegexCompiled != nil &&
 		!rule.tableRegexCompiled.MatchString(parts[3]) {
-		log.Debugf("CassandraRule: table_regex mismatch '%v', '%s'", rule.tableRegexCompiled, parts[3])
+		logrus.Debugf("CassandraRule: table_regex mismatch '%v', '%s'", rule.tableRegexCompiled, parts[3])
 		return false
 	}
 
@@ -127,7 +127,7 @@ func CassandraRuleParser(rule *cilium.PortNetworkPolicyRule) []L7NetworkPolicyRu
 
 		}
 
-		log.Debugf("Parsed CassandraRule pair: %v", cr)
+		logrus.Debugf("Parsed CassandraRule pair: %v", cr)
 		rules = append(rules, &cr)
 	}
 	return rules
@@ -138,7 +138,7 @@ type CassandraParserFactory struct{}
 var cassandraParserFactory *CassandraParserFactory
 
 func init() {
-	log.Debug("init(): Registering cassandraParserFactory")
+	logrus.Debug("init(): Registering cassandraParserFactory")
 	RegisterParserFactory("cassandra", cassandraParserFactory)
 	RegisterL7RuleParser("cassandra", CassandraRuleParser)
 }
@@ -159,7 +159,7 @@ type CassandraParser struct {
 }
 
 func (pf *CassandraParserFactory) Create(connection *Connection) interface{} {
-	log.Debugf("CassandraParserFactory: Create: %v", connection)
+	logrus.Debugf("CassandraParserFactory: Create: %v", connection)
 
 	p := CassandraParser{connection: connection}
 	p.preparedQueryPathByStreamID = make(map[uint16]string)
@@ -175,15 +175,15 @@ func (p *CassandraParser) OnData(reply, endStream bool, dataArray [][]byte) (OpT
 	if len(data) < cassHdrLen {
 		// Partial header received, ask for more
 		needs := cassHdrLen - len(data)
-		log.Debugf("Did not receive full header, need %d more bytes", needs)
+		logrus.Debugf("Did not receive full header, need %d more bytes", needs)
 		return MORE, needs
 	}
 
 	// full header available, read full request length
 	requestLen := binary.BigEndian.Uint32(data[5:9])
-	log.Debugf("Request length = %d", requestLen)
+	logrus.Debugf("Request length = %d", requestLen)
 	if requestLen > cassMaxLen {
-		log.Errorf("Request length of %d is greater than 256 MB", requestLen)
+		logrus.Errorf("Request length of %d is greater than 256 MB", requestLen)
 		return ERROR, int(ERROR_INVALID_FRAME_LENGTH)
 	}
 
@@ -191,30 +191,30 @@ func (p *CassandraParser) OnData(reply, endStream bool, dataArray [][]byte) (OpT
 	if dataMissing > 0 {
 		// full header received, but only partial request
 
-		log.Debugf("Hdr received, but need %d more bytes of request", dataMissing)
+		logrus.Debugf("Hdr received, but need %d more bytes of request", dataMissing)
 		return MORE, dataMissing
 	}
 
 	// we parse replies, but only to look for prepared-query-id responses
 	if reply {
 		if len(data) == 0 {
-			log.Debugf("ignoring zero length reply call to onData")
+			logrus.Debugf("ignoring zero length reply call to onData")
 			return NOP, 0
 
 		}
 		cassandraParseReply(p, data[0:(cassHdrLen+requestLen)])
 
-		log.Debugf("reply, passing %d bytes", (cassHdrLen + requestLen))
+		logrus.Debugf("reply, passing %d bytes", (cassHdrLen + requestLen))
 		return PASS, (cassHdrLen + int(requestLen))
 	}
 
 	err, paths := cassandraParseRequest(p, data[0:(cassHdrLen+requestLen)])
 	if err != 0 {
-		log.Errorf("Parsing error %d", err)
+		logrus.Errorf("Parsing error %d", err)
 		return ERROR, int(err)
 	}
 
-	log.Debugf("Request paths = %s", paths)
+	logrus.Debugf("Request paths = %s", paths)
 
 	matches := true
 	access_log_entry_type := cilium.EntryType_Request
@@ -444,7 +444,7 @@ func parseQuery(p *CassandraParser, query string) (string, string) {
 				fields[i][:2] == "/*" ||
 				fields[i][:2] == "//") {
 
-			log.Warnf("Unable to safely parse query with comments '%s'", query)
+			logrus.Warnf("Unable to safely parse query with comments '%s'", query)
 			return "", ""
 		}
 	}
@@ -461,7 +461,7 @@ func parseQuery(p *CassandraParser, query string) (string, string) {
 			}
 		}
 		if len(table) == 0 {
-			log.Warnf("Unable to parse table name from query '%s'", query)
+			logrus.Warnf("Unable to parse table name from query '%s'", query)
 			return "", ""
 		}
 	case "insert":
@@ -475,7 +475,7 @@ func parseQuery(p *CassandraParser, query string) (string, string) {
 		table = strings.ToLower(fields[1])
 	case "use":
 		p.keyspace = strings.Trim(fields[1], "\"\\'")
-		log.Debugf("Saving keyspace '%s'", p.keyspace)
+		logrus.Debugf("Saving keyspace '%s'", p.keyspace)
 		table = p.keyspace
 	case "alter", "create", "drop", "truncate", "list":
 
@@ -522,7 +522,7 @@ func parseQuery(p *CassandraParser, query string) (string, string) {
 
 invalidQuery:
 
-	log.Errorf("Unable to parse query: '%s'", query)
+	logrus.Errorf("Unable to parse query: '%s'", query)
 	return "", ""
 }
 
@@ -530,13 +530,13 @@ func cassandraParseRequest(p *CassandraParser, data []byte) (OpError, []string) 
 
 	direction := data[0] & 0x80 // top bit
 	if direction != 0 {
-		log.Errorf("Direction bit is 'reply', but we are trying to parse a request")
+		logrus.Errorf("Direction bit is 'reply', but we are trying to parse a request")
 		return ERROR_INVALID_FRAME_TYPE, nil
 	}
 
 	compressionFlag := data[1] & 0x01
 	if compressionFlag == 1 {
-		log.Errorf("Compression flag set, unable to parse request beyond the header")
+		logrus.Errorf("Compression flag set, unable to parse request beyond the header")
 		return ERROR_INVALID_FRAME_TYPE, nil
 	}
 
@@ -567,7 +567,7 @@ func cassandraParseRequest(p *CassandraParser, data []byte) (OpError, []string) 
 			// stash 'path' for this prepared query based on stream id
 			// rewrite 'opcode' portion of the path to be 'execute' rather than 'prepare'
 			streamID := binary.BigEndian.Uint16(data[2:4])
-			log.Debugf("Prepare query path '%s' with stream-id %d", path, streamID)
+			logrus.Debugf("Prepare query path '%s' with stream-id %d", path, streamID)
 			p.preparedQueryPathByStreamID[streamID] = strings.Replace(path, "prepare", "execute", 1)
 		}
 		return 0, []string{path}
@@ -576,7 +576,7 @@ func cassandraParseRequest(p *CassandraParser, data []byte) (OpError, []string) 
 
 		numQueries := binary.BigEndian.Uint16(data[10:12])
 		paths := make([]string, numQueries)
-		log.Debugf("batch query count = %d", numQueries)
+		logrus.Debugf("batch query count = %d", numQueries)
 		offset := 12
 		for i := 0; i < int(numQueries); i++ {
 			kind := data[offset]
@@ -600,12 +600,12 @@ func cassandraParseRequest(p *CassandraParser, data []byte) (OpError, []string) 
 
 				idLen := int(binary.BigEndian.Uint16(data[offset+1 : offset+3]))
 				preparedID := string(data[offset+3 : (offset + 3 + idLen)])
-				log.Debugf("Batch entry with prepared-id = '%s'", preparedID)
+				logrus.Debugf("Batch entry with prepared-id = '%s'", preparedID)
 				path := p.preparedQueryPathByPreparedID[preparedID]
 				if len(path) > 0 {
 					paths[i] = path
 				} else {
-					log.Warnf("No cached entry for prepared-id = '%s' in batch", preparedID)
+					logrus.Warnf("No cached entry for prepared-id = '%s' in batch", preparedID)
 					unpreparedMsg := createUnpreparedMsg(data[0], data[2:4], preparedID)
 					p.connection.Inject(true, unpreparedMsg)
 					return 0, []string{unknownPreparedQueryPath}
@@ -614,7 +614,7 @@ func cassandraParseRequest(p *CassandraParser, data []byte) (OpError, []string) 
 
 				offset = readPastBatchValues(data, offset)
 			} else {
-				log.Errorf("unexpected value of 'kind' in batch query: %d", kind)
+				logrus.Errorf("unexpected value of 'kind' in batch query: %d", kind)
 				return ERROR_INVALID_FRAME_TYPE, nil
 			}
 		}
@@ -626,11 +626,11 @@ func cassandraParseRequest(p *CassandraParser, data []byte) (OpError, []string) 
 		// cached query path for policy evaluation.
 		idLen := binary.BigEndian.Uint16(data[9:11])
 		preparedID := string(data[11:(11 + idLen)])
-		log.Debugf("Execute with prepared-id = '%s'", preparedID)
+		logrus.Debugf("Execute with prepared-id = '%s'", preparedID)
 		path := p.preparedQueryPathByPreparedID[preparedID]
 
 		if len(path) == 0 {
-			log.Warnf("No cached entry for prepared-id = '%s'", preparedID)
+			logrus.Warnf("No cached entry for prepared-id = '%s'", preparedID)
 			unpreparedMsg := createUnpreparedMsg(data[0], data[2:4], preparedID)
 			p.connection.Inject(true, unpreparedMsg)
 
@@ -667,36 +667,36 @@ func cassandraParseReply(p *CassandraParser, data []byte) {
 
 	direction := data[0] & 0x80 // top bit
 	if direction != 0x80 {
-		log.Errorf("Direction bit is 'request', but we are trying to parse a reply")
+		logrus.Errorf("Direction bit is 'request', but we are trying to parse a reply")
 		return
 	}
 
 	compressionFlag := data[1] & 0x01
 	if compressionFlag == 1 {
-		log.Errorf("Compression flag set, unable to parse reply beyond the header")
+		logrus.Errorf("Compression flag set, unable to parse reply beyond the header")
 		return
 	}
 
 	streamID := binary.BigEndian.Uint16(data[2:4])
-	log.Debugf("Reply with opcode %d and stream-id %d", data[4], streamID)
+	logrus.Debugf("Reply with opcode %d and stream-id %d", data[4], streamID)
 	// if this is an opcode == RESULT message of type 'prepared', associate the prepared
 	// statement id with the full query string that was included in the
 	// associated PREPARE request.  The stream-id in this reply allows us to
 	// find the associated prepare query string.
 	if data[4] == 0x08 {
 		resultKind := binary.BigEndian.Uint32(data[9:13])
-		log.Debugf("resultKind = %d", resultKind)
+		logrus.Debugf("resultKind = %d", resultKind)
 		if resultKind == 0x0004 {
 			idLen := binary.BigEndian.Uint16(data[13:15])
 			preparedID := string(data[15 : 15+idLen])
-			log.Debugf("Result with prepared-id = '%s' for stream-id %d", preparedID, streamID)
+			logrus.Debugf("Result with prepared-id = '%s' for stream-id %d", preparedID, streamID)
 			path := p.preparedQueryPathByStreamID[streamID]
 			if len(path) > 0 {
 				// found cached query path to associate with this preparedID
 				p.preparedQueryPathByPreparedID[preparedID] = path
-				log.Debugf("Associating query path '%s' with prepared-id %s as part of stream-id %d", path, preparedID, streamID)
+				logrus.Debugf("Associating query path '%s' with prepared-id %s as part of stream-id %d", path, preparedID, streamID)
 			} else {
-				log.Warnf("Unable to find prepared query path associated with stream-id %d", streamID)
+				logrus.Warnf("Unable to find prepared query path associated with stream-id %d", streamID)
 			}
 		}
 	}

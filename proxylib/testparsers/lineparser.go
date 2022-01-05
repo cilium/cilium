@@ -6,7 +6,7 @@ package testparsers
 import (
 	"bytes"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 
 	. "github.com/cilium/cilium/proxylib/proxylib"
 )
@@ -20,7 +20,7 @@ type LineParserFactory struct{}
 var lineParserFactory *LineParserFactory
 
 func init() {
-	log.Debug("init(): Registering lineParserFactory")
+	logrus.Debug("init(): Registering lineParserFactory")
 	RegisterParserFactory("test.lineparser", lineParserFactory)
 }
 
@@ -30,7 +30,7 @@ type LineParser struct {
 }
 
 func (p *LineParserFactory) Create(connection *Connection) interface{} {
-	log.Debugf("LineParserFactory: Create: %v", connection)
+	logrus.Debugf("LineParserFactory: Create: %v", connection)
 	return &LineParser{connection: connection}
 }
 
@@ -41,7 +41,7 @@ func getLine(data [][]byte) ([]byte, bool) {
 		if index < 0 {
 			line.Write(s)
 		} else {
-			log.Debugf("getLine: unit: %d length: %d index: %d", i, len(s), index)
+			logrus.Debugf("getLine: unit: %d length: %d index: %d", i, len(s), index)
 			line.Write(s[:index+1])
 			return line.Bytes(), true
 		}
@@ -66,9 +66,9 @@ func (p *LineParser) OnData(reply, endStream bool, data [][]byte) (OpType, int) 
 	}
 
 	if !reply {
-		log.Debugf("LineParser: Request: %s", line)
+		logrus.Debugf("LineParser: Request: %s", line)
 	} else {
-		log.Debugf("LineParser: Response: %s", line)
+		logrus.Debugf("LineParser: Response: %s", line)
 	}
 
 	if !ok {

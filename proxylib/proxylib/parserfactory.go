@@ -4,7 +4,7 @@
 package proxylib
 
 import (
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 // A parser instance is used for each connection. OnData will be called from a single thread only.
@@ -93,7 +93,7 @@ var parserFactories map[string]ParserFactory = make(map[string]ParserFactory)
 // RegisterParserFactory adds a protocol parser factory to the map of known parsers.
 // This is called from parser init() functions while we are still single-threaded
 func RegisterParserFactory(name string, parserFactory ParserFactory) {
-	log.Debugf("proxylib: Registering L7 parser: %v", name)
+	logrus.Debugf("proxylib: Registering L7 parser: %v", name)
 	parserFactories[name] = parserFactory
 }
 

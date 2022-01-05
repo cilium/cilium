@@ -10,10 +10,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/cilium/cilium/pkg/flowdebug"
-
 	"github.com/optiopay/kafka/proto"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
+
+	"github.com/cilium/cilium/pkg/flowdebug"
 )
 
 // RequestMessage represents a Kafka request message
@@ -194,7 +194,7 @@ func (req *RequestMessage) CreateResponse(err error) (*ResponseMessage, error) {
 	default:
 		// The switch cases above must correspond exactly to the switch cases
 		// in ReadRequest.
-		log.Panic(fmt.Sprintf("Kafka API key not handled: %d", req.kind))
+		logrus.Panic(fmt.Sprintf("Kafka API key not handled: %d", req.kind))
 	}
 	return nil, nil
 }
@@ -241,13 +241,13 @@ func ReadRequest(reader io.Reader) (*RequestMessage, error) {
 		req.request, err = proto.ReadOffsetFetchReq(buf)
 	default:
 		if flowdebug.Enabled() {
-			log.Debugf("Unknown Kafka request API key: %d in %s", req.kind, req.String())
+			logrus.Debugf("Unknown Kafka request API key: %d in %s", req.kind, req.String())
 		}
 	}
 
 	if err != nil {
 		if flowdebug.Enabled() {
-			log.WithError(err).Debugf("Ignoring Kafka message %s due to parse error", req.String())
+			logrus.WithError(err).Debugf("Ignoring Kafka message %s due to parse error", req.String())
 		}
 		return nil, err
 	}

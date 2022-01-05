@@ -4,7 +4,7 @@
 package testparsers
 
 import (
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 
 	. "github.com/cilium/cilium/proxylib/proxylib"
 )
@@ -12,7 +12,7 @@ import (
 type PasserParserFactory struct{}
 
 func init() {
-	log.Debug("init(): Registering PasserParserFactory")
+	logrus.Debug("init(): Registering PasserParserFactory")
 	RegisterParserFactory("test.passer", &PasserParserFactory{})
 }
 
@@ -24,7 +24,7 @@ func (p *PasserParserFactory) Create(connection *Connection) interface{} {
 		return nil
 	}
 
-	log.Debugf("PasserParserFactory: Create: %v", connection)
+	logrus.Debugf("PasserParserFactory: Create: %v", connection)
 	return &PasserParser{}
 }
 
@@ -40,9 +40,9 @@ func (p *PasserParser) OnData(reply, endStream bool, data [][]byte) (OpType, int
 		return NOP, 0
 	}
 	if !reply {
-		log.Debugf("PasserParser: Request: %d bytes", n_bytes)
+		logrus.Debugf("PasserParser: Request: %d bytes", n_bytes)
 	} else {
-		log.Debugf("PasserParser: Response: %d bytes", n_bytes)
+		logrus.Debugf("PasserParser: Response: %d bytes", n_bytes)
 	}
 	return PASS, n_bytes
 }

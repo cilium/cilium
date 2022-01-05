@@ -10,7 +10,7 @@ import (
 	"strconv"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/proxylib/memcached/meta"
 	"github.com/cilium/cilium/proxylib/proxylib"
@@ -21,7 +21,7 @@ type ParserFactory struct{}
 
 // Create creates memcached parser
 func (p *ParserFactory) Create(connection *proxylib.Connection) interface{} {
-	log.Debugf("ParserFactory: Create: %v", connection)
+	logrus.Debugf("ParserFactory: Create: %v", connection)
 	return &Parser{connection: connection, replyQueue: make([]*replyIntent, 0)}
 }
 
@@ -71,11 +71,11 @@ func (p *Parser) OnData(reply, endStream bool, dataBuffers [][]byte) (proxylib.O
 
 	// TODO: don't copy data to new slices
 	data := (bytes.Join(dataBuffers, []byte{}))
-	log.Debugf("Data length: %d", len(data))
+	logrus.Debugf("Data length: %d", len(data))
 
 	linefeed := bytes.Index(data, []byte("\r\n"))
 	if linefeed < 0 {
-		log.Debugf("Did not receive full first line")
+		logrus.Debugf("Did not receive full first line")
 		if len(data) > 0 && data[len(data)-1] == '\r' {
 			return proxylib.MORE, 1
 		}
@@ -107,7 +107,7 @@ func (p *Parser) OnData(reply, endStream bool, dataBuffers [][]byte) (proxylib.O
 			meta.Keys = tokens[1:2]
 			nBytes, err := strconv.Atoi(string(tokens[4]))
 			if err != nil {
-				log.Error("Failed to parse storage payload length")
+				logrus.Error("Failed to parse storage payload length")
 				return proxylib.ERROR, 0
 			}
 			// 2 additional bytes for terminating linefeed
@@ -146,7 +146,7 @@ func (p *Parser) OnData(reply, endStream bool, dataBuffers [][]byte) (proxylib.O
 			meta.Keys = [][]byte{}
 			p.watching = true
 		default:
-			log.Error("Could not parse text memcache frame")
+			logrus.Error("Could not parse text memcache frame")
 			return proxylib.ERROR, 0
 		}
 		logEntry := &cilium.LogEntry_GenericL7{
@@ -187,7 +187,7 @@ func (p *Parser) OnData(reply, endStream bool, dataBuffers [][]byte) (proxylib.O
 	}
 
 	//reply
-	log.Debugf("reply, parsing to figure out if we have it all")
+	logrus.Debugf("reply, parsing to figure out if we have it all")
 
 	intent := p.replyQueue[0]
 
@@ -246,7 +246,7 @@ func (p *Parser) OnData(reply, endStream bool, dataBuffers [][]byte) (proxylib.O
 		}
 		return t, nBytes
 	}
-	log.Error("Could not parse text memcache frame")
+	logrus.Error("Could not parse text memcache frame")
 	return proxylib.ERROR, 0
 }
 

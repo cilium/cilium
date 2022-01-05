@@ -14,7 +14,7 @@ import (
 	"fmt"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 
 	. "github.com/cilium/cilium/proxylib/proxylib"
 )
@@ -31,26 +31,26 @@ type HeaderRule struct {
 
 // Matches returns true if the HeaderRule matches
 func (rule *HeaderRule) Matches(data interface{}) bool {
-	log.Debugf("headerparser checking rule %v", *rule)
+	logrus.Debugf("headerparser checking rule %v", *rule)
 
 	// Trim whitespace from both ends
 	bs := bytes.TrimSpace(data.([]byte))
 
 	if len(rule.hasPrefix) > 0 && !bytes.HasPrefix(bs, rule.hasPrefix) {
-		log.Debugf("headerparser HasPrefix %s does not match %s", bs, rule.hasPrefix)
+		logrus.Debugf("headerparser HasPrefix %s does not match %s", bs, rule.hasPrefix)
 		return false
 	}
 
 	if len(rule.contains) > 0 && !bytes.Contains(bs, rule.contains) {
-		log.Debugf("headerparser Contains %s does not match %s", bs, rule.contains)
+		logrus.Debugf("headerparser Contains %s does not match %s", bs, rule.contains)
 		return false
 	}
 
 	if len(rule.hasSuffix) > 0 && !bytes.HasSuffix(bs, rule.hasSuffix) {
-		log.Debugf("headerparser HasSuffix %s does not match %s", bs, rule.hasSuffix)
+		logrus.Debugf("headerparser HasSuffix %s does not match %s", bs, rule.hasSuffix)
 		return false
 	}
-	log.Debug("headerparser rule matched!")
+	logrus.Debug("headerparser rule matched!")
 
 	return true
 }
@@ -78,7 +78,7 @@ func L7HeaderRuleParser(rule *cilium.PortNetworkPolicyRule) []L7NetworkPolicyRul
 				ParseError(fmt.Sprintf("Unsupported key: %s", k), rule)
 			}
 		}
-		log.Debugf("Parsed HeaderRule pair: %v", hr)
+		logrus.Debugf("Parsed HeaderRule pair: %v", hr)
 		rules = append(rules, &hr)
 	}
 	return rules
@@ -93,7 +93,7 @@ const (
 )
 
 func init() {
-	log.Debug("init(): Registering headerParserFactory")
+	logrus.Debug("init(): Registering headerParserFactory")
 	RegisterParserFactory(parserName, headerParserFactory)
 	RegisterL7RuleParser(parserName, L7HeaderRuleParser)
 }
@@ -103,7 +103,7 @@ type HeaderParser struct {
 }
 
 func (p *HeaderParserFactory) Create(connection *Connection) interface{} {
-	log.Debugf("HeaderParserFactory: Create: %v", connection)
+	logrus.Debugf("HeaderParserFactory: Create: %v", connection)
 	return &HeaderParser{connection: connection}
 }
 
@@ -115,9 +115,9 @@ func (p *HeaderParser) OnData(reply, endStream bool, data [][]byte) (OpType, int
 	line_len := len(line)
 
 	if !reply {
-		log.Debugf("HeaderParser: Request: %s", line)
+		logrus.Debugf("HeaderParser: Request: %s", line)
 	} else {
-		log.Debugf("HeaderParser: Response: %s", line)
+		logrus.Debugf("HeaderParser: Response: %s", line)
 	}
 
 	if !ok {

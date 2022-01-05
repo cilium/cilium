@@ -10,7 +10,7 @@ import (
 	"time"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 // A parser sees data from the underlying stream in both directions
@@ -204,7 +204,7 @@ func (connection *Connection) OnData(reply, endStream bool, data *[][]byte, filt
 }
 
 func (connection *Connection) Matches(l7 interface{}) bool {
-	log.Debugf("proxylib: Matching policy on connection %v", connection)
+	logrus.Debugf("proxylib: Matching policy on connection %v", connection)
 	remoteID := connection.DstId
 	if connection.Ingress {
 		remoteID = connection.SrcId
@@ -228,7 +228,7 @@ func (connection *Connection) Inject(reply bool, data []byte) int {
 	n := copy((*buf)[offset:cap(*buf)], data)
 	*buf = (*buf)[:offset+n] // update the buffer length
 
-	log.Debugf("proxylib: Injected %d bytes: %s (given: %s)", n, string((*buf)[offset:offset+n]), string(data))
+	logrus.Debugf("proxylib: Injected %d bytes: %s (given: %s)", n, string((*buf)[offset:offset+n]), string(data))
 
 	// return the number of bytes injected. This may be less than the length of `data` is
 	// the buffer becomes full.

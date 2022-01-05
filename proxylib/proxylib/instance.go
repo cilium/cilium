@@ -10,7 +10,7 @@ import (
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_service_disacovery "github.com/cilium/proxy/go/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/proto"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -88,7 +88,7 @@ func OpenInstance(nodeID string, xdsPath string, newPolicyClient func(path, node
 		}
 		if (nodeID == "" || old.nodeID == nodeID) && xdsPath == oldXdsPath && accessLogPath == oldAccessLogPath {
 			old.openCount++
-			log.Debugf("Opened existing library instance %d, open count: %d", id, old.openCount)
+			logrus.Debugf("Opened existing library instance %d, open count: %d", id, old.openCount)
 			return id
 		}
 	}
@@ -99,7 +99,7 @@ func OpenInstance(nodeID string, xdsPath string, newPolicyClient func(path, node
 
 	instances[instanceId] = ins
 
-	log.Debugf("Opened new library instance %d", instanceId)
+	logrus.Debugf("Opened new library instance %d", instanceId)
 
 	return instanceId
 }
@@ -128,9 +128,9 @@ func CloseInstance(id uint64) uint64 {
 			}
 			delete(instances, id)
 		}
-		log.Debugf("CloseInstance(%d): Remaining open count: %d", id, count)
+		logrus.Debugf("CloseInstance(%d): Remaining open count: %d", id, count)
 	} else {
-		log.Debugf("CloseInstance(%d): Not found (closed already?)", id)
+		logrus.Debugf("CloseInstance(%d): Not found (closed already?)", id)
 	}
 	return count
 }
@@ -147,7 +147,7 @@ func (ins *Instance) PolicyMatches(endpointPolicyName string, ingress bool, port
 	// Policy maps are never modified once published
 	policy, found := ins.getPolicyMap()[endpointPolicyName]
 	if !found {
-		log.Debugf("NPDS: Policy for %s not found", endpointPolicyName)
+		logrus.Debugf("NPDS: Policy for %s not found", endpointPolicyName)
 	}
 
 	return found && policy.Matches(ingress, port, remoteId, l7)
@@ -164,7 +164,7 @@ func (ins *Instance) PolicyUpdate(resp *envoy_service_disacovery.DiscoveryRespon
 		}
 	}()
 
-	log.Debugf("NPDS: Updating policy from %v", resp)
+	logrus.Debugf("NPDS: Updating policy from %v", resp)
 
 	oldMap := ins.getPolicyMap()
 	newMap := newPolicyMap()
@@ -185,7 +185,7 @@ func (ins *Instance) PolicyUpdate(resp *envoy_service_disacovery.DiscoveryRespon
 		if found {
 			// Check if the new policy is the same as the old one
 			if proto.Equal(&config, oldPolicy.protobuf) {
-				log.Debugf("NPDS: New policy for %s is equal to the old one, no need to change", policyName)
+				logrus.Debugf("NPDS: New policy for %s is equal to the old one, no need to change", policyName)
 				newMap[policyName] = oldPolicy
 				continue
 			}
@@ -203,7 +203,7 @@ func (ins *Instance) PolicyUpdate(resp *envoy_service_disacovery.DiscoveryRespon
 	// Store the new policy map
 	ins.setPolicyMap(newMap)
 
-	log.Debugf("NPDS: Policy Update completed for instance %d: %v", ins.id, newMap)
+	logrus.Debugf("NPDS: Policy Update completed for instance %d: %v", ins.id, newMap)
 	return
 }
 

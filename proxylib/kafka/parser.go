@@ -7,7 +7,7 @@ import (
 	"encoding/binary"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/kafka"
@@ -39,7 +39,7 @@ type KafkaParserFactory struct{}
 var kafkaParserFactory *KafkaParserFactory
 
 func init() {
-	log.Info("init(): Registering kafkaParserFactory")
+	logrus.Info("init(): Registering kafkaParserFactory")
 	RegisterParserFactory(parserName, kafkaParserFactory)
 	RegisterL7RuleParser(parserName, KafkaRuleParser)
 }
@@ -90,7 +90,7 @@ func (p *KafkaParser) OnData(reply bool, reader *Reader) (OpType, int) {
 	req, err := kafka.ReadRequest(reader)
 	if err != nil {
 		if flowdebug.Enabled() {
-			log.WithError(err).Warning("Unable to parse Kafka request; closing Kafka connection")
+			logrus.WithError(err).Warning("Unable to parse Kafka request; closing Kafka connection")
 		}
 		p.connection.Log(cilium.EntryType_Denied,
 			&cilium.LogEntry_Kafka{Kafka: &cilium.KafkaLogEntry{
@@ -115,7 +115,7 @@ func (p *KafkaParser) OnData(reply bool, reader *Reader) (OpType, int) {
 	resp, err := req.CreateAuthErrorResponse()
 	if err != nil {
 		if flowdebug.Enabled() {
-			log.WithError(err).Warning("Unable to create Kafka response")
+			logrus.WithError(err).Warning("Unable to create Kafka response")
 		}
 	} else {
 		// inject response
