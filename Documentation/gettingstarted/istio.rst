@@ -35,12 +35,13 @@ proxy, but that will only work if mTLS is not used.
 
 .. note::
 
-   If Cilium is deployed with the kube-proxy replacement, you need to set
-   ``bpf-lb-sock-hostns-only: true`` in the deployment yaml
-   directly or via ``hostServices.hostNamespaceOnly`` option with Helm.
-   Without this option, when Cilium does service resolution via
-   socket load balancing, Istio sidecar will be bypassed, resulting
-   in loss of Istio features including encryption and telemetry.
+   If Cilium is deployed with the kube-proxy replacement (this is not
+   the case by default) you need to pass ``--config
+   bpf-lb-sock-hostns-only=true`` to cilium CLI or
+   ``hostServices.hostNamespaceOnly`` option with Helm.  Without this
+   option, when Cilium does service resolution via socket load
+   balancing, Istio sidecar will be bypassed, resulting in loss of
+   Istio features including encryption and telemetry.
 
 Step 2: Install cilium-istioctl
 ===============================
@@ -49,32 +50,44 @@ Step 2: Install cilium-istioctl
 
    Make sure that Cilium is running in your cluster before proceeding.
 
-Download the `cilium enhanced istioctl version 1.10.4 <https://github.com/cilium/istio/releases/tag/1.10.4>`_:
+Download the `cilium enhanced istioctl version 1.10.6 <https://github.com/cilium/istio/releases/tag/1.10.6>`_:
 
 .. tabs::
   .. group-tab:: Linux (amd64)
 
     .. code-block:: shell-session
 
-        curl -L https://github.com/cilium/istio/releases/download/1.10.4/cilium-istioctl-1.10.4-linux-amd64.tar.gz | tar xz
+        curl -L https://github.com/cilium/istio/releases/download/1.10.6/cilium-istioctl-1.10.6-linux-amd64.tar.gz | tar xz
 
   .. group-tab:: Linux (arm64)
 
     .. code-block:: shell-session
 
-        curl -L https://github.com/cilium/istio/releases/download/1.10.4/cilium-istioctl-1.10.4-linux-arm64.tar.gz | tar xz
+        curl -L https://github.com/cilium/istio/releases/download/1.10.6/cilium-istioctl-1.10.6-linux-arm64.tar.gz | tar xz
+
+    .. note::
+
+       Istio container images are not available for arm64, but you can
+       use arm64 build of ``cilium-istioctl`` to install Istio to an
+       amd64 cluster.
 
   .. group-tab:: OSX
 
     .. code-block:: shell-session
 
-        curl -L https://github.com/cilium/istio/releases/download/1.10.4/cilium-istioctl-1.10.4-osx.tar.gz | tar xz
+        curl -L https://github.com/cilium/istio/releases/download/1.10.6/cilium-istioctl-1.10.6-osx.tar.gz | tar xz
 
   .. group-tab:: OSX (Apple Silicon)
 
     .. code-block:: shell-session
 
-        curl -L https://github.com/cilium/istio/releases/download/1.10.4/cilium-istioctl-1.10.4-osx-arm64.tar.gz | tar xz
+        curl -L https://github.com/cilium/istio/releases/download/1.10.6/cilium-istioctl-1.10.6-osx-arm64.tar.gz | tar xz
+
+    .. note::
+
+       Istio container images are not available for arm64, but you can
+       use arm64 build of ``cilium-istioctl`` to install Istio to an
+       amd64 cluster.
 
 .. note::
 
@@ -129,7 +142,7 @@ into Kubernetes using separate YAML files which define:
    :scale: 75 %
    :align: center
 
-To deploy the application with manual sidecar injection, run:
+To deploy the application run:
 
 .. parsed-literal::
 
