@@ -1,4 +1,5 @@
 {{- if and (or .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer) .Values.clustermesh.apiserver.podDisruptionBudget.enabled }}
+{{- $component := .Values.clustermesh.apiserver.podDisruptionBudget }}
 apiVersion: {{ include "podDisruptionBudget.apiVersion" . }}
 kind: PodDisruptionBudget
 metadata:
@@ -7,7 +8,12 @@ metadata:
   labels:
     k8s-app: clustermesh-apiserver
 spec:
-  maxUnavailable: {{ .Values.clustermesh.apiserver.podDisruptionBudget.maxUnavailable }}
+  {{- with $component.maxUnavailable }}
+  maxUnavailable: {{ . }}
+  {{- end }}
+  {{- with $component.minAvailable }}
+  minAvailable: {{ . }}
+  {{- end }}
   selector:
     matchLabels:
       k8s-app: clustermesh-apiserver

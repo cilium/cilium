@@ -1,4 +1,5 @@
 {{- if and .Values.operator.enabled .Values.operator.podDisruptionBudget.enabled }}
+{{- $component := .Values.operator.podDisruptionBudget }}
 apiVersion: {{ include "podDisruptionBudget.apiVersion" . }}
 kind: PodDisruptionBudget
 metadata:
@@ -8,7 +9,12 @@ metadata:
     io.cilium/app: operator
     name: cilium-operator
 spec:
-  maxUnavailable: {{ .Values.operator.podDisruptionBudget.maxUnavailable }}
+  {{- with $component.maxUnavailable }}
+  maxUnavailable: {{ . }}
+  {{- end }}
+  {{- with $component.minAvailable }}
+  minAvailable: {{ . }}
+  {{- end }}
   selector:
     matchLabels:
       io.cilium/app: operator

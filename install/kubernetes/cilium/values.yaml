@@ -699,10 +699,15 @@ hubble:
     # -- Labels to be added to hubble-relay pods
     podLabels: {}
 
-    # -- PodDisruptionBudget settings
-    # ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
+    # PodDisruptionBudget settings
     podDisruptionBudget:
+      # -- enable PodDisruptionBudget
+      # ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
       enabled: false
+      # -- Minimum number/percentage of pods that should remain scheduled.
+      # When it's set, maxUnavailable must be disabled by `maxUnavailable: null`
+      minAvailable: null
+      # -- Maximum number/percentage of pods that may be made unavailable
       maxUnavailable: 1
 
     # -- Node tolerations for pod assignment on nodes with taints
@@ -865,10 +870,15 @@ hubble:
     # -- Labels to be added to hubble-ui pods
     podLabels: {}
 
-    # -- PodDisruptionBudget settings
-    # ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
+    # PodDisruptionBudget settings
     podDisruptionBudget:
+      # -- enable PodDisruptionBudget
+      # ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
       enabled: false
+      # -- Minimum number/percentage of pods that should remain scheduled.
+      # When it's set, maxUnavailable must be disabled by `maxUnavailable: null`
+      minAvailable: null
+      # -- Maximum number/percentage of pods that may be made unavailable
       maxUnavailable: 1
 
     # -- Node labels for pod assignment
@@ -1271,10 +1281,15 @@ etcd:
   # -- Labels to be added to cilium-etcd-operator pods
   podLabels: {}
 
-  # -- PodDisruptionBudget settings
-  # ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
+  # PodDisruptionBudget settings
   podDisruptionBudget:
+    # -- enable PodDisruptionBudget
+    # ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
     enabled: false
+    # -- Minimum number/percentage of pods that should remain scheduled.
+    # When it's set, maxUnavailable must be disabled by `maxUnavailable: null`
+    minAvailable: null
+    # -- Maximum number/percentage of pods that may be made unavailable
     maxUnavailable: 1
 
   # -- cilium-etcd-operator resource limits & requests
@@ -1410,10 +1425,15 @@ operator:
   # -- Labels to be added to cilium-operator pods
   podLabels: {}
 
-  # -- PodDisruptionBudget settings
-  # ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
+  # PodDisruptionBudget settings
   podDisruptionBudget:
+    # -- enable PodDisruptionBudget
+    # ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
     enabled: false
+    # -- Minimum number/percentage of pods that should remain scheduled.
+    # When it's set, maxUnavailable must be disabled by `maxUnavailable: null`
+    minAvailable: null
+    # -- Maximum number/percentage of pods that may be made unavailable
     maxUnavailable: 1
 
   # -- cilium-operator resource limits & requests
@@ -1595,10 +1615,15 @@ preflight:
   # -- Labels to be added to the preflight pod.
   podLabels: {}
 
-  # -- PodDisruptionBudget settings
-  # ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
+  # PodDisruptionBudget settings
   podDisruptionBudget:
+    # -- enable PodDisruptionBudget
+    # ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
     enabled: false
+    # -- Minimum number/percentage of pods that should remain scheduled.
+    # When it's set, maxUnavailable must be disabled by `maxUnavailable: null`
+    minAvailable: null
+    # -- Maximum number/percentage of pods that may be made unavailable
     maxUnavailable: 1
 
   # -- preflight resource limits & requests
@@ -1680,10 +1705,15 @@ clustermesh:
     # -- Labels to be added to clustermesh-apiserver pods
     podLabels: {}
 
-    # -- PodDisruptionBudget settings
-    # ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
+    # PodDisruptionBudget settings
     podDisruptionBudget:
+      # -- enable PodDisruptionBudget
+      # ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
       enabled: false
+      # -- Minimum number/percentage of pods that should remain scheduled.
+      # When it's set, maxUnavailable must be disabled by `maxUnavailable: null`
+      minAvailable: null
+      # -- Maximum number/percentage of pods that may be made unavailable
       maxUnavailable: 1
 
     # -- Resource requests and limits for the clustermesh-apiserver container of the clustermesh-apiserver deployment, such as
