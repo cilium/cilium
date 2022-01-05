@@ -179,6 +179,7 @@ jobs:
       - name: Fetch cilium-sysdump
         if: ${{ !success() }}
         run: |
+          ssh default "sudo /bin/sh -c 'cilium sysdump --output-filename cilium-sysdump-out; mv cilium-sysdump-out.zip /tmp'"
           scp default:/tmp/cilium-sysdump-out.zip .
 
       - name: Upload cilium-sysdump
