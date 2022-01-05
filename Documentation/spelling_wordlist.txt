@@ -593,6 +593,7 @@ masqLinkLocal
 masterDevice
 matchLabels
 matchPattern
+maxUnavailable
 mc
 mediabot
 memcache
@@ -603,6 +604,7 @@ metricsServer
 microk
 microservice
 microservices
+minAvailable
 minikube
 misconfigures
 mlx

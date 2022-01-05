@@ -141,10 +141,18 @@
      - Annotations to be added to clustermesh-apiserver pods
      - object
      - ``{}``
-   * - clustermesh.apiserver.podDisruptionBudget
-     - PodDisruptionBudget settings ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
-     - object
-     - ``{"enabled":false,"maxUnavailable":1}``
+   * - clustermesh.apiserver.podDisruptionBudget.enabled
+     - enable PodDisruptionBudget ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
+     - bool
+     - ``false``
+   * - clustermesh.apiserver.podDisruptionBudget.maxUnavailable
+     - Maximum number/percentage of pods that may be made unavailable
+     - int
+     - ``1``
+   * - clustermesh.apiserver.podDisruptionBudget.minAvailable
+     - Minimum number/percentage of pods that should remain scheduled. When it's set, maxUnavailable must be disabled by ``maxUnavailable: null``
+     - string
+     - ``nil``
    * - clustermesh.apiserver.podLabels
      - Labels to be added to clustermesh-apiserver pods
      - object
@@ -477,10 +485,18 @@
      - Annotations to be added to cilium-etcd-operator pods
      - object
      - ``{}``
-   * - etcd.podDisruptionBudget
-     - PodDisruptionBudget settings ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
-     - object
-     - ``{"enabled":false,"maxUnavailable":1}``
+   * - etcd.podDisruptionBudget.enabled
+     - enable PodDisruptionBudget ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
+     - bool
+     - ``false``
+   * - etcd.podDisruptionBudget.maxUnavailable
+     - Maximum number/percentage of pods that may be made unavailable
+     - int
+     - ``1``
+   * - etcd.podDisruptionBudget.minAvailable
+     - Minimum number/percentage of pods that should remain scheduled. When it's set, maxUnavailable must be disabled by ``maxUnavailable: null``
+     - string
+     - ``nil``
    * - etcd.podLabels
      - Labels to be added to cilium-etcd-operator pods
      - object
@@ -641,10 +657,18 @@
      - Annotations to be added to hubble-relay pods
      - object
      - ``{}``
-   * - hubble.relay.podDisruptionBudget
-     - PodDisruptionBudget settings ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
-     - object
-     - ``{"enabled":false,"maxUnavailable":1}``
+   * - hubble.relay.podDisruptionBudget.enabled
+     - enable PodDisruptionBudget ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
+     - bool
+     - ``false``
+   * - hubble.relay.podDisruptionBudget.maxUnavailable
+     - Maximum number/percentage of pods that may be made unavailable
+     - int
+     - ``1``
+   * - hubble.relay.podDisruptionBudget.minAvailable
+     - Minimum number/percentage of pods that should remain scheduled. When it's set, maxUnavailable must be disabled by ``maxUnavailable: null``
+     - string
+     - ``nil``
    * - hubble.relay.podLabels
      - Labels to be added to hubble-relay pods
      - object
@@ -793,10 +817,18 @@
      - Annotations to be added to hubble-ui pods
      - object
      - ``{}``
-   * - hubble.ui.podDisruptionBudget
-     - PodDisruptionBudget settings ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
-     - object
-     - ``{"enabled":false,"maxUnavailable":1}``
+   * - hubble.ui.podDisruptionBudget.enabled
+     - enable PodDisruptionBudget ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
+     - bool
+     - ``false``
+   * - hubble.ui.podDisruptionBudget.maxUnavailable
+     - Maximum number/percentage of pods that may be made unavailable
+     - int
+     - ``1``
+   * - hubble.ui.podDisruptionBudget.minAvailable
+     - Minimum number/percentage of pods that should remain scheduled. When it's set, maxUnavailable must be disabled by ``maxUnavailable: null``
+     - string
+     - ``nil``
    * - hubble.ui.podLabels
      - Labels to be added to hubble-ui pods
      - object
@@ -1101,10 +1133,18 @@
      - Annotations to be added to cilium-operator pods
      - object
      - ``{}``
-   * - operator.podDisruptionBudget
-     - PodDisruptionBudget settings ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
-     - object
-     - ``{"enabled":false,"maxUnavailable":1}``
+   * - operator.podDisruptionBudget.enabled
+     - enable PodDisruptionBudget ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
+     - bool
+     - ``false``
+   * - operator.podDisruptionBudget.maxUnavailable
+     - Maximum number/percentage of pods that may be made unavailable
+     - int
+     - ``1``
+   * - operator.podDisruptionBudget.minAvailable
+     - Minimum number/percentage of pods that should remain scheduled. When it's set, maxUnavailable must be disabled by ``maxUnavailable: null``
+     - string
+     - ``nil``
    * - operator.podLabels
      - Labels to be added to cilium-operator pods
      - object
@@ -1205,10 +1245,18 @@
      - Annotations to be added to preflight pods
      - object
      - ``{}``
-   * - preflight.podDisruptionBudget
-     - PodDisruptionBudget settings ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
-     - object
-     - ``{"enabled":false,"maxUnavailable":1}``
+   * - preflight.podDisruptionBudget.enabled
+     - enable PodDisruptionBudget ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
+     - bool
+     - ``false``
+   * - preflight.podDisruptionBudget.maxUnavailable
+     - Maximum number/percentage of pods that may be made unavailable
+     - int
+     - ``1``
+   * - preflight.podDisruptionBudget.minAvailable
+     - Minimum number/percentage of pods that should remain scheduled. When it's set, maxUnavailable must be disabled by ``maxUnavailable: null``
+     - string
+     - ``nil``
    * - preflight.podLabels
      - Labels to be added to the preflight pod.
      - object

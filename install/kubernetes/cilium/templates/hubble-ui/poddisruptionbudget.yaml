@@ -1,4 +1,5 @@
 {{- if and (or .Values.hubble.enabled .Values.hubble.ui.standalone.enabled) .Values.hubble.ui.enabled .Values.hubble.ui.podDisruptionBudget.enabled }}
+{{- $component := .Values.hubble.ui.podDisruptionBudget }}
 apiVersion: {{ include "podDisruptionBudget.apiVersion" . }}
 kind: PodDisruptionBudget
 metadata:
@@ -7,7 +8,12 @@ metadata:
   labels:
     k8s-app: hubble-ui
 spec:
-  maxUnavailable: {{ .Values.hubble.ui.podDisruptionBudget.maxUnavailable }}
+  {{- with $component.maxUnavailable }}
+  maxUnavailable: {{ . }}
+  {{- end }}
+  {{- with $component.minAvailable }}
+  minAvailable: {{ . }}
+  {{- end }}
   selector:
     matchLabels:
       k8s-app: hubble-ui

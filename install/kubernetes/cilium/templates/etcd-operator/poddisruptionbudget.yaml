@@ -1,4 +1,5 @@
 {{- if and .Values.etcd.managed .Values.etcd.podDisruptionBudget.enabled }}
+{{- $component := .Values.etcd.podDisruptionBudget }}
 apiVersion: {{ include "podDisruptionBudget.apiVersion" . }}
 kind: PodDisruptionBudget
 metadata:
@@ -8,7 +9,12 @@ metadata:
     io.cilium/app: etcd-operator
     name: cilium-etcd-operator
 spec:
-  maxUnavailable: {{ .Values.etcd.podDisruptionBudget.maxUnavailable }}
+  {{- with $component.maxUnavailable }}
+  maxUnavailable: {{ . }}
+  {{- end }}
+  {{- with $component.minAvailable }}
+  minAvailable: {{ . }}
+  {{- end }}
   selector:
     matchLabels:
       io.cilium/app: etcd-operator
