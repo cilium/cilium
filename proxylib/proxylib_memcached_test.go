@@ -10,8 +10,6 @@ import (
 	"fmt"
 	"testing"
 
-	_ "gopkg.in/check.v1"
-
 	_ "github.com/cilium/cilium/proxylib/memcached"
 	binarymemcache "github.com/cilium/cilium/proxylib/memcached/binary"
 	textmemcache "github.com/cilium/cilium/proxylib/memcached/text"
