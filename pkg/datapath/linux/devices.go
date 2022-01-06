@@ -166,6 +166,7 @@ func (dm *DeviceManager) Detect() ([]string, error) {
 	deviceList := dm.getDeviceList()
 	option.Config.SetDevices(deviceList)
 	log.WithField(logfields.Devices, deviceList).Info("Detected devices")
+
 	return deviceList, nil
 }
 

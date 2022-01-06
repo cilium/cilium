@@ -200,6 +200,9 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 			IPV6: option.Config.EnableIPv6Masquerade,
 		},
 		EgressMultiHomeIPRuleCompat: option.Config.EgressMultiHomeIPRuleCompat,
+		MultiHomingConfiguration: &models.MultiHomingConfiguration{
+			Enabled: option.Config.EnableMultiHoming,
+		},
 	}
 
 	cfg := &models.DaemonConfiguration{

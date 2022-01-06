@@ -118,6 +118,7 @@ cilium-agent [flags]
       --enable-local-node-route                                 Enable installation of the route which points the allocation prefix of the local node (default true)
       --enable-local-redirect-policy                            Enable Local Redirect Policy
       --enable-monitor                                          Enable the monitor unix domain socket server (default true)
+      --enable-multihoming                                      Enable multi-homing
       --enable-node-port                                        Enable NodePort type services by Cilium
       --enable-policy string                                    Enable policy enforcement (default "default")
       --enable-recorder                                         Enable BPF datapath pcap recorder

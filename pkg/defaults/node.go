@@ -8,13 +8,13 @@ import (
 )
 
 const (
-	// DefaultIPv4Prefix is the prefix for all the IPv4 addresses.
+	// IPv4Prefix is the prefix for all the IPv4 addresses.
 	// %d is substituted with the last byte of first global IPv4 address
 	// configured on the system.
-	DefaultIPv4Prefix = "10.%d.0.1"
+	IPv4Prefix = "10.%d.0.1"
 
-	// DefaultIPv4PrefixLen is the length used to allocate container IPv4 addresses from.
-	DefaultIPv4PrefixLen = 16
+	// Pv4PrefixLen is the length used to allocate container IPv4 addresses from.
+	IPv4PrefixLen = 16
 
 	// HostDevice is the name of the device that connects the cilium IP
 	// space with the host's networking model

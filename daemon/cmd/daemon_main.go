@@ -287,6 +287,9 @@ func initializeFlags() {
 	flags.Bool(option.EnableRuntimeDeviceDetection, false, "Enable runtime device detection and datapath reconfiguration (experimental)")
 	option.BindEnv(option.EnableRuntimeDeviceDetection)
 
+	flags.Bool(option.EnableMultiHoming, false, "Enable multi-homing")
+	option.BindEnv(option.EnableMultiHoming)
+
 	flags.String(option.LBDevInheritIPAddr, "", fmt.Sprintf("Device name which IP addr is inherited by devices running LB BPF program (--%s)", option.Devices))
 	option.BindEnv(option.LBDevInheritIPAddr)
 

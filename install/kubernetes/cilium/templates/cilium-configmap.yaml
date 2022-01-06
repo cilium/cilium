@@ -557,6 +557,10 @@ data:
   devices: {{ join " " .Values.devices | quote }}
 {{- end }}
 
+{{- if hasKey .Values "multiHomingDevices" }}
+  multi-homing-devices: {{ join " " .Values.multiHomingDevices | quote }}
+{{- end }}
+
 {{- if .Values.enableRuntimeDeviceDetection }}
   enable-runtime-device-detection: "true"
 {{- end }}
