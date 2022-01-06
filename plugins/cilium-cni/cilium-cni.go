@@ -544,14 +544,12 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	// Specify that endpoint must be regenerated synchronously. See GH-4409.
 	ep.SyncBuildEndpoint = true
 	if err = c.EndpointCreate(ep); err != nil {
-		logger.WithError(err).WithFields(logrus.Fields{
-			logfields.ContainerID: ep.ContainerID}).Warn("Unable to create endpoint")
+		logger.WithError(err).WithField(logfields.ContainerID, ep.ContainerID).Warn("Unable to create endpoint")
 		err = fmt.Errorf("Unable to create endpoint: %s", err)
 		return
 	}
 
-	logger.WithFields(logrus.Fields{
-		logfields.ContainerID: ep.ContainerID}).Debug("Endpoint successfully created")
+	logger.WithField(logfields.ContainerID, ep.ContainerID).Debug("Endpoint successfully created")
 	return cniTypes.PrintResult(res, n.CNIVersion)
 }
 
