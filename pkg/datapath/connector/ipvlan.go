@@ -19,10 +19,10 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-func getEntryProgInstructions(fd int) asm.Instructions {
+func getEntryProgInstructions(fd int, mapIndex int32) asm.Instructions {
 	return asm.Instructions{
 		asm.LoadMapPtr(asm.R2, fd),
-		asm.Mov.Imm(asm.R3, 0),
+		asm.Mov.Imm(asm.R3, mapIndex),
 		asm.FnTailCall.Call(),
 		asm.Mov.Imm(asm.R0, 0),
 		asm.Return(),
@@ -78,9 +78,10 @@ func setupIpvlanInRemoteNs(netNs ns.NetNS, srcIfName, dstIfName string) (*ebpf.M
 			return fmt.Errorf("failed to create clsact qdisc on %q: %s", dstIfName, err)
 		}
 
+		mapIndex := int32(0)
 		prog, err := ebpf.NewProgram(&ebpf.ProgramSpec{
 			Type:         ebpf.SchedCLS,
-			Instructions: getEntryProgInstructions(m.FD()),
+			Instructions: getEntryProgInstructions(m.FD(), mapIndex),
 			License:      "ASL2",
 		})
 		if err != nil {
