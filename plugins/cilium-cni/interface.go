@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"net"
 
+	current "github.com/containernetworking/cni/pkg/types/040"
+
 	"github.com/cilium/cilium/api/v1/models"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/ip"
-
-	current "github.com/containernetworking/cni/pkg/types/040"
 )
 
 func interfaceAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, conf models.DaemonConfigurationStatus) error {

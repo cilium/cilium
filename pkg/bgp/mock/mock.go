@@ -4,13 +4,13 @@
 package mock
 
 import (
-	"github.com/cilium/cilium/pkg/k8s"
-
 	"go.universe.tf/metallb/pkg/bgp"
 	metallbk8s "go.universe.tf/metallb/pkg/k8s"
 	"go.universe.tf/metallb/pkg/k8s/types"
 	metallbspr "go.universe.tf/metallb/pkg/speaker"
 	v1 "k8s.io/api/core/v1"
+
+	"github.com/cilium/cilium/pkg/k8s"
 )
 
 // MockMetalLBSpeaker implements the speaker.Speaker interface by delegating to

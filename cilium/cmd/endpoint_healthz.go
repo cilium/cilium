@@ -8,9 +8,9 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"github.com/cilium/cilium/pkg/command"
-
 	"github.com/spf13/cobra"
+
+	"github.com/cilium/cilium/pkg/command"
 )
 
 // endpointHealthCmd represents the endpoint_healthz command

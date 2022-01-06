@@ -10,6 +10,8 @@ import (
 	"context"
 	"time"
 
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
@@ -19,8 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	fakeConfig "github.com/cilium/cilium/pkg/option/fake"
-
-	. "gopkg.in/check.v1"
 )
 
 func (s *IdentityCacheTestSuite) TestAllocateIdentityReserved(c *C) {

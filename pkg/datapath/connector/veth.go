@@ -7,14 +7,13 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/containernetworking/plugins/pkg/ns"
+	"github.com/vishvananda/netlink"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
-
-	"github.com/containernetworking/plugins/pkg/ns"
-
-	"github.com/vishvananda/netlink"
 )
 
 // SetupVethRemoteNs renames the netdevice in the target namespace to the

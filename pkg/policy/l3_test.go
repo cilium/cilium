@@ -7,12 +7,12 @@
 package policy
 
 import (
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/node"
-
-	. "gopkg.in/check.v1"
 )
 
 func (ds *PolicyTestSuite) SetUpTest(c *C) {

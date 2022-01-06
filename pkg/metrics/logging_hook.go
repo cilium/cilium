@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-
-	"github.com/sirupsen/logrus"
 )
 
 // LoggingHook is a hook for logrus which counts error and warning messages as a

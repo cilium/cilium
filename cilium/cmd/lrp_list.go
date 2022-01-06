@@ -8,10 +8,10 @@ import (
 	"os"
 	"text/tabwriter"
 
+	"github.com/spf13/cobra"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/command"
-
-	"github.com/spf13/cobra"
 )
 
 // lrpListCmd represents the lrp_list command

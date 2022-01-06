@@ -8,10 +8,10 @@ import (
 	"os"
 	"text/tabwriter"
 
+	"github.com/spf13/cobra"
+
 	ciliumClient "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/command"
-
-	"github.com/spf13/cobra"
 )
 
 // healthGetCmd represents the get command

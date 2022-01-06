@@ -7,14 +7,14 @@ import (
 	"context"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	eniTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
 	"github.com/cilium/cilium/pkg/alibabacloud/types"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
-
-	"github.com/sirupsen/logrus"
 )
 
 // AlibabaCloudAPI is the API surface used of the ECS API

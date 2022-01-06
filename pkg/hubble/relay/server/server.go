@@ -9,17 +9,17 @@ import (
 	"fmt"
 	"net"
 
-	observerpb "github.com/cilium/cilium/api/v1/observer"
-	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
-	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
-	"github.com/cilium/cilium/pkg/hubble/relay/observer"
-	"github.com/cilium/cilium/pkg/hubble/relay/pool"
-
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
+
+	observerpb "github.com/cilium/cilium/api/v1/observer"
+	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
+	"github.com/cilium/cilium/pkg/hubble/relay/observer"
+	"github.com/cilium/cilium/pkg/hubble/relay/pool"
 )
 
 var (

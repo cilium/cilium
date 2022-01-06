@@ -11,6 +11,8 @@ import (
 	"reflect"
 	"testing"
 
+	"gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
@@ -19,8 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
-
-	"gopkg.in/check.v1"
 )
 
 func (s *K8sSuite) TestGetAnnotationIncludeExternal(c *check.C) {

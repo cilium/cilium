@@ -9,16 +9,16 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/blang/semver/v4"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+
 	k8sconfig "github.com/cilium/cilium/pkg/k8s/config"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/versioncheck"
-
-	"github.com/blang/semver/v4"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "k8s")

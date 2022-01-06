@@ -9,15 +9,15 @@ import (
 	"net"
 	"time"
 
+	"github.com/cilium/ipam/service/ipallocator"
+	"github.com/google/uuid"
+	"golang.org/x/time/rate"
+
 	"github.com/cilium/cilium/pkg/api/helpers"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/lock"
-
-	"github.com/cilium/ipam/service/ipallocator"
-	"github.com/google/uuid"
-	"golang.org/x/time/rate"
 )
 
 // ENIMap is a map of ENI interfaced indexed by ENI ID

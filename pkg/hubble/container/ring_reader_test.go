@@ -13,12 +13,12 @@ import (
 	"testing"
 	"time"
 
-	flowpb "github.com/cilium/cilium/api/v1/flow"
-	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
-
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/goleak"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	flowpb "github.com/cilium/cilium/api/v1/flow"
+	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 )
 
 func TestRingReader_Previous(t *testing.T) {

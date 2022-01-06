@@ -15,6 +15,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/common"
@@ -30,8 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
-
-	"github.com/sirupsen/logrus"
 )
 
 // getCiliumVersionString returns the first line containing ciliumCHeaderPrefix.

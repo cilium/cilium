@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/cilium/cilium/pkg/version"
-
 	"github.com/spf13/cobra"
+
+	"github.com/cilium/cilium/pkg/version"
 )
 
 // New creates a new version command.

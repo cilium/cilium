@@ -9,12 +9,12 @@ import (
 	"path"
 	"strings"
 
+	"github.com/vishvananda/netlink"
+	"github.com/vishvananda/netlink/nl"
+
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
-
-	"github.com/vishvananda/netlink"
-	"github.com/vishvananda/netlink/nl"
 )
 
 func xdpModeToFlag(xdpMode string) uint32 {

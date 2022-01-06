@@ -14,6 +14,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/containernetworking/plugins/pkg/ns"
+	"github.com/vishvananda/netlink"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -36,9 +39,6 @@ import (
 	"github.com/cilium/cilium/pkg/pidfile"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/sysctl"
-
-	"github.com/containernetworking/plugins/pkg/ns"
-	"github.com/vishvananda/netlink"
 )
 
 const (

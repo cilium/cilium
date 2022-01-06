@@ -11,11 +11,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/option"
-
-	"github.com/spf13/cobra"
 )
 
 var (

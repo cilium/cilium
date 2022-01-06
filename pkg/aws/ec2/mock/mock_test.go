@@ -11,11 +11,11 @@ import (
 	"errors"
 	"testing"
 
+	"gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/checker"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
-
-	"gopkg.in/check.v1"
 )
 
 func Test(t *testing.T) {

@@ -6,9 +6,9 @@ package labels
 import (
 	"fmt"
 
-	"github.com/cilium/cilium/pkg/logging/logfields"
-
 	"github.com/sirupsen/logrus"
+
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 type keepMarks map[string]struct{}

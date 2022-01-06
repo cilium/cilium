@@ -10,15 +10,15 @@ import (
 	"net"
 	"testing"
 
+	"golang.org/x/sys/unix"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/source"
-
-	"golang.org/x/sys/unix"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
-	. "gopkg.in/check.v1"
 )
 
 type AgentSuite struct{}

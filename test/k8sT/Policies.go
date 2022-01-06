@@ -11,17 +11,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/policy"
-	. "github.com/cilium/cilium/test/ginkgo-ext"
-	"github.com/cilium/cilium/test/helpers"
-
 	"github.com/google/uuid"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
+
+	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/policy"
+	. "github.com/cilium/cilium/test/ginkgo-ext"
+	"github.com/cilium/cilium/test/helpers"
 )
 
 var _ = SkipDescribeIf(func() bool {

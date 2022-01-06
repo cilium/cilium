@@ -12,9 +12,9 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/cilium/cilium/pkg/lock"
-
 	"github.com/sirupsen/logrus"
+
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 var (

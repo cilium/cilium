@@ -12,12 +12,11 @@ import (
 	"net"
 	"sort"
 
+	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/ip"
-
-	"github.com/sirupsen/logrus"
-	"github.com/vishvananda/netlink"
 )
 
 func firstGlobalAddr(intf string, preferredIP net.IP, family int, preferPublic bool) (net.IP, error) {

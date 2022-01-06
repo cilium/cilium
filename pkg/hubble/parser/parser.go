@@ -5,6 +5,10 @@
 package parser
 
 import (
+	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
+
 	pb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
@@ -17,10 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser/threefour"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
-
-	"github.com/sirupsen/logrus"
-	"google.golang.org/protobuf/types/known/timestamppb"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // Parser for all flows

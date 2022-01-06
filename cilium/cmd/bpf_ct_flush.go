@@ -8,10 +8,10 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/spf13/cobra"
+
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-
-	"github.com/spf13/cobra"
 )
 
 // bpfCtFlushCmd represents the bpf_ct_flush command

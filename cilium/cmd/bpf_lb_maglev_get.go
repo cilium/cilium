@@ -7,12 +7,12 @@ import (
 	"errors"
 	"strconv"
 
+	"github.com/spf13/cobra"
+
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
-
-	"github.com/spf13/cobra"
 )
 
 var bpfMaglevGetCmd = &cobra.Command{

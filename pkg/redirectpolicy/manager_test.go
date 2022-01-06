@@ -21,6 +21,9 @@ import (
 	"net"
 	"testing"
 
+	. "gopkg.in/check.v1"
+	"k8s.io/client-go/tools/cache"
+
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/k8s"
 	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -28,9 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/policy/api"
-
-	. "gopkg.in/check.v1"
-	"k8s.io/client-go/tools/cache"
 )
 
 // Hook up gocheck into the "go test" runner.

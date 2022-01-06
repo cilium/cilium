@@ -17,13 +17,13 @@ package watchers
 import (
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
-
-	"github.com/sirupsen/logrus"
 )
 
 type cesSubscriber struct {

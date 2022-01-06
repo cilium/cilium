@@ -10,11 +10,11 @@ import (
 	"bytes"
 	stdlog "log"
 
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
-
-	. "gopkg.in/check.v1"
 )
 
 // Tests in this file:

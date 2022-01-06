@@ -9,10 +9,10 @@ package allocator
 import (
 	"net"
 
+	"gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/ipam/types"
-
-	"gopkg.in/check.v1"
 )
 
 func (e *AllocatorSuite) TestPoolGroupAllocator(c *check.C) {

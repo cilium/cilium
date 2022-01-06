@@ -10,11 +10,11 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/option"
-
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
+
+	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // startAgentHealthHTTPService registers a handler function for the /healthz status HTTP endpoint

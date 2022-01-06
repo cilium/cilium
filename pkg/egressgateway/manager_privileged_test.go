@@ -11,6 +11,9 @@ import (
 	"net"
 	"testing"
 
+	. "gopkg.in/check.v1"
+	"k8s.io/apimachinery/pkg/types"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -18,9 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
-
-	. "gopkg.in/check.v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 const (

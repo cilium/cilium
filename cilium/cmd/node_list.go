@@ -10,11 +10,11 @@ import (
 	"sort"
 	"text/tabwriter"
 
+	"github.com/spf13/cobra"
+
 	"github.com/cilium/cilium/api/v1/models"
 	pkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/command"
-
-	"github.com/spf13/cobra"
 )
 
 var nodeListCmd = &cobra.Command{

@@ -9,9 +9,9 @@ package route
 import (
 	"fmt"
 
-	"github.com/cilium/cilium/pkg/mtu"
-
 	"github.com/vishvananda/netlink"
+
+	"github.com/cilium/cilium/pkg/mtu"
 )
 
 // errUnsupportedOp is a common error

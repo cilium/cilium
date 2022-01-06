@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
-	observerpb "github.com/cilium/cilium/api/v1/observer"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	observerpb "github.com/cilium/cilium/api/v1/observer"
 )
 
 var (

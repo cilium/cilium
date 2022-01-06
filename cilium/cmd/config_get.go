@@ -8,10 +8,10 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/test/helpers"
-
-	"github.com/spf13/cobra"
 )
 
 var (

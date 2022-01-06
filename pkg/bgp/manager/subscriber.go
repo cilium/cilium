@@ -4,17 +4,16 @@
 package manager
 
 import (
-	"github.com/cilium/cilium/pkg/k8s"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	"github.com/cilium/cilium/pkg/logging/logfields"
-
 	"github.com/sirupsen/logrus"
-
 	metallbk8s "go.universe.tf/metallb/pkg/k8s"
 	"go.universe.tf/metallb/pkg/k8s/types"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
+
+	"github.com/cilium/cilium/pkg/k8s"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // OnAddService handles an add event for services. It implements

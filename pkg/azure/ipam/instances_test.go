@@ -9,12 +9,12 @@ package ipam
 import (
 	"context"
 
+	"gopkg.in/check.v1"
+
 	apimock "github.com/cilium/cilium/pkg/azure/api/mock"
 	"github.com/cilium/cilium/pkg/azure/types"
 	"github.com/cilium/cilium/pkg/cidr"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
-
-	"gopkg.in/check.v1"
 )
 
 var (

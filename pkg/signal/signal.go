@@ -10,16 +10,16 @@ import (
 	"os"
 	"sync"
 
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/perf"
+	"github.com/sirupsen/logrus"
+
 	oldBPF "github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/metrics"
-
-	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/perf"
-	"github.com/sirupsen/logrus"
 )
 
 const (

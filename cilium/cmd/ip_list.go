@@ -9,6 +9,9 @@ import (
 	"sort"
 	"text/tabwriter"
 
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+
 	ipApi "github.com/cilium/cilium/api/v1/client/policy"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/api"
@@ -17,9 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
-
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var ipListCmd = &cobra.Command{

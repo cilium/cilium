@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 
-	ginkgo "github.com/cilium/cilium/test/ginkgo-ext"
-
 	"github.com/sirupsen/logrus"
+
+	ginkgo "github.com/cilium/cilium/test/ginkgo-ext"
 )
 
 var (

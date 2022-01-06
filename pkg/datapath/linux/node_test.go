@@ -9,13 +9,13 @@ package linux
 import (
 	"net"
 
+	"gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/mtu"
-
-	"gopkg.in/check.v1"
 )
 
 var (

@@ -8,15 +8,15 @@ import (
 	"os"
 	"strings"
 
-	clientPkg "github.com/cilium/cilium/pkg/health/client"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
-
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	"github.com/spf13/viper"
+
+	clientPkg "github.com/cilium/cilium/pkg/health/client"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 const targetName = "cilium-health"

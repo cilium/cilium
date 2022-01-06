@@ -10,9 +10,9 @@ import (
 	"io"
 	"testing"
 
-	"github.com/cilium/cilium/api/v1/health/models"
-
 	. "gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/api/v1/health/models"
 )
 
 // Hook up gocheck into the "go test" runner.

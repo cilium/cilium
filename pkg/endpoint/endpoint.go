@@ -18,6 +18,9 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/annotation"
@@ -53,10 +56,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/trigger"
-
-	"github.com/sirupsen/logrus"
-
-	"golang.org/x/sys/unix"
 )
 
 const (

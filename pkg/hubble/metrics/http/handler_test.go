@@ -11,12 +11,12 @@ import (
 	"strings"
 	"testing"
 
-	pb "github.com/cilium/cilium/api/v1/flow"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	pb "github.com/cilium/cilium/api/v1/flow"
 )
 
 func Test_httpHandler_Status(t *testing.T) {

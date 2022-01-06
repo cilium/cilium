@@ -6,14 +6,14 @@ package policy
 import (
 	"fmt"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
-
-	"github.com/sirupsen/logrus"
 )
 
 var (

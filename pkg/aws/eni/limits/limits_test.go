@@ -9,9 +9,9 @@ package limits
 import (
 	"testing"
 
-	"github.com/cilium/cilium/operator/option"
-
 	"gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/operator/option"
 )
 
 func Test(t *testing.T) {

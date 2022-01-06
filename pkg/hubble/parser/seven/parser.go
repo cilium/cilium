@@ -11,6 +11,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/gopacket/layers"
+	lru "github.com/hashicorp/golang-lru"
+	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
+
 	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
@@ -18,12 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/u8proto"
-
-	"github.com/google/gopacket/layers"
-	lru "github.com/hashicorp/golang-lru"
-	"github.com/sirupsen/logrus"
-	"google.golang.org/protobuf/types/known/timestamppb"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // Parser is a parser for L7 payloads

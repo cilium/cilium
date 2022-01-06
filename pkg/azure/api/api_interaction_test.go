@@ -10,9 +10,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cilium/cilium/pkg/api/metrics/mock"
-
 	"gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/pkg/api/metrics/mock"
 )
 
 // How to run these tests:

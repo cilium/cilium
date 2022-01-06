@@ -4,13 +4,13 @@
 package server
 
 import (
+	"github.com/go-openapi/runtime/middleware"
+
 	healthModels "github.com/cilium/cilium/api/v1/health/models"
 	. "github.com/cilium/cilium/api/v1/health/server/restapi"
 	ciliumModels "github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/client"
-
-	"github.com/go-openapi/runtime/middleware"
 )
 
 type getHealthz struct {

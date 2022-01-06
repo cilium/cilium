@@ -10,13 +10,13 @@ import (
 	"fmt"
 	"testing"
 
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/checker"
 	k8sLbls "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/selection"
 	"github.com/cilium/cilium/pkg/labels"
-
-	. "gopkg.in/check.v1"
 )
 
 var _ = Suite(&PolicyAPITestSuite{})

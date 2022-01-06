@@ -18,11 +18,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cilium/cilium/pkg/components"
-	"github.com/cilium/cilium/pkg/defaults"
-
 	"github.com/cilium/workerpool"
 	"github.com/spf13/cobra"
+
+	"github.com/cilium/cilium/pkg/components"
+	"github.com/cilium/cilium/pkg/defaults"
 )
 
 // BugtoolRootCmd is the top level command for the bugtool.

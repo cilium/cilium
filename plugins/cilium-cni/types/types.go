@@ -9,14 +9,14 @@ import (
 	"net"
 	"os"
 
+	cniTypes "github.com/containernetworking/cni/pkg/types"
+	current "github.com/containernetworking/cni/pkg/types/040"
+	"github.com/containernetworking/cni/pkg/version"
+
 	alibabaCloudTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	azureTypes "github.com/cilium/cilium/pkg/azure/types"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
-
-	cniTypes "github.com/containernetworking/cni/pkg/types"
-	current "github.com/containernetworking/cni/pkg/types/040"
-	"github.com/containernetworking/cni/pkg/version"
 )
 
 // NetConf is the Cilium specific CNI network configuration

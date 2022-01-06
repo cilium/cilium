@@ -7,12 +7,12 @@ import (
 	"context"
 	"fmt"
 
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	enitypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
-
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // GetInterfaceNumberByMAC implements the linuxrouting.interfaceDB interface.

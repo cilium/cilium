@@ -4,10 +4,10 @@
 package api
 
 import (
+	"github.com/go-openapi/runtime/middleware"
+
 	"github.com/cilium/cilium/api/v1/operator/server/restapi/metrics"
 	opMetrics "github.com/cilium/cilium/operator/metrics"
-
-	"github.com/go-openapi/runtime/middleware"
 )
 
 type getMetrics struct {

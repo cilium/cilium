@@ -9,9 +9,9 @@ package api
 import (
 	"testing"
 
-	pb "github.com/cilium/cilium/api/v1/flow"
-
 	"github.com/stretchr/testify/assert"
+
+	pb "github.com/cilium/cilium/api/v1/flow"
 )
 
 func TestParseContextOptions(t *testing.T) {

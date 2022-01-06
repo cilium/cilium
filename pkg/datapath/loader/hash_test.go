@@ -7,11 +7,11 @@
 package loader
 
 import (
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/testutils"
-
-	. "gopkg.in/check.v1"
 )
 
 var (

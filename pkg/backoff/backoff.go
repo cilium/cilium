@@ -9,12 +9,12 @@ import (
 	"math"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/rand"
-
-	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 )
 
 var (

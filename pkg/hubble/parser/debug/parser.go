@@ -8,15 +8,15 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/wrapperspb"
+
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/monitor/api"
-
-	"github.com/sirupsen/logrus"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // Parser is a parser for debug payloads

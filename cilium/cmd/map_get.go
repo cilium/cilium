@@ -8,12 +8,12 @@ import (
 	"os"
 	"text/tabwriter"
 
+	"github.com/spf13/cobra"
+
 	daemonAPI "github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/command"
-
-	"github.com/spf13/cobra"
 )
 
 // mapGetCmd represents the map_get command

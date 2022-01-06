@@ -6,12 +6,12 @@ package xds
 import (
 	"errors"
 
+	"github.com/golang/protobuf/proto"
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-
-	"github.com/golang/protobuf/proto"
-	"github.com/sirupsen/logrus"
 )
 
 // ProxyError wraps the error and the detail received from the proxy in to a new type

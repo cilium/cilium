@@ -10,14 +10,14 @@ import (
 	"net"
 	"testing"
 
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-
-	. "gopkg.in/check.v1"
 )
 
 func Test(t *testing.T) {

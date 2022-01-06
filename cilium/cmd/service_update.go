@@ -10,10 +10,10 @@ import (
 	"os"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-
-	"github.com/spf13/cobra"
 )
 
 var (

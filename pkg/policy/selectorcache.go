@@ -14,6 +14,8 @@ import (
 	"sync/atomic"
 	"unsafe"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -23,8 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
-
-	"github.com/sirupsen/logrus"
 )
 
 // CachedSelector represents an identity selector owned by the selector cache

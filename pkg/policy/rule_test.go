@@ -11,6 +11,8 @@ import (
 	stdlog "log"
 	"net"
 
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
@@ -18,8 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/api/kafka"
 	"github.com/cilium/cilium/pkg/u8proto"
-
-	. "gopkg.in/check.v1"
 )
 
 func (ds *PolicyTestSuite) TestL4Policy(c *C) {

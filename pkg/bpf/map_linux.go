@@ -19,6 +19,9 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf/binary"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -27,9 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
-
-	"github.com/sirupsen/logrus"
-	"golang.org/x/sys/unix"
 )
 
 // ErrMaxLookup is returned when the maximum number of map element lookups has

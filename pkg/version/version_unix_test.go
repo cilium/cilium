@@ -7,10 +7,10 @@
 package version
 
 import (
-	"github.com/cilium/cilium/pkg/versioncheck"
-
 	"github.com/blang/semver/v4"
 	. "gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 func (vs *VersionSuite) TestParseKernelVersion(c *C) {

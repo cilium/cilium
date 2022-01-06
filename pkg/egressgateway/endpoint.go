@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"net"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
-
-	"k8s.io/apimachinery/pkg/types"
 )
 
 // endpointMetadata stores relevant metadata associated with a endpoint that's updated during endpoint

@@ -8,6 +8,9 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/cilium/ipam/cidrset"
+	"github.com/sirupsen/logrus"
+
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	ipPkg "github.com/cilium/cilium/pkg/ip"
@@ -19,9 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/trigger"
-
-	"github.com/cilium/ipam/cidrset"
-	"github.com/sirupsen/logrus"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-allocator-clusterpool")

@@ -8,7 +8,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 

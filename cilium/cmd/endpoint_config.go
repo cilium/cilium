@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"github.com/cilium/cilium/pkg/command"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/option"
-
-	"github.com/spf13/cobra"
 )
 
 var listOptions bool

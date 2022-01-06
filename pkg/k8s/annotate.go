@@ -10,18 +10,18 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/cidr"
-	"github.com/cilium/cilium/pkg/controller"
-	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
-	"github.com/cilium/cilium/pkg/logging/logfields"
-
 	"github.com/sirupsen/logrus"
 	core_v1 "k8s.io/api/core/v1"
 	apiextclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/controller"
+	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // K8sClient is a wrapper around kubernetes.Interface.

@@ -12,6 +12,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-openapi/runtime/middleware"
+	"github.com/google/uuid"
+
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/api"
@@ -35,9 +38,6 @@ import (
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/safetime"
 	"github.com/cilium/cilium/pkg/trigger"
-
-	"github.com/go-openapi/runtime/middleware"
-	"github.com/google/uuid"
 )
 
 // initPolicy initializes the core policy components of the daemon.

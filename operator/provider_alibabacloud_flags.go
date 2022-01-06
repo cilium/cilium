@@ -7,10 +7,10 @@
 package main
 
 import (
+	"github.com/spf13/viper"
+
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/option"
-
-	"github.com/spf13/viper"
 )
 
 func init() {

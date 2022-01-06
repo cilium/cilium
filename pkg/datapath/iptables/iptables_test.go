@@ -11,10 +11,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/option"
-
 	"github.com/blang/semver/v4"
 	"gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/pkg/option"
 )
 
 func Test(t *testing.T) {

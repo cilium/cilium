@@ -9,6 +9,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/fsnotify/fsnotify"
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
@@ -18,9 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/serializer"
-
-	"github.com/fsnotify/fsnotify"
-	"github.com/sirupsen/logrus"
 )
 
 const templateWatcherQueueSize = 10

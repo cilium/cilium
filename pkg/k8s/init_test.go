@@ -12,18 +12,18 @@ import (
 	"net"
 	"time"
 
-	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/checker"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/source"
-
 	. "gopkg.in/check.v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
+
+	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/checker"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/source"
 )
 
 func (s *K8sSuite) TestUseNodeCIDR(c *C) {

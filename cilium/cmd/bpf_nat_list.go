@@ -8,12 +8,12 @@ import (
 	"os"
 	"reflect"
 
+	"github.com/spf13/cobra"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/maps/nat"
-
-	"github.com/spf13/cobra"
 )
 
 // bpfNatListCmd represents the bpf_nat_list command

@@ -11,6 +11,10 @@ import (
 	"os"
 	"sync"
 
+	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -21,10 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/option"
-
-	"github.com/sirupsen/logrus"
-	"github.com/vishvananda/netlink"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 type endpointRestoreState struct {

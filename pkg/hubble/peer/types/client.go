@@ -8,9 +8,9 @@ import (
 	"io"
 	"time"
 
-	peerpb "github.com/cilium/cilium/api/v1/peer"
-
 	"google.golang.org/grpc"
+
+	peerpb "github.com/cilium/cilium/api/v1/peer"
 )
 
 // Client defines an interface that Peer service client should implement.

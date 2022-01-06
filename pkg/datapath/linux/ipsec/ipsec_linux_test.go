@@ -12,11 +12,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
-
 	"github.com/vishvananda/netlink"
 	. "gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 )
 
 // Hook up gocheck into the "go test" runner.

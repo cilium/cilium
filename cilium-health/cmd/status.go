@@ -7,11 +7,11 @@ import (
 	"os"
 	"text/tabwriter"
 
+	"github.com/spf13/cobra"
+
 	"github.com/cilium/cilium/api/v1/health/models"
 	"github.com/cilium/cilium/pkg/command"
 	clientPkg "github.com/cilium/cilium/pkg/health/client"
-
-	"github.com/spf13/cobra"
 )
 
 var (

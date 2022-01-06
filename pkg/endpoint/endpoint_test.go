@@ -14,6 +14,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/fake"
@@ -35,9 +38,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
-
-	"github.com/prometheus/client_golang/prometheus"
-	. "gopkg.in/check.v1"
 )
 
 var (

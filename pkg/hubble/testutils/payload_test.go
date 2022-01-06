@@ -11,12 +11,12 @@ import (
 	"net"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/monitor"
-	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
-
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/cilium/cilium/pkg/monitor"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
 func decodeHex(s string) []byte {

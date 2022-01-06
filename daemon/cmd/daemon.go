@@ -13,6 +13,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
+	"golang.org/x/sync/semaphore"
+
 	"github.com/cilium/cilium/api/v1/models"
 	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/pkg/bandwidth"
@@ -77,10 +81,6 @@ import (
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/trigger"
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
-
-	"github.com/sirupsen/logrus"
-	"github.com/vishvananda/netlink"
-	"golang.org/x/sync/semaphore"
 )
 
 const (

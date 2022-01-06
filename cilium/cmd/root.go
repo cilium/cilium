@@ -8,12 +8,12 @@ import (
 	"io"
 	"os"
 
-	clientPkg "github.com/cilium/cilium/pkg/client"
-	"github.com/cilium/cilium/pkg/components"
-
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	clientPkg "github.com/cilium/cilium/pkg/client"
+	"github.com/cilium/cilium/pkg/components"
 )
 
 var (

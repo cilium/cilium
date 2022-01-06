@@ -6,14 +6,14 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/go-openapi/runtime/middleware"
+
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/service"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/service"
-
-	"github.com/go-openapi/runtime/middleware"
 )
 
 type putServiceID struct {

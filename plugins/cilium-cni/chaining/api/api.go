@@ -7,13 +7,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cilium/cilium/pkg/client"
-	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/plugins/cilium-cni/types"
-
 	"github.com/containernetworking/cni/pkg/skel"
 	cniTypesVer "github.com/containernetworking/cni/pkg/types/040"
 	"github.com/sirupsen/logrus"
+
+	"github.com/cilium/cilium/pkg/client"
+	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/plugins/cilium-cni/types"
 )
 
 var (

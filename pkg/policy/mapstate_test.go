@@ -7,12 +7,12 @@
 package policy
 
 import (
+	"gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
-
-	"gopkg.in/check.v1"
 )
 
 // WithOwners replaces owners of 'e' with 'owners'.

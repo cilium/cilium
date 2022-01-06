@@ -9,14 +9,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc/connectivity"
+
 	peerpb "github.com/cilium/cilium/api/v1/peer"
 	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
-
-	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc/connectivity"
 )
 
 type peer struct {

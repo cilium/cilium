@@ -10,12 +10,12 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/spf13/cobra"
+
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
-
-	"github.com/spf13/cobra"
 )
 
 const (

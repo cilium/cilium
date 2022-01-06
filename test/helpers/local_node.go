@@ -13,9 +13,9 @@ import (
 	"sync"
 	"time"
 
-	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
-
 	"github.com/sirupsen/logrus"
+
+	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 )
 
 var (

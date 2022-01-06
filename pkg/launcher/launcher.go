@@ -9,11 +9,11 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-
-	"github.com/sirupsen/logrus"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "launcher")

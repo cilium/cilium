@@ -12,11 +12,11 @@ import (
 	"sync"
 	"time"
 
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy/api"
-
-	. "gopkg.in/check.v1"
 )
 
 // TestNameManagerCIDRGeneration tests rule generation output:

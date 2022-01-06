@@ -9,9 +9,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/cilium/cilium/pkg/proxy/accesslog"
-
 	cilium "github.com/cilium/proxy/go/cilium/api"
+
+	"github.com/cilium/cilium/pkg/proxy/accesslog"
 )
 
 // ParseURL returns the URL as *net.url.URL

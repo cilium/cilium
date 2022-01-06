@@ -8,14 +8,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
-
-	"github.com/davecgh/go-spew/spew"
-	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 )
 
 var (

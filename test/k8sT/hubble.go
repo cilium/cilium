@@ -10,16 +10,16 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/asaskevich/govalidator"
+	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/encoding/protojson"
+
 	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/hubble/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
-
-	"github.com/asaskevich/govalidator"
-	. "github.com/onsi/gomega"
-	"google.golang.org/protobuf/encoding/protojson"
 )
 
 var _ = Describe("K8sHubbleTest", func() {

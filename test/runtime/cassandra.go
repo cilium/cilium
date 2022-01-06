@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"time"
 
+	. "github.com/onsi/gomega"
+
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 	"github.com/cilium/cilium/test/helpers/constants"
-
-	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("RuntimeCassandra", func() {

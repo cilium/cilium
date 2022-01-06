@@ -9,17 +9,17 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/option"
-
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	"github.com/vishvananda/netlink"
-	"golang.org/x/sys/unix"
 )
 
 // cleanupCmd represents the cleanup command

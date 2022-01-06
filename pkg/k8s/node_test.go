@@ -9,14 +9,14 @@ package k8s
 import (
 	"testing"
 
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/checker"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	nodeAddressing "github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/source"
-
-	. "gopkg.in/check.v1"
 )
 
 func (s *K8sSuite) TestParseNode(c *C) {

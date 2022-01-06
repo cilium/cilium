@@ -13,6 +13,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-openapi/runtime/middleware"
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/pkg/annotation"
@@ -32,9 +35,6 @@ import (
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy"
-
-	"github.com/go-openapi/runtime/middleware"
-	"github.com/sirupsen/logrus"
 )
 
 var errEndpointNotFound = errors.New("endpoint not found")

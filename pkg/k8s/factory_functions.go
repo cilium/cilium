@@ -4,6 +4,9 @@
 package k8s
 
 import (
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/cache"
+
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/datapath"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -15,9 +18,6 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/tools/cache"
 )
 
 func ObjToV1NetworkPolicy(obj interface{}) *slim_networkingv1.NetworkPolicy {

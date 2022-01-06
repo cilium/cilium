@@ -14,15 +14,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/monitor/agent/listener"
 	"github.com/cilium/cilium/pkg/monitor/format"
 	"github.com/cilium/cilium/pkg/monitor/payload"
-
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 const (

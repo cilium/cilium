@@ -10,9 +10,9 @@ import (
 	"net"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/checker"
-
 	"gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/pkg/checker"
 )
 
 var testIPv4Address IPv4 = [4]byte{10, 0, 0, 2}

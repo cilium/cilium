@@ -18,6 +18,17 @@ import (
 	"sync/atomic"
 	"time"
 
+	gops "github.com/google/gops/agent"
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"golang.org/x/sys/unix"
+	"google.golang.org/grpc"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/leaderelection"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
+
 	"github.com/cilium/cilium/operator/api"
 	"github.com/cilium/cilium/operator/cmd"
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
@@ -40,17 +51,6 @@ import (
 	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/version"
-
-	gops "github.com/google/gops/agent"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	"golang.org/x/sys/unix"
-	"google.golang.org/grpc"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/leaderelection"
-	"k8s.io/client-go/tools/leaderelection/resourcelock"
 )
 
 var (

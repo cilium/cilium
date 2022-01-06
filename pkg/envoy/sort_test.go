@@ -7,14 +7,13 @@
 package envoy
 
 import (
-	"github.com/cilium/cilium/pkg/checker"
-
-	. "gopkg.in/check.v1"
-
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
+	. "gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/pkg/checker"
 )
 
 type SortSuite struct{}

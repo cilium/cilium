@@ -6,10 +6,10 @@ package cmd
 import (
 	"net"
 
+	"github.com/spf13/cobra"
+
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
-
-	"github.com/spf13/cobra"
 )
 
 var bpfEndpointDeleteCmd = &cobra.Command{

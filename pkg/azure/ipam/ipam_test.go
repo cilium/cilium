@@ -12,6 +12,9 @@ import (
 	"testing"
 	"time"
 
+	"gopkg.in/check.v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	apimock "github.com/cilium/cilium/pkg/azure/api/mock"
 	"github.com/cilium/cilium/pkg/azure/types"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -21,9 +24,6 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/testutils"
-
-	"gopkg.in/check.v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func Test(t *testing.T) {

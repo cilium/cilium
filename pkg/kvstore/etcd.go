@@ -16,16 +16,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/cilium/cilium/pkg/contexthelpers"
-	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/inctimer"
-	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/rand"
-	"github.com/cilium/cilium/pkg/spanstat"
-	"github.com/cilium/cilium/pkg/versioncheck"
-
 	"github.com/blang/semver/v4"
 	"github.com/sirupsen/logrus"
 	v3rpcErrors "go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
@@ -35,6 +25,16 @@ import (
 	clientyaml "go.etcd.io/etcd/client/v3/yaml"
 	"golang.org/x/time/rate"
 	"sigs.k8s.io/yaml"
+
+	"github.com/cilium/cilium/pkg/contexthelpers"
+	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/inctimer"
+	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/rand"
+	"github.com/cilium/cilium/pkg/spanstat"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 const (

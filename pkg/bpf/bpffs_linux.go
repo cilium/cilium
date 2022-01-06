@@ -12,11 +12,11 @@ import (
 	"path/filepath"
 	"sync"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/mountinfo"
-
-	"golang.org/x/sys/unix"
 )
 
 var (

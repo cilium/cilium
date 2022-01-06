@@ -6,9 +6,9 @@ package metrics
 import (
 	"time"
 
-	"github.com/cilium/cilium/pkg/trigger"
-
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/cilium/cilium/pkg/trigger"
 )
 
 const ipamSubsystem = "ipam"

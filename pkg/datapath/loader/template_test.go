@@ -9,11 +9,11 @@ package loader
 import (
 	"bytes"
 
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/testutils"
-
-	. "gopkg.in/check.v1"
 )
 
 func (s *LoaderTestSuite) TestWrap(c *C) {

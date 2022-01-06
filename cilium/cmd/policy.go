@@ -13,11 +13,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/policy/api"
-
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/policy/api"
 )
 
 // policyCmd represents the policy command

@@ -9,9 +9,9 @@ package types
 import (
 	"net"
 
-	"github.com/cilium/cilium/pkg/checker"
-
 	"gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/pkg/checker"
 )
 
 var testIPv6Address IPv6 = [16]byte{240, 13, 0, 0, 0, 0, 0, 0, 172, 16, 0, 20, 0, 0, 0, 1}

@@ -8,10 +8,10 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/spf13/cobra"
+
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-
-	"github.com/spf13/cobra"
 )
 
 // serviceGetCmd represents the service_get command

@@ -10,6 +10,10 @@ import (
 	"net"
 	"time"
 
+	"gopkg.in/check.v1"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/cilium/cilium/pkg/checker"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -20,10 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/testutils"
-
-	"gopkg.in/check.v1"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func (s *K8sSuite) TestGetUniqueServiceFrontends(c *check.C) {

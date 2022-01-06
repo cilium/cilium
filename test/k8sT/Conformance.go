@@ -4,10 +4,10 @@
 package k8sTest
 
 import (
+	. "github.com/onsi/gomega"
+
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
-
-	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("K8sConformance", func() {

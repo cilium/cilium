@@ -7,11 +7,11 @@
 package endpoint
 
 import (
+	"gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/policy"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	"github.com/cilium/cilium/pkg/u8proto"
-
-	"gopkg.in/check.v1"
 )
 
 func (s *EndpointSuite) TestUpdateVisibilityPolicy(c *check.C) {

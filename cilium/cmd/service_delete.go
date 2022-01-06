@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/cilium/cilium/pkg/logging/logfields"
-
 	"github.com/spf13/cobra"
+
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var deleteAll bool

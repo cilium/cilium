@@ -12,11 +12,11 @@ import (
 	"net"
 	"os/exec"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
-
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
 	. "gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 )
 
 var _ = Suite(&MigrateSuite{})

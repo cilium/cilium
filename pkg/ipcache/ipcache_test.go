@@ -13,13 +13,13 @@ import (
 	"sort"
 	"testing"
 
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/checker"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/u8proto"
-
-	. "gopkg.in/check.v1"
 )
 
 // Hook up gocheck into the "go test" runner.

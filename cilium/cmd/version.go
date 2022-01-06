@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/version"
-
-	"github.com/spf13/cobra"
 )
 
 const notResponding = "Not responding"

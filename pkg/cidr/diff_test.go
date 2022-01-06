@@ -7,9 +7,9 @@
 package cidr
 
 import (
-	"github.com/cilium/cilium/pkg/checker"
-
 	"gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/pkg/checker"
 )
 
 func (s *CidrTestSuite) TestDiffIPNetLists(c *check.C) {

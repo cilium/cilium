@@ -9,6 +9,8 @@ package k8s
 import (
 	"sort"
 
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/checker"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/labels"
@@ -16,8 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
-
-	. "gopkg.in/check.v1"
 )
 
 func (s *K8sSuite) TestTranslatorDirect(c *C) {

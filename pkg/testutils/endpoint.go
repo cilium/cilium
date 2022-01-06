@@ -4,13 +4,13 @@
 package testutils
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
-
-	"github.com/sirupsen/logrus"
 )
 
 var (

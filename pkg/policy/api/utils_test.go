@@ -9,9 +9,9 @@ package api
 import (
 	"testing"
 
-	"github.com/cilium/cilium/pkg/policy/api/kafka"
-
 	. "gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/pkg/policy/api/kafka"
 )
 
 // Hook up gocheck into the "go test" runner.

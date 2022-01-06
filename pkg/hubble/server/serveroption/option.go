@@ -11,16 +11,16 @@ import (
 	"os"
 	"strings"
 
+	"golang.org/x/sys/unix"
+	"google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	peerpb "github.com/cilium/cilium/api/v1/peer"
 	recorderpb "github.com/cilium/cilium/api/v1/recorder"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/crypto/certloader"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
-
-	"golang.org/x/sys/unix"
-	"google.golang.org/grpc/health"
-	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 // MinTLSVersion defines the minimum TLS version clients are expected to

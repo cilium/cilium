@@ -6,9 +6,9 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/cilium/cilium/api/v1/models"
-
 	"github.com/spf13/cobra"
+
+	"github.com/cilium/cilium/api/v1/models"
 )
 
 // endpointRegenerateCmd represents the endpoint_regenerate command

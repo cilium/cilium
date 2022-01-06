@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/vishvananda/netlink"
+
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
-
-	"github.com/vishvananda/netlink"
 )
 
 var linkCache ifNameCache

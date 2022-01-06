@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cilium/cilium/pkg/command"
-
 	"github.com/spf13/cobra"
+
+	"github.com/cilium/cilium/pkg/command"
 )
 
 // policyGetCmd represents the policy_get command

@@ -9,11 +9,11 @@ import (
 	"encoding/gob"
 	"fmt"
 
+	"github.com/google/gopacket"
+
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
-
-	"github.com/google/gopacket"
 )
 
 // CreateL3L4Payload assembles a L3/L4 payload for testing purposes

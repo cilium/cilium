@@ -10,13 +10,13 @@ import (
 	"context"
 	"testing"
 
-	pb "github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/pkg/hubble/metrics/api"
-	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	pb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/metrics/api"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
 func TestFlowHandler(t *testing.T) {

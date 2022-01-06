@@ -15,6 +15,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/golang/groupcache/lru"
+	"github.com/miekg/dns"
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
@@ -27,10 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/spanstat"
-
-	"github.com/golang/groupcache/lru"
-	"github.com/miekg/dns"
-	"github.com/sirupsen/logrus"
 )
 
 const (

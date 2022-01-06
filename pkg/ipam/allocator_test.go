@@ -10,11 +10,11 @@ import (
 	"net"
 	"time"
 
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/mtu"
-
-	. "gopkg.in/check.v1"
 )
 
 type ownerMock struct{}

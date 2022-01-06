@@ -6,14 +6,14 @@ package egressgateway
 import (
 	"time"
 
+	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/types"
+
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
-
-	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 var (

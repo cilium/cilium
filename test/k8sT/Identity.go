@@ -6,10 +6,10 @@ package k8sTest
 import (
 	"time"
 
+	. "github.com/onsi/gomega"
+
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
-
-	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("K8sIdentity", func() {

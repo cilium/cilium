@@ -4,11 +4,11 @@
 package endpointmanager
 
 import (
+	v1 "k8s.io/api/core/v1"
+
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
-
-	v1 "k8s.io/api/core/v1"
 )
 
 // GetHostEndpoint returns the host endpoint.

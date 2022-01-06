@@ -8,12 +8,12 @@ import (
 	"sort"
 	"sync"
 
+	envoyAPI "github.com/cilium/proxy/go/cilium/api"
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-
-	envoyAPI "github.com/cilium/proxy/go/cilium/api"
-	"github.com/sirupsen/logrus"
 )
 
 const (

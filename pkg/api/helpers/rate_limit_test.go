@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cilium/cilium/pkg/api/metrics/mock"
-
 	"gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/pkg/api/metrics/mock"
 )
 
 func Test(t *testing.T) {

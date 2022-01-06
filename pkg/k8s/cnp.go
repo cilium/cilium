@@ -11,7 +11,10 @@ import (
 	"path"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sTypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/backoff"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -24,10 +27,6 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/spanstat"
-
-	"github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
-	k8sTypes "k8s.io/apimachinery/pkg/types"
 )
 
 // CNPStatusUpdateContext is the context required to update the status of a

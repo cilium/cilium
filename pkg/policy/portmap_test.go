@@ -7,9 +7,9 @@
 package policy
 
 import (
-	"github.com/cilium/cilium/pkg/u8proto"
-
 	. "gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 func (ds *PolicyTestSuite) TestPolicyValidateName(c *C) {

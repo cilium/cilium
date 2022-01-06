@@ -11,6 +11,9 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/sirupsen/logrus"
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -20,9 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
-
-	"github.com/sirupsen/logrus"
-	. "gopkg.in/check.v1"
 )
 
 var (

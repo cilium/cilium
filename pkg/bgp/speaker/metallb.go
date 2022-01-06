@@ -8,14 +8,14 @@ import (
 	"fmt"
 	"os"
 
+	"go.universe.tf/metallb/pkg/k8s/types"
+	metallbspr "go.universe.tf/metallb/pkg/speaker"
+
 	bgpconfig "github.com/cilium/cilium/pkg/bgp/config"
 	bgpk8s "github.com/cilium/cilium/pkg/bgp/k8s"
 	bgplog "github.com/cilium/cilium/pkg/bgp/log"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
-
-	"go.universe.tf/metallb/pkg/k8s/types"
-	metallbspr "go.universe.tf/metallb/pkg/speaker"
 )
 
 // Speaker provides a method set for interfacing

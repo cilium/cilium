@@ -9,6 +9,13 @@ import (
 	"os"
 	"time"
 
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"github.com/cilium/cilium/pkg/k8s"
 	v2_validation "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2/validator"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
@@ -16,13 +23,6 @@ import (
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
-
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 var validateCNP = &cobra.Command{

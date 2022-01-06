@@ -9,9 +9,9 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/cilium/cilium/pkg/bpf"
-
 	"golang.org/x/sys/unix"
+
+	"github.com/cilium/cilium/pkg/bpf"
 )
 
 type probeKey struct {

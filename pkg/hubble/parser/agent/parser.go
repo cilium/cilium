@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"time"
 
-	flowpb "github.com/cilium/cilium/api/v1/flow"
-	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
-
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+
+	flowpb "github.com/cilium/cilium/api/v1/flow"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
 func notifyTimeNotificationToProto(typ flowpb.AgentEventType, n monitorAPI.TimeNotification) *flowpb.AgentEvent {

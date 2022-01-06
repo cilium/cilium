@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/maps/recorder"
-
-	"github.com/spf13/cobra"
 )
 
 // bpfRecorderListCmd represents the bpf_recorder_list command

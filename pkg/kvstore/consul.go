@@ -12,6 +12,10 @@ import (
 	"os"
 	"time"
 
+	consulAPI "github.com/hashicorp/consul/api"
+	"github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v2"
+
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/inctimer"
@@ -19,10 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/spanstat"
-
-	consulAPI "github.com/hashicorp/consul/api"
-	"github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v2"
 )
 
 const (

@@ -9,6 +9,8 @@ package service
 import (
 	"net"
 
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
 	datapathOpt "github.com/cilium/cilium/pkg/datapath/option"
@@ -17,8 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service/healthserver"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
-
-	. "gopkg.in/check.v1"
 )
 
 type ManagerTestSuite struct {

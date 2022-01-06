@@ -7,9 +7,9 @@
 package identity
 
 import (
-	"github.com/cilium/cilium/pkg/clustermesh/types"
-
 	. "gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/pkg/clustermesh/types"
 )
 
 func (s *IdentityTestSuite) TestLocalIdentity(c *C) {

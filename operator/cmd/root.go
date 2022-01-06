@@ -4,10 +4,10 @@
 package cmd
 
 import (
-	"github.com/cilium/cilium/operator/option"
-
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+
+	"github.com/cilium/cilium/operator/option"
 )
 
 var (

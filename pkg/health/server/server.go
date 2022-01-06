@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-openapi/loads"
+
 	"github.com/cilium/cilium/api/v1/client/daemon"
 	healthModels "github.com/cilium/cilium/api/v1/health/models"
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
@@ -18,8 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-
-	"github.com/go-openapi/loads"
 )
 
 var (

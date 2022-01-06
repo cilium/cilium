@@ -6,9 +6,9 @@ package server
 import (
 	"strconv"
 
-	healthModels "github.com/cilium/cilium/api/v1/health/models"
-
 	"golang.org/x/sys/unix"
+
+	healthModels "github.com/cilium/cilium/api/v1/health/models"
 )
 
 func dumpLoad() (*healthModels.LoadResponse, error) {

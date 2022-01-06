@@ -14,6 +14,9 @@ import (
 	"sort"
 	"text/template"
 
+	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath"
@@ -51,9 +54,6 @@ import (
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
-
-	"github.com/sirupsen/logrus"
-	"github.com/vishvananda/netlink"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "datapath-linux-config")

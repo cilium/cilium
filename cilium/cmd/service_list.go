@@ -9,11 +9,11 @@ import (
 	"sort"
 	"text/tabwriter"
 
+	"github.com/spf13/cobra"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-
-	"github.com/spf13/cobra"
 )
 
 // serviceListCmd represents the service_list command

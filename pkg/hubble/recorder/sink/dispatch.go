@@ -9,6 +9,9 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
+
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/hubble/recorder/pcap"
 	"github.com/cilium/cilium/pkg/lock"
@@ -16,9 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
-
-	"github.com/sirupsen/logrus"
-	"golang.org/x/sys/unix"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "recorder-sink")

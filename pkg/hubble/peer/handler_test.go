@@ -11,11 +11,11 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	peerpb "github.com/cilium/cilium/api/v1/peer"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/node/types"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestNodeAdd(t *testing.T) {

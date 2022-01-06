@@ -11,12 +11,12 @@ import (
 	"net/http"
 	"time"
 
-	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
-	"github.com/cilium/cilium/pkg/testutils"
-
 	. "gopkg.in/check.v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 func (s *K8sSuite) Test_runHeartbeat(c *C) {

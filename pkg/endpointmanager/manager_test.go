@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/completion"
@@ -26,8 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/revert"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
-
-	. "gopkg.in/check.v1"
 )
 
 // Hook up gocheck into the "go test" runner.

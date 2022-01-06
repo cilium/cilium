@@ -11,13 +11,13 @@ import (
 	"path"
 	"testing"
 
+	cnitypes "github.com/containernetworking/cni/pkg/types"
+	"gopkg.in/check.v1"
+
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	azureTypes "github.com/cilium/cilium/pkg/azure/types"
 	"github.com/cilium/cilium/pkg/checker"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
-
-	cnitypes "github.com/containernetworking/cni/pkg/types"
-	"gopkg.in/check.v1"
 )
 
 func Test(t *testing.T) {

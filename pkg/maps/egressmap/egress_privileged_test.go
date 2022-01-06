@@ -11,10 +11,10 @@ import (
 	"net"
 	"testing"
 
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
-
-	. "gopkg.in/check.v1"
 )
 
 // Hook up gocheck into the "go test" runner.
