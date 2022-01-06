@@ -320,6 +320,10 @@ remote-node
     Any node in any of the connected clusters other than the local host. This
     also includes all containers running in host-networking mode on remote
     nodes. (Requires the option ``enable-remote-node-identity`` to be enabled)
+kube-apiserver
+    The kube-apiserver entity represents the kube-apiserver in a Kubernetes
+    cluster. This entity represents both deployments of the kube-apiserver:
+    within the cluster and outside of the cluster.
 cluster
     Cluster is the logical group of all network endpoints inside of the local
     cluster. This includes all Cilium-managed endpoints of the local cluster,
@@ -350,6 +354,11 @@ all
 .. versionadded:: future
    Allowing users to define custom entities is on the roadmap but has not been
    implemented yet (see :gh-issue:`3553`).
+
+.. note::
+
+   A known issue with kube-apiserver entity matching is that the feature
+   doesn't work in tunneling mode (see :gh-issue:`18049`).
 
 Access to/from local host
 ~~~~~~~~~~~~~~~~~~~~~~~~~
