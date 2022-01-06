@@ -969,3 +969,8 @@ func MustAddrsFromIPs(ips []net.IP) []netip.Addr {
 	}
 	return addrs
 }
+
+func IPFromAddr(addr netip.Addr) net.IP {
+	s := addr.AsSlice()
+	return net.IP(s)
+}

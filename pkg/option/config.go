@@ -1119,6 +1119,9 @@ const (
 	// EnableStaleCiliumEndpointCleanup sets whether Cilium should perform cleanup of
 	// stale CiliumEndpoints during init.
 	EnableStaleCiliumEndpointCleanup = "enable-stale-cilium-endpoint-cleanup"
+
+	EnableMultiHoming   = "enable-multihoming"
+	MultiHomingNetworks = "multihoming-networks"
 )
 
 // Default string arguments
@@ -1316,13 +1319,15 @@ type DaemonConfig struct {
 	devicesMu           lock.RWMutex // Protects devices
 	devices             []string     // bpf_host device
 	DirectRoutingDevice string       // Direct routing device (used by BPF NodePort and BPF Host Routing)
-	LBDevInheritIPAddr  string       // Device which IP addr used by bpf_host devices
-	EnableXDPPrefilter  bool         // Enable XDP-based prefiltering
-	XDPMode             string       // XDP mode, values: { xdpdrv | xdpgeneric | none }
-	HostV4Addr          net.IP       // Host v4 address of the snooping device
-	HostV6Addr          net.IP       // Host v6 address of the snooping device
-	EncryptInterface    []string     // Set of network facing interface to encrypt over
-	EncryptNode         bool         // Set to true for encrypting node IP traffic
+	EnableMultiHoming   bool
+	MultiHomingNetworks []string
+	LBDevInheritIPAddr  string   // Device which IP addr used by bpf_host devices
+	EnableXDPPrefilter  bool     // Enable XDP-based prefiltering
+	XDPMode             string   // XDP mode, values: { xdpdrv | xdpgeneric | none }
+	HostV4Addr          net.IP   // Host v4 address of the snooping device
+	HostV6Addr          net.IP   // Host v6 address of the snooping device
+	EncryptInterface    []string // Set of network facing interface to encrypt over
+	EncryptNode         bool     // Set to true for encrypting node IP traffic
 
 	// If set to true the daemon will detect new and deleted datapath devices
 	// at runtime and reconfigure the datapath to load programs onto the new
@@ -3341,6 +3346,14 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		}
 	}
 	c.EnvoySecretNamespaces = nsList
+
+	c.EnableMultiHoming = vp.GetBool(EnableMultiHoming)
+	c.MultiHomingNetworks = vp.GetStringSlice(MultiHomingNetworks)
+	sort.Strings(c.MultiHomingNetworks)
+	if c.EnableMultiHoming && len(c.MultiHomingNetworks) == 0 {
+		log.Fatalf("--%s must be set when --%s is enabled",
+			MultiHomingNetworks, EnableMultiHoming)
+	}
 }
 
 func (c *DaemonConfig) additionalMetrics() []string {
@@ -3792,6 +3805,11 @@ func (c *DaemonConfig) StoreInFile(dir string) error {
 
 func (c *DaemonConfig) BGPControlPlaneEnabled() bool {
 	return c.EnableBGPControlPlane
+}
+
+// MultiHomingEnabled returns true if multi-homing is enabled.
+func (c *DaemonConfig) MultiHomingEnabled() bool {
+	return c.EnableMultiHoming
 }
 
 // StoreViperInFile stores viper's configuration in a the given directory under

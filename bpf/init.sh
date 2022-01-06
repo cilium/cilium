@@ -28,6 +28,7 @@ NR_CPUS=${21}
 ENDPOINT_ROUTES=${22}
 PROXY_RULE=${23}
 FILTER_PRIO=${24}
+IP4_HOST_SECONDARY=${25}
 
 ID_HOST=1
 ID_WORLD=2
@@ -353,6 +354,11 @@ esac
 	if [ "$IP4_HOST" != "<nil>" ]; then
 		[ -n "$(ip -4 addr show to $IP4_HOST dev $HOST_DEV1)" ] || ip -4 addr add $IP4_HOST dev $HOST_DEV1 scope link
 	fi
+    if [ "$IP4_HOST_SECONDARY" != "<nil>" ]; then
+        for IP in ${IP4_HOST_SECONDARY//,/ }; do
+            [ -n "$(ip -4 addr show to $IP dev $HOST_DEV1)" ] || ip -4 addr add $IP dev $HOST_DEV1 scope link
+        done
+    fi
 
 if [ "$PROXY_RULE" = "true" ]; then
 # Decrease priority of the rule to identify local addresses

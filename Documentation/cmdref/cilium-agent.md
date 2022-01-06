@@ -120,6 +120,7 @@ cilium-agent [flags]
       --enable-local-node-route                                 Enable installation of the route which points the allocation prefix of the local node (default true)
       --enable-local-redirect-policy                            Enable Local Redirect Policy
       --enable-monitor                                          Enable the monitor unix domain socket server (default true)
+      --enable-multihoming                                      Enable multi-homing
       --enable-nat46x64-gateway                                 Enable NAT46 and NAT64 gateway
       --enable-node-port                                        Enable NodePort type services by Cilium
       --enable-pmtu-discovery                                   Enable path MTU discovery to send ICMP fragmentation-needed replies to the client

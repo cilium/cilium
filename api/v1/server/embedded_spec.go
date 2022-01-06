@@ -2050,6 +2050,9 @@ func init() {
             }
           }
         },
+        "multi-homing-configuration": {
+          "$ref": "#/definitions/MultiHomingConfiguration"
+        },
         "nodeMonitor": {
           "description": "Status of the node monitor",
           "$ref": "#/definitions/MonitorStatus"
@@ -3437,6 +3440,23 @@ func init() {
         "unknown": {
           "description": "Number of unknown samples.",
           "type": "integer"
+        }
+      }
+    },
+    "MultiHomingConfiguration": {
+      "description": "Multi-homing configuration",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Is multi-homing mode enabled",
+          "type": "boolean"
+        },
+        "networks": {
+          "description": "List of multi-homing networks",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -6730,6 +6750,9 @@ func init() {
             }
           }
         },
+        "multi-homing-configuration": {
+          "$ref": "#/definitions/MultiHomingConfiguration"
+        },
         "nodeMonitor": {
           "description": "Status of the node monitor",
           "$ref": "#/definitions/MonitorStatus"
@@ -8512,6 +8535,23 @@ func init() {
         "unknown": {
           "description": "Number of unknown samples.",
           "type": "integer"
+        }
+      }
+    },
+    "MultiHomingConfiguration": {
+      "description": "Multi-homing configuration",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Is multi-homing mode enabled",
+          "type": "boolean"
+        },
+        "networks": {
+          "description": "List of multi-homing networks",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },

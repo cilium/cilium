@@ -2316,6 +2316,8 @@ definitions:
           ipv6:
             description: Status of masquerading for IPv6 traffic
             type: boolean
+      multi-homing-configuration:
+        "$ref": "#/definitions/MultiHomingConfiguration"
       egress-multi-home-ip-rule-compat:
         description: Configured compatibility mode for --egress-multi-home-ip-rule-compat
         type: boolean
@@ -2334,6 +2336,18 @@ definitions:
     type: string
     enum:
       - veth
+  MultiHomingConfiguration:
+    description: Multi-homing configuration
+    type: object
+    properties:
+      enabled:
+        description: Is multi-homing mode enabled
+        type: boolean
+      networks:
+        description: List of multi-homing networks
+        type: array
+        items:
+          type: string
   EndpointConfigurationSpec:
     description: An endpoint's configuration
     type: object

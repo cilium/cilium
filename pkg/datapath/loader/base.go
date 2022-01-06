@@ -62,6 +62,7 @@ const (
 	initArgEndpointRoutes
 	initArgProxyRule
 	initTCFilterPriority
+	initArgSecondaryIPv4NodeIPs
 	initArgMax
 )
 
@@ -291,6 +292,20 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	if option.Config.EnableIPv4 {
 		args[initArgIPv4NodeIP] = node.GetInternalIPv4Router().String()
+		// XXX: hack to easily set multi-homing (secondary ) addresses on cilium_host
+		if option.Config.EnableMultiHoming {
+			ips := make([]string, 0, len(option.Config.MultiHomingNetworks))
+			nodeIP := node.GetInternalIPv4Router()
+			for i := 1; i <= len(option.Config.MultiHomingNetworks); i++ {
+				ip := make(net.IP, len(nodeIP.To4()))
+				copy(ip, nodeIP.To4())
+				ip[1] += byte(i)
+				ips = append(ips, net.IP(ip).String())
+			}
+			args[initArgSecondaryIPv4NodeIPs] = strings.Join(ips, ",")
+		} else {
+			args[initArgSecondaryIPv4NodeIPs] = "<nil>"
+		}
 	} else {
 		args[initArgIPv4NodeIP] = "<nil>"
 	}

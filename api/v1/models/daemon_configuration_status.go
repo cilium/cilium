@@ -65,6 +65,9 @@ type DaemonConfigurationStatus struct {
 	// masquerade protocols
 	MasqueradeProtocols *DaemonConfigurationStatusMasqueradeProtocols `json:"masqueradeProtocols,omitempty"`
 
+	// multi homing configuration
+	MultiHomingConfiguration *MultiHomingConfiguration `json:"multi-homing-configuration,omitempty"`
+
 	// Status of the node monitor
 	NodeMonitor *MonitorStatus `json:"nodeMonitor,omitempty"`
 
@@ -96,6 +99,10 @@ func (m *DaemonConfigurationStatus) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateMasqueradeProtocols(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateMultiHomingConfiguration(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -206,6 +213,25 @@ func (m *DaemonConfigurationStatus) validateMasqueradeProtocols(formats strfmt.R
 	return nil
 }
 
+func (m *DaemonConfigurationStatus) validateMultiHomingConfiguration(formats strfmt.Registry) error {
+	if swag.IsZero(m.MultiHomingConfiguration) { // not required
+		return nil
+	}
+
+	if m.MultiHomingConfiguration != nil {
+		if err := m.MultiHomingConfiguration.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("multi-homing-configuration")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("multi-homing-configuration")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (m *DaemonConfigurationStatus) validateNodeMonitor(formats strfmt.Registry) error {
 	if swag.IsZero(m.NodeMonitor) { // not required
 		return nil
@@ -265,6 +291,10 @@ func (m *DaemonConfigurationStatus) ContextValidate(ctx context.Context, formats
 	}
 
 	if err := m.contextValidateMasqueradeProtocols(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateMultiHomingConfiguration(ctx, formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -350,6 +380,22 @@ func (m *DaemonConfigurationStatus) contextValidateMasqueradeProtocols(ctx conte
 				return ve.ValidateName("masqueradeProtocols")
 			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("masqueradeProtocols")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *DaemonConfigurationStatus) contextValidateMultiHomingConfiguration(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.MultiHomingConfiguration != nil {
+		if err := m.MultiHomingConfiguration.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("multi-homing-configuration")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("multi-homing-configuration")
 			}
 			return err
 		}

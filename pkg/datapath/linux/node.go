@@ -405,6 +405,20 @@ func (n *linuxNodeHandler) updateNodeRoute(prefix *cidr.CIDR, addressFamilyEnabl
 		return err
 	}
 
+	// TODO(brb) multi-homing IPAM hack
+	if option.Config.EnableMultiHoming && isLocalNode && prefix.IP.To4() != nil {
+		for i := 1; i <= len(option.Config.MultiHomingNetworks); i++ {
+			rt := nodeRoute.DeepCopy()
+			rt.Prefix.IP.To4()[1] += byte(i)
+			(*rt.Nexthop).To4()[1] += byte(i)
+			rt.Local.To4()[1] += byte(i)
+			if err := route.Upsert(*rt); err != nil {
+				log.WithError(err).WithFields(nodeRoute.LogFields()).Warning("Unable to update multi-homing route")
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 

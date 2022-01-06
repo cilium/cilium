@@ -173,6 +173,10 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 	// Manually add fields that are behind accessors.
 	m["Devices"] = option.Config.GetDevices()
 
+	if option.Config.IPv4NativeRoutingCIDR != nil {
+		m["IPv4NativeRoutingCIDR"] = option.Config.IPv4NativeRoutingCIDR.String()
+	}
+
 	spec := &models.DaemonConfigurationSpec{
 		Options:           *option.Config.Opts.GetMutableModel(),
 		PolicyEnforcement: policy.GetPolicyEnabled(),
@@ -201,6 +205,10 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 		EgressMultiHomeIPRuleCompat: option.Config.EgressMultiHomeIPRuleCompat,
 		GROMaxSize:                  int64(d.bigTCPConfig.GetGROMaxSize()),
 		GSOMaxSize:                  int64(d.bigTCPConfig.GetGSOMaxSize()),
+		MultiHomingConfiguration: &models.MultiHomingConfiguration{
+			Enabled:  option.Config.EnableMultiHoming,
+			Networks: option.Config.MultiHomingNetworks,
+		},
 	}
 
 	cfg := &models.DaemonConfiguration{

@@ -72,3 +72,31 @@ func (r *Route) ToIPCommand(dev string) []string {
 	res = append(res, "dev", dev)
 	return res
 }
+
+func (r *Route) DeepCopy() *Route {
+	prefix := net.IPNet{
+		IP:   make(net.IP, len(r.Prefix.IP)),
+		Mask: make(net.IPMask, len(r.Prefix.Mask)),
+	}
+	copy(prefix.IP, r.Prefix.IP)
+	copy(prefix.Mask, r.Prefix.Mask)
+
+	nextHop := make(net.IP, len(*r.Nexthop))
+	copy(nextHop, *r.Nexthop)
+
+	local := make(net.IP, len(r.Local))
+	copy(local, r.Local)
+
+	return &Route{
+		Prefix:   prefix,
+		Nexthop:  &nextHop,
+		Local:    local,
+		Device:   r.Device,
+		MTU:      r.MTU,
+		Priority: r.Priority,
+		Proto:    r.Proto,
+		Scope:    r.Scope,
+		Table:    r.Table,
+		Type:     r.Type,
+	}
+}
