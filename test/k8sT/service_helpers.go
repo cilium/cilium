@@ -17,12 +17,12 @@ import (
 	"text/template"
 	"time"
 
-	. "github.com/cilium/cilium/test/ginkgo-ext"
-	"github.com/cilium/cilium/test/helpers"
-
 	"github.com/asaskevich/govalidator"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
+
+	. "github.com/cilium/cilium/test/ginkgo-ext"
+	"github.com/cilium/cilium/test/helpers"
 )
 
 func getHTTPLink(host string, port int32) string {

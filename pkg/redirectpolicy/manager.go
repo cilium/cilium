@@ -19,6 +19,9 @@ import (
 	"net"
 	"sync"
 
+	"github.com/sirupsen/logrus"
+	"k8s.io/client-go/tools/cache"
+
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/k8s"
 	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -31,9 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/u8proto"
-
-	"github.com/sirupsen/logrus"
-	"k8s.io/client-go/tools/cache"
 )
 
 var (

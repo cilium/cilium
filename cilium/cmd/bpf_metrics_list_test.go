@@ -11,12 +11,12 @@ import (
 	"sort"
 	"strings"
 
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
-
-	. "gopkg.in/check.v1"
 )
 
 type BPFMetricsMapSuite struct{}

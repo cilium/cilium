@@ -14,12 +14,12 @@ import (
 	"os"
 	"os/signal"
 
+	flag "github.com/spf13/pflag"
+	"golang.org/x/sys/unix"
+
 	healthDefaults "github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/health/probe/responder"
 	"github.com/cilium/cilium/pkg/pidfile"
-
-	flag "github.com/spf13/pflag"
-	"golang.org/x/sys/unix"
 )
 
 func main() {

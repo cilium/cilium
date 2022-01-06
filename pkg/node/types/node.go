@@ -8,6 +8,8 @@ import (
 	"net"
 	"path"
 
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -18,8 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
-
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Identity represents the node identity of a node.

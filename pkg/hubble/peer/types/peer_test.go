@@ -10,10 +10,10 @@ import (
 	"net"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	peerpb "github.com/cilium/cilium/api/v1/peer"
 	"github.com/cilium/cilium/pkg/hubble/defaults"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestFromChangeNotification(t *testing.T) {

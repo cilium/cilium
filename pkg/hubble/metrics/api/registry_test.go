@@ -11,11 +11,11 @@ import (
 	"io"
 	"testing"
 
-	pb "github.com/cilium/cilium/api/v1/flow"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+
+	pb "github.com/cilium/cilium/api/v1/flow"
 )
 
 type testPlugin struct{}

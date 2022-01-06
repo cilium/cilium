@@ -15,6 +15,9 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -26,9 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/tuple"
 	"github.com/cilium/cilium/pkg/u8proto"
-
-	"github.com/sirupsen/logrus"
-	"golang.org/x/sys/unix"
 )
 
 var (

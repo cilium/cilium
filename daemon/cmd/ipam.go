@@ -9,6 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-openapi/runtime/middleware"
+	"github.com/go-openapi/swag"
+
 	"github.com/cilium/cilium/api/v1/models"
 	ipamapi "github.com/cilium/cilium/api/v1/server/restapi/ipam"
 	"github.com/cilium/cilium/pkg/api"
@@ -22,9 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
-
-	"github.com/go-openapi/runtime/middleware"
-	"github.com/go-openapi/swag"
 )
 
 type postIPAM struct {

@@ -16,6 +16,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/groupcache/lru"
+	"github.com/miekg/dns"
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/completion"
@@ -35,10 +39,6 @@ import (
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/source"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
-
-	"github.com/golang/groupcache/lru"
-	"github.com/miekg/dns"
-	. "gopkg.in/check.v1"
 )
 
 // Hook up gocheck into the "go test" runner.

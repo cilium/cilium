@@ -8,10 +8,10 @@ import (
 	"os"
 	"text/tabwriter"
 
+	"github.com/spf13/cobra"
+
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/mountinfo"
-
-	"github.com/spf13/cobra"
 )
 
 // bpfmountfsShowCmd represents the bpf file system show command

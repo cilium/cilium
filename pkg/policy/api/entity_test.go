@@ -9,10 +9,10 @@ package api
 import (
 	"fmt"
 
+	. "gopkg.in/check.v1"
+
 	k8sapi "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
-
-	. "gopkg.in/check.v1"
 )
 
 // matches returns true if the entity matches the labels

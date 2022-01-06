@@ -8,16 +8,16 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/cilium/cilium/api/v1/models"
-	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
-	"github.com/cilium/cilium/pkg/logging/logfields"
-	chainingapi "github.com/cilium/cilium/plugins/cilium-cni/chaining/api"
-
 	cniTypesVer "github.com/containernetworking/cni/pkg/types/040"
 	cniVersion "github.com/containernetworking/cni/pkg/version"
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
+
+	"github.com/cilium/cilium/api/v1/models"
+	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	chainingapi "github.com/cilium/cilium/plugins/cilium-cni/chaining/api"
 )
 
 type GenericVethChainer struct{}

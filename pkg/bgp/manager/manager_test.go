@@ -12,15 +12,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cilium/cilium/pkg/bgp/mock"
-	"github.com/cilium/cilium/pkg/lock"
-
 	"github.com/google/go-cmp/cmp"
 	metallbk8s "go.universe.tf/metallb/pkg/k8s"
 	mlbk8s "go.universe.tf/metallb/pkg/k8s"
 	"go.universe.tf/metallb/pkg/k8s/types"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/util/workqueue"
+
+	"github.com/cilium/cilium/pkg/bgp/mock"
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 const (

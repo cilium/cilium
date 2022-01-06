@@ -9,12 +9,12 @@ import (
 	"fmt"
 	"time"
 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+
 	"github.com/cilium/cilium/pkg/crypto/certloader"
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
 	hubbleopts "github.com/cilium/cilium/pkg/hubble/server/serveroption"
-
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 )
 
 // GRPCClientConnBuilder is a generic ClientConnBuilder implementation.

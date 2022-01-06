@@ -10,10 +10,10 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/cilium/cilium/pkg/logging/logfields"
-
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
+
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (

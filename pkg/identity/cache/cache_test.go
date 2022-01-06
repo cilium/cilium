@@ -10,11 +10,11 @@ import (
 	"context"
 	"testing"
 
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	fakeConfig "github.com/cilium/cilium/pkg/option/fake"
-
-	. "gopkg.in/check.v1"
 )
 
 var (

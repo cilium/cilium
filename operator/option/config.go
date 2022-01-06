@@ -6,10 +6,10 @@ package option
 import (
 	"time"
 
+	"github.com/spf13/viper"
+
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-
-	"github.com/spf13/viper"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "option")

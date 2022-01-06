@@ -9,6 +9,9 @@ import (
 	"path"
 	"time"
 
+	strfmt "github.com/go-openapi/strfmt"
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/controller"
@@ -18,9 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
-
-	strfmt "github.com/go-openapi/strfmt"
-	"github.com/sirupsen/logrus"
 )
 
 // remoteCluster represents another cluster other than the cluster the agent is

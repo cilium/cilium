@@ -4,12 +4,12 @@
 package clustermesh
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
-
-	"github.com/sirupsen/logrus"
 )
 
 // ServiceMerger is the interface to be implemented by the owner of local

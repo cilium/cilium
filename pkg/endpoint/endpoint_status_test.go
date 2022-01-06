@@ -12,6 +12,8 @@ import (
 	"reflect"
 	"time"
 
+	"gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/controller"
@@ -21,8 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
-
-	"gopkg.in/check.v1"
 )
 
 var (

@@ -14,6 +14,15 @@ import (
 	"strings"
 	"time"
 
+	apiTypes "github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/events"
+	dockerCliAPI "github.com/docker/docker/client"
+	"github.com/docker/libnetwork/drivers/remote/api"
+	lnTypes "github.com/docker/libnetwork/types"
+	"github.com/gorilla/mux"
+	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/datapath/connector"
@@ -25,15 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-
-	apiTypes "github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/events"
-	dockerCliAPI "github.com/docker/docker/client"
-	"github.com/docker/libnetwork/drivers/remote/api"
-	lnTypes "github.com/docker/libnetwork/types"
-	"github.com/gorilla/mux"
-	"github.com/sirupsen/logrus"
-	"github.com/vishvananda/netlink"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "cilium-docker-driver")

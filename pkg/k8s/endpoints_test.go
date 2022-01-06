@@ -10,6 +10,8 @@ import (
 	"reflect"
 	"testing"
 
+	"gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/checker"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
@@ -18,8 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
-
-	"gopkg.in/check.v1"
 )
 
 func TestEndpoints_DeepEqual(t *testing.T) {

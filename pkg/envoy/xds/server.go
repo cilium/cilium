@@ -14,13 +14,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/cilium/cilium/pkg/logging/logfields"
-
 	envoy_service_discovery "github.com/cilium/proxy/go/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
+
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (

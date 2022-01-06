@@ -15,6 +15,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vishvananda/netlink"
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
@@ -25,9 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
-
-	"github.com/vishvananda/netlink"
-	. "gopkg.in/check.v1"
 )
 
 // Hook up gocheck into the "go test" runner.

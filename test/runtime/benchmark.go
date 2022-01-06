@@ -11,13 +11,13 @@ import (
 	"strings"
 	"time"
 
+	. "github.com/onsi/gomega"
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/logging"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 	"github.com/cilium/cilium/test/helpers/constants"
-
-	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 )
 
 func superNetperfRRIPv4(s *helpers.SSHMeta, client string, server string, num int) *helpers.CmdRes {

@@ -28,11 +28,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/cilium/cilium/pkg/lock"
-	ciliumTestConfig "github.com/cilium/cilium/test/config"
-
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/config"
+
+	"github.com/cilium/cilium/pkg/lock"
+	ciliumTestConfig "github.com/cilium/cilium/test/config"
 )
 
 type scope struct {

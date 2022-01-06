@@ -11,12 +11,12 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-
-	"github.com/sirupsen/logrus"
 )
 
 // cacheEntry objects hold data passed in via DNSCache.Update, nominally

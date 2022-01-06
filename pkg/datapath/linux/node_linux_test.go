@@ -16,6 +16,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/containernetworking/plugins/pkg/ns"
+	"github.com/vishvananda/netlink"
+	"gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath"
@@ -29,10 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/testutils"
-
-	"github.com/containernetworking/plugins/pkg/ns"
-	"github.com/vishvananda/netlink"
-	"gopkg.in/check.v1"
 )
 
 func Test(t *testing.T) {

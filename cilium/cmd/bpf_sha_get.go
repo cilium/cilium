@@ -11,10 +11,10 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
-
-	"github.com/spf13/cobra"
 )
 
 var bpfShaGetCmd = &cobra.Command{

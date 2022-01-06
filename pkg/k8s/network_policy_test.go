@@ -11,6 +11,9 @@ import (
 	"fmt"
 	"testing"
 
+	. "gopkg.in/check.v1"
+	"k8s.io/apimachinery/pkg/types"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/checker"
@@ -24,9 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
-
-	. "gopkg.in/check.v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 // Hook up gocheck into the "go test" runner.

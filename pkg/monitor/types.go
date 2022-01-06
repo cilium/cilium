@@ -6,9 +6,9 @@ package monitor
 import (
 	"sort"
 
-	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
-
 	"github.com/spf13/pflag"
+
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
 var _ pflag.Value = &monitorAPI.MessageTypeFilter{}

@@ -10,12 +10,12 @@ import (
 	"sync"
 	"unsafe"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/types"
-
-	"golang.org/x/sys/unix"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-ipcache")

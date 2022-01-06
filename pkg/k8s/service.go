@@ -10,6 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
+
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/comparator"
@@ -21,9 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
-
-	"github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
 )
 
 const annotationTopologyAwareHints = "service.kubernetes.io/topology-aware-hints"

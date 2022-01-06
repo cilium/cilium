@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cilium/cilium/pkg/metrics"
-
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+
+	"github.com/cilium/cilium/pkg/metrics"
 )
 
 const (

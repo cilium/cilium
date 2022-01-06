@@ -13,6 +13,9 @@ import (
 	"sync"
 	"time"
 
+	. "gopkg.in/check.v1"
+	k8sCache "k8s.io/client-go/tools/cache"
+
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/counter"
@@ -27,9 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
-
-	. "gopkg.in/check.v1"
-	k8sCache "k8s.io/client-go/tools/cache"
 )
 
 type DaemonFQDNSuite struct {

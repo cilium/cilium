@@ -7,13 +7,13 @@ import (
 	"context"
 	"unsafe"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
-
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 // IterateCallback represents the signature of the callback function expected by

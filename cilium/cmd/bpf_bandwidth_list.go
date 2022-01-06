@@ -11,13 +11,12 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
-
-	"github.com/spf13/cobra"
-
-	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 var bpfBandwidthListCmd = &cobra.Command{

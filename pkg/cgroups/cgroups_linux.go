@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cilium/cilium/pkg/mountinfo"
-
 	"golang.org/x/sys/unix"
+
+	"github.com/cilium/cilium/pkg/mountinfo"
 )
 
 // mountCgroup mounts the Cgroup v2 filesystem into the desired cgroupRoot directory.

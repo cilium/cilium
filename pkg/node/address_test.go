@@ -14,10 +14,10 @@ import (
 	"reflect"
 	"testing"
 
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
-
-	. "gopkg.in/check.v1"
 )
 
 // Hook up gocheck into the "go test" runner.

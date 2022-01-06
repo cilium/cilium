@@ -6,13 +6,13 @@ package endpoint
 import (
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/cilium/cilium/api/v1/models"
 	loaderMetrics "github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/spanstat"
-
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 var endpointPolicyStatus endpointPolicyStatusMap

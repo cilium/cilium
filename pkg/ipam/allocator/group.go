@@ -7,12 +7,12 @@ import (
 	"errors"
 	"net"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-
-	"github.com/sirupsen/logrus"
 )
 
 var (

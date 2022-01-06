@@ -10,6 +10,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-openapi/strfmt"
+	"github.com/sirupsen/logrus"
+	k8scache "k8s.io/client-go/tools/cache"
+
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/models"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
@@ -38,10 +42,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-
-	"github.com/go-openapi/strfmt"
-	"github.com/sirupsen/logrus"
-	k8scache "k8s.io/client-go/tools/cache"
 )
 
 func (d *Daemon) getHubbleStatus(ctx context.Context) *models.HubbleStatus {

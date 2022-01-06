@@ -6,6 +6,8 @@ package main
 import (
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/allocator"
@@ -14,8 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	kvstoreallocator "github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-
-	"github.com/sirupsen/logrus"
 )
 
 func startKvstoreIdentityGC() {

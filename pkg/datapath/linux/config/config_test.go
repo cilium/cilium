@@ -14,6 +14,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/vishvananda/netlink"
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/loader"
@@ -21,10 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
-
-	"github.com/vishvananda/netlink"
-
-	. "gopkg.in/check.v1"
 )
 
 type ConfigSuite struct{}

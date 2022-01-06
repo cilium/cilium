@@ -13,7 +13,6 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 )
 

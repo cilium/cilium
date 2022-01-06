@@ -6,9 +6,9 @@ package main
 import (
 	"fmt"
 
-	"github.com/cilium/cilium/pkg/version"
-
 	"github.com/spf13/cobra"
+
+	"github.com/cilium/cilium/pkg/version"
 )
 
 var versionCmd = &cobra.Command{

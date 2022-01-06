@@ -14,6 +14,12 @@ import (
 	"net"
 	"testing"
 
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -31,12 +37,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/source"
-
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 var log *logrus.Logger

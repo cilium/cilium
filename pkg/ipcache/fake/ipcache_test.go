@@ -11,11 +11,11 @@ import (
 	"testing"
 	"time"
 
+	"gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/source"
-
-	"gopkg.in/check.v1"
 )
 
 func Test(t *testing.T) {

@@ -7,6 +7,9 @@ import (
 	"context"
 	"net"
 
+	"github.com/go-openapi/runtime/middleware"
+	k8sCache "k8s.io/client-go/tools/cache"
+
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/allocator"
@@ -19,9 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-
-	"github.com/go-openapi/runtime/middleware"
-	k8sCache "k8s.io/client-go/tools/cache"
 )
 
 type getIdentity struct {

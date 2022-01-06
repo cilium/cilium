@@ -7,9 +7,9 @@ import (
 	"net"
 	"unsafe"
 
-	"github.com/cilium/cilium/pkg/bpf"
-
 	"github.com/sirupsen/logrus"
+
+	"github.com/cilium/cilium/pkg/bpf"
 )
 
 const (

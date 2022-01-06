@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/cilium/ipam/service/ipallocator"
+
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/ipam/types"
-
-	"github.com/cilium/ipam/service/ipallocator"
 )
 
 // PoolAllocator is an IP allocator allocating out of a particular CIDR pool

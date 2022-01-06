@@ -11,11 +11,11 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+
 	ec2shim "github.com/cilium/cilium/pkg/aws/ec2"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/lock"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
 )
 
 var limitsOnce sync.Once

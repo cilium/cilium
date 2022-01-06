@@ -6,9 +6,9 @@ package synced
 import (
 	"time"
 
-	"github.com/cilium/cilium/pkg/lock"
-
 	"k8s.io/client-go/tools/cache"
+
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 // Resources maps resource names to channels that are closed upon initial

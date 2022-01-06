@@ -10,14 +10,14 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-
-	"github.com/spf13/cobra"
 )
 
 // bpfCtListCmd represents the bpf_ct_list command

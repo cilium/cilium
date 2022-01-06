@@ -8,12 +8,11 @@ import (
 	"reflect"
 	"regexp"
 
-	"github.com/cilium/cilium/pkg/comparator"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-
 	"gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/pkg/comparator"
 )
 
 type diffChecker struct {

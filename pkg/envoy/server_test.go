@@ -7,6 +7,12 @@
 package envoy
 
 import (
+	cilium "github.com/cilium/proxy/go/cilium/api"
+	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
+	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
+	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -18,13 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/logger/test"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	"github.com/cilium/cilium/pkg/u8proto"
-
-	cilium "github.com/cilium/proxy/go/cilium/api"
-	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
-	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
-	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
-
-	. "gopkg.in/check.v1"
 )
 
 type ServerSuite struct{}

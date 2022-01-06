@@ -12,13 +12,13 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
+
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/plugins/cilium-docker/driver"
-
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
 )
 
 var (

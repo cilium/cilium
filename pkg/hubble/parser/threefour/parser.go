@@ -11,6 +11,11 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
+	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/wrapperspb"
+
 	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath/link"
@@ -21,11 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
-
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
-	"github.com/sirupsen/logrus"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // Parser is a parser for L3/L4 payloads

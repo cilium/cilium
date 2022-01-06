@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cilium/cilium/pkg/option"
-
 	"github.com/sirupsen/logrus"
+
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // Log logs messages from the MetalLB code. The messages are noisy and

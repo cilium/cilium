@@ -7,9 +7,9 @@
 package allocator
 
 import (
-	"github.com/cilium/cilium/pkg/idpool"
-
 	. "gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/pkg/idpool"
 )
 
 func (s *AllocatorSuite) TestLocalKeys(c *C) {

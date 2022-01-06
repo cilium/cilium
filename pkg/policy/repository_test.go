@@ -12,6 +12,8 @@ import (
 	stdlog "log"
 	"testing"
 
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
@@ -21,8 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/api/kafka"
-
-	. "gopkg.in/check.v1"
 )
 
 func (ds *PolicyTestSuite) TestComputePolicyEnforcementAndRules(c *C) {

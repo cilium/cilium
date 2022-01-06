@@ -11,9 +11,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cilium/cilium/pkg/checker"
-
 	. "gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/pkg/checker"
 )
 
 // BaseTests is the struct that needs to be embedded into all test suite

@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"net"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -26,8 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/policy/api"
-
-	"k8s.io/apimachinery/pkg/types"
 )
 
 type lrpConfigType = int

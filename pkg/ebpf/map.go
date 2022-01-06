@@ -9,11 +9,11 @@ import (
 	"os"
 	"path/filepath"
 
+	ciliumebpf "github.com/cilium/ebpf"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/lock"
-
-	ciliumebpf "github.com/cilium/ebpf"
 )
 
 type MapSpec = ciliumebpf.MapSpec

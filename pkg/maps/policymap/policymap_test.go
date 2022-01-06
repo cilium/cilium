@@ -7,11 +7,11 @@
 package policymap
 
 import (
-	"github.com/cilium/cilium/pkg/policy/trafficdirection"
-
 	"testing"
 
 	. "gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
 
 func Test(t *testing.T) {

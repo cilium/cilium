@@ -10,10 +10,10 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestFQDNFilter(t *testing.T) {

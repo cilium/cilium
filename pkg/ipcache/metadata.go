@@ -11,6 +11,8 @@ import (
 	"net"
 	"sync"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -20,8 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
-
-	"github.com/sirupsen/logrus"
 )
 
 var (

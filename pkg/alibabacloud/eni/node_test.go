@@ -11,6 +11,9 @@ import (
 	"fmt"
 	"time"
 
+	"gopkg.in/check.v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/cilium/cilium/pkg/alibabacloud/api/mock"
 	"github.com/cilium/cilium/pkg/alibabacloud/eni/limits"
 	eniTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
@@ -20,9 +23,6 @@ import (
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/testutils"
-
-	"gopkg.in/check.v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (

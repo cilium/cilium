@@ -13,6 +13,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/blang/semver/v4"
+	"github.com/mattn/go-shellwords"
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/datapath"
@@ -28,10 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/versioncheck"
-
-	"github.com/blang/semver/v4"
-	"github.com/mattn/go-shellwords"
-	"github.com/sirupsen/logrus"
 )
 
 const (

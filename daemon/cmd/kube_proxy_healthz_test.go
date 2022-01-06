@@ -12,9 +12,9 @@ import (
 	"net/http/httptest"
 	"time"
 
-	"github.com/cilium/cilium/api/v1/models"
-
 	. "gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/api/v1/models"
 )
 
 // 'check' testing suite scaffolding.

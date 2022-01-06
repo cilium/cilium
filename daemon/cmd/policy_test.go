@@ -14,6 +14,15 @@ import (
 	"sync"
 	"time"
 
+	cilium "github.com/cilium/proxy/go/cilium/api"
+	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
+	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
+	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
+	. "gopkg.in/check.v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sTypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/cache"
+
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -32,15 +41,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/testutils"
-
-	cilium "github.com/cilium/proxy/go/cilium/api"
-	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
-	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
-	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
-	. "gopkg.in/check.v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sTypes "k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/cache"
 )
 
 var (

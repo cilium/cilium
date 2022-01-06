@@ -11,9 +11,9 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/cilium/cilium/pkg/byteorder"
-
 	. "gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/pkg/byteorder"
 )
 
 func (s *BPFTestSuite) TestExtractCommonName(c *C) {

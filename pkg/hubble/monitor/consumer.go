@@ -6,12 +6,12 @@ package monitor
 import (
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
 	"github.com/cilium/cilium/pkg/lock"
 	monitorConsumer "github.com/cilium/cilium/pkg/monitor/agent/consumer"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
-
-	"github.com/sirupsen/logrus"
 )
 
 // Observer is the receiver of MonitorEvents

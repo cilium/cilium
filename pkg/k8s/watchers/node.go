@@ -7,13 +7,6 @@ import (
 	"context"
 	"sync"
 
-	"github.com/cilium/cilium/pkg/comparator"
-	"github.com/cilium/cilium/pkg/k8s"
-	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
-	"github.com/cilium/cilium/pkg/k8s/informer"
-	"github.com/cilium/cilium/pkg/lock"
-	nodeTypes "github.com/cilium/cilium/pkg/node/types"
-
 	v1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,6 +14,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
+
+	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/k8s"
+	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/lock"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
 
 var (

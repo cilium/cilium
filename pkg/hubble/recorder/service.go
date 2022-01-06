@@ -14,6 +14,9 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	recorderpb "github.com/cilium/cilium/api/v1/recorder"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/hubble/recorder/pcap"
@@ -25,9 +28,6 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/recorder"
 	"github.com/cilium/cilium/pkg/u8proto"
-
-	"github.com/sirupsen/logrus"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-recorder")

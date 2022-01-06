@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/docker/libnetwork/ipams/remote/api"
+
 	"github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-
-	"github.com/docker/libnetwork/ipams/remote/api"
 )
 
 const (

@@ -6,11 +6,11 @@ package allocator
 import (
 	"fmt"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
-
-	"github.com/sirupsen/logrus"
 )
 
 type localKey struct {

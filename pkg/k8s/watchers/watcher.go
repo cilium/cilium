@@ -14,6 +14,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/tools/cache"
+	k8s_metrics "k8s.io/client-go/tools/metrics"
+
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
@@ -42,12 +48,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
-
-	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/tools/cache"
-	k8s_metrics "k8s.io/client-go/tools/metrics"
 )
 
 const (

@@ -12,6 +12,8 @@ import (
 	"runtime"
 	"time"
 
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/api/v1/models"
 	apiEndpoint "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/pkg/checker"
@@ -20,8 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/testutils"
-
-	. "gopkg.in/check.v1"
 )
 
 func getEPTemplate(c *C, d *Daemon) *models.EndpointChangeRequest {

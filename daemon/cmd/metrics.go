@@ -7,14 +7,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-openapi/runtime/middleware"
+	"github.com/prometheus/client_golang/prometheus"
+
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/metrics"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/spanstat"
-
-	"github.com/go-openapi/runtime/middleware"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 type getMetrics struct {

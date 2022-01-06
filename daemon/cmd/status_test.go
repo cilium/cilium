@@ -9,6 +9,9 @@ package cmd
 import (
 	"time"
 
+	"github.com/go-openapi/runtime/middleware"
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/checker"
@@ -20,9 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	fakeConfig "github.com/cilium/cilium/pkg/option/fake"
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
-
-	"github.com/go-openapi/runtime/middleware"
-	. "gopkg.in/check.v1"
 )
 
 type GetNodesSuite struct {

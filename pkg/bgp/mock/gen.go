@@ -6,6 +6,11 @@ package mock
 import (
 	"fmt"
 
+	metallbbgp "go.universe.tf/metallb/pkg/bgp"
+	metallbspr "go.universe.tf/metallb/pkg/speaker"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -13,11 +18,6 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
-
-	metallbbgp "go.universe.tf/metallb/pkg/bgp"
-	metallbspr "go.universe.tf/metallb/pkg/speaker"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // GenTestNodeAndAdvertisements generates a v1.Node with its

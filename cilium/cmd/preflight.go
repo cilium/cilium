@@ -10,12 +10,12 @@ import (
 	"os"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/option"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
-
-	"github.com/spf13/cobra"
 )
 
 const (

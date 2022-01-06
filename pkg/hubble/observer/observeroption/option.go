@@ -6,6 +6,8 @@ package observeroption
 import (
 	"context"
 
+	"github.com/sirupsen/logrus"
+
 	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/observer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
@@ -13,8 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/filters"
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
-
-	"github.com/sirupsen/logrus"
 )
 
 // CiliumDaemon is a reference to the Cilium's Daemon when running inside Cilium

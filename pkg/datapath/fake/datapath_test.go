@@ -9,10 +9,10 @@ package fake
 import (
 	"testing"
 
+	"gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/datapath"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
-
-	"gopkg.in/check.v1"
 )
 
 func Test(t *testing.T) {

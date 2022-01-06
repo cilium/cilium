@@ -11,10 +11,10 @@ import (
 	"fmt"
 	"time"
 
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/endpoint"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
-
-	. "gopkg.in/check.v1"
 )
 
 // fakeCheck detects endpoints as unhealthy if they have an even EndpointID.

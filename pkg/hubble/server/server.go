@@ -9,16 +9,16 @@ import (
 	"fmt"
 	"net"
 
-	observerpb "github.com/cilium/cilium/api/v1/observer"
-	peerpb "github.com/cilium/cilium/api/v1/peer"
-	recorderpb "github.com/cilium/cilium/api/v1/recorder"
-	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
-
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
+
+	observerpb "github.com/cilium/cilium/api/v1/observer"
+	peerpb "github.com/cilium/cilium/api/v1/peer"
+	recorderpb "github.com/cilium/cilium/api/v1/recorder"
+	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
 )
 
 var (

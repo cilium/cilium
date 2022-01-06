@@ -9,6 +9,9 @@ import (
 	"net"
 	"path"
 
+	"github.com/sirupsen/logrus"
+	"k8s.io/client-go/tools/cache"
+
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/idpool"
@@ -21,9 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
-
-	"github.com/sirupsen/logrus"
-	"k8s.io/client-go/tools/cache"
 )
 
 var (

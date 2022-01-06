@@ -10,11 +10,11 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/checker"
-
 	. "gopkg.in/check.v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
+
+	"github.com/cilium/cilium/pkg/checker"
 )
 
 func Test(t *testing.T) {

@@ -11,11 +11,11 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/cilium/cilium/test/config"
-	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
-
 	"github.com/onsi/ginkgo"
 	"github.com/sirupsen/logrus"
+
+	"github.com/cilium/cilium/test/config"
+	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 )
 
 // CreateVM creates a new vagrant server.Receives a scope which indicates the

@@ -9,12 +9,12 @@ import (
 	"net"
 	"strconv"
 
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
+
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
 )
 
 type DisplayFormat bool

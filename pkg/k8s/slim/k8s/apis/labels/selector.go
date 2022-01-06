@@ -10,13 +10,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/selection"
-
 	"github.com/google/go-cmp/cmp"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/klog/v2"
+
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/selection"
 )
 
 var (

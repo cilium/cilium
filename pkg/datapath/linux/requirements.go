@@ -11,16 +11,16 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/blang/semver/v4"
+	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
+
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
 	"github.com/cilium/cilium/pkg/versioncheck"
-
-	"github.com/blang/semver/v4"
-	"github.com/vishvananda/netlink"
-	"golang.org/x/sys/unix"
 )
 
 const (

@@ -9,6 +9,8 @@ package policy
 import (
 	"sync"
 
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -17,8 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
-
-	. "gopkg.in/check.v1"
 )
 
 func GenerateL3IngressDenyRules(numRules int) api.Rules {

@@ -14,13 +14,12 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/cilium/cilium/pkg/option"
-
+	"github.com/miekg/dns"
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
 	"golang.org/x/sys/unix"
 
-	"github.com/miekg/dns"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // This is the required size of the OOB buffer to pass to ReadMsgUDP.

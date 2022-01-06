@@ -9,11 +9,11 @@ package cache
 import (
 	"fmt"
 
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
-
-	. "gopkg.in/check.v1"
 )
 
 func (s *IdentityCacheTestSuite) TestBumpNextNumericIdentity(c *C) {

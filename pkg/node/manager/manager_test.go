@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/fake"
@@ -23,8 +25,6 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/source"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
-
-	"gopkg.in/check.v1"
 )
 
 func Test(t *testing.T) {

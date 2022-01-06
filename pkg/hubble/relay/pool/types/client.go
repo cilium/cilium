@@ -6,10 +6,10 @@ package types
 import (
 	"io"
 
-	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
-
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
+
+	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
 )
 
 // Peer is like hubblePeer.Peer but includes a Conn attribute to reach the

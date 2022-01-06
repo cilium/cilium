@@ -12,6 +12,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	"gopkg.in/check.v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/defaults"
 	metricsmock "github.com/cilium/cilium/pkg/ipam/metrics/mock"
@@ -20,10 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/math"
 	"github.com/cilium/cilium/pkg/testutils"
-
-	"github.com/sirupsen/logrus"
-	"gopkg.in/check.v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (

@@ -9,6 +9,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	k8sTypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/cache"
+
 	"github.com/cilium/cilium/pkg/inctimer"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/types"
@@ -16,10 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-
-	"github.com/sirupsen/logrus"
-	k8sTypes "k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/cache"
 )
 
 // CNPStatusEventHandler handles status updates events for all CNPs in the

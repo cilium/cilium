@@ -6,9 +6,8 @@ package subscriber
 import (
 	"fmt"
 
-	"github.com/cilium/cilium/pkg/lock"
-
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 var _ CiliumNode = (*CiliumNodeChain)(nil)

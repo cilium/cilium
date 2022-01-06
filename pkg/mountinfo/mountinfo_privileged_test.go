@@ -10,7 +10,6 @@ import (
 	"os"
 
 	"golang.org/x/sys/unix"
-
 	. "gopkg.in/check.v1"
 )
 

@@ -18,10 +18,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cilium/cilium/pkg/checker"
-
 	etcdAPI "go.etcd.io/etcd/client/v3"
 	. "gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/pkg/checker"
 )
 
 type EtcdSuite struct {

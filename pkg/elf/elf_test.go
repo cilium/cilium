@@ -17,7 +17,6 @@ import (
 	"testing"
 
 	"github.com/cilium/ebpf"
-
 	. "gopkg.in/check.v1"
 )
 

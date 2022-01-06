@@ -10,15 +10,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cilium/cilium/pkg/k8s"
-	k8sconstv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	k8sconstv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/k8s/synced"
-	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/versioncheck"
-
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -28,6 +19,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/yaml"
+
+	"github.com/cilium/cilium/pkg/k8s"
+	k8sconstv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	k8sconstv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/k8s/synced"
+	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 const (

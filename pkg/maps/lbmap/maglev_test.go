@@ -10,13 +10,13 @@ import (
 	"net"
 	"testing"
 
+	"golang.org/x/sys/unix"
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
 	"github.com/cilium/cilium/pkg/versioncheck"
-
-	"golang.org/x/sys/unix"
-	. "gopkg.in/check.v1"
 )
 
 func Test(t *testing.T) {

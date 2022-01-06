@@ -9,14 +9,14 @@ package cmd
 import (
 	"encoding/json"
 
+	. "gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 	"github.com/cilium/cilium/pkg/tuple"
 	"github.com/cilium/cilium/pkg/types"
-
-	. "gopkg.in/check.v1"
 )
 
 type BPFNatListSuite struct{}

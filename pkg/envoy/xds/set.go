@@ -6,9 +6,9 @@ package xds
 import (
 	"context"
 
-	"github.com/cilium/cilium/pkg/lock"
-
 	"github.com/golang/protobuf/proto"
+
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 // ResourceSource provides read access to a versioned set of resources.

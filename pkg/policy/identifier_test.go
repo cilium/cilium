@@ -9,9 +9,9 @@ package policy
 import (
 	"sync"
 
-	"github.com/cilium/cilium/pkg/identity"
-
 	. "gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/pkg/identity"
 )
 
 type DummyEndpoint struct {

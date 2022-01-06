@@ -4,10 +4,10 @@
 package policy
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
-
-	"github.com/sirupsen/logrus"
 )
 
 // selectorPolicy is a structure which contains the resolved policy for a

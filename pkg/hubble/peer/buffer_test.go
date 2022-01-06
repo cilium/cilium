@@ -12,9 +12,9 @@ import (
 	"io"
 	"testing"
 
-	peerpb "github.com/cilium/cilium/api/v1/peer"
-
 	"github.com/stretchr/testify/assert"
+
+	peerpb "github.com/cilium/cilium/api/v1/peer"
 )
 
 func TestBufferPush(t *testing.T) {

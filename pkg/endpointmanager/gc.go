@@ -6,10 +6,10 @@ package endpointmanager
 import (
 	"context"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-
-	"github.com/sirupsen/logrus"
 )
 
 // EndpointCheckerFunc can verify whether an endpoint is currently healthy.

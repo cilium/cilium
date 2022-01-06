@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cilium/cilium/pkg/lock"
-
 	. "gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 // Hook up gocheck into the "go test" runner.

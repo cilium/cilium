@@ -9,9 +9,9 @@ package allocator
 import (
 	"net"
 
-	"github.com/cilium/cilium/pkg/ipam/types"
-
 	"gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/pkg/ipam/types"
 )
 
 func (e *AllocatorSuite) TestNoOpAllocator(c *check.C) {

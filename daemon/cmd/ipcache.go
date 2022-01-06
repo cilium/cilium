@@ -6,12 +6,12 @@ package cmd
 import (
 	"net"
 
+	"github.com/go-openapi/runtime/middleware"
+
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/ipcache"
-
-	"github.com/go-openapi/runtime/middleware"
 )
 
 type getIP struct{}

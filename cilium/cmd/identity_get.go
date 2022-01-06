@@ -8,13 +8,13 @@ import (
 	"os"
 	"text/tabwriter"
 
+	"github.com/spf13/cobra"
+
 	identityApi "github.com/cilium/cilium/api/v1/client/policy"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/labels"
-
-	"github.com/spf13/cobra"
 )
 
 var (

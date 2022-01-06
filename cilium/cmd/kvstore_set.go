@@ -7,9 +7,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/cilium/cilium/pkg/kvstore"
-
 	"github.com/spf13/cobra"
+
+	"github.com/cilium/cilium/pkg/kvstore"
 )
 
 var (

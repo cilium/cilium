@@ -13,10 +13,10 @@ import (
 	"sync"
 	"time"
 
-	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
-
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
+
+	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 )
 
 var (

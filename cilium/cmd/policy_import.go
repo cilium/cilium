@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-
-	"github.com/spf13/cobra"
 )
 
 var printPolicy bool

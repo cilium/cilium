@@ -8,17 +8,17 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/google/gops/agent"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"golang.org/x/sys/unix"
+
 	"github.com/cilium/cilium/pkg/crypto/certloader"
 	"github.com/cilium/cilium/pkg/hubble/relay/defaults"
 	"github.com/cilium/cilium/pkg/hubble/relay/server"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/pprof"
-
-	"github.com/google/gops/agent"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	"golang.org/x/sys/unix"
 )
 
 const (

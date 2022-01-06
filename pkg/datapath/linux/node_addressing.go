@@ -6,13 +6,13 @@ package linux
 import (
 	"net"
 
+	"github.com/vishvananda/netlink"
+
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/node"
-
-	"github.com/vishvananda/netlink"
 )
 
 // FIXME: This currently maps to the code in pkg/node/node_address.go. That

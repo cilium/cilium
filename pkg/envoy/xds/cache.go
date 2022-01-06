@@ -7,10 +7,10 @@ import (
 	"context"
 	"sort"
 
-	"github.com/cilium/cilium/pkg/logging/logfields"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
+
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // Cache is a key-value container which allows atomically updating entries and

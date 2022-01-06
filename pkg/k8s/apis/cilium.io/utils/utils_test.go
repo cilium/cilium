@@ -10,14 +10,14 @@ import (
 	"fmt"
 	"testing"
 
+	. "gopkg.in/check.v1"
+	"k8s.io/apimachinery/pkg/types"
+
 	"github.com/cilium/cilium/pkg/checker"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
-
-	. "gopkg.in/check.v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 // Hook up gocheck into the "go test" runner.

@@ -6,10 +6,10 @@ package ipam
 import (
 	"net"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/lock"
-
-	"github.com/davecgh/go-spew/spew"
 )
 
 // AllocationResult is the result of an allocation

@@ -8,14 +8,12 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+
 	cilium_ec2 "github.com/cilium/cilium/pkg/aws/ec2"
 	"github.com/cilium/cilium/pkg/policy/api"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
-
-	"github.com/aws/aws-sdk-go-v2/service/ec2"
-
-	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 )
 
 var (

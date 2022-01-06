@@ -11,13 +11,13 @@ import (
 	"fmt"
 	"net"
 
+	. "gopkg.in/check.v1"
+	"k8s.io/apimachinery/pkg/types"
+
 	"github.com/cilium/cilium/pkg/checker"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/policy/api"
-
-	. "gopkg.in/check.v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 func getSamplePolicy(name, ns string) *cilium_v2.CiliumNetworkPolicy {

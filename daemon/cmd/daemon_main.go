@@ -14,6 +14,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-openapi/loads"
+	gops "github.com/google/gops/agent"
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"github.com/vishvananda/netlink"
+	"google.golang.org/grpc"
+
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/api/v1/server/restapi"
 	"github.com/cilium/cilium/pkg/aws/eni"
@@ -67,14 +75,6 @@ import (
 	"github.com/cilium/cilium/pkg/version"
 	wireguard "github.com/cilium/cilium/pkg/wireguard/agent"
 	wireguardTypes "github.com/cilium/cilium/pkg/wireguard/types"
-
-	"github.com/go-openapi/loads"
-	gops "github.com/google/gops/agent"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	"github.com/vishvananda/netlink"
-	"google.golang.org/grpc"
 )
 
 const (

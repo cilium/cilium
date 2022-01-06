@@ -7,9 +7,9 @@ import (
 	"path"
 	"time"
 
-	"github.com/cilium/cilium/pkg/kvstore"
-
 	"k8s.io/client-go/tools/cache"
+
+	"github.com/cilium/cilium/pkg/kvstore"
 )
 
 // CCNPStatusesPath is the KVStore key prefix for CCNP status

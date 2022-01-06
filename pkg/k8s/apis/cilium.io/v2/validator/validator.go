@@ -8,17 +8,17 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/client"
-	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/policy/api"
-
 	"github.com/sirupsen/logrus"
 	apiextensionsinternal "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/kube-openapi/pkg/validation/validate"
+
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/client"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/policy/api"
 )
 
 // NPValidator is a validator structure used to validate CNP and CCNP.
