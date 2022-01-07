@@ -140,7 +140,9 @@ contributors across the globe, there is almost always someone available to help.
 | enableXTSocketFallback | bool | `true` | Enables the fallback compatibility solution for when the xt_socket kernel module is missing and it is needed for the datapath L7 redirection to work properly. See documentation for details on when this can be disabled: http://docs.cilium.io/en/stable/install/system_requirements/#admin-kernel-version. |
 | encryption.enabled | bool | `false` | Enable transparent network encryption. |
 | encryption.interface | string | `""` | Deprecated in favor of encryption.ipsec.interface. The interface to use for encrypted traffic. This option is only effective when encryption.type is set to ipsec. |
+| encryption.ipsec.createSecret | bool | `false` | Whether to create the secret. |
 | encryption.ipsec.interface | string | `""` | The interface to use for encrypted traffic. |
+| encryption.ipsec.keyData | string | `""` | Secret key data to use when creating the secret. e.g., "3 rfc4106(gcm(aes)) c971f5e7a633b2e5ff248b53995784026fd48873 128". |
 | encryption.ipsec.keyFile | string | `""` | Name of the key file inside the Kubernetes secret configured via secretName. |
 | encryption.ipsec.mountPath | string | `""` | Path to mount the secret inside the Cilium pod. |
 | encryption.ipsec.secretName | string | `""` | Name of the Kubernetes secret containing the encryption keys. |
