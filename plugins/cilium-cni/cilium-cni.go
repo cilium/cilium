@@ -166,7 +166,7 @@ func addIPConfigToLink(ip addressing.CiliumIP, routes []route.Route, link netlin
 	return nil
 }
 
-func configureIface(ipam *models.IPAMResponse, ifName string, state *CmdState) (string, error) {
+func configureIface(ipv4, ipv6 bool, ifName string, state *CmdState) (string, error) {
 	l, err := netlink.LinkByName(ifName)
 	if err != nil {
 		return "", fmt.Errorf("failed to lookup %q: %v", ifName, err)
@@ -176,13 +176,13 @@ func configureIface(ipam *models.IPAMResponse, ifName string, state *CmdState) (
 		return "", fmt.Errorf("failed to set %q UP: %v", ifName, err)
 	}
 
-	if ipv4IsEnabled(ipam) {
+	if ipv4 {
 		if err := addIPConfigToLink(state.IP4, state.IP4routes, l, ifName); err != nil {
 			return "", fmt.Errorf("error configuring IPv4: %s", err.Error())
 		}
 	}
 
-	if ipv6IsEnabled(ipam) {
+	if ipv6 {
 		if err := addIPConfigToLink(state.IP6, state.IP6routes, l, ifName); err != nil {
 			return "", fmt.Errorf("error configuring IPv6: %s", err.Error())
 		}
@@ -476,12 +476,13 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	res := &cniTypesVer.Result{}
 
-	if !ipv6IsEnabled(ipam) && !ipv4IsEnabled(ipam) {
+	hasIPv4, hasIPv6 := ipv4IsEnabled(ipam), ipv6IsEnabled(ipam)
+	if !hasIPv4 && !hasIPv6 {
 		err = fmt.Errorf("IPAM did not provide IPv4 or IPv6 address")
 		return
 	}
 
-	if ipv6IsEnabled(ipam) {
+	if hasIPv6 {
 		ep.Addressing.IPV6 = ipam.Address.IPV6
 		ep.Addressing.IPV6ExpirationUUID = ipam.IPV6.ExpirationUUID
 
@@ -494,7 +495,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		res.Routes = append(res.Routes, routes...)
 	}
 
-	if ipv4IsEnabled(ipam) {
+	if hasIPv4 {
 		ep.Addressing.IPV4 = ipam.Address.IPV4
 		ep.Addressing.IPV4ExpirationUUID = ipam.IPV4.ExpirationUUID
 
@@ -518,12 +519,12 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	var macAddrStr string
 	if err = netNs.Do(func(_ ns.NetNS) error {
-		if ipv6IsEnabled(ipam) {
+		if hasIPv6 {
 			if err := sysctl.Disable("net.ipv6.conf.all.disable_ipv6"); err != nil {
 				logger.WithError(err).Warn("unable to enable ipv6 on all interfaces")
 			}
 		}
-		macAddrStr, err = configureIface(ipam, args.IfName, &state)
+		macAddrStr, err = configureIface(hasIPv4, hasIPv6, args.IfName, &state)
 		return err
 	}); err != nil {
 		err = fmt.Errorf("unable to configure interfaces in container namespace: %s", err)
