@@ -174,6 +174,6 @@ Limitations
     * Bandwidth enforcement currently does not work in combination with L7 Cilium Network Policies.
       In case they select the Pod at egress, then the bandwidth enforcement will be disabled for
       those Pods.
-    * Bandwidth enforcement doesn't work with nested network namespace environments like Kind. Because
+    * Bandwidth enforcement doesn't work with nested network namespace environments like Kind. This is because
       they typically don't have access to the global sysctl under ``/proc/sys/net/core`` and the
       bandwidth enforcement depends on them.
