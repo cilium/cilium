@@ -1059,10 +1059,13 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 					})
 
 					SkipItIf(func() bool {
-						// Quarantine when running with the third node as it's
-						// flaky. See #12511.
+						// Quarantine under all circumstances, as it's flaky,
+						// especially when running with the third node. See
+						// https://github.com/cilium/cilium/issues/12511 and
+						// https://github.com/cilium/cilium/issues/12690.
 						return helpers.GetCurrentIntegration() != "" ||
-							(helpers.SkipQuarantined() && helpers.ExistNodeWithoutCilium())
+							helpers.DoesNotExistNodeWithoutCilium() ||
+							helpers.SkipQuarantined()
 					}, "Tests with secondary NodePort device", func() {
 						DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 							"devices": fmt.Sprintf(`'{%s,%s}'`, ni.privateIface, helpers.SecondaryIface),
