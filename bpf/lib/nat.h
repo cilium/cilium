@@ -831,15 +831,17 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target)
 	case IPPROTO_ICMP:
 		if (ctx_load_bytes(ctx, off, &icmphdr, sizeof(icmphdr)) < 0)
 			return DROP_INVALID;
-		if (icmphdr.type != ICMP_ECHO &&
-		    icmphdr.type != ICMP_ECHOREPLY)
-			return DROP_NAT_UNSUPP_PROTO;
-		if (icmphdr.type == ICMP_ECHO) {
+		switch (icmphdr.type) {
+		case ICMP_ECHO:
 			tuple.dport = 0;
 			tuple.sport = icmphdr.un.echo.id;
-		} else {
+			break;
+		case ICMP_ECHOREPLY:
 			tuple.dport = icmphdr.un.echo.id;
 			tuple.sport = 0;
+			break;
+		default:
+			return DROP_NAT_UNSUPP_PROTO;
 		}
 		break;
 	default:
@@ -1375,7 +1377,7 @@ snat_v6_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target)
 			return DROP_INVALID;
 		/* Letting neighbor solicitation / advertisement pass through. */
 		if (icmp6hdr.icmp6_type == ICMP6_NS_MSG_TYPE ||
-			icmp6hdr.icmp6_type == ICMP6_NA_MSG_TYPE)
+		    icmp6hdr.icmp6_type == ICMP6_NA_MSG_TYPE)
 			return CTX_ACT_OK;
 		if (icmp6hdr.icmp6_type != ICMPV6_ECHO_REQUEST &&
 		    icmp6hdr.icmp6_type != ICMPV6_ECHO_REPLY)
@@ -1445,19 +1447,21 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target)
 	case IPPROTO_ICMPV6:
 		if (ctx_load_bytes(ctx, off, &icmp6hdr, sizeof(icmp6hdr)) < 0)
 			return DROP_INVALID;
-		/* Letting neighbor solicitation / advertisement pass through. */
-		if (icmp6hdr.icmp6_type == ICMP6_NS_MSG_TYPE ||
-		    icmp6hdr.icmp6_type == ICMP6_NA_MSG_TYPE)
+		switch (icmp6hdr.icmp6_type) {
+			/* Letting neighbor solicitation / advertisement pass through. */
+		case ICMP6_NS_MSG_TYPE:
+		case ICMP6_NA_MSG_TYPE:
 			return CTX_ACT_OK;
-		if (icmp6hdr.icmp6_type != ICMPV6_ECHO_REQUEST &&
-		    icmp6hdr.icmp6_type != ICMPV6_ECHO_REPLY)
-			return DROP_NAT_UNSUPP_PROTO;
-		if (icmp6hdr.icmp6_type == ICMPV6_ECHO_REQUEST) {
+		case ICMPV6_ECHO_REQUEST:
 			tuple.dport = 0;
 			tuple.sport = icmp6hdr.icmp6_dataun.u_echo.identifier;
-		} else {
+			break;
+		case ICMPV6_ECHO_REPLY:
 			tuple.dport = icmp6hdr.icmp6_dataun.u_echo.identifier;
 			tuple.sport = 0;
+			break;
+		default:
+			return DROP_NAT_UNSUPP_PROTO;
 		}
 		break;
 	default:
