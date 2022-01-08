@@ -31,6 +31,7 @@ func (e *ENILimitsSuite) TestGet(c *check.C) {
 	c.Assert(ok, check.Equals, true)
 	c.Assert(l.Adapters, check.Not(check.Equals), 0)
 	c.Assert(l.IPv4, check.Not(check.Equals), 0)
+	c.Assert(l.HypervisorType, check.Equals, "xen")
 
 	UpdateFromUserDefinedMappings(option.Config.AWSInstanceLimitMapping)
 	l, ok = Get("a2.custom2")
