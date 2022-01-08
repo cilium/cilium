@@ -68,12 +68,6 @@ var _ = Describe("K8sUpdates", func() {
 		kubectl.Delete(l7Policy)
 		kubectl.Delete(demoPath)
 
-		// Delete kube-dns because if not will be a restore the old endpoints
-		// from master instead of create the new ones.
-		if res := kubectl.DeleteResource("pod", fmt.Sprintf("-n %s -l k8s-app=kube-dns", helpers.KubeSystemNamespace)); !res.WasSuccessful() {
-			log.Warningf("Unable to delete DNS pods: %s", res.OutputPrettyPrint())
-		}
-
 		_ = kubectl.DeleteResource(
 			"deploy", fmt.Sprintf("-n %s cilium-operator", helpers.CiliumNamespace))
 		// Sometimes PolicyGen has a lot of pods running around without delete
@@ -81,6 +75,7 @@ var _ = Describe("K8sUpdates", func() {
 		kubectl.Exec(fmt.Sprintf(
 			"%s delete --all pods,svc,cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
 
+		By("Waiting for pods to be terminated")
 		ExpectAllPodsTerminated(kubectl)
 	})
 
@@ -198,20 +193,14 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 	}
 
 	testfunc := func() {
-		By("Deleting Cilium and CoreDNS...")
+		By("Deleting Cilium and CoreDNS")
 		// Making sure that we deleted the  cilium ds. No assert
 		// message because maybe is not present
 		if res := kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.CiliumNamespace)); !res.WasSuccessful() {
 			log.Warningf("Unable to delete Cilium DaemonSet: %s", res.OutputPrettyPrint())
 		}
 
-		// Delete kube-dns because if not will be a restore the old
-		// endpoints from master instead of create the new ones.
-		if res := kubectl.DeleteResource("pod", fmt.Sprintf("-n %s -l k8s-app=kube-dns", helpers.KubeSystemNamespace)); !res.WasSuccessful() {
-			log.Warningf("Unable to delete DNS pods: %s", res.OutputPrettyPrint())
-		}
-
-		By("Waiting for pods to be terminated..")
+		By("Waiting for pods to be terminated")
 		ExpectAllPodsTerminated(kubectl)
 
 		EventuallyWithOffset(1, func() *helpers.CmdRes {
