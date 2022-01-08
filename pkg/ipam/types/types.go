@@ -21,6 +21,10 @@ type Limits struct {
 
 	// IPv6 is the maximum number of IPv6 addresses per adapter/interface
 	IPv6 int
+
+	// HypervisorType tracks the instance's hypervisor type if available. Used to determine if features like prefix
+	// delegation are supported on an instance. Bare metal instances would have empty string.
+	HypervisorType string
 }
 
 // AllocationIP is an IP which is available for allocation, or already
