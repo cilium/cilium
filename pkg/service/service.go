@@ -851,8 +851,10 @@ func (s *Service) restoreBackendsLocked() error {
 			logfields.L3n4Addr:  b.L3n4Addr.String(),
 		}).Debug("Restoring backend")
 		if err := RestoreBackendID(b.L3n4Addr, b.ID); err != nil {
-			return fmt.Errorf("Unable to restore backend ID %d for %q: %s",
-				b.ID, b.L3n4Addr, err)
+			log.WithError(err).WithField(logfields.BackendID, b.ID).
+				Warn("Unable to restore backend ID %d for %q: %s",
+					b.ID, b.L3n4Addr, err)
+			continue
 		}
 
 		hash := b.L3n4Addr.Hash()
@@ -935,7 +937,8 @@ func (s *Service) restoreServicesLocked() error {
 				backends[b.String()] = b.ID
 			}
 			if err := s.lbmap.UpsertMaglevLookupTable(uint16(newSVC.frontend.ID), backends, ipv6); err != nil {
-				return err
+				scopedLog.WithError(err).Warning("Unable to Inserts into the Maglev BPF map.")
+				continue
 			}
 		}
 
