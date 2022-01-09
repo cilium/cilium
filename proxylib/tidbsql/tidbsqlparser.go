@@ -14,13 +14,13 @@ import (
 )
 
 type tidbsqlRule struct {
-	cmdExact              string
-	databaseRegexCompiled *regexp.Regexp
+	actionExact        string
+	tableRegexCompiled *regexp.Regexp
 }
 
 type tidbsqlRequestData struct {
-	cmd      string
-	database string
+	action string
+	table  string
 }
 
 func (rule *tidbsqlRule) Matches(data interface{}) bool {
@@ -28,24 +28,24 @@ func (rule *tidbsqlRule) Matches(data interface{}) bool {
 
 	reqData, ok := data.(tidbsqlRequestData)
 	regexStr := ""
-	if rule.databaseRegexCompiled != nil {
-		regexStr = rule.databaseRegexCompiled.String()
+	if rule.tableRegexCompiled != nil {
+		regexStr = rule.tableRegexCompiled.String()
 	}
 
 	if !ok {
 		log.Warning("Matches() called with type other than TiDBSQLRequestData")
 		return false
 	}
-	if len(rule.cmdExact) > 0 && rule.cmdExact != reqData.cmd {
-		log.Infof("TiDBSQLRule: cmd mismatch %s, %s", rule.cmdExact, reqData.cmd)
+	if len(rule.actionExact) > 0 && rule.actionExact != reqData.action {
+		log.Infof("TiDBSQLRule: cmd mismatch %s, %s", rule.actionExact, reqData.action)
 		return false
 	}
-	if rule.databaseRegexCompiled != nil &&
-		!rule.databaseRegexCompiled.MatchString(reqData.database) {
-		log.Infof("TiDBSQLRule: database mismatch %s, %s", rule.databaseRegexCompiled.String(), reqData.database)
+	if rule.tableRegexCompiled != nil &&
+		!rule.tableRegexCompiled.MatchString(reqData.table) {
+		log.Infof("TiDBSQLRule: database mismatch %s, %s", rule.tableRegexCompiled.String(), reqData.table)
 		return false
 	}
-	log.Infof("policy match for rule: '%s' '%s'", rule.cmdExact, regexStr)
+	log.Infof("policy match for rule: '%s' '%s'", rule.actionExact, regexStr)
 	return true
 }
 
@@ -64,35 +64,42 @@ func ruleParser(rule *cilium.PortNetworkPolicyRule) []proxylib.L7NetworkPolicyRu
 		for k, v := range l7Rule.Rule {
 			log.Infof("k value %v", k)
 			switch k {
-			case "cmd":
-				rr.cmdExact = v
-			case "database":
+			case "select":
+				rr.actionExact = "select"
 				if v != "" {
-					rr.databaseRegexCompiled = regexp.MustCompile(v)
+					rr.tableRegexCompiled = regexp.MustCompile(v)
+				}
+			case "insert":
+				rr.actionExact = "insert"
+				if v != "" {
+					rr.tableRegexCompiled = regexp.MustCompile(v)
+				}
+			case "update":
+				rr.actionExact = "update"
+				if v != "" {
+					rr.tableRegexCompiled = regexp.MustCompile(v)
+				}
+			case "delete":
+				rr.actionExact = "delete"
+				if v != "" {
+					rr.tableRegexCompiled = regexp.MustCompile(v)
 				}
 			default:
 				proxylib.ParseError(fmt.Sprintf("Unsupported key: %s", k), rule)
 			}
 		}
-		if rr.cmdExact != "" &&
-			rr.cmdExact != "select" &&
-			rr.cmdExact != "insert" &&
-			rr.cmdExact != "update" &&
-			rr.cmdExact != "delete" {
-			proxylib.ParseError(fmt.Sprintf("Unable to parse L7 tidbsql rule with invalid cmd: '%s'", rr.cmdExact), rule)
-		}
-		if (rr.databaseRegexCompiled != nil) && !(rr.cmdExact == "" ||
-			rr.cmdExact == "select" ||
-			rr.cmdExact == "insert" ||
-			rr.cmdExact == "update" ||
-			rr.cmdExact == "delete") {
-			proxylib.ParseError(fmt.Sprintf("Unable to parse L7 tidbsql rule, cmd '%s' is not compatible with 'database'", rr.cmdExact), rule)
+		if rr.actionExact != "" &&
+			rr.actionExact != "select" &&
+			rr.actionExact != "insert" &&
+			rr.actionExact != "update" &&
+			rr.actionExact != "delete" {
+			proxylib.ParseError(fmt.Sprintf("Unable to parse L7 tidbsql rule with invalid action: '%s'", rr.actionExact), rule)
 		}
 		regexStr := ""
-		if rr.databaseRegexCompiled != nil {
-			regexStr = rr.databaseRegexCompiled.String()
+		if rr.tableRegexCompiled != nil {
+			regexStr = rr.tableRegexCompiled.String()
 		}
-		log.Infof("Parsed rule '%s' '%s'", rr.cmdExact, regexStr)
+		log.Infof("Parsed rule '%s' '%s'", rr.actionExact, regexStr)
 		rules = append(rules, &rr)
 	}
 	return rules

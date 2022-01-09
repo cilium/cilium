@@ -625,7 +625,7 @@ force :;
 
 
 test-tidb:
-	go test -timeout 30s -run ^Test github.com/cilium/cilium/proxylib/tidb -v
+	go test -timeout 30s -run ^Test github.com/cilium/cilium/proxylib/tidbsql -v
 
 dev:
 	make dev-docker-image DOCKER_IMAGE_TAG=local

@@ -79,7 +79,7 @@ func (s *TiDBSQLSuite) TestTiDBSQLOnDataBasicPass(c *C) {
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
-		    l7_proto: "tidb"
+		    l7_proto: "tidbsql"
 		  >
 		>
 		`})
@@ -108,7 +108,7 @@ func (s *TiDBSQLSuite) TestTiDBSQLOnDataInjection(c *C) {
 		    l7_rules: <
 		      l7_allow_rules: <
 			rule: <
-			  key: "database"
+			  key: "select"
 			  value: "test.*"
 			>
 		      >
