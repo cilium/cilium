@@ -138,25 +138,31 @@ func constructStmtBytesArray(stmt string) []byte {
 	return append([]byte{byte(payloadLength), 0, 0 /*payload length, assume payload < 255*/, byte(sequenceID)}, payload...)
 }
 
-func constructErrorMessage(errorMessage string) []byte {
+func constructErrorMessage(errorMessage string, dbErr bool) []byte {
 	// payloadLength is a fixed length integer: https://dev.mysql.com/doc/internals/en/integer.html#packet-Protocol::FixedLengthInteger
 	// nodatabaseSelectedErr = []byte{29 0 0 1 255 22 4 35 51 68 48 48 48 48 78 111 32 100 97 116 97 98 97 115 101 32 115 101 108 101 99 116 101 100}
 	// return nodatabaseSelectedErr
 
 	// https://dev.mysql.com/doc/internals/en/packet-ERR_Packet.html
 
-	// TODO
 	sequenceID := 1
-	header := []byte{0xff}
-	errorCode := []byte{0x16, 0x04} // 1046?
-	sqlStateMarker := []byte{0x23}
-	sqlState := []byte("3D000")
+	header := []byte{0xff} // for error packet, it's 0xff
+	var errCode []byte
+	// handle db err and table err
+	if dbErr {
+		errCode = []byte{0x14, 0x04} // 1044, 42000 ER_DBACCESS_DENIED_ERROR
+	} else {
+		errCode = []byte{0x12, 0x04} // 1042, 42000 ER_TABLEACCESS_DENIED_ERROR
+	}
+	sqlStateMarker := []byte{0x23} // TODO: why this value
+
+	sqlState := []byte{0x10, 0xa4} // 42000
 	payload := []byte{}
 	payload = append(payload, header...)
-	payload = append(payload, errorCode...)
+	payload = append(payload, errCode...)
 	payload = append(payload, sqlStateMarker...)
 	payload = append(payload, sqlState...)
-	payload = append(payload, []byte("No database selected")...)
+	payload = append(payload, []byte(errorMessage)...)
 	payloadLength := len(payload)
-	return append([]byte{byte(payloadLength), 0, 0, byte(sequenceID)}, payload...)
+	return append([]byte{byte(payloadLength), 0x00, 0x00, byte(sequenceID)}, payload...)
 }
