@@ -4,7 +4,7 @@
 //go:build !privileged_tests
 // +build !privileged_tests
 
-package tidb
+package tidbmultitenant
 
 import (
 	"testing"
@@ -26,43 +26,43 @@ func Test(t *testing.T) {
 	TestingT(t)
 }
 
-type TiDBSuite struct {
+type TiDBMultiTenantSuite struct {
 	logServer *test.AccessLogServer
 	ins       *proxylib.Instance
 }
 
-var _ = Suite(&TiDBSuite{})
+var _ = Suite(&TiDBMultiTenantSuite{})
 
 // Set up access log server and Library instance for all the test cases
-func (s *TiDBSuite) SetUpSuite(c *C) {
+func (s *TiDBMultiTenantSuite) SetUpSuite(c *C) {
 	s.logServer = test.StartAccessLogServer("access_log.sock", 10)
 	c.Assert(s.logServer, Not(IsNil))
 	s.ins = proxylib.NewInstance("node1", accesslog.NewClient(s.logServer.Path))
 	c.Assert(s.ins, Not(IsNil))
 }
 
-func (s *TiDBSuite) checkAccessLogs(c *C, expPasses, expDrops int) {
+func (s *TiDBMultiTenantSuite) checkAccessLogs(c *C, expPasses, expDrops int) {
 	passes, drops := s.logServer.Clear()
 	c.Check(passes, Equals, expPasses, Commentf("Unxpected number of passed access log messages"))
 	c.Check(drops, Equals, expDrops, Commentf("Unxpected number of passed access log messages"))
 }
 
-func (s *TiDBSuite) TearDownTest(c *C) {
+func (s *TiDBMultiTenantSuite) TearDownTest(c *C) {
 	s.logServer.Clear()
 }
 
-func (s *TiDBSuite) TearDownSuite(c *C) {
+func (s *TiDBMultiTenantSuite) TearDownSuite(c *C) {
 	s.logServer.Close()
 }
 
-func (s *TiDBSuite) TestTiDBOnDataInjection(c *C) {
+func (s *TiDBMultiTenantSuite) TestTiDBMultiTenantOnDataInjection(c *C) {
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
 		name: "cp3"
 		policy: 2
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
-		    l7_proto: "tidb"
+		    l7_proto: "tidbmultitenant"
 		    l7_rules: <
 		      l7_allow_rules: <
 			rule: <
@@ -74,7 +74,7 @@ func (s *TiDBSuite) TestTiDBOnDataInjection(c *C) {
 		  >
 		>
 		`})
-	conn := s.ins.CheckNewConnectionOK(c, "tidb", true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "cp3")
+	conn := s.ins.CheckNewConnectionOK(c, "tidbmultitenant", true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "cp3")
 	// request body
 	msg1 := "READ ssss\r\n"
 	data := [][]byte{[]byte(msg1)}

@@ -5,7 +5,7 @@
 set -euo pipefail
 
 default_controlplanes=1
-default_workers=1
+default_workers=0
 default_cluster_name=""
 default_image=""
 
