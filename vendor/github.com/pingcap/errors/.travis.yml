@@ -1,0 +1,11 @@
+arch:
+  - amd64
+
+language: go
+go_import_path: github.com/pingcap/errors
+go:
+  - 1.13.x
+  - stable
+
+script:
+  - go test -v ./...
