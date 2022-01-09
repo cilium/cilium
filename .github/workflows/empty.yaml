@@ -1,0 +1,14 @@
+name: empty
+
+on:
+  pull_request:
+    branches:
+      - hackthon
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    steps:
+      - name: check
+        run: |
+          echo "hello"
