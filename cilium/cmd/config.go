@@ -111,15 +111,15 @@ func printConfigurations(cfgStatus *models.DaemonConfigurationStatus) {
 	if command.OutputJSON() {
 		if listReadOnlyConfigurations {
 			if err := command.PrintOutput(cfgStatus.DaemonConfigurationMap); err != nil {
-				Fatalf("Cannot show configuratons: %v", err)
+				Fatalf("Cannot show configurations: %v", err)
 			}
 		} else if listAllConfigurations {
 			if err := command.PrintOutputWithPatch(cfgStatus.DaemonConfigurationMap, cfgStatus.Realized); err != nil {
-				Fatalf("Cannot show configuratons: %v", err)
+				Fatalf("Cannot show configurations: %v", err)
 			}
 		} else {
 			if err := command.PrintOutput(cfgStatus.Realized.Options); err != nil {
-				Fatalf("Cannot show configuratons: %v", err)
+				Fatalf("Cannot show configurations: %v", err)
 			}
 		}
 		return
