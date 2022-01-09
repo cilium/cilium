@@ -2130,7 +2130,7 @@ describe some of the differences for the BPF model:
         struct called_info called_info = {
                 .start = start_time,
                 .end = 0,
-                .bi_sector = 0
+                .sector = 0
         };
 
         bpf_map_update_elem(&called_info_map, &bio_ptr, &called_info, BPF_ANY);
