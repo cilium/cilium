@@ -55,6 +55,11 @@ func (in *ENI) DeepCopyInto(out *ENI) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.Prefixes != nil {
+		in, out := &in.Prefixes, &out.Prefixes
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.SecurityGroups != nil {
 		in, out := &in.SecurityGroups, &out.SecurityGroups
 		*out = make([]string, len(*in))

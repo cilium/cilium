@@ -108,6 +108,23 @@ func (in *ENI) DeepEqual(other *ENI) bool {
 		}
 	}
 
+	if ((in.Prefixes != nil) && (other.Prefixes != nil)) || ((in.Prefixes == nil) != (other.Prefixes == nil)) {
+		in, other := &in.Prefixes, &other.Prefixes
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
 	if ((in.SecurityGroups != nil) && (other.SecurityGroups != nil)) || ((in.SecurityGroups == nil) != (other.SecurityGroups == nil)) {
 		in, other := &in.SecurityGroups, &other.SecurityGroups
 		if other == nil {

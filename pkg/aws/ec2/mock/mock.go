@@ -9,15 +9,20 @@ import (
 	"net"
 	"time"
 
+	"github.com/cilium/ipam/cidrset"
 	"github.com/cilium/ipam/service/ipallocator"
-	"github.com/google/uuid"
-	"golang.org/x/time/rate"
 
 	"github.com/cilium/cilium/pkg/api/helpers"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
+	"github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/lock"
+
+	"github.com/google/uuid"
+	log "github.com/sirupsen/logrus"
+	"golang.org/x/time/rate"
 )
 
 // ENIMap is a map of ENI interfaced indexed by ENI ID
@@ -48,14 +53,28 @@ type API struct {
 	securityGroups map[string]*types.SecurityGroup
 	errors         map[Operation]error
 	allocator      *ipallocator.Range
+	pdAllocator    *cidrset.CidrSet
 	limiter        *rate.Limiter
 	delaySim       *helpers.DelaySimulator
+	pdSubnet       *net.IPNet
 }
 
 // NewAPI returns a new mocked EC2 API
 func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, securityGroups []*types.SecurityGroup) *API {
-	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
-	cidrRange, err := ipallocator.NewCIDRRange(cidr)
+
+	// Start with base CIDR 10.0.0.0/16
+	_, baseCidr, _ := net.ParseCIDR("10.10.0.0/16")
+
+	// Use 10.10.0.0/17 for IP allocations
+	cidrSet, _ := cidrset.NewCIDRSet(baseCidr, 17)
+	podCidr, _ := cidrSet.AllocateNext()
+	podCidrRange, err := ipallocator.NewCIDRRange(podCidr)
+	if err != nil {
+		panic(err)
+	}
+	// Use 10.10.128.0/17 for prefix allocations
+	pdCidr, _ := cidrSet.AllocateNext()
+	pdCidrRange, err := cidrset.NewCIDRSet(pdCidr, 28)
 	if err != nil {
 		panic(err)
 	}
@@ -66,9 +85,11 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 		subnets:        map[string]*ipamTypes.Subnet{},
 		vpcs:           map[string]*ipamTypes.VirtualNetwork{},
 		securityGroups: map[string]*types.SecurityGroup{},
-		allocator:      cidrRange,
+		allocator:      podCidrRange,
+		pdAllocator:    pdCidrRange,
 		errors:         map[Operation]error{},
 		delaySim:       helpers.NewDelaySimulator(),
+		pdSubnet:       pdCidr,
 	}
 
 	api.UpdateSubnets(subnets)
@@ -158,7 +179,7 @@ func (e *API) rateLimit() {
 // CreateNetworkInterface mocks the interface creation. As with the upstream
 // EC2 API, the number of IP addresses in toAllocate are the number of
 // secondary IPs, a primary IP is always allocated.
-func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int32, subnetID, desc string, groups []string) (string, *eniTypes.ENI, error) {
+func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int32, subnetID, desc string, groups []string, allocatePrefixes bool) (string, *eniTypes.ENI, error) {
 	e.rateLimit()
 	e.delaySim.Delay(CreateNetworkInterface)
 
@@ -195,16 +216,25 @@ func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int32, subn
 	}
 	eni.IP = primaryIP.String()
 
-	for i := int32(0); i < toAllocate; i++ {
-		ip, err := e.allocator.AllocateNext()
+	if allocatePrefixes {
+		err := assignPrefixToENI(e, eni, int32(1))
 		if err != nil {
-			panic("Unable to allocate IP from allocator")
+			return "", nil, err
 		}
-		eni.Addresses = append(eni.Addresses, ip.String())
+	} else {
+		for i := int32(0); i < toAllocate; i++ {
+			ip, err := e.allocator.AllocateNext()
+			if err != nil {
+				panic("Unable to allocate IP from allocator")
+			}
+			eni.Addresses = append(eni.Addresses, ip.String())
+		}
 	}
+
 	subnet.AvailableAddresses -= numAddresses
 
 	e.unattached[eniID] = eni
+	log.Debugf(" ENI after initial creation %v", eni)
 	return eniID, eni.DeepCopy(), nil
 }
 
@@ -348,6 +378,113 @@ func (e *API) UnassignPrivateIpAddresses(ctx context.Context, eniID string, addr
 			} else {
 				ip := net.ParseIP(address)
 				e.allocator.Release(ip)
+				subnet.AvailableAddresses++
+			}
+		}
+		eni.Addresses = addressesAfterRelease
+		return nil
+	}
+	return fmt.Errorf("Unable to find ENI with ID %s", eniID)
+}
+
+func assignPrefixToENI(e *API, eni *eniTypes.ENI, prefixes int32) error {
+	subnet, ok := e.subnets[eni.Subnet.ID]
+	if !ok {
+		return fmt.Errorf("subnet %s not found", eni.Subnet.ID)
+	}
+
+	if int(prefixes)*option.ENIPDBlockSizeIPv4 > subnet.AvailableAddresses {
+		return fmt.Errorf("subnet %s has not enough addresses available", eni.Subnet.ID)
+	}
+
+	for i := int32(0); i < prefixes; i++ {
+		// Get a new /28 prefix
+		pfx, err := e.pdAllocator.AllocateNext()
+		if err != nil {
+			return err
+		}
+
+		prefixStr := pfx.String()
+		eni.Prefixes = append(eni.Prefixes, prefixStr)
+		prefixIPs, err := ip.PrefixToIps(prefixStr)
+		if err != nil {
+			return fmt.Errorf("unable to convert prefix %s to ips", prefixStr)
+		}
+		eni.Addresses = append(eni.Addresses, prefixIPs...)
+	}
+	subnet.AvailableAddresses -= int(prefixes * option.ENIPDBlockSizeIPv4)
+	return nil
+}
+
+func (e *API) AssignENIPrefixes(ctx context.Context, eniID string, prefixes int32) error {
+	e.rateLimit()
+	e.delaySim.Delay(AssignPrivateIpAddresses)
+
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
+	if err, ok := e.errors[AssignPrivateIpAddresses]; ok {
+		return err
+	}
+
+	for _, enis := range e.enis {
+		if eni, ok := enis[eniID]; ok {
+			return assignPrefixToENI(e, eni, prefixes)
+		}
+	}
+	return fmt.Errorf("Unable to find ENI with ID %s", eniID)
+}
+
+func (e *API) UnassignENIPrefixes(ctx context.Context, eniID string, prefixes []string) error {
+	e.rateLimit()
+	e.delaySim.Delay(UnassignPrivateIpAddresses)
+
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
+	if err, ok := e.errors[UnassignPrivateIpAddresses]; ok {
+		return err
+	}
+
+	addresses := make([]string, 0)
+	// Convert prefixes to IP addresses and release prefix from pd allocator
+	for _, prefix := range prefixes {
+		_, ipNet, err := net.ParseCIDR(prefix)
+		if err != nil {
+			return fmt.Errorf("Invalid CIDR block %s", prefix)
+		}
+		e.pdAllocator.Release(ipNet)
+		ips, _ := ip.PrefixToIps(prefix)
+		addresses = append(addresses, ips...)
+	}
+
+	releaseMap := make(map[string]int)
+	for _, addr := range addresses {
+		// Validate given addresses
+		ipaddr := net.ParseIP(addr)
+		if ipaddr == nil {
+			return fmt.Errorf("Invalid IP address %s", addr)
+		}
+		releaseMap[addr] = 1
+	}
+
+	for _, enis := range e.enis {
+		eni, ok := enis[eniID]
+		if !ok {
+			continue
+		}
+		subnet, ok := e.subnets[eni.Subnet.ID]
+		if !ok {
+			return fmt.Errorf("subnet %s not found", eni.Subnet.ID)
+		}
+
+		var addressesAfterRelease []string
+
+		for _, address := range eni.Addresses {
+			_, ok := releaseMap[address]
+			if !ok {
+				addressesAfterRelease = append(addressesAfterRelease, address)
+			} else {
 				subnet.AvailableAddresses++
 			}
 		}

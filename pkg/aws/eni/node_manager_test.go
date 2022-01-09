@@ -67,15 +67,15 @@ func (e *ENISuite) TestGetNodeNames(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
-	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"})
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
 	c.Assert(err, check.IsNil)
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testGetNodeNames-1", eniID1)
 	c.Assert(err, check.IsNil)
-	eniID2, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"})
+	eniID2, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
 	c.Assert(err, check.IsNil)
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testGetNodeNames-2", eniID2)
 	c.Assert(err, check.IsNil)
@@ -103,11 +103,11 @@ func (e *ENISuite) TestNodeManagerGet(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
-	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"})
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
 	c.Assert(err, check.IsNil)
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testNodeManagerGet-1", eniID1)
 	c.Assert(err, check.IsNil)
@@ -238,12 +238,12 @@ func (e *ENISuite) TestNodeManagerDefaultAllocation(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
-	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"})
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
 	c.Assert(err, check.IsNil)
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testNodeManagerDefaultAllocation-0", eniID1)
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -267,6 +267,54 @@ func (e *ENISuite) TestNodeManagerDefaultAllocation(c *check.C) {
 	c.Assert(node.Stats().UsedIPs, check.Equals, 7)
 }
 
+// TestNodeManagerPrefixDelegation tests allocation with default parameters
+//
+// - m5.large (3x ENIs, 2x10-2 IPs)
+// - MinAllocate 0
+// - MaxAllocate 0
+// - PreAllocate 8
+// - FirstInterfaceIndex 0
+func (e *ENISuite) TestNodeManagerPrefixDelegation(c *check.C) {
+	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
+	instances := NewInstancesManager(ec2api)
+	c.Assert(instances, check.Not(check.IsNil))
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, true)
+	c.Assert(err, check.IsNil)
+	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testNodeManagerDefaultAllocation-0", eniID1)
+	c.Assert(err, check.IsNil)
+	instances.Resync(context.TODO())
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, true)
+	c.Assert(err, check.IsNil)
+	c.Assert(mngr, check.Not(check.IsNil))
+
+	// Announce node wait for IPs to become available
+	cn := newCiliumNode("node1", "i-testNodeManagerDefaultAllocation-0", "m5a.large", "us-west-1", "vpc-1", 0, 8, 0, 0)
+	mngr.Update(cn)
+	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
+
+	node := mngr.Get("node1")
+	c.Assert(node, check.Not(check.IsNil))
+	c.Assert(node.Stats().AvailableIPs, check.Equals, 16)
+	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
+
+	// Use 12 out of 16 IPs
+	mngr.Update(updateCiliumNode(cn, 16, 12))
+	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
+
+	node = mngr.Get("node1")
+	c.Assert(node, check.Not(check.IsNil))
+	c.Assert(node.Stats().AvailableIPs, check.Equals, 32)
+	c.Assert(node.Stats().UsedIPs, check.Equals, 12)
+
+	node.Ops().PopulateStatusFields(cn)
+
+	var totalPrefixes int
+	for _, eni := range cn.Status.ENI.ENIs {
+		totalPrefixes += len(eni.Prefixes)
+	}
+	c.Assert(totalPrefixes, check.Equals, 2)
+}
+
 // TestNodeManagerENIWithSGTags tests ENI allocation + association with a SG based on tags
 //
 // - m5.large (3x ENIs, 2x10-2 IPs)
@@ -278,12 +326,12 @@ func (e *ENISuite) TestNodeManagerENIWithSGTags(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
-	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"})
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
 	c.Assert(err, check.IsNil)
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testNodeManagerDefaultAllocation-0", eniID1)
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -333,12 +381,12 @@ func (e *ENISuite) TestNodeManagerMinAllocate20(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
-	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"})
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
 	c.Assert(err, check.IsNil)
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testNodeManagerMinAllocate20-1", eniID1)
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -383,12 +431,12 @@ func (e *ENISuite) TestNodeManagerMinAllocateAndPreallocate(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
-	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"})
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
 	c.Assert(err, check.IsNil)
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testNodeManagerMinAllocateAndPreallocate-1", eniID1)
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -443,12 +491,12 @@ func (e *ENISuite) TestNodeManagerReleaseAddress(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
-	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"})
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
 	c.Assert(err, check.IsNil)
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testNodeManagerReleaseAddress-1", eniID1)
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, true)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, true, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -540,12 +588,12 @@ func (e *ENISuite) TestNodeManagerExceedENICapacity(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
-	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"})
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
 	c.Assert(err, check.IsNil)
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testNodeManagerExceedENICapacity-1", eniID1)
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -603,14 +651,14 @@ func (e *ENISuite) TestNodeManagerManyNodes(c *check.C) {
 
 	ec2api := ec2mock.NewAPI(subnets, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instancesManager := NewInstancesManager(ec2api)
-	mngr, err := ipam.NewNodeManager(instancesManager, k8sapi, metricsapi, 10, false)
+	mngr, err := ipam.NewNodeManager(instancesManager, k8sapi, metricsapi, 10, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	state := make([]*nodeState, numNodes)
 
 	for i := range state {
-		eniID, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "mgmt-1", "desc", []string{"sg1", "sg2"})
+		eniID, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "mgmt-1", "desc", []string{"sg1", "sg2"}, false)
 		c.Assert(err, check.IsNil)
 		_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, fmt.Sprintf("i-testNodeManagerManyNodes-%d", i), eniID)
 		c.Assert(err, check.IsNil)
@@ -668,12 +716,12 @@ func (e *ENISuite) TestNodeManagerInstanceNotRunning(c *check.C) {
 	metricsMock := metricsmock.NewMockMetrics()
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
-	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"})
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
 	c.Assert(err, check.IsNil)
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testNodeManagerInstanceNotRunning-0", eniID1)
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
 	ec2api.SetMockError(ec2mock.AttachNetworkInterface, errors.New("foo is not 'running' foo"))
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
@@ -708,16 +756,16 @@ func (e *ENISuite) TestInstanceBeenDeleted(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
-	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"})
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
 	c.Assert(err, check.IsNil)
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testInstanceBeenDeleted-0", eniID1)
 	c.Assert(err, check.IsNil)
-	eniID2, _, err := ec2api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"})
+	eniID2, _, err := ec2api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"}, false)
 	c.Assert(err, check.IsNil)
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 1, "i-testInstanceBeenDeleted-0", eniID2)
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -758,7 +806,7 @@ func benchmarkAllocWorker(c *check.C, workers int64, delay time.Duration, rateLi
 	ec2api.SetLimiter(rateLimit, burst)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -766,7 +814,7 @@ func benchmarkAllocWorker(c *check.C, workers int64, delay time.Duration, rateLi
 
 	c.ResetTimer()
 	for i := range state {
-		eniID, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"})
+		eniID, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
 		c.Assert(err, check.IsNil)
 		_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, fmt.Sprintf("i-benchmarkAllocWorker-%d", i), eniID)
 		c.Assert(err, check.IsNil)

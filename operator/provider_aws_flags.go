@@ -32,6 +32,9 @@ func init() {
 	flags.Int(operatorOption.ExcessIPReleaseDelay, 180, "Number of seconds operator would wait before it releases an IP previously marked as excess")
 	option.BindEnv(operatorOption.ExcessIPReleaseDelay)
 
+	flags.Bool(operatorOption.AWSEnablePrefixDelegation, false, "Allows operator to allocate prefixes to ENIs instead of individual IP addresses")
+	option.BindEnv(operatorOption.AWSEnablePrefixDelegation)
+
 	flags.Var(option.NewNamedMapOptions(operatorOption.ENITags, &operatorOption.Config.ENITags, nil),
 		operatorOption.ENITags, "ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag)")
 	option.BindEnv(operatorOption.ENITags)
