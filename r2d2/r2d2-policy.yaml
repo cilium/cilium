@@ -1,0 +1,26 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "r2d2-demo"
+spec:
+  description: "r2d2 demo policy"
+  endpointSelector:
+    matchLabels:
+      app: r2d2
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            app.kubernetes.io/component: tidb
+      toPorts:
+        - ports:
+            - port: "20160"
+              protocol: TCP
+            - port: "10261"
+              protocol: TCP
+            - port: "10080"
+              protocol: TCP
+          rules:
+            l7proto: tidb
+            l7:
+              - key: "file"
+                value: "s.*"

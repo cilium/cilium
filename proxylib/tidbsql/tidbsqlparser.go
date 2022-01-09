@@ -10,18 +10,17 @@ import (
 
 	"github.com/cilium/cilium/proxylib/proxylib"
 	cilium "github.com/cilium/proxy/go/cilium/api"
-
 	log "github.com/sirupsen/logrus"
 )
 
 type tidbsqlRule struct {
-	cmdExact          string
-	fileRegexCompiled *regexp.Regexp
+	cmdExact              string
+	databaseRegexCompiled *regexp.Regexp
 }
 
 type tidbsqlRequestData struct {
-	cmd  string
-	file string
+	cmd      string
+	database string
 }
 
 func (rule *tidbsqlRule) Matches(data interface{}) bool {
@@ -29,8 +28,8 @@ func (rule *tidbsqlRule) Matches(data interface{}) bool {
 
 	reqData, ok := data.(tidbsqlRequestData)
 	regexStr := ""
-	if rule.fileRegexCompiled != nil {
-		regexStr = rule.fileRegexCompiled.String()
+	if rule.databaseRegexCompiled != nil {
+		regexStr = rule.databaseRegexCompiled.String()
 	}
 
 	if !ok {
@@ -41,9 +40,9 @@ func (rule *tidbsqlRule) Matches(data interface{}) bool {
 		log.Infof("TiDBSQLRule: cmd mismatch %s, %s", rule.cmdExact, reqData.cmd)
 		return false
 	}
-	if rule.fileRegexCompiled != nil &&
-		!rule.fileRegexCompiled.MatchString(reqData.file) {
-		log.Infof("TiDBSQLRule: file mismatch %s, %s", rule.fileRegexCompiled.String(), reqData.file)
+	if rule.databaseRegexCompiled != nil &&
+		!rule.databaseRegexCompiled.MatchString(reqData.database) {
+		log.Infof("TiDBSQLRule: database mismatch %s, %s", rule.databaseRegexCompiled.String(), reqData.database)
 		return false
 	}
 	log.Infof("policy match for rule: '%s' '%s'", rule.cmdExact, regexStr)
@@ -67,27 +66,31 @@ func ruleParser(rule *cilium.PortNetworkPolicyRule) []proxylib.L7NetworkPolicyRu
 			switch k {
 			case "cmd":
 				rr.cmdExact = v
-			case "file":
+			case "database":
 				if v != "" {
-					rr.fileRegexCompiled = regexp.MustCompile(v)
+					rr.databaseRegexCompiled = regexp.MustCompile(v)
 				}
 			default:
 				proxylib.ParseError(fmt.Sprintf("Unsupported key: %s", k), rule)
 			}
 		}
 		if rr.cmdExact != "" &&
-			rr.cmdExact != "READ" &&
-			rr.cmdExact != "WRITE" &&
-			rr.cmdExact != "HALT" &&
-			rr.cmdExact != "RESET" {
+			rr.cmdExact != "select" &&
+			rr.cmdExact != "insert" &&
+			rr.cmdExact != "update" &&
+			rr.cmdExact != "delete" {
 			proxylib.ParseError(fmt.Sprintf("Unable to parse L7 tidbsql rule with invalid cmd: '%s'", rr.cmdExact), rule)
 		}
-		if (rr.fileRegexCompiled != nil) && !(rr.cmdExact == "" || rr.cmdExact == "READ" || rr.cmdExact == "WRITE") {
-			proxylib.ParseError(fmt.Sprintf("Unable to parse L7 tidbsql rule, cmd '%s' is not compatible with 'file'", rr.cmdExact), rule)
+		if (rr.databaseRegexCompiled != nil) && !(rr.cmdExact == "" ||
+			rr.cmdExact == "select" ||
+			rr.cmdExact == "insert" ||
+			rr.cmdExact == "update" ||
+			rr.cmdExact == "delete") {
+			proxylib.ParseError(fmt.Sprintf("Unable to parse L7 tidbsql rule, cmd '%s' is not compatible with 'database'", rr.cmdExact), rule)
 		}
 		regexStr := ""
-		if rr.fileRegexCompiled != nil {
-			regexStr = rr.fileRegexCompiled.String()
+		if rr.databaseRegexCompiled != nil {
+			regexStr = rr.databaseRegexCompiled.String()
 		}
 		log.Infof("Parsed rule '%s' '%s'", rr.cmdExact, regexStr)
 		rules = append(rules, &rr)
@@ -125,41 +128,33 @@ func (p *parser) OnData(reply, endStream bool, dataArray [][]byte) (proxylib.OpT
 		return proxylib.NOP, 0
 	}
 
-	msgLen := data[0]
-	d := data[4:]
-	if len(d) < int(msgLen) {
-		log.Infof("Not enough data, requesting more bytes")
-		return proxylib.MORE, int(msgLen) - len(d)
-	}
-
 	if reply {
 		log.Infof("passing %d bytes for reply", len(data))
 		return proxylib.PASS, len(data)
 	}
 
-	cmd := d[0]
+	bodyLen := data[0]
+	// 0x0f, 0x00, 0x00, 0x00, 0x03, show databases 0~18, msgLen=15, msgLen+4=19 , len(d)=15
+	if len(data[4:]) < int(bodyLen) {
+		log.Infof("Not enough data, requesting more bytes")
+		return proxylib.MORE, int(bodyLen) - len(data[4:])
+	}
+
+	body := data[4 : bodyLen+4] // read single request
+	msgLen := len(body) + 4
+	cmd := body[0]
 	// we only process COM_QUERY, all other traffic should pass
-	if int(cmd) != 3 {
-		log.Infof("passing %d bytes for non COM_QUERY", len(data))
-		return proxylib.PASS, len(data)
+	if cmd != 0x03 {
+		log.Infof("passing %d bytes for non COM_QUERY", msgLen)
+		return proxylib.PASS, msgLen
 	}
 
-	stmt := d[1:] // sql statement
+	stmt := body[1:] // sql statement
 
-	log.Infof("passing %d bytes for sql statement: %s", len(data), stmt)
-
-	// TODO: define a deny check when querying datas from some database
-	matches := verifyQuery(stmt, rule)
-	if !matches {
-		// TODO: construct a MySQL style unauthorized error
-		p.connection.Inject(true, []byte("ERROR\r\n"))
-		log.Infof("Policy mismatch, dropping %d bytes", len(data))
-		return proxylib.DROP, len(data)
-	}
-
-	return proxylib.PASS, len(data)
+	log.Infof("passing %d bytes for sql statement: %s", msgLen, stmt)
+	return proxylib.PASS, msgLen
 }
 
 func verifyQuery() bool {
-	
+	return true
 }

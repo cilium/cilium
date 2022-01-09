@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/proxylib/accesslog"
 	"github.com/cilium/cilium/proxylib/proxylib"
 	"github.com/cilium/cilium/proxylib/test"
+
 	// "github.com/cilium/cilium/pkg/logging"
 	// "fmt"
 	log "github.com/sirupsen/logrus"
@@ -55,6 +56,47 @@ func (s *TiDBSQLSuite) TearDownSuite(c *C) {
 	s.logServer.Close()
 }
 
+func (s *TiDBSQLSuite) TestTiDBSQLOnDataIncomplete(c *C) {
+	conn := s.ins.CheckNewConnectionOK(c, "tidbsql", true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "no-policy")
+	header := []byte{0x0f, 0x00, 0x00, 0x00, 0x03}
+	header = append(header, []byte("show database")...)
+	data := [][]byte{header}
+	conn.CheckOnDataOK(c, false, false, &data, []byte{}, proxylib.MORE, 1)
+}
+
+func buildMsg(msg string) []byte {
+	msgLen := len(msg) + 1
+	header := []byte{byte(msgLen), 0x00, 0x00, 0x00, 0x03}
+	return append(header, []byte(msg)...)
+}
+
+func (s *TiDBSQLSuite) TestTiDBSQLOnDataBasicPass(c *C) {
+
+	// allow all rule
+	s.ins.CheckInsertPolicyText(c, "1", []string{`
+		name: "cp1"
+		policy: 2
+		ingress_per_port_policies: <
+		  port: 80
+		  rules: <
+		    l7_proto: "tidb"
+		  >
+		>
+		`})
+	conn := s.ins.CheckNewConnectionOK(c, "tidbsql", true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "cp1")
+
+	msg1 := buildMsg("select * from t")
+	conn.CheckOnDataOK(c, false, false, &[][]byte{msg1}, []byte{}, proxylib.PASS, len(msg1))
+	msg2 := buildMsg("insert into t (id, name, year) values (1, 'hackthon', 2021)")
+	conn.CheckOnDataOK(c, false, false, &[][]byte{msg2}, []byte{}, proxylib.PASS, len(msg2))
+	msg3 := buildMsg("update t set name='hackathon' where id=1")
+	conn.CheckOnDataOK(c, false, false, &[][]byte{msg3}, []byte{}, proxylib.PASS, len(msg3))
+	msg4 := buildMsg("delete from t")
+	conn.CheckOnDataOK(c, false, false, &[][]byte{msg4}, []byte{}, proxylib.PASS, len(msg4))
+}
+
+func (s *TiDBSQLSuite) TestTiDBSQLPrepareReq(c *C) {}
+
 func (s *TiDBSQLSuite) TestTiDBSQLOnDataInjection(c *C) {
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
 		name: "cp3"
@@ -66,8 +108,8 @@ func (s *TiDBSQLSuite) TestTiDBSQLOnDataInjection(c *C) {
 		    l7_rules: <
 		      l7_allow_rules: <
 			rule: <
-			  key: "file"
-			  value: "s.*"
+			  key: "database"
+			  value: "test.*"
 			>
 		      >
 		    >
@@ -89,11 +131,10 @@ func (s *TiDBSQLSuite) TestTiDBSQLOnDataInjection(c *C) {
 
 func constructStmtBytesArray(stmt string) []byte {
 	// https://dev.mysql.com/doc/internals/en/mysql-packet.html#packet-Protocol::Packet
-	ops := []byte{3}     // COM_QUERY, https://dev.mysql.com/doc/internals/en/com-query.html
-	stmt := []byte(stmt) //
-	payload := append(ops, stmt...)
+	ops := []byte{3} // COM_QUERY, https://dev.mysql.com/doc/internals/en/com-query.html
+	payload := append(ops, []byte(stmt)...)
 	payloadLength := len(payload)
-	sequenceID = 0
+	sequenceID := 0
 	return append([]byte{byte(payloadLength), 0, 0 /*payload length, assume payload < 255*/, byte(sequenceID)}, payload...)
 }
 
@@ -105,13 +146,17 @@ func constructErrorMessage(errorMessage string) []byte {
 	// https://dev.mysql.com/doc/internals/en/packet-ERR_Packet.html
 
 	// TODO
-	sequenceID = 1
-	header = []byte{0xff}
-	errorCode = []byte{0x16 0x04} // 1046?
-	sqlStateMarker = []byte{0x23}
-	sqlState = []byte("3D000")
-	errorMessages := []byte("No database selected")
-	payload := []byte{header...,errorCode...,sqlStateMarker...,sqlState...,errorMeesage...}
+	sequenceID := 1
+	header := []byte{0xff}
+	errorCode := []byte{0x16, 0x04} // 1046?
+	sqlStateMarker := []byte{0x23}
+	sqlState := []byte("3D000")
+	payload := []byte{}
+	payload = append(payload, header...)
+	payload = append(payload, errorCode...)
+	payload = append(payload, sqlStateMarker...)
+	payload = append(payload, sqlState...)
+	payload = append(payload, []byte("No database selected")...)
 	payloadLength := len(payload)
-	return append([]byte{byte(payloadLength),0,0,byte(sequenceID)},payload...)
+	return append([]byte{byte(payloadLength), 0, 0, byte(sequenceID)}, payload...)
 }

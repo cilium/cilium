@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: tidb
+  namespace: default
+  labels:
+    app: tidb
+spec:
+  containers:
+  - name: tidb
+    image: pingcap/tidb:v5.3.0
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mysql-cli
+  namespace: default
+  labels:
+    app: client
+spec:
+  containers:
+  - name: mysql-cli
+    image: alpine:3.14
+    command: ["tail", "-f", "/dev/null"]

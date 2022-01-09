@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: r2d2
+  namespace: default
+  labels:
+    app: r2d2
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: r2d2
+  template:
+    metadata:
+      labels:
+        app: r2d2
+    spec:
+      containers:
+      - name: r2d2
+        image: localhost:5000/r2d2:1
+        command:
+        - /r2d2-server
+        - --listen-address=0.0.0.0:3333

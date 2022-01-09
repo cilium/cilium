@@ -508,9 +508,6 @@ kind-image:
 	$(QUIET)$(CONTAINER_ENGINE) push $(LOCAL_IMAGE)
 	$(QUIET)kind load docker-image $(LOCAL_IMAGE)
 
-dev: kind-image
-	kubectl delete pods -l k8s-app=cilium -n kube-system
-
 precheck: logging-subsys-field ## Peform build precheck for the source code.
 ifeq ($(SKIP_K8S_CODE_GEN_CHECK),"false")
 	@$(ECHO_CHECK) contrib/scripts/check-k8s-code-gen.sh
@@ -626,5 +623,11 @@ help: Makefile ## Display help for the Makefile, from https://www.thapaliya.com/
 .PHONY: help clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-hubble-api install licenses-all veryclean
 force :;
 
+
 test-tidb:
 	go test -timeout 30s -run ^Test github.com/cilium/cilium/proxylib/tidb -v
+
+dev:
+	make dev-docker-image DOCKER_IMAGE_TAG=local
+	kind load docker-image localhost:5000/cilium/cilium-dev:local
+	kubectl delete pods -l k8s-app=cilium -n kube-system

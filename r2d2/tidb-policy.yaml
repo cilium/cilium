@@ -1,0 +1,28 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "tidb-demo"
+spec:
+  description: "tidb demo policy"
+  endpointSelector:
+    matchLabels:
+      app: tidb
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            app: client
+      toPorts:
+        - ports:
+            - port: "4000"
+              protocol: TCP
+          rules:
+            l7proto: tidbsql
+            l7:
+              - cmd: "select"
+                database: "test"
+              - cmd: "insert"
+                database: "test"
+              - cmd: "update"
+                database: "test"
+              - cmd: "delete"
+                database: "test"
