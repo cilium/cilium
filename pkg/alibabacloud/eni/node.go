@@ -351,6 +351,17 @@ func (n *Node) loggerLocked() *logrus.Entry {
 	return log.WithField("instanceID", n.instanceID)
 }
 
+func (n *Node) IsPrefixDelegated() bool {
+	return false
+}
+
+func (n *Node) GetUsedIPWithPrefixes() int {
+	if n.k8sObj == nil {
+		return 0
+	}
+	return len(n.k8sObj.Status.IPAM.Used)
+}
+
 // getLimits returns the interface and IP limits of this node
 func (n *Node) getLimits() (ipamTypes.Limits, bool) {
 	n.mutex.RLock()

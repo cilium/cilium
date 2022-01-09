@@ -168,6 +168,11 @@ type ENI struct {
 	// +optional
 	Addresses []string `json:"addresses,omitempty"`
 
+	// Prefixes is the list of all /28 prefixes associated with the ENI
+	//
+	// +optional
+	Prefixes []string `json:"prefixes,omitempty"`
+
 	// SecurityGroups are the security groups associated with the ENI
 	SecurityGroups []string `json:"security-groups,omitempty"`
 }

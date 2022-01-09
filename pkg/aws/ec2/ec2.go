@@ -14,12 +14,15 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/api/helpers"
 	"github.com/cilium/cilium/pkg/aws/endpoints"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/cidr"
+	ipPkg "github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/spanstat"
 )
@@ -203,6 +206,16 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 		}
 	}
 
+	for _, prefix := range iface.Ipv4Prefixes {
+		ips, e := ipPkg.PrefixToIps(aws.ToString(prefix.Ipv4Prefix))
+		if e != nil {
+			err = fmt.Errorf("unable to parse CIDR %s: %w", aws.ToString(prefix.Ipv4Prefix), e)
+			return
+		}
+		eni.Addresses = append(eni.Addresses, ips...)
+		eni.Prefixes = append(eni.Prefixes, aws.ToString(prefix.Ipv4Prefix))
+	}
+
 	for _, g := range iface.Groups {
 		if g.GroupId != nil {
 			eni.SecurityGroups = append(eni.SecurityGroups, aws.ToString(g.GroupId))
@@ -347,12 +360,18 @@ func (c *Client) GetSubnets(ctx context.Context) (ipamTypes.SubnetMap, error) {
 }
 
 // CreateNetworkInterface creates an ENI with the given parameters
-func (c *Client) CreateNetworkInterface(ctx context.Context, toAllocate int32, subnetID, desc string, groups []string) (string, *eniTypes.ENI, error) {
+func (c *Client) CreateNetworkInterface(ctx context.Context, toAllocate int32, subnetID, desc string, groups []string, allocatePrefixes bool) (string, *eniTypes.ENI, error) {
+
 	input := &ec2.CreateNetworkInterfaceInput{
-		Description:                    aws.String(desc),
-		SecondaryPrivateIpAddressCount: aws.Int32(toAllocate),
-		SubnetId:                       aws.String(subnetID),
-		Groups:                         groups,
+		Description: aws.String(desc),
+		SubnetId:    aws.String(subnetID),
+		Groups:      groups,
+	}
+	if allocatePrefixes {
+		input.Ipv4PrefixCount = aws.Int32(int32(ipPkg.PrefixCeil(int(toAllocate), option.ENIPDBlockSizeIPv4)))
+		log.Debugf("Creating interface with %v prefixes", input.Ipv4PrefixCount)
+	} else {
+		input.SecondaryPrivateIpAddressCount = aws.Int32(toAllocate)
 	}
 
 	if len(c.eniTagSpecification.Tags) > 0 {
@@ -454,6 +473,32 @@ func (c *Client) UnassignPrivateIpAddresses(ctx context.Context, eniID string, a
 	input := &ec2.UnassignPrivateIpAddressesInput{
 		NetworkInterfaceId: aws.String(eniID),
 		PrivateIpAddresses: addresses,
+	}
+
+	c.limiter.Limit(ctx, "UnassignPrivateIpAddresses")
+	sinceStart := spanstat.Start()
+	_, err := c.ec2Client.UnassignPrivateIpAddresses(ctx, input)
+	c.metricsAPI.ObserveAPICall("UnassignPrivateIpAddresses", deriveStatus(err), sinceStart.Seconds())
+	return err
+}
+
+func (c *Client) AssignENIPrefixes(ctx context.Context, eniID string, prefixes int32) error {
+	input := &ec2.AssignPrivateIpAddressesInput{
+		NetworkInterfaceId: aws.String(eniID),
+		Ipv4PrefixCount:    aws.Int32(prefixes),
+	}
+
+	c.limiter.Limit(ctx, "AssignPrivateIpAddresses")
+	sinceStart := spanstat.Start()
+	_, err := c.ec2Client.AssignPrivateIpAddresses(ctx, input)
+	c.metricsAPI.ObserveAPICall("AssignPrivateIpAddresses", deriveStatus(err), sinceStart.Seconds())
+	return err
+}
+
+func (c *Client) UnassignENIPrefixes(ctx context.Context, eniID string, prefixes []string) error {
+	input := &ec2.UnassignPrivateIpAddressesInput{
+		NetworkInterfaceId: aws.String(eniID),
+		Ipv4Prefixes:       prefixes,
 	}
 
 	c.limiter.Limit(ctx, "UnassignPrivateIpAddresses")

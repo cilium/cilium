@@ -8,12 +8,15 @@ package mock
 import (
 	"context"
 	"errors"
+	"net"
 	"testing"
 
+	"github.com/cilium/ipam/cidrset"
 	"gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 )
 
@@ -29,10 +32,10 @@ func (e *MockSuite) TestMock(c *check.C) {
 	api := NewAPI([]*ipamTypes.Subnet{{ID: "s-1", AvailableAddresses: 100}}, []*ipamTypes.VirtualNetwork{{ID: "v-1"}}, []*types.SecurityGroup{{ID: "sg-1"}})
 	c.Assert(api, check.Not(check.IsNil))
 
-	eniID1, _, err := api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"})
+	eniID1, _, err := api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"}, false)
 	c.Assert(err, check.IsNil)
 
-	eniID2, _, err := api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"})
+	eniID2, _, err := api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"}, false)
 	c.Assert(err, check.IsNil)
 
 	_, err = api.AttachNetworkInterface(context.TODO(), 0, "i-1", eniID1)
@@ -87,7 +90,7 @@ func (e *MockSuite) TestSetMockError(c *check.C) {
 	mockError := errors.New("error")
 
 	api.SetMockError(CreateNetworkInterface, mockError)
-	_, _, err := api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"})
+	_, _, err := api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"}, false)
 	c.Assert(err, check.Equals, mockError)
 
 	api.SetMockError(AttachNetworkInterface, mockError)
@@ -116,6 +119,36 @@ func (e *MockSuite) TestSetLimiter(c *check.C) {
 	c.Assert(api, check.Not(check.IsNil))
 
 	api.SetLimiter(10.0, 2)
-	_, _, err := api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"})
+	_, _, err := api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"}, false)
 	c.Assert(err, check.IsNil)
+}
+
+func (e *MockSuite) TestGetNextSubnet(c *check.C) {
+	_, cidrTest, _ := net.ParseCIDR("10.0.0.0/8")
+	cidrSet, _ := cidrset.NewCIDRSet(cidrTest, 9)
+	subnet, err := cidrSet.AllocateNext()
+	c.Assert(err, check.IsNil)
+	c.Assert(subnet.String(), checker.Equals, "10.0.0.0/9")
+	subnet, err = cidrSet.AllocateNext()
+	c.Assert(err, check.IsNil)
+	c.Assert(subnet.String(), checker.Equals, "10.128.0.0/9")
+}
+
+func (e *MockSuite) TestPrefixToIps(c *check.C) {
+	_, cidrTest, _ := net.ParseCIDR("10.128.0.0/9")
+	cidrSet, _ := cidrset.NewCIDRSet(cidrTest, 28)
+	subnet, err := cidrSet.AllocateNext()
+	c.Assert(err, check.IsNil)
+	subnetStr := subnet.String()
+	ips, _ := ip.PrefixToIps(subnetStr)
+	c.Assert(ips[0], checker.Equals, "10.128.0.0")
+	c.Assert(ips[len(ips)-1], checker.Equals, "10.128.0.15")
+}
+
+func (e *MockSuite) TestPrefixCeil(c *check.C) {
+	c.Assert(ip.PrefixCeil(9, 16), checker.Equals, 1)
+	c.Assert(ip.PrefixCeil(16, 16), checker.Equals, 1)
+	c.Assert(ip.PrefixCeil(17, 16), checker.Equals, 2)
+	c.Assert(ip.PrefixCeil(31, 16), checker.Equals, 2)
+	c.Assert(ip.PrefixCeil(32, 16), checker.Equals, 2)
 }

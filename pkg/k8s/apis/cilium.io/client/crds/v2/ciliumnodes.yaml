@@ -488,6 +488,12 @@ spec:
                           description: Number is the interface index, it used in combination
                             with FirstInterfaceIndex
                           type: integer
+                        prefixes:
+                          description: Prefixes is the list of all /28 prefixes associated
+                            with the ENI
+                          items:
+                            type: string
+                          type: array
                         security-groups:
                           description: SecurityGroups are the security groups associated
                             with the ENI

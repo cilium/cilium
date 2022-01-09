@@ -190,3 +190,14 @@ func (n *Node) GetMaximumAllocatableIPv4() int {
 func (n *Node) GetMinimumAllocatableIPv4() int {
 	return defaults.IPAMPreAllocation
 }
+
+func (n *Node) IsPrefixDelegated() bool {
+	return false
+}
+
+func (n *Node) GetUsedIPWithPrefixes() int {
+	if n.k8sObj == nil {
+		return 0
+	}
+	return len(n.k8sObj.Status.IPAM.Used)
+}

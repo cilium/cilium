@@ -146,6 +146,10 @@ const (
 	// Defaults to 180 secs
 	ExcessIPReleaseDelay = "excess-ip-release-delay"
 
+	// AWSEnablePrefixDelegation allows operator to allocate prefixes to ENIs on nitro instances instead of individual
+	// IP addresses. Allows for increased pod density on nodes.
+	AWSEnablePrefixDelegation = "aws-enable-prefix-delegation"
+
 	// ENITags are the tags that will be added to every ENI created by the
 	// AWS ENI IPAM.
 	ENITags = "eni-tags"
@@ -335,6 +339,10 @@ type OperatorConfig struct {
 	// the number of API calls to AWS EC2 service.
 	AWSReleaseExcessIPs bool
 
+	// AWSEnablePrefixDelegation allows operator to allocate prefixes to ENIs on nitro instances instead of individual
+	// IP addresses. Allows for increased pod density on nodes.
+	AWSEnablePrefixDelegation bool
+
 	// UpdateEC2AdapterLimitViaAPI configures the operator to use the EC2 API to fill out the
 	// instancetype to adapter limit mapping.
 	UpdateEC2AdapterLimitViaAPI bool
@@ -421,6 +429,7 @@ func (c *OperatorConfig) Populate() {
 	// AWS options
 
 	c.AWSReleaseExcessIPs = viper.GetBool(AWSReleaseExcessIPs)
+	c.AWSEnablePrefixDelegation = viper.GetBool(AWSEnablePrefixDelegation)
 	c.UpdateEC2AdapterLimitViaAPI = viper.GetBool(UpdateEC2AdapterLimitViaAPI)
 	c.EC2APIEndpoint = viper.GetString(EC2APIEndpoint)
 	c.ExcessIPReleaseDelay = viper.GetInt(ExcessIPReleaseDelay)
