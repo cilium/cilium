@@ -159,8 +159,8 @@ func (p *parser) OnData(reply, endStream bool, dataArray [][]byte) (proxylib.OpT
 	}
 	if !matches {
 		// TODO: use MySQL ERROR packet
-		p.connection.Inject(true, constructErrorMessage("No database selected", true))
-		log.Debugf("Policy mismatch, dropping %d bytes", msgLen)
+		p.connection.Inject(true, constructErrorMessage("access denied from network policy", false))
+		log.Infof("Policy mismatch, dropping %d bytes", msgLen)
 		return proxylib.DROP, msgLen
 	}
 	log.Infof("passing %d bytes for sql statement: %s", msgLen, stmt)
@@ -185,7 +185,7 @@ func constructErrorMessage(errorMessage string, dbErr bool) []byte {
 	}
 	sqlStateMarker := []byte{0x23} // TODO: why this value
 
-	sqlState := []byte{0x10, 0xa4} // 42000
+	sqlState := []byte("42000") // 42000
 	payload := []byte{}
 	payload = append(payload, header...)
 	payload = append(payload, errCode...)
