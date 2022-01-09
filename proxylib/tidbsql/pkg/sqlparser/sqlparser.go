@@ -24,12 +24,21 @@ func GetDatabaseTables(sql string) (action string, database string, table string
 		return "", "", "", fmt.Errorf("parse error: %v", err.Error())
 	}
 
-	switch astNode.(type) {
+	switch v := astNode.(type) {
 	case *ast.SelectStmt:
-		table := astNode.(*ast.SelectStmt).From.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName)
+		table := v.From.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName)
 		return "select", table.Schema.String(), table.Name.String(), nil
+	case *ast.InsertStmt:
+		table := v.Table.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName)
+		return "insert", table.Schema.String(), table.Name.String(), nil
+	case *ast.UpdateStmt:
+		table := v.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName)
+		return "update", table.Schema.String(), table.Name.String(), nil
+	case *ast.DeleteStmt:
+		table := v.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName)
+		return "delete", table.Schema.String(), table.Name.String(), nil
 	default:
 		return "", "", "", fmt.Errorf("not supported action: %T", astNode)
 	}
-	return
+	return "", "", "", fmt.Errorf("sql parser error")
 }

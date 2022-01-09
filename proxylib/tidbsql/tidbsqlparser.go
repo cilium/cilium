@@ -19,11 +19,6 @@ type tidbsqlRule struct {
 	tableRegexCompiled *regexp.Regexp
 }
 
-type tidbsqlRequestData struct {
-	action string
-	table  string
-}
-
 func (rule *tidbsqlRule) Matches(sql interface{}) bool {
 	reqAction, reqDatabase, reqTable, _ := sqlparser.GetDatabaseTables(sql.(string))
 	regexStr := ""
