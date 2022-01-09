@@ -3,7 +3,7 @@ name: empty
 on:
   pull_request:
     branches:
-      - hackthon
+      - hackathon
 jobs:
   check:
     name: check
