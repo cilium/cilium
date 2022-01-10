@@ -47,7 +47,7 @@ eBPF-based
 
 The eBPF-based implementation is the most efficient
 implementation. It requires Linux kernel 4.19 and can be enabled with
-the ``bpf.masquerade=true`` helm option (enabled by default).
+the ``bpf.masquerade=true`` helm option.
 
 The current implementation depends on :ref:`the BPF NodePort feature <kubeproxy-free>`.
 The dependency will be removed in the future (:gh-issue:`13732`).
