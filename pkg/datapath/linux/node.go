@@ -1097,10 +1097,8 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		// Not a typo, the IPv4 host IP is used to build the IPv6 overlay
 		updateTunnelMapping(oldIP6Cidr, newNode.IPv6AllocCIDR, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv6, oldKey, newKey)
 
-		if !n.nodeConfig.UseSingleClusterRoute {
-			n.updateOrRemoveNodeRoutes([]*cidr.CIDR{oldIP4Cidr}, []*cidr.CIDR{newNode.IPv4AllocCIDR}, isLocalNode)
-			n.updateOrRemoveNodeRoutes([]*cidr.CIDR{oldIP6Cidr}, []*cidr.CIDR{newNode.IPv6AllocCIDR}, isLocalNode)
-		}
+		n.updateOrRemoveNodeRoutes([]*cidr.CIDR{oldIP4Cidr}, []*cidr.CIDR{newNode.IPv4AllocCIDR}, isLocalNode)
+		n.updateOrRemoveNodeRoutes([]*cidr.CIDR{oldIP6Cidr}, []*cidr.CIDR{newNode.IPv6AllocCIDR}, isLocalNode)
 
 		return nil
 	} else if firstAddition {
@@ -1148,11 +1146,8 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 	if n.nodeConfig.EnableEncapsulation {
 		deleteTunnelMapping(oldNode.IPv4AllocCIDR, false)
 		deleteTunnelMapping(oldNode.IPv6AllocCIDR, false)
-
-		if !n.nodeConfig.UseSingleClusterRoute {
-			n.deleteNodeRoute(oldNode.IPv4AllocCIDR, false)
-			n.deleteNodeRoute(oldNode.IPv6AllocCIDR, false)
-		}
+		n.deleteNodeRoute(oldNode.IPv4AllocCIDR, false)
+		n.deleteNodeRoute(oldNode.IPv6AllocCIDR, false)
 	}
 
 	if n.enableNeighDiscovery {
@@ -1170,15 +1165,6 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 	}
 
 	return nil
-}
-
-func (n *linuxNodeHandler) updateOrRemoveClusterRoute(addressing datapath.NodeAddressingFamily, addressFamilyEnabled bool) {
-	allocCIDR := addressing.AllocationCIDR()
-	if addressFamilyEnabled {
-		n.updateNodeRoute(allocCIDR, addressFamilyEnabled, false)
-	} else if rt, _ := n.lookupNodeRoute(allocCIDR, false); rt != nil {
-		n.deleteNodeRoute(allocCIDR, false)
-	}
 }
 
 func (n *linuxNodeHandler) replaceHostRules() error {
@@ -1544,21 +1530,10 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 		ipsec.DeleteXfrm()
 	}
 
-	if newConfig.UseSingleClusterRoute {
-		n.updateOrRemoveClusterRoute(n.nodeAddressing.IPv4(), newConfig.EnableIPv4)
-		n.updateOrRemoveClusterRoute(n.nodeAddressing.IPv6(), newConfig.EnableIPv6)
-	} else if prevConfig.UseSingleClusterRoute {
-		// single cluster route has been disabled, remove route
-		n.deleteNodeRoute(n.nodeAddressing.IPv4().AllocationCIDR(), false)
-		n.deleteNodeRoute(n.nodeAddressing.IPv6().AllocationCIDR(), false)
-	}
-
 	if !n.isInitialized {
 		n.isInitialized = true
-		if !n.nodeConfig.UseSingleClusterRoute {
-			for _, unlinkedNode := range n.nodes {
-				n.nodeUpdate(nil, unlinkedNode, true)
-			}
+		for _, unlinkedNode := range n.nodes {
+			n.nodeUpdate(nil, unlinkedNode, true)
 		}
 	}
 

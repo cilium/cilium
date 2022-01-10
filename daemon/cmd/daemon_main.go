@@ -752,10 +752,6 @@ func initializeFlags() {
 		"Regular expression matching compatible Istio sidecar istio-proxy container image names")
 	option.BindEnv(option.SidecarIstioProxyImage)
 
-	flags.Bool(option.SingleClusterRouteName, false,
-		"Use a single cluster route instead of per node routes")
-	option.BindEnv(option.SingleClusterRouteName)
-
 	flags.String(option.SocketPath, defaults.SockPath, "Sets daemon's socket path to listen for connections")
 	option.BindEnv(option.SocketPath)
 

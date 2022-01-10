@@ -102,7 +102,6 @@ func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration,
 		Manager: manager,
 		LocalConfig: datapath.LocalNodeConfiguration{
 			MtuConfig:               mtuConfig,
-			UseSingleClusterRoute:   option.Config.UseSingleClusterRoute,
 			EnableIPv4:              option.Config.EnableIPv4,
 			EnableIPv6:              option.Config.EnableIPv6,
 			EnableEncapsulation:     option.Config.Tunnel != option.TunnelDisabled,
