@@ -100,7 +100,9 @@ var (
 		"hubble.relay.image.tag":        "latest",
 		"hubble.relay.image.useDigest":  "false",
 
-		"debug.enabled":          "true",
+		"debug.enabled": "true",
+		"debug.verbose": "flow",
+
 		"k8s.requireIPv4PodCIDR": "true",
 		"pprof.enabled":          "true",
 		"logSystemLoad":          "true",
