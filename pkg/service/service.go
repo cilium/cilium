@@ -852,7 +852,7 @@ func (s *Service) restoreBackendsLocked() error {
 		}).Debug("Restoring backend")
 		if err := RestoreBackendID(b.L3n4Addr, b.ID); err != nil {
 			log.WithError(err).WithField(logfields.BackendID, b.ID).
-				Warn("Unable to restore backend ID %d for %q: %s",
+				Warnf("Unable to restore backend ID %d for %q: %s",
 					b.ID, b.L3n4Addr, err)
 			continue
 		}
