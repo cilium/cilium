@@ -16,7 +16,7 @@ jobs:
       if: type != pull_request
       env:
         - RACE=1
-        - BASE_IMAGE=quay.io/cilium/cilium-runtime:b4442ddfefbcbd7e299f0a022f0d5a16ba98400b@sha256:80e40059d783096337608b5b3a94c454afb8937706a1cf10157c56a9e8bc4c20
+        - BASE_IMAGE=quay.io/cilium/cilium-runtime:fd64d11b6e0c872ed6e8c242910ae1a98881af8d@sha256:45b85fe2b87e64470e92e109159aea35de06e6c10b9874a8f7503fc23cea2346
         - LOCKDEBUG=1
 
 # Disabled due to a compilation issue: https://github.com/cilium/cilium/issues/13252
@@ -25,7 +25,7 @@ jobs:
 #      if: type != pull_request
 #      env:
 #        - RACE=1
-#        - BASE_IMAGE=quay.io/cilium/cilium-runtime:b4442ddfefbcbd7e299f0a022f0d5a16ba98400b@sha256:80e40059d783096337608b5b3a94c454afb8937706a1cf10157c56a9e8bc4c20
+#        - BASE_IMAGE=quay.io/cilium/cilium-runtime:fd64d11b6e0c872ed6e8c242910ae1a98881af8d@sha256:45b85fe2b87e64470e92e109159aea35de06e6c10b9874a8f7503fc23cea2346
 #        - LOCKDEBUG=1
 #      virt: vm
 #      group: edge
