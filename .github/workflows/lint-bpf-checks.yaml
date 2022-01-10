@@ -50,7 +50,7 @@ jobs:
         uses: docker://quay.io/cilium/cilium-checkpatch:cc7e6b5811f46d7b040dedfe2f6b0010c2c51a12@sha256:9160b6ca58eb99a3ed5d567a494b2e2001325ebad32029c5bd17a8ae4df01044
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
-        uses: 8398a7/action-slack@c9ff874f8549f97317ec9f6162d5449ee77bc984
+        uses: 8398a7/action-slack@a74b761b4089b5d730d813fbedcd2ec5d394f3af
         with:
           status: ${{ job.status }}
           fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)
@@ -72,7 +72,7 @@ jobs:
           entrypoint: ./contrib/coccinelle/check-cocci.sh
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
-        uses: 8398a7/action-slack@c9ff874f8549f97317ec9f6162d5449ee77bc984
+        uses: 8398a7/action-slack@a74b761b4089b5d730d813fbedcd2ec5d394f3af
         with:
           status: ${{ job.status }}
           fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)
@@ -117,7 +117,7 @@ jobs:
           make -C bpf go_prog_test || (echo "Run 'make -C bpf go_prog_test' locally to investigate failures"; exit 1)
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
-        uses: 8398a7/action-slack@c9ff874f8549f97317ec9f6162d5449ee77bc984
+        uses: 8398a7/action-slack@a74b761b4089b5d730d813fbedcd2ec5d394f3af
         with:
           status: ${{ job.status }}
           fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)
