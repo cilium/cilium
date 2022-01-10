@@ -81,34 +81,35 @@ var (
 	// below. These overrides represent a desire to set the default for all
 	// tests, instead of test-specific variations.
 	defaultHelmOptions = map[string]string{
-		"image.repository":              "k8s1:5000/cilium/cilium-dev",
-		"image.tag":                     "latest",
-		"image.useDigest":               "false",
-		"preflight.image.repository":    "k8s1:5000/cilium/cilium-dev", // Set again in init to match agent.image!
-		"preflight.image.tag":           "latest",
-		"preflight.image.useDigest":     "false",
-		"operator.image.repository":     "k8s1:5000/cilium/operator",
-		"operator.image.tag":            "latest",
-		"operator.image.suffix":         "",
-		"operator.image.useDigest":      "false",
+		"image.repository":           "k8s1:5000/cilium/cilium-dev",
+		"image.tag":                  "latest",
+		"image.useDigest":            "false",
+		"preflight.image.repository": "k8s1:5000/cilium/cilium-dev", // Set again in init to match agent.image!
+		"preflight.image.tag":        "latest",
+		"preflight.image.useDigest":  "false",
+		"operator.image.repository":  "k8s1:5000/cilium/operator",
+		"operator.image.tag":         "latest",
+		"operator.image.suffix":      "",
+		"operator.image.useDigest":   "false",
+
+		// Enable embedded Hubble, both on unix socket and TCP port 4244.
+		"hubble.enabled":                "true",
+		"hubble.listenAddress":          ":4244",
+		"hubble.eventBufferCapacity":    "65535",
 		"hubble.relay.image.repository": "k8s1:5000/cilium/hubble-relay",
 		"hubble.relay.image.tag":        "latest",
 		"hubble.relay.image.useDigest":  "false",
-		"hubble.eventBufferCapacity":    "65535",
-		"debug.enabled":                 "true",
-		"k8s.requireIPv4PodCIDR":        "true",
-		"pprof.enabled":                 "true",
-		"logSystemLoad":                 "true",
-		"bpf.preallocateMaps":           "false",
-		"etcd.leaseTTL":                 "30s",
-		"ipv4.enabled":                  "true",
-		"ipv6.enabled":                  "true",
+
+		"debug.enabled":          "true",
+		"k8s.requireIPv4PodCIDR": "true",
+		"pprof.enabled":          "true",
+		"logSystemLoad":          "true",
+		"bpf.preallocateMaps":    "false",
+		"etcd.leaseTTL":          "30s",
+		"ipv4.enabled":           "true",
+		"ipv6.enabled":           "true",
 		// "extraEnv[0].name":              "KUBE_CACHE_MUTATION_DETECTOR",
 		// "extraEnv[0].value":             "true",
-
-		// Enable embedded Hubble, both on unix socket and TCP port 4244.
-		"hubble.enabled":       "true",
-		"hubble.listenAddress": ":4244",
 
 		// We need CNP node status to know when a policy is being enforced
 		"enableCnpStatusUpdates": "true",
