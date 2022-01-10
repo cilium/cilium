@@ -31,7 +31,7 @@ On Freeze date
 
    ::
 
-        * @cilium/janitors
+        * @cilium/tophat
         api/ @cilium/api
         pkg/apisocket/ @cilium/api
         pkg/monitor/payload @cilium/api
