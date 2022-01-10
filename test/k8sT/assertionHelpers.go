@@ -105,7 +105,7 @@ func ExpectCiliumPreFlightInstallReady(vm *helpers.Kubectl) {
 
 // DeployCiliumAndDNS deploys DNS and cilium into the kubernetes cluster
 func DeployCiliumAndDNS(vm *helpers.Kubectl, ciliumFilename string) {
-	DeployCiliumOptionsAndDNS(vm, ciliumFilename, map[string]string{"debug.verbose": "flow"})
+	DeployCiliumOptionsAndDNS(vm, ciliumFilename, map[string]string{})
 }
 
 func redeployCilium(vm *helpers.Kubectl, ciliumFilename string, options map[string]string) {
