@@ -29,11 +29,11 @@ On Freeze date
 #. Update the contents of the ``CODEOWNERS`` file to reduce code reviews to
    essential approvals:
 
-   #. Keep ``* @cilium/janitors`` fallback entry.
+   #. Keep ``* @cilium/tophat`` fallback entry.
    #. Keep ``/.github/workflows/`` entry for CI/CD security.
    #. Keep all ``@cilium/api`` assignments for API stability on the release
       branch.
-   #. Remove everything else so that it is handled by janitors / Top Hat.
+   #. Remove everything else so that it is handled by the Top Hat.
 
 #. Delete the ``stable.txt`` file.
 

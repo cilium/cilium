@@ -319,9 +319,9 @@ every week. The following steps describe how to perform those duties. Please
 submit changes to these steps if you have found a better way to perform each
 duty.
 
-* `People in a Janitor hat this week <https://github.com/orgs/cilium/teams/janitors/members>`_
-* `People in a Triage hat this week <https://github.com/orgs/cilium/teams/triage/members>`_
-* `People in a Backport hat this week <https://github.com/orgs/cilium/teams/backporter/members>`_
+* `People in a Janitor hat this week <https://github.com/orgs/cilium/teams/tophat/members>`_
+* `People in a Triage hat this week <https://github.com/orgs/cilium/teams/tophat/members>`_
+* `People in a Backport hat this week <https://github.com/orgs/cilium/teams/tophat/members>`_
 
 Pull request review process for Janitors team
 ---------------------------------------------
@@ -336,7 +336,7 @@ Pull request review process for Janitors team
 Dedicated expectation time for each member of Janitors team: Follow the next
 steps 1 to 2 times per day. Works best if done first thing in the working day.
 
-#. Review all PRs requesting for review in `for you <https://github.com/cilium/cilium/pulls?q=is%3Apr+is%3Aopen+draft%3Afalse+team-review-requested%3Acilium%2Fjanitors+sort%3Aupdated-asc>`_;
+#. Review all PRs requesting for review in `for you <https://github.com/cilium/cilium/pulls?q=is%3Apr+is%3Aopen+draft%3Afalse+team-review-requested%3Acilium%2Ftophat+sort%3Aupdated-asc>`_;
 
 #. If this PR was opened by a non-committer (e.g. external contributor) please
    assign yourself to that PR and make sure to keep track the PR gets reviewed
