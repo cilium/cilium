@@ -274,6 +274,7 @@ spec:
 {{- /* CRI-O already mounts the BPF filesystem */ -}}
 {{- if not (eq .Values.containerRuntime.integration "crio") }}
         - mountPath: /sys/fs/bpf
+          mountPropagation: Bidirectional
           name: bpf-maps
 {{- end }}
 {{- if not (contains "/run/cilium/cgroupv2" .Values.cgroup.hostRoot) }}
