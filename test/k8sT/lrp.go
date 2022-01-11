@@ -33,10 +33,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sLRPTests", func() {
 		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 	})
 
-	AfterEach(func() {
-		ExpectAllPodsTerminated(kubectl)
-	})
-
 	AfterAll(func() {
 		UninstallCiliumFromManifest(kubectl, ciliumFilename)
 		kubectl.CloseSSHClient()
@@ -90,6 +86,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sLRPTests", func() {
 
 		AfterAll(func() {
 			_ = kubectl.Delete(deploymentYAML)
+			ExpectAllPodsTerminated(kubectl)
 		})
 
 		It("LRP connectivity", func() {
