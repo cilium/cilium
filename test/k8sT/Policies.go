@@ -104,8 +104,6 @@ var _ = SkipDescribeIf(func() bool {
 
 		daemonCfg = map[string]string{
 			"tls.secretsBackend": "k8s",
-			"debug.verbose":      "flow",
-			"hubble.enabled":     "true",
 		}
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, daemonCfg)
@@ -2359,8 +2357,6 @@ var _ = SkipDescribeIf(helpers.DoesNotRunOn419OrLaterKernel,
 			kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 			daemonCfg = map[string]string{
 				"tls.secretsBackend": "k8s",
-				"debug.verbose":      "flow",
-				"hubble.enabled":     "true",
 			}
 			ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 		})
