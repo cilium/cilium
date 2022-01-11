@@ -59,7 +59,7 @@ pipeline {
                     flags = env.ghprbCommentBody?.replace("\\", "")
                     env.K8S_VERSION = sh script: '''
                         if [ "${ghprbCommentBody}" != "" ]; then
-                            python ${TESTDIR}/get-gh-comment-info.py ''' + flags + ''' --retrieve="k8s_version" | \
+                            python3 ${TESTDIR}/get-gh-comment-info.py ''' + flags + ''' --retrieve="k8s_version" | \
                             sed "s/^$/${JobK8sVersion:-1.23}/" | \
                             sed 's/^"//' | sed 's/"$//' | \
                             xargs echo -n
@@ -68,7 +68,7 @@ pipeline {
                         fi''', returnStdout: true
                     env.KERNEL = sh script: '''
                         if [ "${ghprbCommentBody}" != "" ]; then
-                            python ${TESTDIR}/get-gh-comment-info.py ''' + flags + ''' --retrieve="kernel_version" | \
+                            python3 ${TESTDIR}/get-gh-comment-info.py ''' + flags + ''' --retrieve="kernel_version" | \
                             sed "s/^$/${JobKernelVersion:-419}/" | \
                             sed 's/^"//' | sed 's/"$//' | \
                             xargs echo -n
@@ -77,7 +77,7 @@ pipeline {
                         fi''', returnStdout: true
                     env.FOCUS = sh script: '''
                         if [ "${ghprbCommentBody}" != "" ]; then
-                            python ${TESTDIR}/get-gh-comment-info.py ''' + flags + ''' --retrieve="focus" | \
+                            python3 ${TESTDIR}/get-gh-comment-info.py ''' + flags + ''' --retrieve="focus" | \
                             sed "s/^$/K8s/" | \
                             sed "s/Runtime.*/NoTests/" | \
                             sed 's/^"//' | sed 's/"$//' | \
