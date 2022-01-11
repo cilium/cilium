@@ -165,7 +165,6 @@ func (ds *PolicyTestSuite) TestL3WithIngressDenyWildcard(c *C) {
 				Egress: L4PolicyMap{},
 			},
 			IngressPolicyEnabled: true,
-			CIDRPolicy:           policy.CIDRPolicy,
 		},
 		PolicyOwner: DummyOwner{},
 		// inherit this from the result as it is outside of the scope
@@ -249,7 +248,6 @@ func (ds *PolicyTestSuite) TestL3WithLocalHostWildcardd(c *C) {
 				Egress: L4PolicyMap{},
 			},
 			IngressPolicyEnabled: true,
-			CIDRPolicy:           policy.CIDRPolicy,
 		},
 		PolicyOwner: DummyOwner{},
 		// inherit this from the result as it is outside of the scope
@@ -332,7 +330,6 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDenyWildcard(c *C) {
 				Egress: L4PolicyMap{},
 			},
 			IngressPolicyEnabled: true,
-			CIDRPolicy:           policy.CIDRPolicy,
 		},
 		PolicyOwner: DummyOwner{},
 		PolicyMapState: MapState{
@@ -471,7 +468,6 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDeny(c *C) {
 				Egress: L4PolicyMap{},
 			},
 			IngressPolicyEnabled: true,
-			CIDRPolicy:           policy.CIDRPolicy,
 		},
 		PolicyOwner: DummyOwner{},
 		PolicyMapState: MapState{
