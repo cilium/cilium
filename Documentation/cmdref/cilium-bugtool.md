@@ -48,5 +48,5 @@ cilium-bugtool [OPTIONS] [flags]
 
 ### SEE ALSO
 
-* [cilium-bugtool completion](cilium-bugtool_completion.html)	 - generate the autocompletion script for the specified shell
+* [cilium-bugtool completion](cilium-bugtool_completion.html)	 - Generate the autocompletion script for the specified shell
 

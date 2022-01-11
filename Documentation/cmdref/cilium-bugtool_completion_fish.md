@@ -2,18 +2,19 @@
 
 ## cilium-bugtool completion fish
 
-generate the autocompletion script for fish
+Generate the autocompletion script for fish
 
 ### Synopsis
-
 
 Generate the autocompletion script for the fish shell.
 
 To load completions in your current shell session:
-$ cilium-bugtool completion fish | source
+
+	cilium-bugtool completion fish | source
 
 To load completions for every new session, execute once:
-$ cilium-bugtool completion fish > ~/.config/fish/completions/cilium-bugtool.fish
+
+	cilium-bugtool completion fish > ~/.config/fish/completions/cilium-bugtool.fish
 
 You will need to start a new shell for this setup to take effect.
 
@@ -31,5 +32,5 @@ cilium-bugtool completion fish [flags]
 
 ### SEE ALSO
 
-* [cilium-bugtool completion](cilium-bugtool_completion.html)	 - generate the autocompletion script for the specified shell
+* [cilium-bugtool completion](cilium-bugtool_completion.html)	 - Generate the autocompletion script for the specified shell
 

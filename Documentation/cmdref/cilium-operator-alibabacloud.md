@@ -73,6 +73,6 @@ cilium-operator-alibabacloud [flags]
 
 ### SEE ALSO
 
-* [cilium-operator-alibabacloud completion](cilium-operator-alibabacloud_completion.html)	 - generate the autocompletion script for the specified shell
+* [cilium-operator-alibabacloud completion](cilium-operator-alibabacloud_completion.html)	 - Generate the autocompletion script for the specified shell
 * [cilium-operator-alibabacloud metrics](cilium-operator-alibabacloud_metrics.html)	 - Access metric status of the operator
 

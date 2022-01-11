@@ -2,15 +2,15 @@
 
 ## cilium-health completion powershell
 
-generate the autocompletion script for powershell
+Generate the autocompletion script for powershell
 
 ### Synopsis
-
 
 Generate the autocompletion script for powershell.
 
 To load completions in your current shell session:
-PS C:\> cilium-health completion powershell | Out-String | Invoke-Expression
+
+	cilium-health completion powershell | Out-String | Invoke-Expression
 
 To load completions for every new session, add the output of the above command
 to your powershell profile.
@@ -38,5 +38,5 @@ cilium-health completion powershell [flags]
 
 ### SEE ALSO
 
-* [cilium-health completion](cilium-health_completion.html)	 - generate the autocompletion script for the specified shell
+* [cilium-health completion](cilium-health_completion.html)	 - Generate the autocompletion script for the specified shell
 

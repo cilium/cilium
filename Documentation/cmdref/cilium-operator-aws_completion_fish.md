@@ -2,18 +2,19 @@
 
 ## cilium-operator-aws completion fish
 
-generate the autocompletion script for fish
+Generate the autocompletion script for fish
 
 ### Synopsis
-
 
 Generate the autocompletion script for the fish shell.
 
 To load completions in your current shell session:
-$ cilium-operator-aws completion fish | source
+
+	cilium-operator-aws completion fish | source
 
 To load completions for every new session, execute once:
-$ cilium-operator-aws completion fish > ~/.config/fish/completions/cilium-operator-aws.fish
+
+	cilium-operator-aws completion fish > ~/.config/fish/completions/cilium-operator-aws.fish
 
 You will need to start a new shell for this setup to take effect.
 
@@ -31,5 +32,5 @@ cilium-operator-aws completion fish [flags]
 
 ### SEE ALSO
 
-* [cilium-operator-aws completion](cilium-operator-aws_completion.html)	 - generate the autocompletion script for the specified shell
+* [cilium-operator-aws completion](cilium-operator-aws_completion.html)	 - Generate the autocompletion script for the specified shell
 
