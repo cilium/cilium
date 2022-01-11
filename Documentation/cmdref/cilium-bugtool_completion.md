@@ -2,10 +2,9 @@
 
 ## cilium-bugtool completion
 
-generate the autocompletion script for the specified shell
+Generate the autocompletion script for the specified shell
 
 ### Synopsis
-
 
 Generate the autocompletion script for cilium-bugtool for the specified shell.
 See each sub-command's help for details on how to use the generated script.
@@ -20,8 +19,8 @@ See each sub-command's help for details on how to use the generated script.
 ### SEE ALSO
 
 * [cilium-bugtool](cilium-bugtool.html)	 - Collects agent & system information useful for bug reporting
-* [cilium-bugtool completion bash](cilium-bugtool_completion_bash.html)	 - generate the autocompletion script for bash
-* [cilium-bugtool completion fish](cilium-bugtool_completion_fish.html)	 - generate the autocompletion script for fish
-* [cilium-bugtool completion powershell](cilium-bugtool_completion_powershell.html)	 - generate the autocompletion script for powershell
-* [cilium-bugtool completion zsh](cilium-bugtool_completion_zsh.html)	 - generate the autocompletion script for zsh
+* [cilium-bugtool completion bash](cilium-bugtool_completion_bash.html)	 - Generate the autocompletion script for bash
+* [cilium-bugtool completion fish](cilium-bugtool_completion_fish.html)	 - Generate the autocompletion script for fish
+* [cilium-bugtool completion powershell](cilium-bugtool_completion_powershell.html)	 - Generate the autocompletion script for powershell
+* [cilium-bugtool completion zsh](cilium-bugtool_completion_zsh.html)	 - Generate the autocompletion script for zsh
 

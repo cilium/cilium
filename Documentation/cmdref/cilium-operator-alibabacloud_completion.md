@@ -2,10 +2,9 @@
 
 ## cilium-operator-alibabacloud completion
 
-generate the autocompletion script for the specified shell
+Generate the autocompletion script for the specified shell
 
 ### Synopsis
-
 
 Generate the autocompletion script for cilium-operator-alibabacloud for the specified shell.
 See each sub-command's help for details on how to use the generated script.
@@ -20,8 +19,8 @@ See each sub-command's help for details on how to use the generated script.
 ### SEE ALSO
 
 * [cilium-operator-alibabacloud](cilium-operator-alibabacloud.html)	 - Run cilium-operator-alibabacloud
-* [cilium-operator-alibabacloud completion bash](cilium-operator-alibabacloud_completion_bash.html)	 - generate the autocompletion script for bash
-* [cilium-operator-alibabacloud completion fish](cilium-operator-alibabacloud_completion_fish.html)	 - generate the autocompletion script for fish
-* [cilium-operator-alibabacloud completion powershell](cilium-operator-alibabacloud_completion_powershell.html)	 - generate the autocompletion script for powershell
-* [cilium-operator-alibabacloud completion zsh](cilium-operator-alibabacloud_completion_zsh.html)	 - generate the autocompletion script for zsh
+* [cilium-operator-alibabacloud completion bash](cilium-operator-alibabacloud_completion_bash.html)	 - Generate the autocompletion script for bash
+* [cilium-operator-alibabacloud completion fish](cilium-operator-alibabacloud_completion_fish.html)	 - Generate the autocompletion script for fish
+* [cilium-operator-alibabacloud completion powershell](cilium-operator-alibabacloud_completion_powershell.html)	 - Generate the autocompletion script for powershell
+* [cilium-operator-alibabacloud completion zsh](cilium-operator-alibabacloud_completion_zsh.html)	 - Generate the autocompletion script for zsh
 

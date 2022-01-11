@@ -2,10 +2,9 @@
 
 ## cilium-operator-generic completion bash
 
-generate the autocompletion script for bash
+Generate the autocompletion script for bash
 
 ### Synopsis
-
 
 Generate the autocompletion script for the bash shell.
 
@@ -13,16 +12,21 @@ This script depends on the 'bash-completion' package.
 If it is not installed already, you can install it via your OS's package manager.
 
 To load completions in your current shell session:
-$ source <(cilium-operator-generic completion bash)
+
+	source <(cilium-operator-generic completion bash)
 
 To load completions for every new session, execute once:
-Linux:
-  $ cilium-operator-generic completion bash > /etc/bash_completion.d/cilium-operator-generic
-MacOS:
-  $ cilium-operator-generic completion bash > /usr/local/etc/bash_completion.d/cilium-operator-generic
+
+#### Linux:
+
+	cilium-operator-generic completion bash > /etc/bash_completion.d/cilium-operator-generic
+
+#### macOS:
+
+	cilium-operator-generic completion bash > /usr/local/etc/bash_completion.d/cilium-operator-generic
 
 You will need to start a new shell for this setup to take effect.
-  
+
 
 ```
 cilium-operator-generic completion bash
@@ -37,5 +41,5 @@ cilium-operator-generic completion bash
 
 ### SEE ALSO
 
-* [cilium-operator-generic completion](cilium-operator-generic_completion.html)	 - generate the autocompletion script for the specified shell
+* [cilium-operator-generic completion](cilium-operator-generic_completion.html)	 - Generate the autocompletion script for the specified shell
 

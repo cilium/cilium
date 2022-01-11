@@ -2,18 +2,19 @@
 
 ## cilium-operator-azure completion fish
 
-generate the autocompletion script for fish
+Generate the autocompletion script for fish
 
 ### Synopsis
-
 
 Generate the autocompletion script for the fish shell.
 
 To load completions in your current shell session:
-$ cilium-operator-azure completion fish | source
+
+	cilium-operator-azure completion fish | source
 
 To load completions for every new session, execute once:
-$ cilium-operator-azure completion fish > ~/.config/fish/completions/cilium-operator-azure.fish
+
+	cilium-operator-azure completion fish > ~/.config/fish/completions/cilium-operator-azure.fish
 
 You will need to start a new shell for this setup to take effect.
 
@@ -31,5 +32,5 @@ cilium-operator-azure completion fish [flags]
 
 ### SEE ALSO
 
-* [cilium-operator-azure completion](cilium-operator-azure_completion.html)	 - generate the autocompletion script for the specified shell
+* [cilium-operator-azure completion](cilium-operator-azure_completion.html)	 - Generate the autocompletion script for the specified shell
 

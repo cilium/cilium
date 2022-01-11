@@ -2,18 +2,19 @@
 
 ## cilium-health completion fish
 
-generate the autocompletion script for fish
+Generate the autocompletion script for fish
 
 ### Synopsis
-
 
 Generate the autocompletion script for the fish shell.
 
 To load completions in your current shell session:
-$ cilium-health completion fish | source
+
+	cilium-health completion fish | source
 
 To load completions for every new session, execute once:
-$ cilium-health completion fish > ~/.config/fish/completions/cilium-health.fish
+
+	cilium-health completion fish > ~/.config/fish/completions/cilium-health.fish
 
 You will need to start a new shell for this setup to take effect.
 
@@ -40,5 +41,5 @@ cilium-health completion fish [flags]
 
 ### SEE ALSO
 
-* [cilium-health completion](cilium-health_completion.html)	 - generate the autocompletion script for the specified shell
+* [cilium-health completion](cilium-health_completion.html)	 - Generate the autocompletion script for the specified shell
 

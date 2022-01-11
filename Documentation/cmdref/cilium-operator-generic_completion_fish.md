@@ -2,18 +2,19 @@
 
 ## cilium-operator-generic completion fish
 
-generate the autocompletion script for fish
+Generate the autocompletion script for fish
 
 ### Synopsis
-
 
 Generate the autocompletion script for the fish shell.
 
 To load completions in your current shell session:
-$ cilium-operator-generic completion fish | source
+
+	cilium-operator-generic completion fish | source
 
 To load completions for every new session, execute once:
-$ cilium-operator-generic completion fish > ~/.config/fish/completions/cilium-operator-generic.fish
+
+	cilium-operator-generic completion fish > ~/.config/fish/completions/cilium-operator-generic.fish
 
 You will need to start a new shell for this setup to take effect.
 
@@ -31,5 +32,5 @@ cilium-operator-generic completion fish [flags]
 
 ### SEE ALSO
 
-* [cilium-operator-generic completion](cilium-operator-generic_completion.html)	 - generate the autocompletion script for the specified shell
+* [cilium-operator-generic completion](cilium-operator-generic_completion.html)	 - Generate the autocompletion script for the specified shell
 

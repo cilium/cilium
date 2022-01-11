@@ -2,10 +2,9 @@
 
 ## cilium-health completion bash
 
-generate the autocompletion script for bash
+Generate the autocompletion script for bash
 
 ### Synopsis
-
 
 Generate the autocompletion script for the bash shell.
 
@@ -13,16 +12,21 @@ This script depends on the 'bash-completion' package.
 If it is not installed already, you can install it via your OS's package manager.
 
 To load completions in your current shell session:
-$ source <(cilium-health completion bash)
+
+	source <(cilium-health completion bash)
 
 To load completions for every new session, execute once:
-Linux:
-  $ cilium-health completion bash > /etc/bash_completion.d/cilium-health
-MacOS:
-  $ cilium-health completion bash > /usr/local/etc/bash_completion.d/cilium-health
+
+#### Linux:
+
+	cilium-health completion bash > /etc/bash_completion.d/cilium-health
+
+#### macOS:
+
+	cilium-health completion bash > /usr/local/etc/bash_completion.d/cilium-health
 
 You will need to start a new shell for this setup to take effect.
-  
+
 
 ```
 cilium-health completion bash
@@ -46,5 +50,5 @@ cilium-health completion bash
 
 ### SEE ALSO
 
-* [cilium-health completion](cilium-health_completion.html)	 - generate the autocompletion script for the specified shell
+* [cilium-health completion](cilium-health_completion.html)	 - Generate the autocompletion script for the specified shell
 
