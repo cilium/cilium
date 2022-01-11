@@ -132,7 +132,7 @@ pipeline {
                         timeout(time: 30, unit: 'MINUTES'){
                             dir("${TESTDIR}") {
                                 sh 'vagrant destroy runtime --force'
-                                sh 'KERNEL=$(python get-gh-comment-info.py "${ghprbCommentBody}" --retrieve=kernel_version | sed "s/^$/${DEFAULT_KERNEL}/") vagrant up runtime --provision'
+                                sh 'KERNEL=$(python3 get-gh-comment-info.py "${ghprbCommentBody}" --retrieve=kernel_version | sed "s/^$/${DEFAULT_KERNEL}/") vagrant up runtime --provision'
                             }
                         }
                     }
@@ -157,7 +157,7 @@ pipeline {
                 TESTDIR="${GOPATH}/${PROJ_PATH}/test"
             }
             steps {
-                sh 'cd ${TESTDIR}; ginkgo --focus="$(python get-gh-comment-info.py "${ghprbCommentBody}" | sed "s/^$/Runtime/" | sed "s/K8s.*/NoTests/")" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.runQuarantined=${RUN_QUARANTINED}'
+                sh 'cd ${TESTDIR}; ginkgo --focus="$(python3 get-gh-comment-info.py "${ghprbCommentBody}" | sed "s/^$/Runtime/" | sed "s/K8s.*/NoTests/")" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.runQuarantined=${RUN_QUARANTINED}'
             }
             post {
                 always {
