@@ -9,13 +9,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/internal/k8s"
-
 	"github.com/cloudflare/cfssl/config"
 	"github.com/cloudflare/cfssl/csr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/internal/k8s"
 )
 
 func (k *K8sInstaller) createHubbleServerCertificate(ctx context.Context) error {

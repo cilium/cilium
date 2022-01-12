@@ -7,9 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/internal/k8s"
-
 	"github.com/cloudflare/cfssl/cli/genkey"
 	"github.com/cloudflare/cfssl/config"
 	"github.com/cloudflare/cfssl/csr"
@@ -19,6 +16,9 @@ import (
 	"github.com/cloudflare/cfssl/signer/local"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/internal/k8s"
 )
 
 type CertManager struct {

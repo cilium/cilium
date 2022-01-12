@@ -16,15 +16,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/api/v1/observer"
+	"github.com/cilium/cilium/api/v1/relay"
+	hubprinter "github.com/cilium/hubble/pkg/printer"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/cilium/cilium-cli/connectivity/filters"
 	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/api/v1/observer"
-	"github.com/cilium/cilium/api/v1/relay"
-	hubprinter "github.com/cilium/hubble/pkg/printer"
 )
 
 // Action represents an individual action (e.g. a curl call) in a Scenario

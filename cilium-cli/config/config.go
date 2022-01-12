@@ -11,11 +11,11 @@ import (
 	"sort"
 	"text/tabwriter"
 
-	"github.com/cilium/cilium-cli/defaults"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/cilium/cilium-cli/defaults"
 )
 
 type k8sConfigImplementation interface {

@@ -9,11 +9,11 @@ import (
 	"os"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/hubble"
 	"github.com/cilium/cilium-cli/install"
-
-	"github.com/spf13/cobra"
 )
 
 func newCmdInstall() *cobra.Command {

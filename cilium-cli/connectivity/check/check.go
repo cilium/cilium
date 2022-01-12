@@ -9,11 +9,11 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/cilium/cilium-cli/connectivity/filters"
-	"github.com/cilium/cilium-cli/internal/k8s"
-
 	"github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/observer"
+
+	"github.com/cilium/cilium-cli/connectivity/filters"
+	"github.com/cilium/cilium-cli/internal/k8s"
 )
 
 type Parameters struct {
