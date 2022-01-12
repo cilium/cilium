@@ -272,19 +272,19 @@ ct_recreate6:
 		policy_mark_skip(ctx);
 
 #ifdef ENABLE_NODEPORT
+# ifdef ENABLE_DSR
+		if (ct_state.dsr) {
+			ret = xlate_dsr_v6(ctx, tuple, l4_off);
+			if (ret != 0)
+				return ret;
+		} else
+# endif /* ENABLE_DSR */
 		/* See comment in handle_ipv4_from_lxc(). */
 		if (ct_state.node_port) {
 			ctx->tc_index |= TC_INDEX_F_SKIP_RECIRCULATION;
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT);
 			return DROP_MISSED_TAIL_CALL;
 		}
-# ifdef ENABLE_DSR
-		if (ct_state.dsr) {
-			ret = xlate_dsr_v6(ctx, tuple, l4_off);
-			if (ret != 0)
-				return ret;
-		}
-# endif /* ENABLE_DSR */
 #endif /* ENABLE_NODEPORT */
 		if (ct_state.rev_nat_index) {
 			ret = lb6_rev_nat(ctx, l4_off, &csum_off,
@@ -702,22 +702,23 @@ ct_recreate4:
 		policy_mark_skip(ctx);
 
 #ifdef ENABLE_NODEPORT
+# ifdef ENABLE_DSR
+		if (ct_state.dsr) {
+			ret = xlate_dsr_v4(ctx, &tuple, l4_off, has_l4_header);
+			if (ret != 0)
+				return ret;
+		} else
+# endif /* ENABLE_DSR */
 		/* This handles reply traffic for the case where the nodeport EP
-		 * is local to the node. We'll redirect to bpf_host egress to
-		 * perform the reverse DNAT.
+		 * is local to the node. We'll do the tail call to perform
+		 * the reverse DNAT.
 		 */
 		if (ct_state.node_port) {
 			ctx->tc_index |= TC_INDEX_F_SKIP_RECIRCULATION;
 			ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT);
 			return DROP_MISSED_TAIL_CALL;
 		}
-# ifdef ENABLE_DSR
-		if (ct_state.dsr) {
-			ret = xlate_dsr_v4(ctx, &tuple, l4_off, has_l4_header);
-			if (ret != 0)
-				return ret;
-		}
-# endif /* ENABLE_DSR */
+
 #endif /* ENABLE_NODEPORT */
 
 		if (ct_state.rev_nat_index) {
@@ -1126,9 +1127,10 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 					   verdict, policy_match_type, audited);
 	}
 
-#ifdef ENABLE_DSR
+#ifdef ENABLE_NODEPORT
 	if (ret == CT_NEW || ret == CT_REOPENED) {
 		bool dsr = false;
+# ifdef ENABLE_DSR
 		int ret2;
 
 		ret2 = handle_dsr_v6(ctx, &dsr);
@@ -1136,15 +1138,25 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 			return ret2;
 
 		ct_state_new.dsr = dsr;
-		if (ret == CT_REOPENED)
+		if (ret == CT_REOPENED && ct_state.dsr != dsr)
 			ct_update6_dsr(get_ct_map6(&tuple), &tuple, dsr);
+# endif /* ENABLE_DSR */
+		if (!dsr) {
+			bool node_port =
+				ct_has_nodeport_egress_entry6(get_ct_map6(&tuple),
+							      &tuple);
+
+			ct_state_new.node_port = node_port;
+			if (ret == CT_REOPENED &&
+			    ct_state.node_port != node_port)
+				ct_update_nodeport(get_ct_map6(&tuple), &tuple,
+						   node_port);
+		}
 	}
-#endif /* ENABLE_DSR */
+#endif /* ENABLE_NODEPORT */
 
 	if (ret == CT_NEW) {
 		ct_state_new.src_sec_id = src_label;
-		ct_state_new.node_port = ct_state.node_port;
-		ct_state_new.ifindex = ct_state.ifindex;
 		ret = ct_create6(get_ct_map6(&tuple), &CT_MAP_ANY6, &tuple, ctx, CT_INGRESS,
 				 &ct_state_new, verdict > 0);
 		if (IS_ERR(ret))
@@ -1431,9 +1443,10 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 skip_policy_enforcement:
 #endif /* !ENABLE_HOST_SERVICES_FULL && !DISABLE_LOOPBACK_LB */
 
-#ifdef ENABLE_DSR
+#ifdef ENABLE_NODEPORT
 	if (ret == CT_NEW || ret == CT_REOPENED) {
 		bool dsr = false;
+# ifdef ENABLE_DSR
 		int ret2;
 
 		ret2 = handle_dsr_v4(ctx, &dsr);
@@ -1441,15 +1454,25 @@ skip_policy_enforcement:
 			return ret2;
 
 		ct_state_new.dsr = dsr;
-		if (ret == CT_REOPENED)
+		if (ret == CT_REOPENED && ct_state.dsr != dsr)
 			ct_update4_dsr(get_ct_map4(&tuple), &tuple, dsr);
+# endif /* ENABLE_DSR */
+		if (!dsr) {
+			bool node_port =
+				ct_has_nodeport_egress_entry4(get_ct_map4(&tuple),
+							      &tuple);
+
+			ct_state_new.node_port = node_port;
+			if (ret == CT_REOPENED &&
+			    ct_state.node_port != node_port)
+				ct_update_nodeport(get_ct_map4(&tuple), &tuple,
+						   node_port);
+		}
 	}
-#endif /* ENABLE_DSR */
+#endif /* ENABLE_NODEPORT */
 
 	if (ret == CT_NEW) {
 		ct_state_new.src_sec_id = src_label;
-		ct_state_new.node_port = ct_state.node_port;
-		ct_state_new.ifindex = ct_state.ifindex;
 		ret = ct_create4(get_ct_map4(&tuple), &CT_MAP_ANY4, &tuple, ctx, CT_INGRESS,
 				 &ct_state_new, verdict > 0);
 		if (IS_ERR(ret))

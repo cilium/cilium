@@ -182,31 +182,6 @@ static __always_inline bool ct_entry_alive(const struct ct_entry *entry)
 	return !entry->rx_closing || !entry->tx_closing;
 }
 
-/* Helper for holding 2nd service entry alive in nodeport case. */
-static __always_inline bool __ct_entry_keep_alive(const void *map,
-						  const void *tuple)
-{
-	struct ct_entry *entry;
-
-	/* Lookup indicates to LRU that key/value is in use. */
-	entry = map_lookup_elem(map, tuple);
-	if (entry) {
-		if (entry->node_port) {
-#ifdef NEEDS_TIMEOUT
-			__u32 lifetime = (entry->seen_non_syn ?
-					  bpf_sec_to_mono(CT_SERVICE_LIFETIME_TCP) :
-					  bpf_sec_to_mono(CT_SERVICE_LIFETIME_NONTCP)) +
-					 bpf_mono_now();
-			WRITE_ONCE(entry->lifetime, lifetime);
-#endif
-			if (!ct_entry_alive(entry))
-				ct_reset_closing(entry);
-		}
-		return true;
-	}
-	return false;
-}
-
 static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 					const void *tuple, int action, int dir,
 					struct ct_state *ct_state,
@@ -1042,4 +1017,58 @@ static __always_inline int ct_create4(const void *map_main,
 	return 0;
 }
 
+/* The function tries to determine whether the flow identified by the given
+ * CT_INGRESS tuple belongs to a NodePort traffic (i.e., outside client => N/S
+ * LB => local backend).
+ *
+ * When the client send the NodePort request, the NodePort BPF
+ * (nodeport_lb{4,6}()) creates the CT_EGRESS entry for the
+ * (saddr=client,daddr=backend) tuple. So, to derive whether the reply packet
+ * backend => client belongs to the LB flow we can query the CT_EGRESS entry.
+ */
+static __always_inline bool
+ct_has_nodeport_egress_entry4(const void *map,
+			      struct ipv4_ct_tuple *ingress_tuple)
+{
+	int prev_flags = ingress_tuple->flags;
+	struct ct_entry *entry;
+
+	ingress_tuple->flags = TUPLE_F_OUT;
+	entry = map_lookup_elem(map, ingress_tuple);
+	ingress_tuple->flags = prev_flags;
+
+	if (entry)
+		return entry->node_port;
+
+	return 0;
+}
+
+static __always_inline bool
+ct_has_nodeport_egress_entry6(const void *map,
+			      struct ipv6_ct_tuple *ingress_tuple)
+{
+	int prev_flags = ingress_tuple->flags;
+	struct ct_entry *entry;
+
+	ingress_tuple->flags = TUPLE_F_OUT;
+	entry = map_lookup_elem(map, ingress_tuple);
+	ingress_tuple->flags = prev_flags;
+
+	if (entry)
+		return entry->node_port;
+
+	return 0;
+}
+
+static __always_inline void
+ct_update_nodeport(const void *map, const void *tuple, const bool node_port)
+{
+	struct ct_entry *entry;
+
+	entry = map_lookup_elem(map, tuple);
+	if (!entry)
+		return;
+
+	entry->node_port = node_port;
+}
 #endif /* __LIB_CONNTRACK_H_ */
