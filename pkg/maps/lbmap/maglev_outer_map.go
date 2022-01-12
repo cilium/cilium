@@ -77,7 +77,7 @@ func OpenMaglevOuterMap(name string, tableSize uint32) (*maglevOuterMap, error) 
 // - an integer indicating the table size. In case the table size cannot be
 //   determined, the UnknownMaglevTableSize constant (0) is returned.
 func MaglevOuterMapTableSize(mapName string) (bool, uint32) {
-	prevMap, err := ebpf.LoadPinnedMap(bpf.MapPath(mapName), nil)
+	prevMap, err := ebpf.LoadPinnedMap(bpf.MapPath(mapName))
 	if err != nil {
 		// No outer map found.
 		return false, UnknownMaglevTableSize
