@@ -65,7 +65,7 @@ func NewMaglevOuterMap(name string, maxEntries int, tableSize uint32, innerMap *
 // OpenMaglevOuterMap opens an existing pinned maglev outer map and returns an
 // object representing it.
 func OpenMaglevOuterMap(name string) (*MaglevOuterMap, error) {
-	m, err := ebpf.OpenMap(name)
+	m, err := ebpf.LoadRegisterMap(name)
 	if err != nil {
 		return nil, err
 	}
