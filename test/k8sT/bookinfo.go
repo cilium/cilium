@@ -34,10 +34,6 @@ var _ = SkipDescribeIf(func() bool {
 		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 	})
 
-	AfterEach(func() {
-		ExpectAllPodsTerminated(kubectl)
-	})
-
 	AfterAll(func() {
 		UninstallCiliumFromManifest(kubectl, ciliumFilename)
 		kubectl.CloseSSHClient()
@@ -84,6 +80,7 @@ var _ = SkipDescribeIf(func() bool {
 				// Explicitly do not check result to avoid having assertions in AfterAll.
 				_ = kubectl.Delete(resourcePath)
 			}
+			ExpectAllPodsTerminated(kubectl)
 		})
 
 		It("Tests bookinfo demo", func() {

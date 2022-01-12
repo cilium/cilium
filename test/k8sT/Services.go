@@ -134,10 +134,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 	})
 
-	AfterEach(func() {
-		ExpectAllPodsTerminated(kubectl)
-	})
-
 	AfterAll(func() {
 		UninstallCiliumFromManifest(kubectl, ciliumFilename)
 		kubectl.CloseSSHClient()
@@ -232,6 +228,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 					_ = kubectl.Delete(echoSVCYAMLDualStack)
 				}
 			}
+			ExpectAllPodsTerminated(kubectl)
 		})
 
 		SkipItIf(helpers.RunsWithKubeProxyReplacement, "Checks service on same node", func() {
@@ -1011,6 +1008,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 						AfterAll(func() {
 							kubectl.Delete(echoYAML)
+							ExpectAllPodsTerminated(kubectl)
 						})
 
 						It("Tests NodePort", func() {
@@ -1148,6 +1146,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 						AfterAll(func() {
 							_ = kubectl.Delete(echoYAML)
+							ExpectAllPodsTerminated(kubectl)
 						})
 
 						It("Tests NodePort", func() {
@@ -1331,6 +1330,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 							for _, node := range []string{ni.k8s1NodeName, ni.k8s2NodeName, ni.outsideNodeName} {
 								kubectl.ExecInHostNetNS(context.TODO(), node, "ip l del wg0")
 							}
+							ExpectAllPodsTerminated(kubectl)
 						})
 
 						It("Tests NodePort BPF", func() {
@@ -1620,6 +1620,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 		AfterEach(func() {
 			wg.Wait()
 			_ = kubectl.Delete(gracefulTermYAML)
+			ExpectAllPodsTerminated(kubectl)
 		})
 
 		It("Checks client terminates gracefully on service endpoint deletion", func() {
