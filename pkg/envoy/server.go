@@ -1045,6 +1045,14 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 		},
 	}
 
+	if option.Config.EnableBPFTProxy {
+		// Envoy since 1.20.0 uses SO_REUSEPORT on listeners by default.
+		// BPF TPROXY is currently not compatible with SO_REUSEPORT, so disable it.
+		// Note that this may degrade Envoy performance.
+		bs.LayeredRuntime.Layers[0].GetStaticLayer().Fields["envoy.reloadable_features.listener_reuse_port_default_enabled"] =
+			&structpb.Value{Kind: &structpb.Value_BoolValue{BoolValue: false}}
+	}
+
 	log.Debugf("Envoy: Bootstrap: %s", bs)
 	data, err := proto.Marshal(bs)
 	if err != nil {
