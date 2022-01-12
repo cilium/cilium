@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2020 Authors of Cilium
+// Copyright 2020-2022 Authors of Cilium
 
 package cmd
 
 import (
-	"fmt"
+	"errors"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -21,52 +22,58 @@ var bpfMaglevListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf lb maglev list")
 
-		lookupTables := map[string][]string{}
-		dumpMaglevTables(lookupTables)
+		backends, err := dumpMaglevTables()
+		if err != nil {
+			Fatalf("Unable to dump Maglev lookup tables: %s", err)
+		}
 
 		if command.OutputJSON() {
-			if err := command.PrintOutput(lookupTables); err != nil {
+			if err := command.PrintOutput(backends); err != nil {
 				Fatalf("Unable to generate JSON output: %s", err)
 			}
 			return
 		}
 
-		TablePrinter("SVC ID", "LOOKUP TABLE", lookupTables)
+		TablePrinter("SVC ID", "LOOKUP TABLE", backends)
 	},
 }
 
-func parseMaglevEntry(key *lbmap.MaglevOuterKey, value *lbmap.MaglevOuterVal, tableSize uint32, tables map[string][]string) {
-	innerMap, err := lbmap.MaglevInnerMapFromID(int(value.FD), tableSize)
+// dumpMaglevTables returns the contents of the Maglev v4 and v6 maps
+// in a format the table printer expects.
+func dumpMaglevTables() (map[string][]string, error) {
+	out, err := dumpMaglevTable(lbmap.MaglevOuter4MapName)
 	if err != nil {
-		Fatalf("Unable to get map fd by id %d: %s", value.FD, err)
+		return nil, err
 	}
 
-	innerKey := lbmap.MaglevInnerKey{
-		Zero: 0,
-	}
-	innerValue, err := innerMap.Lookup(&innerKey)
+	v6, err := dumpMaglevTable(lbmap.MaglevOuter6MapName)
 	if err != nil {
-		Fatalf("Unable to lookup element in map by fd %d: %s", value.FD, err)
+		return nil, err
 	}
 
-	tables[fmt.Sprintf("%d", key.ToNetwork().RevNatID)] = []string{fmt.Sprintf("%v", innerValue.BackendIDs)}
+	// Merge v6 lookup tables into result.
+	for k, v := range v6 {
+		out[k] = v
+	}
+
+	return out, nil
 }
 
-func dumpMaglevTables(tables map[string][]string) {
-	tableSize, err := lbmap.OpenMaglevMaps()
+// dumpMaglevTable opens the pinned Maglev map with the given name and
+// dumps the backend tables of all services. Returns an empty initialized
+// map if the given eBPF map does not exist.
+func dumpMaglevTable(name string) (map[string][]string, error) {
+	m, err := lbmap.OpenMaglevOuterMap(name)
+	if errors.Is(err, os.ErrNotExist) {
+		// Map not existing is not an error.
+		// Skip dumping it and return an empty allocated map.
+		return map[string][]string{}, nil
+	}
 	if err != nil {
-		Fatalf("Cannot initialize maglev maps: %s", err)
+		return nil, err
 	}
 
-	parse := func(key *lbmap.MaglevOuterKey, value *lbmap.MaglevOuterVal) {
-		parseMaglevEntry(key, value, tableSize, tables)
-	}
-
-	for name, m := range lbmap.GetOpenMaglevMaps() {
-		if err := m.IterateWithCallback(parse); err != nil {
-			Fatalf("Unable to dump %s: %v", name, err)
-		}
-	}
+	return m.DumpBackends()
 }
 
 func init() {

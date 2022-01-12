@@ -1,31 +1,41 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2021 Authors of Cilium
+// Copyright 2021-2022 Authors of Cilium
 
 package lbmap
 
 import (
+	"errors"
+	"fmt"
 	"unsafe"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/ebpf"
 )
 
-const (
-	// UnknownMaglevTableSize is a constant that represents an unknown table
-	// size for a maglev outer map.
-	UnknownMaglevTableSize = 0
-)
-
-// maglevOuterMap is the internal representation of a maglev outer map.
-type maglevOuterMap struct {
+// MaglevOuterMap represents a Maglev outer map.
+type MaglevOuterMap struct {
 	*ebpf.Map
-	tableSize uint32
+}
+
+// UpdateService sets the given inner map to be the Maglev lookup table for
+// the service with the given id.
+func (m *MaglevOuterMap) UpdateService(id uint16, inner *MaglevInnerMap) error {
+	key := MaglevOuterKey{RevNatID: id}.toNetwork()
+	val := MaglevOuterVal{FD: uint32(inner.FD())}
+	return m.Map.Update(key, val, 0)
 }
 
 // MaglevOuterKey is the key of a maglev outer map.
 type MaglevOuterKey struct {
 	RevNatID uint16
+}
+
+// toNetwork converts a maglev outer map's key to network byte order.
+// The key is in network byte order in the eBPF maps.
+func (k MaglevOuterKey) toNetwork() MaglevOuterKey {
+	return MaglevOuterKey{
+		RevNatID: byteorder.HostToNetwork16(k.RevNatID),
+	}
 }
 
 // MaglevOuterVal is the value of a maglev outer map.
@@ -34,7 +44,7 @@ type MaglevOuterVal struct {
 }
 
 // NewMaglevOuterMap returns a new object representing a maglev outer map.
-func NewMaglevOuterMap(name string, maxEntries int, tableSize uint32, innerMap *ebpf.MapSpec) (*maglevOuterMap, error) {
+func NewMaglevOuterMap(name string, maxEntries int, tableSize uint32, innerMap *ebpf.MapSpec) (*MaglevOuterMap, error) {
 	m := ebpf.NewMap(&ebpf.MapSpec{
 		Name:       name,
 		Type:       ebpf.HashOfMaps,
@@ -49,90 +59,95 @@ func NewMaglevOuterMap(name string, maxEntries int, tableSize uint32, innerMap *
 		return nil, err
 	}
 
-	return &maglevOuterMap{
-		Map:       m,
-		tableSize: tableSize,
-	}, nil
+	return &MaglevOuterMap{m}, nil
 }
 
 // OpenMaglevOuterMap opens an existing pinned maglev outer map and returns an
 // object representing it.
-func OpenMaglevOuterMap(name string, tableSize uint32) (*maglevOuterMap, error) {
+func OpenMaglevOuterMap(name string) (*MaglevOuterMap, error) {
 	m, err := ebpf.OpenMap(name)
 	if err != nil {
 		return nil, err
 	}
 
-	return &maglevOuterMap{
-		Map:       m,
-		tableSize: tableSize,
-	}, nil
+	return &MaglevOuterMap{m}, nil
 }
 
-// MaglevOuterMapTableSize tries to determine the table size of a given maglev
-// outer map.
-//
-// The function returns:
-// - a bool indicating whether the outer map exists or not
-// - an integer indicating the table size. In case the table size cannot be
-//   determined, the UnknownMaglevTableSize constant (0) is returned.
-func MaglevOuterMapTableSize(mapName string) (bool, uint32) {
-	prevMap, err := ebpf.LoadPinnedMap(bpf.MapPath(mapName))
-	if err != nil {
-		// No outer map found.
-		return false, UnknownMaglevTableSize
-	}
-	defer prevMap.Close()
-
+// TableSize tries to determine the table size of the Maglev map.
+// It does so by opening the first-available service's inner map and reading
+// its size. For this to work, at least one service entry must be available.
+func (m *MaglevOuterMap) TableSize() (uint32, error) {
 	var firstKey MaglevOuterKey
-	if err = prevMap.NextKey(nil, &firstKey); err != nil {
+	if err := m.NextKey(nil, &firstKey); err != nil {
 		// The outer map exists but it's empty.
-		return true, UnknownMaglevTableSize
+		return 0, fmt.Errorf("getting first key: %w", err)
 	}
 
 	var firstVal MaglevOuterVal
-	if err = prevMap.Lookup(&firstKey, &firstVal); err != nil {
+	if err := m.Lookup(&firstKey, &firstVal); err != nil {
 		// The outer map exists but we can't read the first entry.
-		return true, UnknownMaglevTableSize
+		return 0, fmt.Errorf("getting first value: %w", err)
 	}
 
-	innerMap, err := ebpf.MapFromID(int(firstVal.FD))
+	inner, err := MaglevInnerMapFromID(firstVal.FD)
 	if err != nil {
 		// The outer map exists but we can't access the inner map
 		// associated with the first entry.
-		return true, UnknownMaglevTableSize
+		return 0, fmt.Errorf("opening first inner map: %w", err)
 	}
-	defer innerMap.Close()
+	defer inner.Close()
 
-	return true, innerMap.ValueSize() / uint32(unsafe.Sizeof(uint32(0)))
+	return inner.TableSize(), nil
 }
 
-// Update updates the value associated with a given key for a maglev outer map.
-func (m *maglevOuterMap) Update(key *MaglevOuterKey, value *MaglevOuterVal) error {
-	return m.Map.Update(key, value, 0)
+// GetService gets the maglev backend lookup table for the given service id.
+func (m *MaglevOuterMap) GetService(id uint16) (*MaglevInnerMap, error) {
+	key := MaglevOuterKey{RevNatID: id}.toNetwork()
+	var val MaglevOuterVal
+
+	err := m.Lookup(key, &val)
+	if errors.Is(err, ebpf.ErrKeyNotExist) {
+		return nil, fmt.Errorf("no maglev table entry for service id %d: %w", id, err)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	inner, err := MaglevInnerMapFromID(val.FD)
+	if err != nil {
+		return nil, fmt.Errorf("cannot open inner map with id %d: %w", val.FD, err)
+	}
+
+	return inner, nil
 }
 
-// MaglevOuterIterateCallback represents the signature of the callback function
-// expected by the IterateWithCallback method, which in turn is used to iterate
-// all the keys/values of a metrics map.
-type MaglevOuterIterateCallback func(*MaglevOuterKey, *MaglevOuterVal)
+// DumpBackends iterates through all of the Maglev map's entries,
+// opening each entry's inner map, and dumps their contents in a format
+// expected by Cilium's table printer.
+func (m *MaglevOuterMap) DumpBackends() (map[string][]string, error) {
+	out := make(map[string][]string)
 
-// IterateWithCallback iterates through all the keys/values of a metrics map,
-// passing each key/value pair to the cb callback
-func (m maglevOuterMap) IterateWithCallback(cb MaglevOuterIterateCallback) error {
-	return m.Map.IterateWithCallback(&MaglevOuterKey{}, &MaglevOuterVal{}, func(k, v interface{}) {
-		key := k.(*MaglevOuterKey)
-		value := v.(*MaglevOuterVal)
+	var key MaglevOuterKey
+	var val MaglevOuterVal
+	iter := m.Iterate()
+	for iter.Next(&key, &val) {
+		inner, err := MaglevInnerMapFromID(val.FD)
+		if err != nil {
+			return nil, fmt.Errorf("cannot open inner map with id %d: %w", val.FD, err)
+		}
+		defer inner.Close()
 
-		cb(key, value)
-	})
-}
+		backends, err := inner.DumpBackends()
+		if err != nil {
+			return nil, fmt.Errorf("dumping inner map id %d: %w", val.FD, err)
+		}
 
-// ToNetwork converts a maglev outer map's key to network byte order.
-func (k *MaglevOuterKey) ToNetwork() *MaglevOuterKey {
-	n := *k
-	// For some reasons rev_nat_index is stored in network byte order in
-	// the SVC BPF maps
-	n.RevNatID = byteorder.HostToNetwork16(n.RevNatID)
-	return &n
+		// The service ID is read from the map in network byte order,
+		// convert to host byte order before displaying to the user.
+		key.RevNatID = byteorder.NetworkToHost16(key.RevNatID)
+
+		out[fmt.Sprintf("%d", key.RevNatID)] = []string{backends}
+	}
+
+	return out, nil
 }
