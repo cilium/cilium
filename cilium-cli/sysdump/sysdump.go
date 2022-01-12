@@ -14,9 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cilium/cilium-cli/internal/k8s"
-	"github.com/cilium/cilium-cli/internal/utils"
-
 	"github.com/cilium/workerpool"
 	"github.com/mholt/archiver/v3"
 	corev1 "k8s.io/api/core/v1"
@@ -24,6 +21,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+
+	"github.com/cilium/cilium-cli/internal/k8s"
+	"github.com/cilium/cilium-cli/internal/utils"
 )
 
 // Options groups together the set of options required to collect a sysdump.
