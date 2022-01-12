@@ -189,8 +189,10 @@ var _ = skipSuite("K8sKubeProxyFreeMatrix tests", func() {
 			return
 		}
 
-		UninstallCiliumFromManifest(kubectl, ciliumFilename)
 		_ = kubectl.NamespaceDelete(namespaceTest)
+		ExpectAllPodsTerminated(kubectl)
+
+		UninstallCiliumFromManifest(kubectl, ciliumFilename)
 		kubectl.CloseSSHClient()
 	})
 
