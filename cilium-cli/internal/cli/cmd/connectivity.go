@@ -13,11 +13,11 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/spf13/cobra"
+
 	"github.com/cilium/cilium-cli/connectivity"
 	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/defaults"
-
-	"github.com/spf13/cobra"
 )
 
 var errInternal = errors.New("encountered internal error, exiting")

@@ -11,8 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cilium/cilium-cli/internal/k8s"
-
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"gopkg.in/check.v1"
@@ -22,6 +20,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"github.com/cilium/cilium-cli/internal/k8s"
 )
 
 func Test(t *testing.T) {

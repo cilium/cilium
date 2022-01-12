@@ -8,16 +8,16 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/internal/k8s"
-	"github.com/cilium/cilium-cli/internal/utils"
-
 	"github.com/pkg/browser"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+
+	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/internal/k8s"
+	"github.com/cilium/cilium-cli/internal/utils"
 )
 
 var (

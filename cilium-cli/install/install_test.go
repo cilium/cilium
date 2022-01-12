@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cilium/cilium-cli/defaults"
+	"github.com/blang/semver/v4"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
-	"github.com/blang/semver/v4"
+	"github.com/cilium/cilium-cli/defaults"
 )
 
 func TestK8sInstaller_getCiliumVersion(t *testing.T) {
