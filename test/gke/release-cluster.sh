@@ -3,7 +3,7 @@
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 project="cilium-ci"
-region="us-west1"
+zone="us-west1-a"
 
 if [ ! -f "${script_dir}/cluster-uri"  ]; then
     echo "Cluster uri file not found, exiting"
@@ -13,12 +13,15 @@ fi
 cluster_uri="$(cat "${script_dir}/cluster-uri")"
 cluster_name=${cluster_uri##*/}
 
+export KUBECONFIG="${script_dir}/gke-kubeconfig"
 
-export KUBECONFIG="${script_dir}/resize-kubeconfig"
-gcloud container clusters get-credentials --project "${project}" --region "europe-west4" management-cluster-0
+while [ "$(gcloud container operations list --project "${project}" --filter="status=RUNNING AND targetLink=${cluster_uri}" --format="value(name)")" ]
+do
+    echo "cluster has an ongoing operation, waiting for all operations to finish"
+    sleep 15
+done
 
-# Reset Flux-managed CRDs to defaults
-kubectl delete containerclusters.container.cnrm.cloud.google.com -n test-clusters "${cluster_name}"
-kubectl delete containernodepools.container.cnrm.cloud.google.com -n test-clusters "${cluster_name}"
+echo "deleting cluster ${cluster_uri}"
+gcloud container clusters delete --project "${project}" --zone "${zone}" "${cluster_uri}" --quiet --async
 
 rm -f "${script_dir}/cluster-uri" "${script_dir}/cluster-name" "${script_dir}/cluster-version" "${script_dir}/registry-adder.yaml"
