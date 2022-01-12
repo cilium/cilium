@@ -32,11 +32,9 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
+	_ "k8s.io/client-go/plugin/pkg/client/auth" // Register all auth providers (azure, gcp, oidc, openstack, ..).
 	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-
-	// Register all auth providers (azure, gcp, oidc, openstack, ..).
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"github.com/cilium/cilium-cli/defaults"
 )

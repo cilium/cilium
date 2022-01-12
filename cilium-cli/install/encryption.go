@@ -8,10 +8,10 @@ import (
 	"crypto/rand"
 	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/k8s"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func generateRandomKey() (string, error) {

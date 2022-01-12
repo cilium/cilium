@@ -11,9 +11,9 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/cilium/cilium-cli/defaults"
-
 	"github.com/spf13/cobra"
+
+	"github.com/cilium/cilium-cli/defaults"
 )
 
 // The following variables are set at compile time via LDFLAGS.

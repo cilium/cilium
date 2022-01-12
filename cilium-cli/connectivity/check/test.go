@@ -11,10 +11,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cilium/cilium-cli/defaults"
-
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+
+	"github.com/cilium/cilium-cli/defaults"
 )
 
 const (

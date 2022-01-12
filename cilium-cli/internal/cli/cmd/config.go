@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cilium/cilium-cli/config"
-
 	"github.com/spf13/cobra"
+
+	"github.com/cilium/cilium-cli/config"
 )
 
 func newCmdConfig() *cobra.Command {
