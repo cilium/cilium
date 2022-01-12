@@ -139,7 +139,7 @@ func deleteMapIfMNotMatch(mapName string, tableSize uint32) (bool, error) {
 
 	// An outer map already exists but it has the wrong table size (or we
 	// can't determine it). Delete it.
-	oldMap, err := ebpf.LoadPinnedMap(bpf.MapPath(mapName), nil)
+	oldMap, err := ebpf.LoadPinnedMap(bpf.MapPath(mapName))
 	if err != nil {
 		return false, err
 	}
