@@ -23,9 +23,6 @@ import (
 	"sync"
 	"time"
 
-	orcapb "github.com/cncf/xds/go/xds/data/orca/v3"
-	"google.golang.org/grpc/xds/internal/xdsclient/load"
-
 	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/internal/cache"
@@ -178,7 +175,6 @@ func (sbc *subBalancerWrapper) stopBalancer() {
 //
 // Updates from ClientConn are forwarded to sub-balancers
 //  - service config update
-//     - Not implemented
 //  - address update
 //  - subConn state change
 //     - find the corresponding balancer and forward
@@ -199,7 +195,6 @@ type BalancerGroup struct {
 	cc        balancer.ClientConn
 	buildOpts balancer.BuildOptions
 	logger    *grpclog.PrefixLogger
-	loadStore load.PerClusterReporter // TODO: delete this, no longer needed. It was used by EDS.
 
 	// stateAggregator is where the state/picker updates will be sent to. It's
 	// provided by the parent balancer, to build a picker with all the
@@ -254,15 +249,11 @@ var DefaultSubBalancerCloseTimeout = 15 * time.Minute
 
 // New creates a new BalancerGroup. Note that the BalancerGroup
 // needs to be started to work.
-//
-// TODO(easwars): Pass an options struct instead of N args.
-func New(cc balancer.ClientConn, bOpts balancer.BuildOptions, stateAggregator BalancerStateAggregator, loadStore load.PerClusterReporter, logger *grpclog.PrefixLogger) *BalancerGroup {
+func New(cc balancer.ClientConn, bOpts balancer.BuildOptions, stateAggregator BalancerStateAggregator, logger *grpclog.PrefixLogger) *BalancerGroup {
 	return &BalancerGroup{
-		cc:        cc,
-		buildOpts: bOpts,
-		logger:    logger,
-		loadStore: loadStore,
-
+		cc:              cc,
+		buildOpts:       bOpts,
+		logger:          logger,
 		stateAggregator: stateAggregator,
 
 		idToBalancerConfig: make(map[string]*subBalancerWrapper),
@@ -467,10 +458,6 @@ func (bg *BalancerGroup) newSubConn(config *subBalancerWrapper, addrs []resolver
 // state, then forward to ClientConn.
 func (bg *BalancerGroup) updateBalancerState(id string, state balancer.State) {
 	bg.logger.Infof("Balancer state update from locality %v, new state: %+v", id, state)
-	if bg.loadStore != nil {
-		// Only wrap the picker to do load reporting if loadStore was set.
-		state.Picker = newLoadReportPicker(state.Picker, id, bg.loadStore)
-	}
 
 	// Send new state to the aggregator, without holding the incomingMu.
 	// incomingMu is to protect all calls to the parent ClientConn, this update
@@ -520,52 +507,12 @@ func (bg *BalancerGroup) ExitIdle() {
 	bg.outgoingMu.Unlock()
 }
 
-const (
-	serverLoadCPUName    = "cpu_utilization"
-	serverLoadMemoryName = "mem_utilization"
-)
-
-type loadReportPicker struct {
-	p balancer.Picker
-
-	locality  string
-	loadStore load.PerClusterReporter
-}
-
-func newLoadReportPicker(p balancer.Picker, id string, loadStore load.PerClusterReporter) *loadReportPicker {
-	return &loadReportPicker{
-		p:         p,
-		locality:  id,
-		loadStore: loadStore,
+// ExitIdleOne instructs the sub-balancer `id` to exit IDLE state, if
+// appropriate and possible.
+func (bg *BalancerGroup) ExitIdleOne(id string) {
+	bg.outgoingMu.Lock()
+	if config := bg.idToBalancerConfig[id]; config != nil {
+		config.exitIdle()
 	}
-}
-
-func (lrp *loadReportPicker) Pick(info balancer.PickInfo) (balancer.PickResult, error) {
-	res, err := lrp.p.Pick(info)
-	if err != nil {
-		return res, err
-	}
-
-	lrp.loadStore.CallStarted(lrp.locality)
-	oldDone := res.Done
-	res.Done = func(info balancer.DoneInfo) {
-		if oldDone != nil {
-			oldDone(info)
-		}
-		lrp.loadStore.CallFinished(lrp.locality, info.Err)
-
-		load, ok := info.ServerLoad.(*orcapb.OrcaLoadReport)
-		if !ok {
-			return
-		}
-		lrp.loadStore.CallServerLoad(lrp.locality, serverLoadCPUName, load.CpuUtilization)
-		lrp.loadStore.CallServerLoad(lrp.locality, serverLoadMemoryName, load.MemUtilization)
-		for n, d := range load.RequestCost {
-			lrp.loadStore.CallServerLoad(lrp.locality, n, d)
-		}
-		for n, d := range load.Utilization {
-			lrp.loadStore.CallServerLoad(lrp.locality, n, d)
-		}
-	}
-	return res, err
+	bg.outgoingMu.Unlock()
 }
