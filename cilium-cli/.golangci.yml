@@ -22,6 +22,8 @@ linters:
     - varcheck
 
 linters-settings:
+  goimports:
+    local-prefixes: github.com/cilium/cilium-cli
   gosimple:
     go: "1.17"
   govet:
