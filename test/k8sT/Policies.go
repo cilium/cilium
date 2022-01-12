@@ -109,10 +109,6 @@ var _ = SkipDescribeIf(func() bool {
 		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, daemonCfg)
 	})
 
-	AfterEach(func() {
-		ExpectAllPodsTerminated(kubectl)
-	})
-
 	AfterFailed(func() {
 		kubectl.CiliumReport("cilium service list", "cilium endpoint list")
 	})
@@ -218,6 +214,7 @@ var _ = SkipDescribeIf(func() bool {
 		AfterAll(func() {
 			kubectl.NamespaceDelete(namespaceForTest)
 			kubectl.Delete(demoPath)
+			ExpectAllPodsTerminated(kubectl)
 		})
 
 		BeforeEach(func() {
@@ -1500,6 +1497,7 @@ var _ = SkipDescribeIf(func() bool {
 					// Remove echoserver pods from host namespace.
 					echoPodPath := helpers.ManifestGet(kubectl.BasePath(), "echoserver-cilium-hostnetns.yaml")
 					kubectl.Delete(echoPodPath).ExpectSuccess("Cannot remove echoserver application")
+					ExpectAllPodsTerminated(kubectl)
 				})
 
 				It("Connectivity to hostns is blocked after denying ingress", func() {
@@ -1759,6 +1757,7 @@ var _ = SkipDescribeIf(func() bool {
 
 			AfterEach(func() {
 				kubectl.Delete(connectivityCheckYml)
+				ExpectAllPodsTerminated(kubectl)
 			})
 
 			It("using connectivity-check to check datapath", func() {
@@ -1969,6 +1968,7 @@ var _ = SkipDescribeIf(func() bool {
 			_ = kubectl.Delete(demoManifest)
 			_ = kubectl.Delete(cnpSecondNS)
 			_ = kubectl.NamespaceDelete(secondNS)
+			ExpectAllPodsTerminated(kubectl)
 		})
 
 		It("Tests the same Policy in different namespaces", func() {
@@ -2179,6 +2179,7 @@ var _ = SkipDescribeIf(func() bool {
 			_ = kubectl.Delete(demoManifestNS2)
 			_ = kubectl.NamespaceDelete(firstNS)
 			_ = kubectl.NamespaceDelete(secondNS)
+			ExpectAllPodsTerminated(kubectl)
 		})
 
 		It("Test clusterwide connectivity with policies", func() {
