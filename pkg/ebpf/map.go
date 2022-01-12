@@ -52,9 +52,9 @@ func NewMap(spec *MapSpec) *Map {
 	}
 }
 
-// OpenMap opens the given bpf map and generates the Map object based on the
-// information stored in the bpf map.
-func OpenMap(mapName string) (*Map, error) {
+// LoadRegisterMap loads the specified map from a bpffs pin path and registers
+// its handle in the package-global map register.
+func LoadRegisterMap(mapName string) (*Map, error) {
 	path := bpf.MapPath(mapName)
 
 	m, err := LoadPinnedMap(path)

@@ -58,7 +58,7 @@ func initEgressPolicyMap(policyMapName string, create bool) error {
 	} else {
 		var err error
 
-		if m, err = ebpf.OpenMap(policyMapName); err != nil {
+		if m, err = ebpf.LoadRegisterMap(policyMapName); err != nil {
 			return err
 		}
 	}
