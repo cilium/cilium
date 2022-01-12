@@ -189,6 +189,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sChaosTest", func() {
 
 		AfterAll(func() {
 			_ = kubectl.Delete(netperfManifest)
+			ExpectAllPodsTerminated(kubectl)
 		})
 
 		AfterEach(func() {
