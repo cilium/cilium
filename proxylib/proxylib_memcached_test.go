@@ -122,7 +122,7 @@ func TestMemcache(t *testing.T) {
 
 			insertPolicyText(t, mod, "1", []string{fmt.Sprintf(`
 		name: "bm1"
-		policy: 2
+		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <

@@ -11,11 +11,12 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
 
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // ensure the imports are used
@@ -30,15 +31,31 @@ var (
 	_ = time.Duration(0)
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
-	_ = ptypes.DynamicAny{}
+	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on L7Policy with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *L7Policy) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on L7Policy with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in L7PolicyMultiError, or nil
+// if none found.
+func (m *L7Policy) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *L7Policy) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for AccessLogPath
 
@@ -46,7 +63,26 @@ func (m *L7Policy) Validate() error {
 
 	// no validation rules for Denied_403Body
 
-	if v, ok := interface{}(m.GetIsIngress()).(interface{ Validate() error }); ok {
+	if all {
+		switch v := interface{}(m.GetIsIngress()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, L7PolicyValidationError{
+					field:  "IsIngress",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, L7PolicyValidationError{
+					field:  "IsIngress",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetIsIngress()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return L7PolicyValidationError{
 				field:  "IsIngress",
@@ -56,8 +92,27 @@ func (m *L7Policy) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return L7PolicyMultiError(errors)
+	}
 	return nil
 }
+
+// L7PolicyMultiError is an error wrapping multiple validation errors returned
+// by L7Policy.ValidateAll() if the designated constraints aren't met.
+type L7PolicyMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m L7PolicyMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m L7PolicyMultiError) AllErrors() []error { return m }
 
 // L7PolicyValidationError is the validation error returned by
 // L7Policy.Validate if the designated constraints aren't met.
