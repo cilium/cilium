@@ -495,6 +495,8 @@ eni:
   updateEC2AdapterLimitViaAPI: false
   # -- Release IPs not used from the ENI
   awsReleaseExcessIPs: false
+  # -- Enable ENI prefix delegation
+  awsEnablePrefixDelegation: false
   # -- EC2 API endpoint to use
   ec2APIEndpoint: ""
   # -- Tags to apply to the newly created ENIs
