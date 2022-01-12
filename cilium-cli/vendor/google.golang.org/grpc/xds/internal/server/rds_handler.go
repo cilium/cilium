@@ -21,13 +21,13 @@ package server
 import (
 	"sync"
 
-	"google.golang.org/grpc/xds/internal/xdsclient"
+	"google.golang.org/grpc/xds/internal/xdsclient/xdsresource"
 )
 
 // rdsHandlerUpdate wraps the full RouteConfigUpdate that are dynamically
 // queried for a given server side listener.
 type rdsHandlerUpdate struct {
-	updates map[string]xdsclient.RouteConfigUpdate
+	updates map[string]xdsresource.RouteConfigUpdate
 	err     error
 }
 
@@ -37,7 +37,7 @@ type rdsHandler struct {
 	xdsC XDSClient
 
 	mu      sync.Mutex
-	updates map[string]xdsclient.RouteConfigUpdate
+	updates map[string]xdsresource.RouteConfigUpdate
 	cancels map[string]func()
 
 	// For a rdsHandler update, the only update wrapped listener cares about is
@@ -53,7 +53,7 @@ func newRDSHandler(xdsC XDSClient, ch chan rdsHandlerUpdate) *rdsHandler {
 	return &rdsHandler{
 		xdsC:          xdsC,
 		updateChannel: ch,
-		updates:       make(map[string]xdsclient.RouteConfigUpdate),
+		updates:       make(map[string]xdsresource.RouteConfigUpdate),
 		cancels:       make(map[string]func()),
 	}
 }
@@ -70,7 +70,7 @@ func (rh *rdsHandler) updateRouteNamesToWatch(routeNamesToWatch map[string]bool)
 	for routeName := range routeNamesToWatch {
 		if _, ok := rh.cancels[routeName]; !ok {
 			func(routeName string) {
-				rh.cancels[routeName] = rh.xdsC.WatchRouteConfig(routeName, func(update xdsclient.RouteConfigUpdate, err error) {
+				rh.cancels[routeName] = rh.xdsC.WatchRouteConfig(routeName, func(update xdsresource.RouteConfigUpdate, err error) {
 					rh.handleRouteUpdate(routeName, update, err)
 				})
 			}(routeName)
@@ -97,7 +97,7 @@ func (rh *rdsHandler) updateRouteNamesToWatch(routeNamesToWatch map[string]bool)
 // handleRouteUpdate persists the route config for a given route name, and also
 // sends an update to the Listener Wrapper on an error received or if the rds
 // handler has a full collection of updates.
-func (rh *rdsHandler) handleRouteUpdate(routeName string, update xdsclient.RouteConfigUpdate, err error) {
+func (rh *rdsHandler) handleRouteUpdate(routeName string, update xdsresource.RouteConfigUpdate, err error) {
 	if err != nil {
 		drainAndPush(rh.updateChannel, rdsHandlerUpdate{err: err})
 		return
