@@ -14,6 +14,7 @@ import (
 	"time"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
+	envoy_mysql_proxy "github.com/cilium/proxy/go/contrib/envoy/extensions/filters/network/mysql_proxy/v3"
 	envoy_config_bootstrap "github.com/cilium/proxy/go/envoy/config/bootstrap/v3"
 	envoy_config_cluster "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
@@ -22,7 +23,6 @@ import (
 	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_mongo_proxy "github.com/cilium/proxy/go/envoy/extensions/filters/network/mongo_proxy/v3"
-	envoy_mysql_proxy "github.com/cilium/proxy/go/envoy/extensions/filters/network/mysql_proxy/v3"
 	envoy_config_tcp "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_config_upstream "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
 	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
@@ -479,7 +479,14 @@ func (s *XDSServer) addListener(name string, port uint16, listenerConf func() *e
 	}
 	listener.mutex.Unlock() // Listener locked again in callbacks below
 
-	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf(), []string{"127.0.0.1"}, wg,
+	listenerConfig := listenerConf()
+	if option.Config.EnableBPFTProxy {
+		// Envoy since 1.20.0 uses SO_REUSEPORT on listeners by default.
+		// BPF TPROXY is currently not compatible with SO_REUSEPORT, so disable it.
+		// Note that this may degrade Envoy performance.
+		listenerConfig.EnableReusePort = &wrappers.BoolValue{Value: false}
+	}
+	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConfig, []string{"127.0.0.1"}, wg,
 		func(err error) {
 			// listener might have already been removed, so we can't look again
 			// but we still need to complete all the completions in case
@@ -1338,7 +1345,7 @@ func getNetworkPolicy(ep logger.EndpointUpdater, vis *policy.VisibilityPolicy, n
 	ingressPolicyEnforced, egressPolicyEnforced bool) *cilium.NetworkPolicy {
 	p := &cilium.NetworkPolicy{
 		Name:             name,
-		Policy:           uint64(ep.GetIdentityLocked()),
+		EndpointId:       uint64(ep.GetID()),
 		ConntrackMapName: ep.ConntrackNameLocked(),
 	}
 

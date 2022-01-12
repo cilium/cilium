@@ -301,19 +301,19 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	c.Assert(err2, Equals, nil)
 	defer cleanup()
 
-	e := ds.prepareEndpoint(c, qaBarSecLblsCtx, true)
-	c.Assert(e.Allows(qaBarSecLblsCtx.ID), Equals, false)
-	c.Assert(e.Allows(prodBarSecLblsCtx.ID), Equals, false)
-	c.Assert(e.Allows(qaFooSecLblsCtx.ID), Equals, true)
-	c.Assert(e.Allows(prodFooSecLblsCtx.ID), Equals, false)
+	eQABar := ds.prepareEndpoint(c, qaBarSecLblsCtx, true)
+	c.Assert(eQABar.Allows(qaBarSecLblsCtx.ID), Equals, false)
+	c.Assert(eQABar.Allows(prodBarSecLblsCtx.ID), Equals, false)
+	c.Assert(eQABar.Allows(qaFooSecLblsCtx.ID), Equals, true)
+	c.Assert(eQABar.Allows(prodFooSecLblsCtx.ID), Equals, false)
 
-	e = ds.prepareEndpoint(c, prodBarSecLblsCtx, false)
-	c.Assert(e.Allows(0), Equals, false)
-	c.Assert(e.Allows(qaBarSecLblsCtx.ID), Equals, false)
-	c.Assert(e.Allows(prodBarSecLblsCtx.ID), Equals, false)
-	c.Assert(e.Allows(qaFooSecLblsCtx.ID), Equals, false)
-	c.Assert(e.Allows(prodFooSecLblsCtx.ID), Equals, true)
-	c.Assert(e.Allows(prodFooJoeSecLblsCtx.ID), Equals, true)
+	eProdBar := ds.prepareEndpoint(c, prodBarSecLblsCtx, false)
+	c.Assert(eProdBar.Allows(0), Equals, false)
+	c.Assert(eProdBar.Allows(qaBarSecLblsCtx.ID), Equals, false)
+	c.Assert(eProdBar.Allows(prodBarSecLblsCtx.ID), Equals, false)
+	c.Assert(eProdBar.Allows(qaFooSecLblsCtx.ID), Equals, false)
+	c.Assert(eProdBar.Allows(prodFooSecLblsCtx.ID), Equals, true)
+	c.Assert(eProdBar.Allows(prodFooJoeSecLblsCtx.ID), Equals, true)
 
 	// Check that both policies have been updated in the xDS cache for the L7
 	// proxies.
@@ -334,7 +334,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	})
 	expectedNetworkPolicy := &cilium.NetworkPolicy{
 		Name:             QAIPv4Addr.String(),
-		Policy:           uint64(qaBarSecLblsCtx.ID),
+		EndpointId:       uint64(eQABar.ID),
 		ConntrackMapName: "global",
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
 			{
@@ -377,7 +377,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 
 	expectedNetworkPolicy = &cilium.NetworkPolicy{
 		Name:             ProdIPv4Addr.String(),
-		Policy:           uint64(prodBarSecLblsCtx.ID),
+		EndpointId:       uint64(eProdBar.ID),
 		ConntrackMapName: "global",
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
 			{
@@ -453,9 +453,9 @@ func (ds *DaemonSuite) TestL4_L7_Shadowing(c *C) {
 	c.Assert(err, Equals, nil)
 	defer cleanup()
 
-	e := ds.prepareEndpoint(c, qaBarSecLblsCtx, true)
-	c.Assert(e.Allows(qaBarSecLblsCtx.ID), Equals, false)
-	c.Assert(e.Allows(qaFooSecLblsCtx.ID), Equals, false)
+	eQABar := ds.prepareEndpoint(c, qaBarSecLblsCtx, true)
+	c.Assert(eQABar.Allows(qaBarSecLblsCtx.ID), Equals, false)
+	c.Assert(eQABar.Allows(qaFooSecLblsCtx.ID), Equals, false)
 
 	// Check that both policies have been updated in the xDS cache for the L7
 	// proxies.
@@ -465,7 +465,7 @@ func (ds *DaemonSuite) TestL4_L7_Shadowing(c *C) {
 	qaBarNetworkPolicy := networkPolicies[QAIPv4Addr.String()]
 	expectedNetworkPolicy := &cilium.NetworkPolicy{
 		Name:             QAIPv4Addr.String(),
-		Policy:           uint64(qaBarSecLblsCtx.ID),
+		EndpointId:       uint64(eQABar.ID),
 		ConntrackMapName: "global",
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
 			{
@@ -537,9 +537,9 @@ func (ds *DaemonSuite) TestL4_L7_ShadowingShortCircuit(c *C) {
 	c.Assert(err, Equals, nil)
 	defer cleanup()
 
-	e := ds.prepareEndpoint(c, qaBarSecLblsCtx, true)
-	c.Assert(e.Allows(qaBarSecLblsCtx.ID), Equals, false)
-	c.Assert(e.Allows(qaFooSecLblsCtx.ID), Equals, false)
+	eQABar := ds.prepareEndpoint(c, qaBarSecLblsCtx, true)
+	c.Assert(eQABar.Allows(qaBarSecLblsCtx.ID), Equals, false)
+	c.Assert(eQABar.Allows(qaFooSecLblsCtx.ID), Equals, false)
 
 	// Check that both policies have been updated in the xDS cache for the L7
 	// proxies.
@@ -549,7 +549,7 @@ func (ds *DaemonSuite) TestL4_L7_ShadowingShortCircuit(c *C) {
 	qaBarNetworkPolicy := networkPolicies[QAIPv4Addr.String()]
 	expectedNetworkPolicy := &cilium.NetworkPolicy{
 		Name:             QAIPv4Addr.String(),
-		Policy:           uint64(qaBarSecLblsCtx.ID),
+		EndpointId:       uint64(eQABar.ID),
 		ConntrackMapName: "global",
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
 			{
@@ -624,10 +624,10 @@ func (ds *DaemonSuite) TestL3_dependent_L7(c *C) {
 	c.Assert(err, Equals, nil)
 	defer cleanup()
 
-	e := ds.prepareEndpoint(c, qaBarSecLblsCtx, true)
-	c.Assert(e.Allows(qaBarSecLblsCtx.ID), Equals, false)
-	c.Assert(e.Allows(qaFooSecLblsCtx.ID), Equals, false)
-	c.Assert(e.Allows(qaJoeSecLblsCtx.ID), Equals, true)
+	eQABar := ds.prepareEndpoint(c, qaBarSecLblsCtx, true)
+	c.Assert(eQABar.Allows(qaBarSecLblsCtx.ID), Equals, false)
+	c.Assert(eQABar.Allows(qaFooSecLblsCtx.ID), Equals, false)
+	c.Assert(eQABar.Allows(qaJoeSecLblsCtx.ID), Equals, true)
 
 	// Check that both policies have been updated in the xDS cache for the L7
 	// proxies.
@@ -637,7 +637,7 @@ func (ds *DaemonSuite) TestL3_dependent_L7(c *C) {
 	qaBarNetworkPolicy := networkPolicies[QAIPv4Addr.String()]
 	expectedNetworkPolicy := &cilium.NetworkPolicy{
 		Name:             QAIPv4Addr.String(),
-		Policy:           uint64(qaBarSecLblsCtx.ID),
+		EndpointId:       uint64(eQABar.ID),
 		ConntrackMapName: "global",
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
 			{
@@ -884,7 +884,7 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 	defer cleanup()
 
 	// Create the endpoint and generate its policy.
-	e := ds.prepareEndpoint(c, qaBarSecLblsCtx, true)
+	eQABar := ds.prepareEndpoint(c, qaBarSecLblsCtx, true)
 	// Check that the policy has been updated in the xDS cache for the L7
 	// proxies.
 	networkPolicies := ds.getXDSNetworkPolicies(c, nil)
@@ -912,7 +912,7 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 	defer ds.d.identityAllocator.Release(context.Background(), qaFooID, false)
 
 	// Regenerate endpoint
-	ds.regenerateEndpoint(c, e)
+	ds.regenerateEndpoint(c, eQABar)
 
 	// Check that the policy has been updated in the xDS cache for the L7
 	// proxies. The plumbing of the identity when `AllocateIdentity` is performed
@@ -929,7 +929,7 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(qaBarNetworkPolicy, checker.ExportedEquals, &cilium.NetworkPolicy{
 		Name:             QAIPv4Addr.String(),
-		Policy:           uint64(qaBarSecLblsCtx.ID),
+		EndpointId:       uint64(eQABar.ID),
 		ConntrackMapName: "global",
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
 			{
@@ -957,7 +957,7 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 	})
 
 	// Delete the endpoint.
-	e.Delete(endpoint.DeleteConfig{})
+	eQABar.Delete(endpoint.DeleteConfig{})
 
 	// Check that the policy has been removed from the xDS cache.
 	networkPolicies = ds.getXDSNetworkPolicies(c, nil)
