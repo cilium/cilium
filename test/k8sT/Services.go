@@ -569,7 +569,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 	})
 
 	SkipContextIf(func() bool {
-		return helpers.SkipQuarantined() && helpers.RunsOnNetNextKernel()
+		return helpers.RunsOnNetNextKernel()
 	}, "Checks service across nodes", func() {
 
 		var (
@@ -1064,8 +1064,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						// https://github.com/cilium/cilium/issues/12511 and
 						// https://github.com/cilium/cilium/issues/12690.
 						return helpers.GetCurrentIntegration() != "" ||
-							helpers.DoesNotExistNodeWithoutCilium() ||
-							helpers.SkipQuarantined()
+							helpers.DoesNotExistNodeWithoutCilium()
 					}, "Tests with secondary NodePort device", func() {
 						DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 							"devices": fmt.Sprintf(`'{%s,%s}'`, ni.privateIface, helpers.SecondaryIface),
@@ -1449,7 +1448,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 					// Quarantine when running with the third node as it's
 					// flaky. See GH-12511.
 					// It's also flaky for IPv6 traffic, see GH-18072
-					return helpers.SkipQuarantined()
+					return false
 				}, "Tests with secondary NodePort device", func() {
 					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 						"tunnel":               "disabled",
