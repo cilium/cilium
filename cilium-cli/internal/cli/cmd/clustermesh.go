@@ -11,10 +11,9 @@ import (
 	"time"
 
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium-cli/clustermesh"
-
-	"github.com/spf13/cobra"
 )
 
 func newCmdClusterMesh() *cobra.Command {

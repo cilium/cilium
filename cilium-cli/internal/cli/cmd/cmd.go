@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cilium/cilium-cli/internal/k8s"
-
 	"github.com/spf13/cobra"
+
+	"github.com/cilium/cilium-cli/internal/k8s"
 )
 
 var (

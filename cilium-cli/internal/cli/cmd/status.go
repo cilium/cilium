@@ -7,10 +7,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/status"
-
-	"github.com/spf13/cobra"
 )
 
 func newCmdStatus() *cobra.Command {

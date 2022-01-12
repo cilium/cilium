@@ -10,11 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/internal/certs"
-	"github.com/cilium/cilium-cli/internal/utils"
-	"github.com/cilium/cilium-cli/status"
-
 	"github.com/cilium/cilium/api/v1/models"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	appsv1 "k8s.io/api/apps/v1"
@@ -22,6 +17,11 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/internal/certs"
+	"github.com/cilium/cilium-cli/internal/utils"
+	"github.com/cilium/cilium-cli/status"
 )
 
 const (

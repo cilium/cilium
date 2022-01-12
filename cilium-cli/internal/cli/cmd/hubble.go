@@ -7,10 +7,10 @@ import (
 	"context"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/hubble"
-
-	"github.com/spf13/cobra"
 )
 
 func newCmdHubble() *cobra.Command {
