@@ -707,6 +707,9 @@ ct_recreate4:
 		 * perform the reverse DNAT.
 		 */
 		if (ct_state.node_port) {
+			// TODO
+	                send_trace_notify4(ctx, TRACE_TO_NETWORK, 0, SECLABEL, 0,
+			   LXC_ID, ct_state.ifindex, ct_ret, monitor);
 			ctx->tc_index |= TC_INDEX_F_SKIP_RECIRCULATION;
 			ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT);
 			return DROP_MISSED_TAIL_CALL;
