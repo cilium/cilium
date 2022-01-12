@@ -17,6 +17,8 @@
  */
 
 // Package weightedtarget implements the weighted_target balancer.
+//
+// All APIs in this package are experimental.
 package weightedtarget
 
 import (
@@ -24,14 +26,14 @@ import (
 	"fmt"
 
 	"google.golang.org/grpc/balancer"
+	"google.golang.org/grpc/balancer/weightedtarget/weightedaggregator"
+	"google.golang.org/grpc/internal/balancergroup"
 	"google.golang.org/grpc/internal/grpclog"
 	"google.golang.org/grpc/internal/hierarchy"
 	"google.golang.org/grpc/internal/pretty"
 	"google.golang.org/grpc/internal/wrr"
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/serviceconfig"
-	"google.golang.org/grpc/xds/internal/balancer/balancergroup"
-	"google.golang.org/grpc/xds/internal/balancer/weightedtarget/weightedaggregator"
 )
 
 // Name is the name of the weighted_target balancer.
@@ -52,7 +54,7 @@ func (bb) Build(cc balancer.ClientConn, bOpts balancer.BuildOptions) balancer.Ba
 	b.logger = prefixLogger(b)
 	b.stateAggregator = weightedaggregator.New(cc, b.logger, NewRandomWRR)
 	b.stateAggregator.Start()
-	b.bg = balancergroup.New(cc, bOpts, b.stateAggregator, nil, b.logger)
+	b.bg = balancergroup.New(cc, bOpts, b.stateAggregator, b.logger)
 	b.bg.Start()
 	b.logger.Infof("Created")
 	return b
@@ -69,11 +71,6 @@ func (bb) ParseConfig(c json.RawMessage) (serviceconfig.LoadBalancingConfig, err
 type weightedTargetBalancer struct {
 	logger *grpclog.PrefixLogger
 
-	// TODO: Make this package not dependent on any xds specific code.
-	// BalancerGroup uses xdsinternal.LocalityID as the key in the map of child
-	// policies that it maintains and reports load using LRS. Once these two
-	// dependencies are removed from the balancerGroup, this package will not
-	// have any dependencies on xds code.
 	bg              *balancergroup.BalancerGroup
 	stateAggregator *weightedaggregator.Aggregator
 

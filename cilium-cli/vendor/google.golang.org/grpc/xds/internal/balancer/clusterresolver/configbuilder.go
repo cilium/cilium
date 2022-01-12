@@ -25,6 +25,7 @@ import (
 
 	"google.golang.org/grpc/balancer/roundrobin"
 	"google.golang.org/grpc/balancer/weightedroundrobin"
+	"google.golang.org/grpc/balancer/weightedtarget"
 	"google.golang.org/grpc/internal/hierarchy"
 	internalserviceconfig "google.golang.org/grpc/internal/serviceconfig"
 	"google.golang.org/grpc/resolver"
@@ -32,8 +33,7 @@ import (
 	"google.golang.org/grpc/xds/internal/balancer/clusterimpl"
 	"google.golang.org/grpc/xds/internal/balancer/priority"
 	"google.golang.org/grpc/xds/internal/balancer/ringhash"
-	"google.golang.org/grpc/xds/internal/balancer/weightedtarget"
-	"google.golang.org/grpc/xds/internal/xdsclient"
+	"google.golang.org/grpc/xds/internal/xdsclient/xdsresource"
 )
 
 const million = 1000000
@@ -48,7 +48,7 @@ const million = 1000000
 type priorityConfig struct {
 	mechanism DiscoveryMechanism
 	// edsResp is set only if type is EDS.
-	edsResp xdsclient.EndpointsUpdate
+	edsResp xdsresource.EndpointsUpdate
 	// addresses is set only if type is DNS.
 	addresses []string
 }
@@ -169,7 +169,7 @@ func buildClusterImplConfigForDNS(parentPriority int, addrStrs []string) (string
 // - map{"p0":p0_config, "p1":p1_config}
 // - [p0_address_0, p0_address_1, p1_address_0, p1_address_1]
 //   - p0 addresses' hierarchy attributes are set to p0
-func buildClusterImplConfigForEDS(parentPriority int, edsResp xdsclient.EndpointsUpdate, mechanism DiscoveryMechanism, xdsLBPolicy *internalserviceconfig.BalancerConfig) ([]string, map[string]*clusterimpl.LBConfig, []resolver.Address, error) {
+func buildClusterImplConfigForEDS(parentPriority int, edsResp xdsresource.EndpointsUpdate, mechanism DiscoveryMechanism, xdsLBPolicy *internalserviceconfig.BalancerConfig) ([]string, map[string]*clusterimpl.LBConfig, []resolver.Address, error) {
 	drops := make([]clusterimpl.DropConfig, 0, len(edsResp.Drops))
 	for _, d := range edsResp.Drops {
 		drops = append(drops, clusterimpl.DropConfig{
@@ -205,9 +205,9 @@ func buildClusterImplConfigForEDS(parentPriority int, edsResp xdsclient.Endpoint
 // For example, for L0-p0, L1-p0, L2-p1, results will be
 // - ["p0", "p1"]
 // - map{"p0":[L0, L1], "p1":[L2]}
-func groupLocalitiesByPriority(localities []xdsclient.Locality) ([]string, map[string][]xdsclient.Locality) {
+func groupLocalitiesByPriority(localities []xdsresource.Locality) ([]string, map[string][]xdsresource.Locality) {
 	var priorityIntSlice []int
-	priorities := make(map[string][]xdsclient.Locality)
+	priorities := make(map[string][]xdsresource.Locality)
 	for _, locality := range localities {
 		if locality.Weight == 0 {
 			continue
@@ -252,7 +252,7 @@ var rrBalancerConfig = &internalserviceconfig.BalancerConfig{Name: roundrobin.Na
 // priorityLocalitiesToClusterImpl takes a list of localities (with the same
 // priority), and generates a cluster impl policy config, and a list of
 // addresses.
-func priorityLocalitiesToClusterImpl(localities []xdsclient.Locality, priorityName string, mechanism DiscoveryMechanism, drops []clusterimpl.DropConfig, xdsLBPolicy *internalserviceconfig.BalancerConfig) (*clusterimpl.LBConfig, []resolver.Address, error) {
+func priorityLocalitiesToClusterImpl(localities []xdsresource.Locality, priorityName string, mechanism DiscoveryMechanism, drops []clusterimpl.DropConfig, xdsLBPolicy *internalserviceconfig.BalancerConfig) (*clusterimpl.LBConfig, []resolver.Address, error) {
 	clusterImplCfg := &clusterimpl.LBConfig{
 		Cluster:                 mechanism.Cluster,
 		EDSServiceName:          mechanism.EDSServiceName,
@@ -293,7 +293,7 @@ func priorityLocalitiesToClusterImpl(localities []xdsclient.Locality, priorityNa
 //
 // The addresses have path hierarchy set to [priority-name], so priority knows
 // which child policy they are for.
-func localitiesToRingHash(localities []xdsclient.Locality, priorityName string) []resolver.Address {
+func localitiesToRingHash(localities []xdsresource.Locality, priorityName string) []resolver.Address {
 	var addrs []resolver.Address
 	for _, locality := range localities {
 		var lw uint32 = 1
@@ -308,7 +308,7 @@ func localitiesToRingHash(localities []xdsclient.Locality, priorityName string) 
 			// Filter out all "unhealthy" endpoints (unknown and healthy are
 			// both considered to be healthy:
 			// https://www.envoyproxy.io/docs/envoy/latest/api-v2/api/v2/core/health_check.proto#envoy-api-enum-core-healthstatus).
-			if endpoint.HealthStatus != xdsclient.EndpointHealthStatusHealthy && endpoint.HealthStatus != xdsclient.EndpointHealthStatusUnknown {
+			if endpoint.HealthStatus != xdsresource.EndpointHealthStatusHealthy && endpoint.HealthStatus != xdsresource.EndpointHealthStatusUnknown {
 				continue
 			}
 
@@ -333,7 +333,7 @@ func localitiesToRingHash(localities []xdsclient.Locality, priorityName string) 
 //
 // The addresses have path hierarchy set to [priority-name, locality-name], so
 // priority and weighted target know which child policy they are for.
-func localitiesToWeightedTarget(localities []xdsclient.Locality, priorityName string, childPolicy *internalserviceconfig.BalancerConfig) (*weightedtarget.LBConfig, []resolver.Address) {
+func localitiesToWeightedTarget(localities []xdsresource.Locality, priorityName string, childPolicy *internalserviceconfig.BalancerConfig) (*weightedtarget.LBConfig, []resolver.Address) {
 	weightedTargets := make(map[string]weightedtarget.Target)
 	var addrs []resolver.Address
 	for _, locality := range localities {
@@ -346,7 +346,7 @@ func localitiesToWeightedTarget(localities []xdsclient.Locality, priorityName st
 			// Filter out all "unhealthy" endpoints (unknown and healthy are
 			// both considered to be healthy:
 			// https://www.envoyproxy.io/docs/envoy/latest/api-v2/api/v2/core/health_check.proto#envoy-api-enum-core-healthstatus).
-			if endpoint.HealthStatus != xdsclient.EndpointHealthStatusHealthy && endpoint.HealthStatus != xdsclient.EndpointHealthStatusUnknown {
+			if endpoint.HealthStatus != xdsresource.EndpointHealthStatusHealthy && endpoint.HealthStatus != xdsresource.EndpointHealthStatusUnknown {
 				continue
 			}
 
