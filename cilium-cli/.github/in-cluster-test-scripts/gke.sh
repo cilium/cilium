@@ -7,7 +7,7 @@ set -e
 cilium install \
   --cluster-name "${CLUSTER_NAME}" \
   --config monitor-aggregation=none \
-  --native-routing-cidr="${CLUSTER_CIDR}"
+  --ipv4-native-routing-cidr="${CLUSTER_CIDR}"
 
 # Enable Relay
 cilium hubble enable

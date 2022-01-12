@@ -13,7 +13,7 @@ cilium install \
   --cluster-name "${CLUSTER_NAME_1}" \
   --cluster-id 1 \
   --config monitor-aggregation=none \
-  --native-routing-cidr=10.0.0.0/9
+  --ipv4-native-routing-cidr=10.0.0.0/9
 
 # Install Cilium in cluster2
 cilium install \
@@ -21,7 +21,7 @@ cilium install \
   --cluster-name "${CLUSTER_NAME_2}" \
   --cluster-id 2 \
   --config monitor-aggregation=none \
-  --native-routing-cidr=10.0.0.0/9 \
+  --ipv4-native-routing-cidr=10.0.0.0/9 \
   --inherit-ca "${CONTEXT1}"
 
 # Enable Relay
