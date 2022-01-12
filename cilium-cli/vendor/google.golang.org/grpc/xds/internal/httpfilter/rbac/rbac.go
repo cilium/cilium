@@ -27,8 +27,8 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/grpc/internal/envconfig"
 	"google.golang.org/grpc/internal/resolver"
-	"google.golang.org/grpc/internal/xds/env"
 	"google.golang.org/grpc/internal/xds/rbac"
 	"google.golang.org/grpc/xds/internal/httpfilter"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -38,7 +38,7 @@ import (
 )
 
 func init() {
-	if env.RBACSupport {
+	if envconfig.XDSRBAC {
 		httpfilter.Register(builder{})
 	}
 }
@@ -64,7 +64,7 @@ type builder struct {
 
 type config struct {
 	httpfilter.FilterConfig
-	config *rpb.RBAC
+	chainEngine *rbac.ChainEngine
 }
 
 func (builder) TypeURLs() []string {
@@ -90,23 +90,57 @@ func parseConfig(rbacCfg *rpb.RBAC) (httpfilter.FilterConfig, error) {
 		// "It is also a validation failure if Permission or Principal has a
 		// header matcher for a grpc- prefixed header name or :scheme." - A41
 		for _, principal := range policy.Principals {
-			if principal.GetHeader() != nil {
-				name := principal.GetHeader().GetName()
-				if name == ":scheme" || strings.HasPrefix(name, "grpc-") {
-					return nil, fmt.Errorf("rbac: principal header matcher for %v is :scheme or starts with grpc", name)
-				}
+			name := principal.GetHeader().GetName()
+			if name == ":scheme" || strings.HasPrefix(name, "grpc-") {
+				return nil, fmt.Errorf("rbac: principal header matcher for %v is :scheme or starts with grpc", name)
 			}
 		}
 		for _, permission := range policy.Permissions {
-			if permission.GetHeader() != nil {
-				name := permission.GetHeader().GetName()
-				if name == ":scheme" || strings.HasPrefix(name, "grpc-") {
-					return nil, fmt.Errorf("rbac: permission header matcher for %v is :scheme or starts with grpc", name)
-				}
+			name := permission.GetHeader().GetName()
+			if name == ":scheme" || strings.HasPrefix(name, "grpc-") {
+				return nil, fmt.Errorf("rbac: permission header matcher for %v is :scheme or starts with grpc", name)
 			}
 		}
 	}
-	return config{config: rbacCfg}, nil
+
+	// "Envoy aliases :authority and Host in its header map implementation, so
+	// they should be treated equivalent for the RBAC matchers; there must be no
+	// behavior change depending on which of the two header names is used in the
+	// RBAC policy." - A41. Loop through config's principals and policies, change
+	// any header matcher with value "host" to :authority", as that is what
+	// grpc-go shifts both headers to in transport layer.
+	for _, policy := range rbacCfg.GetRules().GetPolicies() {
+		for _, principal := range policy.Principals {
+			if principal.GetHeader().GetName() == "host" {
+				principal.GetHeader().Name = ":authority"
+			}
+		}
+		for _, permission := range policy.Permissions {
+			if permission.GetHeader().GetName() == "host" {
+				permission.GetHeader().Name = ":authority"
+			}
+		}
+	}
+
+	// Two cases where this HTTP Filter is a no op:
+	// "If absent, no enforcing RBAC policy will be applied" - RBAC
+	// Documentation for Rules field.
+	// "At this time, if the RBAC.action is Action.LOG then the policy will be
+	// completely ignored, as if RBAC was not configurated." - A41
+	if rbacCfg.Rules == nil || rbacCfg.GetRules().GetAction() == v3rbacpb.RBAC_LOG {
+		return config{}, nil
+	}
+
+	ce, err := rbac.NewChainEngine([]*v3rbacpb.RBAC{rbacCfg.GetRules()})
+	if err != nil {
+		// "At this time, if the RBAC.action is Action.LOG then the policy will be
+		// completely ignored, as if RBAC was not configurated." - A41
+		if rbacCfg.GetRules().GetAction() != v3rbacpb.RBAC_LOG {
+			return nil, fmt.Errorf("rbac: error constructing matching engine: %v", err)
+		}
+	}
+
+	return config{chainEngine: ce}, nil
 }
 
 func (builder) ParseFilterConfig(cfg proto.Message) (httpfilter.FilterConfig, error) {
@@ -166,49 +200,15 @@ func (builder) BuildServerInterceptor(cfg httpfilter.FilterConfig, override http
 		}
 	}
 
-	icfg := c.config
+	// RBAC HTTP Filter is a no op from one of these two cases:
 	// "If absent, no enforcing RBAC policy will be applied" - RBAC
 	// Documentation for Rules field.
-	if icfg.Rules == nil {
-		return nil, nil
-	}
-
 	// "At this time, if the RBAC.action is Action.LOG then the policy will be
 	// completely ignored, as if RBAC was not configurated." - A41
-	if icfg.Rules.Action == v3rbacpb.RBAC_LOG {
+	if c.chainEngine == nil {
 		return nil, nil
 	}
-
-	// "Envoy aliases :authority and Host in its header map implementation, so
-	// they should be treated equivalent for the RBAC matchers; there must be no
-	// behavior change depending on which of the two header names is used in the
-	// RBAC policy." - A41. Loop through config's principals and policies, change
-	// any header matcher with value "host" to :authority", as that is what
-	// grpc-go shifts both headers to in transport layer.
-	for _, policy := range icfg.Rules.GetPolicies() {
-		for _, principal := range policy.Principals {
-			if principal.GetHeader() != nil {
-				name := principal.GetHeader().GetName()
-				if name == "host" {
-					principal.GetHeader().Name = ":authority"
-				}
-			}
-		}
-		for _, permission := range policy.Permissions {
-			if permission.GetHeader() != nil {
-				name := permission.GetHeader().GetName()
-				if name == "host" {
-					permission.GetHeader().Name = ":authority"
-				}
-			}
-		}
-	}
-
-	ce, err := rbac.NewChainEngine([]*v3rbacpb.RBAC{icfg.Rules})
-	if err != nil {
-		return nil, fmt.Errorf("error constructing matching engine: %v", err)
-	}
-	return &interceptor{chainEngine: ce}, nil
+	return &interceptor{chainEngine: c.chainEngine}, nil
 }
 
 type interceptor struct {

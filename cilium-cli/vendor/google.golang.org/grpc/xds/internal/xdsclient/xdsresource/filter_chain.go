@@ -13,10 +13,9 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
  */
 
-package xdsclient
+package xdsresource
 
 import (
 	"errors"
@@ -28,10 +27,11 @@ import (
 	v3tlspb "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/grpc/internal/envconfig"
+	"google.golang.org/grpc/internal/grpclog"
 	"google.golang.org/grpc/internal/resolver"
-	"google.golang.org/grpc/internal/xds/env"
 	"google.golang.org/grpc/xds/internal/httpfilter"
-	"google.golang.org/grpc/xds/internal/version"
+	"google.golang.org/grpc/xds/internal/xdsclient/xdsresource/version"
 )
 
 const (
@@ -61,12 +61,12 @@ type FilterChain struct {
 	HTTPFilters []HTTPFilter
 	// RouteConfigName is the route configuration name for this FilterChain.
 	//
-	// Only one of RouteConfigName and InlineRouteConfig is set.
+	// Exactly one of RouteConfigName and InlineRouteConfig is set.
 	RouteConfigName string
 	// InlineRouteConfig is the inline route configuration (RDS response)
 	// returned for this filter chain.
 	//
-	// Only one of RouteConfigName and InlineRouteConfig is set.
+	// Exactly one of RouteConfigName and InlineRouteConfig is set.
 	InlineRouteConfig *RouteConfigUpdate
 }
 
@@ -86,8 +86,8 @@ type VirtualHostWithInterceptors struct {
 type RouteWithInterceptors struct {
 	// M is the matcher used to match to this route.
 	M *CompositeMatcher
-	// RouteAction is the type of routing action to initiate once matched to.
-	RouteAction RouteAction
+	// ActionType is the type of routing action to initiate once matched to.
+	ActionType RouteActionType
 	// Interceptors are interceptors instantiated for this route. These will be
 	// constructed from a combination of the top level configuration and any
 	// HTTP Filter overrides present in Virtual Host or Route.
@@ -112,7 +112,7 @@ func (f *FilterChain) convertVirtualHost(virtualHost *VirtualHost) (VirtualHostW
 	rs := make([]RouteWithInterceptors, len(virtualHost.Routes))
 	for i, r := range virtualHost.Routes {
 		var err error
-		rs[i].RouteAction = r.RouteAction
+		rs[i].ActionType = r.ActionType
 		rs[i].M, err = RouteToMatcher(r)
 		if err != nil {
 			return VirtualHostWithInterceptors{}, fmt.Errorf("matcher construction: %v", err)
@@ -177,6 +177,7 @@ const (
 // 7. Source IP address.
 // 8. Source port.
 type FilterChainManager struct {
+	logger *grpclog.PrefixLogger
 	// Destination prefix is the first match criteria that we support.
 	// Therefore, this multi-stage map is indexed on destination prefixes
 	// specified in the match criteria.
@@ -247,9 +248,10 @@ type sourcePrefixEntry struct {
 //
 // This function is only exported so that tests outside of this package can
 // create a FilterChainManager.
-func NewFilterChainManager(lis *v3listenerpb.Listener) (*FilterChainManager, error) {
+func NewFilterChainManager(lis *v3listenerpb.Listener, logger *grpclog.PrefixLogger) (*FilterChainManager, error) {
 	// Parse all the filter chains and build the internal data structures.
 	fci := &FilterChainManager{
+		logger:           logger,
 		dstPrefixMap:     make(map[string]*destPrefixEntry),
 		RouteConfigNames: make(map[string]bool),
 	}
@@ -303,7 +305,7 @@ func (fci *FilterChainManager) addFilterChains(fcs []*v3listenerpb.FilterChain) 
 		if fcm.GetDestinationPort().GetValue() != 0 {
 			// Destination port is the first match criteria and we do not
 			// support filter chains which contains this match criteria.
-			logger.Warningf("Dropping filter chain %+v since it contains unsupported destination_port match field", fc)
+			fci.logger.Warningf("Dropping filter chain %+v since it contains unsupported destination_port match field", fc)
 			continue
 		}
 
@@ -352,7 +354,7 @@ func (fci *FilterChainManager) addFilterChainsForServerNames(dstEntry *destPrefi
 	// Filter chains specifying server names in their match criteria always fail
 	// a match at connection time. So, these filter chains can be dropped now.
 	if len(fc.GetFilterChainMatch().GetServerNames()) != 0 {
-		logger.Warningf("Dropping filter chain %+v since it contains unsupported server_names match field", fc)
+		fci.logger.Warningf("Dropping filter chain %+v since it contains unsupported server_names match field", fc)
 		return nil
 	}
 
@@ -365,13 +367,13 @@ func (fci *FilterChainManager) addFilterChainsForTransportProtocols(dstEntry *de
 	case tp != "" && tp != "raw_buffer":
 		// Only allow filter chains with transport protocol set to empty string
 		// or "raw_buffer".
-		logger.Warningf("Dropping filter chain %+v since it contains unsupported value for transport_protocols match field", fc)
+		fci.logger.Warningf("Dropping filter chain %+v since it contains unsupported value for transport_protocols match field", fc)
 		return nil
 	case tp == "" && dstEntry.rawBufferSeen:
 		// If we have already seen filter chains with transport protocol set to
 		// "raw_buffer", we can drop filter chains with transport protocol set
 		// to empty string, since the former takes precedence.
-		logger.Warningf("Dropping filter chain %+v since it contains unsupported value for transport_protocols match field", fc)
+		fci.logger.Warningf("Dropping filter chain %+v since it contains unsupported value for transport_protocols match field", fc)
 		return nil
 	case tp != "" && !dstEntry.rawBufferSeen:
 		// This is the first "raw_buffer" that we are seeing. Set the bit and
@@ -385,7 +387,7 @@ func (fci *FilterChainManager) addFilterChainsForTransportProtocols(dstEntry *de
 
 func (fci *FilterChainManager) addFilterChainsForApplicationProtocols(dstEntry *destPrefixEntry, fc *v3listenerpb.FilterChain) error {
 	if len(fc.GetFilterChainMatch().GetApplicationProtocols()) != 0 {
-		logger.Warningf("Dropping filter chain %+v since it contains unsupported application_protocols match field", fc)
+		fci.logger.Warningf("Dropping filter chain %+v since it contains unsupported application_protocols match field", fc)
 		return nil
 	}
 	return fci.addFilterChainsForSourceType(dstEntry, fc)
@@ -551,6 +553,25 @@ func (fci *FilterChainManager) filterChainFromProto(fc *v3listenerpb.FilterChain
 	return filterChain, nil
 }
 
+// Validate takes a function to validate the FilterChains in this manager.
+func (fci *FilterChainManager) Validate(f func(fc *FilterChain) error) error {
+	for _, dst := range fci.dstPrefixMap {
+		for _, srcType := range dst.srcTypeArr {
+			if srcType == nil {
+				continue
+			}
+			for _, src := range srcType.srcPrefixMap {
+				for _, fc := range src.srcPortMap {
+					if err := f(fc); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+	return f(fci.def)
+}
+
 func processNetworkFilters(filters []*v3listenerpb.Filter) (*FilterChain, error) {
 	filterChain := &FilterChain{}
 	seenNames := make(map[string]bool, len(filters))
@@ -611,7 +632,7 @@ func processNetworkFilters(filters []*v3listenerpb.Filter) (*FilterChain, error)
 				// TODO: Implement terminal filter logic, as per A36.
 				filterChain.HTTPFilters = filters
 				seenHCM = true
-				if !env.RBACSupport {
+				if !envconfig.XDSRBAC {
 					continue
 				}
 				switch hcm.RouteSpecifier.(type) {
@@ -637,8 +658,7 @@ func processNetworkFilters(filters []*v3listenerpb.Filter) (*FilterChain, error)
 					}
 					filterChain.InlineRouteConfig = &routeU
 				case nil:
-					// No-op, as no route specifier is a valid configuration on
-					// the server side.
+					return nil, fmt.Errorf("no RouteSpecifier: %+v", hcm)
 				default:
 					return nil, fmt.Errorf("unsupported type %T for RouteSpecifier", hcm.RouteSpecifier)
 				}
