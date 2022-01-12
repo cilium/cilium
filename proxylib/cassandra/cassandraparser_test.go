@@ -78,7 +78,7 @@ func (s *CassandraSuite) TestCassandraOnDataNoHeader(c *C) {
 func (s *CassandraSuite) TestCassandraOnDataOptionsReq(c *C) {
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
 		name: "cp6"
-		policy: 2
+		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -109,7 +109,7 @@ func (s *CassandraSuite) TestCassandraOnDataOptionsReq(c *C) {
 func (s *CassandraSuite) TestCassandraOnDataPartialReq(c *C) {
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
 		name: "cp5"
-		policy: 2
+		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -137,7 +137,7 @@ func (s *CassandraSuite) TestCassandraOnDataPartialReq(c *C) {
 func (s *CassandraSuite) TestCassandraOnDataQueryReq(c *C) {
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
 		name: "cp4"
-		policy: 2
+		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -166,7 +166,7 @@ func (s *CassandraSuite) TestCassandraOnDataQueryReq(c *C) {
 func (s *CassandraSuite) TestCassandraOnDataSplitQueryReq(c *C) {
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
 		name: "cp3"
-		policy: 2
+		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -195,7 +195,7 @@ func (s *CassandraSuite) TestCassandraOnDataSplitQueryReq(c *C) {
 func (s *CassandraSuite) TestCassandraOnDataMultiReq(c *C) {
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
 		name: "cp2"
-		policy: 2
+		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -228,7 +228,7 @@ func (s *CassandraSuite) TestCassandraOnDataMultiReq(c *C) {
 func (s *CassandraSuite) TestSimpleCassandraPolicy(c *C) {
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
 		name: "cp1"
-		policy: 2
+		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -275,7 +275,7 @@ func createUnauthMsg(streamID byte) []byte {
 func (s *CassandraSuite) TestCassandraBatchRequestPolicy(c *C) {
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
 		name: "cp1"
-		policy: 2
+		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -336,7 +336,7 @@ func (s *CassandraSuite) TestCassandraBatchRequestPolicy(c *C) {
 func (s *CassandraSuite) TestCassandraBatchRequestPolicyDenied(c *C) {
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
 		name: "cp1"
-		policy: 2
+		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -399,7 +399,7 @@ func (s *CassandraSuite) TestCassandraBatchRequestPolicyDenied(c *C) {
 func (s *CassandraSuite) TestCassandraBatchRequestPreparedStatement(c *C) {
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
 		name: "cp1"
-		policy: 2
+		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -468,7 +468,7 @@ func (s *CassandraSuite) TestCassandraBatchRequestPreparedStatement(c *C) {
 func (s *CassandraSuite) TestCassandraBatchRequestPreparedStatementDenied(c *C) {
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
 		name: "cp1"
-		policy: 2
+		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -538,7 +538,7 @@ func (s *CassandraSuite) TestCassandraBatchRequestPreparedStatementDenied(c *C) 
 func (s *CassandraSuite) TestCassandraExecutePreparedStatement(c *C) {
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
 		name: "cp1"
-		policy: 2
+		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -662,7 +662,7 @@ func (s *CassandraSuite) TestCassandraPreparedResultReply(c *C) {
 func (s *CassandraSuite) TestCassandraAdditionalQueries(c *C) {
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
 		name: "cp1"
-		policy: 2
+		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -732,7 +732,7 @@ func (s *CassandraSuite) TestCassandraAdditionalQueries(c *C) {
 func (s *CassandraSuite) TestCassandraUseQuery(c *C) {
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
 		name: "cp1"
-		policy: 2
+		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
