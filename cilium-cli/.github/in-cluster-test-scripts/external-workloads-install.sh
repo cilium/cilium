@@ -9,7 +9,7 @@ cilium install \
   --config monitor-aggregation=none \
   --config tunnel=vxlan \
   --kube-proxy-replacement=strict \
-  --native-routing-cidr="${CLUSTER_CIDR}"
+  --ipv4-native-routing-cidr="${CLUSTER_CIDR}"
 
 # Enable Relay
 cilium hubble enable
