@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2016-2020 Authors of Cilium
+// Copyright 2016-2022 Authors of Cilium
 
 package cmd
 
@@ -453,7 +453,7 @@ func (d *Daemon) initMaps() error {
 
 	if option.Config.NodePortAlg == option.NodePortAlgMaglev {
 		if err := lbmap.InitMaglevMaps(option.Config.EnableIPv4, option.Config.EnableIPv6, uint32(option.Config.MaglevTableSize)); err != nil {
-			return err
+			return fmt.Errorf("initializing maglev maps: %w", err)
 		}
 	}
 
