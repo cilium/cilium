@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2020-2021 Authors of Cilium
+// Copyright 2020-2022 Authors of Cilium
 
 package check
 
@@ -10,12 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"google.golang.org/grpc"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/cilium/cilium/api/v1/observer"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/k8s"
@@ -302,7 +301,7 @@ func (ct *ConnectivityTest) enableHubbleClient(ctx context.Context) error {
 	dialCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 
-	c, err := grpc.DialContext(dialCtx, ct.params.HubbleServer, grpc.WithInsecure())
+	c, err := grpc.DialContext(dialCtx, ct.params.HubbleServer, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return err
 	}
