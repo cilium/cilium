@@ -569,7 +569,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 	})
 
 	SkipContextIf(func() bool {
-		return helpers.RunsOnNetNextKernel()
+		return false
 	}, "Checks service across nodes", func() {
 
 		var (
