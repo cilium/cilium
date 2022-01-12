@@ -108,13 +108,13 @@ type engine struct {
 // newEngine creates an RBAC Engine based on the contents of policy. Returns a
 // non-nil error if the policy is invalid.
 func newEngine(config *v3rbacpb.RBAC) (*engine, error) {
-	a := *config.Action.Enum()
+	a := config.GetAction()
 	if a != v3rbacpb.RBAC_ALLOW && a != v3rbacpb.RBAC_DENY {
 		return nil, fmt.Errorf("unsupported action %s", config.Action)
 	}
 
-	policies := make(map[string]*policyMatcher, len(config.Policies))
-	for name, policy := range config.Policies {
+	policies := make(map[string]*policyMatcher, len(config.GetPolicies()))
+	for name, policy := range config.GetPolicies() {
 		matcher, err := newPolicyMatcher(policy)
 		if err != nil {
 			return nil, err

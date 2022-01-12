@@ -33,6 +33,9 @@ import (
 )
 
 // NewCredentials returns a credentials which disables transport security.
+//
+// Note that using this credentials with per-RPC credentials which require
+// transport security is incompatible and will cause grpc.Dial() to fail.
 func NewCredentials() credentials.TransportCredentials {
 	return insecureTC{}
 }

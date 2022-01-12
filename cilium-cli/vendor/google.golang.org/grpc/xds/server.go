@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"strings"
 	"sync"
 
 	"google.golang.org/grpc"
@@ -33,15 +32,17 @@ import (
 	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/internal"
 	"google.golang.org/grpc/internal/buffer"
+	"google.golang.org/grpc/internal/envconfig"
 	internalgrpclog "google.golang.org/grpc/internal/grpclog"
 	"google.golang.org/grpc/internal/grpcsync"
 	iresolver "google.golang.org/grpc/internal/resolver"
 	"google.golang.org/grpc/internal/transport"
-	"google.golang.org/grpc/internal/xds/env"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/xds/internal/server"
 	"google.golang.org/grpc/xds/internal/xdsclient"
+	"google.golang.org/grpc/xds/internal/xdsclient/bootstrap"
+	"google.golang.org/grpc/xds/internal/xdsclient/xdsresource"
 )
 
 const serverPrefix = "[xds-server %p] "
@@ -216,10 +217,7 @@ func (s *GRPCServer) Serve(lis net.Listener) error {
 	if cfg.ServerListenerResourceNameTemplate == "" {
 		return errors.New("missing server_listener_resource_name_template in the bootstrap configuration")
 	}
-	name := cfg.ServerListenerResourceNameTemplate
-	if strings.Contains(cfg.ServerListenerResourceNameTemplate, "%s") {
-		name = strings.Replace(cfg.ServerListenerResourceNameTemplate, "%s", lis.Addr().String(), -1)
-	}
+	name := bootstrap.PopulateResourceTemplate(cfg.ServerListenerResourceNameTemplate, lis.Addr().String())
 
 	modeUpdateCh := buffer.NewUnbounded()
 	go func() {
@@ -330,7 +328,7 @@ func (s *GRPCServer) GracefulStop() {
 func routeAndProcess(ctx context.Context) error {
 	conn := transport.GetConnection(ctx)
 	cw, ok := conn.(interface {
-		VirtualHosts() []xdsclient.VirtualHostWithInterceptors
+		VirtualHosts() []xdsresource.VirtualHostWithInterceptors
 	})
 	if !ok {
 		return errors.New("missing virtual hosts in incoming context")
@@ -347,12 +345,12 @@ func routeAndProcess(ctx context.Context) error {
 	// the RPC gets to this point, there will be a single, unambiguous authority
 	// present in the header map.
 	authority := md.Get(":authority")
-	vh := xdsclient.FindBestMatchingVirtualHostServer(authority[0], cw.VirtualHosts())
+	vh := xdsresource.FindBestMatchingVirtualHostServer(authority[0], cw.VirtualHosts())
 	if vh == nil {
 		return status.Error(codes.Unavailable, "the incoming RPC did not match a configured Virtual Host")
 	}
 
-	var rwi *xdsclient.RouteWithInterceptors
+	var rwi *xdsresource.RouteWithInterceptors
 	rpcInfo := iresolver.RPCInfo{
 		Context: ctx,
 		Method:  mn,
@@ -361,7 +359,7 @@ func routeAndProcess(ctx context.Context) error {
 		if r.M.Match(rpcInfo) {
 			// "NonForwardingAction is expected for all Routes used on server-side; a route with an inappropriate action causes
 			// RPCs matching that route to fail with UNAVAILABLE." - A36
-			if r.RouteAction != xdsclient.RouteActionNonForwardingAction {
+			if r.ActionType != xdsresource.RouteActionNonForwardingAction {
 				return status.Error(codes.Unavailable, "the incoming RPC matched to a route that was not of action type non forwarding")
 			}
 			rwi = &r
@@ -382,7 +380,7 @@ func routeAndProcess(ctx context.Context) error {
 // xdsUnaryInterceptor is the unary interceptor added to the gRPC server to
 // perform any xDS specific functionality on unary RPCs.
 func xdsUnaryInterceptor(ctx context.Context, req interface{}, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
-	if env.RBACSupport {
+	if envconfig.XDSRBAC {
 		if err := routeAndProcess(ctx); err != nil {
 			return nil, err
 		}
@@ -393,7 +391,7 @@ func xdsUnaryInterceptor(ctx context.Context, req interface{}, _ *grpc.UnaryServ
 // xdsStreamInterceptor is the stream interceptor added to the gRPC server to
 // perform any xDS specific functionality on streaming RPCs.
 func xdsStreamInterceptor(srv interface{}, ss grpc.ServerStream, _ *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	if env.RBACSupport {
+	if envconfig.XDSRBAC {
 		if err := routeAndProcess(ss.Context()); err != nil {
 			return err
 		}

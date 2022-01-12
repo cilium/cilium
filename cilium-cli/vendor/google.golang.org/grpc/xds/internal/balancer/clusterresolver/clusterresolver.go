@@ -36,6 +36,7 @@ import (
 	"google.golang.org/grpc/serviceconfig"
 	"google.golang.org/grpc/xds/internal/balancer/priority"
 	"google.golang.org/grpc/xds/internal/xdsclient"
+	"google.golang.org/grpc/xds/internal/xdsclient/xdsresource"
 )
 
 // Name is the name of the cluster_resolver balancer.
@@ -244,7 +245,7 @@ func (b *clusterResolverBalancer) updateChildConfig() error {
 // In both cases, the sub-balancers will be receive the error.
 func (b *clusterResolverBalancer) handleErrorFromUpdate(err error, fromParent bool) {
 	b.logger.Warningf("Received error: %v", err)
-	if fromParent && xdsclient.ErrType(err) == xdsclient.ErrorTypeResourceNotFound {
+	if fromParent && xdsresource.ErrType(err) == xdsresource.ErrorTypeResourceNotFound {
 		// This is an error from the parent ClientConn (can be the parent CDS
 		// balancer), and is a resource-not-found error. This means the resource
 		// (can be either LDS or CDS) was removed. Stop the EDS watch.
