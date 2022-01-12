@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2020-2021 Authors of Cilium
+// Copyright 2020-2022 Authors of Cilium
 
 package lbmap
 
 import (
 	"errors"
+	"fmt"
+	"os"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
@@ -12,126 +14,80 @@ import (
 )
 
 const (
-	// Both outer maps are pinned though given we need to attach
+	// Both outer maps are pinned though given we need to insert
 	// inner maps into them.
 	MaglevOuter4MapName = "cilium_lb4_maglev"
 	MaglevOuter6MapName = "cilium_lb6_maglev"
 )
 
 var (
-	maglevOuter4Map     *maglevOuterMap
-	maglevOuter6Map     *maglevOuterMap
+	maglevOuter4Map     *MaglevOuterMap
+	maglevOuter6Map     *MaglevOuterMap
 	maglevRecreatedIPv4 bool
 	maglevRecreatedIPv6 bool
+	maglevTableSize     uint32
 )
 
 // InitMaglevMaps inits the ipv4 and/or ipv6 maglev outer and inner maps.
 func InitMaglevMaps(ipv4, ipv6 bool, tableSize uint32) error {
-	var err error
-
-	dummyInnerMapSpec := newMaglevInnerMapSpec(tableSize)
-
 	// Always try to delete old maps with the wrong M parameter, otherwise
 	// we may end up in a case where there are 2 maps (one for IPv4 and
 	// one for IPv6), one of which is not used, with 2 different table
 	// sizes.
 	// This would confuse the MaybeInitMaglevMaps() function, which would
 	// not be able to figure out the correct table size.
-	if maglevRecreatedIPv4, err = deleteMapIfMNotMatch(MaglevOuter4MapName, tableSize); err != nil {
+	r, err := deleteMapIfMNotMatch(MaglevOuter4MapName, tableSize)
+	if err != nil {
 		return err
 	}
-	if maglevRecreatedIPv6, err = deleteMapIfMNotMatch(MaglevOuter6MapName, tableSize); err != nil {
+	maglevRecreatedIPv4 = r
+
+	r, err = deleteMapIfMNotMatch(MaglevOuter6MapName, tableSize)
+	if err != nil {
 		return err
+	}
+	maglevRecreatedIPv6 = r
+
+	dummyInnerMapSpec := newMaglevInnerMapSpec(tableSize)
+	if ipv4 {
+		outer, err := NewMaglevOuterMap(MaglevOuter4MapName, MaxEntries, tableSize, dummyInnerMapSpec)
+		if err != nil {
+			return err
+		}
+		maglevOuter4Map = outer
 	}
 
-	if ipv4 {
-		maglevOuter4Map, err = NewMaglevOuterMap(MaglevOuter4MapName, MaxEntries, tableSize, dummyInnerMapSpec)
-		if err != nil {
-			return err
-		}
-	}
 	if ipv6 {
-		maglevOuter6Map, err = NewMaglevOuterMap(MaglevOuter6MapName, MaxEntries, tableSize, dummyInnerMapSpec)
+		outer, err := NewMaglevOuterMap(MaglevOuter6MapName, MaxEntries, tableSize, dummyInnerMapSpec)
 		if err != nil {
 			return err
 		}
+		maglevOuter6Map = outer
 	}
+
+	maglevTableSize = tableSize
 
 	return nil
 }
 
-// OpenMaglevMaps tries to open all already existing maglev BPF maps by
-// probing their table size from the inner map value size.
-func OpenMaglevMaps() (uint32, error) {
-	var (
-		detectedTableSize uint32
-		err               error
-	)
-
-	map4Found, maglev4TableSize := MaglevOuterMapTableSize(MaglevOuter4MapName)
-	map6Found, maglev6TableSize := MaglevOuterMapTableSize(MaglevOuter6MapName)
-
-	switch {
-	case !map4Found && !map6Found:
-		return 0, nil
-	case map4Found && maglev4TableSize == UnknownMaglevTableSize:
-		return 0, errors.New("cannot determine v4 outer maglev map's table size")
-	case map6Found && maglev6TableSize == UnknownMaglevTableSize:
-		return 0, errors.New("cannot determine v6 outer maglev map's table size")
-	case map4Found && map6Found && maglev4TableSize != maglev6TableSize:
-		// Just being extra defensive here. This case should never
-		// happen as both maps are created at the same time after
-		// deleting eventual old maps with a different M parameter
-		return 0, errors.New("v4 and v6 maps have different table sizes")
-	case map4Found:
-		detectedTableSize = maglev4TableSize
-	case map6Found:
-		detectedTableSize = maglev6TableSize
-	}
-
-	if map4Found {
-		maglevOuter4Map, err = OpenMaglevOuterMap(MaglevOuter4MapName, detectedTableSize)
-		if err != nil {
-			return UnknownMaglevTableSize, err
-		}
-	}
-
-	if map6Found {
-		maglevOuter6Map, err = OpenMaglevOuterMap(MaglevOuter6MapName, detectedTableSize)
-		if err != nil {
-			return UnknownMaglevTableSize, err
-		}
-	}
-
-	return detectedTableSize, nil
-}
-
-// GetOpenMaglevMaps returns a map with all the opened outer maglev eBPF maps.
-// These BPF maps are indexed by their name.
-func GetOpenMaglevMaps() map[string]*maglevOuterMap {
-	maps := map[string]*maglevOuterMap{}
-	if maglevOuter4Map != nil {
-		maps[MaglevOuter4MapName] = maglevOuter4Map
-	}
-	if maglevOuter6Map != nil {
-		maps[MaglevOuter6MapName] = maglevOuter6Map
-	}
-
-	return maps
-}
-
 // deleteMapIfMNotMatch removes the outer maglev maps if it's a legacy map or
-// the M param (MaglevTableSize) has changed. This is to avoid the verifier
-// error when loading BPF programs which access the maps.
+// the M param (MaglevTableSize) has changed. This is to avoid a verifier
+// error when loading BPF programs which access the map.
 func deleteMapIfMNotMatch(mapName string, tableSize uint32) (bool, error) {
-	found, prevTableSize := MaglevOuterMapTableSize(mapName)
-	if !found {
+	m, err := ebpf.LoadPinnedMap(bpf.MapPath(mapName))
+	if errors.Is(err, os.ErrNotExist) {
 		// No existing maglev outer map found.
 		// Return true so the caller will create a new one.
 		return true, nil
 	}
+	if err != nil {
+		return false, err
+	}
+	defer m.Close()
 
-	if prevTableSize == tableSize {
+	// Attempt to determine the outer map's table size.
+	size, err := (&MaglevOuterMap{Map: m}).TableSize()
+	if err == nil && size == tableSize {
 		// An outer map with the correct table size already exists.
 		// Return false as there no need to delete and recreate it.
 		return false, nil
@@ -139,50 +95,51 @@ func deleteMapIfMNotMatch(mapName string, tableSize uint32) (bool, error) {
 
 	// An outer map already exists but it has the wrong table size (or we
 	// can't determine it). Delete it.
-	oldMap, err := ebpf.LoadPinnedMap(bpf.MapPath(mapName))
-	if err != nil {
-		return false, err
+	if err := m.Unpin(); err != nil {
+		return false, fmt.Errorf("error unpinning existing outer map: %w", err)
 	}
-	oldMap.Unpin()
 
 	return true, nil
 }
 
+// updateMaglevTable creates a new inner Maglev map containing the given backend IDs
+// and sets it as the active lookup table for the given service ID.
 func updateMaglevTable(ipv6 bool, revNATID uint16, backendIDs []loadbalancer.BackendID) error {
-	outerMap := maglevOuter4Map
+	outer := maglevOuter4Map
 	if ipv6 {
-		outerMap = maglevOuter6Map
+		outer = maglevOuter6Map
 	}
 
-	innerMap, err := newMaglevInnerMap(outerMap.tableSize)
+	if outer == nil {
+		return errors.New("outer maglev maps not yet initialized")
+	}
+
+	inner, err := createMaglevInnerMap(maglevTableSize)
 	if err != nil {
 		return err
 	}
-	defer innerMap.Close()
+	defer inner.Close()
 
-	innerKey := &MaglevInnerKey{Zero: 0}
-	innerVal := &MaglevInnerVal{BackendIDs: backendIDs}
-	if err := innerMap.Update(innerKey, innerVal); err != nil {
-		return err
+	if err := inner.UpdateBackends(backendIDs); err != nil {
+		return fmt.Errorf("updating backends: %w", err)
 	}
 
-	outerKey := (&MaglevOuterKey{RevNatID: revNATID}).ToNetwork()
-	outerVal := &MaglevOuterVal{FD: uint32(innerMap.FD())}
-	if err := outerMap.Update(outerKey, outerVal); err != nil {
-		return err
+	if err := outer.UpdateService(revNATID, inner); err != nil {
+		return fmt.Errorf("updating service: %w", err)
 	}
 
 	return nil
 }
 
+// deleteMaglevTable deletes the inner Maglev lookup table for the given service ID.
 func deleteMaglevTable(ipv6 bool, revNATID uint16) error {
 	outerMap := maglevOuter4Map
 	if ipv6 {
 		outerMap = maglevOuter6Map
 	}
 
-	outerKey := (&MaglevOuterKey{RevNatID: revNATID}).ToNetwork()
-	if err := outerMap.Delete(outerKey); err != nil {
+	outerKey := MaglevOuterKey{RevNatID: revNATID}
+	if err := outerMap.Delete(outerKey.toNetwork()); err != nil {
 		return err
 	}
 
