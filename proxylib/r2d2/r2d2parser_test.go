@@ -64,7 +64,7 @@ func (s *R2d2Suite) TestR2d2OnDataBasicPass(c *C) {
 	// allow all rule
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
 		name: "cp1"
-		policy: 2
+		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -91,7 +91,7 @@ func (s *R2d2Suite) TestR2d2OnDataMultipleReq(c *C) {
 	// allow all rule
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
 		name: "cp1"
-		policy: 2
+		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -112,7 +112,7 @@ func (s *R2d2Suite) TestR2d2OnDataAllowDenyCmd(c *C) {
 
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
 		name: "cp2"
-		policy: 2
+		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -142,7 +142,7 @@ func (s *R2d2Suite) TestR2d2OnDataAllowDenyRegex(c *C) {
 
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
 		name: "cp3"
-		policy: 2
+		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <

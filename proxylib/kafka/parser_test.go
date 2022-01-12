@@ -112,7 +112,7 @@ var testMessage3Fail = "E8" + // Timeout = 1000 ms, last byte
 func (s *KafkaSuite) TestKafkaOnDataSimpleHeaderMinimalPolicy(c *C) {
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
 		name: "simple-policy"
-		policy: 2000
+		endpoint_id: 2000
 		ingress_per_port_policies: <
 		  port: 80
 		>
@@ -127,7 +127,7 @@ func (s *KafkaSuite) TestKafkaOnDataSimpleHeaderMinimalPolicy(c *C) {
 func (s *KafkaSuite) TestKafkaOnDataInvalidMessage(c *C) {
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
 		name: "simple-policy"
-		policy: 2000
+		endpoint_id: 2000
 		ingress_per_port_policies: <
 		  port: 80
 		>
@@ -143,7 +143,7 @@ func (s *KafkaSuite) TestKafkaOnDataInvalidMessage(c *C) {
 func (s *KafkaSuite) TestKafkaOnDataSimpleHeaderSimplePolicy(c *C) {
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
 		name: "simple-policy"
-		policy: 2000
+		endpoint_id: 2000
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -163,7 +163,7 @@ func (s *KafkaSuite) TestKafkaOnDataSimpleHeaderSimplePolicy(c *C) {
 func (s *KafkaSuite) TestKafkaOnDataSimpleHeaderWithPolicyDrop(c *C) {
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
 		name: "simple-policy"
-		policy: 2000
+		endpoint_id: 2000
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -200,7 +200,7 @@ func (s *KafkaSuite) TestKafkaOnDataSimpleHeaderWithPolicyDrop(c *C) {
 func (s *KafkaSuite) TestKafkaOnDataSimpleHeaderWithPolicyAllow(c *C) {
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
 		name: "simple-policy"
-		policy: 2000
+		endpoint_id: 2000
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -230,7 +230,7 @@ func (s *KafkaSuite) TestKafkaOnDataSimpleHeaderWithPolicyAllow(c *C) {
 func (s *KafkaSuite) TestKafkaOnDataSimpleHeaderWithClientIDAllow(c *C) {
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
 		name: "simple-policy"
-		policy: 2000
+		endpoint_id: 2000
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -261,7 +261,7 @@ func (s *KafkaSuite) TestKafkaOnDataSimpleHeaderWithClientIDAllow(c *C) {
 func (s *KafkaSuite) TestKafkaOnDataSimpleHeaderWithClientID(c *C) {
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
 		name: "simple-policy"
-		policy: 2000
+		endpoint_id: 2000
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -287,7 +287,7 @@ func (s *KafkaSuite) TestKafkaOnDataSimpleHeaderWithClientID(c *C) {
 func (s *KafkaSuite) TestKafkaOnDataSimpleHeaderWithApiKeys(c *C) {
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
 		name: "simple-policy"
-		policy: 2000
+		endpoint_id: 2000
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -314,7 +314,7 @@ func (s *KafkaSuite) TestKafkaOnDataSimpleHeaderWithApiKeys(c *C) {
 func (s *KafkaSuite) TestKafkaOnDataSimpleHeaderWithApiKeysMismatch(c *C) {
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
 		name: "simple-policy"
-		policy: 2000
+		endpoint_id: 2000
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -351,7 +351,7 @@ func (s *KafkaSuite) TestKafkaOnDataSimpleHeaderWithApiKeysMismatch(c *C) {
 func (s *KafkaSuite) TestKafkaOnDataSimpleHeaderWithApiVersion(c *C) {
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
 		name: "simple-policy"
-		policy: 2000
+		endpoint_id: 2000
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -377,7 +377,7 @@ func (s *KafkaSuite) TestKafkaOnDataSimpleHeaderWithApiVersion(c *C) {
 func (s *KafkaSuite) TestKafkaOnDataSimpleHeaderWithApiVersionMismatch(c *C) {
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
 		name: "simple-policy"
-		policy: 2000
+		endpoint_id: 2000
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
@@ -413,7 +413,7 @@ func (s *KafkaSuite) TestKafkaOnDataSimpleHeaderWithApiVersionMismatch(c *C) {
 func (s *KafkaSuite) TestKafkaOnDataSimpleHeaderWithClientIDDeny(c *C) {
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
 		name: "simple-policy"
-		policy: 2000
+		endpoint_id: 2000
 		ingress_per_port_policies: <
 		  port: 80
 		  rules: <
