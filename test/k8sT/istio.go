@@ -129,6 +129,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sIstioTest", func() {
 
 		By("Deleting the istio-system namespace")
 		_ = kubectl.NamespaceDelete(istioSystemNamespace)
+		ExpectAllPodsTerminated(kubectl)
 
 		UninstallCiliumFromManifest(kubectl, ciliumFilename)
 		kubectl.CloseSSHClient()

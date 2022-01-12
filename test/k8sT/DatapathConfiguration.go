@@ -36,6 +36,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 	AfterEach(func() {
 		deploymentManager.DeleteAll()
+		ExpectAllPodsTerminated(kubectl)
 	})
 
 	AfterFailed(func() {

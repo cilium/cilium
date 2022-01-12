@@ -140,6 +140,7 @@ var _ = Describe("K8sVerifier", func() {
 
 	AfterAll(func() {
 		kubectl.DeleteResource("pod", podName)
+		ExpectAllPodsTerminated(kubectl)
 	})
 
 	It("Runs the kernel verifier against Cilium's BPF datapath", func() {
