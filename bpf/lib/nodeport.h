@@ -786,7 +786,7 @@ skip_service_lookup:
 				 CT_EGRESS, &ct_state, &monitor);
 		switch (ret) {
 		case CT_NEW:
-redo_all:
+redo:
 			ct_state_new.src_sec_id = SECLABEL;
 			ct_state_new.node_port = 1;
 			ct_state_new.ifindex = NATIVE_DEV_IFINDEX;
@@ -794,33 +794,13 @@ redo_all:
 					 CT_EGRESS, &ct_state_new, false);
 			if (IS_ERR(ret))
 				return ret;
-			if (backend_local) {
-				ct_flip_tuple_dir6(&tuple);
-redo_local:
-				ct_state_new.rev_nat_index = 0;
-				ret = ct_create6(get_ct_map6(&tuple), NULL,
-						 &tuple, ctx, CT_INGRESS,
-						 &ct_state_new, false);
-				if (IS_ERR(ret))
-					return ret;
-			}
 			break;
 		case CT_REOPENED:
 		case CT_ESTABLISHED:
 		case CT_REPLY:
 			if (unlikely(ct_state.rev_nat_index !=
 				     svc->rev_nat_index))
-				goto redo_all;
-			if (backend_local) {
-				ct_flip_tuple_dir6(&tuple);
-				if (!__ct_entry_keep_alive(get_ct_map6(&tuple),
-							   &tuple)) {
-					ct_state_new.src_sec_id = SECLABEL;
-					ct_state_new.node_port = 1;
-					ct_state_new.ifindex = NATIVE_DEV_IFINDEX;
-					goto redo_local;
-				}
-			}
+				goto redo;
 			break;
 		default:
 			return DROP_UNKNOWN_CT;
@@ -1792,7 +1772,7 @@ skip_service_lookup:
 				 CT_EGRESS, &ct_state, &monitor);
 		switch (ret) {
 		case CT_NEW:
-redo_all:
+redo:
 			ct_state_new.src_sec_id = SECLABEL;
 			ct_state_new.node_port = 1;
 			ct_state_new.ifindex = NATIVE_DEV_IFINDEX;
@@ -1800,19 +1780,6 @@ redo_all:
 					 CT_EGRESS, &ct_state_new, false);
 			if (IS_ERR(ret))
 				return ret;
-			if (backend_local) {
-				ct_flip_tuple_dir4(&tuple);
-redo_local:
-				/* Reset rev_nat_index, otherwise ipv4_policy()
-				 * in bpf_lxc will do invalid xlation.
-				 */
-				ct_state_new.rev_nat_index = 0;
-				ret = ct_create4(get_ct_map4(&tuple), NULL,
-						 &tuple, ctx, CT_INGRESS,
-						 &ct_state_new, false);
-				if (IS_ERR(ret))
-					return ret;
-			}
 			break;
 		case CT_REOPENED:
 		case CT_ESTABLISHED:
@@ -1822,17 +1789,7 @@ redo_local:
 			 */
 			if (unlikely(ct_state.rev_nat_index !=
 				     svc->rev_nat_index))
-				goto redo_all;
-			if (backend_local) {
-				ct_flip_tuple_dir4(&tuple);
-				if (!__ct_entry_keep_alive(get_ct_map4(&tuple),
-							   &tuple)) {
-					ct_state_new.src_sec_id = SECLABEL;
-					ct_state_new.node_port = 1;
-					ct_state_new.ifindex = NATIVE_DEV_IFINDEX;
-					goto redo_local;
-				}
-			}
+				goto redo;
 			break;
 		default:
 			return DROP_UNKNOWN_CT;

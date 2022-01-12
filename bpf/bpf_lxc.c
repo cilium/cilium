@@ -1144,10 +1144,19 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	}
 #endif /* ENABLE_DSR */
 
+#ifdef ENABLE_NODEPORT
+	if (ret == CT_NEW || ret == CT_REOPENED) {
+		bool node_port = ct_is_nodeport6(get_ct_map6(&tuple), &tuple);
+
+		ct_state_new.node_port = node_port;
+		if (ret == CT_REOPENED && ct_state.node_port != node_port)
+			ct_update_nodeport(get_ct_map6(&tuple), &tuple,
+					   node_port);
+	}
+#endif /* ENABLE_NODEPORT */
+
 	if (ret == CT_NEW) {
 		ct_state_new.src_sec_id = src_label;
-		ct_state_new.node_port = ct_state.node_port;
-		ct_state_new.ifindex = ct_state.ifindex;
 		ret = ct_create6(get_ct_map6(&tuple), &CT_MAP_ANY6, &tuple, ctx, CT_INGRESS,
 				 &ct_state_new, verdict > 0);
 		if (IS_ERR(ret))
@@ -1449,10 +1458,19 @@ skip_policy_enforcement:
 	}
 #endif /* ENABLE_DSR */
 
+#ifdef ENABLE_NODEPORT
+	if (ret == CT_NEW || ret == CT_REOPENED) {
+		bool node_port = ct_is_nodeport4(get_ct_map4(&tuple), &tuple);
+
+		ct_state_new.node_port = node_port;
+		if (ret == CT_REOPENED && ct_state.node_port != node_port)
+			ct_update_nodeport(get_ct_map4(&tuple), &tuple,
+					    node_port);
+	}
+#endif /* ENABLE_NODEPORT */
+
 	if (ret == CT_NEW) {
 		ct_state_new.src_sec_id = src_label;
-		ct_state_new.node_port = ct_state.node_port;
-		ct_state_new.ifindex = ct_state.ifindex;
 		ret = ct_create4(get_ct_map4(&tuple), &CT_MAP_ANY4, &tuple, ctx, CT_INGRESS,
 				 &ct_state_new, verdict > 0);
 		if (IS_ERR(ret))
