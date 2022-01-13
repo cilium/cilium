@@ -219,6 +219,20 @@ Name                                       Labels                               
 ``controllers_failing``                                                                       Number of failing controllers
 ========================================== ================================================== ========================================================
 
+Clustermesh
+~~~~~~~~~~~
+
+=============================================== ============================================================ =================================================================
+Name                                            Labels                                                       Description
+=============================================== ============================================================ =================================================================
+``clustermesh_global_services``                 ``source_cluster``, ``source_node_name``                     The total number of global services in the cluster mesh
+``clustermesh_remote_clusters``                 ``source_cluster``, ``source_node_name``                     The total number of remote clusters meshed with the local cluster
+``clustermesh_remote_cluster_failures``         ``source_cluster``, ``source_node_name``, ``target_cluster`` The total number of failures related to the remote cluster
+``clustermesh_remote_cluster_nodes``            ``source_cluster``, ``source_node_name``, ``target_cluster`` The total number of nodes in the remote cluster
+``clustermesh_remote_cluster_last_failure_ts``  ``source_cluster``, ``source_node_name``, ``target_cluster`` The timestamp of the last failure of the remote cluster
+``clustermesh_remote_cluster_readiness_status`` ``source_cluster``, ``source_node_name``, ``target_cluster`` The readiness status of the remote cluster
+=============================================== ============================================================ =================================================================
+
 Datapath
 ~~~~~~~~
 
