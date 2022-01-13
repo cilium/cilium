@@ -455,7 +455,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		return err
 	}
 
-	if err := iptMgr.InstallRules(option.Config.HostDevice, firstInitialization, option.Config.InstallIptRules); err != nil {
+	if err := iptMgr.InstallRules(defaults.HostDevice, firstInitialization, option.Config.InstallIptRules); err != nil {
 		return err
 	}
 
