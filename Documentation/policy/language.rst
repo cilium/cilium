@@ -1219,8 +1219,6 @@ considered external to the cluster.
 Host Policies
 =============
 
-.. include:: ../beta.rst
-
 Host policies take the form of a `CiliumClusterwideNetworkPolicy` with a
 :ref:`NodeSelector` instead of an `EndpointSelector`. Host policies can have
 layer 3 and layer 4 rules on both ingress and egress. They cannot have layer
