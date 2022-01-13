@@ -973,7 +973,8 @@ func (d *Daemon) bootstrapClusterMesh(nodeMngr *nodemanager.Manager) {
 		} else {
 			log.WithField("path", path).Info("Initializing ClusterMesh routing")
 			clustermesh, err := clustermesh.NewClusterMesh(clustermesh.Configuration{
-				Name:                  "clustermesh",
+				Name:                  option.Config.ClusterName,
+				NodeName:              d.nodeDiscovery.LocalNode.Name,
 				ConfigDirectory:       path,
 				NodeKeyCreator:        nodeStore.KeyCreator,
 				ServiceMerger:         &d.k8sWatcher.K8sSvcCache,

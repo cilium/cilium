@@ -9,7 +9,8 @@ import (
 	"path"
 	"time"
 
-	strfmt "github.com/go-openapi/strfmt"
+	"github.com/go-openapi/strfmt"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -19,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/metrics"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
@@ -79,6 +81,11 @@ type remoteCluster struct {
 
 	// lastFailure is the timestamp of the last failure
 	lastFailure time.Time
+
+	metricLastFailureTimestamp *prometheus.GaugeVec
+	metricReadinessStatus      *prometheus.GaugeVec
+	metricTotalFailures        *prometheus.GaugeVec
+	metricTotalNodes           *prometheus.GaugeVec
 }
 
 var (
@@ -121,9 +128,13 @@ func (rc *remoteCluster) releaseOldConnection() {
 
 	backend := rc.backend
 	rc.backend = nil
+
+	rc.metricTotalNodes.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).Set(float64(rc.remoteNodes.NumEntries()))
+	rc.metricReadinessStatus.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).Set(metrics.BoolToFloat64(rc.isReadyLocked()))
+
 	rc.mutex.Unlock()
 
-	// Release resources asynchroneously in the background. Many of these
+	// Release resources asynchronously in the background. Many of these
 	// operations may time out if the connection was closed due to an error
 	// condition.
 	go func() {
@@ -221,6 +232,8 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 				rc.backend = backend
 				rc.ipCacheWatcher = ipCacheWatcher
 				rc.remoteIdentityCache = remoteIdentityCache
+				rc.metricTotalNodes.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).Set(float64(rc.remoteNodes.NumEntries()))
+				rc.metricReadinessStatus.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).Set(metrics.BoolToFloat64(rc.isReadyLocked()))
 				rc.mutex.Unlock()
 
 				rc.getLogger().Info("Established connection to remote etcd")
@@ -229,6 +242,8 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 			},
 			StopFunc: func(ctx context.Context) error {
 				rc.releaseOldConnection()
+				rc.metricTotalNodes.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).Set(float64(rc.remoteNodes.NumEntries()))
+				rc.metricReadinessStatus.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).Set(metrics.BoolToFloat64(rc.isReadyLocked()))
 				rc.getLogger().Info("All resources of remote cluster cleaned up")
 				return nil
 			},
@@ -286,6 +301,10 @@ func (rc *remoteCluster) onInsert(allocator RemoteIdentityWatcher) {
 				rc.mutex.Lock()
 				rc.failures++
 				rc.lastFailure = time.Now()
+				rc.metricLastFailureTimestamp.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).SetToCurrentTime()
+				rc.metricTotalFailures.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).Set(float64(rc.failures))
+				rc.metricTotalNodes.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).Set(float64(rc.remoteNodes.NumEntries()))
+				rc.metricReadinessStatus.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).Set(metrics.BoolToFloat64(rc.isReadyLocked()))
 				rc.mutex.Unlock()
 				rc.restartRemoteConnection(allocator)
 			}
@@ -297,6 +316,11 @@ func (rc *remoteCluster) onInsert(allocator RemoteIdentityWatcher) {
 func (rc *remoteCluster) onRemove() {
 	rc.controllers.RemoveAllAndWait()
 	close(rc.changed)
+
+	metrics.Unregister(rc.metricLastFailureTimestamp)
+	metrics.Unregister(rc.metricReadinessStatus)
+	metrics.Unregister(rc.metricTotalFailures)
+	metrics.Unregister(rc.metricTotalNodes)
 
 	rc.getLogger().Info("Remote cluster disconnected")
 }
