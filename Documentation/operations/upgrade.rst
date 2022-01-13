@@ -136,8 +136,8 @@ one stable release to a later stable release.
 
 .. include:: upgrade-warning.rst
 
-Step 1: Upgrade to latest patch version (Recommended)
------------------------------------------------------
+Step 1: Upgrade to latest patch version
+---------------------------------------
 
 When upgrading from one minor release to another minor release, for example
 1.x to 1.y, it is recommended to upgrade to the latest patch release for a
