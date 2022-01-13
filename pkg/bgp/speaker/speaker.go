@@ -128,7 +128,7 @@ func (s *MetalLBSpeaker) OnUpdateService(svc *slim_corev1.Service) error {
 	}
 
 	l.Debug("adding event to queue")
-	s.queue.Add(svcEvent{
+	s.queue.Add(epEvent{
 		Meta: meta,
 		op:   Update,
 		id:   svcID,
