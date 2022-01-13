@@ -508,9 +508,9 @@ func probeCgroupSupportUDP(strict, ipv4 bool) error {
 func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) error {
 	if option.Config.EnableNodePort {
 		if err := node.InitNodePortAddrs(option.Config.Devices, option.Config.LBDevInheritIPAddr); err != nil {
-			msg := "Failed to initialize NodePort addrs."
+			msg := "failed to initialize NodePort addrs."
 			if isKubeProxyReplacementStrict {
-				return fmt.Errorf(msg)
+				return fmt.Errorf(msg+" : %w", err)
 			} else {
 				disableNodePort()
 				log.WithError(err).Warn(msg + " Disabling BPF NodePort.")
