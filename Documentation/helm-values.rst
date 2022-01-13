@@ -350,7 +350,7 @@
      - bool
      - ``true``
    * - enableXTSocketFallback
-     - Enables the fallback compatibility solution for when the xt_socket kernel module is missing and it is needed for the datapath L7 redirection to work properly. See documentation for details on when this can be disabled: http://docs.cilium.io/en/stable/install/system_requirements/#admin-kernel-version.
+     - Enables the fallback compatibility solution for when the xt_socket kernel module is missing and it is needed for the datapath L7 redirection to work properly. See documentation for details on when this can be disabled: https://docs.cilium.io/en/stable/operations/system_requirements/#linux-kernel.
      - bool
      - ``true``
    * - encryption.enabled
@@ -610,7 +610,7 @@
      - string
      - ``":4244"``
    * - hubble.metrics
-     - Hubble metrics configuration. See https://docs.cilium.io/en/stable/configuration/metrics/#hubble-metrics for more comprehensive documentation about Hubble metrics.
+     - Hubble metrics configuration. See https://docs.cilium.io/en/stable/operations/metrics/#hubble-metrics for more comprehensive documentation about Hubble metrics.
      - object
      - ``{"enabled":null,"port":9091,"serviceAnnotations":{},"serviceMonitor":{"enabled":false,"labels":{}}}``
    * - hubble.metrics.enabled

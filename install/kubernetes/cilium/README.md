@@ -138,7 +138,7 @@ contributors across the globe, there is almost always someone available to help.
 | enableIPv6Masquerade | bool | `true` | Enables masquerading of IPv6 traffic leaving the node from endpoints. |
 | enableK8sEventHandover | bool | `false` | Configures the use of the KVStore to optimize Kubernetes event handling by mirroring it into the KVstore for reduced overhead in large clusters. |
 | enableK8sTerminatingEndpoint | bool | `true` | Configure whether to enable auto detect of terminating state for endpoints in order to support graceful termination. |
-| enableXTSocketFallback | bool | `true` | Enables the fallback compatibility solution for when the xt_socket kernel module is missing and it is needed for the datapath L7 redirection to work properly. See documentation for details on when this can be disabled: http://docs.cilium.io/en/stable/install/system_requirements/#admin-kernel-version. |
+| enableXTSocketFallback | bool | `true` | Enables the fallback compatibility solution for when the xt_socket kernel module is missing and it is needed for the datapath L7 redirection to work properly. See documentation for details on when this can be disabled: https://docs.cilium.io/en/stable/operations/system_requirements/#linux-kernel. |
 | encryption.enabled | bool | `false` | Enable transparent network encryption. |
 | encryption.interface | string | `""` | Deprecated in favor of encryption.ipsec.interface. The interface to use for encrypted traffic. This option is only effective when encryption.type is set to ipsec. |
 | encryption.ipsec.interface | string | `""` | The interface to use for encrypted traffic. |
@@ -203,7 +203,7 @@ contributors across the globe, there is almost always someone available to help.
 | hostServices.protocols | string | `"tcp,udp"` | Supported list of protocols to apply ClusterIP translation to. |
 | hubble.enabled | bool | `true` | Enable Hubble (true by default). |
 | hubble.listenAddress | string | `":4244"` | An additional address for Hubble to listen to. Set this field ":4244" if you are enabling Hubble Relay, as it assumes that Hubble is listening on port 4244. |
-| hubble.metrics | object | `{"enabled":null,"port":9091,"serviceAnnotations":{},"serviceMonitor":{"enabled":false,"labels":{}}}` | Hubble metrics configuration. See https://docs.cilium.io/en/stable/configuration/metrics/#hubble-metrics for more comprehensive documentation about Hubble metrics. |
+| hubble.metrics | object | `{"enabled":null,"port":9091,"serviceAnnotations":{},"serviceMonitor":{"enabled":false,"labels":{}}}` | Hubble metrics configuration. See https://docs.cilium.io/en/stable/operations/metrics/#hubble-metrics for more comprehensive documentation about Hubble metrics. |
 | hubble.metrics.enabled | string | `nil` | Configures the list of metrics to collect. If empty or null, metrics are disabled. Example:   enabled:   - dns:query;ignoreAAAA   - drop   - tcp   - flow   - icmp   - http You can specify the list of metrics from the helm CLI:   --set metrics.enabled="{dns:query;ignoreAAAA,drop,tcp,flow,icmp,http}" |
 | hubble.metrics.port | int | `9091` | Configure the port the hubble metric server listens on. |
 | hubble.metrics.serviceAnnotations | object | `{}` | Annotations to be added to hubble-metrics service. |
