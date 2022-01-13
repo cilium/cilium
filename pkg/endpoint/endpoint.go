@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
@@ -482,14 +483,12 @@ func createEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, pro
 
 // CreateHostEndpoint creates the endpoint corresponding to the host.
 func CreateHostEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, proxy EndpointProxy, allocator cache.IdentityAllocator) (*Endpoint, error) {
-	ifName := option.Config.HostDevice
-
-	mac, err := link.GetHardwareAddr(ifName)
+	mac, err := link.GetHardwareAddr(defaults.HostDevice)
 	if err != nil {
 		return nil, err
 	}
 
-	ep := createEndpoint(owner, policyGetter, proxy, allocator, 0, ifName)
+	ep := createEndpoint(owner, policyGetter, proxy, allocator, 0, defaults.HostDevice)
 	ep.isHost = true
 	ep.mac = mac
 	ep.nodeMAC = mac

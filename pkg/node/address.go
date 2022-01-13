@@ -656,7 +656,7 @@ func getCiliumHostIPs() (ipv4GW, ipv6Router net.IP) {
 		}).Info("Restored router address from node_config")
 		return ipv4GW, ipv6Router
 	}
-	return getCiliumHostIPsFromNetDev(option.Config.HostDevice)
+	return getCiliumHostIPsFromNetDev(defaults.HostDevice)
 }
 
 // SetIPsecKeyIdentity sets the IPsec key identity an opaque value used to

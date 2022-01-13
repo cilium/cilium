@@ -1600,7 +1600,7 @@ func (d *Daemon) initKVStore() {
 
 func runDaemon() {
 	datapathConfig := linuxdatapath.DatapathConfiguration{
-		HostDevice: option.Config.HostDevice,
+		HostDevice: defaults.HostDevice,
 	}
 
 	log.Info("Initializing daemon")
