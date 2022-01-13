@@ -168,6 +168,18 @@ const (
 
 	// LabelDirection is the label for traffic direction
 	LabelDirection = "direction"
+
+	// LabelSourceCluster is the label for source cluster name
+	LabelSourceCluster = "source_cluster"
+
+	// LabelSourceNodeName is the label for source node name
+	LabelSourceNodeName = "source_node_name"
+
+	// LabelTargetCluster is the label for target cluster name
+	LabelTargetCluster = "target_cluster"
+
+	// LabelType is the label for type in general (e.g. endpoint, node)
+	LabelType = "type"
 )
 
 var (
@@ -1150,7 +1162,7 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 				Subsystem: SubsystemTriggers,
 				Name:      "policy_update_call_duration_seconds",
 				Help:      "Duration of policy update trigger",
-			}, []string{"type"})
+			}, []string{LabelType})
 
 			collectors = append(collectors, TriggerPolicyUpdateCallDuration)
 			c.TriggerPolicyUpdateCallDuration = true
@@ -1468,4 +1480,11 @@ func Error2Outcome(err error) string {
 	}
 
 	return LabelValueOutcomeSuccess
+}
+
+func BoolToFloat64(v bool) float64 {
+	if v {
+		return 1
+	}
+	return 0
 }
