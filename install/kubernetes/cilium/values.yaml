@@ -419,7 +419,7 @@ enableCiliumEndpointSlice: false
 # -- Enables the fallback compatibility solution for when the xt_socket kernel
 # module is missing and it is needed for the datapath L7 redirection to work
 # properly. See documentation for details on when this can be disabled:
-# http://docs.cilium.io/en/stable/install/system_requirements/#admin-kernel-version.
+# https://docs.cilium.io/en/stable/operations/system_requirements/#linux-kernel.
 enableXTSocketFallback: true
 
 encryption:
@@ -575,7 +575,7 @@ hubble:
   # eventBufferCapacity: "4095"
 
   # -- Hubble metrics configuration.
-  # See https://docs.cilium.io/en/stable/configuration/metrics/#hubble-metrics
+  # See https://docs.cilium.io/en/stable/operations/metrics/#hubble-metrics
   # for more comprehensive documentation about Hubble metrics.
   metrics:
     # -- Configures the list of metrics to collect. If empty or null, metrics
