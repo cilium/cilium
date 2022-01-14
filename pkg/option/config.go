@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
 	clustermeshTypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ip"
@@ -2782,21 +2783,29 @@ func (c *DaemonConfig) Populate() {
 	c.MonitorAggregationFlags = ctMonitorReportFlags
 
 	// Map options
-	if m := viper.GetStringMapString(FixedIdentityMapping); len(m) != 0 {
+	if m := command.GetStringMapString(viper.GetViper(), FixedIdentityMapping); err != nil {
+		log.Fatalf("unable to parse %s: %s", FixedIdentityMapping, err)
+	} else if len(m) != 0 {
 		c.FixedIdentityMapping = m
 	}
 
 	c.ConntrackGCInterval = viper.GetDuration(ConntrackGCInterval)
 
-	if m := viper.GetStringMapString(KVStoreOpt); len(m) != 0 {
+	if m, err := command.GetStringMapStringE(viper.GetViper(), KVStoreOpt); err != nil {
+		log.Fatalf("unable to parse %s: %s", KVStoreOpt, err)
+	} else if len(m) != 0 {
 		c.KVStoreOpt = m
 	}
 
-	if m := viper.GetStringMapString(LogOpt); len(m) != 0 {
+	if m, err := command.GetStringMapStringE(viper.GetViper(), LogOpt); err != nil {
+		log.Fatalf("unable to parse %s: %s", LogOpt, err)
+	} else if len(m) != 0 {
 		c.LogOpt = m
 	}
 
-	if m := viper.GetStringMapString(APIRateLimitName); len(m) != 0 {
+	if m, err := command.GetStringMapStringE(viper.GetViper(), APIRateLimitName); err != nil {
+		log.Fatalf("unable to parse %s: %s", APIRateLimitName, err)
+	} else if len(m) != 0 {
 		c.APIRateLimit = m
 	}
 
