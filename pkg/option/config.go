@@ -2159,6 +2159,11 @@ func (c *DaemonConfig) TunnelingEnabled() bool {
 	return c.Tunnel != TunnelDisabled
 }
 
+// MasqueradingEnabled returns true if either IPv4 or IPv6 masquerading is enabled.
+func (c *DaemonConfig) MasqueradingEnabled() bool {
+	return c.EnableIPv4Masquerade || c.EnableIPv6Masquerade
+}
+
 // RemoteNodeIdentitiesEnabled returns true if the remote-node identity feature
 // is enabled
 func (c *DaemonConfig) RemoteNodeIdentitiesEnabled() bool {
