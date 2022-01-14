@@ -2180,6 +2180,11 @@ func (c *DaemonConfig) TunnelingEnabled() bool {
 	return c.Tunnel != TunnelDisabled
 }
 
+// MasqueradingEnabled returns true if either IPv4 or IPv6 masquerading is enabled.
+func (c *DaemonConfig) MasqueradingEnabled() bool {
+	return c.EnableIPv4Masquerade || c.EnableIPv6Masquerade
+}
+
 // IptablesMasqueradingIPv4Enabled returns true if iptables-based
 // masquerading is enabled for IPv4.
 func (c *DaemonConfig) IptablesMasqueradingIPv4Enabled() bool {
