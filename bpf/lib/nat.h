@@ -266,7 +266,8 @@ static __always_inline int snat_v4_track_local(struct __ctx_buff *ctx,
 	struct ipv4_ct_tuple tmp;
 	bool needs_ct = false;
 	__u32 monitor = 0;
-	int ret, where;
+	enum ct_dir where;
+	int ret;
 
 	if (state && state->common.host_local) {
 		needs_ct = true;

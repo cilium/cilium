@@ -515,7 +515,7 @@ ipv4_ct_tuple_reverse(struct ipv4_ct_tuple *tuple)
 
 static __always_inline int ipv4_ct_extract_l4_ports(struct __ctx_buff *ctx,
 						    int off,
-						    int dir __maybe_unused,
+						    enum ct_dir dir __maybe_unused,
 						    struct ipv4_ct_tuple *tuple,
 						    bool *has_l4_header __maybe_unused)
 {
@@ -551,7 +551,7 @@ static __always_inline void ct4_cilium_dbg_tuple(struct __ctx_buff *ctx, __u8 ty
 }
 
 static __always_inline int
-ct_extract_ports4(struct __ctx_buff *ctx, int off, int dir,
+ct_extract_ports4(struct __ctx_buff *ctx, int off, enum ct_dir dir,
 		  struct ipv4_ct_tuple *tuple)
 {
 	int err;
@@ -641,7 +641,7 @@ ct_is_reply4(const void *map, struct __ctx_buff *ctx, int off,
 /* Offset must point to IPv4 header */
 static __always_inline int ct_lookup4(const void *map,
 				      struct ipv4_ct_tuple *tuple,
-				      struct __ctx_buff *ctx, int off, int dir,
+				      struct __ctx_buff *ctx, int off, enum ct_dir dir,
 				      struct ct_state *ct_state, __u32 *monitor)
 {
 	int err, ret = CT_NEW, action = ACTION_UNSPEC;

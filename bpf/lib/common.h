@@ -463,9 +463,11 @@ enum {
 #define LB_LOOKUP_SCOPE_INT	1
 
 /* Cilium metrics direction for dropping/forwarding packet */
-#define METRIC_INGRESS  1
-#define METRIC_EGRESS   2
-#define METRIC_SERVICE  3
+enum metric_dir {
+	METRIC_INGRESS = 1,
+	METRIC_EGRESS,
+	METRIC_SERVICE
+} __packed;
 
 /* Magic ctx->mark identifies packets origination and encryption status.
  *
@@ -612,9 +614,11 @@ enum {
 #define TUPLE_F_RELATED		2	/* Flow represents related packets */
 #define TUPLE_F_SERVICE		4	/* Flow represents packets to service */
 
-#define CT_EGRESS 0
-#define CT_INGRESS 1
-#define CT_SERVICE 2
+enum ct_dir {
+	CT_EGRESS,
+	CT_INGRESS,
+	CT_SERVICE,
+} __packed;
 
 #ifdef ENABLE_NODEPORT
 #define NAT_MIN_EGRESS		NODEPORT_PORT_MIN_NAT
