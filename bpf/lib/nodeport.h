@@ -582,7 +582,7 @@ drop_err:
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT)
 int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 {
-	int ret, dir = ctx_load_meta(ctx, CB_NAT);
+	enum nat_dir dir = (enum nat_dir)ctx_load_meta(ctx, CB_NAT);
 	union v6addr tmp = IPV6_DIRECT_ROUTING;
 	struct bpf_fib_lookup_padded fib_params = {
 		.l = {
@@ -598,6 +598,7 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	bool l2_hdr_required = true;
+	int ret;
 
 	target.addr = tmp;
 #ifdef TUNNEL_MODE
@@ -1560,7 +1561,7 @@ drop_err:
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_NAT)
 int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 {
-	int ret, dir = ctx_load_meta(ctx, CB_NAT);
+	enum nat_dir dir = (enum nat_dir)ctx_load_meta(ctx, CB_NAT);
 	struct bpf_fib_lookup_padded fib_params = {
 		.l = {
 			.family		= AF_INET,
@@ -1575,6 +1576,7 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 	void *data, *data_end;
 	struct iphdr *ip4;
 	bool l2_hdr_required = true;
+	int ret;
 
 	target.addr = IPV4_DIRECT_ROUTING;
 #ifdef TUNNEL_MODE
