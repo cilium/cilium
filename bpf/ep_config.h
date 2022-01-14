@@ -14,8 +14,8 @@ DEFINE_U32(LXC_IPV4, 0x10203040);
  * Both the LXC_ID and the HOST_EP_ID are defined here to ease compile testing,
  * but in the actual header files, only one of them will be present.
  */
-DEFINE_U32(LXC_ID, 0x2A);
-#define LXC_ID fetch_u32(LXC_ID)
+DEFINE_U16(LXC_ID, 0x2A);
+#define LXC_ID fetch_u16(LXC_ID)
 DEFINE_U32(SECLABEL, 0xfffff);
 #define SECLABEL fetch_u32(SECLABEL)
 DEFINE_U32(SECLABEL_NB, 0xfffff);
