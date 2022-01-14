@@ -1141,11 +1141,6 @@ int to_host(struct __ctx_buff *ctx)
 	 */
 	ctx_change_type(ctx, PACKET_HOST);
 #endif
-
-	if (!traced)
-		send_trace_notify(ctx, TRACE_TO_STACK, src_id, 0, 0,
-				  CILIUM_IFINDEX, 0, 0);
-
 #ifdef ENABLE_HOST_FIREWALL
 	if (!validate_ethertype(ctx, &proto)) {
 		ret = DROP_UNSUPPORTED_L2;
@@ -1182,6 +1177,10 @@ out:
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP,
 					      METRIC_INGRESS);
+
+	if (!traced)
+		send_trace_notify(ctx, TRACE_TO_STACK, src_id, 0, 0,
+				  CILIUM_IFINDEX, 0, 0);
 
 	return ret;
 }
