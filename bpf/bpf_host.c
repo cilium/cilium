@@ -860,7 +860,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 	bpf_clear_meta(ctx);
 
 	if (from_host) {
-		int trace = TRACE_FROM_HOST;
+		enum trace_point trace = TRACE_FROM_HOST;
 		bool from_proxy;
 
 		from_proxy = inherit_identity_from_host(ctx, &identity);

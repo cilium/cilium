@@ -29,7 +29,7 @@
 #include "metrics.h"
 
 /* Available observation points. */
-enum {
+enum trace_point {
 	TRACE_TO_LXC,
 	TRACE_TO_PROXY,
 	TRACE_TO_HOST,
@@ -42,7 +42,7 @@ enum {
 	TRACE_FROM_OVERLAY,
 	TRACE_FROM_NETWORK,
 	TRACE_TO_NETWORK,
-};
+} __packed;
 
 /* Reasons for forwarding a packet. */
 enum trace_reason {
@@ -74,7 +74,8 @@ enum {
  * Update metrics based on a trace event
  */
 static __always_inline void
-update_trace_metrics(struct __ctx_buff *ctx, __u8 obs_point, enum trace_reason reason)
+update_trace_metrics(struct __ctx_buff *ctx, enum trace_point obs_point,
+		     enum trace_reason reason)
 {
 	__u8 encrypted;
 
@@ -83,16 +84,6 @@ update_trace_metrics(struct __ctx_buff *ctx, __u8 obs_point, enum trace_reason r
 		update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
 			       REASON_FORWARDED);
 		break;
-
-	/* TRACE_FROM_LXC, i.e endpoint-to-endpoint delivery is handled
-	 * separately in ipv*_local_delivery() where we can bump an egress
-	 * forward. It could still be dropped but it would show up later as an
-	 * ingress drop, in that scenario.
-	 *
-	 * TRACE_TO_PROXY is not handled in datapath. This is because we have
-	 * separate L7 proxy "forwarded" and "dropped" (ingress/egress)
-	 * counters in the proxy layer to capture these metrics.
-	 */
 	case TRACE_TO_HOST:
 	case TRACE_TO_STACK:
 	case TRACE_TO_OVERLAY:
@@ -111,6 +102,19 @@ update_trace_metrics(struct __ctx_buff *ctx, __u8 obs_point, enum trace_reason r
 		else
 			update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
 				       REASON_DECRYPT);
+		break;
+	/* TRACE_FROM_LXC, i.e endpoint-to-endpoint delivery is handled
+	 * separately in ipv*_local_delivery() where we can bump an egress
+	 * forward. It could still be dropped but it would show up later as an
+	 * ingress drop, in that scenario.
+	 *
+	 * TRACE_{FROM,TO}_PROXY are not handled in datapath. This is because
+	 * we have separate L7 proxy "forwarded" and "dropped" (ingress/egress)
+	 * counters in the proxy layer to capture these metrics.
+	 */
+	case TRACE_FROM_LXC:
+	case TRACE_FROM_PROXY:
+	case TRACE_TO_PROXY:
 		break;
 	}
 }
@@ -136,7 +140,8 @@ struct trace_notify {
 	};
 };
 
-static __always_inline bool emit_trace_notify(__u8 obs_point, __u32 monitor)
+static __always_inline bool
+emit_trace_notify(enum trace_point obs_point, __u32 monitor)
 {
 	if (MONITOR_AGGREGATION >= TRACE_AGGREGATE_RX) {
 		switch (obs_point) {
@@ -166,8 +171,9 @@ static __always_inline bool emit_trace_notify(__u8 obs_point, __u32 monitor)
 }
 
 static __always_inline void
-send_trace_notify(struct __ctx_buff *ctx, __u8 obs_point, __u32 src, __u32 dst,
-		   __u16 dst_id, __u32 ifindex, enum trace_reason reason, __u32 monitor)
+send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
+		  __u32 src, __u32 dst, __u16 dst_id, __u32 ifindex,
+		  enum trace_reason reason, __u32 monitor)
 {
 	__u64 ctx_len = ctx_full_len(ctx);
 	__u64 cap_len = min_t(__u64, monitor ? : TRACE_PAYLOAD_LEN,
@@ -196,9 +202,9 @@ send_trace_notify(struct __ctx_buff *ctx, __u8 obs_point, __u32 src, __u32 dst,
 }
 
 static __always_inline void
-send_trace_notify4(struct __ctx_buff *ctx, __u8 obs_point, __u32 src, __u32 dst,
-		   __be32 orig_addr, __u16 dst_id, __u32 ifindex, enum trace_reason reason,
-		   __u32 monitor)
+send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
+		   __u32 src, __u32 dst, __be32 orig_addr, __u16 dst_id,
+		   __u32 ifindex, enum trace_reason reason, __u32 monitor)
 {
 	__u64 ctx_len = ctx_full_len(ctx);
 	__u64 cap_len = min_t(__u64, monitor ? : TRACE_PAYLOAD_LEN,
@@ -228,9 +234,9 @@ send_trace_notify4(struct __ctx_buff *ctx, __u8 obs_point, __u32 src, __u32 dst,
 }
 
 static __always_inline void
-send_trace_notify6(struct __ctx_buff *ctx, __u8 obs_point, __u32 src, __u32 dst,
-		   union v6addr *orig_addr, __u16 dst_id, __u32 ifindex,
-		   enum trace_reason reason, __u32 monitor)
+send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
+		   __u32 src, __u32 dst, union v6addr *orig_addr, __u16 dst_id,
+		   __u32 ifindex, enum trace_reason reason, __u32 monitor)
 {
 	__u64 ctx_len = ctx_full_len(ctx);
 	__u64 cap_len = min_t(__u64, monitor ? : TRACE_PAYLOAD_LEN,
@@ -261,7 +267,7 @@ send_trace_notify6(struct __ctx_buff *ctx, __u8 obs_point, __u32 src, __u32 dst,
 }
 #else
 static __always_inline void
-send_trace_notify(struct __ctx_buff *ctx, __u8 obs_point,
+send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 		  __u32 src __maybe_unused, __u32 dst __maybe_unused,
 		  __u16 dst_id __maybe_unused, __u32 ifindex __maybe_unused,
 		  enum trace_reason reason, __u32 monitor __maybe_unused)
@@ -270,7 +276,7 @@ send_trace_notify(struct __ctx_buff *ctx, __u8 obs_point,
 }
 
 static __always_inline void
-send_trace_notify4(struct __ctx_buff *ctx, __u8 obs_point,
+send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 		   __u32 src __maybe_unused, __u32 dst __maybe_unused,
 		   __be32 orig_addr __maybe_unused, __u16 dst_id __maybe_unused,
 		   __u32 ifindex __maybe_unused, enum trace_reason reason,
@@ -280,7 +286,7 @@ send_trace_notify4(struct __ctx_buff *ctx, __u8 obs_point,
 }
 
 static __always_inline void
-send_trace_notify6(struct __ctx_buff *ctx, __u8 obs_point,
+send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
 		   __u32 src __maybe_unused, __u32 dst __maybe_unused,
 		   union v6addr *orig_addr __maybe_unused,
 		   __u16 dst_id __maybe_unused, __u32 ifindex __maybe_unused,
