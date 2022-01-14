@@ -86,7 +86,7 @@ struct dsr_opt_v6 {
 	__u8 opt_type;
 	__u8 opt_len;
 	union v6addr addr;
-	__be32 port;
+	__be16 port;
 };
 #endif /* ENABLE_IPV6 */
 
