@@ -52,10 +52,11 @@
 #endif
 
 #if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)
-static __always_inline bool redirect_to_proxy(int verdict, __u8 dir)
+static __always_inline bool
+redirect_to_proxy(int verdict, enum ct_status status)
 {
 	return is_defined(ENABLE_HOST_REDIRECT) && verdict > 0 &&
-	       (dir == CT_NEW || dir == CT_ESTABLISHED ||  dir == CT_REOPENED);
+	       (status == CT_NEW || status == CT_ESTABLISHED ||  status == CT_REOPENED);
 }
 #endif
 
@@ -104,7 +105,8 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 	__u32 __maybe_unused tunnel_endpoint = 0;
 	__u8 __maybe_unused encrypt_key = 0;
 	__u32 monitor = 0;
-	__u8 reason;
+	enum ct_status ct_status;
+	enum trace_reason reason;
 	bool hairpin_flow = false; /* endpoint wants to access itself via service IP */
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
@@ -179,10 +181,12 @@ skip_service_lookup:
 	if (ret < 0)
 		return ret;
 
-	reason = ret;
+	ct_status = (enum ct_status)ret;
+	reason = (enum trace_reason)ret;
 
 	/* Check it this is return traffic to an ingress proxy. */
-	if ((ret == CT_REPLY || ret == CT_RELATED) && ct_state.proxy_redirect) {
+	if ((ct_status == CT_REPLY || ct_status == CT_RELATED) &&
+	    ct_state.proxy_redirect) {
 		/* Stack will do a socket match and deliver locally. */
 		return ctx_redirect_to_proxy6(ctx, tuple, 0, false);
 	}
@@ -228,7 +232,7 @@ skip_service_lookup:
 	verdict = policy_can_egress6(ctx, tuple, SECLABEL, *dst_id,
 				     &policy_match_type, &audited);
 
-	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
+	if (ct_status != CT_REPLY && ct_status != CT_RELATED && verdict < 0) {
 		send_policy_verdict_notify(ctx, *dst_id, tuple->dport,
 					   tuple->nexthdr, POLICY_EGRESS, 1,
 					   verdict, policy_match_type, audited);
@@ -236,7 +240,7 @@ skip_service_lookup:
 	}
 
 skip_policy_enforcement:
-	switch (ret) {
+	switch (ct_status) {
 	case CT_NEW:
 		if (!hairpin_flow)
 			send_policy_verdict_notify(ctx, *dst_id, tuple->dport,
@@ -282,7 +286,7 @@ ct_recreate6:
 		/* See comment in handle_ipv4_from_lxc(). */
 		if (ct_state.node_port) {
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL,
-					  *dst_id, 0, 0, ret, monitor);
+					  *dst_id, 0, 0, reason, monitor);
 			ctx->tc_index |= TC_INDEX_F_SKIP_RECIRCULATION;
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT);
 			return DROP_MISSED_TAIL_CALL;
@@ -308,7 +312,7 @@ ct_recreate6:
 
 	hairpin_flow |= ct_state.loopback;
 
-	if (redirect_to_proxy(verdict, reason)) {
+	if (redirect_to_proxy(verdict, ct_status)) {
 		/* Trace the packet before it is forwarded to proxy */
 		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL, 0,
 				  bpf_ntohs(verdict), 0, reason, monitor);
@@ -528,12 +532,13 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 	__u32 __maybe_unused tunnel_endpoint = 0;
 	__u8 __maybe_unused encrypt_key = 0;
 	__u32 monitor = 0;
-	__u8 ct_ret;
 	bool hairpin_flow = false; /* endpoint wants to access itself via service IP */
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
 	bool has_l4_header = false;
 	bool __maybe_unused dst_remote_ep = false;
+	enum trace_reason reason;
+	enum ct_status ct_status;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -603,13 +608,16 @@ skip_service_lookup:
 	 * POLICY_SKIP if the packet is a reply packet to an existing incoming
 	 * connection.
 	 */
-	ct_ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_EGRESS,
-			    &ct_state, &monitor);
-	if (ct_ret < 0)
-		return ct_ret;
+	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_EGRESS,
+			 &ct_state, &monitor);
+	if (ret < 0)
+		return ret;
+
+	ct_status = (enum ct_status)ret;
+	reason = (enum trace_reason)ret;
 
 	/* Check it this is return traffic to an ingress proxy. */
-	if ((ct_ret == CT_REPLY || ct_ret == CT_RELATED) && ct_state.proxy_redirect) {
+	if ((ct_status == CT_REPLY || ct_status == CT_RELATED) && ct_state.proxy_redirect) {
 		/* Stack will do a socket match and deliver locally. */
 		return ctx_redirect_to_proxy4(ctx, &tuple, 0, false);
 	}
@@ -658,7 +666,7 @@ skip_service_lookup:
 	verdict = policy_can_egress4(ctx, &tuple, SECLABEL, *dst_id,
 				     &policy_match_type, &audited);
 
-	if (ct_ret != CT_REPLY && ct_ret != CT_RELATED && verdict < 0) {
+	if (ct_status != CT_REPLY && ct_status != CT_RELATED && verdict < 0) {
 		send_policy_verdict_notify(ctx, *dst_id, tuple.dport,
 					   tuple.nexthdr, POLICY_EGRESS, 0,
 					   verdict, policy_match_type, audited);
@@ -666,7 +674,7 @@ skip_service_lookup:
 	}
 
 skip_policy_enforcement:
-	switch (ct_ret) {
+	switch (ct_status) {
 	case CT_NEW:
 		if (!hairpin_flow)
 			send_policy_verdict_notify(ctx, *dst_id, tuple.dport,
@@ -717,7 +725,7 @@ ct_recreate4:
 		 */
 		if (ct_state.node_port) {
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL,
-					  *dst_id, 0, 0, ct_ret, monitor);
+					  *dst_id, 0, 0, reason, monitor);
 			ctx->tc_index |= TC_INDEX_F_SKIP_RECIRCULATION;
 			ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT);
 			return DROP_MISSED_TAIL_CALL;
@@ -739,10 +747,10 @@ ct_recreate4:
 
 	hairpin_flow |= ct_state.loopback;
 
-	if (redirect_to_proxy(verdict, ct_ret)) {
+	if (redirect_to_proxy(verdict, ct_status)) {
 		/* Trace the packet before it is forwarded to proxy */
 		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL, 0,
-				  bpf_ntohs(verdict), 0, ct_ret, monitor);
+				  bpf_ntohs(verdict), 0, reason, monitor);
 		return ctx_redirect_to_proxy4(ctx, &tuple, verdict, false);
 	}
 
@@ -813,7 +821,7 @@ ct_recreate4:
 		 * gateway, since an egress policy is only matching connections
 		 * originating from a pod.
 		 */
-		if (ct_ret == CT_REPLY || ct_ret == CT_RELATED)
+		if (ct_status == CT_REPLY || ct_status == CT_RELATED)
 			goto skip_egress_gateway;
 
 		egress_gw_policy = lookup_ip4_egress_gw_policy(ip4->saddr, ip4->daddr);
@@ -873,7 +881,7 @@ skip_egress_gateway:
 to_host:
 	if (is_defined(ENABLE_HOST_FIREWALL) && *dst_id == HOST_ID) {
 		send_trace_notify(ctx, TRACE_TO_HOST, SECLABEL, HOST_ID, 0,
-				  HOST_IFINDEX, ct_ret, monitor);
+				  HOST_IFINDEX, reason, monitor);
 		return ctx_redirect(ctx, HOST_IFINDEX, BPF_F_INGRESS);
 	}
 #endif
@@ -915,7 +923,7 @@ pass_to_stack:
 encrypt_to_stack:
 #endif
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL, *dst_id, 0, 0,
-			  ct_ret, monitor);
+			  reason, monitor);
 	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 0);
 	return CTX_ACT_OK;
 }
@@ -1038,9 +1046,9 @@ out:
 
 #ifdef ENABLE_IPV6
 static __always_inline int
-ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
-	    struct ipv6_ct_tuple *tuple_out, __u16 *proxy_port,
-	    bool from_host __maybe_unused)
+ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
+	    enum ct_status *ct_status, struct ipv6_ct_tuple *tuple_out,
+	    __u16 *proxy_port, bool from_host __maybe_unused)
 {
 	struct ipv6_ct_tuple tuple = {};
 	void *data, *data_end;
@@ -1050,6 +1058,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	struct ct_state ct_state = {};
 	struct ct_state ct_state_new = {};
 	bool skip_ingress_proxy = false;
+	enum trace_reason reason;
 	union v6addr orig_sip;
 	__u32 monitor = 0;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
@@ -1082,7 +1091,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	if (ret < 0)
 		return ret;
 
-	*reason = ret;
+	*ct_status = (enum ct_status)ret;
 
 	/* Check it this is return traffic to an egress proxy.
 	 * Do not redirect again if the packet is coming from the egress proxy.
@@ -1172,17 +1181,18 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	if (redirect_to_proxy(verdict, *reason)) {
+	reason = (enum trace_reason)*ct_status;
+	if (redirect_to_proxy(verdict, *ct_status)) {
 		*proxy_port = verdict;
 		send_trace_notify6(ctx, TRACE_TO_PROXY, src_label, SECLABEL, &orig_sip,
-				   bpf_ntohs(verdict), ifindex, *reason, monitor);
+				   bpf_ntohs(verdict), ifindex, reason, monitor);
 		if (tuple_out)
 			memcpy(tuple_out, &tuple, sizeof(tuple));
 		return POLICY_ACT_PROXY_REDIRECT;
 	}
 	/* Not redirected to host / proxy. */
 	send_trace_notify6(ctx, TRACE_TO_LXC, src_label, SECLABEL, &orig_sip,
-			   LXC_ID, ifindex, *reason, monitor);
+			   LXC_ID, ifindex, reason, monitor);
 
 #if !defined(ENABLE_ROUTING) && defined(TUNNEL_MODE) && !defined(ENABLE_NODEPORT)
 	/* See comment in IPv4 path. */
@@ -1206,12 +1216,12 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 	bool from_host = ctx_load_meta(ctx, CB_FROM_HOST);
 	bool proxy_redirect __maybe_unused = false;
 	__u16 proxy_port = 0;
-	__u8 reason = 0;
+	enum ct_status ct_status = 0;
 
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 	ctx_store_meta(ctx, CB_FROM_HOST, 0);
 
-	ret = ipv6_policy(ctx, ifindex, src_label, &reason, &tuple,
+	ret = ipv6_policy(ctx, ifindex, src_label, &ct_status, &tuple,
 			  &proxy_port, from_host);
 	if (ret == POLICY_ACT_PROXY_REDIRECT) {
 		ret = ctx_redirect_to_proxy6(ctx, &tuple, proxy_port, from_host);
@@ -1250,7 +1260,7 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	__u16 proxy_port = 0;
-	__u8 reason;
+	enum ct_status ct_status;
 	int ret;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
@@ -1291,7 +1301,7 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 #endif
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
-	ret = ipv6_policy(ctx, 0, src_identity, &reason, NULL,
+	ret = ipv6_policy(ctx, 0, src_identity, &ct_status, NULL,
 			  &proxy_port, true);
 	if (ret == POLICY_ACT_PROXY_REDIRECT) {
 		ret = ctx_redirect_to_proxy_hairpin_ipv6(ctx, proxy_port);
@@ -1323,7 +1333,7 @@ out:
 
 #ifdef ENABLE_IPV4
 static __always_inline int
-ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
+ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status *ct_status,
 	    struct ipv4_ct_tuple *tuple_out, __u16 *proxy_port,
 	    bool from_host __maybe_unused)
 {
@@ -1337,6 +1347,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	bool skip_ingress_proxy = false;
 	bool is_untracked_fragment = false;
 	bool has_l4_header = false;
+	enum trace_reason reason;
 	__u32 monitor = 0;
 	__be32 orig_sip;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
@@ -1373,7 +1384,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	if (ret < 0)
 		return ret;
 
-	*reason = ret;
+	*ct_status = (enum ct_status)ret;
 
 	/* Check it this is return traffic to an egress proxy.
 	 * Do not redirect again if the packet is coming from the egress proxy.
@@ -1488,17 +1499,18 @@ skip_policy_enforcement:
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-	if (redirect_to_proxy(verdict, *reason)) {
+	reason = (enum trace_reason)*ct_status;
+	if (redirect_to_proxy(verdict, *ct_status)) {
 		*proxy_port = verdict;
 		send_trace_notify4(ctx, TRACE_TO_PROXY, src_label, SECLABEL, orig_sip,
-				   bpf_ntohs(verdict), ifindex, *reason, monitor);
+				   bpf_ntohs(verdict), ifindex, reason, monitor);
 		if (tuple_out)
 			*tuple_out = tuple;
 		return POLICY_ACT_PROXY_REDIRECT;
 	}
 	/* Not redirected to host / proxy. */
 	send_trace_notify4(ctx, TRACE_TO_LXC, src_label, SECLABEL, orig_sip,
-			   LXC_ID, ifindex, *reason, monitor);
+			   LXC_ID, ifindex, reason, monitor);
 
 #if !defined(ENABLE_ROUTING) && defined(TUNNEL_MODE) && !defined(ENABLE_NODEPORT)
 	/* In tunneling mode, we execute this code to send the packet from
@@ -1528,13 +1540,13 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 	__u32 src_label = ctx_load_meta(ctx, CB_SRC_LABEL);
 	bool from_host = ctx_load_meta(ctx, CB_FROM_HOST);
 	bool proxy_redirect __maybe_unused = false;
+	enum ct_status ct_status = 0;
 	__u16 proxy_port = 0;
-	__u8 reason = 0;
 
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 	ctx_store_meta(ctx, CB_FROM_HOST, 0);
 
-	ret = ipv4_policy(ctx, ifindex, src_label, &reason, &tuple,
+	ret = ipv4_policy(ctx, ifindex, src_label, &ct_status, &tuple,
 			  &proxy_port, from_host);
 	if (ret == POLICY_ACT_PROXY_REDIRECT) {
 		ret = ctx_redirect_to_proxy4(ctx, &tuple, proxy_port, from_host);
@@ -1573,7 +1585,7 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 	void *data, *data_end;
 	struct iphdr *ip4;
 	__u16 proxy_port = 0;
-	__u8 reason;
+	enum ct_status ct_status;
 	int ret;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
@@ -1613,7 +1625,7 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 #endif
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
-	ret = ipv4_policy(ctx, 0, src_identity, &reason, NULL,
+	ret = ipv4_policy(ctx, 0, src_identity, &ct_status, NULL,
 			  &proxy_port, true);
 	if (ret == POLICY_ACT_PROXY_REDIRECT) {
 		ret = ctx_redirect_to_proxy_hairpin_ipv4(ctx, proxy_port);
