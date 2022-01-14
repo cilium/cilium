@@ -412,7 +412,7 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		}
 
 		if option.Config.IptablesMasqueradingEnabled() &&
-			address.Type != addressing.NodeCiliumInternalIP {
+			address.Type == addressing.NodeInternalIP {
 			iptables.AddToNodeIpset(address.IP)
 		}
 
@@ -596,7 +596,7 @@ func (m *Manager) NodeDeleted(n nodeTypes.Node) {
 
 	for _, address := range entry.node.IPAddresses {
 		if option.Config.IptablesMasqueradingEnabled() &&
-			address.Type != addressing.NodeCiliumInternalIP {
+			address.Type != addressing.NodeInternalIP {
 			iptables.RemoveFromNodeIpset(address.IP)
 		}
 
