@@ -124,95 +124,72 @@ Image dependency:
 Update cilium-builder and cilium-runtime images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+This section will require you to install `Skopeo <https://github.com/containers/skopeo>`__.
+
 Login to quay.io with your credentials to the repository that you want to
 update:
 
-`cilium-builder <https://quay.io/repository/cilium/cilium-builder?tab=builds>`__ - contains Cilium build-time dependencies
-`cilium-runtime <https://quay.io/repository/cilium/cilium-runtime?tab=builds>`__ - contains Cilium run-time dependencies
+`cilium-runtime <https://hub.docker.com/repository/docker/cilium/cilium-runtime-dev/builds>`__ - contains Cilium run-time dependencies
 
-0. After login, select the tab "builds" on the left menu.
+#. After login, click the "Configure Automated Builds" button.
 
-.. image:: ../../images/cilium-quayio-tag-0.png
-    :align: center
+#. Add a new build rule, taking care to point to the correct Dockerfile and
+   Build context, and tagging with the date and suffix ``-v1.9``.
 
-1. Click on the wheel.
-2. Enable the trigger for that build trigger.
+   .. image:: ../../images/cilium-dockerhub-tag-0.png
+       :align: center
 
-.. image:: ../../images/cilium-quayio-tag-1.png
-    :align: center
+#. Delete all of the old build rules.
 
-3. Confirm that you want to enable the trigger.
+#. Click "Save and Build".
 
-.. image:: ../../images/cilium-quayio-tag-2.png
-    :align: center
+#. Wait for DockerHub to build the image.
 
-4. After enabling the trigger, click again on the wheel.
-5. And click on "Run Trigger Now".
+#. Log into skopeo into both dockerhub and quay.io, and copy the image across:
 
-.. image:: ../../images/cilium-quayio-tag-3.png
-    :align: center
+   .. code-block:: shell-session
 
-6. A new pop-up will appear to select your desired branch.
-7. If you're interested in simply bumping the image to have the latest
-   packages, then select the release branch (i.e. v1.7, v1.8). If you already
-   have a branch that contains changes, select the branch that contains the new
-   changes.
+      $ skopeo login docker.io
+      $ skopeo login quay.io
+      $ skopeo copy docker://docker.io/cilium/cilium-runtime-dev:YYYY-MM-DD-vX.Y docker://quay.io/cilium/cilium-runtime:YYYY-MM-DD-vX.Y
 
-.. image:: ../../images/cilium-quayio-tag-4.png
-    :align: center
+#. Fetch the digest of this image:
 
-8. After selecting your branch click on "Start Build".
+   .. code-block:: shell-session
 
-.. image:: ../../images/cilium-quayio-tag-5.png
-    :align: center
+      $ skopeo inspect docker://quay.io/cilium/cilium-runtime:YYYY-MM-DD-vX.Y | jq -r '.Digest'
+      sha256:b3f895d40df862c46f247b2942de0658b9d91f07d0bad11202d22af7c7ce3c60
 
-9. Once the build has started you can disable the Build trigger by clicking on
-   the wheel.
-10. And click on "Disable Trigger".
+#. Create a new branch in your local Cilium repo based on the tip of the v1.9 tree
 
-.. image:: ../../images/cilium-quayio-tag-6.png
-    :align: center
+#. Replace all references to the cilium-runtime image to now point to the new
+   image, replacing the tag and digest using the information from previous steps:
 
-11. Confirm that you want to disable the build trigger.
+   .. code-block:: shell-session
 
-.. image:: ../../images/cilium-quayio-tag-7.png
-    :align: center
+      $ export NEW_IMAGE=quay.io/cilium/cilium-runtime:YYYY-MM-DD-vX.Y@sha256:ZZZZ
+      $ git grep -l 'quay.io/cilium/cilium-runtime' | \
+        xargs sed -i 's;\(quay.io/cilium/cilium-runtime:[-_.:@a-zA-Z0-9]\+\);'$NEW_IMAGE';g'
 
-12. Once the build is finished click under Tags (on the left menu).
-13. Click on the wheel and;
-14. Add a new tag to the image that was built.
+#. Commit with the message 'Update Cilium base images'.
 
-.. image:: ../../images/cilium-quayio-tag-8.png
-    :align: center
+   .. code-block:: shell-session
 
-15. Write the name of the tag that you want to give for the newly built image.
-16. Confirm the name is correct and click on "Create Tag".
+      $ git add --patch
+      $ git ci -s -m "Update Cilium base images"
 
-.. image:: ../../images/cilium-quayio-tag-9.png
-    :align: center
 
-17. After the new tag was created you can delete the other tag, which is the
-    name of your branch. Select the tag name.
-18. Click in Actions.
-19. Click in "Delete Tags".
+#. Submit the PR for review
 
-.. image:: ../../images/cilium-quayio-tag-10.png
-    :align: center
+   .. code-block:: shell-session
 
-20. Confirm that you want to delete tag with your branch name.
+      $ gh pr create -B v1.9
 
-.. image:: ../../images/cilium-quayio-tag-11.png
-    :align: center
+#. Update the versions of the images that are pulled into the CI VMs.
 
-You have created a new image build with a new tag. The next steps should be to
-update the repository root's Dockerfile so that it points to the new
-``cilium-builder`` or ``cilium-runtime`` image recently created.
-
-21. Update the versions of the images that are pulled into the CI VMs.
-
-* Open a PR against the :ref:`packer_ci` with an update to said image versions. Once your PR is merged, a new version of the VM will be ready for consumption in the CI.
-* Update the ``SERVER_VERSION``  field in ``test/Vagrantfile`` to contain the new version, which is the build number from the `Jenkins Job for the VMs <https://jenkins.cilium.io/job/Vagrant-Master-Boxes-Packer-Build/>`_. For example, build 119 from the pipeline would be the value to set for ``SERVER_VERSION``.
-* Open a pull request with this version change in the cilium repository.
+   * Open a PR against the :ref:`packer_ci` with an update to said image versions. Once your PR is merged, a new version of the VM will be ready for consumption in the CI.
+   * Update the ``SERVER_VERSION``  field in ``test/Vagrantfile`` to contain the new version, which is the build number from the `Jenkins Job for the VMs <https://jenkins.cilium.io/job/Vagrant-Master-Boxes-Packer-Build/>`_. For example, build 119 from the pipeline would be the value to set for ``SERVER_VERSION``.
+   * Open a pull request with this version change in the cilium repository.
 
 Nightly Docker image
 ~~~~~~~~~~~~~~~~~~~~
