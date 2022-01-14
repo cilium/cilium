@@ -194,7 +194,7 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 			OperationMode:     option.Config.Ipvlan.OperationMode,
 		},
 		IpamMode:   option.Config.IPAM,
-		Masquerade: option.Config.EnableIPv4Masquerade || option.Config.EnableIPv6Masquerade,
+		Masquerade: option.Config.MasqueradingEnabled(),
 		MasqueradeProtocols: &models.DaemonConfigurationStatusMasqueradeProtocols{
 			IPV4: option.Config.EnableIPv4Masquerade,
 			IPV6: option.Config.EnableIPv6Masquerade,
