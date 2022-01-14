@@ -111,6 +111,7 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
 	bool __maybe_unused dst_remote_ep = false;
+	__u16 proxy_port;
 
 	if (unlikely(!is_valid_lxc_src_ip(ip6)))
 		return DROP_INVALID_SIP;
@@ -313,10 +314,11 @@ ct_recreate6:
 	hairpin_flow |= ct_state.loopback;
 
 	if (redirect_to_proxy(verdict, ct_status)) {
+		proxy_port = (__u16)verdict;
 		/* Trace the packet before it is forwarded to proxy */
 		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL, 0,
-				  bpf_ntohs(verdict), 0, reason, monitor);
-		return ctx_redirect_to_proxy6(ctx, tuple, verdict, false);
+				  bpf_ntohs(proxy_port), 0, reason, monitor);
+		return ctx_redirect_to_proxy6(ctx, tuple, proxy_port, false);
 	}
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -539,6 +541,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 	bool __maybe_unused dst_remote_ep = false;
 	enum trace_reason reason;
 	enum ct_status ct_status;
+	__u16 proxy_port;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -748,10 +751,11 @@ ct_recreate4:
 	hairpin_flow |= ct_state.loopback;
 
 	if (redirect_to_proxy(verdict, ct_status)) {
+		proxy_port = (__u16)verdict;
 		/* Trace the packet before it is forwarded to proxy */
 		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL, 0,
-				  bpf_ntohs(verdict), 0, reason, monitor);
-		return ctx_redirect_to_proxy4(ctx, &tuple, verdict, false);
+				  bpf_ntohs(proxy_port), 0, reason, monitor);
+		return ctx_redirect_to_proxy4(ctx, &tuple, proxy_port, false);
 	}
 
 	/* After L4 write in port mapping: revalidate for direct packet access */
@@ -1183,9 +1187,9 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 
 	reason = (enum trace_reason)*ct_status;
 	if (redirect_to_proxy(verdict, *ct_status)) {
-		*proxy_port = verdict;
+		*proxy_port = (__u16)verdict;
 		send_trace_notify6(ctx, TRACE_TO_PROXY, src_label, SECLABEL, &orig_sip,
-				   bpf_ntohs(verdict), ifindex, reason, monitor);
+				   bpf_ntohs(*proxy_port), ifindex, reason, monitor);
 		if (tuple_out)
 			memcpy(tuple_out, &tuple, sizeof(tuple));
 		return POLICY_ACT_PROXY_REDIRECT;
@@ -1501,9 +1505,9 @@ skip_policy_enforcement:
 
 	reason = (enum trace_reason)*ct_status;
 	if (redirect_to_proxy(verdict, *ct_status)) {
-		*proxy_port = verdict;
+		*proxy_port = (__u16)verdict;
 		send_trace_notify4(ctx, TRACE_TO_PROXY, src_label, SECLABEL, orig_sip,
-				   bpf_ntohs(verdict), ifindex, reason, monitor);
+				   bpf_ntohs(*proxy_port), ifindex, reason, monitor);
 		if (tuple_out)
 			*tuple_out = tuple;
 		return POLICY_ACT_PROXY_REDIRECT;
