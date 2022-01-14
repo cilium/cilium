@@ -306,7 +306,7 @@ static __always_inline int dsr_set_ipip6(struct __ctx_buff *ctx,
 static __always_inline int dsr_set_ext6(struct __ctx_buff *ctx,
 					struct ipv6hdr *ip6,
 					union v6addr *svc_addr,
-					__be32 svc_port, int *ohead)
+					__be16 svc_port, int *ohead)
 {
 	struct dsr_opt_v6 opt __align_stack_8 = {};
 	__u16 payload_len = bpf_ntohs(ip6->payload_len) + sizeof(opt);
@@ -438,12 +438,14 @@ static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
 	__u64 len_old = ctx_full_len(ctx);
 	void *data_end = ctx_data_end(ctx);
 	void *data = ctx_data(ctx);
+	__u8 reason = (__u8)-code;
 	__wsum wsum;
 	union macaddr smac, dmac;
 	struct icmp6hdr icmp __align_stack_8 = {
 		.icmp6_type	= ICMPV6_PKT_TOOBIG,
 		.icmp6_mtu	= bpf_htonl(THIS_MTU - ohead),
 	};
+	__u64 payload_len = sizeof(*ip6) + sizeof(icmp) + orig_dgram;
 	struct ipv6hdr ip __align_stack_8 = {
 		.version	= 6,
 		.priority	= ip6->priority,
@@ -454,10 +456,10 @@ static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
 		.hop_limit	= IPDEFTTL,
 		.saddr		= ip6->daddr,
 		.daddr		= ip6->saddr,
-		.payload_len	= bpf_htons(sizeof(icmp) + len_new - off),
+		.payload_len	= bpf_htons((__u16)payload_len),
 	};
 
-	update_metrics(ctx_full_len(ctx), METRIC_EGRESS, -code);
+	update_metrics(ctx_full_len(ctx), METRIC_EGRESS, reason);
 
 	if (eth_load_saddr(ctx, smac.addr, 0) < 0)
 		goto drop_err;
@@ -507,6 +509,7 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 			.ifindex	= DIRECT_ROUTING_DEV_IFINDEX,
 		},
 	};
+	__u16 port __maybe_unused;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	union v6addr addr;
@@ -527,8 +530,8 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 	ret = dsr_set_ipip6(ctx, ip6, &addr,
 			    ctx_load_meta(ctx, CB_HINT), &ohead);
 #elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
-	ret = dsr_set_ext6(ctx, ip6, &addr,
-			   ctx_load_meta(ctx, CB_PORT), &ohead);
+	port = (__u16)ctx_load_meta(ctx, CB_PORT);
+	ret = dsr_set_ext6(ctx, ip6, &addr, port, &ohead);
 #else
 # error "Invalid load balancer DSR encapsulation mode!"
 #endif
@@ -790,7 +793,7 @@ skip_service_lookup:
 redo:
 			ct_state_new.src_sec_id = SECLABEL;
 			ct_state_new.node_port = 1;
-			ct_state_new.ifindex = NATIVE_DEV_IFINDEX;
+			ct_state_new.ifindex = (__u16)NATIVE_DEV_IFINDEX;
 			ret = ct_create6(get_ct_map6(&tuple), NULL, &tuple, ctx,
 					 CT_EGRESS, &ct_state_new, false);
 			if (IS_ERR(ret))
@@ -1235,7 +1238,7 @@ static __always_inline __be32 rss_gen_src4(__be32 client, __be32 l4_hint)
 static __always_inline int dsr_set_ipip4(struct __ctx_buff *ctx,
 					 const struct iphdr *ip4,
 					 __be32 backend_addr,
-					 __be32 l4_hint, int *ohead)
+					 __be32 l4_hint, __be16 *ohead)
 {
 	__u16 tot_len = bpf_ntohs(ip4->tot_len) + sizeof(*ip4);
 	const int l3_off = ETH_HLEN;
@@ -1288,7 +1291,7 @@ static __always_inline int dsr_set_ipip4(struct __ctx_buff *ctx,
 #elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
 static __always_inline int dsr_set_opt4(struct __ctx_buff *ctx,
 					struct iphdr *ip4, __be32 svc_addr,
-					__be32 svc_port, int *ohead)
+					__be32 svc_port, __be16 *ohead)
 {
 	__u32 iph_old, iph_new, opt[2];
 	__u16 tot_len = bpf_ntohs(ip4->tot_len) + sizeof(opt);
@@ -1354,7 +1357,8 @@ static __always_inline int handle_dsr_v4(struct __ctx_buff *ctx, bool *dsr)
 	 */
 	if (ip4->ihl == 0x7) {
 		__u32 opt1 = 0, opt2 = 0;
-		__be32 address, dport;
+		__be32 address;
+		__be16 dport;
 
 		if (ctx_load_bytes(ctx, ETH_HLEN + sizeof(struct iphdr),
 				   &opt1, sizeof(opt1)) < 0)
@@ -1401,7 +1405,7 @@ static __always_inline int xlate_dsr_v4(struct __ctx_buff *ctx,
 
 static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,
 					   struct iphdr *ip4 __maybe_unused,
-					   int code, int ohead __maybe_unused)
+					   int code, __be16 ohead __maybe_unused)
 {
 #ifdef ENABLE_DSR_ICMP_ERRORS
 	const __s32 orig_dgram = 8, off = ETH_HLEN;
@@ -1409,6 +1413,7 @@ static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,
 	__be16 type = bpf_htons(ETH_P_IP);
 	__s32 len_new = off + ipv4_hdrlen(ip4) + orig_dgram;
 	__s32 len_old = ctx_full_len(ctx);
+	__u8 reason = (__u8)-code;
 	__u8 tmp[l3_max];
 	union macaddr smac, dmac;
 	struct icmphdr icmp __align_stack_8 = {
@@ -1420,6 +1425,7 @@ static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,
 			},
 		},
 	};
+	__u64 tot_len = sizeof(struct iphdr) + ipv4_hdrlen(ip4) + sizeof(icmp) + orig_dgram;
 	struct iphdr ip __align_stack_8 = {
 		.ihl		= sizeof(ip) >> 2,
 		.version	= IPVERSION,
@@ -1430,11 +1436,10 @@ static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,
 		.saddr		= ip4->daddr,
 		.daddr		= ip4->saddr,
 		.frag_off	= bpf_htons(IP_DF),
-		.tot_len	= bpf_htons(sizeof(ip) + sizeof(icmp) +
-					    len_new - off),
+		.tot_len	= bpf_htons((__u16)tot_len),
 	};
 
-	update_metrics(ctx_full_len(ctx), METRIC_EGRESS, -code);
+	update_metrics(ctx_full_len(ctx), METRIC_EGRESS, reason);
 
 	if (eth_load_saddr(ctx, smac.addr, 0) < 0)
 		goto drop_err;
@@ -1492,10 +1497,11 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 			.ifindex	= DIRECT_ROUTING_DEV_IFINDEX,
 		},
 	};
-	void *data, *data_end;
-	int ret, ohead = 0;
-	struct iphdr *ip4;
 	bool l2_hdr_required = true;
+	void *data, *data_end;
+	struct iphdr *ip4;
+	__be16 ohead = 0;
+	int ret;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;
@@ -1777,7 +1783,7 @@ skip_service_lookup:
 redo:
 			ct_state_new.src_sec_id = SECLABEL;
 			ct_state_new.node_port = 1;
-			ct_state_new.ifindex = NATIVE_DEV_IFINDEX;
+			ct_state_new.ifindex = (__u16)NATIVE_DEV_IFINDEX;
 			ret = ct_create4(get_ct_map4(&tuple), NULL, &tuple, ctx,
 					 CT_EGRESS, &ct_state_new, false);
 			if (IS_ERR(ret))

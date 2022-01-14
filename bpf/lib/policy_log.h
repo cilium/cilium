@@ -60,7 +60,7 @@ send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst
 
 	msg = (typeof(msg)) {
 		__notify_common_hdr(CILIUM_NOTIFY_POLICY_VERDICT, 0),
-		__notify_pktcap_hdr(ctx_len, cap_len),
+		__notify_pktcap_hdr(ctx_len, (__u16)cap_len),
 		.remote_label	= remote_label,
 		.verdict	= verdict,
 		.dst_port	= bpf_ntohs(dst_port),

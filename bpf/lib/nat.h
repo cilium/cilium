@@ -57,7 +57,7 @@ static __always_inline __maybe_unused __be16
 __snat_try_keep_port(__u16 start, __u16 end, __u16 val)
 {
 	return val >= start && val <= end ? val :
-	       __snat_clamp_port_range(start, end, get_prandom_u32());
+	       __snat_clamp_port_range(start, end, (__u16)get_prandom_u32());
 }
 
 static __always_inline __maybe_unused void *
@@ -247,7 +247,7 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx,
 		port = __snat_clamp_port_range(target->min_port,
 					       target->max_port,
 					       retries ? port + 1 :
-					       get_prandom_u32());
+					       (__u16)get_prandom_u32());
 		rtuple.dport = ostate->to_sport = bpf_htons(port);
 	}
 
@@ -734,7 +734,7 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 		port = __snat_clamp_port_range(target->min_port,
 					       target->max_port,
 					       retries ? port + 1 :
-					       get_prandom_u32());
+					       (__u16)get_prandom_u32());
 		rtuple.dport = ostate->to_sport = bpf_htons(port);
 	}
 

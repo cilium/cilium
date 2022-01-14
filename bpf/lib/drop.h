@@ -42,8 +42,8 @@ int __send_drop_notify(struct __ctx_buff *ctx)
 		error = -error;
 
 	msg = (typeof(msg)) {
-		__notify_common_hdr(CILIUM_NOTIFY_DROP, error),
-		__notify_pktcap_hdr(ctx_len, cap_len),
+		__notify_common_hdr(CILIUM_NOTIFY_DROP, (__u8)error),
+		__notify_pktcap_hdr(ctx_len, (__u16)cap_len),
 		.src_label	= ctx_load_meta(ctx, 0),
 		.dst_label	= ctx_load_meta(ctx, 1),
 		.dst_id		= ctx_load_meta(ctx, 3),
@@ -79,7 +79,7 @@ send_drop_notify(struct __ctx_buff *ctx, __u32 src, __u32 dst, __u32 dst_id,
 	ctx_store_meta(ctx, 3, dst_id);
 	ctx_store_meta(ctx, 4, exitcode);
 
-	update_metrics(ctx_full_len(ctx), direction, -reason);
+	update_metrics(ctx_full_len(ctx), direction, (__u8)-reason);
 	ep_tail_call(ctx, CILIUM_CALL_DROP_NOTIFY);
 
 	return exitcode;

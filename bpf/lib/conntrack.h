@@ -1031,7 +1031,7 @@ static __always_inline bool
 ct_has_nodeport_egress_entry4(const void *map,
 			      struct ipv4_ct_tuple *ingress_tuple)
 {
-	int prev_flags = ingress_tuple->flags;
+	__u8 prev_flags = ingress_tuple->flags;
 	struct ct_entry *entry;
 
 	ingress_tuple->flags = TUPLE_F_OUT;
@@ -1048,7 +1048,7 @@ static __always_inline bool
 ct_has_nodeport_egress_entry6(const void *map,
 			      struct ipv6_ct_tuple *ingress_tuple)
 {
-	int prev_flags = ingress_tuple->flags;
+	__u8 prev_flags = ingress_tuple->flags;
 	struct ct_entry *entry;
 
 	ingress_tuple->flags = TUPLE_F_OUT;
