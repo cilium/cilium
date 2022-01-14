@@ -139,10 +139,13 @@ processSymbols:
 		var value []byte
 		switch symbol.kind {
 		case symbolData:
-			if symbol.size == uint64(unsafe.Sizeof(uint32(0))) {
-				if v, exists := intOptions[symbol.name]; exists {
-					value = make([]byte, symbol.size)
+			if v, exists := intOptions[symbol.name]; exists {
+				value = make([]byte, symbol.size)
+				switch uintptr(symbol.size) {
+				case unsafe.Sizeof(uint32(0)):
 					elf.metadata.ByteOrder.PutUint32(value, v)
+				case unsafe.Sizeof(uint16(0)):
+					elf.metadata.ByteOrder.PutUint16(value, uint16(v))
 				}
 			}
 

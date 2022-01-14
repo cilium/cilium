@@ -782,7 +782,7 @@ func (h *HeaderfileWriter) writeStaticData(fw io.Writer, e datapath.EndpointConf
 		}
 
 		fmt.Fprint(fw, defineIPv4("LXC_IPV4", e.IPv4Address()))
-		fmt.Fprint(fw, defineUint32("LXC_ID", uint32(e.GetID())))
+		fmt.Fprint(fw, defineUint16("LXC_ID", uint16(e.GetID())))
 	}
 
 	fmt.Fprint(fw, defineMAC("NODE_MAC", e.GetNodeMAC()))
