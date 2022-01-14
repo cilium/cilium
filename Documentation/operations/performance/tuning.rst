@@ -51,7 +51,7 @@ bypassing the iptables connection tracker.
 * Kernel >= 4.19.57, >= 5.1.16, >= 5.2
 * Direct-routing configuration
 * eBPF-based kube-proxy replacement
-* eBPF masquerading
+* eBPF-based masquerading or no masquerading
 
 To enable the iptables connection-tracking bypass:
 
