@@ -401,7 +401,7 @@ func initKubeProxyReplacementOptions() (bool, error) {
 				option.InstallNoConntrackIptRules, option.KubeProxyReplacement, option.KubeProxyReplacementStrict)
 		}
 
-		if !option.Config.EnableBPFMasquerade {
+		if option.Config.MasqueradingEnabled() && !option.Config.EnableBPFMasquerade {
 			return false, fmt.Errorf("%s requires the agent to run with %s.",
 				option.InstallNoConntrackIptRules, option.EnableBPFMasquerade)
 		}
