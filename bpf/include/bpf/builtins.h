@@ -141,7 +141,7 @@ static __always_inline __nobuiltin("memset") void memset(void *d, int c,
 	if (__builtin_constant_p(len) && __builtin_constant_p(c) && c == 0)
 		__bpf_memzero(d, len);
 	else
-		__bpf_memset_builtin(d, c, len);
+		__bpf_memset_builtin(d, (__u8)c, len);
 }
 
 static __always_inline __maybe_unused void

@@ -131,6 +131,7 @@ static __always_inline int icmp6_to_icmp4(struct __ctx_buff *ctx, int nh_off)
 {
 	struct icmphdr icmp4 __align_stack_8 = {};
 	struct icmp6hdr icmp6 __align_stack_8;
+	__u32 mtu;
 
 	if (ctx_load_bytes(ctx, nh_off, &icmp6, sizeof(icmp6)) < 0)
 		return DROP_INVALID;
@@ -170,10 +171,12 @@ static __always_inline int icmp6_to_icmp4(struct __ctx_buff *ctx, int nh_off)
 		icmp4.type = ICMP_DEST_UNREACH;
 		icmp4.code = ICMP_FRAG_NEEDED;
 		/* FIXME */
-		if (icmp6.icmp6_mtu)
-			icmp4.un.frag.mtu = bpf_htons(bpf_ntohl(icmp6.icmp6_mtu));
-		else
+		if (icmp6.icmp6_mtu) {
+			mtu = bpf_ntohl(icmp6.icmp6_mtu);
+			icmp4.un.frag.mtu = bpf_htons((__u16)mtu);
+		} else {
 			icmp4.un.frag.mtu = bpf_htons(1500);
+		}
 		break;
 	case ICMPV6_TIME_EXCEED:
 		icmp4.type = ICMP_TIME_EXCEEDED;
@@ -266,7 +269,7 @@ static __always_inline int ipv4_to_ipv6(struct __ctx_buff *ctx, struct iphdr *ip
 	else
 		v6.nexthdr = v4.protocol;
 	v6.hop_limit = v4.ttl;
-	v4hdr_len = (v4.ihl << 2);
+	v4hdr_len = (__be16)(v4.ihl << 2);
 	v6.payload_len = bpf_htons(bpf_ntohs(v4.tot_len) - v4hdr_len);
 
 	if (ctx_change_proto(ctx, bpf_htons(ETH_P_IPV6), 0) < 0) {

@@ -410,7 +410,7 @@ cilium_capture_classify_wcard(struct __ctx_buff *ctx)
 static __always_inline bool
 cilium_capture_candidate(struct __ctx_buff *ctx __maybe_unused,
 			 __u16 *rule_id __maybe_unused,
-			 __u32 *cap_len __maybe_unused)
+			 __u16 *cap_len __maybe_unused)
 {
 	if (capture_enabled) {
 		struct capture_cache *c;
@@ -422,7 +422,7 @@ cilium_capture_candidate(struct __ctx_buff *ctx __maybe_unused,
 			r = cilium_capture_classify_wcard(ctx);
 			c->rule_seen = r;
 			if (r) {
-				c->cap_len = *cap_len = r->cap_len;
+				c->cap_len = *cap_len = (__u16)r->cap_len;
 				c->rule_id = *rule_id = r->rule_id;
 				return true;
 			}
@@ -457,7 +457,7 @@ cilium_capture_cached(struct __ctx_buff *ctx __maybe_unused,
 static __always_inline void
 cilium_capture_in(struct __ctx_buff *ctx __maybe_unused)
 {
-	__u32 cap_len;
+	__u16 cap_len;
 	__u16 rule_id;
 
 	if (cilium_capture_candidate(ctx, &rule_id, &cap_len))

@@ -44,7 +44,7 @@ static __always_inline void sk_lb4_key(struct lb4_key *lb4,
 {
 	/* SK MSG is always egress, so use daddr */
 	lb4->address = key->dip4;
-	lb4->dport = key->dport;
+	lb4->dport = (__u16)key->dport;
 }
 
 static __always_inline bool redirect_to_proxy(int verdict)
@@ -82,7 +82,7 @@ static inline void bpf_sock_ops_ipv4(struct bpf_sock_ops *skops)
 			dst_id = WORLD_ID;
 	}
 
-	verdict = policy_sk_egress(dst_id, key.sip4, key.dport);
+	verdict = policy_sk_egress(dst_id, key.sip4, (__u16)key.dport);
 	if (redirect_to_proxy(verdict)) {
 		__be32 host_ip = IPV4_GATEWAY;
 

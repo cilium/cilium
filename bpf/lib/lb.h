@@ -588,7 +588,7 @@ lb6_select_backend_id(struct __ctx_buff *ctx,
 		      const struct ipv6_ct_tuple *tuple __maybe_unused,
 		      const struct lb6_service *svc)
 {
-	__u32 slot = (get_prandom_u32() % svc->count) + 1;
+	__u16 slot = (get_prandom_u32() % svc->count) + 1;
 	struct lb6_service *be = lb6_lookup_backend_slot(ctx, key, slot);
 
 	return be ? be->backend_id : 0;
@@ -1116,7 +1116,7 @@ lb4_select_backend_id(struct __ctx_buff *ctx,
 		      const struct ipv4_ct_tuple *tuple __maybe_unused,
 		      const struct lb4_service *svc)
 {
-	__u32 slot = (get_prandom_u32() % svc->count) + 1;
+	__u16 slot = (get_prandom_u32() % svc->count) + 1;
 	struct lb4_service *be = lb4_lookup_backend_slot(ctx, key, slot);
 
 	return be ? be->backend_id : 0;
