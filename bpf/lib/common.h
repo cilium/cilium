@@ -536,8 +536,8 @@ enum metric_dir {
  * [1]:  https://www.iana.org/assignments/ipv6-parameters/ipv6-parameters.xhtml#ipv6-parameters-2
  */
 #define DSR_IPV6_OPT_TYPE	0x1B
-#define DSR_IPV6_OPT_LEN	0x14	/* to store ipv6 addr + port */
-#define DSR_IPV6_EXT_LEN	0x2	/* = (sizeof(dsr_opt_v6) - 8) / 8 */
+#define DSR_IPV6_OPT_LEN	(sizeof(struct dsr_opt_v6) - 4)
+#define DSR_IPV6_EXT_LEN	((sizeof(struct dsr_opt_v6) - 8) / 8)
 
 /* We cap key index at 4 bits because mark value is used to map ctx to key */
 #define MAX_KEY_INDEX 15
