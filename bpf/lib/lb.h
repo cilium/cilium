@@ -318,7 +318,7 @@ bool lb4_svc_is_localredirect(const struct lb4_service *svc __maybe_unused)
 
 static __always_inline int extract_l4_port(struct __ctx_buff *ctx, __u8 nexthdr,
 					   int l4_off,
-					   int dir __maybe_unused,
+					   enum ct_dir dir __maybe_unused,
 					   __be16 *port,
 					   __maybe_unused struct iphdr *ip4)
 {
@@ -481,7 +481,7 @@ static __always_inline int lb6_extract_key(struct __ctx_buff *ctx __maybe_unused
 					   int l4_off __maybe_unused,
 					   struct lb6_key *key,
 					   struct csum_offset *csum_off,
-					   int dir)
+					   enum ct_dir dir)
 {
 	union v6addr *addr;
 	/* FIXME(brb): set after adding support for different L4 protocols in LB */
@@ -1011,7 +1011,7 @@ static __always_inline int lb4_extract_key(struct __ctx_buff *ctx __maybe_unused
 					   int l4_off __maybe_unused,
 					   struct lb4_key *key,
 					   struct csum_offset *csum_off,
-					   int dir)
+					   enum ct_dir dir)
 {
 	/* FIXME: set after adding support for different L4 protocols in LB */
 	key->proto = 0;

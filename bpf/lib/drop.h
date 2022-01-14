@@ -5,8 +5,8 @@
  * Drop & error notification via perf event ring buffer
  *
  * API:
- * int send_drop_notify(ctx, src, dst, dst_id, reason, exitcode, __u8 direction)
- * int send_drop_notify_error(ctx, error, exitcode, __u8 direction)
+ * int send_drop_notify(ctx, src, dst, dst_id, reason, exitcode, enum metric_dir direction)
+ * int send_drop_notify_error(ctx, error, exitcode, enum metric_dir direction)
  *
  * If DROP_NOTIFY is not defined, the API will be compiled in as a NOP.
  */
@@ -69,9 +69,9 @@ int __send_drop_notify(struct __ctx_buff *ctx)
  *
  * NOTE: This is terminal function and will cause the BPF program to exit
  */
-static __always_inline int send_drop_notify(struct __ctx_buff *ctx, __u32 src,
-					    __u32 dst, __u32 dst_id, int reason,
-					    int exitcode, __u8 direction)
+static __always_inline int
+send_drop_notify(struct __ctx_buff *ctx, __u32 src, __u32 dst, __u32 dst_id,
+		 int reason, int exitcode, enum metric_dir direction)
 {
 	ctx_store_meta(ctx, 0, src);
 	ctx_store_meta(ctx, 1, dst);
@@ -88,16 +88,16 @@ static __always_inline int send_drop_notify(struct __ctx_buff *ctx, __u32 src,
 static __always_inline
 int send_drop_notify(struct __ctx_buff *ctx, __u32 src __maybe_unused,
 		     __u32 dst __maybe_unused, __u32 dst_id __maybe_unused,
-		     int reason, int exitcode, __u8 direction)
+		     int reason, int exitcode, enum metric_dir direction)
 {
-	update_metrics(ctx_full_len(ctx), direction, -reason);
+	update_metrics(ctx_full_len(ctx), direction, (__u8)-reason);
 	return exitcode;
 }
 #endif /* DROP_NOTIFY */
 
 static __always_inline int send_drop_notify_error(struct __ctx_buff *ctx, __u32 src,
 						  int error, int exitcode,
-						  __u8 direction)
+						  enum metric_dir direction)
 {
 	return send_drop_notify(ctx, src, 0, 0, error, exitcode, direction);
 }
