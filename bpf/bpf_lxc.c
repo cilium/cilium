@@ -1752,9 +1752,10 @@ drop_err:
 __section("to-container")
 int handle_to_container(struct __ctx_buff *ctx)
 {
-	int ret, trace = TRACE_FROM_STACK;
+	enum trace_point trace = TRACE_FROM_STACK;
 	__u32 identity = 0;
 	__u16 proto;
+	int ret;
 
 	if (!validate_ethertype(ctx, &proto)) {
 		ret = DROP_UNSUPPORTED_L2;
