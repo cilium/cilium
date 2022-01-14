@@ -599,7 +599,8 @@ github.com/sirupsen/logrus/hooks/test
 # github.com/spf13/afero v1.3.4
 github.com/spf13/afero
 github.com/spf13/afero/mem
-# github.com/spf13/cast v1.3.0
+# github.com/spf13/cast v1.4.1
+## explicit
 github.com/spf13/cast
 # github.com/spf13/cobra v1.1.1
 ## explicit
