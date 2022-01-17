@@ -87,15 +87,12 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 			}
 
 			addrs, err := netlink.AddrList(link, netlink.FAMILY_V4)
-			if err != nil {
-				return fmt.Errorf("unable to list addresses for link %s: %s", link.Attrs().Name, err)
+			if err == nil && len(addrs) > 0 {
+				vethIP = addrs[0].IPNet.IP.String()
+			} else if err != nil {
+				pluginCtx.Logger.WithError(err).WithFields(logrus.Fields{
+					logfields.Interface: link.Attrs().Name}).Warn("No valid IPv4 address found")
 			}
-
-			if len(addrs) < 1 {
-				return fmt.Errorf("no address configured inside container")
-			}
-
-			vethIP = addrs[0].IPNet.IP.String()
 
 			addrsv6, err := netlink.AddrList(link, netlink.FAMILY_V6)
 			if err == nil && len(addrsv6) > 0 {
@@ -130,7 +127,7 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 	case vethLXCMac == "":
 		err = errors.New("unable to determine MAC address of veth pair on the container side")
 		return
-	case vethIP == "":
+	case vethIP == "" && vethIPv6 == "":
 		err = errors.New("unable to determine IP address of the container")
 		return
 	case vethHostIdx == 0:
