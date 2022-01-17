@@ -12,6 +12,9 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/version"
+
+	"github.com/blang/semver/v4"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
 	. "gopkg.in/check.v1"
@@ -47,6 +50,10 @@ func getXfrmState(src string, dst string, spi int, key string) *netlink.XfrmStat
 }
 
 func (s *EncryptStatusSuite) TestCountUniqueIPsecKeys(c *C) {
+	if v, err := version.GetKernelVersion(); err == nil && v.GT(semver.Version{Major: 5, Minor: 16}) {
+		c.Skip("cilium/cilium#18500: TestCountUniqueIPsecKeys is currently broken on net-next.")
+	}
+
 	runtime.LockOSThread()
 	ns, err := netns.New()
 	c.Assert(err, IsNil)
