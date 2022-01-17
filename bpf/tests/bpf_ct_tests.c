@@ -5,7 +5,6 @@
 #include <bpf/api.h>
 
 /* most values taken from node_config.h */
-#define CONNTRACK
 #define ENDPOINTS_MAP test_cilium_lxc
 #define POLICY_PROG_MAP_SIZE ENDPOINTS_MAP_SIZE
 #define METRICS_MAP test_cilium_metrics

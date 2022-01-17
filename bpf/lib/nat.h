@@ -1066,7 +1066,6 @@ void snat_v6_delete_tuples(struct ipv6_ct_tuple *tuple __maybe_unused)
 }
 #endif
 
-#ifdef CONNTRACK
 static __always_inline __maybe_unused void
 ct_delete4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ctx)
 {
@@ -1090,20 +1089,5 @@ ct_delete6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff *ctx)
 	else
 		snat_v6_delete_tuples(tuple);
 }
-#else
-static __always_inline __maybe_unused void
-ct_delete4(const void *map __maybe_unused,
-	   struct ipv4_ct_tuple *tuple __maybe_unused,
-	   struct __ctx_buff *ctx __maybe_unused)
-{
-}
-
-static __always_inline __maybe_unused void
-ct_delete6(const void *map __maybe_unused,
-	   struct ipv6_ct_tuple *tuple __maybe_unused,
-	   struct __ctx_buff *ctx __maybe_unused)
-{
-}
-#endif
 
 #endif /* __LIB_NAT__ */
