@@ -28,7 +28,7 @@ cilium kvstore delete --recursive foo
   -D, --debug             Enable debug messages
   -H, --host string       URI to server-side API
       --kvstore string    kvstore type
-      --kvstore-opt map   kvstore options (default map[])
+      --kvstore-opt map   kvstore options
 ```
 
 ### SEE ALSO

@@ -17,7 +17,7 @@ cilium-agent [flags]
       --allow-icmp-frag-needed                               Allow ICMP Fragmentation Needed type packets for purposes like TCP Path MTU. (default true)
       --allow-localhost string                               Policy when to allow local stack to reach local endpoints { auto | always | policy } (default "auto")
       --annotate-k8s-node                                    Annotate Kubernetes node (default true)
-      --api-rate-limit map                                   API rate limiting configuration (example: --rate-limit endpoint-create=rate-limit:10/m,rate-burst:2) (default map[])
+      --api-rate-limit map                                   API rate limiting configuration (example: --rate-limit endpoint-create=rate-limit:10/m,rate-burst:2)
       --arping-refresh-period duration                       Period for remote node ARP entry refresh (set 0 to disable) (default 30s)
       --auto-create-cilium-node-resource                     Automatically create CiliumNode resource for own node on startup (default true)
       --auto-direct-node-routes                              Enable automatic L2 routing between nodes
@@ -129,7 +129,7 @@ cilium-agent [flags]
       --endpoint-status strings                              Enable additional CiliumEndpoint status features (controllers,health,log,policy,state)
       --envoy-log string                                     Path to a separate Envoy log file, if any
       --exclude-local-address strings                        Exclude CIDR from being recognized as local address
-      --fixed-identity-mapping map                           Key-value for the fixed identity mapping which allows to use reserved label for fixed identities (default map[])
+      --fixed-identity-mapping map                           Key-value for the fixed identity mapping which allows to use reserved label for fixed identities, e.g. 128=kv-store,129=kube-dns
       --force-local-policy-eval-at-source                    Force policy evaluation of all local communication at the source endpoint (default true)
       --gops-port int                                        Port for gops server to listen on (default 9890)
   -h, --help                                                 help for cilium-agent
@@ -194,7 +194,7 @@ cilium-agent [flags]
       --kvstore string                                       Key-value store type
       --kvstore-connectivity-timeout duration                Time after which an incomplete kvstore operation  is considered failed (default 2m0s)
       --kvstore-max-consecutive-quorum-errors int            Max acceptable kvstore consecutive quorum errors before the agent assumes permanent failure (default 2)
-      --kvstore-opt map                                      Key-value store options (default map[])
+      --kvstore-opt map                                      Key-value store options e.g. etcd.address=127.0.0.1:4001
       --kvstore-periodic-sync duration                       Periodic KVstore synchronization interval (default 5m0s)
       --label-prefix-file string                             Valid label prefixes file path
       --labels strings                                       List of label prefixes used to determine identity of an endpoint
@@ -202,7 +202,7 @@ cilium-agent [flags]
       --local-router-ipv4 string                             Link-local IPv4 used for Cilium's router devices
       --local-router-ipv6 string                             Link-local IPv6 used for Cilium's router devices
       --log-driver strings                                   Logging endpoints to use for example syslog
-      --log-opt map                                          Log driver options for cilium-agent, configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local5","syslog.tag":"cilium-agent"} (default map[])
+      --log-opt map                                          Log driver options for cilium-agent, configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local5","syslog.tag":"cilium-agent"}
       --log-system-load                                      Enable periodic logging of system load
       --metrics strings                                      Metrics that should be enabled or disabled from the default metric list. (+metric_foo to enable metric_foo , -metric_bar to disable metric_bar)
       --monitor-aggregation string                           Level of monitor aggregation for traces from the datapath (default "None")

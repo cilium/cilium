@@ -49,14 +49,14 @@ cilium-operator-alibabacloud [flags]
       --k8s-namespace string                      Name of the Kubernetes namespace in which Cilium Operator is deployed in
       --k8s-service-proxy-name string             Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
       --kvstore string                            Key-value store type
-      --kvstore-opt map                           Key-value store options (default map[])
+      --kvstore-opt map                           Key-value store options e.g. etcd.address=127.0.0.1:4001
       --leader-election-lease-duration duration   Duration that non-leader operator candidates will wait before forcing to acquire leadership (default 15s)
       --leader-election-renew-deadline duration   Duration that current acting master will retry refreshing leadership in before giving up the lock (default 10s)
       --leader-election-retry-period duration     Duration that LeaderElector clients should wait between retries of the actions (default 2s)
       --limit-ipam-api-burst int                  Upper burst limit when accessing external APIs (default 4)
       --limit-ipam-api-qps float                  Queries per second limit when accessing external IPAM APIs (default 20)
       --log-driver strings                        Logging endpoints to use for example syslog
-      --log-opt map                               Log driver options for cilium-operator, configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local4"} (default map[])
+      --log-opt map                               Log driver options for cilium-operator, configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local4"}
       --operator-api-serve-addr string            Address to serve API requests (default "localhost:9234")
       --operator-prometheus-serve-addr string     Address to serve Prometheus metrics (default ":6942")
       --parallel-alloc-workers int                Maximum number of parallel IPAM workers (default 50)

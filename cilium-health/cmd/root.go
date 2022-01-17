@@ -59,7 +59,7 @@ func init() {
 	flags.StringP("host", "H", "", "URI to cilium-health server API")
 	flags.StringSlice("log-driver", []string{}, "Logging endpoints to use for example syslog")
 	flags.Var(option.NewNamedMapOptions("log-opts", &logOpts, nil),
-		"log-opt", "Log driver options for cilium-health")
+		"log-opt", "Log driver options for cilium-health e.g. syslog.level=info,syslog.facility=local5,syslog.tag=cilium-agent")
 	viper.BindPFlags(flags)
 
 	flags.StringVar(&cmdRefDir, "cmdref", "", "Path to cmdref output directory")
