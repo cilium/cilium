@@ -9,7 +9,7 @@ Direct access to the kvstore
 ```
   -h, --help              help for kvstore
       --kvstore string    kvstore type
-      --kvstore-opt map   kvstore options (default map[])
+      --kvstore-opt map   kvstore options
 ```
 
 ### Options inherited from parent commands
