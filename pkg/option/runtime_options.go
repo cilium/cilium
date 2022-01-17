@@ -47,11 +47,6 @@ var (
 		Requires:    []string{Conntrack},
 	}
 
-	specConntrack = Option{
-		Define:      "CONNTRACK",
-		Description: "Enable stateful connection tracking",
-	}
-
 	specDebug = Option{
 		Define:      "DEBUG",
 		Description: "Enable debugging trace statements",

@@ -22,8 +22,6 @@
 
 #define HAVE_LARGE_INSN_LIMIT
 
-#define CONNTRACK
-
 #define htonl bpf_htonl
 #define ntohl bpf_ntohl
 

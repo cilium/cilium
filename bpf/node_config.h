@@ -133,7 +133,6 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define CT_MAP_ANY4 test_cilium_ct_any4_65535
 #define CT_MAP_SIZE_TCP 4096
 #define CT_MAP_SIZE_ANY 4096
-#define CONNTRACK
 #define CONNTRACK_ACCOUNTING
 #define LB4_HEALTH_MAP test_cilium_lb4_health
 #define LB6_HEALTH_MAP test_cilium_lb6_health
