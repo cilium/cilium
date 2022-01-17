@@ -209,6 +209,15 @@ func Delete(ip net.IP, compat bool) error {
 		scopedLog.WithField(logfields.Rule, egress).Debug("Deleted egress rule")
 	}
 
+	// Mark IP as unreachable to avoid triggering rp_filter after endpoint deletion for new packets to pod IP
+	if err := netlink.RouteReplace(&netlink.Route{
+		Dst:   &ipWithMask,
+		Table: route.MainTable,
+		Type:  unix.RTN_UNREACHABLE,
+	}); err != nil {
+		return fmt.Errorf("unable to add unreachable route for ip %s: %w", ipWithMask.String(), err)
+	}
+
 	return nil
 }
 
