@@ -199,7 +199,7 @@ func initKubeProxyReplacementOptions() (bool, error) {
 				option.Config.MaglevHashSeed,
 				uint64(option.Config.MaglevTableSize),
 			); err != nil {
-				return false, fmt.Errorf("Failed to initialize maglev hash seeds")
+				return false, fmt.Errorf("Failed to initialize maglev hash seeds: %w", err)
 			}
 		}
 	}
@@ -581,14 +581,14 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) error {
 
 	if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
 		if err := loader.SetXDPMode(option.Config.NodePortAcceleration); err != nil {
-			return fmt.Errorf("Cannot set NodePort acceleration")
+			return fmt.Errorf("Cannot set NodePort acceleration: %w", err)
 		}
 	}
 
 	for _, iface := range option.Config.Devices {
 		link, err := netlink.LinkByName(iface)
 		if err != nil {
-			return fmt.Errorf("Cannot retrieve %s link", iface)
+			return fmt.Errorf("Cannot retrieve %s link: %w", iface, err)
 		}
 		if strings.ContainsAny(iface, "=;") {
 			// Because we pass IPV{4,6}_NODEPORT addresses to bpf/init.sh
@@ -714,7 +714,7 @@ func markHostExtension() {
 func checkNodePortAndEphemeralPortRanges() error {
 	ephemeralPortRangeStr, err := sysctl.Read("net.ipv4.ip_local_port_range")
 	if err != nil {
-		return fmt.Errorf("Unable to read net.ipv4.ip_local_port_range")
+		return fmt.Errorf("Unable to read net.ipv4.ip_local_port_range: %w", err)
 	}
 	ephemeralPortRange := strings.Split(ephemeralPortRangeStr, "\t")
 	if len(ephemeralPortRange) != 2 {
@@ -722,11 +722,13 @@ func checkNodePortAndEphemeralPortRanges() error {
 	}
 	ephemeralPortMin, err := strconv.Atoi(ephemeralPortRange[0])
 	if err != nil {
-		return fmt.Errorf("Unable to parse min port value %s for ephemeral range", ephemeralPortRange[0])
+		return fmt.Errorf("Unable to parse min port value %s for ephemeral range: %w",
+			ephemeralPortRange[0], err)
 	}
 	ephemeralPortMax, err := strconv.Atoi(ephemeralPortRange[1])
 	if err != nil {
-		return fmt.Errorf("Unable to parse max port value %s for ephemeral range", ephemeralPortRange[1])
+		return fmt.Errorf("Unable to parse max port value %s for ephemeral range: %w",
+			ephemeralPortRange[1], err)
 	}
 
 	if option.Config.NodePortMax < ephemeralPortMin {
@@ -744,7 +746,7 @@ func checkNodePortAndEphemeralPortRanges() error {
 
 	reservedPortsStr, err := sysctl.Read("net.ipv4.ip_local_reserved_ports")
 	if err != nil {
-		return fmt.Errorf("Unable to read net.ipv4.ip_local_reserved_ports")
+		return fmt.Errorf("Unable to read net.ipv4.ip_local_reserved_ports: %w", err)
 	}
 	for _, portRange := range strings.Split(reservedPortsStr, ",") {
 		if portRange == "" {
@@ -756,7 +758,7 @@ func checkNodePortAndEphemeralPortRanges() error {
 		}
 		from, err := strconv.Atoi(ports[0])
 		if err != nil {
-			return fmt.Errorf("Unable to parse reserved port %q", ports[0])
+			return fmt.Errorf("Unable to parse reserved port %q: %w", ports[0], err)
 		}
 		to := from
 		if len(ports) == 2 {
@@ -789,7 +791,7 @@ func checkNodePortAndEphemeralPortRanges() error {
 	}
 	reservedPortsStr += fmt.Sprintf("%d-%d", option.Config.NodePortMin, option.Config.NodePortMax)
 	if err := sysctl.Write("net.ipv4.ip_local_reserved_ports", reservedPortsStr); err != nil {
-		return fmt.Errorf("Unable to addend nodeport range (%s) to net.ipv4.ip_local_reserved_ports: %s",
+		return fmt.Errorf("Unable to addend nodeport range (%s) to net.ipv4.ip_local_reserved_ports: %w",
 			nodePortRangeStr, err)
 	}
 
