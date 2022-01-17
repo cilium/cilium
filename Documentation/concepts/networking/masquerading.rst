@@ -74,10 +74,19 @@ The eBPF-based masquerading can masquerade packets of the following IPv4 L4 prot
 - UDP
 - ICMP (only Echo request and Echo reply)
 
-By default, any packet from a pod destined to an IP address outside of the
-``ipv4-native-routing-cidr`` range is masqueraded. The exclusion CIDR is shown
-in the above output of ``cilium status`` (``10.0.0.0/16``).  To allow more
-fine-grained control, Cilium implements `ip-masq-agent
+By default, all packets from a pod destined to an IP address outside of the
+``ipv4-native-routing-cidr`` range are masqueraded, except for packets destined
+to other cluster nodes. The exclusion CIDR is shown in the above output of
+``cilium status`` (``10.0.0.0/16``).
+
+.. note::
+
+    When eBPF-masquerading is enabled, traffic from pods to the External IP of
+    cluster nodes will also not be masqueraded. The eBPF implementation differs
+    from the iptables-based masquerading on that aspect. This limitation is
+    tracked at :gh-issue:`17177`.
+
+To allow more fine-grained control, Cilium implements `ip-masq-agent
 <https://github.com/kubernetes-sigs/ip-masq-agent>`_ in eBPF which can be
 enabled with the ``ipMasqAgent.enabled=true`` helm option.
 
