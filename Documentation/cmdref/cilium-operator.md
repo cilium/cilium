@@ -12,7 +12,7 @@ cilium-operator [flags]
 
 ```
       --alibaba-cloud-vpc-id string               Specific VPC ID for AlibabaCloud ENI. If not set use same VPC as operator
-      --aws-instance-limit-mapping map            Add or overwrite mappings of AWS instance limit in the form of {"AWS instance type": "Maximum Network Interfaces","IPv4 Addresses per Interface","IPv6 Addresses per Interface"}. cli example: --aws-instance-limit-mapping=a1.medium=2,4,4 --aws-instance-limit-mapping=a2.somecustomflavor=4,5,6 configmap example: {"a1.medium": "2,4,4", "a2.somecustomflavor": "4,5,6"} (default map[])
+      --aws-instance-limit-mapping map            Add or overwrite mappings of AWS instance limit in the form of {"AWS instance type": "Maximum Network Interfaces","IPv4 Addresses per Interface","IPv6 Addresses per Interface"}. cli example: --aws-instance-limit-mapping=a1.medium=2,4,4 --aws-instance-limit-mapping=a2.somecustomflavor=4,5,6 configmap example: {"a1.medium": "2,4,4", "a2.somecustomflavor": "4,5,6"}
       --aws-release-excess-ips                    Enable releasing excess free IP addresses from AWS ENI.
       --azure-resource-group string               Resource group to use for Azure IPAM
       --azure-subscription-id string              Subscription ID to access Azure API
@@ -40,7 +40,7 @@ cilium-operator [flags]
       --enable-k8s-endpoint-slice                 Enables k8s EndpointSlice feature into Cilium-Operator if the k8s cluster supports it (default true)
       --enable-k8s-event-handover                 Enable k8s event handover to kvstore for improved scalability
       --enable-metrics                            Enable Prometheus metrics
-      --eni-tags map                              ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag) (default map[])
+      --eni-tags map                              ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag)
       --excess-ip-release-delay int               Number of seconds operator would wait before it releases an IP previously marked as excess (default 180)
       --gops-port int                             Port for gops server to listen on (default 9891)
   -h, --help                                      help for cilium-operator
@@ -58,14 +58,14 @@ cilium-operator [flags]
       --k8s-namespace string                      Name of the Kubernetes namespace in which Cilium Operator is deployed in
       --k8s-service-proxy-name string             Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
       --kvstore string                            Key-value store type
-      --kvstore-opt map                           Key-value store options (default map[])
+      --kvstore-opt map                           Key-value store options e.g. etcd.address=127.0.0.1:4001
       --leader-election-lease-duration duration   Duration that non-leader operator candidates will wait before forcing to acquire leadership (default 15s)
       --leader-election-renew-deadline duration   Duration that current acting master will retry refreshing leadership in before giving up the lock (default 10s)
       --leader-election-retry-period duration     Duration that LeaderElector clients should wait between retries of the actions (default 2s)
       --limit-ipam-api-burst int                  Upper burst limit when accessing external APIs (default 4)
       --limit-ipam-api-qps float                  Queries per second limit when accessing external IPAM APIs (default 20)
       --log-driver strings                        Logging endpoints to use for example syslog
-      --log-opt map                               Log driver options for cilium-operator, configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local4"} (default map[])
+      --log-opt map                               Log driver options for cilium-operator, configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local4"}
       --operator-api-serve-addr string            Address to serve API requests (default "localhost:9234")
       --operator-prometheus-serve-addr string     Address to serve Prometheus metrics (default ":6942")
       --parallel-alloc-workers int                Maximum number of parallel IPAM workers (default 50)
