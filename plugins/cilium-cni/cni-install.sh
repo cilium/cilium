@@ -174,7 +174,12 @@ EOF
 	;;
 
 "aws-cni")
-	cat > "${CNI_CONF_NAME}" <<EOF
+  if [ -f "${CNI_CONF_DIR}/10-aws.conflist.cilium_bak" ]; then
+    jq --argjson 'ENABLE_DEBUG' "$ENABLE_DEBUG" --arg 'LOG_FILE' "$LOG_FILE" \
+          '.plugins += [{"name": "cilium", "type": "cilium-cni", "enable-debug": $ENABLE_DEBUG, "log-file": $LOG_FILE}]' \
+          "${CNI_CONF_DIR}/10-aws.conflist.cilium_bak" > "${CNI_CONF_NAME}"
+  else
+    cat > "${CNI_CONF_NAME}" <<EOF
 {
   "cniVersion": "0.3.1",
   "name": "aws-cni",
@@ -201,7 +206,8 @@ EOF
   ]
 }
 EOF
-	;;
+  fi
+  ;;
 
 *)
 	cat > "${CNI_CONF_NAME}" <<EOF
