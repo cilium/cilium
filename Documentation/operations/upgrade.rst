@@ -319,6 +319,14 @@ New Options
   routing. It must be set whenever running in direct routing mode with IPv6
   masquerading enabled.
 
+Removed Options
+~~~~~~~~~~~~~~~
+
+* The endpoint config option ``Conntrack`` was removed. The option was used
+  to disable the stateful connection tracking for the endpoint. However, many
+  Cilium features depend on the tracking. Therefore the option to disable
+  the connection tracking was removed.
+
 .. _1.11_upgrade_notes:
 
 1.11 Upgrade Notes

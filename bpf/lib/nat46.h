@@ -15,7 +15,7 @@
 
 #if defined(ENABLE_NAT46) && \
     (!defined(ENABLE_IPV4) || !defined(ENABLE_IPV6) || \
-     !defined(CONNTRACK) || !defined(ENABLE_HOST_REDIRECT))
+     !defined(ENABLE_HOST_REDIRECT))
 #error "ENABLE_NAT46 requisite options are not configured, see lib/nat46.h."
 #endif
 

@@ -42,6 +42,5 @@ DEFINE_U32(POLICY_VERDICT_LOG_FILTER, 0xffff);
 #define CALLS_MAP test_cilium_calls_65535
 #define CUSTOM_CALLS_MAP test_cilium_calls_custom_65535
 #define LOCAL_DELIVERY_METRICS
-#define CONNTRACK
 #define CONNTRACK_ACCOUNTING
 #define DIRECT_ROUTING_DEV_IFINDEX 0

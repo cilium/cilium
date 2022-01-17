@@ -18,7 +18,6 @@
 #include "nat46.h"
 #include "signal.h"
 
-#ifdef CONNTRACK
 enum {
 	ACTION_UNSPEC,
 	ACTION_CREATE,
@@ -1072,99 +1071,4 @@ ct_update_nodeport(const void *map, const void *tuple, const bool node_port)
 
 	entry->node_port = node_port;
 }
-#else /* !CONNTRACK */
-static __always_inline int
-ct_lookup6(const void *map __maybe_unused,
-	   struct ipv6_ct_tuple *tuple __maybe_unused,
-	   struct __ctx_buff *ctx __maybe_unused, int off __maybe_unused,
-	   int dir __maybe_unused, struct ct_state *ct_state __maybe_unused,
-	   __u32 *monitor __maybe_unused)
-{
-	return 0;
-}
-
-static __always_inline int
-ct_is_reply4(const void *map __maybe_unused,
-	     struct __ctx_buff *ctx __maybe_unused, int off __maybe_unused,
-	     struct ipv4_ct_tuple *tuple __maybe_unused,
-	     bool *is_reply __maybe_unused)
-{
-	return 0;
-}
-
-static __always_inline int
-ct_lookup4(const void *map __maybe_unused,
-	   struct ipv4_ct_tuple *tuple __maybe_unused,
-	   struct __ctx_buff *ctx __maybe_unused, int off __maybe_unused,
-	   int dir __maybe_unused, struct ct_state *ct_state __maybe_unused,
-	   __u32 *monitor __maybe_unused)
-{
-	return 0;
-}
-
-static __always_inline void
-ct_update6_backend_id(const void *map __maybe_unused,
-		      const struct ipv6_ct_tuple *tuple __maybe_unused,
-		      const struct ct_state *state __maybe_unused)
-{
-}
-
-static __always_inline void
-ct_update6_rev_nat_index(const void *map __maybe_unused,
-			 const struct ipv6_ct_tuple *tuple __maybe_unused,
-			 const struct ct_state *state __maybe_unused)
-{
-}
-
-static __always_inline void
-ct_update6_dsr(const void *map __maybe_unused,
-	       const struct ipv6_ct_tuple *tuple __maybe_unused,
-	       const bool dsr __maybe_unused)
-{
-}
-
-static __always_inline int
-ct_create6(const void *map_main __maybe_unused,
-	   const void *map_related __maybe_unused,
-	   struct ipv6_ct_tuple *tuple __maybe_unused,
-	   struct __ctx_buff *ctx __maybe_unused, const int dir __maybe_unused,
-	   struct ct_state *ct_state __maybe_unused,
-	   bool from_proxy __maybe_unused)
-{
-	return 0;
-}
-
-static __always_inline void
-ct_update4_backend_id(const void *map __maybe_unused,
-		      const struct ipv4_ct_tuple *tuple __maybe_unused,
-		      const struct ct_state *state __maybe_unused)
-{
-}
-
-static __always_inline void
-ct_update4_rev_nat_index(const void *map __maybe_unused,
-			 const struct ipv4_ct_tuple *tuple __maybe_unused,
-			 const struct ct_state *state __maybe_unused)
-{
-}
-
-static __always_inline void
-ct_update4_dsr(const void *map __maybe_unused,
-	       const struct ipv4_ct_tuple *tuple __maybe_unused,
-	       const bool dsr __maybe_unused)
-{
-}
-
-static __always_inline int
-ct_create4(const void *map_main __maybe_unused,
-	   const void *map_related __maybe_unused,
-	   struct ipv4_ct_tuple *tuple __maybe_unused,
-	   struct __ctx_buff *ctx __maybe_unused, const int dir __maybe_unused,
-	   const struct ct_state *ct_state __maybe_unused,
-	   bool proxy_redirect __maybe_unused)
-{
-	return 0;
-}
-
-#endif /* CONNTRACK */
 #endif /* __LIB_CONNTRACK_H_ */
