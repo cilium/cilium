@@ -1,5 +1,93 @@
 # Changelog
 
+## v1.11.1
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* bgp,bugfix: parse ips when converting from slim\_core to k8s service (Backport PR #18488, Upstream PR #18358, @ldelossa)
+* bpf: egressgw: sync logic to determine if destination is outside cluster (Backport PR #18418, Upstream PR #18246, @jibi)
+* daemon: Fix KPR init finalisation (Backport PR #18418, Upstream PR #18304, @brb)
+* daemon: Fix multi-dev XDP check (Backport PR #18364, Upstream PR #18305, @brb)
+* egressgateway: fix initial reconciliation (Backport PR #18418, Upstream PR #18325, @jibi)
+* identity: fix incorrect maximum identity when ClusterID > 0 (Backport PR #18232, Upstream PR #18148, @ArthurChiao)
+* Fix an issue where the tunnel map sync controller causes errors even though tunneling is disabled. (Backport PR #18275, Upstream PR #18247, @tklauser)
+* Fix crash on startup if proxy is disabled (Backport PR #18275, Upstream PR #18198, @chaosbox)
+* Fix deadlock with kube-apiserver policy matching feature (Backport PR #18418, Upstream PR #18343, @codablock)
+* Fix for a bug where unused IPs on the node cannot be allocated when IP release handshake is enabled. Adds support for aborting IP release, if the node doesn't have excess anymore. (Backport PR #18418, Upstream PR #18330, @hemanthmalla)
+* Fix for data race in IP release features (Backport PR #18232, Upstream PR #18217, @hemanthmalla)
+* Fix for excess IP release race condition. New operator flag excess-ip-release-delay is introduced to control waiting period before marking an IP for release. (Backport PR #18232, Upstream PR #17939, @hemanthmalla)
+* Fix possible IP leak in case ENI's are not present in the CN yet (Backport PR #18418, Upstream PR #18352, @codablock)
+* Fix TCP connectivity issues in the DSR mode when conntrack entries with missing DSR flag are reused. (Backport PR #18275, Upstream PR #18041, @Inode1)
+* helm: Fix Helm template for externalWorkloads (Backport PR #18275, Upstream PR #18206, @gandro)
+* hubble: Fix misclassification of `to-network` reply packets (Backport PR #18275, Upstream PR #18196, @gandro)
+* Improvements to excess IP release handshake (Backport PR #18364, Upstream PR #18296, @hemanthmalla)
+* policy: Fix selector identity release for FQDN (Backport PR #18232, Upstream PR #18166, @joestringer)
+
+**CI Changes:**
+* Add basic kube-apiserver policy matching e2e test (Backport PR #18464, Upstream PR #18333, @christarazi)
+* ci: Require cluster-wide connectivity before running tests (Backport PR #18275, Upstream PR #18153, @gandro)
+* ci: use python3 instead of python (Backport PR #18444, Upstream PR #18443, @nebril)
+* test/helpers: fix kubectl version detection for RCs (Backport PR #18232, Upstream PR #18133, @tklauser)
+* test: Add Error Log Exceptions (Backport PR #18232, Upstream PR #18117, @nathanjsweet)
+* test: bump l4lb Vagrantfile kind to 0.11.1 (Backport PR #18418, Upstream PR #18370, @jibi)
+* test: Use stable image tag for Graceful termination test (Backport PR #18232, Upstream PR #18208, @aditighag)
+* test: use stable zookeeper image (Backport PR #18232, Upstream PR #18186, @tklauser)
+* v1.11 ci: set PR base for codeql workflow (#18368, @tklauser)
+* workflows: Run CodeQL workflow is the workflow is edited (Backport PR #18232, Upstream PR #17982, @pchaigno)
+
+**Misc Changes:**
+* .github: add parameter to allow for image suffix (Backport PR #18232, Upstream PR #18200, @aanm)
+* Adds missing lock for cesTracker operation (Backport PR #18418, Upstream PR #18055, @Weil0ng)
+* bpf: Reset Pod's queue mapping in host veth to fix phys dev mq selection (Backport PR #18418, Upstream PR #18388, @borkmann)
+* build(deps): bump 8398a7/action-slack from 3.12.0 to 3.13.0 (#18427, @dependabot[bot])
+* build(deps): bump actions/download-artifact from 2.0.10 to 2.1.0 (#18161, @dependabot[bot])
+* build(deps): bump actions/setup-go from 2.1.4 to 2.1.5 (#18319, @dependabot[bot])
+* build(deps): bump actions/upload-artifact from 2.2.4 to 2.3.0 (#18164, @dependabot[bot])
+* build(deps): bump actions/upload-artifact from 2.3.0 to 2.3.1 (#18264, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 2.7.0 to 2.8.0 (#18521, @dependabot[bot])
+* build(deps): bump docker/login-action from 1.10.0 to 1.12.0 (#18310, @dependabot[bot])
+* build(deps): bump github/codeql-action from 1.0.23 to 1.0.26 (#18244, @dependabot[bot])
+* build(deps): bump github/codeql-action from 1.0.26 to 1.0.27 (#18450, @dependabot[bot])
+* build(deps): bump github/codeql-action from 1.0.27 to 1.0.28 (#18531, @dependabot[bot])
+* Changed the documentation for Kubespray installation to recommend using `-e` flag for `cilium_version` variable instead of editing the role variables. (Backport PR #18418, Upstream PR #18342, @necatican)
+* Clarify identity generated from CIDR-based policies and add security identity internal docs (Backport PR #18444, Upstream PR #16716, @christarazi)
+* codeowners: update for v1.11 backports (#18249, @nbusseneau)
+* docs: Document the kube-apiserver entity (Backport PR #18444, Upstream PR #18396, @christarazi)
+* docs: Fix `first-interface-index` documentation (Backport PR #18418, Upstream PR #18327, @gandro)
+* docs: Fix incorrect mention of `bpf.masquerade`'s default value (Backport PR #18444, Upstream PR #18420, @pchaigno)
+* docs: fix link to signoff / certificate of origin section (Backport PR #18232, Upstream PR #18123, @timoreimann)
+* docs: fix small spelling mistakes in masquerading pages (Backport PR #18418, Upstream PR #18338, @yanhongchang)
+* docs: Remove incorrect beta note for host policies (Backport PR #18488, Upstream PR #18470, @pchaigno)
+* docs: Replace 'micro version' with 'patch version' (Backport PR #18364, Upstream PR #18279, @pchaigno)
+* docs: Replace janitors team with tophat team (Backport PR #18444, Upstream PR #18430, @pchaigno)
+* docs: Update the kind documentation with cgroup requirements (Backport PR #18418, Upstream PR #18269, @aditighag)
+* docs: Update the minimum required Minikube version (Backport PR #18232, Upstream PR #18155, @pchaigno)
+* docs: Warn against Helm's `--reuse-values` in Cilium upgrades (Backport PR #18275, Upstream PR #18259, @gandro)
+* Fix helm chart annotations for CRDs installed by Cilium (Backport PR #18364, Upstream PR #18141, @joestringer)
+* install: Fix hubble-ui image references (Backport PR #18232, Upstream PR #18209, @joestringer)
+* k8s: Fix CRD schema version for v2alpha1 (Backport PR #18275, Upstream PR #18215, @joestringer)
+* k8s: update libraries to v1.23.0 (Backport PR #18275, Upstream PR #18190, @aanm)
+* Makefile: Add kind-image target (Backport PR #18232, Upstream PR #17990, @joestringer)
+* Makefile: Push image in 'kind-image' target (Backport PR #18232, Upstream PR #18167, @joestringer)
+* release: Generate helm values docs (Backport PR #18232, Upstream PR #18137, @joestringer)
+* Revert "test/Services: Quarantine 'Checks service on same node'" (Backport PR #18232, Upstream PR #18170, @borkmann)
+* Stablize kube-apiserver policy matching feature, namely by fixing unncessary identity churn when kube-apiserver is running outside of the cluster (Backport PR #18390, Upstream PR #18150, @christarazi)
+* ui: v0.8.5 (Backport PR #18232, Upstream PR #18203, @geakstr)
+* Update aws-sdk-go-v2 to support m6a c6i im4gn is4gen g5g g5 EC2 instances types (Backport PR #18275, Upstream PR #18220, @ese)
+* v1.11: images: update gops binary in images to v0.3.22 (#18176, @tklauser)
+* v1.11: Update Go to 1.17.4 (#18129, @tklauser)
+* v1.11: Update Go to 1.17.5 (#18225, @tklauser)
+* v1.11: Update Go to 1.17.6 (#18416, @tklauser)
+* vendor: Promote controller-tools fork to cilium repo (Backport PR #18364, Upstream PR #18185, @christarazi)
+
+**Other Changes:**
+* .github: Tag new v1.11 releases with stable tag (#18271, @joestringer)
+* install: Update image digests for v1.11.0 (#18136, @joestringer)
+* v1.11: CODEOWNERS: janitors renamed to tophat (#18361, @pchaigno)
+* v1.11: Update dependencies in cilium-runtime image (#18492, @joestringer)
+
 ## v1.11.0
 
 Summary of Changes
