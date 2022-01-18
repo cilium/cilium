@@ -191,9 +191,9 @@ func classPayload(req *nl.NetlinkRequest, class Class) error {
 		opt.Fsc.Set(fm1/8, fd, fm2/8)
 		um1, ud, um2 := hfsc.Usc.Attrs()
 		opt.Usc.Set(um1/8, ud, um2/8)
-		nl.NewRtAttrChild(options, nl.TCA_HFSC_RSC, nl.SerializeHfscCurve(&opt.Rsc))
-		nl.NewRtAttrChild(options, nl.TCA_HFSC_FSC, nl.SerializeHfscCurve(&opt.Fsc))
-		nl.NewRtAttrChild(options, nl.TCA_HFSC_USC, nl.SerializeHfscCurve(&opt.Usc))
+		options.AddRtAttr(nl.TCA_HFSC_RSC, nl.SerializeHfscCurve(&opt.Rsc))
+		options.AddRtAttr(nl.TCA_HFSC_FSC, nl.SerializeHfscCurve(&opt.Fsc))
+		options.AddRtAttr(nl.TCA_HFSC_USC, nl.SerializeHfscCurve(&opt.Usc))
 	}
 	req.AddData(options)
 	return nil
