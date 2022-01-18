@@ -1,5 +1,50 @@
 # Changelog
 
+## v1.10.7
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* bpf: egressgw: sync logic to determine if destination is outside cluster (Backport PR #18379, Upstream PR #18246, @jibi)
+* daemon: Fix multi-dev XDP check (Backport PR #18365, Upstream PR #18305, @brb)
+* egressgateway: fix initial reconciliation (Backport PR #18461, Upstream PR #18325, @jibi)
+* Fix an issue where the tunnel map sync controller causes errors even though tunneling is disabled. (Backport PR #18276, Upstream PR #18247, @tklauser)
+* Fix crash on startup if proxy is disabled (Backport PR #18276, Upstream PR #18198, @chaosbox)
+* Fix possible IP leak in case ENI's are not present in the CN yet (Backport PR #18487, Upstream PR #18352, @codablock)
+* Fix TCP connectivity issues in the DSR mode when conntrack entries with missing DSR flag are reused. (Backport PR #18276, Upstream PR #18041, @Inode1)
+* hubble: Fix misclassification of `to-network` reply packets (Backport PR #18276, Upstream PR #18196, @gandro)
+
+**CI Changes:**
+* ci: use python3 instead of python (Backport PR #18445, Upstream PR #18443, @nebril)
+* github: Misc improvements for the L4LB test suite (Backport PR #18233, Upstream PR #17005, @brb)
+* test: Add Error Log Exceptions (Backport PR #18233, Upstream PR #18117, @nathanjsweet)
+* test: bump l4lb Vagrantfile kind to 0.11.1 (Backport PR #18487, Upstream PR #18370, @jibi)
+* v1.10 ci: set PR base for codeql workflow (#18369, @tklauser)
+
+**Misc Changes:**
+* bpf: Reset Pod's queue mapping in host veth to fix phys dev mq selection (Backport PR #18487, Upstream PR #18388, @borkmann)
+* build(deps): bump 8398a7/action-slack from 3.12.0 to 3.13.0 (#18425, @dependabot[bot])
+* build(deps): bump actions/setup-go from 2.1.4 to 2.1.5 (#18321, @dependabot[bot])
+* build(deps): bump actions/upload-artifact from 2.3.0 to 2.3.1 (#18265, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 2.7.0 to 2.8.0 (#18519, @dependabot[bot])
+* build(deps): bump docker/login-action from 1.10.0 to 1.12.0 (#18309, @dependabot[bot])
+* Changed the documentation for Kubespray installation to recommend using `-e` flag for `cilium_version` variable instead of editing the role variables. (Backport PR #18445, Upstream PR #18342, @necatican)
+* docs: Fix `first-interface-index` documentation (Backport PR #18445, Upstream PR #18327, @gandro)
+* docs: Fix incorrect mention of `bpf.masquerade`'s default value (Backport PR #18445, Upstream PR #18420, @pchaigno)
+* docs: Replace 'micro version' with 'patch version' (Backport PR #18445, Upstream PR #18279, @pchaigno)
+* docs: Replace janitors team with tophat team (Backport PR #18445, Upstream PR #18430, @pchaigno)
+* docs: Warn against Helm's `--reuse-values` in Cilium upgrades (Backport PR #18276, Upstream PR #18259, @gandro)
+* Revert "test: Add Error Log Exceptions" (#18457, @nbusseneau)
+* v1.10: Update Go to 1.16.12 (#18228, @tklauser)
+* v1.10: Update Go to 1.16.13 (#18415, @tklauser)
+
+**Other Changes:**
+* .github: stop pushing last stable image from v1.10 branches (#18272, @joestringer)
+* install: add mountPropagation directive to bpf-maps volume in cilium DS (#18438, @jibi)
+* install: Update image digests for v1.10.6 (#18235, @joestringer)
+* v1.10: CODEOWNERS: janitors renamed to tophat (#18362, @pchaigno)
+
 ## v1.10.6
 
 Summary of Changes
