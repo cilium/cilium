@@ -207,7 +207,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	decoded.PolicyMatchType = decodePolicyMatchType(pvn)
 	decoded.DebugCapturePoint = decodeDebugCapturePoint(dbg)
 	decoded.Interface = p.decodeNetworkInterface(tn, dbg)
-	decoded.ProxyPort = decodeProxyPort(dbg)
+	decoded.ProxyPort = decodeProxyPort(dbg, tn)
 	decoded.Summary = summary
 
 	return nil
@@ -687,8 +687,10 @@ func (p *Parser) decodeNetworkInterface(tn *monitor.TraceNotify, dbg *monitor.De
 	}
 }
 
-func decodeProxyPort(dbg *monitor.DebugCapture) uint32 {
-	if dbg != nil {
+func decodeProxyPort(dbg *monitor.DebugCapture, tn *monitor.TraceNotify) uint32 {
+	if tn != nil && tn.ObsPoint == monitorAPI.TraceToProxy {
+		return uint32(tn.DstID)
+	} else if dbg != nil {
 		switch dbg.SubType {
 		case monitor.DbgCaptureProxyPre,
 			monitor.DbgCaptureProxyPost:

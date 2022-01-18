@@ -1005,3 +1005,46 @@ func TestDebugCapture(t *testing.T) {
 	assert.Equal(t, flowpb.DebugCapturePoint_DBG_CAPTURE_PROXY_POST, f.DebugCapturePoint)
 	assert.Equal(t, uint32(1234), f.ProxyPort)
 }
+
+func TestTraceNotifyProxyPort(t *testing.T) {
+	f := &flowpb.Flow{}
+	parser, err := New(log, &testutils.NoopEndpointGetter, nil, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter, &testutils.NoopLinkGetter)
+	require.NoError(t, err)
+
+	v0 := monitor.TraceNotifyV0{
+		Type:     byte(api.MessageTypeTrace),
+		Version:  monitor.TraceNotifyVersion0,
+		ObsPoint: api.TraceToProxy,
+		DstID:    uint16(1234),
+	}
+	eth := layers.Ethernet{
+		EthernetType: layers.EthernetTypeIPv4,
+		SrcMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
+		DstMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
+	}
+	ip := layers.IPv4{
+		SrcIP: net.ParseIP("10.0.0.2"),
+		DstIP: net.ParseIP("10.0.0.3"),
+	}
+	data, err := testutils.CreateL3L4Payload(v0, &eth, &ip, &layers.TCP{})
+	require.NoError(t, err)
+
+	err = parser.Decode(data, f)
+	require.NoError(t, err)
+	assert.Equal(t, f.ProxyPort, uint32(1234))
+
+	v1 := monitor.TraceNotifyV1{
+		TraceNotifyV0: monitor.TraceNotifyV0{
+			Type:     byte(api.MessageTypeTrace),
+			Version:  monitor.TraceNotifyVersion1,
+			ObsPoint: api.TraceToProxy,
+			DstID:    uint16(4321),
+		},
+		OrigIP: [16]byte{1, 1, 1, 1},
+	}
+	data, err = testutils.CreateL3L4Payload(v1, &eth, &ip, &layers.TCP{})
+	require.NoError(t, err)
+	err = parser.Decode(data, f)
+	require.NoError(t, err)
+	assert.Equal(t, f.ProxyPort, uint32(4321))
+}
