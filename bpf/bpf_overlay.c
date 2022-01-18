@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-/* Copyright (C) 2016-2020 Authors of Cilium */
+/* Copyright (C) 2016-2022 Authors of Cilium */
 
 #include <bpf/ctx/skb.h>
 #include <bpf/api.h>
@@ -74,6 +74,23 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		 */
 		if (*identity == HOST_ID)
 			return DROP_INVALID_IDENTITY;
+
+		/* Maybe overwrite the REMOTE_NODE_ID with
+		 * KUBE_APISERVER_NODE_ID to support upgrade. After v1.12,
+		 * this should be removed.
+		 */
+		if (identity_is_remote_node(*identity)) {
+			struct remote_endpoint_info *info;
+
+			/* Look up the ipcache for the src IP, it will give us
+			 * the real identity of that IP.
+			 */
+			info = ipcache_lookup6(&IPCACHE_MAP,
+					       (union v6addr *)&ip6->saddr,
+					       V6_CACHE_KEY_LEN);
+			if (info)
+				*identity = info->sec_label;
+		}
 	}
 
 	cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, key.tunnel_label);
@@ -204,6 +221,16 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 
 		if (*identity == HOST_ID)
 			return DROP_INVALID_IDENTITY;
+
+		/* See comment at equivalent code in handle_ipv6() */
+		if (identity_is_remote_node(*identity)) {
+			struct remote_endpoint_info *info;
+
+			info = ipcache_lookup4(&IPCACHE_MAP, ip4->saddr,
+					       V4_CACHE_KEY_LEN);
+			if (info)
+				*identity = info->sec_label;
+		}
 	}
 
 	cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, key.tunnel_label);
