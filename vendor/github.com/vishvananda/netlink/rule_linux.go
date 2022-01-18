@@ -229,7 +229,7 @@ func (h *Handle) RuleListFiltered(family int, filter *Rule, filterMask uint64) (
 			case nl.FRA_FWMASK:
 				rule.Mask = int(native.Uint32(attrs[j].Value[0:4]))
 			case nl.FRA_TUN_ID:
-				rule.TunID = uint(native.Uint64(attrs[j].Value[0:4]))
+				rule.TunID = uint(native.Uint64(attrs[j].Value[0:8]))
 			case nl.FRA_IIFNAME:
 				rule.IifName = string(attrs[j].Value[:len(attrs[j].Value)-1])
 			case nl.FRA_OIFNAME:

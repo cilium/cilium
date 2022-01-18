@@ -706,3 +706,7 @@ func Xmittime(rate uint64, size uint32) uint32 {
 	// https://git.kernel.org/pub/scm/network/iproute2/iproute2.git/tree/tc/tc_core.c#n62
 	return time2Tick(uint32(TIME_UNITS_PER_SEC * (float64(size) / float64(rate))))
 }
+
+func Xmitsize(rate uint64, ticks uint32) uint32 {
+	return uint32((float64(rate) * float64(tick2Time(ticks))) / TIME_UNITS_PER_SEC)
+}
