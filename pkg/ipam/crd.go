@@ -5,6 +5,7 @@ package ipam
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"reflect"
@@ -13,6 +14,8 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -349,6 +352,25 @@ func (n *nodeStore) updateLocalNodeResource(node *ciliumv2.CiliumNode) {
 				// Remove entry from release-ips only when it is removed from .spec.ipam.pool as well
 				delete(n.ownNode.Status.IPAM.ReleaseIPs, ip)
 				releaseUpstreamSyncNeeded = true
+
+				// Remove the unreachable route for this IP
+				parsedIP := net.ParseIP(ip)
+				if parsedIP == nil {
+					// Unable to parse IP, no point in trying to remove the route
+					log.Warningf("Unable to parse IP %s", ip)
+					continue
+				}
+
+				err := netlink.RouteDel(&netlink.Route{
+					Dst:   &net.IPNet{IP: parsedIP, Mask: net.CIDRMask(32, 32)},
+					Table: unix.RT_TABLE_MAIN,
+					Type:  unix.RTN_UNREACHABLE,
+				})
+				if err != nil && !errors.Is(err, unix.ESRCH) {
+					// We ignore ESRCH, as it means the entry was already deleted
+					log.WithError(err).Warningf("Unable to delete unreachable route for IP %s", ip)
+					continue
+				}
 			} else if status == ipamOption.IPAMMarkForRelease {
 				// NACK the IP, if this node doesn't own the IP
 				n.ownNode.Status.IPAM.ReleaseIPs[ip] = ipamOption.IPAMDoNotRelease
