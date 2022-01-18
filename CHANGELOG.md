@@ -1,5 +1,62 @@
 # Changelog
 
+## v1.9.12
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Reduce bugtool memory usage (Backport PR #17835, Upstream PR #17546, @tklauser)
+
+**Bugfixes:**
+* bug/pkg/health: Fix Nil Address Issue in Node Update Mechanism (Backport PR #17835, Upstream PR #17667, @nathanjsweet)
+* bugtool: fix data race occurring when running commands (Backport PR #18025, Upstream PR #17916, @rolinh)
+* bugtool: fix IP route debug gathering commands (Backport PR #18070, Upstream PR #18059, @tklauser)
+* Fix issue where local host IPs may be briefly associated with the remote-node identity, causing policy drops when policy should allow traffic from the host. (Backport PR #17835, Upstream PR #17836, @joestringer)
+* Fix several complexity and program size issues when only one of IPv4/IPv6 is enabled. (Backport PR #17835, Upstream PR #17573, @pchaigno)
+* Fixes for IPsec and endpoint routes (Backport PR #18025, Upstream PR #17865, @kkourt)
+* Fixes hubble-ui-backend image deployment (#17989, @aanm)
+
+**CI Changes:**
+* ci: Restart pods when toggling KPR switch (Backport PR #18147, Upstream PR #18031, @brb)
+* ci: use python3 instead of python (Backport PR #18446, Upstream PR #18443, @nebril)
+* test/contrib: Bump CoreDNS version to 1.8.3 (Backport PR #18147, Upstream PR #18018, @brb)
+* test/K8sVerifier: Cover several datapath configurations (Backport PR #17835, Upstream PR #17470, @pchaigno)
+* test: Collect object file artifacts for K8sVerifier (Backport PR #17835, Upstream PR #14129, @pchaigno)
+* test: Delete DNS pods in AfterAll for datapath tests (Backport PR #18147, Upstream PR #16835, @joestringer)
+* test: Do not require netpols in 'waitNextPolicyRevisions()' (Backport PR #17835, Upstream PR #17769, @jrajahalme)
+* test: Extend coredns clusterrole with additional resource permissions (Backport PR #18147, Upstream PR #18104, @aditighag)
+* test: Fix incorrect selector for netperf-service (Backport PR #18147, Upstream PR #18006, @christarazi)
+* test: Redeploy DNS after endpointRoutes reconfiguration (Backport PR #18147, Upstream PR #16767, @joestringer)
+
+**Misc Changes:**
+* .github: Increase reporting threshold for new flakes (Backport PR #17835, Upstream PR #17812, @pchaigno)
+* .github: Rename `project/ci-force` to `ci/flake` (Backport PR #17835, Upstream PR #17344, @pchaigno)
+* bpf: Reset Pod's queue mapping in host veth to fix phys dev mq selection (Backport PR #18419, Upstream PR #18388, @borkmann)
+* build(deps): bump 8398a7/action-slack from 3.10.0 to 3.11.0 (#17887, @dependabot[bot])
+* build(deps): bump 8398a7/action-slack from 3.11.0 to 3.12.0 (#17963, @dependabot[bot])
+* build(deps): bump 8398a7/action-slack from 3.12.0 to 3.13.0 (#18424, @dependabot[bot])
+* build(deps): bump actions/cache from 2.1.6 to 2.1.7 (#17978, @dependabot[bot])
+* build(deps): bump actions/download-artifact from 2.0.10 to 2.1.0 (#18173, @dependabot[bot])
+* build(deps): bump actions/setup-go from 2.1.4 to 2.1.5 (#18324, @dependabot[bot])
+* build(deps): bump actions/upload-artifact from 2.2.4 to 2.3.0 (#18174, @dependabot[bot])
+* build(deps): bump actions/upload-artifact from 2.3.0 to 2.3.1 (#18280, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 2.7.0 to 2.8.0 (#18517, @dependabot[bot])
+* build(deps): bump docker/login-action from 1.10.0 to 1.12.0 (#18308, @dependabot[bot])
+* Changed the documentation for Kubespray installation to recommend using `-e` flag for `cilium_version` variable instead of editing the role variables. (Backport PR #18419, Upstream PR #18342, @necatican)
+* docs: add registry (quay.io/) for pre-loading images for kind (Backport PR #18070, Upstream PR #18017, @adamzhoul)
+* docs: fix link to signoff / certificate of origin section (Backport PR #18147, Upstream PR #18123, @timoreimann)
+* docs: Install Cilium overlay mode on EKS (#18132, @oliwave)
+* docs: Use git+https in requirements.txt (Backport PR #17835, Upstream PR #17756, @michi-covalent)
+* install: Fix hubble-ui image references (Backport PR #18234, Upstream PR #18209, @joestringer)
+* ui: v0.8.5 (Backport PR #18234, Upstream PR #18203, @geakstr)
+
+**Other Changes:**
+* install: Update image digests for v1.9.11 (#17807, @joestringer)
+* v1.9: CODEOWNERS: janitors renamed to tophat (#18363, @pchaigno)
+* v1.9: docs: Fix cilium-runtime image bump instructions (#18491, @joestringer)
+* v1.9: Update Cilium base images (#18490, @joestringer)
+
 ## v1.9.11
 
 Summary of Changes
