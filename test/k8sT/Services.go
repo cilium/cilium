@@ -234,6 +234,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			}
 		})
 
+		// We skip on KPR, as with KPR we have enough coverage for ClusterIP
 		SkipItIf(helpers.RunsWithKubeProxyReplacement, "Checks service on same node", func() {
 			serviceNames := []string{appServiceName}
 			if helpers.DualStackSupported() {
@@ -444,7 +445,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			}
 		})
 
-		SkipItIf(func() bool { return helpers.DoesNotExistNodeWithoutCilium() },
+		SkipItIf(helpers.DoesNotExistNodeWithoutCilium,
 			"ClusterIP cannot be accessed externally when access is disabled",
 			func() {
 				Expect(curlClusterIPFromExternalHost(kubectl, ni)).
@@ -452,13 +453,14 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 						"External host %s unexpectedly connected to ClusterIP when lbExternalClusterIP was unset", ni.outsideNodeName)
 			})
 
-		SkipContextIf(func() bool { return helpers.DoesNotExistNodeWithoutCilium() }, "With ClusterIP external access", func() {
+		SkipContextIf(helpers.DoesNotExistNodeWithoutCilium, "With ClusterIP external access", func() {
 			var (
 				svcIP string
 			)
 			BeforeAll(func() {
 				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 					"bpf.lbExternalClusterIP": "true",
+					"cleanState":              "true",
 				})
 				clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, appServiceName)
 				svcIP = clusterIP
@@ -492,6 +494,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 		BeforeAll(func() {
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 				"hostServices.hostNamespaceOnly": "true",
+				"cleanState":                     "true",
 			})
 			demoDSYAML = helpers.ManifestGet(kubectl.BasePath(), "demo_ds.yaml")
 			res := kubectl.ApplyDefault(demoDSYAML)
@@ -568,9 +571,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 		})
 	})
 
-	SkipContextIf(func() bool {
-		return helpers.SkipQuarantined() && helpers.RunsOnNetNextKernel()
-	}, "Checks service across nodes", func() {
+	Context("Checks service across nodes", func() {
 
 		var (
 			demoYAML   string
@@ -658,7 +659,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 		})
 
 		SkipContextIf(func() bool {
-			return helpers.RunsWithKubeProxyReplacement() || helpers.GetCurrentIntegration() != "" || helpers.SkipQuarantined()
+			return helpers.RunsWithKubeProxyReplacement() || helpers.GetCurrentIntegration() != ""
 		}, "IPv6 masquerading", func() {
 			var (
 				k8s1EndpointIPs map[string]string
@@ -671,6 +672,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 					"tunnel":                "disabled",
 					"autoDirectNodeRoutes":  "true",
 					"ipv6NativeRoutingCIDR": helpers.IPv6NativeRoutingCIDR,
+					"cleanState":            "true",
 				})
 
 				pod, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
@@ -741,6 +743,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 				deploymentManager.Deploy(helpers.CiliumNamespace, IPSecSecret)
 				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 					"encryption.enabled": "true",
+					"cleanState":         "true",
 				})
 				testExternalTrafficPolicyLocal(kubectl, ni)
 				deploymentManager.DeleteAll()
@@ -750,6 +753,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			It("with the host firewall and externalTrafficPolicy=Local", func() {
 				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 					"hostFirewall.enabled": "true",
+					"cleanState":           "true",
 				})
 				testExternalTrafficPolicyLocal(kubectl, ni)
 			})
@@ -985,12 +989,13 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						testExternalIPs(kubectl, ni)
 					})
 
-					SkipContextIf(helpers.RunsOnGKE, "With host policy", func() {
+					SkipContextIf(func() bool { return helpers.RunsOnGKE() || helpers.SkipQuarantined() }, "With host policy", func() {
 						var ccnpHostPolicy string
 
 						BeforeAll(func() {
 							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 								"hostFirewall.enabled": "true",
+								"cleanState":           "true",
 							})
 
 							ccnpHostPolicy = helpers.ManifestGet(kubectl.BasePath(), "ccnp-host-policy-nodeport-tests.yaml")
@@ -1036,6 +1041,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 								// Support for host firewall + Maglev is currently broken,
 								// see #14047 for details.
 								"hostFirewall.enabled": "false",
+								"cleanState":           "true",
 							})
 
 							echoYAML = helpers.ManifestGet(kubectl.BasePath(), "echo-svc.yaml")
@@ -1063,12 +1069,14 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						// especially when running with the third node. See
 						// https://github.com/cilium/cilium/issues/12511 and
 						// https://github.com/cilium/cilium/issues/12690.
-						return helpers.GetCurrentIntegration() != "" ||
-							helpers.DoesNotExistNodeWithoutCilium() ||
-							helpers.SkipQuarantined()
+						//return helpers.GetCurrentIntegration() != "" ||
+						//	helpers.DoesNotExistNodeWithoutCilium() ||
+						//	helpers.SkipQuarantined()
+						return helpers.DoesNotExistNodeWithoutCilium()
 					}, "Tests with secondary NodePort device", func() {
 						DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-							"devices": fmt.Sprintf(`'{%s,%s}'`, ni.privateIface, helpers.SecondaryIface),
+							"devices":    fmt.Sprintf(`'{%s,%s}'`, ni.privateIface, helpers.SecondaryIface),
+							"cleanState": "true",
 						})
 
 						testNodePort(kubectl, ni, true, true, helpers.ExistNodeWithoutCilium(), 0)
@@ -1080,6 +1088,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 					var directRoutingOpts = map[string]string{
 						"tunnel":               "disabled",
 						"autoDirectNodeRoutes": "true",
+						"cleanState":           "true",
 					}
 
 					BeforeAll(func() {
@@ -1118,7 +1127,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						testExternalIPs(kubectl, ni)
 					})
 
-					SkipContextIf(helpers.RunsOnGKE, "With host policy", func() {
+					SkipContextIf(func() bool { return helpers.RunsOnGKE() || helpers.SkipQuarantined() }, "With host policy", func() {
 						var ccnpHostPolicy string
 
 						BeforeAll(func() {
@@ -1126,6 +1135,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 								"tunnel":               "disabled",
 								"autoDirectNodeRoutes": "true",
 								"hostFirewall.enabled": "true",
+								"cleanState":           "true",
 							})
 
 							ccnpHostPolicy = helpers.ManifestGet(kubectl.BasePath(), "ccnp-host-policy-nodeport-tests.yaml")
@@ -1144,6 +1154,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 								"tunnel":               "disabled",
 								"autoDirectNodeRoutes": "true",
+								"cleanState":           "true",
 							})
 						})
 
@@ -1176,6 +1187,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 								// Support for host firewall + Maglev is currently broken,
 								// see #14047 for details.
 								"hostFirewall.enabled": "false",
+								"cleanState":           "true",
 							})
 
 							echoYAML = helpers.ManifestGet(kubectl.BasePath(), "echo-svc.yaml")
@@ -1383,6 +1395,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 								"nodePort.directRoutingDevice": "wg0",
 								"tunnel":                       "disabled",
 								"autoDirectNodeRoutes":         "true",
+								"cleanState":                   "true",
 							})
 
 							// Test via k8s1 private iface
@@ -1415,6 +1428,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 								"nodePort.directRoutingDevice": ni.privateIface,
 								"tunnel":                       "disabled",
 								"autoDirectNodeRoutes":         "true",
+								"cleanState":                   "true",
 							})
 
 							// Test via k8s1 private iface
@@ -1433,6 +1447,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 								"tunnel":                       "disabled",
 								"autoDirectNodeRoutes":         "true",
 								"loadBalancer.mode":            "dsr",
+								"cleanState":                   "true",
 							})
 
 							// Test via k8s1 private iface
@@ -1449,13 +1464,14 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 					// Quarantine when running with the third node as it's
 					// flaky. See GH-12511.
 					// It's also flaky for IPv6 traffic, see GH-18072
-					return helpers.SkipQuarantined()
+					return false
 				}, "Tests with secondary NodePort device", func() {
 					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 						"tunnel":               "disabled",
 						"autoDirectNodeRoutes": "true",
 						"loadBalancer.mode":    "snat",
 						"devices":              fmt.Sprintf(`'{%s,%s}'`, ni.privateIface, helpers.SecondaryIface),
+						"cleanState":           "true",
 					})
 
 					testNodePort(kubectl, ni, true, true, helpers.ExistNodeWithoutCilium(), 0)
@@ -1466,6 +1482,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						"loadBalancer.mode":    "dsr",
 						"tunnel":               "disabled",
 						"autoDirectNodeRoutes": "true",
+						"cleanState":           "true",
 					})
 
 					testDSR(kubectl, ni, 64000)
@@ -1480,6 +1497,8 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						"tunnel":                    "disabled",
 						"autoDirectNodeRoutes":      "true",
 						"devices":                   fmt.Sprintf(`'{%s}'`, ni.privateIface),
+
+						"cleanState": "true",
 					})
 					testNodePortExternal(kubectl, ni, false, false)
 				})
@@ -1496,6 +1515,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						// Support for host firewall + Maglev is currently broken,
 						// see #14047 for details.
 						"hostFirewall.enabled": "false",
+						"cleanState":           "true",
 					})
 					testNodePortExternal(kubectl, ni, false, false)
 				})
@@ -1508,6 +1528,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						"tunnel":                    "disabled",
 						"autoDirectNodeRoutes":      "true",
 						"devices":                   fmt.Sprintf(`'{%s}'`, ni.privateIface),
+						"cleanState":                "true",
 					})
 					testNodePortExternal(kubectl, ni, true, false)
 				})
@@ -1524,6 +1545,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						// Support for host firewall + Maglev is currently broken,
 						// see #14047 for details.
 						"hostFirewall.enabled": "false",
+						"cleanState":           "true",
 					})
 					testNodePortExternal(kubectl, ni, true, false)
 				})
@@ -1536,6 +1558,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						"tunnel":                    "disabled",
 						"autoDirectNodeRoutes":      "true",
 						"devices":                   fmt.Sprintf(`'{%s}'`, ni.privateIface),
+						"cleanState":                "true",
 					})
 					testNodePortExternal(kubectl, ni, true, true)
 				})
@@ -1552,6 +1575,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						// Support for host firewall + Maglev is currently broken,
 						// see #14047 for details.
 						"hostFirewall.enabled": "false",
+						"cleanState":           "true",
 					})
 					testNodePortExternal(kubectl, ni, true, true)
 				})
@@ -1564,6 +1588,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						"tunnel":                    "disabled",
 						"autoDirectNodeRoutes":      "true",
 						"devices":                   fmt.Sprintf(`'{}'`), // Revert back to auto-detection after XDP.
+						"cleanState":                "true",
 					})
 					testNodePortExternal(kubectl, ni, true, false)
 				})
@@ -1573,7 +1598,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 		// LRU requirement.
 		SkipItIf(func() bool {
 			return helpers.DoesNotRunOn419OrLaterKernel() ||
-				(helpers.SkipQuarantined() && helpers.RunsOnGKE())
+				helpers.RunsOnGKE()
 		}, "Supports IPv4 fragments", func() {
 			options := map[string]string{}
 			// On GKE we need to disable endpoint routes as fragment tracking
@@ -1629,6 +1654,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 		BeforeAll(func() {
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 				"kubeProxyReplacement": "disabled",
+				"cleanState":           "true",
 			})
 
 			_, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
