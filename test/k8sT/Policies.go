@@ -2593,6 +2593,60 @@ var _ = SkipDescribeIf(helpers.DoesNotRunOn419OrLaterKernel,
 				)
 			})
 
+			It("Still allows connection to KubeAPIServer with a duplicate policy", func() {
+				installDefaultDenyIngressPolicy(
+					kubectl,
+					testNamespace,
+					validateConnectivity,
+				)
+				installDefaultDenyEgressPolicy(
+					kubectl,
+					testNamespace,
+					validateConnectivity,
+				)
+				By("Installing toEntities KubeAPIServer")
+				importPolicy(
+					kubectl,
+					testNamespace,
+					cnpToEntitiesKubeAPIServer,
+					"to-entities-kube-apiserver",
+				)
+
+				By("Installing duplicate toEntities KubeAPIServer")
+				importPolicy(
+					kubectl,
+					testNamespace,
+					helpers.ManifestGet(
+						kubectl.BasePath(), "cnp-to-entities-kube-apiserver-2.yaml",
+					),
+					"to-entities-kube-apiserver-2",
+				)
+
+				By("Removing the previous toEntities KubeAPIServer policy")
+				_, err := kubectl.CiliumPolicyAction(
+					testNamespace, cnpToEntitiesKubeAPIServer, helpers.KubectlDelete, helpers.HelperTimeout,
+				)
+				Expect(err).Should(
+					BeNil(),
+					"policy %s cannot be deleted in %q namespace", cnpToEntitiesKubeAPIServer, testNamespace,
+				)
+
+				By("Verifying KubeAPIServer connectivity is still allowed")
+				// See previous It() about the assertion on 403 HTTP code.
+				Expect(
+					kubectl.ExecPodCmd(
+						testNamespace, k8s2PodName, helpers.CurlWithHTTPCode(
+							"https://%s %s",
+							kubeAPIServerService.Spec.ClusterIP,
+							"--insecure", // kube-apiserver needs cert, skip verification
+						),
+					).Stdout(),
+				).To(Equal("403"),
+					"HTTP egress connectivity to pod %q to kube-apiserver %q",
+					k8s2PodName, kubeAPIServerService.Spec.ClusterIP,
+				)
+			})
+
 			It("Denies connection to KubeAPIServer", func() {
 				By("Installing allow-all egress policy")
 				importPolicy(
