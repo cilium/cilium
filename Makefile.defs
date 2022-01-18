@@ -47,7 +47,7 @@ endif
 CONSUL_IMAGE=consul:1.7.2
 
 GO ?= go
-
+GOFMT ?= gofmt -l -w
 # go build/test/clean flags
 # these are declared here so they are treated explicitly
 # as non-immediate variables

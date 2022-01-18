@@ -450,7 +450,7 @@ release: ## Perform a Git release for Cilium.
 	git archive --format tar $(BRANCH) | gzip > ../cilium_$(VERSION).orig.tar.gz
 
 gofmt: ## Run gofmt on Go source files in the repository.
-	$(QUIET)for pkg in $(GOFILES); do $(GO) fmt $$pkg; done
+	$(QUIET)for pkg in $(GOFILES); do $(GOFMT) $$pkg; done
 
 govet: ## Run govet on Go source files in the repository.
 	@$(ECHO_CHECK) vetting all GOFILES...
