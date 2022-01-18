@@ -12,7 +12,6 @@ import (
 	"io"
 	"sort"
 	"strings"
-	"unsafe"
 )
 
 const (
@@ -67,8 +66,7 @@ func newSymbol(name string, kind symbolKind, offset, size uint64) symbol {
 	}
 }
 
-func newVariable(name string, offset uint64) symbol {
-	size := uint64(unsafe.Sizeof(symbolUint32))
+func newVariable(name string, offset, size uint64) symbol {
 	return newSymbol(name, symbolUint32, offset, size)
 }
 
@@ -179,7 +177,7 @@ func (s *symbols) extractFrom(e *elf.File) error {
 		case section.Name == dataSection:
 			// Offset from start of binary to variable inside .data
 			offset := section.Offset + sym.Value
-			dataOffsets[sym.Name] = newVariable(sym.Name, offset)
+			dataOffsets[sym.Name] = newVariable(sym.Name, offset, sym.Size)
 			log.WithField(fieldSymbol, sym.Name).Debugf("Found variable with offset %d", offset)
 
 		// Find the absolute offset to the map's entry in .strtab.
