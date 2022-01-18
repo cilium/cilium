@@ -1146,6 +1146,10 @@ func (h *Handle) LinkAdd(link Link) error {
 	return h.linkModify(link, unix.NLM_F_CREATE|unix.NLM_F_EXCL|unix.NLM_F_ACK)
 }
 
+func LinkModify(link Link) error {
+	return pkgHandle.LinkModify(link)
+}
+
 func (h *Handle) LinkModify(link Link) error {
 	return h.linkModify(link, unix.NLM_F_REQUEST|unix.NLM_F_ACK)
 }
