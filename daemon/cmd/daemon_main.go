@@ -397,6 +397,9 @@ func initializeFlags() {
 	flags.Bool(option.EnableTracing, false, "Enable tracing while determining policy (debugging)")
 	option.BindEnv(option.EnableTracing)
 
+	flags.Bool(option.EnableUnreachableRoutes, false, "Add unreachable routes on pod deletion")
+	option.BindEnv(option.EnableUnreachableRoutes)
+
 	flags.Bool(option.EnableWellKnownIdentities, defaults.EnableWellKnownIdentities, "Enable well-known identities for known Kubernetes components")
 	option.BindEnv(option.EnableWellKnownIdentities)
 
