@@ -145,6 +145,9 @@ const (
 	// EnableTracing enables tracing mode in the agent.
 	EnableTracing = "enable-tracing"
 
+	// Add unreachable routes on pod deletion
+	EnableUnreachableRoutes = "enable-unreachable-routes"
+
 	// EncryptInterface enables encryption on specified interface
 	EncryptInterface = "encrypt-interface"
 
@@ -1488,6 +1491,7 @@ type DaemonConfig struct {
 	EnableHostServicesPeer        bool
 	EnablePolicy                  string
 	EnableTracing                 bool
+	EnableUnreachableRoutes       bool
 	EnvoyLog                      string
 	DisableEnvoyVersionCheck      bool
 	FixedIdentityMapping          map[string]string
@@ -2268,6 +2272,11 @@ func (c *DaemonConfig) TracingEnabled() bool {
 	return c.Opts.IsEnabled(PolicyTracing)
 }
 
+// UnreachableRoutesEnabled returns true if unreachable routes is enabled
+func (c *DaemonConfig) UnreachableRoutesEnabled() bool {
+	return c.EnableUnreachableRoutes
+}
+
 // EndpointStatusIsEnabled returns true if a particular EndpointStatus* feature
 // is enabled
 func (c *DaemonConfig) EndpointStatusIsEnabled(option string) bool {
@@ -2570,6 +2579,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableExternalIPs = viper.GetBool(EnableExternalIPs)
 	c.EnableL7Proxy = viper.GetBool(EnableL7Proxy)
 	c.EnableTracing = viper.GetBool(EnableTracing)
+	c.EnableUnreachableRoutes = viper.GetBool(EnableUnreachableRoutes)
 	c.EnableNodePort = viper.GetBool(EnableNodePort)
 	c.EnableSVCSourceRangeCheck = viper.GetBool(EnableSVCSourceRangeCheck)
 	c.EnableHostPort = viper.GetBool(EnableHostPort)

@@ -209,13 +209,20 @@ func Delete(ip net.IP, compat bool) error {
 		scopedLog.WithField(logfields.Rule, egress).Debug("Deleted egress rule")
 	}
 
-	// Mark IP as unreachable to avoid triggering rp_filter after endpoint deletion for new packets to pod IP
-	if err := netlink.RouteReplace(&netlink.Route{
-		Dst:   &ipWithMask,
-		Table: route.MainTable,
-		Type:  unix.RTN_UNREACHABLE,
-	}); err != nil {
-		return fmt.Errorf("unable to add unreachable route for ip %s: %w", ipWithMask.String(), err)
+	if option.Config.EnableUnreachableRoutes {
+		// Replace route to old IP with an unreachable route. This will
+		//   - trigger ICMP error messages for clients attempting to connect to the stale IP
+		//   - avoid hitting rp_filter and getting Martian packet warning
+		// When the IP is reused, the unreachable route will be replaced to target the new pod veth
+		// In CRD-based IPAM, when an IP is unassigned from the CiliumNode, we delete this route
+		// to avoid blackholing traffic to this IP if it gets reassigned to another node
+		if err := netlink.RouteReplace(&netlink.Route{
+			Dst:   &ipWithMask,
+			Table: route.MainTable,
+			Type:  unix.RTN_UNREACHABLE,
+		}); err != nil {
+			return fmt.Errorf("unable to add unreachable route for ip %s: %w", ipWithMask.String(), err)
+		}
 	}
 
 	return nil

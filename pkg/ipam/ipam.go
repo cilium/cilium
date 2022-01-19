@@ -53,6 +53,10 @@ type Configuration interface {
 	// enabled
 	HealthCheckingEnabled() bool
 
+	// UnreachableRoutesEnabled returns true when unreachable-routes is
+	// enabled
+	UnreachableRoutesEnabled() bool
+
 	// SetIPv4NativeRoutingCIDR is called by the IPAM module to announce
 	// the native IPv4 routing CIDR if it exists
 	SetIPv4NativeRoutingCIDR(cidr *cidr.CIDR)
