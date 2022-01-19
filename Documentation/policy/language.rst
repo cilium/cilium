@@ -355,11 +355,6 @@ all
    Allowing users to define custom entities is on the roadmap but has not been
    implemented yet (see :gh-issue:`3553`).
 
-.. note::
-
-   A known issue with kube-apiserver entity matching is that the feature
-   doesn't work in tunneling mode (see :gh-issue:`18049`).
-
 Access to/from local host
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
