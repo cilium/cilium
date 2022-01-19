@@ -135,6 +135,18 @@ linked, either choice is valid.
    Users running Linux 4.10 or earlier with Cilium CIDR policies may face
    :ref:`cidr_limitations`.
 
+Requirements for Iptables-based Masquerading
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If you are not using BPF for masquerading (``enable-bpf-masquerade=false``, the
+default value), then you will need the following kernel configuration options.
+
+::
+
+        CONFIG_NETFILTER_XT_SET=m
+        CONFIG_IP_SET=m
+        CONFIG_IP_SET_HASH_IP=m
+
 Requirements for L7 and FQDN Policies
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -168,6 +180,46 @@ by adding the following to the helm configuration command line:
      --set enableXTSocketFallback=false
 
 .. _features_kernel_matrix:
+
+Requirements for IPsec
+~~~~~~~~~~~~~~~~~~~~~~
+
+The :ref:`encryption_ipsec` feature requires a lot of kernel configuration
+options, most of which to enable the actual encryption. Note that the
+specific options required depend on the algorithm. The list below
+corresponds to requirements for GMC-128-AES.
+
+::
+
+        CONFIG_XFRM=y
+        CONFIG_XFRM_OFFLOAD=y
+        CONFIG_XFRM_STATISTICS=y
+        CONFIG_XFRM_ALGO=m
+        CONFIG_XFRM_USER=m
+        CONFIG_INET{,6}_ESP=m
+        CONFIG_INET{,6}_IPCOMP=m
+        CONFIG_INET{,6}_XFRM_TUNNEL=m
+        CONFIG_INET{,6}_TUNNEL=m
+        CONFIG_INET_XFRM_MODE_TUNNEL=m
+        CONFIG_CRYPTO_AEAD=m
+        CONFIG_CRYPTO_AEAD2=m
+        CONFIG_CRYPTO_GCM=m
+        CONFIG_CRYPTO_SEQIV=m
+        CONFIG_CRYPTO_CBC=m
+        CONFIG_CRYPTO_HMAC=m
+        CONFIG_CRYPTO_SHA256=m
+        CONFIG_CRYPTO_AES=m
+
+Requirements for the Bandwidth Manager
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The :ref:`bandwidth-manager` requires the following kernel configuration option
+to change the packet scheduling algorithm.
+
+::
+
+        CONFIG_NET_SCH_FQ=m
+
 
 Required Kernel Versions for Advanced Features
 ==============================================
