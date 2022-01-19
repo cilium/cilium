@@ -23,13 +23,13 @@ Direct Routing  Azure IPAM          Kubernetes CRD
 * Node pools must be properly tainted to ensure applications pods are properly
   managed by Cilium:
 
-  * User node pools must be tainted with ``node.cilium.io/agent-not-ready=true:NoSchedule``
-    to ensure application pods will only be scheduled once Cilium is ready to
+  * User node pools must be tainted with ``node.cilium.io/agent-not-ready=true:NoExecute``
+    to ensure application pods will only be scheduled/executed once Cilium is ready to
     manage them.
 
   * System node pools must be tainted with ``CriticalAddonsOnly=true:NoSchedule``,
     preventing application pods from being scheduled on them. This is necessary
-    because it is not possible to assign custom node taints such as ``node.cilium.io/agent-not-ready=true:NoSchedule``
+    because it is not possible to assign custom node taints such as ``node.cilium.io/agent-not-ready=true:NoExecute``
     to system node pools, cf. `Azure/AKS#2578 <https://github.com/Azure/AKS/issues/2578>`_.
     
     * The initial node pool must be replaced with a new system node pool since
