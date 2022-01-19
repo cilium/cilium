@@ -18,7 +18,12 @@ spec:
       name: cilium-operator
   {{- with .Values.operator.updateStrategy }}
   strategy:
-    {{- toYaml . | trim | nindent 4 }}
+    type: {{ .type }}
+    {{- if eq .type "RollingUpdate" }}
+    rollingUpdate:
+      maxSurge: {{ .rollingUpdate.maxSurge }}
+      maxUnavailable: {{ .rollingUpdate.maxUnavailable }}
+    {{- end }}
   {{- end }}
   template:
     metadata:
