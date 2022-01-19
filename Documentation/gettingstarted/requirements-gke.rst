@@ -11,5 +11,5 @@ Direct Routing  Kubernetes PodCIDR  Kubernetes CRD
 
 **Requirements:**
 
-* The cluster must  be created with the taint ``node.cilium.io/agent-not-ready=true:NoSchedule``
+* The cluster must  be created with the taint ``node.cilium.io/agent-not-ready=true:NoExecute``
   using ``--node-taints`` option.
