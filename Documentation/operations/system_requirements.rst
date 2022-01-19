@@ -103,6 +103,9 @@ RancherOS_                 >= 1.5.5
 Linux Kernel
 ============
 
+Base Requirements
+~~~~~~~~~~~~~~~~~
+
 Cilium leverages and builds on the kernel eBPF functionality as well as various
 subsystems which integrate with eBPF. Therefore, host systems are required to
 run Linux kernel version 4.9.17 or later to run a Cilium agent. More recent
@@ -131,6 +134,9 @@ linked, either choice is valid.
 
    Users running Linux 4.10 or earlier with Cilium CIDR policies may face
    :ref:`cidr_limitations`.
+
+Requirements for L7 and FQDN Policies
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 L7 proxy redirection currently uses ``TPROXY`` iptables actions as well
 as ``socket`` matches. For L7 redirection to work as intended kernel
