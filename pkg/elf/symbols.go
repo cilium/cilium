@@ -34,14 +34,14 @@ const (
 type symbolKind uint32
 
 const (
-	symbolUint32 = symbolKind(1)
+	symbolData   = symbolKind(1)
 	symbolString = symbolKind(2)
 )
 
 func (k symbolKind) String() string {
 	switch k {
-	case symbolUint32:
-		return "uint32"
+	case symbolData:
+		return "data"
 	case symbolString:
 		return "string"
 	}
@@ -67,7 +67,7 @@ func newSymbol(name string, kind symbolKind, offset, size uint64) symbol {
 }
 
 func newVariable(name string, offset, size uint64) symbol {
-	return newSymbol(name, symbolUint32, offset, size)
+	return newSymbol(name, symbolData, offset, size)
 }
 
 func newString(name string, offset uint64) symbol {

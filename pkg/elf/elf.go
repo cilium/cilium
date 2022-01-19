@@ -138,7 +138,7 @@ processSymbols:
 		// Figure out the value to substitute
 		var value []byte
 		switch symbol.kind {
-		case symbolUint32:
+		case symbolData:
 			if symbol.size == uint64(unsafe.Sizeof(uint32(0))) {
 				if v, exists := intOptions[symbol.name]; exists {
 					value = make([]byte, symbol.size)
