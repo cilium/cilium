@@ -88,7 +88,9 @@ main() {
     echo $ersion > VERSION
     sed -i 's/"[^"]*"/""/g' install/kubernetes/Makefile.digests
     logrun make -C install/kubernetes all USE_DIGESTS=false
-    logrun make -C Documentation update-helm-values
+    if grep -q update-helm-values Documentation/Makefile; then
+        logrun make -C Documentation update-helm-values
+    fi
     logrun make update-authors
     if ! version_is_prerelease "$version"; then
         old_proj=$(grep "projects" $ACTS_YAML | sed "$PROJECTS_REGEX")
