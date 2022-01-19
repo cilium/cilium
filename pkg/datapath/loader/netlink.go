@@ -70,7 +70,7 @@ func replaceDatapath(ctx context.Context, ifName, objPath, progSec, progDirectio
 
 	// Temporarily rename bpffs pins of maps whose definitions have changed in
 	// a new version of a datapath ELF.
-	if err := bpf.StartBPFFSMigration(bpf.GetMapRoot(), objPath); err != nil {
+	if err := bpf.StartBPFFSMigration(bpf.MapPrefixPath(), objPath); err != nil {
 		return fmt.Errorf("Failed to start bpffs map migration: %w", err)
 	}
 
@@ -79,7 +79,7 @@ func replaceDatapath(ctx context.Context, ifName, objPath, progSec, progDirectio
 	// back to their initial paths.
 	var revert bool
 	defer func() {
-		if err := bpf.FinalizeBPFFSMigration(bpf.GetMapRoot(), objPath, revert); err != nil {
+		if err := bpf.FinalizeBPFFSMigration(bpf.MapPrefixPath(), objPath, revert); err != nil {
 			log.WithError(err).WithField("device", ifName).WithField("objPath", objPath).
 				Error("Could not finalize bpffs map migration")
 		}
@@ -110,13 +110,13 @@ func replaceDatapath(ctx context.Context, ifName, objPath, progSec, progDirectio
 
 // graftDatapath replaces obj in tail call map
 func graftDatapath(ctx context.Context, mapPath, objPath, progSec string) error {
-	if err := bpf.StartBPFFSMigration(bpf.GetMapRoot(), objPath); err != nil {
+	if err := bpf.StartBPFFSMigration(bpf.MapPrefixPath(), objPath); err != nil {
 		return fmt.Errorf("Failed to start bpffs map migration: %w", err)
 	}
 
 	var revert bool
 	defer func() {
-		if err := bpf.FinalizeBPFFSMigration(bpf.GetMapRoot(), objPath, revert); err != nil {
+		if err := bpf.FinalizeBPFFSMigration(bpf.MapPrefixPath(), objPath, revert); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{logfields.BPFMapPath: mapPath, "objPath": objPath}).
 				Error("Could not finalize bpffs map migration")
 		}
