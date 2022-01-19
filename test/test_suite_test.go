@@ -150,7 +150,11 @@ func reportCreateVMFailure(vm string, err error) {
 
 var _ = BeforeAll(func() {
 	helpers.Init()
-	By("Starting tests: command line parameters: %+v environment variables: %v", config.CiliumTestConfig, os.Environ())
+	var envToPrint []string
+	if os.Getenv("GITHUB_ACTIONS") != "true" {
+		envToPrint = os.Environ()
+	}
+	By("Starting tests: command line parameters: %+v environment variables: %v", config.CiliumTestConfig, envToPrint)
 	go func() {
 		defer GinkgoRecover()
 		time.Sleep(config.CiliumTestConfig.Timeout)

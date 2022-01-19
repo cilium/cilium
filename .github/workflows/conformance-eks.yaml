@@ -7,7 +7,7 @@ on:
       - created
   # Run every 6 hours
   schedule:
-    - cron:  '0 1/6 * * *'
+    - cron: '0 1/6 * * *'
   ### FOR TESTING PURPOSES
   # This workflow runs in the context of `master`, and ignores changes to
   # workflow files in PRs. For testing changes to this workflow from a PR:
@@ -82,6 +82,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tested: ${{ steps.tested-tree.outputs.src }}
+      eni_tested: ${{ steps.tested-tree.outputs.eni }}
     steps:
       # Because we run on issue comments, we need to checkout the code for
       # paths-filter to work.
@@ -107,6 +108,11 @@ jobs:
           filters: |
             src:
               - '!(test|Documentation)/**'
+            eni:
+              - 'pkg/aws/**'
+              - 'pkg/ipam/**'
+              - 'pkg/policy/groups/aws/**'
+              - 'vendor/github.com/aws/**'
 
   # This job is skipped when the workflow was triggered with the generic `/test`
   # trigger if the only modified files were under `test/` or `Documentation/`.
@@ -120,8 +126,19 @@ jobs:
       github.event_name == 'schedule' ||
       github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
+      - name: Checkout code
+        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
+        with:
+          persist-credentials: false
+      - name: Install Go
+        uses: actions/setup-go@424fc82d43fa5a37540bae62709ddcc23d9520d4
+        with:
+          go-version: 1.17.7
+      - name: Install ginkgo
+        run: |
+          go install github.com/onsi/ginkgo/ginkgo@v1.16.5
       - name: Set up job variables
         id: vars
         run: |
@@ -238,6 +255,13 @@ jobs:
       - name: Run connectivity test
         run: |
           cilium connectivity test --flow-validation=disabled
+
+      - name: Run e2e tests
+        if: ${{ github.event.label.name == 'ci/eni-e2e' || needs.check_changes.outputs.eni_tested == 'true' }}
+        run: |
+          cd test
+          ginkgo --focus "Eni" --tags=integration_tests  -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.testScope=eni  -cilium.passCLIEnvironment=true
+
 
       # EKS testing with encryption is disabled due to https://github.com/cilium/cilium/issues/16938
       - name: Clean up Cilium

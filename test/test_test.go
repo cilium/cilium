@@ -8,6 +8,7 @@ package ciliumTest
 
 import (
 	// test sources
+	_ "github.com/cilium/cilium/test/eni"
 	_ "github.com/cilium/cilium/test/k8s"
 	_ "github.com/cilium/cilium/test/runtime"
 )

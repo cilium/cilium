@@ -85,6 +85,23 @@ func RenderTemplate(tmplt string) (*bytes.Buffer, error) {
 	return content, nil
 }
 
+func RenderTemplateWithData(sourcePath string, destPath string, data interface{}) error {
+	tmpl, err := template.ParseFiles(sourcePath)
+	if err != nil {
+		return fmt.Errorf("error while parsing template : %v", err.Error())
+	}
+	f, err := os.Create(destPath)
+	if err != nil {
+		return fmt.Errorf("error while opening destination file : %v", err.Error())
+	}
+	defer f.Close()
+	err = tmpl.Execute(f, data)
+	if err != nil {
+		return fmt.Errorf("error while rendering template : %v", err.Error())
+	}
+	return nil
+}
+
 // TimeoutConfig represents the configuration for the timeout of a command.
 type TimeoutConfig struct {
 	Ticker  time.Duration // Check interval

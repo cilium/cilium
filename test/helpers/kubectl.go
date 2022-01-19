@@ -13,6 +13,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -861,6 +862,40 @@ func (kub *Kubectl) GetCNP(namespace string, cnp string) *cnpv2.CiliumNetworkPol
 		return nil
 	}
 	return &result
+}
+
+// GetCiliumNode retrieves the output of `kubectl get cnp` in the given namespace for
+// the given CNP and return a CNP struct. If the CNP does not exists or cannot
+// unmarshal the Json output will return nil.
+func (kub *Kubectl) GetCiliumNode(ciliumNode string) *cnpv2.CiliumNode {
+	log := kub.Logger().WithFields(logrus.Fields{
+		"fn":  "GetCiliumNode",
+		"cnp": ciliumNode,
+	})
+	res := kub.Get("''", fmt.Sprintf("cn %s", ciliumNode))
+	if !res.WasSuccessful() {
+		log.WithField("error", res.CombineOutput()).Info("cannot get CN")
+		return nil
+	}
+	var result cnpv2.CiliumNode
+	err := res.Unmarshal(&result)
+	if err != nil {
+		log.WithError(err).Errorf("cannot unmarshal CN output")
+		return nil
+	}
+	return &result
+}
+
+func (kub *Kubectl) RestartOperator() error {
+	res := kub.DeleteResource("pod", "-n "+KubeSystemNamespace+" -l "+CiliumOperatorLabel)
+	if !res.WasSuccessful() {
+		return fmt.Errorf("cannot delete operator with error : %s", res.OutputPrettyPrint())
+	}
+	res = kub.Exec(fmt.Sprintf("%s -n %s wait --for=condition=ready pod -l %s --timeout=180s", KubectlCmd, CiliumNamespaceDefault, CiliumOperatorLabel))
+	if !res.WasSuccessful() {
+		return fmt.Errorf("timeout while waiting for operator to be ready")
+	}
+	return nil
 }
 
 func (kub *Kubectl) WaitForCRDCount(filter string, count int, timeout time.Duration) error {
@@ -4643,8 +4678,8 @@ func (kub *Kubectl) ensureKubectlVersion() error {
 		rcVersion = fmt.Sprintf("v%s.0", GetCurrentK8SEnv())
 	}
 	res = kub.Exec(
-		fmt.Sprintf("curl --output %s https://storage.googleapis.com/kubernetes-release/release/%s/bin/linux/amd64/kubectl && chmod +x %s",
-			path, rcVersion, path))
+		fmt.Sprintf("curl --output %s https://storage.googleapis.com/kubernetes-release/release/%s/bin/%s/%s/kubectl && chmod +x %s",
+			path, rcVersion, runtime.GOOS, runtime.GOARCH, path))
 	if !res.WasSuccessful() {
 		return fmt.Errorf("failed to download kubectl")
 	}

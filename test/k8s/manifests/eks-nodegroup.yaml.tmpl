@@ -1,0 +1,24 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+metadata:
+  name: {{ .ClusterName }}
+  region: {{ .Region }}
+managedNodeGroups:
+  - name: {{ .Name }}
+    labels: { role: {{ .NodeTaint }} }
+    instanceTypes:
+    {{range .InstanceTypes}}
+    - {{ . }}
+    {{end}}
+    desiredCapacity: {{ .NumNodes }}
+    spot: true
+    privateNetworking: true
+    volumeType: "gp3"
+    volumeSize: 10
+    taints:
+      - key: "node.cilium.io/agent-not-ready"
+        value: "true"
+        effect: "NoSchedule"
+      - key: {{ .NodeTaint }}
+        value: "true"
+        effect: "NoSchedule"

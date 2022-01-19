@@ -30,6 +30,8 @@ func GetScope() (string, error) {
 	case strings.Contains(focusString, "nightly"):
 		// Nightly tests run in a Kubernetes environment.
 		return K8s, nil
+	case strings.Contains(focusString, "eni"):
+		return "Eni", nil
 	default:
 		return "", errors.New("Scope cannot be set")
 	}
