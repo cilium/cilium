@@ -100,6 +100,8 @@ update_trace_metrics(struct __ctx_buff *ctx, __u8 obs_point, enum trace_reason r
 		update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
 			       REASON_FORWARDED);
 		break;
+	case TRACE_FROM_HOST:
+	case TRACE_FROM_STACK:
 	case TRACE_FROM_OVERLAY:
 	case TRACE_FROM_NETWORK:
 		encrypted = reason & TRACE_REASON_ENCRYPTED;
