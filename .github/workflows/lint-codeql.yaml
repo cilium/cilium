@@ -17,7 +17,7 @@ permissions: read-all
 jobs:
   check_changes:
     name: Deduce required tests from code changes
-    if: ${{ github.repository == 'cilium/cilium' && github.event_name == 'pull_request' }}
+    if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-18.04
     outputs:
       go-changes: ${{ steps.go-changes.outputs.src }}
@@ -42,7 +42,7 @@ jobs:
 
   analyze:
     needs: check_changes
-    if: ${{ github.repository == 'cilium/cilium' && (needs.check_changes.outputs.go-changes == 'true' || github.event_name != 'pull_request') }}
+    if: ${{ needs.check_changes.outputs.go-changes == 'true' || github.event_name != 'pull_request' }}
     runs-on: ubuntu-18.04
     permissions:
       security-events: write

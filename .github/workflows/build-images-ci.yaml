@@ -30,7 +30,6 @@ concurrency:
 
 jobs:
   build-and-push-prs:
-    if: ${{ github.repository == 'cilium/cilium' }}
     runs-on: ubuntu-20.04
     strategy:
       matrix:
@@ -248,7 +247,7 @@ jobs:
   # which requires qemu setup in order to avoid x86/arm64 binaries mixups
   # note: we only build on pushes to master branch
   build-and-push-with-qemu:
-    if: ${{ github.repository == 'cilium/cilium' && github.event_name == 'push' }}
+    if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-20.04
     strategy:
       matrix:
@@ -369,7 +368,7 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
   image-digests:
-    if: ${{ always() && github.repository == 'cilium/cilium' &&
+    if: ${{ always() &&
       (needs.build-and-push-with-qemu.result == 'success' || needs.build-and-push-with-qemu.result == 'skipped') }}
     name: Display Digests
     runs-on: ubuntu-20.04
