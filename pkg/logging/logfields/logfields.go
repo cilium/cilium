@@ -592,4 +592,16 @@ const (
 
 	// IPSec old SPI
 	OldSPI = "oldSPI"
+
+	// Number of Backends failed while restoration.
+	RestoredBackends = "restoredBackends"
+
+	// Number of Backends failed while restoration.
+	FailedBackends = "failedBackends"
+
+	// Number of Services failed while restoration.
+	RestoredSVCs = "restoredServices"
+
+	// Number of Services failed while restoration.
+	FailedSVCs = "failedServices"
 )
