@@ -370,6 +370,7 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 		"cilium-health status",
 		"cilium policy selectors -o json",
 		"cilium node list",
+		"cilium lrp list",
 	}
 	var commands []string
 
