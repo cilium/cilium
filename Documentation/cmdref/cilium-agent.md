@@ -126,7 +126,6 @@ cilium-agent [flags]
       --enable-xt-socket-fallback                            Enable fallback for missing xt_socket module (default true)
       --encrypt-interface string                             Transparent encryption interface
       --encrypt-node                                         Enables encrypting traffic from non-Cilium pods and host networking
-      --endpoint-interface-name-prefix string                Prefix of interface name shared by all endpoints (default "lxc+")
       --endpoint-queue-size int                              size of EventQueue per-endpoint (default 25)
       --endpoint-status strings                              Enable additional CiliumEndpoint status features (controllers,health,log,policy,state)
       --envoy-log string                                     Path to a separate Envoy log file, if any

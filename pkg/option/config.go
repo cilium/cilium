@@ -1666,10 +1666,6 @@ type DaemonConfig struct {
 	// LocalRouterIPv6 is the link-local IPv6 address used for Cilium's router device
 	LocalRouterIPv6 string
 
-	// EndpointInterfaceNamePrefix is the prefix name of the interface
-	// names shared by all endpoints
-	EndpointInterfaceNamePrefix string
-
 	// ForceLocalPolicyEvalAtSource forces a policy decision at the source
 	// endpoint for all local communication
 	ForceLocalPolicyEvalAtSource bool
@@ -2080,7 +2076,6 @@ var (
 		LogOpt:                       make(map[string]string),
 		SelectiveRegeneration:        defaults.SelectiveRegeneration,
 		LoopbackIPv4:                 defaults.LoopbackIPv4,
-		EndpointInterfaceNamePrefix:  defaults.EndpointInterfaceNamePrefix,
 		ForceLocalPolicyEvalAtSource: defaults.ForceLocalPolicyEvalAtSource,
 		EnableEndpointRoutes:         defaults.EnableEndpointRoutes,
 		AnnotateK8sNode:              defaults.AnnotateK8sNode,
@@ -2523,7 +2518,6 @@ func (c *DaemonConfig) Populate() {
 	c.EnableWireguard = viper.GetBool(EnableWireguard)
 	c.EnableWireguardUserspaceFallback = viper.GetBool(EnableWireguardUserspaceFallback)
 	c.EnableWellKnownIdentities = viper.GetBool(EnableWellKnownIdentities)
-	c.EndpointInterfaceNamePrefix = viper.GetString(EndpointInterfaceNamePrefix)
 	c.EnableXDPPrefilter = viper.GetBool(EnableXDPPrefilter)
 	c.DevicePreFilter = viper.GetString(PrefilterDevice)
 	c.DisableCiliumEndpointCRD = viper.GetBool(DisableCiliumEndpointCRDName)
