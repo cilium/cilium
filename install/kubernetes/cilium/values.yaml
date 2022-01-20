@@ -611,6 +611,23 @@ hubble:
       # -- Labels to add to ServiceMonitor hubble
       labels: {}
 
+    prometheusRule:
+      enabled: false
+      additionalLabels: {}
+      # namespace: ""
+      rules: []
+        # # These are just examples rules, please adapt them to your needs
+        # - alert: CiliumOperatorHasError
+        #   expr: sum(rate(cilium_errors_warnings_total{k8s_app="cilium"}[1m])) by (pod, level) * 60
+        #   for: 1m
+        #   labels:
+        #     severity: "{{ $labels.level }}"
+        #     subsystem: "{{ $labels.subsystem }}"
+        #   annotations:
+        #     summary: "Cilium has error"
+        #     description: "Error on {{ $labels.subsystem }} group"
+
+
   # -- Unix domain socket path to listen to when Hubble is enabled.
   socketPath: /var/run/cilium/hubble.sock
 
@@ -1175,6 +1192,23 @@ prometheus:
   # ref: https://docs.cilium.io/en/stable/operations/metrics/#exported-metrics
   metrics: ~
 
+  prometheusRule:
+    enabled: false
+    additionalLabels: { }
+    # namespace: ""
+    rules: [ ]
+      # # These are just examples rules, please adapt them to your needs
+      # - alert: CiliumHasError
+      #   expr: sum(rate(cilium_errors_warnings_total{k8s_app="cilium"}[1m])) by (pod, level) * 60
+      #   for: 1m
+      #   labels:
+      #     severity: "{{ $labels.level }}"
+      #     subsystem: "{{ $labels.subsystem }}"
+      #   annotations:
+      #     summary: "Cilium has error"
+      #     description: "Error on {{ $labels.subsystem }} group"
+
+
 # -- Configure Istio proxy options.
 proxy:
   prometheus:
@@ -1481,6 +1515,22 @@ operator:
       enabled: false
       # -- Labels to add to ServiceMonitor cilium-operator
       labels: {}
+
+    prometheusRule:
+      enabled: false
+      additionalLabels: {}
+      # namespace: ""
+      rules: []
+        # # These are just examples rules, please adapt them to your needs
+        # - alert: CiliumOperatorHasError
+        #   expr: sum(rate(cilium_errors_warnings_total{k8s_app="cilium"}[1m])) by (pod, level) * 60
+        #   for: 1m
+        #   labels:
+        #     severity: "{{ $labels.level }}"
+        #     subsystem: "{{ $labels.subsystem }}"
+        #   annotations:
+        #     summary: "Cilium has error"
+        #     description: "Error on {{ $labels.subsystem }} group"
 
   # -- Skip CRDs creation for cilium-operator
   skipCRDCreation: false

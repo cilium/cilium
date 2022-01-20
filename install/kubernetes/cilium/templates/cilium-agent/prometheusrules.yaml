@@ -1,0 +1,23 @@
+{{- if and .Values.prometheus.enabled .Values.prometheus.serviceMonitor.enabled .Values.prometheus.prometheusRule.enabled  }}
+{{ if .Capabilities.APIVersions.Has "monitoring.coreos.com/v1" -}}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: prometheus-prometheus-rule
+  {{- if .Values.prometheus.prometheusRule.namespace }}
+  namespace: {{ .Values.prometheus.prometheusRule.namespace | quote }}
+  {{- end }}
+  labels:
+    k8s-app: prometheus
+  {{- if .Values.prometheus.prometheusRule.additionalLabels }}
+    {{- toYaml .Values.prometheus.prometheusRule.additionalLabels | nindent 4 }}
+  {{- end }}
+
+spec:
+{{- if .Values.prometheus.prometheusRule.rules }}
+  groups:
+    - name: prometheus-prometheus-rule
+      rules: {{- toYaml .Values.prometheus.prometheusRule.rules | nindent 4 }}
+{{- end }}
+{{- end }}
+{{- end }}

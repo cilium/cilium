@@ -1,0 +1,23 @@
+{{- if and .Values.hubble.enabled .Values.hubble.metrics.enabled .Values.hubble.metrics.serviceMonitor.enabled .Values.hubble.metrics.prometheusRule.enabled  }}
+{{ if .Capabilities.APIVersions.Has "monitoring.coreos.com/v1" -}}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: hubble-prometheus-rule
+  {{- if .Values.hubble.metrics.prometheusRule.namespace }}
+  namespace: {{ .Values.hubble.metrics.prometheusRule.namespace | quote }}
+  {{- end }}
+  labels:
+    k8s-app: hubble
+  {{- if .Values.hubble.metrics.prometheusRule.additionalLabels }}
+    {{- toYaml .Values.hubble.metrics.prometheusRule.additionalLabels | nindent 4 }}
+  {{- end }}
+
+spec:
+{{- if .Values.hubble.metrics.prometheusRule.rules }}
+  groups:
+    - name: hubble-prometheus-rule
+      rules: {{- toYaml .Values.hubble.metrics.prometheusRule.rules | nindent 4 }}
+{{- end }}
+{{- end }}
+{{- end }}
