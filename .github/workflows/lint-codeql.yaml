@@ -4,9 +4,11 @@ on:
   pull_request:
     branches:
       - master
+      - ft/master/**
   push:
     branches:
       - master
+      - ft/master/**
   schedule:
     - cron: "45 6 * * 3"
 
