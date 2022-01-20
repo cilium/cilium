@@ -419,7 +419,7 @@ security credentials for pods.
 
       $ helm repo add uswitch https://uswitch.github.io/kiam-helm-charts/charts/
       $ helm repo update
-      $ helm install --set agent.host.iptables=false --set agent.extraArgs.whitelist-route-regexp=meta-data kiam uswitch/kiam
+      $ helm install --set agent.host.iptables=false --set agent.whitelist-route-regexp=meta-data kiam uswitch/kiam
 
   - The above command may provide instructions to prepare kiam in the cluster.
     Follow the instructions before continuing.
