@@ -15,7 +15,6 @@ permissions: read-all
 
 jobs:
   build-and-push:
-    if: ${{ github.repository == 'cilium/cilium' }}
     environment: release-beta-images
     runs-on: ubuntu-20.04
     strategy:
@@ -111,7 +110,6 @@ jobs:
           retention-days: 1
 
   image-digests:
-    if: ${{ github.repository == 'cilium/cilium' }}
     name: Display Digests
     runs-on: ubuntu-20.04
     needs: build-and-push
