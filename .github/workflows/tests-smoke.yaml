@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - v1.11
+      - ft/v1.11/**
 
 permissions: read-all
 

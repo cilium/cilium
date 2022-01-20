@@ -9,6 +9,7 @@ on:
   push:
     branches:
       - v1.11
+      - ft/v1.11/**
     paths-ignore:
       - 'Documentation/**'
       - 'test/**'
