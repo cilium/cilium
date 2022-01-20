@@ -14,6 +14,7 @@
 /pkg/byteorder/ @cilium/bpf @cilium/api
 /pkg/client @cilium/api
 /pkg/k8s/apis/cilium.io/v2/ @cilium/api
+/pkg/datapath/linux/ipsec/xfrm_collector* @cilium/metrics
 /pkg/k8s/client/clientset/versioned/ @cilium/api
 /pkg/k8s/client/informers/ @cilium/api
 /pkg/labels @cilium/policy @cilium/api
