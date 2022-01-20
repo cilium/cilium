@@ -2198,6 +2198,8 @@ func (kub *Kubectl) WaitTerminatingPodsInNs(ns string, timeout time.Duration) er
 // state are deleted correctly in the platform. In case of excedding the
 // given timeout (in seconds) it returns an error.
 func (kub *Kubectl) WaitTerminatingPodsInNsWithFilter(ns, filter string, timeout time.Duration) error {
+	var innerErr error
+
 	body := func() bool {
 		where := ns
 		if where == "" {
@@ -2206,9 +2208,10 @@ func (kub *Kubectl) WaitTerminatingPodsInNsWithFilter(ns, filter string, timeout
 			where = "-n " + where
 		}
 		res := kub.ExecShort(fmt.Sprintf(
-			"%s get pods %s %s -o jsonpath='{.items[*].metadata.deletionTimestamp}'",
+			"%s get pods %s %s -o jsonpath='{.items[?(.metadata.deletionTimestamp!=\"\")].metadata.name}'",
 			KubectlCmd, filter, where))
 		if !res.WasSuccessful() {
+			innerErr = fmt.Errorf("Failed to connect to apiserver: %w", res.GetError())
 			return false
 		}
 
@@ -2217,9 +2220,11 @@ func (kub *Kubectl) WaitTerminatingPodsInNsWithFilter(ns, filter string, timeout
 			return true
 		}
 
-		podsTerminating := len(strings.Split(res.Stdout(), " "))
-		kub.Logger().WithField("Terminating pods", podsTerminating).Info("List of pods terminating")
-		if podsTerminating > 0 {
+		podsTerminating := strings.Split(res.Stdout(), " ")
+		nTerminating := len(podsTerminating)
+		kub.Logger().WithField("Terminating pods", nTerminating).Info("List of pods terminating")
+		if nTerminating > 0 {
+			innerErr = fmt.Errorf("Pods are still terminating: %s", podsTerminating)
 			return false
 		}
 		return true
@@ -2229,7 +2234,10 @@ func (kub *Kubectl) WaitTerminatingPodsInNsWithFilter(ns, filter string, timeout
 		body,
 		"Pods are still not deleted after a timeout",
 		&TimeoutConfig{Timeout: timeout})
-	return err
+	if err != nil {
+		return fmt.Errorf("%s: %w", err, innerErr)
+	}
+	return nil
 }
 
 // DeployPatchStdIn deploys the original kubernetes descriptor with the given patch.
