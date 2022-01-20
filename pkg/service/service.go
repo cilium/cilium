@@ -850,6 +850,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 }
 
 func (s *Service) restoreBackendsLocked() error {
+	failed, restored := 0, 0
 	backends, err := s.lbmap.DumpBackendMaps()
 	if err != nil {
 		return fmt.Errorf("Unable to dump backend maps: %s", err)
@@ -861,13 +862,22 @@ func (s *Service) restoreBackendsLocked() error {
 			logfields.L3n4Addr:  b.L3n4Addr.String(),
 		}).Debug("Restoring backend")
 		if err := RestoreBackendID(b.L3n4Addr, b.ID); err != nil {
-			return fmt.Errorf("Unable to restore backend ID %d for %q: %s",
-				b.ID, b.L3n4Addr, err)
+			log.WithError(err).WithFields(logrus.Fields{
+				logfields.BackendID: b.ID,
+				logfields.L3n4Addr:  b.L3n4Addr,
+			}).Warning("Unable to restore backend")
+			failed++
+			continue
 		}
-
+		restored++
 		hash := b.L3n4Addr.Hash()
 		s.backendByHash[hash] = b
 	}
+
+	log.WithFields(logrus.Fields{
+		logfields.RestoredBackends: restored,
+		logfields.FailedBackends:   failed,
+	}).Info("Restored backends from maps")
 
 	return nil
 }
@@ -945,7 +955,8 @@ func (s *Service) restoreServicesLocked() error {
 				backends[b.String()] = b.ID
 			}
 			if err := s.lbmap.UpsertMaglevLookupTable(uint16(newSVC.frontend.ID), backends, ipv6); err != nil {
-				return err
+				scopedLog.WithError(err).Warning("Unable to upsert into the Maglev BPF map.")
+				continue
 			}
 		}
 
@@ -955,8 +966,8 @@ func (s *Service) restoreServicesLocked() error {
 	}
 
 	log.WithFields(logrus.Fields{
-		"restored": restored,
-		"failed":   failed,
+		logfields.RestoredSVCs: restored,
+		logfields.FailedSVCs:   failed,
 	}).Info("Restored services from maps")
 
 	return nil
