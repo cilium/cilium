@@ -79,7 +79,7 @@ jobs:
         github.event.comment.body == '/ci-multicluster' ||
         github.event.comment.body == '/test'
       )) ||
-      (github.event_name == 'schedule' && github.repository == 'cilium/cilium') ||
+      github.event_name == 'schedule' ||
       github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     outputs:
@@ -119,7 +119,7 @@ jobs:
         github.event.comment.body == '/ci-multicluster' ||
         (github.event.comment.body == '/test' && needs.check_changes.outputs.tested == 'true')
       )) ||
-      (github.event_name == 'schedule' && github.repository == 'cilium/cilium') ||
+      github.event_name == 'schedule' ||
       github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 30

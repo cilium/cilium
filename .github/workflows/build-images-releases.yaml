@@ -10,7 +10,6 @@ permissions: read-all
 
 jobs:
   build-and-push:
-    if: ${{ github.repository == 'cilium/cilium' }}
     environment: release
     runs-on: ubuntu-20.04
     strategy:
@@ -118,7 +117,6 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
   image-digests:
-    if: ${{ github.repository == 'cilium/cilium' }}
     name: Display Digests
     runs-on: ubuntu-20.04
     needs: build-and-push
