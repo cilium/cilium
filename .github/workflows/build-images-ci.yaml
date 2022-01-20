@@ -10,6 +10,7 @@ on:
   push:
     branches:
       - master
+      - ft/master/**
 
   # If the cache was cleaned we should re-build the cache with the latest commit
   workflow_run:
@@ -17,6 +18,7 @@ on:
      - "Image CI Cache Cleaner"
     branches:
      - master
+     - ft/master/**
     types:
      - completed
 

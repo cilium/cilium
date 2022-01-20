@@ -10,6 +10,7 @@ on:
   push:
     branches:
       - master
+      - ft/master/**
 
 permissions: read-all
 

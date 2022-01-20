@@ -5,6 +5,7 @@ on:
   pull_request:
     branches:
       - master
+      - ft/master/**
 
 permissions: read-all
 
