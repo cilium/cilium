@@ -82,7 +82,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			ifNotFound:    checkWarning,
 			versionArgs:   []string{"buildx", "version"},
 			versionRegexp: regexp.MustCompile(`github\.com/docker/buildx v(\d+\.\d+\.\d+)`),
-			hint:          "see https://docs.docker.com/engine/install/",
+			hint:          "see https://docs.docker.com/buildx/working-with-buildx/",
 		},
 		&binaryCheck{
 			name:          "ginkgo",
@@ -139,6 +139,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			ifNotFound:     checkInfo,
 			versionArgs:    []string{"--version"},
 			versionRegexp:  regexp.MustCompile(`Oracle VM VirtualBox Headless Interface (\d+\.\d+\.\d+\S*)`),
+			hint:           "run \"VBoxHeadless --help\" to diagnose why vboxheadless failed to execute",
 		},
 		&binaryCheck{
 			name:          "pip3",
