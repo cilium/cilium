@@ -853,7 +853,7 @@ redo:
 /* See comment in tail_rev_nodeport_lb4(). */
 static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex)
 {
-	int ret, ret2, l3_off = ETH_HLEN, l4_off, hdrlen;
+	int ret, ret2, ct_ret, l3_off = ETH_HLEN, l4_off, hdrlen;
 	struct ipv6_ct_tuple tuple = {};
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -877,10 +877,10 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex
 	l4_off = l3_off + hdrlen;
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
-	ret = ct_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, CT_INGRESS, &ct_state,
+	ct_ret = ct_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, CT_INGRESS, &ct_state,
 			 &monitor);
 
-	if (ret == CT_REPLY && ct_state.node_port == 1 && ct_state.rev_nat_index != 0) {
+	if (ct_ret == CT_REPLY && ct_state.node_port == 1 && ct_state.rev_nat_index != 0) {
 		ret2 = lb6_rev_nat(ctx, l4_off, &csum_off, ct_state.rev_nat_index,
 				   &tuple, REV_NAT_F_TUPLE_SADDR);
 		if (IS_ERR(ret2))
@@ -963,6 +963,9 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex
 			return DROP_MISSED_TAIL_CALL;
 		}
 	}
+
+	send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL, 0, 0, *ifindex,
+			  ct_ret, monitor);
 
 	return CTX_ACT_OK;
 }
@@ -1849,7 +1852,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 	void *data, *data_end;
 	struct iphdr *ip4;
 	struct csum_offset csum_off = {};
-	int ret, ret2, l3_off = ETH_HLEN, l4_off;
+	int ret, ret2, ct_ret, l3_off = ETH_HLEN, l4_off;
 	struct ct_state ct_state = {};
 	struct bpf_fib_lookup fib_params = {};
 	__u32 monitor = 0;
@@ -1891,10 +1894,10 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 		}
 	}
 #endif /* ENABLE_EGRESS_GATEWAY */
-	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_INGRESS, &ct_state,
+	ct_ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_INGRESS, &ct_state,
 			 &monitor);
 
-	if (ret == CT_REPLY && ct_state.node_port == 1 && ct_state.rev_nat_index != 0) {
+	if (ct_ret == CT_REPLY && ct_state.node_port == 1 && ct_state.rev_nat_index != 0) {
 		ret2 = lb4_rev_nat(ctx, l3_off, l4_off, &csum_off,
 				   &ct_state, &tuple,
 				   REV_NAT_F_TUPLE_SADDR, ipv4_has_l4_header(ip4));
@@ -1975,6 +1978,9 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 			return DROP_MISSED_TAIL_CALL;
 		}
 	}
+
+	send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL, 0, 0, *ifindex,
+			  ct_ret, monitor);
 
 	return CTX_ACT_OK;
 
