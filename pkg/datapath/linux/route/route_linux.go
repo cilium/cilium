@@ -9,6 +9,7 @@ package route
 import (
 	"fmt"
 	"net"
+	"sort"
 	"time"
 
 	"github.com/vishvananda/netlink"
@@ -482,23 +483,20 @@ func deleteRule(spec Rule, family int) error {
 }
 
 func lookupDefaultRoute(family int) (netlink.Route, error) {
-	linkIndex := 0
-
 	routes, err := netlink.RouteListFiltered(family, &netlink.Route{Dst: nil}, netlink.RT_FILTER_DST)
 	if err != nil {
 		return netlink.Route{}, fmt.Errorf("Unable to list direct routes: %s", err)
 	}
 
-	if len(routes) == 0 {
-		return netlink.Route{}, fmt.Errorf("Default route not found for family %d", family)
-	}
+	sort.Slice(routes, func(i, j int) bool {
+		return routes[i].Priority < routes[j].Priority
+	})
 
-	for _, route := range routes {
-		if linkIndex != 0 && linkIndex != route.LinkIndex {
-			return netlink.Route{}, fmt.Errorf("Found default routes with different netdev ifindices: %v vs %v",
-				linkIndex, route.LinkIndex)
-		}
-		linkIndex = route.LinkIndex
+	switch {
+	case len(routes) == 0:
+		return netlink.Route{}, fmt.Errorf("Default route not found for family %d", family)
+	case len(routes) > 1 && routes[0].Priority == routes[1].Priority:
+		return netlink.Route{}, fmt.Errorf("Found multiple default routes with the same priority: %v vs %v", routes[0], routes[1])
 	}
 
 	log.Debugf("Found default route on node %v", routes[0])
