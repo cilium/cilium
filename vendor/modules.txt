@@ -164,12 +164,14 @@ github.com/cilium/customvet/analysis/timeafter
 ## explicit; go 1.14
 github.com/cilium/deepequal-gen
 github.com/cilium/deepequal-gen/generators
-# github.com/cilium/ebpf v0.7.0
+# github.com/cilium/ebpf v0.8.0
 ## explicit; go 1.16
 github.com/cilium/ebpf
 github.com/cilium/ebpf/asm
 github.com/cilium/ebpf/internal
 github.com/cilium/ebpf/internal/btf
+github.com/cilium/ebpf/internal/epoll
+github.com/cilium/ebpf/internal/sys
 github.com/cilium/ebpf/internal/unix
 github.com/cilium/ebpf/perf
 # github.com/cilium/ipam v0.0.0-20211026130907-54a76012817c
