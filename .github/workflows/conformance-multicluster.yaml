@@ -68,7 +68,7 @@ env:
   clusterName2: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-mesh-2
   zone: us-west2-a
   firewallRuleName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-rule
-  cilium_cli_version: v0.10.0
+  cilium_cli_version: v0.10.1
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
@@ -245,7 +245,7 @@ jobs:
             --context ${{ steps.contexts.outputs.context1 }} \
             --cluster-name=${{ env.clusterName1 }} \
             --cluster-id 1 \
-            --native-routing-cidr=10.0.0.0/9
+            --ipv4-native-routing-cidr=10.0.0.0/9
 
       - name: Install Cilium in cluster2
         run: |
@@ -253,7 +253,7 @@ jobs:
             --context ${{ steps.contexts.outputs.context2 }} \
             --cluster-name=${{ env.clusterName2 }} \
             --cluster-id 2 \
-            --native-routing-cidr=10.0.0.0/9 \
+            --ipv4-native-routing-cidr=10.0.0.0/9 \
             --inherit-ca ${{ steps.contexts.outputs.context1 }}
 
       - name: Enable Relay
