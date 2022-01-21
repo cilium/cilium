@@ -1760,6 +1760,9 @@ type DaemonConfig struct {
 	// EnableBandwidthManager enables EDT-based pacing
 	EnableBandwidthManager bool
 
+	// ResetQueueMapping resets the Pod's skb queue mapping
+	ResetQueueMapping bool
+
 	// EnableRecorder enables the datapath pcap recorder
 	EnableRecorder bool
 
@@ -2151,8 +2154,7 @@ func (c *DaemonConfig) AlwaysAllowLocalhost() bool {
 	}
 }
 
-// TunnelingEnabled returns true if the remote-node identity feature
-// is enabled
+// TunnelingEnabled returns true if tunneling is enabled, i.e. not set to "disabled".
 func (c *DaemonConfig) TunnelingEnabled() bool {
 	return c.Tunnel != TunnelDisabled
 }

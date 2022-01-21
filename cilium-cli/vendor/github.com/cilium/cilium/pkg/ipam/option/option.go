@@ -26,3 +26,10 @@ const (
 	// IPAMAlibabaCloud is the value to select the AlibabaCloud ENI IPAM plugin for option.IPAM
 	IPAMAlibabaCloud = "alibabacloud"
 )
+
+const (
+	IPAMMarkForRelease  = "marked-for-release"
+	IPAMReadyForRelease = "ready-for-release"
+	IPAMDoNotRelease    = "do-not-release"
+	IPAMReleased        = "released"
+)
