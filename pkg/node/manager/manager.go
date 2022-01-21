@@ -594,7 +594,7 @@ func (m *Manager) NodeDeleted(n nodeTypes.Node) {
 	}
 
 	for _, address := range entry.node.IPAddresses {
-		if address.Type != addressing.NodeInternalIP {
+		if address.Type == addressing.NodeInternalIP {
 			iptables.RemoveFromNodeIpset(address.IP)
 		}
 
