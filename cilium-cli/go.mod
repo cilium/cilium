@@ -12,7 +12,7 @@ replace (
 
 require (
 	github.com/blang/semver/v4 v4.0.0
-	github.com/cilium/cilium v1.11.0
+	github.com/cilium/cilium v1.11.1
 	github.com/cilium/hubble v0.9.0
 	github.com/cilium/workerpool v1.1.1
 	github.com/cloudflare/cfssl v1.6.1

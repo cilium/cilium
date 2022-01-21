@@ -158,6 +158,23 @@ func GetPathConnectivityStatusType(cp *models.PathStatus) ConnectivityStatusType
 	return status
 }
 
+func SummarizePathConnectivityStatusType(cps []*models.PathStatus) ConnectivityStatusType {
+	status := ConnStatusReachable
+	for _, cp := range cps {
+		switch GetPathConnectivityStatusType(cp) {
+		case ConnStatusUnreachable:
+			// If any status is unreachable, return it immediately.
+			return ConnStatusUnreachable
+		case ConnStatusUnknown:
+			// If the status is unknown, prepare to return it. It's
+			// going to be returned if there is no unreachable
+			// status in next iterations.
+			status = ConnStatusUnknown
+		}
+	}
+	return status
+}
+
 func formatConnectivityStatus(w io.Writer, cs *models.ConnectivityStatus, path, indent string) {
 	status := cs.Status
 	switch GetConnectivityStatusType(cs) {
@@ -186,30 +203,32 @@ func formatPathStatus(w io.Writer, name string, cp *models.PathStatus, indent st
 	}
 }
 
-// pathIsHealthyOrUnknown checks whether ICMP and TCP(HTTP) connectivity to the
-// given path is available or had no explicit error status (which usually is the
-// case when the new node is provisioned).
-func pathIsHealthyOrUnknown(cp *models.PathStatus) bool {
-	if cp == nil {
-		return false
-	}
-
-	statuses := []*models.ConnectivityStatus{
-		cp.Icmp,
-		cp.HTTP,
-	}
-	for _, status := range statuses {
-		switch GetConnectivityStatusType(status) {
-		case ConnStatusUnreachable:
+// allPathsAreHealthyOrUnknown checks whether ICMP and TCP(HTTP) connectivity
+// to the given paths is available or had no explicit error status
+// (which usually is the case when the new node is provisioned).
+func allPathsAreHealthyOrUnknown(cps []*models.PathStatus) bool {
+	for _, cp := range cps {
+		if cp == nil {
 			return false
+		}
+
+		statuses := []*models.ConnectivityStatus{
+			cp.Icmp,
+			cp.HTTP,
+		}
+		for _, status := range statuses {
+			switch GetConnectivityStatusType(status) {
+			case ConnStatusUnreachable:
+				return false
+			}
 		}
 	}
 	return true
 }
 
 func nodeIsHealthy(node *models.NodeStatus) bool {
-	return pathIsHealthyOrUnknown(GetHostPrimaryAddress(node)) &&
-		(node.Endpoint == nil || pathIsHealthyOrUnknown(node.Endpoint))
+	return allPathsAreHealthyOrUnknown(GetAllHostAddresses(node)) &&
+		allPathsAreHealthyOrUnknown(GetAllEndpointAddresses(node))
 }
 
 func nodeIsLocalhost(node *models.NodeStatus, self *models.SelfStatus) bool {
@@ -234,6 +253,57 @@ func GetHostPrimaryAddress(node *models.NodeStatus) *models.PathStatus {
 	return node.Host.PrimaryAddress
 }
 
+// GetHostSecondaryAddresses returns the secondary host addresses (if any)
+func GetHostSecondaryAddresses(node *models.NodeStatus) []*models.PathStatus {
+	if node.Host == nil {
+		return nil
+	}
+
+	return node.Host.SecondaryAddresses
+}
+
+// GetAllHostAddresses returns a list of all addresses (primary and any
+// and any secondary) for the host of a given node. If node.Host is nil,
+// returns nil.
+func GetAllHostAddresses(node *models.NodeStatus) []*models.PathStatus {
+	if node.Host == nil {
+		return nil
+	}
+
+	return append([]*models.PathStatus{node.Host.PrimaryAddress}, node.Host.SecondaryAddresses...)
+}
+
+// GetEndpointPrimaryAddress returns the PrimaryAddress for the health endpoint
+// within node. If node.HealthEndpoint is nil, returns nil.
+func GetEndpointPrimaryAddress(node *models.NodeStatus) *models.PathStatus {
+	if node.HealthEndpoint == nil {
+		return nil
+	}
+
+	return node.HealthEndpoint.PrimaryAddress
+}
+
+// GetEndpointSecondaryAddresses returns the secondary health endpoint addresses
+// (if any)
+func GetEndpointSecondaryAddresses(node *models.NodeStatus) []*models.PathStatus {
+	if node.HealthEndpoint == nil {
+		return nil
+	}
+
+	return node.HealthEndpoint.SecondaryAddresses
+}
+
+// GetAllEndpointAddresses returns a list of all addresses (primary and any
+// and any secondary) for the health endpoint within a given node.
+// If node.HealthEndpoint is nil, returns nil.
+func GetAllEndpointAddresses(node *models.NodeStatus) []*models.PathStatus {
+	if node.HealthEndpoint == nil {
+		return nil
+	}
+
+	return node.HealthEndpoint.SecondaryAddresses
+}
+
 func formatNodeStatus(w io.Writer, node *models.NodeStatus, printAll, succinct, verbose, localhost bool) {
 	localStr := ""
 	if localhost {
@@ -241,21 +311,27 @@ func formatNodeStatus(w io.Writer, node *models.NodeStatus, printAll, succinct, 
 	}
 	if succinct {
 		if printAll || !nodeIsHealthy(node) {
-
 			fmt.Fprintf(w, "  %s%s\t%s\t%s\t%s\n", node.Name,
 				localStr, getPrimaryAddressIP(node),
-				GetPathConnectivityStatusType(GetHostPrimaryAddress(node)).String(),
-				GetPathConnectivityStatusType(node.Endpoint).String())
+				SummarizePathConnectivityStatusType(GetAllHostAddresses(node)).String(),
+				SummarizePathConnectivityStatusType(GetAllEndpointAddresses(node)).String())
 		}
 	} else {
 		fmt.Fprintf(w, "  %s%s:\n", node.Name, localStr)
 		formatPathStatus(w, "Host", GetHostPrimaryAddress(node), "    ", verbose)
-		if verbose && node.Host != nil {
+		unhealthyPaths := !allPathsAreHealthyOrUnknown(GetHostSecondaryAddresses(node))
+		if (verbose || unhealthyPaths) && node.Host != nil {
 			for _, addr := range node.Host.SecondaryAddresses {
 				formatPathStatus(w, "Secondary", addr, "      ", verbose)
 			}
 		}
-		formatPathStatus(w, "Endpoint", node.Endpoint, "    ", verbose)
+		formatPathStatus(w, "Endpoint", GetEndpointPrimaryAddress(node), "    ", verbose)
+		unhealthyPaths = !allPathsAreHealthyOrUnknown(GetEndpointSecondaryAddresses(node))
+		if (verbose || unhealthyPaths) && node.HealthEndpoint != nil {
+			for _, addr := range node.HealthEndpoint.SecondaryAddresses {
+				formatPathStatus(w, "Secondary", addr, "      ", verbose)
+			}
+		}
 	}
 }
 
