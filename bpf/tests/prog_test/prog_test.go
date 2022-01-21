@@ -344,7 +344,9 @@ func modifyMapSpecs(spec *ebpf.CollectionSpec) {
 
 		// Drain Extra section of legacy bpf_elf_map definitions. The library
 		// rejects any bytes left over in Extra on load.
-		io.Copy(io.Discard, &m.Extra)
+		if m.Extra != nil {
+			io.Copy(io.Discard, m.Extra)
+		}
 	}
 }
 
