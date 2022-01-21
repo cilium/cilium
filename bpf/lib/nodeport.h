@@ -1776,6 +1776,11 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 #endif
 				 BPF_FIB_LOOKUP_OUTPUT);
 		if (ret != 0) {
+			char fmt[] = "fib_drop %d %x %x\n";
+			trace_printk(fmt, sizeof(fmt), ret,
+				     fib_params.l.ipv4_src,
+				     fib_params.l.ipv4_dst);
+
 			ret = DROP_NO_FIB;
 			goto drop_err;
 		}
