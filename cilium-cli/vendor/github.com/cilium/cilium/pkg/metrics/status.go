@@ -128,14 +128,17 @@ func (s *statusCollector) Collect(ch chan<- prometheus.Metric) {
 	)
 
 	for _, nodeStatus := range healthStatusResponse.Payload.Nodes {
-		switch healthClientPkg.GetPathConnectivityStatusType(healthClientPkg.GetHostPrimaryAddress(nodeStatus)) {
-		case healthClientPkg.ConnStatusUnreachable:
-			unreachableNodes++
+		for _, addr := range healthClientPkg.GetAllHostAddresses(nodeStatus) {
+			if healthClientPkg.GetPathConnectivityStatusType(addr) == healthClientPkg.ConnStatusUnreachable {
+				unreachableNodes++
+				break
+			}
 		}
-		if nodeStatus.Endpoint != nil {
-			switch healthClientPkg.GetPathConnectivityStatusType(nodeStatus.Endpoint) {
-			case healthClientPkg.ConnStatusUnreachable:
+
+		for _, addr := range healthClientPkg.GetAllEndpointAddresses(nodeStatus) {
+			if healthClientPkg.GetPathConnectivityStatusType(addr) == healthClientPkg.ConnStatusUnreachable {
 				unreachableEndpoints++
+				break
 			}
 		}
 	}
