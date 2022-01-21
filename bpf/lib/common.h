@@ -194,10 +194,6 @@ __revalidate_data_pull(struct __ctx_buff *ctx, void **data, void **data_end,
 #define revalidate_data(ctx, data, data_end, ip)			\
 	__revalidate_data_pull(ctx, data, data_end, (void **)ip, sizeof(**ip), false)
 
-#define revalidate_data_with_eth_hlen(ctx, data, data_end, ip, eth_len)		\
-	____revalidate_data_pull(ctx, data, data_end, (void **)ip,	\
-				 sizeof(**ip), false, eth_len)
-
 /* Macros for working with L3 cilium defined IPV6 addresses */
 #define BPF_V6(dst, ...)	BPF_V6_1(dst, fetch_ipv6(__VA_ARGS__))
 #define BPF_V6_1(dst, ...)	BPF_V6_4(dst, __VA_ARGS__)
