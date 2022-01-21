@@ -114,6 +114,27 @@ func (in *IPAMStatus) DeepEqual(other *IPAMStatus) bool {
 		return false
 	}
 
+	if ((in.ReleaseIPs != nil) && (other.ReleaseIPs != nil)) || ((in.ReleaseIPs == nil) != (other.ReleaseIPs == nil)) {
+		in, other := &in.ReleaseIPs, &other.ReleaseIPs
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for key, inValue := range *in {
+				if otherValue, present := (*other)[key]; !present {
+					return false
+				} else {
+					if inValue != otherValue {
+						return false
+					}
+				}
+			}
+		}
+	}
+
 	return true
 }
 

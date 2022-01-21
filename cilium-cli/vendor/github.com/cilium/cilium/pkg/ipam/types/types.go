@@ -100,6 +100,11 @@ type IPAMSpec struct {
 	MaxAboveWatermark int `json:"max-above-watermark,omitempty"`
 }
 
+// IPReleaseStatus  defines the valid states in IP release handshake
+//
+// +kubebuilder:validation:Enum=marked-for-release;ready-for-release;do-not-release;released
+type IPReleaseStatus string
+
 // IPAMStatus is the IPAM status of a node
 //
 // This structure is embedded into v2.CiliumNode
@@ -114,6 +119,16 @@ type IPAMStatus struct {
 	//
 	// +optional
 	OperatorStatus OperatorStatus `json:"operator-status,omitempty"`
+
+	// ReleaseIPs tracks the state for every IP considered for release.
+	// value can be one of the following string :
+	// * marked-for-release : Set by operator as possible candidate for IP
+	// * ready-for-release  : Acknowledged as safe to release by agent
+	// * do-not-release     : IP already in use / not owned by the node. Set by agent
+	// * released           : IP successfully released. Set by operator
+	//
+	// +optional
+	ReleaseIPs map[string]IPReleaseStatus `json:"release-ips,omitempty"`
 }
 
 // OperatorStatus is the status used by cilium-operator to report
