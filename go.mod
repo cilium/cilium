@@ -42,7 +42,7 @@ require (
 	github.com/go-openapi/validate v0.20.1
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e
-	github.com/golang/protobuf v1.4.3
+	github.com/golang/protobuf v1.5.0
 	github.com/google/go-cmp v0.5.5
 	github.com/google/gopacket v1.1.19
 	github.com/google/gops v0.3.18
@@ -72,7 +72,7 @@ require (
 	github.com/sasha-s/go-deadlock v0.2.1-0.20190427202633-1595213edefa
 	github.com/servak/go-fastping v0.0.0-20160802140958-5718d12e20a0
 	github.com/shirou/gopsutil/v3 v3.21.2
-	github.com/sirupsen/logrus v1.7.0
+	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.1
@@ -84,7 +84,7 @@ require (
 	go.uber.org/goleak v1.1.10
 	go.universe.tf/metallb v0.9.6
 	golang.org/x/crypto v0.0.0-20210503195802-e9a32991a82e
-	golang.org/x/net v0.0.0-20210504132125-bbd867fde50d
+	golang.org/x/net v0.0.0-20211209124913-491a49abca63
 	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a
 	golang.org/x/sys v0.0.0-20210823070655-63515b42dcdf
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
@@ -92,18 +92,18 @@ require (
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20210506160403-92e472f520a5
 	google.golang.org/genproto v0.0.0-20210126160654-44e461bb6506
 	google.golang.org/grpc v1.29.1
-	google.golang.org/protobuf v1.25.0
+	google.golang.org/protobuf v1.26.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	gopkg.in/ini.v1 v1.62.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/api v0.21.3
-	k8s.io/apiextensions-apiserver v0.21.3
-	k8s.io/apimachinery v0.21.3
-	k8s.io/client-go v0.21.3
-	k8s.io/code-generator v0.21.3
-	k8s.io/klog/v2 v2.8.0
-	k8s.io/kube-openapi v0.0.0-20210305001622-591a79e4bda7
+	k8s.io/api v0.21.9
+	k8s.io/apiextensions-apiserver v0.21.9
+	k8s.io/apimachinery v0.21.9
+	k8s.io/client-go v0.21.9
+	k8s.io/code-generator v0.21.9
+	k8s.io/klog/v2 v2.9.0
+	k8s.io/kube-openapi v0.0.0-20211110012726-3cc51fd1e909
 	// We specify the controller-tools version here to be the version of the
 	// fork below, so that when we generate CRDs, the generated CRD contains
 	// version number of the tool. We want the version number to match up with
