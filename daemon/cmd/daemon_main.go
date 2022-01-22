@@ -1047,8 +1047,8 @@ func initializeFlags() {
 	flags.Bool(option.EnableK8sTerminatingEndpoint, true, "Enable auto-detect of terminating endpoint condition")
 	option.BindEnv(option.EnableK8sTerminatingEndpoint)
 
-	flags.Bool(option.DisableSipVerification, defaults.DisableSipVerification, "Disable source ip verification")
-	option.BindEnv(option.DisableSipVerification)
+	flags.Bool(option.EnableeSipVerification, defaults.EnableSipVerification, "Enable source ip verification")
+	option.BindEnv(option.EnableSipVerification)
 
 	viper.BindPFlags(flags)
 }
