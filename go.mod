@@ -89,11 +89,11 @@ require (
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v2 v2.3.0
-	k8s.io/api v0.19.12
-	k8s.io/apiextensions-apiserver v0.19.12
-	k8s.io/apimachinery v0.19.12
-	k8s.io/client-go v0.19.12
-	k8s.io/code-generator v0.19.12
+	k8s.io/api v0.19.16
+	k8s.io/apiextensions-apiserver v0.19.16
+	k8s.io/apimachinery v0.19.16
+	k8s.io/client-go v0.19.16
+	k8s.io/code-generator v0.19.16
 	k8s.io/klog/v2 v2.2.0
 	// We specify the controller-tools version here to be the version of the
 	// fork below, so that when we generate CRDs, the generated CRD contains
