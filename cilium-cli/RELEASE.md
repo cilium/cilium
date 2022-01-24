@@ -26,26 +26,12 @@ example, they will look as follows:
 
     git tag -a $RELEASE -m "$RELEASE release" $COMMIT_SHA && git push origin $RELEASE
 
-## Prepare the release notes
-
-Using https://github.com/cilium/release, prepare the release notes between the
-last minor version (latest patch) and current.
-
-    ./release --repo cilium/cilium-cli --base $LAST_RELEASE --head $COMMIT_SHA
-    **Other Changes:**
-    * install: Add a hidden --base-version flag (#418, @michi-covalent)
-    * Makefile: introduce GO_BUILD variable (#432, @tklauser)
-    * Prepare for release v0.8.5 (#428, @michi-covalent)
-    * Run "Post-test information gathering" step on cancellation (#426, @michi-covalent)
-    * skip Succeeded pods (#431, @xyz-li)
-    ... etc ...
-
 ## Update the GitHub release notes
 
 When a tag is pushed, a GitHub Action job takes care of creating a new GitHub
 draft release, building artifacts and attaching them to the draft release. Once
-the draft is ready, copy & paste the generated release notes manually and publish
-the release.
+the draft is ready, use the "Auto-generate release notes" button to generate
+the release notes from PR titles, review them and publish the release.
 
 ## (OPTIONAL) Update the Homebrew formula
 
