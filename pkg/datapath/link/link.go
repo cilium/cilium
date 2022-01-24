@@ -4,30 +4,28 @@
 package link
 
 import (
+	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 )
 
-var linkCache ifNameCache
+var (
+	// linkCache is the singleton instance of the LinkCache, only needed to
+	// ensure that the single controller used to update the LinkCache is
+	// triggered exactly once and the same instance is handed to all users.
+	linkCache LinkCache
+	once      sync.Once
+)
 
 func init() {
-	go func() {
-		log := logging.DefaultLogger.WithField(logfields.LogSubsys, "link")
-		for {
-			if err := linkCache.syncCache(); err != nil {
-				log.WithError(err).Error("failed to obtain network links. stopping cache sync")
-				return
-			}
-			time.Sleep(15 * time.Second)
-		}
-	}()
+	NewLinkCache()
 }
 
 // DeleteByName deletes the interface with the name ifName.
@@ -70,12 +68,30 @@ func GetIfIndex(ifName string) (uint32, error) {
 	return uint32(iface.Attrs().Index), nil
 }
 
-type ifNameCache struct {
+type LinkCache struct {
 	mu          lock.RWMutex
 	indexToName map[int]string
 }
 
-func (c *ifNameCache) syncCache() error {
+// NewLinkCache begins monitoring local interfaces for changes in order to
+// track local link information.
+func NewLinkCache() *LinkCache {
+	once.Do(func() {
+		linkCache = LinkCache{}
+		controller.NewManager().UpdateController("link-cache",
+			controller.ControllerParams{
+				RunInterval: 15 * time.Second,
+				DoFunc: func(ctx context.Context) error {
+					return linkCache.syncCache()
+				},
+			},
+		)
+	})
+
+	return &linkCache
+}
+
+func (c *LinkCache) syncCache() error {
 	links, err := netlink.LinkList()
 	if err != nil {
 		return err
@@ -92,7 +108,7 @@ func (c *ifNameCache) syncCache() error {
 	return nil
 }
 
-func (c *ifNameCache) lookupName(ifIndex int) (string, bool) {
+func (c *LinkCache) lookupName(ifIndex int) (string, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
