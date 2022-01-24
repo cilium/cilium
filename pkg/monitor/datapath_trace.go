@@ -14,6 +14,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/types"
@@ -194,7 +195,7 @@ func (n *TraceNotify) DataOffset() uint {
 }
 
 // DumpInfo prints a summary of the trace messages.
-func (n *TraceNotify) DumpInfo(data []byte, numeric DisplayFormat) {
+func (n *TraceNotify) DumpInfo(data []byte, numeric DisplayFormat, linkMonitor getters.LinkGetter) {
 	buf := bufio.NewWriter(os.Stdout)
 	hdrLen := n.DataOffset()
 	if n.encryptReason() != "" {
@@ -204,19 +205,21 @@ func (n *TraceNotify) DumpInfo(data []byte, numeric DisplayFormat) {
 		fmt.Fprintf(buf, "%s flow %#x ", n.traceSummary(), n.Hash)
 	}
 	n.dumpIdentity(buf, numeric)
+	ifname := linkMonitor.Name(n.Ifindex)
 	fmt.Fprintf(buf, " state %s ifindex %s orig-ip %s: %s\n", n.traceReason(),
-		ifname(int(n.Ifindex)), n.OriginalIP().String(), GetConnectionSummary(data[hdrLen:]))
+		ifname, n.OriginalIP().String(), GetConnectionSummary(data[hdrLen:]))
 	buf.Flush()
 }
 
 // DumpVerbose prints the trace notification in human readable form
-func (n *TraceNotify) DumpVerbose(dissect bool, data []byte, prefix string, numeric DisplayFormat) {
+func (n *TraceNotify) DumpVerbose(dissect bool, data []byte, prefix string, numeric DisplayFormat, linkMonitor getters.LinkGetter) {
 	buf := bufio.NewWriter(os.Stdout)
 	fmt.Fprintf(buf, "%s MARK %#x FROM %d %s: %d bytes (%d captured), state %s",
 		prefix, n.Hash, n.Source, api.TraceObservationPoint(n.ObsPoint), n.OrigLen, n.CapLen, connState(n.Reason))
 
 	if n.Ifindex != 0 {
-		fmt.Fprintf(buf, ", interface %s", ifname(int(n.Ifindex)))
+		ifname := linkMonitor.Name(n.Ifindex)
+		fmt.Fprintf(buf, ", interface %s", ifname)
 	}
 
 	if n.SrcLabel != 0 || n.DstLabel != 0 {
@@ -243,8 +246,8 @@ func (n *TraceNotify) DumpVerbose(dissect bool, data []byte, prefix string, nume
 	buf.Flush()
 }
 
-func (n *TraceNotify) getJSON(data []byte, cpuPrefix string) (string, error) {
-	v := TraceNotifyToVerbose(n)
+func (n *TraceNotify) getJSON(data []byte, cpuPrefix string, linkMonitor getters.LinkGetter) (string, error) {
+	v := TraceNotifyToVerbose(n, linkMonitor)
 	v.CPUPrefix = cpuPrefix
 	hdrLen := n.DataOffset()
 	if n.CapLen > 0 && len(data) > int(hdrLen) {
@@ -256,8 +259,8 @@ func (n *TraceNotify) getJSON(data []byte, cpuPrefix string) (string, error) {
 }
 
 // DumpJSON prints notification in json format
-func (n *TraceNotify) DumpJSON(data []byte, cpuPrefix string) {
-	resp, err := n.getJSON(data, cpuPrefix)
+func (n *TraceNotify) DumpJSON(data []byte, cpuPrefix string, linkMonitor getters.LinkGetter) {
+	resp, err := n.getJSON(data, cpuPrefix, linkMonitor)
 	if err == nil {
 		fmt.Println(resp)
 	}
@@ -283,11 +286,12 @@ type TraceNotifyVerbose struct {
 }
 
 // TraceNotifyToVerbose creates verbose notification from base TraceNotify
-func TraceNotifyToVerbose(n *TraceNotify) TraceNotifyVerbose {
+func TraceNotifyToVerbose(n *TraceNotify, linkMonitor getters.LinkGetter) TraceNotifyVerbose {
+	ifname := linkMonitor.Name(n.Ifindex)
 	return TraceNotifyVerbose{
 		Type:             "trace",
 		Mark:             fmt.Sprintf("%#x", n.Hash),
-		Ifindex:          ifname(int(n.Ifindex)),
+		Ifindex:          ifname,
 		State:            connState(n.Reason),
 		ObservationPoint: api.TraceObservationPoint(n.ObsPoint),
 		TraceSummary:     n.traceSummary(),

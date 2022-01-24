@@ -41,7 +41,6 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	ciliumMonitor "github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 )
@@ -112,7 +111,6 @@ func (d *Daemon) launchHubble() {
 	}
 
 	d.linkCache = link.NewLinkCache()
-	ciliumMonitor.Init(d.linkCache)
 	payloadParser, err := parser.New(logger, d, d, d, d, d, d.linkCache)
 	if err != nil {
 		logger.WithError(err).Error("Failed to initialize Hubble")

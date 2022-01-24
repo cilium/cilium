@@ -45,7 +45,8 @@ programs attached to endpoints and devices. This includes:
 			runMonitor(args)
 		},
 	}
-	printer    = format.NewMonitorFormatter(format.INFO)
+	linkCache  = link.NewLinkCache()
+	printer    = format.NewMonitorFormatter(format.INFO, linkCache)
 	socketPath = ""
 	verbosity  = []bool{}
 )
@@ -240,8 +241,6 @@ func runMonitor(args []string) {
 				nm.Cpus, nm.Npages, nm.Pagesize)
 		}
 	}
-	linkCache := link.NewLinkCache()
-	monitor.Init(linkCache)
 	fmt.Fprintf(os.Stderr, "Press Ctrl-C to quit\n")
 
 	// On EOF, retry
