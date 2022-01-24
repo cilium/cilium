@@ -6,6 +6,7 @@ package link
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -113,7 +114,17 @@ func (c *LinkCache) lookupName(ifIndex int) (string, bool) {
 }
 
 // GetIfNameCached returns the name of an interface (if it exists) by looking
-// it up in a regularly updated cache
+// it up in a regularly updated cache. The return result is the same as a map
+// lookup, ie nil, false if there is no entry cached for this ifindex.
 func (c *LinkCache) GetIfNameCached(ifIndex int) (string, bool) {
 	return c.lookupName(ifIndex)
+}
+
+// Name returns the name of a link by looking up the 'LinkCache', or returns a
+// string containing the ifindex on cache miss.
+func (c *LinkCache) Name(ifIndex uint32) string {
+	if name, ok := c.lookupName(int(ifIndex)); ok {
+		return name
+	}
+	return strconv.Itoa(int(ifIndex))
 }

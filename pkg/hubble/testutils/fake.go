@@ -328,8 +328,12 @@ var NoopEndpointGetter = FakeEndpointGetter{
 
 type FakeLinkGetter struct{}
 
+func (e *FakeLinkGetter) Name(ifindex uint32) string {
+	return "lo"
+}
+
 func (e *FakeLinkGetter) GetIfNameCached(ifindex int) (string, bool) {
-	return "lo", false
+	return e.Name(uint32(ifindex)), true
 }
 
 var NoopLinkGetter = FakeLinkGetter{}

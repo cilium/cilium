@@ -4,8 +4,6 @@
 package monitor
 
 import (
-	"fmt"
-
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 )
 
@@ -22,9 +20,5 @@ func Init(linkGetter getters.LinkGetter) {
 }
 
 func ifname(ifindex int) string {
-	if name, ok := linkMonitor.GetIfNameCached(ifindex); ok {
-		return name
-	}
-
-	return fmt.Sprintf("%d", ifindex)
+	return linkMonitor.Name(uint32(ifindex))
 }
