@@ -46,6 +46,7 @@ func noopParser(t *testing.T) *parser.Parser {
 		&testutils.NoopDNSGetter,
 		&testutils.NoopIPGetter,
 		&testutils.NoopServiceGetter,
+		&testutils.NoopLinkGetter,
 	)
 	require.NoError(t, err)
 	return pp

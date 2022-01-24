@@ -18,6 +18,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/monitor/agent/listener"
@@ -239,6 +240,8 @@ func runMonitor(args []string) {
 				nm.Cpus, nm.Npages, nm.Pagesize)
 		}
 	}
+	linkCache := link.NewLinkCache()
+	monitor.Init(linkCache)
 	fmt.Fprintf(os.Stderr, "Press Ctrl-C to quit\n")
 
 	// On EOF, retry
