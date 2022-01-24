@@ -360,9 +360,6 @@ func initKubeProxyReplacementOptions() (bool, error) {
 		}
 
 		if option.Config.EnableRecorder {
-			if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
-				return false, fmt.Errorf("pcap recorder --%s currently only supported for --%s=%s", option.EnableRecorder, option.DatapathMode, datapathOption.DatapathModeLBOnly)
-			}
 			found := false
 			if h := probesManager.GetHelpers("xdp"); h != nil {
 				if _, ok := h["bpf_ktime_get_boot_ns"]; ok {
