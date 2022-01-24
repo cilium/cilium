@@ -15,6 +15,7 @@ import (
 	"github.com/cloudflare/cfssl/signer"
 	"github.com/cloudflare/cfssl/signer/local"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium-cli/defaults"
@@ -47,26 +48,25 @@ func NewCertManager(client k8sCertManagerImplementation, p Parameters) *CertMana
 	}
 }
 
-// GetOrCreateCASecret Returns a pointer to the secret data for the Cilium CA. If the
-// Cilium CA does not already exist this function will generate a new one
-// when createCA is true.
-func (c *CertManager) GetOrCreateCASecret(ctx context.Context, caSecretName string, createCA bool) (*corev1.Secret, error) {
+// GetOrCreateCASecret Returns a pointer to the secret data for the Cilium CA
+// and true when it was created, false otherwise. If the Cilium CA does not
+// already exist this function will generate a new one when createCA is true.
+func (c *CertManager) GetOrCreateCASecret(ctx context.Context, caSecretName string, createCA bool) (*corev1.Secret, bool, error) {
 	s, err := c.client.GetSecret(ctx, c.params.Namespace, caSecretName, metav1.GetOptions{})
-	if err != nil {
-		if createCA {
-			if err := c.GenerateCA(); err != nil {
-				return nil, fmt.Errorf("unable to generate CA: %w", err)
-			}
-
-			s, err = c.StoreCAInK8s(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("unable to store CA in secret: %w", err)
-			}
-		} else {
-			return nil, err
-		}
+	if !createCA || !errors.IsNotFound(err) {
+		return s, false, err
 	}
-	return s, err
+	// from here the CA Secret doesn't exists and we are requested to create
+	// it.
+	if err = c.GenerateCA(); err != nil {
+		return nil, false, fmt.Errorf("unable to generate CA: %w", err)
+	}
+
+	if s, err = c.StoreCAInK8s(ctx); err != nil {
+		return nil, false, fmt.Errorf("unable to store CA in secret: %w", err)
+	}
+
+	return s, true, nil
 }
 
 func (c *CertManager) LoadCAFromK8s(ctx context.Context, secret *corev1.Secret) error {
