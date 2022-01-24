@@ -326,6 +326,14 @@ var NoopEndpointGetter = FakeEndpointGetter{
 	},
 }
 
+type FakeLinkGetter struct{}
+
+func (e *FakeLinkGetter) GetIfNameCached(ifindex int) (string, bool) {
+	return "lo", false
+}
+
+var NoopLinkGetter = FakeLinkGetter{}
+
 // FakeIPGetter is used for unit tests that needs IPGetter.
 type FakeIPGetter struct {
 	OnGetK8sMetadata  func(ip net.IP) *ipcache.K8sMetadata

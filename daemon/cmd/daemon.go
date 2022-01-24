@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/loader"
@@ -154,6 +155,7 @@ type Daemon struct {
 	// endpoint's routing in ENI or Azure IPAM mode
 	healthEndpointRouting *linuxrouting.RoutingInfo
 
+	linkCache      *link.LinkCache
 	hubbleObserver *observer.LocalObserverServer
 
 	// k8sCachesSynced is closed when all essential Kubernetes caches have

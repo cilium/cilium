@@ -24,10 +24,6 @@ var (
 	once      sync.Once
 )
 
-func init() {
-	NewLinkCache()
-}
-
 // DeleteByName deletes the interface with the name ifName.
 func DeleteByName(ifName string) error {
 	iface, err := netlink.LinkByName(ifName)
@@ -118,6 +114,6 @@ func (c *LinkCache) lookupName(ifIndex int) (string, bool) {
 
 // GetIfNameCached returns the name of an interface (if it exists) by looking
 // it up in a regularly updated cache
-func GetIfNameCached(ifIndex int) (string, bool) {
-	return linkCache.lookupName(ifIndex)
+func (c *LinkCache) GetIfNameCached(ifIndex int) (string, bool) {
+	return c.lookupName(ifIndex)
 }
