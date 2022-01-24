@@ -288,13 +288,6 @@ func (e *Endpoint) updateAndOverrideEndpointOptions(opts option.OptionMap) (opts
 	if opts == nil {
 		opts = make(option.OptionMap)
 	}
-	// Apply possible option changes before regenerating maps, as map regeneration
-	// depends on the conntrack options
-	if e.desiredPolicy != nil && e.desiredPolicy.L4Policy != nil {
-		if e.desiredPolicy.L4Policy.RequiresConntrack() {
-			opts[option.Conntrack] = option.OptionEnabled
-		}
-	}
 
 	optsChanged = e.applyOptsLocked(opts)
 	return

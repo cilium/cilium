@@ -324,8 +324,10 @@ Removed Options
 
 * The endpoint config option ``Conntrack`` was removed. The option was used
   to disable the stateful connection tracking for the endpoint. However, many
-  Cilium features depend on the tracking. Therefore the option to disable
-  the connection tracking was removed.
+  Cilium features depend on the tracking. Therefore the option to disable the
+  connection tracking was removed. In addition, we deprecated the
+  ``disable-conntrack`` option and made it non-operational. It will be removed
+  in version 1.13.
 
 .. _1.11_upgrade_notes:
 
