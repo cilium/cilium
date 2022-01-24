@@ -13,6 +13,7 @@
 #include <linux/ipv6.h>
 
 #include "common.h"
+#include "loop.h"
 #include "drop.h"
 #include "signal.h"
 #include "conntrack.h"
@@ -233,7 +234,7 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx,
 		rstate.common.host_local = ostate->common.host_local;
 	}
 
-#pragma unroll
+__bounded_loop
 	for (retries = 0; retries < SNAT_COLLISION_RETRIES; retries++) {
 		if (!snat_v4_lookup(&rtuple)) {
 			ostate->common.created = bpf_mono_now();
@@ -720,7 +721,7 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 		rstate.common.host_local = ostate->common.host_local;
 	}
 
-#pragma unroll
+__bounded_loop
 	for (retries = 0; retries < SNAT_COLLISION_RETRIES; retries++) {
 		if (!snat_v6_lookup(&rtuple)) {
 			ostate->common.created = bpf_mono_now();
