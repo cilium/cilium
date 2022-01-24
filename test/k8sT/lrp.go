@@ -45,6 +45,8 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sLRPTests", func() {
 			be2Name        = "k8s2-backend"
 			feFilter       = "role=frontend"
 			beFilter       = "role=backend"
+			beFilter2      = "role=lrpAddrBackend"
+			lrpAddrIP      = "169.254.169.254"
 		)
 
 		var (
@@ -55,6 +57,10 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sLRPTests", func() {
 			curl4UDP       string
 			curl4in6TCP    string
 			curl4in6UDP    string
+			curlTCPAddr    string
+			curlUDPAddr    string
+			be3Name        string
+			be4Name        string
 		)
 
 		BeforeAll(func() {
@@ -65,7 +71,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sLRPTests", func() {
 			lrpSvcYAML = helpers.ManifestGet(kubectl.BasePath(), "lrp-svc.yaml")
 			res := kubectl.ApplyDefault(deploymentYAML)
 			res.ExpectSuccess("Unable to apply %s", deploymentYAML)
-			for _, pod := range []string{feFilter, beFilter} {
+			for _, pod := range []string{feFilter, beFilter, beFilter2} {
 				err := kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", pod), helpers.HelperTimeout)
 				Expect(err).Should(BeNil())
 			}
@@ -82,6 +88,12 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sLRPTests", func() {
 			curl4UDP = helpers.CurlFailNoStats(tftp4SVCURL)
 			curl4in6TCP = helpers.CurlFailNoStats(http4in6SVCURL)
 			curl4in6UDP = helpers.CurlFailNoStats(tftp4in6SVCURL)
+			curlTCPAddr = helpers.CurlFailNoStats(getHTTPLink(lrpAddrIP, 80))
+			curlUDPAddr = helpers.CurlFailNoStats(getTFTPLink(lrpAddrIP, 69))
+
+			// Hostnames for host networked pods
+			be3Name, _ = kubectl.GetNodeInfo(helpers.K8s1)
+			be4Name, _ = kubectl.GetNodeInfo(helpers.K8s2)
 		})
 
 		AfterAll(func() {
@@ -103,6 +115,8 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sLRPTests", func() {
 			for _, pod := range ciliumPods {
 				service := kubectl.CiliumExecMustSucceed(context.TODO(), pod, fmt.Sprintf("cilium service list | grep \" %s:\"", svcIP), "Cannot retrieve services on cilium pod")
 				service.ExpectContains("LocalRedirect", "LocalRedirect is not present in the cilium service list")
+				service2 := kubectl.CiliumExecMustSucceed(context.TODO(), pod, fmt.Sprintf("cilium service list | grep \" %s:\"", lrpAddrIP), "Cannot retrieve services on cilium pod")
+				service2.ExpectContains("LocalRedirect", "LocalRedirect is not present in the cilium service list for [%s]", lrpAddrIP)
 			}
 
 			By("Checking traffic goes to local backend")
@@ -156,6 +170,19 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sLRPTests", func() {
 					cmd:      curl4in6UDP,
 					want:     be2Name,
 					notWant:  be1Name,
+				},
+				// Address matcher test cases.
+				{
+					selector: "id=app1",
+					cmd:      curlTCPAddr,
+					want:     be3Name,
+					notWant:  be4Name,
+				},
+				{
+					selector: "id=app2",
+					cmd:      curlUDPAddr,
+					want:     be4Name,
+					notWant:  be3Name,
 				},
 			}
 
