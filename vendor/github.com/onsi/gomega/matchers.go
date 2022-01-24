@@ -357,16 +357,36 @@ func HaveKeyWithValue(key interface{}, value interface{}) types.GomegaMatcher {
 //    type Person struct {
 //        FirstName string
 //        LastName string
-//		  DOB time.Time
+//        DOB time.Time
 //    }
 //    Expect(book).To(HaveField("Title", "Les Miserables"))
 //    Expect(book).To(HaveField("Title", ContainSubstring("Les"))
-//    Expect(book).To(HaveField("Person.FirstName", Equal("Victor"))
-//    Expect(book).To(HaveField("Person.DOB.Year()", BeNumerically("<", 1900))
+//    Expect(book).To(HaveField("Author.FirstName", Equal("Victor"))
+//    Expect(book).To(HaveField("Author.DOB.Year()", BeNumerically("<", 1900))
 func HaveField(field string, expected interface{}) types.GomegaMatcher {
 	return &matchers.HaveFieldMatcher{
 		Field:    field,
 		Expected: expected,
+	}
+}
+
+// HaveValue applies the given matcher to the value of actual, optionally and
+// repeatedly dereferencing pointers or taking the concrete value of interfaces.
+// Thus, the matcher will always be applied to non-pointer and non-interface
+// values only. HaveValue will fail with an error if a pointer or interface is
+// nil. It will also fail for more than 31 pointer or interface dereferences to
+// guard against mistakenly applying it to arbitrarily deep linked pointers.
+//
+// HaveValue differs from gstruct.PointTo in that it does not expect actual to
+// be a pointer (as gstruct.PointTo does) but instead also accepts non-pointer
+// and even interface values.
+//
+//   actual := 42
+//   Expect(actual).To(HaveValue(42))
+//   Expect(&actual).To(HaveValue(42))
+func HaveValue(matcher types.GomegaMatcher) types.GomegaMatcher {
+	return &matchers.HaveValueMatcher{
+		Matcher: matcher,
 	}
 }
 
