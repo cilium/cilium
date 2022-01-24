@@ -1468,7 +1468,6 @@ type DaemonConfig struct {
 	ConfigDir                     string
 	Debug                         bool
 	DebugVerbose                  []string
-	DisableConntrack              bool
 	EnableHostReachableServices   bool
 	EnableHostServicesTCP         bool
 	EnableHostServicesUDP         bool
@@ -2509,7 +2508,6 @@ func (c *DaemonConfig) Populate() {
 	c.DebugVerbose = viper.GetStringSlice(DebugVerbose)
 	c.DirectRoutingDevice = viper.GetString(DirectRoutingDevice)
 	c.LBDevInheritIPAddr = viper.GetString(LBDevInheritIPAddr)
-	c.DisableConntrack = viper.GetBool(DisableConntrack)
 	c.EnableIPv4 = viper.GetBool(EnableIPv4Name)
 	c.EnableIPv6 = viper.GetBool(EnableIPv6Name)
 	c.EnableIPv6NDP = viper.GetBool(EnableIPv6NDPName)

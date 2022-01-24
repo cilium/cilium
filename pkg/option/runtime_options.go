@@ -13,7 +13,6 @@ const (
 	PolicyTracing       = "PolicyTracing"
 	ConntrackAccounting = "ConntrackAccounting"
 	ConntrackLocal      = "ConntrackLocal"
-	Conntrack           = "Conntrack"
 	Debug               = "Debug"
 	DebugLB             = "DebugLB"
 	DebugPolicy         = "DebugPolicy"
@@ -38,13 +37,13 @@ var (
 	specConntrackAccounting = Option{
 		Define:      "CONNTRACK_ACCOUNTING",
 		Description: "Enable per flow (conntrack) statistics",
-		Requires:    []string{Conntrack},
+		Requires:    nil,
 	}
 
 	specConntrackLocal = Option{
 		Define:      "CONNTRACK_LOCAL",
 		Description: "Use endpoint dedicated tracking table instead of global one",
-		Requires:    []string{Conntrack},
+		Requires:    nil,
 	}
 
 	specDebug = Option{
@@ -93,7 +92,7 @@ var (
 	specNAT46 = Option{
 		Define:      "ENABLE_NAT46",
 		Description: "Enable automatic NAT46 translation",
-		Requires:    []string{Conntrack},
+		Requires:    nil,
 		Verify: func(key string, val string) error {
 			opt, err := NormalizeBool(val)
 			if err != nil {

@@ -296,6 +296,7 @@ func initializeFlags() {
 
 	flags.Bool(option.DisableConntrack, false, "Disable connection tracking")
 	option.BindEnv(option.DisableConntrack)
+	flags.MarkDeprecated(option.DisableConntrack, "This option is no-op and it will be removed in v1.13")
 
 	flags.Bool(option.EnableEndpointRoutes, defaults.EnableEndpointRoutes, "Use per endpoint routes instead of routing via cilium_host")
 	option.BindEnv(option.EnableEndpointRoutes)
@@ -1274,8 +1275,7 @@ func initEnv(cmd *cobra.Command) {
 	option.Config.Opts.SetBool(option.TraceNotify, true)
 	option.Config.Opts.SetBool(option.PolicyVerdictNotify, true)
 	option.Config.Opts.SetBool(option.PolicyTracing, option.Config.EnableTracing)
-	option.Config.Opts.SetBool(option.Conntrack, !option.Config.DisableConntrack)
-	option.Config.Opts.SetBool(option.ConntrackAccounting, !option.Config.DisableConntrack)
+	option.Config.Opts.SetBool(option.ConntrackAccounting, true)
 	option.Config.Opts.SetBool(option.ConntrackLocal, false)
 	option.Config.Opts.SetBool(option.PolicyAuditMode, option.Config.PolicyAuditMode)
 
