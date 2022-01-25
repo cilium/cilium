@@ -12,6 +12,8 @@ import (
 )
 
 const (
+	// ClusterName is the default cluster name
+	ClusterName = ciliumDefaults.ClusterName
 	// DialTimeout is the timeout that is used when establishing a new
 	// connection.
 	DialTimeout = 5 * time.Second
@@ -21,8 +23,10 @@ const (
 	PprofPort = 6062
 	// RetryTimeout is the duration to wait between reconnection attempts.
 	RetryTimeout = 30 * time.Second
-	// HubbleTarget is the address of the local Hubble instance.
-	HubbleTarget = "unix://" + ciliumDefaults.HubbleSockPath
+	// PeerTarget is the address of the peer service.
+	PeerTarget = "unix://" + ciliumDefaults.HubbleSockPath
+	// PeerServiceName is the name of the peer service, should it exist.
+	PeerServiceName = "hubble-peer"
 
 	// SortBufferMaxLen is the max number of flows that can be buffered for
 	// sorting before being sen to the client.

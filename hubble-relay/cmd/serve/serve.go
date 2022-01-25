@@ -22,6 +22,7 @@ import (
 )
 
 const (
+	keyClusterName            = "cluster-name"
 	keyPprof                  = "pprof"
 	keyPprofPort              = "pprof-port"
 	keyGops                   = "gops"
@@ -52,6 +53,10 @@ func New(vp *viper.Viper) *cobra.Command {
 		},
 	}
 	flags := cmd.Flags()
+	flags.String(
+		keyClusterName,
+		defaults.ClusterName,
+		"Name of the current cluster")
 	flags.Bool(
 		keyPprof, false, "Enable serving the pprof debugging API",
 	)
@@ -79,7 +84,7 @@ func New(vp *viper.Viper) *cobra.Command {
 		"Address on which to listen")
 	flags.String(
 		keyPeerService,
-		defaults.HubbleTarget,
+		defaults.PeerTarget,
 		"Address of the server that implements the peer gRPC service")
 	flags.Int(
 		keySortBufferMaxLen,
@@ -136,8 +141,9 @@ func runServe(vp *viper.Viper) error {
 	logger := logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-relay")
 
 	opts := []server.Option{
+		server.WithLocalClusterName(vp.GetString(keyClusterName)),
 		server.WithDialTimeout(vp.GetDuration(keyDialTimeout)),
-		server.WithHubbleTarget(vp.GetString(keyPeerService)),
+		server.WithPeerTarget(vp.GetString(keyPeerService)),
 		server.WithListenAddress(vp.GetString(keyListenAddress)),
 		server.WithRetryTimeout(vp.GetDuration(keyRetryTimeout)),
 		server.WithSortBufferMaxLen(vp.GetInt(keySortBufferMaxLen)),
