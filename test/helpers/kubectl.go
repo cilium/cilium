@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -1707,8 +1708,18 @@ func (kub *Kubectl) DeleteAndWait(filePath string, ignoreNotFound bool) *CmdRes 
 	if ignoreNotFound {
 		ignoreOpt = "--ignore-not-found"
 	}
-	return kub.ExecMiddle(
-		fmt.Sprintf("%s delete -f  %s --wait %s", KubectlCmd, filePath, ignoreOpt))
+	cmd := fmt.Sprintf("%s delete -f  %s --wait %s", KubectlCmd, filePath, ignoreOpt)
+
+	if ignoreNotFound {
+		if _, err := os.Stat(filePath); errors.Is(err, os.ErrNotExist) {
+			return &CmdRes{
+				cmd:     cmd,
+				success: true,
+			}
+		}
+	}
+
+	return kub.ExecMiddle(cmd)
 }
 
 // DeleteLong deletes the Kubernetes manifest at path filepath with longer timeout.
