@@ -253,10 +253,10 @@ example patch that shows how this can be achieved.
                          },
                          failFast: true
                      )
-    diff --git a/test/k8sT/Nightly.go b/test/k8sT/Nightly.go
+    diff --git a/test/k8s/nightly.go b/test/k8s/nightly.go
     index 62b324619797..3f955c73a818 100644
-    --- a/test/k8sT/Nightly.go
-    +++ b/test/k8sT/Nightly.go
+    --- a/test/k8s/nightly.go
+    +++ b/test/k8s/nightly.go
     @@ -466,7 +466,7 @@ var _ = Describe("NightlyExamples", func() {
 
                     })
@@ -344,7 +344,7 @@ Triage process
       - The line on which the test failed, e.g.
         ::
 
-            github.com/cilium/cilium/test/k8sT/KafkaPolicies.go:202
+            github.com/cilium/cilium/test/k8s/kafka_policies.go:202
 
       - The error message, e.g.
         ::

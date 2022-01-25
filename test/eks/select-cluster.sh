@@ -42,5 +42,5 @@ do
 done
 
 echo "adding node registry as trusted"
-helm template registry-adder ../k8sT/manifests/registry-adder --set IP="$(../print-node-ip.sh)" > registry-adder.yaml
+helm template registry-adder ../k8s/manifests/registry-adder --set IP="$(../print-node-ip.sh)" > registry-adder.yaml
 kubectl apply -f registry-adder.yaml

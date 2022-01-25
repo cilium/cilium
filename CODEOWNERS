@@ -251,30 +251,30 @@ jenkinsfiles @cilium/ci-structure
 /test/ @cilium/ci-structure
 /test/Makefile* @cilium/ci-structure @cilium/build
 # Service handling tests
-/test/k8sT/Services.go @cilium/loadbalancer @cilium/ci-structure
+/test/k8s/services.go @cilium/loadbalancer @cilium/ci-structure
 /test/runtime/lb.go @cilium/loadbalancer @cilium/ci-structure
 # Datapath tests
 /test/bpf/ @cilium/bpf
 /test/bpf/check-complexity.sh @cilium/loader
 /test/bpf/verifier-test.sh @cilium/loader
-/test/k8sT/Bandwidth.go @cilium/bpf @cilium/ci-structure
-/test/k8sT/Chaos.go @cilium/bpf @cilium/ci-structure
-/test/k8sT/DatapathConfiguration.go @cilium/bpf @cilium/ci-structure
-/test/k8sT/Verifier.go @cilium/loader @cilium/ci-structure
+/test/k8s/bandwidth.go @cilium/bpf @cilium/ci-structure
+/test/k8s/chaos.go @cilium/bpf @cilium/ci-structure
+/test/k8s/datapath_configuration.go @cilium/bpf @cilium/ci-structure
+/test/k8s/verifier.go @cilium/loader @cilium/ci-structure
 /test/runtime/benchmark.go @cilium/bpf @cilium/ci-structure
 /test/runtime/connectivity.go @cilium/bpf @cilium/ci-structure
 # Policy tests
-/test/k8sT/PoliciesNightly.go @cilium/policy @cilium/ci-structure
-/test/k8sT/Policies.go @cilium/policy @cilium/ci-structure
-/test/k8sT/StressPolicy.go @cilium/policy @cilium/ci-structure
-/test/runtime/Policies.go @cilium/policy @cilium/ci-structure
+/test/k8s/net_policies_nightly.go @cilium/policy @cilium/ci-structure
+/test/k8s/net_policies.go @cilium/policy @cilium/ci-structure
+/test/k8s/stress_policy.go @cilium/policy @cilium/ci-structure
+/test/runtime/net_policies.go @cilium/policy @cilium/ci-structure
 # Hubble/monitoring tests
-/test/k8sT/hubble.go @cilium/hubble @cilium/ci-structure
+/test/k8s/hubble.go @cilium/hubble @cilium/ci-structure
 /test/runtime/monitor.go @cilium/hubble @cilium/ci-structure
 # L7 proxy tests
-/test/k8sT/fqdn.go @cilium/proxy @cilium/ci-structure
-/test/k8sT/KafkaPolicies.go @cilium/proxy @cilium/ci-structure
-/test/k8sT/l7_demos.go @cilium/proxy @cilium/ci-structure
+/test/k8s/fqdn.go @cilium/proxy @cilium/ci-structure
+/test/k8s/kafka_policies.go @cilium/proxy @cilium/ci-structure
+/test/k8s/l7_demos.go @cilium/proxy @cilium/ci-structure
 /test/runtime/cassandra.go @cilium/proxy @cilium/ci-structure
 /test/runtime/fqdn.go @cilium/proxy @cilium/ci-structure
 /test/runtime/kafka.go @cilium/proxy @cilium/ci-structure
@@ -282,10 +282,10 @@ jenkinsfiles @cilium/ci-structure
 # Standalone L4LB tests
 /test/l4lb @cilium/loadbalancer @cilium/ci-structure
 # Misc. tests
-/test/k8sT/cli.go @cilium/cli @cilium/ci-structure
-/test/k8sT/Health.go @cilium/health @cilium/ci-structure
-/test/k8sT/Identity.go @cilium/agent @cilium/ci-structure
-/test/k8sT/Updates.go @cilium/agent @cilium/ci-structure
+/test/k8s/cli.go @cilium/cli @cilium/ci-structure
+/test/k8s/health.go @cilium/health @cilium/ci-structure
+/test/k8s/identity.go @cilium/agent @cilium/ci-structure
+/test/k8s/updates.go @cilium/agent @cilium/ci-structure
 /test/runtime/kvstore.go @cilium/kvstore @cilium/ci-structure
 /test/runtime/chaos_agent.go @cilium/agent @cilium/ci-structure
 /test/runtime/chaos_endpoint.go @cilium/endpoint @cilium/ci-structure

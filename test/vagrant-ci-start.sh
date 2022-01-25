@@ -43,7 +43,7 @@ ${KUBECTL} get nodes
 
 if [ -n "${CILIUM_REGISTRY}" ]; then
     echo "adding local docker registry to cluster"
-    helm template registry-adder k8sT/manifests/registry-adder --set IP="$(./print-node-ip.sh)" | ${KUBECTL} apply -f -
+    helm template registry-adder k8s/manifests/registry-adder --set IP="$(./print-node-ip.sh)" | ${KUBECTL} apply -f -
 fi
 
 echo "labeling nodes"

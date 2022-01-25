@@ -41,7 +41,7 @@ const (
 	CiliumPath = "/src/github.com/cilium/cilium/test"
 
 	// K8sManifestBase tells ginkgo suite where to look for manifests
-	K8sManifestBase = "k8sT/manifests"
+	K8sManifestBase = "k8s/manifests"
 
 	// VM / Test suite constants.
 	K8s     = "k8s"
