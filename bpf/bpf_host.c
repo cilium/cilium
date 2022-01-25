@@ -860,11 +860,11 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 	bpf_clear_meta(ctx);
 
 	if (from_host) {
+		__u32 magic;
 		enum trace_point trace = TRACE_FROM_HOST;
-		bool from_proxy;
 
-		from_proxy = inherit_identity_from_host(ctx, &identity);
-		if (from_proxy)
+		magic = inherit_identity_from_host(ctx, &identity);
+		if (magic == MARK_MAGIC_PROXY_INGRESS ||  magic == MARK_MAGIC_PROXY_EGRESS)
 			trace = TRACE_FROM_PROXY;
 		send_trace_notify(ctx, trace, identity, 0, 0,
 				  ctx->ingress_ifindex, 0, TRACE_PAYLOAD_LEN);
