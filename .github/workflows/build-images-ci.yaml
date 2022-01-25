@@ -10,6 +10,7 @@ on:
   push:
     branches:
       - v1.10
+      - ft/v1.10/**
 
 permissions: read-all
 
