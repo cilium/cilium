@@ -629,6 +629,18 @@
      - Labels to add to ServiceMonitor hubble
      - object
      - ``{}``
+   * - hubble.peerService.clusterDomain
+     - The cluster domain to use to query the Hubble Peer service. It should be the local cluster.
+     - string
+     - ``"cluster.local"``
+   * - hubble.peerService.enabled
+     - Enable a K8s Service for the Peer service, so that it can be accessed by a non-local client
+     - bool
+     - ``true``
+   * - hubble.peerService.servicePort
+     - Service Port for the Peer service.
+     - int
+     - ``4254``
    * - hubble.relay.dialTimeout
      - Dial timeout to connect to the local hubble instance to receive peer information (e.g. "30s").
      - string
