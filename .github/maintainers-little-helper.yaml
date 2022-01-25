@@ -50,7 +50,7 @@ flake-tracker:
     - ci/flake
   jenkins-config:
     jenkins-url: https://jenkins.cilium.io
-    regex-trigger: (^/?test(-me-please)?)
+    regex-trigger: (^/test)
     stable-jobs:
     - cilium-master-gke
     - cilium-master-k8s-1.16-kernel-4.9
