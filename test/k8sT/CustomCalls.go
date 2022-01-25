@@ -102,8 +102,10 @@ var _ = SkipDescribeIf(func() bool {
 
 		AfterAll(func() {
 			deploymentManager.DeleteAll()
+			kubectl.ScaleDownDNS()
+			ExpectAllPodsTerminated(kubectl)
 			deploymentManager.DeleteCilium()
-			kubectl.RedeployDNS()
+			kubectl.ScaleUpDNS()
 		})
 
 		installPods := func() {
