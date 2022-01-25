@@ -788,7 +788,8 @@ drop_err_fib:
 	return ret;
 }
 
-static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto)
+static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto,
+					     __u32 src_id __maybe_unused)
 {
 	int encrypt_iface = 0;
 	int ret = 0;
@@ -818,21 +819,21 @@ static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto
 }
 
 #else /* TUNNEL_MODE */
-static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx)
+static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx, __u32 src_id)
 {
-	__u32 seclabel, tunnel_endpoint = 0;
+	__u32 tunnel_endpoint = 0;
 
-	seclabel = get_identity(ctx);
 	tunnel_endpoint = ctx_load_meta(ctx, 4);
 	ctx->mark = 0;
 
 	bpf_clear_meta(ctx);
-	return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, seclabel, TRACE_PAYLOAD_LEN);
+	return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, src_id, TRACE_PAYLOAD_LEN);
 }
 
-static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto __maybe_unused)
+static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto __maybe_unused,
+					     __u32 src_id)
 {
-	return do_netdev_encrypt_encap(ctx);
+	return do_netdev_encrypt_encap(ctx, src_id);
 }
 #endif /* TUNNEL_MODE */
 #endif /* ENABLE_IPSEC */
@@ -845,19 +846,9 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 	int ret;
 
 #ifdef ENABLE_IPSEC
-	if (from_host) {
-		__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
-
-		if (magic == MARK_MAGIC_ENCRYPT)
-			return do_netdev_encrypt(ctx, proto);
-	} else {
-		int done = do_decrypt(ctx, proto);
-
-		if (!done)
-			return CTX_ACT_OK;
-	}
+	if (!from_host && !do_decrypt(ctx, proto))
+		return CTX_ACT_OK;
 #endif
-	bpf_clear_meta(ctx);
 
 	if (from_host) {
 		__u32 magic;
@@ -866,6 +857,16 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 		magic = inherit_identity_from_host(ctx, &identity);
 		if (magic == MARK_MAGIC_PROXY_INGRESS ||  magic == MARK_MAGIC_PROXY_EGRESS)
 			trace = TRACE_FROM_PROXY;
+
+#ifdef ENABLE_IPSEC
+		if (magic == MARK_MAGIC_ENCRYPT) {
+			send_trace_notify(ctx, TRACE_FROM_STACK, identity, 0, 0,
+					  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED,
+					  TRACE_PAYLOAD_LEN);
+			return do_netdev_encrypt(ctx, proto, identity);
+		}
+#endif
+
 		send_trace_notify(ctx, trace, identity, 0, 0,
 				  ctx->ingress_ifindex, 0, TRACE_PAYLOAD_LEN);
 	} else {
@@ -873,6 +874,8 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 		send_trace_notify(ctx, TRACE_FROM_NETWORK, 0, 0, 0,
 				  ctx->ingress_ifindex, 0, TRACE_PAYLOAD_LEN);
 	}
+
+	bpf_clear_meta(ctx);
 
 	switch (proto) {
 # if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER
