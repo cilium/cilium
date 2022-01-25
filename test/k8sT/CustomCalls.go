@@ -17,7 +17,22 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 )
 
-var _ = Describe("K8sCustomCalls", func() {
+var _ = SkipDescribeIf(func() bool {
+	// Believe it or not, bpftool internally attempts to retrieve
+	// map info before updating a map, but BPF_OBJ_GET_INFO_BY_FD
+	// is not supported on kernel 4.9 (it was introduced in Linux
+	// 4.13). Skip on 4.9 kernels.
+	//
+	// This leaves us with 4.19 and net-next. Coverage should be
+	// identical on the two versions, so just run on net-next.
+	//
+	// Also skip on GKE because we do not have the source of the
+	// custom program available on a node, for the compiler pod to
+	// pick up (although technically, skipping 4.19 kernels already
+	// skips GKE).
+	return helpers.DoesNotRunOnNetNextKernel() ||
+		helpers.RunsOnGKE()
+}, "K8sCustomCalls", func() {
 
 	var (
 		kubectl *helpers.Kubectl
@@ -54,22 +69,7 @@ var _ = Describe("K8sCustomCalls", func() {
 		kubectl.ValidateNoErrorsInLogs(duration)
 	})
 
-	SkipContextIf(func() bool {
-		// Believe it or not, bpftool internally attempts to retrieve
-		// map info before updating a map, but BPF_OBJ_GET_INFO_BY_FD
-		// is not supported on kernel 4.9 (it was introduced in Linux
-		// 4.13). Skip on 4.9 kernels.
-		//
-		// This leaves us with 4.19 and net-next. Coverage should be
-		// identical on the two versions, so just run on net-next.
-		//
-		// Also skip on GKE because we do not have the source of the
-		// custom program available on a node, for the compiler pod to
-		// pick up (although technically, skipping 4.19 kernels already
-		// skips GKE).
-		return helpers.DoesNotRunOnNetNextKernel() ||
-			helpers.RunsOnGKE()
-	}, "Basic test with byte-counter", func() {
+	Context("Basic test with byte-counter", func() {
 
 		var (
 			yaml string
