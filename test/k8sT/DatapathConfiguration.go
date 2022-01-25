@@ -44,8 +44,10 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 
 	AfterAll(func() {
+		kubectl.ScaleDownDNS()
+		ExpectAllPodsTerminated(kubectl)
 		deploymentManager.DeleteCilium()
-		kubectl.RedeployDNS()
+		kubectl.ScaleUpDNS()
 		kubectl.CloseSSHClient()
 	})
 

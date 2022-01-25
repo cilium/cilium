@@ -2099,10 +2099,9 @@ func (kub *Kubectl) ScaleUpDNS() *CmdRes {
 	return res
 }
 
-// RedeployDNS deletes the kube-dns pods and does not wait for the deletion
-// to complete. Useful to ensure that the pods are recreated after datapath
-// configuration changes.
-func (kub *Kubectl) RedeployDNS() *CmdRes {
+// redeployDNS deletes the kube-dns pods and does not wait for the deletion
+// to complete.
+func (kub *Kubectl) redeployDNS() *CmdRes {
 	if res := kub.ScaleDownDNS(); !res.WasSuccessful() {
 		return res
 	}
@@ -2126,7 +2125,7 @@ func (kub *Kubectl) RedeployKubernetesDnsIfNecessary(force bool) {
 	}
 
 	ginkgoext.By("Restarting Kubernetes DNS (-l %s)", kubeDNSLabel)
-	res := kub.RedeployDNS()
+	res := kub.redeployDNS()
 	if !res.WasSuccessful() {
 		ginkgoext.Failf("Unable to delete DNS pods: %s", res.OutputPrettyPrint())
 	}
