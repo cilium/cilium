@@ -1,4 +1,8 @@
 {{- if .Values.hubble.relay.enabled }}
+{{- $peerSvcPort := .Values.hubble.peerService.servicePort -}}
+{{- if not .Values.hubble.peerService.servicePort }}
+{{- $peerSvcPort = (.Values.hubble.tls.enabled | ternary 443 80) -}}
+{{- end }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -7,7 +11,12 @@ metadata:
   namespace: {{ .Release.Namespace }}
 data:
   config.yaml: |
+    cluster-name: {{ .Values.cluster.name }}
+    {{- if and .Values.hubble.enabled .Values.hubble.peerService.enabled }}
+    peer-service: "hubble-peer.{{ .Release.Namespace }}.svc.{{ .Values.hubble.peerService.clusterDomain }}:{{ $peerSvcPort }}"
+    {{- else }}
     peer-service: unix://{{ .Values.hubble.socketPath }}
+    {{- end }}
     listen-address: {{ .Values.hubble.relay.listenHost }}:{{ .Values.hubble.relay.listenPort }}
     dial-timeout: {{ .Values.hubble.relay.dialTimeout }}
     retry-timeout: {{ .Values.hubble.relay.retryTimeout }}
