@@ -310,6 +310,10 @@ type Kubectl struct {
 	// ciliumOptions is a cache of the most recent configuration options
 	// used to install Cilium via CiliumInstall().
 	ciliumOptions map[string]string
+
+	// nDNSReplicas is the number of replicas for DNS pods in the cluster.
+	// Stored via kub.ScaleDownDNS(), used by kub.ScaleUpDNS().
+	nDNSReplicas int
 }
 
 // CreateKubectl initializes a Kubectl helper with the provided vmName and log
@@ -2047,11 +2051,63 @@ iteratePods:
 	}
 }
 
+func (kub *Kubectl) setDNSReplicas(nReplicas int) *CmdRes {
+	res := kub.ExecShort(fmt.Sprintf("%s get deploy -n %s -l %s -o jsonpath='{.items[*].metadata.name}'", KubectlCmd, KubeSystemNamespace, kubeDNSLabel))
+	if !res.WasSuccessful() {
+		return res
+	}
+
+	// kubectl -n kube-system patch deploy coredns --patch '{"spec": { "replicas":1}}'
+	name := res.Stdout()
+	spec := fmt.Sprintf("{\"spec\": { \"replicas\":%d}}", nReplicas)
+	return kub.ExecShort(fmt.Sprintf("%s patch deploy -n %s %s --patch '%s'", KubectlCmd, KubeSystemNamespace, name, spec))
+}
+
+// ScaleDownDNS reduces the number of pods in the cluster performing kube-dns
+// duties down to zero. May be reverted by calling ScaleUpDNS().
+func (kub *Kubectl) ScaleDownDNS() *CmdRes {
+	cmd := fmt.Sprintf("%s get deploy -n %s -l %s -o jsonpath='{.items[*].status.replicas}'", KubectlCmd, KubeSystemNamespace, kubeDNSLabel)
+	res := kub.ExecShort(cmd)
+	if !res.WasSuccessful() {
+		ginkgoext.Failf("Unable to retrieve DNS pods to scale down, command '%s': %s", res.GetCmd(), res.OutputPrettyPrint())
+		return res
+	}
+
+	n, err := strconv.Atoi(res.Stdout())
+	if err != nil {
+		ginkgoext.Failf("Failed to retrieve DNS replicas via '%s': %s", res.GetCmd(), err)
+		res.success = false
+		res.err = err
+		return res
+	}
+	kub.nDNSReplicas = n
+
+	res = kub.setDNSReplicas(0)
+	if !res.WasSuccessful() {
+		ginkgoext.Failf("Unable to scale down DNS pods, command '%s': %s", res.GetCmd(), res.OutputPrettyPrint())
+	}
+	return res
+}
+
+// ScaleUpDNS restores the number of replicas for kube-dns to the number
+// prior to calling ScaleDownDNS(). Must be called after ScaleDownDNS().
+func (kub *Kubectl) ScaleUpDNS() *CmdRes {
+	res := kub.setDNSReplicas(kub.nDNSReplicas)
+	if !res.WasSuccessful() {
+		ginkgoext.Failf("Unable to scale down DNS pods, command '%s': %s", res.GetCmd(), res.OutputPrettyPrint())
+	}
+	return res
+}
+
 // RedeployDNS deletes the kube-dns pods and does not wait for the deletion
 // to complete. Useful to ensure that the pods are recreated after datapath
 // configuration changes.
 func (kub *Kubectl) RedeployDNS() *CmdRes {
-	return kub.DeleteResource("pod", "-n "+KubeSystemNamespace+" -l "+kubeDNSLabel)
+	if res := kub.ScaleDownDNS(); !res.WasSuccessful() {
+		return res
+	}
+
+	return kub.ScaleUpDNS()
 }
 
 // RedeployKubernetesDnsIfNecessary validates if the Kubernetes DNS is
