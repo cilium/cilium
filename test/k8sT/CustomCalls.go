@@ -101,8 +101,8 @@ var _ = SkipDescribeIf(func() bool {
 		})
 
 		AfterAll(func() {
-			deploymentManager.DeleteCilium()
 			deploymentManager.DeleteAll()
+			deploymentManager.DeleteCilium()
 			kubectl.RedeployDNS()
 		})
 
