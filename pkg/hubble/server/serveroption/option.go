@@ -38,7 +38,7 @@ type Options struct {
 	Insecure        bool
 }
 
-// Option customizes then configuration of the hubble server.
+// Option customizes the hubble server's configuration.
 type Option func(o *Options) error
 
 // WithTCPListener configures a TCP listener with the address.
@@ -126,7 +126,8 @@ func WithServerTLS(cfg certloader.ServerConfigBuilder) Option {
 	}
 }
 
-// WithPeerService configures the server to expose the given peer server service.
+// WithRecorderService configures the server to expose the given recorder
+// server service.
 func WithRecorderService(svc recorderpb.RecorderServer) Option {
 	return func(o *Options) error {
 		o.RecorderService = svc
