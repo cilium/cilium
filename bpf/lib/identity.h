@@ -81,6 +81,8 @@ static __always_inline bool inherit_identity_from_host(struct __ctx_buff *ctx,
 		*identity = get_identity(ctx);
 	} else if (magic == MARK_MAGIC_HOST) {
 		*identity = HOST_ID;
+	} else if (magic == MARK_MAGIC_ENCRYPT) {
+		*identity = get_identity(ctx);
 	} else {
 		*identity = WORLD_ID;
 	}
