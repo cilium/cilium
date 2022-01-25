@@ -161,12 +161,12 @@ func (d *Daemon) launchHubble() {
 	if option.Config.HubbleTLSDisabled {
 		peerServiceOptions = append(peerServiceOptions, serviceoption.WithoutTLSInfo())
 	}
-
+	peerSvc := peer.NewService(d.nodeDiscovery.Manager, peerServiceOptions...)
 	localSrvOpts := []serveroption.Option{
 		serveroption.WithUnixSocketListener(sockPath),
 		serveroption.WithHealthService(),
 		serveroption.WithObserverService(d.hubbleObserver),
-		serveroption.WithPeerService(peer.NewService(d.nodeDiscovery.Manager, peerServiceOptions...)),
+		serveroption.WithPeerService(peerSvc),
 		serveroption.WithInsecure(),
 	}
 
@@ -199,6 +199,7 @@ func (d *Daemon) launchHubble() {
 	go func() {
 		<-d.ctx.Done()
 		localSrv.Stop()
+		peerSvc.Close()
 	}()
 
 	// configure another hubble instance that serve fewer gRPC services
@@ -210,6 +211,7 @@ func (d *Daemon) launchHubble() {
 		options := []serveroption.Option{
 			serveroption.WithTCPListener(address),
 			serveroption.WithHealthService(),
+			serveroption.WithPeerService(peerSvc),
 			serveroption.WithObserverService(d.hubbleObserver),
 		}
 

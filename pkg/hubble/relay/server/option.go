@@ -5,7 +5,6 @@ package server
 
 import (
 	"crypto/tls"
-	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -23,7 +22,7 @@ const MinTLSVersion = tls.VersionTLS13
 
 // options stores all the configuration values for the hubble-relay server.
 type options struct {
-	hubbleTarget    string
+	peerTarget      string
 	dialTimeout     time.Duration
 	retryTimeout    time.Duration
 	listenAddress   string
@@ -31,13 +30,14 @@ type options struct {
 	serverTLSConfig certloader.ServerConfigBuilder
 	insecureServer  bool
 	clientTLSConfig certloader.ClientConfigBuilder
+	clusterName     string
 	insecureClient  bool
 	observerOptions []observer.Option
 }
 
 // defaultOptions is the reference point for default values.
 var defaultOptions = options{
-	hubbleTarget:  defaults.HubbleTarget,
+	peerTarget:    defaults.PeerTarget,
 	dialTimeout:   defaults.DialTimeout,
 	retryTimeout:  defaults.RetryTimeout,
 	listenAddress: defaults.ListenAddress,
@@ -47,14 +47,10 @@ var defaultOptions = options{
 // Option customizes the configuration of the hubble-relay server.
 type Option func(o *options) error
 
-// WithHubbleTarget sets the URL of the local hubble instance to connect to.
-// This target MUST implement the Peer service.
-func WithHubbleTarget(t string) Option {
+// WithPeerTarget sets the URL of the hubble peer service to connect to.
+func WithPeerTarget(t string) Option {
 	return func(o *options) error {
-		if !strings.HasPrefix(t, "unix://") {
-			t = "unix://" + t
-		}
-		o.hubbleTarget = t
+		o.peerTarget = t
 		return nil
 	}
 }
@@ -162,6 +158,16 @@ func WithClientTLS(cfg certloader.ClientConfigBuilder) Option {
 func WithInsecureClient() Option {
 	return func(o *options) error {
 		o.insecureClient = true
+		return nil
+	}
+}
+
+// WithLocalClusterName sets the cluster name for the peer service
+// so that it knows how to construct the proper TLSServerName
+// to validate mTLS in the K8s Peer service.
+func WithLocalClusterName(clusterName string) Option {
+	return func(o *options) error {
+		o.clusterName = clusterName
 		return nil
 	}
 }

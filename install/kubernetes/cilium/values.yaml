@@ -672,7 +672,15 @@ hubble:
   # Set this field ":4244" if you are enabling Hubble Relay, as it assumes that
   # Hubble is listening on port 4244.
   listenAddress: ":4244"
-
+  peerService:
+    # -- Enable a K8s Service for the Peer service, so that it can be accessed
+    # by a non-local client
+    enabled: true
+    # -- Service Port for the Peer service.
+    servicePort: 4254
+    # -- The cluster domain to use to query the Hubble Peer service. It should
+    # be the local cluster.
+    clusterDomain: cluster.local
   # -- TLS configuration for Hubble
   tls:
     # -- Enable mutual TLS for listenAddress. Setting this value to false is
