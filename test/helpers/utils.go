@@ -362,7 +362,7 @@ func ManifestGet(base, manifestFilename string) string {
 	if err == nil {
 		return filepath.Join(base, fullPath)
 	}
-	return filepath.Join(base, "k8sT", "manifests", manifestFilename)
+	return filepath.Join(base, K8sManifestBase, manifestFilename)
 }
 
 // WriteOrAppendToFile writes data to a file named by filename.

@@ -232,7 +232,7 @@ This will first destroy any CI VMs you may have running on the current
 created. This can take some time.
 
 VM preloading can be turned off by exporting ``VM_PRELOAD=false``. You
-can run ``make clean`` in ``tests`` to delete the cached vagrant box.
+can run ``make clean`` in ``test`` to delete the cached vagrant box.
 
 To start the CI runtime VM locally, run:
 

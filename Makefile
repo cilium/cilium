@@ -470,7 +470,7 @@ govet: ## Run govet on Go source files in the repository.
     ./test/ginkgo-ext/... \
     ./test/helpers/... \
     ./test/runtime/... \
-    ./test/k8sT/... \
+    ./test/k8s/... \
     ./tools/...
 
 lint: ## Run golangci-lint and check if the helper headers in bpf/mock are up-to-date.

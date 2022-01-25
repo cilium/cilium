@@ -45,7 +45,7 @@ test/cilium-[0-9a-f]*.yaml
 test/*tmp
 test/cilium-istioctl
 
-test/k8sT/manifests/cnp-second-namespaces.yaml
+test/k8s/manifests/cnp-second-namespaces.yaml
 test/cilium.conf.ginkgo
 
 test/gke/cluster-name

@@ -25,7 +25,7 @@ if [ -n "${sha256}" ]; then
 fi
 
 # shellcheck disable=SC2207
-used_by=($(git grep -l CILIUM_BUILDER_IMAGE= images/*/Dockerfile) "test/k8sT/manifests/demo-customcalls.yaml" "api/v1/Makefile")
+used_by=($(git grep -l CILIUM_BUILDER_IMAGE= images/*/Dockerfile) "test/k8s/manifests/demo-customcalls.yaml" "api/v1/Makefile")
 
 for i in "${used_by[@]}" ; do
   sed -E "s#(CILIUM_BUILDER_IMAGE=|image: )${image}:.*\$#\1${image_full}#" "${i}" > "${i}.sedtmp" && mv "${i}.sedtmp" "${i}"

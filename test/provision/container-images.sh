@@ -27,7 +27,7 @@ function test_images {
   # matching groups. `#` is used as the sed delimiter to avoid escaping `/` in
   # the regex.
   # Narrow down the directories to avoid pulling images from random yamls or test_result logs.
-  TEST_DIRS="test/helpers test/k8sT test/provision"
+  TEST_DIRS="test/helpers test/k8s test/provision"
   DOCKER_IMAGES=$(grep -rI --no-filename "docker.io" $TEST_DIRS | sed -nEe 's#.*(docker.io/[-_a-zA-Z0-9]+/[-_a-zA-Z0-9]+:[-_.a-zA-Z0-9]+)[^-_.a-zA-Z0-9].*#\1#p' | sort | uniq)
   QUAY_IMAGES=$(grep -rI --no-filename "quay.io" $TEST_DIRS     | sed -nEe   's#.*(quay.io/[-_a-zA-Z0-9]+/[-_a-zA-Z0-9]+:[-_.a-zA-Z0-9]+)[^-_.a-zA-Z0-9].*#\1#p' | sort | uniq)
 

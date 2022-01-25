@@ -67,7 +67,7 @@ test/*tmp
 test/cilium-istioctl
 
 # generated test files
-test/k8sT/manifests/cnp-second-namespaces.yaml
+test/k8s/manifests/cnp-second-namespaces.yaml
 test/cilium.conf.ginkgo
 external-workload-ca.crt
 external-workload-tls.crt
