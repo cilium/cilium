@@ -38,6 +38,10 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sLRPTests", func() {
 		kubectl.CloseSSHClient()
 	})
 
+	AfterFailed(func() {
+		kubectl.CiliumReport("cilium lrp list", "cilium service list")
+	})
+
 	SkipContextIf(func() bool { return !helpers.RunsOn419OrLaterKernel() }, "Checks local redirect policy", func() {
 		const (
 			lrpServiceName = "lrp-demo-service"
@@ -114,7 +118,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sLRPTests", func() {
 			Expect(err).To(BeNil(), "Cannot get cilium pods")
 			for _, pod := range ciliumPods {
 				service := kubectl.CiliumExecMustSucceed(context.TODO(), pod, fmt.Sprintf("cilium service list | grep \" %s:\"", svcIP), "Cannot retrieve services on cilium pod")
-				service.ExpectContains("LocalRedirect", "LocalRedirect is not present in the cilium service list")
+				service.ExpectContains("LocalRedirect", "LocalRedirect is not present in the cilium service list for [%s]", svcIP)
 				service2 := kubectl.CiliumExecMustSucceed(context.TODO(), pod, fmt.Sprintf("cilium service list | grep \" %s:\"", lrpAddrIP), "Cannot retrieve services on cilium pod")
 				service2.ExpectContains("LocalRedirect", "LocalRedirect is not present in the cilium service list for [%s]", lrpAddrIP)
 			}
