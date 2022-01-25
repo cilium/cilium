@@ -23,8 +23,11 @@ spec:
             {{- if .Values.debug.enabled }}
             - "--debug"
             {{- end }}
-            - "--hubble-ca-generate"
-            - "--hubble-ca-reuse-secret"
+            - "--ca-generate"
+            - "--ca-reuse-secret"
+            {{- if .Values.hubble.tls.ca.cert }}
+            - "--ca-secret-name=hubble-ca-secret"
+            {{- end }}
             - "--hubble-server-cert-generate"
             - "--hubble-server-cert-common-name={{ list "*" (.Values.cluster.name | replace "." "-") "hubble-grpc.cilium.io" | join "." }}"
             - "--hubble-server-cert-validity-duration={{ $certValiditySecondsStr }}"
