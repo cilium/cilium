@@ -438,6 +438,9 @@ pass_to_stack:
 #  ifdef IP_POOLS
 		set_encrypt_dip(ctx, tunnel_endpoint);
 #  endif /* IP_POOLS */
+#  ifdef ENABLE_IDENTITY_MARK
+		set_identity_mark(ctx, SECLABEL);
+#  endif /* ENABLE_IDENTITY_MARK */
 	} else
 # endif /* ENABLE_IPSEC */
 #endif /* ENABLE_WIREGUARD */
@@ -908,6 +911,9 @@ pass_to_stack:
 #  ifdef IP_POOLS
 		set_encrypt_dip(ctx, tunnel_endpoint);
 #  endif /* IP_POOLS */
+#  ifdef ENABLE_IDENTITY_MARK
+		set_identity_mark(ctx, SECLABEL);
+#  endif
 	} else
 # endif /* ENABLE_IPSEC */
 #endif /* ENABLE_WIREGUARD */
