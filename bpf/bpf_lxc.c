@@ -1769,7 +1769,7 @@ __section("to-container")
 int handle_to_container(struct __ctx_buff *ctx)
 {
 	enum trace_point trace = TRACE_FROM_STACK;
-	__u32 identity = 0;
+	__u32 magic, identity = 0;
 	__u16 proto;
 	int ret;
 
@@ -1780,7 +1780,8 @@ int handle_to_container(struct __ctx_buff *ctx)
 
 	bpf_clear_meta(ctx);
 
-	if (inherit_identity_from_host(ctx, &identity))
+	magic = inherit_identity_from_host(ctx, &identity);
+	if (magic == MARK_MAGIC_PROXY_INGRESS || magic == MARK_MAGIC_PROXY_EGRESS)
 		trace = TRACE_FROM_PROXY;
 
 	send_trace_notify(ctx, trace, identity, 0, 0,
