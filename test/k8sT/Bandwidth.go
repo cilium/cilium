@@ -12,7 +12,7 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 )
 
-var _ = Describe("K8sBandwidthTest", func() {
+var _ = SkipDescribeIf(helpers.DoesNotRunOnNetNextKernel, "K8sBandwidthTest", func() {
 	var (
 		kubectl        *helpers.Kubectl
 		ciliumFilename string
@@ -39,7 +39,7 @@ var _ = Describe("K8sBandwidthTest", func() {
 		kubectl.CloseSSHClient()
 	})
 
-	SkipContextIf(helpers.DoesNotRunOnNetNextKernel, "Checks Bandwidth Rate-Limiting", func() {
+	Context("Checks Bandwidth Rate-Limiting", func() {
 		const (
 			testDS10       = "run=netperf-10"
 			testDS25       = "run=netperf-25"
