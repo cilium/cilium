@@ -591,12 +591,6 @@ ct_extract_ports4(struct __ctx_buff *ctx, int off, enum ct_dir dir,
 		break;
 
 	case IPPROTO_TCP:
-		err = ipv4_ct_extract_l4_ports(ctx, off, dir, tuple, NULL);
-		if (err < 0)
-			return err;
-
-		break;
-
 	case IPPROTO_UDP:
 		err = ipv4_ct_extract_l4_ports(ctx, off, dir, tuple, NULL);
 		if (err < 0)
