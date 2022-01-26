@@ -1599,6 +1599,7 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 	void *data, *data_end;
 	struct iphdr *ip4;
 	bool l2_hdr_required = true;
+	char fmt[] = "redirect: %d %x\n";
 
 	// TODO(brb): for NAT_DIR_INGRESS it should be ip4->saddr
 	target.addr = IPV4_DIRECT_ROUTING;
@@ -1699,6 +1700,7 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 	}
 out_send:
 	cilium_capture_out(ctx);
+	trace_printk(fmt, sizeof(fmt), fib_params.l.ifindex, ip4->daddr);
 	return ctx_redirect(ctx, fib_params.l.ifindex, 0);
 drop_err:
 	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
