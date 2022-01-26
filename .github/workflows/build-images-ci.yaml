@@ -20,7 +20,6 @@ concurrency:
 
 jobs:
   build-and-push-prs:
-    if: ${{ github.repository == 'cilium/cilium' }}
     runs-on: ubuntu-20.04
     strategy:
       matrix:
@@ -181,7 +180,6 @@ jobs:
   # this is caused by running apt while building the image
   # which requires qemu setup in order to avoid x86/arm64 binaries mixups
   build-and-push-with-qemu:
-    if: ${{ github.repository == 'cilium/cilium' }}
     runs-on: ubuntu-20.04
     strategy:
       matrix:
@@ -258,7 +256,6 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
   image-digests:
-    if: ${{ github.repository == 'cilium/cilium' }}
     name: Display Digests
     runs-on: ubuntu-20.04
     needs: [build-and-push-prs, build-and-push-with-qemu]
