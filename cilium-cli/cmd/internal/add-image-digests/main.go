@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2021-2022 Authors of Cilium
+
 // add-image-digests updates defaults/imagedigests.json.
 package main
 
@@ -25,23 +28,19 @@ var pathsByGroup = map[string][]string{
 	},
 }
 
-var digestRegexp = regexp.MustCompile(`^Digest:\s+(sha256:[0-9a-f]{64})$`)
+var digestRegexp = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 
 // getImageDigest returns the digest of image.
-//
-// FIXME there must be an easier way to get the image digest than pulling the
-// image and parsing the output of docker pull.
 func getImageDigest(image string) (string, error) {
-	cmd := exec.Command("docker", "pull", image)
+	cmd := exec.Command("docker", "run", "--rm", "gcr.io/go-containerregistry/crane", "digest", image)
 	fmt.Printf("🚀 running %s\n", strings.Join(cmd.Args, " "))
 	output, err := cmd.Output()
 	if err != nil {
 		return "", err
 	}
 
-	for _, line := range strings.Split(string(output), "\n") {
-		if m := digestRegexp.FindStringSubmatch(line); m != nil {
-			digest := m[1]
+	for _, digest := range strings.Split(string(output), "\n") {
+		if digestRegexp.MatchString(digest) {
 			fmt.Printf("🔍 found %s for %s\n", digest, image)
 			return digest, nil
 		}
