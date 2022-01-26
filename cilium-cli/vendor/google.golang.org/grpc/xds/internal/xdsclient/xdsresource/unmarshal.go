@@ -64,6 +64,7 @@ func processAllResources(opts *UnmarshalOptions, ret interface{}) (UpdateMetadat
 		switch ret2 := ret.(type) {
 		case map[string]ListenerUpdateErrTuple:
 			name, update, err := unmarshalListenerResource(r, opts.UpdateValidator, opts.Logger)
+			name = ParseName(name).String()
 			if err == nil {
 				ret2[name] = ListenerUpdateErrTuple{Update: update}
 				continue
@@ -78,6 +79,7 @@ func processAllResources(opts *UnmarshalOptions, ret interface{}) (UpdateMetadat
 			ret2[name] = ListenerUpdateErrTuple{Err: err}
 		case map[string]RouteConfigUpdateErrTuple:
 			name, update, err := unmarshalRouteConfigResource(r, opts.Logger)
+			name = ParseName(name).String()
 			if err == nil {
 				ret2[name] = RouteConfigUpdateErrTuple{Update: update}
 				continue
@@ -92,6 +94,7 @@ func processAllResources(opts *UnmarshalOptions, ret interface{}) (UpdateMetadat
 			ret2[name] = RouteConfigUpdateErrTuple{Err: err}
 		case map[string]ClusterUpdateErrTuple:
 			name, update, err := unmarshalClusterResource(r, opts.UpdateValidator, opts.Logger)
+			name = ParseName(name).String()
 			if err == nil {
 				ret2[name] = ClusterUpdateErrTuple{Update: update}
 				continue
@@ -106,6 +109,7 @@ func processAllResources(opts *UnmarshalOptions, ret interface{}) (UpdateMetadat
 			ret2[name] = ClusterUpdateErrTuple{Err: err}
 		case map[string]EndpointsUpdateErrTuple:
 			name, update, err := unmarshalEndpointsResource(r, opts.Logger)
+			name = ParseName(name).String()
 			if err == nil {
 				ret2[name] = EndpointsUpdateErrTuple{Update: update}
 				continue
