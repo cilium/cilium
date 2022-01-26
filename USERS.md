@@ -132,6 +132,11 @@ Users (Alphabetically)
       U: Networking, network policy, and network visibility
       L: https://cloud.google.com/blog/products/containers-kubernetes/bringing-ebpf-and-cilium-to-google-kubernetes-engine
 
+    * N: JUMO
+      D: JUMO is using Cilium as their CNI plugin for all of their AWS-hosted EKS clusters
+      U: Networking, network policy, network visibility, cluster mesh
+      Q: @Matthieu ANTOINE, @Carlos Castro, @Joao Coutinho (Slack)
+
     * N: Kubermatic
       D: Kubermatic Kubernetes Platform is using Cilium as a one of the supported CNIs.
       U: Networking, network policy, Hubble for network visibility
