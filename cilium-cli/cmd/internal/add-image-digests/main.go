@@ -22,6 +22,14 @@ var pathsByGroup = map[string][]string{
 		"quay.io/cilium/operator-azure",
 		"quay.io/cilium/operator-generic",
 	},
+	"cilium-service-mesh": {
+		"quay.io/cilium/cilium-service-mesh",
+		"quay.io/cilium/clustermesh-apiserver-service-mesh",
+		"quay.io/cilium/hubble-relay-service-mesh",
+		"quay.io/cilium/operator-aws-service-mesh",
+		"quay.io/cilium/operator-azure-service-mesh",
+		"quay.io/cilium/operator-generic-service-mesh",
+	},
 	"hubble-ui": {
 		"quay.io/cilium/hubble-ui",
 		"quay.io/cilium/hubble-ui-backend",
