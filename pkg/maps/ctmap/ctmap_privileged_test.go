@@ -12,6 +12,8 @@ import (
 
 	. "gopkg.in/check.v1"
 
+	"github.com/cilium/ebpf/rlimit"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/option"
@@ -35,7 +37,7 @@ func Test(t *testing.T) {
 
 func (k *CTMapTestSuite) SetUpSuite(c *C) {
 	bpf.CheckOrMountFS("")
-	err := bpf.ConfigureResourceLimits()
+	err := rlimit.RemoveMemlock()
 	c.Assert(err, IsNil)
 }
 

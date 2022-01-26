@@ -17,11 +17,12 @@ import (
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sync/semaphore"
 
+	"github.com/cilium/ebpf/rlimit"
+
 	"github.com/cilium/cilium/api/v1/models"
 	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/pkg/bandwidth"
 	"github.com/cilium/cilium/pkg/bgp/speaker"
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/controller"
@@ -393,7 +394,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	})
 
 	if option.Config.DryMode == false {
-		if err := bpf.ConfigureResourceLimits(); err != nil {
+		if err := rlimit.RemoveMemlock(); err != nil {
 			return nil, nil, fmt.Errorf("unable to set memory resource limits: %w", err)
 		}
 	}

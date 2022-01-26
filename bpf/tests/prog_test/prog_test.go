@@ -17,12 +17,13 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/perf"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/sys/unix"
+
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/perf"
+	"github.com/cilium/ebpf/rlimit"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -390,11 +391,7 @@ func TestCt(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	lim := unix.Rlimit{
-		Cur: unix.RLIM_INFINITY,
-		Max: unix.RLIM_INFINITY,
-	}
-	if err := unix.Setrlimit(unix.RLIMIT_MEMLOCK, &lim); err != nil {
+	if err := rlimit.RemoveMemlock(); err != nil {
 		logrus.Fatalf("setrlimit: %v", err)
 	}
 	os.Exit(m.Run())

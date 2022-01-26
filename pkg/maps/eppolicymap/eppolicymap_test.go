@@ -15,6 +15,8 @@ import (
 
 	. "gopkg.in/check.v1"
 
+	"github.com/cilium/ebpf/rlimit"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
@@ -33,7 +35,7 @@ var _ = Suite(&EPPolicyMapTestSuite{})
 func (e *EPPolicyMapTestSuite) SetUpTest(c *C) {
 	MapName = "unit_test_ep_to_policy"
 	innerMapName = "unit_test_ep_policy_inner_map"
-	err := bpf.ConfigureResourceLimits()
+	err := rlimit.RemoveMemlock()
 	c.Assert(err, IsNil)
 }
 
