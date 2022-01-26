@@ -789,7 +789,7 @@ drop_err_fib:
 }
 
 static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto,
-					     __u32 src_id __maybe_unused)
+					     __u32 src_id)
 {
 	int encrypt_iface = 0;
 	int ret = 0;
@@ -798,11 +798,11 @@ static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto
 #endif
 	ret = do_netdev_encrypt_pools(ctx);
 	if (ret)
-		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_INGRESS);
+		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP, METRIC_INGRESS);
 
 	ret = do_netdev_encrypt_fib(ctx, proto, &encrypt_iface);
 	if (ret)
-		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_INGRESS);
+		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP, METRIC_INGRESS);
 
 	bpf_clear_meta(ctx);
 #ifdef BPF_HAVE_FIB_LOOKUP
