@@ -342,14 +342,14 @@ func ManifestGet(base, manifestFilename string) string {
 	// needed since no integration is "" and that causes us to find the
 	// base_path/filename before we check the base_path/k8s_version/filename
 	if integration := GetCurrentIntegration(); integration != "" {
-		fullPath := filepath.Join(manifestsPath, integration, manifestFilename)
+		fullPath := filepath.Join(K8sManifestBase, integration, manifestFilename)
 		_, err := os.Stat(fullPath)
 		if err == nil {
 			return filepath.Join(base, fullPath)
 		}
 
 		// try dependent k8s version and integration file
-		fullPath = filepath.Join(manifestsPath, GetCurrentK8SEnv(), integration, manifestFilename)
+		fullPath = filepath.Join(K8sManifestBase, GetCurrentK8SEnv(), integration, manifestFilename)
 		_, err = os.Stat(fullPath)
 		if err == nil {
 			return filepath.Join(base, fullPath)
@@ -357,7 +357,7 @@ func ManifestGet(base, manifestFilename string) string {
 	}
 
 	// try dependent k8s version
-	fullPath := filepath.Join(manifestsPath, GetCurrentK8SEnv(), manifestFilename)
+	fullPath := filepath.Join(K8sManifestBase, GetCurrentK8SEnv(), manifestFilename)
 	_, err := os.Stat(fullPath)
 	if err == nil {
 		return filepath.Join(base, fullPath)
