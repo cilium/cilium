@@ -54,6 +54,8 @@ const (
 	policiesL4Json                  = "Policies-l4-policy.json"
 	policiesL3DependentL7EgressJSON = "Policies-l3-dependent-l7-egress.json"
 	policiesReservedInitJSON        = "Policies-reserved-init.json"
+
+	initContainer = "initContainer"
 )
 
 var _ = Describe("RuntimePolicies", func() {
@@ -61,7 +63,6 @@ var _ = Describe("RuntimePolicies", func() {
 	var (
 		vm            *helpers.SSHMeta
 		monitorStop   = func() error { return nil }
-		initContainer string
 		testStartTime time.Time
 	)
 
@@ -83,8 +84,6 @@ var _ = Describe("RuntimePolicies", func() {
 		ExpectCiliumReady(vm)
 		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 		vm.PolicyDelAll()
-
-		initContainer = "initContainer"
 
 		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
