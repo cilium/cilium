@@ -8,6 +8,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/cilium/ebpf/rlimit"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/maps/eppolicymap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
@@ -44,7 +46,7 @@ func main() {
 		usage()
 	}
 
-	if err := bpf.ConfigureResourceLimits(); err != nil {
+	if err := rlimit.RemoveMemlock(); err != nil {
 		fmt.Fprintf(os.Stdout, "Failed to configure resource limits: %s\n", err)
 	}
 	bpf.CheckOrMountFS("")

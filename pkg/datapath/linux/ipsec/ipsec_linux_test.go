@@ -15,7 +15,8 @@ import (
 	"github.com/vishvananda/netlink"
 	. "gopkg.in/check.v1"
 
-	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/ebpf/rlimit"
+
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 )
 
@@ -34,7 +35,7 @@ var (
 )
 
 func (p *IPSecSuitePrivileged) SetUpTest(c *C) {
-	err := bpf.ConfigureResourceLimits()
+	err := rlimit.RemoveMemlock()
 	c.Assert(err, IsNil)
 }
 

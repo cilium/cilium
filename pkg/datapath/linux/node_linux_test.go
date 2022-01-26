@@ -20,7 +20,8 @@ import (
 	"github.com/vishvananda/netlink"
 	"gopkg.in/check.v1"
 
-	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/ebpf/rlimit"
+
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/fake"
@@ -73,7 +74,7 @@ const (
 )
 
 func (s *linuxPrivilegedBaseTestSuite) SetUpTest(c *check.C, addressing datapath.NodeAddressing, enableIPv6, enableIPv4 bool) {
-	bpf.ConfigureResourceLimits()
+	rlimit.RemoveMemlock()
 	s.nodeAddressing = addressing
 	s.mtuConfig = mtu.NewConfiguration(0, false, false, false, 1500, nil)
 	s.enableIPv6 = enableIPv6

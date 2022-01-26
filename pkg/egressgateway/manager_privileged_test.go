@@ -14,6 +14,8 @@ import (
 	. "gopkg.in/check.v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/cilium/ebpf/rlimit"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -78,7 +80,7 @@ func Test(t *testing.T) {
 
 func (k *EgressGatewayTestSuite) SetUpSuite(c *C) {
 	bpf.CheckOrMountFS("")
-	err := bpf.ConfigureResourceLimits()
+	err := rlimit.RemoveMemlock()
 	c.Assert(err, IsNil)
 
 	option.Config.EnableIPv4EgressGateway = true
