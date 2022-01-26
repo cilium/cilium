@@ -366,6 +366,8 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx, __u32 *monitor)
 	__u32 src_id = 0;
 	__u8 nexthdr;
 
+	/* some changes
+	 */
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
