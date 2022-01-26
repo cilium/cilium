@@ -35,17 +35,29 @@ const (
 // Resource URLs. We need to be able to accept either version of the resource
 // regardless of the version of the transport protocol in use.
 const (
-	V2ListenerURL        = "type.googleapis.com/envoy.api.v2.Listener"
-	V2RouteConfigURL     = "type.googleapis.com/envoy.api.v2.RouteConfiguration"
-	V2ClusterURL         = "type.googleapis.com/envoy.api.v2.Cluster"
-	V2EndpointsURL       = "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment"
-	V2HTTPConnManagerURL = "type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager"
+	googleapiPrefix = "type.googleapis.com/"
 
-	V3ListenerURL             = "type.googleapis.com/envoy.config.listener.v3.Listener"
-	V3RouteConfigURL          = "type.googleapis.com/envoy.config.route.v3.RouteConfiguration"
-	V3ClusterURL              = "type.googleapis.com/envoy.config.cluster.v3.Cluster"
-	V3EndpointsURL            = "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment"
-	V3HTTPConnManagerURL      = "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
-	V3UpstreamTLSContextURL   = "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext"
-	V3DownstreamTLSContextURL = "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext"
+	V2ListenerType    = "envoy.api.v2.Listener"
+	V2RouteConfigType = "envoy.api.v2.RouteConfiguration"
+	V2ClusterType     = "envoy.api.v2.Cluster"
+	V2EndpointsType   = "envoy.api.v2.ClusterLoadAssignment"
+
+	V2ListenerURL        = googleapiPrefix + V2ListenerType
+	V2RouteConfigURL     = googleapiPrefix + V2RouteConfigType
+	V2ClusterURL         = googleapiPrefix + V2ClusterType
+	V2EndpointsURL       = googleapiPrefix + V2EndpointsType
+	V2HTTPConnManagerURL = googleapiPrefix + "envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager"
+
+	V3ListenerType    = "envoy.config.listener.v3.Listener"
+	V3RouteConfigType = "envoy.config.route.v3.RouteConfiguration"
+	V3ClusterType     = "envoy.config.cluster.v3.Cluster"
+	V3EndpointsType   = "envoy.config.endpoint.v3.ClusterLoadAssignment"
+
+	V3ListenerURL             = googleapiPrefix + V3ListenerType
+	V3RouteConfigURL          = googleapiPrefix + V3RouteConfigType
+	V3ClusterURL              = googleapiPrefix + V3ClusterType
+	V3EndpointsURL            = googleapiPrefix + V3EndpointsType
+	V3HTTPConnManagerURL      = googleapiPrefix + "envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+	V3UpstreamTLSContextURL   = googleapiPrefix + "envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext"
+	V3DownstreamTLSContextURL = googleapiPrefix + "envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext"
 )

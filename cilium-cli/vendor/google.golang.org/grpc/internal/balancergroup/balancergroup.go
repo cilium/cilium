@@ -101,20 +101,18 @@ func (sbc *subBalancerWrapper) startBalancer() {
 	}
 }
 
-func (sbc *subBalancerWrapper) exitIdle() {
+// exitIdle invokes the sub-balancer's ExitIdle method. Returns a boolean
+// indicating whether or not the operation was completed.
+func (sbc *subBalancerWrapper) exitIdle() (complete bool) {
 	b := sbc.balancer
 	if b == nil {
-		return
+		return true
 	}
 	if ei, ok := b.(balancer.ExitIdler); ok {
 		ei.ExitIdle()
-		return
+		return true
 	}
-	for sc, b := range sbc.group.scToSubBalancer {
-		if b == sbc {
-			sc.Connect()
-		}
-	}
+	return false
 }
 
 func (sbc *subBalancerWrapper) updateSubConnState(sc balancer.SubConn, state balancer.SubConnState) {
@@ -383,6 +381,17 @@ func (bg *BalancerGroup) cleanupSubConns(config *subBalancerWrapper) {
 	bg.incomingMu.Unlock()
 }
 
+// connect attempts to connect to all subConns belonging to sb.
+func (bg *BalancerGroup) connect(sb *subBalancerWrapper) {
+	bg.incomingMu.Lock()
+	for sc, b := range bg.scToSubBalancer {
+		if b == sb {
+			sc.Connect()
+		}
+	}
+	bg.incomingMu.Unlock()
+}
+
 // Following are actions from the parent grpc.ClientConn, forward to sub-balancers.
 
 // UpdateSubConnState handles the state for the subconn. It finds the
@@ -502,7 +511,9 @@ func (bg *BalancerGroup) Close() {
 func (bg *BalancerGroup) ExitIdle() {
 	bg.outgoingMu.Lock()
 	for _, config := range bg.idToBalancerConfig {
-		config.exitIdle()
+		if !config.exitIdle() {
+			bg.connect(config)
+		}
 	}
 	bg.outgoingMu.Unlock()
 }
@@ -512,7 +523,9 @@ func (bg *BalancerGroup) ExitIdle() {
 func (bg *BalancerGroup) ExitIdleOne(id string) {
 	bg.outgoingMu.Lock()
 	if config := bg.idToBalancerConfig[id]; config != nil {
-		config.exitIdle()
+		if !config.exitIdle() {
+			bg.connect(config)
+		}
 	}
 	bg.outgoingMu.Unlock()
 }
