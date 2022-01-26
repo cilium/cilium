@@ -22,12 +22,13 @@ package xdsclient
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
+	"google.golang.org/grpc/internal/cache"
 	"google.golang.org/grpc/internal/grpclog"
 	"google.golang.org/grpc/internal/grpcsync"
 	"google.golang.org/grpc/xds/internal/xdsclient/bootstrap"
-	"google.golang.org/grpc/xds/internal/xdsclient/pubsub"
 	"google.golang.org/grpc/xds/internal/xdsclient/xdsresource"
 )
 
@@ -42,17 +43,39 @@ type clientImpl struct {
 	done   *grpcsync.Event
 	config *bootstrap.Config
 
-	controller controllerInterface
+	// authorityMu protects the authority fields. It's necessary because an
+	// authority is created when it's used.
+	authorityMu sync.Mutex
+	// authorities is a map from ServerConfig to authority. So that
+	// different authorities sharing the same ServerConfig can share the
+	// authority.
+	//
+	// The key is **ServerConfig.String()**, not the authority name.
+	//
+	// An authority is either in authorities, or idleAuthorities,
+	// never both.
+	authorities map[string]*authority
+	// idleAuthorities keeps the authorities that are not used (the last
+	// watch on it was canceled). They are kept in the cache and will be deleted
+	// after a timeout. The key is ServerConfig.String().
+	//
+	// An authority is either in authorities, or idleAuthorities,
+	// never both.
+	idleAuthorities *cache.TimeoutCache
 
-	logger *grpclog.PrefixLogger
-	pubsub *pubsub.Pubsub
+	logger             *grpclog.PrefixLogger
+	watchExpiryTimeout time.Duration
 }
 
 // newWithConfig returns a new xdsClient with the given config.
-func newWithConfig(config *bootstrap.Config, watchExpiryTimeout time.Duration) (_ *clientImpl, retErr error) {
+func newWithConfig(config *bootstrap.Config, watchExpiryTimeout time.Duration, idleAuthorityDeleteTimeout time.Duration) (_ *clientImpl, retErr error) {
 	c := &clientImpl{
-		done:   grpcsync.NewEvent(),
-		config: config,
+		done:               grpcsync.NewEvent(),
+		config:             config,
+		watchExpiryTimeout: watchExpiryTimeout,
+
+		authorities:     make(map[string]*authority),
+		idleAuthorities: cache.NewTimeoutCache(idleAuthorityDeleteTimeout),
 	}
 
 	defer func() {
@@ -63,14 +86,6 @@ func newWithConfig(config *bootstrap.Config, watchExpiryTimeout time.Duration) (
 
 	c.logger = prefixLogger(c)
 	c.logger.Infof("Created ClientConn to xDS management server: %s", config.XDSServer)
-
-	c.pubsub = pubsub.New(watchExpiryTimeout, c.logger)
-
-	controller, err := newController(config.XDSServer, c.pubsub, c.updateValidator, c.logger)
-	if err != nil {
-		return nil, fmt.Errorf("xds: failed to connect to the control plane: %v", err)
-	}
-	c.controller = controller
 
 	c.logger.Infof("Created")
 	return c, nil
@@ -94,12 +109,14 @@ func (c *clientImpl) Close() {
 	// Note that Close needs to check for nils even if some of them are always
 	// set in the constructor. This is because the constructor defers Close() in
 	// error cases, and the fields might not be set when the error happens.
-	if c.controller != nil {
-		c.controller.Close()
+
+	c.authorityMu.Lock()
+	for _, a := range c.authorities {
+		a.close()
 	}
-	if c.pubsub != nil {
-		c.pubsub.Close()
-	}
+	c.idleAuthorities.Clear(true)
+	c.authorityMu.Unlock()
+
 	c.logger.Infof("Shutdown")
 }
 

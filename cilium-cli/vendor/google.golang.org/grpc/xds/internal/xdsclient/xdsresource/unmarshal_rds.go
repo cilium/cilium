@@ -83,9 +83,13 @@ func unmarshalRouteConfigResource(r *anypb.Any, logger *grpclog.PrefixLogger) (s
 // we are looking for.
 func generateRDSUpdateFromRouteConfiguration(rc *v3routepb.RouteConfiguration, logger *grpclog.PrefixLogger, v2 bool) (RouteConfigUpdate, error) {
 	vhs := make([]*VirtualHost, 0, len(rc.GetVirtualHosts()))
-	csps, err := processClusterSpecifierPlugins(rc.ClusterSpecifierPlugins)
-	if err != nil {
-		return RouteConfigUpdate{}, fmt.Errorf("received route is invalid %v", err)
+	csps := make(map[string]clusterspecifier.BalancerConfig)
+	if envconfig.XDSRLS {
+		var err error
+		csps, err = processClusterSpecifierPlugins(rc.ClusterSpecifierPlugins)
+		if err != nil {
+			return RouteConfigUpdate{}, fmt.Errorf("received route is invalid %v", err)
+		}
 	}
 	// cspNames represents all the cluster specifiers referenced by Route
 	// Actions - any cluster specifiers not referenced by a Route Action can be
@@ -348,6 +352,9 @@ func routesProtoToSlice(routes []*v3routepb.Route, csps map[string]clusterspecif
 			case *v3routepb.RouteAction_ClusterHeader:
 				continue
 			case *v3routepb.RouteAction_ClusterSpecifierPlugin:
+				if !envconfig.XDSRLS {
+					return nil, nil, fmt.Errorf("route %+v, has an unknown ClusterSpecifier: %+v", r, a)
+				}
 				if _, ok := csps[a.ClusterSpecifierPlugin]; !ok {
 					// "When processing RouteActions, if any action includes a
 					// cluster_specifier_plugin value that is not in

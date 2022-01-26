@@ -22,22 +22,42 @@ import (
 	"google.golang.org/grpc/xds/internal/xdsclient/xdsresource"
 )
 
+func mergeMaps(maps []map[string]xdsresource.UpdateWithMD) map[string]xdsresource.UpdateWithMD {
+	ret := make(map[string]xdsresource.UpdateWithMD)
+	for _, m := range maps {
+		for k, v := range m {
+			ret[k] = v
+		}
+	}
+	return ret
+}
+
+func (c *clientImpl) dump(t xdsresource.ResourceType) map[string]xdsresource.UpdateWithMD {
+	c.authorityMu.Lock()
+	defer c.authorityMu.Unlock()
+	maps := make([]map[string]xdsresource.UpdateWithMD, 0, len(c.authorities))
+	for _, a := range c.authorities {
+		maps = append(maps, a.dump(t))
+	}
+	return mergeMaps(maps)
+}
+
 // DumpLDS returns the status and contents of LDS.
 func (c *clientImpl) DumpLDS() map[string]xdsresource.UpdateWithMD {
-	return c.pubsub.Dump(xdsresource.ListenerResource)
+	return c.dump(xdsresource.ListenerResource)
 }
 
 // DumpRDS returns the status and contents of RDS.
 func (c *clientImpl) DumpRDS() map[string]xdsresource.UpdateWithMD {
-	return c.pubsub.Dump(xdsresource.RouteConfigResource)
+	return c.dump(xdsresource.RouteConfigResource)
 }
 
 // DumpCDS returns the status and contents of CDS.
 func (c *clientImpl) DumpCDS() map[string]xdsresource.UpdateWithMD {
-	return c.pubsub.Dump(xdsresource.ClusterResource)
+	return c.dump(xdsresource.ClusterResource)
 }
 
 // DumpEDS returns the status and contents of EDS.
 func (c *clientImpl) DumpEDS() map[string]xdsresource.UpdateWithMD {
-	return c.pubsub.Dump(xdsresource.EndpointsResource)
+	return c.dump(xdsresource.EndpointsResource)
 }
