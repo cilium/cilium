@@ -11,6 +11,9 @@
     "v1.9.11": "@sha256:47f923325069a697d5baf5314c7fe936bdf34e7c8154666e6762a78be1ddc3ec",
     "v1.9.12": "@sha256:7d4ef9dc7e504ba1a55a01dd743260daced11ded02fc268965ef2c98eb8b8bde"
   },
+  "quay.io/cilium/cilium-service-mesh": {
+    "v1.11.0-beta.1": "@sha256:4252b95ce4d02f5b772fd7756d240e3c036e6c9a19e3d77bae9c3fa31c837e50"
+  },
   "quay.io/cilium/clustermesh-apiserver": {
     "v1.10.3": "@sha256:44f1e4bcfafcf58784c418520fb0387f8d817ebe75cced493ef4f492a1199f2d",
     "v1.10.4": "@sha256:280c6230d32d7045089141177d5b052559ea194006bf1b02d84ab332812cc8c0",
@@ -21,6 +24,9 @@
     "v1.11.1": "@sha256:5732f2ce99096d1c740f3805260dbcfefbe6d7d18d1ac07707ff4ef9536b0ec6",
     "v1.9.11": "@sha256:3cc472bbb288ece4d496674de048d01e5dd6c4c9044e392153a63e385ff864a5",
     "v1.9.12": "@sha256:f9eba125ca3d9e9014613a8e43e92afd635320e82736e75d9329de5054076449"
+  },
+  "quay.io/cilium/clustermesh-apiserver-service-mesh": {
+    "v1.11.0-beta.1": "@sha256:658cdec3995c81dec6b78cf2320ef5bc162cbf208b6dcd08dd688e5bb27d9bf6"
   },
   "quay.io/cilium/hubble-relay": {
     "v1.10.3": "@sha256:af8ff09fe374c307356a85b0e0c158359a2e7299f93280151301b7f2fac27339",
@@ -33,6 +39,9 @@
     "v1.8.13": "@sha256:ddb57b1f0cb5953bb090853f72334a11a59d1732f685baac191dea0ff2acefd0",
     "v1.9.11": "@sha256:d3bd31dc823704a865c0f6091865c6876798e461e445e2f90f6e51f419a85257",
     "v1.9.12": "@sha256:67c5ce60e2f7cfd6f28b68b164bb910c41be365b9e17553c8a963dd456de204f"
+  },
+  "quay.io/cilium/hubble-relay-service-mesh": {
+    "v1.11.0-beta.1": "@sha256:db4e82f2905073b99dc9da656a23efb6856833a8a1353f8317a3c52ff5ee53aa"
   },
   "quay.io/cilium/hubble-ui": {
     "v0.8.4": "@sha256:a3da62b5f2e624196db6e725e735b5612a9e422b5eec0c536044f61c0cdf38d9",
@@ -54,6 +63,9 @@
     "v1.9.11": "@sha256:48659c02c2de76a8af039ebe6e77aedc51a545bb6c94a861485b4182dde6a576",
     "v1.9.12": "@sha256:5702f3e1195e3ba7dfadeb6dd6eeb585af6051abf81fb633dc796489660d1b8b"
   },
+  "quay.io/cilium/operator-aws-service-mesh": {
+    "v1.11.0-beta.1": "@sha256:d8cd32cf4c03f28318300aaba4a40e7598b0d0a595cc5598f4e907e1f0f745ec"
+  },
   "quay.io/cilium/operator-azure": {
     "v1.10.3": "@sha256:8cba20e22205d3a9fbcbed8bfc11bdd4d8e2fd5b0ce08f6e0f35f441ddc1de7e",
     "v1.10.4": "@sha256:f3fed6efdabc69731cbad1c883e6f0821511fa60fd62138ab63046f32ea56be0",
@@ -66,6 +78,9 @@
     "v1.9.11": "@sha256:32e052b3bebbecff0a7feb8b462141387628d2d78e0a67e9dd9a1c28fc2f60da",
     "v1.9.12": "@sha256:0e3e1e07f4b0847b26363d6100e57a743963307a2f781a292d5831046b4e51f7"
   },
+  "quay.io/cilium/operator-azure-service-mesh": {
+    "v1.11.0-beta.1": "@sha256:712830af1c8c031c2ef9a5e0e3bc4de139d0a3cfed5a165678919eb8ee1f269b"
+  },
   "quay.io/cilium/operator-generic": {
     "v1.10.3": "@sha256:337ebf27eae4fbad51cc4baf9110b3ec6753320dd33075bc136e2a1865be5eb5",
     "v1.10.4": "@sha256:c49a14e34634ff1a494c84b718641f27267fb3a0291ce3d74352b44f8a8d2f93",
@@ -77,5 +92,8 @@
     "v1.8.13": "@sha256:9e6677599565637d479886d038c366b40ce4acded54ab7bca1c7ad660b0c0a83",
     "v1.9.11": "@sha256:63a01e508ada5a123942b5afe24105d738f98ce543381ff48b1f9f905c22845e",
     "v1.9.12": "@sha256:b89b16476cf6500d68763a70fb3d449e0309296bd00122cbe24f306c7e5e5180"
+  },
+  "quay.io/cilium/operator-generic-service-mesh": {
+    "v1.11.0-beta.1": "@sha256:dcf364d807e26bc3a62fc8190e6ca40b40e9fceb71c7a934e34cbf24d5a9bfa8"
   }
 }
