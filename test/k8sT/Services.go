@@ -147,26 +147,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 		}
 	}
 
-	Context("Testing test script", func() {
-		It("Validating test script correctness", func() {
-			By("Validating test script correctness")
-			res := kubectl.ExecInHostNetNS(context.TODO(), ni.k8s1NodeName, testCommand("echo FOOBAR", 1, 0))
-			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Test script could not 'echo'")
-			res.ExpectContains("FOOBAR", "Test script failed to execute echo: %s", res.Stdout())
-
-			res = kubectl.ExecInHostNetNS(context.TODO(), ni.k8s1NodeName, testCommand("FOOBAR", 3, 0))
-			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(), "Test script successfully executed FOOBAR")
-			res.ExpectMatchesRegexp("failed: :[0-9]*/1=127:[0-9]*/2=127:[0-9]*/3=127", "Test script failed to execute echo 3 times: %s", res.Stdout())
-
-			res = kubectl.ExecInHostNetNS(context.TODO(), ni.k8s1NodeName, testCommand("FOOBAR", 1, 1))
-			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Test script could not allow failure")
-
-			res = kubectl.ExecInHostNetNS(context.TODO(), ni.k8s1NodeName, testCommand("echo FOOBAR", 3, 0))
-			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Test script could not 'echo' three times")
-			res.ExpectMatchesRegexp("(?s)(FOOBAR.*exit code: 0.*){3}", "Test script failed to execute echo 3 times: %s", res.Stdout())
-		})
-	})
-
 	Context("Checks ClusterIP Connectivity", func() {
 		var (
 			demoYAML             string
