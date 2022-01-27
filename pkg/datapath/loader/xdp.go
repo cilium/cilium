@@ -39,7 +39,8 @@ func maybeUnloadObsoleteXDPPrograms(xdpDevs []string, xdpMode string) {
 	}
 
 	for _, link := range links {
-		if link.Attrs().Xdp == nil {
+		linkxdp := link.Attrs().Xdp
+		if linkxdp == nil || !linkxdp.Attached {
 			// No XDP program is attached
 			continue
 		}
@@ -51,7 +52,7 @@ func maybeUnloadObsoleteXDPPrograms(xdpDevs []string, xdpMode string) {
 		used := false
 		for _, xdpDev := range xdpDevs {
 			if link.Attrs().Name == xdpDev &&
-				link.Attrs().Xdp.Flags&xdpModeToFlag(xdpMode) != 0 {
+				linkxdp.Flags&xdpModeToFlag(xdpMode) != 0 {
 				// XDP mode matches; don't unload, otherwise we might introduce
 				// intermittent connectivity problems
 				used = true
