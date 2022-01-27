@@ -1656,7 +1656,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			kubectl.LogsPreviousWithLabel(helpers.DefaultNamespace, clientPodLabel)
 		})
 
-		AfterAll(func() {
+		AfterEach(func() {
 			wg.Wait()
 			_ = kubectl.Delete(gracefulTermYAML)
 		})
