@@ -6,10 +6,13 @@ package watchers
 import (
 	"net"
 	"sync"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/tools/cache"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -17,7 +20,10 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -108,7 +114,24 @@ func (k *K8sWatcher) endpointUpdated(oldEndpoint, endpoint *types.CiliumEndpoint
 			k.policyManager.TriggerPolicyUpdates(true, "Named ports added or updated")
 		}
 	}()
+	if oldEndpoint == nil && endpoint != nil {
+		if p := k.endpointManager.LookupPodName(k8sUtils.GetObjNamespaceName(endpoint)); p != nil {
+			timeSinceCepCreated := time.Since(p.GetCreatedAt())
+			metrics.EndpointPropagationDelay.WithLabelValues().Observe(timeSinceCepCreated.Seconds())
+		}
+	} else if oldEndpoint != nil && endpoint != nil {
+		if p := k.endpointManager.LookupPodName(k8sUtils.GetObjNamespaceName(endpoint)); p != nil {
+			if timeLastUpdated, ok := p.GetLastUpdatedAt(p.GetID16()); ok {
+				metrics.EndpointPropagationDelay.WithLabelValues().Observe(time.Since(timeLastUpdated).Seconds())
+				if ok := p.CleanLastUpdatedAt(p.GetID16()); ok {
+					log.WithFields(logrus.Fields{
+						logfields.EndpointID: p.GetID16(),
+					}).Debug("Succefully update endpoint_propagation_delay_seconds metric.")
 
+				}
+			}
+		}
+	}
 	var ipsAdded []string
 	if oldEndpoint != nil && oldEndpoint.Networking != nil {
 		// Delete the old IP addresses from the IP cache

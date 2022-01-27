@@ -128,6 +128,12 @@ type Endpoint struct {
 	// recalculated on endpoint restore.
 	createdAt time.Time
 
+	// lastUpdatedTime stores the time the endpoint was last changed.
+	// It is used to calculate the endpoint propagation delay.
+	// We use a map, rather than a single value, to account for concurrent operations.
+	// The key is endpoint ID, value is the changed timestamp.
+	lastUpdatedTime map[uint16]time.Time
+
 	// mutex protects write operations to this endpoint structure
 	mutex lock.RWMutex
 
@@ -480,6 +486,7 @@ func createEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, nam
 		allocator:        allocator,
 		logLimiter:       logging.NewLimiter(10*time.Second, 3), // 1 log / 10 secs, burst of 3
 		noTrackPort:      0,
+		lastUpdatedTime:  make(map[uint16]time.Time),
 	}
 
 	ep.initDNSHistoryTrigger()
@@ -1966,6 +1973,8 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) (
 		Debug("Assigned new identity to endpoint")
 
 	e.SetIdentity(allocatedIdentity, false)
+	// Since we have re-locked the endpoint
+	e.lastUpdatedTime[e.GetID16()] = time.Now()
 
 	if oldIdentity != nil {
 		_, err := e.allocator.Release(releaseCtx, oldIdentity, false)
@@ -2341,4 +2350,25 @@ func (e *Endpoint) setDefaultPolicyConfig() {
 // GetCreatedAt returns the endpoint creation time.
 func (e *Endpoint) GetCreatedAt() time.Time {
 	return e.createdAt
+}
+
+// GetLastUpdatedAt gets the last updated time by ID.
+func (e *Endpoint) GetLastUpdatedAt(ID uint16) (time.Time, bool) {
+	e.unconditionalRLock()
+	defer e.runlock()
+	if t, ok := e.lastUpdatedTime[ID]; ok {
+		return t, true
+	}
+	return time.Time{}, false
+}
+
+// CleanLastUpdatedAt cleans the last updated time by ID.
+func (e *Endpoint) CleanLastUpdatedAt(ID uint16) bool {
+	e.unconditionalLock()
+	defer e.unlock()
+	if _, ok := e.lastUpdatedTime[ID]; ok {
+		delete(e.lastUpdatedTime, ID)
+		return true
+	}
+	return false
 }
