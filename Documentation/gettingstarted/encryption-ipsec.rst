@@ -358,3 +358,4 @@ Limitations
 
     * Transparent encryption is not currently supported when chaining Cilium on
       top of other CNI plugins. For more information, see :gh-issue:`15596`.
+    * :ref:`HostPolicies` are not currently supported with IPsec encryption.
