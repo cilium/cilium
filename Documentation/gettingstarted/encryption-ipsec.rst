@@ -21,9 +21,6 @@ Packets are not encrypted when they are destined to the same node from which
 they were sent. This behavior is intended. Encryption would provide no benefits
 in that case, given that the raw traffic can be observed on the node anyway.
 
-Transparent encryption is not currently supported when chaining Cilium on top
-of other CNI plugins. For more information, see :gh-issue:`15596`.
-
 Generate & Import the PSK
 =========================
 
@@ -355,3 +352,9 @@ Disabling Encryption
 
 To disable the encryption, regenerate the YAML with the option
 ``encryption.enabled=false``
+
+Limitations
+===========
+
+    * Transparent encryption is not currently supported when chaining Cilium on
+      top of other CNI plugins. For more information, see :gh-issue:`15596`.
