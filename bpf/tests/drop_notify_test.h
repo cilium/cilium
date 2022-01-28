@@ -32,7 +32,7 @@
 // Define macros like the followings to make sure the original tailcall is redirected
 // to the mock tailcall function, the last 0 does not matter because we do not
 // actually use the arguments.
-#define ep_tail_call(a, b) tail_call(a, b, 0)
+#define ep_tail_call(a, b) tail_call(a, NULL, 0)
 
 // The file containing the functions to be tested must be included after
 // defining the above macros.
