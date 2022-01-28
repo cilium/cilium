@@ -204,14 +204,20 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 	return store
 }
 
-func deriveVpcCIDR(node *ciliumv2.CiliumNode) (result *cidr.CIDR) {
+func deriveVpcCIDRs(node *ciliumv2.CiliumNode) (primaryCIDR *cidr.CIDR, secondaryCIDRs []*cidr.CIDR) {
 	if len(node.Status.ENI.ENIs) > 0 {
 		// A node belongs to a single VPC so we can pick the first ENI
 		// in the list and derive the VPC CIDR from it.
 		for _, eni := range node.Status.ENI.ENIs {
 			c, err := cidr.ParseCIDR(eni.VPC.PrimaryCIDR)
 			if err == nil {
-				result = c
+				primaryCIDR = c
+				for _, sc := range eni.VPC.CIDRs {
+					c, err = cidr.ParseCIDR(sc)
+					if err == nil {
+						secondaryCIDRs = append(secondaryCIDRs, c)
+					}
+				}
 				return
 			}
 		}
@@ -220,7 +226,7 @@ func deriveVpcCIDR(node *ciliumv2.CiliumNode) (result *cidr.CIDR) {
 		for _, azif := range node.Status.Azure.Interfaces {
 			c, err := cidr.ParseCIDR(azif.CIDR)
 			if err == nil {
-				result = c
+				primaryCIDR = c
 				return
 			}
 		}
@@ -229,7 +235,7 @@ func deriveVpcCIDR(node *ciliumv2.CiliumNode) (result *cidr.CIDR) {
 	if len(node.Status.AlibabaCloud.ENIs) > 0 {
 		c, err := cidr.ParseCIDR(node.Spec.AlibabaCloud.CIDRBlock)
 		if err == nil {
-			result = c
+			primaryCIDR = c
 			return
 		}
 	}
@@ -237,28 +243,37 @@ func deriveVpcCIDR(node *ciliumv2.CiliumNode) (result *cidr.CIDR) {
 }
 
 func (n *nodeStore) autoDetectIPv4NativeRoutingCIDR() bool {
-	if vpcCIDR := deriveVpcCIDR(n.ownNode); vpcCIDR != nil {
+	if primaryCIDR, secondaryCIDRs := deriveVpcCIDRs(n.ownNode); primaryCIDR != nil {
+		allCIDRs := append([]*cidr.CIDR{primaryCIDR}, secondaryCIDRs...)
 		if nativeCIDR := n.conf.GetIPv4NativeRoutingCIDR(); nativeCIDR != nil {
-			logFields := logrus.Fields{
-				"vpc-cidr":                   vpcCIDR.String(),
-				option.IPv4NativeRoutingCIDR: nativeCIDR.String(),
-			}
+			found := false
+			for _, vpcCIDR := range allCIDRs {
+				logFields := logrus.Fields{
+					"vpc-cidr":                   vpcCIDR.String(),
+					option.IPv4NativeRoutingCIDR: nativeCIDR.String(),
+				}
 
-			ranges4, _ := ip.CoalesceCIDRs([]*net.IPNet{nativeCIDR.IPNet, vpcCIDR.IPNet})
-			if len(ranges4) != 1 {
-				log.WithFields(logFields).Fatal("Native routing CIDR does not contain VPC CIDR.")
-			} else {
-				log.WithFields(logFields).Info("Ignoring autodetected VPC CIDR.")
+				ranges4, _ := ip.CoalesceCIDRs([]*net.IPNet{nativeCIDR.IPNet, vpcCIDR.IPNet})
+				if len(ranges4) != 1 {
+					log.WithFields(logFields).Info("Native routing CIDR does not contain VPC CIDR, trying next")
+				} else {
+					found = true
+					log.WithFields(logFields).Info("Native routing CIDR contains VPC CIDR, ignoring autodetected VPC CIDRs.")
+					break
+				}
+			}
+			if !found {
+				log.Fatal("None of the VPC CIDRs contains the specified native routing CIDR")
 			}
 		} else {
 			log.WithFields(logrus.Fields{
-				"vpc-cidr": vpcCIDR.String(),
-			}).Info("Using autodetected VPC CIDR.")
-			n.conf.SetIPv4NativeRoutingCIDR(vpcCIDR)
+				"vpc-cidr": primaryCIDR.String(),
+			}).Info("Using autodetected primary VPC CIDR.")
+			n.conf.SetIPv4NativeRoutingCIDR(primaryCIDR)
 		}
 		return true
 	} else {
-		log.Info("Could not determine VPC CIDR")
+		log.Info("Could not determine VPC CIDRs")
 		return false
 	}
 }
