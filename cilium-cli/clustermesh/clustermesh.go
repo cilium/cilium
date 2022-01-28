@@ -153,8 +153,7 @@ etcdctl auth enable;
 exit`}
 
 func (k *K8sClusterMesh) apiserverImage(imagePathMode utils.ImagePathMode) string {
-	defaultImage := defaults.ClusterMeshApiserverImage + ":" + k.imageVersion
-	return utils.BuildImagePath(k.params.ApiserverImage, k.params.ApiserverVersion, defaultImage, imagePathMode)
+	return utils.BuildImagePath(k.params.ApiserverImage, k.params.ApiserverVersion, defaults.ClusterMeshApiserverImage, k.imageVersion, imagePathMode)
 }
 
 func (k *K8sClusterMesh) etcdImage() string {
