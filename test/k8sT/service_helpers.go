@@ -43,19 +43,6 @@ func applyPolicy(kubectl *helpers.Kubectl, path string) {
 	ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", path, err))
 }
 
-func ciliumIPv6Backends(kubectl *helpers.Kubectl, label string, port string) (backends []string) {
-	ciliumPods, err := kubectl.GetCiliumPods()
-	Expect(err).To(BeNil(), "Cannot get cilium pods")
-	for _, pod := range ciliumPods {
-		endpointIPs := kubectl.CiliumEndpointIPv6(pod, label)
-		for _, ip := range endpointIPs {
-			backends = append(backends, net.JoinHostPort(ip, port))
-		}
-	}
-	ExpectWithOffset(1, backends).To(Not(BeEmpty()), "Cannot find any IPv6 backends")
-	return backends
-}
-
 func ciliumAddService(kubectl *helpers.Kubectl, id int64, frontend string, backends []string, svcType, trafficPolicy string) {
 	ciliumPods, err := kubectl.GetCiliumPods()
 	ExpectWithOffset(1, err).To(BeNil(), "Cannot get cilium pods")
@@ -63,14 +50,6 @@ func ciliumAddService(kubectl *helpers.Kubectl, id int64, frontend string, backe
 		err := kubectl.CiliumServiceAdd(pod, id, frontend, backends, svcType, trafficPolicy)
 		ExpectWithOffset(1, err).To(BeNil(), "Failed to add cilium service")
 	}
-}
-
-func ciliumAddServiceOnNode(kubectl *helpers.Kubectl, node string, id int64, frontend string, backends []string, svcType, trafficPolicy string) {
-	ciliumPod, err := kubectl.GetCiliumPodOnNode(node)
-	ExpectWithOffset(1, err).To(BeNil(), fmt.Sprintf("Cannot get cilium pod on node %s", node))
-
-	err = kubectl.CiliumServiceAdd(ciliumPod, id, frontend, backends, svcType, trafficPolicy)
-	ExpectWithOffset(1, err).To(BeNil(), fmt.Sprintf("Failed to add cilium service on node %s", node))
 }
 
 func ciliumDelService(kubectl *helpers.Kubectl, id int64) {
@@ -643,56 +622,6 @@ func testNodePort(kubectl *helpers.Kubectl, ni *nodesInfo, bpfNodePort, testSeco
 		tftpURL = getTFTPLink("::ffff:127.0.0.1", data.Spec.Ports[1].NodePort)
 		testCurlFromPodsFail(kubectl, testDSClient, httpURL)
 		testCurlFromPodsFail(kubectl, testDSClient, tftpURL)
-	}
-
-	wg.Wait()
-}
-
-// This function tests NodePort services using IPV6 addresses
-// It is the job of the caller to make sure that all the node have assigned
-// routable IPV6 addresses reachable from other nodes.
-// This is not required when dual stack support is enabled for the cluster.
-func testNodePortIPv6(kubectl *helpers.Kubectl, ni *nodesInfo, testFromOutside bool, data *v1.Service) {
-	var wg sync.WaitGroup
-
-	testURLs := []string{
-		getHTTPLink(ni.primaryK8s1IPv6, data.Spec.Ports[0].NodePort),
-		getTFTPLink(ni.primaryK8s1IPv6, data.Spec.Ports[1].NodePort),
-
-		getHTTPLink(ni.primaryK8s2IPv6, data.Spec.Ports[0].NodePort),
-		getTFTPLink(ni.primaryK8s2IPv6, data.Spec.Ports[1].NodePort),
-	}
-
-	count := 10
-	for _, url := range testURLs {
-		wg.Add(1)
-		go func(url string) {
-			defer GinkgoRecover()
-			defer wg.Done()
-			testCurlFromPods(kubectl, testDSClient, url, count, 0)
-		}(url)
-	}
-
-	for _, url := range testURLs {
-		wg.Add(1)
-		go func(url string) {
-			defer GinkgoRecover()
-			defer wg.Done()
-			testCurlFromPodInHostNetNS(kubectl, url, count, 0, ni.k8s1NodeName)
-			testCurlFromPodInHostNetNS(kubectl, url, count, 0, ni.k8s2NodeName)
-		}(url)
-	}
-
-	// Test IPv6 NodePort service connectivity from outside of K8s cluster.
-	if testFromOutside {
-		for _, url := range testURLs {
-			wg.Add(1)
-			go func(url string) {
-				defer GinkgoRecover()
-				defer wg.Done()
-				testCurlFromOutside(kubectl, ni, url, count, false)
-			}(url)
-		}
 	}
 
 	wg.Wait()
