@@ -408,17 +408,14 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 	SkipContextIf(func() bool {
 		return helpers.DoesNotRunWithKubeProxyReplacement() || helpers.DoesNotRunOnNetNextKernel()
 	}, "Checks connectivity when skipping socket lb in pod ns", func() {
-		var (
-			serviceName = testDSServiceIPv4
-			yamls       []string
-		)
+		var yamls []string
 
 		BeforeAll(func() {
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 				"hostServices.hostNamespaceOnly": "true",
 			})
 
-			yamls = []string{"demo_ds.yaml", "demo.yaml"}
+			yamls = []string{"demo_ds.yaml"}
 			if helpers.DualStackSupported() {
 				yamls = append(yamls, "demo_ds_v6.yaml")
 			}
@@ -439,42 +436,9 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			ExpectAllPodsTerminated(kubectl)
 		})
 
-		It("Checks ClusterIP connectivity on the same node", func() {
-			clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, serviceName)
-			Expect(err).Should(BeNil(), "Cannot get service %s", serviceName)
-			Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
-
-			// Test that socket lb doesn't kick in, aka we see service VIP in monitor trace.
-			// Note that cilium monitor won't capture service VIP if run with Istio.
-			ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
-			Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
-			monitorRes, monitorCancel := kubectl.MonitorStart(ciliumPodK8s1)
-			defer func() {
-				monitorCancel()
-				helpers.WriteToReportFile(monitorRes.CombineOutput().Bytes(), "skip-socket-lb-connectivity-same-node.log")
-			}()
-
-			httpSVCURL := fmt.Sprintf("http://%s/", clusterIP)
-			tftpSVCURL := fmt.Sprintf("tftp://%s/hello", clusterIP)
-
-			// Test connectivbity from root ns
-			status := kubectl.ExecInHostNetNS(context.TODO(), ni.k8s1NodeName,
-				helpers.CurlFail(httpSVCURL))
-			status.ExpectSuccess("cannot curl to service IP from host")
-			status = kubectl.ExecInHostNetNS(context.TODO(), ni.k8s1NodeName,
-				helpers.CurlFail(tftpSVCURL))
-			status.ExpectSuccess("cannot curl to service IP from host")
-
-			// Test connectivity from pod ns
-			testCurlFromPods(kubectl, "id=app2", httpSVCURL, 10, 0)
-			testCurlFromPods(kubectl, "id=app2", tftpSVCURL, 10, 0)
-
-			monitorRes.ExpectContains(clusterIP, "Service VIP not seen in monitor trace, indicating socket lb still in effect")
-		})
-
 		// In adition to the bpf_sock bypass, this test is testing whether bpf_lxc
 		// ClusterIP for IPv6 is working
-		It("Checks ClusterIP connectivity across nodes", func() {
+		It("Checks ClusterIP connectivity", func() {
 			services := []string{testDSServiceIPv4}
 			if helpers.DualStackSupported() {
 				services = append(services, testDSServiceIPv6)
