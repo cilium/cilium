@@ -9,6 +9,7 @@
 #include "ipv4.h"
 #include "hash.h"
 #include "ids.h"
+#include "nat_46x64.h"
 
 #ifdef ENABLE_IPV6
 struct {
@@ -750,6 +751,17 @@ lb6_update_affinity_by_netns(const struct lb6_service *svc __maybe_unused,
 #endif
 }
 
+static __always_inline int
+lb6_to_lb4(struct __ctx_buff *ctx, const struct ipv6hdr *ip6)
+{
+	__be32 src4, dst4;
+
+	build_v4_from_v6((const union v6addr *)&ip6->saddr, &src4);
+	build_v4_from_v6((const union v6addr *)&ip6->daddr, &dst4);
+
+	return ipv6_to_ipv4(ctx, src4, dst4);
+}
+
 static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 				     int l3_off, int l4_off,
 				     struct csum_offset *csum_off,
@@ -1082,6 +1094,16 @@ bool lb4_src_range_ok(const struct lb4_service *svc __maybe_unused,
 #endif /* ENABLE_SRC_RANGE_CHECK */
 }
 
+static __always_inline bool
+lb4_to_lb6_service(const struct lb4_service *svc __maybe_unused)
+{
+#ifdef ENABLE_NAT_46X64
+	return svc->flags2 & SVC_FLAG_NAT_46X64;
+#else
+	return false;
+#endif
+}
+
 static __always_inline
 struct lb4_service *lb4_lookup_service(struct lb4_key *key,
 				       const bool scope_switch)
@@ -1093,7 +1115,7 @@ struct lb4_service *lb4_lookup_service(struct lb4_key *key,
 	svc = map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
 	if (svc) {
 		if (!scope_switch || !lb4_svc_is_local_scope(svc))
-			return svc->count ? svc : NULL;
+			return svc->count || lb4_to_lb6_service(svc) ? svc : NULL;
 		key->scope = LB_LOOKUP_SCOPE_INT;
 		svc = map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
 		if (svc && svc->count)
@@ -1334,6 +1356,17 @@ lb4_update_affinity_by_netns(const struct lb4_service *svc __maybe_unused,
 #if defined(ENABLE_SESSION_AFFINITY)
 	__lb4_update_affinity(svc, true, id, backend_id);
 #endif
+}
+
+static __always_inline int
+lb4_to_lb6(struct __ctx_buff *ctx, const struct iphdr *ip4, int l3_off)
+{
+	union v6addr src6, dst6;
+
+	build_v4_in_v6(&src6, ip4->saddr);
+	build_v4_in_v6(&dst6, ip4->daddr);
+
+	return ipv4_to_ipv6(ctx, l3_off, &src6, &dst6);
 }
 
 static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,

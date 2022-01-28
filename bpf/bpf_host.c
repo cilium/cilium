@@ -478,8 +478,16 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 		if (ctx_get_xfer(ctx) != XFER_PKT_NO_SVC &&
 		    !bpf_skip_nodeport(ctx)) {
 			ret = nodeport_lb4(ctx, secctx);
-			if (ret < 0)
+			if (ret == NAT_46X64_RECIRC) {
+				ctx_store_meta(ctx, CB_SRC_IDENTITY, secctx);
+				ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_LXC);
+				return send_drop_notify_error(ctx, secctx,
+							      DROP_MISSED_TAIL_CALL,
+							      CTX_ACT_DROP,
+							      METRIC_INGRESS);
+			} else if (ret < 0) {
 				return ret;
+			}
 		}
 		/* Verifier workaround: modified ctx access. */
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
