@@ -237,8 +237,7 @@ disable-server-tls: true
 }
 
 func (k *K8sHubble) relayImage(imagePathMode utils.ImagePathMode) string {
-	defaultImage := defaults.RelayImage + ":" + k.ciliumVersion
-	return utils.BuildImagePath(k.params.RelayImage, k.params.RelayVersion, defaultImage, imagePathMode)
+	return utils.BuildImagePath(k.params.RelayImage, k.params.RelayVersion, defaults.RelayImage, k.ciliumVersion, imagePathMode)
 }
 
 func (k *K8sHubble) disableRelay(ctx context.Context) error {
