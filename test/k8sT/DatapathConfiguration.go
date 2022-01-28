@@ -370,6 +370,58 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 
 	SkipContextIf(func() bool {
+		return helpers.RunsWithKubeProxyReplacement() || helpers.GetCurrentIntegration() != "" || helpers.SkipQuarantined()
+	}, "IPv6 masquerading", func() {
+		var (
+			k8s1EndpointIPs map[string]string
+
+			testDSK8s1IPv6 string = "fd03::310"
+		)
+
+		BeforeAll(func() {
+			deploymentManager.DeployCilium(map[string]string{
+				"tunnel":               "disabled",
+				"autoDirectNodeRoutes": "true",
+			}, DeployCiliumOptionsAndDNS)
+
+			pod, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
+			Expect(err).Should(BeNil(), "Cannot get cilium pod on node %s", helpers.K8s1)
+			k8s1EndpointIPs = kubectl.CiliumEndpointIPv6(pod, "-l k8s:zgroup=testDS,k8s:io.kubernetes.pod.namespace=default")
+
+			k8s1Backends := []string{}
+			for _, epIP := range k8s1EndpointIPs {
+				k8s1Backends = append(k8s1Backends, net.JoinHostPort(epIP, "80"))
+			}
+
+			ciliumAddService(kubectl, 31080, net.JoinHostPort(testDSK8s1IPv6, "80"), k8s1Backends, "ClusterIP", "Cluster")
+		})
+
+		It("across K8s nodes", func() {
+			pod, err := kubectl.GetCiliumPodOnNode(helpers.K8s2)
+			Expect(err).Should(BeNil(), "Cannot get cilium pod on node %s", helpers.K8s2)
+			k8s2EndpointIPs := kubectl.CiliumEndpointIPv6(pod, fmt.Sprintf("-l k8s:%s,k8s:io.kubernetes.pod.namespace=default", testDSK8s2))
+			k8s2ClientIPv6 := ""
+			for _, epIP := range k8s2EndpointIPs {
+				k8s2ClientIPv6 = epIP
+				break
+			}
+			Expect(k8s2ClientIPv6).ShouldNot(BeEmpty(), "Cannot get client IPv6")
+
+			url := fmt.Sprintf(`"http://[%s]:80/"`, testDSK8s1IPv6)
+			testCurlFromPodWithSourceIPCheck(kubectl, testDSK8s2, url, 5, k8s2ClientIPv6)
+
+			for _, epIP := range k8s1EndpointIPs {
+				url = fmt.Sprintf(`"http://[%s]:80/"`, epIP)
+				testCurlFromPodWithSourceIPCheck(kubectl, testDSK8s2, url, 5, k8s2ClientIPv6)
+			}
+		})
+
+		AfterAll(func() {
+			ciliumDelService(kubectl, 31080)
+		})
+	})
+
+	SkipContextIf(func() bool {
 		return helpers.DoesNotExistNodeWithoutCilium() || helpers.DoesNotRunOn419OrLaterKernel()
 	}, "Check BPF masquerading with ip-masq-agent", func() {
 		var (
