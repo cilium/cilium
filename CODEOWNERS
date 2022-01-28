@@ -127,6 +127,7 @@ Makefile* @cilium/build
 /Documentation/gettingstarted/kubeproxy-free.rst @cilium/loadbalancer @cilium/docs-structure
 /Documentation/gettingstarted/policy-creation.rst @cilium/policy @cilium/docs-structure
 /Documentation/glossary.rst @cilium/docs-structure
+/Documentation/helm-values.rst @cilium/nonexistantteam
 /Documentation/images/re-request-review.png @cilium/contributing @cilium/docs-structure
 /Documentation/index.rst @cilium/docs-structure
 /Documentation/internals/index.rst @cilium/docs-structure
