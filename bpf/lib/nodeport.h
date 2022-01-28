@@ -956,8 +956,10 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_REVNAT)
 int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
 {
-	int ifindex = 0;
-	int ret = 0;
+	int ifindex = 0, ret = 0;
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+
 #if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
 	/* We only enforce the host policies if nodeport.h is included from
 	 * bpf_host.
@@ -975,12 +977,21 @@ int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
 #endif
 	ret = rev_nodeport_lb6(ctx, &ifindex);
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
+		goto drop;
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		goto drop;
+	if (is_v4_in_v6((union v6addr *)&ip6->saddr)) {
+		ret = lb6_to_lb4(ctx, ip6);
+		if (ret)
+			goto drop;
+	}
 
 	edt_set_aggregate(ctx, 0);
 	cilium_capture_out(ctx);
 
 	return ctx_redirect(ctx, ifindex, 0);
+drop:
+	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
 }
 
 declare_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
@@ -1723,11 +1734,16 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 
 		if (!lb4_src_range_ok(svc, ip4->saddr))
 			return DROP_NOT_IN_SRC_RANGE;
-
-		ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off,
-				&csum_off, &key, &tuple, svc, &ct_state_new,
-				ip4->saddr, ipv4_has_l4_header(ip4),
-				skip_l3_xlate);
+		if (lb4_to_lb6_service(svc)) {
+			ret = lb4_to_lb6(ctx, ip4, l3_off);
+			if (!ret)
+				return NAT_46X64_RECIRC;
+		} else {
+			ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off,
+					&csum_off, &key, &tuple, svc, &ct_state_new,
+					ip4->saddr, ipv4_has_l4_header(ip4),
+					skip_l3_xlate);
+		}
 		if (IS_ERR(ret))
 			return ret;
 	}

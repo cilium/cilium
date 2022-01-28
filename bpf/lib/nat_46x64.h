@@ -28,13 +28,19 @@ static __always_inline __maybe_unused bool is_v4_in_v6(const union v6addr *daddr
 	return ipv6_addrcmp(&dprobe, &dmasked) == 0;
 }
 
-static __always_inline __maybe_unused void build_v4_in_v6(union v6addr *daddr,
-							  __be32 v4)
+static __always_inline __maybe_unused
+void build_v4_in_v6(union v6addr *daddr, __be32 v4)
 {
 	memset(daddr, 0, sizeof(*daddr));
 	daddr->addr[10] = 0xff;
 	daddr->addr[11] = 0xff;
 	daddr->p4 = v4;
+}
+
+static __always_inline __maybe_unused
+void build_v4_from_v6(const union v6addr *v6, __be32 *daddr)
+{
+	*daddr = v6->p4;
 }
 
 static __always_inline int get_csum_offset(__u8 protocol)

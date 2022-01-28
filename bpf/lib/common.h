@@ -413,7 +413,7 @@ enum {
 #define DROP_NO_SERVICE		-158
 #define DROP_UNUSED8		-159 /* unused */
 #define DROP_NO_TUNNEL_ENDPOINT -160
-#define DROP_UNUSED9		-161 /* unused */
+#define DROP_NAT_46X64_DISABLED	-161
 #define DROP_EDT_HORIZON	-162
 #define DROP_UNKNOWN_CT		-163
 #define DROP_HOST_UNREACHABLE	-164
@@ -438,6 +438,7 @@ enum {
 #define DROP_INVALID_VNI	-183
 
 #define NAT_PUNT_TO_STACK	DROP_NAT_NOT_NEEDED
+#define NAT_46X64_RECIRC	100
 
 /* Cilium metrics reasons for forwarding packets and other stats.
  * If reason is larger than below then this is a drop reason and
@@ -641,6 +642,7 @@ enum {
 /* Service flags (lb{4,6}_service->flags2) */
 enum {
 	SVC_FLAG_LOCALREDIRECT = (1 << 0),  /* local redirect */
+	SVC_FLAG_NAT_46X64     = (1 << 1),  /* NAT-46/64 entry */
 };
 
 struct ipv6_ct_tuple {
