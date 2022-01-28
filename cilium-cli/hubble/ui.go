@@ -257,13 +257,11 @@ func (k *K8sHubble) generateHubbleUIDeployment() *appsv1.Deployment {
 }
 
 func (k *K8sHubble) uiImage(imagePathMode utils.ImagePathMode) string {
-	defaultImage := defaults.HubbleUIImage + ":" + defaults.HubbleUIVersion
-	return utils.BuildImagePath(k.params.UIImage, k.params.UIVersion, defaultImage, imagePathMode)
+	return utils.BuildImagePath(k.params.UIImage, k.params.UIVersion, defaults.HubbleUIImage, defaults.HubbleUIVersion, imagePathMode)
 }
 
 func (k *K8sHubble) uiBackendImage(imagePathMode utils.ImagePathMode) string {
-	defaultImage := defaults.HubbleUIBackendImage + ":" + defaults.HubbleUIVersion
-	return utils.BuildImagePath(k.params.UIBackendImage, k.params.UIVersion, defaultImage, imagePathMode)
+	return utils.BuildImagePath(k.params.UIBackendImage, k.params.UIVersion, defaults.HubbleUIBackendImage, defaults.HubbleUIVersion, imagePathMode)
 }
 
 func (k *K8sHubble) disableUI(ctx context.Context) error {

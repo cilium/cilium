@@ -44,25 +44,23 @@ var imageRegexp = regexp.MustCompile(`\A(.*?)(?:(:.*?)(@sha256:[0-9a-f]{64})?)?\
 // If imagePathMode is ImagePathIncludeDigest and the resulting image is well
 // known (i.e. is in defaults.WellKnownImageDigests) then its digest is appended
 // to the path.
-func BuildImagePath(userImage, userVersion, defaultImage string, imagePathMode ImagePathMode) string {
-	m := imageRegexp.FindStringSubmatch(defaultImage)
-	if m == nil {
-		panic(fmt.Sprintf("invalid syntax %q for image", defaultImage))
-	}
-	defaultPath := m[1]
-
+func BuildImagePath(userImage, userVersion, defaultImage, defaultVersion string, imagePathMode ImagePathMode) string {
 	var image string
 	switch {
 	case userImage == "" && userVersion == "":
-		image = defaultImage
+		if strings.Contains(defaultVersion, ":") {
+			image = defaultImage + defaultVersion
+		} else {
+			image = defaultImage + ":" + defaultVersion
+		}
 	case userImage == "" && strings.Contains(userVersion, ":"):
 		// userVersion already contains the colon. Useful for ":latest",
 		// or for "-ci:<hash>"
-		image = defaultPath + userVersion
+		image = defaultImage + userVersion
 	case userImage == "" && !strings.HasPrefix(userVersion, "v"):
-		image = defaultPath + ":v" + userVersion
+		image = defaultImage + ":v" + userVersion
 	case userImage == "":
-		image = defaultPath + ":" + userVersion
+		image = defaultImage + ":" + userVersion
 	case strings.Contains(userImage, ":"):
 		// Fully-qualified userImage?
 		image = userImage
