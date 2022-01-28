@@ -243,7 +243,7 @@ jobs:
             --context ${{ steps.contexts.outputs.context1 }} \
             --cluster-name=${{ env.clusterName1 }} \
             --cluster-id 1 \
-            --native-routing-cidr=10.0.0.0/9
+            --ipv4-native-routing-cidr=10.0.0.0/9
 
       - name: Install Cilium in cluster2
         run: |
