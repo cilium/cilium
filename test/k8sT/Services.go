@@ -139,14 +139,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 		kubectl.CloseSSHClient()
 	})
 
-	manualIPv6TestingNotRequired := func(f func() bool) func() bool {
-		return func() bool {
-			// IPv6 tests do not work on Integrations like GKE as we don't have IPv6
-			// addresses assigned to nodes in those environments.
-			return helpers.DualStackSupported() || helpers.GetCurrentIntegration() != "" || f()
-		}
-	}
-
 	Context("Checks ClusterIP Connectivity", func() {
 		var (
 			demoYAML             string
@@ -312,50 +304,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			}
 
 		}, 600)
-
-		SkipContextIf(manualIPv6TestingNotRequired(helpers.DoesNotRunWithKubeProxyReplacement), "IPv6 Connectivity", func() {
-			// Because the deployed K8s does not have dual-stack mode enabled,
-			// we install the Cilium service rules manually via Cilium CLI.
-			demoClusterIPv6 := "fd03::100"
-			echoClusterIPv6 := "fd03::200"
-
-			BeforeAll(func() {
-				// Installs the IPv6 equivalent of app1-service (demo.yaml)
-				httpBackends := ciliumIPv6Backends(kubectl, "-l k8s:id=app1,k8s:io.kubernetes.pod.namespace=default", "80")
-				ciliumAddService(kubectl, 10080, net.JoinHostPort(demoClusterIPv6, "80"), httpBackends, "ClusterIP", "Cluster")
-				tftpBackends := ciliumIPv6Backends(kubectl, "-l k8s:id=app1,k8s:io.kubernetes.pod.namespace=default", "69")
-				ciliumAddService(kubectl, 10069, net.JoinHostPort(demoClusterIPv6, "69"), tftpBackends, "ClusterIP", "Cluster")
-				// Installs the IPv6 equivalent of echo (echo-svc.yaml)
-				httpBackends = ciliumIPv6Backends(kubectl, "-l k8s:name=echo,k8s:io.kubernetes.pod.namespace=default", "80")
-				ciliumAddService(kubectl, 20080, net.JoinHostPort(echoClusterIPv6, "80"), httpBackends, "ClusterIP", "Cluster")
-				tftpBackends = ciliumIPv6Backends(kubectl, "-l k8s:name=echo,k8s:io.kubernetes.pod.namespace=default", "69")
-				ciliumAddService(kubectl, 20069, net.JoinHostPort(echoClusterIPv6, "69"), tftpBackends, "ClusterIP", "Cluster")
-			})
-
-			AfterAll(func() {
-				ciliumDelService(kubectl, 10080)
-				ciliumDelService(kubectl, 10069)
-				ciliumDelService(kubectl, 20080)
-				ciliumDelService(kubectl, 20069)
-			})
-
-			It("Checks service on same node", func() {
-				status := kubectl.ExecInHostNetNS(context.TODO(), ni.k8s1NodeName,
-					helpers.CurlFail(`"http://[%s]/"`, demoClusterIPv6))
-				status.ExpectSuccess("cannot curl to service IP from host")
-
-				status = kubectl.ExecInHostNetNS(context.TODO(), ni.k8s1NodeName,
-					helpers.CurlFail(`"tftp://[%s]/hello"`, demoClusterIPv6))
-				status.ExpectSuccess("cannot curl to service IP from host")
-			})
-
-			It("Checks service accessing itself (hairpin flow)", func() {
-				url := fmt.Sprintf(`"http://[%s]/"`, echoClusterIPv6)
-				testCurlFromPods(kubectl, echoPodLabel, url, 10, 0)
-				url = fmt.Sprintf(`"tftp://[%s]/hello"`, echoClusterIPv6)
-				testCurlFromPods(kubectl, echoPodLabel, url, 10, 0)
-			})
-		})
 
 		// This label should be respected for all the service types, but testing for ClusterIP is enough.
 		// As service type does not influence if Cilium selects the service for management or not.
@@ -609,31 +557,6 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			}
 		})
 
-		SkipContextIf(manualIPv6TestingNotRequired(helpers.DoesNotRunWithKubeProxyReplacement), "IPv6 Connectivity", func() {
-			testDSIPv6 := "fd03::310"
-
-			BeforeAll(func() {
-				// Install rules for testds-service (demo_ds.yaml)
-				httpBackends := ciliumIPv6Backends(kubectl, "-l k8s:zgroup=testDS,k8s:io.kubernetes.pod.namespace=default", "80")
-				ciliumAddService(kubectl, 31080, net.JoinHostPort(testDSIPv6, "80"), httpBackends, "ClusterIP", "Cluster")
-				tftpBackends := ciliumIPv6Backends(kubectl, "-l k8s:zgroup=testDS,k8s:io.kubernetes.pod.namespace=default", "69")
-				ciliumAddService(kubectl, 31069, net.JoinHostPort(testDSIPv6, "69"), tftpBackends, "ClusterIP", "Cluster")
-			})
-
-			AfterAll(func() {
-				ciliumDelService(kubectl, 31080)
-				ciliumDelService(kubectl, 31069)
-			})
-
-			It("Checks ClusterIP Connectivity", func() {
-				url := fmt.Sprintf(`"http://[%s]/"`, testDSIPv6)
-				testCurlFromPods(kubectl, testDSClient, url, 10, 0)
-
-				url = fmt.Sprintf(`"tftp://[%s]/hello"`, testDSIPv6)
-				testCurlFromPods(kubectl, testDSClient, url, 10, 0)
-			})
-		})
-
 		SkipContextIf(func() bool {
 			return helpers.RunsWithKubeProxyReplacement() || helpers.GetCurrentIntegration() != "" || helpers.SkipQuarantined()
 		}, "IPv6 masquerading", func() {
@@ -738,50 +661,6 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 			It("", func() {
 				testNodePort(kubectl, ni, false, false, false, 0)
-			})
-		})
-
-		SkipContextIf(manualIPv6TestingNotRequired(helpers.DoesNotRunWithKubeProxyReplacement), "Tests IPv6 NodePort Services", func() {
-			var (
-				testDSIPv6 string = "fd03::310"
-				data       v1.Service
-			)
-
-			BeforeAll(func() {
-				err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
-				Expect(err).Should(BeNil(), "Cannot retrieve service")
-
-				// Install rules for testds-service NodePort Service(demo_ds.yaml)
-				httpBackends := ciliumIPv6Backends(kubectl, "-l k8s:zgroup=testDS,k8s:io.kubernetes.pod.namespace=default", "80")
-				ciliumAddService(kubectl, 31080, net.JoinHostPort(testDSIPv6, fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)), httpBackends, "NodePort", "Cluster")
-				ciliumAddService(kubectl, 31081, net.JoinHostPort("::", fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)), httpBackends, "NodePort", "Cluster")
-				// Add service corresponding to IPv6 address of the nodes so that they become
-				// reachable from outside the cluster.
-				ciliumAddServiceOnNode(kubectl, helpers.K8s1, 31082, net.JoinHostPort(ni.primaryK8s1IPv6, fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)),
-					httpBackends, "NodePort", "Cluster")
-				ciliumAddServiceOnNode(kubectl, helpers.K8s2, 31082, net.JoinHostPort(ni.primaryK8s2IPv6, fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)),
-					httpBackends, "NodePort", "Cluster")
-
-				tftpBackends := ciliumIPv6Backends(kubectl, "-l k8s:zgroup=testDS,k8s:io.kubernetes.pod.namespace=default", "69")
-				ciliumAddService(kubectl, 31069, net.JoinHostPort(testDSIPv6, fmt.Sprintf("%d", data.Spec.Ports[1].NodePort)), tftpBackends, "NodePort", "Cluster")
-				ciliumAddService(kubectl, 31070, net.JoinHostPort("::", fmt.Sprintf("%d", data.Spec.Ports[1].NodePort)), tftpBackends, "NodePort", "Cluster")
-				ciliumAddServiceOnNode(kubectl, helpers.K8s1, 31071, net.JoinHostPort(ni.primaryK8s1IPv6, fmt.Sprintf("%d", data.Spec.Ports[1].NodePort)),
-					tftpBackends, "NodePort", "Cluster")
-				ciliumAddServiceOnNode(kubectl, helpers.K8s2, 31071, net.JoinHostPort(ni.primaryK8s2IPv6, fmt.Sprintf("%d", data.Spec.Ports[1].NodePort)),
-					tftpBackends, "NodePort", "Cluster")
-			})
-
-			AfterAll(func() {
-				ciliumDelService(kubectl, 31080)
-				ciliumDelService(kubectl, 31081)
-				ciliumDelService(kubectl, 31082)
-				ciliumDelService(kubectl, 31069)
-				ciliumDelService(kubectl, 31070)
-				ciliumDelService(kubectl, 31071)
-			})
-
-			It("Test IPv6 connectivity to NodePort service", func() {
-				testNodePortIPv6(kubectl, ni, helpers.ExistNodeWithoutCilium(), &data)
 			})
 		})
 
