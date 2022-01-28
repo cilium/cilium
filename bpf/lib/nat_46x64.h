@@ -13,6 +13,30 @@
 #include "ipv6.h"
 #include "eth.h"
 
+static __always_inline __maybe_unused bool is_v4_in_v6(const union v6addr *daddr)
+{
+	/* Check for ::FFFF:<IPv4 address>. */
+	union v6addr dprobe  = {
+		.addr[10] = 0xff,
+		.addr[11] = 0xff,
+	};
+	union v6addr dmasked = {
+		.d1 = daddr->d1,
+	};
+
+	dmasked.p3 = daddr->p3;
+	return ipv6_addrcmp(&dprobe, &dmasked) == 0;
+}
+
+static __always_inline __maybe_unused void build_v4_in_v6(union v6addr *daddr,
+							  __be32 v4)
+{
+	memset(daddr, 0, sizeof(*daddr));
+	daddr->addr[10] = 0xff;
+	daddr->addr[11] = 0xff;
+	daddr->p4 = v4;
+}
+
 static __always_inline int get_csum_offset(__u8 protocol)
 {
 	int csum_off;
