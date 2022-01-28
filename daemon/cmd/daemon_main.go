@@ -691,9 +691,6 @@ func initializeFlags() {
 	flags.String(option.LoopbackIPv4, defaults.LoopbackIPv4, "IPv4 address for service loopback SNAT")
 	option.BindEnv(option.LoopbackIPv4)
 
-	flags.String(option.NAT46Range, defaults.DefaultNAT46Prefix, "IPv6 prefix to map IPv4 addresses to")
-	option.BindEnv(option.NAT46Range)
-
 	flags.Bool(option.EnableIPv4Masquerade, true, "Masquerade IPv4 traffic from endpoints leaving the host")
 	option.BindEnv(option.EnableIPv4Masquerade)
 
@@ -1328,13 +1325,6 @@ func initEnv(cmd *cobra.Command) {
 	if err := labelsfilter.ParseLabelPrefixCfg(option.Config.Labels, option.Config.LabelPrefixFile); err != nil {
 		log.WithError(err).Fatal("Unable to parse Label prefix configuration")
 	}
-
-	_, r, err := net.ParseCIDR(option.Config.NAT46Range)
-	if err != nil {
-		log.WithError(err).WithField(logfields.V6Prefix, option.Config.NAT46Range).Fatal("Invalid NAT46 prefix")
-	}
-
-	option.Config.NAT46Prefix = r
 
 	switch option.Config.DatapathMode {
 	case datapathOption.DatapathModeVeth:

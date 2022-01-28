@@ -337,9 +337,6 @@ const (
 	// Logstash enables logstash integration
 	Logstash = "logstash"
 
-	// NAT46Range is the IPv6 prefix to map IPv4 addresses to
-	NAT46Range = "nat46-range"
-
 	// EnableIPv4Masquerade masquerades IPv4 packets from endpoints leaving the host.
 	EnableIPv4Masquerade = "enable-ipv4-masquerade"
 
@@ -1232,21 +1229,20 @@ type IpvlanConfig struct {
 // DaemonConfig is the configuration used by Daemon.
 type DaemonConfig struct {
 	CreationTime        time.Time
-	BpfDir              string     // BPF template files directory
-	LibDir              string     // Cilium library files directory
-	RunDir              string     // Cilium runtime directory
-	NAT46Prefix         *net.IPNet // NAT46 IPv6 Prefix
-	Devices             []string   // bpf_host device
-	DirectRoutingDevice string     // Direct routing device (used by BPF NodePort and BPF Host Routing)
-	LBDevInheritIPAddr  string     // Device which IP addr used by bpf_host devices
-	EnableXDPPrefilter  bool       // Enable XDP-based prefiltering
-	DevicePreFilter     string     // Prefilter device
-	ModePreFilter       string     // Prefilter mode
-	XDPMode             string     // XDP mode, values: { xdpdrv | xdpgeneric | none }
-	HostV4Addr          net.IP     // Host v4 address of the snooping device
-	HostV6Addr          net.IP     // Host v6 address of the snooping device
-	EncryptInterface    []string   // Set of network facing interface to encrypt over
-	EncryptNode         bool       // Set to true for encrypting node IP traffic
+	BpfDir              string   // BPF template files directory
+	LibDir              string   // Cilium library files directory
+	RunDir              string   // Cilium runtime directory
+	Devices             []string // bpf_host device
+	DirectRoutingDevice string   // Direct routing device (used by BPF NodePort and BPF Host Routing)
+	LBDevInheritIPAddr  string   // Device which IP addr used by bpf_host devices
+	EnableXDPPrefilter  bool     // Enable XDP-based prefiltering
+	DevicePreFilter     string   // Prefilter device
+	ModePreFilter       string   // Prefilter mode
+	XDPMode             string   // XDP mode, values: { xdpdrv | xdpgeneric | none }
+	HostV4Addr          net.IP   // Host v4 address of the snooping device
+	HostV6Addr          net.IP   // Host v6 address of the snooping device
+	EncryptInterface    []string // Set of network facing interface to encrypt over
+	EncryptNode         bool     // Set to true for encrypting node IP traffic
 
 	Ipvlan IpvlanConfig // Ipvlan related configuration
 
@@ -1529,7 +1525,6 @@ type DaemonConfig struct {
 	LogOpt                        map[string]string
 	Logstash                      bool
 	LogSystemLoadConfig           bool
-	NAT46Range                    string
 
 	// Masquerade specifies whether or not to masquerade packets from endpoints
 	// leaving the host.
@@ -2699,7 +2694,6 @@ func (c *DaemonConfig) Populate() {
 	c.MonitorAggregationInterval = viper.GetDuration(MonitorAggregationInterval)
 	c.MonitorQueueSize = viper.GetInt(MonitorQueueSizeName)
 	c.MTU = viper.GetInt(MTUName)
-	c.NAT46Range = viper.GetString(NAT46Range)
 	c.PProf = viper.GetBool(PProf)
 	c.PProfPort = viper.GetInt(PProfPort)
 	c.PreAllocateMaps = viper.GetBool(PreAllocateMapsName)
