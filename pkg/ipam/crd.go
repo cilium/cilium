@@ -236,6 +236,33 @@ func deriveVpcCIDR(node *ciliumv2.CiliumNode) (result *cidr.CIDR) {
 	return
 }
 
+func (n *nodeStore) autoDetectIPv4NativeRoutingCIDR() bool {
+	if vpcCIDR := deriveVpcCIDR(n.ownNode); vpcCIDR != nil {
+		if nativeCIDR := n.conf.GetIPv4NativeRoutingCIDR(); nativeCIDR != nil {
+			logFields := logrus.Fields{
+				"vpc-cidr":                   vpcCIDR.String(),
+				option.IPv4NativeRoutingCIDR: nativeCIDR.String(),
+			}
+
+			ranges4, _ := ip.CoalesceCIDRs([]*net.IPNet{nativeCIDR.IPNet, vpcCIDR.IPNet})
+			if len(ranges4) != 1 {
+				log.WithFields(logFields).Fatal("Native routing CIDR does not contain VPC CIDR.")
+			} else {
+				log.WithFields(logFields).Info("Ignoring autodetected VPC CIDR.")
+			}
+		} else {
+			log.WithFields(logrus.Fields{
+				"vpc-cidr": vpcCIDR.String(),
+			}).Info("Using autodetected VPC CIDR.")
+			n.conf.SetIPv4NativeRoutingCIDR(vpcCIDR)
+		}
+		return true
+	} else {
+		log.Info("Could not determine VPC CIDR")
+		return false
+	}
+}
+
 // hasMinimumIPsInPool returns true if the required number of IPs is available
 // in the allocation pool. It also returns the number of IPs required and
 // available.
@@ -273,26 +300,7 @@ func (n *nodeStore) hasMinimumIPsInPool() (minimumReached bool, required, numAva
 		}
 
 		if n.conf.IPAMMode() == ipamOption.IPAMENI || n.conf.IPAMMode() == ipamOption.IPAMAzure || n.conf.IPAMMode() == ipamOption.IPAMAlibabaCloud {
-			if vpcCIDR := deriveVpcCIDR(n.ownNode); vpcCIDR != nil {
-				if nativeCIDR := n.conf.GetIPv4NativeRoutingCIDR(); nativeCIDR != nil {
-					logFields := logrus.Fields{
-						"vpc-cidr":                   vpcCIDR.String(),
-						option.IPv4NativeRoutingCIDR: nativeCIDR.String(),
-					}
-
-					ranges4, _ := ip.CoalesceCIDRs([]*net.IPNet{nativeCIDR.IPNet, vpcCIDR.IPNet})
-					if len(ranges4) != 1 {
-						log.WithFields(logFields).Fatal("Native routing CIDR does not contain VPC CIDR.")
-					} else {
-						log.WithFields(logFields).Info("Ignoring autodetected VPC CIDR.")
-					}
-				} else {
-					log.WithFields(logrus.Fields{
-						"vpc-cidr": vpcCIDR.String(),
-					}).Info("Using autodetected VPC CIDR.")
-					n.conf.SetIPv4NativeRoutingCIDR(vpcCIDR)
-				}
-			} else {
+			if !n.autoDetectIPv4NativeRoutingCIDR() {
 				minimumReached = false
 			}
 		}
