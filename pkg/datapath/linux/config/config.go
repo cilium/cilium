@@ -119,10 +119,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 	}
 
-	if nat46Range := option.Config.NAT46Prefix; nat46Range != nil {
-		fw.WriteString(FmtDefineAddress("NAT46_PREFIX", nat46Range.IP))
-	}
-
 	if option.Config.EnableIPv6 {
 		extraMacrosMap["HOST_IP"] = hostIP.String()
 		fw.WriteString(defineIPv6("HOST_IP", hostIP))

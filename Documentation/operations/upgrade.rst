@@ -312,6 +312,10 @@ Annotations:
 1.12 Upgrade Notes
 ------------------
 
+* The Cilium agent does not support the legacy ``nat46-range`` option as well
+  as the per-endpoint ``NAT46`` configuration anymore. Both are replaced in
+  favor of NAT46/64 handling for services.
+
 New Options
 ~~~~~~~~~~~
 

@@ -94,7 +94,6 @@ func (s *CMDHelpersSuite) TestExpandNestedJSON(c *C) {
         "DebugPolicy": "Enabled",
         "DropNotification": "Enabled",
         "MonitorAggregationLevel": "None",
-        "NAT46": "Disabled",
         "TraceNotification": "Enabled"
       }
     },
@@ -284,7 +283,6 @@ func (s *CMDHelpersSuite) TestExpandNestedJSON(c *C) {
           "DebugPolicy": "Enabled",
           "DropNotification": "Enabled",
           "MonitorAggregationLevel": "None",
-          "NAT46": "Disabled",
           "TraceNotification": "Enabled"
         }
       },
@@ -308,7 +306,6 @@ func (s *CMDHelpersSuite) TestExpandNestedJSON(c *C) {
         "DebugPolicy": "Enabled",
         "DropNotification": "Enabled",
         "MonitorAggregationLevel": "None",
-        "NAT46": "Disabled",
         "TraceNotification": "Enabled"
       }
     },
@@ -528,7 +525,6 @@ func (s *CMDHelpersSuite) TestExpandNestedJSON(c *C) {
           "DebugPolicy": "Enabled",
           "DropNotification": "Enabled",
           "MonitorAggregationLevel": "None",
-          "NAT46": "Disabled",
           "TraceNotification": "Enabled"
         }
       },

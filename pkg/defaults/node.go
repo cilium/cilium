@@ -16,9 +16,6 @@ const (
 	// DefaultIPv4PrefixLen is the length used to allocate container IPv4 addresses from.
 	DefaultIPv4PrefixLen = 16
 
-	// DefaultNAT46Prefix is the IPv6 prefix to represent NATed IPv4 addresses.
-	DefaultNAT46Prefix = "0:0:0:0:0:FFFF::/96"
-
 	// HostDevice is the name of the device that connects the cilium IP
 	// space with the host's networking model
 	HostDevice = "cilium_host"
