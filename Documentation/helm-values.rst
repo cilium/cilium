@@ -786,11 +786,15 @@
      - string
      - ``"0 0 1 */4 *"``
    * - hubble.tls.ca
-     - base64 encoded PEM values for the Hubble CA certificate and private key.
+     - Deprecated in favor of tls.ca. To be removed in 1.13. base64 encoded PEM values for the Hubble CA certificate and private key.
      - object
      - ``{"cert":"","key":""}``
+   * - hubble.tls.ca.cert
+     - Deprecated in favor of tls.ca.cert. To be removed in 1.13.
+     - string
+     - ``""``
    * - hubble.tls.ca.key
-     - The CA private key (optional). If it is provided, then it will be used by hubble.tls.auto.method=cronJob to generate all other certificates. Otherwise, a ephemeral CA is generated if hubble.tls.auto.enabled=true.
+     - Deprecated in favor of tls.ca.key. To be removed in 1.13. The CA private key (optional). If it is provided, then it will be used by hubble.tls.auto.method=cronJob to generate all other certificates. Otherwise, a ephemeral CA is generated if hubble.tls.auto.enabled=true.
      - string
      - ``""``
    * - hubble.tls.enabled
@@ -1412,7 +1416,27 @@
    * - tls
      - Configure TLS configuration in the agent.
      - object
-     - ``{"enabled":true,"secretsBackend":"local"}``
+     - ``{"ca":{"cert":"","certValidityDuration":1095,"key":""},"secretsBackend":"local"}``
+   * - tls.ca
+     - Base64 encoded PEM values for the CA certificate and private key. This can be used as common CA to generate certificates used by hubble and clustermesh components
+     - object
+     - ``{"cert":"","certValidityDuration":1095,"key":""}``
+   * - tls.ca.cert
+     - Optional CA cert. If it is provided, it will be used by cilium to generate all other certificates. Otherwise, an ephemeral CA is generated.
+     - string
+     - ``""``
+   * - tls.ca.certValidityDuration
+     - Generated certificates validity duration in days. This will be used for auto generated CA.
+     - int
+     - ``1095``
+   * - tls.ca.key
+     - Optional CA private key. If it is provided, it will be used by cilium to generate all other certificates. Otherwise, an ephemeral CA is generated.
+     - string
+     - ``""``
+   * - tls.secretsBackend
+     - This configures how the Cilium agent loads the secrets used TLS-aware CiliumNetworkPolicies (namely the secrets referenced by terminatingTLS and originatingTLS). Possible values:   - local   - k8s
+     - string
+     - ``"local"``
    * - tolerations
      - Node tolerations for agent scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
      - list

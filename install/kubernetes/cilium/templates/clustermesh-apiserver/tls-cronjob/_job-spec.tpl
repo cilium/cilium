@@ -24,6 +24,10 @@ spec:
             - "--ca-reuse-secret"
             {{- if .Values.clustermesh.apiserver.tls.ca.cert }}
             - "--ca-secret-name=clustermesh-apiserver-ca-cert"
+            {{- else -}}
+              {{- if and .Values.tls.ca.cert .Values.tls.ca.key }}
+            - "--ca-secret-name=cilium-ca"
+              {{- end }}
             {{- end }}
             - "--clustermesh-apiserver-server-cert-generate"
             - "--clustermesh-apiserver-server-cert-validity-duration={{ $certValiditySecondsStr }}"
