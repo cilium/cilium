@@ -542,49 +542,6 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			}
 		})
 
-		SkipContextIf(func() bool {
-			return helpers.RunsWithKubeProxyReplacement() || helpers.GetCurrentIntegration() != "" || helpers.SkipQuarantined()
-		}, "IPv6 masquerading", func() {
-			var (
-				k8s1EndpointIPs map[string]string
-
-				testDSK8s1IPv6 string = "fd03::310"
-			)
-
-			BeforeAll(func() {
-				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-					"tunnel":               "disabled",
-					"autoDirectNodeRoutes": "true",
-				})
-
-				pod, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
-				Expect(err).Should(BeNil(), "Cannot get cilium pod on node %s", helpers.K8s1)
-				k8s1EndpointIPs = kubectl.CiliumEndpointIPv6(pod, "-l k8s:zgroup=testDS,k8s:io.kubernetes.pod.namespace=default")
-
-				k8s1Backends := []string{}
-				for _, epIP := range k8s1EndpointIPs {
-					k8s1Backends = append(k8s1Backends, net.JoinHostPort(epIP, "80"))
-				}
-
-				ciliumAddService(kubectl, 31080, net.JoinHostPort(testDSK8s1IPv6, "80"), k8s1Backends, "ClusterIP", "Cluster")
-			})
-
-			It("across K8s nodes", func() {
-				url := fmt.Sprintf(`"http://[%s]:80/"`, testDSK8s1IPv6)
-				testCurlFromPodWithSourceIPCheck(kubectl, testDSK8s2, url, 5, ni.primaryK8s2IPv6)
-
-				for _, epIP := range k8s1EndpointIPs {
-					url = fmt.Sprintf(`"http://[%s]:80/"`, epIP)
-					testCurlFromPodWithSourceIPCheck(kubectl, testDSK8s2, url, 5, ni.primaryK8s2IPv6)
-				}
-			})
-
-			AfterAll(func() {
-				ciliumDelService(kubectl, 31080)
-				DeployCiliumAndDNS(kubectl, ciliumFilename)
-			})
-		})
-
 		SkipContextIf(helpers.RunsWithKubeProxyReplacement, "Tests NodePort (kube-proxy)", func() {
 			SkipItIf(helpers.DoesNotRunOn419OrLaterKernel, "with IPSec and externalTrafficPolicy=Local", func() {
 				deploymentManager.SetKubectl(kubectl)
