@@ -11,7 +11,7 @@ DOCKER_CTR := $(CONTAINER_ENGINE) container run --rm \
 		--user "$(shell id -u):$(shell id -g)"
 DOCKER_RUN := $(DOCKER_CTR) cilium/bpf-mock
 
-FLAGS := -I../../bpf/ -I../../bpf/include -I. -D__NR_CPUS__=$(shell nproc --all) -O2
+FLAGS := -I../../bpf/ -I../../bpf/include -I. -D__NR_CPUS__=$(shell nproc --all) -O2 -Werror
 FLAGS_CLANG := -Wall -Wextra -Werror -Wshadow -Wno-unused-parameter
 FLAGS_CLANG += -Wno-address-of-packed-member
 FLAGS_CLANG += -Wno-unknown-warning-option
