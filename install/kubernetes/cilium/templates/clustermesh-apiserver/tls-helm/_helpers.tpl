@@ -12,9 +12,9 @@ certificate would be signed by a different CA.
 {{- define "clustermesh-apiserver-generate-certs.helm.setup-ca" }}
   {{- if not .cmca }}
     {{- $ca := "" -}}
-    {{- if .Values.clustermesh.apiserver.tls.ca.cert }}
-      {{- $crt := .Values.clustermesh.apiserver.tls.ca.cert }}
-      {{- $key := .Values.clustermesh.apiserver.tls.ca.key  | required "missing clustermesh.apiserver.tls.ca.key" }}
+    {{- $crt := .Values.clustermesh.apiserver.tls.ca.cert | default .Values.tls.ca.cert -}}
+    {{- $key := .Values.clustermesh.apiserver.tls.ca.key | default .Values.tls.ca.key -}}
+    {{- if and $crt $key }}
       {{- $ca = buildCustomCert $crt $key -}}
     {{- else }}
       {{- with lookup "v1" "Secret" .Release.Namespace "clustermesh-apiserver-ca-cert" }}
@@ -22,7 +22,14 @@ certificate would be signed by a different CA.
         {{- $key := index .data "ca.key" }}
         {{- $ca = buildCustomCert $crt $key -}}
       {{- else }}
-        {{- $ca = genCA "clustermesh-apiserver-ca.cilium.io" (.Values.clustermesh.apiserver.tls.auto.certValidityDuration | int) -}}
+        {{- $_ := include "cilum.ca.setup" . -}}
+        {{- with lookup "v1" "Secret" .Release.Namespace .commonCASecretName }}
+          {{- $crt := index .data "ca.crt" }}
+          {{- $key := index .data "ca.key" }}
+          {{- $ca = buildCustomCert $crt $key -}}
+        {{- else }}
+          {{- $ca = .commonCA -}}
+        {{- end }}
       {{- end }}
     {{- end }}
     {{- $_ := set . "cmca" $ca -}}

@@ -672,6 +672,7 @@ operatorPrometheus
 optimizations
 orchestrator
 org
+originatingTLS
 pahole
 parserfactory
 parsers
@@ -859,6 +860,7 @@ tcplife
 tcptop
 tcptracer
 templating
+terminatingTLS
 testsuite
 th
 thunderx
