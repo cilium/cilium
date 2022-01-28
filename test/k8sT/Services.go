@@ -409,27 +409,33 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 		return helpers.DoesNotRunWithKubeProxyReplacement() || helpers.DoesNotRunOnNetNextKernel()
 	}, "Checks connectivity when skipping socket lb in pod ns", func() {
 		var (
-			demoDSYAML  string
-			demoYAML    string
 			serviceName = testDSServiceIPv4
+			yamls       []string
 		)
 
 		BeforeAll(func() {
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 				"hostServices.hostNamespaceOnly": "true",
 			})
-			demoDSYAML = helpers.ManifestGet(kubectl.BasePath(), "demo_ds.yaml")
-			res := kubectl.ApplyDefault(demoDSYAML)
-			res.ExpectSuccess("Unable to apply %s", demoDSYAML)
-			demoYAML = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
-			res = kubectl.ApplyDefault(demoYAML)
-			res.ExpectSuccess("unable to apply %s", demoYAML)
+
+			yamls = []string{"demo_ds.yaml", "demo.yaml"}
+			if helpers.DualStackSupported() {
+				yamls = append(yamls, "demo_ds_v6.yaml")
+			}
+
+			for _, yaml := range yamls {
+				path := helpers.ManifestGet(kubectl.BasePath(), yaml)
+				kubectl.ApplyDefault(path).
+					ExpectSuccess("Unable to apply %s", path)
+			}
 			waitPodsDs(kubectl, []string{testDS, testDSClient, testDSK8s2})
 		})
 
 		AfterAll(func() {
-			_ = kubectl.Delete(demoDSYAML)
-			_ = kubectl.Delete(demoYAML)
+			for _, yaml := range yamls {
+				path := helpers.ManifestGet(kubectl.BasePath(), yaml)
+				kubectl.Delete(path)
+			}
 			ExpectAllPodsTerminated(kubectl)
 		})
 
@@ -466,12 +472,13 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			monitorRes.ExpectContains(clusterIP, "Service VIP not seen in monitor trace, indicating socket lb still in effect")
 		})
 
+		// In adition to the bpf_sock bypass, this test is testing whether bpf_lxc
+		// ClusterIP for IPv6 is working
 		It("Checks ClusterIP connectivity across nodes", func() {
-			service := "testds-service"
-
-			clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, service)
-			Expect(err).Should(BeNil(), "Cannot get services %s", service)
-			Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
+			services := []string{testDSServiceIPv4}
+			if helpers.DualStackSupported() {
+				services = append(services, testDSServiceIPv6)
+			}
 
 			// Test that socket lb doesn't kick in, aka we see service VIP in monitor output.
 			// Note that cilium monitor won't capture service VIP if run with Istio.
@@ -483,13 +490,27 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 				helpers.WriteToReportFile(monitorRes.CombineOutput().Bytes(), "skip-socket-lb-connectivity-across-nodes.log")
 			}()
 
-			url := fmt.Sprintf("http://%s/", clusterIP)
-			testCurlFromPods(kubectl, testDSClient, url, 10, 0)
+			for _, service := range services {
+				clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, service)
+				Expect(err).Should(BeNil(), "Cannot get services %s", service)
+				Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
+				httpURL := fmt.Sprintf("http://%s", net.JoinHostPort(clusterIP, "80"))
+				tftpURL := fmt.Sprintf("tftp://%s/hello", net.JoinHostPort(clusterIP, "69"))
 
-			url = fmt.Sprintf("tftp://%s/hello", clusterIP)
-			testCurlFromPods(kubectl, testDSClient, url, 10, 0)
+				// Test connectivity from root ns (bpf_sock)
+				kubectl.ExecInHostNetNS(context.TODO(), ni.k8s1NodeName,
+					helpers.CurlFail(httpURL)).
+					ExpectSuccess("cannot curl to service IP from host")
+				kubectl.ExecInHostNetNS(context.TODO(), ni.k8s1NodeName,
+					helpers.CurlFail(tftpURL)).
+					ExpectSuccess("cannot curl to service IP from host")
 
-			monitorRes.ExpectContains(clusterIP, "Service VIP not seen in monitor trace, indicating socket lb still in effect")
+				// Test connectivity from pod netns (bpf_lxc)
+				testCurlFromPods(kubectl, testDSClient, httpURL, 10, 0)
+				testCurlFromPods(kubectl, testDSClient, tftpURL, 10, 0)
+
+				monitorRes.ExpectContains(clusterIP, "Service VIP not seen in monitor trace, indicating socket lb still in effect")
+			}
 		})
 	})
 
