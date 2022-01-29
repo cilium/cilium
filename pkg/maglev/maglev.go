@@ -4,12 +4,15 @@
 package maglev
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
+	"os"
 	"runtime"
-	"sync"
 
 	"github.com/shirou/gopsutil/v3/mem"
+
+	"github.com/cilium/workerpool"
 
 	"github.com/cilium/cilium/pkg/murmur3"
 )
@@ -63,15 +66,7 @@ func getOffsetAndSkip(backend string, m uint64) (uint64, uint64) {
 }
 
 func getPermutation(backends []string, m uint64, numCPU int) []uint64 {
-	var wg sync.WaitGroup
-
-	// The idea is to split the calculation into batches so that they can be
-	// concurrently executed. We limit the number of concurrent goroutines to
-	// the number of available CPU cores. This is because the calculation does
-	// not block and is completely CPU-bound. Therefore, adding more goroutines
-	// would result into an overhead (allocation of stackframes, stress on
-	// scheduling, etc) instead of a performance gain.
-
+	// see `https://github.com/cilium/cilium/issues/17572`
 	bCount := len(backends)
 	if size := uint64(bCount) * m; size > uint64(len(permutation)) {
 		// Reallocate slice so we don't have to allocate again on the next
@@ -83,10 +78,12 @@ func getPermutation(backends []string, m uint64, numCPU int) []uint64 {
 	if batchSize == 0 {
 		batchSize = bCount
 	}
+	wp := workerpool.New(numCPU)
 
 	for g := 0; g < bCount; g += batchSize {
-		wg.Add(1)
-		go func(from int) {
+		g := g
+		wp.Submit("", func(_ context.Context) error {
+			from := g
 			to := from + batchSize
 			if to > bCount {
 				to = bCount
@@ -98,10 +95,18 @@ func getPermutation(backends []string, m uint64, numCPU int) []uint64 {
 					permutation[i*int(m)+int(j)] = (permutation[i*int(m)+int(j-1)] + skip) % m
 				}
 			}
-			wg.Done()
-		}(g)
+			return nil
+		})
 	}
-	wg.Wait()
+	_, err := wp.Drain()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error waiting for permutation to complete: %v\n", err)
+	}
+
+	err = wp.Close()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to close worker pool: %v\n", err)
+	}
 
 	return permutation[:bCount*int(m)]
 }
