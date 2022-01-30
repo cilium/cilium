@@ -43,11 +43,6 @@ spec:
         # ensure pods roll when configmap updates
         cilium.io/cilium-configmap-checksum: {{ include (print $.Template.BasePath "/cilium-configmap.yaml") . | sha256sum | quote }}
         {{- end }}
-        # This annotation plus the CriticalAddonsOnly toleration makes
-        # cilium to be a critical pod in the cluster, which ensures cilium
-        # gets priority scheduling.
-        # https://kubernetes.io/docs/tasks/administer-cluster/guaranteed-scheduling-critical-addon-pods/
-        scheduler.alpha.kubernetes.io/critical-pod: ""
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
