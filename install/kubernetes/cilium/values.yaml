@@ -93,6 +93,14 @@ image:
 
 # -- Affinity for cilium-agent.
 affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/os
+              operator: In
+              values:
+                - linux
   podAntiAffinity:
     requiredDuringSchedulingIgnoredDuringExecution:
     - topologyKey: kubernetes.io/hostname
