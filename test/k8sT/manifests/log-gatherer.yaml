@@ -19,8 +19,6 @@ spec:
       kubernetes.io/cluster-service: "true"
   template:
     metadata:
-      annotations:
-        scheduler.alpha.kubernetes.io/critical-pod: ""
       labels:
         k8s-app: cilium-test-logs
         kubernetes.io/cluster-service: "true"
@@ -43,6 +41,7 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
       hostPID: true
+      priorityClassName: system-node-critical
       restartPolicy: Always
       serviceAccount: cilium-log-gatherer
       serviceAccountName: cilium-log-gatherer
