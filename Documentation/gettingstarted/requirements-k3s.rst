@@ -11,9 +11,10 @@ Encapsulation   Cluster Pool    Kubernetes CRD
 
 **Requirements:**
 
-* Install your k3s cluster as you would normally would but pass in
-  ``--flannel-backend=none`` so you can install Cilium on top:
+* Install your k3s cluster as you normally would but making sure to disable
+  support for the default CNI plugin and the built-in network policy enforcer so
+  you can install Cilium on top:
 
 .. code-block:: shell-session
 
-   curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--flannel-backend=none' sh -
+    curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--flannel-backend=none --disable-network-policy' sh -
