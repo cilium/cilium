@@ -597,18 +597,28 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			cDefinesMap["SNAT_MAPPING_IPV6_SIZE"] = fmt.Sprintf("%d", option.Config.NATMapEntriesGlobal)
 		}
 
-		if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
-			cDefinesMap["ENABLE_MASQUERADE_IPV4"] = "1"
-			cidr := datapath.RemoteSNATDstAddrExclusionCIDRv4()
-			cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR"] =
-				fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(cidr.IP))
-			ones, _ := cidr.Mask.Size()
-			cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR_LEN"] = fmt.Sprintf("%d", ones)
+		if option.Config.EnableBPFMasquerade {
+			if option.Config.EnableIPv4Masquerade {
+				cDefinesMap["ENABLE_MASQUERADE_IPV4"] = "1"
+				cidr := datapath.RemoteSNATDstAddrExclusionCIDRv4()
+				cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR"] =
+					fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(cidr.IP))
+				ones, _ := cidr.Mask.Size()
+				cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR_LEN"] = fmt.Sprintf("%d", ones)
 
-			// ip-masq-agent depends on bpf-masq
-			if option.Config.EnableIPMasqAgent {
-				cDefinesMap["ENABLE_IP_MASQ_AGENT"] = "1"
-				cDefinesMap["IP_MASQ_AGENT_IPV4"] = ipmasq.MapName
+				// ip-masq-agent depends on bpf-masq
+				if option.Config.EnableIPMasqAgent {
+					cDefinesMap["ENABLE_IP_MASQ_AGENT"] = "1"
+					cDefinesMap["IP_MASQ_AGENT_IPV4"] = ipmasq.MapName
+				}
+			}
+			if option.Config.EnableIPv6Masquerade {
+				cDefinesMap["ENABLE_MASQUERADE_IPV6"] = "1"
+				cidr := datapath.RemoteSNATDstAddrExclusionCIDRv6()
+				extraMacrosMap["IPV6_SNAT_EXCLUSION_DST_CIDR"] = cidr.IP.String()
+				fw.WriteString(FmtDefineAddress("IPV6_SNAT_EXCLUSION_DST_CIDR", cidr.IP))
+				extraMacrosMap["IPV6_SNAT_EXCLUSION_DST_CIDR_MASK"] = cidr.Mask.String()
+				fw.WriteString(FmtDefineAddress("IPV6_SNAT_EXCLUSION_DST_CIDR_MASK", cidr.Mask))
 			}
 		}
 
@@ -887,10 +897,17 @@ func (h *HeaderfileWriter) writeStaticData(fw io.Writer, e datapath.EndpointConf
 			fmt.Fprint(fw, defineUint32("NATIVE_DEV_IFINDEX", 1))
 			fmt.Fprint(fw, "\n")
 		}
-		if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
-			// NodePort comment above applies to IPV4_MASQUERADE too
-			placeholderIPv4 := []byte{1, 1, 1, 1}
-			fmt.Fprint(fw, defineIPv4("IPV4_MASQUERADE", placeholderIPv4))
+		if option.Config.EnableBPFMasquerade {
+			if option.Config.EnableIPv4Masquerade {
+				// NodePort comment above applies to IPV4_MASQUERADE too
+				placeholderIPv4 := []byte{1, 1, 1, 1}
+				fmt.Fprint(fw, defineIPv4("IPV4_MASQUERADE", placeholderIPv4))
+			}
+			if option.Config.EnableIPv6Masquerade {
+				// NodePort comment above applies to IPV6_MASQUERADE too
+				placeholderIPv6 := []byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+				fmt.Fprint(fw, defineIPv6("IPV6_MASQUERADE", placeholderIPv6))
+			}
 		}
 		// Dummy value to avoid being optimized when 0
 		fmt.Fprint(fw, defineUint32("SECCTX_FROM_IPCACHE", 1))

@@ -234,3 +234,9 @@ func initMasqueradeAddrs(masqAddrs map[string]net.IP, family int, masqIPFromDevi
 func initMasqueradeV4Addrs(masqAddrs map[string]net.IP, masqIPFromDevice string, devices []string, logfield string) error {
 	return initMasqueradeAddrs(masqAddrs, netlink.FAMILY_V4, masqIPFromDevice, devices, logfield)
 }
+
+// initMasqueradeV6Addrs initializes BPF masquerade IPv6 addresses for the
+// given devices.
+func initMasqueradeV6Addrs(masqAddrs map[string]net.IP, masqIPFromDevice string, devices []string, logfield string) error {
+	return initMasqueradeAddrs(masqAddrs, netlink.FAMILY_V6, masqIPFromDevice, devices, logfield)
+}

@@ -1391,10 +1391,6 @@ func initEnv() {
 		option.Config.EnableBandwidthManager = false
 	}
 
-	if option.Config.EnableIPv6Masquerade && option.Config.EnableBPFMasquerade {
-		log.Fatal("BPF masquerade is not supported for IPv6.")
-	}
-
 	if option.Config.EnableHighScaleIPcache {
 		if option.Config.TunnelingEnabled() {
 			log.Fatal("The high-scale IPcache mode requires native routing.")
