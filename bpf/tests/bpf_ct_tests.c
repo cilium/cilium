@@ -8,10 +8,6 @@
 #define ENDPOINTS_MAP test_cilium_lxc
 #define POLICY_PROG_MAP_SIZE ENDPOINTS_MAP_SIZE
 #define METRICS_MAP test_cilium_metrics
-#define NAT46_PREFIX {.addr = {                   \
-	0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, \
-	0x0, 0x0, 0xa, 0x0, 0x0, 0x0, 0x0, 0x0    \
-} }
 
 #define ENDPOINTS_MAP_SIZE 65536
 #define IPCACHE_MAP_SIZE 512000

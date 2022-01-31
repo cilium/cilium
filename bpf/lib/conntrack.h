@@ -194,12 +194,6 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 			if (dir == CT_SERVICE)
 				ct_state->backend_id = entry->backend_id;
 		}
-
-#ifdef ENABLE_NAT46
-		/* This packet needs nat46 translation */
-		if (entry->nat46 && !ctx_load_meta(ctx, CB_NAT46_STATE))
-			ctx_store_meta(ctx, CB_NAT46_STATE, NAT46);
-#endif
 #ifdef CONNTRACK_ACCOUNTING
 		/* FIXME: This is slow, per-cpu counters? */
 		if (dir == CT_INGRESS) {
@@ -434,10 +428,6 @@ static __always_inline int ct_lookup6(const void *map,
 		ret = __ct_lookup(map, ctx, tuple, action, dir, ct_state,
 				  is_tcp, tcp_flags, monitor);
 	}
-
-#ifdef ENABLE_NAT46
-	ctx_store_meta(ctx, CB_NAT46_STATE, NAT46_CLEAR);
-#endif
 out:
 	cilium_dbg(ctx, DBG_CT_VERDICT, ret < 0 ? -ret : ret, ct_state->rev_nat_index);
 	return ret;
@@ -923,11 +913,6 @@ static __always_inline int ct_create4(const void *map_main,
 		entry.tx_packets = 1;
 		entry.tx_bytes = ctx_full_len(ctx);
 	}
-
-#ifdef ENABLE_NAT46
-	if (ctx_load_meta(ctx, CB_NAT46_STATE) == NAT64)
-		entry.nat46 = dir == CT_EGRESS;
-#endif
 
 	cilium_dbg3(ctx, DBG_CT_CREATED4, entry.rev_nat_index,
 		    ct_state->src_sec_id, ct_state->addr);
