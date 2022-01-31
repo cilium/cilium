@@ -236,7 +236,7 @@ static __always_inline int ipv4_to_ipv6(struct __ctx_buff *ctx, struct iphdr *ip
 	__be16 v4hdr_len;
 	__be16 protocol = bpf_htons(ETH_P_IPV6);
 	__u64 csum_flags = BPF_F_PSEUDO_HDR;
-	union v6addr nat46_prefix = NAT46_PREFIX;
+	union v6addr nat46_prefix = {};
 
 	if (ctx_load_bytes(ctx, nh_off, &v4, sizeof(v4)) < 0)
 		return DROP_INVALID;

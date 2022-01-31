@@ -77,8 +77,8 @@
 #define CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED	5
 #define CILIUM_CALL_ARP				6
 #define CILIUM_CALL_IPV4_FROM_LXC		7
-#define CILIUM_CALL_NAT64			8
-#define CILIUM_CALL_NAT46			9
+#define CILIUM_CALL_UNUSED1			8
+#define CILIUM_CALL_UNUSED2			9
 #define CILIUM_CALL_IPV6_FROM_LXC		10
 #define CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY	11
 #define CILIUM_CALL_IPV4_TO_HOST_POLICY_ONLY	CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY
@@ -590,23 +590,15 @@ enum {
 	CB_POLICY,
 #define	CB_ADDR_V6_2		CB_POLICY	/* Alias, non-overlapping */
 #define	CB_BACKEND_ID		CB_POLICY	/* Alias, non-overlapping */
-	CB_NAT46_STATE,
-#define CB_NAT			CB_NAT46_STATE	/* Alias, non-overlapping */
-#define	CB_ADDR_V6_3		CB_NAT46_STATE	/* Alias, non-overlapping */
-#define	CB_FROM_HOST		CB_NAT46_STATE	/* Alias, non-overlapping */
+	CB_NAT,
+#define	CB_ADDR_V6_3		CB_NAT		/* Alias, non-overlapping */
+#define	CB_FROM_HOST		CB_NAT		/* Alias, non-overlapping */
 	CB_CT_STATE,
 #define	CB_ADDR_V6_4		CB_CT_STATE	/* Alias, non-overlapping */
 #define	CB_ENCRYPT_DST		CB_CT_STATE	/* Alias, non-overlapping,
 						 * Not used by xfrm.
 						 */
 #define	CB_CUSTOM_CALLS		CB_CT_STATE	/* Alias, non-overlapping */
-};
-
-/* State values for NAT46 */
-enum {
-	NAT46_CLEAR,
-	NAT64,
-	NAT46,
 };
 
 #define TUPLE_F_OUT		0	/* Outgoing flow */
