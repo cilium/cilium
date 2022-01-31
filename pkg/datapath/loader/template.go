@@ -259,6 +259,16 @@ func elfVariableSubstitutions(ep datapath.Endpoint) map[string]uint64 {
 		result["LXC_ID"] = uint64(ep.GetID())
 	}
 
+	// Contrary to IPV4_MASQUERADE, we cannot use a simple #define and
+	// avoid introducing a symbol in stubs.h for IPV6_MASQUERADE. So the
+	// symbol is present in the template object as long as IPv6 BPF
+	// masquerade is enabled, even though it is not used for host
+	// endpoints.
+	if option.Config.EnableIPv6Masquerade && option.Config.EnableBPFMasquerade {
+		result["IPV6_MASQUERADE_1"] = 0
+		result["IPV6_MASQUERADE_2"] = 0
+	}
+
 	identity := ep.GetIdentity().Uint32()
 	result["SECLABEL"] = uint64(identity)
 	result["SECLABEL_NB"] = uint64(byteorder.HostToNetwork32(identity))

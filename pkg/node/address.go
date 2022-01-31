@@ -61,6 +61,7 @@ type addresses struct {
 	ipv4NodePortAddrs map[string]net.IP // iface name => ip addr
 	ipv4MasqAddrs     map[string]net.IP // iface name => ip addr
 	ipv6NodePortAddrs map[string]net.IP // iface name => ip addr
+	ipv6MasqAddrs     map[string]net.IP // iface name => ip addr
 	routerInfo        RouterInfo
 }
 
@@ -221,9 +222,18 @@ func InitBPFMasqueradeAddrs(devices []string) error {
 	addrsMu.Lock()
 	defer addrsMu.Unlock()
 
+	masqIPFromDevice := option.Config.DeriveMasqIPAddrFromDevice
+
 	if option.Config.EnableIPv4 {
 		addrs.ipv4MasqAddrs = make(map[string]net.IP, len(devices))
-		return initMasqueradeV4Addrs(addrs.ipv4MasqAddrs, option.Config.DeriveMasqIPAddrFromDevice, devices, logfields.IPv4)
+		err := initMasqueradeV4Addrs(addrs.ipv4MasqAddrs, masqIPFromDevice, devices, logfields.IPv4)
+		if err != nil {
+			return err
+		}
+	}
+	if option.Config.EnableIPv6 {
+		addrs.ipv6MasqAddrs = make(map[string]net.IP, len(devices))
+		return initMasqueradeV6Addrs(addrs.ipv6MasqAddrs, masqIPFromDevice, devices, logfields.IPv6)
 	}
 
 	return nil
@@ -376,6 +386,13 @@ func GetMasqIPv4AddrsWithDevices() map[string]net.IP {
 	addrsMu.RLock()
 	defer addrsMu.RUnlock()
 	return copyStringToNetIPMap(addrs.ipv4MasqAddrs)
+}
+
+// GetMasqIPv6AddrsWithDevices returns the map iface => BPF masquerade IPv6.
+func GetMasqIPv6AddrsWithDevices() map[string]net.IP {
+	addrsMu.RLock()
+	defer addrsMu.RUnlock()
+	return copyStringToNetIPMap(addrs.ipv6MasqAddrs)
 }
 
 // SetIPv6NodeRange sets the IPv6 address pool to be used on this node
