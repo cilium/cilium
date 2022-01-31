@@ -27,7 +27,6 @@
 #include "lib/dbg.h"
 #include "lib/l3.h"
 #include "lib/lxc.h"
-#include "lib/nat46.h"
 #include "lib/identity.h"
 #include "lib/policy.h"
 

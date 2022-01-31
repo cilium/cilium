@@ -15,7 +15,6 @@
 #include "ipv6.h"
 #include "dbg.h"
 #include "l4.h"
-#include "nat46.h"
 #include "signal.h"
 
 enum {
