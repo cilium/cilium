@@ -13,6 +13,10 @@ metadata:
     {{- with .Values.prometheus.serviceMonitor.labels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
+  annotations:
+    {{- with .Values.prometheus.serviceMonitor.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   selector:
     matchLabels:
@@ -41,6 +45,10 @@ metadata:
   {{- end }}
   labels:
     {{- with .Values.hubble.metrics.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  annotations:
+    {{- with .Values.hubble.metrics.serviceMonitor.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
