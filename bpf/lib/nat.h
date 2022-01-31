@@ -45,8 +45,6 @@ struct nat_entry {
 # define SNAT_SIGNAL_THRES		16
 #endif
 
-static __always_inline bool nodeport_uses_dsr(__u8 nexthdr __maybe_unused);
-
 static __always_inline __be16 __snat_clamp_port_range(__u16 start, __u16 end,
 						      __u16 val)
 {
@@ -1667,27 +1665,98 @@ static __always_inline void snat_v6_init_tuple(const struct ipv6hdr *ip6,
 }
 
 static __always_inline bool snat_v6_needed(struct __ctx_buff *ctx,
-					   const union v6addr *addr)
+					   union v6addr *addr)
 {
+	union v6addr masq_addr __maybe_unused;
+	const union v6addr dr_addr = IPV6_DIRECT_ROUTING;
+	struct remote_endpoint_info *remote_ep __maybe_unused;
+	struct endpoint_info *local_ep __maybe_unused;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return false;
-#ifdef ENABLE_DSR_HYBRID
-	{
-		__u8 nexthdr = ip6->nexthdr;
-		int ret;
 
-		ret = ipv6_hdrlen(ctx, &nexthdr);
-		if (ret > 0) {
-			if (nodeport_uses_dsr(nexthdr))
-				return false;
+	/* See comment in snat_v4_prepare_state(). */
+	if (DIRECT_ROUTING_DEV_IFINDEX == NATIVE_DEV_IFINDEX &&
+	    ipv6_addr_equals((union v6addr *)&ip6->saddr, &dr_addr)) {
+		ipv6_addr_copy(addr, &dr_addr);
+		return true;
+	}
+#ifdef ENABLE_MASQUERADE_IPV6 /* SNAT local pod to world packets */
+	BPF_V6(masq_addr, IPV6_MASQUERADE);
+	if (ipv6_addr_equals((union v6addr *)&ip6->saddr, &masq_addr)) {
+		ipv6_addr_copy(addr, &masq_addr);
+		return true;
+	}
+
+# ifdef IS_BPF_OVERLAY
+	/* See comment in snat_v4_prepare_state(). */
+	return false;
+# endif /* IS_BPF_OVERLAY */
+
+# ifdef IPV6_SNAT_EXCLUSION_DST_CIDR
+	{
+		union v6addr excl_cidr_mask = IPV6_SNAT_EXCLUSION_DST_CIDR_MASK;
+		union v6addr excl_cidr = IPV6_SNAT_EXCLUSION_DST_CIDR;
+
+		/* See comment in snat_v4_prepare_state(). */
+		if (ipv6_addr_in_net((union v6addr *)&ip6->daddr, &excl_cidr,
+				     &excl_cidr_mask))
+			return false;
+	}
+# endif /* IPV6_SNAT_EXCLUSION_DST_CIDR */
+
+	/* if this is a localhost endpoint, no SNAT is needed */
+	local_ep = __lookup_ip6_endpoint((union v6addr *)&ip6->saddr);
+	if (local_ep && (local_ep->flags & ENDPOINT_F_HOST))
+		return false;
+
+	remote_ep = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
+	if (remote_ep) {
+		bool is_reply = false;
+
+# ifndef TUNNEL_MODE
+		/* See comment in snat_v4_prepare_state(). */
+		if (identity_is_remote_node(remote_ep->sec_identity))
+			return false;
+# endif /* TUNNEL_MODE */
+
+		/* See comment in snat_v4_prepare_state(). */
+		if (local_ep) {
+			struct ipv6_ct_tuple tuple = {};
+			int l4_off;
+
+			tuple.nexthdr = ip6->nexthdr;
+			ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->daddr);
+			ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6->saddr);
+
+			/* ipv6_hdrlen() can return an error. If it does, it
+			 * makes no sense marking this packet as a reply based
+			 * on a wrong offset.
+			 *
+			 * We should probably improve this code in the future to
+			 * report the error to the caller. Same thing for errors
+			 * from ct_is_reply6() below, and ct_is_reply4() in
+			 * snat_v4_prepare_state().
+			 */
+			l4_off = ipv6_hdrlen(ctx, &tuple.nexthdr);
+			if (l4_off >= 0) {
+				l4_off += ETH_HLEN;
+				ct_is_reply6(get_ct_map6(&tuple), ctx, l4_off,
+					     &tuple, &is_reply);
+			}
+		}
+
+		/* See comment in snat_v4_prepare_state(). */
+		if (!is_reply && local_ep) {
+			ipv6_addr_copy(addr, &masq_addr);
+			return true;
 		}
 	}
-#endif /* ENABLE_DSR_HYBRID */
-	/* See snat_v4_prepare_state(). */
-	return ipv6_addr_equals((union v6addr *)&ip6->saddr, addr);
+#endif /* ENABLE_MASQUERADE_IPV6 */
+
+	return false;
 }
 
 static __always_inline __maybe_unused int

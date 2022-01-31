@@ -395,6 +395,35 @@ ipv6_ct_tuple_swap_ports(struct ipv6_ct_tuple *tuple)
 }
 
 static __always_inline int
+ct_extract_ports6(struct __ctx_buff *ctx, int off,
+		  enum ct_dir dir __maybe_unused, struct ipv6_ct_tuple *tuple,
+		  bool *has_l4_header __maybe_unused)
+{
+	switch (tuple->nexthdr) {
+	/* TCP, UDP, and SCTP all have the ports at the same location */
+	case IPPROTO_TCP:
+	case IPPROTO_UDP:
+#ifdef ENABLE_SCTP
+	case IPPROTO_SCTP:
+#endif  /* ENABLE_SCTP */
+		/* load sport + dport into tuple */
+		if (l4_load_ports(ctx, off, &tuple->dport) < 0)
+			return DROP_CT_INVALID_HDR;
+
+		break;
+
+	default:
+		/* Can't handle ICMP or extension headers yet */
+		return DROP_CT_UNKNOWN_PROTO;
+	}
+
+	return 0;
+}
+
+/* This defines the ct_is_reply6 function. */
+DEFINE_FUNC_CT_IS_REPLY(6)
+
+static __always_inline int
 __ct_lookup6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff *ctx,
 	     int l4_off, enum ct_action action, enum ct_dir dir, enum ct_scope scope,
 	     struct ct_state *ct_state, __u32 *monitor)
