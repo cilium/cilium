@@ -359,6 +359,30 @@ ipv6_ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
 	ct_flip_tuple_dir6(tuple);
 }
 
+static __always_inline int
+ct_extract_ports6(struct __ctx_buff *ctx, int off,
+		  enum ct_dir dir __maybe_unused, struct ipv6_ct_tuple *tuple)
+{
+	switch (tuple->nexthdr) {
+	case IPPROTO_TCP:
+	case IPPROTO_UDP:
+		/* Load sport + dport into tuple. */
+		if (ctx_load_bytes(ctx, off, &tuple->dport, 4) < 0)
+			return DROP_CT_INVALID_HDR;
+
+		break;
+
+	default:
+		/* Can't handle ICMP or extension headers yet. */
+		return DROP_CT_UNKNOWN_PROTO;
+	}
+
+	return 0;
+}
+
+/* This defines the ct_is_reply6 function. */
+DEFINE_FUNC_CT_IS_REPLY(6)
+
 /* Offset must point to IPv6 */
 static __always_inline int ct_lookup6(const void *map,
 				      struct ipv6_ct_tuple *tuple,

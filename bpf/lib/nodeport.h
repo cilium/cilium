@@ -179,31 +179,91 @@ static __always_inline bool nodeport_uses_dsr6(const struct ipv6_ct_tuple *tuple
  * then the helper function won't depend the dsr checks.
  */
 static __always_inline bool snat_v6_needed(struct __ctx_buff *ctx,
-					   const union v6addr *addr)
+					   union v6addr *addr)
 {
+	union v6addr masq_addr __maybe_unused;
+	const union v6addr dr_addr = IPV6_DIRECT_ROUTING;
+	struct remote_endpoint_info *remote_ep __maybe_unused;
+	struct endpoint_info *local_ep __maybe_unused;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return false;
-#ifdef ENABLE_DSR_HYBRID
-	{
-		__u8 nexthdr = ip6->nexthdr;
-		int ret;
 
-		ret = ipv6_hdrlen(ctx, &nexthdr);
-		if (ret > 0) {
-			if (nodeport_uses_dsr(nexthdr))
-				return false;
+	/* See comment in snat_v4_needed(). */
+	if (DIRECT_ROUTING_DEV_IFINDEX == NATIVE_DEV_IFINDEX &&
+	    !ipv6_addrcmp((union v6addr *)&ip6->saddr, &dr_addr)) {
+		ipv6_addr_copy(addr, &dr_addr);
+		return true;
+	}
+#ifdef ENABLE_MASQUERADE
+	BPF_V6(masq_addr, IPV6_MASQUERADE);
+	if (!ipv6_addrcmp((union v6addr *)&ip6->saddr, &masq_addr)) {
+		ipv6_addr_copy(addr, &masq_addr);
+		return true;
+	}
+#endif
+
+#ifdef ENABLE_MASQUERADE /* SNAT local pod to world packets */
+# ifdef IS_BPF_OVERLAY
+	/* See comment in snat_v4_needed(). */
+	return false;
+# endif /* IS_BPF_OVERLAY */
+
+# ifdef IPV6_SNAT_EXCLUSION_DST_CIDR
+	{
+		union v6addr excl_cidr_mask = IPV6_SNAT_EXCLUSION_DST_CIDR_MASK;
+		union v6addr excl_cidr = IPV6_SNAT_EXCLUSION_DST_CIDR;
+
+	/* See comment in snat_v4_needed(). */
+		if (ipv6_addr_in_net((union v6addr *)&ip6->daddr, &excl_cidr,
+				     &excl_cidr_mask))
+			return false;
+	}
+# endif /* IPV6_SNAT_EXCLUSION_DST_CIDR */
+
+	/* if this is a localhost endpoint, no SNAT is needed */
+	local_ep = __lookup_ip6_endpoint((union v6addr *)&ip6->saddr);
+	if (local_ep && (local_ep->flags & ENDPOINT_F_HOST))
+		return false;
+
+	remote_ep = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr);
+	if (remote_ep) {
+		bool is_reply = false;
+
+# ifndef TUNNEL_MODE
+		/* See comment in snat_v4_needed(). */
+		if (identity_is_remote_node(remote_ep->sec_label))
+			return false;
+# endif /* TUNNEL_MODE */
+
+		/* See comment in snat_v4_needed(). */
+		if (local_ep) {
+			struct ipv6_ct_tuple tuple = {};
+			int l4_off;
+
+			tuple.nexthdr = ip6->nexthdr;
+			ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->daddr);
+			ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6->saddr);
+
+			l4_off = ETH_HLEN + ipv6_hdrlen(ctx, &ip6->nexthdr);
+			ct_is_reply6(get_ct_map6(&tuple), ctx, l4_off, &tuple,
+				     &is_reply);
+		}
+
+		/* See comment in snat_v4_needed(). */
+		if (!is_reply && local_ep) {
+			ipv6_addr_copy(addr, &masq_addr);
+			return true;
 		}
 	}
-#endif /* ENABLE_DSR_HYBRID */
-	/* See snat_v4_needed(). */
-	return !ipv6_addrcmp((union v6addr *)&ip6->saddr, addr);
+#endif /* ENABLE_MASQUERADE */
+
+	return false;
 }
 
-static __always_inline int nodeport_nat_ipv6_fwd(struct __ctx_buff *ctx,
-						 const union v6addr *addr)
+static __always_inline int nodeport_nat_ipv6_fwd(struct __ctx_buff *ctx)
 {
 	struct ipv6_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
@@ -211,9 +271,7 @@ static __always_inline int nodeport_nat_ipv6_fwd(struct __ctx_buff *ctx,
 	};
 	int ret;
 
-	ipv6_addr_copy(&target.addr, addr);
-
-	ret = snat_v6_needed(ctx, addr) ?
+	ret = snat_v6_needed(ctx, &target.addr) ?
 	      snat_v6_process(ctx, NAT_DIR_EGRESS, &target) : CTX_ACT_OK;
 	if (ret == NAT_PUNT_TO_STACK)
 		ret = CTX_ACT_OK;
@@ -804,8 +862,10 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 skip_service_lookup:
 		ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 
+#ifndef ENABLE_MASQUERADE
 		if (nodeport_uses_dsr6(&tuple))
 			return CTX_ACT_OK;
+#endif
 
 		ctx_store_meta(ctx, CB_NAT_46X64, 0);
 		ctx_store_meta(ctx, CB_SRC_IDENTITY, src_identity);
@@ -1078,14 +1138,11 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 	int ret;
 	enum trace_point obs_point;
 #if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
-	union v6addr addr = { .p1 = 0 };
-	BPF_V6(addr, ROUTER_IP);
 	obs_point = TRACE_TO_OVERLAY;
 #else
-	union v6addr addr = IPV6_DIRECT_ROUTING;
 	obs_point = TRACE_TO_NETWORK;
 #endif
-	ret = nodeport_nat_ipv6_fwd(ctx, &addr);
+	ret = nodeport_nat_ipv6_fwd(ctx);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
 

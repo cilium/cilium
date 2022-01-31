@@ -19,6 +19,10 @@
 # ifndef IPV4_DIRECT_ROUTING
 #  define IPV4_DIRECT_ROUTING 0
 # endif
+# if defined(ENABLE_IPV6) && !defined(IPV6_MASQUERADE_V)
+DEFINE_IPV6(IPV6_MASQUERADE, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+#  define IPV6_MASQUERADE_V
+# endif
 #endif
 
 #endif /* __STUBS_H_ */
