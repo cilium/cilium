@@ -233,9 +233,15 @@ func elfVariableSubstitutions(ep datapath.Endpoint) map[string]uint32 {
 		if option.Config.EnableNodePort {
 			result["NATIVE_DEV_IFINDEX"] = 0
 		}
-		if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
-			if option.Config.EnableIPv4 {
+		if option.Config.EnableBPFMasquerade {
+			if option.Config.EnableIPv4Masquerade {
 				result["IPV4_MASQUERADE"] = 0
+			}
+			if option.Config.EnableIPv6Masquerade {
+				result["IPV6_MASQUERADE_1"] = 0
+				result["IPV6_MASQUERADE_2"] = 0
+				result["IPV6_MASQUERADE_3"] = 0
+				result["IPV6_MASQUERADE_4"] = 0
 			}
 		}
 		result["SECCTX_FROM_IPCACHE"] = uint32(SecctxFromIpcacheDisabled)
