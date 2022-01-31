@@ -320,21 +320,20 @@ static __always_inline int ipv4_to_ipv6(struct __ctx_buff *ctx, struct iphdr *ip
  * s4 = <ipv4-range>.<lxc-id>
  * d4 = d6[96 .. 127]
  */
-static __always_inline int ipv6_to_ipv4(struct __ctx_buff *ctx, int nh_off,
-					__be32 saddr)
+static __always_inline int ipv6_to_ipv4(struct __ctx_buff *ctx, __be32 saddr)
 {
 	struct ipv6hdr v6;
 	struct iphdr v4 = {};
-	int csum_off;
 	__be32 csum = 0;
 	__be16 protocol = bpf_htons(ETH_P_IP);
 	__u64 csum_flags = BPF_F_PSEUDO_HDR;
+	int csum_off, nh_off = ETH_HLEN;
 
 	if (ctx_load_bytes(ctx, nh_off, &v6, sizeof(v6)) < 0)
 		return DROP_INVALID;
 
 	/* Drop frames which carry extensions headers */
-	if (ipv6_hdrlen(ctx, nh_off, &v6.nexthdr) != sizeof(v6))
+	if (ipv6_hdrlen(ctx, &v6.nexthdr) != sizeof(v6))
 		return DROP_INVALID_EXTHDR;
 
 	/* build v4 header */

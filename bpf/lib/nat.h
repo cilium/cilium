@@ -939,7 +939,7 @@ static __always_inline __maybe_unused int snat_v6_create_dsr(struct __ctx_buff *
 		return DROP_INVALID;
 
 	tuple.nexthdr = ip6->nexthdr;
-	hdrlen = ipv6_hdrlen(ctx, ETH_HLEN, &tuple.nexthdr);
+	hdrlen = ipv6_hdrlen(ctx, &tuple.nexthdr);
 	if (hdrlen < 0)
 		return hdrlen;
 
@@ -999,7 +999,7 @@ snat_v6_process(struct __ctx_buff *ctx, enum nat_dir dir,
 		return DROP_INVALID;
 
 	nexthdr = ip6->nexthdr;
-	hdrlen = ipv6_hdrlen(ctx, ETH_HLEN, &nexthdr);
+	hdrlen = ipv6_hdrlen(ctx, &nexthdr);
 	if (hdrlen < 0)
 		return hdrlen;
 

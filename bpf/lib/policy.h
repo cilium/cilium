@@ -149,7 +149,7 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
-		off = ((void *)ip6 - data) + ipv6_hdrlen(ctx, ETH_HLEN, &ip6->nexthdr);
+		off = ((void *)ip6 - data) + ipv6_hdrlen(ctx, &ip6->nexthdr);
 		if (ctx_load_bytes(ctx, off, &icmp_type, sizeof(icmp_type)) < 0)
 			return DROP_INVALID;
 
