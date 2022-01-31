@@ -204,7 +204,7 @@ static __always_inline bool snat_v6_needed(struct __ctx_buff *ctx,
 		__u8 nexthdr = ip6->nexthdr;
 		int ret;
 
-		ret = ipv6_hdrlen(ctx, ETH_HLEN, &nexthdr);
+		ret = ipv6_hdrlen(ctx, &nexthdr);
 		if (ret > 0) {
 			if (nodeport_uses_dsr(nexthdr))
 				return false;
@@ -729,7 +729,7 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 	ipv6_addr_copy(&tuple.daddr, (union v6addr *) &ip6->daddr);
 	ipv6_addr_copy(&tuple.saddr, (union v6addr *) &ip6->saddr);
 
-	hdrlen = ipv6_hdrlen(ctx, l3_off, &tuple.nexthdr);
+	hdrlen = ipv6_hdrlen(ctx, &tuple.nexthdr);
 	if (hdrlen < 0)
 		return hdrlen;
 
@@ -870,7 +870,7 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex
 	ipv6_addr_copy(&tuple.daddr, (union v6addr *) &ip6->daddr);
 	ipv6_addr_copy(&tuple.saddr, (union v6addr *) &ip6->saddr);
 
-	hdrlen = ipv6_hdrlen(ctx, l3_off, &tuple.nexthdr);
+	hdrlen = ipv6_hdrlen(ctx, &tuple.nexthdr);
 	if (hdrlen < 0)
 		return hdrlen;
 

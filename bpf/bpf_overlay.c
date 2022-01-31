@@ -134,7 +134,7 @@ not_esp:
 			goto to_host;
 
 		nexthdr = ip6->nexthdr;
-		hdrlen = ipv6_hdrlen(ctx, l3_off, &nexthdr);
+		hdrlen = ipv6_hdrlen(ctx, &nexthdr);
 		if (hdrlen < 0)
 			return hdrlen;
 

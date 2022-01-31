@@ -96,15 +96,14 @@ encode_custom_prog_meta(struct __ctx_buff *ctx, int ret, __u32 identity)
 #endif
 
 #ifdef ENABLE_IPV6
-static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
-					    struct ipv6_ct_tuple *tuple,
-					    int l3_off, struct ipv6hdr *ip6,
-					    __u32 *dst_id)
+static __always_inline int
+ipv6_l3_from_lxc(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
+		 struct ipv6hdr *ip6, __u32 *dst_id)
 {
 #ifdef ENABLE_ROUTING
 	union macaddr router_mac = NODE_MAC;
 #endif
-	int ret, verdict = 0, l4_off, hdrlen;
+	int ret, verdict = 0, l4_off, hdrlen, l3_off = ETH_HLEN;
 	struct csum_offset csum_off = {};
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
@@ -127,7 +126,7 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 	ipv6_addr_copy(&tuple->daddr, (union v6addr *) &ip6->daddr);
 	ipv6_addr_copy(&tuple->saddr, (union v6addr *) &ip6->saddr);
 
-	hdrlen = ipv6_hdrlen(ctx, l3_off, &tuple->nexthdr);
+	hdrlen = ipv6_hdrlen(ctx, &tuple->nexthdr);
 	if (hdrlen < 0)
 		return hdrlen;
 
@@ -500,7 +499,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx, __u32 *dst_id)
 
 	/* Perform L3 action on the frame */
 	tuple.nexthdr = ip6->nexthdr;
-	return ipv6_l3_from_lxc(ctx, &tuple, ETH_HLEN, ip6, dst_id);
+	return ipv6_l3_from_lxc(ctx, &tuple, ip6, dst_id);
 }
 
 declare_tailcall_if(__or3(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6),
@@ -1118,7 +1117,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	 */
 	skip_ingress_proxy = tc_index_skip_ingress_proxy(ctx);
 
-	hdrlen = ipv6_hdrlen(ctx, ETH_HLEN, &tuple.nexthdr);
+	hdrlen = ipv6_hdrlen(ctx, &tuple.nexthdr);
 	if (hdrlen < 0)
 		return hdrlen;
 
@@ -1749,7 +1748,7 @@ int tail_ipv6_to_ipv4(struct __ctx_buff *ctx)
 {
 	int ret;
 
-	ret = ipv6_to_ipv4(ctx, 14, LXC_IPV4);
+	ret = ipv6_to_ipv4(ctx, LXC_IPV4);
 	if (IS_ERR(ret))
 		goto drop_err;
 

@@ -282,7 +282,7 @@ ipv6_extract_tuple(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 	ipv6_addr_copy(&tuple->daddr, (union v6addr *)&ip6->daddr);
 	ipv6_addr_copy(&tuple->saddr, (union v6addr *)&ip6->saddr);
 
-	ret = ipv6_hdrlen(ctx, l3_off, &tuple->nexthdr);
+	ret = ipv6_hdrlen(ctx, &tuple->nexthdr);
 	if (ret < 0)
 		return ret;
 

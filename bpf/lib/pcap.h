@@ -357,7 +357,7 @@ cilium_capture6_classify_wcard(struct __ctx_buff *ctx)
 	okey.smask = 128;
 	okey.nexthdr = ip6->nexthdr;
 
-	ret = ipv6_hdrlen(ctx, l3_off, &okey.nexthdr);
+	ret = ipv6_hdrlen(ctx, &okey.nexthdr);
 	if (ret < 0)
 		return NULL;
 	if (okey.nexthdr != IPPROTO_TCP &&
