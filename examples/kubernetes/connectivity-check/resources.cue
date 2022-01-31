@@ -253,6 +253,35 @@ egressCNP: [ID=_]: _cnp & {
 					}
 				}]
 			},
+			// Allow node-local-dns bound on a link-local address
+			{
+				toCIDR: [
+					"169.254.0.0/16",
+					"fd00::/8",
+				]
+				toPorts: [{
+					ports: [{
+						port:     "53"
+						protocol: "ANY"
+					}]
+					if _enableDNSVisibility {
+						rules: dns: [{matchPattern: "*"}]
+					}
+				}]
+			},
+			// Allow node-local-dns in host network namespace
+			{
+				toEntities: ["host"]
+				toPorts: [{
+					ports: [{
+						port:     "53"
+						protocol: "ANY"
+					}]
+					if _enableDNSVisibility {
+						rules: dns: [{matchPattern: "*"}]
+					}
+				}]
+			},
 		]
 	}
 }

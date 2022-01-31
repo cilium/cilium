@@ -512,6 +512,19 @@ spec:
     - matchLabels:
         k8s:io.kubernetes.pod.namespace: openshift-dns
         k8s:dns.operator.openshift.io/daemonset-dns: default
+  - toPorts:
+    - ports:
+      - port: "53"
+        protocol: ANY
+    toCIDR:
+    - 169.254.0.0/16
+    - fd00::/8
+  - toPorts:
+    - ports:
+      - port: "53"
+        protocol: ANY
+    toEntities:
+    - host
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 ---
@@ -553,6 +566,19 @@ spec:
     - matchLabels:
         k8s:io.kubernetes.pod.namespace: openshift-dns
         k8s:dns.operator.openshift.io/daemonset-dns: default
+  - toPorts:
+    - ports:
+      - port: "53"
+        protocol: ANY
+    toCIDR:
+    - 169.254.0.0/16
+    - fd00::/8
+  - toPorts:
+    - ports:
+      - port: "53"
+        protocol: ANY
+    toEntities:
+    - host
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 ---
@@ -594,6 +620,19 @@ spec:
     - matchLabels:
         k8s:io.kubernetes.pod.namespace: openshift-dns
         k8s:dns.operator.openshift.io/daemonset-dns: default
+  - toPorts:
+    - ports:
+      - port: "53"
+        protocol: ANY
+    toCIDR:
+    - 169.254.0.0/16
+    - fd00::/8
+  - toPorts:
+    - ports:
+      - port: "53"
+        protocol: ANY
+    toEntities:
+    - host
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 ---
@@ -635,6 +674,19 @@ spec:
     - matchLabels:
         k8s:io.kubernetes.pod.namespace: openshift-dns
         k8s:dns.operator.openshift.io/daemonset-dns: default
+  - toPorts:
+    - ports:
+      - port: "53"
+        protocol: ANY
+    toCIDR:
+    - 169.254.0.0/16
+    - fd00::/8
+  - toPorts:
+    - ports:
+      - port: "53"
+        protocol: ANY
+    toEntities:
+    - host
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 
