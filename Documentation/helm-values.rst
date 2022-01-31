@@ -124,7 +124,7 @@
    * - clustermesh.apiserver.image
      - Clustermesh API server image.
      - object
-     - ``{"digest":"sha256:44f1e4bcfafcf58784c418520fb0387f8d817ebe75cced493ef4f492a1199f2d","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/clustermesh-apiserver","tag":"v1.10.3","useDigest":true}``
+     - ``{"digest":"sha256:9afb0a15afffdf84812c8174df9de86e35239fb87a6ffd9539877a9e643d8132","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/clustermesh-apiserver","tag":"v1.10.7","useDigest":true}``
    * - clustermesh.apiserver.nodeSelector
      - Node labels for pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object
@@ -544,7 +544,7 @@
    * - hubble.metrics
      - Hubble metrics configuration. See https://docs.cilium.io/en/stable/configuration/metrics/#hubble-metrics for more comprehensive documentation about Hubble metrics.
      - object
-     - ``{"enabled":null,"port":9091,"serviceMonitor":{"enabled":false}}``
+     - ``{"enabled":null,"port":9091,"serviceMonitor":{"annotations":{},"enabled":false,"labels":{}}}``
    * - hubble.metrics.enabled
      - Configures the list of metrics to collect. If empty or null, metrics are disabled. Example:   enabled:   - dns:query;ignoreAAAA   - drop   - tcp   - flow   - icmp   - http You can specify the list of metrics from the helm CLI:   --set metrics.enabled="{dns:query;ignoreAAAA,drop,tcp,flow,icmp,http}"
      - string
@@ -553,10 +553,18 @@
      - Configure the port the hubble metric server listens on.
      - int
      - ``9091``
+   * - hubble.metrics.serviceMonitor.annotations
+     - Annotations to add to ServiceMonitor hubble
+     - object
+     - ``{}``
    * - hubble.metrics.serviceMonitor.enabled
      - Create ServiceMonitor resources for Prometheus Operator. This requires the prometheus CRDs to be available. ref: https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
      - bool
      - ``false``
+   * - hubble.metrics.serviceMonitor.labels
+     - Labels to add to ServiceMonitor hubble
+     - object
+     - ``{}``
    * - hubble.relay.dialTimeout
      - Dial timeout to connect to the local hubble instance to receive peer information (e.g. "30s").
      - string
@@ -568,7 +576,7 @@
    * - hubble.relay.image
      - Hubble-relay container image.
      - object
-     - ``{"digest":"sha256:af8ff09fe374c307356a85b0e0c158359a2e7299f93280151301b7f2fac27339","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-relay","tag":"v1.10.3","useDigest":true}``
+     - ``{"digest":"sha256:385fcc4fa315eb6b66626c3e5f607b6b6514c8c3a863c47c2b2dbc97790acb47","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-relay","tag":"v1.10.7","useDigest":true}``
    * - hubble.relay.listenHost
      - Host to listen to. Specify an empty string to bind to all the interfaces.
      - string
@@ -680,7 +688,7 @@
    * - hubble.ui.backend.image
      - Hubble-ui backend image.
      - object
-     - ``{"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.7.9@sha256:632c938ef6ff30e3a080c59b734afb1fb7493689275443faa1435f7141aabe76"}``
+     - ``{"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.8.5@sha256:2bce50cf6c32719d072706f7ceccad654bfa907b2745a496da99610776fe31ed"}``
    * - hubble.ui.backend.resources
      - Resource requests and limits for the 'backend' container of the 'hubble-ui' deployment.
      - object
@@ -692,7 +700,7 @@
    * - hubble.ui.frontend.image
      - Hubble-ui frontend image.
      - object
-     - ``{"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-ui","tag":"v0.7.9@sha256:e0e461c680ccd083ac24fe4f9e19e675422485f04d8720635ec41f2ba9e5562c"}``
+     - ``{"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-ui","tag":"v0.8.5@sha256:4eaca1ec1741043cfba6066a165b3bf251590cf4ac66371c4f63fbed2224ebb4"}``
    * - hubble.ui.frontend.resources
      - Resource requests and limits for the 'frontend' container of the 'hubble-ui' deployment.
      - object
@@ -716,7 +724,7 @@
    * - hubble.ui.proxy.image
      - Hubble-ui ingress proxy image.
      - object
-     - ``{"pullPolicy":"IfNotPresent","repository":"docker.io/envoyproxy/envoy","tag":"v1.18.2@sha256:e8b37c1d75787dd1e712ff389b0d37337dc8a174a63bed9c34ba73359dc67da7"}``
+     - ``{"pullPolicy":"IfNotPresent","repository":"docker.io/envoyproxy/envoy","tag":"v1.18.4@sha256:e5c2bb2870d0e59ce917a5100311813b4ede96ce4eb0c6bfa879e3fbe3e83935"}``
    * - hubble.ui.proxy.resources
      - Resource requests and limits for the 'proxy' container of the 'hubble-ui' deployment.
      - object
@@ -748,7 +756,7 @@
    * - image
      - Agent container image.
      - object
-     - ``{"digest":"sha256:8419531c5d3677158802882bdfe2297915c43f2ebe3649551aaac22de9f6d565","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.10.3","useDigest":true}``
+     - ``{"digest":"sha256:e23f55e80e1988db083397987a89967aa204ad6fc32da243b9160fbcea29b0ca","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.10.7","useDigest":true}``
    * - imagePullSecrets
      - Configure image pull secrets for pulling container images
      - string
@@ -813,6 +821,14 @@
      - healthz server bind address for the kube-proxy replacement. To enable set the value to '0.0.0.0:10256' for all ipv4 addresses and this '[::]:10256' for all ipv6 addresses. By default it is disabled.
      - string
      - ``""``
+   * - l2NeighDiscovery.arping-refresh-period
+     - Set period for arping
+     - string
+     - ``"5m"``
+   * - l2NeighDiscovery.enabled
+     - Enable L2 neighbour discovery in the agent
+     - bool
+     - ``true``
    * - l7Proxy
      - Enable Layer 7 network policy.
      - bool
@@ -976,7 +992,7 @@
    * - operator.image
      - cilium-operator image.
      - object
-     - ``{"alibabacloudDigest":"sha256:291e05fef5c2ebebce785a985903a50075e539804b3e946aab8042fc526262b6","awsDigest":"sha256:d3aed74d90b9326959a33a6a354b16117942dac0017090380b1bc3a1dbe8be2d","azureDigest":"sha256:8cba20e22205d3a9fbcbed8bfc11bdd4d8e2fd5b0ce08f6e0f35f441ddc1de7e","genericDigest":"sha256:337ebf27eae4fbad51cc4baf9110b3ec6753320dd33075bc136e2a1865be5eb5","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/operator","suffix":"","tag":"v1.10.3","useDigest":true}``
+     - ``{"alibabacloudDigest":"sha256:7a6ccc99195ae6a8216d2a1e1e0cc05d49c2d263b194895da264899fe9d0f45a","awsDigest":"sha256:97b378e0e3b6b5ade6ae1706024c7a25fe6fc48e00102b65a6b7ac51d6327f40","azureDigest":"sha256:556d692b2f08822101c159d9d6f731efe6c437d2b80f0ef96813e8745203c852","genericDigest":"sha256:d0b491d8d8cb45862ed7f0410f65e7c141832f0f95262643fa5ff1edfcddcafe","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/operator","suffix":"","tag":"v1.10.7","useDigest":true}``
    * - operator.nodeSelector
      - Node labels for cilium-operator pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object
@@ -1000,11 +1016,19 @@
    * - operator.prometheus
      - Enable prometheus metrics for cilium-operator on the configured port at /metrics
      - object
-     - ``{"enabled":false,"port":6942,"serviceMonitor":{"enabled":false}}``
+     - ``{"enabled":false,"port":6942,"serviceMonitor":{"annotations":{},"enabled":false,"labels":{}}}``
+   * - operator.prometheus.serviceMonitor.annotations
+     - Annotations to add to ServiceMonitor cilium-operator
+     - object
+     - ``{}``
    * - operator.prometheus.serviceMonitor.enabled
      - Enable service monitors. This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
      - bool
      - ``false``
+   * - operator.prometheus.serviceMonitor.labels
+     - Labels to add to ServiceMonitor cilium-operator
+     - object
+     - ``{}``
    * - operator.replicas
      - Number of replicas to run for the cilium-operator deployment
      - int
@@ -1080,7 +1104,7 @@
    * - preflight.image
      - Cilium pre-flight image.
      - object
-     - ``{"digest":"sha256:8419531c5d3677158802882bdfe2297915c43f2ebe3649551aaac22de9f6d565","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.10.3","useDigest":true}``
+     - ``{"digest":"sha256:e23f55e80e1988db083397987a89967aa204ad6fc32da243b9160fbcea29b0ca","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.10.7","useDigest":true}``
    * - preflight.nodeSelector
      - Node labels for preflight pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object
@@ -1132,15 +1156,23 @@
    * - prometheus
      - Configure prometheus metrics on the configured port at /metrics
      - object
-     - ``{"enabled":false,"metrics":null,"port":9090,"serviceMonitor":{"enabled":false}}``
+     - ``{"enabled":false,"metrics":null,"port":9090,"serviceMonitor":{"annotations":{},"enabled":false,"labels":{}}}``
    * - prometheus.metrics
      - Metrics that should be enabled or disabled from the default metric list. (+metric_foo to enable metric_foo , -metric_bar to disable metric_bar). ref: https://docs.cilium.io/en/stable/operations/metrics/#exported-metrics
      - string
      - ``nil``
+   * - prometheus.serviceMonitor.annotations
+     - Annotations to add to ServiceMonitor cilium-agent
+     - object
+     - ``{}``
    * - prometheus.serviceMonitor.enabled
      - Enable service monitors. This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
      - bool
      - ``false``
+   * - prometheus.serviceMonitor.labels
+     - Labels to add to ServiceMonitor cilium-agent
+     - object
+     - ``{}``
    * - proxy
      - Configure Istio proxy options.
      - object
