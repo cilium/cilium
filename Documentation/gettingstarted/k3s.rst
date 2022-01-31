@@ -57,7 +57,7 @@ Install Cilium by running:
 
 .. code-block:: shell-session
 
-    cilium install
+    KUBECONFIG=/etc/rancher/k3s/k3s.yaml cilium install
 
 Validate the Installation
 =========================
