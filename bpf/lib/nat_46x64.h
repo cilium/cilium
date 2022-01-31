@@ -12,7 +12,6 @@
 #include "ipv4.h"
 #include "ipv6.h"
 #include "eth.h"
-#include "dbg.h"
 
 static __always_inline int get_csum_offset(__u8 protocol)
 {
@@ -45,9 +44,7 @@ static __always_inline int icmp4_to_icmp6(struct __ctx_buff *ctx, int nh_off)
 
 	if (ctx_load_bytes(ctx, nh_off, &icmp4, sizeof(icmp4)) < 0)
 		return DROP_INVALID;
-
 	icmp6.icmp6_cksum = icmp4.checksum;
-
 	switch (icmp4.type) {
 	case ICMP_ECHO:
 		icmp6.icmp6_type = ICMPV6_ECHO_REQUEST;
@@ -113,10 +110,8 @@ static __always_inline int icmp4_to_icmp6(struct __ctx_buff *ctx, int nh_off)
 	default:
 		return DROP_UNKNOWN_ICMP_TYPE;
 	}
-
 	if (ctx_store_bytes(ctx, nh_off, &icmp6, sizeof(icmp6), 0) < 0)
 		return DROP_WRITE_ERROR;
-
 	icmp4.checksum = 0;
 	icmp6.icmp6_cksum = 0;
 	return csum_diff(&icmp4, sizeof(icmp4), &icmp6, sizeof(icmp6), 0);
@@ -130,9 +125,7 @@ static __always_inline int icmp6_to_icmp4(struct __ctx_buff *ctx, int nh_off)
 
 	if (ctx_load_bytes(ctx, nh_off, &icmp6, sizeof(icmp6)) < 0)
 		return DROP_INVALID;
-
 	icmp4.checksum = icmp6.icmp6_cksum;
-
 	switch (icmp6.icmp6_type) {
 	case ICMPV6_ECHO_REQUEST:
 		icmp4.type = ICMP_ECHO;
@@ -194,71 +187,38 @@ static __always_inline int icmp6_to_icmp4(struct __ctx_buff *ctx, int nh_off)
 	default:
 		return DROP_UNKNOWN_ICMP6_TYPE;
 	}
-
 	if (ctx_store_bytes(ctx, nh_off, &icmp4, sizeof(icmp4), 0) < 0)
 		return DROP_WRITE_ERROR;
-
 	icmp4.checksum = 0;
 	icmp6.icmp6_cksum = 0;
 	return csum_diff(&icmp6, sizeof(icmp6), &icmp4, sizeof(icmp4), 0);
 }
 
-static __always_inline int ipv6_prefix_match(const struct in6_addr *addr,
-					     const union v6addr *v6prefix)
+static __always_inline int ipv4_to_ipv6(struct __ctx_buff *ctx, int nh_off,
+					const union v6addr *src6,
+					const union v6addr *dst6)
 {
-	if (addr->in6_u.u6_addr32[0] == v6prefix->p1 &&
-	    addr->in6_u.u6_addr32[1] == v6prefix->p2 &&
-	    addr->in6_u.u6_addr32[2] == v6prefix->p3)
-		return 1;
-	else
-		return 0;
-}
-
-/*
- * ipv4 to ipv6 stateless nat
- * (s4,d4) -> (s6,d6)
- * s6 = nat46_prefix<s4>
- * d6 = nat46_prefix<d4> or v6_dst if non null
- */
-static __always_inline int ipv4_to_ipv6(struct __ctx_buff *ctx, struct iphdr *ip4,
-					int nh_off,
-					const union v6addr *v6_dst)
-{
+	__be16 protocol = bpf_htons(ETH_P_IPV6);
+	__u64 csum_flags = BPF_F_PSEUDO_HDR;
 	struct ipv6hdr v6 = {};
 	struct iphdr v4;
 	int csum_off;
 	__be32 csum;
 	__be16 v4hdr_len;
-	__be16 protocol = bpf_htons(ETH_P_IPV6);
-	__u64 csum_flags = BPF_F_PSEUDO_HDR;
-	union v6addr nat46_prefix = {};
 
 	if (ctx_load_bytes(ctx, nh_off, &v4, sizeof(v4)) < 0)
 		return DROP_INVALID;
-
-	if (ipv4_hdrlen(ip4) != sizeof(v4))
+	if (ipv4_hdrlen(&v4) != sizeof(v4))
 		return DROP_INVALID_EXTHDR;
-
-	/* build v6 header */
 	v6.version = 0x6;
-	v6.saddr.in6_u.u6_addr32[0] = nat46_prefix.p1;
-	v6.saddr.in6_u.u6_addr32[1] = nat46_prefix.p2;
-	v6.saddr.in6_u.u6_addr32[2] = nat46_prefix.p3;
-	v6.saddr.in6_u.u6_addr32[3] = v4.saddr;
-
-	if (v6_dst) {
-		v6.daddr.in6_u.u6_addr32[0] = v6_dst->p1;
-		v6.daddr.in6_u.u6_addr32[1] = v6_dst->p2;
-		v6.daddr.in6_u.u6_addr32[2] = v6_dst->p3;
-		v6.daddr.in6_u.u6_addr32[3] = v6_dst->p4;
-	} else {
-		v6.daddr.in6_u.u6_addr32[0] = nat46_prefix.p1;
-		v6.daddr.in6_u.u6_addr32[1] = nat46_prefix.p2;
-		v6.daddr.in6_u.u6_addr32[2] = nat46_prefix.p3;
-		v6.daddr.in6_u.u6_addr32[3] = bpf_htonl((bpf_ntohl(nat46_prefix.p4) & 0xFFFF0000) |
-							(bpf_ntohl(v4.daddr) & 0xFFFF));
-	}
-
+	v6.saddr.in6_u.u6_addr32[0] = src6->p1;
+	v6.saddr.in6_u.u6_addr32[1] = src6->p2;
+	v6.saddr.in6_u.u6_addr32[2] = src6->p3;
+	v6.saddr.in6_u.u6_addr32[3] = src6->p4;
+	v6.daddr.in6_u.u6_addr32[0] = dst6->p1;
+	v6.daddr.in6_u.u6_addr32[1] = dst6->p2;
+	v6.daddr.in6_u.u6_addr32[2] = dst6->p3;
+	v6.daddr.in6_u.u6_addr32[3] = dst6->p4;
 	if (v4.protocol == IPPROTO_ICMP)
 		v6.nexthdr = IPPROTO_ICMPV6;
 	else
@@ -266,18 +226,11 @@ static __always_inline int ipv4_to_ipv6(struct __ctx_buff *ctx, struct iphdr *ip
 	v6.hop_limit = v4.ttl;
 	v4hdr_len = (__be16)(v4.ihl << 2);
 	v6.payload_len = bpf_htons(bpf_ntohs(v4.tot_len) - v4hdr_len);
-
-	if (ctx_change_proto(ctx, bpf_htons(ETH_P_IPV6), 0) < 0) {
-#ifdef DEBUG_NAT46
-		printk("v46 NAT: ctx_modify failed\n");
-#endif
+	if (ctx_change_proto(ctx, bpf_htons(ETH_P_IPV6), 0) < 0)
 		return DROP_WRITE_ERROR;
-	}
-
 	if (ctx_store_bytes(ctx, nh_off, &v6, sizeof(v6), 0) < 0 ||
 	    ctx_store_bytes(ctx, nh_off - 2, &protocol, 2, 0) < 0)
 		return DROP_WRITE_ERROR;
-
 	if (v4.protocol == IPPROTO_ICMP) {
 		csum = icmp4_to_icmp6(ctx, nh_off + sizeof(v6));
 		csum = ipv6_pseudohdr_checksum(&v6, IPPROTO_ICMPV6,
@@ -289,53 +242,34 @@ static __always_inline int ipv4_to_ipv6(struct __ctx_buff *ctx, struct iphdr *ip
 		if (v4.protocol == IPPROTO_UDP)
 			csum_flags |= BPF_F_MARK_MANGLED_0;
 	}
-
-	/*
-	 * get checksum from inner header tcp / udp / icmp
-	 * undo ipv4 pseudohdr checksum and
-	 * add  ipv6 pseudohdr checksum
-	 */
 	csum_off = get_csum_offset(v6.nexthdr);
 	if (csum_off < 0)
 		return csum_off;
 	csum_off += sizeof(struct ipv6hdr);
-
 	if (l4_csum_replace(ctx, nh_off + csum_off, 0, csum, csum_flags) < 0)
 		return DROP_CSUM_L4;
-
-#ifdef DEBUG_NAT46
-	printk("v46 NAT: nh_off %d, csum_off %d\n", nh_off, csum_off);
-#endif
 	return 0;
 }
 
-/*
- * ipv6 to ipv4 stateless nat
- * (s6,d6) -> (s4,d4)
- * s4 = <ipv4-range>.<lxc-id>
- * d4 = d6[96 .. 127]
- */
-static __always_inline int ipv6_to_ipv4(struct __ctx_buff *ctx, __be32 saddr)
+static __always_inline int ipv6_to_ipv4(struct __ctx_buff *ctx,
+					__be32 src4, __be32 dst4)
 {
-	struct ipv6hdr v6;
-	struct iphdr v4 = {};
-	__be32 csum = 0;
 	__be16 protocol = bpf_htons(ETH_P_IP);
 	__u64 csum_flags = BPF_F_PSEUDO_HDR;
 	int csum_off, nh_off = ETH_HLEN;
+	struct ipv6hdr v6;
+	struct iphdr v4 = {};
+	__be32 csum = 0;
 
 	if (ctx_load_bytes(ctx, nh_off, &v6, sizeof(v6)) < 0)
 		return DROP_INVALID;
-
 	/* Drop frames which carry extensions headers */
 	if (ipv6_hdrlen(ctx, &v6.nexthdr) != sizeof(v6))
 		return DROP_INVALID_EXTHDR;
-
-	/* build v4 header */
 	v4.ihl = 0x5;
 	v4.version = 0x4;
-	v4.saddr = saddr;
-	v4.daddr = v6.daddr.in6_u.u6_addr32[3];
+	v4.saddr = src4;
+	v4.daddr = dst4;
 	if (v6.nexthdr == IPPROTO_ICMPV6)
 		v4.protocol = IPPROTO_ICMP;
 	else
@@ -344,21 +278,13 @@ static __always_inline int ipv6_to_ipv4(struct __ctx_buff *ctx, __be32 saddr)
 	v4.tot_len = bpf_htons(bpf_ntohs(v6.payload_len) + sizeof(v4));
 	csum_off = offsetof(struct iphdr, check);
 	csum = csum_diff(NULL, 0, &v4, sizeof(v4), csum);
-
-	if (ctx_change_proto(ctx, bpf_htons(ETH_P_IP), 0) < 0) {
-#ifdef DEBUG_NAT46
-		printk("v46 NAT: ctx_modify failed\n");
-#endif
+	if (ctx_change_proto(ctx, bpf_htons(ETH_P_IP), 0) < 0)
 		return DROP_WRITE_ERROR;
-	}
-
 	if (ctx_store_bytes(ctx, nh_off, &v4, sizeof(v4), 0) < 0 ||
 	    ctx_store_bytes(ctx, nh_off - 2, &protocol, 2, 0) < 0)
 		return DROP_WRITE_ERROR;
-
 	if (l3_csum_replace(ctx, nh_off + csum_off, 0, csum, 0) < 0)
 		return DROP_CSUM_L3;
-
 	if (v6.nexthdr == IPPROTO_ICMPV6) {
 		__be32 csum1 = 0;
 
@@ -373,23 +299,13 @@ static __always_inline int ipv6_to_ipv4(struct __ctx_buff *ctx, __be32 saddr)
 		if (v4.protocol == IPPROTO_UDP)
 			csum_flags |= BPF_F_MARK_MANGLED_0;
 	}
-	/*
-	 * get checksum from inner header tcp / udp / icmp
-	 * undo ipv6 pseudohdr checksum and
-	 * add  ipv4 pseudohdr checksum
-	 */
 	csum_off = get_csum_offset(v4.protocol);
 	if (csum_off < 0)
 		return csum_off;
 	csum_off += sizeof(struct iphdr);
-
 	if (l4_csum_replace(ctx, nh_off + csum_off, 0, csum, csum_flags) < 0)
 		return DROP_CSUM_L4;
-
-#ifdef DEBUG_NAT46
-	printk("v64 NAT: nh_off %d, csum_off %d\n", nh_off, csum_off);
-#endif
-
 	return 0;
 }
+
 #endif /* __LIB_NAT_46X64__ */
