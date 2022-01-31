@@ -610,6 +610,8 @@ hubble:
       enabled: false
       # -- Labels to add to ServiceMonitor hubble
       labels: {}
+      # -- Annotations to add to ServiceMonitor hubble
+      annotations: {}
 
   # -- Unix domain socket path to listen to when Hubble is enabled.
   socketPath: /var/run/cilium/hubble.sock
@@ -1166,6 +1168,8 @@ prometheus:
     enabled: false
     # -- Labels to add to ServiceMonitor cilium-agent
     labels: {}
+    # -- Annotations to add to ServiceMonitor cilium-agent
+    annotations: {}
     # -- Specify the Kubernetes namespace where Prometheus expects to find
     # service monitors configured.
     # namespace: ""
@@ -1481,6 +1485,8 @@ operator:
       enabled: false
       # -- Labels to add to ServiceMonitor cilium-operator
       labels: {}
+      # -- Annotations to add to ServiceMonitor cilium-operator
+      annotations: {}
 
   # -- Skip CRDs creation for cilium-operator
   skipCRDCreation: false
