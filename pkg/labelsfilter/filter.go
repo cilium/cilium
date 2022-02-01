@@ -182,19 +182,19 @@ func defaultLabelPrefixCfg() *labelPrefixCfg {
 	}
 
 	expressions := []string{
-		reservedLabelsPattern,           // include all reserved labels
-		k8sConst.PodNamespaceLabel,      // include io.kubernetes.pod.namespace
-		k8sConst.PodNamespaceMetaLabels, // include all namespace labels
-		k8sConst.AppKubernetes,          // include app.kubernetes.io
-		"!io.kubernetes",                // ignore all other io.kubernetes labels
-		"!kubernetes.io",                // ignore all other kubernetes.io labels
-		"!.*beta.kubernetes.io",         // ignore all beta.kubernetes.io labels
-		"!k8s.io",                       // ignore all k8s.io labels
-		"!pod-template-generation",      // ignore pod-template-generation
-		"!pod-template-hash",            // ignore pod-template-hash
-		"!controller-revision-hash",     // ignore controller-revision-hash
-		"!annotation.*",                 // ignore all annotation labels
-		"!etcd_node",                    // ignore etcd_node label
+		reservedLabelsPattern,                             // include all reserved labels
+		regexp.QuoteMeta(k8sConst.PodNamespaceLabel),      // include io.kubernetes.pod.namespace
+		regexp.QuoteMeta(k8sConst.PodNamespaceMetaLabels), // include all namespace labels
+		regexp.QuoteMeta(k8sConst.AppKubernetes),          // include app.kubernetes.io
+		`!io\.kubernetes`,                                 // ignore all other io.kubernetes labels
+		`!kubernetes\.io`,                                 // ignore all other kubernetes.io labels
+		`!.*beta\.kubernetes\.io`,                         // ignore all beta.kubernetes.io labels
+		`!k8s\.io`,                                        // ignore all k8s.io labels
+		`!pod-template-generation`,                        // ignore pod-template-generation
+		`!pod-template-hash`,                              // ignore pod-template-hash
+		`!controller-revision-hash`,                       // ignore controller-revision-hash
+		`!annotation.*`,                                   // ignore all annotation labels
+		`!etcd_node`,                                      // ignore etcd_node label
 	}
 
 	for _, e := range expressions {
