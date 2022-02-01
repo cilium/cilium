@@ -170,6 +170,6 @@ ifeq ($(BASE_IMAGE),)
     BASE_IMAGE=scratch
 endif
 
-HELM_DOCS_VERSION ?= "5ddabba"
-HELM_DOCS_SHA ?= "c4a91daac6bf9c181fac79e09712fcf1f9102fcab1bbacbc733883965f5fd244"
-HELM_DOCS_IMAGE ?= "docker.io/bmcustodio/helm-docs:$(HELM_DOCS_VERSION)@sha256:$(HELM_DOCS_SHA)"
+HELM_DOCS_VERSION ?= "v1.7.0"
+HELM_DOCS_SHA ?= "835200d7734899c7784419069be0a20a75b9bb381a790637ac911f26eb9d8c53"
+HELM_DOCS_IMAGE ?= "quay.io/cilium/helm-docs:$(HELM_DOCS_VERSION)@sha256:$(HELM_DOCS_SHA)"
