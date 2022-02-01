@@ -1666,12 +1666,12 @@ var _ = SkipDescribeIf(func() bool {
 						Expect(res).To(getMatcher(true))
 
 						if expectWorldSuccess {
-							testCurlFromOutside(kubectl, &nodesInfo{
-								outsideNodeName: outsideNodeName,
+							testCurlFromOutside(kubectl, &helpers.NodesInfo{
+								OutsideNodeName: outsideNodeName,
 							}, k8s1PodIP, 1, false)
 						} else {
-							testCurlFailFromOutside(kubectl, &nodesInfo{
-								outsideNodeName: outsideNodeName,
+							testCurlFailFromOutside(kubectl, &helpers.NodesInfo{
+								OutsideNodeName: outsideNodeName,
 							}, k8s1PodIP, 1)
 						}
 					}()
@@ -2520,12 +2520,12 @@ var _ = SkipDescribeIf(helpers.DoesNotRunOn419OrLaterKernel,
 						Expect(res).To(getMatcher(true))
 
 						if expectWorldSuccess {
-							testCurlFromOutside(kubectl, &nodesInfo{
-								outsideNodeName: outsideNodeName,
+							testCurlFromOutside(kubectl, &helpers.NodesInfo{
+								OutsideNodeName: outsideNodeName,
 							}, k8s1PodIP, 1, false)
 						} else {
-							testCurlFailFromOutside(kubectl, &nodesInfo{
-								outsideNodeName: outsideNodeName,
+							testCurlFailFromOutside(kubectl, &helpers.NodesInfo{
+								OutsideNodeName: outsideNodeName,
 							}, k8s1PodIP, 1)
 						}
 					}()
