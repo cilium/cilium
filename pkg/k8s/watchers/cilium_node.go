@@ -24,7 +24,7 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, asyncCo
 	var once sync.Once
 	for {
 		swgNodes := lock.NewStoppableWaitGroup()
-		_, ciliumNodeInformer := informer.NewInformer(
+		ciliumNodeStore, ciliumNodeInformer := informer.NewInformer(
 			cache.NewListWatchFromClient(ciliumNPClient.CiliumV2().RESTClient(),
 				cilium_v2.CNPluralName, v1.NamespaceAll, fields.Everything()),
 			&cilium_v2.CiliumNode{},
@@ -80,6 +80,10 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, asyncCo
 		// once isConnected is closed, it will stop waiting on caches to be
 		// synchronized.
 		k.blockWaitGroupToSyncResources(isConnected, swgNodes, ciliumNodeInformer.HasSynced, k8sAPIGroupCiliumNodeV2)
+
+		k.ciliumNodeStoreMU.Lock()
+		k.ciliumNodeStore = ciliumNodeStore
+		k.ciliumNodeStoreMU.Unlock()
 
 		once.Do(func() {
 			// Signalize that we have put node controller in the wait group
