@@ -6,15 +6,11 @@ package k8sTest
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
-	"text/template"
 	"time"
 
 	"github.com/asaskevich/govalidator"
@@ -1161,54 +1157,6 @@ func testMaglev(kubectl *helpers.Kubectl, ni *nodesInfo) {
 			}
 		}
 	}
-}
-
-func applyFRRTemplate(kubectl *helpers.Kubectl, ni *nodesInfo) string {
-	tmpl := helpers.ManifestGet(kubectl.BasePath(), "frr.yaml.tmpl")
-	content, err := os.ReadFile(tmpl)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	ExpectWithOffset(1, content).ToNot(BeEmpty())
-
-	render, err := ioutil.TempFile(os.TempDir(), "frr-")
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	defer render.Close()
-
-	t := template.Must(template.New("").Parse(string(content)))
-	err = t.Execute(render, struct {
-		OutsideNodeName string
-		Nodes           []string
-	}{
-		OutsideNodeName: ni.outsideNodeName,
-		Nodes:           []string{ni.k8s1IP, ni.k8s2IP},
-	})
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-	path, err := filepath.Abs(render.Name())
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	return path
-}
-
-func applyBGPCMTemplate(kubectl *helpers.Kubectl, ip string) string {
-	tmpl := helpers.ManifestGet(kubectl.BasePath(), "bgp-configmap.yaml.tmpl")
-	content, err := os.ReadFile(tmpl)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	ExpectWithOffset(1, content).ToNot(BeEmpty())
-
-	render, err := ioutil.TempFile(os.TempDir(), "bgp-cm-")
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	defer render.Close()
-
-	t := template.Must(template.New("").Parse(string(content)))
-	err = t.Execute(render, struct {
-		RouterIP string
-	}{
-		RouterIP: ip,
-	})
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-	path, err := filepath.Abs(render.Name())
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	return path
 }
 
 func testDSR(kubectl *helpers.Kubectl, ni *nodesInfo, sourcePortForCTGCtest int) {
