@@ -26,7 +26,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sIstioTest", func() {
 		// installed.
 		istioSystemNamespace = "istio-system"
 
-		istioVersion = "1.10.6"
+		istioVersion = "1.10.6-1"
 
 		// Modifiers for pre-release testing, normally empty
 		prerelease     = "" // "-beta.1"
