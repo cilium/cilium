@@ -2383,6 +2383,13 @@ func (kub *Kubectl) Patch(namespace, objType, objName, patch string) *CmdRes {
 		KubectlCmd, namespace, objType, objName, patch))
 }
 
+// JsonPatch patches the given object with the given patch in JSON format.
+func (kub *Kubectl) JsonPatch(namespace, objType, objName, patch string) *CmdRes {
+	ginkgoext.By("Patching %s %s in namespace %s", objType, objName, namespace)
+	return kub.ExecShort(fmt.Sprintf("%s -n %s patch %s %s --type=json --patch %q",
+		KubectlCmd, namespace, objType, objName, patch))
+}
+
 func addIfNotOverwritten(options map[string]string, field, value string) map[string]string {
 	if _, ok := options[field]; !ok {
 		options[field] = value
