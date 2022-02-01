@@ -42,7 +42,8 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 	var (
 		kubectl        *helpers.Kubectl
 		ciliumFilename string
-		ni             *nodesInfo
+		ni             *helpers.NodesInfo
+		err            error
 	)
 
 	BeforeAll(func() {
@@ -74,7 +75,8 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			}
 		}
 
-		ni = getNodesInfo(kubectl)
+		ni, err = helpers.GetNodesInfo(kubectl)
+		Expect(err).Should(BeNil(), "Cannot get nodes info")
 
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 		DeployCiliumAndDNS(kubectl, ciliumFilename)
@@ -184,11 +186,11 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 				httpSVCURL := fmt.Sprintf("http://%s/", net.JoinHostPort(clusterIP, "80"))
 				tftpSVCURL := fmt.Sprintf("tftp://%s/hello", net.JoinHostPort(clusterIP, "69"))
 
-				status := kubectl.ExecInHostNetNS(context.TODO(), ni.k8s1NodeName,
+				status := kubectl.ExecInHostNetNS(context.TODO(), ni.K8s1NodeName,
 					helpers.CurlFail(httpSVCURL))
 				Expect(status).Should(helpers.CMDSuccess(), "cannot curl to service IP from host: %s", status.CombineOutput())
 
-				status = kubectl.ExecInHostNetNS(context.TODO(), ni.k8s1NodeName,
+				status = kubectl.ExecInHostNetNS(context.TODO(), ni.K8s1NodeName,
 					helpers.CurlFail(tftpSVCURL))
 				Expect(status).Should(helpers.CMDSuccess(), "cannot curl to service IP from host: %s", status.CombineOutput())
 
@@ -264,7 +266,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			func() {
 				Expect(curlClusterIPFromExternalHost(kubectl, ni)).
 					ShouldNot(helpers.CMDSuccess(),
-						"External host %s unexpectedly connected to ClusterIP when lbExternalClusterIP was unset", ni.outsideNodeName)
+						"External host %s unexpectedly connected to ClusterIP when lbExternalClusterIP was unset", ni.OutsideNodeName)
 			})
 
 		SkipContextIf(func() bool { return helpers.DoesNotExistNodeWithoutCilium() }, "With ClusterIP external access", func() {
@@ -278,13 +280,13 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 				clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, appServiceName)
 				svcIP = clusterIP
 				Expect(err).Should(BeNil(), "Cannot get service %s", appServiceName)
-				res := kubectl.AddIPRoute(ni.outsideNodeName, svcIP, ni.k8s1IP, false)
-				Expect(res).Should(helpers.CMDSuccess(), "Error adding IP route for %s via %s", svcIP, ni.k8s1IP)
+				res := kubectl.AddIPRoute(ni.OutsideNodeName, svcIP, ni.K8s1IP, false)
+				Expect(res).Should(helpers.CMDSuccess(), "Error adding IP route for %s via %s", svcIP, ni.K8s1IP)
 			})
 
 			AfterAll(func() {
-				res := kubectl.DelIPRoute(ni.outsideNodeName, svcIP, ni.k8s1IP)
-				Expect(res).Should(helpers.CMDSuccess(), "Error removing IP route for %s via %s", svcIP, ni.k8s1IP)
+				res := kubectl.DelIPRoute(ni.OutsideNodeName, svcIP, ni.K8s1IP)
+				Expect(res).Should(helpers.CMDSuccess(), "Error removing IP route for %s via %s", svcIP, ni.K8s1IP)
 				DeployCiliumAndDNS(kubectl, ciliumFilename)
 			})
 
@@ -352,10 +354,10 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 				tftpURL := fmt.Sprintf("tftp://%s/hello", net.JoinHostPort(clusterIP, "69"))
 
 				// Test connectivity from root ns (bpf_sock)
-				kubectl.ExecInHostNetNS(context.TODO(), ni.k8s1NodeName,
+				kubectl.ExecInHostNetNS(context.TODO(), ni.K8s1NodeName,
 					helpers.CurlFail(httpURL)).
 					ExpectSuccess("cannot curl to service IP from host")
-				kubectl.ExecInHostNetNS(context.TODO(), ni.k8s1NodeName,
+				kubectl.ExecInHostNetNS(context.TODO(), ni.K8s1NodeName,
 					helpers.CurlFail(tftpURL)).
 					ExpectSuccess("cannot curl to service IP from host")
 
@@ -396,8 +398,8 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 
 			By(`Connectivity config:: helpers.DualStackSupported(): %v
 Primary Interface %s   :: IPv4: (%s, %s), IPv6: (%s, %s)
-Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupported(), ni.privateIface, ni.k8s1IP, ni.k8s2IP, ni.primaryK8s1IPv6, ni.primaryK8s2IPv6,
-				helpers.SecondaryIface, ni.secondaryK8s1IPv4, ni.secondaryK8s2IPv4, ni.secondaryK8s1IPv6, ni.secondaryK8s2IPv6)
+Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupported(), ni.PrivateIface, ni.K8s1IP, ni.K8s2IP, ni.PrimaryK8s1IPv6, ni.PrimaryK8s2IPv6,
+				helpers.SecondaryIface, ni.SecondaryK8s1IPv4, ni.SecondaryK8s2IPv4, ni.SecondaryK8s1IPv6, ni.SecondaryK8s2IPv6)
 
 			demoPolicyL7 = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-demo.yaml")
 			waitPodsDs(kubectl, []string{testDS, testDSClient, testDSK8s2})
@@ -520,7 +522,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 				clientPod, _ := kubectl.GetPodOnNodeLabeledWithOffset(helpers.K8s1, testDSClient, 0)
 				// Destination is a NodePort in k8s2, curl (in k8s1) binding to the same local port as the DNS proxy port
 				// in k8s2
-				url := getTFTPLink(ni.k8s2IP, data.Spec.Ports[1].NodePort) + fmt.Sprintf(" --local-port %d", DNSProxyPort2)
+				url := getTFTPLink(ni.K8s2IP, data.Spec.Ports[1].NodePort) + fmt.Sprintf(" --local-port %d", DNSProxyPort2)
 				cmd := testCommand(helpers.CurlFailNoStats(url), count, fails)
 				By("Making %d curl requests from %s pod to service %s using source port %d", count, clientPod, url, DNSProxyPort2)
 				res := kubectl.ExecPodCmd(helpers.DefaultNamespace, clientPod, cmd)
@@ -534,7 +536,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 					clientPod, _ := kubectl.GetPodOnNodeLabeledWithOffset(helpers.K8s1, testDSClient, 0)
 					// Destination is a NodePort in k8s2, curl (in k8s1) binding to the same local port as the DNS proxy port
 					// in k8s2
-					url := getTFTPLink(ni.primaryK8s2IPv6, data.Spec.Ports[1].NodePort) + fmt.Sprintf(" --local-port %d", DNSProxyPort2)
+					url := getTFTPLink(ni.PrimaryK8s2IPv6, data.Spec.Ports[1].NodePort) + fmt.Sprintf(" --local-port %d", DNSProxyPort2)
 					cmd := testCommand(helpers.CurlFailNoStats(url), count, fails)
 					By("Making %d curl requests from %s pod to service %s using source port %d", count, clientPod, url, DNSProxyPort2)
 					res := kubectl.ExecPodCmd(helpers.DefaultNamespace, clientPod, cmd)
@@ -722,7 +724,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 							helpers.SkipQuarantined()
 					}, "Tests with secondary NodePort device", func() {
 						DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-							"devices": fmt.Sprintf(`'{%s,%s}'`, ni.privateIface, helpers.SecondaryIface),
+							"devices": fmt.Sprintf(`'{%s,%s}'`, ni.PrivateIface, helpers.SecondaryIface),
 						})
 
 						testNodePort(kubectl, ni, true, true, helpers.ExistNodeWithoutCilium(), 0)
@@ -860,10 +862,10 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						// policy.
 						err := kubectl.Get(helpers.DefaultNamespace, "svc test-nodeport-local-k8s2").Unmarshal(&data)
 						Expect(err).Should(BeNil(), "Can not retrieve service")
-						svc1URL := getHTTPLink(ni.k8s2IP, data.Spec.Ports[0].NodePort)
+						svc1URL := getHTTPLink(ni.K8s2IP, data.Spec.Ports[0].NodePort)
 						err = kubectl.Get(helpers.DefaultNamespace, "svc test-nodeport-k8s2").Unmarshal(&data)
 						Expect(err).Should(BeNil(), "Can not retrieve service")
-						svc2URL := getHTTPLink(ni.k8s2IP, data.Spec.Ports[0].NodePort)
+						svc2URL := getHTTPLink(ni.K8s2IP, data.Spec.Ports[0].NodePort)
 
 						// Send two requests from the same src IP and port to the endpoint
 						// via two different NodePort svc to trigger the stale conntrack
@@ -886,7 +888,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						"tunnel":               "disabled",
 						"autoDirectNodeRoutes": "true",
 						"loadBalancer.mode":    "snat",
-						"devices":              fmt.Sprintf(`'{%s,%s}'`, ni.privateIface, helpers.SecondaryIface),
+						"devices":              fmt.Sprintf(`'{%s,%s}'`, ni.PrivateIface, helpers.SecondaryIface),
 					})
 
 					testNodePort(kubectl, ni, true, true, helpers.ExistNodeWithoutCilium(), 0)
@@ -910,7 +912,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						"loadBalancer.algorithm":    "random",
 						"tunnel":                    "disabled",
 						"autoDirectNodeRoutes":      "true",
-						"devices":                   fmt.Sprintf(`'{%s}'`, ni.privateIface),
+						"devices":                   fmt.Sprintf(`'{%s}'`, ni.PrivateIface),
 					})
 					testNodePortExternal(kubectl, ni, false, false)
 				})
@@ -923,7 +925,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						"maglev.tableSize":          "251",
 						"tunnel":                    "disabled",
 						"autoDirectNodeRoutes":      "true",
-						"devices":                   fmt.Sprintf(`'{%s}'`, ni.privateIface),
+						"devices":                   fmt.Sprintf(`'{%s}'`, ni.PrivateIface),
 						// Support for host firewall + Maglev is currently broken,
 						// see #14047 for details.
 						"hostFirewall.enabled": "false",
@@ -938,7 +940,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						"loadBalancer.algorithm":    "random",
 						"tunnel":                    "disabled",
 						"autoDirectNodeRoutes":      "true",
-						"devices":                   fmt.Sprintf(`'{%s}'`, ni.privateIface),
+						"devices":                   fmt.Sprintf(`'{%s}'`, ni.PrivateIface),
 					})
 					testNodePortExternal(kubectl, ni, true, false)
 				})
@@ -951,7 +953,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						"maglev.tableSize":          "251",
 						"tunnel":                    "disabled",
 						"autoDirectNodeRoutes":      "true",
-						"devices":                   fmt.Sprintf(`'{%s}'`, ni.privateIface),
+						"devices":                   fmt.Sprintf(`'{%s}'`, ni.PrivateIface),
 						// Support for host firewall + Maglev is currently broken,
 						// see #14047 for details.
 						"hostFirewall.enabled": "false",
@@ -966,7 +968,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						"loadBalancer.algorithm":    "random",
 						"tunnel":                    "disabled",
 						"autoDirectNodeRoutes":      "true",
-						"devices":                   fmt.Sprintf(`'{%s}'`, ni.privateIface),
+						"devices":                   fmt.Sprintf(`'{%s}'`, ni.PrivateIface),
 					})
 					testNodePortExternal(kubectl, ni, true, true)
 				})
@@ -979,7 +981,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						"maglev.tableSize":          "251",
 						"tunnel":                    "disabled",
 						"autoDirectNodeRoutes":      "true",
-						"devices":                   fmt.Sprintf(`'{%s}'`, ni.privateIface),
+						"devices":                   fmt.Sprintf(`'{%s}'`, ni.PrivateIface),
 						// Support for host firewall + Maglev is currently broken,
 						// see #14047 for details.
 						"hostFirewall.enabled": "false",
