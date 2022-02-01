@@ -39,35 +39,16 @@ const (
 	lbSvcName = "test-lb-with-ip"
 )
 
-type nodesInfo struct {
-	k8s1NodeName      string
-	k8s2NodeName      string
-	outsideNodeName   string
-	k8s1IP            string
-	k8s2IP            string
-	outsideIP         string
-	privateIface      string
-	primaryK8s1IPv6   string
-	primaryK8s2IPv6   string
-	outsideIPv6       string
-	secondaryK8s1IPv4 string
-	secondaryK8s2IPv4 string
-	secondaryK8s1IPv6 string
-	secondaryK8s2IPv6 string
-}
-
 // The 5.4 CI job is intended to catch BPF complexity regressions and as such
 // doesn't need to execute this test suite.
 var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 	var (
 		kubectl        *helpers.Kubectl
 		ciliumFilename string
-
-		ni = &nodesInfo{}
+		ni             *nodesInfo
 	)
 
 	BeforeAll(func() {
-		var err error
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		if helpers.DualStackSupported() && helpers.DoesNotRunWithKubeProxyReplacement() {
@@ -96,31 +77,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			}
 		}
 
-		ni.k8s1NodeName, ni.k8s1IP = kubectl.GetNodeInfo(helpers.K8s1)
-		ni.k8s2NodeName, ni.k8s2IP = kubectl.GetNodeInfo(helpers.K8s2)
-		if helpers.ExistNodeWithoutCilium() {
-			ni.outsideNodeName, ni.outsideIP = kubectl.GetNodeInfo(helpers.GetFirstNodeWithoutCilium())
-		}
-
-		ni.privateIface, err = kubectl.GetPrivateIface()
-		Expect(err).Should(BeNil(), "Cannot determine private iface")
-
-		if helpers.GetCurrentIntegration() == "" {
-			ni.primaryK8s1IPv6 = getIPv6AddrForIface(kubectl, ni.k8s1NodeName, ni.privateIface)
-			ni.primaryK8s2IPv6 = getIPv6AddrForIface(kubectl, ni.k8s2NodeName, ni.privateIface)
-
-			// If there is no integration we assume that these are running in vagrant environment
-			// so have a secondary interface with both IPv6 and IPv4 addresses.
-			ni.secondaryK8s1IPv4 = getIPv4AddrForIface(kubectl, ni.k8s1NodeName, helpers.SecondaryIface)
-			ni.secondaryK8s2IPv4 = getIPv4AddrForIface(kubectl, ni.k8s2NodeName, helpers.SecondaryIface)
-
-			ni.secondaryK8s1IPv6 = getIPv6AddrForIface(kubectl, ni.k8s1NodeName, helpers.SecondaryIface)
-			ni.secondaryK8s2IPv6 = getIPv6AddrForIface(kubectl, ni.k8s2NodeName, helpers.SecondaryIface)
-
-			if helpers.ExistNodeWithoutCilium() {
-				ni.outsideIPv6 = getIPv6AddrForIface(kubectl, ni.outsideNodeName, ni.privateIface)
-			}
-		}
+		ni = getNodesInfo(kubectl)
 
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 		DeployCiliumAndDNS(kubectl, ciliumFilename)
