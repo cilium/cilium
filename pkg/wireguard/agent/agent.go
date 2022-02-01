@@ -255,34 +255,35 @@ func (a *Agent) Init(mtuConfig mtu.Configuration) error {
 		Device: types.IfaceName,
 		Table:  linux_defaults.RouteTableWireguard,
 	}
-	if option.Config.EnableIPv4 {
-		if err := route.ReplaceRule(rule); err != nil {
-			return fmt.Errorf("failed to upsert ipv4 rule: %w", err)
-		}
+	fmt.Println(rule, rt)
+	//if option.Config.EnableIPv4 {
+	//	if err := route.ReplaceRule(rule); err != nil {
+	//		return fmt.Errorf("failed to upsert ipv4 rule: %w", err)
+	//	}
 
-		subnet := net.IPNet{
-			IP:   net.IPv4zero,
-			Mask: net.CIDRMask(0, net.IPv4len),
-		}
-		rt.Prefix = subnet
-		if _, err := route.Upsert(rt); err != nil {
-			return fmt.Errorf("failed to upsert ipv4 route: %w", err)
-		}
-	}
-	if option.Config.EnableIPv6 {
-		if err := route.ReplaceRuleIPv6(rule); err != nil {
-			return fmt.Errorf("failed to upsert ipv6 rule: %w", err)
-		}
+	//	subnet := net.IPNet{
+	//		IP:   net.IPv4zero,
+	//		Mask: net.CIDRMask(0, net.IPv4len),
+	//	}
+	//	rt.Prefix = subnet
+	//	if _, err := route.Upsert(rt); err != nil {
+	//		return fmt.Errorf("failed to upsert ipv4 route: %w", err)
+	//	}
+	//}
+	//if option.Config.EnableIPv6 {
+	//	if err := route.ReplaceRuleIPv6(rule); err != nil {
+	//		return fmt.Errorf("failed to upsert ipv6 rule: %w", err)
+	//	}
 
-		subnet := net.IPNet{
-			IP:   net.IPv6zero,
-			Mask: net.CIDRMask(0, net.IPv6len),
-		}
-		rt.Prefix = subnet
-		if _, err := route.Upsert(rt); err != nil {
-			return fmt.Errorf("failed to upsert ipv6 route: %w", err)
-		}
-	}
+	//	subnet := net.IPNet{
+	//		IP:   net.IPv6zero,
+	//		Mask: net.CIDRMask(0, net.IPv6len),
+	//	}
+	//	rt.Prefix = subnet
+	//	if _, err := route.Upsert(rt); err != nil {
+	//		return fmt.Errorf("failed to upsert ipv6 route: %w", err)
+	//	}
+	//}
 
 	// this is read by the defer statement above
 	addIPCacheListener = true
