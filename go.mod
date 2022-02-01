@@ -20,7 +20,7 @@ require (
 	github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e
 	github.com/cilium/ebpf v0.8.0
 	github.com/cilium/ipam v0.0.0-20211026130907-54a76012817c
-	github.com/cilium/proxy v0.0.0-20220118152541-73ea7fb84ea3
+	github.com/cilium/proxy v0.0.0-20220201142219-15056fe22da2
 	github.com/cilium/workerpool v1.1.1
 	github.com/containernetworking/cni v1.0.1
 	github.com/containernetworking/plugins v1.0.1

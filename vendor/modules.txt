@@ -181,7 +181,7 @@ github.com/cilium/ebpf/rlimit
 github.com/cilium/ipam/cidrset
 github.com/cilium/ipam/service/allocator
 github.com/cilium/ipam/service/ipallocator
-# github.com/cilium/proxy v0.0.0-20220118152541-73ea7fb84ea3
+# github.com/cilium/proxy v0.0.0-20220201142219-15056fe22da2
 ## explicit; go 1.13
 github.com/cilium/proxy/go/cilium/api
 github.com/cilium/proxy/go/contrib/envoy/extensions/filters/network/mysql_proxy/v3
