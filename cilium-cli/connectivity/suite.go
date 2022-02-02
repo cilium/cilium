@@ -63,8 +63,11 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			tests.PodToPod(""),
 			tests.ClientToClient(""),
 			tests.PodToService(""),
-			tests.PodToRemoteNodePort(""),
-			tests.PodToLocalNodePort(""),
+			// We are skipping the following checks because NodePort is
+			// intended to be used for N-S traffic, which conflicts with
+			// policies. See GH-17144.
+			// tests.PodToRemoteNodePort(""),
+			// tests.PodToLocalNodePort(""),
 			tests.PodToHost(""),
 			tests.PodToExternalWorkload(""),
 		)
