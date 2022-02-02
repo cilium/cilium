@@ -49,32 +49,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
-		if helpers.DualStackSupported() && helpers.DoesNotRunWithKubeProxyReplacement() {
-			// This is a fix required for kube-proxy when running in dual-stack mode.
-			// Sometimes there is a condition where kube-proxy repeatedly fails as it is not able
-			// to find KUBE-MARK-DROP iptables chain for IPv6 which should be created by kubelet.
-			// Error occurred at line: 79
-			// Try `ip6tables-restore -h' or 'ip6tables-restore --help' for more information.
-			// )
-			// I1013 15:26:18.762727       1 proxier.go:850] Sync failed; retrying in 30s
-			// E1013 15:26:18.780765       1 proxier.go:1570] Failed to execute iptables-restore: exit status 2 (ip6tables-restore v1.8.3 (legacy):
-			// Couldn't load target `KUBE-MARK-DROP':No such file or directory
-			//
-			// This was fixed upstream for IPVS mode but still fails for iptables mode in our CI.
-			// For more information see kubernetes/kubernetes issues #80462 #84422 #85527
-			kubeproxyPods, err := kubectl.GetPodNames("kube-system", "k8s-app=kube-proxy")
-			if err == nil {
-				for _, pod := range kubeproxyPods {
-					res := kubectl.ExecPodCmd("kube-system", pod, "ip6tables -t nat -N KUBE-MARK-DROP")
-					if !res.WasSuccessful() && !strings.Contains(res.CombineOutput().String(), "Chain already exists") {
-						GinkgoPrint("Error adding KUBE-MARK-DROP chain: %s, skipping KUBE-MARK-DROP ensure tests might fail.", res.CombineOutput().String())
-					}
-				}
-			} else {
-				GinkgoPrint("Error getting kube-proxy pods: %s, skipping KUBE-MARK-DROP ensure tests might fail.", err)
-			}
-		}
-
 		ni, err = helpers.GetNodesInfo(kubectl)
 		Expect(err).Should(BeNil(), "Cannot get nodes info")
 
