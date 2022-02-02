@@ -69,67 +69,32 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 	})
 
 	Context("Checks ClusterIP Connectivity", func() {
-		var (
-			demoYAML             string
-			demoYAMLV6           string
-			echoSVCYAML          string
-			echoSVCYAMLV6        string
-			echoSVCYAMLDualStack string
-			echoPolicyYAML       string
-		)
+		var yamls []string
 
 		BeforeAll(func() {
 			DeployCiliumAndDNS(kubectl, ciliumFilename)
 
-			demoYAML = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
-			echoSVCYAML = helpers.ManifestGet(kubectl.BasePath(), "echo-svc.yaml")
-			echoPolicyYAML = helpers.ManifestGet(kubectl.BasePath(), "echo-policy.yaml")
-
-			res := kubectl.ApplyDefault(demoYAML)
-			Expect(res).Should(helpers.CMDSuccess(), "unable to apply %s", demoYAML)
-			res = kubectl.ApplyDefault(echoSVCYAML)
-			Expect(res).Should(helpers.CMDSuccess(), "unable to apply %s", echoSVCYAML)
-			res = kubectl.ApplyDefault(echoPolicyYAML)
-			Expect(res).Should(helpers.CMDSuccess(), "unable to apply %s", echoPolicyYAML)
-
+			toApply := []string{"demo.yaml", "demo_ds.yaml", "echo-svc.yaml", "echo-policy.yaml"}
 			if helpers.DualStackSupported() {
-				demoYAMLV6 = helpers.ManifestGet(kubectl.BasePath(), "demo_v6.yaml")
-				echoSVCYAMLV6 = helpers.ManifestGet(kubectl.BasePath(), "echo-svc_v6.yaml")
-
-				res = kubectl.ApplyDefault(demoYAMLV6)
-				Expect(res).Should(helpers.CMDSuccess(), "unable to apply %s", demoYAMLV6)
-
-				res = kubectl.ApplyDefault(echoSVCYAMLV6)
-				Expect(res).Should(helpers.CMDSuccess(), "unable to apply %s", echoSVCYAMLV6)
-
+				toApply = append(toApply, "demo_v6.yaml", "echo-svc_v6.yaml")
 				if helpers.DualStackSupportBeta() {
-					echoSVCYAMLDualStack = helpers.ManifestGet(kubectl.BasePath(), "echo_svc_dualstack.yaml")
-
-					res = kubectl.ApplyDefault(echoSVCYAMLDualStack)
-					Expect(res).Should(helpers.CMDSuccess(), "unable to apply %s", echoSVCYAMLDualStack)
+					toApply = append(toApply, "echo_svc_dualstack.yaml")
 				}
 			}
+			for _, fn := range toApply {
+				path := helpers.ManifestGet(kubectl.BasePath(), fn)
+				kubectl.ApplyDefault(path).ExpectSuccess("Unable to apply %s", path)
+				yamls = append(yamls, path)
+			}
 
-			// Wait for all app1, app2 and app3 pods to be in ready state.
-			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", helpers.HelperTimeout)
-			Expect(err).Should(BeNil())
-			err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l name=echo", helpers.HelperTimeout)
+			// Wait for all pods to be in ready state.
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 		})
 
 		AfterAll(func() {
-			// Explicitly ignore result of deletion of resources to avoid incomplete
-			// teardown if any step fails.
-			_ = kubectl.Delete(demoYAML)
-			_ = kubectl.Delete(echoSVCYAML)
-			_ = kubectl.Delete(echoPolicyYAML)
-			if helpers.DualStackSupported() {
-				_ = kubectl.Delete(demoYAMLV6)
-				_ = kubectl.Delete(echoSVCYAMLV6)
-
-				if helpers.DualStackSupportBeta() {
-					_ = kubectl.Delete(echoSVCYAMLDualStack)
-				}
+			for _, yaml := range yamls {
+				kubectl.Delete(yaml)
 			}
 			ExpectAllPodsTerminated(kubectl)
 		})
