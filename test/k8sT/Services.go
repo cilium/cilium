@@ -53,7 +53,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 		Expect(err).Should(BeNil(), "Cannot get nodes info")
 
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
-		DeployCiliumAndDNS(kubectl, ciliumFilename)
 	})
 
 	AfterFailed(func() {
@@ -80,6 +79,8 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 		)
 
 		BeforeAll(func() {
+			DeployCiliumAndDNS(kubectl, ciliumFilename)
+
 			demoYAML = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
 			echoSVCYAML = helpers.ManifestGet(kubectl.BasePath(), "echo-svc.yaml")
 			echoPolicyYAML = helpers.ManifestGet(kubectl.BasePath(), "echo-policy.yaml")
