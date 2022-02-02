@@ -48,6 +48,17 @@ Should you encounter any issues during the installation, please refer to the
 Please consult the Kubernetes :ref:`k8s_requirements` for information on  how
 you need to configure your Kubernetes cluster to operate with Cilium.
 
+Configure Cluster Access
+========================
+
+For the Cilium CLI to access the cluster in successive steps you will need to
+use the ``kubeconfig`` file stored at ``/etc/rancher/k3s/k3s.yaml`` by setting
+the ``KUBECONFIG`` environment variable:
+
+.. code-block:: shell-session
+
+    export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+
 Install Cilium
 ==============
 
@@ -57,7 +68,7 @@ Install Cilium by running:
 
 .. code-block:: shell-session
 
-    KUBECONFIG=/etc/rancher/k3s/k3s.yaml cilium install
+    cilium install
 
 Validate the Installation
 =========================
