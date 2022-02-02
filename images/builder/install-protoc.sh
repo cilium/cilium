@@ -8,7 +8,7 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
-protoc_version="3.18.1"
+protoc_version="3.20.1"
 arch=$(arch)
 if [[ "${arch}" == "aarch64" ]]; then
   arch="aarch_64"
