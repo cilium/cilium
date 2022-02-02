@@ -2340,6 +2340,120 @@ var _ = SkipDescribeIf(func() bool {
 				"%q Clusterwide Policy cannot be deleted", ingressDenyAllPolicy)
 		})
 	})
+
+	//TODO: Check service with IPV6
+
+	Context("External services", func() {
+		var (
+			expectedCIDR = "198.49.23.144/32"
+
+			endpointPath      string
+			podPath           string
+			policyPath        string
+			policyLabeledPath string
+			servicePath       string
+		)
+
+		BeforeAll(func() {
+			endpointPath = helpers.ManifestGet(kubectl.BasePath(), "external_endpoint.yaml")
+			podPath = helpers.ManifestGet(kubectl.BasePath(), "external_pod.yaml")
+			policyPath = helpers.ManifestGet(kubectl.BasePath(), "external-policy.yaml")
+			policyLabeledPath = helpers.ManifestGet(kubectl.BasePath(), "external-policy-labeled.yaml")
+			servicePath = helpers.ManifestGet(kubectl.BasePath(), "external_service.yaml")
+
+			kubectl.ApplyDefault(servicePath).ExpectSuccess("cannot install external service")
+			kubectl.ApplyDefault(podPath).ExpectSuccess("cannot install pod path")
+
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
+			Expect(err).To(BeNil(), "Pods are not ready after timeout")
+
+			err = kubectl.CiliumEndpointWaitReady()
+			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
+		})
+
+		AfterAll(func() {
+			_ = kubectl.Delete(servicePath)
+			_ = kubectl.Delete(podPath)
+
+			ExpectAllPodsTerminated(kubectl)
+		})
+
+		AfterEach(func() {
+			_ = kubectl.Delete(policyLabeledPath)
+			_ = kubectl.Delete(policyPath)
+			_ = kubectl.Delete(endpointPath)
+		})
+
+		validateEgress := func(kubectl *helpers.Kubectl) {
+			By("Checking that toServices CIDR is plumbed into the policy")
+			Eventually(func() string {
+				output, err := kubectl.LoadedPolicyInFirstAgent()
+				ExpectWithOffset(1, err).To(BeNil(), "unable to retrieve policy")
+				return output
+			}, 2*time.Minute, 2*time.Second).Should(ContainSubstring(expectedCIDR))
+		}
+
+		validateEgressAfterDeletion := func(kubectl *helpers.Kubectl) {
+			By("Checking that toServices CIDR is no longer plumbed into the policy")
+			Eventually(func() string {
+				output, err := kubectl.LoadedPolicyInFirstAgent()
+				ExpectWithOffset(1, err).To(BeNil(), "unable to retrieve policy")
+				return output
+			}, 2*time.Minute, 2*time.Second).ShouldNot(ContainSubstring(expectedCIDR))
+		}
+
+		It("To Services first endpoint creation", func() {
+			res := kubectl.ApplyDefault(endpointPath)
+			res.ExpectSuccess()
+
+			applyPolicy(kubectl, policyPath)
+			validateEgress(kubectl)
+
+			kubectl.Delete(policyPath)
+			kubectl.Delete(endpointPath)
+			validateEgressAfterDeletion(kubectl)
+		})
+
+		It("To Services first policy", func() {
+			applyPolicy(kubectl, policyPath)
+			res := kubectl.ApplyDefault(endpointPath)
+			res.ExpectSuccess()
+
+			validateEgress(kubectl)
+
+			kubectl.Delete(policyPath)
+			kubectl.Delete(endpointPath)
+			validateEgressAfterDeletion(kubectl)
+		})
+
+		It("To Services first endpoint creation match service by labels", func() {
+			By("Creating Kubernetes Endpoint")
+			res := kubectl.ApplyDefault(endpointPath)
+			res.ExpectSuccess()
+
+			applyPolicy(kubectl, policyLabeledPath)
+
+			validateEgress(kubectl)
+
+			kubectl.Delete(policyLabeledPath)
+			kubectl.Delete(endpointPath)
+			validateEgressAfterDeletion(kubectl)
+		})
+
+		It("To Services first policy, match service by labels", func() {
+			applyPolicy(kubectl, policyLabeledPath)
+
+			By("Creating Kubernetes Endpoint")
+			res := kubectl.ApplyDefault(endpointPath)
+			res.ExpectSuccess()
+
+			validateEgress(kubectl)
+
+			kubectl.Delete(policyLabeledPath)
+			kubectl.Delete(endpointPath)
+			validateEgressAfterDeletion(kubectl)
+		})
+	})
 })
 
 // This Describe block is needed to run some tests in GKE. For example, the
