@@ -68,7 +68,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 		kubectl.CloseSSHClient()
 	})
 
-	Context("Checks ClusterIP Connectivity", func() {
+	Context("Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc)", func() {
 		var yamls []string
 
 		BeforeAll(func() {
@@ -99,6 +99,9 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			ExpectAllPodsTerminated(kubectl)
 		})
 
+		// This is testing bpf_lxc LB (= KPR=disabled) when both client and
+		// server are running on the same node. Thus, skipping when running with
+		// KPR.
 		SkipItIf(helpers.RunsWithKubeProxyReplacement, "Checks service on same node", func() {
 			serviceNames := []string{appServiceName}
 			if helpers.DualStackSupported() {
@@ -180,7 +183,9 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			}
 		})
 
-		It("Checks service accessing itself (hairpin flow)", func() {
+		// The test is relevant only for bpf_lxc LB, while bpf_sock (KPR enabled)
+		// doesn't require any special handling for hairpin service flows.
+		SkipItIf(helpers.RunsWithKubeProxyReplacement, "Checks service accessing itself (hairpin flow)", func() {
 			serviceNames := []string{echoServiceName}
 			// Hairpin flow mode is currently not supported for IPv6.
 			// TODO: Uncomment after https://github.com/cilium/cilium/pull/14138 is merged
