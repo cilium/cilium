@@ -18,3 +18,11 @@ Encapsulation   Cluster Pool    Kubernetes CRD
 .. code-block:: shell-session
 
     curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--flannel-backend=none --disable-network-policy' sh -
+
+* For the Cilium CLI to access the cluster in successive steps you will need to
+  use the ``kubeconfig`` file stored at ``/etc/rancher/k3s/k3s.yaml`` by setting
+  the ``KUBECONFIG`` environment variable:
+
+.. code-block:: shell-session
+
+    export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
