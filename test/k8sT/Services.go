@@ -283,14 +283,10 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 		})
 	})
 
-	SkipContextIf(func() bool {
-		return helpers.SkipQuarantined() && helpers.RunsOnNetNextKernel()
-	}, "Checks service across nodes", func() {
-
+	Context("Checks N/S loadbalancing", func() {
 		var (
-			demoYAML   string
-			demoYAMLV6 string
-
+			demoYAML     string
+			demoYAMLV6   string
 			demoPolicyL7 string
 		)
 
