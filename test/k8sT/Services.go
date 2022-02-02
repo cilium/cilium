@@ -205,81 +205,81 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			}
 
 		}, 600)
-	})
 
-	SkipContextIf(func() bool {
-		return helpers.DoesNotRunWithKubeProxyReplacement() || helpers.DoesNotRunOnNetNextKernel()
-	}, "Checks connectivity when skipping socket lb in pod ns", func() {
-		var yamls []string
+		SkipContextIf(func() bool {
+			return helpers.DoesNotRunWithKubeProxyReplacement() || helpers.DoesNotRunOnNetNextKernel()
+		}, "Checks connectivity when skipping socket lb in pod ns", func() {
+			var yamls []string
 
-		BeforeAll(func() {
-			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-				"hostServices.hostNamespaceOnly": "true",
-				// Enable Maglev to check if traffic destined to ClusterIP from Pod is properly handled
-				// by bpf_lxc.c using LB_SELECTION_RANDOM even if Maglev is enabled.
-				"loadBalancer.algorithm": "maglev",
+			BeforeAll(func() {
+				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+					"hostServices.hostNamespaceOnly": "true",
+					// Enable Maglev to check if traffic destined to ClusterIP from Pod is properly handled
+					// by bpf_lxc.c using LB_SELECTION_RANDOM even if Maglev is enabled.
+					"loadBalancer.algorithm": "maglev",
+				})
+
+				yamls = []string{"demo_ds.yaml"}
+				if helpers.DualStackSupported() {
+					yamls = append(yamls, "demo_ds_v6.yaml")
+				}
+
+				for _, yaml := range yamls {
+					path := helpers.ManifestGet(kubectl.BasePath(), yaml)
+					kubectl.ApplyDefault(path).
+						ExpectSuccess("Unable to apply %s", path)
+				}
+				waitPodsDs(kubectl, []string{testDS, testDSClient, testDSK8s2})
 			})
 
-			yamls = []string{"demo_ds.yaml"}
-			if helpers.DualStackSupported() {
-				yamls = append(yamls, "demo_ds_v6.yaml")
-			}
+			AfterAll(func() {
+				for _, yaml := range yamls {
+					path := helpers.ManifestGet(kubectl.BasePath(), yaml)
+					kubectl.Delete(path)
+				}
+				ExpectAllPodsTerminated(kubectl)
+			})
 
-			for _, yaml := range yamls {
-				path := helpers.ManifestGet(kubectl.BasePath(), yaml)
-				kubectl.ApplyDefault(path).
-					ExpectSuccess("Unable to apply %s", path)
-			}
-			waitPodsDs(kubectl, []string{testDS, testDSClient, testDSK8s2})
-		})
+			// In adition to the bpf_sock bypass, this test is testing whether bpf_lxc
+			// ClusterIP for IPv6 is working
+			It("Checks ClusterIP connectivity", func() {
+				services := []string{testDSServiceIPv4}
+				if helpers.DualStackSupported() {
+					services = append(services, testDSServiceIPv6)
+				}
 
-		AfterAll(func() {
-			for _, yaml := range yamls {
-				path := helpers.ManifestGet(kubectl.BasePath(), yaml)
-				kubectl.Delete(path)
-			}
-			ExpectAllPodsTerminated(kubectl)
-		})
+				// Test that socket lb doesn't kick in, aka we see service VIP in monitor output.
+				// Note that cilium monitor won't capture service VIP if run with Istio.
+				ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
+				Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
+				monitorRes, monitorCancel := kubectl.MonitorStart(ciliumPodK8s1)
+				defer func() {
+					monitorCancel()
+					helpers.WriteToReportFile(monitorRes.CombineOutput().Bytes(), "skip-socket-lb-connectivity-across-nodes.log")
+				}()
 
-		// In adition to the bpf_sock bypass, this test is testing whether bpf_lxc
-		// ClusterIP for IPv6 is working
-		It("Checks ClusterIP connectivity", func() {
-			services := []string{testDSServiceIPv4}
-			if helpers.DualStackSupported() {
-				services = append(services, testDSServiceIPv6)
-			}
+				for _, service := range services {
+					clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, service)
+					Expect(err).Should(BeNil(), "Cannot get services %s", service)
+					Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
+					httpURL := fmt.Sprintf("http://%s", net.JoinHostPort(clusterIP, "80"))
+					tftpURL := fmt.Sprintf("tftp://%s/hello", net.JoinHostPort(clusterIP, "69"))
 
-			// Test that socket lb doesn't kick in, aka we see service VIP in monitor output.
-			// Note that cilium monitor won't capture service VIP if run with Istio.
-			ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
-			Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
-			monitorRes, monitorCancel := kubectl.MonitorStart(ciliumPodK8s1)
-			defer func() {
-				monitorCancel()
-				helpers.WriteToReportFile(monitorRes.CombineOutput().Bytes(), "skip-socket-lb-connectivity-across-nodes.log")
-			}()
+					// Test connectivity from root ns (bpf_sock)
+					kubectl.ExecInHostNetNS(context.TODO(), ni.K8s1NodeName,
+						helpers.CurlFail(httpURL)).
+						ExpectSuccess("cannot curl to service IP from host")
+					kubectl.ExecInHostNetNS(context.TODO(), ni.K8s1NodeName,
+						helpers.CurlFail(tftpURL)).
+						ExpectSuccess("cannot curl to service IP from host")
 
-			for _, service := range services {
-				clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, service)
-				Expect(err).Should(BeNil(), "Cannot get services %s", service)
-				Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
-				httpURL := fmt.Sprintf("http://%s", net.JoinHostPort(clusterIP, "80"))
-				tftpURL := fmt.Sprintf("tftp://%s/hello", net.JoinHostPort(clusterIP, "69"))
+					// Test connectivity from pod netns (bpf_lxc)
+					testCurlFromPods(kubectl, testDSClient, httpURL, 10, 0)
+					testCurlFromPods(kubectl, testDSClient, tftpURL, 10, 0)
 
-				// Test connectivity from root ns (bpf_sock)
-				kubectl.ExecInHostNetNS(context.TODO(), ni.K8s1NodeName,
-					helpers.CurlFail(httpURL)).
-					ExpectSuccess("cannot curl to service IP from host")
-				kubectl.ExecInHostNetNS(context.TODO(), ni.K8s1NodeName,
-					helpers.CurlFail(tftpURL)).
-					ExpectSuccess("cannot curl to service IP from host")
-
-				// Test connectivity from pod netns (bpf_lxc)
-				testCurlFromPods(kubectl, testDSClient, httpURL, 10, 0)
-				testCurlFromPods(kubectl, testDSClient, tftpURL, 10, 0)
-
-				monitorRes.ExpectContains(clusterIP, "Service VIP not seen in monitor trace, indicating socket lb still in effect")
-			}
+					monitorRes.ExpectContains(clusterIP, "Service VIP not seen in monitor trace, indicating socket lb still in effect")
+				}
+			})
 		})
 	})
 
