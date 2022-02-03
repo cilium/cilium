@@ -301,7 +301,9 @@ jobs:
         # on clustermesh) once https://github.com/cilium/cilium-cli/issues/600
         # is fixed.
 
+      # WireGuard testing is disabled due to https://github.com/cilium/cilium/issues/18699
       - name: Enable WireGuard
+        if: ${{ false }} # see comment above for details
         run: |
           for ctx in ${{ steps.contexts.outputs.context1 }} ${{ steps.contexts.outputs.context2 }} ; do
             kubectl config use-context "$ctx"
@@ -312,6 +314,7 @@ jobs:
           done
 
       - name: Run connectivity test with WireGuard
+        if: ${{ false }} # see comment above for details
         run: |
           cilium connectivity test \
             --context ${{ steps.contexts.outputs.context1 }} \
