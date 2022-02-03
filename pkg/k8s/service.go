@@ -16,7 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/comparator"
-	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/ip"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
@@ -71,7 +71,7 @@ func ParseServiceID(svc *slim_corev1.Service) ServiceID {
 }
 
 // ParseService parses a Kubernetes service and returns a Service.
-func ParseService(svc *slim_corev1.Service, nodeAddressing datapath.NodeAddressing) (ServiceID, *Service) {
+func ParseService(svc *slim_corev1.Service, nodeAddressing types.NodeAddressing) (ServiceID, *Service) {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sSvcName:    svc.ObjectMeta.Name,
 		logfields.K8sNamespace:  svc.ObjectMeta.Namespace,

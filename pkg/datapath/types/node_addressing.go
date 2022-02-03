@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2018-2020 Authors of Cilium
 
-package datapath
+package types
 
 import (
 	"net"

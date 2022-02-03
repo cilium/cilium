@@ -8,7 +8,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/comparator"
-	"github.com/cilium/cilium/pkg/datapath"
+	dpTypes "github.com/cilium/cilium/pkg/datapath/types"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -220,7 +220,7 @@ func ObjToV1PartialObjectMetadata(obj interface{}) *slim_metav1.PartialObjectMet
 	return nil
 }
 
-func EqualV1Services(k8sSVC1, k8sSVC2 *slim_corev1.Service, nodeAddressing datapath.NodeAddressing) bool {
+func EqualV1Services(k8sSVC1, k8sSVC2 *slim_corev1.Service, nodeAddressing dpTypes.NodeAddressing) bool {
 	// Service annotations are used to mark services as global, shared, etc.
 	if !comparator.MapStringEquals(k8sSVC1.GetAnnotations(), k8sSVC2.GetAnnotations()) {
 		return false

@@ -8,7 +8,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 
-	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -82,7 +82,7 @@ type IPBlacklist struct {
 
 // IPAM is the configuration used for a particular IPAM type.
 type IPAM struct {
-	nodeAddressing datapath.NodeAddressing
+	nodeAddressing types.NodeAddressing
 	config         Configuration
 
 	IPv6Allocator Allocator

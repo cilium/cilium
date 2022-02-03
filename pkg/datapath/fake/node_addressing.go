@@ -7,7 +7,7 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/cidr"
-	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/datapath/types"
 )
 
 var (
@@ -49,7 +49,7 @@ type fakeNodeAddressing struct {
 
 // NewIPv6OnlyNodeAddressing returns a new fake node addressing where IPv4 is
 // disabled
-func NewIPv6OnlyNodeAddressing() datapath.NodeAddressing {
+func NewIPv6OnlyNodeAddressing() types.NodeAddressing {
 	return &fakeNodeAddressing{
 		ipv4: addressFamily{},
 		ipv6: fakeIPv6,
@@ -58,7 +58,7 @@ func NewIPv6OnlyNodeAddressing() datapath.NodeAddressing {
 
 // NewIPv4OnlyNodeAddressing returns a new fake node addressing where IPv6 is
 // disabled
-func NewIPv4OnlyNodeAddressing() datapath.NodeAddressing {
+func NewIPv4OnlyNodeAddressing() types.NodeAddressing {
 	return &fakeNodeAddressing{
 		ipv4: fakeIPv4,
 		ipv6: addressFamily{},
@@ -66,7 +66,7 @@ func NewIPv4OnlyNodeAddressing() datapath.NodeAddressing {
 }
 
 // NewNodeAddressing returns a new fake node addressing
-func NewNodeAddressing() datapath.NodeAddressing {
+func NewNodeAddressing() types.NodeAddressing {
 	return &fakeNodeAddressing{
 		ipv4: fakeIPv4,
 		ipv6: fakeIPv6,
@@ -101,10 +101,10 @@ func (a *addressFamily) LoadBalancerNodeAddresses() []net.IP {
 	return a.lbNodeAddresses
 }
 
-func (n *fakeNodeAddressing) IPv6() datapath.NodeAddressingFamily {
+func (n *fakeNodeAddressing) IPv6() types.NodeAddressingFamily {
 	return &n.ipv6
 }
 
-func (n *fakeNodeAddressing) IPv4() datapath.NodeAddressingFamily {
+func (n *fakeNodeAddressing) IPv4() types.NodeAddressingFamily {
 	return &n.ipv4
 }
