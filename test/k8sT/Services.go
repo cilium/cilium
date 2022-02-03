@@ -281,50 +281,8 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 				}
 			})
 		})
-	})
 
-	Context("Checks N/S loadbalancing", func() {
-		var (
-			demoYAML     string
-			demoYAMLV6   string
-			demoPolicyL7 string
-		)
-
-		BeforeAll(func() {
-			demoYAML = helpers.ManifestGet(kubectl.BasePath(), "demo_ds.yaml")
-
-			DeployCiliumAndDNS(kubectl, ciliumFilename)
-
-			res := kubectl.ApplyDefault(demoYAML)
-			Expect(res).Should(helpers.CMDSuccess(), "Unable to apply %s", demoYAML)
-
-			if helpers.DualStackSupported() {
-				demoYAMLV6 = helpers.ManifestGet(kubectl.BasePath(), "demo_ds_v6.yaml")
-
-				res = kubectl.ApplyDefault(demoYAMLV6)
-				Expect(res).Should(helpers.CMDSuccess(), "Unable to apply %s", demoYAMLV6)
-			}
-
-			By(`Connectivity config:: helpers.DualStackSupported(): %v
-Primary Interface %s   :: IPv4: (%s, %s), IPv6: (%s, %s)
-Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupported(), ni.PrivateIface, ni.K8s1IP, ni.K8s2IP, ni.PrimaryK8s1IPv6, ni.PrimaryK8s2IPv6,
-				helpers.SecondaryIface, ni.SecondaryK8s1IPv4, ni.SecondaryK8s2IPv4, ni.SecondaryK8s1IPv6, ni.SecondaryK8s2IPv6)
-
-			demoPolicyL7 = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-demo.yaml")
-			waitPodsDs(kubectl, []string{testDS, testDSClient, testDSK8s2})
-		})
-
-		AfterAll(func() {
-			// Explicitly ignore result of deletion of resources to avoid incomplete
-			// teardown if any step fails.
-			_ = kubectl.Delete(demoYAML)
-			if helpers.DualStackSupported() {
-				_ = kubectl.Delete(demoYAMLV6)
-			}
-			ExpectAllPodsTerminated(kubectl)
-		})
-
-		SkipContextIf(helpers.RunsWithKubeProxyReplacement, "Tests NodePort (kube-proxy)", func() {
+		SkipContextIf(helpers.RunsWithKubeProxyReplacement, "Tests NodePort inside cluster (kube-proxy)", func() {
 			SkipItIf(helpers.DoesNotRunOn419OrLaterKernel, "with IPSec and externalTrafficPolicy=Local", func() {
 				deploymentManager.SetKubectl(kubectl)
 				deploymentManager.Deploy(helpers.CiliumNamespace, IPSecSecret)
@@ -353,7 +311,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			})
 		})
 
-		Context("TFTP with DNS Proxy port collision", func() {
+		SkipContextIf(helpers.RunsWithKubeProxyReplacement, "TFTP with DNS Proxy port collision", func() {
 			var (
 				demoPolicy    string
 				ciliumPodK8s1 string
@@ -379,9 +337,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			})
 
 			AfterAll(func() {
-				// Explicitly ignore result of deletion of resources to avoid incomplete
-				// teardown if any step fails.
-				_ = kubectl.Delete(demoPolicy)
+				kubectl.Delete(demoPolicy)
 			})
 
 			It("Tests TFTP from DNS Proxy Port", func() {
@@ -435,7 +391,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			})
 		})
 
-		Context("with L4 policy", func() {
+		SkipContextIf(helpers.RunsWithKubeProxyReplacement, "with L4 policy", func() {
 			var (
 				demoPolicy string
 			)
@@ -445,9 +401,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			})
 
 			AfterAll(func() {
-				// Explicitly ignore result of deletion of resources to avoid incomplete
-				// teardown if any step fails.
-				_ = kubectl.Delete(demoPolicy)
+				kubectl.Delete(demoPolicy)
 			})
 
 			It("Tests NodePort with L4 Policy", func() {
@@ -470,10 +424,14 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 		})
 
 		SkipContextIf(helpers.RunsWithKubeProxyReplacement, "with L7 policy", func() {
+			var demoPolicyL7 string
+
+			BeforeAll(func() {
+				demoPolicyL7 = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-demo.yaml")
+			})
+
 			AfterAll(func() {
-				// Explicitly ignore result of deletion of resources to avoid incomplete
-				// teardown if any step fails.
-				_ = kubectl.Delete(demoPolicyL7)
+				kubectl.Delete(demoPolicyL7)
 			})
 
 			It("Tests NodePort with L7 Policy", func() {
@@ -493,6 +451,47 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 				applyPolicy(kubectl, demoPolicyL7)
 				testNodePort(kubectl, ni, false, false, false, 0)
 			})
+		})
+
+	})
+
+	Context("Checks N/S loadbalancing", func() {
+		var (
+			demoYAML     string
+			demoYAMLV6   string
+			demoPolicyL7 string
+		)
+
+		BeforeAll(func() {
+			demoYAML = helpers.ManifestGet(kubectl.BasePath(), "demo_ds.yaml")
+
+			DeployCiliumAndDNS(kubectl, ciliumFilename)
+
+			res := kubectl.ApplyDefault(demoYAML)
+			Expect(res).Should(helpers.CMDSuccess(), "Unable to apply %s", demoYAML)
+
+			if helpers.DualStackSupported() {
+				demoYAMLV6 = helpers.ManifestGet(kubectl.BasePath(), "demo_ds_v6.yaml")
+
+				res = kubectl.ApplyDefault(demoYAMLV6)
+				Expect(res).Should(helpers.CMDSuccess(), "Unable to apply %s", demoYAMLV6)
+			}
+
+			By(`Connectivity config:: helpers.DualStackSupported(): %v
+Primary Interface %s   :: IPv4: (%s, %s), IPv6: (%s, %s)
+Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupported(), ni.PrivateIface, ni.K8s1IP, ni.K8s2IP, ni.PrimaryK8s1IPv6, ni.PrimaryK8s2IPv6,
+				helpers.SecondaryIface, ni.SecondaryK8s1IPv4, ni.SecondaryK8s2IPv4, ni.SecondaryK8s1IPv6, ni.SecondaryK8s2IPv6)
+
+			demoPolicyL7 = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-demo.yaml")
+			waitPodsDs(kubectl, []string{testDS, testDSClient, testDSK8s2})
+		})
+
+		AfterAll(func() {
+			kubectl.Delete(demoYAML)
+			if helpers.DualStackSupported() {
+				kubectl.Delete(demoYAMLV6)
+			}
+			ExpectAllPodsTerminated(kubectl)
 		})
 
 		SkipContextIf(helpers.DoesNotRunWithKubeProxyReplacement, "Tests NodePort BPF",
@@ -728,7 +727,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						})
 
 						AfterAll(func() {
-							_ = kubectl.Delete(echoYAML)
+							kubectl.Delete(echoYAML)
 							ExpectAllPodsTerminated(kubectl)
 						})
 
@@ -1019,7 +1018,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 		AfterEach(func() {
 			wg.Wait()
-			_ = kubectl.Delete(gracefulTermYAML)
+			kubectl.Delete(gracefulTermYAML)
 			ExpectAllPodsTerminated(kubectl)
 		})
 
