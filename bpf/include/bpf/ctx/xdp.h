@@ -110,6 +110,29 @@ xdp_store_bytes(const struct xdp_md *ctx, __u64 off, const void *from,
 #define get_hash(ctx)			({ 0; })
 #define get_hash_recalc(ctx)		get_hash(ctx)
 
+#define DEFINE_FUNC_CTX_POINTER(FIELD)						\
+static __always_inline void *							\
+ctx_ ## FIELD(const struct xdp_md *ctx)						\
+{										\
+	void *ptr;								\
+										\
+	/* LLVM may generate u32 assignments of ctx->{data,data_end,data_meta}.	\
+	 * With this inline asm, LLVM loses track of the fact this field is on	\
+	 * 32 bits.								\
+	 */									\
+	asm volatile("%0 = *(u32 *)(%1 + %2)"					\
+		     : "=r"(ptr)						\
+		     : "r"(ctx), "i"(offsetof(struct xdp_md, FIELD)));		\
+	return ptr;								\
+}
+/* This defines ctx_data(). */
+DEFINE_FUNC_CTX_POINTER(data)
+/* This defines ctx_data_end(). */
+DEFINE_FUNC_CTX_POINTER(data_end)
+/* This defines ctx_data_meta(). */
+DEFINE_FUNC_CTX_POINTER(data_meta)
+#undef DEFINE_FUNC_CTX_POINTER
+
 static __always_inline __maybe_unused void
 __csum_replace_by_diff(__sum16 *sum, __wsum diff)
 {
