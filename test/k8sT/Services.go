@@ -324,25 +324,6 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			ExpectAllPodsTerminated(kubectl)
 		})
 
-		SkipItIf(helpers.RunsWithKubeProxyReplacement, "Checks ClusterIP Connectivity", func() {
-			services := []string{testDSServiceIPv4}
-			if helpers.DualStackSupported() {
-				services = append(services, testDSServiceIPv6)
-			}
-
-			for _, svcName := range services {
-				clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, svcName)
-				Expect(err).Should(BeNil(), "Cannot get service %s", svcName)
-				Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
-
-				url := fmt.Sprintf("http://%s", net.JoinHostPort(clusterIP, "80"))
-				testCurlFromPods(kubectl, testDSClient, url, 10, 0)
-
-				url = fmt.Sprintf("tftp://%s/hello", net.JoinHostPort(clusterIP, "69"))
-				testCurlFromPods(kubectl, testDSClient, url, 10, 0)
-			}
-		})
-
 		SkipContextIf(helpers.RunsWithKubeProxyReplacement, "Tests NodePort (kube-proxy)", func() {
 			SkipItIf(helpers.DoesNotRunOn419OrLaterKernel, "with IPSec and externalTrafficPolicy=Local", func() {
 				deploymentManager.SetKubectl(kubectl)
