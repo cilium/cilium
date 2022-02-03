@@ -27,11 +27,11 @@ type GlobalAccelerationInstance struct {
 	ServerIpAddress               string                                                 `json:"ServerIpAddress" xml:"ServerIpAddress"`
 	ReservationBandwidth          string                                                 `json:"ReservationBandwidth" xml:"ReservationBandwidth"`
 	ReservationActiveTime         string                                                 `json:"ReservationActiveTime" xml:"ReservationActiveTime"`
+	ReservationInternetChargeType string                                                 `json:"ReservationInternetChargeType" xml:"ReservationInternetChargeType"`
 	RegionId                      string                                                 `json:"RegionId" xml:"RegionId"`
 	AccelerationLocation          string                                                 `json:"AccelerationLocation" xml:"AccelerationLocation"`
-	ReservationInternetChargeType string                                                 `json:"ReservationInternetChargeType" xml:"ReservationInternetChargeType"`
-	BandwidthType                 string                                                 `json:"BandwidthType" xml:"BandwidthType"`
 	ReservationOrderType          string                                                 `json:"ReservationOrderType" xml:"ReservationOrderType"`
+	BandwidthType                 string                                                 `json:"BandwidthType" xml:"BandwidthType"`
 	Bandwidth                     string                                                 `json:"Bandwidth" xml:"Bandwidth"`
 	InternetChargeType            string                                                 `json:"InternetChargeType" xml:"InternetChargeType"`
 	GlobalAccelerationInstanceId  string                                                 `json:"GlobalAccelerationInstanceId" xml:"GlobalAccelerationInstanceId"`

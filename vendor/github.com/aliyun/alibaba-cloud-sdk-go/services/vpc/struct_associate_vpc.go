@@ -17,6 +17,6 @@ package vpc
 
 // AssociateVpc is a nested struct in vpc response
 type AssociateVpc struct {
-	VpcId           string `json:"VpcId" xml:"VpcId"`
 	AssociateStatus string `json:"AssociateStatus" xml:"AssociateStatus"`
+	VpcId           string `json:"VpcId" xml:"VpcId"`
 }

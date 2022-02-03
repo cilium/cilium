@@ -17,20 +17,20 @@ package vpc
 
 // VSwitch is a nested struct in vpc response
 type VSwitch struct {
-	VSwitchId               string                  `json:"VSwitchId" xml:"VSwitchId"`
 	VpcId                   string                  `json:"VpcId" xml:"VpcId"`
 	Status                  string                  `json:"Status" xml:"Status"`
-	CidrBlock               string                  `json:"CidrBlock" xml:"CidrBlock"`
-	Ipv6CidrBlock           string                  `json:"Ipv6CidrBlock" xml:"Ipv6CidrBlock"`
-	ZoneId                  string                  `json:"ZoneId" xml:"ZoneId"`
-	AvailableIpAddressCount int64                   `json:"AvailableIpAddressCount" xml:"AvailableIpAddressCount"`
-	Description             string                  `json:"Description" xml:"Description"`
-	VSwitchName             string                  `json:"VSwitchName" xml:"VSwitchName"`
 	CreationTime            string                  `json:"CreationTime" xml:"CreationTime"`
 	IsDefault               bool                    `json:"IsDefault" xml:"IsDefault"`
-	ResourceGroupId         string                  `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	AvailableIpAddressCount int64                   `json:"AvailableIpAddressCount" xml:"AvailableIpAddressCount"`
 	NetworkAclId            string                  `json:"NetworkAclId" xml:"NetworkAclId"`
 	OwnerId                 int64                   `json:"OwnerId" xml:"OwnerId"`
+	VSwitchId               string                  `json:"VSwitchId" xml:"VSwitchId"`
+	CidrBlock               string                  `json:"CidrBlock" xml:"CidrBlock"`
+	Description             string                  `json:"Description" xml:"Description"`
+	ResourceGroupId         string                  `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	ZoneId                  string                  `json:"ZoneId" xml:"ZoneId"`
+	Ipv6CidrBlock           string                  `json:"Ipv6CidrBlock" xml:"Ipv6CidrBlock"`
+	VSwitchName             string                  `json:"VSwitchName" xml:"VSwitchName"`
 	ShareType               string                  `json:"ShareType" xml:"ShareType"`
 	RouteTable              RouteTable              `json:"RouteTable" xml:"RouteTable"`
 	Tags                    TagsInDescribeVSwitches `json:"Tags" xml:"Tags"`

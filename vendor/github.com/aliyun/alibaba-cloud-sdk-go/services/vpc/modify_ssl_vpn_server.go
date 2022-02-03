@@ -92,23 +92,23 @@ type ModifySslVpnServerRequest struct {
 // ModifySslVpnServerResponse is the response struct for api ModifySslVpnServer
 type ModifySslVpnServerResponse struct {
 	*responses.BaseResponse
-	RequestId             string `json:"RequestId" xml:"RequestId"`
-	RegionId              string `json:"RegionId" xml:"RegionId"`
-	SslVpnServerId        string `json:"SslVpnServerId" xml:"SslVpnServerId"`
-	VpnGatewayId          string `json:"VpnGatewayId" xml:"VpnGatewayId"`
-	Name                  string `json:"Name" xml:"Name"`
-	LocalSubnet           string `json:"LocalSubnet" xml:"LocalSubnet"`
-	ClientIpPool          string `json:"ClientIpPool" xml:"ClientIpPool"`
-	CreateTime            int64  `json:"CreateTime" xml:"CreateTime"`
-	Cipher                string `json:"Cipher" xml:"Cipher"`
-	Proto                 string `json:"Proto" xml:"Proto"`
-	Port                  int    `json:"Port" xml:"Port"`
-	Compress              bool   `json:"Compress" xml:"Compress"`
-	Connections           int    `json:"Connections" xml:"Connections"`
-	MaxConnections        int    `json:"MaxConnections" xml:"MaxConnections"`
 	InternetIp            string `json:"InternetIp" xml:"InternetIp"`
-	EnableMultiFactorAuth bool   `json:"EnableMultiFactorAuth" xml:"EnableMultiFactorAuth"`
 	IDaaSInstanceId       string `json:"IDaaSInstanceId" xml:"IDaaSInstanceId"`
+	CreateTime            int64  `json:"CreateTime" xml:"CreateTime"`
+	VpnGatewayId          string `json:"VpnGatewayId" xml:"VpnGatewayId"`
+	Compress              bool   `json:"Compress" xml:"Compress"`
+	Port                  int    `json:"Port" xml:"Port"`
+	LocalSubnet           string `json:"LocalSubnet" xml:"LocalSubnet"`
+	RegionId              string `json:"RegionId" xml:"RegionId"`
+	Cipher                string `json:"Cipher" xml:"Cipher"`
+	RequestId             string `json:"RequestId" xml:"RequestId"`
+	Connections           int    `json:"Connections" xml:"Connections"`
+	SslVpnServerId        string `json:"SslVpnServerId" xml:"SslVpnServerId"`
+	MaxConnections        int    `json:"MaxConnections" xml:"MaxConnections"`
+	Name                  string `json:"Name" xml:"Name"`
+	EnableMultiFactorAuth bool   `json:"EnableMultiFactorAuth" xml:"EnableMultiFactorAuth"`
+	ClientIpPool          string `json:"ClientIpPool" xml:"ClientIpPool"`
+	Proto                 string `json:"Proto" xml:"Proto"`
 }
 
 // CreateModifySslVpnServerRequest creates a request to invoke ModifySslVpnServer API

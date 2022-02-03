@@ -17,9 +17,9 @@ package vpc
 
 // VpnCertificateRelation is a nested struct in vpc response
 type VpnCertificateRelation struct {
-	RegionId        string `json:"RegionId" xml:"RegionId"`
 	VpnGatewayId    string `json:"VpnGatewayId" xml:"VpnGatewayId"`
-	CertificateId   string `json:"CertificateId" xml:"CertificateId"`
 	CertificateType string `json:"CertificateType" xml:"CertificateType"`
+	CertificateId   string `json:"CertificateId" xml:"CertificateId"`
 	AssociationTime string `json:"AssociationTime" xml:"AssociationTime"`
+	RegionId        string `json:"RegionId" xml:"RegionId"`
 }

@@ -21,7 +21,7 @@ func AddContentChecksumMiddleware(stack *middleware.Stack) error {
 	return stack.Build.Add(&contentMD5Checksum{}, middleware.Before)
 }
 
-// ID the identifier for the checksum middleware
+// ID returns the identifier for the checksum middleware
 func (m *contentMD5Checksum) ID() string { return "ContentChecksum" }
 
 // HandleBuild adds behavior to compute md5 checksum and add content-md5 header

@@ -17,11 +17,11 @@ package vpc
 
 // VpnBgpConfigInModifyVpnConnectionAttribute is a nested struct in vpc response
 type VpnBgpConfigInModifyVpnConnectionAttribute struct {
-	EnableBgp  string `json:"EnableBgp" xml:"EnableBgp"`
-	TunnelCidr string `json:"TunnelCidr" xml:"TunnelCidr"`
-	LocalBgpIp string `json:"LocalBgpIp" xml:"LocalBgpIp"`
-	PeerBgpIp  string `json:"PeerBgpIp" xml:"PeerBgpIp"`
-	LocalAsn   int    `json:"LocalAsn" xml:"LocalAsn"`
-	PeerAsn    int    `json:"PeerAsn" xml:"PeerAsn"`
 	Status     string `json:"Status" xml:"Status"`
+	PeerBgpIp  string `json:"PeerBgpIp" xml:"PeerBgpIp"`
+	TunnelCidr string `json:"TunnelCidr" xml:"TunnelCidr"`
+	EnableBgp  string `json:"EnableBgp" xml:"EnableBgp"`
+	LocalBgpIp string `json:"LocalBgpIp" xml:"LocalBgpIp"`
+	PeerAsn    int    `json:"PeerAsn" xml:"PeerAsn"`
+	LocalAsn   int    `json:"LocalAsn" xml:"LocalAsn"`
 }

@@ -17,11 +17,11 @@ package vpc
 
 // SslVpnClientCertKey is a nested struct in vpc response
 type SslVpnClientCertKey struct {
-	RegionId           string `json:"RegionId" xml:"RegionId"`
-	SslVpnClientCertId string `json:"SslVpnClientCertId" xml:"SslVpnClientCertId"`
-	Name               string `json:"Name" xml:"Name"`
-	SslVpnServerId     string `json:"SslVpnServerId" xml:"SslVpnServerId"`
-	CreateTime         int64  `json:"CreateTime" xml:"CreateTime"`
-	EndTime            int64  `json:"EndTime" xml:"EndTime"`
 	Status             string `json:"Status" xml:"Status"`
+	EndTime            int64  `json:"EndTime" xml:"EndTime"`
+	CreateTime         int64  `json:"CreateTime" xml:"CreateTime"`
+	SslVpnClientCertId string `json:"SslVpnClientCertId" xml:"SslVpnClientCertId"`
+	SslVpnServerId     string `json:"SslVpnServerId" xml:"SslVpnServerId"`
+	Name               string `json:"Name" xml:"Name"`
+	RegionId           string `json:"RegionId" xml:"RegionId"`
 }

@@ -86,8 +86,8 @@ type CreateHaVipRequest struct {
 type CreateHaVipResponse struct {
 	*responses.BaseResponse
 	RequestId string `json:"RequestId" xml:"RequestId"`
-	HaVipId   string `json:"HaVipId" xml:"HaVipId"`
 	IpAddress string `json:"IpAddress" xml:"IpAddress"`
+	HaVipId   string `json:"HaVipId" xml:"HaVipId"`
 }
 
 // CreateCreateHaVipRequest creates a request to invoke CreateHaVip API

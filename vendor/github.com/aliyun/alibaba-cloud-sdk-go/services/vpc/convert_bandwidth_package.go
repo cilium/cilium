@@ -81,8 +81,8 @@ type ConvertBandwidthPackageRequest struct {
 // ConvertBandwidthPackageResponse is the response struct for api ConvertBandwidthPackage
 type ConvertBandwidthPackageResponse struct {
 	*responses.BaseResponse
-	RequestId         string `json:"RequestId" xml:"RequestId"`
 	ConvertInstanceId string `json:"ConvertInstanceId" xml:"ConvertInstanceId"`
+	RequestId         string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateConvertBandwidthPackageRequest creates a request to invoke ConvertBandwidthPackage API

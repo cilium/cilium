@@ -17,8 +17,8 @@ package vpc
 
 // BackendServer is a nested struct in vpc response
 type BackendServer struct {
-	RegionId        string `json:"RegionId" xml:"RegionId"`
-	ServerId        string `json:"ServerId" xml:"ServerId"`
 	ServerIpAddress string `json:"ServerIpAddress" xml:"ServerIpAddress"`
+	ServerId        string `json:"ServerId" xml:"ServerId"`
 	ServerType      string `json:"ServerType" xml:"ServerType"`
+	RegionId        string `json:"RegionId" xml:"RegionId"`
 }

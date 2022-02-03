@@ -50,7 +50,7 @@ func NewEncoder(path, query string, headers http.Header) (*Encoder, error) {
 // Due net/http requiring `Content-Length` to be specified on the http.Request#ContentLength directly. Encode
 // will look for whether the header is present, and if so will remove it and set the respective value on http.Request.
 //
-// Returns any error if one occurred during encoding.
+// Returns any error occurring during encoding.
 func (e *Encoder) Encode(req *http.Request) (*http.Request, error) {
 	req.URL.Path, req.URL.RawPath = string(e.path), string(e.rawPath)
 	req.URL.RawQuery = e.query.Encode()
@@ -80,7 +80,7 @@ func (e *Encoder) SetHeader(key string) HeaderValue {
 	return newHeaderValue(e.header, key, false)
 }
 
-// Headers returns a Header used encoding headers with the given prefix
+// Headers returns a Header used for encoding headers with the given prefix
 func (e *Encoder) Headers(prefix string) Headers {
 	return Headers{
 		header: e.header,
@@ -110,7 +110,7 @@ func (e *Encoder) AddQuery(key string) QueryValue {
 }
 
 // HasQuery returns if a query with the key specified exists with one or
-// more value.
+// more values.
 func (e *Encoder) HasQuery(key string) bool {
 	return len(e.query.Get(key)) != 0
 }

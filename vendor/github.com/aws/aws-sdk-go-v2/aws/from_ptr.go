@@ -342,3 +342,24 @@ func ToTimeSlice(vs []*time.Time) []time.Time {
 func ToTimeMap(vs map[string]*time.Time) map[string]time.Time {
 	return ptr.ToTimeMap(vs)
 }
+
+// ToDuration returns time.Duration value dereferenced if the passed
+// in pointer was not nil. Returns a time.Duration zero value if the
+// pointer was nil.
+func ToDuration(p *time.Duration) (v time.Duration) {
+	return ptr.ToDuration(p)
+}
+
+// ToDurationSlice returns a slice of time.Duration values, that are
+// dereferenced if the passed in pointer was not nil. Returns a time.Duration
+// zero value if the pointer was nil.
+func ToDurationSlice(vs []*time.Duration) []time.Duration {
+	return ptr.ToDurationSlice(vs)
+}
+
+// ToDurationMap returns a map of time.Duration values, that are
+// dereferenced if the passed in pointer was not nil. The time.Duration
+// zero value is used if the pointer was nil.
+func ToDurationMap(vs map[string]*time.Duration) map[string]time.Duration {
+	return ptr.ToDurationMap(vs)
+}

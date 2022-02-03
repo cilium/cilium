@@ -84,15 +84,15 @@ type DescribeVbrHaRequest struct {
 // DescribeVbrHaResponse is the response struct for api DescribeVbrHa
 type DescribeVbrHaResponse struct {
 	*responses.BaseResponse
-	RequestId    string `json:"RequestId" xml:"RequestId"`
-	VbrHaId      string `json:"VbrHaId" xml:"VbrHaId"`
-	RegionId     string `json:"RegionId" xml:"RegionId"`
-	Name         string `json:"Name" xml:"Name"`
-	Description  string `json:"Description" xml:"Description"`
-	Status       string `json:"Status" xml:"Status"`
-	VbrId        string `json:"VbrId" xml:"VbrId"`
 	CreationTime string `json:"CreationTime" xml:"CreationTime"`
+	Status       string `json:"Status" xml:"Status"`
+	RequestId    string `json:"RequestId" xml:"RequestId"`
+	Description  string `json:"Description" xml:"Description"`
+	VbrHaId      string `json:"VbrHaId" xml:"VbrHaId"`
 	PeerVbrId    string `json:"PeerVbrId" xml:"PeerVbrId"`
+	Name         string `json:"Name" xml:"Name"`
+	VbrId        string `json:"VbrId" xml:"VbrId"`
+	RegionId     string `json:"RegionId" xml:"RegionId"`
 }
 
 // CreateDescribeVbrHaRequest creates a request to invoke DescribeVbrHa API

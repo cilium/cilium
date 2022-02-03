@@ -85,8 +85,8 @@ type AllocateIpv6InternetBandwidthRequest struct {
 // AllocateIpv6InternetBandwidthResponse is the response struct for api AllocateIpv6InternetBandwidth
 type AllocateIpv6InternetBandwidthResponse struct {
 	*responses.BaseResponse
-	RequestId           string `json:"RequestId" xml:"RequestId"`
 	Ipv6AddressId       string `json:"Ipv6AddressId" xml:"Ipv6AddressId"`
+	RequestId           string `json:"RequestId" xml:"RequestId"`
 	InternetBandwidthId string `json:"InternetBandwidthId" xml:"InternetBandwidthId"`
 }
 

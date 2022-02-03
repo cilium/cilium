@@ -83,8 +83,8 @@ type CreateNetworkAclRequest struct {
 // CreateNetworkAclResponse is the response struct for api CreateNetworkAcl
 type CreateNetworkAclResponse struct {
 	*responses.BaseResponse
-	RequestId           string              `json:"RequestId" xml:"RequestId"`
 	NetworkAclId        string              `json:"NetworkAclId" xml:"NetworkAclId"`
+	RequestId           string              `json:"RequestId" xml:"RequestId"`
 	NetworkAclAttribute NetworkAclAttribute `json:"NetworkAclAttribute" xml:"NetworkAclAttribute"`
 }
 

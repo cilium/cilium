@@ -38,6 +38,8 @@ type ModifyClientVpnEndpointInput struct {
 	// The options for managing connection authorization for new client connections.
 	ClientConnectOptions *types.ClientConnectOptions
 
+	ClientLoginBannerOptions *types.ClientLoginBannerOptions
+
 	// Information about the client connection logging options. If you enable client
 	// connection logging, data about client connections is sent to a Cloudwatch Logs
 	// log stream. The following information is logged:
@@ -76,6 +78,8 @@ type ModifyClientVpnEndpointInput struct {
 	// The ARN of the server certificate to be used. The server certificate must be
 	// provisioned in Certificate Manager (ACM).
 	ServerCertificateArn *string
+
+	SessionTimeoutHours *int32
 
 	// Indicates whether the VPN is split-tunnel. For information about split-tunnel
 	// VPN endpoints, see Split-tunnel Client VPN endpoint

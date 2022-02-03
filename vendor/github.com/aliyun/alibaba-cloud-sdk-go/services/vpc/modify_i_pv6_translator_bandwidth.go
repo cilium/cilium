@@ -84,8 +84,8 @@ type ModifyIPv6TranslatorBandwidthRequest struct {
 // ModifyIPv6TranslatorBandwidthResponse is the response struct for api ModifyIPv6TranslatorBandwidth
 type ModifyIPv6TranslatorBandwidthResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
 	OrderId   string `json:"OrderId" xml:"OrderId"`
+	RequestId string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateModifyIPv6TranslatorBandwidthRequest creates a request to invoke ModifyIPv6TranslatorBandwidth API

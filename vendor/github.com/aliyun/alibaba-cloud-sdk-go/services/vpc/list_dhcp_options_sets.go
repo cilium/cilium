@@ -85,8 +85,8 @@ type ListDhcpOptionsSetsRequest struct {
 // ListDhcpOptionsSetsResponse is the response struct for api ListDhcpOptionsSets
 type ListDhcpOptionsSetsResponse struct {
 	*responses.BaseResponse
-	RequestId       string           `json:"RequestId" xml:"RequestId"`
 	NextToken       string           `json:"NextToken" xml:"NextToken"`
+	RequestId       string           `json:"RequestId" xml:"RequestId"`
 	DhcpOptionsSets []DhcpOptionsSet `json:"DhcpOptionsSets" xml:"DhcpOptionsSets"`
 }
 

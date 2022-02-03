@@ -17,18 +17,18 @@ package vpc
 
 // BgpGroup is a nested struct in vpc response
 type BgpGroup struct {
-	Name        string `json:"Name" xml:"Name"`
-	Description string `json:"Description" xml:"Description"`
-	BgpGroupId  string `json:"BgpGroupId" xml:"BgpGroupId"`
-	PeerAsn     string `json:"PeerAsn" xml:"PeerAsn"`
-	AuthKey     string `json:"AuthKey" xml:"AuthKey"`
-	RouterId    string `json:"RouterId" xml:"RouterId"`
 	Status      string `json:"Status" xml:"Status"`
-	Keepalive   string `json:"Keepalive" xml:"Keepalive"`
+	BgpGroupId  string `json:"BgpGroupId" xml:"BgpGroupId"`
+	RouterId    string `json:"RouterId" xml:"RouterId"`
+	PeerAsn     string `json:"PeerAsn" xml:"PeerAsn"`
 	LocalAsn    string `json:"LocalAsn" xml:"LocalAsn"`
+	RegionId    string `json:"RegionId" xml:"RegionId"`
 	Hold        string `json:"Hold" xml:"Hold"`
+	IpVersion   string `json:"IpVersion" xml:"IpVersion"`
+	Description string `json:"Description" xml:"Description"`
+	Keepalive   string `json:"Keepalive" xml:"Keepalive"`
 	IsFake      string `json:"IsFake" xml:"IsFake"`
 	RouteLimit  string `json:"RouteLimit" xml:"RouteLimit"`
-	RegionId    string `json:"RegionId" xml:"RegionId"`
-	IpVersion   string `json:"IpVersion" xml:"IpVersion"`
+	Name        string `json:"Name" xml:"Name"`
+	AuthKey     string `json:"AuthKey" xml:"AuthKey"`
 }

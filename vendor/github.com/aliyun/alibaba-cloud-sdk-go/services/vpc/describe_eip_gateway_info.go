@@ -81,9 +81,9 @@ type DescribeEipGatewayInfoRequest struct {
 // DescribeEipGatewayInfoResponse is the response struct for api DescribeEipGatewayInfo
 type DescribeEipGatewayInfoResponse struct {
 	*responses.BaseResponse
-	RequestId string   `json:"RequestId" xml:"RequestId"`
 	Code      string   `json:"Code" xml:"Code"`
 	Message   string   `json:"Message" xml:"Message"`
+	RequestId string   `json:"RequestId" xml:"RequestId"`
 	EipInfos  EipInfos `json:"EipInfos" xml:"EipInfos"`
 }
 

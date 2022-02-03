@@ -49,14 +49,11 @@ type DescribeCapacityReservationsInput struct {
 	// * owner-id - The ID of the Amazon Web
 	// Services account that owns the Capacity Reservation.
 	//
-	// * availability-zone-id -
-	// The Availability Zone ID of the Capacity Reservation.
-	//
 	// * instance-platform - The
 	// type of operating system for which the Capacity Reservation reserves
 	// capacity.
 	//
-	// * availability-zone - The Availability Zone ID of the Capacity
+	// * availability-zone - The Availability Zone of the Capacity
 	// Reservation.
 	//
 	// * tenancy - Indicates the tenancy of the Capacity Reservation. A

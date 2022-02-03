@@ -19,8 +19,8 @@ package vpc
 type RouteTable struct {
 	ResourceGroupId string                           `json:"ResourceGroupId" xml:"ResourceGroupId"`
 	CreationTime    string                           `json:"CreationTime" xml:"CreationTime"`
-	RouteTableType  string                           `json:"RouteTableType" xml:"RouteTableType"`
 	Status          string                           `json:"Status" xml:"Status"`
+	RouteTableType  string                           `json:"RouteTableType" xml:"RouteTableType"`
 	VRouterId       string                           `json:"VRouterId" xml:"VRouterId"`
 	RouteTableId    string                           `json:"RouteTableId" xml:"RouteTableId"`
 	VSwitchIds      VSwitchIdsInDescribeRouteTables  `json:"VSwitchIds" xml:"VSwitchIds"`

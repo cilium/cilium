@@ -17,19 +17,19 @@ package vpc
 
 // AssociatedPhysicalConnection is a nested struct in vpc response
 type AssociatedPhysicalConnection struct {
-	CircuitCode                      string `json:"CircuitCode" xml:"CircuitCode"`
-	VlanInterfaceId                  string `json:"VlanInterfaceId" xml:"VlanInterfaceId"`
-	LocalGatewayIp                   string `json:"LocalGatewayIp" xml:"LocalGatewayIp"`
-	PeerGatewayIp                    string `json:"PeerGatewayIp" xml:"PeerGatewayIp"`
-	PeeringSubnetMask                string `json:"PeeringSubnetMask" xml:"PeeringSubnetMask"`
-	PhysicalConnectionId             string `json:"PhysicalConnectionId" xml:"PhysicalConnectionId"`
-	PhysicalConnectionStatus         string `json:"PhysicalConnectionStatus" xml:"PhysicalConnectionStatus"`
-	PhysicalConnectionBusinessStatus string `json:"PhysicalConnectionBusinessStatus" xml:"PhysicalConnectionBusinessStatus"`
-	PhysicalConnectionOwnerUid       string `json:"PhysicalConnectionOwnerUid" xml:"PhysicalConnectionOwnerUid"`
-	VlanId                           string `json:"VlanId" xml:"VlanId"`
-	LocalIpv6GatewayIp               string `json:"LocalIpv6GatewayIp" xml:"LocalIpv6GatewayIp"`
-	PeerIpv6GatewayIp                string `json:"PeerIpv6GatewayIp" xml:"PeerIpv6GatewayIp"`
-	PeeringIpv6SubnetMask            string `json:"PeeringIpv6SubnetMask" xml:"PeeringIpv6SubnetMask"`
 	Status                           string `json:"Status" xml:"Status"`
+	VlanInterfaceId                  string `json:"VlanInterfaceId" xml:"VlanInterfaceId"`
+	CircuitCode                      string `json:"CircuitCode" xml:"CircuitCode"`
+	PeerIpv6GatewayIp                string `json:"PeerIpv6GatewayIp" xml:"PeerIpv6GatewayIp"`
+	LocalIpv6GatewayIp               string `json:"LocalIpv6GatewayIp" xml:"LocalIpv6GatewayIp"`
+	PhysicalConnectionOwnerUid       string `json:"PhysicalConnectionOwnerUid" xml:"PhysicalConnectionOwnerUid"`
+	LocalGatewayIp                   string `json:"LocalGatewayIp" xml:"LocalGatewayIp"`
+	PhysicalConnectionBusinessStatus string `json:"PhysicalConnectionBusinessStatus" xml:"PhysicalConnectionBusinessStatus"`
+	PeeringSubnetMask                string `json:"PeeringSubnetMask" xml:"PeeringSubnetMask"`
 	EnableIpv6                       bool   `json:"EnableIpv6" xml:"EnableIpv6"`
+	PhysicalConnectionStatus         string `json:"PhysicalConnectionStatus" xml:"PhysicalConnectionStatus"`
+	PeerGatewayIp                    string `json:"PeerGatewayIp" xml:"PeerGatewayIp"`
+	PeeringIpv6SubnetMask            string `json:"PeeringIpv6SubnetMask" xml:"PeeringIpv6SubnetMask"`
+	PhysicalConnectionId             string `json:"PhysicalConnectionId" xml:"PhysicalConnectionId"`
+	VlanId                           string `json:"VlanId" xml:"VlanId"`
 }

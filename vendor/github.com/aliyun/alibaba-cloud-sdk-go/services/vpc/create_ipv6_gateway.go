@@ -85,8 +85,8 @@ type CreateIpv6GatewayRequest struct {
 // CreateIpv6GatewayResponse is the response struct for api CreateIpv6Gateway
 type CreateIpv6GatewayResponse struct {
 	*responses.BaseResponse
-	RequestId     string `json:"RequestId" xml:"RequestId"`
 	Ipv6GatewayId string `json:"Ipv6GatewayId" xml:"Ipv6GatewayId"`
+	RequestId     string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateCreateIpv6GatewayRequest creates a request to invoke CreateIpv6Gateway API

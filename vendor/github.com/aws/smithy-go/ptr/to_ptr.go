@@ -468,3 +468,32 @@ func TimeMap(vs map[string]time.Time) map[string]*time.Time {
 
 	return ps
 }
+
+// Duration returns a pointer value for the time.Duration value passed in.
+func Duration(v time.Duration) *time.Duration {
+	return &v
+}
+
+// DurationSlice returns a slice of time.Duration pointers from the values
+// passed in.
+func DurationSlice(vs []time.Duration) []*time.Duration {
+	ps := make([]*time.Duration, len(vs))
+	for i, v := range vs {
+		vv := v
+		ps[i] = &vv
+	}
+
+	return ps
+}
+
+// DurationMap returns a map of time.Duration pointers from the values
+// passed in.
+func DurationMap(vs map[string]time.Duration) map[string]*time.Duration {
+	ps := make(map[string]*time.Duration, len(vs))
+	for k, v := range vs {
+		vv := v
+		ps[k] = &vv
+	}
+
+	return ps
+}

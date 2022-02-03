@@ -17,11 +17,11 @@ package vpc
 
 // DhcpOptionsSet is a nested struct in vpc response
 type DhcpOptionsSet struct {
-	DhcpOptionsSetName        string      `json:"DhcpOptionsSetName" xml:"DhcpOptionsSetName"`
 	DhcpOptionsSetDescription string      `json:"DhcpOptionsSetDescription" xml:"DhcpOptionsSetDescription"`
-	OwnerId                   int64       `json:"OwnerId" xml:"OwnerId"`
 	Status                    string      `json:"Status" xml:"Status"`
 	DhcpOptionsSetId          string      `json:"DhcpOptionsSetId" xml:"DhcpOptionsSetId"`
+	DhcpOptionsSetName        string      `json:"DhcpOptionsSetName" xml:"DhcpOptionsSetName"`
 	AssociateVpcCount         int         `json:"AssociateVpcCount" xml:"AssociateVpcCount"`
+	OwnerId                   int64       `json:"OwnerId" xml:"OwnerId"`
 	DhcpOptions               DhcpOptions `json:"DhcpOptions" xml:"DhcpOptions"`
 }

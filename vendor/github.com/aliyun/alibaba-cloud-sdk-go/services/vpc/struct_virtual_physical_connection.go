@@ -45,4 +45,5 @@ type VirtualPhysicalConnection struct {
 	OrderMode                       string `json:"OrderMode" xml:"OrderMode"`
 	AliUid                          string `json:"AliUid" xml:"AliUid"`
 	VlanId                          string `json:"VlanId" xml:"VlanId"`
+	ExpectSpec                      string `json:"ExpectSpec" xml:"ExpectSpec"`
 }

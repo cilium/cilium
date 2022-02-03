@@ -17,8 +17,8 @@ package vpc
 
 // InstanceRenewAttribute is a nested struct in vpc response
 type InstanceRenewAttribute struct {
+	Duration      int    `json:"Duration" xml:"Duration"`
 	InstanceId    string `json:"InstanceId" xml:"InstanceId"`
 	RenewalStatus string `json:"RenewalStatus" xml:"RenewalStatus"`
-	Duration      int    `json:"Duration" xml:"Duration"`
 	PricingCycle  string `json:"PricingCycle" xml:"PricingCycle"`
 }

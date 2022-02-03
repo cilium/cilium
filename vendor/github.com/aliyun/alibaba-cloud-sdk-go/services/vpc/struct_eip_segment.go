@@ -17,12 +17,12 @@ package vpc
 
 // EipSegment is a nested struct in vpc response
 type EipSegment struct {
-	InstanceId   string `json:"InstanceId" xml:"InstanceId"`
-	Segment      string `json:"Segment" xml:"Segment"`
+	CreationTime string `json:"CreationTime" xml:"CreationTime"`
 	Status       string `json:"Status" xml:"Status"`
-	RegionId     string `json:"RegionId" xml:"RegionId"`
+	Descritpion  string `json:"Descritpion" xml:"Descritpion"`
+	InstanceId   string `json:"InstanceId" xml:"InstanceId"`
 	IpCount      string `json:"IpCount" xml:"IpCount"`
 	Name         string `json:"Name" xml:"Name"`
-	Descritpion  string `json:"Descritpion" xml:"Descritpion"`
-	CreationTime string `json:"CreationTime" xml:"CreationTime"`
+	Segment      string `json:"Segment" xml:"Segment"`
+	RegionId     string `json:"RegionId" xml:"RegionId"`
 }

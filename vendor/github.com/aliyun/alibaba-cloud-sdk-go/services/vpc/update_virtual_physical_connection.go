@@ -75,6 +75,7 @@ type UpdateVirtualPhysicalConnectionRequest struct {
 	VlanId     requests.Integer `position:"Query" name:"VlanId"`
 	Token      string           `position:"Query" name:"Token"`
 	InstanceId string           `position:"Query" name:"InstanceId"`
+	ExpectSpec string           `position:"Query" name:"ExpectSpec"`
 }
 
 // UpdateVirtualPhysicalConnectionResponse is the response struct for api UpdateVirtualPhysicalConnection

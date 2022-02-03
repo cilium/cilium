@@ -1,4 +1,4 @@
-// Package middleware provide transport agnostic middleware for decorating SDK
+// Package middleware provides transport agnostic middleware for decorating SDK
 // handlers.
 //
 // The Smithy middleware stack provides ordered behavior to be invoked on an
@@ -24,7 +24,7 @@
 // order by the Stack. These steps represent fixed points in the middleware stack
 // for organizing specific behavior, such as serialize and build. A Stack Step is
 // composed of zero or more middleware that are specific to that step. A step may
-// define its on set of input/output parameters the generic input/output
+// define its own set of input/output parameters the generic input/output
 // parameters are cast from. A step calls its middleware recursively, before
 // calling the next step in the stack returning the result or error of the step
 // middleware decorating the underlying handler.
@@ -39,7 +39,7 @@
 // HTTP's Content-Length header, or body checksum). Decorations and
 // modifications to the message should be copied to all message attempts.
 //
-// * Finalize: Preforms final preparations needed before sending the message.  The
+// * Finalize: Performs final preparations needed before sending the message. The
 // message should already be complete by this stage, and is only alternated to
 // meet the expectations of the recipient, (e.g. Retry and AWS SigV4 request
 // signing).
@@ -51,8 +51,8 @@
 // Adding Middleware to a Stack Step
 //
 // Middleware can be added to a step front or back, or relative, by name, to an
-// existing middleware in that stack. If a middleware does not have a name a
-// unique name will be generated at the middleware is added to the step.
+// existing middleware in that stack. If a middleware does not have a name, a
+// unique name will be generated at the middleware and be added to the step.
 //
 //     // Create middleware stack
 //     stack := middleware.NewStack()

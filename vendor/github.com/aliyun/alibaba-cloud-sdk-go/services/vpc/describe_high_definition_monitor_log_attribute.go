@@ -82,12 +82,12 @@ type DescribeHighDefinitionMonitorLogAttributeRequest struct {
 // DescribeHighDefinitionMonitorLogAttributeResponse is the response struct for api DescribeHighDefinitionMonitorLogAttribute
 type DescribeHighDefinitionMonitorLogAttributeResponse struct {
 	*responses.BaseResponse
+	LogProject   string `json:"LogProject" xml:"LogProject"`
 	RequestId    string `json:"RequestId" xml:"RequestId"`
+	LogStore     string `json:"LogStore" xml:"LogStore"`
 	Success      string `json:"Success" xml:"Success"`
 	InstanceId   string `json:"InstanceId" xml:"InstanceId"`
 	InstanceType string `json:"InstanceType" xml:"InstanceType"`
-	LogProject   string `json:"LogProject" xml:"LogProject"`
-	LogStore     string `json:"LogStore" xml:"LogStore"`
 }
 
 // CreateDescribeHighDefinitionMonitorLogAttributeRequest creates a request to invoke DescribeHighDefinitionMonitorLogAttribute API
