@@ -7,6 +7,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/loader"
+	"github.com/cilium/cilium/pkg/datapath/types"
 )
 
 // DatapathConfiguration is the static configuration of the datapath. The
@@ -20,7 +21,7 @@ type linuxDatapath struct {
 	datapath.ConfigWriter
 	datapath.IptablesManager
 	node           datapath.NodeHandler
-	nodeAddressing datapath.NodeAddressing
+	nodeAddressing types.NodeAddressing
 	config         DatapathConfiguration
 	loader         *loader.Loader
 	wgAgent        datapath.WireguardAgent
@@ -48,7 +49,7 @@ func (l *linuxDatapath) Node() datapath.NodeHandler {
 
 // LocalNodeAddressing returns the node addressing implementation of the local
 // node
-func (l *linuxDatapath) LocalNodeAddressing() datapath.NodeAddressing {
+func (l *linuxDatapath) LocalNodeAddressing() types.NodeAddressing {
 	return l.nodeAddressing
 }
 

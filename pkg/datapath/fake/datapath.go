@@ -9,11 +9,12 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
+	"github.com/cilium/cilium/pkg/datapath/types"
 )
 
 type fakeDatapath struct {
 	node           datapath.NodeHandler
-	nodeAddressing datapath.NodeAddressing
+	nodeAddressing types.NodeAddressing
 	loader         datapath.Loader
 }
 
@@ -33,7 +34,7 @@ func (f *fakeDatapath) Node() datapath.NodeHandler {
 
 // LocalNodeAddressing returns a fake node addressing implementation of the
 // local node
-func (f *fakeDatapath) LocalNodeAddressing() datapath.NodeAddressing {
+func (f *fakeDatapath) LocalNodeAddressing() types.NodeAddressing {
 	return f.nodeAddressing
 }
 
