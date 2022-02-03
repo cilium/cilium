@@ -101,6 +101,10 @@ type LoadOptions struct {
 	// from the EC2 Metadata service
 	UseEC2IMDSRegion *UseEC2IMDSRegion
 
+	// CredentialsCacheOptions is a function for setting the
+	// aws.CredentialsCacheOptions
+	CredentialsCacheOptions func(*aws.CredentialsCacheOptions)
+
 	// ProcessCredentialOptions is a function for setting
 	// the processcreds.Options
 	ProcessCredentialOptions func(*processcreds.Options)
@@ -155,6 +159,23 @@ type LoadOptions struct {
 	// Specifies that SDK clients must resolve a FIPS endpoint for
 	// services.
 	UseFIPSEndpoint aws.FIPSEndpointState
+
+	// Specifies the SDK configuration mode for defaults.
+	DefaultsModeOptions DefaultsModeOptions
+}
+
+func (o LoadOptions) getDefaultsMode(ctx context.Context) (aws.DefaultsMode, bool, error) {
+	if len(o.DefaultsModeOptions.Mode) == 0 {
+		return "", false, nil
+	}
+	return o.DefaultsModeOptions.Mode, true, nil
+}
+
+func (o LoadOptions) getDefaultsModeIMDSClient(ctx context.Context) (*imds.Client, bool, error) {
+	if o.DefaultsModeOptions.IMDSClient == nil {
+		return nil, false, nil
+	}
+	return o.DefaultsModeOptions.IMDSClient, true, nil
 }
 
 // getRegion returns Region from config's LoadOptions
@@ -361,6 +382,29 @@ func (o LoadOptions) getCredentialsProvider(ctx context.Context) (aws.Credential
 func WithCredentialsProvider(v aws.CredentialsProvider) LoadOptionsFunc {
 	return func(o *LoadOptions) error {
 		o.Credentials = v
+		return nil
+	}
+}
+
+// getCredentialsCacheOptionsProvider returns the wrapped function to set aws.CredentialsCacheOptions
+func (o LoadOptions) getCredentialsCacheOptions(ctx context.Context) (func(*aws.CredentialsCacheOptions), bool, error) {
+	if o.CredentialsCacheOptions == nil {
+		return nil, false, nil
+	}
+
+	return o.CredentialsCacheOptions, true, nil
+}
+
+// WithCredentialsCacheOptions is a helper function to construct functional
+// options that sets a function to modify the aws.CredentialsCacheOptions the
+// aws.CredentialsCache will be configured with, if the CredentialsCache is used
+// by the configuration loader.
+//
+// If multiple WithCredentialsCacheOptions calls are made, the last call
+// overrides the previous call values.
+func WithCredentialsCacheOptions(v func(*aws.CredentialsCacheOptions)) LoadOptionsFunc {
+	return func(o *LoadOptions) error {
+		o.CredentialsCacheOptions = v
 		return nil
 	}
 }
@@ -778,4 +822,21 @@ func (o LoadOptions) GetUseFIPSEndpoint(ctx context.Context) (value aws.FIPSEndp
 		return aws.FIPSEndpointStateUnset, false, nil
 	}
 	return o.UseFIPSEndpoint, true, nil
+}
+
+// WithDefaultsMode sets the SDK defaults configuration mode to the value provided.
+//
+// Zero or more functional options can be provided to provide configuration options for performing
+// environment discovery when using aws.AutoDefaultsMode.
+func WithDefaultsMode(mode aws.DefaultsMode, optFns ...func(options *DefaultsModeOptions)) LoadOptionsFunc {
+	do := DefaultsModeOptions{
+		Mode: mode,
+	}
+	for _, fn := range optFns {
+		fn(&do)
+	}
+	return func(options *LoadOptions) error {
+		options.DefaultsModeOptions = do
+		return nil
+	}
 }

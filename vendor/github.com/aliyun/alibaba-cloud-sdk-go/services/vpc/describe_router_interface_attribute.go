@@ -80,49 +80,49 @@ type DescribeRouterInterfaceAttributeRequest struct {
 // DescribeRouterInterfaceAttributeResponse is the response struct for api DescribeRouterInterfaceAttribute
 type DescribeRouterInterfaceAttributeResponse struct {
 	*responses.BaseResponse
-	RequestId                       string `json:"RequestId" xml:"RequestId"`
-	Code                            string `json:"Code" xml:"Code"`
-	Message                         string `json:"Message" xml:"Message"`
-	Success                         bool   `json:"Success" xml:"Success"`
-	RouterInterfaceId               string `json:"RouterInterfaceId" xml:"RouterInterfaceId"`
-	OppositeRegionId                string `json:"OppositeRegionId" xml:"OppositeRegionId"`
-	Role                            string `json:"Role" xml:"Role"`
-	Spec                            string `json:"Spec" xml:"Spec"`
-	Name                            string `json:"Name" xml:"Name"`
-	Description                     string `json:"Description" xml:"Description"`
-	RouterId                        string `json:"RouterId" xml:"RouterId"`
-	RouterType                      string `json:"RouterType" xml:"RouterType"`
-	CreationTime                    string `json:"CreationTime" xml:"CreationTime"`
-	GmtModified                     string `json:"GmtModified" xml:"GmtModified"`
-	EndTime                         string `json:"EndTime" xml:"EndTime"`
-	ChargeType                      string `json:"ChargeType" xml:"ChargeType"`
-	Status                          string `json:"Status" xml:"Status"`
-	BusinessStatus                  string `json:"BusinessStatus" xml:"BusinessStatus"`
-	ConnectedTime                   string `json:"ConnectedTime" xml:"ConnectedTime"`
-	OppositeInterfaceId             string `json:"OppositeInterfaceId" xml:"OppositeInterfaceId"`
-	OppositeInterfaceSpec           string `json:"OppositeInterfaceSpec" xml:"OppositeInterfaceSpec"`
-	OppositeInterfaceStatus         string `json:"OppositeInterfaceStatus" xml:"OppositeInterfaceStatus"`
-	OppositeInterfaceBusinessStatus string `json:"OppositeInterfaceBusinessStatus" xml:"OppositeInterfaceBusinessStatus"`
-	OppositeRouterId                string `json:"OppositeRouterId" xml:"OppositeRouterId"`
-	OppositeRouterType              string `json:"OppositeRouterType" xml:"OppositeRouterType"`
-	OppositeInterfaceOwnerId        string `json:"OppositeInterfaceOwnerId" xml:"OppositeInterfaceOwnerId"`
-	AccessPointId                   string `json:"AccessPointId" xml:"AccessPointId"`
-	OppositeAccessPointId           string `json:"OppositeAccessPointId" xml:"OppositeAccessPointId"`
-	HealthCheckSourceIp             string `json:"HealthCheckSourceIp" xml:"HealthCheckSourceIp"`
-	HealthCheckTargetIp             string `json:"HealthCheckTargetIp" xml:"HealthCheckTargetIp"`
-	OppositeVpcInstanceId           string `json:"OppositeVpcInstanceId" xml:"OppositeVpcInstanceId"`
-	Bandwidth                       int    `json:"Bandwidth" xml:"Bandwidth"`
-	VpcInstanceId                   string `json:"VpcInstanceId" xml:"VpcInstanceId"`
-	OppositeBandwidth               int    `json:"OppositeBandwidth" xml:"OppositeBandwidth"`
-	HasReservationData              string `json:"HasReservationData" xml:"HasReservationData"`
-	ReservationBandwidth            string `json:"ReservationBandwidth" xml:"ReservationBandwidth"`
-	ReservationInternetChargeType   string `json:"ReservationInternetChargeType" xml:"ReservationInternetChargeType"`
 	ReservationActiveTime           string `json:"ReservationActiveTime" xml:"ReservationActiveTime"`
+	HealthCheckTargetIp             string `json:"HealthCheckTargetIp" xml:"HealthCheckTargetIp"`
+	Status                          string `json:"Status" xml:"Status"`
+	CreationTime                    string `json:"CreationTime" xml:"CreationTime"`
 	ReservationOrderType            string `json:"ReservationOrderType" xml:"ReservationOrderType"`
-	CrossBorder                     bool   `json:"CrossBorder" xml:"CrossBorder"`
+	OppositeInterfaceId             string `json:"OppositeInterfaceId" xml:"OppositeInterfaceId"`
+	Spec                            string `json:"Spec" xml:"Spec"`
+	ChargeType                      string `json:"ChargeType" xml:"ChargeType"`
+	RouterInterfaceId               string `json:"RouterInterfaceId" xml:"RouterInterfaceId"`
+	Message                         string `json:"Message" xml:"Message"`
 	HcThreshold                     int    `json:"HcThreshold" xml:"HcThreshold"`
+	OppositeRouterType              string `json:"OppositeRouterType" xml:"OppositeRouterType"`
+	GmtModified                     string `json:"GmtModified" xml:"GmtModified"`
+	VpcInstanceId                   string `json:"VpcInstanceId" xml:"VpcInstanceId"`
+	OppositeInterfaceOwnerId        string `json:"OppositeInterfaceOwnerId" xml:"OppositeInterfaceOwnerId"`
+	OppositeVpcInstanceId           string `json:"OppositeVpcInstanceId" xml:"OppositeVpcInstanceId"`
+	ReservationInternetChargeType   string `json:"ReservationInternetChargeType" xml:"ReservationInternetChargeType"`
+	CrossBorder                     bool   `json:"CrossBorder" xml:"CrossBorder"`
+	RequestId                       string `json:"RequestId" xml:"RequestId"`
+	Bandwidth                       int    `json:"Bandwidth" xml:"Bandwidth"`
+	Description                     string `json:"Description" xml:"Description"`
 	HcRate                          int    `json:"HcRate" xml:"HcRate"`
+	ReservationBandwidth            string `json:"ReservationBandwidth" xml:"ReservationBandwidth"`
+	Code                            string `json:"Code" xml:"Code"`
+	Name                            string `json:"Name" xml:"Name"`
+	OppositeRouterId                string `json:"OppositeRouterId" xml:"OppositeRouterId"`
+	OppositeInterfaceSpec           string `json:"OppositeInterfaceSpec" xml:"OppositeInterfaceSpec"`
+	RouterId                        string `json:"RouterId" xml:"RouterId"`
+	Success                         bool   `json:"Success" xml:"Success"`
+	OppositeInterfaceBusinessStatus string `json:"OppositeInterfaceBusinessStatus" xml:"OppositeInterfaceBusinessStatus"`
+	ConnectedTime                   string `json:"ConnectedTime" xml:"ConnectedTime"`
+	HealthCheckSourceIp             string `json:"HealthCheckSourceIp" xml:"HealthCheckSourceIp"`
+	OppositeInterfaceStatus         string `json:"OppositeInterfaceStatus" xml:"OppositeInterfaceStatus"`
+	EndTime                         string `json:"EndTime" xml:"EndTime"`
+	OppositeRegionId                string `json:"OppositeRegionId" xml:"OppositeRegionId"`
+	OppositeAccessPointId           string `json:"OppositeAccessPointId" xml:"OppositeAccessPointId"`
+	BusinessStatus                  string `json:"BusinessStatus" xml:"BusinessStatus"`
 	HealthCheckStatus               string `json:"HealthCheckStatus" xml:"HealthCheckStatus"`
+	OppositeBandwidth               int    `json:"OppositeBandwidth" xml:"OppositeBandwidth"`
+	RouterType                      string `json:"RouterType" xml:"RouterType"`
+	Role                            string `json:"Role" xml:"Role"`
+	HasReservationData              string `json:"HasReservationData" xml:"HasReservationData"`
+	AccessPointId                   string `json:"AccessPointId" xml:"AccessPointId"`
 }
 
 // CreateDescribeRouterInterfaceAttributeRequest creates a request to invoke DescribeRouterInterfaceAttribute API

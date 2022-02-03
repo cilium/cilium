@@ -60,7 +60,7 @@ func (e *OperationError) Error() string {
 	return fmt.Sprintf("operation error %s: %s, %v", e.ServiceID, e.OperationName, e.Err)
 }
 
-// DeserializationError provides a wrapper for and error that occurs during
+// DeserializationError provides a wrapper for an error that occurs during
 // deserialization.
 type DeserializationError struct {
 	Err      error //  original error

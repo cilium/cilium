@@ -25,7 +25,7 @@ func Int63n(reader io.Reader, max int64) (int64, error) {
 }
 
 // CryptoRandInt63n returns a random int64 between zero and value of max
-//obtained from the crypto rand source.
+// obtained from the crypto rand source.
 func CryptoRandInt63n(max int64) (int64, error) {
 	return Int63n(Reader, max)
 }

@@ -88,8 +88,8 @@ type AllocateEipSegmentAddressRequest struct {
 type AllocateEipSegmentAddressResponse struct {
 	*responses.BaseResponse
 	RequestId            string `json:"RequestId" xml:"RequestId"`
-	EipSegmentInstanceId string `json:"EipSegmentInstanceId" xml:"EipSegmentInstanceId"`
 	OrderId              int64  `json:"OrderId" xml:"OrderId"`
+	EipSegmentInstanceId string `json:"EipSegmentInstanceId" xml:"EipSegmentInstanceId"`
 }
 
 // CreateAllocateEipSegmentAddressRequest creates a request to invoke AllocateEipSegmentAddress API

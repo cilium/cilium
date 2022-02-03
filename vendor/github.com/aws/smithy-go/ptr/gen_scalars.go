@@ -23,6 +23,7 @@ func GetScalars() Scalars {
 		{Type: "float32"},
 		{Type: "float64"},
 		{Type: "Time", Import: &Import{Path: "time"}},
+		{Type: "Duration", Import: &Import{Path: "time"}},
 	}
 }
 

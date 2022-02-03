@@ -12,7 +12,7 @@ type DeserializeInput struct {
 }
 
 // DeserializeOutput provides the result returned by the next
-// DeserializeHandler. The DeserializeMiddleware should deserailize the
+// DeserializeHandler. The DeserializeMiddleware should deserialize the
 // RawResponse into a Result that can be consumed by middleware higher up in
 // the stack.
 type DeserializeOutput struct {
@@ -32,11 +32,11 @@ type DeserializeHandler interface {
 // serialize step. Delegates to the next DeserializeHandler for further
 // processing.
 type DeserializeMiddleware interface {
-	// Unique ID for the middleware in the DeserializeStep. The step does not
+	// ID returns a unique ID for the middleware in the DeserializeStep. The step does not
 	// allow duplicate IDs.
 	ID() string
 
-	// Invokes the middleware behavior which must delegate to the next handler
+	// HandleDeserialize invokes the middleware behavior which must delegate to the next handler
 	// for the middleware chain to continue. The method must return a result or
 	// error to its caller.
 	HandleDeserialize(ctx context.Context, in DeserializeInput, next DeserializeHandler) (
@@ -76,12 +76,12 @@ func (s deserializeMiddlewareFunc) HandleDeserialize(ctx context.Context, in Des
 var _ DeserializeMiddleware = (deserializeMiddlewareFunc{})
 
 // DeserializeStep provides the ordered grouping of DeserializeMiddleware to be
-// invoked on an handler.
+// invoked on a handler.
 type DeserializeStep struct {
 	ids *orderedIDs
 }
 
-// NewDeserializeStep returns an DeserializeStep ready to have middleware for
+// NewDeserializeStep returns a DeserializeStep ready to have middleware for
 // initialization added to it.
 func NewDeserializeStep() *DeserializeStep {
 	return &DeserializeStep{
@@ -91,7 +91,7 @@ func NewDeserializeStep() *DeserializeStep {
 
 var _ Middleware = (*DeserializeStep)(nil)
 
-// ID returns the unique id of the step as a middleware.
+// ID returns the unique ID of the step as a middleware.
 func (s *DeserializeStep) ID() string {
 	return "Deserialize stack step"
 }
@@ -136,8 +136,8 @@ func (s *DeserializeStep) Add(m DeserializeMiddleware, pos RelativePosition) err
 	return s.ids.Add(m, pos)
 }
 
-// Insert injects the middleware relative to an existing middleware id.
-// Return error if the original middleware does not exist, or the middleware
+// Insert injects the middleware relative to an existing middleware ID.
+// Returns error if the original middleware does not exist, or the middleware
 // being added already exists.
 func (s *DeserializeStep) Insert(m DeserializeMiddleware, relativeTo string, pos RelativePosition) error {
 	return s.ids.Insert(m, relativeTo, pos)
@@ -182,7 +182,7 @@ type deserializeWrapHandler struct {
 
 var _ DeserializeHandler = (*deserializeWrapHandler)(nil)
 
-// Implements DeserializeHandler, converts types and delegates to underlying
+// HandleDeserialize implements DeserializeHandler, converts types and delegates to underlying
 // generic handler.
 func (w deserializeWrapHandler) HandleDeserialize(ctx context.Context, in DeserializeInput) (
 	out DeserializeOutput, metadata Metadata, err error,

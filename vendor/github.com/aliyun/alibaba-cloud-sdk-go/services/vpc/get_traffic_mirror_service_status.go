@@ -77,8 +77,8 @@ type GetTrafficMirrorServiceStatusRequest struct {
 // GetTrafficMirrorServiceStatusResponse is the response struct for api GetTrafficMirrorServiceStatus
 type GetTrafficMirrorServiceStatusResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
 	Enabled   bool   `json:"Enabled" xml:"Enabled"`
+	RequestId string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateGetTrafficMirrorServiceStatusRequest creates a request to invoke GetTrafficMirrorServiceStatus API

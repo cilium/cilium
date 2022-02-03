@@ -17,19 +17,19 @@ package vpc
 
 // Ipv6Translator is a nested struct in vpc response
 type Ipv6Translator struct {
-	Ipv6TranslatorId       string                 `json:"Ipv6TranslatorId" xml:"Ipv6TranslatorId"`
-	CreateTime             int64                  `json:"CreateTime" xml:"CreateTime"`
-	EndTime                int64                  `json:"EndTime" xml:"EndTime"`
-	Spec                   string                 `json:"Spec" xml:"Spec"`
-	Name                   string                 `json:"Name" xml:"Name"`
-	Description            string                 `json:"Description" xml:"Description"`
 	Status                 string                 `json:"Status" xml:"Status"`
-	BusinessStatus         string                 `json:"BusinessStatus" xml:"BusinessStatus"`
+	Spec                   string                 `json:"Spec" xml:"Spec"`
+	CreateTime             int64                  `json:"CreateTime" xml:"CreateTime"`
 	PayType                string                 `json:"PayType" xml:"PayType"`
-	Bandwidth              int                    `json:"Bandwidth" xml:"Bandwidth"`
-	AllocateIpv6Addr       string                 `json:"AllocateIpv6Addr" xml:"AllocateIpv6Addr"`
+	Ipv6TranslatorId       string                 `json:"Ipv6TranslatorId" xml:"Ipv6TranslatorId"`
 	AllocateIpv4Addr       string                 `json:"AllocateIpv4Addr" xml:"AllocateIpv4Addr"`
 	AvailableBandwidth     string                 `json:"AvailableBandwidth" xml:"AvailableBandwidth"`
 	RegionId               string                 `json:"RegionId" xml:"RegionId"`
+	EndTime                int64                  `json:"EndTime" xml:"EndTime"`
+	Description            string                 `json:"Description" xml:"Description"`
+	Bandwidth              int                    `json:"Bandwidth" xml:"Bandwidth"`
+	BusinessStatus         string                 `json:"BusinessStatus" xml:"BusinessStatus"`
+	AllocateIpv6Addr       string                 `json:"AllocateIpv6Addr" xml:"AllocateIpv6Addr"`
+	Name                   string                 `json:"Name" xml:"Name"`
 	Ipv6TranslatorEntryIds Ipv6TranslatorEntryIds `json:"Ipv6TranslatorEntryIds" xml:"Ipv6TranslatorEntryIds"`
 }

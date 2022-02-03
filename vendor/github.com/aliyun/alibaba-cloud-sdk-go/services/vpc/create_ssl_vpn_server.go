@@ -92,8 +92,8 @@ type CreateSslVpnServerRequest struct {
 // CreateSslVpnServerResponse is the response struct for api CreateSslVpnServer
 type CreateSslVpnServerResponse struct {
 	*responses.BaseResponse
-	RequestId      string `json:"RequestId" xml:"RequestId"`
 	SslVpnServerId string `json:"SslVpnServerId" xml:"SslVpnServerId"`
+	RequestId      string `json:"RequestId" xml:"RequestId"`
 	Name           string `json:"Name" xml:"Name"`
 }
 

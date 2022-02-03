@@ -17,7 +17,7 @@ package vpc
 
 // ConvertStep is a nested struct in vpc response
 type ConvertStep struct {
+	StepStartTime string `json:"StepStartTime" xml:"StepStartTime"`
 	StepName      string `json:"StepName" xml:"StepName"`
 	StepStatus    string `json:"StepStatus" xml:"StepStatus"`
-	StepStartTime string `json:"StepStartTime" xml:"StepStartTime"`
 }

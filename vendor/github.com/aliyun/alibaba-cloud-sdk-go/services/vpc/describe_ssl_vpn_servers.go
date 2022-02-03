@@ -85,10 +85,10 @@ type DescribeSslVpnServersRequest struct {
 // DescribeSslVpnServersResponse is the response struct for api DescribeSslVpnServers
 type DescribeSslVpnServersResponse struct {
 	*responses.BaseResponse
-	RequestId     string        `json:"RequestId" xml:"RequestId"`
-	TotalCount    int           `json:"TotalCount" xml:"TotalCount"`
-	PageNumber    int           `json:"PageNumber" xml:"PageNumber"`
 	PageSize      int           `json:"PageSize" xml:"PageSize"`
+	RequestId     string        `json:"RequestId" xml:"RequestId"`
+	PageNumber    int           `json:"PageNumber" xml:"PageNumber"`
+	TotalCount    int           `json:"TotalCount" xml:"TotalCount"`
 	SslVpnServers SslVpnServers `json:"SslVpnServers" xml:"SslVpnServers"`
 }
 

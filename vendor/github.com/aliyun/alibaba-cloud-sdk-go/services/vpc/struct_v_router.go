@@ -17,11 +17,11 @@ package vpc
 
 // VRouter is a nested struct in vpc response
 type VRouter struct {
-	RegionId      string        `json:"RegionId" xml:"RegionId"`
 	VpcId         string        `json:"VpcId" xml:"VpcId"`
-	VRouterName   string        `json:"VRouterName" xml:"VRouterName"`
-	Description   string        `json:"Description" xml:"Description"`
-	VRouterId     string        `json:"VRouterId" xml:"VRouterId"`
 	CreationTime  string        `json:"CreationTime" xml:"CreationTime"`
+	VRouterId     string        `json:"VRouterId" xml:"VRouterId"`
+	Description   string        `json:"Description" xml:"Description"`
+	VRouterName   string        `json:"VRouterName" xml:"VRouterName"`
+	RegionId      string        `json:"RegionId" xml:"RegionId"`
 	RouteTableIds RouteTableIds `json:"RouteTableIds" xml:"RouteTableIds"`
 }

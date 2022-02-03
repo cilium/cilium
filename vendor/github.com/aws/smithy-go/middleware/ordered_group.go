@@ -48,7 +48,7 @@ func (g *orderedIDs) Add(m ider, pos RelativePosition) error {
 	return nil
 }
 
-// Insert injects the item relative to an existing item id.  Return error if
+// Insert injects the item relative to an existing item id. Returns an error if
 // the original item does not exist, or the item being added already exists.
 func (g *orderedIDs) Insert(m ider, relativeTo string, pos RelativePosition) error {
 	if len(m.ID()) == 0 {
@@ -66,13 +66,13 @@ func (g *orderedIDs) Insert(m ider, relativeTo string, pos RelativePosition) err
 	return nil
 }
 
-// Get returns the ider identified by id. If ider is not present, returns false
+// Get returns the ider identified by id. If ider is not present, returns false.
 func (g *orderedIDs) Get(id string) (ider, bool) {
 	v, ok := g.items[id]
 	return v, ok
 }
 
-// Swap removes the item by id, replacing it with the new item. Returns error
+// Swap removes the item by id, replacing it with the new item. Returns an error
 // if the original item doesn't exist.
 func (g *orderedIDs) Swap(id string, m ider) (ider, error) {
 	if len(id) == 0 {
@@ -96,7 +96,7 @@ func (g *orderedIDs) Swap(id string, m ider) (ider, error) {
 	return removed, nil
 }
 
-// Remove removes the item by id. Returns error if the item
+// Remove removes the item by id. Returns an error if the item
 // doesn't exist.
 func (g *orderedIDs) Remove(id string) (ider, error) {
 	if len(id) == 0 {
@@ -147,7 +147,7 @@ func newRelativeOrder() *relativeOrder {
 	}
 }
 
-// Add inserts a item into the order relative to the position provided.
+// Add inserts an item into the order relative to the position provided.
 func (s *relativeOrder) Add(pos RelativePosition, ids ...string) error {
 	if len(ids) == 0 {
 		return nil
@@ -173,7 +173,7 @@ func (s *relativeOrder) Add(pos RelativePosition, ids ...string) error {
 	return nil
 }
 
-// Insert injects a item before or after the relative item. Returns
+// Insert injects an item before or after the relative item. Returns
 // an error if the relative item does not exist.
 func (s *relativeOrder) Insert(relativeTo string, pos RelativePosition, ids ...string) error {
 	if len(ids) == 0 {
@@ -195,7 +195,7 @@ func (s *relativeOrder) Insert(relativeTo string, pos RelativePosition, ids ...s
 }
 
 // Swap will replace the item id with the to item. Returns an
-// error if the original item id does not exist. Allows swapping out a
+// error if the original item id does not exist. Allows swapping out an
 // item for another item with the same id.
 func (s *relativeOrder) Swap(id, to string) error {
 	i, ok := s.has(id)

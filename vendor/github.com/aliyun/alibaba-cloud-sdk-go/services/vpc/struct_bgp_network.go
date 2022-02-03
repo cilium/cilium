@@ -17,8 +17,8 @@ package vpc
 
 // BgpNetwork is a nested struct in vpc response
 type BgpNetwork struct {
+	Status       string `json:"Status" xml:"Status"`
 	VpcId        string `json:"VpcId" xml:"VpcId"`
 	DstCidrBlock string `json:"DstCidrBlock" xml:"DstCidrBlock"`
 	RouterId     string `json:"RouterId" xml:"RouterId"`
-	Status       string `json:"Status" xml:"Status"`
 }

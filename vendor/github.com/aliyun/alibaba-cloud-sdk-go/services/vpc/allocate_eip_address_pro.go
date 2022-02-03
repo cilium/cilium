@@ -71,22 +71,23 @@ func (client *Client) AllocateEipAddressProWithCallback(request *AllocateEipAddr
 // AllocateEipAddressProRequest is the request struct for api AllocateEipAddressPro
 type AllocateEipAddressProRequest struct {
 	*requests.RpcRequest
-	IpAddress            string           `position:"Query" name:"IpAddress"`
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	ClientToken          string           `position:"Query" name:"ClientToken"`
-	ISP                  string           `position:"Query" name:"ISP"`
-	ResourceGroupId      string           `position:"Query" name:"ResourceGroupId"`
-	Netmode              string           `position:"Query" name:"Netmode"`
-	InstanceChargeType   string           `position:"Query" name:"InstanceChargeType"`
-	Period               requests.Integer `position:"Query" name:"Period"`
-	AutoPay              requests.Boolean `position:"Query" name:"AutoPay"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	Bandwidth            string           `position:"Query" name:"Bandwidth"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	InstanceId           string           `position:"Query" name:"InstanceId"`
-	InternetChargeType   string           `position:"Query" name:"InternetChargeType"`
-	PricingCycle         string           `position:"Query" name:"PricingCycle"`
+	IpAddress               string           `position:"Query" name:"IpAddress"`
+	ResourceOwnerId         requests.Integer `position:"Query" name:"ResourceOwnerId"`
+	ClientToken             string           `position:"Query" name:"ClientToken"`
+	ISP                     string           `position:"Query" name:"ISP"`
+	ResourceGroupId         string           `position:"Query" name:"ResourceGroupId"`
+	Netmode                 string           `position:"Query" name:"Netmode"`
+	InstanceChargeType      string           `position:"Query" name:"InstanceChargeType"`
+	Period                  requests.Integer `position:"Query" name:"Period"`
+	AutoPay                 requests.Boolean `position:"Query" name:"AutoPay"`
+	ResourceOwnerAccount    string           `position:"Query" name:"ResourceOwnerAccount"`
+	Bandwidth               string           `position:"Query" name:"Bandwidth"`
+	OwnerAccount            string           `position:"Query" name:"OwnerAccount"`
+	OwnerId                 requests.Integer `position:"Query" name:"OwnerId"`
+	InstanceId              string           `position:"Query" name:"InstanceId"`
+	InternetChargeType      string           `position:"Query" name:"InternetChargeType"`
+	SecurityProtectionTypes *[]string        `position:"Query" name:"SecurityProtectionTypes"  type:"Repeated"`
+	PricingCycle            string           `position:"Query" name:"PricingCycle"`
 }
 
 // AllocateEipAddressProResponse is the response struct for api AllocateEipAddressPro

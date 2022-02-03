@@ -84,8 +84,8 @@ type ListTrafficMirrorFiltersRequest struct {
 // ListTrafficMirrorFiltersResponse is the response struct for api ListTrafficMirrorFilters
 type ListTrafficMirrorFiltersResponse struct {
 	*responses.BaseResponse
-	RequestId            string                `json:"RequestId" xml:"RequestId"`
 	NextToken            string                `json:"NextToken" xml:"NextToken"`
+	RequestId            string                `json:"RequestId" xml:"RequestId"`
 	TotalCount           string                `json:"TotalCount" xml:"TotalCount"`
 	TrafficMirrorFilters []TrafficMirrorFilter `json:"TrafficMirrorFilters" xml:"TrafficMirrorFilters"`
 }

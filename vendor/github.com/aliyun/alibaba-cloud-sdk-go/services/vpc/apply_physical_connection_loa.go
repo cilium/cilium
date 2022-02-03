@@ -91,8 +91,8 @@ type ApplyPhysicalConnectionLOAPMInfo struct {
 	PMCertificateNo   string `name:"PMCertificateNo"`
 	PMName            string `name:"PMName"`
 	PMCertificateType string `name:"PMCertificateType"`
-	PMContactInfo     string `name:"PMContactInfo"`
 	PMGender          string `name:"PMGender"`
+	PMContactInfo     string `name:"PMContactInfo"`
 }
 
 // ApplyPhysicalConnectionLOAResponse is the response struct for api ApplyPhysicalConnectionLOA

@@ -26,13 +26,14 @@ var wrapperList = []ServerErrorWrapper{
 }
 
 type ServerError struct {
-	httpStatus int
-	requestId  string
-	hostId     string
-	errorCode  string
-	recommend  string
-	message    string
-	comment    string
+	RespHeaders map[string][]string
+	httpStatus  int
+	requestId   string
+	hostId      string
+	errorCode   string
+	recommend   string
+	message     string
+	comment     string
 }
 
 type ServerErrorWrapper interface {
@@ -40,8 +41,8 @@ type ServerErrorWrapper interface {
 }
 
 func (err *ServerError) Error() string {
-	return fmt.Sprintf("SDK.ServerError\nErrorCode: %s\nRecommend: %s\nRequestId: %s\nMessage: %s",
-		err.errorCode, err.comment+err.recommend, err.requestId, err.message)
+	return fmt.Sprintf("SDK.ServerError\nErrorCode: %s\nRecommend: %s\nRequestId: %s\nMessage: %s\nRespHeaders: %s",
+		err.errorCode, err.comment+err.recommend, err.requestId, err.message, err.RespHeaders)
 }
 
 func NewServerError(httpStatus int, responseContent, comment string) Error {

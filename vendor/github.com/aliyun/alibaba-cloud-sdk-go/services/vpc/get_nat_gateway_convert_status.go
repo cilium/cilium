@@ -81,11 +81,11 @@ type GetNatGatewayConvertStatusRequest struct {
 // GetNatGatewayConvertStatusResponse is the response struct for api GetNatGatewayConvertStatus
 type GetNatGatewayConvertStatusResponse struct {
 	*responses.BaseResponse
-	RequestId    string        `json:"RequestId" xml:"RequestId"`
-	NatGatewayId string        `json:"NatGatewayId" xml:"NatGatewayId"`
-	Bid          string        `json:"Bid" xml:"Bid"`
 	AliUid       int64         `json:"AliUid" xml:"AliUid"`
+	RequestId    string        `json:"RequestId" xml:"RequestId"`
 	DstNatType   string        `json:"DstNatType" xml:"DstNatType"`
+	Bid          string        `json:"Bid" xml:"Bid"`
+	NatGatewayId string        `json:"NatGatewayId" xml:"NatGatewayId"`
 	ConvertSteps []ConvertStep `json:"ConvertSteps" xml:"ConvertSteps"`
 }
 

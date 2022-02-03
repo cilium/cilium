@@ -83,8 +83,8 @@ type ModifyFlowLogAttributeRequest struct {
 // ModifyFlowLogAttributeResponse is the response struct for api ModifyFlowLogAttribute
 type ModifyFlowLogAttributeResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
 	Success   string `json:"Success" xml:"Success"`
+	RequestId string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateModifyFlowLogAttributeRequest creates a request to invoke ModifyFlowLogAttribute API

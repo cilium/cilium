@@ -70,12 +70,12 @@ func (s buildMiddlewareFunc) HandleBuild(ctx context.Context, in BuildInput, nex
 var _ BuildMiddleware = (buildMiddlewareFunc{})
 
 // BuildStep provides the ordered grouping of BuildMiddleware to be invoked on
-// an handler.
+// a handler.
 type BuildStep struct {
 	ids *orderedIDs
 }
 
-// NewBuildStep returns an BuildStep ready to have middleware for
+// NewBuildStep returns a BuildStep ready to have middleware for
 // initialization added to it.
 func NewBuildStep() *BuildStep {
 	return &BuildStep{
@@ -131,14 +131,14 @@ func (s *BuildStep) Add(m BuildMiddleware, pos RelativePosition) error {
 }
 
 // Insert injects the middleware relative to an existing middleware id.
-// Return error if the original middleware does not exist, or the middleware
+// Returns an error if the original middleware does not exist, or the middleware
 // being added already exists.
 func (s *BuildStep) Insert(m BuildMiddleware, relativeTo string, pos RelativePosition) error {
 	return s.ids.Insert(m, relativeTo, pos)
 }
 
 // Swap removes the middleware by id, replacing it with the new middleware.
-// Returns the middleware removed, or error if the middleware to be removed
+// Returns the middleware removed, or an error if the middleware to be removed
 // doesn't exist.
 func (s *BuildStep) Swap(id string, m BuildMiddleware) (BuildMiddleware, error) {
 	removed, err := s.ids.Swap(id, m)

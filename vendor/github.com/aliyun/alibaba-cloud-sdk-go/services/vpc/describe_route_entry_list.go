@@ -90,8 +90,8 @@ type DescribeRouteEntryListRequest struct {
 // DescribeRouteEntryListResponse is the response struct for api DescribeRouteEntryList
 type DescribeRouteEntryListResponse struct {
 	*responses.BaseResponse
-	RequestId   string                              `json:"RequestId" xml:"RequestId"`
 	NextToken   string                              `json:"NextToken" xml:"NextToken"`
+	RequestId   string                              `json:"RequestId" xml:"RequestId"`
 	RouteEntrys RouteEntrysInDescribeRouteEntryList `json:"RouteEntrys" xml:"RouteEntrys"`
 }
 

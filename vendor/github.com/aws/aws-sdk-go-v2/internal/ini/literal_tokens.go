@@ -216,22 +216,8 @@ func NewStringValue(str string) (Value, error) {
 
 // NewIntValue returns a Value type generated using an int64 input.
 func NewIntValue(i int64) (Value, error) {
-	return newValue(IntegerType, 10, []rune{rune(i)})
-}
-
-// Append will append values and change the type to a string
-// type.
-func (v *Value) Append(tok Token) {
-	r := tok.Raw()
-	if v.Type != QuotedStringType {
-		v.Type = StringType
-		r = tok.raw[1 : len(tok.raw)-1]
-	}
-	if tok.Type() != TokenLit {
-		v.raw = append(v.raw, tok.Raw()...)
-	} else {
-		v.raw = append(v.raw, r...)
-	}
+	v := strconv.FormatInt(i, 10)
+	return newValue(IntegerType, 10, []rune(v))
 }
 
 func (v Value) String() string {

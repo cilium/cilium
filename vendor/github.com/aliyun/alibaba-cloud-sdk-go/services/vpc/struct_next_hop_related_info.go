@@ -17,7 +17,7 @@ package vpc
 
 // NextHopRelatedInfo is a nested struct in vpc response
 type NextHopRelatedInfo struct {
+	InstanceId   string `json:"InstanceId" xml:"InstanceId"`
 	InstanceType string `json:"InstanceType" xml:"InstanceType"`
 	RegionId     string `json:"RegionId" xml:"RegionId"`
-	InstanceId   string `json:"InstanceId" xml:"InstanceId"`
 }

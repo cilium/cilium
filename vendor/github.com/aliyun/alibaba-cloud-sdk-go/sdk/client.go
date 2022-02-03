@@ -671,6 +671,7 @@ func (client *Client) DoActionWithSigner(request requests.AcsRequest, response r
 	// wrap server errors
 	if serverErr, ok := err.(*errors.ServerError); ok {
 		var wrapInfo = map[string]string{}
+		serverErr.RespHeaders = response.GetHttpHeaders()
 		wrapInfo["StringToSign"] = request.GetStringToSign()
 		err = errors.WrapServerError(serverErr, wrapInfo)
 	}

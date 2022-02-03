@@ -17,7 +17,7 @@ package vpc
 
 // AclEntry is a nested struct in vpc response
 type AclEntry struct {
+	AclEntryComment string `json:"AclEntryComment" xml:"AclEntryComment"`
 	AclEntryId      string `json:"AclEntryId" xml:"AclEntryId"`
 	AclEntryIp      string `json:"AclEntryIp" xml:"AclEntryIp"`
-	AclEntryComment string `json:"AclEntryComment" xml:"AclEntryComment"`
 }

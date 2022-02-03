@@ -90,10 +90,10 @@ type DescribeIPv6TranslatorsRequest struct {
 // DescribeIPv6TranslatorsResponse is the response struct for api DescribeIPv6Translators
 type DescribeIPv6TranslatorsResponse struct {
 	*responses.BaseResponse
-	RequestId       string          `json:"RequestId" xml:"RequestId"`
-	TotalCount      int             `json:"TotalCount" xml:"TotalCount"`
-	PageNumber      int             `json:"PageNumber" xml:"PageNumber"`
 	PageSize        int             `json:"PageSize" xml:"PageSize"`
+	RequestId       string          `json:"RequestId" xml:"RequestId"`
+	PageNumber      int             `json:"PageNumber" xml:"PageNumber"`
+	TotalCount      int             `json:"TotalCount" xml:"TotalCount"`
 	Ipv6Translators Ipv6Translators `json:"Ipv6Translators" xml:"Ipv6Translators"`
 }
 

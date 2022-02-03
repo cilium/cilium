@@ -83,12 +83,12 @@ type DescribeIPv6TranslatorAclListAttributesRequest struct {
 // DescribeIPv6TranslatorAclListAttributesResponse is the response struct for api DescribeIPv6TranslatorAclListAttributes
 type DescribeIPv6TranslatorAclListAttributesResponse struct {
 	*responses.BaseResponse
-	RequestId  string     `json:"RequestId" xml:"RequestId"`
 	AclId      string     `json:"AclId" xml:"AclId"`
-	AclName    string     `json:"AclName" xml:"AclName"`
-	TotalCount int        `json:"TotalCount" xml:"TotalCount"`
+	RequestId  string     `json:"RequestId" xml:"RequestId"`
 	PageNumber int        `json:"PageNumber" xml:"PageNumber"`
 	PageSize   int        `json:"PageSize" xml:"PageSize"`
+	TotalCount int        `json:"TotalCount" xml:"TotalCount"`
+	AclName    string     `json:"AclName" xml:"AclName"`
 	AclEntries AclEntries `json:"AclEntries" xml:"AclEntries"`
 }
 

@@ -26,11 +26,11 @@ type FinalizeHandler interface {
 // serialize step. Delegates to the next FinalizeHandler for further
 // processing.
 type FinalizeMiddleware interface {
-	// Unique ID for the middleware in the FinalizeStep. The step does not
+	// ID returns a unique ID for the middleware in the FinalizeStep. The step does not
 	// allow duplicate IDs.
 	ID() string
 
-	// Invokes the middleware behavior which must delegate to the next handler
+	// HandleFinalize invokes the middleware behavior which must delegate to the next handler
 	// for the middleware chain to continue. The method must return a result or
 	// error to its caller.
 	HandleFinalize(ctx context.Context, in FinalizeInput, next FinalizeHandler) (
@@ -70,12 +70,12 @@ func (s finalizeMiddlewareFunc) HandleFinalize(ctx context.Context, in FinalizeI
 var _ FinalizeMiddleware = (finalizeMiddlewareFunc{})
 
 // FinalizeStep provides the ordered grouping of FinalizeMiddleware to be
-// invoked on an handler.
+// invoked on a handler.
 type FinalizeStep struct {
 	ids *orderedIDs
 }
 
-// NewFinalizeStep returns an FinalizeStep ready to have middleware for
+// NewFinalizeStep returns a FinalizeStep ready to have middleware for
 // initialization added to it.
 func NewFinalizeStep() *FinalizeStep {
 	return &FinalizeStep{
@@ -130,8 +130,8 @@ func (s *FinalizeStep) Add(m FinalizeMiddleware, pos RelativePosition) error {
 	return s.ids.Add(m, pos)
 }
 
-// Insert injects the middleware relative to an existing middleware id.
-// Return error if the original middleware does not exist, or the middleware
+// Insert injects the middleware relative to an existing middleware ID.
+// Returns error if the original middleware does not exist, or the middleware
 // being added already exists.
 func (s *FinalizeStep) Insert(m FinalizeMiddleware, relativeTo string, pos RelativePosition) error {
 	return s.ids.Insert(m, relativeTo, pos)
@@ -176,7 +176,7 @@ type finalizeWrapHandler struct {
 
 var _ FinalizeHandler = (*finalizeWrapHandler)(nil)
 
-// Implements FinalizeHandler, converts types and delegates to underlying
+// HandleFinalize implements FinalizeHandler, converts types and delegates to underlying
 // generic handler.
 func (w finalizeWrapHandler) HandleFinalize(ctx context.Context, in FinalizeInput) (
 	out FinalizeOutput, metadata Metadata, err error,

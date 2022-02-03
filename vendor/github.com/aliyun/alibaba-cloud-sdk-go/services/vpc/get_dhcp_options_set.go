@@ -81,12 +81,12 @@ type GetDhcpOptionsSetRequest struct {
 // GetDhcpOptionsSetResponse is the response struct for api GetDhcpOptionsSet
 type GetDhcpOptionsSetResponse struct {
 	*responses.BaseResponse
-	RequestId                 string         `json:"RequestId" xml:"RequestId"`
-	DhcpOptionsSetName        string         `json:"DhcpOptionsSetName" xml:"DhcpOptionsSetName"`
 	DhcpOptionsSetDescription string         `json:"DhcpOptionsSetDescription" xml:"DhcpOptionsSetDescription"`
-	DhcpOptionsSetId          string         `json:"DhcpOptionsSetId" xml:"DhcpOptionsSetId"`
-	OwnerId                   int64          `json:"OwnerId" xml:"OwnerId"`
 	Status                    string         `json:"Status" xml:"Status"`
+	RequestId                 string         `json:"RequestId" xml:"RequestId"`
+	DhcpOptionsSetId          string         `json:"DhcpOptionsSetId" xml:"DhcpOptionsSetId"`
+	DhcpOptionsSetName        string         `json:"DhcpOptionsSetName" xml:"DhcpOptionsSetName"`
+	OwnerId                   int64          `json:"OwnerId" xml:"OwnerId"`
 	DhcpOptions               DhcpOptions    `json:"DhcpOptions" xml:"DhcpOptions"`
 	AssociateVpcs             []AssociateVpc `json:"AssociateVpcs" xml:"AssociateVpcs"`
 }

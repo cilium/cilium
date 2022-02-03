@@ -24,7 +24,7 @@ func NewRingBuffer(slice []byte) *RingBuffer {
 	return &ringBuf
 }
 
-// Write method inserts the elements in a byte slice, and returns the number of bytes written along with an error.
+// Write method inserts the elements in a byte slice, and returns the number of bytes written along with any error.
 func (r *RingBuffer) Write(p []byte) (int, error) {
 	for _, b := range p {
 		// check if end points to invalid index, we need to circle back
@@ -49,7 +49,7 @@ func (r *RingBuffer) Write(p []byte) (int, error) {
 }
 
 // Read copies the data on the ring buffer into the byte slice provided to the method.
-// Returns the read count along with Error encountered while reading
+// Returns the read count along with any error encountered while reading.
 func (r *RingBuffer) Read(p []byte) (int, error) {
 	// readCount keeps track of the number of bytes read
 	var readCount int

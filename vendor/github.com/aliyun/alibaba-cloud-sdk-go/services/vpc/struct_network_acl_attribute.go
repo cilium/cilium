@@ -21,11 +21,11 @@ type NetworkAclAttribute struct {
 	RegionId          string                              `json:"RegionId" xml:"RegionId"`
 	NetworkAclId      string                              `json:"NetworkAclId" xml:"NetworkAclId"`
 	CreationTime      string                              `json:"CreationTime" xml:"CreationTime"`
-	VpcId             string                              `json:"VpcId" xml:"VpcId"`
 	Status            string                              `json:"Status" xml:"Status"`
+	VpcId             string                              `json:"VpcId" xml:"VpcId"`
 	OwnerId           int64                               `json:"OwnerId" xml:"OwnerId"`
 	Description       string                              `json:"Description" xml:"Description"`
 	IngressAclEntries IngressAclEntriesInCreateNetworkAcl `json:"IngressAclEntries" xml:"IngressAclEntries"`
-	Resources         ResourcesInCreateNetworkAcl         `json:"Resources" xml:"Resources"`
 	EgressAclEntries  EgressAclEntriesInCreateNetworkAcl  `json:"EgressAclEntries" xml:"EgressAclEntries"`
+	Resources         ResourcesInCreateNetworkAcl         `json:"Resources" xml:"Resources"`
 }

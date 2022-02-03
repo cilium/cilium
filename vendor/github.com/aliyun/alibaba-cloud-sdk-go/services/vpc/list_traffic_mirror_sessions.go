@@ -90,8 +90,8 @@ type ListTrafficMirrorSessionsRequest struct {
 // ListTrafficMirrorSessionsResponse is the response struct for api ListTrafficMirrorSessions
 type ListTrafficMirrorSessionsResponse struct {
 	*responses.BaseResponse
-	RequestId             string                 `json:"RequestId" xml:"RequestId"`
 	NextToken             string                 `json:"NextToken" xml:"NextToken"`
+	RequestId             string                 `json:"RequestId" xml:"RequestId"`
 	TotalCount            string                 `json:"TotalCount" xml:"TotalCount"`
 	TrafficMirrorSessions []TrafficMirrorSession `json:"TrafficMirrorSessions" xml:"TrafficMirrorSessions"`
 }

@@ -278,3 +278,20 @@ func TimeSlice(vs []time.Time) []*time.Time {
 func TimeMap(vs map[string]time.Time) map[string]*time.Time {
 	return ptr.TimeMap(vs)
 }
+
+// Duration returns a pointer value for the time.Duration value passed in.
+func Duration(v time.Duration) *time.Duration {
+	return ptr.Duration(v)
+}
+
+// DurationSlice returns a slice of time.Duration pointers from the values
+// passed in.
+func DurationSlice(vs []time.Duration) []*time.Duration {
+	return ptr.DurationSlice(vs)
+}
+
+// DurationMap returns a map of time.Duration pointers from the values
+// passed in.
+func DurationMap(vs map[string]time.Duration) map[string]*time.Duration {
+	return ptr.DurationMap(vs)
+}

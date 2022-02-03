@@ -14,7 +14,7 @@ type ClientDo interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
-// ClientDoFunc provides a helper to wrap an function as an HTTP client for
+// ClientDoFunc provides a helper to wrap a function as an HTTP client for
 // round tripping requests.
 type ClientDoFunc func(*http.Request) (*http.Response, error)
 
@@ -37,7 +37,7 @@ func NewClientHandler(client ClientDo) ClientHandler {
 }
 
 // Handle implements the middleware Handler interface, that will invoke the
-// underlying HTTP client. Requires the input to be an Smithy *Request. Returns
+// underlying HTTP client. Requires the input to be a Smithy *Request. Returns
 // a smithy *Response, or error if the request failed.
 func (c ClientHandler) Handle(ctx context.Context, input interface{}) (
 	out interface{}, metadata middleware.Metadata, err error,
@@ -91,7 +91,7 @@ type RequestSendError struct {
 	Err error
 }
 
-// ConnectionError return that the error is related to not being able to send
+// ConnectionError returns that the error is related to not being able to send
 // the request, or receive a response from the service.
 func (e *RequestSendError) ConnectionError() bool {
 	return true
@@ -106,7 +106,7 @@ func (e *RequestSendError) Error() string {
 	return fmt.Sprintf("request send failed, %v", e.Err)
 }
 
-// NopClient provides a client that ignores the request, and returns a empty
+// NopClient provides a client that ignores the request, and returns an empty
 // successful HTTP response value.
 type NopClient struct{}
 

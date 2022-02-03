@@ -75,8 +75,8 @@ type DescribeVSwitchesRequest struct {
 	PageNumber           requests.Integer        `position:"Query" name:"PageNumber"`
 	ResourceGroupId      string                  `position:"Query" name:"ResourceGroupId"`
 	PageSize             requests.Integer        `position:"Query" name:"PageSize"`
-	Tag                  *[]DescribeVSwitchesTag `position:"Query" name:"Tag"  type:"Repeated"`
 	IsDefault            requests.Boolean        `position:"Query" name:"IsDefault"`
+	Tag                  *[]DescribeVSwitchesTag `position:"Query" name:"Tag"  type:"Repeated"`
 	RouteTableId         string                  `position:"Query" name:"RouteTableId"`
 	DryRun               requests.Boolean        `position:"Query" name:"DryRun"`
 	ResourceOwnerAccount string                  `position:"Query" name:"ResourceOwnerAccount"`
@@ -98,10 +98,10 @@ type DescribeVSwitchesTag struct {
 // DescribeVSwitchesResponse is the response struct for api DescribeVSwitches
 type DescribeVSwitchesResponse struct {
 	*responses.BaseResponse
-	RequestId  string    `json:"RequestId" xml:"RequestId"`
-	TotalCount int       `json:"TotalCount" xml:"TotalCount"`
-	PageNumber int       `json:"PageNumber" xml:"PageNumber"`
 	PageSize   int       `json:"PageSize" xml:"PageSize"`
+	RequestId  string    `json:"RequestId" xml:"RequestId"`
+	PageNumber int       `json:"PageNumber" xml:"PageNumber"`
+	TotalCount int       `json:"TotalCount" xml:"TotalCount"`
 	VSwitches  VSwitches `json:"VSwitches" xml:"VSwitches"`
 }
 

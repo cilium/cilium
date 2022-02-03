@@ -17,38 +17,38 @@ package vpc
 
 // VirtualBorderRouterType is a nested struct in vpc response
 type VirtualBorderRouterType struct {
-	VbrId                            string                                       `json:"VbrId" xml:"VbrId"`
 	CreationTime                     string                                       `json:"CreationTime" xml:"CreationTime"`
-	ActivationTime                   string                                       `json:"ActivationTime" xml:"ActivationTime"`
-	TerminationTime                  string                                       `json:"TerminationTime" xml:"TerminationTime"`
-	RecoveryTime                     string                                       `json:"RecoveryTime" xml:"RecoveryTime"`
 	Status                           string                                       `json:"Status" xml:"Status"`
-	VlanId                           int                                          `json:"VlanId" xml:"VlanId"`
-	CircuitCode                      string                                       `json:"CircuitCode" xml:"CircuitCode"`
-	RouteTableId                     string                                       `json:"RouteTableId" xml:"RouteTableId"`
-	VlanInterfaceId                  string                                       `json:"VlanInterfaceId" xml:"VlanInterfaceId"`
-	LocalGatewayIp                   string                                       `json:"LocalGatewayIp" xml:"LocalGatewayIp"`
-	PeerGatewayIp                    string                                       `json:"PeerGatewayIp" xml:"PeerGatewayIp"`
-	PeeringSubnetMask                string                                       `json:"PeeringSubnetMask" xml:"PeeringSubnetMask"`
-	PhysicalConnectionId             string                                       `json:"PhysicalConnectionId" xml:"PhysicalConnectionId"`
-	PhysicalConnectionStatus         string                                       `json:"PhysicalConnectionStatus" xml:"PhysicalConnectionStatus"`
-	PhysicalConnectionBusinessStatus string                                       `json:"PhysicalConnectionBusinessStatus" xml:"PhysicalConnectionBusinessStatus"`
-	PhysicalConnectionOwnerUid       string                                       `json:"PhysicalConnectionOwnerUid" xml:"PhysicalConnectionOwnerUid"`
-	AccessPointId                    string                                       `json:"AccessPointId" xml:"AccessPointId"`
-	Name                             string                                       `json:"Name" xml:"Name"`
-	Description                      string                                       `json:"Description" xml:"Description"`
-	PConnVbrExpireTime               string                                       `json:"PConnVbrExpireTime" xml:"PConnVbrExpireTime"`
-	EccId                            string                                       `json:"EccId" xml:"EccId"`
 	Type                             string                                       `json:"Type" xml:"Type"`
 	MinTxInterval                    int64                                        `json:"MinTxInterval" xml:"MinTxInterval"`
-	MinRxInterval                    int64                                        `json:"MinRxInterval" xml:"MinRxInterval"`
-	DetectMultiplier                 int64                                        `json:"DetectMultiplier" xml:"DetectMultiplier"`
-	LocalIpv6GatewayIp               string                                       `json:"LocalIpv6GatewayIp" xml:"LocalIpv6GatewayIp"`
 	PeerIpv6GatewayIp                string                                       `json:"PeerIpv6GatewayIp" xml:"PeerIpv6GatewayIp"`
-	PeeringIpv6SubnetMask            string                                       `json:"PeeringIpv6SubnetMask" xml:"PeeringIpv6SubnetMask"`
+	PConnVbrExpireTime               string                                       `json:"PConnVbrExpireTime" xml:"PConnVbrExpireTime"`
+	PhysicalConnectionOwnerUid       string                                       `json:"PhysicalConnectionOwnerUid" xml:"PhysicalConnectionOwnerUid"`
+	ActivationTime                   string                                       `json:"ActivationTime" xml:"ActivationTime"`
+	PhysicalConnectionBusinessStatus string                                       `json:"PhysicalConnectionBusinessStatus" xml:"PhysicalConnectionBusinessStatus"`
+	Description                      string                                       `json:"Description" xml:"Description"`
+	TerminationTime                  string                                       `json:"TerminationTime" xml:"TerminationTime"`
+	MinRxInterval                    int64                                        `json:"MinRxInterval" xml:"MinRxInterval"`
+	PeerGatewayIp                    string                                       `json:"PeerGatewayIp" xml:"PeerGatewayIp"`
+	Name                             string                                       `json:"Name" xml:"Name"`
+	VbrId                            string                                       `json:"VbrId" xml:"VbrId"`
+	VlanId                           int                                          `json:"VlanId" xml:"VlanId"`
+	VlanInterfaceId                  string                                       `json:"VlanInterfaceId" xml:"VlanInterfaceId"`
+	CircuitCode                      string                                       `json:"CircuitCode" xml:"CircuitCode"`
+	LocalIpv6GatewayIp               string                                       `json:"LocalIpv6GatewayIp" xml:"LocalIpv6GatewayIp"`
+	LocalGatewayIp                   string                                       `json:"LocalGatewayIp" xml:"LocalGatewayIp"`
+	PeeringSubnetMask                string                                       `json:"PeeringSubnetMask" xml:"PeeringSubnetMask"`
 	EnableIpv6                       bool                                         `json:"EnableIpv6" xml:"EnableIpv6"`
+	RouteTableId                     string                                       `json:"RouteTableId" xml:"RouteTableId"`
+	DetectMultiplier                 int64                                        `json:"DetectMultiplier" xml:"DetectMultiplier"`
+	EccId                            string                                       `json:"EccId" xml:"EccId"`
 	CloudBoxInstanceId               string                                       `json:"CloudBoxInstanceId" xml:"CloudBoxInstanceId"`
+	RecoveryTime                     string                                       `json:"RecoveryTime" xml:"RecoveryTime"`
+	PhysicalConnectionStatus         string                                       `json:"PhysicalConnectionStatus" xml:"PhysicalConnectionStatus"`
+	PeeringIpv6SubnetMask            string                                       `json:"PeeringIpv6SubnetMask" xml:"PeeringIpv6SubnetMask"`
+	AccessPointId                    string                                       `json:"AccessPointId" xml:"AccessPointId"`
 	PConnVbrChargeType               string                                       `json:"PConnVbrChargeType" xml:"PConnVbrChargeType"`
+	PhysicalConnectionId             string                                       `json:"PhysicalConnectionId" xml:"PhysicalConnectionId"`
 	AssociatedPhysicalConnections    AssociatedPhysicalConnections                `json:"AssociatedPhysicalConnections" xml:"AssociatedPhysicalConnections"`
 	AssociatedCens                   AssociatedCensInDescribeVirtualBorderRouters `json:"AssociatedCens" xml:"AssociatedCens"`
 }

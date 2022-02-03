@@ -83,10 +83,10 @@ type ListVpnCertificateAssociationsRequest struct {
 // ListVpnCertificateAssociationsResponse is the response struct for api ListVpnCertificateAssociations
 type ListVpnCertificateAssociationsResponse struct {
 	*responses.BaseResponse
-	RequestId               string                   `json:"RequestId" xml:"RequestId"`
 	NextToken               string                   `json:"NextToken" xml:"NextToken"`
-	MaxResults              int                      `json:"MaxResults" xml:"MaxResults"`
+	RequestId               string                   `json:"RequestId" xml:"RequestId"`
 	TotalCount              int                      `json:"TotalCount" xml:"TotalCount"`
+	MaxResults              int                      `json:"MaxResults" xml:"MaxResults"`
 	VpnCertificateRelations []VpnCertificateRelation `json:"VpnCertificateRelations" xml:"VpnCertificateRelations"`
 }
 

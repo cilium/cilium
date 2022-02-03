@@ -92,8 +92,8 @@ type CreateTrafficMirrorSessionRequest struct {
 // CreateTrafficMirrorSessionResponse is the response struct for api CreateTrafficMirrorSession
 type CreateTrafficMirrorSessionResponse struct {
 	*responses.BaseResponse
-	RequestId              string `json:"RequestId" xml:"RequestId"`
 	TrafficMirrorSessionId string `json:"TrafficMirrorSessionId" xml:"TrafficMirrorSessionId"`
+	RequestId              string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateCreateTrafficMirrorSessionRequest creates a request to invoke CreateTrafficMirrorSession API

@@ -75,6 +75,7 @@ type CreateRouteTableRequest struct {
 	ClientToken          string           `position:"Query" name:"ClientToken"`
 	Description          string           `position:"Query" name:"Description"`
 	RouteTableName       string           `position:"Query" name:"RouteTableName"`
+	AssociateType        string           `position:"Query" name:"AssociateType"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
@@ -84,8 +85,9 @@ type CreateRouteTableRequest struct {
 // CreateRouteTableResponse is the response struct for api CreateRouteTable
 type CreateRouteTableResponse struct {
 	*responses.BaseResponse
-	RequestId    string `json:"RequestId" xml:"RequestId"`
-	RouteTableId string `json:"RouteTableId" xml:"RouteTableId"`
+	RequestId     string `json:"RequestId" xml:"RequestId"`
+	RouteTableId  string `json:"RouteTableId" xml:"RouteTableId"`
+	AssociateType string `json:"AssociateType" xml:"AssociateType"`
 }
 
 // CreateCreateRouteTableRequest creates a request to invoke CreateRouteTable API

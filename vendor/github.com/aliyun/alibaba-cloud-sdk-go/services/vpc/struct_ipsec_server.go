@@ -17,21 +17,21 @@ package vpc
 
 // IpsecServer is a nested struct in vpc response
 type IpsecServer struct {
-	RegionId               string      `json:"RegionId" xml:"RegionId"`
-	IpsecServerId          string      `json:"IpsecServerId" xml:"IpsecServerId"`
+	CreationTime           string      `json:"CreationTime" xml:"CreationTime"`
+	OnlineClientCount      int         `json:"OnlineClientCount" xml:"OnlineClientCount"`
+	InternetIp             string      `json:"InternetIp" xml:"InternetIp"`
 	IpsecServerName        string      `json:"IpsecServerName" xml:"IpsecServerName"`
+	IDaaSInstanceId        string      `json:"IDaaSInstanceId" xml:"IDaaSInstanceId"`
+	EffectImmediately      bool        `json:"EffectImmediately" xml:"EffectImmediately"`
 	VpnGatewayId           string      `json:"VpnGatewayId" xml:"VpnGatewayId"`
 	LocalSubnet            string      `json:"LocalSubnet" xml:"LocalSubnet"`
-	ClientIpPool           string      `json:"ClientIpPool" xml:"ClientIpPool"`
-	EffectImmediately      bool        `json:"EffectImmediately" xml:"EffectImmediately"`
-	PskEnabled             bool        `json:"PskEnabled" xml:"PskEnabled"`
-	MultiFactorAuthEnabled bool        `json:"MultiFactorAuthEnabled" xml:"MultiFactorAuthEnabled"`
 	Psk                    string      `json:"Psk" xml:"Psk"`
-	IDaaSInstanceId        string      `json:"IDaaSInstanceId" xml:"IDaaSInstanceId"`
-	OnlineClientCount      int         `json:"OnlineClientCount" xml:"OnlineClientCount"`
+	RegionId               string      `json:"RegionId" xml:"RegionId"`
+	PskEnabled             bool        `json:"PskEnabled" xml:"PskEnabled"`
+	IpsecServerId          string      `json:"IpsecServerId" xml:"IpsecServerId"`
+	MultiFactorAuthEnabled bool        `json:"MultiFactorAuthEnabled" xml:"MultiFactorAuthEnabled"`
 	MaxConnections         int         `json:"MaxConnections" xml:"MaxConnections"`
-	CreationTime           string      `json:"CreationTime" xml:"CreationTime"`
-	InternetIp             string      `json:"InternetIp" xml:"InternetIp"`
+	ClientIpPool           string      `json:"ClientIpPool" xml:"ClientIpPool"`
 	IkeConfig              IkeConfig   `json:"IkeConfig" xml:"IkeConfig"`
 	IpsecConfig            IpsecConfig `json:"IpsecConfig" xml:"IpsecConfig"`
 }

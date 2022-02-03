@@ -81,8 +81,8 @@ type ActiveFlowLogRequest struct {
 // ActiveFlowLogResponse is the response struct for api ActiveFlowLog
 type ActiveFlowLogResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
 	Success   string `json:"Success" xml:"Success"`
+	RequestId string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateActiveFlowLogRequest creates a request to invoke ActiveFlowLog API

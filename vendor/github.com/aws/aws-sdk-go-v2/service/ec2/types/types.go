@@ -913,6 +913,13 @@ type CapacityReservation struct {
 	// The ID of the Amazon Web Services account that owns the Capacity Reservation.
 	OwnerId *string
 
+	// The Amazon Resource Name (ARN) of the cluster placement group in which the
+	// Capacity Reservation was created. For more information, see  Capacity
+	// Reservations for cluster placement groups
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/cr-cpg.html) in the Amazon
+	// EC2 User Guide.
+	PlacementGroupArn *string
+
 	// The date and time at which the Capacity Reservation was started.
 	StartDate *time.Time
 
@@ -1398,6 +1405,22 @@ type ClientData struct {
 	noSmithyDocumentSerde
 }
 
+type ClientLoginBannerOptions struct {
+	BannerText *string
+
+	Enabled *bool
+
+	noSmithyDocumentSerde
+}
+
+type ClientLoginBannerResponseOptions struct {
+	BannerText *string
+
+	Enabled *bool
+
+	noSmithyDocumentSerde
+}
+
 // Describes the authentication methods used by a Client VPN endpoint. For more
 // information, see Authentication
 // (https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/client-authentication.html)
@@ -1539,6 +1562,8 @@ type ClientVpnEndpoint struct {
 	// The options for managing connection authorization for new client connections.
 	ClientConnectOptions *ClientConnectResponseOptions
 
+	ClientLoginBannerOptions *ClientLoginBannerResponseOptions
+
 	// The ID of the Client VPN endpoint.
 	ClientVpnEndpointId *string
 
@@ -1569,6 +1594,8 @@ type ClientVpnEndpoint struct {
 
 	// The ARN of the server certificate.
 	ServerCertificateArn *string
+
+	SessionTimeoutHours *int32
 
 	// Indicates whether split-tunnel is enabled in the Client VPN endpoint. For
 	// information about split-tunnel VPN endpoints, see Split-Tunnel Client VPN
@@ -2109,6 +2136,46 @@ type DeregisterInstanceTagAttributeRequest struct {
 
 	// Information about the tag keys to deregister.
 	InstanceTagKeys []string
+
+	noSmithyDocumentSerde
+}
+
+// Describe details about a fast-launch enabled Windows image that meets the
+// requested criteria. Criteria are defined by the DescribeFastLaunchImages action
+// filters.
+type DescribeFastLaunchImagesSuccessItem struct {
+
+	// The image ID that identifies the fast-launch enabled Windows image.
+	ImageId *string
+
+	// The launch template that the fast-launch enabled Windows AMI uses when it
+	// launches Windows instances from pre-provisioned snapshots.
+	LaunchTemplate *FastLaunchLaunchTemplateSpecificationResponse
+
+	// The maximum number of parallel instances that are launched for creating
+	// resources.
+	MaxParallelLaunches *int32
+
+	// The owner ID for the fast-launch enabled Windows AMI.
+	OwnerId *string
+
+	// The resource type that is used for pre-provisioning the Windows AMI. Supported
+	// values include: snapshot.
+	ResourceType FastLaunchResourceType
+
+	// A group of parameters that are used for pre-provisioning the associated Windows
+	// AMI using snapshots.
+	SnapshotConfiguration *FastLaunchSnapshotConfigurationResponse
+
+	// The current state of faster launching for the specified Windows AMI.
+	State FastLaunchStateCode
+
+	// The reason that faster launching for the Windows AMI changed to the current
+	// state.
+	StateTransitionReason *string
+
+	// The time that faster launching for the Windows AMI changed to the current state.
+	StateTransitionTime *time.Time
 
 	noSmithyDocumentSerde
 }
@@ -3317,6 +3384,66 @@ type FailedQueuedPurchaseDeletion struct {
 	noSmithyDocumentSerde
 }
 
+// Request to create a launch template for a fast-launch enabled Windows AMI. Note
+// - You can specify either the LaunchTemplateName or the LaunchTemplateId, but not
+// both.
+type FastLaunchLaunchTemplateSpecificationRequest struct {
+
+	// The version of the launch template to use for faster launching for a Windows
+	// AMI.
+	//
+	// This member is required.
+	Version *string
+
+	// The ID of the launch template to use for faster launching for a Windows AMI.
+	LaunchTemplateId *string
+
+	// The name of the launch template to use for faster launching for a Windows AMI.
+	LaunchTemplateName *string
+
+	noSmithyDocumentSerde
+}
+
+// Identifies the launch template to use for faster launching of the Windows AMI.
+type FastLaunchLaunchTemplateSpecificationResponse struct {
+
+	// The ID of the launch template for faster launching of the associated Windows
+	// AMI.
+	LaunchTemplateId *string
+
+	// The name of the launch template for faster launching of the associated Windows
+	// AMI.
+	LaunchTemplateName *string
+
+	// The version of the launch template for faster launching of the associated
+	// Windows AMI.
+	Version *string
+
+	noSmithyDocumentSerde
+}
+
+// Configuration settings for creating and managing pre-provisioned snapshots for a
+// fast-launch enabled Windows AMI.
+type FastLaunchSnapshotConfigurationRequest struct {
+
+	// The number of pre-provisioned snapshots to keep on hand for a fast-launch
+	// enabled Windows AMI.
+	TargetResourceCount *int32
+
+	noSmithyDocumentSerde
+}
+
+// Configuration settings for creating and managing pre-provisioned snapshots for a
+// fast-launch enabled Windows AMI.
+type FastLaunchSnapshotConfigurationResponse struct {
+
+	// The number of pre-provisioned snapshots requested to keep on hand for a
+	// fast-launch enabled Windows AMI.
+	TargetResourceCount *int32
+
+	noSmithyDocumentSerde
+}
+
 // Describes the IAM SAML identity providers used for federated authentication.
 type FederatedAuthentication struct {
 
@@ -3345,13 +3472,17 @@ type FederatedAuthenticationRequest struct {
 
 // A filter name and value pair that is used to return a more specific list of
 // results from a describe operation. Filters can be used to match a set of
-// resources by specific criteria, such as tags, attributes, or IDs.
+// resources by specific criteria, such as tags, attributes, or IDs. If you specify
+// multiple filters, the filters are joined with an AND, and the request returns
+// only results that match all of the specified filters.
 type Filter struct {
 
 	// The name of the filter. Filter names are case-sensitive.
 	Name *string
 
-	// The filter values. Filter values are case-sensitive.
+	// The filter values. Filter values are case-sensitive. If you specify multiple
+	// values for a filter, the values are joined with an OR, and the request returns
+	// all results that match any of the specified values.
 	Values []string
 
 	noSmithyDocumentSerde
@@ -3691,9 +3822,10 @@ type FleetSpotCapacityRebalance struct {
 	ReplacementStrategy FleetReplacementStrategy
 
 	// The amount of time (in seconds) that Amazon EC2 waits before terminating the old
-	// Spot Instance after launching a new replacement Spot Instance. Valid only when
-	// replacementStrategy is set to launch-before-terminate. Valid values: Minimum
-	// value of 120 seconds. Maximum value of 7200 seconds.
+	// Spot Instance after launching a new replacement Spot Instance. Required when
+	// ReplacementStrategy is set to launch-before-terminate. Not valid when
+	// ReplacementStrategy is set to launch. Valid values: Minimum value of 120
+	// seconds. Maximum value of 7200 seconds.
 	TerminationDelay *int32
 
 	noSmithyDocumentSerde
@@ -3702,7 +3834,7 @@ type FleetSpotCapacityRebalance struct {
 // The Spot Instance replacement strategy to use when Amazon EC2 emits a rebalance
 // notification signal that your Spot Instance is at an elevated risk of being
 // interrupted. For more information, see Capacity rebalancing
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet-configuration-strategies.html#ec2-fleet-capacity-rebalance)
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet-capacity-rebalance.html)
 // in the Amazon EC2 User Guide.
 type FleetSpotCapacityRebalanceRequest struct {
 
@@ -3719,9 +3851,10 @@ type FleetSpotCapacityRebalanceRequest struct {
 	ReplacementStrategy FleetReplacementStrategy
 
 	// The amount of time (in seconds) that Amazon EC2 waits before terminating the old
-	// Spot Instance after launching a new replacement Spot Instance. Valid only when
-	// ReplacementStrategy is set to launch-before-terminate. Valid values: Minimum
-	// value of 120 seconds. Maximum value of 7200 seconds.
+	// Spot Instance after launching a new replacement Spot Instance. Required when
+	// ReplacementStrategy is set to launch-before-terminate. Not valid when
+	// ReplacementStrategy is set to launch. Valid values: Minimum value of 120
+	// seconds. Maximum value of 7200 seconds.
 	TerminationDelay *int32
 
 	noSmithyDocumentSerde
@@ -5211,9 +5344,8 @@ type InstanceMarketOptionsRequest struct {
 // The metadata options for the instance.
 type InstanceMetadataOptionsRequest struct {
 
-	// Enables or disables the HTTP metadata endpoint on your instances. If the
-	// parameter is not specified, the default state is enabled. If you specify a value
-	// of disabled, you will not be able to access your instance metadata.
+	// Enables or disables the HTTP metadata endpoint on your instances. If you specify
+	// a value of disabled, you cannot access your instance metadata. Default: enabled
 	HttpEndpoint InstanceMetadataEndpointState
 
 	// Enables or disables the IPv6 endpoint for the instance metadata service.
@@ -5224,8 +5356,7 @@ type InstanceMetadataOptionsRequest struct {
 	// Possible values: Integers from 1 to 64
 	HttpPutResponseHopLimit *int32
 
-	// The state of token usage for your instance metadata requests. If the parameter
-	// is not specified in the request, the default state is optional. If the state is
+	// The state of token usage for your instance metadata requests. If the state is
 	// optional, you can choose to retrieve instance metadata with or without a signed
 	// token header on your request. If you retrieve the IAM role credentials without a
 	// token, the version 1.0 role credentials are returned. If you retrieve the IAM
@@ -5233,8 +5364,15 @@ type InstanceMetadataOptionsRequest struct {
 	// are returned. If the state is required, you must send a signed token header with
 	// any instance metadata retrieval requests. In this state, retrieving the IAM role
 	// credentials always returns the version 2.0 credentials; the version 1.0
-	// credentials are not available.
+	// credentials are not available. Default: optional
 	HttpTokens HttpTokensState
+
+	// Set to enabled to allow access to instance tags from the instance metadata. Set
+	// to disabled to turn off access to instance tags from the instance metadata. For
+	// more information, see Work with instance tags using the instance metadata
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html#work-with-tags-in-IMDS).
+	// Default: disabled
+	InstanceMetadataTags InstanceMetadataTagsState
 
 	noSmithyDocumentSerde
 }
@@ -5243,7 +5381,7 @@ type InstanceMetadataOptionsRequest struct {
 type InstanceMetadataOptionsResponse struct {
 
 	// Indicates whether the HTTP metadata endpoint on your instances is enabled or
-	// disabled.
+	// disabled. If the value is disabled, you cannot access your instance metadata.
 	HttpEndpoint InstanceMetadataEndpointState
 
 	// Indicates whether the IPv6 endpoint for the instance metadata service is enabled
@@ -5255,8 +5393,7 @@ type InstanceMetadataOptionsResponse struct {
 	// Possible values: Integers from 1 to 64
 	HttpPutResponseHopLimit *int32
 
-	// The state of token usage for your instance metadata requests. If the parameter
-	// is not specified in the request, the default state is optional. If the state is
+	// The state of token usage for your instance metadata requests. If the state is
 	// optional, you can choose to retrieve instance metadata with or without a signed
 	// token header on your request. If you retrieve the IAM role credentials without a
 	// token, the version 1.0 role credentials are returned. If you retrieve the IAM
@@ -5264,8 +5401,14 @@ type InstanceMetadataOptionsResponse struct {
 	// are returned. If the state is required, you must send a signed token header with
 	// any instance metadata retrieval requests. In this state, retrieving the IAM role
 	// credential always returns the version 2.0 credentials; the version 1.0
-	// credentials are not available.
+	// credentials are not available. Default: optional
 	HttpTokens HttpTokensState
+
+	// Indicates whether access to instance tags from the instance metadata is enabled
+	// or disabled. For more information, see Work with instance tags using the
+	// instance metadata
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html#work-with-tags-in-IMDS).
+	InstanceMetadataTags InstanceMetadataTagsState
 
 	// The state of the metadata option changes. pending - The metadata options are
 	// being updated and the instance is not ready to process metadata traffic with the
@@ -7019,12 +7162,12 @@ type LaunchPermission struct {
 // Describes a launch permission modification.
 type LaunchPermissionModifications struct {
 
-	// The Amazon Web Services account ID to add to the list of launch permissions for
-	// the AMI.
+	// The Amazon Web Services account ID, organization ARN, or OU ARN to add to the
+	// list of launch permissions for the AMI.
 	Add []LaunchPermission
 
-	// The Amazon Web Services account ID to remove from the list of launch permissions
-	// for the AMI.
+	// The Amazon Web Services account ID, organization ARN, or OU ARN to remove from
+	// the list of launch permissions for the AMI.
 	Remove []LaunchPermission
 
 	noSmithyDocumentSerde
@@ -7478,9 +7621,9 @@ type LaunchTemplateInstanceMarketOptionsRequest struct {
 // in the Amazon Elastic Compute Cloud User Guide.
 type LaunchTemplateInstanceMetadataOptions struct {
 
-	// This parameter enables or disables the HTTP metadata endpoint on your instances.
-	// If the parameter is not specified, the default state is enabled. If you specify
-	// a value of disabled, you will not be able to access your instance metadata.
+	// Enables or disables the HTTP metadata endpoint on your instances. If the
+	// parameter is not specified, the default state is enabled. If you specify a value
+	// of disabled, you will not be able to access your instance metadata.
 	HttpEndpoint LaunchTemplateInstanceMetadataEndpointState
 
 	// Enables or disables the IPv6 endpoint for the instance metadata service.
@@ -7503,6 +7646,9 @@ type LaunchTemplateInstanceMetadataOptions struct {
 	// credentials always returns the version 2.0 credentials; the version 1.0
 	// credentials are not available.
 	HttpTokens LaunchTemplateHttpTokensState
+
+	//
+	InstanceMetadataTags LaunchTemplateInstanceMetadataTagsState
 
 	// The state of the metadata option changes. pending - The metadata options are
 	// being updated and the instance is not ready to process metadata traffic with the
@@ -7519,9 +7665,9 @@ type LaunchTemplateInstanceMetadataOptions struct {
 // in the Amazon Elastic Compute Cloud User Guide.
 type LaunchTemplateInstanceMetadataOptionsRequest struct {
 
-	// This parameter enables or disables the HTTP metadata endpoint on your instances.
-	// If the parameter is not specified, the default state is enabled. If you specify
-	// a value of disabled, you will not be able to access your instance metadata.
+	// Enables or disables the HTTP metadata endpoint on your instances. If the
+	// parameter is not specified, the default state is enabled. If you specify a value
+	// of disabled, you will not be able to access your instance metadata.
 	HttpEndpoint LaunchTemplateInstanceMetadataEndpointState
 
 	// Enables or disables the IPv6 endpoint for the instance metadata service.
@@ -7544,6 +7690,13 @@ type LaunchTemplateInstanceMetadataOptionsRequest struct {
 	// credentials always returns the version 2.0 credentials; the version 1.0
 	// credentials are not available.
 	HttpTokens LaunchTemplateHttpTokensState
+
+	// Set to enabled to allow access to instance tags from the instance metadata. Set
+	// to disabled to turn off access to instance tags from the instance metadata. For
+	// more information, see Work with instance tags using the instance metadata
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html#work-with-tags-in-IMDS).
+	// Default: disabled
+	InstanceMetadataTags LaunchTemplateInstanceMetadataTagsState
 
 	noSmithyDocumentSerde
 }
@@ -8437,7 +8590,7 @@ type ModifyVpnTunnelOptionsSpecification struct {
 	DPDTimeoutAction *string
 
 	// The number of seconds after which a DPD timeout occurs. Constraints: A value
-	// between 0 and 30. Default: 30
+	// greater than or equal to 30. Default: 30
 	DPDTimeoutSeconds *int32
 
 	// The IKE versions that are permitted for the VPN tunnel. Valid values: ikev1 |
@@ -9675,6 +9828,9 @@ type Placement struct {
 
 // Describes a placement group.
 type PlacementGroup struct {
+
+	// The Amazon Resource Name (ARN) of the placement group.
+	GroupArn *string
 
 	// The ID of the placement group.
 	GroupId *string
@@ -11779,6 +11935,9 @@ type ServiceConfiguration struct {
 	// The Amazon Resource Names (ARNs) of the Network Load Balancers for the service.
 	NetworkLoadBalancerArns []string
 
+	// The payer responsibility.
+	PayerResponsibility PayerResponsibility
+
 	// The private DNS name for the service.
 	PrivateDnsName *string
 
@@ -11822,6 +11981,9 @@ type ServiceDetail struct {
 
 	// The Amazon Web Services account ID of the service owner.
 	Owner *string
+
+	// The payer responsibility.
+	PayerResponsibility PayerResponsibility
 
 	// The private DNS name for the service.
 	PrivateDnsName *string
@@ -12179,7 +12341,7 @@ type SnapshotTierStatus struct {
 // The Spot Instance replacement strategy to use when Amazon EC2 emits a signal
 // that your Spot Instance is at an elevated risk of being interrupted. For more
 // information, see Capacity rebalancing
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet-configuration-strategies.html#spot-fleet-capacity-rebalance)
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-fleet-capacity-rebalance.html)
 // in the Amazon EC2 User Guide for Linux Instances.
 type SpotCapacityRebalance struct {
 
@@ -12196,9 +12358,10 @@ type SpotCapacityRebalance struct {
 	ReplacementStrategy ReplacementStrategy
 
 	// The amount of time (in seconds) that Amazon EC2 waits before terminating the old
-	// Spot Instance after launching a new replacement Spot Instance. Valid only when
-	// ReplacementStrategy is set to launch-before-terminate. Valid values: Minimum
-	// value of 120 seconds. Maximum value of 7200 seconds.
+	// Spot Instance after launching a new replacement Spot Instance. Required when
+	// ReplacementStrategy is set to launch-before-terminate. Not valid when
+	// ReplacementStrategy is set to launch. Valid values: Minimum value of 120
+	// seconds. Maximum value of 7200 seconds.
 	TerminationDelay *int32
 
 	noSmithyDocumentSerde
@@ -12675,8 +12838,11 @@ type SpotInstanceStatus struct {
 // being interrupted.
 type SpotMaintenanceStrategies struct {
 
-	// The strategy to use when Amazon EC2 emits a signal that your Spot Instance is at
-	// an elevated risk of being interrupted.
+	// The Spot Instance replacement strategy to use when Amazon EC2 emits a signal
+	// that your Spot Instance is at an elevated risk of being interrupted. For more
+	// information, see Capacity rebalancing
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-fleet-capacity-rebalance.html)
+	// in the Amazon EC2 User Guide for Linux Instances.
 	CapacityRebalance *SpotCapacityRebalance
 
 	noSmithyDocumentSerde
@@ -15445,7 +15611,7 @@ type VpnTunnelOptionsSpecification struct {
 	DPDTimeoutAction *string
 
 	// The number of seconds after which a DPD timeout occurs. Constraints: A value
-	// between 0 and 30. Default: 30
+	// greater than or equal to 30. Default: 30
 	DPDTimeoutSeconds *int32
 
 	// The IKE versions that are permitted for the VPN tunnel. Valid values: ikev1 |
