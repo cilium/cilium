@@ -71,7 +71,7 @@ import (
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	policyApi "github.com/cilium/cilium/pkg/policy/api"
+	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/probe"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/rate"
@@ -582,8 +582,78 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	debug.RegisterStatusObject("ongoing-endpoint-creations", d.endpointCreations)
 
 	d.k8sWatcher.RunK8sServiceHandler()
+
+	if option.Config.DNSPolicyUnloadOnShutdown {
+		log.Debugf("Registering cleanup function to unload DNS policies due to --%s", option.DNSPolicyUnloadOnShutdown)
+
+		// add to pre-cleanup funcs because this needs to run on graceful shutdown, but
+		// before the relevant subystems are being shut down.
+		cleaner.preCleanupFuncs.Add(func() {
+			// Stop k8s watchers
+			log.Info("Stopping k8s service handler")
+			d.k8sWatcher.StopK8sServiceHandler()
+
+			// Iterate over the policy repository and remove L7 DNS part
+			needsPolicyRegen := false
+			removeL7DNSRules := func(pr policyAPI.Ports) error {
+				portProtocols := pr.GetPortProtocols()
+				if len(portProtocols) == 0 {
+					return nil
+				}
+				portRule := pr.GetPortRule()
+				if portRule == nil || portRule.Rules == nil {
+					return nil
+				}
+				dnsRules := portRule.Rules.DNS
+				log.Debugf("Found egress L7 DNS rules (portProtocol %#v): %#v", portProtocols[0], dnsRules)
+
+				// For security reasons, the L7 DNS policy must be a
+				// wildcard in order to trigger this logic.
+				// Otherwise we could invalidate the L7 security
+				// rules. This means if any of the DNS L7 rules
+				// have a matchPattern of * then it is OK to delete
+				// the L7 portion of those rules.
+				hasWildcard := false
+				for _, dns := range dnsRules {
+					if dns.MatchPattern == "*" {
+						hasWildcard = true
+						break
+					}
+				}
+				if hasWildcard {
+					portRule.Rules = nil
+					needsPolicyRegen = true
+				}
+				return nil
+			}
+
+			policyRepo := d.GetPolicyRepository()
+			policyRepo.Iterate(func(rule *policyAPI.Rule) {
+				for _, er := range rule.Egress {
+					_ = er.ToPorts.Iterate(removeL7DNSRules)
+				}
+			})
+
+			if !needsPolicyRegen {
+				log.Infof("No policy recalculation needed to remove DNS rules due to --%s", option.DNSPolicyUnloadOnShutdown)
+				return
+			}
+
+			// Bump revision to trigger policy recalculation
+			log.Infof("Triggering policy recalculation to remove DNS rules due to --%s", option.DNSPolicyUnloadOnShutdown)
+			policyRepo.BumpRevision()
+			regenerationMetadata := &regeneration.ExternalRegenerationMetadata{
+				Reason:            "unloading DNS rules on graceful shutdown",
+				RegenerationLevel: regeneration.RegenerateWithoutDatapath,
+			}
+			wg := d.endpointManager.RegenerateAllEndpoints(regenerationMetadata)
+			wg.Wait()
+			log.Info("All endpoints regenerated after unloading DNS rules on graceful shutdown")
+		})
+	}
+
 	treatRemoteNodeAsHost := option.Config.AlwaysAllowLocalhost() && !option.Config.EnableRemoteNodeIdentity
-	policyApi.InitEntities(option.Config.ClusterName, treatRemoteNodeAsHost)
+	policyAPI.InitEntities(option.Config.ClusterName, treatRemoteNodeAsHost)
 
 	// Start the proxy before we restore endpoints so that we can inject the
 	// daemon's proxy into each endpoint.
