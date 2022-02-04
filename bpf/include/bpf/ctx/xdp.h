@@ -19,6 +19,7 @@
 #define CTX_ACT_OK			XDP_PASS
 #define CTX_ACT_DROP			XDP_DROP
 #define CTX_ACT_TX			XDP_TX	/* hairpin only */
+#define CTX_ACT_REDIRECT		XDP_REDIRECT
 
 #define CTX_DIRECT_WRITE_OK		1
 
