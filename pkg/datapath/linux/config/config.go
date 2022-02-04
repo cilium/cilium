@@ -299,6 +299,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 				cDefinesMap["LB6_HEALTH_MAP"] = lbmap.HealthProbe6MapName
 			}
 		}
+		if option.Config.NodePortNat46X64 {
+			cDefinesMap["ENABLE_NAT_46X64"] = "1"
+		}
 		const (
 			dsrEncapInv = iota
 			dsrEncapNone

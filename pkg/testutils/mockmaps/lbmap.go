@@ -72,7 +72,7 @@ func (*LBMockMap) IsMaglevLookupTableRecreated(ipv6 bool) bool {
 	return true
 }
 
-func (m *LBMockMap) DeleteService(addr lb.L3n4AddrID, backendCount int, maglev bool) error {
+func (m *LBMockMap) DeleteService(addr lb.L3n4AddrID, backendCount int, maglev bool, natPolicy lb.SVCNatPolicy) error {
 	svc, found := m.ServiceByID[uint16(addr.ID)]
 	if !found {
 		return fmt.Errorf("Service not found %+v", addr)
@@ -97,7 +97,7 @@ func (m *LBMockMap) AddBackend(id lb.BackendID, ip net.IP, port uint16, ipv6 boo
 	return nil
 }
 
-func (m *LBMockMap) DeleteBackendByID(id lb.BackendID, ipv6 bool) error {
+func (m *LBMockMap) DeleteBackendByID(id lb.BackendID) error {
 	if _, found := m.BackendByID[id]; !found {
 		return fmt.Errorf("Backend %d does not exist", id)
 	}
