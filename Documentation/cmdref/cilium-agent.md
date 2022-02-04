@@ -71,6 +71,7 @@ cilium-agent [flags]
       --disable-endpoint-crd                                 Disable use of CiliumEndpoint CRD
       --disable-iptables-feeder-rules strings                Chains to ignore when installing feeder rules.
       --dns-max-ips-per-restored-rule int                    Maximum number of IPs to maintain for each restored DNS rule (default 1000)
+      --dns-policy-unload-on-shutdown                        Unload DNS policy rules on graceful showdown
       --egress-masquerade-interfaces string                  Limit egress masquerading to interface selector
       --egress-multi-home-ip-rule-compat                     Offset routing table IDs under ENI IPAM mode to avoid collisions with reserved table IDs. If false, the offset is performed (new scheme), otherwise, the old scheme stays in-place.
       --enable-auto-protect-node-port-range                  Append NodePort range to net.ipv4.ip_local_reserved_ports if it overlaps with ephemeral port range (net.ipv4.ip_local_port_range) (default true)
