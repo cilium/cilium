@@ -496,24 +496,19 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 	})
 
 	Context("Checks N/S loadbalancing", func() {
-		var (
-			demoYAML   string
-			demoYAMLV6 string
-		)
+		var yamls []string
 
 		BeforeAll(func() {
-			demoYAML = helpers.ManifestGet(kubectl.BasePath(), "demo_ds.yaml")
-
 			DeployCiliumAndDNS(kubectl, ciliumFilename)
 
-			res := kubectl.ApplyDefault(demoYAML)
-			Expect(res).Should(helpers.CMDSuccess(), "Unable to apply %s", demoYAML)
-
+			toApply := []string{"demo.yaml", "demo_ds.yaml", "echo-svc.yaml"}
 			if helpers.DualStackSupported() {
-				demoYAMLV6 = helpers.ManifestGet(kubectl.BasePath(), "demo_ds_v6.yaml")
-
-				res = kubectl.ApplyDefault(demoYAMLV6)
-				Expect(res).Should(helpers.CMDSuccess(), "Unable to apply %s", demoYAMLV6)
+				toApply = append(toApply, "demo_ds_v6.yaml")
+			}
+			for _, fn := range toApply {
+				path := helpers.ManifestGet(kubectl.BasePath(), fn)
+				kubectl.ApplyDefault(path).ExpectSuccess("Unable to apply %s", path)
+				yamls = append(yamls, path)
 			}
 
 			By(`Connectivity config:: helpers.DualStackSupported(): %v
@@ -521,13 +516,14 @@ Primary Interface %s   :: IPv4: (%s, %s), IPv6: (%s, %s)
 Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupported(), ni.PrivateIface, ni.K8s1IP, ni.K8s2IP, ni.PrimaryK8s1IPv6, ni.PrimaryK8s2IPv6,
 				helpers.SecondaryIface, ni.SecondaryK8s1IPv4, ni.SecondaryK8s2IPv4, ni.SecondaryK8s1IPv6, ni.SecondaryK8s2IPv6)
 
-			waitPodsDs(kubectl, []string{testDS, testDSClient, testDSK8s2})
+			// Wait for all pods to be in ready state.
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
+			Expect(err).Should(BeNil())
 		})
 
 		AfterAll(func() {
-			kubectl.Delete(demoYAML)
-			if helpers.DualStackSupported() {
-				kubectl.Delete(demoYAMLV6)
+			for _, yaml := range yamls {
+				kubectl.Delete(yaml)
 			}
 			ExpectAllPodsTerminated(kubectl)
 		})
@@ -570,43 +566,6 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						It("Tests NodePort", func() {
 							testNodePort(kubectl, ni, true, false, helpers.ExistNodeWithoutCilium(), 0)
 						})
-					})
-
-					// TODO(brb) use one of the maglev test cases below to run testMaglev()
-					Context("Tests NodePort with Maglev", func() {
-						var echoYAML string
-
-						BeforeAll(func() {
-							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-								"loadBalancer.algorithm": "maglev",
-								// The echo svc has two backends. the closest supported
-								// prime number which is greater than 100 * |backends_count|
-								// is 251.
-								"maglev.tableSize": "251",
-								// Support for host firewall + Maglev is currently broken,
-								// see #14047 for details.
-								"hostFirewall.enabled": "false",
-							})
-
-							echoYAML = helpers.ManifestGet(kubectl.BasePath(), "echo-svc.yaml")
-							kubectl.ApplyDefault(echoYAML).ExpectSuccess("unable to apply %s", echoYAML)
-							err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l name=echo", helpers.HelperTimeout)
-							Expect(err).Should(BeNil())
-						})
-
-						AfterAll(func() {
-							kubectl.Delete(echoYAML)
-							ExpectAllPodsTerminated(kubectl)
-						})
-
-						It("Tests NodePort", func() {
-							testNodePort(kubectl, ni, true, false, helpers.ExistNodeWithoutCilium(), 0)
-						})
-
-						SkipItIf(helpers.DoesNotExistNodeWithoutCilium,
-							"Tests Maglev backend selection", func() {
-								testMaglev(kubectl, ni)
-							})
 					})
 
 					SkipItIf(func() bool {
@@ -674,44 +633,6 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						It("Tests NodePort", func() {
 							testNodePort(kubectl, ni, true, false, helpers.ExistNodeWithoutCilium(), 0)
 						})
-					})
-
-					Context("Tests NodePort with Maglev", func() {
-						var echoYAML string
-
-						BeforeAll(func() {
-							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-								"tunnel":                 "disabled",
-								"autoDirectNodeRoutes":   "true",
-								"loadBalancer.algorithm": "maglev",
-								// The echo svc has two backends. the closest supported
-								// prime number which is greater than 100 * |backends_count|
-								// is 251.
-								"maglev.tableSize": "251",
-								// Support for host firewall + Maglev is currently broken,
-								// see #14047 for details.
-								"hostFirewall.enabled": "false",
-							})
-
-							echoYAML = helpers.ManifestGet(kubectl.BasePath(), "echo-svc.yaml")
-							kubectl.ApplyDefault(echoYAML).ExpectSuccess("unable to apply %s", echoYAML)
-							err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l name=echo", helpers.HelperTimeout)
-							Expect(err).Should(BeNil())
-						})
-
-						AfterAll(func() {
-							kubectl.Delete(echoYAML)
-							ExpectAllPodsTerminated(kubectl)
-						})
-
-						It("Tests NodePort", func() {
-							testNodePort(kubectl, ni, true, false, helpers.ExistNodeWithoutCilium(), 0)
-						})
-
-						SkipItIf(helpers.DoesNotExistNodeWithoutCilium,
-							"Tests Maglev backend selection", func() {
-								testMaglev(kubectl, ni)
-							})
 					})
 
 					SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests GH#10983", func() {
@@ -792,6 +713,8 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						// see #14047 for details.
 						"hostFirewall.enabled": "false",
 					})
+
+					testMaglev(kubectl, ni)
 					testNodePortExternal(kubectl, ni, false, false)
 				})
 
