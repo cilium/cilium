@@ -188,7 +188,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 
 		SkipContextIf(helpers.DoesNotRunWithKubeProxyReplacement, "Checks in-cluster KPR", func() {
 			It("Tests NodePort", func() {
-				testNodePort(kubectl, ni, true, false, false, 0)
+				testNodePort(kubectl, ni, true, false, 0)
 			})
 
 			It("Tests NodePort with externalTrafficPolicy=Local", func() {
@@ -218,7 +218,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 
 				It("Tests NodePort with L7 Policy", func() {
 					applyPolicy(kubectl, demoPolicyL7)
-					testNodePort(kubectl, ni, false, false, false, 0)
+					testNodePort(kubectl, ni, false, false, 0)
 				})
 			})
 		})
@@ -347,7 +347,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			})
 
 			It("", func() {
-				testNodePort(kubectl, ni, false, false, false, 0)
+				testNodePort(kubectl, ni, false, false, 0)
 			})
 		})
 
@@ -459,7 +459,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 				}()
 
 				applyPolicy(kubectl, demoPolicy)
-				testNodePort(kubectl, ni, false, false, false, 0)
+				testNodePort(kubectl, ni, false, false, 0)
 			})
 		})
 
@@ -489,7 +489,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 				}()
 
 				applyPolicy(kubectl, demoPolicyL7)
-				testNodePort(kubectl, ni, false, false, false, 0)
+				testNodePort(kubectl, ni, false, false, 0)
 			})
 		})
 	})
@@ -565,18 +565,13 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 			testCurlFromOutsideWithLocalPort(kubectl, ni, svc2URL, 1, false, 64002)
 		})
 
-		SkipItIf(func() bool {
-			// Quarantine when running with the third node as it's
-			// flaky. See GH-12511.
-			// It's also flaky for IPv6 traffic, see GH-18072
-			return helpers.SkipQuarantined()
-		}, "Tests with secondary NodePort device", func() {
+		It("Tests with secondary NodePort device", func() {
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 				"loadBalancer.mode": "snat",
 				"devices":           fmt.Sprintf(`'{%s,%s}'`, ni.PrivateIface, helpers.SecondaryIface),
 			})
 
-			testNodePort(kubectl, ni, true, true, true, 0)
+			testNodePortExternal(kubectl, ni, true, false, false)
 		})
 
 		It("Tests with direct routing and DSR", func() {
@@ -587,7 +582,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 			})
 
 			testDSR(kubectl, ni, 64000)
-			testNodePort(kubectl, ni, true, false, false, 0)
+			testNodePortExternal(kubectl, ni, false, true, true)
 		})
 
 		It("Tests with XDP, direct routing, SNAT and Random", func() {
@@ -599,7 +594,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 				"autoDirectNodeRoutes":      "true",
 				"devices":                   fmt.Sprintf(`'{%s}'`, ni.PrivateIface),
 			})
-			testNodePortExternal(kubectl, ni, false, false)
+			testNodePortExternal(kubectl, ni, false, false, false)
 		})
 
 		It("Tests with XDP, direct routing, SNAT and Maglev", func() {
@@ -617,7 +612,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 			})
 
 			testMaglev(kubectl, ni)
-			testNodePortExternal(kubectl, ni, false, false)
+			testNodePortExternal(kubectl, ni, false, false, false)
 		})
 
 		It("Tests with XDP, direct routing, Hybrid and Random", func() {
@@ -629,7 +624,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 				"autoDirectNodeRoutes":      "true",
 				"devices":                   fmt.Sprintf(`'{%s}'`, ni.PrivateIface),
 			})
-			testNodePortExternal(kubectl, ni, true, false)
+			testNodePortExternal(kubectl, ni, false, true, false)
 		})
 
 		It("Tests with XDP, direct routing, Hybrid and Maglev", func() {
@@ -645,7 +640,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 				// see #14047 for details.
 				"hostFirewall.enabled": "false",
 			})
-			testNodePortExternal(kubectl, ni, true, false)
+			testNodePortExternal(kubectl, ni, false, true, false)
 		})
 
 		It("Tests with XDP, direct routing, DSR and Random", func() {
@@ -657,7 +652,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 				"autoDirectNodeRoutes":      "true",
 				"devices":                   fmt.Sprintf(`'{%s}'`, ni.PrivateIface),
 			})
-			testNodePortExternal(kubectl, ni, true, true)
+			testNodePortExternal(kubectl, ni, false, true, true)
 		})
 
 		It("Tests with XDP, direct routing, DSR and Maglev", func() {
@@ -673,7 +668,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 				// see #14047 for details.
 				"hostFirewall.enabled": "false",
 			})
-			testNodePortExternal(kubectl, ni, true, true)
+			testNodePortExternal(kubectl, ni, false, true, true)
 		})
 
 		It("Tests with TC, direct routing and Hybrid", func() {
@@ -685,7 +680,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 				"autoDirectNodeRoutes":      "true",
 				"devices":                   fmt.Sprintf(`'{}'`), // Revert back to auto-detection after XDP.
 			})
-			testNodePortExternal(kubectl, ni, true, false)
+			testNodePortExternal(kubectl, ni, false, true, false)
 		})
 
 		// Run on net-next and 4.19 but not on old versions, because of
@@ -730,7 +725,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 			})
 
 			It("Tests NodePort", func() {
-				testNodePort(kubectl, ni, true, false, true, 0)
+				testNodePort(kubectl, ni, true, true, 0)
 			})
 		})
 
