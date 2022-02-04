@@ -25,6 +25,7 @@
 #define CTX_ACT_OK		TC_ACT_OK
 #define CTX_ACT_DROP		TC_ACT_SHOT
 #define CTX_ACT_TX		TC_ACT_REDIRECT
+#define CTX_ACT_REDIRECT	TC_ACT_REDIRECT
 
 /* Discouraged since prologue will unclone full skb. */
 #define CTX_DIRECT_WRITE_OK	0
