@@ -6,7 +6,6 @@ package watchers
 import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/k8s"
@@ -84,12 +83,12 @@ func (k *K8sWatcher) ciliumClusterwideNetworkPoliciesInit(ciliumNPClient *k8s.K8
 	)
 
 	k.blockWaitGroupToSyncResources(
-		wait.NeverStop,
+		k.stop,
 		nil,
 		ciliumV2ClusterwidePolicyController.HasSynced,
 		k8sAPIGroupCiliumClusterwideNetworkPolicyV2,
 	)
 
-	go ciliumV2ClusterwidePolicyController.Run(wait.NeverStop)
+	go ciliumV2ClusterwidePolicyController.Run(k.stop)
 	k.k8sAPIGroups.AddAPI(k8sAPIGroupCiliumClusterwideNetworkPolicyV2)
 }

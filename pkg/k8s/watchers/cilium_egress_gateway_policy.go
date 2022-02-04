@@ -18,7 +18,6 @@ import (
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/egressgateway"
@@ -72,13 +71,13 @@ func (k *K8sWatcher) ciliumEgressNATPolicyInit(ciliumNPClient *k8s.K8sCiliumClie
 	)
 
 	k.blockWaitGroupToSyncResources(
-		wait.NeverStop,
+		k.stop,
 		nil,
 		egpController.HasSynced,
 		k8sAPIGroupCiliumEgressNATPolicyV2,
 	)
 
-	go egpController.Run(wait.NeverStop)
+	go egpController.Run(k.stop)
 	k.k8sAPIGroups.AddAPI(k8sAPIGroupCiliumEgressNATPolicyV2)
 }
 

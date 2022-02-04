@@ -205,6 +205,8 @@ type K8sWatcher struct {
 	// k8s watchers have started listening for k8s events.
 	controllersStarted chan struct{}
 
+	stop chan struct{}
+
 	podStoreMU lock.RWMutex
 	podStore   cache.Store
 	// podStoreSet is a channel that is closed when the podStore cache is
@@ -242,6 +244,7 @@ func NewK8sWatcher(
 		policyRepository:      policyRepository,
 		svcManager:            svcManager,
 		controllersStarted:    make(chan struct{}),
+		stop:                  make(chan struct{}),
 		podStoreSet:           make(chan struct{}),
 		datapath:              datapath,
 		redirectPolicyManager: redirectPolicyManager,
@@ -534,16 +537,24 @@ func (k *K8sWatcher) k8sServiceHandler() {
 		}
 	}
 	for {
-		event, ok := <-k.K8sSvcCache.Events
-		if !ok {
+		select {
+		case <-k.stop:
 			return
+		case event, ok := <-k.K8sSvcCache.Events:
+			if !ok {
+				return
+			}
+			eventHandler(event)
 		}
-		eventHandler(event)
 	}
 }
 
 func (k *K8sWatcher) RunK8sServiceHandler() {
 	go k.k8sServiceHandler()
+}
+
+func (k *K8sWatcher) StopK8sServiceHandler() {
+	close(k.stop)
 }
 
 func (k *K8sWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s.Endpoints) error {

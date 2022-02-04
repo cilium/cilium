@@ -11,7 +11,6 @@ import (
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
@@ -58,10 +57,10 @@ func (k *K8sWatcher) namespacesInit(k8sClient kubernetes.Interface, asyncControl
 	)
 
 	k.namespaceStore = namespaceStore
-	k.blockWaitGroupToSyncResources(wait.NeverStop, nil, namespaceController.HasSynced, k8sAPIGroupNamespaceV1Core)
+	k.blockWaitGroupToSyncResources(k.stop, nil, namespaceController.HasSynced, k8sAPIGroupNamespaceV1Core)
 	k.k8sAPIGroups.AddAPI(k8sAPIGroupNamespaceV1Core)
 	asyncControllers.Done()
-	namespaceController.Run(wait.NeverStop)
+	namespaceController.Run(k.stop)
 }
 
 func (k *K8sWatcher) updateK8sV1Namespace(oldNS, newNS *slim_corev1.Namespace) error {
