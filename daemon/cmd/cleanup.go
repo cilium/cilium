@@ -22,6 +22,9 @@ var cleaner = &daemonCleanup{
 	cleanupFuncs: &cleanupFuncList{
 		funcs: make([]func(), 0),
 	},
+	preCleanupFuncs: &cleanupFuncList{
+		funcs: make([]func(), 0),
+	},
 }
 
 type daemonCleanup struct {
@@ -31,6 +34,8 @@ type daemonCleanup struct {
 	cleanUPSig chan struct{}
 	// cleanUPWg all cleanup operations will be marked as Done() when completed.
 	cleanUPWg *sync.WaitGroup
+
+	preCleanupFuncs *cleanupFuncList
 
 	cleanupFuncs *cleanupFuncList
 
@@ -63,6 +68,7 @@ func (d *daemonCleanup) registerSigHandler() <-chan struct{} {
 	go func() {
 		for s := range sig {
 			log.WithField("signal", s).Info("Exiting due to signal")
+			d.preCleanupFuncs.Run()
 			log.Debug("canceling context in signal handler")
 			d.Lock()
 			if d.sigHandlerCancel != nil {
