@@ -70,13 +70,14 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 
 	Context("Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc)", func() {
 		var yamls []string
+		var demoPolicyL7 string
 
 		BeforeAll(func() {
 			DeployCiliumAndDNS(kubectl, ciliumFilename)
 
 			toApply := []string{"demo.yaml", "demo_ds.yaml", "echo-svc.yaml", "echo-policy.yaml"}
 			if helpers.DualStackSupported() {
-				toApply = append(toApply, "demo_v6.yaml", "echo-svc_v6.yaml")
+				toApply = append(toApply, "demo_v6.yaml", "demo_ds_v6.yaml", "echo-svc_v6.yaml")
 				if helpers.DualStackSupportBeta() {
 					toApply = append(toApply, "echo_svc_dualstack.yaml")
 				}
@@ -90,6 +91,8 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			// Wait for all pods to be in ready state.
 			err := kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
+
+			demoPolicyL7 = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-demo.yaml")
 		})
 
 		AfterAll(func() {
@@ -181,6 +184,43 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 				url = fmt.Sprintf("tftp://%s/hello", net.JoinHostPort(clusterIP, "69"))
 				testCurlFromPods(kubectl, app2PodLabel, url, 10, 0)
 			}
+		})
+
+		SkipContextIf(helpers.DoesNotRunWithKubeProxyReplacement, "Checks in-cluster KPR", func() {
+			It("Tests NodePort", func() {
+				testNodePort(kubectl, ni, true, false, false, 0)
+			})
+
+			It("Tests NodePort with externalTrafficPolicy=Local", func() {
+				// TODO(brb) split testExternalTrafficPolicyLocal into two functions -
+				// one for in-cluster, one for outside cluster
+				testExternalTrafficPolicyLocal(kubectl, ni)
+			})
+
+			It("Tests NodePort with sessionAffinity", func() {
+				testSessionAffinity(kubectl, ni, false, true)
+			})
+
+			It("Tests HealthCheckNodePort", func() {
+				testHealthCheckNodePort(kubectl, ni)
+			})
+
+			It("Tests that binding to NodePort port fails", func() {
+				testFailBind(kubectl, ni)
+			})
+
+			It("Tests HostPort", func() {
+				testHostPort(kubectl, ni)
+			})
+
+			Context("with L7 policy", func() {
+				AfterAll(func() { kubectl.Delete(demoPolicyL7) })
+
+				It("Tests NodePort with L7 Policy", func() {
+					applyPolicy(kubectl, demoPolicyL7)
+					testNodePort(kubectl, ni, false, false, false, 0)
+				})
+			})
 		})
 
 		// The test is relevant only for bpf_lxc LB, while bpf_sock (KPR enabled)
@@ -457,9 +497,8 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 
 	Context("Checks N/S loadbalancing", func() {
 		var (
-			demoYAML     string
-			demoYAMLV6   string
-			demoPolicyL7 string
+			demoYAML   string
+			demoYAMLV6 string
 		)
 
 		BeforeAll(func() {
@@ -482,7 +521,6 @@ Primary Interface %s   :: IPv4: (%s, %s), IPv6: (%s, %s)
 Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupported(), ni.PrivateIface, ni.K8s1IP, ni.K8s2IP, ni.PrimaryK8s1IPv6, ni.PrimaryK8s2IPv6,
 				helpers.SecondaryIface, ni.SecondaryK8s1IPv4, ni.SecondaryK8s2IPv4, ni.SecondaryK8s1IPv6, ni.SecondaryK8s2IPv6)
 
-			demoPolicyL7 = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-demo.yaml")
 			waitPodsDs(kubectl, []string{testDS, testDSClient, testDSK8s2})
 		})
 
@@ -497,32 +535,8 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 		SkipContextIf(helpers.DoesNotRunWithKubeProxyReplacement, "Tests NodePort BPF",
 			func() {
 				Context("Tests with vxlan", func() {
-					It("Tests NodePort", func() {
-						testNodePort(kubectl, ni, true, false, helpers.ExistNodeWithoutCilium(), 0)
-					})
-
-					It("Tests NodePort with externalTrafficPolicy=Local", func() {
-						testExternalTrafficPolicyLocal(kubectl, ni)
-					})
-
-					It("Tests NodePort with sessionAffinity", func() {
-						testSessionAffinity(kubectl, ni, false, true)
-					})
-
 					SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests NodePort with sessionAffinity from outside", func() {
 						testSessionAffinity(kubectl, ni, true, true)
-					})
-
-					It("Tests HealthCheckNodePort", func() {
-						testHealthCheckNodePort(kubectl, ni)
-					})
-
-					It("Tests that binding to NodePort port fails", func() {
-						testFailBind(kubectl, ni)
-					})
-
-					It("Tests HostPort", func() {
-						testHostPort(kubectl, ni)
 					})
 
 					SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests externalIPs", func() {
@@ -558,15 +572,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						})
 					})
 
-					Context("with L7 policy", func() {
-						AfterAll(func() { kubectl.Delete(demoPolicyL7) })
-
-						It("Tests NodePort with L7 Policy", func() {
-							applyPolicy(kubectl, demoPolicyL7)
-							testNodePort(kubectl, ni, false, false, false, 0)
-						})
-					})
-
+					// TODO(brb) use one of the maglev test cases below to run testMaglev()
 					Context("Tests NodePort with Maglev", func() {
 						var echoYAML string
 
@@ -628,32 +634,8 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						})
 					})
 
-					It("Tests NodePort", func() {
-						testNodePort(kubectl, ni, true, false, helpers.ExistNodeWithoutCilium(), 0)
-					})
-
-					It("Tests NodePort with externalTrafficPolicy=Local", func() {
-						testExternalTrafficPolicyLocal(kubectl, ni)
-					})
-
-					It("Tests NodePort with sessionAffinity", func() {
-						testSessionAffinity(kubectl, ni, false, false)
-					})
-
 					SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests NodePort with sessionAffinity from outside", func() {
 						testSessionAffinity(kubectl, ni, true, false)
-					})
-
-					It("Tests HealthCheckNodePort", func() {
-						testHealthCheckNodePort(kubectl, ni)
-					})
-
-					It("Tests that binding to NodePort port fails", func() {
-						testFailBind(kubectl, ni)
-					})
-
-					It("Tests HostPort", func() {
-						testHostPort(kubectl, ni)
 					})
 
 					SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests externalIPs", func() {
@@ -691,15 +673,6 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 						It("Tests NodePort", func() {
 							testNodePort(kubectl, ni, true, false, helpers.ExistNodeWithoutCilium(), 0)
-						})
-					})
-
-					Context("with L7 policy", func() {
-						AfterAll(func() { kubectl.Delete(demoPolicyL7) })
-
-						It("Tests NodePort with L7 Policy", func() {
-							applyPolicy(kubectl, demoPolicyL7)
-							testNodePort(kubectl, ni, false, false, false, 0)
 						})
 					})
 
