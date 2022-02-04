@@ -709,9 +709,6 @@ func testNodePortExternal(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, check
 		testCurlFromOutside(kubectl, ni, httpURL, 10, checkTCP)
 		testCurlFromOutside(kubectl, ni, tftpURL, 10, checkUDP)
 
-		// Make sure all the rest works as expected as well
-		testNodePort(kubectl, ni, true, false, false, 0)
-
 		// Clear CT tables on both Cilium nodes
 		pod, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
 		ExpectWithOffset(1, err).Should(BeNil(), "Cannot determine cilium pod name")
