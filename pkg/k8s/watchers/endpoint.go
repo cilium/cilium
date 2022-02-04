@@ -7,7 +7,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
@@ -74,8 +73,8 @@ func (k *K8sWatcher) endpointsInit(k8sClient kubernetes.Interface, swgEps *lock.
 		},
 		nil,
 	)
-	k.blockWaitGroupToSyncResources(wait.NeverStop, swgEps, endpointController.HasSynced, K8sAPIGroupEndpointV1Core)
-	go endpointController.Run(wait.NeverStop)
+	k.blockWaitGroupToSyncResources(k.stop, swgEps, endpointController.HasSynced, K8sAPIGroupEndpointV1Core)
+	go endpointController.Run(k.stop)
 	k.k8sAPIGroups.AddAPI(K8sAPIGroupEndpointV1Core)
 }
 

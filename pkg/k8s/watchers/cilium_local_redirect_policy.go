@@ -18,7 +18,6 @@ import (
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/k8s"
@@ -66,13 +65,13 @@ func (k *K8sWatcher) ciliumLocalRedirectPolicyInit(ciliumLRPClient *k8s.K8sCiliu
 	)
 
 	k.blockWaitGroupToSyncResources(
-		wait.NeverStop,
+		k.stop,
 		nil,
 		lrpController.HasSynced,
 		k8sAPIGroupCiliumLocalRedirectPolicyV2,
 	)
 
-	go lrpController.Run(wait.NeverStop)
+	go lrpController.Run(k.stop)
 	k.k8sAPIGroups.AddAPI(k8sAPIGroupCiliumLocalRedirectPolicyV2)
 }
 

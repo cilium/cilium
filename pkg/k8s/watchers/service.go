@@ -6,7 +6,6 @@ package watchers
 import (
 	v1 "k8s.io/api/core/v1"
 	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
@@ -64,8 +63,8 @@ func (k *K8sWatcher) servicesInit(k8sClient kubernetes.Interface, swgSvcs *lock.
 		},
 		nil,
 	)
-	k.blockWaitGroupToSyncResources(wait.NeverStop, swgSvcs, svcController.HasSynced, K8sAPIGroupServiceV1Core)
-	go svcController.Run(wait.NeverStop)
+	k.blockWaitGroupToSyncResources(k.stop, swgSvcs, svcController.HasSynced, K8sAPIGroupServiceV1Core)
+	go svcController.Run(k.stop)
 	k.k8sAPIGroups.AddAPI(K8sAPIGroupServiceV1Core)
 }
 

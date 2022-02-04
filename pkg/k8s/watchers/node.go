@@ -81,7 +81,7 @@ func (k *K8sWatcher) NodesInit(k8sClient *k8s.K8sClient) {
 		k.nodeStore = nodeStore
 
 		k.blockWaitGroupToSyncResources(wait.NeverStop, swg, nodeController.HasSynced, k8sAPIGroupNodeV1Core)
-		go nodeController.Run(wait.NeverStop)
+		go nodeController.Run(k.stop)
 		k.k8sAPIGroups.AddAPI(k8sAPIGroupNodeV1Core)
 	})
 }
