@@ -1731,6 +1731,9 @@ type DaemonConfig struct {
 	// EnableHostLegacyRouting enables the old routing path via stack.
 	EnableHostLegacyRouting bool
 
+	// NodePortNat46X64 indicates whether NAT46 / NAT64 can be used.
+	NodePortNat46X64 bool
+
 	// NodePortMode indicates in which mode NodePort implementation should run
 	// ("snat", "dsr" or "hybrid")
 	NodePortMode string

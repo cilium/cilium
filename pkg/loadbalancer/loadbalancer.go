@@ -35,6 +35,15 @@ const (
 	SVCTrafficPolicyLocal   = SVCTrafficPolicy("Local")
 )
 
+// SVCNatPolicy defines whether we need NAT46/64 translation for backends
+type SVCNatPolicy string
+
+const (
+	SVCNatPolicyNone  = SVCNatPolicy("NONE")
+	SVCNatPolicyNat46 = SVCNatPolicy("Nat46")
+	SVCNatPolicyNat64 = SVCNatPolicy("Nat64")
+)
+
 // ServiceFlags is the datapath representation of the service flags that can be
 // used (lb{4,6}_service.flags)
 type ServiceFlags uint16
@@ -50,10 +59,12 @@ const (
 	serviceFlagRoutable        = 1 << 6
 	serviceFlagSourceRange     = 1 << 7
 	serviceFlagLocalRedirect   = 1 << 8
+	serviceFlagNat46x64        = 1 << 9
 )
 
 type SvcFlagParam struct {
 	SvcType          SVCType
+	SvcNatPolicy     SVCNatPolicy
 	SvcLocal         bool
 	SessionAffinity  bool
 	IsRoutable       bool
@@ -75,6 +86,13 @@ func NewSvcFlag(p *SvcFlagParam) ServiceFlags {
 		flags |= serviceFlagHostPort
 	case SVCTypeLocalRedirect:
 		flags |= serviceFlagLocalRedirect
+	}
+
+	switch p.SvcNatPolicy {
+	case SVCNatPolicyNat46:
+		fallthrough
+	case SVCNatPolicyNat64:
+		flags |= serviceFlagNat46x64
 	}
 
 	if p.SvcLocal {
@@ -121,6 +139,19 @@ func (s ServiceFlags) SVCTrafficPolicy() SVCTrafficPolicy {
 	}
 }
 
+// SVCNatPolicy returns a service NAT policy from the flags
+func (s ServiceFlags) SVCNatPolicy(fe L3n4Addr) SVCNatPolicy {
+	if s&serviceFlagNat46x64 == 0 {
+		return SVCNatPolicyNone
+	}
+
+	if fe.IsIPv6() {
+		return SVCNatPolicyNat64
+	} else {
+		return SVCNatPolicyNat46
+	}
+}
+
 // String returns the string implementation of ServiceFlags.
 func (s ServiceFlags) String() string {
 	var str []string
@@ -137,6 +168,9 @@ func (s ServiceFlags) String() string {
 	}
 	if s&serviceFlagSourceRange != 0 {
 		str = append(str, "check source-range")
+	}
+	if s&serviceFlagNat46x64 != 0 {
+		str = append(str, "46x64")
 	}
 
 	return strings.Join(str, ", ")
@@ -205,6 +239,7 @@ type SVC struct {
 	Backends                  []Backend        // List of service backends
 	Type                      SVCType          // Service type
 	TrafficPolicy             SVCTrafficPolicy // Service traffic policy
+	NatPolicy                 SVCNatPolicy     // Service NAT 46/64 policy
 	SessionAffinity           bool
 	SessionAffinityTimeoutSec uint32
 	HealthCheckNodePort       uint16 // Service health check node port
@@ -214,6 +249,7 @@ type SVC struct {
 }
 
 func (s *SVC) GetModel() *models.Service {
+	var natPolicy string
 	type backendPlacement struct {
 		pos int
 		id  BackendID
@@ -224,6 +260,9 @@ func (s *SVC) GetModel() *models.Service {
 	}
 
 	id := int64(s.Frontend.ID)
+	if s.NatPolicy != SVCNatPolicyNone {
+		natPolicy = string(s.NatPolicy)
+	}
 	spec := &models.ServiceSpec{
 		ID:               id,
 		FrontendAddress:  s.Frontend.GetModel(),
@@ -231,6 +270,7 @@ func (s *SVC) GetModel() *models.Service {
 		Flags: &models.ServiceSpecFlags{
 			Type:                string(s.Type),
 			TrafficPolicy:       string(s.TrafficPolicy),
+			NatPolicy:           natPolicy,
 			HealthCheckNodePort: s.HealthCheckNodePort,
 
 			Name:      s.Name,
