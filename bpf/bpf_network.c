@@ -14,22 +14,33 @@
 __section("from-network")
 int from_network(struct __ctx_buff *ctx)
 {
-	int ret;
-#ifdef ENABLE_IPSEC
-	__u16 proto;
-#endif
+	int ret = CTX_ACT_OK;
+
+	__u16 proto __maybe_unused;
+	enum trace_reason reason = 0;
+	enum trace_point obs_point_to = TRACE_TO_STACK;
+	enum trace_point obs_point_from = TRACE_FROM_NETWORK;
 
 	bpf_clear_meta(ctx);
+
+	/* This program should be attached to the tc-ingress of
+	 * the network-facing device. Thus, as far as Cilium
+	 * knows, no one touches to the ctx->mark before this
+	 * program.
+	 *
+	 * One exception is the case the packets are re-insearted
+	 * from the stack by xfrm. In that case, the packets should
+	 * be marked with MARK_MAGIC_DECRYPT.
+	 */
+	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT)
+		obs_point_from = TRACE_FROM_STACK;
 
 #ifdef ENABLE_IPSEC
 	/* Pass unknown protocols to the stack */
 	if (!validate_ethertype(ctx, &proto))
-		return CTX_ACT_OK;
+		goto out;
 
 	ret = do_decrypt(ctx, proto);
-#else
-	/* nop if IPSec is disabled */
-	ret = CTX_ACT_OK;
 #endif
 
 /* We need to handle following possible packets come to this program
@@ -57,13 +68,21 @@ int from_network(struct __ctx_buff *ctx)
  */
 #ifdef ENABLE_IPSEC
 	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT)
-		send_trace_notify(ctx, TRACE_FROM_NETWORK, get_identity(ctx), 0, 0,
-				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED,
-				  TRACE_PAYLOAD_LEN);
-	else
+		reason = TRACE_REASON_ENCRYPTED;
+
+	/* Only possible redirect in here is the one in the do_decrypt
+	 * which redirects to cilium_host.
+	 */
+	if (ret == CTX_ACT_REDIRECT)
+		obs_point_to = TRACE_TO_HOST;
 #endif
-		send_trace_notify(ctx, TRACE_FROM_NETWORK, 0, 0, 0,
-				  ctx->ingress_ifindex, 0, TRACE_PAYLOAD_LEN);
+
+out:
+	send_trace_notify(ctx, obs_point_from, 0, 0, 0,
+			  ctx->ingress_ifindex, reason, TRACE_PAYLOAD_LEN);
+
+	send_trace_notify(ctx, obs_point_to, 0, 0, 0,
+			  ctx->ingress_ifindex, reason, TRACE_PAYLOAD_LEN);
 
 	return ret;
 }
