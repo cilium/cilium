@@ -378,7 +378,7 @@ func doFragmentedRequest(kubectl *helpers.Kubectl, srcPod string, srcPort, dstPo
 	), "Failed to account for INGRESS IPv4 fragments in BPF metrics", dstIP)
 }
 
-func testNodePort(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, bpfNodePort, testSecondaryNodePortIP, testFromOutside bool, fails int) {
+func testNodePort(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, bpfNodePort, testFromOutside bool, fails int) {
 	var (
 		err          error
 		data, v6Data v1.Service
@@ -464,26 +464,6 @@ func testNodePort(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, bpfNodePort, 
 		)
 	}
 
-	if testSecondaryNodePortIP {
-		testURLsFromHosts = append(testURLsFromHosts,
-			getHTTPLink(ni.SecondaryK8s1IPv4, data.Spec.Ports[0].NodePort),
-			getTFTPLink(ni.SecondaryK8s1IPv4, data.Spec.Ports[1].NodePort),
-
-			getHTTPLink(ni.SecondaryK8s2IPv4, data.Spec.Ports[0].NodePort),
-			getTFTPLink(ni.SecondaryK8s2IPv4, data.Spec.Ports[1].NodePort),
-		)
-
-		if helpers.DualStackSupported() {
-			testURLsFromHosts = append(testURLsFromHosts,
-				getHTTPLink(ni.SecondaryK8s1IPv6, v6Data.Spec.Ports[0].NodePort),
-				getTFTPLink(ni.SecondaryK8s1IPv6, v6Data.Spec.Ports[1].NodePort),
-
-				getHTTPLink(ni.SecondaryK8s2IPv6, v6Data.Spec.Ports[0].NodePort),
-				getTFTPLink(ni.SecondaryK8s2IPv6, v6Data.Spec.Ports[1].NodePort),
-			)
-		}
-	}
-
 	if helpers.RunsOnGKE() {
 		k8s1ExternalIP, err := kubectl.GetNodeIPByLabel(helpers.K8s1, true)
 		Expect(err).Should(BeNil(), "Cannot retrieve Node External IP for %s", helpers.K8s1)
@@ -533,25 +513,6 @@ func testNodePort(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, bpfNodePort, 
 			)
 		}
 
-		if testSecondaryNodePortIP {
-			testURLsFromOutside = append(testURLsFromOutside,
-				getHTTPLink(ni.SecondaryK8s1IPv4, data.Spec.Ports[0].NodePort),
-				getTFTPLink(ni.SecondaryK8s1IPv4, data.Spec.Ports[1].NodePort),
-
-				getHTTPLink(ni.SecondaryK8s2IPv4, data.Spec.Ports[0].NodePort),
-				getTFTPLink(ni.SecondaryK8s2IPv4, data.Spec.Ports[1].NodePort),
-			)
-
-			if helpers.DualStackSupported() {
-				testURLsFromOutside = append(testURLsFromOutside,
-					getHTTPLink(ni.SecondaryK8s1IPv6, v6Data.Spec.Ports[0].NodePort),
-					getTFTPLink(ni.SecondaryK8s1IPv6, v6Data.Spec.Ports[1].NodePort),
-
-					getHTTPLink(ni.SecondaryK8s2IPv6, v6Data.Spec.Ports[0].NodePort),
-					getTFTPLink(ni.SecondaryK8s2IPv6, v6Data.Spec.Ports[1].NodePort),
-				)
-			}
-		}
 	}
 
 	count := 10
@@ -679,26 +640,36 @@ func testFailBind(kubectl *helpers.Kubectl, ni *helpers.NodesInfo) {
 	failBind(kubectl, "::ffff:127.0.0.1", data.Spec.Ports[1].NodePort, "udp", ni.K8s1NodeName)
 }
 
-func testNodePortExternal(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, checkTCP, checkUDP bool) {
+func testNodePortExternal(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, testSecondaryNodePortIP, checkTCP, checkUDP bool) {
+	type svc struct {
+		name   string
+		nodeIP string
+	}
+
 	var (
 		data                v1.Service
 		nodePortService     = "test-nodeport"
 		nodePortServiceIPv6 = "test-nodeport-ipv6"
 	)
 
-	services := map[string]string{
-		nodePortService: ni.K8s1IP,
-	}
+	services := []svc{{nodePortService, ni.K8s1IP}}
+
 	if helpers.DualStackSupported() {
-		services[nodePortServiceIPv6] = ni.PrimaryK8s1IPv6
+		services = append(services, svc{name: nodePortServiceIPv6, nodeIP: ni.PrimaryK8s1IPv6})
+	}
+	if testSecondaryNodePortIP {
+		services = append(services, svc{name: nodePortService, nodeIP: ni.SecondaryK8s1IPv4})
+		if helpers.DualStackSupported() {
+			services = append(services, svc{name: nodePortServiceIPv6, nodeIP: ni.SecondaryK8s1IPv6})
+		}
 	}
 
-	for svcName, nodeIP := range services {
-		err := kubectl.Get(helpers.DefaultNamespace, fmt.Sprintf("service %s", svcName)).Unmarshal(&data)
+	for _, svc := range services {
+		err := kubectl.Get(helpers.DefaultNamespace, fmt.Sprintf("service %s", svc.name)).Unmarshal(&data)
 		ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve service")
 
-		httpURL := getHTTPLink(nodeIP, data.Spec.Ports[0].NodePort)
-		tftpURL := getTFTPLink(nodeIP, data.Spec.Ports[1].NodePort)
+		httpURL := getHTTPLink(svc.nodeIP, data.Spec.Ports[0].NodePort)
+		tftpURL := getTFTPLink(svc.nodeIP, data.Spec.Ports[1].NodePort)
 
 		// Test from external connectivity
 		// Note:
