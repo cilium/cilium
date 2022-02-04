@@ -64,10 +64,6 @@ pipeline {
             }
         }
         stage('Preload vagrant boxes'){
-            options {
-                timeout(time: 20, unit: 'MINUTES')
-            }
-
             steps {
                 sh '/usr/local/bin/add_vagrant_box ${WORKSPACE}/${PROJ_PATH}/vagrant_box_defaults.rb'
             }
