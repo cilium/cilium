@@ -492,10 +492,12 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 				testNodePort(kubectl, ni, false, false, false, 0)
 			})
 		})
-
 	})
 
-	Context("Checks N/S loadbalancing", func() {
+	SkipContextIf(func() bool {
+		return helpers.DoesNotRunWithKubeProxyReplacement() ||
+			helpers.DoesNotExistNodeWithoutCilium()
+	}, "Checks N/S loadbalancing", func() {
 		var yamls []string
 
 		BeforeAll(func() {
@@ -513,8 +515,11 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 
 			By(`Connectivity config:: helpers.DualStackSupported(): %v
 Primary Interface %s   :: IPv4: (%s, %s), IPv6: (%s, %s)
-Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupported(), ni.PrivateIface, ni.K8s1IP, ni.K8s2IP, ni.PrimaryK8s1IPv6, ni.PrimaryK8s2IPv6,
-				helpers.SecondaryIface, ni.SecondaryK8s1IPv4, ni.SecondaryK8s2IPv4, ni.SecondaryK8s1IPv6, ni.SecondaryK8s2IPv6)
+Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
+				helpers.DualStackSupported(), ni.PrivateIface,
+				ni.K8s1IP, ni.K8s2IP, ni.PrimaryK8s1IPv6, ni.PrimaryK8s2IPv6,
+				helpers.SecondaryIface, ni.SecondaryK8s1IPv4, ni.SecondaryK8s2IPv4,
+				ni.SecondaryK8s1IPv6, ni.SecondaryK8s2IPv6)
 
 			// Wait for all pods to be in ready state.
 			err := kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
@@ -528,264 +533,160 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			ExpectAllPodsTerminated(kubectl)
 		})
 
-		SkipContextIf(helpers.DoesNotRunWithKubeProxyReplacement, "Tests NodePort BPF",
-			func() {
-				Context("Tests with vxlan", func() {
-					SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests NodePort with sessionAffinity from outside", func() {
-						testSessionAffinity(kubectl, ni, true, true)
-					})
+		It("Tests NodePort with sessionAffinity from outside", func() {
+			testSessionAffinity(kubectl, ni, true, true)
+		})
 
-					SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests externalIPs", func() {
-						testExternalIPs(kubectl, ni)
-					})
+		It("Tests externalIPs", func() {
+			testExternalIPs(kubectl, ni)
+		})
 
-					SkipContextIf(func() bool { return helpers.RunsOnGKE() || helpers.SkipQuarantined() }, "With host policy", func() {
-						var ccnpHostPolicy string
+		It("Tests GH#10983", func() {
+			var data v1.Service
 
-						BeforeAll(func() {
-							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-								"hostFirewall.enabled": "true",
-							})
+			// We need two NodePort services with the same single endpoint,
+			// so thus we choose the "test-nodeport{-local,}-k8s2" svc.
+			// Both svcs will be accessed via the k8s2 node, because
+			// "test-nodeport-local-k8s2" has the local external traffic
+			// policy.
+			err := kubectl.Get(helpers.DefaultNamespace, "svc test-nodeport-local-k8s2").Unmarshal(&data)
+			Expect(err).Should(BeNil(), "Can not retrieve service")
+			svc1URL := getHTTPLink(ni.K8s2IP, data.Spec.Ports[0].NodePort)
+			err = kubectl.Get(helpers.DefaultNamespace, "svc test-nodeport-k8s2").Unmarshal(&data)
+			Expect(err).Should(BeNil(), "Can not retrieve service")
+			svc2URL := getHTTPLink(ni.K8s2IP, data.Spec.Ports[0].NodePort)
 
-							ccnpHostPolicy = helpers.ManifestGet(kubectl.BasePath(), "ccnp-host-policy-nodeport-tests.yaml")
-							_, err := kubectl.CiliumClusterwidePolicyAction(ccnpHostPolicy,
-								helpers.KubectlApply, helpers.HelperTimeout)
-							Expect(err).Should(BeNil(),
-								"Policy %s cannot be applied", ccnpHostPolicy)
-						})
+			// Send two requests from the same src IP and port to the endpoint
+			// via two different NodePort svc to trigger the stale conntrack
+			// entry issue. Once it's fixed, the second request should not
+			// fail.
+			testCurlFromOutsideWithLocalPort(kubectl, ni, svc1URL, 1, false, 64002)
+			time.Sleep(120 * time.Second) // to reuse the source port
+			testCurlFromOutsideWithLocalPort(kubectl, ni, svc2URL, 1, false, 64002)
+		})
 
-						AfterAll(func() {
-							_, err := kubectl.CiliumClusterwidePolicyAction(ccnpHostPolicy,
-								helpers.KubectlDelete, helpers.HelperTimeout)
-							Expect(err).Should(BeNil(),
-								"Policy %s cannot be deleted", ccnpHostPolicy)
-
-							DeployCiliumAndDNS(kubectl, ciliumFilename)
-						})
-
-						It("Tests NodePort", func() {
-							testNodePort(kubectl, ni, true, false, helpers.ExistNodeWithoutCilium(), 0)
-						})
-					})
-
-					SkipItIf(func() bool {
-						// Quarantine under all circumstances, as it's flaky,
-						// especially when running with the third node. See
-						// https://github.com/cilium/cilium/issues/12511 and
-						// https://github.com/cilium/cilium/issues/12690.
-						return helpers.GetCurrentIntegration() != "" ||
-							helpers.DoesNotExistNodeWithoutCilium() ||
-							helpers.SkipQuarantined()
-					}, "Tests with secondary NodePort device", func() {
-						DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-							"devices": fmt.Sprintf(`'{%s,%s}'`, ni.PrivateIface, helpers.SecondaryIface),
-						})
-
-						testNodePort(kubectl, ni, true, true, helpers.ExistNodeWithoutCilium(), 0)
-					})
-				})
-
-				Context("Tests with direct routing", func() {
-					BeforeAll(func() {
-						DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-							"tunnel":               "disabled",
-							"autoDirectNodeRoutes": "true",
-						})
-					})
-
-					SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests NodePort with sessionAffinity from outside", func() {
-						testSessionAffinity(kubectl, ni, true, false)
-					})
-
-					SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests externalIPs", func() {
-						testExternalIPs(kubectl, ni)
-					})
-
-					SkipContextIf(func() bool { return helpers.RunsOnGKE() || helpers.SkipQuarantined() }, "With host policy", func() {
-						var ccnpHostPolicy string
-
-						BeforeAll(func() {
-							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-								"tunnel":               "disabled",
-								"autoDirectNodeRoutes": "true",
-								"hostFirewall.enabled": "true",
-							})
-
-							ccnpHostPolicy = helpers.ManifestGet(kubectl.BasePath(), "ccnp-host-policy-nodeport-tests.yaml")
-							_, err := kubectl.CiliumClusterwidePolicyAction(ccnpHostPolicy,
-								helpers.KubectlApply, helpers.HelperTimeout)
-							Expect(err).Should(BeNil(),
-								"Policy %s cannot be applied", ccnpHostPolicy)
-						})
-
-						AfterAll(func() {
-							_, err := kubectl.CiliumClusterwidePolicyAction(ccnpHostPolicy,
-								helpers.KubectlDelete, helpers.HelperTimeout)
-							Expect(err).Should(BeNil(),
-								"Policy %s cannot be deleted", ccnpHostPolicy)
-
-							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-								"tunnel":               "disabled",
-								"autoDirectNodeRoutes": "true",
-							})
-						})
-
-						It("Tests NodePort", func() {
-							testNodePort(kubectl, ni, true, false, helpers.ExistNodeWithoutCilium(), 0)
-						})
-					})
-
-					SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests GH#10983", func() {
-						var data v1.Service
-
-						// We need two NodePort services with the same single endpoint,
-						// so thus we choose the "test-nodeport{-local,}-k8s2" svc.
-						// Both svcs will be accessed via the k8s2 node, because
-						// "test-nodeport-local-k8s2" has the local external traffic
-						// policy.
-						err := kubectl.Get(helpers.DefaultNamespace, "svc test-nodeport-local-k8s2").Unmarshal(&data)
-						Expect(err).Should(BeNil(), "Can not retrieve service")
-						svc1URL := getHTTPLink(ni.K8s2IP, data.Spec.Ports[0].NodePort)
-						err = kubectl.Get(helpers.DefaultNamespace, "svc test-nodeport-k8s2").Unmarshal(&data)
-						Expect(err).Should(BeNil(), "Can not retrieve service")
-						svc2URL := getHTTPLink(ni.K8s2IP, data.Spec.Ports[0].NodePort)
-
-						// Send two requests from the same src IP and port to the endpoint
-						// via two different NodePort svc to trigger the stale conntrack
-						// entry issue. Once it's fixed, the second request should not
-						// fail.
-						testCurlFromOutsideWithLocalPort(kubectl, ni, svc1URL, 1, false, 64002)
-						time.Sleep(120 * time.Second) // to reuse the source port
-						testCurlFromOutsideWithLocalPort(kubectl, ni, svc2URL, 1, false, 64002)
-					})
-
-				})
-
-				SkipItIf(func() bool {
-					// Quarantine when running with the third node as it's
-					// flaky. See GH-12511.
-					// It's also flaky for IPv6 traffic, see GH-18072
-					return helpers.SkipQuarantined()
-				}, "Tests with secondary NodePort device", func() {
-					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-						"tunnel":               "disabled",
-						"autoDirectNodeRoutes": "true",
-						"loadBalancer.mode":    "snat",
-						"devices":              fmt.Sprintf(`'{%s,%s}'`, ni.PrivateIface, helpers.SecondaryIface),
-					})
-
-					testNodePort(kubectl, ni, true, true, helpers.ExistNodeWithoutCilium(), 0)
-				})
-
-				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with direct routing and DSR", func() {
-					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-						"loadBalancer.mode":    "dsr",
-						"tunnel":               "disabled",
-						"autoDirectNodeRoutes": "true",
-					})
-
-					testDSR(kubectl, ni, 64000)
-					testNodePort(kubectl, ni, true, false, false, 0)
-				})
-
-				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with XDP, direct routing, SNAT and Random", func() {
-					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-						"loadBalancer.acceleration": "testing-only",
-						"loadBalancer.mode":         "snat",
-						"loadBalancer.algorithm":    "random",
-						"tunnel":                    "disabled",
-						"autoDirectNodeRoutes":      "true",
-						"devices":                   fmt.Sprintf(`'{%s}'`, ni.PrivateIface),
-					})
-					testNodePortExternal(kubectl, ni, false, false)
-				})
-
-				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with XDP, direct routing, SNAT and Maglev", func() {
-					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-						"loadBalancer.acceleration": "testing-only",
-						"loadBalancer.mode":         "snat",
-						"loadBalancer.algorithm":    "maglev",
-						"maglev.tableSize":          "251",
-						"tunnel":                    "disabled",
-						"autoDirectNodeRoutes":      "true",
-						"devices":                   fmt.Sprintf(`'{%s}'`, ni.PrivateIface),
-						// Support for host firewall + Maglev is currently broken,
-						// see #14047 for details.
-						"hostFirewall.enabled": "false",
-					})
-
-					testMaglev(kubectl, ni)
-					testNodePortExternal(kubectl, ni, false, false)
-				})
-
-				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with XDP, direct routing, Hybrid and Random", func() {
-					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-						"loadBalancer.acceleration": "testing-only",
-						"loadBalancer.mode":         "hybrid",
-						"loadBalancer.algorithm":    "random",
-						"tunnel":                    "disabled",
-						"autoDirectNodeRoutes":      "true",
-						"devices":                   fmt.Sprintf(`'{%s}'`, ni.PrivateIface),
-					})
-					testNodePortExternal(kubectl, ni, true, false)
-				})
-
-				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with XDP, direct routing, Hybrid and Maglev", func() {
-					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-						"loadBalancer.acceleration": "testing-only",
-						"loadBalancer.mode":         "hybrid",
-						"loadBalancer.algorithm":    "maglev",
-						"maglev.tableSize":          "251",
-						"tunnel":                    "disabled",
-						"autoDirectNodeRoutes":      "true",
-						"devices":                   fmt.Sprintf(`'{%s}'`, ni.PrivateIface),
-						// Support for host firewall + Maglev is currently broken,
-						// see #14047 for details.
-						"hostFirewall.enabled": "false",
-					})
-					testNodePortExternal(kubectl, ni, true, false)
-				})
-
-				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with XDP, direct routing, DSR and Random", func() {
-					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-						"loadBalancer.acceleration": "testing-only",
-						"loadBalancer.mode":         "dsr",
-						"loadBalancer.algorithm":    "random",
-						"tunnel":                    "disabled",
-						"autoDirectNodeRoutes":      "true",
-						"devices":                   fmt.Sprintf(`'{%s}'`, ni.PrivateIface),
-					})
-					testNodePortExternal(kubectl, ni, true, true)
-				})
-
-				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with XDP, direct routing, DSR and Maglev", func() {
-					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-						"loadBalancer.acceleration": "testing-only",
-						"loadBalancer.mode":         "dsr",
-						"loadBalancer.algorithm":    "maglev",
-						"maglev.tableSize":          "251",
-						"tunnel":                    "disabled",
-						"autoDirectNodeRoutes":      "true",
-						"devices":                   fmt.Sprintf(`'{%s}'`, ni.PrivateIface),
-						// Support for host firewall + Maglev is currently broken,
-						// see #14047 for details.
-						"hostFirewall.enabled": "false",
-					})
-					testNodePortExternal(kubectl, ni, true, true)
-				})
-
-				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with TC, direct routing and Hybrid", func() {
-					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-						"loadBalancer.acceleration": "disabled",
-						"loadBalancer.mode":         "hybrid",
-						"loadBalancer.algorithm":    "random",
-						"tunnel":                    "disabled",
-						"autoDirectNodeRoutes":      "true",
-						"devices":                   fmt.Sprintf(`'{}'`), // Revert back to auto-detection after XDP.
-					})
-					testNodePortExternal(kubectl, ni, true, false)
-				})
+		SkipItIf(func() bool {
+			// Quarantine when running with the third node as it's
+			// flaky. See GH-12511.
+			// It's also flaky for IPv6 traffic, see GH-18072
+			return helpers.SkipQuarantined()
+		}, "Tests with secondary NodePort device", func() {
+			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+				"loadBalancer.mode": "snat",
+				"devices":           fmt.Sprintf(`'{%s,%s}'`, ni.PrivateIface, helpers.SecondaryIface),
 			})
+
+			testNodePort(kubectl, ni, true, true, true, 0)
+		})
+
+		It("Tests with direct routing and DSR", func() {
+			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+				"loadBalancer.mode":    "dsr",
+				"tunnel":               "disabled",
+				"autoDirectNodeRoutes": "true",
+			})
+
+			testDSR(kubectl, ni, 64000)
+			testNodePort(kubectl, ni, true, false, false, 0)
+		})
+
+		It("Tests with XDP, direct routing, SNAT and Random", func() {
+			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+				"loadBalancer.acceleration": "testing-only",
+				"loadBalancer.mode":         "snat",
+				"loadBalancer.algorithm":    "random",
+				"tunnel":                    "disabled",
+				"autoDirectNodeRoutes":      "true",
+				"devices":                   fmt.Sprintf(`'{%s}'`, ni.PrivateIface),
+			})
+			testNodePortExternal(kubectl, ni, false, false)
+		})
+
+		It("Tests with XDP, direct routing, SNAT and Maglev", func() {
+			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+				"loadBalancer.acceleration": "testing-only",
+				"loadBalancer.mode":         "snat",
+				"loadBalancer.algorithm":    "maglev",
+				"maglev.tableSize":          "251",
+				"tunnel":                    "disabled",
+				"autoDirectNodeRoutes":      "true",
+				"devices":                   fmt.Sprintf(`'{%s}'`, ni.PrivateIface),
+				// Support for host firewall + Maglev is currently broken,
+				// see #14047 for details.
+				"hostFirewall.enabled": "false",
+			})
+
+			testMaglev(kubectl, ni)
+			testNodePortExternal(kubectl, ni, false, false)
+		})
+
+		It("Tests with XDP, direct routing, Hybrid and Random", func() {
+			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+				"loadBalancer.acceleration": "testing-only",
+				"loadBalancer.mode":         "hybrid",
+				"loadBalancer.algorithm":    "random",
+				"tunnel":                    "disabled",
+				"autoDirectNodeRoutes":      "true",
+				"devices":                   fmt.Sprintf(`'{%s}'`, ni.PrivateIface),
+			})
+			testNodePortExternal(kubectl, ni, true, false)
+		})
+
+		It("Tests with XDP, direct routing, Hybrid and Maglev", func() {
+			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+				"loadBalancer.acceleration": "testing-only",
+				"loadBalancer.mode":         "hybrid",
+				"loadBalancer.algorithm":    "maglev",
+				"maglev.tableSize":          "251",
+				"tunnel":                    "disabled",
+				"autoDirectNodeRoutes":      "true",
+				"devices":                   fmt.Sprintf(`'{%s}'`, ni.PrivateIface),
+				// Support for host firewall + Maglev is currently broken,
+				// see #14047 for details.
+				"hostFirewall.enabled": "false",
+			})
+			testNodePortExternal(kubectl, ni, true, false)
+		})
+
+		It("Tests with XDP, direct routing, DSR and Random", func() {
+			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+				"loadBalancer.acceleration": "testing-only",
+				"loadBalancer.mode":         "dsr",
+				"loadBalancer.algorithm":    "random",
+				"tunnel":                    "disabled",
+				"autoDirectNodeRoutes":      "true",
+				"devices":                   fmt.Sprintf(`'{%s}'`, ni.PrivateIface),
+			})
+			testNodePortExternal(kubectl, ni, true, true)
+		})
+
+		It("Tests with XDP, direct routing, DSR and Maglev", func() {
+			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+				"loadBalancer.acceleration": "testing-only",
+				"loadBalancer.mode":         "dsr",
+				"loadBalancer.algorithm":    "maglev",
+				"maglev.tableSize":          "251",
+				"tunnel":                    "disabled",
+				"autoDirectNodeRoutes":      "true",
+				"devices":                   fmt.Sprintf(`'{%s}'`, ni.PrivateIface),
+				// Support for host firewall + Maglev is currently broken,
+				// see #14047 for details.
+				"hostFirewall.enabled": "false",
+			})
+			testNodePortExternal(kubectl, ni, true, true)
+		})
+
+		It("Tests with TC, direct routing and Hybrid", func() {
+			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+				"loadBalancer.acceleration": "disabled",
+				"loadBalancer.mode":         "hybrid",
+				"loadBalancer.algorithm":    "random",
+				"tunnel":                    "disabled",
+				"autoDirectNodeRoutes":      "true",
+				"devices":                   fmt.Sprintf(`'{}'`), // Revert back to auto-detection after XDP.
+			})
+			testNodePortExternal(kubectl, ni, true, false)
+		})
 
 		// Run on net-next and 4.19 but not on old versions, because of
 		// LRU requirement.
@@ -804,15 +705,43 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			testIPv4FragmentSupport(kubectl, ni)
 		})
 
-		SkipItIf(helpers.DoesNotExistNodeWithoutCilium,
-			"ClusterIP cannot be accessed externally when access is disabled",
+		SkipContextIf(func() bool { return helpers.RunsOnGKE() || helpers.SkipQuarantined() }, "With host policy", func() {
+			var ccnpHostPolicy string
+
+			BeforeAll(func() {
+				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+					"hostFirewall.enabled": "true",
+				})
+
+				ccnpHostPolicy = helpers.ManifestGet(kubectl.BasePath(), "ccnp-host-policy-nodeport-tests.yaml")
+				_, err := kubectl.CiliumClusterwidePolicyAction(ccnpHostPolicy,
+					helpers.KubectlApply, helpers.HelperTimeout)
+				Expect(err).Should(BeNil(),
+					"Policy %s cannot be applied", ccnpHostPolicy)
+			})
+
+			AfterAll(func() {
+				_, err := kubectl.CiliumClusterwidePolicyAction(ccnpHostPolicy,
+					helpers.KubectlDelete, helpers.HelperTimeout)
+				Expect(err).Should(BeNil(),
+					"Policy %s cannot be deleted", ccnpHostPolicy)
+
+				DeployCiliumAndDNS(kubectl, ciliumFilename)
+			})
+
+			It("Tests NodePort", func() {
+				testNodePort(kubectl, ni, true, false, true, 0)
+			})
+		})
+
+		It("ClusterIP cannot be accessed externally when access is disabled",
 			func() {
 				Expect(curlClusterIPFromExternalHost(kubectl, ni)).
 					ShouldNot(helpers.CMDSuccess(),
 						"External host %s unexpectedly connected to ClusterIP when lbExternalClusterIP was unset", ni.OutsideNodeName)
 			})
 
-		SkipContextIf(helpers.DoesNotExistNodeWithoutCilium, "With ClusterIP external access", func() {
+		Context("With ClusterIP external access", func() {
 			var (
 				svcIP string
 			)
