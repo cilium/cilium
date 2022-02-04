@@ -70,6 +70,9 @@ serviceAccounts:
     name: hubble-generate-certs
     annotations: {}
 
+# -- Configure termination grace period for cilium-agent DaemonSet.
+terminationGracePeriodSeconds: 1
+
 # -- Install the cilium agent resources.
 agent: true
 
@@ -732,6 +735,9 @@ hubble:
 
     # -- The priority class to use for hubble-relay
     priorityClassName: ""
+
+    # -- Configure termination grace period for hubble relay Deployment.
+    terminationGracePeriodSeconds: 1
 
     # -- hubble-relay update strategy
     updateStrategy:
@@ -1677,6 +1683,10 @@ preflight:
 
   # -- Path to write the `--tofqdns-pre-cache` file to.
   tofqdnsPreCache: ""
+
+  # -- Configure termination grace period for preflight Deployment and DaemonSet.
+  terminationGracePeriodSeconds: 1
+
   # -- By default we should always validate the installed CNPs before upgrading
   # Cilium. This will make sure the user will have the policies deployed in the
   # cluster with the right schema.

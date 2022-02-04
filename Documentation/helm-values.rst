@@ -725,6 +725,10 @@
      - Max number of flows that can be buffered for sorting before being sent to the client (per request) (e.g. 100).
      - string
      - ``nil``
+   * - hubble.relay.terminationGracePeriodSeconds
+     - Configure termination grace period for hubble relay Deployment.
+     - int
+     - ``1``
    * - hubble.relay.tls
      - TLS configuration for Hubble Relay
      - object
@@ -1305,6 +1309,10 @@
      - Security context to be added to preflight pods
      - object
      - ``{}``
+   * - preflight.terminationGracePeriodSeconds
+     - Configure termination grace period for preflight Deployment and DaemonSet.
+     - int
+     - ``1``
    * - preflight.tofqdnsPreCache
      - Path to write the ``--tofqdns-pre-cache`` file to.
      - string
@@ -1413,6 +1421,10 @@
      - interval between checks of the startup probe
      - int
      - ``2``
+   * - terminationGracePeriodSeconds
+     - Configure termination grace period for cilium-agent DaemonSet.
+     - int
+     - ``1``
    * - tls
      - Configure TLS configuration in the agent.
      - object

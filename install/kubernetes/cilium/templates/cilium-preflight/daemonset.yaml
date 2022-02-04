@@ -150,7 +150,7 @@ spec:
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.preflight.priorityClassName "system-node-critical") }}
       serviceAccount: {{ .Values.serviceAccounts.preflight.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.preflight.name | quote }}
-      terminationGracePeriodSeconds: 1
+      terminationGracePeriodSeconds: {{ .Values.preflight.terminationGracePeriodSeconds }}
       {{- with .Values.preflight.tolerations }}
       tolerations:
         {{- toYaml . | trim | nindent 8 }}

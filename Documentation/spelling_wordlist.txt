@@ -861,6 +861,8 @@ tcptop
 tcptracer
 templating
 terminatingTLS
+terminationGracePeriodSeconds
+terminationGracePeriods
 testsuite
 th
 thunderx
@@ -927,8 +929,8 @@ virtualbox
 virtualization
 vlan
 vmlinux
-vtep
 volumeMounts
+vtep
 vxlan
 waitForMount
 waker

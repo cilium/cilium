@@ -84,7 +84,7 @@ spec:
       serviceAccount: {{ .Values.serviceAccounts.relay.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.relay.name | quote }}
       automountServiceAccountToken: false
-      terminationGracePeriodSeconds: 0
+      terminationGracePeriodSeconds: {{ .Values.hubble.relay.terminationGracePeriodSeconds }}
       {{- with .Values.hubble.relay.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
