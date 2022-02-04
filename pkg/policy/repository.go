@@ -420,6 +420,16 @@ func (p *Repository) AddList(rules api.Rules) (ruleSlice, uint64) {
 	return p.AddListLocked(rules)
 }
 
+// Iterate iterates the policy repository, calling f for each rule. It is safe
+// to execute Iterate concurrently.
+func (p *Repository) Iterate(f func(rule *api.Rule)) {
+	p.Mutex.RWMutex.Lock()
+	defer p.Mutex.RWMutex.Unlock()
+	for _, r := range p.rules {
+		f(&r.Rule)
+	}
+}
+
 // UpdateRulesEndpointsCaches updates the caches within each rule in r that
 // specify whether the rule selects the endpoints in eps. If any rule matches
 // the endpoints, it is added to the provided IDSet, and removed from the
