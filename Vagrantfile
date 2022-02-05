@@ -44,6 +44,16 @@ class VagrantPlugins::ProviderVirtualBox::Action::Network
   end
 end
 
+$cleanup = <<SCRIPT
+i=1
+res=0
+while [ "$res" == "0" ]; do
+    VBoxManage natnetwork remove --netname natnet$i
+    res=$?
+    i=$((i+1))
+done 2>/dev/null
+SCRIPT
+
 $bootstrap = <<SCRIPT
 set -o errexit
 set -o nounset
@@ -154,6 +164,10 @@ if ENV['CILIUM_SCRIPT'] != 'true' then
 end
 
 Vagrant.configure(2) do |config|
+    config.trigger.before :up, :provision, :reload do |trigger|
+        trigger.run = {inline: "bash -c '#{$cleanup}'"}
+    end
+
     config.vm.provision "bootstrap", type: "shell", inline: $bootstrap
     if $NO_BUILD == "0" then
         config.vm.provision "build", type: "shell", run: "always", privileged: false, inline: $build
@@ -196,6 +210,22 @@ Vagrant.configure(2) do |config|
         if ENV["IPV6_EXT"] then
             node_ip = "#{$master_ipv6}"
         end
+
+        # Interface for the IPv6 NAT Service. The IP address doesn't matter as
+        # it won't be used. We use an IPv6 address as newer versions of VBox
+        # reject all IPv6 addresses.
+        cm.vm.network "private_network",
+            ip: "192.168.59.15"
+        cm.vm.provider "virtualbox" do |vb|
+            vb.customize ["natnetwork", "add", "--netname", "natnet1", "--network", "fd08::/64", "--ipv6", "on", "--enable"]
+            vb.customize ["modifyvm", :id, "--nic4", "natnetwork"]
+            vb.customize ["modifyvm", :id, "--nat-network4", "natnet1"]
+        end
+        cm.vm.provision "ipv6-nat-config",
+            type: "shell",
+            run: "always",
+            inline: "ip -6 r a default via fd17:625c:f037:2::1 dev enp0s10 || true"
+
         cm.vm.hostname = "#{$vm_base_name}1"
         if ENV['CILIUM_TEMP'] then
            if ENV["K8S"] then
@@ -243,6 +273,22 @@ Vagrant.configure(2) do |config|
                 type: "shell",
                 run: "always",
                 inline: "ip -6 a a #{ipv6_addr}/16 dev enp0s9"
+
+            # Interface for the IPv6 NAT Service. The IP address doesn't matter
+            # as it won't be used. We use an IPv6 address as newer versions of
+            # VBox reject all IPv6 addresses.
+            node.vm.network "private_network",
+                ip: "192.168.59.15"
+            node.vm.provider "virtualbox" do |vb|
+                vb.customize ["natnetwork", "add", "--netname", "natnet#{n+2}", "--network", "fd08::/64", "--ipv6", "on", "--enable"]
+                vb.customize ["modifyvm", :id, "--nic4", "natnetwork"]
+                vb.customize ["modifyvm", :id, "--nat-network4", "natnet#{n+2}"]
+            end
+            node.vm.provision "ipv6-nat-config",
+                type: "shell",
+                run: "always",
+                inline: "ip -6 r a default via fd17:625c:f037:2::1 dev enp0s10 || true"
+
             if ENV["IPV6_EXT"] then
                 node_ip = "#{ipv6_addr}"
             end
