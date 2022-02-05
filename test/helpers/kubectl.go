@@ -2454,11 +2454,15 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		if err != nil {
 			return err
 		}
-		defaultIface, err := kub.GetDefaultIface()
+		defaultIfaceIPv4, err := kub.GetDefaultIface(false)
 		if err != nil {
 			return err
 		}
-		devices := fmt.Sprintf(`'{%s,%s}'`, privateIface, defaultIface)
+		defaultIfaceIPv6, err := kub.GetDefaultIface(true)
+		if err != nil {
+			return err
+		}
+		devices := fmt.Sprintf(`'{%s,%s,%s}'`, privateIface, defaultIfaceIPv4, defaultIfaceIPv6)
 		addIfNotOverwritten(options, "devices", devices)
 	}
 
@@ -2555,8 +2559,12 @@ func (kub *Kubectl) waitToDelete(name, label string) error {
 
 // GetDefaultIface returns an interface name which is used by a default route.
 // Assumes that all nodes have identical interfaces.
-func (kub *Kubectl) GetDefaultIface() (string, error) {
-	cmd := `ip -o r | grep default | grep -o 'dev [a-zA-Z0-9]*' | cut -d' ' -f2 | head -n1`
+func (kub *Kubectl) GetDefaultIface(ipv6 bool) (string, error) {
+	family := "-4"
+	if ipv6 {
+		family = "-6"
+	}
+	cmd := fmt.Sprintf(`ip %s -o r | grep default | grep -o 'dev [a-zA-Z0-9]*' | cut -d' ' -f2 | head -n1`, family)
 	iface, err := kub.ExecInHostNetNSByLabel(context.TODO(), K8s1, cmd)
 	if err != nil {
 		return "", fmt.Errorf("Failed to retrieve default iface: %s", err)

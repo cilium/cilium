@@ -781,7 +781,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 		SkipItIf(helpers.RunsWithoutKubeProxy, "Check connectivity with transparent encryption and direct routing with bpf_host", func() {
 			privateIface, err := kubectl.GetPrivateIface()
 			Expect(err).Should(BeNil(), "Unable to determine the private interface")
-			defaultIface, err := kubectl.GetDefaultIface()
+			defaultIface, err := kubectl.GetDefaultIface(false)
 			Expect(err).Should(BeNil(), "Unable to determine the default interface")
 			devices := fmt.Sprintf(`'{%s,%s}'`, privateIface, defaultIface)
 
