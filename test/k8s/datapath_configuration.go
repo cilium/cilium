@@ -214,7 +214,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 			if helpers.RunsOn419OrLaterKernel() {
 				By("Test BPF masquerade")
 				Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false, false)).
-					Should(BeTrue(), "Connectivity test to http://google.com failed")
+					Should(BeTrue(), "IPv4 connectivity test to http://google.com failed")
+				Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false, true)).
+					Should(BeTrue(), "IPv6 connectivity test to http://google.com failed")
 			}
 		})
 
@@ -290,7 +292,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 			if helpers.RunsOn419OrLaterKernel() {
 				By("Test BPF masquerade")
 				Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false, false)).
-					Should(BeTrue(), "Connectivity test to http://google.com failed")
+					Should(BeTrue(), "IPv4 connectivity test to http://google.com failed")
+				Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false, true)).
+					Should(BeTrue(), "IPv6 connectivity test to http://google.com failed")
 			}
 		})
 
