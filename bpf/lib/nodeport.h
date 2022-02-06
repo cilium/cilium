@@ -87,6 +87,7 @@ struct dsr_opt_v6 {
 	__u8 opt_len;
 	union v6addr addr;
 	__be16 port;
+	__u16 pad;
 };
 #endif /* ENABLE_IPV6 */
 
@@ -310,6 +311,9 @@ static __always_inline int dsr_set_ext6(struct __ctx_buff *ctx,
 {
 	struct dsr_opt_v6 opt __align_stack_8 = {};
 	__u16 payload_len = bpf_ntohs(ip6->payload_len) + sizeof(opt);
+
+	/* The IPv6 extension should be 8-bytes aligned */
+	build_bug_on((sizeof(struct dsr_opt_v6) % 8) != 0);
 
 	if (dsr_is_too_big(ctx, payload_len)) {
 		*ohead = sizeof(opt);
