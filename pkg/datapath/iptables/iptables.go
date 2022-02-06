@@ -494,17 +494,21 @@ func (m *IptablesManager) SupportsOriginalSourceAddr() bool {
 
 // removeRulesAndIpsets removes iptables rules and ipsets installed by Cilium.
 func (m *IptablesManager) removeRulesAndIpsets(prefix string, quiet bool) {
-	// Set of tables that have had iptables rules in any Cilium version
-	tables := []string{"nat", "mangle", "raw", "filter"}
-	for _, t := range tables {
-		m.removeCiliumRules(t, ip4tables, prefix+"CILIUM_")
+	if option.Config.EnableIPv4 {
+		// Set of tables that have had iptables rules in any Cilium version
+		tables := []string{"nat", "mangle", "raw", "filter"}
+		for _, t := range tables {
+			m.removeCiliumRules(t, ip4tables, prefix+"CILIUM_")
+		}
 	}
 
-	// Set of tables that have had ip6tables rules in any Cilium version
-	if m.haveIp6tables {
-		tables6 := []string{"nat", "mangle", "raw", "filter"}
-		for _, t := range tables6 {
-			m.removeCiliumRules(t, ip6tables, prefix+"CILIUM_")
+	if option.Config.EnableIPv6 {
+		// Set of tables that have had ip6tables rules in any Cilium version
+		if m.haveIp6tables {
+			tables6 := []string{"nat", "mangle", "raw", "filter"}
+			for _, t := range tables6 {
+				m.removeCiliumRules(t, ip6tables, prefix+"CILIUM_")
+			}
 		}
 	}
 
