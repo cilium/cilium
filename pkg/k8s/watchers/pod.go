@@ -460,8 +460,13 @@ func (k *K8sWatcher) deleteK8sPodV1(pod *slim_corev1.Pod) error {
 }
 
 func (k *K8sWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, logger *logrus.Entry) []loadbalancer.SVC {
-	var svcs []loadbalancer.SVC
-	for _, c := range pod.Spec.Containers {
+	var (
+		svcs       []loadbalancer.SVC
+		containers []slim_corev1.Container
+	)
+	containers = append(containers, pod.Spec.InitContainers...)
+	containers = append(containers, pod.Spec.Containers...)
+	for _, c := range containers {
 		for _, p := range c.Ports {
 			if p.HostPort <= 0 {
 				continue
