@@ -16,6 +16,7 @@ ubuntu_packages=(
   gnupg
   grep
   jq
+  python-is-python3
   sed
 )
 
