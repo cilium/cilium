@@ -199,7 +199,7 @@ endpoints:
 	}{
 		{
 			args: args{
-				backend: consulName,
+				backend: "not-etcd",
 			},
 			// it is not etcd
 			wantBool: false,

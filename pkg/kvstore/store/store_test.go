@@ -47,22 +47,6 @@ func (e *StoreEtcdSuite) TearDownTest(c *C) {
 	kvstore.Client().Close()
 }
 
-type StoreConsulSuite struct {
-	StoreSuite
-}
-
-var _ = Suite(&StoreConsulSuite{})
-
-func (e *StoreConsulSuite) SetUpTest(c *C) {
-	kvstore.SetupDummy("consul")
-}
-
-func (e *StoreConsulSuite) TearDownTest(c *C) {
-	kvstore.Client().DeletePrefix(context.TODO(), testPrefix)
-	kvstore.Client().Close()
-	time.Sleep(sharedKeyDeleteDelay + 5*time.Second)
-}
-
 type TestType struct {
 	Name string
 }

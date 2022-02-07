@@ -52,22 +52,6 @@ func (e *AllocatorEtcdSuite) TearDownTest(c *C) {
 	kvstore.Client().Close()
 }
 
-type AllocatorConsulSuite struct {
-	AllocatorSuite
-}
-
-var _ = Suite(&AllocatorConsulSuite{})
-
-func (e *AllocatorConsulSuite) SetUpTest(c *C) {
-	e.backend = "consul"
-	kvstore.SetupDummy("consul")
-}
-
-func (e *AllocatorConsulSuite) TearDownTest(c *C) {
-	kvstore.Client().DeletePrefix(context.TODO(), testPrefix)
-	kvstore.Client().Close()
-}
-
 //FIXME: this should be named better, it implements pkg/allocator.Backend
 type TestAllocatorKey string
 
@@ -148,15 +132,6 @@ func (s *AllocatorSuite) TestRunLocksGC(c *C) {
 				},
 				nil,
 			)
-		case "consul":
-			client, _ = kvstore.NewClient(context.Background(),
-				s.backend,
-				map[string]string{
-					kvstore.ConsulAddrOption:   kvstore.ConsulDummyAddress(),
-					kvstore.ConsulOptionConfig: kvstore.ConsulDummyConfigFile(),
-				},
-				nil,
-			)
 		}
 		lock2, err = client.LockPath(context.Background(), allocatorName+"/locks/"+kvstore.Client().Encode([]byte(shortKey.GetKey())))
 		c.Assert(err, IsNil)
@@ -182,10 +157,6 @@ func (s *AllocatorSuite) TestRunLocksGC(c *C) {
 	staleLocks, err = allocator.RunLocksGC(context.Background(), staleLocks)
 	c.Assert(err, IsNil)
 	switch s.backend {
-	case "consul":
-		// Contrary to etcd, consul does not create a lock in the kvstore
-		// if a lock is already being held.
-		c.Assert(len(staleLocks), Equals, 1)
 	case "etcd":
 		c.Assert(len(staleLocks), Equals, 2)
 	}
@@ -220,11 +191,6 @@ func (s *AllocatorSuite) TestRunLocksGC(c *C) {
 	staleLocks, err = allocator.RunLocksGC(context.Background(), staleLocks)
 	c.Assert(err, IsNil)
 	switch s.backend {
-	case "consul":
-		// Contrary to etcd, consul does not create a lock in the kvstore
-		// if a lock is already being held. So we have GCed the only lock
-		// available.
-		c.Assert(len(staleLocks), Equals, 0)
 	case "etcd":
 		// There are 2 clients trying to get the lock, we have GC one of them
 		// so that is way we have 1 staleLock in the map.

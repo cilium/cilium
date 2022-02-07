@@ -131,7 +131,6 @@ exec %{buildroot}/%{_bindir}/cilium completion > \
 %{_sysconfdir}/bash_completion.d/cilium
 %{_sysconfdir}/cni/net.d/05-cilium-cni.conf
 %{_sysconfdir}/sysconfig/cilium
-%{_unitdir}/cilium-consul.service
 %{_unitdir}/cilium-docker.service
 %{_unitdir}/cilium-etcd.service
 %{_unitdir}/cilium.service

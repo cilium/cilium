@@ -544,9 +544,6 @@ function gather_files {
     mkdir -p "${CLI_OUT_DIR}"
     dump_cli_output "${CLI_OUT_DIR}" || true
     dump_gops_output "${PROF_OUT_DIR}" "cilium-agent" || true
-    # Get logs from Consul container.
-    mkdir -p "${CILIUM_DIR}/consul"
-    docker logs cilium-consul > "${CILIUM_DIR}/consul/consul-logs.txt" 2>/dev/null
   else
     # Get logs from each Cilium pod.
     local NAMESPACE="kube-system"
@@ -1058,7 +1055,7 @@ function remove_cilium_docker_network {
 }
 
 function remove_all_containers {
-  docker rm -f $(docker ps --format '{{.Names}}' | grep -v cilium-consul) > /dev/null 2>&1 || true
+  docker rm -f $(docker ps --format '{{.Names}}') > /dev/null 2>&1 || true
 }
 
 function test_succeeded {

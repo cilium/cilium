@@ -65,26 +65,6 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 	})
 
 	Context("KVStore tests", func() {
-		It("Consul KVStore", func() {
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			By("Starting Cilium with consul as kvstore")
-			vm.ExecInBackground(
-				ctx,
-				"sudo cilium-agent --kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug 2>&1 | logger -t cilium")
-			err := vm.WaitUntilReady(helpers.CiliumStartTimeout)
-			Expect(err).Should(BeNil())
-
-			By("Restarting cilium-docker service")
-			vm.Exec("sudo systemctl restart cilium-docker")
-			helpers.Sleep(2)
-			containers(helpers.Create)
-			Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
-			eps, err := vm.GetEndpointsNames()
-			Expect(err).Should(BeNil(), "Error getting names of endpoints from cilium")
-			Expect(len(eps)).To(Equal(1), "Number of endpoints in Cilium differs from what is expected")
-		})
-
 		It("Etcd KVStore", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()

@@ -66,7 +66,6 @@ const (
 // 2.1 Create a new slave key. This operation is potentially racy as the master
 //     key can be removed in the meantime.
 //       etcd: Create is made conditional on existence of master key
-//       consul: locking
 //
 // ... match not found:
 // 2.1 Select new unused id from local cache

@@ -57,8 +57,7 @@ GO_IMAGE_VERSION := $(shell awk -F. '{ z=$$3; if (z == "") z=0; print $$1 "." $$
 
 DOCKER_FLAGS ?=
 
-TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddress=https://consul:8443 \
-	-X github.com/cilium/cilium/pkg/kvstore.etcdDummyAddress=http://etcd:4002 \
+TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.etcdDummyAddress=http://etcd:4002 \
 	-X github.com/cilium/cilium/pkg/datapath.DatapathSHA256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 
 TEST_UNITTEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/datapath.DatapathSHA256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -142,7 +141,7 @@ tests-privileged:
 	done
 	$(MAKE) generate-cov
 
-start-kvstores: ## Start running kvstores required for running Cilium integration-tests. More specifically this will run etcd and consul containers.
+start-kvstores: ## Start running kvstores required for running Cilium integration-tests. More specifically this will run etcd container.
 ifeq ($(SKIP_KVSTORES),"false")
 	@echo Starting key-value store containers...
 	-$(QUIET)$(CONTAINER_ENGINE) rm -f "cilium-etcd-test-container" 2> /dev/null
@@ -157,25 +156,11 @@ ifeq ($(SKIP_KVSTORES),"false")
 		-listen-peer-urls http://0.0.0.0:2380 \
 		-initial-cluster-token etcd-cluster-1 \
 		-initial-cluster-state new
-	-$(QUIET)$(CONTAINER_ENGINE) rm -f "cilium-consul-test-container" 2> /dev/null
-	$(QUIET)rm -rf /tmp/cilium-consul-certs
-	$(QUIET)mkdir /tmp/cilium-consul-certs
-	$(QUIET)cp $(CURDIR)/test/consul/* /tmp/cilium-consul-certs
-	$(QUIET)chmod -R a+rX /tmp/cilium-consul-certs
-	$(QUIET)$(CONTAINER_ENGINE) run -d \
-		--name "cilium-consul-test-container" \
-		-p 8501:8443 \
-		-e 'CONSUL_LOCAL_CONFIG={"skip_leave_on_interrupt": true, "disable_update_check": true}' \
-		-v /tmp/cilium-consul-certs:/cilium-consul/ \
-		$(CONSUL_IMAGE) \
-		agent -client=0.0.0.0 -server -bootstrap-expect 1 -config-file=/cilium-consul/consul-config.json
 endif
 
-stop-kvstores: ## Forcefully removes running kvstore components for Cilium unit-testing(etcd and consul containers).
+stop-kvstores: ## Forcefully removes running kvstore components for Cilium unit-testing(etcd container).
 ifeq ($(SKIP_KVSTORES),"false")
 	$(QUIET)$(CONTAINER_ENGINE) rm -f "cilium-etcd-test-container"
-	$(QUIET)$(CONTAINER_ENGINE) rm -f "cilium-consul-test-container"
-	$(QUIET)rm -rf /tmp/cilium-consul-certs
 endif
 
 generate-cov: ## Generate coverage report for Cilium integration-tests.

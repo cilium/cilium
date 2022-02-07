@@ -204,25 +204,6 @@ func (e *DaemonEtcdSuite) TearDownTest(c *C) {
 	e.DaemonSuite.TearDownTest(c)
 }
 
-type DaemonConsulSuite struct {
-	DaemonSuite
-}
-
-var _ = Suite(&DaemonConsulSuite{})
-
-func (e *DaemonConsulSuite) SetUpSuite(c *C) {
-	kvstore.SetupDummy("consul")
-	e.DaemonSuite.kvstoreInit = true
-}
-
-func (e *DaemonConsulSuite) SetUpTest(c *C) {
-	e.DaemonSuite.SetUpTest(c)
-}
-
-func (e *DaemonConsulSuite) TearDownTest(c *C) {
-	e.DaemonSuite.TearDownTest(c)
-}
-
 func (ds *DaemonSuite) TestMinimumWorkerThreadsIsSet(c *C) {
 	c.Assert(numWorkerThreads() >= 2, Equals, true)
 	c.Assert(numWorkerThreads() >= runtime.NumCPU(), Equals, true)

@@ -39,11 +39,6 @@ type KVLocker interface {
 	Comparator() interface{}
 }
 
-// getLockPath returns the lock path representation of the given path.
-func getLockPath(path string) string {
-	return path + ".lock"
-}
-
 type lockOwner struct {
 	created time.Time
 	id      uuid.UUID

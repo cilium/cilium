@@ -20,7 +20,7 @@
 # @cilium/ipam               IPAM
 # @cilium/ipcache            Maintenance of pkg/ipcache
 # @cilium/kubernetes         K8s integration, K8s CNI plugin
-# @cilium/kvstore            Key/Value store: Consul, etcd
+# @cilium/kvstore            Key/Value store: etcd
 # @cilium/loadbalancer       Load balancer
 # @cilium/loader             All related to LLVM, bpftool, Cilium loader, templating, etc.
 # @cilium/metrics            Metrics of the Cilium Agent

@@ -735,7 +735,6 @@ func (s *SSHMeta) GatherLogs() {
 	ciliumLogCommands := map[string]string{
 		fmt.Sprintf("sudo journalctl -au %s --no-pager", DaemonName):             "cilium.log",
 		fmt.Sprintf("sudo journalctl -au %s --no-pager", CiliumDockerDaemonName): "cilium-docker.log",
-		"sudo docker logs cilium-consul":                                         "consul.log",
 	}
 
 	testPath, err := CreateReportDirectory()
@@ -889,7 +888,7 @@ func (s *SSHMeta) SetUpCiliumWithOptions(ciliumOpts string) error {
 
 	systemdTemplate := `
 PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
-CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --pprof=true --log-system-load %s
+CILIUM_OPTS=--kvstore etcd --kvstore-opt etcd.address=127.0.0.1:4001 --debug --pprof=true --log-system-load %s
 INITSYSTEM=SYSTEMD`
 
 	ciliumConfig := "cilium.conf.ginkgo"

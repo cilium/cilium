@@ -39,3 +39,8 @@ func (s *independentSuite) TestValidateScopesFromKey(c *C) {
 		c.Assert(getScopeFromKey(key), Equals, val)
 	}
 }
+
+// getLockPath returns the lock path representation of the given path.
+func getLockPath(path string) string {
+	return path + ".lock"
+}

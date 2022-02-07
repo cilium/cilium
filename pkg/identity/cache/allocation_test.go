@@ -94,20 +94,6 @@ func (e *IdentityAllocatorEtcdSuite) TearDownTest(c *C) {
 	kvstore.Client().Close()
 }
 
-type IdentityAllocatorConsulSuite struct {
-	IdentityAllocatorSuite
-}
-
-var _ = Suite(&IdentityAllocatorConsulSuite{})
-
-func (e *IdentityAllocatorConsulSuite) SetUpTest(c *C) {
-	kvstore.SetupDummy("consul")
-}
-
-func (e *IdentityAllocatorConsulSuite) TearDownTest(c *C) {
-	kvstore.Client().Close()
-}
-
 type dummyOwner struct {
 	updated chan identity.NumericIdentity
 	mutex   lock.Mutex

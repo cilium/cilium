@@ -1,4 +1,0 @@
----
-cafile: '/tmp/cilium-consul-certs/consul-client-ca.crt'
-keyfile: '/tmp/cilium-consul-certs/consul-client.key'
-certfile: '/tmp/cilium-consul-certs/consul-client.crt'

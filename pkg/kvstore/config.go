@@ -11,11 +11,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-var (
-	// selectedModule is the name of the selected backend module
-	selectedModule string
-)
-
 // setOpts validates the specified options against the selected backend and
 // then modifies the configuration
 func setOpts(opts map[string]string, supportedOpts backendOptions) error {
@@ -84,8 +79,6 @@ func setup(ctx context.Context, selectedBackend string, opts map[string]string, 
 	if err := module.setExtraConfig(goOpts); err != nil {
 		return err
 	}
-
-	selectedModule = module.getName()
 
 	return initClient(ctx, module, goOpts)
 }

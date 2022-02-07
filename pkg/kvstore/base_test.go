@@ -230,11 +230,6 @@ func expectEvent(c *C, w *Watcher, typ EventType, key string, val string) {
 
 		if event.Typ != EventTypeListDone {
 			c.Assert(event.Key, checker.DeepEquals, key)
-
-			// etcd does not provide the value of deleted keys
-			if selectedModule == "consul" {
-				c.Assert(event.Value, checker.DeepEquals, val)
-			}
 		}
 	case <-time.After(10 * time.Second):
 		c.Fatal("timeout while waiting for kvstore watcher event")
