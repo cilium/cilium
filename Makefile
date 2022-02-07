@@ -498,6 +498,9 @@ microk8s: check-microk8s ## Build cilium-dev docker image and import to microk8s
 kind: ## Create a kind cluster for Cilium development.
 	$(QUIET)./contrib/scripts/kind.sh
 
+kind-down: ## Destroy a kind cluster for Cilium development.
+	$(QUIET)./contrib/scripts/kind-down.sh
+
 kind-image: export DOCKER_REGISTRY=localhost:5000
 kind-image: export LOCAL_IMAGE=$(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/cilium-dev:$(LOCAL_IMAGE_TAG)
 kind-image:
