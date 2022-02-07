@@ -320,15 +320,10 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 
 		It("Check connectivity with automatic direct nodes routes", func() {
-			options := map[string]string{
+			deploymentManager.DeployCilium(map[string]string{
 				"tunnel":               "disabled",
 				"autoDirectNodeRoutes": "true",
-			}
-			// Needed to bypass bug with masquerading when devices are set. See #12141.
-			if helpers.DoesNotRunWithKubeProxyReplacement() {
-				options["masquerade"] = "false"
-			}
-			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
+			}, DeployCiliumOptionsAndDNS)
 
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 			if helpers.RunsOn419OrLaterKernel() {
@@ -339,17 +334,12 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 
 		It("Check direct connectivity with per endpoint routes", func() {
-			options := map[string]string{
+			deploymentManager.DeployCilium(map[string]string{
 				"tunnel":                 "disabled",
 				"autoDirectNodeRoutes":   "true",
 				"endpointRoutes.enabled": "true",
 				"ipv6.enabled":           "false",
-			}
-			// Needed to bypass bug with masquerading when devices are set. See #12141.
-			if helpers.DoesNotRunWithKubeProxyReplacement() {
-				options["masquerade"] = "false"
-			}
-			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
+			}, DeployCiliumOptionsAndDNS)
 
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
