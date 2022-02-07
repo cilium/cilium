@@ -1106,9 +1106,3 @@ func (d *Daemon) K8sCacheIsSynced() bool {
 		return false
 	}
 }
-
-// WaitUntilK8sCacheIsSynced waits until the agent has fully synced its k8s cache with the API
-// server
-func (d *Daemon) WaitUntilK8sCacheIsSynced() {
-	_, _ = <-d.k8sCachesSynced
-}
