@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sort"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -20,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -31,15 +33,21 @@ type k8sCacheSyncedChecker interface {
 	K8sCacheIsSynced() bool
 }
 
-// The egressgateway manager stores the internal data tracking policies and
-// endpoints. It also hooks up all the callbacks to update egress bpf policy map
-// accordingly.
+// The egressgateway manager stores the internal data tracking the node, policy,
+// endpoint, and lease mappings. It also hooks up all the callbacks to update
+// egress bpf policy map accordingly.
 type Manager struct {
 	mutex lock.Mutex
 
 	// k8sCacheSyncedChecker is used to check if the agent has synced its
 	// cache with the k8s API server
 	k8sCacheSyncedChecker k8sCacheSyncedChecker
+
+	// nodeDataStore stores node name to node mapping
+	nodeDataStore map[string]nodeTypes.Node
+
+	// nodes stores nodes sorted by their name
+	nodes []nodeTypes.Node
 
 	// policyConfigs stores policy configs indexed by policyID
 	policyConfigs map[policyID]*PolicyConfig
@@ -55,6 +63,7 @@ type Manager struct {
 func NewEgressGatewayManager(k8sCacheSyncedChecker k8sCacheSyncedChecker, identityAlocator identityCache.IdentityAllocator) *Manager {
 	manager := &Manager{
 		k8sCacheSyncedChecker: k8sCacheSyncedChecker,
+		nodeDataStore:         make(map[string]nodeTypes.Node),
 		policyConfigs:         make(map[policyID]*PolicyConfig),
 		epDataStore:           make(map[endpointID]*endpointMetadata),
 		identityAllocator:     identityAlocator,
@@ -94,16 +103,15 @@ func (manager *Manager) runReconciliationAfterK8sSync() {
 		}
 
 		manager.mutex.Lock()
-		defer manager.mutex.Unlock()
-
 		manager.reconcile()
+		manager.mutex.Unlock()
 	}()
 }
 
 // Event handlers
 
-// OnAddEgressPolicy and updates the manager internal state with the policy
-// config fields.
+// OnAddEgressPolicy parses the given policy config, and updates internal state
+// with the config fields.
 func (manager *Manager) OnAddEgressPolicy(config PolicyConfig) {
 	manager.mutex.Lock()
 	defer manager.mutex.Unlock()
@@ -122,7 +130,7 @@ func (manager *Manager) OnAddEgressPolicy(config PolicyConfig) {
 }
 
 // OnDeleteEgressPolicy deletes the internal state associated with the given
-// policy.
+// policy, including egress eBPF map entries.
 func (manager *Manager) OnDeleteEgressPolicy(configID policyID) {
 	manager.mutex.Lock()
 	defer manager.mutex.Unlock()
@@ -193,8 +201,39 @@ func (manager *Manager) OnDeleteEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 	manager.reconcile()
 }
 
-// addMissingEgressRules is responsible for adding any missing egress gateway policy stored in the
-// manager (i.e. k8s CiliumEgressNATPolicies) to the egress policy BPF map.
+// OnUpdateNode is the event handler for node additions and updates.
+func (manager *Manager) OnUpdateNode(node nodeTypes.Node) {
+	manager.mutex.Lock()
+	defer manager.mutex.Unlock()
+	manager.nodeDataStore[node.Name] = node
+	manager.onChangeNodeLocked()
+}
+
+// OnDeleteNode is the event handler for node deletions.
+func (manager *Manager) OnDeleteNode(node nodeTypes.Node) {
+	manager.mutex.Lock()
+	defer manager.mutex.Unlock()
+	delete(manager.nodeDataStore, node.Name)
+	manager.onChangeNodeLocked()
+}
+
+func (manager *Manager) onChangeNodeLocked() {
+	manager.nodes = []nodeTypes.Node{}
+	for _, n := range manager.nodeDataStore {
+		manager.nodes = append(manager.nodes, n)
+	}
+	sort.Slice(manager.nodes, func(i, j int) bool {
+		return manager.nodes[i].Name < manager.nodes[j].Name
+	})
+	manager.reconcile()
+}
+
+func (manager *Manager) regenerateGatewayConfigs() {
+	for _, policyConfig := range manager.policyConfigs {
+		policyConfig.regenerateGatewayConfig(manager)
+	}
+}
+
 func (manager *Manager) addMissingEgressRules() {
 	egressPolicies := map[egressmap.EgressPolicyKey4]egressmap.EgressPolicyVal4{}
 	egressmap.EgressPolicyMap.IterateWithCallback(
@@ -202,22 +241,22 @@ func (manager *Manager) addMissingEgressRules() {
 			egressPolicies[*key] = *val
 		})
 
-	addEgressRule := func(endpointIP net.IP, dstCIDR *net.IPNet, egressIP net.IP) {
+	addEgressRule := func(endpointIP net.IP, dstCIDR *net.IPNet, gwc *gatewayConfig) {
 		policyKey := egressmap.NewEgressPolicyKey4(endpointIP, dstCIDR.IP, dstCIDR.Mask)
 		policyVal, policyPresent := egressPolicies[policyKey]
 
-		if policyPresent && policyVal.Match(egressIP, egressIP) {
+		if policyPresent && policyVal.Match(gwc.egressIP.IP, gwc.gatewayIP) {
 			return
 		}
 
 		logger := log.WithFields(logrus.Fields{
 			logfields.SourceIP:        endpointIP,
 			logfields.DestinationCIDR: dstCIDR.String(),
-			logfields.EgressIP:        egressIP,
-			logfields.GatewayIP:       egressIP,
+			logfields.EgressIP:        gwc.egressIP.IP,
+			logfields.GatewayIP:       gwc.gatewayIP,
 		})
 
-		if err := egressmap.EgressPolicyMap.Update(endpointIP, *dstCIDR, egressIP, egressIP); err != nil {
+		if err := egressmap.EgressPolicyMap.Update(endpointIP, *dstCIDR, gwc.egressIP.IP, gwc.gatewayIP); err != nil {
 			logger.WithError(err).Error("Error applying egress gateway policy")
 		} else {
 			logger.Info("Egress gateway policy applied")
@@ -240,8 +279,8 @@ func (manager *Manager) removeUnusedEgressRules() {
 
 nextPolicyKey:
 	for policyKey, policyVal := range egressPolicies {
-		matchPolicy := func(endpointIP net.IP, dstCIDR *net.IPNet, egressIP net.IP) bool {
-			return policyKey.Match(endpointIP, dstCIDR) && policyVal.Match(egressIP, egressIP)
+		matchPolicy := func(endpointIP net.IP, dstCIDR *net.IPNet, gwc *gatewayConfig) bool {
+			return policyKey.Match(endpointIP, dstCIDR) && policyVal.Match(gwc.egressIP.IP, gwc.gatewayIP)
 		}
 
 		for _, policyConfig := range manager.policyConfigs {
@@ -274,6 +313,8 @@ func (manager *Manager) reconcile() {
 	if !manager.k8sCacheSyncedChecker.K8sCacheIsSynced() {
 		return
 	}
+
+	manager.regenerateGatewayConfigs()
 
 	// The order of the next 2 function calls matters, as by first adding missing policies and
 	// only then removing obsolete ones we make sure there will be no connectivity disruption

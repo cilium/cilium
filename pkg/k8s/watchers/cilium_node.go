@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // RegisterCiliumNodeSubscriber allows registration of subscriber.CiliumNode implementations.
@@ -46,6 +47,9 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, asyncCo
 						valid = true
 						n := nodeTypes.ParseCiliumNode(ciliumNode)
 						errs := k.CiliumNodeChain.OnAddCiliumNode(ciliumNode, swgNodes)
+						if option.Config.EnableIPv4EgressGateway {
+							k.egressGatewayManager.OnUpdateNode(n)
+						}
 						if n.IsLocal() {
 							return
 						}
@@ -74,6 +78,9 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, asyncCo
 							}
 							n := nodeTypes.ParseCiliumNode(ciliumNode)
 							errs := k.CiliumNodeChain.OnUpdateCiliumNode(oldCN, ciliumNode, swgNodes)
+							if option.Config.EnableIPv4EgressGateway {
+								k.egressGatewayManager.OnUpdateNode(n)
+							}
 							if isLocal {
 								return
 							}
@@ -91,6 +98,9 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, asyncCo
 					}
 					valid = true
 					n := nodeTypes.ParseCiliumNode(ciliumNode)
+					if option.Config.EnableIPv4EgressGateway {
+						k.egressGatewayManager.OnDeleteNode(n)
+					}
 					errs := k.CiliumNodeChain.OnDeleteCiliumNode(ciliumNode, swgNodes)
 					if errs != nil {
 						valid = false
