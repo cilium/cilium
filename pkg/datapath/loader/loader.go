@@ -238,7 +238,8 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 		interfaceNames = append(interfaceNames, device)
 		symbols = append(symbols, symbolFromHostNetdevEp)
 		directions = append(directions, dirIngress)
-		if option.Config.EnableNodePort || option.Config.EnableHostFirewall {
+		if option.Config.EnableNodePort || option.Config.EnableHostFirewall ||
+			option.Config.EnableBandwidthManager {
 			interfaceNames = append(interfaceNames, device)
 			symbols = append(symbols, symbolToHostNetdevEp)
 			directions = append(directions, dirEgress)
