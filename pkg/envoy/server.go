@@ -911,6 +911,18 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 		}),
 	}
 
+	useDownstreamProtocolAutoSNI := map[string]*any.Any{
+		"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_config_upstream.HttpProtocolOptions{
+			UpstreamHttpProtocolOptions: &envoy_config_core.UpstreamHttpProtocolOptions{
+				AutoSni:           true,
+				AutoSanValidation: true,
+			},
+			UpstreamProtocolOptions: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamProtocolConfig{
+				UseDownstreamProtocolConfig: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamHttpConfig{},
+			},
+		}),
+	}
+
 	http2ProtocolOptions := map[string]*any.Any{
 		"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_config_upstream.HttpProtocolOptions{
 			UpstreamProtocolOptions: &envoy_config_upstream.HttpProtocolOptions_ExplicitHttpConfig_{
@@ -939,7 +951,7 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 					ConnectTimeout:                &duration.Duration{Seconds: connectTimeout, Nanos: 0},
 					CleanupInterval:               &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
 					LbPolicy:                      envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
-					TypedExtensionProtocolOptions: useDownstreamProtocol,
+					TypedExtensionProtocolOptions: useDownstreamProtocolAutoSNI,
 					TransportSocket:               &envoy_config_core.TransportSocket{Name: "cilium.tls_wrapper"},
 				},
 				{
@@ -956,7 +968,7 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 					ConnectTimeout:                &duration.Duration{Seconds: connectTimeout, Nanos: 0},
 					CleanupInterval:               &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
 					LbPolicy:                      envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
-					TypedExtensionProtocolOptions: useDownstreamProtocol,
+					TypedExtensionProtocolOptions: useDownstreamProtocolAutoSNI,
 					TransportSocket:               &envoy_config_core.TransportSocket{Name: "cilium.tls_wrapper"},
 				},
 				{
