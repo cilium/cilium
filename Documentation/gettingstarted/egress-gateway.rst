@@ -143,7 +143,7 @@ IP CIDR ``192.168.60.13/32``, then use egress IP ``192.168.60.100``. In this exa
 forward the packet from client pod to the gateway node with egress IP ``192.168.60.100``, and masquerade
 with that IP address.
 
-.. literalinclude:: ../../examples/kubernetes-egress-gateway/egress-nat-policy.yaml
+.. literalinclude:: ../../examples/kubernetes-egress-gateway/egress-nat-policy-egress-source-ip.yaml
 
 Let's switch back to the client pod and verify it works.
 
