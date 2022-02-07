@@ -2561,6 +2561,13 @@ definitions:
             enum:
             - Cluster
             - Local
+          natPolicy:
+            description: Service protocol NAT policy
+            type: string
+            enum:
+            - None
+            - Nat46
+            - Nat64
           healthCheckNodePort:
             description: Service health check node port
             type: integer
