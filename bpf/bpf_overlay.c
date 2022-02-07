@@ -413,11 +413,17 @@ int from_overlay(struct __ctx_buff *ctx)
 #endif
 	{
 		__u32 identity = 0;
+		enum trace_point obs_point = TRACE_FROM_OVERLAY;
 
-		if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT)
+		/* Non-ESP packet marked with MARK_MAGIC_DECRYPT is a packet
+		 * re-inserted from the stack.
+		 */
+		if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT) {
 			identity = get_identity(ctx);
+			obs_point = TRACE_FROM_STACK;
+		}
 
-		send_trace_notify(ctx, TRACE_FROM_OVERLAY, identity, 0, 0,
+		send_trace_notify(ctx, obs_point, identity, 0, 0,
 				  ctx->ingress_ifindex, 0, TRACE_PAYLOAD_LEN);
 	}
 
