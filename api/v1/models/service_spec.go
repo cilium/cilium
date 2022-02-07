@@ -152,6 +152,10 @@ type ServiceSpecFlags struct {
 	// Service namespace  (e.g. Kubernetes namespace)
 	Namespace string `json:"namespace,omitempty"`
 
+	// Service protocol NAT policy
+	// Enum: [None Nat46 Nat64]
+	NatPolicy string `json:"natPolicy,omitempty"`
+
 	// Service traffic policy
 	// Enum: [Cluster Local]
 	TrafficPolicy string `json:"trafficPolicy,omitempty"`
@@ -165,6 +169,10 @@ type ServiceSpecFlags struct {
 func (m *ServiceSpecFlags) Validate(formats strfmt.Registry) error {
 	var res []error
 
+	if err := m.validateNatPolicy(formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.validateTrafficPolicy(formats); err != nil {
 		res = append(res, err)
 	}
@@ -176,6 +184,52 @@ func (m *ServiceSpecFlags) Validate(formats strfmt.Registry) error {
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+var serviceSpecFlagsTypeNatPolicyPropEnum []interface{}
+
+func init() {
+	var res []string
+	if err := json.Unmarshal([]byte(`["None","Nat46","Nat64"]`), &res); err != nil {
+		panic(err)
+	}
+	for _, v := range res {
+		serviceSpecFlagsTypeNatPolicyPropEnum = append(serviceSpecFlagsTypeNatPolicyPropEnum, v)
+	}
+}
+
+const (
+
+	// ServiceSpecFlagsNatPolicyNone captures enum value "None"
+	ServiceSpecFlagsNatPolicyNone string = "None"
+
+	// ServiceSpecFlagsNatPolicyNat46 captures enum value "Nat46"
+	ServiceSpecFlagsNatPolicyNat46 string = "Nat46"
+
+	// ServiceSpecFlagsNatPolicyNat64 captures enum value "Nat64"
+	ServiceSpecFlagsNatPolicyNat64 string = "Nat64"
+)
+
+// prop value enum
+func (m *ServiceSpecFlags) validateNatPolicyEnum(path, location string, value string) error {
+	if err := validate.EnumCase(path, location, value, serviceSpecFlagsTypeNatPolicyPropEnum, true); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *ServiceSpecFlags) validateNatPolicy(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.NatPolicy) { // not required
+		return nil
+	}
+
+	// value enum
+	if err := m.validateNatPolicyEnum("flags"+"."+"natPolicy", "body", m.NatPolicy); err != nil {
+		return err
+	}
+
 	return nil
 }
 
