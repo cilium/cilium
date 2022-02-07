@@ -16,7 +16,7 @@ require (
 	github.com/cilium/hubble v0.9.0
 	github.com/cilium/workerpool v1.1.1
 	github.com/cloudflare/cfssl v1.6.1
-	github.com/go-openapi/strfmt v0.21.1
+	github.com/go-openapi/strfmt v0.21.2
 	github.com/google/gops v0.3.22
 	github.com/mholt/archiver/v3 v3.5.1
 	github.com/pkg/browser v0.0.0-20210706143420-7d21f8c997e2
