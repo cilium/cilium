@@ -12,7 +12,11 @@ spec:
         ns: cilium-test
   destinationCIDRs:
   - INPUT_OUTSIDE_NODE_IP/32
-  egressSourceIP: INPUT_EGRESS_IP
+  egressGateway:
+    nodeSelector:
+      matchLabels:
+        cilium.io/ci-node: k8s2
+    egressIP: INPUT_EGRESS_IP
 ---
 apiVersion: cilium.io/v2alpha1
 kind: CiliumEgressNATPolicy
@@ -30,7 +34,11 @@ spec:
   # It shouldn't affect in-cluster traffic.
   destinationCIDRs:
   - 0.0.0.0/0
-  egressSourceIP: 192.0.2.13 # It's a black hole, https://datatracker.ietf.org/doc/html/rfc5737#section-3
+  egressGateway:
+    nodeSelector:
+      matchLabels:
+        cilium.io/ci-node: k8s2
+    egressIP: 192.0.2.13 # It's a black hole, https://datatracker.ietf.org/doc/html/rfc5737#section-3 
 ---
 # egress-testds is a policy matching all traffic (i.e. destination CIDR
 # 0.0.0.0/0) from the zgroup=testDS echo server pods.
@@ -49,4 +57,24 @@ spec:
         zgroup: testDS
   destinationCIDRs:
   - 0.0.0.0/0
+  egressGateway:
+    nodeSelector:
+      matchLabels:
+        cilium.io/ci-node: k8s2
+    egressIP: INPUT_EGRESS_IP
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumEgressNATPolicy
+metadata:
+  name: egress-sample-2
+spec:
+  egress:
+  - podSelector:
+      matchLabels:
+        zgroup: testDSClient2
+    namespaceSelector:
+      matchLabels:
+        ns: cilium-test
+  destinationCIDRs:
+  - INPUT_OUTSIDE_NODE_IP/32
   egressSourceIP: INPUT_EGRESS_IP
