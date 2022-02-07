@@ -117,7 +117,7 @@ Verify that kube-router has installed routes:
 
 .. code-block:: shell-session
 
-    $ kubectl -n kube-system exec -ti cilium-fhpk2 -- ip route list scope global
+    $ kubectl -n kube-system exec ds/cilium -- ip route list scope global
     default via 172.0.32.1 dev eth0 proto dhcp src 172.0.50.227 metric 1024
     10.2.0.0/24 via 10.2.0.172 dev cilium_host src 10.2.0.172
     10.2.1.0/24 via 172.0.51.175 dev eth0 proto 17

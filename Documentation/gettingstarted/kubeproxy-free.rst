@@ -145,14 +145,14 @@ the Cilium agent is running in the desired mode:
 
 .. code-block:: shell-session
 
-    $ kubectl exec -it -n kube-system cilium-fmh8d -- cilium status | grep KubeProxyReplacement
+    $ kubectl -n kube-system exec ds/cilium -- cilium status | grep KubeProxyReplacement
     KubeProxyReplacement:   Strict	[eth0 (Direct Routing), eth1]
 
 Use ``--verbose`` for full details:
 
 .. code-block:: shell-session
 
-    $ kubectl exec -it -n kube-system cilium-fmh8d -- cilium status --verbose
+    $ kubectl -n kube-system exec ds/cilium -- cilium status --verbose
     [...]
     KubeProxyReplacement Details:
       Status:                Strict
@@ -228,7 +228,7 @@ port ``31940`` (one for each of devices ``eth0`` and ``eth1``):
 
 .. code-block:: shell-session
 
-    $ kubectl exec -it -n kube-system cilium-fmh8d -- cilium service list
+    $ kubectl -n kube-system exec ds/cilium -- cilium service list
     ID   Frontend               Service Type   Backend
     [...]
     4    10.104.239.135:80      ClusterIP      1 => 10.217.0.107:80
@@ -623,7 +623,7 @@ is shown:
 
 .. code-block:: shell-session
 
-    $ kubectl exec -it -n kube-system cilium-xxxxx -- cilium status --verbose | grep XDP
+    $ kubectl -n kube-system exec ds/cilium -- cilium status --verbose | grep XDP
       XDP Acceleration:    Native
 
 Note that packets which have been pushed back out of the device for NodePort handling
@@ -977,7 +977,7 @@ for example:
 
 .. code-block:: shell-session
 
-    $ kubectl exec -it -n kube-system cilium-xxxxx -- cilium status --verbose | grep HostPort
+    $ kubectl -n kube-system exec ds/cilium -- cilium status --verbose | grep HostPort
       - HostPort:       Enabled
 
 The following modified example yaml from the setup validation with an additional
@@ -1160,7 +1160,7 @@ The current Cilium kube-proxy replacement mode can also be introspected through 
 
 .. code-block:: shell-session
 
-    $ kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep KubeProxyReplacement
+    $ kubectl -n kube-system exec ds/cilium -- cilium status | grep KubeProxyReplacement
     KubeProxyReplacement:   Strict	[eth0 (DR)]
 
 Graceful Termination
@@ -1176,7 +1176,7 @@ The cilium agent feature flag can be probed by running ``cilium status`` command
 
 .. code-block:: shell-session
 
-    $ kubectl exec -it -n kube-system cilium-fmh8d -- cilium status --verbose
+    $ kubectl -n kube-system exec ds/cilium -- cilium status --verbose
     [...]
     KubeProxyReplacement Details:
      [...]

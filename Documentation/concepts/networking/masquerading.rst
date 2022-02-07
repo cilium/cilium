@@ -62,7 +62,7 @@ to determine which devices the program is running on:
 
 .. code-block:: shell-session
 
-    $ kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep Masquerading
+    $ kubectl -n kube-system exec ds/cilium -- cilium status | grep Masquerading
     Masquerading:   BPF (ip-masq-agent)   [eth0, eth1]  10.0.0.0/16
 
 From the output above, the program is running on the ``eth0`` and ``eth1`` devices.
@@ -129,7 +129,7 @@ The example below shows how to configure the agent via `ConfigMap` and to verify
 
     $ # Wait ~60s until the ConfigMap is mounted into a cilium pod
 
-    $ kubectl -n kube-system exec -ti cilium-xxxxx -- cilium bpf ipmasq list
+    $ kubectl -n kube-system exec ds/cilium -- cilium bpf ipmasq list
     IP PREFIX/ADDRESS
     10.0.0.0/8
     169.254.0.0/16
