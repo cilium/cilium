@@ -51,9 +51,17 @@ func ParseCiliumNode(n *ciliumv2.CiliumNode) (node Node) {
 		ipnet, err := cidr.ParseCIDR(cidrString)
 		if err == nil {
 			if ipnet.IP.To4() != nil {
-				node.IPv4AllocCIDR = ipnet
+				if node.IPv4AllocCIDR == nil {
+					node.IPv4AllocCIDR = ipnet
+				} else {
+					node.IPv4SecondaryAllocCIDRs = append(node.IPv4SecondaryAllocCIDRs, ipnet)
+				}
 			} else {
-				node.IPv6AllocCIDR = ipnet
+				if node.IPv6AllocCIDR == nil {
+					node.IPv6AllocCIDR = ipnet
+				} else {
+					node.IPv6SecondaryAllocCIDRs = append(node.IPv6SecondaryAllocCIDRs, ipnet)
+				}
 			}
 		}
 	}
@@ -161,12 +169,20 @@ type Node struct {
 	IPAddresses []Address
 
 	// IPv4AllocCIDR if set, is the IPv4 address pool out of which the node
-	// allocates IPs for local endpoints from
+	// allocates IPs for local endpoints from.
 	IPv4AllocCIDR *cidr.CIDR
 
+	// IPv4SecondaryAllocCIDRs contains additional IPv4 CIDRs from which this
+	//node allocates IPs for its local endpoints from
+	IPv4SecondaryAllocCIDRs []*cidr.CIDR
+
 	// IPv6AllocCIDR if set, is the IPv6 address pool out of which the node
-	// allocates IPs for local endpoints from
+	// allocates IPs for local endpoints from.
 	IPv6AllocCIDR *cidr.CIDR
+
+	// IPv6SecondaryAllocCIDRs contains additional IPv6 CIDRs from which this
+	// node allocates IPs for its local endpoints from
+	IPv6SecondaryAllocCIDRs []*cidr.CIDR
 
 	// IPv4HealthIP if not nil, this is the IPv4 address of the
 	// cilium-health endpoint located on the node.

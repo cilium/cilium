@@ -43,6 +43,8 @@ var (
 	ipv4ExternalAddress net.IP
 	ipv6ExternalAddress net.IP
 
+	// TODO secondary cidr
+
 	// k8s Node IP (either InternalIP or ExternalIP or nil; the former is preferred)
 	k8sNodeIP net.IP
 
