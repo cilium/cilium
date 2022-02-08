@@ -113,3 +113,18 @@ ip r a "${LB_VIP}/32" via "$SECOND_LB_NODE_IP"
 for i in $(seq 1 10); do
     curl -o /dev/null "${LB_VIP}:80"
 done
+
+# Set kind-worker to maintenance
+kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- \
+    cilium service update --id 1 --frontend "${LB_VIP}:80" --backends "${WORKER_IP}:80" --backend-weights "0" --k8s-node-port
+
+# Do not stop on error
+set +e
+# Issue 10 requests to LB (with 500ms timeout) which are expected to timeout
+for i in $(seq 1 10); do
+    curl -o /dev/null -m 0.5 "${LB_VIP}:80"
+    # code 28 - Operation timeout
+    if [ ! "$?" -eq 28 ]; then
+        exit -1;
+    fi
+done
