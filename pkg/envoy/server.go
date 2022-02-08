@@ -50,12 +50,15 @@ import (
 var (
 	// allowAllPortNetworkPolicy is a PortNetworkPolicy that allows all traffic
 	// to any L4 port.
+	allowAllTCPPortNetworkPolicy = &cilium.PortNetworkPolicy{
+		// Allow all TCP traffic to any port.
+		Protocol: envoy_config_core.SocketAddress_TCP,
+	}
 	allowAllPortNetworkPolicy = []*cilium.PortNetworkPolicy{
 		// Allow all TCP traffic to any port.
-		{Protocol: envoy_config_core.SocketAddress_TCP},
+		allowAllTCPPortNetworkPolicy,
 		// Allow all UDP traffic to any port.
 		// UDP rules not sent to Envoy for now.
-		// {Protocol: envoy_config_core.SocketAddress_UDP},
 	}
 )
 
@@ -1253,10 +1256,27 @@ func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetwor
 	}
 }
 
-func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4PolicyMap, policyEnforced bool) []*cilium.PortNetworkPolicy {
+func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4PolicyMap, policyEnforced bool, vis policy.DirectionalVisibilityPolicy) []*cilium.PortNetworkPolicy {
+	// TODO: integrate visibility with enforced policy
 	if !policyEnforced {
-		// Return an allow-all policy.
-		return allowAllPortNetworkPolicy
+		PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, len(vis))
+		// Always allow all ports
+		PerPortPolicies = append(PerPortPolicies, allowAllTCPPortNetworkPolicy)
+		for _, visMeta := range vis {
+			// Set up rule with 'L7Proto' as needed for proxylib parsers
+			if visMeta.Proto == u8proto.TCP && visMeta.Parser != policy.ParserTypeHTTP && visMeta.Parser != policy.ParserTypeDNS {
+				PerPortPolicies = append(PerPortPolicies, &cilium.PortNetworkPolicy{
+					Port:     uint32(visMeta.Port),
+					Protocol: envoy_config_core.SocketAddress_TCP,
+					Rules: []*cilium.PortNetworkPolicyRule{
+						{
+							L7Proto: visMeta.Parser.String(),
+						},
+					},
+				})
+			}
+		}
+		return SortPortNetworkPolicies(PerPortPolicies)
 	}
 
 	if len(l4Policy) == 0 {
@@ -1361,66 +1381,17 @@ func getNetworkPolicy(ep logger.EndpointUpdater, vis *policy.VisibilityPolicy, n
 		EndpointId:       uint64(ep.GetID()),
 		ConntrackMapName: ep.ConntrackNameLocked(),
 	}
-
 	// If no policy, deny all traffic. Otherwise, convert the policies for ingress and egress.
 	if l4Policy != nil {
-		if vis != nil && !(ingressPolicyEnforced || egressPolicyEnforced) {
-			if vis.Ingress != nil {
-				PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, len(vis.Ingress))
-				for _, visMeta := range vis.Ingress {
-					// we only setup this for proxylib parsers
-					if visMeta.Parser != policy.ParserTypeHTTP && visMeta.Parser != policy.ParserTypeDNS {
-						rules := []*cilium.PortNetworkPolicyRule{
-							{
-								L7Proto: visMeta.Parser.String(),
-							},
-						}
-						if visMeta.Proto != u8proto.TCP {
-							PerPortPolicies = allowAllPortNetworkPolicy
-						} else {
-							protocol := envoy_config_core.SocketAddress_TCP
-
-							PerPortPolicies = append(PerPortPolicies, &cilium.PortNetworkPolicy{
-								Port:     uint32(visMeta.Port),
-								Protocol: protocol,
-								Rules:    rules,
-							})
-						}
-					}
-				}
-				p.IngressPerPortPolicies = SortPortNetworkPolicies(PerPortPolicies)
-			}
-			if vis.Egress != nil {
-				PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, len(vis.Egress))
-				for _, visMeta := range vis.Egress {
-					// we only setup this for proxylib parsers
-					if visMeta.Parser != policy.ParserTypeHTTP && visMeta.Parser != policy.ParserTypeDNS {
-						rules := []*cilium.PortNetworkPolicyRule{
-							{
-								L7Proto: visMeta.Parser.String(),
-							},
-						}
-						if visMeta.Proto != u8proto.TCP {
-							PerPortPolicies = allowAllPortNetworkPolicy
-						} else {
-							protocol := envoy_config_core.SocketAddress_TCP
-
-							PerPortPolicies = append(PerPortPolicies, &cilium.PortNetworkPolicy{
-								Port:     uint32(visMeta.Port),
-								Protocol: protocol,
-								Rules:    rules,
-							})
-						}
-					}
-				}
-				p.EgressPerPortPolicies = SortPortNetworkPolicies(PerPortPolicies)
-			}
-		} else {
-			p.IngressPerPortPolicies = getDirectionNetworkPolicy(ep, l4Policy.Ingress, ingressPolicyEnforced)
-			p.EgressPerPortPolicies = getDirectionNetworkPolicy(ep, l4Policy.Egress, egressPolicyEnforced)
+		var visIngress policy.DirectionalVisibilityPolicy
+		var visEgress policy.DirectionalVisibilityPolicy
+		if vis != nil {
+			visIngress = vis.Ingress
+			visEgress = vis.Egress
 		}
+		p.IngressPerPortPolicies = getDirectionNetworkPolicy(ep, l4Policy.Ingress, ingressPolicyEnforced, visIngress)
+		p.EgressPerPortPolicies = getDirectionNetworkPolicy(ep, l4Policy.Egress, egressPolicyEnforced, visEgress)
 	}
-
 	return p
 }
 
