@@ -418,23 +418,23 @@ func (s *ServerSuite) TestGetPortNetworkPolicyRule(c *C) {
 
 func (s *ServerSuite) TestGetDirectionNetworkPolicy(c *C) {
 	// L4+L7
-	obtained := getDirectionNetworkPolicy(ep, L4PolicyMap1, true)
+	obtained := getDirectionNetworkPolicy(ep, L4PolicyMap1, true, nil)
 	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPolicies12Wildcard)
 
 	// L4+L7 with header mods
-	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap1HeaderMatch, true)
+	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap1HeaderMatch, true, nil)
 	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPolicies122HeaderMatchWildcard)
 
 	// L4+L7
-	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap2, true)
+	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap2, true, nil)
 	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPolicies1Wildcard)
 
 	// L4-only
-	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap4, true)
+	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap4, true, nil)
 	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPoliciesWildcard)
 
 	// L4-only
-	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap5, true)
+	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap5, true, nil)
 	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPoliciesWildcard)
 }
 
@@ -705,44 +705,54 @@ func (s *ServerSuite) TestGetNetworkPolicyMySQL(c *C) {
 	c.Assert(obtained, checker.ExportedEquals, expected)
 }
 
-var L4PolicyL7Kafka = &policy.L4Policy{}
+var emptyL4Policy = &policy.L4Policy{}
 
-var nvp = &policy.VisibilityPolicy{
-	Ingress: make(policy.DirectionalVisibilityPolicy),
+var kafkaIngressVisibilityPolicy = &policy.VisibilityPolicy{
+	Ingress: policy.DirectionalVisibilityPolicy{
+		"9092/TCP": &policy.VisibilityMetadata{ //"<Ingress/9092/TCP/Kafka>"
+			Port:       9092,
+			Parser:     "Kafka",
+			Proto:      u8proto.TCP,
+			Ingress:    true,
+			L7Metadata: make(policy.L7DataMap),
+		},
+	},
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyProxylibVisibility(c *C) {
-
-	dvp := nvp.Ingress
-
-	pp := "9092/TCP"
-
-	dvp[pp] = &policy.VisibilityMetadata{ //"<Ingress/9092/TCP/Kafka>"
-		Port:       9092,
-		Parser:     "Kafka",
-		Proto:      u8proto.TCP,
-		Ingress:    true,
-		L7Metadata: make(policy.L7DataMap),
-	}
-
-	pnp := []*cilium.PortNetworkPolicy{
-		{
-			Port:     uint32(nvp.Ingress[pp].Port),
-			Protocol: envoy_config_core.SocketAddress_TCP,
-			Rules: []*cilium.PortNetworkPolicyRule{
-				{
-					L7Proto: nvp.Ingress[pp].Parser.String(),
-				},
-			},
-		},
-	}
-	obtained := getNetworkPolicy(ep, nvp, IPv4Addr, L4PolicyL7Kafka, false, false)
+	// No visibility gets allow-all policies
+	obtained := getNetworkPolicy(ep, nil, IPv4Addr, emptyL4Policy, false, false)
 
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		EndpointId:             uint64(ep.GetID()),
-		IngressPerPortPolicies: pnp,
+		IngressPerPortPolicies: allowAllPortNetworkPolicy,
+		EgressPerPortPolicies:  allowAllPortNetworkPolicy,
 		ConntrackMapName:       "global",
+	}
+
+	c.Assert(obtained, checker.ExportedEquals, expected)
+
+	obtained = getNetworkPolicy(ep, kafkaIngressVisibilityPolicy, IPv4Addr, emptyL4Policy, false, false)
+
+	// Visibility policies still contain the allow-all policies, when policy is not enforced
+	expected = &cilium.NetworkPolicy{
+		Name:       IPv4Addr,
+		EndpointId: uint64(ep.GetID()),
+		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
+			allowAllTCPPortNetworkPolicy,
+			{
+				Port:     uint32(9092),
+				Protocol: envoy_config_core.SocketAddress_TCP,
+				Rules: []*cilium.PortNetworkPolicyRule{
+					{
+						L7Proto: "Kafka",
+					},
+				},
+			},
+		},
+		EgressPerPortPolicies: allowAllPortNetworkPolicy,
+		ConntrackMapName:      "global",
 	}
 
 	c.Assert(obtained, checker.ExportedEquals, expected)
