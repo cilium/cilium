@@ -116,6 +116,11 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		 * packet.
 		 */
 		ctx_change_type(ctx, PACKET_HOST);
+
+		send_trace_notify(ctx, TRACE_TO_STACK, 0, 0, 0,
+				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED,
+				  TRACE_PAYLOAD_LEN);
+
 		return CTX_ACT_OK;
 	}
 	ctx->mark = 0;
@@ -270,6 +275,11 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 		 * packet.
 		 */
 		ctx_change_type(ctx, PACKET_HOST);
+
+		send_trace_notify(ctx, TRACE_TO_STACK, 0, 0, 0,
+				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED,
+				  TRACE_PAYLOAD_LEN);
+
 		return CTX_ACT_OK;
 	}
 	ctx->mark = 0;
