@@ -163,14 +163,21 @@ func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string
 	// set of backends listed in a different order. To avoid that sort
 	// backends by name, as the names are the same on all nodes (in opposite
 	// to backend IDs which are node-local).
-	sort.Strings(backendNames)
-	table := maglev.GetLookupTable(backendNames, lbmap.maglevTableSize)
-	for i, pos := range table {
-		lbmap.maglevBackendIDsBuffer[i] = backends[backendNames[pos]].ID
-	}
-
-	if err := updateMaglevTable(ipv6, svcID, lbmap.maglevBackendIDsBuffer); err != nil {
-		return err
+	// In case all backends are put into maintenance we delete the maglev table.
+	if len(backendNames) > 0 {
+		sort.Strings(backendNames)
+		table := maglev.GetLookupTable(backendNames, lbmap.maglevTableSize)
+		// In case there are no backends we should delete maglevBackendIDsBuffer
+		for i, pos := range table {
+			lbmap.maglevBackendIDsBuffer[i] = backends[backendNames[pos]].ID
+		}
+		if err := updateMaglevTable(ipv6, svcID, lbmap.maglevBackendIDsBuffer); err != nil {
+			return err
+		}
+	} else {
+		if err := deleteMaglevTable(ipv6, uint16(svcID)); err != nil {
+			return fmt.Errorf("Unable to delete maglev lookup table %d: %s", svcID, err)
+		}
 	}
 
 	return nil
