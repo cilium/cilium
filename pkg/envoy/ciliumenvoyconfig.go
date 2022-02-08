@@ -78,7 +78,11 @@ func ParseResources(namePrefix string, cec *cilium_v2alpha1.CiliumEnvoyConfig, p
 
 			// Fill in RDS config source if unset
 			for _, fc := range listener.FilterChains {
-				for _, filter := range fc.Filters {
+				foundCiliumNetworkFilter := false
+				for i, filter := range fc.Filters {
+					if filter.Name == "cilium.network" {
+						foundCiliumNetworkFilter = true
+					}
 					tc := filter.GetTypedConfig()
 					if tc == nil || tc.GetTypeUrl() != "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager" {
 						continue
@@ -98,11 +102,39 @@ func ParseResources(namePrefix string, cec *cilium_v2alpha1.CiliumEnvoyConfig, p
 							updated = true
 						}
 					}
+					// Only inject Cilium policy enforcement filters for
+					// listeners for which Cilium agent allocates address
+					// for (see below)
+					if listener.GetAddress() == nil {
+						if !foundCiliumNetworkFilter {
+							// Inject Cilium network filter just before the HTTP Connection Manager filter
+							fc.Filters = append(fc.Filters[:i+1], fc.Filters[i:]...)
+							fc.Filters[i] = &envoy_config_listener.Filter{
+								Name: "cilium.network",
+							}
+						}
+						foundCiliumL7Filter := false
+						for j, httpFilter := range hcmConfig.HttpFilters {
+							switch httpFilter.Name {
+							case "cilium.l7policy":
+								foundCiliumL7Filter = true
+							case "envoy.filters.http.router":
+								if !foundCiliumL7Filter {
+									// Inject Cilium HTTP filter just before the HTTP Router filter
+									hcmConfig.HttpFilters = append(hcmConfig.HttpFilters[:j+1], hcmConfig.HttpFilters[j:]...)
+									hcmConfig.HttpFilters[j] = getCiliumHttpFilter()
+									updated = true
+								}
+								break
+							}
+						}
+					}
 					if updated {
 						filter.ConfigType = &envoy_config_listener.Filter_TypedConfig{
 							TypedConfig: toAny(hcmConfig),
 						}
 					}
+					break // Done with this filter chain
 				}
 			}
 			name := listener.Name
@@ -169,7 +201,8 @@ func ParseResources(namePrefix string, cec *cilium_v2alpha1.CiliumEnvoyConfig, p
 	if len(resources.Listeners) == 0 {
 		log.Debugf("ParseResources: No listeners parsed from %v", cec.Spec)
 	}
-	// Allocate TPROXY ports for listeners without address
+	// Allocate TPROXY ports for listeners without address.
+	// Do this only after all other possible error cases.
 	for _, listener := range resources.Listeners {
 		if listener.GetAddress() == nil {
 			port, err := portAllocator.AllocateProxyPort(listener.Name, cec.Spec.Ingress)

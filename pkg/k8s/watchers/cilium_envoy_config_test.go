@@ -74,9 +74,10 @@ func (s *K8sWatcherSuite) TestParseEnvoySpec(c *C) {
 	c.Assert(resources.Listeners[0].Address.GetSocketAddress().GetPortValue(), Equals, uint32(10000))
 	c.Assert(resources.Listeners[0].FilterChains, HasLen, 1)
 	chain := resources.Listeners[0].FilterChains[0]
-	c.Assert(chain.Filters, HasLen, 1)
-	c.Assert(chain.Filters[0].Name, Equals, "envoy.filters.network.http_connection_manager")
-	message, err := chain.Filters[0].GetTypedConfig().UnmarshalNew()
+	c.Assert(chain.Filters, HasLen, 2)
+	c.Assert(chain.Filters[0].Name, Equals, "cilium.network")
+	c.Assert(chain.Filters[1].Name, Equals, "envoy.filters.network.http_connection_manager")
+	message, err := chain.Filters[1].GetTypedConfig().UnmarshalNew()
 	c.Assert(err, IsNil)
 	c.Assert(message, Not(IsNil))
 	hcm, ok := message.(*envoy_config_http.HttpConnectionManager)
@@ -91,6 +92,7 @@ func (s *K8sWatcherSuite) TestParseEnvoySpec(c *C) {
 	c.Assert(vh[0].Routes[0].Match.GetPath(), Equals, "/metrics")
 	c.Assert(vh[0].Routes[0].GetRoute().GetCluster(), Equals, "envoy-admin")
 	c.Assert(vh[0].Routes[0].GetRoute().GetPrefixRewrite(), Equals, "/stats/prometheus")
-	c.Assert(hcm.HttpFilters, HasLen, 1)
-	c.Assert(hcm.HttpFilters[0].Name, Equals, "envoy.filters.http.router")
+	c.Assert(hcm.HttpFilters, HasLen, 2)
+	c.Assert(hcm.HttpFilters[0].Name, Equals, "cilium.l7policy")
+	c.Assert(hcm.HttpFilters[1].Name, Equals, "envoy.filters.http.router")
 }

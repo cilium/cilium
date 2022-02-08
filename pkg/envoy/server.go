@@ -247,8 +247,19 @@ func StartXDSServer(stateDir string) *XDSServer {
 	}
 }
 
+func getCiliumHttpFilter() *envoy_config_http.HttpFilter {
+	return &envoy_config_http.HttpFilter{
+		Name: "cilium.l7policy",
+		ConfigType: &envoy_config_http.HttpFilter_TypedConfig{
+			TypedConfig: toAny(&cilium.L7Policy{
+				AccessLogPath:  getAccessLogPath(option.Config.RunDir),
+				Denied_403Body: option.Config.HTTP403Message,
+			}),
+		},
+	}
+}
+
 func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy_config_listener.FilterChain {
-	denied403body := option.Config.HTTP403Message
 	requestTimeout := int64(option.Config.HTTPRequestTimeout) // seconds
 	idleTimeout := int64(option.Config.HTTPIdleTimeout)       // seconds
 	maxGRPCTimeout := int64(option.Config.HTTPMaxGRPCTimeout) // seconds
@@ -257,17 +268,12 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 
 	hcmConfig := &envoy_config_http.HttpConnectionManager{
 		StatPrefix: "proxy",
-		HttpFilters: []*envoy_config_http.HttpFilter{{
-			Name: "cilium.l7policy",
-			ConfigType: &envoy_config_http.HttpFilter_TypedConfig{
-				TypedConfig: toAny(&cilium.L7Policy{
-					AccessLogPath:  s.accessLogPath,
-					Denied_403Body: denied403body,
-				}),
+		HttpFilters: []*envoy_config_http.HttpFilter{
+			getCiliumHttpFilter(),
+			{
+				Name: "envoy.filters.http.router",
 			},
-		}, {
-			Name: "envoy.filters.http.router",
-		}},
+		},
 		StreamIdleTimeout: &durationpb.Duration{}, // 0 == disabled
 		RouteSpecifier: &envoy_config_http.HttpConnectionManager_RouteConfig{
 			RouteConfig: &envoy_config_route.RouteConfiguration{
