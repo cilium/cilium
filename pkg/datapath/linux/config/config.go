@@ -96,6 +96,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	fmt.Fprintf(fw, " */\n\n")
 
 	cDefinesMap["KERNEL_HZ"] = fmt.Sprintf("%d", option.Config.KernelHz)
+	if option.Config.ClockSource == option.ClockSourceJiffies {
+		cDefinesMap["ENABLE_JIFFIES"] = "1"
+	}
 
 	if option.Config.EnableIPv6 {
 		extraMacrosMap["ROUTER_IP"] = routerIP.String()
