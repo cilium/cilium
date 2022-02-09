@@ -32,6 +32,12 @@
 #include "lib/identity.h"
 #include "lib/nodeport.h"
 
+#ifdef ENABLE_VTEP
+#include "lib/arp.h"
+#include "lib/encap.h"
+#include "lib/eps.h"
+#endif /* ENABLE_VTEP */
+
 #ifdef ENABLE_IPV6
 static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 				       __u32 *identity)
@@ -333,6 +339,53 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 					      CTX_ACT_DROP, METRIC_INGRESS);
 	return ret;
 }
+
+#ifdef ENABLE_VTEP
+/*
+ * ARP responder for ARP requests from VTEP
+ * Respond to remote VTEP endpoint with cilium_vxlan MAC
+ */
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ARP)
+int tail_handle_arp(struct __ctx_buff *ctx)
+{
+	union macaddr mac = NODE_MAC;
+	union macaddr smac;
+	__be32 sip;
+	__be32 tip;
+	__u32 monitor = TRACE_PAYLOAD_LEN;
+	int i;
+	int ret;
+	struct remote_endpoint_info *info;
+	struct bpf_tunnel_key key = {};
+
+	if (unlikely(ctx_get_tunnel_key(ctx, &key, sizeof(key), 0) < 0))
+		return send_drop_notify_error(ctx, 0, DROP_NO_TUNNEL_KEY, CTX_ACT_DROP,
+										METRIC_INGRESS);
+
+	if (!arp_validate(ctx, &mac, &smac, &sip, &tip) || !__lookup_ip4_endpoint(tip))
+		goto pass_to_stack;
+	info = lookup_ip4_remote_endpoint(sip);
+	if (!info)
+		goto pass_to_stack;
+
+	ret = arp_prepare_response(ctx, &mac, tip, &smac, sip);
+	if (unlikely(ret != 0))
+		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
+
+	for (i = 0; i < VTEP_NUMS; i++) {
+		if (info->tunnel_endpoint == VTEP_ENDPOINT[i])
+			return __encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
+									info->sec_label, monitor);
+	}
+
+	return send_drop_notify_error(ctx, 0, DROP_UNKNOWN_L3, CTX_ACT_DROP, METRIC_EGRESS);
+
+pass_to_stack:
+	send_trace_notify(ctx, TRACE_TO_STACK, 0, 0, 0, ctx->ingress_ifindex, 0, monitor);
+	return CTX_ACT_OK;
+}
+#endif /* ENABLE_VTEP */
+
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPSEC
@@ -445,6 +498,13 @@ int from_overlay(struct __ctx_buff *ctx)
 		ret = DROP_UNKNOWN_L3;
 #endif
 		break;
+
+#ifdef ENABLE_VTEP
+	case bpf_htons(ETH_P_ARP):
+		ep_tail_call(ctx, CILIUM_CALL_ARP);
+		ret = DROP_MISSED_TAIL_CALL;
+		break;
+#endif
 
 	default:
 		/* Pass unknown traffic to the stack */
