@@ -297,7 +297,7 @@ func (s *SharedStore) syncLocalKeys(ctx context.Context) error {
 	// Create a copy of all local keys so we can unlock and sync to kvstore
 	// without holding the lock
 	s.mutex.RLock()
-	keys := []LocalKey{}
+	keys := make([]LocalKey, 0, len(s.localKeys))
 	for _, key := range s.localKeys {
 		keys = append(keys, key)
 	}
