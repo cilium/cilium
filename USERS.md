@@ -82,6 +82,11 @@ Users (Alphabetically)
       L: https://www.youtube.com/watch?v=yXm7yZE2rk4
       Q: @rmaika @mohahmed13
 
+    * N: Civo
+      D: Civo is offering Cilium as the CNI option for Civo users to choose it for their Civo Kubernetes clusters.
+      U: Networking and network policy
+      L: https://www.civo.com/kubernetes
+
     * N: Cognite
       D: Cognite is an industrial DataOps provider and uses Cilium as the CNI plugin
       Q: @Robert Collins
