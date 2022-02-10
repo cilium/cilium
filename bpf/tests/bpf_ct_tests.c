@@ -6,35 +6,12 @@
 #include <bpf/ctx/skb.h>
 #include <bpf/api.h>
 
-/* most values taken from node_config.h */
 #define ENABLE_IPV4
+#define ENABLE_NODEPORT
+#include <node_config.h>
 
-#define ENDPOINTS_MAP test_cilium_lxc
-#define POLICY_PROG_MAP_SIZE ENDPOINTS_MAP_SIZE
-#define METRICS_MAP test_cilium_metrics
-
-#define ENDPOINTS_MAP_SIZE 65536
-#define IPCACHE_MAP_SIZE 512000
-#define METRICS_MAP_SIZE 65536
-#define EVENTS_MAP test_cilium_events
-
-#define CT_MAP_TCP6 test_cilium_ct_tcp6_65535
-#define CT_MAP_ANY6 test_cilium_ct_any6_65535
-#define CT_MAP_TCP4 test_cilium_ct_tcp4_65535
-#define CT_MAP_ANY4 test_cilium_ct_any4_65535
-#define CT_MAP_SIZE_TCP 4096
-#define CT_MAP_SIZE_ANY 4096
-#define CT_CONNECTION_LIFETIME_TCP	21600
-#define CT_CONNECTION_LIFETIME_NONTCP	60
-#define CT_SERVICE_LIFETIME_TCP		21600
-#define CT_SERVICE_LIFETIME_NONTCP	60
-#define CT_SERVICE_CLOSE_REBALANCE	30
-#define CT_SYN_TIMEOUT			60
-#define CT_CLOSE_TIMEOUT		10
-#define CT_REPORT_INTERVAL		5
-#define CT_REPORT_FLAGS			0xff
-#define MTU 1500
-
+#undef EVENTS_MAP
+#define EVENTS_MAP test_events_map
 #define DEBUG
 
 #include <lib/dbg.h>
