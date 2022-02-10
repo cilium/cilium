@@ -96,13 +96,12 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 		return
 	}
 
-	// default to using the log var set above
-	baseLogger := log.Logger
+	// default to a new default logger
+	baseLogger := logging.InitializeDefaultLogger()
 
 	// If this endpoint is set to debug ensure it will print debug by giving it
 	// an independent logger
 	if e.Options != nil && e.Options.IsEnabled(option.Debug) {
-		baseLogger = logging.InitializeDefaultLogger()
 		baseLogger.SetLevel(logrus.DebugLevel)
 	} else {
 		// Debug mode takes priority; if not in debug, check what log level user
