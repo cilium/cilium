@@ -84,7 +84,7 @@ jobs:
             --machine-type e2-custom-2-4096 \
             --disk-type pd-standard \
             --disk-size 10GB \
-            --node-taints node.cilium.io/agent-not-ready=true:NoSchedule \
+            --node-taints node.cilium.io/agent-not-ready=true:NoExecute \
             --preemptible \
             --enable-ip-alias
 
@@ -107,7 +107,7 @@ jobs:
             --machine-type e2-custom-2-4096 \
             --disk-type pd-standard \
             --disk-size 10GB \
-            --node-taints node.cilium.io/agent-not-ready=true:NoSchedule \
+            --node-taints node.cilium.io/agent-not-ready=true:NoExecute \
             --preemptible \
             --enable-ip-alias
 
