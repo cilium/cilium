@@ -252,8 +252,6 @@ jenkinsfiles @cilium/ci-structure
 /test/ @cilium/ci-structure
 /test/Makefile* @cilium/ci-structure @cilium/build
 # Service handling tests
-/test/k8sT/external_ips.go @cilium/loadbalancer @cilium/ci-structure
-/test/k8sT/manifests/externalIPs/ @cilium/loadbalancer @cilium/ci-structure
 /test/k8sT/Services.go @cilium/loadbalancer @cilium/ci-structure
 /test/runtime/lb.go @cilium/loadbalancer @cilium/ci-structure
 # Datapath tests
