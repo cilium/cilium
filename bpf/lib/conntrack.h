@@ -289,6 +289,33 @@ ct_new: __maybe_unused;
 	return CT_NEW;
 }
 
+/* The function determines whether an egress flow identified by the given
+ * tuple is a reply.
+ *
+ * The datapath creates a CT entry in a reverse order. E.g., if a pod sends a
+ * request to outside, the CT entry stored in the BPF map will be TUPLE_F_IN:
+ * pod => outside. So, we can leverage this fact to determine whether the given
+ * flow is a reply.
+ */
+#define DEFINE_FUNC_CT_IS_REPLY(FAMILY)						\
+static __always_inline int							\
+ct_is_reply ## FAMILY(const void *map, struct __ctx_buff *ctx, int off,		\
+		      struct ipv ## FAMILY ## _ct_tuple *tuple,			\
+		      bool *is_reply)						\
+{										\
+	int err = 0;								\
+										\
+	err = ct_extract_ports ## FAMILY(ctx, off, CT_EGRESS, tuple, NULL);	\
+	if (err < 0)								\
+		return err;							\
+										\
+	tuple->flags = TUPLE_F_IN;						\
+										\
+	*is_reply = map_lookup_elem(map, tuple) != NULL;			\
+										\
+	return 0;								\
+}
+
 static __always_inline int
 ipv6_extract_tuple(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 		   int *l4_off)
@@ -692,30 +719,8 @@ ct_extract_ports4(struct __ctx_buff *ctx, int off, enum ct_dir dir,
 	return ACTION_UNSPEC;
 }
 
-/* The function determines whether an egress flow identified by the given
- * tuple is a reply.
- *
- * The datapath creates a CT entry in a reverse order. E.g., if a pod sends a
- * request to outside, the CT entry stored in the BPF map will be TUPLE_F_IN:
- * pod => outside. So, we can leverage this fact to determine whether the given
- * flow is a reply.
- */
-static __always_inline int
-ct_is_reply4(const void *map, struct __ctx_buff *ctx, int off,
-	     struct ipv4_ct_tuple *tuple, bool *is_reply)
-{
-	int err = 0;
-
-	err = ct_extract_ports4(ctx, off, CT_EGRESS, tuple, NULL);
-	if (err < 0)
-		return err;
-
-	tuple->flags = TUPLE_F_IN;
-
-	*is_reply = map_lookup_elem(map, tuple) != NULL;
-
-	return 0;
-}
+/* This defines the ct_is_reply4 function. */
+DEFINE_FUNC_CT_IS_REPLY(4)
 
 static __always_inline int
 __ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ctx,
