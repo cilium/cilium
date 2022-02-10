@@ -205,8 +205,7 @@ skip_service_lookup:
 			tunnel_endpoint = info->tunnel_endpoint;
 			encrypt_key = get_min_encrypt_key(info->key);
 #ifdef ENABLE_WIREGUARD
-			if (info->tunnel_endpoint != 0 &&
-			    !identity_is_node(info->sec_label))
+			if (info->key)
 				dst_remote_ep = true;
 #endif /* ENABLE_WIREGUARD */
 		} else {
@@ -644,8 +643,7 @@ skip_service_lookup:
 			 * to the Wireguard tunnel. The marking happens lower
 			 * in the code in the same place where we handle IPSec.
 			 */
-			if (info->tunnel_endpoint != 0 &&
-			    !identity_is_node(info->sec_label))
+			if (info->key)
 				dst_remote_ep = true;
 #endif /* ENABLE_WIREGUARD */
 		} else {

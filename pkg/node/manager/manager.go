@@ -398,9 +398,13 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		return m.legacyNodeIpBehavior() && address.Type != addressing.NodeCiliumInternalIP
 	}
 
+	key := n.EncryptionKey
+	if option.Config.EnableWireguard && len(n.WireguardPubKey) != 0 {
+		key = 1 // TODO(gandro) extract constant
+	}
+
 	for _, address := range n.IPAddresses {
 		var tunnelIP net.IP
-		key := n.EncryptionKey
 
 		// If the host firewall is enabled, all traffic to remote nodes must go
 		// through the tunnel to preserve the source identity as part of the
@@ -454,7 +458,7 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 			continue
 		}
 		addrStr := address.String()
-		_, err := m.ipcache.Upsert(addrStr, nodeIP, n.EncryptionKey, nil, ipcache.Identity{
+		_, err := m.ipcache.Upsert(addrStr, nodeIP, key, nil, ipcache.Identity{
 			ID:     identity.ReservedIdentityHealth,
 			Source: n.Source,
 		})

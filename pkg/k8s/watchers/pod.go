@@ -719,7 +719,10 @@ func (k *K8sWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPodIP
 		return fmt.Errorf("no/invalid HostIP: %s", newPod.Status.HostIP)
 	}
 
-	hostKey := node.GetIPsecKeyIdentity()
+	hostKey := node.GetIPsecKeyIdentity() // TODO this is likely wrong, node is the local node but this pod is not local, is it?
+	if option.Config.EnableWireguard && len(node.GetWireguardPubKey()) != 0 {
+		hostKey = 1 // TODO(gandro) extract constant
+	}
 
 	k8sMeta := &ipcache.K8sMetadata{
 		Namespace: newPod.Namespace,
