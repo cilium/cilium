@@ -15,6 +15,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 func firstGlobalAddr(intf string, preferredIP net.IP, family int, preferPublic bool) (net.IP, error) {
@@ -196,4 +197,40 @@ func getCiliumHostIPsFromNetDev(devName string) (ipv4GW, ipv6Router net.IP) {
 	}
 
 	return ipv4GW, ipv6Router
+}
+
+// initMasqueradeAddrs initializes BPF masquerade addresses for the given
+// devices.
+func initMasqueradeAddrs(masqAddrs map[string]net.IP, family int, masqIPFromDevice string, devices []string, logfield string) error {
+	if ifaceName := masqIPFromDevice; ifaceName != "" {
+		ip, err := firstGlobalAddr(ifaceName, nil, family, preferPublicIP)
+		if err != nil {
+			return fmt.Errorf("Failed to determine IP of %s for BPF masq", ifaceName)
+		}
+		for _, device := range devices {
+			masqAddrs[device] = ip
+		}
+		return nil
+	}
+
+	for _, device := range devices {
+		ip, err := firstGlobalAddr(device, GetK8sNodeIP(), family, preferPublicIP)
+		if err != nil {
+			return fmt.Errorf("Failed to determine IP of %s for BPF masq", device)
+		}
+
+		masqAddrs[device] = ip
+		log.WithFields(logrus.Fields{
+			logfield:         ip,
+			logfields.Device: device,
+		}).Info("Masquerading IP selected for device")
+	}
+
+	return nil
+}
+
+// initMasqueradeV4Addrs initializes BPF masquerade IPv4 addresses for the
+// given devices.
+func initMasqueradeV4Addrs(masqAddrs map[string]net.IP, masqIPFromDevice string, devices []string, logfield string) error {
+	return initMasqueradeAddrs(masqAddrs, netlink.FAMILY_V4, masqIPFromDevice, devices, logfield)
 }
