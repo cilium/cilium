@@ -37,7 +37,7 @@ func (a *AllocatorAlibabaCloud) Init(ctx context.Context) error {
 	var aMetrics openapi.MetricsAPI
 
 	if operatorOption.Config.EnableMetrics {
-		aMetrics = apiMetrics.NewPrometheusMetrics(operatorMetrics.Namespace, "alibaba-cloud", operatorMetrics.Registry)
+		aMetrics = apiMetrics.NewPrometheusMetrics(operatorMetrics.Namespace, "alibabacloud", operatorMetrics.Registry)
 	} else {
 		aMetrics = &apiMetrics.NoOpMetrics{}
 	}
