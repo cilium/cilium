@@ -1110,8 +1110,7 @@ out:
 			return DROP_INVALID;
 
 		info = lookup_ip4_remote_endpoint(ip4->daddr);
-		if (((ctx->mark & 0x4d2) != 0x4d2) && info != NULL &&
-		    (identity_is_remote_node(info->sec_label) || (info->tunnel_endpoint != 0))) {
+		if (((ctx->mark & 0x4d2) != 0x4d2) && info != NULL && info->key {
 			return ctx_redirect(ctx, WG_IFINDEX, 0);
 		}
 	}

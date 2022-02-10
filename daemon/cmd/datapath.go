@@ -230,6 +230,10 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 
 	for _, ipIDPair := range specialIdentities {
 		hostKey := node.GetIPsecKeyIdentity()
+		if option.Config.EnableWireguard && len(node.GetWireguardPubKey()) != 0 {
+			hostKey = 1 // TODO(gandro) extract constant
+		}
+
 		isHost := ipIDPair.ID == identity.ReservedIdentityHost
 		if isHost {
 			added, err := lxcmap.SyncHostEntry(ipIDPair.IP)

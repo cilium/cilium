@@ -317,13 +317,18 @@ func (e *Endpoint) GetCiliumEndpointStatus(conf EndpointStatusConfiguration) *ci
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 
+	encryption := cilium_v2.EncryptionSpec{Key: int(node.GetIPsecKeyIdentity())}
+	if option.Config.EnableWireguard && len(node.GetWireguardPubKey()) != 0 {
+		encryption.Key = 1 // TODO(gandro) extract constant
+	}
+
 	status := &cilium_v2.EndpointStatus{
 		ID:                  int64(e.ID),
 		ExternalIdentifiers: e.getModelEndpointIdentitiersRLocked(),
 		Identity:            getEndpointIdentity(identitymodel.CreateModel(e.SecurityIdentity)),
 		Networking:          getEndpointNetworking(e.getModelNetworkingRLocked()),
 		State:               compressEndpointState(e.getModelCurrentStateRLocked()),
-		Encryption:          cilium_v2.EncryptionSpec{Key: int(node.GetIPsecKeyIdentity())},
+		Encryption:          encryption,
 		NamedPorts:          e.getNamedPortsModel(),
 	}
 
