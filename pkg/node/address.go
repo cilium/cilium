@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -208,35 +209,40 @@ func InitNodePortAddrs(devices []string, inheritIPAddrFromDevice string) error {
 
 // InitBPFMasqueradeAddrs initializes BPF masquerade addrs for the given devices.
 func InitBPFMasqueradeAddrs(devices []string) error {
-	addrsMu.Lock()
-	defer addrsMu.Unlock()
-
-	if option.Config.EnableIPv4 {
-		addrs.ipv4MasqAddrs = make(map[string]net.IP, len(devices))
-
+	initMasqueradeAddrs := func(masqAddrs map[string]net.IP, family int, logfield string) error {
 		if ifaceName := option.Config.DeriveMasqIPAddrFromDevice; ifaceName != "" {
-			ip, err := firstGlobalV4Addr(ifaceName, nil, preferPublicIP)
+			ip, err := firstGlobalAddr(ifaceName, nil, family, preferPublicIP)
 			if err != nil {
 				return fmt.Errorf("Failed to determine IPv4 of %s for BPF masq", ifaceName)
 			}
 			for _, device := range devices {
-				addrs.ipv4MasqAddrs[device] = ip
+				masqAddrs[device] = ip
 			}
 			return nil
 		}
 
 		for _, device := range devices {
-			ip, err := firstGlobalV4Addr(device, addrs.k8sNodeIP, preferPublicIP)
+			ip, err := firstGlobalAddr(device, addrs.k8sNodeIP, family, preferPublicIP)
 			if err != nil {
-				return fmt.Errorf("Failed to determine IPv4 of %s for BPF masq", device)
+				return fmt.Errorf("Failed to determine IP of %s for BPF masq", device)
 			}
 
-			addrs.ipv4MasqAddrs[device] = ip
+			masqAddrs[device] = ip
 			log.WithFields(logrus.Fields{
-				logfields.IPv4:   ip,
+				logfield:         ip,
 				logfields.Device: device,
 			}).Info("Masquerading IP selected for device")
 		}
+
+		return nil
+	}
+
+	addrsMu.Lock()
+	defer addrsMu.Unlock()
+
+	if option.Config.EnableIPv4 {
+		addrs.ipv4MasqAddrs = make(map[string]net.IP, len(devices))
+		return initMasqueradeAddrs(addrs.ipv4MasqAddrs, netlink.FAMILY_V4, logfields.IPv4)
 	}
 
 	return nil
