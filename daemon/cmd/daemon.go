@@ -749,14 +749,6 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		return nil, nil, fmt.Errorf("failed to finalise LB initialization: %w", err)
 	}
 
-	if k8s.IsEnabled() {
-		bootstrapStats.k8sInit.Start()
-		// Launch the K8s watchers in parallel as we continue to process other
-		// daemon options.
-		d.k8sCachesSynced = d.k8sWatcher.InitK8sSubsystem(d.ctx)
-		bootstrapStats.k8sInit.End(true)
-	}
-
 	// BPF masquerade depends on BPF NodePort and require host-reachable svc to
 	// be fully enabled in the tunneling mode, so the following checks should
 	// happen after invoking initKubeProxyReplacementOptions().
@@ -829,6 +821,17 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	if option.Config.EnableHostFirewall && len(option.Config.Devices) == 0 {
 		msg := "host firewall's external facing device could not be determined. Use --%s to specify."
 		return nil, nil, fmt.Errorf(msg, option.Devices)
+	}
+
+	// Some of the k8s watchers rely on option flags set above (specifically
+	// EnableBPFMasquerade), so we should only start them once the flag values
+	// are set.
+	if k8s.IsEnabled() {
+		bootstrapStats.k8sInit.Start()
+		// Launch the K8s watchers in parallel as we continue to process other
+		// daemon options.
+		d.k8sCachesSynced = d.k8sWatcher.InitK8sSubsystem(d.ctx)
+		bootstrapStats.k8sInit.End(true)
 	}
 
 	bootstrapStats.cleanup.Start()
