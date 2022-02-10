@@ -890,25 +890,22 @@ skip_egress_gateway:
 
 #ifdef ENABLE_VTEP
 	{
-		int i;
-		mac_t vtep_mac = 0;
+		struct vtep_key vkey = {};
+		struct vtep_value *vtep;
 
-		for (i = 0; i < VTEP_NUMS; i++) {
-			if (tunnel_endpoint == VTEP_ENDPOINT[i]) {
-				vtep_mac = VTEP_MAC[i];
-				break;
-			}
-		}
+		vkey.vtep_ip = ip4->daddr & VTEP_MASK;
+		vtep = map_lookup_elem(&VTEP_MAP, &vkey);
+		if (!vtep)
+			goto skip_vtep;
 
-		if (vtep_mac && tunnel_endpoint) {
-			if (eth_store_daddr(ctx, (__u8 *)&vtep_mac, 0) < 0)
+		if (vtep->vtep_mac && vtep->tunnel_endpoint) {
+			if (eth_store_daddr(ctx, (__u8 *)&vtep->vtep_mac, 0) < 0)
 				return DROP_WRITE_ERROR;
-			return __encap_and_redirect_with_nodeid(ctx,
-								tunnel_endpoint,
-								WORLD_ID,
-								&trace);
+			return __encap_and_redirect_with_nodeid(ctx, vtep->tunnel_endpoint,
+								WORLD_ID, &trace);
 		}
 	}
+skip_vtep:
 #endif
 
 #ifdef TUNNEL_MODE

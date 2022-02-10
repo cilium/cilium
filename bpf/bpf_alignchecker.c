@@ -7,6 +7,7 @@
 #define DROP_NOTIFY
 #define POLICY_VERDICT_NOTIFY
 #define ENABLE_EGRESS_GATEWAY
+#define ENABLE_VTEP
 #define ENABLE_CAPTURE
 #undef ENABLE_ARP_RESPONDER
 
@@ -88,6 +89,8 @@ int main(void)
 	DECLARE(struct, edt_info, iter);
 	DECLARE(struct, egress_gw_policy_key, iter);
 	DECLARE(struct, egress_gw_policy_entry, iter);
+	DECLARE(struct, vtep_key, iter);
+	DECLARE(struct, vtep_value, iter);
 	DECLARE(struct, capture4_wcard, iter);
 	DECLARE(struct, capture6_wcard, iter);
 	DECLARE(struct, capture_rule, iter);
