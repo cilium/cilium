@@ -429,7 +429,7 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		// to encrypt something we know does not have an encryption policy installed
 		// in the datapath. By setting key=0 and tunnelIP this will result in traffic
 		// being sent unencrypted over overlay device.
-		if !m.conf.NodeEncryptionEnabled() &&
+		if (!m.conf.NodeEncryptionEnabled() && !option.Config.EnableWireguard) &&
 			(address.Type == addressing.NodeExternalIP || address.Type == addressing.NodeInternalIP) {
 			key = 0
 		}
