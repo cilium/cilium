@@ -1385,7 +1385,7 @@ func (k *K8sInstaller) generateConfigMap() (*corev1.ConfigMap, error) {
 
 	// Put the init script in place (if any).
 	if initScript, exists := nodeInitScript[k.flavor.Kind]; exists {
-		m.Data[nodeInitScriptConfigMapKey(k.flavor.Kind)] = initScript
+		m.Data[nodeInitScriptConfigMapKey(k.flavor.Kind)] = strings.ReplaceAll(initScript, "{{ .Values.cni.binPath }}", k.cniBinPathOnHost())
 	}
 
 	switch k.params.Encryption {
