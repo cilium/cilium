@@ -211,6 +211,17 @@ struct {
 
 #endif /* ENABLE_EGRESS_GATEWAY */
 
+#ifdef ENABLE_VTEP
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, struct vtep_key);
+	__type(value, struct vtep_value);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, VTEP_MAP_SIZE);
+	__uint(map_flags, CONDITIONAL_PREALLOC);
+} VTEP_MAP __section_maps_btf;
+#endif /* ENABLE_VTEP */
+
 #ifndef SKIP_CALLS_MAP
 static __always_inline void ep_tail_call(struct __ctx_buff *ctx __maybe_unused,
 					 const __u32 index __maybe_unused)

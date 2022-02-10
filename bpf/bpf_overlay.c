@@ -234,19 +234,19 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 			return DROP_INVALID_IDENTITY;
 #ifdef ENABLE_VTEP
 		{
-			struct remote_endpoint_info *info;
-			int i;
+			struct vtep_key vkey = {};
+			struct vtep_value *info;
 
-			info = lookup_ip4_remote_endpoint(ip4->saddr);
+			vkey.vtep_ip = ip4->saddr & VTEP_MASK;
+			info = map_lookup_elem(&VTEP_MAP, &vkey);
 			if (!info)
-				return DROP_NO_TUNNEL_ENDPOINT;
-			for (i = 0; i < VTEP_NUMS; i++) {
-				if (info->tunnel_endpoint == VTEP_ENDPOINT[i]) {
-					if (*identity != WORLD_ID)
-						return DROP_INVALID_VNI;
-				}
+				goto skip_vtep;
+			if (info->tunnel_endpoint) {
+				if (*identity != WORLD_ID)
+					return DROP_INVALID_VNI;
 			}
 		}
+skip_vtep:
 #endif
 		/* See comment at equivalent code in handle_ipv6() */
 		if (identity_is_remote_node(*identity)) {
@@ -356,10 +356,10 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 	};
 	__be32 sip;
 	__be32 tip;
-	int i;
 	int ret;
-	struct remote_endpoint_info *info;
 	struct bpf_tunnel_key key = {};
+	struct vtep_key vkey = {};
+	struct vtep_value *info;
 
 	if (unlikely(ctx_get_tunnel_key(ctx, &key, sizeof(key), 0) < 0))
 		return send_drop_notify_error(ctx, 0, DROP_NO_TUNNEL_KEY, CTX_ACT_DROP,
@@ -367,21 +367,19 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 
 	if (!arp_validate(ctx, &mac, &smac, &sip, &tip) || !__lookup_ip4_endpoint(tip))
 		goto pass_to_stack;
-	info = lookup_ip4_remote_endpoint(sip);
+	vkey.vtep_ip = sip & VTEP_MASK;
+	info = map_lookup_elem(&VTEP_MAP, &vkey);
 	if (!info)
 		goto pass_to_stack;
 
 	ret = arp_prepare_response(ctx, &mac, tip, &smac, sip);
 	if (unlikely(ret != 0))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
-
-	for (i = 0; i < VTEP_NUMS; i++) {
-		if (info->tunnel_endpoint == VTEP_ENDPOINT[i])
-			return __encap_and_redirect_with_nodeid(ctx,
-								info->tunnel_endpoint,
-								info->sec_label,
-								&trace);
-	}
+	if (info->tunnel_endpoint)
+		return __encap_and_redirect_with_nodeid(ctx,
+							info->tunnel_endpoint,
+							WORLD_ID,
+							&trace);
 
 	return send_drop_notify_error(ctx, 0, DROP_UNKNOWN_L3, CTX_ACT_DROP, METRIC_EGRESS);
 

@@ -303,6 +303,15 @@ struct egress_gw_policy_entry {
 	__u32 gateway_ip;
 };
 
+struct vtep_key {
+	__u32 vtep_ip;
+};
+
+struct vtep_value {
+	__u64 vtep_mac;
+	__u32 tunnel_endpoint;
+};
+
 enum {
 	POLICY_INGRESS = 1,
 	POLICY_EGRESS = 2,
