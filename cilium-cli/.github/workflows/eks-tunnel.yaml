@@ -95,7 +95,7 @@ jobs:
               taints:
                - key: "node.cilium.io/agent-not-ready"
                  value: "true"
-                 effect: "NoSchedule"
+                 effect: "NoExecute"
           EOF
 
           eksctl create cluster -f ./eks-config.yaml

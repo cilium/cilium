@@ -101,14 +101,14 @@ jobs:
             ${{ env.cost_reduction }} \
             --no-wait
 
-          # Create user node pool tainted with `node.cilium.io/agent-not-ready=true:NoSchedule`
+          # Create user node pool tainted with `node.cilium.io/agent-not-ready=true:NoExecute`
           az aks nodepool add \
             --resource-group ${{ env.name }} \
             --cluster-name ${{ env.name }} \
             --name userpool \
             --mode user \
             --node-count 2 \
-            --node-taints "node.cilium.io/agent-not-ready=true:NoSchedule" \
+            --node-taints "node.cilium.io/agent-not-ready=true:NoExecute" \
             ${{ env.cost_reduction }} \
             --no-wait
 
