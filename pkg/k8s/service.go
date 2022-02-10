@@ -286,11 +286,9 @@ type Service struct {
 
 	// IncludeExternal is true when external endpoints from other clusters
 	// should be included
-	// +deepequal-gen=false
 	IncludeExternal bool
 
 	// Shared is true when the service should be exposed/shared to other clusters
-	// +deepequal-gen=false
 	Shared bool
 
 	// TrafficPolicy controls how backends are selected. If set to "Local", only
@@ -348,6 +346,10 @@ func (s *Service) DeepEqual(other *Service) bool {
 	}
 
 	if !ip.UnsortedIPListsAreEqual(s.FrontendIPs, other.FrontendIPs) {
+		return false
+	}
+
+	if s.Shared != other.Shared || s.IncludeExternal != other.IncludeExternal {
 		return false
 	}
 

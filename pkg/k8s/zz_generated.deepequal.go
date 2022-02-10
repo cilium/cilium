@@ -158,6 +158,12 @@ func (in *Service) deepEqual(other *Service) bool {
 	if in.IsHeadless != other.IsHeadless {
 		return false
 	}
+	if in.IncludeExternal != other.IncludeExternal {
+		return false
+	}
+	if in.Shared != other.Shared {
+		return false
+	}
 	if in.TrafficPolicy != other.TrafficPolicy {
 		return false
 	}

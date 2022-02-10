@@ -495,7 +495,7 @@ func (s *ServiceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 		}
 	}
 
-	if svcFound && svc.IncludeExternal {
+	if svcFound && svc.IncludeExternal && svc.Shared {
 		externalEndpoints, hasExternalEndpoints := s.externalEndpoints[id]
 		if hasExternalEndpoints {
 			// remote cluster endpoints already contain all Endpoints from all
