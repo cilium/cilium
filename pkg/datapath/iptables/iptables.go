@@ -124,7 +124,7 @@ func (ipt *ipt) getVersion() (semver.Version, error) {
 }
 
 func (ipt *ipt) runProgCombinedOutput(args []string, quiet bool) ([]byte, error) {
-	out, err := exec.WithTimeout(defaults.ExecTimeout, ipt.prog, args...).CombinedOutput(log, !quiet)
+	out, err := exec.WithTimeout(defaults.ExecTimeout, ipt.prog, args...).CombinedOutput(log, true)
 	return out, err
 }
 
@@ -251,7 +251,7 @@ func (c *customChain) doRename(prog iptablesInterface, waitArgs []string, name s
 	args := append(waitArgs, "-t", c.table, "-E", c.name, name)
 	operation := "rename"
 	combinedOutput, err := prog.runProgCombinedOutput(args, true)
-	if err != nil && !quiet {
+	if err != nil {
 		log.WithError(err).WithField(logfields.Object, args).Warnf("Unable to %s %s chain %s: %s", operation, prog, c.name, string(combinedOutput))
 	}
 }
@@ -268,7 +268,7 @@ func (c *customChain) rename(waitArgs []string, name string, quiet bool) {
 func (c *customChain) remove(waitArgs []string, quiet bool) {
 	doProcess := func(c *customChain, prog iptablesInterface, args []string, operation string, quiet bool) {
 		combinedOutput, err := prog.runProgCombinedOutput(args, true)
-		if err != nil && !quiet {
+		if err != nil {
 			log.WithError(err).WithField(logfields.Object, args).Warnf("Unable to %s %s chain %s: %s", operation, prog.getProg(), c.name, string(combinedOutput))
 		}
 	}
