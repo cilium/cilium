@@ -519,8 +519,8 @@ github.com/go-openapi/analysis v0.19.10/go.mod h1:qmhS3VNFxBlquFJ0RGoDtylO9y4pgT
 github.com/go-openapi/analysis v0.19.16/go.mod h1:GLInF007N83Ad3m8a/CbQ5TPzdnGT7workfHwuVjNVk=
 github.com/go-openapi/analysis v0.20.0/go.mod h1:BMchjvaHDykmRMsK40iPtvyOfFdMMxlOmQr9FBZk+Og=
 github.com/go-openapi/analysis v0.20.1/go.mod h1:BMchjvaHDykmRMsK40iPtvyOfFdMMxlOmQr9FBZk+Og=
-github.com/go-openapi/analysis v0.21.1 h1:krcNCEvCttpSUFBPOrfvn7nniejvrOkoNYRlZwQFpEs=
-github.com/go-openapi/analysis v0.21.1/go.mod h1:HZwRk4RRisyG8vx2Oe6aqeSQcoxRp47Xkp3+K6q+LdY=
+github.com/go-openapi/analysis v0.21.2 h1:hXFrOYFHUAMQdu6zwAiKKJHJQ8kqZs1ux/ru1P1wLJU=
+github.com/go-openapi/analysis v0.21.2/go.mod h1:HZwRk4RRisyG8vx2Oe6aqeSQcoxRp47Xkp3+K6q+LdY=
 github.com/go-openapi/errors v0.17.0/go.mod h1:LcZQpmvG4wyF5j4IhA73wkLFQg+QJXOQHVjmcZxhka0=
 github.com/go-openapi/errors v0.18.0/go.mod h1:LcZQpmvG4wyF5j4IhA73wkLFQg+QJXOQHVjmcZxhka0=
 github.com/go-openapi/errors v0.19.2/go.mod h1:qX0BLWsyaKfvhluLejVpVNwNRdXZhEbTA4kxxpKBC94=
@@ -555,8 +555,9 @@ github.com/go-openapi/loads v0.19.6/go.mod h1:brCsvE6j8mnbmGBh103PT/QLHfbyDxA4hs
 github.com/go-openapi/loads v0.19.7/go.mod h1:brCsvE6j8mnbmGBh103PT/QLHfbyDxA4hsKvYBNEGVc=
 github.com/go-openapi/loads v0.20.0/go.mod h1:2LhKquiE513rN5xC6Aan6lYOSddlL8Mp20AW9kpviM4=
 github.com/go-openapi/loads v0.20.2/go.mod h1:hTVUotJ+UonAMMZsvakEgmWKgtulweO9vYP2bQYKA/o=
-github.com/go-openapi/loads v0.21.0 h1:jYtUO4wwP7psAweisP/MDoOpdzsYEESdoPcsWjHDR68=
 github.com/go-openapi/loads v0.21.0/go.mod h1:rHYve9nZrQ4CJhyeIIFJINGCg1tQpx2yJrrNo8sf1ws=
+github.com/go-openapi/loads v0.21.1 h1:Wb3nVZpdEzDTcly8S4HMkey6fjARRzb7iEaySimlDW0=
+github.com/go-openapi/loads v0.21.1/go.mod h1:/DtAMXXneXFjbQMGEtbamCZb+4x7eGwkvZCvBmwUG+g=
 github.com/go-openapi/runtime v0.0.0-20180920151709-4f900dc2ade9/go.mod h1:6v9a6LTXWQCdL8k1AO3cvqx5OtZY/Y9wKTgaoP6YRfA=
 github.com/go-openapi/runtime v0.19.0/go.mod h1:OwNfisksmmaZse4+gpV3Ne9AyMOlP1lt4sK4FXt0O64=
 github.com/go-openapi/runtime v0.19.4/go.mod h1:X277bwSUBxVlCYR3r7xgZZGKVvBd/29gLDlFGtJ8NL4=

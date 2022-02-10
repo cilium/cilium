@@ -29,7 +29,7 @@ require (
 	github.com/docker/libnetwork v0.8.0-dev.2.0.20210525090646-64b7a4574d14
 	github.com/fsnotify/fsnotify v1.5.1
 	github.com/go-openapi/errors v0.20.2
-	github.com/go-openapi/loads v0.21.0
+	github.com/go-openapi/loads v0.21.1
 	github.com/go-openapi/runtime v0.21.0
 	github.com/go-openapi/spec v0.20.4
 	github.com/go-openapi/strfmt v0.21.1
@@ -142,7 +142,7 @@ require (
 	github.com/go-logfmt/logfmt v0.5.1 // indirect
 	github.com/go-logr/logr v1.2.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
-	github.com/go-openapi/analysis v0.21.1 // indirect
+	github.com/go-openapi/analysis v0.21.2 // indirect
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
 	github.com/go-openapi/jsonreference v0.19.6 // indirect
 	github.com/go-stack/stack v1.8.1 // indirect
