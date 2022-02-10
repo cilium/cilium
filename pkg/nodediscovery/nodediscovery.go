@@ -603,6 +603,10 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 			if len(c.AlibabaCloud.SecurityGroupTags) > 0 {
 				nodeResource.Spec.AlibabaCloud.SecurityGroupTags = c.AlibabaCloud.SecurityGroupTags
 			}
+
+			if c.IPAM.PreAllocate != 0 {
+				nodeResource.Spec.IPAM.PreAllocate = c.IPAM.PreAllocate
+			}
 		}
 	}
 
