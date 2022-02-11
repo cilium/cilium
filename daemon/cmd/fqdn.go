@@ -429,15 +429,6 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		reason = "Denied by policy"
 	}
 
-	// We determine the direction based on the DNS packet. The observation
-	// point is always Egress, however.
-	var flowType accesslog.FlowType
-	if msg.Response {
-		flowType = accesslog.TypeResponse
-	} else {
-		flowType = accesslog.TypeRequest
-	}
-
 	if ep == nil {
 		// This is a hard fail. We cannot proceed because record.Log requires a
 		// non-nil ep, and we also don't want to insert this data into the
@@ -449,6 +440,25 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		endMetric()
 		return err
 	}
+
+	// We determine the direction based on the DNS packet. The observation
+	// point is always Egress, however.
+	var flowType accesslog.FlowType
+	var addrInfo logger.AddressingInfo
+	if msg.Response {
+		flowType = accesslog.TypeResponse
+		addrInfo.DstIPPort = epIPPort
+		addrInfo.DstIdentity = ep.GetIdentity()
+		addrInfo.SrcIPPort = serverAddr
+		addrInfo.SrcIdentity = serverID
+	} else {
+		flowType = accesslog.TypeRequest
+		addrInfo.SrcIPPort = epIPPort
+		addrInfo.SrcIdentity = ep.GetIdentity()
+		addrInfo.DstIPPort = serverAddr
+		addrInfo.DstIdentity = serverID
+	}
+
 	qname, responseIPs, TTL, CNAMEs, rcode, recordTypes, qTypes, err := dnsproxy.ExtractMsgDetails(msg)
 	if err != nil {
 		// This error is ok because all these values are used for reporting, or filling in the cache.
@@ -467,15 +477,11 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		}
 	}
 	ep.UpdateProxyStatistics(strings.ToUpper(protocol), serverPort, false, !msg.Response, verdict)
+
 	record := logger.NewLogRecord(flowType, false,
 		func(lr *logger.LogRecord) { lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID) },
 		logger.LogTags.Verdict(verdict, reason),
-		logger.LogTags.Addressing(logger.AddressingInfo{
-			SrcIPPort:   epIPPort,
-			DstIPPort:   serverAddr,
-			SrcIdentity: ep.GetIdentity(),
-			DstIdentity: serverID,
-		}),
+		logger.LogTags.Addressing(addrInfo),
 		logger.LogTags.DNS(&accesslog.LogRecordDNS{
 			Query:             qname,
 			IPs:               responseIPs,
