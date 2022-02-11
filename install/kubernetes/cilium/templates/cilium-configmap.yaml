@@ -744,6 +744,19 @@ data:
   enable-ipv4-egress-gateway: "true"
 {{- end }}
 
+{{- if hasKey .Values "vtep" }}
+  enable-vtep: {{ .Values.vtep.enabled | quote }}
+{{- if hasKey .Values.vtep "endpoint" }}
+  vtep-endpoint: {{ .Values.vtep.endpoint | quote }}
+{{- end }}
+{{- if hasKey .Values.vtep "cidr" }}
+  vtep-cidr: {{ .Values.vtep.cidr | quote }}
+{{- end }}
+{{- if hasKey .Values.vtep "mac" }}
+  vtep-mac: {{ .Values.vtep.mac | quote }}
+{{- end }}
+{{- end }}
+
 {{- if .Values.enableK8sEventHandover }}
   enable-k8s-event-handover: "true"
 {{- end }}

@@ -736,17 +736,23 @@ type CapacityReservationInstancePlatform string
 
 // Enum values for CapacityReservationInstancePlatform
 const (
-	CapacityReservationInstancePlatformLinuxUnix                      CapacityReservationInstancePlatform = "Linux/UNIX"
-	CapacityReservationInstancePlatformRedHatEnterpriseLinux          CapacityReservationInstancePlatform = "Red Hat Enterprise Linux"
-	CapacityReservationInstancePlatformSuseLinux                      CapacityReservationInstancePlatform = "SUSE Linux"
-	CapacityReservationInstancePlatformWindows                        CapacityReservationInstancePlatform = "Windows"
-	CapacityReservationInstancePlatformWindowsWithSqlServer           CapacityReservationInstancePlatform = "Windows with SQL Server"
-	CapacityReservationInstancePlatformWindowsWithSqlServerEnterprise CapacityReservationInstancePlatform = "Windows with SQL Server Enterprise"
-	CapacityReservationInstancePlatformWindowsWithSqlServerStandard   CapacityReservationInstancePlatform = "Windows with SQL Server Standard"
-	CapacityReservationInstancePlatformWindowsWithSqlServerWeb        CapacityReservationInstancePlatform = "Windows with SQL Server Web"
-	CapacityReservationInstancePlatformLinuxWithSqlServerStandard     CapacityReservationInstancePlatform = "Linux with SQL Server Standard"
-	CapacityReservationInstancePlatformLinuxWithSqlServerWeb          CapacityReservationInstancePlatform = "Linux with SQL Server Web"
-	CapacityReservationInstancePlatformLinuxWithSqlServerEnterprise   CapacityReservationInstancePlatform = "Linux with SQL Server Enterprise"
+	CapacityReservationInstancePlatformLinuxUnix                        CapacityReservationInstancePlatform = "Linux/UNIX"
+	CapacityReservationInstancePlatformRedHatEnterpriseLinux            CapacityReservationInstancePlatform = "Red Hat Enterprise Linux"
+	CapacityReservationInstancePlatformSuseLinux                        CapacityReservationInstancePlatform = "SUSE Linux"
+	CapacityReservationInstancePlatformWindows                          CapacityReservationInstancePlatform = "Windows"
+	CapacityReservationInstancePlatformWindowsWithSqlServer             CapacityReservationInstancePlatform = "Windows with SQL Server"
+	CapacityReservationInstancePlatformWindowsWithSqlServerEnterprise   CapacityReservationInstancePlatform = "Windows with SQL Server Enterprise"
+	CapacityReservationInstancePlatformWindowsWithSqlServerStandard     CapacityReservationInstancePlatform = "Windows with SQL Server Standard"
+	CapacityReservationInstancePlatformWindowsWithSqlServerWeb          CapacityReservationInstancePlatform = "Windows with SQL Server Web"
+	CapacityReservationInstancePlatformLinuxWithSqlServerStandard       CapacityReservationInstancePlatform = "Linux with SQL Server Standard"
+	CapacityReservationInstancePlatformLinuxWithSqlServerWeb            CapacityReservationInstancePlatform = "Linux with SQL Server Web"
+	CapacityReservationInstancePlatformLinuxWithSqlServerEnterprise     CapacityReservationInstancePlatform = "Linux with SQL Server Enterprise"
+	CapacityReservationInstancePlatformRhelWithSqlServerStandard        CapacityReservationInstancePlatform = "RHEL with SQL Server Standard"
+	CapacityReservationInstancePlatformRhelWithSqlServerEnterprise      CapacityReservationInstancePlatform = "RHEL with SQL Server Enterprise"
+	CapacityReservationInstancePlatformRhelWithSqlServerWeb             CapacityReservationInstancePlatform = "RHEL with SQL Server Web"
+	CapacityReservationInstancePlatformRhelWithHa                       CapacityReservationInstancePlatform = "RHEL with HA"
+	CapacityReservationInstancePlatformRhelWithHaAndSqlServerStandard   CapacityReservationInstancePlatform = "RHEL with HA and SQL Server Standard"
+	CapacityReservationInstancePlatformRhelWithHaAndSqlServerEnterprise CapacityReservationInstancePlatform = "RHEL with HA and SQL Server Enterprise"
 )
 
 // Values returns all known values for CapacityReservationInstancePlatform. Note
@@ -766,6 +772,12 @@ func (CapacityReservationInstancePlatform) Values() []CapacityReservationInstanc
 		"Linux with SQL Server Standard",
 		"Linux with SQL Server Web",
 		"Linux with SQL Server Enterprise",
+		"RHEL with SQL Server Standard",
+		"RHEL with SQL Server Enterprise",
+		"RHEL with SQL Server Web",
+		"RHEL with HA",
+		"RHEL with HA and SQL Server Standard",
+		"RHEL with HA and SQL Server Enterprise",
 	}
 }
 
@@ -1646,6 +1658,48 @@ func (ExportTaskState) Values() []ExportTaskState {
 	}
 }
 
+type FastLaunchResourceType string
+
+// Enum values for FastLaunchResourceType
+const (
+	FastLaunchResourceTypeSnapshot FastLaunchResourceType = "snapshot"
+)
+
+// Values returns all known values for FastLaunchResourceType. Note that this can
+// be expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (FastLaunchResourceType) Values() []FastLaunchResourceType {
+	return []FastLaunchResourceType{
+		"snapshot",
+	}
+}
+
+type FastLaunchStateCode string
+
+// Enum values for FastLaunchStateCode
+const (
+	FastLaunchStateCodeEnabling        FastLaunchStateCode = "enabling"
+	FastLaunchStateCodeEnablingFailed  FastLaunchStateCode = "enabling-failed"
+	FastLaunchStateCodeEnabled         FastLaunchStateCode = "enabled"
+	FastLaunchStateCodeEnabledFailed   FastLaunchStateCode = "enabled-failed"
+	FastLaunchStateCodeDisabling       FastLaunchStateCode = "disabling"
+	FastLaunchStateCodeDisablingFailed FastLaunchStateCode = "disabling-failed"
+)
+
+// Values returns all known values for FastLaunchStateCode. Note that this can be
+// expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (FastLaunchStateCode) Values() []FastLaunchStateCode {
+	return []FastLaunchStateCode{
+		"enabling",
+		"enabling-failed",
+		"enabled",
+		"enabled-failed",
+		"disabling",
+		"disabling-failed",
+	}
+}
+
 type FastSnapshotRestoreStateCode string
 
 // Enum values for FastSnapshotRestoreStateCode
@@ -2429,6 +2483,24 @@ func (InstanceMetadataProtocolState) Values() []InstanceMetadataProtocolState {
 	}
 }
 
+type InstanceMetadataTagsState string
+
+// Enum values for InstanceMetadataTagsState
+const (
+	InstanceMetadataTagsStateDisabled InstanceMetadataTagsState = "disabled"
+	InstanceMetadataTagsStateEnabled  InstanceMetadataTagsState = "enabled"
+)
+
+// Values returns all known values for InstanceMetadataTagsState. Note that this
+// can be expanded in the future, and so it is only as up to date as the client.
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (InstanceMetadataTagsState) Values() []InstanceMetadataTagsState {
+	return []InstanceMetadataTagsState{
+		"disabled",
+		"enabled",
+	}
+}
+
 type InstanceStateName string
 
 // Enum values for InstanceStateName
@@ -2478,154 +2550,12 @@ type InstanceType string
 
 // Enum values for InstanceType
 const (
-	InstanceTypeT1Micro         InstanceType = "t1.micro"
-	InstanceTypeT2Nano          InstanceType = "t2.nano"
-	InstanceTypeT2Micro         InstanceType = "t2.micro"
-	InstanceTypeT2Small         InstanceType = "t2.small"
-	InstanceTypeT2Medium        InstanceType = "t2.medium"
-	InstanceTypeT2Large         InstanceType = "t2.large"
-	InstanceTypeT2Xlarge        InstanceType = "t2.xlarge"
-	InstanceTypeT22xlarge       InstanceType = "t2.2xlarge"
-	InstanceTypeT3Nano          InstanceType = "t3.nano"
-	InstanceTypeT3Micro         InstanceType = "t3.micro"
-	InstanceTypeT3Small         InstanceType = "t3.small"
-	InstanceTypeT3Medium        InstanceType = "t3.medium"
-	InstanceTypeT3Large         InstanceType = "t3.large"
-	InstanceTypeT3Xlarge        InstanceType = "t3.xlarge"
-	InstanceTypeT32xlarge       InstanceType = "t3.2xlarge"
-	InstanceTypeT3aNano         InstanceType = "t3a.nano"
-	InstanceTypeT3aMicro        InstanceType = "t3a.micro"
-	InstanceTypeT3aSmall        InstanceType = "t3a.small"
-	InstanceTypeT3aMedium       InstanceType = "t3a.medium"
-	InstanceTypeT3aLarge        InstanceType = "t3a.large"
-	InstanceTypeT3aXlarge       InstanceType = "t3a.xlarge"
-	InstanceTypeT3a2xlarge      InstanceType = "t3a.2xlarge"
-	InstanceTypeT4gNano         InstanceType = "t4g.nano"
-	InstanceTypeT4gMicro        InstanceType = "t4g.micro"
-	InstanceTypeT4gSmall        InstanceType = "t4g.small"
-	InstanceTypeT4gMedium       InstanceType = "t4g.medium"
-	InstanceTypeT4gLarge        InstanceType = "t4g.large"
-	InstanceTypeT4gXlarge       InstanceType = "t4g.xlarge"
-	InstanceTypeT4g2xlarge      InstanceType = "t4g.2xlarge"
-	InstanceTypeM1Small         InstanceType = "m1.small"
-	InstanceTypeM1Medium        InstanceType = "m1.medium"
-	InstanceTypeM1Large         InstanceType = "m1.large"
-	InstanceTypeM1Xlarge        InstanceType = "m1.xlarge"
-	InstanceTypeM3Medium        InstanceType = "m3.medium"
-	InstanceTypeM3Large         InstanceType = "m3.large"
-	InstanceTypeM3Xlarge        InstanceType = "m3.xlarge"
-	InstanceTypeM32xlarge       InstanceType = "m3.2xlarge"
-	InstanceTypeM4Large         InstanceType = "m4.large"
-	InstanceTypeM4Xlarge        InstanceType = "m4.xlarge"
-	InstanceTypeM42xlarge       InstanceType = "m4.2xlarge"
-	InstanceTypeM44xlarge       InstanceType = "m4.4xlarge"
-	InstanceTypeM410xlarge      InstanceType = "m4.10xlarge"
-	InstanceTypeM416xlarge      InstanceType = "m4.16xlarge"
-	InstanceTypeM2Xlarge        InstanceType = "m2.xlarge"
-	InstanceTypeM22xlarge       InstanceType = "m2.2xlarge"
-	InstanceTypeM24xlarge       InstanceType = "m2.4xlarge"
-	InstanceTypeCr18xlarge      InstanceType = "cr1.8xlarge"
-	InstanceTypeR3Large         InstanceType = "r3.large"
-	InstanceTypeR3Xlarge        InstanceType = "r3.xlarge"
-	InstanceTypeR32xlarge       InstanceType = "r3.2xlarge"
-	InstanceTypeR34xlarge       InstanceType = "r3.4xlarge"
-	InstanceTypeR38xlarge       InstanceType = "r3.8xlarge"
-	InstanceTypeR4Large         InstanceType = "r4.large"
-	InstanceTypeR4Xlarge        InstanceType = "r4.xlarge"
-	InstanceTypeR42xlarge       InstanceType = "r4.2xlarge"
-	InstanceTypeR44xlarge       InstanceType = "r4.4xlarge"
-	InstanceTypeR48xlarge       InstanceType = "r4.8xlarge"
-	InstanceTypeR416xlarge      InstanceType = "r4.16xlarge"
-	InstanceTypeR5Large         InstanceType = "r5.large"
-	InstanceTypeR5Xlarge        InstanceType = "r5.xlarge"
-	InstanceTypeR52xlarge       InstanceType = "r5.2xlarge"
-	InstanceTypeR54xlarge       InstanceType = "r5.4xlarge"
-	InstanceTypeR58xlarge       InstanceType = "r5.8xlarge"
-	InstanceTypeR512xlarge      InstanceType = "r5.12xlarge"
-	InstanceTypeR516xlarge      InstanceType = "r5.16xlarge"
-	InstanceTypeR524xlarge      InstanceType = "r5.24xlarge"
-	InstanceTypeR5Metal         InstanceType = "r5.metal"
-	InstanceTypeR5aLarge        InstanceType = "r5a.large"
-	InstanceTypeR5aXlarge       InstanceType = "r5a.xlarge"
-	InstanceTypeR5a2xlarge      InstanceType = "r5a.2xlarge"
-	InstanceTypeR5a4xlarge      InstanceType = "r5a.4xlarge"
-	InstanceTypeR5a8xlarge      InstanceType = "r5a.8xlarge"
-	InstanceTypeR5a12xlarge     InstanceType = "r5a.12xlarge"
-	InstanceTypeR5a16xlarge     InstanceType = "r5a.16xlarge"
-	InstanceTypeR5a24xlarge     InstanceType = "r5a.24xlarge"
-	InstanceTypeR5bLarge        InstanceType = "r5b.large"
-	InstanceTypeR5bXlarge       InstanceType = "r5b.xlarge"
-	InstanceTypeR5b2xlarge      InstanceType = "r5b.2xlarge"
-	InstanceTypeR5b4xlarge      InstanceType = "r5b.4xlarge"
-	InstanceTypeR5b8xlarge      InstanceType = "r5b.8xlarge"
-	InstanceTypeR5b12xlarge     InstanceType = "r5b.12xlarge"
-	InstanceTypeR5b16xlarge     InstanceType = "r5b.16xlarge"
-	InstanceTypeR5b24xlarge     InstanceType = "r5b.24xlarge"
-	InstanceTypeR5bMetal        InstanceType = "r5b.metal"
-	InstanceTypeR5dLarge        InstanceType = "r5d.large"
-	InstanceTypeR5dXlarge       InstanceType = "r5d.xlarge"
-	InstanceTypeR5d2xlarge      InstanceType = "r5d.2xlarge"
-	InstanceTypeR5d4xlarge      InstanceType = "r5d.4xlarge"
-	InstanceTypeR5d8xlarge      InstanceType = "r5d.8xlarge"
-	InstanceTypeR5d12xlarge     InstanceType = "r5d.12xlarge"
-	InstanceTypeR5d16xlarge     InstanceType = "r5d.16xlarge"
-	InstanceTypeR5d24xlarge     InstanceType = "r5d.24xlarge"
-	InstanceTypeR5dMetal        InstanceType = "r5d.metal"
-	InstanceTypeR5adLarge       InstanceType = "r5ad.large"
-	InstanceTypeR5adXlarge      InstanceType = "r5ad.xlarge"
-	InstanceTypeR5ad2xlarge     InstanceType = "r5ad.2xlarge"
-	InstanceTypeR5ad4xlarge     InstanceType = "r5ad.4xlarge"
-	InstanceTypeR5ad8xlarge     InstanceType = "r5ad.8xlarge"
-	InstanceTypeR5ad12xlarge    InstanceType = "r5ad.12xlarge"
-	InstanceTypeR5ad16xlarge    InstanceType = "r5ad.16xlarge"
-	InstanceTypeR5ad24xlarge    InstanceType = "r5ad.24xlarge"
-	InstanceTypeR6gMetal        InstanceType = "r6g.metal"
-	InstanceTypeR6gMedium       InstanceType = "r6g.medium"
-	InstanceTypeR6gLarge        InstanceType = "r6g.large"
-	InstanceTypeR6gXlarge       InstanceType = "r6g.xlarge"
-	InstanceTypeR6g2xlarge      InstanceType = "r6g.2xlarge"
-	InstanceTypeR6g4xlarge      InstanceType = "r6g.4xlarge"
-	InstanceTypeR6g8xlarge      InstanceType = "r6g.8xlarge"
-	InstanceTypeR6g12xlarge     InstanceType = "r6g.12xlarge"
-	InstanceTypeR6g16xlarge     InstanceType = "r6g.16xlarge"
-	InstanceTypeR6gdMetal       InstanceType = "r6gd.metal"
-	InstanceTypeR6gdMedium      InstanceType = "r6gd.medium"
-	InstanceTypeR6gdLarge       InstanceType = "r6gd.large"
-	InstanceTypeR6gdXlarge      InstanceType = "r6gd.xlarge"
-	InstanceTypeR6gd2xlarge     InstanceType = "r6gd.2xlarge"
-	InstanceTypeR6gd4xlarge     InstanceType = "r6gd.4xlarge"
-	InstanceTypeR6gd8xlarge     InstanceType = "r6gd.8xlarge"
-	InstanceTypeR6gd12xlarge    InstanceType = "r6gd.12xlarge"
-	InstanceTypeR6gd16xlarge    InstanceType = "r6gd.16xlarge"
-	InstanceTypeX116xlarge      InstanceType = "x1.16xlarge"
-	InstanceTypeX132xlarge      InstanceType = "x1.32xlarge"
-	InstanceTypeX1eXlarge       InstanceType = "x1e.xlarge"
-	InstanceTypeX1e2xlarge      InstanceType = "x1e.2xlarge"
-	InstanceTypeX1e4xlarge      InstanceType = "x1e.4xlarge"
-	InstanceTypeX1e8xlarge      InstanceType = "x1e.8xlarge"
-	InstanceTypeX1e16xlarge     InstanceType = "x1e.16xlarge"
-	InstanceTypeX1e32xlarge     InstanceType = "x1e.32xlarge"
-	InstanceTypeI2Xlarge        InstanceType = "i2.xlarge"
-	InstanceTypeI22xlarge       InstanceType = "i2.2xlarge"
-	InstanceTypeI24xlarge       InstanceType = "i2.4xlarge"
-	InstanceTypeI28xlarge       InstanceType = "i2.8xlarge"
-	InstanceTypeI3Large         InstanceType = "i3.large"
-	InstanceTypeI3Xlarge        InstanceType = "i3.xlarge"
-	InstanceTypeI32xlarge       InstanceType = "i3.2xlarge"
-	InstanceTypeI34xlarge       InstanceType = "i3.4xlarge"
-	InstanceTypeI38xlarge       InstanceType = "i3.8xlarge"
-	InstanceTypeI316xlarge      InstanceType = "i3.16xlarge"
-	InstanceTypeI3Metal         InstanceType = "i3.metal"
-	InstanceTypeI3enLarge       InstanceType = "i3en.large"
-	InstanceTypeI3enXlarge      InstanceType = "i3en.xlarge"
-	InstanceTypeI3en2xlarge     InstanceType = "i3en.2xlarge"
-	InstanceTypeI3en3xlarge     InstanceType = "i3en.3xlarge"
-	InstanceTypeI3en6xlarge     InstanceType = "i3en.6xlarge"
-	InstanceTypeI3en12xlarge    InstanceType = "i3en.12xlarge"
-	InstanceTypeI3en24xlarge    InstanceType = "i3en.24xlarge"
-	InstanceTypeI3enMetal       InstanceType = "i3en.metal"
-	InstanceTypeHi14xlarge      InstanceType = "hi1.4xlarge"
-	InstanceTypeHs18xlarge      InstanceType = "hs1.8xlarge"
+	InstanceTypeA1Medium        InstanceType = "a1.medium"
+	InstanceTypeA1Large         InstanceType = "a1.large"
+	InstanceTypeA1Xlarge        InstanceType = "a1.xlarge"
+	InstanceTypeA12xlarge       InstanceType = "a1.2xlarge"
+	InstanceTypeA14xlarge       InstanceType = "a1.4xlarge"
+	InstanceTypeA1Metal         InstanceType = "a1.metal"
 	InstanceTypeC1Medium        InstanceType = "c1.medium"
 	InstanceTypeC1Xlarge        InstanceType = "c1.xlarge"
 	InstanceTypeC3Large         InstanceType = "c3.large"
@@ -2679,7 +2609,6 @@ const (
 	InstanceTypeC5n9xlarge      InstanceType = "c5n.9xlarge"
 	InstanceTypeC5n18xlarge     InstanceType = "c5n.18xlarge"
 	InstanceTypeC5nMetal        InstanceType = "c5n.metal"
-	InstanceTypeC6gMetal        InstanceType = "c6g.metal"
 	InstanceTypeC6gMedium       InstanceType = "c6g.medium"
 	InstanceTypeC6gLarge        InstanceType = "c6g.large"
 	InstanceTypeC6gXlarge       InstanceType = "c6g.xlarge"
@@ -2688,7 +2617,7 @@ const (
 	InstanceTypeC6g8xlarge      InstanceType = "c6g.8xlarge"
 	InstanceTypeC6g12xlarge     InstanceType = "c6g.12xlarge"
 	InstanceTypeC6g16xlarge     InstanceType = "c6g.16xlarge"
-	InstanceTypeC6gdMetal       InstanceType = "c6gd.metal"
+	InstanceTypeC6gMetal        InstanceType = "c6g.metal"
 	InstanceTypeC6gdMedium      InstanceType = "c6gd.medium"
 	InstanceTypeC6gdLarge       InstanceType = "c6gd.large"
 	InstanceTypeC6gdXlarge      InstanceType = "c6gd.xlarge"
@@ -2697,6 +2626,7 @@ const (
 	InstanceTypeC6gd8xlarge     InstanceType = "c6gd.8xlarge"
 	InstanceTypeC6gd12xlarge    InstanceType = "c6gd.12xlarge"
 	InstanceTypeC6gd16xlarge    InstanceType = "c6gd.16xlarge"
+	InstanceTypeC6gdMetal       InstanceType = "c6gd.metal"
 	InstanceTypeC6gnMedium      InstanceType = "c6gn.medium"
 	InstanceTypeC6gnLarge       InstanceType = "c6gn.large"
 	InstanceTypeC6gnXlarge      InstanceType = "c6gn.xlarge"
@@ -2714,35 +2644,11 @@ const (
 	InstanceTypeC6i16xlarge     InstanceType = "c6i.16xlarge"
 	InstanceTypeC6i24xlarge     InstanceType = "c6i.24xlarge"
 	InstanceTypeC6i32xlarge     InstanceType = "c6i.32xlarge"
+	InstanceTypeC6iMetal        InstanceType = "c6i.metal"
 	InstanceTypeCc14xlarge      InstanceType = "cc1.4xlarge"
 	InstanceTypeCc28xlarge      InstanceType = "cc2.8xlarge"
-	InstanceTypeG22xlarge       InstanceType = "g2.2xlarge"
-	InstanceTypeG28xlarge       InstanceType = "g2.8xlarge"
-	InstanceTypeG34xlarge       InstanceType = "g3.4xlarge"
-	InstanceTypeG38xlarge       InstanceType = "g3.8xlarge"
-	InstanceTypeG316xlarge      InstanceType = "g3.16xlarge"
-	InstanceTypeG3sXlarge       InstanceType = "g3s.xlarge"
-	InstanceTypeG4adXlarge      InstanceType = "g4ad.xlarge"
-	InstanceTypeG4ad2xlarge     InstanceType = "g4ad.2xlarge"
-	InstanceTypeG4ad4xlarge     InstanceType = "g4ad.4xlarge"
-	InstanceTypeG4ad8xlarge     InstanceType = "g4ad.8xlarge"
-	InstanceTypeG4ad16xlarge    InstanceType = "g4ad.16xlarge"
-	InstanceTypeG4dnXlarge      InstanceType = "g4dn.xlarge"
-	InstanceTypeG4dn2xlarge     InstanceType = "g4dn.2xlarge"
-	InstanceTypeG4dn4xlarge     InstanceType = "g4dn.4xlarge"
-	InstanceTypeG4dn8xlarge     InstanceType = "g4dn.8xlarge"
-	InstanceTypeG4dn12xlarge    InstanceType = "g4dn.12xlarge"
-	InstanceTypeG4dn16xlarge    InstanceType = "g4dn.16xlarge"
-	InstanceTypeG4dnMetal       InstanceType = "g4dn.metal"
 	InstanceTypeCg14xlarge      InstanceType = "cg1.4xlarge"
-	InstanceTypeP2Xlarge        InstanceType = "p2.xlarge"
-	InstanceTypeP28xlarge       InstanceType = "p2.8xlarge"
-	InstanceTypeP216xlarge      InstanceType = "p2.16xlarge"
-	InstanceTypeP32xlarge       InstanceType = "p3.2xlarge"
-	InstanceTypeP38xlarge       InstanceType = "p3.8xlarge"
-	InstanceTypeP316xlarge      InstanceType = "p3.16xlarge"
-	InstanceTypeP3dn24xlarge    InstanceType = "p3dn.24xlarge"
-	InstanceTypeP4d24xlarge     InstanceType = "p4d.24xlarge"
+	InstanceTypeCr18xlarge      InstanceType = "cr1.8xlarge"
 	InstanceTypeD2Xlarge        InstanceType = "d2.xlarge"
 	InstanceTypeD22xlarge       InstanceType = "d2.2xlarge"
 	InstanceTypeD24xlarge       InstanceType = "d2.4xlarge"
@@ -2761,6 +2667,97 @@ const (
 	InstanceTypeF12xlarge       InstanceType = "f1.2xlarge"
 	InstanceTypeF14xlarge       InstanceType = "f1.4xlarge"
 	InstanceTypeF116xlarge      InstanceType = "f1.16xlarge"
+	InstanceTypeG22xlarge       InstanceType = "g2.2xlarge"
+	InstanceTypeG28xlarge       InstanceType = "g2.8xlarge"
+	InstanceTypeG34xlarge       InstanceType = "g3.4xlarge"
+	InstanceTypeG38xlarge       InstanceType = "g3.8xlarge"
+	InstanceTypeG316xlarge      InstanceType = "g3.16xlarge"
+	InstanceTypeG3sXlarge       InstanceType = "g3s.xlarge"
+	InstanceTypeG4adXlarge      InstanceType = "g4ad.xlarge"
+	InstanceTypeG4ad2xlarge     InstanceType = "g4ad.2xlarge"
+	InstanceTypeG4ad4xlarge     InstanceType = "g4ad.4xlarge"
+	InstanceTypeG4ad8xlarge     InstanceType = "g4ad.8xlarge"
+	InstanceTypeG4ad16xlarge    InstanceType = "g4ad.16xlarge"
+	InstanceTypeG4dnXlarge      InstanceType = "g4dn.xlarge"
+	InstanceTypeG4dn2xlarge     InstanceType = "g4dn.2xlarge"
+	InstanceTypeG4dn4xlarge     InstanceType = "g4dn.4xlarge"
+	InstanceTypeG4dn8xlarge     InstanceType = "g4dn.8xlarge"
+	InstanceTypeG4dn12xlarge    InstanceType = "g4dn.12xlarge"
+	InstanceTypeG4dn16xlarge    InstanceType = "g4dn.16xlarge"
+	InstanceTypeG4dnMetal       InstanceType = "g4dn.metal"
+	InstanceTypeG5Xlarge        InstanceType = "g5.xlarge"
+	InstanceTypeG52xlarge       InstanceType = "g5.2xlarge"
+	InstanceTypeG54xlarge       InstanceType = "g5.4xlarge"
+	InstanceTypeG58xlarge       InstanceType = "g5.8xlarge"
+	InstanceTypeG512xlarge      InstanceType = "g5.12xlarge"
+	InstanceTypeG516xlarge      InstanceType = "g5.16xlarge"
+	InstanceTypeG524xlarge      InstanceType = "g5.24xlarge"
+	InstanceTypeG548xlarge      InstanceType = "g5.48xlarge"
+	InstanceTypeG5gXlarge       InstanceType = "g5g.xlarge"
+	InstanceTypeG5g2xlarge      InstanceType = "g5g.2xlarge"
+	InstanceTypeG5g4xlarge      InstanceType = "g5g.4xlarge"
+	InstanceTypeG5g8xlarge      InstanceType = "g5g.8xlarge"
+	InstanceTypeG5g16xlarge     InstanceType = "g5g.16xlarge"
+	InstanceTypeG5gMetal        InstanceType = "g5g.metal"
+	InstanceTypeHi14xlarge      InstanceType = "hi1.4xlarge"
+	InstanceTypeHpc6a48xlarge   InstanceType = "hpc6a.48xlarge"
+	InstanceTypeHs18xlarge      InstanceType = "hs1.8xlarge"
+	InstanceTypeH12xlarge       InstanceType = "h1.2xlarge"
+	InstanceTypeH14xlarge       InstanceType = "h1.4xlarge"
+	InstanceTypeH18xlarge       InstanceType = "h1.8xlarge"
+	InstanceTypeH116xlarge      InstanceType = "h1.16xlarge"
+	InstanceTypeI2Xlarge        InstanceType = "i2.xlarge"
+	InstanceTypeI22xlarge       InstanceType = "i2.2xlarge"
+	InstanceTypeI24xlarge       InstanceType = "i2.4xlarge"
+	InstanceTypeI28xlarge       InstanceType = "i2.8xlarge"
+	InstanceTypeI3Large         InstanceType = "i3.large"
+	InstanceTypeI3Xlarge        InstanceType = "i3.xlarge"
+	InstanceTypeI32xlarge       InstanceType = "i3.2xlarge"
+	InstanceTypeI34xlarge       InstanceType = "i3.4xlarge"
+	InstanceTypeI38xlarge       InstanceType = "i3.8xlarge"
+	InstanceTypeI316xlarge      InstanceType = "i3.16xlarge"
+	InstanceTypeI3Metal         InstanceType = "i3.metal"
+	InstanceTypeI3enLarge       InstanceType = "i3en.large"
+	InstanceTypeI3enXlarge      InstanceType = "i3en.xlarge"
+	InstanceTypeI3en2xlarge     InstanceType = "i3en.2xlarge"
+	InstanceTypeI3en3xlarge     InstanceType = "i3en.3xlarge"
+	InstanceTypeI3en6xlarge     InstanceType = "i3en.6xlarge"
+	InstanceTypeI3en12xlarge    InstanceType = "i3en.12xlarge"
+	InstanceTypeI3en24xlarge    InstanceType = "i3en.24xlarge"
+	InstanceTypeI3enMetal       InstanceType = "i3en.metal"
+	InstanceTypeIm4gnLarge      InstanceType = "im4gn.large"
+	InstanceTypeIm4gnXlarge     InstanceType = "im4gn.xlarge"
+	InstanceTypeIm4gn2xlarge    InstanceType = "im4gn.2xlarge"
+	InstanceTypeIm4gn4xlarge    InstanceType = "im4gn.4xlarge"
+	InstanceTypeIm4gn8xlarge    InstanceType = "im4gn.8xlarge"
+	InstanceTypeIm4gn16xlarge   InstanceType = "im4gn.16xlarge"
+	InstanceTypeInf1Xlarge      InstanceType = "inf1.xlarge"
+	InstanceTypeInf12xlarge     InstanceType = "inf1.2xlarge"
+	InstanceTypeInf16xlarge     InstanceType = "inf1.6xlarge"
+	InstanceTypeInf124xlarge    InstanceType = "inf1.24xlarge"
+	InstanceTypeIs4genMedium    InstanceType = "is4gen.medium"
+	InstanceTypeIs4genLarge     InstanceType = "is4gen.large"
+	InstanceTypeIs4genXlarge    InstanceType = "is4gen.xlarge"
+	InstanceTypeIs4gen2xlarge   InstanceType = "is4gen.2xlarge"
+	InstanceTypeIs4gen4xlarge   InstanceType = "is4gen.4xlarge"
+	InstanceTypeIs4gen8xlarge   InstanceType = "is4gen.8xlarge"
+	InstanceTypeM1Small         InstanceType = "m1.small"
+	InstanceTypeM1Medium        InstanceType = "m1.medium"
+	InstanceTypeM1Large         InstanceType = "m1.large"
+	InstanceTypeM1Xlarge        InstanceType = "m1.xlarge"
+	InstanceTypeM2Xlarge        InstanceType = "m2.xlarge"
+	InstanceTypeM22xlarge       InstanceType = "m2.2xlarge"
+	InstanceTypeM24xlarge       InstanceType = "m2.4xlarge"
+	InstanceTypeM3Medium        InstanceType = "m3.medium"
+	InstanceTypeM3Large         InstanceType = "m3.large"
+	InstanceTypeM3Xlarge        InstanceType = "m3.xlarge"
+	InstanceTypeM32xlarge       InstanceType = "m3.2xlarge"
+	InstanceTypeM4Large         InstanceType = "m4.large"
+	InstanceTypeM4Xlarge        InstanceType = "m4.xlarge"
+	InstanceTypeM42xlarge       InstanceType = "m4.2xlarge"
+	InstanceTypeM44xlarge       InstanceType = "m4.4xlarge"
+	InstanceTypeM410xlarge      InstanceType = "m4.10xlarge"
+	InstanceTypeM416xlarge      InstanceType = "m4.16xlarge"
 	InstanceTypeM5Large         InstanceType = "m5.large"
 	InstanceTypeM5Xlarge        InstanceType = "m5.xlarge"
 	InstanceTypeM52xlarge       InstanceType = "m5.2xlarge"
@@ -2778,6 +2775,14 @@ const (
 	InstanceTypeM5a12xlarge     InstanceType = "m5a.12xlarge"
 	InstanceTypeM5a16xlarge     InstanceType = "m5a.16xlarge"
 	InstanceTypeM5a24xlarge     InstanceType = "m5a.24xlarge"
+	InstanceTypeM5adLarge       InstanceType = "m5ad.large"
+	InstanceTypeM5adXlarge      InstanceType = "m5ad.xlarge"
+	InstanceTypeM5ad2xlarge     InstanceType = "m5ad.2xlarge"
+	InstanceTypeM5ad4xlarge     InstanceType = "m5ad.4xlarge"
+	InstanceTypeM5ad8xlarge     InstanceType = "m5ad.8xlarge"
+	InstanceTypeM5ad12xlarge    InstanceType = "m5ad.12xlarge"
+	InstanceTypeM5ad16xlarge    InstanceType = "m5ad.16xlarge"
+	InstanceTypeM5ad24xlarge    InstanceType = "m5ad.24xlarge"
 	InstanceTypeM5dLarge        InstanceType = "m5d.large"
 	InstanceTypeM5dXlarge       InstanceType = "m5d.xlarge"
 	InstanceTypeM5d2xlarge      InstanceType = "m5d.2xlarge"
@@ -2787,47 +2792,6 @@ const (
 	InstanceTypeM5d16xlarge     InstanceType = "m5d.16xlarge"
 	InstanceTypeM5d24xlarge     InstanceType = "m5d.24xlarge"
 	InstanceTypeM5dMetal        InstanceType = "m5d.metal"
-	InstanceTypeM5adLarge       InstanceType = "m5ad.large"
-	InstanceTypeM5adXlarge      InstanceType = "m5ad.xlarge"
-	InstanceTypeM5ad2xlarge     InstanceType = "m5ad.2xlarge"
-	InstanceTypeM5ad4xlarge     InstanceType = "m5ad.4xlarge"
-	InstanceTypeM5ad8xlarge     InstanceType = "m5ad.8xlarge"
-	InstanceTypeM5ad12xlarge    InstanceType = "m5ad.12xlarge"
-	InstanceTypeM5ad16xlarge    InstanceType = "m5ad.16xlarge"
-	InstanceTypeM5ad24xlarge    InstanceType = "m5ad.24xlarge"
-	InstanceTypeM5znLarge       InstanceType = "m5zn.large"
-	InstanceTypeM5znXlarge      InstanceType = "m5zn.xlarge"
-	InstanceTypeM5zn2xlarge     InstanceType = "m5zn.2xlarge"
-	InstanceTypeM5zn3xlarge     InstanceType = "m5zn.3xlarge"
-	InstanceTypeM5zn6xlarge     InstanceType = "m5zn.6xlarge"
-	InstanceTypeM5zn12xlarge    InstanceType = "m5zn.12xlarge"
-	InstanceTypeM5znMetal       InstanceType = "m5zn.metal"
-	InstanceTypeH12xlarge       InstanceType = "h1.2xlarge"
-	InstanceTypeH14xlarge       InstanceType = "h1.4xlarge"
-	InstanceTypeH18xlarge       InstanceType = "h1.8xlarge"
-	InstanceTypeH116xlarge      InstanceType = "h1.16xlarge"
-	InstanceTypeZ1dLarge        InstanceType = "z1d.large"
-	InstanceTypeZ1dXlarge       InstanceType = "z1d.xlarge"
-	InstanceTypeZ1d2xlarge      InstanceType = "z1d.2xlarge"
-	InstanceTypeZ1d3xlarge      InstanceType = "z1d.3xlarge"
-	InstanceTypeZ1d6xlarge      InstanceType = "z1d.6xlarge"
-	InstanceTypeZ1d12xlarge     InstanceType = "z1d.12xlarge"
-	InstanceTypeZ1dMetal        InstanceType = "z1d.metal"
-	InstanceTypeU6tb156xlarge   InstanceType = "u-6tb1.56xlarge"
-	InstanceTypeU6tb1112xlarge  InstanceType = "u-6tb1.112xlarge"
-	InstanceTypeU9tb1112xlarge  InstanceType = "u-9tb1.112xlarge"
-	InstanceTypeU12tb1112xlarge InstanceType = "u-12tb1.112xlarge"
-	InstanceTypeU6tb1Metal      InstanceType = "u-6tb1.metal"
-	InstanceTypeU9tb1Metal      InstanceType = "u-9tb1.metal"
-	InstanceTypeU12tb1Metal     InstanceType = "u-12tb1.metal"
-	InstanceTypeU18tb1Metal     InstanceType = "u-18tb1.metal"
-	InstanceTypeU24tb1Metal     InstanceType = "u-24tb1.metal"
-	InstanceTypeA1Medium        InstanceType = "a1.medium"
-	InstanceTypeA1Large         InstanceType = "a1.large"
-	InstanceTypeA1Xlarge        InstanceType = "a1.xlarge"
-	InstanceTypeA12xlarge       InstanceType = "a1.2xlarge"
-	InstanceTypeA14xlarge       InstanceType = "a1.4xlarge"
-	InstanceTypeA1Metal         InstanceType = "a1.metal"
 	InstanceTypeM5dnLarge       InstanceType = "m5dn.large"
 	InstanceTypeM5dnXlarge      InstanceType = "m5dn.xlarge"
 	InstanceTypeM5dn2xlarge     InstanceType = "m5dn.2xlarge"
@@ -2846,28 +2810,23 @@ const (
 	InstanceTypeM5n16xlarge     InstanceType = "m5n.16xlarge"
 	InstanceTypeM5n24xlarge     InstanceType = "m5n.24xlarge"
 	InstanceTypeM5nMetal        InstanceType = "m5n.metal"
-	InstanceTypeR5dnLarge       InstanceType = "r5dn.large"
-	InstanceTypeR5dnXlarge      InstanceType = "r5dn.xlarge"
-	InstanceTypeR5dn2xlarge     InstanceType = "r5dn.2xlarge"
-	InstanceTypeR5dn4xlarge     InstanceType = "r5dn.4xlarge"
-	InstanceTypeR5dn8xlarge     InstanceType = "r5dn.8xlarge"
-	InstanceTypeR5dn12xlarge    InstanceType = "r5dn.12xlarge"
-	InstanceTypeR5dn16xlarge    InstanceType = "r5dn.16xlarge"
-	InstanceTypeR5dn24xlarge    InstanceType = "r5dn.24xlarge"
-	InstanceTypeR5dnMetal       InstanceType = "r5dn.metal"
-	InstanceTypeR5nLarge        InstanceType = "r5n.large"
-	InstanceTypeR5nXlarge       InstanceType = "r5n.xlarge"
-	InstanceTypeR5n2xlarge      InstanceType = "r5n.2xlarge"
-	InstanceTypeR5n4xlarge      InstanceType = "r5n.4xlarge"
-	InstanceTypeR5n8xlarge      InstanceType = "r5n.8xlarge"
-	InstanceTypeR5n12xlarge     InstanceType = "r5n.12xlarge"
-	InstanceTypeR5n16xlarge     InstanceType = "r5n.16xlarge"
-	InstanceTypeR5n24xlarge     InstanceType = "r5n.24xlarge"
-	InstanceTypeR5nMetal        InstanceType = "r5n.metal"
-	InstanceTypeInf1Xlarge      InstanceType = "inf1.xlarge"
-	InstanceTypeInf12xlarge     InstanceType = "inf1.2xlarge"
-	InstanceTypeInf16xlarge     InstanceType = "inf1.6xlarge"
-	InstanceTypeInf124xlarge    InstanceType = "inf1.24xlarge"
+	InstanceTypeM5znLarge       InstanceType = "m5zn.large"
+	InstanceTypeM5znXlarge      InstanceType = "m5zn.xlarge"
+	InstanceTypeM5zn2xlarge     InstanceType = "m5zn.2xlarge"
+	InstanceTypeM5zn3xlarge     InstanceType = "m5zn.3xlarge"
+	InstanceTypeM5zn6xlarge     InstanceType = "m5zn.6xlarge"
+	InstanceTypeM5zn12xlarge    InstanceType = "m5zn.12xlarge"
+	InstanceTypeM5znMetal       InstanceType = "m5zn.metal"
+	InstanceTypeM6aLarge        InstanceType = "m6a.large"
+	InstanceTypeM6aXlarge       InstanceType = "m6a.xlarge"
+	InstanceTypeM6a2xlarge      InstanceType = "m6a.2xlarge"
+	InstanceTypeM6a4xlarge      InstanceType = "m6a.4xlarge"
+	InstanceTypeM6a8xlarge      InstanceType = "m6a.8xlarge"
+	InstanceTypeM6a12xlarge     InstanceType = "m6a.12xlarge"
+	InstanceTypeM6a16xlarge     InstanceType = "m6a.16xlarge"
+	InstanceTypeM6a24xlarge     InstanceType = "m6a.24xlarge"
+	InstanceTypeM6a32xlarge     InstanceType = "m6a.32xlarge"
+	InstanceTypeM6a48xlarge     InstanceType = "m6a.48xlarge"
 	InstanceTypeM6gMetal        InstanceType = "m6g.metal"
 	InstanceTypeM6gMedium       InstanceType = "m6g.medium"
 	InstanceTypeM6gLarge        InstanceType = "m6g.large"
@@ -2886,16 +2845,6 @@ const (
 	InstanceTypeM6gd8xlarge     InstanceType = "m6gd.8xlarge"
 	InstanceTypeM6gd12xlarge    InstanceType = "m6gd.12xlarge"
 	InstanceTypeM6gd16xlarge    InstanceType = "m6gd.16xlarge"
-	InstanceTypeM6aLarge        InstanceType = "m6a.large"
-	InstanceTypeM6aXlarge       InstanceType = "m6a.xlarge"
-	InstanceTypeM6a2xlarge      InstanceType = "m6a.2xlarge"
-	InstanceTypeM6a4xlarge      InstanceType = "m6a.4xlarge"
-	InstanceTypeM6a8xlarge      InstanceType = "m6a.8xlarge"
-	InstanceTypeM6a12xlarge     InstanceType = "m6a.12xlarge"
-	InstanceTypeM6a16xlarge     InstanceType = "m6a.16xlarge"
-	InstanceTypeM6a24xlarge     InstanceType = "m6a.24xlarge"
-	InstanceTypeM6a32xlarge     InstanceType = "m6a.32xlarge"
-	InstanceTypeM6a48xlarge     InstanceType = "m6a.48xlarge"
 	InstanceTypeM6iLarge        InstanceType = "m6i.large"
 	InstanceTypeM6iXlarge       InstanceType = "m6i.xlarge"
 	InstanceTypeM6i2xlarge      InstanceType = "m6i.2xlarge"
@@ -2905,7 +2854,165 @@ const (
 	InstanceTypeM6i16xlarge     InstanceType = "m6i.16xlarge"
 	InstanceTypeM6i24xlarge     InstanceType = "m6i.24xlarge"
 	InstanceTypeM6i32xlarge     InstanceType = "m6i.32xlarge"
+	InstanceTypeM6iMetal        InstanceType = "m6i.metal"
 	InstanceTypeMac1Metal       InstanceType = "mac1.metal"
+	InstanceTypeP2Xlarge        InstanceType = "p2.xlarge"
+	InstanceTypeP28xlarge       InstanceType = "p2.8xlarge"
+	InstanceTypeP216xlarge      InstanceType = "p2.16xlarge"
+	InstanceTypeP32xlarge       InstanceType = "p3.2xlarge"
+	InstanceTypeP38xlarge       InstanceType = "p3.8xlarge"
+	InstanceTypeP316xlarge      InstanceType = "p3.16xlarge"
+	InstanceTypeP3dn24xlarge    InstanceType = "p3dn.24xlarge"
+	InstanceTypeP4d24xlarge     InstanceType = "p4d.24xlarge"
+	InstanceTypeR3Large         InstanceType = "r3.large"
+	InstanceTypeR3Xlarge        InstanceType = "r3.xlarge"
+	InstanceTypeR32xlarge       InstanceType = "r3.2xlarge"
+	InstanceTypeR34xlarge       InstanceType = "r3.4xlarge"
+	InstanceTypeR38xlarge       InstanceType = "r3.8xlarge"
+	InstanceTypeR4Large         InstanceType = "r4.large"
+	InstanceTypeR4Xlarge        InstanceType = "r4.xlarge"
+	InstanceTypeR42xlarge       InstanceType = "r4.2xlarge"
+	InstanceTypeR44xlarge       InstanceType = "r4.4xlarge"
+	InstanceTypeR48xlarge       InstanceType = "r4.8xlarge"
+	InstanceTypeR416xlarge      InstanceType = "r4.16xlarge"
+	InstanceTypeR5Large         InstanceType = "r5.large"
+	InstanceTypeR5Xlarge        InstanceType = "r5.xlarge"
+	InstanceTypeR52xlarge       InstanceType = "r5.2xlarge"
+	InstanceTypeR54xlarge       InstanceType = "r5.4xlarge"
+	InstanceTypeR58xlarge       InstanceType = "r5.8xlarge"
+	InstanceTypeR512xlarge      InstanceType = "r5.12xlarge"
+	InstanceTypeR516xlarge      InstanceType = "r5.16xlarge"
+	InstanceTypeR524xlarge      InstanceType = "r5.24xlarge"
+	InstanceTypeR5Metal         InstanceType = "r5.metal"
+	InstanceTypeR5aLarge        InstanceType = "r5a.large"
+	InstanceTypeR5aXlarge       InstanceType = "r5a.xlarge"
+	InstanceTypeR5a2xlarge      InstanceType = "r5a.2xlarge"
+	InstanceTypeR5a4xlarge      InstanceType = "r5a.4xlarge"
+	InstanceTypeR5a8xlarge      InstanceType = "r5a.8xlarge"
+	InstanceTypeR5a12xlarge     InstanceType = "r5a.12xlarge"
+	InstanceTypeR5a16xlarge     InstanceType = "r5a.16xlarge"
+	InstanceTypeR5a24xlarge     InstanceType = "r5a.24xlarge"
+	InstanceTypeR5adLarge       InstanceType = "r5ad.large"
+	InstanceTypeR5adXlarge      InstanceType = "r5ad.xlarge"
+	InstanceTypeR5ad2xlarge     InstanceType = "r5ad.2xlarge"
+	InstanceTypeR5ad4xlarge     InstanceType = "r5ad.4xlarge"
+	InstanceTypeR5ad8xlarge     InstanceType = "r5ad.8xlarge"
+	InstanceTypeR5ad12xlarge    InstanceType = "r5ad.12xlarge"
+	InstanceTypeR5ad16xlarge    InstanceType = "r5ad.16xlarge"
+	InstanceTypeR5ad24xlarge    InstanceType = "r5ad.24xlarge"
+	InstanceTypeR5bLarge        InstanceType = "r5b.large"
+	InstanceTypeR5bXlarge       InstanceType = "r5b.xlarge"
+	InstanceTypeR5b2xlarge      InstanceType = "r5b.2xlarge"
+	InstanceTypeR5b4xlarge      InstanceType = "r5b.4xlarge"
+	InstanceTypeR5b8xlarge      InstanceType = "r5b.8xlarge"
+	InstanceTypeR5b12xlarge     InstanceType = "r5b.12xlarge"
+	InstanceTypeR5b16xlarge     InstanceType = "r5b.16xlarge"
+	InstanceTypeR5b24xlarge     InstanceType = "r5b.24xlarge"
+	InstanceTypeR5bMetal        InstanceType = "r5b.metal"
+	InstanceTypeR5dLarge        InstanceType = "r5d.large"
+	InstanceTypeR5dXlarge       InstanceType = "r5d.xlarge"
+	InstanceTypeR5d2xlarge      InstanceType = "r5d.2xlarge"
+	InstanceTypeR5d4xlarge      InstanceType = "r5d.4xlarge"
+	InstanceTypeR5d8xlarge      InstanceType = "r5d.8xlarge"
+	InstanceTypeR5d12xlarge     InstanceType = "r5d.12xlarge"
+	InstanceTypeR5d16xlarge     InstanceType = "r5d.16xlarge"
+	InstanceTypeR5d24xlarge     InstanceType = "r5d.24xlarge"
+	InstanceTypeR5dMetal        InstanceType = "r5d.metal"
+	InstanceTypeR5dnLarge       InstanceType = "r5dn.large"
+	InstanceTypeR5dnXlarge      InstanceType = "r5dn.xlarge"
+	InstanceTypeR5dn2xlarge     InstanceType = "r5dn.2xlarge"
+	InstanceTypeR5dn4xlarge     InstanceType = "r5dn.4xlarge"
+	InstanceTypeR5dn8xlarge     InstanceType = "r5dn.8xlarge"
+	InstanceTypeR5dn12xlarge    InstanceType = "r5dn.12xlarge"
+	InstanceTypeR5dn16xlarge    InstanceType = "r5dn.16xlarge"
+	InstanceTypeR5dn24xlarge    InstanceType = "r5dn.24xlarge"
+	InstanceTypeR5dnMetal       InstanceType = "r5dn.metal"
+	InstanceTypeR5nLarge        InstanceType = "r5n.large"
+	InstanceTypeR5nXlarge       InstanceType = "r5n.xlarge"
+	InstanceTypeR5n2xlarge      InstanceType = "r5n.2xlarge"
+	InstanceTypeR5n4xlarge      InstanceType = "r5n.4xlarge"
+	InstanceTypeR5n8xlarge      InstanceType = "r5n.8xlarge"
+	InstanceTypeR5n12xlarge     InstanceType = "r5n.12xlarge"
+	InstanceTypeR5n16xlarge     InstanceType = "r5n.16xlarge"
+	InstanceTypeR5n24xlarge     InstanceType = "r5n.24xlarge"
+	InstanceTypeR5nMetal        InstanceType = "r5n.metal"
+	InstanceTypeR6gMedium       InstanceType = "r6g.medium"
+	InstanceTypeR6gLarge        InstanceType = "r6g.large"
+	InstanceTypeR6gXlarge       InstanceType = "r6g.xlarge"
+	InstanceTypeR6g2xlarge      InstanceType = "r6g.2xlarge"
+	InstanceTypeR6g4xlarge      InstanceType = "r6g.4xlarge"
+	InstanceTypeR6g8xlarge      InstanceType = "r6g.8xlarge"
+	InstanceTypeR6g12xlarge     InstanceType = "r6g.12xlarge"
+	InstanceTypeR6g16xlarge     InstanceType = "r6g.16xlarge"
+	InstanceTypeR6gMetal        InstanceType = "r6g.metal"
+	InstanceTypeR6gdMedium      InstanceType = "r6gd.medium"
+	InstanceTypeR6gdLarge       InstanceType = "r6gd.large"
+	InstanceTypeR6gdXlarge      InstanceType = "r6gd.xlarge"
+	InstanceTypeR6gd2xlarge     InstanceType = "r6gd.2xlarge"
+	InstanceTypeR6gd4xlarge     InstanceType = "r6gd.4xlarge"
+	InstanceTypeR6gd8xlarge     InstanceType = "r6gd.8xlarge"
+	InstanceTypeR6gd12xlarge    InstanceType = "r6gd.12xlarge"
+	InstanceTypeR6gd16xlarge    InstanceType = "r6gd.16xlarge"
+	InstanceTypeR6gdMetal       InstanceType = "r6gd.metal"
+	InstanceTypeR6iLarge        InstanceType = "r6i.large"
+	InstanceTypeR6iXlarge       InstanceType = "r6i.xlarge"
+	InstanceTypeR6i2xlarge      InstanceType = "r6i.2xlarge"
+	InstanceTypeR6i4xlarge      InstanceType = "r6i.4xlarge"
+	InstanceTypeR6i8xlarge      InstanceType = "r6i.8xlarge"
+	InstanceTypeR6i12xlarge     InstanceType = "r6i.12xlarge"
+	InstanceTypeR6i16xlarge     InstanceType = "r6i.16xlarge"
+	InstanceTypeR6i24xlarge     InstanceType = "r6i.24xlarge"
+	InstanceTypeR6i32xlarge     InstanceType = "r6i.32xlarge"
+	InstanceTypeR6iMetal        InstanceType = "r6i.metal"
+	InstanceTypeT1Micro         InstanceType = "t1.micro"
+	InstanceTypeT2Nano          InstanceType = "t2.nano"
+	InstanceTypeT2Micro         InstanceType = "t2.micro"
+	InstanceTypeT2Small         InstanceType = "t2.small"
+	InstanceTypeT2Medium        InstanceType = "t2.medium"
+	InstanceTypeT2Large         InstanceType = "t2.large"
+	InstanceTypeT2Xlarge        InstanceType = "t2.xlarge"
+	InstanceTypeT22xlarge       InstanceType = "t2.2xlarge"
+	InstanceTypeT3Nano          InstanceType = "t3.nano"
+	InstanceTypeT3Micro         InstanceType = "t3.micro"
+	InstanceTypeT3Small         InstanceType = "t3.small"
+	InstanceTypeT3Medium        InstanceType = "t3.medium"
+	InstanceTypeT3Large         InstanceType = "t3.large"
+	InstanceTypeT3Xlarge        InstanceType = "t3.xlarge"
+	InstanceTypeT32xlarge       InstanceType = "t3.2xlarge"
+	InstanceTypeT3aNano         InstanceType = "t3a.nano"
+	InstanceTypeT3aMicro        InstanceType = "t3a.micro"
+	InstanceTypeT3aSmall        InstanceType = "t3a.small"
+	InstanceTypeT3aMedium       InstanceType = "t3a.medium"
+	InstanceTypeT3aLarge        InstanceType = "t3a.large"
+	InstanceTypeT3aXlarge       InstanceType = "t3a.xlarge"
+	InstanceTypeT3a2xlarge      InstanceType = "t3a.2xlarge"
+	InstanceTypeT4gNano         InstanceType = "t4g.nano"
+	InstanceTypeT4gMicro        InstanceType = "t4g.micro"
+	InstanceTypeT4gSmall        InstanceType = "t4g.small"
+	InstanceTypeT4gMedium       InstanceType = "t4g.medium"
+	InstanceTypeT4gLarge        InstanceType = "t4g.large"
+	InstanceTypeT4gXlarge       InstanceType = "t4g.xlarge"
+	InstanceTypeT4g2xlarge      InstanceType = "t4g.2xlarge"
+	InstanceTypeU6tb156xlarge   InstanceType = "u-6tb1.56xlarge"
+	InstanceTypeU6tb1112xlarge  InstanceType = "u-6tb1.112xlarge"
+	InstanceTypeU9tb1112xlarge  InstanceType = "u-9tb1.112xlarge"
+	InstanceTypeU12tb1112xlarge InstanceType = "u-12tb1.112xlarge"
+	InstanceTypeU6tb1Metal      InstanceType = "u-6tb1.metal"
+	InstanceTypeU9tb1Metal      InstanceType = "u-9tb1.metal"
+	InstanceTypeU12tb1Metal     InstanceType = "u-12tb1.metal"
+	InstanceTypeU18tb1Metal     InstanceType = "u-18tb1.metal"
+	InstanceTypeU24tb1Metal     InstanceType = "u-24tb1.metal"
+	InstanceTypeVt13xlarge      InstanceType = "vt1.3xlarge"
+	InstanceTypeVt16xlarge      InstanceType = "vt1.6xlarge"
+	InstanceTypeVt124xlarge     InstanceType = "vt1.24xlarge"
+	InstanceTypeX116xlarge      InstanceType = "x1.16xlarge"
+	InstanceTypeX132xlarge      InstanceType = "x1.32xlarge"
+	InstanceTypeX1eXlarge       InstanceType = "x1e.xlarge"
+	InstanceTypeX1e2xlarge      InstanceType = "x1e.2xlarge"
+	InstanceTypeX1e4xlarge      InstanceType = "x1e.4xlarge"
+	InstanceTypeX1e8xlarge      InstanceType = "x1e.8xlarge"
+	InstanceTypeX1e16xlarge     InstanceType = "x1e.16xlarge"
+	InstanceTypeX1e32xlarge     InstanceType = "x1e.32xlarge"
 	InstanceTypeX2gdMedium      InstanceType = "x2gd.medium"
 	InstanceTypeX2gdLarge       InstanceType = "x2gd.large"
 	InstanceTypeX2gdXlarge      InstanceType = "x2gd.xlarge"
@@ -2915,35 +3022,13 @@ const (
 	InstanceTypeX2gd12xlarge    InstanceType = "x2gd.12xlarge"
 	InstanceTypeX2gd16xlarge    InstanceType = "x2gd.16xlarge"
 	InstanceTypeX2gdMetal       InstanceType = "x2gd.metal"
-	InstanceTypeVt13xlarge      InstanceType = "vt1.3xlarge"
-	InstanceTypeVt16xlarge      InstanceType = "vt1.6xlarge"
-	InstanceTypeVt124xlarge     InstanceType = "vt1.24xlarge"
-	InstanceTypeIm4gn16xlarge   InstanceType = "im4gn.16xlarge"
-	InstanceTypeIm4gn2xlarge    InstanceType = "im4gn.2xlarge"
-	InstanceTypeIm4gn4xlarge    InstanceType = "im4gn.4xlarge"
-	InstanceTypeIm4gn8xlarge    InstanceType = "im4gn.8xlarge"
-	InstanceTypeIm4gnLarge      InstanceType = "im4gn.large"
-	InstanceTypeIm4gnXlarge     InstanceType = "im4gn.xlarge"
-	InstanceTypeIs4gen2xlarge   InstanceType = "is4gen.2xlarge"
-	InstanceTypeIs4gen4xlarge   InstanceType = "is4gen.4xlarge"
-	InstanceTypeIs4gen8xlarge   InstanceType = "is4gen.8xlarge"
-	InstanceTypeIs4genLarge     InstanceType = "is4gen.large"
-	InstanceTypeIs4genMedium    InstanceType = "is4gen.medium"
-	InstanceTypeIs4genXlarge    InstanceType = "is4gen.xlarge"
-	InstanceTypeG5gXlarge       InstanceType = "g5g.xlarge"
-	InstanceTypeG5g2xlarge      InstanceType = "g5g.2xlarge"
-	InstanceTypeG5g4xlarge      InstanceType = "g5g.4xlarge"
-	InstanceTypeG5g8xlarge      InstanceType = "g5g.8xlarge"
-	InstanceTypeG5g16xlarge     InstanceType = "g5g.16xlarge"
-	InstanceTypeG5gMetal        InstanceType = "g5g.metal"
-	InstanceTypeG5Xlarge        InstanceType = "g5.xlarge"
-	InstanceTypeG52xlarge       InstanceType = "g5.2xlarge"
-	InstanceTypeG54xlarge       InstanceType = "g5.4xlarge"
-	InstanceTypeG58xlarge       InstanceType = "g5.8xlarge"
-	InstanceTypeG512xlarge      InstanceType = "g5.12xlarge"
-	InstanceTypeG516xlarge      InstanceType = "g5.16xlarge"
-	InstanceTypeG524xlarge      InstanceType = "g5.24xlarge"
-	InstanceTypeG548xlarge      InstanceType = "g5.48xlarge"
+	InstanceTypeZ1dLarge        InstanceType = "z1d.large"
+	InstanceTypeZ1dXlarge       InstanceType = "z1d.xlarge"
+	InstanceTypeZ1d2xlarge      InstanceType = "z1d.2xlarge"
+	InstanceTypeZ1d3xlarge      InstanceType = "z1d.3xlarge"
+	InstanceTypeZ1d6xlarge      InstanceType = "z1d.6xlarge"
+	InstanceTypeZ1d12xlarge     InstanceType = "z1d.12xlarge"
+	InstanceTypeZ1dMetal        InstanceType = "z1d.metal"
 )
 
 // Values returns all known values for InstanceType. Note that this can be expanded
@@ -2951,154 +3036,12 @@ const (
 // this slice is not guaranteed to be stable across updates.
 func (InstanceType) Values() []InstanceType {
 	return []InstanceType{
-		"t1.micro",
-		"t2.nano",
-		"t2.micro",
-		"t2.small",
-		"t2.medium",
-		"t2.large",
-		"t2.xlarge",
-		"t2.2xlarge",
-		"t3.nano",
-		"t3.micro",
-		"t3.small",
-		"t3.medium",
-		"t3.large",
-		"t3.xlarge",
-		"t3.2xlarge",
-		"t3a.nano",
-		"t3a.micro",
-		"t3a.small",
-		"t3a.medium",
-		"t3a.large",
-		"t3a.xlarge",
-		"t3a.2xlarge",
-		"t4g.nano",
-		"t4g.micro",
-		"t4g.small",
-		"t4g.medium",
-		"t4g.large",
-		"t4g.xlarge",
-		"t4g.2xlarge",
-		"m1.small",
-		"m1.medium",
-		"m1.large",
-		"m1.xlarge",
-		"m3.medium",
-		"m3.large",
-		"m3.xlarge",
-		"m3.2xlarge",
-		"m4.large",
-		"m4.xlarge",
-		"m4.2xlarge",
-		"m4.4xlarge",
-		"m4.10xlarge",
-		"m4.16xlarge",
-		"m2.xlarge",
-		"m2.2xlarge",
-		"m2.4xlarge",
-		"cr1.8xlarge",
-		"r3.large",
-		"r3.xlarge",
-		"r3.2xlarge",
-		"r3.4xlarge",
-		"r3.8xlarge",
-		"r4.large",
-		"r4.xlarge",
-		"r4.2xlarge",
-		"r4.4xlarge",
-		"r4.8xlarge",
-		"r4.16xlarge",
-		"r5.large",
-		"r5.xlarge",
-		"r5.2xlarge",
-		"r5.4xlarge",
-		"r5.8xlarge",
-		"r5.12xlarge",
-		"r5.16xlarge",
-		"r5.24xlarge",
-		"r5.metal",
-		"r5a.large",
-		"r5a.xlarge",
-		"r5a.2xlarge",
-		"r5a.4xlarge",
-		"r5a.8xlarge",
-		"r5a.12xlarge",
-		"r5a.16xlarge",
-		"r5a.24xlarge",
-		"r5b.large",
-		"r5b.xlarge",
-		"r5b.2xlarge",
-		"r5b.4xlarge",
-		"r5b.8xlarge",
-		"r5b.12xlarge",
-		"r5b.16xlarge",
-		"r5b.24xlarge",
-		"r5b.metal",
-		"r5d.large",
-		"r5d.xlarge",
-		"r5d.2xlarge",
-		"r5d.4xlarge",
-		"r5d.8xlarge",
-		"r5d.12xlarge",
-		"r5d.16xlarge",
-		"r5d.24xlarge",
-		"r5d.metal",
-		"r5ad.large",
-		"r5ad.xlarge",
-		"r5ad.2xlarge",
-		"r5ad.4xlarge",
-		"r5ad.8xlarge",
-		"r5ad.12xlarge",
-		"r5ad.16xlarge",
-		"r5ad.24xlarge",
-		"r6g.metal",
-		"r6g.medium",
-		"r6g.large",
-		"r6g.xlarge",
-		"r6g.2xlarge",
-		"r6g.4xlarge",
-		"r6g.8xlarge",
-		"r6g.12xlarge",
-		"r6g.16xlarge",
-		"r6gd.metal",
-		"r6gd.medium",
-		"r6gd.large",
-		"r6gd.xlarge",
-		"r6gd.2xlarge",
-		"r6gd.4xlarge",
-		"r6gd.8xlarge",
-		"r6gd.12xlarge",
-		"r6gd.16xlarge",
-		"x1.16xlarge",
-		"x1.32xlarge",
-		"x1e.xlarge",
-		"x1e.2xlarge",
-		"x1e.4xlarge",
-		"x1e.8xlarge",
-		"x1e.16xlarge",
-		"x1e.32xlarge",
-		"i2.xlarge",
-		"i2.2xlarge",
-		"i2.4xlarge",
-		"i2.8xlarge",
-		"i3.large",
-		"i3.xlarge",
-		"i3.2xlarge",
-		"i3.4xlarge",
-		"i3.8xlarge",
-		"i3.16xlarge",
-		"i3.metal",
-		"i3en.large",
-		"i3en.xlarge",
-		"i3en.2xlarge",
-		"i3en.3xlarge",
-		"i3en.6xlarge",
-		"i3en.12xlarge",
-		"i3en.24xlarge",
-		"i3en.metal",
-		"hi1.4xlarge",
-		"hs1.8xlarge",
+		"a1.medium",
+		"a1.large",
+		"a1.xlarge",
+		"a1.2xlarge",
+		"a1.4xlarge",
+		"a1.metal",
 		"c1.medium",
 		"c1.xlarge",
 		"c3.large",
@@ -3152,7 +3095,6 @@ func (InstanceType) Values() []InstanceType {
 		"c5n.9xlarge",
 		"c5n.18xlarge",
 		"c5n.metal",
-		"c6g.metal",
 		"c6g.medium",
 		"c6g.large",
 		"c6g.xlarge",
@@ -3161,7 +3103,7 @@ func (InstanceType) Values() []InstanceType {
 		"c6g.8xlarge",
 		"c6g.12xlarge",
 		"c6g.16xlarge",
-		"c6gd.metal",
+		"c6g.metal",
 		"c6gd.medium",
 		"c6gd.large",
 		"c6gd.xlarge",
@@ -3170,6 +3112,7 @@ func (InstanceType) Values() []InstanceType {
 		"c6gd.8xlarge",
 		"c6gd.12xlarge",
 		"c6gd.16xlarge",
+		"c6gd.metal",
 		"c6gn.medium",
 		"c6gn.large",
 		"c6gn.xlarge",
@@ -3187,35 +3130,11 @@ func (InstanceType) Values() []InstanceType {
 		"c6i.16xlarge",
 		"c6i.24xlarge",
 		"c6i.32xlarge",
+		"c6i.metal",
 		"cc1.4xlarge",
 		"cc2.8xlarge",
-		"g2.2xlarge",
-		"g2.8xlarge",
-		"g3.4xlarge",
-		"g3.8xlarge",
-		"g3.16xlarge",
-		"g3s.xlarge",
-		"g4ad.xlarge",
-		"g4ad.2xlarge",
-		"g4ad.4xlarge",
-		"g4ad.8xlarge",
-		"g4ad.16xlarge",
-		"g4dn.xlarge",
-		"g4dn.2xlarge",
-		"g4dn.4xlarge",
-		"g4dn.8xlarge",
-		"g4dn.12xlarge",
-		"g4dn.16xlarge",
-		"g4dn.metal",
 		"cg1.4xlarge",
-		"p2.xlarge",
-		"p2.8xlarge",
-		"p2.16xlarge",
-		"p3.2xlarge",
-		"p3.8xlarge",
-		"p3.16xlarge",
-		"p3dn.24xlarge",
-		"p4d.24xlarge",
+		"cr1.8xlarge",
 		"d2.xlarge",
 		"d2.2xlarge",
 		"d2.4xlarge",
@@ -3234,6 +3153,97 @@ func (InstanceType) Values() []InstanceType {
 		"f1.2xlarge",
 		"f1.4xlarge",
 		"f1.16xlarge",
+		"g2.2xlarge",
+		"g2.8xlarge",
+		"g3.4xlarge",
+		"g3.8xlarge",
+		"g3.16xlarge",
+		"g3s.xlarge",
+		"g4ad.xlarge",
+		"g4ad.2xlarge",
+		"g4ad.4xlarge",
+		"g4ad.8xlarge",
+		"g4ad.16xlarge",
+		"g4dn.xlarge",
+		"g4dn.2xlarge",
+		"g4dn.4xlarge",
+		"g4dn.8xlarge",
+		"g4dn.12xlarge",
+		"g4dn.16xlarge",
+		"g4dn.metal",
+		"g5.xlarge",
+		"g5.2xlarge",
+		"g5.4xlarge",
+		"g5.8xlarge",
+		"g5.12xlarge",
+		"g5.16xlarge",
+		"g5.24xlarge",
+		"g5.48xlarge",
+		"g5g.xlarge",
+		"g5g.2xlarge",
+		"g5g.4xlarge",
+		"g5g.8xlarge",
+		"g5g.16xlarge",
+		"g5g.metal",
+		"hi1.4xlarge",
+		"hpc6a.48xlarge",
+		"hs1.8xlarge",
+		"h1.2xlarge",
+		"h1.4xlarge",
+		"h1.8xlarge",
+		"h1.16xlarge",
+		"i2.xlarge",
+		"i2.2xlarge",
+		"i2.4xlarge",
+		"i2.8xlarge",
+		"i3.large",
+		"i3.xlarge",
+		"i3.2xlarge",
+		"i3.4xlarge",
+		"i3.8xlarge",
+		"i3.16xlarge",
+		"i3.metal",
+		"i3en.large",
+		"i3en.xlarge",
+		"i3en.2xlarge",
+		"i3en.3xlarge",
+		"i3en.6xlarge",
+		"i3en.12xlarge",
+		"i3en.24xlarge",
+		"i3en.metal",
+		"im4gn.large",
+		"im4gn.xlarge",
+		"im4gn.2xlarge",
+		"im4gn.4xlarge",
+		"im4gn.8xlarge",
+		"im4gn.16xlarge",
+		"inf1.xlarge",
+		"inf1.2xlarge",
+		"inf1.6xlarge",
+		"inf1.24xlarge",
+		"is4gen.medium",
+		"is4gen.large",
+		"is4gen.xlarge",
+		"is4gen.2xlarge",
+		"is4gen.4xlarge",
+		"is4gen.8xlarge",
+		"m1.small",
+		"m1.medium",
+		"m1.large",
+		"m1.xlarge",
+		"m2.xlarge",
+		"m2.2xlarge",
+		"m2.4xlarge",
+		"m3.medium",
+		"m3.large",
+		"m3.xlarge",
+		"m3.2xlarge",
+		"m4.large",
+		"m4.xlarge",
+		"m4.2xlarge",
+		"m4.4xlarge",
+		"m4.10xlarge",
+		"m4.16xlarge",
 		"m5.large",
 		"m5.xlarge",
 		"m5.2xlarge",
@@ -3251,6 +3261,14 @@ func (InstanceType) Values() []InstanceType {
 		"m5a.12xlarge",
 		"m5a.16xlarge",
 		"m5a.24xlarge",
+		"m5ad.large",
+		"m5ad.xlarge",
+		"m5ad.2xlarge",
+		"m5ad.4xlarge",
+		"m5ad.8xlarge",
+		"m5ad.12xlarge",
+		"m5ad.16xlarge",
+		"m5ad.24xlarge",
 		"m5d.large",
 		"m5d.xlarge",
 		"m5d.2xlarge",
@@ -3260,47 +3278,6 @@ func (InstanceType) Values() []InstanceType {
 		"m5d.16xlarge",
 		"m5d.24xlarge",
 		"m5d.metal",
-		"m5ad.large",
-		"m5ad.xlarge",
-		"m5ad.2xlarge",
-		"m5ad.4xlarge",
-		"m5ad.8xlarge",
-		"m5ad.12xlarge",
-		"m5ad.16xlarge",
-		"m5ad.24xlarge",
-		"m5zn.large",
-		"m5zn.xlarge",
-		"m5zn.2xlarge",
-		"m5zn.3xlarge",
-		"m5zn.6xlarge",
-		"m5zn.12xlarge",
-		"m5zn.metal",
-		"h1.2xlarge",
-		"h1.4xlarge",
-		"h1.8xlarge",
-		"h1.16xlarge",
-		"z1d.large",
-		"z1d.xlarge",
-		"z1d.2xlarge",
-		"z1d.3xlarge",
-		"z1d.6xlarge",
-		"z1d.12xlarge",
-		"z1d.metal",
-		"u-6tb1.56xlarge",
-		"u-6tb1.112xlarge",
-		"u-9tb1.112xlarge",
-		"u-12tb1.112xlarge",
-		"u-6tb1.metal",
-		"u-9tb1.metal",
-		"u-12tb1.metal",
-		"u-18tb1.metal",
-		"u-24tb1.metal",
-		"a1.medium",
-		"a1.large",
-		"a1.xlarge",
-		"a1.2xlarge",
-		"a1.4xlarge",
-		"a1.metal",
 		"m5dn.large",
 		"m5dn.xlarge",
 		"m5dn.2xlarge",
@@ -3319,28 +3296,23 @@ func (InstanceType) Values() []InstanceType {
 		"m5n.16xlarge",
 		"m5n.24xlarge",
 		"m5n.metal",
-		"r5dn.large",
-		"r5dn.xlarge",
-		"r5dn.2xlarge",
-		"r5dn.4xlarge",
-		"r5dn.8xlarge",
-		"r5dn.12xlarge",
-		"r5dn.16xlarge",
-		"r5dn.24xlarge",
-		"r5dn.metal",
-		"r5n.large",
-		"r5n.xlarge",
-		"r5n.2xlarge",
-		"r5n.4xlarge",
-		"r5n.8xlarge",
-		"r5n.12xlarge",
-		"r5n.16xlarge",
-		"r5n.24xlarge",
-		"r5n.metal",
-		"inf1.xlarge",
-		"inf1.2xlarge",
-		"inf1.6xlarge",
-		"inf1.24xlarge",
+		"m5zn.large",
+		"m5zn.xlarge",
+		"m5zn.2xlarge",
+		"m5zn.3xlarge",
+		"m5zn.6xlarge",
+		"m5zn.12xlarge",
+		"m5zn.metal",
+		"m6a.large",
+		"m6a.xlarge",
+		"m6a.2xlarge",
+		"m6a.4xlarge",
+		"m6a.8xlarge",
+		"m6a.12xlarge",
+		"m6a.16xlarge",
+		"m6a.24xlarge",
+		"m6a.32xlarge",
+		"m6a.48xlarge",
 		"m6g.metal",
 		"m6g.medium",
 		"m6g.large",
@@ -3359,16 +3331,6 @@ func (InstanceType) Values() []InstanceType {
 		"m6gd.8xlarge",
 		"m6gd.12xlarge",
 		"m6gd.16xlarge",
-		"m6a.large",
-		"m6a.xlarge",
-		"m6a.2xlarge",
-		"m6a.4xlarge",
-		"m6a.8xlarge",
-		"m6a.12xlarge",
-		"m6a.16xlarge",
-		"m6a.24xlarge",
-		"m6a.32xlarge",
-		"m6a.48xlarge",
 		"m6i.large",
 		"m6i.xlarge",
 		"m6i.2xlarge",
@@ -3378,7 +3340,165 @@ func (InstanceType) Values() []InstanceType {
 		"m6i.16xlarge",
 		"m6i.24xlarge",
 		"m6i.32xlarge",
+		"m6i.metal",
 		"mac1.metal",
+		"p2.xlarge",
+		"p2.8xlarge",
+		"p2.16xlarge",
+		"p3.2xlarge",
+		"p3.8xlarge",
+		"p3.16xlarge",
+		"p3dn.24xlarge",
+		"p4d.24xlarge",
+		"r3.large",
+		"r3.xlarge",
+		"r3.2xlarge",
+		"r3.4xlarge",
+		"r3.8xlarge",
+		"r4.large",
+		"r4.xlarge",
+		"r4.2xlarge",
+		"r4.4xlarge",
+		"r4.8xlarge",
+		"r4.16xlarge",
+		"r5.large",
+		"r5.xlarge",
+		"r5.2xlarge",
+		"r5.4xlarge",
+		"r5.8xlarge",
+		"r5.12xlarge",
+		"r5.16xlarge",
+		"r5.24xlarge",
+		"r5.metal",
+		"r5a.large",
+		"r5a.xlarge",
+		"r5a.2xlarge",
+		"r5a.4xlarge",
+		"r5a.8xlarge",
+		"r5a.12xlarge",
+		"r5a.16xlarge",
+		"r5a.24xlarge",
+		"r5ad.large",
+		"r5ad.xlarge",
+		"r5ad.2xlarge",
+		"r5ad.4xlarge",
+		"r5ad.8xlarge",
+		"r5ad.12xlarge",
+		"r5ad.16xlarge",
+		"r5ad.24xlarge",
+		"r5b.large",
+		"r5b.xlarge",
+		"r5b.2xlarge",
+		"r5b.4xlarge",
+		"r5b.8xlarge",
+		"r5b.12xlarge",
+		"r5b.16xlarge",
+		"r5b.24xlarge",
+		"r5b.metal",
+		"r5d.large",
+		"r5d.xlarge",
+		"r5d.2xlarge",
+		"r5d.4xlarge",
+		"r5d.8xlarge",
+		"r5d.12xlarge",
+		"r5d.16xlarge",
+		"r5d.24xlarge",
+		"r5d.metal",
+		"r5dn.large",
+		"r5dn.xlarge",
+		"r5dn.2xlarge",
+		"r5dn.4xlarge",
+		"r5dn.8xlarge",
+		"r5dn.12xlarge",
+		"r5dn.16xlarge",
+		"r5dn.24xlarge",
+		"r5dn.metal",
+		"r5n.large",
+		"r5n.xlarge",
+		"r5n.2xlarge",
+		"r5n.4xlarge",
+		"r5n.8xlarge",
+		"r5n.12xlarge",
+		"r5n.16xlarge",
+		"r5n.24xlarge",
+		"r5n.metal",
+		"r6g.medium",
+		"r6g.large",
+		"r6g.xlarge",
+		"r6g.2xlarge",
+		"r6g.4xlarge",
+		"r6g.8xlarge",
+		"r6g.12xlarge",
+		"r6g.16xlarge",
+		"r6g.metal",
+		"r6gd.medium",
+		"r6gd.large",
+		"r6gd.xlarge",
+		"r6gd.2xlarge",
+		"r6gd.4xlarge",
+		"r6gd.8xlarge",
+		"r6gd.12xlarge",
+		"r6gd.16xlarge",
+		"r6gd.metal",
+		"r6i.large",
+		"r6i.xlarge",
+		"r6i.2xlarge",
+		"r6i.4xlarge",
+		"r6i.8xlarge",
+		"r6i.12xlarge",
+		"r6i.16xlarge",
+		"r6i.24xlarge",
+		"r6i.32xlarge",
+		"r6i.metal",
+		"t1.micro",
+		"t2.nano",
+		"t2.micro",
+		"t2.small",
+		"t2.medium",
+		"t2.large",
+		"t2.xlarge",
+		"t2.2xlarge",
+		"t3.nano",
+		"t3.micro",
+		"t3.small",
+		"t3.medium",
+		"t3.large",
+		"t3.xlarge",
+		"t3.2xlarge",
+		"t3a.nano",
+		"t3a.micro",
+		"t3a.small",
+		"t3a.medium",
+		"t3a.large",
+		"t3a.xlarge",
+		"t3a.2xlarge",
+		"t4g.nano",
+		"t4g.micro",
+		"t4g.small",
+		"t4g.medium",
+		"t4g.large",
+		"t4g.xlarge",
+		"t4g.2xlarge",
+		"u-6tb1.56xlarge",
+		"u-6tb1.112xlarge",
+		"u-9tb1.112xlarge",
+		"u-12tb1.112xlarge",
+		"u-6tb1.metal",
+		"u-9tb1.metal",
+		"u-12tb1.metal",
+		"u-18tb1.metal",
+		"u-24tb1.metal",
+		"vt1.3xlarge",
+		"vt1.6xlarge",
+		"vt1.24xlarge",
+		"x1.16xlarge",
+		"x1.32xlarge",
+		"x1e.xlarge",
+		"x1e.2xlarge",
+		"x1e.4xlarge",
+		"x1e.8xlarge",
+		"x1e.16xlarge",
+		"x1e.32xlarge",
 		"x2gd.medium",
 		"x2gd.large",
 		"x2gd.xlarge",
@@ -3388,35 +3508,13 @@ func (InstanceType) Values() []InstanceType {
 		"x2gd.12xlarge",
 		"x2gd.16xlarge",
 		"x2gd.metal",
-		"vt1.3xlarge",
-		"vt1.6xlarge",
-		"vt1.24xlarge",
-		"im4gn.16xlarge",
-		"im4gn.2xlarge",
-		"im4gn.4xlarge",
-		"im4gn.8xlarge",
-		"im4gn.large",
-		"im4gn.xlarge",
-		"is4gen.2xlarge",
-		"is4gen.4xlarge",
-		"is4gen.8xlarge",
-		"is4gen.large",
-		"is4gen.medium",
-		"is4gen.xlarge",
-		"g5g.xlarge",
-		"g5g.2xlarge",
-		"g5g.4xlarge",
-		"g5g.8xlarge",
-		"g5g.16xlarge",
-		"g5g.metal",
-		"g5.xlarge",
-		"g5.2xlarge",
-		"g5.4xlarge",
-		"g5.8xlarge",
-		"g5.12xlarge",
-		"g5.16xlarge",
-		"g5.24xlarge",
-		"g5.48xlarge",
+		"z1d.large",
+		"z1d.xlarge",
+		"z1d.2xlarge",
+		"z1d.3xlarge",
+		"z1d.6xlarge",
+		"z1d.12xlarge",
+		"z1d.metal",
 	}
 }
 
@@ -3917,6 +4015,25 @@ const (
 // updates.
 func (LaunchTemplateInstanceMetadataProtocolIpv6) Values() []LaunchTemplateInstanceMetadataProtocolIpv6 {
 	return []LaunchTemplateInstanceMetadataProtocolIpv6{
+		"disabled",
+		"enabled",
+	}
+}
+
+type LaunchTemplateInstanceMetadataTagsState string
+
+// Enum values for LaunchTemplateInstanceMetadataTagsState
+const (
+	LaunchTemplateInstanceMetadataTagsStateDisabled LaunchTemplateInstanceMetadataTagsState = "disabled"
+	LaunchTemplateInstanceMetadataTagsStateEnabled  LaunchTemplateInstanceMetadataTagsState = "enabled"
+)
+
+// Values returns all known values for LaunchTemplateInstanceMetadataTagsState.
+// Note that this can be expanded in the future, and so it is only as up to date as
+// the client. The ordering of this slice is not guaranteed to be stable across
+// updates.
+func (LaunchTemplateInstanceMetadataTagsState) Values() []LaunchTemplateInstanceMetadataTagsState {
+	return []LaunchTemplateInstanceMetadataTagsState{
 		"disabled",
 		"enabled",
 	}
@@ -4429,6 +4546,22 @@ func (PartitionLoadFrequency) Values() []PartitionLoadFrequency {
 		"daily",
 		"weekly",
 		"monthly",
+	}
+}
+
+type PayerResponsibility string
+
+// Enum values for PayerResponsibility
+const (
+	PayerResponsibilityServiceOwner PayerResponsibility = "ServiceOwner"
+)
+
+// Values returns all known values for PayerResponsibility. Note that this can be
+// expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (PayerResponsibility) Values() []PayerResponsibility {
+	return []PayerResponsibility{
+		"ServiceOwner",
 	}
 }
 

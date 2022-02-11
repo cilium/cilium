@@ -283,6 +283,15 @@ nextEvent:
 		switch ev := e.Event.(type) {
 		case *flowpb.Flow:
 			eventsReader.eventCount++
+			for _, f := range s.opts.OnFlowDelivery {
+				stop, err := f.OnFlowDelivery(ctx, ev)
+				switch {
+				case err != nil:
+					return err
+				case stop:
+					continue nextEvent
+				}
+			}
 			resp = &observerpb.GetFlowsResponse{
 				Time:     ev.GetTime(),
 				NodeName: ev.GetNodeName(),
@@ -291,6 +300,11 @@ nextEvent:
 				},
 			}
 		case *flowpb.LostEvent:
+			// Don't increment eventsReader.eventCount as a LostEvent is an
+			// event type that is never explicitly requested by the user (e.g.
+			// when a query asks for 20 events, then lost events should not be
+			// accounted for as they are not events per se but an indication
+			// that some event was lost).
 			resp = &observerpb.GetFlowsResponse{
 				Time:     e.Timestamp,
 				NodeName: nodeTypes.GetAbsoluteNodeName(),
@@ -302,16 +316,6 @@ nextEvent:
 
 		if resp == nil {
 			continue
-		}
-
-		for _, f := range s.opts.OnFlowDelivery {
-			stop, err := f.OnFlowDelivery(ctx, resp.GetFlow())
-			if err != nil {
-				return err
-			}
-			if stop {
-				continue nextEvent
-			}
 		}
 
 		err = server.Send(resp)

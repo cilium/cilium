@@ -89,16 +89,16 @@ type CreateVpnPbrRouteEntryRequest struct {
 // CreateVpnPbrRouteEntryResponse is the response struct for api CreateVpnPbrRouteEntry
 type CreateVpnPbrRouteEntryResponse struct {
 	*responses.BaseResponse
-	RequestId     string `json:"RequestId" xml:"RequestId"`
-	VpnInstanceId string `json:"VpnInstanceId" xml:"VpnInstanceId"`
-	RouteSource   string `json:"RouteSource" xml:"RouteSource"`
-	RouteDest     string `json:"RouteDest" xml:"RouteDest"`
 	NextHop       string `json:"NextHop" xml:"NextHop"`
 	Weight        int    `json:"Weight" xml:"Weight"`
-	OverlayMode   string `json:"OverlayMode" xml:"OverlayMode"`
+	RouteDest     string `json:"RouteDest" xml:"RouteDest"`
+	RequestId     string `json:"RequestId" xml:"RequestId"`
 	Description   string `json:"Description" xml:"Description"`
 	State         string `json:"State" xml:"State"`
 	CreateTime    int64  `json:"CreateTime" xml:"CreateTime"`
+	OverlayMode   string `json:"OverlayMode" xml:"OverlayMode"`
+	RouteSource   string `json:"RouteSource" xml:"RouteSource"`
+	VpnInstanceId string `json:"VpnInstanceId" xml:"VpnInstanceId"`
 }
 
 // CreateCreateVpnPbrRouteEntryRequest creates a request to invoke CreateVpnPbrRouteEntry API

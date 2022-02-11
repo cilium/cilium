@@ -15,7 +15,6 @@ concurrency:
 
 jobs:
   cache-cleaner:
-    if: ${{ github.repository == 'cilium/cilium' }}
     runs-on: ubuntu-20.04
     strategy:
       matrix:

@@ -21,8 +21,8 @@ type NextHop struct {
 	NextHopOppsiteInstanceId string             `json:"NextHopOppsiteInstanceId" xml:"NextHopOppsiteInstanceId"`
 	NextHopType              string             `json:"NextHopType" xml:"NextHopType"`
 	Enabled                  int                `json:"Enabled" xml:"Enabled"`
-	Weight                   int                `json:"Weight" xml:"Weight"`
 	NextHopRegionId          string             `json:"NextHopRegionId" xml:"NextHopRegionId"`
+	Weight                   int                `json:"Weight" xml:"Weight"`
 	NextHopOppsiteType       string             `json:"NextHopOppsiteType" xml:"NextHopOppsiteType"`
 	NextHopOppsiteRegionId   string             `json:"NextHopOppsiteRegionId" xml:"NextHopOppsiteRegionId"`
 	NextHopRelatedInfo       NextHopRelatedInfo `json:"NextHopRelatedInfo" xml:"NextHopRelatedInfo"`

@@ -17,12 +17,18 @@ spec:
             - "/usr/bin/cilium-certgen"
           args:
             - "--cilium-namespace={{ .Release.Namespace }}"
-            - "--clustermesh-apiserver-ca-cert-reuse-secret"
             {{- if .Values.debug.enabled }}
             - "--debug"
             {{- end }}
-            - "--clustermesh-apiserver-ca-cert-generate"
-            - "--clustermesh-apiserver-ca-cert-reuse-secret"
+            - "--ca-generate"
+            - "--ca-reuse-secret"
+            {{- if .Values.clustermesh.apiserver.tls.ca.cert }}
+            - "--ca-secret-name=clustermesh-apiserver-ca-cert"
+            {{- else -}}
+              {{- if and .Values.tls.ca.cert .Values.tls.ca.key }}
+            - "--ca-secret-name=cilium-ca"
+              {{- end }}
+            {{- end }}
             - "--clustermesh-apiserver-server-cert-generate"
             - "--clustermesh-apiserver-server-cert-validity-duration={{ $certValiditySecondsStr }}"
             - "--clustermesh-apiserver-admin-cert-generate"

@@ -87,9 +87,9 @@ type ModifyRouteTableAttributesRequest struct {
 // ModifyRouteTableAttributesResponse is the response struct for api ModifyRouteTableAttributes
 type ModifyRouteTableAttributesResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
 	Code      string `json:"Code" xml:"Code"`
 	Message   string `json:"Message" xml:"Message"`
+	RequestId string `json:"RequestId" xml:"RequestId"`
 	Success   bool   `json:"Success" xml:"Success"`
 }
 

@@ -7,7 +7,6 @@ var (
 	endpointMutableOptionLibrary = OptionLibrary{
 		ConntrackAccounting: &specConntrackAccounting,
 		ConntrackLocal:      &specConntrackLocal,
-		Conntrack:           &specConntrack,
 		Debug:               &specDebug,
 		DebugLB:             &specDebugLB,
 		DebugPolicy:         &specDebugPolicy,

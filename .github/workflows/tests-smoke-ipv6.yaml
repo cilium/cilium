@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - master
+      - ft/master/**
 
 permissions: read-all
 
@@ -43,7 +44,7 @@ jobs:
 
   conformance-test-ipv6:
     needs: check_changes
-    if: ${{ github.repository == 'cilium/cilium' && needs.check_changes.outputs.tested == 'true' }}
+    if: ${{ needs.check_changes.outputs.tested == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

@@ -17,15 +17,18 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/perf"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/sys/unix"
+
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/perf"
+	"github.com/cilium/ebpf/rlimit"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/datapath/link"
+	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/tuple"
@@ -176,7 +179,7 @@ func testMap(spec *ebpf.Collection) error {
 	return nil
 }
 
-func dumpDebugMessages(eventsReader *perf.Reader) error {
+func dumpDebugMessages(eventsReader *perf.Reader, linkCache getters.LinkGetter) error {
 	fmt.Printf("Log Messages:\n")
 	for {
 		record, err := eventsReader.Read()
@@ -194,7 +197,7 @@ func dumpDebugMessages(eventsReader *perf.Reader) error {
 		if dm.SubType == monitor.DbgUnspec && dm.Arg1 == 0xe3d && dm.Arg2 == 0xe3d {
 			break
 		}
-		dm.Dump("")
+		dm.Dump("", linkCache)
 	}
 
 	return nil
@@ -209,6 +212,7 @@ func testCt4Rst(spec *ebpf.Collection) error {
 		eventsReader.Close()
 	}()
 
+	linkCache := link.NewLinkCache()
 	packetSyn := gopacket.NewSerializeBuffer()
 	gopacket.SerializeLayers(packetSyn, gopacket.SerializeOptions{},
 		&layers.Ethernet{
@@ -272,7 +276,7 @@ func testCt4Rst(spec *ebpf.Collection) error {
 	if !reflect.DeepEqual(bufOut, packetSyn.Bytes()) {
 		return errors.New("unexpected data modification")
 	}
-	if err := dumpDebugMessages(eventsReader); err != nil {
+	if err := dumpDebugMessages(eventsReader, linkCache); err != nil {
 		return fmt.Errorf("dumpDebugMessages failed: %v", err)
 	}
 	bpfCt, err := ct4TcpMapFromBPF(bpfCtMap)
@@ -297,7 +301,7 @@ func testCt4Rst(spec *ebpf.Collection) error {
 	if err != nil {
 		return fmt.Errorf("test run failed: %v", err)
 	}
-	if err := dumpDebugMessages(eventsReader); err != nil {
+	if err := dumpDebugMessages(eventsReader, linkCache); err != nil {
 		return fmt.Errorf("dumpDebugMessages failed: %v", err)
 	}
 	bpfCt, err = ct4TcpMapFromBPF(bpfCtMap)
@@ -344,7 +348,9 @@ func modifyMapSpecs(spec *ebpf.CollectionSpec) {
 
 		// Drain Extra section of legacy bpf_elf_map definitions. The library
 		// rejects any bytes left over in Extra on load.
-		io.Copy(io.Discard, &m.Extra)
+		if m.Extra != nil {
+			io.Copy(io.Discard, m.Extra)
+		}
 	}
 }
 
@@ -385,11 +391,7 @@ func TestCt(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	lim := unix.Rlimit{
-		Cur: unix.RLIM_INFINITY,
-		Max: unix.RLIM_INFINITY,
-	}
-	if err := unix.Setrlimit(unix.RLIMIT_MEMLOCK, &lim); err != nil {
+	if err := rlimit.RemoveMemlock(); err != nil {
 		logrus.Fatalf("setrlimit: %v", err)
 	}
 	os.Exit(m.Run())

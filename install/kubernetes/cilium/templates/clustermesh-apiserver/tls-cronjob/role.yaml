@@ -16,6 +16,7 @@ rules:
     resources:
       - secrets
     resourceNames:
+      - cilium-ca
       - clustermesh-apiserver-ca-cert
     verbs:
       - get

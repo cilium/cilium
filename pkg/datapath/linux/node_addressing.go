@@ -9,7 +9,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/cidr"
-	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/node"
@@ -114,14 +114,14 @@ type linuxNodeAddressing struct {
 }
 
 // NewNodeAddressing returns a new linux node addressing model
-func NewNodeAddressing() datapath.NodeAddressing {
+func NewNodeAddressing() types.NodeAddressing {
 	return &linuxNodeAddressing{}
 }
 
-func (n *linuxNodeAddressing) IPv6() datapath.NodeAddressingFamily {
+func (n *linuxNodeAddressing) IPv6() types.NodeAddressingFamily {
 	return &n.ipv6
 }
 
-func (n *linuxNodeAddressing) IPv4() datapath.NodeAddressingFamily {
+func (n *linuxNodeAddressing) IPv4() types.NodeAddressingFamily {
 	return &n.ipv4
 }

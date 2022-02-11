@@ -124,7 +124,6 @@ const (
 
 	OptionConntrackAccounting = "ConntrackAccounting"
 	OptionConntrackLocal      = "ConntrackLocal"
-	OptionConntrack           = "Conntrack"
 	OptionDebug               = "Debug"
 	OptionDropNotify          = "DropNotification"
 	OptionTraceNotify         = "TraceNotification"

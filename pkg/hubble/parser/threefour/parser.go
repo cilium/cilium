@@ -18,7 +18,6 @@ import (
 
 	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/identity"
@@ -36,6 +35,7 @@ type Parser struct {
 	dnsGetter      getters.DNSGetter
 	ipGetter       getters.IPGetter
 	serviceGetter  getters.ServiceGetter
+	linkGetter     getters.LinkGetter
 
 	// TODO: consider using a pool of these
 	packet *packet
@@ -63,6 +63,7 @@ func New(
 	dnsGetter getters.DNSGetter,
 	ipGetter getters.IPGetter,
 	serviceGetter getters.ServiceGetter,
+	linkGetter getters.LinkGetter,
 ) (*Parser, error) {
 	packet := &packet{}
 	packet.decLayer = gopacket.NewDecodingLayerParser(
@@ -81,6 +82,7 @@ func New(
 		identityGetter: identityGetter,
 		ipGetter:       ipGetter,
 		serviceGetter:  serviceGetter,
+		linkGetter:     linkGetter,
 		packet:         packet,
 	}, nil
 }
@@ -204,7 +206,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	decoded.DestinationService = destinationService
 	decoded.PolicyMatchType = decodePolicyMatchType(pvn)
 	decoded.DebugCapturePoint = decodeDebugCapturePoint(dbg)
-	decoded.Interface = decodeNetworkInterface(tn, dbg)
+	decoded.Interface = p.decodeNetworkInterface(tn, dbg)
 	decoded.ProxyPort = decodeProxyPort(dbg)
 	decoded.Summary = summary
 
@@ -488,6 +490,10 @@ func decodeICMPv6(icmp *layers.ICMPv6) *pb.Layer4 {
 	}
 }
 
+func isReply(reason uint8) bool {
+	return reason & ^monitor.TraceReasonEncryptMask == monitor.TraceReasonCtReply
+}
+
 func decodeIsReply(tn *monitor.TraceNotify, pvn *monitor.PolicyVerdictNotify) *wrapperspb.BoolValue {
 	switch {
 	case tn != nil && monitorAPI.TraceObservationPointHasConnState(tn.ObsPoint):
@@ -495,7 +501,19 @@ func decodeIsReply(tn *monitor.TraceNotify, pvn *monitor.PolicyVerdictNotify) *w
 		// tracking state available. For certain trace point
 		// events, we do not know if it actually was a reply or not.
 		return &wrapperspb.BoolValue{
-			Value: tn.Reason & ^monitor.TraceReasonEncryptMask == monitor.TraceReasonCtReply,
+			Value: isReply(tn.Reason),
+		}
+	case tn != nil && tn.ObsPoint == monitorAPI.TraceToNetwork && tn.Reason > 0:
+		// FIXME(GH-18460): Even though the BPF programs emitting TraceToNetwork
+		// do have access to connection tracking state, that state is currently
+		// not exposed to userspace by all trace points. Therefore TraceToNetwork
+		// is currently excluded in TraceObservationPointHasConnState.
+		// However, the NodePort return path in handle_ipv4_from_lxc does
+		// populate tn.Reason, and always has with a non-zero value due it
+		// only being used for replies. Therefore, if tn.Reason is non-zero,
+		// we can safely determine if the traced packet was a reply or not.
+		return &wrapperspb.BoolValue{
+			Value: isReply(tn.Reason),
 		}
 	case pvn != nil && pvn.Verdict >= 0:
 		// Forwarded PolicyVerdictEvents are emitted for the first packet of
@@ -640,7 +658,7 @@ func decodeDebugCapturePoint(dbg *monitor.DebugCapture) pb.DebugCapturePoint {
 	return pb.DebugCapturePoint(dbg.SubType)
 }
 
-func decodeNetworkInterface(tn *monitor.TraceNotify, dbg *monitor.DebugCapture) *pb.NetworkInterface {
+func (p *Parser) decodeNetworkInterface(tn *monitor.TraceNotify, dbg *monitor.DebugCapture) *pb.NetworkInterface {
 	ifIndex := uint32(0)
 	if tn != nil {
 		ifIndex = tn.Ifindex
@@ -662,7 +680,7 @@ func decodeNetworkInterface(tn *monitor.TraceNotify, dbg *monitor.DebugCapture) 
 
 	// if the interface is not found, `name` will be an empty string and thus
 	// omitted in the protobuf message
-	name, _ := link.GetIfNameCached(int(ifIndex))
+	name, _ := p.linkGetter.GetIfNameCached(int(ifIndex))
 	return &pb.NetworkInterface{
 		Index: ifIndex,
 		Name:  name,

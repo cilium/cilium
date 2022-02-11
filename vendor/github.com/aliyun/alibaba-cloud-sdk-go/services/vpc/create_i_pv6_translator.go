@@ -88,10 +88,10 @@ type CreateIPv6TranslatorRequest struct {
 // CreateIPv6TranslatorResponse is the response struct for api CreateIPv6Translator
 type CreateIPv6TranslatorResponse struct {
 	*responses.BaseResponse
-	RequestId        string `json:"RequestId" xml:"RequestId"`
 	Ipv6TranslatorId string `json:"Ipv6TranslatorId" xml:"Ipv6TranslatorId"`
-	Name             string `json:"Name" xml:"Name"`
+	RequestId        string `json:"RequestId" xml:"RequestId"`
 	Spec             string `json:"Spec" xml:"Spec"`
+	Name             string `json:"Name" xml:"Name"`
 	OrderId          int64  `json:"OrderId" xml:"OrderId"`
 }
 

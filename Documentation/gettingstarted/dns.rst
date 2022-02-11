@@ -75,10 +75,10 @@ Testing the policy, we see that ``mediabot`` has access to ``api.twitter.com`` b
 
 .. code-block:: shell-session
 
-   $ kubectl exec mediabot -- curl -I https://api.twitter.com | head -1
+   $ kubectl exec mediabot -- curl -I -s https://api.twitter.com | head -1
    HTTP/1.1 404 Not Found
 
-   $ kubectl exec mediabot -- curl -I --max-time 5 https://help.twitter.com | head -1
+   $ kubectl exec mediabot -- curl -I -s --max-time 5 https://help.twitter.com | head -1
    curl: (28) Connection timed out after 5000 milliseconds
    command terminated with exit code 28
 
@@ -98,16 +98,16 @@ Test that ``mediabot`` has access to multiple Twitter services for which the DNS
 
 .. code-block:: shell-session
 
-   $ kubectl exec mediabot -- curl -I https://help.twitter.com | head -1
+   $ kubectl exec mediabot -- curl -I -s https://help.twitter.com | head -1
    HTTP/1.1 302 Found
 
-   $ kubectl exec mediabot -- curl -I https://about.twitter.com | head -1
+   $ kubectl exec mediabot -- curl -I -s https://about.twitter.com | head -1
    HTTP/1.1 200 OK
 
-   $ kubectl exec mediabot -- curl -I --max-time 5 https://twitter.com | head -1
+   $ kubectl exec mediabot -- curl -I -s --max-time 5 https://twitter.com | head -1
    curl: (7) Failed to connect to twitter.com port 443: Operation timed out
    command terminated with exit code 7
- 
+
 Combining DNS, Port and L7 Rules
 ================================
 
@@ -123,10 +123,10 @@ Testing, the access to ``https://help.twitter.com`` on port ``443`` will succeed
 
 .. code-block:: shell-session
 
-   $ kubectl exec mediabot -- curl -I https://help.twitter.com | head -1
+   $ kubectl exec mediabot -- curl -I -s https://help.twitter.com | head -1
    HTTP/1.1 302 Found
 
-   $ kubectl exec mediabot -- curl -I --max-time 5 http://help.twitter.com | head -1
+   $ kubectl exec mediabot -- curl -I -s --max-time 5 http://help.twitter.com | head -1
    curl: (28) Connection timed out after 5001 milliseconds
    command terminated with exit code 28
 

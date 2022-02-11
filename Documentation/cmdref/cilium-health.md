@@ -19,12 +19,12 @@ cilium-health [flags]
   -h, --help                 help for cilium-health
   -H, --host string          URI to cilium-health server API
       --log-driver strings   Logging endpoints to use for example syslog
-      --log-opt map          Log driver options for cilium-health (default map[])
+      --log-opt map          Log driver options for cilium-health e.g. syslog.level=info,syslog.facility=local5,syslog.tag=cilium-agent
 ```
 
 ### SEE ALSO
 
-* [cilium-health completion](cilium-health_completion.html)	 - generate the autocompletion script for the specified shell
+* [cilium-health completion](cilium-health_completion.html)	 - Generate the autocompletion script for the specified shell
 * [cilium-health get](cilium-health_get.html)	 - Display local cilium agent status
 * [cilium-health ping](cilium-health_ping.html)	 - Check whether the cilium-health API is up
 * [cilium-health status](cilium-health_status.html)	 - Display cilium connectivity to other nodes

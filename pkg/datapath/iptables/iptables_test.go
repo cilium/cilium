@@ -475,7 +475,7 @@ func (s *iptablesTestSuite) TestRemoveCiliumRulesv4(c *check.C) {
 	}
 
 	// Only removes Cilium chains with the OLD_ prefix
-	mockManager.removeCiliumRules("mangle", mockIp4tables, oldCiliumPrefix)
+	mockManager.removeCiliumRules("mangle", mockIp4tables, oldCiliumPrefix+"CILIUM_")
 	err := mockIp4tables.checkExpectations()
 	c.Assert(err, check.IsNil)
 }
@@ -522,7 +522,7 @@ func (s *iptablesTestSuite) TestRemoveCiliumRulesv6(c *check.C) {
 	}
 
 	// Only removes Cilium chains with the OLD_ prefix
-	mockManager.removeCiliumRules("mangle", mockIp6tables, oldCiliumPrefix)
+	mockManager.removeCiliumRules("mangle", mockIp6tables, oldCiliumPrefix+"CILIUM_")
 	err := mockIp6tables.checkExpectations()
 	c.Assert(err, check.IsNil)
 }

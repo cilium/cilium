@@ -88,8 +88,8 @@ type CreateDhcpOptionsSetRequest struct {
 // CreateDhcpOptionsSetResponse is the response struct for api CreateDhcpOptionsSet
 type CreateDhcpOptionsSetResponse struct {
 	*responses.BaseResponse
-	RequestId        string `json:"RequestId" xml:"RequestId"`
 	DhcpOptionsSetId string `json:"DhcpOptionsSetId" xml:"DhcpOptionsSetId"`
+	RequestId        string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateCreateDhcpOptionsSetRequest creates a request to invoke CreateDhcpOptionsSet API

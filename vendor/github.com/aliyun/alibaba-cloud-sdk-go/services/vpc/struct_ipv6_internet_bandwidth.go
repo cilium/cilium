@@ -17,9 +17,9 @@ package vpc
 
 // Ipv6InternetBandwidth is a nested struct in vpc response
 type Ipv6InternetBandwidth struct {
-	Bandwidth               int    `json:"Bandwidth" xml:"Bandwidth"`
-	InstanceChargeType      string `json:"InstanceChargeType" xml:"InstanceChargeType"`
 	InternetChargeType      string `json:"InternetChargeType" xml:"InternetChargeType"`
 	BusinessStatus          string `json:"BusinessStatus" xml:"BusinessStatus"`
+	Bandwidth               int    `json:"Bandwidth" xml:"Bandwidth"`
 	Ipv6InternetBandwidthId string `json:"Ipv6InternetBandwidthId" xml:"Ipv6InternetBandwidthId"`
+	InstanceChargeType      string `json:"InstanceChargeType" xml:"InstanceChargeType"`
 }

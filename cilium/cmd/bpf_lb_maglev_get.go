@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2020-2021 Authors of Cilium
+// Copyright 2020-2022 Authors of Cilium
 
 package cmd
 
 import (
 	"errors"
+	"fmt"
+	"os"
 	"strconv"
 
 	"github.com/spf13/cobra"
@@ -23,49 +25,68 @@ var bpfMaglevGetCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf lb maglev get")
 
-		svcIDUint64, err := strconv.ParseUint(args[0], 10, 16)
+		arg, err := strconv.ParseUint(args[0], 10, 16)
 		if err != nil {
 			Fatalf("Unable to parse %s: %s", args[0], err)
 		}
-		svcID := uint16(svcIDUint64)
-		key := &lbmap.MaglevOuterKey{RevNatID: svcID}
-		key = key.ToNetwork()
-		val := &lbmap.MaglevOuterVal{}
+		svcID := uint16(arg)
 
-		lookupTables := map[string][]string{}
-		found := false
-
-		tableSize, err := lbmap.OpenMaglevMaps()
+		backends, err := getMaglevServiceBackends(svcID)
 		if err != nil {
-			Fatalf("Cannot initialize maglev maps: %s", err)
+			Fatalf("Unable to get Maglev backends for service %d: %s", svcID, err)
 		}
 
-		for name, m := range lbmap.GetOpenMaglevMaps() {
-			if err := m.Lookup(key, val); err != nil {
-				if errors.Is(err, ebpf.ErrKeyNotExist) {
-					continue
-				}
-				Fatalf("Unable to retrieve entry from %s with key %v: %s",
-					name, key, err)
-			}
-
-			found = true
-			parseMaglevEntry(key, val, tableSize, lookupTables)
-		}
-
-		if !found {
-			Fatalf("No entry for %d svc is found", svcID)
+		if len(backends) == 0 {
+			Fatalf("No entry found for service %d", svcID)
 		}
 
 		if command.OutputJSON() {
-			if err := command.PrintOutput(lookupTables); err != nil {
+			if err := command.PrintOutput(backends); err != nil {
 				Fatalf("Unable to generate JSON output: %s", err)
 			}
 			return
 		}
 
-		TablePrinter("SVC ID", "LOOKUP TABLE", lookupTables)
+		TablePrinter("SVC ID", "LOOKUP TABLE", backends)
 	},
+}
+
+// getMaglevServiceBackends queries the v4 and v6 Maglev maps for the backends
+// of the given service ID.
+func getMaglevServiceBackends(svcID uint16) (map[string][]string, error) {
+	backends := make(map[string][]string)
+	for _, mapName := range []string{lbmap.MaglevOuter4MapName, lbmap.MaglevOuter6MapName} {
+		b, err := dumpMaglevServiceBackends(mapName, svcID)
+		if errors.Is(err, os.ErrNotExist) || errors.Is(err, ebpf.ErrKeyNotExist) {
+			// If the map or service ID don't exist, that is not an error.
+			// The user is warned about no results by the command handler.
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("map %s: %w", mapName, err)
+		}
+
+		backends[fmt.Sprintf("%d", svcID)] = []string{b}
+	}
+
+	return backends, nil
+}
+
+// dumpMaglevServiceBackends looks up the given service ID in the Maglev map
+// with the given name.
+func dumpMaglevServiceBackends(mapName string, svcID uint16) (string, error) {
+	m, err := lbmap.OpenMaglevOuterMap(mapName)
+	if err != nil {
+		return "", err
+	}
+	defer m.Close()
+
+	inner, err := m.GetService(svcID)
+	if err != nil {
+		return "", err
+	}
+
+	return inner.DumpBackends()
 }
 
 func init() {

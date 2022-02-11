@@ -17,41 +17,41 @@ package vpc
 
 // ExpressCloudConnectionType is a nested struct in vpc response
 type ExpressCloudConnectionType struct {
-	InstanceId                    string                    `json:"InstanceId" xml:"InstanceId"`
+	ReservationActiveTime         string                    `json:"ReservationActiveTime" xml:"ReservationActiveTime"`
+	Type                          string                    `json:"Type" xml:"Type"`
 	Status                        string                    `json:"Status" xml:"Status"`
-	Name                          string                    `json:"Name" xml:"Name"`
+	ReservationOrderType          string                    `json:"ReservationOrderType" xml:"ReservationOrderType"`
+	Distance                      int                       `json:"Distance" xml:"Distance"`
+	ConstructionPeriod            string                    `json:"ConstructionPeriod" xml:"ConstructionPeriod"`
+	ChargeType                    string                    `json:"ChargeType" xml:"ChargeType"`
+	ApplicationBandwidth          string                    `json:"ApplicationBandwidth" xml:"ApplicationBandwidth"`
+	CeIp                          string                    `json:"CeIp" xml:"CeIp"`
+	BgpAs                         string                    `json:"BgpAs" xml:"BgpAs"`
+	IDCardNo                      string                    `json:"IDCardNo" xml:"IDCardNo"`
+	ReservationInternetChargeType string                    `json:"ReservationInternetChargeType" xml:"ReservationInternetChargeType"`
+	Bandwidth                     int                       `json:"Bandwidth" xml:"Bandwidth"`
 	Description                   string                    `json:"Description" xml:"Description"`
-	GmtCreate                     string                    `json:"GmtCreate" xml:"GmtCreate"`
-	GmtModify                     string                    `json:"GmtModify" xml:"GmtModify"`
+	ReservationBandwidth          string                    `json:"ReservationBandwidth" xml:"ReservationBandwidth"`
+	ApplicationStatus             string                    `json:"ApplicationStatus" xml:"ApplicationStatus"`
 	PeerCity                      string                    `json:"PeerCity" xml:"PeerCity"`
 	PeerLocation                  string                    `json:"PeerLocation" xml:"PeerLocation"`
-	PortType                      string                    `json:"PortType" xml:"PortType"`
-	Bandwidth                     int                       `json:"Bandwidth" xml:"Bandwidth"`
-	Distance                      int                       `json:"Distance" xml:"Distance"`
-	RedundantEccId                string                    `json:"RedundantEccId" xml:"RedundantEccId"`
-	CircuitCode                   string                    `json:"CircuitCode" xml:"CircuitCode"`
-	Isp                           string                    `json:"Isp" xml:"Isp"`
-	Type                          string                    `json:"Type" xml:"Type"`
-	IdcSP                         string                    `json:"IdcSP" xml:"IdcSP"`
-	BusinessStatus                string                    `json:"BusinessStatus" xml:"BusinessStatus"`
-	HasReservationData            string                    `json:"HasReservationData" xml:"HasReservationData"`
-	ReservationBandwidth          string                    `json:"ReservationBandwidth" xml:"ReservationBandwidth"`
-	ReservationInternetChargeType string                    `json:"ReservationInternetChargeType" xml:"ReservationInternetChargeType"`
-	ReservationActiveTime         string                    `json:"ReservationActiveTime" xml:"ReservationActiveTime"`
-	ReservationOrderType          string                    `json:"ReservationOrderType" xml:"ReservationOrderType"`
-	ApplicationType               string                    `json:"ApplicationType" xml:"ApplicationType"`
-	ApplicationId                 string                    `json:"ApplicationId" xml:"ApplicationId"`
-	ApplicationStatus             string                    `json:"ApplicationStatus" xml:"ApplicationStatus"`
-	ApplicationBandwidth          string                    `json:"ApplicationBandwidth" xml:"ApplicationBandwidth"`
-	EndTime                       string                    `json:"EndTime" xml:"EndTime"`
-	ChargeType                    string                    `json:"ChargeType" xml:"ChargeType"`
-	ContactTel                    string                    `json:"ContactTel" xml:"ContactTel"`
-	ContactMail                   string                    `json:"ContactMail" xml:"ContactMail"`
-	IDCardNo                      string                    `json:"IDCardNo" xml:"IDCardNo"`
-	EstimatedTime                 string                    `json:"EstimatedTime" xml:"EstimatedTime"`
-	BgpAs                         string                    `json:"BgpAs" xml:"BgpAs"`
+	Name                          string                    `json:"Name" xml:"Name"`
 	PeIp                          string                    `json:"PeIp" xml:"PeIp"`
-	CeIp                          string                    `json:"CeIp" xml:"CeIp"`
-	ConstructionPeriod            string                    `json:"ConstructionPeriod" xml:"ConstructionPeriod"`
+	ContactMail                   string                    `json:"ContactMail" xml:"ContactMail"`
+	GmtModify                     string                    `json:"GmtModify" xml:"GmtModify"`
+	CircuitCode                   string                    `json:"CircuitCode" xml:"CircuitCode"`
+	ApplicationType               string                    `json:"ApplicationType" xml:"ApplicationType"`
+	InstanceId                    string                    `json:"InstanceId" xml:"InstanceId"`
+	RedundantEccId                string                    `json:"RedundantEccId" xml:"RedundantEccId"`
+	Isp                           string                    `json:"Isp" xml:"Isp"`
+	EndTime                       string                    `json:"EndTime" xml:"EndTime"`
+	ContactTel                    string                    `json:"ContactTel" xml:"ContactTel"`
+	IdcSP                         string                    `json:"IdcSP" xml:"IdcSP"`
+	EstimatedTime                 string                    `json:"EstimatedTime" xml:"EstimatedTime"`
+	PortType                      string                    `json:"PortType" xml:"PortType"`
+	GmtCreate                     string                    `json:"GmtCreate" xml:"GmtCreate"`
+	BusinessStatus                string                    `json:"BusinessStatus" xml:"BusinessStatus"`
+	ApplicationId                 string                    `json:"ApplicationId" xml:"ApplicationId"`
+	HasReservationData            string                    `json:"HasReservationData" xml:"HasReservationData"`
 	VirtualBorderRouterModels     VirtualBorderRouterModels `json:"VirtualBorderRouterModels" xml:"VirtualBorderRouterModels"`
 }

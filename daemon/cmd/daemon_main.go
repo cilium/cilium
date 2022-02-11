@@ -296,6 +296,7 @@ func initializeFlags() {
 
 	flags.Bool(option.DisableConntrack, false, "Disable connection tracking")
 	option.BindEnv(option.DisableConntrack)
+	flags.MarkDeprecated(option.DisableConntrack, "This option is no-op and it will be removed in v1.13")
 
 	flags.Bool(option.EnableEndpointRoutes, defaults.EnableEndpointRoutes, "Use per endpoint routes instead of routing via cilium_host")
 	option.BindEnv(option.EnableEndpointRoutes)
@@ -343,8 +344,10 @@ func initializeFlags() {
 	flags.StringSlice(option.IPv6PodSubnets, []string{}, "List of IPv6 pod subnets to preconfigure for encryption")
 	option.BindEnv(option.IPv6PodSubnets)
 
-	flags.String(option.EndpointInterfaceNamePrefix, defaults.EndpointInterfaceNamePrefix, "Prefix of interface name shared by all endpoints")
+	flags.String(option.EndpointInterfaceNamePrefix, "", "Prefix of interface name shared by all endpoints")
 	option.BindEnv(option.EndpointInterfaceNamePrefix)
+	flags.MarkHidden(option.EndpointInterfaceNamePrefix)
+	flags.MarkDeprecated(option.EndpointInterfaceNamePrefix, "This option no longer has any effect and will be removed in v1.13.")
 
 	flags.StringSlice(option.ExcludeLocalAddress, []string{}, "Exclude CIDR from being recognized as local address")
 	option.BindEnv(option.ExcludeLocalAddress)
@@ -393,6 +396,9 @@ func initializeFlags() {
 
 	flags.Bool(option.EnableTracing, false, "Enable tracing while determining policy (debugging)")
 	option.BindEnv(option.EnableTracing)
+
+	flags.Bool(option.EnableUnreachableRoutes, false, "Add unreachable routes on pod deletion")
+	option.BindEnv(option.EnableUnreachableRoutes)
 
 	flags.Bool(option.EnableWellKnownIdentities, defaults.EnableWellKnownIdentities, "Enable well-known identities for known Kubernetes components")
 	option.BindEnv(option.EnableWellKnownIdentities)
@@ -449,7 +455,7 @@ func initializeFlags() {
 	option.BindEnvWithLegacyEnvFallback(option.DisableEnvoyVersionCheck, "CILIUM_DISABLE_ENVOY_BUILD")
 
 	flags.Var(option.NewNamedMapOptions(option.FixedIdentityMapping, &option.Config.FixedIdentityMapping, option.Config.FixedIdentityMappingValidator),
-		option.FixedIdentityMapping, "Key-value for the fixed identity mapping which allows to use reserved label for fixed identities")
+		option.FixedIdentityMapping, "Key-value for the fixed identity mapping which allows to use reserved label for fixed identities, e.g. 128=kv-store,129=kube-dns")
 	option.BindEnv(option.FixedIdentityMapping)
 
 	flags.Duration(option.IdentityChangeGracePeriod, defaults.IdentityChangeGracePeriod, "Time to wait before using new identity on endpoint identity change")
@@ -527,7 +533,7 @@ func initializeFlags() {
 	option.BindEnv(option.IPAllocationTimeout)
 
 	flags.Var(option.NewNamedMapOptions(option.KVStoreOpt, &option.Config.KVStoreOpt, nil),
-		option.KVStoreOpt, "Key-value store options")
+		option.KVStoreOpt, "Key-value store options e.g. etcd.address=127.0.0.1:4001")
 	option.BindEnv(option.KVStoreOpt)
 
 	flags.Duration(option.K8sSyncTimeoutName, defaults.K8sSyncTimeout, "Timeout for synchronizing k8s resources before exiting")
@@ -648,15 +654,25 @@ func initializeFlags() {
 	option.BindEnv(option.EnableHostFirewall)
 
 	flags.String(option.NativeRoutingCIDR, "",
-		fmt.Sprintf("Allows to explicitly specify the IPv4 CIDR for native routing. This value corresponds to the configured cluster-cidr. Deprecated in favor of --%s", option.IPv4NativeRoutingCIDR))
+		fmt.Sprintf("Allows to explicitly specify the IPv4 CIDR for native routing. "+
+			"When specified, Cilium assumes networking for this CIDR is preconfigured and hands traffic destined for that range to the Linux network stack without applying any SNAT. "+
+			"Generally speaking, specifying a native routing CIDR implies that Cilium can depend on the underlying networking stack to route packets to their destination. "+
+			"To offer a concrete example, if Cilium is configured to use direct routing and the Kubernetes CIDR is included in the native routing CIDR, the user must configure the routes to reach pods, either manually or by setting the auto-direct-node-routes flag. "+
+			"Deprecated in favor of --%s", option.IPv4NativeRoutingCIDR))
 	option.BindEnv(option.NativeRoutingCIDR)
 	flags.MarkHidden(option.NativeRoutingCIDR)
 	flags.MarkDeprecated(option.NativeRoutingCIDR, "This option will be removed in v1.12")
 
-	flags.String(option.IPv4NativeRoutingCIDR, "", "Allows to explicitly specify the IPv4 CIDR for native routing. This value corresponds to the configured cluster-cidr.")
+	flags.String(option.IPv4NativeRoutingCIDR, "", "Allows to explicitly specify the IPv4 CIDR for native routing. "+
+		"When specified, Cilium assumes networking for this CIDR is preconfigured and hands traffic destined for that range to the Linux network stack without applying any SNAT. "+
+		"Generally speaking, specifying a native routing CIDR implies that Cilium can depend on the underlying networking stack to route packets to their destination. "+
+		"To offer a concrete example, if Cilium is configured to use direct routing and the Kubernetes CIDR is included in the native routing CIDR, the user must configure the routes to reach pods, either manually or by setting the auto-direct-node-routes flag.")
 	option.BindEnv(option.IPv4NativeRoutingCIDR)
 
-	flags.String(option.IPv6NativeRoutingCIDR, "", "Allows to explicitly specify the IPv6 CIDR for native routing. This value corresponds to the configured cluster-cidr.")
+	flags.String(option.IPv6NativeRoutingCIDR, "", "Allows to explicitly specify the IPv6 CIDR for native routing. "+
+		"When specified, Cilium assumes networking for this CIDR is preconfigured and hands traffic destined for that range to the Linux network stack without applying any SNAT. "+
+		"Generally speaking, specifying a native routing CIDR implies that Cilium can depend on the underlying networking stack to route packets to their destination. "+
+		"To offer a concrete example, if Cilium is configured to use direct routing and the Kubernetes CIDR is included in the native routing CIDR, the user must configure the routes to reach pods, either manually or by setting the auto-direct-node-routes flag.")
 	option.BindEnv(option.IPv6NativeRoutingCIDR)
 
 	flags.String(option.LibDir, defaults.LibraryPath, "Directory path to store runtime build environment")
@@ -877,6 +893,9 @@ func initializeFlags() {
 	flags.Int(option.DNSMaxIPsPerRestoredRule, defaults.DNSMaxIPsPerRestoredRule, "Maximum number of IPs to maintain for each restored DNS rule")
 	option.BindEnv(option.DNSMaxIPsPerRestoredRule)
 
+	flags.Bool(option.DNSPolicyUnloadOnShutdown, false, "Unload DNS policy rules on graceful showdown")
+	option.BindEnv(option.DNSPolicyUnloadOnShutdown)
+
 	flags.Int(option.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxDeferredConnectionDeletes, "Maximum number of IPs to retain for expired DNS lookups with still-active connections")
 	option.BindEnv(option.ToFQDNsMaxDeferredConnectionDeletes)
 
@@ -1046,6 +1065,18 @@ func initializeFlags() {
 
 	flags.Bool(option.EnableK8sTerminatingEndpoint, true, "Enable auto-detect of terminating endpoint condition")
 	option.BindEnv(option.EnableK8sTerminatingEndpoint)
+
+	flags.Bool(option.EnableVTEP, defaults.EnableVTEP, "Enable  VXLAN Tunnel Endpoint (VTEP) Integration (beta)")
+	option.BindEnv(option.EnableVTEP)
+
+	flags.StringSlice(option.VtepEndpoint, []string{}, "List of VTEP IP addresses")
+	option.BindEnv(option.VtepEndpoint)
+
+	flags.StringSlice(option.VtepCIDR, []string{}, "List of VTEP CIDRs that will be routed towards VTEPs for traffic cluster egress")
+	option.BindEnv(option.VtepCIDR)
+
+	flags.StringSlice(option.VtepMAC, []string{}, "List of VTEP MAC addresses for forwarding traffic outside the cluster")
+	option.BindEnv(option.VtepMAC)
 
 	viper.BindPFlags(flags)
 }
@@ -1272,8 +1303,7 @@ func initEnv(cmd *cobra.Command) {
 	option.Config.Opts.SetBool(option.TraceNotify, true)
 	option.Config.Opts.SetBool(option.PolicyVerdictNotify, true)
 	option.Config.Opts.SetBool(option.PolicyTracing, option.Config.EnableTracing)
-	option.Config.Opts.SetBool(option.Conntrack, !option.Config.DisableConntrack)
-	option.Config.Opts.SetBool(option.ConntrackAccounting, !option.Config.DisableConntrack)
+	option.Config.Opts.SetBool(option.ConntrackAccounting, true)
 	option.Config.Opts.SetBool(option.ConntrackLocal, false)
 	option.Config.Opts.SetBool(option.PolicyAuditMode, option.Config.PolicyAuditMode)
 
@@ -1517,14 +1547,6 @@ func initEnv(cmd *cobra.Command) {
 		}
 	}
 
-	// This is necessary because the code inside pkg/k8s.NewService() for
-	// parsing services would not trigger unless NodePort is enabled. Without
-	// NodePort enabled, the external and LB IPs would not be parsed out.
-	if option.Config.BGPAnnounceLBIP {
-		option.Config.EnableNodePort = true
-		log.Infof("Auto-set BPF NodePort (%q) because LB IP announcements via BGP depend on it.", option.EnableNodePort)
-	}
-
 	if option.Config.BGPAnnouncePodCIDR &&
 		(option.Config.IPAM != ipamOption.IPAMClusterPool &&
 			option.Config.IPAM != ipamOption.IPAMKubernetes) {
@@ -1606,7 +1628,7 @@ func (d *Daemon) initKVStore() {
 
 func runDaemon() {
 	datapathConfig := linuxdatapath.DatapathConfiguration{
-		HostDevice: option.Config.HostDevice,
+		HostDevice: defaults.HostDevice,
 	}
 
 	log.Info("Initializing daemon")

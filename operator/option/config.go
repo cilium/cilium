@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/viper"
 
+	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -446,15 +447,21 @@ func (c *OperatorConfig) Populate() {
 		c.IPAMSubnetsIDs = m
 	}
 
-	if m := viper.GetStringMapString(IPAMSubnetsTags); len(m) != 0 {
+	if m, err := command.GetStringMapStringE(viper.GetViper(), IPAMSubnetsTags); err != nil {
+		log.Fatalf("unable to parse %s: %s", IPAMSubnetsTags, err)
+	} else if len(m) != 0 {
 		c.IPAMSubnetsTags = m
 	}
 
-	if m := viper.GetStringMapString(AWSInstanceLimitMapping); len(m) != 0 {
+	if m, err := command.GetStringMapStringE(viper.GetViper(), AWSInstanceLimitMapping); err != nil {
+		log.Fatalf("unable to parse %s: %s", AWSInstanceLimitMapping, err)
+	} else if len(m) != 0 {
 		c.AWSInstanceLimitMapping = m
 	}
 
-	if m := viper.GetStringMapString(ENITags); len(m) != 0 {
+	if m, err := command.GetStringMapStringE(viper.GetViper(), ENITags); err != nil {
+		log.Fatalf("unable to parse %s: %s", ENITags, err)
+	} else if len(m) != 0 {
 		c.ENITags = m
 	}
 }

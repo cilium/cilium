@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2021 Authors of Cilium
+// Copyright 2021-2022 Authors of Cilium
 
 package ebpf
 
@@ -29,7 +29,6 @@ const (
 
 var (
 	ErrKeyNotExist = ciliumebpf.ErrKeyNotExist
-	LoadPinnedMap  = ciliumebpf.LoadPinnedMap
 )
 
 // IterateCallback represents the signature of the callback function expected by
@@ -53,24 +52,32 @@ func NewMap(spec *MapSpec) *Map {
 	}
 }
 
-// OpenMap opens the given bpf map and generates the Map object based on the
-// information stored in the bpf map.
-func OpenMap(mapName string) (*Map, error) {
+// LoadRegisterMap loads the specified map from a bpffs pin path and registers
+// its handle in the package-global map register.
+func LoadRegisterMap(mapName string) (*Map, error) {
 	path := bpf.MapPath(mapName)
 
-	newMap, err := LoadPinnedMap(path, nil)
+	m, err := LoadPinnedMap(path)
 	if err != nil {
 		return nil, err
-	}
-
-	m := &Map{
-		Map:  newMap,
-		path: path,
 	}
 
 	registerMap(m)
 
 	return m, nil
+}
+
+// LoadPinnedMap wraps cilium/ebpf's LoadPinnedMap.
+func LoadPinnedMap(fileName string) (*Map, error) {
+	m, err := ciliumebpf.LoadPinnedMap(fileName, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Map{
+		Map:  m,
+		path: fileName,
+	}, nil
 }
 
 func MapFromID(id int) (*Map, error) {

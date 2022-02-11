@@ -73,6 +73,6 @@ Deploying a Simple Example Service
 
    .. code-block:: shell-session
 
-      kubectl exec -ti xwing-xxx -- curl rebel-base
+      kubectl exec -ti deployment/x-wing -- curl rebel-base
 
    You will see replies from pods in both clusters.

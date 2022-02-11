@@ -18,7 +18,8 @@ import (
 	"github.com/vishvananda/netlink"
 	. "gopkg.in/check.v1"
 
-	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/ebpf/rlimit"
+
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
@@ -61,7 +62,7 @@ func (s *LoaderTestSuite) SetUpSuite(c *C) {
 		fmt.Sprintf("-I%s", filepath.Join(bpfDir, "include")),
 	})
 
-	err := bpf.ConfigureResourceLimits()
+	err := rlimit.RemoveMemlock()
 	c.Assert(err, IsNil)
 	sourceFile := filepath.Join(bpfDir, endpointProg)
 	err = os.Symlink(sourceFile, endpointProg)

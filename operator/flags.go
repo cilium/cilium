@@ -223,7 +223,7 @@ func init() {
 	option.BindEnv(option.KVStore)
 
 	flags.Var(option.NewNamedMapOptions(option.KVStoreOpt, &option.Config.KVStoreOpt, nil),
-		option.KVStoreOpt, "Key-value store options")
+		option.KVStoreOpt, "Key-value store options e.g. etcd.address=127.0.0.1:4001")
 	option.BindEnv(option.KVStoreOpt)
 
 	flags.String(option.K8sAPIServer, "", "Kubernetes API server URL")

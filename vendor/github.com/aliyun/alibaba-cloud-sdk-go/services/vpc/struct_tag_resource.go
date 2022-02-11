@@ -17,9 +17,9 @@ package vpc
 
 // TagResource is a nested struct in vpc response
 type TagResource struct {
-	TagKey       string `json:"TagKey" xml:"TagKey"`
-	TagValue     string `json:"TagValue" xml:"TagValue"`
 	ResourcId    string `json:"ResourcId" xml:"ResourcId"`
 	ResourceType string `json:"ResourceType" xml:"ResourceType"`
+	TagValue     string `json:"TagValue" xml:"TagValue"`
 	ResourceId   string `json:"ResourceId" xml:"ResourceId"`
+	TagKey       string `json:"TagKey" xml:"TagKey"`
 }

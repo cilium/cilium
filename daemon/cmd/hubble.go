@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/pkg/crypto/certloader"
+	"github.com/cilium/cilium/pkg/datapath/link"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/container"
 	"github.com/cilium/cilium/pkg/hubble/exporter"
@@ -109,7 +110,8 @@ func (d *Daemon) launchHubble() {
 		observerOpts = append(observerOpts, opt)
 	}
 
-	payloadParser, err := parser.New(logger, d, d, d, d, d)
+	d.linkCache = link.NewLinkCache()
+	payloadParser, err := parser.New(logger, d, d, d, d, d, d.linkCache)
 	if err != nil {
 		logger.WithError(err).Error("Failed to initialize Hubble")
 		return

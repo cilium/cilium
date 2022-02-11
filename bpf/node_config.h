@@ -58,6 +58,10 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define IPV4_MASK 0xffff
 #define IPV4_GATEWAY 0xfffff50a
 #define IPV4_LOOPBACK 0x1ffff50a
+# ifdef ENABLE_MASQUERADE
+#  define IPV4_SNAT_EXCLUSION_DST_CIDR 0xffff0000
+#  define IPV4_SNAT_EXCLUSION_DST_CIDR_LEN 16
+# endif /* ENABLE_MASQUERADE */
 #ifdef ENABLE_NODEPORT
 #define SNAT_MAPPING_IPV4 test_cilium_snat_v4_external
 #define SNAT_MAPPING_IPV4_SIZE 524288
@@ -133,7 +137,6 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define CT_MAP_ANY4 test_cilium_ct_any4_65535
 #define CT_MAP_SIZE_TCP 4096
 #define CT_MAP_SIZE_ANY 4096
-#define CONNTRACK
 #define CONNTRACK_ACCOUNTING
 #define LB4_HEALTH_MAP test_cilium_lb4_health
 #define LB6_HEALTH_MAP test_cilium_lb6_health
@@ -174,6 +177,18 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 # define LB_SELECTION_RANDOM	1
 # define LB_SELECTION_MAGLEV	2
 # define LB_SELECTION		LB_SELECTION_RANDOM
+#endif
+
+#ifdef ENABLE_VTEP
+#define VTEP_ENDPOINT (__u32[]){0xeb48a90a, 0xec48a90a, 0xed48a90a, 0xee48a90a, }
+/* HEX representation of VTEP IP
+ * 10.169.72.235, 10.169.72.236, 10.169.72.237, 10.169.72.238
+ */
+#define VTEP_MAC (__u64[]){0x562e984c3682, 0x552e984c3682, 0x542e984c3682, 0x532e984c3682}
+/* VTEP MAC address
+ * 82:36:4c:89:2e:56, 82:36:4c:89:2e:55, 82:36:4c:89:2e:54, 82:36:4c:89:2e:53
+ */
+#define VTEP_NUMS 4
 #endif
 
 /* It appears that we can support around the below number of prefixes in an

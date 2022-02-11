@@ -81,18 +81,18 @@ type DescribeSslVpnClientCertRequest struct {
 // DescribeSslVpnClientCertResponse is the response struct for api DescribeSslVpnClientCert
 type DescribeSslVpnClientCertResponse struct {
 	*responses.BaseResponse
-	RequestId          string `json:"RequestId" xml:"RequestId"`
-	RegionId           string `json:"RegionId" xml:"RegionId"`
-	SslVpnClientCertId string `json:"SslVpnClientCertId" xml:"SslVpnClientCertId"`
-	Name               string `json:"Name" xml:"Name"`
-	SslVpnServerId     string `json:"SslVpnServerId" xml:"SslVpnServerId"`
-	CaCert             string `json:"CaCert" xml:"CaCert"`
-	ClientCert         string `json:"ClientCert" xml:"ClientCert"`
-	ClientKey          string `json:"ClientKey" xml:"ClientKey"`
-	ClientConfig       string `json:"ClientConfig" xml:"ClientConfig"`
-	CreateTime         int64  `json:"CreateTime" xml:"CreateTime"`
-	EndTime            int64  `json:"EndTime" xml:"EndTime"`
 	Status             string `json:"Status" xml:"Status"`
+	CreateTime         int64  `json:"CreateTime" xml:"CreateTime"`
+	ClientKey          string `json:"ClientKey" xml:"ClientKey"`
+	RegionId           string `json:"RegionId" xml:"RegionId"`
+	ClientConfig       string `json:"ClientConfig" xml:"ClientConfig"`
+	EndTime            int64  `json:"EndTime" xml:"EndTime"`
+	RequestId          string `json:"RequestId" xml:"RequestId"`
+	ClientCert         string `json:"ClientCert" xml:"ClientCert"`
+	CaCert             string `json:"CaCert" xml:"CaCert"`
+	SslVpnClientCertId string `json:"SslVpnClientCertId" xml:"SslVpnClientCertId"`
+	SslVpnServerId     string `json:"SslVpnServerId" xml:"SslVpnServerId"`
+	Name               string `json:"Name" xml:"Name"`
 }
 
 // CreateDescribeSslVpnClientCertRequest creates a request to invoke DescribeSslVpnClientCert API

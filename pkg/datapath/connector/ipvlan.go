@@ -6,12 +6,13 @@ package connector
 import (
 	"fmt"
 
-	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/asm"
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
-	"golang.org/x/sys/unix"
+
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/asm"
+	"github.com/cilium/ebpf/rlimit"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/datapath/link"
@@ -35,13 +36,7 @@ func getEntryProgInstructions(fd int) asm.Instructions {
 // NB: Do not close the returned map before it has been pinned. Otherwise,
 // the map will be destroyed.
 func setupIpvlanInRemoteNs(netNs ns.NetNS, srcIfName, dstIfName string) (*ebpf.Map, error) {
-	rl := unix.Rlimit{
-		Cur: unix.RLIM_INFINITY,
-		Max: unix.RLIM_INFINITY,
-	}
-
-	err := unix.Setrlimit(unix.RLIMIT_MEMLOCK, &rl)
-	if err != nil {
+	if err := rlimit.RemoveMemlock(); err != nil {
 		return nil, fmt.Errorf("unable to increase rlimit: %s", err)
 	}
 

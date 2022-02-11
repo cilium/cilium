@@ -96,7 +96,7 @@ func (s *ELFTestSuite) TestWrite(c *C) {
 		{
 			description:  "test constant substitution 1",
 			key:          "FOO",
-			kind:         symbolUint32,
+			kind:         symbolData,
 			intValue:     42,
 			elfValid:     validOptions,
 			elfChangeErr: errDifferentFiles,
@@ -104,7 +104,7 @@ func (s *ELFTestSuite) TestWrite(c *C) {
 		{
 			description:  "test constant substitution 2",
 			key:          "BAR",
-			kind:         symbolUint32,
+			kind:         symbolData,
 			intValue:     42,
 			elfValid:     validOptions,
 			elfChangeErr: errDifferentFiles,
@@ -130,7 +130,7 @@ func (s *ELFTestSuite) TestWrite(c *C) {
 		testOptions = append(testOptions, testOption{
 			description:  fmt.Sprintf("test ipv6 substitution %d", i),
 			key:          fmt.Sprintf("GLOBAL_IPV6_%d", i),
-			kind:         symbolUint32,
+			kind:         symbolData,
 			intValue:     42,
 			elfValid:     validOptions,
 			elfChangeErr: errDifferentFiles,
@@ -141,7 +141,7 @@ func (s *ELFTestSuite) TestWrite(c *C) {
 		testOptions = append(testOptions, testOption{
 			description:  fmt.Sprintf("test mac substitution %d", i),
 			key:          fmt.Sprintf("LOCAL_MAC_%d", i),
-			kind:         symbolUint32,
+			kind:         symbolData,
 			intValue:     42,
 			elfValid:     validOptions,
 			elfChangeErr: errDifferentFiles,
@@ -155,7 +155,7 @@ func (s *ELFTestSuite) TestWrite(c *C) {
 		intOptions := make(map[string]uint32)
 		strOptions := make(map[string]string)
 		switch test.kind {
-		case symbolUint32:
+		case symbolData:
 			intOptions[test.key] = test.intValue
 		case symbolString:
 			strOptions[test.key] = test.strValue
@@ -180,7 +180,7 @@ func (s *ELFTestSuite) TestWrite(c *C) {
 		defer modifiedElf.Close()
 
 		switch test.kind {
-		case symbolUint32:
+		case symbolData:
 			value, err := modifiedElf.readOption(test.key)
 			c.Assert(err, IsNil)
 			c.Assert(value, Equals, test.intValue)

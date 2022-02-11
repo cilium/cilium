@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2016-2020 Authors of Cilium
+// Copyright 2016-2022 Authors of Cilium
 
 package cmd
 
@@ -19,6 +19,7 @@ import (
 	datapathIpcache "github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -66,14 +67,14 @@ func (d *Daemon) createNodeConfigHeaderfile() error {
 }
 
 func deleteHostDevice() {
-	link, err := netlink.LinkByName(option.Config.HostDevice)
+	link, err := netlink.LinkByName(defaults.HostDevice)
 	if err != nil {
-		log.WithError(err).Warningf("Unable to lookup host device %s. No old cilium_host interface exists", option.Config.HostDevice)
+		log.WithError(err).Warningf("Unable to lookup host device %s. No old cilium_host interface exists", defaults.HostDevice)
 		return
 	}
 
 	if err := netlink.LinkDel(link); err != nil {
-		log.WithError(err).Errorf("Unable to delete host device %s to change allocation CIDR", option.Config.HostDevice)
+		log.WithError(err).Errorf("Unable to delete host device %s to change allocation CIDR", defaults.HostDevice)
 	}
 }
 
@@ -268,6 +269,13 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 		}
 	}
 
+	if option.Config.EnableVTEP {
+		err := setupIPCacheVTEPMapping()
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -453,7 +461,7 @@ func (d *Daemon) initMaps() error {
 
 	if option.Config.NodePortAlg == option.NodePortAlgMaglev {
 		if err := lbmap.InitMaglevMaps(option.Config.EnableIPv4, option.Config.EnableIPv6, uint32(option.Config.MaglevTableSize)); err != nil {
-			return err
+			return fmt.Errorf("initializing maglev maps: %w", err)
 		}
 	}
 
@@ -475,6 +483,25 @@ func setupIPSec() (int, uint8, error) {
 	}
 	node.SetIPsecKeyIdentity(spi)
 	return authKeySize, spi, nil
+}
+
+func setupIPCacheVTEPMapping() error {
+	encryptKey := uint8(0)                           // no encrypt support
+	vtepID := uint32(identity.ReservedIdentityWorld) //network policy identity for VTEP
+
+	for i, ep := range option.Config.VtepEndpoints {
+		log.WithFields(logrus.Fields{
+			logfields.IPAddr: ep,
+		}).Debug("Updating ipcache map entry for VTEP")
+
+		err := ipcachemap.UpdateIPCacheVTEPMapping(option.Config.VtepCIDRs[i], ep, vtepID, encryptKey)
+		if err != nil {
+			return fmt.Errorf("Unable to set up VTEP ipcache mappings: %w", err)
+		}
+
+	}
+	return nil
+
 }
 
 // Datapath returns a reference to the datapath implementation.

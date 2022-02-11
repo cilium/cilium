@@ -20,11 +20,13 @@ import (
 	"github.com/vishvananda/netlink"
 	"gopkg.in/check.v1"
 
-	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/ebpf/rlimit"
+
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/netns"
@@ -40,7 +42,7 @@ func Test(t *testing.T) {
 }
 
 type linuxPrivilegedBaseTestSuite struct {
-	nodeAddressing datapath.NodeAddressing
+	nodeAddressing types.NodeAddressing
 	mtuConfig      mtu.Configuration
 	enableIPv4     bool
 	enableIPv6     bool
@@ -72,8 +74,8 @@ const (
 	baseIPv6Time = "net.ipv6.neigh.default.base_reachable_time_ms"
 )
 
-func (s *linuxPrivilegedBaseTestSuite) SetUpTest(c *check.C, addressing datapath.NodeAddressing, enableIPv6, enableIPv4 bool) {
-	bpf.ConfigureResourceLimits()
+func (s *linuxPrivilegedBaseTestSuite) SetUpTest(c *check.C, addressing types.NodeAddressing, enableIPv6, enableIPv4 bool) {
+	rlimit.RemoveMemlock()
 	s.nodeAddressing = addressing
 	s.mtuConfig = mtu.NewConfiguration(0, false, false, false, 1500, nil)
 	s.enableIPv6 = enableIPv6

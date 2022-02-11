@@ -86,8 +86,8 @@ type CreateIpv6EgressOnlyRuleRequest struct {
 // CreateIpv6EgressOnlyRuleResponse is the response struct for api CreateIpv6EgressOnlyRule
 type CreateIpv6EgressOnlyRuleResponse struct {
 	*responses.BaseResponse
-	RequestId        string `json:"RequestId" xml:"RequestId"`
 	Ipv6EgressRuleId string `json:"Ipv6EgressRuleId" xml:"Ipv6EgressRuleId"`
+	RequestId        string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateCreateIpv6EgressOnlyRuleRequest creates a request to invoke CreateIpv6EgressOnlyRule API

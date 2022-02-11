@@ -2,6 +2,7 @@ package http
 
 import (
 	"crypto/tls"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"net"
 	"net/http"
 	"reflect"
@@ -66,6 +67,14 @@ func (b *BuildableClient) Do(req *http.Request) (*http.Response, error) {
 	b.initOnce.Do(b.build)
 
 	return b.client.Do(req)
+}
+
+// Freeze returns a frozen aws.HTTPClient implementation that is no longer a BuildableClient.
+// Use this to prevent the SDK from applying DefaultMode configuration values to a buildable client.
+func (b *BuildableClient) Freeze() aws.HTTPClient {
+	cpy := b.clone()
+	cpy.build()
+	return cpy.client
 }
 
 func (b *BuildableClient) build() {

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-/* Copyright (C) 2016-2020 Authors of Cilium */
+/* Copyright (C) 2016-2022 Authors of Cilium */
 
 #include <bpf/ctx/skb.h>
 #include <bpf/api.h>
@@ -74,6 +74,23 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		 */
 		if (*identity == HOST_ID)
 			return DROP_INVALID_IDENTITY;
+
+		/* Maybe overwrite the REMOTE_NODE_ID with
+		 * KUBE_APISERVER_NODE_ID to support upgrade. After v1.12,
+		 * this should be removed.
+		 */
+		if (identity_is_remote_node(*identity)) {
+			struct remote_endpoint_info *info;
+
+			/* Look up the ipcache for the src IP, it will give us
+			 * the real identity of that IP.
+			 */
+			info = ipcache_lookup6(&IPCACHE_MAP,
+					       (union v6addr *)&ip6->saddr,
+					       V6_CACHE_KEY_LEN);
+			if (info)
+				*identity = info->sec_label;
+		}
 	}
 
 	cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, key.tunnel_label);
@@ -117,7 +134,7 @@ not_esp:
 			goto to_host;
 
 		nexthdr = ip6->nexthdr;
-		hdrlen = ipv6_hdrlen(ctx, l3_off, &nexthdr);
+		hdrlen = ipv6_hdrlen(ctx, &nexthdr);
 		if (hdrlen < 0)
 			return hdrlen;
 
@@ -204,6 +221,31 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 
 		if (*identity == HOST_ID)
 			return DROP_INVALID_IDENTITY;
+#ifdef ENABLE_VTEP
+		{
+			struct remote_endpoint_info *info;
+			int i;
+
+			info = lookup_ip4_remote_endpoint(ip4->saddr);
+			if (!info)
+				return DROP_NO_TUNNEL_ENDPOINT;
+			for (i = 0; i < VTEP_NUMS; i++) {
+				if (info->tunnel_endpoint == VTEP_ENDPOINT[i]) {
+					if (*identity != WORLD_ID)
+						return DROP_INVALID_VNI;
+				}
+			}
+		}
+#endif
+		/* See comment at equivalent code in handle_ipv6() */
+		if (identity_is_remote_node(*identity)) {
+			struct remote_endpoint_info *info;
+
+			info = ipcache_lookup4(&IPCACHE_MAP, ip4->saddr,
+					       V4_CACHE_KEY_LEN);
+			if (info)
+				*identity = info->sec_label;
+		}
 	}
 
 	cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, key.tunnel_label);
@@ -283,6 +325,37 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 }
 #endif /* ENABLE_IPV4 */
 
+#ifdef ENABLE_IPSEC
+static __always_inline bool is_esp(struct __ctx_buff *ctx, __u16 proto)
+{
+	void *data, *data_end;
+	__u8 protocol = 0;
+	struct ipv6hdr *ip6 __maybe_unused;
+	struct iphdr *ip4 __maybe_unused;
+
+	switch (proto) {
+#ifdef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6):
+		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
+			return false;
+		protocol = ip6->nexthdr;
+		break;
+#endif
+#ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP):
+		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
+			return false;
+		protocol = ip4->protocol;
+		break;
+#endif
+	default:
+		return false;
+	}
+
+	return protocol == IPPROTO_ESP;
+}
+#endif /* ENABLE_IPSEC */
+
 /* Attached to the ingress of cilium_vxlan/cilium_geneve to execute on packets
  * entering the node via the tunnel.
  */
@@ -301,15 +374,40 @@ int from_overlay(struct __ctx_buff *ctx)
 		goto out;
 	}
 
+/* We need to handle following possible packets come to this program
+ *
+ * 1. ESP packets coming from overlay (encrypted and not marked)
+ * 2. Non-ESP packets coming from overlay (plain and not marked)
+ * 3. Non-ESP packets coming from stack re-inserted by xfrm (plain
+ *    and marked with MARK_MAGIC_DECRYPT and has an identity as
+ *    well, IPSec mode only)
+ *
+ * 1. will be traced with TRACE_REASON_ENCRYPTED
+ * 2. will be traced without TRACE_REASON_ENCRYPTED
+ * 3. will be traced without TRACE_REASON_ENCRYPTED, and with identity
+ *
+ * Note that 1. contains the ESP packets someone else generated.
+ * In that case, we trace it as "encrypted", but it doesn't mean
+ * "encrypted by Cilium".
+ *
+ * When IPSec is disabled, we won't use TRACE_REASON_ENCRYPTED even
+ * if the packets are ESP, because it doesn't matter for the
+ * non-IPSec mode.
+ */
 #ifdef ENABLE_IPSEC
-	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT) {
-		send_trace_notify(ctx, TRACE_FROM_OVERLAY, get_identity(ctx), 0, 0,
-				  ctx->ingress_ifindex,
-				  TRACE_REASON_ENCRYPTED, TRACE_PAYLOAD_LEN);
-	} else
+	if (is_esp(ctx, proto))
+		send_trace_notify(ctx, TRACE_FROM_OVERLAY, 0, 0, 0,
+				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED,
+				  TRACE_PAYLOAD_LEN);
+	else
 #endif
 	{
-		send_trace_notify(ctx, TRACE_FROM_OVERLAY, 0, 0, 0,
+		__u32 identity = 0;
+
+		if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT)
+			identity = get_identity(ctx);
+
+		send_trace_notify(ctx, TRACE_FROM_OVERLAY, identity, 0, 0,
 				  ctx->ingress_ifindex, 0, TRACE_PAYLOAD_LEN);
 	}
 

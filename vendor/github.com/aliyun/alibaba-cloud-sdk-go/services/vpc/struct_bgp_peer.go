@@ -17,23 +17,23 @@ package vpc
 
 // BgpPeer is a nested struct in vpc response
 type BgpPeer struct {
-	Name          string `json:"Name" xml:"Name"`
-	Description   string `json:"Description" xml:"Description"`
-	BgpPeerId     string `json:"BgpPeerId" xml:"BgpPeerId"`
-	BgpGroupId    string `json:"BgpGroupId" xml:"BgpGroupId"`
-	PeerIpAddress string `json:"PeerIpAddress" xml:"PeerIpAddress"`
-	PeerAsn       string `json:"PeerAsn" xml:"PeerAsn"`
-	AuthKey       string `json:"AuthKey" xml:"AuthKey"`
-	RouterId      string `json:"RouterId" xml:"RouterId"`
-	BgpStatus     string `json:"BgpStatus" xml:"BgpStatus"`
 	Status        string `json:"Status" xml:"Status"`
-	Keepalive     string `json:"Keepalive" xml:"Keepalive"`
-	LocalAsn      string `json:"LocalAsn" xml:"LocalAsn"`
-	Hold          string `json:"Hold" xml:"Hold"`
-	IsFake        string `json:"IsFake" xml:"IsFake"`
-	RouteLimit    string `json:"RouteLimit" xml:"RouteLimit"`
-	RegionId      string `json:"RegionId" xml:"RegionId"`
-	EnableBfd     bool   `json:"EnableBfd" xml:"EnableBfd"`
-	IpVersion     string `json:"IpVersion" xml:"IpVersion"`
+	PeerIpAddress string `json:"PeerIpAddress" xml:"PeerIpAddress"`
+	RouterId      string `json:"RouterId" xml:"RouterId"`
+	BgpGroupId    string `json:"BgpGroupId" xml:"BgpGroupId"`
+	BgpStatus     string `json:"BgpStatus" xml:"BgpStatus"`
 	BfdMultiHop   int    `json:"BfdMultiHop" xml:"BfdMultiHop"`
+	PeerAsn       string `json:"PeerAsn" xml:"PeerAsn"`
+	LocalAsn      string `json:"LocalAsn" xml:"LocalAsn"`
+	RegionId      string `json:"RegionId" xml:"RegionId"`
+	BgpPeerId     string `json:"BgpPeerId" xml:"BgpPeerId"`
+	EnableBfd     bool   `json:"EnableBfd" xml:"EnableBfd"`
+	Hold          string `json:"Hold" xml:"Hold"`
+	IpVersion     string `json:"IpVersion" xml:"IpVersion"`
+	Keepalive     string `json:"Keepalive" xml:"Keepalive"`
+	Description   string `json:"Description" xml:"Description"`
+	RouteLimit    string `json:"RouteLimit" xml:"RouteLimit"`
+	IsFake        string `json:"IsFake" xml:"IsFake"`
+	AuthKey       string `json:"AuthKey" xml:"AuthKey"`
+	Name          string `json:"Name" xml:"Name"`
 }

@@ -81,8 +81,8 @@ type DeleteFlowLogRequest struct {
 // DeleteFlowLogResponse is the response struct for api DeleteFlowLog
 type DeleteFlowLogResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
 	Success   string `json:"Success" xml:"Success"`
+	RequestId string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateDeleteFlowLogRequest creates a request to invoke DeleteFlowLog API

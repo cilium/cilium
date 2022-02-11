@@ -18,6 +18,8 @@ import (
 
 	. "gopkg.in/check.v1"
 
+	"github.com/cilium/ebpf/rlimit"
+
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 )
@@ -63,7 +65,7 @@ var (
 
 func runTests(m *testing.M) (int, error) {
 	CheckOrMountFS("")
-	if err := ConfigureResourceLimits(); err != nil {
+	if err := rlimit.RemoveMemlock(); err != nil {
 		return 1, fmt.Errorf("Failed to configure rlimit")
 	}
 

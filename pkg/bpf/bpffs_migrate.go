@@ -96,18 +96,18 @@ func FinalizeBPFFSMigration(bpffsPath, elfPath string, revert bool) error {
 func parseExtra(spec *ebpf.MapSpec, coll *ebpf.CollectionSpec) error {
 	// Nothing to parse. This will be the case for BTF-style maps that have
 	// built-in support for pinning and map-in-map.
-	if spec.Extra.Len() == 0 {
+	if spec.Extra == nil || spec.Extra.Len() == 0 {
 		return nil
 	}
 
 	// Discard the id as it's not needed.
-	if _, err := io.CopyN(io.Discard, &spec.Extra, 4); err != nil {
+	if _, err := io.CopyN(io.Discard, spec.Extra, 4); err != nil {
 		return fmt.Errorf("reading id field: %v", err)
 	}
 
 	// Read the pinning field.
 	var pinning uint32
-	if err := binary.Read(&spec.Extra, coll.ByteOrder, &pinning); err != nil {
+	if err := binary.Read(spec.Extra, coll.ByteOrder, &pinning); err != nil {
 		return fmt.Errorf("reading pinning field: %v", err)
 	}
 	spec.Pinning = ebpf.PinType(pinning)

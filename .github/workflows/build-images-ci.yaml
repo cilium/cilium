@@ -10,6 +10,7 @@ on:
   push:
     branches:
       - master
+      - ft/master/**
 
   # If the cache was cleaned we should re-build the cache with the latest commit
   workflow_run:
@@ -17,6 +18,7 @@ on:
      - "Image CI Cache Cleaner"
     branches:
      - master
+     - ft/master/**
     types:
      - completed
 
@@ -28,7 +30,6 @@ concurrency:
 
 jobs:
   build-and-push-prs:
-    if: ${{ github.repository == 'cilium/cilium' }}
     runs-on: ubuntu-20.04
     strategy:
       matrix:
@@ -103,7 +104,7 @@ jobs:
 
       # Import GitHub's cache build to docker cache
       - name: Copy ${{ matrix.name }} Golang cache to docker cache
-        uses: docker/build-push-action@a66e35b9cbcf4ad0ea91ffcaf7bbad63ad9e0229
+        uses: docker/build-push-action@7f9d37fa544684fb73bfe4835ed7214c255ce02b
         with:
           context: /tmp/.cache/${{ matrix.name }}
           file: ./images/cache/Dockerfile
@@ -114,7 +115,7 @@ jobs:
       # master branch pushes
       - name: CI Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
-        uses: docker/build-push-action@a66e35b9cbcf4ad0ea91ffcaf7bbad63ad9e0229
+        uses: docker/build-push-action@7f9d37fa544684fb73bfe4835ed7214c255ce02b
         id: docker_build_ci_master
         with:
           context: .
@@ -132,7 +133,7 @@ jobs:
 
       - name: CI race detection Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
-        uses: docker/build-push-action@a66e35b9cbcf4ad0ea91ffcaf7bbad63ad9e0229
+        uses: docker/build-push-action@7f9d37fa544684fb73bfe4835ed7214c255ce02b
         id: docker_build_ci_master_detect_race_condition
         with:
           context: .
@@ -146,7 +147,7 @@ jobs:
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest-race
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
           build-args: |
-            BASE_IMAGE=quay.io/cilium/cilium-runtime:145587cd619373a24bb6fd99fb3803943b7af776@sha256:d94d917281bc858b1160cccafca7b5b2d7e44512b2b8e791de7a20dcf5efedb8
+            BASE_IMAGE=quay.io/cilium/cilium-runtime:05aefca72c6e53861ebd2e0892946e73abbd9d38@sha256:3c5b6d80c0596d952948f5330afed096cdc32f23e7b90161a89632a392734761
             LOCKDEBUG=1
             RACE=1
             OPERATOR_VARIANT=${{ matrix.name }}
@@ -164,7 +165,7 @@ jobs:
       # PR updates
       - name: CI Build ${{ matrix.name }}
         if: ${{ github.event_name == 'pull_request_target' }}
-        uses: docker/build-push-action@a66e35b9cbcf4ad0ea91ffcaf7bbad63ad9e0229
+        uses: docker/build-push-action@7f9d37fa544684fb73bfe4835ed7214c255ce02b
         id: docker_build_ci_pr
         with:
           context: .
@@ -185,7 +186,7 @@ jobs:
 
       - name: CI race detection Build ${{ matrix.name }}
         if: ${{ github.event_name == 'pull_request_target' }}
-        uses: docker/build-push-action@a66e35b9cbcf4ad0ea91ffcaf7bbad63ad9e0229
+        uses: docker/build-push-action@7f9d37fa544684fb73bfe4835ed7214c255ce02b
         id: docker_build_ci_pr_detect_race_condition
         with:
           context: .
@@ -195,7 +196,7 @@ jobs:
           tags: |
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
           build-args: |
-            BASE_IMAGE=quay.io/cilium/cilium-runtime:145587cd619373a24bb6fd99fb3803943b7af776@sha256:d94d917281bc858b1160cccafca7b5b2d7e44512b2b8e791de7a20dcf5efedb8
+            BASE_IMAGE=quay.io/cilium/cilium-runtime:05aefca72c6e53861ebd2e0892946e73abbd9d38@sha256:3c5b6d80c0596d952948f5330afed096cdc32f23e7b90161a89632a392734761
             LOCKDEBUG=1
             RACE=1
             OPERATOR_VARIANT=${{ matrix.name }}
@@ -219,7 +220,7 @@ jobs:
       # Store docker's golang's cache build locally only on the main branch
       - name: Store ${{ matrix.name }} Golang cache build locally
         if: ${{ github.event_name != 'pull_request_target' && steps.cache.outputs.cache-hit != 'true' }}
-        uses: docker/build-push-action@a66e35b9cbcf4ad0ea91ffcaf7bbad63ad9e0229
+        uses: docker/build-push-action@7f9d37fa544684fb73bfe4835ed7214c255ce02b
         with:
           context: .
           file: ./images/cache/Dockerfile
@@ -246,7 +247,7 @@ jobs:
   # which requires qemu setup in order to avoid x86/arm64 binaries mixups
   # note: we only build on pushes to master branch
   build-and-push-with-qemu:
-    if: ${{ github.repository == 'cilium/cilium' && github.event_name == 'push' }}
+    if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-20.04
     strategy:
       matrix:
@@ -294,7 +295,7 @@ jobs:
 
       # Import GitHub's cache build to docker cache
       - name: Copy ${{ matrix.name }} Golang cache to docker cache
-        uses: docker/build-push-action@a66e35b9cbcf4ad0ea91ffcaf7bbad63ad9e0229
+        uses: docker/build-push-action@7f9d37fa544684fb73bfe4835ed7214c255ce02b
         with:
           context: /tmp/.cache/${{ matrix.name }}
           file: ./images/cache/Dockerfile
@@ -303,7 +304,7 @@ jobs:
           target: import-cache
 
       - name: CI Build ${{ matrix.name }}
-        uses: docker/build-push-action@a66e35b9cbcf4ad0ea91ffcaf7bbad63ad9e0229
+        uses: docker/build-push-action@7f9d37fa544684fb73bfe4835ed7214c255ce02b
         id: docker_build_ci_master
         with:
           context: .
@@ -335,7 +336,7 @@ jobs:
       # Store docker's golang's cache build locally only on the main branch
       - name: Store ${{ matrix.name }} Golang cache build locally
         if: ${{ github.event_name != 'pull_request_target' && steps.cache.outputs.cache-hit != 'true' }}
-        uses: docker/build-push-action@a66e35b9cbcf4ad0ea91ffcaf7bbad63ad9e0229
+        uses: docker/build-push-action@7f9d37fa544684fb73bfe4835ed7214c255ce02b
         with:
           context: .
           file: ./images/cache/Dockerfile
@@ -367,7 +368,7 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
   image-digests:
-    if: ${{ always() && github.repository == 'cilium/cilium' &&
+    if: ${{ always() &&
       (needs.build-and-push-with-qemu.result == 'success' || needs.build-and-push-with-qemu.result == 'skipped') }}
     name: Display Digests
     runs-on: ubuntu-20.04

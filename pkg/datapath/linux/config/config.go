@@ -12,6 +12,8 @@ import (
 	"io"
 	"net"
 	"sort"
+	"strconv"
+	"strings"
 	"text/template"
 
 	"github.com/sirupsen/logrus"
@@ -536,6 +538,38 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_CUSTOM_CALLS"] = "1"
 	}
 
+	if option.Config.EnableVTEP {
+		cDefinesMap["ENABLE_VTEP"] = "1"
+
+		l := len(option.Config.VtepEndpoints)
+		cDefinesMap["VTEP_NUMS"] = strconv.Itoa(l)
+
+		var (
+			ipb  strings.Builder
+			macb strings.Builder
+		)
+
+		ipb.WriteString("(__u32[]){ ")
+		macb.WriteString("(__u64[]){ ")
+
+		for i, ep := range option.Config.VtepEndpoints {
+			fmt.Fprintf(&ipb, "%#x, ", byteorder.NetIPv4ToHost32(ep))
+
+			mac := option.Config.VtepMACs[i]
+			vtep_mac, err := mac.Uint64()
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(&macb, "%#x, ", vtep_mac)
+		}
+
+		ipb.WriteString("}")
+		macb.WriteString("}")
+
+		cDefinesMap["VTEP_ENDPOINT"] = ipb.String()
+		cDefinesMap["VTEP_MAC"] = macb.String()
+	}
+
 	vlanFilter, err := vlanFilterMacros()
 	if err != nil {
 		return err
@@ -782,7 +816,7 @@ func (h *HeaderfileWriter) writeStaticData(fw io.Writer, e datapath.EndpointConf
 		}
 
 		fmt.Fprint(fw, defineIPv4("LXC_IPV4", e.IPv4Address()))
-		fmt.Fprint(fw, defineUint32("LXC_ID", uint32(e.GetID())))
+		fmt.Fprint(fw, defineUint16("LXC_ID", uint16(e.GetID())))
 	}
 
 	fmt.Fprint(fw, defineMAC("NODE_MAC", e.GetNodeMAC()))

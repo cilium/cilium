@@ -55,6 +55,10 @@ spec:
               - /tmp/ready
             initialDelaySeconds: 5
             periodSeconds: 5
+          {{- with .Values.preflight.extraEnv }}
+          env:
+            {{- toYaml . | trim | nindent 12 }}
+          {{- end }}
           volumeMounts:
           - name: cilium-run
             mountPath: /var/run/cilium
@@ -67,6 +71,14 @@ spec:
             mountPath: /var/lib/etcd-secrets
             readOnly: true
           {{- end }}
+          {{- end }}
+          {{- with .Values.preflight.resources }}
+          resources:
+            {{- toYaml . | trim | nindent 12 }}
+          {{- end }}
+          {{- with .Values.preflight.securityContext }}
+          securityContext:
+            {{- toYaml . | trim | nindent 14 }}
           {{- end }}
         {{- if ne .Values.preflight.tofqdnsPreCache "" }}
         - name: cilium-pre-flight-fqdn-precache
@@ -115,6 +127,17 @@ spec:
             readOnly: true
           {{- end }}
           {{- end }}
+          {{- with .Values.preflight.extraEnv }}
+          {{- toYaml . | trim | nindent 10 }}
+          {{- end }}
+          {{- with .Values.preflight.resources }}
+          resources:
+            {{- toYaml . | trim | nindent 12 }}
+          {{- end }}
+          {{- with .Values.preflight.securityContext }}
+          securityContext:
+            {{- toYaml . | trim | nindent 14 }}
+          {{- end }}
         {{- end }}
       hostNetwork: true
       # This is here to seamlessly allow migrate-identity to work with
@@ -127,8 +150,8 @@ spec:
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.preflight.priorityClassName "system-node-critical") }}
       serviceAccount: {{ .Values.serviceAccounts.preflight.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.preflight.name | quote }}
-      terminationGracePeriodSeconds: 1
-      {{- with .Values.tolerations }}
+      terminationGracePeriodSeconds: {{ .Values.preflight.terminationGracePeriodSeconds }}
+      {{- with .Values.preflight.tolerations }}
       tolerations:
         {{- toYaml . | trim | nindent 8 }}
       {{- end }}

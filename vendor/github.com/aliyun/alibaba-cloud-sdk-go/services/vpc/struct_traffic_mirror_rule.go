@@ -19,13 +19,13 @@ package vpc
 type TrafficMirrorRule struct {
 	TrafficMirrorFilterRuleStatus string `json:"TrafficMirrorFilterRuleStatus" xml:"TrafficMirrorFilterRuleStatus"`
 	SourceCidrBlock               string `json:"SourceCidrBlock" xml:"SourceCidrBlock"`
-	Priority                      int    `json:"Priority" xml:"Priority"`
 	Protocol                      string `json:"Protocol" xml:"Protocol"`
+	Priority                      int    `json:"Priority" xml:"Priority"`
 	SourcePortRange               string `json:"SourcePortRange" xml:"SourcePortRange"`
 	Action                        string `json:"Action" xml:"Action"`
 	DestinationPortRange          string `json:"DestinationPortRange" xml:"DestinationPortRange"`
 	TrafficMirrorFilterId         string `json:"TrafficMirrorFilterId" xml:"TrafficMirrorFilterId"`
-	TrafficMirrorFilterRuleId     string `json:"TrafficMirrorFilterRuleId" xml:"TrafficMirrorFilterRuleId"`
 	TrafficDirection              string `json:"TrafficDirection" xml:"TrafficDirection"`
+	TrafficMirrorFilterRuleId     string `json:"TrafficMirrorFilterRuleId" xml:"TrafficMirrorFilterRuleId"`
 	DestinationCidrBlock          string `json:"DestinationCidrBlock" xml:"DestinationCidrBlock"`
 }

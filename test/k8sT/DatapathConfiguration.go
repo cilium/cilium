@@ -36,6 +36,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 	AfterEach(func() {
 		deploymentManager.DeleteAll()
+		ExpectAllPodsTerminated(kubectl)
 	})
 
 	AfterFailed(func() {
@@ -43,8 +44,10 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 
 	AfterAll(func() {
+		kubectl.ScaleDownDNS()
+		ExpectAllPodsTerminated(kubectl)
 		deploymentManager.DeleteCilium()
-		kubectl.RedeployDNS()
+		kubectl.ScaleUpDNS()
 		kubectl.CloseSSHClient()
 	})
 
@@ -255,36 +258,42 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 			if helpers.RunsOn419OrLaterKernel() {
 				By("Test BPF masquerade")
-				Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false)).
+				Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false, false)).
 					Should(BeTrue(), "Connectivity test to http://google.com failed")
 			}
 		})
 
 		It("Check iptables masquerading with random-fully", func() {
 			options := map[string]string{
-				"bpf.masquerade":      "false",
-				"iptablesRandomFully": "true",
+				"bpf.masquerade":       "false",
+				"enableIPv6Masquerade": "true",
+				"iptablesRandomFully":  "true",
 			}
 			enableVXLANTunneling(options)
 			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 
 			By("Test iptables masquerading")
-			Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false)).
-				Should(BeTrue(), "Connectivity test to http://google.com failed")
+			Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false, false)).
+				Should(BeTrue(), "IPv4 connectivity test to http://google.com failed")
+			Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false, true)).
+				Should(BeTrue(), "IPv6 connectivity test to http://google.com failed")
 		})
 
 		It("Check iptables masquerading without random-fully", func() {
 			options := map[string]string{
-				"bpf.masquerade": "false",
+				"bpf.masquerade":       "false",
+				"enableIPv6Masquerade": "true",
 			}
 			enableVXLANTunneling(options)
 			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 
 			By("Test iptables masquerading")
-			Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false)).
-				Should(BeTrue(), "Connectivity test to http://google.com failed")
+			Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false, false)).
+				Should(BeTrue(), "IPv4 connectivity test to http://google.com failed")
+			Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false, true)).
+				Should(BeTrue(), "IPv6 connectivity test to http://google.com failed")
 		})
 	})
 
@@ -317,36 +326,26 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 
 		It("Check connectivity with automatic direct nodes routes", func() {
-			options := map[string]string{
+			deploymentManager.DeployCilium(map[string]string{
 				"tunnel":               "disabled",
 				"autoDirectNodeRoutes": "true",
-			}
-			// Needed to bypass bug with masquerading when devices are set. See #12141.
-			if helpers.DoesNotRunWithKubeProxyReplacement() {
-				options["masquerade"] = "false"
-			}
-			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
+			}, DeployCiliumOptionsAndDNS)
 
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 			if helpers.RunsOn419OrLaterKernel() {
 				By("Test BPF masquerade")
-				Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false)).
+				Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false, false)).
 					Should(BeTrue(), "Connectivity test to http://google.com failed")
 			}
 		})
 
 		It("Check direct connectivity with per endpoint routes", func() {
-			options := map[string]string{
+			deploymentManager.DeployCilium(map[string]string{
 				"tunnel":                 "disabled",
 				"autoDirectNodeRoutes":   "true",
 				"endpointRoutes.enabled": "true",
 				"ipv6.enabled":           "false",
-			}
-			// Needed to bypass bug with masquerading when devices are set. See #12141.
-			if helpers.DoesNotRunWithKubeProxyReplacement() {
-				options["masquerade"] = "false"
-			}
-			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
+			}, DeployCiliumOptionsAndDNS)
 
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
@@ -364,6 +363,84 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 			Expect(testPodConnectivitySameNodes(kubectl)).Should(BeTrue(), "Connectivity test on same node failed")
 		}, 600)
+	})
+
+	SkipContextIf(func() bool {
+		return helpers.RunsWithKubeProxyReplacement() || helpers.GetCurrentIntegration() != "" || helpers.SkipQuarantined()
+	}, "IPv6 masquerading", func() {
+		var (
+			k8s1EndpointIPs map[string]string
+
+			testDSK8s1IPv6 string = "fd03::310"
+		)
+
+		BeforeAll(func() {
+			deploymentManager.DeployCilium(map[string]string{
+				"tunnel":                "disabled",
+				"autoDirectNodeRoutes":  "true",
+				"ipv6NativeRoutingCIDR": helpers.IPv6NativeRoutingCIDR,
+			}, DeployCiliumOptionsAndDNS)
+
+			pod, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
+			Expect(err).Should(BeNil(), "Cannot get cilium pod on node %s", helpers.K8s1)
+			k8s1EndpointIPs = kubectl.CiliumEndpointIPv6(pod, "-l k8s:zgroup=testDS,k8s:io.kubernetes.pod.namespace=default")
+
+			k8s1Backends := []string{}
+			for _, epIP := range k8s1EndpointIPs {
+				k8s1Backends = append(k8s1Backends, net.JoinHostPort(epIP, "80"))
+			}
+
+			ciliumAddService(kubectl, 31080, net.JoinHostPort(testDSK8s1IPv6, "80"), k8s1Backends, "ClusterIP", "Cluster")
+		})
+
+		It("across K8s nodes, skipped due to native routing CIDR", func() {
+			// Because a native routing CIDR is set, the
+			// IPv6 for packets routed to another node are
+			// _not_ masqueraded. Retrieve the address for
+			// the client, and make sure the echo server
+			// receives it unchanged.
+			pod, err := kubectl.GetCiliumPodOnNode(helpers.K8s2)
+			Expect(err).Should(BeNil(), "Cannot get cilium pod on node %s", helpers.K8s2)
+			k8s2EndpointIPs := kubectl.CiliumEndpointIPv6(pod, fmt.Sprintf("-l k8s:%s,k8s:io.kubernetes.pod.namespace=default", testDSK8s2))
+			k8s2ClientIPv6 := ""
+			for _, epIP := range k8s2EndpointIPs {
+				k8s2ClientIPv6 = epIP
+				break
+			}
+			Expect(k8s2ClientIPv6).ShouldNot(BeEmpty(), "Cannot get client IPv6")
+
+			url := fmt.Sprintf(`"http://[%s]:80/"`, testDSK8s1IPv6)
+			testCurlFromPodWithSourceIPCheck(kubectl, testDSK8s2, url, 5, k8s2ClientIPv6)
+
+			for _, epIP := range k8s1EndpointIPs {
+				url = fmt.Sprintf(`"http://[%s]:80/"`, epIP)
+				testCurlFromPodWithSourceIPCheck(kubectl, testDSK8s2, url, 5, k8s2ClientIPv6)
+			}
+		})
+
+		// Note: At the time we add the test below, it does not
+		// run on the CI because the only job which is running
+		// with a 3rd, non-K8s node (net-next) also has KPR,
+		// and skips the context we're in. Run locally.
+		// TODO: uncomment once the above has changed
+		//SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "for external traffic", func() {
+		//	// A native routing CIDR is set, but it does
+		//	// not prevent masquerading for packets going
+		//	// outside of the K8s cluster. Check that the
+		//	// echo server sees the IPv6 address of the
+		//	// client's node.
+		//	url := fmt.Sprintf(`"http://[%s]:80/"`, ni.outsideIPv6)
+		//	testCurlFromPodWithSourceIPCheck(kubectl, testDSK8s2, url, 5, ni.primaryK8s2IPv6)
+
+		//	for _, epIP := range k8s1EndpointIPs {
+		//		url = fmt.Sprintf(`"http://[%s]:80/"`, epIP)
+		//		testCurlFromPodWithSourceIPCheck(kubectl, testDSK8s2, url, 5, ni.primaryK8s2IPv6)
+		//	}
+		//})
+
+		AfterAll(func() {
+			ciliumDelService(kubectl, 31080)
+		})
 	})
 
 	SkipContextIf(func() bool {
@@ -440,7 +517,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			nodeIP, err := kubectl.GetNodeIPByLabel(helpers.GetFirstNodeWithoutCilium(), false)
 			Expect(err).Should(BeNil())
 			Expect(testPodHTTPToOutside(kubectl,
-				fmt.Sprintf("http://%s:80", nodeIP), true, false)).Should(BeTrue(),
+				fmt.Sprintf("http://%s:80", nodeIP), true, false, false)).Should(BeTrue(),
 				"Connectivity test to http://%s failed", nodeIP)
 
 			// Update ip-masq-agent config to prevent masquerading to the node IP
@@ -452,7 +529,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 			// Check that connections from the client pods are not masqueraded
 			Expect(testPodHTTPToOutside(kubectl,
-				fmt.Sprintf("http://%s:80", nodeIP), false, true)).Should(BeTrue(),
+				fmt.Sprintf("http://%s:80", nodeIP), false, true, false)).Should(BeTrue(),
 				"Connectivity test to http://%s failed", nodeIP)
 		}
 
@@ -710,7 +787,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 		SkipItIf(helpers.RunsWithoutKubeProxy, "Check connectivity with transparent encryption and direct routing with bpf_host", func() {
 			privateIface, err := kubectl.GetPrivateIface()
 			Expect(err).Should(BeNil(), "Unable to determine the private interface")
-			defaultIface, err := kubectl.GetDefaultIface()
+			defaultIface, err := kubectl.GetDefaultIface(false)
 			Expect(err).Should(BeNil(), "Unable to determine the default interface")
 			devices := fmt.Sprintf(`'{%s,%s}'`, privateIface, defaultIface)
 
@@ -1082,9 +1159,16 @@ func testPodHTTP(kubectl *helpers.Kubectl, namespace string, requireMultiNode bo
 
 }
 
-func testPodHTTPToOutside(kubectl *helpers.Kubectl, outsideURL string, expectNodeIP, expectPodIP bool) bool {
+func testPodHTTPToOutside(kubectl *helpers.Kubectl, outsideURL string, expectNodeIP, expectPodIP, ipv6 bool) bool {
 	var hostIPs map[string]string
 	var podIPs map[string]string
+
+	// IPv6 is not supported when the source IP should be checked. It could be
+	// supported with more work, but it doesn't make sense as in those cases,
+	// we can simply pass the IPv6 target address as outsideURL.
+	if ipv6 && expectPodIP {
+		panic("IPv6 not supported with source IP checking.")
+	}
 
 	namespace := deploymentManager.DeployRandomNamespaceShared(DemoDaemonSet)
 	applyL3Policy(kubectl, namespace)
@@ -1094,7 +1178,12 @@ func testPodHTTPToOutside(kubectl *helpers.Kubectl, outsideURL string, expectNod
 	pods, err := kubectl.GetPodNames(namespace, label)
 	ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve pod names by label %s", label)
 
-	cmd := helpers.CurlWithRetries(outsideURL, 10, true)
+	cmd := outsideURL
+	if ipv6 {
+		cmd = fmt.Sprintf("-6 %s", cmd)
+	}
+	cmd = helpers.CurlWithRetries(cmd, 10, true)
+
 	if expectNodeIP || expectPodIP {
 		cmd += " | grep client_address="
 		hostIPs, err = kubectl.GetPodsHostIPs(namespace, label)

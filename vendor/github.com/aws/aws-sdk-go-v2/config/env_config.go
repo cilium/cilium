@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"io"
 	"io/ioutil"
 	"os"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 )
 
 // CredentialsSourceName provides a name of the provider when config is
@@ -63,6 +63,8 @@ const (
 	awsUseDualStackEndpoint = "AWS_USE_DUALSTACK_ENDPOINT"
 
 	awsUseFIPSEndpoint = "AWS_USE_FIPS_ENDPOINT"
+
+	awsDefaultMode = "AWS_DEFAULTS_MODE"
 )
 
 var (
@@ -226,6 +228,11 @@ type EnvConfig struct {
 	//
 	// AWS_USE_FIPS_ENDPOINT=true
 	UseFIPSEndpoint aws.FIPSEndpointState
+
+	// Specifies the SDk Defaults Mode used by services.
+	//
+	// AWS_DEFAULTS_MODE=standard
+	DefaultsMode aws.DefaultsMode
 }
 
 // loadEnvConfig reads configuration values from the OS's environment variables.
@@ -292,7 +299,18 @@ func NewEnvConfig() (EnvConfig, error) {
 		return cfg, err
 	}
 
+	if err := setDefaultsModeFromEnvVal(&cfg.DefaultsMode, []string{awsDefaultMode}); err != nil {
+		return cfg, err
+	}
+
 	return cfg, nil
+}
+
+func (c EnvConfig) getDefaultsMode(ctx context.Context) (aws.DefaultsMode, bool, error) {
+	if len(c.DefaultsMode) == 0 {
+		return "", false, nil
+	}
+	return c.DefaultsMode, true, nil
 }
 
 func setEC2IMDSClientEnableState(state *imds.ClientEnableState, keys []string) {
@@ -311,6 +329,18 @@ func setEC2IMDSClientEnableState(state *imds.ClientEnableState, keys []string) {
 		}
 		break
 	}
+}
+
+func setDefaultsModeFromEnvVal(mode *aws.DefaultsMode, keys []string) error {
+	for _, k := range keys {
+		if value := os.Getenv(k); len(value) > 0 {
+			if ok := mode.SetFromString(value); !ok {
+				return fmt.Errorf("invalid %s value: %s", k, value)
+			}
+			break
+		}
+	}
+	return nil
 }
 
 func setEC2IMDSEndpointMode(mode *imds.EndpointModeState, keys []string) error {

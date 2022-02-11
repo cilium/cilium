@@ -84,8 +84,8 @@ type ListNatGatewayEcsMetricRequest struct {
 // ListNatGatewayEcsMetricResponse is the response struct for api ListNatGatewayEcsMetric
 type ListNatGatewayEcsMetricResponse struct {
 	*responses.BaseResponse
-	RequestId      string       `json:"RequestId" xml:"RequestId"`
 	NextToken      string       `json:"NextToken" xml:"NextToken"`
+	RequestId      string       `json:"RequestId" xml:"RequestId"`
 	MaxResults     int          `json:"MaxResults" xml:"MaxResults"`
 	MetricDataList []MetricData `json:"MetricDataList" xml:"MetricDataList"`
 }

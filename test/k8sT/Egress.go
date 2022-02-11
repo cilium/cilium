@@ -110,6 +110,7 @@ var _ = SkipDescribeIf(func() bool {
 	AfterAll(func() {
 		_ = kubectl.Delete(echoPodYAML)
 		_ = kubectl.Delete(assignIPYAML)
+		ExpectAllPodsTerminated(kubectl)
 
 		UninstallCiliumFromManifest(kubectl, ciliumFilename)
 	})

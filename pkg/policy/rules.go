@@ -114,21 +114,6 @@ func (rules ruleSlice) resolveL4EgressPolicy(policyCtx PolicyContext, ctx *Searc
 	return result, nil
 }
 
-func (rules ruleSlice) resolveCIDRPolicy(ctx *SearchContext) *CIDRPolicy {
-	result := NewCIDRPolicy()
-
-	ctx.PolicyTrace("Resolving L3 (CIDR) policy for %+v\n", ctx.To)
-
-	state := traceState{}
-	for _, r := range rules {
-		r.resolveCIDRPolicy(ctx, &state, result)
-		state.ruleID++
-	}
-
-	state.trace(len(rules), ctx)
-	return result
-}
-
 // updateEndpointsCaches iterates over a given list of rules to update the cache
 // within the rule which determines whether or not the given identity is
 // selected by that rule. If a rule in the list does select said identity, it is

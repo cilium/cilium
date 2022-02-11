@@ -18,7 +18,6 @@
 #include "nat46.h"
 #include "signal.h"
 
-#ifdef CONNTRACK
 enum {
 	ACTION_UNSPEC,
 	ACTION_CREATE,
@@ -183,31 +182,6 @@ static __always_inline bool ct_entry_alive(const struct ct_entry *entry)
 	return !entry->rx_closing || !entry->tx_closing;
 }
 
-/* Helper for holding 2nd service entry alive in nodeport case. */
-static __always_inline bool __ct_entry_keep_alive(const void *map,
-						  const void *tuple)
-{
-	struct ct_entry *entry;
-
-	/* Lookup indicates to LRU that key/value is in use. */
-	entry = map_lookup_elem(map, tuple);
-	if (entry) {
-		if (entry->node_port) {
-#ifdef NEEDS_TIMEOUT
-			__u32 lifetime = (entry->seen_non_syn ?
-					  bpf_sec_to_mono(CT_SERVICE_LIFETIME_TCP) :
-					  bpf_sec_to_mono(CT_SERVICE_LIFETIME_NONTCP)) +
-					 bpf_mono_now();
-			WRITE_ONCE(entry->lifetime, lifetime);
-#endif
-			if (!ct_entry_alive(entry))
-				ct_reset_closing(entry);
-		}
-		return true;
-	}
-	return false;
-}
-
 static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 					const void *tuple, int action, int dir,
 					struct ct_state *ct_state,
@@ -308,7 +282,7 @@ ipv6_extract_tuple(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 	ipv6_addr_copy(&tuple->daddr, (union v6addr *)&ip6->daddr);
 	ipv6_addr_copy(&tuple->saddr, (union v6addr *)&ip6->saddr);
 
-	ret = ipv6_hdrlen(ctx, l3_off, &tuple->nexthdr);
+	ret = ipv6_hdrlen(ctx, &tuple->nexthdr);
 	if (ret < 0)
 		return ret;
 
@@ -540,7 +514,7 @@ ipv4_ct_tuple_reverse(struct ipv4_ct_tuple *tuple)
 
 static __always_inline int ipv4_ct_extract_l4_ports(struct __ctx_buff *ctx,
 						    int off,
-						    int dir __maybe_unused,
+						    enum ct_dir dir __maybe_unused,
 						    struct ipv4_ct_tuple *tuple,
 						    bool *has_l4_header __maybe_unused)
 {
@@ -576,7 +550,7 @@ static __always_inline void ct4_cilium_dbg_tuple(struct __ctx_buff *ctx, __u8 ty
 }
 
 static __always_inline int
-ct_extract_ports4(struct __ctx_buff *ctx, int off, int dir,
+ct_extract_ports4(struct __ctx_buff *ctx, int off, enum ct_dir dir,
 		  struct ipv4_ct_tuple *tuple)
 {
 	int err;
@@ -617,12 +591,6 @@ ct_extract_ports4(struct __ctx_buff *ctx, int off, int dir,
 		break;
 
 	case IPPROTO_TCP:
-		err = ipv4_ct_extract_l4_ports(ctx, off, dir, tuple, NULL);
-		if (err < 0)
-			return err;
-
-		break;
-
 	case IPPROTO_UDP:
 		err = ipv4_ct_extract_l4_ports(ctx, off, dir, tuple, NULL);
 		if (err < 0)
@@ -666,7 +634,7 @@ ct_is_reply4(const void *map, struct __ctx_buff *ctx, int off,
 /* Offset must point to IPv4 header */
 static __always_inline int ct_lookup4(const void *map,
 				      struct ipv4_ct_tuple *tuple,
-				      struct __ctx_buff *ctx, int off, int dir,
+				      struct __ctx_buff *ctx, int off, enum ct_dir dir,
 				      struct ct_state *ct_state, __u32 *monitor)
 {
 	int err, ret = CT_NEW, action = ACTION_UNSPEC;
@@ -1042,99 +1010,59 @@ static __always_inline int ct_create4(const void *map_main,
 	}
 	return 0;
 }
-#else /* !CONNTRACK */
-static __always_inline int
-ct_lookup6(const void *map __maybe_unused,
-	   struct ipv6_ct_tuple *tuple __maybe_unused,
-	   struct __ctx_buff *ctx __maybe_unused, int off __maybe_unused,
-	   int dir __maybe_unused, struct ct_state *ct_state __maybe_unused,
-	   __u32 *monitor __maybe_unused)
+
+/* The function tries to determine whether the flow identified by the given
+ * CT_INGRESS tuple belongs to a NodePort traffic (i.e., outside client => N/S
+ * LB => local backend).
+ *
+ * When the client send the NodePort request, the NodePort BPF
+ * (nodeport_lb{4,6}()) creates the CT_EGRESS entry for the
+ * (saddr=client,daddr=backend) tuple. So, to derive whether the reply packet
+ * backend => client belongs to the LB flow we can query the CT_EGRESS entry.
+ */
+static __always_inline bool
+ct_has_nodeport_egress_entry4(const void *map,
+			      struct ipv4_ct_tuple *ingress_tuple)
 {
+	__u8 prev_flags = ingress_tuple->flags;
+	struct ct_entry *entry;
+
+	ingress_tuple->flags = TUPLE_F_OUT;
+	entry = map_lookup_elem(map, ingress_tuple);
+	ingress_tuple->flags = prev_flags;
+
+	if (entry)
+		return entry->node_port;
+
 	return 0;
 }
 
-static __always_inline int
-ct_is_reply4(const void *map __maybe_unused,
-	     struct __ctx_buff *ctx __maybe_unused, int off __maybe_unused,
-	     struct ipv4_ct_tuple *tuple __maybe_unused,
-	     bool *is_reply __maybe_unused)
+static __always_inline bool
+ct_has_nodeport_egress_entry6(const void *map,
+			      struct ipv6_ct_tuple *ingress_tuple)
 {
-	return 0;
-}
+	__u8 prev_flags = ingress_tuple->flags;
+	struct ct_entry *entry;
 
-static __always_inline int
-ct_lookup4(const void *map __maybe_unused,
-	   struct ipv4_ct_tuple *tuple __maybe_unused,
-	   struct __ctx_buff *ctx __maybe_unused, int off __maybe_unused,
-	   int dir __maybe_unused, struct ct_state *ct_state __maybe_unused,
-	   __u32 *monitor __maybe_unused)
-{
-	return 0;
-}
+	ingress_tuple->flags = TUPLE_F_OUT;
+	entry = map_lookup_elem(map, ingress_tuple);
+	ingress_tuple->flags = prev_flags;
 
-static __always_inline void
-ct_update6_backend_id(const void *map __maybe_unused,
-		      const struct ipv6_ct_tuple *tuple __maybe_unused,
-		      const struct ct_state *state __maybe_unused)
-{
-}
+	if (entry)
+		return entry->node_port;
 
-static __always_inline void
-ct_update6_rev_nat_index(const void *map __maybe_unused,
-			 const struct ipv6_ct_tuple *tuple __maybe_unused,
-			 const struct ct_state *state __maybe_unused)
-{
-}
-
-static __always_inline void
-ct_update6_dsr(const void *map __maybe_unused,
-	       const struct ipv6_ct_tuple *tuple __maybe_unused,
-	       const bool dsr __maybe_unused)
-{
-}
-
-static __always_inline int
-ct_create6(const void *map_main __maybe_unused,
-	   const void *map_related __maybe_unused,
-	   struct ipv6_ct_tuple *tuple __maybe_unused,
-	   struct __ctx_buff *ctx __maybe_unused, const int dir __maybe_unused,
-	   struct ct_state *ct_state __maybe_unused,
-	   bool from_proxy __maybe_unused)
-{
 	return 0;
 }
 
 static __always_inline void
-ct_update4_backend_id(const void *map __maybe_unused,
-		      const struct ipv4_ct_tuple *tuple __maybe_unused,
-		      const struct ct_state *state __maybe_unused)
+ct_update_nodeport(const void *map, const void *tuple, const bool node_port)
 {
-}
+	struct ct_entry *entry;
 
-static __always_inline void
-ct_update4_rev_nat_index(const void *map __maybe_unused,
-			 const struct ipv4_ct_tuple *tuple __maybe_unused,
-			 const struct ct_state *state __maybe_unused)
-{
-}
+	entry = map_lookup_elem(map, tuple);
+	if (!entry)
+		return;
 
-static __always_inline void
-ct_update4_dsr(const void *map __maybe_unused,
-	       const struct ipv4_ct_tuple *tuple __maybe_unused,
-	       const bool dsr __maybe_unused)
-{
+	entry->node_port = node_port;
 }
-
-static __always_inline int
-ct_create4(const void *map_main __maybe_unused,
-	   const void *map_related __maybe_unused,
-	   struct ipv4_ct_tuple *tuple __maybe_unused,
-	   struct __ctx_buff *ctx __maybe_unused, const int dir __maybe_unused,
-	   const struct ct_state *ct_state __maybe_unused,
-	   bool proxy_redirect __maybe_unused)
-{
-	return 0;
-}
-
-#endif /* CONNTRACK */
 #endif /* __LIB_CONNTRACK_H_ */

@@ -89,8 +89,8 @@ type CreateBgpGroupRequest struct {
 // CreateBgpGroupResponse is the response struct for api CreateBgpGroup
 type CreateBgpGroupResponse struct {
 	*responses.BaseResponse
-	RequestId  string `json:"RequestId" xml:"RequestId"`
 	BgpGroupId string `json:"BgpGroupId" xml:"BgpGroupId"`
+	RequestId  string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateCreateBgpGroupRequest creates a request to invoke CreateBgpGroup API

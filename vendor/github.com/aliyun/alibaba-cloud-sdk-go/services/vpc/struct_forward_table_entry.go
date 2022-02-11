@@ -17,13 +17,13 @@ package vpc
 
 // ForwardTableEntry is a nested struct in vpc response
 type ForwardTableEntry struct {
-	ForwardTableId   string `json:"ForwardTableId" xml:"ForwardTableId"`
+	Status           string `json:"Status" xml:"Status"`
 	ForwardEntryId   string `json:"ForwardEntryId" xml:"ForwardEntryId"`
-	ExternalIp       string `json:"ExternalIp" xml:"ExternalIp"`
-	ExternalPort     string `json:"ExternalPort" xml:"ExternalPort"`
-	IpProtocol       string `json:"IpProtocol" xml:"IpProtocol"`
 	InternalIp       string `json:"InternalIp" xml:"InternalIp"`
 	InternalPort     string `json:"InternalPort" xml:"InternalPort"`
-	Status           string `json:"Status" xml:"Status"`
 	ForwardEntryName string `json:"ForwardEntryName" xml:"ForwardEntryName"`
+	ForwardTableId   string `json:"ForwardTableId" xml:"ForwardTableId"`
+	IpProtocol       string `json:"IpProtocol" xml:"IpProtocol"`
+	ExternalPort     string `json:"ExternalPort" xml:"ExternalPort"`
+	ExternalIp       string `json:"ExternalIp" xml:"ExternalIp"`
 }

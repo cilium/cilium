@@ -219,6 +219,30 @@ Name                                       Labels                               
 ``controllers_failing``                                                                       Number of failing controllers
 ========================================== ================================================== ========================================================
 
+Node Connectivity
+~~~~~~~~~~~~~~~~~
+
+========================================== ====================================================================================================================================================================== ===================================================================================================================
+Name                                       Labels                                                                                                                                                                 Description
+========================================== ====================================================================================================================================================================== ===================================================================================================================
+``node_connectivity_status``               ``source_cluster``, ``source_node_name``, ``target_cluster``, ``target_node_name``, ``target_node_type``, ``type``                                                     The last observed status of both ICMP and HTTP connectivity between the current Cilium agent and other Cilium nodes
+``node_connectivity_latency_seconds``      ``address_type``, ``protocol``, ``source_cluster``, ``source_node_name``, ``target_cluster``, ``target_node_ip``, ``target_node_name``, ``target_node_type``, ``type`` The last observed latency between the current Cilium agent and other Cilium nodes in seconds
+========================================== ====================================================================================================================================================================== ===================================================================================================================
+
+Clustermesh
+~~~~~~~~~~~
+
+=============================================== ============================================================ =================================================================
+Name                                            Labels                                                       Description
+=============================================== ============================================================ =================================================================
+``clustermesh_global_services``                 ``source_cluster``, ``source_node_name``                     The total number of global services in the cluster mesh
+``clustermesh_remote_clusters``                 ``source_cluster``, ``source_node_name``                     The total number of remote clusters meshed with the local cluster
+``clustermesh_remote_cluster_failures``         ``source_cluster``, ``source_node_name``, ``target_cluster`` The total number of failures related to the remote cluster
+``clustermesh_remote_cluster_nodes``            ``source_cluster``, ``source_node_name``, ``target_cluster`` The total number of nodes in the remote cluster
+``clustermesh_remote_cluster_last_failure_ts``  ``source_cluster``, ``source_node_name``, ``target_cluster`` The timestamp of the last failure of the remote cluster
+``clustermesh_remote_cluster_readiness_status`` ``source_cluster``, ``source_node_name``, ``target_cluster`` The readiness status of the remote cluster
+=============================================== ============================================================ =================================================================
+
 Datapath
 ~~~~~~~~
 
@@ -230,6 +254,15 @@ Name                                          Labels                            
 ``datapath_conntrack_gc_key_fallbacks_total``                                                    The number of alive and deleted conntrack entries at the end of a garbage collector run labeled by datapath family
 ``datapath_conntrack_gc_entries``             ``family``                                         The number of alive and deleted conntrack entries at the end of a garbage collector run
 ``datapath_conntrack_gc_duration_seconds``    ``status``                                         Duration in seconds of the garbage collector process
+============================================= ================================================== ========================================================
+
+IPSec
+~~~~~
+
+============================================= ================================================== ========================================================
+Name                                          Labels                                             Description
+============================================= ================================================== ========================================================
+``ipsec_xfrm_error``                          ``error``, ``type``                                Total number of xfrm errors.
 ============================================= ================================================== ========================================================
 
 eBPF

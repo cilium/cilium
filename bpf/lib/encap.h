@@ -90,7 +90,7 @@ encap_remap_v6_host_address(struct __ctx_buff *ctx __maybe_unused,
 	if (ipv6_addrcmp(which, &host_ip))
 		return 0;
 	nexthdr = ip6->nexthdr;
-	ret = ipv6_hdrlen(ctx, ETH_HLEN, &nexthdr);
+	ret = ipv6_hdrlen(ctx, &nexthdr);
 	if (ret < 0)
 		return ret;
 	off = ((void *)ip6 - data) + ret;

@@ -36,7 +36,7 @@ import (
 //		- document field tag is "-"
 //		- document field tag specifies "omitempty", and is a zero value.
 //
-// Pointer and interfaces values are encoded as the value pointed to or
+// Pointer and interface values are encoded as the value pointed to or
 // contained in the interface. A nil value encodes as a null
 // value unless `omitempty` struct tag is provided.
 //
@@ -46,7 +46,7 @@ import (
 // time.Time is not supported and will cause the Marshaler to return an error. These values should be represented
 // by your application as a string or numerical representation.
 //
-// Errors that occur when marshaling will stop the marshaller, and return the error.
+// Errors that occur when marshaling will stop the marshaler, and return the error.
 //
 // Marshal cannot represent cyclic data structures and will not handle them.
 // Passing cyclic structures to Marshal will result in an infinite recursion.
@@ -54,14 +54,14 @@ type Marshaler interface {
 	MarshalSmithyDocument() ([]byte, error)
 }
 
-// Unmarshaler is an interface for a type that unmarshalls a document from its protocol-specific representation, and
+// Unmarshaler is an interface for a type that unmarshals a document from its protocol-specific representation, and
 // stores the result into the value pointed by v. If v is nil or not a pointer then InvalidUnmarshalError will be
 // returned.
 //
 // Unmarshaler supports the same encodings produced by a document Marshaler. This includes support for the `document`
-// struct field tag for controlling how struct fields are unmarshalled.
+// struct field tag for controlling how struct fields are unmarshaled.
 //
-// Both generic interface{} and concrete types are valid unmarshal destination types. When unmarshalling a document
+// Both generic interface{} and concrete types are valid unmarshal destination types. When unmarshaling a document
 // into an empty interface the Unmarshaler will store one of these values:
 //   bool,                   for boolean values
 //   document.Number,        for arbitrary-precision numbers (int64, float64, big.Int, big.Float)
@@ -70,7 +70,7 @@ type Marshaler interface {
 //   map[string]interface{}, for objects
 //   nil,                    for null values
 //
-// When unmarshalling, any error that occurs will halt the unmarshal and return the error.
+// When unmarshaling, any error that occurs will halt the unmarshal and return the error.
 type Unmarshaler interface {
 	UnmarshalSmithyDocument(v interface{}) error
 }
@@ -79,7 +79,7 @@ type noSerde interface {
 	noSmithyDocumentSerde()
 }
 
-// NoSerde is a sentinel value to indicate that a given type should not be marshaled or unmarshalled
+// NoSerde is a sentinel value to indicate that a given type should not be marshaled or unmarshaled
 // into a protocol document.
 type NoSerde struct{}
 
@@ -93,7 +93,7 @@ func IsNoSerde(x interface{}) bool {
 	return ok
 }
 
-// Number is a arbitrary precision numerical value
+// Number is an arbitrary precision numerical value
 type Number string
 
 // Int64 returns the number as a string.
@@ -110,7 +110,7 @@ func (n Number) intOfBitSize(bitSize int) (int64, error) {
 	return strconv.ParseInt(string(n), 10, bitSize)
 }
 
-// Uint64 returns the number as an uint64.
+// Uint64 returns the number as a uint64.
 func (n Number) Uint64() (uint64, error) {
 	return n.uintOfBitSize(64)
 }

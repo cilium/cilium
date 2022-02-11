@@ -90,10 +90,10 @@ type DescribeGlobalAccelerationInstancesRequest struct {
 // DescribeGlobalAccelerationInstancesResponse is the response struct for api DescribeGlobalAccelerationInstances
 type DescribeGlobalAccelerationInstancesResponse struct {
 	*responses.BaseResponse
-	RequestId                   string                                                           `json:"RequestId" xml:"RequestId"`
-	TotalCount                  int                                                              `json:"TotalCount" xml:"TotalCount"`
-	PageNumber                  int                                                              `json:"PageNumber" xml:"PageNumber"`
 	PageSize                    int                                                              `json:"PageSize" xml:"PageSize"`
+	RequestId                   string                                                           `json:"RequestId" xml:"RequestId"`
+	PageNumber                  int                                                              `json:"PageNumber" xml:"PageNumber"`
+	TotalCount                  int                                                              `json:"TotalCount" xml:"TotalCount"`
 	GlobalAccelerationInstances GlobalAccelerationInstancesInDescribeGlobalAccelerationInstances `json:"GlobalAccelerationInstances" xml:"GlobalAccelerationInstances"`
 }
 

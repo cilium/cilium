@@ -238,7 +238,8 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 		interfaceNames = append(interfaceNames, device)
 		symbols = append(symbols, symbolFromHostNetdevEp)
 		directions = append(directions, dirIngress)
-		if option.Config.EnableNodePort || option.Config.EnableHostFirewall {
+		if option.Config.EnableNodePort || option.Config.EnableHostFirewall ||
+			option.Config.EnableBandwidthManager {
 			interfaceNames = append(interfaceNames, device)
 			symbols = append(symbols, symbolToHostNetdevEp)
 			directions = append(directions, dirEgress)
@@ -363,7 +364,7 @@ func (l *Loader) replaceNetworkDatapath(ctx context.Context, interfaces []string
 	}
 	for _, iface := range option.Config.EncryptInterface {
 		if err := replaceDatapath(ctx, iface, networkObj, symbolFromNetwork, dirIngress, false, ""); err != nil {
-			log.WithField(logfields.Interface, iface).Fatal("Load encryption network failed")
+			log.WithField(logfields.Interface, iface).WithError(err).Fatal("Load encryption network failed")
 		}
 	}
 	return nil

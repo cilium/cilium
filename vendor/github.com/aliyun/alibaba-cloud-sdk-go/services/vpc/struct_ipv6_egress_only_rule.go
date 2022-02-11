@@ -17,10 +17,10 @@ package vpc
 
 // Ipv6EgressOnlyRule is a nested struct in vpc response
 type Ipv6EgressOnlyRule struct {
-	Ipv6EgressOnlyRuleId string `json:"Ipv6EgressOnlyRuleId" xml:"Ipv6EgressOnlyRuleId"`
-	InstanceType         string `json:"InstanceType" xml:"InstanceType"`
-	InstanceId           string `json:"InstanceId" xml:"InstanceId"`
 	Status               string `json:"Status" xml:"Status"`
-	Name                 string `json:"Name" xml:"Name"`
 	Description          string `json:"Description" xml:"Description"`
+	Ipv6EgressOnlyRuleId string `json:"Ipv6EgressOnlyRuleId" xml:"Ipv6EgressOnlyRuleId"`
+	InstanceId           string `json:"InstanceId" xml:"InstanceId"`
+	InstanceType         string `json:"InstanceType" xml:"InstanceType"`
+	Name                 string `json:"Name" xml:"Name"`
 }

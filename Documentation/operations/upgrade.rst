@@ -136,8 +136,8 @@ one stable release to a later stable release.
 
 .. include:: upgrade-warning.rst
 
-Step 1: Upgrade to latest patch version (Recommended)
------------------------------------------------------
+Step 1: Upgrade to latest patch version
+---------------------------------------
 
 When upgrading from one minor release to another minor release, for example
 1.x to 1.y, it is recommended to upgrade to the latest patch release for a
@@ -307,6 +307,23 @@ Annotations:
 
 .. _current_release_required_changes:
 
+.. _1.13_upgrade_notes:
+
+1.13 Upgrade Notes
+------------------
+
+Helm Options
+~~~~~~~~~~~~
+
+* ``hubble.tls.ca.cert`` has been deprecated in favor of ``tls.ca.cert``, and will be removed in 1.13.
+* ``hubble.tls.ca.key`` has been deprecated in favor of ``tls.ca.key``, and will be removed in 1.13.
+* ``clustermesh.apiserver.tls.ca.cert`` has been deprecated in favor of ``tls.ca.key``, and will be removed in 1.13.
+* ``clustermesh.apiserver.tls.ca.key`` has been deprecated in favor of ``tls.ca.key``, and will be removed in 1.13.
+* ``tls.enabled`` has been removed as this attribute is not used at all.
+
+Only one CA will be generated with either the helm or CronJob auto method, there will be a short disruption while the new CA is
+propagated to all nodes.
+
 .. _1.12_upgrade_notes:
 
 1.12 Upgrade Notes
@@ -318,6 +335,16 @@ New Options
 * ``ipv6-native-routing-cidr``: This option specifies the IPv6 CIDR for native
   routing. It must be set whenever running in direct routing mode with IPv6
   masquerading enabled.
+
+Removed Options
+~~~~~~~~~~~~~~~
+
+* The endpoint config option ``Conntrack`` was removed. The option was used
+  to disable the stateful connection tracking for the endpoint. However, many
+  Cilium features depend on the tracking. Therefore the option to disable the
+  connection tracking was removed. In addition, we deprecated the
+  ``disable-conntrack`` option and made it non-operational. It will be removed
+  in version 1.13.
 
 .. _1.11_upgrade_notes:
 

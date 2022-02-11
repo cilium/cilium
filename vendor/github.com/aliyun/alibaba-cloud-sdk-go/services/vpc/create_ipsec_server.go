@@ -91,12 +91,12 @@ type CreateIpsecServerRequest struct {
 // CreateIpsecServerResponse is the response struct for api CreateIpsecServer
 type CreateIpsecServerResponse struct {
 	*responses.BaseResponse
-	RequestId       string `json:"RequestId" xml:"RequestId"`
-	RegionId        string `json:"RegionId" xml:"RegionId"`
+	CreationTime    string `json:"CreationTime" xml:"CreationTime"`
 	IpsecServerId   string `json:"IpsecServerId" xml:"IpsecServerId"`
+	RequestId       string `json:"RequestId" xml:"RequestId"`
 	IpsecServerName string `json:"IpsecServerName" xml:"IpsecServerName"`
 	VpnGatewayId    string `json:"VpnGatewayId" xml:"VpnGatewayId"`
-	CreationTime    string `json:"CreationTime" xml:"CreationTime"`
+	RegionId        string `json:"RegionId" xml:"RegionId"`
 }
 
 // CreateCreateIpsecServerRequest creates a request to invoke CreateIpsecServer API

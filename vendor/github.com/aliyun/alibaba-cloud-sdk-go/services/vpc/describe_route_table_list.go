@@ -96,9 +96,9 @@ type DescribeRouteTableListTag struct {
 type DescribeRouteTableListResponse struct {
 	*responses.BaseResponse
 	RequestId       string          `json:"RequestId" xml:"RequestId"`
+	Success         bool            `json:"Success" xml:"Success"`
 	Code            string          `json:"Code" xml:"Code"`
 	Message         string          `json:"Message" xml:"Message"`
-	Success         bool            `json:"Success" xml:"Success"`
 	PageSize        int             `json:"PageSize" xml:"PageSize"`
 	PageNumber      int             `json:"PageNumber" xml:"PageNumber"`
 	TotalCount      int             `json:"TotalCount" xml:"TotalCount"`

@@ -194,10 +194,6 @@ __revalidate_data_pull(struct __ctx_buff *ctx, void **data, void **data_end,
 #define revalidate_data(ctx, data, data_end, ip)			\
 	__revalidate_data_pull(ctx, data, data_end, (void **)ip, sizeof(**ip), false)
 
-#define revalidate_data_with_eth_hlen(ctx, data, data_end, ip, eth_len)		\
-	____revalidate_data_pull(ctx, data, data_end, (void **)ip,	\
-				 sizeof(**ip), false, eth_len)
-
 /* Macros for working with L3 cilium defined IPV6 addresses */
 #define BPF_V6(dst, ...)	BPF_V6_1(dst, fetch_ipv6(__VA_ARGS__))
 #define BPF_V6_1(dst, ...)	BPF_V6_4(dst, __VA_ARGS__)
@@ -437,6 +433,7 @@ enum {
 #define DROP_PROXY_UNKNOWN_PROTO	-180
 #define DROP_POLICY_DENY	-181
 #define DROP_VLAN_FILTERED	-182
+#define DROP_INVALID_VNI	-183
 
 #define NAT_PUNT_TO_STACK	DROP_NAT_NOT_NEEDED
 
@@ -463,9 +460,11 @@ enum {
 #define LB_LOOKUP_SCOPE_INT	1
 
 /* Cilium metrics direction for dropping/forwarding packet */
-#define METRIC_INGRESS  1
-#define METRIC_EGRESS   2
-#define METRIC_SERVICE  3
+enum metric_dir {
+	METRIC_INGRESS = 1,
+	METRIC_EGRESS,
+	METRIC_SERVICE
+} __packed;
 
 /* Magic ctx->mark identifies packets origination and encryption status.
  *
@@ -534,8 +533,8 @@ enum {
  * [1]:  https://www.iana.org/assignments/ipv6-parameters/ipv6-parameters.xhtml#ipv6-parameters-2
  */
 #define DSR_IPV6_OPT_TYPE	0x1B
-#define DSR_IPV6_OPT_LEN	0x14	/* to store ipv6 addr + port */
-#define DSR_IPV6_EXT_LEN	0x2	/* = (sizeof(dsr_opt_v6) - 8) / 8 */
+#define DSR_IPV6_OPT_LEN	(sizeof(struct dsr_opt_v6) - 4)
+#define DSR_IPV6_EXT_LEN	((sizeof(struct dsr_opt_v6) - 8) / 8)
 
 /* We cap key index at 4 bits because mark value is used to map ctx to key */
 #define MAX_KEY_INDEX 15
@@ -612,9 +611,11 @@ enum {
 #define TUPLE_F_RELATED		2	/* Flow represents related packets */
 #define TUPLE_F_SERVICE		4	/* Flow represents packets to service */
 
-#define CT_EGRESS 0
-#define CT_INGRESS 1
-#define CT_SERVICE 2
+enum ct_dir {
+	CT_EGRESS,
+	CT_INGRESS,
+	CT_SERVICE,
+} __packed;
 
 #ifdef ENABLE_NODEPORT
 #define NAT_MIN_EGRESS		NODEPORT_PORT_MIN_NAT
@@ -622,13 +623,13 @@ enum {
 #define NAT_MIN_EGRESS		EPHEMERAL_MIN
 #endif
 
-enum {
+enum ct_status {
 	CT_NEW,
 	CT_ESTABLISHED,
 	CT_REPLY,
 	CT_RELATED,
 	CT_REOPENED,
-};
+} __packed;
 
 /* Service flags (lb{4,6}_service->flags) */
 enum {

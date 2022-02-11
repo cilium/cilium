@@ -224,6 +224,7 @@ function bpf_compile()
 	      -Wno-unknown-warning-option			\
 	      -Wno-gnu-variable-sized-type-not-at-end		\
 	      -Wdeclaration-after-statement			\
+	      -Wimplicit-int-conversion -Wenum-conversion	\
 	      -I. -I$DIR -I$LIB -I$LIB/include			\
 	      -D__NR_CPUS__=$NR_CPUS				\
 	      -DENABLE_ARP_RESPONDER=1				\

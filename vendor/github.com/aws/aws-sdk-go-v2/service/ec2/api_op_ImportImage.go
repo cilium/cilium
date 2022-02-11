@@ -33,7 +33,7 @@ func (c *Client) ImportImage(ctx context.Context, params *ImportImageInput, optF
 
 type ImportImageInput struct {
 
-	// The architecture of the virtual machine. Valid values: i386 | x86_64 | arm64
+	// The architecture of the virtual machine. Valid values: i386 | x86_64
 	Architecture *string
 
 	// The boot mode of the virtual machine.

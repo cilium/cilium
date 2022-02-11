@@ -8,7 +8,6 @@ permissions: read-all
 jobs:
   policy-stress-test:
     name: Start Nightly Policy Stress tests
-    if: github.repository == 'cilium/cilium'
     runs-on: ubuntu-18.04
     steps:
       - name: Request GKE test cluster
@@ -20,7 +19,6 @@ jobs:
           args: --namespace=test-clusters --image=quay.io/cilium/cilium-test-ci:${{ github.sha }} "/usr/local/bin/cilium-test-gke.sh" "quay.io/cilium/cilium-ci:${{ github.sha }}" "quay.io/cilium/operator-generic-ci:${{ github.sha }}" "quay.io/cilium/hubble-relay-ci:${{ github.sha }}" "NightlyPolicyStress"
   baseline-test:
     name: Start performance test
-    if: github.repository == 'cilium/cilium'
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579

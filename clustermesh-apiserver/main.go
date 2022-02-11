@@ -89,6 +89,13 @@ var (
 
 			runServer(cmd)
 		},
+		PreRun: func(cmd *cobra.Command, args []string) {
+			option.Config.Populate()
+			if option.Config.Debug {
+				log.Logger.SetLevel(logrus.DebugLevel)
+			}
+			option.LogRegisteredOptions(log)
+		},
 	}
 
 	mockFile        string
@@ -211,7 +218,7 @@ func runApiserver() error {
 	option.BindEnv(option.KVstorePeriodicSync)
 
 	flags.Var(option.NewNamedMapOptions(option.KVStoreOpt, &option.Config.KVStoreOpt, nil),
-		option.KVStoreOpt, "Key-value store options")
+		option.KVStoreOpt, "Key-value store options e.g. etcd.address=127.0.0.1:4001")
 	option.BindEnv(option.KVStoreOpt)
 
 	flags.StringVar(&cfg.serviceProxyName, option.K8sServiceProxyName, "", "Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)")
@@ -221,7 +228,6 @@ func runApiserver() error {
 	option.BindEnv(option.AllocatorListTimeoutName)
 
 	viper.BindPFlags(flags)
-	option.Config.Populate()
 
 	if err := rootCmd.Execute(); err != nil {
 		return err
@@ -621,5 +627,4 @@ func runServer(cmd *cobra.Command) {
 
 	<-shutdownSignal
 	log.Info("Received termination signal. Shutting down")
-	return
 }

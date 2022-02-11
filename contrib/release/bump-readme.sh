@@ -41,7 +41,7 @@ for release in $(grep "General Announcement" README.rst \
     echo "  $current on $old_date with project $old_proj to"
     echo "  $latest on $new_date with project $new_proj"
     sed -i 's/\('$release'.*\)'$old_date'/\1'$new_date'/g' README.rst
-    sed -i 's/'$current'/'$latest'/g' README.rst
+    sed -i 's/v'$current'/v'$latest'/g' README.rst
     sed -i 's/\(projects\/\)'$old_proj'/\1'$new_proj'/g' $ACTS_YAML
 done
 

@@ -39,7 +39,7 @@ ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id, __u32 *monitor)
 	ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6->saddr);
 	ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->daddr);
 	ipv6_addr_copy(&orig_dip, (union v6addr *)&ip6->daddr);
-	hdrlen = ipv6_hdrlen(ctx, ETH_HLEN, &tuple.nexthdr);
+	hdrlen = ipv6_hdrlen(ctx, &tuple.nexthdr);
 	if (hdrlen < 0)
 		return hdrlen;
 	l4_off = l3_off + hdrlen;
@@ -128,7 +128,7 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id)
 	tuple.nexthdr = ip6->nexthdr;
 	ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6->saddr);
 	ipv6_addr_copy(&orig_sip, (union v6addr *)&ip6->saddr);
-	hdrlen = ipv6_hdrlen(ctx, ETH_HLEN, &tuple.nexthdr);
+	hdrlen = ipv6_hdrlen(ctx, &tuple.nexthdr);
 	if (hdrlen < 0)
 		return hdrlen;
 	l4_off = ETH_HLEN + hdrlen;

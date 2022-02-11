@@ -84,23 +84,23 @@ type CreateTrafficMirrorFilterRulesRequest struct {
 
 // CreateTrafficMirrorFilterRulesIngressRules is a repeated param struct in CreateTrafficMirrorFilterRulesRequest
 type CreateTrafficMirrorFilterRulesIngressRules struct {
-	Priority             string `name:"Priority"`
 	Action               string `name:"Action"`
-	Protocol             string `name:"Protocol"`
-	DestinationCidrBlock string `name:"DestinationCidrBlock"`
 	SourceCidrBlock      string `name:"SourceCidrBlock"`
+	Protocol             string `name:"Protocol"`
 	DestinationPortRange string `name:"DestinationPortRange"`
+	Priority             string `name:"Priority"`
+	DestinationCidrBlock string `name:"DestinationCidrBlock"`
 	SourcePortRange      string `name:"SourcePortRange"`
 }
 
 // CreateTrafficMirrorFilterRulesEgressRules is a repeated param struct in CreateTrafficMirrorFilterRulesRequest
 type CreateTrafficMirrorFilterRulesEgressRules struct {
-	Priority             string `name:"Priority"`
 	Action               string `name:"Action"`
-	Protocol             string `name:"Protocol"`
-	DestinationCidrBlock string `name:"DestinationCidrBlock"`
 	SourceCidrBlock      string `name:"SourceCidrBlock"`
+	Protocol             string `name:"Protocol"`
 	DestinationPortRange string `name:"DestinationPortRange"`
+	Priority             string `name:"Priority"`
+	DestinationCidrBlock string `name:"DestinationCidrBlock"`
 	SourcePortRange      string `name:"SourcePortRange"`
 }
 

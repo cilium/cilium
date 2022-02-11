@@ -2,15 +2,15 @@
 
 ## cilium-operator-azure completion powershell
 
-generate the autocompletion script for powershell
+Generate the autocompletion script for powershell
 
 ### Synopsis
-
 
 Generate the autocompletion script for powershell.
 
 To load completions in your current shell session:
-PS C:\> cilium-operator-azure completion powershell | Out-String | Invoke-Expression
+
+	cilium-operator-azure completion powershell | Out-String | Invoke-Expression
 
 To load completions for every new session, add the output of the above command
 to your powershell profile.
@@ -29,5 +29,5 @@ cilium-operator-azure completion powershell [flags]
 
 ### SEE ALSO
 
-* [cilium-operator-azure completion](cilium-operator-azure_completion.html)	 - generate the autocompletion script for the specified shell
+* [cilium-operator-azure completion](cilium-operator-azure_completion.html)	 - Generate the autocompletion script for the specified shell
 

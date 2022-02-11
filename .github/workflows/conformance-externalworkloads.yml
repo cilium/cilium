@@ -68,7 +68,7 @@ env:
   vmName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-vm
   zone: us-west2-a
   vmStartupScript: .github/gcp-vm-startup.sh
-  cilium_cli_version: v0.10.0
+  cilium_cli_version: v0.10.1
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
@@ -79,7 +79,7 @@ jobs:
         github.event.comment.body == '/ci-external-workloads' ||
         github.event.comment.body == '/test'
       )) ||
-      (github.event_name == 'schedule' && github.repository == 'cilium/cilium') ||
+      github.event_name == 'schedule' ||
       github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     outputs:
@@ -119,7 +119,7 @@ jobs:
         github.event.comment.body == '/ci-external-workloads' ||
         (github.event.comment.body == '/test' && needs.check_changes.outputs.tested == 'true')
       )) ||
-      (github.event_name == 'schedule' && github.repository == 'cilium/cilium') ||
+      github.event_name == 'schedule' ||
       github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -182,7 +182,7 @@ jobs:
           cilium version
 
       - name: Set up gcloud CLI
-        uses: google-github-actions/setup-gcloud@a45a0825993ace67ae6e11cf3011b3e7d6795f82
+        uses: google-github-actions/setup-gcloud@e0f83f24f541c30f1e9fe3c966963a10b8e647f5
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           service_account_key: ${{ secrets.GCP_PR_SA_KEY }}
@@ -216,7 +216,7 @@ jobs:
           gcloud container clusters create ${{ env.clusterName }} \
             --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
             --zone ${{ env.zone }} \
-            --node-taints node.cilium.io/agent-not-ready=true:NoSchedule \
+            --node-taints node.cilium.io/agent-not-ready=true:NoExecute \
             --image-type COS_CONTAINERD \
             --num-nodes 2 \
             --machine-type e2-custom-2-4096 \

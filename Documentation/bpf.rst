@@ -4581,12 +4581,22 @@ legacy cBPF:
 
 ..
 
-* **gobpf**
+* **cilium/ebpf**
 
-  gobpf provides go bindings for the bcc framework as well as low-level routines in
-  order to load and use BPF programs from ELF files.
+  ``cilium/ebpf`` (ebpf-go) is a pure Go library that provides utilities for
+  loading, compiling, and debugging eBPF programs. It has minimal external
+  dependencies and is intended to be used in long-running processes.
 
-  https://github.com/iovisor/gobpf
+  Its ``bpf2go`` utility automates away compiling eBPF C programs and embedding
+  them into Go binaries.
+
+  It implements attaching programs to various kernel hooks, as well as kprobes
+  and uprobes for tracing arbitrary kernel and user space functions. It also
+  features a complete assembler that allows constructing eBPF programs at
+  runtime using Go, or modifying them after they've been loaded from an ELF
+  object.
+
+  https://github.com/cilium/ebpf
 
 ..
 

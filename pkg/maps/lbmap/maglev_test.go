@@ -10,8 +10,9 @@ import (
 	"net"
 	"testing"
 
-	"golang.org/x/sys/unix"
 	. "gopkg.in/check.v1"
+
+	"github.com/cilium/ebpf/rlimit"
 
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
@@ -25,7 +26,6 @@ func Test(t *testing.T) {
 
 type MaglevSuite struct {
 	prevMaglevTableSize int
-	oldLim              unix.Rlimit
 }
 
 var _ = Suite(&MaglevSuite{})
@@ -44,14 +44,8 @@ func (s *MaglevSuite) SetUpSuite(c *C) {
 
 	s.prevMaglevTableSize = option.Config.MaglevTableSize
 
-	tmpLim := unix.Rlimit{
-		Cur: unix.RLIM_INFINITY,
-		Max: unix.RLIM_INFINITY,
-	}
-	err = unix.Getrlimit(unix.RLIMIT_MEMLOCK, &s.oldLim)
-	c.Assert(err, IsNil)
 	// Otherwise opening the map might fail with EPERM
-	err = unix.Setrlimit(unix.RLIMIT_MEMLOCK, &tmpLim)
+	err = rlimit.RemoveMemlock()
 	c.Assert(err, IsNil)
 
 	Init(InitParams{
@@ -65,7 +59,6 @@ func (s *MaglevSuite) SetUpSuite(c *C) {
 
 func (s *MaglevSuite) TeadDownTest(c *C) {
 	option.Config.MaglevTableSize = s.prevMaglevTableSize
-	unix.Setrlimit(unix.RLIMIT_MEMLOCK, &s.oldLim)
 }
 
 func (s *MaglevSuite) TestInitMaps(c *C) {

@@ -26,11 +26,11 @@ type InitializeHandler interface {
 // initialize step. Delegates to the next InitializeHandler for further
 // processing.
 type InitializeMiddleware interface {
-	// Unique ID for the middleware in the InitializeStep. The step does not
+	// ID returns a unique ID for the middleware in the InitializeStep. The step does not
 	// allow duplicate IDs.
 	ID() string
 
-	// Invokes the middleware behavior which must delegate to the next handler
+	// HandleInitialize invokes the middleware behavior which must delegate to the next handler
 	// for the middleware chain to continue. The method must return a result or
 	// error to its caller.
 	HandleInitialize(ctx context.Context, in InitializeInput, next InitializeHandler) (
@@ -70,7 +70,7 @@ func (s initializeMiddlewareFunc) HandleInitialize(ctx context.Context, in Initi
 var _ InitializeMiddleware = (initializeMiddlewareFunc{})
 
 // InitializeStep provides the ordered grouping of InitializeMiddleware to be
-// invoked on an handler.
+// invoked on a handler.
 type InitializeStep struct {
 	ids *orderedIDs
 }
@@ -85,7 +85,7 @@ func NewInitializeStep() *InitializeStep {
 
 var _ Middleware = (*InitializeStep)(nil)
 
-// ID returns the unique id of the step as a middleware.
+// ID returns the unique ID of the step as a middleware.
 func (s *InitializeStep) ID() string {
 	return "Initialize stack step"
 }
@@ -130,8 +130,8 @@ func (s *InitializeStep) Add(m InitializeMiddleware, pos RelativePosition) error
 	return s.ids.Add(m, pos)
 }
 
-// Insert injects the middleware relative to an existing middleware id.
-// Return error if the original middleware does not exist, or the middleware
+// Insert injects the middleware relative to an existing middleware ID.
+// Returns error if the original middleware does not exist, or the middleware
 // being added already exists.
 func (s *InitializeStep) Insert(m InitializeMiddleware, relativeTo string, pos RelativePosition) error {
 	return s.ids.Insert(m, relativeTo, pos)
@@ -176,7 +176,7 @@ type initializeWrapHandler struct {
 
 var _ InitializeHandler = (*initializeWrapHandler)(nil)
 
-// Implements InitializeHandler, converts types and delegates to underlying
+// HandleInitialize implements InitializeHandler, converts types and delegates to underlying
 // generic handler.
 func (w initializeWrapHandler) HandleInitialize(ctx context.Context, in InitializeInput) (
 	out InitializeOutput, metadata Metadata, err error,

@@ -2,10 +2,9 @@
 
 ## cilium-operator completion
 
-generate the autocompletion script for the specified shell
+Generate the autocompletion script for the specified shell
 
 ### Synopsis
-
 
 Generate the autocompletion script for cilium-operator for the specified shell.
 See each sub-command's help for details on how to use the generated script.
@@ -20,8 +19,8 @@ See each sub-command's help for details on how to use the generated script.
 ### SEE ALSO
 
 * [cilium-operator](cilium-operator.html)	 - Run cilium-operator
-* [cilium-operator completion bash](cilium-operator_completion_bash.html)	 - generate the autocompletion script for bash
-* [cilium-operator completion fish](cilium-operator_completion_fish.html)	 - generate the autocompletion script for fish
-* [cilium-operator completion powershell](cilium-operator_completion_powershell.html)	 - generate the autocompletion script for powershell
-* [cilium-operator completion zsh](cilium-operator_completion_zsh.html)	 - generate the autocompletion script for zsh
+* [cilium-operator completion bash](cilium-operator_completion_bash.html)	 - Generate the autocompletion script for bash
+* [cilium-operator completion fish](cilium-operator_completion_fish.html)	 - Generate the autocompletion script for fish
+* [cilium-operator completion powershell](cilium-operator_completion_powershell.html)	 - Generate the autocompletion script for powershell
+* [cilium-operator completion zsh](cilium-operator_completion_zsh.html)	 - Generate the autocompletion script for zsh
 

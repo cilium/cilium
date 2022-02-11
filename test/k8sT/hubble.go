@@ -164,13 +164,10 @@ var _ = Describe("K8sHubbleTest", func() {
 			kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 		})
 
-		AfterEach(func() {
-			ExpectAllPodsTerminated(kubectl)
-		})
-
 		AfterAll(func() {
 			kubectl.Delete(demoPath)
 			kubectl.NamespaceDelete(namespaceForTest)
+			ExpectAllPodsTerminated(kubectl)
 
 			kubectl.DeleteHubbleRelay(hubbleRelayNamespace)
 			UninstallCiliumFromManifest(kubectl, ciliumFilename)

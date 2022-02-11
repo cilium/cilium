@@ -15,7 +15,7 @@
 
 #if defined(ENABLE_NAT46) && \
     (!defined(ENABLE_IPV4) || !defined(ENABLE_IPV6) || \
-     !defined(CONNTRACK) || !defined(ENABLE_HOST_REDIRECT))
+     !defined(ENABLE_HOST_REDIRECT))
 #error "ENABLE_NAT46 requisite options are not configured, see lib/nat46.h."
 #endif
 
@@ -131,6 +131,7 @@ static __always_inline int icmp6_to_icmp4(struct __ctx_buff *ctx, int nh_off)
 {
 	struct icmphdr icmp4 __align_stack_8 = {};
 	struct icmp6hdr icmp6 __align_stack_8;
+	__u32 mtu;
 
 	if (ctx_load_bytes(ctx, nh_off, &icmp6, sizeof(icmp6)) < 0)
 		return DROP_INVALID;
@@ -170,10 +171,12 @@ static __always_inline int icmp6_to_icmp4(struct __ctx_buff *ctx, int nh_off)
 		icmp4.type = ICMP_DEST_UNREACH;
 		icmp4.code = ICMP_FRAG_NEEDED;
 		/* FIXME */
-		if (icmp6.icmp6_mtu)
-			icmp4.un.frag.mtu = bpf_htons(bpf_ntohl(icmp6.icmp6_mtu));
-		else
+		if (icmp6.icmp6_mtu) {
+			mtu = bpf_ntohl(icmp6.icmp6_mtu);
+			icmp4.un.frag.mtu = bpf_htons((__u16)mtu);
+		} else {
 			icmp4.un.frag.mtu = bpf_htons(1500);
+		}
 		break;
 	case ICMPV6_TIME_EXCEED:
 		icmp4.type = ICMP_TIME_EXCEEDED;
@@ -266,7 +269,7 @@ static __always_inline int ipv4_to_ipv6(struct __ctx_buff *ctx, struct iphdr *ip
 	else
 		v6.nexthdr = v4.protocol;
 	v6.hop_limit = v4.ttl;
-	v4hdr_len = (v4.ihl << 2);
+	v4hdr_len = (__be16)(v4.ihl << 2);
 	v6.payload_len = bpf_htons(bpf_ntohs(v4.tot_len) - v4hdr_len);
 
 	if (ctx_change_proto(ctx, bpf_htons(ETH_P_IPV6), 0) < 0) {
@@ -317,21 +320,20 @@ static __always_inline int ipv4_to_ipv6(struct __ctx_buff *ctx, struct iphdr *ip
  * s4 = <ipv4-range>.<lxc-id>
  * d4 = d6[96 .. 127]
  */
-static __always_inline int ipv6_to_ipv4(struct __ctx_buff *ctx, int nh_off,
-					__be32 saddr)
+static __always_inline int ipv6_to_ipv4(struct __ctx_buff *ctx, __be32 saddr)
 {
 	struct ipv6hdr v6;
 	struct iphdr v4 = {};
-	int csum_off;
 	__be32 csum = 0;
 	__be16 protocol = bpf_htons(ETH_P_IP);
 	__u64 csum_flags = BPF_F_PSEUDO_HDR;
+	int csum_off, nh_off = ETH_HLEN;
 
 	if (ctx_load_bytes(ctx, nh_off, &v6, sizeof(v6)) < 0)
 		return DROP_INVALID;
 
 	/* Drop frames which carry extensions headers */
-	if (ipv6_hdrlen(ctx, nh_off, &v6.nexthdr) != sizeof(v6))
+	if (ipv6_hdrlen(ctx, &v6.nexthdr) != sizeof(v6))
 		return DROP_INVALID_EXTHDR;
 
 	/* build v4 header */

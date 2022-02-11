@@ -17,14 +17,14 @@ package vpc
 
 // NetworkAcl is a nested struct in vpc response
 type NetworkAcl struct {
-	NetworkAclId      string                                 `json:"NetworkAclId" xml:"NetworkAclId"`
-	RegionId          string                                 `json:"RegionId" xml:"RegionId"`
-	NetworkAclName    string                                 `json:"NetworkAclName" xml:"NetworkAclName"`
-	Description       string                                 `json:"Description" xml:"Description"`
+	Status            string                                 `json:"Status" xml:"Status"`
 	VpcId             string                                 `json:"VpcId" xml:"VpcId"`
 	CreationTime      string                                 `json:"CreationTime" xml:"CreationTime"`
-	Status            string                                 `json:"Status" xml:"Status"`
+	Description       string                                 `json:"Description" xml:"Description"`
+	NetworkAclName    string                                 `json:"NetworkAclName" xml:"NetworkAclName"`
+	NetworkAclId      string                                 `json:"NetworkAclId" xml:"NetworkAclId"`
 	OwnerId           int64                                  `json:"OwnerId" xml:"OwnerId"`
+	RegionId          string                                 `json:"RegionId" xml:"RegionId"`
 	IngressAclEntries IngressAclEntriesInDescribeNetworkAcls `json:"IngressAclEntries" xml:"IngressAclEntries"`
 	EgressAclEntries  EgressAclEntriesInDescribeNetworkAcls  `json:"EgressAclEntries" xml:"EgressAclEntries"`
 	Resources         ResourcesInDescribeNetworkAcls         `json:"Resources" xml:"Resources"`

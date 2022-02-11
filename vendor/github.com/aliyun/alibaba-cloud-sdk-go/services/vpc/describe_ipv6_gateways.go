@@ -85,10 +85,10 @@ type DescribeIpv6GatewaysRequest struct {
 // DescribeIpv6GatewaysResponse is the response struct for api DescribeIpv6Gateways
 type DescribeIpv6GatewaysResponse struct {
 	*responses.BaseResponse
-	RequestId    string       `json:"RequestId" xml:"RequestId"`
-	TotalCount   int          `json:"TotalCount" xml:"TotalCount"`
-	PageNumber   int          `json:"PageNumber" xml:"PageNumber"`
 	PageSize     int          `json:"PageSize" xml:"PageSize"`
+	RequestId    string       `json:"RequestId" xml:"RequestId"`
+	PageNumber   int          `json:"PageNumber" xml:"PageNumber"`
+	TotalCount   int          `json:"TotalCount" xml:"TotalCount"`
 	Ipv6Gateways Ipv6Gateways `json:"Ipv6Gateways" xml:"Ipv6Gateways"`
 }
 

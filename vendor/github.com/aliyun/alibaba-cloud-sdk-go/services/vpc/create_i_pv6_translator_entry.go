@@ -91,8 +91,8 @@ type CreateIPv6TranslatorEntryRequest struct {
 // CreateIPv6TranslatorEntryResponse is the response struct for api CreateIPv6TranslatorEntry
 type CreateIPv6TranslatorEntryResponse struct {
 	*responses.BaseResponse
-	RequestId             string `json:"RequestId" xml:"RequestId"`
 	Ipv6TranslatorEntryId string `json:"Ipv6TranslatorEntryId" xml:"Ipv6TranslatorEntryId"`
+	RequestId             string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateCreateIPv6TranslatorEntryRequest creates a request to invoke CreateIPv6TranslatorEntry API

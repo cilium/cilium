@@ -17,19 +17,19 @@ package vpc
 
 // Ipv6TranslatorEntry is a nested struct in vpc response
 type Ipv6TranslatorEntry struct {
+	AclType               string `json:"AclType" xml:"AclType"`
+	EntryStatus           string `json:"EntryStatus" xml:"EntryStatus"`
+	TransProtocol         string `json:"TransProtocol" xml:"TransProtocol"`
 	Ipv6TranslatorId      string `json:"Ipv6TranslatorId" xml:"Ipv6TranslatorId"`
+	EntryDescription      string `json:"EntryDescription" xml:"EntryDescription"`
 	Ipv6TranslatorEntryId string `json:"Ipv6TranslatorEntryId" xml:"Ipv6TranslatorEntryId"`
-	AllocateIpv6Addr      string `json:"AllocateIpv6Addr" xml:"AllocateIpv6Addr"`
 	AllocateIpv6Port      int    `json:"AllocateIpv6Port" xml:"AllocateIpv6Port"`
 	BackendIpv4Addr       string `json:"BackendIpv4Addr" xml:"BackendIpv4Addr"`
 	BackendIpv4Port       string `json:"BackendIpv4Port" xml:"BackendIpv4Port"`
-	TransProtocol         string `json:"TransProtocol" xml:"TransProtocol"`
-	EntryBandwidth        string `json:"EntryBandwidth" xml:"EntryBandwidth"`
-	EntryDescription      string `json:"EntryDescription" xml:"EntryDescription"`
-	EntryName             string `json:"EntryName" xml:"EntryName"`
-	EntryStatus           string `json:"EntryStatus" xml:"EntryStatus"`
-	AclStatus             string `json:"AclStatus" xml:"AclStatus"`
-	AclType               string `json:"AclType" xml:"AclType"`
-	AclId                 string `json:"AclId" xml:"AclId"`
 	RegionId              string `json:"RegionId" xml:"RegionId"`
+	EntryBandwidth        string `json:"EntryBandwidth" xml:"EntryBandwidth"`
+	AclId                 string `json:"AclId" xml:"AclId"`
+	EntryName             string `json:"EntryName" xml:"EntryName"`
+	AclStatus             string `json:"AclStatus" xml:"AclStatus"`
+	AllocateIpv6Addr      string `json:"AllocateIpv6Addr" xml:"AllocateIpv6Addr"`
 }

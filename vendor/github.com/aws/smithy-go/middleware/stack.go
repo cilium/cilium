@@ -7,7 +7,7 @@ import (
 )
 
 // Stack provides protocol and transport agnostic set of middleware split into
-// distinct steps. Steps have specific transitions between them, that is
+// distinct steps. Steps have specific transitions between them, that are
 // managed by the individual step.
 //
 // Steps are composed as middleware around the underlying handler in the
@@ -15,7 +15,7 @@ import (
 //
 //   Initialize -> Serialize -> Build -> Finalize -> Deserialize -> Handler
 //
-// Any middleware within the chain may chose to stop and return an error or
+// Any middleware within the chain may choose to stop and return an error or
 // response. Since the middleware decorate the handler like a call stack, each
 // middleware will receive the result of the next middleware in the chain.
 // Middleware that does not need to react to an input, or result must forward
@@ -23,7 +23,7 @@ import (
 //
 //   Initialize <- Serialize -> Build -> Finalize <- Deserialize <- Handler
 type Stack struct {
-	// Initialize Prepares the input, and sets any default parameters as
+	// Initialize prepares the input, and sets any default parameters as
 	// needed, (e.g. idempotency token, and presigned URLs).
 	//
 	// Takes Input Parameters, and returns result or error.
@@ -31,7 +31,7 @@ type Stack struct {
 	// Receives result or error from Serialize step.
 	Initialize *InitializeStep
 
-	// Serializes the prepared input into a data structure that can be consumed
+	// Serialize serializes the prepared input into a data structure that can be consumed
 	// by the target transport's message, (e.g. REST-JSON serialization)
 	//
 	// Converts Input Parameters into a Request, and returns the result or error.
@@ -39,7 +39,7 @@ type Stack struct {
 	// Receives result or error from Build step.
 	Serialize *SerializeStep
 
-	// Adds additional metadata to the serialized transport message,
+	// Build adds additional metadata to the serialized transport message
 	// (e.g. HTTP's Content-Length header, or body checksum). Decorations and
 	// modifications to the message should be copied to all message attempts.
 	//
@@ -48,9 +48,9 @@ type Stack struct {
 	// Receives result or error from Finalize step.
 	Build *BuildStep
 
-	// Preforms final preparations needed before sending the message. The
+	// Finalize performs final preparations needed before sending the message. The
 	// message should already be complete by this stage, and is only alternated
-	// to meet the expectations of the recipient, (e.g. Retry and AWS SigV4
+	// to meet the expectations of the recipient (e.g. Retry and AWS SigV4
 	// request signing)
 	//
 	// Takes Request, and returns result or error.
@@ -58,7 +58,7 @@ type Stack struct {
 	// Receives result or error from Deserialize step.
 	Finalize *FinalizeStep
 
-	// Reacts to the handler's response returned by the recipient of the request
+	// Deserialize reacts to the handler's response returned by the recipient of the request
 	// message. Deserializes the response into a structured type or error above
 	// stacks can react to.
 	//

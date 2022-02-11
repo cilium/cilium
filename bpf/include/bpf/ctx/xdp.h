@@ -19,6 +19,7 @@
 #define CTX_ACT_OK			XDP_PASS
 #define CTX_ACT_DROP			XDP_DROP
 #define CTX_ACT_TX			XDP_TX	/* hairpin only */
+#define CTX_ACT_REDIRECT		XDP_REDIRECT
 
 #define CTX_DIRECT_WRITE_OK		1
 
@@ -309,7 +310,7 @@ ctx_load_meta(const struct xdp_md *ctx __maybe_unused, const __u64 off)
 	return 0;
 }
 
-static __always_inline __maybe_unused __u32
+static __always_inline __maybe_unused __u16
 ctx_get_protocol(const struct xdp_md *ctx)
 {
 	void *data_end = ctx_data_end(ctx);

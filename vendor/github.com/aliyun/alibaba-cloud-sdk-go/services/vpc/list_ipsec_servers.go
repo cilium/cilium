@@ -83,10 +83,10 @@ type ListIpsecServersRequest struct {
 // ListIpsecServersResponse is the response struct for api ListIpsecServers
 type ListIpsecServersResponse struct {
 	*responses.BaseResponse
-	RequestId    string        `json:"RequestId" xml:"RequestId"`
 	NextToken    string        `json:"NextToken" xml:"NextToken"`
-	MaxResults   int           `json:"MaxResults" xml:"MaxResults"`
+	RequestId    string        `json:"RequestId" xml:"RequestId"`
 	TotalCount   int           `json:"TotalCount" xml:"TotalCount"`
+	MaxResults   int           `json:"MaxResults" xml:"MaxResults"`
 	IpsecServers []IpsecServer `json:"IpsecServers" xml:"IpsecServers"`
 }
 

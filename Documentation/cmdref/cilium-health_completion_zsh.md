@@ -2,23 +2,26 @@
 
 ## cilium-health completion zsh
 
-generate the autocompletion script for zsh
+Generate the autocompletion script for zsh
 
 ### Synopsis
-
 
 Generate the autocompletion script for the zsh shell.
 
 If shell completion is not already enabled in your environment you will need
 to enable it.  You can execute the following once:
 
-$ echo "autoload -U compinit; compinit" >> ~/.zshrc
+	echo "autoload -U compinit; compinit" >> ~/.zshrc
 
 To load completions for every new session, execute once:
-# Linux:
-$ cilium-health completion zsh > "${fpath[1]}/_cilium-health"
-# macOS:
-$ cilium-health completion zsh > /usr/local/share/zsh/site-functions/_cilium-health
+
+#### Linux:
+
+	cilium-health completion zsh > "${fpath[1]}/_cilium-health"
+
+#### macOS:
+
+	cilium-health completion zsh > /usr/local/share/zsh/site-functions/_cilium-health
 
 You will need to start a new shell for this setup to take effect.
 
@@ -40,10 +43,10 @@ cilium-health completion zsh [flags]
   -D, --debug                Enable debug messages
   -H, --host string          URI to cilium-health server API
       --log-driver strings   Logging endpoints to use for example syslog
-      --log-opt map          Log driver options for cilium-health (default map[])
+      --log-opt map          Log driver options for cilium-health e.g. syslog.level=info,syslog.facility=local5,syslog.tag=cilium-agent
 ```
 
 ### SEE ALSO
 
-* [cilium-health completion](cilium-health_completion.html)	 - generate the autocompletion script for the specified shell
+* [cilium-health completion](cilium-health_completion.html)	 - Generate the autocompletion script for the specified shell
 

@@ -84,10 +84,10 @@ type DescribeIPv6TranslatorAclListsRequest struct {
 // DescribeIPv6TranslatorAclListsResponse is the response struct for api DescribeIPv6TranslatorAclLists
 type DescribeIPv6TranslatorAclListsResponse struct {
 	*responses.BaseResponse
-	RequestId          string             `json:"RequestId" xml:"RequestId"`
-	TotalCount         int                `json:"TotalCount" xml:"TotalCount"`
-	PageNumber         int                `json:"PageNumber" xml:"PageNumber"`
 	PageSize           int                `json:"PageSize" xml:"PageSize"`
+	RequestId          string             `json:"RequestId" xml:"RequestId"`
+	PageNumber         int                `json:"PageNumber" xml:"PageNumber"`
+	TotalCount         int                `json:"TotalCount" xml:"TotalCount"`
 	Ipv6TranslatorAcls Ipv6TranslatorAcls `json:"Ipv6TranslatorAcls" xml:"Ipv6TranslatorAcls"`
 }
 

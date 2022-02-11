@@ -10,12 +10,14 @@
 #include "endian.h"
 
 /* fetch_* macros assist in fetching variously sized static data */
+#define fetch_u16(x) (__u16)__fetch(x)
 #define fetch_u32(x) __fetch(x)
 #define fetch_u32_i(x, i) __fetch(x ## _ ## i)
 #define fetch_ipv6(x) fetch_u32_i(x, 1), fetch_u32_i(x, 2), fetch_u32_i(x, 3), fetch_u32_i(x, 4)
 #define fetch_mac(x) { { fetch_u32_i(x, 1), (__u16)fetch_u32_i(x, 2) } }
 
 /* DEFINE_* macros help to declare static data. */
+#define DEFINE_U16(NAME, value) volatile __u16 NAME = value
 #define DEFINE_U32(NAME, value) volatile __u32 NAME = value
 #define DEFINE_U32_I(NAME, i) volatile __u32 NAME ## _ ## i
 #define DEFINE_IPV6(NAME,									\

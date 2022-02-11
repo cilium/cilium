@@ -19,7 +19,7 @@ var Default = Options{
 	StoragePath: defaults.HubbleRecorderStoragePath,
 }
 
-// Option customizes then configuration of the Hubble recorder.
+// Option customizes the Hubble recorder's configuration.
 type Option func(o *Options) error
 
 // WithStoragePath controls the path to the directory where the captured pcap

@@ -171,8 +171,11 @@ func (s *Standard) RetryDelay(attempt int, err error) (time.Duration, error) {
 	return s.backoff.BackoffDelay(attempt, err)
 }
 
-// GetInitialToken returns the initial request token that can increment the
-// retry token pool if the request is successful.
+// GetInitialToken returns a token for adding the NoRetryIncrement to the
+// RateLimiter token if the attempt completed successfully without error.
+//
+// InitialToken applies to result of the each attempt, including the first.
+// Whereas the RetryToken applies to the result of subsequent attempts.
 func (s *Standard) GetInitialToken() func(error) error {
 	return releaseToken(s.incrementTokens).release
 }
@@ -196,6 +199,8 @@ func (s *Standard) GetRetryToken(ctx context.Context, err error) (func(error) er
 
 	return releaseToken(fn).release, nil
 }
+
+func nopRelease(error) error { return nil }
 
 type releaseToken func() error
 

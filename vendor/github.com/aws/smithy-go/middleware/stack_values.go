@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// WithStackValue adds a key value pair to the context that are intended to be
+// WithStackValue adds a key value pair to the context that is intended to be
 // scoped to a stack. Use ClearStackValues to get a new context with all stack
 // values cleared.
 func WithStackValue(ctx context.Context, key, value interface{}) context.Context {

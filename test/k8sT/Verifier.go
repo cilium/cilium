@@ -124,6 +124,12 @@ var _ = Describe("K8sVerifier", func() {
 		err := kubectl.WaitForSinglePod(helpers.DefaultNamespace, podName, helpers.HelperTimeout)
 		Expect(err).Should(BeNil(), fmt.Sprintf("%s pod not ready after timeout", podName))
 
+		res = kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, "mount | grep -q 'type bpf'")
+		if !res.WasSuccessful() {
+			res = kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, "mount -t bpf bpf /sys/fs/bpf")
+		}
+		res.ExpectSuccess("Failed to mount bpffs")
+
 		res = kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, "make -C bpf clean V=0")
 		res.ExpectSuccess("Failed to clean up bpf/ tree")
 	})
@@ -140,6 +146,7 @@ var _ = Describe("K8sVerifier", func() {
 
 	AfterAll(func() {
 		kubectl.DeleteResource("pod", podName)
+		ExpectAllPodsTerminated(kubectl)
 	})
 
 	It("Runs the kernel verifier against Cilium's BPF datapath", func() {

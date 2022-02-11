@@ -18,7 +18,7 @@ func AddComputeContentLengthMiddleware(stack *middleware.Stack) error {
 	return stack.Build.Add(&ComputeContentLength{}, middleware.After)
 }
 
-// ID the identifier for the ComputeContentLength
+// ID returns the identifier for the ComputeContentLength.
 func (m *ComputeContentLength) ID() string { return "ComputeContentLength" }
 
 // HandleBuild adds the length of the serialized request to the HTTP header
@@ -65,7 +65,7 @@ func ValidateContentLengthHeader(stack *middleware.Stack) error {
 	return stack.Build.Add(&validateContentLength{}, middleware.After)
 }
 
-// ID the identifier for the ComputeContentLength
+// ID returns the identifier for the ComputeContentLength.
 func (m *validateContentLength) ID() string { return "ValidateContentLength" }
 
 // HandleBuild adds the length of the serialized request to the HTTP header

@@ -18,6 +18,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/monitor/agent/listener"
@@ -44,7 +45,8 @@ programs attached to endpoints and devices. This includes:
 			runMonitor(args)
 		},
 	}
-	printer    = format.NewMonitorFormatter(format.INFO)
+	linkCache  = link.NewLinkCache()
+	printer    = format.NewMonitorFormatter(format.INFO, linkCache)
 	socketPath = ""
 	verbosity  = []bool{}
 )
@@ -85,7 +87,7 @@ func setupSigHandler() {
 	signal.Notify(signalChan, os.Interrupt)
 	go func() {
 		for range signalChan {
-			fmt.Printf("\nReceived an interrupt, disconnecting from monitor...\n\n")
+			fmt.Fprintf(os.Stderr, "\nReceived an interrupt, disconnecting from monitor...\n\n")
 			os.Exit(0)
 		}
 	}()
@@ -226,7 +228,7 @@ func validateEndpointsFilters() {
 
 func runMonitor(args []string) {
 	if len(args) > 0 {
-		fmt.Println("Error: arguments not recognized")
+		fmt.Fprintln(os.Stderr, "Error: arguments not recognized")
 		os.Exit(1)
 	}
 
@@ -235,11 +237,11 @@ func runMonitor(args []string) {
 	setupSigHandler()
 	if resp, err := client.Daemon.GetHealthz(nil); err == nil {
 		if nm := resp.Payload.NodeMonitor; nm != nil {
-			fmt.Printf("Listening for events on %d CPUs with %dx%d of shared memory\n",
+			fmt.Fprintf(os.Stderr, "Listening for events on %d CPUs with %dx%d of shared memory\n",
 				nm.Cpus, nm.Npages, nm.Pagesize)
 		}
 	}
-	fmt.Printf("Press Ctrl-C to quit\n")
+	fmt.Fprintf(os.Stderr, "Press Ctrl-C to quit\n")
 
 	// On EOF, retry
 	// On other errors, exit

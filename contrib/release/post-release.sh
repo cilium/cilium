@@ -65,7 +65,9 @@ main() {
 
     git checkout -b pr/$version-digests $version
     ${DIR}/pull-docker-manifests.sh "$@"
-    logrun make -C Documentation update-helm-values
+    if grep -q update-helm-values Documentation/Makefile; then
+        logrun make -C Documentation update-helm-values
+    fi
     logecho
     logecho "Check that the following changes look correct:"
     # TODO: Make this less interactive when we have used it enough

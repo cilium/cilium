@@ -17,15 +17,15 @@ package vpc
 
 // Ipv6Gateway is a nested struct in vpc response
 type Ipv6Gateway struct {
-	RegionId           string `json:"RegionId" xml:"RegionId"`
-	Ipv6GatewayId      string `json:"Ipv6GatewayId" xml:"Ipv6GatewayId"`
-	VpcId              string `json:"VpcId" xml:"VpcId"`
-	Status             string `json:"Status" xml:"Status"`
-	Name               string `json:"Name" xml:"Name"`
-	Description        string `json:"Description" xml:"Description"`
-	Spec               string `json:"Spec" xml:"Spec"`
-	InstanceChargeType string `json:"InstanceChargeType" xml:"InstanceChargeType"`
-	BusinessStatus     string `json:"BusinessStatus" xml:"BusinessStatus"`
-	ExpiredTime        string `json:"ExpiredTime" xml:"ExpiredTime"`
 	CreationTime       string `json:"CreationTime" xml:"CreationTime"`
+	Status             string `json:"Status" xml:"Status"`
+	VpcId              string `json:"VpcId" xml:"VpcId"`
+	Spec               string `json:"Spec" xml:"Spec"`
+	Description        string `json:"Description" xml:"Description"`
+	Ipv6GatewayId      string `json:"Ipv6GatewayId" xml:"Ipv6GatewayId"`
+	ExpiredTime        string `json:"ExpiredTime" xml:"ExpiredTime"`
+	BusinessStatus     string `json:"BusinessStatus" xml:"BusinessStatus"`
+	Name               string `json:"Name" xml:"Name"`
+	InstanceChargeType string `json:"InstanceChargeType" xml:"InstanceChargeType"`
+	RegionId           string `json:"RegionId" xml:"RegionId"`
 }

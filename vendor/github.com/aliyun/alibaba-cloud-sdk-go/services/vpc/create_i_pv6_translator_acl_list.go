@@ -82,8 +82,8 @@ type CreateIPv6TranslatorAclListRequest struct {
 // CreateIPv6TranslatorAclListResponse is the response struct for api CreateIPv6TranslatorAclList
 type CreateIPv6TranslatorAclListResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
 	AclId     string `json:"AclId" xml:"AclId"`
+	RequestId string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateCreateIPv6TranslatorAclListRequest creates a request to invoke CreateIPv6TranslatorAclList API

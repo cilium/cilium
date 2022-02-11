@@ -15,8 +15,8 @@ import (
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
-	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/fake"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 )
 
@@ -28,12 +28,12 @@ type IPAMSuite struct{}
 
 var _ = Suite(&IPAMSuite{})
 
-func fakeIPv4AllocCIDRIP(fakeAddressing datapath.NodeAddressing) net.IP {
+func fakeIPv4AllocCIDRIP(fakeAddressing types.NodeAddressing) net.IP {
 	// force copy so net.IP can be modified
 	return net.ParseIP(fakeAddressing.IPv4().AllocationCIDR().IP.String())
 }
 
-func fakeIPv6AllocCIDRIP(fakeAddressing datapath.NodeAddressing) net.IP {
+func fakeIPv6AllocCIDRIP(fakeAddressing types.NodeAddressing) net.IP {
 	// force copy so net.IP can be modified
 	return net.ParseIP(fakeAddressing.IPv6().AllocationCIDR().IP.String())
 }
@@ -43,6 +43,7 @@ type testConfiguration struct{}
 func (t *testConfiguration) IPv4Enabled() bool                        { return true }
 func (t *testConfiguration) IPv6Enabled() bool                        { return true }
 func (t *testConfiguration) HealthCheckingEnabled() bool              { return true }
+func (t *testConfiguration) UnreachableRoutesEnabled() bool           { return false }
 func (t *testConfiguration) IPAMMode() string                         { return ipamOption.IPAMClusterPool }
 func (t *testConfiguration) SetIPv4NativeRoutingCIDR(cidr *cidr.CIDR) {}
 func (t *testConfiguration) GetIPv4NativeRoutingCIDR() *cidr.CIDR     { return nil }

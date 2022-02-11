@@ -87,6 +87,7 @@ func (s *LabelsPrefCfgSuite) TestDefaultFilterLabels(c *C) {
 		"ignore":                      labels.NewLabel("ignore", "foo", labels.LabelSourceContainer),
 		"host":                        labels.NewLabel("host", "", labels.LabelSourceReserved),
 		"io.kubernetes.pod.namespace": labels.NewLabel("io.kubernetes.pod.namespace", "default", labels.LabelSourceContainer),
+		"ioXkubernetes":               labels.NewLabel("ioXkubernetes", "foo", labels.LabelSourceContainer),
 	}
 
 	err := ParseLabelPrefixCfg([]string{}, "")
@@ -107,6 +108,7 @@ func (s *LabelsPrefCfgSuite) TestDefaultFilterLabels(c *C) {
 		"annotation." + k8sConst.CiliumIdentityAnnotationDeprecated: "12356",
 		"io.kubernetes.pod.terminationGracePeriod":                  "30",
 		"io.kubernetes.pod.uid":                                     "c2e22414-dfc3-11e5-9792-080027755f5a",
+		"ioXkubernetes":                                             "foo",
 		"ignore":                                                    "foo",
 		"ignorE":                                                    "foo",
 		"annotation.kubernetes.io/config.seen":                      "2017-05-30T14:22:17.691491034Z",
@@ -115,11 +117,10 @@ func (s *LabelsPrefCfgSuite) TestDefaultFilterLabels(c *C) {
 	allLabels := labels.Map2Labels(allNormalLabels, labels.LabelSourceContainer)
 	allLabels["host"] = labels.NewLabel("host", "", labels.LabelSourceReserved)
 	filtered, _ := dlpcfg.filterLabels(allLabels)
-	c.Assert(len(filtered), Equals, 5)
+	c.Assert(len(filtered), Equals, len(wanted)-2) // -2 because we add two labels in the next lines
 	allLabels["id.lizards"] = labels.NewLabel("id.lizards", "web", labels.LabelSourceContainer)
 	allLabels["id.lizards.k8s"] = labels.NewLabel("id.lizards.k8s", "web", labels.LabelSourceK8s)
 	filtered, _ = dlpcfg.filterLabels(allLabels)
-	c.Assert(len(filtered), Equals, 7)
 	c.Assert(filtered, checker.DeepEquals, wanted)
 }
 

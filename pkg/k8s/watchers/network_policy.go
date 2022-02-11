@@ -7,7 +7,6 @@ import (
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
@@ -69,8 +68,8 @@ func (k *K8sWatcher) networkPoliciesInit(k8sClient kubernetes.Interface, swgKNPs
 		nil,
 	)
 	k.networkpolicyStore = store
-	k.blockWaitGroupToSyncResources(wait.NeverStop, swgKNPs, policyController.HasSynced, k8sAPIGroupNetworkingV1Core)
-	go policyController.Run(wait.NeverStop)
+	k.blockWaitGroupToSyncResources(k.stop, swgKNPs, policyController.HasSynced, k8sAPIGroupNetworkingV1Core)
+	go policyController.Run(k.stop)
 
 	k.k8sAPIGroups.AddAPI(k8sAPIGroupNetworkingV1Core)
 }

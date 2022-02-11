@@ -6,7 +6,7 @@ import (
 	"log"
 )
 
-// Classification the log entry's classification name
+// Classification is the type of the log entry's classification name.
 type Classification string
 
 // Set of standard classifications that can be used by clients and middleware

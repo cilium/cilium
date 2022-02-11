@@ -7,7 +7,7 @@ import (
 	"io"
 )
 
-// computeMD5Checksum computes base64 md5 checksum of an io.Reader contents.
+// computeMD5Checksum computes base64 md5 checksum of an io.Reader's contents.
 // Returns the byte slice of md5 checksum and an error.
 func computeMD5Checksum(r io.Reader) ([]byte, error) {
 	h := md5.New()

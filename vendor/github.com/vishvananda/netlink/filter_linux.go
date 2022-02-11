@@ -51,76 +51,6 @@ func (filter *U32) Type() string {
 	return "u32"
 }
 
-// Fw filter filters on firewall marks
-// NOTE: this is in filter_linux because it refers to nl.TcPolice which
-//       is defined in nl/tc_linux.go
-type Fw struct {
-	FilterAttrs
-	ClassId uint32
-	// TODO remove nl type from interface
-	Police nl.TcPolice
-	InDev  string
-	// TODO Action
-	Mask   uint32
-	AvRate uint32
-	Rtab   [256]uint32
-	Ptab   [256]uint32
-}
-
-func NewFw(attrs FilterAttrs, fattrs FilterFwAttrs) (*Fw, error) {
-	var rtab [256]uint32
-	var ptab [256]uint32
-	rcellLog := -1
-	pcellLog := -1
-	avrate := fattrs.AvRate / 8
-	police := nl.TcPolice{}
-	police.Rate.Rate = fattrs.Rate / 8
-	police.PeakRate.Rate = fattrs.PeakRate / 8
-	buffer := fattrs.Buffer
-	linklayer := nl.LINKLAYER_ETHERNET
-
-	if fattrs.LinkLayer != nl.LINKLAYER_UNSPEC {
-		linklayer = fattrs.LinkLayer
-	}
-
-	police.Action = int32(fattrs.Action)
-	if police.Rate.Rate != 0 {
-		police.Rate.Mpu = fattrs.Mpu
-		police.Rate.Overhead = fattrs.Overhead
-		if CalcRtable(&police.Rate, rtab[:], rcellLog, fattrs.Mtu, linklayer) < 0 {
-			return nil, errors.New("TBF: failed to calculate rate table")
-		}
-		police.Burst = Xmittime(uint64(police.Rate.Rate), uint32(buffer))
-	}
-	police.Mtu = fattrs.Mtu
-	if police.PeakRate.Rate != 0 {
-		police.PeakRate.Mpu = fattrs.Mpu
-		police.PeakRate.Overhead = fattrs.Overhead
-		if CalcRtable(&police.PeakRate, ptab[:], pcellLog, fattrs.Mtu, linklayer) < 0 {
-			return nil, errors.New("POLICE: failed to calculate peak rate table")
-		}
-	}
-
-	return &Fw{
-		FilterAttrs: attrs,
-		ClassId:     fattrs.ClassId,
-		InDev:       fattrs.InDev,
-		Mask:        fattrs.Mask,
-		Police:      police,
-		AvRate:      avrate,
-		Rtab:        rtab,
-		Ptab:        ptab,
-	}, nil
-}
-
-func (filter *Fw) Attrs() *FilterAttrs {
-	return &filter.FilterAttrs
-}
-
-func (filter *Fw) Type() string {
-	return "fw"
-}
-
 type Flower struct {
 	FilterAttrs
 	DestIP        net.IP
@@ -362,7 +292,7 @@ func (h *Handle) filterModify(filter Filter, flags int) error {
 		if err := EncodeActions(actionsAttr, filter.Actions); err != nil {
 			return err
 		}
-	case *Fw:
+	case *FwFilter:
 		if filter.Mask != 0 {
 			b := make([]byte, 4)
 			native.PutUint32(b, filter.Mask)
@@ -371,17 +301,10 @@ func (h *Handle) filterModify(filter Filter, flags int) error {
 		if filter.InDev != "" {
 			options.AddRtAttr(nl.TCA_FW_INDEV, nl.ZeroTerminated(filter.InDev))
 		}
-		if (filter.Police != nl.TcPolice{}) {
-
+		if filter.Police != nil {
 			police := options.AddRtAttr(nl.TCA_FW_POLICE, nil)
-			police.AddRtAttr(nl.TCA_POLICE_TBF, filter.Police.Serialize())
-			if (filter.Police.Rate != nl.TcRateSpec{}) {
-				payload := SerializeRtab(filter.Rtab)
-				police.AddRtAttr(nl.TCA_POLICE_RATE, payload)
-			}
-			if (filter.Police.PeakRate != nl.TcRateSpec{}) {
-				payload := SerializeRtab(filter.Ptab)
-				police.AddRtAttr(nl.TCA_POLICE_PEAKRATE, payload)
+			if err := encodePolice(police, filter.Police); err != nil {
+				return err
 			}
 		}
 		if filter.ClassId != 0 {
@@ -479,7 +402,7 @@ func (h *Handle) FilterList(link Link, parent uint32) ([]Filter, error) {
 				case "u32":
 					filter = &U32{}
 				case "fw":
-					filter = &Fw{}
+					filter = &FwFilter{}
 				case "bpf":
 					filter = &BpfFilter{}
 				case "matchall":
@@ -551,6 +474,53 @@ func toAttrs(tcgen *nl.TcGen, attrs *ActionAttrs) {
 	attrs.Bindcnt = int(tcgen.Bindcnt)
 }
 
+func encodePolice(attr *nl.RtAttr, action *PoliceAction) error {
+	var rtab [256]uint32
+	var ptab [256]uint32
+	police := nl.TcPolice{}
+	police.Index = uint32(action.Attrs().Index)
+	police.Bindcnt = int32(action.Attrs().Bindcnt)
+	police.Capab = uint32(action.Attrs().Capab)
+	police.Refcnt = int32(action.Attrs().Refcnt)
+	police.Rate.Rate = action.Rate
+	police.PeakRate.Rate = action.PeakRate
+	police.Action = int32(action.ExceedAction)
+
+	if police.Rate.Rate != 0 {
+		police.Rate.Mpu = action.Mpu
+		police.Rate.Overhead = action.Overhead
+		if CalcRtable(&police.Rate, rtab[:], action.RCellLog, action.Mtu, action.LinkLayer) < 0 {
+			return errors.New("TBF: failed to calculate rate table")
+		}
+		police.Burst = Xmittime(uint64(police.Rate.Rate), action.Burst)
+	}
+
+	police.Mtu = action.Mtu
+	if police.PeakRate.Rate != 0 {
+		police.PeakRate.Mpu = action.Mpu
+		police.PeakRate.Overhead = action.Overhead
+		if CalcRtable(&police.PeakRate, ptab[:], action.PCellLog, action.Mtu, action.LinkLayer) < 0 {
+			return errors.New("POLICE: failed to calculate peak rate table")
+		}
+	}
+
+	attr.AddRtAttr(nl.TCA_POLICE_TBF, police.Serialize())
+	if police.Rate.Rate != 0 {
+		attr.AddRtAttr(nl.TCA_POLICE_RATE, SerializeRtab(rtab))
+	}
+	if police.PeakRate.Rate != 0 {
+		attr.AddRtAttr(nl.TCA_POLICE_PEAKRATE, SerializeRtab(ptab))
+	}
+	if action.AvRate != 0 {
+		attr.AddRtAttr(nl.TCA_POLICE_AVRATE, nl.Uint32Attr(action.AvRate))
+	}
+	if action.NotExceedAction != 0 {
+		attr.AddRtAttr(nl.TCA_POLICE_RESULT, nl.Uint32Attr(uint32(action.NotExceedAction)))
+	}
+
+	return nil
+}
+
 func EncodeActions(attr *nl.RtAttr, actions []Action) error {
 	tabIndex := int(nl.TCA_ACT_TAB)
 
@@ -558,6 +528,14 @@ func EncodeActions(attr *nl.RtAttr, actions []Action) error {
 		switch action := action.(type) {
 		default:
 			return fmt.Errorf("unknown action type %s", action.Type())
+		case *PoliceAction:
+			table := attr.AddRtAttr(tabIndex, nil)
+			tabIndex++
+			table.AddRtAttr(nl.TCA_ACT_KIND, nl.ZeroTerminated("police"))
+			aopts := table.AddRtAttr(nl.TCA_ACT_OPTIONS, nil)
+			if err := encodePolice(aopts, action); err != nil {
+				return err
+			}
 		case *MirredAction:
 			table := attr.AddRtAttr(tabIndex, nil)
 			tabIndex++
@@ -652,6 +630,29 @@ func EncodeActions(attr *nl.RtAttr, actions []Action) error {
 	return nil
 }
 
+func parsePolice(data syscall.NetlinkRouteAttr, police *PoliceAction) {
+	switch data.Attr.Type {
+	case nl.TCA_POLICE_RESULT:
+		police.NotExceedAction = TcPolAct(native.Uint32(data.Value[0:4]))
+	case nl.TCA_POLICE_AVRATE:
+		police.AvRate = native.Uint32(data.Value[0:4])
+	case nl.TCA_POLICE_TBF:
+		p := *nl.DeserializeTcPolice(data.Value)
+		police.ActionAttrs = ActionAttrs{}
+		police.Attrs().Index = int(p.Index)
+		police.Attrs().Bindcnt = int(p.Bindcnt)
+		police.Attrs().Capab = int(p.Capab)
+		police.Attrs().Refcnt = int(p.Refcnt)
+		police.ExceedAction = TcPolAct(p.Action)
+		police.Rate = p.Rate.Rate
+		police.PeakRate = p.PeakRate.Rate
+		police.Burst = Xmitsize(uint64(p.Rate.Rate), p.Burst)
+		police.Mtu = p.Mtu
+		police.LinkLayer = int(p.Rate.Linklayer) & nl.TC_LINKLAYER_MASK
+		police.Overhead = p.Rate.Overhead
+	}
+}
+
 func parseActions(tables []syscall.NetlinkRouteAttr) ([]Action, error) {
 	var actions []Action
 	for _, table := range tables {
@@ -680,6 +681,8 @@ func parseActions(tables []syscall.NetlinkRouteAttr) ([]Action, error) {
 					action = &TunnelKeyAction{}
 				case "skbedit":
 					action = &SkbEditAction{}
+				case "police":
+					action = &PoliceAction{}
 				default:
 					break nextattr
 				}
@@ -758,6 +761,8 @@ func parseActions(tables []syscall.NetlinkRouteAttr) ([]Action, error) {
 							gen := *nl.DeserializeTcGen(adatum.Value)
 							toAttrs(&gen, action.Attrs())
 						}
+					case "police":
+						parsePolice(adatum, action.(*PoliceAction))
 					}
 				}
 			}
@@ -813,7 +818,7 @@ func parseU32Data(filter Filter, data []syscall.NetlinkRouteAttr) (bool, error) 
 }
 
 func parseFwData(filter Filter, data []syscall.NetlinkRouteAttr) (bool, error) {
-	fw := filter.(*Fw)
+	fw := filter.(*FwFilter)
 	detailed := true
 	for _, datum := range data {
 		switch datum.Attr.Type {
@@ -824,17 +829,12 @@ func parseFwData(filter Filter, data []syscall.NetlinkRouteAttr) (bool, error) {
 		case nl.TCA_FW_INDEV:
 			fw.InDev = string(datum.Value[:len(datum.Value)-1])
 		case nl.TCA_FW_POLICE:
+			var police PoliceAction
 			adata, _ := nl.ParseRouteAttr(datum.Value)
 			for _, aattr := range adata {
-				switch aattr.Attr.Type {
-				case nl.TCA_POLICE_TBF:
-					fw.Police = *nl.DeserializeTcPolice(aattr.Value)
-				case nl.TCA_POLICE_RATE:
-					fw.Rtab = DeserializeRtab(aattr.Value)
-				case nl.TCA_POLICE_PEAKRATE:
-					fw.Ptab = DeserializeRtab(aattr.Value)
-				}
+				parsePolice(aattr, &police)
 			}
+			fw.Police = &police
 		}
 	}
 	return detailed, nil

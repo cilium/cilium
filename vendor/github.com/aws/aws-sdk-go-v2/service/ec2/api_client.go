@@ -5,7 +5,9 @@ package ec2
 import (
 	"context"
 	cryptorand "crypto/rand"
+	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/defaults"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/protocol/query"
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
@@ -19,6 +21,7 @@ import (
 	"github.com/aws/smithy-go/middleware"
 	smithyrand "github.com/aws/smithy-go/rand"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
+	"net"
 	"net/http"
 	"time"
 )
@@ -45,6 +48,8 @@ func New(options Options, optFns ...func(*Options)) *Client {
 	resolveHTTPClient(&options)
 
 	resolveHTTPSignerV4(&options)
+
+	setResolvedDefaultsMode(&options)
 
 	resolveDefaultEndpointConfiguration(&options)
 
@@ -73,6 +78,10 @@ type Options struct {
 	// The credentials object to use when signing requests.
 	Credentials aws.CredentialsProvider
 
+	// The configuration DefaultsMode that the SDK should use when constructing the
+	// clients initial default settings.
+	DefaultsMode aws.DefaultsMode
+
 	// The endpoint options to be used when attempting to resolve an endpoint.
 	EndpointOptions EndpointResolverOptions
 
@@ -96,9 +105,22 @@ type Options struct {
 	// failures. When nil the API client will use a default retryer.
 	Retryer aws.Retryer
 
+	// The RuntimeEnvironment configuration, only populated if the DefaultsMode is set
+	// to AutoDefaultsMode and is initialized using config.LoadDefaultConfig. You
+	// should not populate this structure programmatically, or rely on the values here
+	// within your applications.
+	RuntimeEnvironment aws.RuntimeEnvironment
+
+	// The initial DefaultsMode used when the client options were constructed. If the
+	// DefaultsMode was set to aws.AutoDefaultsMode this will store what the resolved
+	// value was at that point in time.
+	resolvedDefaultsMode aws.DefaultsMode
+
 	// The HTTP client to invoke API calls with. Defaults to client's default HTTP
 	// implementation if nil.
 	HTTPClient HTTPClient
+
+	clientInitializedOptions map[struct{}]interface{}
 }
 
 // WithAPIOptions returns a functional option for setting the Client's APIOptions
@@ -126,6 +148,12 @@ func (o Options) Copy() Options {
 	to := o
 	to.APIOptions = make([]func(*middleware.Stack) error, len(o.APIOptions))
 	copy(to.APIOptions, o.APIOptions)
+
+	to.clientInitializedOptions = make(map[struct{}]interface{}, len(o.clientInitializedOptions))
+	for k, v := range o.clientInitializedOptions {
+		to.clientInitializedOptions[k] = v
+	}
+
 	return to
 }
 func (c *Client) invokeOperation(ctx context.Context, opID string, params interface{}, optFns []func(*Options), stackFns ...func(*middleware.Stack, Options) error) (result interface{}, metadata middleware.Metadata, err error) {
@@ -178,12 +206,14 @@ func addSetLoggerMiddleware(stack *middleware.Stack, o Options) error {
 // NewFromConfig returns a new client from the provided config.
 func NewFromConfig(cfg aws.Config, optFns ...func(*Options)) *Client {
 	opts := Options{
-		Region:        cfg.Region,
-		HTTPClient:    cfg.HTTPClient,
-		Credentials:   cfg.Credentials,
-		APIOptions:    cfg.APIOptions,
-		Logger:        cfg.Logger,
-		ClientLogMode: cfg.ClientLogMode,
+		Region:             cfg.Region,
+		DefaultsMode:       cfg.DefaultsMode,
+		RuntimeEnvironment: cfg.RuntimeEnvironment,
+		HTTPClient:         cfg.HTTPClient,
+		Credentials:        cfg.Credentials,
+		APIOptions:         cfg.APIOptions,
+		Logger:             cfg.Logger,
+		ClientLogMode:      cfg.ClientLogMode,
 	}
 	resolveAWSRetryerProvider(cfg, &opts)
 	resolveAWSEndpointResolver(cfg, &opts)
@@ -193,10 +223,44 @@ func NewFromConfig(cfg aws.Config, optFns ...func(*Options)) *Client {
 }
 
 func resolveHTTPClient(o *Options) {
+	var buildable *awshttp.BuildableClient
+
 	if o.HTTPClient != nil {
-		return
+		var ok bool
+		buildable, ok = o.HTTPClient.(*awshttp.BuildableClient)
+		if !ok {
+			return
+		}
+	} else {
+		buildable = awshttp.NewBuildableClient()
 	}
-	o.HTTPClient = awshttp.NewBuildableClient()
+
+	var mode aws.DefaultsMode
+	if ok := mode.SetFromString(string(o.DefaultsMode)); !ok {
+		panic(fmt.Errorf("unsupported defaults mode constant %v", mode))
+	}
+
+	if mode == aws.DefaultsModeAuto {
+		mode = defaults.ResolveDefaultsModeAuto(o.Region, o.RuntimeEnvironment)
+	}
+
+	if mode != aws.DefaultsModeLegacy {
+		modeConfig, _ := defaults.GetModeConfiguration(mode)
+
+		buildable = buildable.WithDialerOptions(func(dialer *net.Dialer) {
+			if dialerTimeout, ok := modeConfig.GetConnectTimeout(); ok {
+				dialer.Timeout = dialerTimeout
+			}
+		})
+
+		buildable = buildable.WithTransportOptions(func(transport *http.Transport) {
+			if tlsHandshakeTimeout, ok := modeConfig.GetTLSNegotiationTimeout(); ok {
+				transport.TLSHandshakeTimeout = tlsHandshakeTimeout
+			}
+		})
+	}
+
+	o.HTTPClient = buildable
 }
 
 func resolveRetryer(o *Options) {
@@ -249,6 +313,21 @@ func newDefaultV4Signer(o Options) *v4.Signer {
 		so.Logger = o.Logger
 		so.LogSigning = o.ClientLogMode.IsSigning()
 	})
+}
+
+func setResolvedDefaultsMode(o *Options) {
+	if len(o.resolvedDefaultsMode) > 0 {
+		return
+	}
+
+	var mode aws.DefaultsMode
+	mode.SetFromString(string(o.DefaultsMode))
+
+	if mode == aws.DefaultsModeAuto {
+		mode = defaults.ResolveDefaultsModeAuto(o.Region, o.RuntimeEnvironment)
+	}
+
+	o.resolvedDefaultsMode = mode
 }
 
 func resolveIdempotencyTokenProvider(o *Options) {

@@ -14,8 +14,8 @@ DEFINE_U32(LXC_IPV4, 0x10203040);
  * Both the LXC_ID and the HOST_EP_ID are defined here to ease compile testing,
  * but in the actual header files, only one of them will be present.
  */
-DEFINE_U32(LXC_ID, 0x2A);
-#define LXC_ID fetch_u32(LXC_ID)
+DEFINE_U16(LXC_ID, 0x2A);
+#define LXC_ID fetch_u16(LXC_ID)
 DEFINE_U32(SECLABEL, 0xfffff);
 #define SECLABEL fetch_u32(SECLABEL)
 DEFINE_U32(SECLABEL_NB, 0xfffff);
@@ -42,6 +42,5 @@ DEFINE_U32(POLICY_VERDICT_LOG_FILTER, 0xffff);
 #define CALLS_MAP test_cilium_calls_65535
 #define CUSTOM_CALLS_MAP test_cilium_calls_custom_65535
 #define LOCAL_DELIVERY_METRICS
-#define CONNTRACK
 #define CONNTRACK_ACCOUNTING
 #define DIRECT_ROUTING_DEV_IFINDEX 0

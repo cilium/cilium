@@ -17,6 +17,6 @@ package vpc
 
 // AccessPointFeatureModel is a nested struct in vpc response
 type AccessPointFeatureModel struct {
-	FeatureKey   string `json:"FeatureKey" xml:"FeatureKey"`
 	FeatureValue string `json:"FeatureValue" xml:"FeatureValue"`
+	FeatureKey   string `json:"FeatureKey" xml:"FeatureKey"`
 }

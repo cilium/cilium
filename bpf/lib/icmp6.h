@@ -129,7 +129,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_ECHO_REPLY)
 int tail_icmp6_send_echo_reply(struct __ctx_buff *ctx)
 {
 	int ret, nh_off = ctx_load_meta(ctx, 0);
-	__u8 direction  = ctx_load_meta(ctx, 1);
+	enum metric_dir direction  = (enum metric_dir)ctx_load_meta(ctx, 1);
 
 	ctx_store_meta(ctx, 0, 0);
 	ret = __icmp6_send_echo_reply(ctx, nh_off);
@@ -149,7 +149,7 @@ int tail_icmp6_send_echo_reply(struct __ctx_buff *ctx)
  * NOTE: This is terminal function and will cause the BPF program to exit
  */
 static __always_inline int icmp6_send_echo_reply(struct __ctx_buff *ctx,
-						 int nh_off, __u8 direction)
+						 int nh_off, enum metric_dir direction)
 {
 	ctx_store_meta(ctx, 0, nh_off);
 	ctx_store_meta(ctx, 1, direction);
@@ -333,7 +333,7 @@ int tail_icmp6_send_time_exceeded(struct __ctx_buff *ctx __maybe_unused)
 {
 # ifdef BPF_HAVE_CHANGE_TAIL
 	int ret, nh_off = ctx_load_meta(ctx, 0);
-	__u8 direction  = ctx_load_meta(ctx, 1);
+	enum metric_dir direction  = (enum metric_dir)ctx_load_meta(ctx, 1);
 
 	ctx_store_meta(ctx, 0, 0);
 	ret = __icmp6_send_time_exceeded(ctx, nh_off);
@@ -357,7 +357,7 @@ int tail_icmp6_send_time_exceeded(struct __ctx_buff *ctx __maybe_unused)
  * NOTE: This is terminal function and will cause the BPF program to exit
  */
 static __always_inline int icmp6_send_time_exceeded(struct __ctx_buff *ctx,
-						    int nh_off, __u8 direction)
+						    int nh_off, enum metric_dir direction)
 {
 	ctx_store_meta(ctx, 0, nh_off);
 	ctx_store_meta(ctx, 1, direction);
@@ -402,7 +402,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_HANDLE_ICMP6_NS)
 int tail_icmp6_handle_ns(struct __ctx_buff *ctx)
 {
 	int ret, nh_off = ctx_load_meta(ctx, 0);
-	__u8 direction  = ctx_load_meta(ctx, 1);
+	enum metric_dir direction  = (enum metric_dir)ctx_load_meta(ctx, 1);
 
 	ctx_store_meta(ctx, 0, 0);
 	ret = __icmp6_handle_ns(ctx, nh_off);
@@ -423,7 +423,7 @@ int tail_icmp6_handle_ns(struct __ctx_buff *ctx)
  * NOTE: This is terminal function and will cause the BPF program to exit
  */
 static __always_inline int icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off,
-					   __u8 direction)
+					   enum metric_dir direction)
 {
 	ctx_store_meta(ctx, 0, nh_off);
 	ctx_store_meta(ctx, 1, direction);
@@ -434,7 +434,7 @@ static __always_inline int icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off,
 }
 
 static __always_inline int icmp6_handle(struct __ctx_buff *ctx, int nh_off,
-					struct ipv6hdr *ip6, __u8 direction)
+					struct ipv6hdr *ip6, enum metric_dir direction)
 {
 	union v6addr router_ip;
 	__u8 type = icmp6_load_type(ctx, nh_off);

@@ -17,9 +17,9 @@ package vpc
 
 // PMInfoItem is a nested struct in vpc response
 type PMInfoItem struct {
-	PMName            string `json:"PMName" xml:"PMName"`
-	PMContactInfo     string `json:"PMContactInfo" xml:"PMContactInfo"`
-	PMCertificateType string `json:"PMCertificateType" xml:"PMCertificateType"`
-	PMCertificateNo   string `json:"PMCertificateNo" xml:"PMCertificateNo"`
 	PMGender          string `json:"PMGender" xml:"PMGender"`
+	PMCertificateNo   string `json:"PMCertificateNo" xml:"PMCertificateNo"`
+	PMName            string `json:"PMName" xml:"PMName"`
+	PMCertificateType string `json:"PMCertificateType" xml:"PMCertificateType"`
+	PMContactInfo     string `json:"PMContactInfo" xml:"PMContactInfo"`
 }

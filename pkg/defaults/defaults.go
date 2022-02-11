@@ -286,10 +286,6 @@ const (
 	// LoopbackIPv4 is the default address for service loopback
 	LoopbackIPv4 = "169.254.42.1"
 
-	// EndpointInterfaceNamePrefix is the default prefix name of the
-	// interface names shared by all endpoints
-	EndpointInterfaceNamePrefix = "lxc+"
-
 	// ForceLocalPolicyEvalAtSource is the default value for
 	// option.ForceLocalPolicyEvalAtSource. It is enabled by default to
 	// provide backwards compatibility, it can be disabled via an option
@@ -441,4 +437,7 @@ const (
 
 	// ARPBaseReachableTime resembles the kernel's NEIGH_VAR_BASE_REACHABLE_TIME which defaults to 30 seconds.
 	ARPBaseReachableTime = 30 * time.Second
+
+	// EnableVTEP enables VXLAN Tunnel Endpoint (VTEP) Integration
+	EnableVTEP = false
 )

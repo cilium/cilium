@@ -18,7 +18,7 @@ type ResponseError struct {
 	Err      error
 }
 
-// HttpStatusCode returns the HTTP response status code received from the service
+// HTTPStatusCode returns the HTTP response status code received from the service.
 func (e *ResponseError) HTTPStatusCode() int { return e.Response.StatusCode }
 
 // HTTPResponse returns the HTTP response received from the service.

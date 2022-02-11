@@ -11,7 +11,7 @@ type (
 	hostPrefixDisableKey struct{}
 )
 
-// GetHostnameImmutable retrieves if the endpoint hostname should be considered
+// GetHostnameImmutable retrieves whether the endpoint hostname should be considered
 // immutable or not.
 //
 // Scoped to stack values. Use middleware#ClearStackValues to clear all stack
@@ -21,7 +21,7 @@ func GetHostnameImmutable(ctx context.Context) (v bool) {
 	return v
 }
 
-// SetHostnameImmutable sets or modifies if the request's endpoint hostname
+// SetHostnameImmutable sets or modifies whether the request's endpoint hostname
 // should be considered immutable or not.
 //
 // Scoped to stack values. Use middleware#ClearStackValues to clear all stack
@@ -30,7 +30,7 @@ func SetHostnameImmutable(ctx context.Context, value bool) context.Context {
 	return middleware.WithStackValue(ctx, hostnameImmutableKey{}, value)
 }
 
-// IsEndpointHostPrefixDisabled retrieves if the hostname prefixing is
+// IsEndpointHostPrefixDisabled retrieves whether the hostname prefixing is
 // disabled.
 //
 // Scoped to stack values. Use middleware#ClearStackValues to clear all stack
@@ -40,8 +40,8 @@ func IsEndpointHostPrefixDisabled(ctx context.Context) (v bool) {
 	return v
 }
 
-// DisableEndpointHostPrefix sets or modifies if the request's endpoint host
-// prefixing to be disabled. If value is set to true, endpoint host prefixing
+// DisableEndpointHostPrefix sets or modifies whether the request's endpoint host
+// prefixing should be disabled. If value is true, endpoint host prefixing
 // will be disabled.
 //
 // Scoped to stack values. Use middleware#ClearStackValues to clear all stack

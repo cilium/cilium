@@ -44,8 +44,10 @@ type DescribeSnapshotTierStatusInput struct {
 	// volume the snapshot is for.
 	//
 	// * last-tiering-operation - The state of the last
-	// archive or restore action. (archiving | archival_error | archival_complete |
-	// restoring | restore_error | restore_complete)
+	// archive or restore action. (archival-in-progress | archival-completed |
+	// archival-failed | permanent-restore-in-progress | permanent-restore-completed |
+	// permanent-restore-failed | temporary-restore-in-progress |
+	// temporary-restore-completed | temporary-restore-failed)
 	Filters []types.Filter
 
 	// The maximum number of results to return with a single call. To retrieve the

@@ -30,19 +30,25 @@ func (c *Client) MoveByoipCidrToIpam(ctx context.Context, params *MoveByoipCidrT
 type MoveByoipCidrToIpamInput struct {
 
 	// The BYOIP CIDR.
+	//
+	// This member is required.
 	Cidr *string
+
+	// The IPAM pool ID.
+	//
+	// This member is required.
+	IpamPoolId *string
+
+	// The Amazon Web Services account ID of the owner of the IPAM pool.
+	//
+	// This member is required.
+	IpamPoolOwner *string
 
 	// A check for whether you have the required permissions for the action without
 	// actually making the request and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
-
-	// The IPAM pool ID.
-	IpamPoolId *string
-
-	// The Amazon Web Services account ID of the owner of the IPAM pool.
-	IpamPoolOwner *string
 
 	noSmithyDocumentSerde
 }
@@ -102,6 +108,9 @@ func (c *Client) addOperationMoveByoipCidrToIpamMiddlewares(stack *middleware.St
 		return err
 	}
 	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addOpMoveByoipCidrToIpamValidationMiddleware(stack); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opMoveByoipCidrToIpam(options.Region), middleware.Before); err != nil {

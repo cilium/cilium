@@ -65,7 +65,7 @@ env:
   clusterName2: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-mesh-2
   zone: us-west2-a
   firewallRuleName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-rule
-  cilium_cli_version: v0.10.0
+  cilium_cli_version: v0.10.1
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
@@ -76,7 +76,7 @@ jobs:
         github.event.comment.body == '/ci-multicluster-1.10' ||
         github.event.comment.body == '/test-backport-1.10'
       )) ||
-      (github.event_name == 'schedule' && github.repository == 'cilium/cilium') ||
+      github.event_name == 'schedule' ||
       github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     outputs:
@@ -116,7 +116,7 @@ jobs:
         github.event.comment.body == '/ci-multicluster-1.10' ||
         (github.event.comment.body == '/test-backport-1.10' && needs.check_changes.outputs.tested == 'true')
       )) ||
-      (github.event_name == 'schedule' && github.repository == 'cilium/cilium') ||
+      github.event_name == 'schedule' ||
       github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -172,7 +172,7 @@ jobs:
           cilium version
 
       - name: Set up gcloud CLI
-        uses: google-github-actions/setup-gcloud@a45a0825993ace67ae6e11cf3011b3e7d6795f82
+        uses: google-github-actions/setup-gcloud@e0f83f24f541c30f1e9fe3c966963a10b8e647f5
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           service_account_key: ${{ secrets.GCP_PR_SA_KEY }}
@@ -192,7 +192,7 @@ jobs:
             --machine-type e2-custom-2-4096 \
             --disk-type pd-standard \
             --disk-size 10GB \
-            --node-taints node.cilium.io/agent-not-ready=true:NoSchedule \
+            --node-taints node.cilium.io/agent-not-ready=true:NoExecute \
             --preemptible \
             --enable-ip-alias
 
@@ -206,7 +206,7 @@ jobs:
             --machine-type e2-custom-2-4096 \
             --disk-type pd-standard \
             --disk-size 10GB \
-            --node-taints node.cilium.io/agent-not-ready=true:NoSchedule \
+            --node-taints node.cilium.io/agent-not-ready=true:NoExecute \
             --preemptible \
             --enable-ip-alias
 
@@ -243,7 +243,7 @@ jobs:
             --context ${{ steps.contexts.outputs.context1 }} \
             --cluster-name=${{ env.clusterName1 }} \
             --cluster-id 1 \
-            --native-routing-cidr=10.0.0.0/9
+            --ipv4-native-routing-cidr=10.0.0.0/9
 
       - name: Install Cilium in cluster2
         run: |
@@ -251,7 +251,7 @@ jobs:
             --context ${{ steps.contexts.outputs.context2 }} \
             --cluster-name=${{ env.clusterName2 }} \
             --cluster-id 2 \
-            --native-routing-cidr=10.0.0.0/9 \
+            --ipv4-native-routing-cidr=10.0.0.0/9 \
             --inherit-ca ${{ steps.contexts.outputs.context1 }}
 
       - name: Enable Relay

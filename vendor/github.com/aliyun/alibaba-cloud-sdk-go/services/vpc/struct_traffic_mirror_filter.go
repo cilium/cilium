@@ -17,10 +17,10 @@ package vpc
 
 // TrafficMirrorFilter is a nested struct in vpc response
 type TrafficMirrorFilter struct {
-	TrafficMirrorFilterName        string              `json:"TrafficMirrorFilterName" xml:"TrafficMirrorFilterName"`
+	TrafficMirrorFilterStatus      string              `json:"TrafficMirrorFilterStatus" xml:"TrafficMirrorFilterStatus"`
 	TrafficMirrorFilterDescription string              `json:"TrafficMirrorFilterDescription" xml:"TrafficMirrorFilterDescription"`
 	TrafficMirrorFilterId          string              `json:"TrafficMirrorFilterId" xml:"TrafficMirrorFilterId"`
-	TrafficMirrorFilterStatus      string              `json:"TrafficMirrorFilterStatus" xml:"TrafficMirrorFilterStatus"`
+	TrafficMirrorFilterName        string              `json:"TrafficMirrorFilterName" xml:"TrafficMirrorFilterName"`
 	IngressRules                   []TrafficMirrorRule `json:"IngressRules" xml:"IngressRules"`
 	EgressRules                    []TrafficMirrorRule `json:"EgressRules" xml:"EgressRules"`
 }

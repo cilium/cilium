@@ -5,6 +5,7 @@ package ipam
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"reflect"
@@ -13,6 +14,8 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -201,14 +204,20 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 	return store
 }
 
-func deriveVpcCIDR(node *ciliumv2.CiliumNode) (result *cidr.CIDR) {
+func deriveVpcCIDRs(node *ciliumv2.CiliumNode) (primaryCIDR *cidr.CIDR, secondaryCIDRs []*cidr.CIDR) {
 	if len(node.Status.ENI.ENIs) > 0 {
 		// A node belongs to a single VPC so we can pick the first ENI
 		// in the list and derive the VPC CIDR from it.
 		for _, eni := range node.Status.ENI.ENIs {
 			c, err := cidr.ParseCIDR(eni.VPC.PrimaryCIDR)
 			if err == nil {
-				result = c
+				primaryCIDR = c
+				for _, sc := range eni.VPC.CIDRs {
+					c, err = cidr.ParseCIDR(sc)
+					if err == nil {
+						secondaryCIDRs = append(secondaryCIDRs, c)
+					}
+				}
 				return
 			}
 		}
@@ -217,7 +226,7 @@ func deriveVpcCIDR(node *ciliumv2.CiliumNode) (result *cidr.CIDR) {
 		for _, azif := range node.Status.Azure.Interfaces {
 			c, err := cidr.ParseCIDR(azif.CIDR)
 			if err == nil {
-				result = c
+				primaryCIDR = c
 				return
 			}
 		}
@@ -226,11 +235,47 @@ func deriveVpcCIDR(node *ciliumv2.CiliumNode) (result *cidr.CIDR) {
 	if len(node.Status.AlibabaCloud.ENIs) > 0 {
 		c, err := cidr.ParseCIDR(node.Spec.AlibabaCloud.CIDRBlock)
 		if err == nil {
-			result = c
+			primaryCIDR = c
 			return
 		}
 	}
 	return
+}
+
+func (n *nodeStore) autoDetectIPv4NativeRoutingCIDR() bool {
+	if primaryCIDR, secondaryCIDRs := deriveVpcCIDRs(n.ownNode); primaryCIDR != nil {
+		allCIDRs := append([]*cidr.CIDR{primaryCIDR}, secondaryCIDRs...)
+		if nativeCIDR := n.conf.GetIPv4NativeRoutingCIDR(); nativeCIDR != nil {
+			found := false
+			for _, vpcCIDR := range allCIDRs {
+				logFields := logrus.Fields{
+					"vpc-cidr":                   vpcCIDR.String(),
+					option.IPv4NativeRoutingCIDR: nativeCIDR.String(),
+				}
+
+				ranges4, _ := ip.CoalesceCIDRs([]*net.IPNet{nativeCIDR.IPNet, vpcCIDR.IPNet})
+				if len(ranges4) != 1 {
+					log.WithFields(logFields).Info("Native routing CIDR does not contain VPC CIDR, trying next")
+				} else {
+					found = true
+					log.WithFields(logFields).Info("Native routing CIDR contains VPC CIDR, ignoring autodetected VPC CIDRs.")
+					break
+				}
+			}
+			if !found {
+				log.Fatal("None of the VPC CIDRs contains the specified native routing CIDR")
+			}
+		} else {
+			log.WithFields(logrus.Fields{
+				"vpc-cidr": primaryCIDR.String(),
+			}).Info("Using autodetected primary VPC CIDR.")
+			n.conf.SetIPv4NativeRoutingCIDR(primaryCIDR)
+		}
+		return true
+	} else {
+		log.Info("Could not determine VPC CIDRs")
+		return false
+	}
 }
 
 // hasMinimumIPsInPool returns true if the required number of IPs is available
@@ -270,26 +315,7 @@ func (n *nodeStore) hasMinimumIPsInPool() (minimumReached bool, required, numAva
 		}
 
 		if n.conf.IPAMMode() == ipamOption.IPAMENI || n.conf.IPAMMode() == ipamOption.IPAMAzure || n.conf.IPAMMode() == ipamOption.IPAMAlibabaCloud {
-			if vpcCIDR := deriveVpcCIDR(n.ownNode); vpcCIDR != nil {
-				if nativeCIDR := n.conf.GetIPv4NativeRoutingCIDR(); nativeCIDR != nil {
-					logFields := logrus.Fields{
-						"vpc-cidr":                   vpcCIDR.String(),
-						option.IPv4NativeRoutingCIDR: nativeCIDR.String(),
-					}
-
-					ranges4, _ := ip.CoalesceCIDRs([]*net.IPNet{nativeCIDR.IPNet, vpcCIDR.IPNet})
-					if len(ranges4) != 1 {
-						log.WithFields(logFields).Fatal("Native routing CIDR does not contain VPC CIDR.")
-					} else {
-						log.WithFields(logFields).Info("Ignoring autodetected VPC CIDR.")
-					}
-				} else {
-					log.WithFields(logrus.Fields{
-						"vpc-cidr": vpcCIDR.String(),
-					}).Info("Using autodetected VPC CIDR.")
-					n.conf.SetIPv4NativeRoutingCIDR(vpcCIDR)
-				}
-			} else {
+			if !n.autoDetectIPv4NativeRoutingCIDR() {
 				minimumReached = false
 			}
 		}
@@ -349,6 +375,27 @@ func (n *nodeStore) updateLocalNodeResource(node *ciliumv2.CiliumNode) {
 				// Remove entry from release-ips only when it is removed from .spec.ipam.pool as well
 				delete(n.ownNode.Status.IPAM.ReleaseIPs, ip)
 				releaseUpstreamSyncNeeded = true
+
+				// Remove the unreachable route for this IP
+				if n.conf.UnreachableRoutesEnabled() {
+					parsedIP := net.ParseIP(ip)
+					if parsedIP == nil {
+						// Unable to parse IP, no point in trying to remove the route
+						log.Warningf("Unable to parse IP %s", ip)
+						continue
+					}
+
+					err := netlink.RouteDel(&netlink.Route{
+						Dst:   &net.IPNet{IP: parsedIP, Mask: net.CIDRMask(32, 32)},
+						Table: unix.RT_TABLE_MAIN,
+						Type:  unix.RTN_UNREACHABLE,
+					})
+					if err != nil && !errors.Is(err, unix.ESRCH) {
+						// We ignore ESRCH, as it means the entry was already deleted
+						log.WithError(err).Warningf("Unable to delete unreachable route for IP %s", ip)
+						continue
+					}
+				}
 			} else if status == ipamOption.IPAMMarkForRelease {
 				// NACK the IP, if this node doesn't own the IP
 				n.ownNode.Status.IPAM.ReleaseIPs[ip] = ipamOption.IPAMDoNotRelease

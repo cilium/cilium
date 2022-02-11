@@ -17,27 +17,27 @@ package vpc
 
 // VirtualBorderRouterForPhysicalConnectionType is a nested struct in vpc response
 type VirtualBorderRouterForPhysicalConnectionType struct {
-	VbrId                   string `json:"VbrId" xml:"VbrId"`
-	VbrOwnerUid             int64  `json:"VbrOwnerUid" xml:"VbrOwnerUid"`
-	EccId                   string `json:"EccId" xml:"EccId"`
-	Type                    string `json:"Type" xml:"Type"`
-	CreationTime            string `json:"CreationTime" xml:"CreationTime"`
-	ActivationTime          string `json:"ActivationTime" xml:"ActivationTime"`
-	TerminationTime         string `json:"TerminationTime" xml:"TerminationTime"`
-	RecoveryTime            string `json:"RecoveryTime" xml:"RecoveryTime"`
-	VlanId                  int    `json:"VlanId" xml:"VlanId"`
 	Status                  string `json:"Status" xml:"Status"`
-	CircuitCode             string `json:"CircuitCode" xml:"CircuitCode"`
-	LocalGatewayIp          string `json:"LocalGatewayIp" xml:"LocalGatewayIp"`
-	PeerGatewayIp           string `json:"PeerGatewayIp" xml:"PeerGatewayIp"`
-	PeeringSubnetMask       string `json:"PeeringSubnetMask" xml:"PeeringSubnetMask"`
-	PConnVbrChargeType      string `json:"PConnVbrChargeType" xml:"PConnVbrChargeType"`
-	PConnVbrExpireTime      string `json:"PConnVbrExpireTime" xml:"PConnVbrExpireTime"`
-	PConnVbrBussinessStatus string `json:"PConnVbrBussinessStatus" xml:"PConnVbrBussinessStatus"`
-	Bandwidth               string `json:"Bandwidth" xml:"Bandwidth"`
-	LocalIpv6GatewayIp      string `json:"LocalIpv6GatewayIp" xml:"LocalIpv6GatewayIp"`
+	CreationTime            string `json:"CreationTime" xml:"CreationTime"`
+	Type                    string `json:"Type" xml:"Type"`
 	PeerIpv6GatewayIp       string `json:"PeerIpv6GatewayIp" xml:"PeerIpv6GatewayIp"`
-	PeeringIpv6SubnetMask   string `json:"PeeringIpv6SubnetMask" xml:"PeeringIpv6SubnetMask"`
-	EnableIpv6              bool   `json:"EnableIpv6" xml:"EnableIpv6"`
+	CircuitCode             string `json:"CircuitCode" xml:"CircuitCode"`
+	LocalIpv6GatewayIp      string `json:"LocalIpv6GatewayIp" xml:"LocalIpv6GatewayIp"`
+	PConnVbrExpireTime      string `json:"PConnVbrExpireTime" xml:"PConnVbrExpireTime"`
+	LocalGatewayIp          string `json:"LocalGatewayIp" xml:"LocalGatewayIp"`
 	BandwidthStatus         string `json:"BandwidthStatus" xml:"BandwidthStatus"`
+	ActivationTime          string `json:"ActivationTime" xml:"ActivationTime"`
+	VbrOwnerUid             int64  `json:"VbrOwnerUid" xml:"VbrOwnerUid"`
+	PeeringSubnetMask       string `json:"PeeringSubnetMask" xml:"PeeringSubnetMask"`
+	EnableIpv6              bool   `json:"EnableIpv6" xml:"EnableIpv6"`
+	EccId                   string `json:"EccId" xml:"EccId"`
+	Bandwidth               string `json:"Bandwidth" xml:"Bandwidth"`
+	RecoveryTime            string `json:"RecoveryTime" xml:"RecoveryTime"`
+	TerminationTime         string `json:"TerminationTime" xml:"TerminationTime"`
+	PConnVbrBussinessStatus string `json:"PConnVbrBussinessStatus" xml:"PConnVbrBussinessStatus"`
+	PeerGatewayIp           string `json:"PeerGatewayIp" xml:"PeerGatewayIp"`
+	PeeringIpv6SubnetMask   string `json:"PeeringIpv6SubnetMask" xml:"PeeringIpv6SubnetMask"`
+	VbrId                   string `json:"VbrId" xml:"VbrId"`
+	PConnVbrChargeType      string `json:"PConnVbrChargeType" xml:"PConnVbrChargeType"`
+	VlanId                  int    `json:"VlanId" xml:"VlanId"`
 }

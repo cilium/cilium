@@ -5,17 +5,18 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
+	"os"
 	"runtime"
 	"sync"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/internal"
+	"github.com/cilium/ebpf/internal/epoll"
 	"github.com/cilium/ebpf/internal/unix"
 )
 
 var (
-	ErrClosed = errors.New("perf reader was closed")
+	ErrClosed = os.ErrClosed
 	errEOR    = errors.New("end of ring")
 )
 
@@ -24,27 +25,6 @@ type perfEventHeader struct {
 	Type uint32
 	Misc uint16
 	Size uint16
-}
-
-func addToEpoll(epollfd, fd int, cpu int) error {
-	if int64(cpu) > math.MaxInt32 {
-		return fmt.Errorf("unsupported CPU number: %d", cpu)
-	}
-
-	// The representation of EpollEvent isn't entirely accurate.
-	// Pad is fully useable, not just padding. Hence we stuff the
-	// CPU in there, which allows us to use a slice to access
-	// the correct perf ring.
-	event := unix.EpollEvent{
-		Events: unix.EPOLLIN,
-		Fd:     int32(fd),
-		Pad:    int32(cpu),
-	}
-
-	if err := unix.EpollCtl(epollfd, unix.EPOLL_CTL_ADD, fd, &event); err != nil {
-		return fmt.Errorf("can't add fd to epoll: %v", err)
-	}
-	return nil
 }
 
 func cpuForEvent(event *unix.EpollEvent) int {
@@ -130,6 +110,8 @@ func readRawSample(rd io.Reader) ([]byte, error) {
 // Reader allows reading bpf_perf_event_output
 // from user space.
 type Reader struct {
+	poller *epoll.Poller
+
 	// mu protects read/write access to the Reader structure with the
 	// exception of 'pauseFds', which is protected by 'pauseMu'.
 	// If locking both 'mu' and 'pauseMu', 'mu' must be locked first.
@@ -137,16 +119,10 @@ type Reader struct {
 
 	// Closing a PERF_EVENT_ARRAY removes all event fds
 	// stored in it, so we keep a reference alive.
-	array *ebpf.Map
-	rings []*perfEventRing
-
-	epollFd     int
+	array       *ebpf.Map
+	rings       []*perfEventRing
 	epollEvents []unix.EpollEvent
 	epollRings  []*perfEventRing
-	// Eventfds for closing
-	closeFd int
-	// Ensure we only close once
-	closeOnce sync.Once
 
 	// pauseFds are a copy of the fds in 'rings', protected by 'pauseMu'.
 	// These allow Pause/Resume to be executed independently of any ongoing
@@ -179,20 +155,21 @@ func NewReaderWithOptions(array *ebpf.Map, perCPUBuffer int, opts ReaderOptions)
 		return nil, errors.New("perCPUBuffer must be larger than 0")
 	}
 
-	epollFd, err := unix.EpollCreate1(unix.EPOLL_CLOEXEC)
-	if err != nil {
-		return nil, fmt.Errorf("can't create epoll fd: %v", err)
-	}
-
 	var (
-		fds      = []int{epollFd}
+		fds      []int
 		nCPU     = int(array.MaxEntries())
 		rings    = make([]*perfEventRing, 0, nCPU)
 		pauseFds = make([]int, 0, nCPU)
 	)
 
+	poller, err := epoll.New()
+	if err != nil {
+		return nil, err
+	}
+
 	defer func() {
 		if err != nil {
+			poller.Close()
 			for _, fd := range fds {
 				unix.Close(fd)
 			}
@@ -222,19 +199,9 @@ func NewReaderWithOptions(array *ebpf.Map, perCPUBuffer int, opts ReaderOptions)
 		rings = append(rings, ring)
 		pauseFds = append(pauseFds, ring.fd)
 
-		if err := addToEpoll(epollFd, ring.fd, len(rings)-1); err != nil {
+		if err := poller.Add(ring.fd, i); err != nil {
 			return nil, err
 		}
-	}
-
-	closeFd, err := unix.Eventfd(0, unix.O_CLOEXEC|unix.O_NONBLOCK)
-	if err != nil {
-		return nil, err
-	}
-	fds = append(fds, closeFd)
-
-	if err := addToEpoll(epollFd, closeFd, -1); err != nil {
-		return nil, err
 	}
 
 	array, err = array.Clone()
@@ -243,13 +210,11 @@ func NewReaderWithOptions(array *ebpf.Map, perCPUBuffer int, opts ReaderOptions)
 	}
 
 	pr = &Reader{
-		array:   array,
-		rings:   rings,
-		epollFd: epollFd,
-		// Allocate extra event for closeFd
-		epollEvents: make([]unix.EpollEvent, len(rings)+1),
+		array:       array,
+		rings:       rings,
+		poller:      poller,
+		epollEvents: make([]unix.EpollEvent, len(rings)),
 		epollRings:  make([]*perfEventRing, 0, len(rings)),
-		closeFd:     closeFd,
 		pauseFds:    pauseFds,
 	}
 	if err = pr.Resume(); err != nil {
@@ -266,44 +231,27 @@ func NewReaderWithOptions(array *ebpf.Map, perCPUBuffer int, opts ReaderOptions)
 // Calls to perf_event_output from eBPF programs will return
 // ENOENT after calling this method.
 func (pr *Reader) Close() error {
-	var err error
-	pr.closeOnce.Do(func() {
-		runtime.SetFinalizer(pr, nil)
-
-		// Interrupt Read() via the event fd.
-		var value [8]byte
-		internal.NativeEndian.PutUint64(value[:], 1)
-		_, err = unix.Write(pr.closeFd, value[:])
-		if err != nil {
-			err = fmt.Errorf("can't write event fd: %v", err)
-			return
+	if err := pr.poller.Close(); err != nil {
+		if errors.Is(err, os.ErrClosed) {
+			return nil
 		}
-
-		// Acquire the locks. This ensures that Read, Pause and Resume
-		// aren't running.
-		pr.mu.Lock()
-		defer pr.mu.Unlock()
-		pr.pauseMu.Lock()
-		defer pr.pauseMu.Unlock()
-
-		unix.Close(pr.epollFd)
-		unix.Close(pr.closeFd)
-		pr.epollFd, pr.closeFd = -1, -1
-
-		// Close rings
-		for _, ring := range pr.rings {
-			if ring != nil {
-				ring.Close()
-			}
-		}
-		pr.rings = nil
-		pr.pauseFds = nil
-
-		pr.array.Close()
-	})
-	if err != nil {
-		return fmt.Errorf("close PerfReader: %w", err)
+		return fmt.Errorf("close poller: %w", err)
 	}
+
+	// Trying to poll will now fail, so Read() can't block anymore. Acquire the
+	// lock so that we can clean up.
+	pr.mu.Lock()
+	defer pr.mu.Unlock()
+
+	for _, ring := range pr.rings {
+		if ring != nil {
+			ring.Close()
+		}
+	}
+	pr.rings = nil
+	pr.pauseFds = nil
+	pr.array.Close()
+
 	return nil
 }
 
@@ -321,27 +269,18 @@ func (pr *Reader) Read() (Record, error) {
 	pr.mu.Lock()
 	defer pr.mu.Unlock()
 
-	if pr.epollFd == -1 {
-		return Record{}, fmt.Errorf("%w", ErrClosed)
+	if pr.rings == nil {
+		return Record{}, fmt.Errorf("perf ringbuffer: %w", ErrClosed)
 	}
 
 	for {
 		if len(pr.epollRings) == 0 {
-			nEvents, err := unix.EpollWait(pr.epollFd, pr.epollEvents, -1)
-			if temp, ok := err.(temporaryError); ok && temp.Temporary() {
-				// Retry the syscall if we we're interrupted, see https://github.com/golang/go/issues/20400
-				continue
-			}
-
+			nEvents, err := pr.poller.Wait(pr.epollEvents)
 			if err != nil {
 				return Record{}, err
 			}
 
 			for _, event := range pr.epollEvents[:nEvents] {
-				if int(event.Fd) == pr.closeFd {
-					return Record{}, fmt.Errorf("%w", ErrClosed)
-				}
-
 				ring := pr.rings[cpuForEvent(&event)]
 				pr.epollRings = append(pr.epollRings, ring)
 
@@ -412,10 +351,6 @@ func (pr *Reader) Resume() error {
 	}
 
 	return nil
-}
-
-type temporaryError interface {
-	Temporary() bool
 }
 
 // IsClosed returns true if the error occurred because

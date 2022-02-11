@@ -38,6 +38,7 @@ import (
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/hooks"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/sysctl"
@@ -49,6 +50,12 @@ import (
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/generic-veth"
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/portmap"
 	"github.com/cilium/cilium/plugins/cilium-cni/types"
+)
+
+const (
+	// defaultLogMaxBackups is to make sure that we have an upper bound on disk space used by
+	// CNI file logging (e.g. < 7 * 100 MB).
+	defaultLogMaxBackups = 7
 )
 
 var (
@@ -262,7 +269,19 @@ func setupLogging(n *types.NetConf) error {
 	logOptions := logging.LogOptions{
 		logging.FormatOpt: f,
 	}
-	return logging.SetupLogging([]string{}, logOptions, "cilium-cni", n.EnableDebug)
+	err := logging.SetupLogging([]string{}, logOptions, "cilium-cni", n.EnableDebug)
+	if err != nil {
+		return err
+	}
+
+	if len(n.LogFile) != 0 {
+		logging.AddHooks(hooks.NewFileRotationLogHook(n.LogFile,
+			hooks.EnableCompression(),
+			hooks.WithMaxBackups(defaultLogMaxBackups),
+		))
+	}
+
+	return nil
 }
 
 func cmdAdd(args *skel.CmdArgs) (err error) {

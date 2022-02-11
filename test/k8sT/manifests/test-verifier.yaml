@@ -15,6 +15,7 @@ spec:
     volumeMounts:
       - mountPath: /sys/fs/bpf
         name: bpf-maps
+        mountPropagation: Bidirectional
       - mountPath: /cilium
         name: cilium-src
   volumes:

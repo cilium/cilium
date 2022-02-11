@@ -63,7 +63,7 @@ func init() {
 	migrateIdentityCmd.Flags().StringVar(&k8sAPIServer, "k8s-api-server", "", "Kubernetes api address server (for https use --k8s-kubeconfig-path instead)")
 	migrateIdentityCmd.Flags().StringVar(&k8sKubeConfigPath, "k8s-kubeconfig-path", "", "Absolute path of the kubernetes kubeconfig file")
 	migrateIdentityCmd.Flags().StringVar(&kvStore, "kvstore", "", "Key-value store type")
-	migrateIdentityCmd.Flags().Var(option.NewNamedMapOptions("kvstore-opts", &kvStoreOpts, nil), "kvstore-opt", "Key-value store options")
+	migrateIdentityCmd.Flags().Var(option.NewNamedMapOptions("kvstore-opts", &kvStoreOpts, nil), "kvstore-opt", "Key-value store options e.g. etcd.address=127.0.0.1:4001")
 	preflightCmd.AddCommand(migrateIdentityCmd)
 
 	validateCNP.Flags().StringVar(&k8sAPIServer, "k8s-api-server", "", "Kubernetes api address server (for https use --k8s-kubeconfig-path instead)")

@@ -26,7 +26,7 @@ cilium preflight migrate-identity [flags]
       --k8s-api-server string        Kubernetes api address server (for https use --k8s-kubeconfig-path instead)
       --k8s-kubeconfig-path string   Absolute path of the kubernetes kubeconfig file
       --kvstore string               Key-value store type
-      --kvstore-opt map              Key-value store options (default map[])
+      --kvstore-opt map              Key-value store options e.g. etcd.address=127.0.0.1:4001
 ```
 
 ### Options inherited from parent commands

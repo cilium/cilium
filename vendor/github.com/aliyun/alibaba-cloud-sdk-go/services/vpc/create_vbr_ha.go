@@ -86,8 +86,8 @@ type CreateVbrHaRequest struct {
 // CreateVbrHaResponse is the response struct for api CreateVbrHa
 type CreateVbrHaResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
 	VbrHaId   string `json:"VbrHaId" xml:"VbrHaId"`
+	RequestId string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateCreateVbrHaRequest creates a request to invoke CreateVbrHa API

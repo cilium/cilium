@@ -41,12 +41,6 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      # In HA mode, cilium-operator pods must not be scheduled on the same
-      # node as they will clash with each other.
-      {{- with .Values.operator.affinity }}
-      affinity:
-        {{- toYaml . | trim | nindent 8 }}
-      {{- end }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -146,10 +140,9 @@ spec:
               name: cilium-azure
               key: AZURE_CLIENT_SECRET
         {{- end }}
-        {{- range $key, $value := .Values.operator.extraEnv }}
-        - name: {{ $key }}
-          value: {{ $value }}
-        {{- end }}        
+        {{- with .Values.operator.extraEnv }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         {{- if .Values.operator.prometheus.enabled }}
         ports:
         - name: prometheus
@@ -198,8 +191,15 @@ spec:
           mountPath: /var/lib/cilium/bgp
           readOnly: true
         {{- end }}
+        {{- with .Values.operator.extraVolumeMounts }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         {{- with .Values.operator.resources }}
         resources:
+          {{- toYaml . | trim | nindent 10 }}
+        {{- end }}
+        {{- with .Values.operator.securityContext }}
+        securityContext:
           {{- toYaml . | trim | nindent 10 }}
         {{- end }}
       hostNetwork: true
@@ -212,6 +212,12 @@ spec:
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.operator.priorityClassName "system-cluster-critical") }}
       serviceAccount: {{ .Values.serviceAccounts.operator.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.operator.name | quote }}
+      {{- with .Values.operator.affinity }}
+      # In HA mode, cilium-operator pods must not be scheduled on the same
+      # node as they will clash with each other.
+      affinity:
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
       {{- with .Values.operator.nodeSelector }}
       nodeSelector:
         {{- toYaml . | trim | nindent 8 }}
@@ -263,5 +269,8 @@ spec:
       - name: bgp-config-path
         configMap:
           name: bgp-config
+      {{- end }}
+      {{- with .Values.operator.extraVolumes }}
+      {{- toYaml . | nindent 6 }}
       {{- end }}
 {{- end }}

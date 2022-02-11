@@ -24,16 +24,26 @@ esac
 
 ENABLE_DEBUG=false
 CNI_EXCLUSIVE=true
+LOG_FILE="/var/run/cilium/cilium-cni.log"
+
 while test $# -gt 0; do
   case "$1" in
     --enable-debug*)
       # shellcheck disable=SC2001
+      # the below sed is to support both formats "--flag value" and "--flag=value"
       ENABLE_DEBUG=$(echo "$1" | sed -e 's/^[^=]*=//g')
       shift
       ;;
     --cni-exclusive*)
       # shellcheck disable=SC2001
+      # the below sed is to support both formats "--flag value" and "--flag=value"
       CNI_EXCLUSIVE=$(echo "$1" | sed -e 's/^[^=]*=//g')
+      shift
+      ;;
+    --log-file*)
+      # shellcheck disable=SC2001
+      # the below sed is to support both formats "--flag value" and "--flag=value"
+      LOG_FILE=$(echo "$1" | sed -e 's/^[^=]*=//g')
       shift
       ;;
     *)
@@ -134,7 +144,8 @@ case "$CILIUM_CNI_CHAINING_MODE" in
     {
        "name": "cilium",
        "type": "cilium-cni",
-       "enable-debug": ${ENABLE_DEBUG}
+       "enable-debug": ${ENABLE_DEBUG},
+       "log-file": "${LOG_FILE}"
     }
   ]
 }
@@ -150,7 +161,8 @@ EOF
     {
        "name": "cilium",
        "type": "cilium-cni",
-       "enable-debug": ${ENABLE_DEBUG}
+       "enable-debug": ${ENABLE_DEBUG},
+       "log-file": "${LOG_FILE}"
     },
     {
       "type": "portmap",
@@ -183,7 +195,8 @@ EOF
     {
        "name": "cilium",
        "type": "cilium-cni",
-       "enable-debug": ${ENABLE_DEBUG}
+       "enable-debug": ${ENABLE_DEBUG},
+       "log-file": "${LOG_FILE}"
     }
   ]
 }
@@ -196,7 +209,8 @@ EOF
   "cniVersion": "0.3.1",
   "name": "cilium",
   "type": "cilium-cni",
-  "enable-debug": ${ENABLE_DEBUG}
+  "enable-debug": ${ENABLE_DEBUG},
+  "log-file": "${LOG_FILE}"
 }
 EOF
 	;;

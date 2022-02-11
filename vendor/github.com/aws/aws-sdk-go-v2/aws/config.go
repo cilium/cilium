@@ -85,6 +85,16 @@ type Config struct {
 	// See the ClientLogMode type documentation for the complete set of logging modes and available
 	// configuration.
 	ClientLogMode ClientLogMode
+
+	// The configured DefaultsMode. If not specified, service clients will default to legacy.
+	//
+	// Supported modes are: auto, cross-region, in-region, legacy, mobile, standard
+	DefaultsMode DefaultsMode
+
+	// The RuntimeEnvironment configuration, only populated if the DefaultsMode is set to
+	// AutoDefaultsMode and is initialized by `config.LoadDefaultConfig`. You should not
+	// populate this structure programmatically, or rely on the values here within your applications.
+	RuntimeEnvironment RuntimeEnvironment
 }
 
 // NewConfig returns a new Config pointer that can be chained with builder

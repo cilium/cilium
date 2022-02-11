@@ -17,15 +17,15 @@ package vpc
 
 // PhysicalConnectionLOAType is a nested struct in vpc response
 type PhysicalConnectionLOAType struct {
-	InstanceId           string `json:"InstanceId" xml:"InstanceId"`
-	CompanyName          string `json:"CompanyName" xml:"CompanyName"`
-	CompanyLocalizedName string `json:"CompanyLocalizedName" xml:"CompanyLocalizedName"`
-	LineType             string `json:"LineType" xml:"LineType"`
-	LineCode             string `json:"LineCode" xml:"LineCode"`
-	LineLabel            string `json:"LineLabel" xml:"LineLabel"`
-	ConstructionTime     string `json:"ConstructionTime" xml:"ConstructionTime"`
 	Status               string `json:"Status" xml:"Status"`
-	LoaUrl               string `json:"LoaUrl" xml:"LoaUrl"`
+	LineLabel            string `json:"LineLabel" xml:"LineLabel"`
+	LineCode             string `json:"LineCode" xml:"LineCode"`
+	ConstructionTime     string `json:"ConstructionTime" xml:"ConstructionTime"`
 	SI                   string `json:"SI" xml:"SI"`
+	LoaUrl               string `json:"LoaUrl" xml:"LoaUrl"`
+	CompanyLocalizedName string `json:"CompanyLocalizedName" xml:"CompanyLocalizedName"`
+	InstanceId           string `json:"InstanceId" xml:"InstanceId"`
+	LineType             string `json:"LineType" xml:"LineType"`
+	CompanyName          string `json:"CompanyName" xml:"CompanyName"`
 	PMInfo               PMInfo `json:"PMInfo" xml:"PMInfo"`
 }

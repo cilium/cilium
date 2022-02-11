@@ -15,6 +15,8 @@ import (
 	"golang.org/x/sys/unix"
 	. "gopkg.in/check.v1"
 
+	"github.com/cilium/ebpf/rlimit"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/logging"
@@ -39,7 +41,7 @@ var (
 
 func runTests(m *testing.M) (int, error) {
 	bpf.CheckOrMountFS("")
-	if err := bpf.ConfigureResourceLimits(); err != nil {
+	if err := rlimit.RemoveMemlock(); err != nil {
 		return 1, fmt.Errorf("Failed to configure rlimit")
 	}
 

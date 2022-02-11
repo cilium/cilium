@@ -76,6 +76,7 @@ Advanced Networking
    bgp
    egress-gateway
    ciliumendpointslice
+   vtep
 
 Cluster Mesh
 ------------

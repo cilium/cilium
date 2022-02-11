@@ -368,12 +368,12 @@ externalIPs
 externalWorkloads
 extraArgs
 extraConfig
-extraConfigmapMounts
 extraDnsNames
 extraEnv
 extraHostPathMounts
-extraInitContainers
 extraIpAddresses
+extraVolumeMounts
+extraVolumes
 facto
 failureThreshold
 fallback
@@ -433,6 +433,7 @@ healthz
 herokuapp
 hexData
 hoc
+hostAliases
 hostConfDirMountPath
 hostFirewall
 hostNetwork
@@ -572,6 +573,7 @@ loadbalancing
 localRedirectPolicy
 localhost
 lockless
+logFile
 logSystemLoad
 logfile
 login
@@ -670,6 +672,7 @@ operatorPrometheus
 optimizations
 orchestrator
 org
+originatingTLS
 pahole
 parserfactory
 parsers
@@ -857,6 +860,9 @@ tcplife
 tcptop
 tcptracer
 templating
+terminatingTLS
+terminationGracePeriodSeconds
+terminationGracePeriods
 testsuite
 th
 thunderx
@@ -923,6 +929,8 @@ virtualbox
 virtualization
 vlan
 vmlinux
+volumeMounts
+vtep
 vxlan
 waitForMount
 waker

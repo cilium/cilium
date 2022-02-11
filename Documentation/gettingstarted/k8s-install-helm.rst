@@ -48,7 +48,7 @@ Install Cilium
           helm install cilium |CHART_RELEASE| \\
             --namespace kube-system
 
-    .. group-tab:: GCP/GKE
+    .. group-tab:: GKE
 
        .. include:: requirements-gke.rst
 
@@ -81,7 +81,7 @@ Install Cilium
        * Reconfigure kubelet to run in CNI mode
        * Mount the eBPF filesystem
 
-    .. group-tab:: Azure/AKS
+    .. group-tab:: AKS
 
        .. include:: requirements-aks.rst
 
@@ -142,7 +142,7 @@ Install Cilium
             --set enableIPv4Masquerade=false \\
             --set nodeinit.enabled=true
 
-    .. group-tab:: AWS/EKS
+    .. group-tab:: EKS
 
        .. include:: requirements-eks.rst
 

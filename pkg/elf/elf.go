@@ -138,11 +138,15 @@ processSymbols:
 		// Figure out the value to substitute
 		var value []byte
 		switch symbol.kind {
-		case symbolUint32:
-			v, exists := intOptions[symbol.name]
-			if exists {
-				value = make([]byte, unsafe.Sizeof(v))
-				elf.metadata.ByteOrder.PutUint32(value, v)
+		case symbolData:
+			if v, exists := intOptions[symbol.name]; exists {
+				value = make([]byte, symbol.size)
+				switch uintptr(symbol.size) {
+				case unsafe.Sizeof(uint32(0)):
+					elf.metadata.ByteOrder.PutUint32(value, v)
+				case unsafe.Sizeof(uint16(0)):
+					elf.metadata.ByteOrder.PutUint16(value, uint16(v))
+				}
 			}
 
 		case symbolString:

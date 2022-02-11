@@ -16,8 +16,8 @@ import (
 	ipamapi "github.com/cilium/cilium/api/v1/server/restapi/ipam"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/cidr"
-	"github.com/cilium/cilium/pkg/datapath"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -163,7 +163,7 @@ func (d *Daemon) DumpIPAM() *models.IPAMStatus {
 	return status
 }
 
-func (d *Daemon) allocateRouterIPv4(family datapath.NodeAddressingFamily) (net.IP, error) {
+func (d *Daemon) allocateRouterIPv4(family types.NodeAddressingFamily) (net.IP, error) {
 	if option.Config.LocalRouterIPv4 != "" {
 		routerIP := net.ParseIP(option.Config.LocalRouterIPv4)
 		if routerIP == nil {
@@ -178,7 +178,7 @@ func (d *Daemon) allocateRouterIPv4(family datapath.NodeAddressingFamily) (net.I
 	}
 }
 
-func (d *Daemon) allocateRouterIPv6(family datapath.NodeAddressingFamily) (net.IP, error) {
+func (d *Daemon) allocateRouterIPv6(family types.NodeAddressingFamily) (net.IP, error) {
 	if option.Config.LocalRouterIPv6 != "" {
 		routerIP := net.ParseIP(option.Config.LocalRouterIPv6)
 		if routerIP == nil {
@@ -193,7 +193,7 @@ func (d *Daemon) allocateRouterIPv6(family datapath.NodeAddressingFamily) (net.I
 	}
 }
 
-func (d *Daemon) allocateDatapathIPs(family datapath.NodeAddressingFamily) (routerIP net.IP, err error) {
+func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily) (routerIP net.IP, err error) {
 	// Blacklist allocation of the external IP
 	d.ipam.BlacklistIP(family.PrimaryExternal(), "node-ip")
 

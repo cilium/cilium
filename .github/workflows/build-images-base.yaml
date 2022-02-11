@@ -20,7 +20,6 @@ concurrency:
 jobs:
   build-and-push:
     timeout-minutes: 30
-    if: ${{ github.repository == 'cilium/cilium' }}
     environment: release-base-images
     runs-on: ubuntu-20.04
     strategy:
@@ -74,7 +73,7 @@ jobs:
 
       - name: Release build ${{ matrix.name }}
         if: ${{ steps.tag-in-repositories.outputs.exists == 'false' }}
-        uses: docker/build-push-action@a66e35b9cbcf4ad0ea91ffcaf7bbad63ad9e0229
+        uses: docker/build-push-action@7f9d37fa544684fb73bfe4835ed7214c255ce02b
         id: docker_build_release
         with:
           context: ${{ matrix.context }}
@@ -112,7 +111,6 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
   image-digests:
-    if: ${{ github.repository == 'cilium/cilium' }}
     name: Display Digests
     runs-on: ubuntu-20.04
     needs: build-and-push

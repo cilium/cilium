@@ -85,21 +85,21 @@ type ModifyVpnGatewayAttributeRequest struct {
 // ModifyVpnGatewayAttributeResponse is the response struct for api ModifyVpnGatewayAttribute
 type ModifyVpnGatewayAttributeResponse struct {
 	*responses.BaseResponse
-	RequestId      string `json:"RequestId" xml:"RequestId"`
-	VpnGatewayId   string `json:"VpnGatewayId" xml:"VpnGatewayId"`
 	VpcId          string `json:"VpcId" xml:"VpcId"`
-	VSwitchId      string `json:"VSwitchId" xml:"VSwitchId"`
-	InternetIp     string `json:"InternetIp" xml:"InternetIp"`
-	IntranetIp     string `json:"IntranetIp" xml:"IntranetIp"`
-	CreateTime     int64  `json:"CreateTime" xml:"CreateTime"`
-	EndTime        int64  `json:"EndTime" xml:"EndTime"`
-	Spec           string `json:"Spec" xml:"Spec"`
-	Name           string `json:"Name" xml:"Name"`
-	Description    string `json:"Description" xml:"Description"`
 	Status         string `json:"Status" xml:"Status"`
-	BusinessStatus string `json:"BusinessStatus" xml:"BusinessStatus"`
-	EnableBgp      bool   `json:"EnableBgp" xml:"EnableBgp"`
+	InternetIp     string `json:"InternetIp" xml:"InternetIp"`
+	Spec           string `json:"Spec" xml:"Spec"`
+	CreateTime     int64  `json:"CreateTime" xml:"CreateTime"`
 	AutoPropagate  bool   `json:"AutoPropagate" xml:"AutoPropagate"`
+	VpnGatewayId   string `json:"VpnGatewayId" xml:"VpnGatewayId"`
+	IntranetIp     string `json:"IntranetIp" xml:"IntranetIp"`
+	EndTime        int64  `json:"EndTime" xml:"EndTime"`
+	VSwitchId      string `json:"VSwitchId" xml:"VSwitchId"`
+	RequestId      string `json:"RequestId" xml:"RequestId"`
+	Description    string `json:"Description" xml:"Description"`
+	EnableBgp      bool   `json:"EnableBgp" xml:"EnableBgp"`
+	BusinessStatus string `json:"BusinessStatus" xml:"BusinessStatus"`
+	Name           string `json:"Name" xml:"Name"`
 }
 
 // CreateModifyVpnGatewayAttributeRequest creates a request to invoke ModifyVpnGatewayAttribute API

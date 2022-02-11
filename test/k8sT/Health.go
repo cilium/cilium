@@ -39,11 +39,8 @@ var _ = Describe("K8sHealthTest", func() {
 			kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 		})
 
-		AfterEach(func() {
-			ExpectAllPodsTerminated(kubectl)
-		})
-
 		AfterAll(func() {
+			ExpectAllPodsTerminated(kubectl)
 			UninstallCiliumFromManifest(kubectl, ciliumFilename)
 			kubectl.CloseSSHClient()
 		})

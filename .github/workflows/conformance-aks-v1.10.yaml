@@ -64,7 +64,7 @@ env:
   name: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   location: westeurope
   cost_reduction: --node-vm-size Standard_B2s --node-osdisk-size 30
-  cilium_cli_version: v0.10.0
+  cilium_cli_version: v0.10.1
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
@@ -75,7 +75,7 @@ jobs:
         github.event.comment.body == '/ci-aks-1.10' ||
         github.event.comment.body == '/test-backport-1.10'
       )) ||
-      (github.event_name == 'schedule' && github.repository == 'cilium/cilium') ||
+      github.event_name == 'schedule' ||
       github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     outputs:
@@ -115,7 +115,7 @@ jobs:
         github.event.comment.body == '/ci-aks-1.10' ||
         (github.event.comment.body == '/test-backport-1.10' && needs.check_changes.outputs.tested == 'true')
       )) ||
-      (github.event_name == 'schedule' && github.repository == 'cilium/cilium') ||
+      github.event_name == 'schedule' ||
       github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -170,7 +170,7 @@ jobs:
           cilium version
 
       - name: Login to Azure
-        uses: azure/login@66d2e78565ab7af265d2b627085bc34c73ce6abb
+        uses: azure/login@1f63701bf3e6892515f1b7ce2d2bf1708b46beaf
         with:
           creds: ${{ secrets.AZURE_PR_SP_CREDS }}
 
@@ -213,14 +213,14 @@ jobs:
             ${{ env.cost_reduction }} \
             --no-wait
 
-          # Create user node pool tainted with `node.cilium.io/agent-not-ready=true:NoSchedule`
+          # Create user node pool tainted with `node.cilium.io/agent-not-ready=true:NoExecute`
           az aks nodepool add \
             --resource-group ${{ env.name }} \
             --cluster-name ${{ env.name }} \
             --name userpool \
             --mode user \
             --node-count 2 \
-            --node-taints "node.cilium.io/agent-not-ready=true:NoSchedule" \
+            --node-taints "node.cilium.io/agent-not-ready=true:NoExecute" \
             ${{ env.cost_reduction }} \
             --no-wait
 

@@ -89,11 +89,6 @@ ff02::2 ip6-allrouters
 192.168.56.16 k8s6
 EOF
 
-# Configure default IPv6 route without this connectivity from host to
-# services is not possible as there is no default route. enp0s8 is the primary
-# interface for test environment.
-sudo ip -6 route add default dev enp0s8
-
 cat <<EOF > /etc/apt/sources.list.d/kubernetes.list
 deb http://apt.kubernetes.io/ kubernetes-xenial main
 EOF
@@ -307,7 +302,7 @@ case $K8S_VERSION in
         sudo apt-get install -y conntrack
         KUBERNETES_CNI_VERSION="0.8.7"
         KUBERNETES_CNI_OS="-linux"
-        K8S_FULL_VERSION="1.19.13"
+        K8S_FULL_VERSION="1.19.16"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
         KUBEADM_WORKER_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
@@ -321,7 +316,7 @@ case $K8S_VERSION in
         sudo apt-get install -y conntrack
         KUBERNETES_CNI_VERSION="0.8.7"
         KUBERNETES_CNI_OS="-linux"
-        K8S_FULL_VERSION="1.20.9"
+        K8S_FULL_VERSION="1.20.15"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
         KUBEADM_WORKER_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
@@ -335,7 +330,7 @@ case $K8S_VERSION in
         sudo apt-get install -y conntrack
         KUBERNETES_CNI_VERSION="0.8.7"
         KUBERNETES_CNI_OS="-linux"
-        K8S_FULL_VERSION="1.21.3"
+        K8S_FULL_VERSION="1.21.9"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
         KUBEADM_WORKER_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
@@ -349,7 +344,7 @@ case $K8S_VERSION in
         sudo apt-get install -y conntrack
         KUBERNETES_CNI_VERSION="0.8.7"
         KUBERNETES_CNI_OS="-linux"
-        K8S_FULL_VERSION="1.22.0"
+        K8S_FULL_VERSION="1.22.6"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
         KUBEADM_WORKER_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
@@ -363,7 +358,7 @@ case $K8S_VERSION in
         sudo apt-get install -y conntrack
         KUBERNETES_CNI_VERSION="0.8.7"
         KUBERNETES_CNI_OS="-linux"
-        K8S_FULL_VERSION="1.23.0"
+        K8S_FULL_VERSION="1.23.2"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
         KUBEADM_WORKER_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT

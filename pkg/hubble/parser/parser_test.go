@@ -34,7 +34,7 @@ func init() {
 }
 
 func Test_InvalidPayloads(t *testing.T) {
-	p, err := New(log, nil, nil, nil, nil, nil)
+	p, err := New(log, nil, nil, nil, nil, nil, nil)
 	assert.NoError(t, err)
 
 	_, err = p.Decode(nil)
@@ -59,7 +59,7 @@ func Test_InvalidPayloads(t *testing.T) {
 }
 
 func Test_ParserDispatch(t *testing.T) {
-	p, err := New(log, nil, nil, nil, nil, nil)
+	p, err := New(log, nil, nil, nil, nil, nil, nil)
 	assert.NoError(t, err)
 
 	// Test L3/L4 record
@@ -94,7 +94,7 @@ func Test_ParserDispatch(t *testing.T) {
 }
 
 func Test_EventType_RecordLost(t *testing.T) {
-	p, err := New(log, nil, nil, nil, nil, nil)
+	p, err := New(log, nil, nil, nil, nil, nil, nil)
 	assert.NoError(t, err)
 
 	ts := time.Now()

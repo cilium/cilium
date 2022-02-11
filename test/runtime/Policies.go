@@ -44,6 +44,8 @@ const (
 	policiesL4Json                  = "Policies-l4-policy.json"
 	policiesL3DependentL7EgressJSON = "Policies-l3-dependent-l7-egress.json"
 	policiesReservedInitJSON        = "Policies-reserved-init.json"
+
+	initContainer = "initContainer"
 )
 
 var _ = Describe("RuntimePolicies", func() {
@@ -51,7 +53,6 @@ var _ = Describe("RuntimePolicies", func() {
 	var (
 		vm            *helpers.SSHMeta
 		monitorStop   = func() error { return nil }
-		initContainer string
 		testStartTime time.Time
 	)
 
@@ -73,8 +74,6 @@ var _ = Describe("RuntimePolicies", func() {
 		ExpectCiliumReady(vm)
 		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 		vm.PolicyDelAll()
-
-		initContainer = "initContainer"
 
 		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
@@ -1461,6 +1460,9 @@ var _ = Describe("RuntimePolicies", func() {
 			res := vm.ContainerCreate(initContainer, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l somelabel", cmdArgs...)
 			res.ExpectSuccess("Failed to create container")
 
+			By("Waiting for newly added endpoint to be ready")
+			Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
+
 			endpoints, err := vm.GetAllEndpointsIds()
 			Expect(err).Should(BeNil(), "Unable to get IDs of endpoints")
 			var exists bool
@@ -1639,6 +1641,9 @@ var _ = Describe("RuntimePolicies", func() {
 			res := vm.ContainerCreate(initContainer, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l somelabel")
 			res.ExpectSuccess("Failed to create container")
 
+			By("Waiting for newly added endpoint to be ready")
+			Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
+
 			endpoints, err := vm.GetAllEndpointsIds()
 			Expect(err).Should(BeNil(), "Unable to get IDs of endpoints")
 			endpointID, exists := endpoints[initContainer]
@@ -1680,6 +1685,9 @@ var _ = Describe("RuntimePolicies", func() {
 			By("Creating an endpoint")
 			res := vm.ContainerCreate(initContainer, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l somelabel", "ping", hostIP)
 			res.ExpectSuccess("Failed to create container")
+
+			By("Waiting for newly added endpoint to be ready")
+			Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 			endpoints, err := vm.GetAllEndpointsIds()
 			Expect(err).To(BeNil(), "Unable to get IDs of endpoints")
@@ -1739,7 +1747,6 @@ var _ = Describe("RuntimePolicies", func() {
 				connectivityTest(pingRequests, app, newContainerName, false)
 				connectivityTest(httpRequests, app, newContainerName, true)
 			}
-
 		})
 	})
 })

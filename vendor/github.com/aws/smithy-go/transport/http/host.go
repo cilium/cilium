@@ -56,7 +56,7 @@ func ValidateEndpointHost(host string) error {
 	return nil
 }
 
-// ValidPortNumber return if the port is valid RFC 3986 port
+// ValidPortNumber returns whether the port is valid RFC 3986 port.
 func ValidPortNumber(port string) bool {
 	i, err := strconv.Atoi(port)
 	if err != nil {
@@ -69,7 +69,7 @@ func ValidPortNumber(port string) bool {
 	return true
 }
 
-// ValidHostLabel returns if the label is a valid RFC 3986 host label.
+// ValidHostLabel returns whether the label is a valid RFC 3986 host abel.
 func ValidHostLabel(label string) bool {
 	if l := len(label); l == 0 || l > 63 {
 		return false

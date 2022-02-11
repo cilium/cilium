@@ -77,8 +77,8 @@ type OpenTrafficMirrorServiceRequest struct {
 // OpenTrafficMirrorServiceResponse is the response struct for api OpenTrafficMirrorService
 type OpenTrafficMirrorServiceResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
 	OrderId   string `json:"OrderId" xml:"OrderId"`
+	RequestId string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateOpenTrafficMirrorServiceRequest creates a request to invoke OpenTrafficMirrorService API

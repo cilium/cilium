@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/monitor/payload"
@@ -44,19 +45,22 @@ type MonitorFormatter struct {
 	JSONOutput bool
 	Verbosity  Verbosity
 	Numeric    bool
+
+	linkMonitor getters.LinkGetter
 }
 
 // NewMonitorFormatter returns a new formatter with default configuration.
-func NewMonitorFormatter(verbosity Verbosity) *MonitorFormatter {
+func NewMonitorFormatter(verbosity Verbosity, linkMonitor getters.LinkGetter) *MonitorFormatter {
 	return &MonitorFormatter{
-		Hex:        false,
-		EventTypes: monitorAPI.MessageTypeFilter{},
-		FromSource: Uint16Flags{},
-		ToDst:      Uint16Flags{},
-		Related:    Uint16Flags{},
-		JSONOutput: false,
-		Verbosity:  verbosity,
-		Numeric:    bool(monitor.DisplayLabel),
+		Hex:         false,
+		EventTypes:  monitorAPI.MessageTypeFilter{},
+		FromSource:  Uint16Flags{},
+		ToDst:       Uint16Flags{},
+		Related:     Uint16Flags{},
+		JSONOutput:  false,
+		Verbosity:   verbosity,
+		Numeric:     bool(monitor.DisplayLabel),
+		linkMonitor: linkMonitor,
 	}
 }
 
@@ -108,12 +112,12 @@ func (m *MonitorFormatter) traceEvents(prefix string, data []byte) {
 	if m.match(monitorAPI.MessageTypeTrace, tn.Source, tn.DstID) {
 		switch m.Verbosity {
 		case INFO, DEBUG:
-			tn.DumpInfo(data, monitor.DisplayFormat(m.Numeric))
+			tn.DumpInfo(data, monitor.DisplayFormat(m.Numeric), m.linkMonitor)
 		case JSON:
-			tn.DumpJSON(data, prefix)
+			tn.DumpJSON(data, prefix, m.linkMonitor)
 		default:
 			fmt.Println(msgSeparator)
-			tn.DumpVerbose(!m.Hex, data, prefix, monitor.DisplayFormat(m.Numeric))
+			tn.DumpVerbose(!m.Hex, data, prefix, monitor.DisplayFormat(m.Numeric), m.linkMonitor)
 		}
 	}
 }
@@ -154,9 +158,9 @@ func (m *MonitorFormatter) debugEvents(prefix string, data []byte) {
 		case INFO:
 			dm.DumpInfo(data)
 		case JSON:
-			dm.DumpJSON(prefix)
+			dm.DumpJSON(prefix, m.linkMonitor)
 		default:
-			dm.Dump(prefix)
+			dm.Dump(prefix, m.linkMonitor)
 		}
 	}
 }
@@ -171,9 +175,9 @@ func (m *MonitorFormatter) captureEvents(prefix string, data []byte) {
 	if m.match(monitorAPI.MessageTypeCapture, dc.Source, 0) {
 		switch m.Verbosity {
 		case INFO, DEBUG:
-			dc.DumpInfo(data)
+			dc.DumpInfo(data, m.linkMonitor)
 		case JSON:
-			dc.DumpJSON(data, prefix)
+			dc.DumpJSON(data, prefix, m.linkMonitor)
 		default:
 			fmt.Println(msgSeparator)
 			dc.DumpVerbose(!m.Hex, data, prefix)

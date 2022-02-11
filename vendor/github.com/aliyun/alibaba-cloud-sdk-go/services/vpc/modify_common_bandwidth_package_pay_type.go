@@ -89,10 +89,10 @@ type ModifyCommonBandwidthPackagePayTypeRequest struct {
 // ModifyCommonBandwidthPackagePayTypeResponse is the response struct for api ModifyCommonBandwidthPackagePayType
 type ModifyCommonBandwidthPackagePayTypeResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
-	OrderId   int64  `json:"OrderId" xml:"OrderId"`
 	Code      string `json:"Code" xml:"Code"`
 	Message   string `json:"Message" xml:"Message"`
+	RequestId string `json:"RequestId" xml:"RequestId"`
+	OrderId   int64  `json:"OrderId" xml:"OrderId"`
 }
 
 // CreateModifyCommonBandwidthPackagePayTypeRequest creates a request to invoke ModifyCommonBandwidthPackagePayType API

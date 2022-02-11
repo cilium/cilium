@@ -15,6 +15,8 @@ Clone and Provision Environment
 
 #. Make sure you have a `GitHub account <https://github.com/join>`_
 #. Fork the Cilium repository to your GitHub user or organization.
+#. Turn off GitHub actions for your fork as described in the `GitHub Docs <https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository#managing-github-actions-permissions-for-your-repository>`_.
+   #. This is recommended to avoid unnecessary CI notification failures on the fork.
 #. Clone your ``${YOUR_GITHUB_USERNAME_OR_ORG}/cilium`` fork into your ``GOPATH``, and setup the base repository as ``upstream`` remote:
 
    .. code-block:: shell-session
@@ -281,10 +283,8 @@ Pull requests review process for committers
 #. Once a PR is open, GitHub will automatically pick which `teams <https://github.com/orgs/cilium/teams/team/teams>`_
    should review the PR using the ``CODEOWNERS`` file. Each committer can see
    the PRs they need to review by filtering by reviews requested.
-   A good filter is provided in this `link <https://github.com/cilium/cilium/pulls?q=is%3Apr+is%3Aopen+draft%3Afalse+assignee%3A%40me+sort%3Aupdated-asc>`_
-   so make sure to bookmark it. If a PR review is assigned to one or more
-   committers, they are expected to review that PR. Once they have performed
-   their review, they should remove themselves from the list of assignees.
+   A good filter is provided in this `link <https://github.com/cilium/cilium/pulls?q=is%3Apr+is%3Aopen+draft%3Afalse+user-review-requested%3A%40me+sort%3Aupdated-asc>`_
+   so make sure to bookmark it.
 
 #. Belonging to a team does not mean that a committer should know every single
    line of code the team is maintaining. For this reason it is recommended
@@ -336,7 +336,7 @@ Pull request review process for Janitors team
 Dedicated expectation time for each member of Janitors team: Follow the next
 steps 1 to 2 times per day. Works best if done first thing in the working day.
 
-#. Review all PRs requesting for review in `for you <https://github.com/cilium/cilium/pulls?q=is%3Apr+is%3Aopen+draft%3Afalse+team-review-requested%3Acilium%2Ftophat+sort%3Aupdated-asc>`_;
+#. Review all PRs needing a review `from you <https://github.com/cilium/cilium/pulls?q=is%3Apr+is%3Aopen+draft%3Afalse+team-review-requested%3Acilium%2Ftophat+sort%3Aupdated-asc>`_;
 
 #. If this PR was opened by a non-committer (e.g. external contributor) please
    assign yourself to that PR and make sure to keep track the PR gets reviewed

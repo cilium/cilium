@@ -30,9 +30,19 @@ rm -f /tmp/node-init.cilium.io
 touch /tmp/node-deinit.cilium.io
 
 {{- if .Values.nodeinit.reconfigureKubelet }}
-echo "Changing kubelet configuration to --network-plugin=kubenet"
-sed -i "s:--network-plugin=cni\ --cni-bin-dir={{ .Values.cni.binPath }}:--network-plugin=kubenet:g" /etc/default/kubelet
-echo "Restarting kubelet..."
+# Check if we're running on a GKE containerd flavor.
+GKE_KUBERNETES_BIN_DIR="/home/kubernetes/bin"
+if [[ -f "${GKE_KUBERNETES_BIN_DIR}/gke" ]] && command -v containerd &>/dev/null; then
+  CONTAINERD_CONFIG="/etc/containerd/config.toml"
+  echo "Reverting changes to the containerd configuration"
+  sed -Ei "s/^\#(\s+conf_template)/\1/g" "${CONTAINERD_CONFIG}"
+  echo "Removing the kubelet wrapper"
+  [[ -f "${GKE_KUBERNETES_BIN_DIR}/the-kubelet" ]] && mv "${GKE_KUBERNETES_BIN_DIR}/the-kubelet" "${GKE_KUBERNETES_BIN_DIR}/kubelet"
+else
+  echo "Changing kubelet configuration to --network-plugin=kubenet"
+  sed -i "s:--network-plugin=cni\ --cni-bin-dir={{ .Values.cni.binPath }}:--network-plugin=kubenet:g" /etc/default/kubelet
+fi
+echo "Restarting the kubelet"
 systemctl restart kubelet
 {{- end }}
 

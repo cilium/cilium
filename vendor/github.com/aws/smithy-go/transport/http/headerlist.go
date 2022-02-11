@@ -48,7 +48,7 @@ func commaSplit(v string) ([]string, error) {
 
 // SplitHTTPDateTimestampHeaderListValues attempts to split the HTTP-Date
 // timestamp values in the slice by commas, and return a list of all values
-// separated. The split is aware of HTTP-Date timestamp format, and will skip
+// separated. The split is aware of the HTTP-Date timestamp format, and will skip
 // comma within the timestamp value. Returns an error if unable to split the
 // timestamp values.
 func SplitHTTPDateTimestampHeaderListValues(vs []string) ([]string, error) {

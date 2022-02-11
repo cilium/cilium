@@ -17,18 +17,18 @@ package vpc
 
 // HaVip is a nested struct in vpc response
 type HaVip struct {
-	HaVipId                string                 `json:"HaVipId" xml:"HaVipId"`
-	RegionId               string                 `json:"RegionId" xml:"RegionId"`
 	VpcId                  string                 `json:"VpcId" xml:"VpcId"`
+	Status                 string                 `json:"Status" xml:"Status"`
+	HaVipId                string                 `json:"HaVipId" xml:"HaVipId"`
+	AssociatedInstanceType string                 `json:"AssociatedInstanceType" xml:"AssociatedInstanceType"`
+	CreateTime             string                 `json:"CreateTime" xml:"CreateTime"`
+	ChargeType             string                 `json:"ChargeType" xml:"ChargeType"`
+	RegionId               string                 `json:"RegionId" xml:"RegionId"`
 	VSwitchId              string                 `json:"VSwitchId" xml:"VSwitchId"`
 	IpAddress              string                 `json:"IpAddress" xml:"IpAddress"`
-	Status                 string                 `json:"Status" xml:"Status"`
-	MasterInstanceId       string                 `json:"MasterInstanceId" xml:"MasterInstanceId"`
 	Description            string                 `json:"Description" xml:"Description"`
+	MasterInstanceId       string                 `json:"MasterInstanceId" xml:"MasterInstanceId"`
 	Name                   string                 `json:"Name" xml:"Name"`
-	ChargeType             string                 `json:"ChargeType" xml:"ChargeType"`
-	CreateTime             string                 `json:"CreateTime" xml:"CreateTime"`
-	AssociatedInstanceType string                 `json:"AssociatedInstanceType" xml:"AssociatedInstanceType"`
-	AssociatedInstances    AssociatedInstances    `json:"AssociatedInstances" xml:"AssociatedInstances"`
 	AssociatedEipAddresses AssociatedEipAddresses `json:"AssociatedEipAddresses" xml:"AssociatedEipAddresses"`
+	AssociatedInstances    AssociatedInstances    `json:"AssociatedInstances" xml:"AssociatedInstances"`
 }

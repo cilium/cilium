@@ -190,8 +190,26 @@ Image dependency:
               docker.io/cilium/cilium-llvm
 
 
+
+.. _update_cilim_builder_runtime_images:
+
 Update cilium-builder and cilium-runtime images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The steps described here, starting with a commit that updates the image
+versions, build the necessary images and update all the appropriate
+locations in the Cilium codebase. Hence, before executing the following steps,
+the user should have such a commit (e.g., see
+`this commit
+<https://github.com/cilium/cilium/pull/17713/commits/b7a37ff80df8681d25a24fd5b464082d360fc6e2>`__)
+in their local tree. After following the steps below, the result would be another
+commit with the image updates (e.g,. see `this commit
+<https://github.com/cilium/cilium/pull/17713/commits/bd3357704647117fa9ef4839b9f603cd0435b7cc>`__).
+Please keep the two commits separate to ease backporting.
+
+If you only wish to update the packages in these images, then you can manually
+update the ``FORCE_BUILD`` variable in ``images/runtime/Dockerfile`` to have a
+different value and then proceed with the steps below.
 
 #. cilium-builder depends on cilium-runtime so one needs to update
    cilium-runtime first. Steps 4 and 7 will fetch the digest of the image built

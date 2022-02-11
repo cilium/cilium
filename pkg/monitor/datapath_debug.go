@@ -13,6 +13,7 @@ import (
 	"syscall"
 
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/monitor/api"
 )
 
@@ -238,12 +239,12 @@ func (n *DebugMsg) DumpInfo(data []byte) {
 }
 
 // Dump prints the debug message in a human readable format.
-func (n *DebugMsg) Dump(prefix string) {
-	fmt.Printf("%s MARK %#x FROM %d DEBUG: %s\n", prefix, n.Hash, n.Source, n.Message())
+func (n *DebugMsg) Dump(prefix string, linkMonitor getters.LinkGetter) {
+	fmt.Printf("%s MARK %#x FROM %d DEBUG: %s\n", prefix, n.Hash, n.Source, n.Message(linkMonitor))
 }
 
 // Message returns the debug message in a human-readable format
-func (n *DebugMsg) Message() string {
+func (n *DebugMsg) Message(linkMonitor getters.LinkGetter) string {
 	switch n.SubType {
 	case DbgGeneric:
 		return fmt.Sprintf("No message, arg1=%d (%#x) arg2=%d (%#x)", n.Arg1, n.Arg1, n.Arg2, n.Arg2)
@@ -252,7 +253,8 @@ func (n *DebugMsg) Message() string {
 	case DbgEncap:
 		return fmt.Sprintf("Encapsulating to node %d (%#x) from seclabel %d", n.Arg1, n.Arg1, n.Arg2)
 	case DbgLxcFound:
-		return fmt.Sprintf("Local container found ifindex %s seclabel %d", ifname(int(n.Arg1)), byteorder.NetworkToHost16(uint16(n.Arg2)))
+		ifname := linkMonitor.Name(n.Arg1)
+		return fmt.Sprintf("Local container found ifindex %s seclabel %d", ifname, byteorder.NetworkToHost16(uint16(n.Arg2)))
 	case DbgPolicyDenied:
 		return fmt.Sprintf("Policy evaluation would deny packet from %d to %d", n.Arg1, n.Arg2)
 	case DbgCtLookup:
@@ -376,14 +378,14 @@ func (n *DebugMsg) Message() string {
 	}
 }
 
-func (n *DebugMsg) getJSON(cpuPrefix string) string {
+func (n *DebugMsg) getJSON(cpuPrefix string, linkMonitor getters.LinkGetter) string {
 	return fmt.Sprintf(`{"cpu":%q,"type":"debug","message":%q}`,
-		cpuPrefix, n.Message())
+		cpuPrefix, n.Message(linkMonitor))
 }
 
 // DumpJSON prints notification in json format
-func (n *DebugMsg) DumpJSON(cpuPrefix string) {
-	fmt.Println(n.getJSON(cpuPrefix))
+func (n *DebugMsg) DumpJSON(cpuPrefix string, linkMonitor getters.LinkGetter) {
+	fmt.Println(n.getJSON(cpuPrefix, linkMonitor))
 }
 
 const (
@@ -406,21 +408,23 @@ type DebugCapture struct {
 }
 
 // DumpInfo prints a summary of the capture messages.
-func (n *DebugCapture) DumpInfo(data []byte) {
-	prefix := n.infoPrefix()
+func (n *DebugCapture) DumpInfo(data []byte, linkMonitor getters.LinkGetter) {
+	prefix := n.infoPrefix(linkMonitor)
 
 	if len(prefix) > 0 {
 		fmt.Printf("%s: %s\n", prefix, GetConnectionSummary(data[DebugCaptureLen:]))
 	}
 }
 
-func (n *DebugCapture) infoPrefix() string {
+func (n *DebugCapture) infoPrefix(linkMonitor getters.LinkGetter) string {
 	switch n.SubType {
 	case DbgCaptureDelivery:
-		return fmt.Sprintf("-> %s", ifname(int(n.Arg1)))
+		ifname := linkMonitor.Name(n.Arg1)
+		return fmt.Sprintf("-> %s", ifname)
 
 	case DbgCaptureFromLb:
-		return fmt.Sprintf("<- load-balancer %s", ifname(int(n.Arg1)))
+		ifname := linkMonitor.Name(n.Arg1)
+		return fmt.Sprintf("<- load-balancer %s", ifname)
 
 	case DbgCaptureAfterV46:
 		return fmt.Sprintf("== v4->v6 %d", n.Arg1)
@@ -468,9 +472,9 @@ func (n *DebugCapture) subTypeString() string {
 	}
 }
 
-func (n *DebugCapture) getJSON(data []byte, cpuPrefix string) (string, error) {
+func (n *DebugCapture) getJSON(data []byte, cpuPrefix string, linkMonitor getters.LinkGetter) (string, error) {
 
-	v := DebugCaptureToVerbose(n)
+	v := DebugCaptureToVerbose(n, linkMonitor)
 	v.CPUPrefix = cpuPrefix
 	v.Summary = GetConnectionSummary(data[DebugCaptureLen:])
 
@@ -479,8 +483,8 @@ func (n *DebugCapture) getJSON(data []byte, cpuPrefix string) (string, error) {
 }
 
 // DumpJSON prints notification in json format
-func (n *DebugCapture) DumpJSON(data []byte, cpuPrefix string) {
-	resp, err := n.getJSON(data, cpuPrefix)
+func (n *DebugCapture) DumpJSON(data []byte, cpuPrefix string, linkMonitor getters.LinkGetter) {
+	resp, err := n.getJSON(data, cpuPrefix, linkMonitor)
 	if err != nil {
 		fmt.Println(fmt.Sprintf(`{"type":"debug_capture_error","message":%q}`, err.Error()))
 		return
@@ -503,13 +507,13 @@ type DebugCaptureVerbose struct {
 }
 
 // DebugCaptureToVerbose creates verbose notification from base TraceNotify
-func DebugCaptureToVerbose(n *DebugCapture) DebugCaptureVerbose {
+func DebugCaptureToVerbose(n *DebugCapture, linkMonitor getters.LinkGetter) DebugCaptureVerbose {
 	return DebugCaptureVerbose{
 		Type:    "capture",
 		Mark:    fmt.Sprintf("%#x", n.Hash),
 		Source:  n.Source,
 		Bytes:   n.Len,
 		Message: n.subTypeString(),
-		Prefix:  n.infoPrefix(),
+		Prefix:  n.infoPrefix(linkMonitor),
 	}
 }

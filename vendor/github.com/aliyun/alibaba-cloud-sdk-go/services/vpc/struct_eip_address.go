@@ -24,6 +24,7 @@ type EipAddress struct {
 	Netmode                       string                                        `json:"Netmode" xml:"Netmode"`
 	ChargeType                    string                                        `json:"ChargeType" xml:"ChargeType"`
 	Descritpion                   string                                        `json:"Descritpion" xml:"Descritpion"`
+	Description                   string                                        `json:"Description" xml:"Description"`
 	Mode                          string                                        `json:"Mode" xml:"Mode"`
 	SegmentInstanceId             string                                        `json:"SegmentInstanceId" xml:"SegmentInstanceId"`
 	ReservationInternetChargeType string                                        `json:"ReservationInternetChargeType" xml:"ReservationInternetChargeType"`

@@ -42,7 +42,7 @@ func (m Metadata) Clone() Metadata {
 // that key it will be replaced with the new value.
 //
 // Set method must be called as an addressable value, or pointer. If Set is not
-// called as a addressable value or pointer, the key value pair being set may
+// called as an addressable value or pointer, the key value pair being set may
 // be lost.
 //
 // Panics if the key type is not comparable.
@@ -53,7 +53,7 @@ func (m *Metadata) Set(key, value interface{}) {
 	m.values[key] = value
 }
 
-// Has returns if the key exists in the metadata.
+// Has returns whether the key exists in the metadata.
 //
 // Panics if the key type is not comparable.
 func (m Metadata) Has(key interface{}) bool {

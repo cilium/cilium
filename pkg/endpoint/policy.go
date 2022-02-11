@@ -288,13 +288,6 @@ func (e *Endpoint) updateAndOverrideEndpointOptions(opts option.OptionMap) (opts
 	if opts == nil {
 		opts = make(option.OptionMap)
 	}
-	// Apply possible option changes before regenerating maps, as map regeneration
-	// depends on the conntrack options
-	if e.desiredPolicy != nil && e.desiredPolicy.L4Policy != nil {
-		if e.desiredPolicy.L4Policy.RequiresConntrack() {
-			opts[option.Conntrack] = option.OptionEnabled
-		}
-	}
 
 	optsChanged = e.applyOptsLocked(opts)
 	return
@@ -808,13 +801,7 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity, newEndpoint bool)
 // GetCIDRPrefixLengths returns the sorted list of unique prefix lengths used
 // for CIDR policy or IPcache lookup from this endpoint.
 func (e *Endpoint) GetCIDRPrefixLengths() (s6, s4 []int) {
-	if e.IsHost() {
-		return e.owner.GetCIDRPrefixLengths()
-	}
-	if e.desiredPolicy == nil || e.desiredPolicy.CIDRPolicy == nil {
-		return policy.GetDefaultPrefixLengths()
-	}
-	return e.desiredPolicy.CIDRPolicy.ToBPFData()
+	return e.owner.GetCIDRPrefixLengths()
 }
 
 // AnnotationsResolverCB provides an implementation for resolving the pod

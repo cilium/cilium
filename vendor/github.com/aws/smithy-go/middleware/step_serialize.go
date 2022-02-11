@@ -29,11 +29,11 @@ type SerializeHandler interface {
 // serialize step. Delegates to the next SerializeHandler for further
 // processing.
 type SerializeMiddleware interface {
-	// Unique ID for the middleware in the SerializeStep. The step does not
+	// ID returns a unique ID for the middleware in the SerializeStep. The step does not
 	// allow duplicate IDs.
 	ID() string
 
-	// Invokes the middleware behavior which must delegate to the next handler
+	// HandleSerialize invokes the middleware behavior which must delegate to the next handler
 	// for the middleware chain to continue. The method must return a result or
 	// error to its caller.
 	HandleSerialize(ctx context.Context, in SerializeInput, next SerializeHandler) (
@@ -73,13 +73,13 @@ func (s serializeMiddlewareFunc) HandleSerialize(ctx context.Context, in Seriali
 var _ SerializeMiddleware = (serializeMiddlewareFunc{})
 
 // SerializeStep provides the ordered grouping of SerializeMiddleware to be
-// invoked on an handler.
+// invoked on a handler.
 type SerializeStep struct {
 	newRequest func() interface{}
 	ids        *orderedIDs
 }
 
-// NewSerializeStep returns an SerializeStep ready to have middleware for
+// NewSerializeStep returns a SerializeStep ready to have middleware for
 // initialization added to it. The newRequest func parameter is used to
 // initialize the transport specific request for the stack SerializeStep to
 // serialize the input parameters into.
@@ -92,7 +92,7 @@ func NewSerializeStep(newRequest func() interface{}) *SerializeStep {
 
 var _ Middleware = (*SerializeStep)(nil)
 
-// ID returns the unique id of the step as a middleware.
+// ID returns the unique ID of the step as a middleware.
 func (s *SerializeStep) ID() string {
 	return "Serialize stack step"
 }
@@ -138,8 +138,8 @@ func (s *SerializeStep) Add(m SerializeMiddleware, pos RelativePosition) error {
 	return s.ids.Add(m, pos)
 }
 
-// Insert injects the middleware relative to an existing middleware id.
-// Return error if the original middleware does not exist, or the middleware
+// Insert injects the middleware relative to an existing middleware ID.
+// Returns error if the original middleware does not exist, or the middleware
 // being added already exists.
 func (s *SerializeStep) Insert(m SerializeMiddleware, relativeTo string, pos RelativePosition) error {
 	return s.ids.Insert(m, relativeTo, pos)

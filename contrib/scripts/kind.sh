@@ -15,6 +15,7 @@ WORKERS="${2:-${default_workers}}"
 CLUSTER_NAME="${3:-${default_cluster_name}}"
 # IMAGE controls the K8s version as well (e.g. kindest/node:v1.11.10)
 IMAGE="${4:-${default_image}}"
+CILIUM_ROOT="$(realpath $(dirname $(readlink -ne $BASH_SOURCE))/../..)"
 
 usage() {
   echo "Usage: ${PROG} [control-plane node count] [worker node count] [cluster-name] [node image]"
@@ -61,18 +62,20 @@ if [[ -n "${IMAGE}" ]]; then
 fi
 
 control_planes() {
-  line="- role: control-plane"
-
   for _ in $(seq 1 "${CONTROLPLANES}"); do
-    echo "$line"
+    echo "- role: control-plane"
+    echo "  extraMounts:"
+    echo "  - hostPath: $CILIUM_ROOT"
+    echo "    containerPath: /home/vagrant/go/src/github.com/cilium/cilium"
   done
 }
 
 workers() {
-  line="- role: worker"
-
   for _ in $(seq 1 "${WORKERS}"); do
-    echo "$line"
+    echo "- role: worker"
+    echo "  extraMounts:"
+    echo "  - hostPath: $CILIUM_ROOT"
+    echo "    containerPath: /home/vagrant/go/src/github.com/cilium/cilium"
   done
 }
 

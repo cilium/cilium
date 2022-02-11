@@ -82,6 +82,11 @@ Users (Alphabetically)
       L: https://www.youtube.com/watch?v=yXm7yZE2rk4
       Q: @rmaika @mohahmed13
 
+    * N: Civo
+      D: Civo is offering Cilium as the CNI option for Civo users to choose it for their Civo Kubernetes clusters.
+      U: Networking and network policy
+      L: https://www.civo.com/kubernetes
+
     * N: Cognite
       D: Cognite is an industrial DataOps provider and uses Cilium as the CNI plugin
       Q: @Robert Collins
@@ -116,6 +121,11 @@ Users (Alphabetically)
       D: Google is using Cilium in Anthos and Google Kubernetes Engine (GKE) as Dataplane V2
       U: Networking, network policy, and network visibility
       L: https://cloud.google.com/blog/products/containers-kubernetes/bringing-ebpf-and-cilium-to-google-kubernetes-engine
+
+    * N: Kubermatic
+      D: Kubermatic Kubernetes Platform is using Cilium as a one of the supported CNIs.
+      U: Networking, network policy, Hubble for network visibility
+      L: https://github.com/kubermatic/kubermatic
 
     * N: Meltwater
       D: Meltwater is using Cilim in AWS on self-hosted multi-tenant k8s clusters as the CNI plugin

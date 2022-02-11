@@ -15,7 +15,6 @@ permissions: read-all
 
 jobs:
   build-and-push:
-    if: ${{ github.repository == 'cilium/cilium' }}
     environment: release-beta-images
     runs-on: ubuntu-20.04
     strategy:
@@ -79,7 +78,7 @@ jobs:
           persist-credentials: false
 
       - name: Release Build ${{ matrix.name }}
-        uses: docker/build-push-action@a66e35b9cbcf4ad0ea91ffcaf7bbad63ad9e0229
+        uses: docker/build-push-action@7f9d37fa544684fb73bfe4835ed7214c255ce02b
         id: docker_build_release
         with:
           context: .
@@ -111,7 +110,6 @@ jobs:
           retention-days: 1
 
   image-digests:
-    if: ${{ github.repository == 'cilium/cilium' }}
     name: Display Digests
     runs-on: ubuntu-20.04
     needs: build-and-push

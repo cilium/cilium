@@ -83,8 +83,8 @@ type ModifyRouterInterfaceSpecRequest struct {
 // ModifyRouterInterfaceSpecResponse is the response struct for api ModifyRouterInterfaceSpec
 type ModifyRouterInterfaceSpecResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
 	Spec      string `json:"Spec" xml:"Spec"`
+	RequestId string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateModifyRouterInterfaceSpecRequest creates a request to invoke ModifyRouterInterfaceSpec API

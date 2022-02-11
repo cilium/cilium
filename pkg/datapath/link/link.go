@@ -4,31 +4,26 @@
 package link
 
 import (
+	"context"
 	"fmt"
+	"strconv"
+	"sync"
 	"time"
 
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 )
 
-var linkCache ifNameCache
-
-func init() {
-	go func() {
-		log := logging.DefaultLogger.WithField(logfields.LogSubsys, "link")
-		for {
-			if err := linkCache.syncCache(); err != nil {
-				log.WithError(err).Error("failed to obtain network links. stopping cache sync")
-				return
-			}
-			time.Sleep(15 * time.Second)
-		}
-	}()
-}
+var (
+	// linkCache is the singleton instance of the LinkCache, only needed to
+	// ensure that the single controller used to update the LinkCache is
+	// triggered exactly once and the same instance is handed to all users.
+	linkCache LinkCache
+	once      sync.Once
+)
 
 // DeleteByName deletes the interface with the name ifName.
 func DeleteByName(ifName string) error {
@@ -70,12 +65,30 @@ func GetIfIndex(ifName string) (uint32, error) {
 	return uint32(iface.Attrs().Index), nil
 }
 
-type ifNameCache struct {
+type LinkCache struct {
 	mu          lock.RWMutex
 	indexToName map[int]string
 }
 
-func (c *ifNameCache) syncCache() error {
+// NewLinkCache begins monitoring local interfaces for changes in order to
+// track local link information.
+func NewLinkCache() *LinkCache {
+	once.Do(func() {
+		linkCache = LinkCache{}
+		controller.NewManager().UpdateController("link-cache",
+			controller.ControllerParams{
+				RunInterval: 15 * time.Second,
+				DoFunc: func(ctx context.Context) error {
+					return linkCache.syncCache()
+				},
+			},
+		)
+	})
+
+	return &linkCache
+}
+
+func (c *LinkCache) syncCache() error {
 	links, err := netlink.LinkList()
 	if err != nil {
 		return err
@@ -92,7 +105,7 @@ func (c *ifNameCache) syncCache() error {
 	return nil
 }
 
-func (c *ifNameCache) lookupName(ifIndex int) (string, bool) {
+func (c *LinkCache) lookupName(ifIndex int) (string, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -101,7 +114,17 @@ func (c *ifNameCache) lookupName(ifIndex int) (string, bool) {
 }
 
 // GetIfNameCached returns the name of an interface (if it exists) by looking
-// it up in a regularly updated cache
-func GetIfNameCached(ifIndex int) (string, bool) {
-	return linkCache.lookupName(ifIndex)
+// it up in a regularly updated cache. The return result is the same as a map
+// lookup, ie nil, false if there is no entry cached for this ifindex.
+func (c *LinkCache) GetIfNameCached(ifIndex int) (string, bool) {
+	return c.lookupName(ifIndex)
+}
+
+// Name returns the name of a link by looking up the 'LinkCache', or returns a
+// string containing the ifindex on cache miss.
+func (c *LinkCache) Name(ifIndex uint32) string {
+	if name, ok := c.lookupName(int(ifIndex)); ok {
+		return name
+	}
+	return strconv.Itoa(int(ifIndex))
 }

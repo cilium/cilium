@@ -17,6 +17,6 @@ package vpc
 
 // IPv6TranslatorAcl is a nested struct in vpc response
 type IPv6TranslatorAcl struct {
-	AclId   string `json:"AclId" xml:"AclId"`
 	AclName string `json:"AclName" xml:"AclName"`
+	AclId   string `json:"AclId" xml:"AclId"`
 }

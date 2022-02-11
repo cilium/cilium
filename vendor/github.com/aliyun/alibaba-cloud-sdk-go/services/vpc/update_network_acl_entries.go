@@ -84,26 +84,26 @@ type UpdateNetworkAclEntriesRequest struct {
 
 // UpdateNetworkAclEntriesEgressAclEntries is a repeated param struct in UpdateNetworkAclEntriesRequest
 type UpdateNetworkAclEntriesEgressAclEntries struct {
-	NetworkAclEntryName string `name:"NetworkAclEntryName"`
 	NetworkAclEntryId   string `name:"NetworkAclEntryId"`
+	EntryType           string `name:"EntryType"`
+	NetworkAclEntryName string `name:"NetworkAclEntryName"`
 	Policy              string `name:"Policy"`
+	Description         string `name:"Description"`
 	Protocol            string `name:"Protocol"`
 	DestinationCidrIp   string `name:"DestinationCidrIp"`
 	Port                string `name:"Port"`
-	EntryType           string `name:"EntryType"`
-	Description         string `name:"Description"`
 }
 
 // UpdateNetworkAclEntriesIngressAclEntries is a repeated param struct in UpdateNetworkAclEntriesRequest
 type UpdateNetworkAclEntriesIngressAclEntries struct {
-	NetworkAclEntryName string `name:"NetworkAclEntryName"`
 	NetworkAclEntryId   string `name:"NetworkAclEntryId"`
-	Policy              string `name:"Policy"`
-	Protocol            string `name:"Protocol"`
-	SourceCidrIp        string `name:"SourceCidrIp"`
-	Port                string `name:"Port"`
 	EntryType           string `name:"EntryType"`
+	NetworkAclEntryName string `name:"NetworkAclEntryName"`
+	Policy              string `name:"Policy"`
+	SourceCidrIp        string `name:"SourceCidrIp"`
 	Description         string `name:"Description"`
+	Protocol            string `name:"Protocol"`
+	Port                string `name:"Port"`
 }
 
 // UpdateNetworkAclEntriesResponse is the response struct for api UpdateNetworkAclEntries

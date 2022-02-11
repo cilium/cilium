@@ -81,8 +81,8 @@ type DeactiveFlowLogRequest struct {
 // DeactiveFlowLogResponse is the response struct for api DeactiveFlowLog
 type DeactiveFlowLogResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
 	Success   string `json:"Success" xml:"Success"`
+	RequestId string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateDeactiveFlowLogRequest creates a request to invoke DeactiveFlowLog API

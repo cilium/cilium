@@ -17,17 +17,17 @@ package vpc
 
 // TrafficMirrorSession is a nested struct in vpc response
 type TrafficMirrorSession struct {
-	TrafficMirrorSessionName           string   `json:"TrafficMirrorSessionName" xml:"TrafficMirrorSessionName"`
-	TrafficMirrorSessionDescription    string   `json:"TrafficMirrorSessionDescription" xml:"TrafficMirrorSessionDescription"`
-	TrafficMirrorSessionId             string   `json:"TrafficMirrorSessionId" xml:"TrafficMirrorSessionId"`
-	TrafficMirrorSessionStatus         string   `json:"TrafficMirrorSessionStatus" xml:"TrafficMirrorSessionStatus"`
 	TrafficMirrorTargetId              string   `json:"TrafficMirrorTargetId" xml:"TrafficMirrorTargetId"`
-	TrafficMirrorTargetType            string   `json:"TrafficMirrorTargetType" xml:"TrafficMirrorTargetType"`
-	TrafficMirrorFilterId              string   `json:"TrafficMirrorFilterId" xml:"TrafficMirrorFilterId"`
-	VirtualNetworkId                   int      `json:"VirtualNetworkId" xml:"VirtualNetworkId"`
+	TrafficMirrorSessionId             string   `json:"TrafficMirrorSessionId" xml:"TrafficMirrorSessionId"`
 	Priority                           int      `json:"Priority" xml:"Priority"`
-	Enabled                            bool     `json:"Enabled" xml:"Enabled"`
+	TrafficMirrorTargetType            string   `json:"TrafficMirrorTargetType" xml:"TrafficMirrorTargetType"`
 	PacketLength                       int      `json:"PacketLength" xml:"PacketLength"`
+	TrafficMirrorSessionDescription    string   `json:"TrafficMirrorSessionDescription" xml:"TrafficMirrorSessionDescription"`
+	TrafficMirrorSessionStatus         string   `json:"TrafficMirrorSessionStatus" xml:"TrafficMirrorSessionStatus"`
+	Enabled                            bool     `json:"Enabled" xml:"Enabled"`
 	TrafficMirrorSessionBusinessStatus string   `json:"TrafficMirrorSessionBusinessStatus" xml:"TrafficMirrorSessionBusinessStatus"`
+	VirtualNetworkId                   int      `json:"VirtualNetworkId" xml:"VirtualNetworkId"`
+	TrafficMirrorFilterId              string   `json:"TrafficMirrorFilterId" xml:"TrafficMirrorFilterId"`
+	TrafficMirrorSessionName           string   `json:"TrafficMirrorSessionName" xml:"TrafficMirrorSessionName"`
 	TrafficMirrorSourceIds             []string `json:"TrafficMirrorSourceIds" xml:"TrafficMirrorSourceIds"`
 }

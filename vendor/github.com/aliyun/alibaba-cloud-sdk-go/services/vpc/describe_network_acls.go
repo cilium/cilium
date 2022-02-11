@@ -87,10 +87,10 @@ type DescribeNetworkAclsRequest struct {
 // DescribeNetworkAclsResponse is the response struct for api DescribeNetworkAcls
 type DescribeNetworkAclsResponse struct {
 	*responses.BaseResponse
-	RequestId   string      `json:"RequestId" xml:"RequestId"`
-	TotalCount  string      `json:"TotalCount" xml:"TotalCount"`
-	PageNumber  string      `json:"PageNumber" xml:"PageNumber"`
 	PageSize    string      `json:"PageSize" xml:"PageSize"`
+	RequestId   string      `json:"RequestId" xml:"RequestId"`
+	PageNumber  string      `json:"PageNumber" xml:"PageNumber"`
+	TotalCount  string      `json:"TotalCount" xml:"TotalCount"`
 	NetworkAcls NetworkAcls `json:"NetworkAcls" xml:"NetworkAcls"`
 }
 

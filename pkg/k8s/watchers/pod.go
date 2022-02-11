@@ -210,8 +210,8 @@ func (k *K8sWatcher) addK8sPodV1(pod *slim_corev1.Pod) error {
 		return k.deleteK8sPodV1(pod)
 	}
 
-	if pod.Spec.HostNetwork {
-		logger.Debug("Pod is using host networking")
+	if pod.Spec.HostNetwork && !option.Config.EnableLocalRedirectPolicy {
+		logger.Debug("Skip pod event using host networking")
 		return nil
 	}
 
@@ -259,8 +259,8 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 		return k.deleteK8sPodV1(newK8sPod)
 	}
 
-	if newK8sPod.Spec.HostNetwork {
-		logger.Debug("Pod is using host networking")
+	if newK8sPod.Spec.HostNetwork && !option.Config.EnableLocalRedirectPolicy {
+		logger.Debug("Skip pod event using host networking")
 		return nil
 	}
 
@@ -665,6 +665,15 @@ func (k *K8sWatcher) deleteHostPortMapping(pod *slim_corev1.Pod, podIPs []string
 }
 
 func (k *K8sWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPodIPs, newPodIPs k8sTypes.IPSlice) error {
+	if newPod.Spec.HostNetwork {
+		logger := log.WithFields(logrus.Fields{
+			logfields.K8sPodName:   newPod.ObjectMeta.Name,
+			logfields.K8sNamespace: newPod.ObjectMeta.Namespace,
+		})
+		logger.Debug("Pod is using host networking")
+		return nil
+	}
+
 	var namedPortsChanged bool
 
 	ipSliceEqual := oldPodIPs != nil && oldPodIPs.DeepEqual(&newPodIPs)

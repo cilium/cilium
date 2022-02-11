@@ -71,7 +71,7 @@ jobs:
         github.event.comment.body == '/ci-l4lb-1.11' ||
         github.event.comment.body == '/test-backport-1.11'
       )) ||
-      (github.event_name == 'schedule' && github.repository == 'cilium/cilium') ||
+      github.event_name == 'schedule' ||
       github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     outputs:
@@ -115,7 +115,7 @@ jobs:
         github.event.comment.body == '/ci-l4lb-1.11' ||
         (github.event.comment.body == '/test-backport-1.11' && needs.check_changes.outputs.tested == 'true')
       )) ||
-      (github.event_name == 'schedule' && github.repository == 'cilium/cilium') ||
+      github.event_name == 'schedule' ||
       github.event_name == 'pull_request'
     # We need nested virtualisation which is supported only by MacOS runner
     runs-on: macos-10.15

@@ -35,16 +35,6 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      affinity:
-        podAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchExpressions:
-                - key: "k8s-app"
-                  operator: In
-                  values:
-                    - cilium
-            topologyKey: "kubernetes.io/hostname"
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -69,6 +59,10 @@ spec:
           livenessProbe:
             tcpSocket:
               port: grpc
+          {{- with .Values.hubble.relay.extraEnv }}
+          env:
+            {{- toYaml . | trim | nindent 12 }}
+          {{- end }}
           {{- with .Values.hubble.relay.resources }}
           resources:
             {{- toYaml . | trim | nindent 12 }}
@@ -90,7 +84,11 @@ spec:
       serviceAccount: {{ .Values.serviceAccounts.relay.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.relay.name | quote }}
       automountServiceAccountToken: false
-      terminationGracePeriodSeconds: 0
+      terminationGracePeriodSeconds: {{ .Values.hubble.relay.terminationGracePeriodSeconds }}
+      {{- with .Values.hubble.relay.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- with .Values.hubble.relay.nodeSelector }}
       nodeSelector:
         {{- toYaml . | trim | nindent 8 }}

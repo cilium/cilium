@@ -83,23 +83,25 @@ type DescribeVpcAttributeRequest struct {
 // DescribeVpcAttributeResponse is the response struct for api DescribeVpcAttribute
 type DescribeVpcAttributeResponse struct {
 	*responses.BaseResponse
-	RequestId            string                                    `json:"RequestId" xml:"RequestId"`
-	VpcId                string                                    `json:"VpcId" xml:"VpcId"`
-	RegionId             string                                    `json:"RegionId" xml:"RegionId"`
-	Status               string                                    `json:"Status" xml:"Status"`
-	VpcName              string                                    `json:"VpcName" xml:"VpcName"`
 	CreationTime         string                                    `json:"CreationTime" xml:"CreationTime"`
-	CidrBlock            string                                    `json:"CidrBlock" xml:"CidrBlock"`
-	Ipv6CidrBlock        string                                    `json:"Ipv6CidrBlock" xml:"Ipv6CidrBlock"`
-	VRouterId            string                                    `json:"VRouterId" xml:"VRouterId"`
-	Description          string                                    `json:"Description" xml:"Description"`
+	Status               string                                    `json:"Status" xml:"Status"`
+	VpcId                string                                    `json:"VpcId" xml:"VpcId"`
 	IsDefault            bool                                      `json:"IsDefault" xml:"IsDefault"`
 	ClassicLinkEnabled   bool                                      `json:"ClassicLinkEnabled" xml:"ClassicLinkEnabled"`
-	ResourceGroupId      string                                    `json:"ResourceGroupId" xml:"ResourceGroupId"`
-	NetworkAclNum        string                                    `json:"NetworkAclNum" xml:"NetworkAclNum"`
 	OwnerId              int64                                     `json:"OwnerId" xml:"OwnerId"`
-	DhcpOptionsSetId     string                                    `json:"DhcpOptionsSetId" xml:"DhcpOptionsSetId"`
+	RegionId             string                                    `json:"RegionId" xml:"RegionId"`
+	VpcName              string                                    `json:"VpcName" xml:"VpcName"`
+	VRouterId            string                                    `json:"VRouterId" xml:"VRouterId"`
 	DhcpOptionsSetStatus string                                    `json:"DhcpOptionsSetStatus" xml:"DhcpOptionsSetStatus"`
+	CidrBlock            string                                    `json:"CidrBlock" xml:"CidrBlock"`
+	RequestId            string                                    `json:"RequestId" xml:"RequestId"`
+	Description          string                                    `json:"Description" xml:"Description"`
+	NetworkAclNum        string                                    `json:"NetworkAclNum" xml:"NetworkAclNum"`
+	ResourceGroupId      string                                    `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	DhcpOptionsSetId     string                                    `json:"DhcpOptionsSetId" xml:"DhcpOptionsSetId"`
+	Ipv6CidrBlock        string                                    `json:"Ipv6CidrBlock" xml:"Ipv6CidrBlock"`
+	SupportIpv4Gateway   bool                                      `json:"SupportIpv4Gateway" xml:"SupportIpv4Gateway"`
+	Ipv4GatewayId        string                                    `json:"Ipv4GatewayId" xml:"Ipv4GatewayId"`
 	VSwitchIds           VSwitchIdsInDescribeVpcAttribute          `json:"VSwitchIds" xml:"VSwitchIds"`
 	UserCidrs            UserCidrsInDescribeVpcAttribute           `json:"UserCidrs" xml:"UserCidrs"`
 	SecondaryCidrBlocks  SecondaryCidrBlocksInDescribeVpcAttribute `json:"SecondaryCidrBlocks" xml:"SecondaryCidrBlocks"`

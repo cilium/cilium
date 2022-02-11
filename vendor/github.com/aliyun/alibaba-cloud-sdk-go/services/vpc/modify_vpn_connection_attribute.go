@@ -94,18 +94,18 @@ type ModifyVpnConnectionAttributeRequest struct {
 // ModifyVpnConnectionAttributeResponse is the response struct for api ModifyVpnConnectionAttribute
 type ModifyVpnConnectionAttributeResponse struct {
 	*responses.BaseResponse
-	RequestId          string                                     `json:"RequestId" xml:"RequestId"`
-	VpnConnectionId    string                                     `json:"VpnConnectionId" xml:"VpnConnectionId"`
-	CustomerGatewayId  string                                     `json:"CustomerGatewayId" xml:"CustomerGatewayId"`
-	VpnGatewayId       string                                     `json:"VpnGatewayId" xml:"VpnGatewayId"`
-	Name               string                                     `json:"Name" xml:"Name"`
-	Description        string                                     `json:"Description" xml:"Description"`
-	LocalSubnet        string                                     `json:"LocalSubnet" xml:"LocalSubnet"`
-	RemoteSubnet       string                                     `json:"RemoteSubnet" xml:"RemoteSubnet"`
+	EnableNatTraversal bool                                       `json:"EnableNatTraversal" xml:"EnableNatTraversal"`
 	CreateTime         int64                                      `json:"CreateTime" xml:"CreateTime"`
 	EffectImmediately  bool                                       `json:"EffectImmediately" xml:"EffectImmediately"`
+	VpnGatewayId       string                                     `json:"VpnGatewayId" xml:"VpnGatewayId"`
+	LocalSubnet        string                                     `json:"LocalSubnet" xml:"LocalSubnet"`
+	RequestId          string                                     `json:"RequestId" xml:"RequestId"`
+	VpnConnectionId    string                                     `json:"VpnConnectionId" xml:"VpnConnectionId"`
+	Description        string                                     `json:"Description" xml:"Description"`
+	RemoteSubnet       string                                     `json:"RemoteSubnet" xml:"RemoteSubnet"`
+	CustomerGatewayId  string                                     `json:"CustomerGatewayId" xml:"CustomerGatewayId"`
+	Name               string                                     `json:"Name" xml:"Name"`
 	EnableDpd          bool                                       `json:"EnableDpd" xml:"EnableDpd"`
-	EnableNatTraversal bool                                       `json:"EnableNatTraversal" xml:"EnableNatTraversal"`
 	IkeConfig          IkeConfig                                  `json:"IkeConfig" xml:"IkeConfig"`
 	IpsecConfig        IpsecConfig                                `json:"IpsecConfig" xml:"IpsecConfig"`
 	VcoHealthCheck     VcoHealthCheck                             `json:"VcoHealthCheck" xml:"VcoHealthCheck"`

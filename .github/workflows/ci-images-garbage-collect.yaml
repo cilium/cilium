@@ -9,7 +9,6 @@ permissions: read-all
 
 jobs:
   scruffy:
-    if: ${{ github.repository == 'cilium/cilium' }}
     name: scruffy
     runs-on: ubuntu-20.04
     steps:

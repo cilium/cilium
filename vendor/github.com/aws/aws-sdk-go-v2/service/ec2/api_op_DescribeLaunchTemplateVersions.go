@@ -47,21 +47,41 @@ type DescribeLaunchTemplateVersionsInput struct {
 	// * ebs-optimized - A boolean that indicates whether the instance is
 	// optimized for Amazon EBS I/O.
 	//
-	// * iam-instance-profile - The ARN of the IAM
-	// instance profile.
+	// * http-endpoint - Indicates whether the HTTP
+	// metadata endpoint on your instances is enabled (enabled | disabled).
+	//
+	// *
+	// http-protocol-ipv4 - Indicates whether the IPv4 endpoint for the instance
+	// metadata service is enabled (enabled | disabled).
+	//
+	// * host-resource-group-arn -
+	// The ARN of the host resource group in which to launch the instances.
+	//
+	// *
+	// http-tokens - The state of token usage for your instance metadata requests
+	// (optional | required).
+	//
+	// * iam-instance-profile - The ARN of the IAM instance
+	// profile.
 	//
 	// * image-id - The ID of the AMI.
 	//
-	// * instance-type - The
-	// instance type.
+	// * instance-type - The instance
+	// type.
 	//
-	// * is-default-version - A boolean that indicates whether the
-	// launch template version is the default version.
+	// * is-default-version - A boolean that indicates whether the launch
+	// template version is the default version.
 	//
 	// * kernel-id - The kernel ID.
 	//
 	// *
-	// ram-disk-id - The RAM disk ID.
+	// license-configuration-arn - The ARN of the license configuration.
+	//
+	// *
+	// network-card-index - The index of the network card.
+	//
+	// * ram-disk-id - The RAM
+	// disk ID.
 	Filters []types.Filter
 
 	// The ID of the launch template. To describe one or more versions of a specified

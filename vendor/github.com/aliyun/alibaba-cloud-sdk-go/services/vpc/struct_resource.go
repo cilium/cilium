@@ -17,7 +17,7 @@ package vpc
 
 // Resource is a nested struct in vpc response
 type Resource struct {
-	ResourceId   string `json:"ResourceId" xml:"ResourceId"`
 	ResourceType string `json:"ResourceType" xml:"ResourceType"`
+	ResourceId   string `json:"ResourceId" xml:"ResourceId"`
 	Status       string `json:"Status" xml:"Status"`
 }

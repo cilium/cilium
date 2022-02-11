@@ -91,8 +91,8 @@ type CreateExpressCloudConnectionRequest struct {
 // CreateExpressCloudConnectionResponse is the response struct for api CreateExpressCloudConnection
 type CreateExpressCloudConnectionResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
 	EccId     string `json:"EccId" xml:"EccId"`
+	RequestId string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateCreateExpressCloudConnectionRequest creates a request to invoke CreateExpressCloudConnection API

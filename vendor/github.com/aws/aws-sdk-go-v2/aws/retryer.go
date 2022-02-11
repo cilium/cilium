@@ -29,7 +29,7 @@ type Retryer interface {
 	// Returning the token release function, or error.
 	GetRetryToken(ctx context.Context, opErr error) (releaseToken func(error) error, err error)
 
-	// GetInitalToken returns the initial request token that can increment the
+	// GetInitialToken returns the initial request token that can increment the
 	// retry token pool if the request is successful.
 	GetInitialToken() (releaseToken func(error) error)
 }

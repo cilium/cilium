@@ -104,15 +104,9 @@ var _ = SkipDescribeIf(func() bool {
 
 		daemonCfg = map[string]string{
 			"tls.secretsBackend": "k8s",
-			"debug.verbose":      "flow",
-			"hubble.enabled":     "true",
 		}
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, daemonCfg)
-	})
-
-	AfterEach(func() {
-		ExpectAllPodsTerminated(kubectl)
 	})
 
 	AfterFailed(func() {
@@ -220,6 +214,7 @@ var _ = SkipDescribeIf(func() bool {
 		AfterAll(func() {
 			kubectl.NamespaceDelete(namespaceForTest)
 			kubectl.Delete(demoPath)
+			ExpectAllPodsTerminated(kubectl)
 		})
 
 		BeforeEach(func() {
@@ -1502,6 +1497,7 @@ var _ = SkipDescribeIf(func() bool {
 					// Remove echoserver pods from host namespace.
 					echoPodPath := helpers.ManifestGet(kubectl.BasePath(), "echoserver-cilium-hostnetns.yaml")
 					kubectl.Delete(echoPodPath).ExpectSuccess("Cannot remove echoserver application")
+					ExpectAllPodsTerminated(kubectl)
 				})
 
 				It("Connectivity to hostns is blocked after denying ingress", func() {
@@ -1670,12 +1666,12 @@ var _ = SkipDescribeIf(func() bool {
 						Expect(res).To(getMatcher(true))
 
 						if expectWorldSuccess {
-							testCurlFromOutside(kubectl, &nodesInfo{
-								outsideNodeName: outsideNodeName,
+							testCurlFromOutside(kubectl, &helpers.NodesInfo{
+								OutsideNodeName: outsideNodeName,
 							}, k8s1PodIP, 1, false)
 						} else {
-							testCurlFailFromOutside(kubectl, &nodesInfo{
-								outsideNodeName: outsideNodeName,
+							testCurlFailFromOutside(kubectl, &helpers.NodesInfo{
+								OutsideNodeName: outsideNodeName,
 							}, k8s1PodIP, 1)
 						}
 					}()
@@ -1734,7 +1730,10 @@ var _ = SkipDescribeIf(func() bool {
 				validateConnectivity(HostConnectivityAllow, RemoteNodeConnectivityAllow, PodConnectivityAllow, WorldConnectivityDeny)
 			})
 
-			It("Validates fromEntities all policy", func() {
+			// Quarantined on net-next until #18520 is fixed
+			SkipItIf(func() bool {
+				return helpers.RunsOnNetNextKernel() && helpers.SkipQuarantined()
+			}, "Validates fromEntities all policy", func() {
 				installDefaultDenyIngressPolicy(kubectl, testNamespace, validateConnectivity)
 
 				By("Installing fromEntities all policy")
@@ -1758,6 +1757,7 @@ var _ = SkipDescribeIf(func() bool {
 
 			AfterEach(func() {
 				kubectl.Delete(connectivityCheckYml)
+				ExpectAllPodsTerminated(kubectl)
 			})
 
 			It("using connectivity-check to check datapath", func() {
@@ -1968,6 +1968,7 @@ var _ = SkipDescribeIf(func() bool {
 			_ = kubectl.Delete(demoManifest)
 			_ = kubectl.Delete(cnpSecondNS)
 			_ = kubectl.NamespaceDelete(secondNS)
+			ExpectAllPodsTerminated(kubectl)
 		})
 
 		It("Tests the same Policy in different namespaces", func() {
@@ -2178,6 +2179,7 @@ var _ = SkipDescribeIf(func() bool {
 			_ = kubectl.Delete(demoManifestNS2)
 			_ = kubectl.NamespaceDelete(firstNS)
 			_ = kubectl.NamespaceDelete(secondNS)
+			ExpectAllPodsTerminated(kubectl)
 		})
 
 		It("Test clusterwide connectivity with policies", func() {
@@ -2338,6 +2340,120 @@ var _ = SkipDescribeIf(func() bool {
 				"%q Clusterwide Policy cannot be deleted", ingressDenyAllPolicy)
 		})
 	})
+
+	//TODO: Check service with IPV6
+
+	Context("External services", func() {
+		var (
+			expectedCIDR = "198.49.23.144/32"
+
+			endpointPath      string
+			podPath           string
+			policyPath        string
+			policyLabeledPath string
+			servicePath       string
+		)
+
+		BeforeAll(func() {
+			endpointPath = helpers.ManifestGet(kubectl.BasePath(), "external_endpoint.yaml")
+			podPath = helpers.ManifestGet(kubectl.BasePath(), "external_pod.yaml")
+			policyPath = helpers.ManifestGet(kubectl.BasePath(), "external-policy.yaml")
+			policyLabeledPath = helpers.ManifestGet(kubectl.BasePath(), "external-policy-labeled.yaml")
+			servicePath = helpers.ManifestGet(kubectl.BasePath(), "external_service.yaml")
+
+			kubectl.ApplyDefault(servicePath).ExpectSuccess("cannot install external service")
+			kubectl.ApplyDefault(podPath).ExpectSuccess("cannot install pod path")
+
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
+			Expect(err).To(BeNil(), "Pods are not ready after timeout")
+
+			err = kubectl.CiliumEndpointWaitReady()
+			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
+		})
+
+		AfterAll(func() {
+			_ = kubectl.Delete(servicePath)
+			_ = kubectl.Delete(podPath)
+
+			ExpectAllPodsTerminated(kubectl)
+		})
+
+		AfterEach(func() {
+			_ = kubectl.Delete(policyLabeledPath)
+			_ = kubectl.Delete(policyPath)
+			_ = kubectl.Delete(endpointPath)
+		})
+
+		validateEgress := func(kubectl *helpers.Kubectl) {
+			By("Checking that toServices CIDR is plumbed into the policy")
+			Eventually(func() string {
+				output, err := kubectl.LoadedPolicyInFirstAgent()
+				ExpectWithOffset(1, err).To(BeNil(), "unable to retrieve policy")
+				return output
+			}, 2*time.Minute, 2*time.Second).Should(ContainSubstring(expectedCIDR))
+		}
+
+		validateEgressAfterDeletion := func(kubectl *helpers.Kubectl) {
+			By("Checking that toServices CIDR is no longer plumbed into the policy")
+			Eventually(func() string {
+				output, err := kubectl.LoadedPolicyInFirstAgent()
+				ExpectWithOffset(1, err).To(BeNil(), "unable to retrieve policy")
+				return output
+			}, 2*time.Minute, 2*time.Second).ShouldNot(ContainSubstring(expectedCIDR))
+		}
+
+		It("To Services first endpoint creation", func() {
+			res := kubectl.ApplyDefault(endpointPath)
+			res.ExpectSuccess()
+
+			applyPolicy(kubectl, policyPath)
+			validateEgress(kubectl)
+
+			kubectl.Delete(policyPath)
+			kubectl.Delete(endpointPath)
+			validateEgressAfterDeletion(kubectl)
+		})
+
+		It("To Services first policy", func() {
+			applyPolicy(kubectl, policyPath)
+			res := kubectl.ApplyDefault(endpointPath)
+			res.ExpectSuccess()
+
+			validateEgress(kubectl)
+
+			kubectl.Delete(policyPath)
+			kubectl.Delete(endpointPath)
+			validateEgressAfterDeletion(kubectl)
+		})
+
+		It("To Services first endpoint creation match service by labels", func() {
+			By("Creating Kubernetes Endpoint")
+			res := kubectl.ApplyDefault(endpointPath)
+			res.ExpectSuccess()
+
+			applyPolicy(kubectl, policyLabeledPath)
+
+			validateEgress(kubectl)
+
+			kubectl.Delete(policyLabeledPath)
+			kubectl.Delete(endpointPath)
+			validateEgressAfterDeletion(kubectl)
+		})
+
+		It("To Services first policy, match service by labels", func() {
+			applyPolicy(kubectl, policyLabeledPath)
+
+			By("Creating Kubernetes Endpoint")
+			res := kubectl.ApplyDefault(endpointPath)
+			res.ExpectSuccess()
+
+			validateEgress(kubectl)
+
+			kubectl.Delete(policyLabeledPath)
+			kubectl.Delete(endpointPath)
+			validateEgressAfterDeletion(kubectl)
+		})
+	})
 })
 
 // This Describe block is needed to run some tests in GKE. For example, the
@@ -2359,8 +2475,6 @@ var _ = SkipDescribeIf(helpers.DoesNotRunOn419OrLaterKernel,
 			kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 			daemonCfg = map[string]string{
 				"tls.secretsBackend": "k8s",
-				"debug.verbose":      "flow",
-				"hubble.enabled":     "true",
 			}
 			ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 		})
@@ -2520,12 +2634,12 @@ var _ = SkipDescribeIf(helpers.DoesNotRunOn419OrLaterKernel,
 						Expect(res).To(getMatcher(true))
 
 						if expectWorldSuccess {
-							testCurlFromOutside(kubectl, &nodesInfo{
-								outsideNodeName: outsideNodeName,
+							testCurlFromOutside(kubectl, &helpers.NodesInfo{
+								OutsideNodeName: outsideNodeName,
 							}, k8s1PodIP, 1, false)
 						} else {
-							testCurlFailFromOutside(kubectl, &nodesInfo{
-								outsideNodeName: outsideNodeName,
+							testCurlFailFromOutside(kubectl, &helpers.NodesInfo{
+								OutsideNodeName: outsideNodeName,
 							}, k8s1PodIP, 1)
 						}
 					}()
@@ -2580,6 +2694,60 @@ var _ = SkipDescribeIf(helpers.DoesNotRunOn419OrLaterKernel,
 				// egress policy. We expect to get back 403 because we
 				// purposefully didn't provide the auth token to fully talk to
 				// the kube-apiserver.
+				Expect(
+					kubectl.ExecPodCmd(
+						testNamespace, k8s2PodName, helpers.CurlWithHTTPCode(
+							"https://%s %s",
+							kubeAPIServerService.Spec.ClusterIP,
+							"--insecure", // kube-apiserver needs cert, skip verification
+						),
+					).Stdout(),
+				).To(Equal("403"),
+					"HTTP egress connectivity to pod %q to kube-apiserver %q",
+					k8s2PodName, kubeAPIServerService.Spec.ClusterIP,
+				)
+			})
+
+			It("Still allows connection to KubeAPIServer with a duplicate policy", func() {
+				installDefaultDenyIngressPolicy(
+					kubectl,
+					testNamespace,
+					validateConnectivity,
+				)
+				installDefaultDenyEgressPolicy(
+					kubectl,
+					testNamespace,
+					validateConnectivity,
+				)
+				By("Installing toEntities KubeAPIServer")
+				importPolicy(
+					kubectl,
+					testNamespace,
+					cnpToEntitiesKubeAPIServer,
+					"to-entities-kube-apiserver",
+				)
+
+				By("Installing duplicate toEntities KubeAPIServer")
+				importPolicy(
+					kubectl,
+					testNamespace,
+					helpers.ManifestGet(
+						kubectl.BasePath(), "cnp-to-entities-kube-apiserver-2.yaml",
+					),
+					"to-entities-kube-apiserver-2",
+				)
+
+				By("Removing the previous toEntities KubeAPIServer policy")
+				_, err := kubectl.CiliumPolicyAction(
+					testNamespace, cnpToEntitiesKubeAPIServer, helpers.KubectlDelete, helpers.HelperTimeout,
+				)
+				Expect(err).Should(
+					BeNil(),
+					"policy %s cannot be deleted in %q namespace", cnpToEntitiesKubeAPIServer, testNamespace,
+				)
+
+				By("Verifying KubeAPIServer connectivity is still allowed")
+				// See previous It() about the assertion on 403 HTTP code.
 				Expect(
 					kubectl.ExecPodCmd(
 						testNamespace, k8s2PodName, helpers.CurlWithHTTPCode(

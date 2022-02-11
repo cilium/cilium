@@ -18,6 +18,12 @@ func FmtDefineAddress(name string, addr []byte) string {
 	return fmt.Sprintf("#define %s { .addr = { %s } }\n", name, common.GoArray2C(addr))
 }
 
+// defineUint16 writes the C definition for an unsigned 16-bit value.
+func defineUint16(name string, value uint16) string {
+	return fmt.Sprintf("DEFINE_U16(%s, %#04x);\t/* %d */\n#define %s fetch_u16(%s)\n",
+		name, value, value, name, name)
+}
+
 // defineUint32 writes the C definition for an unsigned 32-bit value.
 func defineUint32(name string, value uint32) string {
 	return fmt.Sprintf("DEFINE_U32(%s, %#08x);\t/* %d */\n#define %s fetch_u32(%s)\n",

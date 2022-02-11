@@ -168,6 +168,40 @@ const (
 
 	// LabelDirection is the label for traffic direction
 	LabelDirection = "direction"
+
+	// LabelSourceCluster is the label for source cluster name
+	LabelSourceCluster = "source_cluster"
+
+	// LabelSourceNodeName is the label for source node name
+	LabelSourceNodeName = "source_node_name"
+
+	// LabelTargetCluster is the label for target cluster name
+	LabelTargetCluster = "target_cluster"
+
+	// LabelTargetNodeIP is the label for target node IP
+	LabelTargetNodeIP = "target_node_ip"
+
+	// LabelTargetNodeName is the label for target node name
+	LabelTargetNodeName = "target_node_name"
+
+	// LabelTargetNodeType is the label for target node type (local_node, remote_intra_cluster, vs remote_inter_cluster)
+	LabelTargetNodeType = "target_node_type"
+
+	LabelLocationLocalNode          = "local_node"
+	LabelLocationRemoteIntraCluster = "remote_intra_cluster"
+	LabelLocationRemoteInterCluster = "remote_inter_cluster"
+
+	// LabelType is the label for type in general (e.g. endpoint, node)
+	LabelType         = "type"
+	LabelPeerEndpoint = "endpoint"
+	LabelPeerNode     = "node"
+
+	LabelTrafficHTTP = "http"
+	LabelTrafficICMP = "icmp"
+
+	LabelAddressType          = "address_type"
+	LabelAddressTypePrimary   = "primary"
+	LabelAddressTypeSecondary = "secondary"
 )
 
 var (
@@ -176,6 +210,16 @@ var (
 	// APIInteractions is the total time taken to process an API call made
 	// to the cilium-agent
 	APIInteractions = NoOpObserverVec
+
+	// Status
+
+	// NodeConnectivityStatus is the connectivity status between local node to
+	// other node intra or inter cluster.
+	NodeConnectivityStatus = NoOpGaugeVec
+
+	// NodeConnectivityLatency is the connectivity latency between local node to
+	// other node intra or inter cluster.
+	NodeConnectivityLatency = NoOpGaugeVec
 
 	// Endpoint
 
@@ -443,6 +487,8 @@ var (
 
 type Configuration struct {
 	APIInteractionsEnabled                  bool
+	NodeConnectivityStatusEnabled           bool
+	NodeConnectivityLatencyEnabled          bool
 	EndpointRegenerationCountEnabled        bool
 	EndpointStateCountEnabled               bool
 	EndpointRegenerationTimeStatsEnabled    bool
@@ -535,6 +581,8 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_forward_count_total":                                           {},
 		Namespace + "_forward_bytes_total":                                           {},
 		Namespace + "_endpoint_propagation_delay_seconds":                            {},
+		Namespace + "_node_connectivity_status":                                      {},
+		Namespace + "_node_connectivity_latency_seconds":                             {},
 		Namespace + "_" + SubsystemDatapath + "_conntrack_dump_resets_total":         {},
 		Namespace + "_" + SubsystemDatapath + "_conntrack_gc_runs_total":             {},
 		Namespace + "_" + SubsystemDatapath + "_conntrack_gc_key_fallbacks_total":    {},
@@ -1150,7 +1198,7 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 				Subsystem: SubsystemTriggers,
 				Name:      "policy_update_call_duration_seconds",
 				Help:      "Duration of policy update trigger",
-			}, []string{"type"})
+			}, []string{LabelType})
 
 			collectors = append(collectors, TriggerPolicyUpdateCallDuration)
 			c.TriggerPolicyUpdateCallDuration = true
@@ -1266,7 +1314,44 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 			collectors = append(collectors, EndpointPropagationDelay)
 			c.EndpointPropagationDelayEnabled = true
 
+		case Namespace + "_node_connectivity_status":
+			NodeConnectivityStatus = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Name:      "node_connectivity_status",
+				Help:      "The last observed status of both ICMP and HTTP connectivity between the current Cilium agent and other Cilium nodes",
+			}, []string{
+				LabelSourceCluster,
+				LabelSourceNodeName,
+				LabelTargetCluster,
+				LabelTargetNodeName,
+				LabelTargetNodeType,
+				LabelType,
+			})
+
+			collectors = append(collectors, NodeConnectivityStatus)
+			c.NodeConnectivityStatusEnabled = true
+
+		case Namespace + "_node_connectivity_latency_seconds":
+			NodeConnectivityLatency = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Name:      "node_connectivity_latency_seconds",
+				Help:      "The last observed latency between the current Cilium agent and other Cilium nodes in seconds",
+			}, []string{
+				LabelSourceCluster,
+				LabelSourceNodeName,
+				LabelTargetCluster,
+				LabelTargetNodeName,
+				LabelTargetNodeIP,
+				LabelTargetNodeType,
+				LabelType,
+				LabelProtocol,
+				LabelAddressType,
+			})
+
+			collectors = append(collectors, NodeConnectivityLatency)
+			c.NodeConnectivityLatencyEnabled = true
 		}
+
 	}
 
 	return c, collectors
@@ -1468,4 +1553,11 @@ func Error2Outcome(err error) string {
 	}
 
 	return LabelValueOutcomeSuccess
+}
+
+func BoolToFloat64(v bool) float64 {
+	if v {
+		return 1
+	}
+	return 0
 }

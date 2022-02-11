@@ -78,6 +78,7 @@ var errors = map[uint8]string{
 	180: "Proxy redirection not supported for protocol",
 	181: "Policy denied by denylist",
 	182: "VLAN traffic disallowed by VLAN filter",
+	183: "Incorrect VNI from VTEP",
 }
 
 // DropReason prints the drop reason in a human readable string

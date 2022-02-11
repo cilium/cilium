@@ -62,7 +62,7 @@ to determine which devices the program is running on:
 
 .. code-block:: shell-session
 
-    $ kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep Masquerading
+    $ kubectl -n kube-system exec ds/cilium -- cilium status | grep Masquerading
     Masquerading:   BPF (ip-masq-agent)   [eth0, eth1]  10.0.0.0/16
 
 From the output above, the program is running on the ``eth0`` and ``eth1`` devices.
@@ -74,10 +74,19 @@ The eBPF-based masquerading can masquerade packets of the following IPv4 L4 prot
 - UDP
 - ICMP (only Echo request and Echo reply)
 
-By default, any packet from a pod destined to an IP address outside of the
-``ipv4-native-routing-cidr`` range is masqueraded. The exclusion CIDR is shown
-in the above output of ``cilium status`` (``10.0.0.0/16``).  To allow more
-fine-grained control, Cilium implements `ip-masq-agent
+By default, all packets from a pod destined to an IP address outside of the
+``ipv4-native-routing-cidr`` range are masqueraded, except for packets destined
+to other cluster nodes. The exclusion CIDR is shown in the above output of
+``cilium status`` (``10.0.0.0/16``).
+
+.. note::
+
+    When eBPF-masquerading is enabled, traffic from pods to the External IP of
+    cluster nodes will also not be masqueraded. The eBPF implementation differs
+    from the iptables-based masquerading on that aspect. This limitation is
+    tracked at :gh-issue:`17177`.
+
+To allow more fine-grained control, Cilium implements `ip-masq-agent
 <https://github.com/kubernetes-sigs/ip-masq-agent>`_ in eBPF which can be
 enabled with the ``ipMasqAgent.enabled=true`` helm option.
 
@@ -120,7 +129,7 @@ The example below shows how to configure the agent via `ConfigMap` and to verify
 
     $ # Wait ~60s until the ConfigMap is mounted into a cilium pod
 
-    $ kubectl -n kube-system exec -ti cilium-xxxxx -- cilium bpf ipmasq list
+    $ kubectl -n kube-system exec ds/cilium -- cilium bpf ipmasq list
     IP PREFIX/ADDRESS
     10.0.0.0/8
     169.254.0.0/16

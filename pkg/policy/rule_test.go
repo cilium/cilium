@@ -9,7 +9,6 @@ package policy
 import (
 	"bytes"
 	stdlog "log"
-	"net"
 
 	. "gopkg.in/check.v1"
 
@@ -937,37 +936,6 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 	err = rule1.Sanitize()
 	c.Assert(err, IsNil)
 
-	expected := NewCIDRPolicy()
-	expected.Ingress.Map["10.0.1.0/24"] = &CIDRPolicyMapRule{Prefix: net.IPNet{IP: []byte{10, 0, 1, 0}, Mask: []byte{255, 255, 255, 0}}, DerivedFromRules: labels.LabelArrayList{nil}}
-	expected.Ingress.Map["192.168.2.0/24"] = &CIDRPolicyMapRule{Prefix: net.IPNet{IP: []byte{192, 168, 2, 0}, Mask: []byte{255, 255, 255, 0}}, DerivedFromRules: labels.LabelArrayList{nil}}
-	expected.Ingress.Map["10.0.3.1/32"] = &CIDRPolicyMapRule{Prefix: net.IPNet{IP: []byte{10, 0, 3, 1}, Mask: []byte{255, 255, 255, 255}}, DerivedFromRules: labels.LabelArrayList{nil}}
-	expected.Ingress.IPv4PrefixCount[32] = 1
-	expected.Ingress.IPv4PrefixCount[24] = 2
-	expected.Ingress.Map["2001:db8::/48"] = &CIDRPolicyMapRule{Prefix: net.IPNet{IP: []byte{0x20, 1, 0xd, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, Mask: []byte{255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}, DerivedFromRules: labels.LabelArrayList{nil}}
-	expected.Ingress.Map["2001:db9::/128"] = &CIDRPolicyMapRule{Prefix: net.IPNet{IP: []byte{0x20, 1, 0xd, 0xb9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, Mask: []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}}, DerivedFromRules: labels.LabelArrayList{nil}}
-	expected.Ingress.IPv6PrefixCount[128] = 1
-	expected.Ingress.IPv6PrefixCount[48] = 1
-	expected.Egress.Map["10.1.0.0/16"] = &CIDRPolicyMapRule{Prefix: net.IPNet{IP: []byte{10, 1, 0, 0}, Mask: []byte{255, 255, 0, 0}}, DerivedFromRules: labels.LabelArrayList{nil}}
-	expected.Egress.Map["10.128.0.0/9"] = &CIDRPolicyMapRule{Prefix: net.IPNet{IP: []byte{10, 128, 0, 0}, Mask: []byte{255, 128, 0, 0}}, DerivedFromRules: labels.LabelArrayList{nil}}
-	expected.Egress.Map["10.0.0.0/10"] = &CIDRPolicyMapRule{Prefix: net.IPNet{IP: []byte{10, 0, 0, 0}, Mask: []byte{255, 192, 0, 0}}, DerivedFromRules: labels.LabelArrayList{nil}}
-	expected.Egress.Map["10.64.0.0/11"] = &CIDRPolicyMapRule{Prefix: net.IPNet{IP: []byte{10, 64, 0, 0}, Mask: []byte{255, 224, 0, 0}}, DerivedFromRules: labels.LabelArrayList{nil}}
-	expected.Egress.Map["10.112.0.0/12"] = &CIDRPolicyMapRule{Prefix: net.IPNet{IP: []byte{10, 112, 0, 0}, Mask: []byte{255, 240, 0, 0}}, DerivedFromRules: labels.LabelArrayList{nil}}
-	expected.Egress.IPv4PrefixCount[16] = 1
-	expected.Egress.IPv4PrefixCount[12] = 1
-	expected.Egress.IPv4PrefixCount[11] = 1
-	expected.Egress.IPv4PrefixCount[10] = 1
-	expected.Egress.IPv4PrefixCount[9] = 1
-	expected.Egress.Map["2001:dbf::/64"] = &CIDRPolicyMapRule{Prefix: net.IPNet{IP: []byte{0x20, 1, 0xd, 0xbf, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, Mask: []byte{255, 255, 255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0}}, DerivedFromRules: labels.LabelArrayList{nil}}
-	expected.Egress.IPv6PrefixCount[64] = 1
-
-	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
-	state := traceState{}
-	res := rule1.resolveCIDRPolicy(toBar, &state, NewCIDRPolicy())
-	c.Assert(res, Not(IsNil))
-	c.Assert(*res, checker.DeepEquals, *expected)
-	c.Assert(state.selectedRules, Equals, 1)
-	c.Assert(state.matchedRules, Equals, 0)
-
 	// Must be parsable, make sure Validate fails when not.
 	err = api.Rule{
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
@@ -1387,8 +1355,7 @@ func (ds *PolicyTestSuite) TestL3RuleLabels(c *C) {
 			rulesToApply:          []string{"rule0"},
 			expectedIngressLabels: nil,
 			expectedEgressLabels:  nil,
-		},
-		{
+		}, {
 			description:           "A rule that matches. Should apply labels",
 			rulesToApply:          []string{"rule1"},
 			expectedIngressLabels: map[string]labels.LabelArrayList{"10.0.1.0/32": {ruleLabels["rule1"]}},
@@ -1405,10 +1372,11 @@ func (ds *PolicyTestSuite) TestL3RuleLabels(c *C) {
 		}}
 
 	// endpoint selector for all tests
-	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
+	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar"), Trace: TRACE_VERBOSE}
+	fromBar := &SearchContext{From: labels.ParseSelectLabelArray("bar"), Trace: TRACE_VERBOSE}
 
 	for _, test := range testCases {
-		finalPolicy := NewCIDRPolicy()
+		finalPolicy := NewL4Policy(0)
 		for _, r := range test.rulesToApply {
 			apiRule := rules[r]
 			err := apiRule.Sanitize()
@@ -1416,21 +1384,42 @@ func (ds *PolicyTestSuite) TestL3RuleLabels(c *C) {
 
 			rule := &rule{Rule: apiRule}
 
-			rule.resolveCIDRPolicy(toBar, &traceState{}, finalPolicy)
+			_, err = rule.resolveIngressPolicy(testPolicyContext, toBar, &traceState{}, finalPolicy.Ingress, nil, nil)
+			c.Assert(err, IsNil)
+			_, err = rule.resolveEgressPolicy(testPolicyContext, fromBar, &traceState{}, finalPolicy.Egress, nil, nil)
+			c.Assert(err, IsNil)
 		}
+		// For debugging the test:
+		//c.Assert(finalPolicy.Ingress, checker.DeepEquals, L4PolicyMap{})
 
-		c.Assert(len(finalPolicy.Ingress.Map), Equals, len(test.expectedIngressLabels), Commentf(test.description))
-		for cidrKey := range test.expectedIngressLabels {
-			out := finalPolicy.Ingress.Map[cidrKey]
-			c.Assert(out, Not(IsNil), Commentf(test.description))
-			c.Assert(out.DerivedFromRules, checker.DeepEquals, test.expectedIngressLabels[cidrKey], Commentf(test.description))
+		type expectedResult map[string]labels.LabelArrayList
+		mapDirectionalResultsToExpectedOutput := map[*L4Filter]expectedResult{
+			finalPolicy.Ingress[api.PortProtocolAny]: test.expectedIngressLabels,
+			finalPolicy.Egress[api.PortProtocolAny]:  test.expectedEgressLabels,
 		}
+		for filter, exp := range mapDirectionalResultsToExpectedOutput {
+			if len(exp) > 0 {
+				for cidr, rule := range exp {
+					matches := false
+					for _, derived := range filter.DerivedFromRules {
+						if derived.Equals(rule[0]) {
+							matches = true
+							break
+						}
+					}
+					c.Assert(matches, Equals, true, Commentf("%s: expected filter %+v to be derived from rule %s", test.description, filter, rule))
 
-		c.Assert(len(finalPolicy.Egress.Map), Equals, len(test.expectedEgressLabels), Commentf(test.description))
-		for cidrKey := range test.expectedEgressLabels {
-			out := finalPolicy.Egress.Map[cidrKey]
-			c.Assert(out, Not(IsNil), Commentf(test.description))
-			c.Assert(out.DerivedFromRules, checker.DeepEquals, test.expectedEgressLabels[cidrKey], Commentf(test.description))
+					matches = false
+					for sel := range filter.L7RulesPerSelector {
+						cidrLabels := labels.ParseLabelArray("cidr:" + cidr)
+						c.Logf("Testing %+v", cidrLabels)
+						if matches = sel.(*labelIdentitySelector).xxxMatches(cidrLabels); matches {
+							break
+						}
+					}
+					c.Assert(matches, Equals, true, Commentf("%s: expected cidr %s to match filter %+v", test.description, cidr, filter))
+				}
+			}
 		}
 	}
 }

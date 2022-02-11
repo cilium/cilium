@@ -81,34 +81,37 @@ var (
 	// below. These overrides represent a desire to set the default for all
 	// tests, instead of test-specific variations.
 	defaultHelmOptions = map[string]string{
-		"image.repository":              "k8s1:5000/cilium/cilium-dev",
-		"image.tag":                     "latest",
-		"image.useDigest":               "false",
-		"preflight.image.repository":    "k8s1:5000/cilium/cilium-dev", // Set again in init to match agent.image!
-		"preflight.image.tag":           "latest",
-		"preflight.image.useDigest":     "false",
-		"operator.image.repository":     "k8s1:5000/cilium/operator",
-		"operator.image.tag":            "latest",
-		"operator.image.suffix":         "",
-		"operator.image.useDigest":      "false",
+		"image.repository":           "k8s1:5000/cilium/cilium-dev",
+		"image.tag":                  "latest",
+		"image.useDigest":            "false",
+		"preflight.image.repository": "k8s1:5000/cilium/cilium-dev", // Set again in init to match agent.image!
+		"preflight.image.tag":        "latest",
+		"preflight.image.useDigest":  "false",
+		"operator.image.repository":  "k8s1:5000/cilium/operator",
+		"operator.image.tag":         "latest",
+		"operator.image.suffix":      "",
+		"operator.image.useDigest":   "false",
+
+		// Enable embedded Hubble, both on unix socket and TCP port 4244.
+		"hubble.enabled":                "true",
+		"hubble.listenAddress":          ":4244",
+		"hubble.eventBufferCapacity":    "65535",
 		"hubble.relay.image.repository": "k8s1:5000/cilium/hubble-relay",
 		"hubble.relay.image.tag":        "latest",
 		"hubble.relay.image.useDigest":  "false",
-		"hubble.eventBufferCapacity":    "65535",
-		"debug.enabled":                 "true",
-		"k8s.requireIPv4PodCIDR":        "true",
-		"pprof.enabled":                 "true",
-		"logSystemLoad":                 "true",
-		"bpf.preallocateMaps":           "false",
-		"etcd.leaseTTL":                 "30s",
-		"ipv4.enabled":                  "true",
-		"ipv6.enabled":                  "true",
+
+		"debug.enabled": "true",
+		"debug.verbose": "flow",
+
+		"k8s.requireIPv4PodCIDR": "true",
+		"pprof.enabled":          "true",
+		"logSystemLoad":          "true",
+		"bpf.preallocateMaps":    "false",
+		"etcd.leaseTTL":          "30s",
+		"ipv4.enabled":           "true",
+		"ipv6.enabled":           "true",
 		// "extraEnv[0].name":              "KUBE_CACHE_MUTATION_DETECTOR",
 		// "extraEnv[0].value":             "true",
-
-		// Enable embedded Hubble, both on unix socket and TCP port 4244.
-		"hubble.enabled":       "true",
-		"hubble.listenAddress": ":4244",
 
 		// We need CNP node status to know when a policy is being enforced
 		"enableCnpStatusUpdates": "true",
@@ -307,6 +310,10 @@ type Kubectl struct {
 	// ciliumOptions is a cache of the most recent configuration options
 	// used to install Cilium via CiliumInstall().
 	ciliumOptions map[string]string
+
+	// nDNSReplicas is the number of replicas for DNS pods in the cluster.
+	// Stored via kub.ScaleDownDNS(), used by kub.ScaleUpDNS().
+	nDNSReplicas int
 }
 
 // CreateKubectl initializes a Kubectl helper with the provided vmName and log
@@ -2044,11 +2051,62 @@ iteratePods:
 	}
 }
 
-// RedeployDNS deletes the kube-dns pods and does not wait for the deletion
-// to complete. Useful to ensure that the pods are recreated after datapath
-// configuration changes.
-func (kub *Kubectl) RedeployDNS() *CmdRes {
-	return kub.DeleteResource("pod", "-n "+KubeSystemNamespace+" -l "+kubeDNSLabel)
+func (kub *Kubectl) setDNSReplicas(nReplicas int) *CmdRes {
+	res := kub.ExecShort(fmt.Sprintf("%s get deploy -n %s -l %s -o jsonpath='{.items[*].metadata.name}'", KubectlCmd, KubeSystemNamespace, kubeDNSLabel))
+	if !res.WasSuccessful() {
+		return res
+	}
+
+	// kubectl -n kube-system patch deploy coredns --patch '{"spec": { "replicas":1}}'
+	name := res.Stdout()
+	spec := fmt.Sprintf("{\"spec\": { \"replicas\":%d}}", nReplicas)
+	return kub.ExecShort(fmt.Sprintf("%s patch deploy -n %s %s --patch '%s'", KubectlCmd, KubeSystemNamespace, name, spec))
+}
+
+// ScaleDownDNS reduces the number of pods in the cluster performing kube-dns
+// duties down to zero. May be reverted by calling ScaleUpDNS().
+func (kub *Kubectl) ScaleDownDNS() *CmdRes {
+	cmd := fmt.Sprintf("%s get deploy -n %s -l %s -o jsonpath='{.items[*].status.replicas}'", KubectlCmd, KubeSystemNamespace, kubeDNSLabel)
+	res := kub.ExecShort(cmd)
+	if !res.WasSuccessful() {
+		ginkgoext.Failf("Unable to retrieve DNS pods to scale down, command '%s': %s", res.GetCmd(), res.OutputPrettyPrint())
+		return res
+	}
+
+	n, err := strconv.Atoi(res.Stdout())
+	if err != nil {
+		ginkgoext.Failf("Failed to retrieve DNS replicas via '%s': %s", res.GetCmd(), err)
+		res.success = false
+		res.err = err
+		return res
+	}
+	kub.nDNSReplicas = n
+
+	res = kub.setDNSReplicas(0)
+	if !res.WasSuccessful() {
+		ginkgoext.Failf("Unable to scale down DNS pods, command '%s': %s", res.GetCmd(), res.OutputPrettyPrint())
+	}
+	return res
+}
+
+// ScaleUpDNS restores the number of replicas for kube-dns to the number
+// prior to calling ScaleDownDNS(). Must be called after ScaleDownDNS().
+func (kub *Kubectl) ScaleUpDNS() *CmdRes {
+	res := kub.setDNSReplicas(kub.nDNSReplicas)
+	if !res.WasSuccessful() {
+		ginkgoext.Failf("Unable to scale down DNS pods, command '%s': %s", res.GetCmd(), res.OutputPrettyPrint())
+	}
+	return res
+}
+
+// redeployDNS deletes the kube-dns pods and does not wait for the deletion
+// to complete.
+func (kub *Kubectl) redeployDNS() *CmdRes {
+	if res := kub.ScaleDownDNS(); !res.WasSuccessful() {
+		return res
+	}
+
+	return kub.ScaleUpDNS()
 }
 
 // RedeployKubernetesDnsIfNecessary validates if the Kubernetes DNS is
@@ -2067,7 +2125,7 @@ func (kub *Kubectl) RedeployKubernetesDnsIfNecessary(force bool) {
 	}
 
 	ginkgoext.By("Restarting Kubernetes DNS (-l %s)", kubeDNSLabel)
-	res := kub.RedeployDNS()
+	res := kub.redeployDNS()
 	if !res.WasSuccessful() {
 		ginkgoext.Failf("Unable to delete DNS pods: %s", res.OutputPrettyPrint())
 	}
@@ -2195,6 +2253,8 @@ func (kub *Kubectl) WaitTerminatingPodsInNs(ns string, timeout time.Duration) er
 // state are deleted correctly in the platform. In case of excedding the
 // given timeout (in seconds) it returns an error.
 func (kub *Kubectl) WaitTerminatingPodsInNsWithFilter(ns, filter string, timeout time.Duration) error {
+	var innerErr error
+
 	body := func() bool {
 		where := ns
 		if where == "" {
@@ -2203,9 +2263,10 @@ func (kub *Kubectl) WaitTerminatingPodsInNsWithFilter(ns, filter string, timeout
 			where = "-n " + where
 		}
 		res := kub.ExecShort(fmt.Sprintf(
-			"%s get pods %s %s -o jsonpath='{.items[*].metadata.deletionTimestamp}'",
+			"%s get pods %s %s -o jsonpath='{.items[?(.metadata.deletionTimestamp!=\"\")].metadata.name}'",
 			KubectlCmd, filter, where))
 		if !res.WasSuccessful() {
+			innerErr = fmt.Errorf("Failed to connect to apiserver: %w", res.GetError())
 			return false
 		}
 
@@ -2214,9 +2275,11 @@ func (kub *Kubectl) WaitTerminatingPodsInNsWithFilter(ns, filter string, timeout
 			return true
 		}
 
-		podsTerminating := len(strings.Split(res.Stdout(), " "))
-		kub.Logger().WithField("Terminating pods", podsTerminating).Info("List of pods terminating")
-		if podsTerminating > 0 {
+		podsTerminating := strings.Split(res.Stdout(), " ")
+		nTerminating := len(podsTerminating)
+		kub.Logger().WithField("Terminating pods", nTerminating).Info("List of pods terminating")
+		if nTerminating > 0 {
+			innerErr = fmt.Errorf("Pods are still terminating: %s", podsTerminating)
 			return false
 		}
 		return true
@@ -2226,7 +2289,10 @@ func (kub *Kubectl) WaitTerminatingPodsInNsWithFilter(ns, filter string, timeout
 		body,
 		"Pods are still not deleted after a timeout",
 		&TimeoutConfig{Timeout: timeout})
-	return err
+	if err != nil {
+		return fmt.Errorf("%s: %w", err, innerErr)
+	}
+	return nil
 }
 
 // DeployPatchStdIn deploys the original kubernetes descriptor with the given patch.
@@ -2388,11 +2454,15 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		if err != nil {
 			return err
 		}
-		defaultIface, err := kub.GetDefaultIface()
+		defaultIfaceIPv4, err := kub.GetDefaultIface(false)
 		if err != nil {
 			return err
 		}
-		devices := fmt.Sprintf(`'{%s,%s}'`, privateIface, defaultIface)
+		defaultIfaceIPv6, err := kub.GetDefaultIface(true)
+		if err != nil {
+			return err
+		}
+		devices := fmt.Sprintf(`'{%s,%s,%s}'`, privateIface, defaultIfaceIPv4, defaultIfaceIPv6)
 		addIfNotOverwritten(options, "devices", devices)
 	}
 
@@ -2489,8 +2559,12 @@ func (kub *Kubectl) waitToDelete(name, label string) error {
 
 // GetDefaultIface returns an interface name which is used by a default route.
 // Assumes that all nodes have identical interfaces.
-func (kub *Kubectl) GetDefaultIface() (string, error) {
-	cmd := `ip -o r | grep default | grep -o 'dev [a-zA-Z0-9]*' | cut -d' ' -f2 | head -n1`
+func (kub *Kubectl) GetDefaultIface(ipv6 bool) (string, error) {
+	family := "-4"
+	if ipv6 {
+		family = "-6"
+	}
+	cmd := fmt.Sprintf(`ip %s -o r | grep default | grep -o 'dev [a-zA-Z0-9]*' | cut -d' ' -f2 | head -n1`, family)
 	iface, err := kub.ExecInHostNetNSByLabel(context.TODO(), K8s1, cmd)
 	if err != nil {
 		return "", fmt.Errorf("Failed to retrieve default iface: %s", err)
@@ -4433,7 +4507,7 @@ func (kub *Kubectl) CleanupCiliumComponents() {
 			"clusterrole":        "cilium cilium-operator hubble-relay hubble-ui",
 			"serviceaccount":     "cilium cilium-operator hubble-relay",
 			"service":            "cilium-agent hubble-metrics hubble-relay",
-			"secret":             "hubble-relay-client-certs hubble-server-certs hubble-ca-secret",
+			"secret":             "hubble-relay-client-certs hubble-server-certs hubble-ca-secret cilium-ca",
 			"resourcequota":      "cilium-resource-quota cilium-operator-resource-quota",
 		}
 

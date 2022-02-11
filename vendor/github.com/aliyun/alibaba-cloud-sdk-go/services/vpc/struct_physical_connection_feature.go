@@ -17,6 +17,6 @@ package vpc
 
 // PhysicalConnectionFeature is a nested struct in vpc response
 type PhysicalConnectionFeature struct {
-	FeatureKey   string `json:"FeatureKey" xml:"FeatureKey"`
 	FeatureValue string `json:"FeatureValue" xml:"FeatureValue"`
+	FeatureKey   string `json:"FeatureKey" xml:"FeatureKey"`
 }

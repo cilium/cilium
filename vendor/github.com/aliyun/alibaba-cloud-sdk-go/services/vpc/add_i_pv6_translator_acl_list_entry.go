@@ -83,8 +83,8 @@ type AddIPv6TranslatorAclListEntryRequest struct {
 // AddIPv6TranslatorAclListEntryResponse is the response struct for api AddIPv6TranslatorAclListEntry
 type AddIPv6TranslatorAclListEntryResponse struct {
 	*responses.BaseResponse
-	RequestId  string `json:"RequestId" xml:"RequestId"`
 	AclEntryId string `json:"AclEntryId" xml:"AclEntryId"`
+	RequestId  string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateAddIPv6TranslatorAclListEntryRequest creates a request to invoke AddIPv6TranslatorAclListEntry API

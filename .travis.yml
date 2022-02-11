@@ -3,7 +3,7 @@ language: go
 dist: focal
 sudo: required
 
-go: "1.17.5"
+go: "1.17.6"
 
 jobs:
   include:
@@ -16,7 +16,7 @@ jobs:
       if: type != pull_request
       env:
         - RACE=1
-        - BASE_IMAGE=quay.io/cilium/cilium-runtime:145587cd619373a24bb6fd99fb3803943b7af776@sha256:d94d917281bc858b1160cccafca7b5b2d7e44512b2b8e791de7a20dcf5efedb8
+        - BASE_IMAGE=quay.io/cilium/cilium-runtime:05aefca72c6e53861ebd2e0892946e73abbd9d38@sha256:3c5b6d80c0596d952948f5330afed096cdc32f23e7b90161a89632a392734761
         - LOCKDEBUG=1
 
 # Disabled due to a compilation issue: https://github.com/cilium/cilium/issues/13252
@@ -25,7 +25,7 @@ jobs:
 #      if: type != pull_request
 #      env:
 #        - RACE=1
-#        - BASE_IMAGE=quay.io/cilium/cilium-runtime:145587cd619373a24bb6fd99fb3803943b7af776@sha256:d94d917281bc858b1160cccafca7b5b2d7e44512b2b8e791de7a20dcf5efedb8
+#        - BASE_IMAGE=quay.io/cilium/cilium-runtime:05aefca72c6e53861ebd2e0892946e73abbd9d38@sha256:3c5b6d80c0596d952948f5330afed096cdc32f23e7b90161a89632a392734761
 #        - LOCKDEBUG=1
 #      virt: vm
 #      group: edge
