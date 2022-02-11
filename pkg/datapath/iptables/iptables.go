@@ -492,8 +492,8 @@ func (m *IptablesManager) SupportsOriginalSourceAddr() bool {
 	return (m.haveSocketMatch || m.ipEarlyDemuxDisabled) && option.Config.Tunnel == option.TunnelDisabled
 }
 
-// removeRulesAndIpsets removes iptables rules and ipsets installed by Cilium.
-func (m *IptablesManager) removeRulesAndIpsets(prefix string, quiet bool) {
+// removeRules removes iptables rules installed by Cilium.
+func (m *IptablesManager) removeRules(prefix string, quiet bool) {
 	// Set of tables that have had iptables rules in any Cilium version
 	tables := []string{"nat", "mangle", "raw", "filter"}
 	for _, t := range tables {
@@ -512,24 +512,14 @@ func (m *IptablesManager) removeRulesAndIpsets(prefix string, quiet bool) {
 		c.name = prefix + c.name
 		c.remove(quiet)
 	}
-
-	// ipset removal is always quiet since there won't be anything to remove
-	// if Cilium wasn't using iptables-based masquerading before the restart.
-	removeIpset(strings.ToLower(prefix) + ciliumNodeIpsetV4)
-	removeIpset(strings.ToLower(prefix) + ciliumNodeIpsetV6)
 }
 
-// renameChainsAndIpsets renames iptables chains and ipsets installed by Cilium.
-func (m *IptablesManager) renameChainsAndIpsets(prefix string, quiet bool) {
+// renameChains renames iptables chains installed by Cilium.
+func (m *IptablesManager) renameChains(prefix string, quiet bool) {
 	// Rename any old chains we may have
 	for _, c := range ciliumChains {
 		c.rename(prefix+c.name, quiet)
 	}
-
-	// ipset renaming is always quiet since there won't be anything to rename
-	// if Cilium wasn't using iptables-based masquerading before the restart.
-	prefixIpsetName(ciliumNodeIpsetV4, strings.ToLower(prefix))
-	prefixIpsetName(ciliumNodeIpsetV6, strings.ToLower(prefix))
 }
 
 func (m *IptablesManager) ingressProxyRule(l4Match, markMatch, mark, port, name string) []string {
@@ -1273,18 +1263,6 @@ func removeIpset(name string) {
 	}
 }
 
-func prefixIpsetName(name, prefix string) {
-	if !ipsetExists(name) {
-		return
-	}
-	newName := prefix + name
-	progArgs := []string{"rename", name, newName}
-	err := ipset.runProg(progArgs, true)
-	if err != nil {
-		log.WithError(err).Warnf("Unable to rename Cilium %s ipset to %s", name, newName)
-	}
-}
-
 func ipsetExists(name string) bool {
 	progArgs := []string{"list", name}
 	err := ipset.runProg(progArgs, true)
@@ -1329,9 +1307,9 @@ func (m *IptablesManager) InstallRules(ifName string, firstInitialization, insta
 	quiet := firstInitialization
 
 	// Make sure we have no old "backups"
-	m.removeRulesAndIpsets(oldCiliumPrefix, true)
+	m.removeRules(oldCiliumPrefix, true)
 
-	m.renameChainsAndIpsets(oldCiliumPrefix, quiet)
+	m.renameChains(oldCiliumPrefix, quiet)
 
 	// install rules if needed
 	if install {
@@ -1348,7 +1326,11 @@ func (m *IptablesManager) InstallRules(ifName string, firstInitialization, insta
 		return err
 	}
 
-	// Create ipsets for node IP address only if needed.
+	// Create ipsets for node IP address only if needed. If they already exist,
+	// we will simply ignore the error.
+	// Note we don't need a backup system as for iptables rules because the
+	// contents of ipsets doesn't depend on configuration. Whether they are
+	// needed depends on the configuration, but the content doesn't.
 	if useNodeIpset() {
 		if option.Config.IptablesMasqueradingIPv4Enabled() {
 			if err = createIpset(ciliumNodeIpsetV4, false); err != nil {
@@ -1360,11 +1342,16 @@ func (m *IptablesManager) InstallRules(ifName string, firstInitialization, insta
 				return err
 			}
 		}
+	} else {
+		// ipset removal is always quiet since there won't be anything to
+		// remove if Cilium wasn't using iptables-based masquerading before the restart.
+		removeIpset(ciliumNodeIpsetV4)
+		removeIpset(ciliumNodeIpsetV6)
 	}
 
 	// only remove old rules if new ones were successfully installed
 	if err == nil {
-		m.removeRulesAndIpsets(oldCiliumPrefix, quiet)
+		m.removeRules(oldCiliumPrefix, quiet)
 	}
 	return err
 }
