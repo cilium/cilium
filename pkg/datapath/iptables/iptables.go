@@ -1085,16 +1085,9 @@ func RemoveFromNodeIpset(nodeIP net.IP) {
 	}
 }
 
-// useNodeIpset returns true if the ipset for node IP addresses should be
-// used to skip masquerading.
-func useNodeIpset() bool {
-	return option.Config.Tunnel == option.TunnelDisabled &&
-		option.Config.IptablesMasqueradingEnabled()
-}
-
 func (m *IptablesManager) installMasqueradeRules(prog iptablesInterface, ifName, localDeliveryInterface,
 	snatDstExclusionCIDR, allocRange, hostMasqueradeIP string) error {
-	if useNodeIpset() {
+	if option.Config.NodeIpsetNeeded() {
 		// Exclude traffic to nodes from masquerade.
 		if err := createIpset(prog.getIpset(), prog.getProg() == "ip6tables"); err != nil {
 			return err
@@ -1331,7 +1324,7 @@ func (m *IptablesManager) InstallRules(ifName string, firstInitialization, insta
 	// Note we don't need a backup system as for iptables rules because the
 	// contents of ipsets doesn't depend on configuration. Whether they are
 	// needed depends on the configuration, but the content doesn't.
-	if useNodeIpset() {
+	if option.Config.NodeIpsetNeeded() {
 		if option.Config.IptablesMasqueradingIPv4Enabled() {
 			if err = createIpset(ciliumNodeIpsetV4, false); err != nil {
 				return err
