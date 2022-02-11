@@ -180,15 +180,15 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #endif
 
 #ifdef ENABLE_VTEP
-#define VTEP_ENDPOINT (__u32[]){0xeb48a90a, 0xec48a90a, 0xed48a90a, 0xee48a90a, }
+#define VTEP_ENDPOINT (__u32[]){0xeb48a90a, 0xec48a90a}
 /* HEX representation of VTEP IP
- * 10.169.72.235, 10.169.72.236, 10.169.72.237, 10.169.72.238
+ * 10.169.72.235, 10.169.72.236
  */
-#define VTEP_MAC (__u64[]){0x562e984c3682, 0x552e984c3682, 0x542e984c3682, 0x532e984c3682}
+#define VTEP_MAC (__u64[]){0x562e984c3682, 0x552e984c3682}
 /* VTEP MAC address
- * 82:36:4c:89:2e:56, 82:36:4c:89:2e:55, 82:36:4c:89:2e:54, 82:36:4c:89:2e:53
+ * 82:36:4c:89:2e:56, 82:36:4c:89:2e:55
  */
-#define VTEP_NUMS 4
+#define VTEP_NUMS 2
 #endif
 
 /* It appears that we can support around the below number of prefixes in an
