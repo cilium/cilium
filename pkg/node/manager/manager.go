@@ -411,8 +411,7 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 			tunnelIP = nodeIP
 		}
 
-		if option.Config.IptablesMasqueradingEnabled() &&
-			address.Type == addressing.NodeInternalIP {
+		if option.Config.NodeIpsetNeeded() && address.Type == addressing.NodeInternalIP {
 			iptables.AddToNodeIpset(address.IP)
 		}
 
@@ -595,8 +594,7 @@ func (m *Manager) NodeDeleted(n nodeTypes.Node) {
 	}
 
 	for _, address := range entry.node.IPAddresses {
-		if option.Config.IptablesMasqueradingEnabled() &&
-			address.Type == addressing.NodeInternalIP {
+		if option.Config.NodeIpsetNeeded() && address.Type == addressing.NodeInternalIP {
 			iptables.RemoveFromNodeIpset(address.IP)
 		}
 
