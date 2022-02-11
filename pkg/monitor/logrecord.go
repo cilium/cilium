@@ -61,8 +61,8 @@ func (l *LogRecordNotify) DumpInfo() {
 
 	case accesslog.TypeResponse:
 		fmt.Printf("%s %s %s to %d (%s) from %d (%s), identity %d->%d, verdict %s",
-			l.direction(), l.Type, l.l7Proto(), l.SourceEndpoint.ID, l.SourceEndpoint.Labels,
-			l.DestinationEndpoint.ID, l.DestinationEndpoint.Labels,
+			l.direction(), l.Type, l.l7Proto(), l.DestinationEndpoint.ID, l.DestinationEndpoint.Labels,
+			l.SourceEndpoint.ID, l.SourceEndpoint.Labels,
 			l.SourceEndpoint.Identity, l.DestinationEndpoint.Identity,
 			l.Verdict)
 	}
