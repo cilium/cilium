@@ -50,23 +50,19 @@ const (
 // LogRecord is a proxy log record based off accesslog.LogRecord.
 type LogRecord struct {
 	accesslog.LogRecord
+}
 
-	// endpointInfoRegistry provides access to any endpoint's information given
-	// its IP address.
-	endpointInfoRegistry EndpointInfoRegistry
+var endpointInfoRegistry EndpointInfoRegistry
 
-	// localEndpointInfo is the information on the local endpoint which
-	// either sent the request (for egress) or is receiving the request
-	// (for ingress)
-	localEndpointInfo *accesslog.EndpointInfo
+func SetEndpointInfoRegistry(epInfoRegistry EndpointInfoRegistry) {
+	endpointInfoRegistry = epInfoRegistry
 }
 
 // NewLogRecord creates a new log record and applies optional tags
 //
 // Example:
-// record := logger.NewLogRecord(localEndpointInfoSource, flowType,
-//                observationPoint, logger.LogTags.Timestamp(time.Now()))
-func NewLogRecord(endpointInfoRegistry EndpointInfoRegistry, localEndpointInfoSource EndpointInfoSource, t accesslog.FlowType, ingress bool, tags ...LogTag) *LogRecord {
+// record := logger.NewLogRecord(flowType, observationPoint, logger.LogTags.Timestamp(time.Now()))
+func NewLogRecord(t accesslog.FlowType, ingress bool, tags ...LogTag) *LogRecord {
 	var observationPoint accesslog.ObservationPoint
 	if ingress {
 		observationPoint = accesslog.Ingress
@@ -83,8 +79,6 @@ func NewLogRecord(endpointInfoRegistry EndpointInfoRegistry, localEndpointInfoSo
 			Timestamp:         time.Now().UTC().Format(time.RFC3339Nano),
 			NodeAddressInfo:   accesslog.NodeAddressInfo{},
 		},
-		endpointInfoRegistry: endpointInfoRegistry,
-		localEndpointInfo:    getEndpointInfo(localEndpointInfoSource),
 	}
 
 	if ip := node.GetIPv4(); ip != nil {
@@ -105,7 +99,7 @@ func NewLogRecord(endpointInfoRegistry EndpointInfoRegistry, localEndpointInfoSo
 // fillEndpointInfo fills the EndpointInfo fields using identity sent by
 // source.
 func (lr *LogRecord) fillEndpointInfo(info *accesslog.EndpointInfo, ip net.IP, secId identity.NumericIdentity) {
-	lr.endpointInfoRegistry.FillEndpointInfo(info, ip, secId)
+	endpointInfoRegistry.FillEndpointInfo(info, ip, secId)
 }
 
 // LogTag attaches a tag to a log record
@@ -144,13 +138,6 @@ type AddressingInfo struct {
 // to the logrecord
 func (logTags) Addressing(i AddressingInfo) LogTag {
 	return func(lr *LogRecord) {
-		switch lr.ObservationPoint {
-		case accesslog.Ingress:
-			lr.DestinationEndpoint = *lr.localEndpointInfo
-		case accesslog.Egress:
-			lr.SourceEndpoint = *lr.localEndpointInfo
-		}
-
 		ipstr, port, err := net.SplitHostPort(i.SrcIPPort)
 		if err == nil {
 			ip := net.ParseIP(ipstr)
@@ -161,9 +148,7 @@ func (logTags) Addressing(i AddressingInfo) LogTag {
 			p, err := strconv.ParseUint(port, 10, 16)
 			if err == nil {
 				lr.SourceEndpoint.Port = uint16(p)
-				if lr.ObservationPoint == accesslog.Ingress {
-					lr.fillEndpointInfo(&lr.SourceEndpoint, ip, i.SrcIdentity)
-				}
+				lr.fillEndpointInfo(&lr.SourceEndpoint, ip, i.SrcIdentity)
 			}
 		}
 
@@ -173,9 +158,7 @@ func (logTags) Addressing(i AddressingInfo) LogTag {
 			p, err := strconv.ParseUint(port, 10, 16)
 			if err == nil {
 				lr.DestinationEndpoint.Port = uint16(p)
-				if lr.ObservationPoint == accesslog.Egress {
-					lr.fillEndpointInfo(&lr.DestinationEndpoint, ip, i.DstIdentity)
-				}
+				lr.fillEndpointInfo(&lr.DestinationEndpoint, ip, i.DstIdentity)
 			}
 		}
 	}

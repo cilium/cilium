@@ -56,7 +56,106 @@ func init() {
 	log.SetOutput(io.Discard)
 }
 
-func TestDecodeL7HTTPRecord(t *testing.T) {
+func TestDecodeL7HTTPRequest(t *testing.T) {
+	requestPath, err := url.Parse("http://myhost/some/path")
+	require.NoError(t, err)
+	lr := &accesslog.LogRecord{
+		Type:                accesslog.TypeRequest,
+		Timestamp:           fakeTimestamp,
+		NodeAddressInfo:     fakeNodeInfo,
+		ObservationPoint:    accesslog.Ingress,
+		SourceEndpoint:      fakeSourceEndpoint,
+		DestinationEndpoint: fakeDestinationEndpoint,
+		IPVersion:           accesslog.VersionIPv4,
+		Verdict:             accesslog.VerdictForwarded,
+		TransportProtocol:   accesslog.TransportProtocol(u8proto.TCP),
+		ServiceInfo:         nil,
+		DropReason:          nil,
+		HTTP: &accesslog.LogRecordHTTP{
+			Code:     0,
+			Method:   "POST",
+			URL:      requestPath,
+			Protocol: "HTTP/1.1",
+			Headers: map[string][]string{
+				"Host": {"myhost"},
+			},
+		},
+	}
+	lr.SourceEndpoint.Port = 56789
+	lr.DestinationEndpoint.Port = 80
+
+	dnsGetter := &testutils.FakeFQDNCache{
+		OnGetNamesOf: func(epID uint32, ip net.IP) (names []string) {
+			ipStr := ip.String()
+			switch {
+			case epID == uint32(fakeSourceEndpoint.ID) && ipStr == fakeDestinationEndpoint.IPv4:
+				return []string{"endpoint-1234"}
+			case epID == uint32(fakeDestinationEndpoint.ID) && ipStr == fakeSourceEndpoint.IPv4:
+				return []string{"endpoint-4321"}
+			}
+			return nil
+		},
+	}
+	IPGetter := &testutils.FakeIPGetter{
+		OnGetK8sMetadata: func(ip net.IP) *ipcache.K8sMetadata {
+			if ip.String() == fakeDestinationEndpoint.IPv4 {
+				return &ipcache.K8sMetadata{
+					Namespace: "default",
+					PodName:   "pod-1234",
+				}
+			}
+			return nil
+		},
+	}
+	serviceGetter := &testutils.FakeServiceGetter{
+		OnGetServiceByAddr: func(ip net.IP, port uint16) *pb.Service {
+			if ip.Equal(net.ParseIP(fakeDestinationEndpoint.IPv4)) && (port == fakeDestinationEndpoint.Port) {
+				return &pb.Service{
+					Name:      "service-1234",
+					Namespace: "default",
+				}
+			}
+			return nil
+		},
+	}
+
+	parser, err := New(log, dnsGetter, IPGetter, serviceGetter)
+	require.NoError(t, err)
+
+	f := &pb.Flow{}
+	err = parser.Decode(lr, f)
+	require.NoError(t, err)
+
+	assert.Equal(t, fakeSourceEndpoint.IPv4, f.GetIP().GetSource())
+	assert.Equal(t, uint32(56789), f.GetL4().GetTCP().GetSourcePort())
+	assert.Equal(t, []string{"endpoint-4321"}, f.GetSourceNames())
+	assert.Equal(t, fakeSourceEndpoint.Labels, f.GetSource().GetLabels())
+	assert.Equal(t, "", f.GetSource().GetNamespace())
+	assert.Equal(t, "", f.GetSource().GetPodName())
+	assert.Equal(t, "", f.GetSourceService().GetNamespace())
+	assert.Equal(t, "", f.GetSourceService().GetName())
+
+	assert.Equal(t, fakeDestinationEndpoint.IPv4, f.GetIP().GetDestination())
+	assert.Equal(t, uint32(80), f.GetL4().GetTCP().GetDestinationPort())
+	assert.Equal(t, []string{"endpoint-1234"}, f.GetDestinationNames())
+	assert.Equal(t, fakeDestinationEndpoint.Labels, f.GetDestination().GetLabels())
+	assert.Equal(t, "default", f.GetDestination().GetNamespace())
+	assert.Equal(t, "pod-1234", f.GetDestination().GetPodName())
+	assert.Equal(t, "default", f.GetDestinationService().GetNamespace())
+	assert.Equal(t, "service-1234", f.GetDestinationService().GetName())
+
+	assert.Equal(t, pb.Verdict_FORWARDED, f.GetVerdict())
+
+	assert.Equal(t, &pb.HTTP{
+		Code:     0,
+		Method:   "POST",
+		Url:      "http://myhost/some/path",
+		Protocol: "HTTP/1.1",
+		Headers:  []*pb.HTTPHeader{{Key: "Host", Value: "myhost"}},
+	}, f.GetL7().GetHttp())
+}
+
+func TestDecodeL7HTTPRecordResponse(t *testing.T) {
 	requestPath, err := url.Parse("http://myhost/some/path")
 	require.NoError(t, err)
 	lr := &accesslog.LogRecord{
@@ -64,8 +163,8 @@ func TestDecodeL7HTTPRecord(t *testing.T) {
 		Timestamp:           fakeTimestamp,
 		NodeAddressInfo:     fakeNodeInfo,
 		ObservationPoint:    accesslog.Ingress,
-		SourceEndpoint:      fakeSourceEndpoint,
-		DestinationEndpoint: fakeDestinationEndpoint,
+		SourceEndpoint:      fakeDestinationEndpoint,
+		DestinationEndpoint: fakeSourceEndpoint,
 		IPVersion:           accesslog.VersionIPv4,
 		Verdict:             accesslog.VerdictForwarded,
 		TransportProtocol:   accesslog.TransportProtocol(u8proto.TCP),
@@ -81,8 +180,8 @@ func TestDecodeL7HTTPRecord(t *testing.T) {
 			},
 		},
 	}
-	lr.SourceEndpoint.Port = 56789
-	lr.DestinationEndpoint.Port = 80
+	lr.SourceEndpoint.Port = 80
+	lr.DestinationEndpoint.Port = 56789
 
 	dnsGetter := &testutils.FakeFQDNCache{
 		OnGetNamesOf: func(epID uint32, ip net.IP) (names []string) {
@@ -161,8 +260,8 @@ func TestDecodeL7DNSRecord(t *testing.T) {
 		Timestamp:           fakeTimestamp,
 		NodeAddressInfo:     fakeNodeInfo,
 		ObservationPoint:    accesslog.Ingress,
-		SourceEndpoint:      fakeSourceEndpoint,
-		DestinationEndpoint: fakeDestinationEndpoint,
+		SourceEndpoint:      fakeDestinationEndpoint,
+		DestinationEndpoint: fakeSourceEndpoint,
 		IPVersion:           accesslog.VersionIPV6,
 		Verdict:             accesslog.VerdictForwarded,
 		TransportProtocol:   accesslog.TransportProtocol(u8proto.UDP),
@@ -178,8 +277,8 @@ func TestDecodeL7DNSRecord(t *testing.T) {
 			AnswerTypes:       []uint16{1},
 		},
 	}
-	lr.SourceEndpoint.Port = 56789
-	lr.DestinationEndpoint.Port = 53
+	lr.SourceEndpoint.Port = 53
+	lr.DestinationEndpoint.Port = 56789
 
 	dnsGetter := &testutils.NoopDNSGetter
 	ipGetter := &testutils.NoopIPGetter
@@ -234,8 +333,8 @@ func BenchmarkL7Decode(b *testing.B) {
 		Timestamp:           fakeTimestamp,
 		NodeAddressInfo:     fakeNodeInfo,
 		ObservationPoint:    accesslog.Ingress,
-		SourceEndpoint:      fakeSourceEndpoint,
-		DestinationEndpoint: fakeDestinationEndpoint,
+		SourceEndpoint:      fakeDestinationEndpoint,
+		DestinationEndpoint: fakeSourceEndpoint,
 		IPVersion:           accesslog.VersionIPv4,
 		Verdict:             accesslog.VerdictForwarded,
 		TransportProtocol:   accesslog.TransportProtocol(u8proto.TCP),
@@ -251,8 +350,8 @@ func BenchmarkL7Decode(b *testing.B) {
 			},
 		},
 	}
-	lr.SourceEndpoint.Port = 56789
-	lr.DestinationEndpoint.Port = 80
+	lr.SourceEndpoint.Port = 80
+	lr.DestinationEndpoint.Port = 56789
 
 	dnsGetter := &testutils.NoopDNSGetter
 	ipGetter := &testutils.NoopIPGetter

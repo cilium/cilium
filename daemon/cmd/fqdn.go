@@ -466,15 +466,22 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		}
 	}
 	ep.UpdateProxyStatistics(strings.ToUpper(protocol), serverPort, false, !msg.Response, verdict)
-	record := logger.NewLogRecord(proxy.DefaultEndpointInfoRegistry, ep, flowType, false,
+	var addrInfo logger.AddressingInfo
+	if flowType == accesslog.TypeResponse {
+		addrInfo.DstIPPort = epIPPort
+		addrInfo.DstIdentity = ep.GetIdentity()
+		addrInfo.SrcIPPort = serverAddr
+		addrInfo.SrcIdentity = serverID
+	} else {
+		addrInfo.SrcIPPort = epIPPort
+		addrInfo.SrcIdentity = ep.GetIdentity()
+		addrInfo.DstIPPort = serverAddr
+		addrInfo.DstIdentity = serverID
+	}
+	record := logger.NewLogRecord(flowType, false,
 		func(lr *logger.LogRecord) { lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID) },
 		logger.LogTags.Verdict(verdict, reason),
-		logger.LogTags.Addressing(logger.AddressingInfo{
-			SrcIPPort:   epIPPort,
-			DstIPPort:   serverAddr,
-			SrcIdentity: ep.GetIdentity(),
-			DstIdentity: serverID,
-		}),
+		logger.LogTags.Addressing(addrInfo),
 		logger.LogTags.DNS(&accesslog.LogRecordDNS{
 			Query:             qname,
 			IPs:               responseIPs,

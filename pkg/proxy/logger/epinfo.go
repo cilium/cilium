@@ -29,22 +29,6 @@ type EndpointInfoSource interface {
 	ConntrackName() string
 	ConntrackNameLocked() string
 	GetNamedPortLocked(ingress bool, name string, proto uint8) uint16
-	GetProxyInfoByFields() (uint64, string, string, []string, string, uint64, error)
-}
-
-// getEndpointInfo returns a consistent snapshot of the given source.
-// The source's read lock must not be held.
-func getEndpointInfo(source EndpointInfoSource) *accesslog.EndpointInfo {
-
-	id, ipv4, ipv6, labels, labelsSHA256, identity, _ := source.GetProxyInfoByFields()
-	return &accesslog.EndpointInfo{
-		ID:           id,
-		IPv4:         ipv4,
-		IPv6:         ipv6,
-		Labels:       labels,
-		LabelsSHA256: labelsSHA256,
-		Identity:     identity,
-	}
 }
 
 // EndpointUpdater returns information about an endpoint being proxied and
