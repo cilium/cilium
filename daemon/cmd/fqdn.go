@@ -395,7 +395,8 @@ func (d *Daemon) lookupIPsBySecID(nid identity.NumericIdentity) []string {
 //   can lookup the endpoint related to it
 // epIPPort and serverAddr should match the original request, where epAddr is
 // the source for egress (the only case current).
-func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat *dnsproxy.ProxyRequestContext) error {
+// serverID is the destination server security identity at the time of the DNS event.
+func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat *dnsproxy.ProxyRequestContext) error {
 	var protoID = u8proto.ProtoIDs[strings.ToLower(protocol)]
 	var verdict accesslog.FlowVerdict
 	var reason string
@@ -437,28 +438,6 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		flowType = accesslog.TypeRequest
 	}
 
-	var epPort, serverPort uint16
-	_, epPortStr, err := net.SplitHostPort(epIPPort)
-	if err != nil {
-		log.WithError(err).Error("cannot extract source IP from DNS request")
-	} else {
-		if epPortUint64, err := strconv.ParseUint(epPortStr, 10, 16); err != nil {
-			log.WithError(err).WithField(logfields.Port, epPortStr).Error("cannot parse source port")
-		} else {
-			epPort = uint16(epPortUint64)
-		}
-	}
-
-	serverIP, serverPortStr, err := net.SplitHostPort(serverAddr)
-	if err != nil {
-		log.WithError(err).Error("cannot extract destination IP from DNS request")
-	} else {
-		if serverPortUint64, err := strconv.ParseUint(serverPortStr, 10, 16); err != nil {
-			log.WithError(err).WithField(logfields.Port, serverPortStr).Error("cannot parse destination port")
-		} else {
-			serverPort = uint16(serverPortUint64)
-		}
-	}
 	if ep == nil {
 		// This is a hard fail. We cannot proceed because record.Log requires a
 		// non-nil ep, and we also don't want to insert this data into the
@@ -476,6 +455,17 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		log.WithError(err).Error("cannot extract DNS message details")
 	}
 
+	var serverPort uint16
+	_, serverPortStr, err := net.SplitHostPort(serverAddr)
+	if err != nil {
+		log.WithError(err).Error("cannot extract destination IP from DNS request")
+	} else {
+		if serverPortUint64, err := strconv.ParseUint(serverPortStr, 10, 16); err != nil {
+			log.WithError(err).WithField(logfields.Port, serverPortStr).Error("cannot parse destination port")
+		} else {
+			serverPort = uint16(serverPortUint64)
+		}
+	}
 	ep.UpdateProxyStatistics(strings.ToUpper(protocol), serverPort, false, !msg.Response, verdict)
 	record := logger.NewLogRecord(proxy.DefaultEndpointInfoRegistry, ep, flowType, false,
 		func(lr *logger.LogRecord) { lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID) },
@@ -483,45 +473,9 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		logger.LogTags.Addressing(logger.AddressingInfo{
 			SrcIPPort:   epIPPort,
 			DstIPPort:   serverAddr,
-			SrcIdentity: ep.GetIdentity().Uint32(),
+			SrcIdentity: ep.GetIdentity(),
+			DstIdentity: serverID,
 		}),
-		func(lr *logger.LogRecord) {
-			lr.LogRecord.SourceEndpoint = accesslog.EndpointInfo{
-				ID:           ep.GetID(),
-				IPv4:         ep.GetIPv4Address(),
-				IPv6:         ep.GetIPv6Address(),
-				Labels:       ep.GetLabels(),
-				LabelsSHA256: ep.GetLabelsSHA(),
-				Identity:     uint64(ep.GetIdentity()),
-				Port:         epPort,
-			}
-
-			// When the server is an endpoint, get all the data for it.
-			// When external, use the ipcache to fill in the SecID
-			if serverEP := d.endpointManager.LookupIPv4(serverIP); serverEP != nil {
-				lr.LogRecord.DestinationEndpoint = accesslog.EndpointInfo{
-					ID:           serverEP.GetID(),
-					IPv4:         serverEP.GetIPv4Address(),
-					IPv6:         serverEP.GetIPv6Address(),
-					Labels:       serverEP.GetLabels(),
-					LabelsSHA256: serverEP.GetLabelsSHA(),
-					Identity:     uint64(serverEP.GetIdentity()),
-					Port:         serverPort,
-				}
-			} else if serverSecID, exists := ipcache.IPIdentityCache.LookupByIP(serverIP); exists {
-				// TODO: handle IPv6
-				lr.LogRecord.DestinationEndpoint = accesslog.EndpointInfo{
-					IPv4: serverIP,
-					// IPv6:         serverEP.GetIPv6Address(),
-					Identity: uint64(serverSecID.ID.Uint32()),
-					Port:     serverPort,
-				}
-				if secID := d.identityAllocator.LookupIdentityByID(d.ctx, serverSecID.ID); secID != nil {
-					lr.LogRecord.DestinationEndpoint.Labels = secID.Labels.GetModel()
-					lr.LogRecord.DestinationEndpoint.LabelsSHA256 = secID.GetLabelsSHA256()
-				}
-			}
-		},
 		logger.LogTags.DNS(&accesslog.LogRecordDNS{
 			Query:             qname,
 			IPs:               responseIPs,
