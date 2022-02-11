@@ -162,16 +162,27 @@ func logRecord(localEndpoint logger.EndpointUpdater, pblog *cilium.LogEntry) {
 		})
 	}
 
-	r := logger.NewLogRecord(GetFlowType(pblog), pblog.IsIngress,
+	flowType := GetFlowType(pblog)
+	// Response access logs from Envoy inherit the source/destination info from the request log
+	// message. Swap source/destination info here for the response logs so that they are
+	// correct.
+	// TODO (jrajahalme): Consider doing this at our Envoy filters instead?
+	var addrInfo logger.AddressingInfo
+	if flowType == accesslog.TypeResponse {
+		addrInfo.DstIPPort = pblog.SourceAddress
+		addrInfo.DstIdentity = identity.NumericIdentity(pblog.SourceSecurityId)
+		addrInfo.SrcIPPort = pblog.DestinationAddress
+		addrInfo.SrcIdentity = identity.NumericIdentity(pblog.DestinationSecurityId)
+	} else {
+		addrInfo.SrcIPPort = pblog.SourceAddress
+		addrInfo.SrcIdentity = identity.NumericIdentity(pblog.SourceSecurityId)
+		addrInfo.DstIPPort = pblog.DestinationAddress
+		addrInfo.DstIdentity = identity.NumericIdentity(pblog.DestinationSecurityId)
+	}
+	r := logger.NewLogRecord(flowType, pblog.IsIngress,
 		logger.LogTags.Timestamp(time.Unix(int64(pblog.Timestamp/1000000000), int64(pblog.Timestamp%1000000000))),
 		logger.LogTags.Verdict(GetVerdict(pblog), pblog.CiliumRuleRef),
-		logger.LogTags.Addressing(logger.AddressingInfo{
-			SrcIPPort:   pblog.SourceAddress,
-			DstIPPort:   pblog.DestinationAddress,
-			SrcIdentity: identity.NumericIdentity(pblog.SourceSecurityId),
-			DstIdentity: identity.NumericIdentity(pblog.DestinationSecurityId),
-		}), l7tags)
-
+		logger.LogTags.Addressing(addrInfo), l7tags)
 	r.Log()
 
 	// Each kafka topic needs to be logged separately, log the rest if any
@@ -183,5 +194,9 @@ func logRecord(localEndpoint logger.EndpointUpdater, pblog *cilium.LogEntry) {
 	// Update stats for the endpoint.
 	ingress := r.ObservationPoint == accesslog.Ingress
 	request := r.Type == accesslog.TypeRequest
-	localEndpoint.UpdateProxyStatistics("TCP", r.DestinationEndpoint.Port, ingress, request, r.Verdict)
+	port := r.DestinationEndpoint.Port
+	if !request {
+		port = r.SourceEndpoint.Port
+	}
+	localEndpoint.UpdateProxyStatistics("TCP", port, ingress, request, r.Verdict)
 }
