@@ -73,30 +73,15 @@ func (p *Parser) Decode(r *accesslog.LogRecord, decoded *pb.Flow) error {
 		return err
 	}
 
-	// Workaround for Cilium behavior until
-	// https://github.com/cilium/cilium/issues/9558 is fixed: L7 records
-	// use the same addressing tuple for both request and response.  Switch
-	// the source and destination endpoint info based on the
-	// request/response direction to allow aggregation to work and to
-	// provide a consistent experience with L3/L4 flows.
-	var sourceEndpoint, destinationEndpoint accesslog.EndpointInfo
-	if r.Type == accesslog.TypeResponse {
-		sourceEndpoint = r.DestinationEndpoint
-		destinationEndpoint = r.SourceEndpoint
-	} else {
-		sourceEndpoint = r.SourceEndpoint
-		destinationEndpoint = r.DestinationEndpoint
-	}
-
-	ip := decodeIP(r.IPVersion, sourceEndpoint, destinationEndpoint)
+	ip := decodeIP(r.IPVersion, r.SourceEndpoint, r.DestinationEndpoint)
 
 	sourceIP := net.ParseIP(ip.Source)
 	destinationIP := net.ParseIP(ip.Destination)
 	var sourceNames, destinationNames []string
 	var sourceNamespace, sourcePod, destinationNamespace, destinationPod string
 	if p.dnsGetter != nil {
-		sourceNames = p.dnsGetter.GetNamesOf(uint32(destinationEndpoint.ID), sourceIP)
-		destinationNames = p.dnsGetter.GetNamesOf(uint32(sourceEndpoint.ID), destinationIP)
+		sourceNames = p.dnsGetter.GetNamesOf(uint32(r.DestinationEndpoint.ID), sourceIP)
+		destinationNames = p.dnsGetter.GetNamesOf(uint32(r.SourceEndpoint.ID), destinationIP)
 	}
 	if p.ipGetter != nil {
 		if meta := p.ipGetter.GetK8sMetadata(sourceIP); meta != nil {
@@ -107,7 +92,7 @@ func (p *Parser) Decode(r *accesslog.LogRecord, decoded *pb.Flow) error {
 		}
 	}
 
-	l4, sourcePort, destinationPort := decodeLayer4(r.TransportProtocol, sourceEndpoint, destinationEndpoint)
+	l4, sourcePort, destinationPort := decodeLayer4(r.TransportProtocol, r.SourceEndpoint, r.DestinationEndpoint)
 	var sourceService, destinationService *pb.Service
 	if p.serviceGetter != nil {
 		sourceService = p.serviceGetter.GetServiceByAddr(sourceIP, sourcePort)
@@ -120,8 +105,8 @@ func (p *Parser) Decode(r *accesslog.LogRecord, decoded *pb.Flow) error {
 	decoded.DropReasonDesc = pb.DropReason_DROP_REASON_UNKNOWN
 	decoded.IP = ip
 	decoded.L4 = l4
-	decoded.Source = decodeEndpoint(sourceEndpoint, sourceNamespace, sourcePod)
-	decoded.Destination = decodeEndpoint(destinationEndpoint, destinationNamespace, destinationPod)
+	decoded.Source = decodeEndpoint(r.SourceEndpoint, sourceNamespace, sourcePod)
+	decoded.Destination = decodeEndpoint(r.DestinationEndpoint, destinationNamespace, destinationPod)
 	decoded.Type = pb.FlowType_L7
 	decoded.SourceNames = sourceNames
 	decoded.DestinationNames = destinationNames
