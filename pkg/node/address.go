@@ -535,16 +535,6 @@ func GetK8sExternalIPv6() net.IP {
 	return ipv6ExternalAddress
 }
 
-// IsHostIPv4 returns true if the IP specified is a host IP
-func IsHostIPv4(ip net.IP) bool {
-	return ip.Equal(GetInternalIPv4Router()) || ip.Equal(GetIPv4())
-}
-
-// IsHostIPv6 returns true if the IP specified is a host IP
-func IsHostIPv6(ip net.IP) bool {
-	return ip.Equal(GetIPv6()) || ip.Equal(GetIPv6Router())
-}
-
 // GetNodeAddressing returns the NodeAddressing model for the local IPs.
 func GetNodeAddressing() *models.NodeAddressing {
 	a := &models.NodeAddressing{}

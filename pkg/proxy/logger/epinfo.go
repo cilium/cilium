@@ -69,21 +69,13 @@ type EndpointUpdater interface {
 // EndpointInfoRegistry provides endpoint information lookup by endpoint IP
 // address.
 type EndpointInfoRegistry interface {
-	// FillEndpointIdentityByID resolves the labels of the specified identity
-	// if known locally and fills in the following info member fields:
-	//  - info.Identity
-	//  - info.Labels
-	//  - info.LabelsSHA256
-	// Returns true if found, false if not found.
-	FillEndpointIdentityByID(id identity.NumericIdentity, info *accesslog.EndpointInfo) bool
-
-	// FillEndpointIdentityByIP resolves the labels of the endpoint with the
-	// specified IP if known locally and fills in the following info member
-	// fields:
-	//  - info.ID
-	//  - info.Identity
-	//  - info.Labels
-	//  - info.LabelsSHA256
-	// Returns true if found, false if not found.
-	FillEndpointIdentityByIP(ip net.IP, info *accesslog.EndpointInfo) bool
+	// FillEndpointIdentity resolves the labels of the specified identity if known locally.
+	// If 'id' is passed as zero, will locate the EP by 'ip', and also fill info.ID, if found.
+	// Fills in the following info member fields:
+	//  - info.IPv4           (if 'ip' is IPv4)
+	//  - info.IPv6           (if 'ip' is not IPv4)
+	//  - info.Identity       (defaults to WORLD if not known)
+	//  - info.Labels         (only if identity is found)
+	//  - info.LabelsSHA256   (only if identity is found)
+	FillEndpointInfo(info *accesslog.EndpointInfo, ip net.IP, id identity.NumericIdentity)
 }

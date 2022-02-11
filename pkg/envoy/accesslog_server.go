@@ -18,6 +18,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/cilium/cilium/pkg/flowdebug"
+	"github.com/cilium/cilium/pkg/identity"
 	kafka_api "github.com/cilium/cilium/pkg/policy/api/kafka"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
@@ -169,7 +170,8 @@ func logRecord(endpointInfoRegistry logger.EndpointInfoRegistry, localEndpoint l
 		logger.LogTags.Addressing(logger.AddressingInfo{
 			SrcIPPort:   pblog.SourceAddress,
 			DstIPPort:   pblog.DestinationAddress,
-			SrcIdentity: pblog.SourceSecurityId,
+			SrcIdentity: identity.NumericIdentity(pblog.SourceSecurityId),
+			DstIdentity: identity.NumericIdentity(pblog.DestinationSecurityId),
 		}), l7tags)
 
 	r.Log()

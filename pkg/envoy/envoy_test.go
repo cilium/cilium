@@ -46,12 +46,7 @@ func (s *EnvoySuite) waitForProxyCompletion() error {
 
 type dummyEndpointInfoRegistry struct{}
 
-func (r *dummyEndpointInfoRegistry) FillEndpointIdentityByID(id identity.NumericIdentity, info *accesslog.EndpointInfo) bool {
-	return false
-}
-
-func (r *dummyEndpointInfoRegistry) FillEndpointIdentityByIP(ip net.IP, info *accesslog.EndpointInfo) bool {
-	return false
+func (r *dummyEndpointInfoRegistry) FillEndpointInfo(*accesslog.EndpointInfo, net.IP, identity.NumericIdentity) {
 }
 
 func (s *EnvoySuite) TestEnvoy(c *C) {
