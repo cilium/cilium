@@ -33,17 +33,6 @@ func (s *NodeSuite) TearDownTest(c *C) {
 	Uninitialize()
 }
 
-func (s *NodeSuite) TestMaskCheck(c *C) {
-	InitDefaultPrefix("")
-
-	allocCIDR := cidr.MustParseCIDR("1.1.1.1/16")
-	SetIPv4AllocRange(allocCIDR)
-	SetInternalIPv4Router(allocCIDR.IP)
-	c.Assert(IsHostIPv4(GetInternalIPv4Router()), Equals, true)
-	c.Assert(IsHostIPv4(GetIPv4()), Equals, true)
-	c.Assert(IsHostIPv6(GetIPv6()), Equals, true)
-}
-
 // This also provides cover for RestoreHostIPs.
 func (s *NodeSuite) Test_chooseHostIPsToRestore(c *C) {
 	tests := []struct {

@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 )
@@ -35,35 +36,43 @@ type EndpointLookup interface {
 // EndpointInfoRegistry interface.
 type defaultEndpointInfoRegistry struct{}
 
-func (r *defaultEndpointInfoRegistry) FillEndpointIdentityByID(id identity.NumericIdentity, info *accesslog.EndpointInfo) bool {
-	identity := Allocator.LookupIdentityByID(context.TODO(), id)
-	if identity == nil {
-		return false
+func (r *defaultEndpointInfoRegistry) FillEndpointInfo(info *accesslog.EndpointInfo, ip net.IP, id identity.NumericIdentity) {
+	var ep *endpoint.Endpoint
+	if ip != nil {
+		if ip.To4() != nil {
+			info.IPv4 = ip.String()
+		} else {
+			info.IPv6 = ip.String()
+		}
+
+		// Get (local) endpoint identifier to be reported by cilium monitor
+		ep = endpointManager.LookupIP(ip)
+		if ep != nil {
+			info.ID = ep.GetID()
+		}
 	}
 
+	// Only resolve the security identity if not passed in, as it may have changed since
+	// reported by the proxy. This way we log the security identity and labels used for
+	// policy enforcement, if any.
+	if id == 0 {
+		if ep != nil {
+			id = ep.GetIdentity()
+		} else if ip != nil {
+			ID, exists := ipcache.IPIdentityCache.LookupByIP(ip.String())
+			if exists {
+				id = ID.ID
+			}
+		}
+		// Default to WORLD if still unknown
+		if id == 0 {
+			id = identity.ReservedIdentityWorld
+		}
+	}
 	info.Identity = uint64(id)
-	info.Labels = identity.Labels.GetModel()
-	info.LabelsSHA256 = identity.GetLabelsSHA256()
-
-	return true
-}
-
-func (r *defaultEndpointInfoRegistry) FillEndpointIdentityByIP(ip net.IP, info *accesslog.EndpointInfo) bool {
-	ep := endpointManager.LookupIP(ip)
-	if ep == nil {
-		return false
+	identity := Allocator.LookupIdentityByID(context.TODO(), id)
+	if identity != nil {
+		info.Labels = identity.Labels.GetModel()
+		info.LabelsSHA256 = identity.GetLabelsSHA256()
 	}
-
-	id, ipv4, ipv6, labels, labelsSHA256, identity, err := ep.GetProxyInfoByFields()
-	if err != nil {
-		return false
-	}
-
-	info.ID = id
-	info.IPv4 = ipv4
-	info.IPv6 = ipv6
-	info.Labels = labels
-	info.LabelsSHA256 = labelsSHA256
-	info.Identity = identity
-	return true
 }
