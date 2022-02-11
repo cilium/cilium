@@ -292,6 +292,17 @@ restart:
 					}
 				}
 
+				peerIdentity := ipIDPair.ID
+				if option.Config.EnableRemoteNodeIdentity && peerIdentity == identity.ReservedIdentityHost {
+					// The only way we can discover IPs associated with the local host
+					// is directly via the NodeDiscovery package. If someone is informing
+					// this agent about IPs corresponding to the "host" via the kvstore,
+					// then they're sharing their own perspective on their own node IPs'
+					// identity. However, this node has remote-node enabled, so we should
+					// treat the peer as a "remote-node", not a "host".
+					peerIdentity = identity.ReservedIdentityRemoteNode
+				}
+
 				// There is no need to delete the "old" IP addresses from this
 				// ip ID pair. The only places where the ip ID pair are created
 				// is the clustermesh, where it sends a delete to the KVStore,
@@ -299,7 +310,7 @@ restart:
 				// lease and a controller which is stopped/removed when the
 				// endpoint is gone.
 				IPIdentityCache.Upsert(ip, ipIDPair.HostIP, ipIDPair.Key, k8sMeta, Identity{
-					ID:     ipIDPair.ID,
+					ID:     peerIdentity,
 					Source: source.KVStore,
 				})
 
