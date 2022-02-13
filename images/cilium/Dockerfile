@@ -14,10 +14,11 @@ FROM quay.io/cilium/cilium-envoy:9b1701da9cc035a1696f3e492ee2526101262e56@sha256
 # Hubble CLI
 #
 FROM --platform=${BUILDPLATFORM} ${CILIUM_BUILDER_IMAGE} as hubble
+ARG BUILDPLATFORM
 COPY images/cilium/hubble-version.sh /tmp/hubble-version.sh
 COPY images/cilium/download-hubble.sh /tmp/download-hubble.sh
 RUN /tmp/download-hubble.sh
-RUN /out/linux/amd64/bin/hubble completion bash > /out/linux/bash_completion
+RUN /out/${BUILDPLATFORM}/bin/hubble completion bash > /out/linux/bash_completion
 
 #
 # Cilium incremental build. Should be fast given builder-deps is up-to-date!
