@@ -3,7 +3,7 @@ language: go
 dist: focal
 sudo: required
 
-go: "1.16.13"
+go: "1.16.14"
 
 jobs:
   include:
@@ -16,14 +16,14 @@ jobs:
       if: type != pull_request
       env:
         - RACE=1
-        - BASE_IMAGE=quay.io/cilium/cilium-runtime:be78680d76751231d60e09940304582fa714cf81@sha256:a1e768d5fcacb4c1f164a4d564c7dc271f364b4b823133ee3e3401eba6b4bee5
+        - BASE_IMAGE=quay.io/cilium/cilium-runtime:2a85888a4c8db02b36de0939161910cae48cd74c@sha256:11bf7e098eb715b13e1f09a1743fe557973a30df95528dce568e1c509df8d7be
         - LOCKDEBUG=1
     - arch: arm64-graviton2
       name: "arm64-graviton2-race"
       if: type != pull_request
       env:
         - RACE=1
-        - BASE_IMAGE=quay.io/cilium/cilium-runtime:be78680d76751231d60e09940304582fa714cf81@sha256:a1e768d5fcacb4c1f164a4d564c7dc271f364b4b823133ee3e3401eba6b4bee5
+        - BASE_IMAGE=quay.io/cilium/cilium-runtime:2a85888a4c8db02b36de0939161910cae48cd74c@sha256:11bf7e098eb715b13e1f09a1743fe557973a30df95528dce568e1c509df8d7be
         - LOCKDEBUG=1
       virt: vm
       group: edge
