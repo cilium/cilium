@@ -1521,6 +1521,10 @@
      - A space separated list of VTEP device MAC addresses (VTEP MAC), for example "x:x:x:x:x:x  y:y:y:y:y:y:y"
      - string
      - ``""``
+   * - vtep.mask
+     - VTEP CIDRs Mask that applies to all VTEP CIDRs, for example "255.255.255.0"
+     - string
+     - ``""``
    * - wellKnownIdentities.enabled
      - Enable the use of well-known identities.
      - bool

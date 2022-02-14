@@ -1158,6 +1158,8 @@ vtep:
   endpoint: ""
 # -- A space separated list of VTEP device CIDRs, for example "1.1.1.0/24 1.1.2.0/24"
   cidr: ""
+# -- VTEP CIDRs Mask that applies to all VTEP CIDRs, for example "255.255.255.0"
+  mask: ""
 # -- A space separated list of VTEP device MAC addresses (VTEP MAC), for example "x:x:x:x:x:x  y:y:y:y:y:y:y"
   mac: ""
 

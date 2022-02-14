@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
+	"github.com/cilium/cilium/pkg/maps/vtep"
 )
 
 // CheckStructAlignments checks whether size and offsets of the C and Go
@@ -86,6 +87,8 @@ func CheckStructAlignments(path string) error {
 		"edt_info":               {reflect.TypeOf(bwmap.EdtInfo{})},
 		"egress_gw_policy_key":   {reflect.TypeOf(egressmap.EgressPolicyKey4{})},
 		"egress_gw_policy_entry": {reflect.TypeOf(egressmap.EgressPolicyVal4{})},
+		"vtep_key":               {reflect.TypeOf(vtep.Key{})},
+		"vtep_value":             {reflect.TypeOf(vtep.VtepEndpointInfo{})},
 	}
 	if err := check.CheckStructAlignments(path, toCheck, true); err != nil {
 		return err

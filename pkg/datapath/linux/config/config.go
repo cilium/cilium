@@ -12,8 +12,6 @@ import (
 	"io"
 	"net"
 	"sort"
-	"strconv"
-	"strings"
 	"text/template"
 
 	"github.com/sirupsen/logrus"
@@ -53,6 +51,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
+	"github.com/cilium/cilium/pkg/maps/vtep"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -549,34 +548,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	if option.Config.EnableVTEP {
 		cDefinesMap["ENABLE_VTEP"] = "1"
+		cDefinesMap["VTEP_MAP"] = vtep.Name
+		cDefinesMap["VTEP_MAP_SIZE"] = fmt.Sprintf("%d", vtep.MaxEntries)
+		cDefinesMap["VTEP_MASK"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask)))
 
-		l := len(option.Config.VtepEndpoints)
-		cDefinesMap["VTEP_NUMS"] = strconv.Itoa(l)
-
-		var (
-			ipb  strings.Builder
-			macb strings.Builder
-		)
-
-		ipb.WriteString("(__u32[]){ ")
-		macb.WriteString("(__u64[]){ ")
-
-		for i, ep := range option.Config.VtepEndpoints {
-			fmt.Fprintf(&ipb, "%#x, ", byteorder.NetIPv4ToHost32(ep))
-
-			mac := option.Config.VtepMACs[i]
-			vtep_mac, err := mac.Uint64()
-			if err != nil {
-				return err
-			}
-			fmt.Fprintf(&macb, "%#x, ", vtep_mac)
-		}
-
-		ipb.WriteString("}")
-		macb.WriteString("}")
-
-		cDefinesMap["VTEP_ENDPOINT"] = ipb.String()
-		cDefinesMap["VTEP_MAC"] = macb.String()
 	}
 
 	vlanFilter, err := vlanFilterMacros()

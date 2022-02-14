@@ -457,7 +457,8 @@ const (
 	ARPBaseReachableTime = 30 * time.Second
 
 	// EnableVTEP enables VXLAN Tunnel Endpoint (VTEP) Integration
-	EnableVTEP = false
+	EnableVTEP     = false
+	MaxVTEPDevices = 8
 
 	// Enable BGP control plane features.
 	EnableBGPControlPlane = false

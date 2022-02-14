@@ -256,6 +256,7 @@ cilium-agent [flags]
       --vtep-cidr strings                                    List of VTEP CIDRs that will be routed towards VTEPs for traffic cluster egress
       --vtep-endpoint strings                                List of VTEP IP addresses
       --vtep-mac strings                                     List of VTEP MAC addresses for forwarding traffic outside the cluster
+      --vtep-mask string                                     VTEP CIDR Mask for all VTEP CIDRs (default "255.255.255.0")
       --write-cni-conf-when-ready string                     Write the CNI configuration as specified via --read-cni-conf to path when agent is ready
 ```
 

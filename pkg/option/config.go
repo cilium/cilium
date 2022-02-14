@@ -1034,6 +1034,9 @@ const (
 	// VTEP CIDRs
 	VtepCIDR = "vtep-cidr"
 
+	// VTEP CIDR Mask applies to all VtepCIDR
+	VtepMask = "vtep-mask"
+
 	// VTEP MACs
 	VtepMAC = "vtep-mac"
 
@@ -2133,6 +2136,9 @@ type DaemonConfig struct {
 	// VtepCIDRs VTEP CIDRs
 	VtepCIDRs []*cidr.CIDR
 
+	// VtepMask VTEP Mask
+	VtepCidrMask net.IP
+
 	// VtepMACs VTEP MACs
 	VtepMACs []mac.MAC
 
@@ -2514,9 +2520,6 @@ func (c *DaemonConfig) Validate() error {
 	}
 
 	if c.EnableVTEP {
-		if c.EnablePolicy != NeverEnforce {
-			return fmt.Errorf("%s (beta) is currently only supported with %s=%s.", EnableVTEP, EnablePolicy, NeverEnforce)
-		}
 		err := c.validateVTEP()
 		if err != nil {
 			return fmt.Errorf("Failed to validate VTEP configuration: %w", err)
@@ -3420,6 +3423,7 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(totalMemory uint64, dynamicSi
 func (c *DaemonConfig) validateVTEP() error {
 	vtepEndpoints := viper.GetStringSlice(VtepEndpoint)
 	vtepCIDRs := viper.GetStringSlice(VtepCIDR)
+	vtepCidrMask := viper.GetString(VtepMask)
 	vtepMACs := viper.GetStringSlice(VtepMAC)
 
 	if (len(vtepEndpoints) < 1) ||
@@ -3427,17 +3431,17 @@ func (c *DaemonConfig) validateVTEP() error {
 		len(vtepEndpoints) != len(vtepMACs) {
 		return fmt.Errorf("VTEP configuration must have the same number of Endpoint, VTEP and MAC configurations (Found %d endpoints, %d MACs, %d CIDR ranges)", len(vtepEndpoints), len(vtepMACs), len(vtepCIDRs))
 	}
-	//Todo: resolve github issue 18616 to lift the maximum 2 VTEP limit
-	if len(vtepEndpoints) > 2 {
-		return fmt.Errorf("VTEP must not exceed 2 VTEP devices (Found %d VTEPs)", len(vtepEndpoints))
+	if len(vtepEndpoints) > defaults.MaxVTEPDevices {
+		return fmt.Errorf("VTEP must not exceed %d VTEP devices (Found %d VTEPs)", defaults.MaxVTEPDevices, len(vtepEndpoints))
 	}
 	for _, ep := range vtepEndpoints {
-		if strings.Contains(ep, ":") {
-			return fmt.Errorf("VTEP integration IPv6 not supported: %v", ep)
-		}
 		endpoint := net.ParseIP(ep)
 		if endpoint == nil {
 			return fmt.Errorf("Invalid VTEP IP: %v", ep)
+		}
+		ip4 := endpoint.To4()
+		if ip4 == nil {
+			return fmt.Errorf("Invalid VTEP IPv4 address %v", ip4)
 		}
 		c.VtepEndpoints = append(c.VtepEndpoints, endpoint)
 
@@ -3450,6 +3454,11 @@ func (c *DaemonConfig) validateVTEP() error {
 		c.VtepCIDRs = append(c.VtepCIDRs, externalCIDR)
 
 	}
+	mask := net.ParseIP(vtepCidrMask)
+	if mask == nil {
+		return fmt.Errorf("Invalid VTEP CIDR Mask: %v", vtepCidrMask)
+	}
+	c.VtepCidrMask = mask
 	for _, m := range vtepMACs {
 		externalMAC, err := mac.ParseMAC(m)
 		if err != nil {
