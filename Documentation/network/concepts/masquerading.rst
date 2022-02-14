@@ -18,9 +18,6 @@ the network.
 .. image:: masquerade.png
     :align: center
 
-For IPv6 addresses masquerading is performed only when using iptables
-implementation mode.
-
 This behavior can be disabled with the option ``enable-ipv4-masquerade: false``
 for IPv4 and ``enable-ipv6-masquerade: false`` for IPv6 traffic leaving the host.
 
@@ -142,7 +139,8 @@ configure the ``ip-masq-agent`` as above.
 
 .. note::
 
-    eBPF based masquerading is currently not supported for IPv6 traffic.
+    - The eBPF-based ip-masq-agent is not supported for IPv6 traffic.
+    - eBPF-based masquerading for IPv6 is not compatible with the host firewall.
 
 iptables-based
 **************
