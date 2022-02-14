@@ -415,6 +415,7 @@ generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go s
 	maps:signalmap\
 	maps:sockmap\
 	maps:tunnel\
+	maps:vtep\
 	node:types\
 	policy:api\
 	service:store")

@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
+	"github.com/cilium/cilium/pkg/maps/vtep"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -270,7 +271,7 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 	}
 
 	if option.Config.EnableVTEP {
-		err := setupIPCacheVTEPMapping()
+		err := setupVTEPMapping()
 		if err != nil {
 			return err
 		}
@@ -327,6 +328,12 @@ func (d *Daemon) initMaps() error {
 
 	if option.Config.EnableIPv4EgressGateway {
 		if err := egressmap.InitEgressMaps(); err != nil {
+			return err
+		}
+	}
+
+	if option.Config.EnableVTEP {
+		if _, err := vtep.VtepMAP.OpenOrCreate(); err != nil {
 			return err
 		}
 	}
@@ -485,16 +492,13 @@ func setupIPSec() (int, uint8, error) {
 	return authKeySize, spi, nil
 }
 
-func setupIPCacheVTEPMapping() error {
-	encryptKey := uint8(0)                           // no encrypt support
-	vtepID := uint32(identity.ReservedIdentityWorld) //network policy identity for VTEP
-
+func setupVTEPMapping() error {
 	for i, ep := range option.Config.VtepEndpoints {
 		log.WithFields(logrus.Fields{
 			logfields.IPAddr: ep,
-		}).Debug("Updating ipcache map entry for VTEP")
+		}).Debug("Updating vtep map entry for VTEP")
 
-		err := ipcachemap.UpdateIPCacheVTEPMapping(option.Config.VtepCIDRs[i], ep, vtepID, encryptKey)
+		err := vtep.UpdateVTEPMapping(option.Config.VtepCIDRs[i], ep, option.Config.VtepMACs[i])
 		if err != nil {
 			return fmt.Errorf("Unable to set up VTEP ipcache mappings: %w", err)
 		}

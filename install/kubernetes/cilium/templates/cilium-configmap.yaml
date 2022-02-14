@@ -775,6 +775,9 @@ data:
 {{- if hasKey .Values.vtep "cidr" }}
   vtep-cidr: {{ .Values.vtep.cidr | quote }}
 {{- end }}
+{{- if hasKey .Values.vtep "mask" }}
+  vtep-mask: {{ .Values.vtep.mask | quote }}
+{{- end }}
 {{- if hasKey .Values.vtep "mac" }}
   vtep-mac: {{ .Values.vtep.mac | quote }}
 {{- end }}

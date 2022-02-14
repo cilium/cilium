@@ -1091,6 +1091,9 @@ func initializeFlags() {
 	flags.StringSlice(option.VtepCIDR, []string{}, "List of VTEP CIDRs that will be routed towards VTEPs for traffic cluster egress")
 	option.BindEnv(option.VtepCIDR)
 
+	flags.String(option.VtepMask, "255.255.255.0", "VTEP CIDR Mask for all VTEP CIDRs")
+	option.BindEnv(option.VtepMask)
+
 	flags.StringSlice(option.VtepMAC, []string{}, "List of VTEP MAC addresses for forwarding traffic outside the cluster")
 	option.BindEnv(option.VtepMAC)
 

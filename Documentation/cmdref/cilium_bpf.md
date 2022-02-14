@@ -35,4 +35,5 @@ Direct access to local BPF maps
 * [cilium bpf recorder](cilium_bpf_recorder.md)	 - PCAP recorder
 * [cilium bpf sha](cilium_bpf_sha.md)	 - Manage compiled BPF template objects
 * [cilium bpf tunnel](cilium_bpf_tunnel.md)	 - Tunnel endpoint map
+* [cilium bpf vtep](cilium_bpf_vtep.md)	 - Manage the VTEP mappings for IP/CIDR <-> VTEP MAC/IP
 
