@@ -6,7 +6,7 @@
 ARG CILIUM_RUNTIME_TAG=2021-08-30
 
 ARG TESTER_IMAGE=quay.io/cilium/image-tester:eb76f0d4d585946bb0267b4c4478cceed17bbd87@sha256:c9a598cdc4843e62ab4e430f36343ca06d5292506261f17e466e0f1cbb48ddbb
-ARG GOLANG_IMAGE=docker.io/library/golang:1.16.13@sha256:db45f1e33c4b8414ae95341a2beb6a2ec505f46cf5f7c2ef35c7f0ccdbb38563
+ARG GOLANG_IMAGE=docker.io/library/golang:1.16.14@sha256:496b24974b993f5e57cf9caafc17079a1470c2ed322e5add3fa5be0f8c03c3e8
 ARG UBUNTU_IMAGE=docker.io/library/ubuntu:20.04@sha256:b5a61709a9a44284d88fb12e5c48db0409cfad5b69d4ff8224077c57302df9cf
 
 ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:0147a23fdada32bd51b4f313c645bcb5fbe188d6@sha256:24fd3ad32471d0e45844c856c38f1b2d4ac8bd0a2d4edf64cffaaa3fd0b21202
