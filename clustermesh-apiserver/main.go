@@ -205,6 +205,12 @@ func runApiserver() error {
 	flags.StringVar(&cfg.clusterName, option.ClusterName, "default", "Cluster name")
 	option.BindEnv(option.ClusterName)
 
+	flags.String(option.K8sKubeConfigPath, "", "Absolute path of the kubernetes kubeconfig file")
+	option.BindEnv(option.K8sKubeConfigPath)
+
+	flags.Int(option.ClusterMeshHealthPort, defaults.ClusterMeshHealthPort, "TCP port for ClusterMesh apiserver health API")
+	option.BindEnv(option.ClusterMeshHealthPort)
+
 	flags.StringVar(&mockFile, "mock-file", "", "Read from mock file")
 
 	flags.Duration(option.KVstoreConnectivityTimeout, defaults.KVstoreConnectivityTimeout, "Time after which an incomplete kvstore operation  is considered failed")
@@ -263,7 +269,7 @@ func startApi() {
 		}
 	})
 
-	srv := &http.Server{}
+	srv := &http.Server{Addr: fmt.Sprintf(":%d", option.Config.ClusterMeshHealthPort)}
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
@@ -567,7 +573,7 @@ func runServer(cmd *cobra.Command) {
 	}).Info("Starting clustermesh-apiserver...")
 
 	if mockFile == "" {
-		k8s.Configure("", "", 0.0, 0)
+		k8s.Configure("", option.Config.K8sKubeConfigPath, 0.0, 0)
 		if err := k8s.Init(k8sconfig.NewDefaultConfiguration()); err != nil {
 			log.WithError(err).Fatal("Unable to connect to Kubernetes apiserver")
 		}

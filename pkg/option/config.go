@@ -50,6 +50,9 @@ const (
 	// ClusterHealthPort is the TCP port for cluster-wide network connectivity health API
 	ClusterHealthPort = "cluster-health-port"
 
+	// ClusterMeshHealthPort is the TCP port for ClusterMesh apiserver health API
+	ClusterMeshHealthPort = "clustermesh-health-port"
+
 	// AgentLabels are additional labels to identify this agent
 	AgentLabels = "agent-labels"
 
@@ -1283,6 +1286,9 @@ type DaemonConfig struct {
 
 	// ClusterHealthPort is the TCP port for cluster-wide network connectivity health API
 	ClusterHealthPort int
+
+	// ClusterMeshHealthPort is the TCP port for ClusterMesh apiserver health API
+	ClusterMeshHealthPort int
 
 	// AgentLabels contains additional labels to identify this agent in monitor events.
 	AgentLabels []string
@@ -2563,6 +2569,7 @@ func (c *DaemonConfig) Populate() {
 
 	c.AgentHealthPort = viper.GetInt(AgentHealthPort)
 	c.ClusterHealthPort = viper.GetInt(ClusterHealthPort)
+	c.ClusterMeshHealthPort = viper.GetInt(ClusterMeshHealthPort)
 	c.AgentLabels = viper.GetStringSlice(AgentLabels)
 	c.AllowICMPFragNeeded = viper.GetBool(AllowICMPFragNeeded)
 	c.AllowLocalhost = viper.GetString(AllowLocalhost)
