@@ -204,6 +204,41 @@ const (
 	ScopeInternal
 )
 
+// BackendState tracks backend's ability to load-balance service traffic.
+//
+// Valid transition states for a backend -
+// BackendStateActive -> BackendStateTerminating, BackendStateQuarantined, BackendStateMaintenance
+// BackendStateTerminating -> No valid state transition
+// BackendStateQuarantined -> BackendStateActive, BackendStateTerminating
+// BackendStateMaintenance -> BackendStateActive
+//
+// Sources setting the states -
+// BackendStateActive - Kubernetes events, service API
+// BackendStateTerminating - Kubernetes events
+// BackendStateQuarantined - service API
+// BackendStateMaintenance - service API
+const (
+	// BackendStateActive refers to the backend state when it's available for
+	// load-balancing traffic. It's the default state for a backend.
+	// Backends in this state can be health-checked.
+	BackendStateActive BackendState = iota
+	// BackendStateTerminating refers to the terminating backend state so that
+	// it can be gracefully removed.
+	// Backends in this state won't be health-checked.
+	BackendStateTerminating
+	// BackendStateQuarantined refers to the backend state when it's unreachable,
+	// and will not be selected for load-balancing traffic.
+	// Backends in this state can be health-checked.
+	BackendStateQuarantined
+	// BackendStateMaintenance refers to the backend state where the backend
+	// is put under maintenance, and will neither be selected for load-balancing
+	// traffic nor be health-checked.
+	BackendStateMaintenance
+	// BackendStateInvalid is an invalid state, and is used to report error conditions.
+	// Keep this as the last entry.
+	BackendStateInvalid
+)
+
 var (
 	// AllProtocols is the list of all supported L4 protocols
 	AllProtocols = []L4Type{TCP, UDP}
@@ -224,6 +259,9 @@ type BackendID uint32
 // ID is the ID of L3n4Addr endpoint (either service or backend).
 type ID uint32
 
+// BackendState is the state of a backend for load-balancing service traffic.
+type BackendState uint8
+
 // Backend represents load balancer backend.
 type Backend struct {
 	// ID of the backend
@@ -235,6 +273,8 @@ type Backend struct {
 	// State indicating whether backend is terminating so that it can be
 	// gracefully removed
 	Terminating bool
+	// State of the backend for load-balancing service traffic
+	State BackendState
 }
 
 func (b *Backend) String() string {
@@ -407,11 +447,13 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 }
 
 // NewBackend creates the Backend struct instance from given params.
+// The default state for the returned Backend is BackendStateActive.
 func NewBackend(id BackendID, protocol L4Type, ip net.IP, portNumber uint16) *Backend {
 	lbport := NewL4Addr(protocol, portNumber)
 	b := Backend{
 		ID:       BackendID(id),
 		L3n4Addr: L3n4Addr{IP: ip, L4Addr: *lbport},
+		State:    BackendStateActive,
 	}
 
 	return &b
