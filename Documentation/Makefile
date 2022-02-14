@@ -55,7 +55,7 @@ endif
 
 copy-api:
 	@$(ECHO_GEN)_api
-	$(QUIET)cp -r ../api _api
+	$(QUIET)cp -T -r ../api _api
 
 # $(HELM_DOCS_IMAGE), necessary to update the reference for Helm values,
 # attempts to run a Go binary compiled for x86_64. Skip the update on other

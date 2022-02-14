@@ -36,6 +36,7 @@ filter_warnings() {
     [ -s "${warnings}" ] || return
     grep -v -E \
         -e 'Found .* misspelled words' \
+        -e "/_api/v1/.*/README\.md:[0-9]+: WARNING: 'myst' reference target not found:" \
         "${warnings}"
 }
 
