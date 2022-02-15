@@ -1032,14 +1032,12 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 				natPolicy = lb.SVCNatPolicyNat46
 			}
 		}
-		// Skip adding the terminating backend to the service map so that it
-		// won't be selected to serve new requests. However, the backend is still
-		// kept in the affinity and backend maps so that existing connections
-		// are able to terminate gracefully. The final clean-up for the backend
-		// will happen once the agent receives a delete event for the service
-		// endpoint as it'll be part of obsoleteBackendIDs/obsoleteSVCBackendIDs
-		// list passed to this function.
-		if !b.Terminating {
+		// Skip adding backends that are not active to the service map so that they
+		// won't be selected to serve new requests. However, non-active backends
+		// are still kept in the affinity and backend maps so that existing connections
+		// are able to terminate gracefully. Such backends would either be cleaned-up
+		// when the backends are deleted, or they would transition to active state.
+		if b.State == lb.BackendStateActive {
 			backends[b.String()] = b.ID
 			activeBackendsCount++
 		}
