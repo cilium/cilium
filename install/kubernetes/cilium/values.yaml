@@ -1898,3 +1898,6 @@ cgroup:
 # -- Configure whether to enable auto detect of terminating state for endpoints
 # in order to support graceful termination.
 enableK8sTerminatingEndpoint: true
+
+# -- Configure whether to unload DNS policy rules on graceful showdown
+# dnsPolicyUnloadOnShutdown: false
