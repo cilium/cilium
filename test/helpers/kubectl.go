@@ -169,12 +169,8 @@ var (
 		"k8s.requireIPv4PodCIDR": "false",
 	}
 	kindHelmOverrides = map[string]string{
-		"ipv6.enabled":         "false",
-		"hostFirewall.enabled": "false",
-		"nodeinit.enabled":     "true",
-		"kubeProxyReplacement": "partial",
-		"externalIPs.enabled":  "true",
-		"ipam.mode":            "kubernetes",
+		// To mount the cgroupv2 sub-root
+		"nodeinit.enabled": "true",
 	}
 
 	// helmOverrides allows overriding of cilium-agent options for
