@@ -1,6 +1,6 @@
 #!/bin/bash
 # SPDX-License-Identifier: Apache-2.0
-# Copyright 2018 Authors of Cilium
+# Copyright Authors of Cilium
 
 trap cleanup EXIT
 

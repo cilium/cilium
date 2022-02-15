@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-// Copyright (c) 2018-2021 Authors of Cilium
+// Copyright Authors of Cilium
 
 #include <bpf/ctx/skb.h>
 #include <bpf/api.h>

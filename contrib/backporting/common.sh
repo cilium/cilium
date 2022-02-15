@@ -1,6 +1,6 @@
 #!/bin/bash
 # SPDX-License-Identifier: Apache-2.0
-# Copyright 2019-2021 Authors of Cilium
+# Copyright Authors of Cilium
 
 set -e
 

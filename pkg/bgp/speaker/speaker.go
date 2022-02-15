@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2021 Authors of Cilium
+// Copyright Authors of Cilium
 
 // Package speaker abstracts the BGP speaker controller from MetalLB. This
 // package provides BGP announcements based on K8s object event handling.

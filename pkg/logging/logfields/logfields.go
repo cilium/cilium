@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2017-2018 Authors of Cilium
+// Copyright Authors of Cilium
 
 // Package logfields defines common logging fields which are used across packages
 package logfields

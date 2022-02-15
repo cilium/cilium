@@ -1,6 +1,6 @@
 #!/bin/bash
 # SPDX-License-Identifier: Apache-2.0
-# Copyright 2020 Authors of Cilium
+# Copyright Authors of Cilium
 
 # Combine given secrets (in JSON) into one
 set -e

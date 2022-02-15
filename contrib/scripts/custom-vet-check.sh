@@ -1,6 +1,6 @@
 #!/bin/bash
 # SPDX-License-Identifier: Apache-2.0
-# Copyright 2020 Authors of Cilium
+# Copyright Authors of Cilium
 
 # "customvet" is a custom go vet tool that can be found at
 # https://github.com/cilium/customvet

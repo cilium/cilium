@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2020 Authors of Cilium
+// Copyright Authors of Cilium
 
 // Package neighborsmap represents the map that stores IP to mac address
 // mappings for NodePort clients. It is primarily managed from the

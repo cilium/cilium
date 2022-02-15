@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2016-2020 Authors of Cilium
+// Copyright Authors of Cilium
 
 // This file contains functions related to conversion of information about
 // an Endpoint to its corresponding Cilium API representation.

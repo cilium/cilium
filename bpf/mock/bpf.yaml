@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0
-# Copyright (C) 2021 Authors of Cilium
+# Copyright Authors of Cilium
 
 # Specify CMock configuration options here.
 # For details, see https://github.com/ThrowTheSwitch/CMock/blob/master/docs/CMock_Summary.md#config-options.

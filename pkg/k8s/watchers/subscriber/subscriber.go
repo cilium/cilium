@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2021 Authors of Cilium
+// Copyright Authors of Cilium
 
 // Package subscriber implements a mechanism to represent K8s watcher
 // subscribers and allows K8s events to objects / resources to notify their

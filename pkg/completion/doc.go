@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2018 Authors of Cilium
+// Copyright Authors of Cilium
 
 // Package completion implements a variant of sync.WaitGroup that is associated
 // with a context.Context.

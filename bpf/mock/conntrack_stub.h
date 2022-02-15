@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (C) 2021 Authors of Cilium */
+/* Copyright Authors of Cilium */
 
 // Header of functions to be mocked in conntrack.h.
 // It is used to generate corresponding mock functions in conntrack.h.

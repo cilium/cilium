@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2020 Authors of Cilium
+// Copyright Authors of Cilium
 
 // Package fragmap represents the BPF map used to associate IPv4 datagram
 // fragments to the L4 ports of the datagram they belong to, in order to

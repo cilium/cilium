@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2018 Authors of Cilium
+// Copyright Authors of Cilium
 
 //
 // Accompanying file `headerparser.policy` contains an example policy

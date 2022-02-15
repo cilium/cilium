@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2020 Authors of Cilium
+// Copyright Authors of Cilium
 
 // The restore package provides data structures important to restoring
 // DNS proxy rules. This package serves as a central source for these

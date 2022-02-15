@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (C) 2016-2020 Authors of Cilium */
+/* Copyright Authors of Cilium */
 #ifndef BPF_FEATURES_H_
 #define BPF_FEATURES_H_
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 # SPDX-License-Identifier: Apache-2.0
-# Copyright 2017-2019 Authors of Cilium
+# Copyright Authors of Cilium
 
 readonly t_reset=$(tput sgr0)
 readonly red=$(tput bold; tput setaf 1)

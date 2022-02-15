@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (C) 2022 Authors of Cilium */
+/* Copyright Authors of Cilium */
 
 #ifndef __QM_H_
 #define __QM_H_

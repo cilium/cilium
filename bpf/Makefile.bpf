@@ -1,4 +1,4 @@
-# Copyright 2017-2020 Authors of Cilium
+# Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
 FLAGS := -I$(ROOT_DIR)/bpf/include -I$(ROOT_DIR)/bpf -D__NR_CPUS__=$(shell nproc --all) -O2 -g

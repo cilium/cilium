@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2020 Authors of Cilium
+// Copyright Authors of Cilium
 
 // Package callsmap represents the internal calls map for endpoint and host
 // datapaths. It is primarily managed from the datapath; Cilium side contains a

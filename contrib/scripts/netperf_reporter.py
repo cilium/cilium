@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-# Copyright 2018 Authors of Cilium
+# Copyright Authors of Cilium
 
 # This script reads the output of netperf results from Kubernetes upstream
 # project and pushes the results to the given Prometheus server.

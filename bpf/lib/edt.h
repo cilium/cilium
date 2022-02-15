@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (C) 2020 Authors of Cilium */
+/* Copyright Authors of Cilium */
 
 #ifndef __EDT_H_
 #define __EDT_H_
