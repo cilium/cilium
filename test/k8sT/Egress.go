@@ -89,7 +89,7 @@ var _ = SkipDescribeIf(func() bool {
 
 		_, k8s1IP = kubectl.GetNodeInfo(helpers.K8s1)
 		_, k8s2IP = kubectl.GetNodeInfo(helpers.K8s2)
-		_, outsideIP = kubectl.GetNodeInfo(helpers.GetFirstNodeWithoutCilium())
+		_, outsideIP = kubectl.GetNodeInfo(kubectl.GetFirstNodeWithoutCiliumLabel())
 
 		egressIP = getEgressIP(k8s1IP)
 
@@ -172,7 +172,7 @@ var _ = SkipDescribeIf(func() bool {
 			fmt.Sprintf(`{"spec":{"externalIPs":["%s"],  "externalTrafficPolicy": "Local"}}`, hostIP))
 		ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Error patching external IP service with node IP")
 
-		outsideNodeName, outsideNodeIP := kubectl.GetNodeInfo(helpers.GetFirstNodeWithoutCilium())
+		outsideNodeName, outsideNodeIP := kubectl.GetNodeInfo(kubectl.GetFirstNodeWithoutCiliumLabel())
 
 		res = kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName,
 			helpers.CurlFail("http://%s:%d", hostIP, extIPsService.Spec.Ports[0].Port))
