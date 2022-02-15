@@ -8,6 +8,7 @@ default_controlplanes=1
 default_workers=1
 default_cluster_name=""
 default_image=""
+default_kubeproxy_mode="iptables"
 
 PROG=${0}
 CONTROLPLANES="${1:-${default_controlplanes}}"
@@ -15,10 +16,11 @@ WORKERS="${2:-${default_workers}}"
 CLUSTER_NAME="${3:-${default_cluster_name}}"
 # IMAGE controls the K8s version as well (e.g. kindest/node:v1.11.10)
 IMAGE="${4:-${default_image}}"
+KUBEPROXY_MODE="${5:-${default_kubeproxy_mode}}"
 CILIUM_ROOT="$(realpath $(dirname $(readlink -ne $BASH_SOURCE))/../..)"
 
 usage() {
-  echo "Usage: ${PROG} [control-plane node count] [worker node count] [cluster-name] [node image]"
+  echo "Usage: ${PROG} [control-plane node count] [worker node count] [cluster-name] [node image] [kube-proxy mode]"
 }
 
 have_kind() {
@@ -30,12 +32,12 @@ if ! have_kind; then
     echo "  https://kind.sigs.k8s.io/docs/user/quick-start/#installation"
 fi
 
-if [[ "${#}" -gt 4 ]]; then
+if [[ "${#}" -gt 5 ]]; then
   usage
   exit 1
 fi
 
-if [[ "${#}" -gt 4 ]] ||
+if [[ "${#}" -gt 5 ]] ||
    [[ "${CONTROLPLANES}" == "-h" ||
       "${CONTROLPLANES}" == "--help" ]]; then
   usage
@@ -88,6 +90,7 @@ $(control_planes)
 $(workers)
 networking:
   disableDefaultCNI: true
+  kubeProxyMode: ${KUBEPROXY_MODE}
 containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:${reg_port}"]
