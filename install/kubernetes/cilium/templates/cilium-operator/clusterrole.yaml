@@ -41,15 +41,26 @@ rules:
 - apiGroups:
   - ""
   resources:
-  # to perform the translation of a CNP that contains `ToGroup` to its endpoints
-  - services
-  - endpoints
   # to check apiserver connectivity
   - namespaces
+  - secrets
   verbs:
   - get
   - list
   - watch
+- apiGroups:
+  - ""
+  resources:
+  # to perform the translation of a CNP that contains `ToGroup` to its endpoints
+  - services
+  - endpoints
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - delete
 - apiGroups:
   - cilium.io
   resources:
@@ -72,6 +83,7 @@ rules:
   - ciliumlocalredirectpolicies
   - ciliumlocalredirectpolicies/status
   - ciliumlocalredirectpolicies/finalizers
+  - ciliumenvoyconfigs
   verbs:
   - '*'
 - apiGroups:
@@ -97,5 +109,20 @@ rules:
   verbs:
   - create
   - get
+  - update
+# For ingress controller
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses/status # To update ingress status with load balancer IP.
+  verbs:
   - update
 {{- end }}
