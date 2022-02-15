@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /* Copyright (C) 2006 Bob Jenkins <bob_jenkins@burtleburtle.net> */
 /* Copyright (C) 2006-2020 Authors of the Linux kernel */
-/* Copyright (C) 2020 Authors of Cilium */
+/* Copyright Authors of Cilium */
 
 #ifndef __JHASH_H_
 #define __JHASH_H_

@@ -3,7 +3,7 @@
 /// DROP_MISSED_TAIL_CALL. Such code patterns may lead to missed tail calls not
 /// being logged.
 // Confidence: Medium
-// Copyright (C) 2020 Authors of Cilium.
+// Copyright Authors of Cilium.
 // Comments:
 // Options: --include-headers
 

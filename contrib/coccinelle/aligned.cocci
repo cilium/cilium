@@ -6,7 +6,7 @@
 /// Coccinelle v1.0.7 is needed to handle the presence of #pragma unrolls in
 /// our code.
 // Confidence: Medium
-// Copyright (C) 2020 Authors of Cilium.
+// Copyright Authors of Cilium.
 // Comments:
 // Options: --include-headers
 

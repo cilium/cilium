@@ -4,7 +4,7 @@
 /// KUBE_APISERVER_NODE_ID is properly accounted for and to prepare for
 /// future extensions.
 // Confidence: Medium
-// Copyright (C) 2022 Authors of Cilium.
+// Copyright Authors of Cilium.
 // Comments:
 // Options: --include-headers
 

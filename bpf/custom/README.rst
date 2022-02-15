@@ -1,4 +1,4 @@
-..  Copyright (C) 2021 Authors of Cilium
+..  Copyright Authors of Cilium
 
 ===================================
 Tail Call Hooks for Custom Programs

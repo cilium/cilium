@@ -1,6 +1,6 @@
 // This file is safe to edit. Once it exists it will not be overwritten
 
-// Copyright 2017-2020 Authors of Cilium
+// Copyright Authors of Cilium
 // SPDX-License-Identifier: Apache-2.0
 
 package server

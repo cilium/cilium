@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 SPDX-License-Identifier: Apache-2.0
-Copyright 2021 Authors of Cilium
+Copyright Authors of Cilium
 
 # vxlan-responder.py -h
 usage: vxlan-responder.py [-h] [--dport UDPPORT] [--sport SRCPORT] [--vni VXLANVNI] [--outerip DSTHOST]
