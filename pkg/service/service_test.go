@@ -818,7 +818,7 @@ func (m *ManagerTestSuite) TestLocalRedirectServiceOverride(c *C) {
 func (m *ManagerTestSuite) TestUpsertServiceWithTerminatingBackends(c *C) {
 	option.Config.NodePortAlg = option.NodePortAlgMaglev
 	backends := append(backends1, backends4...)
-	backends[2].Terminating = true
+	backends[2].State = lb.BackendStateTerminating
 	p := &lb.SVC{
 		Frontend:                  frontend1,
 		Backends:                  backends,
@@ -915,7 +915,7 @@ func (m *ManagerTestSuite) TestUpsertServiceWithOutExternalClusterIP(c *C) {
 func (m *ManagerTestSuite) TestRestoreServiceWithTerminatingBackends(c *C) {
 	option.Config.NodePortAlg = option.NodePortAlgMaglev
 	backends := append(backends1, backends4...)
-	backends[2].Terminating = true
+	backends[2].State = lb.BackendStateTerminating
 	p1 := &lb.SVC{
 		Frontend:                  frontend1,
 		Backends:                  backends,
