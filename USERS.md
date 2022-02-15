@@ -163,6 +163,11 @@ Users (Alphabetically)
       U: CNI
       Q: @dale
 
+    * N: Scaleway
+      D: Scaleway uses Cilium as the default CNI for Kubernetes Kapsule
+      U: Networking, NetworkPolicy, Services
+      L: @jtherin @remyleone
+
     * N: SmileDirectClub
       D: SmileDirectClub is using Cilium in manufacturing clusters (self-hosted on vSphere and AWS EC2)
       U: CNI
