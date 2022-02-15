@@ -2392,7 +2392,7 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		}
 		for i, n := range noCiliumNodes {
 			key := fmt.Sprintf("affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[%d]", i)
-			opts[key] = n
+			opts[key] = kub.GetNodeCILabel(n)
 		}
 		for key, value := range opts {
 			options = addIfNotOverwritten(options, key, value)

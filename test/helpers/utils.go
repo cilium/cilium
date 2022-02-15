@@ -661,6 +661,24 @@ func GetFirstNodeWithoutCilium() string {
 	return noCiliumNodes[0]
 }
 
+// GetFirstNodeWithoutCiliumLabel returns the ci-node label value of the first node
+// which is running without Cilium.
+func (kub *Kubectl) GetFirstNodeWithoutCiliumLabel() string {
+	nodeName := GetFirstNodeWithoutCilium()
+	return kub.GetNodeCILabel(nodeName)
+}
+
+// GetNodeCILabel returns the ci-node label value of the given node.
+func (kub *Kubectl) GetNodeCILabel(nodeName string) string {
+	cmd := fmt.Sprintf("%s get node %s -o jsonpath='{.metadata.labels.cilium\\.io/ci-node}'",
+		KubectlCmd, nodeName)
+	res := kub.ExecShort(cmd)
+	if !res.WasSuccessful() {
+		return ""
+	}
+	return res.SingleOut()
+}
+
 // IsNodeWithoutCilium returns true if node node doesn't run Cilium.
 func IsNodeWithoutCilium(node string) bool {
 	for _, n := range GetNodesWithoutCilium() {

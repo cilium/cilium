@@ -35,7 +35,7 @@ func GetNodesInfo(kubectl *Kubectl) (*NodesInfo, error) {
 	ni.K8s1NodeName, ni.K8s1IP = kubectl.GetNodeInfo(K8s1)
 	ni.K8s2NodeName, ni.K8s2IP = kubectl.GetNodeInfo(K8s2)
 	if ExistNodeWithoutCilium() {
-		ni.OutsideNodeName, ni.OutsideIP = kubectl.GetNodeInfo(GetFirstNodeWithoutCilium())
+		ni.OutsideNodeName, ni.OutsideIP = kubectl.GetNodeInfo(kubectl.GetFirstNodeWithoutCiliumLabel())
 	}
 
 	ni.PrivateIface, err = kubectl.GetPrivateIface()

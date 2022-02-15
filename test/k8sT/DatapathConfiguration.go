@@ -514,7 +514,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		testIPMasqAgent := func() {
 			// Check that requests to the echoserver from client pods are masqueraded.
-			nodeIP, err := kubectl.GetNodeIPByLabel(helpers.GetFirstNodeWithoutCilium(), false)
+			nodeIP, err := kubectl.GetNodeIPByLabel(kubectl.GetFirstNodeWithoutCiliumLabel(), false)
 			Expect(err).Should(BeNil())
 			Expect(testPodHTTPToOutside(kubectl,
 				fmt.Sprintf("http://%s:80", nodeIP), true, false, false)).Should(BeTrue(),
