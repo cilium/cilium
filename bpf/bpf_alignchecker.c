@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-/* Copyright (C) 2018-2020 Authors of Cilium */
+/* Copyright Authors of Cilium */
 
 /* Ensure declaration of notification event types */
 #define DEBUG

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2018 Authors of Cilium
+// Copyright Authors of Cilium
 
 // Package ipcache provides a BPF datapath implementation of the IPCache store.
 // It depends on details from pkg/ipcache (which handles IPCache events), as

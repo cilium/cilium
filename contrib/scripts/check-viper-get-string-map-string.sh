@@ -1,6 +1,6 @@
 #!/bin/bash
 # SPDX-License-Identifier: Apache-2.0
-# Copyright 2022 Authors of Cilium
+# Copyright Authors of Cilium
 
 # Simple script to make sure viper.GetStringMapString should not be used.
 # Related upstream issue https://github.com/spf13/viper/issues/911

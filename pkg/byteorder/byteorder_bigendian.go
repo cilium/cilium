@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2021 Authors of Cilium
+// Copyright Authors of Cilium
 
 //go:build armbe || arm64be || mips || mips64 || ppc64
 // +build armbe arm64be mips mips64 ppc64

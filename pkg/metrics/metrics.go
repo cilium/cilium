@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2017-2019 Authors of Cilium
+// Copyright Authors of Cilium
 
 // Package metrics holds prometheus metrics objects and related utility functions. It
 // does not abstract away the prometheus client but the caller rarely needs to

@@ -1,6 +1,6 @@
 #!/bin/bash
 # SPDX-License-Identifier: Apache-2.0
-# Copyright 2020 Authors of Cilium
+# Copyright Authors of Cilium
 
 # Extract a clustermesh secret from the local cluster to be used in other clusters
 set -e

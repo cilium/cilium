@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2019 Authors of Cilium
+// Copyright Authors of Cilium
 
 // Package encrypt represents the nodes current encryption state. It is used
 // by the datapath to learn current encryption configuration and managed by

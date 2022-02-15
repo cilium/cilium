@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (C) 2020 Authors of Cilium */
+/* Copyright Authors of Cilium */
 
 #ifndef _LINUX_TYPES_H
 #define _LINUX_TYPES_H

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (C) 2021 Authors of Cilium */
+/* Copyright Authors of Cilium */
 
 // sample unit test program for functions in nat.h
 // It contains function definitions for testing "snat_v4_track_local".

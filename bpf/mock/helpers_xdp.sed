@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0
-# Copyright (C) 2021 Authors of Cilium
+# Copyright Authors of Cilium
 
 # 1 Add [GENERATED FROM bpf/helpers_xdp.h] at the front.
 # 2 Delete lines start with [#ifndef BPF_] and ends with [#endif].

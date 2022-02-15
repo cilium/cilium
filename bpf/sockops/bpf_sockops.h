@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (C) 2018-2021 Authors of Cilium */
+/* Copyright Authors of Cilium */
 
 #include "sockops_config.h"
 

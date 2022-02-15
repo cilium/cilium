@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2020 Authors of Cilium
+// Copyright Authors of Cilium
 
 // Package synced provides tools for tracking if k8s resources have
 // been initially sychronized with the k8s apiserver.

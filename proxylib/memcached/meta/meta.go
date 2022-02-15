@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2018 Authors of Cilium
+// Copyright Authors of Cilium
 
 // text memcache protocol parser based on https://github.com/memcached/memcached/blob/master/doc/protocol.txt
 

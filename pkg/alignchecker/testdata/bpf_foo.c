@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-/* Copyright (C) 2019 Authors of Cilium */
+/* Copyright Authors of Cilium */
 
 /* To compile:
  * $ clang -I../../../bpf/include -O2 -g -target bpf -emit-llvm \

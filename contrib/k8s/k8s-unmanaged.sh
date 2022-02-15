@@ -1,6 +1,6 @@
 #!/bin/bash
 # SPDX-License-Identifier: Apache-2.0
-# Copyright 2018 Authors of Cilium
+# Copyright Authors of Cilium
 
 ALL_CEPS=$(kubectl get cep --all-namespaces -o json | jq -r '.items[].metadata | .namespace + "/" + .name')
 ALL_PODS=$(kubectl get pods --all-namespaces -o json | jq -r '.items[] | select(.spec.hostNetwork==true | not) | .metadata | .namespace + "/" + .name')

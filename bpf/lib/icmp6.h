@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (C) 2016-2020 Authors of Cilium */
+/* Copyright Authors of Cilium */
 
 #if !defined(__LIB_ICMP6__) && defined(ENABLE_IPV6)
 #define __LIB_ICMP6__

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2020 Authors of Cilium
+// Copyright Authors of Cilium
 
 // Package rate provides a rate limiter to rate limit requests that can be
 // burstable but they should only allowed N per a period defined.

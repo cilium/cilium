@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2021 Authors of Cilium
+// Copyright Authors of Cilium
 
 // Package manager provides functionality relating to the integration between
 // Cilium and MetalLB, namely providing abstractions that help manage MetalLB

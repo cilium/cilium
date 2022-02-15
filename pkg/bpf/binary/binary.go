@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright Authors of Cilium
 // SPDX-License-Identifier: Apache-2.0
 //
 // Copyright (c) 2009 The Go Authors. All rights reserved.

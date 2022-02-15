@@ -1,6 +1,6 @@
 #!/bin/bash
 # SPDX-License-Identifier: Apache-2.0
-# Copyright 2017 Authors of Cilium
+# Copyright Authors of Cilium
 
 # Used to cause failure when pkg/lock is not used
 for l in sync.Mutex sync.RWMutex; do

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (C) 2020 Authors of Cilium */
+/* Copyright Authors of Cilium */
 	test___builtin_memzero_single(8, 1);
 	test___builtin_memzero_single(8, 2);
 	test___builtin_memzero_single(8, 4);

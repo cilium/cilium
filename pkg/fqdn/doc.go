@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2018 Authors of Cilium
+// Copyright Authors of Cilium
 
 // Package fqdn handles some of the DNS-based policy functions:
 // - A DNS lookup cache used to populate toFQDNs rules in the policy layer.

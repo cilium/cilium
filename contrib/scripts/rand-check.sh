@@ -1,6 +1,6 @@
 #!/bin/bash
 # SPDX-License-Identifier: Apache-2.0
-# Copyright 2020 Authors of Cilium
+# Copyright Authors of Cilium
 
 # Make sure pkg/rand is used instead of math/rand, see
 # https://github.com/cilium/cilium/issues/10988. It's fine to use math/rand in

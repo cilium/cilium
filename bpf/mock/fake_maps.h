@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (C) 2021 Authors of Cilium */
+/* Copyright Authors of Cilium */
 
 // library for user-space map emulation
 // It emulates the eBPF map operations in the user space by wrapping up the raw

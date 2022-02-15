@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (C) 2021 Authors of Cilium */
+/* Copyright Authors of Cilium */
 
 // sample unit test program for some functions in drop.h
 // It contains function definitions for testing "send_drop_notify" and "__send_drop_notify".
