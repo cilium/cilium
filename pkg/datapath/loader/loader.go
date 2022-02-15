@@ -453,7 +453,7 @@ func (l *Loader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, stats 
 	return l.ReloadDatapath(ctx, ep, stats)
 }
 
-// ReloadDatapath reloads the BPF datapath pgorams for the specified endpoint.
+// ReloadDatapath reloads the BPF datapath programs for the specified endpoint.
 func (l *Loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) (err error) {
 	dirs := directoryInfo{
 		Library: option.Config.BpfDir,
