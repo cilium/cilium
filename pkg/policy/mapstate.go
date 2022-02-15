@@ -787,10 +787,12 @@ func (mc *MapChanges) consumeMapChanges(policyMapState MapState) (adds, deletes 
 			// Collect the incremental changes to the overall state in 'mc.adds' and 'mc.deletes'.
 			policyMapState.denyPreferredInsertWithChanges(mc.changes[i].Key, mc.changes[i].Value, adds, deletes)
 		} else {
+			log.Debugf("debug-leak %v", mc.changes[i].Value.owners)
 			// Delete the contribution of this cs to the key and collect incremental changes
 			for cs := range mc.changes[i].Value.owners { // get the sole selector
 				policyMapState.deleteKeyWithChanges(mc.changes[i].Key, cs, adds, deletes)
 			}
+			log.Debugf("debug-leak %v", deletes)
 		}
 	}
 	mc.changes = nil
