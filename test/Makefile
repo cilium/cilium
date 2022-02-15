@@ -12,6 +12,10 @@ TEST_ARTIFACTS = ./tmp.yaml ./*_service_manifest.json ./*_manifest.yaml
 TEST_ARTIFACTS += ./*_policy.json ./k8s-*.xml ./runtime.xml ./test_results
 TEST_ARTIFACTS += ./test.test
 
+NETNEXT ?= false
+KUBEPROXY ?= 1
+NO_CILIUM_ON_NODES ?= ""
+
 GINKGO = $(QUIET) ginkgo
 
 REGISTRY_CREDENTIALS ?= "${DOCKER_LOGIN}:${DOCKER_PASSWORD}"
@@ -40,6 +44,9 @@ k8s-kind:
 	fi
 	@CNI_INTEGRATION=kind \
 		K8S_VERSION="$$(kubectl version -o json | jq -r '.serverVersion | "\(.major).\(.minor)"')" \
+		NETNEXT="$(NETNEXT)" \
+		KUBEPROXY="$(KUBEPROXY)" \
+		NO_CILIUM_ON_NODES="$(NO_CILIUM_ON_NODES)" \
 		ginkgo --focus "$(FOCUS)" --tags integration_tests -v -- \
 			-cilium.testScope=k8s \
 			-cilium.provision=false \
