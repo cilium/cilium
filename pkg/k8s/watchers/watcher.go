@@ -683,13 +683,17 @@ func genCartesianProduct(
 			parsedIP := net.ParseIP(netIP)
 
 			if backendPort := backend.Ports[string(fePortName)]; backendPort != nil && feFamilyIPv6 == ip.IsIPv6(parsedIP) {
+				backendState := loadbalancer.BackendStateActive
+				if backend.Terminating {
+					backendState = loadbalancer.BackendStateTerminating
+				}
 				besValues = append(besValues, loadbalancer.Backend{
 					NodeName: backend.NodeName,
 					L3n4Addr: loadbalancer.L3n4Addr{
 						IP:     parsedIP,
 						L4Addr: *backendPort,
 					},
-					Terminating: backend.Terminating,
+					State: backendState,
 				})
 			}
 		}
