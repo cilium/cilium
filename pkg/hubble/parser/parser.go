@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Hubble
-// Copyright 2020-2021 Authors of Cilium
+// Copyright Authors of Cilium
 
 package parser
 

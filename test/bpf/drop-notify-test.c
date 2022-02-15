@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0 
-/* Copyright (C) 2021 Authors of Cilium */
+/* Copyright Authors of Cilium */
 
 // source file for drop_notify_test.h.
 // It contains contains main functions to run test functions drop_notify_test.h.

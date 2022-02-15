@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2019 Authors of Cilium
+ * Copyright Authors of Cilium
  * Copyright 2017 Mirantis
  *
  * Licensed under the Apache License, Version 2.0 (the "License");

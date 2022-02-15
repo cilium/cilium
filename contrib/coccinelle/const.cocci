@@ -3,7 +3,7 @@
 /// results in low for now, but the compiler should catch any incorrect const
 /// qualifier.
 // Confidence: Low
-// Copyright (C) 2020 Authors of Cilium.
+// Copyright Authors of Cilium.
 // Comments:
 // Options: --include-headers
 

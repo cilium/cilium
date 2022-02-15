@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2015 The Kubernetes Authors.
-// Copyright 2020-2021 Authors of Cilium
+// Copyright Authors of Cilium
 
 // Package v1 contains API types that are common to all versions.
 //
