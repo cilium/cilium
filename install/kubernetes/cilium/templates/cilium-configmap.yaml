@@ -814,6 +814,11 @@ data:
   enable-k8s-terminating-endpoint: {{ .Values.enableK8sTerminatingEndpoint | quote }}
 {{- end }}
 
+{{- if hasKey .Values "dnsPolicyUnloadOnShutdown" }}
+  # Unload DNS policy rules on graceful showdown
+  dns-policy-unload-on-shutdown: {{.Values.dnsPolicyUnloadOnShutdown | quote }}
+{{- end }}
+
 {{- if .Values.extraConfig }}
   {{ toYaml .Values.extraConfig | nindent 2 }}
 {{- end }}
