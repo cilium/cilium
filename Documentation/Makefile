@@ -75,7 +75,7 @@ HELM_DOCS := $(DOCKER_CTR) $(HELM_DOCS_IMAGE)
 
 M2R_VERSION := 0.2.1
 M2R_SHA := a3dc2c3fcdc31260dcb7cd42e39763281a6fdce4ca59b4c150fb3bfff5be9eb7
-M2R_IMAGE := docker.io/bmcustodio/m2r:$(M2R_VERSION)@sha256:$(M2R_SHA)
+M2R_IMAGE := quay.io/cilium/m2r:$(M2R_VERSION)@sha256:$(M2R_SHA)
 M2R := $(DOCKER_CTR) $(M2R_IMAGE) m2r
 
 .PHONY: update-helm-values FORCE
