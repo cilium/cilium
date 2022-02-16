@@ -72,13 +72,13 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		c.Assert(dm.GetDevices(), checker.DeepEquals, []string{})
 		option.Config.Devices = []string{}
 
-		// 2. Node IP not set, can still detect.
+		// 2. Node IP not set, can still detect. Direct routing device shouldn't be detected.
 		option.Config.EnableNodePort = true
 		c.Assert(createDummy("dummy0", "192.168.0.1/24", false), IsNil)
 		node.SetK8sNodeIP(nil)
 		c.Assert(dm.Detect(), IsNil)
 		c.Assert(dm.GetDevices(), checker.DeepEquals, []string{"dummy0"})
-		c.Assert(option.Config.DirectRoutingDevice, Equals, "dummy0")
+		c.Assert(option.Config.DirectRoutingDevice, Equals, "")
 		option.Config.Devices = []string{}
 
 		// 3. Manually specified devices, no detection is performed
@@ -88,6 +88,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		option.Config.Devices = []string{"dummy0"}
 		c.Assert(dm.Detect(), IsNil)
 		c.Assert(dm.GetDevices(), checker.DeepEquals, []string{"dummy0"})
+		c.Assert(option.Config.DirectRoutingDevice, Equals, "")
 		option.Config.Devices = []string{}
 		option.Config.DirectRoutingDevice = ""
 
