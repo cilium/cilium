@@ -1472,7 +1472,11 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 		switch {
 		case !option.Config.EnableL2NeighDiscovery:
 			n.enableNeighDiscovery = false
-		case option.Config.EnableNodePort:
+		case option.Config.DirectRoutingDeviceRequired():
+			if option.Config.DirectRoutingDevice == "" {
+				return fmt.Errorf("direct routing device is required, but not defined")
+			}
+
 			mac, err := link.GetHardwareAddr(option.Config.DirectRoutingDevice)
 			if err != nil {
 				return err
