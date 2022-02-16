@@ -37,11 +37,11 @@ For more information on AWS ENI mode, see :ref:`ipam_eni`.
         - name: ng-1
           ...
           # taint nodes so that application pods are
-          # not scheduled until Cilium is deployed.
+          # not scheduled/executed until Cilium is deployed.
           taints:
            - key: "node.cilium.io/agent-not-ready"
              value: "true"
-             effect: "NoSchedule"
+             effect: "NoExecute"
 
 **Limitations:**
 
