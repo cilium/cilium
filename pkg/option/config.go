@@ -1230,7 +1230,7 @@ type DaemonConfig struct {
 	RunDir              string     // Cilium runtime directory
 	NAT46Prefix         *net.IPNet // NAT46 IPv6 Prefix
 	Devices             []string   // bpf_host device
-	DirectRoutingDevice string     // Direct routing device (used only by NodePort BPF)
+	DirectRoutingDevice string     // Direct routing device (used by BPF NodePort and BPF Host Routing)
 	LBDevInheritIPAddr  string     // Device which IP addr used by bpf_host devices
 	EnableXDPPrefilter  bool       // Enable XDP-based prefiltering
 	DevicePreFilter     string     // Prefilter device
@@ -2326,6 +2326,15 @@ func (c *DaemonConfig) K8sAPIDiscoveryEnabled() bool {
 // required groups.
 func (c *DaemonConfig) K8sLeasesFallbackDiscoveryEnabled() bool {
 	return c.K8sEnableAPIDiscovery
+}
+
+// DirectRoutingDeviceRequired return whether the Direct Routing Device is needed under
+// the current configuration.
+func (c *DaemonConfig) DirectRoutingDeviceRequired() bool {
+	// BPF NodePort and BPF Host Routing are using the direct routing device now.
+	// When tunneling is enabled, node-to-node redirection will be done by tunneling.
+	BPFHostRoutingEnabled := !c.EnableHostLegacyRouting
+	return (c.EnableNodePort || BPFHostRoutingEnabled) && !c.TunnelingEnabled()
 }
 
 // EnableK8sLeasesFallbackDiscovery enables using direct API probing as a fallback to check
