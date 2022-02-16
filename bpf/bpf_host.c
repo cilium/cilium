@@ -1076,6 +1076,24 @@ out:
 	}
 #endif
 
+#ifdef ENABLE_WIREGUARD
+	{
+		struct remote_endpoint_info *info;
+		void *data, *data_end;
+		struct iphdr *ip4;
+		//char fmt[] = "foo: %x %x %x\n";
+
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return DROP_INVALID;
+
+		info = lookup_ip4_remote_endpoint(ip4->daddr);
+		if (((ctx->mark & 0x4d2) != 0x4d2) && info != NULL && info->key) {
+		        //trace_printk(fmt, sizeof(fmt), ip4->saddr, ip4->daddr, ctx->mark);
+			return ctx_redirect(ctx, WG_IFINDEX, 0);
+		}
+	}
+#endif
+
 #if defined(ENABLE_NODEPORT) && \
 	(!defined(ENABLE_DSR) || \
 	 (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) || \
@@ -1098,22 +1116,6 @@ out:
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
 					      METRIC_EGRESS);
-#endif
-
-#ifdef ENABLE_WIREGUARD
-	{
-		struct remote_endpoint_info *info;
-		void *data, *data_end;
-		struct iphdr *ip4;
-
-		if (!revalidate_data(ctx, &data, &data_end, &ip4))
-			return DROP_INVALID;
-
-		info = lookup_ip4_remote_endpoint(ip4->daddr);
-		if (((ctx->mark & 0x4d2) != 0x4d2) && info != NULL && info->key) {
-			return ctx_redirect(ctx, WG_IFINDEX, 0);
-		}
-	}
 #endif
 
 	send_trace_notify(ctx, TRACE_TO_NETWORK, src_id, 0, 0,
