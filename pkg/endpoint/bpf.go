@@ -1209,6 +1209,7 @@ func (e *Endpoint) applyPolicyMapChanges() (proxyChanges bool, err error) {
 	//  desired policy and only returns changes that need to be
 	//  applied to the Endpoint's bpf policy map.
 	adds, deletes := e.desiredPolicy.ConsumeMapChanges()
+	log.Infof("debug-leak from consume map changes %v", deletes)
 
 	// Add possible visibility redirects due to incrementally added keys
 	if e.visibilityPolicy != nil {
@@ -1225,6 +1226,7 @@ func (e *Endpoint) applyPolicyMapChanges() (proxyChanges bool, err error) {
 			}
 		}
 	}
+	log.Infof("debug-leak after visibility logic %v", deletes)
 
 	// Add policy map entries before deleting to avoid transient drops
 	for keyToAdd, entry := range adds {

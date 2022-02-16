@@ -939,7 +939,7 @@ func NewL4Policy(revision uint64) *L4Policy {
 // insertUser adds a user to the L4Policy so that incremental
 // updates of the L4Policy may be forwarded to the users of it.
 func (l4 *L4Policy) insertUser(user *EndpointPolicy) {
-	log.Debugf("debug-leak %v %v", l4.users, *user)
+	// log.Debugf("debug-leak %v %v", l4.users, *user)
 	l4.mutex.Lock()
 
 	// 'users' is set to nil when the policy is detached. This
@@ -962,7 +962,7 @@ func (l4 *L4Policy) insertUser(user *EndpointPolicy) {
 // removeUser removes a user that no longer needs incremental updates
 // from the L4Policy.
 func (l4 *L4Policy) removeUser(user *EndpointPolicy) {
-	log.Debugf("debug-leak %v %v", l4.users, *user)
+	// log.Debugf("debug-leak %v %v", l4.users, *user)
 	// 'users' is set to nil when the policy is detached. This
 	// happens to the old policy when it is being replaced with a
 	// new one, or when the last endpoint using this policy is

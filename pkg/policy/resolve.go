@@ -201,7 +201,7 @@ func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(policyMapState MapSt
 // have completed.
 // PolicyOwner (aka Endpoint) is also locked during this call.
 func (p *EndpointPolicy) ConsumeMapChanges() (adds, deletes MapState) {
-	log.Debugf("debug-leak %v %+v", deletes, *p)
+	log.Debugf("debug-leak Consume map changes deletes %v", deletes)
 	p.selectorPolicy.SelectorCache.mutex.Lock()
 	defer p.selectorPolicy.SelectorCache.mutex.Unlock()
 	return p.policyMapChanges.consumeMapChanges(p.PolicyMapState)
