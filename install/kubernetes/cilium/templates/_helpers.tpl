@@ -19,7 +19,11 @@ will return `quay.io/cilium/cilium:v1.10.1@abcdefgh`
 */}}
 {{- define "cilium.image" -}}
 {{- $digest := (.useDigest | default false) | ternary (printf "@%s" .digest) "" -}}
+{{- if .override -}}
+{{- printf "%s" .override -}}
+{{- else -}}
 {{- printf "%s:%s%s" .repository .tag $digest -}}
+{{- end -}}
 {{- end -}}
 
 {{/*

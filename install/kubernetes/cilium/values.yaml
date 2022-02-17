@@ -81,6 +81,7 @@ rollOutCiliumPods: false
 
 # -- Agent container image.
 image:
+  override: ~
   repository: quay.io/cilium/cilium
   tag: v1.11.2
   pullPolicy: IfNotPresent
@@ -551,6 +552,7 @@ hostServices:
 # (re)generate any certificates not provided manually.
 certgen:
   image:
+    override: ~
     repository: quay.io/cilium/certgen
     tag: v0.1.5
     pullPolicy: IfNotPresent
@@ -681,6 +683,7 @@ hubble:
 
     # -- Hubble-relay container image.
     image:
+      override: ~
       repository: quay.io/cilium/hubble-relay
       tag: v1.11.2
        # hubble-relay-digest
@@ -807,6 +810,7 @@ hubble:
     backend:
       # -- Hubble-ui backend image.
       image:
+        override: ~
         repository: quay.io/cilium/hubble-ui-backend
         tag: v0.8.5@sha256:2bce50cf6c32719d072706f7ceccad654bfa907b2745a496da99610776fe31ed
         pullPolicy: IfNotPresent
@@ -824,6 +828,7 @@ hubble:
     frontend:
       # -- Hubble-ui frontend image.
       image:
+        override: ~
         repository: quay.io/cilium/hubble-ui
         tag: v0.8.5@sha256:4eaca1ec1741043cfba6066a165b3bf251590cf4ac66371c4f63fbed2224ebb4
         pullPolicy: IfNotPresent
@@ -841,6 +846,7 @@ hubble:
     proxy:
       # -- Hubble-ui ingress proxy image.
       image:
+        override: ~
         repository: docker.io/envoyproxy/envoy
         tag: v1.18.4@sha256:e5c2bb2870d0e59ce917a5100311813b4ede96ce4eb0c6bfa879e3fbe3e83935
         pullPolicy: IfNotPresent
@@ -1213,6 +1219,7 @@ etcd:
 
   # -- cilium-etcd-operator image.
   image:
+    override: ~
     repository: quay.io/cilium/cilium-etcd-operator
     tag: v2.0.7
     pullPolicy: IfNotPresent
@@ -1312,6 +1319,7 @@ operator:
 
   # -- cilium-operator image.
   image:
+    override: ~
     repository: quay.io/cilium/operator
     tag: v1.11.2
     # operator-generic-digest
@@ -1452,6 +1460,7 @@ nodeinit:
 
   # -- node-init image.
   image:
+    override: ~
     repository: quay.io/cilium/startup-script
     tag: 62bfbe88c17778aad7bef9fa57ff9e2d4a9ba0d8
     pullPolicy: IfNotPresent
@@ -1530,6 +1539,7 @@ preflight:
 
   # -- Cilium pre-flight image.
   image:
+    override: ~
     repository: quay.io/cilium/cilium
     tag: v1.11.2
     # cilium-digest
@@ -1664,6 +1674,7 @@ clustermesh:
   apiserver:
     # -- Clustermesh API server image.
     image:
+      override: ~
       repository: quay.io/cilium/clustermesh-apiserver
       tag: v1.11.2
       # clustermesh-apiserver-digest
@@ -1674,6 +1685,7 @@ clustermesh:
     etcd:
       # -- Clustermesh API server etcd image.
       image:
+        override: ~
         repository: quay.io/coreos/etcd
         tag: v3.4.13
         pullPolicy: IfNotPresent
