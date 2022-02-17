@@ -1074,7 +1074,7 @@ func (kub *Kubectl) GetNodeNameByLabelContext(ctx context.Context, label string)
 	return out, nil
 }
 
-// GetNodeIPByLabel returns the IP of the node with cilium.io/ci-node=label.
+// GetNodeIPByLabel returns the IPv4 of the node with cilium.io/ci-node=label.
 // An error is returned if a node cannot be found.
 func (kub *Kubectl) GetNodeIPByLabel(label string, external bool) (string, error) {
 	ipType := "InternalIP"
@@ -1093,7 +1093,14 @@ func (kub *Kubectl) GetNodeIPByLabel(label string, external bool) (string, error
 		return "", fmt.Errorf("no matching node to read IP with label '%v'", label)
 	}
 
-	return out, nil
+	for _, ipStr := range strings.Fields(out) {
+		if ip := net.ParseIP(ipStr); ip.To4() != nil {
+			return ipStr, nil
+		}
+	}
+
+	return "", fmt.Errorf("found %s ip addrs, but they do not belong to the v4 family",
+		out)
 }
 
 func (kub *Kubectl) getIfaceByIPAddr(label string, ipAddr string) (string, error) {
