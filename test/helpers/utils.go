@@ -729,6 +729,8 @@ func SkipK8sVersions(k8sVersions string) bool {
 // enabled or not for the cluster.
 func DualStackSupported() bool {
 	supportedVersions := versioncheck.MustCompile(">=1.18.0")
+	kubeProxyOnlySupportedVersions := versioncheck.MustCompile(">=1.20.0")
+
 	k8sVersion, err := versioncheck.Version(GetCurrentK8SEnv())
 	if err != nil {
 		// If we cannot conclude the k8s version we assume that dual stack is not
@@ -736,8 +738,15 @@ func DualStackSupported() bool {
 		return false
 	}
 
+	// When running with kube-proxy only, some IPv6 family services are not
+	// provisioned in ip6tables on k8s < 1.20. Therefore, skip any DualStack
+	// tests on those versions/configurations.
+	if DoesNotRunWithKubeProxyReplacement() && !kubeProxyOnlySupportedVersions(k8sVersion) {
+		return false
+	}
+
 	// We only have DualStack enabled in Vagrant test env.
-	return GetCurrentIntegration() == "" && supportedVersions(k8sVersion)
+	return (GetCurrentIntegration() == "" && supportedVersions(k8sVersion))
 }
 
 // DualStackSupportBeta returns true if the environment has a Kubernetes version that
