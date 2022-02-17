@@ -519,4 +519,7 @@ const (
 
 	// Hint helps nudge the user in the right direction when troubleshooting.
 	Hint = "hint"
+
+	// CEPUID is the UID of the CiliumEndpoint.
+	CEPUID = "ciliumEndpointUID"
 )
