@@ -98,6 +98,8 @@ rules:
   - ciliumlocalredirectpolicies/finalizers
   - ciliumegressnatpolicies
   - ciliumendpointslices
+  - ciliumbgppeeringpolicies
+  - ciliumbgploadbalancerippools
   verbs:
   - '*'
 - apiGroups:

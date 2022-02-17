@@ -83,6 +83,34 @@ const (
 
 	// CECName is the full name of Cilium Envoy Config
 	CECName = CECPluralName + "." + CustomResourceDefinitionGroup
+
+	// Cilium BGP Peering Policy (BGPP)
+
+	// BGPPSingularName is the singular name of Cilium BGP Peering Policy
+	BGPPSingularName = "ciliumbgppeeringpolicy"
+
+	// BGPPPluralName is the plural name of Cilium BGP Peering Policy
+	BGPPPluralName = "ciliumbgppeeringpolicies"
+
+	// BGPPKindDefinition is the kind name of Cilium BGP Peering Policy
+	BGPPKindDefinition = "CiliumBGPPeeringPolicy"
+
+	// BGPPName is the full name of Cilium BGP Peering Policy
+	BGPPName = BGPPPluralName + "." + CustomResourceDefinitionGroup
+
+	// Cilium BGP Load Balancer IP Pool (BGPPool)
+
+	// BGPPoolSingularName is the singular name of Cilium BGP Load Balancer IP Pool
+	BGPPoolSingularName = "ciliumbgploadbalancerippool"
+
+	// BGPPoolPluralName is the plural name of Cilium BGP Load Balancer IP Pool
+	BGPPoolPluralName = "ciliumbgploadbalancerippools"
+
+	// BGPPoolKindDefinition is the kind name of Cilium BGP Peering Policy
+	BGPPoolKindDefinition = "CiliumBGPLoadBalancerIPPool"
+
+	// BGPPoolName is the full name of Cilium BGP Load Balancer IP Pool
+	BGPPoolName = BGPPoolPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -134,6 +162,10 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumEnvoyConfigList{},
 		&CiliumClusterwideEnvoyConfig{},
 		&CiliumClusterwideEnvoyConfigList{},
+		&CiliumBGPPeeringPolicy{},
+		&CiliumBGPPeeringPolicyList{},
+		&CiliumBGPLoadBalancerIPPool{},
+		&CiliumBGPLoadBalancerIPPoolList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

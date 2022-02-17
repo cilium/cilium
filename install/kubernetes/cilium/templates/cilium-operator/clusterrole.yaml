@@ -88,6 +88,8 @@ rules:
   - ciliumlocalredirectpolicies/status
   - ciliumlocalredirectpolicies/finalizers
   - ciliumenvoyconfigs
+  - ciliumbgppeeringpolicies
+  - ciliumbgploadbalancerippools
   verbs:
   - get
   - list

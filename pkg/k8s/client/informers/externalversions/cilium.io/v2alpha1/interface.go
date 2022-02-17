@@ -11,6 +11,10 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
+	// CiliumBGPLoadBalancerIPPools returns a CiliumBGPLoadBalancerIPPoolInformer.
+	CiliumBGPLoadBalancerIPPools() CiliumBGPLoadBalancerIPPoolInformer
+	// CiliumBGPPeeringPolicies returns a CiliumBGPPeeringPolicyInformer.
+	CiliumBGPPeeringPolicies() CiliumBGPPeeringPolicyInformer
 	// CiliumClusterwideEnvoyConfigs returns a CiliumClusterwideEnvoyConfigInformer.
 	CiliumClusterwideEnvoyConfigs() CiliumClusterwideEnvoyConfigInformer
 	// CiliumEgressNATPolicies returns a CiliumEgressNATPolicyInformer.
@@ -30,6 +34,16 @@ type version struct {
 // New returns a new Interface.
 func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakListOptions internalinterfaces.TweakListOptionsFunc) Interface {
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
+}
+
+// CiliumBGPLoadBalancerIPPools returns a CiliumBGPLoadBalancerIPPoolInformer.
+func (v *version) CiliumBGPLoadBalancerIPPools() CiliumBGPLoadBalancerIPPoolInformer {
+	return &ciliumBGPLoadBalancerIPPoolInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// CiliumBGPPeeringPolicies returns a CiliumBGPPeeringPolicyInformer.
+func (v *version) CiliumBGPPeeringPolicies() CiliumBGPPeeringPolicyInformer {
+	return &ciliumBGPPeeringPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // CiliumClusterwideEnvoyConfigs returns a CiliumClusterwideEnvoyConfigInformer.

@@ -15,6 +15,8 @@ import (
 
 type CiliumV2alpha1Interface interface {
 	RESTClient() rest.Interface
+	CiliumBGPLoadBalancerIPPoolsGetter
+	CiliumBGPPeeringPoliciesGetter
 	CiliumClusterwideEnvoyConfigsGetter
 	CiliumEgressNATPoliciesGetter
 	CiliumEndpointSlicesGetter
@@ -24,6 +26,14 @@ type CiliumV2alpha1Interface interface {
 // CiliumV2alpha1Client is used to interact with features provided by the cilium.io group.
 type CiliumV2alpha1Client struct {
 	restClient rest.Interface
+}
+
+func (c *CiliumV2alpha1Client) CiliumBGPLoadBalancerIPPools() CiliumBGPLoadBalancerIPPoolInterface {
+	return newCiliumBGPLoadBalancerIPPools(c)
+}
+
+func (c *CiliumV2alpha1Client) CiliumBGPPeeringPolicies() CiliumBGPPeeringPolicyInterface {
+	return newCiliumBGPPeeringPolicies(c)
 }
 
 func (c *CiliumV2alpha1Client) CiliumClusterwideEnvoyConfigs() CiliumClusterwideEnvoyConfigInterface {

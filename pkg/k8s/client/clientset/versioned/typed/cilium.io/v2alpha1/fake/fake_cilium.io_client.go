@@ -15,6 +15,14 @@ type FakeCiliumV2alpha1 struct {
 	*testing.Fake
 }
 
+func (c *FakeCiliumV2alpha1) CiliumBGPLoadBalancerIPPools() v2alpha1.CiliumBGPLoadBalancerIPPoolInterface {
+	return &FakeCiliumBGPLoadBalancerIPPools{c}
+}
+
+func (c *FakeCiliumV2alpha1) CiliumBGPPeeringPolicies() v2alpha1.CiliumBGPPeeringPolicyInterface {
+	return &FakeCiliumBGPPeeringPolicies{c}
+}
+
 func (c *FakeCiliumV2alpha1) CiliumClusterwideEnvoyConfigs() v2alpha1.CiliumClusterwideEnvoyConfigInterface {
 	return &FakeCiliumClusterwideEnvoyConfigs{c}
 }

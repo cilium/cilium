@@ -104,3 +104,17 @@ annotations:
       description: |
         Cilium Envoy Config specifies Envoy resources and K8s service mappings
         to be provisioned into Cilium host proxy instances in namespace context.
+    - kind: CiliumBGPPeeringPolicy
+      version: v2alpha1
+      name: ciliumbgppeeringpolicies.cilium.io
+      displayName: Cilium BGP Peering Policy
+      description: |
+        Cilium BGP Peering Policy instructs Cilium to create specific BGP peering
+        configurations.
+    - kind: CiliumBGPLoadBalancerIPPool
+      version: v2alpha1
+      name: ciliumbgploadbalancerippools.cilium.io
+      displayName: Cilium BGP Load Balancer IP Pool
+      description: |
+        Defining a Cilium BGP Load Balancer IP Pool instructs Cilium to assign and
+        advertise LoadBalancer Services to BGP peers defined by Cilium BGP Peering Policies.
