@@ -1339,7 +1339,7 @@ func (n *linuxNodeHandler) replaceNodeIPSecOutRoute(ip *net.IPNet) {
 
 	_, err := route.Upsert(n.createNodeIPSecOutRoute(ip))
 	if err != nil {
-		log.WithError(err).Error("Unable to replace the IPSec route OUT the host routing table")
+		log.WithError(err).WithField(logfields.CIDR, ip).Error("Unable to replace the IPSec route OUT the host routing table")
 	}
 }
 
@@ -1359,11 +1359,11 @@ func (n *linuxNodeHandler) replaceNodeExternalIPSecOutRoute(ip *net.IPNet) {
 
 	_, err := route.Upsert(n.createNodeExternalIPSecOutRoute(ip, true))
 	if err != nil {
-		log.WithError(err).Error("Unable to replace the IPSec route OUT the default routing table")
+		log.WithError(err).WithField(logfields.CIDR, ip).Error("Unable to replace the IPSec route OUT the default routing table")
 	}
 	_, err = route.Upsert(n.createNodeExternalIPSecOutRoute(ip, false))
 	if err != nil {
-		log.WithError(err).Error("Unable to replace the IPSec route OUT the host routing table")
+		log.WithError(err).WithField(logfields.CIDR, ip).Error("Unable to replace the IPSec route OUT the host routing table")
 	}
 }
 
@@ -1380,7 +1380,7 @@ func (n *linuxNodeHandler) deleteNodeIPSecOutRoute(ip *net.IPNet) {
 	}
 
 	if err := route.Delete(n.createNodeIPSecOutRoute(ip)); err != nil {
-		log.WithError(err).Error("Unable to delete the IPsec route OUT from the host routing table")
+		log.WithError(err).WithField(logfields.CIDR, ip).Error("Unable to delete the IPsec route OUT from the host routing table")
 	}
 }
 
@@ -1397,11 +1397,11 @@ func (n *linuxNodeHandler) deleteNodeExternalIPSecOutRoute(ip *net.IPNet) {
 	}
 
 	if err := route.Delete(n.createNodeExternalIPSecOutRoute(ip, true)); err != nil {
-		log.WithError(err).Error("Unable to delete the IPsec route External OUT from the ipsec routing table")
+		log.WithError(err).WithField(logfields.CIDR, ip).Error("Unable to delete the IPsec route External OUT from the ipsec routing table")
 	}
 
 	if err := route.Delete(n.createNodeExternalIPSecOutRoute(ip, false)); err != nil {
-		log.WithError(err).Error("Unable to delete the IPsec route External OUT from the host routing table")
+		log.WithError(err).WithField(logfields.CIDR, ip).Error("Unable to delete the IPsec route External OUT from the host routing table")
 	}
 }
 
@@ -1421,7 +1421,7 @@ func (n *linuxNodeHandler) replaceNodeIPSecInRoute(ip *net.IPNet) {
 
 	_, err := route.Upsert(n.createNodeIPSecInRoute(ip))
 	if err != nil {
-		log.WithError(err).Error("Unable to replace the IPSec route IN the host routing table")
+		log.WithError(err).WithField(logfields.CIDR, ip).Error("Unable to replace the IPSec route IN the host routing table")
 	}
 }
 
