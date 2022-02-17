@@ -151,8 +151,15 @@ func doCiliumEndpointSyncGC(ctx context.Context, once bool, stopCh chan struct{}
 		err := ciliumClient.CiliumEndpoints(cep.Namespace).Delete(
 			ctx,
 			cep.Name,
-			meta_v1.DeleteOptions{PropagationPolicy: &PropagationPolicy})
-		if err != nil && !k8serrors.IsNotFound(err) {
+			meta_v1.DeleteOptions{
+				PropagationPolicy: &PropagationPolicy,
+				// Set precondition to ensure we are only deleting CEPs owned by
+				// this agent.
+				Preconditions: &meta_v1.Preconditions{
+					UID: &cep.UID,
+				},
+			})
+		if err != nil && !k8serrors.IsNotFound(err) && !k8serrors.IsConflict(err) {
 			scopedLog.WithError(err).Warning("Unable to delete orphaned CEP")
 			return err
 		}
