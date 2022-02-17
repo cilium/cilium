@@ -91,6 +91,7 @@ $(workers)
 networking:
   disableDefaultCNI: true
   kubeProxyMode: ${KUBEPROXY_MODE}
+  ipFamily: dual
 containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:${reg_port}"]
