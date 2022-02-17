@@ -307,6 +307,8 @@ func (m *Manager) backgroundSyncInterval() time.Duration {
 	return m.ClusterSizeDependantInterval(baseBackgroundSyncInterval)
 }
 
+// backgroundSync ensures that local node has a valid datapath in-place for
+// each node in the cluster. See NodeValidateImplementation().
 func (m *Manager) backgroundSync() {
 	syncTimer, syncTimerDone := inctimer.New()
 	defer syncTimerDone()
