@@ -137,6 +137,12 @@ Users (Alphabetically)
       U: Networking, network policy, network visibility, cluster mesh
       Q: @Matthieu ANTOINE, @Carlos Castro, @Joao Coutinho (Slack)
 
+    * N: kOps
+      D: kOps is using Cilium as one of the supported CNIs
+      U: Networking, Hubble, Encryption, kube-proxy replacement
+      L: kops.sigs.k8s.io/
+      Q: @olemarkus
+
     * N: Kubermatic
       D: Kubermatic Kubernetes Platform is using Cilium as a one of the supported CNIs.
       U: Networking, network policy, Hubble for network visibility
