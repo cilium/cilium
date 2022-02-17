@@ -84,6 +84,7 @@ rollOutCiliumPods: false
 
 # -- Agent container image.
 image:
+  override: ~
   repository: quay.io/cilium/cilium
   tag: latest
   pullPolicy: Always
@@ -545,6 +546,7 @@ hostServices:
 # (re)generate any certificates not provided manually.
 certgen:
   image:
+    override: ~
     repository: quay.io/cilium/certgen
     tag: v0.1.8
     pullPolicy: Always
@@ -682,6 +684,7 @@ hubble:
 
     # -- Hubble-relay container image.
     image:
+      override: ~
       repository: quay.io/cilium/hubble-relay
       tag: latest
        # hubble-relay-digest
@@ -838,6 +841,7 @@ hubble:
     backend:
       # -- Hubble-ui backend image.
       image:
+        override: ~
         repository: quay.io/cilium/hubble-ui-backend
         tag: latest
         pullPolicy: Always
@@ -857,6 +861,7 @@ hubble:
     frontend:
       # -- Hubble-ui frontend image.
       image:
+        override: ~
         repository: quay.io/cilium/hubble-ui
         tag: latest
         pullPolicy: Always
@@ -876,6 +881,7 @@ hubble:
     proxy:
       # -- Hubble-ui ingress proxy image.
       image:
+        override: ~
         repository: docker.io/envoyproxy/envoy
         tag: v1.18.4@sha256:e5c2bb2870d0e59ce917a5100311813b4ede96ce4eb0c6bfa879e3fbe3e83935
         pullPolicy: Always
@@ -1324,6 +1330,7 @@ etcd:
 
   # -- cilium-etcd-operator image.
   image:
+    override: ~
     repository: quay.io/cilium/cilium-etcd-operator
     tag: v2.0.7
     pullPolicy: Always
@@ -1410,6 +1417,7 @@ operator:
 
   # -- cilium-operator image.
   image:
+    override: ~
     repository: quay.io/cilium/operator
     tag: latest
     # operator-generic-digest
@@ -1544,6 +1552,7 @@ nodeinit:
 
   # -- node-init image.
   image:
+    override: ~
     repository: quay.io/cilium/startup-script
     tag: 62bfbe88c17778aad7bef9fa57ff9e2d4a9ba0d8
     pullPolicy: Always
@@ -1602,6 +1611,7 @@ preflight:
 
   # -- Cilium pre-flight image.
   image:
+    override: ~
     repository: quay.io/cilium/cilium
     tag: latest
     # cilium-digest
@@ -1737,6 +1747,7 @@ clustermesh:
   apiserver:
     # -- Clustermesh API server image.
     image:
+      override: ~
       repository: quay.io/cilium/clustermesh-apiserver
       tag: latest
       # clustermesh-apiserver-digest
@@ -1747,6 +1758,7 @@ clustermesh:
     etcd:
       # -- Clustermesh API server etcd image.
       image:
+        override: ~
         repository: quay.io/coreos/etcd
         tag: v3.4.13
         pullPolicy: Always
