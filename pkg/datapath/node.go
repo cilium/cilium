@@ -116,8 +116,9 @@ type NodeHandler interface {
 	// NodeDelete is called after a node has been deleted
 	NodeDelete(node nodeTypes.Node) error
 
-	// NodeValidateImplementation is called to validate the implementation
-	// of the node in the datapath
+	// NodeValidateImplementation is called to validate the implementation of
+	// the node in the datapath. This function is intended to be run on an
+	// interval to ensure that the datapath is consistently converged.
 	NodeValidateImplementation(node nodeTypes.Node) error
 
 	// NodeConfigurationChanged is called when the local node configuration
