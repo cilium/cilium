@@ -1200,13 +1200,10 @@ func (n *linuxNodeHandler) createNodeExternalIPSecOutRoute(ip *net.IPNet, dflt b
 	}
 }
 
-// replaceNodeIPSecOutRoute replace the out IPSec route in the host routing table
-// with the new route. If no route exists the route is installed on the host.
+// replaceNodeIPSecOutRoute replace the out IPSec route in the host routing
+// table with the new route. If no route exists the route is installed on the
+// host. The caller must ensure that the CIDR passed in must be non-nil.
 func (n *linuxNodeHandler) replaceNodeIPSecOutRoute(ip *net.IPNet) {
-	if ip == nil {
-		return
-	}
-
 	if ip.IP.To4() != nil {
 		if !n.nodeConfig.EnableIPv4 {
 			return
@@ -1223,13 +1220,10 @@ func (n *linuxNodeHandler) replaceNodeIPSecOutRoute(ip *net.IPNet) {
 	}
 }
 
-// replaceNodeExternalIPSecOutRoute replace the out IPSec route in the host routing table
-// with the new route. If no route exists the route is installed on the host.
+// replaceNodeExternalIPSecOutRoute replace the out IPSec route in the host
+// routing table with the new route. If no route exists the route is installed
+// on the host. The caller must ensure that the CIDR passed in must be non-nil.
 func (n *linuxNodeHandler) replaceNodeExternalIPSecOutRoute(ip *net.IPNet) {
-	if ip == nil {
-		return
-	}
-
 	if ip.IP.To4() != nil {
 		if !n.nodeConfig.EnableIPv4 {
 			return
@@ -1250,11 +1244,8 @@ func (n *linuxNodeHandler) replaceNodeExternalIPSecOutRoute(ip *net.IPNet) {
 	}
 }
 
+// The caller must ensure that the CIDR passed in must be non-nil.
 func (n *linuxNodeHandler) deleteNodeIPSecOutRoute(ip *net.IPNet) {
-	if ip == nil {
-		return
-	}
-
 	if ip.IP.To4() != nil {
 		if !n.nodeConfig.EnableIPv4 {
 			return
@@ -1270,11 +1261,8 @@ func (n *linuxNodeHandler) deleteNodeIPSecOutRoute(ip *net.IPNet) {
 	}
 }
 
+// The caller must ensure that the CIDR passed in must be non-nil.
 func (n *linuxNodeHandler) deleteNodeExternalIPSecOutRoute(ip *net.IPNet) {
-	if ip == nil {
-		return
-	}
-
 	if ip.IP.To4() != nil {
 		if !n.nodeConfig.EnableIPv4 {
 			return
@@ -1294,13 +1282,10 @@ func (n *linuxNodeHandler) deleteNodeExternalIPSecOutRoute(ip *net.IPNet) {
 	}
 }
 
-// replaceNodeIPSecoInRoute replace the in IPSec routes in the host routing table
-// with the new route. If no route exists the route is installed on the host.
+// replaceNodeIPSecoInRoute replace the in IPSec routes in the host routing
+// table with the new route. If no route exists the route is installed on the
+// host. The caller must ensure that the CIDR passed in must be non-nil.
 func (n *linuxNodeHandler) replaceNodeIPSecInRoute(ip *net.IPNet) {
-	if ip == nil {
-		return
-	}
-
 	if ip.IP.To4() != nil {
 		if !n.nodeConfig.EnableIPv4 {
 			return
