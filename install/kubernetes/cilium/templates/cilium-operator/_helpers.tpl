@@ -26,7 +26,11 @@
 Return cilium operator image
 */}}
 {{- define "cilium.operator.image" -}}
+{{- if .Values.operator.image.override -}}
+{{- printf "%s" .Values.operator.image.override -}}
+{{- else -}}
 {{- $cloud := include "cilium.operator.cloud" . }}
 {{- $imageDigest := include "cilium.operator.imageDigestName" . }}
 {{- printf "%s-%s%s:%s%s" .Values.operator.image.repository $cloud .Values.operator.image.suffix .Values.operator.image.tag $imageDigest -}}
+{{- end -}}
 {{- end -}}
