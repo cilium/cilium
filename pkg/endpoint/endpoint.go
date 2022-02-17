@@ -67,8 +67,8 @@ import (
 	"github.com/cilium/cilium/pkg/trigger"
 
 	"github.com/sirupsen/logrus"
-
 	"golang.org/x/sys/unix"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -343,6 +343,8 @@ type Endpoint struct {
 	allocator cache.IdentityAllocator
 
 	isHost bool
+
+	ciliumEndpointUID types.UID
 }
 
 // EndpointSyncControllerName returns the controller name to synchronize
@@ -2484,4 +2486,18 @@ func (e *Endpoint) setDefaultPolicyConfig() {
 // GetCreatedAt returns the endpoint creation time.
 func (e *Endpoint) GetCreatedAt() time.Time {
 	return e.createdAt
+}
+
+// GetCiliumEndpointUID returns the UID of the CiliumEndpoint.
+func (e *Endpoint) GetCiliumEndpointUID() types.UID {
+	e.unconditionalRLock()
+	defer e.runlock()
+	return e.ciliumEndpointUID
+}
+
+// SetCiliumEndpointUID modifies the endpoint's CiliumEndpoint UID.
+func (e *Endpoint) SetCiliumEndpointUID(uid types.UID) {
+	e.unconditionalLock()
+	e.ciliumEndpointUID = uid
+	e.unlock()
 }
