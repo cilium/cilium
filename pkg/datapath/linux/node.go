@@ -1170,7 +1170,9 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 	}
 
 	if n.nodeConfig.EnableIPSec {
-		n.deleteIPsec(oldNode)
+		if oldNode.IsLocal() || !n.subnetEncryption() {
+			n.deleteIPsec(oldNode)
+		}
 	}
 
 	if option.Config.EnableWireguard {
