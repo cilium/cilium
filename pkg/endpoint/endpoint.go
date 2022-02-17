@@ -18,6 +18,8 @@ import (
 	"time"
 	"unsafe"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/annotation"
@@ -340,6 +342,8 @@ type Endpoint struct {
 	isHost bool
 
 	noTrackPort uint16
+
+	ciliumEndpointUID types.UID
 }
 
 type policyRepoGetter interface {
