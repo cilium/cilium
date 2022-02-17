@@ -745,8 +745,9 @@ func DualStackSupported() bool {
 		return false
 	}
 
-	// We only have DualStack enabled in Vagrant test env.
-	return (GetCurrentIntegration() == "" && supportedVersions(k8sVersion))
+	// We only have DualStack enabled in Vagrant test env or on KIND.
+	return (GetCurrentIntegration() == "" || IsIntegration(CIIntegrationKind)) &&
+		supportedVersions(k8sVersion)
 }
 
 // DualStackSupportBeta returns true if the environment has a Kubernetes version that
@@ -762,7 +763,8 @@ func DualStackSupportBeta() bool {
 		return false
 	}
 
-	return GetCurrentIntegration() == "" && supportedVersions(k8sVersion)
+	return (GetCurrentIntegration() == "" || IsIntegration(CIIntegrationKind)) &&
+		supportedVersions(k8sVersion)
 }
 
 // CiliumEndpointSliceFeatureEnabled returns true only if the environment has a kubernetes version
@@ -773,5 +775,6 @@ func CiliumEndpointSliceFeatureEnabled() bool {
 	if err != nil {
 		return false
 	}
-	return k8sVersionGreaterEqual121(k8sVersion) && GetCurrentIntegration() == ""
+	return k8sVersionGreaterEqual121(k8sVersion) && (GetCurrentIntegration() == "" ||
+		IsIntegration(CIIntegrationKind))
 }

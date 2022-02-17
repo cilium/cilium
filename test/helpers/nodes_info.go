@@ -43,7 +43,7 @@ func GetNodesInfo(kubectl *Kubectl) (*NodesInfo, error) {
 		return nil, fmt.Errorf("Cannot determine private iface: %w", err)
 	}
 
-	if GetCurrentIntegration() == "" {
+	if GetCurrentIntegration() == "" || IsIntegration(CIIntegrationKind) {
 		ni.PrimaryK8s1IPv6, err = GetIPv6AddrForIface(kubectl, ni.K8s1NodeName, ni.PrivateIface)
 		if err != nil {
 			return nil, err
