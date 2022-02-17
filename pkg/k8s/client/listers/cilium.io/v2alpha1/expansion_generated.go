@@ -5,6 +5,14 @@
 
 package v2alpha1
 
+// CiliumBGPLoadBalancerIPPoolListerExpansion allows custom methods to be added to
+// CiliumBGPLoadBalancerIPPoolLister.
+type CiliumBGPLoadBalancerIPPoolListerExpansion interface{}
+
+// CiliumBGPPeeringPolicyListerExpansion allows custom methods to be added to
+// CiliumBGPPeeringPolicyLister.
+type CiliumBGPPeeringPolicyListerExpansion interface{}
+
 // CiliumClusterwideEnvoyConfigListerExpansion allows custom methods to be added to
 // CiliumClusterwideEnvoyConfigLister.
 type CiliumClusterwideEnvoyConfigListerExpansion interface{}

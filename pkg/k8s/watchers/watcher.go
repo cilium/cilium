@@ -372,17 +372,19 @@ func (k *K8sWatcher) resourceGroups() []string {
 	k8sGroups = append(k8sGroups, K8sAPIGroupEndpointV1Core)
 
 	resourceToGroupMapping := map[string]string{
-		synced.CRDResourceName(v2.CNPName):        k8sAPIGroupCiliumNetworkPolicyV2,
-		synced.CRDResourceName(v2.CCNPName):       k8sAPIGroupCiliumClusterwideNetworkPolicyV2,
-		synced.CRDResourceName(v2.CEPName):        k8sAPIGroupCiliumEndpointV2, // ipcache
-		synced.CRDResourceName(v2.CNName):         k8sAPIGroupCiliumNodeV2,
-		synced.CRDResourceName(v2.CIDName):        "SKIP", // Handled in pkg/k8s/identitybackend/
-		synced.CRDResourceName(v2.CLRPName):       k8sAPIGroupCiliumLocalRedirectPolicyV2,
-		synced.CRDResourceName(v2.CEWName):        "SKIP", // Handled in clustermesh-apiserver/
-		synced.CRDResourceName(v2alpha1.CENPName): k8sAPIGroupCiliumEgressNATPolicyV2,
-		synced.CRDResourceName(v2alpha1.CESName):  k8sAPIGroupCiliumEndpointSliceV2Alpha1,
-		synced.CRDResourceName(v2alpha1.CCECName): k8sAPIGroupCiliumClusterwideEnvoyConfigV2Alpha1,
-		synced.CRDResourceName(v2alpha1.CECName):  k8sAPIGroupCiliumEnvoyConfigV2Alpha1,
+		synced.CRDResourceName(v2.CNPName):           k8sAPIGroupCiliumNetworkPolicyV2,
+		synced.CRDResourceName(v2.CCNPName):          k8sAPIGroupCiliumClusterwideNetworkPolicyV2,
+		synced.CRDResourceName(v2.CEPName):           k8sAPIGroupCiliumEndpointV2, // ipcache
+		synced.CRDResourceName(v2.CNName):            k8sAPIGroupCiliumNodeV2,
+		synced.CRDResourceName(v2.CIDName):           "SKIP", // Handled in pkg/k8s/identitybackend/
+		synced.CRDResourceName(v2.CLRPName):          k8sAPIGroupCiliumLocalRedirectPolicyV2,
+		synced.CRDResourceName(v2.CEWName):           "SKIP", // Handled in clustermesh-apiserver/
+		synced.CRDResourceName(v2alpha1.CENPName):    k8sAPIGroupCiliumEgressNATPolicyV2,
+		synced.CRDResourceName(v2alpha1.CESName):     k8sAPIGroupCiliumEndpointSliceV2Alpha1,
+		synced.CRDResourceName(v2alpha1.CCECName):    k8sAPIGroupCiliumClusterwideEnvoyConfigV2Alpha1,
+		synced.CRDResourceName(v2alpha1.CECName):     k8sAPIGroupCiliumEnvoyConfigV2Alpha1,
+		synced.CRDResourceName(v2alpha1.BGPPName):    "SKIP", // Handled in BGP control plane
+		synced.CRDResourceName(v2alpha1.BGPPoolName): "SKIP", // Handled in BGP control plane
 	}
 	ciliumResources := synced.AgentCRDResourceNames()
 	ciliumGroups := make([]string, 0, len(ciliumResources))

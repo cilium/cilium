@@ -5,6 +5,10 @@
 
 package v2alpha1
 
+type CiliumBGPLoadBalancerIPPoolExpansion interface{}
+
+type CiliumBGPPeeringPolicyExpansion interface{}
+
 type CiliumClusterwideEnvoyConfigExpansion interface{}
 
 type CiliumEgressNATPolicyExpansion interface{}
