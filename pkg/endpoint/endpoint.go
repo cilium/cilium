@@ -29,6 +29,10 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
+	"k8s.io/apimachinery/pkg/types"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/annotation"
@@ -66,10 +70,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/trigger"
-
-	"github.com/sirupsen/logrus"
-
-	"golang.org/x/sys/unix"
 )
 
 const (
@@ -350,6 +350,8 @@ type Endpoint struct {
 	isHost bool
 
 	noTrackPort uint16
+
+	ciliumEndpointUID types.UID
 }
 
 // EndpointSyncControllerName returns the controller name to synchronize
