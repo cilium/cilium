@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
 #include <bpf/ctx/skb.h>
@@ -1344,4 +1344,4 @@ handle_lxc_traffic(struct __ctx_buff *ctx)
 }
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
-BPF_LICENSE("GPL");
+BPF_LICENSE("Dual BSD/GPL");

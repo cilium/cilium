@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
 #include <bpf/ctx/unspec.h>
@@ -1152,4 +1152,4 @@ int sock6_getpeername(struct bpf_sock_addr *ctx)
 #endif /* ENABLE_HOST_SERVICES_UDP || ENABLE_HOST_SERVICES_PEER */
 #endif /* ENABLE_IPV6 || ENABLE_IPV4 */
 
-BPF_LICENSE("GPL");
+BPF_LICENSE("Dual BSD/GPL");

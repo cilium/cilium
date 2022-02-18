@@ -1,4 +1,6 @@
 #!/bin/bash
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+# Copyright Authors of Cilium
 
 for i in 8 16 32 64
 do
