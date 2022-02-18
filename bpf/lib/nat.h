@@ -18,6 +18,7 @@
 #include "conntrack.h"
 #include "conntrack_map.h"
 #include "icmp6.h"
+#include "nat_46x64.h"
 
 enum  nat_dir {
 	NAT_DIR_EGRESS  = TUPLE_F_OUT,
@@ -1065,6 +1066,26 @@ void snat_v6_delete_tuples(struct ipv6_ct_tuple *tuple __maybe_unused)
 {
 }
 #endif
+
+static __always_inline bool
+snat_v6_has_v4_match(const struct ipv4_ct_tuple *tuple4 __maybe_unused)
+{
+#if defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT)
+	struct ipv6_ct_tuple tuple6;
+
+	memset(&tuple6, 0, sizeof(tuple6));
+	tuple6.nexthdr = tuple4->nexthdr;
+	build_v4_in_v6(&tuple6.saddr, tuple4->saddr);
+	build_v4_in_v6(&tuple6.daddr, tuple4->daddr);
+	tuple6.sport = tuple4->sport;
+	tuple6.dport = tuple4->dport;
+	tuple6.flags = NAT_DIR_INGRESS;
+
+	return snat_v6_lookup(&tuple6);
+#else
+	return false;
+#endif
+}
 
 static __always_inline __maybe_unused void
 ct_delete4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ctx)
