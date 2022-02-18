@@ -520,6 +520,16 @@ bool lb6_src_range_ok(const struct lb6_service *svc __maybe_unused,
 #endif /* ENABLE_SRC_RANGE_CHECK */
 }
 
+static __always_inline bool
+lb6_to_lb4_service(const struct lb6_service *svc __maybe_unused)
+{
+#ifdef ENABLE_NAT_46X64
+	return svc->flags2 & SVC_FLAG_NAT_46X64;
+#else
+	return false;
+#endif
+}
+
 static __always_inline
 struct lb6_service *lb6_lookup_service(struct lb6_key *key,
 				       const bool scope_switch)
@@ -1092,6 +1102,24 @@ bool lb4_src_range_ok(const struct lb4_service *svc __maybe_unused,
 #else
 	return true;
 #endif /* ENABLE_SRC_RANGE_CHECK */
+}
+
+static __always_inline int
+lb4_populate_ports(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple, int off)
+{
+	if (tuple->nexthdr == IPPROTO_TCP ||
+	    tuple->nexthdr == IPPROTO_UDP) {
+		struct {
+			__be16 sport;
+			__be16 dport;
+		} l4hdr;
+		if (ctx_load_bytes(ctx, off, &l4hdr, sizeof(l4hdr)) < 0)
+			return -EFAULT;
+		tuple->sport = l4hdr.sport;
+		tuple->dport = l4hdr.dport;
+		return 0;
+	}
+	return -ENOTSUP;
 }
 
 static __always_inline bool
