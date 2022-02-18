@@ -1,6 +1,6 @@
 |logo|
 
-|cii| |slack| |go-report| |go-doc| |rtd| |apache| |gpl|
+|cii| |slack| |go-report| |go-doc| |rtd| |apache| |bsd| |gpl|
 
 Cilium is open source software for providing and transparently securing network
 connectivity and loadbalancing between application workloads such as
@@ -257,9 +257,16 @@ We host a weekly community `YouTube livestream called eCHO <https://www.youtube.
 License
 =======
 
-The cilium user space components are licensed under the
-`Apache License, Version 2.0 <LICENSE>`_. The BPF code templates are licensed
-under the `General Public License, Version 2.0 <bpf/COPYING>`_.
+.. _apache-license: LICENSE
+.. _bsd-license: bpf/LICENSE.BSD-2-Clause
+.. _gpl-license: bpf/LICENSE.GPL-2.0
+
+The Cilium user space components are licensed under the
+`Apache License, Version 2.0 <apache-license_>`__.
+The BPF code templates are dual-licensed under the
+`General Public License, Version 2.0 (only) <gpl-license_>`__
+and the `2-Clause BSD License <bsd-license_>`__
+(you can use the terms of either license, at your option).
 
 .. _`Why Cilium?`: http://docs.cilium.io/en/stable/intro/#why-cilium
 .. _`Getting Started`: http://docs.cilium.io/en/stable/gettingstarted/
@@ -290,11 +297,15 @@ under the `General Public License, Version 2.0 <bpf/COPYING>`_.
 
 .. |apache| image:: https://img.shields.io/badge/license-Apache-blue.svg
     :alt: Apache licensed
-    :target: https://github.com/cilium/cilium/blob/master/LICENSE
+    :target: apache-license_
+
+.. |bsd| image:: https://img.shields.io/badge/license-BSD-blue.svg
+    :alt: BSD licensed
+    :target: bsd-license_
 
 .. |gpl| image:: https://img.shields.io/badge/license-GPL-blue.svg
     :alt: GPL licensed
-    :target: https://github.com/cilium/cilium/blob/master/bpf/COPYING
+    :target: gpl-license_
 
 .. |slack| image:: https://cilium.herokuapp.com/badge.svg
     :alt: Join the Cilium slack channel
