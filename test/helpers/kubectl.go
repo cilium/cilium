@@ -704,6 +704,19 @@ func (kub *Kubectl) GetCiliumHostEndpointID(ciliumPod string) (int64, error) {
 	return hostEpID, nil
 }
 
+// GetCiliumHostEndpointState returns the state of the host endpoint on a given node.
+func (kub *Kubectl) GetCiliumHostEndpointState(ciliumPod string) (string, error) {
+	cmd := fmt.Sprintf("cilium endpoint list -o jsonpath='{[?(@.status.identity.id==%d)].status.state}'",
+		ReservedIdentityHost)
+	res := kub.CiliumExecContext(context.Background(), ciliumPod, cmd)
+	if !res.WasSuccessful() {
+		return "", fmt.Errorf("unable to run command '%s' to retrieve state of host endpoint from %s: %s",
+			cmd, ciliumPod, res.OutputPrettyPrint())
+	}
+
+	return strings.TrimSpace(res.Stdout()), nil
+}
+
 // GetNumCiliumNodes returns the number of Kubernetes nodes running cilium
 func (kub *Kubectl) GetNumCiliumNodes() int {
 	getNodesCmd := fmt.Sprintf("%s get nodes -o jsonpath='{.items.*.metadata.name}'", KubectlCmd)
@@ -3722,6 +3735,13 @@ func (kub *Kubectl) validateCilium() error {
 	})
 
 	g.Go(func() error {
+		if err := kub.ciliumHostEndpointRegenerated(); err != nil {
+			return fmt.Errorf("host EP is not ready: %s", err)
+		}
+		return nil
+	})
+
+	g.Go(func() error {
 		err := kub.fillServiceCache()
 		if err != nil {
 			return fmt.Errorf("unable to fill service cache: %s", err)
@@ -3872,6 +3892,24 @@ func (kub *Kubectl) ciliumHealthPreFlightCheck() error {
 			}
 		}
 
+	}
+	return nil
+}
+
+func (kub *Kubectl) ciliumHostEndpointRegenerated() error {
+	ginkgoext.By("Checking whether host EP regenerated")
+	ciliumPods, err := kub.GetCiliumPods()
+	if err != nil {
+		return fmt.Errorf("cannot retrieve cilium pods: %s", err)
+	}
+	for _, pod := range ciliumPods {
+		state, err := kub.GetCiliumHostEndpointState(pod)
+		if err != nil {
+			return err
+		}
+		if state != "ready" {
+			return fmt.Errorf("cilium-agent %q host EP is not in ready state: %q", pod, state)
+		}
 	}
 	return nil
 }
