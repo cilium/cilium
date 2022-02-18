@@ -232,7 +232,8 @@ func (keys MapState) addKeyWithChanges(key Key, entry MapStateEntry, adds, delet
 	// Record an incremental Add if desired and entry is new or changed
 	if adds != nil && (!exists || !oldEntry.DatapathEqual(&entry)) {
 		// Do not leak internal maps to callers
-		adds[key] = updatedEntry.export()
+		// adds[key] = updatedEntry.export()
+		adds[key] = updatedEntry
 		// Key add overrides any previous delete of the same key
 		if deletes != nil {
 			delete(deletes, key)
