@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+# Copyright Authors of Cilium
+
 FROM docker.io/library/ubuntu:20.04
 RUN apt-get update
 RUN apt-get -y install build-essential
