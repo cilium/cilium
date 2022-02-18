@@ -4,6 +4,7 @@
 package ipcache
 
 import (
+	"errors"
 	"net"
 
 	"github.com/sirupsen/logrus"
@@ -11,7 +12,9 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/ipcache/types"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -410,6 +413,45 @@ func (ipc *IPCache) DumpToListener(listener IPIdentityMappingListener) {
 	ipc.DumpToListenerLocked(listener)
 	ipc.RUnlock()
 }
+
+func (ipc *IPCache) UpsertIdentity(cidr string, id identity.Identity) error {
+	return errors.New("not implemented")
+}
+func (ipc *IPCache) UpsertEncryptKey(cidr string, key uint8) error {
+	return errors.New("not implemented")
+}
+func (ipc *IPCache) UpsertK8sMetadata(cidr string, k8sMeta *K8sMetadata) error {
+	return errors.New("not implemented")
+}
+
+// TODO: Figure out what kind of mechanism we need to report that this operation was completed
+func (ipc *IPCache) UpsertLabels(cidr string, lbls labels.Labels, src source.Source, name types.ResourceID) error {
+	ipc.UpsertMetadata(cidr, lbls, src, name)
+	ipc.TriggerLabelInjection()
+
+	return errors.New("not implemented")
+}
+
+// TODO: Figure out what kind of mechanism we need to report that this operation was completed
+func (ipc *IPCache) RemoveLabels(cidr string, lbls labels.Labels, name types.ResourceID) error {
+	ipc.metadata.Lock()
+	ipc.removeLabels(cidr, lbls, name)
+	ipc.metadata.Unlock()
+
+	ipc.TriggerLabelInjection()
+
+	return errors.New("not implemented")
+}
+
+//func (ipc *IPcache) UpsertCIDRs(cidrs []string) error {
+//	ipc.Lock()
+//	defer ipc.Unlock()
+//
+//	for c := cidrs {
+//		// insert into the tree
+//	}
+//	ipc.TriggerLabelInjection()
+//}
 
 // DumpToListenerLocked dumps the entire contents of the IPCache by triggering
 // the listener's "OnIPIdentityCacheChange" method for each entry in the cache.
