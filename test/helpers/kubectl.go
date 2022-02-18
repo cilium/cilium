@@ -2823,6 +2823,18 @@ func (kub *Kubectl) CiliumExecMustSucceed(ctx context.Context, pod, cmd string, 
 	return res
 }
 
+// CiliumExecMustSucceedOnAll does the same as CiliumExecMustSucceed, just that
+// it execs cmd on all cilium-agent pods.
+func (kub *Kubectl) CiliumExecMustSucceedOnAll(ctx context.Context, cmd string, optionalDescription ...interface{}) {
+	pods, err := kub.GetCiliumPods()
+	gomega.Expect(err).Should(gomega.BeNil(), "failed to retrieve Cilium pods")
+
+	for _, pod := range pods {
+		kub.CiliumExecMustSucceed(ctx, pod, cmd, optionalDescription).
+			ExpectSuccess("failed to execute %q on Cilium pod %s", cmd, pod)
+	}
+}
+
 // CiliumExecUntilMatch executes the specified command repeatedly for the
 // specified Cilium pod until the given substring is present in stdout.
 // If the timeout is reached it will return an error.

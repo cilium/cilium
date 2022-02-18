@@ -680,14 +680,9 @@ func testNodePortExternal(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, testS
 		testCurlFromOutside(kubectl, ni, httpURL, 10, checkTCP)
 		testCurlFromOutside(kubectl, ni, tftpURL, 10, checkUDP)
 
-		// Clear CT tables on both Cilium nodes
-		pod, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
-		ExpectWithOffset(1, err).Should(BeNil(), "Cannot determine cilium pod name")
-		kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium bpf ct flush global", "Unable to flush CT maps")
-
-		pod, err = kubectl.GetCiliumPodOnNode(helpers.K8s2)
-		ExpectWithOffset(1, err).Should(BeNil(), "Cannot determine cilium pod name")
-		kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium bpf ct flush global", "Unable to flush CT maps")
+		// Clear CT tables on all Cilium nodes
+		kubectl.CiliumExecMustSucceedOnAll(context.TODO(),
+			"cilium bpf ct flush global", "Unable to flush CT maps")
 	}
 }
 
