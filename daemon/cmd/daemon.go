@@ -469,7 +469,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		return nil, nil, fmt.Errorf("error while initializing policy subsystem: %w", err)
 	}
 	nodeMngr = nodeMngr.WithSelectorCacheUpdater(d.policy.GetSelectorCache()) // must be after initPolicy
-	nodeMngr = nodeMngr.WithPolicyTriggerer(d.policyUpdater)                  // must be after initPolicy
+	nodeMngr = nodeMngr.WithPolicyTriggerer(epMgr)                            // must be after initPolicy
 
 	// Propagate identity allocator down to packages which themselves do not
 	// have types to which we can add an allocator member.

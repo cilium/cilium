@@ -135,7 +135,7 @@ func (k *K8sWatcher) handleKubeAPIServerServiceEPChanges(desiredIPs map[string]s
 		desiredIPs,
 		src,
 		k.policyRepository.GetSelectorCache(),
-		k.policyManager,
+		k.endpointManager,
 	)
 
 	for ip := range desiredIPs {
@@ -145,7 +145,7 @@ func (k *K8sWatcher) handleKubeAPIServerServiceEPChanges(desiredIPs map[string]s
 	ipcache.IPIdentityCache.TriggerLabelInjection(
 		src,
 		k.policyRepository.GetSelectorCache(),
-		k.policyManager,
+		k.endpointManager,
 	)
 }
 

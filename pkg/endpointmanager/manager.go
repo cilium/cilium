@@ -139,6 +139,8 @@ func waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
 
 // UpdatePolicyMaps returns a WaitGroup which is signaled upon once all endpoints
 // have had their PolicyMaps updated against the Endpoint's desired policy state.
+//
+// Endpoints will wait on the 'notifyWg' parameter before updating policy maps.
 func (mgr *EndpointManager) UpdatePolicyMaps(ctx context.Context, notifyWg *sync.WaitGroup) *sync.WaitGroup {
 	var epWG sync.WaitGroup
 	var wg sync.WaitGroup

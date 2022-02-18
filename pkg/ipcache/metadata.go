@@ -185,11 +185,8 @@ func InjectLabels(src source.Source, updater identityUpdater, triggerer policyTr
 		// been updated with new labels.
 		var wg sync.WaitGroup
 		updater.UpdateIdentities(idsToPropagate, nil, &wg)
-		wg.Wait()
-
-		// This will take the accumulated policy map changes from the above,
-		// and realizes it into the datapath.
-		triggerer.TriggerPolicyUpdates(false, "kube-apiserver identity updated")
+		policyImplementedWG := triggerer.UpdatePolicyMaps(context.TODO(), &wg)
+		policyImplementedWG.Wait()
 	}
 
 	IPIdentityCache.mutex.Lock()
@@ -395,9 +392,8 @@ func removeLabelsFromIPs(
 		// be propagated to the datapath until later.
 		updater.UpdateIdentities(nil, idsToDelete, &wg)
 		updater.UpdateIdentities(idsToAdd, nil, &wg)
-		wg.Wait()
-
-		triggerer.TriggerPolicyUpdates(false, "kube-apiserver identity updated by removal")
+		policyImplementedWG := triggerer.UpdatePolicyMaps(context.TODO(), &wg)
+		policyImplementedWG.Wait()
 	}
 	for ip, id := range toReplace {
 		hIP, key := IPIdentityCache.getHostIPCache(ip)
@@ -572,5 +568,5 @@ type identityUpdater interface {
 }
 
 type policyTriggerer interface {
-	TriggerPolicyUpdates(bool, string)
+	UpdatePolicyMaps(context.Context, *sync.WaitGroup) *sync.WaitGroup
 }
