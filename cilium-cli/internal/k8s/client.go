@@ -15,10 +15,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/blang/semver/v4"
 	"github.com/cilium/cilium/api/v1/models"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	ciliumClientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
+	"github.com/cilium/cilium/pkg/versioncheck"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -697,6 +699,31 @@ func (c *Client) GetPlatform(ctx context.Context) (*Platform, error) {
 		OS:   fileds[0],
 		Arch: fileds[1],
 	}, err
+}
+
+func (c *Client) GetServerVersion() (*semver.Version, error) {
+	sv, err := c.Clientset.Discovery().ServerVersion()
+	if err != nil {
+		return nil, err
+	}
+
+	var ver semver.Version
+	// Try GitVersion first. In case of error fallback to MajorMinor
+	if sv.GitVersion != "" {
+		// This is a string like "v1.9.0"
+		ver, err = versioncheck.Version(sv.GitVersion)
+		if err == nil {
+			return &ver, nil
+		}
+	}
+
+	if sv.Major != "" && sv.Minor != "" {
+		ver, err = versioncheck.Version(fmt.Sprintf("%s.%s", sv.Major, sv.Minor))
+		if err == nil {
+			return &ver, nil
+		}
+	}
+	return nil, fmt.Errorf("unable to parse Kubernetes version (got %s): %s", sv.String(), err)
 }
 
 func (c *Client) CreateIngressClass(ctx context.Context, ingressClass *networkingv1.IngressClass, opts metav1.CreateOptions) (*networkingv1.IngressClass, error) {

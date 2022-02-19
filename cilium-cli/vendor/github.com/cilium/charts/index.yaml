@@ -1,0 +1,4759 @@
+apiVersion: v1
+entries:
+  cilium:
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicies.cilium.io
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicies.cilium.io
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumexternalworkloads.cilium.io
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicies.cilium.io
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnodes.cilium.io
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentities.cilium.io
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoints.cilium.io
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+        - kind: CiliumEndpointSlice
+          version: v2alpha1
+          name: ciliumendpointslices.cilium.io
+          displayName: Cilium Endpoint Slice
+          description: |
+            Cilium Endpoint Slice represents the status of groups of pods or nodes
+            in the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+        - kind: CiliumEgressNATPolicy
+          version: v2alpha1
+          name: ciliumegressnatpolicies.cilium.io
+          displayName: Cilium Egress NAT Policy
+          description: |
+            Cilium Egress NAT Policy provides control over the way that traffic
+            leaves the cluster and which source addresses to use for that traffic.
+    apiVersion: v2
+    appVersion: 1.12.0-rc0
+    created: "2022-03-04T03:21:14+01:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: 0e2fc1a4e71ad023d86578801ea47be094a3217acfd40743ff349a1123bc94a3
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.12.0-rc0/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.16.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.12.0-rc0.tgz
+    version: 1.12.0-rc0
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicies.cilium.io
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicies.cilium.io
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumexternalworkloads.cilium.io
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicies.cilium.io
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnodes.cilium.io
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentities.cilium.io
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoints.cilium.io
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+        - kind: CiliumEndpointSlice
+          version: v2alpha1
+          name: ciliumendpointslices.cilium.io
+          displayName: Cilium Endpoint Slice
+          description: |
+            Cilium Endpoint Slice represents the status of groups of pods or nodes
+            in the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+        - kind: CiliumEgressNATPolicy
+          version: v2alpha1
+          name: ciliumegressnatpolicies.cilium.io
+          displayName: Cilium Egress NAT Policy
+          description: |
+            Cilium Egress NAT Policy provides control over the way that traffic
+            leaves the cluster and which source addresses to use for that traffic.
+    apiVersion: v2
+    appVersion: 1.11.2
+    created: "2022-02-23T21:55:07-08:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: 402ba1a1fd2c0b024322ed09be4b16a4ca75a34ce739b267667ff9f6a534fcdc
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.11.2/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.16.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.11.2.tgz
+    version: 1.11.2
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicies.cilium.io
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicies.cilium.io
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumexternalworkloads.cilium.io
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicies.cilium.io
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnodes.cilium.io
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentities.cilium.io
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoints.cilium.io
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+        - kind: CiliumEndpointSlice
+          version: v2alpha1
+          name: ciliumendpointslices.cilium.io
+          displayName: Cilium Endpoint Slice
+          description: |
+            Cilium Endpoint Slice represents the status of groups of pods or nodes
+            in the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+        - kind: CiliumEgressNATPolicy
+          version: v2alpha1
+          name: ciliumegressnatpolicies.cilium.io
+          displayName: Cilium Egress NAT Policy
+          description: |
+            Cilium Egress NAT Policy provides control over the way that traffic
+            leaves the cluster and which source addresses to use for that traffic.
+    apiVersion: v2
+    appVersion: 1.11.1
+    created: "2022-01-18T18:00:31-08:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: 9298ca9495fdc578285d4f2a28ea6e473f4eec22ab56d4e066ef234478ef196a
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.11.1/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.16.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.11.1.tgz
+    version: 1.11.1
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicies.cilium.io
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicies.cilium.io
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumexternalworkloads.cilium.io
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicies.cilium.io
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnodes.cilium.io
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentities.cilium.io
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoints.cilium.io
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+        - kind: CiliumEndpointSlice
+          version: v2alpha1
+          name: ciliumendpointslices.cilium.io
+          displayName: Cilium Endpoint Slice
+          description: |
+            Cilium Endpoint Slice represents the status of groups of pods or nodes
+            in the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+        - kind: CiliumEgressNATPolicy
+          version: v2alpha1
+          name: ciliumegressnatpolicies.cilium.io
+          displayName: Cilium Egress NAT Policy
+          description: |
+            Cilium Endpoint Slice represents the status of groups of pods or nodes
+            in the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+    apiVersion: v2
+    appVersion: 1.11.0
+    created: "2021-12-06T11:35:16-08:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: 25b2211f80e3f8ab9db7e6bf633f31cef57a7b33d7978b9da23ecd28b8bceb1c
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.11.0/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.16.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.11.0.tgz
+    version: 1.11.0
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicy
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicy
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnode
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentity
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoint
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+    apiVersion: v2
+    appVersion: 1.11.0-rc3
+    created: "2021-11-23T03:15:39+01:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: 431a9ef4b7250c3b29d0ebe39f319e46a93916bdc505d30a4fe0f84bd3661da3
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.11.0-rc3/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.16.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.11.0-rc3.tgz
+    version: 1.11.0-rc3
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicy
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicy
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnode
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentity
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoint
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+    apiVersion: v2
+    appVersion: 1.11.0-rc2
+    created: "2021-11-19T03:07:34+01:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: 89214ee65a86cec967fd599f4652831db3fe7e60f375465c0131db561611c089
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.11.0-rc2/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.16.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.11.0-rc2.tgz
+    version: 1.11.0-rc2
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicy
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicy
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnode
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentity
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoint
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+    apiVersion: v2
+    appVersion: 1.11.0-rc1
+    created: "2021-11-15T16:41:47+01:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: 0f4445d9ad16342a64eff893ddea5adcc874e0d58553093b0c21ccc5e12a7c64
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.11.0-rc1/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.16.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.11.0-rc1.tgz
+    version: 1.11.0-rc1
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicy
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicy
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnode
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentity
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoint
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+    apiVersion: v2
+    appVersion: 1.11.0-rc0
+    created: "2021-09-30T17:12:33-07:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: 4fae7ba0900ce64fd5e650c1333316f054780473806bd78897dcdc373660d219
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.11.0-rc0/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.16.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.11.0-rc0.tgz
+    version: 1.11.0-rc0
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicy
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicy
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnode
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentity
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoint
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+    apiVersion: v2
+    appVersion: 1.10.8
+    created: "2022-02-23T21:54:55-08:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: d97399b332bd4fa47339d04327191d4dbf452e89544bc4c95e2fd9f05565bb35
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.10.8/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.16.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.10.8.tgz
+    version: 1.10.8
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicy
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicy
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnode
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentity
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoint
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+    apiVersion: v2
+    appVersion: 1.10.7
+    created: "2022-01-18T18:00:14-08:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: a0ba968a349c9fdb0fa728aad35fecd55a3565d5af1725ebbb965739ecdf5585
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.10.7/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.16.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.10.7.tgz
+    version: 1.10.7
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicy
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicy
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnode
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentity
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoint
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+    apiVersion: v2
+    appVersion: 1.10.6
+    created: "2021-12-10T10:18:21-08:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: fb97f0c77c63a250df50e835bd850231f4b084634436cd663b248853cb02a645
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.10.6/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.16.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.10.6.tgz
+    version: 1.10.6
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicy
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicy
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnode
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentity
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoint
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+    apiVersion: v2
+    appVersion: 1.10.5
+    created: "2021-10-13T18:35:30-07:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: 0cc2da702807aadaec35c7e13c034d5ce80f5e6a3ccf21c423c39cbb895370bd
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.10.5/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.16.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.10.5.tgz
+    version: 1.10.5
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicy
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicy
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnode
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentity
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoint
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+    apiVersion: v2
+    appVersion: 1.10.4
+    created: "2021-09-02T17:36:50-07:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: 9d42dac3d85b934a20195822c3e24eee62cc795789363a5b4158946c0d225e76
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.10.4/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.16.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.10.4.tgz
+    version: 1.10.4
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicy
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicy
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnode
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentity
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoint
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+    apiVersion: v2
+    appVersion: 1.10.3
+    created: "2021-07-15T18:31:06+02:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: 3b62d18aa71913fd61ee10251f99a9b17c6e899154fe6f060a51676d3bfffa09
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.10.3/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.16.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.10.3.tgz
+    version: 1.10.3
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicy
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicy
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnode
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentity
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoint
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+    apiVersion: v2
+    appVersion: 1.10.2
+    created: "2021-07-02T16:55:40+02:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: a36e66b107d7149fb31ad85cdeb11c1f28f628df91183ef88cade02875d8d00b
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.10.2/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.16.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.10.2.tgz
+    version: 1.10.2
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicy
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicy
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnode
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentity
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoint
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+    apiVersion: v2
+    appVersion: 1.10.1
+    created: "2021-06-16T13:31:12+02:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: 04cbfc6294d828b4dffc72950656ff7e6a5159cd092ab3e5f645adecbc81b73e
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.10.1/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.16.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.10.1.tgz
+    version: 1.10.1
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicy
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicy
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnode
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentity
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoint
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+    apiVersion: v2
+    appVersion: 1.10.0
+    created: "2021-05-20T15:27:01+02:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: 18b48dd562f488516ec52c7df2dd8b48998761e5a6f06c3940f597a170e38f23
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.10.0/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.16.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.10.0.tgz
+    version: 1.10.0
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicy
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicy
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnode
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentity
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoint
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+    apiVersion: v2
+    appVersion: 1.10.0-rc2
+    created: "2021-05-17T15:52:03+02:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: fa874d786ec2e96d366af79a1c49b6d80541f5b792a3618f1886ab3987124eed
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.10.0-rc2/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.16.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.10.0-rc2.tgz
+    version: 1.10.0-rc2
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicy
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicy
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnode
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentity
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoint
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+    apiVersion: v2
+    appVersion: 1.10.0-rc1
+    created: "2021-04-28T12:52:38+02:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: 3b2e52ee75077a721e9f9c8b405594597b21703718f5c50322c6042fa6d80576
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.10.0-rc1/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.16.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.10.0-rc1.tgz
+    version: 1.10.0-rc1
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicy
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicy
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnode
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentity
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoint
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+    apiVersion: v2
+    appVersion: 1.10.0-rc0
+    created: "2021-03-11T22:45:19+01:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: 16da50ed7d405e2f5fc0728a765038812613b8eb98fe33da82b3ef952cf52faf
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.10.0-rc0/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.13.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.10.0-rc0.tgz
+    version: 1.10.0-rc0
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicy
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicy
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnode
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentity
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoint
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+    apiVersion: v2
+    appVersion: 1.9.13
+    created: "2022-02-23T21:54:42-08:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: f3d6994068f833590cdde5b22d927a4186962ffb681cf2cf3d9e2e59052c41e8
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.9.13/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.12.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.9.13.tgz
+    version: 1.9.13
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicy
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicy
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnode
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentity
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoint
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+    apiVersion: v2
+    appVersion: 1.9.12
+    created: "2022-01-18T17:59:36-08:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: 65402502bcefd9f2d69cf8c8141fc2713c16229b147eb7b78e7d1df20bc6b799
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.9.12/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.12.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.9.12.tgz
+    version: 1.9.12
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicy
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicy
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnode
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentity
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoint
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+    apiVersion: v2
+    appVersion: 1.9.11
+    created: "2021-11-05T16:42:40-07:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: 66765c838d7e849cc32d8ec041941c46c75b3cf58ab68f822c24c7452349d4f0
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.9.11/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.12.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.9.11.tgz
+    version: 1.9.11
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicy
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicy
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnode
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentity
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoint
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+    apiVersion: v2
+    appVersion: 1.9.10
+    created: "2021-09-02T17:36:38-07:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: 4f7423c8cd8bd5338f29cfad6f096b5410f11a1a1625254781d0aa2cb3855638
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.9.10/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.12.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.9.10.tgz
+    version: 1.9.10
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicy
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicy
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnode
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentity
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoint
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+    apiVersion: v2
+    appVersion: 1.9.9
+    created: "2021-07-19T17:20:26-07:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: 81da8f9e707308a69d37a143d31fca7c4b2fc8aad4a9d1a98150ee8b6b1f9891
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.9.9/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.12.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.9.9.tgz
+    version: 1.9.9
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicy
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicy
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnode
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentity
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoint
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+    apiVersion: v2
+    appVersion: 1.9.8
+    created: "2021-05-28T14:28:16+02:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: bf8f5a4109d2434428ce15051ced4499ff7905aa00c4aa59ae71cab61b01d38d
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.9.8/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.12.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.9.8.tgz
+    version: 1.9.8
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicy
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicy
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnode
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentity
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoint
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+    apiVersion: v2
+    appVersion: 1.9.7
+    created: "2021-05-17T09:50:57-07:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: 7ebaf404beee57d4f9d67afaa04b1e25c45f87b36c4aa15c828a0e74585b811f
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.9.7/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.12.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.9.7.tgz
+    version: 1.9.7
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicy
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicy
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnode
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentity
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoint
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+    apiVersion: v2
+    appVersion: 1.9.6
+    created: "2021-04-20T16:57:09-07:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: f4ada59672ccb7c4bc7520e0c2610416de8b705ae26c169fcba0769ca51671c0
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.9.6/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.12.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.9.6.tgz
+    version: 1.9.6
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicy
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicy
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnode
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentity
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoint
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+    apiVersion: v2
+    appVersion: 1.9.5
+    created: "2021-03-10T16:40:50-08:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: 9ff015652bc0a992cc45921016487fa4aac9e5ebd3c4ebcfa2e6e7cc6d9b5ffe
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.9.5/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.12.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.9.5.tgz
+    version: 1.9.5
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicy
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicy
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnode
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentity
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoint
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+    apiVersion: v2
+    appVersion: 1.9.4
+    created: "2021-02-03T16:18:07-08:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: 28fa00f5a56b943ea060c22a63cbce9f52400ebef868156c5367a7ca0ae95f61
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.9.4/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.12.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.9.4.tgz
+    version: 1.9.4
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicy
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicy
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnode
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentity
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoint
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+    apiVersion: v2
+    appVersion: 1.9.3
+    created: "2021-01-22T20:58:32+01:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: 8ec89c3d31d0d54841996c6a161be7b4cf7dba824dd671b28a58cb11e2cf4a6e
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.9.3/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.12.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.9.3.tgz
+    version: 1.9.3
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicy
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicy
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnode
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentity
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoint
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+    apiVersion: v2
+    appVersion: 1.9.2
+    created: "2021-01-20T16:16:56+01:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: 93cd87ed5d0ee6bcacbbafc31f8980df7cf478dcc3e57b66dabcd0b4eff357f3
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.9.2/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.12.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.9.2.tgz
+    version: 1.9.2
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicy
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicy
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnode
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentity
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoint
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+    apiVersion: v2
+    appVersion: 1.9.1
+    created: "2020-12-04T18:50:03+01:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: 079e55fcd4bdf5e66eb8ffff221d138c0e203c2ec32220b7ac49e477239fa851
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.9.1/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.12.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.9.1.tgz
+    version: 1.9.1
+  - apiVersion: v2
+    appVersion: 1.9.0
+    created: "2020-11-10T17:16:14+01:00"
+    description: Helm chart for Cilium
+    digest: 7aaa0ccc7ca58ecaa72f063be7553799cdc9357c7f96de2bdf052d2d551385ec
+    home: https://cilium.io/
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.9.0.tgz
+    version: 1.9.0
+  - apiVersion: v2
+    appVersion: 1.9.0-rc3
+    created: "2020-11-02T16:47:36-08:00"
+    description: Helm chart for Cilium
+    digest: b590c586d184ecd431d34a741cb61604cc58677f1835fa709ccc3f89c7b15226
+    home: https://cilium.io/
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.9.0-rc3.tgz
+    version: 1.9.0-rc3
+  - apiVersion: v2
+    appVersion: 1.9.0-rc2
+    created: "2020-10-19T16:44:31+02:00"
+    description: Helm chart for Cilium
+    digest: a6ea50230974af6d4661b0ab5fb5b6e9f19df6c981ba2b3341f7b6f03fe660a1
+    home: https://cilium.io/
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.9.0-rc2.tgz
+    version: 1.9.0-rc2
+  - apiVersion: v2
+    appVersion: 1.9.0-rc1
+    created: "2020-10-12T18:49:21-07:00"
+    description: Helm chart for Cilium
+    digest: 8283ec0b063dd777d479045809994718f853628e9fcef24a36ccc2e6b8bd376c
+    home: https://cilium.io/
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.9.0-rc1.tgz
+    version: 1.9.0-rc1
+  - apiVersion: v2
+    appVersion: 1.9.0-rc0
+    created: "2020-08-18T22:28:07+02:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.9.0-rc0
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.9.0-rc0
+    - condition: global.hubble.relay.enabled
+      name: hubble-relay
+      repository: ""
+      version: 1.9.0-rc0
+    - condition: global.hubble.ui.enabled
+      name: hubble-ui
+      repository: ""
+      version: 1.9.0-rc0
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.9.0-rc0
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.9.0-rc0
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.9.0-rc0
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.9.0-rc0
+    - condition: global.prometheus.enabled && global.prometheus.serviceMonitor.enabled
+      name: prometheus-crd
+      repository: ""
+      version: 1.9.0-rc0
+    description: Helm chart for Cilium
+    digest: 63db71234456ac656cb5c15dbea89673717e4c81088baeb848e708f33d24835c
+    home: https://cilium.io/
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.9.0-rc0.tgz
+    version: 1.9.0-rc0
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicy
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumnetworkpolicy
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicy
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnode
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentity
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoint
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+    apiVersion: v2
+    appVersion: 1.9-dev
+    created: "2020-12-04T18:50:45+01:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: e244a7e42419aa4663e7d48e26bf72b232cfdcb0306e403cb91b197f8f696fb8
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.9/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.12.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.9-dev.tgz
+    version: 1.9-dev
+  - apiVersion: v1
+    appVersion: 1.8.13
+    created: "2021-11-05T16:41:52-07:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.8.13
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.8.13
+    - condition: global.hubble.relay.enabled
+      name: hubble-relay
+      repository: ""
+      version: 1.8.13
+    - condition: global.hubble.ui.enabled
+      name: hubble-ui
+      repository: ""
+      version: 1.8.13
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.8.13
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.8.13
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.8.13
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.8.13
+    - condition: global.prometheus.enabled && global.prometheus.serviceMonitor.enabled
+      name: prometheus-crd
+      repository: ""
+      version: 1.8.13
+    description: Helm chart for Cilium
+    digest: cce4af63912ce41fc7c3a919257ebec21ec067b13113a1f6db079836f71330c4
+    home: https://cilium.io/
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.8.13.tgz
+    version: 1.8.13
+  - apiVersion: v1
+    appVersion: 1.8.12
+    created: "2021-09-02T17:36:13-07:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.8.12
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.8.12
+    - condition: global.hubble.relay.enabled
+      name: hubble-relay
+      repository: ""
+      version: 1.8.12
+    - condition: global.hubble.ui.enabled
+      name: hubble-ui
+      repository: ""
+      version: 1.8.12
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.8.12
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.8.12
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.8.12
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.8.12
+    - condition: global.prometheus.enabled && global.prometheus.serviceMonitor.enabled
+      name: prometheus-crd
+      repository: ""
+      version: 1.8.12
+    description: Helm chart for Cilium
+    digest: 047c1be689dbfa94e0f3d3ca3f3a6c38ea3fe569a3716502f5d2733e499bcbac
+    home: https://cilium.io/
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.8.12.tgz
+    version: 1.8.12
+  - apiVersion: v1
+    appVersion: 1.8.11
+    created: "2021-07-23T10:31:18-07:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.8.11
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.8.11
+    - condition: global.hubble.relay.enabled
+      name: hubble-relay
+      repository: ""
+      version: 1.8.11
+    - condition: global.hubble.ui.enabled
+      name: hubble-ui
+      repository: ""
+      version: 1.8.11
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.8.11
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.8.11
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.8.11
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.8.11
+    - condition: global.prometheus.enabled && global.prometheus.serviceMonitor.enabled
+      name: prometheus-crd
+      repository: ""
+      version: 1.8.11
+    description: Helm chart for Cilium
+    digest: ba6127f642ba7ccad55a24d581d46e22ebbb503232a1bf40a0660ad3b60d3727
+    home: https://cilium.io/
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.8.11.tgz
+    version: 1.8.11
+  - apiVersion: v1
+    appVersion: 1.8.10
+    created: "2021-05-17T09:45:14-07:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.8.10
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.8.10
+    - condition: global.hubble.relay.enabled
+      name: hubble-relay
+      repository: ""
+      version: 1.8.10
+    - condition: global.hubble.ui.enabled
+      name: hubble-ui
+      repository: ""
+      version: 1.8.10
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.8.10
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.8.10
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.8.10
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.8.10
+    - condition: global.prometheus.enabled && global.prometheus.serviceMonitor.enabled
+      name: prometheus-crd
+      repository: ""
+      version: 1.8.10
+    description: Helm chart for Cilium
+    digest: 47f97a29a842125e3423722be8e40a8104c77eadc5b0b652ea4a50af9142d8a8
+    home: https://cilium.io/
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.8.10.tgz
+    version: 1.8.10
+  - apiVersion: v1
+    appVersion: 1.8.9
+    created: "2021-04-20T16:56:07-07:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.8.9
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.8.9
+    - condition: global.hubble.relay.enabled
+      name: hubble-relay
+      repository: ""
+      version: 1.8.9
+    - condition: global.hubble.ui.enabled
+      name: hubble-ui
+      repository: ""
+      version: 1.8.9
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.8.9
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.8.9
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.8.9
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.8.9
+    - condition: global.prometheus.enabled && global.prometheus.serviceMonitor.enabled
+      name: prometheus-crd
+      repository: ""
+      version: 1.8.9
+    description: Helm chart for Cilium
+    digest: 63d2ade53017472c36e0addfb7ae0fd63f43a521fa8b5ae2d6791b4c9b2cd6f0
+    home: https://cilium.io/
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.8.9.tgz
+    version: 1.8.9
+  - apiVersion: v1
+    appVersion: 1.8.8
+    created: "2021-03-10T12:07:26-08:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.8.8
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.8.8
+    - condition: global.hubble.relay.enabled
+      name: hubble-relay
+      repository: ""
+      version: 1.8.8
+    - condition: global.hubble.ui.enabled
+      name: hubble-ui
+      repository: ""
+      version: 1.8.8
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.8.8
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.8.8
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.8.8
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.8.8
+    - condition: global.prometheus.enabled && global.prometheus.serviceMonitor.enabled
+      name: prometheus-crd
+      repository: ""
+      version: 1.8.8
+    description: Helm chart for Cilium
+    digest: 3b453c710bd3e78c821f8a8793edeeb86a2f2497ed02b06bcef6d9adddcd8591
+    home: https://cilium.io/
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.8.8.tgz
+    version: 1.8.8
+  - apiVersion: v1
+    appVersion: 1.8.7
+    created: "2021-02-17T16:52:29-08:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.8.7
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.8.7
+    - condition: global.hubble.relay.enabled
+      name: hubble-relay
+      repository: ""
+      version: 1.8.7
+    - condition: global.hubble.ui.enabled
+      name: hubble-ui
+      repository: ""
+      version: 1.8.7
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.8.7
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.8.7
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.8.7
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.8.7
+    - condition: global.prometheus.enabled && global.prometheus.serviceMonitor.enabled
+      name: prometheus-crd
+      repository: ""
+      version: 1.8.7
+    description: Helm chart for Cilium
+    digest: f72feeb6afdb9bca8f69aac5ce50665e3348ae790632c66975d186968037d4ed
+    home: https://cilium.io/
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.8.7.tgz
+    version: 1.8.7
+  - apiVersion: v1
+    appVersion: 1.8.6
+    created: "2020-12-04T18:32:13+01:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.8.6
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.8.6
+    - condition: global.hubble.relay.enabled
+      name: hubble-relay
+      repository: ""
+      version: 1.8.6
+    - condition: global.hubble.ui.enabled
+      name: hubble-ui
+      repository: ""
+      version: 1.8.6
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.8.6
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.8.6
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.8.6
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.8.6
+    - condition: global.prometheus.enabled && global.prometheus.serviceMonitor.enabled
+      name: prometheus-crd
+      repository: ""
+      version: 1.8.6
+    description: Helm chart for Cilium
+    digest: e617123f6d9e4a9a023defdc7001a4e9353b4d2698a99a962c1524fe204d43b3
+    home: https://cilium.io/
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.8.6.tgz
+    version: 1.8.6
+  - apiVersion: v1
+    appVersion: 1.8.5
+    created: "2020-10-28T16:30:24-07:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.8.5
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.8.5
+    - condition: global.hubble.relay.enabled
+      name: hubble-relay
+      repository: ""
+      version: 1.8.5
+    - condition: global.hubble.ui.enabled
+      name: hubble-ui
+      repository: ""
+      version: 1.8.5
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.8.5
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.8.5
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.8.5
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.8.5
+    - condition: global.prometheus.enabled && global.prometheus.serviceMonitor.enabled
+      name: prometheus-crd
+      repository: ""
+      version: 1.8.5
+    description: Helm chart for Cilium
+    digest: 300c8c60868f9d049ef7b7d4cdd994044db3726adfde4113d5e89728f55cc8ac
+    home: https://cilium.io/
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.8.5.tgz
+    version: 1.8.5
+  - apiVersion: v1
+    appVersion: 1.8.4
+    created: "2020-09-30T17:51:09-07:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.8.4
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.8.4
+    - condition: global.hubble.relay.enabled
+      name: hubble-relay
+      repository: ""
+      version: 1.8.4
+    - condition: global.hubble.ui.enabled
+      name: hubble-ui
+      repository: ""
+      version: 1.8.4
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.8.4
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.8.4
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.8.4
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.8.4
+    - condition: global.prometheus.enabled && global.prometheus.serviceMonitor.enabled
+      name: prometheus-crd
+      repository: ""
+      version: 1.8.4
+    description: Helm chart for Cilium
+    digest: 413e40e7f64be9861dceaceae8725b8ecacc87bb22bafc36c069b0ce2d3c0422
+    home: https://cilium.io/
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.8.4.tgz
+    version: 1.8.4
+  - apiVersion: v1
+    appVersion: 1.8.3
+    created: "2020-09-04T15:09:39+02:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.8.3
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.8.3
+    - condition: global.hubble.relay.enabled
+      name: hubble-relay
+      repository: ""
+      version: 1.8.3
+    - condition: global.hubble.ui.enabled
+      name: hubble-ui
+      repository: ""
+      version: 1.8.3
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.8.3
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.8.3
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.8.3
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.8.3
+    - condition: global.prometheus.enabled && global.prometheus.serviceMonitor.enabled
+      name: prometheus-crd
+      repository: ""
+      version: 1.8.3
+    description: Helm chart for Cilium
+    digest: edc92f121bc5b12b8cf9c885eea8552780a3a732e6ca1a27c28aa9eb5e6e8968
+    home: https://cilium.io/
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.8.3.tgz
+    version: 1.8.3
+  - apiVersion: v1
+    appVersion: 1.8.2
+    created: "2020-07-23T16:13:58-07:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.8.2
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.8.2
+    - condition: global.hubble.relay.enabled
+      name: hubble-relay
+      repository: ""
+      version: 1.8.2
+    - condition: global.hubble.ui.enabled
+      name: hubble-ui
+      repository: ""
+      version: 1.8.2
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.8.2
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.8.2
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.8.2
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.8.2
+    - condition: global.prometheus.enabled && global.prometheus.serviceMonitor.enabled
+      name: prometheus-crd
+      repository: ""
+      version: 1.8.2
+    description: Helm chart for Cilium
+    digest: 548e076dd195556faa8115946cf484f1b9ade71b08865ef47bf13b1488296f51
+    home: https://cilium.io/
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.8.2.tgz
+    version: 1.8.2
+  - apiVersion: v1
+    appVersion: 1.8.1
+    created: "2020-07-02T21:45:34+02:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.8.1
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.8.1
+    - condition: global.hubble.relay.enabled
+      name: hubble-relay
+      repository: ""
+      version: 1.8.1
+    - condition: global.hubble.ui.enabled
+      name: hubble-ui
+      repository: ""
+      version: 1.8.1
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.8.1
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.8.1
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.8.1
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.8.1
+    - condition: global.prometheus.enabled && global.prometheus.serviceMonitor.enabled
+      name: prometheus-crd
+      repository: ""
+      version: 1.8.1
+    description: Helm chart for Cilium
+    digest: c72ab1f14806280b1ff8cec6be96aa7ac053898fb4203bacd5b7b782050e4c45
+    home: https://cilium.io/
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.8.1.tgz
+    version: 1.8.1
+  - apiVersion: v1
+    appVersion: 1.8.0
+    created: "2020-06-22T17:52:19+02:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.8.0
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.8.0
+    - condition: global.hubble.relay.enabled
+      name: hubble-relay
+      repository: ""
+      version: 1.8.0
+    - condition: global.hubble.ui.enabled
+      name: hubble-ui
+      repository: ""
+      version: 1.8.0
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.8.0
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.8.0
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.8.0
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.8.0
+    - condition: global.prometheus.enabled && global.prometheus.serviceMonitor.enabled
+      name: prometheus-crd
+      repository: ""
+      version: 1.8.0
+    description: Helm chart for Cilium
+    digest: 7f2f7a2cff735799daf6c804ab7fb439d3c1ffa8b82f490a04f7eedf7e19bbfb
+    home: https://cilium.io/
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.8.0.tgz
+    version: 1.8.0
+  - apiVersion: v1
+    appVersion: 1.8.0-rc4
+    created: "2020-06-19T13:10:57-07:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.8.0-rc4
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.8.0-rc4
+    - condition: global.hubble.relay.enabled
+      name: hubble-relay
+      repository: ""
+      version: 1.8.0-rc4
+    - condition: global.hubble.ui.enabled
+      name: hubble-ui
+      repository: ""
+      version: 1.8.0-rc4
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.8.0-rc4
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.8.0-rc4
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.8.0-rc4
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.8.0-rc4
+    - condition: global.prometheus.enabled && global.prometheus.serviceMonitor.enabled
+      name: prometheus-crd
+      repository: ""
+      version: 1.8.0-rc4
+    description: Helm chart for Cilium
+    digest: f5e5ca6620006b600ed2687e8bea62af4e62dda288cb511b91aa7f388b1d662a
+    home: https://cilium.io/
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.8.0-rc4.tgz
+    version: 1.8.0-rc4
+  - apiVersion: v1
+    appVersion: 1.8.0-rc3
+    created: "2020-06-15T17:14:52+02:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.8.0-rc3
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.8.0-rc3
+    - condition: global.hubble.relay.enabled
+      name: hubble-relay
+      repository: ""
+      version: 1.8.0-rc3
+    - condition: global.hubble.ui.enabled
+      name: hubble-ui
+      repository: ""
+      version: 1.8.0-rc3
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.8.0-rc3
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.8.0-rc3
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.8.0-rc3
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.8.0-rc3
+    - condition: global.prometheus.enabled && global.prometheus.serviceMonitor.enabled
+      name: prometheus-crd
+      repository: ""
+      version: 1.8.0-rc3
+    description: Helm chart for Cilium
+    digest: a8b097d8ba1a60c09288750d4a3c0ac3afaae5706438df7e39f864c0939fbd4e
+    home: https://cilium.io/
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.8.0-rc3.tgz
+    version: 1.8.0-rc3
+  - apiVersion: v1
+    appVersion: 1.8.0-rc2
+    created: "2020-05-29T15:59:58-07:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.8.0-rc2
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.8.0-rc2
+    - condition: global.hubble.cli.enabled
+      name: hubble-cli
+      repository: ""
+      version: 1.8.0-rc2
+    - condition: global.hubble.relay.enabled
+      name: hubble-relay
+      repository: ""
+      version: 1.8.0-rc2
+    - condition: global.hubble.ui.enabled
+      name: hubble-ui
+      repository: ""
+      version: 1.8.0-rc2
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.8.0-rc2
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.8.0-rc2
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.8.0-rc2
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.8.0-rc2
+    - condition: global.prometheus.enabled && global.prometheus.serviceMonitor.enabled
+      name: prometheus-crd
+      repository: ""
+      version: 1.8.0-rc2
+    description: Helm chart for Cilium
+    digest: 999b1e9c2df40c37841d0e8ef00bd7ed49bee69e070da288f3dbf77c77dbb353
+    home: https://cilium.io/
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.8.0-rc2.tgz
+    version: 1.8.0-rc2
+  - apiVersion: v1
+    appVersion: 1.8.0-rc1
+    created: "2020-05-21T15:03:34-07:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.8.0-rc1
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.8.0-rc1
+    - condition: global.hubble.cli.enabled
+      name: hubble-cli
+      repository: ""
+      version: 1.8.0-rc1
+    - condition: global.hubble.relay.enabled
+      name: hubble-relay
+      repository: ""
+      version: 1.8.0-rc1
+    - condition: global.hubble.ui.enabled
+      name: hubble-ui
+      repository: ""
+      version: 1.8.0-rc1
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.8.0-rc1
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.8.0-rc1
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.8.0-rc1
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.8.0-rc1
+    description: Helm chart for Cilium
+    digest: bc14119e24eaa2df8949a58b0bc26bbceb2dc0b5bbab43b25574022c5c06a9ed
+    home: https://cilium.io/
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.8.0-rc1.tgz
+    version: 1.8.0-rc1
+  - apiVersion: v1
+    appVersion: 1.8-dev
+    created: "2020-06-22T18:37:46+02:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.8-dev
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.8-dev
+    - condition: global.hubble.relay.enabled
+      name: hubble-relay
+      repository: ""
+      version: 1.8-dev
+    - condition: global.hubble.ui.enabled
+      name: hubble-ui
+      repository: ""
+      version: 1.8-dev
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.8-dev
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.8-dev
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.8-dev
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.8-dev
+    - condition: global.prometheus.enabled && global.prometheus.serviceMonitor.enabled
+      name: prometheus-crd
+      repository: ""
+      version: 1.8-dev
+    description: Helm chart for Cilium
+    digest: c983eb0af7eb6d3fbfb5d94c5954ca91db853b359173c7932e44eb1c3b4de45d
+    home: https://cilium.io/
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.8-dev.tgz
+    version: 1.8-dev
+  - apiVersion: v1
+    appVersion: 1.7.16
+    created: "2021-04-20T16:49:47-07:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.7.16
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.7.16
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.7.16
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.7.16
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.7.16
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.7.16
+    description: Helm chart for Cilium
+    digest: 9204375c38a8074c5b6d0623bdf720025beeb52f25d54bc736705a10e393c769
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.7.16.tgz
+    version: 1.7.16
+  - apiVersion: v1
+    appVersion: 1.7.15
+    created: "2021-03-10T10:14:18-08:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.7.15
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.7.15
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.7.15
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.7.15
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.7.15
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.7.15
+    description: Helm chart for Cilium
+    digest: 1de65baf4e3a217318dabfcc419a2caeb7b669d292fe6caf87bc214f4abae529
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.7.15.tgz
+    version: 1.7.15
+  - apiVersion: v1
+    appVersion: 1.7.14
+    created: "2021-02-25T14:51:11-08:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.7.14
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.7.14
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.7.14
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.7.14
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.7.14
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.7.14
+    description: Helm chart for Cilium
+    digest: fac25151481c997b7d130612fbaea6c26f79e5983272541f720f4d8682bdca81
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.7.14.tgz
+    version: 1.7.14
+  - apiVersion: v1
+    appVersion: 1.7.13
+    created: "2021-01-27T14:58:32-08:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.7.13
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.7.13
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.7.13
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.7.13
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.7.13
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.7.13
+    description: Helm chart for Cilium
+    digest: 716cea4afa9ba1956eaa51af7e3694d736fbebc96af3dce00141bd3efd44b91a
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.7.13.tgz
+    version: 1.7.13
+  - apiVersion: v1
+    appVersion: 1.7.12
+    created: "2020-12-04T12:56:11+01:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.7.12
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.7.12
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.7.12
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.7.12
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.7.12
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.7.12
+    description: Helm chart for Cilium
+    digest: 56c8c1292802b76e19b62526acd1702ef655ad71fcafdae0d1328ffe5a8d7cbf
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.7.12.tgz
+    version: 1.7.12
+  - apiVersion: v1
+    appVersion: 1.7.11
+    created: "2020-10-27T18:55:05-07:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.7.11
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.7.11
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.7.11
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.7.11
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.7.11
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.7.11
+    description: Helm chart for Cilium
+    digest: 7a4b2f7970aeff7c0201eb8e7ce8a75c16ec53af79ff609de8ec087ad59d63a1
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.7.11.tgz
+    version: 1.7.11
+  - apiVersion: v1
+    appVersion: 1.7.10
+    created: "2020-09-30T17:01:58-07:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.7.10
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.7.10
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.7.10
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.7.10
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.7.10
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.7.10
+    description: Helm chart for Cilium
+    digest: dfd2d4f728aae6eb8b64243412ae20864e7d7da3afe09d2c38ddd04d070055dd
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.7.10.tgz
+    version: 1.7.10
+  - apiVersion: v1
+    appVersion: 1.7.9
+    created: "2020-09-01T20:25:45-07:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.7.9
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.7.9
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.7.9
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.7.9
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.7.9
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.7.9
+    description: Helm chart for Cilium
+    digest: 23fb1a429a64a7ea29d29f6ce0b00886f9a1e2f6c3c76b920944ba8ab800d6dd
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.7.9.tgz
+    version: 1.7.9
+  - apiVersion: v1
+    appVersion: 1.7.8
+    created: "2020-08-28T13:38:04-07:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.7.8
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.7.8
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.7.8
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.7.8
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.7.8
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.7.8
+    description: Helm chart for Cilium
+    digest: 29011b46577f16ab636b685e72ff38db4f66807f29b7373156c1f46d8a8bc7a0
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.7.8.tgz
+    version: 1.7.8
+  - apiVersion: v1
+    appVersion: 1.7.7
+    created: "2020-08-04T18:44:45-07:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.7.7
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.7.7
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.7.7
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.7.7
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.7.7
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.7.7
+    description: Helm chart for Cilium
+    digest: 6309bc42ebcb394f4abb2e84a00f0f1b72c7086d07925eb7c1e406e056b0d527
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.7.7.tgz
+    version: 1.7.7
+  - apiVersion: v1
+    appVersion: 1.7.6
+    created: "2020-07-02T14:58:08-07:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.7.6
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.7.6
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.7.6
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.7.6
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.7.6
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.7.6
+    description: Helm chart for Cilium
+    digest: 14bf5c70fed0c9bd49adb4e6d7187bc4502f38afc8d6cf734014600b63527839
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.7.6.tgz
+    version: 1.7.6
+  - apiVersion: v1
+    appVersion: 1.7.5
+    created: "2020-06-12T15:00:23+02:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.7.5
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.7.5
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.7.5
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.7.5
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.7.5
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.7.5
+    description: Helm chart for Cilium
+    digest: 17ad591bbbdcfa8c90db66dca34a79b7bde96f004d6f573524e399e2d88baa5a
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.7.5.tgz
+    version: 1.7.5
+  - apiVersion: v1
+    appVersion: 1.7.4
+    created: "2020-05-15T15:12:07-07:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.7.4
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.7.4
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.7.4
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.7.4
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.7.4
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.7.4
+    description: Helm chart for Cilium
+    digest: ea67198ed253ea337831b46705b712bf34fcf1658bd5c4637208186f235c2218
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.7.4.tgz
+    version: 1.7.4
+  - apiVersion: v1
+    appVersion: 1.7.3
+    created: "2020-04-29T16:14:35-07:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.7.3
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.7.3
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.7.3
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.7.3
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.7.3
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.7.3
+    description: Helm chart for Cilium
+    digest: 19407689436278319dff249ffa521a7df11f91e187f21e4dfab482bea5d242dc
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.7.3.tgz
+    version: 1.7.3
+  - apiVersion: v1
+    appVersion: 1.7.2
+    created: "2020-04-03T12:28:11-07:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.7.2
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.7.2
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.7.2
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.7.2
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.7.2
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.7.2
+    description: Helm chart for Cilium
+    digest: 42379329de4a22bc4f260760b39671f64ee43f99eec38575251b0b3ab45f1395
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.7.2.tgz
+    version: 1.7.2
+  - apiVersion: v1
+    appVersion: 1.7.1
+    created: "2020-03-04T15:52:49-08:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.7.1
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.7.1
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.7.1
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.7.1
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.7.1
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.7.1
+    description: Helm chart for Cilium
+    digest: 7de9a307040a2d0f91e3bdf7f0920a1a8b601734b2b6d3652ff66dab51ce4a35
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.7.1.tgz
+    version: 1.7.1
+  - apiVersion: v1
+    appVersion: 1.7.0
+    created: "2020-02-18T17:31:32-08:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.7.0
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.7.0
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.7.0
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.7.0
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.7.0
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.7.0
+    description: Helm chart for Cilium
+    digest: eec8d07eec1e680c2e87cc46bf188b0ad2ab9d13486e7d263ea21d15e94f96d2
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.7.0.tgz
+    version: 1.7.0
+  - apiVersion: v1
+    appVersion: 1.7.0-rc4
+    created: "2020-02-12T16:31:15-08:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.7.0-rc4
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.7.0-rc4
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.7.0-rc4
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.7.0-rc4
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.7.0-rc4
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.7.0-rc4
+    description: Helm chart for Cilium
+    digest: 4e27fc657999f8e1ff68315d563d5a9454cd0f76bdb8a3abbf06e9e0030b0612
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.7.0-rc4.tgz
+    version: 1.7.0-rc4
+  - apiVersion: v1
+    appVersion: 1.7.0-rc3
+    created: "2020-02-04T11:22:10-08:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.7.0-rc3
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.7.0-rc3
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.7.0-rc3
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.7.0-rc3
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.7.0-rc3
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.7.0-rc3
+    description: Helm chart for Cilium
+    digest: 931c4d32f2cba0e8a49a3690a48a9459d8cab0b572fb914998164a60c2fe48b3
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.7.0-rc3.tgz
+    version: 1.7.0-rc3
+  - apiVersion: v1
+    appVersion: 1.7-dev
+    created: "2020-02-19T09:16:25+01:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.7-dev
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.7-dev
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.7-dev
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.7-dev
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.7-dev
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.7-dev
+    description: Helm chart for Cilium
+    digest: c7637bb01c5118d7f989a9d8710fcaa0ac48374141291c8cccf68e627cbac720
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.7-dev.tgz
+    version: 1.7-dev
+  - apiVersion: v1
+    appVersion: 1.6.12
+    created: "2020-09-30T17:01:49-07:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.6.12
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.6.12
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.6.12
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.6.12
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.6.12
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.6.12
+    description: Helm chart for Cilium
+    digest: 46bfb182c186be5a34d428b7c7e1b9615d55385aeb66da0517b3990317150c4e
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.6.12.tgz
+    version: 1.6.12
+  - apiVersion: v1
+    appVersion: 1.6.11
+    created: "2020-08-03T16:53:07-07:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.6.11
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.6.11
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.6.11
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.6.11
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.6.11
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.6.11
+    description: Helm chart for Cilium
+    digest: e53e95552cc59e6ae926f51382c081a484ec03dc70b88f274619ce7778390066
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.6.11.tgz
+    version: 1.6.11
+  - apiVersion: v1
+    appVersion: 1.6.10
+    created: "2020-07-02T20:16:39+02:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.6.10
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.6.10
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.6.10
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.6.10
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.6.10
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.6.10
+    description: Helm chart for Cilium
+    digest: 59f42143afd725c75eec7198691f00a717e4602c773d38080526ef56a6a45693
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.6.10.tgz
+    version: 1.6.10
+  - apiVersion: v1
+    appVersion: 1.6.9
+    created: "2020-06-05T16:58:12-07:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.6.9
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.6.9
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.6.9
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.6.9
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.6.9
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.6.9
+    description: Helm chart for Cilium
+    digest: 7596d3ca7c0f74c7942a5299f968794267a9988513b72224df4759d71a5e1218
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.6.9.tgz
+    version: 1.6.9
+  - apiVersion: v1
+    appVersion: 1.6.8
+    created: "2020-03-25T15:02:28-07:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.6.8
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.6.8
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.6.8
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.6.8
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.6.8
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.6.8
+    description: Helm chart for Cilium
+    digest: 408ac5e7b1e465f696721d2c341a02f28bf788264ca773010a464ab706c9d4b4
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.6.8.tgz
+    version: 1.6.8
+  - apiVersion: v1
+    appVersion: 1.6.7
+    created: "2020-03-04T15:08:04-08:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.6.7
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.6.7
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.6.7
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.6.7
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.6.7
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.6.7
+    description: Helm chart for Cilium
+    digest: d11fa9a2ee682b8202881eede2dd902236b474caf2f128f566cd4738405aafe0
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.6.7.tgz
+    version: 1.6.7
+  - apiVersion: v1
+    appVersion: 1.6.6
+    created: "2020-02-03T15:14:02-08:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.6.6
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.6.6
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.6.6
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.6.6
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.6.6
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.6.6
+    description: Helm chart for Cilium
+    digest: 94a2c639a35a9f64c0b69e03d616208494c6cf8e8e486a85fc38e060468284a1
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.6.6.tgz
+    version: 1.6.6
+  - apiVersion: v1
+    appVersion: 1.6.5
+    created: "2020-01-23T10:16:22-08:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.6.5
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.6.5
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.6.5
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.6.5
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.6.5
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.6.5
+    description: Helm chart for Cilium
+    digest: 6184b1591ef808dc4741fce1c97be541118e804293ba7bb4a8aa9c570067cc62
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.6.5.tgz
+    version: 1.6.5
+  - apiVersion: v1
+    appVersion: 1.6-dev
+    created: "2020-02-11T15:01:31+01:00"
+    dependencies:
+    - condition: agent.enabled
+      name: agent
+      repository: ""
+      version: 1.6-dev
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.6-dev
+    - condition: operator.enabled
+      name: operator
+      repository: ""
+      version: 1.6-dev
+    - condition: global.etcd.managed
+      name: managed-etcd
+      repository: ""
+      version: 1.6-dev
+    - condition: preflight.enabled
+      name: preflight
+      repository: ""
+      version: 1.6-dev
+    - condition: global.nodeinit.enabled
+      name: nodeinit
+      repository: ""
+      version: 1.6-dev
+    description: Helm chart for Cilium
+    digest: e6a0373be435d69521c649d8dff23e4a5f1dc7dd3be392d14d2c2d9748907627
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.6-dev.tgz
+    version: 1.6-dev
+generated: "2022-03-04T03:20:51.532724272+01:00"

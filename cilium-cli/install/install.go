@@ -12,9 +12,13 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
+	ciliumhelm "github.com/cilium/charts"
 	"github.com/cilium/cilium/api/v1/models"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/versioncheck"
+	"helm.sh/helm/v3/pkg/action"
+	"helm.sh/helm/v3/pkg/chart"
+	"helm.sh/helm/v3/pkg/chart/loader"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -22,26 +26,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/certs"
 	"github.com/cilium/cilium-cli/internal/k8s"
 	"github.com/cilium/cilium-cli/internal/utils"
 	"github.com/cilium/cilium-cli/status"
-)
-
-var (
-	agentMaxUnavailable                = intstr.FromInt(2)
-	varTrue                            = true
-	hostToContainer                    = corev1.MountPropagationHostToContainer
-	agentTerminationGracePeriodSeconds = int64(1)
-	hostPathDirectoryOrCreate          = corev1.HostPathDirectoryOrCreate
-	hostPathFileOrCreate               = corev1.HostPathFileOrCreate
-	secretDefaultMode                  = int32(0400)
-	operatorReplicas                   = int32(1)
-	operatorMaxSurge                   = intstr.FromInt(1)
-	operatorMaxUnavailable             = intstr.FromInt(1)
 )
 
 const (
@@ -57,927 +47,40 @@ const (
 	encryptionWireguard = "wireguard"
 )
 
-var ciliumClusterRole = &rbacv1.ClusterRole{
-	ObjectMeta: metav1.ObjectMeta{
-		Name: defaults.AgentClusterRoleName,
-	},
-	Rules: []rbacv1.PolicyRule{
-		{
-			APIGroups: []string{"networking.k8s.io"},
-			Resources: []string{"networkpolicies"},
-			Verbs:     []string{"get", "list", "watch"},
-		},
-		{
-			APIGroups: []string{"discovery.k8s.io"},
-			Resources: []string{"endpointslices"},
-			Verbs:     []string{"get", "list", "watch"},
-		},
-		{
-			APIGroups: []string{""},
-			Resources: []string{"namespaces", "services", "endpoints"},
-			Verbs:     []string{"get", "list", "watch"},
-		},
-		{
-			APIGroups: []string{""},
-			Resources: []string{"pods", "pods/finalizers"},
-			Verbs:     []string{"get", "list", "watch", "update", "delete"},
-		},
-		{
-			APIGroups: []string{""},
-			Resources: []string{"nodes"},
-			Verbs:     []string{"get", "list", "watch", "update"},
-		},
-		{
-			APIGroups: []string{""},
-			Resources: []string{"nodes", "nodes/status"},
-			Verbs:     []string{"patch"},
-		},
-		{
-			APIGroups: []string{"apiextensions.k8s.io"},
-			Resources: []string{"customresourcedefinitions"},
-			Verbs:     []string{"list", "watch"},
-		},
-		{
-			APIGroups: []string{"cilium.io"},
-			Resources: []string{
-				"ciliumnetworkpolicies",
-				"ciliumnetworkpolicies/status",
-				"ciliumnetworkpolicies/finalizers",
-				"ciliumclusterwidenetworkpolicies",
-				"ciliumclusterwidenetworkpolicies/status",
-				"ciliumclusterwidenetworkpolicies/finalizers",
-				"ciliumendpoints",
-				"ciliumendpoints/status",
-				"ciliumendpoints/finalizers",
-				"ciliumnodes",
-				"ciliumnodes/status",
-				"ciliumnodes/finalizers",
-				"ciliumidentities",
-				"ciliumidentities/finalizers",
-				"ciliumlocalredirectpolicies",
-				"ciliumlocalredirectpolicies/status",
-				"ciliumlocalredirectpolicies/finalizers",
-				"ciliumegressnatpolicies",
-				"ciliumegressnatpolicies/status",
-				"ciliumegressnatpolicies/finalizers",
-				"ciliumenvoyconfigs",
-				"ciliumenvoyconfigs/status",
-				"ciliumenvoyconfigs/finalizers",
-			},
-			Verbs: []string{"*"},
-		},
-	},
-}
-
-var operatorClusterRole = &rbacv1.ClusterRole{
-	ObjectMeta: metav1.ObjectMeta{
-		Name: defaults.OperatorClusterRoleName,
-	},
-	Rules: []rbacv1.PolicyRule{
-		// to automatically delete [core|kube]dns pods so that are starting to being
-		// managed by Cilium
-		{
-			APIGroups: []string{""},
-			Resources: []string{"pods"},
-			Verbs:     []string{"get", "list", "watch", "delete"},
-		},
-		{
-			APIGroups: []string{"discovery.k8s.io"},
-			Resources: []string{"endpointslices"},
-			Verbs:     []string{"get", "list", "watch"},
-		},
-		{
-			APIGroups: []string{""},
-			Resources: []string{
-				"namespaces", // to check apiserver connectivity
-				"secrets",    // for ingress controller / envoy-config to access TLS certificates
-			},
-			Verbs: []string{"get", "list", "watch"},
-		},
-		{
-			APIGroups: []string{""},
-			Resources: []string{
-				// - to perform the translation of a CNP that contains `ToGroup` to its endpoints
-				// - ingress controller creates / deletes services / endpoints.
-				"services", "endpoints",
-			},
-			Verbs: []string{"get", "list", "watch", "create", "update", "delete"},
-		},
-		{
-
-			APIGroups: []string{""},
-			Resources: []string{"services/status"}, // to perform LB IP allocation for BGP
-			Verbs:     []string{"update"},
-		},
-		{
-			APIGroups: []string{"cilium.io"},
-			Resources: []string{
-				"ciliumnetworkpolicies",
-				"ciliumnetworkpolicies/status",
-				"ciliumnetworkpolicies/finalizers",
-				"ciliumclusterwidenetworkpolicies",
-				"ciliumclusterwidenetworkpolicies/status",
-				"ciliumclusterwidenetworkpolicies/finalizers",
-				"ciliumendpoints",
-				"ciliumendpoints/status",
-				"ciliumendpoints/finalizers",
-				"ciliumnodes",
-				"ciliumnodes/status",
-				"ciliumnodes/finalizers",
-				"ciliumidentities",
-				"ciliumidentities/status",
-				"ciliumidentities/finalizers",
-				"ciliumlocalredirectpolicies",
-				"ciliumlocalredirectpolicies/status",
-				"ciliumlocalredirectpolicies/finalizers",
-				"ciliumegressnatpolicies",
-				"ciliumegressnatpolicies/status",
-				"ciliumegressnatpolicies/finalizers",
-				"ciliumenvoyconfigs",
-				"ciliumenvoyconfigs/status",
-				"ciliumenvoyconfigs/finalizers",
-			},
-			Verbs: []string{"*"},
-		},
-		{
-			APIGroups: []string{"apiextensions.k8s.io"},
-			Resources: []string{"customresourcedefinitions"},
-			Verbs:     []string{"create", "get", "list", "watch", "update"},
-		},
-		// For cilium-operator running in HA mode.
-		//
-		// Cilium operator running in HA mode requires the use of
-		// ResourceLock for Leader Election between multiple running
-		// instances.  The preferred way of doing this is to use
-		// LeasesResourceLock as edits to Leases are less common and
-		// fewer objects in the cluster watch "all Leases".  The
-		// support for leases was introduced in coordination.k8s.io/v1
-		// during Kubernetes 1.14 release.  In Cilium we currently
-		// don't support HA mode for K8s version < 1.14. This condition
-		// make sure that we only authorize access to leases resources
-		// in supported K8s versions.
-		{
-			APIGroups: []string{"coordination.k8s.io"},
-			Resources: []string{"leases"},
-			Verbs:     []string{"create", "get", "update"},
-		},
-		// For ingress controller
-		{
-			APIGroups: []string{"networking.k8s.io"},
-			Resources: []string{"ingresses"},
-			Verbs:     []string{"get", "list", "watch"},
-		},
-		{
-			APIGroups: []string{"networking.k8s.io"},
-			Resources: []string{"ingresses/status"}, // To update ingress status with load balancer IP.
-			Verbs:     []string{"update"},
-		},
-	},
-}
-
 func (k *K8sInstaller) generateAgentDaemonSet() *appsv1.DaemonSet {
-	ds := &appsv1.DaemonSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: defaults.AgentDaemonSetName,
-			Labels: map[string]string{
-				"k8s-app": "cilium",
-			},
-		},
-		Spec: appsv1.DaemonSetSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"k8s-app": "cilium",
-				},
-			},
-			UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
-				Type: appsv1.RollingUpdateDaemonSetStrategyType,
-				RollingUpdate: &appsv1.RollingUpdateDaemonSet{
-					MaxUnavailable: &agentMaxUnavailable,
-				},
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: defaults.AgentDaemonSetName,
-					Labels: map[string]string{
-						"k8s-app": "cilium",
-					},
-				},
-				Spec: corev1.PodSpec{
-					Affinity: &corev1.Affinity{
-						PodAntiAffinity: &corev1.PodAntiAffinity{
-							RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-								{
-									LabelSelector: &metav1.LabelSelector{
-										MatchExpressions: []metav1.LabelSelectorRequirement{
-											{Key: "k8s-app", Operator: metav1.LabelSelectorOpIn, Values: []string{"cilium"}},
-										},
-									},
-									TopologyKey: "kubernetes.io/hostname",
-								},
-							},
-						},
-					},
-					HostNetwork:                   true,
-					RestartPolicy:                 corev1.RestartPolicyAlways,
-					PriorityClassName:             "system-node-critical",
-					ServiceAccountName:            defaults.AgentServiceAccountName,
-					DeprecatedServiceAccount:      defaults.AgentServiceAccountName, // TODO(tgraf) do we still need this?
-					TerminationGracePeriodSeconds: &agentTerminationGracePeriodSeconds,
-					Tolerations: []corev1.Toleration{
-						{
-							Operator: corev1.TolerationOpExists,
-						},
-					},
-					Containers: []corev1.Container{
-						{
-							Name:            defaults.AgentContainerName,
-							Command:         []string{"cilium-agent"},
-							Args:            []string{"--config-dir=/tmp/cilium/config-map"},
-							Image:           k.fqAgentImage(utils.ImagePathIncludeDigest),
-							ImagePullPolicy: corev1.PullIfNotPresent,
-							LivenessProbe: &corev1.Probe{
-								ProbeHandler: corev1.ProbeHandler{
-									HTTPGet: &corev1.HTTPGetAction{
-										Host:   "127.0.0.1",
-										Path:   "/healthz",
-										Port:   intstr.FromInt(9876),
-										Scheme: corev1.URISchemeHTTP,
-										HTTPHeaders: []corev1.HTTPHeader{
-											{
-												Name:  "brief",
-												Value: "true",
-											},
-										},
-									},
-								},
-								TimeoutSeconds:      int32(5),
-								SuccessThreshold:    int32(1),
-								PeriodSeconds:       int32(30),
-								InitialDelaySeconds: int32(120),
-								FailureThreshold:    int32(10),
-							},
-							ReadinessProbe: &corev1.Probe{
-								ProbeHandler: corev1.ProbeHandler{
-									HTTPGet: &corev1.HTTPGetAction{
-										Host:   "127.0.0.1",
-										Path:   "/healthz",
-										Port:   intstr.FromInt(9876),
-										Scheme: corev1.URISchemeHTTP,
-										HTTPHeaders: []corev1.HTTPHeader{
-											{
-												Name:  "brief",
-												Value: "true",
-											},
-										},
-									},
-								},
-								TimeoutSeconds:      int32(5),
-								SuccessThreshold:    int32(1),
-								PeriodSeconds:       int32(30),
-								InitialDelaySeconds: int32(5),
-								FailureThreshold:    int32(3),
-							},
-							Env: []corev1.EnvVar{
-								{
-									Name: "K8S_NODE_NAME",
-									ValueFrom: &corev1.EnvVarSource{
-										FieldRef: &corev1.ObjectFieldSelector{
-											APIVersion: "v1",
-											FieldPath:  "spec.nodeName",
-										},
-									},
-								},
-								{
-									Name: "CILIUM_K8S_NAMESPACE",
-									ValueFrom: &corev1.EnvVarSource{
-										FieldRef: &corev1.ObjectFieldSelector{
-											APIVersion: "v1",
-											FieldPath:  "metadata.namespace",
-										},
-									},
-								},
-								{
-									Name: "CILIUM_FLANNEL_MASTER_DEVICE",
-									ValueFrom: &corev1.EnvVarSource{
-										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "cilium-config",
-											},
-											Key:      "flannel-master-device",
-											Optional: &varTrue,
-										},
-									},
-								},
-								{
-									Name: "CILIUM_FLANNEL_UNINSTALL_ON_EXIT",
-									ValueFrom: &corev1.EnvVarSource{
-										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "cilium-config",
-											},
-											Key:      "flannel-uninstall-on-exit",
-											Optional: &varTrue,
-										},
-									},
-								},
-								{
-									Name:  "CILIUM_CLUSTERMESH_CONFIG",
-									Value: "/var/lib/cilium/clustermesh/",
-								},
-								{
-									Name: "CILIUM_CNI_CHAINING_MODE",
-									ValueFrom: &corev1.EnvVarSource{
-										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "cilium-config",
-											},
-											Key:      "cni-chaining-mode",
-											Optional: &varTrue,
-										},
-									},
-								},
-								{
-									Name: "CILIUM_CUSTOM_CNI_CONF",
-									ValueFrom: &corev1.EnvVarSource{
-										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "cilium-config",
-											},
-											Key:      "custom-cni-conf",
-											Optional: &varTrue,
-										},
-									},
-								},
-							},
-							Lifecycle: &corev1.Lifecycle{
-								PostStart: &corev1.LifecycleHandler{
-									Exec: &corev1.ExecAction{
-										Command: []string{"/cni-install.sh", "--enable-debug=false"},
-									},
-								},
-								PreStop: &corev1.LifecycleHandler{
-									Exec: &corev1.ExecAction{
-										Command: []string{"/cni-uninstall.sh"},
-									},
-								},
-							},
-							SecurityContext: &corev1.SecurityContext{
-								Capabilities: &corev1.Capabilities{
-									Add: []corev1.Capability{"NET_ADMIN", "SYS_MODULE"},
-								},
-								Privileged: &varTrue,
-							},
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "bpf-maps",
-									MountPath: "/sys/fs/bpf",
-								},
-								{
-									Name:      "cilium-run",
-									MountPath: "/var/run/cilium",
-								},
-								{
-									Name:      "cni-path",
-									MountPath: "/host/opt/cni/bin",
-								},
-								{
-									Name:      "etc-cni-netd",
-									MountPath: "/host/etc/cni/net.d",
-								},
-								{
-									Name:      "clustermesh-secrets",
-									MountPath: "/var/lib/cilium/clustermesh",
-									ReadOnly:  true,
-								},
-								{
-									Name:      "cilium-config-path",
-									MountPath: "/tmp/cilium/config-map",
-									ReadOnly:  true,
-								},
-								{
-									// Needed to be able to load kernel modules
-									Name:      "lib-modules",
-									MountPath: "/lib/modules",
-									ReadOnly:  true,
-								},
-								{
-									Name:      "xtables-lock",
-									MountPath: "/run/xtables.lock",
-								},
-								{
-									Name:      "hubble-tls",
-									MountPath: "/var/lib/cilium/tls/hubble",
-									ReadOnly:  true,
-								},
-							},
-						},
-					},
-					InitContainers: []corev1.Container{
-						{
-							Name:            "clean-cilium-state",
-							Command:         []string{"/init-container.sh"},
-							Image:           k.fqAgentImage(utils.ImagePathIncludeDigest),
-							ImagePullPolicy: corev1.PullIfNotPresent,
-							Env: []corev1.EnvVar{
-								{
-									Name: "CILIUM_ALL_STATE",
-									ValueFrom: &corev1.EnvVarSource{
-										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "cilium-config",
-											},
-											Key:      "clean-cilium-state",
-											Optional: &varTrue,
-										},
-									},
-								},
-								{
-									Name: "CILIUM_BPF_STATE",
-									ValueFrom: &corev1.EnvVarSource{
-										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "cilium-config",
-											},
-											Key:      "clean-cilium-bpf-state",
-											Optional: &varTrue,
-										},
-									},
-								},
-								{
-									Name: "CILIUM_WAIT_BPF_MOUNT",
-									ValueFrom: &corev1.EnvVarSource{
-										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "cilium-config",
-											},
-											Key:      "wait-bpf-mount",
-											Optional: &varTrue,
-										},
-									},
-								},
-							},
-							SecurityContext: &corev1.SecurityContext{
-								Capabilities: &corev1.Capabilities{
-									Add: []corev1.Capability{"NET_ADMIN"},
-								},
-								Privileged: &varTrue,
-							},
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:             "bpf-maps",
-									MountPath:        "/sys/fs/bpf",
-									MountPropagation: &hostToContainer,
-								},
-								{
-									Name:      "cilium-run",
-									MountPath: "/var/run/cilium",
-								},
-							},
-							Resources: corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("100m"),
-									corev1.ResourceMemory: resource.MustParse("100Mi"),
-								},
-							},
-						},
-					},
-					Volumes: []corev1.Volume{
-						{
-							// To keep state between restarts / upgrades
-							Name: "cilium-run",
-							VolumeSource: corev1.VolumeSource{
-								HostPath: &corev1.HostPathVolumeSource{
-									Path: k.daemonRunPathOnHost(),
-									Type: &hostPathDirectoryOrCreate,
-								},
-							},
-						},
-						{
-							// To keep state between restarts / upgrades for bpf maps
-							Name: "bpf-maps",
-							VolumeSource: corev1.VolumeSource{
-								HostPath: &corev1.HostPathVolumeSource{
-									Path: "/sys/fs/bpf",
-									Type: &hostPathDirectoryOrCreate,
-								},
-							},
-						},
-						{
-							// To install cilium cni plugin in the host
-							Name: "cni-path",
-							VolumeSource: corev1.VolumeSource{
-								HostPath: &corev1.HostPathVolumeSource{
-									Path: k.cniBinPathOnHost(),
-									Type: &hostPathDirectoryOrCreate,
-								},
-							},
-						},
-						{
-							// To install cilium cni configuration in the host
-							Name: "etc-cni-netd",
-							VolumeSource: corev1.VolumeSource{
-								HostPath: &corev1.HostPathVolumeSource{
-									Path: k.cniConfPathOnHost(),
-									Type: &hostPathDirectoryOrCreate,
-								},
-							},
-						},
-						{
-							// To be able to load kernel modules
-							Name: "lib-modules",
-							VolumeSource: corev1.VolumeSource{
-								HostPath: &corev1.HostPathVolumeSource{
-									Path: "/lib/modules",
-								},
-							},
-						},
-						{
-							// To access iptables concurrently with other processes (e.g. kube-proxy)
-							Name: "xtables-lock",
-							VolumeSource: corev1.VolumeSource{
-								HostPath: &corev1.HostPathVolumeSource{
-									Path: "/run/xtables.lock",
-									Type: &hostPathFileOrCreate,
-								},
-							},
-						},
-						{
-							// To read the clustermesh configuration
-							Name: "clustermesh-secrets",
-							VolumeSource: corev1.VolumeSource{
-								Secret: &corev1.SecretVolumeSource{
-									SecretName:  "cilium-clustermesh",
-									Optional:    &varTrue,
-									DefaultMode: &secretDefaultMode,
-								},
-							},
-						},
-						{
-							// To read the configuration from the config map
-							Name: "cilium-config-path",
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "cilium-config",
-									},
-								},
-							},
-						},
-						{
-							Name: "hubble-tls",
-							VolumeSource: corev1.VolumeSource{
-								Projected: &corev1.ProjectedVolumeSource{
-									DefaultMode: &secretDefaultMode,
-									Sources: []corev1.VolumeProjection{
-										{
-											Secret: &corev1.SecretProjection{
-												LocalObjectReference: corev1.LocalObjectReference{
-													Name: defaults.HubbleServerSecretName,
-												},
-												Items: []corev1.KeyToPath{
-													{
-														Key:  corev1.TLSCertKey,
-														Path: "server.crt",
-													},
-													{
-														Key:  corev1.TLSPrivateKeyKey,
-														Path: "server.key",
-													},
-													{
-														Key:  defaults.CASecretCertName,
-														Path: "client-ca.crt",
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
+	var (
+		dsFilename string
+	)
+
+	ciliumVer := k.getCiliumVersion()
+	switch {
+	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+		dsFilename = "templates/cilium-agent/daemonset.yaml"
 	}
 
-	nodeInitContainers := []corev1.Container{}
-	auxVolumes := []corev1.Volume{}
-	auxVolumeMounts := []corev1.VolumeMount{}
+	dsFile := k.manifests[dsFilename]
 
-	if k.params.Encryption == encryptionIPsec {
-		auxVolumes = append(auxVolumes, corev1.Volume{
-			Name: "cilium-ipsec-secrets",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: defaults.EncryptionSecretName,
-				},
-			},
-		})
-
-		auxVolumeMounts = append(auxVolumeMounts, corev1.VolumeMount{
-			Name:      "cilium-ipsec-secrets",
-			MountPath: "/etc/ipsec",
-		})
-	}
-
-	switch k.flavor.Kind {
-	case k8s.KindGKE:
-		nodeInitContainers = append(nodeInitContainers, corev1.Container{
-			Name:            "wait-for-node-init",
-			Image:           k.fqAgentImage(utils.ImagePathIncludeDigest),
-			ImagePullPolicy: corev1.PullIfNotPresent,
-			Command:         []string{"sh", "-c", `until stat /tmp/cilium-bootstrap/time > /dev/null 2>&1; do echo "Waiting for GKE node-init to run..."; sleep 1; done`},
-			VolumeMounts: []corev1.VolumeMount{
-				{
-					Name:      "cilium-bootstrap",
-					MountPath: "/tmp/cilium-bootstrap",
-				},
-			},
-		})
-
-		auxVolumes = append(auxVolumes, corev1.Volume{
-			Name: "cilium-bootstrap",
-			VolumeSource: corev1.VolumeSource{
-				HostPath: &corev1.HostPathVolumeSource{
-					Path: "/tmp/cilium-bootstrap",
-					Type: &hostPathDirectoryOrCreate,
-				},
-			},
-		})
-
-	}
-
-	mountCmd := `mount | grep "/sys/fs/bpf type bpf" || { echo "Mounting eBPF filesystem..."; mount bpffs /sys/fs/bpf -t bpf; }`
-	nodeInitContainers = append(nodeInitContainers, corev1.Container{
-		Name:            "ebpf-mount",
-		Image:           k.fqAgentImage(utils.ImagePathIncludeDigest),
-		ImagePullPolicy: corev1.PullIfNotPresent,
-		Command:         []string{"nsenter", "--mount=/hostproc/1/ns/mnt", "--", "sh", "-c", mountCmd},
-		SecurityContext: &corev1.SecurityContext{
-			Privileged: &varTrue,
-			// This doesn't work yet for some reason. It would allow to drop privileged mode:w
-			//
-			// Capabilities: &corev1.Capabilities{
-			// Add: []corev1.Capability{"SYS_PTRACE", "SYS_ADMIN", "SYS_CHROOT"},
-			// },
-		},
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				Name:      "host-proc",
-				MountPath: "/hostproc",
-			},
-		},
-		Resources: corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("100m"),
-				corev1.ResourceMemory: resource.MustParse("100Mi"),
-			},
-		},
-	})
-
-	auxVolumes = append(auxVolumes, corev1.Volume{
-		Name: "host-proc",
-		VolumeSource: corev1.VolumeSource{
-			HostPath: &corev1.HostPathVolumeSource{
-				Path: "/proc",
-				Type: &hostPathDirectoryOrCreate,
-			},
-		},
-	})
-
-	ds.Spec.Template.Spec.InitContainers = append(nodeInitContainers, ds.Spec.Template.Spec.InitContainers...)
-	ds.Spec.Template.Spec.Volumes = append(ds.Spec.Template.Spec.Volumes, auxVolumes...)
-	ds.Spec.Template.Spec.Containers[0].VolumeMounts = append(ds.Spec.Template.Spec.Containers[0].VolumeMounts, auxVolumeMounts...)
-
-	if k.bgpEnabled() {
-		ds.Spec.Template.Spec.Containers[0].VolumeMounts = append(ds.Spec.Template.Spec.Containers[0].VolumeMounts,
-			corev1.VolumeMount{
-				Name:      "bgp-config-path",
-				ReadOnly:  true,
-				MountPath: "/var/lib/cilium/bgp",
-			},
-		)
-		ds.Spec.Template.Spec.Volumes = append(ds.Spec.Template.Spec.Volumes, corev1.Volume{
-			Name: "bgp-config-path",
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "bgp-config",
-					},
-				},
-			},
-		})
-	}
-
-	return ds
+	var ds appsv1.DaemonSet
+	utils.MustUnmarshalYAML([]byte(dsFile), &ds)
+	return &ds
 }
 
 func (k *K8sInstaller) generateOperatorDeployment() *appsv1.Deployment {
-	deployment := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   defaults.OperatorDeploymentName,
-			Labels: defaults.OperatorLabels,
-		},
-		Spec: appsv1.DeploymentSpec{
-			Replicas: &operatorReplicas,
-			Selector: &metav1.LabelSelector{
-				MatchLabels: defaults.OperatorLabels,
-			},
-			Strategy: appsv1.DeploymentStrategy{
-				Type: appsv1.RollingUpdateDeploymentStrategyType,
-				RollingUpdate: &appsv1.RollingUpdateDeployment{
-					MaxUnavailable: &operatorMaxUnavailable,
-					MaxSurge:       &operatorMaxSurge,
-				},
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:   "cilium-operator",
-					Labels: defaults.OperatorLabels,
-				},
-				Spec: corev1.PodSpec{
-					RestartPolicy:                 corev1.RestartPolicyAlways,
-					PriorityClassName:             "system-cluster-critical",
-					ServiceAccountName:            defaults.OperatorServiceAccountName,
-					DeprecatedServiceAccount:      defaults.OperatorServiceAccountName, // TODO(tgraf) do we still need this?
-					TerminationGracePeriodSeconds: &agentTerminationGracePeriodSeconds,
-					HostNetwork:                   true,
-					Tolerations: []corev1.Toleration{
-						{
-							Operator: corev1.TolerationOpExists,
-						},
-					},
-					Affinity: &corev1.Affinity{
-						PodAffinity: &corev1.PodAffinity{
-							RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-								{
-									LabelSelector: &metav1.LabelSelector{
-										MatchExpressions: []metav1.LabelSelectorRequirement{
-											{Key: "io.cilium/app", Operator: metav1.LabelSelectorOpIn, Values: []string{"operator"}},
-										},
-									},
-									TopologyKey: "kubernetes.io/hostname",
-								},
-							},
-						},
-					},
-					Containers: []corev1.Container{
-						{
-							Name:            "cilium-operator",
-							Command:         k.operatorCommand(),
-							Args:            []string{"--config-dir=/tmp/cilium/config-map"},
-							Image:           k.fqOperatorImage(utils.ImagePathIncludeDigest),
-							ImagePullPolicy: corev1.PullIfNotPresent,
-							Env: []corev1.EnvVar{
-								{
-									Name: "K8S_NODE_NAME",
-									ValueFrom: &corev1.EnvVarSource{
-										FieldRef: &corev1.ObjectFieldSelector{
-											APIVersion: "v1",
-											FieldPath:  "spec.nodeName",
-										},
-									},
-								},
-								{
-									Name: "CILIUM_K8S_NAMESPACE",
-									ValueFrom: &corev1.EnvVarSource{
-										FieldRef: &corev1.ObjectFieldSelector{
-											APIVersion: "v1",
-											FieldPath:  "metadata.namespace",
-										},
-									},
-								},
-								{
-									Name: "CILIUM_DEBUG",
-									ValueFrom: &corev1.EnvVarSource{
-										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "cilium-config",
-											},
-											Key:      "debug",
-											Optional: &varTrue,
-										},
-									},
-								},
-							},
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "cilium-config-path",
-									MountPath: "/tmp/cilium/config-map",
-									ReadOnly:  true,
-								},
-							},
-						},
-					},
-					Volumes: []corev1.Volume{
-						{
-							// To read the configuration from the config map
-							Name: "cilium-config-path",
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "cilium-config",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
+	var (
+		deployFilename string
+	)
+
+	ciliumVer := k.getCiliumVersion()
+	switch {
+	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+		deployFilename = "templates/cilium-operator/deployment.yaml"
 	}
 
-	switch k.params.DatapathMode {
-	case DatapathAwsENI:
-		c := &deployment.Spec.Template.Spec.Containers[0]
-		c.Env = append(c.Env, corev1.EnvVar{
-			Name: "AWS_ACCESS_KEY_ID",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "cilium-aws",
-					},
-					Key:      "AWS_ACCESS_KEY_ID",
-					Optional: &varTrue,
-				},
-			},
-		})
+	deployFile := k.manifests[deployFilename]
 
-		c.Env = append(c.Env, corev1.EnvVar{
-			Name: "AWS_SECRET_ACCESS_KEY",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "cilium-aws",
-					},
-					Key:      "AWS_SECRET_ACCESS_KEY",
-					Optional: &varTrue,
-				},
-			},
-		})
-
-		c.Env = append(c.Env, corev1.EnvVar{
-			Name: "AWS_DEFAULT_REGION",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "cilium-aws",
-					},
-					Key:      "AWS_DEFAULT_REGION",
-					Optional: &varTrue,
-				},
-			},
-		})
-
-	case DatapathAzure:
-		c := &deployment.Spec.Template.Spec.Containers[0]
-		c.Env = append(c.Env, corev1.EnvVar{
-			Name:  "AZURE_SUBSCRIPTION_ID",
-			Value: k.params.Azure.SubscriptionID,
-		})
-
-		c.Env = append(c.Env, corev1.EnvVar{
-			Name:  "AZURE_TENANT_ID",
-			Value: k.params.Azure.TenantID,
-		})
-
-		c.Env = append(c.Env, corev1.EnvVar{
-			Name:  "AZURE_RESOURCE_GROUP",
-			Value: k.params.Azure.AKSNodeResourceGroup,
-		})
-
-		c.Env = append(c.Env, corev1.EnvVar{
-			Name:  "AZURE_CLIENT_ID",
-			Value: k.params.Azure.ClientID,
-		})
-
-		c.Env = append(c.Env, corev1.EnvVar{
-			Name:  "AZURE_CLIENT_SECRET",
-			Value: k.params.Azure.ClientSecret,
-		})
-	}
-
-	if k.bgpEnabled() {
-		deployment.Spec.Template.Spec.Containers[0].VolumeMounts = append(deployment.Spec.Template.Spec.Containers[0].VolumeMounts,
-			corev1.VolumeMount{
-				Name:      "bgp-config-path",
-				ReadOnly:  true,
-				MountPath: "/var/lib/cilium/bgp",
-			},
-		)
-		deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, corev1.Volume{
-			Name: "bgp-config-path",
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "bgp-config",
-					},
-				},
-			},
-		})
-	}
-
-	return deployment
+	var deploy appsv1.Deployment
+	utils.MustUnmarshalYAML([]byte(deployFile), &deploy)
+	return &deploy
 }
 
 type k8sInstallerImplementation interface {
@@ -1026,6 +129,7 @@ type k8sInstallerImplementation interface {
 	ListCiliumEndpoints(ctx context.Context, namespace string, opts metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error)
 	GetRunningCiliumVersion(ctx context.Context, namespace string) (string, error)
 	GetPlatform(ctx context.Context) (*k8s.Platform, error)
+	GetServerVersion() (*semver.Version, error)
 	CreateIngressClass(ctx context.Context, r *networkingv1.IngressClass, opts metav1.CreateOptions) (*networkingv1.IngressClass, error)
 	DeleteIngressClass(ctx context.Context, name string, opts metav1.DeleteOptions) error
 }
@@ -1036,6 +140,7 @@ type K8sInstaller struct {
 	flavor        k8s.Flavor
 	certManager   *certs.CertManager
 	rollbackSteps []rollbackStep
+	manifests     map[string]string
 }
 
 const (
@@ -1089,6 +194,11 @@ type Parameters struct {
 	// BaseVersion is used to explicitly specify Cilium version for generating the config map
 	// in case it cannot be inferred from the Version field (e.g. commit SHA tags for CI images).
 	BaseVersion string
+
+	// K8sVersion is the Kubernetes version that will be used to generate the
+	// kubernetes manifests. If the auto-detection fails, this flag can be used
+	// as a workaround.
+	K8sVersion string
 }
 
 type rollbackStep func(context.Context)
@@ -1112,35 +222,6 @@ func (p *Parameters) validate() error {
 	return nil
 }
 
-func (k *K8sInstaller) cniBinPathOnHost() string {
-	switch k.flavor.Kind {
-	case k8s.KindGKE:
-		return "/home/kubernetes/bin"
-	case k8s.KindMicrok8s:
-		return Microk8sSnapPath + "/opt/cni/bin"
-	}
-
-	return "/opt/cni/bin"
-}
-
-func (k *K8sInstaller) cniConfPathOnHost() string {
-	switch k.flavor.Kind {
-	case k8s.KindMicrok8s:
-		return Microk8sSnapPath + "/args/cni-network"
-	}
-
-	return "/etc/cni/net.d"
-}
-
-func (k *K8sInstaller) daemonRunPathOnHost() string {
-	switch k.flavor.Kind {
-	case k8s.KindMicrok8s:
-		return Microk8sSnapPath + "/var/run/cilium"
-	}
-
-	return "/var/run/cilium"
-}
-
 func (k *K8sInstaller) fqAgentImage(imagePathMode utils.ImagePathMode) string {
 	return utils.BuildImagePath(k.params.AgentImage, k.params.Version, defaults.AgentImage, defaults.Version, imagePathMode)
 }
@@ -1157,15 +238,27 @@ func (k *K8sInstaller) fqOperatorImage(imagePathMode utils.ImagePathMode) string
 	return utils.BuildImagePath(k.params.OperatorImage, k.params.Version, defaultImage, defaults.Version, imagePathMode)
 }
 
-func (k *K8sInstaller) operatorCommand() []string {
-	switch k.params.DatapathMode {
-	case DatapathAwsENI:
-		return []string{"cilium-operator-aws"}
-	case DatapathAzure:
-		return []string{"cilium-operator-azure"}
+func newHelmClient(namespace, k8sVersion string) (*action.Install, error) {
+	actionConfig := new(action.Configuration)
+	helmClient := action.NewInstall(actionConfig)
+	helmClient.DryRun = true
+	helmClient.ReleaseName = "release-name"
+	helmClient.Replace = true // Skip the name check
+	helmClient.ClientOnly = true
+	helmClient.APIVersions = []string{k8sVersion}
+	helmClient.Namespace = namespace
+
+	return helmClient, nil
+}
+
+func newHelmChartFromCiliumVersion(ciliumVersion string) (*chart.Chart, error) {
+	helmTgz, err := ciliumhelm.HelmFS.ReadFile(fmt.Sprintf("cilium-%s.tgz", ciliumVersion))
+	if err != nil {
+		return nil, fmt.Errorf("cilium version not found: %s", err)
 	}
 
-	return []string{"cilium-operator-generic"}
+	// Check chart dependencies to make sure all are present in /charts
+	return loader.LoadArchive(bytes.NewReader(helmTgz))
 }
 
 func NewK8sInstaller(client k8sInstallerImplementation, p Parameters) (*K8sInstaller, error) {
@@ -1378,11 +471,6 @@ func (k *K8sInstaller) generateConfigMap() (*corev1.ConfigMap, error) {
 		m.Data["enable-bpf-masquerade"] = "false"
 	}
 
-	// Put the init script in place (if any).
-	if initScript, exists := nodeInitScript[k.flavor.Kind]; exists {
-		m.Data[nodeInitScriptConfigMapKey(k.flavor.Kind)] = strings.ReplaceAll(initScript, "{{ .Values.cni.binPath }}", k.cniBinPathOnHost())
-	}
-
 	switch k.params.Encryption {
 	case encryptionIPsec:
 		m.Data["enable-ipsec"] = "true"
@@ -1588,13 +676,33 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 			k.params.IPv4NativeRoutingCIDR = cidr
 		}
 
+	case k8s.KindAKS:
+		if err := k.aksSetup(ctx); err != nil {
+			return err
+		}
+	}
+
+	err := k.generateManifests(ctx)
+	if err != nil {
+		return err
+	}
+
+	switch k.flavor.Kind {
+	case k8s.KindGKE:
+		// TODO(aanm) automate this as well in form of helm chart
 		if err := k.deployResourceQuotas(ctx); err != nil {
 			return err
 		}
 
 	case k8s.KindAKS:
-		if err := k.aksSetup(ctx); err != nil {
-			return err
+		// We only made the secret-based azure installation available in >= 1.12.0
+		// Introduced in https://github.com/cilium/cilium/pull/18010
+		ciliumVer := k.getCiliumVersion()
+		switch {
+		case versioncheck.MustCompile(">=1.12.0")(ciliumVer):
+			if err := k.createAKSSecrets(ctx); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -1603,7 +711,7 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 	}
 
 	k.Log("🚀 Creating Service accounts...")
-	if _, err := k.client.CreateServiceAccount(ctx, k.params.Namespace, k8s.NewServiceAccount(defaults.AgentServiceAccountName), metav1.CreateOptions{}); err != nil {
+	if _, err := k.client.CreateServiceAccount(ctx, k.params.Namespace, k.NewServiceAccount(defaults.AgentServiceAccountName), metav1.CreateOptions{}); err != nil {
 		return err
 	}
 	k.pushRollbackStep(func(ctx context.Context) {
@@ -1612,7 +720,7 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 		}
 	})
 
-	if _, err := k.client.CreateServiceAccount(ctx, k.params.Namespace, k8s.NewServiceAccount(defaults.OperatorServiceAccountName), metav1.CreateOptions{}); err != nil {
+	if _, err := k.client.CreateServiceAccount(ctx, k.params.Namespace, k.NewServiceAccount(defaults.OperatorServiceAccountName), metav1.CreateOptions{}); err != nil {
 		return err
 	}
 	k.pushRollbackStep(func(ctx context.Context) {
@@ -1622,7 +730,7 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 	})
 
 	k.Log("🚀 Creating Cluster roles...")
-	if _, err := k.client.CreateClusterRole(ctx, ciliumClusterRole, metav1.CreateOptions{}); err != nil {
+	if _, err := k.client.CreateClusterRole(ctx, k.NewClusterRole(defaults.AgentClusterRoleName), metav1.CreateOptions{}); err != nil {
 		return err
 	}
 	k.pushRollbackStep(func(ctx context.Context) {
@@ -1631,7 +739,7 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 		}
 	})
 
-	if _, err := k.client.CreateClusterRoleBinding(ctx, k8s.NewClusterRoleBinding(defaults.AgentClusterRoleName, k.params.Namespace, defaults.AgentServiceAccountName), metav1.CreateOptions{}); err != nil {
+	if _, err := k.client.CreateClusterRoleBinding(ctx, k.NewClusterRoleBinding(defaults.AgentClusterRoleName), metav1.CreateOptions{}); err != nil {
 		return err
 	}
 	k.pushRollbackStep(func(ctx context.Context) {
@@ -1640,7 +748,7 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 		}
 	})
 
-	if _, err := k.client.CreateClusterRole(ctx, operatorClusterRole, metav1.CreateOptions{}); err != nil {
+	if _, err := k.client.CreateClusterRole(ctx, k.NewClusterRole(defaults.OperatorClusterRoleName), metav1.CreateOptions{}); err != nil {
 		return err
 	}
 	k.pushRollbackStep(func(ctx context.Context) {
@@ -1649,7 +757,7 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 		}
 	})
 
-	if _, err := k.client.CreateClusterRoleBinding(ctx, k8s.NewClusterRoleBinding(defaults.OperatorClusterRoleName, k.params.Namespace, defaults.OperatorServiceAccountName), metav1.CreateOptions{}); err != nil {
+	if _, err := k.client.CreateClusterRoleBinding(ctx, k.NewClusterRoleBinding(defaults.OperatorClusterRoleName), metav1.CreateOptions{}); err != nil {
 		return err
 	}
 	k.pushRollbackStep(func(ctx context.Context) {
@@ -1659,6 +767,7 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 	})
 
 	if k.params.Encryption == encryptionIPsec {
+		// TODO(aanm) automate this as well in form of helm chart
 		if err := k.createEncryptionSecret(ctx); err != nil {
 			return err
 		}
@@ -1673,6 +782,7 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 		}
 	})
 
+	// TODO(aanm) automate this as well in form of helm chart
 	configMap, err := k.generateConfigMap()
 	if err != nil {
 		return fmt.Errorf("cannot generate ConfigMap: %w", err)
