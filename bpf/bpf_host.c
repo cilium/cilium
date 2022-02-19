@@ -218,11 +218,11 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 	}
 #endif /* ENABLE_NODEPORT */
 
-#if defined(NO_REDIRECT) && !defined(ENABLE_REDIRECT_FAST)
-	/* See IPv4 case for NO_REDIRECT/ENABLE_REDIRECT_FAST comments */
+#if defined(NO_REDIRECT) && !defined(ENABLE_HOST_ROUTING)
+	/* See IPv4 case for NO_REDIRECT/ENABLE_HOST_ROUTING comments */
 	if (!from_host)
 		skip_redirect = true;
-#endif /* NO_REDIRECT && !ENABLE_REDIRECT_FAST */
+#endif /* NO_REDIRECT && !ENABLE_HOST_ROUTING */
 
 #ifdef ENABLE_HOST_FIREWALL
 	if (from_host) {
@@ -253,7 +253,7 @@ skip_host_firewall:
 			return DROP_INVALID;
 	}
 
-	/* Lookup IPv4 address in list of local endpoints */
+	/* Lookup IPv6 address in list of local endpoints */
 	ep = lookup_ip6_endpoint(ip6);
 	if (ep) {
 		/* Let through packets to the node-ip so they are
@@ -487,7 +487,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 	}
 #endif /* ENABLE_NODEPORT */
 
-#if defined(NO_REDIRECT) && !defined(ENABLE_REDIRECT_FAST)
+#if defined(NO_REDIRECT) && !defined(ENABLE_HOST_ROUTING)
 	/* Without bpf_redirect_neigh() helper, we cannot redirect a
 	 * packet to a local endpoint in the direct routing mode, as
 	 * the redirect bypasses nf_conntrack table. This makes a
@@ -499,7 +499,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 	 */
 	if (!from_host)
 		skip_redirect = true;
-#endif /* NO_REDIRECT && !ENABLE_REDIRECT_FAST */
+#endif /* NO_REDIRECT && !ENABLE_HOST_ROUTING */
 
 #ifdef ENABLE_HOST_FIREWALL
 	if (from_host) {
