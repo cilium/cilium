@@ -410,7 +410,7 @@ ct_recreate6:
 		return DROP_MISSED_TAIL_CALL;
 	}
 #endif
-	if (is_defined(ENABLE_REDIRECT_FAST))
+	if (is_defined(ENABLE_HOST_ROUTING))
 		return redirect_direct_v6(ctx, l3_off, ip6);
 
 	goto pass_to_stack;
@@ -907,7 +907,7 @@ skip_egress_gateway:
 			return ret;
 	}
 #endif /* TUNNEL_MODE */
-	if (is_defined(ENABLE_REDIRECT_FAST))
+	if (is_defined(ENABLE_HOST_ROUTING))
 		return redirect_direct_v4(ctx, l3_off, ip4);
 
 	goto pass_to_stack;

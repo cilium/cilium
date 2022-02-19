@@ -911,7 +911,7 @@ static __always_inline int redirect_ep(struct __ctx_buff *ctx __maybe_unused,
 	 * versa.
 	 */
 #ifdef ENABLE_HOST_REDIRECT
-	if (needs_backlog || !is_defined(ENABLE_REDIRECT_FAST)) {
+	if (needs_backlog || !is_defined(ENABLE_HOST_ROUTING)) {
 		return ctx_redirect(ctx, ifindex, 0);
 	} else {
 # ifdef ENCAP_IFINDEX

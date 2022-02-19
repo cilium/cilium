@@ -70,7 +70,7 @@ func (dm *DeviceManager) Detect() error {
 
 	l3DevOK := true
 	if !option.Config.EnableHostLegacyRouting {
-		// Probe whether fast redirect is supported for L3 devices. This will
+		// Probe whether BPF host routing is supported for L3 devices. This will
 		// invoke bpftool and requires root privileges, so we're only probing
 		// when necessary.
 		l3DevOK = supportL3Dev()
@@ -377,7 +377,7 @@ func findK8SNodeIPLink() (netlink.Link, error) {
 	return nil, fmt.Errorf("K8s node device not found")
 }
 
-// supportL3Dev returns true if the kernel is new enough to support fast redirection of
+// supportL3Dev returns true if the kernel is new enough to support BPF host routing of
 // packets coming from L3 devices using bpf_skb_redirect_peer.
 func supportL3Dev() bool {
 	probesManager := probes.NewProbeManager()

@@ -281,7 +281,7 @@ func initializeFlags() {
 	flags.StringSlice(option.Devices, []string{}, "List of devices facing cluster/external network (used for BPF NodePort, BPF masquerading and host firewall); supports '+' as wildcard in device name, e.g. 'eth+'")
 	option.BindEnv(option.Devices)
 
-	flags.String(option.DirectRoutingDevice, "", "Device name used to connect nodes in direct routing mode (used by BPF NodePort, BPF fast redirect; if empty, automatically set to a device with k8s InternalIP/ExternalIP or with a default route)")
+	flags.String(option.DirectRoutingDevice, "", "Device name used to connect nodes in direct routing mode (used by BPF NodePort, BPF host routing; if empty, automatically set to a device with k8s InternalIP/ExternalIP or with a default route)")
 	option.BindEnv(option.DirectRoutingDevice)
 
 	flags.String(option.LBDevInheritIPAddr, "", fmt.Sprintf("Device name which IP addr is inherited by devices running LB BPF program (--%s)", option.Devices))

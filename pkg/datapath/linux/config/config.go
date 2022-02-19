@@ -371,7 +371,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			cDefinesMap["ENABLE_NODEPORT_ACCELERATION"] = "1"
 		}
 		if !option.Config.EnableHostLegacyRouting {
-			cDefinesMap["ENABLE_REDIRECT_FAST"] = "1"
+			cDefinesMap["ENABLE_HOST_ROUTING"] = "1"
 		}
 		if option.Config.EnableSVCSourceRangeCheck {
 			cDefinesMap["ENABLE_SRC_RANGE_CHECK"] = "1"
