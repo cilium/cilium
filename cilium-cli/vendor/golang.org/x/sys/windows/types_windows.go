@@ -938,8 +938,8 @@ type StartupInfoEx struct {
 type ProcThreadAttributeList struct{}
 
 type ProcThreadAttributeListContainer struct {
-	data            *ProcThreadAttributeList
-	heapAllocations []uintptr
+	data     *ProcThreadAttributeList
+	pointers []unsafe.Pointer
 }
 
 type ProcessInformation struct {
@@ -2747,6 +2747,43 @@ type PROCESS_BASIC_INFORMATION struct {
 	BasePriority                 int32
 	UniqueProcessId              uintptr
 	InheritedFromUniqueProcessId uintptr
+}
+
+type SYSTEM_PROCESS_INFORMATION struct {
+	NextEntryOffset              uint32
+	NumberOfThreads              uint32
+	WorkingSetPrivateSize        int64
+	HardFaultCount               uint32
+	NumberOfThreadsHighWatermark uint32
+	CycleTime                    uint64
+	CreateTime                   int64
+	UserTime                     int64
+	KernelTime                   int64
+	ImageName                    NTUnicodeString
+	BasePriority                 int32
+	UniqueProcessID              uintptr
+	InheritedFromUniqueProcessID uintptr
+	HandleCount                  uint32
+	SessionID                    uint32
+	UniqueProcessKey             *uint32
+	PeakVirtualSize              uintptr
+	VirtualSize                  uintptr
+	PageFaultCount               uint32
+	PeakWorkingSetSize           uintptr
+	WorkingSetSize               uintptr
+	QuotaPeakPagedPoolUsage      uintptr
+	QuotaPagedPoolUsage          uintptr
+	QuotaPeakNonPagedPoolUsage   uintptr
+	QuotaNonPagedPoolUsage       uintptr
+	PagefileUsage                uintptr
+	PeakPagefileUsage            uintptr
+	PrivatePageCount             uintptr
+	ReadOperationCount           int64
+	WriteOperationCount          int64
+	OtherOperationCount          int64
+	ReadTransferCount            int64
+	WriteTransferCount           int64
+	OtherTransferCount           int64
 }
 
 // SystemInformationClasses for NtQuerySystemInformation and NtSetSystemInformation

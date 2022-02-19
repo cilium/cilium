@@ -18,6 +18,9 @@ const (
 	CASecretCertName = "ca.crt"
 
 	EncryptionSecretName = "cilium-ipsec-keys"
+	AKSSecretName        = "cilium-azure"
+
+	NodeInitDaemonSetName = "cilium-node-init"
 
 	OperatorServiceAccountName = "cilium-operator"
 	OperatorClusterRoleName    = "cilium-operator"
@@ -93,12 +96,6 @@ const (
 )
 
 var (
-	// OperatorLabels are the labels set on the Cilium operator by default.
-	OperatorLabels = map[string]string{
-		"io.cilium/app": "operator",
-		"name":          "cilium-operator",
-	}
-
 	// RelayDeploymentLabels are the labels set on the Hubble Relay Deployment by default.
 	RelayDeploymentLabels = map[string]string{
 		"k8s-app": "hubble-relay",

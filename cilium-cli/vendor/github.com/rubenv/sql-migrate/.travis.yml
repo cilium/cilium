@@ -1,0 +1,33 @@
+language: go
+
+sudo: false
+
+go:
+    - "1.13"
+    - "1.14"
+    - "1.15"
+    - "1.16"
+    
+services:
+    - mysql
+    - postgresql
+
+before_install:
+    - mysql -e "CREATE DATABASE IF NOT EXISTS test;" -uroot
+    - mysql -e "CREATE DATABASE IF NOT EXISTS test_env;" -uroot
+    - psql -c "CREATE DATABASE test;" -U postgres
+
+install:
+    - go get -t ./...
+    - go install ./...
+    - go get -u github.com/kisielk/errcheck
+
+script:
+    - CGO_ENABLED=0 go build -v .
+    - go test -v ./...
+    - bash test-integration/postgres.sh
+    - bash test-integration/mysql.sh
+    - bash test-integration/mysql-flag.sh
+    - bash test-integration/mysql-env.sh
+    - bash test-integration/sqlite.sh
+    - errcheck ./...
