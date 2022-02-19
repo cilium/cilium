@@ -7,6 +7,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
+	"github.com/cilium/cilium/pkg/versioncheck"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/internal/utils"
 )
 
 type azureVersionValidation struct{}
@@ -183,4 +190,43 @@ func (k *K8sInstaller) azureSetupServicePrincipal(ctx context.Context) error {
 func (k *K8sInstaller) azExec(args ...string) ([]byte, error) {
 	args = append(args, "--output", "json", "--only-show-errors")
 	return k.Exec("az", args...)
+}
+
+func (k *K8sInstaller) createAKSSecrets(ctx context.Context) error {
+	// Check if secret already exists and reuse it
+	_, err := k.client.GetSecret(ctx, k.params.Namespace, defaults.AKSSecretName, metav1.GetOptions{})
+	if err == nil {
+		k.Log("🔑 Found existing AKS secret %s", defaults.AKSSecretName)
+		return nil
+	}
+
+	var (
+		secretFileName string
+	)
+
+	ciliumVer := k.getCiliumVersion()
+	switch {
+	case versioncheck.MustCompile(">=1.12.0")(ciliumVer):
+		secretFileName = "templates/cilium-operator/secret.yaml"
+	default:
+		return fmt.Errorf("cilium version unsupported %s", ciliumVer.String())
+	}
+
+	secretFile := k.manifests[secretFileName]
+
+	var secret corev1.Secret
+	utils.MustUnmarshalYAML([]byte(secretFile), &secretFile)
+
+	k.Log("🔑 Generated AKS secret %s", defaults.AKSSecretName)
+	_, err = k.client.CreateSecret(ctx, k.params.Namespace, &secret, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to create AKS secret %s/%s: %w", k.params.Namespace, defaults.AKSSecretName, err)
+	}
+	k.pushRollbackStep(func(ctx context.Context) {
+		if err := k.client.DeleteSecret(ctx, k.params.Namespace, defaults.AKSSecretName, metav1.DeleteOptions{}); err != nil {
+			k.Log("Cannot delete %s Secret: %s", defaults.AKSSecretName, err)
+		}
+	})
+
+	return nil
 }
