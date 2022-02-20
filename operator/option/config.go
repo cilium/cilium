@@ -207,6 +207,10 @@ const (
 
 	// CESSlicingMode instructs how CEPs are grouped in a CES.
 	CESSlicingMode = "ces-slice-mode"
+
+	// EnableIngressController enables cilium ingress controller
+	// This must be enabled along with enable-envoy-config in cilium agent.
+	EnableIngressController = "enable-ingress-controller"
 )
 
 // OperatorConfig is the configuration used by the operator.
@@ -382,6 +386,9 @@ type OperatorConfig struct {
 
 	// CESSlicingMode instructs how CEPs are grouped in a CES.
 	CESSlicingMode string
+
+	// EnableIngressController enables cilium ingress controller
+	EnableIngressController bool
 }
 
 // Populate sets all options with the values from viper.
@@ -411,6 +418,7 @@ func (c *OperatorConfig) Populate() {
 	c.BGPAnnounceLBIP = viper.GetBool(BGPAnnounceLBIP)
 	c.BGPConfigPath = viper.GetString(BGPConfigPath)
 	c.SkipCRDCreation = viper.GetBool(SkipCRDCreation)
+	c.EnableIngressController = viper.GetBool(EnableIngressController)
 
 	if c.BGPAnnounceLBIP {
 		c.SyncK8sServices = true

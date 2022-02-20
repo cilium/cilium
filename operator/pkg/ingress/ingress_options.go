@@ -5,30 +5,18 @@ package ingress
 
 // Options stores all the configurations values for cilium ingress controller.
 type Options struct {
-	Enabled    bool
 	MaxRetries int
 }
 
-// DefaultIngressOptions specifies default values for Hubble exporter options.
+// DefaultIngressOptions specifies default values for cilium ingress controller.
 var DefaultIngressOptions = Options{
-	Enabled:    false,
 	MaxRetries: 10,
 }
 
-// Option customizes the configuration of the hubble server.
+// Option customizes the configuration of cilium ingress controller
 type Option func(o *Options) error
 
-// WithEnabled sets the Hubble export filepath. It's set to an empty string by default,
-// which disables Hubble export.
-func WithEnabled() Option {
-	return func(o *Options) error {
-		o.Enabled = true
-		return nil
-	}
-}
-
-// WithMaxRetries sets the Hubble export filepath. It's set to an empty string by default,
-// which disables Hubble export.
+// WithMaxRetries sets the maximum number of retries while processing events
 func WithMaxRetries(maxRetries int) Option {
 	return func(o *Options) error {
 		o.MaxRetries = maxRetries
