@@ -43,7 +43,9 @@ rules:
   resources:
   # to check apiserver connectivity
   - namespaces
+{{- if .Values.enableIngressController }}
   - secrets
+{{- end }}
   verbs:
   - get
   - list
@@ -58,9 +60,11 @@ rules:
   - get
   - list
   - watch
+{{- if .Values.enableIngressController }}
   - create
   - update
   - delete
+{{- end }}
 - apiGroups:
   - cilium.io
   resources:
@@ -110,7 +114,7 @@ rules:
   - create
   - get
   - update
-# For ingress controller
+{{- if .Values.enableIngressController }}
 - apiGroups:
   - networking.k8s.io
   resources:
@@ -125,4 +129,5 @@ rules:
   - ingresses/status # To update ingress status with load balancer IP.
   verbs:
   - update
+{{- end }}
 {{- end }}
