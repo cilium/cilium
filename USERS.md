@@ -71,6 +71,11 @@ Users (Alphabetically)
       L: https://cloud.arangodb.com
       Q: @ewoutp @Robert-Stam
 
+    * N: Ayedo
+      D: Ayedo builds and operates cloud-native container platforms based on Kubernetes
+      U: Hubble for Visibility, Cilium as Mesh between Services
+      L: https://www.ayedo.de/
+
     * N: Canonical
       D: Canonical's Kubernetes distribution microk8s uses Cilium as CNI plugin
       U: Networking, NetworkPolicy, and Kubernetes services
