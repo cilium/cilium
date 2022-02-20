@@ -17,6 +17,7 @@ var baseIngress = &slim_networkingv1.Ingress{
 	ObjectMeta: slim_metav1.ObjectMeta{
 		Name:      "dummy-ingress",
 		Namespace: "dummy-namespace",
+		UID:       "d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e",
 	},
 	Spec: slim_networkingv1.IngressSpec{
 		IngressClassName: stringp("cilium"),
