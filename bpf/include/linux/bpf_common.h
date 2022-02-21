@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
+/* Copyright Authors of the Linux kernel */
 #ifndef __LINUX_BPF_COMMON_H__
 #define __LINUX_BPF_COMMON_H__
 
