@@ -769,7 +769,6 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 			AfterAll(func() {
 				res := kubectl.DelIPRoute(ni.OutsideNodeName, svcIP, ni.K8s1IP)
 				Expect(res).Should(helpers.CMDSuccess(), "Error removing IP route for %s via %s", svcIP, ni.K8s1IP)
-				DeployCiliumAndDNS(kubectl, ciliumFilename)
 			})
 
 			It("ClusterIP can be accessed when external access is enabled", func() {
