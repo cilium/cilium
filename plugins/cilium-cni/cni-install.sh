@@ -103,6 +103,23 @@ find "${CNI_CONF_DIR}" -maxdepth 1 -type f \
   -not -name "${CNI_CONF_NAME}" \
   -delete
 
+# Check that a CNI configuration already exists in certain chaining modes.
+# Exit if it does not - provoking a restart later on. This is required to
+# wait until the main CNI has been initialized, e.g. by another pod.
+# *.cilium_bak files are also accepted in case this script already ran on
+# the host.
+case "$CILIUM_CNI_CHAINING_MODE" in
+"aws-cni")
+  if [ $(find "${CNI_CONF_DIR}" -maxdepth 1 -type f -name '*.conf' -or -name '*.conflist' -or -name '*.cilium_bak' | wc -l) -eq 0 ]; then
+    echo "Existing CNI config is required for chaining but does not exist yet, exiting..."
+    exit 1
+  fi
+  ;;
+*)
+  echo "Existing CNI config is not required"
+  ;;
+esac
+
 # Rename all remaining CNI configurations to *.cilium_bak. This ensures only
 # Cilium's CNI plugin will remain active. This makes sure Pods are not
 # scheduled by another CNI when the Cilium agent is down during upgrades
