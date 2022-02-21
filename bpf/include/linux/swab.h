@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
+/* Copyright Authors of the Linux kernel */
 #ifndef _LINUX_SWAB_H
 #define _LINUX_SWAB_H
 

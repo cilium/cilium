@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
+/* Copyright Authors of the Linux kernel */
 #ifndef __LINUX_IF_PACKET_H
 #define __LINUX_IF_PACKET_H
 
