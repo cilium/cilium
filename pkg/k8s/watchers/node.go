@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/lock"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
@@ -28,6 +29,13 @@ var (
 	// NodesInit is executed.
 	onceNodeInitStart sync.Once
 )
+
+// RegisterNodeSubscriber allows registration of subscriber.Node implementations.
+// On k8s Node events all registered subscriber.Node implementations will
+// have their event handling methods called in order of registration.
+func (k *K8sWatcher) RegisterNodeSubscriber(s subscriber.Node) {
+	k.NodeChain.Register(s)
+}
 
 func (k *K8sWatcher) NodesInit(k8sClient *k8s.K8sClient) {
 	onceNodeInitStart.Do(func() {
