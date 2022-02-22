@@ -42,7 +42,6 @@ import (
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/node"
-	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 	"github.com/cilium/cilium/pkg/sysctl"
@@ -237,7 +236,6 @@ type EndpointAdder interface {
 // cleanup of prior cilium-health endpoint instances.
 func LaunchAsEndpoint(baseCtx context.Context,
 	owner regeneration.Owner,
-	n *nodeTypes.Node,
 	mtuConfig mtu.Configuration,
 	epMgr EndpointAdder,
 	proxy endpoint.EndpointProxy,
@@ -255,13 +253,11 @@ func LaunchAsEndpoint(baseCtx context.Context,
 		ip4Address, ip6Address *net.IPNet
 	)
 
-	if n.IPv6HealthIP != nil {
-		healthIP = n.IPv6HealthIP
+	if healthIP = node.GetEndpointHealthIPv6(); healthIP != nil {
 		info.Addressing.IPV6 = healthIP.String()
 		ip6Address = &net.IPNet{IP: healthIP, Mask: defaults.ContainerIPv6Mask}
 	}
-	if n.IPv4HealthIP != nil {
-		healthIP = n.IPv4HealthIP
+	if healthIP = node.GetEndpointHealthIPv4(); healthIP != nil {
 		info.Addressing.IPV4 = healthIP.String()
 		ip4Address = &net.IPNet{IP: healthIP, Mask: defaults.ContainerIPv4Mask}
 	}
