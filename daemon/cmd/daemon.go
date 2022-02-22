@@ -515,17 +515,17 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// instead we rely on the global.
 	ipcache.IPIdentityCache.RegisterK8sSyncedChecker(&d)
 
-	d.k8sWatcher.NodeChain.Register(d.endpointManager)
+	d.k8sWatcher.RegisterNodeSubscriber(d.endpointManager)
 	if option.Config.BGPAnnounceLBIP || option.Config.BGPAnnouncePodCIDR {
 		switch option.Config.IPAMMode() {
 		case ipamOption.IPAMKubernetes:
-			d.k8sWatcher.NodeChain.Register(d.bgpSpeaker)
+			d.k8sWatcher.RegisterNodeSubscriber(d.bgpSpeaker)
 		case ipamOption.IPAMClusterPool:
-			d.k8sWatcher.CiliumNodeChain.Register(d.bgpSpeaker)
+			d.k8sWatcher.RegisterCiliumNodeSubscriber(d.bgpSpeaker)
 		}
 	}
 	if option.Config.EnableServiceTopology {
-		d.k8sWatcher.NodeChain.Register(&d.k8sWatcher.K8sSvcCache)
+		d.k8sWatcher.RegisterNodeSubscriber(&d.k8sWatcher.K8sSvcCache)
 	}
 
 	d.redirectPolicyManager.RegisterSvcCache(&d.k8sWatcher.K8sSvcCache)
