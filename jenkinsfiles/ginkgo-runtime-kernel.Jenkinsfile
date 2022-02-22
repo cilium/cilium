@@ -96,7 +96,7 @@ pipeline {
         }
         stage ("Copy code and boot vms"){
             options {
-                timeout(time: 30, unit: 'MINUTES')
+                timeout(time: 50, unit: 'MINUTES')
             }
 
             environment {
@@ -110,11 +110,9 @@ pipeline {
                 sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
                 withCredentials([usernamePassword(credentialsId: 'CILIUM_BOT_DUMMY', usernameVariable: 'DOCKER_LOGIN', passwordVariable: 'DOCKER_PASSWORD')]) {
                     retry(3) {
-                        timeout(time: 30, unit: 'MINUTES'){
-                            dir("${TESTDIR}") {
-                                sh 'vagrant destroy runtime --force'
-                                sh 'KERNEL=$(python3 get-gh-comment-info.py "${ghprbCommentBody}" --retrieve=kernel_version | sed "s/^$/${DEFAULT_KERNEL}/") vagrant up runtime --provision'
-                            }
+                        dir("${TESTDIR}") {
+                            sh 'vagrant destroy runtime --force'
+                            sh 'KERNEL=$(python3 get-gh-comment-info.py "${ghprbCommentBody}" --retrieve=kernel_version | sed "s/^$/${DEFAULT_KERNEL}/") vagrant up runtime --provision'
                         }
                     }
                 }
