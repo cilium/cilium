@@ -58,42 +58,35 @@ Deploy the Cluster
 .. note:: When setting up AKS, it is important to use the flag
           ``--network-plugin azure`` to ensure that CNI mode is enabled.
 
-Create a service principal for cilium-operator
+Create a Service principal for cilium-operator
 ==============================================
 
-In order to allow cilium-operator to interact with the Azure API, a service
-principal is required. You can reuse an existing service principal if you want
-but it is recommended to create a dedicated service principal for
-cilium-operator:
+In order to allow cilium-operator to interact with the Azure API, a Service
+Principal with ``Contributor`` privileges over the AKS cluster is required (see
+:ref:`Azure IPAM required privileges <ipam_azure_required_privileges>` for more
+details). It is recommended to create a dedicated Service Principal for each
+Cilium installation with minimal privileges over the AKS node resource group:
 
-.. code:: bash
+.. code-block:: shell-session
 
-    az ad sp create-for-rbac --name cilium-operator > azure-sp.json
+    AZURE_SUBSCRIPTION_ID=$(az account show --query "id" --output tsv)
+    AZURE_NODE_RESOURCE_GROUP=$(az aks show --resource-group ${RESOURCE_GROUP} --name ${CLUSTER_NAME} --query "nodeResourceGroup" --output tsv)
+    AZURE_SERVICE_PRINCIPAL=$(az ad sp create-for-rbac --scopes /subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${AZURE_NODE_RESOURCE_GROUP} --role Contributor --output json --only-show-errors)
+    AZURE_TENANT_ID=$(echo ${AZURE_SERVICE_PRINCIPAL} | jq -r '.tenant')
+    AZURE_CLIENT_ID=$(echo ${AZURE_SERVICE_PRINCIPAL} | jq -r '.appId')
+    AZURE_CLIENT_SECRET=$(echo ${AZURE_SERVICE_PRINCIPAL} | jq -r '.password')
 
-The contents of ``azure-sp.json`` should look like this:
+.. note::
 
-.. code:: bash
+    The ``AZURE_NODE_RESOURCE_GROUP`` node resource group is *not* the
+    resource group of the AKS cluster. A single resource group may hold
+    multiple AKS clusters, but each AKS cluster regroups all resources in
+    an automatically managed secondary resource group. See `Why are two
+    resource groups created with AKS? <https://docs.microsoft.com/en-us/azure/aks/faq#why-are-two-resource-groups-created-with-aks>`__
+    for more details.
 
-    {
-      "appId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-      "displayName": "cilium-operator",
-      "name": "http://cilium-operator",
-      "password": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-      "tenant": "cccccccc-cccc-cccc-cccc-cccccccccccc"
-    }
-
-Extract the relevant credentials to access the Azure API:
-
-.. code:: bash
-
-    AZURE_SUBSCRIPTION_ID="$(az account show | jq -r .id)"
-    AZURE_CLIENT_ID="$(jq -r .appId < azure-sp.json)"
-    AZURE_CLIENT_SECRET="$(jq -r .password < azure-sp.json)"
-    AZURE_TENANT_ID="$(jq -r .tenant < azure-sp.json)"
-    AZURE_NODE_RESOURCE_GROUP="$(az aks show --resource-group $RESOURCE_GROUP_NAME --name $CLUSTER_NAME | jq -r .nodeResourceGroup)"
-
-.. note:: ``AZURE_NODE_RESOURCE_GROUP`` must be set to the resource group of the
-           node pool, *not* the resource group of the AKS cluster.
+    This ensures the Service Principal only has privileges over the AKS
+    cluster itself and not any other resources within the resource group.
 
 Retrieve Credentials to access cluster
 ======================================
