@@ -211,6 +211,12 @@ Users (Alphabetically)
       U: L3/L4 policies, Hubble, BPF NodePort, CiliumClusterwideNetworkPolicy
       Q: @Eric Bailey, @Ole Markus
 
+    * N: Talos
+      D: Cilium is one of the supported CNI's in Talos
+      U: Networking, NetworkPolicy, Hubble, BPF NodePort
+      L: https://github.com/talos-systems/talos
+      Q: @frezbo, @smira, @Ulexus
+
     * N: T-Systems International
       D: TSI uses Cilium for it's Open Sovereign Cloud product, including as a CNI for Gardener-based Kubernetes clusters and bare-metal infrastructure managed by OnMetal.
       U: CNI, overlay network, NetworkPolicies
