@@ -191,8 +191,6 @@ Install Cilium
          If you use masquerading with the option ``egressMasqueradeInterfaces=eth0``,
          remember to replace ``eth0`` with the proper interface name.
 
-       Cilium is now deployed and you are ready to scale-up the cluster:
-
     .. group-tab:: OpenShift
 
        .. include:: requirements-openshift.rst
