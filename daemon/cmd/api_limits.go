@@ -28,7 +28,7 @@ var apiRateLimitDefaults = map[string]rate.APILimiterParameters{
 		ParallelRequests:            4,
 		SkipInitial:                 4,
 		MaxWaitDuration:             15 * time.Second,
-		Log:                         true,
+		Log:                         false,
 	},
 	// DELETE /endpoint/{id}
 	//
@@ -43,7 +43,7 @@ var apiRateLimitDefaults = map[string]rate.APILimiterParameters{
 		AutoAdjust:                  true,
 		ParallelRequests:            4,
 		MinParallelRequests:         4,
-		Log:                         true,
+		Log:                         false,
 	},
 	// GET /endpoint/{id}/healthz
 	// GET /endpoint/{id}/log
@@ -78,7 +78,7 @@ var apiRateLimitDefaults = map[string]rate.APILimiterParameters{
 		ParallelRequests:            4,
 		SkipInitial:                 4,
 		MaxWaitDuration:             15 * time.Second,
-		Log:                         true,
+		Log:                         false,
 	},
 	// GET /endpoint
 	//
