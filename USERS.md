@@ -64,6 +64,11 @@ Users (Alphabetically)
       D: AWS uses Cilium as the default CNI for EKS Anywhere
       U: Networking, NetworkPolicy, Services
       L: https://isovalent.com/blog/post/2021-09-aws-eks-anywhere-chooses-cilium
+      
+    * N: APPUiO by VSHN
+      D: VSHN uses Cilium for multi-tenant networking on APPUiO Cloud and as an add-on to APPUiO Managed, both on Red Hat OpenShift and Cloud Kubernetes.
+      U: CNI, Networking, NetworkPolicy, Hubble, IPAM, Kubernetes services
+      L: https://products.docs.vshn.ch/products/appuio/managed/addon_cilium.html and https://www.appuio.cloud
 
     * N: ArangoDB Oasis
       D: ArangoDB Oasis is using Cilium in to separate database deployments in our multi-tenant cloud environment
