@@ -43,6 +43,10 @@ var (
 	ipv4ExternalAddress net.IP
 	ipv6ExternalAddress net.IP
 
+	// Addresses of the cilium-health endpoint located on the node
+	ipv4HealthIP net.IP
+	ipv6HealthIP net.IP
+
 	// k8s Node IP (either InternalIP or ExternalIP or nil; the former is preferred)
 	k8sNodeIP net.IP
 
@@ -684,6 +688,26 @@ func SetWireguardPubKey(key string) {
 
 func GetWireguardPubKey() string {
 	return wireguardPubKey
+}
+
+// SetEndpointHealthIPv4 sets the IPv6 cilium-health endpoint address.
+func SetEndpointHealthIPv4(ip net.IP) {
+	ipv4HealthIP = ip
+}
+
+// GetEndpointHealthIPv4 returns the IPv4 cilium-health endpoint address.
+func GetEndpointHealthIPv4() net.IP {
+	return ipv4HealthIP
+}
+
+// SetEndpointHealthIPv6 sets the IPv6 cilium-health endpoint address.
+func SetEndpointHealthIPv6(ip net.IP) {
+	ipv6HealthIP = ip
+}
+
+// GetEndpointHealthIPv6 returns the IPv6 cilium-health endpoint address.
+func GetEndpointHealthIPv6() net.IP {
+	return ipv6HealthIP
 }
 
 func copyStringToNetIPMap(in map[string]net.IP) map[string]net.IP {

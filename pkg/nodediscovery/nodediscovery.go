@@ -172,6 +172,8 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 	n.LocalNode.IPAddresses = []nodeTypes.Address{}
 	n.LocalNode.IPv4AllocCIDR = node.GetIPv4AllocRange()
 	n.LocalNode.IPv6AllocCIDR = node.GetIPv6AllocRange()
+	n.LocalNode.IPv4HealthIP = node.GetEndpointHealthIPv4()
+	n.LocalNode.IPv6HealthIP = node.GetEndpointHealthIPv6()
 	n.LocalNode.ClusterID = option.Config.ClusterID
 	n.LocalNode.EncryptionKey = node.GetIPsecKeyIdentity()
 	n.LocalNode.WireguardPubKey = node.GetWireguardPubKey()

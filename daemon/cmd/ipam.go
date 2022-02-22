@@ -252,7 +252,7 @@ func (d *Daemon) allocateHealthIPs() error {
 			}
 
 			log.Debugf("IPv4 health endpoint address: %s", result.IP)
-			d.nodeDiscovery.LocalNode.IPv4HealthIP = result.IP
+			node.SetEndpointHealthIPv4(result.IP)
 
 			// In ENI and AlibabaCloud ENI mode, we require the gateway, CIDRs, and the ENI MAC addr
 			// in order to set up rules and routes on the local node to direct
@@ -267,13 +267,14 @@ func (d *Daemon) allocateHealthIPs() error {
 		if option.Config.EnableIPv6 {
 			result, err := d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv6, "health")
 			if err != nil {
-				if d.nodeDiscovery.LocalNode.IPv4HealthIP != nil {
-					d.ipam.ReleaseIP(d.nodeDiscovery.LocalNode.IPv4HealthIP)
+				if healthIPv4 := node.GetEndpointHealthIPv4(); healthIPv4 != nil {
+					d.ipam.ReleaseIP(healthIPv4)
+					node.SetEndpointHealthIPv4(nil)
 				}
 				return fmt.Errorf("unable to allocate health IPs: %s,see https://cilium.link/ipam-range-full", err)
 			}
 
-			d.nodeDiscovery.LocalNode.IPv6HealthIP = result.IP
+			node.SetEndpointHealthIPv6(result.IP)
 			log.Debugf("IPv6 health endpoint address: %s", result.IP)
 		}
 	}
