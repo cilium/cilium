@@ -201,15 +201,10 @@ func TestSpeakerOnDeleteService(t *testing.T) {
 		t.Fatalf("got: %v, want: nil", rr.eps)
 	}
 
-	// confirm spkr appended service to map
+	// confirm spkr removed service to map
 	_, ok := spkr.services[serviceID]
 	if ok {
 		t.Fatalf("speaker did not delete slim_corev1.Service object to its services map.")
-	}
-
-	// confirm fence is empty
-	if len(spkr.Fencer) != 0 {
-		t.Fatalf("expected fence to be empty. got: %v", spkr.Fencer)
 	}
 }
 
