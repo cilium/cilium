@@ -132,8 +132,9 @@ func (k *K8sInstaller) azureRetrieveAKSNodeResourceGroup(ctx context.Context) er
 	return nil
 }
 
-// Use Service Principal provided by user if available, otherwise automatically create a new Service Principal
-// and restrict its scope to the strict minimum (i.e. the AKS node resource group in which Cilium will be installed).
+// Use Service Principal provided by user if available, otherwise automatically create a new Service Principal with
+// Contributor privileges (required for IPAM within the Cilium Operator) and restrict its scope to the strict minimum
+// (i.e. the AKS node resource group in which Cilium will be installed).
 //
 // We create a new Service Principal for each installation by design:
 // - Having dedicated SPs with minimal privileges over their own AKS clusters is more secure.
@@ -146,7 +147,7 @@ func (k *K8sInstaller) azureRetrieveAKSNodeResourceGroup(ctx context.Context) er
 func (k *K8sInstaller) azureSetupServicePrincipal(ctx context.Context) error {
 	if k.params.Azure.TenantID == "" && k.params.Azure.ClientID == "" && k.params.Azure.ClientSecret == "" {
 		k.Log("🚀 Creating Azure Service Principal for Cilium operator...")
-		bytes, err := k.azExec("ad", "sp", "create-for-rbac", "--scopes", "/subscriptions/"+k.params.Azure.SubscriptionID+"/resourceGroups/"+k.params.Azure.AKSNodeResourceGroup)
+		bytes, err := k.azExec("ad", "sp", "create-for-rbac", "--scopes", "/subscriptions/"+k.params.Azure.SubscriptionID+"/resourceGroups/"+k.params.Azure.AKSNodeResourceGroup, "--role", "Contributor")
 		if err != nil {
 			return err
 		}
