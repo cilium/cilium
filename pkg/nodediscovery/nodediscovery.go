@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -62,11 +63,12 @@ type NodeDiscovery struct {
 	Manager               *nodemanager.Manager
 	LocalConfig           datapath.LocalNodeConfiguration
 	Registrar             nodestore.NodeRegistrar
-	LocalNode             nodeTypes.Node
 	Registered            chan struct{}
 	LocalStateInitialized chan struct{}
 	NetConf               *cnitypes.NetConf
 	k8sNodeGetter         k8sNodeGetter
+	localNodeLock         lock.Mutex
+	localNode             nodeTypes.Node
 }
 
 func enableLocalNodeRoute() bool {
@@ -114,7 +116,7 @@ func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration,
 			IPv4PodSubnets:          option.Config.IPv4PodSubnets,
 			IPv6PodSubnets:          option.Config.IPv6PodSubnets,
 		},
-		LocalNode: nodeTypes.Node{
+		localNode: nodeTypes.Node{
 			Source: source.Local,
 		},
 		Registered:            make(chan struct{}),
@@ -167,56 +169,59 @@ func (n *NodeDiscovery) JoinCluster(nodeName string) {
 // agent startup to configure the local node based on the configuration options
 // passed to the agent. nodeName is the name to be used in the local agent.
 func (n *NodeDiscovery) StartDiscovery() {
-	n.LocalNode.Name = nodeTypes.GetName()
-	n.LocalNode.Cluster = option.Config.ClusterName
-	n.LocalNode.IPAddresses = []nodeTypes.Address{}
-	n.LocalNode.IPv4AllocCIDR = node.GetIPv4AllocRange()
-	n.LocalNode.IPv6AllocCIDR = node.GetIPv6AllocRange()
-	n.LocalNode.IPv4HealthIP = node.GetEndpointHealthIPv4()
-	n.LocalNode.IPv6HealthIP = node.GetEndpointHealthIPv6()
-	n.LocalNode.ClusterID = option.Config.ClusterID
-	n.LocalNode.EncryptionKey = node.GetIPsecKeyIdentity()
-	n.LocalNode.WireguardPubKey = node.GetWireguardPubKey()
-	n.LocalNode.Labels = node.GetLabels()
-	n.LocalNode.NodeIdentity = uint32(identity.ReservedIdentityHost)
+	n.localNodeLock.Lock()
+	defer n.localNodeLock.Unlock()
+
+	n.localNode.Name = nodeTypes.GetName()
+	n.localNode.Cluster = option.Config.ClusterName
+	n.localNode.IPAddresses = []nodeTypes.Address{}
+	n.localNode.IPv4AllocCIDR = node.GetIPv4AllocRange()
+	n.localNode.IPv6AllocCIDR = node.GetIPv6AllocRange()
+	n.localNode.IPv4HealthIP = node.GetEndpointHealthIPv4()
+	n.localNode.IPv6HealthIP = node.GetEndpointHealthIPv6()
+	n.localNode.ClusterID = option.Config.ClusterID
+	n.localNode.EncryptionKey = node.GetIPsecKeyIdentity()
+	n.localNode.WireguardPubKey = node.GetWireguardPubKey()
+	n.localNode.Labels = node.GetLabels()
+	n.localNode.NodeIdentity = uint32(identity.ReservedIdentityHost)
 
 	if node.GetK8sExternalIPv4() != nil {
-		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
+		n.localNode.IPAddresses = append(n.localNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeExternalIP,
 			IP:   node.GetK8sExternalIPv4(),
 		})
 	}
 
 	if node.GetIPv4() != nil {
-		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
+		n.localNode.IPAddresses = append(n.localNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeInternalIP,
 			IP:   node.GetIPv4(),
 		})
 	}
 
 	if node.GetIPv6() != nil {
-		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
+		n.localNode.IPAddresses = append(n.localNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeInternalIP,
 			IP:   node.GetIPv6(),
 		})
 	}
 
 	if node.GetInternalIPv4Router() != nil {
-		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
+		n.localNode.IPAddresses = append(n.localNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeCiliumInternalIP,
 			IP:   node.GetInternalIPv4Router(),
 		})
 	}
 
 	if node.GetIPv6Router() != nil {
-		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
+		n.localNode.IPAddresses = append(n.localNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeCiliumInternalIP,
 			IP:   node.GetIPv6Router(),
 		})
 	}
 
 	if node.GetK8sExternalIPv6() != nil {
-		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
+		n.localNode.IPAddresses = append(n.localNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeExternalIP,
 			IP:   node.GetK8sExternalIPv6(),
 		})
@@ -225,10 +230,10 @@ func (n *NodeDiscovery) StartDiscovery() {
 	go func() {
 		log.WithFields(
 			logrus.Fields{
-				logfields.Node: n.LocalNode,
+				logfields.Node: n.localNode,
 			}).Info("Adding local node to cluster")
 		for {
-			if err := n.Registrar.RegisterNode(&n.LocalNode, n.Manager); err != nil {
+			if err := n.Registrar.RegisterNode(&n.localNode, n.Manager); err != nil {
 				log.WithError(err).Error("Unable to initialize local node. Retrying...")
 				time.Sleep(time.Second)
 			} else {
@@ -246,7 +251,7 @@ func (n *NodeDiscovery) StartDiscovery() {
 		}
 	}()
 
-	n.Manager.NodeUpdated(n.LocalNode)
+	n.Manager.NodeUpdated(n.localNode)
 	close(n.LocalStateInitialized)
 
 	if option.Config.KVStore != "" && !option.Config.JoinCluster {
@@ -255,7 +260,7 @@ func (n *NodeDiscovery) StartDiscovery() {
 			controller.NewManager().UpdateController("propagating local node change to kv-store",
 				controller.ControllerParams{
 					DoFunc: func(ctx context.Context) error {
-						err := n.Registrar.UpdateLocalKeySync(&n.LocalNode)
+						err := n.Registrar.UpdateLocalKeySync(&n.localNode)
 						if err != nil {
 							log.WithError(err).Error("Unable to propagate local node change to kvstore")
 						}
@@ -402,7 +407,7 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 		})
 	}
 
-	for _, address := range n.LocalNode.IPAddresses {
+	for _, address := range n.localNode.IPAddresses {
 		ciliumNodeAddress := address.IP.String()
 		var found bool
 		for _, nodeResourceAddress := range nodeResource.Spec.Addresses {
@@ -443,16 +448,16 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 	nodeResource.Spec.Encryption.Key = int(node.GetIPsecKeyIdentity())
 
 	nodeResource.Spec.HealthAddressing.IPv4 = ""
-	if ip := n.LocalNode.IPv4HealthIP; ip != nil {
+	if ip := n.localNode.IPv4HealthIP; ip != nil {
 		nodeResource.Spec.HealthAddressing.IPv4 = ip.String()
 	}
 
 	nodeResource.Spec.HealthAddressing.IPv6 = ""
-	if ip := n.LocalNode.IPv6HealthIP; ip != nil {
+	if ip := n.localNode.IPv6HealthIP; ip != nil {
 		nodeResource.Spec.HealthAddressing.IPv6 = ip.String()
 	}
 
-	if pk := n.LocalNode.WireguardPubKey; pk != "" {
+	if pk := n.localNode.WireguardPubKey; pk != "" {
 		if nodeResource.ObjectMeta.Annotations == nil {
 			nodeResource.ObjectMeta.Annotations = make(map[string]string)
 		}
