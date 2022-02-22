@@ -13,11 +13,10 @@ import (
 
 func filterByTCPFlags(flags []*flowpb.TCPFlags) (FilterFunc, error) {
 	return func(ev *v1.Event) bool {
-		l4tcp := ev.GetFlow().GetL4().GetTCP()
-		if l4tcp == nil {
+		flowFlags := ev.GetFlow().GetL4().GetTCP().GetFlags()
+		if flowFlags == nil {
 			return false
 		}
-		flowFlags := l4tcp.GetFlags()
 		// check if the TCP event has any of the flags mentioned in flowfilter
 		// example: if TCP event has flags SYN and ACK set and if the flowfilter
 		// only has SYN, then this event should be accepted by the filter.
