@@ -913,7 +913,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	}
 
 	// Must occur after d.allocateIPs(), see GH-14245 and its fix.
-	d.nodeDiscovery.StartDiscovery(nodeTypes.GetName())
+	d.nodeDiscovery.StartDiscovery()
 
 	// Annotation of the k8s node must happen after discovery of the
 	// PodCIDR range and allocation of the health IPs.
@@ -1050,7 +1050,7 @@ func (d *Daemon) bootstrapClusterMesh(nodeMngr *nodemanager.Manager) {
 			log.WithField("path", path).Info("Initializing ClusterMesh routing")
 			clustermesh, err := clustermesh.NewClusterMesh(clustermesh.Configuration{
 				Name:                  option.Config.ClusterName,
-				NodeName:              d.nodeDiscovery.LocalNode.Name,
+				NodeName:              nodeTypes.GetName(),
 				ConfigDirectory:       path,
 				NodeKeyCreator:        nodeStore.KeyCreator,
 				ServiceMerger:         &d.k8sWatcher.K8sSvcCache,

@@ -410,7 +410,7 @@ func NewGetHealthzHandler(d *Daemon) GetHealthzHandler {
 
 func (d *Daemon) getNodeStatus() *models.ClusterStatus {
 	clusterStatus := models.ClusterStatus{
-		Self: d.nodeDiscovery.LocalNode.Fullname(),
+		Self: nodeTypes.GetAbsoluteNodeName(),
 	}
 	for _, node := range d.nodeDiscovery.Manager.GetNodes() {
 		clusterStatus.Nodes = append(clusterStatus.Nodes, node.GetModel())
@@ -571,7 +571,7 @@ func (h *getNodes) Handle(params GetClusterNodesParams) middleware.Responder {
 			lastSync: time.Now(),
 			ClusterNodeStatus: &models.ClusterNodeStatus{
 				ClientID: clientID,
-				Self:     h.d.nodeDiscovery.LocalNode.Fullname(),
+				Self:     nodeTypes.GetAbsoluteNodeName(),
 			},
 		}
 		h.d.nodeDiscovery.Manager.Subscribe(c)
@@ -587,7 +587,7 @@ func (h *getNodes) Handle(params GetClusterNodesParams) middleware.Responder {
 	// added / removed.
 	c.ClusterNodeStatus = &models.ClusterNodeStatus{
 		ClientID: clientID,
-		Self:     h.d.nodeDiscovery.LocalNode.Fullname(),
+		Self:     nodeTypes.GetAbsoluteNodeName(),
 	}
 	c.lastSync = time.Now()
 	c.Unlock()
@@ -821,7 +821,7 @@ func (d *Daemon) startStatusCollector() {
 			Name: "cluster",
 			Probe: func(ctx context.Context) (interface{}, error) {
 				clusterStatus := &models.ClusterStatus{
-					Self: d.nodeDiscovery.LocalNode.Fullname(),
+					Self: nodeTypes.GetAbsoluteNodeName(),
 				}
 				return clusterStatus, nil
 			},
