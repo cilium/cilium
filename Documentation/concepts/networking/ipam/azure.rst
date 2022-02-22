@@ -194,17 +194,28 @@ When a node or instance terminates, the Kubernetes apiserver will send a node
 deletion event. This event will be picked up by the operator and the operator
 will delete the corresponding ``ciliumnodes.cilium.io`` custom resource.
 
+.. _ipam_azure_required_privileges:
+
 *******************
 Required Privileges
 *******************
 
 The following Azure API calls are being performed by the Cilium operator. The
-service principal provided must have privileges to perform these:
+Service Principal provided must have privileges to perform these within the
+scope of the AKS cluster node resource group:
 
  * `Network Interfaces - Create Or Update <https://docs.microsoft.com/en-us/rest/api/virtualnetwork/networkinterfaces/createorupdate>`__
  * `NetworkInterface In VMSS - List Virtual Machine Scale Set Network Interfaces <https://docs.microsoft.com/en-us/rest/api/virtualnetwork/networkinterface%20in%20vmss/listvirtualmachinescalesetnetworkinterfaces>`__
  * `Virtual Networks - List <https://docs.microsoft.com/en-us/rest/api/virtualnetwork/virtualnetworks/list>`__
  * `Virtual Machine Scale Sets - List All <https://docs.microsoft.com/en-us/rest/api/compute/virtualmachinescalesets/listall>`__
+
+.. note::
+
+   The node resource group is *not* the resource group of the AKS cluster. A
+   single resource group may hold multiple AKS clusters, but each AKS cluster
+   regroups all resources in an automatically managed secondary resource group.
+   See `Why are two resource groups created with AKS? <https://docs.microsoft.com/en-us/azure/aks/faq#why-are-two-resource-groups-created-with-aks>`__
+   for more details.
 
 *******
 Metrics
