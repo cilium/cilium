@@ -578,11 +578,13 @@ func (n *linuxNodeHandler) enableSubnetIPsec(v4CIDR, v6CIDR []*net.IPNet) {
 	}
 }
 
+// encryptNode handles setting the IPsec state for node encryption (subnet
+// encryption = disabled).
 func (n *linuxNodeHandler) encryptNode(newNode *nodeTypes.Node) {
 	var spi uint8
 	var err error
 
-	if n.nodeConfig.EnableIPv4 && n.nodeConfig.EncryptNode {
+	if n.nodeConfig.EnableIPv4 {
 		internalIPv4 := n.nodeAddressing.IPv4().PrimaryExternal()
 		exactMask := net.IPv4Mask(255, 255, 255, 255)
 		ipsecLocal := &net.IPNet{IP: internalIPv4, Mask: exactMask}
@@ -599,7 +601,7 @@ func (n *linuxNodeHandler) encryptNode(newNode *nodeTypes.Node) {
 				upsertIPsecLog(err, "EncryptNode IPv4", ipsecLocal, ipsecRemote, spi)
 			}
 			remoteIPv4 := newNode.GetCiliumInternalIP(false)
-			if remoteIPv4 != nil && !n.subnetEncryption() {
+			if remoteIPv4 != nil {
 				mask := newNode.IPv4AllocCIDR.Mask
 				ipsecRemoteRoute := &net.IPNet{IP: remoteIPv4.Mask(mask), Mask: mask}
 				ipsecRemote := &net.IPNet{IP: remoteIPv4, Mask: mask}
@@ -615,7 +617,7 @@ func (n *linuxNodeHandler) encryptNode(newNode *nodeTypes.Node) {
 		}
 	}
 
-	if n.nodeConfig.EnableIPv6 && n.nodeConfig.EncryptNode {
+	if n.nodeConfig.EnableIPv6 {
 		internalIPv6 := n.nodeAddressing.IPv6().PrimaryExternal()
 		exactMask := net.CIDRMask(128, 128)
 		ipsecLocal := &net.IPNet{IP: internalIPv6, Mask: exactMask}
@@ -632,7 +634,7 @@ func (n *linuxNodeHandler) encryptNode(newNode *nodeTypes.Node) {
 				upsertIPsecLog(err, "EncryptNode IPv6", ipsecLocal, ipsecRemote, spi)
 			}
 			remoteIPv6 := newNode.GetCiliumInternalIP(true)
-			if remoteIPv6 != nil && !n.subnetEncryption() {
+			if remoteIPv6 != nil {
 				mask := newNode.IPv6AllocCIDR.Mask
 				ipsecRemoteRoute := &net.IPNet{IP: remoteIPv6.Mask(mask), Mask: mask}
 				ipsecRemote := &net.IPNet{IP: remoteIPv6, Mask: mask}
@@ -1064,7 +1066,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		go n.insertNeighbor(context.Background(), newNode, false)
 	}
 
-	if n.nodeConfig.EnableIPSec && !n.subnetEncryption() {
+	if n.nodeConfig.EnableIPSec && n.nodeConfig.EncryptNode && !n.subnetEncryption() {
 		n.encryptNode(newNode)
 	}
 
