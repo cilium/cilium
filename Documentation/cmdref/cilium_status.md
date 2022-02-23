@@ -34,5 +34,5 @@ cilium status [flags]
 
 ### SEE ALSO
 
-* [cilium](../cilium)	 - CLI
+* [cilium](cilium.md)	 - CLI
 

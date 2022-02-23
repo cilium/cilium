@@ -25,5 +25,5 @@ cilium recorder get <recorder id> [flags]
 
 ### SEE ALSO
 
-* [cilium recorder](../cilium_recorder)	 - Introspect or mangle pcap recorder
+* [cilium recorder](cilium_recorder.md)	 - Introspect or mangle pcap recorder
 

@@ -39,5 +39,5 @@ cilium-operator-generic completion zsh [flags]
 
 ### SEE ALSO
 
-* [cilium-operator-generic completion](cilium-operator-generic_completion.html)	 - Generate the autocompletion script for the specified shell
+* [cilium-operator-generic completion](cilium-operator-generic_completion.md)	 - Generate the autocompletion script for the specified shell
 

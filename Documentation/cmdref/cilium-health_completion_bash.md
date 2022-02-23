@@ -50,5 +50,5 @@ cilium-health completion bash
 
 ### SEE ALSO
 
-* [cilium-health completion](cilium-health_completion.html)	 - Generate the autocompletion script for the specified shell
+* [cilium-health completion](cilium-health_completion.md)	 - Generate the autocompletion script for the specified shell
 

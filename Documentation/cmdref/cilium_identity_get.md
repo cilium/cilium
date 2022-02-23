@@ -26,5 +26,5 @@ cilium identity get [flags]
 
 ### SEE ALSO
 
-* [cilium identity](../cilium_identity)	 - Manage security identities
+* [cilium identity](cilium_identity.md)	 - Manage security identities
 

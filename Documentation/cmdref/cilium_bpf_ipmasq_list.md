@@ -29,5 +29,5 @@ cilium bpf ipmasq list [flags]
 
 ### SEE ALSO
 
-* [cilium bpf ipmasq](../cilium_bpf_ipmasq)	 - ip-masq-agent CIDRs
+* [cilium bpf ipmasq](cilium_bpf_ipmasq.md)	 - ip-masq-agent CIDRs
 

@@ -25,5 +25,5 @@ cilium lrp list [flags]
 
 ### SEE ALSO
 
-* [cilium lrp](../cilium_lrp)	 - Manage local redirect policies
+* [cilium lrp](cilium_lrp.md)	 - Manage local redirect policies
 

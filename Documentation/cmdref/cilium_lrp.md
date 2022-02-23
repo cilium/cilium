@@ -20,6 +20,6 @@ Manage local redirect policies
 
 ### SEE ALSO
 
-* [cilium](../cilium)	 - CLI
-* [cilium lrp list](../cilium_lrp_list)	 - List local redirect policies
+* [cilium](cilium.md)	 - CLI
+* [cilium lrp list](cilium_lrp_list.md)	 - List local redirect policies
 

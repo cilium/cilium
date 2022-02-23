@@ -28,5 +28,5 @@ cilium debuginfo [flags]
 
 ### SEE ALSO
 
-* [cilium](../cilium)	 - CLI
+* [cilium](cilium.md)	 - CLI
 

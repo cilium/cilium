@@ -31,5 +31,5 @@ cilium bpf fs show
 
 ### SEE ALSO
 
-* [cilium bpf fs](../cilium_bpf_fs)	 - BPF filesystem mount
+* [cilium bpf fs](cilium_bpf_fs.md)	 - BPF filesystem mount
 

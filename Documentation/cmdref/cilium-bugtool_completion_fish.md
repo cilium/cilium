@@ -32,5 +32,5 @@ cilium-bugtool completion fish [flags]
 
 ### SEE ALSO
 
-* [cilium-bugtool completion](cilium-bugtool_completion.html)	 - Generate the autocompletion script for the specified shell
+* [cilium-bugtool completion](cilium-bugtool_completion.md)	 - Generate the autocompletion script for the specified shell
 

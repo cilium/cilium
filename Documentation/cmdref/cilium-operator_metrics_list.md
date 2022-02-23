@@ -18,5 +18,5 @@ cilium-operator metrics list [flags]
 
 ### SEE ALSO
 
-* [cilium-operator metrics](cilium-operator_metrics.html)	 - Access metric status of the operator
+* [cilium-operator metrics](cilium-operator_metrics.md)	 - Access metric status of the operator
 

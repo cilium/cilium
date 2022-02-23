@@ -32,5 +32,5 @@ cilium endpoint get 4598, cilium endpoint get pod-name:default:foobar, cilium en
 
 ### SEE ALSO
 
-* [cilium endpoint](../cilium_endpoint)	 - Manage endpoints
+* [cilium endpoint](cilium_endpoint.md)	 - Manage endpoints
 

@@ -18,5 +18,5 @@ cilium-operator-alibabacloud metrics list [flags]
 
 ### SEE ALSO
 
-* [cilium-operator-alibabacloud metrics](cilium-operator-alibabacloud_metrics.html)	 - Access metric status of the operator
+* [cilium-operator-alibabacloud metrics](cilium-operator-alibabacloud_metrics.md)	 - Access metric status of the operator
 

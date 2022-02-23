@@ -20,9 +20,9 @@ Manage services & loadbalancers
 
 ### SEE ALSO
 
-* [cilium](../cilium)	 - CLI
-* [cilium service delete](../cilium_service_delete)	 - Delete a service
-* [cilium service get](../cilium_service_get)	 - Display service information
-* [cilium service list](../cilium_service_list)	 - List services
-* [cilium service update](../cilium_service_update)	 - Update a service
+* [cilium](cilium.md)	 - CLI
+* [cilium service delete](cilium_service_delete.md)	 - Delete a service
+* [cilium service get](cilium_service_get.md)	 - Display service information
+* [cilium service list](cilium_service_list.md)	 - List services
+* [cilium service update](cilium_service_update.md)	 - Update a service
 

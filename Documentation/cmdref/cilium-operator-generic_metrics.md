@@ -12,6 +12,6 @@ Access metric status of the operator
 
 ### SEE ALSO
 
-* [cilium-operator-generic](cilium-operator-generic.html)	 - Run cilium-operator-generic
-* [cilium-operator-generic metrics list](cilium-operator-generic_metrics_list.html)	 - List all metrics for the operator
+* [cilium-operator-generic](cilium-operator-generic.md)	 - Run cilium-operator-generic
+* [cilium-operator-generic metrics list](cilium-operator-generic_metrics_list.md)	 - List all metrics for the operator
 

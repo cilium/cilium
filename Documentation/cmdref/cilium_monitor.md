@@ -42,5 +42,5 @@ cilium monitor [flags]
 
 ### SEE ALSO
 
-* [cilium](../cilium)	 - CLI
+* [cilium](cilium.md)	 - CLI
 

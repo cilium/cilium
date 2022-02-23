@@ -29,6 +29,6 @@ cilium config [<option>=(enable|disable) ...] [flags]
 
 ### SEE ALSO
 
-* [cilium](../cilium)	 - CLI
-* [cilium config get](../cilium_config_get)	 - Retrieve cilium configuration
+* [cilium](cilium.md)	 - CLI
+* [cilium config get](cilium_config_get.md)	 - Retrieve cilium configuration
 

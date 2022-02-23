@@ -20,9 +20,9 @@ Introspect or mangle pcap recorder
 
 ### SEE ALSO
 
-* [cilium](../cilium)	 - CLI
-* [cilium recorder delete](../cilium_recorder_delete)	 - Delete individual pcap recorder
-* [cilium recorder get](../cilium_recorder_get)	 - Display individual pcap recorder
-* [cilium recorder list](../cilium_recorder_list)	 - List current pcap recorders
-* [cilium recorder update](../cilium_recorder_update)	 - Update individual pcap recorder
+* [cilium](cilium.md)	 - CLI
+* [cilium recorder delete](cilium_recorder_delete.md)	 - Delete individual pcap recorder
+* [cilium recorder get](cilium_recorder_get.md)	 - Display individual pcap recorder
+* [cilium recorder list](cilium_recorder_list.md)	 - List current pcap recorders
+* [cilium recorder update](cilium_recorder_update.md)	 - Update individual pcap recorder
 

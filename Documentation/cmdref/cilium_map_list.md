@@ -32,5 +32,5 @@ cilium map list
 
 ### SEE ALSO
 
-* [cilium map](../cilium_map)	 - Access userspace cached content of BPF maps
+* [cilium map](cilium_map.md)	 - Access userspace cached content of BPF maps
 

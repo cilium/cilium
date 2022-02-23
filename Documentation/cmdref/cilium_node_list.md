@@ -25,5 +25,5 @@ cilium node list [flags]
 
 ### SEE ALSO
 
-* [cilium node](../cilium_node)	 - Manage cluster nodes
+* [cilium node](cilium_node.md)	 - Manage cluster nodes
 
