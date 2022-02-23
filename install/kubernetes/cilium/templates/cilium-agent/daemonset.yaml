@@ -372,7 +372,7 @@ spec:
         - sh
         - -c
         - |
-          until test -f {{ .Values.nodeinit.bootstrapFile | quote }}; do
+          until test -s {{ .Values.nodeinit.bootstrapFile | quote }}; do
             echo "Waiting on node-init to run...";
             sleep 1;
           done
