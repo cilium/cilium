@@ -652,7 +652,7 @@ hubble:
       # Defaults to midnight of the first day of every fourth month. For syntax, see
       # https://kubernetes.io/docs/tasks/job/automated-tasks-with-cron-jobs/#schedule
       schedule: "0 0 1 */4 *"
-      
+
       # [Example]
       # certManagerIssuerRef:
       #   group: cert-manager.io
@@ -1491,7 +1491,7 @@ operator:
 
   # -- Additional cilium-operator volumes.
   extraVolumes: []
-  
+
   # -- Additional cilium-operator volumeMounts.
   extraVolumeMounts: []
 
@@ -1733,12 +1733,12 @@ clustermesh:
     domain: mesh.cilium.io
     # -- List of clusters to be peered in the mesh.
     clusters: []
-    # clusters: 
+    # clusters:
     # # -- Name of the cluster
     # - name: cluster1
     # # -- Address of the cluster, use this if you created DNS records for
     # # the cluster Clustermesh API server.
-    #   address: cluster1.mesh.cilium.io 
+    #   address: cluster1.mesh.cilium.io
     # # -- Port of the cluster Clustermesh API server.
     #   port: 2379
     # # -- IPs of the cluster Clustermesh API server, use multiple ones when
@@ -1749,7 +1749,7 @@ clustermesh:
     #   tls:
     #     cert: ""
     #     key: ""
-  
+
   apiserver:
     # -- Clustermesh API server image.
     image:
@@ -1880,7 +1880,7 @@ clustermesh:
         # fourth month. For syntax, see
         # https://kubernetes.io/docs/tasks/job/automated-tasks-with-cron-jobs/#schedule
         # schedule: "0 0 1 */4 *"
-        
+
         # [Example]
         # certManagerIssuerRef:
         #   group: cert-manager.io
