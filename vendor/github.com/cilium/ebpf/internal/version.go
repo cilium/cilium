@@ -3,6 +3,8 @@ package internal
 import (
 	"fmt"
 	"sync"
+
+	"github.com/cilium/ebpf/internal/unix"
 )
 
 const (
@@ -104,4 +106,17 @@ func detectKernelVersion() (Version, error) {
 		return Version{}, err
 	}
 	return NewVersionFromCode(vc), nil
+}
+
+// KernelRelease returns the release string of the running kernel.
+// Its format depends on the Linux distribution and corresponds to directory
+// names in /lib/modules by convention. Some examples are 5.15.17-1-lts and
+// 4.19.0-16-amd64.
+func KernelRelease() (string, error) {
+	var uname unix.Utsname
+	if err := unix.Uname(&uname); err != nil {
+		return "", fmt.Errorf("uname failed: %w", err)
+	}
+
+	return unix.ByteSliceToString(uname.Release[:]), nil
 }

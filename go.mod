@@ -18,7 +18,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cilium/customvet v0.0.0-20201209211516-9852765c1ac4
 	github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e
-	github.com/cilium/ebpf v0.8.0
+	github.com/cilium/ebpf v0.8.1
 	github.com/cilium/ipam v0.0.0-20211026130907-54a76012817c
 	github.com/cilium/proxy v0.0.0-20220202185058-28b3c32edfee
 	github.com/cilium/workerpool v1.1.1

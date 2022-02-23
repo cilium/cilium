@@ -90,6 +90,17 @@ func LoadSpecFromReader(rd io.ReaderAt) (*Spec, error) {
 	}
 	defer file.Close()
 
+	return loadSpecFromELF(file)
+}
+
+// variableOffsets extracts all symbols offsets from an ELF and indexes them by
+// section and variable name.
+//
+// References to variables in BTF data sections carry unsigned 32-bit offsets.
+// Some ELF symbols (e.g. in vmlinux) may point to virtual memory that is well
+// beyond this range. Since these symbols cannot be described by BTF info,
+// ignore them here.
+func variableOffsets(file *internal.SafeELFFile) (map[variable]uint32, error) {
 	symbols, err := file.Symbols()
 	if err != nil {
 		return nil, fmt.Errorf("can't read symbols: %v", err)
@@ -102,22 +113,23 @@ func LoadSpecFromReader(rd io.ReaderAt) (*Spec, error) {
 			continue
 		}
 
+		if symbol.Value > math.MaxUint32 {
+			// VarSecinfo offset is u32, cannot reference symbols in higher regions.
+			continue
+		}
+
 		if int(symbol.Section) >= len(file.Sections) {
 			return nil, fmt.Errorf("symbol %s: invalid section %d", symbol.Name, symbol.Section)
 		}
 
 		secName := file.Sections[symbol.Section].Name
-		if symbol.Value > math.MaxUint32 {
-			return nil, fmt.Errorf("section %s: symbol %s: size exceeds maximum", secName, symbol.Name)
-		}
-
 		variableOffsets[variable{secName, symbol.Name}] = uint32(symbol.Value)
 	}
 
-	return loadSpecFromELF(file, variableOffsets)
+	return variableOffsets, nil
 }
 
-func loadSpecFromELF(file *internal.SafeELFFile, variableOffsets map[variable]uint32) (*Spec, error) {
+func loadSpecFromELF(file *internal.SafeELFFile) (*Spec, error) {
 	var (
 		btfSection    *elf.Section
 		btfExtSection *elf.Section
@@ -147,7 +159,12 @@ func loadSpecFromELF(file *internal.SafeELFFile, variableOffsets map[variable]ui
 		return nil, fmt.Errorf("btf: %w", ErrNotFound)
 	}
 
-	spec, err := loadRawSpec(btfSection.Open(), file.ByteOrder, sectionSizes, variableOffsets)
+	vars, err := variableOffsets(file)
+	if err != nil {
+		return nil, err
+	}
+
+	spec, err := loadRawSpec(btfSection.Open(), file.ByteOrder, sectionSizes, vars)
 	if err != nil {
 		return nil, err
 	}
@@ -295,6 +312,9 @@ func LoadKernelSpec() (*Spec, error) {
 	return kernelBTF.Spec, err
 }
 
+// loadKernelSpec attempts to load the raw vmlinux BTF blob at
+// /sys/kernel/btf/vmlinux and falls back to scanning the file system
+// for vmlinux ELFs.
 func loadKernelSpec() (*Spec, error) {
 	fh, err := os.Open("/sys/kernel/btf/vmlinux")
 	if err == nil {
@@ -303,13 +323,21 @@ func loadKernelSpec() (*Spec, error) {
 		return loadRawSpec(fh, internal.NativeEndian, nil, nil)
 	}
 
-	var uname unix.Utsname
-	if err := unix.Uname(&uname); err != nil {
-		return nil, fmt.Errorf("uname failed: %w", err)
+	file, err := findVMLinux()
+	if err != nil {
+		return nil, err
 	}
+	defer file.Close()
 
-	end := bytes.IndexByte(uname.Release[:], 0)
-	release := string(uname.Release[:end])
+	return loadSpecFromELF(file)
+}
+
+// findVMLinux scans multiple well-known paths for vmlinux kernel images.
+func findVMLinux() (*internal.SafeELFFile, error) {
+	release, err := internal.KernelRelease()
+	if err != nil {
+		return nil, err
+	}
 
 	// use same list of locations as libbpf
 	// https://github.com/libbpf/libbpf/blob/9a3a42608dbe3731256a5682a125ac1e23bced8f/src/btf.c#L3114-L3122
@@ -324,24 +352,14 @@ func loadKernelSpec() (*Spec, error) {
 	}
 
 	for _, loc := range locations {
-		path := fmt.Sprintf(loc, release)
-
-		fh, err := os.Open(path)
+		fh, err := os.Open(fmt.Sprintf(loc, release))
 		if err != nil {
 			continue
 		}
-		defer fh.Close()
-
-		file, err := internal.NewSafeELFFile(fh)
-		if err != nil {
-			return nil, err
-		}
-		defer file.Close()
-
-		return loadSpecFromELF(file, nil)
+		return internal.NewSafeELFFile(fh)
 	}
 
-	return nil, fmt.Errorf("no BTF for kernel version %s: %w", release, internal.ErrNotSupported)
+	return nil, fmt.Errorf("no BTF found for kernel version %s: %w", release, internal.ErrNotSupported)
 }
 
 // parseBTFHeader parses the header of the .BTF section.

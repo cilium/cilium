@@ -94,52 +94,57 @@ func vdsoLinuxVersionCode(r io.ReaderAt) (uint32, error) {
 		return 0, fmt.Errorf("reading vDSO ELF: %w", err)
 	}
 
-	sec := hdr.SectionByType(elf.SHT_NOTE)
-	if sec == nil {
+	sections := hdr.SectionsByType(elf.SHT_NOTE)
+	if len(sections) == 0 {
 		return 0, fmt.Errorf("no note section found in vDSO ELF")
 	}
 
-	sr := sec.Open()
-	var n elfNoteHeader
+	for _, sec := range sections {
+		sr := sec.Open()
+		var n elfNoteHeader
 
-	// Read notes until we find one named 'Linux'.
-	for {
-		if err := binary.Read(sr, hdr.ByteOrder, &n); err != nil {
-			if errors.Is(err, io.EOF) {
-				return 0, fmt.Errorf("no Linux note in ELF")
-			}
-			return 0, fmt.Errorf("reading note header: %w", err)
-		}
-
-		// If a note name is defined, it follows the note header.
-		var name string
-		if n.NameSize > 0 {
-			// Read the note name, aligned to 4 bytes.
-			buf := make([]byte, Align(int(n.NameSize), 4))
-			if err := binary.Read(sr, hdr.ByteOrder, &buf); err != nil {
-				return 0, fmt.Errorf("reading note name: %w", err)
-			}
-
-			// Read nul-terminated string.
-			name = unix.ByteSliceToString(buf[:n.NameSize])
-		}
-
-		// If a note descriptor is defined, it follows the name.
-		// It is possible for a note to have a descriptor but not a name.
-		if n.DescSize > 0 {
-			// LINUX_VERSION_CODE is a uint32 value.
-			if name == "Linux" && n.DescSize == 4 && n.Type == 0 {
-				var version uint32
-				if err := binary.Read(sr, hdr.ByteOrder, &version); err != nil {
-					return 0, fmt.Errorf("reading note descriptor: %w", err)
+		// Read notes until we find one named 'Linux'.
+		for {
+			if err := binary.Read(sr, hdr.ByteOrder, &n); err != nil {
+				if errors.Is(err, io.EOF) {
+					// We looked at all the notes in this section
+					break
 				}
-				return version, nil
+				return 0, fmt.Errorf("reading note header: %w", err)
 			}
 
-			// Discard the note descriptor if it exists but we're not interested in it.
-			if _, err := io.CopyN(io.Discard, sr, int64(Align(int(n.DescSize), 4))); err != nil {
-				return 0, err
+			// If a note name is defined, it follows the note header.
+			var name string
+			if n.NameSize > 0 {
+				// Read the note name, aligned to 4 bytes.
+				buf := make([]byte, Align(int(n.NameSize), 4))
+				if err := binary.Read(sr, hdr.ByteOrder, &buf); err != nil {
+					return 0, fmt.Errorf("reading note name: %w", err)
+				}
+
+				// Read nul-terminated string.
+				name = unix.ByteSliceToString(buf[:n.NameSize])
+			}
+
+			// If a note descriptor is defined, it follows the name.
+			// It is possible for a note to have a descriptor but not a name.
+			if n.DescSize > 0 {
+				// LINUX_VERSION_CODE is a uint32 value.
+				if name == "Linux" && n.DescSize == 4 && n.Type == 0 {
+					var version uint32
+					if err := binary.Read(sr, hdr.ByteOrder, &version); err != nil {
+						return 0, fmt.Errorf("reading note descriptor: %w", err)
+					}
+					return version, nil
+				}
+
+				// Discard the note descriptor if it exists but we're not interested in it.
+				if _, err := io.CopyN(io.Discard, sr, int64(Align(int(n.DescSize), 4))); err != nil {
+					return 0, err
+				}
 			}
 		}
 	}
+
+	return 0, fmt.Errorf("no Linux note in ELF")
 }

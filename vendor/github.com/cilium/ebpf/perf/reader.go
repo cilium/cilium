@@ -353,14 +353,6 @@ func (pr *Reader) Resume() error {
 	return nil
 }
 
-// IsClosed returns true if the error occurred because
-// a Reader was closed.
-//
-// Deprecated: use errors.Is(err, ErrClosed) instead.
-func IsClosed(err error) bool {
-	return errors.Is(err, ErrClosed)
-}
-
 type unknownEventError struct {
 	eventType uint32
 }

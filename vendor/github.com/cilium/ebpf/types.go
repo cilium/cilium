@@ -103,12 +103,6 @@ const (
 	maxMapType
 )
 
-// Deprecated: StructOpts was a typo, use StructOpsMap instead.
-//
-// Declared as a variable to prevent stringer from picking it up
-// as an enum value.
-var StructOpts MapType = StructOpsMap
-
 // hasPerCPUValue returns true if the Map stores a value per CPU.
 func (mt MapType) hasPerCPUValue() bool {
 	return mt == PerCPUHash || mt == PerCPUArray || mt == LRUCPUHash || mt == PerCPUCGroupStorage
