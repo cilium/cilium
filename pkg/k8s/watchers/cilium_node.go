@@ -58,13 +58,21 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, asyncCo
 					if oldCN := k8s.ObjToCiliumNode(oldObj); oldCN != nil {
 						if ciliumNode := k8s.ObjToCiliumNode(newObj); ciliumNode != nil {
 							valid = true
+							isLocal := k8s.IsLocalCiliumNode(ciliumNode)
 							if oldCN.DeepEqual(ciliumNode) {
 								equal = true
-								return
+								if !isLocal {
+									// For remote nodes, we return early here to avoid unnecessary update events if
+									// nothing in the spec or status has changed. But for local nodes, we want to
+									// propagate the new resource version (not compared in DeepEqual) such that any
+									// CiliumNodeChain subscribers are able to perform updates to the local CiliumNode
+									// object using the most recent resource version.
+									return
+								}
 							}
 							n := nodeTypes.ParseCiliumNode(ciliumNode)
 							errs := k.CiliumNodeChain.OnUpdateCiliumNode(oldCN, ciliumNode, swgNodes)
-							if n.IsLocal() {
+							if isLocal {
 								return
 							}
 							k.nodeDiscoverManager.NodeUpdated(n)
