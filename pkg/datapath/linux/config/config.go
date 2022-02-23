@@ -669,6 +669,7 @@ func devMacros() (string, string, error) {
 		if m == nil {
 			l3DevIfIndices = append(l3DevIfIndices, idx)
 		}
+		fmt.Println("!!! 1", iface, len(m))
 		macByIfIndex[idx] = mac.CArrayString(m)
 	}
 
