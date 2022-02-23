@@ -12,7 +12,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 build_dir="${script_dir}/_build"
 warnings="${build_dir}/warnings.txt"
-spelling="${build_dir}/spelling/output.txt"
+spelldir="${build_dir}/spelling"
 
 target="${1:-"html"}"
 shift
@@ -21,33 +21,26 @@ cd "${script_dir}"
 mkdir -p "${build_dir}"
 
 build_with_spellchecker() {
-    sphinx-build -b spelling -d "${build_dir}/doctrees" . "${build_dir}/spelling" -q -E 2> "${warnings}"
+    rm -rf "${spelldir}"
+    sphinx-build -b spelling -d "${build_dir}/doctrees" . "${spelldir}" -q -E 2> "${warnings}"
 }
 
 build_with_linkchecker() {
-    sphinx-build -b linkcheck -d "${build_dir}/doctrees" . "${build_dir}/spelling" -q -E
-}
-
-filter_warnings() {
-    grep -v \
-        -e "tabs assets" \
-        -e "misspelled words" \
-        -e "RemovedInSphinx20Warning" \
-        "${warnings}"
+    sphinx-build -b linkcheck -d "${build_dir}/doctrees" . "${spelldir}" -q -E
 }
 
 has_spelling_errors() {
-    test "$(wc -l < "${spelling}")" -ne 0 
+    test -n "$(ls "${spelldir}")"
 }
 
 describe_spelling_errors() {
     printf "\nPlease fix the following spelling mistakes:\n"
     # show file paths relative to repo root
-    sed 's/^/* Documentation\//' "${spelling}"
+    sed 's/^/* Documentation\//' "${spelldir}"/*
 }
 
 hint_about_wordlist_update() {
-    new_words="$(sed -E 's/^([^:]+:){2} \((.*)\)/\2/g' "${spelling}" | sort -u | tr -d '\r\n' | sed "s/'/\\\\\\\\'/g")"
+    new_words="$(sed -E "s/^([^:]+:){2} \(([^ ]+)\).*/\2/g" "${spelldir}"/* | sort -u | tr '\r\n' ' ' | sed "s/'/\\\\\\\\'/g")"
     printf "\nIf the words are not misspelled, run:\n%s %s\n" \
         "Documentation/update-spelling_wordlist.sh" "${new_words}"
 }
@@ -76,9 +69,9 @@ else
   echo "Validating documentation (syntax, spelling)..."
   if build_with_spellchecker ; then
     status_ok=0
-    if filter_warnings > /dev/null ;  then
+    if [ -s ${warnings} ]; then
         printf "\nPlease fix the following documentation warnings:\n"
-        filter_warnings
+        cat ${warnings}
         status_ok=1
     fi
 

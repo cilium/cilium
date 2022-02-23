@@ -2,31 +2,31 @@ alabaster==0.7.12
 Babel==2.9.1
 certifi==2018.10.15
 chardet==3.0.4
-docutils==0.14
+docutils==0.17
 idna==2.7
 imagesize==1.1.0
 Jinja2==2.11.3
 jsonschema==2.6.0
 MarkupSafe==1.1.1
+myst-parser==0.17.0
 pyenchant==2.0.0
 Pygments==2.7.4
 pytz==2018.7
 PyYAML==5.4
-recommonmark==0.4.0
 requests==2.25.1
 semver==2.9.0
 six==1.15.0
 snowballstemmer==1.2.1
-Sphinx==1.8.1
+Sphinx==4.5.0
 sphinx-autobuild==0.7.1
 # forked read the docs themez
 git+https://github.com/cilium/sphinx_rtd_theme.git@v0.7; platform_machine != "aarch64"
 sphinx-rtd-theme==0.2.4; platform_machine == "aarch64"
-sphinxcontrib-httpdomain==1.7.0
+sphinxcontrib-httpdomain==1.8.0
 sphinxcontrib-openapi==0.3.2
 sphinxcontrib-spelling==4.2.1
 sphinxcontrib-websupport==1.1.0
-sphinx-tabs==1.1.13
+sphinx-tabs==3.3.1
 sphinx-version-warning==1.1.2
 typing==3.6.6
 urllib3==1.26.5
