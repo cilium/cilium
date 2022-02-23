@@ -18,6 +18,11 @@ import (
 	"context"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/controller"
@@ -26,10 +31,6 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-
-	"github.com/sirupsen/logrus"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // enableCiliumEndpointSyncGC starts the node-singleton sweeper for
@@ -170,8 +171,14 @@ func doCiliumEndpointSyncGC(ctx context.Context, once bool, stopCh chan struct{}
 					UID: &cep.UID,
 				},
 			})
-		if err != nil && !k8serrors.IsNotFound(err) && !k8serrors.IsConflict(err) {
+		switch {
+		case err == nil:
+			successfulEndpointObjectGC()
+		case k8serrors.IsNotFound(err), k8serrors.IsConflict(err):
+			// No-op.
+		default:
 			scopedLog.WithError(err).Warning("Unable to delete orphaned CEP")
+			failedEndpointObjectGC()
 			return err
 		}
 	}
@@ -181,4 +188,16 @@ func doCiliumEndpointSyncGC(ctx context.Context, once bool, stopCh chan struct{}
 		close(stopCh)
 	}
 	return nil
+}
+
+func successfulEndpointObjectGC() {
+	if operatorOption.Config.EnableMetrics {
+		metrics.EndpointGCObjects.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
+	}
+}
+
+func failedEndpointObjectGC() {
+	if operatorOption.Config.EnableMetrics {
+		metrics.EndpointGCObjects.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
+	}
 }
