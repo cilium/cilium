@@ -19,6 +19,7 @@ import (
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/cli/values"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -203,6 +204,10 @@ type Parameters struct {
 	// HelmChartDirectory points to the location of a helm chart directory.
 	// Useful to test from upstream where a helm release is not available yet.
 	HelmChartDirectory string
+
+	// HelmOpts are all the options the user used to pass into the Cilium cli
+	// template.
+	HelmOpts values.Options
 }
 
 type rollbackStep func(context.Context)
