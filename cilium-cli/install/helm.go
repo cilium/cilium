@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/versioncheck"
+	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/strvals"
 
@@ -76,9 +77,18 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 	}
 
 	ciliumVer := k.getCiliumVersion()
-	helmChart, err := newHelmChartFromCiliumVersion(ciliumVer.String())
-	if err != nil {
-		return err
+
+	var helmChart *chart.Chart
+	if helmDir := k.params.HelmChartDirectory; helmDir != "" {
+		helmChart, err = newHelmChartFromDirectory(helmDir)
+		if err != nil {
+			return err
+		}
+	} else {
+		helmChart, err = newHelmChartFromCiliumVersion(ciliumVer.String())
+		if err != nil {
+			return err
+		}
 	}
 
 	helmMapOpts := map[string]string{}
@@ -161,7 +171,11 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 		return fmt.Errorf("error parsing helm options %q: %w", helmOptsStr, err)
 	}
 
-	k.Log("ℹ️  helm template --namespace %s cilium cilium/cilium --version %s --set %s", k.params.Namespace, ciliumVer, helmOptsStr)
+	if helmChartDir := k.params.HelmChartDirectory; helmChartDir != "" {
+		k.Log("ℹ️  helm template --namespace %s cilium %q --version %s --set %s", k.params.Namespace, helmChartDir, ciliumVer, helmOptsStr)
+	} else {
+		k.Log("ℹ️  helm template --namespace %s cilium cilium/cilium --version %s --set %s", k.params.Namespace, ciliumVer, helmOptsStr)
+	}
 
 	rel, err := helmClient.RunWithContext(ctx, helmChart, helmValues)
 	if err != nil {

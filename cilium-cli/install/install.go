@@ -199,6 +199,10 @@ type Parameters struct {
 	// kubernetes manifests. If the auto-detection fails, this flag can be used
 	// as a workaround.
 	K8sVersion string
+
+	// HelmChartDirectory points to the location of a helm chart directory.
+	// Useful to test from upstream where a helm release is not available yet.
+	HelmChartDirectory string
 }
 
 type rollbackStep func(context.Context)
@@ -259,6 +263,10 @@ func newHelmChartFromCiliumVersion(ciliumVersion string) (*chart.Chart, error) {
 
 	// Check chart dependencies to make sure all are present in /charts
 	return loader.LoadArchive(bytes.NewReader(helmTgz))
+}
+
+func newHelmChartFromDirectory(directory string) (*chart.Chart, error) {
+	return loader.LoadDir(directory)
 }
 
 func NewK8sInstaller(client k8sInstallerImplementation, p Parameters) (*K8sInstaller, error) {
