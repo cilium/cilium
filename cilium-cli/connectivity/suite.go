@@ -44,6 +44,8 @@ var (
 )
 
 func Run(ctx context.Context, ct *check.ConnectivityTest) error {
+	ct.SetupAndValidate(ctx)
+
 	// Run all tests without any policies in place.
 	ct.NewTest("no-policies").WithScenarios(
 		tests.PodToPod(""),
