@@ -36,7 +36,8 @@ import cilium_spellfilters
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 html_logo = "images/logo.svg"
-extensions = ['sphinx.ext.ifconfig',
+extensions = ['myst_parser',
+              'sphinx.ext.ifconfig',
               'sphinx.ext.githubpages',
               'sphinx.ext.extlinks',
               'sphinxcontrib.openapi',
@@ -52,9 +53,6 @@ templates_path = ['_templates']
 #
 # source_suffix = ['.rst', '.md']
 source_suffix = ['.rst', '.md']
-source_parsers = {
-    '.md': 'recommonmark.parser.CommonMarkParser',
-}
 
 # The master toctree document.
 master_doc = 'index'
@@ -159,6 +157,9 @@ todo_include_todos = False
 # Add custom filters for spell checks.
 spelling_filters = [cilium_spellfilters.WireGuardFilter]
 
+# Ignore some warnings from MyST parser
+suppress_warnings = ['myst.header']
+
 
 # -- Options for HTML output ----------------------------------------------
 
@@ -251,9 +252,9 @@ default_role = 'any'
 
 
 def setup(app):
-    app.add_stylesheet('parsed-literal.css')
-    app.add_stylesheet('copybutton.css')
-    app.add_stylesheet('editbutton.css')
-    app.add_javascript('clipboardjs.min.js')
-    app.add_javascript("copybutton.js")
-    app.add_stylesheet('helm-reference.css')
+    app.add_css_file('parsed-literal.css')
+    app.add_css_file('copybutton.css')
+    app.add_css_file('editbutton.css')
+    app.add_js_file('clipboardjs.min.js')
+    app.add_js_file("copybutton.js")
+    app.add_css_file('helm-reference.css')
