@@ -777,7 +777,7 @@ spec:
               key: custom-cni-conf
               name: cilium-config
               optional: true
-        image: "quay.io/cilium/cilium:v1.9.12@sha256:7d4ef9dc7e504ba1a55a01dd743260daced11ded02fc268965ef2c98eb8b8bde"
+        image: "quay.io/cilium/cilium:v1.9.13"
         imagePullPolicy: IfNotPresent
         lifecycle:
           postStart:
@@ -844,7 +844,7 @@ spec:
           # same directory where we install cilium cni plugin so that exec permissions
           # are available.
           - 'cp /usr/bin/cilium-mount /hostbin/cilium-mount && nsenter --cgroup=/hostproc/1/ns/cgroup --mount=/hostproc/1/ns/mnt "${BIN_PATH}/cilium-mount" $CGROUP_ROOT; rm /hostbin/cilium-mount'
-        image: "quay.io/cilium/cilium:v1.9.12@sha256:7d4ef9dc7e504ba1a55a01dd743260daced11ded02fc268965ef2c98eb8b8bde"
+        image: "quay.io/cilium/cilium:v1.9.13"
         imagePullPolicy: IfNotPresent
         volumeMounts:
           - mountPath: /hostproc
@@ -874,7 +874,7 @@ spec:
               key: wait-bpf-mount
               name: cilium-config
               optional: true
-        image: "quay.io/cilium/cilium:v1.9.12@sha256:7d4ef9dc7e504ba1a55a01dd743260daced11ded02fc268965ef2c98eb8b8bde"
+        image: "quay.io/cilium/cilium:v1.9.13"
         imagePullPolicy: IfNotPresent
         name: clean-cilium-state
         securityContext:
@@ -1036,7 +1036,7 @@ spec:
               key: debug
               name: cilium-config
               optional: true
-        image: "quay.io/cilium/operator-generic:v1.9.12@sha256:b89b16476cf6500d68763a70fb3d449e0309296bd00122cbe24f306c7e5e5180"
+        image: "quay.io/cilium/operator-generic:v1.9.13"
         imagePullPolicy: IfNotPresent
         name: cilium-operator
         livenessProbe:
@@ -1101,7 +1101,7 @@ spec:
             topologyKey: "kubernetes.io/hostname"
       containers:
         - name: hubble-relay
-          image: "quay.io/cilium/hubble-relay:v1.9.12@sha256:67c5ce60e2f7cfd6f28b68b164bb910c41be365b9e17553c8a963dd456de204f"
+          image: "quay.io/cilium/hubble-relay:v1.9.13"
           imagePullPolicy: IfNotPresent
           command:
             - hubble-relay
