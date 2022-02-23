@@ -205,6 +205,22 @@
      - clustermesh-apiserver update strategy
      - object
      - ``{"rollingUpdate":{"maxUnavailable":1},"type":"RollingUpdate"}``
+   * - clustermesh.config
+     - Clustermesh explicit configuration.
+     - object
+     - ``{"clusters":[],"domain":"mesh.cilium.io","enabled":false}``
+   * - clustermesh.config.clusters
+     - List of clusters to be peered in the mesh.
+     - list
+     - ``[]``
+   * - clustermesh.config.domain
+     - Default dns domain for the Clustermesh API servers This is used in the case cluster addresses are not provided and IPs are used.
+     - string
+     - ``"mesh.cilium.io"``
+   * - clustermesh.config.enabled
+     - Enable the Clustermesh explicit configuration.
+     - bool
+     - ``false``
    * - clustermesh.useAPIServer
      - Deploy clustermesh-apiserver for clustermesh
      - bool
