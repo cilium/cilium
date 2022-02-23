@@ -85,6 +85,6 @@ cilium-operator [flags]
 
 ### SEE ALSO
 
-* [cilium-operator completion](cilium-operator_completion.html)	 - Generate the autocompletion script for the specified shell
-* [cilium-operator metrics](cilium-operator_metrics.html)	 - Access metric status of the operator
+* [cilium-operator completion](cilium-operator_completion.md)	 - Generate the autocompletion script for the specified shell
+* [cilium-operator metrics](cilium-operator_metrics.md)	 - Access metric status of the operator
 

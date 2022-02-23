@@ -25,5 +25,5 @@ cilium bpf lb maglev get <service id> [flags]
 
 ### SEE ALSO
 
-* [cilium bpf lb maglev](../cilium_bpf_lb_maglev)	 - Maglev lookup table
+* [cilium bpf lb maglev](cilium_bpf_lb_maglev.md)	 - Maglev lookup table
 

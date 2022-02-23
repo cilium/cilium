@@ -27,9 +27,9 @@ See each sub-command's help for details on how to use the generated script.
 
 ### SEE ALSO
 
-* [cilium-health](cilium-health.html)	 - Cilium Health Client
-* [cilium-health completion bash](cilium-health_completion_bash.html)	 - Generate the autocompletion script for bash
-* [cilium-health completion fish](cilium-health_completion_fish.html)	 - Generate the autocompletion script for fish
-* [cilium-health completion powershell](cilium-health_completion_powershell.html)	 - Generate the autocompletion script for powershell
-* [cilium-health completion zsh](cilium-health_completion_zsh.html)	 - Generate the autocompletion script for zsh
+* [cilium-health](cilium-health.md)	 - Cilium Health Client
+* [cilium-health completion bash](cilium-health_completion_bash.md)	 - Generate the autocompletion script for bash
+* [cilium-health completion fish](cilium-health_completion_fish.md)	 - Generate the autocompletion script for fish
+* [cilium-health completion powershell](cilium-health_completion_powershell.md)	 - Generate the autocompletion script for powershell
+* [cilium-health completion zsh](cilium-health_completion_zsh.md)	 - Generate the autocompletion script for zsh
 

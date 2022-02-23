@@ -39,5 +39,5 @@ cilium-operator-alibabacloud completion zsh [flags]
 
 ### SEE ALSO
 
-* [cilium-operator-alibabacloud completion](cilium-operator-alibabacloud_completion.html)	 - Generate the autocompletion script for the specified shell
+* [cilium-operator-alibabacloud completion](cilium-operator-alibabacloud_completion.md)	 - Generate the autocompletion script for the specified shell
 

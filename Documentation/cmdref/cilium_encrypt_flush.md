@@ -29,5 +29,5 @@ cilium encrypt flush [flags]
 
 ### SEE ALSO
 
-* [cilium encrypt](../cilium_encrypt)	 - Manage transparent encryption
+* [cilium encrypt](cilium_encrypt.md)	 - Manage transparent encryption
 

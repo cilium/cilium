@@ -12,6 +12,6 @@ Access metric status of the operator
 
 ### SEE ALSO
 
-* [cilium-operator-azure](cilium-operator-azure.html)	 - Run cilium-operator-azure
-* [cilium-operator-azure metrics list](cilium-operator-azure_metrics_list.html)	 - List all metrics for the operator
+* [cilium-operator-azure](cilium-operator-azure.md)	 - Run cilium-operator-azure
+* [cilium-operator-azure metrics list](cilium-operator-azure_metrics_list.md)	 - List all metrics for the operator
 

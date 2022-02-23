@@ -25,5 +25,5 @@ cilium bpf nat list [flags]
 
 ### SEE ALSO
 
-* [cilium bpf nat](../cilium_bpf_nat)	 - NAT mapping tables
+* [cilium bpf nat](cilium_bpf_nat.md)	 - NAT mapping tables
 

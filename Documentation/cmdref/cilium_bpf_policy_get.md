@@ -27,5 +27,5 @@ cilium bpf policy get [flags]
 
 ### SEE ALSO
 
-* [cilium bpf policy](../cilium_bpf_policy)	 - Manage policy related BPF maps
+* [cilium bpf policy](cilium_bpf_policy.md)	 - Manage policy related BPF maps
 

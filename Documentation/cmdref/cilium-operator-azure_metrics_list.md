@@ -18,5 +18,5 @@ cilium-operator-azure metrics list [flags]
 
 ### SEE ALSO
 
-* [cilium-operator-azure metrics](cilium-operator-azure_metrics.html)	 - Access metric status of the operator
+* [cilium-operator-azure metrics](cilium-operator-azure_metrics.md)	 - Access metric status of the operator
 

@@ -25,5 +25,5 @@ cilium bpf bandwidth list [flags]
 
 ### SEE ALSO
 
-* [cilium bpf bandwidth](../cilium_bpf_bandwidth)	 - BPF datapath bandwidth settings
+* [cilium bpf bandwidth](cilium_bpf_bandwidth.md)	 - BPF datapath bandwidth settings
 

@@ -28,5 +28,5 @@ cilium bpf lb list [flags]
 
 ### SEE ALSO
 
-* [cilium bpf lb](../cilium_bpf_lb)	 - Load-balancing configuration
+* [cilium bpf lb](cilium_bpf_lb.md)	 - Load-balancing configuration
 

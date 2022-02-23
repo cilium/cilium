@@ -35,5 +35,5 @@ cilium cleanup [flags]
 
 ### SEE ALSO
 
-* [cilium](../cilium)	 - CLI
+* [cilium](cilium.md)	 - CLI
 

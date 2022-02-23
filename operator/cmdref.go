@@ -5,17 +5,13 @@ package main
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 )
 
 func linkHandler(s string) string {
-	// The generated files have a 'See also' section but the URL's are
-	// hardcoded to use Markdown but we only want / have them in HTML
-	// later.
-	return strings.Replace(s, ".md", ".html", 1)
+	return s
 }
 
 func filePrepend(s string) string {

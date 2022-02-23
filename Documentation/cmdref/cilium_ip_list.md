@@ -27,5 +27,5 @@ cilium ip list [flags]
 
 ### SEE ALSO
 
-* [cilium ip](../cilium_ip)	 - Manage IP addresses and associated information
+* [cilium ip](cilium_ip.md)	 - Manage IP addresses and associated information
 

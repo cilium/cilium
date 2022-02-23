@@ -25,5 +25,5 @@ cilium prefilter list [flags]
 
 ### SEE ALSO
 
-* [cilium prefilter](../cilium_prefilter)	 - Manage XDP CIDR filters
+* [cilium prefilter](cilium_prefilter.md)	 - Manage XDP CIDR filters
 

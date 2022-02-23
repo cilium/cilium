@@ -25,5 +25,5 @@ cilium bpf sha get <sha> [flags]
 
 ### SEE ALSO
 
-* [cilium bpf sha](../cilium_bpf_sha)	 - Manage compiled BPF template objects
+* [cilium bpf sha](cilium_bpf_sha.md)	 - Manage compiled BPF template objects
 

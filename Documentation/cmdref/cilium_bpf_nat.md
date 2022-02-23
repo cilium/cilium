@@ -20,7 +20,7 @@ NAT mapping tables
 
 ### SEE ALSO
 
-* [cilium bpf](../cilium_bpf)	 - Direct access to local BPF maps
-* [cilium bpf nat flush](../cilium_bpf_nat_flush)	 - Flush all NAT mapping entries
-* [cilium bpf nat list](../cilium_bpf_nat_list)	 - List all NAT mapping entries
+* [cilium bpf](cilium_bpf.md)	 - Direct access to local BPF maps
+* [cilium bpf nat flush](cilium_bpf_nat_flush.md)	 - Flush all NAT mapping entries
+* [cilium bpf nat list](cilium_bpf_nat_list.md)	 - List all NAT mapping entries
 

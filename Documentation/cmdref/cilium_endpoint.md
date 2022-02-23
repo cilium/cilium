@@ -20,13 +20,13 @@ Manage endpoints
 
 ### SEE ALSO
 
-* [cilium](../cilium)	 - CLI
-* [cilium endpoint config](../cilium_endpoint_config)	 - View & modify endpoint configuration
-* [cilium endpoint disconnect](../cilium_endpoint_disconnect)	 - Disconnect an endpoint from the network
-* [cilium endpoint get](../cilium_endpoint_get)	 - Display endpoint information
-* [cilium endpoint health](../cilium_endpoint_health)	 - View endpoint health
-* [cilium endpoint labels](../cilium_endpoint_labels)	 - Manage label configuration of endpoint
-* [cilium endpoint list](../cilium_endpoint_list)	 - List all endpoints
-* [cilium endpoint log](../cilium_endpoint_log)	 - View endpoint status log
-* [cilium endpoint regenerate](../cilium_endpoint_regenerate)	 - Force regeneration of endpoint program
+* [cilium](cilium.md)	 - CLI
+* [cilium endpoint config](cilium_endpoint_config.md)	 - View & modify endpoint configuration
+* [cilium endpoint disconnect](cilium_endpoint_disconnect.md)	 - Disconnect an endpoint from the network
+* [cilium endpoint get](cilium_endpoint_get.md)	 - Display endpoint information
+* [cilium endpoint health](cilium_endpoint_health.md)	 - View endpoint health
+* [cilium endpoint labels](cilium_endpoint_labels.md)	 - Manage label configuration of endpoint
+* [cilium endpoint list](cilium_endpoint_list.md)	 - List all endpoints
+* [cilium endpoint log](cilium_endpoint_log.md)	 - View endpoint status log
+* [cilium endpoint regenerate](cilium_endpoint_regenerate.md)	 - Force regeneration of endpoint program
 

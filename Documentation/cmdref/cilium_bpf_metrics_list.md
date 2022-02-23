@@ -25,5 +25,5 @@ cilium bpf metrics list [flags]
 
 ### SEE ALSO
 
-* [cilium bpf metrics](../cilium_bpf_metrics)	 - BPF datapath traffic metrics
+* [cilium bpf metrics](cilium_bpf_metrics.md)	 - BPF datapath traffic metrics
 

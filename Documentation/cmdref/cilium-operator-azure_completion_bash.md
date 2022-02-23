@@ -41,5 +41,5 @@ cilium-operator-azure completion bash
 
 ### SEE ALSO
 
-* [cilium-operator-azure completion](cilium-operator-azure_completion.html)	 - Generate the autocompletion script for the specified shell
+* [cilium-operator-azure completion](cilium-operator-azure_completion.md)	 - Generate the autocompletion script for the specified shell
 

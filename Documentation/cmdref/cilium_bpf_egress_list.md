@@ -34,5 +34,5 @@ cilium bpf egress list [flags]
 
 ### SEE ALSO
 
-* [cilium bpf egress](../cilium_bpf_egress)	 - Manage the egress routing rules
+* [cilium bpf egress](cilium_bpf_egress.md)	 - Manage the egress routing rules
 

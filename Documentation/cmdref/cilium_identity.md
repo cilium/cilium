@@ -20,7 +20,7 @@ Manage security identities
 
 ### SEE ALSO
 
-* [cilium](../cilium)	 - CLI
-* [cilium identity get](../cilium_identity_get)	 - Retrieve information about an identity
-* [cilium identity list](../cilium_identity_list)	 - List identities
+* [cilium](cilium.md)	 - CLI
+* [cilium identity get](cilium_identity_get.md)	 - Retrieve information about an identity
+* [cilium identity list](cilium_identity_list.md)	 - List identities
 

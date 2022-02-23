@@ -20,6 +20,6 @@ Manage IP addresses and associated information
 
 ### SEE ALSO
 
-* [cilium](../cilium)	 - CLI
-* [cilium ip list](../cilium_ip_list)	 - List IP addresses in the userspace IPcache
+* [cilium](cilium.md)	 - CLI
+* [cilium ip list](cilium_ip_list.md)	 - List IP addresses in the userspace IPcache
 

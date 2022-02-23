@@ -26,5 +26,5 @@ cilium metrics list [flags]
 
 ### SEE ALSO
 
-* [cilium metrics](../cilium_metrics)	 - Access metric status
+* [cilium metrics](cilium_metrics.md)	 - Access metric status
 

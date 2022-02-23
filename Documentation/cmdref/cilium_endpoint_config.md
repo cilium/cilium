@@ -32,5 +32,5 @@ endpoint config 5421 DropNotification=false TraceNotification=false PolicyVerdic
 
 ### SEE ALSO
 
-* [cilium endpoint](../cilium_endpoint)	 - Manage endpoints
+* [cilium endpoint](cilium_endpoint.md)	 - Manage endpoints
 

@@ -25,5 +25,5 @@ cilium bpf recorder list [flags]
 
 ### SEE ALSO
 
-* [cilium bpf recorder](../cilium_bpf_recorder)	 - PCAP recorder
+* [cilium bpf recorder](cilium_bpf_recorder.md)	 - PCAP recorder
 

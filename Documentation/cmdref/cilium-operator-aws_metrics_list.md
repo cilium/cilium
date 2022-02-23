@@ -18,5 +18,5 @@ cilium-operator-aws metrics list [flags]
 
 ### SEE ALSO
 
-* [cilium-operator-aws metrics](cilium-operator-aws_metrics.html)	 - Access metric status of the operator
+* [cilium-operator-aws metrics](cilium-operator-aws_metrics.md)	 - Access metric status of the operator
 

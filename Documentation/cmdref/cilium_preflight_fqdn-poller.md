@@ -36,5 +36,5 @@ cilium preflight fqdn-poller [flags]
 
 ### SEE ALSO
 
-* [cilium preflight](../cilium_preflight)	 - cilium upgrade helper
+* [cilium preflight](cilium_preflight.md)	 - cilium upgrade helper
 

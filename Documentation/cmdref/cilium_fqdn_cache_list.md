@@ -27,5 +27,5 @@ cilium fqdn cache list [flags]
 
 ### SEE ALSO
 
-* [cilium fqdn cache](../cilium_fqdn_cache)	 - Manage fqdn proxy cache
+* [cilium fqdn cache](cilium_fqdn_cache.md)	 - Manage fqdn proxy cache
 

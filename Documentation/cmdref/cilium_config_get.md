@@ -25,5 +25,5 @@ cilium config get <config name> [flags]
 
 ### SEE ALSO
 
-* [cilium config](../cilium_config)	 - Cilium configuration options
+* [cilium config](cilium_config.md)	 - Cilium configuration options
 

@@ -18,9 +18,9 @@ See each sub-command's help for details on how to use the generated script.
 
 ### SEE ALSO
 
-* [cilium-operator-aws](cilium-operator-aws.html)	 - Run cilium-operator-aws
-* [cilium-operator-aws completion bash](cilium-operator-aws_completion_bash.html)	 - Generate the autocompletion script for bash
-* [cilium-operator-aws completion fish](cilium-operator-aws_completion_fish.html)	 - Generate the autocompletion script for fish
-* [cilium-operator-aws completion powershell](cilium-operator-aws_completion_powershell.html)	 - Generate the autocompletion script for powershell
-* [cilium-operator-aws completion zsh](cilium-operator-aws_completion_zsh.html)	 - Generate the autocompletion script for zsh
+* [cilium-operator-aws](cilium-operator-aws.md)	 - Run cilium-operator-aws
+* [cilium-operator-aws completion bash](cilium-operator-aws_completion_bash.md)	 - Generate the autocompletion script for bash
+* [cilium-operator-aws completion fish](cilium-operator-aws_completion_fish.md)	 - Generate the autocompletion script for fish
+* [cilium-operator-aws completion powershell](cilium-operator-aws_completion_powershell.md)	 - Generate the autocompletion script for powershell
+* [cilium-operator-aws completion zsh](cilium-operator-aws_completion_zsh.md)	 - Generate the autocompletion script for zsh
 
