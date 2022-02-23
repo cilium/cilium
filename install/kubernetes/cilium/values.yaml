@@ -1561,6 +1561,33 @@ clustermesh:
   # -- Deploy clustermesh-apiserver for clustermesh
   useAPIServer: false
 
+  # -- Clustermesh explicit configuration.
+  config:
+    # -- Enable the Clustermesh explicit configuration.
+    enabled: false
+    # -- Default dns domain for the Clustermesh API servers
+    # This is used in the case cluster addresses are not provided
+    # and IPs are used.
+    domain: mesh.cilium.io
+    # -- List of clusters to be peered in the mesh.
+    clusters: []
+    # clusters: 
+    # # -- Name of the cluster
+    # - name: cluster1
+    # # -- Address of the cluster, use this if you created DNS records for
+    # # the cluster Clustermesh API server.
+    #   address: cluster1.mesh.cilium.io 
+    # # -- Port of the cluster Clustermesh API server.
+    #   port: 2379
+    # # -- IPs of the cluster Clustermesh API server, use multiple ones when
+    # # you have multiple IPs to access the Clustermesh API server.
+    #   ips:
+    #   - 172.18.255.201
+    # # -- base64 encoded PEM values for the cluster client certificate, private key and certificate authority.
+    #   tls:
+    #     cert: ""
+    #     key: ""
+
   apiserver:
     # -- Clustermesh API server image.
     image:
