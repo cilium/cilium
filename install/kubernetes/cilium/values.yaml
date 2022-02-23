@@ -1622,12 +1622,12 @@ clustermesh:
     domain: mesh.cilium.io
     # -- List of clusters to be peered in the mesh.
     clusters: []
-    # clusters: 
+    # clusters:
     # # -- Name of the cluster
     # - name: cluster1
     # # -- Address of the cluster, use this if you created DNS records for
     # # the cluster Clustermesh API server.
-    #   address: cluster1.mesh.cilium.io 
+    #   address: cluster1.mesh.cilium.io
     # # -- Port of the cluster Clustermesh API server.
     #   port: 2379
     # # -- IPs of the cluster Clustermesh API server, use multiple ones when

@@ -1058,6 +1058,10 @@ func initializeFlags() {
 	flags.MarkHidden(option.BypassIPAvailabilityUponRestore)
 	option.BindEnv(option.BypassIPAvailabilityUponRestore)
 
+	flags.Int(option.TCFilterPriority, 1, "Priority of TC BPF filter")
+	flags.MarkHidden(option.TCFilterPriority)
+	option.BindEnv(option.TCFilterPriority)
+
 	viper.BindPFlags(flags)
 }
 

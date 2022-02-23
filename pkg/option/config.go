@@ -1007,6 +1007,10 @@ const (
 	// within IPAM upon endpoint restore and allows the use of the restored IP
 	// regardless of whether it's available in the pool.
 	BypassIPAvailabilityUponRestore = "bypass-ip-availability-upon-restore"
+
+	// TCFilterPriority sets the priority of the cilium tc filter, enabling other
+	// filters to be inserted prior to the cilium filter.
+	TCFilterPriority = "bpf-filter-priority"
 )
 
 // Default string arguments
@@ -2074,6 +2078,10 @@ type DaemonConfig struct {
 	// within IPAM upon endpoint restore and allows the use of the restored IP
 	// regardless of whether it's available in the pool.
 	BypassIPAvailabilityUponRestore bool
+
+	// TCFilterPriority sets the priority of the cilium tc filter, enabling other
+	// filters to be inserted prior to the cilium filter.
+	TCFilterPriority int
 }
 
 var (
@@ -2646,6 +2654,7 @@ func (c *DaemonConfig) Populate() {
 	c.BGPAnnounceLBIP = viper.GetBool(BGPAnnounceLBIP)
 	c.BGPConfigPath = viper.GetString(BGPConfigPath)
 	c.ExternalClusterIP = viper.GetBool(ExternalClusterIPName)
+	c.TCFilterPriority = viper.GetInt(TCFilterPriority)
 
 	err = c.populateMasqueradingSettings()
 	if err != nil {

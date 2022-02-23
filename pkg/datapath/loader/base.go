@@ -21,6 +21,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -68,6 +69,7 @@ const (
 	initArgNrCPUs
 	initArgEndpointRoutes
 	initArgProxyRule
+	initTCFilterPriority
 	initArgMax
 )
 
@@ -417,6 +419,8 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	} else {
 		args[initArgProxyRule] = "false"
 	}
+
+	args[initTCFilterPriority] = strconv.Itoa(option.Config.TCFilterPriority)
 
 	// "Legacy" datapath inizialization with the init.sh script
 	// TODO(mrostecki): Rewrite the whole init.sh in Go, step by step.

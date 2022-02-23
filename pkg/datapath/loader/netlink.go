@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strconv"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/command/exec"
@@ -104,8 +105,11 @@ func replaceDatapath(ctx context.Context, ifName, objPath, progSec, progDirectio
 			"obj", objPath, "sec", progSec}
 	} else {
 		loaderProg = "tc"
+
+		tcPrio := strconv.Itoa(option.Config.TCFilterPriority)
+		log.Debugf("tc filter using priority %s for interface %s", tcPrio, ifName)
 		args = []string{"filter", "replace", "dev", ifName, progDirection,
-			"prio", "1", "handle", "1", "bpf", "da", "obj", objPath,
+			"prio", tcPrio, "handle", "1", "bpf", "da", "obj", objPath,
 			"sec", progSec,
 		}
 	}
