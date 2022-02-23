@@ -13,7 +13,7 @@ spec:
       serviceAccountName: clustermesh-apiserver-generate-certs
       containers:
         - name: certgen
-          image: {{ .Values.certgen.image.repository }}:{{ .Values.certgen.image.tag }}
+          image: {{ if .Values.certgen.image.override }}{{ .Values.certgen.image.override }}{{ else }}{{ .Values.certgen.image.repository }}:{{ .Values.certgen.image.tag }}{{ end }}
           imagePullPolicy: {{ .Values.certgen.image.pullPolicy }}
           command:
             - "/usr/bin/cilium-certgen"
