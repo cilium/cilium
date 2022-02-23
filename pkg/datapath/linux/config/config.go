@@ -486,9 +486,11 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 				cDefinesMap["ENCRYPT_IFACE"] = fmt.Sprintf("%d", link.Attrs().Index)
 			}
 		}
-		// If we are using IPAMENI always use IP_POOLS datapath, the pod subnets
-		// will be auto-discovered later at runtime.
-		if (option.Config.IPAM == ipamOption.IPAMENI) ||
+		// If we are using EKS or AKS IPAM modes, we should use IP_POOLS
+		// datapath as the pod subnets will be auto-discovered later at
+		// runtime.
+		if option.Config.IPAM == ipamOption.IPAMENI ||
+			option.Config.IPAM == ipamOption.IPAMAzure ||
 			option.Config.IsPodSubnetsDefined() {
 			cDefinesMap["IP_POOLS"] = "1"
 		}

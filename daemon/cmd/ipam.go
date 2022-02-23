@@ -226,7 +226,9 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily) (routerI
 		}
 		routerIP = result.IP
 	}
-	if (option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAlibabaCloud) && result != nil {
+	if (option.Config.IPAM == ipamOption.IPAMENI ||
+		option.Config.IPAM == ipamOption.IPAMAlibabaCloud ||
+		option.Config.IPAM == ipamOption.IPAMAzure) && result != nil {
 		var routingInfo *linuxrouting.RoutingInfo
 		routingInfo, err = linuxrouting.NewRoutingInfo(result.GatewayIP, result.CIDRs,
 			result.PrimaryMAC, result.InterfaceNumber, option.Config.EnableIPv4Masquerade)
