@@ -87,6 +87,10 @@ var (
 
 	// IdentityGCRuns records how many times identity GC has run
 	IdentityGCRuns *prometheus.GaugeVec
+
+	// EndpointGCObjects records the number of times endpoint objects have been
+	// garbage-collected.
+	EndpointGCObjects *prometheus.CounterVec
 )
 
 const (
@@ -125,6 +129,13 @@ func registerMetrics() []prometheus.Collector {
 		Help:      "The number of times identity garbage collector has run",
 	}, []string{LabelOutcome})
 	collectors = append(collectors, IdentityGCRuns)
+
+	EndpointGCObjects = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "endpoint_gc_objects",
+		Help:      "The number of times endpoint objects have been garbage-collected",
+	}, []string{LabelOutcome})
+	collectors = append(collectors, EndpointGCObjects)
 
 	Registry.MustRegister(collectors...)
 
