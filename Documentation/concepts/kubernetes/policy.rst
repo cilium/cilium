@@ -21,11 +21,11 @@ with Kubernetes:
   as beta.
 
 - The extended `CiliumNetworkPolicy` format which is available as a
-  `CustomResourceDefinition` which supports specification of policies
+  :term:`CustomResourceDefinition` which supports specification of policies
   at Layers 3-7 for both ingress and egress.
 
 - The `CiliumClusterwideNetworkPolicy` format which is a cluster-scoped
-  `CustomResourceDefinition` for specifying cluster-wide policies to be enforced
+  :term:`CustomResourceDefinition` for specifying cluster-wide policies to be enforced
   by Cilium. The specification is same as that of `CiliumNetworkPolicy` with
   no specified namespace.
 

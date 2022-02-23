@@ -59,7 +59,7 @@ desired CNI chaining configuration:
           ]
         }
 
-Deploy the `ConfigMap`:
+Deploy the :term:`ConfigMap`:
 
 .. code-block:: shell-session
 

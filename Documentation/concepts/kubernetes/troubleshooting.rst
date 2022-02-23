@@ -13,7 +13,7 @@ Troubleshooting
 Verifying the installation
 ==========================
 
-Check the status of the `DaemonSet` and verify that all desired instances are in
+Check the status of the :term:`DaemonSet` and verify that all desired instances are in
 "ready" state:
 
 .. code-block:: shell-session
@@ -51,7 +51,7 @@ In this example, the cause for the failure is a Linux kernel running on the
 worker node which is not meeting :ref:`admin_system_reqs`.
 
 If the cause for the problem is not apparent based on these simple steps,
-please come and seek help on our `Slack channel`.
+please come and seek help on our :term:`Slack channel`.
 
 Apiserver outside of cluster
 ==============================

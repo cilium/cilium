@@ -19,7 +19,7 @@ is the mode with the fewest requirements on the underlying networking
 infrastructure.
 
 In this mode, all cluster nodes form a mesh of tunnels using the UDP-based
-encapsulation protocols `VXLAN` or `Geneve`. All traffic between Cilium nodes
+encapsulation protocols :term:`VXLAN` or :term:`Geneve`. All traffic between Cilium nodes
 is encapsulated.
 
 Requirements on the network
