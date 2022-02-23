@@ -1,5 +1,48 @@
 # Changelog
 
+## v1.10.8
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* helm: Add values for custom service monitor annotations (Backport PR #18782, Upstream PR #18681, @michi-covalent)
+* metrics: Expose xfrm stats in prometheus metrics (Backport PR #18668, Upstream PR #18553, @sayboras)
+
+**Bugfixes:**
+* Cilium host proxy is updated to Envoy release 1.21.1 (Backport PR #18890, Upstream PR #18899, @jrajahalme)
+* clustermesh-apiserver: fix cmd-line args processing (Backport PR #18724, Upstream PR #18277, @abocim)
+* cmd: Fix issue reading string map type via config map (Backport PR #18724, Upstream PR #18478, @sayboras)
+* datapath: Only unload obsolete XDP when attached (Backport PR #18668, Upstream PR #18636, @jaffcheng)
+* Fix a bug with local redirect policies selecting host networked pods as local endpoints not taking effect. (Backport PR #18724, Upstream PR #18563, @aditighag)
+* Fix bug where Cilium drops traffic from remote nodes in etcd mode, despite policy that allows the traffic (Backport PR #18801, Upstream PR #18777, @joestringer)
+* labelfilter: Refine default label regexps (Backport PR #18724, Upstream PR #18693, @twpayne)
+
+**CI Changes:**
+* ci: fix QEMU image build following Google Cloud SDK updates (Backport PR #18782, Upstream PR #18720, @nbusseneau)
+* ci: remove box download timeout in upstream tests (Backport PR #18724, Upstream PR #18707, @nbusseneau)
+* Enable CI for feature branches (Backport PR #18617, Upstream PR #18554, @jibi)
+* test/runtime: fix flake on non-ready endpoints (Backport PR #18668, Upstream PR #18627, @tklauser)
+* test: Fix pod cleanup after various tests (Backport PR #18668, Upstream PR #18448, @joestringer)
+
+**Misc Changes:**
+* build(deps): bump actions/setup-go from 2.1.5 to 2.2.0 (#18754, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 2.8.0 to 2.9.0 (#18689, @dependabot[bot])
+* build(deps): bump docker/login-action from 1.12.0 to 1.13.0 (#18837, @dependabot[bot])
+* Cilium host proxy is updated to Envoy release 1.21.0 (Backport PR #18890, Upstream PR #18748, @jrajahalme)
+* contrib: Fix backport submission for own PRs (Backport PR #18668, Upstream PR #17988, @joestringer)
+* doc: getting started minor fixes (Backport PR #18668, Upstream PR #18024, @kaworu)
+* docs: add Hands-on tutorial (Backport PR #18724, Upstream PR #18583, @vannyle)
+* docs: disable k3s network policy enforcement (Backport PR #18724, Upstream PR #18671, @tklauser)
+* docs: export KUBECONFIG for cilium-cli with k3s (Backport PR #18724, Upstream PR #18697, @tklauser)
+* docs: Update clustermesh example verification steps (Backport PR #18782, Upstream PR #18764, @sayboras)
+* update k8s library versions (#18588, @aanm)
+* v1.10: Update Go to 1.16.14 (#18798, @tklauser)
+
+**Other Changes:**
+* install: Update image digests for v1.10.7 (#18537, @joestringer)
+* v1.10: Update Cilium base images (#18875, @joestringer)
+
 ## v1.10.7
 
 Summary of Changes
