@@ -66,7 +66,7 @@ contributors across the globe, there is almost always someone available to help.
 | bpf.policyMapMax | int | `16384` | Configure the maximum number of entries in endpoint policy map (per endpoint). |
 | bpf.preallocateMaps | bool | `false` | Enables pre-allocation of eBPF map values. This increases memory usage but can reduce latency. |
 | bpf.waitForMount | bool | `false` | Force the cilium-agent DaemonSet to wait in an initContainer until the eBPF filesystem has been mounted. |
-| certgen | object | `{"image":{"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/certgen","tag":"v0.1.5"},"podLabels":{},"ttlSecondsAfterFinished":1800}` | Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually. |
+| certgen | object | `{"image":{"override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/certgen","tag":"v0.1.5"},"podLabels":{},"ttlSecondsAfterFinished":1800}` | Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually. |
 | certgen.podLabels | object | `{}` | Labels to be added to hubble-certgen pods |
 | certgen.ttlSecondsAfterFinished | int | `1800` | Seconds after which the completed job pod will be deleted |
 | cgroup | object | `{"autoMount":{"enabled":true},"hostRoot":"/run/cilium/cgroupv2"}` | Configure cgroup related configuration |
@@ -131,7 +131,7 @@ contributors across the globe, there is almost always someone available to help.
 | etcd.extraConfigmapMounts | list | `[]` | Additional cilium-etcd-operator ConfigMap mounts. |
 | etcd.extraHostPathMounts | list | `[]` | Additional cilium-etcd-operator hostPath mounts. |
 | etcd.extraInitContainers | list | `[]` | Additional InitContainers to initialize the pod. |
-| etcd.image | object | `{"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-etcd-operator","tag":"v2.0.7"}` | cilium-etcd-operator image. |
+| etcd.image | object | `{"override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-etcd-operator","tag":"v2.0.7"}` | cilium-etcd-operator image. |
 | etcd.k8sService | bool | `false` | If etcd is behind a k8s service set this option to true so that Cilium does the service translation automatically without requiring a DNS to be running. |
 | etcd.managed | bool | `false` | Enable managed etcd mode based on the cilium-etcd-operator. |
 | etcd.nodeSelector | object | `{}` | Node labels for cilium-etcd-operator pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/ |
@@ -172,7 +172,7 @@ contributors across the globe, there is almost always someone available to help.
 | hubble.metrics.serviceMonitor.enabled | bool | `false` | Create ServiceMonitor resources for Prometheus Operator. This requires the prometheus CRDs to be available. ref: https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml) |
 | hubble.relay.dialTimeout | string | `nil` | Dial timeout to connect to the local hubble instance to receive peer information (e.g. "30s"). |
 | hubble.relay.enabled | bool | `false` | Enable Hubble Relay (requires hubble.enabled=true) |
-| hubble.relay.image | object | `{"digest":"sha256:fd6ab1aea260abc5f64eca26c1b1e7009983e4aaa8e5d098e8d442f7659603fb","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-relay","tag":"v1.9.14","useDigest":false}` | Hubble-relay container image. |
+| hubble.relay.image | object | `{"digest":"sha256:fd6ab1aea260abc5f64eca26c1b1e7009983e4aaa8e5d098e8d442f7659603fb","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-relay","tag":"v1.9.14","useDigest":false}` | Hubble-relay container image. |
 | hubble.relay.listenHost | string | `""` | Host to listen to. Specify an empty string to bind to all the interfaces. |
 | hubble.relay.listenPort | string | `"4245"` | Port to listen to. |
 | hubble.relay.nodeSelector | object | `{}` | Node labels for pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/ |
@@ -200,16 +200,16 @@ contributors across the globe, there is almost always someone available to help.
 | hubble.tls.ca.key | string | `""` | The CA private key (optional). If it is provided, then it will be used by hubble.tls.auto.method=cronJob to generate all other certificates. Otherwise, a ephemeral CA is generated if hubble.tls.auto.enabled=true. |
 | hubble.tls.enabled | bool | `true` | Enable mutual TLS for listenAddress. Setting this value to false is highly discouraged as the Hubble API provides access to potentially sensitive network flow metadata and is exposed on the host network. |
 | hubble.tls.server | object | `{"cert":"","key":""}` | base64 encoded PEM values for the Hubble server certificate and private key |
-| hubble.ui.backend.image | object | `{"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.8.5@sha256:2bce50cf6c32719d072706f7ceccad654bfa907b2745a496da99610776fe31ed"}` | Hubble-ui backend image. |
+| hubble.ui.backend.image | object | `{"override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.8.5@sha256:2bce50cf6c32719d072706f7ceccad654bfa907b2745a496da99610776fe31ed"}` | Hubble-ui backend image. |
 | hubble.ui.backend.resources | object | `{}` | Resource requests and limits for the 'backend' container of the 'hubble-ui' deployment. |
 | hubble.ui.enabled | bool | `false` | Whether to enable the Hubble UI. |
-| hubble.ui.frontend.image | object | `{"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-ui","tag":"v0.8.5@sha256:4eaca1ec1741043cfba6066a165b3bf251590cf4ac66371c4f63fbed2224ebb4"}` | Hubble-ui frontend image. |
+| hubble.ui.frontend.image | object | `{"override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-ui","tag":"v0.8.5@sha256:4eaca1ec1741043cfba6066a165b3bf251590cf4ac66371c4f63fbed2224ebb4"}` | Hubble-ui frontend image. |
 | hubble.ui.frontend.resources | object | `{}` | Resource requests and limits for the 'frontend' container of the 'hubble-ui' deployment. |
 | hubble.ui.ingress | object | `{"annotations":{},"enabled":false,"hosts":["chart-example.local"],"tls":[]}` | hubble-ui ingress configuration. |
 | hubble.ui.nodeSelector | object | `{}` | Node labels for pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/ |
 | hubble.ui.podAnnotations | object | `{}` | Annotations to be added to hubble-ui pods |
 | hubble.ui.podLabels | object | `{}` | Labels to be added to hubble-ui pods |
-| hubble.ui.proxy.image | object | `{"pullPolicy":"IfNotPresent","repository":"docker.io/envoyproxy/envoy","tag":"v1.18.4@sha256:e5c2bb2870d0e59ce917a5100311813b4ede96ce4eb0c6bfa879e3fbe3e83935"}` | Hubble-ui ingress proxy image. |
+| hubble.ui.proxy.image | object | `{"override":null,"pullPolicy":"IfNotPresent","repository":"docker.io/envoyproxy/envoy","tag":"v1.18.4@sha256:e5c2bb2870d0e59ce917a5100311813b4ede96ce4eb0c6bfa879e3fbe3e83935"}` | Hubble-ui ingress proxy image. |
 | hubble.ui.proxy.resources | object | `{}` | Resource requests and limits for the 'proxy' container of the 'hubble-ui' deployment. |
 | hubble.ui.replicas | int | `1` | The number of replicas of Hubble UI to deploy. |
 | hubble.ui.rollOutPods | bool | `false` | Roll out Hubble-ui pods automatically when configmap is updated. |
@@ -217,7 +217,7 @@ contributors across the globe, there is almost always someone available to help.
 | hubble.ui.tolerations | list | `[]` | Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/ |
 | hubble.ui.updateStrategy | object | `{"rollingUpdate":{"maxUnavailable":1},"type":"RollingUpdate"}` | hubble-ui update strategy. |
 | identityAllocationMode | string | `"crd"` | Method to use for identity allocation (`crd` or `kvstore`). |
-| image | object | `{"digest":"sha256:2c6ce93fa7e625979043a387eb998c17ad57df8768d89facb9b715da42a4c51c","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.9.14","useDigest":false}` | Agent container image. |
+| image | object | `{"digest":"sha256:2c6ce93fa7e625979043a387eb998c17ad57df8768d89facb9b715da42a4c51c","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.9.14","useDigest":false}` | Agent container image. |
 | imagePullSecrets | string | `nil` | Configure image pull secrets for pulling container images |
 | installIptablesRules | bool | `true` | Configure whether to install iptables rules to allow for TPROXY (L7 proxy injection), iptables-based masquerading and compatibility with kube-proxy. |
 | ipMasqAgent | object | `{"enabled":false}` | Configure the eBPF-based ip-masq-agent |
@@ -254,7 +254,7 @@ contributors across the globe, there is almost always someone available to help.
 | nodeinit.extraEnv | object | `{}` | Additional nodeinit environment variables. |
 | nodeinit.extraHostPathMounts | list | `[]` | Additional nodeinit host path mounts. |
 | nodeinit.extraInitContainers | list | `[]` | Additional nodeinit init containers. |
-| nodeinit.image | object | `{"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/startup-script","tag":"62bfbe88c17778aad7bef9fa57ff9e2d4a9ba0d8"}` | node-init image. |
+| nodeinit.image | object | `{"override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/startup-script","tag":"62bfbe88c17778aad7bef9fa57ff9e2d4a9ba0d8"}` | node-init image. |
 | nodeinit.nodeSelector | object | `{}` | Node labels for nodeinit pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/ |
 | nodeinit.podAnnotations | object | `{}` | Annotations to be added to node-init pods. |
 | nodeinit.podDisruptionBudget | object | `{"enabled":true,"maxUnavailable":2}` | PodDisruptionBudget settings ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/ |
@@ -274,7 +274,7 @@ contributors across the globe, there is almost always someone available to help.
 | operator.extraInitContainers | list | `[]` | Additional InitContainers to initialize the pod. |
 | operator.identityGCInterval | string | `"15m0s"` | Interval for identity garbage collection. |
 | operator.identityHeartbeatTimeout | string | `"30m0s"` | Timeout for identity heartbeats. |
-| operator.image | object | `{"awsDigest":"sha256:8484021ef6a794027b0dae5625d7248402686a7338d6cd36300885cf3d4f5e47","azureDigest":"sha256:a118239016a7dab7bc3fedfa3d4f0c632867529e23952b0a0bf5ab2cbaa7d9b2","genericDigest":"sha256:bdcfd2eade99933f2fda55ef79ea697ddfad3512f65b15bcd0ba7702518c1ba3","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/operator","suffix":"","tag":"v1.9.14","useDigest":false}` | cilium-operator image. |
+| operator.image | object | `{"awsDigest":"sha256:8484021ef6a794027b0dae5625d7248402686a7338d6cd36300885cf3d4f5e47","azureDigest":"sha256:a118239016a7dab7bc3fedfa3d4f0c632867529e23952b0a0bf5ab2cbaa7d9b2","genericDigest":"sha256:bdcfd2eade99933f2fda55ef79ea697ddfad3512f65b15bcd0ba7702518c1ba3","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/operator","suffix":"","tag":"v1.9.14","useDigest":false}` | cilium-operator image. |
 | operator.nodeSelector | object | `{}` | Node labels for cilium-operator pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/ |
 | operator.podAnnotations | object | `{}` | Annotations to be added to cilium-operator pods |
 | operator.podDisruptionBudget | object | `{"enabled":false,"maxUnavailable":1}` | PodDisruptionBudget settings ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/ |

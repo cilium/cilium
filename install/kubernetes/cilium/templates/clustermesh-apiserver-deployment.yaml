@@ -33,7 +33,7 @@ spec:
       serviceAccount: clustermesh-apiserver
       initContainers:
       - name: etcd-init
-        image: {{ .Values.clustermesh.apiserver.etcd.image.repository }}:{{ .Values.clustermesh.apiserver.etcd.image.tag }}
+        image: {{ if .Values.clustermesh.apiserver.etcd.image.override }}{{ .Values.clustermesh.apiserver.etcd.image.override }}{{ else }}{{ .Values.clustermesh.apiserver.etcd.image.repository }}:{{ .Values.clustermesh.apiserver.etcd.image.tag }}{{ end }}
         imagePullPolicy: {{ .Values.clustermesh.apiserver.etcd.image.pullPolicy }}
         env:
         - name: ETCDCTL_API
@@ -70,7 +70,7 @@ spec:
           name: etcd-data-dir
       containers:
       - name: etcd
-        image: {{ .Values.clustermesh.apiserver.etcd.image.repository }}:{{ .Values.clustermesh.apiserver.etcd.image.tag }}
+        image: {{ if .Values.clustermesh.apiserver.etcd.image.override }}{{ .Values.clustermesh.apiserver.etcd.image.override }}{{ else }}{{ .Values.clustermesh.apiserver.etcd.image.repository }}:{{ .Values.clustermesh.apiserver.etcd.image.tag }}{{ end }}
         imagePullPolicy: {{ .Values.clustermesh.apiserver.etcd.image.pullPolicy }}
         env:
         - name: ETCDCTL_API
@@ -99,7 +99,7 @@ spec:
         - mountPath: /var/run/etcd
           name: etcd-data-dir
       - name: "apiserver"
-        image: "{{ .Values.clustermesh.apiserver.image.repository }}:{{ .Values.clustermesh.apiserver.image.tag }}{{ if .Values.clustermesh.apiserver.image.useDigest }}@{{ .Values.clustermesh.apiserver.image.digest }}{{ end }}"
+        image: "{{ if .Values.clustermesh.apiserver.image.override }}{{ .Values.clustermesh.apiserver.image.override }}{{ else }}{{ .Values.clustermesh.apiserver.image.repository }}:{{ .Values.clustermesh.apiserver.image.tag }}{{ if .Values.clustermesh.apiserver.image.useDigest }}@{{ .Values.clustermesh.apiserver.image.digest }}{{ end }}{{ end }}"
         imagePullPolicy: {{ .Values.clustermesh.apiserver.image.pullPolicy }}
         command:
           - /usr/bin/clustermesh-apiserver
