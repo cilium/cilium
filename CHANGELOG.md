@@ -1,5 +1,33 @@
 # Changelog
 
+## v1.9.13
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* Cilium host proxy is updated to Envoy release 1.21.1 (Backport PR #18892, Upstream PR #18899, @jrajahalme)
+* Fix bug where Cilium drops traffic from remote nodes in etcd mode, despite policy that allows the traffic (Backport PR #18802, Upstream PR #18777, @joestringer)
+* Fix connectivity outage periods with ENI IPAM mode and IPsec enabled when nodes are deleted from the cluster (Backport PR #18847, Upstream PR #18827, @christarazi)
+* labelfilter: Refine default label regexps (Backport PR #18741, Upstream PR #18693, @twpayne)
+
+**CI Changes:**
+* ci: remove box download timeout in upstream tests (Backport PR #18741, Upstream PR #18707, @nbusseneau)
+
+**Misc Changes:**
+* build(deps): bump actions/setup-go from 2.1.5 to 2.2.0 (#18753, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 2.8.0 to 2.9.0 (#18688, @dependabot[bot])
+* build(deps): bump docker/login-action from 1.12.0 to 1.13.0 (#18844, @dependabot[bot])
+* Cilium host proxy is updated to Envoy release 1.21.0 (Backport PR #18892, Upstream PR #18748, @jrajahalme)
+* contrib: Fix backport submission for own PRs (Backport PR #18666, Upstream PR #17988, @joestringer)
+* docs: add Hands-on tutorial (Backport PR #18741, Upstream PR #18583, @vannyle)
+* update k8s library versions (#18589, @aanm)
+* v1.9: Update Cilium base images (#18874, @joestringer)
+
+**Other Changes:**
+* install: Update image digests for v1.9.12 (#18536, @joestringer)
+* ui: update envoy config to work with v1.18.4 envoy (#18740, @geakstr)
+
 ## v1.9.12
 
 Summary of Changes
