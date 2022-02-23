@@ -181,29 +181,35 @@ func (ct *ConnectivityTest) NewTest(name string) *Test {
 	return t
 }
 
+// SetupAndValidate sets up and validates the connectivity test infrastructure
+// such as the client pods and validates the deployment of them along with
+// Cilium. This must be run before Run() is called.
+func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := ct.initClients(ctx); err != nil {
+		return err
+	}
+	if err := ct.deploy(ctx); err != nil {
+		return err
+	}
+	if err := ct.validateDeployment(ctx); err != nil {
+		return err
+	}
+	if ct.params.Hubble {
+		if err := ct.enableHubbleClient(ctx); err != nil {
+			return fmt.Errorf("unable to create hubble client: %s", err)
+		}
+	}
+	return nil
+}
+
 // Run kicks off execution of all Tests registered to the ConnectivityTest.
 // Each Test's Run() method is called within its own goroutine.
 func (ct *ConnectivityTest) Run(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
-	}
-
-	if err := ct.initClients(ctx); err != nil {
-		return err
-	}
-
-	if err := ct.deploy(ctx); err != nil {
-		return err
-	}
-
-	if err := ct.validateDeployment(ctx); err != nil {
-		return err
-	}
-
-	if ct.params.Hubble {
-		if err := ct.enableHubbleClient(ctx); err != nil {
-			return fmt.Errorf("unable to create hubble client: %s", err)
-		}
 	}
 
 	ct.Debug("Registered connectivity tests:")
