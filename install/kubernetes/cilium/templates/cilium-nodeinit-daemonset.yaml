@@ -63,7 +63,7 @@ spec:
         name: xtables-lock
       containers:
         - name: node-init
-          image: {{ .Values.nodeinit.image.repository }}:{{ .Values.nodeinit.image.tag }}
+          image: {{ if .Values.nodeinit.image.override }}{{ .Values.nodeinit.image.override }}{{ else }}{{ .Values.nodeinit.image.repository }}:{{ .Values.nodeinit.image.tag }}{{ end }}
           imagePullPolicy: {{ .Values.nodeinit.image.pullPolicy }}
           securityContext:
             privileged: true

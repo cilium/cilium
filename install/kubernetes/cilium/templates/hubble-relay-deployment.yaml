@@ -48,7 +48,7 @@ spec:
 {{- end }}
       containers:
         - name: hubble-relay
-          image: "{{ .Values.hubble.relay.image.repository }}:{{ .Values.hubble.relay.image.tag }}{{ if .Values.hubble.relay.image.useDigest }}@{{ .Values.hubble.relay.image.digest }}{{ end }}"
+          image: "{{ if .Values.hubble.relay.image.override }}{{ .Values.hubble.relay.image.override }}{{ else }}{{ .Values.hubble.relay.image.repository }}:{{ .Values.hubble.relay.image.tag }}{{ if .Values.hubble.relay.image.useDigest }}@{{ .Values.hubble.relay.image.digest }}{{ end }}{{ end }}"
           imagePullPolicy: {{ .Values.hubble.relay.image.pullPolicy }}
           command:
             - hubble-relay

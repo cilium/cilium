@@ -80,7 +80,7 @@
    * - certgen
      - Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually.
      - object
-     - ``{"image":{"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/certgen","tag":"v0.1.5"},"podLabels":{},"ttlSecondsAfterFinished":1800}``
+     - ``{"image":{"override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/certgen","tag":"v0.1.5"},"podLabels":{},"ttlSecondsAfterFinished":1800}``
    * - certgen.podLabels
      - Labels to be added to hubble-certgen pods
      - object
@@ -436,7 +436,7 @@
    * - etcd.image
      - cilium-etcd-operator image.
      - object
-     - ``{"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-etcd-operator","tag":"v2.0.7"}``
+     - ``{"override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-etcd-operator","tag":"v2.0.7"}``
    * - etcd.k8sService
      - If etcd is behind a k8s service set this option to true so that Cilium does the service translation automatically without requiring a DNS to be running.
      - bool
@@ -592,7 +592,7 @@
    * - hubble.relay.image
      - Hubble-relay container image.
      - object
-     - ``{"digest":"sha256:385fcc4fa315eb6b66626c3e5f607b6b6514c8c3a863c47c2b2dbc97790acb47","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-relay","tag":"v1.10.7","useDigest":true}``
+     - ``{"digest":"sha256:385fcc4fa315eb6b66626c3e5f607b6b6514c8c3a863c47c2b2dbc97790acb47","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-relay","tag":"v1.10.7","useDigest":true}``
    * - hubble.relay.listenHost
      - Host to listen to. Specify an empty string to bind to all the interfaces.
      - string
@@ -704,7 +704,7 @@
    * - hubble.ui.backend.image
      - Hubble-ui backend image.
      - object
-     - ``{"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.8.5@sha256:2bce50cf6c32719d072706f7ceccad654bfa907b2745a496da99610776fe31ed"}``
+     - ``{"override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.8.5@sha256:2bce50cf6c32719d072706f7ceccad654bfa907b2745a496da99610776fe31ed"}``
    * - hubble.ui.backend.resources
      - Resource requests and limits for the 'backend' container of the 'hubble-ui' deployment.
      - object
@@ -716,7 +716,7 @@
    * - hubble.ui.frontend.image
      - Hubble-ui frontend image.
      - object
-     - ``{"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-ui","tag":"v0.8.5@sha256:4eaca1ec1741043cfba6066a165b3bf251590cf4ac66371c4f63fbed2224ebb4"}``
+     - ``{"override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-ui","tag":"v0.8.5@sha256:4eaca1ec1741043cfba6066a165b3bf251590cf4ac66371c4f63fbed2224ebb4"}``
    * - hubble.ui.frontend.resources
      - Resource requests and limits for the 'frontend' container of the 'hubble-ui' deployment.
      - object
@@ -740,7 +740,7 @@
    * - hubble.ui.proxy.image
      - Hubble-ui ingress proxy image.
      - object
-     - ``{"pullPolicy":"IfNotPresent","repository":"docker.io/envoyproxy/envoy","tag":"v1.18.4@sha256:e5c2bb2870d0e59ce917a5100311813b4ede96ce4eb0c6bfa879e3fbe3e83935"}``
+     - ``{"override":null,"pullPolicy":"IfNotPresent","repository":"docker.io/envoyproxy/envoy","tag":"v1.18.4@sha256:e5c2bb2870d0e59ce917a5100311813b4ede96ce4eb0c6bfa879e3fbe3e83935"}``
    * - hubble.ui.proxy.resources
      - Resource requests and limits for the 'proxy' container of the 'hubble-ui' deployment.
      - object
@@ -772,7 +772,7 @@
    * - image
      - Agent container image.
      - object
-     - ``{"digest":"sha256:e23f55e80e1988db083397987a89967aa204ad6fc32da243b9160fbcea29b0ca","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.10.7","useDigest":true}``
+     - ``{"digest":"sha256:e23f55e80e1988db083397987a89967aa204ad6fc32da243b9160fbcea29b0ca","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.10.7","useDigest":true}``
    * - imagePullSecrets
      - Configure image pull secrets for pulling container images
      - string
@@ -928,7 +928,7 @@
    * - nodeinit.image
      - node-init image.
      - object
-     - ``{"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/startup-script","tag":"62bfbe88c17778aad7bef9fa57ff9e2d4a9ba0d8"}``
+     - ``{"override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/startup-script","tag":"62bfbe88c17778aad7bef9fa57ff9e2d4a9ba0d8"}``
    * - nodeinit.nodeSelector
      - Node labels for nodeinit pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object
@@ -1008,7 +1008,7 @@
    * - operator.image
      - cilium-operator image.
      - object
-     - ``{"alibabacloudDigest":"sha256:7a6ccc99195ae6a8216d2a1e1e0cc05d49c2d263b194895da264899fe9d0f45a","awsDigest":"sha256:97b378e0e3b6b5ade6ae1706024c7a25fe6fc48e00102b65a6b7ac51d6327f40","azureDigest":"sha256:556d692b2f08822101c159d9d6f731efe6c437d2b80f0ef96813e8745203c852","genericDigest":"sha256:d0b491d8d8cb45862ed7f0410f65e7c141832f0f95262643fa5ff1edfcddcafe","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/operator","suffix":"","tag":"v1.10.7","useDigest":true}``
+     - ``{"alibabacloudDigest":"sha256:7a6ccc99195ae6a8216d2a1e1e0cc05d49c2d263b194895da264899fe9d0f45a","awsDigest":"sha256:97b378e0e3b6b5ade6ae1706024c7a25fe6fc48e00102b65a6b7ac51d6327f40","azureDigest":"sha256:556d692b2f08822101c159d9d6f731efe6c437d2b80f0ef96813e8745203c852","genericDigest":"sha256:d0b491d8d8cb45862ed7f0410f65e7c141832f0f95262643fa5ff1edfcddcafe","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/operator","suffix":"","tag":"v1.10.7","useDigest":true}``
    * - operator.nodeSelector
      - Node labels for cilium-operator pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object
