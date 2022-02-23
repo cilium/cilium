@@ -14,12 +14,16 @@ import (
 
 	"github.com/cilium/cilium/pkg/versioncheck"
 	"helm.sh/helm/v3/pkg/chart"
+	"helm.sh/helm/v3/pkg/cli"
+	"helm.sh/helm/v3/pkg/getter"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/strvals"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/k8s"
 )
+
+var settings = cli.New()
 
 // FilterManifests a map of generated manifests. The Key is the filename and the
 // Value is its manifest.
@@ -154,6 +158,7 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 		return fmt.Errorf("cilium version unsupported %s", ciliumVer.String())
 	}
 
+	// Create helm values from helmMapOpts
 	var helmOpts []string
 	for k, v := range helmMapOpts {
 		if v == "" {
@@ -162,26 +167,77 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 		helmOpts = append(helmOpts, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	sort.Strings(helmOpts)
 	helmOptsStr := strings.Join(helmOpts, ",")
 
-	helmValues := map[string]interface{}{}
-	err = strvals.ParseInto(helmOptsStr, helmValues)
+	ciliumCliHelmValues := map[string]interface{}{}
+	err = strvals.ParseInto(helmOptsStr, ciliumCliHelmValues)
 	if err != nil {
 		return fmt.Errorf("error parsing helm options %q: %w", helmOptsStr, err)
 	}
 
-	if helmChartDir := k.params.HelmChartDirectory; helmChartDir != "" {
-		k.Log("ℹ️  helm template --namespace %s cilium %q --version %s --set %s", k.params.Namespace, helmChartDir, ciliumVer, helmOptsStr)
-	} else {
-		k.Log("ℹ️  helm template --namespace %s cilium cilium/cilium --version %s --set %s", k.params.Namespace, ciliumVer, helmOptsStr)
+	// Get the user-defined helm options passed by flag
+	p := getter.All(settings)
+	vals, err := k.params.HelmOpts.MergeValues(p)
+	if err != nil {
+		return err
 	}
 
-	rel, err := helmClient.RunWithContext(ctx, helmChart, helmValues)
+	// User-defined helm options will overwrite the default cilium-cli helm options
+	vals = mergeMaps(ciliumCliHelmValues, vals)
+
+	valsStr := valuesToString("", vals)
+
+	if helmChartDir := k.params.HelmChartDirectory; helmChartDir != "" {
+		k.Log("ℹ️  helm template --namespace %s cilium %q --version %s --set %s", k.params.Namespace, helmChartDir, ciliumVer, valsStr)
+	} else {
+		k.Log("ℹ️  helm template --namespace %s cilium cilium/cilium --version %s --set %s", k.params.Namespace, ciliumVer, valsStr)
+	}
+
+	rel, err := helmClient.RunWithContext(ctx, helmChart, vals)
 	if err != nil {
 		return err
 	}
 
 	k.manifests = FilterManifests(rel.Manifest)
 	return nil
+}
+
+func mergeMaps(a, b map[string]interface{}) map[string]interface{} {
+	out := make(map[string]interface{}, len(a))
+	for k, v := range a {
+		out[k] = v
+	}
+	for k, v := range b {
+		if v, ok := v.(map[string]interface{}); ok {
+			if bv, ok := out[k]; ok {
+				if bv, ok := bv.(map[string]interface{}); ok {
+					out[k] = mergeMaps(bv, v)
+					continue
+				}
+			}
+		}
+		out[k] = v
+	}
+	return out
+}
+
+func valuesToString(prevKey string, b map[string]interface{}) string {
+	var out []string
+	for k, v := range b {
+		if v, ok := v.(map[string]interface{}); ok {
+			if prevKey != "" {
+				out = append(out, valuesToString(fmt.Sprintf("%s.%s", prevKey, k), v))
+			} else {
+				out = append(out, valuesToString(k, v))
+			}
+			continue
+		}
+		if prevKey != "" {
+			out = append(out, fmt.Sprintf("%s.%s=%v", prevKey, k, v))
+		} else {
+			out = append(out, fmt.Sprintf("%s=%v", k, v))
+		}
+	}
+	sort.Strings(out)
+	return strings.Join(out, ",")
 }
