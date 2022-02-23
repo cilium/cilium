@@ -282,14 +282,12 @@ func GetK8sExternalIPv4() net.IP {
 	return ipv4ExternalAddress
 }
 
-// GetRouterEniInfo returns additional information for the router. It is applicable
-// only in the ENI IPAM mode.
+// GetRouterInfo returns additional information for the router, the cilium_host interface.
 func GetRouterInfo() RouterInfo {
 	return routerInfo
 }
 
-// SetRouterEniInfo sets additional information for the router. It is applicable
-// only in the ENI IPAM mode.
+// SetRouterInfo sets additional information for the router, the cilium_host interface.
 func SetRouterInfo(info RouterInfo) {
 	routerInfo = info
 }
