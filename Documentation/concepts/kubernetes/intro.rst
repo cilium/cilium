@@ -16,11 +16,11 @@ What does Cilium provide in your Kubernetes Cluster?
 The following functionality is provided as your run Cilium in your Kubernetes
 cluster:
 
-* `CNI` plugin support to provide pod_connectivity_ with
+* :term:`CNI` plugin support to provide pod_connectivity_ with
   `multi host networking`.
-* Identity based implementation of the `NetworkPolicy` resource to isolate `pod`
-  to `pod` connectivity on Layer 3 and 4.
-* An extension to NetworkPolicy in the form of a `CustomResourceDefinition`
+* Identity based implementation of the `NetworkPolicy` resource to isolate :term:`pod<Pod>`
+  to pod connectivity on Layer 3 and 4.
+* An extension to NetworkPolicy in the form of a :term:`CustomResourceDefinition`
   which extends policy control to add:
 
   * Layer 7 policy enforcement on ingress and egress for the following
@@ -40,7 +40,7 @@ cluster:
 Pod-to-Pod Connectivity
 =======================
 
-In Kubernetes, containers are deployed within units referred to as `Pod`, which
+In Kubernetes, containers are deployed within units referred to as :term:`Pods<Pod>`, which
 include one or more containers reachable via a single IP address.  With Cilium,
 each Pod gets an IP address from the node prefix of the Linux node running the
 Pod. See :ref:`address_management` for additional details. In the absence of any

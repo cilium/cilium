@@ -36,7 +36,7 @@ several Kubernetes resources:
 Networking For Existing Pods
 ============================
 
-In case pods were already running before the Cilium `DaemonSet` was deployed,
+In case pods were already running before the Cilium :term:`DaemonSet` was deployed,
 these pods will still be connected using the previous networking plugin
 according to the CNI configuration. A typical example for this is the
 ``kube-dns`` service which runs in the ``kube-system`` namespace by default.

@@ -44,7 +44,7 @@ Configure Cilium
 
 When using an external kvstore, the address of the external kvstore needs to be
 configured in the ConfigMap. Download the base YAML and configure it with
-`Helm`:
+:term:`Helm`:
 
 .. include:: k8s-install-download-release.rst
 

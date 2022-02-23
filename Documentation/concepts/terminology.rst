@@ -80,7 +80,7 @@ Endpoint
 
 Cilium makes application containers available on the network by assigning them
 IP addresses. Multiple application containers can share the same IP address; a
-typical example for this model is a Kubernetes `Pod`. All application containers
+typical example for this model is a Kubernetes :term:`Pod`. All application containers
 which share a common address are grouped together in what Cilium refers to as
 an endpoint.
 

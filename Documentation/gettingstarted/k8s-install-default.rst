@@ -21,7 +21,7 @@ environments (> 500 nodes) or if you want to run specific datapath modes, refer
 to the :ref:`k8s_install_advanced` guide.
 
 Should you encounter any issues during the installation, please refer to the
-:ref:`troubleshooting_k8s` section and / or seek help on the `Slack channel`.
+:ref:`troubleshooting_k8s` section and / or seek help on the :term:`Slack channel`.
 
 .. _create_cluster:
 

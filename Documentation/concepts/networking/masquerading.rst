@@ -114,7 +114,7 @@ In addition, if the ``masqLinkLocal`` is not set or set to false, then
 The agent uses Fsnotify to track updates to the configuration file, so the original
 ``resyncInterval`` option is unnecessary.
 
-The example below shows how to configure the agent via `ConfigMap` and to verify it:
+The example below shows how to configure the agent via :term:`ConfigMap` and to verify it:
 
 .. code-block:: shell-session
 
