@@ -681,6 +681,9 @@ func (in *PodSpec) DeepEqual(other *PodSpec) bool {
 	if in.ServiceAccountName != other.ServiceAccountName {
 		return false
 	}
+	if in.NodeName != other.NodeName {
+		return false
+	}
 	if in.HostNetwork != other.HostNetwork {
 		return false
 	}
