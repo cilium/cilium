@@ -1073,6 +1073,10 @@ func initializeFlags() {
 	flags.StringSlice(option.VtepMAC, []string{}, "List of VTEP MAC addresses for forwarding traffic outside the cluster")
 	option.BindEnv(option.VtepMAC)
 
+	flags.Int(option.TCFilterPriority, 1, "Priority of TC BPF filter")
+	flags.MarkHidden(option.TCFilterPriority)
+	option.BindEnv(option.TCFilterPriority)
+
 	viper.BindPFlags(flags)
 }
 

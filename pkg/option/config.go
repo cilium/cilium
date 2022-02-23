@@ -1017,6 +1017,10 @@ const (
 
 	// VTEP MACs
 	VtepMAC = "vtep-mac"
+
+	// TCFilterPriority sets the priority of the cilium tc filter, enabling other
+	// filters to be inserted prior to the cilium filter.
+	TCFilterPriority = "bpf-filter-priority"
 )
 
 // Default string arguments
@@ -2079,6 +2083,10 @@ type DaemonConfig struct {
 
 	// VtepMACs VTEP MACs
 	VtepMACs []mac.MAC
+
+	// TCFilterPriority sets the priority of the cilium tc filter, enabling other
+	// filters to be inserted prior to the cilium filter.
+	TCFilterPriority int
 }
 
 var (
@@ -2725,6 +2733,7 @@ func (c *DaemonConfig) Populate() {
 	c.BGPAnnouncePodCIDR = viper.GetBool(BGPAnnouncePodCIDR)
 	c.BGPConfigPath = viper.GetString(BGPConfigPath)
 	c.ExternalClusterIP = viper.GetBool(ExternalClusterIPName)
+	c.TCFilterPriority = viper.GetInt(TCFilterPriority)
 
 	c.EnableIPv4Masquerade = viper.GetBool(EnableIPv4Masquerade) && c.EnableIPv4
 	c.EnableIPv6Masquerade = viper.GetBool(EnableIPv6Masquerade) && c.EnableIPv6

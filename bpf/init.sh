@@ -26,6 +26,7 @@ MCPU=${19}
 NR_CPUS=${20}
 ENDPOINT_ROUTES=${21}
 PROXY_RULE=${22}
+FILTER_PRIO=${23}
 
 ID_HOST=1
 ID_WORLD=2
@@ -245,11 +246,11 @@ function bpf_load()
 	OPTS="${OPTS} -DNODE_MAC=${NODE_MAC} -DCALLS_MAP=${CALLS_MAP}"
 	bpf_compile $IN $OUT obj "$OPTS"
 	tc qdisc replace dev $DEV clsact || true
-	[ -z "$(tc filter show dev $DEV $WHERE | grep -v 'pref 1 bpf chain 0 $\|pref 1 bpf chain 0 handle 0x1')" ] || tc filter del dev $DEV $WHERE
+	[ -z "$(tc filter show dev $DEV $WHERE | grep -v "pref $FILTER_PRIO bpf chain 0 $\|pref $FILTER_PRIO bpf chain 0 handle 0x1")" ] || tc filter del dev $DEV $WHERE
 
 	cilium bpf migrate-maps -s "$OUT"
 
-	if ! tc filter replace dev "$DEV" "$WHERE" prio 1 handle 1 bpf da obj "$OUT" sec "$SEC"; then
+	if ! tc filter replace dev "$DEV" "$WHERE" prio "$FILTER_PRIO" handle 1 bpf da obj "$OUT" sec "$SEC"; then
 		cilium bpf migrate-maps -e "$OUT" -r 1
 		return 1
 	fi
