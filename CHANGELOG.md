@@ -1,5 +1,91 @@
 # Changelog
 
+## v1.11.2
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Allow using install-no-conntrack-iptables-rules when all masquerading is disabled. (Backport PR #18569, Upstream PR #18482, @pchaigno)
+* Cilium images can now be built also on arm64. (Backport PR #18569, Upstream PR #17980, @jrajahalme)
+* daemon: Allow to enable PCAP recorder in non-lb mode (Backport PR #18630, Upstream PR #18592, @brb)
+* helm: Add values for custom service monitor annotations (Backport PR #18780, Upstream PR #18681, @michi-covalent)
+* metrics: Expose xfrm stats in prometheus metrics (Backport PR #18630, Upstream PR #18553, @sayboras)
+
+**Bugfixes:**
+* Add missing source identity to drop notifications during encryption with native routing mode (Backport PR #18726, Upstream PR #18682, @YutaroHayakawa)
+* Also take secondary CIDRs into account when checking for validity of IPv4NativeRoutingCIDR (Backport PR #18780, Upstream PR #18653, @codablock)
+* Cilium host proxy is updated to Envoy release 1.21.1 (Backport PR #18888, Upstream PR #18899, @jrajahalme)
+* clustermesh-apiserver: fix cmd-line args processing (Backport PR #18726, Upstream PR #18277, @abocim)
+* cmd: Fix issue reading string map type via config map (Backport PR #18726, Upstream PR #18478, @sayboras)
+* daemon: Fix missing errors in KPR init (Backport PR #18630, Upstream PR #18499, @brb)
+* datapath: Only unload obsolete XDP when attached (Backport PR #18669, Upstream PR #18636, @jaffcheng)
+* Fix `bpf lb maglev list` command when ipv4 or ipv6 Maglev lookup tables are empty (Backport PR #18630, Upstream PR #18469, @ti-mo)
+* Fix a bug with local redirect policies selecting host networked pods as local endpoints not taking effect. (Backport PR #18726, Upstream PR #18563, @aditighag)
+* Fix BPF attachment when bandwidth manager is enabled without host firewall or kube-proxy-replacement. (Backport PR #18780, Upstream PR #18717, @pchaigno)
+* Fix bug where Cilium drops traffic from remote nodes in etcd mode, despite policy that allows the traffic (Backport PR #18800, Upstream PR #18777, @joestringer)
+* Fix bug where Hubble flows report that a packet is both forwarded and dropped by host firewall. It will now only report the drop. (Backport PR #18630, Upstream PR #18484, @YutaroHayakawa)
+* Fix incorrect packet trace for encrypted packets received from the network (Backport PR #18726, Upstream PR #18643, @YutaroHayakawa)
+* Fix kube-apiserver policy matching feature with tunneling enabled (Backport PR #18669, Upstream PR #18527, @christarazi)
+* Fix the bug that ipsec packets bypass the <- stack trace after encryption (Backport PR #18669, Upstream PR #18608, @YutaroHayakawa)
+* hubble/recorder: Sanitize pcap filename (Backport PR #18669, Upstream PR #18612, @gandro)
+* labelfilter: Refine default label regexps (Backport PR #18726, Upstream PR #18693, @twpayne)
+* monitor: Output non-trace messages to stderr (Backport PR #18630, Upstream PR #18479, @YutaroHayakawa)
+* node: Don't skip masquerading for External node IPs (Backport PR #18630, Upstream PR #18483, @pchaigno)
+* Preserve tail call maps during resize to prevent drops during agent upgrade (Backport PR #18800, Upstream PR #17744, @ti-mo)
+* Prevent unmanaged pods in GKE's containerd flavors. *Important:* Users should update their node taints from `node.cilium.io/agent-not-ready=true:NoSchedule` to `node.cilium.io/agent-not-ready=true:NoExecute`. *Important:* During the first node reboot after the fix is applied pods may still get IPs from the default CNI as cilium-node-init is only run later in the node startup process. The fix will then be in place for all subsequent reboots. (Backport PR #18726, Upstream PR #18486, @bmcustodio)
+* route: sort by priority to identify the default one (Backport PR #18630, Upstream PR #18564, @jibi)
+* Skip node ipset updates if iptables masquerading is disabled (Backport PR #18800, Upstream PR #17871, @pchaigno)
+
+**CI Changes:**
+* ci: fix QEMU image build following Google Cloud SDK updates (Backport PR #18780, Upstream PR #18720, @nbusseneau)
+* ci: remove box download timeout in upstream tests (Backport PR #18726, Upstream PR #18707, @nbusseneau)
+* Enable CI for feature branches (Backport PR #18630, Upstream PR #18554, @jibi)
+* Fix EncryptStatusSuite.TestCountUniqueIPsecKeys (Backport PR #18569, Upstream PR #18506, @tklauser)
+* Set debug.verbose to "flow" as a default for all CI runs (Backport PR #18509, Upstream PR #18431, @christarazi)
+* test/runtime: fix flake on non-ready endpoints (Backport PR #18669, Upstream PR #18627, @tklauser)
+* test: cleanup Services test suite (Backport PR #18726, Upstream PR #18655, @brb)
+* test: Fix pod cleanup after various tests (Backport PR #18669, Upstream PR #18448, @joestringer)
+* test: Move service-proxy-name to unit test (Backport PR #18726, Upstream PR #18679, @brb)
+* test: Move some Services test cases to separate suites (Backport PR #18726, Upstream PR #18684, @brb)
+
+**Misc Changes:**
+* Alibabacloud fixes (Backport PR #18836, Upstream PR #18762, @jaffcheng)
+* build(deps): bump actions/setup-go from 2.1.5 to 2.2.0 (#18755, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 2.8.0 to 2.9.0 (#18691, @dependabot[bot])
+* build(deps): bump docker/login-action from 1.12.0 to 1.13.0 (#18839, @dependabot[bot])
+* build(deps): bump github/codeql-action from 1.0.28 to 1.0.30 (#18601, @dependabot[bot])
+* build(deps): bump github/codeql-action from 1.0.30 to 1.0.31 (#18690, @dependabot[bot])
+* build(deps): bump github/codeql-action from 1.0.31 to 1.0.32 (#18739, @dependabot[bot])
+* build(deps): bump github/codeql-action from 1.0.32 to 1.1.0 (#18786, @dependabot[bot])
+* build(deps): bump github/codeql-action from 1.1.0 to 1.1.2 (#18853, @dependabot[bot])
+* byteorder: use native instructions in host/network order conversion (Backport PR #18630, Upstream PR #18606, @tklauser)
+* Cilium host proxy is updated to Envoy release 1.21.0 (Backport PR #18888, Upstream PR #18748, @jrajahalme)
+* contrib: Fix backport submission for own PRs (Backport PR #18569, Upstream PR #17988, @joestringer)
+* contrib: Fix release script helm value generation (Backport PR #18630, Upstream PR #18538, @joestringer)
+* daemon: Init k8s watchers after setting agent flags (Backport PR #18800, Upstream PR #18770, @pchaigno)
+* datapath: Change FIB lookups to enable NodePort multihoming (Backport PR #18669, Upstream PR #18585, @brb)
+* doc: getting started minor fixes (Backport PR #18569, Upstream PR #18024, @kaworu)
+* docs: add Hands-on tutorial (Backport PR #18726, Upstream PR #18583, @vannyle)
+* docs: disable k3s network policy enforcement (Backport PR #18726, Upstream PR #18671, @tklauser)
+* docs: Document required kernel configuration options (Backport PR #18630, Upstream PR #18546, @pchaigno)
+* docs: Don't mark pre-upgrade step as "recommended" (Backport PR #18569, Upstream PR #18468, @pchaigno)
+* docs: Don't rely on `assignee` filter for reviews (Backport PR #18726, Upstream PR #18676, @pchaigno)
+* docs: export KUBECONFIG for cilium-cli with k3s (Backport PR #18726, Upstream PR #18697, @tklauser)
+* docs: Fix incorrect values for hubble-ui standalone install (Backport PR #18800, Upstream PR #18661, @ysksuzuki)
+* docs: Minor updates to IPsec limitations (Backport PR #18669, Upstream PR #18647, @pchaigno)
+* docs: Update clustermesh example verification steps (Backport PR #18780, Upstream PR #18764, @sayboras)
+* helm: Update links in values.yaml (Backport PR #18569, Upstream PR #18471, @sayboras)
+* iptables: Fix race condition on ipset removal (Backport PR #18836, Upstream PR #18790, @pchaigno)
+* k8s: Update libraries to 1.23.3 (Backport PR #18780, Upstream PR #18633, @christarazi)
+* node: Fix bug where node ipsets are never cleaned (Backport PR #18630, Upstream PR #18582, @pchaigno)
+* update k8s library versions (#18587, @aanm)
+* v1.11: Update Go to 1.17.7 (#18797, @tklauser)
+
+**Other Changes:**
+* install: Update image digests for v1.11.1 (#18539, @joestringer)
+* v1.11: Update Cilium base images (#18876, @joestringer)
+
 ## v1.11.1
 
 Summary of Changes
