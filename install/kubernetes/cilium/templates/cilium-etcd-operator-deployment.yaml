@@ -90,7 +90,7 @@ spec:
           value: "revision"
         - name: CILIUM_ETCD_META_ETCD_AUTO_COMPACTION_RETENTION
           value: "25000"
-        image: {{ .Values.etcd.image.repository }}:{{ .Values.etcd.image.tag }}
+        image: {{ if .Values.etcd.image.override }}{{ .Values.etcd.image.override }}{{ else }}{{ .Values.etcd.image.repository }}:{{ .Values.etcd.image.tag }}{{ end }}
         imagePullPolicy: {{ .Values.etcd.image.pullPolicy }}
         name: cilium-etcd-operator
       dnsPolicy: ClusterFirst

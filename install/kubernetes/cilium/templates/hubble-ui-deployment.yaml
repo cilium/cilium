@@ -47,7 +47,7 @@ spec:
 {{- end }}
       containers:
         - name: frontend
-          image: "{{ .Values.hubble.ui.frontend.image.repository }}:{{ .Values.hubble.ui.frontend.image.tag }}"
+          image: "{{ if .Values.hubble.ui.frontend.image.override }}{{ .Values.hubble.ui.frontend.image.override }}{{ else }}{{ .Values.hubble.ui.frontend.image.repository }}:{{ .Values.hubble.ui.frontend.image.tag }}{{ end }}"
           imagePullPolicy: {{ .Values.hubble.ui.frontend.image.pullPolicy }}
           ports:
             - containerPort: 8080
@@ -55,7 +55,7 @@ spec:
           resources:
             {{- toYaml .Values.hubble.ui.frontend.resources | trim | nindent 12 }}
         - name: backend
-          image: "{{ .Values.hubble.ui.backend.image.repository }}:{{ .Values.hubble.ui.backend.image.tag }}"
+          image: "{{ if .Values.hubble.ui.backend.image.override }}{{ .Values.hubble.ui.backend.image.override }}{{ else }}{{ .Values.hubble.ui.backend.image.repository }}:{{ .Values.hubble.ui.backend.image.tag }}{{ end }}"
           imagePullPolicy: {{ .Values.hubble.ui.backend.image.pullPolicy }}
           env:
             - name: EVENTS_SERVER_PORT
@@ -68,7 +68,7 @@ spec:
           resources:
             {{- toYaml .Values.hubble.ui.backend.resources  | trim | nindent 12 }}
         - name: proxy
-          image: "{{ .Values.hubble.ui.proxy.image.repository }}:{{ .Values.hubble.ui.proxy.image.tag }}"
+          image: "{{ if .Values.hubble.ui.proxy.image.override }}{{ .Values.hubble.ui.proxy.image.override }}{{ else }}{{ .Values.hubble.ui.proxy.image.repository }}:{{ .Values.hubble.ui.proxy.image.tag }}{{ end }}"
           imagePullPolicy: {{ .Values.hubble.ui.proxy.image.pullPolicy }}
           ports:
             - containerPort: 8081

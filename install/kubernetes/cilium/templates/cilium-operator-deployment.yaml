@@ -170,7 +170,9 @@ spec:
         - name: {{ $key }}
           value: {{ $value }}
 {{- end }}
-{{- if .Values.eni.enabled }}
+{{- if .Values.operator.image.override }}
+        image: "{{ .Values.operator.image.override }}"
+{{- else if .Values.eni.enabled }}
         image: "{{ .Values.operator.image.repository }}-aws{{ .Values.operator.image.suffix }}:{{ .Values.operator.image.tag }}{{ if .Values.operator.image.useDigest }}@{{ .Values.operator.image.awsDigest }}{{ end }}"
 {{- else if .Values.azure.enabled }}
         image: "{{ .Values.operator.image.repository }}-azure{{ .Values.operator.image.suffix }}:{{ .Values.operator.image.tag }}{{ if .Values.operator.image.useDigest }}@{{ .Values.operator.image.azureDigest }}{{ end }}"

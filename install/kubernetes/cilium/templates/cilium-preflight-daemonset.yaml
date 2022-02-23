@@ -28,14 +28,14 @@ spec:
 {{- end }}
       initContainers:
         - name: clean-cilium-state
-          image: "{{ .Values.preflight.image.repository }}:{{ .Values.preflight.image.tag }}{{ if .Values.preflight.image.useDigest }}@{{ .Values.preflight.image.digest }}{{ end }}"
+          image: "{{ if .Values.preflight.image.override }}{{ .Values.preflight.image.override }}{{ else }}{{ .Values.preflight.image.repository }}:{{ .Values.preflight.image.tag }}{{ if .Values.preflight.image.useDigest }}@{{ .Values.preflight.image.digest }}{{ end }}{{ end }}"
           imagePullPolicy: {{ .Values.preflight.image.pullPolicy }}
           command: ["/bin/echo"]
           args:
           - "hello"
       containers:
         - name: cilium-pre-flight-check
-          image: "{{ .Values.preflight.image.repository }}:{{ .Values.preflight.image.tag }}{{ if .Values.preflight.image.useDigest }}@{{ .Values.preflight.image.digest }}{{ end }}"
+          image: "{{ if .Values.preflight.image.override }}{{ .Values.preflight.image.override }}{{ else }}{{ .Values.preflight.image.repository }}:{{ .Values.preflight.image.tag }}{{ if .Values.preflight.image.useDigest }}@{{ .Values.preflight.image.digest }}{{ end }}{{ end }}"
           imagePullPolicy: {{ .Values.preflight.image.pullPolicy }}
           command: ["/bin/sh"]
           args:
@@ -71,7 +71,7 @@ spec:
 
 {{- if ne .Values.preflight.tofqdnsPreCache "" }}
         - name: cilium-pre-flight-fqdn-precache
-          image: "{{ .Values.preflight.image.repository }}:{{ .Values.preflight.image.tag }}{{ if .Values.preflight.image.useDigest }}@{{ .Values.preflight.image.digest }}{{ end }}"
+          image: "{{ if .Values.preflight.image.override }}{{ .Values.preflight.image.override }}{{ else }}{{ .Values.preflight.image.repository }}:{{ .Values.preflight.image.tag }}{{ if .Values.preflight.image.useDigest }}@{{ .Values.preflight.image.digest }}{{ end }}{{ end }}"
           imagePullPolicy: {{ .Values.preflight.image.pullPolicy }}
           name: cilium-pre-flight-fqdn-precache
           command: ["/bin/sh"]
