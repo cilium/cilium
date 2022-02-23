@@ -6,6 +6,7 @@ package connectivity
 import (
 	"context"
 	_ "embed"
+	"strings"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/connectivity/tests"
@@ -14,6 +15,8 @@ import (
 var (
 	//go:embed manifests/allow-all-except-world.yaml
 	allowAllExceptWorldPolicyYAML string
+	//go:embed manifests/allow-all-except-world-pre-v1.11.yaml
+	allowAllExceptWorldPolicyPre1_11YAML string
 
 	//go:embed manifests/client-egress-only-dns.yaml
 	clientEgressOnlyDNSPolicyYAML string
@@ -60,19 +63,35 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	)
 
 	// Test with an allow-all-except-world (and unmanaged) policy.
-	ct.NewTest("allow-all-except-world").WithPolicy(allowAllExceptWorldPolicyYAML).
-		WithScenarios(
-			tests.PodToPod(""),
-			tests.ClientToClient(""),
-			tests.PodToService(""),
-			// We are skipping the following checks because NodePort is
-			// intended to be used for N-S traffic, which conflicts with
-			// policies. See GH-17144.
-			// tests.PodToRemoteNodePort(""),
-			// tests.PodToLocalNodePort(""),
-			tests.PodToHost(""),
-			tests.PodToExternalWorkload(""),
-		)
+	if strings.HasPrefix(ct.FetchCiliumPodImageTag(), "v1.11") {
+		ct.NewTest("allow-all-except-world").WithPolicy(allowAllExceptWorldPolicyYAML).
+			WithScenarios(
+				tests.PodToPod(""),
+				tests.ClientToClient(""),
+				tests.PodToService(""),
+				// We are skipping the following checks because NodePort is
+				// intended to be used for N-S traffic, which conflicts with
+				// policies. See GH-17144.
+				// tests.PodToRemoteNodePort(""),
+				// tests.PodToLocalNodePort(""),
+				tests.PodToHost(""),
+				tests.PodToExternalWorkload(""),
+			)
+	} else {
+		ct.NewTest("allow-all-except-world").WithPolicy(allowAllExceptWorldPolicyPre1_11YAML).
+			WithScenarios(
+				tests.PodToPod(""),
+				tests.ClientToClient(""),
+				tests.PodToService(""),
+				// We are skipping the following checks because NodePort is
+				// intended to be used for N-S traffic, which conflicts with
+				// policies. See GH-17144.
+				// tests.PodToRemoteNodePort(""),
+				// tests.PodToLocalNodePort(""),
+				tests.PodToHost(""),
+				tests.PodToExternalWorkload(""),
+			)
+	}
 
 	// This policy only allows ingress into client from client2.
 	ct.NewTest("client-ingress").WithPolicy(clientIngressFromClient2PolicyYAML).
