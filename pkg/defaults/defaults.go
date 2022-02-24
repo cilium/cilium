@@ -454,4 +454,7 @@ const (
 
 	// EnableVTEP enables VXLAN Tunnel Endpoint (VTEP) Integration
 	EnableVTEP = false
+
+	// Enable BGP control plane features.
+	EnableBGPControlPlane = false
 )

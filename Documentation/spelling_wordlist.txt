@@ -194,6 +194,7 @@ behaviour
 benchmarking
 benefitting
 bgp
+bgpControlPlane
 binPath
 bindProtection
 blog

@@ -1036,6 +1036,9 @@ const (
 	// TCFilterPriority sets the priority of the cilium tc filter, enabling other
 	// filters to be inserted prior to the cilium filter.
 	TCFilterPriority = "bpf-filter-priority"
+
+	// Flag to enable BGP control plane features
+	EnableBGPControlPlane = "enable-bgp-control-plane"
 )
 
 // Default string arguments
@@ -2117,6 +2120,9 @@ type DaemonConfig struct {
 	// TCFilterPriority sets the priority of the cilium tc filter, enabling other
 	// filters to be inserted prior to the cilium filter.
 	TCFilterPriority int
+
+	// Enables BGP control plane features.
+	EnableBGPControlPlane bool
 }
 
 var (
@@ -2163,8 +2169,9 @@ var (
 		K8sEnableLeasesFallbackDiscovery: defaults.K8sEnableLeasesFallbackDiscovery,
 		APIRateLimit:                     make(map[string]string),
 
-		ExternalClusterIP: defaults.ExternalClusterIP,
-		EnableVTEP:        defaults.EnableVTEP,
+		ExternalClusterIP:     defaults.ExternalClusterIP,
+		EnableVTEP:            defaults.EnableVTEP,
+		EnableBGPControlPlane: defaults.EnableBGPControlPlane,
 	}
 )
 
@@ -3042,6 +3049,9 @@ func (c *DaemonConfig) Populate() {
 
 	// VTEP integration enable option
 	c.EnableVTEP = viper.GetBool(EnableVTEP)
+
+	// Enable BGP control plane features
+	c.EnableBGPControlPlane = viper.GetBool(EnableBGPControlPlane)
 }
 
 func (c *DaemonConfig) populateDevices() {
@@ -3464,6 +3474,10 @@ func (c *DaemonConfig) StoreInFile(dir string) error {
 	e := json.NewEncoder(f)
 	e.SetIndent("", " ")
 	return e.Encode(c)
+}
+
+func (c *DaemonConfig) BGPControlPlaneEnabled() bool {
+	return c.EnableBGPControlPlane
 }
 
 // StoreViperInFile stores viper's configuration in a the given directory under

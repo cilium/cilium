@@ -225,6 +225,12 @@ bgp:
     # -- Enable announcement of node pod CIDR
     podCIDR: false
 
+# -- This feature set enables virtual BGP routers to be created via 
+# CiliumBGPPeeringPolicy CRDs.
+bgpControlPlane:
+  # -- Enables the BGP control plane. 
+  enabled: false
+
 bpf:
   # -- Configure the mount point for the BPF filesystem
   root: /sys/fs/bpf

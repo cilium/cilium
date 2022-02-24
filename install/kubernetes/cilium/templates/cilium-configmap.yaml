@@ -815,6 +815,12 @@ data:
   bgp-announce-pod-cidr: {{ .Values.bgp.announce.podCIDR | quote }}
 {{- end}}
 
+{{- if .Values.bgpControlPlane.enabled }}
+  enable-bgp-control-plane: "true"
+{{- else }}
+  enable-bgp-control-plane: "false"
+{{- end }}
+
 {{- if hasKey .Values.bpf "root" }}
   bpf-root: {{ .Values.bpf.root | quote }}
 {{- end }}
