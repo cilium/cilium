@@ -777,7 +777,7 @@ spec:
               key: custom-cni-conf
               name: cilium-config
               optional: true
-        image: "quay.io/cilium/cilium:v1.9.13"
+        image: "quay.io/cilium/cilium:v1.9.13@sha256:12752fd66c5448194062befaf59aaefc446cbff729aa8b2d7ea4801113d3a31a"
         imagePullPolicy: IfNotPresent
         lifecycle:
           postStart:
@@ -844,7 +844,7 @@ spec:
           # same directory where we install cilium cni plugin so that exec permissions
           # are available.
           - 'cp /usr/bin/cilium-mount /hostbin/cilium-mount && nsenter --cgroup=/hostproc/1/ns/cgroup --mount=/hostproc/1/ns/mnt "${BIN_PATH}/cilium-mount" $CGROUP_ROOT; rm /hostbin/cilium-mount'
-        image: "quay.io/cilium/cilium:v1.9.13"
+        image: "quay.io/cilium/cilium:v1.9.13@sha256:12752fd66c5448194062befaf59aaefc446cbff729aa8b2d7ea4801113d3a31a"
         imagePullPolicy: IfNotPresent
         volumeMounts:
           - mountPath: /hostproc
@@ -874,7 +874,7 @@ spec:
               key: wait-bpf-mount
               name: cilium-config
               optional: true
-        image: "quay.io/cilium/cilium:v1.9.13"
+        image: "quay.io/cilium/cilium:v1.9.13@sha256:12752fd66c5448194062befaf59aaefc446cbff729aa8b2d7ea4801113d3a31a"
         imagePullPolicy: IfNotPresent
         name: clean-cilium-state
         securityContext:
@@ -1036,7 +1036,7 @@ spec:
               key: debug
               name: cilium-config
               optional: true
-        image: "quay.io/cilium/operator-generic:v1.9.13"
+        image: "quay.io/cilium/operator-generic:v1.9.13@sha256:826136116ce840ae37efad5e63d4e2a6d7f47a3277b840ab3d45758f19f1fc78"
         imagePullPolicy: IfNotPresent
         name: cilium-operator
         livenessProbe:
@@ -1101,7 +1101,7 @@ spec:
             topologyKey: "kubernetes.io/hostname"
       containers:
         - name: hubble-relay
-          image: "quay.io/cilium/hubble-relay:v1.9.13"
+          image: "quay.io/cilium/hubble-relay:v1.9.13@sha256:bd374bd8cd6abccce817f6cfabd5e58f243a7ec8d0fcf4dd22f0713713ab6969"
           imagePullPolicy: IfNotPresent
           command:
             - hubble-relay
