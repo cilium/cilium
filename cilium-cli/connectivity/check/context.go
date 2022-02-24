@@ -369,7 +369,7 @@ func (ct *ConnectivityTest) FetchCiliumPodImageTag() string {
 	}
 	spl := strings.Split(img, ":")
 	if len(spl) > 1 {
-		return spl[1]
+		return strings.TrimSuffix(spl[1], "@sha256")
 	}
 	return ""
 }
@@ -496,4 +496,8 @@ func (ct *ConnectivityTest) FlowAggregation() bool {
 
 func (ct *ConnectivityTest) PostTestSleepDuration() time.Duration {
 	return ct.params.PostTestSleepDuration
+}
+
+func (ct *ConnectivityTest) CiliumBaseVersion() string {
+	return ct.params.CiliumBaseVersion
 }

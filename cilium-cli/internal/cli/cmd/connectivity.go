@@ -121,6 +121,9 @@ func newCmdConnectivityTest() *cobra.Command {
 	cmd.Flags().BoolVarP(&params.PauseOnFail, "pause-on-fail", "p", false, "Pause execution on test failure")
 	cmd.Flags().BoolVar(&params.SkipIPCacheCheck, "skip-ip-cache-check", true, "Skip IPCache check")
 	cmd.Flags().MarkHidden("skip-ip-cache-check")
+	cmd.Flags().StringVar(&params.CiliumBaseVersion, "base-version", defaults.Version,
+		"Specify the base Cilium version for configuration purpose in case image tag doesn't indicate the actual Cilium version")
+	cmd.Flags().MarkHidden("base-version")
 
 	return cmd
 }
