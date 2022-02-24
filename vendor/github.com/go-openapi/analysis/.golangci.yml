@@ -50,4 +50,3 @@ linters:
     - ifshort
     - forbidigo
     - cyclop
-    - varnamelen
