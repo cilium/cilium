@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
 	clustermeshTypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ip"
@@ -2159,6 +2160,29 @@ func (c *DaemonConfig) TunnelingEnabled() bool {
 	return c.Tunnel != TunnelDisabled
 }
 
+// MasqueradingEnabled returns true if either IPv4 or IPv6 masquerading is enabled.
+func (c *DaemonConfig) MasqueradingEnabled() bool {
+	return c.EnableIPv4Masquerade || c.EnableIPv6Masquerade
+}
+
+// IptablesMasqueradingIPv4Enabled returns true if iptables-based
+// masquerading is enabled for IPv4.
+func (c *DaemonConfig) IptablesMasqueradingIPv4Enabled() bool {
+	return !c.EnableBPFMasquerade && c.EnableIPv4Masquerade
+}
+
+// IptablesMasqueradingIPv6Enabled returns true if iptables-based
+// masquerading is enabled for IPv6.
+func (c *DaemonConfig) IptablesMasqueradingIPv6Enabled() bool {
+	return !c.EnableBPFMasquerade && c.EnableIPv6Masquerade
+}
+
+// IptablesMasqueradingEnabled returns true if iptables-based
+// masquerading is enabled.
+func (c *DaemonConfig) IptablesMasqueradingEnabled() bool {
+	return c.IptablesMasqueradingIPv4Enabled() || c.IptablesMasqueradingIPv6Enabled()
+}
+
 // RemoteNodeIdentitiesEnabled returns true if the remote-node identity feature
 // is enabled
 func (c *DaemonConfig) RemoteNodeIdentitiesEnabled() bool {
@@ -2736,21 +2760,29 @@ func (c *DaemonConfig) Populate() {
 	c.MonitorAggregationFlags = ctMonitorReportFlags
 
 	// Map options
-	if m := viper.GetStringMapString(FixedIdentityMapping); len(m) != 0 {
+	if m := command.GetStringMapString(viper.GetViper(), FixedIdentityMapping); err != nil {
+		log.Fatalf("unable to parse %s: %s", FixedIdentityMapping, err)
+	} else if len(m) != 0 {
 		c.FixedIdentityMapping = m
 	}
 
 	c.ConntrackGCInterval = viper.GetDuration(ConntrackGCInterval)
 
-	if m := viper.GetStringMapString(KVStoreOpt); len(m) != 0 {
+	if m, err := command.GetStringMapStringE(viper.GetViper(), KVStoreOpt); err != nil {
+		log.Fatalf("unable to parse %s: %s", KVStoreOpt, err)
+	} else if len(m) != 0 {
 		c.KVStoreOpt = m
 	}
 
-	if m := viper.GetStringMapString(LogOpt); len(m) != 0 {
+	if m, err := command.GetStringMapStringE(viper.GetViper(), LogOpt); err != nil {
+		log.Fatalf("unable to parse %s: %s", LogOpt, err)
+	} else if len(m) != 0 {
 		c.LogOpt = m
 	}
 
-	if m := viper.GetStringMapString(APIRateLimitName); len(m) != 0 {
+	if m, err := command.GetStringMapStringE(viper.GetViper(), APIRateLimitName); err != nil {
+		log.Fatalf("unable to parse %s: %s", APIRateLimitName, err)
+	} else if len(m) != 0 {
 		c.APIRateLimit = m
 	}
 
