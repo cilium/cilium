@@ -1531,6 +1531,15 @@ func initEnv(cmd *cobra.Command) {
 		)
 	}
 
+	if option.Config.IPAM == ipamOption.IPAMClusterPoolV2 {
+		if option.Config.TunnelingEnabled() {
+			log.Fatalf("Cannot specify IPAM mode %s in tunnel mode.", ipamOption.IPAMClusterPoolV2)
+		}
+		if option.Config.EnableIPSec {
+			log.Fatalf("Cannot specify IPAM mode %s with %s.", ipamOption.IPAMClusterPoolV2, option.EnableIPSecName)
+		}
+	}
+
 	if option.Config.InstallNoConntrackIptRules {
 		// InstallNoConntrackIptRules can only be enabled in direct
 		// routing mode as in tunneling mode the encapsulated traffic is
