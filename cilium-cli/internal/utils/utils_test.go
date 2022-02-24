@@ -5,7 +5,10 @@ package utils
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
+
+	"github.com/blang/semver/v4"
 )
 
 func TestCheckVersion(t *testing.T) {
@@ -42,6 +45,63 @@ func TestCheckVersion(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := CheckVersion(tt.name); got != tt.want {
 				t.Errorf("CheckVersion() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseCiliumVersion(t *testing.T) {
+	tests := []struct {
+		name                 string
+		version, baseVersion string
+		want                 semver.Version
+		wantErr              bool
+	}{
+		{
+			name:    "empty",
+			wantErr: true,
+		},
+		{
+			name:    "invalid-version",
+			version: "invalid",
+			wantErr: true,
+		},
+		{
+			name:    "valid-version",
+			version: "v1.9.99",
+			want:    semver.Version{Major: 1, Minor: 9, Patch: 99},
+		},
+		{
+			name:        "invalid-version-with-base-version",
+			version:     "invalid",
+			baseVersion: "v1.11.2",
+			want:        semver.Version{Major: 1, Minor: 11, Patch: 2},
+		},
+		{
+			name:        "valid-version-with-valid-base-version",
+			version:     "v1.11.2",
+			baseVersion: "v1.10.13",
+			want:        semver.Version{Major: 1, Minor: 11, Patch: 2},
+		},
+
+		{
+			name:        "invalid-version-with-invalid-base-version",
+			version:     "invalid",
+			baseVersion: "not-a-version",
+			wantErr:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseCiliumVersion(tt.version, tt.baseVersion)
+			if tt.wantErr && err == nil {
+				t.Errorf("ParseCiliumVersion(%q, %q) got nil, want error", tt.version, tt.baseVersion)
+			} else if !tt.wantErr && err != nil {
+				t.Errorf("ParseCiliumVersion(%q, %q) got error, want nil", tt.version, tt.baseVersion)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("PetCiliumVersion(%qm %q) = %v, want %v", tt.version, tt.baseVersion, got, tt.want)
 			}
 		})
 	}

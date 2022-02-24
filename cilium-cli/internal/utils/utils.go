@@ -10,6 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/blang/semver/v4"
+	"github.com/cilium/cilium/pkg/versioncheck"
+
 	"github.com/cilium/cilium-cli/defaults"
 )
 
@@ -17,6 +20,16 @@ var versionRegexp = regexp.MustCompile(`^(v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0
 
 func CheckVersion(version string) bool {
 	return versionRegexp(version)
+}
+
+func ParseCiliumVersion(version, baseVersion string) (semver.Version, error) {
+	ersion := strings.TrimPrefix(version, "v")
+	v, err := versioncheck.Version(ersion)
+	if err != nil {
+		ersion = strings.TrimPrefix(baseVersion, "v")
+		v, err = versioncheck.Version(ersion)
+	}
+	return v, err
 }
 
 type ImagePathMode int
