@@ -1191,15 +1191,10 @@ func (k *K8sInstaller) Exec(command string, args ...string) ([]byte, error) {
 }
 
 func (k *K8sInstaller) getCiliumVersion() semver.Version {
-	ersion := strings.TrimPrefix(k.params.Version, "v")
-	v, err := versioncheck.Version(ersion)
+	v, err := utils.ParseCiliumVersion(k.params.Version, k.params.BaseVersion)
 	if err != nil {
-		ersion = strings.TrimPrefix(k.params.BaseVersion, "v")
-		v, err = versioncheck.Version(ersion)
-		if err != nil {
-			v = versioncheck.MustVersion(defaults.Version)
-			k.Log("Unable to parse the provided version %q, assuming %v for ConfigMap compatibility", k.params.Version)
-		}
+		v = versioncheck.MustVersion(defaults.Version)
+		k.Log("Unable to parse the provided version %q, assuming %v for ConfigMap compatibility", k.params.Version, defaults.Version)
 	}
 	return v
 }
