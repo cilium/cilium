@@ -69,7 +69,7 @@ const (
 	ConnectivityCheckJSONMockImage   = "quay.io/cilium/json-mock:v1.3.0@sha256:2729064827fa9dbfface8d3df424feb6c792a0ba07117b844349635c93c06d2b"
 
 	ConfigMapName   = "cilium-config"
-	Version         = "v1.11.1"
+	Version         = "v1.11.2"
 	HubbleUIVersion = "v0.8.5"
 
 	TunnelType = "vxlan"
