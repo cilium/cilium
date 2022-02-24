@@ -6,10 +6,13 @@ package connectivity
 import (
 	"context"
 	_ "embed"
-	"strings"
+
+	"github.com/cilium/cilium/pkg/versioncheck"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/connectivity/tests"
+	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/internal/utils"
 )
 
 var (
@@ -49,6 +52,16 @@ var (
 func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	ct.SetupAndValidate(ctx)
 
+	version := ct.FetchCiliumPodImageTag()
+	ct.Debugf("Cilium image version: %v", version)
+	v, err := utils.ParseCiliumVersion(version, ct.CiliumBaseVersion())
+	if err != nil {
+		v = versioncheck.MustVersion(defaults.Version)
+		ct.Warnf("Unable to parse Cilium version %q, assuming %v for connectivity tests", version, defaults.Version)
+	}
+
+	ct.Infof("Cilium version: %v", v)
+
 	// Run all tests without any policies in place.
 	ct.NewTest("no-policies").WithScenarios(
 		tests.PodToPod(""),
@@ -63,7 +76,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	)
 
 	// Test with an allow-all-except-world (and unmanaged) policy.
-	if strings.HasPrefix(ct.FetchCiliumPodImageTag(), "v1.11") {
+	if v.GTE(versioncheck.MustVersion("1.11.0")) {
 		ct.NewTest("allow-all-except-world").WithPolicy(allowAllExceptWorldPolicyYAML).
 			WithScenarios(
 				tests.PodToPod(""),
