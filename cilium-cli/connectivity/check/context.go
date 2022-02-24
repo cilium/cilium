@@ -361,7 +361,7 @@ func (ct *ConnectivityTest) FetchCiliumPodImageTag() string {
 	for _, pod := range ct.ciliumPods {
 		cntrs := pod.Pod.Spec.Containers
 		for _, c := range cntrs {
-			if strings.Contains(c.Name, "cilium-agent") && c.Image != "" {
+			if strings.Contains(c.Name, defaults.AgentContainerName) && c.Image != "" {
 				img = c.Image
 				break
 			}
