@@ -465,6 +465,11 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 	}
 
 	switch option.Config.IPAM {
+	case ipamOption.IPAMClusterPoolV2:
+		if c := n.NetConf; c != nil {
+			nodeResource.Spec.IPAM.PodCIDRAllocationThreshold = c.IPAM.PodCIDRAllocationThreshold
+			nodeResource.Spec.IPAM.PodCIDRReleaseThreshold = c.IPAM.PodCIDRReleaseThreshold
+		}
 	case ipamOption.IPAMENI:
 		// set ENI field in the node only when the ENI ipam is specified
 		nodeResource.Spec.ENI = eniTypes.ENISpec{}
