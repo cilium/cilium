@@ -6,6 +6,7 @@ package hubble
 import (
 	"context"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/pkg/browser"
@@ -328,6 +329,9 @@ func (p *Parameters) UIPortForwardCommand(ctx context.Context) error {
 		time.Sleep(5 * time.Second)
 		url := fmt.Sprintf("http://localhost:%d", p.UIPortForward)
 
+		// avoid cluttering stdout/stderr when opening the browser
+		browser.Stdout = io.Discard
+		browser.Stderr = io.Discard
 		p.Log("ℹ️  Opening %q in your browser...", url)
 		browser.OpenURL(url)
 	}()
