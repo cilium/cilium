@@ -76,6 +76,7 @@ Advanced Networking
    ipam
    local-redirect-policy
    bgp
+   bgp-control-plane 
    egress-gateway
    ciliumendpointslice
    vtep

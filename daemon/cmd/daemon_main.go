@@ -25,6 +25,8 @@ import (
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/api/v1/server/restapi"
 	"github.com/cilium/cilium/pkg/aws/eni"
+	bgpv1 "github.com/cilium/cilium/pkg/bgpv1/agent"
+	"github.com/cilium/cilium/pkg/bgpv1/gobgp"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/common"
@@ -1090,6 +1092,9 @@ func initializeFlags() {
 	flags.MarkHidden(option.TCFilterPriority)
 	option.BindEnv(option.TCFilterPriority)
 
+	flags.Bool(option.EnableBGPControlPlane, false, "Enable the BGP control plane.")
+	option.BindEnv(option.EnableBGPControlPlane)
+
 	viper.BindPFlags(flags)
 }
 
@@ -1839,6 +1844,13 @@ func runDaemon() {
 		}
 	}
 
+	if option.Config.BGPControlPlaneEnabled() {
+		log.Info("Initializing BGP Control Plane")
+		if err := d.instantiateBGPControlPlane(d.ctx); err != nil {
+			log.WithError(err).Fatal("Error returned when instantiating BGP control plane")
+		}
+	}
+
 	log.WithField("bootstrapTime", time.Since(bootstrapTimestamp)).
 		Info("Daemon initialization completed")
 
@@ -1891,6 +1903,18 @@ func runDaemon() {
 			log.WithError(err).Fatal("Error returned from non-returning Serve() call")
 		}
 	}
+}
+
+func (d *Daemon) instantiateBGPControlPlane(ctx context.Context) error {
+	// goBGP is currently the only supported RouterManager, if more are
+	// implemented replace this hard-coding with a construction switch.
+	rm := gobgp.NewBGPRouterManager()
+	ctrl, err := bgpv1.NewController(d.ctx, rm)
+	if err != nil {
+		return fmt.Errorf("failed to instantiate BGP Control Plane: %v", err)
+	}
+	d.bgpControlPlaneController = ctrl
+	return nil
 }
 
 func (d *Daemon) instantiateAPI() *restapi.CiliumAPIAPI {

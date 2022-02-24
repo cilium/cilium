@@ -57,6 +57,14 @@
      - Enable BGP support inside Cilium; embeds a new ConfigMap for BGP inside cilium-agent and cilium-operator
      - bool
      - ``false``
+   * - bgpControlPlane
+     - This feature set enables virtual BGP routers to be created via  CiliumBGPPeeringPolicy CRDs.
+     - object
+     - ``{"enabled":false}``
+   * - bgpControlPlane.enabled
+     - Enables the BGP control plane.
+     - bool
+     - ``false``
    * - bpf.clockProbe
      - Enable BPF clock source probing for more efficient tick retrieval.
      - bool
