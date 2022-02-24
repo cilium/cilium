@@ -19,7 +19,7 @@ require (
 	github.com/go-openapi/strfmt v0.21.2
 	github.com/google/gops v0.3.22
 	github.com/mholt/archiver/v3 v3.5.1
-	github.com/pkg/browser v0.0.0-20210706143420-7d21f8c997e2
+	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	github.com/spf13/cobra v1.3.0
 	google.golang.org/grpc v1.44.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
