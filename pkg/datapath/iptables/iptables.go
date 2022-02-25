@@ -428,8 +428,8 @@ func (m *IptablesManager) Init() {
 	if err := modulesManager.FindOrLoadModules(
 		"ip6_tables", "ip6table_mangle", "ip6table_raw", "ip6table_filter"); err != nil {
 		if option.Config.EnableIPv6 {
-			log.WithError(err).Warning(
-				"IPv6 is enabled and ip6tables modules could not be initialized (try loading ip6_tables, ip6table_mangle, ip6table_raw and ip6table_filter modules)")
+			log.WithError(err).Fatal(
+				"IPv6 is enabled and ip6tables modules could not be initialized (try disabling IPv6 in Cilium or loading ip6_tables, ip6table_mangle, ip6table_raw and ip6table_filter kernel modules)")
 		}
 		log.WithError(err).Debug(
 			"ip6tables kernel modules could not be loaded, so IPv6 cannot be used")
