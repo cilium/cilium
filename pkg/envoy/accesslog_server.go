@@ -105,19 +105,24 @@ func (s *accessLogServer) accessLogger(conn *net.UnixConn) {
 		flowdebug.Log(log.WithFields(logrus.Fields{}),
 			fmt.Sprintf("%s: Access log message: %s", pblog.PolicyName, pblog.String()))
 
+		r := logRecord(&pblog)
+
 		// Correlate the log entry's network policy name with a local endpoint info source.
 		localEndpoint := s.xdsServer.getLocalEndpoint(pblog.PolicyName)
-		if localEndpoint == nil {
-			log.Warnf("Envoy: Discarded access log message for non-existent network policy %s",
-				pblog.PolicyName)
-			continue
+		if localEndpoint != nil {
+			// Update proxy stats for the endpoint.
+			ingress := r.ObservationPoint == accesslog.Ingress
+			request := r.Type == accesslog.TypeRequest
+			port := r.DestinationEndpoint.Port
+			if !request {
+				port = r.SourceEndpoint.Port
+			}
+			localEndpoint.UpdateProxyStatistics("TCP", port, ingress, request, r.Verdict)
 		}
-
-		logRecord(localEndpoint, &pblog)
 	}
 }
 
-func logRecord(localEndpoint logger.EndpointUpdater, pblog *cilium.LogEntry) {
+func logRecord(pblog *cilium.LogEntry) *logger.LogRecord {
 	var kafkaRecord *accesslog.LogRecordKafka
 	var kafkaTopics []string
 
@@ -190,12 +195,5 @@ func logRecord(localEndpoint logger.EndpointUpdater, pblog *cilium.LogEntry) {
 		r.Log()
 	}
 
-	// Update stats for the endpoint.
-	ingress := r.ObservationPoint == accesslog.Ingress
-	request := r.Type == accesslog.TypeRequest
-	port := r.DestinationEndpoint.Port
-	if !request {
-		port = r.SourceEndpoint.Port
-	}
-	localEndpoint.UpdateProxyStatistics("TCP", port, ingress, request, r.Verdict)
+	return r
 }
