@@ -253,6 +253,7 @@ jobs:
       - name: Run connectivity test
         run: |
           cilium connectivity test \
+            --base-version=v1.10 \
             --flow-validation=disabled \
             --test '!fqdn,!l7' # L7 policies are not supported in chaining mode.
 

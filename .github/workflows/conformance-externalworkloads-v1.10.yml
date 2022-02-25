@@ -150,9 +150,12 @@ jobs:
             --relay-version=${SHA}"
           CLUSTERMESH_ENABLE_DEFAULTS="--apiserver-image=quay.io/${{ github.repository_owner }}/clustermesh-apiserver-ci \
             --apiserver-version=${SHA}"
+          CONNECTIVITY_TEST_DEFAULTS="--base-version=v1.10 \
+            --flow-validation=disabled"
           echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
           echo ::set-output name=hubble_enable_defaults::${HUBBLE_ENABLE_DEFAULTS}
           echo ::set-output name=clustermesh_enable_defaults::${CLUSTERMESH_ENABLE_DEFAULTS}
+          echo ::set-output name=connectivity_test_defaults::${CONNECTIVITY_TEST_DEFAULTS}
           echo ::set-output name=sha::${SHA}
           echo ::set-output name=owner::${OWNER}
 
@@ -273,7 +276,7 @@ jobs:
 
       - name: Run connectivity test
         run: |
-          cilium connectivity test --flow-validation=disabled
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Post-test information gathering
         if: ${{ !success() }}
