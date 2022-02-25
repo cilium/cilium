@@ -102,3 +102,6 @@ GIT_VERSION
 
 # Generated dockerignore files
 images/*/Dockerfile.dockerignore
+
+# Local Emacs files
+.dir-locals.el
