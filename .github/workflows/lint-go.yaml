@@ -53,7 +53,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@5c56cd6c9dc07901af25baab6f2b0d9f3b7c3018
+        uses: golangci/golangci-lint-action@c675eb70db3aa26b496bc4e64da320480338d41b
         with:
           version: v1.37.1
           skip-go-installation: true
