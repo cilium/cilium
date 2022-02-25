@@ -132,6 +132,12 @@ Users (Alphabetically)
       U: Networking, network policy, Hubble for network visibility
       L: https://github.com/kubermatic/kubermatic
 
+    * N: KubeSphere - KubeKey
+      D: KubeKey is an open-source lightweight tool for deploying Kubernetes clusters and addons efficiently. It uses Cilium as one of the supported CNIs.
+      U: Networking, Security, Hubble UI for network visibility
+      L: https://github.com/kubesphere/kubekey
+      Q: @FeynmanZhou
+
     * N: Meltwater
       D: Meltwater is using Cilim in AWS on self-hosted multi-tenant k8s clusters as the CNI plugin
       U: ENI Networking, Encryption, Monitoring via Prometheus metrics & Hubble
