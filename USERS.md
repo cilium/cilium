@@ -175,10 +175,11 @@ Users (Alphabetically)
       U: CiliumNetworkPolicy, Hubble, Service Load Balancing.
       Q: @Gowtham
 
-    * N: SAP Concur
-      D: SAP Concur is using Cilium in production clusters (self-hosted k8s on AWS)
-      U: CNI
-      Q: @dale
+    * N: SAP
+      D: SAP uses Cilium for multiple internal scenarios. For examples for self-hosted Kubernetes scenarios on AWS with SAP Concur and for managed Kubernetes clusters provided with Gardener Project across AWS, Azure, GCP, and OpenStack.
+      U: CNI , Overlay Network, Network Policies
+      L: https://www.concur.com, https://gardener.cloud/, https://github.com/gardener/gardener-extension-networking-cilium
+      Q: @dragan (SAP Concur), @docktofuture & @ScheererJ (Gardener)
 
     * N: Scaleway
       D: Scaleway uses Cilium as the default CNI for Kubernetes Kapsule
