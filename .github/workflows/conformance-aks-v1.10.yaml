@@ -146,8 +146,11 @@ jobs:
             --base-version=v1.10"
           HUBBLE_ENABLE_DEFAULTS="--relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
             --relay-version=${SHA}"
+          CONNECTIVITY_TEST_DEFAULTS="--base-version=v1.10 \
+            --flow-validation=disabled"
           echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
           echo ::set-output name=hubble_enable_defaults::${HUBBLE_ENABLE_DEFAULTS}
+          echo ::set-output name=connectivity_test_defaults::${CONNECTIVITY_TEST_DEFAULTS}
           echo ::set-output name=sha::${SHA}
           echo ::set-output name=owner::${OWNER}
 
@@ -261,7 +264,7 @@ jobs:
 
       - name: Run connectivity test
         run: |
-          cilium connectivity test --flow-validation=disabled
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       # AKS testing with encryption is disabled due to https://github.com/cilium/cilium-cli/issues/342
       # Re-enabling tracked in: https://github.com/cilium/cilium/issues/17644
@@ -297,7 +300,7 @@ jobs:
       - name: Run connectivity test
         if: ${{ false }} # see comment above for details
         run: |
-          cilium connectivity test --force-deploy --flow-validation=disabled
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy
 
       - name: Post-test information gathering
         if: ${{ !success() }}
