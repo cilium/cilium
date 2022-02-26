@@ -94,6 +94,7 @@ const (
 )
 
 var globalDeleteLock [mapTypeMax]lock.Mutex
+var natMapsLock [mapTypeMax]*lock.Mutex
 
 type mapAttributes struct {
 	mapKey     bpf.MapKey
@@ -103,6 +104,7 @@ type mapAttributes struct {
 	maxEntries int
 	parser     bpf.DumpParser
 	bpfDefine  string
+	natMapLock *lock.Mutex // Serializes concurrent accesses to natMap
 	natMap     *nat.Map
 }
 
@@ -134,6 +136,7 @@ func setupMapInfo(m mapType, define string, mapKey bpf.MapKey, keySize int, maxE
 		valueSize:  SizeofCtEntry,
 		maxEntries: maxEntries,
 		parser:     bpf.ConvertKeyValue,
+		natMapLock: natMapsLock[m],
 		natMap:     nat,
 	}
 }
@@ -157,6 +160,12 @@ func InitMapInfo(tcpMaxEntries, anyMaxEntries int, v4, v6, nodeport bool) {
 		mapTypeIPv4AnyGlobal: global4Map,
 		mapTypeIPv6AnyGlobal: global6Map,
 	}
+	global4MapLock := &lock.Mutex{}
+	global6MapLock := &lock.Mutex{}
+	natMapsLock[mapTypeIPv4TCPGlobal] = global4MapLock
+	natMapsLock[mapTypeIPv6TCPGlobal] = global6MapLock
+	natMapsLock[mapTypeIPv4AnyGlobal] = global4MapLock
+	natMapsLock[mapTypeIPv6AnyGlobal] = global6MapLock
 
 	setupMapInfo(mapTypeIPv4TCPLocal, "CT_MAP_TCP4",
 		&CtKey4{}, int(unsafe.Sizeof(CtKey4{})),
@@ -333,7 +342,10 @@ func purgeCtEntry6(m *Map, key CtKey, natMap *nat.Map) error {
 // doGC6 iterates through a CTv6 map and drops entries based on the given
 // filter.
 func doGC6(m *Map, filter *GCFilter) gcStats {
-	natMap := mapInfo[m.mapType].natMap
+	ctMap := mapInfo[m.mapType]
+	ctMap.natMapLock.Lock()
+	defer ctMap.natMapLock.Unlock()
+	natMap := ctMap.natMap
 	stats := statStartGc(m)
 	defer stats.finish()
 
@@ -413,7 +425,10 @@ func purgeCtEntry4(m *Map, key CtKey, natMap *nat.Map) error {
 // doGC4 iterates through a CTv4 map and drops entries based on the given
 // filter.
 func doGC4(m *Map, filter *GCFilter) gcStats {
-	natMap := mapInfo[m.mapType].natMap
+	ctMap := mapInfo[m.mapType]
+	ctMap.natMapLock.Lock()
+	defer ctMap.natMapLock.Unlock()
+	natMap := ctMap.natMap
 	stats := statStartGc(m)
 	defer stats.finish()
 
@@ -570,7 +585,10 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 
 	// Both CT maps should point to the same natMap, so use the first one
 	// to determine natMap
-	natMap := mapInfo[ctMapTCP.mapType].natMap
+	ctMap := mapInfo[ctMapTCP.mapType]
+	ctMap.natMapLock.Lock()
+	defer ctMap.natMapLock.Unlock()
+	natMap := ctMap.natMap
 	if natMap == nil {
 		return nil
 	}
