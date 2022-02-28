@@ -6,6 +6,7 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"os"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -18,7 +19,7 @@ var (
 	sysdumpOptions = sysdump.Options{
 		LargeSysdumpAbortTimeout: sysdump.DefaultLargeSysdumpAbortTimeout,
 		LargeSysdumpThreshold:    sysdump.DefaultLargeSysdumpThreshold,
-		Writer:                   sysdump.DefaultWriter,
+		Writer:                   os.Stdout,
 	}
 )
 

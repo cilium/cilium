@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"os"
 	"path"
 	"testing"
 	"time"
@@ -51,6 +52,8 @@ func (b *SysdumpSuite) TestSysdumpCollector(c *check.C) {
 	c.Assert(path.Base(collector.sysdumpDir), check.Equals, "my-sysdump-"+timestamp)
 	tempFile := collector.AbsoluteTempPath("my-file-<ts>")
 	c.Assert(tempFile, check.Equals, path.Join(collector.sysdumpDir, "my-file-"+timestamp))
+	_, err = os.Stat(path.Join(collector.sysdumpDir, sysdumpLogFile))
+	c.Assert(err, check.IsNil)
 }
 
 func (b *SysdumpSuite) TestNodeList(c *check.C) {
