@@ -29,7 +29,6 @@
 # @cilium/proxy              L7 proxy, Envoy
 # @cilium/vendor             Vendoring, dependency management
 # @cilium/wireguard          Wireguard integration
-# @cilium/nonexistantteam    Fake team to tell GitHub to skip assignment
 
 # The following filepaths should be sorted so that more specific paths occur
 # after the less specific paths, otherwise the ownership for the specific paths
@@ -97,7 +96,7 @@ Makefile* @cilium/build
 /Documentation/check-crd-compat-table.sh @cilium/docs-structure
 /Documentation/check-examples.sh @cilium/docs-structure
 /Documentation/check-helmvalues.sh @cilium/docs-structure
-/Documentation/cmdref/ @cilium/nonexistantteam
+/Documentation/cmdref/
 /Documentation/community.rst @cilium/contributing
 /Documentation/concepts/ebpf/ @cilium/bpf @cilium/docs-structure
 /Documentation/concepts/index.rst @cilium/docs-structure
@@ -127,7 +126,7 @@ Makefile* @cilium/build
 /Documentation/gettingstarted/kubeproxy-free.rst @cilium/loadbalancer @cilium/docs-structure
 /Documentation/gettingstarted/policy-creation.rst @cilium/policy @cilium/docs-structure
 /Documentation/glossary.rst @cilium/docs-structure
-/Documentation/helm-values.rst @cilium/nonexistantteam
+/Documentation/helm-values.rst
 /Documentation/images/re-request-review.png @cilium/contributing @cilium/docs-structure
 /Documentation/index.rst @cilium/docs-structure
 /Documentation/internals/index.rst @cilium/docs-structure
