@@ -68,7 +68,7 @@ Makefile* @cilium/build
 /cilium/cmd/preflight_k8s_valid_cnp.go @cilium/kubernetes
 /cilium-health/ @cilium/health
 /cilium-health/cmd/ @cilium/health @cilium/cli
-/clustermesh-apiserver @cilium/tophat
+/clustermesh-apiserver @cilium/sig-clustermesh
 /contrib/ @cilium/contributing
 /contrib/packaging/ @cilium/build
 /contrib/vagrant/ @cilium/contributing
