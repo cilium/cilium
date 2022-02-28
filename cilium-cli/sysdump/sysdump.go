@@ -26,6 +26,8 @@ import (
 	"github.com/cilium/cilium-cli/internal/utils"
 )
 
+const sysdumpLogFile = "cilium-sysdump.log"
+
 // Options groups together the set of options required to collect a sysdump.
 type Options struct {
 	// The labels used to target Cilium pods.
@@ -94,6 +96,10 @@ type Collector struct {
 	Client  KubernetesClient
 	Options Options
 	Pool    *workerpool.WorkerPool
+	// logFile is the log file for the sydump log messages.
+	logFile *os.File
+	// logWriter is the io.Writer used for logging.
+	logWriter io.Writer
 	// subtasksWg is used to wait for subtasks to be submitted to the pool before calling 'Drain'.
 	// It is required since we don't know beforehand how many sub-tasks will be created, as they depend on the number of Cilium/Hubble/... pods found by "main" tasks.
 	subtasksWg sync.WaitGroup
@@ -125,6 +131,7 @@ func NewCollector(k KubernetesClient, o Options, startTime time.Time) (*Collecto
 	if err = os.MkdirAll(c.sysdumpDir, dirMode); err != nil {
 		return nil, fmt.Errorf("failed to create temporary directory: %w", err)
 	}
+	c.setupLogging(o.Writer)
 	c.logDebug("Using %v as a temporary directory", c.sysdumpDir)
 
 	// Grab the Kubernetes nodes for the target cluster.
@@ -157,6 +164,28 @@ func NewCollector(k KubernetesClient, o Options, startTime time.Time) (*Collecto
 	c.logDebug("Restricting bugtool and logs collection to pods in %v", c.NodeList)
 
 	return &c, nil
+}
+
+// setupLogging sets up sysdump collector loggging.
+func (c *Collector) setupLogging(w io.Writer) error {
+	var err error
+	c.logFile, err = os.Create(filepath.Join(c.sysdumpDir, sysdumpLogFile))
+	if err != nil {
+		return fmt.Errorf("failed to create sysdump log file: %w", err)
+	}
+	// Log to stdout and to a file in the sysdump itself
+	c.logWriter = io.MultiWriter(w, c.logFile)
+	return nil
+}
+
+// teardownLogging flushes writes to the sysdump collector log file and closes it.
+func (c *Collector) teardownLogging() {
+	// flush writes to log file
+	c.logFile.Sync()
+	// ...and close the log file
+	c.logFile.Close()
+	// rewire logger for the remaining log messages which won't make it into to log file
+	c.logWriter = os.Stdout
 }
 
 // replaceTimestamp can be used to replace the special timestamp placeholder in file and directory names.
@@ -847,6 +876,8 @@ func (c *Collector) Run() error {
 		c.logWarn("Please note that depending on your Cilium version and installation options, this may be expected")
 	}
 
+	c.teardownLogging()
+
 	// Create the zip file in the current directory.
 	c.log("🗳 Compiling sysdump")
 	p, err := os.Getwd()
@@ -868,7 +899,7 @@ func (c *Collector) Run() error {
 }
 
 func (c *Collector) log(msg string, args ...interface{}) {
-	fmt.Fprintf(c.Options.Writer, msg+"\n", args...)
+	fmt.Fprintf(c.logWriter, msg+"\n", args...)
 }
 
 func (c *Collector) logDebug(msg string, args ...interface{}) {
