@@ -647,6 +647,10 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(c *check.C) {
 	ip4Alloc1 := cidr.MustParseCIDR("5.5.5.0/24")
 	ip4Alloc2 := cidr.MustParseCIDR("5.5.5.0/26")
 
+	ipv4SecondaryAlloc1 := cidr.MustParseCIDR("5.5.6.0/24")
+	ipv4SecondaryAlloc2 := cidr.MustParseCIDR("5.5.7.0/24")
+	ipv4SecondaryAlloc3 := cidr.MustParseCIDR("5.5.8.0/24")
+
 	externalNode1IP4v1 := net.ParseIP("4.4.4.4")
 	externalNode1IP4v2 := net.ParseIP("4.4.4.5")
 
@@ -671,6 +675,11 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(c *check.C) {
 		EnableAutoDirectRouting: true,
 	}
 
+	expectedIPv4Routes := 0
+	if s.enableIPv4 {
+		expectedIPv4Routes = 1
+	}
+
 	err = linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
 	c.Assert(err, check.IsNil)
 
@@ -687,11 +696,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(c *check.C) {
 
 	foundRoutes, err := lookupDirectRoute(ip4Alloc1, externalNode1IP4v1)
 	c.Assert(err, check.IsNil)
-	if s.enableIPv4 {
-		c.Assert(len(foundRoutes), check.Equals, 1)
-	} else {
-		c.Assert(len(foundRoutes), check.Equals, 0)
-	}
+	c.Assert(len(foundRoutes), check.Equals, expectedIPv4Routes)
 
 	// nodev2: ip4Alloc1 => externalNodeIP2
 	nodev2 := nodeTypes.Node{
@@ -707,11 +712,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(c *check.C) {
 
 	foundRoutes, err = lookupDirectRoute(ip4Alloc1, externalNode1IP4v2)
 	c.Assert(err, check.IsNil)
-	if s.enableIPv4 {
-		c.Assert(len(foundRoutes), check.Equals, 1)
-	} else {
-		c.Assert(len(foundRoutes), check.Equals, 0)
-	}
+	c.Assert(len(foundRoutes), check.Equals, expectedIPv4Routes)
 
 	// nodev3: ip4Alloc2 => externalNodeIP2
 	nodev3 := nodeTypes.Node{
@@ -732,11 +733,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(c *check.C) {
 	// node routes for alloc2 ranges should have been installed
 	foundRoutes, err = lookupDirectRoute(ip4Alloc2, externalNode1IP4v2)
 	c.Assert(err, check.IsNil)
-	if s.enableIPv4 {
-		c.Assert(len(foundRoutes), check.Equals, 1)
-	} else {
-		c.Assert(len(foundRoutes), check.Equals, 0)
-	}
+	c.Assert(len(foundRoutes), check.Equals, expectedIPv4Routes)
 
 	// nodev4: no longer announce CIDR
 	nodev4 := nodeTypes.Node{
@@ -767,11 +764,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(c *check.C) {
 	// node routes for alloc2 ranges should have been removed
 	foundRoutes, err = lookupDirectRoute(ip4Alloc2, externalNode1IP4v2)
 	c.Assert(err, check.IsNil)
-	if s.enableIPv4 {
-		c.Assert(len(foundRoutes), check.Equals, 1)
-	} else {
-		c.Assert(len(foundRoutes), check.Equals, 0)
-	}
+	c.Assert(len(foundRoutes), check.Equals, expectedIPv4Routes)
 
 	// delete nodev5
 	err = linuxNodeHandler.NodeDelete(nodev5)
@@ -781,6 +774,106 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(c *check.C) {
 	foundRoutes, err = lookupDirectRoute(ip4Alloc2, externalNode1IP4v2)
 	c.Assert(err, check.IsNil)
 	c.Assert(len(foundRoutes), check.Equals, 0) // route should not exist regardless whether ipv4 is enabled or not
+
+	// nodev6: Re-introduce node with secondary CIDRs
+	nodev6 := nodeTypes.Node{
+		Name: "node2",
+		IPAddresses: []nodeTypes.Address{
+			{IP: externalNode1IP4v1, Type: nodeaddressing.NodeInternalIP},
+		},
+		IPv4AllocCIDR:           ip4Alloc1,
+		IPv4SecondaryAllocCIDRs: []*cidr.CIDR{ipv4SecondaryAlloc1, ipv4SecondaryAlloc2},
+	}
+	err = linuxNodeHandler.NodeAdd(nodev6)
+	c.Assert(err, check.IsNil)
+
+	// expecting both primary and secondary routes to exist
+	for _, ip4Alloc := range []*cidr.CIDR{ip4Alloc1, ipv4SecondaryAlloc1, ipv4SecondaryAlloc2} {
+		foundRoutes, err = lookupDirectRoute(ip4Alloc, externalNode1IP4v1)
+		c.Assert(err, check.IsNil)
+		c.Assert(len(foundRoutes), check.Equals, expectedIPv4Routes)
+	}
+
+	// nodev7: Replace a secondary route
+	nodev7 := nodeTypes.Node{
+		Name: "node2",
+		IPAddresses: []nodeTypes.Address{
+			{IP: externalNode1IP4v1, Type: nodeaddressing.NodeInternalIP},
+		},
+		IPv4AllocCIDR:           ip4Alloc1,
+		IPv4SecondaryAllocCIDRs: []*cidr.CIDR{ipv4SecondaryAlloc1, ipv4SecondaryAlloc3},
+	}
+	err = linuxNodeHandler.NodeUpdate(nodev6, nodev7)
+	c.Assert(err, check.IsNil)
+
+	// Checks all three required routes exist
+	for _, ip4Alloc := range []*cidr.CIDR{ip4Alloc1, ipv4SecondaryAlloc1, ipv4SecondaryAlloc3} {
+		foundRoutes, err = lookupDirectRoute(ip4Alloc, externalNode1IP4v1)
+		c.Assert(err, check.IsNil)
+		c.Assert(len(foundRoutes), check.Equals, expectedIPv4Routes)
+	}
+	// Checks route for removed CIDR has been deleted
+	foundRoutes, err = lookupDirectRoute(ipv4SecondaryAlloc2, externalNode1IP4v1)
+	c.Assert(err, check.IsNil)
+	c.Assert(len(foundRoutes), check.Equals, 0)
+
+	// nodev8: Change node IP to externalNode1IP4v2
+	nodev8 := nodeTypes.Node{
+		Name: "node2",
+		IPAddresses: []nodeTypes.Address{
+			{IP: externalNode1IP4v2, Type: nodeaddressing.NodeInternalIP},
+		},
+		IPv4AllocCIDR:           ip4Alloc1,
+		IPv4SecondaryAllocCIDRs: []*cidr.CIDR{ipv4SecondaryAlloc1, ipv4SecondaryAlloc3},
+	}
+	err = linuxNodeHandler.NodeUpdate(nodev7, nodev8)
+	c.Assert(err, check.IsNil)
+
+	// Checks all routes with the new node IP exist
+	for _, ip4Alloc := range []*cidr.CIDR{ip4Alloc1, ipv4SecondaryAlloc1, ipv4SecondaryAlloc3} {
+		foundRoutes, err = lookupDirectRoute(ip4Alloc, externalNode1IP4v2)
+		c.Assert(err, check.IsNil)
+		c.Assert(len(foundRoutes), check.Equals, expectedIPv4Routes)
+	}
+	// Checks all routes with the old node IP have been deleted
+	for _, ip4Alloc := range []*cidr.CIDR{ip4Alloc1, ipv4SecondaryAlloc1, ipv4SecondaryAlloc3} {
+		foundRoutes, err = lookupDirectRoute(ip4Alloc, externalNode1IP4v1)
+		c.Assert(err, check.IsNil)
+		c.Assert(len(foundRoutes), check.Equals, 0)
+	}
+
+	// nodev9: replacement of primary route, removal of secondary CIDRs
+	nodev9 := nodeTypes.Node{
+		Name: "node2",
+		IPAddresses: []nodeTypes.Address{
+			{IP: externalNode1IP4v2, Type: nodeaddressing.NodeInternalIP},
+		},
+		IPv4AllocCIDR:           ip4Alloc2,
+		IPv4SecondaryAllocCIDRs: []*cidr.CIDR{},
+	}
+	err = linuxNodeHandler.NodeUpdate(nodev8, nodev9)
+	c.Assert(err, check.IsNil)
+
+	// Checks primary route has been created
+	foundRoutes, err = lookupDirectRoute(ip4Alloc2, externalNode1IP4v2)
+	c.Assert(err, check.IsNil)
+	c.Assert(len(foundRoutes), check.Equals, expectedIPv4Routes)
+
+	// Checks all old routes have been deleted
+	for _, ip4Alloc := range []*cidr.CIDR{ip4Alloc1, ipv4SecondaryAlloc1, ipv4SecondaryAlloc3} {
+		foundRoutes, err = lookupDirectRoute(ip4Alloc, externalNode1IP4v2)
+		c.Assert(err, check.IsNil)
+		c.Assert(len(foundRoutes), check.Equals, 0)
+	}
+
+	// delete nodev9
+	err = linuxNodeHandler.NodeDelete(nodev9)
+	c.Assert(err, check.IsNil)
+
+	// remaining primary node route must have been deleted
+	foundRoutes, err = lookupDirectRoute(ip4Alloc2, externalNode1IP4v2)
+	c.Assert(err, check.IsNil)
+	c.Assert(len(foundRoutes), check.Equals, 0)
 }
 
 func (s *linuxPrivilegedBaseTestSuite) TestAgentRestartOptionChanges(c *check.C) {
