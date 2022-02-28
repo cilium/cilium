@@ -4,7 +4,6 @@
 package sysdump
 
 import (
-	"os"
 	"runtime"
 	"time"
 )
@@ -36,7 +35,4 @@ const (
 var (
 	// DefaultWorkerCount is initialized to the machine's available CPUs.
 	DefaultWorkerCount = runtime.NumCPU()
-
-	// DefaultWriter points to os.Stdout by default.
-	DefaultWriter = os.Stdout
 )
