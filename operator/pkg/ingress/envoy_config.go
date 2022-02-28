@@ -6,6 +6,7 @@ package ingress
 import (
 	"context"
 	"fmt"
+	"net"
 	"sort"
 
 	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
@@ -341,7 +342,7 @@ func getVirtualHost(ingress *slim_networkingv1.Ingress, rule slim_networkingv1.I
 		domains = []string{
 			rule.Host,
 			// match authority header with port (e.g. "example.com:80")
-			rule.Host + ":*",
+			net.JoinHostPort(rule.Host, "*"),
 		}
 	}
 	return &envoy_config_route_v3.VirtualHost{
