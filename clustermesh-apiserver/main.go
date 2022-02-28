@@ -105,8 +105,7 @@ var (
 
 	shutdownSignal = make(chan struct{})
 
-	ciliumNodeRegisterStore *store.SharedStore
-	ciliumNodeStore         *store.SharedStore
+	ciliumNodeStore *store.SharedStore
 
 	identityStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 )
@@ -584,7 +583,7 @@ func runServer(cmd *cobra.Command) {
 		log.WithError(err).Fatal("Unable to connect to etcd")
 	}
 
-	ciliumNodeRegisterStore, err = store.JoinSharedStore(store.Configuration{
+	_, err = store.JoinSharedStore(store.Configuration{
 		Prefix:     nodeStore.NodeRegisterStorePrefix,
 		KeyCreator: nodeStore.RegisterKeyCreator,
 		Observer:   mgr,
