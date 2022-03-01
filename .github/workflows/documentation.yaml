@@ -23,7 +23,7 @@ jobs:
     steps:
       - name: Checkout code
         if: ${{ !github.event.pull_request }}
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
+        uses: actions/checkout@a12a3943b4bdde767164f792f33f40b04645d846
         with:
           persist-credentials: false
       - name: Check code changes
@@ -49,7 +49,7 @@ jobs:
     name: Validate & Build HTML
     runs-on: ubuntu-18.04
     steps:
-      - uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
+      - uses: actions/checkout@a12a3943b4bdde767164f792f33f40b04645d846
         with:
           persist-credentials: false
       - uses: docker://cilium/docs-builder:latest
