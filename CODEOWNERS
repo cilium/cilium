@@ -27,6 +27,7 @@
 # @cilium/operator           Cilium operator
 # @cilium/policy             Policy behaviour
 # @cilium/proxy              L7 proxy, Envoy
+# @cilium/sig-clustermesh    All code related with clustermesh
 # @cilium/vendor             Vendoring, dependency management
 # @cilium/wireguard          Wireguard integration
 
