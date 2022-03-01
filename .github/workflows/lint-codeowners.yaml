@@ -110,12 +110,13 @@ jobs:
         run: |
           EXIT_STATUS=0
           # List all teams used in CODEOWNERS rules: discard comments and empty
-          # lines, discard the first field (pattern to match) for the remaining
+          # lines, discard lines with no team assigned (with no space in it),
+          # then discard the first field (pattern to match) for the remaining
           # rules, split the list of teams by replacing spaces with line
           # breaks, sort the results. Then grep for each team name among
           # CODEOWNERS's comments.
           cd src/github.com/cilium/cilium
-          for team in $(sed -e '/^\(#\|$\)/d' -e 's/^[^ #]\+ //' -e 's/ /\n/g' CODEOWNERS | sort -u); do
+          for team in $(sed -e '/^\(#\|$\)/d' -e '/^[^ ]*$/d' -e 's/^[^ #]\+ //' -e 's/ /\n/g' CODEOWNERS | sort -u); do
               if ! grep -q "^# ${team} " CODEOWNERS; then
                   echo "${team}";
                   EXIT_STATUS=1
