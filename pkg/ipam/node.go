@@ -10,13 +10,17 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"k8s.io/client-go/tools/cache"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
+	"github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/math"
 	"github.com/cilium/cilium/pkg/trigger"
@@ -102,6 +106,9 @@ type Node struct {
 	// IPAMDoNotRelease    : Release request denied by agent
 	// IPAMReleased        : IP released by the operator
 	ipReleaseStatus map[string]string
+
+	// logLimiter rate limits potentially repeating warning logs
+	logLimiter logging.Limiter
 }
 
 // Statistics represent the IP allocation statistics of a node
@@ -250,6 +257,26 @@ func (n *Node) GetNeededAddresses() int {
 		return stats.ExcessIPs * -1
 	}
 	return 0
+}
+
+// getPendingPodCount computes the number of pods in pending state on a given node. watchers.PodStore is assumed to be
+// initialized before this function is called.
+func getPendingPodCount(nodeName string) (int, error) {
+	pendingPods := 0
+	if watchers.PodStore == nil {
+		return pendingPods, fmt.Errorf("pod store uninitialized")
+	}
+	values, err := watchers.PodStore.(cache.Indexer).ByIndex(watchers.PodNodeNameIndex, nodeName)
+	if err != nil {
+		return pendingPods, fmt.Errorf("unable to access pod to node name index: %w", err)
+	}
+	for _, pod := range values {
+		p := pod.(*v1.Pod)
+		if p.Status.Phase == v1.PodPending {
+			pendingPods++
+		}
+	}
+	return pendingPods, nil
 }
 
 func calculateNeededIPs(availableIPs, usedIPs, preAllocate, minAllocate, maxAllocate int) (neededIPs int) {
@@ -560,8 +587,20 @@ func (n *Node) determineMaintenanceAction() (*maintenanceAction, error) {
 		return nil, err
 	}
 
+	surgeAllocate := 0
+	numPendingPods, err := getPendingPodCount(n.name)
+	if err != nil {
+		if n.logLimiter.Allow() {
+			scopedLog.WithError(err).Warningf("Unable to compute pending pods, will not surge-allocate")
+		}
+	} else if numPendingPods > stats.NeededIPs {
+		surgeAllocate = numPendingPods - stats.NeededIPs
+	}
+
 	n.mutex.RLock()
-	a.allocation.MaxIPsToAllocate = stats.NeededIPs + n.getMaxAboveWatermark()
+	// handleIPAllocation() takes a min of MaxIPsToAllocate and IPs available for allocation on the interface.
+	// This makes sure we don't try to allocate more than what's available.
+	a.allocation.MaxIPsToAllocate = stats.NeededIPs + n.getMaxAboveWatermark() + surgeAllocate
 	n.mutex.RUnlock()
 
 	if a.allocation != nil {
@@ -881,7 +920,7 @@ func (n *Node) MaintainIPPool(ctx context.Context) error {
 	return err
 }
 
-// Update cilium node IPAM status with excess IP release data
+// PopulateIPReleaseStatus Updates cilium node IPAM status with excess IP release data
 func (n *Node) PopulateIPReleaseStatus(node *v2.CiliumNode) {
 	// maintainIPPool() might not have run yet since the last update from agent.
 	// Attempt to remove any stale entries

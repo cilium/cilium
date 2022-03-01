@@ -17,6 +17,7 @@ import (
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/trigger"
 )
 
@@ -270,6 +271,7 @@ func (n *NodeManager) Update(resource *v2.CiliumNode) (nodeSynced bool) {
 			manager:             n,
 			ipsMarkedForRelease: make(map[string]time.Time),
 			ipReleaseStatus:     make(map[string]string),
+			logLimiter:          logging.NewLimiter(10*time.Second, 3), // 1 log / 10 secs, burst of 3
 		}
 
 		node.ops = n.instancesAPI.CreateNode(resource, node)
