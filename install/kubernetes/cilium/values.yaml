@@ -1938,5 +1938,5 @@ cgroup:
 # in order to support graceful termination.
 enableK8sTerminatingEndpoint: true
 
-# -- Configure whether to unload DNS policy rules on graceful showdown
+# -- Configure whether to unload DNS policy rules on graceful shutdown
 # dnsPolicyUnloadOnShutdown: false

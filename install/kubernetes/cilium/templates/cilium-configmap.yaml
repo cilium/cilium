@@ -815,7 +815,7 @@ data:
 {{- end }}
 
 {{- if hasKey .Values "dnsPolicyUnloadOnShutdown" }}
-  # Unload DNS policy rules on graceful showdown
+  # Unload DNS policy rules on graceful shutdown
   dns-policy-unload-on-shutdown: {{.Values.dnsPolicyUnloadOnShutdown | quote }}
 {{- end }}
 
