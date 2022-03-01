@@ -331,12 +331,18 @@ following criteria:
 
  * The subnet associated with the ENI has IPs available for allocation
 
-The following formula is used to determine how many IPs are allocated on the
-ENI:
+The following formula is used to determine how many IPs are allocated on the ENI:
 
 .. code-block:: go
 
-      min(AvailableOnSubnet, min(AvailableOnENI, NeededAddresses + spec.ipam.max-above-watermark))
+      // surgeAllocate kicks in if numPendingPods is greater than NeededAddresses
+      min(AvailableOnSubnet, min(AvailableOnENI, NeededAddresses + spec.ipam.max-above-watermark + surgeAllocate))
+
+.. note::
+
+   In scenarios where the pre-allocated number is lower than the number of pending pods on the node, the operator will
+   pro-actively allocate more than the pre-allocated number of IPs to avoid having to wait for the next allocation
+   cycles.
 
 This means that the number of IPs allocated in a single allocation cycle can be
 less than what is required to fulfill ``spec.ipam.pre-allocate``.
