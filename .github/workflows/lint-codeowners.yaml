@@ -33,10 +33,11 @@ jobs:
               - deleted: '**'
             codeowners-changed:
               - 'CODEOWNERS'
+              - '.github/workflows/lint-codeowners.yaml'
 
   codeowners:
     needs: check_changes
-    if: ${{ needs.check_changes.outputs.added-files == 'true' || needs.check_changes.outputs.deleted-files == 'true' }}
+    if: ${{ needs.check_changes.outputs.codeowners-changed == 'true' || needs.check_changes.outputs.added-files == 'true' || needs.check_changes.outputs.deleted-files == 'true' }}
     name: Check CODEOWNERS consistency
     runs-on: ubuntu-latest
     steps:
@@ -48,7 +49,7 @@ jobs:
           path: src/github.com/cilium/cilium
 
       - name: Check if all files have attributed code owners
-        if: ${{ needs.check_changes.outputs.added-files == 'true' }}
+        if: ${{ needs.check_changes.outputs.codeowners-changed == 'true' || needs.check_changes.outputs.added-files == 'true' }}
         run: |
           # CODEOWNERS patterns follows nearly the same syntax as a .gitignore.
           # To check if all files are covered by patterns other than the
@@ -69,7 +70,7 @@ jobs:
           fi
 
       - name: Check if CODEOWNERS has stale entries
-        if: ${{ needs.check_changes.outputs.deleted-files == 'true' }}
+        if: ${{ needs.check_changes.outputs.codeowners-changed == 'true' || needs.check_changes.outputs.deleted-files == 'true' }}
         run: |
           cd src/github.com/cilium/cilium
           EXIT_STATUS=0
