@@ -50,7 +50,9 @@ var (
 )
 
 func Run(ctx context.Context, ct *check.ConnectivityTest) error {
-	ct.SetupAndValidate(ctx)
+	if err := ct.SetupAndValidate(ctx); err != nil {
+		return err
+	}
 
 	version := ct.FetchCiliumPodImageTag()
 	ct.Debugf("Cilium image version: %v", version)
