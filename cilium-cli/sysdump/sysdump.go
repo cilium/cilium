@@ -131,7 +131,9 @@ func NewCollector(k KubernetesClient, o Options, startTime time.Time) (*Collecto
 	if err = os.MkdirAll(c.sysdumpDir, dirMode); err != nil {
 		return nil, fmt.Errorf("failed to create temporary directory: %w", err)
 	}
-	c.setupLogging(o.Writer)
+	if err = c.setupLogging(o.Writer); err != nil {
+		return nil, err
+	}
 	c.logDebug("Using %v as a temporary directory", c.sysdumpDir)
 
 	// Grab the Kubernetes nodes for the target cluster.
