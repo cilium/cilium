@@ -211,6 +211,11 @@ Users (Alphabetically)
       U: L3/L4 policies, Hubble, BPF NodePort, CiliumClusterwideNetworkPolicy
       Q: @Eric Bailey, @Ole Markus
 
+    * N: T-Systems International
+      D: TSI uses Cilium for it's Open Sovereign Cloud product, including as a CNI for Gardener-based Kubernetes clusters and bare-metal infrastructure managed by OnMetal.
+      U: CNI, overlay network, NetworkPolicies
+      Q: @ManuStoessel
+
     * N: uSwitch
       D: uSwitch is using Cilium in AWS for all their production clusters (self hosted k8s)
       U: ClusterMesh, CNI-Chaining (with amazon-vpc-cni-k8s)
