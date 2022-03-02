@@ -109,6 +109,9 @@ func (sm *serviceManager) handleUpdateService(oldObj, newObj interface{}) {
 	if newService == nil {
 		return
 	}
+	if oldService.DeepEqual(newService) {
+		return
+	}
 	sm.queue.Add(serviceUpdatedEvent{oldService: oldService, newService: newService})
 }
 
