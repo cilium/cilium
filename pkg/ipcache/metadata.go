@@ -85,13 +85,13 @@ func GetIDMetadataByIP(prefix string) labels.Labels {
 // prefix was previously associated with an identity, it will get deallocated,
 // so a balance is kept, ensuring a one-to-one mapping between prefix and
 // identity.
-func InjectLabels(src source.Source, updater ipcacheTypes.PolicyHandler, triggerer ipcacheTypes.DatapathHandler) error {
+func (ipc *IPCache) InjectLabels(src source.Source) error {
 	if IdentityAllocator == nil || !IdentityAllocator.IsLocalIdentityAllocatorInitialized() {
 		return ErrLocalIdentityAllocatorUninitialized
 	}
 
-	if IPIdentityCache.k8sSyncedChecker != nil &&
-		!IPIdentityCache.k8sSyncedChecker.K8sCacheIsSynced() {
+	if ipc.k8sSyncedChecker != nil &&
+		!ipc.k8sSyncedChecker.K8sCacheIsSynced() {
 		return errors.New("k8s cache not fully synced")
 	}
 
@@ -177,24 +177,15 @@ func InjectLabels(src source.Source, updater ipcacheTypes.PolicyHandler, trigger
 
 	// Recalculate policy first before upserting into the ipcache.
 	if trigger {
-		// GH-17962: Refactor to call (*Daemon).UpdateIdentities(), instead of
-		// re-implementing the same logic here. It will also allow removing the
-		// dependencies that are passed into this function.
-
-		// Accumulate the desired policy map changes as the identities have
-		// been updated with new labels.
-		var wg sync.WaitGroup
-		updater.UpdateIdentities(idsToPropagate, nil, &wg)
-		policyImplementedWG := triggerer.UpdatePolicyMaps(context.TODO(), &wg)
-		policyImplementedWG.Wait()
+		ipc.UpdatePolicyMaps(context.TODO(), idsToPropagate, nil)
 	}
 
-	IPIdentityCache.mutex.Lock()
-	defer IPIdentityCache.mutex.Unlock()
+	ipc.mutex.Lock()
+	defer ipc.mutex.Unlock()
 	for ip, id := range toUpsert {
-		hIP, key := IPIdentityCache.getHostIPCache(ip)
-		meta := IPIdentityCache.getK8sMetadata(ip)
-		if _, err := IPIdentityCache.upsertLocked(ip, hIP, key, meta, Identity{
+		hIP, key := ipc.getHostIPCache(ip)
+		meta := ipc.getK8sMetadata(ip)
+		if _, err := ipc.upsertLocked(ip, hIP, key, meta, Identity{
 			ID:     id.ID,
 			Source: id.Source,
 		}, false /* !force */); err != nil {
@@ -203,6 +194,27 @@ func InjectLabels(src source.Source, updater ipcacheTypes.PolicyHandler, trigger
 	}
 
 	return nil
+}
+
+// UpdatePolicyMaps pushes updates for the specified identities into the policy
+// engine and ensures that they are propagated into the underlying datapaths.
+func (ipc *IPCache) UpdatePolicyMaps(ctx context.Context, addedIdentities, deletedIdentities map[identity.NumericIdentity]labels.LabelArray) {
+	// GH-17962: Refactor to call (*Daemon).UpdateIdentities(), instead of
+	// re-implementing the same logic here. It will also allow removing the
+	// dependencies that are passed into this function.
+
+	var wg sync.WaitGroup
+	if deletedIdentities != nil {
+		// SelectorCache.UpdateIdentities() asks for callers to avoid
+		// handing the same identity in both 'adds' and 'deletes'
+		// parameters here, so make two calls. These changes will not
+		// be propagated to the datapath until the UpdatePolicyMaps
+		// call below.
+		ipc.policyHandler.UpdateIdentities(nil, deletedIdentities, &wg)
+	}
+	ipc.policyHandler.UpdateIdentities(addedIdentities, nil, &wg)
+	policyImplementedWG := ipc.datapathHandler.UpdatePolicyMaps(ctx, &wg)
+	policyImplementedWG.Wait()
 }
 
 // injectLabels will allocate an identity for the given prefix and the given
@@ -297,7 +309,7 @@ func RemoveLabelsExcluded(
 		}
 	}
 
-	removeLabelsFromIPs(toRemove, src, updater, triggerer)
+	IPIdentityCache.removeLabelsFromIPs(toRemove, src, updater, triggerer)
 }
 
 // filterMetadataByLabels returns all the prefixes inside the identityMetadata
@@ -324,7 +336,7 @@ func filterMetadataByLabels(filter labels.Labels) []string {
 // empty.
 //
 // Assumes that the IDMD lock is taken!
-func removeLabelsFromIPs(
+func (ipc *IPCache) removeLabelsFromIPs(
 	m map[string]labels.Labels,
 	src source.Source,
 	updater ipcacheTypes.PolicyHandler,
@@ -337,11 +349,11 @@ func removeLabelsFromIPs(
 		toReplace = make(map[string]Identity)
 	)
 
-	IPIdentityCache.Lock()
-	defer IPIdentityCache.Unlock()
+	ipc.Lock()
+	defer ipc.Unlock()
 
 	for prefix, lbls := range m {
-		id, exists := IPIdentityCache.LookupByIPRLocked(prefix)
+		id, exists := ipc.LookupByIPRLocked(prefix)
 		if !exists {
 			continue
 		}
@@ -349,7 +361,7 @@ func removeLabelsFromIPs(
 		idsToDelete[id.ID] = nil // labels for deletion don't matter to UpdateIdentities()
 
 		// Insert to propagate the updated set of labels after removal.
-		l := removeLabels(prefix, lbls, src)
+		l := ipc.removeLabels(prefix, lbls, src)
 		if len(l) > 0 {
 			// If for example kube-apiserver label is removed from the local
 			// host identity (when the kube-apiserver is running within the
@@ -385,20 +397,12 @@ func removeLabelsFromIPs(
 		}
 	}
 	if len(idsToDelete) > 0 {
-		var wg sync.WaitGroup
-		// SelectorCache.UpdateIdentities() asks for callers to avoid
-		// handing the same identity in both 'adds' and 'deletes'
-		// parameters here, so make two calls. These changes will not
-		// be propagated to the datapath until later.
-		updater.UpdateIdentities(nil, idsToDelete, &wg)
-		updater.UpdateIdentities(idsToAdd, nil, &wg)
-		policyImplementedWG := triggerer.UpdatePolicyMaps(context.TODO(), &wg)
-		policyImplementedWG.Wait()
+		ipc.UpdatePolicyMaps(context.TODO(), idsToAdd, idsToDelete)
 	}
 	for ip, id := range toReplace {
-		hIP, key := IPIdentityCache.getHostIPCache(ip)
-		meta := IPIdentityCache.getK8sMetadata(ip)
-		if _, err := IPIdentityCache.upsertLocked(
+		hIP, key := ipc.getHostIPCache(ip)
+		meta := ipc.getK8sMetadata(ip)
+		if _, err := ipc.upsertLocked(
 			ip,
 			hIP,
 			key,
@@ -431,7 +435,7 @@ func removeLabelsFromIPs(
 // removed if the prefix is no longer associated with any labels.
 //
 // This function assumes that the IDMD and the IPIdentityCache locks are taken!
-func removeLabels(prefix string, lbls labels.Labels, src source.Source) labels.Labels {
+func (ipc *IPCache) removeLabels(prefix string, lbls labels.Labels, src source.Source) labels.Labels {
 	l, ok := identityMetadata[prefix]
 	if !ok {
 		return nil
@@ -453,7 +457,7 @@ func removeLabels(prefix string, lbls labels.Labels, src source.Source) labels.L
 		identityMetadata[prefix] = l
 	}
 
-	id, exists := IPIdentityCache.LookupByIPRLocked(prefix)
+	id, exists := ipc.LookupByIPRLocked(prefix)
 	if !exists {
 		log.WithFields(logrus.Fields{
 			logfields.CIDR:   prefix,
@@ -492,7 +496,7 @@ func removeLabels(prefix string, lbls labels.Labels, src source.Source) labels.L
 		return nil
 	}
 	if released {
-		IPIdentityCache.deleteLocked(prefix, sourceByLabels(src, lbls))
+		ipc.deleteLocked(prefix, sourceByLabels(src, lbls))
 		return nil
 	}
 
@@ -543,7 +547,7 @@ func sourceByLabels(d source.Source, lbls labels.Labels) source.Source {
 //      legend:
 //      * W means write
 //      * R means read
-func (ipc *IPCache) TriggerLabelInjection(src source.Source, sc ipcacheTypes.PolicyHandler, pt ipcacheTypes.DatapathHandler) {
+func (ipc *IPCache) TriggerLabelInjection(src source.Source) {
 	// GH-17829: Would also be nice to have an end-to-end test to validate
 	//           on upgrade that there are no connectivity drops when this
 	//           channel is preventing transient BPF entries.
@@ -554,7 +558,7 @@ func (ipc *IPCache) TriggerLabelInjection(src source.Source, sc ipcacheTypes.Pol
 		"ipcache-inject-labels",
 		controller.ControllerParams{
 			DoFunc: func(context.Context) error {
-				if err := InjectLabels(src, sc, pt); err != nil {
+				if err := ipc.InjectLabels(src); err != nil {
 					return fmt.Errorf("failed to inject labels into ipcache: %w", err)
 				}
 				return nil

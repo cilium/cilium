@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/ipcache"
-	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/source"
@@ -84,7 +83,7 @@ func (i *ipcacheMock) Delete(IP string, source source.Source) bool {
 	return false
 }
 
-func (i *ipcacheMock) TriggerLabelInjection(s source.Source, ph ipcacheTypes.PolicyHandler, dp ipcacheTypes.DatapathHandler) {
+func (i *ipcacheMock) TriggerLabelInjection(s source.Source) {
 }
 
 type signalNodeHandler struct {
