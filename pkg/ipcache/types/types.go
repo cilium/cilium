@@ -5,6 +5,7 @@ package types
 
 import (
 	"context"
+	"strings"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -25,4 +26,21 @@ type PolicyHandler interface {
 // before updating the datapath's IPCache maps.
 type DatapathHandler interface {
 	UpdatePolicyMaps(context.Context, *sync.WaitGroup) *sync.WaitGroup
+}
+
+// ResourceID identifies a unique copy of a resource that provides a source for
+// information tied to an IP address in the IPCache.
+type ResourceID string
+
+// NewResourceID returns a ResourceID populated with the standard fields for
+// uniquely identifying a source of IPCache information.
+func NewResourceID(kind, namespace, name string) ResourceID {
+	str := strings.Builder{}
+	str.Grow(len(kind) + 1 + len(namespace) + 1 + len(name))
+	str.WriteString(kind)
+	str.WriteString("/")
+	str.WriteString(namespace)
+	str.WriteString("/")
+	str.WriteString(name)
+	return ResourceID(str.String())
 }
