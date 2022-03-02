@@ -108,6 +108,9 @@ func (sm *serviceManager) handleUpdateService(oldObj, newObj interface{}) {
 	if newService != nil {
 		return
 	}
+	if oldService.DeepEqual(newService) {
+		return
+	}
 	sm.queue.Add(serviceUpdatedEvent{oldService: oldService, newService: newService})
 }
 
@@ -140,13 +143,11 @@ func (sm *serviceManager) handleEvent(event interface{}) error {
 	case serviceAddedEvent:
 		log.WithField("service", ev.service.Name).Info("Handling service added event")
 		err = sm.handleServiceAddedEvent(ev)
-		break
 	case serviceUpdatedEvent:
 		log.WithField("service", ev.newService.Name).Info("Handling service updated event")
 		err = sm.handleServiceUpdatedEvent(ev)
-		break
 	case serviceDeletedEvent:
-		break
+		//doing nothing right now
 	default:
 		err = fmt.Errorf("received an unknown event: %s", ev)
 	}
