@@ -197,7 +197,7 @@ func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(policyMapState MapSt
 // locking the selector cache to make sure concurrent identity updates
 // have completed.
 // PolicyOwner (aka Endpoint) is also locked during this call.
-func (p *EndpointPolicy) ConsumeMapChanges() (adds, deletes MapState) {
+func (p *EndpointPolicy) ConsumeMapChanges() (adds, deletes Keys) {
 	p.selectorPolicy.SelectorCache.mutex.Lock()
 	defer p.selectorPolicy.SelectorCache.mutex.Unlock()
 	return p.policyMapChanges.consumeMapChanges(p.PolicyMapState)

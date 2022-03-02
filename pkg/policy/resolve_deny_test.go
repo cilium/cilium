@@ -483,12 +483,12 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDeny(c *C) {
 	adds, deletes := policy.ConsumeMapChanges()
 	// maps on the policy got cleared
 
-	c.Assert(adds, checker.Equals, MapState{
-		{Identity: 192, DestPort: 80, Nexthdr: 6}: rule1MapStateEntry.WithoutOwners(),
-		{Identity: 194, DestPort: 80, Nexthdr: 6}: rule1MapStateEntry.WithoutOwners(),
+	c.Assert(adds, checker.Equals, Keys{
+		{Identity: 192, DestPort: 80, Nexthdr: 6}: {},
+		{Identity: 194, DestPort: 80, Nexthdr: 6}: {},
 	})
-	c.Assert(deletes, checker.Equals, MapState{
-		{Identity: 193, DestPort: 80, Nexthdr: 6}: rule1MapStateEntry.WithoutOwners(),
+	c.Assert(deletes, checker.Equals, Keys{
+		{Identity: 193, DestPort: 80, Nexthdr: 6}: {},
 	})
 
 	// Have to remove circular reference before testing for Equality to avoid an infinite loop
