@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
 	cidrlabels "github.com/cilium/cilium/pkg/labels/cidr"
 	"github.com/cilium/cilium/pkg/lock"
@@ -30,7 +31,7 @@ var (
 )
 
 // metadata contains the ipcache metadata. Mainily it holds a map which maps IP
-// prefixes (x.x.x.x/32) to their labels.
+// prefixes (x.x.x.x/32) to a set of information (prefixInfo).
 //
 // When allocating an identity to associate with each prefix, the
 // identity allocation routines will merge this set of labels into the
@@ -38,6 +39,24 @@ var (
 // thereby associating these labels with each prefix that is 'covered'
 // by this prefix. Subsequently these labels may be matched by network
 // policy and propagated in monitor output.
+//
+// ```mermaid
+// flowchart
+//
+//	subgraph resourceInfo
+//	labels.Labels
+//	source.Source
+//	end
+//	subgraph prefixInfo
+//	UA[ResourceID]-->LA[resourceInfo]
+//	UB[ResourceID]-->LB[resourceInfo]
+//	...
+//	end
+//	subgraph identityMetadata
+//	IP_Prefix-->prefixInfo
+//	end
+//
+// ```
 type metadata struct {
 	// Protects the m map.
 	//
@@ -47,7 +66,7 @@ type metadata struct {
 	lock.RWMutex
 
 	// m is the actual map containing the mappings.
-	m map[string]labels.Labels
+	m map[string]prefixInfo
 
 	// applyChangesMU protects InjectLabels and RemoveLabelsExcluded from being
 	// run in parallel
@@ -56,37 +75,45 @@ type metadata struct {
 
 func newMetadata() *metadata {
 	return &metadata{
-		m: make(map[string]labels.Labels),
+		m: make(map[string]prefixInfo),
 	}
 }
 
 // UpsertMetadata upserts a given IP and its corresponding labels associated
 // with it into the ipcache metadata map. The given labels are not modified nor
 // is its reference saved, as they're copied when inserting into the map.
-func (ipc *IPCache) UpsertMetadata(prefix string, lbls labels.Labels) {
-	ipc.metadata.upsert(prefix, lbls)
+func (ipc *IPCache) UpsertMetadata(prefix string, lbls labels.Labels, src source.Source, rid types.ResourceID) {
+	ipc.metadata.Lock()
+	ipc.metadata.upsertLocked(prefix, src, rid, lbls)
+	ipc.metadata.Unlock()
 }
 
-func (m *metadata) upsert(prefix string, lbls labels.Labels) {
-	l := labels.NewLabelsFromModel(nil)
-	l.MergeLabels(lbls)
-
-	m.Lock()
-	if cur, ok := m.m[prefix]; ok {
-		l.MergeLabels(cur)
+func (m *metadata) upsertLocked(prefix string, src source.Source, resource types.ResourceID, info ...IPMetadata) {
+	if _, ok := m.m[prefix]; !ok {
+		m.m[prefix] = make(prefixInfo)
 	}
-	m.m[prefix] = l
-	m.Unlock()
+	if _, ok := m.m[prefix][resource]; !ok {
+		m.m[prefix][resource] = &resourceInfo{
+			source: src,
+		}
+	}
+
+	for _, i := range info {
+		m.m[prefix][resource].merge(i, src)
+	}
 }
 
 // GetIDMetadataByIP returns the associated labels with an IP. The caller must
 // not modifying the returned object as it's a live reference to the underlying
 // map.
 func (ipc *IPCache) GetIDMetadataByIP(prefix string) labels.Labels {
-	return ipc.metadata.get(prefix)
+	if info := ipc.metadata.get(prefix); info != nil {
+		return info.ToLabels()
+	}
+	return nil
 }
 
-func (m *metadata) get(prefix string) labels.Labels {
+func (m *metadata) get(prefix string) prefixInfo {
 	m.RLock()
 	defer m.RUnlock()
 	return m.m[prefix]
@@ -128,7 +155,8 @@ func (ipc *IPCache) InjectLabels(src source.Source) error {
 
 	ipc.metadata.Lock()
 
-	for prefix, lbls := range ipc.metadata.m {
+	for prefix, info := range ipc.metadata.m {
+		lbls := info.ToLabels()
 		id, isNew, err := ipc.injectLabels(prefix, lbls)
 		if err != nil {
 			ipc.metadata.Unlock()
@@ -310,6 +338,7 @@ func (ipc *IPCache) RemoveLabelsExcluded(
 	lbls labels.Labels,
 	toExclude map[string]struct{},
 	src source.Source,
+	rid types.ResourceID,
 ) {
 	ipc.metadata.applyChangesMU.Lock()
 	defer ipc.metadata.applyChangesMU.Unlock()
@@ -325,7 +354,7 @@ func (ipc *IPCache) RemoveLabelsExcluded(
 		}
 	}
 
-	ipc.removeLabelsFromIPs(toRemove, src)
+	ipc.removeLabelsFromIPs(toRemove, src, rid)
 }
 
 // filterByLabels returns all the prefixes inside the ipcache metadata map
@@ -336,7 +365,8 @@ func (ipc *IPCache) RemoveLabelsExcluded(
 func (m *metadata) filterByLabels(filter labels.Labels) []string {
 	var matching []string
 	sortedFilter := filter.SortedList()
-	for prefix, lbls := range m.m {
+	for prefix, info := range m.m {
+		lbls := info.ToLabels()
 		if bytes.Contains(lbls.SortedList(), sortedFilter) {
 			matching = append(matching, prefix)
 		}
@@ -355,6 +385,7 @@ func (m *metadata) filterByLabels(filter labels.Labels) []string {
 func (ipc *IPCache) removeLabelsFromIPs(
 	m map[string]labels.Labels,
 	src source.Source,
+	rid types.ResourceID,
 ) {
 	var (
 		idsToAdd    = make(map[identity.NumericIdentity]labels.LabelArray)
@@ -375,7 +406,7 @@ func (ipc *IPCache) removeLabelsFromIPs(
 		idsToDelete[id.ID] = nil // labels for deletion don't matter to UpdateIdentities()
 
 		// Insert to propagate the updated set of labels after removal.
-		l := ipc.removeLabels(prefix, lbls, src)
+		l := ipc.removeLabels(prefix, lbls, src, rid)
 		if len(l) > 0 {
 			// If for example kube-apiserver label is removed from the local
 			// host identity (when the kube-apiserver is running within the
@@ -451,26 +482,22 @@ func (ipc *IPCache) removeLabelsFromIPs(
 //
 // This function assumes that the ipcache metadata and the IPIdentityCache
 // locks are taken!
-func (ipc *IPCache) removeLabels(prefix string, lbls labels.Labels, src source.Source) labels.Labels {
-	l, ok := ipc.metadata.m[prefix]
+func (ipc *IPCache) removeLabels(prefix string, lbls labels.Labels, src source.Source, resource types.ResourceID) labels.Labels {
+	info, ok := ipc.metadata.m[prefix]
 	if !ok {
 		return nil
 	}
-
-	l = l.Remove(lbls)
-	if len(l) == 0 { // Labels empty, delete
+	info[resource].unmerge(lbls)
+	if !info[resource].isValid() {
+		delete(info, resource)
+	}
+	allLbls := info.ToLabels() // to return at the end of the function
+	if !info.isValid() {       // Labels empty, delete
 		// No labels left. Example case: when the kube-apiserver is running
 		// outside of the cluster, meaning that the IDMD only ever had the
 		// kube-apiserver label (CIDR labels are not added) and it's now being
 		// removed.
 		delete(ipc.metadata.m, prefix)
-	} else {
-		// This case is only hit if the prefix for the kube-apiserver is
-		// running within the cluster. Therefore, the IDMD can only ever has
-		// the following labels:
-		//   * kube-apiserver + remote-node
-		//   * kube-apiserver + host
-		ipc.metadata.m[prefix] = l
 	}
 
 	id, exists := ipc.LookupByIPRLocked(prefix)
@@ -520,10 +547,11 @@ func (ipc *IPCache) removeLabels(prefix string, lbls labels.Labels, src source.S
 	// Generate new identity with the label removed. This should be the case
 	// where the existing identity had >1 refcount, meaning that something was
 	// referring to it.
-	allLbls := labels.NewLabelsFromModel(nil)
-	allLbls.MergeLabels(realID.Labels)
-	allLbls = allLbls.Remove(lbls)
-
+	//
+	// If kube-apiserver is inside the cluster, this path is always hit
+	// (because even if we remove the kube-apiserver from that node, we
+	// need to inject the identity corresponding to "host" or "remote-node"
+	// (without apiserver label)
 	return allLbls
 }
 

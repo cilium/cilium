@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/ipcache"
+	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -53,7 +54,7 @@ type IPCache interface {
 	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) (bool, error)
 	Delete(IP string, source source.Source) bool
 	TriggerLabelInjection(source source.Source)
-	UpsertMetadata(string, labels.Labels)
+	UpsertMetadata(prefix string, lbls labels.Labels, src source.Source, rid ipcacheTypes.ResourceID)
 }
 
 // Configuration is the set of configuration options the node manager depends
@@ -445,7 +446,8 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 			Source: n.Source,
 		})
 
-		m.upsertIntoIDMD(ipAddrStr, remoteHostIdentity)
+		resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
+		m.upsertIntoIDMD(ipAddrStr, remoteHostIdentity, resource)
 
 		// Upsert() will return true if the ipcache entry is owned by
 		// the source of the node update that triggered this node
@@ -559,11 +561,11 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 // upsertIntoIDMD upserts the given CIDR into the ipcache.identityMetadata
 // (IDMD) map. The given node identity determines which labels are associated
 // with the CIDR.
-func (m *Manager) upsertIntoIDMD(prefix string, id identity.NumericIdentity) {
+func (m *Manager) upsertIntoIDMD(prefix string, id identity.NumericIdentity, rid ipcacheTypes.ResourceID) {
 	if id == identity.ReservedIdentityHost {
-		m.ipcache.UpsertMetadata(prefix, labels.LabelHost)
+		m.ipcache.UpsertMetadata(prefix, labels.LabelHost, source.Local, rid)
 	} else {
-		m.ipcache.UpsertMetadata(prefix, labels.LabelRemoteNode)
+		m.ipcache.UpsertMetadata(prefix, labels.LabelRemoteNode, source.CustomResource, rid)
 	}
 }
 
