@@ -499,3 +499,35 @@ func getDefaultsMode(ctx context.Context, configs configs) (v aws.DefaultsMode, 
 	}
 	return v, found, err
 }
+
+type retryMaxAttemptsProvider interface {
+	GetRetryMaxAttempts(context.Context) (int, bool, error)
+}
+
+func getRetryMaxAttempts(ctx context.Context, configs configs) (v int, found bool, err error) {
+	for _, c := range configs {
+		if p, ok := c.(retryMaxAttemptsProvider); ok {
+			v, found, err = p.GetRetryMaxAttempts(ctx)
+			if err != nil || found {
+				break
+			}
+		}
+	}
+	return v, found, err
+}
+
+type retryModeProvider interface {
+	GetRetryMode(context.Context) (aws.RetryMode, bool, error)
+}
+
+func getRetryMode(ctx context.Context, configs configs) (v aws.RetryMode, found bool, err error) {
+	for _, c := range configs {
+		if p, ok := c.(retryModeProvider); ok {
+			v, found, err = p.GetRetryMode(ctx)
+			if err != nil || found {
+				break
+			}
+		}
+	}
+	return v, found, err
+}

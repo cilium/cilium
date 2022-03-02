@@ -37,12 +37,12 @@ type DescribeCoipPoolsInput struct {
 	// UnauthorizedOperation.
 	DryRun *bool
 
-	// The filters. The following are the possible values:
+	// One or more filters.
 	//
-	// * coip-pool.pool-id
+	// * coip-pool.local-gateway-route-table-id - The ID of the
+	// local gateway route table.
 	//
-	// *
-	// coip-pool.local-gateway-route-table-id
+	// * coip-pool.pool-id - The ID of the address pool.
 	Filters []types.Filter
 
 	// The maximum number of results to return with a single call. To retrieve the

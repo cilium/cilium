@@ -18,7 +18,7 @@ type DefaultsModeOptions struct {
 	Mode aws.DefaultsMode
 
 	// The EC2 Instance Metadata Client that should be used when performing environment
-	// discovery when aws.AutoDefaultsMode is set.
+	// discovery when aws.DefaultsModeAuto is set.
 	//
 	// If not specified the SDK will construct a client if the instance metadata service has not been disabled by
 	// the AWS_EC2_METADATA_DISABLED environment variable.

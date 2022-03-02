@@ -12,24 +12,26 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes one or more local gateways. By default, all local gateways are
-// described. Alternatively, you can filter the results.
-func (c *Client) DescribeLocalGateways(ctx context.Context, params *DescribeLocalGatewaysInput, optFns ...func(*Options)) (*DescribeLocalGatewaysOutput, error) {
+// Lists one or more AMIs that are currently in the Recycle Bin. For more
+// information, see Recycle Bin
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/recycle-bin.html) in the
+// Amazon Elastic Compute Cloud User Guide.
+func (c *Client) ListImagesInRecycleBin(ctx context.Context, params *ListImagesInRecycleBinInput, optFns ...func(*Options)) (*ListImagesInRecycleBinOutput, error) {
 	if params == nil {
-		params = &DescribeLocalGatewaysInput{}
+		params = &ListImagesInRecycleBinInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeLocalGateways", params, optFns, c.addOperationDescribeLocalGatewaysMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ListImagesInRecycleBin", params, optFns, c.addOperationListImagesInRecycleBinMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*DescribeLocalGatewaysOutput)
+	out := result.(*ListImagesInRecycleBinOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type DescribeLocalGatewaysInput struct {
+type ListImagesInRecycleBinInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
@@ -37,25 +39,15 @@ type DescribeLocalGatewaysInput struct {
 	// UnauthorizedOperation.
 	DryRun *bool
 
-	// One or more filters.
-	//
-	// * local-gateway-id - The ID of a local gateway.
-	//
-	// *
-	// outpost-arn - The Amazon Resource Name (ARN) of the Outpost.
-	//
-	// * owner-id - The
-	// ID of the Amazon Web Services account that owns the local gateway.
-	//
-	// * state -
-	// The state of the association.
-	Filters []types.Filter
-
-	// The IDs of the local gateways.
-	LocalGatewayIds []string
+	// The IDs of the AMIs to list. Omit this parameter to list all of the AMIs that
+	// are in the Recycle Bin. You can specify up to 20 IDs in a single request.
+	ImageIds []string
 
 	// The maximum number of results to return with a single call. To retrieve the
-	// remaining results, make another call with the returned nextToken value.
+	// remaining results, make another call with the returned nextToken value. If you
+	// do not specify a value for MaxResults, the request returns 1,000 items per page
+	// by default. For more information, see  Pagination
+	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination).
 	MaxResults *int32
 
 	// The token for the next page of results.
@@ -64,10 +56,10 @@ type DescribeLocalGatewaysInput struct {
 	noSmithyDocumentSerde
 }
 
-type DescribeLocalGatewaysOutput struct {
+type ListImagesInRecycleBinOutput struct {
 
-	// Information about the local gateways.
-	LocalGateways []types.LocalGateway
+	// Information about the AMIs.
+	Images []types.ImageRecycleBinInfo
 
 	// The token to use to retrieve the next page of results. This value is null when
 	// there are no more results to return.
@@ -79,12 +71,12 @@ type DescribeLocalGatewaysOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationDescribeLocalGatewaysMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeLocalGateways{}, middleware.After)
+func (c *Client) addOperationListImagesInRecycleBinMiddlewares(stack *middleware.Stack, options Options) (err error) {
+	err = stack.Serialize.Add(&awsEc2query_serializeOpListImagesInRecycleBin{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpDescribeLocalGateways{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpListImagesInRecycleBin{}, middleware.After)
 	if err != nil {
 		return err
 	}
@@ -124,7 +116,7 @@ func (c *Client) addOperationDescribeLocalGatewaysMiddlewares(stack *middleware.
 	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeLocalGateways(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opListImagesInRecycleBin(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -139,19 +131,22 @@ func (c *Client) addOperationDescribeLocalGatewaysMiddlewares(stack *middleware.
 	return nil
 }
 
-// DescribeLocalGatewaysAPIClient is a client that implements the
-// DescribeLocalGateways operation.
-type DescribeLocalGatewaysAPIClient interface {
-	DescribeLocalGateways(context.Context, *DescribeLocalGatewaysInput, ...func(*Options)) (*DescribeLocalGatewaysOutput, error)
+// ListImagesInRecycleBinAPIClient is a client that implements the
+// ListImagesInRecycleBin operation.
+type ListImagesInRecycleBinAPIClient interface {
+	ListImagesInRecycleBin(context.Context, *ListImagesInRecycleBinInput, ...func(*Options)) (*ListImagesInRecycleBinOutput, error)
 }
 
-var _ DescribeLocalGatewaysAPIClient = (*Client)(nil)
+var _ ListImagesInRecycleBinAPIClient = (*Client)(nil)
 
-// DescribeLocalGatewaysPaginatorOptions is the paginator options for
-// DescribeLocalGateways
-type DescribeLocalGatewaysPaginatorOptions struct {
+// ListImagesInRecycleBinPaginatorOptions is the paginator options for
+// ListImagesInRecycleBin
+type ListImagesInRecycleBinPaginatorOptions struct {
 	// The maximum number of results to return with a single call. To retrieve the
-	// remaining results, make another call with the returned nextToken value.
+	// remaining results, make another call with the returned nextToken value. If you
+	// do not specify a value for MaxResults, the request returns 1,000 items per page
+	// by default. For more information, see  Pagination
+	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination).
 	Limit int32
 
 	// Set to true if pagination should stop if the service returns a pagination token
@@ -159,22 +154,22 @@ type DescribeLocalGatewaysPaginatorOptions struct {
 	StopOnDuplicateToken bool
 }
 
-// DescribeLocalGatewaysPaginator is a paginator for DescribeLocalGateways
-type DescribeLocalGatewaysPaginator struct {
-	options   DescribeLocalGatewaysPaginatorOptions
-	client    DescribeLocalGatewaysAPIClient
-	params    *DescribeLocalGatewaysInput
+// ListImagesInRecycleBinPaginator is a paginator for ListImagesInRecycleBin
+type ListImagesInRecycleBinPaginator struct {
+	options   ListImagesInRecycleBinPaginatorOptions
+	client    ListImagesInRecycleBinAPIClient
+	params    *ListImagesInRecycleBinInput
 	nextToken *string
 	firstPage bool
 }
 
-// NewDescribeLocalGatewaysPaginator returns a new DescribeLocalGatewaysPaginator
-func NewDescribeLocalGatewaysPaginator(client DescribeLocalGatewaysAPIClient, params *DescribeLocalGatewaysInput, optFns ...func(*DescribeLocalGatewaysPaginatorOptions)) *DescribeLocalGatewaysPaginator {
+// NewListImagesInRecycleBinPaginator returns a new ListImagesInRecycleBinPaginator
+func NewListImagesInRecycleBinPaginator(client ListImagesInRecycleBinAPIClient, params *ListImagesInRecycleBinInput, optFns ...func(*ListImagesInRecycleBinPaginatorOptions)) *ListImagesInRecycleBinPaginator {
 	if params == nil {
-		params = &DescribeLocalGatewaysInput{}
+		params = &ListImagesInRecycleBinInput{}
 	}
 
-	options := DescribeLocalGatewaysPaginatorOptions{}
+	options := ListImagesInRecycleBinPaginatorOptions{}
 	if params.MaxResults != nil {
 		options.Limit = *params.MaxResults
 	}
@@ -183,7 +178,7 @@ func NewDescribeLocalGatewaysPaginator(client DescribeLocalGatewaysAPIClient, pa
 		fn(&options)
 	}
 
-	return &DescribeLocalGatewaysPaginator{
+	return &ListImagesInRecycleBinPaginator{
 		options:   options,
 		client:    client,
 		params:    params,
@@ -193,12 +188,12 @@ func NewDescribeLocalGatewaysPaginator(client DescribeLocalGatewaysAPIClient, pa
 }
 
 // HasMorePages returns a boolean indicating whether more pages are available
-func (p *DescribeLocalGatewaysPaginator) HasMorePages() bool {
+func (p *ListImagesInRecycleBinPaginator) HasMorePages() bool {
 	return p.firstPage || (p.nextToken != nil && len(*p.nextToken) != 0)
 }
 
-// NextPage retrieves the next DescribeLocalGateways page.
-func (p *DescribeLocalGatewaysPaginator) NextPage(ctx context.Context, optFns ...func(*Options)) (*DescribeLocalGatewaysOutput, error) {
+// NextPage retrieves the next ListImagesInRecycleBin page.
+func (p *ListImagesInRecycleBinPaginator) NextPage(ctx context.Context, optFns ...func(*Options)) (*ListImagesInRecycleBinOutput, error) {
 	if !p.HasMorePages() {
 		return nil, fmt.Errorf("no more pages available")
 	}
@@ -212,7 +207,7 @@ func (p *DescribeLocalGatewaysPaginator) NextPage(ctx context.Context, optFns ..
 	}
 	params.MaxResults = limit
 
-	result, err := p.client.DescribeLocalGateways(ctx, &params, optFns...)
+	result, err := p.client.ListImagesInRecycleBin(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
 	}
@@ -231,11 +226,11 @@ func (p *DescribeLocalGatewaysPaginator) NextPage(ctx context.Context, optFns ..
 	return result, nil
 }
 
-func newServiceMetadataMiddleware_opDescribeLocalGateways(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opListImagesInRecycleBin(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
 		SigningName:   "ec2",
-		OperationName: "DescribeLocalGateways",
+		OperationName: "ListImagesInRecycleBin",
 	}
 }

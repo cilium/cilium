@@ -1,10 +1,18 @@
 package defaults
 
-import "time"
+import (
+	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+)
 
 // Configuration is the set of SDK configuration options that are determined based
 // on the configured DefaultsMode.
 type Configuration struct {
+	// RetryMode is the configuration's default retry mode API clients should
+	// use for constructing a Retryer.
+	RetryMode aws.RetryMode
+
 	// ConnectTimeout is the maximum amount of time a dial will wait for
 	// a connect to complete.
 	//

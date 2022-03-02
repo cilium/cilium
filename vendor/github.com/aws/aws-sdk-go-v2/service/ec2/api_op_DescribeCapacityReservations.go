@@ -125,6 +125,9 @@ type DescribeCapacityReservationsInput struct {
 	// have matching attributes (instance type, platform, and Availability Zone), and
 	// explicitly target the Capacity Reservation. This ensures that only permitted
 	// instances can use the reserved capacity.
+	//
+	// * placement-group-arn - The ARN of the
+	// cluster placement group in which the Capacity Reservation was created.
 	Filters []types.Filter
 
 	// The maximum number of results to return for the request in a single page. The

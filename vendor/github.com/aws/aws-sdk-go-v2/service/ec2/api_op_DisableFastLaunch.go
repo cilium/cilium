@@ -15,7 +15,8 @@ import (
 // Discontinue faster launching for a Windows AMI, and clean up existing
 // pre-provisioned snapshots. When you disable faster launching, the AMI uses the
 // standard launch process for each instance. All pre-provisioned snapshots must be
-// removed before you can enable faster launching again.
+// removed before you can enable faster launching again. To change these settings,
+// you must own the AMI.
 func (c *Client) DisableFastLaunch(ctx context.Context, params *DisableFastLaunchInput, optFns ...func(*Options)) (*DisableFastLaunchOutput, error) {
 	if params == nil {
 		params = &DisableFastLaunchInput{}

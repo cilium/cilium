@@ -35,8 +35,9 @@ var defaultAWSConfigResolvers = []awsConfigResolver{
 
 	// Sets the endpoint resolving behavior the API Clients will use for making
 	// requests to. Clients default to their own clients this allows overrides
-	// to be specified. The resolveEndpointResolver option is deprecated, but we still need to set it for
-	// backwards compatability on config construction.
+	// to be specified. The resolveEndpointResolver option is deprecated, but
+	// we still need to set it for backwards compatibility on config
+	// construction.
 	resolveEndpointResolver,
 	resolveEndpointResolverWithOptions,
 
@@ -54,12 +55,13 @@ var defaultAWSConfigResolvers = []awsConfigResolver{
 	// API client request pipeline middleware.
 	resolveAPIOptions,
 
-	// Resolves the DefaultsMode that should be used by SDK clients.
-	// If this mode is set to AutoDefaultsMode.
+	// Resolves the DefaultsMode that should be used by SDK clients. If this
+	// mode is set to DefaultsModeAuto.
 	//
-	// Comes after HTTPClient and CustomCABundle to ensure the HTTP client is configured if provided before invoking
-	// IMDS if mode is auto. Comes before resolving credentials so that those subsequent clients use the configured
-	// auto mode.
+	// Comes after HTTPClient and CustomCABundle to ensure the HTTP client is
+	// configured if provided before invoking IMDS if mode is auto. Comes
+	// before resolving credentials so that those subsequent clients use the
+	// configured auto mode.
 	resolveDefaultsModeOptions,
 
 	// Sets the resolved credentials the API clients will use for

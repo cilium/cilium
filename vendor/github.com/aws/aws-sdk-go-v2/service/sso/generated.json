@@ -7,6 +7,7 @@
     },
     "files": [
         "api_client.go",
+        "api_client_test.go",
         "api_op_GetRoleCredentials.go",
         "api_op_ListAccountRoles.go",
         "api_op_ListAccounts.go",

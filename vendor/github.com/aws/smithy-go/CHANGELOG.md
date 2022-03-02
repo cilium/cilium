@@ -1,3 +1,9 @@
+# Release (v1.11.0)
+
+## Module Highlights
+* `github.com/aws/smithy-go`: v1.11.0
+  * **Feature**: Updates deserialization of header list to supported quoted strings
+
 # Release (v1.10.0)
 
 ## Module Highlights

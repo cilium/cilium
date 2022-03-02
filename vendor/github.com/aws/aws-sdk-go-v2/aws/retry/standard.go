@@ -2,6 +2,7 @@ package retry
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws/ratelimit"
@@ -52,8 +53,11 @@ var DefaultRetryableHTTPStatusCodes = map[int]struct{}{
 var DefaultRetryableErrorCodes = map[string]struct{}{
 	"RequestTimeout":          {},
 	"RequestTimeoutException": {},
+}
 
-	// Throttled status codes
+// DefaultThrottleErrorCodes provides the set of API error codes that are
+// considered throttle errors.
+var DefaultThrottleErrorCodes = map[string]struct{}{
 	"Throttling":                             {},
 	"ThrottlingException":                    {},
 	"ThrottledException":                     {},
@@ -82,33 +86,66 @@ var DefaultRetryables = []IsErrorRetryable{
 	RetryableErrorCode{
 		Codes: DefaultRetryableErrorCodes,
 	},
+	RetryableErrorCode{
+		Codes: DefaultThrottleErrorCodes,
+	},
+}
+
+// DefaultTimeouts provides the set of timeout checks that are used by default.
+var DefaultTimeouts = []IsErrorTimeout{
+	TimeouterError{},
 }
 
 // StandardOptions provides the functional options for configuring the standard
 // retryable, and delay behavior.
 type StandardOptions struct {
+	// Maximum number of attempts that should be made.
 	MaxAttempts int
-	MaxBackoff  time.Duration
-	Backoff     BackoffDelayer
 
+	// MaxBackoff duration between retried attempts.
+	MaxBackoff time.Duration
+
+	// Provides the backoff strategy the retryer will use to determine the
+	// delay between retry attempts.
+	Backoff BackoffDelayer
+
+	// Set of strategies to determine if the attempt should be retried based on
+	// the error response received.
+	//
+	// It is safe to append to this list in NewStandard's functional options.
 	Retryables []IsErrorRetryable
-	Timeouts   []IsErrorTimeout
 
-	RateLimiter      RateLimiter
-	RetryCost        uint
+	// Set of strategies to determine if the attempt failed due to a timeout
+	// error.
+	//
+	// It is safe to append to this list in NewStandard's functional options.
+	Timeouts []IsErrorTimeout
+
+	// Provides the rate limiting strategy for rate limiting attempt retries
+	// across all attempts the retryer is being used with.
+	RateLimiter RateLimiter
+
+	// The cost to deduct from the RateLimiter's token bucket per retry.
+	RetryCost uint
+
+	// The cost to deduct from the RateLimiter's token bucket per retry caused
+	// by timeout error.
 	RetryTimeoutCost uint
+
+	// The cost to payback to the RateLimiter's token bucket for successful
+	// attempts.
 	NoRetryIncrement uint
 }
 
-// RateLimiter provides the interface for limiting the rate of request retries
-// allowed by the retrier.
+// RateLimiter provides the interface for limiting the rate of attempt retries
+// allowed by the retryer.
 type RateLimiter interface {
 	GetToken(ctx context.Context, cost uint) (releaseToken func() error, err error)
 	AddTokens(uint) error
 }
 
 // Standard is the standard retry pattern for the SDK. It uses a set of
-// retryable checks to determine of the failed request should be retried, and
+// retryable checks to determine of the failed attempt should be retried, and
 // what retry delay should be used.
 type Standard struct {
 	options StandardOptions
@@ -124,7 +161,8 @@ func NewStandard(fnOpts ...func(*StandardOptions)) *Standard {
 	o := StandardOptions{
 		MaxAttempts: DefaultMaxAttempts,
 		MaxBackoff:  DefaultMaxBackoff,
-		Retryables:  DefaultRetryables,
+		Retryables:  append([]IsErrorRetryable{}, DefaultRetryables...),
+		Timeouts:    append([]IsErrorTimeout{}, DefaultTimeouts...),
 
 		RateLimiter:      ratelimit.NewTokenRateLimit(DefaultRetryRateTokens),
 		RetryCost:        DefaultRetryCost,
@@ -134,23 +172,20 @@ func NewStandard(fnOpts ...func(*StandardOptions)) *Standard {
 	for _, fn := range fnOpts {
 		fn(&o)
 	}
+	if o.MaxAttempts <= 0 {
+		o.MaxAttempts = DefaultMaxAttempts
+	}
 
 	backoff := o.Backoff
 	if backoff == nil {
 		backoff = NewExponentialJitterBackoff(o.MaxBackoff)
 	}
 
-	rs := make([]IsErrorRetryable, len(o.Retryables))
-	copy(rs, o.Retryables)
-
-	ts := make([]IsErrorTimeout, len(o.Timeouts))
-	copy(ts, o.Timeouts)
-
 	return &Standard{
 		options:   o,
 		backoff:   backoff,
-		retryable: IsErrorRetryables(rs),
-		timeout:   IsErrorTimeouts(ts),
+		retryable: IsErrorRetryables(o.Retryables),
+		timeout:   IsErrorTimeouts(o.Timeouts),
 	}
 }
 
@@ -171,30 +206,40 @@ func (s *Standard) RetryDelay(attempt int, err error) (time.Duration, error) {
 	return s.backoff.BackoffDelay(attempt, err)
 }
 
+// GetAttemptToken returns the token to be released after then attempt completes.
+// The release token will add NoRetryIncrement to the RateLimiter token pool if
+// the attempt was successful. If the attempt failed, nothing will be done.
+func (s *Standard) GetAttemptToken(context.Context) (func(error) error, error) {
+	return s.GetInitialToken(), nil
+}
+
 // GetInitialToken returns a token for adding the NoRetryIncrement to the
 // RateLimiter token if the attempt completed successfully without error.
 //
 // InitialToken applies to result of the each attempt, including the first.
 // Whereas the RetryToken applies to the result of subsequent attempts.
+//
+// Deprecated: use GetAttemptToken instead.
 func (s *Standard) GetInitialToken() func(error) error {
-	return releaseToken(s.incrementTokens).release
+	return releaseToken(s.noRetryIncrement).release
 }
 
-func (s *Standard) incrementTokens() error {
+func (s *Standard) noRetryIncrement() error {
 	return s.options.RateLimiter.AddTokens(s.options.NoRetryIncrement)
 }
 
 // GetRetryToken attempts to deduct the retry cost from the retry token pool.
 // Returning the token release function, or error.
-func (s *Standard) GetRetryToken(ctx context.Context, err error) (func(error) error, error) {
+func (s *Standard) GetRetryToken(ctx context.Context, opErr error) (func(error) error, error) {
 	cost := s.options.RetryCost
-	if s.timeout.IsErrorTimeout(err).Bool() {
+
+	if s.timeout.IsErrorTimeout(opErr).Bool() {
 		cost = s.options.RetryTimeoutCost
 	}
 
 	fn, err := s.options.RateLimiter.GetToken(ctx, cost)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get rate limit token, %w", err)
 	}
 
 	return releaseToken(fn).release, nil

@@ -1,3 +1,9 @@
+# v1.9.0 (2022-02-24)
+
+* **Feature**: Adds support for `SourceIdentity` to `stscreds.AssumeRoleProvider` [#1588](https://github.com/aws/aws-sdk-go-v2/pull/1588). Fixes [#1575](https://github.com/aws/aws-sdk-go-v2/issues/1575)
+* **Feature**: Updated `github.com/aws/smithy-go` to latest version
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.8.0 (2022-01-14)
 
 * **Feature**: Updated `github.com/aws/smithy-go` to latest version

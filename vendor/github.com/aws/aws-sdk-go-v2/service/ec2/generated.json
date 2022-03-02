@@ -9,6 +9,7 @@
     },
     "files": [
         "api_client.go",
+        "api_client_test.go",
         "api_op_AcceptReservedInstancesExchangeQuote.go",
         "api_op_AcceptTransitGatewayMulticastDomainAssociations.go",
         "api_op_AcceptTransitGatewayPeeringAttachment.go",
@@ -410,6 +411,7 @@
         "api_op_ImportKeyPair.go",
         "api_op_ImportSnapshot.go",
         "api_op_ImportVolume.go",
+        "api_op_ListImagesInRecycleBin.go",
         "api_op_ListSnapshotsInRecycleBin.go",
         "api_op_ModifyAddressAttribute.go",
         "api_op_ModifyAvailabilityZoneGroup.go",
@@ -504,6 +506,7 @@
         "api_op_ResetNetworkInterfaceAttribute.go",
         "api_op_ResetSnapshotAttribute.go",
         "api_op_RestoreAddressToClassic.go",
+        "api_op_RestoreImageFromRecycleBin.go",
         "api_op_RestoreManagedPrefixListVersion.go",
         "api_op_RestoreSnapshotFromRecycleBin.go",
         "api_op_RestoreSnapshotTier.go",

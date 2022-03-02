@@ -41,11 +41,14 @@ type DescribeLocalGatewayVirtualInterfaceGroupsInput struct {
 	// * local-gateway-id - The ID of a local gateway.
 	//
 	// *
-	// local-gateway-virtual-interface-id - The ID of the virtual interface.
-	//
-	// *
 	// local-gateway-virtual-interface-group-id - The ID of the virtual interface
 	// group.
+	//
+	// * local-gateway-virtual-interface-id - The ID of the virtual
+	// interface.
+	//
+	// * owner-id - The ID of the Amazon Web Services account that owns the
+	// local gateway virtual interface group.
 	Filters []types.Filter
 
 	// The IDs of the virtual interface groups.

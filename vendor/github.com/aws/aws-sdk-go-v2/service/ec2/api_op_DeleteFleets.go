@@ -29,7 +29,7 @@ import (
 // Up to 1000 instances can be terminated in a single request to delete instant
 // fleets.
 //
-// For more information, see Deleting an EC2 Fleet
+// For more information, see Delete an EC2 Fleet
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/manage-ec2-fleet.html#delete-fleet)
 // in the Amazon EC2 User Guide.
 func (c *Client) DeleteFleets(ctx context.Context, params *DeleteFleetsInput, optFns ...func(*Options)) (*DeleteFleetsOutput, error) {

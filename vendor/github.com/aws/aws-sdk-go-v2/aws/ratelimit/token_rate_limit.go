@@ -69,6 +69,11 @@ func (l *TokenRateLimit) AddTokens(v uint) error {
 	return nil
 }
 
+// Remaining returns the number of remaining tokens in the bucket.
+func (l *TokenRateLimit) Remaining() uint {
+	return l.bucket.Remaining()
+}
+
 // QuotaExceededError provides the SDK error when the retries for a given
 // token bucket have been exhausted.
 type QuotaExceededError struct {

@@ -12,7 +12,12 @@ import (
 )
 
 // Creates an Amazon EBS-backed AMI from an Amazon EBS-backed instance that is
-// either running or stopped. If you customized your instance with instance store
+// either running or stopped. By default, Amazon EC2 shuts down and reboots the
+// instance before creating the AMI to ensure that everything on the instance is
+// stopped and in a consistent state during the creation process. If you're
+// confident that your instance is in a consistent state appropriate for AMI
+// creation, use the NoReboot parameter to prevent Amazon EC2 from shutting down
+// and rebooting the instance. If you customized your instance with instance store
 // volumes or Amazon EBS volumes in addition to the root device volume, the new AMI
 // contains block device mapping information for those volumes. When you launch an
 // instance from this new AMI, the instance automatically launches with those

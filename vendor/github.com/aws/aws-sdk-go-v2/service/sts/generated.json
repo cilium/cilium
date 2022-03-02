@@ -8,6 +8,7 @@
     },
     "files": [
         "api_client.go",
+        "api_client_test.go",
         "api_op_AssumeRole.go",
         "api_op_AssumeRoleWithSAML.go",
         "api_op_AssumeRoleWithWebIdentity.go",

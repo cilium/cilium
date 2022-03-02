@@ -17,7 +17,8 @@ import (
 // Windows image, Amazon EC2 launches an instance and runs through Sysprep steps,
 // rebooting as required. Then it creates a set of reserved snapshots that are used
 // for subsequent launches. The reserved snapshots are automatically replenished as
-// they are used, depending on your settings for launch frequency.
+// they are used, depending on your settings for launch frequency. To change these
+// settings, you must own the AMI.
 func (c *Client) EnableFastLaunch(ctx context.Context, params *EnableFastLaunchInput, optFns ...func(*Options)) (*EnableFastLaunchOutput, error) {
 	if params == nil {
 		params = &EnableFastLaunchInput{}
@@ -51,7 +52,8 @@ type EnableFastLaunchInput struct {
 	// launch template, but not both.
 	LaunchTemplate *types.FastLaunchLaunchTemplateSpecificationRequest
 
-	// The maximum number of parallel instances to launch for creating resources.
+	// The maximum number of parallel instances to launch for creating resources. Value
+	// must be 6 or greater.
 	MaxParallelLaunches *int32
 
 	// The type of resource to use for pre-provisioning the Windows AMI for faster

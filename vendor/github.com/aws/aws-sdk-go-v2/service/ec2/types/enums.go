@@ -3013,6 +3013,12 @@ const (
 	InstanceTypeX1e8xlarge      InstanceType = "x1e.8xlarge"
 	InstanceTypeX1e16xlarge     InstanceType = "x1e.16xlarge"
 	InstanceTypeX1e32xlarge     InstanceType = "x1e.32xlarge"
+	InstanceTypeX2iezn2xlarge   InstanceType = "x2iezn.2xlarge"
+	InstanceTypeX2iezn4xlarge   InstanceType = "x2iezn.4xlarge"
+	InstanceTypeX2iezn6xlarge   InstanceType = "x2iezn.6xlarge"
+	InstanceTypeX2iezn8xlarge   InstanceType = "x2iezn.8xlarge"
+	InstanceTypeX2iezn12xlarge  InstanceType = "x2iezn.12xlarge"
+	InstanceTypeX2ieznMetal     InstanceType = "x2iezn.metal"
 	InstanceTypeX2gdMedium      InstanceType = "x2gd.medium"
 	InstanceTypeX2gdLarge       InstanceType = "x2gd.large"
 	InstanceTypeX2gdXlarge      InstanceType = "x2gd.xlarge"
@@ -3499,6 +3505,12 @@ func (InstanceType) Values() []InstanceType {
 		"x1e.8xlarge",
 		"x1e.16xlarge",
 		"x1e.32xlarge",
+		"x2iezn.2xlarge",
+		"x2iezn.4xlarge",
+		"x2iezn.6xlarge",
+		"x2iezn.8xlarge",
+		"x2iezn.12xlarge",
+		"x2iezn.metal",
 		"x2gd.medium",
 		"x2gd.large",
 		"x2gd.xlarge",
@@ -4429,10 +4441,23 @@ type NetworkInterfaceType string
 
 // Enum values for NetworkInterfaceType
 const (
-	NetworkInterfaceTypeInterface  NetworkInterfaceType = "interface"
-	NetworkInterfaceTypeNatGateway NetworkInterfaceType = "natGateway"
-	NetworkInterfaceTypeEfa        NetworkInterfaceType = "efa"
-	NetworkInterfaceTypeTrunk      NetworkInterfaceType = "trunk"
+	NetworkInterfaceTypeInterface                     NetworkInterfaceType = "interface"
+	NetworkInterfaceTypeNatGateway                    NetworkInterfaceType = "natGateway"
+	NetworkInterfaceTypeEfa                           NetworkInterfaceType = "efa"
+	NetworkInterfaceTypeTrunk                         NetworkInterfaceType = "trunk"
+	NetworkInterfaceTypeLoadBalancer                  NetworkInterfaceType = "load_balancer"
+	NetworkInterfaceTypeNetworkLoadBalancer           NetworkInterfaceType = "network_load_balancer"
+	NetworkInterfaceTypeVpcEndpoint                   NetworkInterfaceType = "vpc_endpoint"
+	NetworkInterfaceTypeBranch                        NetworkInterfaceType = "branch"
+	NetworkInterfaceTypeTransitGateway                NetworkInterfaceType = "transit_gateway"
+	NetworkInterfaceTypeLambda                        NetworkInterfaceType = "lambda"
+	NetworkInterfaceTypeQuicksight                    NetworkInterfaceType = "quicksight"
+	NetworkInterfaceTypeGlobalAcceleratorManaged      NetworkInterfaceType = "global_accelerator_managed"
+	NetworkInterfaceTypeApiGatewayManaged             NetworkInterfaceType = "api_gateway_managed"
+	NetworkInterfaceTypeGatewayLoadBalancer           NetworkInterfaceType = "gateway_load_balancer"
+	NetworkInterfaceTypeGatewayLoadBalancerEndpoint   NetworkInterfaceType = "gateway_load_balancer_endpoint"
+	NetworkInterfaceTypeIotRulesManaged               NetworkInterfaceType = "iot_rules_managed"
+	NetworkInterfaceTypeAwsCodestarConnectionsManaged NetworkInterfaceType = "aws_codestar_connections_managed"
 )
 
 // Values returns all known values for NetworkInterfaceType. Note that this can be
@@ -4444,6 +4469,19 @@ func (NetworkInterfaceType) Values() []NetworkInterfaceType {
 		"natGateway",
 		"efa",
 		"trunk",
+		"load_balancer",
+		"network_load_balancer",
+		"vpc_endpoint",
+		"branch",
+		"transit_gateway",
+		"lambda",
+		"quicksight",
+		"global_accelerator_managed",
+		"api_gateway_managed",
+		"gateway_load_balancer",
+		"gateway_load_balancer_endpoint",
+		"iot_rules_managed",
+		"aws_codestar_connections_managed",
 	}
 }
 
