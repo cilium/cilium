@@ -29,20 +29,21 @@ const (
 
 // NPHDSCache is a cache of resources in the Network Policy Hosts Discovery
 // Service.
+//
+// NetworkPolicyHostsCache is the global cache of resources of type
+// NetworkPolicyHosts. Resources in this cache must have the
+// NetworkPolicyHostsTypeURL type URL.
 type NPHDSCache struct {
 	*xds.Cache
+
+	ipcache *ipcache.IPCache
 }
 
-func newNPHDSCache() NPHDSCache {
-	return NPHDSCache{Cache: xds.NewCache()}
+func newNPHDSCache(ipcache *ipcache.IPCache) NPHDSCache {
+	return NPHDSCache{Cache: xds.NewCache(), ipcache: ipcache}
 }
 
 var (
-	// NetworkPolicyHostsCache is the global cache of resources of type
-	// NetworkPolicyHosts. Resources in this cache must have the
-	// NetworkPolicyHostsTypeURL type URL.
-	NetworkPolicyHostsCache = newNPHDSCache()
-
 	observerOnce = sync.Once{}
 )
 
@@ -53,7 +54,7 @@ var (
 func (cache *NPHDSCache) HandleResourceVersionAck(ackVersion uint64, nackVersion uint64, nodeIP string, resourceNames []string, typeURL string, detail string) {
 	// Start caching for IP/ID mappings on the first indication someone wants them
 	observerOnce.Do(func() {
-		ipcache.IPIdentityCache.AddListener(cache)
+		cache.ipcache.AddListener(cache)
 	})
 }
 

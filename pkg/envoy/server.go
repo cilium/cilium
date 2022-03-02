@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy/xds"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -142,7 +143,7 @@ func toAny(pb proto.Message) *any.Any {
 }
 
 // StartXDSServer configures and starts the xDS GRPC server.
-func StartXDSServer(stateDir string) *XDSServer {
+func StartXDSServer(ipcache *ipcache.IPCache, stateDir string) *XDSServer {
 	xdsPath := getXDSPath(stateDir)
 
 	os.Remove(xdsPath)
@@ -171,9 +172,10 @@ func StartXDSServer(stateDir string) *XDSServer {
 		AckObserver: npdsMutator,
 	}
 
+	nphdsCache := newNPHDSCache(ipcache)
 	nphdsConfig := &xds.ResourceTypeConfiguration{
-		Source:      NetworkPolicyHostsCache,
-		AckObserver: &NetworkPolicyHostsCache,
+		Source:      nphdsCache,
+		AckObserver: &nphdsCache,
 	}
 
 	stopServer := startXDSGRPCServer(socketListener, ldsConfig, npdsConfig, nphdsConfig, 5*time.Second)
