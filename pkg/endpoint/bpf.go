@@ -345,8 +345,8 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 		visPolicy    policy.DirectionalVisibilityPolicy
 		finalizeList revert.FinalizeList
 		revertStack  revert.RevertStack
-		adds         = make(policy.MapState)
-		deletes      = make(policy.MapState)
+		adds         = make(policy.Keys)
+		oldValues    = make(policy.MapState)
 	)
 
 	if e.visibilityPolicy == nil {
@@ -411,7 +411,7 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 
 		updatedStats = append(updatedStats, proxyStats)
 
-		e.desiredPolicy.PolicyMapState.AddVisibilityKeys(e, redirectPort, visMeta, adds, deletes)
+		e.desiredPolicy.PolicyMapState.AddVisibilityKeys(e, redirectPort, visMeta, adds, oldValues)
 	}
 
 	revertStack.Push(func() error {
@@ -426,7 +426,7 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 		for k := range adds {
 			delete(e.desiredPolicy.PolicyMapState, k)
 		}
-		for k, v := range deletes {
+		for k, v := range oldValues {
 			e.desiredPolicy.PolicyMapState[k] = v
 		}
 		return nil
@@ -1215,22 +1215,30 @@ func (e *Endpoint) applyPolicyMapChanges() (proxyChanges bool, err error) {
 		for _, visMeta := range e.visibilityPolicy.Ingress {
 			proxyID := policy.ProxyID(e.ID, visMeta.Ingress, visMeta.Proto.String(), visMeta.Port)
 			if redirectPort, exists := e.realizedRedirects[proxyID]; exists && redirectPort != 0 {
-				e.desiredPolicy.PolicyMapState.AddVisibilityKeys(e, redirectPort, visMeta, adds, deletes)
+				e.desiredPolicy.PolicyMapState.AddVisibilityKeys(e, redirectPort, visMeta, adds, nil)
 			}
 		}
 		for _, visMeta := range e.visibilityPolicy.Egress {
 			proxyID := policy.ProxyID(e.ID, visMeta.Ingress, visMeta.Proto.String(), visMeta.Port)
 			if redirectPort, exists := e.realizedRedirects[proxyID]; exists && redirectPort != 0 {
-				e.desiredPolicy.PolicyMapState.AddVisibilityKeys(e, redirectPort, visMeta, adds, deletes)
+				e.desiredPolicy.PolicyMapState.AddVisibilityKeys(e, redirectPort, visMeta, adds, nil)
 			}
 		}
 	}
 
 	// Add policy map entries before deleting to avoid transient drops
-	for keyToAdd, entry := range adds {
+	for keyToAdd := range adds {
 		// AddVisibilityKeys() records changed keys in both 'deletes' (old value) and 'adds' (new value).
 		// Remove the key from 'deletes' to keep the new entry.
 		delete(deletes, keyToAdd)
+
+		entry, exists := e.desiredPolicy.PolicyMapState[keyToAdd]
+		if !exists {
+			e.getLogger().WithFields(logrus.Fields{
+				logfields.AddedPolicyID: keyToAdd,
+			}).Warn("Tried adding policy map key not in policy")
+			continue
+		}
 
 		// Redirect entries currently come in with a dummy redirect port ("1"), replace it with
 		// the actual proxy port number, or with 0 if the redirect does not exist yet. This is

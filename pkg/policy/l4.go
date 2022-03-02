@@ -165,7 +165,10 @@ func (a *PerSelectorPolicy) Equal(b *PerSelectorPolicy) bool {
 
 // IsRedirect returns true if the L7Rules are a redirect.
 func (a *PerSelectorPolicy) IsRedirect() bool {
-	// Deny policies do not support L7 rules
+	// policy is for an L7 redirect if it:
+	// - is not nil,
+	// - has some L7 rules, and
+	// - it is not a deny policy, as deny policies do not support L7 rules
 	return !a.IsEmpty() && !a.IsDeny
 }
 
