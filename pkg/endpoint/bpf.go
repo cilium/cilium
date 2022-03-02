@@ -1084,10 +1084,8 @@ func (e *Endpoint) updatePolicyMapPressureMetric() {
 	e.policyMapPressureGauge.Set(value)
 }
 
-// The bool pointed by hadProxy, if not nil, will be set to 'true' if
-// the deleted entry had a proxy port assigned to it.  *hadProxy is
-// not otherwise changed (e.g., it is never set to 'false').
-func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool, hadProxy *bool) bool {
+// Delete the BPF policy map key converted from 'keyToDelete'
+func (e *Endpoint) deleteBPFPolicyKey(keyToDelete policy.Key, entry policy.MapStateEntry, incremental bool) bool {
 	// Convert from policy.Key to policymap.Key
 	policymapKey := policymap.PolicyKey{
 		Identity:         keyToDelete.Identity,
@@ -1110,26 +1108,18 @@ func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool, had
 		return false
 	}
 
-	var entry policy.MapStateEntry
-	var ok bool
-	if entry, ok = e.realizedPolicy.PolicyMapState[keyToDelete]; ok && entry.ProxyPort != 0 && hadProxy != nil {
-		*hadProxy = true
-	}
-
-	// Operation was successful, remove from realized state.
-	delete(e.realizedPolicy.PolicyMapState, keyToDelete)
 	e.updatePolicyMapPressureMetric()
 
 	e.PolicyDebug(logrus.Fields{
 		logfields.BPFMapKey:   keyToDelete,
 		logfields.BPFMapValue: entry,
 		"incremental":         incremental,
-	}, "deletePolicyKey")
+	}, "deleteBPFPolicyKey")
 
 	return true
 }
 
-func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry, incremental bool) bool {
+func (e *Endpoint) addBPFPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry, incremental bool) bool {
 	// Convert from policy.Key to policymap.Key
 	policymapKey := policymap.PolicyKey{
 		Identity:         keyToAdd.Identity,
@@ -1152,15 +1142,13 @@ func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry,
 		return false
 	}
 
-	// Operation was successful, add to realized state.
-	e.realizedPolicy.PolicyMapState[keyToAdd] = entry
 	e.updatePolicyMapPressureMetric()
 
 	e.PolicyDebug(logrus.Fields{
 		logfields.BPFMapKey:   keyToAdd,
 		logfields.BPFMapValue: entry,
 		"incremental":         incremental,
-	}, "addPolicyKey")
+	}, "addBPFPolicyKey")
 	return true
 }
 
@@ -1242,13 +1230,24 @@ func (e *Endpoint) applyPolicyMapChanges() (proxyChanges bool, err error) {
 				proxyChanges = true
 			}
 		}
-		if !e.addPolicyKey(keyToAdd, entry, true) {
+		if e.addBPFPolicyKey(keyToAdd, entry, true) {
+			// Operation was successful, add to realized state.
+			e.realizedPolicy.PolicyMapState[keyToAdd] = entry
+		} else {
 			errors++
 		}
 	}
 
 	for keyToDelete := range deletes {
-		if !e.deletePolicyKey(keyToDelete, true, &proxyChanges) {
+		var entry policy.MapStateEntry
+		var ok bool
+		if entry, ok = e.realizedPolicy.PolicyMapState[keyToDelete]; ok && entry.ProxyPort != 0 {
+			proxyChanges = true
+		}
+		if e.deleteBPFPolicyKey(keyToDelete, entry, true) {
+			// Operation was successful, remove from realized state.
+			delete(e.realizedPolicy.PolicyMapState, keyToDelete)
+		} else {
 			errors++
 		}
 	}
@@ -1303,7 +1302,10 @@ func (e *Endpoint) syncDesiredPolicyMapWith(realized policy.MapState, withDiffs 
 				// Will change to 0 if on a sidecar
 				entry.ProxyPort = e.realizedRedirects[policy.ProxyIDFromKey(e.ID, keyToAdd)]
 			}
-			if !e.addPolicyKey(keyToAdd, entry, false) {
+			if e.addBPFPolicyKey(keyToAdd, entry, false) {
+				// Operation was successful, add to realized state.
+				realized[keyToAdd] = entry
+			} else {
 				errors++
 			}
 			diffCount++
@@ -1317,7 +1319,10 @@ func (e *Endpoint) syncDesiredPolicyMapWith(realized policy.MapState, withDiffs 
 	for keyToDelete := range realized {
 		// If key that is in realized state is not in desired state, just remove it.
 		if entry, ok := e.desiredPolicy.PolicyMapState[keyToDelete]; !ok {
-			if !e.deletePolicyKey(keyToDelete, false, nil) {
+			if e.deleteBPFPolicyKey(keyToDelete, entry, false) {
+				// Operation was successful, remove from realized state.
+				delete(realized, keyToDelete)
+			} else {
 				errors++
 			}
 			diffCount++
