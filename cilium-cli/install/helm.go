@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/versioncheck"
@@ -109,9 +110,44 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 		// of the operator replicas to 1. Ideally this should be the default in the helm chart
 		helmMapOpts["operator.replicas"] = "1"
 
-		if k.params.Encryption == encryptionIPsec {
+		if k.params.ClusterName != "" {
+			helmMapOpts["cluster.name"] = k.params.ClusterName
+		}
+
+		if k.params.ClusterID != 0 {
+			helmMapOpts["cluster.id"] = strconv.FormatInt(int64(k.params.ClusterID), 10)
+		}
+
+		switch k.params.Encryption {
+		case encryptionIPsec:
 			helmMapOpts["encryption.enabled"] = "true"
 			helmMapOpts["encryption.type"] = "ipsec"
+			if k.params.NodeEncryption {
+				helmMapOpts["encryption.nodeEncryption"] = "true"
+			}
+		case encryptionWireguard:
+			helmMapOpts["encryption.type"] = "wireguard"
+			// TODO(gandro): Future versions of Cilium will remove the following
+			// two limitations, we will need to have set the config map values
+			// based on the installed Cilium version
+			helmMapOpts["l7Proxy"] = "false"
+			k.Log("ℹ️  L7 proxy disabled due to Wireguard encryption")
+
+			if k.params.NodeEncryption {
+				k.Log("⚠️️  Wireguard does not support node encryption yet")
+			}
+		}
+
+		if k.params.IPAM != "" {
+			helmMapOpts["ipam.mode"] = k.params.IPAM
+		}
+
+		if k.params.ClusterID != 0 {
+			helmMapOpts["cluster.id"] = fmt.Sprintf("%d", k.params.ClusterID)
+		}
+
+		if k.params.KubeProxyReplacement != "" {
+			helmMapOpts["kubeProxyReplacement"] = k.params.KubeProxyReplacement
 		}
 
 		switch k.flavor.Kind {
@@ -139,12 +175,34 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 		}
 
 		switch k.params.DatapathMode {
+		case DatapathTunnel:
+			t := k.params.TunnelType
+			if t == "" {
+				t = defaults.TunnelType
+			}
+			helmMapOpts["tunnel"] = t
+
 		case DatapathAwsENI:
-			helmMapOpts["eni.enabled"] = "true"
 			helmMapOpts["nodeinit.enabled"] = "true"
+			helmMapOpts["tunnel"] = "disabled"
+			helmMapOpts["eni.enabled"] = "true"
+			// TODO(tgraf) Is this really sane?
+			helmMapOpts["egressMasqueradeInterfaces"] = "eth0"
+
+		case DatapathGKE:
+			helmMapOpts["gke.enabled"] = "true"
 
 		case DatapathAzure:
 			helmMapOpts["azure.enabled"] = "true"
+			helmMapOpts["tunnel"] = "disabled"
+			switch {
+			case versioncheck.MustCompile(">=1.10.0")(ciliumVer):
+				helmMapOpts["bpf.masquerade"] = "false"
+				helmMapOpts["enableIPv4Masquerade"] = "false"
+				helmMapOpts["enableIPv6Masquerade"] = "false"
+			case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+				helmMapOpts["masquerade"] = "false"
+			}
 			helmMapOpts["azure.subscriptionID"] = k.params.Azure.SubscriptionID
 			helmMapOpts["azure.tenantID"] = k.params.Azure.TenantID
 			helmMapOpts["azure.resourceGroup"] = k.params.Azure.AKSNodeResourceGroup
@@ -152,6 +210,17 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 
 		if k.bgpEnabled() {
 			helmMapOpts["bgp.enabled"] = "true"
+		}
+
+		if k.params.IPv4NativeRoutingCIDR != "" {
+			// NOTE: Cilium v1.11 replaced --native-routing-cidr by
+			// --ipv4-native-routing-cidr
+			switch {
+			case versioncheck.MustCompile(">=1.11.0")(ciliumVer):
+				helmMapOpts["ipv4NativeRoutingCIDR"] = k.params.IPv4NativeRoutingCIDR
+			case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+				helmMapOpts["nativeRoutingCIDR"] = k.params.IPv4NativeRoutingCIDR
+			}
 		}
 
 	default:
