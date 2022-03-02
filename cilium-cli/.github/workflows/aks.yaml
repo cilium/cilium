@@ -203,7 +203,10 @@ jobs:
       - name: Create cilium-cli job
         run: |
           helm install .github/cilium-cli-test-job-chart \
-            --generate-name
+            --generate-name \
+            --set job_name=cilium-cli \
+            --set test_script_cm=cilium-cli-test-script \
+            --set tag=${{ steps.vars.outputs.sha }}
 
       - name: Wait for test job
         env:
