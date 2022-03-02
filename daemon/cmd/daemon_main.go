@@ -48,6 +48,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/identity"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/ipmasq"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
@@ -1731,7 +1732,7 @@ func runDaemon() {
 	} else {
 		log.Info("Creating host endpoint")
 		if err := d.endpointManager.AddHostEndpoint(
-			d.ctx, d, d, d.l7Proxy, d.identityAllocator,
+			d.ctx, d, d, ipcache.IPIdentityCache, d.l7Proxy, d.identityAllocator,
 			"Create host endpoint", nodeTypes.GetName(),
 		); err != nil {
 			log.WithError(err).Fatal("Unable to create host endpoint")

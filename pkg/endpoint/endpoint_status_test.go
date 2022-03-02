@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipcache"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
@@ -49,7 +50,7 @@ func (e endpointStatusConfiguration) EndpointStatusIsEnabled(name string) bool {
 }
 
 func (s *EndpointSuite) newEndpoint(c *check.C, spec endpointGeneratorSpec) *Endpoint {
-	e, err := NewEndpointFromChangeModel(context.TODO(), s, s, &FakeEndpointProxy{}, s.mgr, &models.EndpointChangeRequest{
+	e, err := NewEndpointFromChangeModel(context.TODO(), s, s, ipcache.NewIPCache(), &FakeEndpointProxy{}, s.mgr, &models.EndpointChangeRequest{
 		Addressing: &models.AddressPair{},
 		ID:         200,
 		Labels: models.Labels{

@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager/idallocator"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -619,11 +620,12 @@ func (mgr *EndpointManager) AddHostEndpoint(
 	ctx context.Context,
 	owner regeneration.Owner,
 	policyGetter policyRepoGetter,
+	ipcache *ipcache.IPCache,
 	proxy endpoint.EndpointProxy,
 	allocator cache.IdentityAllocator,
 	reason, nodeName string,
 ) error {
-	ep, err := endpoint.CreateHostEndpoint(owner, policyGetter, proxy, allocator)
+	ep, err := endpoint.CreateHostEndpoint(owner, policyGetter, ipcache, proxy, allocator)
 	if err != nil {
 		return err
 	}

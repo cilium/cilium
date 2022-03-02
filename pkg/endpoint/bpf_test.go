@@ -15,11 +15,12 @@ import (
 	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/datapath/linux"
+	"github.com/cilium/cilium/pkg/ipcache"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 
 func (s *EndpointSuite) TestWriteInformationalComments(c *C) {
-	e := NewEndpointWithState(s, s, &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 100, StateWaitingForIdentity)
+	e := NewEndpointWithState(s, s, ipcache.NewIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 100, StateWaitingForIdentity)
 
 	var f bytes.Buffer
 	err := e.writeInformationalComments(&f)
@@ -29,7 +30,7 @@ func (s *EndpointSuite) TestWriteInformationalComments(c *C) {
 type writeFunc func(io.Writer) error
 
 func BenchmarkWriteHeaderfile(b *testing.B) {
-	e := NewEndpointWithState(&suite, &suite, &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 100, StateWaitingForIdentity)
+	e := NewEndpointWithState(&suite, &suite, ipcache.NewIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 100, StateWaitingForIdentity)
 	dp := linux.NewDatapath(linux.DatapathConfiguration{}, nil, nil)
 
 	targetComments := func(w io.Writer) error {

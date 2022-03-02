@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/health/probe"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/launcher"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -227,6 +228,7 @@ type EndpointAdder interface {
 func LaunchAsEndpoint(baseCtx context.Context,
 	owner regeneration.Owner,
 	policyGetter policyRepoGetter,
+	ipcache *ipcache.IPCache,
 	mtuConfig mtu.Configuration,
 	epMgr EndpointAdder,
 	proxy endpoint.EndpointProxy,
@@ -309,7 +311,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	}
 
 	// Create the endpoint
-	ep, err := endpoint.NewEndpointFromChangeModel(baseCtx, owner, policyGetter, proxy, allocator, info)
+	ep, err := endpoint.NewEndpointFromChangeModel(baseCtx, owner, policyGetter, ipcache, proxy, allocator, info)
 	if err != nil {
 		return nil, fmt.Errorf("Error while creating endpoint model: %s", err)
 	}
