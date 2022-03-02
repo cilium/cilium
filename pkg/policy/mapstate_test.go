@@ -7,6 +7,8 @@
 package policy
 
 import (
+	"fmt"
+
 	"gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/checker"
@@ -25,19 +27,20 @@ func (e MapStateEntry) WithOwners(owners ...MapStateOwner) MapStateEntry {
 	return e
 }
 
-// WithoutOwners clears the 'owners' of 'e'.
+// WithoutOwners empties the 'owners' of 'e'.
 // Note: This is used only in unit tests and helps test readability.
 func (e MapStateEntry) WithoutOwners() MapStateEntry {
-	e.owners = nil
+	e.owners = make(map[MapStateOwner]struct{})
 	return e
 }
 
 // WithDependents 'e' adds 'keys' to 'e.dependents'.
 func (e MapStateEntry) WithDependents(keys ...Key) MapStateEntry {
-	if len(keys) > 0 {
-		for _, key := range keys {
-			e.AddDependent(key)
-		}
+	if e.dependents == nil {
+		e.dependents = make(map[Key]struct{})
+	}
+	for _, key := range keys {
+		e.AddDependent(key)
 	}
 	return e
 }
@@ -787,9 +790,7 @@ func testEntry(proxyPort uint16, deny bool, owners ...MapStateOwner) MapStateEnt
 		ProxyPort: proxyPort,
 		IsDeny:    deny,
 	}
-	if len(owners) > 0 {
-		entry.owners = make(map[MapStateOwner]struct{}, len(owners))
-	}
+	entry.owners = make(map[MapStateOwner]struct{}, len(owners))
 	for _, owner := range owners {
 		entry.owners[owner] = struct{}{}
 	}
@@ -830,8 +831,8 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesDeny(c *check.C) {
 		setup     MapState
 		args      []args // changes applied, in order
 		state     MapState
-		adds      MapState
-		deletes   MapState
+		adds      Keys
+		deletes   Keys
 	}{{
 		name: "test-1a - Adding L3-deny to an existing allow-all with L4-only allow redirect map state entries",
 		setup: MapState{
@@ -847,11 +848,11 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesDeny(c *check.C) {
 			HttpIngressKey(0):        allowEntry(12345, nil),
 			HttpIngressKey(41):       denyEntry(0).WithOwners(testIngressKey(41, 0, 0)),
 		},
-		adds: MapState{
-			testIngressKey(41, 0, 0): denyEntry(0),
-			HttpIngressKey(41):       denyEntry(0),
+		adds: Keys{
+			testIngressKey(41, 0, 0): {},
+			HttpIngressKey(41):       {},
 		},
-		deletes: MapState{},
+		deletes: Keys{},
 	}, {
 		continued: true,
 		name:      "test-1b - Adding 2nd identity",
@@ -866,11 +867,11 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesDeny(c *check.C) {
 			HttpIngressKey(41):       denyEntry(0).WithOwners(testIngressKey(41, 0, 0)),
 			HttpIngressKey(42):       denyEntry(0).WithOwners(testIngressKey(42, 0, 0)),
 		},
-		adds: MapState{
-			testIngressKey(42, 0, 0): denyEntry(0),
-			HttpIngressKey(42):       denyEntry(0),
+		adds: Keys{
+			testIngressKey(42, 0, 0): {},
+			HttpIngressKey(42):       {},
 		},
-		deletes: MapState{},
+		deletes: Keys{},
 	}, {
 		continued: true,
 		name:      "test-1c - Removing the same key",
@@ -883,10 +884,10 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesDeny(c *check.C) {
 			HttpIngressKey(0):        allowEntry(12345, nil),
 			HttpIngressKey(41):       denyEntry(0).WithOwners(testIngressKey(41, 0, 0)),
 		},
-		adds: MapState{},
-		deletes: MapState{
-			testIngressKey(42, 0, 0): denyEntry(0), // removed key
-			HttpIngressKey(42):       denyEntry(0), // removed dependent key
+		adds: Keys{},
+		deletes: Keys{
+			testIngressKey(42, 0, 0): {},
+			HttpIngressKey(42):       {},
 		},
 	}, {
 		name: "test-2a - Adding 2 identities, and deleting a nonexisting key on an empty state",
@@ -897,11 +898,11 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesDeny(c *check.C) {
 			HttpIngressKey(42): denyEntry(0, csFoo),
 			HttpIngressKey(43): denyEntry(0, csFoo),
 		},
-		adds: MapState{
-			HttpIngressKey(42): denyEntry(0),
-			HttpIngressKey(43): denyEntry(0),
+		adds: Keys{
+			HttpIngressKey(42): {},
+			HttpIngressKey(43): {},
 		},
-		deletes: MapState{},
+		deletes: Keys{},
 	}, {
 		continued: true,
 		name:      "test-2b - Adding Bar also selecting 42",
@@ -913,10 +914,10 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesDeny(c *check.C) {
 			HttpIngressKey(43): denyEntry(0, csFoo),
 			HttpIngressKey(44): denyEntry(0, csBar),
 		},
-		adds: MapState{
-			HttpIngressKey(44): denyEntry(0),
+		adds: Keys{
+			HttpIngressKey(44): {},
 		},
-		deletes: MapState{},
+		deletes: Keys{},
 	}, {
 		continued: true,
 		name:      "test-2c - Deleting 42 from Foo, remains on Bar and no deletes",
@@ -928,8 +929,8 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesDeny(c *check.C) {
 			HttpIngressKey(43): denyEntry(0, csFoo),
 			HttpIngressKey(44): denyEntry(0, csBar),
 		},
-		adds:    MapState{},
-		deletes: MapState{},
+		adds:    Keys{},
+		deletes: Keys{},
 	}, {
 		continued: true,
 		name:      "test-2d - Deleting 42 from Foo again, not deleted",
@@ -941,8 +942,8 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesDeny(c *check.C) {
 			HttpIngressKey(43): denyEntry(0, csFoo),
 			HttpIngressKey(44): denyEntry(0, csBar),
 		},
-		adds:    MapState{},
-		deletes: MapState{},
+		adds:    Keys{},
+		deletes: Keys{},
 	}, {
 		continued: true,
 		name:      "test-2e - Deleting 42 from Bar, deleted",
@@ -953,9 +954,9 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesDeny(c *check.C) {
 			HttpIngressKey(43): denyEntry(0, csFoo),
 			HttpIngressKey(44): denyEntry(0, csBar),
 		},
-		adds: MapState{},
-		deletes: MapState{
-			HttpIngressKey(42): denyEntry(0),
+		adds: Keys{},
+		deletes: Keys{
+			HttpIngressKey(42): {},
 		},
 	}, {
 		continued: true,
@@ -967,8 +968,8 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesDeny(c *check.C) {
 			HttpIngressKey(43): denyEntry(0, csFoo),
 			HttpIngressKey(44): denyEntry(0, csBar),
 		},
-		adds:    MapState{},
-		deletes: MapState{},
+		adds:    Keys{},
+		deletes: Keys{},
 	}, {
 		continued: false,
 		name:      "test-3a - egress allow with deny-L3",
@@ -986,8 +987,8 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesDeny(c *check.C) {
 			HostIngressKey():        allowEntry(0),
 			testEgressKey(42, 0, 0): denyEntry(0, csFoo),
 		},
-		adds:    MapState{},
-		deletes: MapState{},
+		adds:    Keys{},
+		deletes: Keys{},
 	}, {
 		continued: true,
 		name:      "test-3b - egress allow DNS on another ID with deny-L3",
@@ -1002,11 +1003,11 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesDeny(c *check.C) {
 			DNSUDPEgressKey(43):     allowEntry(0, csBar),
 			DNSTCPEgressKey(43):     allowEntry(0, csBar),
 		},
-		adds: MapState{
-			DNSUDPEgressKey(43): allowEntry(0),
-			DNSTCPEgressKey(43): allowEntry(0),
+		adds: Keys{
+			DNSUDPEgressKey(43): {},
+			DNSTCPEgressKey(43): {},
 		},
-		deletes: MapState{},
+		deletes: Keys{},
 	}, {
 		continued: true,
 		name:      "test-3c - egress allow HTTP proxy with deny-L3",
@@ -1021,12 +1022,44 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesDeny(c *check.C) {
 			DNSTCPEgressKey(43):     allowEntry(0, csBar),
 			HttpEgressKey(43):       allowEntry(1, csFoo),
 		},
-		adds: MapState{
-			HttpEgressKey(43): allowEntry(1),
+		adds: Keys{
+			HttpEgressKey(43): {},
 		},
-		deletes: MapState{},
+		deletes: Keys{},
 	}, {
-		name: "test-4 - Adding L3-deny to an existing allow-all",
+		continued: false,
+		name:      "test-4a - Add L7 skipped due to covering L3 deny",
+		setup: MapState{
+			AnyIngressKey():         allowEntry(0),
+			HostIngressKey():        allowEntry(0),
+			testEgressKey(42, 0, 0): denyEntry(0, csFoo),
+		},
+		args: []args{
+			{cs: csFoo, adds: []int{42}, deletes: []int{}, port: 80, proto: 6, ingress: false, redirect: true, deny: false},
+		},
+		state: MapState{
+			AnyIngressKey():         allowEntry(0),
+			HostIngressKey():        allowEntry(0),
+			testEgressKey(42, 0, 0): denyEntry(0, csFoo),
+		},
+		adds:    Keys{},
+		deletes: Keys{},
+	}, {
+		continued: true,
+		name:      "test-4b - Add & delete L7 skipped due to covering L3 deny",
+		args: []args{
+			{cs: csFoo, adds: []int{42}, deletes: []int{}, port: 80, proto: 6, ingress: false, redirect: true, deny: false},
+			{cs: csFoo, adds: []int{}, deletes: []int{42}, port: 80, proto: 6, ingress: false, redirect: true, deny: false},
+		},
+		state: MapState{
+			AnyIngressKey():         allowEntry(0),
+			HostIngressKey():        allowEntry(0),
+			testEgressKey(42, 0, 0): denyEntry(0, csFoo),
+		},
+		adds:    Keys{},
+		deletes: Keys{},
+	}, {
+		name: "test-5 - Adding L3-deny to an existing allow-all",
 		setup: MapState{
 			AnyIngressKey(): allowEntry(0),
 		},
@@ -1037,12 +1070,12 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesDeny(c *check.C) {
 			AnyIngressKey():          allowEntry(0),
 			testIngressKey(41, 0, 0): denyEntry(0, csFoo),
 		},
-		adds: MapState{
-			testIngressKey(41, 0, 0): denyEntry(0),
+		adds: Keys{
+			testIngressKey(41, 0, 0): {},
 		},
-		deletes: MapState{},
+		deletes: Keys{},
 	}, {
-		name: "test-5 - Multiple dependent entries",
+		name: "test-6 - Multiple dependent entries",
 		setup: MapState{
 			AnyEgressKey():     allowEntry(0),
 			HttpEgressKey(0):   allowEntry(12345, nil),
@@ -1059,12 +1092,12 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesDeny(c *check.C) {
 			DNSUDPEgressKey(0):      allowEntry(12346, nil),
 			DNSUDPEgressKey(41):     denyEntry(0).WithOwners(testEgressKey(41, 0, 0)),
 		},
-		adds: MapState{
-			testEgressKey(41, 0, 0): denyEntry(0),
-			HttpEgressKey(41):       denyEntry(0),
-			DNSUDPEgressKey(41):     denyEntry(0),
+		adds: Keys{
+			testEgressKey(41, 0, 0): {},
+			HttpEgressKey(41):       {},
+			DNSUDPEgressKey(41):     {},
 		},
-		deletes: MapState{},
+		deletes: Keys{},
 	}, {
 		continued: false,
 		name:      "test-n - title",
@@ -1074,10 +1107,10 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesDeny(c *check.C) {
 		state: MapState{
 			//HttpIngressKey(42): allowEntry(0, csFoo),
 		},
-		adds: MapState{
+		adds: Keys{
 			//HttpIngressKey(42): allowEntry(0),
 		},
-		deletes: MapState{
+		deletes: Keys{
 			//HttpIngressKey(43): allowEntry(0),
 		},
 	},
@@ -1133,8 +1166,8 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 		name      string
 		args      []args // changes applied, in order
 		state     MapState
-		adds      MapState
-		deletes   MapState
+		adds      Keys
+		deletes   Keys
 	}{{
 		name: "test-1a - Adding identity to an empty state",
 		args: []args{
@@ -1143,10 +1176,10 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 		state: MapState{
 			HttpIngressKey(42): allowEntry(0, csFoo),
 		},
-		adds: MapState{
-			HttpIngressKey(42): allowEntry(0),
+		adds: Keys{
+			HttpIngressKey(42): {},
 		},
-		deletes: MapState{},
+		deletes: Keys{},
 	}, {
 		continued: true,
 		name:      "test-1b - Removing the sole key",
@@ -1154,9 +1187,9 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 			{cs: csFoo, adds: nil, deletes: []int{42}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
 		},
 		state: MapState{},
-		adds:  MapState{},
-		deletes: MapState{
-			HttpIngressKey(42): allowEntry(0),
+		adds:  Keys{},
+		deletes: Keys{
+			HttpIngressKey(42): {},
 		},
 	}, {
 		name: "test-2a - Adding 2 identities, and deleting a nonexisting key on an empty state",
@@ -1167,11 +1200,11 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 			HttpIngressKey(42): allowEntry(0, csFoo),
 			HttpIngressKey(43): allowEntry(0, csFoo),
 		},
-		adds: MapState{
-			HttpIngressKey(42): allowEntry(0),
-			HttpIngressKey(43): allowEntry(0),
+		adds: Keys{
+			HttpIngressKey(42): {},
+			HttpIngressKey(43): {},
 		},
-		deletes: MapState{},
+		deletes: Keys{},
 	}, {
 		continued: true,
 		name:      "test-2b - Adding Bar also selecting 42",
@@ -1183,10 +1216,10 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 			HttpIngressKey(43): allowEntry(0, csFoo),
 			HttpIngressKey(44): allowEntry(0, csBar),
 		},
-		adds: MapState{
-			HttpIngressKey(44): allowEntry(0),
+		adds: Keys{
+			HttpIngressKey(44): {},
 		},
-		deletes: MapState{},
+		deletes: Keys{},
 	}, {
 		continued: true,
 		name:      "test-2c - Deleting 42 from Foo, remains on Bar and no deletes",
@@ -1198,8 +1231,8 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 			HttpIngressKey(43): allowEntry(0, csFoo),
 			HttpIngressKey(44): allowEntry(0, csBar),
 		},
-		adds:    MapState{},
-		deletes: MapState{},
+		adds:    Keys{},
+		deletes: Keys{},
 	}, {
 		continued: true,
 		name:      "test-2d - Deleting 42 from Foo again, not deleted",
@@ -1211,8 +1244,8 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 			HttpIngressKey(43): allowEntry(0, csFoo),
 			HttpIngressKey(44): allowEntry(0, csBar),
 		},
-		adds:    MapState{},
-		deletes: MapState{},
+		adds:    Keys{},
+		deletes: Keys{},
 	}, {
 		continued: true,
 		name:      "test-2e - Deleting 42 from Bar, deleted",
@@ -1223,9 +1256,9 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 			HttpIngressKey(43): allowEntry(0, csFoo),
 			HttpIngressKey(44): allowEntry(0, csBar),
 		},
-		adds: MapState{},
-		deletes: MapState{
-			HttpIngressKey(42): allowEntry(0),
+		adds: Keys{},
+		deletes: Keys{
+			HttpIngressKey(42): {},
 		},
 	}, {
 		continued: true,
@@ -1237,8 +1270,8 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 			HttpIngressKey(43): allowEntry(0, csFoo),
 			HttpIngressKey(44): allowEntry(0, csBar),
 		},
-		adds:    MapState{},
-		deletes: MapState{},
+		adds:    Keys{},
+		deletes: Keys{},
 	}, {
 		continued: false,
 		name:      "test-3a - egress HTTP proxy (setup)",
@@ -1254,13 +1287,13 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 			DNSUDPEgressKey(42): allowEntry(0, csBar),
 			DNSTCPEgressKey(42): allowEntry(0, csBar),
 		},
-		adds: MapState{
-			AnyIngressKey():     allowEntry(0),
-			HostIngressKey():    allowEntry(0),
-			DNSUDPEgressKey(42): allowEntry(0),
-			DNSTCPEgressKey(42): allowEntry(0),
+		adds: Keys{
+			AnyIngressKey():     {},
+			HostIngressKey():    {},
+			DNSUDPEgressKey(42): {},
+			DNSTCPEgressKey(42): {},
 		},
-		deletes: MapState{},
+		deletes: Keys{},
 	}, {
 		continued: true,
 		name:      "test-3b - egress HTTP proxy (incremental update)",
@@ -1274,10 +1307,38 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 			DNSTCPEgressKey(42): allowEntry(0, csBar),
 			HttpEgressKey(43):   allowEntry(1, csFoo),
 		},
-		adds: MapState{
-			HttpEgressKey(43): allowEntry(1),
+		adds: Keys{
+			HttpEgressKey(43): {},
 		},
-		deletes: MapState{},
+		deletes: Keys{},
+	}, {
+		continued: false,
+		name:      "test-4a - Add & delete; delete cancels the add in reply",
+		args: []args{
+			{cs: csFoo, adds: []int{44}, deletes: []int{}, port: 80, proto: 6, ingress: false, redirect: true, deny: false},
+			{cs: csFoo, adds: []int{}, deletes: []int{44}, port: 80, proto: 6, ingress: false, redirect: true, deny: false},
+		},
+		state: MapState{},
+		adds:  Keys{},
+		deletes: Keys{
+			// Delete of the key is recoded as the key may have existed already in the (bpf) map
+			HttpEgressKey(44): {},
+		},
+	}, {
+		continued: true,
+		name:      "test-4b - Add, delete, & add; delete suppressed",
+		args: []args{
+			{cs: csFoo, adds: []int{44}, deletes: []int{}, port: 80, proto: 6, ingress: false, redirect: true, deny: false},
+			{cs: csFoo, adds: []int{}, deletes: []int{44}, port: 80, proto: 6, ingress: false, redirect: true, deny: false},
+			{cs: csFoo, adds: []int{44}, deletes: []int{}, port: 80, proto: 6, ingress: false, redirect: true, deny: false},
+		},
+		state: MapState{
+			HttpEgressKey(44): allowEntry(1, csFoo),
+		},
+		adds: Keys{
+			HttpEgressKey(44): {},
+		},
+		deletes: Keys{},
 	}, {
 		continued: false,
 		name:      "test-n - title",
@@ -1287,10 +1348,10 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 		state: MapState{
 			//HttpIngressKey(42): allowEntry(0, csFoo),
 		},
-		adds: MapState{
+		adds: Keys{
 			//HttpIngressKey(42): allowEntry(0),
 		},
-		deletes: MapState{
+		deletes: Keys{
 			//HttpIngressKey(43): allowEntry(0),
 		},
 	},
@@ -1484,32 +1545,32 @@ func (ds *PolicyTestSuite) TestMapState_AddVisibilityKeys(c *check.C) {
 		for k, v := range tt.keys {
 			old[k] = v
 		}
-		adds := make(MapState)
-		deletes := make(MapState)
-		tt.keys.AddVisibilityKeys(DummyOwner{}, tt.args.redirectPort, &tt.args.visMeta, adds, deletes)
+		adds := make(Keys)
+		visOld := make(MapState)
+		tt.keys.AddVisibilityKeys(DummyOwner{}, tt.args.redirectPort, &tt.args.visMeta, adds, visOld)
 		c.Assert(tt.keys, checker.DeepEquals, tt.want, check.Commentf(tt.name))
 		// Find new and updated entries
-		wantAdds := make(MapState)
-		wantDeletes := make(MapState)
+		wantAdds := make(Keys)
+		wantOld := make(MapState)
 		for k, v := range old {
 			if _, ok := tt.keys[k]; !ok {
-				wantDeletes[k] = v.export()
+				wantOld[k] = v
 			}
 		}
 		for k, v := range tt.keys {
 			if v2, ok := old[k]; ok {
-				v = v.export()
-				v2 = v2.export()
 				if equals, _ := checker.DeepEqual(v2, v); !equals {
-					wantAdds[k] = v
-					wantDeletes[k] = v2
+					wantAdds[k] = struct{}{}
+					wantOld[k] = v2
 				}
 			} else {
-				wantAdds[k] = v.export()
+				wantAdds[k] = struct{}{}
 			}
 		}
+		fmt.Printf("Adds: %v\n", adds)
+		fmt.Printf("wantAdds: %v\n", wantAdds)
 		c.Assert(adds, checker.DeepEquals, wantAdds, check.Commentf(tt.name))
-		c.Assert(deletes, checker.DeepEquals, wantDeletes, check.Commentf(tt.name))
+		c.Assert(visOld, checker.DeepEquals, wantOld, check.Commentf(tt.name))
 	}
 }
 
@@ -1532,16 +1593,16 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 		visMeta      VisibilityMetadata
 	}
 	tests := []struct {
-		continued  bool // Start from the end state of the previous test
-		name       string
-		setup      MapState
-		visArgs    []visArgs
-		visAdds    MapState
-		visDeletes MapState
-		args       []args // changes applied, in order
-		state      MapState
-		adds       MapState
-		deletes    MapState
+		continued bool // Start from the end state of the previous test
+		name      string
+		setup     MapState
+		visArgs   []visArgs
+		visAdds   Keys
+		visOld    MapState
+		args      []args // changes applied, in order
+		state     MapState
+		adds      Keys
+		deletes   Keys
 	}{{
 		name: "test-1a - Adding identity to deny with visibilty",
 		setup: MapState{
@@ -1552,9 +1613,13 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 			redirectPort: 12345,
 			visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
 		}},
-		visAdds: MapState{
-			HttpIngressKey(0):   allowEntryD(12345, visibilityDerivedFrom),
-			HttpIngressKey(234): denyEntry(0),
+		visAdds: Keys{
+			HttpIngressKey(0):         {},
+			testIngressKey(234, 0, 0): {}, // dependents changed
+			HttpIngressKey(234):       {},
+		},
+		visOld: MapState{
+			testIngressKey(234, 0, 0): denyEntry(0, csFoo),
 		},
 		args: []args{
 			{cs: csFoo, adds: []int{235}, deletes: []int{}, port: 0, proto: 0, ingress: true, redirect: false, deny: true},
@@ -1567,11 +1632,11 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 			HttpIngressKey(234):       denyEntry(0).WithOwners(testIngressKey(234, 0, 0)),
 			HttpIngressKey(235):       denyEntry(0).WithOwners(testIngressKey(235, 0, 0)),
 		},
-		adds: MapState{
-			testIngressKey(235, 0, 0): denyEntry(0),
-			HttpIngressKey(235):       denyEntry(0),
+		adds: Keys{
+			testIngressKey(235, 0, 0): {},
+			HttpIngressKey(235):       {},
 		},
-		deletes: MapState{},
+		deletes: Keys{},
 	}, {
 		continued: true,
 		name:      "test-1b - Removing the sole key",
@@ -1584,10 +1649,10 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 			HttpIngressKey(0):         allowEntryD(12345, visibilityDerivedFrom, nil),
 			HttpIngressKey(234):       denyEntry(0).WithOwners(testIngressKey(234, 0, 0)),
 		},
-		adds: MapState{},
-		deletes: MapState{
-			testIngressKey(235, 0, 0): denyEntry(0),
-			HttpIngressKey(235):       denyEntry(0),
+		adds: Keys{},
+		deletes: Keys{
+			testIngressKey(235, 0, 0): {},
+			HttpIngressKey(235):       {},
 		},
 	}, {
 		name: "test-2a - Adding 2 identities, and deleting a nonexisting key on an empty state",
@@ -1604,13 +1669,16 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 			HttpIngressKey(235):       allowEntryD(12345, visibilityDerivedFrom).WithOwners(testIngressKey(235, 0, 0)),
 			HttpIngressKey(236):       allowEntryD(12345, visibilityDerivedFrom).WithOwners(testIngressKey(236, 0, 0)),
 		},
-		adds: MapState{
-			testIngressKey(235, 0, 0): allowEntry(0),
-			HttpIngressKey(235):       allowEntryD(12345, visibilityDerivedFrom),
-			testIngressKey(236, 0, 0): allowEntry(0),
-			HttpIngressKey(236):       allowEntryD(12345, visibilityDerivedFrom),
+		adds: Keys{
+			testIngressKey(235, 0, 0): {},
+			HttpIngressKey(235):       {},
+			testIngressKey(236, 0, 0): {},
+			HttpIngressKey(236):       {},
 		},
-		deletes: MapState{},
+		deletes: Keys{
+			testIngressKey(235, 0, 0): {}, // changed dependents
+			testIngressKey(236, 0, 0): {}, // changed dependents
+		},
 	}, {
 		continued: true,
 		name:      "test-2b - Adding Bar also selecting 235",
@@ -1629,11 +1697,13 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 			testIngressKey(237, 0, 0): allowEntry(0, csBar).WithDependents(HttpIngressKey(237)),
 			HttpIngressKey(237):       allowEntryD(12345, visibilityDerivedFrom).WithOwners(testIngressKey(237, 0, 0)),
 		},
-		adds: MapState{
-			testIngressKey(237, 0, 0): allowEntry(0),
-			HttpIngressKey(237):       allowEntryD(12345, visibilityDerivedFrom),
+		adds: Keys{
+			testIngressKey(237, 0, 0): {},
+			HttpIngressKey(237):       {},
 		},
-		deletes: MapState{},
+		deletes: Keys{
+			testIngressKey(237, 0, 0): {}, // changed dependents
+		},
 	}, {
 		continued: true,
 		name:      "test-2c - Deleting 235 from Foo, remains on Bar and no deletes",
@@ -1652,8 +1722,8 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 			testIngressKey(237, 0, 0): allowEntry(0, csBar).WithDependents(HttpIngressKey(237)),
 			HttpIngressKey(237):       allowEntryD(12345, visibilityDerivedFrom).WithOwners(testIngressKey(237, 0, 0)),
 		},
-		adds:    MapState{},
-		deletes: MapState{},
+		adds:    Keys{},
+		deletes: Keys{},
 	}, {
 		continued: true,
 		name:      "test-2d - Deleting 235 from Foo again, not deleted",
@@ -1672,8 +1742,8 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 			testIngressKey(237, 0, 0): allowEntry(0, csBar).WithDependents(HttpIngressKey(237)),
 			HttpIngressKey(237):       allowEntryD(12345, visibilityDerivedFrom).WithOwners(testIngressKey(237, 0, 0)),
 		},
-		adds:    MapState{},
-		deletes: MapState{},
+		adds:    Keys{},
+		deletes: Keys{},
 	}, {
 		continued: true,
 		name:      "test-2e - Deleting 235 from Bar, deleted",
@@ -1690,10 +1760,10 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 			testIngressKey(237, 0, 0): allowEntry(0, csBar).WithDependents(HttpIngressKey(237)),
 			HttpIngressKey(237):       allowEntryD(12345, visibilityDerivedFrom).WithOwners(testIngressKey(237, 0, 0)),
 		},
-		adds: MapState{},
-		deletes: MapState{
-			testIngressKey(235, 0, 0): allowEntry(0),
-			HttpIngressKey(235):       allowEntryD(12345, visibilityDerivedFrom),
+		adds: Keys{},
+		deletes: Keys{
+			testIngressKey(235, 0, 0): {},
+			HttpIngressKey(235):       {},
 		},
 	}, {
 		continued: true,
@@ -1711,8 +1781,8 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 			testIngressKey(237, 0, 0): allowEntry(0, csBar).WithDependents(HttpIngressKey(237)),
 			HttpIngressKey(237):       allowEntryD(12345, visibilityDerivedFrom).WithOwners(testIngressKey(237, 0, 0)),
 		},
-		adds:    MapState{},
-		deletes: MapState{},
+		adds:    Keys{},
+		deletes: Keys{},
 	}, {
 		continued: false,
 		name:      "test-3a - egress HTTP proxy (setup)",
@@ -1735,11 +1805,11 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 				visMeta:      VisibilityMetadata{Ingress: false, Port: 53, Proto: u8proto.UDP},
 			},
 		},
-		visAdds: MapState{
-			HttpIngressKey(0): allowEntryD(12345, visibilityDerivedFrom),
-			HttpEgressKey(0):  allowEntryD(12346, visibilityDerivedFrom),
+		visAdds: Keys{
+			HttpIngressKey(0): {},
+			HttpEgressKey(0):  {},
 		},
-		visDeletes: MapState{
+		visOld: MapState{
 			// Old value for the modified entry
 			HttpEgressKey(0): allowEntry(0),
 		},
@@ -1757,13 +1827,13 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 			DNSUDPEgressKey(42): allowEntryD(12347, visibilityDerivedFrom, csBar),
 			DNSTCPEgressKey(42): allowEntry(0, csBar),
 		},
-		adds: MapState{
-			DNSUDPEgressKey(42): allowEntryD(12347, visibilityDerivedFrom),
-			DNSTCPEgressKey(42): allowEntry(0),
+		adds: Keys{
+			DNSUDPEgressKey(42): {},
+			DNSTCPEgressKey(42): {},
 		},
-		deletes: MapState{
+		deletes: Keys{
 			// AddVisibilityKeys() returns overwritten entries in 'deletes'
-			DNSUDPEgressKey(42): allowEntry(0),
+			DNSUDPEgressKey(42): {},
 		},
 	}, {
 		continued: true,
@@ -1795,10 +1865,10 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 			// Redirect entries are not modified by visibility annotations
 			HttpEgressKey(43): allowEntry(1, csFoo),
 		},
-		adds: MapState{
-			HttpEgressKey(43): allowEntry(1),
+		adds: Keys{
+			HttpEgressKey(43): {},
 		},
-		deletes: MapState{},
+		deletes: Keys{},
 	}, {
 		continued: false,
 		name:      "test-n - title",
@@ -1808,11 +1878,11 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 		state: MapState{
 			//HttpIngressKey(42): allowEntry(0, csFoo),
 		},
-		adds: MapState{
-			//HttpIngressKey(42): allowEntry(0),
+		adds: Keys{
+			//HttpIngressKey(42): {},
 		},
-		deletes: MapState{
-			//HttpIngressKey(43): allowEntry(0),
+		deletes: Keys{
+			//HttpIngressKey(43): {},
 		},
 	},
 	}
@@ -1822,16 +1892,16 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 	for _, tt := range tests {
 		// Allow omit empty maps
 		if tt.visAdds == nil {
-			tt.visAdds = make(MapState)
+			tt.visAdds = make(Keys)
 		}
-		if tt.visDeletes == nil {
-			tt.visDeletes = make(MapState)
+		if tt.visOld == nil {
+			tt.visOld = make(MapState)
 		}
 		if tt.adds == nil {
-			tt.adds = make(MapState)
+			tt.adds = make(Keys)
 		}
 		if tt.deletes == nil {
-			tt.deletes = make(MapState)
+			tt.deletes = make(Keys)
 		}
 		policyMaps := MapChanges{}
 		if !tt.continued {
@@ -1841,13 +1911,17 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 				policyMapState = MapState{}
 			}
 		}
-		adds := make(MapState)
-		deletes := make(MapState)
+		adds := make(Keys)
+		deletes := make(Keys)
+		visOld := make(MapState)
 		for _, arg := range tt.visArgs {
-			policyMapState.AddVisibilityKeys(DummyOwner{}, arg.redirectPort, &arg.visMeta, adds, deletes)
+			policyMapState.AddVisibilityKeys(DummyOwner{}, arg.redirectPort, &arg.visMeta, adds, visOld)
 		}
 		c.Assert(adds, checker.DeepEquals, tt.visAdds, check.Commentf(tt.name+" (visAdds)"))
-		c.Assert(deletes, checker.DeepEquals, tt.visDeletes, check.Commentf(tt.name+" (visDeletes)"))
+		c.Assert(visOld, checker.DeepEquals, tt.visOld, check.Commentf(tt.name+" (visOld)"))
+		for k := range visOld {
+			deletes[k] = struct{}{}
+		}
 		for _, x := range tt.args {
 			dir := trafficdirection.Egress
 			if x.ingress {
@@ -1863,8 +1937,12 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 		}
 		adds, deletes = policyMaps.consumeMapChanges(policyMapState)
 		// Visibilty redirects need to be re-applied after consumeMapChanges()
+		visOld = make(MapState)
 		for _, arg := range tt.visArgs {
-			policyMapState.AddVisibilityKeys(DummyOwner{}, arg.redirectPort, &arg.visMeta, adds, deletes)
+			policyMapState.AddVisibilityKeys(DummyOwner{}, arg.redirectPort, &arg.visMeta, adds, visOld)
+		}
+		for k := range visOld {
+			deletes[k] = struct{}{}
 		}
 		c.Assert(policyMapState, checker.DeepEquals, tt.state, check.Commentf(tt.name+" (MapState)"))
 		c.Assert(adds, checker.DeepEquals, tt.adds, check.Commentf(tt.name+" (adds)"))
