@@ -697,7 +697,7 @@ func (k *K8sWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPodIP
 					}
 				}
 				if !found {
-					npc := ipcache.IPIdentityCache.Delete(oldPodIP, source.Kubernetes)
+					npc := k.ipcache.Delete(oldPodIP, source.Kubernetes)
 					if npc {
 						namedPortsChanged = true
 					}
@@ -768,7 +768,7 @@ func (k *K8sWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPodIP
 		// Initial mapping of podIP <-> hostIP <-> identity. The mapping is
 		// later updated once the allocator has determined the real identity.
 		// If the endpoint remains unmanaged, the identity remains untouched.
-		npc, err := ipcache.IPIdentityCache.Upsert(podIP, hostIP, hostKey, k8sMeta, ipcache.Identity{
+		npc, err := k.ipcache.Upsert(podIP, hostIP, hostKey, k8sMeta, ipcache.Identity{
 			ID:     identity.ReservedIdentityUnmanaged,
 			Source: source.Kubernetes,
 		})
@@ -825,7 +825,7 @@ func (k *K8sWatcher) deletePodHostData(pod *slim_corev1.Pod) (bool, error) {
 		// a small race condition exists here as deletion could occur in
 		// parallel based on another event but it doesn't matter as the
 		// identity is going away
-		id, exists := ipcache.IPIdentityCache.LookupByIP(podIP)
+		id, exists := k.ipcache.LookupByIP(podIP)
 		if !exists {
 			skipped = true
 			errs = append(errs, fmt.Sprintf("identity for IP %s does not exist in case", podIP))
@@ -838,7 +838,7 @@ func (k *K8sWatcher) deletePodHostData(pod *slim_corev1.Pod) (bool, error) {
 			continue
 		}
 
-		ipcache.IPIdentityCache.DeleteOnMetadataMatch(podIP, source.Kubernetes, pod.Namespace, pod.Name)
+		k.ipcache.DeleteOnMetadataMatch(podIP, source.Kubernetes, pod.Namespace, pod.Name)
 	}
 
 	if len(errs) != 0 {

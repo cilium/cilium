@@ -515,6 +515,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		d.bgpSpeaker,
 		d.egressGatewayManager,
 		option.Config,
+		ipcache.IPIdentityCache,
 	)
 	nd.RegisterK8sNodeGetter(d.k8sWatcher)
 	// GH-17849: The daemon does not have a reference to the ipcache,

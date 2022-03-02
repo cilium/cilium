@@ -142,7 +142,7 @@ func (k *K8sWatcher) handleKubeAPIServerServiceEPChanges(desiredIPs map[string]s
 		ipcache.UpsertMetadata(ip, labels.LabelKubeAPIServer)
 	}
 
-	ipcache.IPIdentityCache.TriggerLabelInjection(
+	k.ipcache.TriggerLabelInjection(
 		src,
 		k.policyRepository.GetSelectorCache(),
 		k.endpointManager,
