@@ -474,9 +474,15 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// Propagate identity allocator down to packages which themselves do not
 	// have types to which we can add an allocator member.
 	//
+	// **NOTE** The identity allocator is not yet initialized; that happens
+	// below. We've only allocated the structure at this point.
+	//
 	// TODO: convert these package level variables to types for easier unit
 	// testing in the future.
-	ipcache.IdentityAllocator = d.identityAllocator
+	ipcache.IPIdentityCache = ipcache.NewIPCache().
+		WithIdentityAllocator(d.identityAllocator).
+		WithPolicyHandler(d.policy.GetSelectorCache()).
+		WithDatapathHandler(epMgr)
 	proxy.Allocator = d.identityAllocator
 
 	d.endpointManager = epMgr

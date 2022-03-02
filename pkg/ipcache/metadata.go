@@ -15,7 +15,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
+	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
 	cidrlabels "github.com/cilium/cilium/pkg/labels/cidr"
 	"github.com/cilium/cilium/pkg/lock"
@@ -85,7 +85,7 @@ func GetIDMetadataByIP(prefix string) labels.Labels {
 // prefix was previously associated with an identity, it will get deallocated,
 // so a balance is kept, ensuring a one-to-one mapping between prefix and
 // identity.
-func InjectLabels(src source.Source, updater identityUpdater, triggerer policyTriggerer) error {
+func InjectLabels(src source.Source, updater ipcacheTypes.PolicyHandler, triggerer ipcacheTypes.DatapathHandler) error {
 	if IdentityAllocator == nil || !IdentityAllocator.IsLocalIdentityAllocatorInitialized() {
 		return ErrLocalIdentityAllocatorUninitialized
 	}
@@ -280,8 +280,8 @@ func RemoveLabelsExcluded(
 	lbls labels.Labels,
 	toExclude map[string]struct{},
 	src source.Source,
-	updater identityUpdater,
-	triggerer policyTriggerer,
+	updater ipcacheTypes.PolicyHandler,
+	triggerer ipcacheTypes.DatapathHandler,
 ) {
 	applyIDMDChangesMutex.Lock()
 	defer applyIDMDChangesMutex.Unlock()
@@ -327,8 +327,8 @@ func filterMetadataByLabels(filter labels.Labels) []string {
 func removeLabelsFromIPs(
 	m map[string]labels.Labels,
 	src source.Source,
-	updater identityUpdater,
-	triggerer policyTriggerer,
+	updater ipcacheTypes.PolicyHandler,
+	triggerer ipcacheTypes.DatapathHandler,
 ) {
 	var (
 		idsToAdd    = make(map[identity.NumericIdentity]labels.LabelArray)
@@ -543,7 +543,7 @@ func sourceByLabels(d source.Source, lbls labels.Labels) source.Source {
 //      legend:
 //      * W means write
 //      * R means read
-func (ipc *IPCache) TriggerLabelInjection(src source.Source, sc identityUpdater, pt policyTriggerer) {
+func (ipc *IPCache) TriggerLabelInjection(src source.Source, sc ipcacheTypes.PolicyHandler, pt ipcacheTypes.DatapathHandler) {
 	// GH-17829: Would also be nice to have an end-to-end test to validate
 	//           on upgrade that there are no connectivity drops when this
 	//           channel is preventing transient BPF entries.
@@ -561,12 +561,4 @@ func (ipc *IPCache) TriggerLabelInjection(src source.Source, sc identityUpdater,
 			},
 		},
 	)
-}
-
-type identityUpdater interface {
-	UpdateIdentities(added, deleted cache.IdentityCache, wg *sync.WaitGroup)
-}
-
-type policyTriggerer interface {
-	UpdatePolicyMaps(context.Context, *sync.WaitGroup) *sync.WaitGroup
 }
