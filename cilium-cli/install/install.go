@@ -306,211 +306,30 @@ func (k *K8sInstaller) getCiliumVersion() semver.Version {
 }
 
 func (k *K8sInstaller) generateConfigMap() (*corev1.ConfigMap, error) {
-	v := k.getCiliumVersion()
-	k.Log("🚀 Creating ConfigMap for Cilium version %s...", v.String())
+	var (
+		cmFilename string
+	)
 
-	m := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: defaults.ConfigMapName,
-		},
-		Data: map[string]string{
-			// Identity allocation mode selects how identities are shared between cilium
-			// nodes by setting how they are stored. The options are "crd" or "kvstore".
-			// - "crd" stores identities in kubernetes as CRDs (custom resource definition).
-			//   These can be queried with:
-			//     kubectl get ciliumid
-			// - "kvstore" stores identities in a kvstore, etcd or consul, that is
-			//   configured below. Cilium versions before 1.6 supported only the kvstore
-			//   backend. Upgrades from these older cilium versions should continue using
-			//   the kvstore by commenting out the identity-allocation-mode below, or
-			//   setting it to "kvstore".
-			"identity-allocation-mode":    "crd",
-			"cilium-endpoint-gc-interval": "5m0s",
-
-			// If you want to run cilium in debug mode change this value to true
-			"debug": "false",
-			// The agent can be put into the following three policy enforcement modes
-			// default, always and never.
-			// https://docs.cilium.io/en/latest/policy/intro/#policy-enforcement-modes
-			"enable-policy": "default",
-
-			// Enable IPv4 addressing. If enabled, all endpoints are allocated an IPv4
-			// address.
-			"enable-ipv4": "true",
-
-			// Enable IPv6 addressing. If enabled, all endpoints are allocated an IPv6
-			// address.
-			"enable-ipv6": "false",
-			// Users who wish to specify their own custom CNI configuration file must set
-			// custom-cni-conf to "true", otherwise Cilium may overwrite the configuration.
-			"custom-cni-conf":        "false",
-			"enable-bpf-clock-probe": "true",
-			// If you want cilium monitor to aggregate tracing for packets, set this level
-			// to "low", "medium", or "maximum". The higher the level, the less packets
-			// that will be seen in monitor output.
-			"monitor-aggregation": "medium",
-
-			// The monitor aggregation interval governs the typical time between monitor
-			// notification events for each allowed connection.
-			//
-			// Only effective when monitor aggregation is set to "medium" or higher.
-			"monitor-aggregation-interval": "5s",
-
-			// The monitor aggregation flags determine which TCP flags which, upon the
-			// first observation, cause monitor notifications to be generated.
-			//
-			// Only effective when monitor aggregation is set to "medium" or higher.
-			"monitor-aggregation-flags": "all",
-			// Specifies the ratio (0.0-1.0) of total system memory to use for dynamic
-			// sizing of the TCP CT, non-TCP CT, NAT and policy BPF maps.
-			"bpf-map-dynamic-size-ratio": "0.0025",
-			// bpf-policy-map-max specifies the maximum number of entries in endpoint
-			// policy map (per endpoint)
-			"bpf-policy-map-max": "16384",
-			// bpf-lb-map-max specifies the maximum number of entries in bpf lb service,
-			// backend and affinity maps.
-			"bpf-lb-map-max": "65536",
-			// Pre-allocation of map entries allows per-packet latency to be reduced, at
-			// the expense of up-front memory allocation for the entries in the maps. The
-			// default value below will minimize memory usage in the default installation;
-			// users who are sensitive to latency may consider setting this to "true".
-			//
-			// This option was introduced in Cilium 1.4. Cilium 1.3 and earlier ignore
-			// this option and behave as though it is set to "true".
-			//
-			// If this value is modified, then during the next Cilium startup the restore
-			// of existing endpoints and tracking of ongoing connections may be disrupted.
-			// As a result, reply packets may be dropped and the load-balancing decisions
-			// for established connections may change.
-			//
-			// If this option is set to "false" during an upgrade from 1.3 or earlier to
-			// 1.4 or later, then it may cause one-time disruptions during the upgrade.
-			"preallocate-bpf-maps": "false",
-
-			// Regular expression matching compatible Istio sidecar istio-proxy
-			// container image names
-			"sidecar-istio-proxy-image": "cilium/istio_proxy",
-
-			// Name of the cluster. Only relevant when building a mesh of clusters.
-			"cluster-name": k.params.ClusterName,
-			// Unique ID of the cluster. Must be unique across all conneted clusters and
-			// in the range of 1 and 255. Only relevant when building a mesh of clusters.
-			"cluster-id": "",
-
-			// Enables L7 proxy for L7 policy enforcement and visibility
-			"enable-l7-proxy": "true",
-
-			// wait-bpf-mount makes init container wait until bpf filesystem is mounted
-			"wait-bpf-mount": "true",
-
-			"enable-bpf-masquerade": "false",
-
-			"enable-xt-socket-fallback":           "true",
-			"install-iptables-rules":              "true",
-			"install-no-conntrack-iptables-rules": "false",
-
-			"auto-direct-node-routes":             "false",
-			"enable-local-redirect-policy":        "false",
-			"enable-health-check-nodeport":        "true",
-			"node-port-bind-protection":           "true",
-			"enable-auto-protect-node-port-range": "true",
-			"enable-session-affinity":             "true",
-			"enable-endpoint-health-checking":     "true",
-			"enable-health-checking":              "true",
-			"enable-well-known-identities":        "false",
-			"enable-remote-node-identity":         "true",
-			"operator-api-serve-addr":             "127.0.0.1:9234",
-			"disable-cnp-status-updates":          "true",
-		},
+	ciliumVer := k.getCiliumVersion()
+	switch {
+	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+		cmFilename = "templates/cilium-configmap.yaml"
+	default:
+		return nil, fmt.Errorf("cilium version unsupported %s", ciliumVer.String())
 	}
 
-	if k.params.ClusterID != 0 {
-		m.Data["cluster-id"] = fmt.Sprintf("%d", k.params.ClusterID)
-	}
+	cmFile := k.manifests[cmFilename]
 
-	if k.params.IPv4NativeRoutingCIDR != "" {
-		// NOTE: Cilium v1.11 replaced --native-routing-cidr by
-		// --ipv4-native-routing-cidr
-		if v.LT(versioncheck.MustVersion("1.11.0")) {
-			m.Data["native-routing-cidr"] = k.params.IPv4NativeRoutingCIDR
-		} else {
-			m.Data["ipv4-native-routing-cidr"] = k.params.IPv4NativeRoutingCIDR
-		}
-	}
-
-	m.Data["kube-proxy-replacement"] = k.params.KubeProxyReplacement
-
-	m.Data["ipam"] = k.params.IPAM
-	switch k.params.IPAM {
-	case ipamClusterPool:
-		m.Data["cluster-pool-ipv4-cidr"] = "10.0.0.0/8"
-		m.Data["cluster-pool-ipv4-mask-size"] = "24"
-	}
-
-	masqueradeOption := "enable-ipv4-masquerade"
-	if v.LT(versioncheck.MustVersion("1.10.0")) {
-		// Deprecated. Remove once we stop supporting Cilium 1.10
-		masqueradeOption = "masquerade"
-	}
-	m.Data[masqueradeOption] = "true"
-
-	switch k.params.DatapathMode {
-	case DatapathTunnel:
-		t := k.params.TunnelType
-		if t == "" {
-			t = defaults.TunnelType
-		}
-		m.Data["tunnel"] = t
-
-	case DatapathAwsENI:
-		m.Data["tunnel"] = "disabled"
-		m.Data["enable-endpoint-routes"] = "true"
-		m.Data["auto-create-cilium-node-resource"] = "true"
-		// TODO(tgraf) Is this really sane?
-		m.Data["egress-masquerade-interfaces"] = "eth0"
-
-	case DatapathGKE:
-		m.Data["tunnel"] = "disabled"
-		m.Data["enable-endpoint-routes"] = "true"
-		m.Data["enable-local-node-route"] = "false"
-
-	case DatapathAzure:
-		m.Data["tunnel"] = "disabled"
-		m.Data["enable-endpoint-routes"] = "true"
-		m.Data["auto-create-cilium-node-resource"] = "true"
-		m.Data["enable-local-node-route"] = "false"
-
-		m.Data[masqueradeOption] = "false"
-		m.Data["enable-bpf-masquerade"] = "false"
-	}
-
-	switch k.params.Encryption {
-	case encryptionIPsec:
-		m.Data["enable-ipsec"] = "true"
-		m.Data["ipsec-key-file"] = "/etc/ipsec/keys"
-
-		if k.params.NodeEncryption {
-			m.Data["encrypt-node"] = "true"
-		}
-	case encryptionWireguard:
-		m.Data["enable-wireguard"] = "true"
-		// TODO(gandro): Future versions of Cilium will remove the following
-		// two limitations, we will need to have set the config map values
-		// based on the installed Cilium version
-		m.Data["enable-l7-proxy"] = "false"
-		k.Log("ℹ️  L7 proxy disabled due to Wireguard encryption")
-
-		if k.params.NodeEncryption {
-			k.Log("⚠️️  Wireguard does not support node encryption yet")
-		}
-	}
+	var cm corev1.ConfigMap
+	utils.MustUnmarshalYAML([]byte(cmFile), &cm)
+	k.Log("🚀 Creating ConfigMap for Cilium version %s...", ciliumVer.String())
 
 	for key, value := range k.params.configOverwrites {
 		k.Log("ℹ️ Manual overwrite in ConfigMap: %s=%s", key, value)
-		m.Data[key] = value
+		cm.Data[key] = value
 	}
 
-	if m.Data["install-no-conntrack-iptables-rules"] == "true" {
+	if cm.Data["install-no-conntrack-iptables-rules"] == "true" {
 		switch k.params.DatapathMode {
 		case DatapathAwsENI:
 			return nil, fmt.Errorf("--install-no-conntrack-iptables-rules cannot be enabled on AWS EKS")
@@ -520,24 +339,24 @@ func (k *K8sInstaller) generateConfigMap() (*corev1.ConfigMap, error) {
 			return nil, fmt.Errorf("--install-no-conntrack-iptables-rules cannot be enabled on Azure AKS")
 		}
 
-		if m.Data["tunnel"] != "disabled" {
+		if cm.Data["tunnel"] != "disabled" {
 			return nil, fmt.Errorf("--install-no-conntrack-iptables-rules requires tunneling to be disabled")
 		}
 
-		if m.Data["kube-proxy-replacement"] != "strict" {
+		if cm.Data["kube-proxy-replacement"] != "strict" {
 			return nil, fmt.Errorf("--install-no-conntrack-iptables-rules requires kube-proxy replacement to be enabled")
 		}
 
-		if m.Data["enable-bpf-masquerade"] != "true" {
+		if cm.Data["enable-bpf-masquerade"] != "true" {
 			return nil, fmt.Errorf("--install-no-conntrack-iptables-rules requires eBPF masquerading to be enabled")
 		}
 
-		if m.Data["cni-chaining-mode"] != "" {
+		if cm.Data["cni-chaining-mode"] != "" {
 			return nil, fmt.Errorf("--install-no-conntrack-iptables-rules cannot be enabled with CNI chaining")
 		}
 	}
 
-	return m, nil
+	return &cm, nil
 }
 
 func (k *K8sInstaller) deployResourceQuotas(ctx context.Context) error {
@@ -795,7 +614,6 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 		}
 	})
 
-	// TODO(aanm) automate this as well in form of helm chart
 	configMap, err := k.generateConfigMap()
 	if err != nil {
 		return fmt.Errorf("cannot generate ConfigMap: %w", err)
