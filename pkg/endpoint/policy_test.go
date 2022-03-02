@@ -9,6 +9,7 @@ package endpoint
 import (
 	"gopkg.in/check.v1"
 
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/policy"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -16,7 +17,7 @@ import (
 
 func (s *EndpointSuite) TestUpdateVisibilityPolicy(c *check.C) {
 	do := &DummyOwner{repo: policy.NewPolicyRepository(nil, nil, nil)}
-	ep := NewEndpointWithState(do, do, nil, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
+	ep := NewEndpointWithState(do, do, ipcache.NewIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
 	ep.UpdateVisibilityPolicy(func(_, _ string) (string, error) {
 		return "", nil
 	})
