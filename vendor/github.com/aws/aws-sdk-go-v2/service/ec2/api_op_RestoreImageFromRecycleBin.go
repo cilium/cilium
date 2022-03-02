@@ -6,30 +6,34 @@ import (
 	"context"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
-	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Registers a set of tag keys to include in scheduled event notifications for your
-// resources. To remove tags, use DeregisterInstanceEventNotificationAttributes
-// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DeregisterInstanceEventNotificationAttributes.html).
-func (c *Client) RegisterInstanceEventNotificationAttributes(ctx context.Context, params *RegisterInstanceEventNotificationAttributesInput, optFns ...func(*Options)) (*RegisterInstanceEventNotificationAttributesOutput, error) {
+// Restores an AMI from the Recycle Bin. For more information, see Recycle Bin
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/recycle-bin.html) in the
+// Amazon Elastic Compute Cloud User Guide.
+func (c *Client) RestoreImageFromRecycleBin(ctx context.Context, params *RestoreImageFromRecycleBinInput, optFns ...func(*Options)) (*RestoreImageFromRecycleBinOutput, error) {
 	if params == nil {
-		params = &RegisterInstanceEventNotificationAttributesInput{}
+		params = &RestoreImageFromRecycleBinInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "RegisterInstanceEventNotificationAttributes", params, optFns, c.addOperationRegisterInstanceEventNotificationAttributesMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "RestoreImageFromRecycleBin", params, optFns, c.addOperationRestoreImageFromRecycleBinMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*RegisterInstanceEventNotificationAttributesOutput)
+	out := result.(*RestoreImageFromRecycleBinOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type RegisterInstanceEventNotificationAttributesInput struct {
+type RestoreImageFromRecycleBinInput struct {
+
+	// The ID of the AMI to restore.
+	//
+	// This member is required.
+	ImageId *string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
@@ -37,16 +41,13 @@ type RegisterInstanceEventNotificationAttributesInput struct {
 	// UnauthorizedOperation.
 	DryRun *bool
 
-	// Information about the tag keys to register.
-	InstanceTagAttribute *types.RegisterInstanceTagAttributeRequest
-
 	noSmithyDocumentSerde
 }
 
-type RegisterInstanceEventNotificationAttributesOutput struct {
+type RestoreImageFromRecycleBinOutput struct {
 
-	// The resulting set of tag keys.
-	InstanceTagAttribute *types.InstanceTagNotificationAttribute
+	// Returns true if the request succeeds; otherwise, it returns an error.
+	Return *bool
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -54,12 +55,12 @@ type RegisterInstanceEventNotificationAttributesOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationRegisterInstanceEventNotificationAttributesMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	err = stack.Serialize.Add(&awsEc2query_serializeOpRegisterInstanceEventNotificationAttributes{}, middleware.After)
+func (c *Client) addOperationRestoreImageFromRecycleBinMiddlewares(stack *middleware.Stack, options Options) (err error) {
+	err = stack.Serialize.Add(&awsEc2query_serializeOpRestoreImageFromRecycleBin{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpRegisterInstanceEventNotificationAttributes{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpRestoreImageFromRecycleBin{}, middleware.After)
 	if err != nil {
 		return err
 	}
@@ -99,7 +100,10 @@ func (c *Client) addOperationRegisterInstanceEventNotificationAttributesMiddlewa
 	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opRegisterInstanceEventNotificationAttributes(options.Region), middleware.Before); err != nil {
+	if err = addOpRestoreImageFromRecycleBinValidationMiddleware(stack); err != nil {
+		return err
+	}
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opRestoreImageFromRecycleBin(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -114,11 +118,11 @@ func (c *Client) addOperationRegisterInstanceEventNotificationAttributesMiddlewa
 	return nil
 }
 
-func newServiceMetadataMiddleware_opRegisterInstanceEventNotificationAttributes(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opRestoreImageFromRecycleBin(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
 		SigningName:   "ec2",
-		OperationName: "RegisterInstanceEventNotificationAttributes",
+		OperationName: "RestoreImageFromRecycleBin",
 	}
 }

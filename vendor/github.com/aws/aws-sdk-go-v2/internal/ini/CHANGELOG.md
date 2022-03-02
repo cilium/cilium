@@ -1,3 +1,7 @@
+# v1.3.6 (2022-02-24)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.3.5 (2022-01-28)
 
 * **Bug Fix**: Fixes the SDK's handling of `duration_sections` in the shared credentials file or specified in multiple shared config and shared credentials files under the same profile. [#1568](https://github.com/aws/aws-sdk-go-v2/pull/1568). Thanks to [Amir Szekely](https://github.com/kichik) for help reproduce this bug.

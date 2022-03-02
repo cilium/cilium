@@ -8,7 +8,7 @@ import (
 const doubleSpace = "  "
 
 // StripExcessSpaces will rewrite the passed in slice's string values to not
-// contain muliple side-by-side spaces.
+// contain multiple side-by-side spaces.
 func StripExcessSpaces(str string) string {
 	var j, k, l, m, spaces int
 	// Trim trailing spaces

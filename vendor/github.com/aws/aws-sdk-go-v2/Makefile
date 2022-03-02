@@ -1,5 +1,6 @@
 # Lint rules to ignore
 LINTIGNORESINGLEFIGHT='internal/sync/singleflight/singleflight.go:.+error should be the last type'
+LINT_IGNORE_S3MANAGER_INPUT='feature/s3/manager/upload.go:.+struct field SSEKMSKeyId should be SSEKMSKeyID'
 
 UNIT_TEST_TAGS=
 BUILD_TAGS=-tags "example,codegen,integration,ec2env,perftest"
@@ -72,13 +73,13 @@ all: generate unit
 ###################
 .PHONY: generate smithy-generate smithy-build smithy-build-% smithy-clean smithy-go-publish-local format \
 gen-config-asserts gen-repo-mod-replace gen-mod-replace-smithy gen-mod-dropreplace-smithy gen-aws-ptrs tidy-modules-% \
-add-module-license-files sync-models sync-endpoints-model sync-endpoints.json clone-v1-models gen-endpoint-prefix.json \
+add-module-license-files sync-models sync-endpoints-model sync-endpoints.json clone-v1-models gen-internal-codegen \
 sync-api-models copy-attributevalue-feature min-go-version-% update-requires smithy-annotate-stable \
 update-module-metadata download-modules-%
 
 generate: smithy-generate update-requires gen-repo-mod-replace update-module-metadata smithy-annotate-stable \
-gen-config-asserts copy-attributevalue-feature  gen-mod-dropreplace-smithy min-go-version-. tidy-modules-. \
-add-module-license-files gen-aws-ptrs format
+gen-config-asserts gen-internal-codegen copy-attributevalue-feature gen-mod-dropreplace-smithy min-go-version-. \
+tidy-modules-. add-module-license-files gen-aws-ptrs format
 
 smithy-generate:
 	cd codegen && ./gradlew clean build -Plog-tests && ./gradlew clean
@@ -115,6 +116,11 @@ gen-config-asserts:
 	cd config \
 	    && go mod tidy \
 	    && go generate
+
+gen-internal-codegen:
+	@echo "Generating internal/codegen"
+	cd internal/codegen \
+		&& go generate
 
 gen-repo-mod-replace:
 	@echo "Generating go.mod replace for repo modules"
@@ -158,7 +164,7 @@ add-module-license-files:
 
 sync-models: sync-endpoints-model sync-api-models
 
-sync-endpoints-model: sync-endpoints.json gen-endpoint-prefix.json
+sync-endpoints-model: sync-endpoints.json
 
 sync-endpoints.json:
 	[[ ! -z "${ENDPOINTS_MODEL}" ]] && cp ${ENDPOINTS_MODEL} ${ENDPOINTS_JSON} || echo "ENDPOINTS_MODEL not set, must not be empty"
@@ -166,12 +172,6 @@ sync-endpoints.json:
 clone-v1-models:
 	rm -rf /tmp/aws-sdk-go-model-sync
 	git clone https://github.com/aws/aws-sdk-go.git --depth 1 /tmp/aws-sdk-go-model-sync
-
-gen-endpoint-prefix.json: clone-v1-models
-	cd internal/repotools/cmd/endpointPrefix && \
-		go run . \
-			-m '/tmp/aws-sdk-go-model-sync/models/apis/*/*/api-2.json' \
-			-o ${ENDPOINT_PREFIX_JSON}
 
 sync-api-models:
 	cd internal/repotools/cmd/syncAPIModels && \
@@ -448,6 +448,7 @@ lint:
 	@echo "go lint SDK and vendor packages"
 	@lint=`golint ./...`; \
 	dolint=`echo "$$lint" | grep -E -v \
+	-e ${LINT_IGNORE_S3MANAGER_INPUT} \
 	-e ${LINTIGNORESINGLEFIGHT}`; \
 	echo "$$dolint"; \
 	if [ "$$dolint" != "" ]; then exit 1; fi

@@ -35,13 +35,16 @@ type Attempt struct {
 	// attempts are reached.
 	LogAttempts bool
 
-	retryer       aws.Retryer
+	retryer       aws.RetryerV2
 	requestCloner RequestCloner
 }
 
 // NewAttemptMiddleware returns a new Attempt retry middleware.
 func NewAttemptMiddleware(retryer aws.Retryer, requestCloner RequestCloner, optFns ...func(*Attempt)) *Attempt {
-	m := &Attempt{retryer: retryer, requestCloner: requestCloner}
+	m := &Attempt{
+		retryer:       wrapAsRetryerV2(retryer),
+		requestCloner: requestCloner,
+	}
 	for _, fn := range optFns {
 		fn(m)
 	}
@@ -49,9 +52,7 @@ func NewAttemptMiddleware(retryer aws.Retryer, requestCloner RequestCloner, optF
 }
 
 // ID returns the middleware identifier
-func (r *Attempt) ID() string {
-	return "Retry"
-}
+func (r *Attempt) ID() string { return "Retry" }
 
 func (r Attempt) logf(logger logging.Logger, classification logging.Classification, format string, v ...interface{}) {
 	if !r.LogAttempts {
@@ -120,10 +121,23 @@ func (r *Attempt) handleAttempt(
 		attemptResult.Err = err
 	}()
 
+	// Short circuit if this attempt never can succeed because the context is
+	// canceled. This reduces the chance of token pools being modified for
+	// attempts that will not be made
+	select {
+	case <-ctx.Done():
+		return out, attemptResult, nopRelease, ctx.Err()
+	default:
+	}
+
 	//------------------------------
-	// Get Initial (aka Send) Token
+	// Get Attempt Token
 	//------------------------------
-	releaseInitialToken := r.retryer.GetInitialToken()
+	releaseAttemptToken, err := r.retryer.GetAttemptToken(ctx)
+	if err != nil {
+		return out, attemptResult, nopRelease, fmt.Errorf(
+			"failed to get retry Send token, %w", err)
+	}
 
 	//------------------------------
 	// Send Attempt
@@ -139,12 +153,13 @@ func (r *Attempt) handleAttempt(
 	if attemptNum > 1 {
 		if rewindable, ok := in.Request.(interface{ RewindStream() error }); ok {
 			if rewindErr := rewindable.RewindStream(); rewindErr != nil {
-				err = fmt.Errorf("failed to rewind transport stream for retry, %w", rewindErr)
-				return out, attemptResult, nopRelease, err
+				return out, attemptResult, nopRelease, fmt.Errorf(
+					"failed to rewind transport stream for retry, %w", rewindErr)
 			}
 		}
 
-		r.logf(logger, logging.Debug, "retrying request %s/%s, attempt %d", service, operation, attemptNum)
+		r.logf(logger, logging.Debug, "retrying request %s/%s, attempt %d",
+			service, operation, attemptNum)
 	}
 
 	var metadata smithymiddle.Metadata
@@ -154,15 +169,15 @@ func (r *Attempt) handleAttempt(
 	//------------------------------
 	// Bookkeeping
 	//------------------------------
-	// Release the initial send token based on the state of the attempt's error (if any).
-	if releaseError := releaseInitialToken(err); releaseError != nil && err != nil {
-		err = fmt.Errorf("failed to release initial token after request error, %w", err)
-		return out, attemptResult, nopRelease, err
-	}
 	// Release the retry token based on the state of the attempt's error (if any).
 	if releaseError := releaseRetryToken(err); releaseError != nil && err != nil {
-		err = fmt.Errorf("failed to release retry token after request error, %w", err)
-		return out, attemptResult, nopRelease, err
+		return out, attemptResult, nopRelease, fmt.Errorf(
+			"failed to release retry token after request error, %w", err)
+	}
+	// Release the attempt token based on the state of the attempt's error (if any).
+	if releaseError := releaseAttemptToken(err); releaseError != nil && err != nil {
+		return out, attemptResult, nopRelease, fmt.Errorf(
+			"failed to release initial token after request error, %w", err)
 	}
 	// If there was no error making the attempt, nothing further to do. There
 	// will be nothing to retry.

@@ -208,6 +208,18 @@ type AssumeRoleOptions struct {
 	// or an Amazon Resource Name (ARN) for a virtual device (such as arn:aws:iam::123456789012:mfa/user).
 	SerialNumber *string
 
+	// The source identity specified by the principal that is calling the AssumeRole
+	// operation. You can require users to specify a source identity when they assume a
+	// role. You do this by using the sts:SourceIdentity condition key in a role trust
+	// policy. You can use source identity information in CloudTrail logs to determine
+	// who took actions with a role. You can use the aws:SourceIdentity condition key
+	// to further control access to Amazon Web Services resources based on the value of
+	// source identity. For more information about using source identity, see Monitor
+	// and control actions taken with assumed roles
+	// (https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_control-access_monitor.html)
+	// in the IAM User Guide.
+	SourceIdentity *string
+
 	// Async method of providing MFA token code for assuming an IAM role with MFA.
 	// The value returned by the function will be used as the TokenCode in the Retrieve
 	// call. See StdinTokenProvider for a provider that prompts and reads from stdin.
@@ -266,6 +278,7 @@ func (p *AssumeRoleProvider) Retrieve(ctx context.Context) (aws.Credentials, err
 		RoleArn:           aws.String(p.options.RoleARN),
 		RoleSessionName:   aws.String(p.options.RoleSessionName),
 		ExternalId:        p.options.ExternalID,
+		SourceIdentity:    p.options.SourceIdentity,
 		Tags:              p.options.Tags,
 		TransitiveTagKeys: p.options.TransitiveTagKeys,
 	}

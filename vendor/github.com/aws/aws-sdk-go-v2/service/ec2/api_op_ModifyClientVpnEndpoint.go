@@ -38,6 +38,8 @@ type ModifyClientVpnEndpointInput struct {
 	// The options for managing connection authorization for new client connections.
 	ClientConnectOptions *types.ClientConnectOptions
 
+	// Options for enabling a customizable text banner that will be displayed on Amazon
+	// Web Services provided clients when a VPN session is established.
 	ClientLoginBannerOptions *types.ClientLoginBannerOptions
 
 	// Information about the client connection logging options. If you enable client
@@ -79,6 +81,8 @@ type ModifyClientVpnEndpointInput struct {
 	// provisioned in Certificate Manager (ACM).
 	ServerCertificateArn *string
 
+	// The maximum VPN session duration time in hours. Valid values: 8 | 10 | 12 | 24
+	// Default value: 24
 	SessionTimeoutHours *int32
 
 	// Indicates whether the VPN is split-tunnel. For information about split-tunnel

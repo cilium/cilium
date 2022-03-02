@@ -18,7 +18,8 @@ import (
 // LoadOptionsFunc is a type alias for LoadOptions functional option
 type LoadOptionsFunc func(*LoadOptions) error
 
-// LoadOptions are discrete set of options that are valid for loading the configuration
+// LoadOptions are discrete set of options that are valid for loading the
+// configuration
 type LoadOptions struct {
 
 	// Region is the region to send requests to.
@@ -30,22 +31,36 @@ type LoadOptions struct {
 	// HTTPClient the SDK's API clients will use to invoke HTTP requests.
 	HTTPClient HTTPClient
 
-	// EndpointResolver that can be used to provide or override an endpoint for the given
-	// service and region.
+	// EndpointResolver that can be used to provide or override an endpoint for
+	// the given service and region.
 	//
 	// See the `aws.EndpointResolver` documentation on usage.
 	//
 	// Deprecated: See EndpointResolverWithOptions
 	EndpointResolver aws.EndpointResolver
 
-	// EndpointResolverWithOptions that can be used to provide or override an endpoint for the given
-	// service and region.
+	// EndpointResolverWithOptions that can be used to provide or override an
+	// endpoint for the given service and region.
 	//
 	// See the `aws.EndpointResolverWithOptions` documentation on usage.
 	EndpointResolverWithOptions aws.EndpointResolverWithOptions
 
-	// Retryer is a function that provides a Retryer implementation. A Retryer guides how HTTP requests should be
-	// retried in case of recoverable failures.
+	// RetryMaxAttempts specifies the maximum number attempts an API client
+	// will call an operation that fails with a retryable error.
+	//
+	// This value will only be used if Retryer option is nil.
+	RetryMaxAttempts int
+
+	// RetryMode specifies the retry model the API client will be created with.
+	//
+	// This value will only be used if Retryer option is nil.
+	RetryMode aws.RetryMode
+
+	// Retryer is a function that provides a Retryer implementation. A Retryer
+	// guides how HTTP requests should be retried in case of recoverable
+	// failures.
+	//
+	// If not nil, RetryMaxAttempts, and RetryMode will be ignored.
 	Retryer func() aws.Retryer
 
 	// APIOptions provides the set of middleware mutations modify how the API
@@ -56,45 +71,53 @@ type LoadOptions struct {
 	// Logger writer interface to write logging messages to.
 	Logger logging.Logger
 
-	// ClientLogMode is used to configure the events that will be sent to the configured logger.
-	// This can be used to configure the logging of signing, retries, request, and responses
-	// of the SDK clients.
+	// ClientLogMode is used to configure the events that will be sent to the
+	// configured logger. This can be used to configure the logging of signing,
+	// retries, request, and responses of the SDK clients.
 	//
-	// See the ClientLogMode type documentation for the complete set of logging modes and available
-	// configuration.
+	// See the ClientLogMode type documentation for the complete set of logging
+	// modes and available configuration.
 	ClientLogMode *aws.ClientLogMode
 
 	// SharedConfigProfile is the profile to be used when loading the SharedConfig
 	SharedConfigProfile string
 
-	// SharedConfigFiles is the slice of custom shared config files to use when loading the SharedConfig.
-	// A non-default profile used within config file must have name defined with prefix 'profile '.
-	// eg [profile xyz] indicates a profile with name 'xyz'.
-	// To read more on the format of the config file, please refer the documentation at
+	// SharedConfigFiles is the slice of custom shared config files to use when
+	// loading the SharedConfig. A non-default profile used within config file
+	// must have name defined with prefix 'profile '. eg [profile xyz]
+	// indicates a profile with name 'xyz'. To read more on the format of the
+	// config file, please refer the documentation at
 	// https://docs.aws.amazon.com/credref/latest/refdocs/file-format.html#file-format-config
 	//
-	// If duplicate profiles are provided within the same, or across multiple shared config files, the next parsed
-	// profile will override only the properties that conflict with the previously defined profile.
-	// Note that if duplicate profiles are provided within the SharedCredentialsFiles and SharedConfigFiles,
-	// the properties defined in shared credentials file take precedence.
+	// If duplicate profiles are provided within the same, or across multiple
+	// shared config files, the next parsed profile will override only the
+	// properties that conflict with the previously defined profile. Note that
+	// if duplicate profiles are provided within the SharedCredentialsFiles and
+	// SharedConfigFiles, the properties defined in shared credentials file
+	// take precedence.
 	SharedConfigFiles []string
 
-	// SharedCredentialsFile is the slice of custom shared credentials files to use when loading the SharedConfig.
-	// The profile name used within credentials file must not prefix 'profile '.
-	// eg [xyz] indicates a profile with name 'xyz'. Profile declared as [profile xyz] will be ignored.
-	// To read more on the format of the credentials file, please refer the documentation at
+	// SharedCredentialsFile is the slice of custom shared credentials files to
+	// use when loading the SharedConfig. The profile name used within
+	// credentials file must not prefix 'profile '. eg [xyz] indicates a
+	// profile with name 'xyz'. Profile declared as [profile xyz] will be
+	// ignored. To read more on the format of the credentials file, please
+	// refer the documentation at
 	// https://docs.aws.amazon.com/credref/latest/refdocs/file-format.html#file-format-creds
 	//
-	// If duplicate profiles are provided with a same, or across multiple shared credentials files, the next parsed
-	// profile will override only properties that conflict with the previously defined profile.
-	// Note that if duplicate profiles are provided within the SharedCredentialsFiles and SharedConfigFiles,
-	// the properties defined in shared credentials file take precedence.
+	// If duplicate profiles are provided with a same, or across multiple
+	// shared credentials files, the next parsed profile will override only
+	// properties that conflict with the previously defined profile. Note that
+	// if duplicate profiles are provided within the SharedCredentialsFiles and
+	// SharedConfigFiles, the properties defined in shared credentials file
+	// take precedence.
 	SharedCredentialsFiles []string
 
 	// CustomCABundle is CA bundle PEM bytes reader
 	CustomCABundle io.Reader
 
-	// DefaultRegion is the fall back region, used if a region was not resolved from other sources
+	// DefaultRegion is the fall back region, used if a region was not resolved
+	// from other sources
 	DefaultRegion string
 
 	// UseEC2IMDSRegion indicates if SDK should retrieve the region
@@ -146,10 +169,12 @@ type LoadOptions struct {
 	// AWS_EC2_METADATA_DISABLED=true
 	EC2IMDSClientEnableState imds.ClientEnableState
 
-	// Specifies the EC2 Instance Metadata Service default endpoint selection mode (IPv4 or IPv6)
+	// Specifies the EC2 Instance Metadata Service default endpoint selection
+	// mode (IPv4 or IPv6)
 	EC2IMDSEndpointMode imds.EndpointModeState
 
-	// Specifies the EC2 Instance Metadata Service endpoint to use. If specified it overrides EC2IMDSEndpointMode.
+	// Specifies the EC2 Instance Metadata Service endpoint to use. If
+	// specified it overrides EC2IMDSEndpointMode.
 	EC2IMDSEndpoint string
 
 	// Specifies that SDK clients must resolve a dual-stack endpoint for
@@ -169,6 +194,23 @@ func (o LoadOptions) getDefaultsMode(ctx context.Context) (aws.DefaultsMode, boo
 		return "", false, nil
 	}
 	return o.DefaultsModeOptions.Mode, true, nil
+}
+
+// GetRetryMaxAttempts returns the RetryMaxAttempts if specified in the
+// LoadOptions and not 0.
+func (o LoadOptions) GetRetryMaxAttempts(ctx context.Context) (int, bool, error) {
+	if o.RetryMaxAttempts == 0 {
+		return 0, false, nil
+	}
+	return o.RetryMaxAttempts, true, nil
+}
+
+// GetRetryMode returns the RetryMode specified in the LoadOptions.
+func (o LoadOptions) GetRetryMode(ctx context.Context) (aws.RetryMode, bool, error) {
+	if len(o.RetryMode) == 0 {
+		return "", false, nil
+	}
+	return o.RetryMode, true, nil
 }
 
 func (o LoadOptions) getDefaultsModeIMDSClient(ctx context.Context) (*imds.Client, bool, error) {
@@ -559,6 +601,48 @@ func WithAPIOptions(v []func(*middleware.Stack) error) LoadOptionsFunc {
 	}
 }
 
+func (o LoadOptions) getRetryMaxAttempts(ctx context.Context) (int, bool, error) {
+	if o.RetryMaxAttempts == 0 {
+		return 0, false, nil
+	}
+
+	return o.RetryMaxAttempts, true, nil
+}
+
+// WithRetryMaxAttempts is a helper function to construct functional options that sets
+// RetryMaxAttempts on LoadOptions. If RetryMaxAttempts is unset, the RetryMaxAttempts value is
+// ignored. If multiple WithRetryMaxAttempts calls are made, the last call overrides
+// the previous call values.
+//
+// Will be ignored of LoadOptions.Retryer or WithRetryer are used.
+func WithRetryMaxAttempts(v int) LoadOptionsFunc {
+	return func(o *LoadOptions) error {
+		o.RetryMaxAttempts = v
+		return nil
+	}
+}
+
+func (o LoadOptions) getRetryMode(ctx context.Context) (aws.RetryMode, bool, error) {
+	if o.RetryMode == "" {
+		return "", false, nil
+	}
+
+	return o.RetryMode, true, nil
+}
+
+// WithRetryMode is a helper function to construct functional options that sets
+// RetryMode on LoadOptions. If RetryMode is unset, the RetryMode value is
+// ignored. If multiple WithRetryMode calls are made, the last call overrides
+// the previous call values.
+//
+// Will be ignored of LoadOptions.Retryer or WithRetryer are used.
+func WithRetryMode(v aws.RetryMode) LoadOptionsFunc {
+	return func(o *LoadOptions) error {
+		o.RetryMode = v
+		return nil
+	}
+}
+
 func (o LoadOptions) getRetryer(ctx context.Context) (func() aws.Retryer, bool, error) {
 	if o.Retryer == nil {
 		return nil, false, nil
@@ -827,7 +911,7 @@ func (o LoadOptions) GetUseFIPSEndpoint(ctx context.Context) (value aws.FIPSEndp
 // WithDefaultsMode sets the SDK defaults configuration mode to the value provided.
 //
 // Zero or more functional options can be provided to provide configuration options for performing
-// environment discovery when using aws.AutoDefaultsMode.
+// environment discovery when using aws.DefaultsModeAuto.
 func WithDefaultsMode(mode aws.DefaultsMode, optFns ...func(options *DefaultsModeOptions)) LoadOptionsFunc {
 	do := DefaultsModeOptions{
 		Mode: mode,

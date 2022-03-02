@@ -73,6 +73,8 @@ type CreateClientVpnEndpointInput struct {
 	// The options for managing connection authorization for new client connections.
 	ClientConnectOptions *types.ClientConnectOptions
 
+	// Options for enabling a customizable text banner that will be displayed on Amazon
+	// Web Services provided clients when a VPN session is established.
 	ClientLoginBannerOptions *types.ClientLoginBannerOptions
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
@@ -102,6 +104,8 @@ type CreateClientVpnEndpointInput struct {
 	// Default Value: enabled
 	SelfServicePortal types.SelfServicePortal
 
+	// The maximum VPN session duration time in hours. Valid values: 8 | 10 | 12 | 24
+	// Default value: 24
 	SessionTimeoutHours *int32
 
 	// Indicates whether split-tunnel is enabled on the Client VPN endpoint. By

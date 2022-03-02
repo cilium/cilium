@@ -11,8 +11,8 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// c Deregisters tag keys to prevent tags that have the specified tag keys from
-// being included in scheduled event notifications for resources in the Region.
+// Deregisters tag keys to prevent tags that have the specified tag keys from being
+// included in scheduled event notifications for resources in the Region.
 func (c *Client) DeregisterInstanceEventNotificationAttributes(ctx context.Context, params *DeregisterInstanceEventNotificationAttributesInput, optFns ...func(*Options)) (*DeregisterInstanceEventNotificationAttributesOutput, error) {
 	if params == nil {
 		params = &DeregisterInstanceEventNotificationAttributesInput{}

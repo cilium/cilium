@@ -14,7 +14,7 @@ import (
 
 // Launches an EC2 Fleet. You can create a single EC2 Fleet that includes multiple
 // launch specifications that vary by instance type, AMI, Availability Zone, or
-// subnet. For more information, see Launching an EC2 Fleet
+// subnet. For more information, see EC2 Fleet
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet.html) in the
 // Amazon EC2 User Guide.
 func (c *Client) CreateFleet(ctx context.Context, params *CreateFleetInput, optFns ...func(*Options)) (*CreateFleetOutput, error) {
@@ -45,7 +45,7 @@ type CreateFleetInput struct {
 	TargetCapacitySpecification *types.TargetCapacitySpecificationRequest
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see Ensuring Idempotency
+	// the request. For more information, see Ensuring idempotency
 	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
 	ClientToken *string
 

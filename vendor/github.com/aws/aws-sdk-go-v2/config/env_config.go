@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -65,6 +66,9 @@ const (
 	awsUseFIPSEndpoint = "AWS_USE_FIPS_ENDPOINT"
 
 	awsDefaultMode = "AWS_DEFAULTS_MODE"
+
+	awsRetryMaxAttempts = "AWS_MAX_ATTEMPTS"
+	awsRetryMode        = "AWS_RETRY_MODE"
 )
 
 var (
@@ -229,10 +233,21 @@ type EnvConfig struct {
 	// AWS_USE_FIPS_ENDPOINT=true
 	UseFIPSEndpoint aws.FIPSEndpointState
 
-	// Specifies the SDk Defaults Mode used by services.
+	// Specifies the SDK Defaults Mode used by services.
 	//
 	// AWS_DEFAULTS_MODE=standard
 	DefaultsMode aws.DefaultsMode
+
+	// Specifies the maximum number attempts an API client will call an
+	// operation that fails with a retryable error.
+	//
+	// AWS_MAX_ATTEMPTS=3
+	RetryMaxAttempts int
+
+	// Specifies the retry model the API client will be created with.
+	//
+	// aws_retry_mode=standard
+	RetryMode aws.RetryMode
 }
 
 // loadEnvConfig reads configuration values from the OS's environment variables.
@@ -303,6 +318,13 @@ func NewEnvConfig() (EnvConfig, error) {
 		return cfg, err
 	}
 
+	if err := setIntFromEnvVal(&cfg.RetryMaxAttempts, []string{awsRetryMaxAttempts}); err != nil {
+		return cfg, err
+	}
+	if err := setRetryModeFromEnvVal(&cfg.RetryMode, []string{awsRetryMode}); err != nil {
+		return cfg, err
+	}
+
 	return cfg, nil
 }
 
@@ -311,6 +333,24 @@ func (c EnvConfig) getDefaultsMode(ctx context.Context) (aws.DefaultsMode, bool,
 		return "", false, nil
 	}
 	return c.DefaultsMode, true, nil
+}
+
+// GetRetryMaxAttempts returns the value of AWS_MAX_ATTEMPTS if was specified,
+// and not 0.
+func (c EnvConfig) GetRetryMaxAttempts(ctx context.Context) (int, bool, error) {
+	if c.RetryMaxAttempts == 0 {
+		return 0, false, nil
+	}
+	return c.RetryMaxAttempts, true, nil
+}
+
+// GetRetryMode returns the RetryMode of AWS_RETRY_MODE if was specified, and a
+// valid value.
+func (c EnvConfig) GetRetryMode(ctx context.Context) (aws.RetryMode, bool, error) {
+	if len(c.RetryMode) == 0 {
+		return "", false, nil
+	}
+	return c.RetryMode, true, nil
 }
 
 func setEC2IMDSClientEnableState(state *imds.ClientEnableState, keys []string) {
@@ -336,6 +376,19 @@ func setDefaultsModeFromEnvVal(mode *aws.DefaultsMode, keys []string) error {
 		if value := os.Getenv(k); len(value) > 0 {
 			if ok := mode.SetFromString(value); !ok {
 				return fmt.Errorf("invalid %s value: %s", k, value)
+			}
+			break
+		}
+	}
+	return nil
+}
+
+func setRetryModeFromEnvVal(mode *aws.RetryMode, keys []string) (err error) {
+	for _, k := range keys {
+		if value := os.Getenv(k); len(value) > 0 {
+			*mode, err = aws.ParseRetryMode(value)
+			if err != nil {
+				return fmt.Errorf("invalid %s value, %w", k, err)
 			}
 			break
 		}
@@ -466,6 +519,21 @@ func setStringFromEnvVal(dst *string, keys []string) {
 			break
 		}
 	}
+}
+
+func setIntFromEnvVal(dst *int, keys []string) error {
+	for _, k := range keys {
+		if v := os.Getenv(k); len(v) > 0 {
+			i, err := strconv.ParseInt(v, 10, 64)
+			if err != nil {
+				return fmt.Errorf("invalid value %s=%s, %w", k, v, err)
+			}
+			*dst = int(i)
+			break
+		}
+	}
+
+	return nil
 }
 
 func setBoolPtrFromEnvVal(dst **bool, keys []string) error {

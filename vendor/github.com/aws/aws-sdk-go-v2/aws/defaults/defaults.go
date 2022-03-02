@@ -19,24 +19,28 @@ func GetModeConfiguration(mode aws.DefaultsMode) (Configuration, error) {
 	case aws.DefaultsModeCrossRegion:
 		settings := Configuration{
 			ConnectTimeout:        aws.Duration(3100 * time.Millisecond),
+			RetryMode:             aws.RetryMode("standard"),
 			TLSNegotiationTimeout: aws.Duration(3100 * time.Millisecond),
 		}
 		return settings, nil
 	case aws.DefaultsModeInRegion:
 		settings := Configuration{
 			ConnectTimeout:        aws.Duration(1100 * time.Millisecond),
+			RetryMode:             aws.RetryMode("standard"),
 			TLSNegotiationTimeout: aws.Duration(1100 * time.Millisecond),
 		}
 		return settings, nil
 	case aws.DefaultsModeMobile:
 		settings := Configuration{
 			ConnectTimeout:        aws.Duration(30000 * time.Millisecond),
+			RetryMode:             aws.RetryMode("standard"),
 			TLSNegotiationTimeout: aws.Duration(30000 * time.Millisecond),
 		}
 		return settings, nil
 	case aws.DefaultsModeStandard:
 		settings := Configuration{
 			ConnectTimeout:        aws.Duration(3100 * time.Millisecond),
+			RetryMode:             aws.RetryMode("standard"),
 			TLSNegotiationTimeout: aws.Duration(3100 * time.Millisecond),
 		}
 		return settings, nil
