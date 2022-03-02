@@ -1871,3 +1871,35 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 		c.Assert(deletes, checker.DeepEquals, tt.deletes, check.Commentf(tt.name+" (deletes)"))
 	}
 }
+
+// Tests that deleteKeyWithChanges removes entries with no owners from the policy
+// map, and is correctly marked for deletion.
+func (ds *PolicyTestSuite) TestMapState_deleteKeyWithChanges(c *check.C) {
+	policyMapState := MapState{}
+	key := Key{
+		Identity:         1001,
+		DestPort:         0,
+		Nexthdr:          0,
+		TrafficDirection: 0,
+	}
+	entry := MapStateEntry{
+		ProxyPort:        0,
+		IsDeny:           false,
+		DerivedFromRules: nil,
+		owners:           nil,
+		dependents:       nil,
+	}
+	owner := key
+	policyMapState[key] = entry
+	var adds MapState
+	deletes := make(MapState)
+	deletes[key] = entry
+
+	policyMapState.deleteKeyWithChanges(key, owner, adds, deletes)
+
+	_, exists := policyMapState[key]
+	c.Assert(exists, checker.Equals, false)
+	got, exists := deletes[key]
+	c.Assert(exists, checker.Equals, true)
+	c.Assert(got, checker.DeepEquals, entry)
+}
