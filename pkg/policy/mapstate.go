@@ -241,7 +241,7 @@ func (keys MapState) addKeyWithChanges(key Key, entry MapStateEntry, adds, delet
 }
 
 // deleteKeyWithChanges deletes a 'key' from 'keys' keeping track of incremental changes in 'adds' and 'deletes'.
-// The key is unconditionally deleted if 'cs' is nil, otherwise only the contribution of this 'cs' is removed.
+// The key is unconditionally deleted if 'owner' is nil, otherwise only the contribution of this 'owner' is removed.
 // They key is also deleted from the map state if it doesn't have any owners anymore.
 func (keys MapState) deleteKeyWithChanges(key Key, owner MapStateOwner, adds, deletes MapState) {
 	if entry, exists := keys[key]; exists {
