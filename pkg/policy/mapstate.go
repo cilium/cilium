@@ -76,6 +76,8 @@ func (k Key) IsEgress() bool {
 	return k.TrafficDirection == trafficdirection.Egress.Uint8()
 }
 
+type Keys map[Key]struct{}
+
 type MapStateOwner interface{}
 
 // MapStateEntry is the configuration associated with a Key in a
@@ -98,7 +100,7 @@ type MapStateEntry struct {
 
 	// dependents contains the keys for entries create based on this entry. These entries
 	// will be deleted once all of the owners are deleted.
-	dependents map[Key]struct{}
+	dependents Keys
 }
 
 // NewMapStateEntry creates a map state entry. If redirect is true, the
@@ -127,7 +129,7 @@ func NewMapStateEntry(cs MapStateOwner, derivedFrom labels.LabelArrayList, redir
 // AddDependent adds 'key' to the set of dependent keys.
 func (e *MapStateEntry) AddDependent(key Key) {
 	if e.dependents == nil {
-		e.dependents = make(map[Key]struct{}, 1)
+		e.dependents = make(Keys, 1)
 	}
 	e.dependents[key] = struct{}{}
 }
@@ -173,13 +175,6 @@ func (e *MapStateEntry) MergeReferences(entry *MapStateEntry) {
 	}
 }
 
-// export returns a copy of MapStateEntry cleared of internal state.
-func (e MapStateEntry) export() MapStateEntry {
-	e.owners = nil
-	e.dependents = nil
-	return e
-}
-
 // IsRedirectEntry returns true if e contains a redirect
 func (e *MapStateEntry) IsRedirectEntry() bool {
 	return e.ProxyPort != 0
@@ -209,7 +204,7 @@ func (keys MapState) DenyPreferredInsert(newKey Key, newEntry MapStateEntry) {
 }
 
 // addKeyWithChanges adds a 'key' with value 'entry' to 'keys' keeping track of incremental changes in 'adds' and 'deletes'
-func (keys MapState) addKeyWithChanges(key Key, entry MapStateEntry, adds, deletes MapState) {
+func (keys MapState) addKeyWithChanges(key Key, entry MapStateEntry, adds, deletes Keys) {
 	// Keep all owners that need this entry so that it is deleted only if all the owners delete their contribution
 	updatedEntry := entry
 	oldEntry, exists := keys[key]
@@ -231,8 +226,7 @@ func (keys MapState) addKeyWithChanges(key Key, entry MapStateEntry, adds, delet
 
 	// Record an incremental Add if desired and entry is new or changed
 	if adds != nil && (!exists || !oldEntry.DatapathEqual(&entry)) {
-		// Do not leak internal maps to callers
-		adds[key] = updatedEntry.export()
+		adds[key] = struct{}{}
 		// Key add overrides any previous delete of the same key
 		if deletes != nil {
 			delete(deletes, key)
@@ -242,7 +236,7 @@ func (keys MapState) addKeyWithChanges(key Key, entry MapStateEntry, adds, delet
 
 // deleteKeyWithChanges deletes a 'key' from 'keys' keeping track of incremental changes in 'adds' and 'deletes'.
 // The key is unconditionally deleted if 'cs' is nil, otherwise only the contribution of this 'cs' is removed.
-func (keys MapState) deleteKeyWithChanges(key Key, owner MapStateOwner, adds, deletes MapState) {
+func (keys MapState) deleteKeyWithChanges(key Key, owner MapStateOwner, adds, deletes Keys) {
 	if entry, exists := keys[key]; exists {
 		if owner != nil {
 			// remove the contribution of the given selector only
@@ -280,8 +274,7 @@ func (keys MapState) deleteKeyWithChanges(key Key, owner MapStateOwner, adds, de
 			keys.deleteKeyWithChanges(k, key, adds, deletes)
 		}
 		if deletes != nil {
-			// Do not leak internal maps to callers
-			deletes[key] = entry.export()
+			deletes[key] = struct{}{}
 			// Remove a potential previously added key
 			if adds != nil {
 				delete(adds, key)
@@ -295,7 +288,7 @@ func (keys MapState) deleteKeyWithChanges(key Key, owner MapStateOwner, adds, de
 // denyPreferredInsertWithChanges inserts a key and entry into the map by giving preference
 // to deny entries, and L3-only deny entries over L3-L4 allows.
 // Incremental changes performed are recorded in 'adds' and 'deletes', if not nil.
-func (keys MapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapStateEntry, adds, deletes MapState) {
+func (keys MapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapStateEntry, adds, deletes Keys) {
 	allCpy := allKey
 	allCpy.TrafficDirection = newKey.TrafficDirection
 	// If we have a deny "all" we don't accept any kind of map entry
@@ -397,7 +390,7 @@ func (keys MapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapStat
 
 // redirectPreferredInsert inserts a new entry giving priority to L7-redirects by
 // not overwriting a L7-redirect entry with a non-redirect entry.
-func (keys MapState) redirectPreferredInsert(key Key, entry MapStateEntry, adds, deletes MapState) {
+func (keys MapState) redirectPreferredInsert(key Key, entry MapStateEntry, adds, deletes Keys) {
 	// Do not overwrite the entry, but only merge owners if the old entry is a deny or redirect.
 	// This prevents an existing deny or redirect being overridden by a non-deny or a non-redirect.
 	// Merging owners from the new entry to the existing one has no datapath impact so we skip
@@ -416,6 +409,14 @@ var visibilityDerivedFromLabels = labels.LabelArray{
 }
 
 var visibilityDerivedFrom = labels.LabelArrayList{visibilityDerivedFromLabels}
+
+func (keys MapState) insertIfNotExists(key Key, entry MapStateEntry) {
+	if keys != nil {
+		if _, exists := keys[key]; !exists {
+			keys[key] = entry
+		}
+	}
+}
 
 // AddVisibilityKeys adjusts and expands PolicyMapState keys
 // and values to redirect for visibility on the port of the visibility
@@ -458,10 +459,10 @@ var visibilityDerivedFrom = labels.LabelArrayList{visibilityDerivedFromLabels}
 // expand existing drop keys to also drop on the port of interest, if a new
 // L4-only key allowing the port is added.
 //
-// 'adds' and 'deletes' are updated with the changes made. 'adds' contains the new values
-// for both added and changed keys. 'deletes' contains the old values for both deleted and
-// changed keys.
-func (keys MapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMeta *VisibilityMetadata, adds, deletes MapState) {
+// 'adds' and 'oldValues' are updated with the changes made. 'adds' contains both the added and
+// changed keys. 'oldValues' contains the old values for changed keys. This function does not
+// delete any keys.
+func (keys MapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMeta *VisibilityMetadata, adds Keys, oldValues MapState) {
 	direction := trafficdirection.Egress
 	if visMeta.Ingress {
 		direction = trafficdirection.Ingress
@@ -489,11 +490,14 @@ func (keys MapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMe
 			logfields.BPFMapKey:   key,
 			logfields.BPFMapValue: entry,
 		}, "AddVisibilityKeys: Changing L4-only ALLOW key for visibility redirect")
-		deletes[key] = l4Only.export()
+
+		// keep the original value for reverting purposes
+		oldValues.insertIfNotExists(key, l4Only)
+
 		l4Only.ProxyPort = redirectPort
 		l4Only.DerivedFromRules = append(l4Only.DerivedFromRules, visibilityDerivedFromLabels)
 		keys[key] = l4Only
-		adds[key] = l4Only.export()
+		adds[key] = struct{}{}
 	}
 	if haveAllowAllKey && !haveL4OnlyKey {
 		// 2. If allow-all policy exists, add L4-only visibility redirect key if the L4-only
@@ -504,7 +508,7 @@ func (keys MapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMe
 		}, "AddVisibilityKeys: Adding L4-only ALLOW key for visibilty redirect")
 		addL4OnlyKey = true
 		keys[key] = entry
-		adds[key] = entry.export()
+		adds[key] = struct{}{}
 	}
 	//
 	// Loop through all L3 keys in the traffic direction of the new key
@@ -520,7 +524,10 @@ func (keys MapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMe
 			if !v.IsDeny && v.ProxyPort == 0 {
 				// 3. Change all L3/L4 ALLOW keys on matching port that do not
 				//    already redirect to redirect.
-				deletes[k] = v.export()
+
+				// keep the original value for reverting purposes
+				oldValues.insertIfNotExists(k, v)
+
 				v.ProxyPort = redirectPort
 				v.DerivedFromRules = append(v.DerivedFromRules, visibilityDerivedFromLabels)
 				e.PolicyDebug(logrus.Fields{
@@ -528,7 +535,7 @@ func (keys MapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMe
 					logfields.BPFMapValue: v,
 				}, "AddVisibilityKeys: Changing L3/L4 ALLOW key for visibility redirect")
 				keys[k] = v
-				adds[k] = v.export()
+				adds[k] = struct{}{}
 			}
 		} else if k.DestPort == 0 && k.Nexthdr == 0 {
 			//
@@ -550,10 +557,15 @@ func (keys MapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMe
 						logfields.BPFMapValue: v2,
 					}, "AddVisibilityKeys: Extending L3-only ALLOW key to L3/L4 key for visibilty redirect")
 					keys[k2] = v2
-					adds[k2] = v2.export()
+					adds[k2] = struct{}{}
+
+					// keep the original value for reverting purposes
+					oldValues.insertIfNotExists(k, v)
+
 					// Mark the new entry as a dependent of 'v'
 					v.AddDependent(k2)
 					keys[k] = v
+					adds[k] = struct{}{} // dependent was added
 				}
 			} else if addL4OnlyKey && v.IsDeny {
 				// 5. If a new L4-only key was added: For each L3-only DENY
@@ -566,10 +578,15 @@ func (keys MapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMe
 						logfields.BPFMapValue: v2,
 					}, "AddVisibilityKeys: Extending L3-only DENY key to L3/L4 key to deny a port with visibility annotation")
 					keys[k2] = v2
-					adds[k2] = v2.export()
+					adds[k2] = struct{}{}
+
+					// keep the original value for reverting purposes
+					oldValues.insertIfNotExists(k, v)
+
 					// Mark the new entry as a dependent of 'v'
 					v.AddDependent(k2)
 					keys[k] = v
+					adds[k] = struct{}{} // dependent was added
 				}
 			}
 		}
@@ -775,10 +792,10 @@ func (mc *MapChanges) AccumulateMapChanges(cs CachedSelector, adds, deletes []id
 
 // consumeMapChanges transfers the incremental changes from MapChanges to the caller,
 // while applying the changes to PolicyMapState.
-func (mc *MapChanges) consumeMapChanges(policyMapState MapState) (adds, deletes MapState) {
+func (mc *MapChanges) consumeMapChanges(policyMapState MapState) (adds, deletes Keys) {
 	mc.mutex.Lock()
-	adds = make(MapState, len(mc.changes))
-	deletes = make(MapState, len(mc.changes))
+	adds = make(Keys, len(mc.changes))
+	deletes = make(Keys, len(mc.changes))
 
 	for i := range mc.changes {
 		if mc.changes[i].Add {
