@@ -246,13 +246,13 @@ function bpf_load()
 	bpf_compile $IN $OUT obj "$OPTS"
 	tc qdisc replace dev $DEV clsact || true
 	[ -z "$(tc filter show dev $DEV $WHERE | grep -v 'pref 1 bpf chain 0 $\|pref 1 bpf chain 0 handle 0x1')" ] || tc filter del dev $DEV $WHERE
-	cilium bpf migrate-maps -s $OUT
-	set +e
-	tc filter replace dev $DEV $WHERE prio 1 handle 1 bpf da obj $OUT sec $SEC
-	RETCODE=$?
-	set -e
-	cilium bpf migrate-maps -e $OUT -r $RETCODE
-	return $RETCODE
+
+	cilium bpf migrate-maps -s "$OUT"
+
+	if ! tc filter replace dev "$DEV" "$WHERE" prio 1 handle 1 bpf da obj "$OUT" sec "$SEC"; then
+		cilium bpf migrate-maps -e "$OUT" -r 1
+		return 1
+	fi
 }
 
 function bpf_load_cgroups()
@@ -272,21 +272,18 @@ function bpf_load_cgroups()
 	TMP_FILE="$BPFMNT/tc/globals/cilium_cgroups_$WHERE"
 	rm -f $TMP_FILE
 
-	cilium bpf migrate-maps -s $OUT
-	set +e
-	tc exec bpf pin $TMP_FILE obj $OUT type $PROG_TYPE attach_type $WHERE sec "cgroup/$WHERE"
-	RETCODE=$?
-	set -e
-	cilium bpf migrate-maps -e $OUT -r $RETCODE
+	cilium bpf migrate-maps -s "$OUT"
 
-	if [ "$RETCODE" -eq "0" ]; then
-		set +e
-		bpftool cgroup attach $CGRP $WHERE pinned $TMP_FILE
-		RETCODE=$?
-		set -e
-		rm -f $TMP_FILE
+	if ! tc exec bpf pin "$TMP_FILE" obj "$OUT" type "$PROG_TYPE" attach_type "$WHERE" sec "cgroup/$WHERE"; then
+		cilium bpf migrate-maps -e "$OUT" -r 1
+		return 1
 	fi
-	return $RETCODE
+
+	if ! bpftool cgroup attach "$CGRP" "$WHERE" pinned "$TMP_FILE"; then
+		rm -f "$TMP_FILE"
+		cilium bpf migrate-maps -e "$OUT" -r 1
+		return 1
+	fi
 }
 
 function bpf_clear_cgroups()
@@ -445,8 +442,12 @@ if [ "${TUNNEL_MODE}" != "<nil>" ]; then
 	if [ "$NODE_PORT" = "true" ]; then
 		COPTS="${COPTS} -DDISABLE_LOOPBACK_LB"
 	fi
-	bpf_load $ENCAP_DEV "$COPTS" "ingress" bpf_overlay.c bpf_overlay.o from-overlay ${CALLS_MAP}
-	bpf_load $ENCAP_DEV "$COPTS" "egress" bpf_overlay.c bpf_overlay.o to-overlay ${CALLS_MAP}
+
+	bpf_load "$ENCAP_DEV" "$COPTS" ingress bpf_overlay.c bpf_overlay.o from-overlay "$CALLS_MAP"
+	bpf_load "$ENCAP_DEV" "$COPTS" egress bpf_overlay.c bpf_overlay.o to-overlay "$CALLS_MAP"
+
+	cilium bpf migrate-maps -e bpf_overlay.o -r 0
+
 else
 	# Remove eventual existing encapsulation device from previous run
 	ip link del cilium_vxlan 2> /dev/null || true
@@ -549,6 +550,9 @@ if [ "$HOSTLB" = "true" ]; then
 			bpf_clear_cgroups $CGROUP_ROOT recvmsg4
 		fi
 	fi
+
+	cilium bpf migrate-maps -e bpf_sock.o -r 0
+
 else
 	bpf_clear_cgroups $CGROUP_ROOT bind4
 	bpf_clear_cgroups $CGROUP_ROOT bind6
