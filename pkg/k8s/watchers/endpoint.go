@@ -142,11 +142,7 @@ func (k *K8sWatcher) handleKubeAPIServerServiceEPChanges(desiredIPs map[string]s
 		ipcache.UpsertMetadata(ip, labels.LabelKubeAPIServer)
 	}
 
-	k.ipcache.TriggerLabelInjection(
-		src,
-		k.policyRepository.GetSelectorCache(),
-		k.endpointManager,
-	)
+	k.ipcache.TriggerLabelInjection(src)
 }
 
 // TODO(christarazi): Convert to subscriber model along with the corresponding

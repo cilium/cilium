@@ -25,14 +25,14 @@ func TestInjectLabels(t *testing.T) {
 	setupTest(t)
 
 	assert.Len(t, identityMetadata, 1)
-	assert.NoError(t, InjectLabels(source.Local, &mockUpdater{}, &mockTriggerer{}))
+	assert.NoError(t, IPIdentityCache.InjectLabels(source.Local))
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 1)
 
 	// Insert kube-apiserver IP from outside of the cluster. This should create
 	// a CIDR ID for this IP.
 	UpsertMetadata("10.0.0.4", labels.LabelKubeAPIServer)
 	assert.Len(t, identityMetadata, 2)
-	assert.NoError(t, InjectLabels(source.Local, &mockUpdater{}, &mockTriggerer{}))
+	assert.NoError(t, IPIdentityCache.InjectLabels(source.Local))
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 2)
 	assert.True(t, IPIdentityCache.ipToIdentityCache["10.0.0.4"].ID.HasLocalScope())
 
@@ -41,7 +41,7 @@ func TestInjectLabels(t *testing.T) {
 	// IP now.
 	UpsertMetadata("10.0.0.4", labels.LabelRemoteNode)
 	assert.Len(t, identityMetadata, 2)
-	assert.NoError(t, InjectLabels(source.Local, &mockUpdater{}, &mockTriggerer{}))
+	assert.NoError(t, IPIdentityCache.InjectLabels(source.Local))
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 2)
 	assert.False(t, IPIdentityCache.ipToIdentityCache["10.0.0.4"].ID.HasLocalScope())
 }
@@ -60,10 +60,10 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	setupTest(t)
 
 	assert.Len(t, identityMetadata, 1)
-	assert.NoError(t, InjectLabels(source.Local, &mockUpdater{}, &mockTriggerer{}))
+	assert.NoError(t, IPIdentityCache.InjectLabels(source.Local))
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 1)
 
-	removeLabelsFromIPs(map[string]labels.Labels{
+	IPIdentityCache.removeLabelsFromIPs(map[string]labels.Labels{
 		"1.1.1.1": labels.LabelKubeAPIServer,
 	}, source.Local, &mockUpdater{}, &mockTriggerer{})
 	assert.Len(t, identityMetadata, 1)
@@ -78,7 +78,7 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	// the cluster, and thus will have a CIDR identity when InjectLabels() is
 	// called.
 	UpsertMetadata("1.1.1.1", labels.LabelKubeAPIServer)
-	assert.NoError(t, InjectLabels(source.Local, &mockUpdater{}, &mockTriggerer{}))
+	assert.NoError(t, IPIdentityCache.InjectLabels(source.Local))
 	id := IdentityAllocator.LookupIdentityByID(
 		context.TODO(),
 		identity.LocalIdentityFlag, // we assume first local ID
@@ -90,7 +90,7 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Len(t, ids, 1)
 	assert.Equal(t, 2, id.ReferenceCount)
-	removeLabelsFromIPs(map[string]labels.Labels{ // remove kube-apiserver policy
+	IPIdentityCache.removeLabelsFromIPs(map[string]labels.Labels{ // remove kube-apiserver policy
 		"1.1.1.1": labels.LabelKubeAPIServer,
 	}, source.Local, &mockUpdater{}, &mockTriggerer{})
 	assert.NotContains(t, identityMetadata["1.1.1.1"], labels.LabelKubeAPIServer)
@@ -98,10 +98,13 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 }
 
 func setupTest(t *testing.T) {
-	IPIdentityCache = NewIPCache()
+	allocator := testidentity.NewMockIdentityAllocator(nil)
+	IPIdentityCache = NewIPCache().
+		WithIdentityAllocator(allocator).
+		WithPolicyHandler(&mockUpdater{}).
+		WithDatapathHandler(&mockTriggerer{})
 	IPIdentityCache.k8sSyncedChecker = &mockK8sSyncedChecker{}
 
-	IdentityAllocator = testidentity.NewMockIdentityAllocator(nil)
 	identityMetadata = make(map[string]labels.Labels)
 
 	UpsertMetadata("1.1.1.1", labels.LabelKubeAPIServer)

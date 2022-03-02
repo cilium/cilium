@@ -138,7 +138,7 @@ func allocate(prefix *net.IPNet, lbls labels.Labels) (*identity.Identity, bool, 
 	return id, isNew, err
 }
 
-func releaseCIDRIdentities(ctx context.Context, identities map[string]*identity.Identity) {
+func (ipc *IPCache) releaseCIDRIdentities(ctx context.Context, identities map[string]*identity.Identity) {
 	for prefix, id := range identities {
 		released, err := IdentityAllocator.Release(ctx, id, false)
 		if err != nil {
@@ -149,7 +149,7 @@ func releaseCIDRIdentities(ctx context.Context, identities map[string]*identity.
 		}
 
 		if released {
-			IPIdentityCache.Delete(prefix, source.Generated)
+			ipc.Delete(prefix, source.Generated)
 		}
 	}
 }
@@ -174,7 +174,7 @@ func ReleaseCIDRIdentitiesByCIDR(prefixes []*net.IPNet) {
 		}
 	}
 
-	releaseCIDRIdentities(releaseCtx, identities)
+	IPIdentityCache.releaseCIDRIdentities(releaseCtx, identities)
 }
 
 // ReleaseCIDRIdentitiesByID releases the specified identities.
@@ -199,5 +199,5 @@ func ReleaseCIDRIdentitiesByID(ctx context.Context, identities []identity.Numeri
 		}
 	}
 
-	releaseCIDRIdentities(ctx, fullIdentities)
+	IPIdentityCache.releaseCIDRIdentities(ctx, fullIdentities)
 }

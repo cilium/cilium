@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/ipcache"
-	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -52,7 +51,7 @@ type nodeEntry struct {
 type IPCache interface {
 	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) (bool, error)
 	Delete(IP string, source source.Source) bool
-	TriggerLabelInjection(source.Source, ipcacheTypes.PolicyHandler, ipcacheTypes.DatapathHandler)
+	TriggerLabelInjection(source source.Source)
 }
 
 // Configuration is the set of configuration options the node manager depends
@@ -526,11 +525,7 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		entry.mutex.Unlock()
 	}
 
-	m.ipcache.TriggerLabelInjection(
-		n.Source,
-		m.selectorCacheUpdater,
-		m.policyTriggerer,
-	)
+	m.ipcache.TriggerLabelInjection(n.Source)
 }
 
 // upsertIntoIDMD upserts the given CIDR into the ipcache.identityMetadata
