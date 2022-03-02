@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/flowdebug"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -62,7 +63,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 
 	log.Debugf("state log directory: %s", stateLogDir)
 
-	xdsServer := StartXDSServer(stateLogDir)
+	xdsServer := StartXDSServer(ipcache.NewIPCache(), stateLogDir)
 	defer xdsServer.stop()
 	StartAccessLogServer(stateLogDir, xdsServer)
 
@@ -142,7 +143,7 @@ func (s *EnvoySuite) TestEnvoyNACK(c *C) {
 
 	log.Debugf("state log directory: %s", stateLogDir)
 
-	xdsServer := StartXDSServer(stateLogDir)
+	xdsServer := StartXDSServer(ipcache.NewIPCache(), stateLogDir)
 	defer xdsServer.stop()
 	StartAccessLogServer(stateLogDir, xdsServer)
 
