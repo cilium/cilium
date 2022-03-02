@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -233,6 +234,7 @@ func (s *K8sWatcherSuite) TestUpdateToServiceEndpointsGH9525(c *C) {
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
+		ipcache.NewIPCache(),
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -539,6 +541,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ClusterIP(c *C) {
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
+		ipcache.NewIPCache(),
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -682,6 +685,7 @@ func (s *K8sWatcherSuite) TestChangeSVCPort(c *C) {
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
+		ipcache.NewIPCache(),
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -1131,6 +1135,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_NodePort(c *C) {
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
+		ipcache.NewIPCache(),
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -1427,6 +1432,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_1(c *C) {
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
+		ipcache.NewIPCache(),
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -1716,6 +1722,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_2(c *C) {
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
+		ipcache.NewIPCache(),
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -2570,6 +2577,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
+		ipcache.NewIPCache(),
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()

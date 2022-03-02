@@ -124,13 +124,13 @@ func (k *K8sWatcher) endpointUpdated(oldEndpoint, endpoint *types.CiliumEndpoint
 					}
 				}
 				if !v4Added {
-					portsChanged := ipcache.IPIdentityCache.Delete(oldPair.IPV4, source.CustomResource)
+					portsChanged := k.ipcache.Delete(oldPair.IPV4, source.CustomResource)
 					if portsChanged {
 						namedPortsChanged = true
 					}
 				}
 				if !v6Added {
-					portsChanged := ipcache.IPIdentityCache.Delete(oldPair.IPV6, source.CustomResource)
+					portsChanged := k.ipcache.Delete(oldPair.IPV6, source.CustomResource)
 					if portsChanged {
 						namedPortsChanged = true
 					}
@@ -183,7 +183,7 @@ func (k *K8sWatcher) endpointUpdated(oldEndpoint, endpoint *types.CiliumEndpoint
 	for _, pair := range endpoint.Networking.Addressing {
 		if pair.IPV4 != "" {
 			ipsAdded = append(ipsAdded, pair.IPV4)
-			portsChanged, _ := ipcache.IPIdentityCache.Upsert(pair.IPV4, nodeIP, encryptionKey, k8sMeta,
+			portsChanged, _ := k.ipcache.Upsert(pair.IPV4, nodeIP, encryptionKey, k8sMeta,
 				ipcache.Identity{ID: id, Source: source.CustomResource})
 			if portsChanged {
 				namedPortsChanged = true
@@ -192,7 +192,7 @@ func (k *K8sWatcher) endpointUpdated(oldEndpoint, endpoint *types.CiliumEndpoint
 
 		if pair.IPV6 != "" {
 			ipsAdded = append(ipsAdded, pair.IPV6)
-			portsChanged, _ := ipcache.IPIdentityCache.Upsert(pair.IPV6, nodeIP, encryptionKey, k8sMeta,
+			portsChanged, _ := k.ipcache.Upsert(pair.IPV6, nodeIP, encryptionKey, k8sMeta,
 				ipcache.Identity{ID: id, Source: source.CustomResource})
 			if portsChanged {
 				namedPortsChanged = true
@@ -210,14 +210,14 @@ func (k *K8sWatcher) endpointDeleted(endpoint *types.CiliumEndpoint) {
 		namedPortsChanged := false
 		for _, pair := range endpoint.Networking.Addressing {
 			if pair.IPV4 != "" {
-				portsChanged := ipcache.IPIdentityCache.DeleteOnMetadataMatch(pair.IPV4, source.CustomResource, endpoint.Namespace, endpoint.Name)
+				portsChanged := k.ipcache.DeleteOnMetadataMatch(pair.IPV4, source.CustomResource, endpoint.Namespace, endpoint.Name)
 				if portsChanged {
 					namedPortsChanged = true
 				}
 			}
 
 			if pair.IPV6 != "" {
-				portsChanged := ipcache.IPIdentityCache.DeleteOnMetadataMatch(pair.IPV6, source.CustomResource, endpoint.Namespace, endpoint.Name)
+				portsChanged := k.ipcache.DeleteOnMetadataMatch(pair.IPV6, source.CustomResource, endpoint.Namespace, endpoint.Name)
 				if portsChanged {
 					namedPortsChanged = true
 				}

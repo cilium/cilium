@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -201,6 +202,7 @@ type K8sWatcher struct {
 	redirectPolicyManager redirectPolicyManager
 	bgpSpeakerManager     bgpSpeakerManager
 	egressGatewayManager  egressGatewayManager
+	ipcache               *ipcache.IPCache
 
 	// controllersStarted is a channel that is closed when all controllers, i.e.,
 	// k8s watchers have started listening for k8s events.
@@ -236,6 +238,7 @@ func NewK8sWatcher(
 	bgpSpeakerManager bgpSpeakerManager,
 	egressGatewayManager egressGatewayManager,
 	cfg WatcherConfiguration,
+	ipcache *ipcache.IPCache,
 ) *K8sWatcher {
 	return &K8sWatcher{
 		K8sSvcCache:           k8s.NewServiceCache(datapath.LocalNodeAddressing()),
@@ -244,6 +247,7 @@ func NewK8sWatcher(
 		policyManager:         policyManager,
 		policyRepository:      policyRepository,
 		svcManager:            svcManager,
+		ipcache:               ipcache,
 		controllersStarted:    make(chan struct{}),
 		stop:                  make(chan struct{}),
 		podStoreSet:           make(chan struct{}),
