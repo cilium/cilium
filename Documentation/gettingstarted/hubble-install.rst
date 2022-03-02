@@ -17,6 +17,7 @@
       Download the latest hubble release:
 
       .. code-block:: shell-session
+
          export ARCH=$(uname -p)
          export HUBBLE_VERSION=$(curl -s https://raw.githubusercontent.com/cilium/hubble/master/stable.txt)
          curl -L --remote-name-all https://github.com/cilium/hubble/releases/download/$HUBBLE_VERSION/hubble-darwin-$ARCH.tar.gz{,.sha256sum}
