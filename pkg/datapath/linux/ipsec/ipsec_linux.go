@@ -33,9 +33,6 @@ const (
 	IPSecDirOut     IPSecDir = "IPSEC_OUT"
 	IPSecDirBoth    IPSecDir = "IPSEC_BOTH"
 	IPSecDirOutNode IPSecDir = "IPSEC_OUT_NODE"
-	// XfrmInterfaceID must be different from 0 to avoid
-	// error while constructing xfrm state or policy.
-	XfrmInterfaceID int = 1
 )
 
 type ipSecKey struct {
@@ -63,15 +60,12 @@ func ipSecNewState() *netlink.XfrmState {
 		Mode:  netlink.XFRM_MODE_TUNNEL,
 		Proto: netlink.XFRM_PROTO_ESP,
 		ESN:   false,
-		Ifid:  XfrmInterfaceID,
 	}
 	return &state
 }
 
 func ipSecNewPolicy() *netlink.XfrmPolicy {
-	policy := netlink.XfrmPolicy{
-		Ifid: XfrmInterfaceID,
-	}
+	policy := netlink.XfrmPolicy{}
 	return &policy
 }
 
