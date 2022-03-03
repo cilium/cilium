@@ -40,6 +40,14 @@ func (f *fakeK8sCiliumNodeAPI) UpdateStatus(_ context.Context, ciliumNode *ciliu
 	return ciliumNode, nil
 }
 
+// currentNode returns a the current snapshot of the node
+func (f *fakeK8sCiliumNodeAPI) currentNode() *ciliumv2.CiliumNode {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+
+	return f.node.DeepCopy()
+}
+
 // updateNode is to be invoked by the test code to simulate writes by the operator
 func (f *fakeK8sCiliumNodeAPI) updateNode(newNode *ciliumv2.CiliumNode) error {
 	f.mutex.Lock()
@@ -661,8 +669,8 @@ func TestNewCRDWatcher(t *testing.T) {
 			pool := <-c.waitForPool(tc.family)
 			c.restoreFinished()
 			Expect(<-events).To(Equal("upsert"))
-			Expect(fakeK8sCiliumNodeAPI.node).NotTo(BeNil())
-			Expect(fakeK8sCiliumNodeAPI.node.Status.IPAM.UsedPodCIDRs).To(Equal(types.UsedPodCIDRMap{
+			Expect(fakeK8sCiliumNodeAPI.currentNode()).NotTo(BeNil())
+			Expect(fakeK8sCiliumNodeAPI.currentNode().Status.IPAM.UsedPodCIDRs).To(Equal(types.UsedPodCIDRMap{
 				tc.podCIDR1: types.UsedPodCIDR{
 					Status: types.PodCIDRStatusInUse,
 				},
@@ -672,7 +680,7 @@ func TestNewCRDWatcher(t *testing.T) {
 			ip1s := allocateNextN(pool, tc.capacity1, nil)
 			c.controller.TriggerController(clusterPoolStatusControllerName)
 			Expect(<-events).To(Equal("upsert"))
-			Expect(fakeK8sCiliumNodeAPI.node.Status.IPAM.UsedPodCIDRs).To(Equal(types.UsedPodCIDRMap{
+			Expect(fakeK8sCiliumNodeAPI.currentNode().Status.IPAM.UsedPodCIDRs).To(Equal(types.UsedPodCIDRMap{
 				tc.podCIDR1: types.UsedPodCIDR{
 					Status: types.PodCIDRStatusDepleted,
 				},
@@ -691,7 +699,7 @@ func TestNewCRDWatcher(t *testing.T) {
 			})
 			c.controller.TriggerController(clusterPoolStatusControllerName)
 			Expect(<-events).To(Equal("upsert"))
-			Expect(fakeK8sCiliumNodeAPI.node.Status.IPAM.UsedPodCIDRs).To(Equal(types.UsedPodCIDRMap{
+			Expect(fakeK8sCiliumNodeAPI.currentNode().Status.IPAM.UsedPodCIDRs).To(Equal(types.UsedPodCIDRMap{
 				tc.podCIDR1: types.UsedPodCIDR{
 					Status: types.PodCIDRStatusDepleted,
 				},
@@ -704,7 +712,7 @@ func TestNewCRDWatcher(t *testing.T) {
 			ip2s := allocateNextN(pool, tc.capacity2, nil)
 			c.controller.TriggerController(clusterPoolStatusControllerName)
 			Expect(<-events).To(Equal("upsert"))
-			Expect(fakeK8sCiliumNodeAPI.node.Status.IPAM.UsedPodCIDRs).To(Equal(types.UsedPodCIDRMap{
+			Expect(fakeK8sCiliumNodeAPI.currentNode().Status.IPAM.UsedPodCIDRs).To(Equal(types.UsedPodCIDRMap{
 				tc.podCIDR1: types.UsedPodCIDR{
 					Status: types.PodCIDRStatusDepleted,
 				},
@@ -717,7 +725,7 @@ func TestNewCRDWatcher(t *testing.T) {
 			releaseAll(pool, ip2s)
 			c.controller.TriggerController(clusterPoolStatusControllerName)
 			Expect(<-events).To(Equal("upsert"))
-			Expect(fakeK8sCiliumNodeAPI.node.Status.IPAM.UsedPodCIDRs).To(Equal(types.UsedPodCIDRMap{
+			Expect(fakeK8sCiliumNodeAPI.currentNode().Status.IPAM.UsedPodCIDRs).To(Equal(types.UsedPodCIDRMap{
 				tc.podCIDR1: types.UsedPodCIDR{
 					Status: types.PodCIDRStatusDepleted,
 				},
@@ -730,7 +738,7 @@ func TestNewCRDWatcher(t *testing.T) {
 			releaseAll(pool, ip1s)
 			c.controller.TriggerController(clusterPoolStatusControllerName)
 			Expect(<-events).To(Equal("upsert"))
-			Expect(fakeK8sCiliumNodeAPI.node.Status.IPAM.UsedPodCIDRs).To(Equal(types.UsedPodCIDRMap{
+			Expect(fakeK8sCiliumNodeAPI.currentNode().Status.IPAM.UsedPodCIDRs).To(Equal(types.UsedPodCIDRMap{
 				tc.podCIDR1: types.UsedPodCIDR{
 					Status: types.PodCIDRStatusInUse,
 				},
@@ -751,7 +759,7 @@ func TestNewCRDWatcher(t *testing.T) {
 			})
 			c.controller.TriggerController(clusterPoolStatusControllerName)
 			Expect(<-events).To(Equal("upsert"))
-			Expect(fakeK8sCiliumNodeAPI.node.Status.IPAM.UsedPodCIDRs).To(Equal(types.UsedPodCIDRMap{
+			Expect(fakeK8sCiliumNodeAPI.currentNode().Status.IPAM.UsedPodCIDRs).To(Equal(types.UsedPodCIDRMap{
 				tc.podCIDR1: types.UsedPodCIDR{
 					Status: types.PodCIDRStatusInUse,
 				},
@@ -761,7 +769,7 @@ func TestNewCRDWatcher(t *testing.T) {
 			fakeK8sCiliumNodeAPI.deleteNode()
 			c.controller.TriggerController(clusterPoolStatusControllerName)
 			Expect(<-events).To(Equal("delete"))
-			Expect(fakeK8sCiliumNodeAPI.node).To(BeNil())
+			Expect(fakeK8sCiliumNodeAPI.currentNode()).To(BeNil())
 		})
 	}
 }
@@ -800,12 +808,12 @@ func TestNewCRDWatcher_restoreFinished(t *testing.T) {
 		t.Fatalf("received unexpected event %q", e)
 	case <-time.After(10 * time.Millisecond):
 	}
-	Expect(fakeK8sCiliumNodeAPI.node).To(BeNil())
+	Expect(fakeK8sCiliumNodeAPI.currentNode()).To(BeNil())
 
 	// Test CiliumNode CRD is updated after restore has finished
 	c.restoreFinished()
 	Expect(<-events).To(Equal("upsert"))
-	Expect(fakeK8sCiliumNodeAPI.node.Status.IPAM.UsedPodCIDRs).To(Equal(types.UsedPodCIDRMap{
+	Expect(fakeK8sCiliumNodeAPI.currentNode().Status.IPAM.UsedPodCIDRs).To(Equal(types.UsedPodCIDRMap{
 		"192.168.0.0/24": types.UsedPodCIDR{
 			Status: types.PodCIDRStatusInUse,
 		},
