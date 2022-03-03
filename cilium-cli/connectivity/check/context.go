@@ -39,6 +39,9 @@ type ConnectivityTest struct {
 	ciliumPods        map[string]Pod
 	echoPods          map[string]Pod
 	clientPods        map[string]Pod
+	perfClientPods    map[string]Pod
+	perfServerPod     map[string]Pod
+	PerfResults       map[PerfTests]PerfResult
 	echoServices      map[string]Service
 	externalWorkloads map[string]ExternalWorkload
 
@@ -46,6 +49,19 @@ type ConnectivityTest struct {
 	testNames map[string]struct{}
 
 	lastFlowTimestamps map[string]time.Time
+}
+
+type PerfTests struct {
+	Pod  string
+	Test string
+}
+
+type PerfResult struct {
+	Metric   string
+	Duration time.Duration
+	Samples  int
+	Values   []float64
+	Avg      float64
 }
 
 // verbose returns the value of the user-provided verbosity flag.
@@ -135,6 +151,9 @@ func NewConnectivityTest(client *k8s.Client, p Parameters) (*ConnectivityTest, e
 		ciliumPods:         make(map[string]Pod),
 		echoPods:           make(map[string]Pod),
 		clientPods:         make(map[string]Pod),
+		perfClientPods:     make(map[string]Pod),
+		perfServerPod:      make(map[string]Pod),
+		PerfResults:        make(map[PerfTests]PerfResult),
 		echoServices:       make(map[string]Service),
 		externalWorkloads:  make(map[string]ExternalWorkload),
 		tests:              []*Test{},
@@ -294,6 +313,19 @@ func (ct *ConnectivityTest) report() error {
 		}
 
 		return fmt.Errorf("%d tests failed", nf)
+	}
+
+	if ct.params.Perf {
+		// Report Performance results
+		ct.Header("🔥 Performance Test Summary")
+		ct.Logf("%s", strings.Repeat("-", 125))
+		ct.Logf("📋 %-50s | %-15s | %-15s | %-15s | %-15s", "Scenario", "Test", "Num Samples", "Duration", "Avg value")
+		ct.Logf("%s", strings.Repeat("-", 125))
+		for p, d := range ct.PerfResults {
+			ct.Logf("📋 %-50s | %-15s | %-15d | %-15s | %.2f (%s)", p.Pod, p.Test, d.Samples, d.Duration, d.Avg, d.Metric)
+			ct.Debugf("Individual Values from run : %s", d.Values)
+		}
+		ct.Logf("%s", strings.Repeat("-", 125))
 	}
 
 	ct.Headerf("✅ All %d tests (%d actions) successful, %d tests skipped, %d scenarios skipped.", nt-nst, na, nst, nss)
@@ -458,12 +490,24 @@ func (ct *ConnectivityTest) RandomClientPod() *Pod {
 	return nil
 }
 
+func (ct *ConnectivityTest) Params() Parameters {
+	return ct.params
+}
+
 func (ct *ConnectivityTest) CiliumPods() map[string]Pod {
 	return ct.ciliumPods
 }
 
 func (ct *ConnectivityTest) ClientPods() map[string]Pod {
 	return ct.clientPods
+}
+
+func (ct *ConnectivityTest) PerfServerPod() map[string]Pod {
+	return ct.perfServerPod
+}
+
+func (ct *ConnectivityTest) PerfClientPods() map[string]Pod {
+	return ct.perfClientPods
 }
 
 func (ct *ConnectivityTest) EchoPods() map[string]Pod {
