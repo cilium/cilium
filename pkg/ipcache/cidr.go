@@ -101,7 +101,11 @@ func AllocateCIDRsForIPs(
 
 func UpsertGeneratedIdentities(newlyAllocatedIdentities map[string]*identity.Identity) {
 	for prefixString, id := range newlyAllocatedIdentities {
-		IPIdentityCache.Upsert(prefixString, nil, 0, nil, Identity{
+		encryptKey := uint8(0)
+		if id.ID == identity.ReservedIdentityKubeAPIServer {
+			encryptKey = uint8(1)
+		}
+		IPIdentityCache.Upsert(prefixString, nil, encryptKey, nil, Identity{
 			ID:     id.ID,
 			Source: source.Generated,
 		})
