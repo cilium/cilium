@@ -87,7 +87,6 @@ func NewAgent(privKeyPath string) (*Agent, error) {
 
 	return &Agent{
 		wgClient:         wgClient,
-		ipCache:          ipcache.IPIdentityCache,
 		privKey:          key,
 		listenPort:       listenPort,
 		peerByNodeName:   map[string]*peerConfig{},
@@ -164,9 +163,10 @@ func (a *Agent) initUserspaceDevice(linkMTU int) (netlink.Link, error) {
 }
 
 // Init creates and configures the local WireGuard tunnel device.
-func (a *Agent) Init(mtuConfig mtu.Configuration) error {
+func (a *Agent) Init(ipcache *ipcache.IPCache, mtuConfig mtu.Configuration) error {
 	addIPCacheListener := false
 	a.Lock()
+	a.ipCache = ipcache
 	defer func() {
 		// IPCache will call back into OnIPIdentityCacheChange which requires
 		// us to release a.mutex before we can add ourself as a listener.
