@@ -65,7 +65,7 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 
 	IPIdentityCache.removeLabelsFromIPs(map[string]labels.Labels{
 		"1.1.1.1": labels.LabelKubeAPIServer,
-	}, source.Local, &mockUpdater{}, &mockTriggerer{})
+	}, source.Local)
 	assert.Len(t, identityMetadata, 1)
 	assert.Equal(t, labels.LabelHost, identityMetadata["1.1.1.1"])
 
@@ -79,20 +79,20 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	// called.
 	UpsertMetadata("1.1.1.1", labels.LabelKubeAPIServer)
 	assert.NoError(t, IPIdentityCache.InjectLabels(source.Local))
-	id := IdentityAllocator.LookupIdentityByID(
+	id := IPIdentityCache.identityAllocator.LookupIdentityByID(
 		context.TODO(),
 		identity.LocalIdentityFlag, // we assume first local ID
 	)
 	assert.NotNil(t, id)
 	assert.Equal(t, 1, id.ReferenceCount)
 	// Simulate adding CIDR policy.
-	ids, err := AllocateCIDRsForIPs([]net.IP{net.ParseIP("1.1.1.1")}, nil)
+	ids, err := IPIdentityCache.AllocateCIDRsForIPs([]net.IP{net.ParseIP("1.1.1.1")}, nil)
 	assert.Nil(t, err)
 	assert.Len(t, ids, 1)
 	assert.Equal(t, 2, id.ReferenceCount)
 	IPIdentityCache.removeLabelsFromIPs(map[string]labels.Labels{ // remove kube-apiserver policy
 		"1.1.1.1": labels.LabelKubeAPIServer,
-	}, source.Local, &mockUpdater{}, &mockTriggerer{})
+	}, source.Local)
 	assert.NotContains(t, identityMetadata["1.1.1.1"], labels.LabelKubeAPIServer)
 	assert.Equal(t, 1, id.ReferenceCount) // CIDR policy is left
 }

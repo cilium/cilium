@@ -130,12 +130,10 @@ func (k *K8sWatcher) handleKubeAPIServerServiceEPChanges(desiredIPs map[string]s
 	//     an update event.
 	//   * if the entire object is deleted, then it will quickly be recreated
 	//     and this will be in the form of an add event.
-	ipcache.RemoveLabelsExcluded(
+	k.ipcache.RemoveLabelsExcluded(
 		labels.LabelKubeAPIServer,
 		desiredIPs,
 		src,
-		k.policyRepository.GetSelectorCache(),
-		k.endpointManager,
 	)
 
 	for ip := range desiredIPs {

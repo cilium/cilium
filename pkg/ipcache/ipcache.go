@@ -111,7 +111,6 @@ func NewIPCache() *IPCache {
 }
 
 func (ipc *IPCache) WithIdentityAllocator(idAllocator cache.IdentityAllocator) *IPCache {
-	IdentityAllocator = idAllocator
 	ipc.identityAllocator = idAllocator
 	return ipc
 }

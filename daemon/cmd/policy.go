@@ -291,7 +291,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 	// Release of these identities will be tied to the corresponding policy
 	// in the policy.Repository and released upon policyDelete().
 	newlyAllocatedIdentities := make(map[string]*identity.Identity)
-	if _, err := ipcache.AllocateCIDRs(prefixes, newlyAllocatedIdentities); err != nil {
+	if _, err := ipcache.IPIdentityCache.AllocateCIDRs(prefixes, newlyAllocatedIdentities); err != nil {
 		_ = d.prefixLengths.Delete(prefixes)
 		logger.WithError(err).WithField("prefixes", prefixes).Warn(
 			"Failed to allocate identities for CIDRs during policy add")
@@ -385,7 +385,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 	// and will trigger deletions for those that are no longer used.
 	if len(removedPrefixes) > 0 {
 		logger.WithField("prefixes", removedPrefixes).Debug("Decrementing replaced CIDR refcounts when adding rules")
-		ipcache.ReleaseCIDRIdentitiesByCIDR(removedPrefixes)
+		ipcache.IPIdentityCache.ReleaseCIDRIdentitiesByCIDR(removedPrefixes)
 		d.prefixLengths.Delete(removedPrefixes)
 	}
 
@@ -433,7 +433,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 		// TODO: Remove 'enable-selective-regeneration' agent option.  Without selective
 		// regeneration we retain the old behavior of upserting new identities to ipcache
 		// before endpoint policy maps have been updated.
-		ipcache.UpsertGeneratedIdentities(newlyAllocatedIdentities)
+		ipcache.IPIdentityCache.UpsertGeneratedIdentities(newlyAllocatedIdentities)
 	}
 
 	return
@@ -472,7 +472,7 @@ func reactToRuleUpdates(epsToBumpRevision, epsToRegen *policy.EndpointSet, rev u
 	// the stale identities are not used in policy map classifications after we regenerate the
 	// endpoints below.
 	if len(releasePrefixes) != 0 {
-		ipcache.ReleaseCIDRIdentitiesByCIDR(releasePrefixes)
+		ipcache.IPIdentityCache.ReleaseCIDRIdentitiesByCIDR(releasePrefixes)
 	}
 
 	// Bump revision of endpoints which don't need to be regenerated.
@@ -507,7 +507,7 @@ func reactToRuleUpdates(epsToBumpRevision, epsToRegen *policy.EndpointSet, rev u
 	// policy maps are ready to classify packets using the newly allocated identities before
 	// they are upserted to the ipcache here.
 	if upsertIdentities != nil {
-		ipcache.UpsertGeneratedIdentities(upsertIdentities)
+		ipcache.IPIdentityCache.UpsertGeneratedIdentities(upsertIdentities)
 	}
 }
 
@@ -651,7 +651,7 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 			log.WithError(err).WithField(logfields.PolicyRevision, rev).Error("enqueue of RuleReactionEvent failed")
 		}
 	} else {
-		ipcache.ReleaseCIDRIdentitiesByCIDR(prefixes)
+		ipcache.IPIdentityCache.ReleaseCIDRIdentitiesByCIDR(prefixes)
 		d.TriggerPolicyUpdates(true, "policy rules deleted")
 	}
 
