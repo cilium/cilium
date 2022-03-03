@@ -546,7 +546,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		}).Debug("Waited for endpoints to regenerate due to a DNS response")
 
 		// Add new identities to the ipcache after the wait for the policy updates above
-		ipcache.UpsertGeneratedIdentities(newlyAllocatedIdentities)
+		ipcache.IPIdentityCache.UpsertGeneratedIdentities(newlyAllocatedIdentities)
 
 		endMetric()
 	}

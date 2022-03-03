@@ -511,7 +511,7 @@ func (k *K8sWatcher) k8sServiceHandler() {
 				return
 			}
 
-			translator := k8s.NewK8sTranslator(event.ID, *event.Endpoints, false, svc.Labels, true)
+			translator := k8s.NewK8sTranslator(k.ipcache, event.ID, *event.Endpoints, false, svc.Labels, true)
 			result, err := k.policyRepository.TranslateRules(translator)
 			if err != nil {
 				log.WithError(err).Error("Unable to repopulate egress policies from ToService rules")
@@ -530,7 +530,7 @@ func (k *K8sWatcher) k8sServiceHandler() {
 				return
 			}
 
-			translator := k8s.NewK8sTranslator(event.ID, *event.Endpoints, true, svc.Labels, true)
+			translator := k8s.NewK8sTranslator(k.ipcache, event.ID, *event.Endpoints, true, svc.Labels, true)
 			result, err := k.policyRepository.TranslateRules(translator)
 			if err != nil {
 				log.WithError(err).Error("Unable to depopulate egress policies from ToService rules")

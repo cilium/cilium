@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/source"
-	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 
 func Test(t *testing.T) {
@@ -151,7 +150,6 @@ func (n *signalNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
 }
 
 func (s *managerTestSuite) SetUpSuite(c *check.C) {
-	ipcache.IdentityAllocator = testidentity.NewMockIdentityAllocator(nil)
 }
 
 func (s *managerTestSuite) TestNodeLifecycle(c *check.C) {

@@ -12,21 +12,12 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/cidr"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
-)
-
-var (
-	// IdentityAllocator is a package-level variable which is used to allocate
-	// identities for CIDRs.
-	// TODO: plumb an allocator in from callers of these functions vs. having
-	// this as a package-level variable.
-	IdentityAllocator cache.IdentityAllocator
 )
 
 // AllocateCIDRs attempts to allocate identities for a list of CIDRs. If any
@@ -38,7 +29,7 @@ var (
 //
 // Upon success, the caller must also arrange for the resulting identities to
 // be released via a subsequent call to ReleaseCIDRIdentitiesByCIDR().
-func AllocateCIDRs(
+func (ipc *IPCache) AllocateCIDRs(
 	prefixes []*net.IPNet, newlyAllocatedIdentities map[string]*identity.Identity,
 ) ([]*identity.Identity, error) {
 	// maintain list of used identities to undo on error
@@ -61,9 +52,9 @@ func AllocateCIDRs(
 		lbls := cidr.GetCIDRLabels(p)
 		lbls.MergeLabels(GetIDMetadataByIP(p.IP.String()))
 
-		id, isNew, err := allocate(p, lbls)
+		id, isNew, err := ipc.allocate(p, lbls)
 		if err != nil {
-			IdentityAllocator.ReleaseSlice(context.Background(), nil, usedIdentities)
+			ipc.identityAllocator.ReleaseSlice(context.Background(), nil, usedIdentities)
 			return nil, err
 		}
 
@@ -78,7 +69,7 @@ func AllocateCIDRs(
 	// Only upsert into ipcache if identity wasn't allocated
 	// before and the caller does not care doing this
 	if upsert {
-		UpsertGeneratedIdentities(newlyAllocatedIdentities)
+		ipc.UpsertGeneratedIdentities(newlyAllocatedIdentities)
 	}
 
 	identities := make([]*identity.Identity, 0, len(allocatedIdentities))
@@ -93,15 +84,15 @@ func AllocateCIDRs(
 //
 // Upon success, the caller must also arrange for the resulting identities to
 // be released via a subsequent call to ReleaseCIDRIdentitiesByID().
-func AllocateCIDRsForIPs(
+func (ipc *IPCache) AllocateCIDRsForIPs(
 	prefixes []net.IP, newlyAllocatedIdentities map[string]*identity.Identity,
 ) ([]*identity.Identity, error) {
-	return AllocateCIDRs(ip.GetCIDRPrefixesFromIPs(prefixes), newlyAllocatedIdentities)
+	return ipc.AllocateCIDRs(ip.GetCIDRPrefixesFromIPs(prefixes), newlyAllocatedIdentities)
 }
 
-func UpsertGeneratedIdentities(newlyAllocatedIdentities map[string]*identity.Identity) {
+func (ipc *IPCache) UpsertGeneratedIdentities(newlyAllocatedIdentities map[string]*identity.Identity) {
 	for prefixString, id := range newlyAllocatedIdentities {
-		IPIdentityCache.Upsert(prefixString, nil, 0, nil, Identity{
+		ipc.Upsert(prefixString, nil, 0, nil, Identity{
 			ID:     id.ID,
 			Source: source.Generated,
 		})
@@ -118,7 +109,7 @@ func UpsertGeneratedIdentities(newlyAllocatedIdentities map[string]*identity.Ide
 //
 // It is up to the caller to provide the full set of labels for identity
 // allocation.
-func allocate(prefix *net.IPNet, lbls labels.Labels) (*identity.Identity, bool, error) {
+func (ipc *IPCache) allocate(prefix *net.IPNet, lbls labels.Labels) (*identity.Identity, bool, error) {
 	if prefix == nil {
 		return nil, false, nil
 	}
@@ -126,7 +117,7 @@ func allocate(prefix *net.IPNet, lbls labels.Labels) (*identity.Identity, bool, 
 	allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.IPAllocationTimeout)
 	defer cancel()
 
-	id, isNew, err := IdentityAllocator.AllocateIdentity(allocateCtx, lbls, false)
+	id, isNew, err := ipc.identityAllocator.AllocateIdentity(allocateCtx, lbls, false)
 	if err != nil {
 		return nil, isNew, fmt.Errorf("failed to allocate identity for cidr %s: %s", prefix, err)
 	}
@@ -140,7 +131,7 @@ func allocate(prefix *net.IPNet, lbls labels.Labels) (*identity.Identity, bool, 
 
 func (ipc *IPCache) releaseCIDRIdentities(ctx context.Context, identities map[string]*identity.Identity) {
 	for prefix, id := range identities {
-		released, err := IdentityAllocator.Release(ctx, id, false)
+		released, err := ipc.identityAllocator.Release(ctx, id, false)
 		if err != nil {
 			log.WithFields(logrus.Fields{
 				logfields.Identity: id,
@@ -156,7 +147,7 @@ func (ipc *IPCache) releaseCIDRIdentities(ctx context.Context, identities map[st
 
 // ReleaseCIDRIdentitiesByCIDR releases the identities of a list of CIDRs.
 // When the last use of the identity is released, the ipcache entry is deleted.
-func ReleaseCIDRIdentitiesByCIDR(prefixes []*net.IPNet) {
+func (ipc *IPCache) ReleaseCIDRIdentitiesByCIDR(prefixes []*net.IPNet) {
 	// TODO: Structure the code to pass context down from the Daemon.
 	releaseCtx, cancel := context.WithTimeout(context.TODO(), option.Config.KVstoreConnectivityTimeout)
 	defer cancel()
@@ -167,22 +158,22 @@ func ReleaseCIDRIdentitiesByCIDR(prefixes []*net.IPNet) {
 			continue
 		}
 
-		if id := IdentityAllocator.LookupIdentity(releaseCtx, cidr.GetCIDRLabels(prefix)); id != nil {
+		if id := ipc.identityAllocator.LookupIdentity(releaseCtx, cidr.GetCIDRLabels(prefix)); id != nil {
 			identities[prefix.String()] = id
 		} else {
 			log.Errorf("Unable to find identity of previously used CIDR %s", prefix.String())
 		}
 	}
 
-	IPIdentityCache.releaseCIDRIdentities(releaseCtx, identities)
+	ipc.releaseCIDRIdentities(releaseCtx, identities)
 }
 
 // ReleaseCIDRIdentitiesByID releases the specified identities.
 // When the last use of the identity is released, the ipcache entry is deleted.
-func ReleaseCIDRIdentitiesByID(ctx context.Context, identities []identity.NumericIdentity) {
+func (ipc *IPCache) ReleaseCIDRIdentitiesByID(ctx context.Context, identities []identity.NumericIdentity) {
 	fullIdentities := make(map[string]*identity.Identity, len(identities))
 	for _, nid := range identities {
-		if id := IdentityAllocator.LookupIdentityByID(ctx, nid); id != nil {
+		if id := ipc.identityAllocator.LookupIdentityByID(ctx, nid); id != nil {
 			cidr := id.CIDRLabel.String()
 			if !strings.HasPrefix(cidr, labels.LabelSourceCIDR) {
 				log.WithFields(logrus.Fields{
@@ -199,5 +190,5 @@ func ReleaseCIDRIdentitiesByID(ctx context.Context, identities []identity.Numeri
 		}
 	}
 
-	IPIdentityCache.releaseCIDRIdentities(ctx, fullIdentities)
+	ipc.releaseCIDRIdentities(ctx, fullIdentities)
 }
