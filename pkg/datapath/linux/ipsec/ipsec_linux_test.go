@@ -171,7 +171,6 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEndpoint(c *C) {
 			Mask:  linux_defaults.IPsecMarkMaskIn,
 			Value: linux_defaults.RouteMarkToProxy,
 		},
-		Ifid: XfrmInterfaceID,
 	})
 	c.Assert(err, IsNil)
 	c.Assert(toProxyPolicy, Not(IsNil))
