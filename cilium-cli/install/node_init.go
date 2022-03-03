@@ -34,9 +34,11 @@ fi
 echo 'Done!'
 `),
 		k8s.KindGKE: bash(`
-# Check if we're running on a GKE containerd flavor.
+# Check if we're running on a GKE containerd flavor as indicated by the presence
+# of the '--container-runtime-endpoint' flag in '/etc/default/kubelet'.
 GKE_KUBERNETES_BIN_DIR="/home/kubernetes/bin"
-if [[ -f "${GKE_KUBERNETES_BIN_DIR}/gke" ]] && command -v containerd &>/dev/null; then
+KUBELET_DEFAULTS_FILE="/etc/default/kubelet"
+if [[ -f "${GKE_KUBERNETES_BIN_DIR}/gke" ]] && [[ $(grep -cE '\--container-runtime-endpoint' "${KUBELET_DEFAULTS_FILE}") == "1" ]]; then
 	echo "GKE *_containerd flavor detected..."
 
 	# (GKE *_containerd) Upon node restarts, GKE's containerd images seem to reset
@@ -103,7 +105,7 @@ else
 	# (Generic) Alter the kubelet configuration to run in CNI mode
 	echo "Changing kubelet configuration to --network-plugin=cni --cni-bin-dir={{ .Values.cni.binPath }}"
 	mkdir -p {{ .Values.cni.binPath }}
-	sed -i "s:--network-plugin=kubenet:--network-plugin=cni\ --cni-bin-dir={{ .Values.cni.binPath }}:g" /etc/default/kubelet
+	sed -i "s:--network-plugin=kubenet:--network-plugin=cni\ --cni-bin-dir={{ .Values.cni.binPath }}:g" "${KUBELET_DEFAULTS_FILE}"
 fi
 echo "Restarting the kubelet..."
 systemctl restart kubelet
