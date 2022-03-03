@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -50,13 +51,14 @@ func newCmdConnectivityTest() *cobra.Command {
 				if strings.HasPrefix(test, "!") {
 					rgx, err := regexp.Compile(strings.TrimPrefix(test, "!"))
 					if err != nil {
-						return fmt.Errorf("Test filter: %w", err)
+						return fmt.Errorf("test filter: %w", err)
 					}
 					params.SkipTests = append(params.SkipTests, rgx)
 				} else {
+
 					rgx, err := regexp.Compile(test)
 					if err != nil {
-						return fmt.Errorf("Test filter: %w", err)
+						return fmt.Errorf("test filter: %w", err)
 					}
 					params.RunTests = append(params.RunTests, rgx)
 				}
@@ -64,7 +66,12 @@ func newCmdConnectivityTest() *cobra.Command {
 
 			// Instantiate the test harness.
 			cc, err := check.NewConnectivityTest(k8sClient, params)
-
+			if params.PerfSamples > 3 {
+				cc.Warn("Having Performance Samples > 3 can cause issues")
+			}
+			if params.PerfDuration > 30*time.Second {
+				cc.Warn("Having Performance Duration > 30s can cause issues")
+			}
 			if err != nil {
 				return err
 			}
@@ -96,7 +103,7 @@ func newCmdConnectivityTest() *cobra.Command {
 			}
 
 			if err != nil {
-				return fmt.Errorf("Connectivity test failed: %w", err)
+				return fmt.Errorf("connectivity test failed: %w", err)
 			}
 
 			return nil
@@ -120,6 +127,9 @@ func newCmdConnectivityTest() *cobra.Command {
 	cmd.Flags().BoolVarP(&params.Debug, "debug", "d", false, "Show debug messages")
 	cmd.Flags().BoolVarP(&params.PauseOnFail, "pause-on-fail", "p", false, "Pause execution on test failure")
 	cmd.Flags().BoolVar(&params.SkipIPCacheCheck, "skip-ip-cache-check", true, "Skip IPCache check")
+	cmd.Flags().BoolVar(&params.Perf, "perf", false, "Run network Performance tests")
+	cmd.Flags().DurationVar(&params.PerfDuration, "perf-duration", 10*time.Second, "Duration for the Performance test to run")
+	cmd.Flags().IntVar(&params.PerfSamples, "perf-samples", 1, "Number of Performance samples to capture (how many times to run each test)")
 	cmd.Flags().MarkHidden("skip-ip-cache-check")
 	cmd.Flags().StringVar(&params.CiliumBaseVersion, "base-version", defaults.Version,
 		"Specify the base Cilium version for configuration purpose in case image tag doesn't indicate the actual Cilium version")
