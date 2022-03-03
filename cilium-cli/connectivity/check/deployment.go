@@ -23,6 +23,13 @@ import (
 )
 
 const (
+	PerfClientName = "PerfClient"
+	PerfServerName = "PerfServer"
+
+	PerfClientDeploymentName       = "perf-client"
+	PerfClientAcrossDeploymentName = "perf-client-other-node"
+	PerfServerDeploymentName       = "perf-server"
+
 	ClientDeploymentName  = "client"
 	Client2DeploymentName = "client2"
 
@@ -30,6 +37,7 @@ const (
 	echoOtherNodeDeploymentName = "echo-other-node"
 	kindEchoName                = "echo"
 	kindClientName              = "client"
+	kindPerfName                = "perf"
 )
 
 type deploymentParameters struct {
@@ -235,6 +243,152 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		}
 	}
 
+	if ct.params.Perf {
+		// For performance workloads, we want to ensure the client/server are in the same zone
+		// If a zone has > 1 node, use that zone
+		zones := map[string]int{}
+		zone := ""
+		lz := ""
+		n, hasNodes := ct.client.ListNodes(ctx, metav1.ListOptions{})
+		if hasNodes != nil {
+			return fmt.Errorf("unable to query nodes")
+		}
+		for _, l := range n.Items {
+			if _, ok := zones[l.GetLabels()["topology.kubernetes.io/zone"]]; ok {
+				zone = l.GetLabels()["topology.kubernetes.io/zone"]
+				break
+			} else {
+				zones[l.GetLabels()["topology.kubernetes.io/zone"]] = 1
+				lz = l.GetLabels()["topology.kubernetes.io/zone"]
+			}
+		}
+		// No zone had > 1, use the last zone.
+		if zone == "" {
+			ct.Warn("Each zone only has a single node - could impact the performance test results")
+			zone = lz
+		}
+
+		// Need to capture the IP of the Server Deployment, and pass to the client to execute benchmark
+		_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, PerfClientDeploymentName, metav1.GetOptions{})
+		if err != nil {
+			ct.Logf("✨ [%s] Deploying Perf Client deployment...", ct.clients.src.ClusterName())
+			perfClientDeployment := newDeployment(deploymentParameters{
+				Name:  PerfClientDeploymentName,
+				Kind:  kindPerfName,
+				Port:  80,
+				Image: defaults.ConnectivityPerformanceImage,
+				Labels: map[string]string{
+					"client": "role",
+				},
+				Command: []string{"/bin/bash", "-c", "sleep 10000000"},
+				Affinity: &corev1.Affinity{
+					NodeAffinity: &corev1.NodeAffinity{
+						PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
+							{
+								Weight: 100,
+								Preference: corev1.NodeSelectorTerm{
+									MatchExpressions: []corev1.NodeSelectorRequirement{
+										{Key: "topology.kubernetes.io/zone", Operator: corev1.NodeSelectorOpIn, Values: []string{zone}},
+									},
+								},
+							},
+						},
+					},
+				},
+			})
+			_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, perfClientDeployment, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create deployment %s: %w", perfClientDeployment, err)
+			}
+		}
+
+		_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, PerfServerDeploymentName, metav1.GetOptions{})
+		if err != nil {
+			ct.Logf("✨ [%s] Deploying Perf Server deployment...", ct.clients.src.ClusterName())
+			perfServerDeployment := newDeployment(deploymentParameters{
+				Name: PerfServerDeploymentName,
+				Kind: kindPerfName,
+				Labels: map[string]string{
+					"server": "role",
+				},
+				Port:    5001,
+				Image:   defaults.ConnectivityPerformanceImage,
+				Command: []string{"/bin/bash", "-c", "netserver;sleep 10000000"},
+				Affinity: &corev1.Affinity{
+					NodeAffinity: &corev1.NodeAffinity{
+						PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
+							{
+								Weight: 100,
+								Preference: corev1.NodeSelectorTerm{
+									MatchExpressions: []corev1.NodeSelectorRequirement{
+										{Key: "topology.kubernetes.io/zone", Operator: corev1.NodeSelectorOpIn, Values: []string{zone}},
+									},
+								},
+							},
+						},
+					},
+					PodAffinity: &corev1.PodAffinity{
+						RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+							{
+								LabelSelector: &metav1.LabelSelector{
+									MatchExpressions: []metav1.LabelSelectorRequirement{
+										{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{PerfClientDeploymentName}},
+									},
+								},
+								TopologyKey: "kubernetes.io/hostname",
+							},
+						},
+					},
+				},
+			})
+			_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, perfServerDeployment, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create deployment %s: %w", perfServerDeployment, err)
+			}
+		}
+
+		// Deploy second client on a different node
+		if !ct.params.SingleNode {
+			_, err := ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, PerfClientAcrossDeploymentName, metav1.GetOptions{})
+			if err != nil {
+				ct.Logf("✨ [%s] Deploying Perf Client deployment...", ct.clients.src.ClusterName())
+				perfClientDeployment := newDeployment(deploymentParameters{
+					Name: PerfClientAcrossDeploymentName,
+					Kind: kindPerfName,
+					Port: 5001,
+					Labels: map[string]string{
+						"client": "role",
+					},
+					Image:   defaults.ConnectivityPerformanceImage,
+					Command: []string{"/bin/bash", "-c", "sleep 10000000"},
+					Affinity: &corev1.Affinity{
+						NodeAffinity: &corev1.NodeAffinity{
+							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
+								{
+									Weight: 100,
+									Preference: corev1.NodeSelectorTerm{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{Key: "topology.kubernetes.io/zone", Operator: corev1.NodeSelectorOpIn, Values: []string{zone}},
+										},
+									},
+								},
+							},
+						},
+						PodAntiAffinity: &corev1.PodAntiAffinity{
+							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+								{Weight: 100, PodAffinityTerm: corev1.PodAffinityTerm{
+									LabelSelector: &metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
+										{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{PerfClientDeploymentName}}}},
+									TopologyKey: "kubernetes.io/hostname"}}}},
+					},
+				})
+				_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, perfClientDeployment, metav1.CreateOptions{})
+				if err != nil {
+					return fmt.Errorf("unable to create deployment %s: %s", perfClientDeployment, err)
+				}
+			}
+		}
+	}
 	_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, ClientDeploymentName, metav1.GetOptions{})
 	if err != nil {
 		ct.Logf("✨ [%s] Deploying client deployment...", ct.clients.src.ClusterName())
@@ -327,7 +481,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 
 			_, err = ct.clients.dst.CreateDeployment(ctx, ct.params.TestNamespace, echoOtherNodeDeployment, metav1.CreateOptions{})
 			if err != nil {
-				return fmt.Errorf("unable to create deployment %s: %s", echoOtherNodeDeploymentName, err)
+				return fmt.Errorf("unable to create deployment %s: %w", echoOtherNodeDeploymentName, err)
 			}
 		}
 	}
@@ -337,9 +491,14 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 
 // deploymentList returns 2 lists of Deployments to be used for running tests with.
 func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string) {
-	srcList = []string{ClientDeploymentName, Client2DeploymentName, echoSameNodeDeploymentName}
+	if !ct.params.Perf {
+		srcList = []string{ClientDeploymentName, Client2DeploymentName, echoSameNodeDeploymentName}
+	} else {
+		srcList = []string{PerfClientDeploymentName}
+		dstList = append(dstList, PerfServerDeploymentName)
+	}
 
-	if ct.params.MultiCluster != "" || !ct.params.SingleNode {
+	if (ct.params.MultiCluster != "" || !ct.params.SingleNode) && !ct.params.Perf {
 		dstList = append(dstList, echoOtherNodeDeploymentName)
 	}
 
@@ -384,7 +543,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 	for _, client := range ct.clients.clients() {
 		ciliumPods, err := client.ListPods(ctx, ct.params.CiliumNamespace, metav1.ListOptions{LabelSelector: "k8s-app=cilium"})
 		if err != nil {
-			return fmt.Errorf("unable to list Cilium pods: %s", err)
+			return fmt.Errorf("unable to list Cilium pods: %w", err)
 		}
 		for _, ciliumPod := range ciliumPods.Items {
 			// TODO: Can Cilium pod names collide across clusters?
@@ -413,10 +572,35 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 		}
 	}
 
+	perfPods, err := ct.client.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindPerfName})
+	if err != nil {
+		return fmt.Errorf("unable to list perf pods: %w", err)
+	}
+	for _, perfPod := range perfPods.Items {
+		ctx, cancel := context.WithTimeout(ctx, ct.params.ciliumEndpointTimeout())
+		defer cancel()
+		if err := ct.waitForCiliumEndpoint(ctx, ct.clients.src, ct.params.TestNamespace, perfPod.Name); err != nil {
+			return err
+		}
+		_, hasLabel := perfPod.GetLabels()["server"]
+		if hasLabel {
+			ct.perfServerPod[perfPod.Name] = Pod{
+				K8sClient: ct.client,
+				Pod:       perfPod.DeepCopy(),
+				port:      5201,
+			}
+		} else {
+			ct.perfClientPods[perfPod.Name] = Pod{
+				K8sClient: ct.client,
+				Pod:       perfPod.DeepCopy(),
+			}
+		}
+	}
+
 	for _, client := range ct.clients.clients() {
 		echoPods, err := client.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindEchoName})
 		if err != nil {
-			return fmt.Errorf("unable to list echo pods: %s", err)
+			return fmt.Errorf("unable to list echo pods: %w", err)
 		}
 		for _, echoPod := range echoPods.Items {
 			ctx, cancel := context.WithTimeout(ctx, ct.params.ciliumEndpointTimeout())
@@ -437,7 +621,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 	for _, client := range ct.clients.clients() {
 		echoServices, err := client.ListServices(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindEchoName})
 		if err != nil {
-			return fmt.Errorf("unable to list echo services: %s", err)
+			return fmt.Errorf("unable to list echo services: %w", err)
 		}
 
 		for _, echoService := range echoServices.Items {
@@ -483,7 +667,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 			})
 			continue
 		} else if err != nil {
-			return fmt.Errorf("unable to list external workloads: %s", err)
+			return fmt.Errorf("unable to list external workloads: %w", err)
 		}
 		for _, externalWorkload := range externalWorkloads.Items {
 			ct.externalWorkloads[externalWorkload.Name] = ExternalWorkload{

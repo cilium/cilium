@@ -56,6 +56,9 @@ type Action struct {
 	// flows is a map of all flow logs generated during the Action.
 	flows flowsSet
 
+	// Should the action attempt to collect the flows with hubble
+	CollectFlows bool
+
 	flowResults map[TestPeer]FlowRequirementResults
 
 	// started is the timestamp the test started
@@ -63,17 +66,23 @@ type Action struct {
 
 	// failed is true when Fail was called on the Action
 	failed bool
+
+	// Output from action if there is any
+	cmdOutput string
 }
 
 func newAction(t *Test, name string, s Scenario, src *Pod, dst TestPeer) *Action {
 	return &Action{
-		name:        name,
-		test:        t,
-		scenario:    s,
-		src:         src,
-		dst:         dst,
-		started:     time.Now(),
-		flowResults: map[TestPeer]FlowRequirementResults{},
+		name:         name,
+		test:         t,
+		scenario:     s,
+		src:          src,
+		dst:          dst,
+		CollectFlows: true,
+		flowResults:  map[TestPeer]FlowRequirementResults{},
+		started:      time.Now(),
+		failed:       false,
+		cmdOutput:    "",
 	}
 }
 
@@ -107,6 +116,10 @@ func (a *Action) Destination() TestPeer {
 	return a.dst
 }
 
+func (a *Action) CmdOutput() string {
+	return a.cmdOutput
+}
+
 // Run executes function f.
 //
 // This method is to be called from a Scenario implementation.
@@ -117,7 +130,7 @@ func (a *Action) Run(f func(*Action)) {
 	a.test.progress()
 
 	// Only perform flow validation if a Hubble Relay connection is available.
-	if a.test.ctx.params.Hubble {
+	if a.test.ctx.params.Hubble && a.CollectFlows {
 		// Channel for the flow listener to notify us when ready.
 		ready := make(chan bool, 1)
 
@@ -187,7 +200,7 @@ func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
 
 	cmdName := cmd[0]
 	cmdStr := strings.Join(cmd, " ")
-
+	a.cmdOutput = output.String()
 	showOutput := false
 	expectedExitCode := a.expectedExitCode()
 	if err != nil {
@@ -227,14 +240,14 @@ func (a *Action) extractExitCode(err error) (ExitCode, error) {
 	// Extract exit code from 'err'
 	m := exitCodeRegex.FindStringSubmatch(err.Error())
 	if len(m) != 2 || len(m[1]) == 0 {
-		return ExitInvalidCode, fmt.Errorf("Unable to extract exit code from error: %s", err.Error())
+		return ExitInvalidCode, fmt.Errorf("unable to extract exit code from error: %s", err.Error())
 	}
 	i, err := strconv.Atoi(m[1])
 	if err != nil {
-		return ExitInvalidCode, fmt.Errorf("Invalid exit code %q in error %s", m[1], err.Error())
+		return ExitInvalidCode, fmt.Errorf("invalid exit code %q in error %s", m[1], err.Error())
 	}
 	if i < 0 || i > 255 {
-		return ExitInvalidCode, fmt.Errorf("Exit code %q out of range [0-255]", m[1])
+		return ExitInvalidCode, fmt.Errorf("exit code %q out of range [0-255]", m[1])
 	}
 	return ExitCode(i), nil
 }

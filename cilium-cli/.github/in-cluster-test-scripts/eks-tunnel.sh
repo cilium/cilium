@@ -30,3 +30,6 @@ cilium connectivity test --debug --all-flows \
   # - https://github.com/cilium/cilium/issues/16975 is fixed
   # - fix has been deployed to a stable branch
   # - cilium-cli default cilium version has been updated to pick up the fix
+
+# Run performance test
+cilium connectivity test --perf --perf-duration 1s
