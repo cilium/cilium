@@ -213,6 +213,25 @@ To install Cilium while automatically detected:
     Jan  6 13:41:30.509: 10.0.0.11:59414 -> 10.0.0.166:8080 to-endpoint FORWARDED (TCP Flags: ACK)
     ✅ client pod client-9f579495f-b2pcq was able to communicate with service echo-same-node
 
+#### Network Performance test 
+
+    cilium connectivity test --perf
+    🔥 Performance Test Summary
+    -----------------------------------------------------------------------------------------------------------------------------
+    📋 Scenario                                           | Test            | Num Samples     | Duration        | Avg value      
+    -----------------------------------------------------------------------------------------------------------------------------
+    📋 perf-client-5d7cb4d587-cn8sw                       | TCP_RR          | 1               | 10s             | 29975.37 (OP/s)
+    📋 perf-client-5d7cb4d587-cn8sw                       | TCP_CRR         | 1               | 10s             | 3926.56 (OP/s)
+    📋 perf-client-5d7cb4d587-cn8sw                       | TCP_STREAM      | 1               | 10s             | 2275.42 (Mb/s)
+    📋 perf-client-other-node-7867748554-vfvgt            | TCP_RR          | 1               | 10s             | 964.55 (OP/s)
+    📋 perf-client-other-node-7867748554-vfvgt            | TCP_STREAM      | 1               | 10s             | 4743.39 (Mb/s)
+    📋 perf-client-other-node-7867748554-vfvgt            | UDP_RR          | 1               | 10s             | 1134.20 (OP/s)
+    📋 perf-client-other-node-7867748554-vfvgt            | UDP_STREAM      | 1               | 10s             | 1425.74 (Mb/s)
+    📋 perf-client-5d7cb4d587-cn8sw                       | UDP_RR          | 1               | 10s             | 31737.62 (OP/s)
+    📋 perf-client-5d7cb4d587-cn8sw                       | UDP_STREAM      | 1               | 10s             | 865.24 (Mb/s)
+    📋 perf-client-other-node-7867748554-vfvgt            | TCP_CRR         | 1               | 10s             | 435.80 (OP/s)
+    -----------------------------------------------------------------------------------------------------------------------------
+
 ### ClusterMesh
 
 Install Cilium & enable ClusterMesh in Cluster 1
