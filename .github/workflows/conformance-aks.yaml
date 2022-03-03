@@ -121,7 +121,7 @@ jobs:
       github.event_name == 'schedule' ||
       github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 45
     steps:
       - name: Set up job variables
         id: vars
