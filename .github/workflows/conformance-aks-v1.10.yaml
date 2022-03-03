@@ -224,8 +224,7 @@ jobs:
             --mode user \
             --node-count 2 \
             --node-taints "node.cilium.io/agent-not-ready=true:NoExecute" \
-            ${{ env.cost_reduction }} \
-            --no-wait
+            ${{ env.cost_reduction }}
 
           # Delete the initial system node pool
           az aks nodepool delete \
