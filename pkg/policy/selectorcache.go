@@ -144,10 +144,10 @@ type identitySelector interface {
 	// Called with NameManager and SelectorCache locks held
 	removeUser(CachedSelectionUser, identityNotifier) (last bool)
 
-	// releaseIdentityMappings must be called exactly once upon release of
-	// this selector to ensure that resources are cleaned up upon deletion
-	// of the selector.
-	releaseIdentityMappings(cache.IdentityAllocator)
+	// fetchIdentityMappings returns all of the identities currently
+	// reference-counted by this selector. It is used during cleanup of the
+	// selector.
+	fetchIdentityMappings(cache.IdentityAllocator) []identity.NumericIdentity
 
 	// This may be called while the NameManager lock is held. wg.Wait()
 	// returns after user notifications have been completed, which may require
@@ -458,12 +458,12 @@ func (f *fqdnSelector) notifyUsers(sc *SelectorCache, added, deleted []identity.
 // SelectorCache.mutex.Lock()
 // duplicateIdentities := fqdnSelector.transferIdentityReferencesToSelector(...)
 // SelectorCache.mutex.Unlock()
-// ReleaseCIDRIdentitiesByID(duplicateIdentities)
+// SelectorCache.releaseIdentityMappings(duplicateIdentities)
 // ... (active usage of the selector)
 // SelectorCache.mutex.Lock()
 // remainingIdentities := SelectorCache.removeSelectorLocked(...)
 // SelectorCache.mutex.Unlock()
-// ReleaseCIDRIdentitiesByID(duplicateIdentities)
+// SelectorCache.releaseIdentityMappings(remainingIdentities)
 //
 // sc.mutex MUST NOT be held while calling this function.
 func (sc *SelectorCache) allocateIdentityMappings(sel api.FQDNSelector, selectorIPMapping map[api.FQDNSelector][]net.IP) []*identity.Identity {
@@ -529,18 +529,31 @@ func (f *fqdnSelector) transferIdentityReferencesToSelector(currentlyAllocatedId
 	return identitiesToRelease
 }
 
-// releaseIdentityMappings must be called exactly once for the received
-// 'fqdnSelector' in order to release CIDR identity references held in this
-// selector's cachedSelections.
-func (f *fqdnSelector) releaseIdentityMappings(idAllocator cache.IdentityAllocator) {
+// fetchIdentityMappings returns the set of identities that this selector
+// holds references for. This should be used during cleanup of the selector
+// to ensure that all remaining references to local identities are released,
+// in order to prevent leaking of identities.
+func (f *fqdnSelector) fetchIdentityMappings(idAllocator cache.IdentityAllocator) []identity.NumericIdentity {
 	ids := make([]identity.NumericIdentity, 0, len(f.cachedSelections))
 	for id := range f.cachedSelections {
 		ids = append(ids, id)
 	}
 
+	return ids
+}
+
+// releaseIdentityMappings must be called exactly once for each selector that
+// is removed from the selectorcache, in order to release local identity
+// references held in the selector's cachedSelections.
+//
+// See SelectorCache.allocateIdentityMappings() for a lifecycle description.
+//
+// sc.mutex MUST NOT be held while calling this function.
+func (sc *SelectorCache) releaseIdentityMappings(identitiesToRelease []identity.NumericIdentity) {
+	// TODO: Remove timeouts for CIDR identity allocation (as it is local).
 	ctx, cancel := context.WithTimeout(context.TODO(), option.Config.KVstoreConnectivityTimeout)
 	defer cancel()
-	idAllocator.ReleaseCIDRIdentitiesByID(ctx, ids)
+	sc.idAllocator.ReleaseCIDRIdentitiesByID(ctx, identitiesToRelease)
 }
 
 // identityNotifier provides a means for other subsystems to be made aware of a
@@ -624,8 +637,9 @@ func (l *labelIdentitySelector) matches(identity scIdentity) bool {
 	return l.matchesNamespace(identity.namespace) && l.selector.Matches(identity.lbls)
 }
 
-func (l *labelIdentitySelector) releaseIdentityMappings(idAllocator cache.IdentityAllocator) {
+func (l *labelIdentitySelector) fetchIdentityMappings(idAllocator cache.IdentityAllocator) []identity.NumericIdentity {
 	// labelIdentitySelectors don't retain identity references, so no-op.
+	return nil
 }
 
 //
@@ -645,10 +659,7 @@ func (sc *SelectorCache) UpdateFQDNSelector(fqdnSelec api.FQDNSelector, identiti
 	sc.mutex.Lock()
 	identitiesToRelease := sc.updateFQDNSelector(fqdnSelec, identities, wg)
 	sc.mutex.Unlock()
-	// TODO: Remove timeouts for CIDR identity allocation (as it is local).
-	ctx, cancel := context.WithTimeout(context.TODO(), option.Config.KVstoreConnectivityTimeout)
-	defer cancel()
-	sc.idAllocator.ReleaseCIDRIdentitiesByID(ctx, identitiesToRelease)
+	sc.releaseIdentityMappings(identitiesToRelease)
 }
 
 func (sc *SelectorCache) updateFQDNSelector(fqdnSelec api.FQDNSelector, identities []identity.NumericIdentity, wg *sync.WaitGroup) (identitiesToRelease []identity.NumericIdentity) {
@@ -839,9 +850,7 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api
 	added = newFQDNSel.addUser(user)
 	sc.mutex.Unlock()
 
-	ctx, cancel := context.WithTimeout(context.TODO(), option.Config.KVstoreConnectivityTimeout)
-	defer cancel()
-	sc.idAllocator.ReleaseCIDRIdentitiesByID(ctx, identitiesToRelease)
+	sc.releaseIdentityMappings(identitiesToRelease)
 
 	return newFQDNSel, added
 }
@@ -913,35 +922,43 @@ func (sc *SelectorCache) AddIdentitySelector(user CachedSelectionUser, selector 
 }
 
 // lock must be held
-func (sc *SelectorCache) removeSelectorLocked(selector CachedSelector, user CachedSelectionUser) {
+func (sc *SelectorCache) removeSelectorLocked(selector CachedSelector, user CachedSelectionUser) (identitiesToRelease []identity.NumericIdentity) {
 	key := selector.String()
 	sel, exists := sc.selectors[key]
 	if exists {
 		if sel.removeUser(user, sc.localIdentityNotifier) {
 			delete(sc.selectors, key)
-			sel.releaseIdentityMappings(sc.idAllocator)
+			identitiesToRelease = sel.fetchIdentityMappings(sc.idAllocator)
 		}
 	}
+	return identitiesToRelease
 }
 
 // RemoveSelector removes CachedSelector for the user.
 func (sc *SelectorCache) RemoveSelector(selector CachedSelector, user CachedSelectionUser) {
 	sc.localIdentityNotifier.Lock()
 	sc.mutex.Lock()
-	sc.removeSelectorLocked(selector, user)
+	identitiesToRelease := sc.removeSelectorLocked(selector, user)
 	sc.mutex.Unlock()
 	sc.localIdentityNotifier.Unlock()
+
+	sc.releaseIdentityMappings(identitiesToRelease)
 }
 
 // RemoveSelectors removes CachedSelectorSlice for the user.
 func (sc *SelectorCache) RemoveSelectors(selectors CachedSelectorSlice, user CachedSelectionUser) {
+	var identitiesToRelease []identity.NumericIdentity
+
 	sc.localIdentityNotifier.Lock()
 	sc.mutex.Lock()
 	for _, selector := range selectors {
-		sc.removeSelectorLocked(selector, user)
+		identities := sc.removeSelectorLocked(selector, user)
+		identitiesToRelease = append(identitiesToRelease, identities...)
 	}
 	sc.mutex.Unlock()
 	sc.localIdentityNotifier.Unlock()
+
+	sc.releaseIdentityMappings(identitiesToRelease)
 }
 
 // ChangeUser changes the CachedSelectionUser that gets updates on the
@@ -1060,8 +1077,5 @@ func (sc *SelectorCache) RemoveIdentitiesFQDNSelectors(fqdnSels []api.FQDNSelect
 		identitiesToRelease = append(identitiesToRelease, ids...)
 	}
 	sc.mutex.Unlock()
-	// TODO: Remove timeouts for CIDR identity allocation (as it is local).
-	ctx, cancel := context.WithTimeout(context.TODO(), option.Config.KVstoreConnectivityTimeout)
-	defer cancel()
-	sc.idAllocator.ReleaseCIDRIdentitiesByID(ctx, identitiesToRelease)
+	sc.releaseIdentityMappings(identitiesToRelease)
 }
