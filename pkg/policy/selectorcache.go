@@ -445,41 +445,47 @@ func (f *fqdnSelector) notifyUsers(sc *SelectorCache, added, deleted []identity.
 	}
 }
 
-// allocateIdentityMappings is an initializer for 'fqdnSelector' that takes a
-// slice of IPs that should be associated with the selector and caches those
-// selections. No notifications are propagated to the users.
+// allocateIdentityMappings is a wrapper for the underlying identity allocator
+// which takes a slice of IPs that should be allocated with a specified
+// selector, and allocates identities for each of them. This may cause
+// allocation of new identities, or take reference counts on existing local
+// identities. Therefore, the caller must take care to ensure that these
+// identities are eventually released via a call to releaseIdentityMappings().
 //
-// This function may be called at initialization for a new fqdnSelector, or
-// upon new use of an FQDN selector with the same string representation of a
-// previously-cached selector (for example the same toFQDNs match pattern in
-// different rules).
+// The typical usage to properly track identity references is roughly:
 //
-// Calls to allocateIdentityMappings() will allocate identities and associate
-// them with the fqdnSelector, therefore the corresponding
-// releaseIdentityMappings() function must also be eventually called to clean
-// up this selector.
-func (f *fqdnSelector) allocateIdentityMappings(idAllocator cache.IdentityAllocator, selectorIPMapping map[api.FQDNSelector][]net.IP) {
-	// We don't know whether the IPs are associated with this selector
-	// until we map those IPs to identities, which requires potentially
-	// allocating a CIDR identity for those IPs. Therefore, below we
-	// unconditionally allocate identities for all IPs in
-	// 'selectorIPMapping', then find out if any are duplicated with the
-	// existing selector content, and then release any that are already
-	// referenced by this selector. The new IPs will be then added to the
-	// cached selections and the corresponding identity reference will be
-	// released in releaseIdentityMappings(). This balances the
-	// allocation/release of all identities allocated from this function.
+// identities := SelectorCache.allocateIdentityMappings(...)
+// SelectorCache.mutex.Lock()
+// duplicateIdentities := fqdnSelector.transferIdentityReferencesToSelector(...)
+// SelectorCache.mutex.Unlock()
+// ReleaseCIDRIdentitiesByID(duplicateIdentities)
+// ... (active usage of the selector)
+// SelectorCache.mutex.Lock()
+// remainingIdentities := SelectorCache.removeSelectorLocked(...)
+// SelectorCache.mutex.Unlock()
+// ReleaseCIDRIdentitiesByID(duplicateIdentities)
+//
+// sc.mutex MUST NOT be held while calling this function.
+func (sc *SelectorCache) allocateIdentityMappings(sel api.FQDNSelector, selectorIPMapping map[api.FQDNSelector][]net.IP) []*identity.Identity {
+	// We don't know whether the IPs are associated with the cached copy
+	// of this selector until we map those IPs to identities and look
+	// up the cached copy of the selector. This requires potentially
+	// allocating a CIDR identity for those IPs, and grabbing the
+	// SelectorCache mutex (which cannot be held during allocations due
+	// to pkg/identity/cache/cache.identityWatcher).
+	//
+	// Therefore, here we unconditionally allocate identities for all IPs
+	// in 'selectorIPMapping', then find out if any are duplicated with the
+	// existing selector content later on.
 	var (
 		currentlyAllocatedIdentities []*identity.Identity
 		selectorIPs                  []net.IP
-		ids                          []identity.NumericIdentity
 		err                          error
 	)
 
-	// Allocate identities for each IPNet and then map to selector
-	selectorIPs = selectorIPMapping[f.selector]
+	selectorIPs = selectorIPMapping[sel]
 	log.WithFields(logrus.Fields{
-		"fqdnSelector": f.selector,
+		"fqdnSelector": sel,
 		"ips":          selectorIPs,
 	}).Debug("getting identities for IPs associated with FQDNSelector")
 
@@ -488,13 +494,31 @@ func (f *fqdnSelector) allocateIdentityMappings(idAllocator cache.IdentityAlloca
 	// any existing IPs would typically already have been pushed to the ipcache as they would
 	// not be newly allocated. We need the 'allocation' here to get a reference count on the
 	// allocations.
-	if currentlyAllocatedIdentities, err = idAllocator.AllocateCIDRsForIPs(selectorIPs, nil); err != nil {
+	currentlyAllocatedIdentities, err = sc.idAllocator.AllocateCIDRsForIPs(selectorIPs, nil)
+	if err != nil {
 		log.WithError(err).WithField("prefixes", selectorIPs).Warn(
 			"failed to allocate identities for IPs")
-		return
+		return nil
 	}
 
-	identitiesToRelease := make([]identity.NumericIdentity, 0, len(ids))
+	return currentlyAllocatedIdentities
+}
+
+// transferIdentityReferencesToSelector walks through the specified slice of
+// identities, and associates them with the received selector. If any of the
+// identities passed into this function are already associated with the
+// selector, then these identities are returned to the caller.
+//
+// The goal of this function is to ensure that at any given point in time,
+// the selector holds a maximum of one reference to any given identity.
+// If the calling code opportunistically allocates references to identities
+// twice for a given selector, this function will detect this case and collect
+// the set of identities that are referenced twice.
+//
+// The caller MUST release references to each identity in the returned slice
+// after releasing SelectorCache.mutex.
+func (f *fqdnSelector) transferIdentityReferencesToSelector(currentlyAllocatedIdentities []*identity.Identity) []identity.NumericIdentity {
+	identitiesToRelease := make([]identity.NumericIdentity, 0, len(currentlyAllocatedIdentities))
 	for _, id := range currentlyAllocatedIdentities {
 		if _, exists := f.cachedSelections[id.ID]; exists {
 			identitiesToRelease = append(identitiesToRelease, id.ID)
@@ -502,9 +526,7 @@ func (f *fqdnSelector) allocateIdentityMappings(idAllocator cache.IdentityAlloca
 		f.cachedSelections[id.ID] = struct{}{}
 	}
 
-	ctx, cancel := context.WithTimeout(context.TODO(), option.Config.KVstoreConnectivityTimeout)
-	defer cancel()
-	idAllocator.ReleaseCIDRIdentitiesByID(ctx, identitiesToRelease)
+	return identitiesToRelease
 }
 
 // releaseIdentityMappings must be called exactly once for the received
@@ -790,6 +812,13 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api
 	selectors := map[api.FQDNSelector]struct{}{newFQDNSel.selector: {}}
 	_, selectorIPMapping := sc.localIdentityNotifier.MapSelectorsToIPsLocked(selectors)
 
+	// Allocate identities corresponding to the slice of IPs identified as
+	// being selected by this FQDN selector above. This could plausibly
+	// happen twice, once with an empty 'ids' slice and once with the real
+	// 'ids' slice. Either way, they are added to the selector that is
+	// stored in 'sc.selectors[]'.
+	currentlyAllocatedIdentities := sc.allocateIdentityMappings(fqdnSelec, selectorIPMapping)
+
 	// Note: No notifications are sent for the existing
 	// identities. Caller must use GetSelections() to get the
 	// current selections after adding a selector. This way the
@@ -797,8 +826,6 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api
 	// is already cached, or is a new one).
 
 	sc.mutex.Lock()
-	defer sc.mutex.Unlock()
-
 	// Check whether the selectorCache was updated while 'newFQDNSel' was
 	// being registered without the 'sc.mutex'. If so, use it. Otherwise
 	// we can use the one we just created/configured above.
@@ -807,16 +834,16 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api
 	} else {
 		sc.selectors[key] = newFQDNSel
 	}
-
-	// Allocate identities corresponding to the slice of IPs identified as
-	// being selected by this FQDN selector above. This could plausibly
-	// happen twice, once with an empty 'ids' slice and once with the real
-	// 'ids' slice. Either way, they are added to the selector that is
-	// stored in 'sc.selectors[]'.
-	newFQDNSel.allocateIdentityMappings(sc.idAllocator, selectorIPMapping)
+	identitiesToRelease := newFQDNSel.transferIdentityReferencesToSelector(currentlyAllocatedIdentities)
 	newFQDNSel.updateSelections()
+	added = newFQDNSel.addUser(user)
+	sc.mutex.Unlock()
 
-	return newFQDNSel, newFQDNSel.addUser(user)
+	ctx, cancel := context.WithTimeout(context.TODO(), option.Config.KVstoreConnectivityTimeout)
+	defer cancel()
+	sc.idAllocator.ReleaseCIDRIdentitiesByID(ctx, identitiesToRelease)
+
+	return newFQDNSel, added
 }
 
 // FindCachedIdentitySelector finds the given api.EndpointSelector in the
