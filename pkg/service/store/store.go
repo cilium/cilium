@@ -57,7 +57,7 @@ type ClusterService struct {
 	// Frontends is a map indexed by the frontend IP address
 	Frontends map[string]PortConfiguration `json:"frontends"`
 
-	// Backends is is map indexed by the backend IP address
+	// Backends is map indexed by the backend IP address
 	Backends map[string]PortConfiguration `json:"backends"`
 
 	// Labels are the labels of the service
@@ -65,6 +65,13 @@ type ClusterService struct {
 
 	// Selector is the label selector used to select backends
 	Selector map[string]string `json:"selector"`
+
+	// IncludeExternal is true when external endpoints from other clusters
+	// should be included
+	IncludeExternal bool `json:"includeExternal"`
+
+	// Shared is true when the service should be exposed/shared to other clusters
+	Shared bool `json:"shared"`
 }
 
 func (s *ClusterService) String() string {
