@@ -254,6 +254,16 @@ eBPF & Cilium Office Hours livestream
 -------------------------------------
 We host a weekly community `YouTube livestream called eCHO <https://www.youtube.com/channel/UCJFUxkVQTBJh3LD1wYBWvuQ>`_ which (very loosely!) stands for eBPF & Cilium Office Hours. Join us live, catch up with past episodes, or head over to the `eCHO repo <https://github.com/isovalent/eCHO>`_ and let us know your ideas for topics we should cover.
 
+Governance
+----------
+The Cilium project is governed by a group of `Maintainers and Committers <https://raw.githubusercontent.com/cilium/cilium/master/MAINTAINERS.md>`__.
+How they are selected and govern is outlined in our `governance document <https://docs.cilium.io/en/latest/contributing/governance/commit_access/>`__.
+
+Adopters
+--------
+A list of adopters of the Cilium project who are deploying it in production, and of their use cases,
+can be found in file `USERS.md <https://raw.githubusercontent.com/cilium/cilium/master/USERS.md>`__.
+
 License
 =======
 
