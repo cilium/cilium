@@ -402,6 +402,7 @@ const (
 	KindGKE
 	KindAKS
 	KindMicrok8s
+	KindRancherDesktop
 )
 
 func (k Kind) String() string {
@@ -420,6 +421,8 @@ func (k Kind) String() string {
 		return "GKE"
 	case KindAKS:
 		return "AKS"
+	case KindRancherDesktop:
+		return "rancher-desktop"
 	default:
 		return "invalid"
 	}
@@ -447,6 +450,11 @@ func (c *Client) AutodetectFlavor(ctx context.Context) (f Flavor, err error) {
 
 	if strings.HasPrefix(c.ClusterName(), "microk8s-") || c.ContextName() == "microk8s" {
 		f.Kind = KindMicrok8s
+	}
+
+	if c.ClusterName() == "rancher-desktop" || c.ContextName() == "rancher-desktop" {
+		f.Kind = KindRancherDesktop
+		return
 	}
 
 	// When creating a cluster with kind create cluster --name foo,

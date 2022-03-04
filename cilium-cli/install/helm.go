@@ -166,6 +166,9 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 			helmMapOpts["cni.confPath"] = Microk8sSnapPath + "/args/cni-network"
 			helmMapOpts["daemon.runPath"] = Microk8sSnapPath + "/var/run/cilium"
 
+		case k8s.KindRancherDesktop:
+			helmMapOpts["cni.binPath"] = "/usr/libexec/cni"
+
 		case k8s.KindAKS:
 			helmMapOpts["nodeinit.enabled"] = "true"
 			helmMapOpts["azure.enabled"] = "true"
