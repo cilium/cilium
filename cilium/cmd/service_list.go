@@ -78,7 +78,7 @@ func printServiceList(w *tabwriter.Writer, list []*models.Service) {
 				fmt.Fprintf(os.Stderr, "error parsing backend %+v", be)
 				continue
 			}
-			str := fmt.Sprintf("%d => %s", i+1, beA.String())
+			str := fmt.Sprintf("%d => %s (%s)", i+1, beA.String(), be.State)
 			backendAddresses = append(backendAddresses, str)
 		}
 
