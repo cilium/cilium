@@ -1316,6 +1316,13 @@ func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []lb.Backend)
 			svc.backendByHash[hash] = &backends[i]
 		} else {
 			backends[i].ID = b.ID
+			if b.State != backends[i].State {
+				if !lb.IsValidStateTransition(b.State, backends[i].State) {
+					return nil, nil, nil,
+						fmt.Errorf("invalid state transition [%d] -> [%d]", b.State, backends[i].State)
+
+				}
+			}
 		}
 	}
 

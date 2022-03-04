@@ -345,6 +345,32 @@ func (s *SVC) GetModel() *models.Service {
 	}
 }
 
+func IsValidStateTransition(old, new BackendState) bool {
+	if old == new {
+		return true
+	}
+	if new == BackendStateInvalid {
+		return false
+	}
+
+	switch old {
+	case BackendStateActive:
+	case BackendStateTerminating:
+		return false
+	case BackendStateQuarantined:
+		if new == BackendStateMaintenance {
+			return false
+		}
+	case BackendStateMaintenance:
+		if new != BackendStateActive {
+			return false
+		}
+	default:
+		return false
+	}
+	return true
+}
+
 func NewL4Type(name string) (L4Type, error) {
 	switch strings.ToLower(name) {
 	case "tcp":
