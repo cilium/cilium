@@ -1598,6 +1598,16 @@ func init() {
           "description": "Layer 4 port number",
           "type": "integer",
           "format": "uint16"
+        },
+        "state": {
+          "description": "State of the backend for load-balancing service traffic",
+          "type": "string",
+          "enum": [
+            "active",
+            "terminating",
+            "quarantined",
+            "maintenance"
+          ]
         }
       }
     },
@@ -6028,6 +6038,16 @@ func init() {
           "description": "Layer 4 port number",
           "type": "integer",
           "format": "uint16"
+        },
+        "state": {
+          "description": "State of the backend for load-balancing service traffic",
+          "type": "string",
+          "enum": [
+            "active",
+            "terminating",
+            "quarantined",
+            "maintenance"
+          ]
         }
       }
     },
