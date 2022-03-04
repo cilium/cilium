@@ -915,7 +915,7 @@ golang.org/x/text/width
 # golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 ## explicit
 golang.org/x/time/rate
-# golang.org/x/tools v0.1.8
+# golang.org/x/tools v0.1.9
 ## explicit; go 1.17
 golang.org/x/tools/cmd/goimports
 golang.org/x/tools/go/analysis
