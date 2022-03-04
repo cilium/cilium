@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -66,9 +67,13 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 
 	if ep.K8sPodName != "" && ep.K8sNamespace != "" && k8s.IsEnabled() {
 		d.k8sWatcher.WaitForCacheSync(watchers.K8sAPIGroupPodV1Core)
-		_, err = d.k8sWatcher.GetCachedPod(ep.K8sNamespace, ep.K8sPodName)
+		pod, err := d.k8sWatcher.GetCachedPod(ep.K8sNamespace, ep.K8sPodName)
 		if err != nil && k8serrors.IsNotFound(err) {
 			return false, fmt.Errorf("Kubernetes pod %s/%s does not exist", ep.K8sNamespace, ep.K8sPodName)
+		} else if err == nil && pod.Spec.NodeName != nodeTypes.GetName() {
+			// if flag `option.Config.K8sEventHandover` is false and CiliumEndpointCRD is disabled,
+			// `GetCachedPod` may return endpoint has moved to another node.
+			return false, fmt.Errorf("Kubernetes pod %s/%s is not owned by this agent", ep.K8sNamespace, ep.K8sPodName)
 		}
 
 		// Initialize the endpoint's event queue because the following call to
