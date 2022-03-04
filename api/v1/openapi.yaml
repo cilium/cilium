@@ -2478,6 +2478,14 @@ definitions:
       nodeName:
         description: Optional name of the node on which this backend runs
         type: string
+      state:
+        description: State of the backend for load-balancing service traffic
+        type: string
+        enum:
+          - active
+          - terminating
+          - quarantined
+          - maintenance
   LRPBackend:
     description: Pod backend of an LRP
     type: object

@@ -368,6 +368,36 @@ func IsValidStateTransition(old, new BackendState) bool {
 	return true
 }
 
+func GetBackendState(state string) (BackendState, error) {
+	switch strings.ToLower(state) {
+	case "active", "":
+		return BackendStateActive, nil
+	case "terminating":
+		return BackendStateTerminating, nil
+	case "quarantined":
+		return BackendStateQuarantined, nil
+	case "maintenance":
+		return BackendStateMaintenance, nil
+	default:
+		return BackendStateInvalid, fmt.Errorf("invalid backend state %s", state)
+	}
+}
+
+func (state BackendState) String() (string, error) {
+	switch state {
+	case BackendStateActive:
+		return "active", nil
+	case BackendStateTerminating:
+		return "terminating", nil
+	case BackendStateQuarantined:
+		return "quarantined", nil
+	case BackendStateMaintenance:
+		return "maintenance", nil
+	default:
+		return "", fmt.Errorf("invalid backend state %d", state)
+	}
+}
+
 func NewL4Type(name string) (L4Type, error) {
 	switch strings.ToLower(name) {
 	case "tcp":
@@ -493,8 +523,12 @@ func NewBackendFromBackendModel(base *models.BackendAddress) (*Backend, error) {
 	if ip == nil {
 		return nil, fmt.Errorf("invalid IP address \"%s\"", *base.IP)
 	}
+	state, err := GetBackendState(base.State)
+	if err != nil {
+		return nil, fmt.Errorf("invalid backend state [%s]", base.State)
+	}
 
-	return &Backend{NodeName: base.NodeName, L3n4Addr: L3n4Addr{IP: ip, L4Addr: *l4addr}}, nil
+	return &Backend{NodeName: base.NodeName, L3n4Addr: L3n4Addr{IP: ip, L4Addr: *l4addr}, State: state}, nil
 }
 
 func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error) {
@@ -533,10 +567,12 @@ func (b *Backend) GetBackendModel() *models.BackendAddress {
 	}
 
 	ip := b.IP.String()
+	stateStr, _ := b.State.String()
 	return &models.BackendAddress{
 		IP:       &ip,
 		Port:     b.Port,
 		NodeName: b.NodeName,
+		State:    stateStr,
 	}
 }
 
