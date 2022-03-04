@@ -54,7 +54,7 @@ Enable Hubble in Cilium
 
         .. tip::
 
-           Enabling Hubble requires the TCP port 4245 to be open on all nodes running
+           Enabling Hubble requires the TCP port 4244 to be open on all nodes running
            Cilium. This is required for Relay to operate correctly.
 
         Run ``cilium status`` to validate that Hubble is enabled and running:
