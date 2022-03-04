@@ -217,6 +217,24 @@ Install Cilium
           helm install cilium |CHART_RELEASE| \\
              --namespace $CILIUM_NAMESPACE
 
+    .. group-tab:: Rancher Desktop
+
+       **Configure Rancher Desktop:**
+
+       To install Cilium on `Rancher Desktop <https://rancherdesktop.io>`_,
+       perform the following steps:
+
+       .. include:: rancher-desktop-configure.rst
+
+       **Install Cilium:**
+
+       .. parsed-literal::
+
+          helm install cilium |CHART_RELEASE| \\
+             --namespace $CILIUM_NAMESPACE \\
+             --operator.replicas=1 \\
+             --set cni.binPath=/usr/libexec/cni
+
 .. include:: k8s-install-restart-pods.rst
 
 .. include:: k8s-install-validate.rst
