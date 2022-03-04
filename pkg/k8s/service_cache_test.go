@@ -422,11 +422,48 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 				"port": {Protocol: loadbalancer.TCP, Port: 80},
 			},
 		},
+		IncludeExternal: true,
+		Shared:          false,
 	},
 		swgSvcs,
 	)
 
-	// Adding remote endpoints will trigger a service update
+	// Adding non-shared remote endpoints will not trigger a service update
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		defer event.SWG.Done()
+		c.Assert(event.Action, check.Equals, UpdateService)
+		c.Assert(event.ID, check.Equals, svcID)
+
+		c.Assert(len(event.Endpoints.Backends), checker.Equals, 1)
+		c.Assert(event.Endpoints.Backends["2.2.2.2"], checker.DeepEquals, &Backend{
+			Ports: serviceStore.PortConfiguration{
+				"http-test-svc": {Protocol: loadbalancer.TCP, Port: 8080},
+			},
+		})
+
+		return true
+	}, 2*time.Second), check.IsNil)
+
+	svcCache.MergeExternalServiceUpdate(&serviceStore.ClusterService{
+		Cluster:   "cluster1",
+		Namespace: "bar",
+		Name:      "foo",
+		Frontends: map[string]serviceStore.PortConfiguration{
+			"1.1.1.1": {},
+		},
+		Backends: map[string]serviceStore.PortConfiguration{
+			"3.3.3.3": map[string]*loadbalancer.L4Addr{
+				"port": {Protocol: loadbalancer.TCP, Port: 80},
+			},
+		},
+		IncludeExternal: true,
+		Shared:          true,
+	},
+		swgSvcs,
+	)
+
+	// Adding shared remote endpoints will trigger a service update
 	c.Assert(testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
 		defer event.SWG.Done()
@@ -461,6 +498,8 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 				"port": {Protocol: loadbalancer.TCP, Port: 80},
 			},
 		},
+		IncludeExternal: true,
+		Shared:          true,
 	},
 		swgSvcs,
 	)
@@ -517,9 +556,11 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 				"port": {Protocol: loadbalancer.TCP, Port: 80},
 			},
 		},
+		IncludeExternal: true,
+		Shared:          true,
 	}
 
-	// Adding another cluster to the first service will triger an event
+	// Adding another cluster to the first service will trigger an event
 	svcCache.MergeExternalServiceUpdate(cluster2svc, swgSvcs)
 	c.Assert(testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
@@ -554,7 +595,7 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 		return true
 	}, 2*time.Second), check.IsNil)
 
-	// When readding the service, the remote endpoints of cluster1 must still be present
+	// When re-adding the service, the remote endpoints of cluster1 must still be present
 	svcCache.UpdateService(k8sSvc, swgSvcs)
 	c.Assert(testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
@@ -586,7 +627,7 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 	}, 2*time.Second), check.IsNil)
 }
 
-func (s *K8sSuite) TestNonSharedServie(c *check.C) {
+func (s *K8sSuite) TestNonSharedService(c *check.C) {
 	svcCache := NewServiceCache(fakeDatapath.NewNodeAddressing())
 
 	k8sSvc := &slim_corev1.Service{
