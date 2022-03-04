@@ -26,6 +26,7 @@ Advanced Installation
    k8s-install-external-etcd
    k8s-install-openshift-okd
    k3s
+   rancher-desktop
    kind
    cni-chaining
 
