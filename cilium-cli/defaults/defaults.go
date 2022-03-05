@@ -93,6 +93,8 @@ const (
 
 	IngressClassName      = "cilium"
 	IngressControllerName = "cilium.io/ingress-controller"
+
+	ExtraConfigMapUserOptsKey = "io.cilium.cilium-cli"
 )
 
 var (
