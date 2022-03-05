@@ -264,6 +264,17 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 		k.Log("ℹ️  helm template --namespace %s cilium cilium/cilium --version %s --set %s", k.params.Namespace, ciliumVer, valsStr)
 	}
 
+	// Store the current helm-opts used in this installation in Cilium's
+	// ConfigMap
+	extraConfig := map[string]interface{}{
+		"extraConfig": map[string]interface{}{
+			defaults.ExtraConfigMapUserOptsKey: valsStr,
+		},
+	}
+
+	// User-defined helm options will overwrite the default cilium-cli helm options
+	vals = mergeMaps(extraConfig, vals)
+
 	rel, err := helmClient.RunWithContext(ctx, helmChart, vals)
 	if err != nil {
 		return err
