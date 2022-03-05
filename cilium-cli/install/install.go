@@ -208,6 +208,10 @@ type Parameters struct {
 	// HelmOpts are all the options the user used to pass into the Cilium cli
 	// template.
 	HelmOpts values.Options
+
+	// HelmGenValuesFile points to the file that will store the generated helm
+	// options.
+	HelmGenValuesFile string
 }
 
 type rollbackStep func(context.Context)
@@ -517,6 +521,11 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 	err := k.generateManifests(ctx)
 	if err != nil {
 		return err
+	}
+
+	if k.params.HelmGenValuesFile != "" {
+		k.Log("ℹ️  Generated helm values file %q successfully written", k.params.HelmGenValuesFile)
+		return nil
 	}
 
 	switch k.flavor.Kind {

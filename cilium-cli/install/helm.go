@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/versioncheck"
 	"helm.sh/helm/v3/pkg/chart"
+	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/getter"
 	"helm.sh/helm/v3/pkg/releaseutil"
@@ -265,6 +267,14 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 	rel, err := helmClient.RunWithContext(ctx, helmChart, vals)
 	if err != nil {
 		return err
+	}
+
+	if k.params.HelmGenValuesFile != "" {
+		yamlValue, err := chartutil.Values(vals).YAML()
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(k.params.HelmGenValuesFile, []byte(yamlValue), 0o600)
 	}
 
 	k.manifests = FilterManifests(rel.Manifest)
