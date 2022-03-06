@@ -19,13 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 )
 
-var (
-	// IPIdentityCache caches the mapping of endpoint IPs to their corresponding
-	// security identities across the entire cluster in which this instance of
-	// Cilium is running.
-	IPIdentityCache = NewIPCache()
-)
-
 // Identity is the identity representation of an IP<->Identity cache.
 type Identity struct {
 	// ID is the numeric identity

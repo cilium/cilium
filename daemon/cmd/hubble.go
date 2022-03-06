@@ -351,7 +351,7 @@ func (d *Daemon) GetK8sMetadata(ip net.IP) *ipcache.K8sMetadata {
 	if ip == nil {
 		return nil
 	}
-	return ipcache.IPIdentityCache.GetK8sMetadata(ip.String())
+	return d.ipcache.GetK8sMetadata(ip.String())
 }
 
 // LookupSecIDByIP returns the security ID for the given IP. If the security ID
@@ -362,7 +362,7 @@ func (d *Daemon) LookupSecIDByIP(ip net.IP) (id ipcache.Identity, ok bool) {
 		return ipcache.Identity{}, false
 	}
 
-	if id, ok = ipcache.IPIdentityCache.LookupByIP(ip.String()); ok {
+	if id, ok = d.ipcache.LookupByIP(ip.String()); ok {
 		return id, ok
 	}
 
@@ -382,7 +382,7 @@ func (d *Daemon) LookupSecIDByIP(ip net.IP) (id ipcache.Identity, ok bool) {
 			IP:   ip.Mask(mask),
 			Mask: mask,
 		}
-		if id, ok = ipcache.IPIdentityCache.LookupByPrefix(cidr.String()); ok {
+		if id, ok = d.ipcache.LookupByPrefix(cidr.String()); ok {
 			return id, ok
 		}
 	}

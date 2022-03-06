@@ -25,7 +25,10 @@ import (
 // Hook up gocheck into the "go test" runner.
 type IPCacheTestSuite struct{}
 
-var _ = Suite(&IPCacheTestSuite{})
+var (
+	_               = Suite(&IPCacheTestSuite{})
+	IPIdentityCache = NewIPCache()
+)
 
 func Test(t *testing.T) {
 	TestingT(t)

@@ -14,11 +14,13 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 )
 
-type getIP struct{}
+type getIP struct {
+	d *Daemon
+}
 
 // NewGetIPHandler for the global IP cache
-func NewGetIPHandler() GetIPHandler {
-	return &getIP{}
+func NewGetIPHandler(d *Daemon) GetIPHandler {
+	return &getIP{d: d}
 }
 
 func (h *getIP) Handle(params GetIPParams) middleware.Responder {
@@ -30,9 +32,9 @@ func (h *getIP) Handle(params GetIPParams) middleware.Responder {
 		}
 		listener.cidrFilter = cidrFilter
 	}
-	ipcache.IPIdentityCache.RLock()
-	ipcache.IPIdentityCache.DumpToListenerLocked(listener)
-	ipcache.IPIdentityCache.RUnlock()
+	h.d.ipcache.RLock()
+	h.d.ipcache.DumpToListenerLocked(listener)
+	h.d.ipcache.RUnlock()
 	if len(listener.entries) == 0 {
 		return NewGetIPNotFound()
 	}

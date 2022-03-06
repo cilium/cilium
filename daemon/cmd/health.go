@@ -14,7 +14,6 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/health/defaults"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -71,7 +70,7 @@ func (d *Daemon) initHealth() {
 						ctx,
 						d,
 						d,
-						ipcache.IPIdentityCache,
+						d.ipcache,
 						d.mtuConfig,
 						d.endpointManager,
 						d.l7Proxy,
