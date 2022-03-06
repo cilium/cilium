@@ -151,6 +151,8 @@ type Daemon struct {
 
 	identityAllocator CachingIdentityAllocator
 
+	ipcache *ipcache.IPCache
+
 	k8sWatcher *watchers.K8sWatcher
 
 	// healthEndpointRouting is the information required to set up the health
@@ -477,11 +479,11 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	if err := d.initPolicy(epMgr); err != nil {
 		return nil, nil, fmt.Errorf("error while initializing policy subsystem: %w", err)
 	}
-	ipcache.IPIdentityCache = ipcache.NewIPCache().
+	d.ipcache = ipcache.NewIPCache().
 		WithIdentityAllocator(d.identityAllocator).
 		WithPolicyHandler(d.policy.GetSelectorCache()).
 		WithDatapathHandler(epMgr)
-	nodeMngr = nodeMngr.WithIPCache(ipcache.IPIdentityCache)
+	nodeMngr = nodeMngr.WithIPCache(d.ipcache)
 	nodeMngr = nodeMngr.WithSelectorCacheUpdater(d.policy.GetSelectorCache()) // must be after initPolicy
 	nodeMngr = nodeMngr.WithPolicyTriggerer(epMgr)                            // must be after initPolicy
 
@@ -517,12 +519,10 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		d.bgpSpeaker,
 		d.egressGatewayManager,
 		option.Config,
-		ipcache.IPIdentityCache,
+		d.ipcache,
 	)
 	nd.RegisterK8sNodeGetter(d.k8sWatcher)
-	// GH-17849: The daemon does not have a reference to the ipcache,
-	// instead we rely on the global.
-	ipcache.IPIdentityCache.RegisterK8sSyncedChecker(&d)
+	d.ipcache.RegisterK8sSyncedChecker(&d)
 
 	d.k8sWatcher.RegisterNodeSubscriber(d.endpointManager)
 	if option.Config.BGPAnnounceLBIP || option.Config.BGPAnnouncePodCIDR {
@@ -670,7 +670,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// FIXME: Make the port range configurable.
 	if option.Config.EnableL7Proxy {
 		d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
-			&d, option.Config.AgentLabels, d.datapath, d.endpointManager, ipcache.IPIdentityCache)
+			&d, option.Config.AgentLabels, d.datapath, d.endpointManager, d.ipcache)
 	} else {
 		log.Info("L7 proxies are disabled")
 	}
@@ -731,7 +731,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	}
 
 	if wgAgent := dp.WireguardAgent(); option.Config.EnableWireguard {
-		if err := wgAgent.(*wg.Agent).Init(ipcache.IPIdentityCache, mtuConfig); err != nil {
+		if err := wgAgent.(*wg.Agent).Init(d.ipcache, mtuConfig); err != nil {
 			return nil, nil, fmt.Errorf("failed to initialize wireguard agent: %w", err)
 		}
 	}
@@ -1027,7 +1027,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// Start watcher for endpoint IP --> identity mappings in key-value store.
 	// this needs to be done *after* init() for the daemon in that function,
 	// we populate the IPCache with the host's IP(s).
-	ipcache.IPIdentityCache.InitIPIdentityWatcher()
+	d.ipcache.InitIPIdentityWatcher()
 	identitymanager.Subscribe(d.policy)
 
 	return &d, restoredEndpoints, nil
@@ -1065,7 +1065,7 @@ func (d *Daemon) bootstrapClusterMesh(nodeMngr *nodemanager.Manager) {
 				ServiceMerger:         &d.k8sWatcher.K8sSvcCache,
 				NodeManager:           nodeMngr,
 				RemoteIdentityWatcher: d.identityAllocator,
-				IPCache:               ipcache.IPIdentityCache,
+				IPCache:               d.ipcache,
 			})
 			if err != nil {
 				log.WithError(err).Fatal("Unable to initialize ClusterMesh")

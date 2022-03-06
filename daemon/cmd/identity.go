@@ -17,7 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	identitymodel "github.com/cilium/cilium/pkg/identity/model"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
@@ -101,18 +100,20 @@ type CachingIdentityAllocator interface {
 
 type cachingIdentityAllocator struct {
 	*cache.CachingIdentityAllocator
+	d *Daemon
 }
 
 func NewCachingIdentityAllocator(d *Daemon) cachingIdentityAllocator {
 	return cachingIdentityAllocator{
 		CachingIdentityAllocator: cache.NewCachingIdentityAllocator(d),
+		d:                        d,
 	}
 }
 
 func (c cachingIdentityAllocator) AllocateCIDRsForIPs(ips []net.IP, newlyAllocatedIdentities map[string]*identity.Identity) ([]*identity.Identity, error) {
-	return ipcache.IPIdentityCache.AllocateCIDRsForIPs(ips, newlyAllocatedIdentities)
+	return c.d.ipcache.AllocateCIDRsForIPs(ips, newlyAllocatedIdentities)
 }
 
 func (c cachingIdentityAllocator) ReleaseCIDRIdentitiesByID(ctx context.Context, identities []identity.NumericIdentity) {
-	ipcache.IPIdentityCache.ReleaseCIDRIdentitiesByID(ctx, identities)
+	c.d.ipcache.ReleaseCIDRIdentitiesByID(ctx, identities)
 }
