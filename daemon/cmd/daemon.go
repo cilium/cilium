@@ -1026,7 +1026,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// Start watcher for endpoint IP --> identity mappings in key-value store.
 	// this needs to be done *after* init() for the daemon in that function,
 	// we populate the IPCache with the host's IP(s).
-	ipcache.InitIPIdentityWatcher()
+	ipcache.IPIdentityCache.InitIPIdentityWatcher()
 	identitymanager.Subscribe(d.policy)
 
 	return &d, restoredEndpoints, nil
@@ -1064,6 +1064,7 @@ func (d *Daemon) bootstrapClusterMesh(nodeMngr *nodemanager.Manager) {
 				ServiceMerger:         &d.k8sWatcher.K8sSvcCache,
 				NodeManager:           nodeMngr,
 				RemoteIdentityWatcher: d.identityAllocator,
+				IPCache:               ipcache.IPIdentityCache,
 			})
 			if err != nil {
 				log.WithError(err).Fatal("Unable to initialize ClusterMesh")
