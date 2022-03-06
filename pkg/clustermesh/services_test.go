@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -81,6 +82,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 		nodeObserver:          &testObserver{},
 		ServiceMerger:         &s.svcCache,
 		RemoteIdentityWatcher: mgr,
+		IPCache:               ipcache.NewIPCache(nil),
 	})
 	c.Assert(err, IsNil)
 	c.Assert(cm, Not(IsNil))
