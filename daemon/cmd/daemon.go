@@ -420,7 +420,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		externalIP,
 	)
 
-	nodeMngr, err := nodemanager.NewManager("all", dp.Node(), ipcache.IPIdentityCache, option.Config, nil, nil)
+	nodeMngr, err := nodemanager.NewManager("all", dp.Node(), option.Config, nil, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -465,25 +465,26 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		return nil, nil, fmt.Errorf("error while initializing BPF pcap recorder: %w", err)
 	}
 
+	// Propagate identity allocator down to packages which themselves do not
+	// have types to which we can add an allocator member.
+	//
+	// **NOTE** The identity allocator is not yet initialized here; that
+	// happens below. We've only allocated the structure at this point.
+	//
+	// TODO: convert these package level variables to types for easier unit
+	// testing in the future.
 	d.identityAllocator = NewCachingIdentityAllocator(&d)
 	if err := d.initPolicy(epMgr); err != nil {
 		return nil, nil, fmt.Errorf("error while initializing policy subsystem: %w", err)
 	}
-	nodeMngr = nodeMngr.WithSelectorCacheUpdater(d.policy.GetSelectorCache()) // must be after initPolicy
-	nodeMngr = nodeMngr.WithPolicyTriggerer(epMgr)                            // must be after initPolicy
-
-	// Propagate identity allocator down to packages which themselves do not
-	// have types to which we can add an allocator member.
-	//
-	// **NOTE** The identity allocator is not yet initialized; that happens
-	// below. We've only allocated the structure at this point.
-	//
-	// TODO: convert these package level variables to types for easier unit
-	// testing in the future.
 	ipcache.IPIdentityCache = ipcache.NewIPCache().
 		WithIdentityAllocator(d.identityAllocator).
 		WithPolicyHandler(d.policy.GetSelectorCache()).
 		WithDatapathHandler(epMgr)
+	nodeMngr = nodeMngr.WithIPCache(ipcache.IPIdentityCache)
+	nodeMngr = nodeMngr.WithSelectorCacheUpdater(d.policy.GetSelectorCache()) // must be after initPolicy
+	nodeMngr = nodeMngr.WithPolicyTriggerer(epMgr)                            // must be after initPolicy
+
 	proxy.Allocator = d.identityAllocator
 
 	d.endpointManager = epMgr

@@ -16,7 +16,6 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/datapath/fake"
-	fakeIPCache "github.com/cilium/cilium/pkg/ipcache/fake"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -40,7 +39,7 @@ func (g *GetNodesSuite) SetUpTest(c *C) {
 
 func (g *GetNodesSuite) SetUpSuite(c *C) {
 	var err error
-	nm, err = manager.NewManager("", fake.NewNodeHandler(), fakeIPCache.NewIPCache(false), &fakeConfig.Config{}, nil, nil)
+	nm, err = manager.NewManager("", fake.NewNodeHandler(), &fakeConfig.Config{}, nil, nil)
 	c.Assert(err, IsNil)
 }
 
