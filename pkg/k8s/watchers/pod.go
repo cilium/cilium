@@ -448,11 +448,10 @@ func updateCiliumEndpointLabels(ep *endpoint.Endpoint, labels map[string]string)
 							Name: pod.GetName(),
 							OwnerReferences: []meta_v1.OwnerReference{
 								{
-									APIVersion:         "v1",
-									Kind:               "Pod",
-									Name:               pod.GetName(),
-									UID:                pod.GetUID(),
-									BlockOwnerDeletion: func() *bool { a := true; return &a }(),
+									APIVersion: "v1",
+									Kind:       "Pod",
+									Name:       pod.GetName(),
+									UID:        pod.GetUID(),
 								},
 							},
 							Labels: labels,
