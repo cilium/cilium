@@ -111,6 +111,11 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *UpsertServiceParams, ipv6 bool) err
 		for _, id := range p.Backends {
 			backendIDs = append(backendIDs, id)
 		}
+		// Map iterations are non-deterministic so sort the backends by their IDs
+		// in order to maintain the same order before they are populated in BPF maps.
+		// This will minimize disruption to existing connections to the backends in the datapath.
+		sort.Slice(backendIDs, func(i, j int) bool { return backendIDs[i] < backendIDs[j] })
+
 		for _, backendID := range backendIDs {
 			if backendID == 0 {
 				return fmt.Errorf("Invalid backend ID 0")
@@ -126,6 +131,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *UpsertServiceParams, ipv6 bool) err
 						"The resizing might break existing connections to services",
 						svcKey, svcVal, option.LBMapEntriesName)
 				}
+
 				return fmt.Errorf("Unable to update service entry %+v => %+v: %w", svcKey, svcVal, err)
 			}
 			slot++
