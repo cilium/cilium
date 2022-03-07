@@ -321,7 +321,7 @@ static __always_inline int ipv6_to_ipv4(struct __ctx_buff *ctx,
 		csum = icmp6_to_icmp4(ctx, nh_off + sizeof(v4));
 		csum1 = ipv6_pseudohdr_checksum(&v6, IPPROTO_ICMPV6,
 						bpf_ntohs(v6.payload_len), 0);
-		csum = csum - csum1;
+		csum = csum_sub(csum, csum1);
 	} else {
 		csum = 0;
 		csum = csum_diff(&v6.saddr, 16, &v4.saddr, 4, csum);
