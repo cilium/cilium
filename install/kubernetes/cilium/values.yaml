@@ -269,11 +269,17 @@ bpf:
   # -- Enable native IP masquerade support in eBPF
   #masquerade: false
 
+  # -- Deprecated in favor of bpf.hostLegacyRouting. To be removed in 1.13.
+  # Configure whether direct routing mode should route traffic via
+  # host stack (true) or directly and more efficiently out of BPF (false) if
+  # the kernel supports it.
+  #hostRouting: true
+
   # -- Configure whether direct routing mode should route traffic via
   # host stack (true) or directly and more efficiently out of BPF (false) if
   # the kernel supports it. The latter has the implication that it will also
   # bypass netfilter in the host namespace.
-  #hostRouting: true
+  #hostLegacyRouting: false
 
   # -- Configure the eBPF-based TPROXY to reduce reliance on iptables rules
   # for implementing Layer 7 policy.

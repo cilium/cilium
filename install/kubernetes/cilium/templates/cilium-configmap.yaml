@@ -264,7 +264,10 @@ data:
   bpf-map-dynamic-size-ratio: {{ $defaultBpfMapDynamicSizeRatio | quote }}
 {{- end }}
 
-{{- if hasKey .Values.bpf "hostRouting" }}
+{{- if hasKey .Values.bpf "hostLegacyRouting" }}
+  enable-host-legacy-routing: {{ .Values.bpf.hostLegacyRouting | quote }}
+{{- else if hasKey .Values.bpf "hostRouting" }}
+  # DEPRECATED: this block should be removed in 1.13
   enable-host-legacy-routing: {{ .Values.bpf.hostRouting | quote }}
 {{- end }}
 

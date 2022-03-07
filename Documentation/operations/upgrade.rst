@@ -346,6 +346,11 @@ Removed Options
   ``disable-conntrack`` option and made it non-operational. It will be removed
   in version 1.13.
 
+Deprecated Options
+~~~~~~~~~~~~~~~~~~
+
+* ``bpf.hostRouting`` has been deprecated in favor of ``bpf.hostLegacyRouting``, and will be removed in 1.13.
+
 .. _1.11_upgrade_notes:
 
 1.11 Upgrade Notes
