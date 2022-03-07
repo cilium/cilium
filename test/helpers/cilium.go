@@ -895,7 +895,7 @@ func (s *SSHMeta) ServiceIsSynced(id int) (bool, error) {
 		target := fmt.Sprintf("%s (%d)", backendSVC, id)
 
 		for _, addr := range lb {
-			if addr == target {
+			if strings.Contains(addr, target) {
 				result = true
 			}
 		}
