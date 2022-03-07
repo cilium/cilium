@@ -574,6 +574,57 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 			testCurlFromOutsideWithLocalPort(kubectl, ni, svc2URL, 1, false, 64002)
 		})
 
+		It("Tests security id propagation in N/S LB requests fwd-ed over tunnel", func() {
+			// This test case checks whether the "wold" identity is passed in
+			// the encapsulated N/S LB requests which are forwarded to the node
+			// running the service endpoint. The check is performed by installing
+			// a network policy which disallows traffic to the service endpoints
+			// from outside.
+
+			var netpol string
+
+			// "test-nodeport-k8s2" is the svc with the single endpoint running
+			// on the "k8s2". We will send request via the "k8s1", so that we
+			// can test the forwarding. In addition, we will send the request
+			// via the "k8s2" request to test whether the policy enforcement
+			// works as expected in the case of the "backend local" case.
+			var data v1.Service
+			err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport-k8s2").Unmarshal(&data)
+			Expect(err).Should(BeNil(), "Can not retrieve service")
+			svcAddrs := []string{
+				getHTTPLink(ni.K8s1IP, data.Spec.Ports[0].NodePort),
+				getHTTPLink(ni.K8s2IP, data.Spec.Ports[0].NodePort),
+			}
+			if helpers.DualStackSupported() {
+				err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport-k8s2-ipv6").Unmarshal(&data)
+				Expect(err).Should(BeNil(), "Can not retrieve service")
+				svcAddrs = append(svcAddrs,
+					getHTTPLink(ni.PrimaryK8s1IPv6, data.Spec.Ports[0].NodePort),
+					getHTTPLink(ni.PrimaryK8s2IPv6, data.Spec.Ports[0].NodePort))
+			}
+
+			// No policy is applied, no request should be dropped.
+			for _, addr := range svcAddrs {
+				testCurlFromOutside(kubectl, ni, addr, 1, false)
+			}
+
+			netpol = helpers.ManifestGet(kubectl.BasePath(), "netpol-deny-ns-lb-test-k8s2.yaml")
+			_, err = kubectl.CiliumClusterwidePolicyAction(netpol,
+				helpers.KubectlApply, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "Policy %s cannot be applied", netpol)
+
+			defer func() {
+				_, err := kubectl.CiliumClusterwidePolicyAction(netpol,
+					helpers.KubectlDelete, helpers.HelperTimeout)
+				Expect(err).Should(BeNil(), "Policy %s cannot be deleted", netpol)
+			}()
+
+			// Now let's apply the policy. All request should fail.
+			for _, addr := range svcAddrs {
+				testCurlFailFromOutside(kubectl, ni, addr, 1)
+			}
+		})
+
 		SkipItIf(func() bool {
 			// Currently, KIND doesn't support multiple interfaces among nodes
 			return helpers.IsIntegration(helpers.CIIntegrationKind)
