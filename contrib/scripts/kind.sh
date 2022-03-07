@@ -9,6 +9,7 @@ default_workers=1
 default_cluster_name=""
 default_image=""
 default_kubeproxy_mode="iptables"
+default_ipfamily="ipv4"
 
 PROG=${0}
 CONTROLPLANES="${1:-${default_controlplanes}}"
@@ -17,6 +18,7 @@ CLUSTER_NAME="${3:-${default_cluster_name}}"
 # IMAGE controls the K8s version as well (e.g. kindest/node:v1.11.10)
 IMAGE="${4:-${default_image}}"
 KUBEPROXY_MODE="${5:-${default_kubeproxy_mode}}"
+IPFAMILY="${6:-${default_ipfamily}}"
 CILIUM_ROOT="$(realpath $(dirname $(readlink -ne $BASH_SOURCE))/../..)"
 
 usage() {
@@ -91,7 +93,7 @@ $(workers)
 networking:
   disableDefaultCNI: true
   kubeProxyMode: ${KUBEPROXY_MODE}
-  ipFamily: dual
+  ipFamily: ${IPFAMILY}
 containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:${reg_port}"]
