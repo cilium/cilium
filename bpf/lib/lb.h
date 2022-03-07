@@ -952,6 +952,12 @@ __lb6_lookup_backend(__u16 backend_id __maybe_unused)
 {
 	return NULL;
 }
+
+static __always_inline bool
+lb6_to_lb4_service(const struct lb6_service *svc __maybe_unused)
+{
+	return false;
+}
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4

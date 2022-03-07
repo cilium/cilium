@@ -202,6 +202,8 @@ int sock4_update_revnat(struct bpf_sock_addr *ctx __maybe_unused,
 static __always_inline bool
 sock4_skip_xlate(struct lb4_service *svc, __be32 address)
 {
+	if (lb4_to_lb6_service(svc))
+		return true;
 	if (lb4_svc_is_external_ip(svc) ||
 	    (lb4_svc_is_hostport(svc) && !is_v4_loopback(address))) {
 		struct remote_endpoint_info *info;
@@ -687,6 +689,8 @@ static __always_inline void ctx_set_v6_address(struct bpf_sock_addr *ctx,
 static __always_inline __maybe_unused bool
 sock6_skip_xlate(struct lb6_service *svc, union v6addr *address)
 {
+	if (lb6_to_lb4_service(svc))
+		return true;
 	if (lb6_svc_is_external_ip(svc) ||
 	    (lb6_svc_is_hostport(svc) && !is_v6_loopback(address))) {
 		struct remote_endpoint_info *info;
