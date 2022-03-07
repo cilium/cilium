@@ -71,9 +71,9 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/vishvananda/netlink v1.1.1-0.20220125195016-0639e7e787ba
 	github.com/vishvananda/netns v0.0.0-20211101163701-50045581ed74
-	go.etcd.io/etcd/api/v3 v3.5.1
-	go.etcd.io/etcd/client/pkg/v3 v3.5.1
-	go.etcd.io/etcd/client/v3 v3.5.1
+	go.etcd.io/etcd/api/v3 v3.5.2
+	go.etcd.io/etcd/client/pkg/v3 v3.5.2
+	go.etcd.io/etcd/client/v3 v3.5.2
 	go.uber.org/goleak v1.1.12
 	go.uber.org/multierr v1.7.0
 	go.universe.tf/metallb v0.11.0
