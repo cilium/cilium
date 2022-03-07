@@ -77,7 +77,7 @@ One-time Setup
 ~~~~~~~~~~~~~~
 
 #. Make sure you have a GitHub developer access token with the ``public_repos``
-   ``workflow`` scopes available. You can do this directly from
+   ``workflow``, ``read:user`` scopes available. You can do this directly from
    https://github.com/settings/tokens or by opening GitHub and then navigating
    to: User Profile -> Settings -> Developer Settings -> Personal access token
    -> Generate new token.
