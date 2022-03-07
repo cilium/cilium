@@ -348,11 +348,10 @@ func (m *VMManager) UpdateCiliumEndpointResource(name string, id *identity.Ident
 					Name:      name,
 					Namespace: namespace,
 					OwnerReferences: []metav1.OwnerReference{{
-						APIVersion:         "cilium.io/v2",
-						Kind:               "CiliumNode",
-						Name:               nr.ObjectMeta.Name,
-						UID:                nr.ObjectMeta.UID,
-						BlockOwnerDeletion: func() *bool { a := true; return &a }(),
+						APIVersion: "cilium.io/v2",
+						Kind:       "CiliumNode",
+						Name:       nr.ObjectMeta.Name,
+						UID:        nr.ObjectMeta.UID,
 					}},
 					Labels: map[string]string{
 						"name": name,
