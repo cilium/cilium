@@ -101,6 +101,12 @@ Users (Alphabetically)
       D: Cognite is an industrial DataOps provider and uses Cilium as the CNI plugin
       Q: @Robert Collins
 
+    * N: Crane
+      D: Crane uses Cilium as the default CNI
+      U: Networking, NetworkPolicy, Services
+      L: https://github.com/slzcc/crane
+      Q: @slzcc
+
     * N: Datadog
       D: Datadog is using Cilium in AWS (self-hosted k8s)
       U: ENI Networking, Service load-balancing, Encryption
