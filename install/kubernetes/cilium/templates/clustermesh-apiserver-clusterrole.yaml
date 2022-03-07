@@ -7,6 +7,12 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - nodes/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - ""
+  resources:
   - endpoints
   - namespaces
   - services
