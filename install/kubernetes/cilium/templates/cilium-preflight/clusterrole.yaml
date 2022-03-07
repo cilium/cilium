@@ -37,18 +37,14 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - pods
   - pods/finalizers
   verbs:
-  - get
-  - list
-  - watch
   - update
-  - delete
 - apiGroups:
   - ""
   resources:
   - nodes
+  - pods
   verbs:
   - get
   - list
