@@ -618,7 +618,7 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 		info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
 		if (info != NULL && info->tunnel_endpoint != 0) {
 			ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
-						  SECLABEL, TRACE_PAYLOAD_LEN);
+						  WORLD_ID, TRACE_PAYLOAD_LEN);
 			if (ret)
 				goto drop_err;
 
@@ -787,7 +787,7 @@ skip_service_lookup:
 		switch (ret) {
 		case CT_NEW:
 redo:
-			ct_state_new.src_sec_id = SECLABEL;
+			ct_state_new.src_sec_id = WORLD_ID;
 			ct_state_new.node_port = 1;
 			ct_state_new.ifindex = (__u16)NATIVE_DEV_IFINDEX;
 			ret = ct_create6(get_ct_map6(&tuple), NULL, &tuple, ctx,
@@ -1593,8 +1593,17 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 
 		info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 		if (info != NULL && info->tunnel_endpoint != 0) {
+			/* The dir == NAT_DIR_EGRESS branch is executed for
+			 * N/S LB requests which needs to be fwd-ed to a remote
+			 * node. As the request came from outside, we need to
+			 * set the security id in the tunnel header to WORLD_ID.
+			 * Otherwise, the remote node will assume, that the
+			 * request originated from a cluster node which will
+			 * bypass any netpol which disallows LB requests from
+			 * outside.
+			 */
 			ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
-						  SECLABEL, TRACE_PAYLOAD_LEN);
+						  WORLD_ID, TRACE_PAYLOAD_LEN);
 			if (ret)
 				goto drop_err;
 
@@ -1774,7 +1783,7 @@ skip_service_lookup:
 		switch (ret) {
 		case CT_NEW:
 redo:
-			ct_state_new.src_sec_id = SECLABEL;
+			ct_state_new.src_sec_id = WORLD_ID;
 			ct_state_new.node_port = 1;
 			ct_state_new.ifindex = (__u16)NATIVE_DEV_IFINDEX;
 			ret = ct_create4(get_ct_map4(&tuple), NULL, &tuple, ctx,
