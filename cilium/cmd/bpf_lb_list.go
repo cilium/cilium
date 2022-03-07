@@ -18,8 +18,8 @@ import (
 const (
 	idTitle             = "ID"
 	serviceAddressTitle = "SERVICE ADDRESS"
-	backendAddressTitle = "BACKEND ADDRESS"
 	backendIdTitle      = "BACKEND ID"
+	backendAddressTitle = "BACKEND ADDRESS (REVNAT_ID) (SLOT)"
 )
 
 var (
@@ -76,25 +76,26 @@ func dumpSVC(serviceList map[string][]string) {
 		svcVal := value.(lbmap.ServiceValue).ToHost()
 		svc := svcKey.String()
 		svcKey = svcKey.ToHost()
+		backendSlot := svcKey.GetBackendSlot()
 		revNATID := svcVal.GetRevNat()
 		backendID := svcVal.GetBackendID()
 		flags := loadbalancer.ServiceFlags(svcVal.GetFlags())
 
-		if svcKey.GetBackendSlot() == 0 {
+		if backendSlot == 0 {
 			ip := "0.0.0.0"
 			if svcKey.IsIPv6() {
 				ip = "[::]"
 			}
-			entry = fmt.Sprintf("%s:%d (%d) [%s]", ip, 0, revNATID, flags)
+			entry = fmt.Sprintf("%s:%d (%d) (%d) [%s]", ip, 0, revNATID, backendSlot, flags)
 		} else if backend, found := backendMap[backendID]; !found {
 			entry = fmt.Sprintf("backend %d not found", backendID)
 		} else {
-			fmtStr := "%s:%d (%d)"
+			fmtStr := "%s:%d (%d) (%d)"
 			if svcKey.IsIPv6() {
-				fmtStr = "[%s]:%d (%d)"
+				fmtStr = "[%s]:%d (%d) (%d)"
 			}
 			entry = fmt.Sprintf(fmtStr, backend.GetAddress(),
-				backend.GetPort(), revNATID)
+				backend.GetPort(), revNATID, backendSlot)
 		}
 
 		serviceList[svc] = append(serviceList[svc], entry)
