@@ -40,9 +40,9 @@ func GetVPCID(ctx context.Context) (string, error) {
 	return getMetadata(ctx, "vpc-id")
 }
 
-// GetCIDRBlock returns the IPv4 CIDR that belongs to the ECS instance from metadata
-func GetCIDRBlock(ctx context.Context) (string, error) {
-	return getMetadata(ctx, "vswitch-cidr-block")
+// GetVPCCIDRBlock returns the IPv4 CIDR block of the VPC to which the instance belongs
+func GetVPCCIDRBlock(ctx context.Context) (string, error) {
+	return getMetadata(ctx, "vpc-cidr-block")
 }
 
 // getMetadata gets metadata
