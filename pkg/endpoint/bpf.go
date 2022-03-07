@@ -1283,14 +1283,16 @@ func (e *Endpoint) syncPolicyMap() error {
 	}
 
 	// Diffs between the maps are expected here, so do not bother collecting them
-	_, _, err = e.syncDesiredPolicyMapWith(e.realizedPolicy.PolicyMapState, false)
+	_, _, err = e.syncPolicyMapsWith(e.realizedPolicy.PolicyMapState, false)
 	return err
 }
 
-// syncDesiredPolicyMapWith updates the bpf policy map state based on the
+// syncPolicyMapsWith updates the bpf policy map state based on the
 // difference between the given 'realized' and desired policy state without
 // dumping the bpf policy map.
-func (e *Endpoint) syncDesiredPolicyMapWith(realized policy.MapState, withDiffs bool) (diffCount int, diffs []policy.MapChange, err error) {
+// Changes are synced to endpoint's realized policy mapstate, 'realized' is
+// not modified.
+func (e *Endpoint) syncPolicyMapsWith(realized policy.MapState, withDiffs bool) (diffCount int, diffs []policy.MapChange, err error) {
 	errors := 0
 
 	// Add policy map entries before deleting to avoid transient drops
@@ -1412,7 +1414,7 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 	e.PolicyDebug(logrus.Fields{"dumpedPolicyMap": currentMap}, "syncPolicyMapWithDump")
 	// Diffs between the maps indicate an error in the policy map update logic.
 	// Collect and log diffs if policy logging is enabled.
-	diffCount, diffs, err := e.syncDesiredPolicyMapWith(currentMap, e.getPolicyLogger() != nil)
+	diffCount, diffs, err := e.syncPolicyMapsWith(currentMap, e.getPolicyLogger() != nil)
 
 	if diffCount > 0 {
 		e.getLogger().WithField(logfields.Count, diffCount).Warning("Policy map sync fixed errors, consider running with debug verbose = policy to get detailed dumps")
