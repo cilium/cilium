@@ -579,9 +579,9 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 		if err != nil {
 			log.WithError(err).Fatal("Unable to retrieve VPC ID of own ECS instance")
 		}
-		cidrBlock, err := alibabaCloudMetadata.GetCIDRBlock(context.TODO())
+		vpcCidrBlock, err := alibabaCloudMetadata.GetVPCCIDRBlock(context.TODO())
 		if err != nil {
-			log.WithError(err).Fatal("Unable to retrieve CIDR block of own ECS instance")
+			log.WithError(err).Fatal("Unable to retrieve VPC CIDR block of own ECS instance")
 		}
 		zoneID, err := alibabaCloudMetadata.GetZoneID(context.TODO())
 		if err != nil {
@@ -590,7 +590,7 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 		nodeResource.Spec.InstanceID = instanceID
 		nodeResource.Spec.AlibabaCloud.InstanceType = instanceType
 		nodeResource.Spec.AlibabaCloud.VPCID = vpcID
-		nodeResource.Spec.AlibabaCloud.CIDRBlock = cidrBlock
+		nodeResource.Spec.AlibabaCloud.CIDRBlock = vpcCidrBlock
 		nodeResource.Spec.AlibabaCloud.AvailabilityZone = zoneID
 
 		if c := n.NetConf; c != nil {
