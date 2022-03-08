@@ -1,34 +1,36 @@
 alabaster==0.7.12
 Babel==2.9.1
-certifi==2018.10.15
-chardet==3.0.4
+certifi==2021.10.8
+chardet==4.0.0
 docutils==0.17
-idna==2.7
-imagesize==1.1.0
-Jinja2==2.11.3
-jsonschema==2.6.0
-MarkupSafe==1.1.1
+idna==3.3
+imagesize==1.3.0
+Jinja2==3.0.3
+jsonschema==4.4.0
+# for m2r (dependency to sphinxcontrib-openapi), see https://github.com/miyakogi/m2r/issues/66
+mistune<2.0.0
+MarkupSafe==2.1.0
 myst-parser==0.17.0
 pyenchant==3.2.2
-Pygments==2.7.4
-pytz==2018.7
-PyYAML==5.4
-requests==2.25.1
-semver==2.9.0
-six==1.15.0
-snowballstemmer==1.2.1
+Pygments==2.11.2
+pytz==2021.3
+PyYAML==6.0
+requests==2.27.1
+semver==2.13.0
+six==1.16.0
+snowballstemmer==2.2.0
 Sphinx==4.5.0
-sphinx-autobuild==0.7.1
+sphinx-autobuild==2021.3.14
 # forked read the docs themez
 git+https://github.com/cilium/sphinx_rtd_theme.git@v0.7; platform_machine != "aarch64"
 sphinx-rtd-theme==0.2.4; platform_machine == "aarch64"
 sphinxcontrib-httpdomain==1.8.0
-sphinxcontrib-openapi==0.3.2
-sphinxcontrib-spelling==4.2.1
-sphinxcontrib-websupport==1.1.0
+sphinxcontrib-openapi==0.7.0
+sphinxcontrib-spelling==7.3.2
+sphinxcontrib-websupport==1.2.4
 sphinx-tabs==3.3.1
 sphinx-version-warning==1.1.2
-typing==3.6.6
-urllib3==1.26.5
-yamllint==1.22.0
+typing==3.7.4.3
+urllib3==1.26.8
+yamllint==1.26.3
 rstcheck==3.3.1
