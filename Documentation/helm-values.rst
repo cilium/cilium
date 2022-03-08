@@ -17,6 +17,10 @@
      - Install the cilium agent resources.
      - bool
      - ``true``
+   * - annotateK8sNode
+     - Annotate k8s node upon initialization with Cilium's metadata.
+     - bool
+     - ``true``
    * - autoDirectNodeRoutes
      - Enable installation of PodCIDR routes between worker nodes if worker nodes share a common L2 network segment.
      - bool
@@ -108,7 +112,7 @@
    * - clustermesh.apiserver.image
      - Clustermesh API server image.
      - object
-     - ``{"digest":"sha256:a0da5edf0372899647da51de1b277f0bab8e676d694aee7f939cddfdd3172010","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/clustermesh-apiserver","tag":"v1.9.14","useDigest":false}``
+     - ``{"digest":"sha256:59cabe18234077448b3410a1d9f0ffe9c78a41783e83cc3d80310ddd92b81822","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/clustermesh-apiserver","tag":"v1.9.15","useDigest":false}``
    * - clustermesh.apiserver.nodeSelector
      - Node labels for pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object
@@ -488,7 +492,7 @@
    * - hubble.relay.image
      - Hubble-relay container image.
      - object
-     - ``{"digest":"sha256:fd6ab1aea260abc5f64eca26c1b1e7009983e4aaa8e5d098e8d442f7659603fb","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-relay","tag":"v1.9.14","useDigest":false}``
+     - ``{"digest":"sha256:748813e49877d66614d947495972f32b7f9675e9c327578c0ea81ca4f7adf322","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-relay","tag":"v1.9.15","useDigest":false}``
    * - hubble.relay.listenHost
      - Host to listen to. Specify an empty string to bind to all the interfaces.
      - string
@@ -668,7 +672,7 @@
    * - image
      - Agent container image.
      - object
-     - ``{"digest":"sha256:2c6ce93fa7e625979043a387eb998c17ad57df8768d89facb9b715da42a4c51c","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.9.14","useDigest":false}``
+     - ``{"digest":"sha256:20c0f6cedc09a880d76695e7ac70755a662c4bddf6d5197cf609ffe499ab72ce","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.9.15","useDigest":false}``
    * - imagePullSecrets
      - Configure image pull secrets for pulling container images
      - string
@@ -896,7 +900,7 @@
    * - operator.image
      - cilium-operator image.
      - object
-     - ``{"awsDigest":"sha256:8484021ef6a794027b0dae5625d7248402686a7338d6cd36300885cf3d4f5e47","azureDigest":"sha256:a118239016a7dab7bc3fedfa3d4f0c632867529e23952b0a0bf5ab2cbaa7d9b2","genericDigest":"sha256:bdcfd2eade99933f2fda55ef79ea697ddfad3512f65b15bcd0ba7702518c1ba3","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/operator","suffix":"","tag":"v1.9.14","useDigest":false}``
+     - ``{"awsDigest":"sha256:5ab748219bec4ac0a0e971e53e1b1ba6a569114eb6dea78951c2edb8ae460265","azureDigest":"sha256:b1f236b2c9e99d1ed22ea99e7fcb6bd2f86707825b7c3d271715e6cbc29147d4","genericDigest":"sha256:5f38912e638b96377f905369035e0afc89b45f24f7f27565b520f3573c4411f1","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/operator","suffix":"","tag":"v1.9.15","useDigest":false}``
    * - operator.nodeSelector
      - Node labels for cilium-operator pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object
@@ -996,7 +1000,7 @@
    * - preflight.image
      - Cilium pre-flight image.
      - object
-     - ``{"digest":"sha256:2c6ce93fa7e625979043a387eb998c17ad57df8768d89facb9b715da42a4c51c","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.9.14","useDigest":false}``
+     - ``{"digest":"sha256:20c0f6cedc09a880d76695e7ac70755a662c4bddf6d5197cf609ffe499ab72ce","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.9.15","useDigest":false}``
    * - preflight.nodeSelector
      - Node labels for preflight pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object
