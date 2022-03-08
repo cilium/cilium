@@ -230,9 +230,9 @@ func (d *Daemon) init() error {
 		if option.Config.SockopsEnable {
 			eppolicymap.CreateEPPolicyMap()
 			if err := sockops.SockmapEnable(); err != nil {
-				log.WithError(err).Error("Failed to enable Sockmap")
+				return fmt.Errorf("failed to enable Sockmap: %w", err)
 			} else if err := sockops.SkmsgEnable(); err != nil {
-				log.WithError(err).Error("Failed to enable Sockmsg")
+				return fmt.Errorf("failed to enable Sockmsg: %w", err)
 			} else {
 				sockmap.SockmapCreate()
 			}
