@@ -179,7 +179,7 @@ rules:
   resources:
   - namespaces
   - services
-  - nodes
+  - pods
   - endpoints
   verbs:
   - get
@@ -189,7 +189,6 @@ rules:
   - ""
   resources:
   - nodes
-  - pods
   verbs:
   - get
   - list
