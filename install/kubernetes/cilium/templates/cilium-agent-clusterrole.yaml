@@ -30,6 +30,7 @@ rules:
   - services
   - pods
   - endpoints
+  - nodes
   verbs:
   - get
   - list
@@ -39,14 +40,12 @@ rules:
   resources:
   - nodes
   verbs:
-  - get
-  - list
-  - watch
+  # To remove node taints and to annotate node
   - update
 - apiGroups:
   - ""
   resources:
-  - nodes
+  # To set NodeNetworkUnavailable: false on startup
   - nodes/status
   verbs:
   - patch

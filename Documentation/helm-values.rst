@@ -21,6 +21,10 @@
      - Enable AlibabaCloud ENI integration
      - bool
      - ``false``
+   * - annotateK8sNode
+     - Annotate k8s node upon initialization with Cilium's metadata.
+     - bool
+     - ``true``
    * - autoDirectNodeRoutes
      - Enable installation of PodCIDR routes between worker nodes if worker nodes share a common L2 network segment.
      - bool
@@ -124,7 +128,7 @@
    * - clustermesh.apiserver.image
      - Clustermesh API server image.
      - object
-     - ``{"digest":"sha256:9afb0a15afffdf84812c8174df9de86e35239fb87a6ffd9539877a9e643d8132","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/clustermesh-apiserver","tag":"v1.10.7","useDigest":true}``
+     - ``{"digest":"sha256:e13d41db3f5ee93d8b3abcaa10cc4005522bc797be3d69fc96ac5e03b60c7b11","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/clustermesh-apiserver","tag":"v1.10.10","useDigest":true}``
    * - clustermesh.apiserver.nodeSelector
      - Node labels for pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object
@@ -592,7 +596,7 @@
    * - hubble.relay.image
      - Hubble-relay container image.
      - object
-     - ``{"digest":"sha256:385fcc4fa315eb6b66626c3e5f607b6b6514c8c3a863c47c2b2dbc97790acb47","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-relay","tag":"v1.10.7","useDigest":true}``
+     - ``{"digest":"sha256:a0769e44299bba301dee08d489f4e2d3b3924916bed985346dcf9fcf10861c8a","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-relay","tag":"v1.10.10","useDigest":true}``
    * - hubble.relay.listenHost
      - Host to listen to. Specify an empty string to bind to all the interfaces.
      - string
@@ -772,7 +776,7 @@
    * - image
      - Agent container image.
      - object
-     - ``{"digest":"sha256:e23f55e80e1988db083397987a89967aa204ad6fc32da243b9160fbcea29b0ca","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.10.7","useDigest":true}``
+     - ``{"digest":"sha256:83bfc1052543e8b1e31f06fa2b5bbd2bd41cc79f264010241fc1994e35281616","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.10.10","useDigest":true}``
    * - imagePullSecrets
      - Configure image pull secrets for pulling container images
      - string
@@ -1008,7 +1012,7 @@
    * - operator.image
      - cilium-operator image.
      - object
-     - ``{"alibabacloudDigest":"sha256:7a6ccc99195ae6a8216d2a1e1e0cc05d49c2d263b194895da264899fe9d0f45a","awsDigest":"sha256:97b378e0e3b6b5ade6ae1706024c7a25fe6fc48e00102b65a6b7ac51d6327f40","azureDigest":"sha256:556d692b2f08822101c159d9d6f731efe6c437d2b80f0ef96813e8745203c852","genericDigest":"sha256:d0b491d8d8cb45862ed7f0410f65e7c141832f0f95262643fa5ff1edfcddcafe","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/operator","suffix":"","tag":"v1.10.7","useDigest":true}``
+     - ``{"alibabacloudDigest":"sha256:6154fcc069700cca6754cff0ee7bf6990bbf4a2865076b5358cb0c70c0043d52","awsDigest":"sha256:9bc04377606cb57c16f699a5b34dcdd6b6ffc1c4f43f5e6da81015fc16c10edc","azureDigest":"sha256:6973d45f7255c1791c0502339675a42105b8cbeca1a98634362623433674efe1","genericDigest":"sha256:8a317287b6ac8fe0ba4999342c9627dc913e0c1591552164f96d0aadf5d1a740","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/operator","suffix":"","tag":"v1.10.10","useDigest":true}``
    * - operator.nodeSelector
      - Node labels for cilium-operator pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object
@@ -1120,7 +1124,7 @@
    * - preflight.image
      - Cilium pre-flight image.
      - object
-     - ``{"digest":"sha256:e23f55e80e1988db083397987a89967aa204ad6fc32da243b9160fbcea29b0ca","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.10.7","useDigest":true}``
+     - ``{"digest":"sha256:83bfc1052543e8b1e31f06fa2b5bbd2bd41cc79f264010241fc1994e35281616","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.10.10","useDigest":true}``
    * - preflight.nodeSelector
      - Node labels for preflight pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object
