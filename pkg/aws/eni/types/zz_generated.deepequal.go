@@ -142,6 +142,27 @@ func (in *ENI) DeepEqual(other *ENI) bool {
 		}
 	}
 
+	if ((in.Tags != nil) && (other.Tags != nil)) || ((in.Tags == nil) != (other.Tags == nil)) {
+		in, other := &in.Tags, &other.Tags
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for key, inValue := range *in {
+				if otherValue, present := (*other)[key]; !present {
+					return false
+				} else {
+					if inValue != otherValue {
+						return false
+					}
+				}
+			}
+		}
+	}
+
 	return true
 }
 
@@ -257,6 +278,27 @@ func (in *ENISpec) DeepEqual(other *ENISpec) bool {
 	if in.AvailabilityZone != other.AvailabilityZone {
 		return false
 	}
+	if ((in.ExcludeInterfaceTags != nil) && (other.ExcludeInterfaceTags != nil)) || ((in.ExcludeInterfaceTags == nil) != (other.ExcludeInterfaceTags == nil)) {
+		in, other := &in.ExcludeInterfaceTags, &other.ExcludeInterfaceTags
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for key, inValue := range *in {
+				if otherValue, present := (*other)[key]; !present {
+					return false
+				} else {
+					if inValue != otherValue {
+						return false
+					}
+				}
+			}
+		}
+	}
+
 	if (in.DeleteOnTermination == nil) != (other.DeleteOnTermination == nil) {
 		return false
 	} else if in.DeleteOnTermination != nil {

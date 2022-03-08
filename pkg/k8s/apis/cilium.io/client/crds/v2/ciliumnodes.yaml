@@ -126,6 +126,13 @@ spec:
                       is not set the default behavior is to delete the ENI on instance
                       termination.
                     type: boolean
+                  exclude-interface-tags:
+                    additionalProperties:
+                      type: string
+                    description: ExcludeInterfaceTags is the list of tags to use when
+                      excluding ENIs for Cilium IP allocation. Any interface matching
+                      this set of tags will not be managed by Cilium.
+                    type: object
                   first-interface-index:
                     description: FirstInterfaceIndex is the index of the first ENI
                       to use for IP allocation, e.g. if the node has eth0, eth1, eth2
@@ -511,6 +518,12 @@ spec:
                             id:
                               description: ID is the ID of the subnet
                               type: string
+                          type: object
+                        tags:
+                          additionalProperties:
+                            type: string
+                          description: Tags is the set of tags of the ENI. Used to
+                            detect ENIs which should not be managed by Cilium
                           type: object
                         vpc:
                           description: VPC is the VPC information to which the ENI

@@ -222,6 +222,11 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 		}
 	}
 
+	eni.Tags = make(map[string]string, len(iface.TagSet))
+	for _, tag := range iface.TagSet {
+		eni.Tags[aws.ToString(tag.Key)] = aws.ToString(tag.Value)
+	}
+
 	return
 }
 

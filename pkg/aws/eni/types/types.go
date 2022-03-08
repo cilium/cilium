@@ -109,6 +109,13 @@ type ENISpec struct {
 	// +kubebuilder:validation:Optional
 	AvailabilityZone string `json:"availability-zone,omitempty"`
 
+	// ExcludeInterfaceTags is the list of tags to use when excluding ENIs for
+	// Cilium IP allocation. Any interface matching this set of tags will not
+	// be managed by Cilium.
+	//
+	// +kubebuilder:validation:Optional
+	ExcludeInterfaceTags map[string]string `json:"exclude-interface-tags,omitempty"`
+
 	// DeleteOnTermination defines that the ENI should be deleted when the
 	// associated instance is terminated. If the parameter is not set the
 	// default behavior is to delete the ENI on instance termination.
@@ -175,6 +182,12 @@ type ENI struct {
 
 	// SecurityGroups are the security groups associated with the ENI
 	SecurityGroups []string `json:"security-groups,omitempty"`
+
+	// Tags is the set of tags of the ENI. Used to detect ENIs which should
+	// not be managed by Cilium
+	//
+	// +optional
+	Tags map[string]string `json:"tags,omitempty"`
 }
 
 // InterfaceID returns the identifier of the interface
@@ -191,6 +204,22 @@ func (e *ENI) ForeachAddress(id string, fn types.AddressIterator) error {
 	}
 
 	return nil
+}
+
+// IsExcludedBySpec returns true if the ENI is excluded by the provided spec and
+// therefore should not be managed by Cilium.
+func (e *ENI) IsExcludedBySpec(spec ENISpec) bool {
+	if spec.FirstInterfaceIndex != nil && e.Number < *spec.FirstInterfaceIndex {
+		return true
+	}
+
+	if len(spec.ExcludeInterfaceTags) > 0 {
+		if types.Tags(e.Tags).Match(spec.ExcludeInterfaceTags) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // ENIStatus is the status of ENI addressing of the node

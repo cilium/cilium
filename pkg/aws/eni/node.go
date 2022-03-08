@@ -146,7 +146,7 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *logrus.Entry) *ipam.Re
 			"numAddresses": len(e.Addresses),
 		}).Debug("Considering ENI for IP release")
 
-		if e.Number < *n.k8sObj.Spec.ENI.FirstInterfaceIndex {
+		if e.IsExcludedBySpec(n.k8sObj.Spec.ENI) {
 			continue
 		}
 
@@ -213,7 +213,8 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 			"numAddresses": len(e.Addresses),
 		}).Debug("Considering ENI for allocation")
 
-		if e.Number < *n.k8sObj.Spec.ENI.FirstInterfaceIndex {
+		if e.IsExcludedBySpec(n.k8sObj.Spec.ENI) {
+			scopedLog.WithField(fieldEniID, e.ID).Debug("ENI is excluded by spec")
 			continue
 		}
 
@@ -515,9 +516,7 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 			}
 
 			n.enis[e.ID] = *e
-			index := *n.k8sObj.Spec.ENI.FirstInterfaceIndex
-
-			if e.Number < index {
+			if e.IsExcludedBySpec(n.k8sObj.Spec.ENI) {
 				return nil
 			}
 
