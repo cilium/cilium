@@ -120,4 +120,4 @@ live-preview: stop-server
 	$(QUIET)$(DOCKER_CTR) \
 		--publish $(DOCS_PORT):8000 \
 			cilium/docs-builder \
-		sphinx-autobuild -B -H 0.0.0.0 $(SPHINX_OPTS) -i *.swp -Q . _preview
+		sphinx-autobuild --open-browser --host 0.0.0.0 $(SPHINX_OPTS) --ignore *.swp -Q . _preview
