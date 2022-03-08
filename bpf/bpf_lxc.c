@@ -1189,7 +1189,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	ifindex = ctx_load_meta(ctx, CB_IFINDEX);
 	if (ifindex)
 		return redirect_ep(ctx, ifindex, from_host);
-#endif /* ENABLE_ROUTING && TUNNEL_MODE && !ENABLE_NODEPORT */
+#endif /* !ENABLE_ROUTING && TUNNEL_MODE && !ENABLE_NODEPORT */
 
 	return CTX_ACT_OK;
 }
@@ -1501,7 +1501,7 @@ skip_policy_enforcement:
 	ifindex = ctx_load_meta(ctx, CB_IFINDEX);
 	if (ifindex)
 		return redirect_ep(ctx, ifindex, from_host);
-#endif /* ENABLE_ROUTING && TUNNEL_MODE && !ENABLE_NODEPORT */
+#endif /* !ENABLE_ROUTING && TUNNEL_MODE && !ENABLE_NODEPORT */
 
 	return CTX_ACT_OK;
 }
