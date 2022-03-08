@@ -42,17 +42,21 @@ func (s *netPerfPodtoPod) Name() string {
 func (s *netPerfPodtoPod) Run(ctx context.Context, t *check.Test) {
 	samples := t.Context().Params().PerfSamples
 	duration := t.Context().Params().PerfDuration
+	crr := t.Context().Params().PerfCRR
 	for _, c := range t.Context().PerfClientPods() {
 		c := c
 		for _, server := range t.Context().PerfServerPod() {
-			action := t.NewAction(s, "iperf-tcp", &c, server)
+			action := t.NewAction(s, "netperf", &c, server)
 			action.CollectFlows = false
 			action.Run(func(a *check.Action) {
-				netperf(ctx, server.Pod.Status.PodIP, c.Pod.Name, "TCP_RR", a, t.Context().PerfResults, samples, duration)
-				netperf(ctx, server.Pod.Status.PodIP, c.Pod.Name, "TCP_CRR", a, t.Context().PerfResults, samples, duration)
-				netperf(ctx, server.Pod.Status.PodIP, c.Pod.Name, "TCP_STREAM", a, t.Context().PerfResults, samples, duration)
-				netperf(ctx, server.Pod.Status.PodIP, c.Pod.Name, "UDP_RR", a, t.Context().PerfResults, samples, duration)
-				netperf(ctx, server.Pod.Status.PodIP, c.Pod.Name, "UDP_STREAM", a, t.Context().PerfResults, samples, duration)
+				if crr {
+					netperf(ctx, server.Pod.Status.PodIP, c.Pod.Name, "TCP_CRR", a, t.Context().PerfResults, 1, 30)
+				} else {
+					netperf(ctx, server.Pod.Status.PodIP, c.Pod.Name, "TCP_RR", a, t.Context().PerfResults, samples, duration)
+					netperf(ctx, server.Pod.Status.PodIP, c.Pod.Name, "TCP_STREAM", a, t.Context().PerfResults, samples, duration)
+					netperf(ctx, server.Pod.Status.PodIP, c.Pod.Name, "UDP_RR", a, t.Context().PerfResults, samples, duration)
+					netperf(ctx, server.Pod.Status.PodIP, c.Pod.Name, "UDP_STREAM", a, t.Context().PerfResults, samples, duration)
+				}
 			})
 		}
 	}
