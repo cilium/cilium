@@ -41,12 +41,12 @@ var bpfMaglevListCmd = &cobra.Command{
 // dumpMaglevTables returns the contents of the Maglev v4 and v6 maps
 // in a format the table printer expects.
 func dumpMaglevTables() (map[string][]string, error) {
-	out, err := dumpMaglevTable(lbmap.MaglevOuter4MapName)
+	out, err := dumpMaglevTable(lbmap.MaglevOuter4MapName, false)
 	if err != nil {
 		return nil, err
 	}
 
-	v6, err := dumpMaglevTable(lbmap.MaglevOuter6MapName)
+	v6, err := dumpMaglevTable(lbmap.MaglevOuter6MapName, true)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +62,7 @@ func dumpMaglevTables() (map[string][]string, error) {
 // dumpMaglevTable opens the pinned Maglev map with the given name and
 // dumps the backend tables of all services. Returns an empty initialized
 // map if the given eBPF map does not exist.
-func dumpMaglevTable(name string) (map[string][]string, error) {
+func dumpMaglevTable(name string, ipv6 bool) (map[string][]string, error) {
 	m, err := lbmap.OpenMaglevOuterMap(name)
 	if errors.Is(err, os.ErrNotExist) {
 		// Map not existing is not an error.
@@ -73,7 +73,7 @@ func dumpMaglevTable(name string) (map[string][]string, error) {
 		return nil, err
 	}
 
-	return m.DumpBackends()
+	return m.DumpBackends(ipv6)
 }
 
 func init() {
