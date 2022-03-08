@@ -128,7 +128,7 @@ func HaveMACAddrs(ifaces []string) bool {
 // CArrayString returns a string which can be used for assigning the given
 // MAC addr to "union macaddr" in C.
 func CArrayString(m net.HardwareAddr) string {
-	if m == nil || len(m) == 0 {
+	if m == nil || len(m) != 6 {
 		return "{0x0,0x0,0x0,0x0,0x0,0x0}"
 	}
 
