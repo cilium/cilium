@@ -46,7 +46,7 @@ const (
 	// StateDirRights are the default access rights of the state directory
 	StateDirRights = 0770
 
-	//StateDir is the default path for the state directory relative to RuntimePath
+	// StateDir is the default path for the state directory relative to RuntimePath
 	StateDir = "state"
 
 	// TemplatesDir is the default path for the compiled template objects relative to StateDir
