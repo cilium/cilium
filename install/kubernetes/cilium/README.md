@@ -56,6 +56,7 @@ contributors across the globe, there is almost always someone available to help.
 | affinity | object | `{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"kubernetes.io/os","operator":"In","values":["linux"]}]},{"matchExpressions":[{"key":"beta.kubernetes.io/os","operator":"In","values":["linux"]}]}]}},"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchExpressions":[{"key":"k8s-app","operator":"In","values":["cilium"]}]},"topologyKey":"kubernetes.io/hostname"}]}}` | Pod affinity for cilium-agent. |
 | agent | bool | `true` | Install the cilium agent resources. |
 | alibabacloud.enabled | bool | `false` | Enable AlibabaCloud ENI integration |
+| annotateK8sNode | bool | `true` | Annotate k8s node upon initialization with Cilium's metadata. |
 | autoDirectNodeRoutes | bool | `false` | Enable installation of PodCIDR routes between worker nodes if worker nodes share a common L2 network segment. |
 | azure.enabled | bool | `false` | Enable Azure integration |
 | bandwidthManager | bool | `false` | Optimize TCP and UDP workloads and enable rate-limiting traffic from individual Pods with EDT (Earliest Departure Time) through the "kubernetes.io/egress-bandwidth" Pod annotation. |
