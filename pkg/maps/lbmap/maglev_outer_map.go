@@ -124,11 +124,15 @@ func (m *MaglevOuterMap) GetService(id uint16) (*MaglevInnerMap, error) {
 // DumpBackends iterates through all of the Maglev map's entries,
 // opening each entry's inner map, and dumps their contents in a format
 // expected by Cilium's table printer.
-func (m *MaglevOuterMap) DumpBackends() (map[string][]string, error) {
+func (m *MaglevOuterMap) DumpBackends(ipv6 bool) (map[string][]string, error) {
 	out := make(map[string][]string)
 
 	var key MaglevOuterKey
 	var val MaglevOuterVal
+	which := "v4"
+	if ipv6 {
+		which = "v6"
+	}
 	iter := m.Iterate()
 	for iter.Next(&key, &val) {
 		inner, err := MaglevInnerMapFromID(val.FD)
@@ -146,7 +150,7 @@ func (m *MaglevOuterMap) DumpBackends() (map[string][]string, error) {
 		// convert to host byte order before displaying to the user.
 		key.RevNatID = byteorder.NetworkToHost16(key.RevNatID)
 
-		out[fmt.Sprintf("%d", key.RevNatID)] = []string{backends}
+		out[fmt.Sprintf("[%d]/%s", key.RevNatID, which)] = []string{backends}
 	}
 
 	return out, nil

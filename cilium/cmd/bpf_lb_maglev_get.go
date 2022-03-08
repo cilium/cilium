@@ -55,6 +55,7 @@ var bpfMaglevGetCmd = &cobra.Command{
 // of the given service ID.
 func getMaglevServiceBackends(svcID uint16) (map[string][]string, error) {
 	backends := make(map[string][]string)
+	which := ""
 	for _, mapName := range []string{lbmap.MaglevOuter4MapName, lbmap.MaglevOuter6MapName} {
 		b, err := dumpMaglevServiceBackends(mapName, svcID)
 		if errors.Is(err, os.ErrNotExist) || errors.Is(err, ebpf.ErrKeyNotExist) {
@@ -65,8 +66,12 @@ func getMaglevServiceBackends(svcID uint16) (map[string][]string, error) {
 		if err != nil {
 			return nil, fmt.Errorf("map %s: %w", mapName, err)
 		}
-
-		backends[fmt.Sprintf("%d", svcID)] = []string{b}
+		if mapName == lbmap.MaglevOuter4MapName {
+			which = "v4"
+		} else {
+			which = "v6"
+		}
+		backends[fmt.Sprintf("[%d]/%s", svcID, which)] = []string{b}
 	}
 
 	return backends, nil
