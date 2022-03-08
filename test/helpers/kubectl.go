@@ -2916,9 +2916,9 @@ func (kub *Kubectl) WaitForCiliumInitContainerToFinish() error {
 // to be annotated.
 func (kub *Kubectl) CiliumNodesWait() (bool, error) {
 	body := func() bool {
-		filter := `{range .items[*]}{@.metadata.name}{"="}{@.metadata.annotations.io\.cilium\.network\.ipv4-pod-cidr}{"\n"}{end}`
+		filter := `{range .items[*]}{@.metadata.name}{"="}{@.spec.addresses[?(@.type=="CiliumInternalIP")].ip}{"\n"}{end}`
 		data := kub.ExecShort(fmt.Sprintf(
-			"%s get nodes -o jsonpath='%s'", KubectlCmd, filter))
+			"%s get ciliumnodes -o jsonpath='%s'", KubectlCmd, filter))
 		if !data.WasSuccessful() {
 			return false
 		}

@@ -151,6 +151,7 @@ allocator
 allocators
 amd
 analytics
+annotateK
 ansible
 api
 apiKeys
@@ -790,6 +791,7 @@ runPath
 runtime
 runtimes
 sEventHandover
+sNode
 sNodes
 sService
 sServiceHost
