@@ -30,6 +30,7 @@ rules:
   - services
   - pods
   - endpoints
+  - nodes
   verbs:
   - get
   - list
@@ -39,9 +40,6 @@ rules:
   resources:
   - nodes
   verbs:
-  - get
-  - list
-  - watch
   - update
 - apiGroups:
   - ""
@@ -72,29 +70,51 @@ rules:
 - apiGroups:
   - cilium.io
   resources:
-  - ciliumnetworkpolicies
-  - ciliumnetworkpolicies/status
+  - ciliumbgploadbalancerippools
+  - ciliumbgppeeringpolicies
+  - ciliumclusterwideenvoyconfigs
   - ciliumclusterwidenetworkpolicies
-  - ciliumclusterwidenetworkpolicies/status
+  - ciliumegressnatpolicies
   - ciliumendpoints
-  - ciliumendpoints/status
-  - ciliumnodes
-  - ciliumnodes/status
+  - ciliumendpointslices
+  - ciliumenvoyconfigs
   - ciliumidentities
   - ciliumlocalredirectpolicies
-  - ciliumlocalredirectpolicies/status
-  - ciliumegressnatpolicies
-  - ciliumendpointslices
-  - ciliumbgppeeringpolicies
-  - ciliumbgploadbalancerippools
-  verbs:
-  - '*'
-- apiGroups:
-  - cilium.io
-  resources:
-  - ciliumclusterwideenvoyconfigs
-  - ciliumenvoyconfigs
+  - ciliumnetworkpolicies
+  - ciliumnodes
   verbs:
   - list
   - watch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumidentities
+  - ciliumendpoints
+  - ciliumnodes
+  verbs:
+  - create
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumendpoints
+  verbs:
+  - delete
+  - get
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnodes
+  - ciliumnodes/status
+  verbs:
+  - get
+  - update
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnetworkpolicies/status
+  - ciliumclusterwidenetworkpolicies/status
+  - ciliumendpoints/status
+  - ciliumendpoints
+  verbs:
+  - patch
 {{- end }}
