@@ -227,6 +227,9 @@ func runApiserver() error {
 	flags.Duration(option.AllocatorListTimeoutName, defaults.AllocatorListTimeout, "Timeout for listing allocator state before exiting")
 	option.BindEnv(option.AllocatorListTimeoutName)
 
+	flags.Bool(option.EnableWellKnownIdentities, defaults.EnableWellKnownIdentities, "Enable well-known identities for known Kubernetes components")
+	option.BindEnv(option.EnableWellKnownIdentities)
+
 	viper.BindPFlags(flags)
 
 	if err := rootCmd.Execute(); err != nil {
