@@ -214,13 +214,8 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test with IPsec between nodes failed")
 		}, 600)
 
-		It("Check connectivity with sockops and VXLAN encapsulation", func() {
-			// Note if run on kernel without sockops feature is ignored
-			if !helpers.RunsOn419OrLaterKernel() {
-				Skip("Skipping sockops testing before 4.19 kernel")
-				return
-			}
-
+		// Sockops should work on 4.19, but currently fails. See #16418 for details.
+		SkipItIf(helpers.DoesNotRunOn54OrLaterKernel, "Check connectivity with sockops and VXLAN encapsulation", func() {
 			options := map[string]string{
 				"sockops.enabled": "true",
 			}
@@ -350,12 +345,8 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
 
-		It("Check connectivity with sockops and direct routing", func() {
-			// Note if run on kernel without sockops feature is ignored
-			if !helpers.RunsOn419OrLaterKernel() {
-				Skip("Skipping sockops testing before 4.19 kernel")
-				return
-			}
+		// Sockops should work on 4.19, but currently fails. See #16418 for details.
+		SkipItIf(helpers.DoesNotRunOn54OrLaterKernel, "Check connectivity with sockops and direct routing", func() {
 
 			deploymentManager.DeployCilium(map[string]string{
 				"sockops.enabled": "true",
