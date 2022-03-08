@@ -346,7 +346,6 @@ func initializeFlags() {
 
 	flags.String(option.EndpointInterfaceNamePrefix, "", "Prefix of interface name shared by all endpoints")
 	option.BindEnv(option.EndpointInterfaceNamePrefix)
-	flags.MarkHidden(option.EndpointInterfaceNamePrefix)
 	flags.MarkDeprecated(option.EndpointInterfaceNamePrefix, "This option no longer has any effect and will be removed in v1.13.")
 
 	flags.StringSlice(option.ExcludeLocalAddress, []string{}, "Exclude CIDR from being recognized as local address")
@@ -660,7 +659,6 @@ func initializeFlags() {
 			"To offer a concrete example, if Cilium is configured to use direct routing and the Kubernetes CIDR is included in the native routing CIDR, the user must configure the routes to reach pods, either manually or by setting the auto-direct-node-routes flag. "+
 			"Deprecated in favor of --%s", option.IPv4NativeRoutingCIDR))
 	option.BindEnv(option.NativeRoutingCIDR)
-	flags.MarkHidden(option.NativeRoutingCIDR)
 	flags.MarkDeprecated(option.NativeRoutingCIDR, "This option will be removed in v1.12")
 
 	flags.String(option.IPv4NativeRoutingCIDR, "", "Allows to explicitly specify the IPv4 CIDR for native routing. "+
@@ -801,14 +799,12 @@ func initializeFlags() {
 
 	flags.String(option.PrefilterDevice, "undefined", "Device facing external network for XDP prefiltering")
 	option.BindEnv(option.PrefilterDevice)
-	flags.MarkHidden(option.PrefilterDevice)
 	flags.MarkDeprecated(option.PrefilterDevice,
 		fmt.Sprintf("This option will be removed in v1.12. Use --%s and --%s instead.",
 			option.EnableXDPPrefilter, option.Devices))
 
 	flags.String(option.PrefilterMode, option.ModePreFilterNative, "Prefilter mode via XDP (\"native\", \"generic\")")
 	option.BindEnv(option.PrefilterMode)
-	flags.MarkHidden(option.PrefilterMode)
 	flags.MarkDeprecated(option.PrefilterMode,
 		fmt.Sprintf("This option will be removed in v1.12. Use --%s instead.", option.LoadBalancerAcceleration))
 
@@ -1028,7 +1024,6 @@ func initializeFlags() {
 
 	flags.Bool(option.EnableBPFBypassFIBLookup, false, "Enable FIB lookup bypass optimization for nodeport reverse NAT handling")
 	option.BindEnv(option.EnableBPFBypassFIBLookup)
-	flags.MarkHidden(option.EnableBPFBypassFIBLookup)
 	flags.MarkDeprecated(option.EnableBPFBypassFIBLookup, fmt.Sprintf("This option will be removed in v1.12."))
 
 	flags.Bool(option.InstallNoConntrackIptRules, defaults.InstallNoConntrackIptRules, "Install Iptables rules to skip netfilter connection tracking on all pod traffic. This option is only effective when Cilium is running in direct routing and full KPR mode. Moreover, this option cannot be enabled when Cilium is running in a managed Kubernetes environment or in a chained CNI setup.")
