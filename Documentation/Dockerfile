@@ -1,4 +1,4 @@
-FROM docker.io/library/python:3.7.9-alpine3.11
+FROM docker.io/library/python:3.10.4-alpine3.15
 
 LABEL maintainer="maintainer@cilium.io"
 
@@ -8,12 +8,13 @@ RUN apk add --no-cache --virtual --update \
     npm \
     bash \
     ca-certificates \
-    enchant \
+    enchant2 \
+    enchant2-dev \
     git \
     libc6-compat \
     py-pip \
-    python \
-    sphinx-python \
+    python3 \
+    py3-sphinx \
     gcc \
     musl-dev \
     && true
@@ -27,4 +28,4 @@ ENV READTHEDOCS_VERSION=$READTHEDOCS_VERSION
 ## Workaround odd behaviour of sphinx versionwarning extension. It wants to
 ## write runtime data inside a system directory.
 ## We do rely on this extension, so we cannot just drop it.
-RUN install -m 0777 -d /usr/local/lib/python3.7/site-packages/versionwarning/_static/data
+RUN install -m 0777 -d /usr/local/lib/python3.10/site-packages/versionwarning/_static/data

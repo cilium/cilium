@@ -9,7 +9,7 @@ Jinja2==2.11.3
 jsonschema==2.6.0
 MarkupSafe==1.1.1
 myst-parser==0.17.0
-pyenchant==2.0.0
+pyenchant==3.2.2
 Pygments==2.7.4
 pytz==2018.7
 PyYAML==5.4
