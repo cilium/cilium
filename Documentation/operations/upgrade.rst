@@ -328,6 +328,8 @@ Removed Options
   connection tracking was removed. In addition, we deprecated the
   ``disable-conntrack`` option and made it non-operational. It will be removed
   in version 1.13.
+* The ``host-reachable-services-protos`` option (``.hostServices.protocols`` in
+  Helm) was deprecated, and it will be removed in version 1.13.
 
 Helm Options
 ~~~~~~~~~~~~

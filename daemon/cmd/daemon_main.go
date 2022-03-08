@@ -365,6 +365,7 @@ func initializeFlags() {
 
 	flags.StringSlice(option.HostReachableServicesProtos, []string{option.HostServicesTCP, option.HostServicesUDP}, "Only enable reachability of services for host applications for specific protocols")
 	option.BindEnv(option.HostReachableServicesProtos)
+	flags.MarkDeprecated(option.HostReachableServicesProtos, "This option will be removed in v1.13")
 
 	flags.Bool(option.EnableAutoDirectRoutingName, defaults.EnableAutoDirectRouting, "Enable automatic L2 routing between nodes")
 	option.BindEnv(option.EnableAutoDirectRoutingName)
