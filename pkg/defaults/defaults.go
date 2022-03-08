@@ -308,7 +308,7 @@ const (
 	// AnnotateK8sNode is the default value for option.AnnotateK8sNode. It is
 	// enabled by default to annotate kubernetes node and can be disabled using
 	// the provided option.
-	AnnotateK8sNode = true
+	AnnotateK8sNode = false
 
 	// MonitorBufferPages is the default number of pages to use for the
 	// ring buffer interacting with the kernel
