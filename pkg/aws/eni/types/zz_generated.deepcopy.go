@@ -60,6 +60,13 @@ func (in *ENI) DeepCopyInto(out *ENI) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.Tags != nil {
+		in, out := &in.Tags, &out.Tags
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	return
 }
 
@@ -100,6 +107,13 @@ func (in *ENISpec) DeepCopyInto(out *ENISpec) {
 	}
 	if in.SubnetTags != nil {
 		in, out := &in.SubnetTags, &out.SubnetTags
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
+	if in.ExcludeInterfaceTags != nil {
+		in, out := &in.ExcludeInterfaceTags, &out.ExcludeInterfaceTags
 		*out = make(map[string]string, len(*in))
 		for key, val := range *in {
 			(*out)[key] = val

@@ -526,6 +526,10 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 				nodeResource.Spec.ENI.VpcID = c.ENI.VpcID
 			}
 
+			if len(c.ENI.ExcludeInterfaceTags) > 0 {
+				nodeResource.Spec.ENI.ExcludeInterfaceTags = c.ENI.ExcludeInterfaceTags
+			}
+
 			nodeResource.Spec.ENI.DeleteOnTermination = c.ENI.DeleteOnTermination
 		}
 
