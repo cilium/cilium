@@ -21,6 +21,10 @@
      - Enable AlibabaCloud ENI integration
      - bool
      - ``false``
+   * - annotateK8sNode
+     - Annotate k8s node upon initialization with Cilium's metadata.
+     - bool
+     - ``true``
    * - autoDirectNodeRoutes
      - Enable installation of PodCIDR routes between worker nodes if worker nodes share a common L2 network segment.
      - bool

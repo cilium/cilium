@@ -199,6 +199,9 @@ updateStrategy:
 # nodes if worker nodes share a common L2 network segment.
 autoDirectNodeRoutes: false
 
+# -- Annotate k8s node upon initialization with Cilium's metadata.
+annotateK8sNode: true
+
 azure:
   # -- Enable Azure integration
   enabled: false
