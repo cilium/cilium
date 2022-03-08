@@ -703,7 +703,7 @@ func devMacros() (string, string, error) {
 		}
 		idx := link.Attrs().Index
 		m := link.Attrs().HardwareAddr
-		if m == nil {
+		if m == nil || len(m) != 6 {
 			l3DevIfIndices = append(l3DevIfIndices, idx)
 		}
 		macByIfIndex[idx] = mac.CArrayString(m)
