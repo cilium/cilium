@@ -307,23 +307,6 @@ Annotations:
 
 .. _current_release_required_changes:
 
-.. _1.13_upgrade_notes:
-
-1.13 Upgrade Notes
-------------------
-
-Helm Options
-~~~~~~~~~~~~
-
-* ``hubble.tls.ca.cert`` has been deprecated in favor of ``tls.ca.cert``, and will be removed in 1.13.
-* ``hubble.tls.ca.key`` has been deprecated in favor of ``tls.ca.key``, and will be removed in 1.13.
-* ``clustermesh.apiserver.tls.ca.cert`` has been deprecated in favor of ``tls.ca.key``, and will be removed in 1.13.
-* ``clustermesh.apiserver.tls.ca.key`` has been deprecated in favor of ``tls.ca.key``, and will be removed in 1.13.
-* ``tls.enabled`` has been removed as this attribute is not used at all.
-
-Only one CA will be generated with either the helm or CronJob auto method, there will be a short disruption while the new CA is
-propagated to all nodes.
-
 .. _1.12_upgrade_notes:
 
 1.12 Upgrade Notes
@@ -346,10 +329,22 @@ Removed Options
   ``disable-conntrack`` option and made it non-operational. It will be removed
   in version 1.13.
 
-Deprecated Options
-~~~~~~~~~~~~~~~~~~
+Helm Options
+~~~~~~~~~~~~
 
-* ``bpf.hostRouting`` has been deprecated in favor of ``bpf.hostLegacyRouting``, and will be removed in 1.13.
+* ``bpf.hostRouting`` has been deprecated in favor of ``bpf.hostLegacyRouting``, and
+  will be removed in 1.13.
+* ``hubble.tls.ca.cert`` has been deprecated in favor of ``tls.ca.cert``, and
+  will be removed in 1.13.
+* ``hubble.tls.ca.key`` has been deprecated in favor of ``tls.ca.key``, and will be
+  removed in 1.13.
+* ``clustermesh.apiserver.tls.ca.cert`` has been deprecated in favor of ``tls.ca.key``,
+  and will be removed in 1.13.
+* ``clustermesh.apiserver.tls.ca.key`` has been deprecated in favor of ``tls.ca.key``,
+  and will be removed in 1.13.
+* ``tls.enabled`` has been removed as this attribute is not used at all.
+* Only one CA will be generated with either the helm or CronJob auto method, there will
+  be a short disruption while the new CA is propagated to all nodes.
 
 .. _1.11_upgrade_notes:
 
