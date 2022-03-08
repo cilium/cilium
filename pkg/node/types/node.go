@@ -235,11 +235,13 @@ type Address struct {
 	IP   net.IP
 }
 
-func (n *Node) getNodeIP(ipv6 bool) (net.IP, addressing.AddressType) {
-	var (
-		backupIP net.IP
-		ipType   addressing.AddressType
-	)
+// GetNodeIP returns one of the node's IP addresses available with the
+// following priority:
+// - NodeInternalIP
+// - NodeExternalIP
+// - other IP address type
+func (n *Node) GetNodeIP(ipv6 bool) net.IP {
+	var backupIP net.IP
 	for _, addr := range n.IPAddresses {
 		if (ipv6 && addr.IP.To4() != nil) ||
 			(!ipv6 && addr.IP.To4() == nil) {
@@ -251,22 +253,20 @@ func (n *Node) getNodeIP(ipv6 bool) (net.IP, addressing.AddressType) {
 			continue
 		// Always prefer a cluster internal IP
 		case addressing.NodeInternalIP:
-			return addr.IP, addr.Type
+			return addr.IP
 		case addressing.NodeExternalIP:
 			// Fall back to external Node IP
 			// if no internal IP could be found
 			backupIP = addr.IP
-			ipType = addr.Type
 		default:
 			// As a last resort, if no internal or external
 			// IP was found, use any node address available
 			if backupIP == nil {
 				backupIP = addr.IP
-				ipType = addr.Type
 			}
 		}
 	}
-	return backupIP, ipType
+	return backupIP
 }
 
 // GetExternalIP returns ExternalIP of k8s Node. If not present, then it
@@ -300,16 +300,6 @@ func (n *Node) GetK8sNodeIP() net.IP {
 	return externalIP
 }
 
-// GetNodeIP returns one of the node's IP addresses available with the
-// following priority:
-// - NodeInternalIP
-// - NodeExternalIP
-// - other IP address type
-func (n *Node) GetNodeIP(ipv6 bool) net.IP {
-	result, _ := n.getNodeIP(ipv6)
-	return result
-}
-
 // GetCiliumInternalIP returns the CiliumInternalIP e.g. the IP associated
 // with cilium_host on the node.
 func (n *Node) GetCiliumInternalIP(ipv6 bool) net.IP {
@@ -338,8 +328,8 @@ func (n *Node) GetIPByType(addrType addressing.AddressType, ipv6 bool) net.IP {
 }
 
 func (n *Node) getPrimaryAddress() *models.NodeAddressing {
-	v4, v4Type := n.getNodeIP(false)
-	v6, v6Type := n.getNodeIP(true)
+	v4 := n.GetNodeIP(false)
+	v6 := n.GetNodeIP(true)
 
 	var ipv4AllocStr, ipv6AllocStr string
 	if n.IPv4AllocCIDR != nil {
@@ -359,16 +349,14 @@ func (n *Node) getPrimaryAddress() *models.NodeAddressing {
 
 	return &models.NodeAddressing{
 		IPV4: &models.NodeAddressingElement{
-			Enabled:     option.Config.EnableIPv4,
-			IP:          v4Str,
-			AllocRange:  ipv4AllocStr,
-			AddressType: string(v4Type),
+			Enabled:    option.Config.EnableIPv4,
+			IP:         v4Str,
+			AllocRange: ipv4AllocStr,
 		},
 		IPV6: &models.NodeAddressingElement{
-			Enabled:     option.Config.EnableIPv6,
-			IP:          v6Str,
-			AllocRange:  ipv6AllocStr,
-			AddressType: string(v6Type),
+			Enabled:    option.Config.EnableIPv6,
+			IP:         v6Str,
+			AllocRange: ipv6AllocStr,
 		},
 	}
 }
@@ -387,8 +375,7 @@ func (n *Node) getSecondaryAddresses() []*models.NodeAddressingElement {
 		}
 		if !n.isPrimaryAddress(addr, ipv4) {
 			result = append(result, &models.NodeAddressingElement{
-				IP:          addr.IP.String(),
-				AddressType: string(addr.Type),
+				IP: addr.IP.String(),
 			})
 		}
 	}
