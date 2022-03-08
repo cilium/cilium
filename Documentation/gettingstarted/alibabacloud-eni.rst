@@ -107,7 +107,8 @@ These keys need to have certain `RAM Permissions
             "ecs:DescribeInstanceTypes",
             "ecs:AssignPrivateIpAddresses",
             "ecs:UnassignPrivateIpAddresses",
-            "ecs:DescribeInstances"
+            "ecs:DescribeInstances",
+            "ecs:DescribeSecurityGroups"
           ],
           "Resource": [
             "*"
@@ -117,7 +118,8 @@ These keys need to have certain `RAM Permissions
         {
           "Action": [
             "vpc:DescribeVSwitches",
-            "vpc:ListTagResources"
+            "vpc:ListTagResources",
+            "vpc:DescribeVpcs"
           ],
           "Resource": [
             "*"
