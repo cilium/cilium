@@ -136,7 +136,6 @@ cilium-agent [flags]
       --force-local-policy-eval-at-source                    Force policy evaluation of all local communication at the source endpoint (default true)
       --gops-port int                                        Port for gops server to listen on (default 9890)
   -h, --help                                                 help for cilium-agent
-      --host-reachable-services-protos strings               Only enable reachability of services for host applications for specific protocols (default [tcp,udp])
       --http-idle-timeout uint                               Time after which a non-gRPC HTTP stream is considered failed unless traffic in the stream has been processed (in seconds); defaults to 0 (unlimited)
       --http-max-grpc-timeout uint                           Time after which a forwarded gRPC request is considered failed unless completed (in seconds). A "grpc-timeout" header may override this with a shorter value; defaults to 0 (unlimited)
       --http-normalize-path                                  Use Envoy HTTP path normalization options, which currently includes RFC 3986 path normalization, Envoy merge slashes option, and unescaping and redirecting for paths that contain escaped slashes. These are necessary to keep path based access control functional, and should not interfere with normal operation. Set this to false only with caution. (default true)
