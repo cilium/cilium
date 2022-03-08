@@ -66,12 +66,7 @@ func newCmdConnectivityTest() *cobra.Command {
 
 			// Instantiate the test harness.
 			cc, err := check.NewConnectivityTest(k8sClient, params)
-			if params.PerfSamples > 3 {
-				cc.Warn("Having Performance Samples > 3 can cause issues")
-			}
-			if params.PerfDuration > 30*time.Second {
-				cc.Warn("Having Performance Duration > 30s can cause issues")
-			}
+
 			if err != nil {
 				return err
 			}
@@ -130,6 +125,7 @@ func newCmdConnectivityTest() *cobra.Command {
 	cmd.Flags().BoolVar(&params.Perf, "perf", false, "Run network Performance tests")
 	cmd.Flags().DurationVar(&params.PerfDuration, "perf-duration", 10*time.Second, "Duration for the Performance test to run")
 	cmd.Flags().IntVar(&params.PerfSamples, "perf-samples", 1, "Number of Performance samples to capture (how many times to run each test)")
+	cmd.Flags().BoolVar(&params.PerfCRR, "perf-crr", false, "Run Netperf CRR Test. --perf-samples and --perf-duration ignored")
 	cmd.Flags().MarkHidden("skip-ip-cache-check")
 	cmd.Flags().StringVar(&params.CiliumBaseVersion, "base-version", defaults.Version,
 		"Specify the base Cilium version for configuration purpose in case image tag doesn't indicate the actual Cilium version")
