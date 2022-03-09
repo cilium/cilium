@@ -467,7 +467,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		}
 	}
 	ep.UpdateProxyStatistics(strings.ToUpper(protocol), serverPort, false, !msg.Response, verdict)
-	record := logger.NewLogRecord(proxy.DefaultEndpointInfoRegistry, flowType, false,
+	record := logger.NewLogRecord(flowType, false,
 		func(lr *logger.LogRecord) { lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID) },
 		logger.LogTags.Verdict(verdict, reason),
 		logger.LogTags.Addressing(logger.AddressingInfo{

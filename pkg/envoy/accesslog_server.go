@@ -29,12 +29,11 @@ func getAccessLogPath(stateDir string) string {
 }
 
 type accessLogServer struct {
-	xdsServer            *XDSServer
-	endpointInfoRegistry logger.EndpointInfoRegistry
+	xdsServer *XDSServer
 }
 
 // StartAccessLogServer starts the access log server.
-func StartAccessLogServer(stateDir string, xdsServer *XDSServer, endpointInfoRegistry logger.EndpointInfoRegistry) {
+func StartAccessLogServer(stateDir string, xdsServer *XDSServer) {
 	accessLogPath := getAccessLogPath(stateDir)
 
 	// Create the access log listener
@@ -52,8 +51,7 @@ func StartAccessLogServer(stateDir string, xdsServer *XDSServer, endpointInfoReg
 	}
 
 	server := accessLogServer{
-		xdsServer:            xdsServer,
-		endpointInfoRegistry: endpointInfoRegistry,
+		xdsServer: xdsServer,
 	}
 
 	go func() {
@@ -115,11 +113,11 @@ func (s *accessLogServer) accessLogger(conn *net.UnixConn) {
 			continue
 		}
 
-		logRecord(s.endpointInfoRegistry, localEndpoint, &pblog)
+		logRecord(localEndpoint, &pblog)
 	}
 }
 
-func logRecord(endpointInfoRegistry logger.EndpointInfoRegistry, localEndpoint logger.EndpointUpdater, pblog *cilium.LogEntry) {
+func logRecord(localEndpoint logger.EndpointUpdater, pblog *cilium.LogEntry) {
 	var kafkaRecord *accesslog.LogRecordKafka
 	var kafkaTopics []string
 
@@ -164,7 +162,7 @@ func logRecord(endpointInfoRegistry logger.EndpointInfoRegistry, localEndpoint l
 		})
 	}
 
-	r := logger.NewLogRecord(endpointInfoRegistry, GetFlowType(pblog), pblog.IsIngress,
+	r := logger.NewLogRecord(GetFlowType(pblog), pblog.IsIngress,
 		logger.LogTags.Timestamp(time.Unix(int64(pblog.Timestamp/1000000000), int64(pblog.Timestamp%1000000000))),
 		logger.LogTags.Verdict(GetVerdict(pblog), pblog.CiliumRuleRef),
 		logger.LogTags.Addressing(logger.AddressingInfo{
