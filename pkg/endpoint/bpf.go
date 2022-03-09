@@ -349,7 +349,7 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 		oldValues    = make(policy.MapState)
 	)
 
-	if e.visibilityPolicy == nil {
+	if e.visibilityPolicy == nil || e.isProxyDisabled() {
 		return nil, finalizeList.Finalize, revertStack.Revert
 	}
 
