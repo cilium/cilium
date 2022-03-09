@@ -132,7 +132,7 @@ type nodeDiscoverManager interface {
 type policyManager interface {
 	TriggerPolicyUpdates(force bool, reason string)
 	PolicyAdd(rules api.Rules, opts *policy.AddOptions) (newRev uint64, err error)
-	PolicyDelete(labels labels.LabelArray) (newRev uint64, err error)
+	PolicyDelete(labels labels.LabelArray, opts *policy.DeleteOptions) (newRev uint64, err error)
 }
 
 type policyRepository interface {

@@ -55,3 +55,9 @@ type AddOptions struct {
 	// policy was received from the API server.
 	ProcessingStartTime time.Time
 }
+
+// DeleteOptions are options which can be passed to PolicyDelete
+type DeleteOptions struct {
+	// The source of this policy, one of api, fqdn or k8s
+	Source source.Source
+}

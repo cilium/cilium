@@ -368,7 +368,9 @@ func (k *K8sWatcher) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP) error {
 		log.WithError(err).Debugf("Unable to remove controller %s", ctrlName)
 	}
 
-	_, err = k.policyManager.PolicyDelete(cnp.GetIdentityLabels())
+	_, err = k.policyManager.PolicyDelete(cnp.GetIdentityLabels(), &policy.DeleteOptions{
+		Source: source.CustomResource,
+	})
 	if err == nil {
 		scopedLog.Info("Deleted CiliumNetworkPolicy")
 	} else {

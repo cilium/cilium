@@ -491,12 +491,13 @@ func (d *Daemon) reactToRuleUpdates(epsToBumpRevision, epsToRegen *policy.Endpoi
 // set of labels from the policy repository in the daemon.
 type PolicyDeleteEvent struct {
 	labels labels.LabelArray
+	opts   *policy.DeleteOptions
 	d      *Daemon
 }
 
 // Handle implements pkg/eventqueue/EventHandler interface.
 func (p *PolicyDeleteEvent) Handle(res chan interface{}) {
-	p.d.policyDelete(p.labels, res)
+	p.d.policyDelete(p.labels, p.opts, res)
 }
 
 // PolicyDeleteResult is a wrapper around the values returned by policyDelete.
@@ -511,10 +512,11 @@ type PolicyDeleteResult struct {
 // the policy repository of the daemon.
 // Returns the revision number and an error in case it was not possible to
 // delete the policy.
-func (d *Daemon) PolicyDelete(labels labels.LabelArray) (newRev uint64, err error) {
+func (d *Daemon) PolicyDelete(labels labels.LabelArray, opts *policy.DeleteOptions) (newRev uint64, err error) {
 
 	p := &PolicyDeleteEvent{
 		labels: labels,
+		opts:   opts,
 		d:      d,
 	}
 	policyDeleteEvent := eventqueue.NewEvent(p)
@@ -531,7 +533,7 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (newRev uint64, err erro
 	return 0, fmt.Errorf("policy deletion event cancelled")
 }
 
-func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
+func (d *Daemon) policyDelete(labels labels.LabelArray, opts *policy.DeleteOptions, res chan interface{}) {
 	log.WithField(logfields.IdentityLabels, logfields.Repr(labels)).Debug("Policy Delete Request")
 
 	d.policy.Mutex.Lock()
@@ -625,7 +627,7 @@ func newDeletePolicyHandler(d *Daemon) DeletePolicyHandler {
 func (h *deletePolicy) Handle(params DeletePolicyParams) middleware.Responder {
 	d := h.daemon
 	lbls := labels.ParseSelectLabelArrayFromArray(params.Labels)
-	rev, err := d.PolicyDelete(lbls)
+	rev, err := d.PolicyDelete(lbls, &policy.DeleteOptions{Source: source.LocalAPI})
 	if err != nil {
 		return api.Error(DeletePolicyFailureCode, err)
 	}
