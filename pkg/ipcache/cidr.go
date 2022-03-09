@@ -50,7 +50,7 @@ func (ipc *IPCache) AllocateCIDRs(
 		}
 
 		lbls := cidr.GetCIDRLabels(p)
-		lbls.MergeLabels(GetIDMetadataByIP(p.IP.String()))
+		lbls.MergeLabels(ipc.GetIDMetadataByIP(p.IP.String()))
 
 		id, isNew, err := ipc.allocate(p, lbls)
 		if err != nil {

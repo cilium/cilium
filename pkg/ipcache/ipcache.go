@@ -87,6 +87,9 @@ type IPCache struct {
 	identityAllocator cache.IdentityAllocator
 	policyHandler     ipcacheTypes.PolicyHandler
 	datapathHandler   ipcacheTypes.DatapathHandler
+
+	// metadata is the ipcache identity metadata map, which maps IPs to labels.
+	metadata *metadata
 }
 
 // NewIPCache returns a new IPCache with the mappings of endpoint IP to security
@@ -100,6 +103,7 @@ func NewIPCache() *IPCache {
 		ipToK8sMetadata:   map[string]K8sMetadata{},
 		controllers:       controller.NewManager(),
 		namedPorts:        nil,
+		metadata:          newMetadata(),
 	}
 }
 

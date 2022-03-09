@@ -52,6 +52,7 @@ type IPCache interface {
 	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) (bool, error)
 	Delete(IP string, source source.Source) bool
 	TriggerLabelInjection(source source.Source)
+	UpsertMetadata(string, labels.Labels)
 }
 
 // Configuration is the set of configuration options the node manager depends
@@ -533,9 +534,9 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 // with the CIDR.
 func (m *Manager) upsertIntoIDMD(prefix string, id identity.NumericIdentity) {
 	if id == identity.ReservedIdentityHost {
-		ipcache.UpsertMetadata(prefix, labels.LabelHost)
+		m.ipcache.UpsertMetadata(prefix, labels.LabelHost)
 	} else {
-		ipcache.UpsertMetadata(prefix, labels.LabelRemoteNode)
+		m.ipcache.UpsertMetadata(prefix, labels.LabelRemoteNode)
 	}
 }
 
