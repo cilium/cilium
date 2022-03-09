@@ -50,18 +50,21 @@ const (
 // LogRecord is a proxy log record based off accesslog.LogRecord.
 type LogRecord struct {
 	accesslog.LogRecord
+}
 
-	// endpointInfoRegistry provides access to any endpoint's information given
-	// its IP address.
-	endpointInfoRegistry EndpointInfoRegistry
+// endpointInfoRegistry provides access to any endpoint's information given
+// its IP address.
+var endpointInfoRegistry EndpointInfoRegistry
+
+func SetEndpointInfoRegistry(epInfoRegistry EndpointInfoRegistry) {
+	endpointInfoRegistry = epInfoRegistry
 }
 
 // NewLogRecord creates a new log record and applies optional tags
 //
 // Example:
-// record := logger.NewLogRecord(endpointInfoRegistry, flowType,
-//                observationPoint, logger.LogTags.Timestamp(time.Now()))
-func NewLogRecord(endpointInfoRegistry EndpointInfoRegistry, t accesslog.FlowType, ingress bool, tags ...LogTag) *LogRecord {
+// record := logger.NewLogRecord(flowType, observationPoint, logger.LogTags.Timestamp(time.Now()))
+func NewLogRecord(t accesslog.FlowType, ingress bool, tags ...LogTag) *LogRecord {
 	var observationPoint accesslog.ObservationPoint
 	if ingress {
 		observationPoint = accesslog.Ingress
@@ -78,7 +81,6 @@ func NewLogRecord(endpointInfoRegistry EndpointInfoRegistry, t accesslog.FlowTyp
 			Timestamp:         time.Now().UTC().Format(time.RFC3339Nano),
 			NodeAddressInfo:   accesslog.NodeAddressInfo{},
 		},
-		endpointInfoRegistry: endpointInfoRegistry,
 	}
 
 	if ip := node.GetIPv4(); ip != nil {
@@ -94,12 +96,6 @@ func NewLogRecord(endpointInfoRegistry EndpointInfoRegistry, t accesslog.FlowTyp
 	}
 
 	return &lr
-}
-
-// fillEndpointInfo fills the EndpointInfo fields using identity sent by
-// source.
-func (lr *LogRecord) fillEndpointInfo(info *accesslog.EndpointInfo, ip net.IP, secId identity.NumericIdentity) {
-	lr.endpointInfoRegistry.FillEndpointInfo(info, ip, secId)
 }
 
 // LogTag attaches a tag to a log record
@@ -148,7 +144,7 @@ func (logTags) Addressing(i AddressingInfo) LogTag {
 			p, err := strconv.ParseUint(port, 10, 16)
 			if err == nil {
 				lr.SourceEndpoint.Port = uint16(p)
-				lr.fillEndpointInfo(&lr.SourceEndpoint, ip, i.SrcIdentity)
+				endpointInfoRegistry.FillEndpointInfo(&lr.SourceEndpoint, ip, i.SrcIdentity)
 			}
 		}
 
@@ -158,7 +154,7 @@ func (logTags) Addressing(i AddressingInfo) LogTag {
 			p, err := strconv.ParseUint(port, 10, 16)
 			if err == nil {
 				lr.DestinationEndpoint.Port = uint16(p)
-				lr.fillEndpointInfo(&lr.DestinationEndpoint, ip, i.DstIdentity)
+				endpointInfoRegistry.FillEndpointInfo(&lr.DestinationEndpoint, ip, i.DstIdentity)
 			}
 		}
 	}
