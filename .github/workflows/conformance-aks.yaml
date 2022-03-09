@@ -229,8 +229,7 @@ jobs:
           az aks nodepool delete \
             --resource-group ${{ env.name }} \
             --cluster-name ${{ env.name }} \
-            --name "${nodepool_to_delete}" \
-            --no-wait
+            --name "${nodepool_to_delete}"
 
       - name: Get cluster credentials
         run: |
