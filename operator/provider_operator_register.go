@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//+build ipam_provider_operator
+//go:build ipam_provider_operator
+// +build ipam_provider_operator
 
 package main
 
