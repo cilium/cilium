@@ -199,7 +199,7 @@ func configureIface(ipv4, ipv6 bool, ifName string, state *CmdState) (string, er
 	return "", nil
 }
 
-func newCNIRoute(r route.Route) *cniTypes.Route {
+func newCNIRoute(r *route.Route) *cniTypes.Route {
 	rt := &cniTypes.Route{
 		Dst: r.Prefix,
 	}
@@ -245,7 +245,7 @@ func prepareIP(ipAddr string, isIPv6 bool, state *CmdState, mtu int) (*cniTypesV
 
 	rt := []*cniTypes.Route{}
 	for _, r := range routes {
-		rt = append(rt, newCNIRoute(r))
+		rt = append(rt, newCNIRoute(&r))
 	}
 
 	gwIP := net.ParseIP(gw)
