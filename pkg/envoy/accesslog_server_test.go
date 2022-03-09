@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 
 	"github.com/cilium/cilium/pkg/proxy/logger"
-	logger_test "github.com/cilium/cilium/pkg/proxy/logger/test"
 
 	"github.com/cilium/proxy/go/cilium/api"
 
@@ -61,7 +60,7 @@ func (n *testNotifier) NewProxyLogRecord(l *logger.LogRecord) error {
 func (k *AccessLogServerSuite) TestKafkaLogNoTopic(c *C) {
 	notifier := &testNotifier{}
 	logger.SetNotifier(notifier)
-	logRecord(&logger_test.ProxyUpdaterMock{}, &cilium.LogEntry{
+	logRecord(&cilium.LogEntry{
 		L7: &cilium.LogEntry_Kafka{Kafka: &cilium.KafkaLogEntry{
 			CorrelationId: 76541,
 			ErrorCode:     42,
@@ -77,7 +76,7 @@ func (k *AccessLogServerSuite) TestKafkaLogNoTopic(c *C) {
 func (k *AccessLogServerSuite) TestKafkaLogSingleTopic(c *C) {
 	notifier := &testNotifier{}
 	logger.SetNotifier(notifier)
-	logRecord(&logger_test.ProxyUpdaterMock{}, &cilium.LogEntry{
+	logRecord(&cilium.LogEntry{
 		L7: &cilium.LogEntry_Kafka{Kafka: &cilium.KafkaLogEntry{
 			CorrelationId: 76541,
 			ErrorCode:     42,
@@ -96,7 +95,7 @@ func (k *AccessLogServerSuite) TestKafkaLogSingleTopic(c *C) {
 func (k *AccessLogServerSuite) TestKafkaLogMultipleTopics(c *C) {
 	notifier := &testNotifier{}
 	logger.SetNotifier(notifier)
-	logRecord(&logger_test.ProxyUpdaterMock{}, &cilium.LogEntry{
+	logRecord(&cilium.LogEntry{
 		L7: &cilium.LogEntry_Kafka{Kafka: &cilium.KafkaLogEntry{
 			CorrelationId: 76541,
 			ErrorCode:     42,
