@@ -8,7 +8,6 @@ package envoy
 
 import (
 	"context"
-	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -20,11 +19,9 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/flowdebug"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/proxy/accesslog"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -42,11 +39,6 @@ func (s *EnvoySuite) waitForProxyCompletion() error {
 	err := s.waitGroup.Wait()
 	log.Debug("Wait time for proxy updates: ", time.Since(start))
 	return err
-}
-
-type dummyEndpointInfoRegistry struct{}
-
-func (r *dummyEndpointInfoRegistry) FillEndpointInfo(*accesslog.EndpointInfo, net.IP, identity.NumericIdentity) {
 }
 
 func (s *EnvoySuite) TestEnvoy(c *C) {
@@ -72,7 +64,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 
 	xdsServer := StartXDSServer(stateLogDir)
 	defer xdsServer.stop()
-	StartAccessLogServer(stateLogDir, xdsServer, &dummyEndpointInfoRegistry{})
+	StartAccessLogServer(stateLogDir, xdsServer)
 
 	// launch debug variant of the Envoy proxy
 	envoyProxy := StartEnvoy(stateLogDir, filepath.Join(stateLogDir, "cilium-envoy.log"), 0)
@@ -152,7 +144,7 @@ func (s *EnvoySuite) TestEnvoyNACK(c *C) {
 
 	xdsServer := StartXDSServer(stateLogDir)
 	defer xdsServer.stop()
-	StartAccessLogServer(stateLogDir, xdsServer, &dummyEndpointInfoRegistry{})
+	StartAccessLogServer(stateLogDir, xdsServer)
 
 	// launch debug variant of the Envoy proxy
 	envoyProxy := StartEnvoy(stateLogDir, filepath.Join(stateLogDir, "cilium-envoy.log"), 42)
