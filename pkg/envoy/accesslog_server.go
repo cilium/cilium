@@ -164,7 +164,7 @@ func logRecord(endpointInfoRegistry logger.EndpointInfoRegistry, localEndpoint l
 		})
 	}
 
-	r := logger.NewLogRecord(endpointInfoRegistry, localEndpoint, GetFlowType(pblog), pblog.IsIngress,
+	r := logger.NewLogRecord(endpointInfoRegistry, GetFlowType(pblog), pblog.IsIngress,
 		logger.LogTags.Timestamp(time.Unix(int64(pblog.Timestamp/1000000000), int64(pblog.Timestamp%1000000000))),
 		logger.LogTags.Verdict(GetVerdict(pblog), pblog.CiliumRuleRef),
 		logger.LogTags.Addressing(logger.AddressingInfo{

@@ -54,19 +54,14 @@ type LogRecord struct {
 	// endpointInfoRegistry provides access to any endpoint's information given
 	// its IP address.
 	endpointInfoRegistry EndpointInfoRegistry
-
-	// localEndpointInfo is the information on the local endpoint which
-	// either sent the request (for egress) or is receiving the request
-	// (for ingress)
-	localEndpointInfo *accesslog.EndpointInfo
 }
 
 // NewLogRecord creates a new log record and applies optional tags
 //
 // Example:
-// record := logger.NewLogRecord(localEndpointInfoSource, flowType,
+// record := logger.NewLogRecord(endpointInfoRegistry, flowType,
 //                observationPoint, logger.LogTags.Timestamp(time.Now()))
-func NewLogRecord(endpointInfoRegistry EndpointInfoRegistry, localEndpointInfoSource EndpointInfoSource, t accesslog.FlowType, ingress bool, tags ...LogTag) *LogRecord {
+func NewLogRecord(endpointInfoRegistry EndpointInfoRegistry, t accesslog.FlowType, ingress bool, tags ...LogTag) *LogRecord {
 	var observationPoint accesslog.ObservationPoint
 	if ingress {
 		observationPoint = accesslog.Ingress
@@ -84,7 +79,6 @@ func NewLogRecord(endpointInfoRegistry EndpointInfoRegistry, localEndpointInfoSo
 			NodeAddressInfo:   accesslog.NodeAddressInfo{},
 		},
 		endpointInfoRegistry: endpointInfoRegistry,
-		localEndpointInfo:    getEndpointInfo(localEndpointInfoSource),
 	}
 
 	if ip := node.GetIPv4(); ip != nil {
@@ -144,13 +138,6 @@ type AddressingInfo struct {
 // to the logrecord
 func (logTags) Addressing(i AddressingInfo) LogTag {
 	return func(lr *LogRecord) {
-		switch lr.ObservationPoint {
-		case accesslog.Ingress:
-			lr.DestinationEndpoint = *lr.localEndpointInfo
-		case accesslog.Egress:
-			lr.SourceEndpoint = *lr.localEndpointInfo
-		}
-
 		ipstr, port, err := net.SplitHostPort(i.SrcIPPort)
 		if err == nil {
 			ip := net.ParseIP(ipstr)
@@ -161,9 +148,7 @@ func (logTags) Addressing(i AddressingInfo) LogTag {
 			p, err := strconv.ParseUint(port, 10, 16)
 			if err == nil {
 				lr.SourceEndpoint.Port = uint16(p)
-				if lr.ObservationPoint == accesslog.Ingress {
-					lr.fillEndpointInfo(&lr.SourceEndpoint, ip, i.SrcIdentity)
-				}
+				lr.fillEndpointInfo(&lr.SourceEndpoint, ip, i.SrcIdentity)
 			}
 		}
 
@@ -173,9 +158,7 @@ func (logTags) Addressing(i AddressingInfo) LogTag {
 			p, err := strconv.ParseUint(port, 10, 16)
 			if err == nil {
 				lr.DestinationEndpoint.Port = uint16(p)
-				if lr.ObservationPoint == accesslog.Egress {
-					lr.fillEndpointInfo(&lr.DestinationEndpoint, ip, i.DstIdentity)
-				}
+				lr.fillEndpointInfo(&lr.DestinationEndpoint, ip, i.DstIdentity)
 			}
 		}
 	}
