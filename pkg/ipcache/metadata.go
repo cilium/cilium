@@ -24,55 +24,75 @@ import (
 )
 
 var (
-	// idMDMU protects the identityMetadata map.
-	//
-	// If this mutex will be held at the same time as the IPCache mutex,
-	// this mutex must be taken first and then take the IPCache mutex in
-	// order to prevent deadlocks.
-	idMDMU lock.RWMutex
-	// identityMetadata maps IP prefixes (x.x.x.x/32) to their labels.
-	//
-	// When allocating an identity to associate with each prefix, the
-	// identity allocation routines will merge this set of labels into the
-	// complete set of labels used for that local (CIDR) identity,
-	// thereby associating these labels with each prefix that is 'covered'
-	// by this prefix. Subsequently these labels may be matched by network
-	// policy and propagated in monitor output.
-	identityMetadata = make(map[string]labels.Labels)
-
-	// applyIDMDChangesMutex protects InjectLabels and RemoveLabelsExcluded from being run in parallel
-	applyIDMDChangesMutex lock.Mutex
-
 	// ErrLocalIdentityAllocatorUninitialized is an error that's returned when
 	// the local identity allocator is uninitialized.
 	ErrLocalIdentityAllocatorUninitialized = errors.New("local identity allocator uninitialized")
 )
 
+// metadata contains the ipcache metadata. Mainily it holds a map which maps IP
+// prefixes (x.x.x.x/32) to their labels.
+//
+// When allocating an identity to associate with each prefix, the
+// identity allocation routines will merge this set of labels into the
+// complete set of labels used for that local (CIDR) identity,
+// thereby associating these labels with each prefix that is 'covered'
+// by this prefix. Subsequently these labels may be matched by network
+// policy and propagated in monitor output.
+type metadata struct {
+	// Protects the m map.
+	//
+	// If this mutex will be held at the same time as the IPCache mutex,
+	// this mutex must be taken first and then take the IPCache mutex in
+	// order to prevent deadlocks.
+	lock.RWMutex
+
+	// m is the actual map containing the mappings.
+	m map[string]labels.Labels
+
+	// applyChangesMU protects InjectLabels and RemoveLabelsExcluded from being
+	// run in parallel
+	applyChangesMU lock.Mutex
+}
+
+func newMetadata() *metadata {
+	return &metadata{
+		m: make(map[string]labels.Labels),
+	}
+}
+
 // UpsertMetadata upserts a given IP and its corresponding labels associated
-// with it into the identityMetadata map. The given labels are not modified nor
+// with it into the ipcache metadata map. The given labels are not modified nor
 // is its reference saved, as they're copied when inserting into the map.
-func UpsertMetadata(prefix string, lbls labels.Labels) {
+func (ipc *IPCache) UpsertMetadata(prefix string, lbls labels.Labels) {
+	ipc.metadata.upsert(prefix, lbls)
+}
+
+func (m *metadata) upsert(prefix string, lbls labels.Labels) {
 	l := labels.NewLabelsFromModel(nil)
 	l.MergeLabels(lbls)
 
-	idMDMU.Lock()
-	if cur, ok := identityMetadata[prefix]; ok {
+	m.Lock()
+	if cur, ok := m.m[prefix]; ok {
 		l.MergeLabels(cur)
 	}
-	identityMetadata[prefix] = l
-	idMDMU.Unlock()
+	m.m[prefix] = l
+	m.Unlock()
 }
 
 // GetIDMetadataByIP returns the associated labels with an IP. The caller must
 // not modifying the returned object as it's a live reference to the underlying
 // map.
-func GetIDMetadataByIP(prefix string) labels.Labels {
-	idMDMU.RLock()
-	defer idMDMU.RUnlock()
-	return identityMetadata[prefix]
+func (ipc *IPCache) GetIDMetadataByIP(prefix string) labels.Labels {
+	return ipc.metadata.get(prefix)
 }
 
-// InjectLabels injects labels from the identityMetadata (IDMD) map into the
+func (m *metadata) get(prefix string) labels.Labels {
+	m.RLock()
+	defer m.RUnlock()
+	return m.m[prefix]
+}
+
+// InjectLabels injects labels from the ipcache metadata (IDMD) map into the
 // identities used for the prefixes in the IPCache. The given source is the
 // source of the caller, as inserting into the IPCache requires knowing where
 // this updated information comes from. Conversely, RemoveLabelsExcluded()
@@ -104,15 +124,15 @@ func (ipc *IPCache) InjectLabels(src source.Source) error {
 		idsToPropagate = make(map[identity.NumericIdentity]labels.LabelArray)
 	)
 
-	applyIDMDChangesMutex.Lock()
-	defer applyIDMDChangesMutex.Unlock()
+	ipc.metadata.applyChangesMU.Lock()
+	defer ipc.metadata.applyChangesMU.Unlock()
 
-	idMDMU.Lock()
+	ipc.metadata.Lock()
 
-	for prefix, lbls := range identityMetadata {
+	for prefix, lbls := range ipc.metadata.m {
 		id, isNew, err := ipc.injectLabels(prefix, lbls)
 		if err != nil {
-			idMDMU.Unlock()
+			ipc.metadata.Unlock()
 			return fmt.Errorf("failed to allocate new identity for IP %v: %w", prefix, err)
 		}
 
@@ -172,7 +192,7 @@ func (ipc *IPCache) InjectLabels(src source.Source) error {
 		}
 	}
 	// Don't hold lock while calling UpdateIdentities, as it will otherwise run into a deadlock
-	idMDMU.Unlock()
+	ipc.metadata.Unlock()
 
 	// Recalculate policy first before upserting into the ipcache.
 	if trigger {
@@ -292,13 +312,13 @@ func (ipc *IPCache) RemoveLabelsExcluded(
 	toExclude map[string]struct{},
 	src source.Source,
 ) {
-	applyIDMDChangesMutex.Lock()
-	defer applyIDMDChangesMutex.Unlock()
+	ipc.metadata.applyChangesMU.Lock()
+	defer ipc.metadata.applyChangesMU.Unlock()
 
-	idMDMU.Lock()
-	defer idMDMU.Unlock()
+	ipc.metadata.Lock()
+	defer ipc.metadata.Unlock()
 
-	oldSet := filterMetadataByLabels(lbls)
+	oldSet := ipc.metadata.filterByLabels(lbls)
 	toRemove := make(map[string]labels.Labels)
 	for _, ip := range oldSet {
 		if _, ok := toExclude[ip]; !ok {
@@ -309,15 +329,15 @@ func (ipc *IPCache) RemoveLabelsExcluded(
 	ipc.removeLabelsFromIPs(toRemove, src)
 }
 
-// filterMetadataByLabels returns all the prefixes inside the identityMetadata
-// map which contain the given labels. Note that `filter` is a subset match,
-// not a full match.
+// filterByLabels returns all the prefixes inside the ipcache metadata map
+// which contain the given labels. Note that `filter` is a subset match, not a
+// full match.
 //
-// Assumes that the IDMD read lock is taken!
-func filterMetadataByLabels(filter labels.Labels) []string {
+// Assumes that the ipcache metadata read lock is taken!
+func (m *metadata) filterByLabels(filter labels.Labels) []string {
 	var matching []string
 	sortedFilter := filter.SortedList()
-	for prefix, lbls := range identityMetadata {
+	for prefix, lbls := range m.m {
 		if bytes.Contains(lbls.SortedList(), sortedFilter) {
 			matching = append(matching, prefix)
 		}
@@ -332,7 +352,7 @@ func filterMetadataByLabels(filter labels.Labels) []string {
 // A prefix will only be removed from the IDMD if the set of labels becomes
 // empty.
 //
-// Assumes that the IDMD lock is taken!
+// Assumes that the ipcache metadata lock is taken!
 func (ipc *IPCache) removeLabelsFromIPs(
 	m map[string]labels.Labels,
 	src source.Source,
@@ -429,9 +449,10 @@ func (ipc *IPCache) removeLabelsFromIPs(
 // Identities are deallocated and their subequent entry in the IPCache is
 // removed if the prefix is no longer associated with any labels.
 //
-// This function assumes that the IDMD and the IPIdentityCache locks are taken!
+// This function assumes that the ipcache metadata and the IPIdentityCache
+// locks are taken!
 func (ipc *IPCache) removeLabels(prefix string, lbls labels.Labels, src source.Source) labels.Labels {
-	l, ok := identityMetadata[prefix]
+	l, ok := ipc.metadata.m[prefix]
 	if !ok {
 		return nil
 	}
@@ -442,14 +463,14 @@ func (ipc *IPCache) removeLabels(prefix string, lbls labels.Labels, src source.S
 		// outside of the cluster, meaning that the IDMD only ever had the
 		// kube-apiserver label (CIDR labels are not added) and it's now being
 		// removed.
-		delete(identityMetadata, prefix)
+		delete(ipc.metadata.m, prefix)
 	} else {
 		// This case is only hit if the prefix for the kube-apiserver is
 		// running within the cluster. Therefore, the IDMD can only ever has
 		// the following labels:
 		//   * kube-apiserver + remote-node
 		//   * kube-apiserver + host
-		identityMetadata[prefix] = l
+		ipc.metadata.m[prefix] = l
 	}
 
 	id, exists := ipc.LookupByIPRLocked(prefix)

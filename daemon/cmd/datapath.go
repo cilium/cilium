@@ -251,7 +251,7 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 		// ipcache. Until then, it is expected to succeed.
 		d.ipcache.Upsert(ipIDPair.PrefixString(), nil, hostKey, nil, ipcache.Identity{
 			ID:     ipIDPair.ID,
-			Source: sourceByIP(ipIDPair.IP.String(), source.Local),
+			Source: d.sourceByIP(ipIDPair.IP.String(), source.Local),
 		})
 	}
 
@@ -265,7 +265,7 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 				log.Debugf("Removed outdated host ip %s from endpoint map", hostIP)
 			}
 
-			d.ipcache.Delete(hostIP, sourceByIP(hostIP, source.Local))
+			d.ipcache.Delete(hostIP, d.sourceByIP(hostIP, source.Local))
 		}
 	}
 
@@ -279,8 +279,8 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 	return nil
 }
 
-func sourceByIP(prefix string, defaultSrc source.Source) source.Source {
-	if lbls := ipcache.GetIDMetadataByIP(prefix); lbls.Has(
+func (d *Daemon) sourceByIP(prefix string, defaultSrc source.Source) source.Source {
+	if lbls := d.ipcache.GetIDMetadataByIP(prefix); lbls.Has(
 		labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer],
 	) {
 		return source.KubeAPIServer
