@@ -24,10 +24,6 @@ type ProxyUpdaterMock struct {
 	SidecarProxy bool
 }
 
-func (m *ProxyUpdaterMock) GetProxyInfoByFields() (uint64, string, string, []string, string, uint64, error) {
-	return m.GetID(), m.GetIPv4Address(), m.GetIPv6Address(), m.GetLabels(), m.GetLabelsSHA(), uint64(m.GetIdentityLocked()), nil
-}
-
 func (m *ProxyUpdaterMock) UnconditionalRLock() { m.RWMutex.RLock() }
 func (m *ProxyUpdaterMock) RUnlock()            { m.RWMutex.RUnlock() }
 
