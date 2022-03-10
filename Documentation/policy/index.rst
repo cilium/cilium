@@ -33,3 +33,4 @@ mechanisms:
    kubernetes
    lifecycle
    troubleshooting
+   caveats
